@@ -1,0 +1,177 @@
+# Architecture
+
+## MVP 결정
+
+MVP는 Rust CLI와 관리형 `llama.cpp` sidecar로 시작합니다.
+
+이 결정은 다음 제약을 우선합니다.
+
+- 16 GB RAM 노트북에서 실행 가능해야 한다.
+- macOS와 Windows를 먼저 지원해야 한다.
+- 설치물이 가능한 한 단순해야 한다.
+- 모델 가중치를 CLI binary에 포함하지 않아야 한다.
+- 작은 모델의 취약성을 프롬프트가 아니라 런타임 정책으로 줄여야 한다.
+
+## 왜 Rust인가
+
+Rust를 기본 구현 언어로 선택합니다.
+
+선택 이유:
+
+- 단일 CLI binary 배포에 유리하다.
+- cross-platform process control이 안정적이다.
+- 파일, diff, 명령 실행, 설정 관리 같은 로컬 작업에 적합하다.
+- Node 런타임 설치를 사용자에게 요구하지 않아도 된다.
+- 추후 native backend 통합을 검토하기 쉽다.
+
+TypeScript/Node는 프로토타입 속도는 빠르지만 MVP의 핵심 가치인 가벼운 배포와 로컬 프로세스 제어에는 덜 맞습니다.
+
+## 왜 `llama.cpp` sidecar인가
+
+MVP는 native binding이 아니라 `llama-server` 또는 동등한 `llama.cpp` 실행 파일을 sidecar로 관리합니다.
+
+선택 이유:
+
+- GGUF 생태계와 가장 직접적으로 연결된다.
+- macOS, Windows, Linux에 모두 맞출 수 있다.
+- native binding보다 packaging risk가 낮다.
+- 백엔드 장애를 CLI 프로세스와 분리할 수 있다.
+- 추후 LM Studio, Ollama, vLLM, SGLang adapter를 붙일 경계가 선명하다.
+
+native binding은 다음 조건이 필요할 때 다시 검토합니다.
+
+- sidecar startup latency가 제품 경험을 크게 해친다.
+- 배포 대상별 binary 관리가 지나치게 복잡해진다.
+- streaming, cancellation, token accounting에서 HTTP boundary가 병목이 된다.
+
+## 구성 요소
+
+```text
+rpotato CLI
+  ├─ command router
+  ├─ config manager
+  ├─ model manager
+  ├─ backend manager
+  ├─ repo indexer
+  ├─ context packer
+  ├─ agent loop
+  ├─ tool policy
+  ├─ patch manager
+  ├─ verifier
+  └─ Korean response guard
+
+managed backend
+  └─ llama.cpp sidecar
+       └─ GGUF model
+```
+
+## 책임 경계
+
+### CLI
+
+CLI는 사용자 경험과 로컬 작업 정책을 소유합니다.
+
+- 명령어 파싱
+- 설정 파일 읽기와 쓰기
+- 모델 manifest 해석
+- 모델 다운로드 승인과 진행 상태 표시
+- sidecar 시작, 재시작, 종료
+- 프로젝트 파일 읽기
+- diff 표시와 적용 승인
+- 검증 명령 승인과 실행
+- 최종 한국어 응답 검증
+
+### Backend adapter
+
+Backend adapter는 추론 백엔드 차이를 숨깁니다.
+
+공통 인터페이스는 다음 수준이면 충분합니다.
+
+- health check
+- model metadata
+- chat completion
+- streaming tokens
+- cancellation
+- context length reporting
+- backend diagnostics
+
+MVP adapter는 `llama.cpp`만 구현합니다.
+
+### Agent loop
+
+MVP의 agent loop는 병렬이 아니라 순차 실행입니다.
+
+기본 단계:
+
+1. planner: 짧은 작업 계획 생성
+2. executor: 작은 패치 또는 명령 제안
+3. verifier: diff, 명령 출력, 로그 확인
+4. reporter: 한국어 최종 보고 생성
+
+작은 모델에서는 병렬 agent보다 다음이 더 중요합니다.
+
+- 각 단계의 출력 형식 제한
+- context 크기 제한
+- 실패 시 짧은 재시도
+- 검증 가능한 단일 action
+
+## 안전 모델
+
+기본 정책은 보수적입니다.
+
+- 프로젝트 내부 파일 읽기는 허용한다.
+- 파일 쓰기는 diff 표시 후 사용자 승인을 요구한다.
+- side effect가 있는 명령은 사용자 승인을 요구한다.
+- 모델 다운로드는 사용자가 명시적으로 승인해야 한다.
+- operation log를 남긴다.
+- `doctor` 명령으로 환경, backend, 모델 상태를 점검한다.
+
+추후 trust mode를 둘 수 있지만 MVP 기본값으로 만들지 않습니다.
+
+## 한국어 응답 guard
+
+한국어 전용 출력은 모델 프롬프트만으로 처리하지 않습니다.
+
+guard 단계:
+
+1. 응답을 코드 블록과 자연어 블록으로 분리한다.
+2. 자연어 블록에서 영어, 중국어, 일본어 누수를 감지한다.
+3. 허용 목록을 적용한다.
+   - 명령어
+   - 파일 경로
+   - 패키지명
+   - 코드 식별자
+   - 원문 로그 인용
+4. 누수가 있으면 더 강한 지시로 한 번 재생성한다.
+5. 다시 실패하면 한국어 오류 메시지로 종료한다.
+
+이 guard는 최종 reporter 출력에 반드시 적용합니다. 중간 모델 출력에는 더 느슨하게 적용할 수 있지만, 사용자에게 그대로 노출하지 않습니다.
+
+## 모델 manifest
+
+모델 metadata는 manifest로 관리합니다.
+
+```json
+{
+  "id": "qwen3.5-4b-q4-k-m",
+  "displayName": "Qwen3.5 4B",
+  "format": "gguf",
+  "backend": "llama.cpp",
+  "recommendedRamGb": 16,
+  "license": "Apache-2.0",
+  "sha256": "TODO",
+  "url": "TODO"
+}
+```
+
+정확한 artifact URL과 hash는 벤치마크와 라이선스 확인 후 확정합니다.
+
+## 후순위 adapter
+
+다음 backend는 MVP 이후 검토합니다.
+
+- LM Studio: 이미 설치한 사용자와 데모 흐름에 유리하다.
+- Ollama: 사용자 기반은 크지만 core runtime으로는 무겁고 opaque하다.
+- vLLM/SGLang: GPU 또는 server mode에 유리하다.
+
+이 adapter들은 기본 경험이 아니라 확장 경로입니다.

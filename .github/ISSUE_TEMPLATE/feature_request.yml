@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest a product direction or capability. External code PRs are not accepted currently.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        외부 코드 PR은 현재 받지 않습니다. 기능 제안은 maintainer가 검토한 뒤 직접 반영할 수 있습니다.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: 어떤 문제가 있나요?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: 원하는 동작을 설명해주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      description: 저사양 PC, 로컬 실행, 한국어 출력 요구와 충돌하는 부분이 있나요?
+    validations:
+      required: false

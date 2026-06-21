@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible problem. External code PRs are not accepted currently.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        외부 코드 PR은 현재 받지 않습니다. 재현 가능한 버그 리포트와 사용성 피드백은 남길 수 있습니다.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: 문제를 짧게 설명해주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: 재현 단계를 적어주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, rpotato version, backend 정보를 적어주세요.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: 민감 정보를 제거한 로그만 붙여주세요.
+      render: text
+    validations:
+      required: false

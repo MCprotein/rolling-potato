@@ -1,0 +1,25 @@
+.DS_Store
+
+# Local agent/runtime state
+.omx/
+.rpotato/
+
+# Logs and temporary files
+*.log
+*.tmp
+tmp/
+
+# Rust
+target/
+
+# Local models and downloaded artifacts
+models/
+model-cache/
+*.gguf
+*.safetensors
+*.bin
+
+# Editor state
+.idea/
+.vscode/
+*.swp
