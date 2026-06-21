@@ -158,13 +158,13 @@ guard 단계:
   "format": "gguf",
   "backend": "llama.cpp",
   "recommendedRamGb": 16,
-  "license": "Apache-2.0",
+  "license": "TODO",
   "sha256": "TODO",
   "url": "TODO"
 }
 ```
 
-정확한 artifact URL과 hash는 벤치마크와 라이선스 확인 후 확정합니다.
+정확한 artifact URL, hash, license, backend 호환성은 벤치마크와 출처 확인 후 확정합니다. 모델 관련 claim은 [model-source-policy.md](model-source-policy.md)를 따릅니다.
 
 ## 후순위 adapter
 

@@ -41,7 +41,7 @@
 - `cargo test`
 - `README.md`
 - `Qwen3.5-4B`
-- `Apache-2.0`
+- 확인된 license identifier
 - `llama.cpp`
 - 원문 error log 인용
 

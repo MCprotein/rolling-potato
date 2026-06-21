@@ -47,6 +47,7 @@ Open-source operating docs have also been added:
 - `docs/release.md`
 - `docs/model-manifest.md`
 - `docs/model-licenses.md`
+- `docs/model-source-policy.md`
 - `docs/backend-adapters.md`
 - `docs/command-policy.md`
 - `docs/korean-output-guard.md`
@@ -60,6 +61,7 @@ Persistent automation instruction:
 - Continue making safe, verified changes without asking for repeated confirmation.
 - Commit and push meaningful units automatically to `origin main`.
 - Use Conventional Commit messages in the form `type(scope): title`, for example `docs(governance): add open source operating policy`.
+- Do not record model-related facts without explicit sources. Model names, licenses, artifact URLs, checksums, RAM requirements, backend compatibility, multimodal support, and quality claims must follow `docs/model-source-policy.md`.
 
 An earlier temporary directory also exists:
 
@@ -139,21 +141,22 @@ Primary candidate:
 
 - `Qwen3.5-4B` quantized GGUF
 
-Reasons:
+Status:
 
-- better current fit than Gemma 4 E4B for Korean/code/agent workflows
-- 4B leaves more room than 9B for runtime, context, verification, and local UI/process overhead on 16 GB machines
-- vision-capable workflows may be possible later
+- user-directed priority evaluation candidate
+- not a confirmed default model
+- exact upstream model, GGUF artifact, license, checksum, Korean/code quality, multimodal support, and 16 GB runtime fit are unverified
+- do not make model claims without explicit sources
 
 Comparison candidate:
 
 - `Gemma 4 E4B`
 
-Keep it for benchmark comparison, especially multimodal/on-device positioning.
+Keep it for benchmark comparison only. License, artifact, multimodal support, and runtime fit are unverified until source-backed evaluation is complete.
 
 Not default:
 
-- `Qwen3.5-9B`, because it may run on 16 GB when quantized but constrains context and runtime options too much for the target product.
+- `Qwen3.5-9B`, because larger local models may increase pressure on context and runtime options. Exact viability is unverified and requires measurement.
 
 ## Korean-Only Requirement
 

@@ -3,7 +3,7 @@
 `rolling-potato`의 코드 라이선스와 모델 라이선스는 별개입니다.
 
 - 프로젝트 코드: Apache-2.0
-- 모델 가중치: 각 upstream model과 GGUF artifact provider license를 따름
+- 모델 가중치: 출처 확인 전 미확정. 각 upstream model과 GGUF artifact provider license를 확인한 뒤 기록해야 함
 
 ## 원칙
 
@@ -11,14 +11,15 @@
 - GGUF 변환본은 upstream model license와 artifact provider terms를 모두 확인합니다.
 - manifest에는 모델별 license를 반드시 표시합니다.
 - 재배포 가능 여부가 불명확하면 CLI가 직접 bundle하지 않습니다.
+- 모든 모델 관련 claim은 [model-source-policy.md](model-source-policy.md)를 따릅니다.
 
 ## 초기 후보
 
 | Candidate | Role | Status | Notes |
 | --- | --- | --- | --- |
-| `Qwen3.5-4B` GGUF | 기본 후보 | 미확정 | 정확한 artifact, license, hash 확인 필요 |
+| `Qwen3.5-4B` GGUF | 우선 평가 후보 | 미확정 | 정확한 artifact, license, hash 확인 필요 |
 | `Gemma 4 E4B` | 비교 후보 | 미확정 | license와 on-device 사용 조건 확인 필요 |
-| `Qwen3.5-9B` GGUF | 품질 참고 후보 | 보류 | 16 GB RAM 기본값으로는 부담 큼 |
+| `Qwen3.5-9B` GGUF | 품질 참고 후보 | 보류 | RAM 영향과 runtime fit은 측정 전 미확정 |
 
 ## artifact 선정 체크리스트
 

@@ -84,30 +84,29 @@ Excluded as default:
 
 ## Initial Model Direction
 
-Primary model candidate:
+Priority evaluation candidate:
 
 - `Qwen3.5-4B` quantized GGUF
 
-Why it is the current default candidate:
+Status:
 
-- better fit for Korean/code/agent workflows than Gemma 4 E4B based on current evidence
-- supports image-aware workflows if enabled later
-- practical for 16 GB machines when quantized
-- more aligned with tool-use/code-agent behavior than a generic chat model
+- user-directed candidate, not a confirmed default
+- exact upstream model, GGUF artifact, license, checksum, and runtime fit are unverified
+- do not describe Korean/code/agent quality, multimodal support, or 16 GB suitability as fact until source-backed evaluation is complete
 
 Comparison candidate:
 
 - `Gemma 4 E4B`
 
-Why keep it:
+Status:
 
-- strong on-device positioning
-- good multimodal story
-- useful benchmark alternative
+- comparison candidate only
+- license, artifact, multimodal support, and runtime fit are unverified
+- useful only after source-backed artifact selection and benchmark design
 
 Not the default:
 
-- `Qwen3.5-9B`, because it may run on 16 GB when quantized but leaves less room for context, verification, and the runtime itself
+- `Qwen3.5-9B`, because larger local models may increase pressure on context, verification, and runtime overhead. Exact viability is unverified and needs measurement.
 
 ## Model Download Flow
 
@@ -134,7 +133,7 @@ Model metadata should live in a manifest:
   "format": "gguf",
   "backend": "llama.cpp",
   "recommendedRamGb": 16,
-  "license": "Apache-2.0",
+  "license": "TODO",
   "sha256": "TODO",
   "url": "TODO"
 }
@@ -271,13 +270,16 @@ Open-source operating docs have also been added:
 8. `docs/release.md`
 9. `docs/model-manifest.md`
 10. `docs/model-licenses.md`
-11. `docs/backend-adapters.md`
-12. `docs/command-policy.md`
-13. `docs/korean-output-guard.md`
-14. `docs/threat-model.md`
-15. `docs/benchmarks.md`
+11. `docs/model-source-policy.md`
+12. `docs/backend-adapters.md`
+13. `docs/command-policy.md`
+14. `docs/korean-output-guard.md`
+15. `docs/threat-model.md`
+16. `docs/benchmarks.md`
 
 Project-local automation and contribution policy is recorded in `AGENTS.md`: external code PRs are not accepted, safe verified units should be committed and pushed automatically, and commit messages use Conventional Commits in the form `type(scope): title`.
+
+Model-related claims require explicit sources. Model names, licenses, artifact URLs, checksums, RAM requirements, backend compatibility, multimodal support, and quality claims must follow `docs/model-source-policy.md`.
 
 Next implementation-oriented decisions:
 

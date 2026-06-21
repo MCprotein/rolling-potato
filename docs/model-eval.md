@@ -2,15 +2,17 @@
 
 ## 목적
 
-MVP 기본 모델을 감으로 정하지 않습니다. 한국어, 코드 수정, 도구 사용, 작은 context에서의 안정성을 기준으로 후보를 비교합니다.
+MVP 모델 선택을 감으로 정하지 않습니다. 한국어, 코드 수정, 도구 사용, 작은 context에서의 안정성을 기준으로 후보를 비교합니다.
 
 초기 후보:
 
-- 기본 후보: `Qwen3.5-4B` quantized GGUF
-- 비교 후보: `Gemma 4 E4B`
+- 우선 평가 후보: `Qwen3.5-4B` quantized GGUF, 출처 확인 전 미확정
+- 비교 평가 후보: `Gemma 4 E4B`, 출처 확인 전 미확정
 - 보류 후보: `Qwen3.5-9B`
 
-`Qwen3.5-9B`는 품질 비교에는 포함할 수 있지만 16 GB RAM 제품 기본값으로는 보수적으로 봅니다. 모델 자체보다 runtime, context, 검증 여유가 더 중요하기 때문입니다.
+`Qwen3.5-9B`는 품질 비교에는 포함할 수 있지만 16 GB RAM 제품 기본값으로 확정하지 않습니다. 정확한 실행 가능성, memory 사용량, context 여유는 측정 전까지 미확정입니다.
+
+모델 관련 claim은 [model-source-policy.md](model-source-policy.md)를 따릅니다. 출처 없는 성능, 라이선스, artifact, multimodal 지원, RAM 요구량 주장은 평가 문서에 확정 표현으로 남기지 않습니다.
 
 ## 평가 원칙
 

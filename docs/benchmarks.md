@@ -67,11 +67,13 @@ fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 
 
 초기 비교:
 
-- `Qwen3.5-4B` quantized GGUF
-- `Gemma 4 E4B`
+- `Qwen3.5-4B` quantized GGUF, 출처 확인 전 미확정
+- `Gemma 4 E4B`, 출처 확인 전 미확정
 - 참고용 `Qwen3.5-9B`
 
 모든 후보는 같은 prompt compiler, 같은 context budget, 같은 tool policy로 평가합니다.
+
+후보 모델의 license, artifact URL, checksum, backend 호환성은 [model-source-policy.md](model-source-policy.md)에 따라 확인된 뒤 benchmark 대상에 포함합니다.
 
 ## 공개 기준
 

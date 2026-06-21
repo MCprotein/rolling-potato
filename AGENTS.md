@@ -44,6 +44,7 @@ test(guard): cover Korean output leakage
 - `.omx/`, 로컬 모델 파일, 빌드 산출물, 임시 로그는 커밋하지 않는다.
 - 모델 가중치는 저장소에 포함하지 않는다.
 - 모델 URL, checksum, license는 manifest와 문서에서 추적한다.
+- 모델 이름, 라이선스, 성능, RAM 요구량, backend 호환성, multimodal 지원 여부 같은 모델 관련 claim은 출처 없이 확정하지 않는다. 출처가 없으면 `미확정`으로 표시하고 [docs/model-source-policy.md](docs/model-source-policy.md)를 따른다.
 - 사용자에게 보이는 문서와 최종 보고는 한국어를 기본으로 한다.
 
 ## 기본 검증

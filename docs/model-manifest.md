@@ -9,6 +9,7 @@
 - 다운로드 후 SHA-256을 검증한다.
 - backend 호환성을 확인한다.
 - 모델별 prompt/runtime option을 분리한다.
+- 모델 관련 claim은 출처 기반으로만 확정한다.
 
 ## 위치
 
@@ -47,6 +48,8 @@
 }
 ```
 
+이 예시는 schema shape만 보여줍니다. `TODO` 값은 제품 사실이 아니며, 실제 manifest에는 [model-source-policy.md](model-source-policy.md)에 따른 출처 확인 후 값을 채웁니다.
+
 ## 필수 검증
 
 모델 설치 시:
@@ -62,6 +65,7 @@
 
 - checksum 없는 모델 설치
 - license 미표기 모델 추천
+- 출처 없는 license, RAM, context length, backend 호환성 claim
 - 사용자 승인 없는 자동 다운로드
 - CLI binary에 모델 가중치 번들링
 - 임의 URL을 silent fallback으로 사용하는 동작
