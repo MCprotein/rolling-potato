@@ -127,6 +127,9 @@
 
 - [ ] 출처 기반 model manifest schema
 - [ ] 모델 후보 상태: `candidate`, `unverified`, `verified`
+- [ ] 모델 후보별 공식 model card/source/license 조사
+- [ ] 모델 후보별 공개 benchmark claim/source ledger
+- [ ] 공개 benchmark 재현 가능성 평가: harness, dataset, prompt, scoring, hardware/backend 조건
 - [ ] `rpotato model list`
 - [ ] `rpotato model install <id>`
 - [ ] 이어받기 가능한 모델 다운로드
@@ -237,6 +240,9 @@
 - [ ] destructive command policy tests
 - [ ] fixture benchmark suite
 - [ ] static-only vs Layer A vs Layer B ontology benchmark
+- [ ] 모델별 product benchmark suite
+- [ ] 모델별 공개 benchmark parity suite
+- [ ] 공개 benchmark 점수 비교 report: published vs local, 조건 차이, 재현 실패 사유
 - [ ] fake session lifecycle test: submit -> tool -> stop
 - [ ] corrupt state fallback test
 - [ ] resume/cancel E2E test

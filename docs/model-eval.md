@@ -28,6 +28,25 @@ MVP 모델 선택을 감으로 정하지 않습니다. 한국어, 코드 수정,
 - 모르면 멈추거나 질문하는가?
 - 같은 실수를 반복하지 않는가?
 
+## 외부 공개 benchmark 재현
+
+제품 benchmark와 별도로, 모델 후보별 공개 benchmark claim을 추적하고 가능한 항목은 같은 조건으로 재현합니다.
+
+순서:
+
+1. 후보 모델의 공식 model card, technical report, artifact page에서 공개 benchmark claim을 수집한다.
+2. 각 claim마다 benchmark 이름, harness/source, dataset/license, prompt/template, scoring 방식, 평가 날짜를 기록한다.
+3. 로컬에서 재현 가능한 항목과 불가능한 항목을 분리한다.
+4. 재현 가능한 항목은 같은 model artifact, quantization, backend, context length 조건을 최대한 맞춘다.
+5. published score와 local score를 함께 기록하고, 조건 차이는 결과 옆에 명시한다.
+
+금지:
+
+- benchmark 이름만 보고 점수를 베껴 쓰지 않는다.
+- prompt, scoring, dataset version이 다르면 같은 점수처럼 비교하지 않는다.
+- GGUF quantized artifact 결과를 upstream 원본 모델 점수와 동일한 조건으로 주장하지 않는다.
+- 로컬 재현 없이 공개 benchmark를 `rolling-potato` 기본 모델 선정 근거로 단독 사용하지 않는다.
+
 ## 평가 환경
 
 초기 기준 환경:
