@@ -5,16 +5,25 @@
 참고 문서:
 
 - `/Users/sys/Desktop/codes/harness/HARNESS-OPERATING-MODELS.md`
+- `/Users/sys/Desktop/codes/anamnesis/docs/ONTOLOGY-BOOTSTRAP.md`
+- `/Users/sys/Desktop/codes/anamnesis/docs/CONTEXT-INDEX-DESIGN.md`
+- `/Users/sys/Desktop/codes/anamnesis/docs/RUNTIME-EVIDENCE.md`
+- `/Users/sys/Desktop/codes/anamnesis/docs/README-CLAIMS.md`
 
 반영한 원칙:
 
 - 모델을 더 똑똑하게 만든다고 가정하지 않는다.
 - instruction, permission, state, ledger, transcript, evidence gate를 runtime이 소유한다.
+- 온톨로지는 작은 모델이 매번 추론으로 복구하면 안 되는 프로젝트 기억 substrate로 취급한다.
+- CLI가 증명할 수 있는 Layer A 사실과 agent/runtime이 보강하되 출처를 남겨야 하는 Layer B 의미를 분리한다.
+- context는 무작정 주입하지 않고 source pointer, stable ref, digest, resume bundle로 좁혀서 공급한다.
+- snippet은 authoritative source가 아니다. 중요한 판단은 원본 파일을 다시 읽은 뒤 해야 한다.
 - 작은 모델에게 큰 자유도를 주기보다 작은 vertical slice를 확실히 끝낸다.
 - 완료 판정은 모델의 말이 아니라 검증 evidence와 Stop gate가 결정한다.
 - 현재 상태 view와 append-only ledger를 분리한다.
 - mode 전환은 모델의 즉흥 판단이 아니라 deterministic rule과 runtime state로 처리한다.
 - compaction, resume, cancel, corrupt state fallback은 초기 runtime 설계에 포함한다.
+- 공개 claim과 모델 claim은 evidence보다 넓게 쓰지 않는다.
 
 ## Phase 0: 프로젝트 정의
 
@@ -25,6 +34,7 @@
 - [x] 오픈소스 운영 문서
 - [x] 모델 출처 정책
 - [x] 하네스 운영 모델 검토
+- [x] `anamnesis` 온톨로지/context lifecycle 검토
 
 ## Phase 1: CLI 기반
 
@@ -65,6 +75,10 @@
 - [ ] corrupt state fallback
 - [ ] checkpoint record schema
 - [ ] evidence record schema
+- [ ] runtime evidence JSONL store
+- [ ] evidence stale 판정 기준
+- [ ] evidence artifact pointer validation
+- [ ] current state view와 event/evidence ledger 경계
 - [ ] 중단된 실행의 resume 동작
 - [ ] compaction boundary marker
 - [ ] compacted summary 보존 정책
@@ -95,6 +109,9 @@
 - [ ] rule source: user, project, local, session, policy
 - [ ] allow/ask/deny decision model
 - [ ] diff-before-write gate
+- [ ] managed artifact manifest/hash tracking
+- [ ] `create`/`update`/`noop`/`user-modified`/`blocked` action status
+- [ ] user-modified file/region 보존 규칙
 - [ ] command classifier
 - [ ] command 승인 prompt
 - [ ] destructive command deny/high-confirm policy
@@ -150,18 +167,34 @@
 - [ ] command failure classification
 - [ ] unattended environment hardening
 
-## Phase 8: Instruction And Context Plane
+## Phase 8: Instruction, Ontology, And Context Plane
 
-목표: 작은 모델에 필요한 지시, context, 출력 형식을 매번 임기응변으로 넣지 않고 runtime이 조립한다.
+목표: 작은 모델에 필요한 지시, 온톨로지, context, 출력 형식을 매번 임기응변으로 넣지 않고 runtime이 조립한다.
 
 - [ ] prompt compiler
 - [ ] role templates: planner, executor, verifier, reporter
 - [ ] 한국어 final-response instruction
 - [ ] 구조화된 action output format
+- [ ] project ontology root layout
+- [ ] ontology schema: entities, relationships, flows, invariants, ownership, open_questions, source_refs
+- [ ] Layer A deterministic repo facts schema
+- [ ] Layer A fact generators: files, package/build/test signals, symbols, entrypoints
+- [ ] Layer A fact freshness/hash tracking
+- [ ] Layer B semantic ontology schema
+- [ ] Layer B source/ref/confidence requirements
+- [ ] Layer B merge/supersede/open-question lifecycle
+- [ ] ontology gap diagnostics in `doctor`
+- [ ] ontology drift detection
+- [ ] source-backed ontology claim rule
 - [ ] repository file discovery
+- [ ] context index JSONL: source_path, source_hash, stable_ref, snippet, freshness
+- [ ] context query contract
+- [ ] source pointer first retrieval rule
+- [ ] compact resume bundle
 - [ ] context packing budget
 - [ ] generated/vendor exclusion rules
 - [ ] command/log summarization input format
+- [ ] static ontology vs Layer A vs Layer B context fixture
 - [ ] prompt fixture test
 
 ## Phase 9: 첫 Agent Vertical Slice
@@ -169,6 +202,8 @@
 목표: 작은 fixture 저장소에서 읽기, 계획, patch 제안, 승인, 적용, 검증, 한국어 보고까지 한 번에 끝낸다.
 
 - [ ] `rpotato run "<task>"`
+- [ ] run startup ontology/context retrieval
+- [ ] source pointer를 원본 파일 읽기로 승격하는 step
 - [ ] planner step
 - [ ] executor step
 - [ ] verifier step
@@ -186,6 +221,10 @@
 
 - [ ] Stop gate completion contract
 - [ ] command별 required evidence
+- [ ] ontology completeness gate
+- [ ] context source-read evidence gate
+- [ ] source-backed public claim ledger
+- [ ] README/model/benchmark claim gate
 - [ ] pending action detection
 - [ ] 검증 실패 시 continuation
 - [ ] validation gap 기록
@@ -197,6 +236,7 @@
 - [ ] stale workflow terminal 처리
 - [ ] destructive command policy tests
 - [ ] fixture benchmark suite
+- [ ] static-only vs Layer A vs Layer B ontology benchmark
 - [ ] fake session lifecycle test: submit -> tool -> stop
 - [ ] corrupt state fallback test
 - [ ] resume/cancel E2E test
@@ -230,3 +270,6 @@
 - destructive command 자동 실행
 - 외부 코드 PR workflow
 - 출처 없는 모델 추천
+- exhaustive framework ontology parser
+- 출처 없는 semantic ontology claim
+- 원본 파일 확인 없는 snippet 기반 자동 수정
