@@ -90,8 +90,10 @@ MVP의 기본 결정은 다음과 같습니다.
 - 기본 백엔드: `llama.cpp`
 - 모델 포맷: GGUF
 - 실행 방식: 관리형 `llama-server` sidecar
-- 우선 평가 후보: `Qwen3.5-4B` 계열 quantized GGUF, 출처 확인 전 미확정
-- 비교 평가 후보: `Gemma 4 E4B`, 출처 확인 전 미확정
+- 우선 평가 후보: `Qwen3.5-4B` 계열 quantized GGUF, artifact/runtime 검증 전 미확정
+- 비교 평가 후보: `Gemma 4 E4B` 계열 quantized GGUF, artifact/runtime 검증 전 미확정
+
+`llama.cpp`는 backend일 뿐 모델 후보가 아닙니다. 모델 후보는 Qwen/Gemma 라인으로만 추적하며, 라이선스와 artifact 관련 claim은 [docs/model-licenses.md](docs/model-licenses.md)에 출처와 함께 기록합니다.
 
 자세한 구조는 [docs/architecture.md](docs/architecture.md)를 따릅니다.
 
