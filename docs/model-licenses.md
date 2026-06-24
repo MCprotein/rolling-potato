@@ -13,7 +13,21 @@
 - GGUF 변환본은 upstream model license와 artifact provider terms를 모두 확인합니다.
 - manifest에는 모델별 license를 반드시 표시합니다.
 - 재배포 가능 여부가 불명확하면 CLI가 직접 bundle하지 않습니다.
+- 모델과 GGUF artifact를 프로젝트 코드처럼 소유한 것으로 표시하지 않습니다.
 - 모든 모델 관련 claim은 [model-source-policy.md](model-source-policy.md)를 따릅니다.
+
+## 포함/재배포 판단
+
+결론: 원 라이선스 조건을 지키는 범위에서는 앱에 포함하거나 설치 흐름에 연결할 수 있지만, 모델 가중치나 변환본을 `rolling-potato`의 독점 소유물처럼 취급하면 안 됩니다.
+
+현재 정책:
+
+- 프로젝트 소스 저장소에는 모델 가중치를 커밋하지 않습니다.
+- 기본 배포는 manifest 기반 다운로드를 우선합니다.
+- 모델 다운로드 전 license, source, artifact provider, file size, checksum을 사용자에게 표시합니다.
+- bundle 배포는 upstream model license, GGUF artifact provider terms, NOTICE/attribution 요구사항, checksum을 모두 확인한 뒤에만 허용합니다.
+- `rolling-potato`의 Apache-2.0 라이선스는 프로젝트 코드에 적용하고, 포함되는 third-party 모델과 artifact는 각자의 원 라이선스를 유지합니다.
+- 수정한 모델 파일이나 변환본을 배포하는 경우 수정 사실과 원 출처를 문서화합니다.
 
 ## 초기 후보
 
@@ -32,6 +46,7 @@
 | `Qwen/Qwen3.5-4B`의 Hugging Face model card license field는 `apache-2.0`이다. | https://huggingface.co/Qwen/Qwen3.5-4B | 2026-06-24 | confirmed |
 | `Qwen/Qwen3.5-9B`의 Hugging Face model card license field는 `apache-2.0`이다. | https://huggingface.co/Qwen/Qwen3.5-9B | 2026-06-24 | confirmed |
 | `google/gemma-4-E4B`의 Hugging Face model card license field는 `apache-2.0`이고, Google AI for Developers의 Gemma 4 license 문서는 Apache License 2.0을 게시한다. | https://huggingface.co/google/gemma-4-E4B, https://ai.google.dev/gemma/apache_2 | 2026-06-24 | confirmed |
+| Apache License 2.0은 조건을 지키는 경우 사용, 복제, 수정, sublicensing, 배포를 허용하며, license 사본 제공, 수정 표시, 기존 attribution/NOTICE 보존, 상표 제한을 요구한다. | https://ai.google.dev/gemma/apache_2 | 2026-06-25 | confirmed |
 
 ## 아직 확정하지 않은 것
 

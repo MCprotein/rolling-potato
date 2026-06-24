@@ -8,6 +8,8 @@ MVP는 `llama.cpp` sidecar adapter만 구현합니다.
 
 여기서 `llama.cpp`는 추론 backend입니다. 모델 후보를 뜻하지 않으며, Meta Llama 계열 모델을 기본 후보로 둔다는 의미도 아닙니다. 모델 후보와 라이선스 확인은 [model-licenses.md](model-licenses.md)와 [model-source-policy.md](model-source-policy.md)를 따릅니다.
 
+`llama.cpp` upstream LICENSE는 MIT License입니다. 관리형 backend binary를 bundle하거나 다운로드/설치하는 경우 `llama.cpp`의 copyright/license notice를 함께 보존합니다. Source: https://github.com/ggml-org/llama.cpp/blob/master/LICENSE, checked 2026-06-25.
+
 선택 이유:
 
 - GGUF 지원
