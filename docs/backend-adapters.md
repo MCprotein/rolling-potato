@@ -31,6 +31,9 @@ adapter가 제공해야 할 기능:
 CLI가 관리해야 할 항목:
 
 - backend binary path
+- managed backend binary download
+- backend archive checksum verification
+- backend version detection
 - model path
 - port selection
 - process startup
@@ -48,6 +51,8 @@ CLI가 관리해야 할 항목:
 - checksum 검증 실패 모델
 - context length 설정 오류
 - backend process crash
+
+사용자가 backend path를 직접 지정한 경우 해당 binary는 사용자 소유입니다. `rpotato uninstall --keep-cache`나 `--purge-cache`는 `rpotato`가 다운로드한 관리형 backend binary만 삭제하고, 사용자 지정 path는 삭제하지 않습니다.
 
 ## 후순위 adapter
 

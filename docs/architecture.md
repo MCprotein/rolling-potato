@@ -44,6 +44,8 @@ native binding은 다음 조건이 필요할 때 다시 검토합니다.
 - 배포 대상별 binary 관리가 지나치게 복잡해진다.
 - streaming, cancellation, token accounting에서 HTTP boundary가 병목이 된다.
 
+사용자는 `llama.cpp`를 전역 설치하지 않아도 됩니다. MVP 기본 경로는 `rpotato`가 platform별 backend binary를 다운로드하고 checksum을 검증한 뒤 앱 데이터 디렉터리에서 child process로 실행하는 방식입니다. 사용자가 직접 설치한 backend path를 config로 지정한 경우 그 binary는 사용자 소유로 보고 `rpotato uninstall`이 삭제하지 않습니다.
+
 ## 구성 요소
 
 ```text
@@ -64,6 +66,29 @@ managed backend
   └─ llama.cpp sidecar
        └─ GGUF model
 ```
+
+## 저장소와 캐시 경계
+
+삭제와 재설치를 안전하게 만들기 위해 program/runtime asset, cache/data, project-local state를 분리합니다.
+
+```text
+rpotato app data root/
+  config/
+  backends/      # 관리형 llama.cpp binaries
+  models/        # GGUF model artifacts
+  downloads/     # 이어받기 가능한 임시 다운로드
+  manifests/     # model/backend manifests
+  logs/
+  state/
+  cache/
+
+project root/
+  .rpotato/      # project-local index/state/evidence, 명시적 project cleanup 전에는 보존
+```
+
+`rpotato uninstall --keep-cache`는 프로그램/관리형 runtime asset만 제거하고 모델, 다운로드, manifest, 로그, project-local state는 남깁니다.
+
+`rpotato uninstall --purge-cache`는 app-level cache와 모델까지 제거하지만 source repository나 project-local `.rpotato/`는 자동 삭제하지 않습니다. 모든 삭제 경로는 `--dry-run`으로 삭제 예정 path를 먼저 보여줘야 합니다.
 
 ## 책임 경계
 

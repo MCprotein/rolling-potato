@@ -58,6 +58,10 @@ rpotato chat
 rpotato run "이 에러 고쳐줘"
 rpotato model list
 rpotato model install qwen3.5-4b
+rpotato backend doctor
+rpotato cache status
+rpotato uninstall --keep-cache
+rpotato uninstall --purge-cache
 rpotato doctor
 rpotato config
 ```
@@ -66,14 +70,17 @@ rpotato config
 
 1. 사용자가 `rpotato init` 또는 `rpotato model install`을 실행한다.
 2. CLI가 OS, 아키텍처, RAM, 디스크 여유 공간을 확인한다.
-3. 적합한 모델을 추천한다.
-4. 사용자가 다운로드를 승인한다.
-5. CLI가 이어받기 가능한 방식으로 모델을 다운로드한다.
-6. 해시를 검증한다.
-7. 로컬 설정에 모델을 등록한다.
-8. 추론 백엔드를 시작하거나 기존 프로세스를 재사용한다.
+3. 관리형 `llama.cpp` sidecar를 설치 또는 확인한다.
+4. 출처가 검증된 manifest 기준으로 적합한 모델을 추천한다.
+5. 사용자가 다운로드를 승인한다.
+6. CLI가 이어받기 가능한 방식으로 모델을 다운로드한다.
+7. 해시를 검증한다.
+8. 로컬 설정에 모델을 등록한다.
+9. 추론 백엔드를 시작하거나 기존 프로세스를 재사용한다.
 
 모델 가중치는 CLI 설치 파일에 포함하지 않습니다.
+`llama.cpp`도 사용자가 직접 전역 설치하지 않아도 되는 관리형 sidecar를 기본 경로로 둡니다.
+삭제는 `rpotato uninstall --keep-cache` 또는 `rpotato uninstall --purge-cache`로 실행하며, 캐시 보존 여부를 사용자가 선택합니다.
 
 ## 기술 방향
 

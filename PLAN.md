@@ -47,6 +47,10 @@ rpotato chat
 rpotato run "이 에러 고쳐줘"
 rpotato model list
 rpotato model install qwen3.5-4b
+rpotato backend doctor
+rpotato cache status
+rpotato uninstall --keep-cache
+rpotato uninstall --purge-cache
 rpotato doctor
 rpotato config
 ```
@@ -59,8 +63,8 @@ Default runtime direction:
 
 - `llama.cpp` backend
 - GGUF model format
-- bundled or managed runtime binary
-- local HTTP/server mode or sidecar process
+- managed `llama-server` / `llama.cpp` runtime binary
+- local HTTP/server sidecar process owned by `rpotato`
 
 Why:
 
@@ -81,6 +85,31 @@ Excluded as default:
 - MLX, because it is Apple Silicon specific
 - vLLM, because it is better as a server/GPU backend than a default low-end local runtime
 - Tauri/Electron, because the first product is CLI, not GUI
+
+## Managed Backend Distribution
+
+Users should not have to install `llama.cpp` manually for the MVP path.
+
+Expected backend flow:
+
+1. `rpotato init` checks the host OS, architecture, RAM, disk, and existing config.
+2. `rpotato` resolves a source-verified backend release for the current platform.
+3. The user approves any network download.
+4. The backend archive is downloaded with resume support.
+5. The archive checksum is verified before extraction.
+6. The extracted backend binary is stored under the `rpotato` app data root.
+7. `rpotato backend doctor` verifies binary path, executable bit, version, port readiness, and health check behavior.
+8. `rpotato run` starts or reuses the sidecar as a child process, records PID/port/log paths, and shuts it down when the owning session ends unless reuse is enabled.
+
+The sidecar is "container-like" in ownership but not Docker-based. It is an isolated, CLI-managed child process with explicit paths, logs, port, health check, and cleanup. Docker is not the MVP default because it adds a heavy external prerequisite for low-end macOS/Windows users.
+
+Manual backend override remains possible later through config:
+
+```sh
+rpotato config set backend.llama_cpp.path /path/to/llama-server
+```
+
+An overridden backend is user-owned. `rpotato uninstall` must not delete it.
 
 ## Initial Model Direction
 
@@ -108,7 +137,7 @@ Not the default:
 
 - `Qwen3.5-9B`, because larger local models may increase pressure on context, verification, and runtime overhead. Exact viability is unverified and needs measurement.
 
-## Model Download Flow
+## Model And Runtime Download Flow
 
 Model weights should not be bundled into the initial CLI installer.
 
@@ -117,12 +146,13 @@ Expected flow:
 1. User installs `rpotato`.
 2. User runs `rpotato init` or `rpotato model install`.
 3. CLI checks OS, architecture, RAM, and available disk.
-4. CLI recommends a model.
-5. User explicitly agrees to download.
-6. CLI downloads the model with resume support.
-7. CLI verifies hash.
-8. CLI registers the model in local config.
-9. CLI starts or reuses the local runtime.
+4. CLI verifies or installs the managed backend binary.
+5. CLI recommends a source-verified model candidate only after manifest validation.
+6. User explicitly agrees to download.
+7. CLI downloads the model with resume support.
+8. CLI verifies hash.
+9. CLI registers the model in local config.
+10. CLI starts or reuses the local runtime.
 
 Model metadata should live in a manifest:
 
@@ -144,6 +174,7 @@ Model metadata should live in a manifest:
 The runtime should own:
 
 - model install/cache management
+- backend binary install/cache management
 - model process lifecycle
 - prompt compilation per model
 - context packing
@@ -155,6 +186,57 @@ The runtime should own:
 - diff generation and validation
 - command/test/log feedback
 - final Korean-only response validation
+
+## Storage Layout
+
+The implementation should keep install-time assets, cache, and project state separate so uninstall behavior is predictable.
+
+Initial logical roots:
+
+```text
+rpotato app data root/
+  config/
+  backends/           # managed llama.cpp binaries and metadata
+  models/             # GGUF model artifacts
+  downloads/          # resumable partial downloads
+  manifests/          # model/backend manifests
+  logs/
+  state/
+  cache/
+
+project root/
+  .rpotato/           # optional project-local state, indexes, evidence
+```
+
+Platform paths are decided during Phase 1, but the boundary should stay stable:
+
+- `backends/` and the `rpotato` launcher are program/runtime assets.
+- `models/`, `downloads/`, `manifests/`, generated context indexes, and logs are cache/data assets.
+- project-local `.rpotato/` is user project state and must not be removed by global uninstall unless the user explicitly asks for project cleanup from that project.
+
+## Uninstall And Cache Policy
+
+Uninstall must be executable from the CLI and must show a dry-run summary before deleting anything.
+
+Commands:
+
+```sh
+rpotato uninstall --keep-cache
+rpotato uninstall --purge-cache
+rpotato uninstall --dry-run --purge-cache
+rpotato cache status
+rpotato cache clean --models
+rpotato cache clean --downloads
+```
+
+Behavior:
+
+- `--keep-cache`: remove `rpotato`-managed program/runtime assets and launcher registrations, but keep downloaded models, partial downloads, manifests, logs, and project-local `.rpotato/` state.
+- `--purge-cache`: remove program/runtime assets plus app-level caches such as models, downloads, backend archives, manifests, logs, and generated indexes.
+- `--purge-cache` still does not delete source repositories or project files. Project-local cleanup requires a separate project-scoped command such as `rpotato project clean --dry-run`.
+- If the CLI was installed by a package manager, `rpotato uninstall` should clean app-owned data and print the exact package-manager removal command instead of pretending it can always remove the package manager's binary.
+- On platforms where deleting the currently running binary is unsafe or impossible, `rpotato uninstall` should write a small post-exit cleanup script or print the final manual command in Korean.
+- Every delete path must support `--dry-run`, path listing, and Korean confirmation text before execution.
 
 ## Agent Strategy
 
@@ -222,7 +304,7 @@ Implementation language candidates:
 Current lean:
 
 - Rust core CLI
-- llama.cpp sidecar
+- managed `llama.cpp` sidecar
 - adapter boundary for future backends
 
 ## MVP Definition
@@ -230,20 +312,23 @@ Current lean:
 The first useful version should:
 
 1. install and run as `rpotato`
-2. download one recommended GGUF model after user consent
-3. start local inference backend
-4. chat in Korean
-5. inspect a local repo
-6. propose a small patch
-7. show the diff before applying
-8. run a verification command when approved
-9. produce a Korean-only final report
+2. install or verify a managed `llama.cpp` backend after user consent when download is needed
+3. download one recommended GGUF model after user consent
+4. start local inference backend
+5. chat in Korean
+6. inspect a local repo
+7. propose a small patch
+8. show the diff before applying
+9. run a verification command when approved
+10. produce a Korean-only final report
+11. uninstall managed runtime assets through CLI with keep-cache and purge-cache paths
 
 ## Open Questions
 
 - Rust first, or TypeScript prototype first?
-- Use `llama-server` sidecar or native llama.cpp binding?
 - Which exact Qwen3.5-4B GGUF artifact should be trusted?
+- Which `llama.cpp` release artifact and checksum source should be trusted per platform?
+- How should self-delete work on Windows package-manager installs?
 - Should image/screenshot understanding be MVP or later?
 - How strict should command approval be?
 - Should `rpotato` support non-code general automation later?

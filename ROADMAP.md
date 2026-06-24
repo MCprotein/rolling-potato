@@ -47,11 +47,16 @@
 - [ ] `rpotato config`
 - [ ] `rpotato state`
 - [ ] `rpotato cancel`
+- [ ] `rpotato cache status`
+- [ ] `rpotato uninstall --keep-cache`
+- [ ] `rpotato uninstall --purge-cache`
 - [ ] config 경로 결정
+- [ ] app data/cache/project state 경계 결정
 - [ ] 구조화된 한국어 오류 보고
 - [ ] 명령 출력 스타일 가이드
 - [ ] operation log path 결정
 - [ ] setup/upgrade/uninstall 경계 결정
+- [ ] uninstall dry-run path listing
 - [ ] 기본 명령 smoke test
 
 ## Phase 2: Runtime State And Ledger
@@ -144,6 +149,9 @@
 목표: `llama.cpp` sidecar를 CLI가 관리하고, backend 상태를 진단 가능하게 만든다.
 
 - [ ] `llama.cpp` sidecar discovery
+- [ ] managed backend binary download/install
+- [ ] backend archive checksum verification
+- [ ] backend binary version detection
 - [ ] backend binary path config
 - [ ] port 선택
 - [ ] sidecar process lifecycle
@@ -153,6 +161,8 @@
 - [ ] cancellation path
 - [ ] stderr/stdout capture
 - [ ] backend diagnostics in `doctor`
+- [ ] backend diagnostics in `rpotato backend doctor`
+- [ ] managed backend removal during uninstall
 - [ ] backend adapter trait
 
 ## Phase 7: Tool Runtime
@@ -259,6 +269,7 @@
 - [ ] Windows x86_64 artifact
 - [ ] release notes template
 - [ ] `rpotato doctor` release smoke test
+- [ ] uninstall keep-cache/purge-cache smoke test
 - [ ] GitHub Releases distribution
 - [ ] post-MVP Homebrew/Scoop decision
 
