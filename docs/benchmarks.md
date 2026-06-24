@@ -67,8 +67,8 @@ fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 
 
 초기 비교:
 
-- `Qwen3.5-4B` quantized GGUF, 출처 확인 전 미확정
-- `Gemma 4 E4B`, 출처 확인 전 미확정
+- `Qwen3.5-4B` quantized GGUF, artifact/runtime 검증 전 미확정
+- `Gemma 4 E4B`, artifact/runtime 검증 전 미확정
 - 참고용 `Qwen3.5-9B`
 
 모든 후보는 같은 prompt compiler, 같은 context budget, 같은 tool policy로 평가합니다.

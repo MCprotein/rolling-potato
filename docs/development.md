@@ -4,12 +4,22 @@
 
 ## 현재 상태
 
-현재 저장소는 제품 정의와 문서화 단계입니다. Rust scaffold는 아직 생성하지 않았습니다.
+현재 저장소는 제품 정의와 초기 Rust CLI scaffold 단계입니다.
 
-## 예정 기술 스택
+구현된 첫 경계:
+
+- `rpotato doctor`
+- `rpotato backend doctor`
+- `rpotato cache status`
+- `rpotato model list`
+- `rpotato model install <id>`
+
+모델/backend 다운로드는 아직 활성화하지 않았습니다. 검증된 manifest가 없으면 CLI가 다운로드를 차단해야 합니다.
+
+## 기술 스택
 
 - Language: Rust
-- CLI parser: undecided
+- CLI parser: std 기반 수동 parser
 - Backend: managed `llama.cpp` sidecar
 - Model format: GGUF
 - Primary OS targets: macOS, Windows
@@ -28,9 +38,9 @@
 - `clippy`
 - GitHub CLI
 
-## scaffold 이후 기본 명령
+## 기본 검증 명령
 
-Rust workspace가 생기면 다음 명령을 기본 검증으로 사용합니다.
+다음 명령을 기본 검증으로 사용합니다.
 
 ```sh
 cargo fmt --check

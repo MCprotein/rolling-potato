@@ -6,8 +6,8 @@ MVP 모델 선택을 감으로 정하지 않습니다. 한국어, 코드 수정,
 
 초기 후보:
 
-- 우선 평가 후보: `Qwen3.5-4B` quantized GGUF, 출처 확인 전 미확정
-- 비교 평가 후보: `Gemma 4 E4B`, 출처 확인 전 미확정
+- 우선 평가 후보: `Qwen3.5-4B` quantized GGUF, artifact/runtime 검증 전 미확정
+- 비교 평가 후보: `Gemma 4 E4B`, artifact/runtime 검증 전 미확정
 - 보류 후보: `Qwen3.5-9B`
 
 `Qwen3.5-9B`는 품질 비교에는 포함할 수 있지만 16 GB RAM 제품 기본값으로 확정하지 않습니다. 정확한 실행 가능성, memory 사용량, context 여유는 측정 전까지 미확정입니다.

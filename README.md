@@ -110,7 +110,17 @@ MVP의 기본 결정은 다음과 같습니다.
 
 ## 현재 상태
 
-이 저장소는 아직 제품 정의와 구조 설계 단계입니다. 구현 scaffold는 아직 만들지 않았습니다.
+이 저장소는 제품 정의와 초기 Rust CLI scaffold 단계입니다.
+
+현재 구현된 최소 명령:
+
+- `rpotato doctor`
+- `rpotato backend doctor`
+- `rpotato cache status`
+- `rpotato model list`
+- `rpotato model install <id>`
+
+`model install`은 아직 실제 다운로드를 수행하지 않습니다. 검증된 GGUF artifact URL, checksum, provider terms, file size, `llama.cpp` 호환성 정보가 manifest에 들어오기 전까지 설치를 차단합니다.
 
 다음 구현 전 작업:
 

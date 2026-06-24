@@ -40,24 +40,24 @@
 
 목표: `rpotato`가 안정적인 단일 CLI entrypoint로 실행되고, 모든 후속 기능이 같은 설정, 출력, 오류 경계를 사용한다.
 
-- [ ] Rust workspace scaffold
-- [ ] `rpotato` 명령 router
+- [x] Rust workspace scaffold
+- [x] `rpotato` 명령 router
 - [ ] `rpotato init`
-- [ ] `rpotato doctor`
+- [x] `rpotato doctor`
 - [ ] `rpotato config`
 - [ ] `rpotato state`
 - [ ] `rpotato cancel`
-- [ ] `rpotato cache status`
+- [x] `rpotato cache status`
 - [ ] `rpotato uninstall --keep-cache`
 - [ ] `rpotato uninstall --purge-cache`
 - [ ] config 경로 결정
 - [ ] app data/cache/project state 경계 결정
-- [ ] 구조화된 한국어 오류 보고
+- [x] 구조화된 한국어 오류 보고
 - [ ] 명령 출력 스타일 가이드
 - [ ] operation log path 결정
 - [ ] setup/upgrade/uninstall 경계 결정
 - [ ] uninstall dry-run path listing
-- [ ] 기본 명령 smoke test
+- [x] 기본 명령 smoke test
 
 ## Phase 2: Runtime State And Ledger
 
@@ -135,8 +135,9 @@
 - [ ] 모델 후보별 공식 model card/source/license 조사
 - [ ] 모델 후보별 공개 benchmark claim/source ledger
 - [ ] 공개 benchmark 재현 가능성 평가: harness, dataset, prompt, scoring, hardware/backend 조건
-- [ ] `rpotato model list`
+- [x] `rpotato model list`
 - [ ] `rpotato model install <id>`
+- [x] 미검증 artifact 설치 차단
 - [ ] 이어받기 가능한 모델 다운로드
 - [ ] SHA-256 verification
 - [ ] 다운로드 전 license/source 표시

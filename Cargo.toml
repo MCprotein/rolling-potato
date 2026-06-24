@@ -1,0 +1,8 @@
+[package]
+name = "rpotato"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Local coding agents for potato PCs."
+
+[dependencies]
