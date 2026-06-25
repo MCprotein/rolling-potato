@@ -12,7 +12,7 @@
 - 모델 license를 확인하기 전에는 기본 추천 모델로 확정하지 않습니다.
 - GGUF 변환본은 upstream model license와 artifact provider terms를 모두 확인합니다.
 - manifest에는 모델별 license를 반드시 표시합니다.
-- 재배포 가능 여부가 불명확하면 CLI가 직접 bundle하지 않습니다.
+- 재배포 가능 여부가 불명확하면 `rpotato` 배포물에 직접 bundle하지 않습니다.
 - 모델과 GGUF artifact를 프로젝트 코드처럼 소유한 것으로 표시하지 않습니다.
 - 모든 모델 관련 claim은 [model-source-policy.md](model-source-policy.md)를 따릅니다.
 

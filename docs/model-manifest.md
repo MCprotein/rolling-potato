@@ -67,7 +67,7 @@
 - license 미표기 모델 추천
 - 출처 없는 license, RAM, context length, backend 호환성 claim
 - 사용자 승인 없는 자동 다운로드
-- CLI binary에 모델 가중치 번들링
+- `rpotato` release binary에 모델 가중치 번들링
 - 임의 URL을 silent fallback으로 사용하는 동작
 
 ## open questions

@@ -5,7 +5,7 @@
 ## 릴리즈 원칙
 
 - GitHub Releases를 기본 배포 채널로 사용합니다.
-- 모델 가중치는 CLI binary에 포함하지 않습니다.
+- 모델 가중치는 `rpotato` release binary에 포함하지 않습니다.
 - 각 binary는 checksum과 함께 배포합니다.
 - 릴리즈 노트에는 지원 OS, backend version, known issues를 포함합니다.
 

@@ -4,7 +4,7 @@
 
 ## 현재 상태
 
-현재 저장소는 제품 정의와 초기 Rust CLI scaffold 단계입니다.
+현재 저장소는 제품 정의와 초기 Rust runtime/CLI scaffold 단계입니다.
 
 구현된 첫 경계:
 
@@ -14,12 +14,13 @@
 - `rpotato model list`
 - `rpotato model install <id>`
 
-모델/backend 다운로드는 아직 활성화하지 않았습니다. 검증된 manifest가 없으면 CLI가 다운로드를 차단해야 합니다.
+모델/backend 다운로드는 아직 활성화하지 않았습니다. 검증된 manifest가 없으면 runtime core가 다운로드를 차단하고 CLI surface가 그 이유를 표시해야 합니다.
 
 ## 기술 스택
 
 - Language: Rust
 - CLI parser: std 기반 수동 parser
+- Runtime: CLI surface와 runtime core를 분리하는 방향
 - Backend: managed `llama.cpp` sidecar
 - Model format: GGUF
 - Primary OS targets: macOS, Windows
@@ -57,18 +58,21 @@ cargo run -- model list
 
 최종 binary 명령은 `rpotato`입니다.
 
-## 코드 구조 예정
+## 코드 구조 방향
 
-예상 module 경계:
+현재 scaffold와 예정 module 경계:
 
 - `cli`: command parsing and output
+- `runtime`: state, policy, ontology, agent loop orchestration
 - `config`: local config paths and serialization
 - `model`: manifest, download, checksum, registry
 - `backend`: backend adapter trait and `llama.cpp` implementation
 - `repo`: project file discovery and context packing
+- `ontology`: Layer A facts and Layer B semantic ontology
 - `agent`: planner/executor/verifier/reporter loop
 - `policy`: command and file permission rules
 - `patch`: diff rendering and apply flow
+- `evidence`: ledger, verification evidence, stop gate
 - `guard`: Korean output validation
 
 ## 문서 변경 검증

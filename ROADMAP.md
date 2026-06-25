@@ -15,7 +15,7 @@
 - 모델을 더 똑똑하게 만든다고 가정하지 않는다.
 - instruction, permission, state, ledger, transcript, evidence gate를 runtime이 소유한다.
 - 온톨로지는 작은 모델이 매번 추론으로 복구하면 안 되는 프로젝트 기억 substrate로 취급한다.
-- CLI가 증명할 수 있는 Layer A 사실과 agent/runtime이 보강하되 출처를 남겨야 하는 Layer B 의미를 분리한다.
+- runtime core가 증명할 수 있는 Layer A 사실과 agent/runtime이 보강하되 출처를 남겨야 하는 Layer B 의미를 분리한다.
 - context는 무작정 주입하지 않고 source pointer, stable ref, digest, resume bundle로 좁혀서 공급한다.
 - snippet은 authoritative source가 아니다. 중요한 판단은 원본 파일을 다시 읽은 뒤 해야 한다.
 - 작은 모델에게 큰 자유도를 주기보다 작은 vertical slice를 확실히 끝낸다.
@@ -36,12 +36,13 @@
 - [x] 하네스 운영 모델 검토
 - [x] `anamnesis` 온톨로지/context lifecycle 검토
 
-## Phase 1: CLI 기반
+## Phase 1: Runtime Entrypoint And CLI Surface
 
-목표: `rpotato`가 안정적인 단일 CLI entrypoint로 실행되고, 모든 후속 기능이 같은 설정, 출력, 오류 경계를 사용한다.
+목표: `rpotato`가 안정적인 첫 surface로 실행되고, 실제 상태/정책/오류 경계는 runtime core가 소유하게 만든다.
 
 - [x] Rust workspace scaffold
 - [x] `rpotato` 명령 router
+- [ ] CLI surface와 runtime core module 경계
 - [ ] `rpotato init`
 - [x] `rpotato doctor`
 - [ ] `rpotato config`
@@ -147,7 +148,7 @@
 
 ## Phase 6: Backend Runtime
 
-목표: `llama.cpp` sidecar를 CLI가 관리하고, backend 상태를 진단 가능하게 만든다.
+목표: `llama.cpp` sidecar를 runtime core가 관리하고, backend 상태를 CLI surface에서 진단 가능하게 만든다.
 
 - [ ] `llama.cpp` sidecar discovery
 - [ ] managed backend binary download/install
@@ -261,7 +262,7 @@
 
 ## Phase 11: Packaging And Release
 
-목표: 사용자가 모델 가중치 없이 CLI를 설치하고, 첫 모델 설치를 안전하게 진행할 수 있게 한다.
+목표: 사용자가 모델 가중치 없이 runtime surface를 설치하고, 첫 모델 설치를 안전하게 진행할 수 있게 한다.
 
 - [ ] release build pipeline
 - [ ] binary checksum 생성

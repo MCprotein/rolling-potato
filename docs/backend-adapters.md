@@ -32,7 +32,7 @@ adapter가 제공해야 할 기능:
 
 ## `llama.cpp` sidecar
 
-CLI가 관리해야 할 항목:
+Runtime core가 관리해야 할 항목:
 
 - backend binary path
 - managed backend binary download
@@ -102,4 +102,4 @@ CLI가 관리해야 할 항목:
 - privacy policy와 command policy를 우회하지 않는다.
 - streaming과 cancellation을 지원한다.
 - backend diagnostics를 제공한다.
-- Korean output guard를 CLI final response 단계에서 그대로 적용한다.
+- Korean output guard를 final reporter 단계에서 그대로 적용한다.

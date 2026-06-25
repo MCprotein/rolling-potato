@@ -1,6 +1,6 @@
 # rolling-potato
 
-`rolling-potato`는 저사양 PC에서도 굴러가는 로컬 우선 CLI 코딩 에이전트 런타임입니다.
+`rolling-potato`는 저사양 PC에서도 굴러가는 로컬 우선 코딩 에이전트 런타임입니다.
 
 - CLI 명령어: `rpotato`
 - 태그라인: `Local coding agents for potato PCs.`
@@ -14,7 +14,7 @@
 
 > 작은 모델에는 작은 프롬프트가 아니라 작은 모델용 런타임이 필요합니다.
 
-따라서 이 프로젝트의 주요 제품은 프롬프트 묶음이 아니라 다음을 책임지는 로컬 런타임입니다.
+따라서 이 프로젝트의 주요 제품은 CLI wrapper나 프롬프트 묶음이 아니라 다음을 책임지는 로컬 런타임입니다.
 
 - 모델 설치와 캐시 관리
 - 로컬 추론 백엔드 실행
@@ -23,6 +23,8 @@
 - 패치 생성과 검증
 - 재시도 제어
 - 한국어 전용 최종 응답 검증
+
+`rpotato` CLI는 이 런타임을 사용하는 첫 번째 surface입니다. Claude Code, Codex, 가재코드처럼 사용자는 CLI에서 작업을 시작하지만, 세션 상태, 도구 권한, 온톨로지, context, agent loop, 검증 gate는 CLI가 아니라 runtime core가 소유해야 합니다.
 
 ## 대상 사용자
 
@@ -50,7 +52,9 @@
 
 자세한 기준은 [docs/mvp.md](docs/mvp.md)를 따릅니다.
 
-## CLI 초안
+## Runtime Surface 초안
+
+MVP의 첫 surface는 CLI입니다.
 
 ```sh
 rpotato init
@@ -69,16 +73,17 @@ rpotato config
 초기 흐름은 명확해야 합니다.
 
 1. 사용자가 `rpotato init` 또는 `rpotato model install`을 실행한다.
-2. CLI가 OS, 아키텍처, RAM, 디스크 여유 공간을 확인한다.
-3. 관리형 `llama.cpp` sidecar를 설치 또는 확인한다.
-4. 출처가 검증된 manifest 기준으로 적합한 모델을 추천한다.
-5. 사용자가 다운로드를 승인한다.
-6. CLI가 이어받기 가능한 방식으로 모델을 다운로드한다.
-7. 해시를 검증한다.
-8. 로컬 설정에 모델을 등록한다.
-9. 추론 백엔드를 시작하거나 기존 프로세스를 재사용한다.
+2. CLI surface가 요청을 runtime core에 전달한다.
+3. runtime core가 OS, 아키텍처, RAM, 디스크 여유 공간을 확인한다.
+4. runtime core가 관리형 `llama.cpp` sidecar를 설치 또는 확인한다.
+5. runtime core가 출처 검증된 manifest 기준으로 적합한 모델을 추천한다.
+6. CLI surface가 사용자 승인 prompt를 표시한다.
+7. runtime core가 이어받기 가능한 방식으로 모델을 다운로드한다.
+8. runtime core가 해시를 검증한다.
+9. runtime core가 로컬 설정에 모델을 등록한다.
+10. runtime core가 추론 백엔드를 시작하거나 기존 프로세스를 재사용한다.
 
-모델 가중치는 CLI 설치 파일에 포함하지 않습니다.
+모델 가중치는 `rpotato` release artifact에 포함하지 않습니다.
 `llama.cpp`도 사용자가 직접 전역 설치하지 않아도 되는 관리형 sidecar를 기본 경로로 둡니다.
 삭제는 `rpotato uninstall --keep-cache` 또는 `rpotato uninstall --purge-cache`로 실행하며, 캐시 보존 여부를 사용자가 선택합니다.
 
@@ -96,6 +101,7 @@ MVP의 기본 결정은 다음과 같습니다.
 `llama.cpp`는 backend일 뿐 모델 후보가 아닙니다. 모델 후보는 Qwen/Gemma 라인으로만 추적하며, 라이선스와 artifact 관련 claim은 [docs/model-licenses.md](docs/model-licenses.md)에 출처와 함께 기록합니다.
 
 자세한 구조는 [docs/architecture.md](docs/architecture.md)를 따릅니다.
+런타임 계층은 [docs/runtime-architecture.md](docs/runtime-architecture.md)를 따르고, 용어는 [docs/glossary.md](docs/glossary.md)를 따릅니다.
 
 ## 중요 제약
 
@@ -110,7 +116,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 ## 현재 상태
 
-이 저장소는 제품 정의와 초기 Rust CLI scaffold 단계입니다.
+이 저장소는 제품 정의와 초기 Rust runtime/CLI scaffold 단계입니다.
 
 현재 구현된 최소 명령:
 
@@ -147,6 +153,9 @@ MVP의 기본 결정은 다음과 같습니다.
 
 - [docs/development.md](docs/development.md): 개발 환경과 검증 흐름
 - [docs/release.md](docs/release.md): 릴리즈 정책
+- [docs/runtime-architecture.md](docs/runtime-architecture.md): runtime core와 surface/backend 경계
+- [docs/glossary.md](docs/glossary.md): 프로젝트 용어 정의
+- [docs/ontology-runtime.md](docs/ontology-runtime.md): 온톨로지 runtime 설계
 - [docs/model-manifest.md](docs/model-manifest.md): 모델 manifest schema
 - [docs/model-source-policy.md](docs/model-source-policy.md): 모델 정보 출처 정책
 - [docs/model-licenses.md](docs/model-licenses.md): 모델 라이선스 추적

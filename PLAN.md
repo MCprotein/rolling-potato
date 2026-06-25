@@ -9,7 +9,7 @@
 
 ## Intent
 
-`rolling-potato` is a local-first CLI coding agent runtime for small models.
+`rolling-potato` is a local-first coding agent runtime for small models. Its first user surface is the `rpotato` CLI.
 
 The goal is not to clone Claude Code or Codex with a weaker model. The goal is to build a runtime that makes small local models useful by limiting their failure modes.
 
@@ -17,7 +17,7 @@ Core thesis:
 
 > Small models need a small-model runtime, not just a smaller prompt.
 
-Claude Code and Codex assume frontier-class model capability. `rolling-potato` assumes the opposite: the model is useful but fragile, so the runtime must manage context, actions, validation, retries, and user-facing language.
+Claude Code, Codex, and Gaja Code style tools expose a CLI-like agent experience, but the product is the runtime behind that surface. `rolling-potato` assumes the model is useful but fragile, so the runtime core must manage context, ontology, actions, validation, retries, and user-facing language.
 
 ## Target Users
 
@@ -35,9 +35,15 @@ Initial hardware target:
 
 ## Product Shape
 
-Primary interface:
+Primary surface:
 
-- CLI, similar in spirit to Claude Code / Codex
+- CLI, similar in spirit to Claude Code / Codex / Gaja Code
+
+Product body:
+
+- runtime core for state, policy, ontology, context, agent loop, evidence, and stop gates
+- backend/model layer for local inference
+- CLI surface for user input, streaming display, approval prompts, diffs, and final reports
 
 Initial command sketch:
 
@@ -55,7 +61,7 @@ rpotato doctor
 rpotato config
 ```
 
-The CLI should feel lightweight and direct. It should not require users to understand local LLM tooling before they can start.
+The CLI should feel lightweight and direct. It is not the product boundary; it is the first way users drive the runtime. It should not require users to understand local LLM tooling before they can start.
 
 ## Runtime Direction
 
@@ -92,16 +98,17 @@ Users should not have to install `llama.cpp` manually for the MVP path.
 
 Expected backend flow:
 
-1. `rpotato init` checks the host OS, architecture, RAM, disk, and existing config.
-2. `rpotato` resolves a source-verified backend release for the current platform.
-3. The user approves any network download.
-4. The backend archive is downloaded with resume support.
-5. The archive checksum is verified before extraction.
-6. The extracted backend binary is stored under the `rpotato` app data root.
-7. `rpotato backend doctor` verifies binary path, executable bit, version, port readiness, and health check behavior.
-8. `rpotato run` starts or reuses the sidecar as a child process, records PID/port/log paths, and shuts it down when the owning session ends unless reuse is enabled.
+1. `rpotato init` sends an init request to the runtime core.
+2. The runtime core checks the host OS, architecture, RAM, disk, and existing config.
+3. The runtime core resolves a source-verified backend release for the current platform.
+4. The CLI surface asks the user to approve any network download.
+5. The runtime core downloads the backend archive with resume support.
+6. The runtime core verifies the archive checksum before extraction.
+7. The extracted backend binary is stored under the `rpotato` app data root.
+8. `rpotato backend doctor` renders runtime diagnostics for binary path, executable bit, version, port readiness, and health check behavior.
+9. `rpotato run` asks the runtime core to start or reuse the sidecar as a child process, record PID/port/log paths, and shut it down when the owning session ends unless reuse is enabled.
 
-The sidecar is "container-like" in ownership but not Docker-based. It is an isolated, CLI-managed child process with explicit paths, logs, port, health check, and cleanup. Docker is not the MVP default because it adds a heavy external prerequisite for low-end macOS/Windows users.
+The sidecar is "container-like" in ownership but not Docker-based. It is an isolated, runtime-managed child process with explicit paths, logs, port, health check, and cleanup. Docker is not the MVP default because it adds a heavy external prerequisite for low-end macOS/Windows users.
 
 Manual backend override remains possible later through config:
 
@@ -120,7 +127,7 @@ Priority evaluation candidate:
 Status:
 
 - user-directed candidate, not a confirmed default
-- exact upstream model, GGUF artifact, license, checksum, and runtime fit are unverified
+- exact GGUF artifact, artifact provider terms, checksum, and runtime fit are unverified
 - do not describe Korean/code/agent quality, multimodal support, or 16 GB suitability as fact until source-backed evaluation is complete
 
 Comparison candidate:
@@ -130,7 +137,7 @@ Comparison candidate:
 Status:
 
 - comparison candidate only
-- license, artifact, multimodal support, and runtime fit are unverified
+- artifact, artifact provider terms, multimodal support, and runtime fit are unverified
 - useful only after source-backed artifact selection and benchmark design
 
 Not the default:
@@ -139,20 +146,21 @@ Not the default:
 
 ## Model And Runtime Download Flow
 
-Model weights should not be bundled into the initial CLI installer.
+Model weights should not be bundled into the initial `rpotato` release artifact.
 
 Expected flow:
 
 1. User installs `rpotato`.
 2. User runs `rpotato init` or `rpotato model install`.
-3. CLI checks OS, architecture, RAM, and available disk.
-4. CLI verifies or installs the managed backend binary.
-5. CLI recommends a source-verified model candidate only after manifest validation.
-6. User explicitly agrees to download.
-7. CLI downloads the model with resume support.
-8. CLI verifies hash.
-9. CLI registers the model in local config.
-10. CLI starts or reuses the local runtime.
+3. CLI surface forwards the request to the runtime core.
+4. Runtime core checks OS, architecture, RAM, and available disk.
+5. Runtime core verifies or installs the managed backend binary.
+6. Runtime core recommends a source-verified model candidate only after manifest validation.
+7. CLI surface asks the user to explicitly approve download.
+8. Runtime core downloads the model with resume support.
+9. Runtime core verifies hash.
+10. Runtime core registers the model in local config.
+11. Runtime core starts or reuses the local inference backend.
 
 Model metadata should live in a manifest:
 
@@ -176,7 +184,9 @@ The runtime should own:
 - model install/cache management
 - backend binary install/cache management
 - model process lifecycle
+- session lifecycle and state transitions
 - prompt compilation per model
+- ontology and context lifecycle
 - context packing
 - repo/file indexing
 - tool permission policy
@@ -216,7 +226,7 @@ Platform paths are decided during Phase 1, but the boundary should stay stable:
 
 ## Uninstall And Cache Policy
 
-Uninstall must be executable from the CLI and must show a dry-run summary before deleting anything.
+Uninstall must be exposed through the CLI surface and must show a dry-run summary before deleting anything.
 
 Commands:
 
@@ -271,7 +281,7 @@ Runtime guard:
 
 ## CLI Safety Model
 
-Default behavior should be conservative:
+The CLI surface displays and asks. The runtime core decides and enforces. Default behavior should be conservative:
 
 - read files freely inside the selected project
 - require confirmation before writing files
@@ -298,12 +308,12 @@ Likely package channels:
 
 Implementation language candidates:
 
-- Rust: preferred for single-binary CLI, process control, packaging, and cross-platform reliability
+- Rust: preferred for single-binary distribution, process control, packaging, and cross-platform reliability
 - TypeScript/Node: faster prototype, but weaker for self-contained distribution
 
 Current lean:
 
-- Rust core CLI
+- Rust runtime core with CLI surface
 - managed `llama.cpp` sidecar
 - adapter boundary for future backends
 
@@ -311,7 +321,7 @@ Current lean:
 
 The first useful version should:
 
-1. install and run as `rpotato`
+1. install and run through the `rpotato` CLI surface
 2. install or verify a managed `llama.cpp` backend after user consent when download is needed
 3. download one recommended GGUF model after user consent
 4. start local inference backend
@@ -321,7 +331,7 @@ The first useful version should:
 8. show the diff before applying
 9. run a verification command when approved
 10. produce a Korean-only final report
-11. uninstall managed runtime assets through CLI with keep-cache and purge-cache paths
+11. uninstall managed runtime assets through the runtime with keep-cache and purge-cache paths exposed by CLI
 
 ## Open Questions
 
@@ -336,14 +346,17 @@ The first useful version should:
 
 ## Current Documentation
 
-This initial plan has been split into:
+Core design docs:
 
 1. `README.md` positioning draft
 2. `docs/architecture.md`
 3. `docs/model-eval.md`
 4. `docs/mvp.md`
+5. `docs/runtime-architecture.md`
+6. `docs/glossary.md`
+7. `docs/ontology-runtime.md`
 
-Open-source operating docs have also been added:
+Open-source operating docs:
 
 1. `LICENSE`
 2. `GOVERNANCE.md`
@@ -353,14 +366,17 @@ Open-source operating docs have also been added:
 6. `ROADMAP.md`
 7. `docs/development.md`
 8. `docs/release.md`
-9. `docs/model-manifest.md`
-10. `docs/model-licenses.md`
-11. `docs/model-source-policy.md`
-12. `docs/backend-adapters.md`
-13. `docs/command-policy.md`
-14. `docs/korean-output-guard.md`
-15. `docs/threat-model.md`
-16. `docs/benchmarks.md`
+
+Runtime policy and validation docs:
+
+1. `docs/model-manifest.md`
+2. `docs/model-licenses.md`
+3. `docs/model-source-policy.md`
+4. `docs/backend-adapters.md`
+5. `docs/command-policy.md`
+6. `docs/korean-output-guard.md`
+7. `docs/threat-model.md`
+8. `docs/benchmarks.md`
 
 Project-local automation and contribution policy is recorded in `AGENTS.md`: external code PRs are not accepted, safe verified units should be committed and pushed automatically, and commit messages use Conventional Commits in the form `type(scope): title`.
 
@@ -370,6 +386,6 @@ Next implementation-oriented decisions:
 
 1. choose the exact trusted `Qwen3.5-4B` GGUF artifact
 2. define the initial model manifest format on disk
-3. scaffold the Rust CLI
+3. separate runtime core modules from the CLI surface
 4. implement `rpotato doctor` before agent behavior
 5. build the first fixture benchmark for Korean/code/tool reliability

@@ -29,9 +29,11 @@ The plan document contains the initial product direction, runtime assumptions, m
 The README and docs split that plan into:
 
 - Korean-first product positioning
-- Rust CLI and `llama.cpp` sidecar architecture
+- Rust runtime core, CLI surface, and `llama.cpp` sidecar architecture
 - MVP acceptance criteria
 - Korean/code/tool model evaluation draft
+- runtime architecture and terminology
+- ontology runtime design
 
 Open-source operating docs have also been added:
 
@@ -53,6 +55,9 @@ Open-source operating docs have also been added:
 - `docs/korean-output-guard.md`
 - `docs/threat-model.md`
 - `docs/benchmarks.md`
+- `docs/runtime-architecture.md`
+- `docs/glossary.md`
+- `docs/ontology-runtime.md`
 
 External code contributions and external PRs are not accepted for now. This is now recorded in `AGENTS.md`, `GOVERNANCE.md`, `MAINTAINERS.md`, README, and the GitHub issue templates.
 
@@ -87,9 +92,9 @@ Reasoning:
 
 ## Core Intent
 
-Build a local-first CLI coding agent runtime for small local models.
+Build a local-first coding agent runtime for small local models. The first surface is the `rpotato` CLI, but the product body is the runtime core.
 
-This is not just a prompt harness. The user specifically corrected the framing:
+This is not just a prompt harness and not merely a model downloader CLI. The user specifically corrected the framing:
 
 > It should be runtime plus harness integration. Small models probably need their own runtime. Claude Code is designed for large models.
 
@@ -97,7 +102,14 @@ Accepted thesis:
 
 > Small models need a small-model runtime, not just a smaller prompt.
 
-The product should make small models reliable by narrowing choices, managing context, validating actions, controlling retries, and enforcing Korean-only output.
+The product should make small models reliable by narrowing choices, managing context, maintaining ontology, validating actions, controlling retries, and enforcing Korean-only output.
+
+Standing boundary:
+
+- CLI surface displays, prompts, and forwards user intent.
+- Runtime core owns state, policy, ontology, context, agent loop, evidence, and stop gates.
+- Backend adapter owns inference calls only.
+- Model output never executes tools directly.
 
 ## Target Users
 
@@ -120,13 +132,13 @@ Default runtime direction:
 - `llama.cpp`
 - GGUF model format
 - managed sidecar process or later native integration
-- cross-platform CLI distribution
+- cross-platform runtime distribution with CLI surface
 
 Rejected as default:
 
 - MLX: too Mac-specific
 - vLLM: better as server/GPU backend, not low-end local default
-- Tauri/Electron: GUI app stacks; user wants Claude Code-like CLI
+- Tauri/Electron: GUI app stacks; MVP starts with Claude Code-like CLI surface
 - Ollama as core runtime: convenient, but too heavy/opaque for a tight integrated runtime
 
 Adapters to consider later:
@@ -145,14 +157,14 @@ Status:
 
 - user-directed priority evaluation candidate
 - not a confirmed default model
-- exact upstream model, GGUF artifact, license, checksum, Korean/code quality, multimodal support, and 16 GB runtime fit are unverified
+- exact GGUF artifact, artifact provider terms, checksum, Korean/code quality, multimodal support, and 16 GB runtime fit are unverified
 - do not make model claims without explicit sources
 
 Comparison candidate:
 
 - `Gemma 4 E4B`
 
-Keep it for benchmark comparison only. License, artifact, multimodal support, and runtime fit are unverified until source-backed evaluation is complete.
+Keep it for benchmark comparison only. Artifact, artifact provider terms, multimodal support, and runtime fit are unverified until source-backed evaluation is complete.
 
 Not default:
 
@@ -172,7 +184,9 @@ Runtime should enforce:
 
 Model choice alone is not enough for this requirement.
 
-## CLI Shape
+## Runtime Surface Shape
+
+MVP surface: `rpotato` CLI.
 
 Initial command sketch:
 
@@ -190,15 +204,16 @@ Expected first-run model flow:
 
 1. User installs `rpotato`.
 2. User runs `rpotato init` or `rpotato model install`.
-3. CLI checks OS, architecture, RAM, and disk.
-4. CLI recommends a model.
-5. User explicitly approves download.
-6. CLI downloads model with resume support.
-7. CLI verifies hash.
-8. CLI registers model in local config.
-9. CLI starts or reuses the local inference backend.
+3. CLI surface forwards the request to runtime core.
+4. Runtime core checks OS, architecture, RAM, and disk.
+5. Runtime core recommends a source-verified model only after manifest validation.
+6. CLI surface asks the user to explicitly approve download.
+7. Runtime core downloads model with resume support.
+8. Runtime core verifies hash.
+9. Runtime core registers model in local config.
+10. Runtime core starts or reuses the local inference backend.
 
-Model weights should not be bundled into the CLI installer.
+Model weights should not be bundled into the `rpotato` release artifact.
 
 ## Publishing Direction
 
@@ -216,7 +231,7 @@ Likely package channels later:
 
 Current implementation lean:
 
-- Rust CLI
+- Rust runtime core with CLI surface
 - `llama.cpp` sidecar
 - backend adapter boundary from day one
 
@@ -240,9 +255,9 @@ sed -n '1,260p' HANDOFF.md
 
 Suggested next work:
 
-1. Initialize and push the independent Git repository to `https://github.com/MCprotein/rolling-potato.git` if not already done.
-2. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.
-3. Scaffold the Rust CLI around `rpotato init`, `rpotato doctor`, and `rpotato model list`.
+1. Keep the CLI surface/runtime core/backend boundaries aligned with `docs/runtime-architecture.md`.
+2. Split the current scaffold toward explicit runtime core modules before adding complex agent behavior.
+3. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.
 4. Implement `llama.cpp` sidecar discovery/health-check before chat behavior.
 5. Build the first fixture benchmark for Korean/code/tool reliability.
 
@@ -251,6 +266,6 @@ Suggested next work:
 - User wants direct, practical Korean discussion.
 - User is comfortable with technical tradeoffs.
 - User wants the product idea shaped before implementation.
-- User prefers CLI, not GUI.
+- User wants a Claude Code/Codex/Gaja Code-like runtime. CLI is the first surface, not the whole product.
 - User wants Windows compatibility, so avoid Mac-only defaults.
 - User is skeptical of heavy runtimes and wants the runtime to be appropriate for small models.
