@@ -36,19 +36,19 @@
       "artifactName": "TODO.gguf",
       "format": "gguf",
       "backend": "llama.cpp",
-      "quantization": "Q4_K_M",
-      "recommendedRamGb": 16,
-      "contextLength": 8192,
+      "quantization": "TODO",
+      "recommendedRamGb": null,
+      "contextLength": null,
       "license": "TODO",
       "url": "TODO",
       "sha256": "TODO",
-      "sizeBytes": 0
+      "sizeBytes": null
     }
   ]
 }
 ```
 
-이 예시는 schema shape만 보여줍니다. `TODO` 값은 제품 사실이 아니며, 실제 manifest에는 [model-source-policy.md](model-source-policy.md)에 따른 출처 확인 후 값을 채웁니다.
+이 예시는 schema shape만 보여줍니다. `TODO`와 `null` 값은 제품 사실이 아니며, 실제 manifest에는 [model-source-policy.md](model-source-policy.md)에 따른 출처 확인 후 값을 채웁니다.
 
 ## 필수 검증
 

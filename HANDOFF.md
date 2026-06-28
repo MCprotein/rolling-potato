@@ -132,7 +132,7 @@ Initial machine target:
 
 - 16 GB RAM laptop
 - macOS and Windows first
-- Linux later or contributor-driven
+- Linux later, maintainer-led or after governance policy changes
 
 ## Runtime Direction
 
@@ -203,8 +203,16 @@ Initial command sketch:
 rpotato init
 rpotato chat
 rpotato run "이 에러 고쳐줘"
+rpotato tui
+rpotato skill list
+rpotato skill run fix-test
+rpotato team status
 rpotato model list
 rpotato model install qwen3.5-4b
+rpotato backend doctor
+rpotato cache status
+rpotato uninstall --keep-cache
+rpotato uninstall --purge-cache
 rpotato doctor
 rpotato config
 ```

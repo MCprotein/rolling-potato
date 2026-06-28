@@ -219,12 +219,14 @@ guard 단계:
   "displayName": "Qwen3.5 4B",
   "format": "gguf",
   "backend": "llama.cpp",
-  "recommendedRamGb": 16,
+  "recommendedRamGb": null,
   "license": "TODO",
   "sha256": "TODO",
   "url": "TODO"
 }
 ```
+
+`null`과 `TODO`는 schema placeholder이며 제품 사실이 아닙니다.
 
 정확한 artifact URL, hash, license, backend 호환성은 벤치마크와 출처 확인 후 확정합니다. 모델 관련 claim은 [model-source-policy.md](model-source-policy.md)를 따릅니다.
 

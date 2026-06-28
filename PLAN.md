@@ -31,7 +31,7 @@ Initial hardware target:
 
 - 16 GB RAM laptop
 - macOS and Windows first
-- Linux later or contributor-driven
+- Linux later, maintainer-led or after governance policy changes
 
 ## Product Shape
 
@@ -178,12 +178,14 @@ Model metadata should live in a manifest:
   "displayName": "Qwen3.5 4B",
   "format": "gguf",
   "backend": "llama.cpp",
-  "recommendedRamGb": 16,
+  "recommendedRamGb": null,
   "license": "TODO",
   "sha256": "TODO",
   "url": "TODO"
 }
 ```
+
+This is a schema sketch. `null` and `TODO` values are placeholders, not product facts.
 
 ## Small-Model Runtime Responsibilities
 
