@@ -20,11 +20,16 @@
 - 로컬 추론 백엔드 실행
 - 저장소 컨텍스트 압축
 - 도구 권한 정책
+- 훅과 스킬
+- 서브에이전트와 팀 실행
 - 패치 생성과 검증
 - 재시도 제어
+- CLI와 TUI surface
 - 한국어 전용 최종 응답 검증
 
 `rpotato` CLI는 이 런타임을 사용하는 첫 번째 surface입니다. Claude Code, Codex, 가재코드처럼 사용자는 CLI에서 작업을 시작하지만, 세션 상태, 도구 권한, 온톨로지, context, agent loop, 검증 gate는 CLI가 아니라 runtime core가 소유해야 합니다.
+
+최종 목표는 Claude Code/Codex를 대신해 쓸 수 있는 로컬 agent runtime입니다. 따라서 hooks, skills, subagents, team runtime, TUI는 선택 기능이 아니라 제품 완성에 필요한 1급 capability입니다.
 
 ## 대상 사용자
 
@@ -55,11 +60,16 @@
 ## Runtime Surface 초안
 
 MVP의 첫 surface는 CLI입니다.
+TUI는 replacement-level runtime에 필요한 필수 surface입니다.
 
 ```sh
 rpotato init
 rpotato chat
 rpotato run "이 에러 고쳐줘"
+rpotato tui
+rpotato skill list
+rpotato skill run fix-test
+rpotato team status
 rpotato model list
 rpotato model install qwen3.5-4b
 rpotato backend doctor
@@ -95,6 +105,9 @@ MVP의 기본 결정은 다음과 같습니다.
 - 기본 백엔드: `llama.cpp`
 - 모델 포맷: GGUF
 - 실행 방식: 관리형 `llama-server` sidecar
+- 첫 surface: CLI
+- 필수 surface: TUI
+- 필수 runtime capability: hooks, skills, subagents, team runtime
 - 우선 평가 후보: `Qwen3.5-4B` 계열 quantized GGUF, artifact/runtime 검증 전 미확정
 - 비교 평가 후보: `Gemma 4 E4B` 계열 quantized GGUF, artifact/runtime 검증 전 미확정
 
@@ -156,6 +169,11 @@ MVP의 기본 결정은 다음과 같습니다.
 - [docs/runtime-architecture.md](docs/runtime-architecture.md): runtime core와 surface/backend 경계
 - [docs/glossary.md](docs/glossary.md): 프로젝트 용어 정의
 - [docs/ontology-runtime.md](docs/ontology-runtime.md): 온톨로지 runtime 설계
+- [docs/hooks.md](docs/hooks.md): runtime lifecycle hook 설계
+- [docs/skills.md](docs/skills.md): 재사용 가능한 runtime skill 설계
+- [docs/subagents.md](docs/subagents.md): 서브에이전트 실행 경계
+- [docs/team-runtime.md](docs/team-runtime.md): 팀 실행 runtime 설계
+- [docs/tui.md](docs/tui.md): TUI surface 설계
 - [docs/model-manifest.md](docs/model-manifest.md): 모델 manifest schema
 - [docs/model-source-policy.md](docs/model-source-policy.md): 모델 정보 출처 정책
 - [docs/model-licenses.md](docs/model-licenses.md): 모델 라이선스 추적

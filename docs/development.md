@@ -21,6 +21,7 @@
 - Language: Rust
 - CLI parser: std 기반 수동 parser
 - Runtime: CLI surface와 runtime core를 분리하는 방향
+- Required capabilities: hooks, skills, subagents, team runtime, TUI
 - Backend: managed `llama.cpp` sidecar
 - Model format: GGUF
 - Primary OS targets: macOS, Windows
@@ -64,12 +65,17 @@ cargo run -- model list
 
 - `cli`: command parsing and output
 - `runtime`: state, policy, ontology, agent loop orchestration
+- `hooks`: lifecycle control points
+- `skills`: reusable runtime capabilities
 - `config`: local config paths and serialization
 - `model`: manifest, download, checksum, registry
 - `backend`: backend adapter trait and `llama.cpp` implementation
 - `repo`: project file discovery and context packing
 - `ontology`: Layer A facts and Layer B semantic ontology
 - `agent`: planner/executor/verifier/reporter loop
+- `subagent`: bounded worker lifecycle
+- `team`: staged multi-agent coordination
+- `tui`: terminal interactive surface
 - `policy`: command and file permission rules
 - `patch`: diff rendering and apply flow
 - `evidence`: ledger, verification evidence, stop gate

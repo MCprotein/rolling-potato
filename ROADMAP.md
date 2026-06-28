@@ -22,6 +22,7 @@
 - 완료 판정은 모델의 말이 아니라 검증 evidence와 Stop gate가 결정한다.
 - 현재 상태 view와 append-only ledger를 분리한다.
 - mode 전환은 모델의 즉흥 판단이 아니라 deterministic rule과 runtime state로 처리한다.
+- hooks, skills, subagents, team runtime, TUI는 replacement-level runtime의 1급 capability다.
 - compaction, resume, cancel, corrupt state fallback은 초기 runtime 설계에 포함한다.
 - 공개 claim과 모델 claim은 evidence보다 넓게 쓰지 않는다.
 
@@ -35,6 +36,8 @@
 - [x] 모델 출처 정책
 - [x] 하네스 운영 모델 검토
 - [x] `anamnesis` 온톨로지/context lifecycle 검토
+- [x] runtime surface/core/backend 경계 문서화
+- [x] hooks/skills/subagents/team/TUI 필수 capability 반영
 
 ## Phase 1: Runtime Entrypoint And CLI Surface
 
@@ -94,6 +97,9 @@
 목표: 사용자 입력을 모델에게 넘기기 전에 runtime이 mode, 제약, 완료 기준을 먼저 정규화한다.
 
 - [ ] explicit invocation 우선순위
+- [ ] skill invocation grammar
+- [ ] `rpotato skill list`
+- [ ] `rpotato skill run <id>`
 - [ ] active workflow 귀속 규칙
 - [ ] deterministic keyword/phrase rule table
 - [ ] structural signal extraction: read-only, plan-only, review-only, test-spec
@@ -102,6 +108,7 @@
 - [ ] repo instruction loading boundary
 - [ ] generated artifact requirement 추출
 - [ ] nested/subagent prompt keyword non-activation
+- [ ] TUI command palette routing
 - [ ] intent fixture test
 
 ## Phase 4: Permission And Tool Boundary
@@ -110,6 +117,13 @@
 
 - [ ] tool/action schema
 - [ ] hook/control-point input/output schema
+- [ ] hook registry
+- [ ] lifecycle hooks: session_start, user_request_received, pre_context_pack, post_context_pack
+- [ ] lifecycle hooks: pre_model_request, post_model_response, pre_action_parse, post_action_parse
+- [ ] lifecycle hooks: pre_tool_call, post_tool_result, pre_patch_apply, post_patch_apply
+- [ ] lifecycle hooks: pre_command_run, post_command_run, pre_final_report, stop_gate, session_end
+- [ ] hook ordering: runtime, project, skill, session, observer
+- [ ] hook conflict rule: deny > ask > modify > allow > observe
 - [ ] project boundary checker
 - [ ] 파일 읽기 allow/exclude 규칙
 - [ ] rule source: user, project, local, session, policy
@@ -126,6 +140,7 @@
 - [ ] permission decision audit record
 - [ ] policy fixture test
 - [ ] hook JSON input/output fixture test
+- [ ] hook fail-closed fixture test
 
 ## Phase 5: Model Manifest And Install
 
@@ -187,6 +202,12 @@
 목표: 작은 모델에 필요한 지시, 온톨로지, context, 출력 형식을 매번 임기응변으로 넣지 않고 runtime이 조립한다.
 
 - [ ] prompt compiler
+- [ ] skill manifest schema
+- [ ] skill registry
+- [ ] skill context requirements
+- [ ] skill allowed tools
+- [ ] skill evidence requirements
+- [ ] skill stop criteria
 - [ ] role templates: planner, executor, verifier, reporter
 - [ ] 한국어 final-response instruction
 - [ ] 구조화된 action output format
@@ -260,7 +281,38 @@
 - [ ] resume/cancel E2E test
 - [ ] regression test report format
 
-## Phase 11: Packaging And Release
+## Phase 11: Subagents, Team Runtime, And TUI Surface
+
+목표: Claude Code/Codex를 대신할 replacement-level runtime에 필요한 interactive surface와 bounded multi-agent 실행을 구현한다.
+
+- [ ] subagent role schema
+- [ ] subagent task slice contract
+- [ ] subagent allowed tools/path/context boundary
+- [ ] subagent lifecycle: start, complete, blocked, failed, cancelled
+- [ ] parent cancellation propagation
+- [ ] shared file conflict detection
+- [ ] subagent evidence merge
+- [ ] team manifest schema
+- [ ] team pipeline: plan, dispatch, exec, review, verify, merge, report
+- [ ] team write policy: single writer per file
+- [ ] team merge policy: runtime-owned merge
+- [ ] team stage ledger
+- [ ] failed worker continuation policy
+- [ ] `rpotato team status`
+- [ ] TUI framework decision
+- [ ] `rpotato tui`
+- [ ] TUI transcript/session view
+- [ ] TUI plan/context/ontology view
+- [ ] TUI approval queue
+- [ ] TUI diff viewer
+- [ ] TUI tool output viewer
+- [ ] TUI subagent/team status view
+- [ ] TUI evidence/stop gate view
+- [ ] TUI cancel/resume controls
+- [ ] TUI small terminal smoke test
+- [ ] TUI policy-bypass regression test
+
+## Phase 12: Packaging And Release
 
 목표: 사용자가 모델 가중치 없이 runtime surface를 설치하고, 첫 모델 설치를 안전하게 진행할 수 있게 한다.
 
@@ -278,14 +330,13 @@
 ## MVP 전 비범위
 
 - GUI 앱
-- parallel agents
+- runtime 소유권 없는 unbounded parallel agents
 - 여러 모델 동시 로딩
 - remote GPU/server mode 기본 지원
 - MCP server ecosystem
 - 모든 MCP transport 지원
 - remote bridge
-- full TUI/IDE/Desktop/Web surface
-- team orchestration
+- IDE/Desktop/Web surface
 - destructive command 자동 실행
 - 외부 코드 PR workflow
 - 출처 없는 모델 추천

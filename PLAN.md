@@ -17,7 +17,7 @@ Core thesis:
 
 > Small models need a small-model runtime, not just a smaller prompt.
 
-Claude Code, Codex, and Gaja Code style tools expose a CLI-like agent experience, but the product is the runtime behind that surface. `rolling-potato` assumes the model is useful but fragile, so the runtime core must manage context, ontology, actions, validation, retries, and user-facing language.
+Claude Code, Codex, and Gaja Code style tools expose a CLI-like agent experience, but the product is the runtime behind that surface. `rolling-potato` assumes the model is useful but fragile, so the runtime core must manage context, ontology, hooks, skills, subagents, team execution, actions, validation, retries, and user-facing language.
 
 ## Target Users
 
@@ -38,12 +38,16 @@ Initial hardware target:
 Primary surface:
 
 - CLI, similar in spirit to Claude Code / Codex / Gaja Code
+- TUI, required for replacement-level interactive use
 
 Product body:
 
 - runtime core for state, policy, ontology, context, agent loop, evidence, and stop gates
 - backend/model layer for local inference
-- CLI surface for user input, streaming display, approval prompts, diffs, and final reports
+- hook system for lifecycle control points
+- skill system for reusable workflows
+- subagent and team runtime for bounded multi-agent work
+- CLI/TUI surfaces for user input, streaming display, approval prompts, diffs, status, and final reports
 
 Initial command sketch:
 
@@ -51,6 +55,10 @@ Initial command sketch:
 rpotato init
 rpotato chat
 rpotato run "이 에러 고쳐줘"
+rpotato tui
+rpotato skill list
+rpotato skill run fix-test
+rpotato team status
 rpotato model list
 rpotato model install qwen3.5-4b
 rpotato backend doctor
@@ -90,7 +98,7 @@ Excluded as default:
 
 - MLX, because it is Apple Silicon specific
 - vLLM, because it is better as a server/GPU backend than a default low-end local runtime
-- Tauri/Electron, because the first product is CLI, not GUI
+- Tauri/Electron, because the required interactive surface is terminal TUI before GUI
 
 ## Managed Backend Distribution
 
@@ -185,11 +193,15 @@ The runtime should own:
 - backend binary install/cache management
 - model process lifecycle
 - session lifecycle and state transitions
+- hook lifecycle
+- skill invocation and state
 - prompt compilation per model
 - ontology and context lifecycle
 - context packing
 - repo/file indexing
 - tool permission policy
+- subagent lifecycle
+- team coordination
 - structured action schemas
 - constrained output where possible
 - retry policy
@@ -250,7 +262,7 @@ Behavior:
 
 ## Agent Strategy
 
-Default to sequential agents, not parallel agents.
+Default to sequential agents for small tasks. Support subagents and team execution for tasks that materially benefit from parallel or staged work.
 
 Initial roles:
 
@@ -261,11 +273,19 @@ Initial roles:
 
 Avoid by default:
 
-- parallel decoding
+- unbounded parallel decoding
 - loading the model multiple times
 - large context dumps
 - unbounded shell access
 - long free-form reasoning output
+
+Required advanced runtime capabilities:
+
+- lifecycle hooks
+- reusable skills
+- bounded subagents
+- team orchestration
+- TUI surface
 
 ## Korean-Only Requirement
 
@@ -314,6 +334,7 @@ Implementation language candidates:
 Current lean:
 
 - Rust runtime core with CLI surface
+- terminal TUI as required product surface
 - managed `llama.cpp` sidecar
 - adapter boundary for future backends
 
@@ -333,6 +354,14 @@ The first useful version should:
 10. produce a Korean-only final report
 11. uninstall managed runtime assets through the runtime with keep-cache and purge-cache paths exposed by CLI
 
+Replacement-level beta should additionally:
+
+1. expose a TUI surface
+2. run skills with hook-attached policy and evidence gates
+3. support bounded subagents
+4. support team execution with runtime-owned merge and stop gates
+5. show approvals, diff, tool output, subagent/team status, and evidence in the TUI
+
 ## Open Questions
 
 - Rust first, or TypeScript prototype first?
@@ -341,6 +370,11 @@ The first useful version should:
 - How should self-delete work on Windows package-manager installs?
 - Should image/screenshot understanding be MVP or later?
 - How strict should command approval be?
+- What hooks are enabled by default?
+- What skills ship first?
+- What subagent concurrency limit is safe on 16 GB RAM?
+- What team pipeline is required for replacement-level workflows?
+- Which Rust TUI framework should be used?
 - Should `rpotato` support non-code general automation later?
 - What is the first benchmark suite for Korean/code/tool reliability?
 
@@ -355,6 +389,11 @@ Core design docs:
 5. `docs/runtime-architecture.md`
 6. `docs/glossary.md`
 7. `docs/ontology-runtime.md`
+8. `docs/hooks.md`
+9. `docs/skills.md`
+10. `docs/subagents.md`
+11. `docs/team-runtime.md`
+12. `docs/tui.md`
 
 Open-source operating docs:
 
@@ -377,6 +416,11 @@ Runtime policy and validation docs:
 6. `docs/korean-output-guard.md`
 7. `docs/threat-model.md`
 8. `docs/benchmarks.md`
+9. `docs/hooks.md`
+10. `docs/skills.md`
+11. `docs/subagents.md`
+12. `docs/team-runtime.md`
+13. `docs/tui.md`
 
 Project-local automation and contribution policy is recorded in `AGENTS.md`: external code PRs are not accepted, safe verified units should be committed and pushed automatically, and commit messages use Conventional Commits in the form `type(scope): title`.
 

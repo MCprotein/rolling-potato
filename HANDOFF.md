@@ -34,6 +34,7 @@ The README and docs split that plan into:
 - Korean/code/tool model evaluation draft
 - runtime architecture and terminology
 - ontology runtime design
+- hooks, skills, subagents, team runtime, and TUI design
 
 Open-source operating docs have also been added:
 
@@ -58,6 +59,11 @@ Open-source operating docs have also been added:
 - `docs/runtime-architecture.md`
 - `docs/glossary.md`
 - `docs/ontology-runtime.md`
+- `docs/hooks.md`
+- `docs/skills.md`
+- `docs/subagents.md`
+- `docs/team-runtime.md`
+- `docs/tui.md`
 
 External code contributions and external PRs are not accepted for now. This is now recorded in `AGENTS.md`, `GOVERNANCE.md`, `MAINTAINERS.md`, README, and the GitHub issue templates.
 
@@ -104,10 +110,13 @@ Accepted thesis:
 
 The product should make small models reliable by narrowing choices, managing context, maintaining ontology, validating actions, controlling retries, and enforcing Korean-only output.
 
+The user clarified the target: this runtime should be usable instead of Claude Code/Codex. Therefore hooks, skills, subagents, team runtime, and TUI are required product capabilities, not optional extras.
+
 Standing boundary:
 
 - CLI surface displays, prompts, and forwards user intent.
 - Runtime core owns state, policy, ontology, context, agent loop, evidence, and stop gates.
+- Runtime core owns hooks, skills, subagent lifecycle, team coordination, and TUI state feeds.
 - Backend adapter owns inference calls only.
 - Model output never executes tools directly.
 
@@ -232,6 +241,7 @@ Likely package channels later:
 Current implementation lean:
 
 - Rust runtime core with CLI surface
+- TUI surface after the first CLI vertical slice
 - `llama.cpp` sidecar
 - backend adapter boundary from day one
 
@@ -256,10 +266,10 @@ sed -n '1,260p' HANDOFF.md
 Suggested next work:
 
 1. Keep the CLI surface/runtime core/backend boundaries aligned with `docs/runtime-architecture.md`.
-2. Split the current scaffold toward explicit runtime core modules before adding complex agent behavior.
-3. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.
-4. Implement `llama.cpp` sidecar discovery/health-check before chat behavior.
-5. Build the first fixture benchmark for Korean/code/tool reliability.
+2. Keep hooks, skills, subagents, team runtime, and TUI aligned with their docs before adding complex agent behavior.
+3. Split the current scaffold toward explicit runtime core modules.
+4. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.
+5. Implement `llama.cpp` sidecar discovery/health-check before chat behavior.
 
 ## User Preference Notes
 
@@ -267,5 +277,6 @@ Suggested next work:
 - User is comfortable with technical tradeoffs.
 - User wants the product idea shaped before implementation.
 - User wants a Claude Code/Codex/Gaja Code-like runtime. CLI is the first surface, not the whole product.
+- Hooks, skills, subagents, team runtime, and TUI are required for the target product.
 - User wants Windows compatibility, so avoid Mac-only defaults.
 - User is skeptical of heavy runtimes and wants the runtime to be appropriate for small models.
