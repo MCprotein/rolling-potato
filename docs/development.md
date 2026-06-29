@@ -17,6 +17,9 @@
 - `rpotato cancel`
 - `rpotato monitor status`
 - `rpotato monitor models`
+- `rpotato monitor export --format jsonl`
+- `rpotato monitor export --format csv`
+- `rpotato monitor prune --before 30d --dry-run`
 - `rpotato model list`
 - `rpotato model install <id>`
 - `rpotato plugin import --from codex <local-path> --dry-run`
@@ -24,6 +27,8 @@
 - `rpotato plugin list`
 - `rpotato uninstall --keep-cache`
 - `rpotato uninstall --purge-cache`
+
+`rpotato init`은 state layout, current-state, append-only ledger, runtime evidence JSONL, SQLite observability projection을 실제로 초기화합니다.
 
 모델/backend 다운로드는 아직 활성화하지 않았습니다. 검증된 manifest가 없으면 runtime core가 다운로드를 차단하고 CLI surface가 그 이유를 표시해야 합니다.
 
@@ -45,6 +50,7 @@ Plugin source snapshot, persistent registry, enable/disable/remove는 아직 활
 
 - Git
 - Rust stable toolchain
+- SQLite runtime/library usable by `rusqlite`
 - platform-specific C/C++ runtime needed by `llama.cpp`
 
 권장 도구:
@@ -72,6 +78,9 @@ cargo run -- config
 cargo run -- state
 cargo run -- monitor status
 cargo run -- monitor models
+cargo run -- monitor export --format jsonl
+cargo run -- monitor export --format csv
+cargo run -- monitor prune --before 30d --dry-run
 cargo run -- model list
 cargo run -- uninstall --dry-run --purge-cache
 ```
@@ -84,6 +93,8 @@ cargo run -- uninstall --dry-run --purge-cache
 
 - `cli`: command parsing and output
 - `runtime`: state, policy, ontology, agent loop orchestration
+- `ledger`: append-only runtime/session ledger and redaction before persistence
+- `state`: current-state, project/session identity, cancel/no-op event recording
 - `hooks`: lifecycle control points
 - `skills`: reusable runtime capabilities
 - `plugins`: local Codex/Claude Code plugin import, inspect, validate, enable/disable
@@ -99,7 +110,7 @@ cargo run -- uninstall --dry-run --purge-cache
 - `policy`: command and file permission rules
 - `patch`: diff rendering and apply flow
 - `evidence`: ledger, verification evidence, stop gate
-- `observability`: SQLite projection, token/resource metrics, monitoring export
+- `observability`: SQLite migration/projection, token/resource metric schemas, monitoring export
 - `guard`: Korean output validation
 
 ## 문서 변경 검증

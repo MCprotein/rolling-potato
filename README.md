@@ -80,6 +80,9 @@ rpotato backend doctor
 rpotato cache status
 rpotato monitor status
 rpotato monitor models
+rpotato monitor export --format jsonl
+rpotato monitor export --format csv
+rpotato monitor prune --before 30d --dry-run
 rpotato uninstall --keep-cache
 rpotato uninstall --purge-cache
 rpotato doctor
@@ -152,6 +155,9 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato cancel`
 - `rpotato monitor status`
 - `rpotato monitor models`
+- `rpotato monitor export --format jsonl`
+- `rpotato monitor export --format csv`
+- `rpotato monitor prune --before 30d --dry-run`
 - `rpotato model list`
 - `rpotato model install <id>`
 - `rpotato plugin import --from codex <local-path> --dry-run`
@@ -159,6 +165,10 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato plugin list`
 - `rpotato uninstall --keep-cache`
 - `rpotato uninstall --purge-cache`
+
+`rpotato init`은 app data root와 project-local `.rpotato/` 아래에 current-state, append-only ledger, runtime evidence JSONL, SQLite observability projection을 초기화합니다.
+
+`monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 
 `model install`은 아직 실제 다운로드를 수행하지 않습니다. 검증된 GGUF artifact URL, checksum, provider terms, file size, `llama.cpp` 호환성 정보가 manifest에 들어오기 전까지 설치를 차단합니다.
 
@@ -168,7 +178,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 - 신뢰할 GGUF 모델 artifact 확정
 - `Qwen3.5-4B` 후보와 `Gemma 4 E4B` 후보 벤치마크
-- `rpotato init` 설정 파일 형식 확정
+- active workflow resume/reconcile 동작 구현
 - sidecar 프로세스 생명주기 설계 상세화
 
 벤치마크 초안은 [docs/model-eval.md](docs/model-eval.md)를 따릅니다.

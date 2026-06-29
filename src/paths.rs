@@ -2,6 +2,10 @@ use std::env;
 use std::path::PathBuf;
 
 pub fn app_data_root() -> PathBuf {
+    if let Some(path) = env::var_os("RPOTATO_DATA_HOME") {
+        return PathBuf::from(path);
+    }
+
     if cfg!(target_os = "macos") {
         if let Some(home) = env::var_os("HOME") {
             return PathBuf::from(home)
@@ -80,6 +84,14 @@ pub fn state_dir() -> PathBuf {
     app_data_root().join("state")
 }
 
+pub fn current_state_file() -> PathBuf {
+    state_dir().join("current-state.json")
+}
+
+pub fn runtime_evidence_file() -> PathBuf {
+    state_dir().join("runtime-evidence.jsonl")
+}
+
 pub fn observability_db_file() -> PathBuf {
     state_dir().join("observability.sqlite")
 }
@@ -105,7 +117,17 @@ pub fn cache_dir() -> PathBuf {
 }
 
 pub fn project_state_dir() -> PathBuf {
-    env::current_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join(".rpotato")
+    let project_root = env::var_os("RPOTATO_PROJECT_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+
+    project_root.join(".rpotato")
+}
+
+pub fn project_evidence_dir() -> PathBuf {
+    project_state_dir().join("evidence")
+}
+
+pub fn project_session_ledger_file() -> PathBuf {
+    project_state_dir().join("session-ledger.jsonl")
 }

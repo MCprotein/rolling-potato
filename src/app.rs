@@ -16,6 +16,13 @@ pub struct AppError {
 }
 
 impl AppError {
+    pub fn runtime(message: impl Into<String>) -> Self {
+        Self {
+            code: 1,
+            message: message.into(),
+        }
+    }
+
     pub fn usage(message: impl Into<String>) -> Self {
         Self {
             code: 2,
@@ -38,7 +45,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             Ok(())
         }
         Command::Init => {
-            println!("{}", runtime::init_report());
+            println!("{}", runtime::init_report()?);
             Ok(())
         }
         Command::Doctor => {
@@ -50,11 +57,11 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             Ok(())
         }
         Command::State => {
-            println!("{}", state::status_report());
+            println!("{}", state::status_report()?);
             Ok(())
         }
         Command::Cancel => {
-            println!("{}", state::cancel_report());
+            println!("{}", state::cancel_report()?);
             Ok(())
         }
         Command::BackendDoctor => {
@@ -66,11 +73,22 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             Ok(())
         }
         Command::Monitor(MonitorCommand::Status) => {
-            println!("{}", monitor::status_report());
+            println!("{}", monitor::status_report()?);
             Ok(())
         }
         Command::Monitor(MonitorCommand::Models) => {
-            println!("{}", monitor::models_report());
+            println!("{}", monitor::models_report()?);
+            Ok(())
+        }
+        Command::Monitor(MonitorCommand::Export { format }) => {
+            print!("{}", monitor::export_report(format)?);
+            Ok(())
+        }
+        Command::Monitor(MonitorCommand::Prune {
+            before_days,
+            dry_run,
+        }) => {
+            println!("{}", monitor::prune_report(before_days, dry_run)?);
             Ok(())
         }
         Command::Model(ModelCommand::List) => {
@@ -112,6 +130,9 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn unknown_command_returns_usage_error() {
@@ -151,7 +172,16 @@ mod tests {
 
     #[test]
     fn init_command_reports_layout_without_error() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!("rpotato-init-test-{}", std::process::id()));
+        let project_root = root.join("project");
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+
         let result = run(["init".to_string()]);
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
         assert_eq!(result, Ok(()));
     }
 }

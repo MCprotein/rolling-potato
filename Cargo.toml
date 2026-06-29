@@ -6,3 +6,4 @@ license = "Apache-2.0"
 description = "Local coding agents for potato PCs."
 
 [dependencies]
+rusqlite = { version = "0.40.1", default-features = false }

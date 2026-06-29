@@ -1,16 +1,84 @@
-use crate::{model, paths};
+use crate::app::AppError;
+use crate::cli::MonitorExportFormat;
+use crate::{model, observability, paths};
 
-pub fn status_report() -> String {
-    format!(
-        "monitor 상태\n- observability store: {}\n- runtime ledger: {}\n- raw prompt/source 저장: 기본 비활성\n- 현재 상태: SQLite projection은 Phase 2에서 생성 예정",
-        paths::observability_db_file().display(),
-        paths::runtime_ledger_file().display()
-    )
+pub fn status_report() -> Result<String, AppError> {
+    let store = observability::status()?;
+    let recovered = store
+        .recovered_from
+        .as_ref()
+        .map(|path| format!("\n- recovered corrupt db: {}", path.display()))
+        .unwrap_or_default();
+
+    Ok(format!(
+        "monitor 상태\n- observability store: {}\n- schema migration: v{}\n- runtime ledger: {}\n- runtime evidence: {}\n- ledger events: {}\n- sessions: {}\n- workflows: {}\n- model runs: {}\n- token usage records: {}\n- raw prompt/source 저장: 기본 비활성{}",
+        store.path.display(),
+        store.migration_version,
+        paths::runtime_ledger_file().display(),
+        paths::runtime_evidence_file().display(),
+        store.ledger_events,
+        store.sessions,
+        store.workflows,
+        store.model_runs,
+        store.token_records,
+        recovered
+    ))
 }
 
-pub fn models_report() -> String {
-    format!(
-        "model monitoring\n- model candidates: {}\n- token/latency/resource metric: Phase 2 observability store 이후 기록\n- export: JSONL/CSV 예정",
-        model::candidate_summary()
-    )
+pub fn models_report() -> Result<String, AppError> {
+    let summaries = observability::model_summaries()?;
+    if summaries.is_empty() {
+        return Ok(format!(
+            "model monitoring\n- model candidates: {}\n- recorded model runs: 없음\n- token/latency/resource metric: schema 준비됨, 실제 실행 기록은 backend runtime 이후 생성",
+            model::candidate_summary()
+        ));
+    }
+
+    let rows = summaries
+        .iter()
+        .map(|summary| {
+            let latency = summary
+                .avg_latency_ms
+                .map(|value| format!("{value:.1}ms"))
+                .unwrap_or_else(|| "미기록".to_string());
+            format!(
+                "- {}: runs {}, prompt {}, completion {}, total {}, avg latency {}",
+                summary.model_id,
+                summary.runs,
+                summary.prompt_tokens,
+                summary.completion_tokens,
+                summary.total_tokens,
+                latency
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    Ok(format!("model monitoring\n{rows}"))
+}
+
+pub fn export_report(format: MonitorExportFormat) -> Result<String, AppError> {
+    match format {
+        MonitorExportFormat::Jsonl => observability::export_jsonl(),
+        MonitorExportFormat::Csv => observability::export_csv(),
+    }
+}
+
+pub fn prune_report(before_days: u64, dry_run: bool) -> Result<String, AppError> {
+    let preview = observability::prune_preview(before_days)?;
+    let mode = if dry_run {
+        "dry-run"
+    } else {
+        "blocked: dry-run only"
+    };
+
+    Ok(format!(
+        "monitor prune 계획\n- mode: {}\n- before: {}d\n- cutoff_ms: {}\n- ledger rows: {}\n- model run rows: {}\n- command run rows: {}\n- 동작: 실제 삭제는 아직 수행하지 않습니다.",
+        mode,
+        before_days,
+        preview.cutoff_ms,
+        preview.ledger_rows,
+        preview.model_run_rows,
+        preview.command_run_rows
+    ))
 }

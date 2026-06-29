@@ -38,6 +38,27 @@ SQLite가 소유하지 않는 것:
 - source of truth인 event append 순서
 - raw prompt/source code 장기 보관
 
+## Current Implementation
+
+Phase 2의 현재 구현은 runtime store foundation입니다.
+
+- `rpotato init`이 app data root, project-local `.rpotato/`, current-state, runtime ledger, project session ledger, runtime evidence JSONL, SQLite projection을 만든다.
+- Append-only ledger는 source of truth이며, SQLite `ledger_events`는 replay 가능한 projection이다.
+- SQLite migration v1은 `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, `benchmark_runs`를 만든다.
+- `rpotato state`는 current-state와 ledger/projection count를 보여준다.
+- `rpotato cancel`은 active workflow가 없으면 no-op cancel event만 append한다.
+- `rpotato monitor status`와 `rpotato monitor models`는 SQLite projection을 읽는다.
+- `rpotato monitor export --format jsonl|csv`는 runtime ledger/projection을 사람이 볼 수 있는 형태로 출력한다.
+- `rpotato monitor prune --before 30d --dry-run`은 삭제 후보 count만 계산한다.
+- corrupt SQLite file은 `.corrupt.<timestamp>` suffix로 보존 이동한 뒤 새 projection을 만든다.
+
+아직 구현하지 않은 부분:
+
+- 실제 model/backend 실행에서 token/latency/resource metric을 기록하는 경로
+- active workflow resume/reconcile
+- evidence artifact pointer validation
+- 실제 retention 삭제
+
 ## Local File Layout
 
 예상 위치:
@@ -155,7 +176,7 @@ rpotato monitor models
 rpotato monitor session <id>
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
-rpotato monitor prune --before 30d
+rpotato monitor prune --before 30d --dry-run
 ```
 
 TUI는 다음 view를 가져야 합니다.

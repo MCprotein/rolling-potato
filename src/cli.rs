@@ -13,6 +13,9 @@ rpotato
   rpotato cache status
   rpotato monitor status
   rpotato monitor models
+  rpotato monitor export --format jsonl
+  rpotato monitor export --format csv
+  rpotato monitor prune --before 30d --dry-run
   rpotato model list
   rpotato model install <id>
   rpotato plugin import --from codex <local-path> --dry-run
@@ -51,6 +54,14 @@ pub enum Command {
 pub enum MonitorCommand {
     Status,
     Models,
+    Export { format: MonitorExportFormat },
+    Prune { before_days: u64, dry_run: bool },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum MonitorExportFormat {
+    Jsonl,
+    Csv,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -132,8 +143,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "monitor" && action == "models" => {
             Ok(Command::Monitor(MonitorCommand::Models))
         }
+        [group, action, rest @ ..] if group == "monitor" && action == "export" => {
+            parse_monitor_export(rest).map(Command::Monitor)
+        }
+        [group, action, rest @ ..] if group == "monitor" && action == "prune" => {
+            parse_monitor_prune(rest).map(Command::Monitor)
+        }
         [group, ..] if group == "monitor" => Err(AppError::usage(
-            "monitor 명령은 status 또는 models만 허용합니다.",
+            "monitor 명령은 status, models, export, prune만 허용합니다.",
         )),
         [group, action] if group == "model" && action == "list" => {
             Ok(Command::Model(ModelCommand::List))
@@ -219,6 +236,90 @@ fn parse_uninstall(args: &[String]) -> Result<UninstallCommand, AppError> {
         purge_cache,
         dry_run,
     })
+}
+
+fn parse_monitor_export(args: &[String]) -> Result<MonitorCommand, AppError> {
+    match args {
+        [flag, format] if flag == "--format" => {
+            let format = match format.as_str() {
+                "jsonl" => MonitorExportFormat::Jsonl,
+                "csv" => MonitorExportFormat::Csv,
+                _ => {
+                    return Err(AppError::usage(
+                        "monitor export format은 jsonl 또는 csv만 허용합니다.",
+                    ));
+                }
+            };
+            Ok(MonitorCommand::Export { format })
+        }
+        _ => Err(AppError::usage(
+            "monitor export에는 --format jsonl 또는 --format csv가 필요합니다.",
+        )),
+    }
+}
+
+fn parse_monitor_prune(args: &[String]) -> Result<MonitorCommand, AppError> {
+    let mut before_days = None;
+    let mut dry_run = false;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--before" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "monitor prune에는 --before 30d 같은 기간이 필요합니다.",
+                    ));
+                };
+                before_days = Some(parse_days(value)?);
+                index += 2;
+            }
+            "--dry-run" => {
+                dry_run = true;
+                index += 1;
+            }
+            unknown => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 monitor prune 옵션입니다: {unknown}"
+                )));
+            }
+        }
+    }
+
+    let Some(before_days) = before_days else {
+        return Err(AppError::usage(
+            "monitor prune에는 --before 30d 같은 기간이 필요합니다.",
+        ));
+    };
+
+    if !dry_run {
+        return Err(AppError::usage(
+            "monitor prune은 현재 --dry-run만 허용합니다.",
+        ));
+    }
+
+    Ok(MonitorCommand::Prune {
+        before_days,
+        dry_run,
+    })
+}
+
+fn parse_days(value: &str) -> Result<u64, AppError> {
+    let Some(days) = value.strip_suffix('d') else {
+        return Err(AppError::usage(
+            "기간은 day 단위만 허용합니다. 예: --before 30d",
+        ));
+    };
+
+    let parsed = days
+        .parse::<u64>()
+        .map_err(|_| AppError::usage("기간은 양의 정수 day 단위여야 합니다. 예: --before 30d"))?;
+
+    if parsed == 0 {
+        return Err(AppError::usage("기간은 1d 이상이어야 합니다."));
+    }
+
+    Ok(parsed)
 }
 
 fn parse_plugin_import(args: &[String]) -> Result<PluginCommand, AppError> {
@@ -331,6 +432,44 @@ mod tests {
     fn parses_monitor_status() {
         let command = parse(["monitor".to_string(), "status".to_string()]).unwrap();
         assert_eq!(command, Command::Monitor(MonitorCommand::Status));
+    }
+
+    #[test]
+    fn parses_monitor_export_jsonl() {
+        let command = parse([
+            "monitor".to_string(),
+            "export".to_string(),
+            "--format".to_string(),
+            "jsonl".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Monitor(MonitorCommand::Export {
+                format: MonitorExportFormat::Jsonl
+            })
+        );
+    }
+
+    #[test]
+    fn parses_monitor_prune_dry_run() {
+        let command = parse([
+            "monitor".to_string(),
+            "prune".to_string(),
+            "--before".to_string(),
+            "30d".to_string(),
+            "--dry-run".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Monitor(MonitorCommand::Prune {
+                before_days: 30,
+                dry_run: true
+            })
+        );
     }
 
     #[test]

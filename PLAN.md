@@ -71,6 +71,9 @@ rpotato backend doctor
 rpotato cache status
 rpotato monitor status
 rpotato monitor models
+rpotato monitor export --format jsonl
+rpotato monitor export --format csv
+rpotato monitor prune --before 30d --dry-run
 rpotato uninstall --keep-cache
 rpotato uninstall --purge-cache
 rpotato doctor

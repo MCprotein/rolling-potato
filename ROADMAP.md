@@ -79,42 +79,42 @@
 
 목표: 세션이 바뀌어도 runtime이 현재 작업 상태, 감사 기록, 모델별 monitoring 지표를 복원하고 질의할 수 있게 한다.
 
-- [ ] local state root layout
-- [ ] repo-root state와 session-scoped state 우선순위
-- [ ] project/session identity
-- [ ] workflow manifest와 transition table
-- [ ] terminal state 정의
-- [ ] state read/write/cancel API
-- [ ] append-only ledger format
-- [ ] ledger replay
-- [ ] session transcript JSONL format
-- [ ] transcript parent/branch pointer
-- [ ] transcript metadata entry
-- [ ] operation log format
-- [ ] state owner 규칙
+- [x] local state root layout
+- [x] repo-root state와 session-scoped state 우선순위
+- [x] project/session identity
+- [x] workflow manifest와 transition table
+- [x] terminal state 정의
+- [x] state read/write/cancel API
+- [x] append-only ledger format
+- [x] ledger replay
+- [x] session transcript JSONL format
+- [x] transcript parent/branch pointer
+- [x] transcript metadata entry
+- [x] operation log format
+- [x] state owner 규칙
 - [ ] stale state reconcile
 - [ ] corrupt state fallback
-- [ ] checkpoint record schema
-- [ ] evidence record schema
-- [ ] runtime evidence JSONL store
+- [x] checkpoint record schema
+- [x] evidence record schema
+- [x] runtime evidence JSONL store
 - [ ] evidence stale 판정 기준
 - [ ] evidence artifact pointer validation
-- [ ] current state view와 event/evidence ledger 경계
-- [ ] local SQLite observability store 결정
-- [ ] SQLite schema migration
-- [ ] ledger to SQLite projection
-- [ ] token usage record schema
-- [ ] model run metric schema
-- [ ] backend health metric schema
-- [ ] tool/command metric schema
-- [ ] guard/stop-gate metric schema
-- [ ] prompt/source raw text 미저장 기본값
-- [ ] credential redaction before persistence
-- [ ] corrupt SQLite fallback
-- [ ] monitoring export: JSONL/CSV
-- [ ] monitoring retention/prune dry-run
+- [x] current state view와 event/evidence ledger 경계
+- [x] local SQLite observability store 결정
+- [x] SQLite schema migration
+- [x] ledger to SQLite projection
+- [x] token usage record schema
+- [x] model run metric schema
+- [x] backend health metric schema
+- [x] tool/command metric schema
+- [x] guard/stop-gate metric schema
+- [x] prompt/source raw text 미저장 기본값
+- [x] credential redaction before persistence
+- [x] corrupt SQLite fallback
+- [x] monitoring export: JSONL/CSV
+- [x] monitoring retention/prune dry-run
 - [ ] 중단된 실행의 resume 동작
-- [ ] compaction boundary marker
+- [x] compaction boundary marker
 - [ ] compacted summary 보존 정책
 
 ## Phase 3: Mode And Constraint Recognition
