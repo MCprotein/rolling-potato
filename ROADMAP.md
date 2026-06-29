@@ -206,22 +206,22 @@
 
 목표: `llama.cpp` sidecar를 runtime core가 관리하고, backend 상태를 CLI surface에서 진단 가능하게 만든다.
 
-- [ ] `llama.cpp` sidecar discovery
+- [x] `llama.cpp` sidecar discovery
 - [ ] managed backend binary download/install
 - [ ] backend archive checksum verification
 - [ ] backend binary version detection
-- [ ] backend binary path config
-- [ ] port 선택
+- [x] backend binary path config
+- [x] port 선택
 - [ ] sidecar process lifecycle
 - [ ] health check
 - [ ] startup timeout 처리
 - [ ] streaming response path
 - [ ] cancellation path
 - [ ] stderr/stdout capture
-- [ ] backend diagnostics in `doctor`
-- [ ] backend diagnostics in `rpotato backend doctor`
+- [x] backend diagnostics in `doctor`
+- [x] backend diagnostics in `rpotato backend doctor`
 - [ ] managed backend removal during uninstall
-- [ ] backend adapter trait
+- [x] backend adapter trait
 
 ## Phase 7: Tool Runtime
 

@@ -58,6 +58,19 @@ Runtime core가 관리해야 할 항목:
 
 사용자가 backend path를 직접 지정한 경우 해당 binary는 사용자 소유입니다. `rpotato uninstall --keep-cache`나 `--purge-cache`는 `rpotato`가 다운로드한 관리형 backend binary만 삭제하고, 사용자 지정 path는 삭제하지 않습니다.
 
+## Current Implementation
+
+Phase 6의 현재 구현:
+
+- `rpotato backend doctor`는 `llama.cpp` adapter discovery를 수행합니다.
+- 관리형 binary path는 app data root 아래 `backends/llama.cpp/llama-server` 또는 Windows의 `llama-server.exe`입니다.
+- 사용자 override는 `RPOTATO_BACKEND_LLAMA_CPP_PATH`로 지정합니다.
+- port override는 `RPOTATO_BACKEND_PORT`로 지정하고, 기본 port는 `17842`입니다.
+- doctor는 selected binary, selected source, executable bit, health URL, install gate를 표시합니다.
+- `rpotato doctor`도 같은 discovery summary를 보여줍니다.
+- unknown binary 실행은 아직 하지 않으므로 version detection은 `not-run`으로 표시합니다.
+- managed backend download/install은 검증된 release URL과 checksum manifest가 들어오기 전까지 차단합니다.
+
 ## 후순위 adapter
 
 ### LM Studio

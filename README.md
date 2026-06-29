@@ -213,6 +213,8 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `model list`, `model manifest`, `model inspect`, `model registry`, `model download-plan`은 source-backed manifest schema, 후보 상태, 공개 benchmark source ledger, local registry 위치, 다운로드 전 source/license/checksum 표시 항목을 보여줍니다. `model verify-file`은 로컬 파일 bytes의 SHA-256을 검증하고 ledger event를 남깁니다. `model cleanup-failed`는 app data 내부의 partial/failed artifact만 dry-run 또는 명시적 delete 대상으로 삼습니다. `model install`은 아직 실제 다운로드를 수행하지 않습니다. 검증된 GGUF artifact URL, checksum, provider terms, file size, `llama.cpp` 호환성 정보가 manifest에 들어오기 전까지 설치를 차단합니다.
 
+`backend doctor`는 관리형 `llama.cpp` sidecar discovery, env override path, port, health URL, executable bit, install gate를 보여줍니다. 보안상 unknown binary를 실행하지 않으므로 version detection은 아직 수행하지 않습니다.
+
 `plugin import`는 local plugin directory의 source snapshot과 normalized manifest를 app data root 아래에 저장합니다. Import는 실행 권한을 부여하지 않으며, shell/MCP/background/file-write 같은 capability는 기본 차단 상태로 permission report에 남깁니다.
 
 다음 구현 전 작업:
