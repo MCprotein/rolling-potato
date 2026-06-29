@@ -24,7 +24,7 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
     )?;
 
     Ok(format!(
-        "run 계획\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- ledger event: {}\n- 동작: 현재는 intent/skill/mode 정규화까지만 수행하고 model/backend 실행은 후속 phase에서 처리합니다.",
+        "run 계획\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- ledger event: {}\n- 동작: 현재는 intent/skill/mode 정규화까지만 수행하고 model/backend 실행은 후속 phase에서 처리합니다.",
         request,
         decision.invocation,
         decision.skill_id,
@@ -32,6 +32,7 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         display_list(&decision.signals),
         display_list(&decision.constraints),
         decision.classifier,
+        state::workflow_ownership_summary(),
         event_id
     ))
 }
@@ -39,14 +40,22 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
 pub fn classify_report(request: &str) -> Result<String, AppError> {
     let decision = classify(request)?;
     Ok(format!(
-        "intent classify 결과\n- selected skill: {}\n- mode: {}\n- invocation: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- repo instruction boundary: AGENTS/HANDOFF 같은 지침은 pointer로만 잡고, 실행 전 원문을 다시 읽어야 합니다.\n- nested/subagent prompt: parent runtime이 전달한 내부 prompt에서는 keyword auto-activation을 하지 않습니다.",
+        "intent classify 결과\n- selected skill: {}\n- mode: {}\n- invocation: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- repo instruction boundary: AGENTS/HANDOFF 같은 지침은 pointer로만 잡고, 실행 전 원문을 다시 읽어야 합니다.\n- nested/subagent prompt: parent runtime이 전달한 내부 prompt에서는 keyword auto-activation을 하지 않습니다.",
         decision.skill_id,
         decision.mode,
         decision.invocation,
         display_list(&decision.signals),
         display_list(&decision.constraints),
-        decision.classifier
+        decision.classifier,
+        state::workflow_ownership_summary()
     ))
+}
+
+pub fn routes_report() -> String {
+    format!(
+        "intent route table\n- command palette: request.submit -> rpotato run <request>\n- command palette: intent.preview -> rpotato intent classify <request>\n- command palette: skill.run -> rpotato skill run <id>\n- command palette: plugin.review -> rpotato plugin inspect <id> 또는 rpotato plugin validate <id>\n- command palette: plugin.toggle -> rpotato plugin enable <id> 또는 rpotato plugin disable <id>\n- command palette: workflow.cancel -> rpotato cancel\n- command palette: workflow.resume -> rpotato state resume\n- command palette: monitor.open -> rpotato monitor status\n- command palette: evidence.inspect -> rpotato evidence validate <artifact-pointer>\n- workflow ownership: {}",
+        state::workflow_ownership_summary()
+    )
 }
 
 pub fn classify(request: &str) -> Result<IntentDecision, AppError> {
@@ -203,5 +212,12 @@ mod tests {
     fn detects_generated_artifact_signal() {
         let decision = classify("문서 만들어줘").unwrap();
         assert!(decision.signals.contains(&"generated-artifact"));
+    }
+
+    #[test]
+    fn routes_report_contains_tui_palette_contract() {
+        let report = routes_report();
+        assert!(report.contains("command palette"));
+        assert!(report.contains("rpotato run"));
     }
 }

@@ -161,6 +161,10 @@ pub fn record_event(event_type: &str, summary: &str, details: &str) -> Result<St
     Ok(event_id)
 }
 
+pub fn workflow_ownership_summary() -> &'static str {
+    "active workflow는 current-state가 소유하고 skill/plugin/TUI는 parent workflow pointer를 받아야 합니다."
+}
+
 fn ensure_layout() -> Result<Vec<PathBuf>, AppError> {
     let directories = [
         paths::config_dir(),

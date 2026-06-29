@@ -123,6 +123,22 @@ TUI는 user decision을 emit합니다.
 - resume
 - inspect
 
+## Command Palette Routing
+
+Phase 3에서 고정한 command palette routing contract:
+
+- `request.submit` -> `rpotato run <request>`
+- `intent.preview` -> `rpotato intent classify <request>`
+- `skill.run` -> `rpotato skill run <id>`
+- `plugin.review` -> `rpotato plugin inspect <id>` 또는 `rpotato plugin validate <id>`
+- `plugin.toggle` -> `rpotato plugin enable <id>` 또는 `rpotato plugin disable <id>`
+- `workflow.cancel` -> `rpotato cancel`
+- `workflow.resume` -> `rpotato state resume`
+- `monitor.open` -> `rpotato monitor status`
+- `evidence.inspect` -> `rpotato evidence validate <artifact-pointer>`
+
+Active workflow는 current-state가 소유합니다. TUI action은 runtime core에 request만 emit하고, skill/plugin/subagent/team은 parent workflow pointer 없이 독립 workflow를 만들 수 없습니다.
+
 ## Accessibility And Constraints
 
 - Korean user-facing label by default

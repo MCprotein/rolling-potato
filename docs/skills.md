@@ -73,6 +73,8 @@ Phase 3의 현재 구현은 skill 실행 전 정규화 단계입니다.
 - `rpotato skill run <id>`는 skill id, mode, allowed tools, context requirements, evidence requirements, stop criteria를 정규화하고 ledger event를 남긴다.
 - `rpotato run "<request>"`는 deterministic intent rule로 user request를 skill/mode로 매핑하고 ledger event를 남긴다.
 - `rpotato intent classify "<request>"`는 같은 rule을 실행하되 agent loop 계획 대신 classification report만 출력한다.
+- `rpotato intent routes`는 TUI command palette action이 어떤 runtime command로 매핑되는지 출력한다.
+- active workflow는 current-state가 소유하고, skill/plugin/TUI는 parent workflow pointer를 받아야 한다.
 - optional model classifier는 아직 비활성이다. 현재는 deterministic rule만 사용한다.
 - 실제 model/backend 실행, context packing, tool call, patch 적용은 후속 phase에서 처리한다.
 

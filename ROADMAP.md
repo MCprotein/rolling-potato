@@ -136,7 +136,7 @@
 - [x] `rpotato plugin remove <id> --keep-data`
 - [x] `rpotato plugin remove <id> --purge-data`
 - [x] source runtime namespace rule: native, codex, claude-code
-- [ ] active workflow 귀속 규칙
+- [x] active workflow 귀속 규칙
 - [x] deterministic keyword/phrase rule table
 - [x] structural signal extraction: read-only, plan-only, review-only, test-spec
 - [x] optional classifier 사용 기준
@@ -144,7 +144,7 @@
 - [x] repo instruction loading boundary
 - [x] generated artifact requirement 추출
 - [x] nested/subagent prompt keyword non-activation
-- [ ] TUI command palette routing
+- [x] TUI command palette routing
 - [x] intent fixture test
 
 ## Phase 4: Permission And Tool Boundary

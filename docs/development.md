@@ -15,6 +15,7 @@
 - `rpotato init`
 - `rpotato run "<request>"`
 - `rpotato intent classify "<request>"`
+- `rpotato intent routes`
 - `rpotato state`
 - `rpotato state reconcile`
 - `rpotato state resume`
@@ -91,6 +92,7 @@ cargo run -- doctor
 cargo run -- init
 cargo run -- run "테스트 실패 고쳐줘"
 cargo run -- intent classify "리뷰해줘"
+cargo run -- intent routes
 cargo run -- config
 cargo run -- state
 cargo run -- state reconcile

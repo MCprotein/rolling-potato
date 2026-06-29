@@ -157,6 +157,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato init`
 - `rpotato run "<request>"`
 - `rpotato intent classify "<request>"`
+- `rpotato intent routes`
 - `rpotato state`
 - `rpotato state reconcile`
 - `rpotato state resume`
@@ -191,7 +192,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `evidence validate`는 artifact pointer가 local project-relative path이고 project boundary를 벗어나지 않는지 확인합니다.
 
-`run`, `intent classify`, `skill run`은 현재 user request를 skill/mode/context/evidence 요구사항으로 정규화하고 ledger event를 남깁니다. 실제 model/backend agent loop 실행은 아직 수행하지 않습니다.
+`run`, `intent classify`, `intent routes`, `skill run`은 현재 user request를 skill/mode/context/evidence 요구사항으로 정규화하고 ledger event를 남깁니다. 실제 model/backend agent loop 실행은 아직 수행하지 않습니다.
 
 `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 

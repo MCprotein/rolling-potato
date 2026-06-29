@@ -8,6 +8,7 @@ rpotato
   rpotato init
   rpotato run \"<request>\"
   rpotato intent classify \"<request>\"
+  rpotato intent routes
   rpotato config
   rpotato state
   rpotato state reconcile
@@ -90,6 +91,7 @@ pub enum SkillCommand {
 #[derive(Debug, PartialEq, Eq)]
 pub enum IntentCommand {
     Classify { request: String },
+    Routes,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -172,6 +174,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             Ok(Command::Intent(IntentCommand::Classify {
                 request: parse_request(rest, "intent classify")?,
             }))
+        }
+        [group, action] if group == "intent" && action == "routes" => {
+            Ok(Command::Intent(IntentCommand::Routes))
         }
         [group, ..] if group == "intent" => {
             Err(AppError::usage("intent 명령은 classify만 허용합니다."))
@@ -606,6 +611,12 @@ mod tests {
                 request: "리뷰해줘".to_string()
             })
         );
+    }
+
+    #[test]
+    fn parses_intent_routes() {
+        let command = parse(["intent".to_string(), "routes".to_string()]).unwrap();
+        assert_eq!(command, Command::Intent(IntentCommand::Routes));
     }
 
     #[test]

@@ -62,6 +62,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", intent::classify_report(&request)?);
             Ok(())
         }
+        Command::Intent(IntentCommand::Routes) => {
+            println!("{}", intent::routes_report());
+            Ok(())
+        }
         Command::Doctor => {
             println!("{}", runtime::doctor_report());
             Ok(())

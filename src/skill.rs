@@ -158,7 +158,7 @@ pub fn run_report(id: &str) -> Result<String, AppError> {
         state::record_event("skill.run.normalized", "skill invocation 정규화", &details)?;
 
     Ok(format!(
-        "skill run 계획\n- skill id: {}\n- display: {}\n- mode: {}\n- allowed tools: {}\n- context requirements: {}\n- evidence requirements: {}\n- stop criteria: {}\n- ledger event: {}\n- 동작: 현재는 invocation normalization만 수행하고 agent loop 실행은 후속 phase에서 처리합니다.",
+        "skill run 계획\n- skill id: {}\n- display: {}\n- mode: {}\n- allowed tools: {}\n- context requirements: {}\n- evidence requirements: {}\n- stop criteria: {}\n- workflow ownership: {}\n- ledger event: {}\n- 동작: 현재는 invocation normalization만 수행하고 agent loop 실행은 후속 phase에서 처리합니다.",
         skill.id,
         skill.display_name,
         skill.mode,
@@ -166,6 +166,7 @@ pub fn run_report(id: &str) -> Result<String, AppError> {
         skill.context_requirements.join(", "),
         skill.evidence_requirements.join(", "),
         skill.stop_criteria.join(", "),
+        state::workflow_ownership_summary(),
         event_id
     ))
 }
