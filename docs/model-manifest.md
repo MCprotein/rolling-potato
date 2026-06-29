@@ -70,6 +70,8 @@
 - `rpotato model manifest`
 - `rpotato model inspect <id>`
 - `rpotato model registry`
+- `rpotato model download-plan <id>`
+- `rpotato model verify-file <path> --sha256 <hash>`
 - `rpotato model install <id>`
 
 후보 상태:
@@ -77,6 +79,10 @@
 - `candidate`: upstream model/source/license만 후보로 추적하고, 설치할 GGUF artifact는 아직 고르지 않은 상태
 - `unverified`: GGUF artifact 후보는 있지만 checksum, provider terms, backend compatibility, RAM 근거 중 하나 이상이 빠진 상태
 - `verified`: 설치 전 표시해야 할 source, license, artifact URL, provider terms, SHA-256, file size, backend compatibility, RAM 근거가 모두 채워진 상태
+
+`model download-plan`은 실제 다운로드 전에 사용자에게 보여야 할 source, license source, artifact provider, artifact terms, file size, SHA-256, resume path, final path를 렌더링합니다.
+
+`model verify-file`은 로컬 파일을 streaming으로 읽어 SHA-256을 계산하고 expected hash와 비교합니다. 성공과 실패 모두 ledger event를 남기며, 실패 시 registry 등록은 차단되어야 합니다.
 
 `model install`은 `verified`가 아닌 항목을 차단하고 ledger event를 남깁니다. 현재 구현은 실제 다운로드를 수행하지 않으며, local registry는 `models/registry/<model-id>.json` 위치에 verified artifact만 기록하는 경계로 준비되어 있습니다.
 

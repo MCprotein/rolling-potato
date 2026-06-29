@@ -196,8 +196,8 @@
 - [ ] `rpotato model install <id>`
 - [x] 미검증 artifact 설치 차단
 - [ ] 이어받기 가능한 모델 다운로드
-- [ ] SHA-256 verification
-- [ ] 다운로드 전 license/source 표시
+- [x] SHA-256 verification
+- [x] 다운로드 전 license/source 표시
 - [ ] 검증 실패 artifact 정리
 - [x] local model registry
 - [x] manifest test

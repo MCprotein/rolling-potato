@@ -39,6 +39,8 @@
 - `rpotato model manifest`
 - `rpotato model inspect <id>`
 - `rpotato model registry`
+- `rpotato model download-plan <id>`
+- `rpotato model verify-file <path> --sha256 <hash>`
 - `rpotato model install <id>`
 - `rpotato plugin import --from codex <local-path> --dry-run`
 - `rpotato plugin import --from claude-code <local-path> --dry-run`
@@ -56,7 +58,7 @@
 
 `rpotato init`은 state layout, current-state, append-only ledger, runtime evidence JSONL, SQLite observability projection을 실제로 초기화합니다.
 
-모델/backend 다운로드는 아직 활성화하지 않았습니다. 모델 manifest schema, 후보 상태, source-backed license/source claim, 공개 benchmark source ledger, local registry surface는 활성화되어 있습니다. 검증된 artifact URL, provider terms, checksum, file size, backend compatibility가 없으면 runtime core가 다운로드를 차단하고 ledger event를 남깁니다.
+모델/backend 다운로드는 아직 활성화하지 않았습니다. 모델 manifest schema, 후보 상태, source-backed license/source claim, 공개 benchmark source ledger, local registry surface, 다운로드 전 표시 plan, 로컬 파일 SHA-256 검증은 활성화되어 있습니다. 검증된 artifact URL, provider terms, checksum, file size, backend compatibility가 없으면 runtime core가 다운로드를 차단하고 ledger event를 남깁니다.
 
 Plugin source snapshot, persistent registry, inspect, validate, enable/disable/remove는 활성화되어 있습니다. Import는 실행 권한을 부여하지 않고 permission report와 ledger event만 남깁니다.
 
@@ -125,6 +127,8 @@ cargo run -- model list
 cargo run -- model manifest
 cargo run -- model inspect qwen3.5-4b
 cargo run -- model registry
+cargo run -- model download-plan qwen3.5-4b
+cargo run -- model verify-file /path/to/model.gguf --sha256 <64-hex>
 cargo run -- model install qwen3.5-4b
 cargo run -- plugin list
 cargo run -- uninstall --dry-run --purge-cache

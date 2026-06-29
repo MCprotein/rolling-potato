@@ -35,6 +35,8 @@ rpotato
   rpotato model manifest
   rpotato model inspect <id>
   rpotato model registry
+  rpotato model download-plan <id>
+  rpotato model verify-file <path> --sha256 <hash>
   rpotato model install <id>
   rpotato plugin import --from codex <local-path> --dry-run
   rpotato plugin import --from claude-code <local-path> --dry-run
@@ -138,6 +140,8 @@ pub enum ModelCommand {
     Manifest,
     Inspect { id: String },
     Registry,
+    DownloadPlan { id: String },
+    VerifyFile { path: String, sha256: String },
     Install { id: String },
 }
 
@@ -323,6 +327,20 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "model" && action == "registry" => {
             Ok(Command::Model(ModelCommand::Registry))
         }
+        [group, action, id] if group == "model" && action == "download-plan" => {
+            Ok(Command::Model(ModelCommand::DownloadPlan { id: id.clone() }))
+        }
+        [group, action, path, flag, sha256]
+            if group == "model" && action == "verify-file" && flag == "--sha256" =>
+        {
+            Ok(Command::Model(ModelCommand::VerifyFile {
+                path: path.clone(),
+                sha256: sha256.clone(),
+            }))
+        }
+        [group, action, ..] if group == "model" && action == "verify-file" => Err(
+            AppError::usage("model verify-file은 <path> --sha256 <hash> 형식이 필요합니다."),
+        ),
         [group, action, id] if group == "model" && action == "install" => {
             Ok(Command::Model(ModelCommand::Install { id: id.clone() }))
         }
@@ -330,7 +348,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             "모델 id가 필요합니다. 예: rpotato model install qwen3.5-4b",
         )),
         [group, ..] if group == "model" => Err(AppError::usage(
-            "model 명령은 list, manifest, inspect, registry, install만 허용합니다.",
+            "model 명령은 list, manifest, inspect, registry, download-plan, verify-file, install만 허용합니다.",
         )),
         [group, action, rest @ ..] if group == "plugin" && action == "import" => {
             parse_plugin_import(rest).map(Command::Plugin)
@@ -620,6 +638,42 @@ mod tests {
     fn parses_model_registry() {
         let command = parse(["model".to_string(), "registry".to_string()]).unwrap();
         assert_eq!(command, Command::Model(ModelCommand::Registry));
+    }
+
+    #[test]
+    fn parses_model_download_plan() {
+        let command = parse([
+            "model".to_string(),
+            "download-plan".to_string(),
+            "qwen3.5-4b".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Model(ModelCommand::DownloadPlan {
+                id: "qwen3.5-4b".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_model_verify_file() {
+        let command = parse([
+            "model".to_string(),
+            "verify-file".to_string(),
+            "model.gguf".to_string(),
+            "--sha256".to_string(),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Model(ModelCommand::VerifyFile {
+                path: "model.gguf".to_string(),
+                sha256: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+                    .to_string()
+            })
+        );
     }
 
     #[test]

@@ -175,6 +175,14 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", model::registry_report());
             Ok(())
         }
+        Command::Model(ModelCommand::DownloadPlan { id }) => {
+            println!("{}", model::download_plan_report(&id)?);
+            Ok(())
+        }
+        Command::Model(ModelCommand::VerifyFile { path, sha256 }) => {
+            println!("{}", model::verify_file_report(&path, &sha256)?);
+            Ok(())
+        }
         Command::Model(ModelCommand::Install { id }) => model::install_candidate(&id),
         Command::Plugin(PluginCommand::Import {
             source,

@@ -1,8 +1,10 @@
-use std::fs;
-use std::path::PathBuf;
+use std::fs::{self, File};
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 use crate::app::AppError;
 use crate::{ledger, paths, state};
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CandidateStatus {
@@ -332,6 +334,94 @@ pub fn registry_report() -> String {
     registry_summary()
 }
 
+pub fn download_plan_report(id: &str) -> Result<String, AppError> {
+    let candidate = find_candidate(id)?;
+    let validation = validate_install_ready(candidate);
+    let download_status = if validation.ready { "ready" } else { "blocked" };
+
+    Ok(format!(
+        "model download plan\n- id: {}\n- status: {}\n- source: {}\n- license source: {}\n- license checked-at: {}\n- artifact provider: {}\n- artifact URL: {}\n- artifact terms: {}\n- file name: {}\n- size bytes: {}\n- sha256: {}\n- resume path: {}\n- final path: {}\n- blockers: {}\n- 동작: 실제 다운로드 전 위 source/license/checksum/size/provider terms를 사용자에게 표시해야 합니다.",
+        candidate.id,
+        download_status,
+        candidate.upstream_url,
+        candidate.license.source,
+        candidate.license.checked_at,
+        candidate.artifact_provider.unwrap_or("미확정"),
+        candidate.artifact_url.unwrap_or("미확정"),
+        candidate.artifact_terms_url.unwrap_or("미확정"),
+        candidate.artifact_name.unwrap_or("미확정"),
+        candidate
+            .size_bytes
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "미확정".to_string()),
+        candidate.sha256.unwrap_or("미확정"),
+        paths::downloads_dir()
+            .join(format!("{}.part", candidate.id))
+            .display(),
+        paths::models_dir()
+            .join(candidate.artifact_name.unwrap_or(candidate.id))
+            .display(),
+        display_vec(&validation.blockers)
+    ))
+}
+
+pub fn verify_file_report(path: &str, expected_sha256: &str) -> Result<String, AppError> {
+    if !is_valid_sha256(expected_sha256) {
+        return Err(AppError::usage(
+            "expected SHA-256은 64자리 hex string이어야 합니다.",
+        ));
+    }
+
+    let path = PathBuf::from(path);
+    if !path.is_file() {
+        return Err(AppError::usage(format!(
+            "검증 대상 파일을 찾지 못했습니다: {}",
+            path.display()
+        )));
+    }
+
+    let actual_sha256 = sha256_file(&path)?;
+    let matched = actual_sha256.eq_ignore_ascii_case(expected_sha256);
+    let event_type = if matched {
+        "model.sha256.verified"
+    } else {
+        "model.sha256.rejected"
+    };
+    let summary = if matched {
+        "model artifact SHA-256 검증 성공"
+    } else {
+        "model artifact SHA-256 검증 실패"
+    };
+    let event_id = state::record_event(
+        event_type,
+        summary,
+        &format!(
+            "path={} expected_sha256={} actual_sha256={}",
+            path.display(),
+            expected_sha256,
+            actual_sha256
+        ),
+    )?;
+
+    if !matched {
+        return Err(AppError::blocked(format!(
+            "SHA-256 검증 실패\n- path: {}\n- expected: {}\n- actual: {}\n- ledger event: {}\n- 동작: registry 등록을 차단해야 하며, 실패 artifact 정리는 별도 cleanup phase에서 처리합니다.",
+            path.display(),
+            expected_sha256,
+            actual_sha256,
+            event_id
+        )));
+    }
+
+    Ok(format!(
+        "SHA-256 검증 성공\n- path: {}\n- expected: {}\n- actual: {}\n- ledger event: {}",
+        path.display(),
+        expected_sha256,
+        actual_sha256,
+        event_id
+    ))
+}
+
 pub fn install_candidate(id: &str) -> Result<(), AppError> {
     let candidate = find_candidate(id)?;
     let validation = validate_install_ready(candidate);
@@ -601,6 +691,40 @@ fn registry_entry_json(candidate: &ModelManifestEntry) -> String {
     )
 }
 
+fn sha256_file(path: &Path) -> Result<String, AppError> {
+    let mut file = File::open(path).map_err(|err| {
+        AppError::runtime(format!(
+            "SHA-256 검증 대상 파일을 열지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 64 * 1024];
+
+    loop {
+        let bytes_read = file.read(&mut buffer).map_err(|err| {
+            AppError::runtime(format!(
+                "SHA-256 검증 대상 파일을 읽지 못했습니다: {} ({err})",
+                path.display()
+            ))
+        })?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    Ok(bytes_to_hex(&hasher.finalize()))
+}
+
+fn bytes_to_hex(bytes: &[u8]) -> String {
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push_str(&format!("{byte:02x}"));
+    }
+    output
+}
+
 fn is_valid_sha256(value: &str) -> bool {
     value.len() == 64 && value.chars().all(|ch| ch.is_ascii_hexdigit())
 }
@@ -693,5 +817,26 @@ mod tests {
         assert!(report.contains("artifactUrl"));
         assert!(report.contains("sha256"));
         assert!(report.contains("benchmark ledger"));
+    }
+
+    #[test]
+    fn download_plan_blocks_candidate_without_verified_artifact() {
+        let report = download_plan_report("qwen3.5-4b").unwrap();
+        assert!(report.contains("status: blocked"));
+        assert!(report.contains("license source"));
+    }
+
+    #[test]
+    fn sha256_file_hashes_bytes() {
+        let path = std::env::temp_dir().join(format!("rpotato-sha-test-{}", std::process::id()));
+        fs::write(&path, b"hello").unwrap();
+
+        let hash = sha256_file(&path).unwrap();
+
+        fs::remove_file(path).unwrap();
+        assert_eq!(
+            hash,
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
     }
 }

@@ -7,3 +7,4 @@ description = "Local coding agents for potato PCs."
 
 [dependencies]
 rusqlite = { version = "0.40.1", default-features = false }
+sha2 = "0.11.0"
