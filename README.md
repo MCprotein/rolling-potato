@@ -173,7 +173,15 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato model install <id>`
 - `rpotato plugin import --from codex <local-path> --dry-run`
 - `rpotato plugin import --from claude-code <local-path> --dry-run`
+- `rpotato plugin import --from codex <local-path>`
+- `rpotato plugin import --from claude-code <local-path>`
 - `rpotato plugin list`
+- `rpotato plugin inspect <id>`
+- `rpotato plugin validate <id>`
+- `rpotato plugin enable <id>`
+- `rpotato plugin disable <id>`
+- `rpotato plugin remove <id> --keep-data`
+- `rpotato plugin remove <id> --purge-data`
 - `rpotato uninstall --keep-cache`
 - `rpotato uninstall --purge-cache`
 
@@ -189,7 +197,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `model install`은 아직 실제 다운로드를 수행하지 않습니다. 검증된 GGUF artifact URL, checksum, provider terms, file size, `llama.cpp` 호환성 정보가 manifest에 들어오기 전까지 설치를 차단합니다.
 
-`plugin import`는 아직 실제 source snapshot과 registry 기록을 수행하지 않습니다. 현재는 local plugin directory의 manifest를 dry-run으로 검사하고, remote URL, marketplace, registry, catalog source를 차단합니다.
+`plugin import`는 local plugin directory의 source snapshot과 normalized manifest를 app data root 아래에 저장합니다. Import는 실행 권한을 부여하지 않으며, shell/MCP/background/file-write 같은 capability는 기본 차단 상태로 permission report에 남깁니다.
 
 다음 구현 전 작업:
 

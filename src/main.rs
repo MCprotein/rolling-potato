@@ -14,6 +14,8 @@ mod plugin;
 mod runtime;
 mod skill;
 mod state;
+#[cfg(test)]
+mod test_support;
 mod uninstall;
 
 use std::process::ExitCode;

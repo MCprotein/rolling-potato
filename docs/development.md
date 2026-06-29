@@ -31,7 +31,15 @@
 - `rpotato model install <id>`
 - `rpotato plugin import --from codex <local-path> --dry-run`
 - `rpotato plugin import --from claude-code <local-path> --dry-run`
+- `rpotato plugin import --from codex <local-path>`
+- `rpotato plugin import --from claude-code <local-path>`
 - `rpotato plugin list`
+- `rpotato plugin inspect <id>`
+- `rpotato plugin validate <id>`
+- `rpotato plugin enable <id>`
+- `rpotato plugin disable <id>`
+- `rpotato plugin remove <id> --keep-data`
+- `rpotato plugin remove <id> --purge-data`
 - `rpotato uninstall --keep-cache`
 - `rpotato uninstall --purge-cache`
 
@@ -96,6 +104,7 @@ cargo run -- monitor export --format jsonl
 cargo run -- monitor export --format csv
 cargo run -- monitor prune --before 30d --dry-run
 cargo run -- model list
+cargo run -- plugin list
 cargo run -- uninstall --dry-run --purge-cache
 ```
 
@@ -114,7 +123,7 @@ cargo run -- uninstall --dry-run --purge-cache
 - `skill`: built-in skill registry and invocation normalization
 - `hooks`: lifecycle control points
 - `skills`: reusable runtime capabilities
-- `plugins`: local Codex/Claude Code plugin import, inspect, validate, enable/disable
+- `plugins`: local Codex/Claude Code plugin import, inspect, validate, enable/disable/remove
 - `config`: local config paths and serialization
 - `model`: manifest, download, checksum, registry
 - `backend`: backend adapter trait and `llama.cpp` implementation

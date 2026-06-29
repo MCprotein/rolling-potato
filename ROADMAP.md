@@ -125,17 +125,17 @@
 - [x] skill invocation grammar
 - [x] `rpotato skill list`
 - [x] `rpotato skill run <id>`
-- [ ] `rpotato plugin import --from codex <local-path>`
-- [ ] `rpotato plugin import --from claude-code <local-path>`
+- [x] `rpotato plugin import --from codex <local-path>`
+- [x] `rpotato plugin import --from claude-code <local-path>`
 - [x] `rpotato plugin import --dry-run`
 - [x] `rpotato plugin list`
-- [ ] `rpotato plugin inspect <id>`
-- [ ] `rpotato plugin validate <id>`
-- [ ] `rpotato plugin enable <id>`
-- [ ] `rpotato plugin disable <id>`
-- [ ] `rpotato plugin remove <id> --keep-data`
-- [ ] `rpotato plugin remove <id> --purge-data`
-- [ ] source runtime namespace rule: native, codex, claude-code
+- [x] `rpotato plugin inspect <id>`
+- [x] `rpotato plugin validate <id>`
+- [x] `rpotato plugin enable <id>`
+- [x] `rpotato plugin disable <id>`
+- [x] `rpotato plugin remove <id> --keep-data`
+- [x] `rpotato plugin remove <id> --purge-data`
+- [x] source runtime namespace rule: native, codex, claude-code
 - [ ] active workflow 귀속 규칙
 - [x] deterministic keyword/phrase rule table
 - [x] structural signal extraction: read-only, plan-only, review-only, test-spec

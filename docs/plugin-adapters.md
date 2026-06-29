@@ -158,6 +158,38 @@ rpotato plugin remove <id> --keep-data
 rpotato plugin remove <id> --purge-data
 ```
 
+## Current Implementation
+
+Phase 3의 현재 구현:
+
+- `rpotato plugin import --from codex <local-path> --dry-run`
+- `rpotato plugin import --from claude-code <local-path> --dry-run`
+- `rpotato plugin import --from codex <local-path>`
+- `rpotato plugin import --from claude-code <local-path>`
+- `rpotato plugin list`
+- `rpotato plugin inspect <id>`
+- `rpotato plugin validate <id>`
+- `rpotato plugin enable <id>`
+- `rpotato plugin disable <id>`
+- `rpotato plugin remove <id> --keep-data`
+- `rpotato plugin remove <id> --purge-data`
+
+Import는 local directory만 허용하며 remote URL, marketplace, registry, catalog source, `..` path traversal, source symlink를 차단합니다.
+
+저장 위치:
+
+```text
+rpotato app data root/
+  plugins/
+    imported/<plugin-id>/
+      source/
+      rpotato-plugin.json
+      validation-report.json
+    data/<plugin-id>/
+```
+
+`enable`은 실행 권한 부여가 아니라 registry 상태 변경입니다. shell, `bin/`, MCP, hook, background process capability는 permission report에 남고 runtime policy 승인 전까지 기본 차단입니다.
+
 All import commands must be dry-run friendly:
 
 ```sh

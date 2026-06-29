@@ -142,14 +142,25 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", plugin::list_report());
             Ok(())
         }
-        Command::Plugin(PluginCommand::Inspect { id }) => plugin::not_persisted_yet("inspect", &id),
-        Command::Plugin(PluginCommand::Validate { id }) => {
-            plugin::not_persisted_yet("validate", &id)
+        Command::Plugin(PluginCommand::Inspect { id }) => {
+            println!("{}", plugin::inspect_report(&id)?);
+            Ok(())
         }
-        Command::Plugin(PluginCommand::Enable { id }) => plugin::not_persisted_yet("enable", &id),
-        Command::Plugin(PluginCommand::Disable { id }) => plugin::not_persisted_yet("disable", &id),
+        Command::Plugin(PluginCommand::Validate { id }) => {
+            println!("{}", plugin::validate_report(&id)?);
+            Ok(())
+        }
+        Command::Plugin(PluginCommand::Enable { id }) => {
+            println!("{}", plugin::set_enabled_report(&id, true)?);
+            Ok(())
+        }
+        Command::Plugin(PluginCommand::Disable { id }) => {
+            println!("{}", plugin::set_enabled_report(&id, false)?);
+            Ok(())
+        }
         Command::Plugin(PluginCommand::Remove { id, purge_data }) => {
-            plugin::remove_not_persisted_yet(&id, purge_data)
+            println!("{}", plugin::remove_report(&id, purge_data)?);
+            Ok(())
         }
         Command::Uninstall(UninstallCommand::Plan {
             purge_cache,
@@ -164,9 +175,6 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn unknown_command_returns_usage_error() {
@@ -206,7 +214,7 @@ mod tests {
 
     #[test]
     fn init_command_reports_layout_without_error() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = std::env::temp_dir().join(format!("rpotato-init-test-{}", std::process::id()));
         let project_root = root.join("project");
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
