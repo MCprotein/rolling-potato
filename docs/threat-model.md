@@ -100,8 +100,10 @@ Claude Code/Codex형 plugin이 shell command, MCP server, background process, re
 - static capability report 생성
 - unsupported capability 명시
 - shell/background/MCP는 enable 전 승인 필요
+- `bin/`, remote connector, file write path는 기본 차단
 - plugin execution은 runtime tool policy와 hook policy를 통과
 - import, enable, deny, remove 이벤트 ledger 기록
+- marketplace는 index-only catalog부터 시작하고 package mirror는 license 확인 전 금지
 
 ## MVP 보안 요구
 

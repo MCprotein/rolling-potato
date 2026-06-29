@@ -51,6 +51,7 @@ TUI action:
 - patch approve 또는 deny
 - command approve 또는 deny
 - plugin enable 또는 disable
+- blocked plugin capability를 per-capability로 approve 또는 deny
 - source pointer inspect
 - evidence inspect
 - active view switch
@@ -143,4 +144,5 @@ TUI는 smoke test가 필요합니다.
 - team/subagent status update
 - model/token monitoring view updates
 - plugin permission review가 runtime policy를 bypass하지 않음
+- shell/bin/MCP/background/remote/file-write capability가 기본 차단으로 표시됨
 - Korean output guard가 final report에 visible

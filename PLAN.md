@@ -421,8 +421,6 @@ Replacement-level beta should additionally:
 - How strict should command approval be?
 - What hooks are enabled by default?
 - What skills ship first?
-- Which compatibility target comes first: Codex plugins or Claude Code plugins?
-- Which foreign plugin capabilities are allowed before marketplace support?
 - What subagent concurrency limit is safe on 16 GB RAM?
 - What team pipeline is required for replacement-level workflows?
 - Which Rust TUI framework should be used?
@@ -479,6 +477,7 @@ Runtime policy and validation docs:
 13. `docs/team-runtime.md`
 14. `docs/tui.md`
 15. `docs/plugin-adapters.md`
+16. `docs/plugin-marketplace-policy.md`
 
 Project-local automation and contribution policy is recorded in `AGENTS.md`: external code PRs are not accepted, safe verified units should be committed and pushed automatically, and commit messages use Conventional Commits in the form `type(scope): title`.
 
@@ -490,5 +489,7 @@ Next implementation-oriented decisions:
 2. define the initial model manifest format on disk
 3. separate runtime core modules from the CLI surface
 4. define normalized plugin manifest and inspect/validate output before plugin execution
-5. implement `rpotato doctor` before agent behavior
-6. build the first fixture benchmark for Korean/code/tool reliability
+5. implement Codex plugin local import before Claude Code plugin local import
+6. keep risky foreign plugin capabilities blocked until explicit per-capability approval
+7. implement `rpotato doctor` before agent behavior
+8. build the first fixture benchmark for Korean/code/tool reliability

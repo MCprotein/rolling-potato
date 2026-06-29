@@ -116,7 +116,7 @@ Adapter가 제공해야 하는 기능:
 - permission report
 - enable/disable state
 
-Adapter는 외부 plugin을 직접 실행하지 않습니다. 실행은 변환된 capability가 runtime core의 hook, tool policy, ledger, evidence gate를 통과할 때만 가능합니다.
+Adapter는 외부 plugin을 직접 실행하지 않습니다. Codex source runtime adapter를 먼저 구현하고, Claude Code source runtime adapter는 그 뒤에 구현합니다. 실행은 변환된 capability가 runtime core의 hook, tool policy, ledger, evidence gate를 통과할 때만 가능합니다.
 
 상세 설계는 [plugin-adapters.md](plugin-adapters.md)를 따릅니다.
 

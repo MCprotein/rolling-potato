@@ -25,6 +25,9 @@
 - mode 전환은 모델의 즉흥 판단이 아니라 deterministic rule과 runtime state로 처리한다.
 - hooks, skills, subagents, team runtime, TUI는 replacement-level runtime의 1급 capability다.
 - Claude Code/Codex형 플러그인은 직접 실행하지 않고 `rpotato` capability로 import/validate/enable하는 adapter 경계를 둔다.
+- Plugin adapter는 Codex를 먼저 구현하고 Claude Code를 그 다음에 구현한다.
+- 외부 plugin의 shell, `bin/`, MCP server, background process, remote connector, file write path는 기본 차단하고 사용 시 별도 승인으로 푼다.
+- 외부 marketplace는 opt-in catalog로 시작하고 재배포/상표/신고/서명 정책을 먼저 둔다.
 - monitoring은 SSH/Linux server에서 TUI로 먼저 보여주고, HTML은 후속 optional local report/dashboard로 둔다.
 - compaction, resume, cancel, corrupt state fallback은 초기 runtime 설계에 포함한다.
 - 공개 claim과 모델 claim은 evidence보다 넓게 쓰지 않는다.
@@ -42,6 +45,8 @@
 - [x] runtime surface/core/backend 경계 문서화
 - [x] hooks/skills/subagents/team/TUI 필수 capability 반영
 - [x] plugin adapter 경계 문서화
+- [x] Codex-first, Claude Code-second plugin adapter 우선순위 반영
+- [x] plugin marketplace 법무/운영 정책 문서화
 
 ## Phase 1: Runtime Entrypoint And CLI Surface
 
@@ -122,6 +127,8 @@
 - [ ] `rpotato plugin list`
 - [ ] `rpotato plugin inspect <id>`
 - [ ] `rpotato plugin validate <id>`
+- [ ] `rpotato plugin enable <id>`
+- [ ] `rpotato plugin disable <id>`
 - [ ] source runtime namespace rule: native, codex, claude-code
 - [ ] active workflow 귀속 규칙
 - [ ] deterministic keyword/phrase rule table
@@ -231,11 +238,24 @@
 - [ ] skill registry
 - [ ] normalized plugin manifest schema
 - [ ] foreign plugin parser: Codex `.codex-plugin/plugin.json`
+- [ ] Codex plugin inspect/validate dry-run
+- [ ] Codex skill import
+- [ ] Codex MCP import with default disabled server command
 - [ ] foreign plugin parser: Claude Code `.claude-plugin/plugin.json`
+- [ ] Claude Code plugin inspect/validate dry-run
+- [ ] Claude Code skill/command import
+- [ ] Claude Code agent import as subagent role
+- [ ] Claude Code hook import
+- [ ] Claude Code LSP/monitor/bin/settings/theme import policy
 - [ ] plugin capability mapping: skill, hook, subagent, MCP, unsupported
 - [ ] plugin import dry-run report
 - [ ] plugin enable/disable scope policy
 - [ ] unsupported plugin capability ledger record
+- [ ] default-block policy for shell/bin/MCP/background/remote/file-write capability
+- [ ] local curated plugin marketplace index
+- [ ] marketplace entry schema: source, license, permissions, checksum
+- [ ] marketplace legal/trademark/takedown checklist
+- [ ] remote index-only marketplace with opt-in enable
 - [ ] skill context requirements
 - [ ] skill allowed tools
 - [ ] skill evidence requirements
@@ -375,6 +395,8 @@
 - IDE/Desktop/Web surface
 - 외부 runtime plugin 직접 실행
 - 외부 plugin marketplace 자동 신뢰
+- license 미확인 plugin package mirror
+- 공식 승인 없는 Claude Code/Codex 호환 claim
 - destructive command 자동 실행
 - 외부 코드 PR workflow
 - 출처 없는 모델 추천

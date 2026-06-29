@@ -173,9 +173,10 @@ Plugin adapter는 외부 agent runtime의 플러그인 패키지를 `rpotato` ca
 
 - Codex plugin package의 skill/MCP 정보를 `rpotato` skill/MCP capability로 변환한다.
 - Claude Code plugin package의 skill, command, agent, hook, MCP 정보를 `rpotato` skill, subagent, hook, MCP capability로 변환한다.
+- 장기적으로 LSP, monitor, `bin/`, settings, theme/output style까지 검토하되 위험 capability는 기본 차단한다.
 - 변환할 수 없는 기능은 `unsupported`로 기록하고 실행하지 않는다.
 
-Plugin adapter는 외부 플러그인을 직접 실행하지 않습니다. Import, inspect, validate, enable 단계를 거친 뒤 runtime core의 tool policy, hook policy, ledger, evidence gate를 통과한 capability만 실행합니다.
+Plugin adapter는 외부 플러그인을 직접 실행하지 않습니다. Codex adapter를 먼저 구현하고 Claude Code adapter는 그 뒤에 구현합니다. Import, inspect, validate, enable 단계를 거친 뒤 runtime core의 tool policy, hook policy, ledger, evidence gate를 통과한 capability만 실행합니다.
 
 상세 설계는 [plugin-adapters.md](plugin-adapters.md)를 따릅니다.
 

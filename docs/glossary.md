@@ -74,6 +74,12 @@ Claude Code/Codex형 plugin package를 `rpotato`의 skill, hook, subagent, MCP c
 
 외부 plugin을 직접 실행하지 않고 import, inspect, validate, enable 단계를 거칩니다. 매핑할 수 없는 기능은 `unsupported`로 기록합니다.
 
+## Plugin Marketplace
+
+외부 plugin metadata와 source pointer를 제공하는 opt-in catalog입니다.
+
+초기 marketplace는 code mirror가 아니라 index-only catalog입니다. License, source, checksum, permission, removal contact가 없는 entry는 신뢰 대상으로 취급하지 않습니다.
+
 ## Subagent
 
 Runtime core가 parent workflow 아래에서 실행하는 bounded worker agent입니다.

@@ -70,6 +70,7 @@ Open-source operating docs have also been added:
 - `docs/team-runtime.md`
 - `docs/tui.md`
 - `docs/plugin-adapters.md`
+- `docs/plugin-marketplace-policy.md`
 
 External code contributions and external PRs are not accepted for now. This is now recorded in `AGENTS.md`, `GOVERNANCE.md`, `MAINTAINERS.md`, README, and the GitHub issue templates.
 
@@ -128,6 +129,9 @@ Standing boundary:
 - Backend adapter owns inference calls only.
 - Model output never executes tools directly.
 - Claude Code/Codex-style plugins are import targets, not trusted runtime code.
+- Plugin adapter priority is Codex first, then Claude Code.
+- Foreign plugin shell, `bin/`, MCP server, background process, remote connector, and file write paths are blocked by default until explicitly enabled.
+- External marketplace support should start as an opt-in index-only catalog, not a package mirror.
 
 ## Target Users
 
@@ -289,10 +293,11 @@ Suggested next work:
 2. Keep hooks, skills, subagents, team runtime, and TUI aligned with their docs before adding complex agent behavior.
 3. Keep monitoring TUI UX aligned with `DESIGN.md`; HTML is optional later and must share the same observability source.
 4. Keep plugin adapter work aligned with `docs/plugin-adapters.md`; start with inspect/validate before execution.
-5. Split the current scaffold toward explicit runtime core modules.
-6. Add runtime state, ledger, and observability boundaries before chat behavior.
-7. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.
-8. Implement `llama.cpp` sidecar discovery/health-check before chat behavior.
+5. Keep marketplace work aligned with `docs/plugin-marketplace-policy.md`; do not mirror packages before license/redistribution policy exists.
+6. Split the current scaffold toward explicit runtime core modules.
+7. Add runtime state, ledger, and observability boundaries before chat behavior.
+8. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.
+9. Implement `llama.cpp` sidecar discovery/health-check before chat behavior.
 
 ## User Preference Notes
 
@@ -302,5 +307,7 @@ Suggested next work:
 - User wants a Claude Code/Codex/Gaja Code-like runtime. CLI is the first surface, not the whole product.
 - Hooks, skills, subagents, team runtime, and TUI are required for the target product.
 - Claude Code/Codex-style plugin compatibility is desirable through an adapter layer, not direct foreign runtime execution.
+- User chose Codex plugin compatibility first and Claude Code compatibility second.
+- User wants all plugin capabilities considered eventually, with risky external capabilities blocked by default and unlocked through explicit prompts.
 - User wants Windows compatibility, so avoid Mac-only defaults.
 - User is skeptical of heavy runtimes and wants the runtime to be appropriate for small models.

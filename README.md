@@ -185,6 +185,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - [docs/team-runtime.md](docs/team-runtime.md): 팀 실행 runtime 설계
 - [docs/tui.md](docs/tui.md): TUI surface 설계
 - [docs/plugin-adapters.md](docs/plugin-adapters.md): Claude Code/Codex형 플러그인 어댑터 설계
+- [docs/plugin-marketplace-policy.md](docs/plugin-marketplace-policy.md): 외부 plugin marketplace 정책
 - [docs/model-manifest.md](docs/model-manifest.md): 모델 manifest schema
 - [docs/model-source-policy.md](docs/model-source-policy.md): 모델 정보 출처 정책
 - [docs/model-licenses.md](docs/model-licenses.md): 모델 라이선스 추적

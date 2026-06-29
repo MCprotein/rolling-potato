@@ -26,6 +26,26 @@ foreign plugin package
 
 따라서 adapter는 foreign manifest를 읽고 `rpotato` capability manifest로 변환합니다. 변환할 수 없는 기능은 조용히 무시하지 않고 `unsupported`로 표시합니다.
 
+사용자 결정:
+
+- Codex plugin adapter를 먼저 구현한다.
+- Claude Code plugin adapter는 Codex adapter 뒤에 구현한다.
+- 장기적으로는 skills, commands, agents, hooks, MCP, LSP, monitors, `bin/`, settings, theme/output style까지 전부 검토 대상에 포함한다.
+- shell, `bin/`, MCP server, background process, remote connector, file write path는 기본 차단하고, 사용자가 쓰려고 할 때 별도 권한 prompt로 설정을 풀 수 있게 한다.
+- 외부 marketplace는 opt-in catalog로 시작하고, 법적/운영 정책은 [plugin-marketplace-policy.md](plugin-marketplace-policy.md)를 따른다.
+
+## Protocol Status
+
+Codex와 Claude Code는 각각 자기 runtime 안에서 plugin 규칙을 문서화하고 있습니다. 하지만 두 runtime이 공유하는 하나의 표준 plugin protocol은 아닙니다.
+
+분류:
+
+- Runtime-specific: plugin manifest, skill format, command format, hook event, agent lifecycle, marketplace metadata
+- External protocol: MCP server, LSP server
+- `rpotato` protocol: normalized plugin manifest, runtime policy, ledger, evidence gate, Korean output guard
+
+따라서 `rpotato`는 Codex plugin과 Claude Code plugin을 같은 방식으로 실행하지 않습니다. 각 source runtime parser가 외부 방언을 읽고, `rpotato` 내부 manifest로 변환합니다.
+
 ## 확인된 외부 표면
 
 ### Codex
@@ -147,6 +167,7 @@ Dry run output must include:
 | Claude Code `bin/` executable | Tool asset | Not on PATH by default; may be callable only through tool policy |
 | Claude Code theme/output style | TUI/theme setting | Later UI-only import |
 | Claude Code channel | Unsupported | Requires remote/event ingestion policy |
+| Marketplace entry | Plugin catalog source | Opt-in only; follow marketplace policy before remote support |
 
 ## Permission Rules
 
@@ -220,14 +241,19 @@ Adapter validation must cover:
 
 ## Implementation Phases
 
-1. Local import parser for Codex and Claude Code plugin directories.
-2. Static inspect/validate report with no execution.
-3. Imported skill execution through `rpotato skill run`.
-4. MCP server import with explicit enable and approval.
-5. Claude/Codex hook mapping for safe lifecycle events.
-6. Claude agent to `rpotato` subagent role mapping.
-7. Marketplace source support after signing/checksum/source policy is defined.
-8. TUI plugin browser and permission review.
+1. Codex local plugin import parser for `.codex-plugin/plugin.json`.
+2. Codex static inspect/validate report with no execution.
+3. Codex imported skill execution through `rpotato skill run`.
+4. Codex MCP server import with explicit enable and approval.
+5. Claude Code local plugin import parser for `.claude-plugin/plugin.json`.
+6. Claude Code static inspect/validate report with no execution.
+7. Claude Code skill and command import.
+8. Claude Code hook mapping for safe lifecycle events.
+9. Claude Code agent to `rpotato` subagent role mapping.
+10. LSP, monitor, `bin/`, settings, and theme/output import where safe.
+11. Local curated marketplace index.
+12. Remote index-only marketplace after marketplace policy is implemented.
+13. TUI plugin browser and permission review.
 
 ## Source Policy
 
@@ -244,6 +270,8 @@ Before implementation:
 ## References
 
 - Codex official manual, `Plugins` and `Build plugins` sections, fetched through the local Codex documentation helper on 2026-06-29.
+- OpenAI Codex Docs: [Plugins](https://developers.openai.com/codex/plugins)
+- OpenAI Codex Docs: [Build plugins](https://developers.openai.com/codex/plugins/build)
 - Anthropic Claude Code Docs: [Create plugins](https://code.claude.com/docs/en/plugins)
 - Anthropic Claude Code Docs: [Plugins reference](https://code.claude.com/docs/en/plugins-reference)
 - Anthropic Claude Code Docs: [Claude Code settings](https://code.claude.com/docs/en/settings)
