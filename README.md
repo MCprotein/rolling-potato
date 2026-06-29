@@ -165,6 +165,13 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
 - `rpotato skill run <id>`
+- `rpotato policy schema`
+- `rpotato policy check-command <command>`
+- `rpotato policy check-path --read <path>`
+- `rpotato policy check-path --write <path>`
+- `rpotato policy redact <text>`
+- `rpotato hooks list`
+- `rpotato hooks validate-result <json>`
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor export --format jsonl`
@@ -193,6 +200,8 @@ MVP의 기본 결정은 다음과 같습니다.
 `evidence validate`는 artifact pointer가 local project-relative path이고 project boundary를 벗어나지 않는지 확인합니다.
 
 `run`, `intent classify`, `intent routes`, `skill run`은 현재 user request를 skill/mode/context/evidence 요구사항으로 정규화하고 ledger event를 남깁니다. 실제 model/backend agent loop 실행은 아직 수행하지 않습니다.
+
+`policy`와 `hooks` 명령은 command/path 권한 결정, credential redaction, lifecycle hook registry, fail-closed hook result 검사를 제공합니다. 실제 tool execution은 아직 이 policy surface 뒤에 연결되지 않았습니다.
 
 `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 

@@ -151,37 +151,37 @@
 
 목표: 파일 쓰기, command 실행, 다운로드 같은 side effect를 모델 출력이 아니라 runtime policy로 통제한다.
 
-- [ ] tool/action schema
-- [ ] hook/control-point input/output schema
-- [ ] hook registry
-- [ ] lifecycle hooks: session_start, user_request_received, pre_context_pack, post_context_pack
-- [ ] lifecycle hooks: pre_model_request, post_model_response, pre_action_parse, post_action_parse
-- [ ] lifecycle hooks: pre_tool_call, post_tool_result, pre_patch_apply, post_patch_apply
-- [ ] lifecycle hooks: pre_command_run, post_command_run, pre_final_report, stop_gate, session_end
-- [ ] hook ordering: runtime, project, skill, session, observer
-- [ ] hook conflict rule: deny > ask > modify > allow > observe
-- [ ] project boundary checker
-- [ ] 파일 읽기 allow/exclude 규칙
-- [ ] rule source: user, project, local, session, policy
-- [ ] allow/ask/deny decision model
-- [ ] diff-before-write gate
-- [ ] managed artifact manifest/hash tracking
-- [ ] `create`/`update`/`noop`/`user-modified`/`blocked` action status
-- [ ] user-modified file/region 보존 규칙
-- [ ] command classifier
-- [ ] command 승인 prompt
-- [ ] destructive command deny/high-confirm policy
-- [ ] 로그 credential redaction
-- [ ] network/download 승인 policy
-- [ ] permission decision audit record
-- [ ] foreign plugin import permission report
-- [ ] foreign plugin shell/background process approval gate
-- [ ] foreign plugin local path canonicalization
-- [ ] foreign plugin symlink boundary check
-- [ ] plugin import/enable/remove ledger record
-- [ ] policy fixture test
-- [ ] hook JSON input/output fixture test
-- [ ] hook fail-closed fixture test
+- [x] tool/action schema
+- [x] hook/control-point input/output schema
+- [x] hook registry
+- [x] lifecycle hooks: session_start, user_request_received, pre_context_pack, post_context_pack
+- [x] lifecycle hooks: pre_model_request, post_model_response, pre_action_parse, post_action_parse
+- [x] lifecycle hooks: pre_tool_call, post_tool_result, pre_patch_apply, post_patch_apply
+- [x] lifecycle hooks: pre_command_run, post_command_run, pre_final_report, stop_gate, session_end
+- [x] hook ordering: runtime, project, skill, session, observer
+- [x] hook conflict rule: deny > ask > modify > allow > observe
+- [x] project boundary checker
+- [x] 파일 읽기 allow/exclude 규칙
+- [x] rule source: user, project, local, session, policy
+- [x] allow/ask/deny decision model
+- [x] diff-before-write gate
+- [x] managed artifact manifest/hash tracking
+- [x] `create`/`update`/`noop`/`user-modified`/`blocked` action status
+- [x] user-modified file/region 보존 규칙
+- [x] command classifier
+- [x] command 승인 prompt
+- [x] destructive command deny/high-confirm policy
+- [x] 로그 credential redaction
+- [x] network/download 승인 policy
+- [x] permission decision audit record
+- [x] foreign plugin import permission report
+- [x] foreign plugin shell/background process approval gate
+- [x] foreign plugin local path canonicalization
+- [x] foreign plugin symlink boundary check
+- [x] plugin import/enable/remove ledger record
+- [x] policy fixture test
+- [x] hook JSON input/output fixture test
+- [x] hook fail-closed fixture test
 
 ## Phase 5: Model Manifest And Install
 

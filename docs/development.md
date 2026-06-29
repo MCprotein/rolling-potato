@@ -23,6 +23,13 @@
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
 - `rpotato skill run <id>`
+- `rpotato policy schema`
+- `rpotato policy check-command <command>`
+- `rpotato policy check-path --read <path>`
+- `rpotato policy check-path --write <path>`
+- `rpotato policy redact <text>`
+- `rpotato hooks list`
+- `rpotato hooks validate-result <json>`
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor export --format jsonl`
@@ -48,7 +55,7 @@
 
 모델/backend 다운로드는 아직 활성화하지 않았습니다. 검증된 manifest가 없으면 runtime core가 다운로드를 차단하고 CLI surface가 그 이유를 표시해야 합니다.
 
-Plugin source snapshot, persistent registry, enable/disable/remove는 아직 활성화하지 않았습니다. 현재 plugin path는 local directory dry-run 검사와 remote source rejection만 수행합니다.
+Plugin source snapshot, persistent registry, inspect, validate, enable/disable/remove는 활성화되어 있습니다. Import는 실행 권한을 부여하지 않고 permission report와 ledger event만 남깁니다.
 
 ## 기술 스택
 
@@ -100,6 +107,12 @@ cargo run -- state resume
 cargo run -- evidence validate .rpotato/evidence/smoke.txt
 cargo run -- skill list
 cargo run -- skill run fix-test
+cargo run -- policy schema
+cargo run -- policy check-command cargo test
+cargo run -- policy check-path --write src/main.rs
+cargo run -- policy redact "token=secret"
+cargo run -- hooks list
+cargo run -- hooks validate-result '{"status":"allow"}'
 cargo run -- monitor status
 cargo run -- monitor models
 cargo run -- monitor export --format jsonl
@@ -123,7 +136,7 @@ cargo run -- uninstall --dry-run --purge-cache
 - `state`: current-state, project/session identity, cancel/no-op event recording
 - `evidence`: project-bound artifact pointer validation and stale policy summary
 - `skill`: built-in skill registry and invocation normalization
-- `hooks`: lifecycle control points
+- `hooks`: lifecycle hook registry and fail-closed result validation
 - `skills`: reusable runtime capabilities
 - `plugins`: local Codex/Claude Code plugin import, inspect, validate, enable/disable/remove
 - `config`: local config paths and serialization
@@ -135,7 +148,7 @@ cargo run -- uninstall --dry-run --purge-cache
 - `subagent`: bounded worker lifecycle
 - `team`: staged multi-agent coordination
 - `tui`: terminal interactive surface
-- `policy`: command and file permission rules
+- `policy`: command/path permission classifier and redaction surface
 - `patch`: diff rendering and apply flow
 - `evidence`: ledger, verification evidence, stop gate
 - `observability`: SQLite migration/projection, token/resource metric schemas, monitoring export

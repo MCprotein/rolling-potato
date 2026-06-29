@@ -17,6 +17,13 @@ rpotato
   rpotato evidence validate <artifact-pointer>
   rpotato skill list
   rpotato skill run <id>
+  rpotato policy schema
+  rpotato policy check-command <command>
+  rpotato policy check-path --read <path>
+  rpotato policy check-path --write <path>
+  rpotato policy redact <text>
+  rpotato hooks list
+  rpotato hooks validate-result <json>
   rpotato backend doctor
   rpotato cache status
   rpotato monitor status
@@ -54,6 +61,8 @@ pub enum Command {
     Cancel,
     Evidence(EvidenceCommand),
     Skill(SkillCommand),
+    Policy(PolicyCommand),
+    Hooks(HooksCommand),
     BackendDoctor,
     CacheStatus,
     Monitor(MonitorCommand),
@@ -92,6 +101,26 @@ pub enum SkillCommand {
 pub enum IntentCommand {
     Classify { request: String },
     Routes,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum PolicyCommand {
+    Schema,
+    CheckCommand { command: String },
+    CheckPath { mode: PolicyPathMode, path: String },
+    Redact { text: String },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PolicyPathMode {
+    Read,
+    Write,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum HooksCommand {
+    List,
+    ValidateResult { json: String },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -217,6 +246,48 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, ..] if group == "skill" => {
             Err(AppError::usage("skill 명령은 list 또는 run만 허용합니다."))
         }
+        [group, action] if group == "policy" && action == "schema" => {
+            Ok(Command::Policy(PolicyCommand::Schema))
+        }
+        [group, action, rest @ ..] if group == "policy" && action == "check-command" => {
+            Ok(Command::Policy(PolicyCommand::CheckCommand {
+                command: parse_request(rest, "policy check-command")?,
+            }))
+        }
+        [group, action, flag, path] if group == "policy" && action == "check-path" => {
+            let mode = match flag.as_str() {
+                "--read" => PolicyPathMode::Read,
+                "--write" => PolicyPathMode::Write,
+                _ => {
+                    return Err(AppError::usage(
+                        "policy check-path는 --read 또는 --write만 허용합니다.",
+                    ));
+                }
+            };
+            Ok(Command::Policy(PolicyCommand::CheckPath {
+                mode,
+                path: path.clone(),
+            }))
+        }
+        [group, action, rest @ ..] if group == "policy" && action == "redact" => {
+            Ok(Command::Policy(PolicyCommand::Redact {
+                text: parse_request(rest, "policy redact")?,
+            }))
+        }
+        [group, ..] if group == "policy" => Err(AppError::usage(
+            "policy 명령은 schema, check-command, check-path, redact만 허용합니다.",
+        )),
+        [group, action] if group == "hooks" && action == "list" => {
+            Ok(Command::Hooks(HooksCommand::List))
+        }
+        [group, action, rest @ ..] if group == "hooks" && action == "validate-result" => {
+            Ok(Command::Hooks(HooksCommand::ValidateResult {
+                json: parse_request(rest, "hooks validate-result")?,
+            }))
+        }
+        [group, ..] if group == "hooks" => Err(AppError::usage(
+            "hooks 명령은 list 또는 validate-result만 허용합니다.",
+        )),
         [group, action] if group == "backend" && action == "doctor" => Ok(Command::BackendDoctor),
         [group, action] if group == "cache" && action == "status" => Ok(Command::CacheStatus),
         [group, action] if group == "monitor" && action == "status" => {
@@ -617,6 +688,49 @@ mod tests {
     fn parses_intent_routes() {
         let command = parse(["intent".to_string(), "routes".to_string()]).unwrap();
         assert_eq!(command, Command::Intent(IntentCommand::Routes));
+    }
+
+    #[test]
+    fn parses_policy_check_command() {
+        let command = parse([
+            "policy".to_string(),
+            "check-command".to_string(),
+            "cargo".to_string(),
+            "test".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Policy(PolicyCommand::CheckCommand {
+                command: "cargo test".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_policy_check_path_write() {
+        let command = parse([
+            "policy".to_string(),
+            "check-path".to_string(),
+            "--write".to_string(),
+            "src/main.rs".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Policy(PolicyCommand::CheckPath {
+                mode: PolicyPathMode::Write,
+                path: "src/main.rs".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_hooks_list() {
+        let command = parse(["hooks".to_string(), "list".to_string()]).unwrap();
+        assert_eq!(command, Command::Hooks(HooksCommand::List));
     }
 
     #[test]

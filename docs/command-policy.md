@@ -72,6 +72,33 @@
 - system-wide install
 - production deploy
 
+## Current Implementation
+
+Phase 4의 현재 구현:
+
+- `rpotato policy schema`
+- `rpotato policy check-command <command>`
+- `rpotato policy check-path --read <path>`
+- `rpotato policy check-path --write <path>`
+- `rpotato policy redact <text>`
+
+현재 classifier는 실행하지 않고 decision만 반환합니다.
+
+- `allow`: 읽기/검증 명령 또는 project 내부 read path
+- `ask`: side effect 가능 command, network/download/dependency command, project 내부 write path
+- `deny`: destructive command, project boundary 밖 path, `..` traversal, excluded path
+
+모든 `check-command`와 `check-path` 결과는 permission decision audit event로 ledger에 기록됩니다.
+
+Phase 4에서 고정한 schema:
+
+- action kinds: read file, write file, run command, apply patch, network download, plugin capability
+- rule sources: user, project, local, session, policy
+- action status: create, update, noop, user-modified, blocked
+- write policy: diff-before-write와 사용자 승인 필요
+- managed artifact policy: manifest/hash tracking이 download/install보다 먼저 필요
+- network policy: download/remote connector는 `ask`
+
 ## Plugin Import And Capability Policy
 
 Plugin import는 local path만 허용합니다.

@@ -64,6 +64,23 @@ Hook은 정책을 우회하는 shell callback이 아닙니다. 제한된 runtime
 - evidence record
 - ledger metadata
 
+## Current Implementation
+
+Phase 4의 현재 구현:
+
+- `rpotato hooks list`
+- `rpotato hooks validate-result <json>`
+
+`hooks list`는 lifecycle hook registry, ordering, conflict rule, input/output schema를 출력합니다.
+
+`hooks validate-result`는 hook output의 `status`를 검사합니다. 알 수 없는 status나 파싱 실패는 fail-closed로 `deny` 처리합니다.
+
+구현된 conflict rule:
+
+```text
+error/deny > ask > modify > allow > observe
+```
+
 ## Policy Boundary
 
 Hook은 동작을 더 좁힐 수 있지만 runtime policy보다 권한을 넓힐 수 없습니다.

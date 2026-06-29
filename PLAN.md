@@ -65,6 +65,8 @@ rpotato state resume
 rpotato evidence validate logs/test.log
 rpotato skill list
 rpotato skill run fix-test
+rpotato policy check-command "cargo test"
+rpotato hooks list
 rpotato plugin import --from claude-code ./my-plugin
 rpotato plugin import --from codex ./my-plugin
 rpotato plugin inspect imported.example-plugin

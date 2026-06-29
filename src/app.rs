@@ -1,15 +1,17 @@
 use crate::backend;
 use crate::cache;
 use crate::cli::{
-    Command, EvidenceCommand, IntentCommand, ModelCommand, MonitorCommand, PluginCommand,
-    SkillCommand, StateCommand, UninstallCommand,
+    Command, EvidenceCommand, HooksCommand, IntentCommand, ModelCommand, MonitorCommand,
+    PluginCommand, PolicyCommand, PolicyPathMode, SkillCommand, StateCommand, UninstallCommand,
 };
 use crate::config;
 use crate::evidence;
+use crate::hooks;
 use crate::intent;
 use crate::model;
 use crate::monitor;
 use crate::plugin;
+use crate::policy;
 use crate::runtime;
 use crate::skill;
 use crate::state;
@@ -100,6 +102,34 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
         }
         Command::Skill(SkillCommand::Run { id }) => {
             println!("{}", skill::run_report(&id)?);
+            Ok(())
+        }
+        Command::Policy(PolicyCommand::Schema) => {
+            println!("{}", policy::schema_report());
+            Ok(())
+        }
+        Command::Policy(PolicyCommand::CheckCommand { command }) => {
+            println!("{}", policy::check_command_report(&command)?);
+            Ok(())
+        }
+        Command::Policy(PolicyCommand::CheckPath { mode, path }) => {
+            let mode = match mode {
+                PolicyPathMode::Read => policy::PathMode::Read,
+                PolicyPathMode::Write => policy::PathMode::Write,
+            };
+            println!("{}", policy::check_path_report(mode, &path)?);
+            Ok(())
+        }
+        Command::Policy(PolicyCommand::Redact { text }) => {
+            println!("{}", policy::redact_report(&text));
+            Ok(())
+        }
+        Command::Hooks(HooksCommand::List) => {
+            println!("{}", hooks::list_report());
+            Ok(())
+        }
+        Command::Hooks(HooksCommand::ValidateResult { json }) => {
+            println!("{}", hooks::validate_result_report(&json)?);
             Ok(())
         }
         Command::BackendDoctor => {
