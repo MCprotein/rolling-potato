@@ -6,6 +6,8 @@
 
 - GitHub Releases를 기본 배포 채널로 사용합니다.
 - 모델 가중치는 `rpotato` release binary에 포함하지 않습니다.
+- 외부 plugin package는 `rpotato` release binary에 포함하지 않습니다.
+- 외부 plugin marketplace, registry, catalog, mirror는 배포 채널로 사용하지 않습니다.
 - 각 binary는 checksum과 함께 배포합니다.
 - 릴리즈 노트에는 지원 OS, backend version, known issues를 포함합니다.
 
@@ -42,8 +44,9 @@ MVP 전에는 `0.x.y`를 사용합니다.
 5. model manifest checksum verification
 6. Korean output guard tests
 7. destructive command policy tests
-8. release notes 작성
-9. binary checksum 생성
+8. plugin adapter가 포함된 release라면 local import only와 remote source rejection smoke test
+9. release notes 작성
+10. binary checksum 생성
 
 ## 모델 manifest 배포
 
@@ -61,3 +64,21 @@ manifest에는 최소한 다음 정보가 필요합니다.
 - context length
 
 모델 가중치를 직접 재배포할지 여부는 모델별 license와 artifact provider 정책을 확인한 뒤 결정합니다.
+
+## Plugin 배포 경계
+
+`rpotato` release는 plugin adapter만 배포합니다. 외부 plugin package는 배포하지 않습니다.
+
+허용:
+
+- local plugin directory import 기능
+- Codex/Claude Code plugin manifest parser
+- inspect/validate/enable/disable/remove command
+
+비허용:
+
+- plugin marketplace 연동
+- plugin registry/catalog 연동
+- third-party plugin package mirror
+- remote URL plugin install
+- official Codex/Claude Code compatibility claim

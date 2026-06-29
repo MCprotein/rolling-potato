@@ -96,6 +96,9 @@ Claude Code/Codex형 plugin이 shell command, MCP server, background process, re
 완화:
 
 - import 시 직접 실행 금지
+- local plugin directory import만 허용
+- remote URL, marketplace, registry, catalog, mirror 거부
+- path traversal과 boundary-escaping symlink 거부
 - source manifest hash 기록
 - static capability report 생성
 - unsupported capability 명시

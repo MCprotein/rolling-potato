@@ -219,6 +219,10 @@ rpotato run "이 에러 고쳐줘"
 rpotato tui
 rpotato skill list
 rpotato skill run fix-test
+rpotato plugin import --from codex ./my-plugin
+rpotato plugin import --from claude-code ./my-plugin
+rpotato plugin inspect imported.example-plugin
+rpotato plugin validate imported.example-plugin
 rpotato team status
 rpotato model list
 rpotato model install qwen3.5-4b

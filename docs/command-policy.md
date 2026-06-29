@@ -72,6 +72,49 @@
 - system-wide install
 - production deploy
 
+## Plugin Import And Capability Policy
+
+Plugin import는 local path만 허용합니다.
+
+허용:
+
+- 사용자가 직접 지정한 local plugin directory 읽기
+- `.codex-plugin/plugin.json` 또는 `.claude-plugin/plugin.json` manifest parse
+- dry-run inspect/validate report 생성
+- 승인 후 app data root로 plugin source snapshot 생성
+
+거부:
+
+- remote URL import
+- 외부 marketplace import
+- 외부 registry/catalog import
+- third-party package mirror
+- path traversal
+- symlink를 통한 project/app data boundary 우회
+
+Plugin import는 실행 권한을 주지 않습니다. 다음 capability는 기본 차단하고, 사용자가 실제로 enable 또는 run하려 할 때 capability별 승인 prompt를 표시해야 합니다.
+
+- shell command
+- `bin/` executable
+- MCP server
+- background process
+- remote connector
+- file write path
+- download path
+
+Plugin enable 전에는 다음을 한국어로 보여줘야 합니다.
+
+- source runtime: Codex or Claude Code
+- source manifest path
+- source manifest hash
+- imported capability list
+- unsupported capability list
+- required permissions
+- copied app data path
+- plugin data path
+
+Plugin이 가져온 skill, hook, subagent, MCP capability도 runtime tool policy, hook policy, ledger, evidence gate를 우회할 수 없습니다.
+
 ## Korean reporting
 
 명령 실행 결과는 한국어로 요약합니다. 단, error code, command, file path, log line은 원문 보존이 가능합니다.
@@ -85,3 +128,8 @@ command policy는 fixture test로 검증해야 합니다.
 - project boundary enforcement
 - credential redaction
 - verification command approval
+- local plugin import only
+- remote plugin URL rejection
+- plugin marketplace/registry/catalog rejection
+- plugin path traversal rejection
+- blocked plugin capability approval prompt

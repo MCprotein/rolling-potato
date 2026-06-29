@@ -21,7 +21,7 @@
 - Language: Rust
 - CLI parser: std 기반 수동 parser
 - Runtime: CLI surface와 runtime core를 분리하는 방향
-- Required capabilities: hooks, skills, subagents, team runtime, TUI
+- Required capabilities: hooks, skills, subagents, team runtime, TUI, local plugin adapter
 - Backend: managed `llama.cpp` sidecar
 - Model format: GGUF
 - Primary OS targets: macOS, Windows
@@ -67,6 +67,7 @@ cargo run -- model list
 - `runtime`: state, policy, ontology, agent loop orchestration
 - `hooks`: lifecycle control points
 - `skills`: reusable runtime capabilities
+- `plugins`: local Codex/Claude Code plugin import, inspect, validate, enable/disable
 - `config`: local config paths and serialization
 - `model`: manifest, download, checksum, registry
 - `backend`: backend adapter trait and `llama.cpp` implementation
@@ -91,6 +92,13 @@ rg -n "<확인할-오타-패턴>" README.md docs *.md
 ```
 
 링크가 추가되면 파일 존재 여부를 확인합니다.
+
+Plugin adapter 변경 시 추가로 확인합니다.
+
+- local directory import만 허용되는지
+- remote URL, marketplace, registry, catalog, mirror source가 거부되는지
+- shell, `bin/`, MCP, background, remote connector, file write capability가 기본 차단되는지
+- import/enable/remove 이벤트가 ledger에 기록되는지
 
 ## 커밋과 푸시
 

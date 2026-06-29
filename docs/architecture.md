@@ -99,6 +99,9 @@ rpotato app data root/
   state/
     observability.sqlite
     runtime-ledger.jsonl
+  plugins/
+    imported/    # local plugin source snapshots and normalized manifests
+    data/        # plugin-owned app data
   cache/
 
 project root/
@@ -174,6 +177,8 @@ Plugin adapter는 외부 agent runtime의 플러그인 패키지를 `rpotato` ca
 - Codex plugin package의 skill/MCP 정보를 `rpotato` skill/MCP capability로 변환한다.
 - Claude Code plugin package의 skill, command, agent, hook, MCP 정보를 `rpotato` skill, subagent, hook, MCP capability로 변환한다.
 - 장기적으로 LSP, monitor, `bin/`, settings, theme/output style까지 검토하되 위험 capability는 기본 차단한다.
+- local plugin directory만 import한다.
+- remote URL, marketplace, registry, catalog, mirror source는 거부한다.
 - 변환할 수 없는 기능은 `unsupported`로 기록하고 실행하지 않는다.
 
 Plugin adapter는 외부 플러그인을 직접 실행하지 않습니다. Codex adapter를 먼저 구현하고 Claude Code adapter는 그 뒤에 구현합니다. Import, inspect, validate, enable 단계를 거친 뒤 runtime core의 tool policy, hook policy, ledger, evidence gate를 통과한 capability만 실행합니다.
@@ -208,7 +213,7 @@ Plugin adapter는 외부 플러그인을 직접 실행하지 않습니다. Codex
 - 파일 쓰기는 diff 표시 후 사용자 승인을 요구한다.
 - side effect가 있는 명령은 사용자 승인을 요구한다.
 - 모델 다운로드는 CLI surface가 사용자 승인을 받은 뒤 runtime core가 수행한다.
-- 외부 plugin import와 enable은 capability report와 권한 검토 뒤에만 허용한다.
+- 외부 plugin import와 enable은 local path, capability report, 권한 검토 뒤에만 허용한다.
 - operation log를 남긴다.
 - `doctor` 명령으로 환경, backend, 모델 상태를 점검한다.
 

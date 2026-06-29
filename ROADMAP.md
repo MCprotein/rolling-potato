@@ -125,11 +125,16 @@
 - [ ] skill invocation grammar
 - [ ] `rpotato skill list`
 - [ ] `rpotato skill run <id>`
+- [ ] `rpotato plugin import --from codex <local-path>`
+- [ ] `rpotato plugin import --from claude-code <local-path>`
+- [ ] `rpotato plugin import --dry-run`
 - [ ] `rpotato plugin list`
 - [ ] `rpotato plugin inspect <id>`
 - [ ] `rpotato plugin validate <id>`
 - [ ] `rpotato plugin enable <id>`
 - [ ] `rpotato plugin disable <id>`
+- [ ] `rpotato plugin remove <id> --keep-data`
+- [ ] `rpotato plugin remove <id> --purge-data`
 - [ ] source runtime namespace rule: native, codex, claude-code
 - [ ] active workflow 귀속 규칙
 - [ ] deterministic keyword/phrase rule table
@@ -171,6 +176,9 @@
 - [ ] permission decision audit record
 - [ ] foreign plugin import permission report
 - [ ] foreign plugin shell/background process approval gate
+- [ ] foreign plugin local path canonicalization
+- [ ] foreign plugin symlink boundary check
+- [ ] plugin import/enable/remove ledger record
 - [ ] policy fixture test
 - [ ] hook JSON input/output fixture test
 - [ ] hook fail-closed fixture test
@@ -251,6 +259,8 @@
 - [ ] plugin capability mapping: skill, hook, subagent, MCP, unsupported
 - [ ] plugin import dry-run report
 - [ ] plugin enable/disable scope policy
+- [ ] plugin source snapshot and manifest hash record
+- [ ] plugin data path separation
 - [ ] unsupported plugin capability ledger record
 - [ ] default-block policy for shell/bin/MCP/background/remote/file-write capability
 - [ ] reject remote plugin URL
@@ -381,6 +391,7 @@
 - [ ] release notes template
 - [ ] `rpotato doctor` release smoke test
 - [ ] uninstall keep-cache/purge-cache smoke test
+- [ ] plugin local-import rejection smoke test: remote URL, marketplace, registry, catalog
 - [ ] GitHub Releases distribution
 - [ ] post-MVP Homebrew/Scoop decision
 
