@@ -75,6 +75,20 @@ Hook은 동작을 더 좁힐 수 있지만 runtime policy보다 권한을 넓힐
 - Hook은 destructive command를 사용자 승인 없이 실행하게 만들 수 없습니다.
 - Hook은 source evidence 없이 모델/license claim을 confirmed로 표시할 수 없습니다.
 
+## Imported Hooks
+
+Claude Code/Codex형 plugin에서 가져온 hook은 같은 이름처럼 보여도 `rpotato` hook과 동일한 권한을 갖지 않습니다.
+
+Import 규칙:
+
+- source hook event가 `rpotato` lifecycle hook에 명시적으로 매핑될 때만 import한다.
+- command, HTTP, MCP, background process를 호출하는 hook은 기본 비활성화한다.
+- hook result는 `allow`, `ask`, `deny`, `modify`, `observe`, `error` 중 하나로 정규화한다.
+- 외부 hook은 runtime policy보다 권한을 넓힐 수 없다.
+- 매핑할 수 없는 hook은 `unsupported`로 ledger에 기록한다.
+
+자세한 plugin 호환 경계는 [plugin-adapters.md](plugin-adapters.md)를 따릅니다.
+
 ## Ordering
 
 Hook 순서는 deterministic해야 합니다.

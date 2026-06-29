@@ -11,6 +11,7 @@ TUI design source of truth는 [DESIGN.md](../DESIGN.md)입니다. 특히 monitor
 - long-running agent session을 inspect 가능하게 만든다.
 - log를 직접 뒤지지 않아도 runtime state를 보여준다.
 - approval, diff, tool output, subagents, teams를 지원한다.
+- plugin import/permission review를 지원한다.
 - context/evidence/stop gate를 visible하게 만든다.
 - model/token/resource monitoring을 terminal-only 환경에서도 사용할 수 있게 만든다.
 - keyboard-first terminal workflow를 유지한다.
@@ -37,6 +38,7 @@ TUI design source of truth는 [DESIGN.md](../DESIGN.md)입니다. 특히 monitor
 - model/token usage summary
 - subagent status
 - team status
+- plugin permission review
 - evidence/stop gate status
 - logs and diagnostics
 
@@ -48,6 +50,7 @@ TUI action:
 - tool call approve 또는 deny
 - patch approve 또는 deny
 - command approve 또는 deny
+- plugin enable 또는 disable
 - source pointer inspect
 - evidence inspect
 - active view switch
@@ -103,6 +106,7 @@ TUI는 runtime state를 consume합니다.
 - active subagents
 - active team stage
 - pending approvals
+- plugin capability and permission report
 - ledger tail
 - evidence status
 - backend/model status
@@ -138,4 +142,5 @@ TUI는 smoke test가 필요합니다.
 - cancellation이 runtime state를 update함
 - team/subagent status update
 - model/token monitoring view updates
+- plugin permission review가 runtime policy를 bypass하지 않음
 - Korean output guard가 final report에 visible

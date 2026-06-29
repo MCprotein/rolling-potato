@@ -24,6 +24,7 @@
 - SQLite는 monitoring/query projection으로 두고, append-only ledger는 audit trail로 유지한다.
 - mode 전환은 모델의 즉흥 판단이 아니라 deterministic rule과 runtime state로 처리한다.
 - hooks, skills, subagents, team runtime, TUI는 replacement-level runtime의 1급 capability다.
+- Claude Code/Codex형 플러그인은 직접 실행하지 않고 `rpotato` capability로 import/validate/enable하는 adapter 경계를 둔다.
 - monitoring은 SSH/Linux server에서 TUI로 먼저 보여주고, HTML은 후속 optional local report/dashboard로 둔다.
 - compaction, resume, cancel, corrupt state fallback은 초기 runtime 설계에 포함한다.
 - 공개 claim과 모델 claim은 evidence보다 넓게 쓰지 않는다.
@@ -40,6 +41,7 @@
 - [x] `anamnesis` 온톨로지/context lifecycle 검토
 - [x] runtime surface/core/backend 경계 문서화
 - [x] hooks/skills/subagents/team/TUI 필수 capability 반영
+- [x] plugin adapter 경계 문서화
 
 ## Phase 1: Runtime Entrypoint And CLI Surface
 
@@ -117,6 +119,10 @@
 - [ ] skill invocation grammar
 - [ ] `rpotato skill list`
 - [ ] `rpotato skill run <id>`
+- [ ] `rpotato plugin list`
+- [ ] `rpotato plugin inspect <id>`
+- [ ] `rpotato plugin validate <id>`
+- [ ] source runtime namespace rule: native, codex, claude-code
 - [ ] active workflow 귀속 규칙
 - [ ] deterministic keyword/phrase rule table
 - [ ] structural signal extraction: read-only, plan-only, review-only, test-spec
@@ -155,6 +161,8 @@
 - [ ] 로그 credential redaction
 - [ ] network/download 승인 policy
 - [ ] permission decision audit record
+- [ ] foreign plugin import permission report
+- [ ] foreign plugin shell/background process approval gate
 - [ ] policy fixture test
 - [ ] hook JSON input/output fixture test
 - [ ] hook fail-closed fixture test
@@ -221,6 +229,13 @@
 - [ ] prompt compiler
 - [ ] skill manifest schema
 - [ ] skill registry
+- [ ] normalized plugin manifest schema
+- [ ] foreign plugin parser: Codex `.codex-plugin/plugin.json`
+- [ ] foreign plugin parser: Claude Code `.claude-plugin/plugin.json`
+- [ ] plugin capability mapping: skill, hook, subagent, MCP, unsupported
+- [ ] plugin import dry-run report
+- [ ] plugin enable/disable scope policy
+- [ ] unsupported plugin capability ledger record
 - [ ] skill context requirements
 - [ ] skill allowed tools
 - [ ] skill evidence requirements
@@ -327,6 +342,7 @@
 - [ ] TUI subagent/team status view
 - [ ] TUI model/token monitoring view
 - [ ] TUI evidence/stop gate view
+- [ ] TUI plugin permission review view
 - [ ] optional local HTML report/dashboard decision
 - [ ] TUI cancel/resume controls
 - [ ] TUI small terminal smoke test
@@ -357,6 +373,8 @@
 - 모든 MCP transport 지원
 - remote bridge
 - IDE/Desktop/Web surface
+- 외부 runtime plugin 직접 실행
+- 외부 plugin marketplace 자동 신뢰
 - destructive command 자동 실행
 - 외부 코드 PR workflow
 - 출처 없는 모델 추천

@@ -37,6 +37,7 @@ The README and docs split that plan into:
 - observability and monitoring design
 - hooks, skills, subagents, team runtime, and TUI design
 - TUI monitoring UX direction with optional later HTML report/dashboard
+- Claude Code/Codex-style plugin adapter design
 
 Open-source operating docs have also been added:
 
@@ -68,6 +69,7 @@ Open-source operating docs have also been added:
 - `docs/subagents.md`
 - `docs/team-runtime.md`
 - `docs/tui.md`
+- `docs/plugin-adapters.md`
 
 External code contributions and external PRs are not accepted for now. This is now recorded in `AGENTS.md`, `GOVERNANCE.md`, `MAINTAINERS.md`, README, and the GitHub issue templates.
 
@@ -122,8 +124,10 @@ Standing boundary:
 - Runtime core owns state, policy, ontology, context, agent loop, evidence, and stop gates.
 - Runtime core owns model/token/resource monitoring with a local SQLite projection and append-only ledger.
 - Runtime core owns hooks, skills, subagent lifecycle, team coordination, and TUI state feeds.
+- Runtime core owns foreign plugin import, validation, permission reporting, and adapter execution boundaries.
 - Backend adapter owns inference calls only.
 - Model output never executes tools directly.
+- Claude Code/Codex-style plugins are import targets, not trusted runtime code.
 
 ## Target Users
 
@@ -284,10 +288,11 @@ Suggested next work:
 1. Keep the CLI surface/runtime core/backend boundaries aligned with `docs/runtime-architecture.md`.
 2. Keep hooks, skills, subagents, team runtime, and TUI aligned with their docs before adding complex agent behavior.
 3. Keep monitoring TUI UX aligned with `DESIGN.md`; HTML is optional later and must share the same observability source.
-4. Split the current scaffold toward explicit runtime core modules.
-5. Add runtime state, ledger, and observability boundaries before chat behavior.
-6. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.
-7. Implement `llama.cpp` sidecar discovery/health-check before chat behavior.
+4. Keep plugin adapter work aligned with `docs/plugin-adapters.md`; start with inspect/validate before execution.
+5. Split the current scaffold toward explicit runtime core modules.
+6. Add runtime state, ledger, and observability boundaries before chat behavior.
+7. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.
+8. Implement `llama.cpp` sidecar discovery/health-check before chat behavior.
 
 ## User Preference Notes
 
@@ -296,5 +301,6 @@ Suggested next work:
 - User wants the product idea shaped before implementation.
 - User wants a Claude Code/Codex/Gaja Code-like runtime. CLI is the first surface, not the whole product.
 - Hooks, skills, subagents, team runtime, and TUI are required for the target product.
+- Claude Code/Codex-style plugin compatibility is desirable through an adapter layer, not direct foreign runtime execution.
 - User wants Windows compatibility, so avoid Mac-only defaults.
 - User is skeptical of heavy runtimes and wants the runtime to be appropriate for small models.

@@ -22,6 +22,7 @@
 - 도구 권한 정책
 - 훅과 스킬
 - 서브에이전트와 팀 실행
+- Claude Code/Codex형 플러그인 어댑터
 - 패치 생성과 검증
 - 재시도 제어
 - 모델별 token/latency/resource monitoring
@@ -70,6 +71,8 @@ rpotato run "이 에러 고쳐줘"
 rpotato tui
 rpotato skill list
 rpotato skill run fix-test
+rpotato plugin import --from claude-code ./my-plugin
+rpotato plugin inspect imported.example-plugin
 rpotato team status
 rpotato model list
 rpotato model install qwen3.5-4b
@@ -111,6 +114,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - 첫 surface: CLI
 - 필수 surface: TUI
 - 필수 runtime capability: hooks, skills, subagents, team runtime
+- 필수 compatibility 경계: Claude Code/Codex형 plugin adapter
 - 필수 monitoring store: local SQLite projection + append-only ledger
 - 우선 평가 후보: `Qwen3.5-4B` 계열 quantized GGUF, artifact/runtime 검증 전 미확정
 - 비교 평가 후보: `Gemma 4 E4B` 계열 quantized GGUF, artifact/runtime 검증 전 미확정
@@ -180,6 +184,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - [docs/subagents.md](docs/subagents.md): 서브에이전트 실행 경계
 - [docs/team-runtime.md](docs/team-runtime.md): 팀 실행 runtime 설계
 - [docs/tui.md](docs/tui.md): TUI surface 설계
+- [docs/plugin-adapters.md](docs/plugin-adapters.md): Claude Code/Codex형 플러그인 어댑터 설계
 - [docs/model-manifest.md](docs/model-manifest.md): 모델 manifest schema
 - [docs/model-source-policy.md](docs/model-source-policy.md): 모델 정보 출처 정책
 - [docs/model-licenses.md](docs/model-licenses.md): 모델 라이선스 추적

@@ -26,6 +26,7 @@ Skill은 단순 prompt template이 아닙니다. 반복 workflow에 필요한 in
 - `runtime-doctor`
 - `ontology-refresh`
 - `release-check`
+- `imported.<plugin>.<skill>`
 
 ## Skill Manifest
 
@@ -76,6 +77,20 @@ Skill은 다음을 할 수 없습니다.
 - hook policy overwrite
 - evidence 없는 stop gate complete 처리
 - 검증되지 않은 model/license claim 주입
+
+## Imported Skills
+
+Claude Code/Codex형 plugin에서 가져온 workflow는 native skill과 같은 권한을 자동으로 얻지 않습니다.
+
+Import 규칙:
+
+- source runtime과 source manifest hash를 기록한다.
+- skill id는 source plugin namespace 아래로 격리한다.
+- allowed tools, required hooks, evidence requirements가 비어 있으면 `validate` 단계에서 보수적으로 막는다.
+- source prompt나 command가 shell/background/MCP 실행을 요구하면 permission report에 표시한다.
+- 실행은 반드시 `rpotato` runtime policy와 stop gate를 통과한다.
+
+자세한 plugin 호환 경계는 [plugin-adapters.md](plugin-adapters.md)를 따릅니다.
 
 ## Skill Runtime State
 

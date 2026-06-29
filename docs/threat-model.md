@@ -29,6 +29,7 @@
 - repository 안의 prompt-like text
 - 외부 model manifest
 - 다운로드 URL
+- 외부 plugin package와 marketplace
 
 ## 주요 위협
 
@@ -88,6 +89,20 @@
 - logs redaction
 - raw prompt/source 원문 미저장 기본값
 
+### Foreign plugin supply chain
+
+Claude Code/Codex형 plugin이 shell command, MCP server, background process, remote connector, prompt mutation을 포함할 수 있습니다.
+
+완화:
+
+- import 시 직접 실행 금지
+- source manifest hash 기록
+- static capability report 생성
+- unsupported capability 명시
+- shell/background/MCP는 enable 전 승인 필요
+- plugin execution은 runtime tool policy와 hook policy를 통과
+- import, enable, deny, remove 이벤트 ledger 기록
+
 ## MVP 보안 요구
 
 - destructive command policy 위반 0건
@@ -96,6 +111,7 @@
 - final report Korean guard 적용
 - credential-like string log redaction
 - monitoring store redaction before persistence
+- 외부 plugin import는 기본 비활성화 및 inspect/validate 선행
 
 ## 미정 사항
 
@@ -103,3 +119,4 @@
 - remote adapter warning UX
 - operation log retention 기간
 - credential detector 구현 수준
+- plugin marketplace 신뢰/서명 정책

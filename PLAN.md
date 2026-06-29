@@ -48,6 +48,7 @@ Product body:
 - hook system for lifecycle control points
 - skill system for reusable workflows
 - subagent and team runtime for bounded multi-agent work
+- plugin adapter layer for importing Claude Code/Codex-style plugin packages into runtime-owned capabilities
 - CLI/TUI surfaces for user input, streaming display, approval prompts, diffs, status, and final reports
 
 Initial command sketch:
@@ -59,6 +60,10 @@ rpotato run "이 에러 고쳐줘"
 rpotato tui
 rpotato skill list
 rpotato skill run fix-test
+rpotato plugin import --from claude-code ./my-plugin
+rpotato plugin import --from codex ./my-plugin
+rpotato plugin inspect imported.example-plugin
+rpotato plugin enable imported.example-plugin
 rpotato team status
 rpotato model list
 rpotato model install qwen3.5-4b
@@ -200,6 +205,7 @@ The runtime should own:
 - session lifecycle and state transitions
 - hook lifecycle
 - skill invocation and state
+- foreign plugin import and normalized capability validation
 - prompt compilation per model
 - token usage accounting per model
 - ontology and context lifecycle
@@ -233,6 +239,9 @@ rpotato app data root/
   state/
     observability.sqlite
     runtime-ledger.jsonl
+  plugins/
+    imported/
+    data/
   cache/
 
 project root/
@@ -399,7 +408,8 @@ Replacement-level beta should additionally:
 2. run skills with hook-attached policy and evidence gates
 3. support bounded subagents
 4. support team execution with runtime-owned merge and stop gates
-5. show approvals, diff, tool output, subagent/team status, and evidence in the TUI
+5. import Claude Code/Codex-style plugin packages only through adapter validation and runtime policy gates
+6. show approvals, diff, tool output, subagent/team status, plugin permission review, and evidence in the TUI
 
 ## Open Questions
 
@@ -411,6 +421,8 @@ Replacement-level beta should additionally:
 - How strict should command approval be?
 - What hooks are enabled by default?
 - What skills ship first?
+- Which compatibility target comes first: Codex plugins or Claude Code plugins?
+- Which foreign plugin capabilities are allowed before marketplace support?
 - What subagent concurrency limit is safe on 16 GB RAM?
 - What team pipeline is required for replacement-level workflows?
 - Which Rust TUI framework should be used?
@@ -437,6 +449,7 @@ Core design docs:
 12. `docs/subagents.md`
 13. `docs/team-runtime.md`
 14. `docs/tui.md`
+15. `docs/plugin-adapters.md`
 
 Open-source operating docs:
 
@@ -465,6 +478,7 @@ Runtime policy and validation docs:
 12. `docs/subagents.md`
 13. `docs/team-runtime.md`
 14. `docs/tui.md`
+15. `docs/plugin-adapters.md`
 
 Project-local automation and contribution policy is recorded in `AGENTS.md`: external code PRs are not accepted, safe verified units should be committed and pushed automatically, and commit messages use Conventional Commits in the form `type(scope): title`.
 
@@ -475,5 +489,6 @@ Next implementation-oriented decisions:
 1. choose the exact trusted `Qwen3.5-4B` GGUF artifact
 2. define the initial model manifest format on disk
 3. separate runtime core modules from the CLI surface
-4. implement `rpotato doctor` before agent behavior
-5. build the first fixture benchmark for Korean/code/tool reliability
+4. define normalized plugin manifest and inspect/validate output before plugin execution
+5. implement `rpotato doctor` before agent behavior
+6. build the first fixture benchmark for Korean/code/tool reliability

@@ -66,6 +66,7 @@ runtime core
   ├─ observability store
   ├─ hook engine
   ├─ skill registry
+  ├─ plugin adapter registry
   ├─ ontology and context plane
   ├─ repo indexer
   ├─ agent loop
@@ -133,6 +134,7 @@ Runtime core는 Claude Code/Codex류 agent 경험의 본체입니다. CLI surfac
 - SQLite monitoring projection 관리
 - hook lifecycle 관리
 - skill registry와 invocation 관리
+- Claude Code/Codex형 plugin import, validation, enable/disable 관리
 - 모델 manifest 해석
 - 모델 다운로드, hash 검증, registry 등록
 - sidecar 시작, 재시작, 종료
@@ -163,6 +165,20 @@ Backend adapter는 추론 백엔드 차이를 숨깁니다.
 
 MVP adapter는 `llama.cpp`만 구현합니다.
 
+### Plugin adapter
+
+Plugin adapter는 외부 agent runtime의 플러그인 패키지를 `rpotato` capability로 변환하는 경계입니다.
+
+지원 목표:
+
+- Codex plugin package의 skill/MCP 정보를 `rpotato` skill/MCP capability로 변환한다.
+- Claude Code plugin package의 skill, command, agent, hook, MCP 정보를 `rpotato` skill, subagent, hook, MCP capability로 변환한다.
+- 변환할 수 없는 기능은 `unsupported`로 기록하고 실행하지 않는다.
+
+Plugin adapter는 외부 플러그인을 직접 실행하지 않습니다. Import, inspect, validate, enable 단계를 거친 뒤 runtime core의 tool policy, hook policy, ledger, evidence gate를 통과한 capability만 실행합니다.
+
+상세 설계는 [plugin-adapters.md](plugin-adapters.md)를 따릅니다.
+
 ### Agent loop
 
 첫 vertical slice의 agent loop는 순차 실행입니다.
@@ -191,6 +207,7 @@ MVP adapter는 `llama.cpp`만 구현합니다.
 - 파일 쓰기는 diff 표시 후 사용자 승인을 요구한다.
 - side effect가 있는 명령은 사용자 승인을 요구한다.
 - 모델 다운로드는 CLI surface가 사용자 승인을 받은 뒤 runtime core가 수행한다.
+- 외부 plugin import와 enable은 capability report와 권한 검토 뒤에만 허용한다.
 - operation log를 남긴다.
 - `doctor` 명령으로 환경, backend, 모델 상태를 점검한다.
 
