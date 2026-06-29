@@ -83,6 +83,7 @@ rpotato model install qwen3.5-4b
 rpotato backend doctor
 rpotato backend install-plan
 rpotato backend verify-archive ./llama.cpp.zip --sha256 <64-hex>
+rpotato backend health-check
 rpotato cache status
 rpotato monitor status
 rpotato monitor models

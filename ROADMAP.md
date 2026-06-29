@@ -213,7 +213,7 @@
 - [x] backend binary path config
 - [x] port 선택
 - [ ] sidecar process lifecycle
-- [ ] health check
+- [x] health check
 - [ ] startup timeout 처리
 - [ ] streaming response path
 - [ ] cancellation path

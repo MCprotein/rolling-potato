@@ -1,5 +1,8 @@
 use std::env;
+use std::io::{Read, Write};
+use std::net::{TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use crate::app::AppError;
 use crate::paths;
@@ -8,6 +11,7 @@ use crate::{checksum, state};
 const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 17842;
+const HEALTH_TIMEOUT_MS: u64 = 500;
 const ENV_BACKEND_PATH: &str = "RPOTATO_BACKEND_LLAMA_CPP_PATH";
 const ENV_BACKEND_PORT: &str = "RPOTATO_BACKEND_PORT";
 
@@ -236,6 +240,28 @@ pub fn verify_archive_report(path: &str, expected_sha256: &str) -> Result<String
     ))
 }
 
+pub fn health_check_report() -> String {
+    let discovery = discover_llama_cpp();
+    let probe = probe_health(
+        discovery.host,
+        discovery.port,
+        Duration::from_millis(HEALTH_TIMEOUT_MS),
+    );
+
+    format!(
+        "backend health check\n- adapter: {}\n- selected binary: {}\n- selected source: {}\n- health URL: {}\n- timeout ms: {}\n- status: {}\n- tcp connected: {}\n- http status line: {}\n- error: {}",
+        discovery.adapter_id,
+        discovery.selected_path.display(),
+        discovery.selected_source,
+        discovery.health_url,
+        HEALTH_TIMEOUT_MS,
+        probe.status,
+        probe.tcp_connected,
+        probe.http_status_line.unwrap_or_else(|| "없음".to_string()),
+        probe.error.unwrap_or_else(|| "없음".to_string())
+    )
+}
+
 fn discover_llama_cpp() -> BackendDiscovery {
     let adapter = LlamaCppAdapter;
     let managed_path = adapter.managed_binary_path();
@@ -261,6 +287,83 @@ fn discover_llama_cpp() -> BackendDiscovery {
         port,
         port_source,
         health_url,
+    }
+}
+
+struct HealthProbe {
+    status: &'static str,
+    tcp_connected: bool,
+    http_status_line: Option<String>,
+    error: Option<String>,
+}
+
+fn probe_health(host: &str, port: u16, timeout: Duration) -> HealthProbe {
+    let address = format!("{host}:{port}");
+    let Ok(mut addresses) = address.to_socket_addrs() else {
+        return HealthProbe {
+            status: "unreachable",
+            tcp_connected: false,
+            http_status_line: None,
+            error: Some(format!("address resolve 실패: {address}")),
+        };
+    };
+    let Some(socket_addr) = addresses.next() else {
+        return HealthProbe {
+            status: "unreachable",
+            tcp_connected: false,
+            http_status_line: None,
+            error: Some(format!("address 없음: {address}")),
+        };
+    };
+
+    let Ok(mut stream) = TcpStream::connect_timeout(&socket_addr, timeout) else {
+        return HealthProbe {
+            status: "unreachable",
+            tcp_connected: false,
+            http_status_line: None,
+            error: Some(format!("connect 실패: {socket_addr}")),
+        };
+    };
+
+    let _ = stream.set_read_timeout(Some(timeout));
+    let _ = stream.set_write_timeout(Some(timeout));
+    let request =
+        format!("GET /health HTTP/1.1\r\nHost: {host}:{port}\r\nConnection: close\r\n\r\n");
+    if let Err(err) = stream.write_all(request.as_bytes()) {
+        return HealthProbe {
+            status: "unhealthy",
+            tcp_connected: true,
+            http_status_line: None,
+            error: Some(format!("health request write 실패: {err}")),
+        };
+    }
+
+    let mut response = String::new();
+    if let Err(err) = stream.read_to_string(&mut response) {
+        return HealthProbe {
+            status: "unhealthy",
+            tcp_connected: true,
+            http_status_line: None,
+            error: Some(format!("health response read 실패: {err}")),
+        };
+    }
+
+    let status_line = response.lines().next().unwrap_or("").to_string();
+    let status = if status_line.contains(" 200 ") || status_line.ends_with(" 200") {
+        "healthy"
+    } else {
+        "unhealthy"
+    };
+
+    HealthProbe {
+        status,
+        tcp_connected: true,
+        http_status_line: Some(if status_line.is_empty() {
+            "없음".to_string()
+        } else {
+            status_line
+        }),
+        error: None,
     }
 }
 
@@ -383,5 +486,13 @@ mod tests {
         let report = install_plan_report();
         assert!(report.contains("status: blocked"));
         assert!(report.contains("archive SHA-256"));
+    }
+
+    #[test]
+    fn health_check_report_is_diagnostic_not_process_start() {
+        let report = health_check_report();
+        assert!(report.contains("backend health check"));
+        assert!(report.contains("health URL"));
+        assert!(report.contains("timeout ms"));
     }
 }

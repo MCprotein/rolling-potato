@@ -27,6 +27,7 @@ rpotato
   rpotato backend doctor
   rpotato backend install-plan
   rpotato backend verify-archive <path> --sha256 <hash>
+  rpotato backend health-check
   rpotato cache status
   rpotato monitor status
   rpotato monitor models
@@ -136,6 +137,7 @@ pub enum BackendCommand {
     Doctor,
     InstallPlan,
     VerifyArchive { path: String, sha256: String },
+    HealthCheck,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -326,8 +328,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, ..] if group == "backend" && action == "verify-archive" => Err(
             AppError::usage("backend verify-archive는 <path> --sha256 <hash> 형식이 필요합니다."),
         ),
+        [group, action] if group == "backend" && action == "health-check" => {
+            Ok(Command::Backend(BackendCommand::HealthCheck))
+        }
         [group, ..] if group == "backend" => Err(AppError::usage(
-            "backend 명령은 doctor, install-plan, verify-archive만 허용합니다.",
+            "backend 명령은 doctor, install-plan, verify-archive, health-check만 허용합니다.",
         )),
         [group, action] if group == "cache" && action == "status" => Ok(Command::CacheStatus),
         [group, action] if group == "monitor" && action == "status" => {
@@ -774,6 +779,12 @@ mod tests {
                     .to_string()
             })
         );
+    }
+
+    #[test]
+    fn parses_backend_health_check() {
+        let command = parse(["backend".to_string(), "health-check".to_string()]).unwrap();
+        assert_eq!(command, Command::Backend(BackendCommand::HealthCheck));
     }
 
     #[test]

@@ -145,6 +145,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", backend::verify_archive_report(&path, &sha256)?);
             Ok(())
         }
+        Command::Backend(BackendCommand::HealthCheck) => {
+            println!("{}", backend::health_check_report());
+            Ok(())
+        }
         Command::CacheStatus => {
             println!("{}", cache::status_report());
             Ok(())
