@@ -58,6 +58,9 @@ rpotato init
 rpotato chat
 rpotato run "이 에러 고쳐줘"
 rpotato tui
+rpotato state reconcile
+rpotato state resume
+rpotato evidence validate logs/test.log
 rpotato skill list
 rpotato skill run fix-test
 rpotato plugin import --from claude-code ./my-plugin

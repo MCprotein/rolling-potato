@@ -38,11 +38,7 @@ pub struct ParsedLedgerEvent {
 }
 
 pub fn current_identity() -> RuntimeIdentity {
-    let project_root = std::env::var_os("RPOTATO_PROJECT_ROOT")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf()))
-        .display()
-        .to_string();
+    let project_root = paths::project_root().display().to_string();
     let mut hasher = DefaultHasher::new();
     project_root.hash(&mut hasher);
     let project_id = format!("project-{:016x}", hasher.finish());

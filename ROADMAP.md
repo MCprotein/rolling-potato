@@ -92,13 +92,13 @@
 - [x] transcript metadata entry
 - [x] operation log format
 - [x] state owner 규칙
-- [ ] stale state reconcile
-- [ ] corrupt state fallback
+- [x] stale state reconcile
+- [x] corrupt state fallback
 - [x] checkpoint record schema
 - [x] evidence record schema
 - [x] runtime evidence JSONL store
-- [ ] evidence stale 판정 기준
-- [ ] evidence artifact pointer validation
+- [x] evidence stale 판정 기준
+- [x] evidence artifact pointer validation
 - [x] current state view와 event/evidence ledger 경계
 - [x] local SQLite observability store 결정
 - [x] SQLite schema migration
@@ -113,9 +113,9 @@
 - [x] corrupt SQLite fallback
 - [x] monitoring export: JSONL/CSV
 - [x] monitoring retention/prune dry-run
-- [ ] 중단된 실행의 resume 동작
+- [x] 중단된 실행의 resume 동작
 - [x] compaction boundary marker
-- [ ] compacted summary 보존 정책
+- [x] compacted summary 보존 정책
 
 ## Phase 3: Mode And Constraint Recognition
 

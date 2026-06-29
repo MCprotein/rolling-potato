@@ -1,7 +1,11 @@
 use crate::backend;
 use crate::cache;
-use crate::cli::{Command, ModelCommand, MonitorCommand, PluginCommand, UninstallCommand};
+use crate::cli::{
+    Command, EvidenceCommand, ModelCommand, MonitorCommand, PluginCommand, StateCommand,
+    UninstallCommand,
+};
 use crate::config;
+use crate::evidence;
 use crate::model;
 use crate::monitor;
 use crate::plugin;
@@ -56,12 +60,24 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", config::report());
             Ok(())
         }
-        Command::State => {
+        Command::State(StateCommand::Status) => {
             println!("{}", state::status_report()?);
+            Ok(())
+        }
+        Command::State(StateCommand::Reconcile) => {
+            println!("{}", state::reconcile_report()?);
+            Ok(())
+        }
+        Command::State(StateCommand::Resume) => {
+            println!("{}", state::resume_report()?);
             Ok(())
         }
         Command::Cancel => {
             println!("{}", state::cancel_report()?);
+            Ok(())
+        }
+        Command::Evidence(EvidenceCommand::Validate { pointer }) => {
+            println!("{}", evidence::validate_report(&pointer)?);
             Ok(())
         }
         Command::BackendDoctor => {

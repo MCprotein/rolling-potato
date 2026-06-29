@@ -3,6 +3,7 @@ mod backend;
 mod cache;
 mod cli;
 mod config;
+mod evidence;
 mod ledger;
 mod model;
 mod monitor;

@@ -46,17 +46,21 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 - Append-only ledger는 source of truth이며, SQLite `ledger_events`는 replay 가능한 projection이다.
 - SQLite migration v1은 `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, `benchmark_runs`를 만든다.
 - `rpotato state`는 current-state와 ledger/projection count를 보여준다.
+- `rpotato state reconcile`은 missing/stale/corrupt current-state를 복구하고 보존 이동 이벤트를 ledger에 남긴다.
+- `rpotato state resume`은 no active workflow, active pointer detected, blocked 상태를 구분해 ledger에 남긴다.
 - `rpotato cancel`은 active workflow가 없으면 no-op cancel event만 append한다.
+- `rpotato evidence validate <artifact-pointer>`는 project-relative artifact pointer가 project boundary 안에 있는지 검증한다.
 - `rpotato monitor status`와 `rpotato monitor models`는 SQLite projection을 읽는다.
 - `rpotato monitor export --format jsonl|csv`는 runtime ledger/projection을 사람이 볼 수 있는 형태로 출력한다.
 - `rpotato monitor prune --before 30d --dry-run`은 삭제 후보 count만 계산한다.
 - corrupt SQLite file은 `.corrupt.<timestamp>` suffix로 보존 이동한 뒤 새 projection을 만든다.
+- corrupt/stale current-state는 `state reconcile`에서 `.corrupt.<timestamp>` 또는 `.stale.<timestamp>` suffix로 보존 이동한다.
+- evidence stale 기준은 artifact 누락, project boundary 이탈, `stale_after_ms` 만료다.
 
 아직 구현하지 않은 부분:
 
 - 실제 model/backend 실행에서 token/latency/resource metric을 기록하는 경로
-- active workflow resume/reconcile
-- evidence artifact pointer validation
+- 실제 agent loop의 active workflow resume 실행
 - 실제 retention 삭제
 
 ## Local File Layout
@@ -201,6 +205,16 @@ Retention은 privacy와 debugging value를 같이 봅니다.
 - credential-like 값은 저장 전 redaction
 - export 전 민감 정보 scan
 - `rpotato monitor prune`은 dry-run을 지원
+
+## Compaction And Resume Policy
+
+Compacted summary는 source of truth가 아닙니다.
+
+- current-state는 `compaction_boundary`와 `compacted_summary_path` pointer만 보존한다.
+- 원본 판단 근거는 runtime ledger, project session ledger, evidence artifact pointer를 다시 읽어 확인한다.
+- compacted summary는 resume bundle의 탐색 힌트로만 사용하고, 파일/명령/모델 claim을 확정하는 근거로 쓰지 않는다.
+- compacted summary artifact도 `evidence validate`와 같은 project boundary 검증을 통과해야 한다.
+- active workflow resume은 current-state pointer를 감지하고 ledger event를 남긴 뒤, 후속 agent loop phase가 실제 실행을 맡는다.
 
 ## Validation
 

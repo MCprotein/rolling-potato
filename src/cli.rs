@@ -8,7 +8,10 @@ rpotato
   rpotato init
   rpotato config
   rpotato state
+  rpotato state reconcile
+  rpotato state resume
   rpotato cancel
+  rpotato evidence validate <artifact-pointer>
   rpotato backend doctor
   rpotato cache status
   rpotato monitor status
@@ -40,8 +43,9 @@ pub enum Command {
     Init,
     Doctor,
     Config,
-    State,
+    State(StateCommand),
     Cancel,
+    Evidence(EvidenceCommand),
     BackendDoctor,
     CacheStatus,
     Monitor(MonitorCommand),
@@ -56,6 +60,18 @@ pub enum MonitorCommand {
     Models,
     Export { format: MonitorExportFormat },
     Prune { before_days: u64, dry_run: bool },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum StateCommand {
+    Status,
+    Reconcile,
+    Resume,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum EvidenceCommand {
+    Validate { pointer: String },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -133,8 +149,28 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [arg] if arg == "init" => Ok(Command::Init),
         [arg] if arg == "doctor" => Ok(Command::Doctor),
         [arg] if arg == "config" => Ok(Command::Config),
-        [arg] if arg == "state" => Ok(Command::State),
+        [arg] if arg == "state" => Ok(Command::State(StateCommand::Status)),
+        [group, action] if group == "state" && action == "reconcile" => {
+            Ok(Command::State(StateCommand::Reconcile))
+        }
+        [group, action] if group == "state" && action == "resume" => {
+            Ok(Command::State(StateCommand::Resume))
+        }
+        [group, ..] if group == "state" => Err(AppError::usage(
+            "state 명령은 status 생략형, reconcile, resume만 허용합니다.",
+        )),
         [arg] if arg == "cancel" => Ok(Command::Cancel),
+        [group, action, pointer] if group == "evidence" && action == "validate" => {
+            Ok(Command::Evidence(EvidenceCommand::Validate {
+                pointer: pointer.clone(),
+            }))
+        }
+        [group, action, ..] if group == "evidence" && action == "validate" => Err(
+            AppError::usage("evidence validate에는 artifact pointer가 필요합니다."),
+        ),
+        [group, ..] if group == "evidence" => {
+            Err(AppError::usage("evidence 명령은 validate만 허용합니다."))
+        }
         [group, action] if group == "backend" && action == "doctor" => Ok(Command::BackendDoctor),
         [group, action] if group == "cache" && action == "status" => Ok(Command::CacheStatus),
         [group, action] if group == "monitor" && action == "status" => {
@@ -432,6 +468,35 @@ mod tests {
     fn parses_monitor_status() {
         let command = parse(["monitor".to_string(), "status".to_string()]).unwrap();
         assert_eq!(command, Command::Monitor(MonitorCommand::Status));
+    }
+
+    #[test]
+    fn parses_state_reconcile() {
+        let command = parse(["state".to_string(), "reconcile".to_string()]).unwrap();
+        assert_eq!(command, Command::State(StateCommand::Reconcile));
+    }
+
+    #[test]
+    fn parses_state_resume() {
+        let command = parse(["state".to_string(), "resume".to_string()]).unwrap();
+        assert_eq!(command, Command::State(StateCommand::Resume));
+    }
+
+    #[test]
+    fn parses_evidence_validate() {
+        let command = parse([
+            "evidence".to_string(),
+            "validate".to_string(),
+            "logs/test.log".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Evidence(EvidenceCommand::Validate {
+                pointer: "logs/test.log".to_string()
+            })
+        );
     }
 
     #[test]

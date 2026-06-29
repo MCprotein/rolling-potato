@@ -14,7 +14,10 @@
 - `rpotato config`
 - `rpotato init`
 - `rpotato state`
+- `rpotato state reconcile`
+- `rpotato state resume`
 - `rpotato cancel`
+- `rpotato evidence validate <artifact-pointer>`
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor export --format jsonl`
@@ -76,6 +79,9 @@ cargo run -- doctor
 cargo run -- init
 cargo run -- config
 cargo run -- state
+cargo run -- state reconcile
+cargo run -- state resume
+cargo run -- evidence validate .rpotato/evidence/smoke.txt
 cargo run -- monitor status
 cargo run -- monitor models
 cargo run -- monitor export --format jsonl
@@ -95,6 +101,7 @@ cargo run -- uninstall --dry-run --purge-cache
 - `runtime`: state, policy, ontology, agent loop orchestration
 - `ledger`: append-only runtime/session ledger and redaction before persistence
 - `state`: current-state, project/session identity, cancel/no-op event recording
+- `evidence`: project-bound artifact pointer validation and stale policy summary
 - `hooks`: lifecycle control points
 - `skills`: reusable runtime capabilities
 - `plugins`: local Codex/Claude Code plugin import, inspect, validate, enable/disable

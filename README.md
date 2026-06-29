@@ -69,6 +69,9 @@ rpotato init
 rpotato chat
 rpotato run "이 에러 고쳐줘"
 rpotato tui
+rpotato state reconcile
+rpotato state resume
+rpotato evidence validate logs/test.log
 rpotato skill list
 rpotato skill run fix-test
 rpotato plugin import --from claude-code ./my-plugin
@@ -152,7 +155,10 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato config`
 - `rpotato init`
 - `rpotato state`
+- `rpotato state reconcile`
+- `rpotato state resume`
 - `rpotato cancel`
+- `rpotato evidence validate <artifact-pointer>`
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor export --format jsonl`
@@ -168,6 +174,10 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `rpotato init`은 app data root와 project-local `.rpotato/` 아래에 current-state, append-only ledger, runtime evidence JSONL, SQLite observability projection을 초기화합니다.
 
+`state reconcile`은 stale/corrupt current-state를 보존 이동한 뒤 새 current-state를 기록합니다. `state resume`은 현재는 active workflow pointer를 감지하거나, 재개할 작업이 없으면 no-op ledger event를 남깁니다.
+
+`evidence validate`는 artifact pointer가 local project-relative path이고 project boundary를 벗어나지 않는지 확인합니다.
+
 `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 
 `model install`은 아직 실제 다운로드를 수행하지 않습니다. 검증된 GGUF artifact URL, checksum, provider terms, file size, `llama.cpp` 호환성 정보가 manifest에 들어오기 전까지 설치를 차단합니다.
@@ -178,7 +188,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 - 신뢰할 GGUF 모델 artifact 확정
 - `Qwen3.5-4B` 후보와 `Gemma 4 E4B` 후보 벤치마크
-- active workflow resume/reconcile 동작 구현
+- 실제 agent loop의 active workflow resume 실행
 - sidecar 프로세스 생명주기 설계 상세화
 
 벤치마크 초안은 [docs/model-eval.md](docs/model-eval.md)를 따릅니다.

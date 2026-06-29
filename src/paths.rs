@@ -117,11 +117,13 @@ pub fn cache_dir() -> PathBuf {
 }
 
 pub fn project_state_dir() -> PathBuf {
-    let project_root = env::var_os("RPOTATO_PROJECT_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    project_root().join(".rpotato")
+}
 
-    project_root.join(".rpotato")
+pub fn project_root() -> PathBuf {
+    env::var_os("RPOTATO_PROJECT_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
 }
 
 pub fn project_evidence_dir() -> PathBuf {
