@@ -10,6 +10,8 @@
 
 - `rpotato doctor`
 - `rpotato backend doctor`
+- `rpotato backend install-plan`
+- `rpotato backend verify-archive <path> --sha256 <hash>`
 - `rpotato cache status`
 - `rpotato config`
 - `rpotato init`
@@ -104,6 +106,9 @@ CLI smoke test 예시:
 
 ```sh
 cargo run -- doctor
+cargo run -- backend doctor
+cargo run -- backend install-plan
+cargo run -- backend verify-archive /path/to/llama.cpp.zip --sha256 <64-hex>
 cargo run -- init
 cargo run -- run "테스트 실패 고쳐줘"
 cargo run -- intent classify "리뷰해줘"

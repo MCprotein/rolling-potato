@@ -208,7 +208,7 @@
 
 - [x] `llama.cpp` sidecar discovery
 - [ ] managed backend binary download/install
-- [ ] backend archive checksum verification
+- [x] backend archive checksum verification
 - [ ] backend binary version detection
 - [x] backend binary path config
 - [x] port 선택

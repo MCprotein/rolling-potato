@@ -81,6 +81,8 @@ rpotato model verify-file ./model.gguf --sha256 <64-hex>
 rpotato model cleanup-failed qwen3.5-4b --dry-run
 rpotato model install qwen3.5-4b
 rpotato backend doctor
+rpotato backend install-plan
+rpotato backend verify-archive ./llama.cpp.zip --sha256 <64-hex>
 rpotato cache status
 rpotato monitor status
 rpotato monitor models

@@ -1,7 +1,9 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
+use crate::app::AppError;
 use crate::paths;
+use crate::{checksum, state};
 
 const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 const DEFAULT_HOST: &str = "127.0.0.1";
@@ -36,6 +38,33 @@ struct BackendDiscovery {
     port_source: &'static str,
     health_url: String,
 }
+
+#[derive(Debug, Clone, Copy)]
+struct BackendReleaseManifest {
+    id: &'static str,
+    upstream_source: &'static str,
+    license: &'static str,
+    license_source: &'static str,
+    license_checked_at: &'static str,
+    release_url: Option<&'static str>,
+    archive_name: Option<&'static str>,
+    archive_sha256: Option<&'static str>,
+    archive_size_bytes: Option<u64>,
+    install_blockers: &'static [&'static str],
+}
+
+const LLAMA_CPP_RELEASE: BackendReleaseManifest = BackendReleaseManifest {
+    id: LLAMA_CPP_BACKEND_ID,
+    upstream_source: "https://github.com/ggml-org/llama.cpp",
+    license: "MIT",
+    license_source: "https://github.com/ggml-org/llama.cpp/blob/master/LICENSE",
+    license_checked_at: "2026-06-29",
+    release_url: None,
+    archive_name: None,
+    archive_sha256: None,
+    archive_size_bytes: None,
+    install_blockers: &["검증된 llama.cpp release manifest 미확정"],
+};
 
 impl BackendAdapter for LlamaCppAdapter {
     fn id(&self) -> &'static str {
@@ -118,6 +147,95 @@ pub fn doctor_report() -> String {
     )
 }
 
+pub fn install_plan_report() -> String {
+    let discovery = discover_llama_cpp();
+    let blockers = backend_install_blockers(&LLAMA_CPP_RELEASE);
+    let install_status = if blockers.is_empty() {
+        "ready"
+    } else {
+        "blocked"
+    };
+
+    format!(
+        "backend install plan\n- id: {}\n- status: {}\n- upstream source: {}\n- license: {}\n- license source: {}\n- license checked-at: {}\n- release URL: {}\n- archive name: {}\n- archive size bytes: {}\n- archive sha256: {}\n- managed binary: {}\n- selected binary: {}\n- selected source: {}\n- download path: {}\n- blockers: {}\n- 동작: 실제 backend 다운로드 전 release URL, checksum, size, license를 사용자에게 표시해야 합니다.",
+        LLAMA_CPP_RELEASE.id,
+        install_status,
+        LLAMA_CPP_RELEASE.upstream_source,
+        LLAMA_CPP_RELEASE.license,
+        LLAMA_CPP_RELEASE.license_source,
+        LLAMA_CPP_RELEASE.license_checked_at,
+        LLAMA_CPP_RELEASE.release_url.unwrap_or("미확정"),
+        LLAMA_CPP_RELEASE.archive_name.unwrap_or("미확정"),
+        LLAMA_CPP_RELEASE
+            .archive_size_bytes
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "미확정".to_string()),
+        LLAMA_CPP_RELEASE.archive_sha256.unwrap_or("미확정"),
+        discovery.managed_path.display(),
+        discovery.selected_path.display(),
+        discovery.selected_source,
+        paths::downloads_dir()
+            .join(LLAMA_CPP_RELEASE.archive_name.unwrap_or("llama.cpp.archive.part"))
+            .display(),
+        display_vec(&blockers)
+    )
+}
+
+pub fn verify_archive_report(path: &str, expected_sha256: &str) -> Result<String, AppError> {
+    if !checksum::is_valid_sha256(expected_sha256) {
+        return Err(AppError::usage(
+            "expected SHA-256은 64자리 hex string이어야 합니다.",
+        ));
+    }
+
+    let path = PathBuf::from(path);
+    if !path.is_file() {
+        return Err(AppError::usage(format!(
+            "검증 대상 backend archive를 찾지 못했습니다: {}",
+            path.display()
+        )));
+    }
+
+    let actual_sha256 = checksum::sha256_file(&path)?;
+    let matched = actual_sha256.eq_ignore_ascii_case(expected_sha256);
+    let event_id = state::record_event(
+        if matched {
+            "backend.archive.sha256.verified"
+        } else {
+            "backend.archive.sha256.rejected"
+        },
+        if matched {
+            "backend archive SHA-256 검증 성공"
+        } else {
+            "backend archive SHA-256 검증 실패"
+        },
+        &format!(
+            "path={} expected_sha256={} actual_sha256={}",
+            path.display(),
+            expected_sha256,
+            actual_sha256
+        ),
+    )?;
+
+    if !matched {
+        return Err(AppError::blocked(format!(
+            "backend archive SHA-256 검증 실패\n- path: {}\n- expected: {}\n- actual: {}\n- ledger event: {}\n- 동작: backend install과 extraction을 차단해야 합니다.",
+            path.display(),
+            expected_sha256,
+            actual_sha256,
+            event_id
+        )));
+    }
+
+    Ok(format!(
+        "backend archive SHA-256 검증 성공\n- path: {}\n- expected: {}\n- actual: {}\n- ledger event: {}",
+        path.display(),
+        expected_sha256,
+        actual_sha256,
+        event_id
+    ))
+}
+
 fn discover_llama_cpp() -> BackendDiscovery {
     let adapter = LlamaCppAdapter;
     let managed_path = adapter.managed_binary_path();
@@ -143,6 +261,40 @@ fn discover_llama_cpp() -> BackendDiscovery {
         port,
         port_source,
         health_url,
+    }
+}
+
+fn backend_install_blockers(manifest: &BackendReleaseManifest) -> Vec<String> {
+    let mut blockers = Vec::new();
+    for blocker in manifest.install_blockers {
+        push_unique(&mut blockers, blocker);
+    }
+    if manifest.release_url.is_none() {
+        push_unique(&mut blockers, "release URL 미확정");
+    }
+    if manifest.archive_name.is_none() {
+        push_unique(&mut blockers, "archive name 미확정");
+    }
+    if manifest.archive_sha256.is_none() {
+        push_unique(&mut blockers, "archive SHA-256 미확정");
+    }
+    if manifest.archive_size_bytes.is_none() {
+        push_unique(&mut blockers, "archive file size 미확정");
+    }
+    blockers
+}
+
+fn push_unique(values: &mut Vec<String>, value: &str) {
+    if !values.iter().any(|existing| existing == value) {
+        values.push(value.to_string());
+    }
+}
+
+fn display_vec(values: &[String]) -> String {
+    if values.is_empty() {
+        "없음".to_string()
+    } else {
+        values.join(", ")
     }
 }
 
@@ -224,5 +376,12 @@ mod tests {
         env::remove_var(ENV_BACKEND_PORT);
         assert_eq!(discovery.port, DEFAULT_PORT);
         assert_eq!(discovery.port_source, "invalid env, default");
+    }
+
+    #[test]
+    fn install_plan_is_blocked_without_release_manifest() {
+        let report = install_plan_report();
+        assert!(report.contains("status: blocked"));
+        assert!(report.contains("archive SHA-256"));
     }
 }

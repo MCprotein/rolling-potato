@@ -1,6 +1,7 @@
 mod app;
 mod backend;
 mod cache;
+mod checksum;
 mod cli;
 mod config;
 mod evidence;

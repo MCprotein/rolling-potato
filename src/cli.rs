@@ -25,6 +25,8 @@ rpotato
   rpotato hooks list
   rpotato hooks validate-result <json>
   rpotato backend doctor
+  rpotato backend install-plan
+  rpotato backend verify-archive <path> --sha256 <hash>
   rpotato cache status
   rpotato monitor status
   rpotato monitor models
@@ -69,7 +71,7 @@ pub enum Command {
     Skill(SkillCommand),
     Policy(PolicyCommand),
     Hooks(HooksCommand),
-    BackendDoctor,
+    Backend(BackendCommand),
     CacheStatus,
     Monitor(MonitorCommand),
     Model(ModelCommand),
@@ -127,6 +129,13 @@ pub enum PolicyPathMode {
 pub enum HooksCommand {
     List,
     ValidateResult { json: String },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum BackendCommand {
+    Doctor,
+    InstallPlan,
+    VerifyArchive { path: String, sha256: String },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -300,7 +309,26 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, ..] if group == "hooks" => Err(AppError::usage(
             "hooks 명령은 list 또는 validate-result만 허용합니다.",
         )),
-        [group, action] if group == "backend" && action == "doctor" => Ok(Command::BackendDoctor),
+        [group, action] if group == "backend" && action == "doctor" => {
+            Ok(Command::Backend(BackendCommand::Doctor))
+        }
+        [group, action] if group == "backend" && action == "install-plan" => {
+            Ok(Command::Backend(BackendCommand::InstallPlan))
+        }
+        [group, action, path, flag, sha256]
+            if group == "backend" && action == "verify-archive" && flag == "--sha256" =>
+        {
+            Ok(Command::Backend(BackendCommand::VerifyArchive {
+                path: path.clone(),
+                sha256: sha256.clone(),
+            }))
+        }
+        [group, action, ..] if group == "backend" && action == "verify-archive" => Err(
+            AppError::usage("backend verify-archive는 <path> --sha256 <hash> 형식이 필요합니다."),
+        ),
+        [group, ..] if group == "backend" => Err(AppError::usage(
+            "backend 명령은 doctor, install-plan, verify-archive만 허용합니다.",
+        )),
         [group, action] if group == "cache" && action == "status" => Ok(Command::CacheStatus),
         [group, action] if group == "monitor" && action == "status" => {
             Ok(Command::Monitor(MonitorCommand::Status))
@@ -712,6 +740,38 @@ mod tests {
             Command::Model(ModelCommand::CleanupFailed {
                 id: "qwen3.5-4b".to_string(),
                 dry_run: true
+            })
+        );
+    }
+
+    #[test]
+    fn parses_backend_doctor() {
+        let command = parse(["backend".to_string(), "doctor".to_string()]).unwrap();
+        assert_eq!(command, Command::Backend(BackendCommand::Doctor));
+    }
+
+    #[test]
+    fn parses_backend_install_plan() {
+        let command = parse(["backend".to_string(), "install-plan".to_string()]).unwrap();
+        assert_eq!(command, Command::Backend(BackendCommand::InstallPlan));
+    }
+
+    #[test]
+    fn parses_backend_verify_archive() {
+        let command = parse([
+            "backend".to_string(),
+            "verify-archive".to_string(),
+            "llama.zip".to_string(),
+            "--sha256".to_string(),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Backend(BackendCommand::VerifyArchive {
+                path: "llama.zip".to_string(),
+                sha256: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+                    .to_string()
             })
         );
     }

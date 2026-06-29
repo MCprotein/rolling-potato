@@ -1,8 +1,9 @@
 use crate::backend;
 use crate::cache;
 use crate::cli::{
-    Command, EvidenceCommand, HooksCommand, IntentCommand, ModelCommand, MonitorCommand,
-    PluginCommand, PolicyCommand, PolicyPathMode, SkillCommand, StateCommand, UninstallCommand,
+    BackendCommand, Command, EvidenceCommand, HooksCommand, IntentCommand, ModelCommand,
+    MonitorCommand, PluginCommand, PolicyCommand, PolicyPathMode, SkillCommand, StateCommand,
+    UninstallCommand,
 };
 use crate::config;
 use crate::evidence;
@@ -132,8 +133,16 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", hooks::validate_result_report(&json)?);
             Ok(())
         }
-        Command::BackendDoctor => {
+        Command::Backend(BackendCommand::Doctor) => {
             println!("{}", backend::doctor_report());
+            Ok(())
+        }
+        Command::Backend(BackendCommand::InstallPlan) => {
+            println!("{}", backend::install_plan_report());
+            Ok(())
+        }
+        Command::Backend(BackendCommand::VerifyArchive { path, sha256 }) => {
+            println!("{}", backend::verify_archive_report(&path, &sha256)?);
             Ok(())
         }
         Command::CacheStatus => {

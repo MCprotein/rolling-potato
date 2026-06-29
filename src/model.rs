@@ -1,10 +1,8 @@
-use std::fs::{self, File};
-use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::fs;
+use std::path::PathBuf;
 
 use crate::app::AppError;
-use crate::{ledger, paths, state};
-use sha2::{Digest, Sha256};
+use crate::{checksum, ledger, paths, state};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CandidateStatus {
@@ -366,7 +364,7 @@ pub fn download_plan_report(id: &str) -> Result<String, AppError> {
 }
 
 pub fn verify_file_report(path: &str, expected_sha256: &str) -> Result<String, AppError> {
-    if !is_valid_sha256(expected_sha256) {
+    if !checksum::is_valid_sha256(expected_sha256) {
         return Err(AppError::usage(
             "expected SHA-256은 64자리 hex string이어야 합니다.",
         ));
@@ -380,7 +378,7 @@ pub fn verify_file_report(path: &str, expected_sha256: &str) -> Result<String, A
         )));
     }
 
-    let actual_sha256 = sha256_file(&path)?;
+    let actual_sha256 = checksum::sha256_file(&path)?;
     let matched = actual_sha256.eq_ignore_ascii_case(expected_sha256);
     let event_type = if matched {
         "model.sha256.verified"
@@ -618,7 +616,7 @@ fn validate_install_ready(candidate: &ModelManifestEntry) -> InstallValidation {
     }
 
     match candidate.sha256 {
-        Some(hash) if is_valid_sha256(hash) => {}
+        Some(hash) if checksum::is_valid_sha256(hash) => {}
         Some(_) => push_unique(&mut blockers, "SHA-256 형식 오류"),
         None => push_unique(&mut blockers, "SHA-256 미확정"),
     }
@@ -763,44 +761,6 @@ fn registry_entry_json(candidate: &ModelManifestEntry) -> String {
     )
 }
 
-fn sha256_file(path: &Path) -> Result<String, AppError> {
-    let mut file = File::open(path).map_err(|err| {
-        AppError::runtime(format!(
-            "SHA-256 검증 대상 파일을 열지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    let mut hasher = Sha256::new();
-    let mut buffer = [0_u8; 64 * 1024];
-
-    loop {
-        let bytes_read = file.read(&mut buffer).map_err(|err| {
-            AppError::runtime(format!(
-                "SHA-256 검증 대상 파일을 읽지 못했습니다: {} ({err})",
-                path.display()
-            ))
-        })?;
-        if bytes_read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..bytes_read]);
-    }
-
-    Ok(bytes_to_hex(&hasher.finalize()))
-}
-
-fn bytes_to_hex(bytes: &[u8]) -> String {
-    let mut output = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        output.push_str(&format!("{byte:02x}"));
-    }
-    output
-}
-
-fn is_valid_sha256(value: &str) -> bool {
-    value.len() == 64 && value.chars().all(|ch| ch.is_ascii_hexdigit())
-}
-
 fn push_unique(values: &mut Vec<String>, value: &str) {
     if !values.iter().any(|existing| existing == value) {
         values.push(value.to_string());
@@ -873,17 +833,6 @@ mod tests {
     }
 
     #[test]
-    fn sha256_validation_requires_64_hex_chars() {
-        assert!(is_valid_sha256(
-            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-        ));
-        assert!(!is_valid_sha256("not-a-sha"));
-        assert!(!is_valid_sha256(
-            "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
-        ));
-    }
-
-    #[test]
     fn manifest_report_names_required_source_backed_fields() {
         let report = manifest_report();
         assert!(report.contains("artifactUrl"));
@@ -913,19 +862,5 @@ mod tests {
         assert!(report.contains("dry-run"));
         assert!(report.contains("qwen3.5-4b.part"));
         assert!(report.contains("app data downloads/models"));
-    }
-
-    #[test]
-    fn sha256_file_hashes_bytes() {
-        let path = std::env::temp_dir().join(format!("rpotato-sha-test-{}", std::process::id()));
-        fs::write(&path, b"hello").unwrap();
-
-        let hash = sha256_file(&path).unwrap();
-
-        fs::remove_file(path).unwrap();
-        assert_eq!(
-            hash,
-            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
-        );
     }
 }
