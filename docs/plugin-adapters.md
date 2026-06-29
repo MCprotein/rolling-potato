@@ -32,7 +32,32 @@ foreign plugin package
 - Claude Code plugin adapter는 Codex adapter 뒤에 구현한다.
 - 장기적으로는 skills, commands, agents, hooks, MCP, LSP, monitors, `bin/`, settings, theme/output style까지 전부 검토 대상에 포함한다.
 - shell, `bin/`, MCP server, background process, remote connector, file write path는 기본 차단하고, 사용자가 쓰려고 할 때 별도 권한 prompt로 설정을 풀 수 있게 한다.
-- 외부 marketplace는 opt-in catalog로 시작하고, 법적/운영 정책은 [plugin-marketplace-policy.md](plugin-marketplace-policy.md)를 따른다.
+- 외부 marketplace는 연동하지 않는다.
+- Plugin 사용 경로는 사용자가 직접 소유한 local plugin directory import로 제한한다.
+
+## No Marketplace Integration
+
+`rpotato`는 외부 plugin marketplace, registry, catalog, mirror를 연동하지 않습니다.
+
+제외:
+
+- remote marketplace browsing
+- marketplace search
+- marketplace install
+- marketplace metadata sync
+- curated remote catalog
+- third-party plugin package mirror
+- plugin store 운영
+
+허용:
+
+- local path import
+- local path dry-run inspect
+- local path validate
+- imported plugin enable/disable
+- imported plugin remove with keep-data/purge-data
+
+이 방식은 사용자가 이미 로컬에 가지고 있는 plugin package만 대상으로 합니다. 사용자가 plugin을 어디서 받았는지는 `rpotato`가 보증하지 않습니다. `rpotato`는 local directory의 manifest, file layout, capability, permission risk만 검사합니다.
 
 ## Protocol Status
 
@@ -122,8 +147,8 @@ Status values:
 Initial command shape:
 
 ```sh
-rpotato plugin import --from codex <path-or-marketplace>
-rpotato plugin import --from claude-code <path-or-marketplace>
+rpotato plugin import --from codex <local-plugin-path>
+rpotato plugin import --from claude-code <local-plugin-path>
 rpotato plugin list
 rpotato plugin inspect <id>
 rpotato plugin validate <id>
@@ -167,7 +192,7 @@ Dry run output must include:
 | Claude Code `bin/` executable | Tool asset | Not on PATH by default; may be callable only through tool policy |
 | Claude Code theme/output style | TUI/theme setting | Later UI-only import |
 | Claude Code channel | Unsupported | Requires remote/event ingestion policy |
-| Marketplace entry | Plugin catalog source | Opt-in only; follow marketplace policy before remote support |
+| Marketplace entry | Unsupported | Marketplace integration is out of scope |
 
 ## Permission Rules
 
@@ -176,13 +201,14 @@ Foreign plugin import never grants execution permission by itself.
 Required gates:
 
 1. Parse the source manifest.
-2. Copy or snapshot the plugin into `rpotato` app data only after user approval if the source is remote.
-3. Compute source manifest hash.
-4. Emit a static capability report.
-5. Mark every shell, HTTP, MCP, background, file-write, and download path as permission-requiring.
-6. Require explicit enablement per scope.
-7. Execute every imported capability through `rpotato` runtime policy.
-8. Record import, enable, execution, denial, and removal events in the ledger.
+2. Reject remote URLs and marketplace sources.
+3. Copy or snapshot the local plugin into `rpotato` app data only after user approval.
+4. Compute source manifest hash.
+5. Emit a static capability report.
+6. Mark every shell, HTTP, MCP, background, file-write, and download path as permission-requiring.
+7. Require explicit enablement per scope.
+8. Execute every imported capability through `rpotato` runtime policy.
+9. Record import, enable, execution, denial, and removal events in the ledger.
 
 Foreign plugin code must not:
 
@@ -228,6 +254,7 @@ Adapter validation must cover:
 
 - source manifest parse
 - source runtime detection
+- remote URL and marketplace source rejection
 - path traversal rejection
 - unsupported capability reporting
 - command/background process detection
@@ -251,9 +278,7 @@ Adapter validation must cover:
 8. Claude Code hook mapping for safe lifecycle events.
 9. Claude Code agent to `rpotato` subagent role mapping.
 10. LSP, monitor, `bin/`, settings, and theme/output import where safe.
-11. Local curated marketplace index.
-12. Remote index-only marketplace after marketplace policy is implemented.
-13. TUI plugin browser and permission review.
+11. TUI local plugin browser and permission review.
 
 ## Source Policy
 
@@ -265,6 +290,7 @@ Before implementation:
 - re-check official Claude Code plugin docs
 - pin supported source-runtime schema versions when possible
 - fixture-test real local example plugins
+- fixture-test remote URL and marketplace source rejection
 - record unsupported fields rather than silently ignoring them
 
 ## References

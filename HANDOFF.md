@@ -70,7 +70,6 @@ Open-source operating docs have also been added:
 - `docs/team-runtime.md`
 - `docs/tui.md`
 - `docs/plugin-adapters.md`
-- `docs/plugin-marketplace-policy.md`
 
 External code contributions and external PRs are not accepted for now. This is now recorded in `AGENTS.md`, `GOVERNANCE.md`, `MAINTAINERS.md`, README, and the GitHub issue templates.
 
@@ -131,7 +130,8 @@ Standing boundary:
 - Claude Code/Codex-style plugins are import targets, not trusted runtime code.
 - Plugin adapter priority is Codex first, then Claude Code.
 - Foreign plugin shell, `bin/`, MCP server, background process, remote connector, and file write paths are blocked by default until explicitly enabled.
-- External marketplace support should start as an opt-in index-only catalog, not a package mirror.
+- External marketplace, registry, catalog, and mirror support is out of scope.
+- Plugin use should happen through local plugin directory import only.
 
 ## Target Users
 
@@ -293,7 +293,7 @@ Suggested next work:
 2. Keep hooks, skills, subagents, team runtime, and TUI aligned with their docs before adding complex agent behavior.
 3. Keep monitoring TUI UX aligned with `DESIGN.md`; HTML is optional later and must share the same observability source.
 4. Keep plugin adapter work aligned with `docs/plugin-adapters.md`; start with inspect/validate before execution.
-5. Keep marketplace work aligned with `docs/plugin-marketplace-policy.md`; do not mirror packages before license/redistribution policy exists.
+5. Do not add plugin marketplace integration; reject marketplace, registry, catalog, mirror, and remote URL plugin sources.
 6. Split the current scaffold toward explicit runtime core modules.
 7. Add runtime state, ledger, and observability boundaries before chat behavior.
 8. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.

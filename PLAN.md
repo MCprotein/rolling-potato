@@ -79,6 +79,8 @@ rpotato config
 
 The CLI should feel lightweight and direct. It is not the product boundary; it is the first way users drive the runtime. It should not require users to understand local LLM tooling before they can start.
 
+Plugin adapter commands use local plugin directory paths only. `rpotato` does not integrate with external plugin marketplaces, registries, catalogs, or package mirrors.
+
 ## Runtime Direction
 
 Default runtime direction:
@@ -477,7 +479,6 @@ Runtime policy and validation docs:
 13. `docs/team-runtime.md`
 14. `docs/tui.md`
 15. `docs/plugin-adapters.md`
-16. `docs/plugin-marketplace-policy.md`
 
 Project-local automation and contribution policy is recorded in `AGENTS.md`: external code PRs are not accepted, safe verified units should be committed and pushed automatically, and commit messages use Conventional Commits in the form `type(scope): title`.
 
@@ -491,5 +492,6 @@ Next implementation-oriented decisions:
 4. define normalized plugin manifest and inspect/validate output before plugin execution
 5. implement Codex plugin local import before Claude Code plugin local import
 6. keep risky foreign plugin capabilities blocked until explicit per-capability approval
-7. implement `rpotato doctor` before agent behavior
-8. build the first fixture benchmark for Korean/code/tool reliability
+7. reject plugin marketplace, remote registry, and remote catalog sources
+8. implement `rpotato doctor` before agent behavior
+9. build the first fixture benchmark for Korean/code/tool reliability

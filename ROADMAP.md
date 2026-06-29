@@ -27,7 +27,8 @@
 - Claude Code/Codex형 플러그인은 직접 실행하지 않고 `rpotato` capability로 import/validate/enable하는 adapter 경계를 둔다.
 - Plugin adapter는 Codex를 먼저 구현하고 Claude Code를 그 다음에 구현한다.
 - 외부 plugin의 shell, `bin/`, MCP server, background process, remote connector, file write path는 기본 차단하고 사용 시 별도 승인으로 푼다.
-- 외부 marketplace는 opt-in catalog로 시작하고 재배포/상표/신고/서명 정책을 먼저 둔다.
+- 외부 marketplace, registry, catalog, mirror는 연동하지 않는다.
+- 플러그인은 사용자가 직접 가진 local directory를 import하는 방식으로만 받는다.
 - monitoring은 SSH/Linux server에서 TUI로 먼저 보여주고, HTML은 후속 optional local report/dashboard로 둔다.
 - compaction, resume, cancel, corrupt state fallback은 초기 runtime 설계에 포함한다.
 - 공개 claim과 모델 claim은 evidence보다 넓게 쓰지 않는다.
@@ -46,7 +47,7 @@
 - [x] hooks/skills/subagents/team/TUI 필수 capability 반영
 - [x] plugin adapter 경계 문서화
 - [x] Codex-first, Claude Code-second plugin adapter 우선순위 반영
-- [x] plugin marketplace 법무/운영 정책 문서화
+- [x] marketplace 미연동 및 local directory import 정책 반영
 
 ## Phase 1: Runtime Entrypoint And CLI Surface
 
@@ -252,10 +253,10 @@
 - [ ] plugin enable/disable scope policy
 - [ ] unsupported plugin capability ledger record
 - [ ] default-block policy for shell/bin/MCP/background/remote/file-write capability
-- [ ] local curated plugin marketplace index
-- [ ] marketplace entry schema: source, license, permissions, checksum
-- [ ] marketplace legal/trademark/takedown checklist
-- [ ] remote index-only marketplace with opt-in enable
+- [ ] reject remote plugin URL
+- [ ] reject plugin marketplace source
+- [ ] reject plugin registry/catalog source
+- [ ] local plugin directory path traversal test
 - [ ] skill context requirements
 - [ ] skill allowed tools
 - [ ] skill evidence requirements
@@ -394,7 +395,8 @@
 - remote bridge
 - IDE/Desktop/Web surface
 - 외부 runtime plugin 직접 실행
-- 외부 plugin marketplace 자동 신뢰
+- 외부 plugin marketplace 연동
+- 외부 plugin registry/catalog 연동
 - license 미확인 plugin package mirror
 - 공식 승인 없는 Claude Code/Codex 호환 claim
 - destructive command 자동 실행

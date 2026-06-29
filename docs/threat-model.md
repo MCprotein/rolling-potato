@@ -29,7 +29,7 @@
 - repository 안의 prompt-like text
 - 외부 model manifest
 - 다운로드 URL
-- 외부 plugin package와 marketplace
+- 외부 plugin package
 
 ## 주요 위협
 
@@ -103,7 +103,7 @@ Claude Code/Codex형 plugin이 shell command, MCP server, background process, re
 - `bin/`, remote connector, file write path는 기본 차단
 - plugin execution은 runtime tool policy와 hook policy를 통과
 - import, enable, deny, remove 이벤트 ledger 기록
-- marketplace는 index-only catalog부터 시작하고 package mirror는 license 확인 전 금지
+- marketplace, registry, catalog, mirror source는 지원하지 않음
 
 ## MVP 보안 요구
 
@@ -121,4 +121,4 @@ Claude Code/Codex형 plugin이 shell command, MCP server, background process, re
 - remote adapter warning UX
 - operation log retention 기간
 - credential detector 구현 수준
-- plugin marketplace 신뢰/서명 정책
+- 외부 plugin을 사용자가 어떻게 획득했는지에 대한 경고 UX

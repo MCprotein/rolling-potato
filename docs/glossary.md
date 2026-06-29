@@ -74,11 +74,11 @@ Claude Code/Codex형 plugin package를 `rpotato`의 skill, hook, subagent, MCP c
 
 외부 plugin을 직접 실행하지 않고 import, inspect, validate, enable 단계를 거칩니다. 매핑할 수 없는 기능은 `unsupported`로 기록합니다.
 
-## Plugin Marketplace
+## Local Plugin Import
 
-외부 plugin metadata와 source pointer를 제공하는 opt-in catalog입니다.
+사용자가 이미 로컬에 가지고 있는 Claude Code/Codex형 plugin directory를 `rpotato` capability로 변환하는 설치 경로입니다.
 
-초기 marketplace는 code mirror가 아니라 index-only catalog입니다. License, source, checksum, permission, removal contact가 없는 entry는 신뢰 대상으로 취급하지 않습니다.
+`rpotato`는 외부 plugin marketplace, registry, catalog, mirror를 연동하지 않습니다.
 
 ## Subagent
 
