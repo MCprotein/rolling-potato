@@ -4,6 +4,7 @@ mod cache;
 mod cli;
 mod model;
 mod paths;
+mod plugin;
 
 use std::process::ExitCode;
 

@@ -13,8 +13,13 @@
 - `rpotato cache status`
 - `rpotato model list`
 - `rpotato model install <id>`
+- `rpotato plugin import --from codex <local-path> --dry-run`
+- `rpotato plugin import --from claude-code <local-path> --dry-run`
+- `rpotato plugin list`
 
 모델/backend 다운로드는 아직 활성화하지 않았습니다. 검증된 manifest가 없으면 runtime core가 다운로드를 차단하고 CLI surface가 그 이유를 표시해야 합니다.
+
+Plugin source snapshot, persistent registry, enable/disable/remove는 아직 활성화하지 않았습니다. 현재 plugin path는 local directory dry-run 검사와 remote source rejection만 수행합니다.
 
 ## 기술 스택
 

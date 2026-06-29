@@ -127,8 +127,8 @@
 - [ ] `rpotato skill run <id>`
 - [ ] `rpotato plugin import --from codex <local-path>`
 - [ ] `rpotato plugin import --from claude-code <local-path>`
-- [ ] `rpotato plugin import --dry-run`
-- [ ] `rpotato plugin list`
+- [x] `rpotato plugin import --dry-run`
+- [x] `rpotato plugin list`
 - [ ] `rpotato plugin inspect <id>`
 - [ ] `rpotato plugin validate <id>`
 - [ ] `rpotato plugin enable <id>`
@@ -257,15 +257,15 @@
 - [ ] Claude Code hook import
 - [ ] Claude Code LSP/monitor/bin/settings/theme import policy
 - [ ] plugin capability mapping: skill, hook, subagent, MCP, unsupported
-- [ ] plugin import dry-run report
+- [x] plugin import dry-run report
 - [ ] plugin enable/disable scope policy
 - [ ] plugin source snapshot and manifest hash record
 - [ ] plugin data path separation
 - [ ] unsupported plugin capability ledger record
 - [ ] default-block policy for shell/bin/MCP/background/remote/file-write capability
-- [ ] reject remote plugin URL
-- [ ] reject plugin marketplace source
-- [ ] reject plugin registry/catalog source
+- [x] reject remote plugin URL
+- [x] reject plugin marketplace source
+- [x] reject plugin registry/catalog source
 - [ ] local plugin directory path traversal test
 - [ ] skill context requirements
 - [ ] skill allowed tools

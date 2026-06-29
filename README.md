@@ -148,8 +148,13 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato cache status`
 - `rpotato model list`
 - `rpotato model install <id>`
+- `rpotato plugin import --from codex <local-path> --dry-run`
+- `rpotato plugin import --from claude-code <local-path> --dry-run`
+- `rpotato plugin list`
 
 `model install`은 아직 실제 다운로드를 수행하지 않습니다. 검증된 GGUF artifact URL, checksum, provider terms, file size, `llama.cpp` 호환성 정보가 manifest에 들어오기 전까지 설치를 차단합니다.
+
+`plugin import`는 아직 실제 source snapshot과 registry 기록을 수행하지 않습니다. 현재는 local plugin directory의 manifest를 dry-run으로 검사하고, remote URL, marketplace, registry, catalog source를 차단합니다.
 
 다음 구현 전 작업:
 
