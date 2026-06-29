@@ -24,6 +24,7 @@
 - SQLite는 monitoring/query projection으로 두고, append-only ledger는 audit trail로 유지한다.
 - mode 전환은 모델의 즉흥 판단이 아니라 deterministic rule과 runtime state로 처리한다.
 - hooks, skills, subagents, team runtime, TUI는 replacement-level runtime의 1급 capability다.
+- monitoring은 SSH/Linux server에서 TUI로 먼저 보여주고, HTML은 후속 optional local report/dashboard로 둔다.
 - compaction, resume, cancel, corrupt state fallback은 초기 runtime 설계에 포함한다.
 - 공개 claim과 모델 claim은 evidence보다 넓게 쓰지 않는다.
 
@@ -317,6 +318,7 @@
 - [ ] `rpotato team status`
 - [ ] TUI framework decision
 - [ ] `rpotato tui`
+- [ ] TUI monitoring UX spec from `DESIGN.md`
 - [ ] TUI transcript/session view
 - [ ] TUI plan/context/ontology view
 - [ ] TUI approval queue
@@ -325,6 +327,7 @@
 - [ ] TUI subagent/team status view
 - [ ] TUI model/token monitoring view
 - [ ] TUI evidence/stop gate view
+- [ ] optional local HTML report/dashboard decision
 - [ ] TUI cancel/resume controls
 - [ ] TUI small terminal smoke test
 - [ ] TUI policy-bypass regression test

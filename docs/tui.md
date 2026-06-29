@@ -4,12 +4,15 @@ TUI는 Claude Code/Codex replacement experience에 필요한 필수 product surf
 
 첫 구현은 CLI command에서 시작할 수 있지만, target runtime은 interactive work를 위한 terminal UI를 지원해야 합니다.
 
+TUI design source of truth는 [DESIGN.md](../DESIGN.md)입니다. 특히 monitoring 화면은 SSH/Linux server에서도 쓸 수 있어야 하므로 browser나 GUI를 전제하지 않습니다.
+
 ## 목표
 
 - long-running agent session을 inspect 가능하게 만든다.
 - log를 직접 뒤지지 않아도 runtime state를 보여준다.
 - approval, diff, tool output, subagents, teams를 지원한다.
 - context/evidence/stop gate를 visible하게 만든다.
+- model/token/resource monitoring을 terminal-only 환경에서도 사용할 수 있게 만든다.
 - keyboard-first terminal workflow를 유지한다.
 
 ## 비목표
@@ -18,6 +21,7 @@ TUI는 Claude Code/Codex replacement experience에 필요한 필수 product surf
 - primary interface로서의 web dashboard
 - TUI-owned policy
 - runtime core 직접 우회
+- monitoring 화면에서 raw prompt/source를 기본 노출하는 것
 
 ## Required Views
 
@@ -66,6 +70,29 @@ TUI action:
 └────────────────────────────────────────────┘
 ```
 
+Monitoring layout direction:
+
+```text
+┌─ Monitor ──────────────────────────────────┐
+│ model/backend  tokens  tps  latency  mem   │
+├───────────────┬────────────────────────────┤
+│ model runs    │ selected session detail    │
+│ failures      │ gate/tool/evidence status  │
+├───────────────┴────────────────────────────┤
+│ export / prune / refresh / command bar     │
+└────────────────────────────────────────────┘
+```
+
+Monitoring UI rules:
+
+- overview first, drill-down second
+- active/degraded/blocked run first in sort order
+- every metric shows timestamp or stale marker
+- no color-only status; include text status
+- no raw prompt/source by default
+- export and prune actions require dry-run summary
+- narrow terminal falls back to stacked single-panel views
+
 ## Runtime Contract
 
 TUI는 runtime state를 consume합니다.
@@ -80,6 +107,7 @@ TUI는 runtime state를 consume합니다.
 - evidence status
 - backend/model status
 - token/resource metric summary
+- metric freshness/staleness state
 
 TUI는 user decision을 emit합니다.
 
@@ -94,6 +122,7 @@ TUI는 user decision을 emit합니다.
 
 - Korean user-facing label by default
 - small terminal size에서도 readable
+- SSH/Linux server 환경 first-class
 - hidden destructive shortcut 금지
 - keyboard-first
 - terminal resize handling
@@ -108,4 +137,5 @@ TUI는 smoke test가 필요합니다.
 - diff view가 long file을 처리함
 - cancellation이 runtime state를 update함
 - team/subagent status update
+- model/token monitoring view updates
 - Korean output guard가 final report에 visible

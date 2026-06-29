@@ -4,6 +4,8 @@
 
 Monitoring은 외부 telemetry가 아니라 local-first runtime capability입니다. 기본값은 로컬 저장이며, 사용자 코드나 prompt 원문을 외부로 보내지 않습니다.
 
+Monitoring UX의 기준은 [DESIGN.md](../DESIGN.md)와 [tui.md](tui.md)를 따릅니다. TUI는 SSH/Linux server에서 쓰는 primary monitoring surface이고, HTML은 이후 선택 가능한 local report/dashboard surface입니다.
+
 ## 목표
 
 - 모델별 token 사용량과 context 사용량을 기록한다.
@@ -164,6 +166,8 @@ TUI는 다음 view를 가져야 합니다.
 - guard/stop gate results
 - subagent/team metric summary
 - recent failures and validation gaps
+
+HTML은 MVP primary surface가 아닙니다. 이후 추가한다면 SQLite/export data를 읽는 local-only report 또는 dashboard로 둡니다. HTML이 별도 monitoring source of truth를 만들면 안 됩니다.
 
 ## Retention
 

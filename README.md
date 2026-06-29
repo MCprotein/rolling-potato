@@ -170,6 +170,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 - [docs/development.md](docs/development.md): 개발 환경과 검증 흐름
 - [docs/release.md](docs/release.md): 릴리즈 정책
+- [DESIGN.md](DESIGN.md): CLI/TUI/monitoring UX source of truth
 - [docs/runtime-architecture.md](docs/runtime-architecture.md): runtime core와 surface/backend 경계
 - [docs/glossary.md](docs/glossary.md): 프로젝트 용어 정의
 - [docs/ontology-runtime.md](docs/ontology-runtime.md): 온톨로지 runtime 설계

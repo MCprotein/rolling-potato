@@ -36,6 +36,7 @@ The README and docs split that plan into:
 - ontology runtime design
 - observability and monitoring design
 - hooks, skills, subagents, team runtime, and TUI design
+- TUI monitoring UX direction with optional later HTML report/dashboard
 
 Open-source operating docs have also been added:
 
@@ -46,6 +47,7 @@ Open-source operating docs have also been added:
 - `SECURITY.md`
 - `PRIVACY.md`
 - `ROADMAP.md`
+- `DESIGN.md`
 - `.github/ISSUE_TEMPLATE/`
 - `docs/development.md`
 - `docs/release.md`
@@ -281,10 +283,11 @@ Suggested next work:
 
 1. Keep the CLI surface/runtime core/backend boundaries aligned with `docs/runtime-architecture.md`.
 2. Keep hooks, skills, subagents, team runtime, and TUI aligned with their docs before adding complex agent behavior.
-3. Split the current scaffold toward explicit runtime core modules.
-4. Add runtime state, ledger, and observability boundaries before chat behavior.
-5. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.
-6. Implement `llama.cpp` sidecar discovery/health-check before chat behavior.
+3. Keep monitoring TUI UX aligned with `DESIGN.md`; HTML is optional later and must share the same observability source.
+4. Split the current scaffold toward explicit runtime core modules.
+5. Add runtime state, ledger, and observability boundaries before chat behavior.
+6. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.
+7. Implement `llama.cpp` sidecar discovery/health-check before chat behavior.
 
 ## User Preference Notes
 

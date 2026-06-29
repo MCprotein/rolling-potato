@@ -424,18 +424,19 @@ Replacement-level beta should additionally:
 Core design docs:
 
 1. `README.md` positioning draft
-2. `docs/architecture.md`
-3. `docs/model-eval.md`
-4. `docs/mvp.md`
-5. `docs/runtime-architecture.md`
-6. `docs/glossary.md`
-7. `docs/ontology-runtime.md`
-8. `docs/observability.md`
-9. `docs/hooks.md`
-10. `docs/skills.md`
-11. `docs/subagents.md`
-12. `docs/team-runtime.md`
-13. `docs/tui.md`
+2. `DESIGN.md`
+3. `docs/architecture.md`
+4. `docs/model-eval.md`
+5. `docs/mvp.md`
+6. `docs/runtime-architecture.md`
+7. `docs/glossary.md`
+8. `docs/ontology-runtime.md`
+9. `docs/observability.md`
+10. `docs/hooks.md`
+11. `docs/skills.md`
+12. `docs/subagents.md`
+13. `docs/team-runtime.md`
+14. `docs/tui.md`
 
 Open-source operating docs:
 
