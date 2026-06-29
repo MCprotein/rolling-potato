@@ -4,6 +4,7 @@ mod cache;
 mod cli;
 mod config;
 mod evidence;
+mod intent;
 mod ledger;
 mod model;
 mod monitor;
@@ -11,6 +12,7 @@ mod observability;
 mod paths;
 mod plugin;
 mod runtime;
+mod skill;
 mod state;
 mod uninstall;
 

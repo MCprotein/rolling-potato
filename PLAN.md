@@ -57,6 +57,7 @@ Initial command sketch:
 rpotato init
 rpotato chat
 rpotato run "이 에러 고쳐줘"
+rpotato intent classify "테스트 실패 고쳐줘"
 rpotato tui
 rpotato state reconcile
 rpotato state resume

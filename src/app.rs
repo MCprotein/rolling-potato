@@ -1,15 +1,17 @@
 use crate::backend;
 use crate::cache;
 use crate::cli::{
-    Command, EvidenceCommand, ModelCommand, MonitorCommand, PluginCommand, StateCommand,
-    UninstallCommand,
+    Command, EvidenceCommand, IntentCommand, ModelCommand, MonitorCommand, PluginCommand,
+    SkillCommand, StateCommand, UninstallCommand,
 };
 use crate::config;
 use crate::evidence;
+use crate::intent;
 use crate::model;
 use crate::monitor;
 use crate::plugin;
 use crate::runtime;
+use crate::skill;
 use crate::state;
 use crate::uninstall;
 
@@ -52,6 +54,14 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", runtime::init_report()?);
             Ok(())
         }
+        Command::Run { request } => {
+            println!("{}", intent::run_report(&request)?);
+            Ok(())
+        }
+        Command::Intent(IntentCommand::Classify { request }) => {
+            println!("{}", intent::classify_report(&request)?);
+            Ok(())
+        }
         Command::Doctor => {
             println!("{}", runtime::doctor_report());
             Ok(())
@@ -78,6 +88,14 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
         }
         Command::Evidence(EvidenceCommand::Validate { pointer }) => {
             println!("{}", evidence::validate_report(&pointer)?);
+            Ok(())
+        }
+        Command::Skill(SkillCommand::List) => {
+            println!("{}", skill::list_report());
+            Ok(())
+        }
+        Command::Skill(SkillCommand::Run { id }) => {
+            println!("{}", skill::run_report(&id)?);
             Ok(())
         }
         Command::BackendDoctor => {

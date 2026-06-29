@@ -150,6 +150,17 @@ pub fn cancel_report() -> Result<String, AppError> {
     ))
 }
 
+pub fn record_event(event_type: &str, summary: &str, details: &str) -> Result<String, AppError> {
+    let identity = ledger::current_identity();
+    ensure_layout()?;
+    observability::initialize(&identity)?;
+    let event = ledger::new_event_for(&identity, event_type, summary, details);
+    let event_id = event.event_id.clone();
+    ledger::append_event(&event)?;
+    observability::project_event(&event)?;
+    Ok(event_id)
+}
+
 fn ensure_layout() -> Result<Vec<PathBuf>, AppError> {
     let directories = [
         paths::config_dir(),

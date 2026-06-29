@@ -6,12 +6,16 @@ rpotato
 사용법:
   rpotato doctor
   rpotato init
+  rpotato run \"<request>\"
+  rpotato intent classify \"<request>\"
   rpotato config
   rpotato state
   rpotato state reconcile
   rpotato state resume
   rpotato cancel
   rpotato evidence validate <artifact-pointer>
+  rpotato skill list
+  rpotato skill run <id>
   rpotato backend doctor
   rpotato cache status
   rpotato monitor status
@@ -41,11 +45,14 @@ rpotato
 pub enum Command {
     Help,
     Init,
+    Run { request: String },
+    Intent(IntentCommand),
     Doctor,
     Config,
     State(StateCommand),
     Cancel,
     Evidence(EvidenceCommand),
+    Skill(SkillCommand),
     BackendDoctor,
     CacheStatus,
     Monitor(MonitorCommand),
@@ -72,6 +79,17 @@ pub enum StateCommand {
 #[derive(Debug, PartialEq, Eq)]
 pub enum EvidenceCommand {
     Validate { pointer: String },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum SkillCommand {
+    List,
+    Run { id: String },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum IntentCommand {
+    Classify { request: String },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -147,6 +165,17 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [] => Ok(Command::Help),
         [arg] if arg == "help" || arg == "--help" || arg == "-h" => Ok(Command::Help),
         [arg] if arg == "init" => Ok(Command::Init),
+        [group, rest @ ..] if group == "run" => Ok(Command::Run {
+            request: parse_request(rest, "run")?,
+        }),
+        [group, action, rest @ ..] if group == "intent" && action == "classify" => {
+            Ok(Command::Intent(IntentCommand::Classify {
+                request: parse_request(rest, "intent classify")?,
+            }))
+        }
+        [group, ..] if group == "intent" => {
+            Err(AppError::usage("intent 명령은 classify만 허용합니다."))
+        }
         [arg] if arg == "doctor" => Ok(Command::Doctor),
         [arg] if arg == "config" => Ok(Command::Config),
         [arg] if arg == "state" => Ok(Command::State(StateCommand::Status)),
@@ -170,6 +199,18 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         ),
         [group, ..] if group == "evidence" => {
             Err(AppError::usage("evidence 명령은 validate만 허용합니다."))
+        }
+        [group, action] if group == "skill" && action == "list" => {
+            Ok(Command::Skill(SkillCommand::List))
+        }
+        [group, action, id] if group == "skill" && action == "run" => {
+            Ok(Command::Skill(SkillCommand::Run { id: id.clone() }))
+        }
+        [group, action, ..] if group == "skill" && action == "run" => Err(AppError::usage(
+            "skill run에는 skill id가 필요합니다. 예: rpotato skill run fix-test",
+        )),
+        [group, ..] if group == "skill" => {
+            Err(AppError::usage("skill 명령은 list 또는 run만 허용합니다."))
         }
         [group, action] if group == "backend" && action == "doctor" => Ok(Command::BackendDoctor),
         [group, action] if group == "cache" && action == "status" => Ok(Command::CacheStatus),
@@ -272,6 +313,23 @@ fn parse_uninstall(args: &[String]) -> Result<UninstallCommand, AppError> {
         purge_cache,
         dry_run,
     })
+}
+
+fn parse_request(args: &[String], command: &str) -> Result<String, AppError> {
+    if args.is_empty() {
+        return Err(AppError::usage(format!(
+            "{command}에는 request 문자열이 필요합니다."
+        )));
+    }
+
+    let request = args.join(" ");
+    if request.trim().is_empty() {
+        return Err(AppError::usage(format!(
+            "{command}에는 비어 있지 않은 request가 필요합니다."
+        )));
+    }
+
+    Ok(request)
 }
 
 fn parse_monitor_export(args: &[String]) -> Result<MonitorCommand, AppError> {
@@ -495,6 +553,57 @@ mod tests {
             command,
             Command::Evidence(EvidenceCommand::Validate {
                 pointer: "logs/test.log".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_skill_run() {
+        let command = parse([
+            "skill".to_string(),
+            "run".to_string(),
+            "fix-test".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Skill(SkillCommand::Run {
+                id: "fix-test".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_run_request() {
+        let command = parse([
+            "run".to_string(),
+            "테스트".to_string(),
+            "고쳐줘".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Run {
+                request: "테스트 고쳐줘".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn parses_intent_classify_request() {
+        let command = parse([
+            "intent".to_string(),
+            "classify".to_string(),
+            "리뷰해줘".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Intent(IntentCommand::Classify {
+                request: "리뷰해줘".to_string()
             })
         );
     }

@@ -13,11 +13,15 @@
 - `rpotato cache status`
 - `rpotato config`
 - `rpotato init`
+- `rpotato run "<request>"`
+- `rpotato intent classify "<request>"`
 - `rpotato state`
 - `rpotato state reconcile`
 - `rpotato state resume`
 - `rpotato cancel`
 - `rpotato evidence validate <artifact-pointer>`
+- `rpotato skill list`
+- `rpotato skill run <id>`
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor export --format jsonl`
@@ -77,11 +81,15 @@ CLI smoke test 예시:
 ```sh
 cargo run -- doctor
 cargo run -- init
+cargo run -- run "테스트 실패 고쳐줘"
+cargo run -- intent classify "리뷰해줘"
 cargo run -- config
 cargo run -- state
 cargo run -- state reconcile
 cargo run -- state resume
 cargo run -- evidence validate .rpotato/evidence/smoke.txt
+cargo run -- skill list
+cargo run -- skill run fix-test
 cargo run -- monitor status
 cargo run -- monitor models
 cargo run -- monitor export --format jsonl
@@ -99,9 +107,11 @@ cargo run -- uninstall --dry-run --purge-cache
 
 - `cli`: command parsing and output
 - `runtime`: state, policy, ontology, agent loop orchestration
+- `intent`: deterministic request-to-skill/mode normalization
 - `ledger`: append-only runtime/session ledger and redaction before persistence
 - `state`: current-state, project/session identity, cancel/no-op event recording
 - `evidence`: project-bound artifact pointer validation and stale policy summary
+- `skill`: built-in skill registry and invocation normalization
 - `hooks`: lifecycle control points
 - `skills`: reusable runtime capabilities
 - `plugins`: local Codex/Claude Code plugin import, inspect, validate, enable/disable

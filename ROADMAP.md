@@ -121,10 +121,10 @@
 
 목표: 사용자 입력을 모델에게 넘기기 전에 runtime이 mode, 제약, 완료 기준을 먼저 정규화한다.
 
-- [ ] explicit invocation 우선순위
-- [ ] skill invocation grammar
-- [ ] `rpotato skill list`
-- [ ] `rpotato skill run <id>`
+- [x] explicit invocation 우선순위
+- [x] skill invocation grammar
+- [x] `rpotato skill list`
+- [x] `rpotato skill run <id>`
 - [ ] `rpotato plugin import --from codex <local-path>`
 - [ ] `rpotato plugin import --from claude-code <local-path>`
 - [x] `rpotato plugin import --dry-run`
@@ -137,15 +137,15 @@
 - [ ] `rpotato plugin remove <id> --purge-data`
 - [ ] source runtime namespace rule: native, codex, claude-code
 - [ ] active workflow 귀속 규칙
-- [ ] deterministic keyword/phrase rule table
-- [ ] structural signal extraction: read-only, plan-only, review-only, test-spec
-- [ ] optional classifier 사용 기준
-- [ ] user constraint record schema
-- [ ] repo instruction loading boundary
-- [ ] generated artifact requirement 추출
-- [ ] nested/subagent prompt keyword non-activation
+- [x] deterministic keyword/phrase rule table
+- [x] structural signal extraction: read-only, plan-only, review-only, test-spec
+- [x] optional classifier 사용 기준
+- [x] user constraint record schema
+- [x] repo instruction loading boundary
+- [x] generated artifact requirement 추출
+- [x] nested/subagent prompt keyword non-activation
 - [ ] TUI command palette routing
-- [ ] intent fixture test
+- [x] intent fixture test
 
 ## Phase 4: Permission And Tool Boundary
 
