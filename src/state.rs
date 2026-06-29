@@ -170,6 +170,7 @@ fn ensure_layout() -> Result<Vec<PathBuf>, AppError> {
         paths::config_dir(),
         paths::backends_dir(),
         paths::models_dir(),
+        paths::model_registry_dir(),
         paths::downloads_dir(),
         paths::manifests_dir(),
         paths::logs_dir(),

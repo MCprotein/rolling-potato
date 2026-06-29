@@ -32,6 +32,9 @@ rpotato
   rpotato monitor export --format csv
   rpotato monitor prune --before 30d --dry-run
   rpotato model list
+  rpotato model manifest
+  rpotato model inspect <id>
+  rpotato model registry
   rpotato model install <id>
   rpotato plugin import --from codex <local-path> --dry-run
   rpotato plugin import --from claude-code <local-path> --dry-run
@@ -132,6 +135,9 @@ pub enum MonitorExportFormat {
 #[derive(Debug, PartialEq, Eq)]
 pub enum ModelCommand {
     List,
+    Manifest,
+    Inspect { id: String },
+    Registry,
     Install { id: String },
 }
 
@@ -308,11 +314,23 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "model" && action == "list" => {
             Ok(Command::Model(ModelCommand::List))
         }
+        [group, action] if group == "model" && action == "manifest" => {
+            Ok(Command::Model(ModelCommand::Manifest))
+        }
+        [group, action, id] if group == "model" && action == "inspect" => {
+            Ok(Command::Model(ModelCommand::Inspect { id: id.clone() }))
+        }
+        [group, action] if group == "model" && action == "registry" => {
+            Ok(Command::Model(ModelCommand::Registry))
+        }
         [group, action, id] if group == "model" && action == "install" => {
             Ok(Command::Model(ModelCommand::Install { id: id.clone() }))
         }
         [group, action] if group == "model" && action == "install" => Err(AppError::usage(
             "모델 id가 필요합니다. 예: rpotato model install qwen3.5-4b",
+        )),
+        [group, ..] if group == "model" => Err(AppError::usage(
+            "model 명령은 list, manifest, inspect, registry, install만 허용합니다.",
         )),
         [group, action, rest @ ..] if group == "plugin" && action == "import" => {
             parse_plugin_import(rest).map(Command::Plugin)
@@ -574,6 +592,34 @@ mod tests {
                 id: "gemma-4-e4b".to_string()
             })
         );
+    }
+
+    #[test]
+    fn parses_model_manifest() {
+        let command = parse(["model".to_string(), "manifest".to_string()]).unwrap();
+        assert_eq!(command, Command::Model(ModelCommand::Manifest));
+    }
+
+    #[test]
+    fn parses_model_inspect() {
+        let command = parse([
+            "model".to_string(),
+            "inspect".to_string(),
+            "qwen3.5-4b".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Model(ModelCommand::Inspect {
+                id: "qwen3.5-4b".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_model_registry() {
+        let command = parse(["model".to_string(), "registry".to_string()]).unwrap();
+        assert_eq!(command, Command::Model(ModelCommand::Registry));
     }
 
     #[test]

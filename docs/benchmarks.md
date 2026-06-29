@@ -99,6 +99,8 @@ fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 
 
 검색이나 model card에서 보이는 공개 benchmark 점수를 그대로 믿지 않고, 조건을 맞춰 재현 가능한지 확인합니다.
 
+현재 Phase 5 구현은 후보별 공개 benchmark source URL과 `source-listed-unreproduced` 상태를 manifest에 기록합니다. 이는 제품 점수 확정이 아니라 재현성 평가 대기 상태입니다. local score, hardware/backend 조건, quantization, dataset, scoring 방식이 채워지기 전까지 공개 점수와 직접 비교하지 않습니다.
+
 각 benchmark 항목은 다음 정보를 가져야 합니다.
 
 - published score source URL

@@ -163,6 +163,18 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", model::list_report());
             Ok(())
         }
+        Command::Model(ModelCommand::Manifest) => {
+            println!("{}", model::manifest_report());
+            Ok(())
+        }
+        Command::Model(ModelCommand::Inspect { id }) => {
+            println!("{}", model::inspect_report(&id)?);
+            Ok(())
+        }
+        Command::Model(ModelCommand::Registry) => {
+            println!("{}", model::registry_report());
+            Ok(())
+        }
         Command::Model(ModelCommand::Install { id }) => model::install_candidate(&id),
         Command::Plugin(PluginCommand::Import {
             source,
@@ -219,12 +231,23 @@ mod tests {
 
     #[test]
     fn unverified_model_install_is_blocked() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root =
+            std::env::temp_dir().join(format!("rpotato-model-install-test-{}", std::process::id()));
+        let project_root = root.join("project");
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+
         let err = run([
             "model".to_string(),
             "install".to_string(),
             "qwen3.5-4b".to_string(),
         ])
         .unwrap_err();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+
         assert_eq!(err.code, 3);
         assert!(err.message.contains("설치를 차단했습니다"));
         assert!(err.message.contains("GGUF artifact URL"));

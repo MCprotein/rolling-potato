@@ -43,9 +43,9 @@
 
 | Claim | Source | Checked-at | Status |
 | --- | --- | --- | --- |
-| `Qwen/Qwen3.5-4B`의 Hugging Face model card license field는 `apache-2.0`이다. | https://huggingface.co/Qwen/Qwen3.5-4B | 2026-06-24 | confirmed |
-| `Qwen/Qwen3.5-9B`의 Hugging Face model card license field는 `apache-2.0`이다. | https://huggingface.co/Qwen/Qwen3.5-9B | 2026-06-24 | confirmed |
-| `google/gemma-4-E4B`의 Hugging Face model card license field는 `apache-2.0`이고, Google AI for Developers의 Gemma 4 license 문서는 Apache License 2.0을 게시한다. | https://huggingface.co/google/gemma-4-E4B, https://ai.google.dev/gemma/apache_2 | 2026-06-24 | confirmed |
+| `Qwen/Qwen3.5-4B`의 Hugging Face model card license field는 `apache-2.0`이다. | https://huggingface.co/Qwen/Qwen3.5-4B | 2026-06-29 | confirmed |
+| `Qwen/Qwen3.5-9B`의 Hugging Face model card license field는 `apache-2.0`이다. | https://huggingface.co/Qwen/Qwen3.5-9B | 2026-06-29 | confirmed |
+| `google/gemma-4-E4B`의 Hugging Face model card license field는 `apache-2.0`이고, Google AI for Developers의 Gemma 4 license 문서는 Apache License 2.0을 게시한다. | https://huggingface.co/google/gemma-4-E4B, https://ai.google.dev/gemma/apache_2 | 2026-06-29 | confirmed |
 | Apache License 2.0은 조건을 지키는 경우 사용, 복제, 수정, sublicensing, 배포를 허용하며, license 사본 제공, 수정 표시, 기존 attribution/NOTICE 보존, 상표 제한을 요구한다. | https://ai.google.dev/gemma/apache_2 | 2026-06-25 | confirmed |
 
 ## 아직 확정하지 않은 것

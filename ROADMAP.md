@@ -187,11 +187,11 @@
 
 목표: 출처와 checksum이 검증된 모델 후보만 설치하고 registry에 등록한다.
 
-- [ ] 출처 기반 model manifest schema
-- [ ] 모델 후보 상태: `candidate`, `unverified`, `verified`
-- [ ] 모델 후보별 공식 model card/source/license 조사
-- [ ] 모델 후보별 공개 benchmark claim/source ledger
-- [ ] 공개 benchmark 재현 가능성 평가: harness, dataset, prompt, scoring, hardware/backend 조건
+- [x] 출처 기반 model manifest schema
+- [x] 모델 후보 상태: `candidate`, `unverified`, `verified`
+- [x] 모델 후보별 공식 model card/source/license 조사
+- [x] 모델 후보별 공개 benchmark claim/source ledger
+- [x] 공개 benchmark 재현 가능성 평가: harness, dataset, prompt, scoring, hardware/backend 조건
 - [x] `rpotato model list`
 - [ ] `rpotato model install <id>`
 - [x] 미검증 artifact 설치 차단
@@ -199,8 +199,8 @@
 - [ ] SHA-256 verification
 - [ ] 다운로드 전 license/source 표시
 - [ ] 검증 실패 artifact 정리
-- [ ] local model registry
-- [ ] manifest test
+- [x] local model registry
+- [x] manifest test
 
 ## Phase 6: Backend Runtime
 

@@ -178,6 +178,9 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato monitor export --format csv`
 - `rpotato monitor prune --before 30d --dry-run`
 - `rpotato model list`
+- `rpotato model manifest`
+- `rpotato model inspect <id>`
+- `rpotato model registry`
 - `rpotato model install <id>`
 - `rpotato plugin import --from codex <local-path> --dry-run`
 - `rpotato plugin import --from claude-code <local-path> --dry-run`
@@ -205,7 +208,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 
-`model install`은 아직 실제 다운로드를 수행하지 않습니다. 검증된 GGUF artifact URL, checksum, provider terms, file size, `llama.cpp` 호환성 정보가 manifest에 들어오기 전까지 설치를 차단합니다.
+`model list`, `model manifest`, `model inspect`, `model registry`는 source-backed manifest schema, 후보 상태, 공개 benchmark source ledger, local registry 위치를 보여줍니다. `model install`은 아직 실제 다운로드를 수행하지 않습니다. 검증된 GGUF artifact URL, checksum, provider terms, file size, `llama.cpp` 호환성 정보가 manifest에 들어오기 전까지 설치를 차단하고 ledger event를 남깁니다.
 
 `plugin import`는 local plugin directory의 source snapshot과 normalized manifest를 app data root 아래에 저장합니다. Import는 실행 권한을 부여하지 않으며, shell/MCP/background/file-write 같은 capability는 기본 차단 상태로 permission report에 남깁니다.
 

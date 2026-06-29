@@ -73,6 +73,9 @@ rpotato plugin inspect imported.example-plugin
 rpotato plugin enable imported.example-plugin
 rpotato team status
 rpotato model list
+rpotato model manifest
+rpotato model inspect qwen3.5-4b
+rpotato model registry
 rpotato model install qwen3.5-4b
 rpotato backend doctor
 rpotato cache status

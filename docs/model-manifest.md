@@ -32,23 +32,53 @@
     {
       "id": "qwen3.5-4b-q4-k-m",
       "displayName": "Qwen3.5 4B Q4_K_M",
+      "status": "candidate",
       "upstreamModel": "TODO",
+      "upstreamUrl": "TODO",
       "artifactName": "TODO.gguf",
+      "artifactProvider": "TODO",
+      "artifactTermsUrl": "TODO",
       "format": "gguf",
       "backend": "llama.cpp",
       "quantization": "TODO",
       "recommendedRamGb": null,
+      "recommendedRamEvidence": "TODO",
       "contextLength": null,
       "license": "TODO",
+      "licenseSource": "TODO",
+      "licenseCheckedAt": "TODO",
       "url": "TODO",
       "sha256": "TODO",
-      "sizeBytes": null
+      "sizeBytes": null,
+      "backendCompatibility": "TODO",
+      "publishedBenchmark": {
+        "source": "TODO",
+        "checkedAt": "TODO",
+        "claimStatus": "source-listed-unreproduced",
+        "parityStatus": "not-run"
+      }
     }
   ]
 }
 ```
 
 이 예시는 schema shape만 보여줍니다. `TODO`와 `null` 값은 제품 사실이 아니며, 실제 manifest에는 [model-source-policy.md](model-source-policy.md)에 따른 출처 확인 후 값을 채웁니다.
+
+현재 CLI surface:
+
+- `rpotato model list`
+- `rpotato model manifest`
+- `rpotato model inspect <id>`
+- `rpotato model registry`
+- `rpotato model install <id>`
+
+후보 상태:
+
+- `candidate`: upstream model/source/license만 후보로 추적하고, 설치할 GGUF artifact는 아직 고르지 않은 상태
+- `unverified`: GGUF artifact 후보는 있지만 checksum, provider terms, backend compatibility, RAM 근거 중 하나 이상이 빠진 상태
+- `verified`: 설치 전 표시해야 할 source, license, artifact URL, provider terms, SHA-256, file size, backend compatibility, RAM 근거가 모두 채워진 상태
+
+`model install`은 `verified`가 아닌 항목을 차단하고 ledger event를 남깁니다. 현재 구현은 실제 다운로드를 수행하지 않으며, local registry는 `models/registry/<model-id>.json` 위치에 verified artifact만 기록하는 경계로 준비되어 있습니다.
 
 ## 필수 검증
 

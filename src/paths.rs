@@ -64,6 +64,10 @@ pub fn models_dir() -> PathBuf {
     app_data_root().join("models")
 }
 
+pub fn model_registry_dir() -> PathBuf {
+    models_dir().join("registry")
+}
+
 pub fn downloads_dir() -> PathBuf {
     app_data_root().join("downloads")
 }
