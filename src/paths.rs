@@ -44,6 +44,18 @@ pub fn managed_backend_path() -> PathBuf {
         .join(binary)
 }
 
+pub fn config_dir() -> PathBuf {
+    app_data_root().join("config")
+}
+
+pub fn config_file() -> PathBuf {
+    config_dir().join("config.toml")
+}
+
+pub fn backends_dir() -> PathBuf {
+    app_data_root().join("backends")
+}
+
 pub fn models_dir() -> PathBuf {
     app_data_root().join("models")
 }
@@ -54,4 +66,46 @@ pub fn downloads_dir() -> PathBuf {
 
 pub fn manifests_dir() -> PathBuf {
     app_data_root().join("manifests")
+}
+
+pub fn logs_dir() -> PathBuf {
+    app_data_root().join("logs")
+}
+
+pub fn operation_log_file() -> PathBuf {
+    logs_dir().join("operation.log")
+}
+
+pub fn state_dir() -> PathBuf {
+    app_data_root().join("state")
+}
+
+pub fn observability_db_file() -> PathBuf {
+    state_dir().join("observability.sqlite")
+}
+
+pub fn runtime_ledger_file() -> PathBuf {
+    state_dir().join("runtime-ledger.jsonl")
+}
+
+pub fn plugins_dir() -> PathBuf {
+    app_data_root().join("plugins")
+}
+
+pub fn imported_plugins_dir() -> PathBuf {
+    plugins_dir().join("imported")
+}
+
+pub fn plugin_data_dir() -> PathBuf {
+    plugins_dir().join("data")
+}
+
+pub fn cache_dir() -> PathBuf {
+    app_data_root().join("cache")
+}
+
+pub fn project_state_dir() -> PathBuf {
+    env::current_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join(".rpotato")
 }

@@ -11,11 +11,19 @@
 - `rpotato doctor`
 - `rpotato backend doctor`
 - `rpotato cache status`
+- `rpotato config`
+- `rpotato init`
+- `rpotato state`
+- `rpotato cancel`
+- `rpotato monitor status`
+- `rpotato monitor models`
 - `rpotato model list`
 - `rpotato model install <id>`
 - `rpotato plugin import --from codex <local-path> --dry-run`
 - `rpotato plugin import --from claude-code <local-path> --dry-run`
 - `rpotato plugin list`
+- `rpotato uninstall --keep-cache`
+- `rpotato uninstall --purge-cache`
 
 모델/backend 다운로드는 아직 활성화하지 않았습니다. 검증된 manifest가 없으면 runtime core가 다운로드를 차단하고 CLI surface가 그 이유를 표시해야 합니다.
 
@@ -59,7 +67,13 @@ CLI smoke test 예시:
 
 ```sh
 cargo run -- doctor
+cargo run -- init
+cargo run -- config
+cargo run -- state
+cargo run -- monitor status
+cargo run -- monitor models
 cargo run -- model list
+cargo run -- uninstall --dry-run --purge-cache
 ```
 
 최종 binary 명령은 `rpotato`입니다.

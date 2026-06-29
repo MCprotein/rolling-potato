@@ -146,11 +146,19 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato doctor`
 - `rpotato backend doctor`
 - `rpotato cache status`
+- `rpotato config`
+- `rpotato init`
+- `rpotato state`
+- `rpotato cancel`
+- `rpotato monitor status`
+- `rpotato monitor models`
 - `rpotato model list`
 - `rpotato model install <id>`
 - `rpotato plugin import --from codex <local-path> --dry-run`
 - `rpotato plugin import --from claude-code <local-path> --dry-run`
 - `rpotato plugin list`
+- `rpotato uninstall --keep-cache`
+- `rpotato uninstall --purge-cache`
 
 `model install`은 아직 실제 다운로드를 수행하지 않습니다. 검증된 GGUF artifact URL, checksum, provider terms, file size, `llama.cpp` 호환성 정보가 manifest에 들어오기 전까지 설치를 차단합니다.
 
@@ -180,6 +188,7 @@ MVP의 기본 결정은 다음과 같습니다.
 ## 추가 문서
 
 - [docs/development.md](docs/development.md): 개발 환경과 검증 흐름
+- [docs/cli-output-style.md](docs/cli-output-style.md): CLI 출력 스타일
 - [docs/release.md](docs/release.md): 릴리즈 정책
 - [DESIGN.md](DESIGN.md): CLI/TUI/monitoring UX source of truth
 - [docs/runtime-architecture.md](docs/runtime-architecture.md): runtime core와 surface/backend 경계

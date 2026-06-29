@@ -1,5 +1,6 @@
 use crate::app::AppError;
 use crate::cli::PluginSource;
+use crate::paths;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -7,8 +8,11 @@ use std::path::{Path, PathBuf};
 const ENTRY_LIMIT: usize = 10_000;
 
 pub fn list_report() -> String {
-    "plugin registry\n- 상태: persistent registry 미구현\n- 현재 가능: rpotato plugin import --from codex <local-path> --dry-run\n- marketplace, registry, catalog, remote URL import는 지원하지 않습니다."
-        .to_string()
+    format!(
+        "plugin registry\n- 상태: persistent registry 미구현\n- imported plugins dir: {}\n- plugin data dir: {}\n- 현재 가능: rpotato plugin import --from codex <local-path> --dry-run\n- marketplace, registry, catalog, remote URL import는 지원하지 않습니다.",
+        paths::imported_plugins_dir().display(),
+        paths::plugin_data_dir().display()
+    )
 }
 
 pub fn not_persisted_yet(action: &str, id: &str) -> Result<(), AppError> {

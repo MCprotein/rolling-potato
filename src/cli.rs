@@ -5,8 +5,14 @@ rpotato
 
 사용법:
   rpotato doctor
+  rpotato init
+  rpotato config
+  rpotato state
+  rpotato cancel
   rpotato backend doctor
   rpotato cache status
+  rpotato monitor status
+  rpotato monitor models
   rpotato model list
   rpotato model install <id>
   rpotato plugin import --from codex <local-path> --dry-run
@@ -18,6 +24,9 @@ rpotato
   rpotato plugin disable <id>
   rpotato plugin remove <id> --keep-data
   rpotato plugin remove <id> --purge-data
+  rpotato uninstall --keep-cache
+  rpotato uninstall --purge-cache
+  rpotato uninstall --dry-run --purge-cache
 
 현재 상태:
   모델과 backend 다운로드는 검증된 manifest가 준비될 때까지 차단됩니다.";
@@ -25,11 +34,23 @@ rpotato
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
     Help,
+    Init,
     Doctor,
+    Config,
+    State,
+    Cancel,
     BackendDoctor,
     CacheStatus,
+    Monitor(MonitorCommand),
     Model(ModelCommand),
     Plugin(PluginCommand),
+    Uninstall(UninstallCommand),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum MonitorCommand {
+    Status,
+    Models,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -64,6 +85,11 @@ pub enum PluginCommand {
     },
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum UninstallCommand {
+    Plan { purge_cache: bool, dry_run: bool },
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PluginSource {
     Codex,
@@ -93,9 +119,22 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
     match args.as_slice() {
         [] => Ok(Command::Help),
         [arg] if arg == "help" || arg == "--help" || arg == "-h" => Ok(Command::Help),
+        [arg] if arg == "init" => Ok(Command::Init),
         [arg] if arg == "doctor" => Ok(Command::Doctor),
+        [arg] if arg == "config" => Ok(Command::Config),
+        [arg] if arg == "state" => Ok(Command::State),
+        [arg] if arg == "cancel" => Ok(Command::Cancel),
         [group, action] if group == "backend" && action == "doctor" => Ok(Command::BackendDoctor),
         [group, action] if group == "cache" && action == "status" => Ok(Command::CacheStatus),
+        [group, action] if group == "monitor" && action == "status" => {
+            Ok(Command::Monitor(MonitorCommand::Status))
+        }
+        [group, action] if group == "monitor" && action == "models" => {
+            Ok(Command::Monitor(MonitorCommand::Models))
+        }
+        [group, ..] if group == "monitor" => Err(AppError::usage(
+            "monitor 명령은 status 또는 models만 허용합니다.",
+        )),
         [group, action] if group == "model" && action == "list" => {
             Ok(Command::Model(ModelCommand::List))
         }
@@ -142,11 +181,44 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, ..] if group == "plugin" && action == "remove" => Err(AppError::usage(
             "plugin id와 삭제 옵션이 필요합니다. 예: rpotato plugin remove imported.example --keep-data",
         )),
+        [group, rest @ ..] if group == "uninstall" => {
+            parse_uninstall(rest).map(Command::Uninstall)
+        }
         [unknown, ..] => Err(AppError::usage(format!(
             "알 수 없는 명령입니다: {unknown}\n\n{}",
             HELP
         ))),
     }
+}
+
+fn parse_uninstall(args: &[String]) -> Result<UninstallCommand, AppError> {
+    let mut keep_cache = false;
+    let mut purge_cache = false;
+    let mut dry_run = false;
+
+    for arg in args {
+        match arg.as_str() {
+            "--keep-cache" => keep_cache = true,
+            "--purge-cache" => purge_cache = true,
+            "--dry-run" => dry_run = true,
+            unknown => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 uninstall 옵션입니다: {unknown}"
+                )));
+            }
+        }
+    }
+
+    if keep_cache == purge_cache {
+        return Err(AppError::usage(
+            "uninstall은 --keep-cache 또는 --purge-cache 중 하나가 필요합니다.",
+        ));
+    }
+
+    Ok(UninstallCommand::Plan {
+        purge_cache,
+        dry_run,
+    })
 }
 
 fn parse_plugin_import(args: &[String]) -> Result<PluginCommand, AppError> {
@@ -250,6 +322,30 @@ mod tests {
             Command::Plugin(PluginCommand::Import {
                 source: PluginSource::Codex,
                 path: "./my-plugin".to_string(),
+                dry_run: true
+            })
+        );
+    }
+
+    #[test]
+    fn parses_monitor_status() {
+        let command = parse(["monitor".to_string(), "status".to_string()]).unwrap();
+        assert_eq!(command, Command::Monitor(MonitorCommand::Status));
+    }
+
+    #[test]
+    fn parses_uninstall_dry_run_purge_cache() {
+        let command = parse([
+            "uninstall".to_string(),
+            "--dry-run".to_string(),
+            "--purge-cache".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Uninstall(UninstallCommand::Plan {
+                purge_cache: true,
                 dry_run: true
             })
         );

@@ -450,6 +450,7 @@ Core design docs:
 13. `docs/team-runtime.md`
 14. `docs/tui.md`
 15. `docs/plugin-adapters.md`
+16. `docs/cli-output-style.md`
 
 Open-source operating docs:
 

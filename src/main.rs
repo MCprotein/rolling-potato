@@ -2,9 +2,14 @@ mod app;
 mod backend;
 mod cache;
 mod cli;
+mod config;
 mod model;
+mod monitor;
 mod paths;
 mod plugin;
+mod runtime;
+mod state;
+mod uninstall;
 
 use std::process::ExitCode;
 

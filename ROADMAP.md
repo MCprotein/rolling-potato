@@ -55,24 +55,24 @@
 
 - [x] Rust workspace scaffold
 - [x] `rpotato` 명령 router
-- [ ] CLI surface와 runtime core module 경계
-- [ ] `rpotato init`
+- [x] CLI surface와 runtime core module 경계
+- [x] `rpotato init`
 - [x] `rpotato doctor`
-- [ ] `rpotato config`
-- [ ] `rpotato state`
-- [ ] `rpotato cancel`
+- [x] `rpotato config`
+- [x] `rpotato state`
+- [x] `rpotato cancel`
 - [x] `rpotato cache status`
-- [ ] `rpotato monitor status`
-- [ ] `rpotato monitor models`
-- [ ] `rpotato uninstall --keep-cache`
-- [ ] `rpotato uninstall --purge-cache`
-- [ ] config 경로 결정
-- [ ] app data/cache/project state 경계 결정
+- [x] `rpotato monitor status`
+- [x] `rpotato monitor models`
+- [x] `rpotato uninstall --keep-cache`
+- [x] `rpotato uninstall --purge-cache`
+- [x] config 경로 결정
+- [x] app data/cache/project state 경계 결정
 - [x] 구조화된 한국어 오류 보고
-- [ ] 명령 출력 스타일 가이드
-- [ ] operation log path 결정
-- [ ] setup/upgrade/uninstall 경계 결정
-- [ ] uninstall dry-run path listing
+- [x] 명령 출력 스타일 가이드
+- [x] operation log path 결정
+- [x] setup/upgrade/uninstall 경계 결정
+- [x] uninstall dry-run path listing
 - [x] 기본 명령 smoke test
 
 ## Phase 2: Runtime State, Ledger, And Observability

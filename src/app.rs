@@ -1,8 +1,13 @@
 use crate::backend;
 use crate::cache;
-use crate::cli::{Command, ModelCommand, PluginCommand};
+use crate::cli::{Command, ModelCommand, MonitorCommand, PluginCommand, UninstallCommand};
+use crate::config;
 use crate::model;
+use crate::monitor;
 use crate::plugin;
+use crate::runtime;
+use crate::state;
+use crate::uninstall;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct AppError {
@@ -32,8 +37,24 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", crate::cli::HELP);
             Ok(())
         }
+        Command::Init => {
+            println!("{}", runtime::init_report());
+            Ok(())
+        }
         Command::Doctor => {
-            println!("{}", doctor_report());
+            println!("{}", runtime::doctor_report());
+            Ok(())
+        }
+        Command::Config => {
+            println!("{}", config::report());
+            Ok(())
+        }
+        Command::State => {
+            println!("{}", state::status_report());
+            Ok(())
+        }
+        Command::Cancel => {
+            println!("{}", state::cancel_report());
             Ok(())
         }
         Command::BackendDoctor => {
@@ -42,6 +63,14 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
         }
         Command::CacheStatus => {
             println!("{}", cache::status_report());
+            Ok(())
+        }
+        Command::Monitor(MonitorCommand::Status) => {
+            println!("{}", monitor::status_report());
+            Ok(())
+        }
+        Command::Monitor(MonitorCommand::Models) => {
+            println!("{}", monitor::models_report());
             Ok(())
         }
         Command::Model(ModelCommand::List) => {
@@ -70,18 +99,14 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
         Command::Plugin(PluginCommand::Remove { id, purge_data }) => {
             plugin::remove_not_persisted_yet(&id, purge_data)
         }
+        Command::Uninstall(UninstallCommand::Plan {
+            purge_cache,
+            dry_run,
+        }) => {
+            println!("{}", uninstall::plan_report(purge_cache, dry_run));
+            Ok(())
+        }
     }
-}
-
-fn doctor_report() -> String {
-    let backend = backend::doctor_summary();
-    let cache = cache::status_summary();
-    let models = model::candidate_summary();
-
-    format!(
-        "rpotato 진단\n- CLI: 사용 가능\n- backend: {}\n- model: {}\n- cache: {}",
-        backend, models, cache
-    )
 }
 
 #[cfg(test)]
@@ -122,5 +147,11 @@ mod tests {
 
         assert_eq!(err.code, 3);
         assert!(err.message.contains("remote URL"));
+    }
+
+    #[test]
+    fn init_command_reports_layout_without_error() {
+        let result = run(["init".to_string()]);
+        assert_eq!(result, Ok(()));
     }
 }
