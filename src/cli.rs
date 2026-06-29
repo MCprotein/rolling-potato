@@ -37,6 +37,7 @@ rpotato
   rpotato model registry
   rpotato model download-plan <id>
   rpotato model verify-file <path> --sha256 <hash>
+  rpotato model cleanup-failed <id> --dry-run
   rpotato model install <id>
   rpotato plugin import --from codex <local-path> --dry-run
   rpotato plugin import --from claude-code <local-path> --dry-run
@@ -142,6 +143,7 @@ pub enum ModelCommand {
     Registry,
     DownloadPlan { id: String },
     VerifyFile { path: String, sha256: String },
+    CleanupFailed { id: String, dry_run: bool },
     Install { id: String },
 }
 
@@ -341,6 +343,26 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, ..] if group == "model" && action == "verify-file" => Err(
             AppError::usage("model verify-file은 <path> --sha256 <hash> 형식이 필요합니다."),
         ),
+        [group, action, id, flag] if group == "model" && action == "cleanup-failed" => {
+            let dry_run = match flag.as_str() {
+                "--dry-run" => true,
+                "--delete" => false,
+                _ => {
+                    return Err(AppError::usage(
+                        "model cleanup-failed는 --dry-run 또는 --delete가 필요합니다.",
+                    ));
+                }
+            };
+            Ok(Command::Model(ModelCommand::CleanupFailed {
+                id: id.clone(),
+                dry_run,
+            }))
+        }
+        [group, action, ..] if group == "model" && action == "cleanup-failed" => {
+            Err(AppError::usage(
+                "model cleanup-failed는 <id> --dry-run 또는 <id> --delete 형식이 필요합니다.",
+            ))
+        }
         [group, action, id] if group == "model" && action == "install" => {
             Ok(Command::Model(ModelCommand::Install { id: id.clone() }))
         }
@@ -348,7 +370,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             "모델 id가 필요합니다. 예: rpotato model install qwen3.5-4b",
         )),
         [group, ..] if group == "model" => Err(AppError::usage(
-            "model 명령은 list, manifest, inspect, registry, download-plan, verify-file, install만 허용합니다.",
+            "model 명령은 list, manifest, inspect, registry, download-plan, verify-file, cleanup-failed, install만 허용합니다.",
         )),
         [group, action, rest @ ..] if group == "plugin" && action == "import" => {
             parse_plugin_import(rest).map(Command::Plugin)
@@ -672,6 +694,24 @@ mod tests {
                 path: "model.gguf".to_string(),
                 sha256: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
                     .to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_model_cleanup_failed_dry_run() {
+        let command = parse([
+            "model".to_string(),
+            "cleanup-failed".to_string(),
+            "qwen3.5-4b".to_string(),
+            "--dry-run".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Model(ModelCommand::CleanupFailed {
+                id: "qwen3.5-4b".to_string(),
+                dry_run: true
             })
         );
     }

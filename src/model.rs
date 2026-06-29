@@ -422,6 +422,69 @@ pub fn verify_file_report(path: &str, expected_sha256: &str) -> Result<String, A
     ))
 }
 
+pub fn cleanup_failed_report(id: &str, dry_run: bool) -> Result<String, AppError> {
+    let candidate = find_candidate(id)?;
+    let cleanup_paths = failed_artifact_paths(candidate);
+    let mut rows = Vec::new();
+    let mut removed = 0;
+    let mut missing = 0;
+
+    for path in cleanup_paths {
+        if !path.exists() {
+            missing += 1;
+            rows.push(format!("- {} | missing", path.display()));
+            continue;
+        }
+
+        if !path.is_file() {
+            return Err(AppError::blocked(format!(
+                "failed artifact cleanup 대상은 file이어야 합니다: {}",
+                path.display()
+            )));
+        }
+
+        if dry_run {
+            rows.push(format!("- {} | would delete", path.display()));
+        } else {
+            fs::remove_file(&path).map_err(|err| {
+                AppError::runtime(format!(
+                    "failed artifact를 삭제하지 못했습니다: {} ({err})",
+                    path.display()
+                ))
+            })?;
+            removed += 1;
+            rows.push(format!("- {} | deleted", path.display()));
+        }
+    }
+
+    let event_id = state::record_event(
+        if dry_run {
+            "model.failed_artifact.cleanup.planned"
+        } else {
+            "model.failed_artifact.cleanup.completed"
+        },
+        if dry_run {
+            "failed model artifact cleanup dry-run"
+        } else {
+            "failed model artifact cleanup 완료"
+        },
+        &format!(
+            "model_id={} dry_run={} removed={} missing={}",
+            candidate.id, dry_run, removed, missing
+        ),
+    )?;
+
+    Ok(format!(
+        "failed artifact cleanup {}\n- id: {}\n- removed: {}\n- missing: {}\n- ledger event: {}\n{}\n- boundary: app data downloads/models 아래의 failed/partial artifact만 대상으로 합니다.",
+        if dry_run { "dry-run" } else { "결과" },
+        candidate.id,
+        removed,
+        missing,
+        event_id,
+        rows.join("\n")
+    ))
+}
+
 pub fn install_candidate(id: &str) -> Result<(), AppError> {
     let candidate = find_candidate(id)?;
     let validation = validate_install_ready(candidate);
@@ -672,6 +735,15 @@ fn registry_path(id: &str) -> PathBuf {
     paths::model_registry_dir().join(format!("{id}.json"))
 }
 
+fn failed_artifact_paths(candidate: &ModelManifestEntry) -> Vec<PathBuf> {
+    let artifact_name = candidate.artifact_name.unwrap_or(candidate.id);
+    vec![
+        paths::downloads_dir().join(format!("{}.part", candidate.id)),
+        paths::downloads_dir().join(format!("{}.failed", candidate.id)),
+        paths::models_dir().join(format!("{artifact_name}.failed")),
+    ]
+}
+
 fn registry_entry_json(candidate: &ModelManifestEntry) -> String {
     format!(
         "{{\n  \"schemaVersion\": 1,\n  \"id\": \"{}\",\n  \"displayName\": \"{}\",\n  \"status\": \"installed\",\n  \"upstreamModel\": \"{}\",\n  \"upstreamUrl\": \"{}\",\n  \"artifactPath\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"licenseSource\": \"{}\",\n  \"licenseCheckedAt\": \"{}\"\n}}\n",
@@ -824,6 +896,23 @@ mod tests {
         let report = download_plan_report("qwen3.5-4b").unwrap();
         assert!(report.contains("status: blocked"));
         assert!(report.contains("license source"));
+    }
+
+    #[test]
+    fn cleanup_failed_dry_run_lists_app_managed_paths() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let data_root =
+            std::env::temp_dir().join(format!("rpotato-cleanup-test-{}", std::process::id()));
+        std::env::set_var("RPOTATO_DATA_HOME", &data_root);
+        std::env::set_var("RPOTATO_PROJECT_ROOT", data_root.join("project"));
+
+        let report = cleanup_failed_report("qwen3.5-4b", true).unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        assert!(report.contains("dry-run"));
+        assert!(report.contains("qwen3.5-4b.part"));
+        assert!(report.contains("app data downloads/models"));
     }
 
     #[test]
