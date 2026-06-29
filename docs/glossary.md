@@ -173,6 +173,12 @@ Runtime event와 evidence를 append-only로 남기는 기록입니다.
 
 현재 상태 view와 ledger는 분리합니다.
 
+## Observability Store
+
+모델별 token 사용량, latency, backend health, guard result, tool result, stop gate result를 질의하기 위한 local monitoring 저장소입니다.
+
+기본 방향은 SQLite projection입니다. Append-only ledger가 event source이고, SQLite는 TUI, `doctor`, benchmark report가 빠르게 질의하기 위한 query layer입니다.
+
 ## Stop Gate
 
 작업 완료 여부를 결정하는 runtime gate입니다. 모델이 "끝났다"고 말해도 evidence가 부족하면 완료가 아닙니다.

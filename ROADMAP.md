@@ -21,6 +21,7 @@
 - 작은 모델에게 큰 자유도를 주기보다 작은 vertical slice를 확실히 끝낸다.
 - 완료 판정은 모델의 말이 아니라 검증 evidence와 Stop gate가 결정한다.
 - 현재 상태 view와 append-only ledger를 분리한다.
+- SQLite는 monitoring/query projection으로 두고, append-only ledger는 audit trail로 유지한다.
 - mode 전환은 모델의 즉흥 판단이 아니라 deterministic rule과 runtime state로 처리한다.
 - hooks, skills, subagents, team runtime, TUI는 replacement-level runtime의 1급 capability다.
 - compaction, resume, cancel, corrupt state fallback은 초기 runtime 설계에 포함한다.
@@ -52,6 +53,8 @@
 - [ ] `rpotato state`
 - [ ] `rpotato cancel`
 - [x] `rpotato cache status`
+- [ ] `rpotato monitor status`
+- [ ] `rpotato monitor models`
 - [ ] `rpotato uninstall --keep-cache`
 - [ ] `rpotato uninstall --purge-cache`
 - [ ] config 경로 결정
@@ -63,9 +66,9 @@
 - [ ] uninstall dry-run path listing
 - [x] 기본 명령 smoke test
 
-## Phase 2: Runtime State And Ledger
+## Phase 2: Runtime State, Ledger, And Observability
 
-목표: 세션이 바뀌어도 runtime이 현재 작업 상태와 감사 기록을 복원할 수 있게 한다.
+목표: 세션이 바뀌어도 runtime이 현재 작업 상태, 감사 기록, 모델별 monitoring 지표를 복원하고 질의할 수 있게 한다.
 
 - [ ] local state root layout
 - [ ] repo-root state와 session-scoped state 우선순위
@@ -88,6 +91,19 @@
 - [ ] evidence stale 판정 기준
 - [ ] evidence artifact pointer validation
 - [ ] current state view와 event/evidence ledger 경계
+- [ ] local SQLite observability store 결정
+- [ ] SQLite schema migration
+- [ ] ledger to SQLite projection
+- [ ] token usage record schema
+- [ ] model run metric schema
+- [ ] backend health metric schema
+- [ ] tool/command metric schema
+- [ ] guard/stop-gate metric schema
+- [ ] prompt/source raw text 미저장 기본값
+- [ ] credential redaction before persistence
+- [ ] corrupt SQLite fallback
+- [ ] monitoring export: JSONL/CSV
+- [ ] monitoring retention/prune dry-run
 - [ ] 중단된 실행의 resume 동작
 - [ ] compaction boundary marker
 - [ ] compacted summary 보존 정책
@@ -307,6 +323,7 @@
 - [ ] TUI diff viewer
 - [ ] TUI tool output viewer
 - [ ] TUI subagent/team status view
+- [ ] TUI model/token monitoring view
 - [ ] TUI evidence/stop gate view
 - [ ] TUI cancel/resume controls
 - [ ] TUI small terminal smoke test

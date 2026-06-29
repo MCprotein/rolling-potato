@@ -63,6 +63,7 @@ runtime core
   ├─ model manager
   ├─ backend manager
   ├─ state and ledger
+  ├─ observability store
   ├─ hook engine
   ├─ skill registry
   ├─ ontology and context plane
@@ -74,6 +75,7 @@ runtime core
   ├─ patch manager
   ├─ verifier
   ├─ evidence and stop gate
+  ├─ token and resource monitor
   └─ Korean response guard
 
 managed backend
@@ -94,6 +96,8 @@ rpotato app data root/
   manifests/     # model/backend manifests
   logs/
   state/
+    observability.sqlite
+    runtime-ledger.jsonl
   cache/
 
 project root/
@@ -126,6 +130,7 @@ Runtime core는 Claude Code/Codex류 agent 경험의 본체입니다. CLI surfac
 
 - 설정 파일 읽기와 쓰기
 - session state와 append-only ledger 관리
+- SQLite monitoring projection 관리
 - hook lifecycle 관리
 - skill registry와 invocation 관리
 - 모델 manifest 해석
@@ -139,6 +144,7 @@ Runtime core는 Claude Code/Codex류 agent 경험의 본체입니다. CLI surfac
 - diff 생성과 patch 적용
 - 검증 명령 분류와 실행
 - evidence 수집과 stop gate 판정
+- token 사용량, latency, memory, backend health metric 수집
 - 최종 한국어 응답 검증
 
 ### Backend adapter

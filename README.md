@@ -24,6 +24,7 @@
 - 서브에이전트와 팀 실행
 - 패치 생성과 검증
 - 재시도 제어
+- 모델별 token/latency/resource monitoring
 - CLI와 TUI surface
 - 한국어 전용 최종 응답 검증
 
@@ -74,6 +75,8 @@ rpotato model list
 rpotato model install qwen3.5-4b
 rpotato backend doctor
 rpotato cache status
+rpotato monitor status
+rpotato monitor models
 rpotato uninstall --keep-cache
 rpotato uninstall --purge-cache
 rpotato doctor
@@ -108,6 +111,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - 첫 surface: CLI
 - 필수 surface: TUI
 - 필수 runtime capability: hooks, skills, subagents, team runtime
+- 필수 monitoring store: local SQLite projection + append-only ledger
 - 우선 평가 후보: `Qwen3.5-4B` 계열 quantized GGUF, artifact/runtime 검증 전 미확정
 - 비교 평가 후보: `Gemma 4 E4B` 계열 quantized GGUF, artifact/runtime 검증 전 미확정
 
@@ -169,6 +173,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - [docs/runtime-architecture.md](docs/runtime-architecture.md): runtime core와 surface/backend 경계
 - [docs/glossary.md](docs/glossary.md): 프로젝트 용어 정의
 - [docs/ontology-runtime.md](docs/ontology-runtime.md): 온톨로지 runtime 설계
+- [docs/observability.md](docs/observability.md): 모델/token/runtime monitoring 설계
 - [docs/hooks.md](docs/hooks.md): runtime lifecycle hook 설계
 - [docs/skills.md](docs/skills.md): 재사용 가능한 runtime skill 설계
 - [docs/subagents.md](docs/subagents.md): 서브에이전트 실행 경계

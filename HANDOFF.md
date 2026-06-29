@@ -34,6 +34,7 @@ The README and docs split that plan into:
 - Korean/code/tool model evaluation draft
 - runtime architecture and terminology
 - ontology runtime design
+- observability and monitoring design
 - hooks, skills, subagents, team runtime, and TUI design
 
 Open-source operating docs have also been added:
@@ -59,6 +60,7 @@ Open-source operating docs have also been added:
 - `docs/runtime-architecture.md`
 - `docs/glossary.md`
 - `docs/ontology-runtime.md`
+- `docs/observability.md`
 - `docs/hooks.md`
 - `docs/skills.md`
 - `docs/subagents.md`
@@ -116,6 +118,7 @@ Standing boundary:
 
 - CLI surface displays, prompts, and forwards user intent.
 - Runtime core owns state, policy, ontology, context, agent loop, evidence, and stop gates.
+- Runtime core owns model/token/resource monitoring with a local SQLite projection and append-only ledger.
 - Runtime core owns hooks, skills, subagent lifecycle, team coordination, and TUI state feeds.
 - Backend adapter owns inference calls only.
 - Model output never executes tools directly.
@@ -211,6 +214,8 @@ rpotato model list
 rpotato model install qwen3.5-4b
 rpotato backend doctor
 rpotato cache status
+rpotato monitor status
+rpotato monitor models
 rpotato uninstall --keep-cache
 rpotato uninstall --purge-cache
 rpotato doctor
@@ -239,6 +244,7 @@ Likely initial publishing:
 - GitHub repo
 - GitHub Releases for binaries
 - model manifest in repo or release asset
+- local SQLite observability store for runtime/model metrics
 
 Likely package channels later:
 
@@ -276,8 +282,9 @@ Suggested next work:
 1. Keep the CLI surface/runtime core/backend boundaries aligned with `docs/runtime-architecture.md`.
 2. Keep hooks, skills, subagents, team runtime, and TUI aligned with their docs before adding complex agent behavior.
 3. Split the current scaffold toward explicit runtime core modules.
-4. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.
-5. Implement `llama.cpp` sidecar discovery/health-check before chat behavior.
+4. Add runtime state, ledger, and observability boundaries before chat behavior.
+5. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level.
+6. Implement `llama.cpp` sidecar discovery/health-check before chat behavior.
 
 ## User Preference Notes
 

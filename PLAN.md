@@ -44,6 +44,7 @@ Product body:
 
 - runtime core for state, policy, ontology, context, agent loop, evidence, and stop gates
 - backend/model layer for local inference
+- observability layer for model/token/resource monitoring
 - hook system for lifecycle control points
 - skill system for reusable workflows
 - subagent and team runtime for bounded multi-agent work
@@ -63,6 +64,8 @@ rpotato model list
 rpotato model install qwen3.5-4b
 rpotato backend doctor
 rpotato cache status
+rpotato monitor status
+rpotato monitor models
 rpotato uninstall --keep-cache
 rpotato uninstall --purge-cache
 rpotato doctor
@@ -198,9 +201,11 @@ The runtime should own:
 - hook lifecycle
 - skill invocation and state
 - prompt compilation per model
+- token usage accounting per model
 - ontology and context lifecycle
 - context packing
 - repo/file indexing
+- model/runtime monitoring
 - tool permission policy
 - subagent lifecycle
 - team coordination
@@ -226,6 +231,8 @@ rpotato app data root/
   manifests/          # model/backend manifests
   logs/
   state/
+    observability.sqlite
+    runtime-ledger.jsonl
   cache/
 
 project root/
@@ -235,8 +242,38 @@ project root/
 Platform paths are decided during Phase 1, but the boundary should stay stable:
 
 - `backends/` and the `rpotato` launcher are program/runtime assets.
-- `models/`, `downloads/`, `manifests/`, generated context indexes, and logs are cache/data assets.
+- `models/`, `downloads/`, `manifests/`, generated context indexes, SQLite monitoring store, and logs are cache/data assets.
 - project-local `.rpotato/` is user project state and must not be removed by global uninstall unless the user explicitly asks for project cleanup from that project.
+
+## Observability And Monitoring
+
+Model monitoring is a required runtime capability, not a later analytics add-on.
+
+Default decision:
+
+- Use SQLite as the local query/index/reporting store.
+- Keep append-only ledger/JSONL as the audit trail and crash-recovery source.
+- Store token, latency, backend, guard, tool, evidence, and stop-gate metrics by session/workflow/model.
+- Do not store raw prompt, source code, or credential-bearing command output by default.
+- Expose monitoring through `rpotato monitor ...`, `doctor`, benchmark reports, and TUI views.
+
+Required model metrics:
+
+- prompt tokens
+- completion tokens
+- total tokens
+- context tokens used and dropped
+- ontology/tool-summary token budget
+- first token latency
+- total latency
+- tokens per second
+- backend startup time
+- peak memory
+- retry/regeneration count
+- Korean guard rejection count
+- stop gate pass/fail
+
+SQLite is appropriate because the runtime needs cross-session queries such as model-level token totals, failure rates, latency percentiles, and benchmark-vs-real-run comparisons. The append-only ledger remains the event source; SQLite is the projection for fast local queries.
 
 ## Uninstall And Cache Policy
 
@@ -377,6 +414,8 @@ Replacement-level beta should additionally:
 - What subagent concurrency limit is safe on 16 GB RAM?
 - What team pipeline is required for replacement-level workflows?
 - Which Rust TUI framework should be used?
+- Which Rust SQLite crate should be used?
+- What is the default monitoring retention period?
 - Should `rpotato` support non-code general automation later?
 - What is the first benchmark suite for Korean/code/tool reliability?
 
@@ -391,11 +430,12 @@ Core design docs:
 5. `docs/runtime-architecture.md`
 6. `docs/glossary.md`
 7. `docs/ontology-runtime.md`
-8. `docs/hooks.md`
-9. `docs/skills.md`
-10. `docs/subagents.md`
-11. `docs/team-runtime.md`
-12. `docs/tui.md`
+8. `docs/observability.md`
+9. `docs/hooks.md`
+10. `docs/skills.md`
+11. `docs/subagents.md`
+12. `docs/team-runtime.md`
+13. `docs/tui.md`
 
 Open-source operating docs:
 
@@ -418,11 +458,12 @@ Runtime policy and validation docs:
 6. `docs/korean-output-guard.md`
 7. `docs/threat-model.md`
 8. `docs/benchmarks.md`
-9. `docs/hooks.md`
-10. `docs/skills.md`
-11. `docs/subagents.md`
-12. `docs/team-runtime.md`
-13. `docs/tui.md`
+9. `docs/observability.md`
+10. `docs/hooks.md`
+11. `docs/skills.md`
+12. `docs/subagents.md`
+13. `docs/team-runtime.md`
+14. `docs/tui.md`
 
 Project-local automation and contribution policy is recorded in `AGENTS.md`: external code PRs are not accepted, safe verified units should be committed and pushed automatically, and commit messages use Conventional Commits in the form `type(scope): title`.
 

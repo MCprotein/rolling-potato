@@ -79,6 +79,7 @@ cargo run -- model list
 - `policy`: command and file permission rules
 - `patch`: diff rendering and apply flow
 - `evidence`: ledger, verification evidence, stop gate
+- `observability`: SQLite projection, token/resource metrics, monitoring export
 - `guard`: Korean output validation
 
 ## 문서 변경 검증

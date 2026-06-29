@@ -60,6 +60,11 @@ fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 
 - tokens per second
 - peak memory
 - context tokens used
+- prompt tokens
+- completion tokens
+- context tokens dropped
+- ontology tokens
+- tool summary tokens
 - regeneration count
 - guard rejection count
 
@@ -123,3 +128,12 @@ benchmark 결과를 공개할 때는 다음을 함께 기록합니다.
 - prompt/runtime version
 
 결과만 공개하고 artifact 정보를 숨기면 재현성이 없으므로 허용하지 않습니다.
+
+## observability 연동
+
+Benchmark run은 일반 runtime monitoring과 같은 metric schema를 사용해야 합니다.
+
+- `benchmark_runs`는 model/backend/session metric과 연결한다.
+- published score와 local score 비교에는 artifact hash와 runtime option을 함께 저장한다.
+- benchmark 중 raw prompt/source 원문을 장기 저장하지 않는다.
+- benchmark report는 SQLite projection에서 생성하되, 재현성에 필요한 JSONL export를 함께 남길 수 있어야 한다.

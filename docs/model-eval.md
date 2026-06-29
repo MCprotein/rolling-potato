@@ -65,6 +65,10 @@ MVP 모델 선택을 감으로 정하지 않습니다. 한국어, 코드 수정,
 - 첫 token latency
 - tokens per second
 - peak memory
+- prompt tokens
+- completion tokens
+- context tokens dropped
+- ontology/tool-summary tokens
 - backend startup time
 - task success rate
 - regeneration rate

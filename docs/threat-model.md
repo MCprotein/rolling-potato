@@ -11,6 +11,7 @@
 - shell 실행 환경
 - 다운로드한 모델 artifact
 - operation log
+- observability database
 
 ## 신뢰 경계
 
@@ -85,6 +86,7 @@
 - telemetry 없음
 - remote adapter opt-in
 - logs redaction
+- raw prompt/source 원문 미저장 기본값
 
 ## MVP 보안 요구
 
@@ -93,6 +95,7 @@
 - 승인 전 파일 쓰기 금지
 - final report Korean guard 적용
 - credential-like string log redaction
+- monitoring store redaction before persistence
 
 ## 미정 사항
 

@@ -30,6 +30,7 @@ TUI는 Claude Code/Codex replacement experience에 필요한 필수 product surf
 - diff viewer
 - tool output viewer
 - model/backend status
+- model/token usage summary
 - subagent status
 - team status
 - evidence/stop gate status
@@ -78,6 +79,7 @@ TUI는 runtime state를 consume합니다.
 - ledger tail
 - evidence status
 - backend/model status
+- token/resource metric summary
 
 TUI는 user decision을 emit합니다.
 

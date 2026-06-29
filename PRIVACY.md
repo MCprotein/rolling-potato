@@ -20,6 +20,8 @@
 - 작업 승인 기록
 - diagnostic 결과
 - 오류 로그
+- 모델별 token 사용량과 runtime metric
+- backend health metric
 
 저장하면 안 되는 정보:
 
@@ -28,6 +30,7 @@
 - password
 - private key
 - 원문 credential이 포함된 command output
+- 사용자 source code 또는 prompt 원문을 기본 monitoring DB에 저장하는 것
 
 ## 네트워크 사용
 
@@ -43,6 +46,17 @@ MVP에서 허용되는 네트워크 사용:
 - 대화 내용 자동 전송
 - command output telemetry
 - 외부 LLM API 자동 fallback
+
+## Monitoring
+
+`rolling-potato`는 모델별 token 사용량, latency, backend health, guard result 같은 monitoring metric을 로컬에 저장할 수 있습니다.
+
+기본 원칙:
+
+- monitoring은 local-first입니다.
+- 외부 telemetry 전송은 MVP 기본 기능에 포함하지 않습니다.
+- raw prompt, source code 원문, credential 포함 command output은 기본 monitoring DB에 저장하지 않습니다.
+- export 기능은 사용자 명령으로만 실행합니다.
 
 ## 외부 adapter
 
