@@ -1,7 +1,8 @@
 # rolling-potato
 
-<p align="right">
-  <a href="README.ko.md"><strong>한국어</strong></a>
+<p align="center">
+  <strong>ENGLISH</strong> |
+  <a href="README.ko.md">한국어</a>
 </p>
 
 `rolling-potato` is a local-first coding agent runtime for low-end and mid-range machines.

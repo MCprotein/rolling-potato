@@ -1,7 +1,8 @@
 # rolling-potato
 
-<p align="right">
-  <a href="README.md"><strong>English</strong></a>
+<p align="center">
+  <a href="README.md">ENGLISH</a> |
+  <strong>한국어</strong>
 </p>
 
 `rolling-potato`는 저사양 PC에서도 굴러가는 로컬 우선 코딩 에이전트 런타임입니다.
