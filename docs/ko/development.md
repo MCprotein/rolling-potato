@@ -1,4 +1,4 @@
-# Development
+# 개발
 
 이 문서는 `rolling-potato` 개발 환경과 검증 흐름을 정의합니다.
 
@@ -70,13 +70,13 @@ Plugin source snapshot, persistent registry, inspect, validate, enable/disable/r
 
 ## 기술 스택
 
-- Language: Rust
+- 언어: Rust
 - CLI parser: std 기반 수동 parser
 - Runtime: CLI surface와 runtime core를 분리하는 방향
-- Required capabilities: hooks, skills, subagents, team runtime, TUI, local plugin adapter
+- 필수 capability: hooks, skills, subagents, team runtime, TUI, local plugin adapter
 - Backend: managed `llama.cpp` sidecar
-- Model format: GGUF
-- Primary OS targets: macOS, Windows
+- 모델 format: GGUF
+- 우선 지원 OS: macOS, Windows
 
 ## 개발 환경
 

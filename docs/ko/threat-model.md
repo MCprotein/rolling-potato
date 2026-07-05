@@ -1,4 +1,4 @@
-# Threat Model
+# 위협 모델
 
 `rolling-potato`는 로컬 코딩 에이전트이므로 일반 CLI보다 더 넓은 위험 표면을 가집니다.
 
@@ -33,7 +33,7 @@
 
 ## 주요 위협
 
-### Prompt injection
+### 프롬프트 Injection
 
 저장소 파일이나 로그가 모델에게 "정책을 무시하라"고 지시할 수 있습니다.
 
@@ -43,7 +43,7 @@
 - 쓰기와 명령 실행은 승인 기반
 - final response guard는 별도 단계에서 적용
 
-### Unsafe command execution
+### 안전하지 않은 Command 실행
 
 모델이 destructive command를 제안할 수 있습니다.
 
@@ -54,7 +54,7 @@
 - denylist와 high-risk confirmation
 - project boundary check
 
-### Unauthorized file write
+### 승인 없는 File write
 
 모델이 관련 없는 파일을 수정할 수 있습니다.
 
@@ -65,7 +65,7 @@
 - patch apply boundary
 - generated/vendor directory 제외
 
-### Model supply chain
+### 모델 Supply chain
 
 잘못된 모델 artifact 또는 변조된 다운로드가 설치될 수 있습니다.
 
@@ -77,7 +77,7 @@
 - provider trust policy
 - checksum 실패 시 등록 금지
 
-### Privacy leakage
+### 개인정보 leakage
 
 사용자 코드나 로그가 외부로 나갈 수 있습니다.
 
@@ -89,7 +89,7 @@
 - logs redaction
 - raw prompt/source 원문 미저장 기본값
 
-### Foreign plugin supply chain
+### 외부 Plugin supply chain
 
 Claude Code/Codex형 plugin이 shell command, MCP server, background process, remote connector, prompt mutation을 포함할 수 있습니다.
 

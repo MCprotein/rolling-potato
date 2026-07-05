@@ -1,4 +1,4 @@
-# Hooks
+# 훅 설계
 
 Hooks는 runtime core가 소유하는 lifecycle control point입니다.
 
@@ -41,7 +41,7 @@ Hook은 정책을 우회하는 shell callback이 아닙니다. 제한된 runtime
 - `stop_gate`
 - `session_end`
 
-## Hook Contract
+## Hook 계약
 
 각 hook은 다음 입력을 받습니다.
 
@@ -64,7 +64,7 @@ Hook은 정책을 우회하는 shell callback이 아닙니다. 제한된 runtime
 - evidence record
 - ledger metadata
 
-## Current Implementation
+## 현재 구현
 
 Phase 4의 현재 구현:
 
@@ -81,7 +81,7 @@ Phase 4의 현재 구현:
 error/deny > ask > modify > allow > observe
 ```
 
-## Policy Boundary
+## Policy 경계
 
 Hook은 동작을 더 좁힐 수 있지만 runtime policy보다 권한을 넓힐 수 없습니다.
 
@@ -92,7 +92,7 @@ Hook은 동작을 더 좁힐 수 있지만 runtime policy보다 권한을 넓힐
 - Hook은 destructive command를 사용자 승인 없이 실행하게 만들 수 없습니다.
 - Hook은 source evidence 없이 모델/license claim을 confirmed로 표시할 수 없습니다.
 
-## Imported Hooks
+## 가져온 Hook
 
 Claude Code/Codex형 plugin에서 가져온 hook은 같은 이름처럼 보여도 `rpotato` hook과 동일한 권한을 갖지 않습니다.
 
@@ -106,7 +106,7 @@ Import 규칙:
 
 자세한 plugin 호환 경계는 [plugin-adapters.md](plugin-adapters.md)를 따릅니다.
 
-## Ordering
+## 순서
 
 Hook 순서는 deterministic해야 합니다.
 
@@ -120,7 +120,7 @@ Hook 결과가 충돌하면 더 엄격한 결과가 이깁니다.
 
 `deny` > `ask` > `modify` > `allow` > `observe`
 
-## Storage
+## 저장소
 
 Hook definition은 model prompt가 아니라 app 또는 project state에 저장합니다.
 
@@ -135,7 +135,7 @@ project root/
     hooks/
 ```
 
-## Validation
+## 검증
 
 Hook behavior는 fixture test가 필요합니다.
 

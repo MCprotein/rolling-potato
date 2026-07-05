@@ -1,4 +1,4 @@
-# Team Runtime
+# 팀 Runtime
 
 Team runtime은 하나의 parent workflow 아래에서 여러 subagent를 조율하는 runtime capability입니다.
 
@@ -12,7 +12,7 @@ Team runtime은 parallel 또는 staged work가 실제로 도움이 되는 작업
 - team work를 resume 가능하고 audit 가능하게 만든다.
 - worker conflict와 hidden side effect를 방지한다.
 
-## Team Pipeline
+## 팀 Pipeline
 
 기본 staged pipeline:
 
@@ -26,7 +26,7 @@ Team runtime은 parallel 또는 staged work가 실제로 도움이 되는 작업
 
 각 stage는 runtime state transition입니다.
 
-## Team Manifest
+## 팀 Manifest
 
 Team execution은 manifest를 가져야 합니다.
 
@@ -46,7 +46,7 @@ Team execution은 manifest를 가져야 합니다.
 }
 ```
 
-## Write Policy
+## 쓰기 Policy
 
 기본 write policy:
 
@@ -56,7 +56,7 @@ Team execution은 manifest를 가져야 합니다.
 - conflict는 parent workflow로 escalate한다.
 - verification은 ownership 해결 뒤 merge 이후에 실행한다.
 
-## Coordination Rules
+## Coordination 규칙
 
 - parent workflow가 global plan을 소유한다.
 - worker는 assigned slice만 실행한다.
@@ -65,7 +65,7 @@ Team execution은 manifest를 가져야 합니다.
 - team state는 ledger에 남긴다.
 - team cancellation은 모든 active worker로 전파한다.
 
-## TUI Integration
+## 터미널 UI Integration
 
 TUI는 다음을 보여야 합니다.
 
@@ -79,7 +79,7 @@ TUI는 다음을 보여야 합니다.
 
 TUI는 team state를 표시합니다. Coordination authority가 되지는 않습니다.
 
-## Validation
+## 검증
 
 Team runtime은 test가 필요합니다.
 

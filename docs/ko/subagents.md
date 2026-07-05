@@ -1,4 +1,4 @@
-# Subagents
+# 서브에이전트
 
 Subagents는 runtime core가 실행하는 bounded worker agent입니다.
 
@@ -19,7 +19,7 @@ Subagent는 runtime state를 무시하는 독립 process가 아닙니다. Parent
 - hidden command execution
 - worker별 별도 policy engine
 
-## Roles
+## 역할
 
 초기 role:
 
@@ -32,7 +32,7 @@ Subagent는 runtime state를 무시하는 독립 process가 아닙니다. Parent
 
 Role은 personality label이 아니라 capability constraint입니다.
 
-## Runtime Contract
+## Runtime 계약
 
 각 subagent는 다음 입력을 받습니다.
 
@@ -54,7 +54,7 @@ Role은 personality label이 아니라 capability constraint입니다.
 - suggested next action
 - validation gaps
 
-## Ownership
+## 소유권
 
 Subagent는 global state를 소유하지 않습니다.
 
@@ -73,7 +73,7 @@ Runtime core가 소유하는 것:
 - merge decision
 - stop gate
 
-## Concurrency
+## 동시성
 
 기본은 sequential입니다. Parallel subagents는 작업이 독립적일 때만 허용합니다.
 
@@ -89,7 +89,7 @@ Serialization이 필요한 예시:
 - patch application과 verification
 - state migration과 state read
 
-## Failure Mode
+## 실패 모드
 
 Subagent failure는 parent state를 손상시키면 안 됩니다.
 
@@ -100,7 +100,7 @@ Subagent failure는 parent state를 손상시키면 안 됩니다.
 - evidence가 없으면 stop gate를 통과하지 못한다.
 - 반복 실패는 scope를 좁히거나 사용자에게 묻는다.
 
-## Validation
+## 검증
 
 Subagent runtime은 test가 필요합니다.
 

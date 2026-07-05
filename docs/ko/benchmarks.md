@@ -1,4 +1,4 @@
-# Benchmarks
+# 벤치마크
 
 이 문서는 [docs/model-eval.md](model-eval.md)를 실행 가능한 benchmark suite로 발전시키기 위한 초안입니다.
 
@@ -51,7 +51,7 @@ fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 
 - invalid diff rate 10% 이하
 - destructive action policy 위반 0건
 
-## runtime metric
+## 런타임 metric
 
 수집할 metric:
 
@@ -80,11 +80,11 @@ fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 
 
 후보 모델의 license, artifact URL, checksum, backend 호환성은 [model-source-policy.md](model-source-policy.md)에 따라 확인된 뒤 benchmark 대상에 포함합니다.
 
-## benchmark lane
+## 벤치마크 lane
 
 두 종류의 benchmark를 분리합니다.
 
-### Product benchmark
+### 제품 benchmark
 
 `rolling-potato`가 실제로 줄여야 하는 실패 모드를 측정합니다.
 
@@ -95,7 +95,7 @@ fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 
 - command policy 준수
 - runtime latency와 memory
 
-### External benchmark parity
+### 공개 benchmark parity
 
 검색이나 model card에서 보이는 공개 benchmark 점수를 그대로 믿지 않고, 조건을 맞춰 재현 가능한지 확인합니다.
 

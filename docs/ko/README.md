@@ -16,29 +16,29 @@
 
 ## 런타임 설계
 
-- [Backend adapter](backend-adapters.md)
-- [Command policy](command-policy.md)
-- [Hooks](hooks.md)
-- [Skills](skills.md)
-- [Subagents](subagents.md)
-- [Team runtime](team-runtime.md)
-- [TUI surface](tui.md)
-- [Observability and monitoring](observability.md)
-- [Plugin adapters](plugin-adapters.md)
+- [백엔드 adapter 설계](backend-adapters.md)
+- [명령 정책](command-policy.md)
+- [훅](hooks.md)
+- [스킬](skills.md)
+- [서브에이전트](subagents.md)
+- [팀 런타임](team-runtime.md)
+- [터미널 UI surface](tui.md)
+- [관측성과 모니터링](observability.md)
+- [플러그인 adapter](plugin-adapters.md)
 
 ## 모델과 평가
 
-- [Model source policy](model-source-policy.md)
-- [Model manifest](model-manifest.md)
-- [Model licenses](model-licenses.md)
-- [Model evaluation](model-eval.md)
-- [Benchmarks](benchmarks.md)
-- [Backend adapters](backend-adapters.md)
+- [모델 출처 정책](model-source-policy.md)
+- [모델 manifest](model-manifest.md)
+- [모델 license](model-licenses.md)
+- [모델 평가](model-eval.md)
+- [벤치마크](benchmarks.md)
+- [백엔드 adapter](backend-adapters.md)
 
 ## 운영
 
-- [Development](development.md)
-- [Release](release.md)
-- [Threat model](threat-model.md)
-- [Korean output guard](korean-output-guard.md)
-- [CLI output style](cli-output-style.md)
+- [개발](development.md)
+- [릴리즈](release.md)
+- [위협 모델](threat-model.md)
+- [한국어 출력 guard](korean-output-guard.md)
+- [명령줄 출력 스타일](cli-output-style.md)

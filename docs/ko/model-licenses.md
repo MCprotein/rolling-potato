@@ -1,4 +1,4 @@
-# Model Licenses
+# 모델 License
 
 `rolling-potato`의 코드 라이선스와 모델 라이선스는 별개입니다.
 

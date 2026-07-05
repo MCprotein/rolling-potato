@@ -1,4 +1,4 @@
-# Model Manifest
+# 모델 Manifest
 
 모델 manifest는 `rpotato`가 설치 가능한 모델과 로컬 모델 상태를 이해하기 위한 신뢰 경계입니다.
 
@@ -109,7 +109,7 @@
 - `rpotato` release binary에 모델 가중치 번들링
 - 임의 URL을 silent fallback으로 사용하는 동작
 
-## open questions
+## 열린 질문
 
 - manifest signing을 MVP에 넣을지 여부
 - artifact mirror를 허용할지 여부

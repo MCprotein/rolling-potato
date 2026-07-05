@@ -1,4 +1,4 @@
-# Release
+# 릴리즈
 
 이 문서는 `rolling-potato` 릴리즈 정책 초안입니다.
 

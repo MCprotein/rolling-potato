@@ -1,4 +1,4 @@
-# Security Policy
+# 보안 정책
 
 `rolling-potato`는 로컬 파일 읽기, patch 적용, 명령 실행, 모델 다운로드를 다루는 CLI입니다. 따라서 보안 정책은 제품 핵심 기능의 일부입니다.
 

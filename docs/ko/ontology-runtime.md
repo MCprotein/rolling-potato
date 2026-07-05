@@ -1,4 +1,4 @@
-# Ontology Runtime
+# 온톨로지 Runtime
 
 온톨로지는 `rolling-potato`의 핵심 runtime memory입니다.
 
@@ -14,7 +14,7 @@
 
 ## 두 계층
 
-### Layer A: Deterministic Facts
+### 계층 A: deterministic fact
 
 Runtime이 직접 수집할 수 있는 사실입니다.
 
@@ -31,7 +31,7 @@ Runtime이 직접 수집할 수 있는 사실입니다.
 
 Layer A는 confidence 대신 freshness와 source hash를 기록합니다.
 
-### Layer B: Semantic Ontology
+### 계층 B: semantic ontology
 
 프로젝트 의미 구조입니다.
 

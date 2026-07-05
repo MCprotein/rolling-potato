@@ -1,8 +1,8 @@
-# Backend Adapters
+# 백엔드 Adapter
 
 Backend adapter는 `rpotato`가 추론 backend 차이를 숨기기 위한 경계입니다.
 
-## MVP adapter
+## 초기 MVP adapter
 
 MVP는 `llama.cpp` sidecar adapter만 구현합니다.
 
@@ -58,7 +58,7 @@ Runtime core가 관리해야 할 항목:
 
 사용자가 backend path를 직접 지정한 경우 해당 binary는 사용자 소유입니다. `rpotato uninstall --keep-cache`나 `--purge-cache`는 `rpotato`가 다운로드한 관리형 backend binary만 삭제하고, 사용자 지정 path는 삭제하지 않습니다.
 
-## Current Implementation
+## 현재 구현
 
 Phase 6의 현재 구현:
 
@@ -76,7 +76,7 @@ Phase 6의 현재 구현:
 
 ## 후순위 adapter
 
-### LM Studio
+### 후순위: LM Studio
 
 장점:
 
@@ -87,7 +87,7 @@ Phase 6의 현재 구현:
 
 - core runtime으로 통합하기에는 외부 앱 의존성이 큼
 
-### Ollama
+### 후순위: Ollama
 
 장점:
 
@@ -99,7 +99,7 @@ Phase 6의 현재 구현:
 - 기본 runtime으로는 무겁고 opaque함
 - 작은 모델용 tight runtime 정책을 강제하기 어려움
 
-### vLLM / SGLang
+### 후순위: vLLM / SGLang
 
 장점:
 

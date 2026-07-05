@@ -1,4 +1,4 @@
-# Maintainers
+# 관리자
 
 현재 `rolling-potato`는 단일 maintainer 프로젝트입니다.
 

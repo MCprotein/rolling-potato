@@ -1,4 +1,4 @@
-# Korean Output Guard
+# 한국어 출력 Guard
 
 사용자에게 보이는 자연어 최종 출력은 한국어여야 합니다.
 

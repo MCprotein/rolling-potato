@@ -1,4 +1,4 @@
-# Command Policy
+# 명령 Policy
 
 `rolling-potato`는 사용자의 로컬 프로젝트에서 파일을 읽고, patch를 만들고, 명령을 실행할 수 있습니다. 기본 정책은 보수적이어야 합니다.
 
@@ -72,7 +72,7 @@
 - system-wide install
 - production deploy
 
-## Current Implementation
+## 현재 구현
 
 Phase 4의 현재 구현:
 
@@ -99,7 +99,7 @@ Phase 4에서 고정한 schema:
 - managed artifact policy: manifest/hash tracking이 download/install보다 먼저 필요
 - network policy: download/remote connector는 `ask`
 
-## Plugin Import And Capability Policy
+## Plugin Import와 Capability Policy
 
 Plugin import는 local path만 허용합니다.
 
@@ -142,7 +142,7 @@ Plugin enable 전에는 다음을 한국어로 보여줘야 합니다.
 
 Plugin이 가져온 skill, hook, subagent, MCP capability도 runtime tool policy, hook policy, ledger, evidence gate를 우회할 수 없습니다.
 
-## Korean reporting
+## 한국어 보고
 
 명령 실행 결과는 한국어로 요약합니다. 단, error code, command, file path, log line은 원문 보존이 가능합니다.
 

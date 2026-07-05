@@ -1,4 +1,4 @@
-# MVP Acceptance Criteria
+# MVP 인수 기준
 
 ## 목표
 

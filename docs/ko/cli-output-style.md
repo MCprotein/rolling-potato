@@ -1,4 +1,4 @@
-# CLI Output Style
+# CLI 출력 스타일
 
 `rpotato` CLI 출력은 한국어를 기본으로 합니다.
 

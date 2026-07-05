@@ -1,4 +1,4 @@
-# Privacy
+# 개인정보
 
 `rolling-potato`의 기본 방향은 local-first입니다. 사용자 코드, 명령 출력, 대화 내용은 기본적으로 로컬에서 처리되어야 합니다.
 
@@ -47,7 +47,7 @@ MVP에서 허용되는 네트워크 사용:
 - command output telemetry
 - 외부 LLM API 자동 fallback
 
-## Monitoring
+## 모니터링
 
 `rolling-potato`는 모델별 token 사용량, latency, backend health, guard result 같은 monitoring metric을 로컬에 저장할 수 있습니다.
 

@@ -1,4 +1,4 @@
-# Roadmap
+# 로드맵
 
 이 로드맵은 `rolling-potato`를 단순한 prompt harness가 아니라 작은 모델용 로컬 coding agent runtime으로 만들기 위한 순서입니다.
 
@@ -19,7 +19,7 @@
 - context는 무작정 주입하지 않고 source pointer, stable ref, digest, resume bundle로 좁혀서 공급한다.
 - snippet은 authoritative source가 아니다. 중요한 판단은 원본 파일을 다시 읽은 뒤 해야 한다.
 - 작은 모델에게 큰 자유도를 주기보다 작은 vertical slice를 확실히 끝낸다.
-- 완료 판정은 모델의 말이 아니라 검증 evidence와 Stop gate가 결정한다.
+- 완료 판정은 모델의 말이 아니라 검증 evidence와 stop gate가 결정한다.
 - 현재 상태 view와 append-only ledger를 분리한다.
 - SQLite는 monitoring/query projection으로 두고, append-only ledger는 audit trail로 유지한다.
 - mode 전환은 모델의 즉흥 판단이 아니라 deterministic rule과 runtime state로 처리한다.
@@ -33,7 +33,7 @@
 - compaction, resume, cancel, corrupt state fallback은 초기 runtime 설계에 포함한다.
 - 공개 claim과 모델 claim은 evidence보다 넓게 쓰지 않는다.
 
-## Phase 0: 프로젝트 정의
+## 0단계: 프로젝트 정의
 
 - [x] 제품 포지셔닝
 - [x] MVP 인수 기준
@@ -49,7 +49,7 @@
 - [x] Codex-first, Claude Code-second plugin adapter 우선순위 반영
 - [x] marketplace 미연동 및 local directory import 정책 반영
 
-## Phase 1: Runtime Entrypoint And CLI Surface
+## 1단계: Runtime Entrypoint와 CLI Surface
 
 목표: `rpotato`가 안정적인 첫 surface로 실행되고, 실제 상태/정책/오류 경계는 runtime core가 소유하게 만든다.
 
@@ -75,7 +75,7 @@
 - [x] uninstall dry-run path listing
 - [x] 기본 명령 smoke test
 
-## Phase 2: Runtime State, Ledger, And Observability
+## 2단계: Runtime State, Ledger, Observability
 
 목표: 세션이 바뀌어도 runtime이 현재 작업 상태, 감사 기록, 모델별 monitoring 지표를 복원하고 질의할 수 있게 한다.
 
@@ -99,17 +99,17 @@
 - [x] runtime evidence JSONL store
 - [x] evidence stale 판정 기준
 - [x] evidence artifact pointer validation
-- [x] current state view와 event/evidence ledger 경계
+- [x] current-state view와 event/evidence ledger 경계
 - [x] local SQLite observability store 결정
 - [x] SQLite schema migration
-- [x] ledger to SQLite projection
+- [x] ledger-to-SQLite projection
 - [x] token usage record schema
 - [x] model run metric schema
 - [x] backend health metric schema
 - [x] tool/command metric schema
 - [x] guard/stop-gate metric schema
 - [x] prompt/source raw text 미저장 기본값
-- [x] credential redaction before persistence
+- [x] persistence 전 credential redaction
 - [x] corrupt SQLite fallback
 - [x] monitoring export: JSONL/CSV
 - [x] monitoring retention/prune dry-run
@@ -117,7 +117,7 @@
 - [x] compaction boundary marker
 - [x] compacted summary 보존 정책
 
-## Phase 3: Mode And Constraint Recognition
+## 3단계: Mode와 Constraint 인식
 
 목표: 사용자 입력을 모델에게 넘기기 전에 runtime이 mode, 제약, 완료 기준을 먼저 정규화한다.
 
@@ -147,7 +147,7 @@
 - [x] TUI command palette routing
 - [x] intent fixture test
 
-## Phase 4: Permission And Tool Boundary
+## 4단계: Permission과 Tool Boundary
 
 목표: 파일 쓰기, command 실행, 다운로드 같은 side effect를 모델 출력이 아니라 runtime policy로 통제한다.
 
@@ -183,7 +183,7 @@
 - [x] hook JSON input/output fixture test
 - [x] hook fail-closed fixture test
 
-## Phase 5: Model Manifest And Install
+## 5단계: Model Manifest와 Install
 
 목표: 출처와 checksum이 검증된 모델 후보만 설치하고 registry에 등록한다.
 
@@ -202,7 +202,7 @@
 - [x] local model registry
 - [x] manifest test
 
-## Phase 6: Backend Runtime
+## 6단계: Backend Runtime
 
 목표: `llama.cpp` sidecar를 runtime core가 관리하고, backend 상태를 CLI surface에서 진단 가능하게 만든다.
 
@@ -218,12 +218,12 @@
 - [ ] streaming response path
 - [ ] cancellation path
 - [ ] stderr/stdout capture
-- [x] backend diagnostics in `doctor`
-- [x] backend diagnostics in `rpotato backend doctor`
-- [ ] managed backend removal during uninstall
+- [x] `doctor`의 backend diagnostics
+- [x] `rpotato backend doctor`의 backend diagnostics
+- [ ] uninstall 중 managed backend 제거
 - [x] backend adapter trait
 
-## Phase 7: Tool Runtime
+## 7단계: Tool Runtime
 
 목표: shell, file, patch, verifier 같은 도구 실행을 일관된 schema와 result format 뒤에 둔다.
 
@@ -238,7 +238,7 @@
 - [ ] command failure classification
 - [ ] unattended environment hardening
 
-## Phase 8: Instruction, Ontology, And Context Plane
+## 8단계: Instruction, Ontology, Context Plane
 
 목표: 작은 모델에 필요한 지시, 온톨로지, context, 출력 형식을 매번 임기응변으로 넣지 않고 runtime이 조립한다.
 
@@ -262,27 +262,27 @@
 - [ ] plugin source snapshot and manifest hash record
 - [ ] plugin data path separation
 - [ ] unsupported plugin capability ledger record
-- [ ] default-block policy for shell/bin/MCP/background/remote/file-write capability
-- [x] reject remote plugin URL
-- [x] reject plugin marketplace source
-- [x] reject plugin registry/catalog source
+- [ ] shell/bin/MCP/background/remote/file-write capability 기본 차단 policy
+- [x] remote plugin URL 거부
+- [x] plugin marketplace source 거부
+- [x] plugin registry/catalog source 거부
 - [ ] local plugin directory path traversal test
-- [ ] skill context requirements
+- [ ] skill context requirement
 - [ ] skill allowed tools
-- [ ] skill evidence requirements
+- [ ] skill evidence requirement
 - [ ] skill stop criteria
-- [ ] role templates: planner, executor, verifier, reporter
+- [ ] role template: planner, executor, verifier, reporter
 - [ ] 한국어 final-response instruction
 - [ ] 구조화된 action output format
 - [ ] project ontology root layout
 - [ ] ontology schema: entities, relationships, flows, invariants, ownership, open_questions, source_refs
 - [ ] Layer A deterministic repo facts schema
-- [ ] Layer A fact generators: files, package/build/test signals, symbols, entrypoints
+- [ ] Layer A fact generator: files, package/build/test signals, symbols, entrypoints
 - [ ] Layer A fact freshness/hash tracking
 - [ ] Layer B semantic ontology schema
-- [ ] Layer B source/ref/confidence requirements
+- [ ] Layer B source/ref/confidence requirement
 - [ ] Layer B merge/supersede/open-question lifecycle
-- [ ] ontology gap diagnostics in `doctor`
+- [ ] `doctor`의 ontology gap diagnostics
 - [ ] ontology drift detection
 - [ ] source-backed ontology claim rule
 - [ ] repository file discovery
@@ -291,17 +291,17 @@
 - [ ] source pointer first retrieval rule
 - [ ] compact resume bundle
 - [ ] context packing budget
-- [ ] generated/vendor exclusion rules
+- [ ] generated/vendor exclusion rule
 - [ ] command/log summarization input format
 - [ ] static ontology vs Layer A vs Layer B context fixture
 - [ ] prompt fixture test
 
-## Phase 9: 첫 Agent Vertical Slice
+## 9단계: 첫 Agent Vertical Slice
 
 목표: 작은 fixture 저장소에서 읽기, 계획, patch 제안, 승인, 적용, 검증, 한국어 보고까지 한 번에 끝낸다.
 
 - [ ] `rpotato run "<task>"`
-- [ ] run startup ontology/context retrieval
+- [ ] startup ontology/context retrieval 실행
 - [ ] source pointer를 원본 파일 읽기로 승격하는 step
 - [ ] planner step
 - [ ] executor step
@@ -314,11 +314,11 @@
 - [ ] verification output interpretation
 - [ ] final Korean report
 
-## Phase 10: Stop Gate And Reliability Gates
+## 10단계: Stop Gate와 Reliability Gate
 
 목표: 끝났다는 말이 아니라 evidence가 있어야 완료로 인정한다.
 
-- [ ] Stop gate completion contract
+- [ ] stop gate completion contract
 - [ ] command별 required evidence
 - [ ] ontology completeness gate
 - [ ] context source-read evidence gate
@@ -344,7 +344,7 @@
 - [ ] resume/cancel E2E test
 - [ ] regression test report format
 
-## Phase 11: Subagents, Team Runtime, And TUI Surface
+## 11단계: Subagents, Team Runtime, TUI Surface
 
 목표: Claude Code/Codex를 대신할 replacement-level runtime에 필요한 interactive surface와 bounded multi-agent 실행을 구현한다.
 
@@ -364,7 +364,7 @@
 - [ ] `rpotato team status`
 - [ ] TUI framework decision
 - [ ] `rpotato tui`
-- [ ] TUI monitoring UX spec from `DESIGN.md`
+- [ ] `DESIGN.md` 기반 TUI monitoring UX spec
 - [ ] TUI transcript/session view
 - [ ] TUI plan/context/ontology view
 - [ ] TUI approval queue
@@ -379,7 +379,7 @@
 - [ ] TUI small terminal smoke test
 - [ ] TUI policy-bypass regression test
 
-## Phase 12: Packaging And Release
+## 12단계: Packaging과 Release
 
 목표: 사용자가 모델 가중치 없이 runtime surface를 설치하고, 첫 모델 설치를 안전하게 진행할 수 있게 한다.
 

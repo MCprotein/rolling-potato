@@ -1,4 +1,4 @@
-# Governance
+# 운영 정책
 
 `rolling-potato`는 공개 오픈소스 저장소이지만, 현재는 외부 코드 기여와 외부 PR을 받지 않습니다.
 
