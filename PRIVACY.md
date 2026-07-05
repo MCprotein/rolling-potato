@@ -1,65 +1,65 @@
 # Privacy
 
-`rolling-potato`의 기본 방향은 local-first입니다. 사용자 코드, 명령 출력, 대화 내용은 기본적으로 로컬에서 처리되어야 합니다.
+`rolling-potato` is local-first by default. User code, command output, and conversation content should be processed locally unless the user explicitly selects an external adapter later.
 
-## 기본 원칙
+## Principles
 
-- 기본 추론은 로컬 모델과 로컬 backend에서 수행합니다.
-- 사용자 프로젝트 파일은 명시된 작업 디렉터리 안에서만 읽습니다.
-- telemetry는 MVP 기본 기능에 포함하지 않습니다.
-- 모델 가중치는 사용자 승인 후 다운로드합니다.
-- 외부 backend adapter를 사용할 경우 사용자가 명시적으로 선택해야 합니다.
+- Default inference runs through a local model and local backend.
+- Project files are read only inside the selected working directory.
+- Telemetry is not part of the MVP default.
+- Model weights are downloaded only after user approval.
+- External backend adapters require explicit user configuration.
 
-## 로컬에 저장될 수 있는 정보
+## Local Data
 
-다음 정보는 로컬 설정 또는 로그에 저장될 수 있습니다.
+The following information may be stored in local config or logs:
 
-- 설치된 모델 ID
-- 모델 파일 경로
-- backend 설정
-- 작업 승인 기록
-- diagnostic 결과
-- 오류 로그
-- 모델별 token 사용량과 runtime metric
-- backend health metric
+- installed model IDs
+- model file paths
+- backend configuration
+- approval records
+- diagnostic results
+- error logs
+- per-model token usage and runtime metrics
+- backend health metrics
 
-저장하면 안 되는 정보:
+The following must not be stored by default:
 
-- API key
-- access token
-- password
-- private key
-- 원문 credential이 포함된 command output
-- 사용자 source code 또는 prompt 원문을 기본 monitoring DB에 저장하는 것
+- API keys
+- access tokens
+- passwords
+- private keys
+- command output containing raw credentials
+- raw source code or raw prompts in the monitoring database
 
-## 네트워크 사용
+## Network Use
 
-MVP에서 허용되는 네트워크 사용:
+Allowed MVP network use:
 
-- 사용자가 승인한 모델 manifest 조회
-- 사용자가 승인한 모델 다운로드
-- 릴리즈 업데이트 확인이 추가될 경우 사용자가 끌 수 있어야 함
+- user-approved model manifest lookup
+- user-approved model download
+- optional release update checks, if users can disable them
 
-허용하지 않는 기본 동작:
+Disallowed default behavior:
 
-- 사용자 코드 자동 업로드
-- 대화 내용 자동 전송
-- command output telemetry
-- 외부 LLM API 자동 fallback
+- automatic user-code upload
+- automatic conversation upload
+- command-output telemetry
+- automatic fallback to an external LLM API
 
 ## Monitoring
 
-`rolling-potato`는 모델별 token 사용량, latency, backend health, guard result 같은 monitoring metric을 로컬에 저장할 수 있습니다.
+`rolling-potato` may store local monitoring metrics such as per-model token usage, latency, backend health, and guard results.
 
-기본 원칙:
+Principles:
 
-- monitoring은 local-first입니다.
-- 외부 telemetry 전송은 MVP 기본 기능에 포함하지 않습니다.
-- raw prompt, source code 원문, credential 포함 command output은 기본 monitoring DB에 저장하지 않습니다.
-- export 기능은 사용자 명령으로만 실행합니다.
+- monitoring is local-first
+- external telemetry is not part of the MVP default
+- raw prompts, raw source code, and command output containing credentials are not stored in the monitoring database by default
+- exports run only when the user invokes an export command
 
-## 외부 adapter
+## External Adapters
 
-LM Studio, Ollama, vLLM, SGLang 같은 adapter는 사용자가 명시적으로 설정한 경우에만 사용합니다.
+Adapters such as LM Studio, Ollama, vLLM, and SGLang are used only when explicitly configured by the user.
 
-로컬 adapter인지 원격 adapter인지 CLI가 명확히 표시해야 합니다.
+The CLI must clearly display whether an adapter is local or remote.
