@@ -49,6 +49,52 @@ Major release는 묶어서 드물게 냅니다. Stable behavior를 제거하기 
 
 문서만 바뀐 경우 release artifact를 만들지 않는 한 version bump가 필요하지 않습니다. Model metadata correction은 source-backed manifest fact만 갱신한다면 patch release로 처리합니다. 단, benchmark/runtime evidence 없이 새 model recommendation을 암시하면 안 됩니다.
 
+## Release Branch 정책
+
+출시되는 모든 version은 짧게 쓰고 제거하는 version branch를 사용해야 합니다.
+
+Branch 이름:
+
+- stable release: `release/vX.Y.Z`
+- preview release: `release/vX.Y.Z-alpha.N`, `release/vX.Y.Z-beta.N`, `release/vX.Y.Z-rc.N`
+
+규칙:
+
+1. `main`에서 release branch를 만든다.
+2. `Cargo.toml` version을 branch 이름과 정확히 같은 version으로 올린다.
+3. release note, docs, manifest, release check를 해당 branch에서 마무리한다.
+4. release checklist가 통과한 뒤에만 release branch를 `main`에 merge한다.
+5. merge commit에 `vX.Y.Z` 또는 대응되는 prerelease tag를 붙인다.
+6. 해당 tag로 GitHub Release를 만든다.
+7. merge된 release branch는 local과 remote에서 삭제한다.
+
+`main`은 integration branch입니다. Release branch는 장기 support branch가 아니며, release 이후의 unrelated work를 쌓으면 안 됩니다.
+
+## Release Policy 강제
+
+저장소에는 release policy check가 포함됩니다.
+
+```sh
+scripts/release/verify-release-policy.sh
+```
+
+이 check가 강제하는 것:
+
+- release branch 이름이 `Cargo.toml` package version과 일치
+- release tag가 `Cargo.toml` package version과 일치
+- `main`으로 들어오는 release PR은 `release/v...` branch에서만 허용
+- 대응되는 remote release branch가 남아 있으면 release tag check 실패
+
+필수 GitHub repository setting:
+
+- `main` 보호
+- release work는 `main` merge 전에 pull request 요구
+- merge 전 `release-policy` status check 필수
+- `main` force push 금지
+- merged head branch 자동 삭제를 켜거나, release tag push 전에 `release/v...`를 수동 삭제
+
+GitHub repository setting은 source tree 밖에 있으므로 maintainer가 GitHub에서 설정해야 합니다. Workflow와 script는 repo-local enforcement surface입니다.
+
 ## artifact 목표
 
 초기 목표:

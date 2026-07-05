@@ -62,6 +62,57 @@ artifact is being cut. Model metadata corrections should use patch releases when
 they only update source-backed manifest facts; they must not imply a new model
 recommendation without benchmark/runtime evidence.
 
+## Release Branch Policy
+
+Every shipped version must use a short-lived version branch.
+
+Branch naming:
+
+- stable release: `release/vX.Y.Z`
+- preview release: `release/vX.Y.Z-alpha.N`, `release/vX.Y.Z-beta.N`, or
+  `release/vX.Y.Z-rc.N`
+
+Rules:
+
+1. Create the release branch from `main`.
+2. Bump `Cargo.toml` to the exact version represented by the branch name.
+3. Finish release notes, docs, manifests, and release checks on that branch.
+4. Merge the release branch into `main` only after the release checklist passes.
+5. Tag the merge commit as `vX.Y.Z` or the matching prerelease tag.
+6. Create the GitHub Release from that tag.
+7. Delete the merged release branch locally and remotely.
+
+`main` is the integration branch. Release branches are not long-running support
+branches and must not accumulate unrelated post-release work.
+
+## Release Policy Enforcement
+
+The repository includes a release policy check:
+
+```sh
+scripts/release/verify-release-policy.sh
+```
+
+The check enforces:
+
+- release branch name matches `Cargo.toml` package version
+- release tag matches `Cargo.toml` package version
+- release PRs into `main` come from `release/v...` branches
+- release tags fail if the matching remote release branch still exists
+
+Required GitHub repository settings:
+
+- protect `main`
+- require pull requests before merging to `main` for release work
+- require the `release-policy` status check before merging
+- disallow force pushes on `main`
+- enable automatic deletion of merged head branches, or delete
+  `release/v...` manually before pushing the release tag
+
+Repository settings are outside the source tree, so they must be configured in
+GitHub by a maintainer. The workflow and script provide the repo-local
+enforcement surface.
+
 ## Artifact Targets
 
 Initial targets:

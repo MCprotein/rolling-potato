@@ -9,6 +9,9 @@
 - 사용자가 별도로 멈추라고 하지 않는 한, 안전하고 되돌릴 수 있는 문서/코드/검증 작업은 계속 진행한다.
 - 적당한 작업 단위가 끝나면 직접 검증하고 커밋한 뒤 `origin main`으로 푸시한다.
 - 새 세션에서도 사용자가 매번 "커밋해", "푸시해"라고 말하지 않아도 위 커밋/푸시 흐름을 기본값으로 유지한다.
+- 실제 출시 작업은 `release/vX.Y.Z` 또는 prerelease에 대응되는 `release/vX.Y.Z-alpha.N` 형태의 version branch에서만 진행한다.
+- 출시 branch는 `main`에서 만들고, release checklist 통과 후 `main`에 merge하고, matching tag를 만든 뒤 local/remote branch를 삭제한다.
+- 출시 전에는 `scripts/release/verify-release-policy.sh`를 실행해 branch/tag/version 정책을 확인한다.
 - destructive command, credential 필요 작업, 외부 production 변경, 라이선스 변경처럼 되돌리기 어렵거나 권한이 필요한 작업은 사용자 확인이 필요하다.
 
 ## 커밋 규칙

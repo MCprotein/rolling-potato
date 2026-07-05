@@ -436,6 +436,8 @@ Goal: let users install the runtime surface without model weights and safely com
 
 - [ ] Release build pipeline
 - [x] Release version bump policy
+- [x] Release branch and tag enforcement policy
+- [x] Release policy CI check
 - [ ] Binary checksum generation
 - [ ] macOS Apple Silicon artifact
 - [ ] macOS Intel artifact

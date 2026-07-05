@@ -436,6 +436,8 @@
 
 - [ ] release build pipeline
 - [x] release version bump policy
+- [x] release branch and tag enforcement policy
+- [x] release policy CI check
 - [ ] binary checksum 생성
 - [ ] macOS Apple Silicon artifact
 - [ ] macOS Intel artifact
