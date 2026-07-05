@@ -79,6 +79,8 @@ manifest에 들어가는 모델 항목은 최소한 다음 필드를 source-back
 
 하나라도 확인되지 않으면 해당 모델은 `recommended`가 아니라 `candidate` 또는 `unverified` 상태로 둡니다.
 
+Artifact URL은 출처가 확인된 manifest entry여야 합니다. 자유 입력 설치 인자로 받거나, 대체 URL로 조용히 바꾸거나, `latest`/branch처럼 움직이는 대상을 검증된 artifact로 취급하면 안 됩니다. URL을 업데이트할 때는 checksum, file size, provider terms, checked-at evidence도 같이 업데이트해야 합니다.
+
 ## 금지 표현
 
 출처 없이 쓰면 안 되는 표현:

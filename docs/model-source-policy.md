@@ -79,6 +79,8 @@ Model entries in the manifest must have at least the following fields in source-
 
 If any field is missing, the model stays `candidate` or `unverified` instead of `recommended`.
 
+Artifact URLs must be source-backed manifest entries. They must not be accepted as free-form install arguments, silently replaced with fallback URLs, or treated as verified when they point at mutable `latest`/branch targets. A URL update requires a matching checksum, file size, provider terms, and checked-at evidence update.
+
 ## Forbidden Unsourced Phrases
 
 Do not use these without sources:

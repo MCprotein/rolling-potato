@@ -13,7 +13,7 @@ The model manifest is the trust boundary through which `rpotato` understands ins
 
 ## Location
 
-Initial manifest source can live in the repository or a GitHub Release asset.
+Initial manifest source can live in the repository or a GitHub Release asset. Installable artifact download URLs are manifest data, not Rust source-code constants.
 
 Local cache follows platform directory rules:
 
@@ -22,6 +22,17 @@ Local cache follows platform directory rules:
 - Linux: `~/.local/share/rpotato/manifests/`
 
 Exact paths are confirmed after the Rust scaffold decides whether to use a `directories`-style crate.
+
+## Download URL Management
+
+The installable download URL field is `artifactUrl`.
+
+- Production download URLs are pinned in a versioned model manifest, not hardcoded in Rust code.
+- The current Rust static candidate table is only an early scaffold for candidate metadata; entries with `artifactUrl: null` or missing checksum are not installable.
+- `rpotato model install` must not accept an arbitrary user-provided URL as a model source.
+- Avoid `latest`, branch, or moving redirect URLs as the source of trust. When a provider supports immutable revision or release URLs, `artifactUrl` must point to that concrete artifact.
+- Every `artifactUrl` must be recorded with `artifactProvider`, `artifactTermsUrl`, `artifactName`, `sha256`, `sizeBytes`, and source/checked-at evidence.
+- If the URL changes, the checksum, size, provider evidence, and manifest entry must be updated together.
 
 ## Schema Draft
 
@@ -47,7 +58,7 @@ Exact paths are confirmed after the Rust scaffold decides whether to use a `dire
       "license": "TODO",
       "licenseSource": "TODO",
       "licenseCheckedAt": "TODO",
-      "url": "TODO",
+      "artifactUrl": "TODO",
       "sha256": "TODO",
       "sizeBytes": null,
       "backendCompatibility": "TODO",
@@ -107,7 +118,9 @@ Model install must:
 - source-less license, RAM, context length, or backend compatibility claims
 - automatic download without user approval
 - bundling model weights into the `rpotato` release binary
+- hardcoding installable artifact URLs in Rust source
 - silent fallback to arbitrary URLs
+- treating `latest` or moving URLs as verified artifacts
 
 ## Open Questions
 

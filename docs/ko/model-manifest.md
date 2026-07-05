@@ -13,7 +13,7 @@
 
 ## 위치
 
-초기 manifest source는 repository 또는 GitHub Release asset에 둡니다.
+초기 manifest source는 repository 또는 GitHub Release asset에 둡니다. 설치 가능한 artifact 다운로드 URL은 Rust 소스 코드 상수가 아니라 manifest 데이터로 관리합니다.
 
 로컬 cache 위치는 platform directory 규칙을 따릅니다.
 
@@ -22,6 +22,17 @@
 - Linux: `~/.local/share/rpotato/manifests/`
 
 정확한 경로 구현은 Rust scaffold에서 `directories` 계열 crate 사용 여부를 결정한 뒤 확정합니다.
+
+## 다운로드 URL 관리
+
+설치 가능한 다운로드 URL 필드는 `artifactUrl`입니다.
+
+- 실제 배포용 다운로드 URL은 Rust 코드에 하드코딩하지 않고 versioned model manifest에 고정한다.
+- 현재 `src/model.rs`의 static 후보 table은 초기 scaffold용 후보 metadata일 뿐이며, `artifactUrl: null`이거나 checksum이 빠진 항목은 설치할 수 없다.
+- `rpotato model install`은 사용자가 임의로 넣은 URL을 모델 source로 받으면 안 된다.
+- `latest`, branch, 움직이는 redirect URL을 신뢰 근거로 쓰지 않는다. provider가 immutable revision 또는 release URL을 지원하면 `artifactUrl`은 그 구체 artifact를 가리켜야 한다.
+- 모든 `artifactUrl`은 `artifactProvider`, `artifactTermsUrl`, `artifactName`, `sha256`, `sizeBytes`, 출처/확인 날짜 evidence와 함께 기록해야 한다.
+- URL이 바뀌면 checksum, size, provider evidence, manifest entry를 같이 업데이트해야 한다.
 
 ## schema 초안
 
@@ -47,7 +58,7 @@
       "license": "TODO",
       "licenseSource": "TODO",
       "licenseCheckedAt": "TODO",
-      "url": "TODO",
+      "artifactUrl": "TODO",
       "sha256": "TODO",
       "sizeBytes": null,
       "backendCompatibility": "TODO",
@@ -107,7 +118,9 @@
 - 출처 없는 license, RAM, context length, backend 호환성 claim
 - 사용자 승인 없는 자동 다운로드
 - `rpotato` release binary에 모델 가중치 번들링
+- 설치 가능한 artifact URL을 Rust source에 하드코딩하는 동작
 - 임의 URL을 silent fallback으로 사용하는 동작
+- `latest`나 움직이는 URL을 검증된 artifact로 취급하는 동작
 
 ## 열린 질문
 
