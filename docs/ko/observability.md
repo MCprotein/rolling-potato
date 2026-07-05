@@ -44,10 +44,15 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 
 - `rpotato init`이 app data root, project-local `.rpotato/`, current-state, runtime ledger, project session ledger, runtime evidence JSONL, SQLite projection을 만든다.
 - Append-only ledger는 source of truth이며, SQLite `ledger_events`는 replay 가능한 projection이다.
+- SQLite session history는 projection이 재생성될 때 replay된 `ledger_events`에서 현재 project 기준으로 복원할 수 있다.
 - SQLite migration v1은 `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, `benchmark_runs`를 만든다.
 - `rpotato state`는 current-state와 ledger/projection count를 보여준다.
 - `rpotato state reconcile`은 missing/stale/corrupt current-state를 복구하고 보존 이동 이벤트를 ledger에 남긴다.
 - `rpotato state resume`은 no active workflow, active pointer detected, blocked 상태를 구분해 ledger에 남긴다.
+- `rpotato session list`와 `rpotato session history`는 현재 project의 SQLite projection에서 session history를 읽는다.
+- `rpotato session new`는 새 session identity를 만들고 current-state에 기록한 뒤 `session.new` ledger event와 SQLite projection을 남긴다.
+- `rpotato session resume <session-id>`와 `rpotato resume <session-id>`는 SQLite history에서 이전 session을 선택하고 그 session id를 current-state에 다시 기록한다.
+- id 없이 실행한 `rpotato resume`은 session history를 보여주므로 TUI/CLI surface가 사용자가 재개할 대상을 고르게 만들 수 있다.
 - `rpotato cancel`은 active workflow가 없으면 no-op cancel event만 append한다.
 - `rpotato evidence validate <artifact-pointer>`는 project-relative artifact pointer가 project boundary 안에 있는지 검증한다.
 - `rpotato monitor status`와 `rpotato monitor models`는 SQLite projection을 읽는다.
@@ -60,6 +65,7 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 아직 구현하지 않은 부분:
 
 - 실제 model/backend 실행에서 token/latency/resource metric을 기록하는 경로
+- 선택한 session resume 이후 전체 transcript replay와 대화 이어달리기
 - 실제 agent loop의 active workflow resume 실행
 - 실제 retention 삭제
 
@@ -151,6 +157,7 @@ Project-local ledger는 project boundary와 evidence에 가깝고, app-level SQL
 schema_migrations
 sessions
 workflows
+ledger_events
 model_runs
 token_usage
 backend_runs
@@ -178,6 +185,12 @@ benchmark_runs
 rpotato monitor status
 rpotato monitor models
 rpotato monitor session <id>
+rpotato session list
+rpotato session history
+rpotato session resume <session-id>
+rpotato session new
+rpotato resume
+rpotato resume <session-id>
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
 rpotato monitor prune --before 30d --dry-run
@@ -215,6 +228,8 @@ Compacted summary는 source of truth가 아닙니다.
 - compacted summary는 resume bundle의 탐색 힌트로만 사용하고, 파일/명령/모델 claim을 확정하는 근거로 쓰지 않는다.
 - compacted summary artifact도 `evidence validate`와 같은 project boundary 검증을 통과해야 한다.
 - active workflow resume은 current-state pointer를 감지하고 ledger event를 남긴 뒤, 후속 agent loop phase가 실제 실행을 맡는다.
+- session resume은 히스토리 우선으로 동작한다. SQLite가 선택 가능한 session list를 제공하고, append-only ledger는 audit source로 남으며, current-state는 선택된 `session_id`와 resume metadata만 저장한다.
+- `rpotato resume <session-id>`는 현재 선택한 session을 이후 명령의 대상 session으로 정한다. model transcript replay는 후속 agent-loop capability다.
 
 ## 검증
 

@@ -41,10 +41,22 @@ pub struct PrunePreview {
     pub command_run_rows: i64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionHistoryEntry {
+    pub session_id: String,
+    pub project_id: String,
+    pub project_root: String,
+    pub started_at_ms: i64,
+    pub event_count: i64,
+    pub last_event_at_ms: Option<i64>,
+    pub last_summary: Option<String>,
+}
+
 pub fn initialize(identity: &RuntimeIdentity) -> Result<StoreStatus, AppError> {
     let (connection, recovered_from) = open_or_recover()?;
     record_session(&connection, identity)?;
     replay_ledger(&connection)?;
+    project_sessions_from_events(&connection, identity)?;
     status_from_connection(&connection, recovered_from)
 }
 
@@ -159,6 +171,25 @@ pub fn prune_preview(before_days: u64) -> Result<PrunePreview, AppError> {
         model_run_rows: count_before(&connection, "model_runs", "started_at_ms", cutoff)?,
         command_run_rows: count_before(&connection, "command_runs", "started_at_ms", cutoff)?,
     })
+}
+
+pub fn session_history(limit: usize) -> Result<Vec<SessionHistoryEntry>, AppError> {
+    let identity = ledger::current_identity();
+    let (connection, _) = open_or_recover()?;
+    replay_ledger(&connection)?;
+    project_sessions_from_events(&connection, &identity)?;
+    query_session_history(&connection, &identity.project_id, limit)
+}
+
+pub fn session_entry(session_id: &str) -> Result<Option<SessionHistoryEntry>, AppError> {
+    let identity = ledger::current_identity();
+    let (connection, _) = open_or_recover()?;
+    replay_ledger(&connection)?;
+    project_sessions_from_events(&connection, &identity)?;
+    let entries = query_session_history(&connection, &identity.project_id, usize::MAX)?;
+    Ok(entries
+        .into_iter()
+        .find(|entry| entry.session_id == session_id))
 }
 
 fn open_or_recover() -> Result<(Connection, Option<PathBuf>), AppError> {
@@ -448,6 +479,39 @@ fn replay_ledger(connection: &Connection) -> Result<(), AppError> {
     Ok(())
 }
 
+fn project_sessions_from_events(
+    connection: &Connection,
+    identity: &RuntimeIdentity,
+) -> Result<(), AppError> {
+    connection
+        .execute(
+            "INSERT OR IGNORE INTO sessions (
+                session_id,
+                project_id,
+                project_root,
+                started_at_ms,
+                parent_session_id,
+                branch_from_event_id,
+                compacted_summary_path
+             )
+             SELECT
+                ledger_events.session_id,
+                ledger_events.project_id,
+                ?2,
+                MIN(ledger_events.ts_ms),
+                NULL,
+                NULL,
+                NULL
+               FROM ledger_events
+              WHERE ledger_events.project_id = ?1
+           GROUP BY ledger_events.session_id,
+                    ledger_events.project_id",
+            params![identity.project_id, identity.project_root],
+        )
+        .map_err(sql_error("ledger session projection을 복원하지 못했습니다"))?;
+    Ok(())
+}
+
 fn insert_ledger_event(connection: &Connection, event: &LedgerEvent) -> Result<(), AppError> {
     connection
         .execute(
@@ -504,6 +568,62 @@ fn count_before(
         .map_err(sql_error(
             "monitor prune dry-run count를 실행하지 못했습니다",
         ))
+}
+
+fn query_session_history(
+    connection: &Connection,
+    project_id: &str,
+    limit: usize,
+) -> Result<Vec<SessionHistoryEntry>, AppError> {
+    let sql = "
+        SELECT
+            sessions.session_id,
+            sessions.project_id,
+            sessions.project_root,
+            sessions.started_at_ms,
+            COUNT(ledger_events.event_id) AS event_count,
+            MAX(ledger_events.ts_ms) AS last_event_at_ms,
+            (
+                SELECT latest.summary
+                  FROM ledger_events latest
+                 WHERE latest.session_id = sessions.session_id
+                 ORDER BY latest.ts_ms DESC, latest.event_id DESC
+                 LIMIT 1
+            ) AS last_summary
+          FROM sessions
+     LEFT JOIN ledger_events
+            ON ledger_events.session_id = sessions.session_id
+         WHERE sessions.project_id = ?1
+      GROUP BY sessions.session_id,
+               sessions.project_id,
+               sessions.project_root,
+               sessions.started_at_ms
+      ORDER BY COALESCE(MAX(ledger_events.ts_ms), sessions.started_at_ms) DESC,
+               sessions.started_at_ms DESC
+         LIMIT ?2";
+
+    let mut statement = connection
+        .prepare(sql)
+        .map_err(sql_error("session history query를 준비하지 못했습니다"))?;
+    let rows = statement
+        .query_map(
+            params![project_id, i64::try_from(limit).unwrap_or(i64::MAX)],
+            |row| {
+                Ok(SessionHistoryEntry {
+                    session_id: row.get(0)?,
+                    project_id: row.get(1)?,
+                    project_root: row.get(2)?,
+                    started_at_ms: row.get(3)?,
+                    event_count: row.get(4)?,
+                    last_event_at_ms: row.get(5)?,
+                    last_summary: row.get(6)?,
+                })
+            },
+        )
+        .map_err(sql_error("session history query를 실행하지 못했습니다"))?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(sql_error("session history 결과를 읽지 못했습니다"))
 }
 
 fn recover_corrupt_db(path: &std::path::Path) -> Result<PathBuf, AppError> {

@@ -77,6 +77,12 @@ rpotato intent classify "테스트 실패 고쳐줘"
 rpotato tui
 rpotato state reconcile
 rpotato state resume
+rpotato session list
+rpotato session history
+rpotato session resume <session-id>
+rpotato session new
+rpotato resume
+rpotato resume <session-id>
 rpotato evidence validate logs/test.log
 rpotato skill list
 rpotato skill run fix-test
@@ -169,6 +175,12 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato state`
 - `rpotato state reconcile`
 - `rpotato state resume`
+- `rpotato session list`
+- `rpotato session history`
+- `rpotato session resume <session-id>`
+- `rpotato session new`
+- `rpotato resume`
+- `rpotato resume <session-id>`
 - `rpotato cancel`
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
@@ -209,7 +221,9 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `rpotato init`은 app data root와 project-local `.rpotato/` 아래에 current-state, append-only ledger, runtime evidence JSONL, SQLite observability projection을 초기화합니다.
 
-`state reconcile`은 stale/corrupt current-state를 보존 이동한 뒤 새 current-state를 기록합니다. `state resume`은 현재는 active workflow pointer를 감지하거나, 재개할 작업이 없으면 no-op ledger event를 남깁니다.
+`state reconcile`은 stale/corrupt current-state를 보존 이동한 뒤 새 current-state를 기록합니다. `state resume`은 active workflow pointer를 감지하거나, 재개할 작업이 없으면 no-op ledger event를 남깁니다.
+
+`session list`와 `session history`는 SQLite projection에서 현재 project의 session history를 읽습니다. `session new`는 새 session identity를 만들고 current-state를 그 session으로 전환합니다. `session resume <session-id>`와 `resume <session-id>`는 history에서 고른 session id를 current-state에 기록해 이후 명령이 같은 session ledger/SQLite projection으로 이어지게 합니다. 실제 model/backend agent loop의 transcript replay와 대화 이어달리기는 후속 agent-loop phase에서 이 current-state를 사용해 구현합니다.
 
 `evidence validate`는 artifact pointer가 local project-relative path이고 project boundary를 벗어나지 않는지 확인합니다.
 
@@ -229,7 +243,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 - 신뢰할 GGUF 모델 artifact 확정
 - `Qwen3.5-4B` 후보와 `Gemma 4 E4B` 후보 벤치마크
-- 실제 agent loop의 active workflow resume 실행
+- 실제 agent loop의 transcript replay와 active workflow resume 실행
 - sidecar 프로세스 생명주기 설계 상세화
 
 벤치마크 초안은 [docs/model-eval.md](docs/model-eval.md)를 따릅니다.

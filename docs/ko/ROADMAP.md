@@ -22,6 +22,7 @@
 - 완료 판정은 모델의 말이 아니라 검증 evidence와 stop gate가 결정한다.
 - 현재 상태 view와 append-only ledger를 분리한다.
 - SQLite는 monitoring/query projection으로 두고, append-only ledger는 audit trail로 유지한다.
+- 세션 identity와 조회 가능한 세션 히스토리를 로컬 DB에 저장해 최신 pointer뿐 아니라 히스토리에서 선택해 resume할 수 있게 한다.
 - mode 전환은 모델의 즉흥 판단이 아니라 deterministic rule과 runtime state로 처리한다.
 - hooks, skills, subagents, team runtime, TUI는 replacement-level runtime의 1급 capability다.
 - Claude Code/Codex형 플러그인은 직접 실행하지 않고 `rpotato` capability로 import/validate/enable하는 adapter 경계를 둔다.
@@ -82,6 +83,9 @@
 - [x] local state root layout
 - [x] repo-root state와 session-scoped state 우선순위
 - [x] project/session identity
+- [x] SQLite 기반 세션 히스토리 조회
+- [x] 세션 히스토리 목록/재개 CLI surface
+- [x] 선택한 resume 세션의 current-state 저장
 - [x] workflow manifest와 transition table
 - [x] terminal state 정의
 - [x] state read/write/cancel API
@@ -301,6 +305,8 @@
 목표: 작은 fixture 저장소에서 읽기, 계획, patch 제안, 승인, 적용, 검증, 한국어 보고까지 한 번에 끝낸다.
 
 - [ ] `rpotato run "<task>"`
+- [ ] 선택한 세션 히스토리에서 agent loop transcript replay
+- [ ] `rpotato resume <session-id>` 이후 대화 이어달리기
 - [ ] startup ontology/context retrieval 실행
 - [ ] source pointer를 원본 파일 읽기로 승격하는 step
 - [ ] planner step

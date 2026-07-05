@@ -78,6 +78,12 @@ rpotato intent classify "테스트 실패 고쳐줘"
 rpotato tui
 rpotato state reconcile
 rpotato state resume
+rpotato session list
+rpotato session history
+rpotato session resume <session-id>
+rpotato session new
+rpotato resume
+rpotato resume <session-id>
 rpotato evidence validate logs/test.log
 rpotato skill list
 rpotato skill run fix-test
@@ -167,6 +173,12 @@ Implemented command surfaces:
 - `rpotato state`
 - `rpotato state reconcile`
 - `rpotato state resume`
+- `rpotato session list`
+- `rpotato session history`
+- `rpotato session resume <session-id>`
+- `rpotato session new`
+- `rpotato resume`
+- `rpotato resume <session-id>`
 - `rpotato cancel`
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
@@ -207,7 +219,9 @@ Implemented command surfaces:
 
 `rpotato init` initializes the app data root and project-local `.rpotato/` state, including current state, append-only ledgers, runtime evidence JSONL, and a SQLite observability projection.
 
-`state reconcile` preserves stale or corrupt current-state files before writing a fresh current-state file. `state resume` currently detects an active workflow pointer or records a no-op ledger event when there is nothing to resume.
+`state reconcile` preserves stale or corrupt current-state files before writing a fresh current-state file. `state resume` detects an active workflow pointer or records a no-op ledger event when there is nothing to resume.
+
+`session list` and `session history` read the current project's session history from the SQLite projection. `session new` creates a new session identity and switches current state to that session. `session resume <session-id>` and `resume <session-id>` write the selected history entry into current state so later commands continue appending to the same session ledger and SQLite projection. Real model/backend agent-loop transcript replay and conversational continuation are still owned by the later agent-loop phase, which will consume this current-state pointer.
 
 `evidence validate` checks that artifact pointers are local, project-relative paths that do not escape the project boundary.
 

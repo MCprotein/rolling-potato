@@ -57,6 +57,7 @@ The runtime core owns the parts that matter most in Claude Code, Codex, and Gaja
 Runtime core responsibilities:
 
 - session lifecycle
+- session history query and resume selection
 - runtime state
 - append-only ledger
 - observability projection
@@ -120,6 +121,18 @@ Required capabilities:
 Adapters do not execute foreign plugins directly. The Codex source-runtime adapter is implemented first; the Claude Code adapter follows. External marketplaces, registries, catalogs, mirrors, and remote URL sources are not accepted. Execution is possible only after converted capabilities pass runtime hooks, tool policy, ledger, and evidence gates.
 
 See [plugin-adapters.md](plugin-adapters.md).
+
+## Session History And Resume
+
+Session resume is a runtime-core responsibility, not a CLI-only shortcut.
+
+The runtime keeps three separate layers:
+
+- append-only ledger: audit source for session events
+- SQLite projection: queryable session history for CLI/TUI selection
+- current state: the currently selected `session_id` and resume metadata
+
+`rpotato session list`, `rpotato session history`, and bare `rpotato resume` read selectable history from SQLite. `rpotato session resume <session-id>` and `rpotato resume <session-id>` write the selected session id into current state so later commands append under the selected session identity. The later agent-loop phase uses that selected session to replay transcript, rebuild context, and continue conversation.
 
 ## Model Artifact
 

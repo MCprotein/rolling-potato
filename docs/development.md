@@ -22,6 +22,12 @@ Implemented first boundaries:
 - `rpotato state`
 - `rpotato state reconcile`
 - `rpotato state resume`
+- `rpotato session list`
+- `rpotato session history`
+- `rpotato session resume <session-id>`
+- `rpotato session new`
+- `rpotato resume`
+- `rpotato resume <session-id>`
 - `rpotato cancel`
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
@@ -61,6 +67,8 @@ Implemented first boundaries:
 - `rpotato uninstall --purge-cache`
 
 `rpotato init` initializes state layout, current state, append-only ledger, runtime evidence JSONL, and SQLite observability projection.
+
+Session history is DB-backed for the current project. `session list`/`session history` read the SQLite projection, `session new` creates a fresh session identity, and `session resume <session-id>` or `resume <session-id>` writes the selected session to current state for subsequent commands. Full agent-loop transcript replay is not implemented yet.
 
 Model/backend downloads are not enabled yet. The model manifest schema, candidate state, source-backed license/source claims, public benchmark source ledger, local registry surface, pre-download display plan, local file SHA-256 verification, and failed/partial artifact cleanup surface are enabled. Without verified artifact URL, provider terms, checksum, file size, and backend compatibility, runtime core blocks downloads and records a ledger event.
 
@@ -119,6 +127,12 @@ cargo run -- config
 cargo run -- state
 cargo run -- state reconcile
 cargo run -- state resume
+cargo run -- session new
+cargo run -- session list
+cargo run -- session history
+cargo run -- session resume <session-id>
+cargo run -- resume
+cargo run -- resume <session-id>
 cargo run -- evidence validate .rpotato/evidence/smoke.txt
 cargo run -- skill list
 cargo run -- skill run fix-test

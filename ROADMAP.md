@@ -22,6 +22,7 @@ Principles reflected in the roadmap:
 - Completion is decided by verification evidence and the stop gate, not by model confidence.
 - Keep current-state views separate from append-only ledgers.
 - Use SQLite as monitoring/query projection while keeping the append-only ledger as the audit trail.
+- Store session identity and queryable session history in the local DB so users can resume from history, not only from the latest pointer.
 - Mode transitions are deterministic runtime-state transitions, not spontaneous model decisions.
 - Hooks, skills, subagents, team runtime, and TUI are first-class capabilities for a replacement-level runtime.
 - Claude Code/Codex-style plugins are not executed directly; they are imported, validated, and enabled through `rpotato` capability adapters.
@@ -82,6 +83,9 @@ Goal: restore and query current workflow state, audit history, and per-model mon
 - [x] Local state root layout
 - [x] Repo-root state and session-scoped state priority
 - [x] Project/session identity
+- [x] SQLite-backed session history query
+- [x] Session history list/resume CLI surface
+- [x] Current-state persistence for selected resume session
 - [x] Workflow manifest and transition table
 - [x] Terminal state definitions
 - [x] State read/write/cancel API
@@ -301,6 +305,8 @@ Goal: make the runtime assemble instructions, ontology, context, and output shap
 Goal: finish read, plan, patch proposal, approval, application, verification, and Korean reporting in one small fixture repository.
 
 - [ ] `rpotato run "<task>"`
+- [ ] Agent-loop transcript replay from selected session history
+- [ ] Conversation continuation after `rpotato resume <session-id>`
 - [ ] Run startup ontology/context retrieval
 - [ ] Step that promotes source pointers to original-file reads
 - [ ] Planner step

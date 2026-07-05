@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::app::AppError;
 use crate::ledger::{self, RuntimeIdentity};
+use crate::observability::SessionHistoryEntry;
 use crate::observability::{self, StoreStatus};
 use crate::paths;
 
@@ -150,6 +151,86 @@ pub fn cancel_report() -> Result<String, AppError> {
     ))
 }
 
+pub fn session_list_report() -> Result<String, AppError> {
+    let identity = ledger::current_identity();
+    ensure_layout()?;
+    let sessions = observability::session_history(20)?;
+    if sessions.is_empty() {
+        return Ok(format!(
+            "session history\n- project: {}\n- sessions: 없음\n- 다음 단계: `rpotato init` 또는 `rpotato session new`로 세션을 시작하세요.",
+            identity.project_root
+        ));
+    }
+
+    let rows = sessions
+        .iter()
+        .map(format_session_row)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    Ok(format!(
+        "session history\n- project: {}\n- current session: {}\n- resume: `rpotato session resume <session-id>` 또는 `rpotato resume <session-id>`\n{}",
+        identity.project_root, identity.session_id, rows
+    ))
+}
+
+pub fn session_new_report() -> Result<String, AppError> {
+    ensure_layout()?;
+    let identity = ledger::fresh_identity();
+    write_current_state(&identity)?;
+    ensure_runtime_evidence_file()?;
+    observability::initialize(&identity)?;
+    let event = ledger::new_event_for(
+        &identity,
+        "session.new",
+        "새 session 시작",
+        "session history에 새 resume target 등록",
+    );
+    ledger::append_event(&event)?;
+    observability::project_event(&event)?;
+
+    Ok(format!(
+        "session new 결과\n- session id: {}\n- current state: {}\n- ledger event: {}\n- 동작: 이후 명령은 이 session id로 ledger와 SQLite projection에 이어 기록됩니다.",
+        identity.session_id,
+        paths::current_state_file().display(),
+        event.event_id
+    ))
+}
+
+pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
+    ensure_layout()?;
+    let Some(session) = observability::session_entry(session_id)? else {
+        return Err(AppError::blocked(format!(
+            "session resume 차단\n- session id: {}\n- 이유: 현재 project의 SQLite session history에서 찾지 못했습니다.\n- 확인: `rpotato session list`",
+            session_id
+        )));
+    };
+
+    let resumed = RuntimeIdentity {
+        project_id: session.project_id.clone(),
+        session_id: session.session_id.clone(),
+        project_root: session.project_root.clone(),
+    };
+    write_current_state_for_session(&resumed, Some("session-history"))?;
+    let event = ledger::new_event_for(
+        &resumed,
+        "session.resume.selected",
+        "session history에서 resume target 선택",
+        &format!("selected_session_id={}", session.session_id),
+    );
+    ledger::append_event(&event)?;
+    observability::project_event(&event)?;
+
+    Ok(format!(
+        "session resume 결과\n- selected session: {}\n- events: {}\n- last event: {}\n- current state: {}\n- ledger event: {}\n- 동작: 이후 명령은 선택한 session id로 이어 기록됩니다. 실제 agent loop 재개는 backend/agent phase에서 이 current-state를 사용합니다.",
+        session.session_id,
+        session.event_count,
+        session.last_summary.unwrap_or_else(|| "없음".to_string()),
+        paths::current_state_file().display(),
+        event.event_id
+    ))
+}
+
 pub fn record_event(event_type: &str, summary: &str, details: &str) -> Result<String, AppError> {
     let identity = ledger::current_identity();
     ensure_layout()?;
@@ -200,11 +281,22 @@ fn ensure_layout() -> Result<Vec<PathBuf>, AppError> {
 }
 
 fn write_current_state(identity: &RuntimeIdentity) -> Result<(), AppError> {
+    write_current_state_for_session(identity, None)
+}
+
+fn write_current_state_for_session(
+    identity: &RuntimeIdentity,
+    resume_source: Option<&str>,
+) -> Result<(), AppError> {
+    let resume_source = resume_source
+        .map(|source| format!("\"{}\"", ledger::json_string(source)))
+        .unwrap_or_else(|| "null".to_string());
     let body = format!(
-        "{{\n  \"schema_version\": 1,\n  \"project_id\": \"{}\",\n  \"project_root\": \"{}\",\n  \"session_id\": \"{}\",\n  \"active_workflow\": null,\n  \"parent_session_id\": null,\n  \"branch_from_event_id\": null,\n  \"compaction_boundary\": null,\n  \"terminal_states\": [\"complete\", \"failed\", \"cancelled\"]\n}}\n",
+        "{{\n  \"schema_version\": 1,\n  \"project_id\": \"{}\",\n  \"project_root\": \"{}\",\n  \"session_id\": \"{}\",\n  \"active_workflow\": null,\n  \"parent_session_id\": null,\n  \"branch_from_event_id\": null,\n  \"compaction_boundary\": null,\n  \"resume_source\": {},\n  \"terminal_states\": [\"complete\", \"failed\", \"cancelled\"]\n}}\n",
         ledger::json_string(&identity.project_id),
         ledger::json_string(&identity.project_root),
-        ledger::json_string(&identity.session_id)
+        ledger::json_string(&identity.session_id),
+        resume_source
     );
 
     fs::write(paths::current_state_file(), body).map_err(|err| {
@@ -213,6 +305,19 @@ fn write_current_state(identity: &RuntimeIdentity) -> Result<(), AppError> {
             paths::current_state_file().display()
         ))
     })
+}
+
+fn format_session_row(session: &SessionHistoryEntry) -> String {
+    let last_event = session
+        .last_event_at_ms
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "없음".to_string());
+    let summary = session.last_summary.as_deref().unwrap_or("이벤트 없음");
+
+    format!(
+        "- {} | started {} | last {} | events {} | {}",
+        session.session_id, session.started_at_ms, last_event, session.event_count, summary
+    )
 }
 
 fn ensure_runtime_evidence_file() -> Result<(), AppError> {
@@ -418,5 +523,56 @@ mod tests {
             classify_current_state(contents, &identity),
             CurrentStateStatus::StaleProject
         );
+    }
+
+    #[test]
+    fn session_list_does_not_create_current_state_when_history_is_empty() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-session-list-empty-test-{}",
+            std::process::id()
+        ));
+        let project_root = root.join("project");
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+
+        let report = session_list_report().unwrap();
+        let current_state_exists = paths::current_state_file().exists();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+
+        assert!(report.contains("sessions: 없음"));
+        assert!(!current_state_exists);
+    }
+
+    #[test]
+    fn session_resume_selects_existing_history_entry() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-session-resume-test-{}",
+            std::process::id()
+        ));
+        let project_root = root.join("project");
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+
+        let new_report = session_new_report().unwrap();
+        let session_id = new_report
+            .lines()
+            .find_map(|line| line.strip_prefix("- session id: "))
+            .unwrap()
+            .to_string();
+        let list_report = session_list_report().unwrap();
+        let resume_report = session_resume_report(&session_id).unwrap();
+        let current_state = fs::read_to_string(paths::current_state_file()).unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+
+        assert!(list_report.contains(&session_id));
+        assert!(resume_report.contains("session resume 결과"));
+        assert!(current_state.contains(&format!("\"session_id\": \"{session_id}\"")));
+        assert!(current_state.contains("\"resume_source\": \"session-history\""));
     }
 }

@@ -13,6 +13,11 @@ rpotato
   rpotato state
   rpotato state reconcile
   rpotato state resume
+  rpotato session list
+  rpotato session history
+  rpotato session resume <session-id>
+  rpotato session new
+  rpotato resume [session-id]
   rpotato cancel
   rpotato evidence validate <artifact-pointer>
   rpotato skill list
@@ -67,6 +72,7 @@ pub enum Command {
     Doctor,
     Config,
     State(StateCommand),
+    Session(SessionCommand),
     Cancel,
     Evidence(EvidenceCommand),
     Skill(SkillCommand),
@@ -93,6 +99,13 @@ pub enum StateCommand {
     Status,
     Reconcile,
     Resume,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum SessionCommand {
+    List,
+    New,
+    Resume { id: String },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -244,6 +257,28 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         }
         [group, ..] if group == "state" => Err(AppError::usage(
             "state 명령은 status 생략형, reconcile, resume만 허용합니다.",
+        )),
+        [arg] if arg == "resume" => Ok(Command::Session(SessionCommand::List)),
+        [arg, id] if arg == "resume" => Ok(Command::Session(SessionCommand::Resume {
+            id: id.clone(),
+        })),
+        [arg, ..] if arg == "resume" => Err(AppError::usage(
+            "resume은 인자 없이 session history를 보거나 resume <session-id> 형식만 허용합니다.",
+        )),
+        [group, action] if group == "session" && (action == "list" || action == "history") => {
+            Ok(Command::Session(SessionCommand::List))
+        }
+        [group, action] if group == "session" && action == "new" => {
+            Ok(Command::Session(SessionCommand::New))
+        }
+        [group, action, id] if group == "session" && action == "resume" => {
+            Ok(Command::Session(SessionCommand::Resume { id: id.clone() }))
+        }
+        [group, action, ..] if group == "session" && action == "resume" => Err(
+            AppError::usage("session resume에는 session id가 필요합니다."),
+        ),
+        [group, ..] if group == "session" => Err(AppError::usage(
+            "session 명령은 list, history, new, resume만 허용합니다.",
         )),
         [arg] if arg == "cancel" => Ok(Command::Cancel),
         [group, action, pointer] if group == "evidence" && action == "validate" => {
@@ -825,6 +860,51 @@ mod tests {
     fn parses_state_resume() {
         let command = parse(["state".to_string(), "resume".to_string()]).unwrap();
         assert_eq!(command, Command::State(StateCommand::Resume));
+    }
+
+    #[test]
+    fn parses_session_list() {
+        let command = parse(["session".to_string(), "list".to_string()]).unwrap();
+        assert_eq!(command, Command::Session(SessionCommand::List));
+    }
+
+    #[test]
+    fn parses_session_history_alias() {
+        let command = parse(["session".to_string(), "history".to_string()]).unwrap();
+        assert_eq!(command, Command::Session(SessionCommand::List));
+    }
+
+    #[test]
+    fn parses_session_resume() {
+        let command = parse([
+            "session".to_string(),
+            "resume".to_string(),
+            "session-1".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Session(SessionCommand::Resume {
+                id: "session-1".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_top_level_resume_as_history() {
+        let command = parse(["resume".to_string()]).unwrap();
+        assert_eq!(command, Command::Session(SessionCommand::List));
+    }
+
+    #[test]
+    fn parses_top_level_resume_with_id() {
+        let command = parse(["resume".to_string(), "session-1".to_string()]).unwrap();
+        assert_eq!(
+            command,
+            Command::Session(SessionCommand::Resume {
+                id: "session-1".to_string()
+            })
+        );
     }
 
     #[test]

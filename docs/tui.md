@@ -55,6 +55,8 @@ TUI actions:
 - inspect source pointer
 - inspect evidence
 - switch active view
+- open session history
+- resume selected session
 - cancel workflow
 - resume workflow
 
@@ -102,6 +104,7 @@ Monitoring UI rules:
 TUI consumes runtime state:
 
 - session status
+- session history
 - active workflow
 - active skill
 - active subagents
@@ -119,6 +122,7 @@ TUI emits user decisions:
 - request
 - approve
 - deny
+- select session
 - cancel
 - resume
 - inspect
@@ -133,6 +137,8 @@ Phase 3 fixed command-palette routing:
 - `plugin.review` -> `rpotato plugin inspect <id>` or `rpotato plugin validate <id>`
 - `plugin.toggle` -> `rpotato plugin enable <id>` or `rpotato plugin disable <id>`
 - `workflow.cancel` -> `rpotato cancel`
+- `session.history` -> `rpotato session list`
+- `session.resume` -> `rpotato resume <session-id>`
 - `workflow.resume` -> `rpotato state resume`
 - `monitor.open` -> `rpotato monitor status`
 - `evidence.inspect` -> `rpotato evidence validate <artifact-pointer>`

@@ -2,8 +2,8 @@ use crate::backend;
 use crate::cache;
 use crate::cli::{
     BackendCommand, Command, EvidenceCommand, HooksCommand, IntentCommand, ModelCommand,
-    MonitorCommand, PluginCommand, PolicyCommand, PolicyPathMode, SkillCommand, StateCommand,
-    UninstallCommand,
+    MonitorCommand, PluginCommand, PolicyCommand, PolicyPathMode, SessionCommand, SkillCommand,
+    StateCommand, UninstallCommand,
 };
 use crate::config;
 use crate::evidence;
@@ -87,6 +87,18 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
         }
         Command::State(StateCommand::Resume) => {
             println!("{}", state::resume_report()?);
+            Ok(())
+        }
+        Command::Session(SessionCommand::List) => {
+            println!("{}", state::session_list_report()?);
+            Ok(())
+        }
+        Command::Session(SessionCommand::New) => {
+            println!("{}", state::session_new_report()?);
+            Ok(())
+        }
+        Command::Session(SessionCommand::Resume { id }) => {
+            println!("{}", state::session_resume_report(&id)?);
             Ok(())
         }
         Command::Cancel => {

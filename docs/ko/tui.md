@@ -55,6 +55,8 @@ TUI action:
 - source pointer inspect
 - evidence inspect
 - active view switch
+- session history 열기
+- 선택한 session resume
 - workflow cancel
 - workflow resume
 
@@ -102,6 +104,7 @@ Monitoring UI rules:
 TUI는 runtime state를 consume합니다.
 
 - session status
+- session history
 - active workflow
 - active skill
 - active subagents
@@ -119,6 +122,7 @@ TUI는 user decision을 emit합니다.
 - request
 - approve
 - deny
+- session 선택
 - cancel
 - resume
 - inspect
@@ -133,6 +137,8 @@ Phase 3에서 고정한 command palette routing contract:
 - `plugin.review` -> `rpotato plugin inspect <id>` 또는 `rpotato plugin validate <id>`
 - `plugin.toggle` -> `rpotato plugin enable <id>` 또는 `rpotato plugin disable <id>`
 - `workflow.cancel` -> `rpotato cancel`
+- `session.history` -> `rpotato session list`
+- `session.resume` -> `rpotato resume <session-id>`
 - `workflow.resume` -> `rpotato state resume`
 - `monitor.open` -> `rpotato monitor status`
 - `evidence.inspect` -> `rpotato evidence validate <artifact-pointer>`

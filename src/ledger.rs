@@ -38,6 +38,14 @@ pub struct ParsedLedgerEvent {
 }
 
 pub fn current_identity() -> RuntimeIdentity {
+    if let Some(identity) = identity_from_current_state() {
+        return identity;
+    }
+
+    fresh_identity()
+}
+
+pub fn fresh_identity() -> RuntimeIdentity {
     let project_root = paths::project_root().display().to_string();
     let mut hasher = DefaultHasher::new();
     project_root.hash(&mut hasher);
@@ -164,6 +172,25 @@ fn append_line(path: &Path, line: &str) -> Result<(), AppError> {
     })
 }
 
+fn identity_from_current_state() -> Option<RuntimeIdentity> {
+    let path = paths::current_state_file();
+    let contents = fs::read_to_string(path).ok()?;
+    let project_root = paths::project_root().display().to_string();
+    let mut hasher = DefaultHasher::new();
+    project_root.hash(&mut hasher);
+    let project_id = format!("project-{:016x}", hasher.finish());
+
+    if extract_json_string_tolerant(&contents, "project_id")? != project_id {
+        return None;
+    }
+
+    Some(RuntimeIdentity {
+        project_id,
+        session_id: extract_json_string_tolerant(&contents, "session_id")?,
+        project_root,
+    })
+}
+
 impl LedgerEvent {
     pub fn to_json_line(&self) -> String {
         format!(
@@ -209,6 +236,39 @@ fn extract_json_string(line: &str, key: &str) -> Option<String> {
     let mut escaped = false;
 
     for ch in line[start..].chars() {
+        if escaped {
+            match ch {
+                '"' => value.push('"'),
+                '\\' => value.push('\\'),
+                'n' => value.push('\n'),
+                'r' => value.push('\r'),
+                't' => value.push('\t'),
+                other => value.push(other),
+            }
+            escaped = false;
+            continue;
+        }
+
+        match ch {
+            '\\' => escaped = true,
+            '"' => return Some(value),
+            other => value.push(other),
+        }
+    }
+
+    None
+}
+
+fn extract_json_string_tolerant(contents: &str, key: &str) -> Option<String> {
+    let needle = format!("\"{key}\"");
+    let key_start = contents.find(&needle)? + needle.len();
+    let after_key = contents[key_start..].trim_start();
+    let after_colon = after_key.strip_prefix(':')?.trim_start();
+    let quoted = after_colon.strip_prefix('"')?;
+    let mut value = String::new();
+    let mut escaped = false;
+
+    for ch in quoted.chars() {
         if escaped {
             match ch {
                 '"' => value.push('"'),

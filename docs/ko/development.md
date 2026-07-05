@@ -22,6 +22,12 @@
 - `rpotato state`
 - `rpotato state reconcile`
 - `rpotato state resume`
+- `rpotato session list`
+- `rpotato session history`
+- `rpotato session resume <session-id>`
+- `rpotato session new`
+- `rpotato resume`
+- `rpotato resume <session-id>`
 - `rpotato cancel`
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
@@ -61,6 +67,8 @@
 - `rpotato uninstall --purge-cache`
 
 `rpotato init`은 state layout, current-state, append-only ledger, runtime evidence JSONL, SQLite observability projection을 실제로 초기화합니다.
+
+세션 히스토리는 현재 project 기준으로 SQLite에 저장됩니다. `session list`/`session history`는 SQLite projection을 읽고, `session new`는 새 session identity를 만들며, `session resume <session-id>` 또는 `resume <session-id>`는 선택한 session을 current-state에 기록해 이후 명령이 그 session으로 이어지게 합니다. 전체 agent loop transcript replay는 아직 구현하지 않았습니다.
 
 모델/backend 다운로드는 아직 활성화하지 않았습니다. 모델 manifest schema, 후보 상태, source-backed license/source claim, 공개 benchmark source ledger, local registry surface, 다운로드 전 표시 plan, 로컬 파일 SHA-256 검증, failed/partial artifact cleanup surface는 활성화되어 있습니다. 검증된 artifact URL, provider terms, checksum, file size, backend compatibility가 없으면 runtime core가 다운로드를 차단하고 ledger event를 남깁니다.
 
@@ -119,6 +127,12 @@ cargo run -- config
 cargo run -- state
 cargo run -- state reconcile
 cargo run -- state resume
+cargo run -- session new
+cargo run -- session list
+cargo run -- session history
+cargo run -- session resume <session-id>
+cargo run -- resume
+cargo run -- resume <session-id>
 cargo run -- evidence validate .rpotato/evidence/smoke.txt
 cargo run -- skill list
 cargo run -- skill run fix-test

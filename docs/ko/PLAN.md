@@ -62,6 +62,12 @@ rpotato intent routes
 rpotato tui
 rpotato state reconcile
 rpotato state resume
+rpotato session list
+rpotato session history
+rpotato session resume <session-id>
+rpotato session new
+rpotato resume
+rpotato resume <session-id>
 rpotato evidence validate logs/test.log
 rpotato skill list
 rpotato skill run fix-test

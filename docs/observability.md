@@ -44,10 +44,15 @@ Phase 2 currently implements the runtime store foundation.
 
 - `rpotato init` creates app data root, project-local `.rpotato/`, current state, runtime ledger, project session ledger, runtime evidence JSONL, and SQLite projection.
 - Append-only ledger is the source of truth; SQLite `ledger_events` is a replayable projection.
+- SQLite session history can be restored for the current project from replayed `ledger_events` if the projection is recreated.
 - SQLite migration v1 creates `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, and `benchmark_runs`.
 - `rpotato state` shows current-state and ledger/projection counts.
 - `rpotato state reconcile` recovers missing/stale/corrupt current state and records preserve-move events in the ledger.
 - `rpotato state resume` distinguishes no active workflow, active pointer detected, and blocked states, then records a ledger event.
+- `rpotato session list` and `rpotato session history` read session history from the SQLite projection for the current project.
+- `rpotato session new` creates a fresh session identity, writes it to current state, appends a `session.new` ledger event, and projects it into SQLite.
+- `rpotato session resume <session-id>` and `rpotato resume <session-id>` select a prior session from SQLite history and write that session id back into current state.
+- `rpotato resume` without an id shows session history, so a TUI/CLI surface can let users choose the target before resuming.
 - `rpotato cancel` appends a no-op cancel event when there is no active workflow.
 - `rpotato evidence validate <artifact-pointer>` verifies that a project-relative artifact pointer stays inside the project boundary.
 - `rpotato monitor status` and `rpotato monitor models` read SQLite projection.
@@ -60,6 +65,7 @@ Phase 2 currently implements the runtime store foundation.
 Not implemented yet:
 
 - token/latency/resource metric recording from real model/backend execution
+- full transcript replay and conversation continuation after a selected session resume
 - active workflow resume execution by the real agent loop
 - actual retention deletion
 
@@ -151,6 +157,7 @@ Initial SQLite table candidates:
 schema_migrations
 sessions
 workflows
+ledger_events
 model_runs
 token_usage
 backend_runs
@@ -178,6 +185,12 @@ Initial commands:
 rpotato monitor status
 rpotato monitor models
 rpotato monitor session <id>
+rpotato session list
+rpotato session history
+rpotato session resume <session-id>
+rpotato session new
+rpotato resume
+rpotato resume <session-id>
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
 rpotato monitor prune --before 30d --dry-run
@@ -215,6 +228,8 @@ Compacted summaries are not source of truth.
 - Compacted summary is only a resume-bundle navigation hint and is not used to confirm file, command, or model claims.
 - Compacted summary artifacts must pass the same project-boundary validation as `evidence validate`.
 - Active workflow resume detects current-state pointers, records ledger events, and leaves actual execution to the later agent-loop phase.
+- Session resume is history-first: SQLite provides the selectable session list, append-only ledger remains the audit source, and current state stores only the selected `session_id` plus resume metadata.
+- `rpotato resume <session-id>` currently selects the target session for subsequent commands; model transcript replay is a later agent-loop capability.
 
 ## Validation
 
