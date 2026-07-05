@@ -22,6 +22,29 @@ YAML과 JSON은 직렬화 포맷이지 ontology 자체가 아닙니다. fixture 
 
 RDF, OWL, JSON-LD, Turtle, SHACL도 현재 기본 canonical store가 아닙니다. 나중에 semantic-web tooling, external reasoner, 표준 ontology exchange가 실제 요구사항이 되면 import/export 또는 interoperability target으로 추가할 수 있습니다. 그 요구가 증명되기 전까지 runtime은 local agent-loop latency, source-backed claim, 예측 가능한 query에 최적화된 compact typed graph를 우선합니다.
 
+## 소형 모델 적합성 Gate
+
+온톨로지 표현 방식은 형식적으로 더 풍부한 포맷이 소형 모델에 도움이 될 것이라고 가정하지 말고, 2B-4B 모델의 실제 행동을 측정해서 결정해야 합니다.
+
+Prompt에 들어가는 ontology view를 고정하기 전에 같은 canonical store에서 최소한 다음 표현을 비교합니다.
+
+- compact typed graph summary
+- source-pointer-first JSON slice
+- 짧은 triple-style relationship list
+- exporter가 생긴 경우 RDF/OWL/JSON-LD export view
+- ontology 없이 repository search만 쓰는 baseline
+
+각 후보 view는 소형 모델이 다음을 할 수 있는지로 평가합니다.
+
+- task에 맞는 entity와 relationship 식별
+- invariant와 ownership boundary 준수
+- action 전에 source pointer를 원본 파일 read로 승격
+- weak claim이나 superseded claim을 confirmed fact처럼 취급하지 않음
+- 최종 한국어 응답 품질 유지
+- token, latency, memory budget 준수
+
+formal export format이 같은 budget에서 모델 행동을 개선하면 supported view가 될 수 있습니다. 외부 tool interchange에만 유리하다면 runtime canonical store가 아니라 import/export surface로 남깁니다.
+
 ## 목표
 
 - 프로젝트 의미 구조를 runtime asset으로 유지한다.

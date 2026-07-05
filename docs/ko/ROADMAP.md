@@ -285,6 +285,7 @@
 - [ ] graph traversal, source lookup, status/confidence filtering, TUI/report query를 위한 ontology persistence schema와 index
 - [ ] create/update/supersede/reject/confirm을 기록하고 query projection으로 replay하는 ontology ledger event
 - [ ] JSON/YAML fixture와 선택적 향후 JSON-LD/RDF view를 위한 ontology import/export serializer
+- [ ] 소형 모델 ontology view 후보: compact graph summary, JSON slice, triple list, 선택적 RDF/OWL/JSON-LD export, ontology 없는 baseline
 - [ ] Layer A deterministic repo facts schema
 - [ ] Layer A fact generator: files, package/build/test signals, symbols, entrypoints
 - [ ] Layer A fact freshness/hash tracking
@@ -349,6 +350,7 @@
 - [ ] destructive command policy tests
 - [ ] fixture benchmark suite
 - [ ] static-only vs Layer A vs Layer B ontology benchmark
+- [ ] 2B-4B ontology representation benchmark: view format별 task score, hallucination, source-read compliance, latency, memory, token budget
 - [ ] 모델별 product benchmark suite
 - [ ] 모델별 공개 benchmark parity suite
 - [ ] 공개 benchmark 점수 비교 report: published vs local, 조건 차이, 재현 실패 사유

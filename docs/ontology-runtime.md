@@ -22,6 +22,29 @@ YAML and JSON are serialization formats, not the ontology itself. They can seed 
 
 RDF, OWL, JSON-LD, Turtle, or SHACL are also not the default canonical store yet. They remain possible import/export or interoperability targets if the project later needs semantic-web tooling, external reasoners, or standard ontology exchange. Until that requirement is proven, the runtime prioritizes a compact typed graph optimized for local agent-loop latency, source-backed claims, and predictable queries.
 
+## Small-Model Fit Gate
+
+The ontology representation must be chosen by measuring 2B-4B model behavior, not by assuming that a formally richer format helps small models.
+
+Before locking the prompt-facing ontology view, benchmark at least these representations against the same canonical store:
+
+- compact typed graph summary
+- source-pointer-first JSON slice
+- short triple-style relationship list
+- RDF/OWL/JSON-LD export view if an exporter exists
+- no-ontology baseline with repository search only
+
+Each candidate view is evaluated on whether small models can:
+
+- identify the correct entity and relationship for a task
+- obey invariants and ownership boundaries
+- promote source pointers to original-file reads before action
+- avoid treating weak or superseded claims as confirmed facts
+- preserve final Korean response quality
+- stay within token, latency, and memory budgets
+
+If a formal export format improves model behavior under the same budget, it can become a supported view. If it only improves interchange with external tools, it remains an import/export surface and not the runtime canonical store.
+
 ## Goals
 
 - Maintain project meaning structure as a runtime asset.

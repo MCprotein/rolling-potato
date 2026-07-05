@@ -16,6 +16,43 @@ Targets:
 - command policy compliance
 - runtime latency and memory
 
+## Small-Model Ontology Representation Benchmark
+
+The ontology format decision must be tested against the target 2B-4B model class.
+The benchmark compares prompt-facing ontology views produced from the same
+canonical runtime store. It does not compare different source facts.
+
+Candidate views:
+
+- no-ontology baseline with repository search only
+- compact typed graph summary
+- source-pointer-first JSON slice
+- short triple-style relationship list
+- RDF/OWL/JSON-LD export view, only after an exporter exists
+
+Task types:
+
+- entity lookup: find the component responsible for a behavior
+- relationship inference: identify the dependency or flow that matters
+- invariant check: reject a change that violates an ontology rule
+- source promotion: read the original file before acting on a pointer
+- stale claim handling: avoid using superseded or low-confidence claims as facts
+- patch planning: propose the right small edit without over-reading context
+
+Metrics:
+
+- task score from 0 to 3
+- required source reads completed
+- invariant violations
+- hallucinated relationships
+- superseded/weak claim misuse
+- ontology tokens and dropped context tokens
+- latency, memory, and regeneration count
+
+The winning view is not the most expressive format. It is the view that makes
+2B-4B models complete product tasks with the fewest unsafe actions, lowest
+hallucination rate, and acceptable runtime cost.
+
 ## Benchmark Fixture Structure
 
 Planned structure:

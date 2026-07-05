@@ -16,6 +16,39 @@
 - command policy 준수
 - runtime latency와 memory
 
+## 소형 모델 온톨로지 표현 Benchmark
+
+온톨로지 표현 방식은 목표 모델군인 2B-4B에서 직접 검증해야 합니다. 이 benchmark는 같은 canonical runtime store에서 만들어낸 prompt-facing ontology view를 비교합니다. 서로 다른 source fact를 비교하는 것이 아닙니다.
+
+후보 view:
+
+- ontology 없이 repository search만 쓰는 baseline
+- compact typed graph summary
+- source-pointer-first JSON slice
+- 짧은 triple-style relationship list
+- exporter가 생긴 뒤의 RDF/OWL/JSON-LD export view
+
+task 유형:
+
+- entity lookup: 특정 동작을 책임지는 component 찾기
+- relationship inference: 중요한 dependency 또는 flow 식별
+- invariant check: ontology rule을 위반하는 변경 거부
+- source promotion: pointer만 보고 행동하지 않고 원본 파일 읽기
+- stale claim handling: superseded 또는 low-confidence claim을 사실처럼 쓰지 않기
+- patch planning: context를 과하게 읽지 않고 올바른 작은 수정 계획 세우기
+
+metric:
+
+- 0점에서 3점까지의 task score
+- required source read 완료 여부
+- invariant 위반
+- hallucinated relationship
+- superseded/weak claim 오용
+- ontology token과 dropped context token
+- latency, memory, regeneration count
+
+이 benchmark의 승자는 가장 표현력이 강한 포맷이 아닙니다. 2B-4B 모델이 가장 적은 unsafe action과 낮은 hallucination rate, 허용 가능한 runtime cost로 제품 task를 끝내게 만드는 view입니다.
+
 ## benchmark fixture 구조
 
 예정 구조:

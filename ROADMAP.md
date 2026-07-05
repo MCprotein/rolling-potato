@@ -285,6 +285,7 @@ Goal: make the runtime assemble instructions, ontology, context, and output shap
 - [ ] Ontology persistence schema and indexes for graph traversal, source lookup, status/confidence filtering, and TUI/report queries
 - [ ] Ontology ledger events for create/update/supersede/reject/confirm and replay into query projection
 - [ ] Ontology import/export serializers for JSON/YAML fixtures and optional future JSON-LD/RDF views
+- [ ] Small-model ontology view candidates: compact graph summary, JSON slice, triple list, optional RDF/OWL/JSON-LD export, no-ontology baseline
 - [ ] Layer A deterministic repo facts schema
 - [ ] Layer A fact generators: files, package/build/test signals, symbols, entrypoints
 - [ ] Layer A fact freshness/hash tracking
@@ -349,6 +350,7 @@ Goal: require evidence for completion instead of accepting the model's claim tha
 - [ ] Destructive command policy tests
 - [ ] Fixture benchmark suite
 - [ ] Static-only vs Layer A vs Layer B ontology benchmark
+- [ ] 2B-4B ontology representation benchmark: view format vs task score, hallucination, source-read compliance, latency, memory, token budget
 - [ ] Per-model product benchmark suite
 - [ ] Per-model public benchmark parity suite
 - [ ] Public benchmark comparison report: published vs local, condition differences, unreproducible reasons
