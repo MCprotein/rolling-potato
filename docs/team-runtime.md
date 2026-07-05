@@ -65,6 +65,22 @@ Default write policy:
 - Team state is recorded in the ledger.
 - Team cancellation propagates to all active workers.
 
+## Resource Admission
+
+Team mode is admitted only when runtime resources can support it.
+
+Admission checks:
+
+- one model/backend sidecar is reused unless a later backend policy explicitly allows more
+- worker count fits available memory, token budget, context budget, and timeout
+- file ownership can be assigned before dispatch
+- approval queue and TUI state can represent all pending decisions
+- plugin/tool permissions required by workers are known before dispatch
+
+If admission fails, the runtime should fall back to sequential subagents or a
+single-agent workflow and record the reason in the ledger. Team admission must
+not silently drop assigned work.
+
 ## TUI Integration
 
 TUI should show:
@@ -90,3 +106,4 @@ Team runtime needs tests for:
 - failed worker continuation
 - merge gate
 - evidence-required stop gate
+- team resource admission and sequential fallback

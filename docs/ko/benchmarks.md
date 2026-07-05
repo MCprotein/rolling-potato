@@ -155,6 +155,62 @@ fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 
 - promotion reason
 - owner 또는 responsible subsystem
 
+승격 절차:
+
+1. 장기 fixture로 저장하기 전에 credential, raw prompt, raw source, private path를 redact한다.
+2. run을 최소 재현 fixture로 줄인다.
+3. 새 fixture는 일관되게 통과하기 전까지 quarantine에 둔다.
+4. stable suite에 넣기 전에 owner review를 요구한다.
+5. fixture가 더 이상 유효하지 않으면 supersede 또는 demote 사유를 기록한다.
+
+Regression fixture는 기본적으로 raw user code나 full command log 대신 evidence pointer와 redacted summary를 저장해야 합니다.
+
+## Benchmark 신뢰성 Control
+
+Benchmark report는 model behavior와 measurement noise를 분리해야 합니다.
+
+- run count와 retry count를 기록한다.
+- cold backend startup run과 warm steady-state run을 분리한다.
+- latency, tokens/sec, memory, score, guard failure의 variance를 기록한다.
+- flaky fixture는 pass/fail 결정에 영향을 주기 전에 quarantine한다.
+- environment drift를 기록한다: OS version, 가능한 경우 power/thermal state, backend version, prompt/runtime version, tool policy version, fixture hash.
+- backend의 sampling determinism 한계를 기록한다.
+- pass/fail decision은 public leaderboard rank와 분리한다.
+
+## Privacy와 Redaction Fixture
+
+Suite에는 secret-like value가 다음 위치에 섞이는 adversarial fixture가 필요합니다.
+
+- test log
+- command output
+- file path
+- prompt
+- benchmark export
+- regression promotion record
+
+기대 동작:
+
+- persistence 전에 redact
+- redaction 안전성을 증명할 수 없으면 fail closed
+- raw prompt/source는 기본적으로 benchmark와 model knowledge record에 저장하지 않음
+- 실패를 debug할 수 있을 만큼의 redacted evidence는 보존
+
+## Reproducibility Manifest
+
+각 benchmark run은 reproducibility manifest를 출력해야 합니다.
+
+- harness version 또는 commit
+- fixture id와 fixture checksum
+- runner command
+- run count와 retry count
+- seed policy와 sampling option
+- OS, CPU/GPU, RAM, 가능한 경우 power/thermal note
+- backend version과 model artifact hash
+- prompt/runtime version과 tool policy version
+- ontology view와 context budget
+- redaction status
+- raw artifact retention policy
+
 ## 런타임 metric
 
 수집할 metric:

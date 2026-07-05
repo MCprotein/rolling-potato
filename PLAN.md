@@ -46,6 +46,7 @@ Product body:
 - backend/model layer for local inference
 - observability layer for model/token/resource monitoring
 - model knowledge base for source-backed LLM evidence and repeated runtime observations
+- state lifecycle contract for ledger, SQLite, ontology, model knowledge, plugin registry, and evidence replay
 - hook system for lifecycle control points
 - skill system for reusable workflows
 - subagent and team runtime for bounded multi-agent work
@@ -490,16 +491,17 @@ Core design docs:
 4. `docs/model-eval.md`
 5. `docs/mvp.md`
 6. `docs/runtime-architecture.md`
-7. `docs/glossary.md`
-8. `docs/ontology-runtime.md`
-9. `docs/observability.md`
-10. `docs/hooks.md`
-11. `docs/skills.md`
-12. `docs/subagents.md`
-13. `docs/team-runtime.md`
-14. `docs/tui.md`
-15. `docs/plugin-adapters.md`
-16. `docs/cli-output-style.md`
+7. `docs/state-lifecycle.md`
+8. `docs/glossary.md`
+9. `docs/ontology-runtime.md`
+10. `docs/observability.md`
+11. `docs/hooks.md`
+12. `docs/skills.md`
+13. `docs/subagents.md`
+14. `docs/team-runtime.md`
+15. `docs/tui.md`
+16. `docs/plugin-adapters.md`
+17. `docs/cli-output-style.md`
 
 Open-source operating docs:
 
@@ -518,18 +520,19 @@ Runtime policy and validation docs:
 2. `docs/model-knowledge-base.md`
 3. `docs/model-licenses.md`
 4. `docs/model-source-policy.md`
-5. `docs/backend-adapters.md`
-6. `docs/command-policy.md`
-7. `docs/korean-output-guard.md`
-8. `docs/threat-model.md`
-9. `docs/benchmarks.md`
-10. `docs/observability.md`
-11. `docs/hooks.md`
-12. `docs/skills.md`
-13. `docs/subagents.md`
-14. `docs/team-runtime.md`
-15. `docs/tui.md`
-16. `docs/plugin-adapters.md`
+5. `docs/state-lifecycle.md`
+6. `docs/backend-adapters.md`
+7. `docs/command-policy.md`
+8. `docs/korean-output-guard.md`
+9. `docs/threat-model.md`
+10. `docs/benchmarks.md`
+11. `docs/observability.md`
+12. `docs/hooks.md`
+13. `docs/skills.md`
+14. `docs/subagents.md`
+15. `docs/team-runtime.md`
+16. `docs/tui.md`
+17. `docs/plugin-adapters.md`
 
 Project-local automation and contribution policy is recorded in `AGENTS.md`: external code PRs are not accepted, safe verified units should be committed and pushed automatically, and commit messages use Conventional Commits in the form `type(scope): title`.
 

@@ -11,12 +11,14 @@
 - [MVP 인수 기준](mvp.md)
 - [아키텍처](architecture.md)
 - [런타임 아키텍처](runtime-architecture.md)
+- [상태 수명주기](state-lifecycle.md)
 - [온톨로지 런타임](ontology-runtime.md)
 - [용어집](glossary.md)
 
 ## 런타임 설계
 
 - [백엔드 adapter 설계](backend-adapters.md)
+- [상태 수명주기](state-lifecycle.md)
 - [명령 정책](command-policy.md)
 - [훅](hooks.md)
 - [스킬](skills.md)

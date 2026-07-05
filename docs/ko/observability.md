@@ -219,6 +219,30 @@ Retention은 privacy와 debugging value를 같이 봅니다.
 - export 전 민감 정보 scan
 - `rpotato monitor prune`은 dry-run을 지원
 
+초기 retention matrix:
+
+| Data | Default retention | Delete/prune surface | Notes |
+| --- | --- | --- | --- |
+| aggregate metric | long term | `monitor prune --dry-run` 후 explicit prune | raw prompt/source 없음 |
+| SQLite projection | app data가 있는 동안 long term | 가능한 경우 ledger에서 재생성 | projection이지 event source가 아님 |
+| append-only runtime ledger | long term | 명시적 user cleanup만 | audit source |
+| project session ledger | project-local | project cleanup만 | `.rpotato/`에 묶임 |
+| transcript metadata | project-local | project cleanup만 | raw transcript storage는 opt-in/later |
+| evidence artifact | stale 또는 user cleanup 전까지 | `evidence validate`, 이후 evidence prune | project-bound pointer 필요 |
+| command output summary | short 또는 redacted | monitor/log prune | raw log보다 summary 우선 |
+| backend log | short | monitor/log prune | crash 진단에 유용하지만 privacy-sensitive |
+| benchmark report | redacted면 long term | benchmark/report prune | reproducibility manifest 포함 |
+| model knowledge entry | redacted면 long term | `model knowledge prune --dry-run` | raw prompt/source 대신 pointer 저장 |
+| plugin data | plugin removal 전까지 | `plugin remove --keep-data|--purge-data` | plugin source와 분리 |
+| JSONL/CSV export | user-owned artifact | user deletion | export command가 쓰기 전 scan |
+
+Export redaction behavior:
+
+- sensitive value를 안전하게 redact할 수 없으면 export는 fail closed한다.
+- 실패한 export는 redacted reason과 함께 ledger event를 남긴다.
+- export artifact는 새로운 source of truth로 취급하지 않는다.
+- export는 raw prompt/source text를 저장하지 않으면서 local evidence를 다시 조회할 수 있는 id를 보존해야 한다.
+
 ## Compaction과 Resume 정책
 
 Compacted summary는 source of truth가 아닙니다.

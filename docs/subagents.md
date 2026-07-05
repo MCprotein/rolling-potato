@@ -89,6 +89,28 @@ Examples that require serialization:
 - patch application and verification
 - state migration and state reads
 
+## Resource Admission
+
+Subagent launch is subject to runtime admission control.
+
+Admission inputs:
+
+- available memory and backend health
+- active model/backend process count
+- parent workflow token/context budget
+- per-subagent time/token budget
+- file ownership conflicts
+- command/tool permission risk
+- current TUI or approval queue state
+
+Default policy:
+
+- do not load multiple local models only to run subagents in parallel
+- prefer sequential execution when memory or context is constrained
+- deny or defer subagents that would exceed token, time, memory, or ownership limits
+- record admission decisions in the ledger
+- failed admission narrows scope instead of silently dropping work
+
 ## Failure Mode
 
 Subagent failure must not damage parent state.
@@ -110,3 +132,4 @@ Subagent runtime needs tests for:
 - parent cancellation propagation
 - failed worker result handling
 - merge evidence tracking
+- resource admission denial and sequential fallback

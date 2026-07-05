@@ -65,6 +65,20 @@ Team execution은 manifest를 가져야 합니다.
 - team state는 ledger에 남긴다.
 - team cancellation은 모든 active worker로 전파한다.
 
+## Resource Admission
+
+Team mode는 runtime resource가 감당할 수 있을 때만 허용합니다.
+
+Admission check:
+
+- 후속 backend policy가 명시적으로 허용하기 전까지 하나의 model/backend sidecar를 재사용한다.
+- worker count가 memory, token budget, context budget, timeout 안에 들어온다.
+- dispatch 전에 file ownership을 배정할 수 있다.
+- approval queue와 TUI state가 pending decision을 모두 표현할 수 있다.
+- worker가 요구하는 plugin/tool permission이 dispatch 전에 알려져 있다.
+
+Admission이 실패하면 runtime은 sequential subagent 또는 single-agent workflow로 fallback하고 ledger에 이유를 기록해야 합니다. Team admission은 assigned work를 조용히 버리면 안 됩니다.
+
 ## 터미널 UI Integration
 
 TUI는 다음을 보여야 합니다.
@@ -90,3 +104,4 @@ Team runtime은 test가 필요합니다.
 - failed worker continuation
 - merge gate
 - evidence-required stop gate
+- team resource admission과 sequential fallback

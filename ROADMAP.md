@@ -22,6 +22,7 @@ Principles reflected in the roadmap:
 - Finish small vertical slices instead of giving small models excessive freedom.
 - Completion is decided by verification evidence and the stop gate, not by model confidence.
 - Keep current-state views separate from append-only ledgers.
+- Cross-store state authority, write ordering, replay, and recovery are explicit runtime contracts.
 - Use SQLite as monitoring/query projection while keeping the append-only ledger as the audit trail.
 - Store session identity and queryable session history in the local DB so users can resume from history, not only from the latest pointer.
 - Mode transitions are deterministic runtime-state transitions, not spontaneous model decisions.
@@ -122,6 +123,12 @@ Goal: restore and query current workflow state, audit history, and per-model mon
 - [x] Interrupted run resume behavior
 - [x] Compaction boundary marker
 - [x] Compacted summary preservation policy
+- [ ] Cross-store state authority matrix: ledger, SQLite, current-state, ontology, model knowledge, plugin registry, evidence
+- [ ] Runtime write-ordering contract: policy validation, stable event id, ledger append, state mutation, projection, evidence, diagnostics
+- [ ] Idempotent replay and partial-write recovery tests
+- [ ] Retention/deletion matrix by ledger, SQLite, evidence, transcripts, logs, exports, model knowledge, and plugin data
+- [ ] Routing decision record schema for model, skill, mode, ontology view, backend, subagent/team lane, and escalation choices
+- [ ] Retry/failure handling matrix for transient, permanent, policy, quota, parse, projection, backend, and permission failures
 
 ## Phase 3: Mode And Constraint Recognition
 
@@ -199,7 +206,12 @@ Goal: install and register only source- and checksum-verified model candidates.
 - [x] Public benchmark claim/source ledger per candidate
 - [x] Public benchmark reproducibility review: harness, dataset, prompt, scoring, hardware/backend conditions
 - [ ] Model knowledge base schema: evidence index over manifest, benchmark, observability, and ontology records
+- [ ] Model knowledge claim subject taxonomy: artifact, license, public benchmark, local benchmark, runtime observation, routing note, ontology-view observation
+- [ ] Model knowledge state namespace separation from ontology, manifest, and benchmark states
 - [ ] Model knowledge automatic observation policy: frequency creates observed/candidate notes, not confirmed claims
+- [ ] Model knowledge frequency validity fields: sample count, success/failure count, time window, condition key, reset reason
+- [ ] Model knowledge drift/reset criteria for manifest, backend, prompt compiler, tool policy, ontology view, artifact, scoring, and fixture changes
+- [ ] Model knowledge safety tests: no license/default-model/RAM-fit claims from frequency alone
 - [x] `rpotato model list`
 - [ ] `rpotato model knowledge`
 - [ ] `rpotato model knowledge inspect <model-id>`
@@ -275,6 +287,7 @@ Goal: make the runtime assemble instructions, ontology, context, and output shap
 - [ ] Plugin data path separation
 - [ ] Unsupported plugin capability ledger record
 - [ ] Default-block policy for shell/bin/MCP/background/remote/file-write capability
+- [ ] Plugin permission lease and revalidation on manifest, policy, adapter, source, or capability-scope changes
 - [x] Reject remote plugin URL
 - [x] Reject plugin marketplace source
 - [x] Reject plugin registry/catalog source
@@ -362,6 +375,10 @@ Goal: require evidence for completion instead of accepting the model's claim tha
 - [ ] Benchmark fixture metadata contract: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence
 - [ ] Benchmark failure taxonomy: model, prompt/context, ontology/source-pointer, runtime policy/parser, tool/command, backend/runtime, fixture issue
 - [ ] Regression fixture promotion policy from real unsafe actions, source-read omissions, stale-claim use, policy violations, and score regressions
+- [ ] Regression fixture promotion gate: redaction, minimal repro, quarantine, owner review, supersede/demote reason
+- [ ] Benchmark reliability controls: run count, warm/cold split, variance threshold, flaky quarantine, environment drift detection
+- [ ] Benchmark privacy/redaction adversarial fixtures for secrets in logs, commands, paths, prompts, exports, and regression records
+- [ ] Benchmark reproducibility manifest: harness version, fixture checksum, runner command, run count, seed policy, sampling limits, OS power/thermal note
 - [ ] Static-only vs Layer A vs Layer B ontology benchmark
 - [ ] 2B-4B ontology representation benchmark: view format vs task score, hallucination, source-read compliance, latency, memory, token budget
 - [ ] Small-model abstention/escalation benchmark: evidence gaps, invariant risk, stale claims, context exhaustion, repeated invalid output
@@ -383,6 +400,7 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [ ] Subagent task slice contract
 - [ ] Subagent allowed tools/path/context boundary
 - [ ] Subagent lifecycle: start, complete, blocked, failed, cancelled
+- [ ] Subagent resource admission control: memory, backend health, token/context budget, file ownership, tool risk, approval queue
 - [ ] Parent cancellation propagation
 - [ ] Shared file conflict detection
 - [ ] Subagent evidence merge
@@ -391,6 +409,7 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [ ] Team write policy: single writer per file
 - [ ] Team merge policy: runtime-owned merge
 - [ ] Team stage ledger
+- [ ] Team resource admission control and sequential fallback
 - [ ] Failed worker continuation policy
 - [ ] `rpotato team status`
 - [ ] TUI framework decision
@@ -441,6 +460,8 @@ Goal: let users install the runtime surface without model weights and safely com
 - External plugin marketplace integration
 - External plugin registry/catalog integration
 - Plugin package mirrors without confirmed license permission
+- Public leaderboard score treated as product benchmark result
+- Repeated runtime success treated as default-model approval
 - Unofficial Claude Code/Codex compatibility claims
 - Automatic destructive command execution
 - External code PR workflow

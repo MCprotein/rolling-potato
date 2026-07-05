@@ -46,6 +46,7 @@ Claude Code, Codex, 가재코드류 도구는 CLI 같은 에이전트 경험을 
 - 로컬 추론을 담당하는 backend/model layer
 - 모델/token/resource monitoring을 위한 observability layer
 - source-backed LLM evidence와 반복 runtime observation을 위한 model knowledge base
+- ledger, SQLite, ontology, model knowledge, plugin registry, evidence replay를 잇는 상태 수명주기 contract
 - lifecycle control point를 위한 hook system
 - 재사용 workflow를 위한 skill system
 - 제한된 multi-agent 작업을 위한 subagent와 team runtime
@@ -483,16 +484,17 @@ replacement-level beta는 추가로 다음을 만족해야 합니다.
 4. `docs/model-eval.md`
 5. `docs/mvp.md`
 6. `docs/runtime-architecture.md`
-7. `docs/glossary.md`
-8. `docs/ontology-runtime.md`
-9. `docs/observability.md`
-10. `docs/hooks.md`
-11. `docs/skills.md`
-12. `docs/subagents.md`
-13. `docs/team-runtime.md`
-14. `docs/tui.md`
-15. `docs/plugin-adapters.md`
-16. `docs/cli-output-style.md`
+7. `docs/state-lifecycle.md`
+8. `docs/glossary.md`
+9. `docs/ontology-runtime.md`
+10. `docs/observability.md`
+11. `docs/hooks.md`
+12. `docs/skills.md`
+13. `docs/subagents.md`
+14. `docs/team-runtime.md`
+15. `docs/tui.md`
+16. `docs/plugin-adapters.md`
+17. `docs/cli-output-style.md`
 
 오픈소스 운영 문서:
 
@@ -511,18 +513,19 @@ runtime policy와 validation 문서:
 2. `docs/model-knowledge-base.md`
 3. `docs/model-licenses.md`
 4. `docs/model-source-policy.md`
-5. `docs/backend-adapters.md`
-6. `docs/command-policy.md`
-7. `docs/korean-output-guard.md`
-8. `docs/threat-model.md`
-9. `docs/benchmarks.md`
-10. `docs/observability.md`
-11. `docs/hooks.md`
-12. `docs/skills.md`
-13. `docs/subagents.md`
-14. `docs/team-runtime.md`
-15. `docs/tui.md`
-16. `docs/plugin-adapters.md`
+5. `docs/state-lifecycle.md`
+6. `docs/backend-adapters.md`
+7. `docs/command-policy.md`
+8. `docs/korean-output-guard.md`
+9. `docs/threat-model.md`
+10. `docs/benchmarks.md`
+11. `docs/observability.md`
+12. `docs/hooks.md`
+13. `docs/skills.md`
+14. `docs/subagents.md`
+15. `docs/team-runtime.md`
+16. `docs/tui.md`
+17. `docs/plugin-adapters.md`
 
 Project-local automation과 contribution policy는 `AGENTS.md`에 기록되어 있습니다. 외부 code PR은 받지 않고, 안전하게 검증된 단위는 자동으로 commit/push하며, commit message는 `type(scope): title` 형식의 Conventional Commits를 사용합니다.
 

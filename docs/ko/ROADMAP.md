@@ -22,6 +22,7 @@
 - 작은 모델에게 큰 자유도를 주기보다 작은 vertical slice를 확실히 끝낸다.
 - 완료 판정은 모델의 말이 아니라 검증 evidence와 stop gate가 결정한다.
 - 현재 상태 view와 append-only ledger를 분리한다.
+- 여러 store 사이의 state authority, write ordering, replay, recovery는 명시적인 runtime contract로 둔다.
 - SQLite는 monitoring/query projection으로 두고, append-only ledger는 audit trail로 유지한다.
 - 세션 identity와 조회 가능한 세션 히스토리를 로컬 DB에 저장해 최신 pointer뿐 아니라 히스토리에서 선택해 resume할 수 있게 한다.
 - mode 전환은 모델의 즉흥 판단이 아니라 deterministic rule과 runtime state로 처리한다.
@@ -122,6 +123,12 @@
 - [x] 중단된 실행의 resume 동작
 - [x] compaction boundary marker
 - [x] compacted summary 보존 정책
+- [ ] cross-store state authority matrix: ledger, SQLite, current-state, ontology, model knowledge, plugin registry, evidence
+- [ ] runtime write-ordering contract: policy validation, stable event id, ledger append, state mutation, projection, evidence, diagnostics
+- [ ] idempotent replay와 partial-write recovery test
+- [ ] ledger, SQLite, evidence, transcript, log, export, model knowledge, plugin data별 retention/deletion matrix
+- [ ] model, skill, mode, ontology view, backend, subagent/team lane, escalation 선택을 위한 routing decision record schema
+- [ ] transient, permanent, policy, quota, parse, projection, backend, permission failure별 retry/failure handling matrix
 
 ## 3단계: Mode와 Constraint 인식
 
@@ -199,7 +206,12 @@
 - [x] 모델 후보별 공개 benchmark claim/source ledger
 - [x] 공개 benchmark 재현 가능성 평가: harness, dataset, prompt, scoring, hardware/backend 조건
 - [ ] model knowledge base schema: manifest, benchmark, observability, ontology record 위의 evidence index
+- [ ] model knowledge claim subject taxonomy: artifact, license, public benchmark, local benchmark, runtime observation, routing note, ontology-view observation
+- [ ] model knowledge state namespace를 ontology, manifest, benchmark state와 분리
 - [ ] model knowledge 자동 observation policy: frequency는 observed/candidate note를 만들 수 있지만 confirmed claim은 만들 수 없음
+- [ ] model knowledge frequency validity field: sample count, success/failure count, time window, condition key, reset reason
+- [ ] manifest, backend, prompt compiler, tool policy, ontology view, artifact, scoring, fixture 변경에 대한 model knowledge drift/reset criteria
+- [ ] model knowledge safety test: frequency만으로 license/default-model/RAM-fit claim을 만들 수 없음
 - [x] `rpotato model list`
 - [ ] `rpotato model knowledge`
 - [ ] `rpotato model knowledge inspect <model-id>`
@@ -275,6 +287,7 @@
 - [ ] plugin data path separation
 - [ ] unsupported plugin capability ledger record
 - [ ] shell/bin/MCP/background/remote/file-write capability 기본 차단 policy
+- [ ] manifest, policy, adapter, source, capability scope 변경 시 plugin permission lease 재검증
 - [x] remote plugin URL 거부
 - [x] plugin marketplace source 거부
 - [x] plugin registry/catalog source 거부
@@ -362,6 +375,10 @@
 - [ ] benchmark fixture metadata 계약: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence
 - [ ] benchmark 실패 분류: model, prompt/context, ontology/source-pointer, runtime policy/parser, tool/command, backend/runtime, fixture issue
 - [ ] 실제 unsafe action, source-read omission, stale-claim use, policy violation, score regression에서 regression fixture로 승격하는 policy
+- [ ] regression fixture promotion gate: redaction, minimal repro, quarantine, owner review, supersede/demote reason
+- [ ] benchmark reliability control: run count, warm/cold split, variance threshold, flaky quarantine, environment drift detection
+- [ ] log, command, path, prompt, export, regression record의 secret을 겨냥한 benchmark privacy/redaction adversarial fixture
+- [ ] benchmark reproducibility manifest: harness version, fixture checksum, runner command, run count, seed policy, sampling limit, OS power/thermal note
 - [ ] static-only vs Layer A vs Layer B ontology benchmark
 - [ ] 2B-4B ontology representation benchmark: view format별 task score, hallucination, source-read compliance, latency, memory, token budget
 - [ ] small-model abstention/escalation benchmark: evidence gap, invariant risk, stale claim, context exhaustion, repeated invalid output
@@ -383,6 +400,7 @@
 - [ ] subagent task slice contract
 - [ ] subagent allowed tools/path/context boundary
 - [ ] subagent lifecycle: start, complete, blocked, failed, cancelled
+- [ ] subagent resource admission control: memory, backend health, token/context budget, file ownership, tool risk, approval queue
 - [ ] parent cancellation propagation
 - [ ] shared file conflict detection
 - [ ] subagent evidence merge
@@ -391,6 +409,7 @@
 - [ ] team write policy: single writer per file
 - [ ] team merge policy: runtime-owned merge
 - [ ] team stage ledger
+- [ ] team resource admission control과 sequential fallback
 - [ ] failed worker continuation policy
 - [ ] `rpotato team status`
 - [ ] TUI framework decision
@@ -441,6 +460,8 @@
 - 외부 plugin marketplace 연동
 - 외부 plugin registry/catalog 연동
 - license 미확인 plugin package mirror
+- public leaderboard score를 product benchmark result로 취급
+- 반복 runtime success를 default-model approval로 취급
 - 공식 승인 없는 Claude Code/Codex 호환 claim
 - destructive command 자동 실행
 - 외부 코드 PR workflow

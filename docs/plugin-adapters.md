@@ -253,6 +253,27 @@ Foreign plugin code must not:
 - mark stop gate complete without `rpotato` evidence
 - inject model/license/benchmark claims without source records
 
+## Permission Lease And Revalidation
+
+Plugin enablement and per-capability approvals are leases, not permanent grants.
+
+Revalidation is required when any of these changes:
+
+- source manifest hash
+- normalized `rpotato` plugin manifest schema version
+- runtime/plugin adapter version
+- command policy or tool policy version
+- requested capability scope
+- plugin source path or imported snapshot hash
+- capability gains shell, `bin/`, MCP, background, remote, download, or file-write behavior
+
+On revalidation failure:
+
+- keep the plugin imported but mark affected capabilities `blocked`
+- keep plugin data unless the user requests purge
+- record the reason and previous approval id in the ledger
+- require a new explicit approval before execution
+
 ## Storage
 
 Suggested layout:
@@ -295,6 +316,7 @@ Adapter validation must cover:
 - skill manifest/frontmatter conversion
 - subagent tool/path boundary conversion
 - sensitive user config detection
+- permission lease revalidation after manifest, policy, adapter, or scope changes
 - ledger record creation
 - remove with `--keep-data` and `--purge-data`
 

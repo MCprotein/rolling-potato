@@ -43,6 +43,36 @@ The knowledge base can reference `confirmed` source records from the model
 manifest or model source policy, but it should not create a confirmed
 license/artifact claim by itself.
 
+## Claim Subject Taxonomy
+
+Each entry must declare what kind of claim it is about. The subject controls
+which store has authority and which promotion rules apply.
+
+- `artifact_claim`
+- `license_claim`
+- `public_benchmark_claim`
+- `local_benchmark_result`
+- `runtime_observation`
+- `routing_note`
+- `ontology_view_observation`
+
+State namespaces are separate. Ontology claim states, manifest verification
+states, benchmark result states, and model knowledge states are not converted
+into each other automatically. For example, `measured-locally` is not the same
+thing as `confirmed`, and `observed` is not evidence that a license or default
+model claim is true.
+
+## Observation And Evidence
+
+An observation is an event captured from a run, log, metric, benchmark, or
+guard result. Evidence is the pointer that lets the runtime or maintainer
+re-check that observation, such as a run id, benchmark id, artifact hash,
+source URL, source ref, or redacted evidence artifact.
+
+Observation count does not replace evidence quality. A repeated observation can
+raise priority or create a candidate note, but it cannot prove the claim unless
+the claim's authority store and evidence requirements are satisfied.
+
 ## Automatic Management
 
 Agents may update the model knowledge base automatically, but only inside these
@@ -62,6 +92,19 @@ gates:
 
 Frequency alone can raise priority. It cannot confirm correctness, license,
 backend compatibility, RAM fit, Korean quality, or default-model status.
+
+Frequency cannot influence routing unless the record also includes:
+
+- `sampleCount`
+- `failureCount` or `successCount`
+- `timeWindow`
+- `conditionKey`
+- `resetReason` when counters were reset
+- exact artifact/backend/quantization/prompt-runtime conditions
+
+Changing manifest, backend version, prompt compiler version, tool policy
+version, ontology view, artifact hash, scoring method, or benchmark fixture
+checksum resets or supersedes the affected frequency record.
 
 ## Frequency Signals
 
@@ -98,14 +141,24 @@ Safeguards:
   "quantization": "Q4_K_M",
   "taskClass": "tool-use",
   "ontologyView": "source-pointer-json-slice",
+  "claimSubject": "runtime_observation",
   "claim": "Repeated tool-call parse failures observed in small patch fixtures.",
   "status": "observed",
   "frequency": 3,
+  "sampleCount": 5,
+  "failureCount": 3,
+  "timeWindow": "2026-07",
+  "conditionKey": "artifact+backend+quantization+promptRuntime+toolPolicy+ontologyView",
+  "resetReason": null,
   "firstSeen": "2026-07-06T00:00:00Z",
   "lastSeen": "2026-07-06T00:00:00Z",
   "evidenceRefs": ["benchmark_run:TODO", "model_run:TODO"],
+  "failureCategory": "tool execution or command interpretation failure",
+  "responsibleSubsystem": "runtime-parser",
   "conditions": {
     "promptRuntimeVersion": "TODO",
+    "toolPolicyVersion": "TODO",
+    "promptCompilerVersion": "TODO",
     "contextLength": null,
     "sampling": "TODO"
   },
@@ -125,6 +178,17 @@ The runtime may use the knowledge base to:
 - recommend escalation when a model/task combination has repeated stop-gate
   failures
 - generate `doctor` and TUI summaries
+
+When a model knowledge entry influences routing, the runtime should record a
+routing decision event with:
+
+- user request/session/workflow ids
+- selected skill and mode
+- selected model, backend, quantization, and ontology view
+- model knowledge entry ids used as hints
+- policy, manifest, and benchmark evidence consulted
+- escalation target or fallback path
+- final decision reason
 
 The runtime must not use the knowledge base to:
 
@@ -148,3 +212,16 @@ Planned surfaces:
   and knowledge notes
 
 All mutation commands should support dry-run first and record ledger events.
+
+## Safety Tests
+
+Required negative tests:
+
+- frequency alone cannot promote an entry to `measured-locally`
+- model knowledge cannot create license, checksum, artifact URL, RAM fit, or
+  default-model claims
+- `promote --dry-run` and `prune --dry-run` record no mutation
+- promotion/prune mutations record ledger events
+- mismatched artifact/backend/quantization/prompt-runtime keys do not merge
+- stale entries are superseded instead of silently overwritten
+- raw prompt and raw source are not persisted in knowledge records by default

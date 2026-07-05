@@ -253,6 +253,27 @@ foreign plugin code는 다음을 하면 안 됩니다.
 - `rpotato` evidence 없이 stop gate 완료 처리
 - source record 없이 model/license/benchmark claim 주입
 
+## Permission Lease와 재검증
+
+Plugin enablement와 capability별 approval은 영구 권한이 아니라 lease입니다.
+
+다음이 바뀌면 재검증이 필요합니다.
+
+- source manifest hash
+- normalized `rpotato` plugin manifest schema version
+- runtime/plugin adapter version
+- command policy 또는 tool policy version
+- 요청 capability scope
+- plugin source path 또는 imported snapshot hash
+- capability가 shell, `bin/`, MCP, background, remote, download, file-write 동작을 새로 얻는 경우
+
+재검증에 실패하면:
+
+- plugin import 상태는 유지하되 영향받은 capability를 `blocked`로 표시한다.
+- 사용자가 purge를 요청하지 않는 한 plugin data는 유지한다.
+- ledger에 사유와 이전 approval id를 기록한다.
+- 실행 전 새 명시적 approval을 요구한다.
+
 ## 저장소
 
 권장 layout:
@@ -295,6 +316,7 @@ adapter validation은 다음을 포함해야 합니다.
 - skill manifest/frontmatter conversion
 - subagent tool/path boundary conversion
 - sensitive user config detection
+- manifest, policy, adapter, scope 변경 이후 permission lease 재검증
 - ledger record creation
 - `--keep-data`와 `--purge-data` remove
 

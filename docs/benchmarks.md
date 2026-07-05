@@ -170,6 +170,65 @@ Promotion records include:
 - promotion reason
 - owner or responsible subsystem
 
+Promotion procedure:
+
+1. Redact credentials, raw prompts, raw source, and private paths before
+   storing a long-lived fixture.
+2. Reduce the run to a minimal reproducible fixture.
+3. Keep the new fixture in quarantine until it passes consistently.
+4. Require owner review before adding it to the stable suite.
+5. Record supersede or demote reasons when the fixture is no longer valid.
+
+Regression fixtures must store evidence pointers and redacted summaries instead
+of raw user code or full command logs by default.
+
+## Benchmark Reliability Controls
+
+Benchmark reports must separate model behavior from measurement noise.
+
+- record run count and retry count
+- separate cold backend startup runs from warm steady-state runs
+- record variance for latency, tokens/sec, memory, score, and guard failures
+- quarantine flaky fixtures before they affect pass/fail decisions
+- record environment drift: OS version, power/thermal state when available,
+  backend version, prompt/runtime version, tool policy version, and fixture hash
+- record known sampling determinism limits for the backend
+- keep pass/fail decisions independent from public leaderboard rank
+
+## Privacy And Redaction Fixtures
+
+The suite needs adversarial fixtures that include secret-like values in:
+
+- test logs
+- command output
+- file paths
+- prompts
+- benchmark exports
+- regression promotion records
+
+Expected behavior:
+
+- redact before persistence
+- fail closed when redaction cannot prove safety
+- keep raw prompt/source out of benchmark and model knowledge records by default
+- preserve enough redacted evidence to debug the failure
+
+## Reproducibility Manifest
+
+Each benchmark run should emit a reproducibility manifest with:
+
+- harness version or commit
+- fixture id and fixture checksum
+- runner command
+- run count and retry count
+- seed policy and sampling options
+- OS, CPU/GPU, RAM, and power/thermal note when available
+- backend version and model artifact hash
+- prompt/runtime version and tool policy version
+- ontology view and context budget
+- redaction status
+- raw artifact retention policy
+
 ## Runtime Metrics
 
 Metrics to collect:

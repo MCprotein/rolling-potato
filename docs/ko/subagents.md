@@ -89,6 +89,28 @@ Serialization이 필요한 예시:
 - patch application과 verification
 - state migration과 state read
 
+## Resource Admission
+
+Subagent launch는 runtime admission control을 통과해야 합니다.
+
+Admission input:
+
+- 사용 가능한 memory와 backend health
+- active model/backend process count
+- parent workflow의 token/context budget
+- subagent별 time/token budget
+- file ownership conflict
+- command/tool permission risk
+- 현재 TUI 또는 approval queue 상태
+
+기본 policy:
+
+- subagent parallelism만을 위해 local model을 여러 개 load하지 않는다.
+- memory 또는 context가 부족하면 sequential execution을 우선한다.
+- token, time, memory, ownership limit을 넘는 subagent는 deny 또는 defer한다.
+- admission decision은 ledger에 기록한다.
+- admission 실패는 작업을 조용히 버리는 대신 scope를 좁히게 만든다.
+
 ## 실패 모드
 
 Subagent failure는 parent state를 손상시키면 안 됩니다.
@@ -110,3 +132,4 @@ Subagent runtime은 test가 필요합니다.
 - parent cancellation propagation
 - failed worker result handling
 - merge evidence tracking
+- resource admission denial과 sequential fallback

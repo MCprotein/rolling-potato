@@ -219,6 +219,31 @@ Initial principles:
 - exports scan for sensitive information before writing
 - `rpotato monitor prune` supports dry-run
 
+Initial retention matrix:
+
+| Data | Default retention | Delete/prune surface | Notes |
+| --- | --- | --- | --- |
+| aggregate metrics | long term | `monitor prune --dry-run` then explicit prune | no raw prompt/source |
+| SQLite projection | long term while app data exists | rebuildable from ledger where possible | projection, not event source |
+| append-only runtime ledger | long term | explicit user cleanup only | audit source |
+| project session ledger | project-local | project cleanup only | tied to `.rpotato/` |
+| transcript metadata | project-local | project cleanup only | raw transcript storage remains opt-in/later |
+| evidence artifacts | until stale or user cleanup | `evidence validate`, later evidence prune | project-bound pointer required |
+| command output summaries | short or redacted | monitor/log prune | prefer summaries over raw logs |
+| backend logs | short | monitor/log prune | useful for crashes, privacy-sensitive |
+| benchmark reports | long term if redacted | benchmark/report prune | include reproducibility manifest |
+| model knowledge entries | long term if redacted | `model knowledge prune --dry-run` | store pointers, not raw prompts/source |
+| plugin data | until plugin removal | `plugin remove --keep-data|--purge-data` | plugin data is separated from plugin source |
+| JSONL/CSV exports | user-owned artifact | user deletion | export command scans before writing |
+
+Export redaction behavior:
+
+- exports fail closed when a sensitive value cannot be safely redacted
+- failed exports should record a ledger event with a redacted reason
+- export artifacts are never treated as a new source of truth
+- exports must preserve enough ids to re-query local evidence without storing
+  raw prompt or source text
+
 ## Compaction And Resume Policy
 
 Compacted summaries are not source of truth.
