@@ -1,27 +1,27 @@
 # Hooks
 
-Hooks는 runtime core가 소유하는 lifecycle control point입니다.
+Hooks are lifecycle control points owned by the runtime core.
 
-Hook은 정책을 우회하는 shell callback이 아닙니다. 제한된 runtime event를 관찰하거나 변환하고, 구조화된 결과를 반환하며, 모든 결과는 ledger에 기록되어야 합니다.
+A hook is not a shell callback that bypasses policy. It observes or transforms constrained runtime events, returns structured results, and records every result in the ledger.
 
-## 목표
+## Goals
 
-- lifecycle control point를 명시한다.
-- user/project/runtime policy를 runtime event에 연결한다.
-- 모델 출력을 deterministic gate 뒤에 둔다.
-- skills, subagents, team execution, TUI, benchmark harness가 같은 policy 경계를 재사용하게 한다.
-- 모든 side effect를 audit 가능하게 만든다.
+- Make lifecycle control points explicit.
+- Connect user/project/runtime policy to runtime events.
+- Keep model output behind deterministic gates.
+- Let skills, subagents, team execution, TUI, and benchmark harnesses reuse the same policy boundary.
+- Make all side effects auditable.
 
-## 비목표
+## Non-Goals
 
-- 임의의 hidden shell execution
-- permission policy를 우회하는 plugin code
-- ledger에 남지 않는 prompt mutation
-- project file을 직접 쓰는 hook
+- arbitrary hidden shell execution
+- plugin code that bypasses permission policy
+- prompt mutation not recorded in the ledger
+- hooks that write project files directly
 
-## 필수 Hook Point
+## Required Hook Points
 
-최소 lifecycle hook은 다음과 같습니다.
+Minimum lifecycle hooks:
 
 - `session_start`
 - `user_request_received`
@@ -43,7 +43,7 @@ Hook은 정책을 우회하는 shell callback이 아닙니다. 제한된 runtime
 
 ## Hook Contract
 
-각 hook은 다음 입력을 받습니다.
+Each hook receives:
 
 - hook name
 - session id
@@ -56,26 +56,26 @@ Hook은 정책을 우회하는 shell callback이 아닙니다. 제한된 runtime
 - source evidence pointer
 - policy context
 
-각 hook은 다음 결과를 반환합니다.
+Each hook returns:
 
 - status: `allow`, `ask`, `deny`, `modify`, `observe`, `error`
 - optional modified payload
-- 차단 또는 승인 요청 시 한국어 user-facing reason
+- Korean user-facing reason when blocking or asking for approval
 - evidence record
 - ledger metadata
 
 ## Current Implementation
 
-Phase 4의 현재 구현:
+Phase 4 currently implements:
 
 - `rpotato hooks list`
 - `rpotato hooks validate-result <json>`
 
-`hooks list`는 lifecycle hook registry, ordering, conflict rule, input/output schema를 출력합니다.
+`hooks list` prints lifecycle hook registry, ordering, conflict rule, and input/output schema.
 
-`hooks validate-result`는 hook output의 `status`를 검사합니다. 알 수 없는 status나 파싱 실패는 fail-closed로 `deny` 처리합니다.
+`hooks validate-result` checks the hook output `status`. Unknown status or parse failure fails closed as `deny`.
 
-구현된 conflict rule:
+Implemented conflict rule:
 
 ```text
 error/deny > ask > modify > allow > observe
@@ -83,32 +83,32 @@ error/deny > ask > modify > allow > observe
 
 ## Policy Boundary
 
-Hook은 동작을 더 좁힐 수 있지만 runtime policy보다 권한을 넓힐 수 없습니다.
+Hooks can narrow behavior, but they cannot widen permissions beyond runtime policy.
 
-예시:
+Examples:
 
-- Hook은 policy상 승인 요청 대상인 command를 deny할 수 있습니다.
-- Hook은 stop gate에 필요한 evidence를 추가할 수 있습니다.
-- Hook은 destructive command를 사용자 승인 없이 실행하게 만들 수 없습니다.
-- Hook은 source evidence 없이 모델/license claim을 confirmed로 표시할 수 없습니다.
+- A hook can deny a command that policy would otherwise ask approval for.
+- A hook can add evidence required by the stop gate.
+- A hook cannot run a destructive command without user approval.
+- A hook cannot mark a model/license claim as confirmed without source evidence.
 
 ## Imported Hooks
 
-Claude Code/Codex형 plugin에서 가져온 hook은 같은 이름처럼 보여도 `rpotato` hook과 동일한 권한을 갖지 않습니다.
+Hooks imported from Claude Code/Codex-style plugins do not get the same authority as native `rpotato` hooks just because names look similar.
 
-Import 규칙:
+Import rules:
 
-- source hook event가 `rpotato` lifecycle hook에 명시적으로 매핑될 때만 import한다.
-- command, HTTP, MCP, background process를 호출하는 hook은 기본 비활성화한다.
-- hook result는 `allow`, `ask`, `deny`, `modify`, `observe`, `error` 중 하나로 정규화한다.
-- 외부 hook은 runtime policy보다 권한을 넓힐 수 없다.
-- 매핑할 수 없는 hook은 `unsupported`로 ledger에 기록한다.
+- Import only when the source hook event maps explicitly to a `rpotato` lifecycle hook.
+- Hooks that call commands, HTTP, MCP, or background processes are disabled by default.
+- Hook results normalize to one of `allow`, `ask`, `deny`, `modify`, `observe`, `error`.
+- Foreign hooks cannot widen permissions beyond runtime policy.
+- Unmapped hooks are recorded as `unsupported` in the ledger.
 
-자세한 plugin 호환 경계는 [plugin-adapters.md](plugin-adapters.md)를 따릅니다.
+See [plugin-adapters.md](plugin-adapters.md) for the plugin compatibility boundary.
 
 ## Ordering
 
-Hook 순서는 deterministic해야 합니다.
+Hook order must be deterministic.
 
 1. built-in runtime hooks
 2. project policy hooks
@@ -116,15 +116,15 @@ Hook 순서는 deterministic해야 합니다.
 4. session hooks
 5. observation-only hooks
 
-Hook 결과가 충돌하면 더 엄격한 결과가 이깁니다.
+When hook results conflict, the stricter result wins.
 
 `deny` > `ask` > `modify` > `allow` > `observe`
 
 ## Storage
 
-Hook definition은 model prompt가 아니라 app 또는 project state에 저장합니다.
+Hook definitions live in app or project state, not in model prompts.
 
-가능한 위치:
+Possible locations:
 
 ```text
 rpotato app data root/
@@ -137,12 +137,12 @@ project root/
 
 ## Validation
 
-Hook behavior는 fixture test가 필요합니다.
+Hook behavior needs fixture tests for:
 
 - hook ordering
 - deny over allow
 - ask over allow
 - modified payload ledger record
 - hook failure fail-closed behavior
-- direct file write bypass 차단
-- command execution bypass 차단
+- direct file-write bypass rejection
+- command-execution bypass rejection

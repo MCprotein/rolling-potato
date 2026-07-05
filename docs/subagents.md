@@ -1,27 +1,27 @@
 # Subagents
 
-Subagents는 runtime core가 실행하는 bounded worker agent입니다.
+Subagents are bounded worker agents executed by the runtime core.
 
-Subagent는 runtime state를 무시하는 독립 process가 아닙니다. Parent workflow의 policy, context limit, ledger requirement, stop gate를 상속해야 합니다.
+A subagent is not an independent process that ignores runtime state. It must inherit the parent workflow's policy, context limit, ledger requirements, and stop gate.
 
-## 목표
+## Goals
 
-- 독립적인 분석 또는 검증 작업을 분리한다.
-- 각 worker를 좁은 role과 context 안에 둔다.
-- scope 제한으로 작은 모델의 reliability를 보강한다.
-- auditability를 잃지 않고 multi-agent workflow로 확장할 수 있게 한다.
+- Split independent analysis or verification work.
+- Keep each worker inside a narrow role and context.
+- Improve small-model reliability through scope limits.
+- Expand into multi-agent workflows without losing auditability.
 
-## 비목표
+## Non-Goals
 
 - unbounded autonomous agents
-- 기본 recursive orchestration
-- ownership 없는 parallel file write
+- recursive orchestration by default
+- parallel file writes without ownership
 - hidden command execution
-- worker별 별도 policy engine
+- separate policy engines per worker
 
 ## Roles
 
-초기 role:
+Initial roles:
 
 - `explore`: repo lookup and source mapping
 - `planner`: task decomposition
@@ -30,11 +30,11 @@ Subagent는 runtime state를 무시하는 독립 process가 아닙니다. Parent
 - `critic`: risk and regression review
 - `writer`: documentation and final report
 
-Role은 personality label이 아니라 capability constraint입니다.
+A role is a capability constraint, not a personality label.
 
 ## Runtime Contract
 
-각 subagent는 다음 입력을 받습니다.
+Each subagent receives:
 
 - parent workflow id
 - role
@@ -46,7 +46,7 @@ Role은 personality label이 아니라 capability constraint입니다.
 - evidence requirements
 - time/token budget
 
-각 subagent는 다음 결과를 반환합니다.
+Each subagent returns:
 
 - status: `complete`, `blocked`, `failed`, `cancelled`
 - structured result
@@ -56,16 +56,16 @@ Role은 personality label이 아니라 capability constraint입니다.
 
 ## Ownership
 
-Subagent는 global state를 소유하지 않습니다.
+Subagents do not own global state.
 
-Subagent가 만들 수 있는 것:
+Subagents may create:
 
 - findings
 - patches
 - evidence
 - summaries
 
-Runtime core가 소유하는 것:
+Runtime core owns:
 
 - action approval
 - patch apply
@@ -75,34 +75,34 @@ Runtime core가 소유하는 것:
 
 ## Concurrency
 
-기본은 sequential입니다. Parallel subagents는 작업이 독립적일 때만 허용합니다.
+Default execution is sequential. Parallel subagents are allowed only when work is independent.
 
-안전한 parallelism 예시:
+Safe parallelism examples:
 
-- 한 subagent가 repo structure를 mapping하는 동안 다른 subagent가 docs를 review한다.
-- 한 subagent가 benchmark fixture design을 점검하는 동안 다른 subagent가 command policy를 점검한다.
-- 한 subagent가 model manifest source를 검증하는 동안 다른 subagent가 backend release artifact를 점검한다.
+- one subagent maps repo structure while another reviews docs
+- one subagent checks benchmark fixture design while another checks command policy
+- one subagent verifies model manifest sources while another checks backend release artifacts
 
-Serialization이 필요한 예시:
+Examples that require serialization:
 
-- 두 subagent가 같은 file을 editing하는 경우
-- patch application과 verification
-- state migration과 state read
+- two subagents editing the same file
+- patch application and verification
+- state migration and state reads
 
 ## Failure Mode
 
-Subagent failure는 parent state를 손상시키면 안 됩니다.
+Subagent failure must not damage parent state.
 
-규칙:
+Rules:
 
-- failed subagent result는 ledger에 남긴다.
-- parent workflow는 reduced confidence로 계속 진행할 수 있다.
-- evidence가 없으면 stop gate를 통과하지 못한다.
-- 반복 실패는 scope를 좁히거나 사용자에게 묻는다.
+- Failed subagent results are recorded in the ledger.
+- Parent workflow may continue with reduced confidence.
+- Without evidence, the stop gate cannot pass.
+- Repeated failure narrows scope or asks the user.
 
 ## Validation
 
-Subagent runtime은 test가 필요합니다.
+Subagent runtime needs tests for:
 
 - role boundary enforcement
 - path boundary enforcement

@@ -1,20 +1,20 @@
 # Team Runtime
 
-Team runtime은 하나의 parent workflow 아래에서 여러 subagent를 조율하는 runtime capability입니다.
+Team runtime is a runtime capability that coordinates multiple subagents under one parent workflow.
 
-Team runtime은 parallel 또는 staged work가 실제로 도움이 되는 작업을 위한 경로입니다. 작은 patch 작업의 기본 경로는 아닙니다.
+It is the path for work where parallel or staged execution materially helps. It is not the default path for small patch tasks.
 
-## 목표
+## Goals
 
-- Claude Code/Codex replacement-level workflow를 지원한다.
-- 여러 bounded agent를 조율한다.
-- 하나의 runtime policy engine을 유지한다.
-- team work를 resume 가능하고 audit 가능하게 만든다.
-- worker conflict와 hidden side effect를 방지한다.
+- Support Claude Code/Codex replacement-level workflows.
+- Coordinate multiple bounded agents.
+- Keep one runtime policy engine.
+- Make team work resumable and auditable.
+- Prevent worker conflicts and hidden side effects.
 
 ## Team Pipeline
 
-기본 staged pipeline:
+Default staged pipeline:
 
 1. `team-plan`
 2. `team-dispatch`
@@ -24,11 +24,11 @@ Team runtime은 parallel 또는 staged work가 실제로 도움이 되는 작업
 6. `team-merge`
 7. `team-report`
 
-각 stage는 runtime state transition입니다.
+Each stage is a runtime state transition.
 
 ## Team Manifest
 
-Team execution은 manifest를 가져야 합니다.
+Team execution should have a manifest.
 
 ```json
 {
@@ -48,26 +48,26 @@ Team execution은 manifest를 가져야 합니다.
 
 ## Write Policy
 
-기본 write policy:
+Default write policy:
 
-- subagent는 patch를 propose할 수 있다.
-- runtime core가 patch를 apply한다.
-- 한 file에는 한 번에 하나의 writer만 둔다.
-- conflict는 parent workflow로 escalate한다.
-- verification은 ownership 해결 뒤 merge 이후에 실행한다.
+- Subagents can propose patches.
+- Runtime core applies patches.
+- Only one writer can own a file at a time.
+- Conflicts escalate to the parent workflow.
+- Verification runs after ownership is resolved and merge is complete.
 
 ## Coordination Rules
 
-- parent workflow가 global plan을 소유한다.
-- worker는 assigned slice만 실행한다.
-- worker는 기본적으로 team을 spawn할 수 없다.
-- worker는 스스로 scope를 넓힐 수 없다.
-- team state는 ledger에 남긴다.
-- team cancellation은 모든 active worker로 전파한다.
+- Parent workflow owns the global plan.
+- Workers execute only assigned slices.
+- Workers cannot spawn teams by default.
+- Workers cannot widen their own scope.
+- Team state is recorded in the ledger.
+- Team cancellation propagates to all active workers.
 
 ## TUI Integration
 
-TUI는 다음을 보여야 합니다.
+TUI should show:
 
 - team stage
 - worker status
@@ -77,11 +77,11 @@ TUI는 다음을 보여야 합니다.
 - evidence status
 - final merge status
 
-TUI는 team state를 표시합니다. Coordination authority가 되지는 않습니다.
+TUI displays team state. It is not the coordination authority.
 
 ## Validation
 
-Team runtime은 test가 필요합니다.
+Team runtime needs tests for:
 
 - team manifest parsing
 - worker lifecycle state transition
