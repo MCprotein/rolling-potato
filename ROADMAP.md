@@ -15,6 +15,7 @@ Principles reflected in the roadmap:
 - Do not assume the model becomes smarter.
 - Runtime owns instruction, permission, state, ledger, transcript, and evidence gates.
 - Ontology is project-memory substrate that small models should not reconstruct from scratch every turn.
+- The canonical ontology is an internal typed graph/store, not a YAML prompt file. Human-readable YAML/JSON/RDF/OWL views are import/export or inspection surfaces unless a later interoperability requirement proves otherwise.
 - Split Layer A facts that runtime can prove from Layer B semantics that agents/runtime may enrich only with source references.
 - Context is supplied through source pointers, stable refs, digests, and resume bundles instead of unbounded prompt dumps.
 - Snippets are not authoritative source. Important decisions require rereading the original file.
@@ -279,15 +280,21 @@ Goal: make the runtime assemble instructions, ontology, context, and output shap
 - [ ] Korean final-response instruction
 - [ ] Structured action output format
 - [ ] Project ontology root layout
-- [ ] Ontology schema: entities, relationships, flows, invariants, ownership, open_questions, source_refs
+- [ ] Runtime ontology canonical store decision: typed graph records, not YAML-as-source-of-truth
+- [ ] Ontology graph schema: entities, relationships, flows, invariants, ownership, decisions, open_questions, source_refs
+- [ ] Ontology persistence schema and indexes for graph traversal, source lookup, status/confidence filtering, and TUI/report queries
+- [ ] Ontology ledger events for create/update/supersede/reject/confirm and replay into query projection
+- [ ] Ontology import/export serializers for JSON/YAML fixtures and optional future JSON-LD/RDF views
 - [ ] Layer A deterministic repo facts schema
 - [ ] Layer A fact generators: files, package/build/test signals, symbols, entrypoints
 - [ ] Layer A fact freshness/hash tracking
 - [ ] Layer B semantic ontology schema
 - [ ] Layer B source/ref/confidence requirements
 - [ ] Layer B merge/supersede/open-question lifecycle
+- [ ] Reviewed semantic claim preservation: regenerated Layer A facts must not overwrite Layer B meaning
 - [ ] Ontology gap diagnostics in `doctor`
 - [ ] Ontology drift detection
+- [ ] Ontology conflict diagnostics: duplicate IDs, contradictory relationships, stale source hashes, superseded entries treated as current
 - [ ] Source-backed ontology claim rule
 - [ ] Repository file discovery
 - [ ] Context index JSONL: source_path, source_hash, stable_ref, snippet, freshness
@@ -421,4 +428,5 @@ Goal: let users install the runtime surface without model weights and safely com
 - Model recommendations without sources
 - Exhaustive framework ontology parser
 - Semantic ontology claims without sources
+- YAML/JSON/RDF/OWL ontology exports treated as canonical runtime truth
 - Snippet-based automatic edits without original-file confirmation

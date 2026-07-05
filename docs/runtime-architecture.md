@@ -46,7 +46,7 @@ Not surface-owned:
 - tool permission decisions
 - model/backend artifact trust decisions
 - context selection policy
-- ontology merge
+- ontology merge and graph-store updates
 - patch application
 - stop/completion decisions
 
@@ -61,6 +61,7 @@ Runtime core responsibilities:
 - runtime state
 - append-only ledger
 - observability projection
+- ontology graph store and query projection
 - hook lifecycle
 - skill registry and invocation
 - plugin import, validation, and enablement
@@ -156,7 +157,7 @@ Default flow for `rpotato run "테스트 실패 고쳐줘"`:
 2. Runtime core resolves matching skill and mode.
 3. Runtime core opens project boundary and state.
 4. Runtime core initializes the hook pipeline.
-5. Runtime core queries Layer A repo facts and Layer B ontology.
+5. Runtime core queries Layer A repo facts and Layer B ontology from the canonical graph store/projection.
 6. Runtime core promotes required source pointers to original-file reads.
 7. Runtime core creates a bounded subagent or team stage when needed.
 8. Runtime core sends a constrained prompt/action request to the model/backend adapter.
@@ -165,7 +166,7 @@ Default flow for `rpotato run "테스트 실패 고쳐줘"`:
 11. CLI/TUI surface displays approval prompts or diffs when needed.
 12. Runtime core executes only approved actions.
 13. Runtime core records verification results and evidence in the ledger.
-14. Runtime core records token, latency, backend, guard, tool metrics in the local SQLite projection.
+14. Runtime core records token, latency, backend, guard, tool, and ontology-query metrics in the local SQLite projection.
 15. Stop gate decides completion.
 16. Reporter output passes the Korean output guard before the surface displays it.
 

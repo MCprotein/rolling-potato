@@ -136,6 +136,8 @@ Model output cannot bypass tool policy.
 
 Repository facts collected deterministically by the runtime.
 
+Layer A facts are runtime graph records with freshness/source hashes, not YAML entries that humans must maintain.
+
 Examples:
 
 - file list
@@ -147,6 +149,8 @@ Examples:
 ## Layer B Ontology
 
 Project meaning structure. It may be enriched by the runtime or agents, but it requires source references and confidence.
+
+Layer B is stored as source-backed semantic assertions in the canonical ontology graph. YAML, JSON, RDF, or OWL views are exports unless a future interoperability requirement makes one of them authoritative.
 
 Examples:
 

@@ -179,7 +179,7 @@ Current scaffold and planned module boundaries:
 - `model`: manifest, download, checksum, registry
 - `backend`: backend adapter trait and `llama.cpp` implementation
 - `repo`: project file discovery and context packing
-- `ontology`: Layer A facts and Layer B semantic ontology
+- `ontology`: typed graph store for Layer A facts, Layer B semantic assertions, source refs, drift/conflict state, and ontology query indexes
 - `agent`: planner/executor/verifier/reporter loop
 - `subagent`: bounded worker lifecycle
 - `team`: staged multi-agent coordination

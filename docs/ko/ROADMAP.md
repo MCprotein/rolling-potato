@@ -15,6 +15,7 @@
 - 모델을 더 똑똑하게 만든다고 가정하지 않는다.
 - instruction, permission, state, ledger, transcript, evidence gate를 runtime이 소유한다.
 - 온톨로지는 작은 모델이 매번 추론으로 복구하면 안 되는 프로젝트 기억 substrate로 취급한다.
+- canonical ontology는 YAML prompt file이 아니라 내부 typed graph/store다. 사람이 읽는 YAML/JSON/RDF/OWL view는 후속 interoperability 요구가 증명되기 전까지 import/export 또는 inspection surface로만 둔다.
 - runtime core가 증명할 수 있는 Layer A 사실과 agent/runtime이 보강하되 출처를 남겨야 하는 Layer B 의미를 분리한다.
 - context는 무작정 주입하지 않고 source pointer, stable ref, digest, resume bundle로 좁혀서 공급한다.
 - snippet은 authoritative source가 아니다. 중요한 판단은 원본 파일을 다시 읽은 뒤 해야 한다.
@@ -279,15 +280,21 @@
 - [ ] 한국어 final-response instruction
 - [ ] 구조화된 action output format
 - [ ] project ontology root layout
-- [ ] ontology schema: entities, relationships, flows, invariants, ownership, open_questions, source_refs
+- [ ] runtime ontology canonical store 결정: YAML을 source of truth로 두지 않고 typed graph record로 저장
+- [ ] ontology graph schema: entities, relationships, flows, invariants, ownership, decisions, open_questions, source_refs
+- [ ] graph traversal, source lookup, status/confidence filtering, TUI/report query를 위한 ontology persistence schema와 index
+- [ ] create/update/supersede/reject/confirm을 기록하고 query projection으로 replay하는 ontology ledger event
+- [ ] JSON/YAML fixture와 선택적 향후 JSON-LD/RDF view를 위한 ontology import/export serializer
 - [ ] Layer A deterministic repo facts schema
 - [ ] Layer A fact generator: files, package/build/test signals, symbols, entrypoints
 - [ ] Layer A fact freshness/hash tracking
 - [ ] Layer B semantic ontology schema
 - [ ] Layer B source/ref/confidence requirement
 - [ ] Layer B merge/supersede/open-question lifecycle
+- [ ] reviewed semantic claim preservation: regenerated Layer A fact가 Layer B meaning을 덮어쓰지 못하게 한다
 - [ ] `doctor`의 ontology gap diagnostics
 - [ ] ontology drift detection
+- [ ] ontology conflict diagnostics: duplicate ID, contradictory relationship, stale source hash, superseded entry가 current로 쓰이는 상태
 - [ ] source-backed ontology claim rule
 - [ ] repository file discovery
 - [ ] context index JSONL: source_path, source_hash, stable_ref, snippet, freshness
@@ -421,4 +428,5 @@
 - 출처 없는 모델 추천
 - exhaustive framework ontology parser
 - 출처 없는 semantic ontology claim
+- YAML/JSON/RDF/OWL ontology export를 canonical runtime truth로 취급하는 방식
 - 원본 파일 확인 없는 snippet 기반 자동 수정

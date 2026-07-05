@@ -67,7 +67,7 @@ runtime core
   ├─ hook engine
   ├─ skill registry
   ├─ plugin adapter registry
-  ├─ ontology and context plane
+  ├─ ontology and context plane  # typed graph store plus retrieval indexes
   ├─ repo indexer
   ├─ agent loop
   ├─ subagent runtime
@@ -142,7 +142,7 @@ The runtime core is the product body behind a Claude Code/Codex-style agent expe
 - download, hash-verify, and register models
 - start, restart, and stop sidecars
 - read project files and pack context
-- manage ontology lifecycle
+- manage ontology lifecycle as typed graph records with source refs, ledger events, and query indexes
 - manage subagent lifecycle
 - coordinate team runtime
 - enforce tool permission policy

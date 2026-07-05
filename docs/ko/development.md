@@ -179,7 +179,7 @@ cargo run -- uninstall --dry-run --purge-cache
 - `model`: manifest, download, checksum, registry
 - `backend`: backend adapter trait and `llama.cpp` implementation
 - `repo`: project file discovery and context packing
-- `ontology`: Layer A facts and Layer B semantic ontology
+- `ontology`: Layer A fact, Layer B semantic assertion, source ref, drift/conflict state, ontology query index를 저장하는 typed graph store
 - `agent`: planner/executor/verifier/reporter loop
 - `subagent`: bounded worker lifecycle
 - `team`: staged multi-agent coordination

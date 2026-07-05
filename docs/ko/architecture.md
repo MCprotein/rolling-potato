@@ -67,7 +67,7 @@ runtime core
   ├─ hook engine
   ├─ skill registry
   ├─ plugin adapter registry
-  ├─ ontology and context plane
+  ├─ ontology and context plane  # typed graph store plus retrieval index
   ├─ repo indexer
   ├─ agent loop
   ├─ subagent runtime
@@ -142,7 +142,7 @@ Runtime core는 Claude Code/Codex류 agent 경험의 본체입니다. CLI surfac
 - 모델 다운로드, hash 검증, registry 등록
 - sidecar 시작, 재시작, 종료
 - 프로젝트 파일 읽기와 context packing
-- ontology lifecycle 관리
+- source ref, ledger event, query index가 붙은 typed graph record로 ontology lifecycle 관리
 - subagent lifecycle 관리
 - team runtime 조정
 - tool permission policy 집행

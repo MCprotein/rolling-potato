@@ -136,6 +136,8 @@ MVP 단계:
 
 Runtime이 deterministic하게 수집할 수 있는 repo 사실입니다.
 
+Layer A fact는 freshness/source hash가 붙은 runtime graph record이지, 사람이 직접 관리해야 하는 YAML entry가 아닙니다.
+
 예:
 
 - file list
@@ -147,6 +149,8 @@ Runtime이 deterministic하게 수집할 수 있는 repo 사실입니다.
 ## 계층 B Ontology
 
 프로젝트 의미 구조입니다. Runtime 또는 agent가 보강할 수 있지만 source ref와 confidence가 필요합니다.
+
+Layer B는 canonical ontology graph에 source-backed semantic assertion으로 저장됩니다. YAML, JSON, RDF, OWL view는 향후 interoperability 요구가 특정 포맷을 authoritative하게 만들기 전까지 export입니다.
 
 예:
 
