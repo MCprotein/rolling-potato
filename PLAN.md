@@ -45,6 +45,7 @@ Product body:
 - runtime core for state, policy, ontology, context, agent loop, evidence, and stop gates
 - backend/model layer for local inference
 - observability layer for model/token/resource monitoring
+- model knowledge base for source-backed LLM evidence and repeated runtime observations
 - hook system for lifecycle control points
 - skill system for reusable workflows
 - subagent and team runtime for bounded multi-agent work
@@ -82,6 +83,8 @@ rpotato model list
 rpotato model manifest
 rpotato model inspect qwen3.5-4b
 rpotato model registry
+rpotato model knowledge
+rpotato model knowledge inspect qwen3.5-4b
 rpotato model download-plan qwen3.5-4b
 rpotato model verify-file ./model.gguf --sha256 <64-hex>
 rpotato model cleanup-failed qwen3.5-4b --dry-run
@@ -235,6 +238,7 @@ The runtime should own:
 - foreign plugin import and normalized capability validation
 - prompt compilation per model
 - token usage accounting per model
+- model knowledge/evidence indexing
 - ontology and context lifecycle
 - context packing
 - repo/file indexing
@@ -292,6 +296,26 @@ Default decision:
 - Store token, latency, backend, guard, tool, evidence, and stop-gate metrics by session/workflow/model.
 - Do not store raw prompt, source code, or credential-bearing command output by default.
 - Expose monitoring through `rpotato monitor ...`, `doctor`, benchmark reports, and TUI views.
+
+## Model Knowledge Base
+
+The LLM wiki is introduced as a model knowledge base: an evidence index over
+manifest records, benchmark results, observability metrics, and source-backed
+claims.
+
+It is useful for automatic maintenance, but only with gates.
+
+- Agents may automatically add `observed` or `candidate` notes from repeated
+  runtime evidence.
+- Frequency can raise priority and trigger investigation.
+- Frequency alone cannot confirm model quality, license, backend compatibility,
+  RAM fit, or default-model status.
+- `measured-locally` requires benchmark/run ids, artifact hash, environment,
+  prompt/runtime version, and scoring evidence.
+- Source/license/artifact confirmation stays under the model manifest and
+  model source policy.
+- Raw prompt and raw source text are not stored in the model knowledge base by
+  default.
 
 Required model metrics:
 
@@ -491,20 +515,21 @@ Open-source operating docs:
 Runtime policy and validation docs:
 
 1. `docs/model-manifest.md`
-2. `docs/model-licenses.md`
-3. `docs/model-source-policy.md`
-4. `docs/backend-adapters.md`
-5. `docs/command-policy.md`
-6. `docs/korean-output-guard.md`
-7. `docs/threat-model.md`
-8. `docs/benchmarks.md`
-9. `docs/observability.md`
-10. `docs/hooks.md`
-11. `docs/skills.md`
-12. `docs/subagents.md`
-13. `docs/team-runtime.md`
-14. `docs/tui.md`
-15. `docs/plugin-adapters.md`
+2. `docs/model-knowledge-base.md`
+3. `docs/model-licenses.md`
+4. `docs/model-source-policy.md`
+5. `docs/backend-adapters.md`
+6. `docs/command-policy.md`
+7. `docs/korean-output-guard.md`
+8. `docs/threat-model.md`
+9. `docs/benchmarks.md`
+10. `docs/observability.md`
+11. `docs/hooks.md`
+12. `docs/skills.md`
+13. `docs/subagents.md`
+14. `docs/team-runtime.md`
+15. `docs/tui.md`
+16. `docs/plugin-adapters.md`
 
 Project-local automation and contribution policy is recorded in `AGENTS.md`: external code PRs are not accepted, safe verified units should be committed and pushed automatically, and commit messages use Conventional Commits in the form `type(scope): title`.
 

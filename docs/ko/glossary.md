@@ -115,6 +115,12 @@ GGUF 같은 모델 파일입니다. Third-party artifact이며 `rolling-potato` 
 - file size
 - compatibility
 
+## 모델 Knowledge Base
+
+모델 관련 지식을 위한 evidence index입니다. 제품 논의에서는 LLM wiki라고 부를 수 있습니다.
+
+Model manifest data, benchmark result, observability metric, source-backed claim을 연결합니다. 별도 source of truth가 아니며, 빈도만으로 모델 추천을 확정할 수 없습니다.
+
 ## 에이전트 Loop
 
 작업을 단계적으로 진행하는 runtime 흐름입니다.

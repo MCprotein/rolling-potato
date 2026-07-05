@@ -90,6 +90,8 @@ rpotato plugin import --from claude-code ./my-plugin
 rpotato plugin inspect imported.example-plugin
 rpotato team status
 rpotato model list
+rpotato model knowledge
+rpotato model knowledge inspect qwen3.5-4b
 rpotato model install qwen3.5-4b
 rpotato backend doctor
 rpotato cache status
@@ -136,13 +138,15 @@ MVP의 기본 결정은 다음과 같습니다.
 - 필수 runtime capability: hooks, skills, subagents, team runtime
 - 필수 compatibility 경계: Claude Code/Codex형 plugin adapter
 - 필수 monitoring store: local SQLite projection + append-only ledger
+- 필수 model evidence index: 제품 논의에서 LLM wiki라고 부르는 model knowledge base
 - 우선 평가 후보: `Qwen3.5-4B` 계열 quantized GGUF, artifact/runtime 검증 전 미확정
 - 비교 평가 후보: `Gemma 4 E4B` 계열 quantized GGUF, artifact/runtime 검증 전 미확정
 
 `llama.cpp`는 backend일 뿐 모델 후보가 아닙니다. 모델 후보는 Qwen/Gemma 라인으로만 추적하며, 라이선스와 artifact 관련 claim은 [docs/model-licenses.md](docs/model-licenses.md)에 출처와 함께 기록합니다.
 
 자세한 구조는 [docs/architecture.md](docs/architecture.md)를 따릅니다.
-런타임 계층은 [docs/runtime-architecture.md](docs/runtime-architecture.md)를 따르고, 용어는 [docs/glossary.md](docs/glossary.md)를 따릅니다.
+런타임 계층은 [docs/runtime-architecture.md](docs/runtime-architecture.md)를 따릅니다.
+모델 evidence index는 [docs/model-knowledge-base.md](docs/model-knowledge-base.md)를 따르고, 용어는 [docs/glossary.md](docs/glossary.md)를 따릅니다.
 
 ## 중요 제약
 

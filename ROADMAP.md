@@ -34,6 +34,7 @@ Principles reflected in the roadmap:
 - Monitoring is shown first through TUI for SSH/Linux-server use; HTML is a later optional local report/dashboard.
 - Compaction, resume, cancel, and corrupt-state fallback are part of the early runtime design.
 - Public claims and model claims must not exceed available evidence.
+- The LLM wiki is a model knowledge/evidence index, not an independent truth source or automatic model recommendation engine.
 
 ## Phase 0: Project Definition
 
@@ -197,7 +198,13 @@ Goal: install and register only source- and checksum-verified model candidates.
 - [x] Official model card/source/license research per candidate
 - [x] Public benchmark claim/source ledger per candidate
 - [x] Public benchmark reproducibility review: harness, dataset, prompt, scoring, hardware/backend conditions
+- [ ] Model knowledge base schema: evidence index over manifest, benchmark, observability, and ontology records
+- [ ] Model knowledge automatic observation policy: frequency creates observed/candidate notes, not confirmed claims
 - [x] `rpotato model list`
+- [ ] `rpotato model knowledge`
+- [ ] `rpotato model knowledge inspect <model-id>`
+- [ ] `rpotato model knowledge promote <entry-id> --dry-run`
+- [ ] `rpotato model knowledge prune --before <duration> --dry-run`
 - [ ] `rpotato model install <id>`
 - [x] Block unverified artifact install
 - [ ] Resumable model download
@@ -396,6 +403,7 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [ ] TUI tool output viewer
 - [ ] TUI subagent/team status view
 - [ ] TUI model/token monitoring view
+- [ ] TUI model knowledge panel
 - [ ] TUI evidence/stop gate view
 - [ ] TUI plugin permission review view
 - [ ] Optional local HTML report/dashboard decision

@@ -30,6 +30,7 @@ Korean translations and Korean originals are kept under [docs/ko/](ko/). The roo
 
 - [Model source policy](model-source-policy.md)
 - [Model manifest](model-manifest.md)
+- [Model knowledge base](model-knowledge-base.md)
 - [Model licenses](model-licenses.md)
 - [Model evaluation](model-eval.md)
 - [Benchmarks](benchmarks.md)

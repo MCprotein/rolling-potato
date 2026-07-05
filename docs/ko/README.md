@@ -30,6 +30,7 @@
 
 - [모델 출처 정책](model-source-policy.md)
 - [모델 manifest](model-manifest.md)
+- [모델 knowledge base](model-knowledge-base.md)
 - [모델 license](model-licenses.md)
 - [모델 평가](model-eval.md)
 - [벤치마크](benchmarks.md)

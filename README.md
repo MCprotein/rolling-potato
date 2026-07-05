@@ -91,6 +91,8 @@ rpotato plugin import --from claude-code ./my-plugin
 rpotato plugin inspect imported.example-plugin
 rpotato team status
 rpotato model list
+rpotato model knowledge
+rpotato model knowledge inspect qwen3.5-4b
 rpotato model install qwen3.5-4b
 rpotato backend doctor
 rpotato cache status
@@ -135,12 +137,13 @@ MVP defaults:
 - required runtime capabilities: hooks, skills, subagents, team runtime
 - required compatibility boundary: Claude Code/Codex-style plugin adapters
 - required monitoring store: local SQLite projection plus append-only ledger
+- required model evidence index: model knowledge base, also called the LLM wiki in product discussions
 - priority evaluation candidate: `Qwen3.5-4B` quantized GGUF family, unconfirmed until artifact/runtime validation
 - comparison candidate: `Gemma 4 E4B` quantized GGUF family, unconfirmed until artifact/runtime validation
 
 `llama.cpp` is a backend, not a model candidate. Model candidates are tracked only in the Qwen/Gemma lines currently documented for this project. License and artifact claims are recorded with sources in [docs/model-licenses.md](docs/model-licenses.md).
 
-Architecture details are in [docs/architecture.md](docs/architecture.md). Runtime layers are in [docs/runtime-architecture.md](docs/runtime-architecture.md), and terminology is fixed in [docs/glossary.md](docs/glossary.md).
+Architecture details are in [docs/architecture.md](docs/architecture.md). Runtime layers are in [docs/runtime-architecture.md](docs/runtime-architecture.md). Model evidence indexing is in [docs/model-knowledge-base.md](docs/model-knowledge-base.md), and terminology is fixed in [docs/glossary.md](docs/glossary.md).
 
 ## Important Constraint
 

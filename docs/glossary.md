@@ -115,6 +115,15 @@ Required information:
 - file size
 - compatibility
 
+## Model Knowledge Base
+
+An evidence index for model-related knowledge, also called the LLM wiki in
+product discussions.
+
+It connects model manifest data, benchmark results, observability metrics, and
+source-backed claims. It is not a separate source of truth and cannot confirm a
+model recommendation from frequency alone.
+
 ## Agent Loop
 
 The staged runtime flow for work.

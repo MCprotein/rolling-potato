@@ -34,6 +34,7 @@
 - monitoring은 SSH/Linux server에서 TUI로 먼저 보여주고, HTML은 후속 optional local report/dashboard로 둔다.
 - compaction, resume, cancel, corrupt state fallback은 초기 runtime 설계에 포함한다.
 - 공개 claim과 모델 claim은 evidence보다 넓게 쓰지 않는다.
+- LLM wiki는 model knowledge/evidence index이지 독립 truth source나 automatic model recommendation engine이 아니다.
 
 ## 0단계: 프로젝트 정의
 
@@ -197,7 +198,13 @@
 - [x] 모델 후보별 공식 model card/source/license 조사
 - [x] 모델 후보별 공개 benchmark claim/source ledger
 - [x] 공개 benchmark 재현 가능성 평가: harness, dataset, prompt, scoring, hardware/backend 조건
+- [ ] model knowledge base schema: manifest, benchmark, observability, ontology record 위의 evidence index
+- [ ] model knowledge 자동 observation policy: frequency는 observed/candidate note를 만들 수 있지만 confirmed claim은 만들 수 없음
 - [x] `rpotato model list`
+- [ ] `rpotato model knowledge`
+- [ ] `rpotato model knowledge inspect <model-id>`
+- [ ] `rpotato model knowledge promote <entry-id> --dry-run`
+- [ ] `rpotato model knowledge prune --before <duration> --dry-run`
 - [ ] `rpotato model install <id>`
 - [x] 미검증 artifact 설치 차단
 - [ ] 이어받기 가능한 모델 다운로드
@@ -396,6 +403,7 @@
 - [ ] TUI tool output viewer
 - [ ] TUI subagent/team status view
 - [ ] TUI model/token monitoring view
+- [ ] TUI model knowledge panel
 - [ ] TUI evidence/stop gate view
 - [ ] TUI plugin permission review view
 - [ ] optional local HTML report/dashboard decision
