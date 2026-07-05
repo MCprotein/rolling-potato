@@ -1,71 +1,71 @@
 # Observability And Monitoring
 
-`rolling-potato`는 모델별 token 사용량, latency, memory, retry, guard, tool, evidence 결과를 runtime core가 직접 관측해야 합니다.
+`rolling-potato` must directly observe per-model token usage, latency, memory, retries, guard results, tool results, and evidence results through the runtime core.
 
-Monitoring은 외부 telemetry가 아니라 local-first runtime capability입니다. 기본값은 로컬 저장이며, 사용자 코드나 prompt 원문을 외부로 보내지 않습니다.
+Monitoring is not external telemetry. It is a local-first runtime capability. The default is local storage, and user code or raw prompts are not sent outside the machine.
 
-Monitoring UX의 기준은 [DESIGN.md](../DESIGN.md)와 [tui.md](tui.md)를 따릅니다. TUI는 SSH/Linux server에서 쓰는 primary monitoring surface이고, HTML은 이후 선택 가능한 local report/dashboard surface입니다.
+Monitoring UX follows [DESIGN.md](../DESIGN.md) and [tui.md](tui.md). TUI is the primary monitoring surface for SSH/Linux-server use; HTML is a later optional local report/dashboard surface.
 
-## 목표
+## Goals
 
-- 모델별 token 사용량과 context 사용량을 기록한다.
-- backend/model 성능과 실패율을 session/workflow 단위로 비교한다.
-- 작은 모델의 실패 모드: invalid diff, Korean guard rejection, tool failure, stop gate failure를 계량화한다.
-- benchmark 결과와 실제 사용 결과를 같은 schema로 비교할 수 있게 한다.
-- TUI와 `doctor`가 현재 상태와 최근 장애 원인을 보여줄 수 있게 한다.
-- raw prompt나 source code 원문 없이도 기본 진단이 가능하게 한다.
+- Record per-model token and context usage.
+- Compare backend/model performance and failure rates by session and workflow.
+- Quantify small-model failure modes: invalid diffs, Korean guard rejections, tool failures, and stop-gate failures.
+- Compare benchmark results and real-use results through the same schema.
+- Let TUI and `doctor` show current state and recent failure causes.
+- Support useful diagnosis without storing raw prompts or raw source code by default.
 
 ## Storage Decision
 
-기본 방향은 SQLite + append-only ledger입니다.
+Default direction: SQLite plus append-only ledger.
 
 - SQLite: query/index/reporting store
-- append-only ledger: 원본 runtime event와 audit trail
-- JSONL export: 사람이 보거나 issue에 첨부하기 쉬운 export format
+- append-only ledger: source runtime events and audit trail
+- JSONL export: human-readable and issue-friendly export format
 
-SQLite를 기본 local store로 두는 이유:
+SQLite is the default local store because:
 
-- model/session/workflow/tool/evidence를 조인해서 볼 수 있다.
-- `모델별 평균 tokens/sec`, `Korean guard rejection rate`, `context truncation count` 같은 질의가 쉽다.
-- TUI가 긴 session을 계속 tail하면서도 집계 화면을 빠르게 보여줄 수 있다.
-- benchmark와 실제 사용 metric을 같은 query layer에서 비교할 수 있다.
-- 단일 파일이라 low-end local runtime 배포와 backup이 단순하다.
+- model/session/workflow/tool/evidence data can be joined
+- queries such as average tokens/sec by model, Korean guard rejection rate, and context truncation count are simple
+- TUI can tail long sessions while showing aggregate screens quickly
+- benchmark and real-use metrics can use the same query layer
+- a single file is simple for low-end local distribution and backup
 
-SQLite가 소유하지 않는 것:
+SQLite does not own:
 
 - user approval policy
-- stop gate 판정
-- source of truth인 event append 순서
-- raw prompt/source code 장기 보관
+- stop-gate decisions
+- source-of-truth event append order
+- long-term raw prompt/source storage
 
 ## Current Implementation
 
-Phase 2의 현재 구현은 runtime store foundation입니다.
+Phase 2 currently implements the runtime store foundation.
 
-- `rpotato init`이 app data root, project-local `.rpotato/`, current-state, runtime ledger, project session ledger, runtime evidence JSONL, SQLite projection을 만든다.
-- Append-only ledger는 source of truth이며, SQLite `ledger_events`는 replay 가능한 projection이다.
-- SQLite migration v1은 `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, `benchmark_runs`를 만든다.
-- `rpotato state`는 current-state와 ledger/projection count를 보여준다.
-- `rpotato state reconcile`은 missing/stale/corrupt current-state를 복구하고 보존 이동 이벤트를 ledger에 남긴다.
-- `rpotato state resume`은 no active workflow, active pointer detected, blocked 상태를 구분해 ledger에 남긴다.
-- `rpotato cancel`은 active workflow가 없으면 no-op cancel event만 append한다.
-- `rpotato evidence validate <artifact-pointer>`는 project-relative artifact pointer가 project boundary 안에 있는지 검증한다.
-- `rpotato monitor status`와 `rpotato monitor models`는 SQLite projection을 읽는다.
-- `rpotato monitor export --format jsonl|csv`는 runtime ledger/projection을 사람이 볼 수 있는 형태로 출력한다.
-- `rpotato monitor prune --before 30d --dry-run`은 삭제 후보 count만 계산한다.
-- corrupt SQLite file은 `.corrupt.<timestamp>` suffix로 보존 이동한 뒤 새 projection을 만든다.
-- corrupt/stale current-state는 `state reconcile`에서 `.corrupt.<timestamp>` 또는 `.stale.<timestamp>` suffix로 보존 이동한다.
-- evidence stale 기준은 artifact 누락, project boundary 이탈, `stale_after_ms` 만료다.
+- `rpotato init` creates app data root, project-local `.rpotato/`, current state, runtime ledger, project session ledger, runtime evidence JSONL, and SQLite projection.
+- Append-only ledger is the source of truth; SQLite `ledger_events` is a replayable projection.
+- SQLite migration v1 creates `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, and `benchmark_runs`.
+- `rpotato state` shows current-state and ledger/projection counts.
+- `rpotato state reconcile` recovers missing/stale/corrupt current state and records preserve-move events in the ledger.
+- `rpotato state resume` distinguishes no active workflow, active pointer detected, and blocked states, then records a ledger event.
+- `rpotato cancel` appends a no-op cancel event when there is no active workflow.
+- `rpotato evidence validate <artifact-pointer>` verifies that a project-relative artifact pointer stays inside the project boundary.
+- `rpotato monitor status` and `rpotato monitor models` read SQLite projection.
+- `rpotato monitor export --format jsonl|csv` renders runtime ledger/projection into human-readable exports.
+- `rpotato monitor prune --before 30d --dry-run` calculates only deletion candidate counts.
+- A corrupt SQLite file is preserved with a `.corrupt.<timestamp>` suffix before a new projection is created.
+- Corrupt/stale current state is preserved by `state reconcile` with `.corrupt.<timestamp>` or `.stale.<timestamp>` suffixes.
+- Evidence is stale when the artifact is missing, escapes the project boundary, or exceeds `stale_after_ms`.
 
-아직 구현하지 않은 부분:
+Not implemented yet:
 
-- 실제 model/backend 실행에서 token/latency/resource metric을 기록하는 경로
-- 실제 agent loop의 active workflow resume 실행
-- 실제 retention 삭제
+- token/latency/resource metric recording from real model/backend execution
+- active workflow resume execution by the real agent loop
+- actual retention deletion
 
 ## Local File Layout
 
-예상 위치:
+Expected locations:
 
 ```text
 rpotato app data root/
@@ -83,9 +83,9 @@ project root/
     session-ledger.jsonl
 ```
 
-Project-local ledger는 project boundary와 evidence에 가깝고, app-level SQLite는 cross-project model/runtime monitoring에 가깝습니다.
+Project-local ledgers are closer to project boundary and evidence. App-level SQLite is closer to cross-project model/runtime monitoring.
 
-## 필수 Metric
+## Required Metrics
 
 ### Model Run
 
@@ -129,7 +129,7 @@ Project-local ledger는 project boundary와 evidence에 가깝고, app-level SQL
 - invalid action count
 - invalid diff count
 - tool failure count
-- command exit code class
+- command exit-code class
 - Korean guard pass/fail
 - stop gate pass/fail
 - missing evidence count
@@ -140,12 +140,12 @@ Project-local ledger는 project boundary와 evidence에 가깝고, app-level SQL
 - denied action count
 - destructive command blocked count
 - credential redaction count
-- project boundary violation count
+- project-boundary violation count
 - network download approval count
 
 ## Schema Direction
 
-초기 SQLite table 후보:
+Initial SQLite table candidates:
 
 ```text
 schema_migrations
@@ -162,17 +162,17 @@ evidence_records
 benchmark_runs
 ```
 
-원칙:
+Principles:
 
-- prompt/source 원문은 기본 저장하지 않는다.
-- source path는 project-relative path와 hash 중심으로 저장한다.
-- command output은 redacted summary와 artifact pointer를 우선 저장한다.
-- raw log 보관은 opt-in 또는 짧은 retention으로 제한한다.
-- schema migration은 versioned, forward-only로 둔다.
+- Do not store raw prompts or raw source by default.
+- Store source paths as project-relative paths plus hashes.
+- Prefer redacted summaries and artifact pointers for command output.
+- Keep raw logs opt-in or short-retention.
+- Schema migrations are versioned and forward-only.
 
 ## CLI/TUI Surface
 
-초기 command 후보:
+Initial commands:
 
 ```sh
 rpotato monitor status
@@ -183,48 +183,48 @@ rpotato monitor export --format csv
 rpotato monitor prune --before 30d --dry-run
 ```
 
-TUI는 다음 view를 가져야 합니다.
+TUI views:
 
 - model/token usage summary
-- live session latency and token stream stats
+- live session latency and token-stream stats
 - backend health
-- guard/stop gate results
+- guard/stop-gate results
 - subagent/team metric summary
 - recent failures and validation gaps
 
-HTML은 MVP primary surface가 아닙니다. 이후 추가한다면 SQLite/export data를 읽는 local-only report 또는 dashboard로 둡니다. HTML이 별도 monitoring source of truth를 만들면 안 됩니다.
+HTML is not the MVP primary surface. If added later, it should be a local-only report or dashboard reading SQLite/export data. HTML must not become a separate monitoring source of truth.
 
 ## Retention
 
-Retention은 privacy와 debugging value를 같이 봅니다.
+Retention balances privacy and debugging value.
 
-초기 원칙:
+Initial principles:
 
-- aggregate metric은 장기 보관 가능
-- raw command output과 backend log는 짧은 retention
-- credential-like 값은 저장 전 redaction
-- export 전 민감 정보 scan
-- `rpotato monitor prune`은 dry-run을 지원
+- aggregate metrics may be kept long term
+- raw command output and backend logs use short retention
+- credential-like values are redacted before persistence
+- exports scan for sensitive information before writing
+- `rpotato monitor prune` supports dry-run
 
 ## Compaction And Resume Policy
 
-Compacted summary는 source of truth가 아닙니다.
+Compacted summaries are not source of truth.
 
-- current-state는 `compaction_boundary`와 `compacted_summary_path` pointer만 보존한다.
-- 원본 판단 근거는 runtime ledger, project session ledger, evidence artifact pointer를 다시 읽어 확인한다.
-- compacted summary는 resume bundle의 탐색 힌트로만 사용하고, 파일/명령/모델 claim을 확정하는 근거로 쓰지 않는다.
-- compacted summary artifact도 `evidence validate`와 같은 project boundary 검증을 통과해야 한다.
-- active workflow resume은 current-state pointer를 감지하고 ledger event를 남긴 뒤, 후속 agent loop phase가 실제 실행을 맡는다.
+- Current state stores only `compaction_boundary` and `compacted_summary_path` pointers.
+- Original decision evidence is rechecked from runtime ledger, project session ledger, and evidence artifact pointers.
+- Compacted summary is only a resume-bundle navigation hint and is not used to confirm file, command, or model claims.
+- Compacted summary artifacts must pass the same project-boundary validation as `evidence validate`.
+- Active workflow resume detects current-state pointers, records ledger events, and leaves actual execution to the later agent-loop phase.
 
 ## Validation
 
-필수 test:
+Required tests:
 
 - SQLite schema migration
-- event ledger append 후 SQLite projection
+- SQLite projection after event ledger append
 - token usage aggregation
-- model별 metric query
-- prompt/source 원문 미저장 기본값
+- per-model metric query
+- raw prompt/source not stored by default
 - redaction before persistence
 - corrupt SQLite fallback
 - JSONL export

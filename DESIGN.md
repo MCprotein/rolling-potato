@@ -1,6 +1,6 @@
 # Design
 
-## Source of truth
+## Source Of Truth
 
 - Status: Draft
 - Last refreshed: 2026-06-29
@@ -18,90 +18,90 @@
 
 ## Brand
 
-- Personality: 작고 빠르며 실용적인 로컬 코딩 에이전트 runtime
-- Trust signals: local-first, explicit approval, source-backed model claims, visible evidence, Korean final reporting
+- Personality: small, fast, pragmatic local coding-agent runtime
+- Trust signals: local-first execution, explicit approval, source-backed model claims, visible evidence, Korean final reporting
 - Avoid:
-  - SaaS dashboard처럼 과하게 장식적인 화면
-  - 모델을 마법처럼 보이게 하는 표현
-  - TUI에서 카드가 중첩된 복잡한 레이아웃
-  - SSH terminal에서 깨지는 색상 의존 UI
+  - overly decorative SaaS-dashboard visuals
+  - language that makes the model seem magical
+  - nested-card-heavy TUI layouts
+  - color-dependent UI that breaks in SSH terminals
 
-## Product goals
+## Product Goals
 
 - Goals:
-  - Claude Code/Codex 대신 쓸 수 있는 local agent runtime 경험을 제공한다.
-  - 저사양 노트북과 Linux server/SSH 환경에서도 session 상태와 monitoring을 확인할 수 있게 한다.
-  - 모델별 token, latency, memory, guard, tool, stop-gate metric을 빠르게 스캔하게 한다.
-  - 사용자가 raw log를 뒤지지 않고 현재 병목과 실패 원인을 판단하게 한다.
+  - Provide a local agent-runtime experience that can replace Claude Code/Codex for practical workflows.
+  - Let users inspect session state and monitoring even on low-end laptops, Linux servers, and SSH sessions.
+  - Make token, latency, memory, guard, tool, and stop-gate metrics scannable by model.
+  - Let users understand current bottlenecks and failure causes without digging through raw logs.
 - Non-goals:
-  - MVP에서 GUI desktop app 제공
-  - MVP에서 remote web dashboard를 기본 제공
-  - monitoring을 외부 telemetry로 전송
-  - raw prompt/source code 원문을 monitoring DB에 기본 저장
+  - GUI desktop app in MVP
+  - remote web dashboard by default in MVP
+  - external telemetry for monitoring
+  - raw prompt/source text stored in monitoring DB by default
 - Success signals:
-  - 사용자가 SSH terminal에서 현재 모델, token 사용량, latency, 실패 gate를 5초 안에 파악한다.
-  - 긴 agent run 중 pending approval, active tool, subagent/team status, model metric이 한 화면에서 길을 잃지 않게 보인다.
-  - benchmark 결과와 실제 run metric을 같은 vocabulary로 이해할 수 있다.
+  - In an SSH terminal, a user can identify current model, token usage, latency, and failing gate within five seconds.
+  - During a long agent run, pending approvals, active tool, subagent/team status, and model metrics remain visible in one coherent flow.
+  - Benchmark results and real-run metrics use the same vocabulary.
 
-## Personas and jobs
+## Personas And Jobs
 
 - Primary personas:
-  - 한국어 사용자
-  - Claude Code/Codex 비용이 부담스러운 개발자
-  - 16 GB RAM 수준의 노트북 사용자
-  - Linux server나 SSH session에서 local model runtime을 돌리는 사용자
-  - 로컬 LLM tooling에 익숙하지 않지만 coding agent 도움을 원하는 사용자
+  - Korean-speaking users
+  - developers who find Claude Code/Codex subscription costs burdensome
+  - users with 16 GB RAM class laptops
+  - users running local model runtime on Linux servers or SSH sessions
+  - users who are not comfortable with local LLM tooling but want coding-agent help
 - User jobs:
-  - agent session 진행 상태 확인
-  - 모델별 token/latency/resource 사용량 비교
-  - 현재 backend/model health 확인
-  - 실패한 tool/guard/stop gate 원인 파악
-  - 승인 대기 action을 안전하게 처리
-  - benchmark와 실제 사용 결과 비교
+  - inspect agent-session progress
+  - compare token/latency/resource usage by model
+  - inspect backend/model health
+  - understand failed tool/guard/stop-gate causes
+  - safely resolve pending approvals
+  - compare benchmark and real-use results
 - Key contexts of use:
-  - 좁은 terminal pane
-  - SSH 접속 Linux server
+  - narrow terminal pane
+  - SSH Linux server
   - macOS/Windows local terminal
-  - long-running coding agent session
-  - 모델 benchmark 또는 artifact audit 중
+  - long-running coding-agent session
+  - model benchmark or artifact audit
 
-## Information architecture
+## Information Architecture
 
 - Primary navigation:
   - TUI top-level tabs: Session, Monitor, Agents, Evidence, Logs, Settings
-  - Keyboard-first navigation with single-key tab switching
-  - Command palette for less frequent actions
+  - keyboard-first navigation with single-key tab switching
+  - command palette for less frequent actions
 - Core routes/screens:
   - CLI: `rpotato monitor status`, `rpotato monitor models`, `rpotato monitor session <id>`
   - TUI: monitor overview, model detail, session detail, failures, export/prune
-  - Later optional: local HTML report generated from SQLite/export data
+  - later optional: local HTML report generated from SQLite/export data
 - Content hierarchy:
-  1. Current run health: model, backend, active workflow, approval state
-  2. Token and latency summary
-  3. Failure/gate status
-  4. Subagent/team breakdown
-  5. Detail tables and logs
+  1. current run health: model, backend, active workflow, approval state
+  2. token and latency summary
+  3. failure/gate status
+  4. subagent/team breakdown
+  5. detail tables and logs
 
-## Design principles
+## Design Principles
 
 - SSH-first: every critical monitoring function must work in a plain terminal.
 - Dense but calm: show operational data without dashboard decoration.
-- Progressive disclosure: overview first, drill down on model/session/tool only when requested.
+- Progressive disclosure: overview first, then drill down on model/session/tool when requested.
 - Evidence over confidence theater: completion and health claims cite metric/evidence state.
 - Policy visibility: approval, privacy, redaction, and stop-gate status must be visible.
 - Tradeoffs:
-  - TUI cannot compete with HTML for charts, so use compact tables, sparklines, sorted lists, and drill-down panels.
-  - HTML can be better for offline reports, but should not become the only monitoring surface.
+  - TUI cannot compete with HTML charts, so it should use compact tables, sparklines, sorted lists, and drill-down panels.
+  - HTML can be better for offline reports, but it must not become the only monitoring surface.
 
-## Visual language
+## Visual Language
 
 - Color:
   - Use restrained terminal colors with semantic meaning only.
-  - Green: passing/healthy, yellow: degraded/waiting, red: blocked/failed, blue/cyan: selected/focus.
+  - Green: passing/healthy; yellow: degraded/waiting; red: blocked/failed; blue/cyan: selected/focus.
   - Do not rely on color alone; include status text or symbols.
 - Typography:
   - Terminal-native monospace.
-  - Short Korean labels by default.
+  - Short Korean labels by default in user-facing TUI.
   - Avoid long English headings in user-facing TUI.
 - Spacing/layout rhythm:
   - Dense rows, stable columns, no layout shift when values update.
@@ -120,18 +120,18 @@
 
 - Existing components to reuse:
   - CLI command output style from current scaffold
-  - Runtime status vocabulary from `docs/glossary.md`
-  - Observability metric groups from `docs/observability.md`
+  - runtime status vocabulary from `docs/glossary.md`
+  - observability metric groups from `docs/observability.md`
 - New/changed components:
-  - Metric summary strip
-  - Model comparison table
-  - Session timeline
-  - Token budget meter
-  - Latency sparkline
-  - Gate/failure list
-  - Approval queue
-  - Log/evidence detail panel
-  - Export/prune dialog
+  - metric summary strip
+  - model comparison table
+  - session timeline
+  - token budget meter
+  - latency sparkline
+  - gate/failure list
+  - approval queue
+  - log/evidence detail panel
+  - export/prune dialog
 - Variants and states:
   - healthy
   - degraded
@@ -161,7 +161,7 @@
   - Refresh interval should be configurable.
   - Do not flash on failures.
 
-## Responsive behavior
+## Responsive Behavior
 
 - Supported breakpoints/devices:
   - 80x24 minimum terminal target
@@ -175,7 +175,7 @@
   - No hover dependency.
   - Mouse support can be optional later, never required.
 
-## Interaction states
+## Interaction States
 
 - Loading:
   - Show data source, last update time, and whether SQLite projection or ledger replay is being read.
@@ -190,13 +190,13 @@
 - Offline/slow network:
   - Monitoring must work offline from local SQLite/ledger.
 
-## Content voice
+## Content Voice
 
-- Tone: 짧고 실무적인 한국어
+- Tone: short, practical Korean for user-facing runtime/TUI copy
 - Terminology:
   - `model run`
-  - `token 사용량`
-  - `context 사용량`
+  - `token usage`
+  - `context usage`
   - `backend health`
   - `stop gate`
   - `evidence`
@@ -206,20 +206,20 @@
   - Privacy-sensitive panels should explicitly mark redacted data.
   - Do not use marketing copy inside monitoring screens.
 
-## Implementation constraints
+## Implementation Constraints
 
 - Framework/styling system:
   - Rust TUI framework is not selected yet.
   - TUI must consume runtime state through runtime core contracts, not direct DB ownership.
 - Design-token constraints:
   - Semantic color names only: healthy, warning, failed, selected, muted.
-  - Fixed width columns need truncation rules.
+  - Fixed-width columns need truncation rules.
 - Performance constraints:
   - TUI must stay responsive while monitoring long-running sessions.
   - SQLite reads should be bounded and paginated.
   - Live updates should not block approvals.
 - Compatibility constraints:
-  - SSH/Linux server use is a first-class context.
+  - SSH/Linux-server use is a first-class context.
   - No browser requirement for core monitoring.
   - Optional HTML should be generated or served locally from exported data, not required for baseline operation.
 - Test/screenshot expectations:
@@ -262,7 +262,7 @@ Initial stance:
 - HTML is a later optional report/dashboard surface.
 - HTML must consume the same SQLite/export data and must not create a separate monitoring truth source.
 
-## Open questions
+## Open Questions
 
 - [ ] Which Rust TUI framework should own the terminal layout?
 - [ ] Which SQLite crate should be used?
