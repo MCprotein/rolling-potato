@@ -16,9 +16,19 @@
 - command policy 준수
 - runtime latency와 memory
 
+benchmark harness는 특권 shortcut이 아니라 하나의 surface입니다. 일반 `rpotato` 실행과 같은 runtime policy, tool permission gate, context rule, ontology store, stop gate를 사용해야 합니다.
+
 ## 소형 모델 온톨로지 표현 Benchmark
 
 온톨로지 표현 방식은 목표 모델군인 2B-4B에서 직접 검증해야 합니다. 이 benchmark는 같은 canonical runtime store에서 만들어낸 prompt-facing ontology view를 비교합니다. 서로 다른 source fact를 비교하는 것이 아닙니다.
+
+view 유효성 계약:
+
+- 모든 후보 view는 같은 canonical store에서 생성한다.
+- 모든 후보 view는 같은 source fact, claim status, invariant, context budget을 사용한다.
+- 모든 후보 view는 source reference와 weak/superseded state를 보존한다.
+- provenance, claim state, invariant metadata가 손실되는 view는 invalid로 처리한다.
+- format별로 fact를 사람이 따로 작성하지 않는다. 그러면 representation이 아니라 curation을 비교하게 된다.
 
 후보 view:
 
@@ -35,6 +45,9 @@ task 유형:
 - invariant check: ontology rule을 위반하는 변경 거부
 - source promotion: pointer만 보고 행동하지 않고 원본 파일 읽기
 - stale claim handling: superseded 또는 low-confidence claim을 사실처럼 쓰지 않기
+- abstention/fail-closed 동작: evidence가 부족하면 추측하지 않고 중단
+- session resume: resume 또는 compaction 뒤 stale claim을 피하고 필요하면 source를 다시 읽기
+- category mistake 거부: snippet, export, public benchmark claim을 authoritative source fact처럼 취급하지 않기
 - patch planning: context를 과하게 읽지 않고 올바른 작은 수정 계획 세우기
 
 metric:
@@ -44,6 +57,11 @@ metric:
 - invariant 위반
 - hallucinated relationship
 - superseded/weak claim 오용
+- abstention과 escalation 정확도
+- resume 뒤 source reread 여부
+- tool-call parse success, wrong-tool rate, required-tool omission rate
+- unsafe action count
+- failure category
 - ontology token과 dropped context token
 - latency, memory, regeneration count
 
@@ -68,6 +86,22 @@ benchmarks/
 
 fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 모드만 측정합니다.
 
+각 fixture는 다음을 선언해야 합니다.
+
+- `fixture_id`
+- `runtime_capability_under_test`
+- `model_vs_runtime_responsibility`
+- 필요한 경우 expected skill, mode, route
+- expected policy decision: `allow`, `ask`, `deny`
+- 소형 모델이 계속 진행하면 안 되는 경우 expected escalation target
+- required tools, source reads, evidence records
+- abstention이 필요한지 여부
+- 테스트할 ontology view
+- context budget
+- model artifact SHA-256, quantization, backend version, device, 해당하는 경우 GPU layer 설정, context length, sampling option, seed
+- run이 통과하지 못할 때의 expected failure category
+- regression case인 경우 minimum score와 promotion reason
+
 ## 공통 평가 항목
 
 각 task는 0점에서 3점으로 평가합니다.
@@ -83,6 +117,43 @@ fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 
 - 한국어 최종 응답 실패율 5% 이하
 - invalid diff rate 10% 이하
 - destructive action policy 위반 0건
+
+제품 benchmark 평가 차원:
+
+- correctness
+- source-read compliance
+- safety and policy compliance
+- tool-use reliability
+- evidence가 부족할 때 abstention 또는 escalation
+- 최종 한국어 응답 품질
+- runtime budget fit
+
+## 실패 분류
+
+실패한 run은 primary failure source를 분류해야 합니다.
+
+- model output failure
+- prompt 또는 context-packing failure
+- ontology view 또는 source-pointer failure
+- runtime parser 또는 policy failure
+- tool execution 또는 command interpretation failure
+- backend 또는 model runtime failure
+- fixture 또는 expected-output issue
+
+이 분류는 benchmark report가 runtime, fixture, backend defect를 모델 문제로 잘못 돌리는 것을 막습니다.
+
+## Regression Fixture 승격
+
+실제 run이 unsafe action, incorrect patch, source-read omission, stale-claim use, policy violation, score regression을 만들었고 runtime이 앞으로 막아야 하는 경우 regression fixture로 승격합니다.
+
+승격 record는 다음을 포함합니다.
+
+- source run id와 session id
+- failure mode
+- expected evidence
+- minimum score
+- promotion reason
+- owner 또는 responsible subsystem
 
 ## 런타임 metric
 
@@ -100,6 +171,11 @@ fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 
 - tool summary tokens
 - regeneration count
 - guard rejection count
+- stop-gate failure count
+- tool failure count
+- abstention count
+- unsafe action count
+- model/backend/view별 p95 latency
 
 ## 후보 비교
 
@@ -164,11 +240,22 @@ benchmark 결과를 공개할 때는 다음을 함께 기록합니다.
 
 결과만 공개하고 artifact 정보를 숨기면 재현성이 없으므로 허용하지 않습니다.
 
+benchmark result row는 다음 claim state만 사용할 수 있습니다.
+
+- `measured-locally`
+- `source-listed-unreproduced`
+- `not-comparable`
+- `rejected`
+- `superseded`
+
+local run evidence와 비교 가능한 조건 없이 특정 2B-4B 우승 모델, 모델 순위, public leaderboard claim을 확정하는 것은 허용하지 않습니다.
+
 ## observability 연동
 
 Benchmark run은 일반 runtime monitoring과 같은 metric schema를 사용해야 합니다.
 
 - `benchmark_runs`는 model/backend/session metric과 연결한다.
+- report는 `run_id`, `session_id`, `model_run_id`, artifact hash, backend option, guard/tool/stop metric, failure category를 포함한다.
 - published score와 local score 비교에는 artifact hash와 runtime option을 함께 저장한다.
 - benchmark 중 raw prompt/source 원문을 장기 저장하지 않는다.
 - benchmark report는 SQLite projection에서 생성하되, 재현성에 필요한 JSONL export를 함께 남길 수 있어야 한다.

@@ -282,9 +282,12 @@ Goal: make the runtime assemble instructions, ontology, context, and output shap
 - [ ] Project ontology root layout
 - [ ] Runtime ontology canonical store decision: typed graph records, not YAML-as-source-of-truth
 - [ ] Ontology graph schema: entities, relationships, flows, invariants, ownership, decisions, open_questions, source_refs
+- [ ] Ontology claim-state contract: confirmed, proposed, weak, superseded, rejected, open_question
+- [ ] Invariant schema and enforcement metadata: scope, severity, must/must_not, enforcement mode, exception policy
 - [ ] Ontology persistence schema and indexes for graph traversal, source lookup, status/confidence filtering, and TUI/report queries
 - [ ] Ontology ledger events for create/update/supersede/reject/confirm and replay into query projection
 - [ ] Ontology import/export serializers for JSON/YAML fixtures and optional future JSON-LD/RDF views
+- [ ] Ontology serialization round-trip gate for stable IDs, source refs, claim state, supersedes, drift/conflict, and invariant metadata
 - [ ] Small-model ontology view candidates: compact graph summary, JSON slice, triple list, optional RDF/OWL/JSON-LD export, no-ontology baseline
 - [ ] Layer A deterministic repo facts schema
 - [ ] Layer A fact generators: files, package/build/test signals, symbols, entrypoints
@@ -349,8 +352,14 @@ Goal: require evidence for completion instead of accepting the model's claim tha
 - [ ] Stale workflow terminal handling
 - [ ] Destructive command policy tests
 - [ ] Fixture benchmark suite
+- [ ] Benchmark fixture metadata contract: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence
+- [ ] Benchmark failure taxonomy: model, prompt/context, ontology/source-pointer, runtime policy/parser, tool/command, backend/runtime, fixture issue
+- [ ] Regression fixture promotion policy from real unsafe actions, source-read omissions, stale-claim use, policy violations, and score regressions
 - [ ] Static-only vs Layer A vs Layer B ontology benchmark
 - [ ] 2B-4B ontology representation benchmark: view format vs task score, hallucination, source-read compliance, latency, memory, token budget
+- [ ] Small-model abstention/escalation benchmark: evidence gaps, invariant risk, stale claims, context exhaustion, repeated invalid output
+- [ ] Resume/compaction stale-claim benchmark with required source reread
+- [ ] Benchmark result claim states: measured-locally, source-listed-unreproduced, not-comparable, rejected, superseded
 - [ ] Per-model product benchmark suite
 - [ ] Per-model public benchmark parity suite
 - [ ] Public benchmark comparison report: published vs local, condition differences, unreproducible reasons

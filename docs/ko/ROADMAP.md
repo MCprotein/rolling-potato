@@ -282,9 +282,12 @@
 - [ ] project ontology root layout
 - [ ] runtime ontology canonical store 결정: YAML을 source of truth로 두지 않고 typed graph record로 저장
 - [ ] ontology graph schema: entities, relationships, flows, invariants, ownership, decisions, open_questions, source_refs
+- [ ] ontology claim 상태 계약: confirmed, proposed, weak, superseded, rejected, open_question
+- [ ] invariant schema와 enforcement metadata: scope, severity, must/must_not, enforcement mode, exception policy
 - [ ] graph traversal, source lookup, status/confidence filtering, TUI/report query를 위한 ontology persistence schema와 index
 - [ ] create/update/supersede/reject/confirm을 기록하고 query projection으로 replay하는 ontology ledger event
 - [ ] JSON/YAML fixture와 선택적 향후 JSON-LD/RDF view를 위한 ontology import/export serializer
+- [ ] stable ID, source ref, claim state, supersedes, drift/conflict, invariant metadata를 보존하는 ontology 직렬화 round-trip gate
 - [ ] 소형 모델 ontology view 후보: compact graph summary, JSON slice, triple list, 선택적 RDF/OWL/JSON-LD export, ontology 없는 baseline
 - [ ] Layer A deterministic repo facts schema
 - [ ] Layer A fact generator: files, package/build/test signals, symbols, entrypoints
@@ -349,8 +352,14 @@
 - [ ] stale workflow terminal 처리
 - [ ] destructive command policy tests
 - [ ] fixture benchmark suite
+- [ ] benchmark fixture metadata 계약: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence
+- [ ] benchmark 실패 분류: model, prompt/context, ontology/source-pointer, runtime policy/parser, tool/command, backend/runtime, fixture issue
+- [ ] 실제 unsafe action, source-read omission, stale-claim use, policy violation, score regression에서 regression fixture로 승격하는 policy
 - [ ] static-only vs Layer A vs Layer B ontology benchmark
 - [ ] 2B-4B ontology representation benchmark: view format별 task score, hallucination, source-read compliance, latency, memory, token budget
+- [ ] small-model abstention/escalation benchmark: evidence gap, invariant risk, stale claim, context exhaustion, repeated invalid output
+- [ ] required source reread가 포함된 resume/compaction stale-claim benchmark
+- [ ] benchmark result claim state: measured-locally, source-listed-unreproduced, not-comparable, rejected, superseded
 - [ ] 모델별 product benchmark suite
 - [ ] 모델별 공개 benchmark parity suite
 - [ ] 공개 benchmark 점수 비교 report: published vs local, 조건 차이, 재현 실패 사유

@@ -40,6 +40,7 @@ Each candidate view is evaluated on whether small models can:
 - obey invariants and ownership boundaries
 - promote source pointers to original-file reads before action
 - avoid treating weak or superseded claims as confirmed facts
+- abstain or escalate when evidence, authority, or context is insufficient
 - preserve final Korean response quality
 - stay within token, latency, and memory budgets
 
@@ -131,6 +132,62 @@ Runtime records should also preserve:
 - provenance: generator, model/backend, command, session, and ledger event when applicable
 - scope path for monorepos or nested project roots
 - conflict and drift state when a newer source observation contradicts a prior claim
+
+## Claim State Contract
+
+Semantic claim state must be explicit because small models should not infer
+whether a claim is safe to use.
+
+| State | Prompt rendering | Stop-gate behavior |
+| --- | --- | --- |
+| `confirmed` | Can guide planning when source refs are present | Can support completion if source evidence still matches |
+| `proposed` | Hint only | Requires source read or user/runtime confirmation before action |
+| `weak` | Hint with warning | Cannot justify action or completion by itself |
+| `superseded` | Negative/history evidence only | Blocks use as current fact |
+| `rejected` | Negative evidence only | Blocks use as current fact |
+| `open_question` | Unresolved issue | Blocks completion when relevant to the requested task |
+
+The prompt compiler must not erase these distinctions when it compresses
+ontology entries for a 2B-4B model.
+
+## Invariant Contract
+
+Invariants are normative runtime constraints, not ordinary descriptive facts.
+They describe what an action must or must not violate.
+
+Invariant records should include:
+
+- `scope`
+- `severity`
+- `must` or `must_not`
+- `sourceRefs`
+- `status`
+- `enforcementMode`
+- `exceptionPolicy`
+
+The runtime, not the model, decides enforcement. Model output can propose an
+action, but the runtime core checks the action candidate against invariant
+records before tool execution, patch application, or stop-gate success.
+
+## Serialization Round-Trip Gate
+
+JSON, YAML, RDF, OWL, JSON-LD, Turtle, and SHACL exports are valid only when
+they preserve the ontology contract needed by the runtime.
+
+Export/import paths must preserve:
+
+- stable IDs
+- source references
+- status and confidence
+- `supersedes`
+- conflict and drift state
+- invariant metadata
+- ledger linkage when available
+
+Imports from any serialization format must not upgrade imported claims to
+`confirmed` without source evidence. A view or serializer that loses provenance,
+claim state, or invariant metadata is not eligible for small-model benchmark
+comparison until the loss is explicit and accepted.
 
 ## `anamnesis` Concepts To Absorb
 

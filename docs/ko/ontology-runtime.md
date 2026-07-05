@@ -40,6 +40,7 @@ Prompt에 들어가는 ontology view를 고정하기 전에 같은 canonical sto
 - invariant와 ownership boundary 준수
 - action 전에 source pointer를 원본 파일 read로 승격
 - weak claim이나 superseded claim을 confirmed fact처럼 취급하지 않음
+- evidence, authority, context가 부족할 때 abstain 또는 escalate
 - 최종 한국어 응답 품질 유지
 - token, latency, memory budget 준수
 
@@ -131,6 +132,53 @@ Runtime record는 다음도 보존해야 합니다.
 - provenance: generator, model/backend, command, session, 관련 ledger event
 - monorepo나 nested project root를 위한 scope path
 - 새 source observation이 기존 claim과 충돌할 때의 conflict/drift state
+
+## Claim 상태 계약
+
+semantic claim state는 명시적이어야 합니다. 소형 모델이 claim을 안전하게 써도 되는지 추론하게 만들면 안 됩니다.
+
+| State | Prompt rendering | Stop-gate behavior |
+| --- | --- | --- |
+| `confirmed` | source ref가 있을 때 planning에 사용할 수 있음 | source evidence가 여전히 맞으면 completion 근거가 될 수 있음 |
+| `proposed` | hint로만 사용 | action 전 source read 또는 user/runtime confirmation 필요 |
+| `weak` | warning이 붙은 hint | 단독으로 action이나 completion을 정당화할 수 없음 |
+| `superseded` | negative/history evidence로만 사용 | current fact 사용 차단 |
+| `rejected` | negative evidence로만 사용 | current fact 사용 차단 |
+| `open_question` | unresolved issue | 요청 task와 관련되면 completion 차단 |
+
+Prompt compiler는 2B-4B 모델을 위해 ontology entry를 압축할 때도 이 구분을 지우면 안 됩니다.
+
+## Invariant 계약
+
+Invariant는 일반 descriptive fact가 아니라 normative runtime constraint입니다. 어떤 action이 무엇을 위반하면 안 되는지 설명합니다.
+
+Invariant record는 다음을 포함해야 합니다.
+
+- `scope`
+- `severity`
+- `must` 또는 `must_not`
+- `sourceRefs`
+- `status`
+- `enforcementMode`
+- `exceptionPolicy`
+
+enforcement는 모델이 아니라 runtime이 결정합니다. Model output은 action을 제안할 수 있지만, runtime core가 tool execution, patch application, stop-gate success 전에 action candidate를 invariant record와 대조합니다.
+
+## 직렬화 Round-Trip Gate
+
+JSON, YAML, RDF, OWL, JSON-LD, Turtle, SHACL export는 runtime에 필요한 ontology contract를 보존할 때만 유효합니다.
+
+Export/import path는 다음을 보존해야 합니다.
+
+- stable ID
+- source reference
+- status와 confidence
+- `supersedes`
+- conflict와 drift state
+- invariant metadata
+- 가능한 경우 ledger linkage
+
+어떤 serialization format에서 import하더라도 source evidence 없이 imported claim을 `confirmed`로 승격하면 안 됩니다. provenance, claim state, invariant metadata를 잃는 view나 serializer는 그 손실이 명시되고 허용되기 전까지 소형 모델 benchmark 비교 대상이 될 수 없습니다.
 
 ## `anamnesis`에서 흡수할 개념
 
