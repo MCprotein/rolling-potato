@@ -1,41 +1,41 @@
 # Release
 
-이 문서는 `rolling-potato` 릴리즈 정책 초안입니다.
+This document is the draft release policy for `rolling-potato`.
 
-## 릴리즈 원칙
+## Release Principles
 
-- GitHub Releases를 기본 배포 채널로 사용합니다.
-- 모델 가중치는 `rpotato` release binary에 포함하지 않습니다.
-- 외부 plugin package는 `rpotato` release binary에 포함하지 않습니다.
-- 외부 plugin marketplace, registry, catalog, mirror는 배포 채널로 사용하지 않습니다.
-- 각 binary는 checksum과 함께 배포합니다.
-- 릴리즈 노트에는 지원 OS, backend version, known issues를 포함합니다.
+- Use GitHub Releases as the default distribution channel.
+- Do not include model weights in the `rpotato` release binary.
+- Do not include external plugin packages in the `rpotato` release binary.
+- Do not use external plugin marketplaces, registries, catalogs, or mirrors as distribution channels.
+- Distribute each binary with a checksum.
+- Release notes include supported OS, backend version, and known issues.
 
-## 버전 정책
+## Version Policy
 
-MVP 전에는 `0.x.y`를 사용합니다.
+Before MVP, use `0.x.y`.
 
-- `0.x.0`: 기능 단위 release
-- `0.x.y`: bugfix 또는 문서/packaging 수정
+- `0.x.0`: feature-level release
+- `0.x.y`: bugfix, documentation, or packaging fix
 
-안정화 후 SemVer를 따릅니다.
+After stabilization, follow SemVer.
 
-## artifact 목표
+## Artifact Targets
 
-초기 목표:
+Initial targets:
 
 - macOS Apple Silicon
 - macOS Intel
 - Windows x86_64
 
-추후 목표:
+Later targets:
 
 - Linux x86_64
 - Linux ARM64
 
-## 릴리즈 체크리스트
+## Release Checklist
 
-릴리즈 전 확인:
+Before release:
 
 1. `cargo fmt --check`
 2. `cargo test`
@@ -44,15 +44,15 @@ MVP 전에는 `0.x.y`를 사용합니다.
 5. model manifest checksum verification
 6. Korean output guard tests
 7. destructive command policy tests
-8. plugin adapter가 포함된 release라면 local import only와 remote source rejection smoke test
-9. release notes 작성
-10. binary checksum 생성
+8. if plugin adapter is included, local-import-only and remote-source rejection smoke tests
+9. release notes
+10. binary checksums
 
-## 모델 manifest 배포
+## Model Manifest Distribution
 
-모델 manifest는 repo 또는 release asset으로 배포할 수 있습니다.
+Model manifest can be distributed through the repo or a release asset.
 
-manifest에는 최소한 다음 정보가 필요합니다.
+The manifest needs at least:
 
 - model id
 - upstream model
@@ -63,22 +63,22 @@ manifest에는 최소한 다음 정보가 필요합니다.
 - recommended RAM
 - context length
 
-모델 가중치를 직접 재배포할지 여부는 모델별 license와 artifact provider 정책을 확인한 뒤 결정합니다.
+Whether model weights are redistributed directly is decided only after model-specific license and artifact provider policy review.
 
-## Plugin 배포 경계
+## Plugin Distribution Boundary
 
-`rpotato` release는 plugin adapter만 배포합니다. 외부 plugin package는 배포하지 않습니다.
+`rpotato` releases distribute only plugin adapters. They do not distribute external plugin packages.
 
-허용:
+Allowed:
 
-- local plugin directory import 기능
-- Codex/Claude Code plugin manifest parser
-- inspect/validate/enable/disable/remove command
+- local plugin directory import
+- Codex/Claude Code plugin manifest parsers
+- inspect/validate/enable/disable/remove commands
 
-비허용:
+Not allowed:
 
-- plugin marketplace 연동
-- plugin registry/catalog 연동
+- plugin marketplace integration
+- plugin registry/catalog integration
 - third-party plugin package mirror
 - remote URL plugin install
 - official Codex/Claude Code compatibility claim

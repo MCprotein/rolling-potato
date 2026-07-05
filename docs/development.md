@@ -1,12 +1,12 @@
 # Development
 
-이 문서는 `rolling-potato` 개발 환경과 검증 흐름을 정의합니다.
+This document defines the `rolling-potato` development environment and verification flow.
 
-## 현재 상태
+## Current State
 
-현재 저장소는 제품 정의와 초기 Rust runtime/CLI scaffold 단계입니다.
+The repository is currently in product-definition and early Rust runtime/CLI scaffold stage.
 
-구현된 첫 경계:
+Implemented first boundaries:
 
 - `rpotato doctor`
 - `rpotato backend doctor`
@@ -60,42 +60,42 @@
 - `rpotato uninstall --keep-cache`
 - `rpotato uninstall --purge-cache`
 
-`rpotato init`은 state layout, current-state, append-only ledger, runtime evidence JSONL, SQLite observability projection을 실제로 초기화합니다.
+`rpotato init` initializes state layout, current state, append-only ledger, runtime evidence JSONL, and SQLite observability projection.
 
-모델/backend 다운로드는 아직 활성화하지 않았습니다. 모델 manifest schema, 후보 상태, source-backed license/source claim, 공개 benchmark source ledger, local registry surface, 다운로드 전 표시 plan, 로컬 파일 SHA-256 검증, failed/partial artifact cleanup surface는 활성화되어 있습니다. 검증된 artifact URL, provider terms, checksum, file size, backend compatibility가 없으면 runtime core가 다운로드를 차단하고 ledger event를 남깁니다.
+Model/backend downloads are not enabled yet. The model manifest schema, candidate state, source-backed license/source claims, public benchmark source ledger, local registry surface, pre-download display plan, local file SHA-256 verification, and failed/partial artifact cleanup surface are enabled. Without verified artifact URL, provider terms, checksum, file size, and backend compatibility, runtime core blocks downloads and records a ledger event.
 
-`backend doctor`는 관리형 `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, install gate를 표시합니다. Unknown binary 실행은 아직 하지 않으므로 version detection은 `not-run`입니다.
+`backend doctor` displays managed `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, and install gate. Version detection is `not-run` because unknown binaries are not executed yet.
 
-Plugin source snapshot, persistent registry, inspect, validate, enable/disable/remove는 활성화되어 있습니다. Import는 실행 권한을 부여하지 않고 permission report와 ledger event만 남깁니다.
+Plugin source snapshot, persistent registry, inspect, validate, enable/disable/remove are enabled. Import grants no execution authority; it records only permission reports and ledger events.
 
-## 기술 스택
+## Tech Stack
 
 - Language: Rust
-- CLI parser: std 기반 수동 parser
-- Runtime: CLI surface와 runtime core를 분리하는 방향
+- CLI parser: manual parser based on std
+- Runtime: separation between CLI surface and runtime core
 - Required capabilities: hooks, skills, subagents, team runtime, TUI, local plugin adapter
 - Backend: managed `llama.cpp` sidecar
 - Model format: GGUF
 - Primary OS targets: macOS, Windows
 
-## 개발 환경
+## Development Environment
 
-필수 도구:
+Required tools:
 
 - Git
 - Rust stable toolchain
 - SQLite runtime/library usable by `rusqlite`
 - platform-specific C/C++ runtime needed by `llama.cpp`
 
-권장 도구:
+Recommended tools:
 
 - `rustfmt`
 - `clippy`
 - GitHub CLI
 
-## 기본 검증 명령
+## Default Verification Commands
 
-다음 명령을 기본 검증으로 사용합니다.
+Use these as default verification:
 
 ```sh
 cargo fmt --check
@@ -103,7 +103,7 @@ cargo test
 cargo clippy --all-targets -- -D warnings
 ```
 
-CLI smoke test 예시:
+CLI smoke test examples:
 
 ```sh
 cargo run -- doctor
@@ -145,11 +145,11 @@ cargo run -- plugin list
 cargo run -- uninstall --dry-run --purge-cache
 ```
 
-최종 binary 명령은 `rpotato`입니다.
+Final binary command is `rpotato`.
 
-## 코드 구조 방향
+## Code Structure Direction
 
-현재 scaffold와 예정 module 경계:
+Current scaffold and planned module boundaries:
 
 - `cli`: command parsing and output
 - `runtime`: state, policy, ontology, agent loop orchestration
@@ -176,26 +176,26 @@ cargo run -- uninstall --dry-run --purge-cache
 - `observability`: SQLite migration/projection, token/resource metric schemas, monitoring export
 - `guard`: Korean output validation
 
-## 문서 변경 검증
+## Documentation Verification
 
-문서만 변경한 경우:
+For docs-only changes:
 
 ```sh
-rg -n "<확인할-오타-패턴>" README.md docs *.md
+rg -n "<pattern-to-check>" README.md docs *.md
 ```
 
-링크가 추가되면 파일 존재 여부를 확인합니다.
+When links are added, verify target file existence.
 
-Plugin adapter 변경 시 추가로 확인합니다.
+For plugin adapter changes, additionally verify:
 
-- local directory import만 허용되는지
-- remote URL, marketplace, registry, catalog, mirror source가 거부되는지
-- shell, `bin/`, MCP, background, remote connector, file write capability가 기본 차단되는지
-- import/enable/remove 이벤트가 ledger에 기록되는지
+- only local directory import is allowed
+- remote URL, marketplace, registry, catalog, and mirror sources are rejected
+- shell, `bin/`, MCP, background, remote connector, and file-write capabilities are blocked by default
+- import/enable/remove events are recorded in the ledger
 
-## 커밋과 푸시
+## Commit And Push
 
-작업 단위가 검증되면 Conventional Commit 형식으로 커밋합니다.
+After a work unit is verified, commit using Conventional Commits.
 
 ```text
 docs(project): add open source operating docs
@@ -203,4 +203,4 @@ feat(cli): scaffold command router
 fix(model): reject checksum mismatch
 ```
 
-이 저장소의 기본 원격은 `origin`이고 기본 branch는 `main`입니다.
+The default remote is `origin`, and the default branch is `main`.

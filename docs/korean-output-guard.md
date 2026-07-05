@@ -1,22 +1,22 @@
 # Korean Output Guard
 
-사용자에게 보이는 자연어 최종 출력은 한국어여야 합니다.
+User-facing final natural-language output must be Korean.
 
-## 목표
+## Goal
 
-작은 모델은 한국어 지시를 받아도 영어, 중국어, 일본어를 섞을 수 있습니다. 이 요구사항은 모델 선택만으로 해결하지 않고 runtime guard로 강제합니다.
+Small models may mix English, Chinese, or Japanese even when instructed in Korean. This requirement is enforced by a runtime guard instead of model choice alone.
 
-## 적용 범위
+## Scope
 
-반드시 적용:
+Mandatory:
 
 - final report
 - error message
 - safety warning
-- model install 안내
-- doctor 결과 설명
+- model install guidance
+- doctor result explanation
 
-완화 가능:
+Relaxed:
 
 - raw command output
 - code block
@@ -25,51 +25,51 @@
 - model name
 - exact upstream license name
 
-## 처리 단계
+## Processing Steps
 
-1. 응답을 Markdown block 단위로 분리한다.
-2. fenced code block은 검사에서 제외한다.
-3. inline code, path, command token은 허용 목록으로 처리한다.
-4. 자연어 문장에서 영어, 중국어, 일본어 누수를 탐지한다.
-5. 누수가 있으면 stricter Korean-only instruction으로 한 번 재생성한다.
-6. 다시 실패하면 한국어 오류 메시지로 fail closed한다.
+1. Split the response by Markdown block.
+2. Exclude fenced code blocks from checks.
+3. Treat inline code, paths, and command tokens through an allowlist.
+4. Detect English, Chinese, or Japanese leakage in natural-language sentences.
+5. If leakage is detected, regenerate once with stricter Korean-only instruction.
+6. If it still fails, fail closed with a Korean error message.
 
-## 허용 예외
+## Allowed Exceptions
 
-허용 가능한 예:
+Allowed examples:
 
 - `cargo test`
 - `README.md`
 - `Qwen3.5-4B`
-- 확인된 license identifier
+- confirmed license identifier
 - `llama.cpp`
-- 원문 error log 인용
+- quoted original error log
 
-허용하지 않는 예:
+Not allowed:
 
-- 설명문 전체가 영어로 전환됨
-- 불필요한 중국어/일본어 문장 혼입
-- "Summary", "Next steps" 같은 heading을 최종 보고에 사용하는 경우
+- whole explanation switching to English
+- unnecessary Chinese/Japanese sentences
+- final report headings such as "Summary" or "Next steps"
 
-## 실패 메시지
+## Failure Message
 
-guard 실패 시 사용자에게는 한국어로만 보고합니다.
+When the guard fails, report to the user only in Korean.
 
-예시:
+Example:
 
 ```text
 응답 언어 검증에 실패했습니다. 출력이 한국어 기준을 만족하지 않아 결과를 표시하지 않았습니다.
 ```
 
-## 테스트 요구
+## Test Requirements
 
-테스트 fixture:
+Test fixtures:
 
-- 순수 한국어 통과
-- 코드 블록 내 영어 허용
-- 파일 경로 허용
-- 영어 설명문 차단
-- 중국어 문장 차단
-- 일본어 문장 차단
-- 재생성 후 통과
-- 재생성 후 실패 시 fail closed
+- pure Korean passes
+- English inside code block allowed
+- file path allowed
+- English explanation blocked
+- Chinese sentence blocked
+- Japanese sentence blocked
+- pass after regeneration
+- fail closed after regeneration failure

@@ -1,24 +1,24 @@
 # Benchmarks
 
-이 문서는 [docs/model-eval.md](model-eval.md)를 실행 가능한 benchmark suite로 발전시키기 위한 초안입니다.
+This document is the draft for turning [model-eval.md](model-eval.md) into an executable benchmark suite.
 
-## 목표
+## Goals
 
-모델의 일반 점수가 아니라 `rolling-potato` 제품 실패 모드를 측정합니다.
+Measure `rolling-potato` product failure modes, not general model scores.
 
-측정 대상:
+Targets:
 
-- 한국어 최종 응답 안정성
-- 저장소 탐색 정확도
-- 작은 patch 생성 능력
-- diff 적용 가능성
-- 검증 로그 해석
-- command policy 준수
-- runtime latency와 memory
+- final Korean response stability
+- repository exploration accuracy
+- small patch generation ability
+- diff applicability
+- verification log interpretation
+- command policy compliance
+- runtime latency and memory
 
-## benchmark fixture 구조
+## Benchmark Fixture Structure
 
-예정 구조:
+Planned structure:
 
 ```text
 benchmarks/
@@ -33,27 +33,27 @@ benchmarks/
     node-import-error.json
 ```
 
-fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 모드만 측정합니다.
+Fixtures should be small and independent. Each fixture measures one failure mode.
 
-## 공통 평가 항목
+## Common Scoring
 
-각 task는 0점에서 3점으로 평가합니다.
+Each task is scored from 0 to 3.
 
-- 0점: 실패, 위험, 형식 붕괴
-- 1점: 일부 유효하지만 수동 복구 필요
-- 2점: 대체로 성공, 작은 검증 필요
-- 3점: 안정적으로 성공
+- 0: failed, risky, or format collapse
+- 1: partially useful but requires manual recovery
+- 2: mostly successful, needs small verification
+- 3: stable success
 
-최소 통과 기준:
+Minimum pass criteria:
 
-- 평균 2.2점 이상
-- 한국어 최종 응답 실패율 5% 이하
-- invalid diff rate 10% 이하
-- destructive action policy 위반 0건
+- average score at least 2.2
+- final Korean response failure rate at most 5%
+- invalid diff rate at most 10%
+- destructive action policy violations: 0
 
-## runtime metric
+## Runtime Metrics
 
-수집할 metric:
+Metrics to collect:
 
 - backend startup time
 - first token latency
@@ -68,57 +68,57 @@ fixture는 작고 독립적이어야 합니다. 각 fixture는 하나의 실패 
 - regeneration count
 - guard rejection count
 
-## 후보 비교
+## Candidate Comparison
 
-초기 비교:
+Initial comparison:
 
-- `Qwen3.5-4B` quantized GGUF, artifact/runtime 검증 전 미확정
-- `Gemma 4 E4B`, artifact/runtime 검증 전 미확정
-- 참고용 `Qwen3.5-9B`
+- `Qwen3.5-4B` quantized GGUF, unconfirmed before artifact/runtime verification
+- `Gemma 4 E4B`, unconfirmed before artifact/runtime verification
+- reference-only `Qwen3.5-9B`
 
-모든 후보는 같은 prompt compiler, 같은 context budget, 같은 tool policy로 평가합니다.
+All candidates are evaluated with the same prompt compiler, context budget, and tool policy.
 
-후보 모델의 license, artifact URL, checksum, backend 호환성은 [model-source-policy.md](model-source-policy.md)에 따라 확인된 뒤 benchmark 대상에 포함합니다.
+Candidate license, artifact URL, checksum, and backend compatibility are checked under [model-source-policy.md](model-source-policy.md) before inclusion in benchmarks.
 
-## benchmark lane
+## Benchmark Lanes
 
-두 종류의 benchmark를 분리합니다.
+Two benchmark types are separated.
 
-### Product benchmark
+### Product Benchmark
 
-`rolling-potato`가 실제로 줄여야 하는 실패 모드를 측정합니다.
+Measures the failure modes `rolling-potato` must reduce:
 
-- 한국어 최종 응답 안정성
-- 저장소 탐색과 온톨로지/source pointer 사용
-- 작은 patch 생성과 diff 적용 가능성
-- 검증 로그 해석
-- command policy 준수
-- runtime latency와 memory
+- final Korean response stability
+- repository exploration and ontology/source-pointer use
+- small patch generation and diff applicability
+- verification log interpretation
+- command policy compliance
+- runtime latency and memory
 
-### External benchmark parity
+### External Benchmark Parity
 
-검색이나 model card에서 보이는 공개 benchmark 점수를 그대로 믿지 않고, 조건을 맞춰 재현 가능한지 확인합니다.
+Do not trust public benchmark scores found through search or model cards as-is. Reproduce comparable items under matched conditions where possible.
 
-현재 Phase 5 구현은 후보별 공개 benchmark source URL과 `source-listed-unreproduced` 상태를 manifest에 기록합니다. 이는 제품 점수 확정이 아니라 재현성 평가 대기 상태입니다. local score, hardware/backend 조건, quantization, dataset, scoring 방식이 채워지기 전까지 공개 점수와 직접 비교하지 않습니다.
+Current Phase 5 implementation records public benchmark source URLs and `source-listed-unreproduced` status in the manifest. This is not a confirmed product score; it means reproducibility evaluation is pending. Do not compare public scores directly until local score, hardware/backend condition, quantization, dataset, and scoring method are recorded.
 
-각 benchmark 항목은 다음 정보를 가져야 합니다.
+Each benchmark item should include:
 
 - published score source URL
-- checked-at 날짜
-- benchmark harness와 version 또는 commit
-- dataset 이름, version, license
-- prompt/template과 scoring 방식
-- upstream 원본 모델인지 quantized GGUF artifact인지
-- backend, quantization, context length, sampling option
+- checked-at date
+- benchmark harness and version or commit
+- dataset name, version, and license
+- prompt/template and scoring method
+- whether the score is for upstream original model or quantized GGUF artifact
+- backend, quantization, context length, sampling options
 - local score
-- published score와 local score 차이
-- 조건이 달라 직접 비교할 수 없는 경우의 사유
+- difference between published and local score
+- reason when conditions are too different for direct comparison
 
-공개 benchmark parity는 모델 후보를 거르는 보조 근거입니다. MVP 기본 모델 결정은 product benchmark, 16 GB runtime fit, license/source/checksum 검증, 한국어 guard 결과를 함께 봅니다.
+Public benchmark parity is supporting evidence only. MVP default-model decisions also consider product benchmark, 16 GB runtime fit, license/source/checksum verification, and Korean guard results.
 
-## 공개 기준
+## Publication Criteria
 
-benchmark 결과를 공개할 때는 다음을 함께 기록합니다.
+Published benchmark results must include:
 
 - OS
 - CPU/GPU
@@ -129,13 +129,13 @@ benchmark 결과를 공개할 때는 다음을 함께 기록합니다.
 - quantization
 - prompt/runtime version
 
-결과만 공개하고 artifact 정보를 숨기면 재현성이 없으므로 허용하지 않습니다.
+Publishing only results without artifact information is not reproducible and is not allowed.
 
-## observability 연동
+## Observability Integration
 
-Benchmark run은 일반 runtime monitoring과 같은 metric schema를 사용해야 합니다.
+Benchmark runs should use the same metric schema as normal runtime monitoring.
 
-- `benchmark_runs`는 model/backend/session metric과 연결한다.
-- published score와 local score 비교에는 artifact hash와 runtime option을 함께 저장한다.
-- benchmark 중 raw prompt/source 원문을 장기 저장하지 않는다.
-- benchmark report는 SQLite projection에서 생성하되, 재현성에 필요한 JSONL export를 함께 남길 수 있어야 한다.
+- `benchmark_runs` links to model/backend/session metrics.
+- Published-vs-local score comparison stores artifact hash and runtime options.
+- Raw prompt/source text is not stored long term during benchmarks.
+- Benchmark reports are generated from SQLite projection, but JSONL export should be available for reproducibility.

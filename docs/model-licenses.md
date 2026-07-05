@@ -1,77 +1,77 @@
 # Model Licenses
 
-`rolling-potato`의 코드 라이선스와 모델 라이선스는 별개입니다.
+The `rolling-potato` code license and model licenses are separate.
 
-- 프로젝트 코드: Apache-2.0
-- 모델 가중치: 각 upstream model과 GGUF artifact provider license를 확인한 뒤 기록해야 함
+- Project code: Apache-2.0
+- Model weights: must be recorded after checking each upstream model and GGUF artifact provider license
 
-이 문서는 `Qwen`과 `Gemma` 후보만 다룹니다. `llama.cpp`는 추론 backend 이름일 뿐 모델 후보가 아니며, `llama.cpp`를 쓴다는 이유로 Meta Llama 계열 모델이나 그 라이선스를 이 프로젝트 후보에 끌어오지 않습니다.
+This document covers only `Qwen` and `Gemma` candidates. `llama.cpp` is an inference backend name, not a model candidate. Using `llama.cpp` does not bring Meta Llama-family models or their licenses into this project.
 
-## 원칙
+## Principles
 
-- 모델 license를 확인하기 전에는 기본 추천 모델로 확정하지 않습니다.
-- GGUF 변환본은 upstream model license와 artifact provider terms를 모두 확인합니다.
-- manifest에는 모델별 license를 반드시 표시합니다.
-- 재배포 가능 여부가 불명확하면 `rpotato` 배포물에 직접 bundle하지 않습니다.
-- 모델과 GGUF artifact를 프로젝트 코드처럼 소유한 것으로 표시하지 않습니다.
-- 모든 모델 관련 claim은 [model-source-policy.md](model-source-policy.md)를 따릅니다.
+- Do not confirm a default recommended model before checking model license.
+- GGUF conversions require both upstream model license and artifact provider terms.
+- The manifest must show license per model.
+- If redistribution is unclear, do not bundle the model directly into `rpotato` artifacts.
+- Do not present model or GGUF artifacts as if they are owned like project code.
+- All model claims follow [model-source-policy.md](model-source-policy.md).
 
-## 포함/재배포 판단
+## Bundling / Redistribution Decision
 
-결론: 원 라이선스 조건을 지키는 범위에서는 앱에 포함하거나 설치 흐름에 연결할 수 있지만, 모델 가중치나 변환본을 `rolling-potato`의 독점 소유물처럼 취급하면 안 됩니다.
+Conclusion: models can be bundled or connected to the install flow only within the original license conditions. Model weights or conversions must not be treated as exclusive `rolling-potato` property.
 
-현재 정책:
+Current policy:
 
-- 프로젝트 소스 저장소에는 모델 가중치를 커밋하지 않습니다.
-- 기본 배포는 manifest 기반 다운로드를 우선합니다.
-- 모델 다운로드 전 license, source, artifact provider, file size, checksum을 사용자에게 표시합니다.
-- bundle 배포는 upstream model license, GGUF artifact provider terms, NOTICE/attribution 요구사항, checksum을 모두 확인한 뒤에만 허용합니다.
-- `rolling-potato`의 Apache-2.0 라이선스는 프로젝트 코드에 적용하고, 포함되는 third-party 모델과 artifact는 각자의 원 라이선스를 유지합니다.
-- 수정한 모델 파일이나 변환본을 배포하는 경우 수정 사실과 원 출처를 문서화합니다.
+- Do not commit model weights to the project source repository.
+- Prefer manifest-based downloads for default distribution.
+- Before model download, show license, source, artifact provider, file size, and checksum.
+- Bundle distribution is allowed only after upstream license, GGUF artifact provider terms, NOTICE/attribution requirements, and checksum are all confirmed.
+- The `rolling-potato` Apache-2.0 license applies to project code; included third-party models and artifacts keep their original licenses.
+- If modified model files or conversions are distributed, document the modification and original source.
 
-## 초기 후보
+## Initial Candidates
 
 | Candidate | Role | Status | Notes |
 | --- | --- | --- | --- |
-| `Qwen3.5-4B` GGUF | 우선 평가 후보 | upstream license 확인, GGUF 미선정 | 정확한 artifact, hash, runtime fit 확인 필요 |
-| `Gemma 4 E4B` GGUF | 비교 후보 | upstream license 확인, GGUF 미선정 | 정확한 artifact, hash, runtime fit 확인 필요 |
-| `Qwen3.5-9B` GGUF | 품질 참고 후보 | upstream license 확인, 제품 기본값 보류 | RAM 영향과 runtime fit은 측정 전 미확정 |
+| `Qwen3.5-4B` GGUF | priority evaluation candidate | upstream license checked, GGUF not selected | exact artifact, hash, and runtime fit still need review |
+| `Gemma 4 E4B` GGUF | comparison candidate | upstream license checked, GGUF not selected | exact artifact, hash, and runtime fit still need review |
+| `Qwen3.5-9B` GGUF | quality reference candidate | upstream license checked, product default postponed | RAM impact and runtime fit remain unconfirmed before measurement |
 
-## 확인된 upstream 출처
+## Confirmed Upstream Sources
 
-아래는 upstream 모델 자체에 대한 확인이며, GGUF 변환본의 배포자, checksum, file size, `llama.cpp` 호환성, 16 GB 실행 가능성, 제품 기본 모델 적합성까지 확정하지는 않습니다.
+The following confirms upstream model information only. It does not confirm GGUF conversion provider, checksum, file size, `llama.cpp` compatibility, 16 GB viability, or default product-model fit.
 
 | Claim | Source | Checked-at | Status |
 | --- | --- | --- | --- |
-| `Qwen/Qwen3.5-4B`의 Hugging Face model card license field는 `apache-2.0`이다. | https://huggingface.co/Qwen/Qwen3.5-4B | 2026-06-29 | confirmed |
-| `Qwen/Qwen3.5-9B`의 Hugging Face model card license field는 `apache-2.0`이다. | https://huggingface.co/Qwen/Qwen3.5-9B | 2026-06-29 | confirmed |
-| `google/gemma-4-E4B`의 Hugging Face model card license field는 `apache-2.0`이고, Google AI for Developers의 Gemma 4 license 문서는 Apache License 2.0을 게시한다. | https://huggingface.co/google/gemma-4-E4B, https://ai.google.dev/gemma/apache_2 | 2026-06-29 | confirmed |
-| Apache License 2.0은 조건을 지키는 경우 사용, 복제, 수정, sublicensing, 배포를 허용하며, license 사본 제공, 수정 표시, 기존 attribution/NOTICE 보존, 상표 제한을 요구한다. | https://ai.google.dev/gemma/apache_2 | 2026-06-25 | confirmed |
+| The Hugging Face model card license field for `Qwen/Qwen3.5-4B` is `apache-2.0`. | https://huggingface.co/Qwen/Qwen3.5-4B | 2026-06-29 | confirmed |
+| The Hugging Face model card license field for `Qwen/Qwen3.5-9B` is `apache-2.0`. | https://huggingface.co/Qwen/Qwen3.5-9B | 2026-06-29 | confirmed |
+| The Hugging Face model card license field for `google/gemma-4-E4B` is `apache-2.0`, and the Google AI for Developers Gemma 4 license page publishes Apache License 2.0. | https://huggingface.co/google/gemma-4-E4B, https://ai.google.dev/gemma/apache_2 | 2026-06-29 | confirmed |
+| Apache License 2.0 allows use, reproduction, modification, sublicensing, and distribution when conditions are followed, and requires license copy, modification notice, preservation of existing attribution/NOTICE, and trademark limits. | https://ai.google.dev/gemma/apache_2 | 2026-06-25 | confirmed |
 
-## 아직 확정하지 않은 것
+## Not Yet Confirmed
 
-- 기본 추천 모델
-- 사용할 GGUF artifact URL
-- GGUF artifact provider의 license/terms
-- SHA-256과 file size
-- `llama.cpp` 실제 호환성
-- 16 GB RAM 환경의 실제 성능과 안정성
-- 한국어 출력 guard 통과율
+- default recommended model
+- GGUF artifact URL to use
+- GGUF artifact provider license/terms
+- SHA-256 and file size
+- actual `llama.cpp` compatibility
+- real performance and stability on 16 GB RAM
+- Korean output guard pass rate
 
-## artifact 선정 체크리스트
+## Artifact Selection Checklist
 
-- upstream model card 확인
-- license 확인
-- GGUF 변환자 신뢰성 확인
-- SHA-256 기록
-- file size 기록
-- context length 확인
-- `llama.cpp` 호환성 확인
-- Windows 실행 확인
+- check upstream model card
+- check license
+- check GGUF converter trust
+- record SHA-256
+- record file size
+- check context length
+- check `llama.cpp` compatibility
+- check Windows execution
 
-## 문서화해야 할 항목
+## Information To Document
 
-각 모델을 manifest에 넣을 때 다음 정보를 함께 남깁니다.
+When a model is added to the manifest, record:
 
 - upstream model name
 - upstream URL
@@ -82,6 +82,6 @@
 - SHA-256
 - evaluation result
 
-## 미정 사항
+## Open Issue
 
-정확한 `Qwen3.5-4B` artifact는 아직 선택하지 않았습니다. 선택 전 [docs/model-eval.md](model-eval.md)와 [docs/benchmarks.md](benchmarks.md)의 평가를 먼저 수행합니다.
+The exact `Qwen3.5-4B` artifact has not been selected yet. Run the evaluation in [model-eval.md](model-eval.md) and [benchmarks.md](benchmarks.md) before selection.

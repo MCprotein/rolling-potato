@@ -1,70 +1,70 @@
 # Model Source Policy
 
-모델 관련 정보는 추측으로 기록하지 않습니다.
+Do not record model-related information as guesswork.
 
-모델 이름, 라이선스, 성능, context length, GGUF artifact, quantization, backend 호환성, RAM 요구량, multimodal 지원 여부, 한국어/코드 성능 평가는 반드시 명확한 근거와 출처가 있어야 합니다.
+Model names, licenses, performance, context length, GGUF artifacts, quantization, backend compatibility, RAM requirements, multimodal support, and Korean/code quality evaluations require explicit evidence and sources.
 
-## 원칙
+## Principles
 
-- 출처가 없으면 `미확정`으로 표시한다.
-- 출처가 없는 모델은 기본 추천 모델로 확정하지 않는다.
-- "더 좋다", "지원한다", "실행 가능하다", "라이선스가 무엇이다" 같은 표현은 근거 없이 쓰지 않는다.
-- 사용자 의도로 받은 모델명도 제품 사실이 아니라 `후보`로만 기록한다.
-- 모델 관련 문서에는 출처 URL, 확인 날짜, 확인한 claim을 함께 남긴다.
-- backend 이름과 모델 family를 섞지 않는다. `llama.cpp`는 backend이며, 이 프로젝트의 모델 후보는 별도로 기록된 `Qwen`과 `Gemma` 후보만 의미한다.
+- If there is no source, mark it as `unconfirmed`.
+- Do not confirm a model as the default recommendation without sources.
+- Do not write claims such as "better", "supported", "runs", or "has this license" without evidence.
+- A model name from user intent is a `candidate`, not a product fact.
+- Model-related docs must record source URL, checked date, and verified claim.
+- Do not mix backend names with model families. `llama.cpp` is a backend; this project currently tracks only the separately documented `Qwen` and `Gemma` candidates.
 
-## 허용 출처
+## Accepted Sources
 
-우선순위가 높은 출처:
+High-priority sources:
 
-- upstream 공식 model card
-- upstream 공식 repository
-- upstream 공식 license 문서
-- artifact provider의 공식 배포 페이지
+- upstream official model card
+- upstream official repository
+- upstream official license document
+- official artifact provider distribution page
 - release asset checksum
-- `llama.cpp` 공식 호환성 문서 또는 issue/release note
-- 이 저장소에서 실행한 benchmark 결과
+- official `llama.cpp` compatibility docs, issue, or release note
+- benchmark results run in this repository
 
-보조 출처:
+Secondary sources:
 
-- 신뢰 가능한 maintainer의 GGUF 변환 repo
-- 재현 가능한 benchmark log
-- checksum이 포함된 release note
+- trusted maintainer GGUF conversion repo
+- reproducible benchmark log
+- release note that includes checksum
 
-허용하지 않는 근거:
+Not accepted as evidence:
 
-- 모델 이름만 보고 한 추측
-- leaderboard만 보고 제품 적합성을 단정하는 표현
-- 출처 없는 블로그/커뮤니티 요약
-- "대체로 그럴 것" 수준의 추정
-- 다른 모델 family의 정보를 끌어온 추정
-- backend 이름만 보고 Meta Llama 같은 다른 모델 family의 license나 정책을 적용한 추정
+- guessing from a model name
+- asserting product fit from leaderboard score alone
+- unsourced blog/community summary
+- "probably" level inference
+- inference pulled from another model family
+- applying Meta Llama license/policy based only on the backend name
 
-## 문서 형식
+## Documentation Format
 
-모델 관련 claim을 확정할 때는 다음 정보를 남깁니다.
+When confirming a model-related claim, record:
 
 ```text
-Claim: <확정하려는 내용>
+Claim: <claim being confirmed>
 Source: <URL>
 Checked-at: <YYYY-MM-DD>
-Evidence: <확인한 문서/필드/결과 요약>
+Evidence: <document field or result summary that was checked>
 Status: confirmed | rejected | superseded
 ```
 
-예시:
+Example:
 
 ```text
-Claim: <model-id> artifact의 license는 <license-id>이다.
+Claim: <model-id> artifact license is <license-id>.
 Source: <official-model-card-or-artifact-url>
 Checked-at: 2026-06-22
-Evidence: model card의 license field와 artifact page의 license field가 일치함.
+Evidence: model card license field and artifact page license field match.
 Status: confirmed
 ```
 
-## manifest 요구사항
+## Manifest Requirements
 
-manifest에 들어가는 모델 항목은 최소한 다음 필드를 source-backed 상태로 채워야 합니다.
+Model entries in the manifest must have at least the following fields in source-backed form:
 
 - upstream model name
 - upstream URL
@@ -75,26 +75,26 @@ manifest에 들어가는 모델 항목은 최소한 다음 필드를 source-back
 - file size
 - quantization
 - backend compatibility
-- recommended RAM 근거
+- recommended RAM evidence
 
-하나라도 확인되지 않으면 해당 모델은 `recommended`가 아니라 `candidate` 또는 `unverified` 상태로 둡니다.
+If any field is missing, the model stays `candidate` or `unverified` instead of `recommended`.
 
-## 금지 표현
+## Forbidden Unsourced Phrases
 
-출처 없이 쓰면 안 되는 표현:
+Do not use these without sources:
 
-- "기본 모델"
-- "권장 모델"
-- "한국어/코드에 더 적합"
-- "multimodal 지원"
-- "vision 가능"
+- "default model"
+- "recommended model"
+- "better for Korean/code"
+- "multimodal support"
+- "vision capable"
 - "Apache-2.0"
-- "16 GB에서 실행 가능"
-- "llama.cpp에서 지원"
+- "runs on 16 GB"
+- "supported by llama.cpp"
 
-필요하면 다음처럼 낮춰 씁니다.
+Use weaker wording when needed:
 
-- "평가 후보"
-- "사용자 의도에 따라 우선 검토할 후보"
-- "출처 확인 전 미확정"
-- "benchmark 전까지 기본값으로 확정하지 않음"
+- "evaluation candidate"
+- "candidate prioritized by user intent"
+- "unconfirmed before source review"
+- "not a default until benchmarked"

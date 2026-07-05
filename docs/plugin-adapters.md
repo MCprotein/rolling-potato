@@ -1,12 +1,12 @@
 # Plugin Adapters
 
-`rolling-potato`는 Claude Code와 Codex의 플러그인 생태계를 그대로 복제하지 않습니다.
+`rolling-potato` does not clone the Claude Code or Codex plugin ecosystems directly.
 
-목표는 사용자가 이미 가진 Claude Code/Codex 플러그인형 자산을 `rpotato` 런타임의 안전한 capability로 흡수하는 것입니다. 외부 플러그인은 import 대상이지, runtime policy를 우회하는 실행 단위가 아닙니다.
+The goal is to absorb Claude Code/Codex-style plugin assets that users already have into safe `rpotato` runtime capabilities. Foreign plugins are import targets; they are not execution units that bypass runtime policy.
 
-## 결정
+## Decision
 
-외부 플러그인 호환은 중간 adapter layer로 구현합니다.
+Foreign plugin compatibility is implemented through an adapter layer.
 
 ```text
 foreign plugin package
@@ -17,29 +17,29 @@ foreign plugin package
   -> runtime-owned skill/hook/subagent/MCP execution
 ```
 
-직접 실행하지 않는 이유:
+Reasons not to execute directly:
 
-- Claude Code, Codex, `rpotato`는 hook event, permission, state, tool, agent lifecycle이 다르다.
-- 작은 모델용 런타임에서는 외부 플러그인의 자유도를 그대로 넘기면 실패 표면이 커진다.
-- 사용자가 설치한 플러그인이 shell, MCP server, background process, remote app connector를 포함할 수 있다.
-- `rpotato`의 한국어 guard, evidence gate, ledger, ontology/context boundary를 우회하면 제품의 핵심 가치가 깨진다.
+- Claude Code, Codex, and `rpotato` have different hook events, permissions, state, tools, and agent lifecycles.
+- Passing foreign plugin freedom directly into a small-model runtime increases failure surface.
+- User-installed plugins may contain shell commands, MCP servers, background processes, or remote app connectors.
+- Bypassing the `rpotato` Korean guard, evidence gate, ledger, and ontology/context boundary breaks the core product value.
 
-따라서 adapter는 foreign manifest를 읽고 `rpotato` capability manifest로 변환합니다. 변환할 수 없는 기능은 조용히 무시하지 않고 `unsupported`로 표시합니다.
+The adapter reads foreign manifests and converts them into `rpotato` capability manifests. Features that cannot be converted are marked `unsupported` instead of being ignored silently.
 
-사용자 결정:
+User decisions already reflected:
 
-- Codex plugin adapter를 먼저 구현한다.
-- Claude Code plugin adapter는 Codex adapter 뒤에 구현한다.
-- 장기적으로는 skills, commands, agents, hooks, MCP, LSP, monitors, `bin/`, settings, theme/output style까지 전부 검토 대상에 포함한다.
-- shell, `bin/`, MCP server, background process, remote connector, file write path는 기본 차단하고, 사용자가 쓰려고 할 때 별도 권한 prompt로 설정을 풀 수 있게 한다.
-- 외부 marketplace는 연동하지 않는다.
-- Plugin 사용 경로는 사용자가 직접 소유한 local plugin directory import로 제한한다.
+- Implement the Codex plugin adapter first.
+- Implement the Claude Code plugin adapter after the Codex adapter.
+- Long term, review skills, commands, agents, hooks, MCP, LSP, monitors, `bin/`, settings, and theme/output style.
+- Block shell, `bin/`, MCP server, background process, remote connector, and file-write path capabilities by default; ask for explicit permission when the user tries to use them.
+- Do not integrate external marketplaces.
+- Limit plugin use to local plugin directory import owned by the user.
 
 ## No Marketplace Integration
 
-`rpotato`는 외부 plugin marketplace, registry, catalog, mirror를 연동하지 않습니다.
+`rpotato` does not integrate with external plugin marketplaces, registries, catalogs, or mirrors.
 
-제외:
+Excluded:
 
 - remote marketplace browsing
 - marketplace search
@@ -47,9 +47,9 @@ foreign plugin package
 - marketplace metadata sync
 - curated remote catalog
 - third-party plugin package mirror
-- plugin store 운영
+- plugin store operation
 
-허용:
+Allowed:
 
 - local path import
 - local path dry-run inspect
@@ -57,25 +57,25 @@ foreign plugin package
 - imported plugin enable/disable
 - imported plugin remove with keep-data/purge-data
 
-이 방식은 사용자가 이미 로컬에 가지고 있는 plugin package만 대상으로 합니다. 사용자가 plugin을 어디서 받았는지는 `rpotato`가 보증하지 않습니다. `rpotato`는 local directory의 manifest, file layout, capability, permission risk만 검사합니다.
+This only covers plugin packages that already exist on the user's local machine. `rpotato` does not guarantee where the user got the plugin. It checks only local directory manifest, file layout, capability, and permission risk.
 
 ## Protocol Status
 
-Codex와 Claude Code는 각각 자기 runtime 안에서 plugin 규칙을 문서화하고 있습니다. 하지만 두 runtime이 공유하는 하나의 표준 plugin protocol은 아닙니다.
+Codex and Claude Code each document plugin rules inside their own runtimes. They do not share one standard plugin protocol.
 
-분류:
+Classification:
 
-- Runtime-specific: plugin manifest, skill format, command format, hook event, agent lifecycle, marketplace metadata
-- External protocol: MCP server, LSP server
+- runtime-specific: plugin manifest, skill format, command format, hook event, agent lifecycle, marketplace metadata
+- external protocol: MCP server, LSP server
 - `rpotato` protocol: normalized plugin manifest, runtime policy, ledger, evidence gate, Korean output guard
 
-따라서 `rpotato`는 Codex plugin과 Claude Code plugin을 같은 방식으로 실행하지 않습니다. 각 source runtime parser가 외부 방언을 읽고, `rpotato` 내부 manifest로 변환합니다.
+Therefore, `rpotato` does not run Codex plugins and Claude Code plugins in the same way. Each source-runtime parser reads a foreign dialect and converts it into the internal `rpotato` manifest.
 
-## 확인된 외부 표면
+## Confirmed External Surfaces
 
 ### Codex
 
-Codex 공식 매뉴얼 기준으로 Codex plugin은 재사용 가능한 workflow 묶음입니다. 확인된 구성 요소:
+Based on the Codex official manual, a Codex plugin is a reusable workflow bundle. Confirmed components:
 
 - skills
 - app integrations
@@ -83,11 +83,11 @@ Codex 공식 매뉴얼 기준으로 Codex plugin은 재사용 가능한 workflow
 - `.codex-plugin/plugin.json`
 - marketplace source
 
-Codex plugin은 `@plugin-creator`로 scaffolding할 수 있고, repo 또는 personal marketplace에 등록해 배포할 수 있습니다.
+Codex plugins can be scaffolded with `@plugin-creator` and distributed through a repo or personal marketplace.
 
 ### Claude Code
 
-Anthropic 공식 문서 기준으로 Claude Code plugin은 self-contained directory입니다. 확인된 구성 요소:
+Based on Anthropic official docs, a Claude Code plugin is a self-contained directory. Confirmed components:
 
 - skills and commands
 - agents
@@ -100,13 +100,13 @@ Anthropic 공식 문서 기준으로 Claude Code plugin은 self-contained direct
 - `.claude-plugin/plugin.json`
 - marketplace source
 
-Claude Code는 user/project/local/managed scope를 구분하고, marketplace, enable/disable, trust boundary, managed policy를 제공합니다.
+Claude Code distinguishes user/project/local/managed scopes and provides marketplace, enable/disable, trust boundary, and managed policy concepts.
 
-이 문서는 위 사실만 확정된 외부 표면으로 사용합니다. 세부 schema와 version별 동작은 구현 직전에 공식 문서를 다시 확인해야 합니다.
+This document treats only the facts above as confirmed external surfaces. Detailed schemas and version-specific behavior must be rechecked against official docs immediately before implementation.
 
 ## rpotato Plugin Model
 
-`rpotato`에서 plugin은 capability package입니다. 실제 실행 단위는 여전히 runtime core가 소유합니다.
+In `rpotato`, a plugin is a capability package. Runtime core still owns actual execution.
 
 ```json
 {
@@ -160,7 +160,7 @@ rpotato plugin remove <id> --purge-data
 
 ## Current Implementation
 
-Phase 3의 현재 구현:
+Phase 3 currently implements:
 
 - `rpotato plugin import --from codex <local-path> --dry-run`
 - `rpotato plugin import --from claude-code <local-path> --dry-run`
@@ -174,9 +174,9 @@ Phase 3의 현재 구현:
 - `rpotato plugin remove <id> --keep-data`
 - `rpotato plugin remove <id> --purge-data`
 
-Import는 local directory만 허용하며 remote URL, marketplace, registry, catalog source, `..` path traversal, source symlink를 차단합니다.
+Import accepts only local directories and rejects remote URLs, marketplace, registry, catalog sources, `..` path traversal, and source symlinks.
 
-저장 위치:
+Storage:
 
 ```text
 rpotato app data root/
@@ -188,7 +188,7 @@ rpotato app data root/
     data/<plugin-id>/
 ```
 
-`enable`은 실행 권한 부여가 아니라 registry 상태 변경입니다. shell, `bin/`, MCP, hook, background process capability는 permission report에 남고 runtime policy 승인 전까지 기본 차단입니다.
+`enable` changes registry state; it does not grant execution authority. Shell, `bin/`, MCP, hook, and background process capabilities remain listed in the permission report and blocked until runtime policy approval.
 
 All import commands must be dry-run friendly:
 
@@ -196,7 +196,7 @@ All import commands must be dry-run friendly:
 rpotato plugin import --from claude-code ./my-plugin --dry-run
 ```
 
-Dry run output must include:
+Dry-run output must include:
 
 - detected source runtime
 - source manifest path
@@ -248,7 +248,7 @@ Foreign plugin code must not:
 - run shell commands outside command policy
 - start background processes silently
 - download artifacts silently
-- write to plugin install root as state
+- write state to plugin install root
 - access credentials without explicit sensitive config handling
 - mark stop gate complete without `rpotato` evidence
 - inject model/license/benchmark claims without source records

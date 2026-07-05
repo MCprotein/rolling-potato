@@ -1,17 +1,17 @@
 # CLI Output Style
 
-`rpotato` CLI 출력은 한국어를 기본으로 합니다.
+`rpotato` CLI output defaults to Korean.
 
-## 원칙
+## Principles
 
-- 첫 줄은 명령 결과의 주제를 짧게 표시한다.
-- 이후 줄은 `- label: value` 형식으로 정리한다.
-- 아직 실행하지 않는 destructive action은 반드시 dry-run 또는 plan으로 표시한다.
-- 파일 경로, command, model id, plugin id는 원문을 유지한다.
-- 실패 이유는 한국어로 쓰되, error code와 원문 log line은 보존할 수 있다.
-- 다음 단계가 있으면 마지막 줄에 하나만 적는다.
+- The first line briefly names the command result topic.
+- Subsequent lines use `- label: value`.
+- Destructive actions that have not run must be shown as dry-run or plan output.
+- File paths, commands, model IDs, and plugin IDs preserve their original text.
+- Failure reasons are written in Korean, while error codes and original log lines may be preserved.
+- If there is a next step, show only one at the end.
 
-## 예시
+## Example
 
 ```text
 monitor 상태
@@ -21,9 +21,9 @@ monitor 상태
 - 현재 상태: SQLite projection은 Phase 2에서 생성 예정
 ```
 
-## 금지
+## Forbidden
 
-- 성공처럼 보이는 placeholder 출력
-- 삭제 실행 없이 삭제된 것처럼 말하기
-- 검증되지 않은 모델/license/benchmark claim
-- remote plugin marketplace나 registry를 사용 가능한 것처럼 안내
+- placeholder output that looks successful
+- claiming deletion happened when only a plan was shown
+- unverified model/license/benchmark claims
+- presenting remote plugin marketplaces or registries as available

@@ -1,29 +1,29 @@
 # Model Manifest
 
-모델 manifest는 `rpotato`가 설치 가능한 모델과 로컬 모델 상태를 이해하기 위한 신뢰 경계입니다.
+The model manifest is the trust boundary through which `rpotato` understands installable models and local model state.
 
-## 목표
+## Goals
 
-- 모델 artifact를 명시적으로 식별한다.
-- 다운로드 전 크기와 license를 보여준다.
-- 다운로드 후 SHA-256을 검증한다.
-- backend 호환성을 확인한다.
-- 모델별 prompt/runtime option을 분리한다.
-- 모델 관련 claim은 출처 기반으로만 확정한다.
+- Identify model artifacts explicitly.
+- Show download size and license before download.
+- Verify SHA-256 after download.
+- Check backend compatibility.
+- Separate prompt/runtime options per model.
+- Confirm model-related claims only through sources.
 
-## 위치
+## Location
 
-초기 manifest source는 repository 또는 GitHub Release asset에 둡니다.
+Initial manifest source can live in the repository or a GitHub Release asset.
 
-로컬 cache 위치는 platform directory 규칙을 따릅니다.
+Local cache follows platform directory rules:
 
 - macOS: `~/Library/Application Support/rpotato/manifests/`
 - Windows: `%LOCALAPPDATA%\rpotato\manifests\`
 - Linux: `~/.local/share/rpotato/manifests/`
 
-정확한 경로 구현은 Rust scaffold에서 `directories` 계열 crate 사용 여부를 결정한 뒤 확정합니다.
+Exact paths are confirmed after the Rust scaffold decides whether to use a `directories`-style crate.
 
-## schema 초안
+## Schema Draft
 
 ```json
 {
@@ -62,9 +62,9 @@
 }
 ```
 
-이 예시는 schema shape만 보여줍니다. `TODO`와 `null` 값은 제품 사실이 아니며, 실제 manifest에는 [model-source-policy.md](model-source-policy.md)에 따른 출처 확인 후 값을 채웁니다.
+This example shows schema shape only. `TODO` and `null` are not product facts; real manifests must fill values after source review under [model-source-policy.md](model-source-policy.md).
 
-현재 CLI surface:
+Current CLI surface:
 
 - `rpotato model list`
 - `rpotato model manifest`
@@ -75,43 +75,43 @@
 - `rpotato model cleanup-failed <id> --dry-run`
 - `rpotato model install <id>`
 
-후보 상태:
+Candidate states:
 
-- `candidate`: upstream model/source/license만 후보로 추적하고, 설치할 GGUF artifact는 아직 고르지 않은 상태
-- `unverified`: GGUF artifact 후보는 있지만 checksum, provider terms, backend compatibility, RAM 근거 중 하나 이상이 빠진 상태
-- `verified`: 설치 전 표시해야 할 source, license, artifact URL, provider terms, SHA-256, file size, backend compatibility, RAM 근거가 모두 채워진 상태
+- `candidate`: upstream model/source/license is tracked, but installable GGUF artifact is not selected yet
+- `unverified`: GGUF artifact candidate exists, but checksum, provider terms, backend compatibility, or RAM evidence is missing
+- `verified`: source, license, artifact URL, provider terms, SHA-256, file size, backend compatibility, and RAM evidence are all present for pre-install display
 
-`model download-plan`은 실제 다운로드 전에 사용자에게 보여야 할 source, license source, artifact provider, artifact terms, file size, SHA-256, resume path, final path를 렌더링합니다.
+`model download-plan` renders source, license source, artifact provider, artifact terms, file size, SHA-256, resume path, and final path before real download.
 
-`model verify-file`은 로컬 파일을 streaming으로 읽어 SHA-256을 계산하고 expected hash와 비교합니다. 성공과 실패 모두 ledger event를 남기며, 실패 시 registry 등록은 차단되어야 합니다.
+`model verify-file` streams a local file, computes SHA-256, and compares it to the expected hash. Success and failure both record ledger events, and failure must block registry registration.
 
-`model cleanup-failed`는 app data의 `downloads/`와 `models/` 아래에 있는 app-managed partial/failed artifact path만 대상으로 합니다. 삭제는 `--delete`가 명시된 경우에만 실행하고, 기본 검증과 문서 smoke는 `--dry-run`을 사용합니다.
+`model cleanup-failed` targets only app-managed partial/failed artifact paths under app data `downloads/` and `models/`. Deletion runs only with explicit `--delete`; default verification and doc smoke use `--dry-run`.
 
-`model install`은 `verified`가 아닌 항목을 차단하고 ledger event를 남깁니다. 현재 구현은 실제 다운로드를 수행하지 않으며, local registry는 `models/registry/<model-id>.json` 위치에 verified artifact만 기록하는 경계로 준비되어 있습니다.
+`model install` blocks entries that are not `verified` and records a ledger event. Current implementation does not perform real downloads. The local registry is prepared as a boundary that records only verified artifacts at `models/registry/<model-id>.json`.
 
-## 필수 검증
+## Required Verification
 
-모델 설치 시:
+Model install must:
 
-1. manifest schema version을 확인한다.
-2. OS/backend 호환성을 확인한다.
-3. 다운로드 크기를 사용자에게 보여준다.
-4. 사용자가 승인해야 다운로드한다.
-5. 다운로드 후 SHA-256을 검증한다.
-6. 검증 실패 시 모델 registry에 등록하지 않는다.
+1. check manifest schema version
+2. check OS/backend compatibility
+3. show download size to the user
+4. require user approval before download
+5. verify SHA-256 after download
+6. avoid registry registration after verification failure
 
-## 금지 사항
+## Forbidden
 
-- checksum 없는 모델 설치
-- license 미표기 모델 추천
-- 출처 없는 license, RAM, context length, backend 호환성 claim
-- 사용자 승인 없는 자동 다운로드
-- `rpotato` release binary에 모델 가중치 번들링
-- 임의 URL을 silent fallback으로 사용하는 동작
+- installing models without checksum
+- recommending models without license
+- source-less license, RAM, context length, or backend compatibility claims
+- automatic download without user approval
+- bundling model weights into the `rpotato` release binary
+- silent fallback to arbitrary URLs
 
-## open questions
+## Open Questions
 
-- manifest signing을 MVP에 넣을지 여부
-- artifact mirror를 허용할지 여부
-- quantization별 prompt preset을 manifest에 넣을지 여부
-- provider trust policy를 어디까지 자동화할지 여부
+- whether manifest signing belongs in MVP
+- whether artifact mirrors are allowed
+- whether quantization-specific prompt presets belong in the manifest
+- how far provider trust policy should be automated
