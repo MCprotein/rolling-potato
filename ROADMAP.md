@@ -435,6 +435,7 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 Goal: let users install the runtime surface without model weights and safely complete the first model install.
 
 - [ ] Release build pipeline
+- [x] Release version bump policy
 - [ ] Binary checksum generation
 - [ ] macOS Apple Silicon artifact
 - [ ] macOS Intel artifact

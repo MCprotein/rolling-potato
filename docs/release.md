@@ -13,12 +13,54 @@ This document is the draft release policy for `rolling-potato`.
 
 ## Version Policy
 
-Before MVP, use `0.x.y`.
+`rolling-potato` follows SemVer in spirit, but pre-1.0 versions must stay
+practical. Do not bump the major version for every new feature.
 
-- `0.x.0`: feature-level release
-- `0.x.y`: bugfix, documentation, or packaging fix
+Before MVP and before the first stable contract, use `0.x.y`.
 
-After stabilization, follow SemVer.
+- `0.x.0`: coherent feature or milestone release
+- `0.x.y`: bugfix, documentation, packaging, manifest, policy, or test fix
+
+During `0.x`, breaking changes are allowed only when they move the project
+toward the MVP runtime contract. They should normally bump the minor version and
+must be called out in release notes as `Breaking before 1.0`. Do not use `1.0`
+language until the stable user-facing contract is ready.
+
+Examples:
+
+- `0.1.1`: fix `doctor`, update docs, update release notes, fix packaging
+- `0.2.0`: add managed backend install plan as a usable release surface
+- `0.3.0`: add verified model install flow
+- `0.4.0`: add first `rpotato run` vertical slice
+- `0.5.0`: add TUI beta surface
+
+After `1.0.0`, follow SemVer strictly:
+
+- Patch: backwards-compatible fixes, docs, packaging, manifest updates,
+  security hardening, diagnostics, and test fixes
+- Minor: backwards-compatible features, new commands, new optional flags, new
+  adapters, new TUI panels, new policy checks that fail closed without removing
+  stable APIs
+- Major: incompatible changes to stable public contracts
+
+Stable public contracts include:
+
+- CLI command names, flags, exit semantics, and documented output schemas
+- config file schema
+- model/backend manifest schema
+- plugin manifest schema and adapter behavior
+- ledger, session, evidence, and SQLite migration compatibility
+- TUI workflows that users depend on for approvals, resume, and monitoring
+
+Major releases should be batched and rare. Prefer deprecation warnings, aliases,
+or migration commands before removing stable behavior. Experimental commands,
+unstable schemas, or features explicitly marked `preview` do not require a major
+bump until they are promoted to the stable contract.
+
+Documentation-only changes do not require a version bump unless a release
+artifact is being cut. Model metadata corrections should use patch releases when
+they only update source-backed manifest facts; they must not imply a new model
+recommendation without benchmark/runtime evidence.
 
 ## Artifact Targets
 

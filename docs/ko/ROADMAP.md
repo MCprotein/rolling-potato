@@ -435,6 +435,7 @@
 목표: 사용자가 모델 가중치 없이 runtime surface를 설치하고, 첫 모델 설치를 안전하게 진행할 수 있게 한다.
 
 - [ ] release build pipeline
+- [x] release version bump policy
 - [ ] binary checksum 생성
 - [ ] macOS Apple Silicon artifact
 - [ ] macOS Intel artifact

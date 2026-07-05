@@ -13,12 +13,41 @@
 
 ## 버전 정책
 
-MVP 전에는 `0.x.y`를 사용합니다.
+`rolling-potato`는 SemVer 정신을 따르지만, 1.0 이전 버전은 실용적으로 운용합니다. 기능 하나를 추가할 때마다 major version을 올리지 않습니다.
 
-- `0.x.0`: 기능 단위 release
-- `0.x.y`: bugfix 또는 문서/packaging 수정
+MVP 전, 그리고 첫 stable contract 전에는 `0.x.y`를 사용합니다.
 
-안정화 후 SemVer를 따릅니다.
+- `0.x.0`: 하나의 응집된 feature 또는 milestone release
+- `0.x.y`: bugfix, 문서, packaging, manifest, policy, test 수정
+
+`0.x` 단계에서 breaking change는 MVP runtime contract로 가기 위해 필요할 때만 허용합니다. 보통 minor version을 올리고, release note에 `Breaking before 1.0`으로 명시합니다. Stable user-facing contract가 준비되기 전까지 `1.0`처럼 말하지 않습니다.
+
+예시:
+
+- `0.1.1`: `doctor` 수정, 문서 수정, release note 수정, packaging fix
+- `0.2.0`: managed backend install plan을 사용 가능한 release surface로 추가
+- `0.3.0`: verified model install flow 추가
+- `0.4.0`: 첫 `rpotato run` vertical slice 추가
+- `0.5.0`: TUI beta surface 추가
+
+`1.0.0` 이후에는 SemVer를 엄격히 따릅니다.
+
+- Patch: backward-compatible fix, 문서, packaging, manifest update, security hardening, diagnostics, test fix
+- Minor: backward-compatible feature, 새 command, 새 optional flag, 새 adapter, 새 TUI panel, stable API를 제거하지 않는 fail-closed policy check
+- Major: stable public contract와 호환되지 않는 변경
+
+Stable public contract에 포함되는 것:
+
+- CLI command 이름, flag, exit semantics, 문서화된 output schema
+- config file schema
+- model/backend manifest schema
+- plugin manifest schema와 adapter behavior
+- ledger, session, evidence, SQLite migration compatibility
+- approval, resume, monitoring에 사용자가 의존하는 TUI workflow
+
+Major release는 묶어서 드물게 냅니다. Stable behavior를 제거하기 전에 deprecation warning, alias, migration command를 우선합니다. `preview`로 명시한 experimental command, unstable schema, preview feature는 stable contract로 승격되기 전까지 major bump를 요구하지 않습니다.
+
+문서만 바뀐 경우 release artifact를 만들지 않는 한 version bump가 필요하지 않습니다. Model metadata correction은 source-backed manifest fact만 갱신한다면 patch release로 처리합니다. 단, benchmark/runtime evidence 없이 새 model recommendation을 암시하면 안 됩니다.
 
 ## artifact 목표
 
