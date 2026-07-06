@@ -98,6 +98,13 @@ struct ModelArtifactDescriptor {
     size_bytes: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LocalArtifactState {
+    status: &'static str,
+    detail: String,
+    verified: bool,
+}
+
 const QWEN_4B_BLOCKERS: &[&str] = &[
     "local llama.cpp b9878 smoke 미실행",
     "16 GB runtime fit 미측정",
@@ -399,6 +406,63 @@ pub fn download_plan_report(id: &str) -> Result<String, AppError> {
             .join(candidate.artifact_name.unwrap_or(candidate.id))
             .display(),
         display_vec(&validation.blockers)
+    ))
+}
+
+pub fn eval_plan_report(id: &str) -> Result<String, AppError> {
+    let candidate = find_candidate(id)?;
+    let source_blockers = source_backed_artifact_blockers(candidate);
+    if !source_blockers.is_empty() {
+        return Ok(format!(
+            "model evaluation plan\n- id: {}\n- status: blocked-before-artifact-fetch\n- source-backed artifact: missing\n- blockers: {}\n- upstream source: {}\n- license source: {}\n- public benchmark source: {}\n- next: source-backed artifact URL, provider terms, file size, and SHA-256 must be recorded before local smoke or benchmark.",
+            candidate.id,
+            source_blockers.join(", "),
+            candidate.upstream_url,
+            candidate.license.source,
+            candidate.benchmark.source
+        ));
+    }
+
+    let artifact = source_backed_artifact(candidate)?;
+    let final_path = model_artifact_path(artifact);
+    let part_path = model_artifact_part_path(candidate);
+    let local_state = local_artifact_state(artifact, &final_path)?;
+    let plan_status = if local_state.verified {
+        "ready-for-backend-smoke"
+    } else {
+        "blocked-before-backend-smoke"
+    };
+    let next = if local_state.verified {
+        format!(
+            "run `rpotato backend install-plan`, verify backend state with `rpotato backend doctor`, then run `rpotato backend start --model {}` for local smoke before benchmark scoring.",
+            final_path.display()
+        )
+    } else {
+        format!(
+            "run `rpotato model fetch-candidate {} --for-evaluation` only when intentionally downloading the multi-GB artifact.",
+            candidate.id
+        )
+    };
+
+    Ok(format!(
+        "model evaluation plan\n- id: {}\n- status: {}\n- manifest status: {}\n- role: {}\n- artifact provider: {}\n- artifact source: {}\n- artifact terms: {}\n- expected file: {}\n- expected size bytes: {}\n- expected sha256: {}\n- local artifact status: {}\n- local artifact detail: {}\n- partial path: {}\n- final path: {}\n- registry: not installed by eval-plan\n- public benchmark source: {}\n- benchmark claim status: {}\n- local benchmark status: not-run\n- next: {}",
+        candidate.id,
+        plan_status,
+        candidate.status.label(),
+        candidate.role,
+        artifact.provider,
+        artifact.url,
+        artifact.terms_url,
+        artifact.file_name,
+        artifact.size_bytes,
+        artifact.sha256,
+        local_state.status,
+        local_state.detail,
+        part_path.display(),
+        final_path.display(),
+        candidate.benchmark.source,
+        candidate.benchmark.claim_status,
+        next
     ))
 }
 
@@ -706,35 +770,48 @@ fn validate_install_ready(candidate: &ModelManifestEntry) -> InstallValidation {
 fn source_backed_artifact(
     candidate: &'static ModelManifestEntry,
 ) -> Result<ModelArtifactDescriptor, AppError> {
+    let blockers = source_backed_artifact_blockers(candidate);
+    if !blockers.is_empty() {
+        return Err(fetch_blocked(candidate, blockers));
+    }
+
+    Ok(ModelArtifactDescriptor {
+        provider: candidate
+            .artifact_provider
+            .expect("validated artifact provider"),
+        url: candidate.artifact_url.expect("validated artifact url"),
+        terms_url: candidate
+            .artifact_terms_url
+            .expect("validated artifact terms url"),
+        file_name: candidate.artifact_name.expect("validated artifact name"),
+        sha256: candidate.sha256.expect("validated artifact sha256"),
+        size_bytes: candidate.size_bytes.expect("validated artifact size"),
+    })
+}
+
+fn source_backed_artifact_blockers(candidate: &ModelManifestEntry) -> Vec<&'static str> {
     let mut blockers = Vec::new();
 
-    let Some(provider) = candidate.artifact_provider else {
+    if candidate.artifact_provider.is_none() {
         blockers.push("artifact provider 미확정");
-        return Err(fetch_blocked(candidate, blockers));
-    };
-    let Some(url) = candidate.artifact_url else {
-        blockers.push("GGUF artifact URL 미확정");
-        return Err(fetch_blocked(candidate, blockers));
-    };
-    let Some(terms_url) = candidate.artifact_terms_url else {
-        blockers.push("artifact terms URL 미확정");
-        return Err(fetch_blocked(candidate, blockers));
-    };
-    let Some(file_name) = candidate.artifact_name else {
-        blockers.push("artifact file name 미확정");
-        return Err(fetch_blocked(candidate, blockers));
-    };
-    let Some(sha256) = candidate.sha256 else {
-        blockers.push("SHA-256 미확정");
-        return Err(fetch_blocked(candidate, blockers));
-    };
-    if !checksum::is_valid_sha256(sha256) {
-        blockers.push("SHA-256 형식 오류");
     }
-    let Some(size_bytes) = candidate.size_bytes else {
+    if candidate.artifact_url.is_none() {
+        blockers.push("GGUF artifact URL 미확정");
+    }
+    if candidate.artifact_terms_url.is_none() {
+        blockers.push("artifact terms URL 미확정");
+    }
+    if candidate.artifact_name.is_none() {
+        blockers.push("artifact file name 미확정");
+    }
+    match candidate.sha256 {
+        Some(hash) if checksum::is_valid_sha256(hash) => {}
+        Some(_) => blockers.push("SHA-256 형식 오류"),
+        None => blockers.push("SHA-256 미확정"),
+    }
+    if candidate.size_bytes.is_none() {
         blockers.push("file size 미확정");
-        return Err(fetch_blocked(candidate, blockers));
-    };
+    }
     if candidate.format != "gguf" {
         blockers.push("GGUF format이 아닙니다");
     }
@@ -742,18 +819,7 @@ fn source_backed_artifact(
         blockers.push("llama.cpp backend 후보가 아닙니다");
     }
 
-    if !blockers.is_empty() {
-        return Err(fetch_blocked(candidate, blockers));
-    }
-
-    Ok(ModelArtifactDescriptor {
-        provider,
-        url,
-        terms_url,
-        file_name,
-        sha256,
-        size_bytes,
-    })
+    blockers
 }
 
 fn fetch_blocked(candidate: &ModelManifestEntry, blockers: Vec<&str>) -> AppError {
@@ -763,6 +829,62 @@ fn fetch_blocked(candidate: &ModelManifestEntry, blockers: Vec<&str>) -> AppErro
         candidate.status.label(),
         blockers.join(", ")
     ))
+}
+
+fn local_artifact_state(
+    artifact: ModelArtifactDescriptor,
+    final_path: &Path,
+) -> Result<LocalArtifactState, AppError> {
+    if !final_path.exists() {
+        return Ok(LocalArtifactState {
+            status: "missing",
+            detail: "final artifact file is not present under app data models/".to_string(),
+            verified: false,
+        });
+    }
+    if !final_path.is_file() {
+        return Ok(LocalArtifactState {
+            status: "path-not-file",
+            detail: format!(
+                "final artifact path is not a file: {}",
+                final_path.display()
+            ),
+            verified: false,
+        });
+    }
+
+    let metadata = final_path.metadata().map_err(|err| {
+        AppError::runtime(format!(
+            "model artifact metadata를 읽지 못했습니다: {} ({err})",
+            final_path.display()
+        ))
+    })?;
+    if metadata.len() != artifact.size_bytes {
+        return Ok(LocalArtifactState {
+            status: "size-mismatch",
+            detail: format!(
+                "expected {} bytes but found {} bytes",
+                artifact.size_bytes,
+                metadata.len()
+            ),
+            verified: false,
+        });
+    }
+
+    let actual_sha256 = checksum::sha256_file(final_path)?;
+    if !actual_sha256.eq_ignore_ascii_case(artifact.sha256) {
+        return Ok(LocalArtifactState {
+            status: "sha256-mismatch",
+            detail: format!("expected {} but found {}", artifact.sha256, actual_sha256),
+            verified: false,
+        });
+    }
+
+    Ok(LocalArtifactState {
+        status: "verified-local-artifact",
+        detail: "size and SHA-256 match the source-recorded manifest fields".to_string(),
+        verified: true,
+    })
 }
 
 fn fetch_evaluation_artifact(
@@ -1345,6 +1467,33 @@ mod tests {
         assert!(final_path.starts_with(data_root.join("models")));
         assert!(part_path.starts_with(data_root.join("downloads")));
         assert!(part_path.ends_with("gemma-4-e4b.part"));
+    }
+
+    #[test]
+    fn eval_plan_reports_missing_local_artifact_without_download() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let data_root =
+            std::env::temp_dir().join(format!("rpotato-eval-plan-test-{}", std::process::id()));
+        std::env::set_var("RPOTATO_DATA_HOME", &data_root);
+        std::env::set_var("RPOTATO_PROJECT_ROOT", data_root.join("project"));
+
+        let report = eval_plan_report("qwen3.5-4b").unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+
+        assert!(report.contains("blocked-before-backend-smoke"));
+        assert!(report.contains("local artifact status: missing"));
+        assert!(report.contains("fetch-candidate qwen3.5-4b --for-evaluation"));
+    }
+
+    #[test]
+    fn eval_plan_blocks_candidate_without_artifact_source() {
+        let report = eval_plan_report("qwen3.5-9b").unwrap();
+
+        assert!(report.contains("blocked-before-artifact-fetch"));
+        assert!(report.contains("artifact provider"));
+        assert!(report.contains("benchmark source"));
     }
 
     #[test]

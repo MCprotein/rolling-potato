@@ -101,6 +101,7 @@ Current CLI surface:
 - `rpotato model inspect <id>`
 - `rpotato model registry`
 - `rpotato model download-plan <id>`
+- `rpotato model eval-plan <id>`
 - `rpotato model fetch-candidate <id> --for-evaluation`
 - `rpotato model verify-file <path> --sha256 <hash>`
 - `rpotato model cleanup-failed <id> --dry-run`
@@ -113,6 +114,8 @@ Candidate states:
 - `verified`: source, license, artifact URL, provider terms, SHA-256, file size, backend compatibility, and RAM evidence are all present for pre-install display
 
 `model download-plan` renders source, license source, artifact provider, artifact terms, file size, SHA-256, resume path, and final path before real download.
+
+`model eval-plan <id>` is read-only. It reports whether source-backed artifact fields exist, whether the expected app-data artifact file is missing or size/SHA-256 verified, and which local smoke/benchmark step is next.
 
 `model fetch-candidate <id> --for-evaluation` is the only path that downloads `unverified` source-backed artifacts. It requires the explicit evaluation flag, writes only app-managed partial/final artifact files, verifies file size and SHA-256 before success, records a ledger event, and does not create `models/registry/<model-id>.json`.
 

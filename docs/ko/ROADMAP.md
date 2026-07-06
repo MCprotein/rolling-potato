@@ -219,6 +219,7 @@
 - [ ] `rpotato model knowledge promote <entry-id> --dry-run`
 - [ ] `rpotato model knowledge prune --before <duration> --dry-run`
 - [ ] `rpotato model install <id>`
+- [x] `rpotato model eval-plan <id>`
 - [x] `rpotato model fetch-candidate <id> --for-evaluation`
 - [x] 미검증 artifact 설치 차단
 - [ ] 선택한 Qwen/Gemma artifact 후보의 local `llama.cpp b9878` smoke

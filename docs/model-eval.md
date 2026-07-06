@@ -40,6 +40,8 @@ Process:
 4. For reproducible items, match model artifact, quantization, backend, and context length as closely as possible.
 5. Record published score and local score together, with condition differences next to the result.
 
+Before local smoke or benchmark execution, run `rpotato model eval-plan <id>`. The command is read-only and reports whether the source-backed artifact fields exist, whether the local app-data artifact is missing or size/SHA-256 verified, and whether the next step is evaluation fetch or backend smoke.
+
 Forbidden:
 
 - copying scores based only on benchmark names

@@ -101,6 +101,7 @@
 - `rpotato model inspect <id>`
 - `rpotato model registry`
 - `rpotato model download-plan <id>`
+- `rpotato model eval-plan <id>`
 - `rpotato model fetch-candidate <id> --for-evaluation`
 - `rpotato model verify-file <path> --sha256 <hash>`
 - `rpotato model cleanup-failed <id> --dry-run`
@@ -113,6 +114,8 @@
 - `verified`: 설치 전 표시해야 할 source, license, artifact URL, provider terms, SHA-256, file size, backend compatibility, RAM 근거가 모두 채워진 상태
 
 `model download-plan`은 실제 다운로드 전에 사용자에게 보여야 할 source, license source, artifact provider, artifact terms, file size, SHA-256, resume path, final path를 렌더링합니다.
+
+`model eval-plan <id>`은 read-only입니다. source-backed artifact field가 있는지, app-data의 expected artifact file이 missing인지 size/SHA-256 검증 상태인지, 다음 local smoke/benchmark 단계가 무엇인지 보고합니다.
 
 `model fetch-candidate <id> --for-evaluation`은 `unverified` source-backed artifact를 다운로드할 수 있는 유일한 경로입니다. 명시적인 평가 플래그를 요구하고, app-managed partial/final artifact file만 쓰며, 성공 전에 file size와 SHA-256을 검증하고 ledger event를 남깁니다. 이 명령은 `models/registry/<model-id>.json`을 만들지 않습니다.
 
