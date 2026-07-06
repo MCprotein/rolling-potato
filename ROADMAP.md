@@ -120,6 +120,10 @@ Goal: restore and query current workflow state, audit history, and per-model mon
 - [x] Corrupt SQLite fallback
 - [x] Monitoring export: JSONL/CSV
 - [x] Monitoring retention/prune dry-run
+- [x] Model-response runs write model/token metrics into SQLite
+- [x] Context pack events for bounded repository source pointers
+- [x] Runtime-owned action candidate event for `run`
+- [x] Model response action parsing event for `run`
 - [x] Interrupted run resume behavior
 - [x] Compaction boundary marker
 - [x] Compacted summary preservation policy
@@ -252,6 +256,7 @@ Goal: let the runtime core manage the `llama.cpp` sidecar and expose backend dia
 - [x] Sidecar process lifecycle
 - [x] Health check
 - [x] Startup timeout handling
+- [x] Non-streaming chat completion path
 - [ ] Streaming response path
 - [ ] Cancellation path
 - [x] stderr/stdout capture
@@ -348,7 +353,10 @@ Goal: make the runtime assemble instructions, ontology, context, and output shap
 
 Goal: finish read, plan, patch proposal, approval, application, verification, and Korean reporting in one small fixture repository.
 
-- [ ] `rpotato run "<task>"`
+- [x] `rpotato run "<task>"` context-aware model-response skeleton
+- [x] Runtime-owned action candidate planning
+- [x] Model response action parsing
+- [ ] Patch diff display and approval gate
 - [ ] Agent-loop transcript replay from selected session history
 - [ ] Conversation continuation after `rpotato resume <session-id>`
 - [ ] Run startup ontology/context retrieval

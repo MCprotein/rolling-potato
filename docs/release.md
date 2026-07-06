@@ -29,9 +29,9 @@ language until the stable user-facing contract is ready.
 Examples:
 
 - `0.1.1`: fix `doctor`, update docs, update release notes, fix packaging
-- `0.2.0`: add managed backend install plan as a usable release surface
-- `0.3.0`: add verified model install flow
-- `0.4.0`: add first `rpotato run` vertical slice
+- `0.2.0`: add first `rpotato run` context-aware model-response skeleton, model-run metrics, and non-executing model action parsing
+- `0.3.0`: add patch diff display and approval gate
+- `0.4.0`: add patch proposal, approval, and verification command flow
 - `0.5.0`: add TUI beta surface
 
 After `1.0.0`, follow SemVer strictly:

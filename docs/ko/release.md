@@ -25,9 +25,9 @@ MVP 전, 그리고 첫 stable contract 전에는 `0.x.y`를 사용합니다.
 예시:
 
 - `0.1.1`: `doctor` 수정, 문서 수정, release note 수정, packaging fix
-- `0.2.0`: managed backend install plan을 사용 가능한 release surface로 추가
-- `0.3.0`: verified model install flow 추가
-- `0.4.0`: 첫 `rpotato run` vertical slice 추가
+- `0.2.0`: 첫 `rpotato run` context-aware model-response skeleton, model-run metric, 실행 없는 model action parsing 추가
+- `0.3.0`: patch diff display와 approval gate 추가
+- `0.4.0`: patch 제안, 승인, verification command flow 추가
 - `0.5.0`: TUI beta surface 추가
 
 `1.0.0` 이후에는 SemVer를 엄격히 따릅니다.

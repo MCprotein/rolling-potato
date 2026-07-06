@@ -4,6 +4,7 @@ mod cache;
 mod checksum;
 mod cli;
 mod config;
+mod context;
 mod evidence;
 mod hooks;
 mod intent;

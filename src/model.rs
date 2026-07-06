@@ -1030,7 +1030,8 @@ fn download_model_artifact_stream(
     part_path: &Path,
     existing_bytes: u64,
 ) -> Result<(u64, bool), AppError> {
-    let mut request = ureq::get(artifact.url).header("User-Agent", "rpotato/0.1.0");
+    let mut request = ureq::get(artifact.url)
+        .header("User-Agent", concat!("rpotato/", env!("CARGO_PKG_VERSION")));
     if existing_bytes > 0 {
         request = request.header("Range", &format!("bytes={existing_bytes}-"));
     }

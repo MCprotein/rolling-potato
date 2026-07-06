@@ -201,6 +201,7 @@ Local execution evidence checked 2026-07-06:
 - Raw `/completion` generated tokens through the managed sidecar, but exposed reasoning trace text and did not prove clean Korean final-answer quality.
 - Qwen official model card says Qwen3.5 thinks by default and direct response requires API parameters, not the Qwen3 `/think` or `/nothink` soft switches. Source: https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode, checked 2026-07-06.
 - `rpotato backend chat --prompt "한국어로 한 문장만 답해. 감자는 무엇인가?" --max-tokens 64` called `/v1/chat/completions` with `chat_template_kwargs.enable_thinking=false` and returned `guard: pass`, `finish reason: stop`, `prompt tokens: 57`, `completion tokens: 16`, `total tokens: 73`, and clean response `감자는 땅속에서 자라는 식물의 뿌리줄기입니다.`
+- `v0.2.0` work started on `release/v0.2.0`: `rpotato run` now performs deterministic routing, builds a bounded repository context pack with source pointers, prepares a runtime-owned action candidate/next gate, calls the running backend sidecar for a context-aware model-response agent-loop skeleton, parses the model's structured action line or recognized action text without execution, and records model/token metrics in SQLite. Latest verified model-action smoke read `src/intent.rs:1`, `src/app.rs:1`, `src/backend.rs:1`, and `src/cache.rs:1`; it returned `action candidate: patch-proposal`, `model action parse: heuristic-text`, `model action kind: patch-proposal`, `model action executable now: no`, `next gate: diff-before-write`, `guard: pass`, `finish reason: stop`, `prompt tokens: 1482`, `completion tokens: 72`, `total tokens: 1554`; `monitor models` showed `Qwen3.5-4B-Q4_K_M: runs 6, prompt 6032, completion 311, total 6343, avg latency 1303.0ms`.
 
 Comparison candidate:
 
@@ -337,7 +338,7 @@ Suggested next work:
 4. Keep plugin adapter work aligned with `docs/plugin-adapters.md`; start with inspect/validate before execution.
 5. Do not add plugin marketplace integration; reject marketplace, registry, catalog, mirror, and remote URL plugin sources.
 6. Split the current scaffold toward explicit runtime core modules.
-7. Add runtime state, ledger, and observability boundaries before chat behavior.
+7. Extend `rpotato run` from non-executing model action parsing to diff display, approval, patch apply, verification, and stop gate.
 8. Add backend streaming response handling and generation cancellation on top of the managed sidecar lifecycle.
 9. Run `rpotato model eval-plan <id>` before local model work to check source-backed fields, app-data artifact presence, and the next smoke/benchmark step.
 10. Run `rpotato model benchmark-plan <id>` before assigning any score so public benchmark parity conditions and local product benchmark gates remain separated.

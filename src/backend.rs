@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::app::AppError;
 use crate::paths;
-use crate::{checksum, ledger, state};
+use crate::{checksum, ledger, observability, state};
 
 const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 const DEFAULT_HOST: &str = "127.0.0.1";
@@ -139,6 +139,26 @@ struct BackendChatCompletion {
     prompt_tokens: Option<u32>,
     completion_tokens: Option<u32>,
     total_tokens: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BackendChatRun {
+    pub backend_id: String,
+    pub pid: u32,
+    pub model_id: String,
+    pub model_path: PathBuf,
+    pub ctx_size: Option<u32>,
+    pub prompt_chars: usize,
+    pub response_chars: usize,
+    pub max_tokens: u32,
+    pub finish_reason: String,
+    pub guard_status: &'static str,
+    pub prompt_tokens: Option<u32>,
+    pub completion_tokens: Option<u32>,
+    pub total_tokens: Option<u32>,
+    pub elapsed_ms: u128,
+    pub ledger_event: String,
+    pub response: String,
 }
 
 impl BackendArchiveKind {
@@ -608,6 +628,30 @@ pub fn health_check_report() -> String {
 }
 
 pub fn chat_report(prompt: &str, max_tokens: Option<u32>) -> Result<String, AppError> {
+    let run = chat_once(prompt, max_tokens)?;
+
+    Ok(format!(
+        "backend chat\n- status: completed\n- backend: {}\n- pid: {}\n- endpoint: /v1/chat/completions\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- non-thinking source: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- max tokens: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- ledger event: {}\n- response:\n{}",
+        run.backend_id,
+        run.pid,
+        QWEN_NON_THINKING_SOURCE,
+        run.model_id,
+        run.model_path.display(),
+        display_optional_u32(run.ctx_size),
+        run.prompt_chars,
+        run.max_tokens,
+        run.finish_reason,
+        run.guard_status,
+        display_optional_u32(run.prompt_tokens),
+        display_optional_u32(run.completion_tokens),
+        display_optional_u32(run.total_tokens),
+        run.elapsed_ms,
+        run.ledger_event,
+        run.response
+    ))
+}
+
+pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun, AppError> {
     if prompt.trim().is_empty() {
         return Err(AppError::usage(
             "backend chat은 비어 있지 않은 --prompt <text> 값이 필요합니다.",
@@ -641,8 +685,10 @@ pub fn chat_report(prompt: &str, max_tokens: Option<u32>) -> Result<String, AppE
         )));
     }
 
+    let started_at_ms = now_ms();
     let started_at = Instant::now();
     let completion = request_chat_completion(&record, prompt, max_tokens)?;
+    let elapsed_ms = started_at.elapsed().as_millis();
     let (display_content, had_reasoning_trace) = strip_reasoning_trace(&completion.content);
     let display_content = display_content.trim().to_string();
     let guard_status = if had_reasoning_trace {
@@ -674,7 +720,7 @@ pub fn chat_report(prompt: &str, max_tokens: Option<u32>) -> Result<String, AppE
             display_optional_u32(completion.prompt_tokens),
             display_optional_u32(completion.completion_tokens),
             display_optional_u32(completion.total_tokens),
-            started_at.elapsed().as_millis()
+            elapsed_ms
         ),
     )?;
 
@@ -685,22 +731,60 @@ pub fn chat_report(prompt: &str, max_tokens: Option<u32>) -> Result<String, AppE
         )));
     }
 
-    Ok(format!(
-        "backend chat\n- status: completed\n- backend: {}\n- pid: {}\n- endpoint: /v1/chat/completions\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- non-thinking source: {}\n- prompt chars: {}\n- max tokens: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- ledger event: {}\n- response:\n{}",
-        record.backend_id,
-        record.pid,
-        QWEN_NON_THINKING_SOURCE,
-        prompt.chars().count(),
+    let identity = ledger::current_identity();
+    let model_id = model_id_from_path(&record.model_path);
+    let model_run_id = format!("model-run-{event_id}");
+    let completion_tokens = completion.completion_tokens.unwrap_or(0);
+    let tokens_per_second = if completion_tokens > 0 && elapsed_ms > 0 {
+        Some((completion_tokens as f64) / ((elapsed_ms as f64) / 1000.0))
+    } else {
+        None
+    };
+    observability::record_model_run(&observability::ModelRunMetric {
+        model_run_id,
+        session_id: identity.session_id,
+        workflow_id: None,
+        model_id: model_id.clone(),
+        model_artifact_hash: None,
+        backend_id: Some(record.backend_id.clone()),
+        backend_version: None,
+        quantization: None,
+        context_limit_tokens: record.ctx_size,
+        started_at_ms,
+        first_token_latency_ms: None,
+        total_latency_ms: Some(elapsed_ms as f64),
+        prompt_eval_ms: None,
+        generation_eval_ms: None,
+        tokens_per_second,
+        cancelled: false,
+        prompt_tokens: completion.prompt_tokens.unwrap_or(0),
+        completion_tokens,
+        total_tokens: completion.total_tokens.unwrap_or(0),
+        context_tokens_used: completion.prompt_tokens.unwrap_or(0),
+        context_tokens_dropped: 0,
+        ontology_tokens: 0,
+        tool_summary_tokens: 0,
+        max_output_tokens: Some(max_tokens),
+    })?;
+
+    Ok(BackendChatRun {
+        backend_id: record.backend_id,
+        pid: record.pid,
+        model_id,
+        model_path: record.model_path,
+        ctx_size: record.ctx_size,
+        prompt_chars: prompt.chars().count(),
+        response_chars: display_content.chars().count(),
         max_tokens,
-        completion.finish_reason,
+        finish_reason: completion.finish_reason,
         guard_status,
-        display_optional_u32(completion.prompt_tokens),
-        display_optional_u32(completion.completion_tokens),
-        display_optional_u32(completion.total_tokens),
-        started_at.elapsed().as_millis(),
-        event_id,
-        display_content
-    ))
+        prompt_tokens: completion.prompt_tokens,
+        completion_tokens: completion.completion_tokens,
+        total_tokens: completion.total_tokens,
+        elapsed_ms,
+        ledger_event: event_id,
+        response: display_content,
+    })
 }
 
 fn discover_llama_cpp() -> BackendDiscovery {
@@ -1030,7 +1114,7 @@ fn download_backend_archive(
     remove_file_if_exists(&part_path)?;
 
     let response = ureq::get(artifact.archive_url)
-        .header("User-Agent", "rpotato/0.1.0")
+        .header("User-Agent", concat!("rpotato/", env!("CARGO_PKG_VERSION")))
         .call()
         .map_err(|err| {
             AppError::runtime(format!(
@@ -1547,6 +1631,14 @@ fn display_optional_u32(value: Option<u32>) -> String {
     value
         .map(|value| value.to_string())
         .unwrap_or_else(|| "model-default".to_string())
+}
+
+fn model_id_from_path(path: &Path) -> String {
+    path.file_stem()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or("unknown-model")
+        .to_string()
 }
 
 fn backend_install_record_path() -> PathBuf {
@@ -2787,6 +2879,13 @@ mod tests {
         assert_eq!(completion.prompt_tokens, Some(26));
         assert_eq!(completion.completion_tokens, Some(14));
         assert_eq!(completion.total_tokens, Some(40));
+    }
+
+    #[test]
+    fn model_id_comes_from_model_file_stem() {
+        let model_id = model_id_from_path(Path::new("/tmp/Qwen3.5-4B-Q4_K_M.gguf"));
+
+        assert_eq!(model_id, "Qwen3.5-4B-Q4_K_M");
     }
 
     #[test]
