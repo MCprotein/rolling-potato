@@ -30,7 +30,7 @@ Examples:
 
 - `0.1.1`: fix `doctor`, update docs, update release notes, fix packaging
 - `0.2.0`: add first `rpotato run` context-aware model-response skeleton and model-run metrics
-- `0.3.0`: add action candidate parsing and planning
+- `0.3.0`: add model response action parsing
 - `0.4.0`: add patch proposal, approval, and verification command flow
 - `0.5.0`: add TUI beta surface
 

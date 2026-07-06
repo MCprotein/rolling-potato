@@ -16,6 +16,14 @@ pub struct IntentDecision {
     pub classifier: &'static str,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ActionCandidate {
+    kind: &'static str,
+    approval_required: bool,
+    next_gate: &'static str,
+    allowed_side_effects: &'static str,
+}
+
 pub fn run_report(request: &str) -> Result<String, AppError> {
     let decision = classify(request)?;
     let intent_event_id = state::record_event(
@@ -27,6 +35,7 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         ),
     )?;
     let context_pack = context::build_context_pack(request)?;
+    let action_candidate = plan_action_candidate(&decision, &context_pack);
     let context_event_id = state::record_event(
         "context.pack.prepared",
         "bounded repository context 준비",
@@ -37,11 +46,22 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
             context_pack.pointer_summary()
         ),
     )?;
-    let agent_prompt = agent_loop_prompt(request, &decision, &context_pack);
+    let action_event_id = state::record_event(
+        "action.candidate.prepared",
+        "run action candidate 준비",
+        &format!(
+            "kind={} approval_required={} next_gate={} source_pointers={}",
+            action_candidate.kind,
+            action_candidate.approval_required,
+            action_candidate.next_gate,
+            context_pack.pointer_summary()
+        ),
+    )?;
+    let agent_prompt = agent_loop_prompt(request, &decision, &context_pack, &action_candidate);
     let run = backend::chat_once(&agent_prompt, Some(RUN_MAX_TOKENS))?;
 
     Ok(format!(
-        "run agent loop\n- status: model-response-completed\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- max tokens: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- model ledger event: {}\n- boundary: 아직 파일 수정, patch 적용, command 실행은 하지 않습니다. Snippet은 context hint이며 승인된 action 전에는 source pointer 원본을 다시 읽어야 합니다.\n- response:\n{}",
+        "run agent loop\n- status: model-response-completed\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- action candidate: {}\n- approval required before side effect: {}\n- next gate: {}\n- allowed side effects now: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- max tokens: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- action ledger event: {}\n- model ledger event: {}\n- boundary: 아직 파일 수정, patch 적용, command 실행은 하지 않습니다. Snippet은 context hint이며 승인된 action 전에는 source pointer 원본을 다시 읽어야 합니다.\n- response:\n{}",
         request,
         decision.invocation,
         decision.skill_id,
@@ -53,6 +73,10 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         context_pack.files_read,
         context_pack.chars_read,
         context_pack.pointer_summary(),
+        action_candidate.kind,
+        display_bool(action_candidate.approval_required),
+        action_candidate.next_gate,
+        action_candidate.allowed_side_effects,
         run.backend_id,
         run.model_id,
         run.model_path.display(),
@@ -68,6 +92,7 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         run.elapsed_ms,
         intent_event_id,
         context_event_id,
+        action_event_id,
         run.ledger_event,
         run.response
     ))
@@ -226,10 +251,60 @@ fn display_optional_u32(value: Option<u32>) -> String {
         .unwrap_or_else(|| "없음".to_string())
 }
 
+fn display_bool(value: bool) -> &'static str {
+    if value {
+        "yes"
+    } else {
+        "no"
+    }
+}
+
+fn plan_action_candidate(decision: &IntentDecision, context_pack: &ContextPack) -> ActionCandidate {
+    let has_context = !context_pack.source_pointers.is_empty();
+    if matches!(decision.mode, "read-only" | "review-only" | "plan-only") {
+        return ActionCandidate {
+            kind: if has_context {
+                "inspect-sources"
+            } else {
+                "answer-only"
+            },
+            approval_required: false,
+            next_gate: "source-reread-before-claim",
+            allowed_side_effects: "none",
+        };
+    }
+
+    if decision.signals.contains(&"generated-artifact") {
+        return ActionCandidate {
+            kind: "generated-artifact-plan",
+            approval_required: true,
+            next_gate: "diff-before-write",
+            allowed_side_effects: "none",
+        };
+    }
+
+    if matches!(decision.skill_id.as_str(), "fix-test" | "small-patch") {
+        return ActionCandidate {
+            kind: "patch-proposal",
+            approval_required: true,
+            next_gate: "diff-before-write",
+            allowed_side_effects: "none",
+        };
+    }
+
+    ActionCandidate {
+        kind: "answer-only",
+        approval_required: false,
+        next_gate: "korean-output-guard",
+        allowed_side_effects: "none",
+    }
+}
+
 fn agent_loop_prompt(
     request: &str,
     decision: &IntentDecision,
     context_pack: &ContextPack,
+    action_candidate: &ActionCandidate,
 ) -> String {
     format!(
         "rpotato run 최소 agent-loop 실행입니다.\n\
@@ -240,6 +315,11 @@ fn agent_loop_prompt(
          - invocation: {}\n\
          - signals: {}\n\
          - constraints: {}\n\n\
+         runtime action candidate:\n\
+         - kind: {}\n\
+         - approval required before side effect: {}\n\
+         - next gate: {}\n\
+         - allowed side effects now: {}\n\n\
          {}\n\
          현재 구현 단계의 경계:\n\
          - 파일 수정, patch 적용, command 실행은 하지 않습니다.\n\
@@ -252,6 +332,10 @@ fn agent_loop_prompt(
         decision.invocation,
         display_list(&decision.signals),
         display_list(&decision.constraints),
+        action_candidate.kind,
+        display_bool(action_candidate.approval_required),
+        action_candidate.next_gate,
+        action_candidate.allowed_side_effects,
         context_pack.prompt_section()
     )
 }
@@ -259,6 +343,8 @@ fn agent_loop_prompt(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::context::SourcePointer;
+    use std::path::PathBuf;
 
     #[test]
     fn explicit_skill_has_priority() {
@@ -291,5 +377,47 @@ mod tests {
         let report = routes_report();
         assert!(report.contains("command palette"));
         assert!(report.contains("rpotato run"));
+    }
+
+    #[test]
+    fn execute_mode_plans_patch_proposal_without_side_effects() {
+        let decision = classify("테스트 실패 고쳐줘").unwrap();
+        let pack = sample_context_pack();
+
+        let candidate = plan_action_candidate(&decision, &pack);
+
+        assert_eq!(candidate.kind, "patch-proposal");
+        assert!(candidate.approval_required);
+        assert_eq!(candidate.next_gate, "diff-before-write");
+        assert_eq!(candidate.allowed_side_effects, "none");
+    }
+
+    #[test]
+    fn read_only_mode_plans_source_inspection_without_approval() {
+        let decision = classify("구조 분석해줘").unwrap();
+        let pack = sample_context_pack();
+
+        let candidate = plan_action_candidate(&decision, &pack);
+
+        assert_eq!(candidate.kind, "inspect-sources");
+        assert!(!candidate.approval_required);
+        assert_eq!(candidate.next_gate, "source-reread-before-claim");
+    }
+
+    fn sample_context_pack() -> ContextPack {
+        ContextPack {
+            project_root: PathBuf::from("/tmp/project"),
+            files_considered: 1,
+            files_read: 1,
+            chars_read: 12,
+            dropped_files: 0,
+            source_pointers: vec![SourcePointer {
+                path: "src/main.rs".to_string(),
+                stable_ref: "src/main.rs:1".to_string(),
+                chars: 12,
+                fingerprint: "abc".to_string(),
+                snippet: "fn main() {}".to_string(),
+            }],
+        }
     }
 }

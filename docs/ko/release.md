@@ -26,7 +26,7 @@ MVP 전, 그리고 첫 stable contract 전에는 `0.x.y`를 사용합니다.
 
 - `0.1.1`: `doctor` 수정, 문서 수정, release note 수정, packaging fix
 - `0.2.0`: 첫 `rpotato run` context-aware model-response skeleton과 model-run metric 추가
-- `0.3.0`: action candidate parsing과 planning 추가
+- `0.3.0`: model response action parsing 추가
 - `0.4.0`: patch 제안, 승인, verification command flow 추가
 - `0.5.0`: TUI beta surface 추가
 
