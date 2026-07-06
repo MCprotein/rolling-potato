@@ -78,14 +78,23 @@ struct RegistryEntry {
     artifact_sha256: String,
 }
 
-const NO_EXTRA_BLOCKERS: &[&str] = &[];
+const QWEN_4B_BLOCKERS: &[&str] = &[
+    "local llama.cpp b9878 smoke 미실행",
+    "16 GB runtime fit 미측정",
+    "텍스트 전용 실행 시 mmproj 필요 여부 미확정",
+];
+const GEMMA_4B_BLOCKERS: &[&str] = &[
+    "local llama.cpp b9878 smoke 미실행",
+    "16 GB runtime fit 미측정",
+    "텍스트 전용 실행 시 mmproj 필요 여부 미확정",
+];
 const QWEN_9B_BLOCKERS: &[&str] = &["제품 기본값 보류", "16 GB runtime fit 미측정"];
 
 const CANDIDATES: &[ModelManifestEntry] = &[
     ModelManifestEntry {
         id: "qwen3.5-4b",
-        display_name: "Qwen3.5 4B GGUF",
-        status: CandidateStatus::Candidate,
+        display_name: "Qwen3.5 4B Q4_K_M GGUF",
+        status: CandidateStatus::Unverified,
         role: "우선 평가 후보",
         upstream_model: "Qwen/Qwen3.5-4B",
         upstream_url: "https://huggingface.co/Qwen/Qwen3.5-4B",
@@ -93,20 +102,25 @@ const CANDIDATES: &[ModelManifestEntry] = &[
         backend: "llama.cpp",
         license: SourceClaim {
             claim: "Hugging Face model card license field is apache-2.0.",
-            source: "https://huggingface.co/Qwen/Qwen3.5-4B",
-            checked_at: "2026-06-29",
+            source: "https://huggingface.co/api/models/Qwen/Qwen3.5-4B",
+            checked_at: "2026-07-06",
             status: "confirmed",
         },
-        artifact_provider: None,
-        artifact_url: None,
-        artifact_terms_url: None,
-        artifact_name: None,
-        quantization: None,
-        sha256: None,
-        size_bytes: None,
-        context_length: None,
+        artifact_provider: Some("unsloth/Qwen3.5-4B-GGUF"),
+        artifact_url: Some("https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q4_K_M.gguf"),
+        artifact_terms_url: Some("https://huggingface.co/unsloth/Qwen3.5-4B-GGUF"),
+        artifact_name: Some("Qwen3.5-4B-Q4_K_M.gguf"),
+        quantization: Some("Q4_K_M"),
+        sha256: Some("00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"),
+        size_bytes: Some(2_740_937_888),
+        context_length: Some(262_144),
         recommended_ram_gb: None,
-        backend_compatibility: None,
+        backend_compatibility: Some(SourceClaim {
+            claim: "Hugging Face API lists this artifact as GGUF with architecture qwen35 and endpoints_compatible; local llama.cpp b9878 smoke is not yet run.",
+            source: "https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF",
+            checked_at: "2026-07-06",
+            status: "source-listed-unverified",
+        }),
         benchmark: BenchmarkClaim {
             source: "https://huggingface.co/Qwen/Qwen3.5-4B#benchmark-results",
             checked_at: "2026-06-29",
@@ -118,33 +132,38 @@ const CANDIDATES: &[ModelManifestEntry] = &[
             hardware_backend: "미확정: GGUF artifact, quantization, llama.cpp version, hardware 조건을 아직 고정하지 않음",
             reproducibility: "공개 점수는 upstream model card source로만 추적하며, GGUF artifact/backend/quantization 조건이 정해지기 전까지 local parity 미검증입니다.",
         },
-        install_blockers: NO_EXTRA_BLOCKERS,
+        install_blockers: QWEN_4B_BLOCKERS,
     },
     ModelManifestEntry {
         id: "gemma-4-e4b",
-        display_name: "Gemma 4 E4B GGUF",
-        status: CandidateStatus::Candidate,
+        display_name: "Gemma 4 E4B IT QAT Q4_0 GGUF",
+        status: CandidateStatus::Unverified,
         role: "비교 평가 후보",
-        upstream_model: "google/gemma-4-E4B",
-        upstream_url: "https://huggingface.co/google/gemma-4-E4B",
+        upstream_model: "google/gemma-4-E4B-it-qat-q4_0-unquantized",
+        upstream_url: "https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-unquantized",
         format: "gguf",
         backend: "llama.cpp",
         license: SourceClaim {
-            claim: "Hugging Face model card license field is apache-2.0 and Google AI for Developers publishes Gemma under Apache 2.0.",
-            source: "https://huggingface.co/google/gemma-4-E4B, https://ai.google.dev/gemma/apache_2",
-            checked_at: "2026-06-29",
+            claim: "Hugging Face model card license field is apache-2.0 and license_link points to the Gemma 4 license page.",
+            source: "https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf, https://ai.google.dev/gemma/docs/gemma_4_license",
+            checked_at: "2026-07-06",
             status: "confirmed",
         },
-        artifact_provider: None,
-        artifact_url: None,
-        artifact_terms_url: None,
-        artifact_name: None,
-        quantization: None,
-        sha256: None,
-        size_bytes: None,
-        context_length: None,
+        artifact_provider: Some("google/gemma-4-E4B-it-qat-q4_0-gguf"),
+        artifact_url: Some("https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/bb3b92e6f031fa438b409f898dd9f14f499a0cb0/gemma-4-E4B_q4_0-it.gguf"),
+        artifact_terms_url: Some("https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf"),
+        artifact_name: Some("gemma-4-E4B_q4_0-it.gguf"),
+        quantization: Some("QAT q4_0"),
+        sha256: Some("e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d"),
+        size_bytes: Some(5_154_939_136),
+        context_length: Some(131_072),
         recommended_ram_gb: None,
-        backend_compatibility: None,
+        backend_compatibility: Some(SourceClaim {
+            claim: "Hugging Face API lists this artifact as GGUF with architecture gemma4 and endpoints_compatible; local llama.cpp b9878 smoke is not yet run.",
+            source: "https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf",
+            checked_at: "2026-07-06",
+            status: "source-listed-unverified",
+        }),
         benchmark: BenchmarkClaim {
             source: "https://huggingface.co/google/gemma-4-E4B#benchmark-results",
             checked_at: "2026-06-29",
@@ -156,7 +175,7 @@ const CANDIDATES: &[ModelManifestEntry] = &[
             hardware_backend: "미확정: GGUF artifact, quantization, llama.cpp version, hardware 조건을 아직 고정하지 않음",
             reproducibility: "공개 점수는 upstream model card source로만 추적하며, GGUF artifact/backend/quantization 조건이 정해지기 전까지 local parity 미검증입니다.",
         },
-        install_blockers: NO_EXTRA_BLOCKERS,
+        install_blockers: GEMMA_4B_BLOCKERS,
     },
     ModelManifestEntry {
         id: "qwen3.5-9b",
@@ -262,7 +281,7 @@ pub fn list_report() -> String {
 
     output.push('\n');
     output.push_str(&registry);
-    output.push_str("\n\n설치 가능 상태가 되려면 GGUF URL, provider terms, SHA-256, file size, backend 호환성, RAM 근거가 source-backed manifest에 있어야 합니다.");
+    output.push_str("\n\n설치 가능 상태가 되려면 후보가 verified 상태여야 하고, GGUF URL, provider terms, SHA-256, file size, backend 호환성, RAM 근거가 source-backed manifest에 있어야 합니다.");
     output
 }
 
@@ -499,7 +518,7 @@ pub fn install_candidate(id: &str) -> Result<(), AppError> {
             ),
         )?;
         return Err(AppError::blocked(format!(
-            "설치를 차단했습니다: {}\n상태: {}\n이유:\n- {}\nsource: {}\nlicense source: {}\nbenchmark source: {}\nlocal registry: {}\nledger event: {}\n다음 단계: 검증된 GGUF artifact URL, provider terms, SHA-256, file size, backend 호환성, RAM 근거를 manifest에 추가해야 합니다.",
+            "설치를 차단했습니다: {}\n상태: {}\n이유:\n- {}\nsource: {}\nlicense source: {}\nbenchmark source: {}\nlocal registry: {}\nledger event: {}\n다음 단계: source-recorded artifact field를 유지하면서 local backend smoke, RAM-fit/mmproj 측정, byte-level SHA-256 검증, benchmark evidence를 채운 뒤 verified 상태로 승격해야 합니다.",
             candidate.id,
             candidate.status.label(),
             validation.blockers.join("\n- "),
@@ -817,7 +836,7 @@ mod tests {
     }
 
     #[test]
-    fn manifest_validation_blocks_candidate_without_artifact() {
+    fn manifest_validation_blocks_unverified_artifact_candidate() {
         let candidate = find_candidate("qwen3.5-4b").unwrap();
         let validation = validate_install_ready(candidate);
 
@@ -829,7 +848,11 @@ mod tests {
         assert!(validation
             .blockers
             .iter()
-            .any(|blocker| blocker.contains("SHA-256")));
+            .any(|blocker| blocker.contains("smoke")));
+        assert!(validation
+            .blockers
+            .iter()
+            .any(|blocker| blocker.contains("RAM")));
     }
 
     #[test]

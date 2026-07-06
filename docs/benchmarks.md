@@ -255,8 +255,8 @@ Metrics to collect:
 
 Initial comparison:
 
-- `Qwen3.5-4B` quantized GGUF, unconfirmed before artifact/runtime verification
-- `Gemma 4 E4B`, unconfirmed before artifact/runtime verification
+- `Qwen3.5-4B-Q4_K_M.gguf` from `unsloth/Qwen3.5-4B-GGUF`, source-recorded but unverified before local runtime validation
+- `gemma-4-E4B_q4_0-it.gguf` from `google/gemma-4-E4B-it-qat-q4_0-gguf`, source-recorded but unverified before local runtime validation
 - reference-only `Qwen3.5-9B`
 
 All candidates are evaluated with the same prompt compiler, context budget, and tool policy.

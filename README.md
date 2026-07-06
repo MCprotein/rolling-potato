@@ -138,8 +138,8 @@ MVP defaults:
 - required compatibility boundary: Claude Code/Codex-style plugin adapters
 - required monitoring store: local SQLite projection plus append-only ledger
 - required model evidence index: model knowledge base, also called the LLM wiki in product discussions
-- priority evaluation candidate: `Qwen3.5-4B` quantized GGUF family, unconfirmed until artifact/runtime validation
-- comparison candidate: `Gemma 4 E4B` quantized GGUF family, unconfirmed until artifact/runtime validation
+- priority evaluation candidate: `Qwen3.5-4B` Q4_K_M GGUF from `unsloth/Qwen3.5-4B-GGUF`, unverified until local runtime validation
+- comparison candidate: Google `Gemma 4 E4B` IT QAT q4_0 GGUF, unverified until local runtime validation
 
 `llama.cpp` is a backend, not a model candidate. Model candidates are tracked only in the Qwen/Gemma lines currently documented for this project. License and artifact claims are recorded with sources in [docs/model-licenses.md](docs/model-licenses.md).
 
@@ -238,7 +238,7 @@ Implemented command surfaces:
 
 `monitor export` emits the runtime ledger as JSONL or CSV. `monitor prune` is currently dry-run only.
 
-`model list`, `model manifest`, `model inspect`, `model registry`, and `model download-plan` expose source-backed manifest structure, candidate status, benchmark source ledgers, local registry paths, and pre-download source/license/checksum fields. `model verify-file` verifies SHA-256 over local file bytes and records a ledger event. `model cleanup-failed` targets only partial or failed artifacts under app data. `model install` blocks real downloads until a verified GGUF artifact URL, checksum, provider terms, file size, and `llama.cpp` compatibility are present in the manifest.
+`model list`, `model manifest`, `model inspect`, `model registry`, and `model download-plan` expose source-backed manifest structure, candidate status, benchmark source ledgers, local registry paths, and pre-download source/license/checksum fields. Qwen and Gemma now have source-recorded unverified GGUF artifact candidates, including pinned revision URLs, LFS SHA-256, and file size. `model verify-file` verifies SHA-256 over local file bytes and records a ledger event. `model cleanup-failed` targets only partial or failed artifacts under app data. `model install` still blocks real downloads until the candidate is promoted to `verified`; local `llama.cpp b9878` smoke, RAM fit, mmproj need, and actual download wiring remain open.
 
 `backend doctor` shows managed `llama.cpp` sidecar discovery, environment override path, port, health URL, executable bit, install gate state, and version detection for recorded managed binaries. `backend install-plan` selects a source-backed `llama.cpp` release `b9878` CPU artifact for supported OS/CPU pairs and displays the release URL, archive URL, SHA-256, size, license source, and download path. `backend install` downloads or reuses the cached archive, verifies size and SHA-256, extracts it in staging, places the release payload in the managed backend directory, sets executable permissions on Unix, rolls back failed replacement, writes an install record, and records a ledger event. `backend start --model <path>` starts the selected sidecar with an explicit local model file, records pid/log paths, waits for `/health`, and kills the child on startup timeout. `backend status` reads the sidecar pid record and health status. `backend stop` removes stale records or terminates the recorded sidecar. Env override binaries are not executed by `doctor`; they are executed only by explicit lifecycle commands. `backend verify-archive` verifies a local backend archive SHA-256. `backend health-check` checks `/health` on the selected host and port with a short timeout.
 

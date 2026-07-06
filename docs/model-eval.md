@@ -6,8 +6,8 @@ MVP model selection is not decided by intuition. Candidates are compared by Kore
 
 Initial candidates:
 
-- priority evaluation candidate: `Qwen3.5-4B` quantized GGUF, unconfirmed before artifact/runtime verification
-- comparison candidate: `Gemma 4 E4B`, unconfirmed before artifact/runtime verification
+- priority evaluation candidate: `Qwen3.5-4B-Q4_K_M.gguf` from `unsloth/Qwen3.5-4B-GGUF`, source-recorded but unverified before local runtime validation
+- comparison candidate: `gemma-4-E4B_q4_0-it.gguf` from `google/gemma-4-E4B-it-qat-q4_0-gguf`, source-recorded but unverified before local runtime validation
 - postponed candidate: `Qwen3.5-9B`
 
 `Qwen3.5-9B` may be included for quality comparison, but it is not confirmed as a 16 GB RAM product default. Exact viability, memory usage, and context headroom remain unconfirmed until measured.

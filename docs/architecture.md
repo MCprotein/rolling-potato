@@ -257,7 +257,7 @@ Model metadata is managed through manifests.
 
 `null` and `TODO` are schema placeholders, not product facts.
 
-Exact artifact URL, hash, license, and backend compatibility are confirmed only after benchmark and source review. Model claims follow [model-source-policy.md](model-source-policy.md).
+Qwen and Gemma now have source-recorded `unverified` artifact candidates in the scaffold manifest. They are not installable defaults until local backend smoke, RAM-fit measurement, mmproj-need review, and benchmark/source review promote them to `verified`. Model claims follow [model-source-policy.md](model-source-policy.md).
 
 ## Later Adapters
 

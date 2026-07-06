@@ -169,23 +169,25 @@ An overridden backend is user-owned. `rpotato uninstall` must not delete it.
 
 Priority evaluation candidate:
 
-- `Qwen3.5-4B` quantized GGUF
+- `Qwen3.5-4B-Q4_K_M.gguf` from `unsloth/Qwen3.5-4B-GGUF`
 
 Status:
 
 - user-directed candidate, not a confirmed default
-- exact GGUF artifact, artifact provider terms, checksum, and runtime fit are unverified
+- artifact URL, provider page, LFS SHA-256, and file size are source-recorded as `unverified`
+- local `llama.cpp b9878` smoke, RAM fit, text-only mmproj need, and benchmark fit are still unverified
 - do not describe Korean/code/agent quality, multimodal support, or 16 GB suitability as fact until source-backed evaluation is complete
 
 Comparison candidate:
 
-- `Gemma 4 E4B`
+- `gemma-4-E4B_q4_0-it.gguf` from `google/gemma-4-E4B-it-qat-q4_0-gguf`
 
 Status:
 
 - comparison candidate only
-- artifact, artifact provider terms, multimodal support, and runtime fit are unverified
-- useful only after source-backed artifact selection and benchmark design
+- artifact URL, provider page, LFS SHA-256, and file size are source-recorded as `unverified`
+- multimodal support, text-only mmproj need, runtime fit, and benchmark fit are still unverified
+- useful only after local runtime validation and benchmark execution
 
 Not the default:
 
@@ -466,7 +468,7 @@ Replacement-level beta should additionally:
 ## Open Questions
 
 - Rust first, or TypeScript prototype first?
-- Which exact Qwen3.5-4B GGUF artifact should be trusted?
+- Does the source-recorded Qwen3.5-4B Q4_K_M artifact pass local `llama.cpp b9878` smoke, RAM-fit, mmproj-need, and benchmark checks?
 - Which `llama.cpp` release artifact and checksum source should be trusted per platform?
 - How should self-delete work on Windows package-manager installs?
 - Should image/screenshot understanding be MVP or later?
@@ -540,12 +542,13 @@ Model-related claims require explicit sources. Model names, licenses, artifact U
 
 Next implementation-oriented decisions:
 
-1. choose the exact trusted `Qwen3.5-4B` GGUF artifact
-2. define the initial model manifest format on disk
-3. separate runtime core modules from the CLI surface
-4. define normalized plugin manifest and inspect/validate output before plugin execution
-5. implement Codex plugin local import before Claude Code plugin local import
-6. keep risky foreign plugin capabilities blocked until explicit per-capability approval
-7. reject plugin marketplace, remote registry, and remote catalog sources
-8. implement `rpotato doctor` before agent behavior
-9. build the first fixture benchmark for Korean/code/tool reliability
+1. run local smoke and RAM-fit/mmproj-need checks for the source-recorded Qwen/Gemma GGUF artifact candidates
+2. implement resumable model download and byte-level SHA-256 verification before registry registration
+3. define the initial model manifest format on disk
+4. separate runtime core modules from the CLI surface
+5. define normalized plugin manifest and inspect/validate output before plugin execution
+6. implement Codex plugin local import before Claude Code plugin local import
+7. keep risky foreign plugin capabilities blocked until explicit per-capability approval
+8. reject plugin marketplace, remote registry, and remote catalog sources
+9. implement `rpotato doctor` before agent behavior
+10. build the first fixture benchmark for Korean/code/tool reliability

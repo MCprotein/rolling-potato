@@ -28,11 +28,30 @@
 설치 가능한 다운로드 URL 필드는 `artifactUrl`입니다.
 
 - 실제 배포용 다운로드 URL은 Rust 코드에 하드코딩하지 않고 versioned model manifest에 고정한다.
-- 현재 `src/model.rs`의 static 후보 table은 초기 scaffold용 후보 metadata일 뿐이며, `artifactUrl: null`이거나 checksum이 빠진 항목은 설치할 수 없다.
+- 현재 `src/model.rs`의 static 후보 table은 초기 scaffold용 후보 metadata입니다. CLI inspection을 위해 source-backed artifact 후보 사실을 담을 수는 있지만, production manifest 배포 surface는 아닙니다.
+- `status != "verified"`인 항목은 artifact URL, checksum, file size가 이미 알려져 있어도 설치할 수 없습니다.
 - `rpotato model install`은 사용자가 임의로 넣은 URL을 모델 source로 받으면 안 된다.
 - `latest`, branch, 움직이는 redirect URL을 신뢰 근거로 쓰지 않는다. provider가 immutable revision 또는 release URL을 지원하면 `artifactUrl`은 그 구체 artifact를 가리켜야 한다.
 - 모든 `artifactUrl`은 `artifactProvider`, `artifactTermsUrl`, `artifactName`, `sha256`, `sizeBytes`, 출처/확인 날짜 evidence와 함께 기록해야 한다.
 - URL이 바뀌면 checksum, size, provider evidence, manifest entry를 같이 업데이트해야 한다.
+
+## 현재 source-backed artifact 후보
+
+아래 항목은 후보 사실이며 install-ready 기본값이 아닙니다. Hugging Face LFS `oid` 값은 expected SHA-256으로 기록하되, registry 등록 전 다운로드된 bytes를 다시 검증해야 합니다.
+
+| Model ID | Artifact provider | Artifact | Revision | Quantization | Size bytes | SHA-256 | Source status |
+| --- | --- | --- | --- | --- | ---: | --- | --- |
+| `qwen3.5-4b` | `unsloth/Qwen3.5-4B-GGUF` | `Qwen3.5-4B-Q4_K_M.gguf` | `e87f176479d0855a907a41277aca2f8ee7a09523` | `Q4_K_M` | `2740937888` | `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4` | `unverified`: source-listed artifact이며 local `llama.cpp b9878` smoke, RAM fit, mmproj 필요 여부는 아직 측정하지 않음 |
+| `gemma-4-e4b` | `google/gemma-4-E4B-it-qat-q4_0-gguf` | `gemma-4-E4B_q4_0-it.gguf` | `bb3b92e6f031fa438b409f898dd9f14f499a0cb0` | `QAT q4_0` | `5154939136` | `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d` | `unverified`: source-listed artifact이며 local `llama.cpp b9878` smoke, RAM fit, mmproj 필요 여부는 아직 측정하지 않음 |
+
+2026-07-06 확인 source:
+
+- https://huggingface.co/api/models/Qwen/Qwen3.5-4B
+- https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF
+- https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/tree/main?recursive=1
+- https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-unquantized
+- https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf
+- https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf/tree/main?recursive=1
 
 ## schema 초안
 
@@ -89,7 +108,7 @@
 후보 상태:
 
 - `candidate`: upstream model/source/license만 후보로 추적하고, 설치할 GGUF artifact는 아직 고르지 않은 상태
-- `unverified`: GGUF artifact 후보는 있지만 checksum, provider terms, backend compatibility, RAM 근거 중 하나 이상이 빠진 상태
+- `unverified`: GGUF artifact 후보는 있지만 byte-level checksum 검증, provider/source review, backend smoke, RAM-fit evidence, mmproj 필요 여부 검토, benchmark evidence 같은 install 승격 조건 중 하나 이상이 남은 상태
 - `verified`: 설치 전 표시해야 할 source, license, artifact URL, provider terms, SHA-256, file size, backend compatibility, RAM 근거가 모두 채워진 상태
 
 `model download-plan`은 실제 다운로드 전에 사용자에게 보여야 할 source, license source, artifact provider, artifact terms, file size, SHA-256, resume path, final path를 렌더링합니다.

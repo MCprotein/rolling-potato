@@ -173,20 +173,39 @@ Adapters to consider later:
 
 Primary candidate:
 
-- `Qwen3.5-4B` quantized GGUF
+- `Qwen3.5-4B` Q4_K_M GGUF from `unsloth/Qwen3.5-4B-GGUF`
 
 Status:
 
 - user-directed priority evaluation candidate
 - not a confirmed default model
-- exact GGUF artifact, artifact provider terms, checksum, Korean/code quality, multimodal support, and 16 GB runtime fit are unverified
+- exact GGUF artifact URL, provider page, LFS SHA-256, and file size are source-recorded as `unverified`
+- local `llama.cpp b9878` smoke, Korean/code quality, text-only mmproj need, multimodal support, and 16 GB runtime fit are unverified
 - do not make model claims without explicit sources
+
+Source-recorded artifact facts checked 2026-07-06:
+
+- provider: `unsloth/Qwen3.5-4B-GGUF`
+- artifact: `Qwen3.5-4B-Q4_K_M.gguf`
+- pinned revision: `e87f176479d0855a907a41277aca2f8ee7a09523`
+- size bytes: `2740937888`
+- expected SHA-256 from Hugging Face LFS oid: `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`
+- sources: https://huggingface.co/api/models/Qwen/Qwen3.5-4B, https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF, https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/tree/main?recursive=1
 
 Comparison candidate:
 
-- `Gemma 4 E4B`
+- Google `Gemma 4 E4B` IT QAT q4_0 GGUF
 
-Keep it for benchmark comparison only. Artifact, artifact provider terms, multimodal support, and runtime fit are unverified until source-backed evaluation is complete.
+Keep it for benchmark comparison only. Its artifact URL, LFS SHA-256, and file size are source-recorded as `unverified`; multimodal support, text-only mmproj need, and runtime fit are unverified until local evaluation is complete.
+
+Source-recorded artifact facts checked 2026-07-06:
+
+- provider: `google/gemma-4-E4B-it-qat-q4_0-gguf`
+- artifact: `gemma-4-E4B_q4_0-it.gguf`
+- pinned revision: `bb3b92e6f031fa438b409f898dd9f14f499a0cb0`
+- size bytes: `5154939136`
+- expected SHA-256 from Hugging Face LFS oid: `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d`
+- sources: https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-unquantized, https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf, https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf/tree/main?recursive=1
 
 Not default:
 
@@ -305,7 +324,8 @@ Suggested next work:
 6. Split the current scaffold toward explicit runtime core modules.
 7. Add runtime state, ledger, and observability boundaries before chat behavior.
 8. Add backend streaming response handling and generation cancellation on top of the managed sidecar lifecycle.
-9. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level only with source-backed URL, checksum, provider terms, file size, and backend compatibility evidence.
+9. Run local backend smoke and RAM-fit/mmproj-need measurement for the source-recorded Qwen/Gemma GGUF artifact candidates.
+10. Implement resumable model download and byte-level SHA-256 verification before registry registration.
 
 ## User Preference Notes
 

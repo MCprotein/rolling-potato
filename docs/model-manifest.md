@@ -28,11 +28,30 @@ Exact paths are confirmed after the Rust scaffold decides whether to use a `dire
 The installable download URL field is `artifactUrl`.
 
 - Production download URLs are pinned in a versioned model manifest, not hardcoded in Rust code.
-- The current Rust static candidate table is only an early scaffold for candidate metadata; entries with `artifactUrl: null` or missing checksum are not installable.
+- The current Rust static candidate table is only an early scaffold for candidate metadata. It may carry source-backed candidate artifact facts for CLI inspection, but it is not the production manifest distribution surface.
+- Entries with `status != "verified"` are not installable even when an artifact URL, checksum, and file size are already known.
 - `rpotato model install` must not accept an arbitrary user-provided URL as a model source.
 - Avoid `latest`, branch, or moving redirect URLs as the source of trust. When a provider supports immutable revision or release URLs, `artifactUrl` must point to that concrete artifact.
 - Every `artifactUrl` must be recorded with `artifactProvider`, `artifactTermsUrl`, `artifactName`, `sha256`, `sizeBytes`, and source/checked-at evidence.
 - If the URL changes, the checksum, size, provider evidence, and manifest entry must be updated together.
+
+## Current Source-Backed Artifact Candidates
+
+These entries are candidate facts, not install-ready defaults. The Hugging Face LFS `oid` values are recorded as the expected SHA-256 values and must be rechecked against downloaded bytes before registry registration.
+
+| Model ID | Artifact provider | Artifact | Revision | Quantization | Size bytes | SHA-256 | Source status |
+| --- | --- | --- | --- | --- | ---: | --- | --- |
+| `qwen3.5-4b` | `unsloth/Qwen3.5-4B-GGUF` | `Qwen3.5-4B-Q4_K_M.gguf` | `e87f176479d0855a907a41277aca2f8ee7a09523` | `Q4_K_M` | `2740937888` | `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4` | `unverified`: source-listed artifact; local `llama.cpp b9878` smoke, RAM fit, and mmproj need are not measured |
+| `gemma-4-e4b` | `google/gemma-4-E4B-it-qat-q4_0-gguf` | `gemma-4-E4B_q4_0-it.gguf` | `bb3b92e6f031fa438b409f898dd9f14f499a0cb0` | `QAT q4_0` | `5154939136` | `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d` | `unverified`: source-listed artifact; local `llama.cpp b9878` smoke, RAM fit, and mmproj need are not measured |
+
+Sources checked on 2026-07-06:
+
+- https://huggingface.co/api/models/Qwen/Qwen3.5-4B
+- https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF
+- https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/tree/main?recursive=1
+- https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-unquantized
+- https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf
+- https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf/tree/main?recursive=1
 
 ## Schema Draft
 
@@ -89,7 +108,7 @@ Current CLI surface:
 Candidate states:
 
 - `candidate`: upstream model/source/license is tracked, but installable GGUF artifact is not selected yet
-- `unverified`: GGUF artifact candidate exists, but checksum, provider terms, backend compatibility, or RAM evidence is missing
+- `unverified`: GGUF artifact candidate exists, but one or more install-promotion checks are missing, such as byte-level checksum verification, provider/source review, backend smoke, RAM-fit evidence, mmproj need review, or benchmark evidence
 - `verified`: source, license, artifact URL, provider terms, SHA-256, file size, backend compatibility, and RAM evidence are all present for pre-install display
 
 `model download-plan` renders source, license source, artifact provider, artifact terms, file size, SHA-256, resume path, and final path before real download.

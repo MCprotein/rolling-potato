@@ -33,13 +33,13 @@ Current policy:
 
 | Candidate | Role | Status | Notes |
 | --- | --- | --- | --- |
-| `Qwen3.5-4B` GGUF | priority evaluation candidate | upstream license checked, GGUF not selected | exact artifact, hash, and runtime fit still need review |
-| `Gemma 4 E4B` GGUF | comparison candidate | upstream license checked, GGUF not selected | exact artifact, hash, and runtime fit still need review |
+| `Qwen3.5-4B` GGUF | priority evaluation candidate | `unverified` artifact candidate selected | `unsloth/Qwen3.5-4B-GGUF` Q4_K_M artifact URL, SHA-256, and size are source-recorded; local `llama.cpp` smoke, RAM fit, and mmproj need are still unverified |
+| `Gemma 4 E4B` GGUF | comparison candidate | `unverified` artifact candidate selected | Google `gemma-4-E4B-it-qat-q4_0-gguf` artifact URL, SHA-256, and size are source-recorded; local `llama.cpp` smoke, RAM fit, and mmproj need are still unverified |
 | `Qwen3.5-9B` GGUF | quality reference candidate | upstream license checked, product default postponed | RAM impact and runtime fit remain unconfirmed before measurement |
 
-## Confirmed Upstream Sources
+## Confirmed Source Ledger
 
-The following confirms upstream model information only. It does not confirm GGUF conversion provider, checksum, file size, `llama.cpp` compatibility, 16 GB viability, or default product-model fit.
+The following source ledger separates source-recorded artifact fields from runtime claims. Source-recorded URL, size, and LFS oid are not enough to confirm local `llama.cpp` compatibility, 16 GB viability, or default product-model fit.
 
 | Claim | Source | Checked-at | Status |
 | --- | --- | --- | --- |
@@ -47,16 +47,18 @@ The following confirms upstream model information only. It does not confirm GGUF
 | The Hugging Face model card license field for `Qwen/Qwen3.5-9B` is `apache-2.0`. | https://huggingface.co/Qwen/Qwen3.5-9B | 2026-06-29 | confirmed |
 | The Hugging Face model card license field for `google/gemma-4-E4B` is `apache-2.0`, and the Google AI for Developers Gemma 4 license page publishes Apache License 2.0. | https://huggingface.co/google/gemma-4-E4B, https://ai.google.dev/gemma/apache_2 | 2026-06-29 | confirmed |
 | Apache License 2.0 allows use, reproduction, modification, sublicensing, and distribution when conditions are followed, and requires license copy, modification notice, preservation of existing attribution/NOTICE, and trademark limits. | https://ai.google.dev/gemma/apache_2 | 2026-06-25 | confirmed |
+| The Hugging Face API for `Qwen/Qwen3.5-4B` reports `license:apache-2.0` and the `unsloth/Qwen3.5-4B-GGUF` artifact card reports `license:apache-2.0`, base model `Qwen/Qwen3.5-4B`, and license link to the upstream Qwen license. | https://huggingface.co/api/models/Qwen/Qwen3.5-4B, https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF | 2026-07-06 | confirmed for source fields; runtime fit unverified |
+| The `Qwen3.5-4B-Q4_K_M.gguf` artifact entry lists size `2740937888` and LFS oid `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`. | https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/tree/main?recursive=1 | 2026-07-06 | source-recorded expected hash; download-byte verification still required |
+| The Hugging Face API for `google/gemma-4-E4B-it-qat-q4_0-gguf` reports `license:apache-2.0`, license link to the Gemma 4 license page, base model `google/gemma-4-E4B-it-qat-q4_0-unquantized`, GGUF architecture `gemma4`, and `endpoints_compatible`. | https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf, https://ai.google.dev/gemma/docs/gemma_4_license | 2026-07-06 | confirmed for source fields; runtime fit unverified |
+| The `gemma-4-E4B_q4_0-it.gguf` artifact entry lists size `5154939136` and LFS oid `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d`. | https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf/tree/main?recursive=1 | 2026-07-06 | source-recorded expected hash; download-byte verification still required |
 
 ## Not Yet Confirmed
 
 - default recommended model
-- GGUF artifact URL to use
-- GGUF artifact provider license/terms
-- SHA-256 and file size
 - actual `llama.cpp` compatibility
 - real performance and stability on 16 GB RAM
 - Korean output guard pass rate
+- whether text-only runs require mmproj for the selected multimodal GGUF artifacts
 
 ## Artifact Selection Checklist
 
@@ -84,4 +86,4 @@ When a model is added to the manifest, record:
 
 ## Open Issue
 
-The exact `Qwen3.5-4B` artifact has not been selected yet. Run the evaluation in [model-eval.md](model-eval.md) and [benchmarks.md](benchmarks.md) before selection.
+The exact `Qwen3.5-4B` artifact candidate is selected as `unverified`, not as a product default. Run the local backend smoke, RAM-fit measurement, Korean/code guard, and benchmark evaluation in [model-eval.md](model-eval.md) and [benchmarks.md](benchmarks.md) before promoting it to `verified`.

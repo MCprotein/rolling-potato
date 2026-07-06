@@ -33,13 +33,13 @@
 
 | Candidate | Role | Status | Notes |
 | --- | --- | --- | --- |
-| `Qwen3.5-4B` GGUF | 우선 평가 후보 | upstream license 확인, GGUF 미선정 | 정확한 artifact, hash, runtime fit 확인 필요 |
-| `Gemma 4 E4B` GGUF | 비교 후보 | upstream license 확인, GGUF 미선정 | 정확한 artifact, hash, runtime fit 확인 필요 |
+| `Qwen3.5-4B` GGUF | 우선 평가 후보 | `unverified` artifact 후보 선정 | `unsloth/Qwen3.5-4B-GGUF` Q4_K_M artifact URL, SHA-256, size를 source로 기록함. Local `llama.cpp` smoke, RAM fit, mmproj 필요 여부는 아직 미검증 |
+| `Gemma 4 E4B` GGUF | 비교 후보 | `unverified` artifact 후보 선정 | Google `gemma-4-E4B-it-qat-q4_0-gguf` artifact URL, SHA-256, size를 source로 기록함. Local `llama.cpp` smoke, RAM fit, mmproj 필요 여부는 아직 미검증 |
 | `Qwen3.5-9B` GGUF | 품질 참고 후보 | upstream license 확인, 제품 기본값 보류 | RAM 영향과 runtime fit은 측정 전 미확정 |
 
-## 확인된 upstream 출처
+## 확인된 source ledger
 
-아래는 upstream 모델 자체에 대한 확인이며, GGUF 변환본의 배포자, checksum, file size, `llama.cpp` 호환성, 16 GB 실행 가능성, 제품 기본 모델 적합성까지 확정하지는 않습니다.
+아래 source ledger는 source-recorded artifact field와 runtime claim을 분리합니다. Source-recorded URL, size, LFS oid만으로 local `llama.cpp` 호환성, 16 GB 실행 가능성, 제품 기본 모델 적합성이 확정되지는 않습니다.
 
 | Claim | Source | Checked-at | Status |
 | --- | --- | --- | --- |
@@ -47,16 +47,18 @@
 | `Qwen/Qwen3.5-9B`의 Hugging Face model card license field는 `apache-2.0`이다. | https://huggingface.co/Qwen/Qwen3.5-9B | 2026-06-29 | confirmed |
 | `google/gemma-4-E4B`의 Hugging Face model card license field는 `apache-2.0`이고, Google AI for Developers의 Gemma 4 license 문서는 Apache License 2.0을 게시한다. | https://huggingface.co/google/gemma-4-E4B, https://ai.google.dev/gemma/apache_2 | 2026-06-29 | confirmed |
 | Apache License 2.0은 조건을 지키는 경우 사용, 복제, 수정, sublicensing, 배포를 허용하며, license 사본 제공, 수정 표시, 기존 attribution/NOTICE 보존, 상표 제한을 요구한다. | https://ai.google.dev/gemma/apache_2 | 2026-06-25 | confirmed |
+| `Qwen/Qwen3.5-4B` Hugging Face API는 `license:apache-2.0`을 보고하고, `unsloth/Qwen3.5-4B-GGUF` artifact card는 `license:apache-2.0`, base model `Qwen/Qwen3.5-4B`, upstream Qwen license link를 보고한다. | https://huggingface.co/api/models/Qwen/Qwen3.5-4B, https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF | 2026-07-06 | source field는 confirmed, runtime fit은 unverified |
+| `Qwen3.5-4B-Q4_K_M.gguf` artifact entry는 size `2740937888`과 LFS oid `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`를 표시한다. | https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/tree/main?recursive=1 | 2026-07-06 | expected hash로 source-recorded, 다운로드 bytes 검증은 필요 |
+| `google/gemma-4-E4B-it-qat-q4_0-gguf` Hugging Face API는 `license:apache-2.0`, Gemma 4 license page link, base model `google/gemma-4-E4B-it-qat-q4_0-unquantized`, GGUF architecture `gemma4`, `endpoints_compatible`를 보고한다. | https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf, https://ai.google.dev/gemma/docs/gemma_4_license | 2026-07-06 | source field는 confirmed, runtime fit은 unverified |
+| `gemma-4-E4B_q4_0-it.gguf` artifact entry는 size `5154939136`과 LFS oid `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d`를 표시한다. | https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf/tree/main?recursive=1 | 2026-07-06 | expected hash로 source-recorded, 다운로드 bytes 검증은 필요 |
 
 ## 아직 확정하지 않은 것
 
 - 기본 추천 모델
-- 사용할 GGUF artifact URL
-- GGUF artifact provider의 license/terms
-- SHA-256과 file size
 - `llama.cpp` 실제 호환성
 - 16 GB RAM 환경의 실제 성능과 안정성
 - 한국어 출력 guard 통과율
+- 선택한 multimodal GGUF artifact를 text-only로 실행할 때 mmproj가 필요한지 여부
 
 ## artifact 선정 체크리스트
 
@@ -84,4 +86,4 @@
 
 ## 미정 사항
 
-정확한 `Qwen3.5-4B` artifact는 아직 선택하지 않았습니다. 선택 전 [docs/model-eval.md](model-eval.md)와 [docs/benchmarks.md](benchmarks.md)의 평가를 먼저 수행합니다.
+정확한 `Qwen3.5-4B` artifact 후보는 `unverified`로 선정했지만, 제품 기본값으로 확정한 것은 아닙니다. `verified` 승격 전 [docs/model-eval.md](model-eval.md)와 [docs/benchmarks.md](benchmarks.md)에 맞춰 local backend smoke, RAM-fit 측정, 한국어/code guard, benchmark 평가를 실행해야 합니다.

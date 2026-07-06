@@ -148,6 +148,9 @@ The runtime core blocks model install until the following are confirmed:
 - file size
 - SHA-256
 - backend compatibility
+- RAM-fit evidence for product default selection
+
+Current Qwen/Gemma GGUF candidates have source-recorded URLs, file sizes, and expected SHA-256 values, but they remain `unverified` until local `llama.cpp b9878` smoke, RAM-fit measurement, and mmproj-need review are complete.
 
 ## Control Flow
 

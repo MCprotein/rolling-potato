@@ -303,7 +303,7 @@ mod tests {
 
         assert_eq!(err.code, 3);
         assert!(err.message.contains("설치를 차단했습니다"));
-        assert!(err.message.contains("GGUF artifact URL"));
+        assert!(err.message.contains("verified 상태로 승격"));
     }
 
     #[test]

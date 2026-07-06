@@ -203,6 +203,7 @@ Goal: install and register only source- and checksum-verified model candidates.
 - [x] Source-backed model manifest schema
 - [x] Model candidate states: `candidate`, `unverified`, `verified`
 - [x] Official model card/source/license research per candidate
+- [x] Source-backed unverified GGUF artifact candidate selection for Qwen/Gemma
 - [x] Public benchmark claim/source ledger per candidate
 - [x] Public benchmark reproducibility review: harness, dataset, prompt, scoring, hardware/backend conditions
 - [ ] Model knowledge base schema: evidence index over manifest, benchmark, observability, and ontology records
@@ -219,6 +220,8 @@ Goal: install and register only source- and checksum-verified model candidates.
 - [ ] `rpotato model knowledge prune --before <duration> --dry-run`
 - [ ] `rpotato model install <id>`
 - [x] Block unverified artifact install
+- [ ] Local `llama.cpp b9878` smoke for selected Qwen/Gemma artifact candidates
+- [ ] RAM-fit and mmproj-need measurement for selected Qwen/Gemma artifact candidates
 - [ ] Resumable model download
 - [x] SHA-256 verification
 - [x] Pre-download license/source display

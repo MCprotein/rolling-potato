@@ -257,7 +257,7 @@ guard 단계:
 
 `null`과 `TODO`는 schema placeholder이며 제품 사실이 아닙니다.
 
-정확한 artifact URL, hash, license, backend 호환성은 벤치마크와 출처 확인 후 확정합니다. 모델 관련 claim은 [model-source-policy.md](model-source-policy.md)를 따릅니다.
+Qwen과 Gemma는 scaffold manifest에 source-recorded `unverified` artifact 후보가 들어가 있습니다. Local backend smoke, RAM-fit 측정, mmproj 필요 여부 검토, benchmark/source review로 `verified` 승격하기 전까지 installable default가 아닙니다. 모델 관련 claim은 [model-source-policy.md](model-source-policy.md)를 따릅니다.
 
 ## 후순위 adapter
 

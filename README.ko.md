@@ -139,8 +139,8 @@ MVP의 기본 결정은 다음과 같습니다.
 - 필수 compatibility 경계: Claude Code/Codex형 plugin adapter
 - 필수 monitoring store: local SQLite projection + append-only ledger
 - 필수 model evidence index: 제품 논의에서 LLM wiki라고 부르는 model knowledge base
-- 우선 평가 후보: `Qwen3.5-4B` 계열 quantized GGUF, artifact/runtime 검증 전 미확정
-- 비교 평가 후보: `Gemma 4 E4B` 계열 quantized GGUF, artifact/runtime 검증 전 미확정
+- 우선 평가 후보: `unsloth/Qwen3.5-4B-GGUF`의 `Qwen3.5-4B` Q4_K_M GGUF, local runtime 검증 전 `unverified`
+- 비교 평가 후보: Google `Gemma 4 E4B` IT QAT q4_0 GGUF, local runtime 검증 전 `unverified`
 
 `llama.cpp`는 backend일 뿐 모델 후보가 아닙니다. 모델 후보는 Qwen/Gemma 라인으로만 추적하며, 라이선스와 artifact 관련 claim은 [docs/model-licenses.md](docs/model-licenses.md)에 출처와 함께 기록합니다.
 
@@ -241,7 +241,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 
-`model list`, `model manifest`, `model inspect`, `model registry`, `model download-plan`은 source-backed manifest schema, 후보 상태, 공개 benchmark source ledger, local registry 위치, 다운로드 전 source/license/checksum 표시 항목을 보여줍니다. `model verify-file`은 로컬 파일 bytes의 SHA-256을 검증하고 ledger event를 남깁니다. `model cleanup-failed`는 app data 내부의 partial/failed artifact만 dry-run 또는 명시적 delete 대상으로 삼습니다. `model install`은 아직 실제 다운로드를 수행하지 않습니다. 검증된 GGUF artifact URL, checksum, provider terms, file size, `llama.cpp` 호환성 정보가 manifest에 들어오기 전까지 설치를 차단합니다.
+`model list`, `model manifest`, `model inspect`, `model registry`, `model download-plan`은 source-backed manifest schema, 후보 상태, 공개 benchmark source ledger, local registry 위치, 다운로드 전 source/license/checksum 표시 항목을 보여줍니다. Qwen과 Gemma는 pinned revision URL, LFS SHA-256, file size가 기록된 source-backed `unverified` GGUF artifact 후보를 갖습니다. `model verify-file`은 로컬 파일 bytes의 SHA-256을 검증하고 ledger event를 남깁니다. `model cleanup-failed`는 app data 내부의 partial/failed artifact만 dry-run 또는 명시적 delete 대상으로 삼습니다. `model install`은 아직 실제 다운로드를 수행하지 않습니다. 후보를 `verified`로 승격하기 전까지 설치를 차단하며, local `llama.cpp b9878` smoke, RAM fit, mmproj 필요 여부, 실제 download wiring이 남아 있습니다.
 
 `backend doctor`는 관리형 `llama.cpp` sidecar discovery, env override path, port, health URL, executable bit, install gate, 기록된 managed binary의 version detection을 보여줍니다. `backend install-plan`은 지원 OS/CPU 조합에 대해 source-backed `llama.cpp` release `b9878` CPU artifact를 선택하고 release URL, archive URL, SHA-256, size, license source, download path를 표시합니다. `backend install`은 archive를 다운로드하거나 cache를 재사용하고, size와 SHA-256을 검증한 뒤 staging에서 압축을 풀어 release payload를 managed backend directory에 배치합니다. Unix에서는 실행 권한을 설정하고, 교체 실패 시 rollback하며, install record와 ledger event를 남깁니다. `backend start --model <path>`는 명시된 로컬 모델 파일로 selected sidecar를 시작하고 pid/log path를 기록한 뒤 `/health`를 기다리며, startup timeout이면 child를 종료합니다. `backend status`는 sidecar pid record와 health 상태를 읽고, `backend stop`은 stale record를 제거하거나 기록된 sidecar를 종료합니다. Env override binary는 `doctor`가 실행하지 않으며 명시적인 lifecycle 명령에서만 실행됩니다. `backend verify-archive`는 로컬 backend archive SHA-256을 검증합니다. `backend health-check`는 선택된 host/port의 `/health`를 짧은 timeout으로 진단합니다.
 
@@ -249,8 +249,8 @@ MVP의 기본 결정은 다음과 같습니다.
 
 다음 구현 전 작업:
 
-- 신뢰할 GGUF 모델 artifact 확정
-- `Qwen3.5-4B` 후보와 `Gemma 4 E4B` 후보 벤치마크
+- source-recorded GGUF artifact 후보의 local smoke/RAM-fit/mmproj 검증
+- `Qwen3.5-4B` Q4_K_M 후보와 `Gemma 4 E4B` IT QAT q4_0 후보 벤치마크
 - 실제 agent loop의 transcript replay와 active workflow resume 실행
 - streaming response path와 generation cancellation path 설계
 
