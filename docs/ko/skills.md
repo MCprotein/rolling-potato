@@ -71,7 +71,7 @@ Phase 3의 현재 구현은 skill 실행 전 정규화 단계이며, `rpotato ru
 
 - `rpotato skill list`는 built-in skill registry를 출력한다.
 - `rpotato skill run <id>`는 skill id, mode, allowed tools, context requirements, evidence requirements, stop criteria를 정규화하고 ledger event를 남긴다.
-- `rpotato run "<request>"`는 deterministic intent rule로 user request를 skill/mode로 매핑하고, source pointer가 포함된 bounded repository context pack을 만들며, runtime-owned action candidate와 next gate를 준비하고, intent/context/action/backend chat ledger event를 남기고, 실행 중인 backend sidecar를 호출해 token/latency metric을 기록한다.
+- `rpotato run "<request>"`는 deterministic intent rule로 user request를 skill/mode로 매핑하고, source pointer가 포함된 bounded repository context pack을 만들며, runtime-owned action candidate와 next gate를 준비하고, 실행 중인 backend sidecar를 호출하며, model의 structured action line 또는 인식 가능한 action text를 실행 없이 파싱하고, intent/context/action/model-action/backend chat ledger event와 token/latency metric을 기록한다.
 - `rpotato intent classify "<request>"`는 같은 rule을 실행하되 agent loop 계획 대신 classification report만 출력한다.
 - `rpotato intent routes`는 TUI command palette action이 어떤 runtime command로 매핑되는지 출력한다.
 - active workflow는 current-state가 소유하고, skill/plugin/TUI는 parent workflow pointer를 받아야 한다.

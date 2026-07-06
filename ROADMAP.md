@@ -123,6 +123,7 @@ Goal: restore and query current workflow state, audit history, and per-model mon
 - [x] Model-response runs write model/token metrics into SQLite
 - [x] Context pack events for bounded repository source pointers
 - [x] Runtime-owned action candidate event for `run`
+- [x] Model response action parsing event for `run`
 - [x] Interrupted run resume behavior
 - [x] Compaction boundary marker
 - [x] Compacted summary preservation policy
@@ -354,7 +355,8 @@ Goal: finish read, plan, patch proposal, approval, application, verification, an
 
 - [x] `rpotato run "<task>"` context-aware model-response skeleton
 - [x] Runtime-owned action candidate planning
-- [ ] Model response action parsing
+- [x] Model response action parsing
+- [ ] Patch diff display and approval gate
 - [ ] Agent-loop transcript replay from selected session history
 - [ ] Conversation continuation after `rpotato resume <session-id>`
 - [ ] Run startup ontology/context retrieval

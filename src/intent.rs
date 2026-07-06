@@ -24,6 +24,16 @@ struct ActionCandidate {
     allowed_side_effects: &'static str,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedModelAction {
+    status: &'static str,
+    kind: String,
+    source_pointers: String,
+    next_gate: String,
+    requested_side_effects: String,
+    executable_now: bool,
+}
+
 pub fn run_report(request: &str) -> Result<String, AppError> {
     let decision = classify(request)?;
     let intent_event_id = state::record_event(
@@ -59,9 +69,23 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
     )?;
     let agent_prompt = agent_loop_prompt(request, &decision, &context_pack, &action_candidate);
     let run = backend::chat_once(&agent_prompt, Some(RUN_MAX_TOKENS))?;
+    let model_action = parse_model_action(&run.response, &action_candidate, &context_pack);
+    let model_action_event_id = state::record_event(
+        "model.action.parsed",
+        "model response action parsing",
+        &format!(
+            "status={} kind={} source_pointers={} next_gate={} requested_side_effects={} executable_now={}",
+            model_action.status,
+            model_action.kind,
+            model_action.source_pointers,
+            model_action.next_gate,
+            model_action.requested_side_effects,
+            model_action.executable_now
+        ),
+    )?;
 
     Ok(format!(
-        "run agent loop\n- status: model-response-completed\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- action candidate: {}\n- approval required before side effect: {}\n- next gate: {}\n- allowed side effects now: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- max tokens: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- action ledger event: {}\n- model ledger event: {}\n- boundary: 아직 파일 수정, patch 적용, command 실행은 하지 않습니다. Snippet은 context hint이며 승인된 action 전에는 source pointer 원본을 다시 읽어야 합니다.\n- response:\n{}",
+        "run agent loop\n- status: model-response-action-parsed\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- action candidate: {}\n- approval required before side effect: {}\n- next gate: {}\n- allowed side effects now: {}\n- model action parse: {}\n- model action kind: {}\n- model action source pointers: {}\n- model action next gate: {}\n- model action requested side effects: {}\n- model action executable now: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- max tokens: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- action ledger event: {}\n- model action ledger event: {}\n- model ledger event: {}\n- boundary: 아직 파일 수정, patch 적용, command 실행은 하지 않습니다. Snippet은 context hint이며 승인된 action 전에는 source pointer 원본을 다시 읽어야 합니다.\n- response:\n{}",
         request,
         decision.invocation,
         decision.skill_id,
@@ -77,6 +101,12 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         display_bool(action_candidate.approval_required),
         action_candidate.next_gate,
         action_candidate.allowed_side_effects,
+        model_action.status,
+        model_action.kind,
+        model_action.source_pointers,
+        model_action.next_gate,
+        model_action.requested_side_effects,
+        display_bool(model_action.executable_now),
         run.backend_id,
         run.model_id,
         run.model_path.display(),
@@ -93,6 +123,7 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         intent_event_id,
         context_event_id,
         action_event_id,
+        model_action_event_id,
         run.ledger_event,
         run.response
     ))
@@ -300,6 +331,226 @@ fn plan_action_candidate(decision: &IntentDecision, context_pack: &ContextPack) 
     }
 }
 
+fn parse_model_action(
+    response: &str,
+    runtime_candidate: &ActionCandidate,
+    context_pack: &ContextPack,
+) -> ParsedModelAction {
+    let Some(fields) = parse_model_action_fields(response) else {
+        return parse_model_action_text(response, runtime_candidate, context_pack).unwrap_or_else(
+            || fallback_model_action("missing-model-action-line", runtime_candidate),
+        );
+    };
+    let raw_kind = field_value(&fields, &["kind"]).unwrap_or_default();
+    let Some(parsed_kind) = normalize_model_action_kind(&raw_kind) else {
+        return fallback_model_action("unknown-model-action-kind", runtime_candidate);
+    };
+    let raw_side_effects = field_value(&fields, &["side_effects", "allowed_side_effects"])
+        .unwrap_or_else(|| runtime_candidate.allowed_side_effects.to_string());
+    let side_effects = normalize_side_effects(&raw_side_effects);
+    if side_effects != "none" {
+        let mut blocked = fallback_model_action("blocked-side-effect-request", runtime_candidate);
+        blocked.requested_side_effects = side_effects;
+        return blocked;
+    }
+    if parsed_kind != runtime_candidate.kind {
+        return fallback_model_action("mismatch-runtime-fallback", runtime_candidate);
+    }
+
+    let raw_source_pointers =
+        field_value(&fields, &["source_pointers", "sources"]).unwrap_or_else(|| "none".to_string());
+    let raw_next_gate = field_value(&fields, &["next_gate"])
+        .unwrap_or_else(|| runtime_candidate.next_gate.to_string());
+
+    ParsedModelAction {
+        status: "parsed",
+        kind: parsed_kind.to_string(),
+        source_pointers: normalize_source_pointers(&raw_source_pointers, context_pack),
+        next_gate: normalize_next_gate(&raw_next_gate, runtime_candidate),
+        requested_side_effects: side_effects,
+        executable_now: false,
+    }
+}
+
+fn parse_model_action_text(
+    response: &str,
+    runtime_candidate: &ActionCandidate,
+    context_pack: &ContextPack,
+) -> Option<ParsedModelAction> {
+    let parsed_kind = normalize_model_action_kind(response)?;
+    if parsed_kind != runtime_candidate.kind {
+        return Some(fallback_model_action(
+            "heuristic-runtime-fallback",
+            runtime_candidate,
+        ));
+    }
+
+    Some(ParsedModelAction {
+        status: "heuristic-text",
+        kind: parsed_kind.to_string(),
+        source_pointers: source_pointers_from_text(response, context_pack),
+        next_gate: next_gate_from_text(response, runtime_candidate),
+        requested_side_effects: runtime_candidate.allowed_side_effects.to_string(),
+        executable_now: false,
+    })
+}
+
+fn parse_model_action_fields(response: &str) -> Option<Vec<(String, String)>> {
+    let line = response.lines().rev().find_map(model_action_body)?;
+    let fields = line
+        .split(';')
+        .filter_map(|part| {
+            let (key, value) = part.split_once('=')?;
+            let key = key.trim().to_ascii_lowercase().replace('-', "_");
+            let value = value.trim().to_string();
+            if key.is_empty() {
+                None
+            } else {
+                Some((key, value))
+            }
+        })
+        .collect::<Vec<_>>();
+
+    if fields.is_empty() {
+        None
+    } else {
+        Some(fields)
+    }
+}
+
+fn model_action_body(line: &str) -> Option<&str> {
+    let trimmed = line
+        .trim()
+        .strip_prefix("- ")
+        .unwrap_or_else(|| line.trim())
+        .trim()
+        .trim_matches('`');
+    if let Some((prefix, body)) = trimmed.split_once(':') {
+        let normalized_prefix = prefix.trim().to_ascii_lowercase();
+        if normalized_prefix == "model action" || prefix.trim() == "모델액션" {
+            return Some(body.trim());
+        }
+    }
+    None
+}
+
+fn field_value(fields: &[(String, String)], names: &[&str]) -> Option<String> {
+    fields
+        .iter()
+        .find(|(key, _)| names.iter().any(|name| key == name))
+        .map(|(_, value)| value.clone())
+}
+
+fn normalize_model_action_kind(value: &str) -> Option<&'static str> {
+    let lower = value.trim().to_ascii_lowercase();
+    if lower.is_empty() {
+        return None;
+    }
+    if lower == "patch-proposal" || lower.contains("patch") || value.contains("패치") {
+        Some("patch-proposal")
+    } else if lower == "inspect-sources"
+        || lower.contains("inspect")
+        || lower.contains("source")
+        || value.contains("소스")
+        || value.contains("원본")
+    {
+        Some("inspect-sources")
+    } else if lower == "generated-artifact-plan"
+        || lower.contains("artifact")
+        || lower.contains("generate")
+        || value.contains("문서")
+        || value.contains("생성")
+    {
+        Some("generated-artifact-plan")
+    } else if lower == "answer-only" || lower.contains("answer") || value.contains("답변") {
+        Some("answer-only")
+    } else {
+        None
+    }
+}
+
+fn normalize_source_pointers(value: &str, context_pack: &ContextPack) -> String {
+    let trimmed = value.trim();
+    if trimmed.is_empty()
+        || trimmed.eq_ignore_ascii_case("none")
+        || trimmed == "없음"
+        || trimmed == "-"
+    {
+        return "none".to_string();
+    }
+
+    let verified = trimmed
+        .split(',')
+        .map(str::trim)
+        .filter(|pointer| {
+            context_pack
+                .source_pointers
+                .iter()
+                .any(|source| source.stable_ref == *pointer)
+        })
+        .take(4)
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+
+    if verified.is_empty() {
+        "unverified".to_string()
+    } else {
+        verified.join(", ")
+    }
+}
+
+fn source_pointers_from_text(response: &str, context_pack: &ContextPack) -> String {
+    let pointers = context_pack
+        .source_pointers
+        .iter()
+        .filter(|source| response.contains(&source.stable_ref))
+        .take(4)
+        .map(|source| source.stable_ref.clone())
+        .collect::<Vec<_>>();
+
+    if pointers.is_empty() {
+        "none".to_string()
+    } else {
+        pointers.join(", ")
+    }
+}
+
+fn next_gate_from_text(_response: &str, runtime_candidate: &ActionCandidate) -> String {
+    runtime_candidate.next_gate.to_string()
+}
+
+fn normalize_next_gate(value: &str, runtime_candidate: &ActionCandidate) -> String {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed == "-" {
+        runtime_candidate.next_gate.to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn normalize_side_effects(value: &str) -> String {
+    let trimmed = value.trim().trim_end_matches('.');
+    if trimmed.eq_ignore_ascii_case("none") || trimmed == "없음" || trimmed == "-" {
+        "none".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn fallback_model_action(
+    status: &'static str,
+    runtime_candidate: &ActionCandidate,
+) -> ParsedModelAction {
+    ParsedModelAction {
+        status,
+        kind: runtime_candidate.kind.to_string(),
+        source_pointers: "none".to_string(),
+        next_gate: runtime_candidate.next_gate.to_string(),
+        requested_side_effects: runtime_candidate.allowed_side_effects.to_string(),
+        executable_now: false,
+    }
+}
+
 fn agent_loop_prompt(
     request: &str,
     decision: &IntentDecision,
@@ -320,6 +571,9 @@ fn agent_loop_prompt(
          - approval required before side effect: {}\n\
          - next gate: {}\n\
          - allowed side effects now: {}\n\n\
+         model response action contract:\n\
+         - 마지막 줄은 반드시 아래 형식으로 씁니다.\n\
+         - MODEL ACTION: kind={}; source_pointers={}; next_gate={}; side_effects=none\n\n\
          {}\n\
          현재 구현 단계의 경계:\n\
          - 파일 수정, patch 적용, command 실행은 하지 않습니다.\n\
@@ -336,6 +590,9 @@ fn agent_loop_prompt(
         display_bool(action_candidate.approval_required),
         action_candidate.next_gate,
         action_candidate.allowed_side_effects,
+        action_candidate.kind,
+        context_pack.pointer_summary(),
+        action_candidate.next_gate,
         context_pack.prompt_section()
     )
 }
@@ -402,6 +659,80 @@ mod tests {
         assert_eq!(candidate.kind, "inspect-sources");
         assert!(!candidate.approval_required);
         assert_eq!(candidate.next_gate, "source-reread-before-claim");
+    }
+
+    #[test]
+    fn parses_structured_model_action_without_execution() {
+        let decision = classify("테스트 실패 고쳐줘").unwrap();
+        let pack = sample_context_pack();
+        let candidate = plan_action_candidate(&decision, &pack);
+
+        let parsed = parse_model_action(
+            "수정 후보만 제안합니다.\nMODEL ACTION: kind=patch-proposal; source_pointers=src/main.rs:1; next_gate=diff-before-write; side_effects=none",
+            &candidate,
+            &pack,
+        );
+
+        assert_eq!(parsed.status, "parsed");
+        assert_eq!(parsed.kind, "patch-proposal");
+        assert_eq!(parsed.source_pointers, "src/main.rs:1");
+        assert_eq!(parsed.next_gate, "diff-before-write");
+        assert_eq!(parsed.requested_side_effects, "none");
+        assert!(!parsed.executable_now);
+    }
+
+    #[test]
+    fn model_action_parser_falls_back_on_runtime_mismatch() {
+        let decision = classify("테스트 실패 고쳐줘").unwrap();
+        let pack = sample_context_pack();
+        let candidate = plan_action_candidate(&decision, &pack);
+
+        let parsed = parse_model_action(
+            "MODEL ACTION: kind=answer-only; source_pointers=none; next_gate=korean-output-guard; side_effects=none",
+            &candidate,
+            &pack,
+        );
+
+        assert_eq!(parsed.status, "mismatch-runtime-fallback");
+        assert_eq!(parsed.kind, "patch-proposal");
+        assert_eq!(parsed.next_gate, "diff-before-write");
+        assert!(!parsed.executable_now);
+    }
+
+    #[test]
+    fn model_action_parser_blocks_requested_side_effects() {
+        let decision = classify("테스트 실패 고쳐줘").unwrap();
+        let pack = sample_context_pack();
+        let candidate = plan_action_candidate(&decision, &pack);
+
+        let parsed = parse_model_action(
+            "MODEL ACTION: kind=patch-proposal; source_pointers=src/main.rs:1; next_gate=diff-before-write; side_effects=write-file",
+            &candidate,
+            &pack,
+        );
+
+        assert_eq!(parsed.status, "blocked-side-effect-request");
+        assert_eq!(parsed.kind, "patch-proposal");
+        assert_eq!(parsed.requested_side_effects, "write-file");
+        assert!(!parsed.executable_now);
+    }
+
+    #[test]
+    fn model_action_parser_uses_heuristic_text_when_action_line_is_missing() {
+        let decision = classify("테스트 실패 고쳐줘").unwrap();
+        let pack = sample_context_pack();
+        let candidate = plan_action_candidate(&decision, &pack);
+
+        let parsed = parse_model_action(
+            "현재 단계에서 제안되는 action candidate는 'patch-proposal'이며 diff-before-write 게이트 전에는 실행하지 않습니다.",
+            &candidate,
+            &pack,
+        );
+
+        assert_eq!(parsed.status, "heuristic-text");
+        assert_eq!(parsed.kind, "patch-proposal");
+        assert_eq!(parsed.next_gate, "diff-before-write");
+        assert!(!parsed.executable_now);
     }
 
     fn sample_context_pack() -> ContextPack {

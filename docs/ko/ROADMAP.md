@@ -123,6 +123,7 @@
 - [x] model-response run의 model/token metric SQLite 기록
 - [x] bounded repository source pointer용 context pack event
 - [x] `run`의 runtime-owned action candidate event
+- [x] `run`의 model response action parsing event
 - [x] 중단된 실행의 resume 동작
 - [x] compaction boundary marker
 - [x] compacted summary 보존 정책
@@ -354,7 +355,8 @@
 
 - [x] `rpotato run "<task>"` context-aware model-response skeleton
 - [x] runtime-owned action candidate planning
-- [ ] model response action parsing
+- [x] model response action parsing
+- [ ] patch diff display와 approval gate
 - [ ] 선택한 세션 히스토리에서 agent loop transcript replay
 - [ ] `rpotato resume <session-id>` 이후 대화 이어달리기
 - [ ] startup ontology/context retrieval 실행
