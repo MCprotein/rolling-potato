@@ -304,7 +304,7 @@ Suggested next work:
 5. Do not add plugin marketplace integration; reject marketplace, registry, catalog, mirror, and remote URL plugin sources.
 6. Split the current scaffold toward explicit runtime core modules.
 7. Add runtime state, ledger, and observability boundaries before chat behavior.
-8. Add `llama.cpp` backend binary version detection without executing unknown user-owned binaries by default.
+8. Add managed `llama.cpp` sidecar process startup, startup timeout handling, and stderr/stdout capture.
 9. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level only with source-backed URL, checksum, provider terms, file size, and backend compatibility evidence.
 
 ## User Preference Notes

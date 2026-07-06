@@ -3,7 +3,8 @@ use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 use crate::app::AppError;
 use crate::paths;
@@ -16,6 +17,7 @@ const HEALTH_TIMEOUT_MS: u64 = 500;
 const ENV_BACKEND_PATH: &str = "RPOTATO_BACKEND_LLAMA_CPP_PATH";
 const ENV_BACKEND_PORT: &str = "RPOTATO_BACKEND_PORT";
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
+const VERSION_TIMEOUT_MS: u64 = 5_000;
 
 pub trait BackendAdapter {
     fn id(&self) -> &'static str;
@@ -90,7 +92,24 @@ struct BackendInstallResult {
     archive_path: PathBuf,
     extracted_binary: PathBuf,
     managed_binary: PathBuf,
+    binary_sha256: String,
     ledger_event: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BackendInstallRecord {
+    release_tag: String,
+    archive_sha256: String,
+    binary_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BackendVersionProbe {
+    status: &'static str,
+    command: String,
+    exit_code: Option<i32>,
+    output: Option<String>,
+    error: Option<String>,
 }
 
 impl BackendArchiveKind {
@@ -224,6 +243,7 @@ pub fn doctor_summary() -> String {
 
 pub fn doctor_report() -> String {
     let discovery = discover_llama_cpp();
+    let version_probe = probe_backend_version(&discovery);
     let executable_status = if discovery.binary_executable {
         "yes"
     } else {
@@ -241,7 +261,7 @@ pub fn doctor_report() -> String {
     };
 
     format!(
-        "backend 진단\n- adapter: {}\n- binary name: {}\n- managed binary: {}\n- selected binary: {}\n- selected source: {}\n- override env {}: {}\n- binary exists: {}\n- binary is file: {}\n- executable bit: {}\n- host: {}\n- port: {} ({})\n- health URL: {}\n- install status: {}\n- version detection: not-run, unknown binary execution은 아직 doctor에서 수행하지 않습니다.\n- install gate: backend install-plan에서 현재 platform artifact, release URL, checksum, size를 확인합니다.",
+        "backend 진단\n- adapter: {}\n- binary name: {}\n- managed binary: {}\n- selected binary: {}\n- selected source: {}\n- override env {}: {}\n- binary exists: {}\n- binary is file: {}\n- executable bit: {}\n- host: {}\n- port: {} ({})\n- health URL: {}\n- install status: {}\n- version detection: {}\n- version command: {}\n- version exit code: {}\n- version output: {}\n- version error: {}\n- install gate: backend install-plan에서 현재 platform artifact, release URL, checksum, size를 확인합니다.",
         discovery.adapter_id,
         discovery.binary_name,
         discovery.managed_path.display(),
@@ -256,7 +276,15 @@ pub fn doctor_report() -> String {
         discovery.port,
         discovery.port_source,
         discovery.health_url,
-        install_status
+        install_status,
+        version_probe.status,
+        version_probe.command,
+        version_probe
+            .exit_code
+            .map(|code| code.to_string())
+            .unwrap_or_else(|| "없음".to_string()),
+        version_probe.output.unwrap_or_else(|| "없음".to_string()),
+        version_probe.error.unwrap_or_else(|| "없음".to_string())
     )
 }
 
@@ -348,7 +376,7 @@ pub fn install_report() -> Result<String, AppError> {
     )?;
 
     Ok(format!(
-        "backend install 완료\n- id: {}\n- release tag: {}\n- archive: {}\n- archive sha256: {}\n- archive source: {}\n- download status: {}\n- extracted binary: {}\n- managed binary: {}\n- ledger event: {}\n- 다음 단계: rpotato backend doctor 또는 rpotato backend health-check로 상태를 확인하세요.",
+        "backend install 완료\n- id: {}\n- release tag: {}\n- archive: {}\n- archive sha256: {}\n- archive source: {}\n- download status: {}\n- extracted binary: {}\n- managed binary: {}\n- managed binary sha256: {}\n- ledger event: {}\n- 다음 단계: rpotato backend doctor 또는 rpotato backend health-check로 상태를 확인하세요.",
         LLAMA_CPP_RELEASE.id,
         LLAMA_CPP_RELEASE.release_tag,
         result.archive_path.display(),
@@ -357,6 +385,7 @@ pub fn install_report() -> Result<String, AppError> {
         display_download_status(result.download_status),
         result.extracted_binary.display(),
         result.managed_binary.display(),
+        result.binary_sha256,
         result.ledger_event
     ))
 }
@@ -749,21 +778,25 @@ fn install_backend_from_archive(
             return Err(err);
         }
     };
-    if let Err(err) = place_managed_binary(&extracted_binary, managed_binary) {
+    if let Err(err) = place_managed_backend_payload(&extracted_binary, staging_dir, managed_binary)
+    {
         let _ = fs::remove_dir_all(staging_dir);
         return Err(err);
     }
+    let binary_sha256 = checksum::sha256_file(managed_binary)?;
+    write_backend_install_record(artifact, &binary_sha256)?;
     remove_dir_if_exists(staging_dir)?;
 
     let event_id = state::record_event(
         "backend.install.completed",
         "llama.cpp backend 설치 완료",
         &format!(
-            "release_tag={} archive={} sha256={} managed_binary={} download_status={}",
+            "release_tag={} archive={} sha256={} managed_binary={} binary_sha256={} download_status={}",
             LLAMA_CPP_RELEASE.release_tag,
             archive_path.display(),
             artifact.archive_sha256,
             managed_binary.display(),
+            binary_sha256,
             display_download_status(download_status)
         ),
     )?;
@@ -773,6 +806,7 @@ fn install_backend_from_archive(
         archive_path: archive_path.to_path_buf(),
         extracted_binary,
         managed_binary: managed_binary.to_path_buf(),
+        binary_sha256,
         ledger_event: event_id,
     })
 }
@@ -905,7 +939,11 @@ fn is_regular_file_no_symlink(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-fn place_managed_binary(source: &Path, managed_binary: &Path) -> Result<(), AppError> {
+fn place_managed_backend_payload(
+    extracted_binary: &Path,
+    staging_dir: &Path,
+    managed_binary: &Path,
+) -> Result<(), AppError> {
     let parent = managed_binary.parent().ok_or_else(|| {
         AppError::runtime(format!(
             "managed backend binary parent path를 계산하지 못했습니다: {}",
@@ -925,49 +963,118 @@ fn place_managed_binary(source: &Path, managed_binary: &Path) -> Result<(), AppE
             managed_binary.display()
         )));
     }
+    if parent.exists() && !parent.is_dir() {
+        return Err(AppError::blocked(format!(
+            "managed backend directory path가 directory가 아닙니다: {}",
+            parent.display()
+        )));
+    }
 
     let file_name = managed_binary
         .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or("llama-server");
-    let tmp_path = managed_binary.with_file_name(format!("{file_name}.tmp"));
-    let backup_path = managed_binary.with_file_name(format!("{file_name}.previous"));
-    remove_file_if_exists(&tmp_path)?;
-    remove_file_if_exists(&backup_path)?;
+    let next_dir = parent.with_file_name("llama.cpp.next");
+    let backup_dir = parent.with_file_name("llama.cpp.previous");
+    remove_dir_if_exists(&next_dir)?;
+    remove_dir_if_exists(&backup_dir)?;
 
-    fs::copy(source, &tmp_path).map_err(|err| {
-        AppError::runtime(format!(
-            "managed backend binary copy 실패: {} -> {} ({err})",
-            source.display(),
-            tmp_path.display()
-        ))
-    })?;
-    set_executable_bit(&tmp_path)?;
-
-    let had_existing = managed_binary.is_file();
-    if had_existing {
-        fs::rename(managed_binary, &backup_path).map_err(|err| {
+    let payload_root = payload_root_for(extracted_binary, staging_dir)?;
+    copy_release_tree(&payload_root, &next_dir)?;
+    let next_binary = next_dir.join(file_name);
+    if !next_binary.is_file() {
+        fs::copy(extracted_binary, &next_binary).map_err(|err| {
             AppError::runtime(format!(
-                "기존 managed backend binary backup 실패: {} -> {} ({err})",
-                managed_binary.display(),
-                backup_path.display()
+                "managed backend binary copy 실패: {} -> {} ({err})",
+                extracted_binary.display(),
+                next_binary.display()
+            ))
+        })?;
+    }
+    set_executable_bit(&next_binary)?;
+
+    let had_existing = parent.exists();
+    if had_existing {
+        fs::rename(parent, &backup_dir).map_err(|err| {
+            AppError::runtime(format!(
+                "기존 managed backend directory backup 실패: {} -> {} ({err})",
+                parent.display(),
+                backup_dir.display()
             ))
         })?;
     }
 
-    if let Err(err) = fs::rename(&tmp_path, managed_binary) {
-        if had_existing && backup_path.is_file() {
-            let _ = fs::rename(&backup_path, managed_binary);
+    if let Err(err) = fs::rename(&next_dir, parent) {
+        if had_existing && backup_dir.is_dir() {
+            let _ = fs::rename(&backup_dir, parent);
         }
-        let _ = fs::remove_file(&tmp_path);
+        let _ = fs::remove_dir_all(&next_dir);
         return Err(AppError::runtime(format!(
-            "managed backend binary 배치 실패: {} -> {} ({err})",
-            tmp_path.display(),
-            managed_binary.display()
+            "managed backend directory 배치 실패: {} -> {} ({err})",
+            next_dir.display(),
+            parent.display()
         )));
     }
-    remove_file_if_exists(&backup_path)?;
+    remove_dir_if_exists(&backup_dir)?;
 
+    Ok(())
+}
+
+fn payload_root_for(extracted_binary: &Path, staging_dir: &Path) -> Result<PathBuf, AppError> {
+    if !extracted_binary.starts_with(staging_dir) {
+        return Err(AppError::runtime(format!(
+            "extracted backend binary relative path 계산 실패: {} under {}",
+            extracted_binary.display(),
+            staging_dir.display()
+        )));
+    }
+    let parent = extracted_binary.parent().ok_or_else(|| {
+        AppError::runtime(format!(
+            "extracted backend binary parent path를 계산하지 못했습니다: {}",
+            extracted_binary.display()
+        ))
+    })?;
+    Ok(parent.to_path_buf())
+}
+
+fn copy_release_tree(source: &Path, destination: &Path) -> Result<(), AppError> {
+    fs::create_dir_all(destination).map_err(|err| {
+        AppError::runtime(format!(
+            "managed backend payload directory를 만들지 못했습니다: {} ({err})",
+            destination.display()
+        ))
+    })?;
+    for entry in fs::read_dir(source).map_err(|err| {
+        AppError::runtime(format!(
+            "backend payload source directory를 읽지 못했습니다: {} ({err})",
+            source.display()
+        ))
+    })? {
+        let entry = entry
+            .map_err(|err| AppError::runtime(format!("backend payload entry read 실패: {err}")))?;
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        let file_type = fs::symlink_metadata(&source_path)
+            .map_err(|err| {
+                AppError::runtime(format!(
+                    "backend payload metadata를 읽지 못했습니다: {} ({err})",
+                    source_path.display()
+                ))
+            })?
+            .file_type();
+
+        if file_type.is_dir() {
+            copy_release_tree(&source_path, &destination_path)?;
+        } else if file_type.is_file() || file_type.is_symlink() {
+            fs::copy(&source_path, &destination_path).map_err(|err| {
+                AppError::runtime(format!(
+                    "backend payload file copy 실패: {} -> {} ({err})",
+                    source_path.display(),
+                    destination_path.display()
+                ))
+            })?;
+        }
+    }
     Ok(())
 }
 
@@ -1020,6 +1127,277 @@ fn display_download_status(status: BackendArchiveDownloadStatus) -> &'static str
     match status {
         BackendArchiveDownloadStatus::Downloaded => "downloaded",
         BackendArchiveDownloadStatus::CacheHit => "cache-hit",
+    }
+}
+
+fn backend_install_record_path() -> PathBuf {
+    paths::backends_dir()
+        .join("llama.cpp")
+        .join("install-record.txt")
+}
+
+fn write_backend_install_record(
+    artifact: &BackendReleaseArtifact,
+    binary_sha256: &str,
+) -> Result<(), AppError> {
+    let path = backend_install_record_path();
+    let parent = path.parent().ok_or_else(|| {
+        AppError::runtime(format!(
+            "backend install record parent path를 계산하지 못했습니다: {}",
+            path.display()
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(|err| {
+        AppError::runtime(format!(
+            "backend install record directory를 만들지 못했습니다: {} ({err})",
+            parent.display()
+        ))
+    })?;
+
+    let contents = format!(
+        "release_tag={}\narchive_sha256={}\nbinary_sha256={}\n",
+        LLAMA_CPP_RELEASE.release_tag, artifact.archive_sha256, binary_sha256
+    );
+    fs::write(&path, contents).map_err(|err| {
+        AppError::runtime(format!(
+            "backend install record를 쓰지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })
+}
+
+fn read_backend_install_record() -> Result<BackendInstallRecord, AppError> {
+    let path = backend_install_record_path();
+    let contents = fs::read_to_string(&path).map_err(|err| {
+        AppError::runtime(format!(
+            "backend install record를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    parse_backend_install_record(&contents).ok_or_else(|| {
+        AppError::blocked(format!(
+            "backend install record 형식이 유효하지 않습니다: {}",
+            path.display()
+        ))
+    })
+}
+
+fn parse_backend_install_record(contents: &str) -> Option<BackendInstallRecord> {
+    let mut release_tag = None;
+    let mut archive_sha256 = None;
+    let mut binary_sha256 = None;
+
+    for line in contents.lines() {
+        let (key, value) = line.split_once('=')?;
+        match key {
+            "release_tag" => release_tag = Some(value.to_string()),
+            "archive_sha256" => archive_sha256 = Some(value.to_string()),
+            "binary_sha256" => binary_sha256 = Some(value.to_string()),
+            _ => {}
+        }
+    }
+
+    Some(BackendInstallRecord {
+        release_tag: release_tag?,
+        archive_sha256: archive_sha256?,
+        binary_sha256: binary_sha256?,
+    })
+}
+
+fn probe_backend_version(discovery: &BackendDiscovery) -> BackendVersionProbe {
+    let command = format!("{} --version", discovery.selected_path.display());
+
+    if discovery.selected_source != "managed" {
+        return BackendVersionProbe {
+            status: "skipped",
+            command,
+            exit_code: None,
+            output: None,
+            error: Some(
+                "env override backend binary는 doctor에서 자동 실행하지 않습니다.".to_string(),
+            ),
+        };
+    }
+    if !discovery.binary_exists || !discovery.binary_is_file {
+        return BackendVersionProbe {
+            status: "not-run",
+            command,
+            exit_code: None,
+            output: None,
+            error: Some("managed backend binary가 없습니다.".to_string()),
+        };
+    }
+    if !discovery.binary_executable {
+        return BackendVersionProbe {
+            status: "not-run",
+            command,
+            exit_code: None,
+            output: None,
+            error: Some("managed backend binary 실행 권한이 없습니다.".to_string()),
+        };
+    }
+
+    let Some(artifact) = selected_backend_release_artifact(&LLAMA_CPP_RELEASE) else {
+        return BackendVersionProbe {
+            status: "not-run",
+            command,
+            exit_code: None,
+            output: None,
+            error: Some("현재 platform artifact manifest가 없습니다.".to_string()),
+        };
+    };
+    let record = match read_backend_install_record() {
+        Ok(record) => record,
+        Err(err) => {
+            return BackendVersionProbe {
+                status: "not-run",
+                command,
+                exit_code: None,
+                output: None,
+                error: Some(err.message),
+            };
+        }
+    };
+    if record.release_tag != LLAMA_CPP_RELEASE.release_tag
+        || record.archive_sha256 != artifact.archive_sha256
+    {
+        return BackendVersionProbe {
+            status: "not-run",
+            command,
+            exit_code: None,
+            output: None,
+            error: Some("backend install record가 현재 release manifest와 다릅니다.".to_string()),
+        };
+    }
+
+    match checksum::sha256_file(&discovery.selected_path) {
+        Ok(actual_sha256) if actual_sha256 == record.binary_sha256 => {}
+        Ok(_) => {
+            return BackendVersionProbe {
+                status: "not-run",
+                command,
+                exit_code: None,
+                output: None,
+                error: Some(
+                    "managed backend binary SHA-256이 install record와 다릅니다.".to_string(),
+                ),
+            };
+        }
+        Err(err) => {
+            return BackendVersionProbe {
+                status: "not-run",
+                command,
+                exit_code: None,
+                output: None,
+                error: Some(err.message),
+            };
+        }
+    }
+
+    run_version_command(
+        &discovery.selected_path,
+        Duration::from_millis(VERSION_TIMEOUT_MS),
+    )
+}
+
+fn run_version_command(path: &Path, timeout: Duration) -> BackendVersionProbe {
+    let command = format!("{} --version", path.display());
+    let mut child = match Command::new(path)
+        .arg("--version")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(err) => {
+            return BackendVersionProbe {
+                status: "error",
+                command,
+                exit_code: None,
+                output: None,
+                error: Some(format!("version command 실행 실패: {err}")),
+            };
+        }
+    };
+
+    let started_at = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_status)) => {
+                return match child.wait_with_output() {
+                    Ok(output) => {
+                        let exit_code = output.status.code();
+                        BackendVersionProbe {
+                            status: if output.status.success() {
+                                "ok"
+                            } else {
+                                "failed"
+                            },
+                            command,
+                            exit_code,
+                            output: normalize_version_output(&output.stdout, &output.stderr),
+                            error: None,
+                        }
+                    }
+                    Err(err) => BackendVersionProbe {
+                        status: "error",
+                        command,
+                        exit_code: None,
+                        output: None,
+                        error: Some(format!("version command output 수집 실패: {err}")),
+                    },
+                };
+            }
+            Ok(None) if started_at.elapsed() >= timeout => {
+                let _ = child.kill();
+                let output = child.wait_with_output().ok();
+                return BackendVersionProbe {
+                    status: "timeout",
+                    command,
+                    exit_code: output.as_ref().and_then(|output| output.status.code()),
+                    output: output.as_ref().and_then(|output| {
+                        normalize_version_output(&output.stdout, &output.stderr)
+                    }),
+                    error: Some(format!(
+                        "version command timeout: {} ms",
+                        timeout.as_millis()
+                    )),
+                };
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(25)),
+            Err(err) => {
+                let _ = child.kill();
+                return BackendVersionProbe {
+                    status: "error",
+                    command,
+                    exit_code: None,
+                    output: None,
+                    error: Some(format!("version command 상태 확인 실패: {err}")),
+                };
+            }
+        }
+    }
+}
+
+fn normalize_version_output(stdout: &[u8], stderr: &[u8]) -> Option<String> {
+    let mut output = String::new();
+    output.push_str(&String::from_utf8_lossy(stdout));
+    if !stderr.is_empty() {
+        if !output.is_empty() {
+            output.push('\n');
+        }
+        output.push_str(&String::from_utf8_lossy(stderr));
+    }
+    let normalized = output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(" | ");
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized.chars().take(500).collect())
     }
 }
 
@@ -1219,7 +1597,7 @@ mod tests {
     }
 
     #[test]
-    fn install_from_tar_archive_places_managed_binary() {
+    fn install_from_tar_archive_places_managed_payload() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = env::temp_dir().join(format!(
             "rpotato-backend-install-test-{}",
@@ -1229,7 +1607,14 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         env::set_var("RPOTATO_DATA_HOME", root.join("data"));
         let archive_path = root.join("backend.tar.gz");
-        write_test_tar_gz(&archive_path, "release/bin/llama-server", b"fake backend").unwrap();
+        write_test_tar_gz(
+            &archive_path,
+            &[
+                ("release/bin/llama-server", b"fake backend".as_slice()),
+                ("release/bin/libllama.dylib", b"fake dylib".as_slice()),
+            ],
+        )
+        .unwrap();
 
         let artifact = BackendReleaseArtifact {
             os: "test",
@@ -1256,10 +1641,58 @@ mod tests {
         assert!(managed_binary.is_file());
         assert!(is_executable(&managed_binary));
         assert_eq!(fs::read(&managed_binary).unwrap(), b"fake backend");
+        assert_eq!(
+            fs::read(managed_binary.parent().unwrap().join("libllama.dylib")).unwrap(),
+            b"fake dylib"
+        );
         assert_eq!(result.managed_binary, managed_binary);
         assert!(!staging_dir.exists());
         env::remove_var("RPOTATO_DATA_HOME");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn doctor_skips_version_for_env_override_binary() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        env::set_var(ENV_BACKEND_PATH, "/tmp/user-owned-llama-server");
+
+        let report = doctor_report();
+
+        env::remove_var(ENV_BACKEND_PATH);
+        assert!(report.contains("version detection: skipped"));
+        assert!(report.contains("env override backend binary"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn doctor_runs_version_for_recorded_managed_binary() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = env::temp_dir().join(format!(
+            "rpotato-backend-version-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        env::set_var("RPOTATO_DATA_HOME", &root);
+
+        let artifact = selected_backend_release_artifact(&LLAMA_CPP_RELEASE).unwrap();
+        let managed_binary = LlamaCppAdapter.managed_binary_path();
+        fs::create_dir_all(managed_binary.parent().unwrap()).unwrap();
+        fs::write(
+            &managed_binary,
+            "#!/bin/sh\necho 'llama.cpp fake version b9878'\n",
+        )
+        .unwrap();
+        set_executable_bit(&managed_binary).unwrap();
+        let binary_sha256 = checksum::sha256_file(&managed_binary).unwrap();
+        write_backend_install_record(artifact, &binary_sha256).unwrap();
+
+        let report = doctor_report();
+
+        env::remove_var("RPOTATO_DATA_HOME");
+        fs::remove_dir_all(root).unwrap();
+        assert!(report.contains("version detection: ok"));
+        assert!(report.contains("llama.cpp fake version b9878"));
     }
 
     #[test]
@@ -1270,16 +1703,18 @@ mod tests {
         assert!(report.contains("timeout ms"));
     }
 
-    fn write_test_tar_gz(path: &Path, file_path: &str, bytes: &[u8]) -> std::io::Result<()> {
+    fn write_test_tar_gz(path: &Path, files: &[(&str, &[u8])]) -> std::io::Result<()> {
         let file = File::create(path)?;
         let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::default());
         let mut builder = tar::Builder::new(encoder);
-        let mut header = tar::Header::new_gnu();
-        header.set_path(file_path)?;
-        header.set_size(bytes.len() as u64);
-        header.set_mode(0o755);
-        header.set_cksum();
-        builder.append(&header, bytes)?;
+        for (file_path, bytes) in files {
+            let mut header = tar::Header::new_gnu();
+            header.set_path(file_path)?;
+            header.set_size(bytes.len() as u64);
+            header.set_mode(0o755);
+            header.set_cksum();
+            builder.append(&header, *bytes)?;
+        }
         let encoder = builder.into_inner()?;
         encoder.finish()?;
         Ok(())

@@ -56,7 +56,7 @@ Examples:
 - context length configuration error
 - backend process crash
 
-When users configure a custom backend path, that binary is user-owned. `rpotato uninstall --keep-cache` and `--purge-cache` remove only backend binaries downloaded by `rpotato`; they do not delete user-specified paths.
+When users configure a custom backend path, that binary is user-owned. `rpotato uninstall --keep-cache` and `--purge-cache` remove only managed backend payloads downloaded by `rpotato`; they do not delete user-specified paths.
 
 ## Current Implementation
 
@@ -70,12 +70,12 @@ Phase 6 currently implements:
 - `rpotato backend install-plan` renders the selected platform artifact, release URL, archive URL, archive name, file size, SHA-256, license source, and download path.
 - The current manifest pins source-backed `llama.cpp` release `b9878` CPU artifacts for macOS arm64/x64, Linux arm64/x64, and Windows arm64/x64. Source: GitHub Releases API at https://api.github.com/repos/ggml-org/llama.cpp/releases/latest and release page https://github.com/ggml-org/llama.cpp/releases/tag/b9878, checked 2026-07-06.
 - `backend install-plan` is `ready` only when the current OS/CPU pair has a recorded artifact; unsupported platforms remain blocked.
-- `rpotato backend install` downloads or reuses the cached archive, verifies file size and SHA-256, extracts into a staging directory, copies only the discovered `llama-server` binary into the managed backend path, sets the executable bit on Unix, rolls back failed replacement, and records a ledger event.
+- `rpotato backend install` downloads or reuses the cached archive, verifies file size and SHA-256, extracts into a staging directory, places the release payload in the managed backend directory, sets the executable bit on Unix, rolls back failed replacement, writes an install record with the managed binary SHA-256, and records a ledger event.
 - `rpotato backend verify-archive <path> --sha256 <hash>` verifies SHA-256 over local backend archive bytes and records a ledger event.
 - `rpotato backend health-check` sends an HTTP request to `/health` on the selected host/port with a 500 ms timeout and reports `healthy`, `unhealthy`, or `unreachable`.
 - `rpotato doctor` shows the same discovery summary.
-- Version detection is shown as `not-run` because unknown binaries are not executed yet.
-- Sidecar process startup, streaming, cancellation, and backend version detection remain later Phase 6 work.
+- Version detection runs only for recorded managed binaries whose install record and current binary SHA-256 match the selected release manifest. Env override binaries are skipped.
+- Sidecar process startup, streaming, cancellation, and stderr/stdout capture remain later Phase 6 work.
 
 ## Later Adapters
 

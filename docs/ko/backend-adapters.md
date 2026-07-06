@@ -56,7 +56,7 @@ Runtime core가 관리해야 할 항목:
 - context length 설정 오류
 - backend process crash
 
-사용자가 backend path를 직접 지정한 경우 해당 binary는 사용자 소유입니다. `rpotato uninstall --keep-cache`나 `--purge-cache`는 `rpotato`가 다운로드한 관리형 backend binary만 삭제하고, 사용자 지정 path는 삭제하지 않습니다.
+사용자가 backend path를 직접 지정한 경우 해당 binary는 사용자 소유입니다. `rpotato uninstall --keep-cache`나 `--purge-cache`는 `rpotato`가 다운로드한 관리형 backend payload만 삭제하고, 사용자 지정 path는 삭제하지 않습니다.
 
 ## 현재 구현
 
@@ -70,12 +70,12 @@ Phase 6의 현재 구현:
 - `rpotato backend install-plan`은 현재 platform artifact, release URL, archive URL, archive name, file size, SHA-256, license source, download path를 렌더링합니다.
 - 현재 manifest는 `llama.cpp` release `b9878`의 CPU artifact를 macOS arm64/x64, Linux arm64/x64, Windows arm64/x64 대상으로 고정합니다. Source: GitHub Releases API https://api.github.com/repos/ggml-org/llama.cpp/releases/latest 및 release page https://github.com/ggml-org/llama.cpp/releases/tag/b9878, checked 2026-07-06.
 - `backend install-plan`은 현재 OS/CPU 조합의 artifact가 기록되어 있을 때만 `ready`이며, 지원하지 않는 platform은 계속 blocked입니다.
-- `rpotato backend install`은 archive를 다운로드하거나 cache를 재사용하고, file size와 SHA-256을 검증한 뒤 staging directory에서 압축을 풀고 발견된 `llama-server` binary만 managed backend path에 복사합니다. Unix에서는 실행 권한을 설정하고, 교체 실패 시 rollback하며, ledger event를 남깁니다.
+- `rpotato backend install`은 archive를 다운로드하거나 cache를 재사용하고, file size와 SHA-256을 검증한 뒤 staging directory에서 압축을 풀어 release payload를 managed backend directory에 배치합니다. Unix에서는 실행 권한을 설정하고, 교체 실패 시 rollback하며, managed binary SHA-256을 포함한 install record와 ledger event를 남깁니다.
 - `rpotato backend verify-archive <path> --sha256 <hash>`는 로컬 backend archive bytes의 SHA-256을 검증하고 ledger event를 남깁니다.
 - `rpotato backend health-check`는 selected host/port의 `/health`에 500ms timeout으로 HTTP 요청을 보내고 `healthy`, `unhealthy`, `unreachable` 중 하나로 보고합니다.
 - `rpotato doctor`도 같은 discovery summary를 보여줍니다.
-- unknown binary 실행은 아직 하지 않으므로 version detection은 `not-run`으로 표시합니다.
-- Sidecar process startup, streaming, cancellation, backend version detection은 후속 Phase 6 작업입니다.
+- Version detection은 install record와 현재 binary SHA-256이 선택된 release manifest와 일치하는 recorded managed binary에만 수행합니다. Env override binary는 실행하지 않고 skipped로 표시합니다.
+- Sidecar process startup, streaming, cancellation, stderr/stdout capture는 후속 Phase 6 작업입니다.
 
 ## 후순위 adapter
 

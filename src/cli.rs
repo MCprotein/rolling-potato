@@ -62,7 +62,7 @@ rpotato
   rpotato uninstall --dry-run --purge-cache
 
 현재 상태:
-  backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 binary만 배치합니다.
+  backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 release payload를 배치합니다.
   모델 다운로드는 검증된 manifest가 준비될 때까지 차단됩니다.";
 
 #[derive(Debug, PartialEq, Eq)]

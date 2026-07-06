@@ -231,9 +231,10 @@
 목표: `llama.cpp` sidecar를 runtime core가 관리하고, backend 상태를 CLI surface에서 진단 가능하게 만든다.
 
 - [x] `llama.cpp` sidecar discovery
-- [ ] managed backend binary download/install
+- [x] source-backed `llama.cpp` release artifact manifest
+- [x] managed backend binary download/install
 - [x] backend archive checksum verification
-- [ ] backend binary version detection
+- [x] backend binary version detection
 - [x] backend binary path config
 - [x] port 선택
 - [ ] sidecar process lifecycle
