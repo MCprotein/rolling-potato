@@ -76,6 +76,7 @@ Phase 6의 현재 구현:
 - `rpotato backend stop`은 stale record를 제거하거나 기록된 sidecar process를 종료하고 ledger event를 남깁니다.
 - `rpotato backend verify-archive <path> --sha256 <hash>`는 로컬 backend archive bytes의 SHA-256을 검증하고 ledger event를 남깁니다.
 - `rpotato backend health-check`는 selected host/port의 `/health`에 500ms timeout으로 HTTP 요청을 보내고 `healthy`, `unhealthy`, `unreachable` 중 하나로 보고합니다.
+- `rpotato backend chat --prompt <text> [--max-tokens <tokens>]`는 실행 중인 sidecar에 non-streaming `/v1/chat/completions` request를 보냅니다. Qwen3.5에는 Qwen model card의 non-thinking mode guidance에 따라 `chat_template_kwargs.enable_thinking=false`를 보내고, 누수된 `<think>` trace는 표시 전에 제거합니다. Ledger detail에는 길이, finish reason, token count만 기록하고 raw prompt 또는 raw response text는 기록하지 않습니다.
 - `rpotato doctor`도 같은 discovery summary를 보여줍니다.
 - Version detection은 install record와 현재 binary SHA-256이 선택된 release manifest와 일치하는 recorded managed binary에만 수행합니다. Env override binary는 실행하지 않고 skipped로 표시합니다.
 - Streaming response handling과 generation cancellation은 후속 Phase 6 작업입니다.

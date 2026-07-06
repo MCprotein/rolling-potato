@@ -190,9 +190,11 @@ Checked 2026-07-06:
 - `rpotato backend install` installed the managed `llama.cpp b9878` CPU backend and recorded the managed binary SHA-256.
 - `rpotato backend start --model <qwen-gguf> --ctx-size 4096` started the managed sidecar, detached it from the parent process, wrote a sidecar record with `ctx size: 4096`, and passed `/health` with HTTP 200.
 - The `/completion` endpoint generated tokens from the Qwen artifact through the managed sidecar. This proves backend/model connectivity, not final-answer quality.
-- Qwen output still emitted reasoning trace text under the raw completion prompt and hit the generation limit before a clean final answer. Prompt/compiler handling for reasoning-tag suppression must be fixed before scoring Korean final-answer quality.
+- The Qwen model card states that Qwen3.5 thinks by default and direct response requires API parameters rather than Qwen3 `/think` or `/nothink` soft switches. Source: https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode, checked 2026-07-06.
+- Raw `/completion` still emitted reasoning trace text and hit the generation limit before a clean final answer.
+- `rpotato backend chat --prompt "한국어로 한 문장만 답해. 감자는 무엇인가?" --max-tokens 64` used `/v1/chat/completions` with `chat_template_kwargs.enable_thinking=false`; it returned `guard: pass`, `finish reason: stop`, `prompt tokens: 57`, `completion tokens: 16`, `total tokens: 73`, and the clean response `감자는 땅속에서 자라는 식물의 뿌리줄기입니다.`
 
-This evidence does not promote Qwen3.5-4B to `verified`. RAM fit, peak memory, Gemma comparison, prompt compiler behavior, and benchmark scores remain open.
+This evidence does not promote Qwen3.5-4B to `verified`. RAM fit, peak memory, Gemma comparison, broader prompt compiler behavior, and benchmark scores remain open.
 
 ## Before Confirming An Artifact
 

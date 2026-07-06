@@ -198,7 +198,9 @@ Local execution evidence checked 2026-07-06:
 - `rpotato model fetch-candidate qwen3.5-4b --for-evaluation` downloaded and verified the Qwen artifact by size and SHA-256, but did not register it as installed.
 - `rpotato backend install` installed managed `llama.cpp b9878`.
 - `rpotato backend start --model <qwen-gguf> --ctx-size 4096` started the managed sidecar, `backend status` reported `ctx size: 4096` and healthy, `/health` returned HTTP 200, and `backend stop` stopped the sidecar.
-- `/completion` generated tokens through the managed sidecar, but raw prompt output exposed reasoning trace text and did not yet prove clean Korean final-answer quality.
+- Raw `/completion` generated tokens through the managed sidecar, but exposed reasoning trace text and did not prove clean Korean final-answer quality.
+- Qwen official model card says Qwen3.5 thinks by default and direct response requires API parameters, not the Qwen3 `/think` or `/nothink` soft switches. Source: https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode, checked 2026-07-06.
+- `rpotato backend chat --prompt "한국어로 한 문장만 답해. 감자는 무엇인가?" --max-tokens 64` called `/v1/chat/completions` with `chat_template_kwargs.enable_thinking=false` and returned `guard: pass`, `finish reason: stop`, `prompt tokens: 57`, `completion tokens: 16`, `total tokens: 73`, and clean response `감자는 땅속에서 자라는 식물의 뿌리줄기입니다.`
 
 Comparison candidate:
 
@@ -262,6 +264,7 @@ rpotato backend install
 rpotato backend start --model "/path/to/model.gguf" --ctx-size 4096
 rpotato backend verify-archive /path/to/llama.cpp.tar.gz --sha256 <64-hex>
 rpotato backend health-check
+rpotato backend chat --prompt "한국어로 한 문장만 답해. 감자는 무엇인가?" --max-tokens 64
 rpotato cache status
 rpotato monitor status
 rpotato monitor models
@@ -339,7 +342,7 @@ Suggested next work:
 9. Run `rpotato model eval-plan <id>` before local model work to check source-backed fields, app-data artifact presence, and the next smoke/benchmark step.
 10. Run `rpotato model benchmark-plan <id>` before assigning any score so public benchmark parity conditions and local product benchmark gates remain separated.
 11. Run `rpotato model fetch-candidate <id> --for-evaluation` only when intentionally downloading multi-GB candidate artifacts for local evaluation.
-12. Add prompt/compiler handling for Qwen reasoning trace suppression before scoring Korean final-answer quality.
+12. Run Qwen final-answer benchmark fixtures through `rpotato backend chat` before assigning model-quality scores.
 13. Run Gemma evaluation artifact fetch and local backend smoke with an explicit context limit, for example `rpotato backend start --model <path> --ctx-size 4096`.
 14. Measure RAM-fit/mmproj-need for the source-recorded Qwen/Gemma GGUF artifact candidates.
 15. Keep `model install` blocked until verified install download, benchmark evidence, and registry registration gates are complete.

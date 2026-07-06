@@ -223,10 +223,12 @@
 - [x] `rpotato model benchmark-plan <id>`
 - [x] `rpotato model fetch-candidate <id> --for-evaluation`
 - [x] `rpotato backend start --model <path> --ctx-size <tokens>`
+- [x] `rpotato backend chat --prompt <text> [--max-tokens <tokens>]`
 - [x] 미검증 artifact 설치 차단
 - [x] Qwen3.5-4B 평가용 artifact fetch와 `--ctx-size 4096` 기반 local `llama.cpp b9878` lifecycle smoke
 - [ ] Gemma 평가용 artifact fetch와 local `llama.cpp b9878` lifecycle smoke
-- [ ] Qwen 최종 응답 품질 채점 전 reasoning tag suppression을 위한 prompt/compiler 처리
+- [x] `chat_template_kwargs.enable_thinking=false`와 `<think>` trace 표시 guard 기반 Qwen3.5 non-thinking chat path
+- [ ] non-thinking chat path를 통한 Qwen 최종 응답 품질 benchmark scoring
 - [ ] 선택한 Qwen/Gemma artifact 후보의 RAM-fit과 mmproj 필요 여부 측정
 - [x] SHA-256 gate가 있는 평가용 artifact 이어받기 다운로드
 - [ ] verified install 다운로드와 registry 등록

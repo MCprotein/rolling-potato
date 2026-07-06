@@ -180,6 +180,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", backend::health_check_report());
             Ok(())
         }
+        Command::Backend(BackendCommand::Chat { prompt, max_tokens }) => {
+            println!("{}", backend::chat_report(&prompt, max_tokens)?);
+            Ok(())
+        }
         Command::CacheStatus => {
             println!("{}", cache::status_report());
             Ok(())

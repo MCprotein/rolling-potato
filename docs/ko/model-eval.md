@@ -190,9 +190,11 @@ local smoke 또는 benchmark 실행 전 `rpotato model eval-plan <id>`를 실행
 - `rpotato backend install`로 managed `llama.cpp b9878` CPU backend를 설치했고 managed binary SHA-256을 기록했습니다.
 - `rpotato backend start --model <qwen-gguf> --ctx-size 4096`로 managed sidecar를 시작했고, parent process에서 분리된 상태로 sidecar record에 `ctx size: 4096`이 남았으며 `/health` HTTP 200을 통과했습니다.
 - `/completion` endpoint는 managed sidecar를 통해 Qwen artifact에서 token을 생성했습니다. 이는 backend/model 연결 증거이지 최종 답변 품질 통과 증거가 아닙니다.
-- raw completion prompt에서 Qwen 출력은 reasoning trace text를 생성했고 clean final answer 전에 generation limit에 걸렸습니다. 한국어 최종 응답 품질을 채점하기 전 reasoning tag suppression을 위한 prompt/compiler 처리가 필요합니다.
+- Qwen model card는 Qwen3.5가 기본적으로 thinking을 수행하며, direct response에는 Qwen3의 `/think` 또는 `/nothink` soft switch가 아니라 API parameter가 필요하다고 설명합니다. Source: https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode, checked 2026-07-06.
+- raw `/completion`에서는 Qwen 출력이 reasoning trace text를 생성했고 clean final answer 전에 generation limit에 걸렸습니다.
+- `rpotato backend chat --prompt "한국어로 한 문장만 답해. 감자는 무엇인가?" --max-tokens 64`는 `/v1/chat/completions`와 `chat_template_kwargs.enable_thinking=false`를 사용했고, `guard: pass`, `finish reason: stop`, `prompt tokens: 57`, `completion tokens: 16`, `total tokens: 73`, clean response `감자는 땅속에서 자라는 식물의 뿌리줄기입니다.`를 반환했습니다.
 
-이 증거만으로 Qwen3.5-4B를 `verified`로 승격하지 않습니다. RAM fit, peak memory, Gemma 비교, prompt compiler behavior, benchmark score는 아직 열려 있습니다.
+이 증거만으로 Qwen3.5-4B를 `verified`로 승격하지 않습니다. RAM fit, peak memory, Gemma 비교, 더 넓은 prompt compiler behavior, benchmark score는 아직 열려 있습니다.
 
 ## `verified` 승격 전 확인 사항
 

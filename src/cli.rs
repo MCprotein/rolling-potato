@@ -37,6 +37,7 @@ rpotato
   rpotato backend stop
   rpotato backend verify-archive <path> --sha256 <hash>
   rpotato backend health-check
+  rpotato backend chat --prompt <text> [--max-tokens <tokens>]
   rpotato cache status
   rpotato monitor status
   rpotato monitor models
@@ -69,7 +70,7 @@ rpotato
 
 현재 상태:
   backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 release payload를 배치합니다.
-  backend start/status/stop은 명시 모델 파일 기준의 managed sidecar lifecycle을 다룹니다.
+  backend start/status/stop/chat은 명시 모델 파일 기준의 managed sidecar lifecycle과 non-streaming chat smoke를 다룹니다.
   모델 registry install은 verified 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -170,6 +171,10 @@ pub enum BackendCommand {
         sha256: String,
     },
     HealthCheck,
+    Chat {
+        prompt: String,
+        max_tokens: Option<u32>,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -400,8 +405,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "backend" && action == "health-check" => {
             Ok(Command::Backend(BackendCommand::HealthCheck))
         }
+        [group, action, rest @ ..] if group == "backend" && action == "chat" => {
+            parse_backend_chat(rest).map(Command::Backend)
+        }
         [group, ..] if group == "backend" => Err(AppError::usage(
-            "backend 명령은 doctor, install-plan, install, start, status, stop, verify-archive, health-check만 허용합니다.",
+            "backend 명령은 doctor, install-plan, install, start, status, stop, verify-archive, health-check, chat만 허용합니다.",
         )),
         [group, action] if group == "cache" && action == "status" => Ok(Command::CacheStatus),
         [group, action] if group == "monitor" && action == "status" => {
@@ -659,6 +667,58 @@ fn parse_backend_start(args: &[String]) -> Result<BackendCommand, AppError> {
         model_path,
         ctx_size,
     })
+}
+
+fn parse_backend_chat(args: &[String]) -> Result<BackendCommand, AppError> {
+    let mut prompt = None;
+    let mut max_tokens = None;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--prompt" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "backend chat은 --prompt <text> 값이 필요합니다.",
+                    ));
+                };
+                if prompt.is_some() {
+                    return Err(AppError::usage(
+                        "backend chat의 --prompt 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                prompt = Some(value.clone());
+                index += 2;
+            }
+            "--max-tokens" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "backend chat은 --max-tokens <tokens> 값이 필요합니다.",
+                    ));
+                };
+                if max_tokens.is_some() {
+                    return Err(AppError::usage(
+                        "backend chat의 --max-tokens 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                max_tokens = Some(parse_positive_u32(value, "max-tokens")?);
+                index += 2;
+            }
+            unknown => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 backend chat 옵션입니다: {unknown}"
+                )));
+            }
+        }
+    }
+
+    let Some(prompt) = prompt else {
+        return Err(AppError::usage(
+            "backend chat은 --prompt <text> 형식이 필요합니다.",
+        ));
+    };
+
+    Ok(BackendCommand::Chat { prompt, max_tokens })
 }
 
 fn parse_positive_u32(value: &str, label: &str) -> Result<u32, AppError> {
@@ -1075,6 +1135,34 @@ mod tests {
     fn parses_backend_health_check() {
         let command = parse(["backend".to_string(), "health-check".to_string()]).unwrap();
         assert_eq!(command, Command::Backend(BackendCommand::HealthCheck));
+    }
+
+    #[test]
+    fn parses_backend_chat() {
+        let command = parse([
+            "backend".to_string(),
+            "chat".to_string(),
+            "--prompt".to_string(),
+            "감자는 무엇인가?".to_string(),
+            "--max-tokens".to_string(),
+            "64".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Backend(BackendCommand::Chat {
+                prompt: "감자는 무엇인가?".to_string(),
+                max_tokens: Some(64)
+            })
+        );
+    }
+
+    #[test]
+    fn backend_chat_requires_prompt() {
+        let err = parse(["backend".to_string(), "chat".to_string()]).unwrap_err();
+
+        assert_eq!(err.code, 2);
+        assert!(err.message.contains("--prompt"));
     }
 
     #[test]

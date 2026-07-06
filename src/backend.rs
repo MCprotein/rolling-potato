@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::app::AppError;
 use crate::paths;
-use crate::{checksum, state};
+use crate::{checksum, ledger, state};
 
 const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 const DEFAULT_HOST: &str = "127.0.0.1";
@@ -20,6 +20,10 @@ const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 const VERSION_TIMEOUT_MS: u64 = 5_000;
 const STARTUP_TIMEOUT_MS: u64 = 60_000;
 const STOP_TIMEOUT_MS: u64 = 5_000;
+const CHAT_TIMEOUT_MS: u64 = 30_000;
+const DEFAULT_CHAT_MAX_TOKENS: u32 = 128;
+const QWEN_NON_THINKING_SOURCE: &str =
+    "https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode";
 
 pub trait BackendAdapter {
     fn id(&self) -> &'static str;
@@ -126,6 +130,15 @@ struct BackendSidecarRecord {
     stdout_log: PathBuf,
     stderr_log: PathBuf,
     started_at_ms: u128,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct BackendChatCompletion {
+    content: String,
+    finish_reason: String,
+    prompt_tokens: Option<u32>,
+    completion_tokens: Option<u32>,
+    total_tokens: Option<u32>,
 }
 
 impl BackendArchiveKind {
@@ -594,6 +607,102 @@ pub fn health_check_report() -> String {
     )
 }
 
+pub fn chat_report(prompt: &str, max_tokens: Option<u32>) -> Result<String, AppError> {
+    if prompt.trim().is_empty() {
+        return Err(AppError::usage(
+            "backend chat은 비어 있지 않은 --prompt <text> 값이 필요합니다.",
+        ));
+    }
+    let max_tokens = max_tokens.unwrap_or(DEFAULT_CHAT_MAX_TOKENS);
+    let Some(record) = read_backend_sidecar_record()? else {
+        return Err(AppError::blocked(format!(
+            "backend chat 차단\n- 이유: 실행 중인 sidecar record가 없습니다.\n- 다음 단계: rpotato backend start --model <path> --ctx-size 4096\n- sidecar record: {}",
+            backend_sidecar_record_path().display()
+        )));
+    };
+    if !process_is_running(record.pid) {
+        return Err(AppError::blocked(format!(
+            "backend chat 차단\n- 이유: sidecar record는 있지만 process가 실행 중이 아닙니다.\n- pid: {}\n- 다음 단계: rpotato backend stop으로 stale record를 정리한 뒤 다시 시작하세요.",
+            record.pid
+        )));
+    }
+
+    let health = probe_health(
+        &record.host,
+        record.port,
+        Duration::from_millis(HEALTH_TIMEOUT_MS),
+    );
+    if health.status != "healthy" {
+        return Err(AppError::blocked(format!(
+            "backend chat 차단\n- 이유: sidecar health check 실패\n- pid: {}\n- health: {}\n- health error: {}\n- 다음 단계: rpotato backend status로 log path를 확인하세요.",
+            record.pid,
+            health.status,
+            health.error.unwrap_or_else(|| "없음".to_string())
+        )));
+    }
+
+    let started_at = Instant::now();
+    let completion = request_chat_completion(&record, prompt, max_tokens)?;
+    let (display_content, had_reasoning_trace) = strip_reasoning_trace(&completion.content);
+    let display_content = display_content.trim().to_string();
+    let guard_status = if had_reasoning_trace {
+        if display_content.is_empty() {
+            "blocked-empty-after-reasoning-strip"
+        } else {
+            "stripped-reasoning-trace"
+        }
+    } else {
+        "pass"
+    };
+    let event_type = if display_content.is_empty() {
+        "backend.chat.guard.blocked"
+    } else {
+        "backend.chat.completed"
+    };
+    let event_id = state::record_event(
+        event_type,
+        "backend chat completion 실행",
+        &format!(
+            "pid={} backend={} prompt_chars={} output_chars={} max_tokens={} finish_reason={} guard_status={} prompt_tokens={} completion_tokens={} total_tokens={} elapsed_ms={}",
+            record.pid,
+            record.backend_id,
+            prompt.chars().count(),
+            display_content.chars().count(),
+            max_tokens,
+            completion.finish_reason,
+            guard_status,
+            display_optional_u32(completion.prompt_tokens),
+            display_optional_u32(completion.completion_tokens),
+            display_optional_u32(completion.total_tokens),
+            started_at.elapsed().as_millis()
+        ),
+    )?;
+
+    if display_content.is_empty() {
+        return Err(AppError::blocked(format!(
+            "backend chat 차단\n- 이유: reasoning trace 제거 후 표시 가능한 응답이 없습니다.\n- endpoint: /v1/chat/completions\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- guard: {}\n- finish reason: {}\n- ledger event: {}",
+            guard_status, completion.finish_reason, event_id
+        )));
+    }
+
+    Ok(format!(
+        "backend chat\n- status: completed\n- backend: {}\n- pid: {}\n- endpoint: /v1/chat/completions\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- non-thinking source: {}\n- prompt chars: {}\n- max tokens: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- ledger event: {}\n- response:\n{}",
+        record.backend_id,
+        record.pid,
+        QWEN_NON_THINKING_SOURCE,
+        prompt.chars().count(),
+        max_tokens,
+        completion.finish_reason,
+        guard_status,
+        display_optional_u32(completion.prompt_tokens),
+        display_optional_u32(completion.completion_tokens),
+        display_optional_u32(completion.total_tokens),
+        started_at.elapsed().as_millis(),
+        event_id,
+        display_content
+    ))
+}
+
 fn discover_llama_cpp() -> BackendDiscovery {
     let adapter = LlamaCppAdapter;
     let managed_path = adapter.managed_binary_path();
@@ -696,6 +805,183 @@ fn probe_health(host: &str, port: u16, timeout: Duration) -> HealthProbe {
             status_line
         }),
         error: None,
+    }
+}
+
+fn request_chat_completion(
+    record: &BackendSidecarRecord,
+    prompt: &str,
+    max_tokens: u32,
+) -> Result<BackendChatCompletion, AppError> {
+    let body = chat_request_body(prompt, max_tokens);
+    let response_body = post_json(
+        &record.host,
+        record.port,
+        "/v1/chat/completions",
+        &body,
+        Duration::from_millis(CHAT_TIMEOUT_MS),
+    )?;
+    parse_chat_completion_response(&response_body).ok_or_else(|| {
+        AppError::blocked(
+            "backend chat 응답을 해석하지 못했습니다. content 또는 usage field가 예상 형식과 다릅니다.",
+        )
+    })
+}
+
+fn chat_request_body(prompt: &str, max_tokens: u32) -> String {
+    let system_prompt = "사용자에게 보이는 최종 답변만 한국어로 작성합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다.";
+    format!(
+        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}],\"max_tokens\":{},\"temperature\":0.1,\"top_p\":0.8,\"chat_template_kwargs\":{{\"enable_thinking\":false}}}}",
+        ledger::json_string(system_prompt),
+        ledger::json_string(prompt),
+        max_tokens
+    )
+}
+
+fn post_json(
+    host: &str,
+    port: u16,
+    path: &str,
+    body: &str,
+    timeout: Duration,
+) -> Result<String, AppError> {
+    let address = format!("{host}:{port}");
+    let mut addresses = address.to_socket_addrs().map_err(|err| {
+        AppError::runtime(format!("backend address resolve 실패: {address} ({err})"))
+    })?;
+    let socket_addr = addresses
+        .next()
+        .ok_or_else(|| AppError::runtime(format!("backend address 없음: {address}")))?;
+    let mut stream = TcpStream::connect_timeout(&socket_addr, timeout)
+        .map_err(|err| AppError::runtime(format!("backend 연결 실패: {socket_addr} ({err})")))?;
+    let _ = stream.set_read_timeout(Some(timeout));
+    let _ = stream.set_write_timeout(Some(timeout));
+
+    let request = format!(
+        "POST {path} HTTP/1.1\r\nHost: {host}:{port}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        body.len(),
+        body
+    );
+    stream
+        .write_all(request.as_bytes())
+        .map_err(|err| AppError::runtime(format!("backend request write 실패: {err}")))?;
+
+    let mut response = String::new();
+    stream
+        .read_to_string(&mut response)
+        .map_err(|err| AppError::runtime(format!("backend response read 실패: {err}")))?;
+    let status_line = response.lines().next().unwrap_or("");
+    let response_body = response
+        .split_once("\r\n\r\n")
+        .map(|(_, body)| body.to_string())
+        .unwrap_or_default();
+    if !(status_line.contains(" 200 ") || status_line.ends_with(" 200")) {
+        return Err(AppError::blocked(format!(
+            "backend request 실패\n- endpoint: {}\n- status: {}\n- body preview: {}",
+            path,
+            if status_line.is_empty() {
+                "없음"
+            } else {
+                status_line
+            },
+            preview_for_error(&response_body)
+        )));
+    }
+    Ok(response_body)
+}
+
+fn parse_chat_completion_response(body: &str) -> Option<BackendChatCompletion> {
+    Some(BackendChatCompletion {
+        content: extract_json_string_value(body, "content")?,
+        finish_reason: extract_json_string_value(body, "finish_reason")
+            .unwrap_or_else(|| "unknown".to_string()),
+        prompt_tokens: extract_json_u32_value(body, "prompt_tokens"),
+        completion_tokens: extract_json_u32_value(body, "completion_tokens"),
+        total_tokens: extract_json_u32_value(body, "total_tokens"),
+    })
+}
+
+fn extract_json_string_value(text: &str, key: &str) -> Option<String> {
+    let needle = format!("\"{key}\":");
+    let start = text.find(&needle)? + needle.len();
+    let mut chars = text[start..].chars().peekable();
+    while matches!(chars.peek(), Some(ch) if ch.is_whitespace()) {
+        chars.next();
+    }
+    if chars.next()? != '"' {
+        return None;
+    }
+
+    let mut value = String::new();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' => return Some(value),
+            '\\' => match chars.next()? {
+                '"' => value.push('"'),
+                '\\' => value.push('\\'),
+                '/' => value.push('/'),
+                'b' => value.push('\u{0008}'),
+                'f' => value.push('\u{000c}'),
+                'n' => value.push('\n'),
+                'r' => value.push('\r'),
+                't' => value.push('\t'),
+                'u' => {
+                    let mut code = String::new();
+                    for _ in 0..4 {
+                        code.push(chars.next()?);
+                    }
+                    let scalar = u32::from_str_radix(&code, 16).ok()?;
+                    value.push(char::from_u32(scalar)?);
+                }
+                other => value.push(other),
+            },
+            other => value.push(other),
+        }
+    }
+    None
+}
+
+fn extract_json_u32_value(text: &str, key: &str) -> Option<u32> {
+    let needle = format!("\"{key}\":");
+    let start = text.find(&needle)? + needle.len();
+    let trimmed = text[start..].trim_start();
+    let number: String = trimmed
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect();
+    if number.is_empty() {
+        return None;
+    }
+    number.parse::<u32>().ok()
+}
+
+fn strip_reasoning_trace(content: &str) -> (String, bool) {
+    let mut output = String::new();
+    let mut rest = content;
+    let mut stripped = false;
+
+    while let Some(start) = rest.find("<think>") {
+        stripped = true;
+        output.push_str(&rest[..start]);
+        let after_start = &rest[start + "<think>".len()..];
+        let Some(end) = after_start.find("</think>") else {
+            return (output, true);
+        };
+        rest = &after_start[end + "</think>".len()..];
+    }
+    output.push_str(rest);
+    (output, stripped)
+}
+
+fn preview_for_error(value: &str) -> String {
+    let compact = value.replace(['\r', '\n', '\t'], " ");
+    let preview: String = compact.chars().take(200).collect();
+    if compact.chars().count() > 200 {
+        format!("{preview}...")
+    } else if preview.is_empty() {
+        "없음".to_string()
+    } else {
+        preview
     }
 }
 
@@ -2478,6 +2764,48 @@ mod tests {
         assert!(report.contains("backend health check"));
         assert!(report.contains("health URL"));
         assert!(report.contains("timeout ms"));
+    }
+
+    #[test]
+    fn chat_request_body_disables_qwen_thinking() {
+        let body = chat_request_body("감자는 무엇인가?", 64);
+
+        assert!(body.contains("\"chat_template_kwargs\":{\"enable_thinking\":false}"));
+        assert!(body.contains("\"max_tokens\":64"));
+        assert!(body.contains("reasoning trace"));
+        assert!(body.contains("감자는 무엇인가?"));
+    }
+
+    #[test]
+    fn parses_chat_completion_response_content_and_usage() {
+        let body = r#"{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"감자는 땅속에서 자라는 식물입니다."}}],"usage":{"completion_tokens":14,"prompt_tokens":26,"total_tokens":40}}"#;
+
+        let completion = parse_chat_completion_response(body).unwrap();
+
+        assert_eq!(completion.content, "감자는 땅속에서 자라는 식물입니다.");
+        assert_eq!(completion.finish_reason, "stop");
+        assert_eq!(completion.prompt_tokens, Some(26));
+        assert_eq!(completion.completion_tokens, Some(14));
+        assert_eq!(completion.total_tokens, Some(40));
+    }
+
+    #[test]
+    fn strips_closed_reasoning_trace_without_showing_it() {
+        let (content, stripped) = strip_reasoning_trace(
+            "\n<think>\n내부 추론입니다.\n</think>\n\n감자는 땅속에서 자랍니다.",
+        );
+
+        assert!(stripped);
+        assert_eq!(content.trim(), "감자는 땅속에서 자랍니다.");
+        assert!(!content.contains("내부 추론"));
+    }
+
+    #[test]
+    fn strips_unclosed_reasoning_trace_to_empty() {
+        let (content, stripped) = strip_reasoning_trace("<think>\nThinking Process:");
+
+        assert!(stripped);
+        assert!(content.trim().is_empty());
     }
 
     fn write_test_tar_gz(path: &Path, files: &[(&str, &[u8])]) -> std::io::Result<()> {

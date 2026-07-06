@@ -76,6 +76,7 @@ Phase 6 currently implements:
 - `rpotato backend stop` removes stale records or terminates the recorded sidecar process and records a ledger event.
 - `rpotato backend verify-archive <path> --sha256 <hash>` verifies SHA-256 over local backend archive bytes and records a ledger event.
 - `rpotato backend health-check` sends an HTTP request to `/health` on the selected host/port with a 500 ms timeout and reports `healthy`, `unhealthy`, or `unreachable`.
+- `rpotato backend chat --prompt <text> [--max-tokens <tokens>]` sends a non-streaming `/v1/chat/completions` request to the running sidecar. For Qwen3.5 it sends `chat_template_kwargs.enable_thinking=false`, following the Qwen model card's non-thinking mode guidance, and strips leaked `<think>` traces before display. Ledger details record lengths, finish reason, and token counts, not raw prompt or raw response text.
 - `rpotato doctor` shows the same discovery summary.
 - Version detection runs only for recorded managed binaries whose install record and current binary SHA-256 match the selected release manifest. Env override binaries are skipped.
 - Streaming response handling and generation cancellation remain later Phase 6 work.
