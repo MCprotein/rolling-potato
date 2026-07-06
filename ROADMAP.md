@@ -356,7 +356,7 @@ Goal: finish read, plan, patch proposal, approval, application, verification, an
 - [x] `rpotato run "<task>"` context-aware model-response skeleton
 - [x] Runtime-owned action candidate planning
 - [x] Model response action parsing
-- [ ] Patch diff display and approval gate
+- [x] Patch diff display and approval gate
 - [ ] Agent-loop transcript replay from selected session history
 - [ ] Conversation continuation after `rpotato resume <session-id>`
 - [ ] Run startup ontology/context retrieval
@@ -365,7 +365,7 @@ Goal: finish read, plan, patch proposal, approval, application, verification, an
 - [ ] Executor step
 - [ ] Verifier step
 - [ ] Reporter step
-- [ ] Unified diff rendering
+- [x] Unified diff rendering
 - [ ] Approved patch apply
 - [ ] Patch apply rollback/failure handling
 - [ ] Approved verification command execution

@@ -1,5 +1,47 @@
 # Release Notes
 
+## v0.3.0 - Patch Diff Approval Preview
+
+Release date: 2026-07-06
+
+This release adds the first patch diff display and approval gate surface. It is
+still a source-only developer preview: it does not ship model weights, external
+plugin packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- `rpotato patch preview --path <path> --find <text> --replace <text>`
+- Unified diff rendering for one explicit project-local text replacement
+- Project-local proposal records under `.rpotato/patch-proposals/`
+- Approval token display for the generated proposal
+- `rpotato patch approve <proposal-id> --token <token> --dry-run`
+- Approval gate verification and ledger event recording without patch application
+- English and Korean documentation updates for the new patch boundary
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (123 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato patch preview --path RELEASE_NOTES.md --find "Run Skeleton Preview" --replace "Run Skeleton Preview Smoke"`
+- `rpotato patch approve <generated-proposal-id> --token <generated-token> --dry-run`
+
+The patch smoke returned `status: diff-ready`, displayed the expected unified
+diff, then returned `status: gate-passed` for the dry-run approval. The target
+file had no Git diff after the smoke, proving it was not modified.
+
+### Known Issues
+
+- Patch preview supports a single explicit find/replace proposal against a
+  project-local UTF-8 text file.
+- Patch approval is dry-run only in this release; it records the gate result but
+  does not apply the patch.
+- Agent-loop integration from model action to patch preview remains future work.
+- Verification command execution, rollback handling, and final Korean reporting
+  remain future work.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.2.0 - Run Skeleton Preview
 
 Release date: 2026-07-06

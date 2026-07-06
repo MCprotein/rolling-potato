@@ -137,3 +137,7 @@ pub fn project_evidence_dir() -> PathBuf {
 pub fn project_session_ledger_file() -> PathBuf {
     project_state_dir().join("session-ledger.jsonl")
 }
+
+pub fn project_patch_proposals_dir() -> PathBuf {
+    project_state_dir().join("patch-proposals")
+}
