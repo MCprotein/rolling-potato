@@ -12,7 +12,7 @@
 - `rpotato backend doctor`
 - `rpotato backend install-plan`
 - `rpotato backend install`
-- `rpotato backend start --model <path>`
+- `rpotato backend start --model <path> [--ctx-size <tokens>]`
 - `rpotato backend status`
 - `rpotato backend stop`
 - `rpotato backend verify-archive <path> --sha256 <hash>`
@@ -79,7 +79,7 @@
 
 모델 install은 아직 unverified 후보에 대해 차단되지만, read-only 평가 preflight, benchmark planning, 평가용 artifact fetch는 `rpotato model eval-plan <id>`, `rpotato model benchmark-plan <id>`, `rpotato model fetch-candidate <id> --for-evaluation`으로 활성화되어 있습니다. Backend install은 지원 OS/CPU 조합에 대해 source-backed `llama.cpp` release `b9878` CPU artifact manifest를 통해 활성화되어 있습니다. 모델 manifest schema, 후보 상태, source-backed license/source claim, `unverified` Qwen/Gemma GGUF artifact 후보, 공개 benchmark source ledger, local registry surface, 다운로드 전 표시 plan, 명시적 평가용 fetch, 로컬 파일 SHA-256 검증, failed/partial artifact cleanup surface는 활성화되어 있습니다. Qwen/Gemma artifact 후보에는 pinned revision URL, LFS SHA-256, file size가 들어갔지만 local `llama.cpp b9878` smoke, RAM fit, mmproj 필요 여부, benchmark evidence가 끝나기 전까지 registry 설치는 차단됩니다.
 
-`backend doctor`는 관리형 `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, install gate, recorded managed binary의 version detection을 표시합니다. `backend install-plan`은 선택된 backend archive URL, SHA-256, size, source를 표시합니다. `backend install`은 archive를 다운로드하거나 cache를 재사용하고, 검증 후 staging에서 압축을 풀어 release payload를 배치하며 install record와 ledger event를 남깁니다. `backend start --model <path>`는 명시된 로컬 모델 파일로 selected sidecar를 시작하고 stdout/stderr log와 pid record를 남긴 뒤 `/health`를 기다리며, startup timeout이면 child를 종료합니다. `backend status`는 pid record와 health 상태를 읽고, `backend stop`은 stale record를 제거하거나 기록된 sidecar를 종료합니다. Env override binary는 `doctor`가 실행하지 않으며 명시적인 lifecycle 명령에서만 실행됩니다.
+`backend doctor`는 관리형 `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, install gate, recorded managed binary의 version detection을 표시합니다. `backend install-plan`은 선택된 backend archive URL, SHA-256, size, source를 표시합니다. `backend install`은 archive를 다운로드하거나 cache를 재사용하고, 검증 후 staging에서 압축을 풀어 release payload를 배치하며 install record와 ledger event를 남깁니다. `backend start --model <path> [--ctx-size <tokens>]`는 명시된 로컬 모델 파일과 선택적 runtime context limit으로 selected sidecar를 시작하고 stdout/stderr log와 pid record를 남긴 뒤 `/health`를 기다리며, startup timeout이면 child를 종료합니다. `backend status`는 pid record와 health 상태를 읽고, `backend stop`은 stale record를 제거하거나 기록된 sidecar를 종료합니다. Env override binary는 `doctor`가 실행하지 않으며 명시적인 lifecycle 명령에서만 실행됩니다.
 
 Plugin source snapshot, persistent registry, inspect, validate, enable/disable/remove는 활성화되어 있습니다. Import는 실행 권한을 부여하지 않고 permission report와 ledger event만 남깁니다.
 
@@ -125,7 +125,7 @@ cargo run -- doctor
 cargo run -- backend doctor
 cargo run -- backend install-plan
 cargo run -- backend install
-cargo run -- backend start --model /path/to/model.gguf
+cargo run -- backend start --model /path/to/model.gguf --ctx-size 4096
 cargo run -- backend status
 cargo run -- backend stop
 cargo run -- backend verify-archive /path/to/llama.cpp.zip --sha256 <64-hex>

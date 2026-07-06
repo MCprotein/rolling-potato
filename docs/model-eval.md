@@ -182,6 +182,18 @@ Minimum pass criteria by model:
 - invalid diff rate at most 10%
 - destructive action policy violations: 0
 
+## Current Local Execution Evidence
+
+Checked 2026-07-06:
+
+- `rpotato model fetch-candidate qwen3.5-4b --for-evaluation` downloaded the source-recorded Qwen3.5-4B Q4_K_M GGUF artifact into app-managed model storage, verified file size `2740937888`, and verified SHA-256 `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`.
+- `rpotato backend install` installed the managed `llama.cpp b9878` CPU backend and recorded the managed binary SHA-256.
+- `rpotato backend start --model <qwen-gguf> --ctx-size 4096` started the managed sidecar, detached it from the parent process, wrote a sidecar record with `ctx size: 4096`, and passed `/health` with HTTP 200.
+- The `/completion` endpoint generated tokens from the Qwen artifact through the managed sidecar. This proves backend/model connectivity, not final-answer quality.
+- Qwen output still emitted reasoning trace text under the raw completion prompt and hit the generation limit before a clean final answer. Prompt/compiler handling for reasoning-tag suppression must be fixed before scoring Korean final-answer quality.
+
+This evidence does not promote Qwen3.5-4B to `verified`. RAM fit, peak memory, Gemma comparison, prompt compiler behavior, and benchmark scores remain open.
+
 ## Before Confirming An Artifact
 
 Check the following before choosing an exact GGUF artifact:

@@ -12,7 +12,7 @@ Implemented first boundaries:
 - `rpotato backend doctor`
 - `rpotato backend install-plan`
 - `rpotato backend install`
-- `rpotato backend start --model <path>`
+- `rpotato backend start --model <path> [--ctx-size <tokens>]`
 - `rpotato backend status`
 - `rpotato backend stop`
 - `rpotato backend verify-archive <path> --sha256 <hash>`
@@ -79,7 +79,7 @@ Session history is DB-backed for the current project. `session list`/`session hi
 
 Model install is still blocked for unverified candidates, but read-only evaluation preflight, benchmark planning, and evaluation artifact fetch are enabled through `rpotato model eval-plan <id>`, `rpotato model benchmark-plan <id>`, and `rpotato model fetch-candidate <id> --for-evaluation`. Backend install is enabled for supported OS/CPU pairs through the source-backed `llama.cpp` release `b9878` CPU artifact manifest. The model manifest schema, candidate state, source-backed license/source claims, unverified Qwen/Gemma GGUF artifact candidates, public benchmark source ledger, local registry surface, pre-download display plan, explicit evaluation fetch, local file SHA-256 verification, and failed/partial artifact cleanup surface are enabled. The Qwen/Gemma artifact candidates include pinned revision URLs, LFS SHA-256, and file size, but remain blocked from registry installation until local `llama.cpp b9878` smoke, RAM fit, mmproj need, and benchmark evidence are completed.
 
-`backend doctor` displays managed `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, install gate, and version detection for recorded managed binaries. `backend install-plan` displays the selected backend archive URL, SHA-256, size, and source. `backend install` downloads or reuses the cached archive, verifies it, extracts it in staging, places the release payload, writes an install record, and records a ledger event. `backend start --model <path>` starts the selected sidecar with an explicit local model file, captures stdout/stderr logs, writes a pid record, waits for `/health`, and kills the child on startup timeout. `backend status` reads the pid record and health state. `backend stop` removes stale records or terminates the recorded sidecar. Env override binaries are not executed by `doctor`; they are executed only by explicit lifecycle commands.
+`backend doctor` displays managed `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, install gate, and version detection for recorded managed binaries. `backend install-plan` displays the selected backend archive URL, SHA-256, size, and source. `backend install` downloads or reuses the cached archive, verifies it, extracts it in staging, places the release payload, writes an install record, and records a ledger event. `backend start --model <path> [--ctx-size <tokens>]` starts the selected sidecar with an explicit local model file and optional runtime context limit, captures stdout/stderr logs, writes a pid record, waits for `/health`, and kills the child on startup timeout. `backend status` reads the pid record and health state. `backend stop` removes stale records or terminates the recorded sidecar. Env override binaries are not executed by `doctor`; they are executed only by explicit lifecycle commands.
 
 Plugin source snapshot, persistent registry, inspect, validate, enable/disable/remove are enabled. Import grants no execution authority; it records only permission reports and ledger events.
 
@@ -125,7 +125,7 @@ cargo run -- doctor
 cargo run -- backend doctor
 cargo run -- backend install-plan
 cargo run -- backend install
-cargo run -- backend start --model /path/to/model.gguf
+cargo run -- backend start --model /path/to/model.gguf --ctx-size 4096
 cargo run -- backend status
 cargo run -- backend stop
 cargo run -- backend verify-archive /path/to/llama.cpp.zip --sha256 <64-hex>

@@ -222,8 +222,11 @@ Goal: install and register only source- and checksum-verified model candidates.
 - [x] `rpotato model eval-plan <id>`
 - [x] `rpotato model benchmark-plan <id>`
 - [x] `rpotato model fetch-candidate <id> --for-evaluation`
+- [x] `rpotato backend start --model <path> --ctx-size <tokens>`
 - [x] Block unverified artifact install
-- [ ] Local `llama.cpp b9878` smoke for selected Qwen/Gemma artifact candidates
+- [x] Qwen3.5-4B evaluation artifact fetch and local `llama.cpp b9878` lifecycle smoke with `--ctx-size 4096`
+- [ ] Gemma evaluation artifact fetch and local `llama.cpp b9878` lifecycle smoke
+- [ ] Prompt/compiler handling for reasoning-tag suppression before scoring Qwen final-answer quality
 - [ ] RAM-fit and mmproj-need measurement for selected Qwen/Gemma artifact candidates
 - [x] Resumable evaluation artifact download with SHA-256 gate
 - [ ] Verified install download and registry registration

@@ -182,6 +182,18 @@ local smoke 또는 benchmark 실행 전 `rpotato model eval-plan <id>`를 실행
 - invalid diff rate 10% 이하
 - destructive action policy 위반 0건
 
+## 현재 로컬 실행 증거
+
+2026-07-06 확인:
+
+- `rpotato model fetch-candidate qwen3.5-4b --for-evaluation`로 source-recorded Qwen3.5-4B Q4_K_M GGUF artifact를 app-managed model storage에 다운로드했고, file size `2740937888`과 SHA-256 `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`를 검증했습니다.
+- `rpotato backend install`로 managed `llama.cpp b9878` CPU backend를 설치했고 managed binary SHA-256을 기록했습니다.
+- `rpotato backend start --model <qwen-gguf> --ctx-size 4096`로 managed sidecar를 시작했고, parent process에서 분리된 상태로 sidecar record에 `ctx size: 4096`이 남았으며 `/health` HTTP 200을 통과했습니다.
+- `/completion` endpoint는 managed sidecar를 통해 Qwen artifact에서 token을 생성했습니다. 이는 backend/model 연결 증거이지 최종 답변 품질 통과 증거가 아닙니다.
+- raw completion prompt에서 Qwen 출력은 reasoning trace text를 생성했고 clean final answer 전에 generation limit에 걸렸습니다. 한국어 최종 응답 품질을 채점하기 전 reasoning tag suppression을 위한 prompt/compiler 처리가 필요합니다.
+
+이 증거만으로 Qwen3.5-4B를 `verified`로 승격하지 않습니다. RAM fit, peak memory, Gemma 비교, prompt compiler behavior, benchmark score는 아직 열려 있습니다.
+
 ## `verified` 승격 전 확인 사항
 
 정확한 GGUF artifact를 고르기 전 다음을 확인합니다.

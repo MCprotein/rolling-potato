@@ -180,7 +180,8 @@ Status:
 - user-directed priority evaluation candidate
 - not a confirmed default model
 - exact GGUF artifact URL, provider page, LFS SHA-256, and file size are source-recorded as `unverified`
-- local `llama.cpp b9878` smoke, Korean/code quality, text-only mmproj need, multimodal support, and 16 GB runtime fit are unverified
+- Qwen artifact download and local `llama.cpp b9878` lifecycle smoke with `--ctx-size 4096` are completed
+- Korean/code quality, text-only mmproj need, multimodal support, Gemma comparison, and 16 GB runtime fit are unverified
 - do not make model claims without explicit sources
 
 Source-recorded artifact facts checked 2026-07-06:
@@ -191,6 +192,13 @@ Source-recorded artifact facts checked 2026-07-06:
 - size bytes: `2740937888`
 - expected SHA-256 from Hugging Face LFS oid: `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`
 - sources: https://huggingface.co/api/models/Qwen/Qwen3.5-4B, https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF, https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/tree/main?recursive=1
+
+Local execution evidence checked 2026-07-06:
+
+- `rpotato model fetch-candidate qwen3.5-4b --for-evaluation` downloaded and verified the Qwen artifact by size and SHA-256, but did not register it as installed.
+- `rpotato backend install` installed managed `llama.cpp b9878`.
+- `rpotato backend start --model <qwen-gguf> --ctx-size 4096` started the managed sidecar, `backend status` reported `ctx size: 4096` and healthy, `/health` returned HTTP 200, and `backend stop` stopped the sidecar.
+- `/completion` generated tokens through the managed sidecar, but raw prompt output exposed reasoning trace text and did not yet prove clean Korean final-answer quality.
 
 Comparison candidate:
 
@@ -251,6 +259,7 @@ rpotato model install qwen3.5-4b
 rpotato backend doctor
 rpotato backend install-plan
 rpotato backend install
+rpotato backend start --model "/path/to/model.gguf" --ctx-size 4096
 rpotato backend verify-archive /path/to/llama.cpp.tar.gz --sha256 <64-hex>
 rpotato backend health-check
 rpotato cache status
@@ -330,8 +339,10 @@ Suggested next work:
 9. Run `rpotato model eval-plan <id>` before local model work to check source-backed fields, app-data artifact presence, and the next smoke/benchmark step.
 10. Run `rpotato model benchmark-plan <id>` before assigning any score so public benchmark parity conditions and local product benchmark gates remain separated.
 11. Run `rpotato model fetch-candidate <id> --for-evaluation` only when intentionally downloading multi-GB candidate artifacts for local evaluation.
-12. Run local backend smoke and RAM-fit/mmproj-need measurement for the source-recorded Qwen/Gemma GGUF artifact candidates.
-13. Keep `model install` blocked until verified install download, benchmark evidence, and registry registration gates are complete.
+12. Add prompt/compiler handling for Qwen reasoning trace suppression before scoring Korean final-answer quality.
+13. Run Gemma evaluation artifact fetch and local backend smoke with an explicit context limit, for example `rpotato backend start --model <path> --ctx-size 4096`.
+14. Measure RAM-fit/mmproj-need for the source-recorded Qwen/Gemma GGUF artifact candidates.
+15. Keep `model install` blocked until verified install download, benchmark evidence, and registry registration gates are complete.
 
 ## User Preference Notes
 

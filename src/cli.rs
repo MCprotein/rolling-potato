@@ -32,7 +32,7 @@ rpotato
   rpotato backend doctor
   rpotato backend install-plan
   rpotato backend install
-  rpotato backend start --model <path>
+  rpotato backend start --model <path> [--ctx-size <tokens>]
   rpotato backend status
   rpotato backend stop
   rpotato backend verify-archive <path> --sha256 <hash>
@@ -159,10 +159,16 @@ pub enum BackendCommand {
     Doctor,
     InstallPlan,
     Install,
-    Start { model_path: String },
+    Start {
+        model_path: String,
+        ctx_size: Option<u32>,
+    },
     Status,
     Stop,
-    VerifyArchive { path: String, sha256: String },
+    VerifyArchive {
+        path: String,
+        sha256: String,
+    },
     HealthCheck,
 }
 
@@ -371,16 +377,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "backend" && action == "install" => {
             Ok(Command::Backend(BackendCommand::Install))
         }
-        [group, action, flag, model_path]
-            if group == "backend" && action == "start" && flag == "--model" =>
-        {
-            Ok(Command::Backend(BackendCommand::Start {
-                model_path: model_path.clone(),
-            }))
+        [group, action, rest @ ..] if group == "backend" && action == "start" => {
+            parse_backend_start(rest).map(Command::Backend)
         }
-        [group, action, ..] if group == "backend" && action == "start" => Err(AppError::usage(
-            "backend start는 --model <path> 형식이 필요합니다.",
-        )),
         [group, action] if group == "backend" && action == "status" => {
             Ok(Command::Backend(BackendCommand::Status))
         }
@@ -605,6 +604,75 @@ fn parse_monitor_export(args: &[String]) -> Result<MonitorCommand, AppError> {
             "monitor export에는 --format jsonl 또는 --format csv가 필요합니다.",
         )),
     }
+}
+
+fn parse_backend_start(args: &[String]) -> Result<BackendCommand, AppError> {
+    let mut model_path = None;
+    let mut ctx_size = None;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--model" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "backend start는 --model <path> 값이 필요합니다.",
+                    ));
+                };
+                if model_path.is_some() {
+                    return Err(AppError::usage(
+                        "backend start의 --model 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                model_path = Some(value.clone());
+                index += 2;
+            }
+            "--ctx-size" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "backend start는 --ctx-size <tokens> 값이 필요합니다.",
+                    ));
+                };
+                if ctx_size.is_some() {
+                    return Err(AppError::usage(
+                        "backend start의 --ctx-size 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                ctx_size = Some(parse_positive_u32(value, "ctx-size")?);
+                index += 2;
+            }
+            unknown => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 backend start 옵션입니다: {unknown}"
+                )));
+            }
+        }
+    }
+
+    let Some(model_path) = model_path else {
+        return Err(AppError::usage(
+            "backend start는 --model <path> 형식이 필요합니다.",
+        ));
+    };
+
+    Ok(BackendCommand::Start {
+        model_path,
+        ctx_size,
+    })
+}
+
+fn parse_positive_u32(value: &str, label: &str) -> Result<u32, AppError> {
+    let parsed = value.parse::<u32>().map_err(|_| {
+        AppError::usage(format!(
+            "{label} 값은 양의 정수여야 합니다. 예: --{label} 4096"
+        ))
+    })?;
+    if parsed == 0 {
+        return Err(AppError::usage(format!(
+            "{label} 값은 1 이상이어야 합니다."
+        )));
+    }
+    Ok(parsed)
 }
 
 fn parse_monitor_prune(args: &[String]) -> Result<MonitorCommand, AppError> {
@@ -929,9 +997,46 @@ mod tests {
         assert_eq!(
             command,
             Command::Backend(BackendCommand::Start {
-                model_path: "model.gguf".to_string()
+                model_path: "model.gguf".to_string(),
+                ctx_size: None
             })
         );
+    }
+
+    #[test]
+    fn parses_backend_start_with_ctx_size() {
+        let command = parse([
+            "backend".to_string(),
+            "start".to_string(),
+            "--model".to_string(),
+            "model.gguf".to_string(),
+            "--ctx-size".to_string(),
+            "4096".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Backend(BackendCommand::Start {
+                model_path: "model.gguf".to_string(),
+                ctx_size: Some(4096)
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_zero_backend_ctx_size() {
+        let err = parse([
+            "backend".to_string(),
+            "start".to_string(),
+            "--model".to_string(),
+            "model.gguf".to_string(),
+            "--ctx-size".to_string(),
+            "0".to_string(),
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.code, 2);
+        assert!(err.message.contains("1 이상"));
     }
 
     #[test]

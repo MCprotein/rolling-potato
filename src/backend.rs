@@ -122,6 +122,7 @@ struct BackendSidecarRecord {
     model_path: PathBuf,
     host: String,
     port: u16,
+    ctx_size: Option<u32>,
     stdout_log: PathBuf,
     stderr_log: PathBuf,
     started_at_ms: u128,
@@ -405,14 +406,18 @@ pub fn install_report() -> Result<String, AppError> {
     ))
 }
 
-pub fn start_report(model_path: &str) -> Result<String, AppError> {
-    start_sidecar_with_timeout(model_path, Duration::from_millis(STARTUP_TIMEOUT_MS))
+pub fn start_report(model_path: &str, ctx_size: Option<u32>) -> Result<String, AppError> {
+    start_sidecar_with_timeout(
+        model_path,
+        ctx_size,
+        Duration::from_millis(STARTUP_TIMEOUT_MS),
+    )
 }
 
 pub fn status_report() -> Result<String, AppError> {
     let Some(record) = read_backend_sidecar_record()? else {
         return Ok(format!(
-            "backend status\n- status: stopped\n- sidecar record: {}\n- 다음 단계: rpotato backend start --model <path>",
+            "backend status\n- status: stopped\n- sidecar record: {}\n- 다음 단계: rpotato backend start --model <path> [--ctx-size <tokens>]",
             backend_sidecar_record_path().display()
         ));
     };
@@ -437,7 +442,7 @@ pub fn status_report() -> Result<String, AppError> {
     let status = if running { "running" } else { "stale" };
 
     Ok(format!(
-        "backend status\n- status: {}\n- backend: {}\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- health: {}\n- health error: {}\n- stdout log: {}\n- stderr log: {}\n- sidecar record: {}",
+        "backend status\n- status: {}\n- backend: {}\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- health: {}\n- health error: {}\n- stdout log: {}\n- stderr log: {}\n- sidecar record: {}",
         status,
         record.backend_id,
         record.pid,
@@ -445,6 +450,7 @@ pub fn status_report() -> Result<String, AppError> {
         record.model_path.display(),
         record.host,
         record.port,
+        display_optional_u32(record.ctx_size),
         health_status,
         health_error,
         record.stdout_log.display(),
@@ -1251,6 +1257,12 @@ fn display_download_status(status: BackendArchiveDownloadStatus) -> &'static str
     }
 }
 
+fn display_optional_u32(value: Option<u32>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "model-default".to_string())
+}
+
 fn backend_install_record_path() -> PathBuf {
     paths::backends_dir()
         .join("llama.cpp")
@@ -1261,7 +1273,11 @@ fn backend_sidecar_record_path() -> PathBuf {
     paths::state_dir().join("backend-llama.cpp-sidecar.txt")
 }
 
-fn start_sidecar_with_timeout(model_path: &str, timeout: Duration) -> Result<String, AppError> {
+fn start_sidecar_with_timeout(
+    model_path: &str,
+    ctx_size: Option<u32>,
+    timeout: Duration,
+) -> Result<String, AppError> {
     let model_path = canonical_existing_file(model_path, "model")?;
     let discovery = discover_llama_cpp();
     if !discovery.binary_exists || !discovery.binary_is_file {
@@ -1281,12 +1297,13 @@ fn start_sidecar_with_timeout(model_path: &str, timeout: Duration) -> Result<Str
     if let Some(record) = read_backend_sidecar_record()? {
         if process_is_running(record.pid) {
             return Ok(format!(
-                "backend start\n- status: already-running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- stdout log: {}\n- stderr log: {}",
+                "backend start\n- status: already-running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- stdout log: {}\n- stderr log: {}",
                 record.pid,
                 record.binary_path.display(),
                 record.model_path.display(),
                 record.host,
                 record.port,
+                display_optional_u32(record.ctx_size),
                 record.stdout_log.display(),
                 record.stderr_log.display()
             ));
@@ -1312,13 +1329,19 @@ fn start_sidecar_with_timeout(model_path: &str, timeout: Duration) -> Result<Str
     let stdout_file = create_log_file(&stdout_log)?;
     let stderr_file = create_log_file(&stderr_log)?;
 
-    let mut child = Command::new(&binary_path)
+    let mut command = Command::new(&binary_path);
+    command
         .arg("--model")
         .arg(&model_path)
         .arg("--host")
         .arg(discovery.host)
         .arg("--port")
-        .arg(discovery.port.to_string())
+        .arg(discovery.port.to_string());
+    if let Some(ctx_size) = ctx_size {
+        command.arg("--ctx-size").arg(ctx_size.to_string());
+    }
+    configure_sidecar_process(&mut command);
+    let mut child = command
         .stdin(Stdio::null())
         .stdout(Stdio::from(stdout_file))
         .stderr(Stdio::from(stderr_file))
@@ -1337,6 +1360,7 @@ fn start_sidecar_with_timeout(model_path: &str, timeout: Duration) -> Result<Str
         model_path,
         host: discovery.host.to_string(),
         port: discovery.port,
+        ctx_size,
         stdout_log,
         stderr_log,
         started_at_ms: now_ms(),
@@ -1355,23 +1379,25 @@ fn start_sidecar_with_timeout(model_path: &str, timeout: Duration) -> Result<Str
                 "backend.sidecar.start.completed",
                 "backend sidecar 시작 완료",
                 &format!(
-                    "pid={} binary={} model={} port={} startup_ms={} stdout_log={} stderr_log={}",
+                    "pid={} binary={} model={} port={} ctx_size={} startup_ms={} stdout_log={} stderr_log={}",
                     record.pid,
                     record.binary_path.display(),
                     record.model_path.display(),
                     record.port,
+                    display_optional_u32(record.ctx_size),
                     started_at.elapsed().as_millis(),
                     record.stdout_log.display(),
                     record.stderr_log.display()
                 ),
             )?;
             return Ok(format!(
-                "backend start\n- status: running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- startup ms: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
+                "backend start\n- status: running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- startup ms: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
                 record.pid,
                 record.binary_path.display(),
                 record.model_path.display(),
                 record.host,
                 record.port,
+                display_optional_u32(record.ctx_size),
                 started_at.elapsed().as_millis(),
                 record.stdout_log.display(),
                 record.stderr_log.display(),
@@ -1449,6 +1475,16 @@ fn canonical_existing_file(path: &str, label: &str) -> Result<PathBuf, AppError>
     })
 }
 
+#[cfg(unix)]
+fn configure_sidecar_process(command: &mut Command) {
+    use std::os::unix::process::CommandExt;
+
+    command.process_group(0);
+}
+
+#[cfg(not(unix))]
+fn configure_sidecar_process(_command: &mut Command) {}
+
 fn create_log_file(path: &Path) -> Result<File, AppError> {
     OpenOptions::new()
         .create_new(true)
@@ -1473,13 +1509,17 @@ fn write_backend_sidecar_record(record: &BackendSidecarRecord) -> Result<(), App
     })?;
 
     let contents = format!(
-        "backend_id={}\npid={}\nbinary_path={}\nmodel_path={}\nhost={}\nport={}\nstdout_log={}\nstderr_log={}\nstarted_at_ms={}\n",
+        "backend_id={}\npid={}\nbinary_path={}\nmodel_path={}\nhost={}\nport={}\nctx_size={}\nstdout_log={}\nstderr_log={}\nstarted_at_ms={}\n",
         record.backend_id,
         record.pid,
         record.binary_path.display(),
         record.model_path.display(),
         record.host,
         record.port,
+        record
+            .ctx_size
+            .map(|value| value.to_string())
+            .unwrap_or_default(),
         record.stdout_log.display(),
         record.stderr_log.display(),
         record.started_at_ms
@@ -1520,6 +1560,7 @@ fn parse_backend_sidecar_record(contents: &str) -> Option<BackendSidecarRecord> 
     let mut model_path = None;
     let mut host = None;
     let mut port = None;
+    let mut ctx_size = None;
     let mut stdout_log = None;
     let mut stderr_log = None;
     let mut started_at_ms = None;
@@ -1533,6 +1574,17 @@ fn parse_backend_sidecar_record(contents: &str) -> Option<BackendSidecarRecord> 
             "model_path" => model_path = Some(PathBuf::from(value)),
             "host" => host = Some(value.to_string()),
             "port" => port = value.parse::<u16>().ok(),
+            "ctx_size" => {
+                ctx_size = if value.is_empty() || value == "model-default" {
+                    Some(None)
+                } else {
+                    let parsed = value.parse::<u32>().ok()?;
+                    if parsed == 0 {
+                        return None;
+                    }
+                    Some(Some(parsed))
+                };
+            }
             "stdout_log" => stdout_log = Some(PathBuf::from(value)),
             "stderr_log" => stderr_log = Some(PathBuf::from(value)),
             "started_at_ms" => started_at_ms = value.parse::<u128>().ok(),
@@ -1547,6 +1599,7 @@ fn parse_backend_sidecar_record(contents: &str) -> Option<BackendSidecarRecord> 
         model_path: model_path?,
         host: host?,
         port: port?,
+        ctx_size: ctx_size.unwrap_or(None),
         stdout_log: stdout_log?,
         stderr_log: stderr_log?,
         started_at_ms: started_at_ms?,
@@ -2286,6 +2339,40 @@ mod tests {
         assert!(report.contains("status: stopped"));
     }
 
+    #[test]
+    fn sidecar_record_round_trip_preserves_ctx_size() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = env::temp_dir().join(format!(
+            "rpotato-backend-record-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("project")).unwrap();
+        env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+
+        let record = BackendSidecarRecord {
+            backend_id: LLAMA_CPP_BACKEND_ID.to_string(),
+            pid: 1234,
+            binary_path: root.join("llama-server"),
+            model_path: root.join("model.gguf"),
+            host: DEFAULT_HOST.to_string(),
+            port: DEFAULT_PORT,
+            ctx_size: Some(4096),
+            stdout_log: root.join("stdout.log"),
+            stderr_log: root.join("stderr.log"),
+            started_at_ms: now_ms(),
+        };
+        write_backend_sidecar_record(&record).unwrap();
+        let restored = read_backend_sidecar_record().unwrap().unwrap();
+
+        env::remove_var("RPOTATO_DATA_HOME");
+        env::remove_var("RPOTATO_PROJECT_ROOT");
+        fs::remove_dir_all(root).unwrap();
+
+        assert_eq!(restored.ctx_size, Some(4096));
+    }
+
     #[cfg(unix)]
     #[test]
     fn stop_removes_stale_sidecar_record() {
@@ -2308,6 +2395,7 @@ mod tests {
             model_path: fs::canonicalize(&model_path).unwrap(),
             host: DEFAULT_HOST.to_string(),
             port: 65534,
+            ctx_size: Some(4096),
             stdout_log: root.join("stdout.log"),
             stderr_log: root.join("stderr.log"),
             started_at_ms: now_ms(),
@@ -2353,9 +2441,12 @@ mod tests {
 
         let model_path = root.join("model.gguf");
         fs::write(&model_path, b"fake model").unwrap();
-        let err =
-            start_sidecar_with_timeout(model_path.to_str().unwrap(), Duration::from_millis(200))
-                .unwrap_err();
+        let err = start_sidecar_with_timeout(
+            model_path.to_str().unwrap(),
+            Some(4096),
+            Duration::from_millis(200),
+        )
+        .unwrap_err();
         let stdout_logs = fs::read_dir(paths::logs_dir())
             .unwrap()
             .filter_map(Result::ok)

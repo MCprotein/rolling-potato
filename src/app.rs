@@ -157,8 +157,11 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", backend::install_report()?);
             Ok(())
         }
-        Command::Backend(BackendCommand::Start { model_path }) => {
-            println!("{}", backend::start_report(&model_path)?);
+        Command::Backend(BackendCommand::Start {
+            model_path,
+            ctx_size,
+        }) => {
+            println!("{}", backend::start_report(&model_path, ctx_size)?);
             Ok(())
         }
         Command::Backend(BackendCommand::Status) => {
