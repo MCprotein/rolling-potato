@@ -236,7 +236,7 @@ Implemented command surfaces:
 
 `evidence validate` checks that artifact pointers are local, project-relative paths that do not escape the project boundary.
 
-`run` normalizes the user request into skill, mode, context, and evidence requirements, then calls the running backend sidecar for a model-response-only agent-loop skeleton. It records intent and backend chat ledger events plus token/latency metrics in the local SQLite observability projection. It still does not read repository files, apply patches, run commands, or treat model output as an approved action.
+`run` normalizes the user request into skill, mode, context, and evidence requirements, builds a bounded repository context pack with source pointers, then calls the running backend sidecar for an agent-loop skeleton. It records intent, context, and backend chat ledger events plus token/latency metrics in the local SQLite observability projection. It still does not apply patches, run commands, or treat model output as an approved action.
 
 `intent classify`, `intent routes`, and `skill run` remain pre-execution surfaces: they normalize routing state and record ledger events without calling the model.
 

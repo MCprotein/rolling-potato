@@ -1,5 +1,6 @@
 use crate::app::AppError;
 use crate::backend;
+use crate::context::{self, ContextPack};
 use crate::skill;
 use crate::state;
 
@@ -25,11 +26,22 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
             decision.skill_id, decision.mode, decision.invocation, decision.signals
         ),
     )?;
-    let agent_prompt = agent_loop_prompt(request, &decision);
+    let context_pack = context::build_context_pack(request)?;
+    let context_event_id = state::record_event(
+        "context.pack.prepared",
+        "bounded repository context 준비",
+        &format!(
+            "files_read={} chars_read={} source_pointers={}",
+            context_pack.files_read,
+            context_pack.chars_read,
+            context_pack.pointer_summary()
+        ),
+    )?;
+    let agent_prompt = agent_loop_prompt(request, &decision, &context_pack);
     let run = backend::chat_once(&agent_prompt, Some(RUN_MAX_TOKENS))?;
 
     Ok(format!(
-        "run agent loop\n- status: model-response-completed\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- max tokens: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- model ledger event: {}\n- boundary: 아직 파일 수정, patch 적용, command 실행은 하지 않습니다. 모델 응답은 action candidate 초안이며 후속 phase에서 policy/evidence gate가 실행합니다.\n- response:\n{}",
+        "run agent loop\n- status: model-response-completed\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- max tokens: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- model ledger event: {}\n- boundary: 아직 파일 수정, patch 적용, command 실행은 하지 않습니다. Snippet은 context hint이며 승인된 action 전에는 source pointer 원본을 다시 읽어야 합니다.\n- response:\n{}",
         request,
         decision.invocation,
         decision.skill_id,
@@ -38,6 +50,9 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         display_list(&decision.constraints),
         decision.classifier,
         state::workflow_ownership_summary(),
+        context_pack.files_read,
+        context_pack.chars_read,
+        context_pack.pointer_summary(),
         run.backend_id,
         run.model_id,
         run.model_path.display(),
@@ -52,6 +67,7 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         display_optional_u32(run.total_tokens),
         run.elapsed_ms,
         intent_event_id,
+        context_event_id,
         run.ledger_event,
         run.response
     ))
@@ -210,7 +226,11 @@ fn display_optional_u32(value: Option<u32>) -> String {
         .unwrap_or_else(|| "없음".to_string())
 }
 
-fn agent_loop_prompt(request: &str, decision: &IntentDecision) -> String {
+fn agent_loop_prompt(
+    request: &str,
+    decision: &IntentDecision,
+    context_pack: &ContextPack,
+) -> String {
     format!(
         "rpotato run 최소 agent-loop 실행입니다.\n\
          사용자 요청:\n{}\n\n\
@@ -220,9 +240,10 @@ fn agent_loop_prompt(request: &str, decision: &IntentDecision) -> String {
          - invocation: {}\n\
          - signals: {}\n\
          - constraints: {}\n\n\
+         {}\n\
          현재 구현 단계의 경계:\n\
          - 파일 수정, patch 적용, command 실행은 하지 않습니다.\n\
-         - 원본 파일을 읽었다고 주장하지 않습니다.\n\
+         - context snippet만 근거로 원본 전체를 읽었다고 주장하지 않습니다.\n\
          - 필요한 source pointer, 다음 action candidate, 검증 계획만 한국어로 짧게 제안합니다.\n\
          - 내부 추론이나 <think> 태그를 출력하지 않습니다.",
         request,
@@ -230,7 +251,8 @@ fn agent_loop_prompt(request: &str, decision: &IntentDecision) -> String {
         decision.mode,
         decision.invocation,
         display_list(&decision.signals),
-        display_list(&decision.constraints)
+        display_list(&decision.constraints),
+        context_pack.prompt_section()
     )
 }
 

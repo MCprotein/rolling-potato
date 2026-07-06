@@ -67,16 +67,16 @@ Runtime core interprets invocation into:
 
 ## Current Implementation
 
-Phase 3 implements pre-execution normalization, and `rpotato run` now uses that routing state to enter the first model-response-only agent-loop skeleton.
+Phase 3 implements pre-execution normalization, and `rpotato run` now uses that routing state to enter the first context-aware model-response agent-loop skeleton.
 
 - `rpotato skill list` prints the built-in skill registry.
 - `rpotato skill run <id>` normalizes skill id, mode, allowed tools, context requirements, evidence requirements, and stop criteria, then records a ledger event.
-- `rpotato run "<request>"` maps user requests to skill/mode through deterministic intent rules, records intent/backend chat ledger events, calls the running backend sidecar, and records token/latency metrics.
+- `rpotato run "<request>"` maps user requests to skill/mode through deterministic intent rules, builds a bounded repository context pack with source pointers, records intent/context/backend chat ledger events, calls the running backend sidecar, and records token/latency metrics.
 - `rpotato intent classify "<request>"` runs the same rules but prints only a classification report instead of planning an agent loop.
 - `rpotato intent routes` prints TUI command-palette routing to runtime commands.
 - Current state owns the active workflow; skill/plugin/TUI actions need a parent workflow pointer.
 - The optional model classifier is disabled. Current routing uses deterministic rules only.
-- Repository context packing, tool calls, approved patch application, and verification command execution happen in later phases.
+- Tool calls, approved patch application, and verification command execution happen in later phases.
 
 Current built-in skills:
 
