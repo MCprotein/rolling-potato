@@ -165,6 +165,7 @@ Implemented command surfaces:
 - `rpotato doctor`
 - `rpotato backend doctor`
 - `rpotato backend install-plan`
+- `rpotato backend install`
 - `rpotato backend verify-archive <path> --sha256 <hash>`
 - `rpotato backend health-check`
 - `rpotato cache status`
@@ -236,7 +237,7 @@ Implemented command surfaces:
 
 `model list`, `model manifest`, `model inspect`, `model registry`, and `model download-plan` expose source-backed manifest structure, candidate status, benchmark source ledgers, local registry paths, and pre-download source/license/checksum fields. `model verify-file` verifies SHA-256 over local file bytes and records a ledger event. `model cleanup-failed` targets only partial or failed artifacts under app data. `model install` blocks real downloads until a verified GGUF artifact URL, checksum, provider terms, file size, and `llama.cpp` compatibility are present in the manifest.
 
-`backend doctor` shows managed `llama.cpp` sidecar discovery, environment override path, port, health URL, executable bit, and install gate state. `backend install-plan` selects a source-backed `llama.cpp` release `b9878` CPU artifact for supported OS/CPU pairs and displays the release URL, archive URL, SHA-256, size, license source, and download path. `backend verify-archive` verifies a local backend archive SHA-256. `backend health-check` checks `/health` on the selected host and port with a short timeout. Actual backend download/extraction and version detection are not wired yet.
+`backend doctor` shows managed `llama.cpp` sidecar discovery, environment override path, port, health URL, executable bit, and install gate state. `backend install-plan` selects a source-backed `llama.cpp` release `b9878` CPU artifact for supported OS/CPU pairs and displays the release URL, archive URL, SHA-256, size, license source, and download path. `backend install` downloads or reuses the cached archive, verifies size and SHA-256, extracts it in staging, places only the managed `llama-server` binary, sets executable permissions on Unix, rolls back failed replacement, and records a ledger event. `backend verify-archive` verifies a local backend archive SHA-256. `backend health-check` checks `/health` on the selected host and port with a short timeout. Backend version detection is not wired yet.
 
 ## Documentation
 

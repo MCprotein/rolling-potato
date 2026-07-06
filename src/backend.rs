@@ -1,4 +1,5 @@
 use std::env;
+use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
@@ -14,6 +15,7 @@ const DEFAULT_PORT: u16 = 17842;
 const HEALTH_TIMEOUT_MS: u64 = 500;
 const ENV_BACKEND_PATH: &str = "RPOTATO_BACKEND_LLAMA_CPP_PATH";
 const ENV_BACKEND_PORT: &str = "RPOTATO_BACKEND_PORT";
+const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 
 pub trait BackendAdapter {
     fn id(&self) -> &'static str;
@@ -74,6 +76,21 @@ struct BackendReleaseArtifact {
 enum BackendArchiveKind {
     TarGz,
     Zip,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BackendArchiveDownloadStatus {
+    Downloaded,
+    CacheHit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BackendInstallResult {
+    download_status: BackendArchiveDownloadStatus,
+    archive_path: PathBuf,
+    extracted_binary: PathBuf,
+    managed_binary: PathBuf,
+    ledger_event: String,
 }
 
 impl BackendArchiveKind {
@@ -300,6 +317,50 @@ pub fn install_plan_report() -> String {
     )
 }
 
+pub fn install_report() -> Result<String, AppError> {
+    let artifact = selected_backend_release_artifact(&LLAMA_CPP_RELEASE).ok_or_else(|| {
+        AppError::blocked(format!(
+            "backend install 차단\n- 이유: 지원 platform artifact 미확정 ({}/{})\n- 다음 단계: backend install-plan으로 현재 platform 상태를 확인하세요.",
+            env::consts::OS,
+            env::consts::ARCH
+        ))
+    })?;
+    let blockers = backend_install_blockers(&LLAMA_CPP_RELEASE, Some(artifact));
+    if !blockers.is_empty() {
+        return Err(AppError::blocked(format!(
+            "backend install 차단\n- blockers: {}\n- 다음 단계: backend install-plan으로 release URL, checksum, size, license source를 확인하세요.",
+            display_vec(&blockers)
+        )));
+    }
+
+    let archive_path = backend_archive_path(artifact);
+    let download_status = download_backend_archive(artifact, &archive_path)?;
+    verify_backend_archive_file(artifact, &archive_path)?;
+
+    let managed_binary = LlamaCppAdapter.managed_binary_path();
+    let staging_dir = backend_staging_dir(&LLAMA_CPP_RELEASE, artifact);
+    let result = install_backend_from_archive(
+        artifact,
+        &archive_path,
+        &managed_binary,
+        &staging_dir,
+        download_status,
+    )?;
+
+    Ok(format!(
+        "backend install 완료\n- id: {}\n- release tag: {}\n- archive: {}\n- archive sha256: {}\n- archive source: {}\n- download status: {}\n- extracted binary: {}\n- managed binary: {}\n- ledger event: {}\n- 다음 단계: rpotato backend doctor 또는 rpotato backend health-check로 상태를 확인하세요.",
+        LLAMA_CPP_RELEASE.id,
+        LLAMA_CPP_RELEASE.release_tag,
+        result.archive_path.display(),
+        artifact.archive_sha256,
+        artifact.archive_url,
+        display_download_status(result.download_status),
+        result.extracted_binary.display(),
+        result.managed_binary.display(),
+        result.ledger_event
+    ))
+}
+
 pub fn verify_archive_report(path: &str, expected_sha256: &str) -> Result<String, AppError> {
     if !checksum::is_valid_sha256(expected_sha256) {
         return Err(AppError::usage(
@@ -482,6 +543,486 @@ fn probe_health(host: &str, port: u16, timeout: Duration) -> HealthProbe {
     }
 }
 
+fn backend_archive_path(artifact: &BackendReleaseArtifact) -> PathBuf {
+    paths::downloads_dir().join(artifact.archive_name)
+}
+
+fn backend_staging_dir(
+    manifest: &BackendReleaseManifest,
+    artifact: &BackendReleaseArtifact,
+) -> PathBuf {
+    paths::backends_dir().join("llama.cpp").join(format!(
+        ".staging-{}-{}-{}",
+        manifest.release_tag, artifact.os, artifact.arch
+    ))
+}
+
+fn download_backend_archive(
+    artifact: &BackendReleaseArtifact,
+    archive_path: &Path,
+) -> Result<BackendArchiveDownloadStatus, AppError> {
+    if archive_path.exists() && !archive_path.is_file() {
+        return Err(AppError::blocked(format!(
+            "backend archive cache path가 file이 아닙니다: {}",
+            archive_path.display()
+        )));
+    }
+    if archive_path.is_file() && backend_archive_matches(artifact, archive_path) {
+        return Ok(BackendArchiveDownloadStatus::CacheHit);
+    }
+
+    let parent = archive_path.parent().ok_or_else(|| {
+        AppError::runtime(format!(
+            "backend archive parent path를 계산하지 못했습니다: {}",
+            archive_path.display()
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(|err| {
+        AppError::runtime(format!(
+            "backend archive download directory를 만들지 못했습니다: {} ({err})",
+            parent.display()
+        ))
+    })?;
+
+    let part_path = archive_path.with_file_name(format!("{}.part", artifact.archive_name));
+    remove_file_if_exists(&part_path)?;
+
+    let response = ureq::get(artifact.archive_url)
+        .header("User-Agent", "rpotato/0.1.0")
+        .call()
+        .map_err(|err| {
+            AppError::runtime(format!(
+                "backend archive 다운로드 실패\n- url: {}\n- error: {err}",
+                artifact.archive_url
+            ))
+        })?;
+    let (_, body) = response.into_parts();
+    let mut reader = body.into_reader();
+    let mut file = File::create(&part_path).map_err(|err| {
+        AppError::runtime(format!(
+            "backend archive partial file을 만들지 못했습니다: {} ({err})",
+            part_path.display()
+        ))
+    })?;
+
+    let copied_bytes =
+        match copy_reader_with_limit(&mut reader, &mut file, artifact.archive_size_bytes) {
+            Ok(copied_bytes) => copied_bytes,
+            Err(err) => {
+                drop(file);
+                let _ = fs::remove_file(&part_path);
+                return Err(err);
+            }
+        };
+    file.sync_all().map_err(|err| {
+        AppError::runtime(format!(
+            "backend archive partial file sync 실패: {} ({err})",
+            part_path.display()
+        ))
+    })?;
+    drop(file);
+
+    if copied_bytes != artifact.archive_size_bytes {
+        remove_file_if_exists(&part_path)?;
+        return Err(AppError::blocked(format!(
+            "backend archive size 검증 실패\n- expected: {}\n- actual: {}\n- path: {}",
+            artifact.archive_size_bytes,
+            copied_bytes,
+            part_path.display()
+        )));
+    }
+    if let Err(err) = verify_backend_archive_file(artifact, &part_path) {
+        remove_file_if_exists(&part_path)?;
+        return Err(err);
+    }
+
+    remove_file_if_exists(archive_path)?;
+    fs::rename(&part_path, archive_path).map_err(|err| {
+        AppError::runtime(format!(
+            "backend archive cache 배치 실패: {} -> {} ({err})",
+            part_path.display(),
+            archive_path.display()
+        ))
+    })?;
+
+    Ok(BackendArchiveDownloadStatus::Downloaded)
+}
+
+fn backend_archive_matches(artifact: &BackendReleaseArtifact, archive_path: &Path) -> bool {
+    verify_backend_archive_file(artifact, archive_path).is_ok()
+}
+
+fn verify_backend_archive_file(
+    artifact: &BackendReleaseArtifact,
+    archive_path: &Path,
+) -> Result<(), AppError> {
+    let metadata = archive_path.metadata().map_err(|err| {
+        AppError::runtime(format!(
+            "backend archive metadata를 읽지 못했습니다: {} ({err})",
+            archive_path.display()
+        ))
+    })?;
+    if !metadata.is_file() {
+        return Err(AppError::blocked(format!(
+            "backend archive path가 file이 아닙니다: {}",
+            archive_path.display()
+        )));
+    }
+    if metadata.len() != artifact.archive_size_bytes {
+        return Err(AppError::blocked(format!(
+            "backend archive size 검증 실패\n- expected: {}\n- actual: {}\n- path: {}",
+            artifact.archive_size_bytes,
+            metadata.len(),
+            archive_path.display()
+        )));
+    }
+
+    let actual_sha256 = checksum::sha256_file(archive_path)?;
+    if !actual_sha256.eq_ignore_ascii_case(artifact.archive_sha256) {
+        return Err(AppError::blocked(format!(
+            "backend archive SHA-256 검증 실패\n- expected: {}\n- actual: {}\n- path: {}",
+            artifact.archive_sha256,
+            actual_sha256,
+            archive_path.display()
+        )));
+    }
+
+    Ok(())
+}
+
+fn copy_reader_with_limit<R: Read, W: Write>(
+    reader: &mut R,
+    writer: &mut W,
+    expected_bytes: u64,
+) -> Result<u64, AppError> {
+    let mut copied_bytes = 0_u64;
+    let mut buffer = [0_u8; DOWNLOAD_BUFFER_BYTES];
+
+    loop {
+        let bytes_read = reader.read(&mut buffer).map_err(|err| {
+            AppError::runtime(format!("backend archive download stream read 실패: {err}"))
+        })?;
+        if bytes_read == 0 {
+            break;
+        }
+        copied_bytes += bytes_read as u64;
+        if copied_bytes > expected_bytes {
+            return Err(AppError::blocked(format!(
+                "backend archive size limit 초과\n- expected: {}\n- actual-at-least: {}",
+                expected_bytes, copied_bytes
+            )));
+        }
+        writer.write_all(&buffer[..bytes_read]).map_err(|err| {
+            AppError::runtime(format!("backend archive partial file write 실패: {err}"))
+        })?;
+    }
+
+    writer
+        .flush()
+        .map_err(|err| AppError::runtime(format!("backend archive flush 실패: {err}")))?;
+    Ok(copied_bytes)
+}
+
+fn install_backend_from_archive(
+    artifact: &BackendReleaseArtifact,
+    archive_path: &Path,
+    managed_binary: &Path,
+    staging_dir: &Path,
+    download_status: BackendArchiveDownloadStatus,
+) -> Result<BackendInstallResult, AppError> {
+    remove_dir_if_exists(staging_dir)?;
+    fs::create_dir_all(staging_dir).map_err(|err| {
+        AppError::runtime(format!(
+            "backend staging directory를 만들지 못했습니다: {} ({err})",
+            staging_dir.display()
+        ))
+    })?;
+
+    if let Err(err) = extract_backend_archive(artifact, archive_path, staging_dir) {
+        let _ = fs::remove_dir_all(staging_dir);
+        return Err(err);
+    }
+    let extracted_binary = match find_extracted_binary(artifact, staging_dir) {
+        Ok(path) => path,
+        Err(err) => {
+            let _ = fs::remove_dir_all(staging_dir);
+            return Err(err);
+        }
+    };
+    if let Err(err) = place_managed_binary(&extracted_binary, managed_binary) {
+        let _ = fs::remove_dir_all(staging_dir);
+        return Err(err);
+    }
+    remove_dir_if_exists(staging_dir)?;
+
+    let event_id = state::record_event(
+        "backend.install.completed",
+        "llama.cpp backend 설치 완료",
+        &format!(
+            "release_tag={} archive={} sha256={} managed_binary={} download_status={}",
+            LLAMA_CPP_RELEASE.release_tag,
+            archive_path.display(),
+            artifact.archive_sha256,
+            managed_binary.display(),
+            display_download_status(download_status)
+        ),
+    )?;
+
+    Ok(BackendInstallResult {
+        download_status,
+        archive_path: archive_path.to_path_buf(),
+        extracted_binary,
+        managed_binary: managed_binary.to_path_buf(),
+        ledger_event: event_id,
+    })
+}
+
+fn extract_backend_archive(
+    artifact: &BackendReleaseArtifact,
+    archive_path: &Path,
+    staging_dir: &Path,
+) -> Result<(), AppError> {
+    match artifact.archive_kind {
+        BackendArchiveKind::TarGz => extract_tar_gz_archive(archive_path, staging_dir),
+        BackendArchiveKind::Zip => extract_zip_archive(archive_path, staging_dir),
+    }
+}
+
+fn extract_tar_gz_archive(archive_path: &Path, staging_dir: &Path) -> Result<(), AppError> {
+    let file = File::open(archive_path).map_err(|err| {
+        AppError::runtime(format!(
+            "backend tar.gz archive를 열지 못했습니다: {} ({err})",
+            archive_path.display()
+        ))
+    })?;
+    let decoder = flate2::read::GzDecoder::new(file);
+    let mut archive = tar::Archive::new(decoder);
+    archive.unpack(staging_dir).map_err(|err| {
+        AppError::runtime(format!(
+            "backend tar.gz archive extraction 실패: {} -> {} ({err})",
+            archive_path.display(),
+            staging_dir.display()
+        ))
+    })
+}
+
+fn extract_zip_archive(archive_path: &Path, staging_dir: &Path) -> Result<(), AppError> {
+    let file = File::open(archive_path).map_err(|err| {
+        AppError::runtime(format!(
+            "backend zip archive를 열지 못했습니다: {} ({err})",
+            archive_path.display()
+        ))
+    })?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|err| {
+        AppError::runtime(format!(
+            "backend zip archive metadata를 읽지 못했습니다: {} ({err})",
+            archive_path.display()
+        ))
+    })?;
+    archive.extract(staging_dir).map_err(|err| {
+        AppError::runtime(format!(
+            "backend zip archive extraction 실패: {} -> {} ({err})",
+            archive_path.display(),
+            staging_dir.display()
+        ))
+    })
+}
+
+fn find_extracted_binary(
+    artifact: &BackendReleaseArtifact,
+    staging_dir: &Path,
+) -> Result<PathBuf, AppError> {
+    let hinted_path = staging_dir.join(artifact.binary_relative_path);
+    if is_regular_file_no_symlink(&hinted_path) {
+        return Ok(hinted_path);
+    }
+
+    let binary_name = Path::new(artifact.binary_relative_path)
+        .file_name()
+        .ok_or_else(|| {
+            AppError::blocked(format!(
+                "archive 내부 binary path가 유효하지 않습니다: {}",
+                artifact.binary_relative_path
+            ))
+        })?;
+    let mut matches = Vec::new();
+    collect_binary_matches(staging_dir, binary_name, &mut matches)?;
+    matches.sort();
+
+    match matches.len() {
+        0 => Err(AppError::blocked(format!(
+            "backend archive에서 binary를 찾지 못했습니다\n- expected: {}\n- staging: {}",
+            artifact.binary_relative_path,
+            staging_dir.display()
+        ))),
+        1 => Ok(matches.remove(0)),
+        _ => Err(AppError::blocked(format!(
+            "backend archive에서 binary 후보가 여러 개입니다\n- expected: {}\n- count: {}\n- staging: {}",
+            artifact.binary_relative_path,
+            matches.len(),
+            staging_dir.display()
+        ))),
+    }
+}
+
+fn collect_binary_matches(
+    directory: &Path,
+    binary_name: &std::ffi::OsStr,
+    matches: &mut Vec<PathBuf>,
+) -> Result<(), AppError> {
+    for entry in fs::read_dir(directory).map_err(|err| {
+        AppError::runtime(format!(
+            "backend extraction directory를 읽지 못했습니다: {} ({err})",
+            directory.display()
+        ))
+    })? {
+        let entry =
+            entry.map_err(|err| AppError::runtime(format!("directory entry read 실패: {err}")))?;
+        let path = entry.path();
+        let file_type = fs::symlink_metadata(&path)
+            .map_err(|err| {
+                AppError::runtime(format!(
+                    "backend extracted path metadata를 읽지 못했습니다: {} ({err})",
+                    path.display()
+                ))
+            })?
+            .file_type();
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
+            collect_binary_matches(&path, binary_name, matches)?;
+        } else if file_type.is_file() && path.file_name() == Some(binary_name) {
+            matches.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn is_regular_file_no_symlink(path: &Path) -> bool {
+    fs::symlink_metadata(path)
+        .map(|metadata| metadata.file_type().is_file() && !metadata.file_type().is_symlink())
+        .unwrap_or(false)
+}
+
+fn place_managed_binary(source: &Path, managed_binary: &Path) -> Result<(), AppError> {
+    let parent = managed_binary.parent().ok_or_else(|| {
+        AppError::runtime(format!(
+            "managed backend binary parent path를 계산하지 못했습니다: {}",
+            managed_binary.display()
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(|err| {
+        AppError::runtime(format!(
+            "managed backend directory를 만들지 못했습니다: {} ({err})",
+            parent.display()
+        ))
+    })?;
+
+    if managed_binary.exists() && !managed_binary.is_file() {
+        return Err(AppError::blocked(format!(
+            "managed backend path가 file이 아닙니다: {}",
+            managed_binary.display()
+        )));
+    }
+
+    let file_name = managed_binary
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("llama-server");
+    let tmp_path = managed_binary.with_file_name(format!("{file_name}.tmp"));
+    let backup_path = managed_binary.with_file_name(format!("{file_name}.previous"));
+    remove_file_if_exists(&tmp_path)?;
+    remove_file_if_exists(&backup_path)?;
+
+    fs::copy(source, &tmp_path).map_err(|err| {
+        AppError::runtime(format!(
+            "managed backend binary copy 실패: {} -> {} ({err})",
+            source.display(),
+            tmp_path.display()
+        ))
+    })?;
+    set_executable_bit(&tmp_path)?;
+
+    let had_existing = managed_binary.is_file();
+    if had_existing {
+        fs::rename(managed_binary, &backup_path).map_err(|err| {
+            AppError::runtime(format!(
+                "기존 managed backend binary backup 실패: {} -> {} ({err})",
+                managed_binary.display(),
+                backup_path.display()
+            ))
+        })?;
+    }
+
+    if let Err(err) = fs::rename(&tmp_path, managed_binary) {
+        if had_existing && backup_path.is_file() {
+            let _ = fs::rename(&backup_path, managed_binary);
+        }
+        let _ = fs::remove_file(&tmp_path);
+        return Err(AppError::runtime(format!(
+            "managed backend binary 배치 실패: {} -> {} ({err})",
+            tmp_path.display(),
+            managed_binary.display()
+        )));
+    }
+    remove_file_if_exists(&backup_path)?;
+
+    Ok(())
+}
+
+#[cfg(unix)]
+fn set_executable_bit(path: &Path) -> Result<(), AppError> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut permissions = path
+        .metadata()
+        .map_err(|err| {
+            AppError::runtime(format!(
+                "managed backend binary metadata를 읽지 못했습니다: {} ({err})",
+                path.display()
+            ))
+        })?
+        .permissions();
+    permissions.set_mode(permissions.mode() | 0o755);
+    fs::set_permissions(path, permissions).map_err(|err| {
+        AppError::runtime(format!(
+            "managed backend binary 실행 권한 설정 실패: {} ({err})",
+            path.display()
+        ))
+    })
+}
+
+#[cfg(not(unix))]
+fn set_executable_bit(_path: &Path) -> Result<(), AppError> {
+    Ok(())
+}
+
+fn remove_file_if_exists(path: &Path) -> Result<(), AppError> {
+    if path.exists() {
+        fs::remove_file(path).map_err(|err| {
+            AppError::runtime(format!("file 삭제 실패: {} ({err})", path.display()))
+        })?;
+    }
+    Ok(())
+}
+
+fn remove_dir_if_exists(path: &Path) -> Result<(), AppError> {
+    if path.exists() {
+        fs::remove_dir_all(path).map_err(|err| {
+            AppError::runtime(format!("directory 삭제 실패: {} ({err})", path.display()))
+        })?;
+    }
+    Ok(())
+}
+
+fn display_download_status(status: BackendArchiveDownloadStatus) -> &'static str {
+    match status {
+        BackendArchiveDownloadStatus::Downloaded => "downloaded",
+        BackendArchiveDownloadStatus::CacheHit => "cache-hit",
+    }
+}
+
 fn selected_backend_release_artifact(
     manifest: &BackendReleaseManifest,
 ) -> Option<&'static BackendReleaseArtifact> {
@@ -590,6 +1131,7 @@ fn is_executable(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn default_discovery_uses_managed_path() {
@@ -677,10 +1219,69 @@ mod tests {
     }
 
     #[test]
+    fn install_from_tar_archive_places_managed_binary() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = env::temp_dir().join(format!(
+            "rpotato-backend-install-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        let archive_path = root.join("backend.tar.gz");
+        write_test_tar_gz(&archive_path, "release/bin/llama-server", b"fake backend").unwrap();
+
+        let artifact = BackendReleaseArtifact {
+            os: "test",
+            arch: "test",
+            archive_name: "backend.tar.gz",
+            archive_url: "https://example.invalid/backend.tar.gz",
+            archive_sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+            archive_size_bytes: archive_path.metadata().unwrap().len(),
+            archive_kind: BackendArchiveKind::TarGz,
+            binary_relative_path: "llama-server",
+        };
+        let managed_binary = root.join("managed").join("llama-server");
+        let staging_dir = root.join("staging");
+
+        let result = install_backend_from_archive(
+            &artifact,
+            &archive_path,
+            &managed_binary,
+            &staging_dir,
+            BackendArchiveDownloadStatus::CacheHit,
+        )
+        .unwrap();
+
+        assert!(managed_binary.is_file());
+        assert!(is_executable(&managed_binary));
+        assert_eq!(fs::read(&managed_binary).unwrap(), b"fake backend");
+        assert_eq!(result.managed_binary, managed_binary);
+        assert!(!staging_dir.exists());
+        env::remove_var("RPOTATO_DATA_HOME");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn health_check_report_is_diagnostic_not_process_start() {
         let report = health_check_report();
         assert!(report.contains("backend health check"));
         assert!(report.contains("health URL"));
         assert!(report.contains("timeout ms"));
+    }
+
+    fn write_test_tar_gz(path: &Path, file_path: &str, bytes: &[u8]) -> std::io::Result<()> {
+        let file = File::create(path)?;
+        let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+        let mut builder = tar::Builder::new(encoder);
+        let mut header = tar::Header::new_gnu();
+        header.set_path(file_path)?;
+        header.set_size(bytes.len() as u64);
+        header.set_mode(0o755);
+        header.set_cksum();
+        builder.append(&header, bytes)?;
+        let encoder = builder.into_inner()?;
+        encoder.finish()?;
+        Ok(())
     }
 }

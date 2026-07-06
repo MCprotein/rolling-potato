@@ -11,6 +11,7 @@
 - `rpotato doctor`
 - `rpotato backend doctor`
 - `rpotato backend install-plan`
+- `rpotato backend install`
 - `rpotato backend verify-archive <path> --sha256 <hash>`
 - `rpotato backend health-check`
 - `rpotato cache status`
@@ -70,9 +71,9 @@
 
 세션 히스토리는 현재 project 기준으로 SQLite에 저장됩니다. `session list`/`session history`는 SQLite projection을 읽고, `session new`는 새 session identity를 만들며, `session resume <session-id>` 또는 `resume <session-id>`는 선택한 session을 current-state에 기록해 이후 명령이 그 session으로 이어지게 합니다. 전체 agent loop transcript replay는 아직 구현하지 않았습니다.
 
-모델 다운로드는 아직 활성화하지 않았습니다. Backend download/extraction도 아직 연결하지 않았지만, `backend install-plan`은 지원 OS/CPU 조합에 대해 source-backed `llama.cpp` release `b9878` CPU artifact manifest를 갖고 있습니다. 모델 manifest schema, 후보 상태, source-backed license/source claim, 공개 benchmark source ledger, local registry surface, 다운로드 전 표시 plan, 로컬 파일 SHA-256 검증, failed/partial artifact cleanup surface는 활성화되어 있습니다. 검증된 artifact URL, provider terms, checksum, file size, backend compatibility가 없으면 runtime core가 모델 다운로드를 차단하고 ledger event를 남깁니다.
+모델 다운로드는 아직 활성화하지 않았습니다. Backend install은 지원 OS/CPU 조합에 대해 source-backed `llama.cpp` release `b9878` CPU artifact manifest를 통해 활성화되어 있습니다. 모델 manifest schema, 후보 상태, source-backed license/source claim, 공개 benchmark source ledger, local registry surface, 다운로드 전 표시 plan, 로컬 파일 SHA-256 검증, failed/partial artifact cleanup surface는 활성화되어 있습니다. 검증된 artifact URL, provider terms, checksum, file size, backend compatibility가 없으면 runtime core가 모델 다운로드를 차단하고 ledger event를 남깁니다.
 
-`backend doctor`는 관리형 `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, install gate를 표시합니다. `backend install-plan`은 선택된 backend archive URL, SHA-256, size, source를 표시합니다. Unknown binary 실행은 아직 하지 않으므로 version detection은 `not-run`입니다.
+`backend doctor`는 관리형 `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, install gate를 표시합니다. `backend install-plan`은 선택된 backend archive URL, SHA-256, size, source를 표시합니다. `backend install`은 archive를 다운로드하거나 cache를 재사용하고, 검증 후 staging에서 압축을 풀어 관리형 `llama-server` binary를 배치하며 ledger event를 남깁니다. Unknown binary 실행은 아직 하지 않으므로 version detection은 `not-run`입니다.
 
 Plugin source snapshot, persistent registry, inspect, validate, enable/disable/remove는 활성화되어 있습니다. Import는 실행 권한을 부여하지 않고 permission report와 ledger event만 남깁니다.
 
@@ -117,6 +118,7 @@ CLI smoke test 예시:
 cargo run -- doctor
 cargo run -- backend doctor
 cargo run -- backend install-plan
+cargo run -- backend install
 cargo run -- backend verify-archive /path/to/llama.cpp.zip --sha256 <64-hex>
 cargo run -- backend health-check
 cargo run -- init

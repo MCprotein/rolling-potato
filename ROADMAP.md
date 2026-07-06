@@ -232,7 +232,7 @@ Goal: let the runtime core manage the `llama.cpp` sidecar and expose backend dia
 
 - [x] `llama.cpp` sidecar discovery
 - [x] Source-backed `llama.cpp` release artifact manifest
-- [ ] Managed backend binary download/install
+- [x] Managed backend binary download/install
 - [x] Backend archive checksum verification
 - [ ] Backend binary version detection
 - [x] Backend binary path config

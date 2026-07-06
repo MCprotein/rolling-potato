@@ -228,6 +228,7 @@ rpotato model list
 rpotato model install qwen3.5-4b
 rpotato backend doctor
 rpotato backend install-plan
+rpotato backend install
 rpotato backend verify-archive /path/to/llama.cpp.tar.gz --sha256 <64-hex>
 rpotato backend health-check
 rpotato cache status
@@ -303,7 +304,7 @@ Suggested next work:
 5. Do not add plugin marketplace integration; reject marketplace, registry, catalog, mirror, and remote URL plugin sources.
 6. Split the current scaffold toward explicit runtime core modules.
 7. Add runtime state, ledger, and observability boundaries before chat behavior.
-8. Implement managed `llama.cpp` backend download/install from the recorded release artifact, including download resume, SHA-256 verification, extraction, binary placement, executable bit, rollback, and ledger event.
+8. Add `llama.cpp` backend binary version detection without executing unknown user-owned binaries by default.
 9. Choose the exact trusted `Qwen3.5-4B` GGUF artifact and quantization level only with source-backed URL, checksum, provider terms, file size, and backend compatibility evidence.
 
 ## User Preference Notes

@@ -11,6 +11,7 @@ Implemented first boundaries:
 - `rpotato doctor`
 - `rpotato backend doctor`
 - `rpotato backend install-plan`
+- `rpotato backend install`
 - `rpotato backend verify-archive <path> --sha256 <hash>`
 - `rpotato backend health-check`
 - `rpotato cache status`
@@ -70,9 +71,9 @@ Implemented first boundaries:
 
 Session history is DB-backed for the current project. `session list`/`session history` read the SQLite projection, `session new` creates a fresh session identity, and `session resume <session-id>` or `resume <session-id>` writes the selected session to current state for subsequent commands. Full agent-loop transcript replay is not implemented yet.
 
-Model downloads are not enabled yet. Backend download/extraction is also not wired yet, but `backend install-plan` now has a source-backed `llama.cpp` release `b9878` CPU artifact manifest for supported OS/CPU pairs. The model manifest schema, candidate state, source-backed license/source claims, public benchmark source ledger, local registry surface, pre-download display plan, local file SHA-256 verification, and failed/partial artifact cleanup surface are enabled. Without verified artifact URL, provider terms, checksum, file size, and backend compatibility, runtime core blocks model downloads and records a ledger event.
+Model downloads are not enabled yet. Backend install is enabled for supported OS/CPU pairs through the source-backed `llama.cpp` release `b9878` CPU artifact manifest. The model manifest schema, candidate state, source-backed license/source claims, public benchmark source ledger, local registry surface, pre-download display plan, local file SHA-256 verification, and failed/partial artifact cleanup surface are enabled. Without verified artifact URL, provider terms, checksum, file size, and backend compatibility, runtime core blocks model downloads and records a ledger event.
 
-`backend doctor` displays managed `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, and install gate. `backend install-plan` displays the selected backend archive URL, SHA-256, size, and source. Version detection is `not-run` because unknown binaries are not executed yet.
+`backend doctor` displays managed `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, and install gate. `backend install-plan` displays the selected backend archive URL, SHA-256, size, and source. `backend install` downloads or reuses the cached archive, verifies it, extracts it in staging, places the managed `llama-server` binary, and records a ledger event. Version detection is `not-run` because unknown binaries are not executed yet.
 
 Plugin source snapshot, persistent registry, inspect, validate, enable/disable/remove are enabled. Import grants no execution authority; it records only permission reports and ledger events.
 
@@ -117,6 +118,7 @@ CLI smoke test examples:
 cargo run -- doctor
 cargo run -- backend doctor
 cargo run -- backend install-plan
+cargo run -- backend install
 cargo run -- backend verify-archive /path/to/llama.cpp.zip --sha256 <64-hex>
 cargo run -- backend health-check
 cargo run -- init

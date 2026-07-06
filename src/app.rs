@@ -153,6 +153,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", backend::install_plan_report());
             Ok(())
         }
+        Command::Backend(BackendCommand::Install) => {
+            println!("{}", backend::install_report()?);
+            Ok(())
+        }
         Command::Backend(BackendCommand::VerifyArchive { path, sha256 }) => {
             println!("{}", backend::verify_archive_report(&path, &sha256)?);
             Ok(())

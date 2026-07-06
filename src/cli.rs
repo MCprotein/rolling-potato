@@ -31,6 +31,7 @@ rpotato
   rpotato hooks validate-result <json>
   rpotato backend doctor
   rpotato backend install-plan
+  rpotato backend install
   rpotato backend verify-archive <path> --sha256 <hash>
   rpotato backend health-check
   rpotato cache status
@@ -61,7 +62,8 @@ rpotato
   rpotato uninstall --dry-run --purge-cache
 
 현재 상태:
-  모델과 backend 다운로드는 검증된 manifest가 준비될 때까지 차단됩니다.";
+  backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 binary만 배치합니다.
+  모델 다운로드는 검증된 manifest가 준비될 때까지 차단됩니다.";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
@@ -149,6 +151,7 @@ pub enum HooksCommand {
 pub enum BackendCommand {
     Doctor,
     InstallPlan,
+    Install,
     VerifyArchive { path: String, sha256: String },
     HealthCheck,
 }
@@ -352,6 +355,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "backend" && action == "install-plan" => {
             Ok(Command::Backend(BackendCommand::InstallPlan))
         }
+        [group, action] if group == "backend" && action == "install" => {
+            Ok(Command::Backend(BackendCommand::Install))
+        }
         [group, action, path, flag, sha256]
             if group == "backend" && action == "verify-archive" && flag == "--sha256" =>
         {
@@ -367,7 +373,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             Ok(Command::Backend(BackendCommand::HealthCheck))
         }
         [group, ..] if group == "backend" => Err(AppError::usage(
-            "backend 명령은 doctor, install-plan, verify-archive, health-check만 허용합니다.",
+            "backend 명령은 doctor, install-plan, install, verify-archive, health-check만 허용합니다.",
         )),
         [group, action] if group == "cache" && action == "status" => Ok(Command::CacheStatus),
         [group, action] if group == "monitor" && action == "status" => {
@@ -794,6 +800,12 @@ mod tests {
     fn parses_backend_install_plan() {
         let command = parse(["backend".to_string(), "install-plan".to_string()]).unwrap();
         assert_eq!(command, Command::Backend(BackendCommand::InstallPlan));
+    }
+
+    #[test]
+    fn parses_backend_install() {
+        let command = parse(["backend".to_string(), "install".to_string()]).unwrap();
+        assert_eq!(command, Command::Backend(BackendCommand::Install));
     }
 
     #[test]
