@@ -25,6 +25,7 @@ fi
 
 expected_tag="v$version"
 expected_branch="release/$expected_tag"
+remote_branch_ref="refs/remotes/origin/$expected_branch"
 
 branch="${RPOTATO_RELEASE_BRANCH:-${GITHUB_HEAD_REF:-}}"
 tag="${RPOTATO_RELEASE_TAG:-}"
@@ -42,10 +43,33 @@ if [ -n "$tag" ]; then
     fail "release tag must match Cargo.toml version: expected $expected_tag, got $tag"
   fi
 
-  if [ "${RPOTATO_REQUIRE_RELEASE_BRANCH_DELETED:-0}" = "1" ]; then
-    if git ls-remote --exit-code --heads origin "$expected_branch" >/dev/null 2>&1; then
-      fail "remote release branch still exists after tagging: $expected_branch"
+  tag_commit="$(
+    git rev-parse "$tag^{commit}" 2>/dev/null || git rev-parse HEAD
+  )"
+
+  if [ "${RPOTATO_REQUIRE_TAG_ON_MAIN:-0}" = "1" ]; then
+    git fetch --quiet origin main
+    if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
+      fail "release tag commit must be on origin/main: $tag"
     fi
+  fi
+
+  if git ls-remote --exit-code --heads origin "$expected_branch" >/dev/null 2>&1; then
+    git fetch --quiet origin "$expected_branch:$remote_branch_ref"
+    release_branch_commit="$(git rev-parse "$remote_branch_ref")"
+    if ! git merge-base --is-ancestor "$release_branch_commit" "$tag_commit"; then
+      fail "release branch must be merged before tagging: $expected_branch"
+    fi
+
+    if [ "${RPOTATO_DELETE_RELEASE_BRANCH:-0}" = "1" ]; then
+      if [ "${RPOTATO_DRY_RUN_DELETE:-0}" = "1" ]; then
+        printf 'release policy dry-run: would delete remote branch %s\n' "$expected_branch"
+      else
+        git push origin --delete "$expected_branch"
+      fi
+    fi
+  elif [ "${RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS:-0}" = "1" ]; then
+    fail "matching remote release branch was not found: $expected_branch"
   fi
 fi
 

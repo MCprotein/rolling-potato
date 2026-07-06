@@ -79,8 +79,11 @@ Rules:
 3. Finish release notes, docs, manifests, and release checks on that branch.
 4. Merge the release branch into `main` only after the release checklist passes.
 5. Tag the merge commit as `vX.Y.Z` or the matching prerelease tag.
-6. Create the GitHub Release from that tag.
-7. Delete the merged release branch locally and remotely.
+6. Push the tag. If the matching remote release branch still exists, the
+   `release-policy` workflow verifies that it was merged into `main`, then
+   deletes it.
+7. Create the GitHub Release from that tag.
+8. Delete the local release branch.
 
 `main` is the integration branch. Release branches are not long-running support
 branches and must not accumulate unrelated post-release work.
@@ -98,7 +101,11 @@ The check enforces:
 - release branch name matches `Cargo.toml` package version
 - release tag matches `Cargo.toml` package version
 - release PRs into `main` come from `release/v...` branches
-- release tags fail if the matching remote release branch still exists
+- release tags are on `origin/main`
+- release tags require the matching remote release branch to be merged when it
+  still exists
+- successful release tag checks delete the merged remote release branch when it
+  still exists
 
 Required GitHub repository settings:
 
@@ -106,8 +113,8 @@ Required GitHub repository settings:
 - require pull requests before merging to `main` for release work
 - require the `release-policy` status check before merging
 - disallow force pushes on `main`
-- enable automatic deletion of merged head branches, or delete
-  `release/v...` manually before pushing the release tag
+- allow GitHub Actions `contents: write` for this repository so the release
+  workflow can delete merged `release/v...` branches
 
 Repository settings are outside the source tree, so they must be configured in
 GitHub by a maintainer. The workflow and script provide the repo-local

@@ -65,8 +65,10 @@ Branch 이름:
 3. release note, docs, manifest, release check를 해당 branch에서 마무리한다.
 4. release checklist가 통과한 뒤에만 release branch를 `main`에 merge한다.
 5. merge commit에 `vX.Y.Z` 또는 대응되는 prerelease tag를 붙인다.
-6. 해당 tag로 GitHub Release를 만든다.
-7. merge된 release branch는 local과 remote에서 삭제한다.
+6. tag를 push한다. matching remote release branch가 아직 남아 있으면
+   `release-policy` workflow가 `main`에 merge됐는지 확인한 뒤 삭제한다.
+7. 해당 tag로 GitHub Release를 만든다.
+8. local release branch를 삭제한다.
 
 `main`은 integration branch입니다. Release branch는 장기 support branch가 아니며, release 이후의 unrelated work를 쌓으면 안 됩니다.
 
@@ -83,7 +85,9 @@ scripts/release/verify-release-policy.sh
 - release branch 이름이 `Cargo.toml` package version과 일치
 - release tag가 `Cargo.toml` package version과 일치
 - `main`으로 들어오는 release PR은 `release/v...` branch에서만 허용
-- 대응되는 remote release branch가 남아 있으면 release tag check 실패
+- release tag가 `origin/main` 위에 있음
+- 대응되는 remote release branch가 아직 남아 있으면 release tag 시 merge 상태여야 함
+- release tag check가 성공하면 아직 남아 있는 merged remote release branch를 삭제
 
 필수 GitHub repository setting:
 
@@ -91,7 +95,7 @@ scripts/release/verify-release-policy.sh
 - release work는 `main` merge 전에 pull request 요구
 - merge 전 `release-policy` status check 필수
 - `main` force push 금지
-- merged head branch 자동 삭제를 켜거나, release tag push 전에 `release/v...`를 수동 삭제
+- release workflow가 merged `release/v...` branch를 삭제할 수 있도록 GitHub Actions `contents: write` 허용
 
 GitHub repository setting은 source tree 밖에 있으므로 maintainer가 GitHub에서 설정해야 합니다. Workflow와 script는 repo-local enforcement surface입니다.
 
