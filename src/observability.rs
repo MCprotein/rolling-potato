@@ -52,6 +52,34 @@ pub struct SessionHistoryEntry {
     pub last_summary: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelRunMetric {
+    pub model_run_id: String,
+    pub session_id: String,
+    pub workflow_id: Option<String>,
+    pub model_id: String,
+    pub model_artifact_hash: Option<String>,
+    pub backend_id: Option<String>,
+    pub backend_version: Option<String>,
+    pub quantization: Option<String>,
+    pub context_limit_tokens: Option<u32>,
+    pub started_at_ms: u128,
+    pub first_token_latency_ms: Option<f64>,
+    pub total_latency_ms: Option<f64>,
+    pub prompt_eval_ms: Option<f64>,
+    pub generation_eval_ms: Option<f64>,
+    pub tokens_per_second: Option<f64>,
+    pub cancelled: bool,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+    pub total_tokens: u32,
+    pub context_tokens_used: u32,
+    pub context_tokens_dropped: u32,
+    pub ontology_tokens: u32,
+    pub tool_summary_tokens: u32,
+    pub max_output_tokens: Option<u32>,
+}
+
 pub fn initialize(identity: &RuntimeIdentity) -> Result<StoreStatus, AppError> {
     let (connection, recovered_from) = open_or_recover()?;
     record_session(&connection, identity)?;
@@ -190,6 +218,86 @@ pub fn session_entry(session_id: &str) -> Result<Option<SessionHistoryEntry>, Ap
     Ok(entries
         .into_iter()
         .find(|entry| entry.session_id == session_id))
+}
+
+pub fn record_model_run(metric: &ModelRunMetric) -> Result<(), AppError> {
+    let identity = ledger::current_identity();
+    let (connection, _) = open_or_recover()?;
+    record_session(&connection, &identity)?;
+    replay_ledger(&connection)?;
+    connection
+        .execute(
+            "INSERT OR IGNORE INTO model_runs (
+                model_run_id,
+                session_id,
+                workflow_id,
+                model_id,
+                model_artifact_hash,
+                backend_id,
+                backend_version,
+                quantization,
+                context_limit_tokens,
+                started_at_ms,
+                first_token_latency_ms,
+                total_latency_ms,
+                prompt_eval_ms,
+                generation_eval_ms,
+                tokens_per_second,
+                cancelled
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+            params![
+                metric.model_run_id,
+                metric.session_id,
+                metric.workflow_id,
+                metric.model_id,
+                metric.model_artifact_hash,
+                metric.backend_id,
+                metric.backend_version,
+                metric.quantization,
+                metric.context_limit_tokens.map(i64::from),
+                to_i64(metric.started_at_ms),
+                metric.first_token_latency_ms,
+                metric.total_latency_ms,
+                metric.prompt_eval_ms,
+                metric.generation_eval_ms,
+                metric.tokens_per_second,
+                if metric.cancelled { 1 } else { 0 },
+            ],
+        )
+        .map_err(sql_error("model run metric을 저장하지 못했습니다"))?;
+
+    connection
+        .execute(
+            "INSERT OR IGNORE INTO token_usage (
+                token_usage_id,
+                model_run_id,
+                model_id,
+                prompt_tokens,
+                completion_tokens,
+                total_tokens,
+                context_tokens_used,
+                context_tokens_dropped,
+                ontology_tokens,
+                tool_summary_tokens,
+                max_output_tokens
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![
+                format!("token-{}", metric.model_run_id),
+                metric.model_run_id,
+                metric.model_id,
+                i64::from(metric.prompt_tokens),
+                i64::from(metric.completion_tokens),
+                i64::from(metric.total_tokens),
+                i64::from(metric.context_tokens_used),
+                i64::from(metric.context_tokens_dropped),
+                i64::from(metric.ontology_tokens),
+                i64::from(metric.tool_summary_tokens),
+                metric.max_output_tokens.map(i64::from),
+            ],
+        )
+        .map_err(sql_error("token usage metric을 저장하지 못했습니다"))?;
+
+    Ok(())
 }
 
 fn open_or_recover() -> Result<(Connection, Option<PathBuf>), AppError> {
@@ -670,5 +778,56 @@ mod tests {
         assert_eq!(csv_cell("plain"), "plain");
         assert_eq!(csv_cell("a,b"), "\"a,b\"");
         assert_eq!(csv_cell("a\"b"), "\"a\"\"b\"");
+    }
+
+    #[test]
+    fn record_model_run_updates_model_summary() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root =
+            std::env::temp_dir().join(format!("rpotato-model-metric-test-{}", std::process::id()));
+        let project_root = root.join("project");
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+
+        record_model_run(&ModelRunMetric {
+            model_run_id: "model-run-test".to_string(),
+            session_id: "session-test".to_string(),
+            workflow_id: None,
+            model_id: "qwen-test".to_string(),
+            model_artifact_hash: None,
+            backend_id: Some("llama.cpp".to_string()),
+            backend_version: None,
+            quantization: None,
+            context_limit_tokens: Some(4096),
+            started_at_ms: 1,
+            first_token_latency_ms: None,
+            total_latency_ms: Some(100.0),
+            prompt_eval_ms: None,
+            generation_eval_ms: None,
+            tokens_per_second: Some(120.0),
+            cancelled: false,
+            prompt_tokens: 10,
+            completion_tokens: 12,
+            total_tokens: 22,
+            context_tokens_used: 10,
+            context_tokens_dropped: 0,
+            ontology_tokens: 0,
+            tool_summary_tokens: 0,
+            max_output_tokens: Some(64),
+        })
+        .unwrap();
+
+        let summaries = model_summaries().unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].model_id, "qwen-test");
+        assert_eq!(summaries[0].runs, 1);
+        assert_eq!(summaries[0].prompt_tokens, 10);
+        assert_eq!(summaries[0].completion_tokens, 12);
+        assert_eq!(summaries[0].total_tokens, 22);
+        assert_eq!(summaries[0].avg_latency_ms, Some(100.0));
     }
 }

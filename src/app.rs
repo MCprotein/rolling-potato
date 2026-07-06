@@ -355,4 +355,28 @@ mod tests {
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
         assert_eq!(result, Ok(()));
     }
+
+    #[test]
+    fn run_requires_active_backend_sidecar() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root =
+            std::env::temp_dir().join(format!("rpotato-run-blocked-test-{}", std::process::id()));
+        let project_root = root.join("project");
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+
+        let err = run([
+            "run".to_string(),
+            "테스트".to_string(),
+            "고쳐줘".to_string(),
+        ])
+        .unwrap_err();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+
+        assert_eq!(err.code, 3);
+        assert!(err.message.contains("backend chat 차단"));
+        assert!(err.message.contains("sidecar record"));
+    }
 }

@@ -239,7 +239,9 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `evidence validate`는 artifact pointer가 local project-relative path이고 project boundary를 벗어나지 않는지 확인합니다.
 
-`run`, `intent classify`, `intent routes`, `skill run`은 현재 user request를 skill/mode/context/evidence 요구사항으로 정규화하고 ledger event를 남깁니다. 실제 model/backend agent loop 실행은 아직 수행하지 않습니다.
+`run`은 user request를 skill/mode/context/evidence 요구사항으로 정규화한 뒤 실행 중인 backend sidecar를 호출하는 model-response-only agent-loop 골격까지 수행합니다. Intent와 backend chat ledger event, token/latency metric을 local SQLite observability projection에 기록합니다. 아직 repository file read, patch 적용, command 실행, model output의 승인된 action 처리까지는 수행하지 않습니다.
+
+`intent classify`, `intent routes`, `skill run`은 model을 호출하지 않는 pre-execution surface입니다. Routing state를 정규화하고 ledger event만 남깁니다.
 
 `policy`와 `hooks` 명령은 command/path 권한 결정, credential redaction, lifecycle hook registry, fail-closed hook result 검사를 제공합니다. 실제 tool execution은 아직 이 policy surface 뒤에 연결되지 않았습니다.
 
