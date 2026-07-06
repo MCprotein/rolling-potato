@@ -29,6 +29,8 @@ rpotato
   rpotato policy redact <text>
   rpotato hooks list
   rpotato hooks validate-result <json>
+  rpotato patch preview --path <path> --find <text> --replace <text>
+  rpotato patch approve <proposal-id> --token <token> --dry-run
   rpotato backend doctor
   rpotato backend install-plan
   rpotato backend install
@@ -88,6 +90,7 @@ pub enum Command {
     Skill(SkillCommand),
     Policy(PolicyCommand),
     Hooks(HooksCommand),
+    Patch(PatchCommand),
     Backend(BackendCommand),
     CacheStatus,
     Monitor(MonitorCommand),
@@ -153,6 +156,20 @@ pub enum PolicyPathMode {
 pub enum HooksCommand {
     List,
     ValidateResult { json: String },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum PatchCommand {
+    Preview {
+        path: String,
+        find: String,
+        replace: String,
+    },
+    Approve {
+        proposal_id: String,
+        token: String,
+        dry_run: bool,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -372,6 +389,15 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         }
         [group, ..] if group == "hooks" => Err(AppError::usage(
             "hooks 명령은 list 또는 validate-result만 허용합니다.",
+        )),
+        [group, action, rest @ ..] if group == "patch" && action == "preview" => {
+            parse_patch_preview(rest).map(Command::Patch)
+        }
+        [group, action, rest @ ..] if group == "patch" && action == "approve" => {
+            parse_patch_approve(rest).map(Command::Patch)
+        }
+        [group, ..] if group == "patch" => Err(AppError::usage(
+            "patch 명령은 preview 또는 approve만 허용합니다.",
         )),
         [group, action] if group == "backend" && action == "doctor" => {
             Ok(Command::Backend(BackendCommand::Doctor))
@@ -666,6 +692,118 @@ fn parse_backend_start(args: &[String]) -> Result<BackendCommand, AppError> {
     Ok(BackendCommand::Start {
         model_path,
         ctx_size,
+    })
+}
+
+fn parse_patch_preview(args: &[String]) -> Result<PatchCommand, AppError> {
+    let mut path = None;
+    let mut find = None;
+    let mut replace = None;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--path" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "patch preview는 --path <path> 값이 필요합니다.",
+                    ));
+                };
+                path = Some(value.clone());
+                index += 2;
+            }
+            "--find" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "patch preview는 --find <text> 값이 필요합니다.",
+                    ));
+                };
+                find = Some(value.clone());
+                index += 2;
+            }
+            "--replace" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "patch preview는 --replace <text> 값이 필요합니다.",
+                    ));
+                };
+                replace = Some(value.clone());
+                index += 2;
+            }
+            unknown => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 patch preview 옵션입니다: {unknown}"
+                )));
+            }
+        }
+    }
+
+    Ok(PatchCommand::Preview {
+        path: path.ok_or_else(|| AppError::usage("patch preview는 --path가 필요합니다."))?,
+        find: find.ok_or_else(|| AppError::usage("patch preview는 --find가 필요합니다."))?,
+        replace: replace
+            .ok_or_else(|| AppError::usage("patch preview는 --replace가 필요합니다."))?,
+    })
+}
+
+fn parse_patch_approve(args: &[String]) -> Result<PatchCommand, AppError> {
+    let mut proposal_id = None;
+    let mut token = None;
+    let mut dry_run = false;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--token" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "patch approve는 --token <token> 값이 필요합니다.",
+                    ));
+                };
+                token = Some(value.clone());
+                index += 2;
+            }
+            "--dry-run" => {
+                dry_run = true;
+                index += 1;
+            }
+            value if value.starts_with('-') => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 patch approve 옵션입니다: {value}"
+                )));
+            }
+            value => {
+                if proposal_id.is_some() {
+                    return Err(AppError::usage(
+                        "patch approve proposal id는 하나만 지정할 수 있습니다.",
+                    ));
+                }
+                proposal_id = Some(value.to_string());
+                index += 1;
+            }
+        }
+    }
+
+    let Some(proposal_id) = proposal_id else {
+        return Err(AppError::usage(
+            "patch approve에는 proposal id가 필요합니다.",
+        ));
+    };
+    let Some(token) = token else {
+        return Err(AppError::usage(
+            "patch approve는 --token <token> 값이 필요합니다.",
+        ));
+    };
+    if !dry_run {
+        return Err(AppError::usage(
+            "v0.3.0 patch approve는 --dry-run gate 확인만 허용합니다.",
+        ));
+    }
+
+    Ok(PatchCommand::Approve {
+        proposal_id,
+        token,
+        dry_run,
     })
 }
 
@@ -1163,6 +1301,67 @@ mod tests {
 
         assert_eq!(err.code, 2);
         assert!(err.message.contains("--prompt"));
+    }
+
+    #[test]
+    fn parses_patch_preview() {
+        let command = parse([
+            "patch".to_string(),
+            "preview".to_string(),
+            "--path".to_string(),
+            "src/lib.rs".to_string(),
+            "--find".to_string(),
+            "old".to_string(),
+            "--replace".to_string(),
+            "new".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Patch(PatchCommand::Preview {
+                path: "src/lib.rs".to_string(),
+                find: "old".to_string(),
+                replace: "new".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_patch_approve_dry_run() {
+        let command = parse([
+            "patch".to_string(),
+            "approve".to_string(),
+            "patch-proposal-abc123".to_string(),
+            "--token".to_string(),
+            "token123".to_string(),
+            "--dry-run".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Patch(PatchCommand::Approve {
+                proposal_id: "patch-proposal-abc123".to_string(),
+                token: "token123".to_string(),
+                dry_run: true
+            })
+        );
+    }
+
+    #[test]
+    fn patch_approve_requires_dry_run() {
+        let err = parse([
+            "patch".to_string(),
+            "approve".to_string(),
+            "patch-proposal-abc123".to_string(),
+            "--token".to_string(),
+            "token123".to_string(),
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.code, 2);
+        assert!(err.message.contains("--dry-run"));
     }
 
     #[test]
