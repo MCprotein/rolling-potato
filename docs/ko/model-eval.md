@@ -42,6 +42,8 @@ MVP 모델 선택을 감으로 정하지 않습니다. 한국어, 코드 수정,
 
 local smoke 또는 benchmark 실행 전 `rpotato model eval-plan <id>`를 실행합니다. 이 명령은 read-only이며, source-backed artifact field가 있는지, local app-data artifact가 missing인지 size/SHA-256 검증 상태인지, 다음 단계가 평가용 fetch인지 backend smoke인지 보고합니다.
 
+점수를 부여하거나 비교하기 전 `rpotato model benchmark-plan <id>`를 실행합니다. 이 명령은 read-only이며, 공개 benchmark parity 조건과 로컬 제품 benchmark fixture gate를 분리해서 유지합니다.
+
 금지:
 
 - benchmark 이름만 보고 점수를 베껴 쓰지 않는다.

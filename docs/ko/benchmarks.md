@@ -18,6 +18,8 @@
 
 benchmark harness는 특권 shortcut이 아니라 하나의 surface입니다. 일반 `rpotato` 실행과 같은 runtime policy, tool permission gate, context rule, ontology store, stop gate를 사용해야 합니다.
 
+점수를 부여하기 전에 `rpotato model benchmark-plan <id>`를 실행합니다. 이 명령은 benchmark를 실행하지 않습니다. 기록된 공개 benchmark source, 아직 고정되지 않은 parity 조건, 로컬 제품 benchmark 차원, runtime metric, published-vs-local 비교 전에 만족해야 할 score gate를 보고합니다.
+
 ## 소형 모델 온톨로지 표현 Benchmark
 
 온톨로지 표현 방식은 목표 모델군인 2B-4B에서 직접 검증해야 합니다. 이 benchmark는 같은 canonical runtime store에서 만들어낸 prompt-facing ontology view를 비교합니다. 서로 다른 source fact를 비교하는 것이 아닙니다.

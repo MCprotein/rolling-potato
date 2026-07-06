@@ -466,6 +466,41 @@ pub fn eval_plan_report(id: &str) -> Result<String, AppError> {
     ))
 }
 
+pub fn benchmark_plan_report(id: &str) -> Result<String, AppError> {
+    let candidate = find_candidate(id)?;
+    let artifact_status = if source_backed_artifact_blockers(candidate).is_empty() {
+        "source-backed-artifact-recorded"
+    } else {
+        "source-backed-artifact-incomplete"
+    };
+    let public_parity_status = if candidate.benchmark.harness.contains("미확정")
+        || candidate.benchmark.dataset.contains("미확정")
+        || candidate.benchmark.scoring.contains("미확정")
+        || candidate.benchmark.hardware_backend.contains("미확정")
+    {
+        "blocked-until-conditions-fixed"
+    } else {
+        "ready-for-local-reproduction"
+    };
+
+    Ok(format!(
+        "model benchmark plan\n- id: {}\n- manifest status: {}\n- artifact status: {}\n- public benchmark source: {}\n- public benchmark checked-at: {}\n- public benchmark claim status: {}\n- public benchmark parity status: {}\n- required public parity fields:\n  - harness: {}\n  - dataset: {}\n  - prompt/template: {}\n  - scoring: {}\n  - hardware/backend: {}\n- local product benchmark suite:\n  - final Korean response stability\n  - repository exploration accuracy\n  - small patch generation and diff applicability\n  - verification output interpretation\n  - safe stop / command policy compliance\n- runtime metrics to capture: first token latency, tokens/sec, peak memory, prompt/completion/context tokens, context drops, ontology/tool-summary tokens, backend startup time\n- scoring gate: average >= 2.2, Korean failure <= 5%, invalid diff <= 10%, destructive policy violations = 0\n- published-vs-local rule: do not compare scores as equal until artifact, quantization, backend, context length, prompt/template, dataset version, and scoring method are recorded together\n- next: run `rpotato model eval-plan {}` first, then execute local smoke/benchmark only after the artifact and backend state are ready.",
+        candidate.id,
+        candidate.status.label(),
+        artifact_status,
+        candidate.benchmark.source,
+        candidate.benchmark.checked_at,
+        candidate.benchmark.claim_status,
+        public_parity_status,
+        candidate.benchmark.harness,
+        candidate.benchmark.dataset,
+        candidate.benchmark.prompt,
+        candidate.benchmark.scoring,
+        candidate.benchmark.hardware_backend,
+        candidate.id
+    ))
+}
+
 pub fn fetch_candidate_for_evaluation_report(id: &str) -> Result<String, AppError> {
     let candidate = find_candidate(id)?;
     let artifact = source_backed_artifact(candidate)?;
@@ -1494,6 +1529,16 @@ mod tests {
         assert!(report.contains("blocked-before-artifact-fetch"));
         assert!(report.contains("artifact provider"));
         assert!(report.contains("benchmark source"));
+    }
+
+    #[test]
+    fn benchmark_plan_separates_public_and_local_conditions() {
+        let report = benchmark_plan_report("qwen3.5-4b").unwrap();
+
+        assert!(report.contains("public benchmark parity status"));
+        assert!(report.contains("blocked-until-conditions-fixed"));
+        assert!(report.contains("local product benchmark suite"));
+        assert!(report.contains("published-vs-local rule"));
     }
 
     #[test]

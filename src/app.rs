@@ -224,6 +224,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", model::eval_plan_report(&id)?);
             Ok(())
         }
+        Command::Model(ModelCommand::BenchmarkPlan { id }) => {
+            println!("{}", model::benchmark_plan_report(&id)?);
+            Ok(())
+        }
         Command::Model(ModelCommand::FetchCandidate { id }) => {
             println!("{}", model::fetch_candidate_for_evaluation_report(&id)?);
             Ok(())

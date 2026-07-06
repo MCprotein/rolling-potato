@@ -20,6 +20,11 @@ The benchmark harness is a surface, not a privileged shortcut. It must use the
 same runtime policy, tool permission gates, context rules, ontology store, and
 stop gate as normal `rpotato` runs.
 
+Run `rpotato model benchmark-plan <id>` before assigning any score. The command
+does not execute a benchmark; it reports the recorded public benchmark source,
+unfixed parity conditions, local product benchmark dimensions, runtime metrics,
+and score gates that must be satisfied before published-vs-local comparison.
+
 ## Small-Model Ontology Representation Benchmark
 
 The ontology format decision must be tested against the target 2B-4B model class.

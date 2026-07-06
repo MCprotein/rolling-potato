@@ -220,6 +220,7 @@ Goal: install and register only source- and checksum-verified model candidates.
 - [ ] `rpotato model knowledge prune --before <duration> --dry-run`
 - [ ] `rpotato model install <id>`
 - [x] `rpotato model eval-plan <id>`
+- [x] `rpotato model benchmark-plan <id>`
 - [x] `rpotato model fetch-candidate <id> --for-evaluation`
 - [x] Block unverified artifact install
 - [ ] Local `llama.cpp b9878` smoke for selected Qwen/Gemma artifact candidates

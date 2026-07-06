@@ -54,6 +54,7 @@ Implemented first boundaries:
 - `rpotato model registry`
 - `rpotato model download-plan <id>`
 - `rpotato model eval-plan <id>`
+- `rpotato model benchmark-plan <id>`
 - `rpotato model fetch-candidate <id> --for-evaluation`
 - `rpotato model verify-file <path> --sha256 <hash>`
 - `rpotato model cleanup-failed <id> --dry-run`
@@ -76,7 +77,7 @@ Implemented first boundaries:
 
 Session history is DB-backed for the current project. `session list`/`session history` read the SQLite projection, `session new` creates a fresh session identity, and `session resume <session-id>` or `resume <session-id>` writes the selected session to current state for subsequent commands. Full agent-loop transcript replay is not implemented yet.
 
-Model install is still blocked for unverified candidates, but read-only evaluation preflight and evaluation artifact fetch are enabled through `rpotato model eval-plan <id>` and `rpotato model fetch-candidate <id> --for-evaluation`. Backend install is enabled for supported OS/CPU pairs through the source-backed `llama.cpp` release `b9878` CPU artifact manifest. The model manifest schema, candidate state, source-backed license/source claims, unverified Qwen/Gemma GGUF artifact candidates, public benchmark source ledger, local registry surface, pre-download display plan, explicit evaluation fetch, local file SHA-256 verification, and failed/partial artifact cleanup surface are enabled. The Qwen/Gemma artifact candidates include pinned revision URLs, LFS SHA-256, and file size, but remain blocked from registry installation until local `llama.cpp b9878` smoke, RAM fit, mmproj need, and benchmark evidence are completed.
+Model install is still blocked for unverified candidates, but read-only evaluation preflight, benchmark planning, and evaluation artifact fetch are enabled through `rpotato model eval-plan <id>`, `rpotato model benchmark-plan <id>`, and `rpotato model fetch-candidate <id> --for-evaluation`. Backend install is enabled for supported OS/CPU pairs through the source-backed `llama.cpp` release `b9878` CPU artifact manifest. The model manifest schema, candidate state, source-backed license/source claims, unverified Qwen/Gemma GGUF artifact candidates, public benchmark source ledger, local registry surface, pre-download display plan, explicit evaluation fetch, local file SHA-256 verification, and failed/partial artifact cleanup surface are enabled. The Qwen/Gemma artifact candidates include pinned revision URLs, LFS SHA-256, and file size, but remain blocked from registry installation until local `llama.cpp b9878` smoke, RAM fit, mmproj need, and benchmark evidence are completed.
 
 `backend doctor` displays managed `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, install gate, and version detection for recorded managed binaries. `backend install-plan` displays the selected backend archive URL, SHA-256, size, and source. `backend install` downloads or reuses the cached archive, verifies it, extracts it in staging, places the release payload, writes an install record, and records a ledger event. `backend start --model <path>` starts the selected sidecar with an explicit local model file, captures stdout/stderr logs, writes a pid record, waits for `/health`, and kills the child on startup timeout. `backend status` reads the pid record and health state. `backend stop` removes stale records or terminates the recorded sidecar. Env override binaries are not executed by `doctor`; they are executed only by explicit lifecycle commands.
 
@@ -163,6 +164,7 @@ cargo run -- model inspect qwen3.5-4b
 cargo run -- model registry
 cargo run -- model download-plan qwen3.5-4b
 cargo run -- model eval-plan qwen3.5-4b
+cargo run -- model benchmark-plan qwen3.5-4b
 # Intentional multi-GB evaluation download only; skip during routine smoke.
 cargo run -- model fetch-candidate qwen3.5-4b --for-evaluation
 cargo run -- model verify-file /path/to/model.gguf --sha256 <64-hex>

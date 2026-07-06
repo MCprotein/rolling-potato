@@ -42,6 +42,8 @@ Process:
 
 Before local smoke or benchmark execution, run `rpotato model eval-plan <id>`. The command is read-only and reports whether the source-backed artifact fields exist, whether the local app-data artifact is missing or size/SHA-256 verified, and whether the next step is evaluation fetch or backend smoke.
 
+Before assigning or comparing scores, run `rpotato model benchmark-plan <id>`. The command is read-only and keeps public benchmark parity conditions separate from local product benchmark fixture gates.
+
 Forbidden:
 
 - copying scores based only on benchmark names

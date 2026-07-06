@@ -49,6 +49,7 @@ rpotato
   rpotato model registry
   rpotato model download-plan <id>
   rpotato model eval-plan <id>
+  rpotato model benchmark-plan <id>
   rpotato model fetch-candidate <id> --for-evaluation
   rpotato model verify-file <path> --sha256 <hash>
   rpotato model cleanup-failed <id> --dry-run
@@ -179,6 +180,7 @@ pub enum ModelCommand {
     Registry,
     DownloadPlan { id: String },
     EvalPlan { id: String },
+    BenchmarkPlan { id: String },
     FetchCandidate { id: String },
     VerifyFile { path: String, sha256: String },
     CleanupFailed { id: String, dry_run: bool },
@@ -436,6 +438,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, id] if group == "model" && action == "eval-plan" => {
             Ok(Command::Model(ModelCommand::EvalPlan { id: id.clone() }))
         }
+        [group, action, id] if group == "model" && action == "benchmark-plan" => {
+            Ok(Command::Model(ModelCommand::BenchmarkPlan { id: id.clone() }))
+        }
         [group, action, id, flag]
             if group == "model" && action == "fetch-candidate" && flag == "--for-evaluation" =>
         {
@@ -486,7 +491,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             "모델 id가 필요합니다. 예: rpotato model install qwen3.5-4b",
         )),
         [group, ..] if group == "model" => Err(AppError::usage(
-            "model 명령은 list, manifest, inspect, registry, download-plan, eval-plan, fetch-candidate, verify-file, cleanup-failed, install만 허용합니다.",
+            "model 명령은 list, manifest, inspect, registry, download-plan, eval-plan, benchmark-plan, fetch-candidate, verify-file, cleanup-failed, install만 허용합니다.",
         )),
         [group, action, rest @ ..] if group == "plugin" && action == "import" => {
             parse_plugin_import(rest).map(Command::Plugin)
@@ -805,6 +810,22 @@ mod tests {
         assert_eq!(
             command,
             Command::Model(ModelCommand::EvalPlan {
+                id: "qwen3.5-4b".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_model_benchmark_plan() {
+        let command = parse([
+            "model".to_string(),
+            "benchmark-plan".to_string(),
+            "qwen3.5-4b".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Model(ModelCommand::BenchmarkPlan {
                 id: "qwen3.5-4b".to_string()
             })
         );
