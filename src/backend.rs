@@ -50,11 +50,39 @@ struct BackendReleaseManifest {
     license: &'static str,
     license_source: &'static str,
     license_checked_at: &'static str,
-    release_url: Option<&'static str>,
-    archive_name: Option<&'static str>,
-    archive_sha256: Option<&'static str>,
-    archive_size_bytes: Option<u64>,
+    release_tag: &'static str,
+    release_url: &'static str,
+    release_api_source: &'static str,
+    release_checked_at: &'static str,
+    artifacts: &'static [BackendReleaseArtifact],
     install_blockers: &'static [&'static str],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct BackendReleaseArtifact {
+    os: &'static str,
+    arch: &'static str,
+    archive_name: &'static str,
+    archive_url: &'static str,
+    archive_sha256: &'static str,
+    archive_size_bytes: u64,
+    archive_kind: BackendArchiveKind,
+    binary_relative_path: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BackendArchiveKind {
+    TarGz,
+    Zip,
+}
+
+impl BackendArchiveKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            BackendArchiveKind::TarGz => "tar.gz",
+            BackendArchiveKind::Zip => "zip",
+        }
+    }
 }
 
 const LLAMA_CPP_RELEASE: BackendReleaseManifest = BackendReleaseManifest {
@@ -63,12 +91,76 @@ const LLAMA_CPP_RELEASE: BackendReleaseManifest = BackendReleaseManifest {
     license: "MIT",
     license_source: "https://github.com/ggml-org/llama.cpp/blob/master/LICENSE",
     license_checked_at: "2026-06-29",
-    release_url: None,
-    archive_name: None,
-    archive_sha256: None,
-    archive_size_bytes: None,
-    install_blockers: &["검증된 llama.cpp release manifest 미확정"],
+    release_tag: "b9878",
+    release_url: "https://github.com/ggml-org/llama.cpp/releases/tag/b9878",
+    release_api_source: "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest",
+    release_checked_at: "2026-07-06",
+    artifacts: &LLAMA_CPP_RELEASE_ARTIFACTS,
+    install_blockers: &[],
 };
+
+const LLAMA_CPP_RELEASE_ARTIFACTS: [BackendReleaseArtifact; 6] = [
+    BackendReleaseArtifact {
+        os: "macos",
+        arch: "aarch64",
+        archive_name: "llama-b9878-bin-macos-arm64.tar.gz",
+        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9878/llama-b9878-bin-macos-arm64.tar.gz",
+        archive_sha256: "3c18b48c3d4e4fb6e66c8188c6ac06849d9da6919511c061e310e18682432b57",
+        archive_size_bytes: 11_136_305,
+        archive_kind: BackendArchiveKind::TarGz,
+        binary_relative_path: "llama-server",
+    },
+    BackendReleaseArtifact {
+        os: "macos",
+        arch: "x86_64",
+        archive_name: "llama-b9878-bin-macos-x64.tar.gz",
+        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9878/llama-b9878-bin-macos-x64.tar.gz",
+        archive_sha256: "4b62fc570e58984517bb91f12143b348ffdca6810b1fbbce781a50ec53cae081",
+        archive_size_bytes: 11_451_412,
+        archive_kind: BackendArchiveKind::TarGz,
+        binary_relative_path: "llama-server",
+    },
+    BackendReleaseArtifact {
+        os: "linux",
+        arch: "aarch64",
+        archive_name: "llama-b9878-bin-ubuntu-arm64.tar.gz",
+        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9878/llama-b9878-bin-ubuntu-arm64.tar.gz",
+        archive_sha256: "f45b9dc866e939e975ac49345e0ddd302450de637b49648bfaf7ac2c2d20b1d5",
+        archive_size_bytes: 12_865_159,
+        archive_kind: BackendArchiveKind::TarGz,
+        binary_relative_path: "llama-server",
+    },
+    BackendReleaseArtifact {
+        os: "linux",
+        arch: "x86_64",
+        archive_name: "llama-b9878-bin-ubuntu-x64.tar.gz",
+        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9878/llama-b9878-bin-ubuntu-x64.tar.gz",
+        archive_sha256: "fa52c1bdc6a17f28bfeaad28ca6783ff94cf85f36dca4a4bb2d9c7e8687c007b",
+        archive_size_bytes: 15_866_030,
+        archive_kind: BackendArchiveKind::TarGz,
+        binary_relative_path: "llama-server",
+    },
+    BackendReleaseArtifact {
+        os: "windows",
+        arch: "aarch64",
+        archive_name: "llama-b9878-bin-win-cpu-arm64.zip",
+        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9878/llama-b9878-bin-win-cpu-arm64.zip",
+        archive_sha256: "a7f3307a62b2fdf367d62302217fdcd0a2f2723ed0fd55052f8a880b33e14fe5",
+        archive_size_bytes: 11_380_283,
+        archive_kind: BackendArchiveKind::Zip,
+        binary_relative_path: "llama-server.exe",
+    },
+    BackendReleaseArtifact {
+        os: "windows",
+        arch: "x86_64",
+        archive_name: "llama-b9878-bin-win-cpu-x64.zip",
+        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9878/llama-b9878-bin-win-cpu-x64.zip",
+        archive_sha256: "66e0e038c73aedefeed54c92ebfc3e7b8531fbf0b49ad6c21e50d93afd7e224e",
+        archive_size_bytes: 17_482_794,
+        archive_kind: BackendArchiveKind::Zip,
+        binary_relative_path: "llama-server.exe",
+    },
+];
 
 impl BackendAdapter for LlamaCppAdapter {
     fn id(&self) -> &'static str {
@@ -132,7 +224,7 @@ pub fn doctor_report() -> String {
     };
 
     format!(
-        "backend 진단\n- adapter: {}\n- binary name: {}\n- managed binary: {}\n- selected binary: {}\n- selected source: {}\n- override env {}: {}\n- binary exists: {}\n- binary is file: {}\n- executable bit: {}\n- host: {}\n- port: {} ({})\n- health URL: {}\n- install status: {}\n- version detection: not-run, unknown binary execution은 아직 doctor에서 수행하지 않습니다.\n- install gate: 검증된 llama.cpp release URL과 checksum manifest가 들어오기 전까지 다운로드/설치는 차단합니다.",
+        "backend 진단\n- adapter: {}\n- binary name: {}\n- managed binary: {}\n- selected binary: {}\n- selected source: {}\n- override env {}: {}\n- binary exists: {}\n- binary is file: {}\n- executable bit: {}\n- host: {}\n- port: {} ({})\n- health URL: {}\n- install status: {}\n- version detection: not-run, unknown binary execution은 아직 doctor에서 수행하지 않습니다.\n- install gate: backend install-plan에서 현재 platform artifact, release URL, checksum, size를 확인합니다.",
         discovery.adapter_id,
         discovery.binary_name,
         discovery.managed_path.display(),
@@ -153,34 +245,57 @@ pub fn doctor_report() -> String {
 
 pub fn install_plan_report() -> String {
     let discovery = discover_llama_cpp();
-    let blockers = backend_install_blockers(&LLAMA_CPP_RELEASE);
+    let artifact = selected_backend_release_artifact(&LLAMA_CPP_RELEASE);
+    let blockers = backend_install_blockers(&LLAMA_CPP_RELEASE, artifact);
     let install_status = if blockers.is_empty() {
         "ready"
     } else {
         "blocked"
     };
+    let archive_name = artifact
+        .map(|artifact| artifact.archive_name)
+        .unwrap_or("미확정");
+    let download_path = paths::downloads_dir().join(if archive_name == "미확정" {
+        "llama.cpp.archive.part"
+    } else {
+        archive_name
+    });
 
     format!(
-        "backend install plan\n- id: {}\n- status: {}\n- upstream source: {}\n- license: {}\n- license source: {}\n- license checked-at: {}\n- release URL: {}\n- archive name: {}\n- archive size bytes: {}\n- archive sha256: {}\n- managed binary: {}\n- selected binary: {}\n- selected source: {}\n- download path: {}\n- blockers: {}\n- 동작: 실제 backend 다운로드 전 release URL, checksum, size, license를 사용자에게 표시해야 합니다.",
+        "backend install plan\n- id: {}\n- status: {}\n- upstream source: {}\n- license: {}\n- license source: {}\n- license checked-at: {}\n- release tag: {}\n- release URL: {}\n- release API source: {}\n- release checked-at: {}\n- platform: {}/{}\n- archive URL: {}\n- archive name: {}\n- archive kind: {}\n- archive size bytes: {}\n- archive sha256: {}\n- binary in archive: {}\n- managed binary: {}\n- selected binary: {}\n- selected source: {}\n- download path: {}\n- blockers: {}\n- 동작: 실제 backend 다운로드 전 release URL, checksum, size, license를 사용자에게 표시해야 합니다.",
         LLAMA_CPP_RELEASE.id,
         install_status,
         LLAMA_CPP_RELEASE.upstream_source,
         LLAMA_CPP_RELEASE.license,
         LLAMA_CPP_RELEASE.license_source,
         LLAMA_CPP_RELEASE.license_checked_at,
-        LLAMA_CPP_RELEASE.release_url.unwrap_or("미확정"),
-        LLAMA_CPP_RELEASE.archive_name.unwrap_or("미확정"),
-        LLAMA_CPP_RELEASE
-            .archive_size_bytes
+        LLAMA_CPP_RELEASE.release_tag,
+        LLAMA_CPP_RELEASE.release_url,
+        LLAMA_CPP_RELEASE.release_api_source,
+        LLAMA_CPP_RELEASE.release_checked_at,
+        env::consts::OS,
+        env::consts::ARCH,
+        artifact
+            .map(|artifact| artifact.archive_url)
+            .unwrap_or("미확정"),
+        archive_name,
+        artifact
+            .map(|artifact| artifact.archive_kind.as_str())
+            .unwrap_or("미확정"),
+        artifact
+            .map(|artifact| artifact.archive_size_bytes)
             .map(|value| value.to_string())
             .unwrap_or_else(|| "미확정".to_string()),
-        LLAMA_CPP_RELEASE.archive_sha256.unwrap_or("미확정"),
+        artifact
+            .map(|artifact| artifact.archive_sha256)
+            .unwrap_or("미확정"),
+        artifact
+            .map(|artifact| artifact.binary_relative_path)
+            .unwrap_or("미확정"),
         discovery.managed_path.display(),
         discovery.selected_path.display(),
         discovery.selected_source,
-        paths::downloads_dir()
-            .join(LLAMA_CPP_RELEASE.archive_name.unwrap_or("llama.cpp.archive.part"))
-            .display(),
+        download_path.display(),
         display_vec(&blockers)
     )
 }
@@ -367,29 +482,73 @@ fn probe_health(host: &str, port: u16, timeout: Duration) -> HealthProbe {
     }
 }
 
-fn backend_install_blockers(manifest: &BackendReleaseManifest) -> Vec<String> {
+fn selected_backend_release_artifact(
+    manifest: &BackendReleaseManifest,
+) -> Option<&'static BackendReleaseArtifact> {
+    release_artifact_for(manifest, env::consts::OS, env::consts::ARCH)
+}
+
+fn release_artifact_for(
+    manifest: &BackendReleaseManifest,
+    os: &str,
+    arch: &str,
+) -> Option<&'static BackendReleaseArtifact> {
+    manifest
+        .artifacts
+        .iter()
+        .find(|artifact| artifact.os == os && artifact.arch == arch)
+}
+
+fn backend_install_blockers(
+    manifest: &BackendReleaseManifest,
+    artifact: Option<&BackendReleaseArtifact>,
+) -> Vec<String> {
     let mut blockers = Vec::new();
     for blocker in manifest.install_blockers {
-        push_unique(&mut blockers, blocker);
+        push_unique(&mut blockers, *blocker);
     }
-    if manifest.release_url.is_none() {
+    if manifest.release_url.is_empty() {
         push_unique(&mut blockers, "release URL 미확정");
     }
-    if manifest.archive_name.is_none() {
+    if manifest.release_api_source.is_empty() {
+        push_unique(&mut blockers, "release API source 미확정");
+    }
+    if manifest.release_tag.is_empty() {
+        push_unique(&mut blockers, "release tag 미확정");
+    }
+    let Some(artifact) = artifact else {
+        push_unique(
+            &mut blockers,
+            format!(
+                "지원 platform artifact 미확정 ({}/{})",
+                env::consts::OS,
+                env::consts::ARCH
+            ),
+        );
+        return blockers;
+    };
+    if artifact.archive_url.is_empty() {
+        push_unique(&mut blockers, "archive URL 미확정");
+    }
+    if artifact.archive_name.is_empty() {
         push_unique(&mut blockers, "archive name 미확정");
     }
-    if manifest.archive_sha256.is_none() {
+    if !checksum::is_valid_sha256(artifact.archive_sha256) {
         push_unique(&mut blockers, "archive SHA-256 미확정");
     }
-    if manifest.archive_size_bytes.is_none() {
+    if artifact.archive_size_bytes == 0 {
         push_unique(&mut blockers, "archive file size 미확정");
+    }
+    if artifact.binary_relative_path.is_empty() {
+        push_unique(&mut blockers, "archive 내부 binary path 미확정");
     }
     blockers
 }
 
-fn push_unique(values: &mut Vec<String>, value: &str) {
-    if !values.iter().any(|existing| existing == value) {
-        values.push(value.to_string());
+fn push_unique(values: &mut Vec<String>, value: impl Into<String>) {
+    let value = value.into();
+    if !values.iter().any(|existing| existing == &value) {
+        values.push(value);
     }
 }
 
@@ -482,10 +641,39 @@ mod tests {
     }
 
     #[test]
-    fn install_plan_is_blocked_without_release_manifest() {
+    fn release_manifest_has_source_backed_supported_artifact() {
+        let artifact = release_artifact_for(&LLAMA_CPP_RELEASE, "macos", "aarch64")
+            .expect("macOS arm64 backend artifact should be recorded");
+
+        assert!(artifact
+            .archive_url
+            .starts_with("https://github.com/ggml-org/llama.cpp/releases/download/b9878/"));
+        assert!(checksum::is_valid_sha256(artifact.archive_sha256));
+        assert!(artifact.archive_size_bytes > 0);
+        assert_eq!(artifact.archive_kind, BackendArchiveKind::TarGz);
+        assert_eq!(
+            backend_install_blockers(&LLAMA_CPP_RELEASE, Some(artifact)),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn install_plan_uses_current_platform_manifest_when_supported() {
         let report = install_plan_report();
-        assert!(report.contains("status: blocked"));
-        assert!(report.contains("archive SHA-256"));
+
+        if selected_backend_release_artifact(&LLAMA_CPP_RELEASE).is_some() {
+            assert!(report.contains("status: ready"));
+            assert!(report.contains("archive sha256: "));
+            assert!(report.contains("release tag: b9878"));
+        } else {
+            assert!(report.contains("status: blocked"));
+            assert!(report.contains("지원 platform artifact 미확정"));
+        }
+    }
+
+    #[test]
+    fn release_artifact_selection_rejects_unknown_platform() {
+        assert!(release_artifact_for(&LLAMA_CPP_RELEASE, "freebsd", "riscv64").is_none());
     }
 
     #[test]

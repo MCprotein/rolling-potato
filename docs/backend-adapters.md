@@ -67,12 +67,14 @@ Phase 6 currently implements:
 - User override is `RPOTATO_BACKEND_LLAMA_CPP_PATH`.
 - Port override is `RPOTATO_BACKEND_PORT`; default port is `17842`.
 - Doctor output shows selected binary, selected source, executable bit, health URL, and install gate.
-- `rpotato backend install-plan` renders release URL, archive name, file size, SHA-256, license source, and download path; it is currently blocked because no release manifest exists.
+- `rpotato backend install-plan` renders the selected platform artifact, release URL, archive URL, archive name, file size, SHA-256, license source, and download path.
+- The current manifest pins source-backed `llama.cpp` release `b9878` CPU artifacts for macOS arm64/x64, Linux arm64/x64, and Windows arm64/x64. Source: GitHub Releases API at https://api.github.com/repos/ggml-org/llama.cpp/releases/latest and release page https://github.com/ggml-org/llama.cpp/releases/tag/b9878, checked 2026-07-06.
+- `backend install-plan` is `ready` only when the current OS/CPU pair has a recorded artifact; unsupported platforms remain blocked.
 - `rpotato backend verify-archive <path> --sha256 <hash>` verifies SHA-256 over local backend archive bytes and records a ledger event.
 - `rpotato backend health-check` sends an HTTP request to `/health` on the selected host/port with a 500 ms timeout and reports `healthy`, `unhealthy`, or `unreachable`.
 - `rpotato doctor` shows the same discovery summary.
 - Version detection is shown as `not-run` because unknown binaries are not executed yet.
-- Managed backend download/install remains blocked until verified release URL and checksum manifest data exist.
+- Managed backend download/install remains unimplemented until the next slice wires download, extraction, binary placement, and rollback.
 
 ## Later Adapters
 
