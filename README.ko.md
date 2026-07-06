@@ -201,6 +201,8 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato policy redact <text>`
 - `rpotato hooks list`
 - `rpotato hooks validate-result <json>`
+- `rpotato patch preview --path <path> --find <text> --replace <text>`
+- `rpotato patch approve <proposal-id> --token <token> --dry-run`
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor export --format jsonl`
@@ -244,6 +246,8 @@ MVP의 기본 결정은 다음과 같습니다.
 `intent classify`, `intent routes`, `skill run`은 model을 호출하지 않는 pre-execution surface입니다. Routing state를 정규화하고 ledger event만 남깁니다.
 
 `policy`와 `hooks` 명령은 command/path 권한 결정, credential redaction, lifecycle hook registry, fail-closed hook result 검사를 제공합니다. 실제 tool execution은 아직 이 policy surface 뒤에 연결되지 않았습니다.
+
+`patch preview`는 project-local text file을 읽고 명시적인 단일 find/replace proposal에 대한 unified diff를 렌더링하며, `.rpotato/patch-proposals/` 아래에 project-local proposal record를 저장하고 approval token을 출력합니다. `patch approve <proposal-id> --token <token> --dry-run`은 token을 검증하고 approval gate 결과를 기록하지만 target file은 수정하지 않습니다. 승인된 patch apply는 후속 phase입니다.
 
 `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 

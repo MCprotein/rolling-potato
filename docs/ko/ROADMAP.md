@@ -356,7 +356,7 @@
 - [x] `rpotato run "<task>"` context-aware model-response skeleton
 - [x] runtime-owned action candidate planning
 - [x] model response action parsing
-- [ ] patch diff display와 approval gate
+- [x] patch diff display와 approval gate
 - [ ] 선택한 세션 히스토리에서 agent loop transcript replay
 - [ ] `rpotato resume <session-id>` 이후 대화 이어달리기
 - [ ] startup ontology/context retrieval 실행
@@ -365,7 +365,7 @@
 - [ ] executor step
 - [ ] verifier step
 - [ ] reporter step
-- [ ] unified diff rendering
+- [x] unified diff rendering
 - [ ] approved patch apply
 - [ ] patch apply rollback/failure handling
 - [ ] approved verification command execution

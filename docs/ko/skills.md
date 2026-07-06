@@ -74,6 +74,8 @@ Phase 3의 현재 구현은 skill 실행 전 정규화 단계이며, `rpotato ru
 - `rpotato run "<request>"`는 deterministic intent rule로 user request를 skill/mode로 매핑하고, source pointer가 포함된 bounded repository context pack을 만들며, runtime-owned action candidate와 next gate를 준비하고, 실행 중인 backend sidecar를 호출하며, model의 structured action line 또는 인식 가능한 action text를 실행 없이 파싱하고, intent/context/action/model-action/backend chat ledger event와 token/latency metric을 기록한다.
 - `rpotato intent classify "<request>"`는 같은 rule을 실행하되 agent loop 계획 대신 classification report만 출력한다.
 - `rpotato intent routes`는 TUI command palette action이 어떤 runtime command로 매핑되는지 출력한다.
+- `rpotato patch preview --path <path> --find <text> --replace <text>`는 target file을 수정하지 않고 diff와 approval token을 출력한다.
+- `rpotato patch approve <proposal-id> --token <token> --dry-run`은 patch를 적용하지 않고 approval gate를 검증해 ledger event를 남긴다.
 - active workflow는 current-state가 소유하고, skill/plugin/TUI는 parent workflow pointer를 받아야 한다.
 - optional model classifier는 아직 비활성이다. 현재는 deterministic rule만 사용한다.
 - Tool call, 승인된 patch 적용, verification command 실행은 후속 phase에서 처리한다.

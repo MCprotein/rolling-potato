@@ -74,6 +74,8 @@ Phase 3 implements pre-execution normalization, and `rpotato run` now uses that 
 - `rpotato run "<request>"` maps user requests to skill/mode through deterministic intent rules, builds a bounded repository context pack with source pointers, prepares a runtime-owned action candidate and next gate, calls the running backend sidecar, parses the model's structured action line or recognized action text without execution, records intent/context/action/model-action/backend chat ledger events, and records token/latency metrics.
 - `rpotato intent classify "<request>"` runs the same rules but prints only a classification report instead of planning an agent loop.
 - `rpotato intent routes` prints TUI command-palette routing to runtime commands.
+- `rpotato patch preview --path <path> --find <text> --replace <text>` renders a diff and approval token without modifying the target file.
+- `rpotato patch approve <proposal-id> --token <token> --dry-run` verifies the approval gate and records a ledger event without applying the patch.
 - Current state owns the active workflow; skill/plugin/TUI actions need a parent workflow pointer.
 - The optional model classifier is disabled. Current routing uses deterministic rules only.
 - Tool calls, approved patch application, and verification command execution happen in later phases.

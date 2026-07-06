@@ -198,6 +198,8 @@ Implemented command surfaces:
 - `rpotato policy redact <text>`
 - `rpotato hooks list`
 - `rpotato hooks validate-result <json>`
+- `rpotato patch preview --path <path> --find <text> --replace <text>`
+- `rpotato patch approve <proposal-id> --token <token> --dry-run`
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor export --format jsonl`
@@ -241,6 +243,8 @@ Implemented command surfaces:
 `intent classify`, `intent routes`, and `skill run` remain pre-execution surfaces: they normalize routing state and record ledger events without calling the model.
 
 `policy` and `hooks` commands provide command/path permission decisions, credential redaction, lifecycle hook registry output, and fail-closed hook result validation. Real tool execution has not yet been wired behind this policy surface.
+
+`patch preview` reads a project-local text file, renders a unified diff for a single explicit find/replace proposal, writes a project-local proposal record under `.rpotato/patch-proposals/`, and prints an approval token. `patch approve <proposal-id> --token <token> --dry-run` verifies that token and records the approval gate result without modifying the target file. Approved patch application is still a later phase.
 
 `monitor export` emits the runtime ledger as JSONL or CSV. `monitor prune` is currently dry-run only.
 
