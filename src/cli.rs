@@ -48,6 +48,7 @@ rpotato
   rpotato model inspect <id>
   rpotato model registry
   rpotato model download-plan <id>
+  rpotato model fetch-candidate <id> --for-evaluation
   rpotato model verify-file <path> --sha256 <hash>
   rpotato model cleanup-failed <id> --dry-run
   rpotato model install <id>
@@ -67,7 +68,7 @@ rpotato
 현재 상태:
   backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 release payload를 배치합니다.
   backend start/status/stop은 명시 모델 파일 기준의 managed sidecar lifecycle을 다룹니다.
-  모델 다운로드는 검증된 manifest가 준비될 때까지 차단됩니다.";
+  모델 registry install은 verified 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
@@ -176,6 +177,7 @@ pub enum ModelCommand {
     Inspect { id: String },
     Registry,
     DownloadPlan { id: String },
+    FetchCandidate { id: String },
     VerifyFile { path: String, sha256: String },
     CleanupFailed { id: String, dry_run: bool },
     Install { id: String },
@@ -429,6 +431,18 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, id] if group == "model" && action == "download-plan" => {
             Ok(Command::Model(ModelCommand::DownloadPlan { id: id.clone() }))
         }
+        [group, action, id, flag]
+            if group == "model" && action == "fetch-candidate" && flag == "--for-evaluation" =>
+        {
+            Ok(Command::Model(ModelCommand::FetchCandidate {
+                id: id.clone(),
+            }))
+        }
+        [group, action, ..] if group == "model" && action == "fetch-candidate" => Err(
+            AppError::usage(
+                "model fetch-candidate는 <id> --for-evaluation 형식이 필요합니다.",
+            ),
+        ),
         [group, action, path, flag, sha256]
             if group == "model" && action == "verify-file" && flag == "--sha256" =>
         {
@@ -467,7 +481,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             "모델 id가 필요합니다. 예: rpotato model install qwen3.5-4b",
         )),
         [group, ..] if group == "model" => Err(AppError::usage(
-            "model 명령은 list, manifest, inspect, registry, download-plan, verify-file, cleanup-failed, install만 허용합니다.",
+            "model 명령은 list, manifest, inspect, registry, download-plan, fetch-candidate, verify-file, cleanup-failed, install만 허용합니다.",
         )),
         [group, action, rest @ ..] if group == "plugin" && action == "import" => {
             parse_plugin_import(rest).map(Command::Plugin)
@@ -773,6 +787,36 @@ mod tests {
                 id: "qwen3.5-4b".to_string()
             })
         );
+    }
+
+    #[test]
+    fn parses_model_fetch_candidate_for_evaluation() {
+        let command = parse([
+            "model".to_string(),
+            "fetch-candidate".to_string(),
+            "qwen3.5-4b".to_string(),
+            "--for-evaluation".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Model(ModelCommand::FetchCandidate {
+                id: "qwen3.5-4b".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn model_fetch_candidate_requires_evaluation_flag() {
+        let err = parse([
+            "model".to_string(),
+            "fetch-candidate".to_string(),
+            "qwen3.5-4b".to_string(),
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.code, 2);
+        assert!(err.message.contains("--for-evaluation"));
     }
 
     #[test]

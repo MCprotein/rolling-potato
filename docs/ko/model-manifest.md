@@ -101,6 +101,7 @@
 - `rpotato model inspect <id>`
 - `rpotato model registry`
 - `rpotato model download-plan <id>`
+- `rpotato model fetch-candidate <id> --for-evaluation`
 - `rpotato model verify-file <path> --sha256 <hash>`
 - `rpotato model cleanup-failed <id> --dry-run`
 - `rpotato model install <id>`
@@ -113,11 +114,13 @@
 
 `model download-plan`은 실제 다운로드 전에 사용자에게 보여야 할 source, license source, artifact provider, artifact terms, file size, SHA-256, resume path, final path를 렌더링합니다.
 
+`model fetch-candidate <id> --for-evaluation`은 `unverified` source-backed artifact를 다운로드할 수 있는 유일한 경로입니다. 명시적인 평가 플래그를 요구하고, app-managed partial/final artifact file만 쓰며, 성공 전에 file size와 SHA-256을 검증하고 ledger event를 남깁니다. 이 명령은 `models/registry/<model-id>.json`을 만들지 않습니다.
+
 `model verify-file`은 로컬 파일을 streaming으로 읽어 SHA-256을 계산하고 expected hash와 비교합니다. 성공과 실패 모두 ledger event를 남기며, 실패 시 registry 등록은 차단되어야 합니다.
 
 `model cleanup-failed`는 app data의 `downloads/`와 `models/` 아래에 있는 app-managed partial/failed artifact path만 대상으로 합니다. 삭제는 `--delete`가 명시된 경우에만 실행하고, 기본 검증과 문서 smoke는 `--dry-run`을 사용합니다.
 
-`model install`은 `verified`가 아닌 항목을 차단하고 ledger event를 남깁니다. 현재 구현은 실제 다운로드를 수행하지 않으며, local registry는 `models/registry/<model-id>.json` 위치에 verified artifact만 기록하는 경계로 준비되어 있습니다.
+`model install`은 `verified`가 아닌 항목을 차단하고 ledger event를 남깁니다. 현재 구현은 unverified 후보를 registry 설치하거나 등록하지 않습니다. local registry는 `models/registry/<model-id>.json` 위치에 verified artifact만 기록하는 경계로 준비되어 있습니다.
 
 ## 필수 검증
 

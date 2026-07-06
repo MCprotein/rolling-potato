@@ -1,8 +1,11 @@
-use std::fs;
-use std::path::PathBuf;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 
 use crate::app::AppError;
 use crate::{checksum, ledger, paths, state};
+
+const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CandidateStatus {
@@ -76,6 +79,23 @@ struct RegistryEntry {
     status: String,
     artifact_path: String,
     artifact_sha256: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ModelArtifactFetchStatus {
+    Downloaded,
+    Resumed,
+    CacheHit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ModelArtifactDescriptor {
+    provider: &'static str,
+    url: &'static str,
+    terms_url: &'static str,
+    file_name: &'static str,
+    sha256: &'static str,
+    size_bytes: u64,
 }
 
 const QWEN_4B_BLOCKERS: &[&str] = &[
@@ -382,6 +402,43 @@ pub fn download_plan_report(id: &str) -> Result<String, AppError> {
     ))
 }
 
+pub fn fetch_candidate_for_evaluation_report(id: &str) -> Result<String, AppError> {
+    let candidate = find_candidate(id)?;
+    let artifact = source_backed_artifact(candidate)?;
+    let final_path = model_artifact_path(artifact);
+    let part_path = model_artifact_part_path(candidate);
+    let fetch_status = fetch_evaluation_artifact(artifact, &final_path, &part_path)?;
+    let event_id = state::record_event(
+        "model.evaluation_artifact.fetched",
+        "검증용 model artifact fetch 완료",
+        &format!(
+            "model_id={} provider={} artifact={} sha256={} size_bytes={} status={} registry=not_registered",
+            candidate.id,
+            artifact.provider,
+            final_path.display(),
+            artifact.sha256,
+            artifact.size_bytes,
+            fetch_status.label()
+        ),
+    )?;
+
+    Ok(format!(
+        "검증용 model artifact 준비 완료\n- id: {}\n- status: {}\n- provider: {}\n- source: {}\n- terms: {}\n- file: {}\n- size bytes: {}\n- sha256: {}\n- partial path: {}\n- final path: {}\n- registry: not registered\n- ledger event: {}\n- 다음 단계: rpotato backend start --model {} 로 local smoke를 실행하고, benchmark/RAM-fit/mmproj evidence가 쌓인 뒤에만 verified 승격을 검토합니다.",
+        candidate.id,
+        fetch_status.label(),
+        artifact.provider,
+        artifact.url,
+        artifact.terms_url,
+        artifact.file_name,
+        artifact.size_bytes,
+        artifact.sha256,
+        part_path.display(),
+        final_path.display(),
+        event_id,
+        final_path.display()
+    ))
+}
+
 pub fn verify_file_report(path: &str, expected_sha256: &str) -> Result<String, AppError> {
     if !checksum::is_valid_sha256(expected_sha256) {
         return Err(AppError::usage(
@@ -646,6 +703,386 @@ fn validate_install_ready(candidate: &ModelManifestEntry) -> InstallValidation {
     }
 }
 
+fn source_backed_artifact(
+    candidate: &'static ModelManifestEntry,
+) -> Result<ModelArtifactDescriptor, AppError> {
+    let mut blockers = Vec::new();
+
+    let Some(provider) = candidate.artifact_provider else {
+        blockers.push("artifact provider 미확정");
+        return Err(fetch_blocked(candidate, blockers));
+    };
+    let Some(url) = candidate.artifact_url else {
+        blockers.push("GGUF artifact URL 미확정");
+        return Err(fetch_blocked(candidate, blockers));
+    };
+    let Some(terms_url) = candidate.artifact_terms_url else {
+        blockers.push("artifact terms URL 미확정");
+        return Err(fetch_blocked(candidate, blockers));
+    };
+    let Some(file_name) = candidate.artifact_name else {
+        blockers.push("artifact file name 미확정");
+        return Err(fetch_blocked(candidate, blockers));
+    };
+    let Some(sha256) = candidate.sha256 else {
+        blockers.push("SHA-256 미확정");
+        return Err(fetch_blocked(candidate, blockers));
+    };
+    if !checksum::is_valid_sha256(sha256) {
+        blockers.push("SHA-256 형식 오류");
+    }
+    let Some(size_bytes) = candidate.size_bytes else {
+        blockers.push("file size 미확정");
+        return Err(fetch_blocked(candidate, blockers));
+    };
+    if candidate.format != "gguf" {
+        blockers.push("GGUF format이 아닙니다");
+    }
+    if candidate.backend != "llama.cpp" {
+        blockers.push("llama.cpp backend 후보가 아닙니다");
+    }
+
+    if !blockers.is_empty() {
+        return Err(fetch_blocked(candidate, blockers));
+    }
+
+    Ok(ModelArtifactDescriptor {
+        provider,
+        url,
+        terms_url,
+        file_name,
+        sha256,
+        size_bytes,
+    })
+}
+
+fn fetch_blocked(candidate: &ModelManifestEntry, blockers: Vec<&str>) -> AppError {
+    AppError::blocked(format!(
+        "검증용 model artifact fetch 차단\n- id: {}\n- status: {}\n- blockers: {}\n- 동작: source-backed artifact URL, terms, size, SHA-256이 모두 있어야 검증용 fetch를 실행합니다.",
+        candidate.id,
+        candidate.status.label(),
+        blockers.join(", ")
+    ))
+}
+
+fn fetch_evaluation_artifact(
+    artifact: ModelArtifactDescriptor,
+    final_path: &Path,
+    part_path: &Path,
+) -> Result<ModelArtifactFetchStatus, AppError> {
+    if final_path.exists() && !final_path.is_file() {
+        return Err(AppError::blocked(format!(
+            "model artifact final path가 file이 아닙니다: {}",
+            final_path.display()
+        )));
+    }
+    if final_path.is_file() {
+        if model_artifact_matches(artifact, final_path)? {
+            return Ok(ModelArtifactFetchStatus::CacheHit);
+        }
+        return Err(AppError::blocked(format!(
+            "기존 model artifact가 manifest와 일치하지 않아 덮어쓰지 않습니다.\n- path: {}\n- expected size: {}\n- expected sha256: {}\n- 다음 단계: 파일을 수동으로 이동하거나 삭제한 뒤 다시 실행하세요.",
+            final_path.display(),
+            artifact.size_bytes,
+            artifact.sha256
+        )));
+    }
+
+    let final_parent = final_path.parent().ok_or_else(|| {
+        AppError::runtime(format!(
+            "model artifact final parent path를 계산하지 못했습니다: {}",
+            final_path.display()
+        ))
+    })?;
+    let part_parent = part_path.parent().ok_or_else(|| {
+        AppError::runtime(format!(
+            "model artifact partial parent path를 계산하지 못했습니다: {}",
+            part_path.display()
+        ))
+    })?;
+    fs::create_dir_all(final_parent).map_err(|err| {
+        AppError::runtime(format!(
+            "model artifact directory를 만들지 못했습니다: {} ({err})",
+            final_parent.display()
+        ))
+    })?;
+    fs::create_dir_all(part_parent).map_err(|err| {
+        AppError::runtime(format!(
+            "model artifact download directory를 만들지 못했습니다: {} ({err})",
+            part_parent.display()
+        ))
+    })?;
+
+    let existing_bytes = partial_artifact_size(part_path, artifact)?;
+    if existing_bytes == artifact.size_bytes {
+        verify_model_artifact_file(artifact, part_path)?;
+        place_verified_artifact(part_path, final_path)?;
+        return Ok(ModelArtifactFetchStatus::Resumed);
+    }
+
+    let (start_offset, resumed) =
+        download_model_artifact_stream(artifact, part_path, existing_bytes)?;
+    verify_partial_size(part_path, artifact, start_offset)?;
+    verify_model_artifact_file(artifact, part_path)?;
+    place_verified_artifact(part_path, final_path)?;
+
+    if resumed {
+        Ok(ModelArtifactFetchStatus::Resumed)
+    } else {
+        Ok(ModelArtifactFetchStatus::Downloaded)
+    }
+}
+
+fn partial_artifact_size(
+    part_path: &Path,
+    artifact: ModelArtifactDescriptor,
+) -> Result<u64, AppError> {
+    if !part_path.exists() {
+        return Ok(0);
+    }
+    if !part_path.is_file() {
+        return Err(AppError::blocked(format!(
+            "model artifact partial path가 file이 아닙니다: {}",
+            part_path.display()
+        )));
+    }
+
+    let size = part_path
+        .metadata()
+        .map_err(|err| {
+            AppError::runtime(format!(
+                "model artifact partial metadata를 읽지 못했습니다: {} ({err})",
+                part_path.display()
+            ))
+        })?
+        .len();
+    if size > artifact.size_bytes {
+        return Err(AppError::blocked(format!(
+            "model artifact partial size가 manifest보다 큽니다.\n- expected: {}\n- actual: {}\n- path: {}\n- 다음 단계: rpotato model cleanup-failed <id> --delete 로 app-managed partial을 정리하세요.",
+            artifact.size_bytes,
+            size,
+            part_path.display()
+        )));
+    }
+
+    Ok(size)
+}
+
+fn download_model_artifact_stream(
+    artifact: ModelArtifactDescriptor,
+    part_path: &Path,
+    existing_bytes: u64,
+) -> Result<(u64, bool), AppError> {
+    let mut request = ureq::get(artifact.url).header("User-Agent", "rpotato/0.1.0");
+    if existing_bytes > 0 {
+        request = request.header("Range", &format!("bytes={existing_bytes}-"));
+    }
+
+    let response = request.call().map_err(|err| {
+        AppError::runtime(format!(
+            "model artifact 다운로드 실패\n- url: {}\n- error: {err}",
+            artifact.url
+        ))
+    })?;
+    let status_code = response.status().as_u16();
+    let (start_offset, resumed) = match (existing_bytes, status_code) {
+        (0, 200 | 206) => (0, false),
+        (_, 206) => (existing_bytes, true),
+        (_, 200) => (0, false),
+        (_, status) => {
+            return Err(AppError::blocked(format!(
+                "model artifact 다운로드 HTTP status가 예상과 다릅니다.\n- url: {}\n- status: {}\n- expected: 200 또는 206",
+                artifact.url, status
+            )));
+        }
+    };
+
+    let (_, body) = response.into_parts();
+    let mut reader = body.into_reader();
+    let mut file: Box<dyn Write> = if start_offset == 0 {
+        Box::new(File::create(part_path).map_err(|err| {
+            AppError::runtime(format!(
+                "model artifact partial file을 만들지 못했습니다: {} ({err})",
+                part_path.display()
+            ))
+        })?)
+    } else {
+        Box::new(
+            OpenOptions::new()
+                .append(true)
+                .open(part_path)
+                .map_err(|err| {
+                    AppError::runtime(format!(
+                        "model artifact partial file을 append로 열지 못했습니다: {} ({err})",
+                        part_path.display()
+                    ))
+                })?,
+        )
+    };
+
+    copy_model_reader_with_limit(&mut reader, &mut file, start_offset, artifact.size_bytes)?;
+    Ok((start_offset, resumed))
+}
+
+fn verify_partial_size(
+    part_path: &Path,
+    artifact: ModelArtifactDescriptor,
+    start_offset: u64,
+) -> Result<(), AppError> {
+    let actual_bytes = part_path
+        .metadata()
+        .map_err(|err| {
+            AppError::runtime(format!(
+                "model artifact partial metadata를 읽지 못했습니다: {} ({err})",
+                part_path.display()
+            ))
+        })?
+        .len();
+    if actual_bytes != artifact.size_bytes {
+        return Err(AppError::blocked(format!(
+            "model artifact size 검증 실패\n- expected: {}\n- actual: {}\n- resumed from: {}\n- path: {}\n- 동작: partial은 보존되며 같은 명령으로 재시도하거나 cleanup-failed로 정리할 수 있습니다.",
+            artifact.size_bytes,
+            actual_bytes,
+            start_offset,
+            part_path.display()
+        )));
+    }
+
+    Ok(())
+}
+
+fn copy_model_reader_with_limit<R: Read, W: Write + ?Sized>(
+    reader: &mut R,
+    writer: &mut W,
+    existing_bytes: u64,
+    expected_total_bytes: u64,
+) -> Result<u64, AppError> {
+    let mut copied_bytes = 0_u64;
+    let mut buffer = [0_u8; DOWNLOAD_BUFFER_BYTES];
+
+    loop {
+        let bytes_read = reader
+            .read(&mut buffer)
+            .map_err(|err| AppError::runtime(format!("model artifact stream read 실패: {err}")))?;
+        if bytes_read == 0 {
+            break;
+        }
+        copied_bytes += bytes_read as u64;
+        let total_bytes = existing_bytes + copied_bytes;
+        if total_bytes > expected_total_bytes {
+            return Err(AppError::blocked(format!(
+                "model artifact size limit 초과\n- expected: {}\n- actual-at-least: {}",
+                expected_total_bytes, total_bytes
+            )));
+        }
+        writer.write_all(&buffer[..bytes_read]).map_err(|err| {
+            AppError::runtime(format!("model artifact partial file write 실패: {err}"))
+        })?;
+    }
+
+    writer
+        .flush()
+        .map_err(|err| AppError::runtime(format!("model artifact partial flush 실패: {err}")))?;
+    Ok(copied_bytes)
+}
+
+fn model_artifact_matches(
+    artifact: ModelArtifactDescriptor,
+    path: &Path,
+) -> Result<bool, AppError> {
+    let metadata = path.metadata().map_err(|err| {
+        AppError::runtime(format!(
+            "model artifact metadata를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    if !metadata.is_file() {
+        return Err(AppError::blocked(format!(
+            "model artifact path가 file이 아닙니다: {}",
+            path.display()
+        )));
+    }
+    if metadata.len() != artifact.size_bytes {
+        return Ok(false);
+    }
+
+    let actual_sha256 = checksum::sha256_file(path)?;
+    Ok(actual_sha256.eq_ignore_ascii_case(artifact.sha256))
+}
+
+fn verify_model_artifact_file(
+    artifact: ModelArtifactDescriptor,
+    path: &Path,
+) -> Result<(), AppError> {
+    let metadata = path.metadata().map_err(|err| {
+        AppError::runtime(format!(
+            "model artifact metadata를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    if !metadata.is_file() {
+        return Err(AppError::blocked(format!(
+            "model artifact path가 file이 아닙니다: {}",
+            path.display()
+        )));
+    }
+    if metadata.len() != artifact.size_bytes {
+        return Err(AppError::blocked(format!(
+            "model artifact size 검증 실패\n- expected: {}\n- actual: {}\n- path: {}",
+            artifact.size_bytes,
+            metadata.len(),
+            path.display()
+        )));
+    }
+
+    let actual_sha256 = checksum::sha256_file(path)?;
+    if !actual_sha256.eq_ignore_ascii_case(artifact.sha256) {
+        return Err(AppError::blocked(format!(
+            "model artifact SHA-256 검증 실패\n- expected: {}\n- actual: {}\n- path: {}\n- 동작: registry 등록은 수행하지 않으며 partial은 cleanup-failed 대상으로 남깁니다.",
+            artifact.sha256,
+            actual_sha256,
+            path.display()
+        )));
+    }
+
+    Ok(())
+}
+
+fn place_verified_artifact(part_path: &Path, final_path: &Path) -> Result<(), AppError> {
+    if final_path.exists() {
+        return Err(AppError::blocked(format!(
+            "model artifact final path가 이미 존재해 partial을 배치하지 않습니다: {}",
+            final_path.display()
+        )));
+    }
+
+    fs::rename(part_path, final_path).map_err(|err| {
+        AppError::runtime(format!(
+            "model artifact 배치 실패: {} -> {} ({err})",
+            part_path.display(),
+            final_path.display()
+        ))
+    })
+}
+
+fn model_artifact_path(artifact: ModelArtifactDescriptor) -> PathBuf {
+    paths::models_dir().join(artifact.file_name)
+}
+
+fn model_artifact_part_path(candidate: &ModelManifestEntry) -> PathBuf {
+    paths::downloads_dir().join(format!("{}.part", candidate.id))
+}
+
+impl ModelArtifactFetchStatus {
+    fn label(self) -> &'static str {
+        match self {
+            ModelArtifactFetchStatus::Downloaded => "downloaded",
+            ModelArtifactFetchStatus::Resumed => "resumed",
+            ModelArtifactFetchStatus::CacheHit => "cache-hit",
+        }
+    }
+}
+
 fn persist_registry_entry(candidate: &ModelManifestEntry) -> Result<(), AppError> {
     fs::create_dir_all(paths::model_registry_dir()).map_err(|err| {
         AppError::runtime(format!(
@@ -868,6 +1305,46 @@ mod tests {
         let report = download_plan_report("qwen3.5-4b").unwrap();
         assert!(report.contains("status: blocked"));
         assert!(report.contains("license source"));
+    }
+
+    #[test]
+    fn evaluation_fetch_accepts_source_backed_unverified_candidate() {
+        let candidate = find_candidate("qwen3.5-4b").unwrap();
+        let artifact = source_backed_artifact(candidate).unwrap();
+
+        assert_eq!(artifact.provider, "unsloth/Qwen3.5-4B-GGUF");
+        assert_eq!(artifact.file_name, "Qwen3.5-4B-Q4_K_M.gguf");
+        assert!(checksum::is_valid_sha256(artifact.sha256));
+    }
+
+    #[test]
+    fn evaluation_fetch_blocks_candidate_without_artifact_source() {
+        let err = source_backed_artifact(find_candidate("qwen3.5-9b").unwrap()).unwrap_err();
+
+        assert_eq!(err.code, 3);
+        assert!(err.message.contains("fetch 차단"));
+        assert!(err.message.contains("artifact provider"));
+    }
+
+    #[test]
+    fn evaluation_fetch_paths_stay_under_app_data() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let data_root =
+            std::env::temp_dir().join(format!("rpotato-fetch-path-test-{}", std::process::id()));
+        std::env::set_var("RPOTATO_DATA_HOME", &data_root);
+        std::env::set_var("RPOTATO_PROJECT_ROOT", data_root.join("project"));
+
+        let candidate = find_candidate("gemma-4-e4b").unwrap();
+        let artifact = source_backed_artifact(candidate).unwrap();
+        let final_path = model_artifact_path(artifact);
+        let part_path = model_artifact_part_path(candidate);
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+
+        assert!(final_path.starts_with(data_root.join("models")));
+        assert!(part_path.starts_with(data_root.join("downloads")));
+        assert!(part_path.ends_with("gemma-4-e4b.part"));
     }
 
     #[test]

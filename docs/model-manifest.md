@@ -101,6 +101,7 @@ Current CLI surface:
 - `rpotato model inspect <id>`
 - `rpotato model registry`
 - `rpotato model download-plan <id>`
+- `rpotato model fetch-candidate <id> --for-evaluation`
 - `rpotato model verify-file <path> --sha256 <hash>`
 - `rpotato model cleanup-failed <id> --dry-run`
 - `rpotato model install <id>`
@@ -113,11 +114,13 @@ Candidate states:
 
 `model download-plan` renders source, license source, artifact provider, artifact terms, file size, SHA-256, resume path, and final path before real download.
 
+`model fetch-candidate <id> --for-evaluation` is the only path that downloads `unverified` source-backed artifacts. It requires the explicit evaluation flag, writes only app-managed partial/final artifact files, verifies file size and SHA-256 before success, records a ledger event, and does not create `models/registry/<model-id>.json`.
+
 `model verify-file` streams a local file, computes SHA-256, and compares it to the expected hash. Success and failure both record ledger events, and failure must block registry registration.
 
 `model cleanup-failed` targets only app-managed partial/failed artifact paths under app data `downloads/` and `models/`. Deletion runs only with explicit `--delete`; default verification and doc smoke use `--dry-run`.
 
-`model install` blocks entries that are not `verified` and records a ledger event. Current implementation does not perform real downloads. The local registry is prepared as a boundary that records only verified artifacts at `models/registry/<model-id>.json`.
+`model install` blocks entries that are not `verified` and records a ledger event. Current implementation does not register or install unverified candidates. The local registry is prepared as a boundary that records only verified artifacts at `models/registry/<model-id>.json`.
 
 ## Required Verification
 

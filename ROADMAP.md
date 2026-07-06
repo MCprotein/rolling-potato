@@ -219,10 +219,12 @@ Goal: install and register only source- and checksum-verified model candidates.
 - [ ] `rpotato model knowledge promote <entry-id> --dry-run`
 - [ ] `rpotato model knowledge prune --before <duration> --dry-run`
 - [ ] `rpotato model install <id>`
+- [x] `rpotato model fetch-candidate <id> --for-evaluation`
 - [x] Block unverified artifact install
 - [ ] Local `llama.cpp b9878` smoke for selected Qwen/Gemma artifact candidates
 - [ ] RAM-fit and mmproj-need measurement for selected Qwen/Gemma artifact candidates
-- [ ] Resumable model download
+- [x] Resumable evaluation artifact download with SHA-256 gate
+- [ ] Verified install download and registry registration
 - [x] SHA-256 verification
 - [x] Pre-download license/source display
 - [x] Failed artifact cleanup

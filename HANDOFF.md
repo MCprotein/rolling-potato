@@ -244,6 +244,7 @@ rpotato plugin inspect imported.example-plugin
 rpotato plugin validate imported.example-plugin
 rpotato team status
 rpotato model list
+rpotato model fetch-candidate qwen3.5-4b --for-evaluation
 rpotato model install qwen3.5-4b
 rpotato backend doctor
 rpotato backend install-plan
@@ -324,8 +325,9 @@ Suggested next work:
 6. Split the current scaffold toward explicit runtime core modules.
 7. Add runtime state, ledger, and observability boundaries before chat behavior.
 8. Add backend streaming response handling and generation cancellation on top of the managed sidecar lifecycle.
-9. Run local backend smoke and RAM-fit/mmproj-need measurement for the source-recorded Qwen/Gemma GGUF artifact candidates.
-10. Implement resumable model download and byte-level SHA-256 verification before registry registration.
+9. Run `rpotato model fetch-candidate <id> --for-evaluation` only when intentionally downloading multi-GB candidate artifacts for local evaluation.
+10. Run local backend smoke and RAM-fit/mmproj-need measurement for the source-recorded Qwen/Gemma GGUF artifact candidates.
+11. Keep `model install` blocked until verified install download, benchmark evidence, and registry registration gates are complete.
 
 ## User Preference Notes
 

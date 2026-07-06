@@ -219,10 +219,12 @@
 - [ ] `rpotato model knowledge promote <entry-id> --dry-run`
 - [ ] `rpotato model knowledge prune --before <duration> --dry-run`
 - [ ] `rpotato model install <id>`
+- [x] `rpotato model fetch-candidate <id> --for-evaluation`
 - [x] 미검증 artifact 설치 차단
 - [ ] 선택한 Qwen/Gemma artifact 후보의 local `llama.cpp b9878` smoke
 - [ ] 선택한 Qwen/Gemma artifact 후보의 RAM-fit과 mmproj 필요 여부 측정
-- [ ] 이어받기 가능한 모델 다운로드
+- [x] SHA-256 gate가 있는 평가용 artifact 이어받기 다운로드
+- [ ] verified install 다운로드와 registry 등록
 - [x] SHA-256 verification
 - [x] 다운로드 전 license/source 표시
 - [x] 검증 실패 artifact 정리

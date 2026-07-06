@@ -210,6 +210,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato model inspect <id>`
 - `rpotato model registry`
 - `rpotato model download-plan <id>`
+- `rpotato model fetch-candidate <id> --for-evaluation`
 - `rpotato model verify-file <path> --sha256 <hash>`
 - `rpotato model cleanup-failed <id> --dry-run`
 - `rpotato model install <id>`
@@ -241,7 +242,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 
-`model list`, `model manifest`, `model inspect`, `model registry`, `model download-plan`은 source-backed manifest schema, 후보 상태, 공개 benchmark source ledger, local registry 위치, 다운로드 전 source/license/checksum 표시 항목을 보여줍니다. Qwen과 Gemma는 pinned revision URL, LFS SHA-256, file size가 기록된 source-backed `unverified` GGUF artifact 후보를 갖습니다. `model verify-file`은 로컬 파일 bytes의 SHA-256을 검증하고 ledger event를 남깁니다. `model cleanup-failed`는 app data 내부의 partial/failed artifact만 dry-run 또는 명시적 delete 대상으로 삼습니다. `model install`은 아직 실제 다운로드를 수행하지 않습니다. 후보를 `verified`로 승격하기 전까지 설치를 차단하며, local `llama.cpp b9878` smoke, RAM fit, mmproj 필요 여부, 실제 download wiring이 남아 있습니다.
+`model list`, `model manifest`, `model inspect`, `model registry`, `model download-plan`은 source-backed manifest schema, 후보 상태, 공개 benchmark source ledger, local registry 위치, 다운로드 전 source/license/checksum 표시 항목을 보여줍니다. Qwen과 Gemma는 pinned revision URL, LFS SHA-256, file size가 기록된 source-backed `unverified` GGUF artifact 후보를 갖습니다. `model fetch-candidate <id> --for-evaluation`은 명시적인 평가 전용 다운로드 경로입니다. app-managed partial resume을 지원하고 size/SHA-256을 검증한 뒤 ledger event를 남기지만, 설치된 모델로 registry 등록하지 않습니다. `model verify-file`은 로컬 파일 bytes의 SHA-256을 검증하고 ledger event를 남깁니다. `model cleanup-failed`는 app data 내부의 partial/failed artifact만 dry-run 또는 명시적 delete 대상으로 삼습니다. `model install`은 후보를 `verified`로 승격하기 전까지 registry 설치를 차단하며, local `llama.cpp b9878` smoke, RAM fit, mmproj 필요 여부, benchmark evidence가 남아 있습니다.
 
 `backend doctor`는 관리형 `llama.cpp` sidecar discovery, env override path, port, health URL, executable bit, install gate, 기록된 managed binary의 version detection을 보여줍니다. `backend install-plan`은 지원 OS/CPU 조합에 대해 source-backed `llama.cpp` release `b9878` CPU artifact를 선택하고 release URL, archive URL, SHA-256, size, license source, download path를 표시합니다. `backend install`은 archive를 다운로드하거나 cache를 재사용하고, size와 SHA-256을 검증한 뒤 staging에서 압축을 풀어 release payload를 managed backend directory에 배치합니다. Unix에서는 실행 권한을 설정하고, 교체 실패 시 rollback하며, install record와 ledger event를 남깁니다. `backend start --model <path>`는 명시된 로컬 모델 파일로 selected sidecar를 시작하고 pid/log path를 기록한 뒤 `/health`를 기다리며, startup timeout이면 child를 종료합니다. `backend status`는 sidecar pid record와 health 상태를 읽고, `backend stop`은 stale record를 제거하거나 기록된 sidecar를 종료합니다. Env override binary는 `doctor`가 실행하지 않으며 명시적인 lifecycle 명령에서만 실행됩니다. `backend verify-archive`는 로컬 backend archive SHA-256을 검증합니다. `backend health-check`는 선택된 host/port의 `/health`를 짧은 timeout으로 진단합니다.
 

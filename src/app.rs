@@ -220,6 +220,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", model::download_plan_report(&id)?);
             Ok(())
         }
+        Command::Model(ModelCommand::FetchCandidate { id }) => {
+            println!("{}", model::fetch_candidate_for_evaluation_report(&id)?);
+            Ok(())
+        }
         Command::Model(ModelCommand::VerifyFile { path, sha256 }) => {
             println!("{}", model::verify_file_report(&path, &sha256)?);
             Ok(())
