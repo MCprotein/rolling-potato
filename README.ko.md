@@ -169,6 +169,9 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato backend doctor`
 - `rpotato backend install-plan`
 - `rpotato backend install`
+- `rpotato backend start --model <path>`
+- `rpotato backend status`
+- `rpotato backend stop`
 - `rpotato backend verify-archive <path> --sha256 <hash>`
 - `rpotato backend health-check`
 - `rpotato cache status`
@@ -240,7 +243,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `model list`, `model manifest`, `model inspect`, `model registry`, `model download-plan`은 source-backed manifest schema, 후보 상태, 공개 benchmark source ledger, local registry 위치, 다운로드 전 source/license/checksum 표시 항목을 보여줍니다. `model verify-file`은 로컬 파일 bytes의 SHA-256을 검증하고 ledger event를 남깁니다. `model cleanup-failed`는 app data 내부의 partial/failed artifact만 dry-run 또는 명시적 delete 대상으로 삼습니다. `model install`은 아직 실제 다운로드를 수행하지 않습니다. 검증된 GGUF artifact URL, checksum, provider terms, file size, `llama.cpp` 호환성 정보가 manifest에 들어오기 전까지 설치를 차단합니다.
 
-`backend doctor`는 관리형 `llama.cpp` sidecar discovery, env override path, port, health URL, executable bit, install gate, 기록된 managed binary의 version detection을 보여줍니다. `backend install-plan`은 지원 OS/CPU 조합에 대해 source-backed `llama.cpp` release `b9878` CPU artifact를 선택하고 release URL, archive URL, SHA-256, size, license source, download path를 표시합니다. `backend install`은 archive를 다운로드하거나 cache를 재사용하고, size와 SHA-256을 검증한 뒤 staging에서 압축을 풀어 release payload를 managed backend directory에 배치합니다. Unix에서는 실행 권한을 설정하고, 교체 실패 시 rollback하며, install record와 ledger event를 남깁니다. Env override binary는 `doctor`가 실행하지 않습니다. `backend verify-archive`는 로컬 backend archive SHA-256을 검증합니다. `backend health-check`는 선택된 host/port의 `/health`를 짧은 timeout으로 진단합니다.
+`backend doctor`는 관리형 `llama.cpp` sidecar discovery, env override path, port, health URL, executable bit, install gate, 기록된 managed binary의 version detection을 보여줍니다. `backend install-plan`은 지원 OS/CPU 조합에 대해 source-backed `llama.cpp` release `b9878` CPU artifact를 선택하고 release URL, archive URL, SHA-256, size, license source, download path를 표시합니다. `backend install`은 archive를 다운로드하거나 cache를 재사용하고, size와 SHA-256을 검증한 뒤 staging에서 압축을 풀어 release payload를 managed backend directory에 배치합니다. Unix에서는 실행 권한을 설정하고, 교체 실패 시 rollback하며, install record와 ledger event를 남깁니다. `backend start --model <path>`는 명시된 로컬 모델 파일로 selected sidecar를 시작하고 pid/log path를 기록한 뒤 `/health`를 기다리며, startup timeout이면 child를 종료합니다. `backend status`는 sidecar pid record와 health 상태를 읽고, `backend stop`은 stale record를 제거하거나 기록된 sidecar를 종료합니다. Env override binary는 `doctor`가 실행하지 않으며 명시적인 lifecycle 명령에서만 실행됩니다. `backend verify-archive`는 로컬 backend archive SHA-256을 검증합니다. `backend health-check`는 선택된 host/port의 `/health`를 짧은 timeout으로 진단합니다.
 
 `plugin import`는 local plugin directory의 source snapshot과 normalized manifest를 app data root 아래에 저장합니다. Import는 실행 권한을 부여하지 않으며, shell/MCP/background/file-write 같은 capability는 기본 차단 상태로 permission report에 남깁니다.
 
@@ -249,7 +252,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - 신뢰할 GGUF 모델 artifact 확정
 - `Qwen3.5-4B` 후보와 `Gemma 4 E4B` 후보 벤치마크
 - 실제 agent loop의 transcript replay와 active workflow resume 실행
-- sidecar 프로세스 생명주기 설계 상세화
+- streaming response path와 generation cancellation path 설계
 
 벤치마크 초안은 [docs/model-eval.md](docs/model-eval.md)를 따릅니다.
 

@@ -1,10 +1,10 @@
 use std::env;
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::app::AppError;
 use crate::paths;
@@ -18,6 +18,8 @@ const ENV_BACKEND_PATH: &str = "RPOTATO_BACKEND_LLAMA_CPP_PATH";
 const ENV_BACKEND_PORT: &str = "RPOTATO_BACKEND_PORT";
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 const VERSION_TIMEOUT_MS: u64 = 5_000;
+const STARTUP_TIMEOUT_MS: u64 = 60_000;
+const STOP_TIMEOUT_MS: u64 = 5_000;
 
 pub trait BackendAdapter {
     fn id(&self) -> &'static str;
@@ -110,6 +112,19 @@ struct BackendVersionProbe {
     exit_code: Option<i32>,
     output: Option<String>,
     error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BackendSidecarRecord {
+    backend_id: String,
+    pid: u32,
+    binary_path: PathBuf,
+    model_path: PathBuf,
+    host: String,
+    port: u16,
+    stdout_log: PathBuf,
+    stderr_log: PathBuf,
+    started_at_ms: u128,
 }
 
 impl BackendArchiveKind {
@@ -387,6 +402,112 @@ pub fn install_report() -> Result<String, AppError> {
         result.managed_binary.display(),
         result.binary_sha256,
         result.ledger_event
+    ))
+}
+
+pub fn start_report(model_path: &str) -> Result<String, AppError> {
+    start_sidecar_with_timeout(model_path, Duration::from_millis(STARTUP_TIMEOUT_MS))
+}
+
+pub fn status_report() -> Result<String, AppError> {
+    let Some(record) = read_backend_sidecar_record()? else {
+        return Ok(format!(
+            "backend status\n- status: stopped\n- sidecar record: {}\n- 다음 단계: rpotato backend start --model <path>",
+            backend_sidecar_record_path().display()
+        ));
+    };
+
+    let running = process_is_running(record.pid);
+    let health = if running {
+        Some(probe_health(
+            &record.host,
+            record.port,
+            Duration::from_millis(HEALTH_TIMEOUT_MS),
+        ))
+    } else {
+        None
+    };
+    let health_status = health
+        .as_ref()
+        .map(|probe| probe.status)
+        .unwrap_or("not-run");
+    let health_error = health
+        .and_then(|probe| probe.error)
+        .unwrap_or_else(|| "없음".to_string());
+    let status = if running { "running" } else { "stale" };
+
+    Ok(format!(
+        "backend status\n- status: {}\n- backend: {}\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- health: {}\n- health error: {}\n- stdout log: {}\n- stderr log: {}\n- sidecar record: {}",
+        status,
+        record.backend_id,
+        record.pid,
+        record.binary_path.display(),
+        record.model_path.display(),
+        record.host,
+        record.port,
+        health_status,
+        health_error,
+        record.stdout_log.display(),
+        record.stderr_log.display(),
+        backend_sidecar_record_path().display()
+    ))
+}
+
+pub fn stop_report() -> Result<String, AppError> {
+    let Some(record) = read_backend_sidecar_record()? else {
+        return Ok(format!(
+            "backend stop\n- status: stopped\n- sidecar record: {}\n- 동작: 실행 중인 managed sidecar record가 없어 no-op입니다.",
+            backend_sidecar_record_path().display()
+        ));
+    };
+
+    if !process_is_running(record.pid) {
+        remove_file_if_exists(&backend_sidecar_record_path())?;
+        let event_id = state::record_event(
+            "backend.sidecar.stop.stale",
+            "stale backend sidecar record 제거",
+            &format!("pid={} binary={}", record.pid, record.binary_path.display()),
+        )?;
+        return Ok(format!(
+            "backend stop\n- status: stale-record-removed\n- pid: {}\n- sidecar record: {}\n- ledger event: {}",
+            record.pid,
+            backend_sidecar_record_path().display(),
+            event_id
+        ));
+    }
+
+    let command_matched = process_command_matches_record(&record);
+
+    terminate_process(record.pid, false)?;
+    let stopped = wait_until_process_stops(record.pid, Duration::from_millis(STOP_TIMEOUT_MS));
+    if !stopped {
+        terminate_process(record.pid, true)?;
+        if !wait_until_process_stops(record.pid, Duration::from_millis(STOP_TIMEOUT_MS)) {
+            return Err(AppError::blocked(format!(
+                "backend stop 실패\n- pid: {}\n- 이유: graceful/force 종료 후에도 process가 남아 있습니다.",
+                record.pid
+            )));
+        }
+    }
+    remove_file_if_exists(&backend_sidecar_record_path())?;
+    let event_id = state::record_event(
+        "backend.sidecar.stop.completed",
+        "backend sidecar 종료 완료",
+        &format!(
+            "pid={} binary={} command_matched={}",
+            record.pid,
+            record.binary_path.display(),
+            command_matched
+        ),
+    )?;
+
+    Ok(format!(
+        "backend stop\n- status: stopped\n- pid: {}\n- command matched: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
+        record.pid,
+        command_matched,
+        record.stdout_log.display(),
+        record.stderr_log.display(),
+        event_id
     ))
 }
 
@@ -1136,6 +1257,302 @@ fn backend_install_record_path() -> PathBuf {
         .join("install-record.txt")
 }
 
+fn backend_sidecar_record_path() -> PathBuf {
+    paths::state_dir().join("backend-llama.cpp-sidecar.txt")
+}
+
+fn start_sidecar_with_timeout(model_path: &str, timeout: Duration) -> Result<String, AppError> {
+    let model_path = canonical_existing_file(model_path, "model")?;
+    let discovery = discover_llama_cpp();
+    if !discovery.binary_exists || !discovery.binary_is_file {
+        return Err(AppError::blocked(format!(
+            "backend start 차단\n- 이유: backend binary를 찾지 못했습니다.\n- selected binary: {}\n- 다음 단계: rpotato backend install 또는 {} 설정",
+            discovery.selected_path.display(),
+            ENV_BACKEND_PATH
+        )));
+    }
+    if !discovery.binary_executable {
+        return Err(AppError::blocked(format!(
+            "backend start 차단\n- 이유: backend binary 실행 권한이 없습니다.\n- selected binary: {}",
+            discovery.selected_path.display()
+        )));
+    }
+
+    if let Some(record) = read_backend_sidecar_record()? {
+        if process_is_running(record.pid) {
+            return Ok(format!(
+                "backend start\n- status: already-running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- stdout log: {}\n- stderr log: {}",
+                record.pid,
+                record.binary_path.display(),
+                record.model_path.display(),
+                record.host,
+                record.port,
+                record.stdout_log.display(),
+                record.stderr_log.display()
+            ));
+        }
+        remove_file_if_exists(&backend_sidecar_record_path())?;
+    }
+
+    let binary_path = fs::canonicalize(&discovery.selected_path).map_err(|err| {
+        AppError::runtime(format!(
+            "backend binary canonical path 계산 실패: {} ({err})",
+            discovery.selected_path.display()
+        ))
+    })?;
+    fs::create_dir_all(paths::logs_dir()).map_err(|err| {
+        AppError::runtime(format!(
+            "backend log directory를 만들지 못했습니다: {} ({err})",
+            paths::logs_dir().display()
+        ))
+    })?;
+    let run_id = now_ms();
+    let stdout_log = paths::logs_dir().join(format!("backend-llama.cpp-{run_id}-stdout.log"));
+    let stderr_log = paths::logs_dir().join(format!("backend-llama.cpp-{run_id}-stderr.log"));
+    let stdout_file = create_log_file(&stdout_log)?;
+    let stderr_file = create_log_file(&stderr_log)?;
+
+    let mut child = Command::new(&binary_path)
+        .arg("--model")
+        .arg(&model_path)
+        .arg("--host")
+        .arg(discovery.host)
+        .arg("--port")
+        .arg(discovery.port.to_string())
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(stdout_file))
+        .stderr(Stdio::from(stderr_file))
+        .spawn()
+        .map_err(|err| {
+            AppError::runtime(format!(
+                "backend sidecar 시작 실패: {} ({err})",
+                binary_path.display()
+            ))
+        })?;
+
+    let record = BackendSidecarRecord {
+        backend_id: discovery.adapter_id.to_string(),
+        pid: child.id(),
+        binary_path,
+        model_path,
+        host: discovery.host.to_string(),
+        port: discovery.port,
+        stdout_log,
+        stderr_log,
+        started_at_ms: now_ms(),
+    };
+    write_backend_sidecar_record(&record)?;
+
+    let started_at = Instant::now();
+    loop {
+        let health = probe_health(
+            &record.host,
+            record.port,
+            Duration::from_millis(HEALTH_TIMEOUT_MS),
+        );
+        if health.status == "healthy" {
+            let event_id = state::record_event(
+                "backend.sidecar.start.completed",
+                "backend sidecar 시작 완료",
+                &format!(
+                    "pid={} binary={} model={} port={} startup_ms={} stdout_log={} stderr_log={}",
+                    record.pid,
+                    record.binary_path.display(),
+                    record.model_path.display(),
+                    record.port,
+                    started_at.elapsed().as_millis(),
+                    record.stdout_log.display(),
+                    record.stderr_log.display()
+                ),
+            )?;
+            return Ok(format!(
+                "backend start\n- status: running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- startup ms: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
+                record.pid,
+                record.binary_path.display(),
+                record.model_path.display(),
+                record.host,
+                record.port,
+                started_at.elapsed().as_millis(),
+                record.stdout_log.display(),
+                record.stderr_log.display(),
+                event_id
+            ));
+        }
+
+        if let Some(status) = child.try_wait().map_err(|err| {
+            AppError::runtime(format!("backend sidecar process 상태 확인 실패: {err}"))
+        })? {
+            remove_file_if_exists(&backend_sidecar_record_path())?;
+            let event_id = state::record_event(
+                "backend.sidecar.start.failed",
+                "backend sidecar 시작 실패",
+                &format!(
+                    "pid={} exit_status={} stdout_log={} stderr_log={}",
+                    record.pid,
+                    status,
+                    record.stdout_log.display(),
+                    record.stderr_log.display()
+                ),
+            )?;
+            return Err(AppError::blocked(format!(
+                "backend start 실패\n- pid: {}\n- exit status: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
+                record.pid,
+                status,
+                record.stdout_log.display(),
+                record.stderr_log.display(),
+                event_id
+            )));
+        }
+
+        if started_at.elapsed() >= timeout {
+            let _ = child.kill();
+            let _ = child.wait();
+            remove_file_if_exists(&backend_sidecar_record_path())?;
+            let event_id = state::record_event(
+                "backend.sidecar.start.timeout",
+                "backend sidecar 시작 timeout",
+                &format!(
+                    "pid={} timeout_ms={} stdout_log={} stderr_log={}",
+                    record.pid,
+                    timeout.as_millis(),
+                    record.stdout_log.display(),
+                    record.stderr_log.display()
+                ),
+            )?;
+            return Err(AppError::blocked(format!(
+                "backend start timeout\n- pid: {}\n- timeout ms: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
+                record.pid,
+                timeout.as_millis(),
+                record.stdout_log.display(),
+                record.stderr_log.display(),
+                event_id
+            )));
+        }
+
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn canonical_existing_file(path: &str, label: &str) -> Result<PathBuf, AppError> {
+    let path = PathBuf::from(path);
+    if !path.is_file() {
+        return Err(AppError::usage(format!(
+            "{label} file을 찾지 못했습니다: {}",
+            path.display()
+        )));
+    }
+    fs::canonicalize(&path).map_err(|err| {
+        AppError::runtime(format!(
+            "{label} file canonical path 계산 실패: {} ({err})",
+            path.display()
+        ))
+    })
+}
+
+fn create_log_file(path: &Path) -> Result<File, AppError> {
+    OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(path)
+        .map_err(|err| AppError::runtime(format!("log file 생성 실패: {} ({err})", path.display())))
+}
+
+fn write_backend_sidecar_record(record: &BackendSidecarRecord) -> Result<(), AppError> {
+    let path = backend_sidecar_record_path();
+    let parent = path.parent().ok_or_else(|| {
+        AppError::runtime(format!(
+            "backend sidecar record parent path를 계산하지 못했습니다: {}",
+            path.display()
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(|err| {
+        AppError::runtime(format!(
+            "backend sidecar record directory를 만들지 못했습니다: {} ({err})",
+            parent.display()
+        ))
+    })?;
+
+    let contents = format!(
+        "backend_id={}\npid={}\nbinary_path={}\nmodel_path={}\nhost={}\nport={}\nstdout_log={}\nstderr_log={}\nstarted_at_ms={}\n",
+        record.backend_id,
+        record.pid,
+        record.binary_path.display(),
+        record.model_path.display(),
+        record.host,
+        record.port,
+        record.stdout_log.display(),
+        record.stderr_log.display(),
+        record.started_at_ms
+    );
+    fs::write(&path, contents).map_err(|err| {
+        AppError::runtime(format!(
+            "backend sidecar record를 쓰지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })
+}
+
+fn read_backend_sidecar_record() -> Result<Option<BackendSidecarRecord>, AppError> {
+    let path = backend_sidecar_record_path();
+    if !path.exists() {
+        return Ok(None);
+    }
+    let contents = fs::read_to_string(&path).map_err(|err| {
+        AppError::runtime(format!(
+            "backend sidecar record를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    parse_backend_sidecar_record(&contents)
+        .map(Some)
+        .ok_or_else(|| {
+            AppError::blocked(format!(
+                "backend sidecar record 형식이 유효하지 않습니다: {}",
+                path.display()
+            ))
+        })
+}
+
+fn parse_backend_sidecar_record(contents: &str) -> Option<BackendSidecarRecord> {
+    let mut backend_id = None;
+    let mut pid = None;
+    let mut binary_path = None;
+    let mut model_path = None;
+    let mut host = None;
+    let mut port = None;
+    let mut stdout_log = None;
+    let mut stderr_log = None;
+    let mut started_at_ms = None;
+
+    for line in contents.lines() {
+        let (key, value) = line.split_once('=')?;
+        match key {
+            "backend_id" => backend_id = Some(value.to_string()),
+            "pid" => pid = value.parse::<u32>().ok(),
+            "binary_path" => binary_path = Some(PathBuf::from(value)),
+            "model_path" => model_path = Some(PathBuf::from(value)),
+            "host" => host = Some(value.to_string()),
+            "port" => port = value.parse::<u16>().ok(),
+            "stdout_log" => stdout_log = Some(PathBuf::from(value)),
+            "stderr_log" => stderr_log = Some(PathBuf::from(value)),
+            "started_at_ms" => started_at_ms = value.parse::<u128>().ok(),
+            _ => {}
+        }
+    }
+
+    Some(BackendSidecarRecord {
+        backend_id: backend_id?,
+        pid: pid?,
+        binary_path: binary_path?,
+        model_path: model_path?,
+        host: host?,
+        port: port?,
+        stdout_log: stdout_log?,
+        stderr_log: stderr_log?,
+        started_at_ms: started_at_ms?,
+    })
+}
+
 fn write_backend_install_record(
     artifact: &BackendReleaseArtifact,
     binary_sha256: &str,
@@ -1401,6 +1818,153 @@ fn normalize_version_output(stdout: &[u8], stderr: &[u8]) -> Option<String> {
     }
 }
 
+#[cfg(unix)]
+fn process_is_running(pid: u32) -> bool {
+    if process_is_zombie(pid) {
+        return false;
+    }
+    Command::new("kill")
+        .arg("-0")
+        .arg(pid.to_string())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+#[cfg(unix)]
+fn process_is_zombie(pid: u32) -> bool {
+    Command::new("ps")
+        .arg("-p")
+        .arg(pid.to_string())
+        .arg("-o")
+        .arg("stat=")
+        .output()
+        .map(|output| {
+            String::from_utf8_lossy(&output.stdout)
+                .trim_start()
+                .starts_with('Z')
+        })
+        .unwrap_or(false)
+}
+
+#[cfg(windows)]
+fn process_is_running(pid: u32) -> bool {
+    Command::new("tasklist")
+        .arg("/FI")
+        .arg(format!("PID eq {pid}"))
+        .output()
+        .map(|output| String::from_utf8_lossy(&output.stdout).contains(&pid.to_string()))
+        .unwrap_or(false)
+}
+
+#[cfg(not(any(unix, windows)))]
+fn process_is_running(_pid: u32) -> bool {
+    false
+}
+
+#[cfg(unix)]
+fn process_command_matches_record(record: &BackendSidecarRecord) -> bool {
+    let Ok(output) = Command::new("ps")
+        .arg("-p")
+        .arg(record.pid.to_string())
+        .arg("-o")
+        .arg("command=")
+        .output()
+    else {
+        return false;
+    };
+    let command = String::from_utf8_lossy(&output.stdout);
+    if command.trim().is_empty() {
+        return record.backend_id == LLAMA_CPP_BACKEND_ID && record.binary_path.is_file();
+    }
+    command.contains(&record.binary_path.display().to_string())
+        || command.contains(LlamaCppAdapter.binary_name())
+        || (record.backend_id == LLAMA_CPP_BACKEND_ID && record.binary_path.is_file())
+}
+
+#[cfg(windows)]
+fn process_command_matches_record(record: &BackendSidecarRecord) -> bool {
+    Command::new("wmic")
+        .arg("process")
+        .arg("where")
+        .arg(format!("processid={}", record.pid))
+        .arg("get")
+        .arg("CommandLine")
+        .output()
+        .map(|output| {
+            String::from_utf8_lossy(&output.stdout)
+                .contains(&record.binary_path.display().to_string())
+        })
+        .unwrap_or(false)
+}
+
+#[cfg(not(any(unix, windows)))]
+fn process_command_matches_record(_record: &BackendSidecarRecord) -> bool {
+    false
+}
+
+#[cfg(unix)]
+fn terminate_process(pid: u32, force: bool) -> Result<(), AppError> {
+    let mut command = Command::new("kill");
+    if force {
+        command.arg("-9");
+    }
+    let status = command
+        .arg(pid.to_string())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map_err(|err| AppError::runtime(format!("backend process 종료 명령 실패: {err}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(AppError::runtime(format!(
+            "backend process 종료 명령이 실패했습니다: pid={pid}"
+        )))
+    }
+}
+
+#[cfg(windows)]
+fn terminate_process(pid: u32, force: bool) -> Result<(), AppError> {
+    let mut command = Command::new("taskkill");
+    command.arg("/PID").arg(pid.to_string()).arg("/T");
+    if force {
+        command.arg("/F");
+    }
+    let status = command
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map_err(|err| AppError::runtime(format!("backend process 종료 명령 실패: {err}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(AppError::runtime(format!(
+            "backend process 종료 명령이 실패했습니다: pid={pid}"
+        )))
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
+fn terminate_process(_pid: u32, _force: bool) -> Result<(), AppError> {
+    Err(AppError::blocked(
+        "현재 platform에서는 backend process stop을 지원하지 않습니다.",
+    ))
+}
+
+fn wait_until_process_stops(pid: u32, timeout: Duration) -> bool {
+    let started_at = Instant::now();
+    while started_at.elapsed() < timeout {
+        if !process_is_running(pid) {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    !process_is_running(pid)
+}
+
 fn selected_backend_release_artifact(
     manifest: &BackendReleaseManifest,
 ) -> Option<&'static BackendReleaseArtifact> {
@@ -1477,6 +2041,13 @@ fn display_vec(values: &[String]) -> String {
     } else {
         values.join(", ")
     }
+}
+
+fn now_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or_default()
 }
 
 fn configured_port(default_port: u16) -> (u16, &'static str) {
@@ -1693,6 +2264,121 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
         assert!(report.contains("version detection: ok"));
         assert!(report.contains("llama.cpp fake version b9878"));
+    }
+
+    #[test]
+    fn backend_status_reports_stopped_without_record() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = env::temp_dir().join(format!(
+            "rpotato-backend-status-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("project")).unwrap();
+        env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+
+        let report = status_report().unwrap();
+
+        env::remove_var("RPOTATO_DATA_HOME");
+        env::remove_var("RPOTATO_PROJECT_ROOT");
+        fs::remove_dir_all(root).unwrap();
+        assert!(report.contains("status: stopped"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stop_removes_stale_sidecar_record() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = env::temp_dir().join(format!(
+            "rpotato-backend-lifecycle-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("project")).unwrap();
+        env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+
+        let model_path = root.join("model.gguf");
+        fs::write(&model_path, b"fake model").unwrap();
+        let record = BackendSidecarRecord {
+            backend_id: LLAMA_CPP_BACKEND_ID.to_string(),
+            pid: u32::MAX,
+            binary_path: fs::canonicalize("/bin/sleep").unwrap(),
+            model_path: fs::canonicalize(&model_path).unwrap(),
+            host: DEFAULT_HOST.to_string(),
+            port: 65534,
+            stdout_log: root.join("stdout.log"),
+            stderr_log: root.join("stderr.log"),
+            started_at_ms: now_ms(),
+        };
+        write_backend_sidecar_record(&record).unwrap();
+
+        let status = status_report().unwrap();
+        let stop = stop_report().unwrap();
+        let record_after_stop = read_backend_sidecar_record().unwrap();
+
+        env::remove_var("RPOTATO_DATA_HOME");
+        env::remove_var("RPOTATO_PROJECT_ROOT");
+        env::remove_var(ENV_BACKEND_PORT);
+        let _ = fs::remove_dir_all(root);
+
+        assert!(status.contains("status: stale"));
+        assert!(stop.contains("status: stale-record-removed"));
+        assert!(record_after_stop.is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn start_timeout_removes_record_and_keeps_logs() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = env::temp_dir().join(format!(
+            "rpotato-backend-timeout-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("project")).unwrap();
+        env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        env::set_var(ENV_BACKEND_PORT, "65534");
+
+        let backend_script = root.join("fake-llama-server-timeout");
+        fs::write(
+            &backend_script,
+            "#!/bin/sh\necho 'booting stdout'\necho 'booting stderr' >&2\nsleep 10\n",
+        )
+        .unwrap();
+        set_executable_bit(&backend_script).unwrap();
+        env::set_var(ENV_BACKEND_PATH, &backend_script);
+
+        let model_path = root.join("model.gguf");
+        fs::write(&model_path, b"fake model").unwrap();
+        let err =
+            start_sidecar_with_timeout(model_path.to_str().unwrap(), Duration::from_millis(200))
+                .unwrap_err();
+        let stdout_logs = fs::read_dir(paths::logs_dir())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().contains("stdout"))
+            .count();
+        let stderr_logs = fs::read_dir(paths::logs_dir())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().contains("stderr"))
+            .count();
+        let record = read_backend_sidecar_record().unwrap();
+
+        env::remove_var("RPOTATO_DATA_HOME");
+        env::remove_var("RPOTATO_PROJECT_ROOT");
+        env::remove_var(ENV_BACKEND_PATH);
+        env::remove_var(ENV_BACKEND_PORT);
+        let _ = fs::remove_dir_all(root);
+
+        assert_eq!(err.code, 3);
+        assert!(err.message.contains("backend start timeout"));
+        assert!(record.is_none());
+        assert!(stdout_logs > 0);
+        assert!(stderr_logs > 0);
     }
 
     #[test]

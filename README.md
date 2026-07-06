@@ -166,6 +166,9 @@ Implemented command surfaces:
 - `rpotato backend doctor`
 - `rpotato backend install-plan`
 - `rpotato backend install`
+- `rpotato backend start --model <path>`
+- `rpotato backend status`
+- `rpotato backend stop`
 - `rpotato backend verify-archive <path> --sha256 <hash>`
 - `rpotato backend health-check`
 - `rpotato cache status`
@@ -237,7 +240,7 @@ Implemented command surfaces:
 
 `model list`, `model manifest`, `model inspect`, `model registry`, and `model download-plan` expose source-backed manifest structure, candidate status, benchmark source ledgers, local registry paths, and pre-download source/license/checksum fields. `model verify-file` verifies SHA-256 over local file bytes and records a ledger event. `model cleanup-failed` targets only partial or failed artifacts under app data. `model install` blocks real downloads until a verified GGUF artifact URL, checksum, provider terms, file size, and `llama.cpp` compatibility are present in the manifest.
 
-`backend doctor` shows managed `llama.cpp` sidecar discovery, environment override path, port, health URL, executable bit, install gate state, and version detection for recorded managed binaries. `backend install-plan` selects a source-backed `llama.cpp` release `b9878` CPU artifact for supported OS/CPU pairs and displays the release URL, archive URL, SHA-256, size, license source, and download path. `backend install` downloads or reuses the cached archive, verifies size and SHA-256, extracts it in staging, places the release payload in the managed backend directory, sets executable permissions on Unix, rolls back failed replacement, writes an install record, and records a ledger event. Env override binaries are not executed by `doctor`. `backend verify-archive` verifies a local backend archive SHA-256. `backend health-check` checks `/health` on the selected host and port with a short timeout.
+`backend doctor` shows managed `llama.cpp` sidecar discovery, environment override path, port, health URL, executable bit, install gate state, and version detection for recorded managed binaries. `backend install-plan` selects a source-backed `llama.cpp` release `b9878` CPU artifact for supported OS/CPU pairs and displays the release URL, archive URL, SHA-256, size, license source, and download path. `backend install` downloads or reuses the cached archive, verifies size and SHA-256, extracts it in staging, places the release payload in the managed backend directory, sets executable permissions on Unix, rolls back failed replacement, writes an install record, and records a ledger event. `backend start --model <path>` starts the selected sidecar with an explicit local model file, records pid/log paths, waits for `/health`, and kills the child on startup timeout. `backend status` reads the sidecar pid record and health status. `backend stop` removes stale records or terminates the recorded sidecar. Env override binaries are not executed by `doctor`; they are executed only by explicit lifecycle commands. `backend verify-archive` verifies a local backend archive SHA-256. `backend health-check` checks `/health` on the selected host and port with a short timeout.
 
 ## Documentation
 

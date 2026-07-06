@@ -237,12 +237,12 @@
 - [x] backend binary version detection
 - [x] backend binary path config
 - [x] port 선택
-- [ ] sidecar process lifecycle
+- [x] sidecar process lifecycle
 - [x] health check
-- [ ] startup timeout 처리
+- [x] startup timeout 처리
 - [ ] streaming response path
 - [ ] cancellation path
-- [ ] stderr/stdout capture
+- [x] stderr/stdout capture
 - [x] `doctor`의 backend diagnostics
 - [x] `rpotato backend doctor`의 backend diagnostics
 - [ ] uninstall 중 managed backend 제거

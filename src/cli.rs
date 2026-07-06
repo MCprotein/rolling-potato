@@ -32,6 +32,9 @@ rpotato
   rpotato backend doctor
   rpotato backend install-plan
   rpotato backend install
+  rpotato backend start --model <path>
+  rpotato backend status
+  rpotato backend stop
   rpotato backend verify-archive <path> --sha256 <hash>
   rpotato backend health-check
   rpotato cache status
@@ -63,6 +66,7 @@ rpotato
 
 현재 상태:
   backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 release payload를 배치합니다.
+  backend start/status/stop은 명시 모델 파일 기준의 managed sidecar lifecycle을 다룹니다.
   모델 다운로드는 검증된 manifest가 준비될 때까지 차단됩니다.";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -152,6 +156,9 @@ pub enum BackendCommand {
     Doctor,
     InstallPlan,
     Install,
+    Start { model_path: String },
+    Status,
+    Stop,
     VerifyArchive { path: String, sha256: String },
     HealthCheck,
 }
@@ -358,6 +365,22 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "backend" && action == "install" => {
             Ok(Command::Backend(BackendCommand::Install))
         }
+        [group, action, flag, model_path]
+            if group == "backend" && action == "start" && flag == "--model" =>
+        {
+            Ok(Command::Backend(BackendCommand::Start {
+                model_path: model_path.clone(),
+            }))
+        }
+        [group, action, ..] if group == "backend" && action == "start" => Err(AppError::usage(
+            "backend start는 --model <path> 형식이 필요합니다.",
+        )),
+        [group, action] if group == "backend" && action == "status" => {
+            Ok(Command::Backend(BackendCommand::Status))
+        }
+        [group, action] if group == "backend" && action == "stop" => {
+            Ok(Command::Backend(BackendCommand::Stop))
+        }
         [group, action, path, flag, sha256]
             if group == "backend" && action == "verify-archive" && flag == "--sha256" =>
         {
@@ -373,7 +396,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             Ok(Command::Backend(BackendCommand::HealthCheck))
         }
         [group, ..] if group == "backend" => Err(AppError::usage(
-            "backend 명령은 doctor, install-plan, install, verify-archive, health-check만 허용합니다.",
+            "backend 명령은 doctor, install-plan, install, start, status, stop, verify-archive, health-check만 허용합니다.",
         )),
         [group, action] if group == "cache" && action == "status" => Ok(Command::CacheStatus),
         [group, action] if group == "monitor" && action == "status" => {
@@ -806,6 +829,35 @@ mod tests {
     fn parses_backend_install() {
         let command = parse(["backend".to_string(), "install".to_string()]).unwrap();
         assert_eq!(command, Command::Backend(BackendCommand::Install));
+    }
+
+    #[test]
+    fn parses_backend_start() {
+        let command = parse([
+            "backend".to_string(),
+            "start".to_string(),
+            "--model".to_string(),
+            "model.gguf".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Backend(BackendCommand::Start {
+                model_path: "model.gguf".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_backend_status() {
+        let command = parse(["backend".to_string(), "status".to_string()]).unwrap();
+        assert_eq!(command, Command::Backend(BackendCommand::Status));
+    }
+
+    #[test]
+    fn parses_backend_stop() {
+        let command = parse(["backend".to_string(), "stop".to_string()]).unwrap();
+        assert_eq!(command, Command::Backend(BackendCommand::Stop));
     }
 
     #[test]

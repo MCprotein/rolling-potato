@@ -237,12 +237,12 @@ Goal: let the runtime core manage the `llama.cpp` sidecar and expose backend dia
 - [x] Backend binary version detection
 - [x] Backend binary path config
 - [x] Port selection
-- [ ] Sidecar process lifecycle
+- [x] Sidecar process lifecycle
 - [x] Health check
-- [ ] Startup timeout handling
+- [x] Startup timeout handling
 - [ ] Streaming response path
 - [ ] Cancellation path
-- [ ] stderr/stdout capture
+- [x] stderr/stdout capture
 - [x] Backend diagnostics in `doctor`
 - [x] Backend diagnostics in `rpotato backend doctor`
 - [ ] Managed backend removal during uninstall

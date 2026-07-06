@@ -71,11 +71,14 @@ Phase 6 currently implements:
 - The current manifest pins source-backed `llama.cpp` release `b9878` CPU artifacts for macOS arm64/x64, Linux arm64/x64, and Windows arm64/x64. Source: GitHub Releases API at https://api.github.com/repos/ggml-org/llama.cpp/releases/latest and release page https://github.com/ggml-org/llama.cpp/releases/tag/b9878, checked 2026-07-06.
 - `backend install-plan` is `ready` only when the current OS/CPU pair has a recorded artifact; unsupported platforms remain blocked.
 - `rpotato backend install` downloads or reuses the cached archive, verifies file size and SHA-256, extracts into a staging directory, places the release payload in the managed backend directory, sets the executable bit on Unix, rolls back failed replacement, writes an install record with the managed binary SHA-256, and records a ledger event.
+- `rpotato backend start --model <path>` starts the selected sidecar with an explicit local model file, writes a pid record under app state, captures stdout/stderr to log files, waits for `/health`, and kills the child on startup timeout.
+- `rpotato backend status` reads the pid record, reports `running`, `stale`, or `stopped`, and includes health status when a process is running.
+- `rpotato backend stop` removes stale records or terminates the recorded sidecar process and records a ledger event.
 - `rpotato backend verify-archive <path> --sha256 <hash>` verifies SHA-256 over local backend archive bytes and records a ledger event.
 - `rpotato backend health-check` sends an HTTP request to `/health` on the selected host/port with a 500 ms timeout and reports `healthy`, `unhealthy`, or `unreachable`.
 - `rpotato doctor` shows the same discovery summary.
 - Version detection runs only for recorded managed binaries whose install record and current binary SHA-256 match the selected release manifest. Env override binaries are skipped.
-- Sidecar process startup, streaming, cancellation, and stderr/stdout capture remain later Phase 6 work.
+- Streaming response handling and generation cancellation remain later Phase 6 work.
 
 ## Later Adapters
 
