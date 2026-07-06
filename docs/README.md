@@ -42,6 +42,7 @@ Korean translations and Korean originals are kept under [docs/ko/](ko/). The roo
 
 - [Development](development.md)
 - [Release](release.md)
+- [Release notes](../RELEASE_NOTES.md)
 - [Threat model](threat-model.md)
 - [Korean output guard](korean-output-guard.md)
 - [CLI output style](cli-output-style.md)

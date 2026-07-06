@@ -42,6 +42,7 @@
 
 - [개발](development.md)
 - [릴리즈](release.md)
+- [릴리즈 노트](RELEASE_NOTES.md)
 - [위협 모델](threat-model.md)
 - [한국어 출력 guard](korean-output-guard.md)
 - [명령줄 출력 스타일](cli-output-style.md)
