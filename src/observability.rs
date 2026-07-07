@@ -52,6 +52,14 @@ pub struct SessionHistoryEntry {
     pub last_summary: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionEventEntry {
+    pub event_id: String,
+    pub ts_ms: i64,
+    pub event_type: String,
+    pub summary: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelRunMetric {
     pub model_run_id: String,
@@ -218,6 +226,14 @@ pub fn session_entry(session_id: &str) -> Result<Option<SessionHistoryEntry>, Ap
     Ok(entries
         .into_iter()
         .find(|entry| entry.session_id == session_id))
+}
+
+pub fn session_events(session_id: &str, limit: usize) -> Result<Vec<SessionEventEntry>, AppError> {
+    let identity = ledger::current_identity();
+    let (connection, _) = open_or_recover()?;
+    replay_ledger(&connection)?;
+    project_sessions_from_events(&connection, &identity)?;
+    query_session_events(&connection, &identity.project_id, session_id, limit)
 }
 
 pub fn record_model_run(metric: &ModelRunMetric) -> Result<(), AppError> {
@@ -732,6 +748,49 @@ fn query_session_history(
 
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(sql_error("session history 결과를 읽지 못했습니다"))
+}
+
+fn query_session_events(
+    connection: &Connection,
+    project_id: &str,
+    session_id: &str,
+    limit: usize,
+) -> Result<Vec<SessionEventEntry>, AppError> {
+    let mut statement = connection
+        .prepare(
+            "
+        SELECT event_id,
+               ts_ms,
+               event_type,
+               summary
+          FROM ledger_events
+         WHERE project_id = ?1
+           AND session_id = ?2
+      ORDER BY ts_ms ASC,
+               event_id ASC
+         LIMIT ?3",
+        )
+        .map_err(sql_error("session event query를 준비하지 못했습니다"))?;
+    let rows = statement
+        .query_map(
+            params![
+                project_id,
+                session_id,
+                i64::try_from(limit).unwrap_or(i64::MAX)
+            ],
+            |row| {
+                Ok(SessionEventEntry {
+                    event_id: row.get(0)?,
+                    ts_ms: row.get(1)?,
+                    event_type: row.get(2)?,
+                    summary: row.get(3)?,
+                })
+            },
+        )
+        .map_err(sql_error("session event query를 실행하지 못했습니다"))?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(sql_error("session event 결과를 읽지 못했습니다"))
 }
 
 fn recover_corrupt_db(path: &std::path::Path) -> Result<PathBuf, AppError> {

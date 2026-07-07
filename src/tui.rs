@@ -97,7 +97,7 @@ pub fn overview_report() -> Result<String, AppError> {
         &mut lines,
         width,
         "views",
-        "rpotato tui | rpotato tui monitor | rpotato tui sessions | rpotato tui approvals",
+        "rpotato tui | rpotato tui monitor | rpotato tui sessions | rpotato tui transcript <session-id> | rpotato tui approvals",
     );
     push_footer(&mut lines, width);
     Ok(lines.join("\n"))
@@ -222,8 +222,101 @@ pub fn sessions_report() -> Result<String, AppError> {
     push_kv(
         &mut lines,
         width,
+        "inspect",
+        "rpotato tui transcript <session-id>",
+    );
+    push_kv(
+        &mut lines,
+        width,
         "state",
         &paths::current_state_file().display().to_string(),
+    );
+    push_footer(&mut lines, width);
+    Ok(lines.join("\n"))
+}
+
+pub fn transcript_report(session_id: &str) -> Result<String, AppError> {
+    let width = terminal_width();
+    let session = observability::session_entry(session_id)?.ok_or_else(|| {
+        AppError::blocked(format!(
+            "tui transcript 차단\n- session id: {}\n- 이유: 현재 project의 session history에서 찾지 못했습니다.\n- 확인: rpotato tui sessions",
+            session_id
+        ))
+    })?;
+    let events = observability::session_events(session_id, 40)?;
+
+    let mut lines = Vec::new();
+    push_header(&mut lines, width, "rpotato TUI beta - transcript");
+    push_kv(&mut lines, width, "project", &session.project_root);
+    push_kv(&mut lines, width, "session", &session.session_id);
+    push_kv(
+        &mut lines,
+        width,
+        "started",
+        &session.started_at_ms.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "last event",
+        &session
+            .last_event_at_ms
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "none".to_string()),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "events",
+        &session.event_count.to_string(),
+    );
+    push_rule(&mut lines, width);
+    push_section(&mut lines, width, "timeline");
+    if events.is_empty() {
+        push_wrapped(
+            &mut lines,
+            width,
+            "No ledger events are projected for this session yet.",
+        );
+    } else {
+        push_wrapped(&mut lines, width, "ts_ms | event type | event id | summary");
+        for event in &events {
+            push_wrapped(
+                &mut lines,
+                width,
+                &format!(
+                    "{} | {} | {} | {}",
+                    event.ts_ms,
+                    event.event_type,
+                    short_id(&event.event_id),
+                    event.summary
+                ),
+            );
+        }
+        if session.event_count > i64::try_from(events.len()).unwrap_or(i64::MAX) {
+            push_wrapped(
+                &mut lines,
+                width,
+                &format!(
+                    "showing first {} projected events; total event count is {}",
+                    events.len(),
+                    session.event_count
+                ),
+            );
+        }
+    }
+    push_rule(&mut lines, width);
+    push_kv(
+        &mut lines,
+        width,
+        "resume",
+        &format!("rpotato session resume {}", session.session_id),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "raw details",
+        "not shown in the TUI beta by default",
     );
     push_footer(&mut lines, width);
     Ok(lines.join("\n"))
@@ -503,6 +596,32 @@ mod tests {
 
         assert!(report.contains("rpotato TUI beta - sessions"));
         assert!(report.contains("resume: rpotato session resume <session-id>"));
+    }
+
+    #[test]
+    fn transcript_renders_session_event_timeline() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = test_root("rpotato-tui-transcript-test");
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        let session = crate::state::session_new_report().unwrap();
+        let session_id = report_value(&session, "session id").unwrap();
+        crate::state::record_event("test.first", "first transcript event", "details one").unwrap();
+        crate::state::record_event("test.second", "second transcript event", "details two")
+            .unwrap();
+        let report = transcript_report(&session_id).unwrap();
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+
+        assert!(report.contains("rpotato TUI beta - transcript"));
+        assert!(report.contains(&format!("session: {session_id}")));
+        assert!(report.contains("[timeline]"));
+        assert!(report.contains("test.first"));
+        assert!(report.contains("first transcript event"));
+        assert!(report.contains("test.second"));
+        assert!(report.contains("raw details: not shown"));
     }
 
     #[test]

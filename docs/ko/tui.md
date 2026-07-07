@@ -23,6 +23,12 @@ TUI design source of truth는 [DESIGN.md](../DESIGN.md)입니다. 특히 monitor
 
 Approval view는 project-local `.rpotato/patch-proposals/` record를 읽고 proposal status, id, path, replacement count를 보여줍니다. Diff view는 proposal metadata, approval/dry-run command hint, 저장된 unified diff를 보여주며 patch approve나 apply는 수행하지 않습니다.
 
+`v0.7.0`은 read-only beta에 선택한 session의 event inspection을 추가합니다.
+
+- `rpotato tui transcript <session-id>`
+
+Transcript view는 현재 project의 SQLite ledger projection을 읽고 session metadata와 timestamp 순 event timeline을 보여줍니다. Raw model transcript replay, conversation continuation, raw event detail 기본 노출은 의도적으로 수행하지 않습니다.
+
 첫 beta의 framework decision은 dependency-free terminal-safe surface로 시작하는 것입니다. Interaction requirement가 안정된 뒤 더 풍부한 TUI crate가 필요한지 결정합니다.
 
 ## 목표

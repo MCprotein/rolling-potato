@@ -436,7 +436,7 @@
 - [x] TUI framework decision
 - [x] `rpotato tui`
 - [ ] `DESIGN.md` 기반 TUI monitoring UX spec
-- [ ] TUI transcript/session view
+- [x] TUI transcript/session view
 - [ ] TUI plan/context/ontology view
 - [x] TUI approval queue
 - [x] TUI diff viewer

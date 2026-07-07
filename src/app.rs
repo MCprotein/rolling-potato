@@ -115,6 +115,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", tui::sessions_report()?);
             Ok(())
         }
+        Command::Tui(TuiCommand::Transcript { session_id }) => {
+            println!("{}", tui::transcript_report(&session_id)?);
+            Ok(())
+        }
         Command::Tui(TuiCommand::Approvals) => {
             println!("{}", tui::approvals_report()?);
             Ok(())
