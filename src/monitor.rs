@@ -70,13 +70,14 @@ pub fn models_report() -> Result<String, AppError> {
                 .map(|value| format!("{value:.1}ms"))
                 .unwrap_or_else(|| "미기록".to_string());
             format!(
-                "- {}: runs {}, prompt {}, completion {}, total {}, avg latency {}",
+                "- {}: runs {}, prompt {}, completion {}, total {}, avg latency {}, avg tps {}",
                 summary.model_id,
                 summary.runs,
                 summary.prompt_tokens,
                 summary.completion_tokens,
                 summary.total_tokens,
-                latency
+                latency,
+                tps_label(summary.avg_tokens_per_second)
             )
         })
         .collect::<Vec<_>>()
@@ -122,4 +123,10 @@ fn display_optional_u64(value: Option<u64>) -> String {
     value
         .map(|value| value.to_string())
         .unwrap_or_else(|| "없음".to_string())
+}
+
+fn tps_label(value: Option<f64>) -> String {
+    value
+        .map(|value| format!("{value:.1} tok/s"))
+        .unwrap_or_else(|| "미기록".to_string())
 }

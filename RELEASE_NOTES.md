@@ -1,5 +1,46 @@
 # Release Notes
 
+## v0.10.0 - TUI Resource Monitor
+
+Release date: 2026-07-07
+
+This release extends the read-only TUI beta with a resource-pressure monitor for
+the managed backend sidecar. It is still a source-only developer preview: it
+does not ship model weights, external plugin packages, or prebuilt `rpotato`
+binaries.
+
+### Included
+
+- `rpotato tui monitor` now shows resource sample count, latest pressure status,
+  CPU percent, average/peak RSS, disk bytes, and recorded timestamp.
+- Model monitoring summaries now include average tokens per second alongside
+  total tokens and average latency.
+- The monitor layout stays dependency-free and terminal-safe, including narrow
+  `COLUMNS=64` rendering.
+- English and Korean documentation updates for the v0.10.0 TUI monitor scope.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (148 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato tui monitor`
+- `COLUMNS=64 rpotato tui monitor`
+
+The TUI smoke used a scratch project root under `/private/tmp`, initialized
+runtime state with observability schema v2, and verified that the monitor view
+renders resource pressure, resource sample count, model/token counts, read-only
+actions, and the beta boundary without mutating workflow state.
+
+### Known Issues
+
+- Resource monitor data is event-driven and reflects the latest recorded sample;
+  it is not continuous live polling.
+- Runtime resource governor behavior remains planned for v0.11.0+.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.9.0 - Backend Resource Sampling
 
 Release date: 2026-07-07
@@ -40,7 +81,7 @@ fields.
 ### Known Issues
 
 - Resource sampling is event-driven, not continuous background polling.
-- TUI resource-pressure display remains planned for v0.10.0.
+- TUI resource-pressure display is not included in v0.9.0; it is introduced in v0.10.0.
 - Runtime resource governor behavior remains planned for v0.11.0+.
 - No prebuilt `rpotato` binary artifacts are attached to this preview release.
 

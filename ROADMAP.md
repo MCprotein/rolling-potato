@@ -453,7 +453,7 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [ ] `rpotato team status`
 - [x] TUI framework decision
 - [x] `rpotato tui`
-- [ ] TUI monitoring UX spec from `DESIGN.md`
+- [x] TUI monitoring UX spec from `DESIGN.md`
 - [x] TUI transcript/session view
 - [ ] TUI plan/context/ontology view
 - [x] TUI approval queue
@@ -461,7 +461,7 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [ ] TUI tool output viewer
 - [ ] TUI subagent/team status view
 - [x] TUI model/token monitoring view
-- [ ] TUI CPU/memory/resource pressure monitor view
+- [x] TUI CPU/memory/resource pressure monitor view
 - [ ] TUI model knowledge panel
 - [x] TUI evidence/stop gate view
 - [ ] TUI plugin permission review view

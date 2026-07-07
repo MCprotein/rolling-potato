@@ -35,6 +35,12 @@ Transcript view는 현재 project의 SQLite ledger projection을 읽고 session 
 
 Evidence view는 runtime evidence JSONL path, project evidence directory, SQLite `evidence_records` count, SQLite `stop_gate_results` count, stale policy summary를 읽습니다. Workflow를 pass/fail 판정하지는 않으며, terminal stop-gate evaluation은 runtime-core 후속 작업입니다.
 
+`v0.10.0`은 read-only monitor view에 resource pressure와 token throughput을 추가합니다.
+
+- `rpotato tui monitor`
+
+Monitor view는 SQLite model summary와 최신 `resource_samples` row를 읽습니다. Model run count, token record, average latency, average tokens per second, resource sample count, 최신 pressure status, CPU percent, average/peak RSS, disk bytes, recorded timestamp를 보여줍니다. 계속 read-only이며 export, prune, governor behavior는 TUI beta 밖에 둡니다.
+
 첫 beta의 framework decision은 dependency-free terminal-safe surface로 시작하는 것입니다. Interaction requirement가 안정된 뒤 더 풍부한 TUI crate가 필요한지 결정합니다.
 
 ## 목표
@@ -196,7 +202,7 @@ TUI는 smoke test가 필요합니다.
 - diff view가 long file을 처리함
 - cancellation이 runtime state를 update함
 - team/subagent status update
-- model/token monitoring view updates
+- model/token/resource monitoring view update
 - plugin permission review가 runtime policy를 bypass하지 않음
 - shell/bin/MCP/background/remote/file-write capability가 기본 차단으로 표시됨
 - Korean output guard가 final report에 visible

@@ -35,6 +35,12 @@ The transcript view reads the SQLite ledger projection for the current project a
 
 The evidence view reads the runtime evidence JSONL path, project evidence directory, SQLite `evidence_records` count, SQLite `stop_gate_results` count, and stale policy summary. It intentionally does not pass or fail workflows; terminal stop-gate evaluation remains runtime-core work.
 
+`v0.10.0` extends the read-only monitor view with resource pressure and token throughput:
+
+- `rpotato tui monitor`
+
+The monitor view reads SQLite model summaries and the latest `resource_samples` row. It shows model run counts, token records, average latency, average tokens per second, resource sample count, latest pressure status, CPU percent, average/peak RSS, disk bytes, and recorded timestamp. It remains read-only; export, prune, and governor behavior stay outside the TUI beta.
+
 This is the framework decision for the first beta: keep the initial surface dependency-free and terminal-safe, then decide later whether a richer TUI crate is justified after interaction requirements stabilize.
 
 ## Goals
@@ -196,7 +202,7 @@ TUI needs smoke tests for:
 - diff view handles long files
 - cancellation updates runtime state
 - team/subagent status updates
-- model/token monitoring view updates
+- model/token/resource monitoring view updates
 - plugin permission review does not bypass runtime policy
 - shell/bin/MCP/background/remote/file-write capabilities are shown as blocked by default
 - Korean output guard is visible in final report
