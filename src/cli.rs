@@ -24,6 +24,7 @@ rpotato
   rpotato tui transcript <session-id>
   rpotato tui approvals
   rpotato tui diff <proposal-id>
+  rpotato tui evidence
   rpotato cancel
   rpotato evidence validate <artifact-pointer>
   rpotato skill list
@@ -136,6 +137,7 @@ pub enum TuiCommand {
     Transcript { session_id: String },
     Approvals,
     Diff { proposal_id: String },
+    Evidence,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -368,8 +370,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, ..] if group == "tui" && action == "diff" => Err(AppError::usage(
             "tui diff에는 proposal id가 필요합니다.",
         )),
+        [group, action] if group == "tui" && action == "evidence" => {
+            Ok(Command::Tui(TuiCommand::Evidence))
+        }
         [group, ..] if group == "tui" => Err(AppError::usage(
-            "tui 명령은 인자 없음, monitor, sessions, transcript, approvals, diff만 허용합니다.",
+            "tui 명령은 인자 없음, monitor, sessions, transcript, approvals, diff, evidence만 허용합니다.",
         )),
         [arg] if arg == "cancel" => Ok(Command::Cancel),
         [group, action, pointer] if group == "evidence" && action == "validate" => {
@@ -1571,6 +1576,12 @@ mod tests {
                 proposal_id: "patch-proposal-abc123".to_string()
             })
         );
+    }
+
+    #[test]
+    fn parses_tui_evidence() {
+        let command = parse(["tui".to_string(), "evidence".to_string()]).unwrap();
+        assert_eq!(command, Command::Tui(TuiCommand::Evidence));
     }
 
     #[test]

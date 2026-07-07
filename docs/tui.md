@@ -29,6 +29,12 @@ The approval view reads project-local `.rpotato/patch-proposals/` records and sh
 
 The transcript view reads the SQLite ledger projection for the current project and shows session metadata plus a timestamp-ordered event timeline. It intentionally does not replay raw model transcripts, continue conversations, or expose raw event details by default.
 
+`v0.8.0` extends the read-only beta with evidence and stop-gate status inspection:
+
+- `rpotato tui evidence`
+
+The evidence view reads the runtime evidence JSONL path, project evidence directory, SQLite `evidence_records` count, SQLite `stop_gate_results` count, and stale policy summary. It intentionally does not pass or fail workflows; terminal stop-gate evaluation remains runtime-core work.
+
 This is the framework decision for the first beta: keep the initial surface dependency-free and terminal-safe, then decide later whether a richer TUI crate is justified after interaction requirements stabilize.
 
 ## Goals

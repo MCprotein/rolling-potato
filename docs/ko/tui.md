@@ -29,6 +29,12 @@ Approval view는 project-local `.rpotato/patch-proposals/` record를 읽고 prop
 
 Transcript view는 현재 project의 SQLite ledger projection을 읽고 session metadata와 timestamp 순 event timeline을 보여줍니다. Raw model transcript replay, conversation continuation, raw event detail 기본 노출은 의도적으로 수행하지 않습니다.
 
+`v0.8.0`은 read-only beta에 evidence/stop-gate status inspection을 추가합니다.
+
+- `rpotato tui evidence`
+
+Evidence view는 runtime evidence JSONL path, project evidence directory, SQLite `evidence_records` count, SQLite `stop_gate_results` count, stale policy summary를 읽습니다. Workflow를 pass/fail 판정하지는 않으며, terminal stop-gate evaluation은 runtime-core 후속 작업입니다.
+
 첫 beta의 framework decision은 dependency-free terminal-safe surface로 시작하는 것입니다. Interaction requirement가 안정된 뒤 더 풍부한 TUI crate가 필요한지 결정합니다.
 
 ## 목표

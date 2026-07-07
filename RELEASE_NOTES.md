@@ -1,5 +1,48 @@
 # Release Notes
 
+## v0.8.0 - TUI Evidence And Stop Gate View
+
+Release date: 2026-07-07
+
+This release extends the read-only TUI beta with evidence and stop-gate status
+inspection. It is still a source-only developer preview: it does not ship model
+weights, external plugin packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- `rpotato tui evidence` shows runtime evidence store paths, runtime evidence
+  record counts, project evidence artifact counts, SQLite evidence record
+  counts, SQLite stop-gate result counts, and the stale evidence policy summary.
+- The TUI overview now points to the evidence view.
+- `monitor status` now includes SQLite evidence and stop-gate result counts.
+- Read-only evidence store status API with project-local artifact counting.
+- English and Korean documentation updates for the expanded TUI beta surface.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (143 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato tui evidence`
+- `COLUMNS=64 rpotato tui evidence`
+
+The TUI smoke used a scratch project root under `/private/tmp`, initialized
+runtime state, and rendered the evidence view with runtime evidence,
+project-evidence, observability, stop-gate count, stale-policy, validation
+command, and read-only beta-boundary fields.
+
+### Known Issues
+
+- The TUI beta is still a one-shot read-only render, not an interactive event
+  loop.
+- The evidence view reports evidence/stop-gate status only; it does not pass or
+  fail workflows.
+- Terminal stop-gate evaluation, tool output viewer, subagent/team status, and
+  plugin permission review remain future work.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.7.0 - TUI Session Transcript View
 
 Release date: 2026-07-07

@@ -81,6 +81,7 @@ rpotato tui sessions
 rpotato tui transcript <session-id>
 rpotato tui approvals
 rpotato tui diff <proposal-id>
+rpotato tui evidence
 rpotato state reconcile
 rpotato state resume
 rpotato session list
@@ -209,6 +210,7 @@ Implemented command surfaces:
 - `rpotato tui transcript <session-id>`
 - `rpotato tui approvals`
 - `rpotato tui diff <proposal-id>`
+- `rpotato tui evidence`
 - `rpotato patch preview --path <path> --find <text> --replace <text>`
 - `rpotato patch approve <proposal-id> --token <token> [--dry-run] [--verify-command <command>]`
 - `rpotato monitor status`
@@ -253,7 +255,7 @@ Implemented command surfaces:
 
 `intent classify`, `intent routes`, and `skill run` remain pre-execution surfaces: they normalize routing state and record ledger events without calling the model.
 
-`tui`, `tui monitor`, `tui sessions`, `tui transcript <session-id>`, `tui approvals`, and `tui diff <proposal-id>` render read-only TUI beta surfaces using existing runtime state, the SQLite observability projection, and project-local patch proposal records. They show project/session state, model/token summaries, session history, selected-session event timelines, approval queue records, proposal metadata, literal diffs, and read-only boundaries in terminal-friendly ASCII layouts. They do not approve, apply, resume, cancel, replay transcripts, or mutate workflows.
+`tui`, `tui monitor`, `tui sessions`, `tui transcript <session-id>`, `tui approvals`, `tui diff <proposal-id>`, and `tui evidence` render read-only TUI beta surfaces using existing runtime state, the SQLite observability projection, project-local patch proposal records, and evidence store paths. They show project/session state, model/token summaries, session history, selected-session event timelines, approval queue records, proposal metadata, literal diffs, evidence counts, stop-gate result counts, stale policy, and read-only boundaries in terminal-friendly ASCII layouts. They do not approve, apply, resume, cancel, replay transcripts, pass or fail stop gates, or mutate workflows.
 
 `policy` and `hooks` commands provide command/path permission decisions, credential redaction, lifecycle hook registry output, and fail-closed hook result validation. Real tool execution has not yet been wired behind this policy surface.
 

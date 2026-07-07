@@ -444,7 +444,7 @@
 - [ ] TUI subagent/team status view
 - [x] TUI model/token monitoring view
 - [ ] TUI model knowledge panel
-- [ ] TUI evidence/stop gate view
+- [x] TUI evidence/stop gate view
 - [ ] TUI plugin permission review view
 - [ ] optional local HTML report/dashboard decision
 - [ ] TUI cancel/resume controls

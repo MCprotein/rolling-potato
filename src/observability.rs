@@ -21,6 +21,8 @@ pub struct StoreStatus {
     pub workflows: i64,
     pub model_runs: i64,
     pub token_records: i64,
+    pub evidence_records: i64,
+    pub stop_gate_results: i64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -671,6 +673,8 @@ fn status_from_connection(
         workflows: count_scalar(connection, "SELECT COUNT(*) FROM workflows")?,
         model_runs: count_scalar(connection, "SELECT COUNT(*) FROM model_runs")?,
         token_records: count_scalar(connection, "SELECT COUNT(*) FROM token_usage")?,
+        evidence_records: count_scalar(connection, "SELECT COUNT(*) FROM evidence_records")?,
+        stop_gate_results: count_scalar(connection, "SELECT COUNT(*) FROM stop_gate_results")?,
     })
 }
 
