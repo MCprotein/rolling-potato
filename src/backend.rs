@@ -150,7 +150,8 @@ pub struct BackendChatRun {
     pub ctx_size: Option<u32>,
     pub prompt_chars: usize,
     pub response_chars: usize,
-    pub max_tokens: u32,
+    pub requested_max_tokens: u32,
+    pub effective_max_tokens: u32,
     pub finish_reason: String,
     pub guard_status: &'static str,
     pub prompt_tokens: Option<u32>,
@@ -158,6 +159,11 @@ pub struct BackendChatRun {
     pub total_tokens: Option<u32>,
     pub elapsed_ms: u128,
     pub ledger_event: String,
+    pub resource_governor_admission: String,
+    pub resource_governor_token_action: String,
+    pub resource_governor_reason: &'static str,
+    pub resource_governor_hint: &'static str,
+    pub resource_governor_sample_event: String,
     pub resource_pressure: String,
     pub resource_cpu_percent: Option<f64>,
     pub resource_average_rss_bytes: Option<u64>,
@@ -171,6 +177,7 @@ pub struct BackendChatRun {
 struct BackendResourceSampleReport {
     metric: observability::ResourceSampleMetric,
     ledger_event: String,
+    pressure: resource::ResourcePressure,
 }
 
 impl BackendArchiveKind {
@@ -672,7 +679,7 @@ pub fn chat_report(prompt: &str, max_tokens: Option<u32>) -> Result<String, AppE
     let run = chat_once(prompt, max_tokens)?;
 
     Ok(format!(
-        "backend chat\n- status: completed\n- backend: {}\n- pid: {}\n- endpoint: /v1/chat/completions\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- non-thinking source: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- max tokens: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- ledger event: {}\n- response:\n{}",
+        "backend chat\n- status: completed\n- backend: {}\n- pid: {}\n- endpoint: /v1/chat/completions\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- non-thinking source: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- resource governor hint: {}\n- resource governor sample event: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- ledger event: {}\n- response:\n{}",
         run.backend_id,
         run.pid,
         QWEN_NON_THINKING_SOURCE,
@@ -680,7 +687,13 @@ pub fn chat_report(prompt: &str, max_tokens: Option<u32>) -> Result<String, AppE
         run.model_path.display(),
         display_optional_u32(run.ctx_size),
         run.prompt_chars,
-        run.max_tokens,
+        run.requested_max_tokens,
+        run.effective_max_tokens,
+        run.resource_governor_admission,
+        run.resource_governor_token_action,
+        run.resource_governor_reason,
+        run.resource_governor_hint,
+        run.resource_governor_sample_event,
         run.finish_reason,
         run.guard_status,
         display_optional_u32(run.prompt_tokens),
@@ -704,7 +717,7 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
             "backend chat은 비어 있지 않은 --prompt <text> 값이 필요합니다.",
         ));
     }
-    let max_tokens = max_tokens.unwrap_or(DEFAULT_CHAT_MAX_TOKENS);
+    let requested_max_tokens = max_tokens.unwrap_or(DEFAULT_CHAT_MAX_TOKENS);
     let Some(record) = read_backend_sidecar_record()? else {
         return Err(AppError::blocked(format!(
             "backend chat 차단\n- 이유: 실행 중인 sidecar record가 없습니다.\n- 다음 단계: rpotato backend start --model <path> --ctx-size 4096\n- sidecar record: {}",
@@ -732,9 +745,45 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         )));
     }
 
+    let governor_sample = record_backend_resource_sample(&record, "chat-governor")?;
+    let governor = resource::chat_governor_decision(governor_sample.pressure, requested_max_tokens);
+    if governor.is_blocked() {
+        let event_id = state::record_event(
+            "backend.chat.governor.blocked",
+            "backend chat resource governor 차단",
+            &format!(
+                "pid={} backend={} prompt_chars={} requested_max_tokens={} pressure_status={} admission={} token_action={} reason={} sample_event={}",
+                record.pid,
+                record.backend_id,
+                prompt.chars().count(),
+                requested_max_tokens,
+                governor.pressure.as_str(),
+                governor.admission.as_str(),
+                governor.token_action.as_str(),
+                governor.reason,
+                governor_sample.ledger_event
+            ),
+        )?;
+        return Err(AppError::blocked(format!(
+            "backend chat 차단\n- 이유: resource governor가 critical pressure에서 요청을 차단했습니다.\n- pid: {}\n- resource pressure: {}\n- requested max tokens: {}\n- effective max tokens: blocked\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- resource governor hint: {}\n- resource governor sample event: {}\n- ledger event: {}",
+            record.pid,
+            governor.pressure.as_str(),
+            requested_max_tokens,
+            governor.admission.as_str(),
+            governor.token_action.as_str(),
+            governor.reason,
+            governor.hint,
+            governor_sample.ledger_event,
+            event_id
+        )));
+    }
+    let effective_max_tokens = governor
+        .effective_max_tokens
+        .unwrap_or(requested_max_tokens);
+
     let started_at_ms = now_ms();
     let started_at = Instant::now();
-    let completion = request_chat_completion(&record, prompt, max_tokens)?;
+    let completion = request_chat_completion(&record, prompt, effective_max_tokens)?;
     let elapsed_ms = started_at.elapsed().as_millis();
     let (display_content, had_reasoning_trace) = strip_reasoning_trace(&completion.content);
     let display_content = display_content.trim().to_string();
@@ -756,12 +805,17 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         event_type,
         "backend chat completion 실행",
         &format!(
-            "pid={} backend={} prompt_chars={} output_chars={} max_tokens={} finish_reason={} guard_status={} prompt_tokens={} completion_tokens={} total_tokens={} elapsed_ms={}",
+            "pid={} backend={} prompt_chars={} output_chars={} requested_max_tokens={} effective_max_tokens={} resource_governor_admission={} resource_governor_token_action={} resource_governor_reason={} resource_governor_sample_event={} finish_reason={} guard_status={} prompt_tokens={} completion_tokens={} total_tokens={} elapsed_ms={}",
             record.pid,
             record.backend_id,
             prompt.chars().count(),
             display_content.chars().count(),
-            max_tokens,
+            requested_max_tokens,
+            effective_max_tokens,
+            governor.admission.as_str(),
+            governor.token_action.as_str(),
+            governor.reason,
+            governor_sample.ledger_event,
             completion.finish_reason,
             guard_status,
             display_optional_u32(completion.prompt_tokens),
@@ -811,7 +865,7 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         context_tokens_dropped: 0,
         ontology_tokens: 0,
         tool_summary_tokens: 0,
-        max_output_tokens: Some(max_tokens),
+        max_output_tokens: Some(effective_max_tokens),
     })?;
     let resource_sample = record_backend_resource_sample(&record, "chat")?;
 
@@ -823,7 +877,8 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         ctx_size: record.ctx_size,
         prompt_chars: prompt.chars().count(),
         response_chars: display_content.chars().count(),
-        max_tokens,
+        requested_max_tokens,
+        effective_max_tokens,
         finish_reason: completion.finish_reason,
         guard_status,
         prompt_tokens: completion.prompt_tokens,
@@ -831,6 +886,11 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         total_tokens: completion.total_tokens,
         elapsed_ms,
         ledger_event: event_id,
+        resource_governor_admission: governor.admission.as_str().to_string(),
+        resource_governor_token_action: governor.token_action.as_str().to_string(),
+        resource_governor_reason: governor.reason,
+        resource_governor_hint: governor.hint,
+        resource_governor_sample_event: governor_sample.ledger_event,
         resource_pressure: resource_sample.metric.pressure_status,
         resource_cpu_percent: resource_sample.metric.process_cpu_percent,
         resource_average_rss_bytes: resource_sample.metric.average_rss_bytes,
@@ -1749,6 +1809,7 @@ fn record_backend_resource_sample(
     Ok(BackendResourceSampleReport {
         metric,
         ledger_event: event_id,
+        pressure: snapshot.pressure,
     })
 }
 

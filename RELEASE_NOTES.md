@@ -1,5 +1,49 @@
 # Release Notes
 
+## v0.11.0 - Backend Chat Resource Governor
+
+Release date: 2026-07-07
+
+This release adds the first runtime resource governor slice for the managed
+backend sidecar. It is still a source-only developer preview: it does not ship
+model weights, external plugin packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- `rpotato backend chat` now samples backend CPU/RSS/disk resource pressure
+  before model execution.
+- Critical resource pressure blocks chat before the `/v1/chat/completions`
+  request is sent.
+- Degraded resource pressure clamps the effective max-token budget while
+  preserving normal and unknown-pressure requests.
+- `backend chat` and `run` output now distinguish requested max tokens from
+  effective max tokens and report the governor admission/token action.
+- Redacted ledger events record governor admission, token action, reason, and
+  sample event ids without storing raw prompts or raw responses.
+- English and Korean documentation updates for the v0.11.0 governor scope.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (149 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato backend chat --prompt smoke --max-tokens 256`
+- `rpotato monitor status`
+
+The smoke checks use a scratch project root under `/private/tmp`; without a
+running backend sidecar, `backend chat` must fail closed before model execution
+and must not create raw prompt/response storage.
+
+### Known Issues
+
+- Resource sampling is still event-driven, not continuous live polling.
+- The v0.11.0 governor applies to backend chat only. Subagent/team admission
+  control, sequential fallback, runtime context clamp, and model
+  downgrade/escalation hints remain planned.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.10.0 - TUI Resource Monitor
 
 Release date: 2026-07-07
@@ -38,7 +82,8 @@ actions, and the beta boundary without mutating workflow state.
 
 - Resource monitor data is event-driven and reflects the latest recorded sample;
   it is not continuous live polling.
-- Runtime resource governor behavior remains planned for v0.11.0+.
+- Runtime resource governor behavior is not included in v0.10.0; the first
+  backend chat governor slice is introduced in v0.11.0.
 - No prebuilt `rpotato` binary artifacts are attached to this preview release.
 
 ## v0.9.0 - Backend Resource Sampling
@@ -82,7 +127,8 @@ fields.
 
 - Resource sampling is event-driven, not continuous background polling.
 - TUI resource-pressure display is not included in v0.9.0; it is introduced in v0.10.0.
-- Runtime resource governor behavior remains planned for v0.11.0+.
+- Runtime resource governor behavior is not included in v0.9.0; the first
+  backend chat governor slice is introduced in v0.11.0.
 - No prebuilt `rpotato` binary artifacts are attached to this preview release.
 
 ## v0.8.0 - TUI Evidence And Stop Gate View
