@@ -438,8 +438,8 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [ ] TUI monitoring UX spec from `DESIGN.md`
 - [ ] TUI transcript/session view
 - [ ] TUI plan/context/ontology view
-- [ ] TUI approval queue
-- [ ] TUI diff viewer
+- [x] TUI approval queue
+- [x] TUI diff viewer
 - [ ] TUI tool output viewer
 - [ ] TUI subagent/team status view
 - [x] TUI model/token monitoring view

@@ -1,5 +1,48 @@
 # Release Notes
 
+## v0.6.0 - TUI Approval And Diff Views
+
+Release date: 2026-07-07
+
+This release extends the read-only TUI beta with patch approval queue and diff
+inspection views. It is still a source-only developer preview: it does not ship
+model weights, external plugin packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- `rpotato tui approvals` lists project-local patch proposal records.
+- `rpotato tui diff <proposal-id>` shows proposal metadata, approve/dry-run
+  command hints, and the stored unified diff.
+- Patch proposal read APIs for summaries and details.
+- Literal diff rendering in the TUI so `---`, `+++`, `@@`, `-`, and `+` lines
+  remain readable in terminal output.
+- English and Korean documentation updates for the expanded TUI beta surface.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (138 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato patch preview --path src/lib.rs --find 1 --replace 2`
+- `rpotato tui approvals`
+- `rpotato tui diff <proposal-id>`
+- `COLUMNS=64 rpotato tui diff <proposal-id>`
+
+The TUI smoke used a scratch project root under `/private/tmp`, created a patch
+proposal, rendered it as a pending approval record, and showed the stored
+unified diff without applying or approving the patch.
+
+### Known Issues
+
+- The TUI beta is still a one-shot read-only render, not an interactive event
+  loop.
+- Approval queue and diff views inspect existing patch proposal records only;
+  approval and apply still happen through `rpotato patch approve`.
+- Transcript view, tool output viewer, subagent/team status, plugin permission
+  review, and stop-gate evidence views remain future work.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.5.0 - Read-Only TUI Beta
 
 Release date: 2026-07-07
