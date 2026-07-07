@@ -27,7 +27,8 @@ it. The release grouping is:
 | v0.9.0 | resource sampler and logging | sample backend sidecar CPU, average/peak RSS, disk/cache/log bytes, sample count, and pressure status; write redacted ledger events and SQLite projection rows |
 | v0.10.0 | TUI monitor display | show CPU, memory, latency, token throughput, and pressure state in terminal-safe layouts |
 | v0.11.0 | backend chat resource governor | sample before chat, block critical pressure, clamp degraded-pressure max tokens, and report governor decisions in CLI/runtime ledger output |
-| v0.12.0+ | subagent/team admission | use observed pressure to limit subagent/team concurrency, prefer sequential fallback, and surface model downgrade/escalation hints |
+| v0.12.0 | team admission preview | read the latest resource sample, report admitted lanes, prefer sequential fallback on unknown/degraded pressure, and block dispatch on critical pressure |
+| v0.13.0+ | enforced subagent/team admission | use observed pressure in the real dispatcher, enforce team concurrency limits, and surface model downgrade/escalation hints |
 
 ## Storage Decision
 
@@ -74,6 +75,7 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato monitor prune --before 30d --dry-run` calculates only deletion candidate counts.
 - `rpotato backend start`, `rpotato backend status`, and `rpotato backend chat` record event-driven backend CPU/RSS/disk resource samples.
 - `rpotato backend chat` applies the first runtime resource governor slice: critical pressure blocks chat before model execution, degraded pressure clamps the effective max-token budget, and normal/unknown pressure preserves the requested token budget.
+- `rpotato team status` reads the latest resource sample and reports read-only team admission: normal pressure admits parallel lanes, unknown/degraded pressure falls back to one sequential lane, and critical pressure blocks dispatch.
 - A corrupt SQLite file is preserved with a `.corrupt.<timestamp>` suffix before a new projection is created.
 - Corrupt/stale current state is preserved by `state reconcile` with `.corrupt.<timestamp>` or `.stale.<timestamp>` suffixes.
 - Evidence is stale when the artifact is missing, escapes the project boundary, or exceeds `stale_after_ms`.
@@ -81,7 +83,7 @@ Phase 2 currently implements the runtime store foundation.
 Not implemented yet:
 
 - continuous background CPU/memory/disk resource sampling from the managed backend sidecar
-- subagent/team admission control from resource pressure
+- enforced subagent/team dispatcher admission from resource pressure
 - full transcript replay and conversation continuation after a selected session resume
 - active workflow resume execution by the real agent loop
 - actual retention deletion

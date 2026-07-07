@@ -20,6 +20,7 @@ mod resource;
 mod runtime;
 mod skill;
 mod state;
+mod team;
 #[cfg(test)]
 mod test_support;
 mod tui;

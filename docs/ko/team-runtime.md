@@ -79,6 +79,10 @@ Admission check:
 
 Admission이 실패하면 runtime은 sequential subagent 또는 single-agent workflow로 fallback하고 ledger에 이유를 기록해야 합니다. Team admission은 assigned work를 조용히 버리면 안 됩니다.
 
+`rpotato team status`는 현재 read-only admission preview입니다. 최신 resource sample을
+사용해 향후 team dispatch가 parallel, sequential fallback, blocked 중 어디에 해당하는지
+보여줍니다. 아직 worker를 시작하거나 workflow state를 변경하지 않습니다.
+
 ## 터미널 UI Integration
 
 TUI는 다음을 보여야 합니다.

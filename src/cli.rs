@@ -17,6 +17,7 @@ rpotato
   rpotato session history
   rpotato session resume <session-id>
   rpotato session new
+  rpotato team status
   rpotato resume [session-id]
   rpotato tui
   rpotato tui monitor
@@ -80,6 +81,7 @@ rpotato
 현재 상태:
   backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 release payload를 배치합니다.
   backend start/status/stop/chat은 명시 모델 파일 기준의 managed sidecar lifecycle과 non-streaming chat smoke를 다룹니다.
+  team status는 최신 resource sample 기준의 read-only admission preview와 sequential fallback 결정을 표시합니다.
   모델 registry install은 verified 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -92,6 +94,7 @@ pub enum Command {
     Config,
     State(StateCommand),
     Session(SessionCommand),
+    Team(TeamCommand),
     Tui(TuiCommand),
     Cancel,
     Evidence(EvidenceCommand),
@@ -127,6 +130,11 @@ pub enum SessionCommand {
     List,
     New,
     Resume { id: String },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TeamCommand {
+    Status,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -344,6 +352,12 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, ..] if group == "session" => Err(AppError::usage(
             "session 명령은 list, history, new, resume만 허용합니다.",
         )),
+        [group, action] if group == "team" && action == "status" => {
+            Ok(Command::Team(TeamCommand::Status))
+        }
+        [group, ..] if group == "team" => {
+            Err(AppError::usage("team 명령은 status만 허용합니다."))
+        }
         [arg] if arg == "tui" => Ok(Command::Tui(TuiCommand::Overview)),
         [group, action] if group == "tui" && action == "monitor" => {
             Ok(Command::Tui(TuiCommand::Monitor))
@@ -1503,6 +1517,12 @@ mod tests {
                 id: "session-1".to_string()
             })
         );
+    }
+
+    #[test]
+    fn parses_team_status() {
+        let command = parse(["team".to_string(), "status".to_string()]).unwrap();
+        assert_eq!(command, Command::Team(TeamCommand::Status));
     }
 
     #[test]

@@ -1,5 +1,50 @@
 # Release Notes
 
+## v0.12.0 - Team Admission Preview
+
+Release date: 2026-07-07
+
+This release adds the first read-only team admission surface on top of the
+resource monitoring/governor work. It is still a source-only developer preview:
+it does not ship model weights, external plugin packages, or prebuilt `rpotato`
+binaries.
+
+### Included
+
+- New `rpotato team status` command.
+- Reusable resource lane admission policy for future subagent/team dispatch.
+- Normal pressure admits the requested parallel lanes.
+- Missing/unknown or degraded pressure falls back to one sequential lane.
+- Critical pressure blocks new team dispatch.
+- `team status` reports latest resource sample metadata, requested lanes,
+  admitted lanes, admission, dispatch-blocked flag, fallback, reason, hint, and
+  read-only boundary.
+- English and Korean documentation updates for the v0.12.0 team admission
+  preview scope.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (153 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato team status`
+- `rpotato monitor status`
+
+The smoke checks use a scratch project root under `/private/tmp` and verify
+that `team status` reports sequential fallback without mutating workflow state
+when no resource sample exists.
+
+### Known Issues
+
+- `team status` is an admission preview only; it does not start subagents,
+  dispatch team lanes, mutate workflows, or enforce file ownership yet.
+- Resource sampling is still event-driven, not continuous live polling.
+- Enforced subagent/team dispatcher admission, runtime context clamp, and model
+  downgrade/escalation hints remain planned.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.11.0 - Backend Chat Resource Governor
 
 Release date: 2026-07-07
@@ -39,9 +84,9 @@ and must not create raw prompt/response storage.
 ### Known Issues
 
 - Resource sampling is still event-driven, not continuous live polling.
-- The v0.11.0 governor applies to backend chat only. Subagent/team admission
-  control, sequential fallback, runtime context clamp, and model
-  downgrade/escalation hints remain planned.
+- The v0.11.0 governor applies to backend chat only. Team admission preview and
+  sequential fallback are introduced in v0.12.0; enforced subagent/team
+  dispatch admission remains planned.
 - No prebuilt `rpotato` binary artifacts are attached to this preview release.
 
 ## v0.10.0 - TUI Resource Monitor
