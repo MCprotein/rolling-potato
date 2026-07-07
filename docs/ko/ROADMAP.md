@@ -438,8 +438,8 @@
 - [ ] `DESIGN.md` 기반 TUI monitoring UX spec
 - [ ] TUI transcript/session view
 - [ ] TUI plan/context/ontology view
-- [ ] TUI approval queue
-- [ ] TUI diff viewer
+- [x] TUI approval queue
+- [x] TUI diff viewer
 - [ ] TUI tool output viewer
 - [ ] TUI subagent/team status view
 - [x] TUI model/token monitoring view

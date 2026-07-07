@@ -16,6 +16,13 @@ The TUI design source of truth is [DESIGN.md](../DESIGN.md). Monitoring screens 
 
 The beta reads existing runtime state and the SQLite observability projection. It shows project/session state, model/token summaries, session history, resume hints, and a clear read-only boundary. It does not approve, apply, resume, cancel, or mutate workflows.
 
+`v0.6.0` extends the same read-only beta with patch proposal inspection:
+
+- `rpotato tui approvals`
+- `rpotato tui diff <proposal-id>`
+
+The approval view reads project-local `.rpotato/patch-proposals/` records and shows proposal status, id, path, and replacement count. The diff view shows proposal metadata, approval/dry-run command hints, and the stored unified diff without applying or approving the patch.
+
 This is the framework decision for the first beta: keep the initial surface dependency-free and terminal-safe, then decide later whether a richer TUI crate is justified after interaction requirements stabilize.
 
 ## Goals

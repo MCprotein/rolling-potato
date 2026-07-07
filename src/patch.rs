@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command as ProcessCommand;
+use std::time::SystemTime;
 
 use sha2::{Digest, Sha256};
 
@@ -35,6 +36,24 @@ struct ProposalRecord {
     proposed_sha256: String,
     proposed_content: String,
     proposal_path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PatchProposalSummary {
+    pub proposal_id: String,
+    pub relative_path: String,
+    pub original_sha256: String,
+    pub proposed_sha256: String,
+    pub replacements: String,
+    pub status: String,
+    pub proposal_path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PatchProposalDetail {
+    pub summary: PatchProposalSummary,
+    pub approval_token: String,
+    pub diff: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -187,6 +206,111 @@ pub fn approve_report(
             .unwrap_or_default(),
         event_id
     ))
+}
+
+pub fn proposal_summaries(limit: usize) -> Result<Vec<PatchProposalSummary>, AppError> {
+    let dir = paths::project_patch_proposals_dir();
+    let entries = match fs::read_dir(&dir) {
+        Ok(entries) => entries,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(err) => {
+            return Err(AppError::runtime(format!(
+                "patch proposal directory를 읽지 못했습니다: {} ({err})",
+                dir.display()
+            )));
+        }
+    };
+
+    let mut rows = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|err| {
+            AppError::runtime(format!("patch proposal entry를 읽지 못했습니다: {err}"))
+        })?;
+        let path = entry.path();
+        if path.extension().and_then(|value| value.to_str()) != Some("txt") {
+            continue;
+        }
+        let modified = entry
+            .metadata()
+            .and_then(|metadata| metadata.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
+        rows.push((modified, summary_from_path(&path)?));
+    }
+
+    rows.sort_by_key(|row| std::cmp::Reverse(row.0));
+    Ok(rows
+        .into_iter()
+        .take(limit)
+        .map(|(_, summary)| summary)
+        .collect())
+}
+
+pub fn proposal_detail(proposal_id: &str) -> Result<PatchProposalDetail, AppError> {
+    validate_proposal_id(proposal_id)?;
+    let proposal_path = paths::project_patch_proposals_dir().join(format!("{proposal_id}.txt"));
+    let contents = fs::read_to_string(&proposal_path).map_err(|err| {
+        AppError::blocked(format!(
+            "patch proposal detail 차단\n- 이유: proposal record를 읽지 못했습니다.\n- proposal id: {}\n- path: {}\n- error: {}",
+            proposal_id,
+            proposal_path.display(),
+            err
+        ))
+    })?;
+    let recorded_id = required_record_value(&contents, "proposal_id", &proposal_path)?;
+    if recorded_id != proposal_id {
+        return Err(AppError::blocked(format!(
+            "patch proposal detail 차단\n- 이유: proposal id가 record와 일치하지 않습니다.\n- requested: {}\n- recorded: {}",
+            proposal_id, recorded_id
+        )));
+    }
+
+    Ok(PatchProposalDetail {
+        summary: summary_from_record(&proposal_path, &contents)?,
+        approval_token: required_record_value(&contents, "approval_token", &proposal_path)?,
+        diff: diff_from_record(&contents),
+    })
+}
+
+fn summary_from_path(path: &Path) -> Result<PatchProposalSummary, AppError> {
+    let contents = fs::read_to_string(path).map_err(|err| {
+        AppError::runtime(format!(
+            "patch proposal record를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    summary_from_record(path, &contents)
+}
+
+fn summary_from_record(path: &Path, contents: &str) -> Result<PatchProposalSummary, AppError> {
+    let proposal_id = required_record_value(contents, "proposal_id", path)?;
+    Ok(PatchProposalSummary {
+        status: proposal_status(&proposal_id),
+        proposal_id,
+        relative_path: required_record_value(contents, "path", path)?,
+        original_sha256: required_record_value(contents, "original_sha256", path)?,
+        proposed_sha256: required_record_value(contents, "proposed_sha256", path)?,
+        replacements: proposal_record_value(contents, "replacements")
+            .unwrap_or_else(|| "unknown".to_string()),
+        proposal_path: path.to_path_buf(),
+    })
+}
+
+fn proposal_status(proposal_id: &str) -> String {
+    let rollback_path =
+        paths::project_patch_proposals_dir().join(format!("{proposal_id}.rollback"));
+    if rollback_path.exists() {
+        "applied".to_string()
+    } else {
+        "pending-approval".to_string()
+    }
+}
+
+fn diff_from_record(contents: &str) -> String {
+    contents
+        .split_once("\n\n")
+        .map(|(_, diff)| diff.trim_end().to_string())
+        .filter(|diff| !diff.is_empty())
+        .unwrap_or_else(|| "(diff not recorded)".to_string())
 }
 
 fn load_proposal_record(
@@ -981,6 +1105,35 @@ mod tests {
         assert_eq!(contents, "pub const X: i32 = 2;\n");
         assert!(approval.contains("verification status: passed"));
         assert!(approval.contains("verification exit code: 0"));
+    }
+
+    #[test]
+    fn proposal_summary_and_detail_read_preview_record() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-patch-tui-read-test-{}",
+            std::process::id()
+        ));
+        let project_root = root.join("project");
+        fs::create_dir_all(project_root.join("src")).unwrap();
+        fs::write(project_root.join("src/lib.rs"), "pub const X: i32 = 1;\n").unwrap();
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        let report = preview_report("src/lib.rs", "1", "2").unwrap();
+        let proposal_id = report_value(&report, "proposal id").unwrap();
+        let summaries = proposal_summaries(5).unwrap();
+        let detail = proposal_detail(&proposal_id).unwrap();
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].proposal_id, proposal_id);
+        assert_eq!(summaries[0].status, "pending-approval");
+        assert_eq!(detail.summary.relative_path, "src/lib.rs");
+        assert!(detail.diff.contains("-pub const X: i32 = 1;"));
+        assert!(detail.diff.contains("+pub const X: i32 = 2;"));
     }
 
     #[test]

@@ -1,5 +1,46 @@
 # 릴리즈 노트
 
+## v0.6.0 - TUI Approval And Diff Views
+
+릴리즈 날짜: 2026-07-07
+
+이 릴리즈는 read-only TUI beta에 patch approval queue와 diff inspection view를
+추가합니다. 여전히 source-only developer preview이며, 모델 가중치, 외부 plugin
+package, prebuilt `rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- `rpotato tui approvals`는 project-local patch proposal record를 나열합니다.
+- `rpotato tui diff <proposal-id>`는 proposal metadata, approve/dry-run command
+  hint, 저장된 unified diff를 보여줍니다.
+- Patch proposal summary/detail을 읽는 read-only API.
+- TUI에서 `---`, `+++`, `@@`, `-`, `+` diff line이 유지되도록 literal diff rendering.
+- 확장된 TUI beta surface에 대한 영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (138 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato patch preview --path src/lib.rs --find 1 --replace 2`
+- `rpotato tui approvals`
+- `rpotato tui diff <proposal-id>`
+- `COLUMNS=64 rpotato tui diff <proposal-id>`
+
+TUI smoke는 `/private/tmp` 아래 scratch project root에서 patch proposal을 만들고,
+pending approval record와 저장된 unified diff를 표시했으며 patch approve나 apply는
+수행하지 않았습니다.
+
+### 알려진 제한
+
+- TUI beta는 아직 interactive event loop가 아니라 one-shot read-only render입니다.
+- Approval queue와 diff view는 기존 patch proposal record를 inspect만 합니다.
+  Approval과 apply는 여전히 `rpotato patch approve`로 수행합니다.
+- Transcript view, tool output viewer, subagent/team status, plugin permission review,
+  stop-gate evidence view는 후속 작업입니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.5.0 - Read-Only TUI Beta
 
 릴리즈 날짜: 2026-07-07

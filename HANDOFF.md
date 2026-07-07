@@ -205,6 +205,7 @@ Local execution evidence checked 2026-07-06:
 - `v0.3.0` work started on `release/v0.3.0`: `rpotato patch preview --path <path> --find <text> --replace <text>` renders a unified diff, writes a proposal record under `.rpotato/patch-proposals/`, prints an approval token, and does not modify the target file. `rpotato patch approve <proposal-id> --token <token> --dry-run` verifies the approval gate and records a ledger event without applying the patch. Latest smoke previewed `RELEASE_NOTES.md` from `Run Skeleton Preview` to `Run Skeleton Preview Smoke`, returned `status: diff-ready`, then approve returned `status: gate-passed`; `git diff -- RELEASE_NOTES.md` was empty after smoke.
 - `v0.4.0` work started on `release/v0.4.0`: `rpotato patch approve <proposal-id> --token <token>` now applies approved proposals when the current target SHA-256 still matches the previewed original SHA-256, writes a rollback record, verifies the applied SHA-256, and can run `--verify-command <command>` for policy-allowed simple argv verification commands. Latest scratch smoke used `RPOTATO_PROJECT_ROOT=/private/tmp/rpotato-v040-smoke`, previewed `README.md` from `Local coding agents for potato PCs.` to `Local coding agents for potato PCs. Smoke`, then approved with `--verify-command "rg Smoke README.md"`; output returned `status: applied`, rollback record path, `verification status: passed`, and verification exit code `0`.
 - `v0.5.0` work started on `release/v0.5.0`: `rpotato tui`, `rpotato tui monitor`, and `rpotato tui sessions` render dependency-free read-only ASCII TUI beta views from existing runtime state and the SQLite observability projection. Latest smoke returned overview, monitor, and sessions dashboards showing project/session state, observability path, recorded Qwen token metrics, full session ids, and the read-only beta boundary.
+- `v0.6.0` work started on `release/v0.6.0`: `rpotato tui approvals` and `rpotato tui diff <proposal-id>` render read-only patch proposal approval/diff views from `.rpotato/patch-proposals/` records. Latest scratch smoke used `RPOTATO_PROJECT_ROOT=/private/tmp/rpotato-v0.6-smoke`, previewed `src/lib.rs` from `1` to `2`, listed `patch-proposal-bae4b383a107e485` as `pending-approval`, and showed the stored unified diff without approving or applying the patch; `COLUMNS=64` kept the diff readable.
 
 Comparison candidate:
 
@@ -341,7 +342,7 @@ Suggested next work:
 4. Keep plugin adapter work aligned with `docs/plugin-adapters.md`; start with inspect/validate before execution.
 5. Do not add plugin marketplace integration; reject marketplace, registry, catalog, mirror, and remote URL plugin sources.
 6. Split the current scaffold toward explicit runtime core modules.
-7. Extend the TUI beyond read-only beta: approval queue, diff viewer, transcript/session view, subagent/team status, plugin permission review, and stop-gate evidence view.
+7. Extend the TUI beyond read-only beta: transcript/session view, tool output viewer, subagent/team status, plugin permission review, and stop-gate evidence view.
 8. Connect model action output to the patch preview/apply flow, then add verification output interpretation, final Korean reporting, and stop gate evidence checks.
 9. Add backend streaming response handling and generation cancellation on top of the managed sidecar lifecycle.
 10. Run `rpotato model eval-plan <id>` before local model work to check source-backed fields, app-data artifact presence, and the next smoke/benchmark step.
@@ -364,3 +365,4 @@ Suggested next work:
 - User wants all plugin capabilities considered eventually, with risky external capabilities blocked by default and unlocked through explicit prompts.
 - User wants Windows compatibility, so avoid Mac-only defaults.
 - User is skeptical of heavy runtimes and wants the runtime to be appropriate for small models.
+- When reporting Codex goal completion, include `tokensUsed`, elapsed time, and Codex Pro $100 usage percentage only if an official/public session-token denominator or explicit goal token budget is available. Current official OpenAI docs state Pro $100 has 5x higher usage than Plus, but do not publish a session-token denominator; do not invent one. Source checked 2026-07-07: https://help.openai.com/en/articles/9793128-about-chatgpt-pro-plans

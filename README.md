@@ -78,6 +78,8 @@ rpotato intent classify "테스트 실패 고쳐줘"
 rpotato tui
 rpotato tui monitor
 rpotato tui sessions
+rpotato tui approvals
+rpotato tui diff <proposal-id>
 rpotato state reconcile
 rpotato state resume
 rpotato session list
@@ -203,6 +205,8 @@ Implemented command surfaces:
 - `rpotato tui`
 - `rpotato tui monitor`
 - `rpotato tui sessions`
+- `rpotato tui approvals`
+- `rpotato tui diff <proposal-id>`
 - `rpotato patch preview --path <path> --find <text> --replace <text>`
 - `rpotato patch approve <proposal-id> --token <token> [--dry-run] [--verify-command <command>]`
 - `rpotato monitor status`
@@ -247,7 +251,7 @@ Implemented command surfaces:
 
 `intent classify`, `intent routes`, and `skill run` remain pre-execution surfaces: they normalize routing state and record ledger events without calling the model.
 
-`tui`, `tui monitor`, and `tui sessions` render the first read-only TUI beta surfaces using existing runtime state and the SQLite observability projection. They show project/session state, model/token summaries, session history, and read-only boundaries in terminal-friendly ASCII layouts. They do not approve, apply, resume, cancel, or mutate workflows.
+`tui`, `tui monitor`, `tui sessions`, `tui approvals`, and `tui diff <proposal-id>` render read-only TUI beta surfaces using existing runtime state, the SQLite observability projection, and project-local patch proposal records. They show project/session state, model/token summaries, session history, approval queue records, proposal metadata, literal diffs, and read-only boundaries in terminal-friendly ASCII layouts. They do not approve, apply, resume, cancel, or mutate workflows.
 
 `policy` and `hooks` commands provide command/path permission decisions, credential redaction, lifecycle hook registry output, and fail-closed hook result validation. Real tool execution has not yet been wired behind this policy surface.
 
