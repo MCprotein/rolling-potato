@@ -1,5 +1,5 @@
 use crate::app::AppError;
-use crate::{ledger, model, observability, patch, paths};
+use crate::{evidence, ledger, model, observability, patch, paths};
 
 const DEFAULT_WIDTH: usize = 92;
 const MIN_WIDTH: usize = 64;
@@ -97,7 +97,7 @@ pub fn overview_report() -> Result<String, AppError> {
         &mut lines,
         width,
         "views",
-        "rpotato tui | rpotato tui monitor | rpotato tui sessions | rpotato tui transcript <session-id> | rpotato tui approvals",
+        "rpotato tui | rpotato tui monitor | rpotato tui sessions | rpotato tui transcript <session-id> | rpotato tui approvals | rpotato tui evidence",
     );
     push_footer(&mut lines, width);
     Ok(lines.join("\n"))
@@ -437,6 +437,87 @@ pub fn diff_report(proposal_id: &str) -> Result<String, AppError> {
     Ok(lines.join("\n"))
 }
 
+pub fn evidence_report() -> Result<String, AppError> {
+    let width = terminal_width();
+    let identity = ledger::current_identity();
+    let store = observability::status()?;
+    let evidence = evidence::store_status()?;
+
+    let mut lines = Vec::new();
+    push_header(&mut lines, width, "rpotato TUI beta - evidence");
+    push_kv(&mut lines, width, "project", &identity.project_root);
+    push_kv(&mut lines, width, "session", &identity.session_id);
+    push_kv(&mut lines, width, "mode", "read-only evidence status");
+    push_rule(&mut lines, width);
+    push_section(&mut lines, width, "stores");
+    push_kv(
+        &mut lines,
+        width,
+        "runtime evidence",
+        &evidence.runtime_evidence_file.display().to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "runtime records",
+        &evidence.runtime_evidence_records.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "project evidence",
+        &evidence.project_evidence_dir.display().to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "project artifacts",
+        &evidence.project_artifacts.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "observability",
+        &store.path.display().to_string(),
+    );
+    push_rule(&mut lines, width);
+    push_section(&mut lines, width, "stop gate boundary");
+    push_kv(
+        &mut lines,
+        width,
+        "recorded evidence",
+        &store.evidence_records.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "stop gate results",
+        &store.stop_gate_results.to_string(),
+    );
+    push_kv(&mut lines, width, "stale policy", evidence.stale_policy);
+    push_kv(
+        &mut lines,
+        width,
+        "terminal gate",
+        "not implemented; this view does not pass or fail workflows",
+    );
+    push_rule(&mut lines, width);
+    push_kv(
+        &mut lines,
+        width,
+        "validate",
+        "rpotato evidence validate <artifact-pointer>",
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "raw prompt/source",
+        "disabled by default",
+    );
+    push_footer(&mut lines, width);
+    Ok(lines.join("\n"))
+}
+
 fn terminal_width() -> usize {
     std::env::var("COLUMNS")
         .ok()
@@ -665,6 +746,40 @@ mod tests {
         assert!(diff.contains("-pub const X: i32 = 1;"));
         assert!(diff.contains("+pub const X: i32 = 2;"));
         assert!(diff.contains("dry run: rpotato patch approve"));
+    }
+
+    #[test]
+    fn evidence_renders_stop_gate_status_without_mutating() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = test_root("rpotato-tui-evidence-test");
+        let project_root = root.join("project");
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("COLUMNS", "68");
+
+        std::fs::create_dir_all(paths::state_dir()).unwrap();
+        std::fs::create_dir_all(paths::project_evidence_dir()).unwrap();
+        std::fs::write(
+            paths::runtime_evidence_file(),
+            "{\"evidence_id\":\"one\"}\n",
+        )
+        .unwrap();
+        std::fs::write(paths::project_evidence_dir().join("one.txt"), "one").unwrap();
+
+        let report = evidence_report().unwrap();
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("COLUMNS");
+
+        assert!(report.contains("rpotato TUI beta - evidence"));
+        assert!(report.contains("mode: read-only evidence status"));
+        assert!(report.contains("runtime records: 1"));
+        assert!(report.contains("project artifacts: 1"));
+        assert!(report.contains("[stop gate boundary]"));
+        assert!(report.contains("terminal gate: not implemented"));
+        assert!(report.contains("validate: rpotato evidence validate <artifact-pointer>"));
+        assert!(report.contains("beta boundary"));
     }
 
     fn test_root(name: &str) -> std::path::PathBuf {

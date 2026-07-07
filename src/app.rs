@@ -127,6 +127,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", tui::diff_report(&proposal_id)?);
             Ok(())
         }
+        Command::Tui(TuiCommand::Evidence) => {
+            println!("{}", tui::evidence_report()?);
+            Ok(())
+        }
         Command::Cancel => {
             println!("{}", state::cancel_report()?);
             Ok(())

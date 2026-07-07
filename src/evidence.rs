@@ -5,10 +5,32 @@ use crate::app::AppError;
 use crate::paths;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EvidenceStoreStatus {
+    pub runtime_evidence_file: PathBuf,
+    pub runtime_evidence_records: usize,
+    pub project_evidence_dir: PathBuf,
+    pub project_artifacts: usize,
+    pub stale_policy: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvidenceValidation {
     pub artifact: PathBuf,
     pub project_root: PathBuf,
     pub stale_policy: &'static str,
+}
+
+pub fn store_status() -> Result<EvidenceStoreStatus, AppError> {
+    let runtime_evidence_file = paths::runtime_evidence_file();
+    let project_evidence_dir = paths::project_evidence_dir();
+
+    Ok(EvidenceStoreStatus {
+        runtime_evidence_records: count_jsonl_records(&runtime_evidence_file)?,
+        project_artifacts: count_files(&project_evidence_dir)?,
+        runtime_evidence_file,
+        project_evidence_dir,
+        stale_policy: stale_policy_summary(),
+    })
 }
 
 pub fn validate_report(pointer: &str) -> Result<String, AppError> {
@@ -82,6 +104,53 @@ pub fn stale_policy_summary() -> &'static str {
     "artifact 누락, project boundary 이탈, stale_after_ms 만료 시 stale"
 }
 
+fn count_jsonl_records(path: &Path) -> Result<usize, AppError> {
+    if !path.exists() {
+        return Ok(0);
+    }
+
+    let body = fs::read_to_string(path).map_err(|err| {
+        AppError::runtime(format!(
+            "runtime evidence store를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    Ok(body.lines().filter(|line| !line.trim().is_empty()).count())
+}
+
+fn count_files(path: &Path) -> Result<usize, AppError> {
+    if !path.exists() {
+        return Ok(0);
+    }
+
+    let mut count = 0;
+    for entry in fs::read_dir(path).map_err(|err| {
+        AppError::runtime(format!(
+            "project evidence 디렉터리를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })? {
+        let entry = entry.map_err(|err| {
+            AppError::runtime(format!(
+                "project evidence 항목을 읽지 못했습니다: {} ({err})",
+                path.display()
+            ))
+        })?;
+        let file_type = entry.file_type().map_err(|err| {
+            AppError::runtime(format!(
+                "project evidence 항목 타입을 읽지 못했습니다: {} ({err})",
+                entry.path().display()
+            ))
+        })?;
+        if file_type.is_file() {
+            count += 1;
+        } else if file_type.is_dir() {
+            count += count_files(&entry.path())?;
+        }
+    }
+    Ok(count)
+}
+
 fn canonical_project_root() -> Result<PathBuf, AppError> {
     let root = paths::project_root();
     fs::create_dir_all(&root).map_err(|err| {
@@ -114,5 +183,41 @@ mod tests {
         let err = validate_artifact_pointer("../outside.log")
             .expect_err("parent directory evidence pointers must be blocked");
         assert_eq!(err.code, 3);
+    }
+
+    #[test]
+    fn store_status_counts_runtime_records_and_project_artifacts() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-evidence-store-test-{}",
+            std::process::id()
+        ));
+        let project = root.join("project");
+        let data = root.join("data");
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project);
+        std::env::set_var("RPOTATO_DATA_HOME", &data);
+
+        fs::create_dir_all(paths::state_dir()).unwrap();
+        fs::create_dir_all(paths::project_evidence_dir().join("nested")).unwrap();
+        fs::write(
+            paths::runtime_evidence_file(),
+            "{\"evidence_id\":\"one\"}\n\n{\"evidence_id\":\"two\"}\n",
+        )
+        .unwrap();
+        fs::write(paths::project_evidence_dir().join("one.txt"), "one").unwrap();
+        fs::write(
+            paths::project_evidence_dir().join("nested").join("two.txt"),
+            "two",
+        )
+        .unwrap();
+
+        let status = store_status().unwrap();
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+
+        assert_eq!(status.runtime_evidence_records, 2);
+        assert_eq!(status.project_artifacts, 2);
+        assert_eq!(status.stale_policy, stale_policy_summary());
     }
 }

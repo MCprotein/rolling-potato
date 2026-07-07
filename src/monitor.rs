@@ -11,7 +11,7 @@ pub fn status_report() -> Result<String, AppError> {
         .unwrap_or_default();
 
     Ok(format!(
-        "monitor 상태\n- observability store: {}\n- schema migration: v{}\n- runtime ledger: {}\n- runtime evidence: {}\n- ledger events: {}\n- sessions: {}\n- workflows: {}\n- model runs: {}\n- token usage records: {}\n- raw prompt/source 저장: 기본 비활성{}",
+        "monitor 상태\n- observability store: {}\n- schema migration: v{}\n- runtime ledger: {}\n- runtime evidence: {}\n- ledger events: {}\n- sessions: {}\n- workflows: {}\n- model runs: {}\n- token usage records: {}\n- evidence records: {}\n- stop gate results: {}\n- raw prompt/source 저장: 기본 비활성{}",
         store.path.display(),
         store.migration_version,
         paths::runtime_ledger_file().display(),
@@ -21,6 +21,8 @@ pub fn status_report() -> Result<String, AppError> {
         store.workflows,
         store.model_runs,
         store.token_records,
+        store.evidence_records,
+        store.stop_gate_results,
         recovered
     ))
 }
