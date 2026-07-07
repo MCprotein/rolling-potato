@@ -23,6 +23,12 @@ The beta reads existing runtime state and the SQLite observability projection. I
 
 The approval view reads project-local `.rpotato/patch-proposals/` records and shows proposal status, id, path, and replacement count. The diff view shows proposal metadata, approval/dry-run command hints, and the stored unified diff without applying or approving the patch.
 
+`v0.7.0` extends the read-only beta with selected-session event inspection:
+
+- `rpotato tui transcript <session-id>`
+
+The transcript view reads the SQLite ledger projection for the current project and shows session metadata plus a timestamp-ordered event timeline. It intentionally does not replay raw model transcripts, continue conversations, or expose raw event details by default.
+
 This is the framework decision for the first beta: keep the initial surface dependency-free and terminal-safe, then decide later whether a richer TUI crate is justified after interaction requirements stabilize.
 
 ## Goals

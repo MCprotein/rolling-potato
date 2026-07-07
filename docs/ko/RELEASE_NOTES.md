@@ -1,5 +1,49 @@
 # 릴리즈 노트
 
+## v0.7.0 - TUI Session Transcript View
+
+릴리즈 날짜: 2026-07-07
+
+이 릴리즈는 read-only TUI beta에 선택한 session의 event inspection을 추가합니다.
+여전히 source-only developer preview이며, 모델 가중치, 외부 plugin package, prebuilt
+`rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- `rpotato tui transcript <session-id>`는 선택한 session metadata와 timestamp 순
+  event timeline을 보여줍니다.
+- `rpotato tui sessions`가 transcript inspection command를 안내합니다.
+- Session event를 읽는 SQLite observability read API.
+- Transcript replay, resume, cancellation, workflow mutation을 TUI beta 밖에 두는
+  read-only boundary.
+- 확장된 TUI beta surface에 대한 영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (140 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato session new`
+- `rpotato state resume`
+- `rpotato tui sessions`
+- `rpotato tui transcript <session-id>`
+- `COLUMNS=64 rpotato tui transcript <session-id>`
+
+TUI smoke는 `/private/tmp` 아래 scratch project root에서 새 session을 만들고 no-op
+resume event를 기록한 뒤, session list와 transcript timeline에 2개의 projected ledger
+event가 보이는지 확인했습니다. Raw model transcript replay나 workflow mutation은
+수행하지 않았습니다.
+
+### 알려진 제한
+
+- TUI beta는 아직 interactive event loop가 아니라 one-shot read-only render입니다.
+- Transcript view는 projected ledger event metadata와 summary만 보여줍니다. Raw event
+  detail과 model transcript replay는 후속 agent-loop 작업입니다.
+- Tool output viewer, subagent/team status, plugin permission review,
+  stop-gate evidence view는 후속 작업입니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.6.0 - TUI Approval And Diff Views
 
 릴리즈 날짜: 2026-07-07

@@ -1,5 +1,50 @@
 # Release Notes
 
+## v0.7.0 - TUI Session Transcript View
+
+Release date: 2026-07-07
+
+This release extends the read-only TUI beta with selected-session event
+inspection. It is still a source-only developer preview: it does not ship model
+weights, external plugin packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- `rpotato tui transcript <session-id>` shows selected-session metadata and a
+  timestamp-ordered event timeline.
+- `rpotato tui sessions` now points users to the transcript inspection command.
+- SQLite observability read API for session events.
+- Read-only boundary that keeps transcript replay, resume, cancellation, and
+  workflow mutation out of the TUI beta.
+- English and Korean documentation updates for the expanded TUI beta surface.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (140 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato session new`
+- `rpotato state resume`
+- `rpotato tui sessions`
+- `rpotato tui transcript <session-id>`
+- `COLUMNS=64 rpotato tui transcript <session-id>`
+
+The TUI smoke used a scratch project root under `/private/tmp`, created a new
+session, recorded a no-op resume event, listed the session, and showed the two
+projected ledger events in the transcript timeline without replaying raw model
+transcripts or mutating workflow state.
+
+### Known Issues
+
+- The TUI beta is still a one-shot read-only render, not an interactive event
+  loop.
+- The transcript view shows projected ledger event metadata and summaries only;
+  raw event details and model transcript replay remain future agent-loop work.
+- Tool output viewer, subagent/team status, plugin permission review, and
+  stop-gate evidence views remain future work.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.6.0 - TUI Approval And Diff Views
 
 Release date: 2026-07-07

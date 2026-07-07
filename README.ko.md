@@ -77,6 +77,7 @@ rpotato intent classify "테스트 실패 고쳐줘"
 rpotato tui
 rpotato tui monitor
 rpotato tui sessions
+rpotato tui transcript <session-id>
 rpotato tui approvals
 rpotato tui diff <proposal-id>
 rpotato state reconcile
@@ -208,6 +209,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato tui`
 - `rpotato tui monitor`
 - `rpotato tui sessions`
+- `rpotato tui transcript <session-id>`
 - `rpotato tui approvals`
 - `rpotato tui diff <proposal-id>`
 - `rpotato patch preview --path <path> --find <text> --replace <text>`
@@ -254,7 +256,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `intent classify`, `intent routes`, `skill run`은 model을 호출하지 않는 pre-execution surface입니다. Routing state를 정규화하고 ledger event만 남깁니다.
 
-`tui`, `tui monitor`, `tui sessions`, `tui approvals`, `tui diff <proposal-id>`는 기존 runtime state, SQLite observability projection, project-local patch proposal record를 읽는 read-only TUI beta surface입니다. Project/session 상태, model/token summary, session history, approval queue record, proposal metadata, literal diff, read-only boundary를 terminal-friendly ASCII layout으로 보여줍니다. Approval, patch apply, resume, cancel, workflow mutation은 수행하지 않습니다.
+`tui`, `tui monitor`, `tui sessions`, `tui transcript <session-id>`, `tui approvals`, `tui diff <proposal-id>`는 기존 runtime state, SQLite observability projection, project-local patch proposal record를 읽는 read-only TUI beta surface입니다. Project/session 상태, model/token summary, session history, 선택한 session의 event timeline, approval queue record, proposal metadata, literal diff, read-only boundary를 terminal-friendly ASCII layout으로 보여줍니다. Approval, patch apply, resume, cancel, transcript replay, workflow mutation은 수행하지 않습니다.
 
 `policy`와 `hooks` 명령은 command/path 권한 결정, credential redaction, lifecycle hook registry, fail-closed hook result 검사를 제공합니다. 실제 tool execution은 아직 이 policy surface 뒤에 연결되지 않았습니다.
 

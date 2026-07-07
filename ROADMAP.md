@@ -436,7 +436,7 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [x] TUI framework decision
 - [x] `rpotato tui`
 - [ ] TUI monitoring UX spec from `DESIGN.md`
-- [ ] TUI transcript/session view
+- [x] TUI transcript/session view
 - [ ] TUI plan/context/ontology view
 - [x] TUI approval queue
 - [x] TUI diff viewer
