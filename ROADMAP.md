@@ -433,8 +433,8 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [ ] Team resource admission control and sequential fallback
 - [ ] Failed worker continuation policy
 - [ ] `rpotato team status`
-- [ ] TUI framework decision
-- [ ] `rpotato tui`
+- [x] TUI framework decision
+- [x] `rpotato tui`
 - [ ] TUI monitoring UX spec from `DESIGN.md`
 - [ ] TUI transcript/session view
 - [ ] TUI plan/context/ontology view
@@ -442,13 +442,13 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [ ] TUI diff viewer
 - [ ] TUI tool output viewer
 - [ ] TUI subagent/team status view
-- [ ] TUI model/token monitoring view
+- [x] TUI model/token monitoring view
 - [ ] TUI model knowledge panel
 - [ ] TUI evidence/stop gate view
 - [ ] TUI plugin permission review view
 - [ ] Optional local HTML report/dashboard decision
 - [ ] TUI cancel/resume controls
-- [ ] TUI small terminal smoke test
+- [x] TUI small terminal smoke test
 - [ ] TUI policy-bypass regression test
 
 ## Phase 12: Packaging And Release

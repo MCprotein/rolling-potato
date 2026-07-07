@@ -6,6 +6,18 @@ The first implementation can start from CLI commands, but the target runtime mus
 
 The TUI design source of truth is [DESIGN.md](../DESIGN.md). Monitoring screens must also work on SSH/Linux servers, so they cannot assume a browser or GUI.
 
+## Current Beta Surface
+
+`v0.5.0` adds a dependency-free, read-only ASCII TUI beta:
+
+- `rpotato tui`
+- `rpotato tui monitor`
+- `rpotato tui sessions`
+
+The beta reads existing runtime state and the SQLite observability projection. It shows project/session state, model/token summaries, session history, resume hints, and a clear read-only boundary. It does not approve, apply, resume, cancel, or mutate workflows.
+
+This is the framework decision for the first beta: keep the initial surface dependency-free and terminal-safe, then decide later whether a richer TUI crate is justified after interaction requirements stabilize.
+
 ## Goals
 
 - Make long-running agent sessions inspectable.

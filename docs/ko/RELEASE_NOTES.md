@@ -1,5 +1,41 @@
 # 릴리즈 노트
 
+## v0.5.0 - Read-Only TUI Beta
+
+릴리즈 날짜: 2026-07-07
+
+이 릴리즈는 terminal-only 환경을 위한 첫 read-only TUI beta surface를 추가합니다.
+여전히 source-only developer preview이며, 모델 가중치, 외부 plugin package,
+prebuilt `rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- `rpotato tui` overview dashboard
+- `rpotato tui monitor` model/token monitoring view
+- `rpotato tui sessions` full session id와 resume hint가 있는 session-history view
+- SSH/Linux server 친화적인 dependency-free ASCII layout
+- approval, patch apply, resume, cancel, workflow mutation을 수행하지 않는 read-only boundary
+- TUI beta surface에 대한 영문/한국어 문서 업데이트
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (133 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato tui`
+- `rpotato tui monitor`
+- `rpotato tui sessions`
+
+TUI smoke는 project/session 상태, SQLite observability path, 기록된 model/token metric, session history, read-only beta boundary를 보여줬습니다.
+
+### 알려진 제한
+
+- TUI beta는 interactive event loop가 아니라 one-shot read-only render입니다.
+- approval queue, diff viewer, transcript view, subagent/team status, plugin permission review, stop-gate evidence view는 후속 작업입니다.
+- 첫 beta는 의도적으로 TUI framework dependency를 추가하지 않습니다. Interaction requirement가 안정된 뒤 더 풍부한 TUI crate가 필요한지 재검토할 수 있습니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.4.0 - Approved Patch Apply
 
 릴리즈 날짜: 2026-07-07
