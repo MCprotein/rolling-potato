@@ -1,5 +1,5 @@
 use crate::app::AppError;
-use crate::{ledger, model, observability, paths};
+use crate::{ledger, model, observability, patch, paths};
 
 const DEFAULT_WIDTH: usize = 92;
 const MIN_WIDTH: usize = 64;
@@ -97,7 +97,7 @@ pub fn overview_report() -> Result<String, AppError> {
         &mut lines,
         width,
         "views",
-        "rpotato tui | rpotato tui monitor | rpotato tui sessions",
+        "rpotato tui | rpotato tui monitor | rpotato tui sessions | rpotato tui approvals",
     );
     push_footer(&mut lines, width);
     Ok(lines.join("\n"))
@@ -229,6 +229,121 @@ pub fn sessions_report() -> Result<String, AppError> {
     Ok(lines.join("\n"))
 }
 
+pub fn approvals_report() -> Result<String, AppError> {
+    let width = terminal_width();
+    let proposals = patch::proposal_summaries(12)?;
+
+    let mut lines = Vec::new();
+    push_header(&mut lines, width, "rpotato TUI beta - approvals");
+    push_kv(
+        &mut lines,
+        width,
+        "proposal dir",
+        &paths::project_patch_proposals_dir().display().to_string(),
+    );
+    push_kv(&mut lines, width, "records", &proposals.len().to_string());
+    push_rule(&mut lines, width);
+    if proposals.is_empty() {
+        push_wrapped(
+            &mut lines,
+            width,
+            "No patch proposal records yet. Create one with `rpotato patch preview --path <path> --find <text> --replace <text>`.",
+        );
+    } else {
+        push_wrapped(
+            &mut lines,
+            width,
+            "status | proposal id | path | replacements",
+        );
+        for proposal in &proposals {
+            push_wrapped(
+                &mut lines,
+                width,
+                &format!(
+                    "{} | {} | {} | {}",
+                    proposal.status,
+                    proposal.proposal_id,
+                    proposal.relative_path,
+                    proposal.replacements
+                ),
+            );
+        }
+    }
+    push_rule(&mut lines, width);
+    push_kv(
+        &mut lines,
+        width,
+        "inspect",
+        "rpotato tui diff <proposal-id>",
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "apply",
+        "use rpotato patch approve outside the TUI after reviewing the diff",
+    );
+    push_footer(&mut lines, width);
+    Ok(lines.join("\n"))
+}
+
+pub fn diff_report(proposal_id: &str) -> Result<String, AppError> {
+    let width = terminal_width();
+    let detail = patch::proposal_detail(proposal_id)?;
+
+    let mut lines = Vec::new();
+    push_header(&mut lines, width, "rpotato TUI beta - diff");
+    push_kv(
+        &mut lines,
+        width,
+        "proposal id",
+        &detail.summary.proposal_id,
+    );
+    push_kv(&mut lines, width, "status", &detail.summary.status);
+    push_kv(&mut lines, width, "path", &detail.summary.relative_path);
+    push_kv(
+        &mut lines,
+        width,
+        "replacements",
+        &detail.summary.replacements,
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "original sha256",
+        &detail.summary.original_sha256,
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "proposed sha256",
+        &detail.summary.proposed_sha256,
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "approval command",
+        &format!(
+            "rpotato patch approve {} --token {}",
+            detail.summary.proposal_id, detail.approval_token
+        ),
+    );
+    push_rule(&mut lines, width);
+    push_section(&mut lines, width, "diff");
+    push_literal_block(&mut lines, width, &detail.diff);
+    push_rule(&mut lines, width);
+    push_kv(
+        &mut lines,
+        width,
+        "dry run",
+        &format!(
+            "rpotato patch approve {} --token {} --dry-run",
+            detail.summary.proposal_id, detail.approval_token
+        ),
+    );
+    push_footer(&mut lines, width);
+    Ok(lines.join("\n"))
+}
+
 fn terminal_width() -> usize {
     std::env::var("COLUMNS")
         .ok()
@@ -295,6 +410,15 @@ fn push_wrapped(lines: &mut Vec<String>, width: usize, value: &str) {
         lines.push(String::new());
     } else {
         lines.push(truncate(&current, width));
+    }
+}
+
+fn push_literal_block(lines: &mut Vec<String>, width: usize, value: &str) {
+    for line in value.lines() {
+        lines.push(truncate(line, width));
+    }
+    if value.is_empty() {
+        lines.push(String::new());
     }
 }
 
@@ -379,5 +503,63 @@ mod tests {
 
         assert!(report.contains("rpotato TUI beta - sessions"));
         assert!(report.contains("resume: rpotato session resume <session-id>"));
+    }
+
+    #[test]
+    fn approvals_renders_empty_queue() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = test_root("rpotato-tui-approvals-empty-test");
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        let report = approvals_report().unwrap();
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+
+        assert!(report.contains("rpotato TUI beta - approvals"));
+        assert!(report.contains("No patch proposal records yet"));
+        assert!(report.contains("inspect: rpotato tui diff <proposal-id>"));
+    }
+
+    #[test]
+    fn diff_renders_preview_record_literal_diff() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = test_root("rpotato-tui-diff-test");
+        let project_root = root.join("project");
+        std::fs::create_dir_all(project_root.join("src")).unwrap();
+        std::fs::write(project_root.join("src/lib.rs"), "pub const X: i32 = 1;\n").unwrap();
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        let preview = patch::preview_report("src/lib.rs", "1", "2").unwrap();
+        let proposal_id = report_value(&preview, "proposal id").unwrap();
+        let approvals = approvals_report().unwrap();
+        let diff = diff_report(&proposal_id).unwrap();
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+
+        assert!(approvals.contains("pending-approval"));
+        assert!(approvals.contains(&proposal_id));
+        assert!(diff.contains("rpotato TUI beta - diff"));
+        assert!(diff.contains("-pub const X: i32 = 1;"));
+        assert!(diff.contains("+pub const X: i32 = 2;"));
+        assert!(diff.contains("dry run: rpotato patch approve"));
+    }
+
+    fn test_root(name: &str) -> std::path::PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("{name}-{}-{nanos}", std::process::id()))
+    }
+
+    fn report_value(report: &str, key: &str) -> Option<String> {
+        let prefix = format!("- {key}: ");
+        report
+            .lines()
+            .find_map(|line| line.strip_prefix(&prefix).map(|value| value.to_string()))
     }
 }

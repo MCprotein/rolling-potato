@@ -21,6 +21,8 @@ rpotato
   rpotato tui
   rpotato tui monitor
   rpotato tui sessions
+  rpotato tui approvals
+  rpotato tui diff <proposal-id>
   rpotato cancel
   rpotato evidence validate <artifact-pointer>
   rpotato skill list
@@ -130,6 +132,8 @@ pub enum TuiCommand {
     Overview,
     Monitor,
     Sessions,
+    Approvals,
+    Diff { proposal_id: String },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -343,8 +347,19 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "tui" && action == "sessions" => {
             Ok(Command::Tui(TuiCommand::Sessions))
         }
+        [group, action] if group == "tui" && action == "approvals" => {
+            Ok(Command::Tui(TuiCommand::Approvals))
+        }
+        [group, action, proposal_id] if group == "tui" && action == "diff" => {
+            Ok(Command::Tui(TuiCommand::Diff {
+                proposal_id: proposal_id.clone(),
+            }))
+        }
+        [group, action, ..] if group == "tui" && action == "diff" => Err(AppError::usage(
+            "tui diff에는 proposal id가 필요합니다.",
+        )),
         [group, ..] if group == "tui" => Err(AppError::usage(
-            "tui 명령은 인자 없음, monitor, sessions만 허용합니다.",
+            "tui 명령은 인자 없음, monitor, sessions, approvals, diff만 허용합니다.",
         )),
         [arg] if arg == "cancel" => Ok(Command::Cancel),
         [group, action, pointer] if group == "evidence" && action == "validate" => {
@@ -1508,6 +1523,28 @@ mod tests {
     fn parses_tui_sessions() {
         let command = parse(["tui".to_string(), "sessions".to_string()]).unwrap();
         assert_eq!(command, Command::Tui(TuiCommand::Sessions));
+    }
+
+    #[test]
+    fn parses_tui_approvals() {
+        let command = parse(["tui".to_string(), "approvals".to_string()]).unwrap();
+        assert_eq!(command, Command::Tui(TuiCommand::Approvals));
+    }
+
+    #[test]
+    fn parses_tui_diff() {
+        let command = parse([
+            "tui".to_string(),
+            "diff".to_string(),
+            "patch-proposal-abc123".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Tui(TuiCommand::Diff {
+                proposal_id: "patch-proposal-abc123".to_string()
+            })
+        );
     }
 
     #[test]
