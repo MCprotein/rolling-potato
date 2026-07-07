@@ -83,6 +83,13 @@ Admission이 실패하면 runtime은 sequential subagent 또는 single-agent wor
 사용해 향후 team dispatch가 parallel, sequential fallback, blocked 중 어디에 해당하는지
 보여줍니다. 아직 worker를 시작하거나 workflow state를 변경하지 않습니다.
 
+`rpotato team admit --lanes <count>`는 첫 enforced admission gate입니다. 같은 resource
+policy를 사용하지만 ledger event를 기록하고 critical pressure에서는 blocked error를
+반환합니다. Normal pressure에서는 요청한 lane 수를 허용하고, unknown 또는 degraded
+pressure에서는 sequential lane 하나로 fallback합니다. 이 명령은 아직 worker를 시작하거나
+team stage를 전진시키지 않으므로, 후속 dispatcher 작업은 admission contract를 바꾸지
+않고 worker launch를 gate 뒤에 붙일 수 있습니다.
+
 ## 터미널 UI Integration
 
 TUI는 다음을 보여야 합니다.

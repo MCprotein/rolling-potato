@@ -18,6 +18,7 @@ rpotato
   rpotato session resume <session-id>
   rpotato session new
   rpotato team status
+  rpotato team admit --lanes <count>
   rpotato resume [session-id]
   rpotato tui
   rpotato tui monitor
@@ -82,6 +83,7 @@ rpotato
   backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 release payload를 배치합니다.
   backend start/status/stop/chat은 명시 모델 파일 기준의 managed sidecar lifecycle과 non-streaming chat smoke를 다룹니다.
   team status는 최신 resource sample 기준의 read-only admission preview와 sequential fallback 결정을 표시합니다.
+  team admit은 dispatcher 진입 전 resource admission gate를 강제하고 결과를 ledger에 기록합니다.
   모델 registry install은 verified 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -135,6 +137,7 @@ pub enum SessionCommand {
 #[derive(Debug, PartialEq, Eq)]
 pub enum TeamCommand {
     Status,
+    Admit { lanes: u32 },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -355,8 +358,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "team" && action == "status" => {
             Ok(Command::Team(TeamCommand::Status))
         }
+        [group, action, rest @ ..] if group == "team" && action == "admit" => {
+            Ok(Command::Team(parse_team_admit_args(rest)?))
+        }
         [group, ..] if group == "team" => {
-            Err(AppError::usage("team 명령은 status만 허용합니다."))
+            Err(AppError::usage("team 명령은 status, admit만 허용합니다."))
         }
         [arg] if arg == "tui" => Ok(Command::Tui(TuiCommand::Overview)),
         [group, action] if group == "tui" && action == "monitor" => {
@@ -684,6 +690,46 @@ fn parse_request(args: &[String], command: &str) -> Result<String, AppError> {
     }
 
     Ok(request)
+}
+
+fn parse_team_admit_args(args: &[String]) -> Result<TeamCommand, AppError> {
+    let mut lanes = None;
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "--lanes" => {
+                if lanes.is_some() {
+                    return Err(AppError::usage(
+                        "team admit의 --lanes 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                let Some(value) = iter.next() else {
+                    return Err(AppError::usage(
+                        "team admit은 --lanes <count> 값이 필요합니다.",
+                    ));
+                };
+                let parsed = value.parse::<u32>().map_err(|_| {
+                    AppError::usage("team admit의 --lanes 값은 양의 정수여야 합니다.")
+                })?;
+                if parsed == 0 {
+                    return Err(AppError::usage(
+                        "team admit의 --lanes 값은 1 이상이어야 합니다.",
+                    ));
+                }
+                lanes = Some(parsed);
+            }
+            unknown => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 team admit 옵션입니다: {unknown}"
+                )));
+            }
+        }
+    }
+
+    Ok(TeamCommand::Admit {
+        lanes: lanes
+            .ok_or_else(|| AppError::usage("team admit은 --lanes <count> 형식이 필요합니다."))?,
+    })
 }
 
 fn parse_monitor_export(args: &[String]) -> Result<MonitorCommand, AppError> {
@@ -1523,6 +1569,31 @@ mod tests {
     fn parses_team_status() {
         let command = parse(["team".to_string(), "status".to_string()]).unwrap();
         assert_eq!(command, Command::Team(TeamCommand::Status));
+    }
+
+    #[test]
+    fn parses_team_admit_with_lanes() {
+        let command = parse([
+            "team".to_string(),
+            "admit".to_string(),
+            "--lanes".to_string(),
+            "3".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(command, Command::Team(TeamCommand::Admit { lanes: 3 }));
+    }
+
+    #[test]
+    fn rejects_zero_team_admit_lanes() {
+        let err = parse([
+            "team".to_string(),
+            "admit".to_string(),
+            "--lanes".to_string(),
+            "0".to_string(),
+        ])
+        .unwrap_err();
+        assert_eq!(err.code, 2);
+        assert!(err.message.contains("1 이상"));
     }
 
     #[test]

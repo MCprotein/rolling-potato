@@ -1,5 +1,47 @@
 # 릴리즈 노트
 
+## v0.13.0 - Team Admission Gate
+
+릴리즈 날짜: 2026-07-07
+
+이 릴리즈는 v0.12.0의 read-only team admission preview를 첫 enforced admission
+gate로 바꿉니다. 여전히 source-only developer preview이며, 모델 가중치, 외부 plugin
+package, prebuilt `rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- 새 `rpotato team admit --lanes <count>` 명령.
+- Admission decision을 append-only ledger와 SQLite projection에 기록합니다.
+- Normal pressure에서는 요청한 parallel lane을 허용합니다.
+- Missing/unknown 또는 degraded pressure에서는 sequential lane 하나로 fallback합니다.
+- Critical pressure에서는 향후 worker launch 이전 단계에서 blocked error를 반환합니다.
+- `team status`는 read-only로 남고, `team admit`은 mutating gate가 됩니다.
+- v0.13.0 admission gate 범위에 대한 영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (157 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato team status`
+- `rpotato team admit --lanes 2`
+- `rpotato monitor status`
+
+Smoke check는 `/private/tmp` 아래 scratch project root를 사용하며, resource sample이
+없을 때 `team admit`이 ledger event를 기록하면서 sequential lane 하나로 fallback하는지
+확인합니다.
+
+### 알려진 제한
+
+- `team admit`은 resource-pressure lane gate만 강제합니다. 아직 subagent 시작,
+  team lane dispatch, team stage 전진, file ownership enforcement는 수행하지 않습니다.
+- Resource sampling은 아직 event-driven이며 continuous live polling은 아닙니다.
+- Runtime context clamp, file ownership, tool risk, approval queue, model
+  downgrade/escalation hint는 후속 범위입니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.12.0 - Team Admission Preview
 
 릴리즈 날짜: 2026-07-07
@@ -39,8 +81,8 @@ Smoke check는 `/private/tmp` 아래 scratch project root를 사용하며, resou
 - `team status`는 admission preview일 뿐입니다. Subagent 시작, team lane dispatch,
   workflow mutation, file ownership enforcement는 아직 수행하지 않습니다.
 - Resource sampling은 아직 event-driven이며 continuous live polling은 아닙니다.
-- 실제 subagent/team dispatcher admission, runtime context clamp, model
-  downgrade/escalation hint는 후속 범위입니다.
+- Enforced resource admission gate는 v0.13.0에서 도입됐고, 남은 dispatcher policy는
+  후속 범위입니다.
 - 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
 
 ## v0.11.0 - Backend Chat Resource Governor

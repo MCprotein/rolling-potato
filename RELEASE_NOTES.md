@@ -1,5 +1,51 @@
 # Release Notes
 
+## v0.13.0 - Team Admission Gate
+
+Release date: 2026-07-07
+
+This release turns the v0.12.0 read-only team admission preview into the first
+enforced admission gate. It is still a source-only developer preview: it does
+not ship model weights, external plugin packages, or prebuilt `rpotato`
+binaries.
+
+### Included
+
+- New `rpotato team admit --lanes <count>` command.
+- Admission decisions are recorded in the append-only ledger and SQLite
+  projection.
+- Normal pressure admits the requested parallel lanes.
+- Missing/unknown or degraded pressure falls back to one sequential lane.
+- Critical pressure returns a blocked error before any future worker launch.
+- `team status` remains read-only; `team admit` is the mutating gate.
+- English and Korean documentation updates for the v0.13.0 admission gate
+  scope.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (157 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato team status`
+- `rpotato team admit --lanes 2`
+- `rpotato monitor status`
+
+The smoke checks use a scratch project root under `/private/tmp` and verify
+that `team admit` records a ledger event while falling back to one sequential
+lane when no resource sample exists.
+
+### Known Issues
+
+- `team admit` enforces only the resource-pressure lane gate. It does not start
+  subagents, dispatch team lanes, advance team stages, or enforce file ownership
+  yet.
+- Resource sampling is still event-driven, not continuous live polling.
+- Runtime context clamp, file ownership, tool risk, approval queue, and model
+  downgrade/escalation hints remain planned.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.12.0 - Team Admission Preview
 
 Release date: 2026-07-07
@@ -41,8 +87,8 @@ when no resource sample exists.
 - `team status` is an admission preview only; it does not start subagents,
   dispatch team lanes, mutate workflows, or enforce file ownership yet.
 - Resource sampling is still event-driven, not continuous live polling.
-- Enforced subagent/team dispatcher admission, runtime context clamp, and model
-  downgrade/escalation hints remain planned.
+- Enforced resource admission gate is introduced in v0.13.0; remaining
+  dispatcher policy stays planned.
 - No prebuilt `rpotato` binary artifacts are attached to this preview release.
 
 ## v0.11.0 - Backend Chat Resource Governor
