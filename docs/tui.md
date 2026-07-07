@@ -67,6 +67,7 @@ Minimum TUI views:
 - tool output viewer
 - model/backend status
 - model/token usage summary
+- CPU/memory/resource-pressure summary
 - subagent status
 - team status
 - plugin permission review

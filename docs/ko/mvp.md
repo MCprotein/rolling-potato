@@ -117,7 +117,7 @@ MVP 완료 조건:
 - sidecar backend health check가 통과한다.
 - 작은 fixture 저장소에서 patch 제안, 승인, 적용, 검증이 끝난다.
 - runtime core가 상태, 권한, context, tool result, evidence를 소유한다.
-- 모델별 token/latency/resource metric이 로컬 store에 기록된다.
+- 모델별 token/latency/CPU/memory/resource metric이 로컬 store에 기록된다.
 - 최종 보고의 한국어 guard가 테스트로 검증된다.
 - destructive action policy 위반 테스트가 0건이다.
 - uninstall keep-cache와 purge-cache smoke test가 통과한다.

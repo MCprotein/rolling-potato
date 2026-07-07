@@ -1,6 +1,6 @@
 # Observability And Monitoring
 
-`rolling-potato` must directly observe per-model token usage, latency, memory, retries, guard results, tool results, and evidence results through the runtime core.
+`rolling-potato` must directly observe per-model token usage, latency, CPU, memory, retries, guard results, tool results, and evidence results through the runtime core.
 
 Monitoring is not external telemetry. It is a local-first runtime capability. The default is local storage, and user code or raw prompts are not sent outside the machine.
 
@@ -9,11 +9,24 @@ Monitoring UX follows [DESIGN.md](../DESIGN.md) and [tui.md](tui.md). TUI is the
 ## Goals
 
 - Record per-model token and context usage.
+- Record backend sidecar CPU, memory, disk, and resource-pressure samples.
 - Compare backend/model performance and failure rates by session and workflow.
 - Quantify small-model failure modes: invalid diffs, Korean guard rejections, tool failures, and stop-gate failures.
 - Compare benchmark results and real-use results through the same schema.
 - Let TUI and `doctor` show current state and recent failure causes.
+- Let the runtime reduce work when local resources are under pressure instead of waiting for the OS to fail first.
 - Support useful diagnosis without storing raw prompts or raw source code by default.
+
+## Resource Monitoring Rollout
+
+Resource monitoring must land before any autonomous resource governor consumes
+it. The release grouping is:
+
+| Version | Scope | Contract |
+| --- | --- | --- |
+| v0.9.0 | resource sampler and logging | sample backend sidecar CPU, average/peak RSS, disk/cache/log bytes, sample count, and pressure status; write redacted ledger events and SQLite projection rows |
+| v0.10.0 | TUI monitor display | show CPU, memory, latency, token throughput, and pressure state in terminal-safe layouts |
+| v0.11.0+ | resource governor | use observed pressure to clamp context/max tokens, limit subagent/team concurrency, prefer sequential fallback, and surface model downgrade/escalation hints |
 
 ## Storage Decision
 
@@ -64,7 +77,8 @@ Phase 2 currently implements the runtime store foundation.
 
 Not implemented yet:
 
-- token/latency/resource metric recording from real model/backend execution
+- continuous CPU/memory/disk resource sampling from the managed backend sidecar
+- resource pressure classification and governor behavior
 - full transcript replay and conversation continuation after a selected session resume
 - active workflow resume execution by the real agent loop
 - actual retention deletion
@@ -119,7 +133,11 @@ Project-local ledgers are closer to project boundary and evidence. App-level SQL
 
 - backend startup time
 - process uptime
+- process CPU percent
+- average RSS memory
 - peak RSS memory
+- resource sample count
+- resource pressure status: normal, degraded, critical
 - disk space used by models/cache/logs
 - backend crash count
 - health check latency
@@ -158,6 +176,7 @@ schema_migrations
 sessions
 workflows
 ledger_events
+resource_samples
 model_runs
 token_usage
 backend_runs
@@ -200,6 +219,7 @@ TUI views:
 
 - model/token usage summary
 - live session latency and token-stream stats
+- CPU/memory/resource-pressure summary
 - backend health
 - guard/stop-gate results
 - subagent/team metric summary
@@ -264,6 +284,8 @@ Required tests:
 - SQLite projection after event ledger append
 - token usage aggregation
 - per-model metric query
+- resource sample projection
+- resource pressure classification boundary tests
 - raw prompt/source not stored by default
 - redaction before persistence
 - corrupt SQLite fallback

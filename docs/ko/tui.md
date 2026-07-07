@@ -67,6 +67,7 @@ Evidence view는 runtime evidence JSONL path, project evidence directory, SQLite
 - tool output viewer
 - model/backend status
 - model/token usage summary
+- CPU/memory/resource-pressure summary
 - subagent status
 - team status
 - plugin permission review

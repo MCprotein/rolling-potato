@@ -37,6 +37,17 @@
 - 공개 claim과 모델 claim은 evidence보다 넓게 쓰지 않는다.
 - LLM wiki는 model knowledge/evidence index이지 독립 truth source나 automatic model recommendation engine이 아니다.
 
+## 가까운 릴리즈 묶음
+
+이 로드맵은 phase 우선이지만, 다음 local resource 작업은 monitoring data가 먼저 생기고
+그 뒤 UI와 governor가 소비하도록 release 단위로 묶는다.
+
+| Version | Phase 기준 | Resource 범위 |
+| --- | --- | --- |
+| v0.9.0 | Phase 6 + Phase 2 | Backend sidecar CPU/RSS/memory/disk sampling, local ledger/SQLite 기록, CLI status field |
+| v0.10.0 | Phase 11 | CPU, memory, latency, token throughput, resource-pressure status를 보여주는 TUI monitor UX |
+| v0.11.0+ | Phase 11 | Runtime resource governor: backend health/resource threshold, context/max-token clamp, subagent/team admission control, sequential fallback |
+
 ## 0단계: 프로젝트 정의
 
 - [x] 제품 포지셔닝
@@ -127,6 +138,9 @@
 - [x] 중단된 실행의 resume 동작
 - [x] compaction boundary marker
 - [x] compacted summary 보존 정책
+- [ ] resource sample schema: process CPU, average/peak RSS, disk bytes, sample count, pressure status
+- [ ] resource sample ledger event와 SQLite projection
+- [ ] `rpotato monitor status`와 `rpotato backend status`의 resource status field
 - [ ] cross-store state authority matrix: ledger, SQLite, current-state, ontology, model knowledge, plugin registry, evidence
 - [ ] runtime write-ordering contract: policy validation, stable event id, ledger append, state mutation, projection, evidence, diagnostics
 - [ ] idempotent replay와 partial-write recovery test
@@ -259,6 +273,9 @@
 - [x] non-streaming chat completion path
 - [ ] streaming response path
 - [ ] cancellation path
+- [ ] backend sidecar resource sampler: CPU usage, RSS memory, disk/cache/log bytes, sample count
+- [ ] start, chat, health, status lifecycle에서 backend resource metric 기록
+- [ ] resource pressure classification: normal, degraded, critical
 - [x] stderr/stdout capture
 - [x] `doctor`의 backend diagnostics
 - [x] `rpotato backend doctor`의 backend diagnostics
@@ -422,6 +439,7 @@
 - [ ] subagent allowed tools/path/context boundary
 - [ ] subagent lifecycle: start, complete, blocked, failed, cancelled
 - [ ] subagent resource admission control: memory, backend health, token/context budget, file ownership, tool risk, approval queue
+- [ ] runtime resource governor policy: CPU/memory threshold, backend health, context/max-token clamp, model downgrade/escalation hint
 - [ ] parent cancellation propagation
 - [ ] shared file conflict detection
 - [ ] subagent evidence merge
@@ -443,6 +461,7 @@
 - [ ] TUI tool output viewer
 - [ ] TUI subagent/team status view
 - [x] TUI model/token monitoring view
+- [ ] TUI CPU/memory/resource pressure monitor view
 - [ ] TUI model knowledge panel
 - [x] TUI evidence/stop gate view
 - [ ] TUI plugin permission review view

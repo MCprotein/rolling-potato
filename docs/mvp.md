@@ -117,7 +117,7 @@ MVP is complete when:
 - sidecar backend health check passes
 - a small fixture repository completes patch proposal, approval, application, and verification
 - runtime core owns state, permissions, context, tool result, and evidence
-- per-model token/latency/resource metrics are recorded locally
+- per-model token/latency/CPU/memory/resource metrics are recorded locally
 - final-report Korean guard is tested
 - destructive-action policy violation tests are zero
 - uninstall keep-cache and purge-cache smoke tests pass

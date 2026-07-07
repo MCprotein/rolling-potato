@@ -347,13 +347,14 @@ Suggested next work:
 7. Extend the TUI beyond read-only beta: tool output viewer, subagent/team status, and plugin permission review.
 8. Connect model action output to the patch preview/apply flow, then add verification output interpretation, final Korean reporting, and stop gate evidence checks.
 9. Add backend streaming response handling and generation cancellation on top of the managed sidecar lifecycle.
-10. Run `rpotato model eval-plan <id>` before local model work to check source-backed fields, app-data artifact presence, and the next smoke/benchmark step.
-11. Run `rpotato model benchmark-plan <id>` before assigning any score so public benchmark parity conditions and local product benchmark gates remain separated.
-12. Run `rpotato model fetch-candidate <id> --for-evaluation` only when intentionally downloading multi-GB candidate artifacts for local evaluation.
-13. Run Qwen final-answer benchmark fixtures through `rpotato backend chat` before assigning model-quality scores.
-14. Run Gemma evaluation artifact fetch and local backend smoke with an explicit context limit, for example `rpotato backend start --model <path> --ctx-size 4096`.
-15. Measure RAM-fit/mmproj-need for the source-recorded Qwen/Gemma GGUF artifact candidates.
-16. Keep `model install` blocked until verified install download, benchmark evidence, and registry registration gates are complete.
+10. Add local resource monitoring in the documented order: v0.9.0 backend CPU/RSS/disk sampler + SQLite/ledger recording, v0.10.0 TUI resource-pressure display, v0.11.0+ resource governor/admission control.
+11. Run `rpotato model eval-plan <id>` before local model work to check source-backed fields, app-data artifact presence, and the next smoke/benchmark step.
+12. Run `rpotato model benchmark-plan <id>` before assigning any score so public benchmark parity conditions and local product benchmark gates remain separated.
+13. Run `rpotato model fetch-candidate <id> --for-evaluation` only when intentionally downloading multi-GB candidate artifacts for local evaluation.
+14. Run Qwen final-answer benchmark fixtures through `rpotato backend chat` before assigning model-quality scores.
+15. Run Gemma evaluation artifact fetch and local backend smoke with an explicit context limit, for example `rpotato backend start --model <path> --ctx-size 4096`.
+16. Measure RAM-fit/mmproj-need for the source-recorded Qwen/Gemma GGUF artifact candidates.
+17. Keep `model install` blocked until verified install download, benchmark evidence, and registry registration gates are complete.
 
 ## User Preference Notes
 
