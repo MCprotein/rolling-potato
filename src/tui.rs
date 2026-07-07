@@ -62,11 +62,12 @@ pub fn overview_report() -> Result<String, AppError> {
                 &mut lines,
                 width,
                 &format!(
-                    "{} | runs {} | tokens {} | avg latency {}",
+                    "{} | runs {} | tokens {} | avg latency {} | avg tps {}",
                     summary.model_id,
                     summary.runs,
                     summary.total_tokens,
-                    latency_label(summary.avg_latency_ms)
+                    latency_label(summary.avg_latency_ms),
+                    tps_label(summary.avg_tokens_per_second)
                 ),
             );
         }
@@ -107,6 +108,7 @@ pub fn monitor_report() -> Result<String, AppError> {
     let width = terminal_width();
     let store = observability::status()?;
     let models = observability::model_summaries()?;
+    let resource = observability::latest_resource_sample()?;
 
     let mut lines = Vec::new();
     push_header(&mut lines, width, "rpotato TUI beta - monitor");
@@ -134,6 +136,57 @@ pub fn monitor_report() -> Result<String, AppError> {
         "token records",
         &store.token_records.to_string(),
     );
+    push_kv(
+        &mut lines,
+        width,
+        "resource samples",
+        &store.resource_samples.to_string(),
+    );
+    push_rule(&mut lines, width);
+    push_section(&mut lines, width, "resource pressure");
+    if let Some(sample) = resource {
+        push_wrapped(
+            &mut lines,
+            width,
+            &format!(
+                "pressure: {} | backend: {} | pid: {} | sample count: {} | recorded ms: {}",
+                sample.pressure_status,
+                sample.backend_id,
+                sample.pid,
+                sample.sample_count,
+                sample.recorded_at_ms
+            ),
+        );
+        push_wrapped(
+            &mut lines,
+            width,
+            &format!(
+                "cpu: {} | avg rss: {}",
+                percent_label(sample.process_cpu_percent),
+                bytes_label(sample.average_rss_bytes)
+            ),
+        );
+        push_wrapped(
+            &mut lines,
+            width,
+            &format!(
+                "peak rss: {} | disk: {}",
+                bytes_label(sample.peak_rss_bytes),
+                bytes_label(sample.disk_bytes)
+            ),
+        );
+        push_wrapped(
+            &mut lines,
+            width,
+            &format!("latest sample: {}", short_id(&sample.resource_sample_id)),
+        );
+    } else {
+        push_wrapped(
+            &mut lines,
+            width,
+            "No resource samples yet. Run backend start, backend status, or backend chat after a sidecar is running.",
+        );
+    }
     push_rule(&mut lines, width);
     push_section(&mut lines, width, "models");
     if models.is_empty() {
@@ -149,20 +202,21 @@ pub fn monitor_report() -> Result<String, AppError> {
         push_wrapped(
             &mut lines,
             width,
-            "model | runs | prompt | completion | total | avg latency",
+            "model | runs | prompt | completion | total | avg ms | tps",
         );
         for summary in &models {
             push_wrapped(
                 &mut lines,
                 width,
                 &format!(
-                    "{} | {} | {} | {} | {} | {}",
+                    "{} | {} | {} | {} | {} | {} | {}",
                     summary.model_id,
                     summary.runs,
                     summary.prompt_tokens,
                     summary.completion_tokens,
                     summary.total_tokens,
-                    latency_label(summary.avg_latency_ms)
+                    latency_label(summary.avg_latency_ms),
+                    tps_label(summary.avg_tokens_per_second)
                 ),
             );
         }
@@ -613,6 +667,37 @@ fn latency_label(value: Option<f64>) -> String {
         .unwrap_or_else(|| "not recorded".to_string())
 }
 
+fn tps_label(value: Option<f64>) -> String {
+    value
+        .map(|value| format!("{value:.1} tok/s"))
+        .unwrap_or_else(|| "not recorded".to_string())
+}
+
+fn percent_label(value: Option<f64>) -> String {
+    value
+        .map(|value| format!("{value:.1}%"))
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn bytes_label(value: Option<u64>) -> String {
+    let Some(value) = value else {
+        return "unknown".to_string();
+    };
+    const KIB: f64 = 1024.0;
+    const MIB: f64 = KIB * 1024.0;
+    const GIB: f64 = MIB * 1024.0;
+    let value = value as f64;
+    if value >= GIB {
+        format!("{:.1} GiB", value / GIB)
+    } else if value >= MIB {
+        format!("{:.1} MiB", value / MIB)
+    } else if value >= KIB {
+        format!("{:.1} KiB", value / KIB)
+    } else {
+        format!("{value:.0} B")
+    }
+}
+
 fn short_id(value: &str) -> String {
     if value.len() <= 18 {
         return value.to_string();
@@ -658,8 +743,82 @@ mod tests {
         std::env::remove_var("RPOTATO_DATA_HOME");
 
         assert!(report.contains("rpotato TUI beta - monitor"));
+        assert!(report.contains("[resource pressure]"));
+        assert!(report.contains("resource samples: 0"));
+        assert!(report.contains("No resource samples yet"));
         assert!(report.contains("[models]"));
         assert!(report.contains("No recorded model runs yet"));
+    }
+
+    #[test]
+    fn monitor_renders_resource_pressure_and_token_throughput() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = test_root("rpotato-tui-resource-monitor-test");
+        let project_root = root.join("project");
+        std::fs::create_dir_all(&project_root).unwrap();
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("COLUMNS", "64");
+        let identity = ledger::current_identity();
+
+        observability::record_model_run(&observability::ModelRunMetric {
+            model_run_id: "model-run-tui-resource".to_string(),
+            session_id: identity.session_id.clone(),
+            workflow_id: None,
+            model_id: "qwen-test".to_string(),
+            model_artifact_hash: None,
+            backend_id: Some("llama.cpp".to_string()),
+            backend_version: None,
+            quantization: None,
+            context_limit_tokens: Some(4096),
+            started_at_ms: 1000,
+            first_token_latency_ms: Some(25.0),
+            total_latency_ms: Some(200.0),
+            prompt_eval_ms: None,
+            generation_eval_ms: None,
+            tokens_per_second: Some(12.5),
+            cancelled: false,
+            prompt_tokens: 10,
+            completion_tokens: 20,
+            total_tokens: 30,
+            context_tokens_used: 10,
+            context_tokens_dropped: 0,
+            ontology_tokens: 0,
+            tool_summary_tokens: 0,
+            max_output_tokens: Some(64),
+        })
+        .unwrap();
+        observability::record_resource_sample(&observability::ResourceSampleMetric {
+            resource_sample_id: "resource-sample-tui-resource".to_string(),
+            session_id: identity.session_id,
+            backend_id: "llama.cpp".to_string(),
+            pid: 12345,
+            process_cpu_percent: Some(84.2),
+            average_rss_bytes: Some(256 * 1024 * 1024),
+            peak_rss_bytes: Some(512 * 1024 * 1024),
+            disk_bytes: Some(1536),
+            sample_count: 3,
+            pressure_status: "degraded".to_string(),
+            recorded_at_ms: 2000,
+        })
+        .unwrap();
+
+        let report = monitor_report().unwrap();
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("COLUMNS");
+        let _ = std::fs::remove_dir_all(root);
+
+        assert!(report.contains("[resource pressure]"));
+        assert!(report.contains("resource samples: 1"));
+        assert!(report.contains("pressure: degraded"));
+        assert!(report.contains("cpu: 84.2%"));
+        assert!(report.contains("avg rss: 256.0 MiB"));
+        assert!(report.contains("peak rss: 512.0 MiB"));
+        assert!(report.contains("disk: 1.5 KiB"));
+        assert!(report.contains("avg ms | tps"));
+        assert!(report.contains("12.5 tok/s"));
     }
 
     #[test]

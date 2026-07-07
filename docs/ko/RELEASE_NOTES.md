@@ -1,5 +1,45 @@
 # 릴리즈 노트
 
+## v0.10.0 - TUI Resource Monitor
+
+릴리즈 날짜: 2026-07-07
+
+이 릴리즈는 read-only TUI beta에 managed backend sidecar resource-pressure
+monitor를 추가합니다. 여전히 source-only developer preview이며, 모델 가중치, 외부
+plugin package, prebuilt `rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- `rpotato tui monitor`가 resource sample count, 최신 pressure status, CPU
+  percent, average/peak RSS, disk bytes, recorded timestamp를 보여줍니다.
+- Model monitoring summary가 total token과 average latency에 더해 average tokens
+  per second를 표시합니다.
+- Monitor layout은 dependency-free terminal-safe surface로 유지되며,
+  `COLUMNS=64` 같은 좁은 terminal render도 다룹니다.
+- v0.10.0 TUI monitor 범위에 대한 영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (148 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato tui monitor`
+- `COLUMNS=64 rpotato tui monitor`
+
+TUI smoke는 `/private/tmp` 아래 scratch project root에서 runtime state를 초기화하고,
+observability schema v2 상태에서 monitor view가 resource pressure, resource sample
+count, model/token count, read-only action, beta boundary를 workflow mutation 없이
+렌더링하는지 확인했습니다.
+
+### 알려진 제한
+
+- Resource monitor data는 event-driven이며 최신 recorded sample을 보여줍니다.
+  Continuous live polling은 아닙니다.
+- Runtime resource governor 동작은 v0.11.0+에 남아 있습니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.9.0 - Backend Resource Sampling
 
 릴리즈 날짜: 2026-07-07
@@ -39,7 +79,7 @@ CPU/RSS/disk/pressure field를 확인했습니다.
 ### 알려진 제한
 
 - Resource sampling은 event-driven이며 continuous background polling은 아닙니다.
-- TUI resource-pressure 표시는 v0.10.0에 남아 있습니다.
+- TUI resource-pressure 표시는 v0.9.0에 포함되지 않으며, v0.10.0에서 도입되었습니다.
 - Runtime resource governor 동작은 v0.11.0+에 남아 있습니다.
 - 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
 

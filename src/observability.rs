@@ -34,6 +34,7 @@ pub struct ModelMetricSummary {
     pub completion_tokens: i64,
     pub total_tokens: i64,
     pub avg_latency_ms: Option<f64>,
+    pub avg_tokens_per_second: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,7 +136,8 @@ pub fn model_summaries() -> Result<Vec<ModelMetricSummary>, AppError> {
                     COALESCE(SUM(token_usage.prompt_tokens), 0),
                     COALESCE(SUM(token_usage.completion_tokens), 0),
                     COALESCE(SUM(token_usage.total_tokens), 0),
-                    AVG(model_runs.total_latency_ms)
+                    AVG(model_runs.total_latency_ms),
+                    AVG(model_runs.tokens_per_second)
                FROM token_usage
           LEFT JOIN model_runs
                  ON token_usage.model_run_id = model_runs.model_run_id
@@ -153,6 +155,7 @@ pub fn model_summaries() -> Result<Vec<ModelMetricSummary>, AppError> {
                 completion_tokens: row.get(3)?,
                 total_tokens: row.get(4)?,
                 avg_latency_ms: row.get(5)?,
+                avg_tokens_per_second: row.get(6)?,
             })
         })
         .map_err(sql_error("model metric query를 실행하지 못했습니다"))?;
@@ -1029,6 +1032,7 @@ mod tests {
         assert_eq!(summaries[0].completion_tokens, 12);
         assert_eq!(summaries[0].total_tokens, 22);
         assert_eq!(summaries[0].avg_latency_ms, Some(100.0));
+        assert_eq!(summaries[0].avg_tokens_per_second, Some(120.0));
     }
 
     #[test]
