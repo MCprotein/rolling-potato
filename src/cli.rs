@@ -18,6 +18,9 @@ rpotato
   rpotato session resume <session-id>
   rpotato session new
   rpotato resume [session-id]
+  rpotato tui
+  rpotato tui monitor
+  rpotato tui sessions
   rpotato cancel
   rpotato evidence validate <artifact-pointer>
   rpotato skill list
@@ -85,6 +88,7 @@ pub enum Command {
     Config,
     State(StateCommand),
     Session(SessionCommand),
+    Tui(TuiCommand),
     Cancel,
     Evidence(EvidenceCommand),
     Skill(SkillCommand),
@@ -119,6 +123,13 @@ pub enum SessionCommand {
     List,
     New,
     Resume { id: String },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TuiCommand {
+    Overview,
+    Monitor,
+    Sessions,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -324,6 +335,16 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         ),
         [group, ..] if group == "session" => Err(AppError::usage(
             "session 명령은 list, history, new, resume만 허용합니다.",
+        )),
+        [arg] if arg == "tui" => Ok(Command::Tui(TuiCommand::Overview)),
+        [group, action] if group == "tui" && action == "monitor" => {
+            Ok(Command::Tui(TuiCommand::Monitor))
+        }
+        [group, action] if group == "tui" && action == "sessions" => {
+            Ok(Command::Tui(TuiCommand::Sessions))
+        }
+        [group, ..] if group == "tui" => Err(AppError::usage(
+            "tui 명령은 인자 없음, monitor, sessions만 허용합니다.",
         )),
         [arg] if arg == "cancel" => Ok(Command::Cancel),
         [group, action, pointer] if group == "evidence" && action == "validate" => {
@@ -1469,6 +1490,24 @@ mod tests {
                 id: "session-1".to_string()
             })
         );
+    }
+
+    #[test]
+    fn parses_tui_overview() {
+        let command = parse(["tui".to_string()]).unwrap();
+        assert_eq!(command, Command::Tui(TuiCommand::Overview));
+    }
+
+    #[test]
+    fn parses_tui_monitor() {
+        let command = parse(["tui".to_string(), "monitor".to_string()]).unwrap();
+        assert_eq!(command, Command::Tui(TuiCommand::Monitor));
+    }
+
+    #[test]
+    fn parses_tui_sessions() {
+        let command = parse(["tui".to_string(), "sessions".to_string()]).unwrap();
+        assert_eq!(command, Command::Tui(TuiCommand::Sessions));
     }
 
     #[test]
