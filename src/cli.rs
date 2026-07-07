@@ -21,6 +21,7 @@ rpotato
   rpotato tui
   rpotato tui monitor
   rpotato tui sessions
+  rpotato tui transcript <session-id>
   rpotato tui approvals
   rpotato tui diff <proposal-id>
   rpotato cancel
@@ -132,6 +133,7 @@ pub enum TuiCommand {
     Overview,
     Monitor,
     Sessions,
+    Transcript { session_id: String },
     Approvals,
     Diff { proposal_id: String },
 }
@@ -347,6 +349,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "tui" && action == "sessions" => {
             Ok(Command::Tui(TuiCommand::Sessions))
         }
+        [group, action, session_id] if group == "tui" && action == "transcript" => {
+            Ok(Command::Tui(TuiCommand::Transcript {
+                session_id: session_id.clone(),
+            }))
+        }
+        [group, action, ..] if group == "tui" && action == "transcript" => Err(
+            AppError::usage("tui transcript에는 session id가 필요합니다."),
+        ),
         [group, action] if group == "tui" && action == "approvals" => {
             Ok(Command::Tui(TuiCommand::Approvals))
         }
@@ -359,7 +369,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             "tui diff에는 proposal id가 필요합니다.",
         )),
         [group, ..] if group == "tui" => Err(AppError::usage(
-            "tui 명령은 인자 없음, monitor, sessions, approvals, diff만 허용합니다.",
+            "tui 명령은 인자 없음, monitor, sessions, transcript, approvals, diff만 허용합니다.",
         )),
         [arg] if arg == "cancel" => Ok(Command::Cancel),
         [group, action, pointer] if group == "evidence" && action == "validate" => {
@@ -1523,6 +1533,22 @@ mod tests {
     fn parses_tui_sessions() {
         let command = parse(["tui".to_string(), "sessions".to_string()]).unwrap();
         assert_eq!(command, Command::Tui(TuiCommand::Sessions));
+    }
+
+    #[test]
+    fn parses_tui_transcript() {
+        let command = parse([
+            "tui".to_string(),
+            "transcript".to_string(),
+            "session-1".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Tui(TuiCommand::Transcript {
+                session_id: "session-1".to_string()
+            })
+        );
     }
 
     #[test]
