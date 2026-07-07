@@ -433,8 +433,8 @@
 - [ ] team resource admission control과 sequential fallback
 - [ ] failed worker continuation policy
 - [ ] `rpotato team status`
-- [ ] TUI framework decision
-- [ ] `rpotato tui`
+- [x] TUI framework decision
+- [x] `rpotato tui`
 - [ ] `DESIGN.md` 기반 TUI monitoring UX spec
 - [ ] TUI transcript/session view
 - [ ] TUI plan/context/ontology view
@@ -442,13 +442,13 @@
 - [ ] TUI diff viewer
 - [ ] TUI tool output viewer
 - [ ] TUI subagent/team status view
-- [ ] TUI model/token monitoring view
+- [x] TUI model/token monitoring view
 - [ ] TUI model knowledge panel
 - [ ] TUI evidence/stop gate view
 - [ ] TUI plugin permission review view
 - [ ] optional local HTML report/dashboard decision
 - [ ] TUI cancel/resume controls
-- [ ] TUI small terminal smoke test
+- [x] TUI small terminal smoke test
 - [ ] TUI policy-bypass regression test
 
 ## 12단계: Packaging과 Release

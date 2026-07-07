@@ -6,6 +6,18 @@ TUI는 Claude Code/Codex replacement experience에 필요한 필수 product surf
 
 TUI design source of truth는 [DESIGN.md](../DESIGN.md)입니다. 특히 monitoring 화면은 SSH/Linux server에서도 쓸 수 있어야 하므로 browser나 GUI를 전제하지 않습니다.
 
+## 현재 Beta Surface
+
+`v0.5.0`은 dependency-free, read-only ASCII TUI beta를 추가합니다.
+
+- `rpotato tui`
+- `rpotato tui monitor`
+- `rpotato tui sessions`
+
+이 beta는 기존 runtime state와 SQLite observability projection을 읽습니다. Project/session 상태, model/token summary, session history, resume hint, read-only boundary를 보여줍니다. Approval, patch apply, resume, cancel, workflow mutation은 수행하지 않습니다.
+
+첫 beta의 framework decision은 dependency-free terminal-safe surface로 시작하는 것입니다. Interaction requirement가 안정된 뒤 더 풍부한 TUI crate가 필요한지 결정합니다.
+
 ## 목표
 
 - long-running agent session을 inspect 가능하게 만든다.

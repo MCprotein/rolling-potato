@@ -3,7 +3,7 @@ use crate::cache;
 use crate::cli::{
     BackendCommand, Command, EvidenceCommand, HooksCommand, IntentCommand, ModelCommand,
     MonitorCommand, PatchCommand, PluginCommand, PolicyCommand, PolicyPathMode, SessionCommand,
-    SkillCommand, StateCommand, UninstallCommand,
+    SkillCommand, StateCommand, TuiCommand, UninstallCommand,
 };
 use crate::config;
 use crate::evidence;
@@ -17,6 +17,7 @@ use crate::policy;
 use crate::runtime;
 use crate::skill;
 use crate::state;
+use crate::tui;
 use crate::uninstall;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -100,6 +101,18 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
         }
         Command::Session(SessionCommand::Resume { id }) => {
             println!("{}", state::session_resume_report(&id)?);
+            Ok(())
+        }
+        Command::Tui(TuiCommand::Overview) => {
+            println!("{}", tui::overview_report()?);
+            Ok(())
+        }
+        Command::Tui(TuiCommand::Monitor) => {
+            println!("{}", tui::monitor_report()?);
+            Ok(())
+        }
+        Command::Tui(TuiCommand::Sessions) => {
+            println!("{}", tui::sessions_report()?);
             Ok(())
         }
         Command::Cancel => {

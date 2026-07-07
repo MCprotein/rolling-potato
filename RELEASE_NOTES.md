@@ -1,5 +1,46 @@
 # Release Notes
 
+## v0.5.0 - Read-Only TUI Beta
+
+Release date: 2026-07-07
+
+This release adds the first read-only TUI beta surface for terminal-only
+environments. It is still a source-only developer preview: it does not ship
+model weights, external plugin packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- `rpotato tui` overview dashboard
+- `rpotato tui monitor` model/token monitoring view
+- `rpotato tui sessions` session-history view with full session ids and resume
+  hint
+- Dependency-free ASCII layout for SSH/Linux-server friendly rendering
+- Read-only boundary that does not approve, apply, resume, cancel, or mutate
+  workflows
+- English and Korean documentation updates for the TUI beta surface
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (133 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato tui`
+- `rpotato tui monitor`
+- `rpotato tui sessions`
+
+The TUI smoke showed project/session state, SQLite observability path, recorded
+model/token metrics, session history, and the read-only beta boundary.
+
+### Known Issues
+
+- The TUI beta is a one-shot read-only render, not an interactive event loop.
+- Approval queue, diff viewer, transcript view, subagent/team status, plugin
+  permission review, and stop-gate evidence views remain future work.
+- The first beta intentionally avoids a TUI framework dependency; a richer TUI
+  crate can be reconsidered after interaction requirements stabilize.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.4.0 - Approved Patch Apply
 
 Release date: 2026-07-07

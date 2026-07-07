@@ -204,6 +204,7 @@ Local execution evidence checked 2026-07-06:
 - `v0.2.0` work started on `release/v0.2.0`: `rpotato run` now performs deterministic routing, builds a bounded repository context pack with source pointers, prepares a runtime-owned action candidate/next gate, calls the running backend sidecar for a context-aware model-response agent-loop skeleton, parses the model's structured action line or recognized action text without execution, and records model/token metrics in SQLite. Latest verified model-action smoke read `src/intent.rs:1`, `src/app.rs:1`, `src/backend.rs:1`, and `src/cache.rs:1`; it returned `action candidate: patch-proposal`, `model action parse: heuristic-text`, `model action kind: patch-proposal`, `model action executable now: no`, `next gate: diff-before-write`, `guard: pass`, `finish reason: stop`, `prompt tokens: 1482`, `completion tokens: 72`, `total tokens: 1554`; `monitor models` showed `Qwen3.5-4B-Q4_K_M: runs 6, prompt 6032, completion 311, total 6343, avg latency 1303.0ms`.
 - `v0.3.0` work started on `release/v0.3.0`: `rpotato patch preview --path <path> --find <text> --replace <text>` renders a unified diff, writes a proposal record under `.rpotato/patch-proposals/`, prints an approval token, and does not modify the target file. `rpotato patch approve <proposal-id> --token <token> --dry-run` verifies the approval gate and records a ledger event without applying the patch. Latest smoke previewed `RELEASE_NOTES.md` from `Run Skeleton Preview` to `Run Skeleton Preview Smoke`, returned `status: diff-ready`, then approve returned `status: gate-passed`; `git diff -- RELEASE_NOTES.md` was empty after smoke.
 - `v0.4.0` work started on `release/v0.4.0`: `rpotato patch approve <proposal-id> --token <token>` now applies approved proposals when the current target SHA-256 still matches the previewed original SHA-256, writes a rollback record, verifies the applied SHA-256, and can run `--verify-command <command>` for policy-allowed simple argv verification commands. Latest scratch smoke used `RPOTATO_PROJECT_ROOT=/private/tmp/rpotato-v040-smoke`, previewed `README.md` from `Local coding agents for potato PCs.` to `Local coding agents for potato PCs. Smoke`, then approved with `--verify-command "rg Smoke README.md"`; output returned `status: applied`, rollback record path, `verification status: passed`, and verification exit code `0`.
+- `v0.5.0` work started on `release/v0.5.0`: `rpotato tui`, `rpotato tui monitor`, and `rpotato tui sessions` render dependency-free read-only ASCII TUI beta views from existing runtime state and the SQLite observability projection. Latest smoke returned overview, monitor, and sessions dashboards showing project/session state, observability path, recorded Qwen token metrics, full session ids, and the read-only beta boundary.
 
 Comparison candidate:
 
@@ -340,15 +341,16 @@ Suggested next work:
 4. Keep plugin adapter work aligned with `docs/plugin-adapters.md`; start with inspect/validate before execution.
 5. Do not add plugin marketplace integration; reject marketplace, registry, catalog, mirror, and remote URL plugin sources.
 6. Split the current scaffold toward explicit runtime core modules.
-7. Connect model action output to the patch preview/apply flow, then add verification output interpretation, final Korean reporting, and stop gate evidence checks.
-8. Add backend streaming response handling and generation cancellation on top of the managed sidecar lifecycle.
-9. Run `rpotato model eval-plan <id>` before local model work to check source-backed fields, app-data artifact presence, and the next smoke/benchmark step.
-10. Run `rpotato model benchmark-plan <id>` before assigning any score so public benchmark parity conditions and local product benchmark gates remain separated.
-11. Run `rpotato model fetch-candidate <id> --for-evaluation` only when intentionally downloading multi-GB candidate artifacts for local evaluation.
-12. Run Qwen final-answer benchmark fixtures through `rpotato backend chat` before assigning model-quality scores.
-13. Run Gemma evaluation artifact fetch and local backend smoke with an explicit context limit, for example `rpotato backend start --model <path> --ctx-size 4096`.
-14. Measure RAM-fit/mmproj-need for the source-recorded Qwen/Gemma GGUF artifact candidates.
-15. Keep `model install` blocked until verified install download, benchmark evidence, and registry registration gates are complete.
+7. Extend the TUI beyond read-only beta: approval queue, diff viewer, transcript/session view, subagent/team status, plugin permission review, and stop-gate evidence view.
+8. Connect model action output to the patch preview/apply flow, then add verification output interpretation, final Korean reporting, and stop gate evidence checks.
+9. Add backend streaming response handling and generation cancellation on top of the managed sidecar lifecycle.
+10. Run `rpotato model eval-plan <id>` before local model work to check source-backed fields, app-data artifact presence, and the next smoke/benchmark step.
+11. Run `rpotato model benchmark-plan <id>` before assigning any score so public benchmark parity conditions and local product benchmark gates remain separated.
+12. Run `rpotato model fetch-candidate <id> --for-evaluation` only when intentionally downloading multi-GB candidate artifacts for local evaluation.
+13. Run Qwen final-answer benchmark fixtures through `rpotato backend chat` before assigning model-quality scores.
+14. Run Gemma evaluation artifact fetch and local backend smoke with an explicit context limit, for example `rpotato backend start --model <path> --ctx-size 4096`.
+15. Measure RAM-fit/mmproj-need for the source-recorded Qwen/Gemma GGUF artifact candidates.
+16. Keep `model install` blocked until verified install download, benchmark evidence, and registry registration gates are complete.
 
 ## User Preference Notes
 

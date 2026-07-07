@@ -76,6 +76,8 @@ rpotato chat
 rpotato run "이 에러 고쳐줘"
 rpotato intent classify "테스트 실패 고쳐줘"
 rpotato tui
+rpotato tui monitor
+rpotato tui sessions
 rpotato state reconcile
 rpotato state resume
 rpotato session list
@@ -198,6 +200,9 @@ Implemented command surfaces:
 - `rpotato policy redact <text>`
 - `rpotato hooks list`
 - `rpotato hooks validate-result <json>`
+- `rpotato tui`
+- `rpotato tui monitor`
+- `rpotato tui sessions`
 - `rpotato patch preview --path <path> --find <text> --replace <text>`
 - `rpotato patch approve <proposal-id> --token <token> [--dry-run] [--verify-command <command>]`
 - `rpotato monitor status`
@@ -241,6 +246,8 @@ Implemented command surfaces:
 `run` normalizes the user request into skill, mode, context, and evidence requirements, builds a bounded repository context pack with source pointers, prepares a runtime-owned action candidate and next gate, calls the running backend sidecar, and parses the model's structured action line or recognized action text without executing it. It records intent, context, action-candidate, model-action, and backend chat ledger events plus token/latency metrics in the local SQLite observability projection. It still does not apply patches, run commands, or treat model output as an approved action.
 
 `intent classify`, `intent routes`, and `skill run` remain pre-execution surfaces: they normalize routing state and record ledger events without calling the model.
+
+`tui`, `tui monitor`, and `tui sessions` render the first read-only TUI beta surfaces using existing runtime state and the SQLite observability projection. They show project/session state, model/token summaries, session history, and read-only boundaries in terminal-friendly ASCII layouts. They do not approve, apply, resume, cancel, or mutate workflows.
 
 `policy` and `hooks` commands provide command/path permission decisions, credential redaction, lifecycle hook registry output, and fail-closed hook result validation. Real tool execution has not yet been wired behind this policy surface.
 
