@@ -86,6 +86,14 @@ the latest resource sample and reports whether a future team dispatch would be
 parallel, sequential fallback, or blocked. It does not start workers or mutate
 workflow state yet.
 
+`rpotato team admit --lanes <count>` is the first enforced admission gate. It
+uses the same resource policy but records a ledger event and returns a blocked
+error on critical pressure. Normal pressure admits the requested lane count;
+unknown or degraded pressure falls back to one sequential lane. This command
+still does not start workers or advance team stages, so future dispatcher work
+can attach worker launch after the gate without changing the admission
+contract.
+
 ## TUI Integration
 
 TUI should show:

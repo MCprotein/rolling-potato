@@ -48,7 +48,8 @@
 | v0.10.0 | Phase 11 | CPU, memory, latency, token throughput, resource-pressure status를 보여주는 TUI monitor UX |
 | v0.11.0 | Phase 11 | Backend chat runtime governor: backend health/resource threshold, critical-pressure 차단, degraded-pressure max-token clamp, CLI/ledger reporting |
 | v0.12.0 | Phase 11 | Read-only team admission preview: 최신 resource sample, parallel admission, sequential fallback, dispatch 차단 |
-| v0.13.0+ | Phase 11 | Runtime context/model governor와 실제 subagent/team dispatcher admission |
+| v0.13.0 | Phase 11 | Team admission gate: requested lane enforcement, sequential fallback, critical-pressure 차단, ledger 기록 |
+| v0.14.0+ | Phase 11 | Runtime context/model governor와 남은 subagent/team dispatcher policy: file ownership, tool risk, approval queue, model downgrade/escalation hint |
 
 ## 0단계: 프로젝트 정의
 
@@ -452,8 +453,10 @@
 - [ ] team merge policy: runtime-owned merge
 - [ ] team stage ledger
 - [x] team resource admission status와 sequential fallback preview
+- [x] team admission gate의 lane enforcement와 ledger 기록
 - [ ] failed worker continuation policy
 - [x] `rpotato team status`
+- [x] `rpotato team admit --lanes <count>`
 - [x] TUI framework decision
 - [x] `rpotato tui`
 - [x] `DESIGN.md` 기반 TUI monitoring UX spec

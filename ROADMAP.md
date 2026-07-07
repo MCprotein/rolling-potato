@@ -48,7 +48,8 @@ by release so monitoring data exists before UI and governor behavior consume it.
 | v0.10.0 | Phase 11 | TUI monitor UX for CPU, memory, latency, token throughput, and resource-pressure status |
 | v0.11.0 | Phase 11 | Backend chat runtime governor: backend health/resource thresholds, critical-pressure block, degraded-pressure max-token clamp, and CLI/ledger reporting |
 | v0.12.0 | Phase 11 | Read-only team admission preview: latest resource sample, parallel admission, sequential fallback, blocked dispatch |
-| v0.13.0+ | Phase 11 | Runtime context/model governor plus enforced subagent/team dispatcher admission |
+| v0.13.0 | Phase 11 | Team admission gate: requested lane enforcement, sequential fallback, critical-pressure block, ledger recording |
+| v0.14.0+ | Phase 11 | Runtime context/model governor plus remaining subagent/team dispatcher policy: file ownership, tool risk, approval queue, and model downgrade/escalation hints |
 
 ## Phase 0: Project Definition
 
@@ -450,10 +451,12 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [ ] Team merge policy: runtime-owned merge
 - [ ] Team stage ledger
 - [x] Team resource admission status and sequential fallback preview
+- [x] Team admission gate with lane enforcement and ledger recording
 - [x] Backend chat resource governor policy: CPU/memory thresholds, backend health precheck, critical-pressure block, degraded-pressure max-token clamp, pressure hint
 - [ ] Runtime context clamp and model downgrade/escalation hint for backend/model selection
 - [ ] Failed worker continuation policy
 - [x] `rpotato team status`
+- [x] `rpotato team admit --lanes <count>`
 - [x] TUI framework decision
 - [x] `rpotato tui`
 - [x] TUI monitoring UX spec from `DESIGN.md`
