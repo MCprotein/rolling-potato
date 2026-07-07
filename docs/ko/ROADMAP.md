@@ -366,9 +366,9 @@
 - [ ] verifier step
 - [ ] reporter step
 - [x] unified diff rendering
-- [ ] approved patch apply
-- [ ] patch apply rollback/failure handling
-- [ ] approved verification command execution
+- [x] approved patch apply
+- [x] patch apply rollback/failure handling
+- [x] approved verification command execution
 - [ ] verification output interpretation
 - [ ] final Korean report
 

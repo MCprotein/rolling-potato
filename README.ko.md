@@ -202,7 +202,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato hooks list`
 - `rpotato hooks validate-result <json>`
 - `rpotato patch preview --path <path> --find <text> --replace <text>`
-- `rpotato patch approve <proposal-id> --token <token> --dry-run`
+- `rpotato patch approve <proposal-id> --token <token> [--dry-run] [--verify-command <command>]`
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor export --format jsonl`
@@ -247,7 +247,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `policy`와 `hooks` 명령은 command/path 권한 결정, credential redaction, lifecycle hook registry, fail-closed hook result 검사를 제공합니다. 실제 tool execution은 아직 이 policy surface 뒤에 연결되지 않았습니다.
 
-`patch preview`는 project-local text file을 읽고 명시적인 단일 find/replace proposal에 대한 unified diff를 렌더링하며, `.rpotato/patch-proposals/` 아래에 project-local proposal record를 저장하고 approval token을 출력합니다. `patch approve <proposal-id> --token <token> --dry-run`은 token을 검증하고 approval gate 결과를 기록하지만 target file은 수정하지 않습니다. 승인된 patch apply는 후속 phase입니다.
+`patch preview`는 project-local text file을 읽고 명시적인 단일 find/replace proposal에 대한 unified diff를 렌더링하며, `.rpotato/patch-proposals/` 아래에 project-local proposal record를 저장하고 approval token을 출력합니다. `patch approve <proposal-id> --token <token> --dry-run`은 token을 검증하고 target file을 수정하지 않은 채 approval gate를 기록합니다. `--dry-run` 없이 실행하면 current file SHA-256이 preview 당시 original SHA-256과 일치할 때만 승인된 proposal을 적용하고, rollback record를 쓴 뒤 applied SHA-256을 검증해 ledger event를 남깁니다. `--verify-command <command>`는 apply 이후 allow 정책을 통과한 단순 argv verification command만 실행하며, verification 실패 시 rollback을 시도하고 성공으로 보고하지 않습니다.
 
 `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 

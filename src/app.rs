@@ -158,8 +158,12 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             proposal_id,
             token,
             dry_run,
+            verify_command,
         }) => {
-            println!("{}", patch::approve_report(&proposal_id, &token, dry_run)?);
+            println!(
+                "{}",
+                patch::approve_report(&proposal_id, &token, dry_run, verify_command.as_deref())?
+            );
             Ok(())
         }
         Command::Backend(BackendCommand::Doctor) => {

@@ -199,7 +199,7 @@ Implemented command surfaces:
 - `rpotato hooks list`
 - `rpotato hooks validate-result <json>`
 - `rpotato patch preview --path <path> --find <text> --replace <text>`
-- `rpotato patch approve <proposal-id> --token <token> --dry-run`
+- `rpotato patch approve <proposal-id> --token <token> [--dry-run] [--verify-command <command>]`
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor export --format jsonl`
@@ -244,7 +244,7 @@ Implemented command surfaces:
 
 `policy` and `hooks` commands provide command/path permission decisions, credential redaction, lifecycle hook registry output, and fail-closed hook result validation. Real tool execution has not yet been wired behind this policy surface.
 
-`patch preview` reads a project-local text file, renders a unified diff for a single explicit find/replace proposal, writes a project-local proposal record under `.rpotato/patch-proposals/`, and prints an approval token. `patch approve <proposal-id> --token <token> --dry-run` verifies that token and records the approval gate result without modifying the target file. Approved patch application is still a later phase.
+`patch preview` reads a project-local text file, renders a unified diff for a single explicit find/replace proposal, writes a project-local proposal record under `.rpotato/patch-proposals/`, and prints an approval token. `patch approve <proposal-id> --token <token> --dry-run` verifies the token and records the approval gate without modifying the target file. Without `--dry-run`, `patch approve` applies the approved proposal only when the current file SHA-256 still matches the previewed original SHA-256, writes a rollback record, verifies the applied SHA-256, and records a ledger event. `--verify-command <command>` runs an allow-listed simple argv verification command after apply; verification failure attempts rollback and is not reported as success.
 
 `monitor export` emits the runtime ledger as JSONL or CSV. `monitor prune` is currently dry-run only.
 

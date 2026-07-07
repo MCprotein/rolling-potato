@@ -30,7 +30,7 @@ rpotato
   rpotato hooks list
   rpotato hooks validate-result <json>
   rpotato patch preview --path <path> --find <text> --replace <text>
-  rpotato patch approve <proposal-id> --token <token> --dry-run
+  rpotato patch approve <proposal-id> --token <token> [--dry-run] [--verify-command <command>]
   rpotato backend doctor
   rpotato backend install-plan
   rpotato backend install
@@ -169,6 +169,7 @@ pub enum PatchCommand {
         proposal_id: String,
         token: String,
         dry_run: bool,
+        verify_command: Option<String>,
     },
 }
 
@@ -750,6 +751,7 @@ fn parse_patch_approve(args: &[String]) -> Result<PatchCommand, AppError> {
     let mut proposal_id = None;
     let mut token = None;
     let mut dry_run = false;
+    let mut verify_command = None;
     let mut index = 0;
 
     while index < args.len() {
@@ -766,6 +768,20 @@ fn parse_patch_approve(args: &[String]) -> Result<PatchCommand, AppError> {
             "--dry-run" => {
                 dry_run = true;
                 index += 1;
+            }
+            "--verify-command" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "patch approve는 --verify-command <command> 값이 필요합니다.",
+                    ));
+                };
+                if verify_command.is_some() {
+                    return Err(AppError::usage(
+                        "patch approve verification command는 하나만 지정할 수 있습니다.",
+                    ));
+                }
+                verify_command = Some(value.clone());
+                index += 2;
             }
             value if value.starts_with('-') => {
                 return Err(AppError::usage(format!(
@@ -794,16 +810,12 @@ fn parse_patch_approve(args: &[String]) -> Result<PatchCommand, AppError> {
             "patch approve는 --token <token> 값이 필요합니다.",
         ));
     };
-    if !dry_run {
-        return Err(AppError::usage(
-            "v0.3.0 patch approve는 --dry-run gate 확인만 허용합니다.",
-        ));
-    }
 
     Ok(PatchCommand::Approve {
         proposal_id,
         token,
         dry_run,
+        verify_command,
     })
 }
 
@@ -1344,24 +1356,34 @@ mod tests {
             Command::Patch(PatchCommand::Approve {
                 proposal_id: "patch-proposal-abc123".to_string(),
                 token: "token123".to_string(),
-                dry_run: true
+                dry_run: true,
+                verify_command: None
             })
         );
     }
 
     #[test]
-    fn patch_approve_requires_dry_run() {
-        let err = parse([
+    fn parses_patch_approve_apply_with_verify_command() {
+        let command = parse([
             "patch".to_string(),
             "approve".to_string(),
             "patch-proposal-abc123".to_string(),
             "--token".to_string(),
             "token123".to_string(),
+            "--verify-command".to_string(),
+            "cargo fmt --check".to_string(),
         ])
-        .unwrap_err();
+        .unwrap();
 
-        assert_eq!(err.code, 2);
-        assert!(err.message.contains("--dry-run"));
+        assert_eq!(
+            command,
+            Command::Patch(PatchCommand::Approve {
+                proposal_id: "patch-proposal-abc123".to_string(),
+                token: "token123".to_string(),
+                dry_run: false,
+                verify_command: Some("cargo fmt --check".to_string())
+            })
+        );
     }
 
     #[test]

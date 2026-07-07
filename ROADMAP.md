@@ -366,9 +366,9 @@ Goal: finish read, plan, patch proposal, approval, application, verification, an
 - [ ] Verifier step
 - [ ] Reporter step
 - [x] Unified diff rendering
-- [ ] Approved patch apply
-- [ ] Patch apply rollback/failure handling
-- [ ] Approved verification command execution
+- [x] Approved patch apply
+- [x] Patch apply rollback/failure handling
+- [x] Approved verification command execution
 - [ ] Verification output interpretation
 - [ ] Final Korean report
 
