@@ -1,5 +1,56 @@
 # Release Notes
 
+## v0.4.0 - Approved Patch Apply
+
+Release date: 2026-07-07
+
+This release extends the patch approval surface from dry-run gate checks to
+approved patch application with rollback records and optional verification
+command execution. It is still a source-only developer preview: it does not ship
+model weights, external plugin packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- `rpotato patch approve <proposal-id> --token <token>` applies an approved
+  proposal without `--dry-run`
+- Current-file SHA-256 guard before apply, blocking stale proposals when the
+  target file changed after preview
+- Rollback record creation under `.rpotato/patch-proposals/`
+- Applied SHA-256 verification after write
+- `--verify-command <command>` for allow-listed simple argv verification
+  commands after apply
+- Verification failure handling that attempts rollback and refuses success
+  reporting
+- English and Korean documentation updates for the new patch application
+  boundary
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (127 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- Scratch-project smoke with `RPOTATO_PROJECT_ROOT=/private/tmp/rpotato-v040-smoke`
+- `rpotato patch preview --path README.md --find "Local coding agents for potato PCs." --replace "Local coding agents for potato PCs. Smoke"`
+- `rpotato patch approve <generated-proposal-id> --token <generated-token> --verify-command "rg Smoke README.md"`
+
+The patch smoke returned `status: applied`, wrote a rollback record, returned
+`verification status: passed`, and reported verification exit code `0`. The
+smoke ran against a `/private/tmp` project fixture, not the repository working
+tree.
+
+### Known Issues
+
+- Patch preview still supports one explicit find/replace proposal against a
+  project-local UTF-8 text file.
+- Verification commands are limited to policy-allowed simple argv commands; no
+  shell syntax, quoting, pipes, redirects, or environment expansion are
+  supported.
+- Model action output is not yet connected automatically to patch preview/apply.
+- Verification output interpretation and final Korean task reporting remain
+  future work.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.3.0 - Patch Diff Approval Preview
 
 Release date: 2026-07-06

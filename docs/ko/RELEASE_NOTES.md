@@ -1,5 +1,46 @@
 # 릴리즈 노트
 
+## v0.4.0 - Approved Patch Apply
+
+릴리즈 날짜: 2026-07-07
+
+이 릴리즈는 patch approval surface를 dry-run gate 확인에서 승인된 patch apply,
+rollback record, 선택적 verification command 실행까지 확장합니다. 여전히
+source-only developer preview이며, 모델 가중치, 외부 plugin package, prebuilt
+`rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- `rpotato patch approve <proposal-id> --token <token>`은 `--dry-run`이 없을 때 승인된 proposal을 적용합니다.
+- apply 전 current file SHA-256 guard로 preview 이후 target file이 바뀐 stale proposal을 차단합니다.
+- `.rpotato/patch-proposals/` 아래 rollback record를 생성합니다.
+- write 이후 applied SHA-256을 검증합니다.
+- `--verify-command <command>`는 apply 이후 allow 정책을 통과한 단순 argv verification command를 실행합니다.
+- verification 실패 시 rollback을 시도하고 성공으로 보고하지 않습니다.
+- 새 patch application 경계에 대한 영문/한국어 문서 업데이트
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (127 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `RPOTATO_PROJECT_ROOT=/private/tmp/rpotato-v040-smoke` scratch project smoke
+- `rpotato patch preview --path README.md --find "Local coding agents for potato PCs." --replace "Local coding agents for potato PCs. Smoke"`
+- `rpotato patch approve <generated-proposal-id> --token <generated-token> --verify-command "rg Smoke README.md"`
+
+Patch smoke는 `status: applied`, rollback record 생성, `verification status:
+passed`, verification exit code `0`을 반환했습니다. Smoke는 repository working
+tree가 아니라 `/private/tmp` project fixture에서 실행했습니다.
+
+### 알려진 제한
+
+- patch preview는 여전히 project-local UTF-8 text file 하나에 대한 명시적인 단일 find/replace proposal만 지원합니다.
+- verification command는 policy가 allow한 단순 argv command로 제한됩니다. Shell syntax, quoting, pipe, redirect, environment expansion은 지원하지 않습니다.
+- model action output은 아직 patch preview/apply에 자동 연결되지 않습니다.
+- verification output interpretation과 final Korean task reporting은 후속 작업입니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.3.0 - Patch Diff Approval Preview
 
 릴리즈 날짜: 2026-07-06

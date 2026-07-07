@@ -76,9 +76,10 @@ Phase 3 implements pre-execution normalization, and `rpotato run` now uses that 
 - `rpotato intent routes` prints TUI command-palette routing to runtime commands.
 - `rpotato patch preview --path <path> --find <text> --replace <text>` renders a diff and approval token without modifying the target file.
 - `rpotato patch approve <proposal-id> --token <token> --dry-run` verifies the approval gate and records a ledger event without applying the patch.
+- `rpotato patch approve <proposal-id> --token <token> [--verify-command <command>]` applies the approved patch when the current file hash still matches the previewed original hash, writes a rollback record, verifies the applied hash, and can run an allowed simple argv verification command.
 - Current state owns the active workflow; skill/plugin/TUI actions need a parent workflow pointer.
 - The optional model classifier is disabled. Current routing uses deterministic rules only.
-- Tool calls, approved patch application, and verification command execution happen in later phases.
+- Model-output-to-tool orchestration, verification output interpretation, and final reporting happen in later phases.
 
 Current built-in skills:
 

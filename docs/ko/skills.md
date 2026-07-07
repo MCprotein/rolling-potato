@@ -76,9 +76,10 @@ Phase 3의 현재 구현은 skill 실행 전 정규화 단계이며, `rpotato ru
 - `rpotato intent routes`는 TUI command palette action이 어떤 runtime command로 매핑되는지 출력한다.
 - `rpotato patch preview --path <path> --find <text> --replace <text>`는 target file을 수정하지 않고 diff와 approval token을 출력한다.
 - `rpotato patch approve <proposal-id> --token <token> --dry-run`은 patch를 적용하지 않고 approval gate를 검증해 ledger event를 남긴다.
+- `rpotato patch approve <proposal-id> --token <token> [--verify-command <command>]`는 current file hash가 preview 당시 original hash와 일치할 때 승인된 patch를 적용하고, rollback record를 쓴 뒤 applied hash를 검증하며, 허용된 단순 argv verification command를 실행할 수 있다.
 - active workflow는 current-state가 소유하고, skill/plugin/TUI는 parent workflow pointer를 받아야 한다.
 - optional model classifier는 아직 비활성이다. 현재는 deterministic rule만 사용한다.
-- Tool call, 승인된 patch 적용, verification command 실행은 후속 phase에서 처리한다.
+- Model output에서 tool orchestration으로 이어지는 흐름, verification output interpretation, final reporting은 후속 phase에서 처리한다.
 
 현재 built-in skill:
 
