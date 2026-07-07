@@ -81,6 +81,11 @@ If admission fails, the runtime should fall back to sequential subagents or a
 single-agent workflow and record the reason in the ledger. Team admission must
 not silently drop assigned work.
 
+`rpotato team status` is the current read-only admission preview. It consumes
+the latest resource sample and reports whether a future team dispatch would be
+parallel, sequential fallback, or blocked. It does not start workers or mutate
+workflow state yet.
+
 ## TUI Integration
 
 TUI should show:

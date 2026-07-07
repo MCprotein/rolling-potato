@@ -88,6 +88,8 @@
 
 `backend doctor`는 관리형 `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, install gate, recorded managed binary의 version detection을 표시합니다. `backend install-plan`은 선택된 backend archive URL, SHA-256, size, source를 표시합니다. `backend install`은 archive를 다운로드하거나 cache를 재사용하고, 검증 후 staging에서 압축을 풀어 release payload를 배치하며 install record와 ledger event를 남깁니다. `backend start --model <path> [--ctx-size <tokens>]`는 명시된 로컬 모델 파일과 선택적 runtime context limit으로 selected sidecar를 시작하고 stdout/stderr log와 pid record를 남긴 뒤 `/health`를 기다리며 CPU/RSS/disk resource status를 sampling하고, startup timeout이면 child를 종료합니다. `backend status`는 pid record, health 상태, 실행 중인 sidecar의 sampled resource pressure를 읽고, `backend stop`은 stale record를 제거하거나 기록된 sidecar를 종료합니다. `backend chat --prompt <text> [--max-tokens <tokens>]`는 모델 실행 전에 sidecar를 sampling하고, critical pressure를 차단하며, degraded pressure 요청을 governor의 effective max-token budget으로 clamp한 뒤 `/v1/chat/completions`를 호출합니다. Qwen3.5 thinking은 `chat_template_kwargs.enable_thinking=false`로 끄며, 누수된 `<think>` trace를 표시 전에 제거하고 raw prompt/response text 없이 token 사용량과 redacted resource sample을 ledger에 기록합니다. Env override binary는 `doctor`가 실행하지 않으며 명시적인 lifecycle 명령에서만 실행됩니다.
 
+`team status`는 첫 team-runtime admission surface입니다. 최신 SQLite resource sample을 읽어 requested/admitted lane을 표시하고 parallel admission, sequential fallback, dispatch 차단 중 하나를 선택합니다. 실제 team dispatcher가 생기기 전까지 read-only로 유지합니다.
+
 Plugin source snapshot, persistent registry, inspect, validate, enable/disable/remove는 활성화되어 있습니다. Import는 실행 권한을 부여하지 않고 permission report와 ledger event만 남깁니다.
 
 ## 기술 스택

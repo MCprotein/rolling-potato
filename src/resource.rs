@@ -9,6 +9,7 @@ const CRITICAL_CPU_PERCENT: f64 = 95.0;
 const DEGRADED_RSS_BYTES: u64 = 8 * GIB_BYTES;
 const CRITICAL_RSS_BYTES: u64 = 12 * GIB_BYTES;
 pub const DEGRADED_CHAT_MAX_TOKENS: u32 = 128;
+pub const DEFAULT_TEAM_REQUESTED_LANES: u32 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResourcePressure {
@@ -31,6 +32,13 @@ pub enum ResourceGovernorTokenAction {
     Blocked,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceLaneAdmission {
+    AllowParallel,
+    SequentialFallback,
+    Blocked,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceGovernorDecision {
     pub pressure: ResourcePressure,
@@ -38,6 +46,17 @@ pub struct ResourceGovernorDecision {
     pub effective_max_tokens: Option<u32>,
     pub admission: ResourceGovernorAdmission,
     pub token_action: ResourceGovernorTokenAction,
+    pub reason: &'static str,
+    pub hint: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResourceLaneDecision {
+    pub pressure: ResourcePressure,
+    pub requested_lanes: u32,
+    pub admitted_lanes: u32,
+    pub admission: ResourceLaneAdmission,
+    pub fallback: &'static str,
     pub reason: &'static str,
     pub hint: &'static str,
 }
@@ -83,9 +102,25 @@ impl ResourceGovernorTokenAction {
     }
 }
 
+impl ResourceLaneAdmission {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ResourceLaneAdmission::AllowParallel => "allow-parallel",
+            ResourceLaneAdmission::SequentialFallback => "sequential-fallback",
+            ResourceLaneAdmission::Blocked => "blocked",
+        }
+    }
+}
+
 impl ResourceGovernorDecision {
     pub fn is_blocked(&self) -> bool {
         self.admission == ResourceGovernorAdmission::Block
+    }
+}
+
+impl ResourceLaneDecision {
+    pub fn is_blocked(&self) -> bool {
+        self.admission == ResourceLaneAdmission::Blocked
     }
 }
 
@@ -179,6 +214,51 @@ pub fn chat_governor_decision(
             token_action: ResourceGovernorTokenAction::Unchanged,
             reason: "resource pressure normal",
             hint: "no runtime clamp applied",
+        },
+    }
+}
+
+pub fn team_lane_decision(
+    pressure: ResourcePressure,
+    requested_lanes: u32,
+) -> ResourceLaneDecision {
+    let requested_lanes = requested_lanes.max(1);
+    match pressure {
+        ResourcePressure::Normal => ResourceLaneDecision {
+            pressure,
+            requested_lanes,
+            admitted_lanes: requested_lanes,
+            admission: ResourceLaneAdmission::AllowParallel,
+            fallback: "none",
+            reason: "resource pressure normal",
+            hint: "parallel team lanes may proceed within file ownership, tool risk, and approval limits",
+        },
+        ResourcePressure::Unknown => ResourceLaneDecision {
+            pressure,
+            requested_lanes,
+            admitted_lanes: 1,
+            admission: ResourceLaneAdmission::SequentialFallback,
+            fallback: "sequential",
+            reason: "resource pressure unknown",
+            hint: "resource sample is missing or incomplete, so dispatch should stay sequential until telemetry exists",
+        },
+        ResourcePressure::Degraded => ResourceLaneDecision {
+            pressure,
+            requested_lanes,
+            admitted_lanes: 1,
+            admission: ResourceLaneAdmission::SequentialFallback,
+            fallback: "sequential",
+            reason: "degraded resource pressure",
+            hint: "run subagents sequentially or reduce backend/model/context pressure before parallel dispatch",
+        },
+        ResourcePressure::Critical => ResourceLaneDecision {
+            pressure,
+            requested_lanes,
+            admitted_lanes: 0,
+            admission: ResourceLaneAdmission::Blocked,
+            fallback: "wait",
+            reason: "critical resource pressure",
+            hint: "do not dispatch new team lanes until backend status recovers or host load is reduced",
         },
     }
 }
@@ -398,5 +478,29 @@ mod tests {
         assert!(critical.is_blocked());
         assert_eq!(critical.token_action, ResourceGovernorTokenAction::Blocked);
         assert_eq!(critical.effective_max_tokens, None);
+    }
+
+    #[test]
+    fn team_lane_decision_allows_sequential_fallback_and_blocks() {
+        let normal = team_lane_decision(ResourcePressure::Normal, 3);
+        assert_eq!(normal.admission, ResourceLaneAdmission::AllowParallel);
+        assert_eq!(normal.admitted_lanes, 3);
+
+        let unknown = team_lane_decision(ResourcePressure::Unknown, 3);
+        assert_eq!(unknown.admission, ResourceLaneAdmission::SequentialFallback);
+        assert_eq!(unknown.admitted_lanes, 1);
+        assert_eq!(unknown.fallback, "sequential");
+
+        let degraded = team_lane_decision(ResourcePressure::Degraded, 3);
+        assert_eq!(
+            degraded.admission,
+            ResourceLaneAdmission::SequentialFallback
+        );
+        assert_eq!(degraded.admitted_lanes, 1);
+
+        let critical = team_lane_decision(ResourcePressure::Critical, 3);
+        assert!(critical.is_blocked());
+        assert_eq!(critical.admitted_lanes, 0);
+        assert_eq!(critical.fallback, "wait");
     }
 }

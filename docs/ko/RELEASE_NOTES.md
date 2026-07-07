@@ -1,5 +1,48 @@
 # 릴리즈 노트
 
+## v0.12.0 - Team Admission Preview
+
+릴리즈 날짜: 2026-07-07
+
+이 릴리즈는 resource monitoring/governor 작업 위에 첫 read-only team admission
+surface를 추가합니다. 여전히 source-only developer preview이며, 모델 가중치, 외부
+plugin package, prebuilt `rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- 새 `rpotato team status` 명령.
+- 향후 subagent/team dispatch가 재사용할 resource lane admission policy.
+- Normal pressure에서는 요청한 parallel lane을 허용합니다.
+- Missing/unknown 또는 degraded pressure에서는 sequential lane 하나로 fallback합니다.
+- Critical pressure에서는 새 team dispatch를 차단합니다.
+- `team status`가 최신 resource sample metadata, requested lane, admitted lane,
+  admission, dispatch-blocked flag, fallback, reason, hint, read-only boundary를
+  표시합니다.
+- v0.12.0 team admission preview 범위에 대한 영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (153 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato team status`
+- `rpotato monitor status`
+
+Smoke check는 `/private/tmp` 아래 scratch project root를 사용하며, resource sample이
+없을 때 `team status`가 workflow state를 변경하지 않고 sequential fallback을
+보고하는지 확인합니다.
+
+### 알려진 제한
+
+- `team status`는 admission preview일 뿐입니다. Subagent 시작, team lane dispatch,
+  workflow mutation, file ownership enforcement는 아직 수행하지 않습니다.
+- Resource sampling은 아직 event-driven이며 continuous live polling은 아닙니다.
+- 실제 subagent/team dispatcher admission, runtime context clamp, model
+  downgrade/escalation hint는 후속 범위입니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.11.0 - Backend Chat Resource Governor
 
 릴리즈 날짜: 2026-07-07
@@ -39,9 +82,9 @@ raw prompt/response storage를 만들면 안 됩니다.
 ### 알려진 제한
 
 - Resource sampling은 아직 event-driven이며 continuous live polling은 아닙니다.
-- v0.11.0 governor는 backend chat에만 적용됩니다. Subagent/team admission control,
-  sequential fallback, runtime context clamp, model downgrade/escalation hint는 후속
-  범위입니다.
+- v0.11.0 governor는 backend chat에만 적용됩니다. Team admission preview와
+  sequential fallback은 v0.12.0에서 도입되며, 실제 subagent/team dispatch admission은
+  후속 범위입니다.
 - 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
 
 ## v0.10.0 - TUI Resource Monitor
