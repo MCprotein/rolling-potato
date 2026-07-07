@@ -8,6 +8,7 @@ const DEGRADED_CPU_PERCENT: f64 = 80.0;
 const CRITICAL_CPU_PERCENT: f64 = 95.0;
 const DEGRADED_RSS_BYTES: u64 = 8 * GIB_BYTES;
 const CRITICAL_RSS_BYTES: u64 = 12 * GIB_BYTES;
+pub const DEGRADED_CHAT_MAX_TOKENS: u32 = 128;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResourcePressure {
@@ -15,6 +16,30 @@ pub enum ResourcePressure {
     Normal,
     Degraded,
     Critical,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceGovernorAdmission {
+    Allow,
+    Block,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceGovernorTokenAction {
+    Unchanged,
+    Clamped,
+    Blocked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResourceGovernorDecision {
+    pub pressure: ResourcePressure,
+    pub requested_max_tokens: u32,
+    pub effective_max_tokens: Option<u32>,
+    pub admission: ResourceGovernorAdmission,
+    pub token_action: ResourceGovernorTokenAction,
+    pub reason: &'static str,
+    pub hint: &'static str,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,6 +61,31 @@ impl ResourcePressure {
             ResourcePressure::Degraded => "degraded",
             ResourcePressure::Critical => "critical",
         }
+    }
+}
+
+impl ResourceGovernorAdmission {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ResourceGovernorAdmission::Allow => "allow",
+            ResourceGovernorAdmission::Block => "block",
+        }
+    }
+}
+
+impl ResourceGovernorTokenAction {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ResourceGovernorTokenAction::Unchanged => "unchanged",
+            ResourceGovernorTokenAction::Clamped => "clamped",
+            ResourceGovernorTokenAction::Blocked => "blocked",
+        }
+    }
+}
+
+impl ResourceGovernorDecision {
+    pub fn is_blocked(&self) -> bool {
+        self.admission == ResourceGovernorAdmission::Block
     }
 }
 
@@ -80,6 +130,57 @@ pub fn classify_pressure(
         return ResourcePressure::Degraded;
     }
     ResourcePressure::Normal
+}
+
+pub fn chat_governor_decision(
+    pressure: ResourcePressure,
+    requested_max_tokens: u32,
+) -> ResourceGovernorDecision {
+    match pressure {
+        ResourcePressure::Critical => ResourceGovernorDecision {
+            pressure,
+            requested_max_tokens,
+            effective_max_tokens: None,
+            admission: ResourceGovernorAdmission::Block,
+            token_action: ResourceGovernorTokenAction::Blocked,
+            reason: "critical resource pressure",
+            hint: "run backend status, stop the sidecar, or lower host load before retrying",
+        },
+        ResourcePressure::Degraded => {
+            let effective_max_tokens = requested_max_tokens.min(DEGRADED_CHAT_MAX_TOKENS);
+            ResourceGovernorDecision {
+                pressure,
+                requested_max_tokens,
+                effective_max_tokens: Some(effective_max_tokens),
+                admission: ResourceGovernorAdmission::Allow,
+                token_action: if effective_max_tokens < requested_max_tokens {
+                    ResourceGovernorTokenAction::Clamped
+                } else {
+                    ResourceGovernorTokenAction::Unchanged
+                },
+                reason: "degraded resource pressure",
+                hint: "use a smaller --max-tokens value or restart with a smaller --ctx-size if pressure persists",
+            }
+        }
+        ResourcePressure::Unknown => ResourceGovernorDecision {
+            pressure,
+            requested_max_tokens,
+            effective_max_tokens: Some(requested_max_tokens),
+            admission: ResourceGovernorAdmission::Allow,
+            token_action: ResourceGovernorTokenAction::Unchanged,
+            reason: "resource pressure unknown",
+            hint: "resource sample is incomplete, so the requested token limit is preserved",
+        },
+        ResourcePressure::Normal => ResourceGovernorDecision {
+            pressure,
+            requested_max_tokens,
+            effective_max_tokens: Some(requested_max_tokens),
+            admission: ResourceGovernorAdmission::Allow,
+            token_action: ResourceGovernorTokenAction::Unchanged,
+            reason: "resource pressure normal",
+            hint: "no runtime clamp applied",
+        },
+    }
 }
 
 #[cfg(unix)]
@@ -269,5 +370,33 @@ mod tests {
 
         assert_eq!(rss, Some(512 * 1024 * 1024));
         assert_eq!(peak, Some(1024 * 1024 * 1024));
+    }
+
+    #[test]
+    fn chat_governor_allows_clamps_and_blocks_by_pressure() {
+        let normal = chat_governor_decision(ResourcePressure::Normal, 512);
+        assert_eq!(normal.admission, ResourceGovernorAdmission::Allow);
+        assert_eq!(normal.token_action, ResourceGovernorTokenAction::Unchanged);
+        assert_eq!(normal.effective_max_tokens, Some(512));
+
+        let degraded = chat_governor_decision(ResourcePressure::Degraded, 512);
+        assert_eq!(degraded.admission, ResourceGovernorAdmission::Allow);
+        assert_eq!(degraded.token_action, ResourceGovernorTokenAction::Clamped);
+        assert_eq!(
+            degraded.effective_max_tokens,
+            Some(DEGRADED_CHAT_MAX_TOKENS)
+        );
+
+        let small_degraded = chat_governor_decision(ResourcePressure::Degraded, 64);
+        assert_eq!(
+            small_degraded.token_action,
+            ResourceGovernorTokenAction::Unchanged
+        );
+        assert_eq!(small_degraded.effective_max_tokens, Some(64));
+
+        let critical = chat_governor_decision(ResourcePressure::Critical, 512);
+        assert!(critical.is_blocked());
+        assert_eq!(critical.token_action, ResourceGovernorTokenAction::Blocked);
+        assert_eq!(critical.effective_max_tokens, None);
     }
 }

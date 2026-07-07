@@ -46,7 +46,8 @@ by release so monitoring data exists before UI and governor behavior consume it.
 | --- | --- | --- |
 | v0.9.0 | Phase 6 + Phase 2 | Backend sidecar CPU/RSS/memory/disk sampling, local ledger/SQLite recording, and CLI status fields |
 | v0.10.0 | Phase 11 | TUI monitor UX for CPU, memory, latency, token throughput, and resource-pressure status |
-| v0.11.0+ | Phase 11 | Runtime resource governor: backend health/resource thresholds, context/max-token clamping, subagent/team admission control, and sequential fallback |
+| v0.11.0 | Phase 11 | Backend chat runtime governor: backend health/resource thresholds, critical-pressure block, degraded-pressure max-token clamp, and CLI/ledger reporting |
+| v0.12.0+ | Phase 11 | Runtime context/model governor plus subagent/team admission control and sequential fallback |
 
 ## Phase 0: Project Definition
 
@@ -448,7 +449,8 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [ ] Team merge policy: runtime-owned merge
 - [ ] Team stage ledger
 - [ ] Team resource admission control and sequential fallback
-- [ ] Runtime resource governor policy: CPU/memory thresholds, backend health, context/max-token clamp, model downgrade/escalation hint
+- [x] Backend chat resource governor policy: CPU/memory thresholds, backend health precheck, critical-pressure block, degraded-pressure max-token clamp, pressure hint
+- [ ] Runtime context clamp and model downgrade/escalation hint for backend/model selection
 - [ ] Failed worker continuation policy
 - [ ] `rpotato team status`
 - [x] TUI framework decision

@@ -26,7 +26,8 @@ it. The release grouping is:
 | --- | --- | --- |
 | v0.9.0 | resource sampler and logging | sample backend sidecar CPU, average/peak RSS, disk/cache/log bytes, sample count, and pressure status; write redacted ledger events and SQLite projection rows |
 | v0.10.0 | TUI monitor display | show CPU, memory, latency, token throughput, and pressure state in terminal-safe layouts |
-| v0.11.0+ | resource governor | use observed pressure to clamp context/max tokens, limit subagent/team concurrency, prefer sequential fallback, and surface model downgrade/escalation hints |
+| v0.11.0 | backend chat resource governor | sample before chat, block critical pressure, clamp degraded-pressure max tokens, and report governor decisions in CLI/runtime ledger output |
+| v0.12.0+ | subagent/team admission | use observed pressure to limit subagent/team concurrency, prefer sequential fallback, and surface model downgrade/escalation hints |
 
 ## Storage Decision
 
@@ -71,14 +72,16 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato monitor status` and `rpotato monitor models` read SQLite projection.
 - `rpotato monitor export --format jsonl|csv` renders runtime ledger/projection into human-readable exports.
 - `rpotato monitor prune --before 30d --dry-run` calculates only deletion candidate counts.
+- `rpotato backend start`, `rpotato backend status`, and `rpotato backend chat` record event-driven backend CPU/RSS/disk resource samples.
+- `rpotato backend chat` applies the first runtime resource governor slice: critical pressure blocks chat before model execution, degraded pressure clamps the effective max-token budget, and normal/unknown pressure preserves the requested token budget.
 - A corrupt SQLite file is preserved with a `.corrupt.<timestamp>` suffix before a new projection is created.
 - Corrupt/stale current state is preserved by `state reconcile` with `.corrupt.<timestamp>` or `.stale.<timestamp>` suffixes.
 - Evidence is stale when the artifact is missing, escapes the project boundary, or exceeds `stale_after_ms`.
 
 Not implemented yet:
 
-- continuous CPU/memory/disk resource sampling from the managed backend sidecar
-- resource pressure classification and governor behavior
+- continuous background CPU/memory/disk resource sampling from the managed backend sidecar
+- subagent/team admission control from resource pressure
 - full transcript replay and conversation continuation after a selected session resume
 - active workflow resume execution by the real agent loop
 - actual retention deletion

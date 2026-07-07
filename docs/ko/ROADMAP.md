@@ -46,7 +46,8 @@
 | --- | --- | --- |
 | v0.9.0 | Phase 6 + Phase 2 | Backend sidecar CPU/RSS/memory/disk sampling, local ledger/SQLite 기록, CLI status field |
 | v0.10.0 | Phase 11 | CPU, memory, latency, token throughput, resource-pressure status를 보여주는 TUI monitor UX |
-| v0.11.0+ | Phase 11 | Runtime resource governor: backend health/resource threshold, context/max-token clamp, subagent/team admission control, sequential fallback |
+| v0.11.0 | Phase 11 | Backend chat runtime governor: backend health/resource threshold, critical-pressure 차단, degraded-pressure max-token clamp, CLI/ledger reporting |
+| v0.12.0+ | Phase 11 | Runtime context/model governor와 subagent/team admission control, sequential fallback |
 
 ## 0단계: 프로젝트 정의
 
@@ -439,7 +440,8 @@
 - [ ] subagent allowed tools/path/context boundary
 - [ ] subagent lifecycle: start, complete, blocked, failed, cancelled
 - [ ] subagent resource admission control: memory, backend health, token/context budget, file ownership, tool risk, approval queue
-- [ ] runtime resource governor policy: CPU/memory threshold, backend health, context/max-token clamp, model downgrade/escalation hint
+- [x] backend chat resource governor policy: CPU/memory threshold, backend health precheck, critical-pressure 차단, degraded-pressure max-token clamp, pressure hint
+- [ ] runtime context clamp와 backend/model selection용 model downgrade/escalation hint
 - [ ] parent cancellation propagation
 - [ ] shared file conflict detection
 - [ ] subagent evidence merge
