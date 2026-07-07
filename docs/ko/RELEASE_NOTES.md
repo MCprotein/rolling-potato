@@ -1,5 +1,45 @@
 # 릴리즈 노트
 
+## v0.8.0 - TUI Evidence And Stop Gate View
+
+릴리즈 날짜: 2026-07-07
+
+이 릴리즈는 read-only TUI beta에 evidence/stop-gate status inspection을 추가합니다.
+여전히 source-only developer preview이며, 모델 가중치, 외부 plugin package, prebuilt
+`rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- `rpotato tui evidence`는 runtime evidence store path, runtime evidence record
+  count, project evidence artifact count, SQLite evidence record count, SQLite
+  stop-gate result count, stale evidence policy summary를 보여줍니다.
+- TUI overview가 evidence view를 안내합니다.
+- `monitor status`가 SQLite evidence/stop-gate result count를 함께 보여줍니다.
+- Project-local artifact를 세는 read-only evidence store status API.
+- 확장된 TUI beta surface에 대한 영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (143 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato tui evidence`
+- `COLUMNS=64 rpotato tui evidence`
+
+TUI smoke는 `/private/tmp` 아래 scratch project root에서 runtime state를 초기화하고,
+evidence view가 runtime evidence, project evidence, observability, stop-gate count,
+stale policy, validation command, read-only beta boundary field를 렌더링하는지 확인했습니다.
+
+### 알려진 제한
+
+- TUI beta는 아직 interactive event loop가 아니라 one-shot read-only render입니다.
+- Evidence view는 evidence/stop-gate status만 보고하며, workflow를 pass/fail 판정하지 않습니다.
+- Terminal stop-gate evaluation, tool output viewer, subagent/team status, plugin
+  permission review는 후속 작업입니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.7.0 - TUI Session Transcript View
 
 릴리즈 날짜: 2026-07-07

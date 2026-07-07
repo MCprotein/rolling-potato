@@ -80,6 +80,7 @@ rpotato tui sessions
 rpotato tui transcript <session-id>
 rpotato tui approvals
 rpotato tui diff <proposal-id>
+rpotato tui evidence
 rpotato state reconcile
 rpotato state resume
 rpotato session list
@@ -212,6 +213,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato tui transcript <session-id>`
 - `rpotato tui approvals`
 - `rpotato tui diff <proposal-id>`
+- `rpotato tui evidence`
 - `rpotato patch preview --path <path> --find <text> --replace <text>`
 - `rpotato patch approve <proposal-id> --token <token> [--dry-run] [--verify-command <command>]`
 - `rpotato monitor status`
@@ -256,7 +258,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `intent classify`, `intent routes`, `skill run`은 model을 호출하지 않는 pre-execution surface입니다. Routing state를 정규화하고 ledger event만 남깁니다.
 
-`tui`, `tui monitor`, `tui sessions`, `tui transcript <session-id>`, `tui approvals`, `tui diff <proposal-id>`는 기존 runtime state, SQLite observability projection, project-local patch proposal record를 읽는 read-only TUI beta surface입니다. Project/session 상태, model/token summary, session history, 선택한 session의 event timeline, approval queue record, proposal metadata, literal diff, read-only boundary를 terminal-friendly ASCII layout으로 보여줍니다. Approval, patch apply, resume, cancel, transcript replay, workflow mutation은 수행하지 않습니다.
+`tui`, `tui monitor`, `tui sessions`, `tui transcript <session-id>`, `tui approvals`, `tui diff <proposal-id>`, `tui evidence`는 기존 runtime state, SQLite observability projection, project-local patch proposal record, evidence store path를 읽는 read-only TUI beta surface입니다. Project/session 상태, model/token summary, session history, 선택한 session의 event timeline, approval queue record, proposal metadata, literal diff, evidence count, stop-gate result count, stale policy, read-only boundary를 terminal-friendly ASCII layout으로 보여줍니다. Approval, patch apply, resume, cancel, transcript replay, stop gate pass/fail 판정, workflow mutation은 수행하지 않습니다.
 
 `policy`와 `hooks` 명령은 command/path 권한 결정, credential redaction, lifecycle hook registry, fail-closed hook result 검사를 제공합니다. 실제 tool execution은 아직 이 policy surface 뒤에 연결되지 않았습니다.
 
