@@ -8,8 +8,8 @@ use crate::app::AppError;
 use crate::ledger::{self, LedgerEvent, RuntimeIdentity};
 use crate::paths;
 
-const MIGRATION_VERSION: i64 = 1;
-const MIGRATION_DESCRIPTION: &str = "phase2_initial_observability_schema";
+const MIGRATION_VERSION: i64 = 2;
+const MIGRATION_DESCRIPTION: &str = "v0_9_resource_samples";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoreStatus {
@@ -21,6 +21,7 @@ pub struct StoreStatus {
     pub workflows: i64,
     pub model_runs: i64,
     pub token_records: i64,
+    pub resource_samples: i64,
     pub evidence_records: i64,
     pub stop_gate_results: i64,
 }
@@ -41,6 +42,7 @@ pub struct PrunePreview {
     pub ledger_rows: i64,
     pub model_run_rows: i64,
     pub command_run_rows: i64,
+    pub resource_sample_rows: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,6 +90,21 @@ pub struct ModelRunMetric {
     pub ontology_tokens: u32,
     pub tool_summary_tokens: u32,
     pub max_output_tokens: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResourceSampleMetric {
+    pub resource_sample_id: String,
+    pub session_id: String,
+    pub backend_id: String,
+    pub pid: u32,
+    pub process_cpu_percent: Option<f64>,
+    pub average_rss_bytes: Option<u64>,
+    pub peak_rss_bytes: Option<u64>,
+    pub disk_bytes: Option<u64>,
+    pub sample_count: u32,
+    pub pressure_status: String,
+    pub recorded_at_ms: u128,
 }
 
 pub fn initialize(identity: &RuntimeIdentity) -> Result<StoreStatus, AppError> {
@@ -208,6 +225,12 @@ pub fn prune_preview(before_days: u64) -> Result<PrunePreview, AppError> {
         ledger_rows: count_before(&connection, "ledger_events", "ts_ms", cutoff)?,
         model_run_rows: count_before(&connection, "model_runs", "started_at_ms", cutoff)?,
         command_run_rows: count_before(&connection, "command_runs", "started_at_ms", cutoff)?,
+        resource_sample_rows: count_before(
+            &connection,
+            "resource_samples",
+            "recorded_at_ms",
+            cutoff,
+        )?,
     })
 }
 
@@ -318,6 +341,93 @@ pub fn record_model_run(metric: &ModelRunMetric) -> Result<(), AppError> {
     Ok(())
 }
 
+pub fn record_resource_sample(metric: &ResourceSampleMetric) -> Result<(), AppError> {
+    let identity = ledger::current_identity();
+    let (connection, _) = open_or_recover()?;
+    record_session(&connection, &identity)?;
+    replay_ledger(&connection)?;
+    connection
+        .execute(
+            "INSERT OR IGNORE INTO resource_samples (
+                resource_sample_id,
+                session_id,
+                backend_id,
+                pid,
+                process_cpu_percent,
+                average_rss_bytes,
+                peak_rss_bytes,
+                disk_bytes,
+                sample_count,
+                pressure_status,
+                recorded_at_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![
+                metric.resource_sample_id,
+                metric.session_id,
+                metric.backend_id,
+                i64::from(metric.pid),
+                metric.process_cpu_percent,
+                metric
+                    .average_rss_bytes
+                    .map(|value| to_i64(u128::from(value))),
+                metric.peak_rss_bytes.map(|value| to_i64(u128::from(value))),
+                metric.disk_bytes.map(|value| to_i64(u128::from(value))),
+                i64::from(metric.sample_count),
+                metric.pressure_status,
+                to_i64(metric.recorded_at_ms),
+            ],
+        )
+        .map_err(sql_error("resource sample metric을 저장하지 못했습니다"))?;
+
+    Ok(())
+}
+
+pub fn latest_resource_sample() -> Result<Option<ResourceSampleMetric>, AppError> {
+    let (connection, _) = open_or_recover()?;
+    let result = connection.query_row(
+        "SELECT
+            resource_sample_id,
+            session_id,
+            backend_id,
+            pid,
+            process_cpu_percent,
+            average_rss_bytes,
+            peak_rss_bytes,
+            disk_bytes,
+            sample_count,
+            pressure_status,
+            recorded_at_ms
+           FROM resource_samples
+       ORDER BY recorded_at_ms DESC,
+                resource_sample_id DESC
+          LIMIT 1",
+        [],
+        |row| {
+            Ok(ResourceSampleMetric {
+                resource_sample_id: row.get(0)?,
+                session_id: row.get(1)?,
+                backend_id: row.get(2)?,
+                pid: i64_to_u32(row.get(3)?),
+                process_cpu_percent: row.get(4)?,
+                average_rss_bytes: option_i64_to_u64(row.get(5)?),
+                peak_rss_bytes: option_i64_to_u64(row.get(6)?),
+                disk_bytes: option_i64_to_u64(row.get(7)?),
+                sample_count: i64_to_u32(row.get(8)?),
+                pressure_status: row.get(9)?,
+                recorded_at_ms: i64_to_u128(row.get(10)?),
+            })
+        },
+    );
+
+    match result {
+        Ok(metric) => Ok(Some(metric)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(err) => Err(sql_error(
+            "latest resource sample query를 실행하지 못했습니다",
+        )(err)),
+    }
+}
+
 fn open_or_recover() -> Result<(Connection, Option<PathBuf>), AppError> {
     let path = paths::observability_db_file();
     if let Some(parent) = path.parent() {
@@ -376,6 +486,20 @@ fn migrate(connection: &Connection) -> Result<(), AppError> {
                 project_id TEXT NOT NULL,
                 session_id TEXT NOT NULL,
                 summary TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS resource_samples (
+                resource_sample_id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                backend_id TEXT NOT NULL,
+                pid INTEGER NOT NULL,
+                process_cpu_percent REAL,
+                average_rss_bytes INTEGER,
+                peak_rss_bytes INTEGER,
+                disk_bytes INTEGER,
+                sample_count INTEGER NOT NULL DEFAULT 1,
+                pressure_status TEXT NOT NULL,
+                recorded_at_ms INTEGER NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS sessions (
@@ -673,6 +797,7 @@ fn status_from_connection(
         workflows: count_scalar(connection, "SELECT COUNT(*) FROM workflows")?,
         model_runs: count_scalar(connection, "SELECT COUNT(*) FROM model_runs")?,
         token_records: count_scalar(connection, "SELECT COUNT(*) FROM token_usage")?,
+        resource_samples: count_scalar(connection, "SELECT COUNT(*) FROM resource_samples")?,
         evidence_records: count_scalar(connection, "SELECT COUNT(*) FROM evidence_records")?,
         stop_gate_results: count_scalar(connection, "SELECT COUNT(*) FROM stop_gate_results")?,
     })
@@ -825,6 +950,18 @@ fn to_i64(value: u128) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
 }
 
+fn i64_to_u128(value: i64) -> u128 {
+    u128::try_from(value).unwrap_or_default()
+}
+
+fn i64_to_u32(value: i64) -> u32 {
+    u32::try_from(value).unwrap_or_default()
+}
+
+fn option_i64_to_u64(value: Option<i64>) -> Option<u64> {
+    value.and_then(|value| u64::try_from(value).ok())
+}
+
 fn now_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -892,5 +1029,50 @@ mod tests {
         assert_eq!(summaries[0].completion_tokens, 12);
         assert_eq!(summaries[0].total_tokens, 22);
         assert_eq!(summaries[0].avg_latency_ms, Some(100.0));
+    }
+
+    #[test]
+    fn record_resource_sample_updates_resource_status() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-resource-metric-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let project_root = root.join("project");
+        fs::create_dir_all(&project_root).unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        let identity = ledger::current_identity();
+
+        record_resource_sample(&ResourceSampleMetric {
+            resource_sample_id: "resource-sample-test".to_string(),
+            session_id: identity.session_id,
+            backend_id: "llama.cpp".to_string(),
+            pid: 123,
+            process_cpu_percent: Some(42.5),
+            average_rss_bytes: Some(256 * 1024 * 1024),
+            peak_rss_bytes: Some(512 * 1024 * 1024),
+            disk_bytes: Some(1024),
+            sample_count: 1,
+            pressure_status: "normal".to_string(),
+            recorded_at_ms: 1000,
+        })
+        .unwrap();
+
+        let status = status().unwrap();
+        let latest = latest_resource_sample().unwrap().unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+
+        assert_eq!(status.resource_samples, 1);
+        assert_eq!(latest.backend_id, "llama.cpp");
+        assert_eq!(latest.process_cpu_percent, Some(42.5));
+        assert_eq!(latest.average_rss_bytes, Some(256 * 1024 * 1024));
+        assert_eq!(latest.peak_rss_bytes, Some(512 * 1024 * 1024));
+        assert_eq!(latest.disk_bytes, Some(1024));
+        assert_eq!(latest.pressure_status, "normal");
     }
 }

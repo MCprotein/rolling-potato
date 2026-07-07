@@ -16,6 +16,7 @@ mod patch;
 mod paths;
 mod plugin;
 mod policy;
+mod resource;
 mod runtime;
 mod skill;
 mod state;

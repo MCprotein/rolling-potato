@@ -1,5 +1,49 @@
 # Release Notes
 
+## v0.9.0 - Backend Resource Sampling
+
+Release date: 2026-07-07
+
+This release adds the first backend resource monitoring slice for the managed
+`llama.cpp` sidecar. It is still a source-only developer preview: it does not
+ship model weights, external plugin packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- `resource_samples` SQLite projection schema with CPU percent, average/peak
+  RSS bytes, disk bytes, sample count, pressure status, and recorded timestamp.
+- Backend resource sampling on `backend start`, already-running start reuse,
+  `backend status` for running sidecars, and `backend chat`.
+- Redacted `backend.resource.sampled` ledger events; raw prompts, responses, and
+  source text are still not persisted by default.
+- `monitor status` now shows resource sample counts and the latest sampled CPU,
+  RSS, disk, and pressure fields.
+- `monitor prune --dry-run` now includes resource sample row counts.
+- English and Korean documentation updates for the v0.9.0 monitoring scope.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (147 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato monitor status`
+- `rpotato backend status`
+- `rpotato monitor prune --before 30d --dry-run`
+
+The CLI smoke used a scratch project root under `/private/tmp`, initialized
+runtime state with observability schema v2, and verified that monitor output
+includes resource sample count plus latest resource CPU/RSS/disk/pressure
+fields.
+
+### Known Issues
+
+- Resource sampling is event-driven, not continuous background polling.
+- TUI resource-pressure display remains planned for v0.10.0.
+- Runtime resource governor behavior remains planned for v0.11.0+.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.8.0 - TUI Evidence And Stop Gate View
 
 Release date: 2026-07-07
