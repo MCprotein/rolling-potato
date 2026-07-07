@@ -138,9 +138,9 @@
 - [x] 중단된 실행의 resume 동작
 - [x] compaction boundary marker
 - [x] compacted summary 보존 정책
-- [ ] resource sample schema: process CPU, average/peak RSS, disk bytes, sample count, pressure status
-- [ ] resource sample ledger event와 SQLite projection
-- [ ] `rpotato monitor status`와 `rpotato backend status`의 resource status field
+- [x] resource sample schema: process CPU, average/peak RSS, disk bytes, sample count, pressure status
+- [x] resource sample ledger event와 SQLite projection
+- [x] `rpotato monitor status`와 `rpotato backend status`의 resource status field
 - [ ] cross-store state authority matrix: ledger, SQLite, current-state, ontology, model knowledge, plugin registry, evidence
 - [ ] runtime write-ordering contract: policy validation, stable event id, ledger append, state mutation, projection, evidence, diagnostics
 - [ ] idempotent replay와 partial-write recovery test
@@ -273,9 +273,9 @@
 - [x] non-streaming chat completion path
 - [ ] streaming response path
 - [ ] cancellation path
-- [ ] backend sidecar resource sampler: CPU usage, RSS memory, disk/cache/log bytes, sample count
-- [ ] start, chat, health, status lifecycle에서 backend resource metric 기록
-- [ ] resource pressure classification: normal, degraded, critical
+- [x] backend sidecar resource sampler: CPU usage, RSS memory, disk/cache/log bytes, sample count
+- [x] start, chat, status lifecycle에서 backend resource metric 기록
+- [x] resource pressure classification: unknown, normal, degraded, critical
 - [x] stderr/stdout capture
 - [x] `doctor`의 backend diagnostics
 - [x] `rpotato backend doctor`의 backend diagnostics

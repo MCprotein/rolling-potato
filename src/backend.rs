@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::app::AppError;
 use crate::paths;
-use crate::{checksum, ledger, observability, state};
+use crate::{checksum, ledger, observability, resource, state};
 
 const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 const DEFAULT_HOST: &str = "127.0.0.1";
@@ -158,7 +158,19 @@ pub struct BackendChatRun {
     pub total_tokens: Option<u32>,
     pub elapsed_ms: u128,
     pub ledger_event: String,
+    pub resource_pressure: String,
+    pub resource_cpu_percent: Option<f64>,
+    pub resource_average_rss_bytes: Option<u64>,
+    pub resource_peak_rss_bytes: Option<u64>,
+    pub resource_disk_bytes: Option<u64>,
+    pub resource_sample_event: String,
     pub response: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct BackendResourceSampleReport {
+    metric: observability::ResourceSampleMetric,
+    ledger_event: String,
 }
 
 impl BackendArchiveKind {
@@ -473,9 +485,14 @@ pub fn status_report() -> Result<String, AppError> {
         .and_then(|probe| probe.error)
         .unwrap_or_else(|| "없음".to_string());
     let status = if running { "running" } else { "stale" };
+    let resource_sample = if running {
+        Some(record_backend_resource_sample(&record, "status")?)
+    } else {
+        None
+    };
 
     Ok(format!(
-        "backend status\n- status: {}\n- backend: {}\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- health: {}\n- health error: {}\n- stdout log: {}\n- stderr log: {}\n- sidecar record: {}",
+        "backend status\n- status: {}\n- backend: {}\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- health: {}\n- health error: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}\n- sidecar record: {}",
         status,
         record.backend_id,
         record.pid,
@@ -486,6 +503,30 @@ pub fn status_report() -> Result<String, AppError> {
         display_optional_u32(record.ctx_size),
         health_status,
         health_error,
+        resource_sample
+            .as_ref()
+            .map(|sample| sample.metric.pressure_status.as_str())
+            .unwrap_or("not-sampled"),
+        display_optional_f64(resource_sample.as_ref().and_then(|sample| sample.metric.process_cpu_percent)),
+        display_optional_u64_unknown(
+            resource_sample
+                .as_ref()
+                .and_then(|sample| sample.metric.average_rss_bytes)
+        ),
+        display_optional_u64_unknown(
+            resource_sample
+                .as_ref()
+                .and_then(|sample| sample.metric.peak_rss_bytes)
+        ),
+        display_optional_u64_unknown(
+            resource_sample
+                .as_ref()
+                .and_then(|sample| sample.metric.disk_bytes)
+        ),
+        resource_sample
+            .as_ref()
+            .map(|sample| sample.ledger_event.as_str())
+            .unwrap_or("not-recorded"),
         record.stdout_log.display(),
         record.stderr_log.display(),
         backend_sidecar_record_path().display()
@@ -631,7 +672,7 @@ pub fn chat_report(prompt: &str, max_tokens: Option<u32>) -> Result<String, AppE
     let run = chat_once(prompt, max_tokens)?;
 
     Ok(format!(
-        "backend chat\n- status: completed\n- backend: {}\n- pid: {}\n- endpoint: /v1/chat/completions\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- non-thinking source: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- max tokens: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- ledger event: {}\n- response:\n{}",
+        "backend chat\n- status: completed\n- backend: {}\n- pid: {}\n- endpoint: /v1/chat/completions\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- non-thinking source: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- max tokens: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- ledger event: {}\n- response:\n{}",
         run.backend_id,
         run.pid,
         QWEN_NON_THINKING_SOURCE,
@@ -646,6 +687,12 @@ pub fn chat_report(prompt: &str, max_tokens: Option<u32>) -> Result<String, AppE
         display_optional_u32(run.completion_tokens),
         display_optional_u32(run.total_tokens),
         run.elapsed_ms,
+        run.resource_pressure,
+        display_optional_f64(run.resource_cpu_percent),
+        display_optional_u64_unknown(run.resource_average_rss_bytes),
+        display_optional_u64_unknown(run.resource_peak_rss_bytes),
+        display_optional_u64_unknown(run.resource_disk_bytes),
+        run.resource_sample_event,
         run.ledger_event,
         run.response
     ))
@@ -766,6 +813,7 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         tool_summary_tokens: 0,
         max_output_tokens: Some(max_tokens),
     })?;
+    let resource_sample = record_backend_resource_sample(&record, "chat")?;
 
     Ok(BackendChatRun {
         backend_id: record.backend_id,
@@ -783,6 +831,12 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         total_tokens: completion.total_tokens,
         elapsed_ms,
         ledger_event: event_id,
+        resource_pressure: resource_sample.metric.pressure_status,
+        resource_cpu_percent: resource_sample.metric.process_cpu_percent,
+        resource_average_rss_bytes: resource_sample.metric.average_rss_bytes,
+        resource_peak_rss_bytes: resource_sample.metric.peak_rss_bytes,
+        resource_disk_bytes: resource_sample.metric.disk_bytes,
+        resource_sample_event: resource_sample.ledger_event,
         response: display_content,
     })
 }
@@ -1633,6 +1687,71 @@ fn display_optional_u32(value: Option<u32>) -> String {
         .unwrap_or_else(|| "model-default".to_string())
 }
 
+fn display_optional_f64(value: Option<f64>) -> String {
+    value
+        .map(|value| format!("{value:.1}"))
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn display_optional_u64_unknown(value: Option<u64>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn backend_resource_paths(record: &BackendSidecarRecord) -> Vec<PathBuf> {
+    vec![
+        record.binary_path.clone(),
+        record.model_path.clone(),
+        record.stdout_log.clone(),
+        record.stderr_log.clone(),
+    ]
+}
+
+fn record_backend_resource_sample(
+    record: &BackendSidecarRecord,
+    reason: &str,
+) -> Result<BackendResourceSampleReport, AppError> {
+    let snapshot = resource::sample_process(record.pid, &backend_resource_paths(record));
+    let recorded_at_ms = now_ms();
+    let event_id = state::record_event(
+        "backend.resource.sampled",
+        "backend sidecar resource sample 기록",
+        &format!(
+            "reason={} pid={} backend={} cpu_percent={} average_rss_bytes={} peak_rss_bytes={} disk_bytes={} sample_count={} pressure_status={}",
+            reason,
+            record.pid,
+            record.backend_id,
+            display_optional_f64(snapshot.process_cpu_percent),
+            display_optional_u64_unknown(snapshot.average_rss_bytes),
+            display_optional_u64_unknown(snapshot.peak_rss_bytes),
+            display_optional_u64_unknown(snapshot.disk_bytes),
+            snapshot.sample_count,
+            snapshot.pressure.as_str()
+        ),
+    )?;
+    let identity = ledger::current_identity();
+    let metric = observability::ResourceSampleMetric {
+        resource_sample_id: format!("resource-sample-{event_id}"),
+        session_id: identity.session_id,
+        backend_id: record.backend_id.clone(),
+        pid: snapshot.pid,
+        process_cpu_percent: snapshot.process_cpu_percent,
+        average_rss_bytes: snapshot.average_rss_bytes,
+        peak_rss_bytes: snapshot.peak_rss_bytes,
+        disk_bytes: snapshot.disk_bytes,
+        sample_count: snapshot.sample_count,
+        pressure_status: snapshot.pressure.as_str().to_string(),
+        recorded_at_ms,
+    };
+    observability::record_resource_sample(&metric)?;
+
+    Ok(BackendResourceSampleReport {
+        metric,
+        ledger_event: event_id,
+    })
+}
+
 fn model_id_from_path(path: &Path) -> String {
     path.file_stem()
         .and_then(|name| name.to_str())
@@ -1674,14 +1793,21 @@ fn start_sidecar_with_timeout(
 
     if let Some(record) = read_backend_sidecar_record()? {
         if process_is_running(record.pid) {
+            let resource_sample = record_backend_resource_sample(&record, "start-existing")?;
             return Ok(format!(
-                "backend start\n- status: already-running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- stdout log: {}\n- stderr log: {}",
+                "backend start\n- status: already-running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}",
                 record.pid,
                 record.binary_path.display(),
                 record.model_path.display(),
                 record.host,
                 record.port,
                 display_optional_u32(record.ctx_size),
+                resource_sample.metric.pressure_status,
+                display_optional_f64(resource_sample.metric.process_cpu_percent),
+                display_optional_u64_unknown(resource_sample.metric.average_rss_bytes),
+                display_optional_u64_unknown(resource_sample.metric.peak_rss_bytes),
+                display_optional_u64_unknown(resource_sample.metric.disk_bytes),
+                resource_sample.ledger_event,
                 record.stdout_log.display(),
                 record.stderr_log.display()
             ));
@@ -1753,6 +1879,7 @@ fn start_sidecar_with_timeout(
             Duration::from_millis(HEALTH_TIMEOUT_MS),
         );
         if health.status == "healthy" {
+            let startup_ms = started_at.elapsed().as_millis();
             let event_id = state::record_event(
                 "backend.sidecar.start.completed",
                 "backend sidecar 시작 완료",
@@ -1763,20 +1890,27 @@ fn start_sidecar_with_timeout(
                     record.model_path.display(),
                     record.port,
                     display_optional_u32(record.ctx_size),
-                    started_at.elapsed().as_millis(),
+                    startup_ms,
                     record.stdout_log.display(),
                     record.stderr_log.display()
                 ),
             )?;
+            let resource_sample = record_backend_resource_sample(&record, "start")?;
             return Ok(format!(
-                "backend start\n- status: running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- startup ms: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
+                "backend start\n- status: running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- startup ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
                 record.pid,
                 record.binary_path.display(),
                 record.model_path.display(),
                 record.host,
                 record.port,
                 display_optional_u32(record.ctx_size),
-                started_at.elapsed().as_millis(),
+                startup_ms,
+                resource_sample.metric.pressure_status,
+                display_optional_f64(resource_sample.metric.process_cpu_percent),
+                display_optional_u64_unknown(resource_sample.metric.average_rss_bytes),
+                display_optional_u64_unknown(resource_sample.metric.peak_rss_bytes),
+                display_optional_u64_unknown(resource_sample.metric.disk_bytes),
+                resource_sample.ledger_event,
                 record.stdout_log.display(),
                 record.stderr_log.display(),
                 event_id

@@ -58,7 +58,7 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato init` creates app data root, project-local `.rpotato/`, current state, runtime ledger, project session ledger, runtime evidence JSONL, and SQLite projection.
 - Append-only ledger is the source of truth; SQLite `ledger_events` is a replayable projection.
 - SQLite session history can be restored for the current project from replayed `ledger_events` if the projection is recreated.
-- SQLite migration v1 creates `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, and `benchmark_runs`.
+- SQLite migration v2 creates `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `resource_samples`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, and `benchmark_runs`.
 - `rpotato state` shows current-state and ledger/projection counts.
 - `rpotato state reconcile` recovers missing/stale/corrupt current state and records preserve-move events in the ledger.
 - `rpotato state resume` distinguishes no active workflow, active pointer detected, and blocked states, then records a ledger event.

@@ -1,5 +1,48 @@
 # 릴리즈 노트
 
+## v0.9.0 - Backend Resource Sampling
+
+릴리즈 날짜: 2026-07-07
+
+이 릴리즈는 관리형 `llama.cpp` sidecar를 위한 첫 backend resource monitoring
+slice를 추가합니다. 여전히 source-only developer preview이며, 모델 가중치, 외부
+plugin package, prebuilt `rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- CPU percent, average/peak RSS bytes, disk bytes, sample count, pressure
+  status, recorded timestamp를 담는 `resource_samples` SQLite projection schema.
+- `backend start`, already-running start 재사용, 실행 중인 sidecar의 `backend
+  status`, `backend chat`에서 backend resource sampling.
+- Redacted `backend.resource.sampled` ledger event. Raw prompt, response, source
+  text는 기본적으로 계속 저장하지 않습니다.
+- `monitor status`가 resource sample count와 최신 CPU/RSS/disk/pressure field를
+  보여줍니다.
+- `monitor prune --dry-run`이 resource sample row count를 포함합니다.
+- v0.9.0 monitoring 범위에 대한 영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (147 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato monitor status`
+- `rpotato backend status`
+- `rpotato monitor prune --before 30d --dry-run`
+
+CLI smoke는 `/private/tmp` 아래 scratch project root에서 runtime state를 초기화하고,
+observability schema v2와 monitor 출력의 resource sample count, latest resource
+CPU/RSS/disk/pressure field를 확인했습니다.
+
+### 알려진 제한
+
+- Resource sampling은 event-driven이며 continuous background polling은 아닙니다.
+- TUI resource-pressure 표시는 v0.10.0에 남아 있습니다.
+- Runtime resource governor 동작은 v0.11.0+에 남아 있습니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.8.0 - TUI Evidence And Stop Gate View
 
 릴리즈 날짜: 2026-07-07

@@ -138,9 +138,9 @@ Goal: restore and query current workflow state, audit history, and per-model mon
 - [x] Interrupted run resume behavior
 - [x] Compaction boundary marker
 - [x] Compacted summary preservation policy
-- [ ] Resource sample schema: process CPU, average/peak RSS, disk bytes, sample count, pressure status
-- [ ] Resource sample ledger event and SQLite projection
-- [ ] Resource status fields in `rpotato monitor status` and `rpotato backend status`
+- [x] Resource sample schema: process CPU, average/peak RSS, disk bytes, sample count, pressure status
+- [x] Resource sample ledger event and SQLite projection
+- [x] Resource status fields in `rpotato monitor status` and `rpotato backend status`
 - [ ] Cross-store state authority matrix: ledger, SQLite, current-state, ontology, model knowledge, plugin registry, evidence
 - [ ] Runtime write-ordering contract: policy validation, stable event id, ledger append, state mutation, projection, evidence, diagnostics
 - [ ] Idempotent replay and partial-write recovery tests
@@ -273,9 +273,9 @@ Goal: let the runtime core manage the `llama.cpp` sidecar and expose backend dia
 - [x] Non-streaming chat completion path
 - [ ] Streaming response path
 - [ ] Cancellation path
-- [ ] Backend sidecar resource sampler: CPU usage, RSS memory, disk/cache/log bytes, sample count
-- [ ] Backend resource metric recording during start, chat, health, and status lifecycle
-- [ ] Resource pressure classification: normal, degraded, critical
+- [x] Backend sidecar resource sampler: CPU usage, RSS memory, disk/cache/log bytes, sample count
+- [x] Backend resource metric recording during start, chat, and status lifecycle
+- [x] Resource pressure classification: unknown, normal, degraded, critical
 - [x] stderr/stdout capture
 - [x] Backend diagnostics in `doctor`
 - [x] Backend diagnostics in `rpotato backend doctor`
