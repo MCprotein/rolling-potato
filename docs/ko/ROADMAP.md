@@ -39,10 +39,10 @@
 
 ## 가까운 릴리즈 묶음
 
-이 로드맵은 phase 우선이지만, 다음 local resource 작업은 monitoring data가 먼저 생기고
-그 뒤 UI와 governor가 소비하도록 release 단위로 묶는다.
+이 로드맵은 phase 우선이지만, 다음 monitoring, 성능, benchmark 작업은 측정된 local data가 먼저 생기고
+그 뒤 optimization과 dispatcher policy가 소비하도록 release 단위로 묶는다.
 
-| Version | Phase 기준 | Resource 범위 |
+| Version | Phase 기준 | 범위 |
 | --- | --- | --- |
 | v0.9.0 | Phase 6 + Phase 2 | Backend sidecar CPU/RSS/memory/disk sampling, local ledger/SQLite 기록, CLI status field |
 | v0.10.0 | Phase 11 | CPU, memory, latency, token throughput, resource-pressure status를 보여주는 TUI monitor UX |
@@ -53,7 +53,11 @@
 | v0.15.0 | Phase 11 | Team file ownership preflight: lane별 write path를 dispatch 전에 정규화하고 cross-lane conflict는 worker launch 차단 |
 | v0.16.0 | Phase 11 | Team admission approval queue integration: policy/ownership block이 approval request record를 쓰고 `tui approvals`에 표시됨 |
 | v0.17.0 | Phase 11 | Runtime context/model governor preflight: 요청 context clamp, resource-sensitive model route hint, ledger 기록 |
-| v0.18.0+ | Phase 11 | 남은 subagent/team dispatcher policy: dispatch-time ownership enforcement와 failed-worker continuation |
+| v0.18.0 | Phase 6 + Phase 10 | local runtime metric 기반 performance baseline report: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping |
+| v0.19.0 | Phase 10 | Benchmark harness foundation: fixture schema 검증, benchmark run ledger/projection, reproducibility metadata, redacted local report export |
+| v0.20.0 | Phase 10 | Small-model ontology representation benchmark: 2B-4B target model에서 prompt-facing ontology view별 task score, hallucination, source-read compliance, latency, memory, token metric 비교 |
+| v0.21.0 | Phase 11 + Phase 10 | Benchmark-driven optimization policy: 측정된 local metric과 benchmark evidence로 context budget, lane count, fallback, model route 추천 |
+| v0.22.0+ | Phase 11 | 남은 subagent/team dispatcher policy: dispatch-time ownership enforcement와 failed-worker continuation |
 
 ## 0단계: 프로젝트 정의
 
@@ -416,7 +420,9 @@
 - [ ] cancel cleanup
 - [ ] stale workflow terminal 처리
 - [ ] destructive command policy tests
+- [ ] ledger/projection data 기반 performance baseline report: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping
 - [ ] fixture benchmark suite
+- [ ] benchmark harness runner foundation: fixture schema 검증, run ledger/projection, reproducibility manifest, redacted report export
 - [ ] benchmark fixture metadata 계약: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence
 - [ ] benchmark 실패 분류: model, prompt/context, ontology/source-pointer, runtime policy/parser, tool/command, backend/runtime, fixture issue
 - [ ] 실제 unsafe action, source-read omission, stale-claim use, policy violation, score regression에서 regression fixture로 승격하는 policy
@@ -461,6 +467,7 @@
 - [x] requested write path와 command를 검사하는 team admission policy preflight
 - [x] team admission file ownership preflight와 cross-lane write conflict detection
 - [x] team admission approval request record와 TUI approval queue integration
+- [ ] benchmark-driven optimization policy: 측정된 local latency, tokens/sec, memory, pressure, benchmark outcome으로 context budget, lane count, fallback, model route 추천
 - [ ] failed worker continuation policy
 - [x] `rpotato team status`
 - [x] `rpotato team admit --lanes <count>`

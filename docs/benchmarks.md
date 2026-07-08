@@ -330,6 +330,22 @@ Benchmark result rows may use only these claim states:
 Speculative 2B-4B winners, model rankings, or public leaderboard claims are not
 allowed without local run evidence and comparable conditions.
 
+## Release Rollout
+
+Benchmark work is sequenced after basic monitoring and before dispatcher
+optimization. The runtime should not optimize model routes or team lanes from
+anecdotal results.
+
+| Version | Scope | Output |
+| --- | --- | --- |
+| v0.18.0 | Performance baseline report | Aggregate local p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, and backend/model/session grouping from existing ledger/projection data. |
+| v0.19.0 | Benchmark harness foundation | Validate fixture metadata, record benchmark run events/projections, emit reproducibility metadata, and export redacted local reports. |
+| v0.20.0 | Small-model ontology representation benchmark | Compare prompt-facing ontology views for 2B-4B target models using task score, hallucination, source-read compliance, latency, memory, and token budget metrics. |
+| v0.21.0 | Benchmark-driven optimization policy | Use measured local metrics and benchmark evidence to recommend context budget, lane count, fallback, and model route. |
+
+Published benchmark parity remains gated by comparable artifact, backend,
+hardware, quantization, dataset, prompt, and scoring conditions.
+
 ## Observability Integration
 
 Benchmark runs should use the same metric schema as normal runtime monitoring.

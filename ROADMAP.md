@@ -39,10 +39,11 @@ Principles reflected in the roadmap:
 
 ## Near-Term Release Grouping
 
-This roadmap is phase-first, but the next local-resource work should be grouped
-by release so monitoring data exists before UI and governor behavior consume it.
+This roadmap is phase-first, but the next monitoring, performance, and
+benchmark work should be grouped by release so measured local data exists before
+optimization and dispatcher policy consume it.
 
-| Version | Phase Anchor | Resource Scope |
+| Version | Phase Anchor | Scope |
 | --- | --- | --- |
 | v0.9.0 | Phase 6 + Phase 2 | Backend sidecar CPU/RSS/memory/disk sampling, local ledger/SQLite recording, and CLI status fields |
 | v0.10.0 | Phase 11 | TUI monitor UX for CPU, memory, latency, token throughput, and resource-pressure status |
@@ -53,7 +54,11 @@ by release so monitoring data exists before UI and governor behavior consume it.
 | v0.15.0 | Phase 11 | Team file ownership preflight: lane-owned write paths normalized before dispatch; cross-lane conflicts block worker launch |
 | v0.16.0 | Phase 11 | Team admission approval queue integration: blocked policy/ownership decisions write approval request records and appear in `tui approvals` |
 | v0.17.0 | Phase 11 | Runtime context/model governor preflight: requested context clamp, resource-sensitive model route hints, ledger recording |
-| v0.18.0+ | Phase 11 | Remaining subagent/team dispatcher policy: dispatch-time ownership enforcement and failed-worker continuation |
+| v0.18.0 | Phase 6 + Phase 10 | Performance baseline report over local runtime metrics: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, and backend/model/session grouping |
+| v0.19.0 | Phase 10 | Benchmark harness foundation: fixture schema validation, benchmark run ledger/projection, reproducibility metadata, and redacted local report export |
+| v0.20.0 | Phase 10 | Small-model ontology representation benchmark: compare prompt-facing ontology views for 2B-4B target models with task score, hallucination, source-read compliance, latency, memory, and token metrics |
+| v0.21.0 | Phase 11 + Phase 10 | Benchmark-driven optimization policy: recommend context budget, lane count, fallback, and model route from measured local metrics and benchmark evidence |
+| v0.22.0+ | Phase 11 | Remaining subagent/team dispatcher policy: dispatch-time ownership enforcement and failed-worker continuation |
 
 ## Phase 0: Project Definition
 
@@ -416,7 +421,9 @@ Goal: require evidence for completion instead of accepting the model's claim tha
 - [ ] Cancel cleanup
 - [ ] Stale workflow terminal handling
 - [ ] Destructive command policy tests
+- [ ] Performance baseline report over ledger/projection data: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping
 - [ ] Fixture benchmark suite
+- [ ] Benchmark harness runner foundation: fixture schema validation, run ledger/projection, reproducibility manifest, redacted report export
 - [ ] Benchmark fixture metadata contract: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence
 - [ ] Benchmark failure taxonomy: model, prompt/context, ontology/source-pointer, runtime policy/parser, tool/command, backend/runtime, fixture issue
 - [ ] Regression fixture promotion policy from real unsafe actions, source-read omissions, stale-claim use, policy violations, and score regressions
@@ -461,6 +468,7 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [x] Team admission approval request records and TUI approval queue integration
 - [x] Backend chat resource governor policy: CPU/memory thresholds, backend health precheck, critical-pressure block, degraded-pressure max-token clamp, pressure hint
 - [x] Runtime context clamp and model downgrade/escalation hint for backend/model selection
+- [ ] Benchmark-driven optimization policy: recommend context budget, lane count, fallback, and model route from measured local latency, tokens/sec, memory, pressure, and benchmark outcomes
 - [ ] Failed worker continuation policy
 - [x] `rpotato team status`
 - [x] `rpotato team admit --lanes <count>`

@@ -33,7 +33,11 @@ it. The release grouping is:
 | v0.15.0 | team file ownership preflight | normalize lane-owned write paths before dispatch, record ownership status in ledger output, and block cross-lane write conflicts |
 | v0.16.0 | team admission approval queue integration | write project-local approval request records for blocked policy/ownership decisions and render them in `tui approvals` |
 | v0.17.0 | context/model governor preflight | clamp requested context against the configured budget and resource pressure, emit model route hints, and record the decision in the ledger |
-| v0.18.0+ | remaining dispatcher governor policy | add dispatch-time ownership enforcement and failed-worker continuation |
+| v0.18.0 | performance baseline report | aggregate local p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, and backend/model/session metrics without storing raw prompt/source text |
+| v0.19.0 | benchmark harness foundation | record benchmark runs in the ledger/projection, validate fixture metadata, emit reproducibility metadata, and export redacted local reports |
+| v0.20.0 | small-model ontology benchmark | compare prompt-facing ontology views for 2B-4B target models using the same runtime monitoring schema |
+| v0.21.0 | benchmark-driven optimization policy | recommend context budget, lane count, fallback, and model route from measured local metrics and benchmark evidence |
+| v0.22.0+ | remaining dispatcher governor policy | add dispatch-time ownership enforcement and failed-worker continuation |
 
 ## Storage Decision
 
@@ -93,6 +97,9 @@ Phase 2 currently implements the runtime store foundation.
 Not implemented yet:
 
 - continuous background CPU/memory/disk resource sampling from the managed backend sidecar
+- performance baseline reporting over the local ledger/SQLite projection
+- executable benchmark harness run recording and redacted report export
+- benchmark-driven optimization policy for context budget, lane count, fallback, and model route recommendations
 - full subagent/team dispatcher execution after admission
 - dispatch-time ownership enforcement
 - full transcript replay and conversation continuation after a selected session resume

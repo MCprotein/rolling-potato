@@ -308,6 +308,21 @@ benchmark result row는 다음 claim state만 사용할 수 있습니다.
 
 local run evidence와 비교 가능한 조건 없이 특정 2B-4B 우승 모델, 모델 순위, public leaderboard claim을 확정하는 것은 허용하지 않습니다.
 
+## 릴리즈 순서
+
+Benchmark 작업은 기본 monitoring 뒤, dispatcher optimization 앞에 배치합니다.
+Runtime은 일회성 경험담이 아니라 측정된 결과로 model route와 team lane을 최적화해야 합니다.
+
+| Version | 범위 | 출력 |
+| --- | --- | --- |
+| v0.18.0 | Performance baseline report | 기존 ledger/projection data에서 local p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping을 집계 |
+| v0.19.0 | Benchmark harness foundation | fixture metadata를 검증하고 benchmark run event/projection을 기록하며 reproducibility metadata와 redacted local report를 출력 |
+| v0.20.0 | Small-model ontology representation benchmark | 2B-4B target model에서 prompt-facing ontology view를 task score, hallucination, source-read compliance, latency, memory, token budget metric으로 비교 |
+| v0.21.0 | Benchmark-driven optimization policy | 측정된 local metric과 benchmark evidence로 context budget, lane count, fallback, model route를 추천 |
+
+공개 benchmark parity는 artifact, backend, hardware, quantization, dataset,
+prompt, scoring 조건이 비교 가능할 때만 허용합니다.
+
 ## observability 연동
 
 Benchmark run은 일반 runtime monitoring과 같은 metric schema를 사용해야 합니다.
