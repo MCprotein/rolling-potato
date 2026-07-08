@@ -108,8 +108,15 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", team::status_report()?);
             Ok(())
         }
-        Command::Team(TeamCommand::Admit { lanes }) => {
-            println!("{}", team::admission_report(lanes)?);
+        Command::Team(TeamCommand::Admit {
+            lanes,
+            write_paths,
+            commands,
+        }) => {
+            println!(
+                "{}",
+                team::admission_report(lanes, &write_paths, &commands)?
+            );
             Ok(())
         }
         Command::Tui(TuiCommand::Overview) => {

@@ -111,6 +111,14 @@ Default policy:
 - record admission decisions in the ledger
 - failed admission narrows scope instead of silently dropping work
 
+Current implemented slice:
+
+- `rpotato team status` previews resource admission without mutation.
+- `rpotato team admit --lanes <count>` records and enforces the resource lane gate.
+- `rpotato team admit --lanes <count> --write <path> --command <command>` adds
+  policy preflight for requested writes and commands. `ask` and `deny` decisions
+  block dispatch until a later approval/ownership flow exists.
+
 ## Failure Mode
 
 Subagent failure must not damage parent state.

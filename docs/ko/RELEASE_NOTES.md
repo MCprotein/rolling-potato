@@ -1,5 +1,52 @@
 # 릴리즈 노트
 
+## v0.14.0 - Team Policy Preflight
+
+릴리즈 날짜: 2026-07-08
+
+이 릴리즈는 enforced team admission gate에 policy preflight를 추가합니다. 여전히
+source-only developer preview이며, 모델 가중치, 외부 plugin package, prebuilt
+`rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- `rpotato team admit --lanes <count>`가 반복 가능한 `--write <path>`와
+  `--command <command>` preflight check를 받습니다.
+- 요청 write path는 `policy check-path --write`와 같은 policy engine으로 분류합니다.
+- 요청 command는 `policy check-command`와 같은 policy engine으로 분류합니다.
+- `allow` policy check는 admission gate를 통과할 수 있습니다.
+- `ask`와 `deny` policy check는 향후 worker launch 이전 단계에서 dispatch를 차단합니다.
+- Team admission 출력과 ledger event detail에 policy check count, policy status,
+  policy blocked flag, requested write, redacted command, per-check decision을
+  포함합니다.
+- v0.14.0 policy preflight 범위에 대한 영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (159 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato team status`
+- `rpotato team admit --lanes 2`
+- `rpotato team admit --lanes 2 --command "cargo test"`
+- `rpotato team admit --lanes 2 --write README.md`
+- `rpotato monitor status`
+
+Smoke check는 `/private/tmp` 아래 scratch project root를 사용하며, command preflight는
+통과하고 write preflight는 worker launch 전에 `approval-required`로 차단되는지
+확인합니다.
+
+### 알려진 제한
+
+- `team admit`은 아직 subagent 시작, team lane dispatch, team stage 전진, file ownership
+  allocation을 수행하지 않습니다.
+- Approval queue integration이 아직 후속 범위라서 `ask` decision은 dispatch를 차단합니다.
+- Resource sampling은 아직 event-driven이며 continuous live polling은 아닙니다.
+- Runtime context clamp와 model downgrade/escalation hint는 후속 범위입니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.13.0 - Team Admission Gate
 
 릴리즈 날짜: 2026-07-07
@@ -35,8 +82,8 @@ Smoke check는 `/private/tmp` 아래 scratch project root를 사용하며, resou
 
 ### 알려진 제한
 
-- `team admit`은 resource-pressure lane gate만 강제합니다. 아직 subagent 시작,
-  team lane dispatch, team stage 전진, file ownership enforcement는 수행하지 않습니다.
+- 요청 write와 command에 대한 policy preflight는 v0.14.0에서 도입됐습니다. Full worker
+  dispatch와 file ownership allocation은 후속 범위입니다.
 - Resource sampling은 아직 event-driven이며 continuous live polling은 아닙니다.
 - Runtime context clamp, file ownership, tool risk, approval queue, model
   downgrade/escalation hint는 후속 범위입니다.

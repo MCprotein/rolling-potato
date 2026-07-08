@@ -111,6 +111,14 @@ Admission input:
 - admission decision은 ledger에 기록한다.
 - admission 실패는 작업을 조용히 버리는 대신 scope를 좁히게 만든다.
 
+현재 구현된 slice:
+
+- `rpotato team status`는 mutation 없이 resource admission을 preview한다.
+- `rpotato team admit --lanes <count>`는 resource lane gate를 기록하고 강제한다.
+- `rpotato team admit --lanes <count> --write <path> --command <command>`는 요청
+  write와 command에 대한 policy preflight를 추가한다. `ask`와 `deny` decision은
+  후속 approval/ownership flow가 생기기 전까지 dispatch를 차단한다.
+
 ## 실패 모드
 
 Subagent failure는 parent state를 손상시키면 안 됩니다.
