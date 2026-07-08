@@ -1,5 +1,52 @@
 # 릴리즈 노트
 
+## v0.16.0 - Team Approval Queue Integration
+
+릴리즈 날짜: 2026-07-08
+
+이 릴리즈는 차단된 team admission decision을 read-only approval queue에 연결합니다.
+여전히 source-only developer preview이며, 모델 가중치, 외부 plugin package,
+prebuilt `rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- `.rpotato/approval-requests/` 아래 project-local approval request store를 추가했습니다.
+- Blocking `team admit` policy/ownership decision은 team admission ledger event에 연결된
+  redacted approval request record를 씁니다.
+- `rpotato tui approvals`는 patch proposal approval 옆에 team admission approval request를
+  표시합니다.
+- `rpotato init`은 project runtime layout 일부로 approval request directory를 생성합니다.
+- Team admission 출력은 policy 또는 ownership decision 검토가 필요할 때 approval request id와
+  path를 포함합니다.
+- v0.16.0 approval queue integration 범위에 대한 영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (165 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato team status`
+- `rpotato team admit --lanes 2 --command "cargo test"`
+- `rpotato team admit --lanes 2 --write README.md`
+- `rpotato team admit --lanes 2 --write-owner 1:README.md --write-owner 2:./README.md`
+- `rpotato tui approvals`
+- `rpotato monitor status`
+
+Smoke check는 `/private/tmp` 아래 scratch project root를 사용하며, policy/ownership으로
+차단된 team admission record가 read-only TUI approval queue에 표시되는지 확인합니다.
+
+### 알려진 제한
+
+- `tui approvals`는 read-only입니다. Team admission request를 나열하지만 approve, deny,
+  dispatch resume은 수행하지 않습니다.
+- `team admit`은 아직 subagent 시작, team lane dispatch, team stage 전진, 실제 worker
+  execution 중 ownership enforcement를 수행하지 않습니다.
+- Resource sampling은 아직 event-driven이며 continuous live polling은 아닙니다.
+- Runtime context clamp와 model downgrade/escalation hint는 후속 범위입니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.15.0 - Team File Ownership Preflight
 
 릴리즈 날짜: 2026-07-08

@@ -1,5 +1,5 @@
 use crate::app::AppError;
-use crate::{ledger, observability, paths, policy, resource};
+use crate::{approval, ledger, observability, paths, policy, resource};
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 
@@ -100,9 +100,16 @@ pub fn admission_report(
     );
     ledger::append_event(&event)?;
     observability::project_event(&event)?;
+    let approval_request = record_approval_request(
+        &identity,
+        &event,
+        overall_status(decision.admission, blocked_by_policy, blocked_by_ownership),
+        &policy_gate,
+        &ownership_gate,
+    )?;
 
     let report = format!(
-        "team admission\n- status: {}\n- observability store: {}\n- session id: {}\n- requested parallel lanes: {}\n- admitted lanes: {}\n- admission: {}\n- dispatch blocked: {}\n- fallback: {}\n- policy checks: {}\n- policy status: {}\n- policy blocked: {}\n- write paths: {}\n- commands: {}\n- policy decisions:\n{}\n- ownership claims: {}\n- ownership status: {}\n- ownership blocked: {}\n- owned write paths: {}\n- ownership decisions:\n{}\n- resource sample source: {}\n- resource sample id: {}\n- resource recorded ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- reason: {}\n- hint: {}\n- ledger event: {}\n- boundary: admission gate only; records the decision and does not start workers, mutate team stages, bypass approval policy, or write files.",
+        "team admission\n- status: {}\n- observability store: {}\n- session id: {}\n- requested parallel lanes: {}\n- admitted lanes: {}\n- admission: {}\n- dispatch blocked: {}\n- fallback: {}\n- policy checks: {}\n- policy status: {}\n- policy blocked: {}\n- write paths: {}\n- commands: {}\n- policy decisions:\n{}\n- ownership claims: {}\n- ownership status: {}\n- ownership blocked: {}\n- owned write paths: {}\n- ownership decisions:\n{}\n- approval request: {}\n- approval request path: {}\n- resource sample source: {}\n- resource sample id: {}\n- resource recorded ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- reason: {}\n- hint: {}\n- ledger event: {}\n- boundary: admission gate only; records the decision and does not start workers, mutate team stages, bypass approval policy, or write files.",
         overall_status(decision.admission, blocked_by_policy, blocked_by_ownership),
         store.path.display(),
         identity.session_id,
@@ -122,6 +129,14 @@ pub fn admission_report(
         ownership_gate.blocked_label(),
         display_owned_write_paths(owned_write_paths),
         format_ownership_checks(&ownership_gate.checks),
+        approval_request
+            .as_ref()
+            .map(|request| request.request_id.as_str())
+            .unwrap_or("not-required"),
+        approval_request
+            .as_ref()
+            .map(|request| request.path.display().to_string())
+            .unwrap_or_else(|| "없음".to_string()),
         if sample.is_some() {
             "latest-resource-sample"
         } else {
@@ -274,6 +289,12 @@ struct OwnershipCheck {
     normalized_path: String,
     status: &'static str,
     reason: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RecordedApprovalRequest {
+    request_id: String,
+    path: PathBuf,
 }
 
 impl OwnershipGate {
@@ -467,6 +488,71 @@ fn path_key(path: &Path) -> String {
         .join("/")
 }
 
+fn record_approval_request(
+    identity: &ledger::RuntimeIdentity,
+    event: &ledger::LedgerEvent,
+    admission_status: &str,
+    policy_gate: &PolicyGate,
+    ownership_gate: &OwnershipGate,
+) -> Result<Option<RecordedApprovalRequest>, AppError> {
+    if !policy_gate.is_blocked() && !ownership_gate.is_blocked() {
+        return Ok(None);
+    }
+
+    let request_id = format!("team-{}", event.event_id);
+    let mut items = Vec::new();
+    items.extend(
+        policy_gate
+            .checks
+            .iter()
+            .filter(|check| check.decision != policy::Decision::Allow)
+            .map(|check| {
+                format!(
+                    "policy {}: {} -> {} ({}, approval: {}, reason: {})",
+                    check.target_type,
+                    check.target,
+                    decision_label(check.decision),
+                    check.class,
+                    check.approval_prompt,
+                    check.reason
+                )
+            }),
+    );
+    items.extend(
+        ownership_gate
+            .checks
+            .iter()
+            .filter(|check| check.status != "assigned")
+            .map(|check| {
+                format!(
+                    "ownership lane {}: {} -> {} (normalized: {}, reason: {})",
+                    check.lane, check.raw_path, check.status, check.normalized_path, check.reason
+                )
+            }),
+    );
+    if items.is_empty() {
+        items.push("team admission blocked; inspect ledger event for details".to_string());
+    }
+
+    let status = if policy_gate.status == "approval-required" && !ownership_gate.is_blocked() {
+        "pending-approval"
+    } else {
+        "blocked"
+    };
+    let path = approval::write_request(&approval::ApprovalRequest {
+        request_id: request_id.clone(),
+        source: "team-admission".to_string(),
+        status: status.to_string(),
+        reason: admission_status.to_string(),
+        event_id: event.event_id.clone(),
+        session_id: identity.session_id.clone(),
+        summary: event.summary.clone(),
+        items,
+    })?;
+
+    Ok(Some(RecordedApprovalRequest { request_id, path }))
+}
+
 fn format_policy_checks(checks: &[PolicyCheck]) -> String {
     if checks.is_empty() {
         return "  - 없음".to_string();
@@ -654,6 +740,7 @@ mod tests {
         assert!(report.contains("command: cargo test -> allow"));
         assert!(report.contains("ownership claims: 0"));
         assert!(report.contains("ownership status: not-requested"));
+        assert!(report.contains("approval request: not-required"));
         assert!(report.contains("ledger event: event-"));
         assert_eq!(store.ledger_events, 1);
     }
@@ -687,6 +774,7 @@ mod tests {
         assert!(err.message.contains("requested parallel lanes: 4"));
         assert!(err.message.contains("admitted lanes: 0"));
         assert!(err.message.contains("dispatch blocked: yes"));
+        assert!(err.message.contains("approval request: not-required"));
         assert!(err.message.contains("ledger event: event-"));
         assert_eq!(store.ledger_events, 1);
     }
@@ -704,6 +792,7 @@ mod tests {
 
         let err = admission_report(2, &["README.md".to_string()], &[], &[]).unwrap_err();
         let store = observability::status().unwrap();
+        let approval_requests = approval::request_summaries(5).unwrap();
 
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
         std::env::remove_var("RPOTATO_DATA_HOME");
@@ -716,7 +805,10 @@ mod tests {
         assert!(err.message.contains("policy status: approval-required"));
         assert!(err.message.contains("write: README.md -> ask"));
         assert!(err.message.contains("dispatch blocked: yes"));
+        assert!(err.message.contains("approval request: team-event-"));
+        assert!(err.message.contains("approval request path:"));
         assert!(err.message.contains("ledger event: event-"));
+        assert_eq!(approval_requests.len(), 1);
         assert_eq!(store.ledger_events, 1);
     }
 
@@ -741,6 +833,7 @@ mod tests {
         )
         .unwrap_err();
         let store = observability::status().unwrap();
+        let approval_requests = approval::request_summaries(5).unwrap();
 
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
         std::env::remove_var("RPOTATO_DATA_HOME");
@@ -759,6 +852,8 @@ mod tests {
         assert!(err
             .message
             .contains("lane 2: src/cli.rs -> assigned (normalized: src/cli.rs"));
+        assert!(err.message.contains("approval request: team-event-"));
+        assert_eq!(approval_requests.len(), 1);
         assert_eq!(store.ledger_events, 1);
     }
 
@@ -786,6 +881,7 @@ mod tests {
         )
         .unwrap_err();
         let store = observability::status().unwrap();
+        let approval_requests = approval::request_summaries(5).unwrap();
 
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
         std::env::remove_var("RPOTATO_DATA_HOME");
@@ -799,6 +895,8 @@ mod tests {
         assert!(err
             .message
             .contains("lane 2: ./README.md -> conflict (normalized: README.md"));
+        assert!(err.message.contains("approval request: team-event-"));
+        assert_eq!(approval_requests.len(), 1);
         assert!(err.message.contains("ledger event: event-"));
         assert_eq!(store.ledger_events, 1);
     }

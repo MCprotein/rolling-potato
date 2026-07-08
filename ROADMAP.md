@@ -51,7 +51,8 @@ by release so monitoring data exists before UI and governor behavior consume it.
 | v0.13.0 | Phase 11 | Team admission gate: requested lane enforcement, sequential fallback, critical-pressure block, ledger recording |
 | v0.14.0 | Phase 11 | Team admission policy preflight: requested write paths and commands checked before dispatch; ask/deny blocks worker launch |
 | v0.15.0 | Phase 11 | Team file ownership preflight: lane-owned write paths normalized before dispatch; cross-lane conflicts block worker launch |
-| v0.16.0+ | Phase 11 | Runtime context/model governor plus remaining subagent/team dispatcher policy: approval queue integration, dispatch-time ownership enforcement, and model downgrade/escalation hints |
+| v0.16.0 | Phase 11 | Team admission approval queue integration: blocked policy/ownership decisions write approval request records and appear in `tui approvals` |
+| v0.17.0+ | Phase 11 | Runtime context/model governor plus remaining subagent/team dispatcher policy: dispatch-time ownership enforcement and model downgrade/escalation hints |
 
 ## Phase 0: Project Definition
 
@@ -456,6 +457,7 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [x] Team admission gate with lane enforcement and ledger recording
 - [x] Team admission policy preflight for requested write paths and commands
 - [x] Team admission file ownership preflight and cross-lane write conflict detection
+- [x] Team admission approval request records and TUI approval queue integration
 - [x] Backend chat resource governor policy: CPU/memory thresholds, backend health precheck, critical-pressure block, degraded-pressure max-token clamp, pressure hint
 - [ ] Runtime context clamp and model downgrade/escalation hint for backend/model selection
 - [ ] Failed worker continuation policy
@@ -463,6 +465,7 @@ Goal: implement the interactive surface and bounded multi-agent execution requir
 - [x] `rpotato team admit --lanes <count>`
 - [x] `rpotato team admit --lanes <count> --write <path> --command <command>`
 - [x] `rpotato team admit --lanes <count> --write-owner <lane:path>`
+- [x] `rpotato tui approvals` includes team admission approval requests
 - [x] TUI framework decision
 - [x] `rpotato tui`
 - [x] TUI monitoring UX spec from `DESIGN.md`

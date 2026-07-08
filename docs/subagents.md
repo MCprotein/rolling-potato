@@ -121,6 +121,9 @@ Current implemented slice:
 - `rpotato team admit --lanes <count> --write-owner <lane:path>` adds file
   ownership preflight. Normalized cross-lane write conflicts block dispatch
   before worker launch.
+- Blocked policy/ownership admission writes `.rpotato/approval-requests/`
+  records, and `rpotato tui approvals` displays those team requests next to
+  patch proposal approvals.
 
 ## Failure Mode
 

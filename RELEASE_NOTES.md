@@ -1,5 +1,55 @@
 # Release Notes
 
+## v0.16.0 - Team Approval Queue Integration
+
+Release date: 2026-07-08
+
+This release connects blocked team admission decisions to the read-only approval
+queue. It is still a source-only developer preview: it does not ship model
+weights, external plugin packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- New project-local approval request store under `.rpotato/approval-requests/`.
+- Blocking `team admit` policy/ownership decisions now write redacted approval
+  request records linked to the team admission ledger event.
+- `rpotato tui approvals` now renders team admission approval requests beside
+  patch proposal approvals.
+- `rpotato init` creates the approval request directory as part of the project
+  runtime layout.
+- Team admission output includes the approval request id and path when a policy
+  or ownership decision needs review.
+- English and Korean documentation updates for the v0.16.0 approval queue
+  integration scope.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (165 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato team status`
+- `rpotato team admit --lanes 2 --command "cargo test"`
+- `rpotato team admit --lanes 2 --write README.md`
+- `rpotato team admit --lanes 2 --write-owner 1:README.md --write-owner 2:./README.md`
+- `rpotato tui approvals`
+- `rpotato monitor status`
+
+The smoke checks use a scratch project root under `/private/tmp` and verify
+that policy/ownership-blocked team admission records appear in the read-only TUI
+approval queue.
+
+### Known Issues
+
+- `tui approvals` is read-only. It lists team admission requests but does not
+  approve, deny, or resume dispatch.
+- `team admit` still does not start subagents, dispatch team lanes, advance team
+  stages, or enforce ownership during actual worker execution.
+- Resource sampling is still event-driven, not continuous live polling.
+- Runtime context clamp and model downgrade/escalation hints remain planned.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.15.0 - Team File Ownership Preflight
 
 Release date: 2026-07-08

@@ -1,4 +1,5 @@
 mod app;
+mod approval;
 mod backend;
 mod cache;
 mod checksum;

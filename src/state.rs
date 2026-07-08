@@ -262,6 +262,7 @@ fn ensure_layout() -> Result<Vec<PathBuf>, AppError> {
         paths::cache_dir(),
         paths::project_state_dir(),
         paths::project_evidence_dir(),
+        paths::project_approval_requests_dir(),
     ];
 
     let mut created = Vec::new();
