@@ -90,15 +90,19 @@ pressure에서는 sequential lane 하나로 fallback합니다. 이 명령은 아
 team stage를 전진시키지 않으므로, 후속 dispatcher 작업은 admission contract를 바꾸지
 않고 worker launch를 gate 뒤에 붙일 수 있습니다.
 
-`team admit`은 요청 write path와 command도 preflight할 수 있습니다.
+`team admit`은 요청 write path, lane ownership, command도 preflight할 수 있습니다.
 
 ```text
 rpotato team admit --lanes 2 --write README.md --command "cargo test"
+rpotato team admit --lanes 2 --write-owner 1:src/app.rs --write-owner 2:src/cli.rs
 ```
 
 Preflight는 공통 runtime policy engine을 사용합니다. `allow` check는 gate를 통과할 수
 있고, `ask`와 `deny` check는 dispatch를 차단하며 같은 admission ledger event에
-기록됩니다. 이것은 아직 ownership allocation이 아니라 policy gate입니다.
+기록됩니다. `--write-owner <lane:path>`는 dispatch 전에 lane별 write path를 추가로
+정규화합니다. 두 lane이 같은 normalized path를 claim하면 admission은 ownership-blocked
+결과를 반환하고 같은 ledger event에 기록합니다. 이것은 아직 worker launch나 merge-time
+ownership enforcement가 아니라 admission-time preflight입니다.
 
 ## 터미널 UI Integration
 

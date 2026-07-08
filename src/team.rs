@@ -1,5 +1,7 @@
 use crate::app::AppError;
-use crate::{ledger, observability, policy, resource};
+use crate::{ledger, observability, paths, policy, resource};
+use std::collections::HashMap;
+use std::path::{Component, Path, PathBuf};
 
 pub fn status_report() -> Result<String, AppError> {
     let store = observability::status()?;
@@ -46,6 +48,7 @@ pub fn status_report() -> Result<String, AppError> {
 pub fn admission_report(
     requested_lanes: u32,
     write_paths: &[String],
+    owned_write_paths: &[(u32, String)],
     commands: &[String],
 ) -> Result<String, AppError> {
     let identity = ledger::current_identity();
@@ -56,21 +59,25 @@ pub fn admission_report(
         .map(|sample| pressure_from_status(&sample.pressure_status))
         .unwrap_or(resource::ResourcePressure::Unknown);
     let decision = resource::team_lane_decision(pressure, requested_lanes);
-    let policy_gate = policy_preflight(write_paths, commands)?;
+    let policy_write_paths = policy_write_paths(write_paths, owned_write_paths);
+    let policy_gate = policy_preflight(&policy_write_paths, commands)?;
+    let ownership_gate = ownership_preflight(decision.admitted_lanes, owned_write_paths)?;
     let blocked_by_resource = decision.is_blocked();
     let blocked_by_policy = policy_gate.is_blocked();
-    let dispatch_blocked = if blocked_by_resource || blocked_by_policy {
+    let blocked_by_ownership = ownership_gate.is_blocked();
+    let dispatch_blocked = if blocked_by_resource || blocked_by_policy || blocked_by_ownership {
         "yes"
     } else {
         "no"
     };
-    let event_type = admission_event_type(decision.admission, blocked_by_policy);
+    let event_type =
+        admission_event_type(decision.admission, blocked_by_policy, blocked_by_ownership);
     let event = ledger::new_event_for(
         &identity,
         event_type,
-        admission_summary(decision.admission, blocked_by_policy),
+        admission_summary(decision.admission, blocked_by_policy, blocked_by_ownership),
         &format!(
-            "requested_lanes={} admitted_lanes={} admission={} dispatch_blocked={} fallback={} pressure={} resource_sample_id={} policy_status={} policy_blocked={} write_paths={} commands={} reason={}",
+            "requested_lanes={} admitted_lanes={} admission={} dispatch_blocked={} fallback={} pressure={} resource_sample_id={} policy_status={} policy_blocked={} ownership_status={} ownership_blocked={} write_paths={} owned_write_paths={} commands={} reason={}",
             decision.requested_lanes,
             decision.admitted_lanes,
             decision.admission.as_str(),
@@ -83,7 +90,10 @@ pub fn admission_report(
                 .unwrap_or("none"),
             policy_gate.status,
             policy_gate.blocked_label(),
+            ownership_gate.status,
+            ownership_gate.blocked_label(),
             display_list(write_paths),
+            display_owned_write_paths(owned_write_paths),
             display_redacted_list(commands),
             decision.reason
         ),
@@ -92,8 +102,8 @@ pub fn admission_report(
     observability::project_event(&event)?;
 
     let report = format!(
-        "team admission\n- status: {}\n- observability store: {}\n- session id: {}\n- requested parallel lanes: {}\n- admitted lanes: {}\n- admission: {}\n- dispatch blocked: {}\n- fallback: {}\n- policy checks: {}\n- policy status: {}\n- policy blocked: {}\n- write paths: {}\n- commands: {}\n- policy decisions:\n{}\n- resource sample source: {}\n- resource sample id: {}\n- resource recorded ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- reason: {}\n- hint: {}\n- ledger event: {}\n- boundary: admission gate only; records the decision and does not start workers, mutate team stages, bypass approval policy, or write files.",
-        overall_status(decision.admission, blocked_by_policy),
+        "team admission\n- status: {}\n- observability store: {}\n- session id: {}\n- requested parallel lanes: {}\n- admitted lanes: {}\n- admission: {}\n- dispatch blocked: {}\n- fallback: {}\n- policy checks: {}\n- policy status: {}\n- policy blocked: {}\n- write paths: {}\n- commands: {}\n- policy decisions:\n{}\n- ownership claims: {}\n- ownership status: {}\n- ownership blocked: {}\n- owned write paths: {}\n- ownership decisions:\n{}\n- resource sample source: {}\n- resource sample id: {}\n- resource recorded ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- reason: {}\n- hint: {}\n- ledger event: {}\n- boundary: admission gate only; records the decision and does not start workers, mutate team stages, bypass approval policy, or write files.",
+        overall_status(decision.admission, blocked_by_policy, blocked_by_ownership),
         store.path.display(),
         identity.session_id,
         decision.requested_lanes,
@@ -107,6 +117,11 @@ pub fn admission_report(
         display_list(write_paths),
         display_redacted_list(commands),
         format_policy_checks(&policy_gate.checks),
+        ownership_gate.checks.len(),
+        ownership_gate.status,
+        ownership_gate.blocked_label(),
+        display_owned_write_paths(owned_write_paths),
+        format_ownership_checks(&ownership_gate.checks),
         if sample.is_some() {
             "latest-resource-sample"
         } else {
@@ -130,7 +145,7 @@ pub fn admission_report(
         event.event_id
     );
 
-    if blocked_by_resource || blocked_by_policy {
+    if blocked_by_resource || blocked_by_policy || blocked_by_ownership {
         return Err(AppError::blocked(format!(
             "team admission 차단\n{}",
             report
@@ -160,7 +175,14 @@ fn admission_status(admission: resource::ResourceLaneAdmission) -> &'static str 
 fn overall_status(
     admission: resource::ResourceLaneAdmission,
     blocked_by_policy: bool,
+    blocked_by_ownership: bool,
 ) -> &'static str {
+    if admission == resource::ResourceLaneAdmission::Blocked {
+        return "blocked";
+    }
+    if blocked_by_ownership {
+        return "ownership-blocked";
+    }
     if blocked_by_policy {
         return "policy-blocked";
     }
@@ -170,7 +192,14 @@ fn overall_status(
 fn admission_event_type(
     admission: resource::ResourceLaneAdmission,
     blocked_by_policy: bool,
+    blocked_by_ownership: bool,
 ) -> &'static str {
+    if admission == resource::ResourceLaneAdmission::Blocked {
+        return "team.admission.blocked";
+    }
+    if blocked_by_ownership {
+        return "team.admission.ownership_blocked";
+    }
     if blocked_by_policy {
         return "team.admission.policy_blocked";
     }
@@ -184,7 +213,14 @@ fn admission_event_type(
 fn admission_summary(
     admission: resource::ResourceLaneAdmission,
     blocked_by_policy: bool,
+    blocked_by_ownership: bool,
 ) -> &'static str {
+    if admission == resource::ResourceLaneAdmission::Blocked {
+        return "team admission blocked";
+    }
+    if blocked_by_ownership {
+        return "team admission ownership blocked";
+    }
     if blocked_by_policy {
         return "team admission policy blocked";
     }
@@ -223,6 +259,41 @@ impl PolicyGate {
             "no"
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OwnershipGate {
+    status: &'static str,
+    checks: Vec<OwnershipCheck>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OwnershipCheck {
+    lane: u32,
+    raw_path: String,
+    normalized_path: String,
+    status: &'static str,
+    reason: String,
+}
+
+impl OwnershipGate {
+    fn is_blocked(&self) -> bool {
+        matches!(self.status, "invalid" | "conflict")
+    }
+
+    fn blocked_label(&self) -> &'static str {
+        if self.is_blocked() {
+            "yes"
+        } else {
+            "no"
+        }
+    }
+}
+
+fn policy_write_paths(write_paths: &[String], owned_write_paths: &[(u32, String)]) -> Vec<String> {
+    let mut paths = write_paths.to_vec();
+    paths.extend(owned_write_paths.iter().map(|(_, path)| path.clone()));
+    paths
 }
 
 fn policy_preflight(write_paths: &[String], commands: &[String]) -> Result<PolicyGate, AppError> {
@@ -269,6 +340,133 @@ fn policy_preflight(write_paths: &[String], commands: &[String]) -> Result<Polic
     Ok(PolicyGate { status, checks })
 }
 
+fn ownership_preflight(
+    admitted_lanes: u32,
+    owned_write_paths: &[(u32, String)],
+) -> Result<OwnershipGate, AppError> {
+    if owned_write_paths.is_empty() {
+        return Ok(OwnershipGate {
+            status: "not-requested",
+            checks: Vec::new(),
+        });
+    }
+
+    let mut owners: HashMap<String, u32> = HashMap::new();
+    let mut checks = Vec::new();
+    for (lane, raw_path) in owned_write_paths {
+        let normalized_path = normalize_ownership_path(raw_path)?;
+        let mut status = "assigned";
+        let mut reason = "write path assigned to lane before dispatch".to_string();
+
+        if *lane > admitted_lanes {
+            status = "invalid";
+            reason = format!(
+                "lane {lane} exceeds admitted lanes {admitted_lanes}; reduce lanes or wait for resources"
+            );
+        } else if let Some(existing_lane) = owners.get(&normalized_path) {
+            if *existing_lane != *lane {
+                status = "conflict";
+                reason = format!(
+                    "path already owned by lane {existing_lane}; cross-lane writes are blocked"
+                );
+            }
+        } else {
+            owners.insert(normalized_path.clone(), *lane);
+        }
+
+        checks.push(OwnershipCheck {
+            lane: *lane,
+            raw_path: raw_path.clone(),
+            normalized_path,
+            status,
+            reason,
+        });
+    }
+
+    let status = if checks.iter().any(|check| check.status == "conflict") {
+        "conflict"
+    } else if checks.iter().any(|check| check.status == "invalid") {
+        "invalid"
+    } else {
+        "allocated"
+    };
+
+    Ok(OwnershipGate { status, checks })
+}
+
+fn normalize_ownership_path(raw_path: &str) -> Result<String, AppError> {
+    let trimmed = raw_path.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::usage(
+            "team admit의 owned write path는 비어 있을 수 없습니다.",
+        ));
+    }
+    let path = Path::new(trimmed);
+    if path.components().any(|c| matches!(c, Component::ParentDir)) {
+        return Ok(trimmed.to_string());
+    }
+
+    let project_root = canonical_project_root()?;
+    let candidate = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        project_root.join(path)
+    };
+    let normalized = normalize_existing_or_parent(&candidate)?;
+    let relative = normalized
+        .strip_prefix(&project_root)
+        .unwrap_or(&normalized)
+        .to_path_buf();
+    Ok(path_key(&relative))
+}
+
+fn canonical_project_root() -> Result<PathBuf, AppError> {
+    let root = paths::project_root();
+    std::fs::create_dir_all(&root).map_err(|err| {
+        AppError::runtime(format!(
+            "project root를 만들지 못했습니다: {} ({err})",
+            root.display()
+        ))
+    })?;
+    std::fs::canonicalize(&root).map_err(|err| {
+        AppError::runtime(format!(
+            "project root를 canonicalize하지 못했습니다: {} ({err})",
+            root.display()
+        ))
+    })
+}
+
+fn normalize_existing_or_parent(path: &Path) -> Result<PathBuf, AppError> {
+    if path.exists() {
+        return std::fs::canonicalize(path).map_err(|err| {
+            AppError::runtime(format!(
+                "path를 canonicalize하지 못했습니다: {} ({err})",
+                path.display()
+            ))
+        });
+    }
+
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let canonical_parent = std::fs::canonicalize(parent).map_err(|err| {
+        AppError::runtime(format!(
+            "path parent를 canonicalize하지 못했습니다: {} ({err})",
+            parent.display()
+        ))
+    })?;
+    Ok(canonical_parent.join(path.file_name().unwrap_or_default()))
+}
+
+fn path_key(path: &Path) -> String {
+    path.components()
+        .filter_map(|component| match component {
+            Component::Normal(value) => Some(value.to_string_lossy().to_string()),
+            Component::RootDir => Some(String::new()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
 fn format_policy_checks(checks: &[PolicyCheck]) -> String {
     if checks.is_empty() {
         return "  - 없음".to_string();
@@ -285,6 +483,23 @@ fn format_policy_checks(checks: &[PolicyCheck]) -> String {
                 check.class,
                 check.approval_prompt,
                 check.reason
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn format_ownership_checks(checks: &[OwnershipCheck]) -> String {
+    if checks.is_empty() {
+        return "  - 없음".to_string();
+    }
+
+    checks
+        .iter()
+        .map(|check| {
+            format!(
+                "  - lane {}: {} -> {} (normalized: {}, reason: {})",
+                check.lane, check.raw_path, check.status, check.normalized_path, check.reason
             )
         })
         .collect::<Vec<_>>()
@@ -314,6 +529,18 @@ fn display_redacted_list(values: &[String]) -> String {
         values
             .iter()
             .map(|value| ledger::redact_text(value))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+}
+
+fn display_owned_write_paths(values: &[(u32, String)]) -> String {
+    if values.is_empty() {
+        "없음".to_string()
+    } else {
+        values
+            .iter()
+            .map(|(lane, path)| format!("lane {lane}:{path}"))
             .collect::<Vec<_>>()
             .join(", ")
     }
@@ -409,7 +636,7 @@ mod tests {
 
         record_resource_sample("resource-sample-team-normal", "normal", Some(17.0));
 
-        let report = admission_report(3, &[], &["cargo test".to_string()]).unwrap();
+        let report = admission_report(3, &[], &[], &["cargo test".to_string()]).unwrap();
         let store = observability::status().unwrap();
 
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
@@ -425,6 +652,8 @@ mod tests {
         assert!(report.contains("policy checks: 1"));
         assert!(report.contains("policy status: allowed"));
         assert!(report.contains("command: cargo test -> allow"));
+        assert!(report.contains("ownership claims: 0"));
+        assert!(report.contains("ownership status: not-requested"));
         assert!(report.contains("ledger event: event-"));
         assert_eq!(store.ledger_events, 1);
     }
@@ -444,7 +673,7 @@ mod tests {
             Some(98.0),
         );
 
-        let err = admission_report(4, &[], &[]).unwrap_err();
+        let err = admission_report(4, &[], &[], &[]).unwrap_err();
         let store = observability::status().unwrap();
 
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
@@ -473,7 +702,7 @@ mod tests {
 
         record_resource_sample("resource-sample-team-policy-write", "normal", Some(17.0));
 
-        let err = admission_report(2, &["README.md".to_string()], &[]).unwrap_err();
+        let err = admission_report(2, &["README.md".to_string()], &[], &[]).unwrap_err();
         let store = observability::status().unwrap();
 
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
@@ -487,6 +716,89 @@ mod tests {
         assert!(err.message.contains("policy status: approval-required"));
         assert!(err.message.contains("write: README.md -> ask"));
         assert!(err.message.contains("dispatch blocked: yes"));
+        assert!(err.message.contains("ledger event: event-"));
+        assert_eq!(store.ledger_events, 1);
+    }
+
+    #[test]
+    fn admission_reports_file_ownership_allocation() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = test_root("rpotato-team-admission-ownership-test");
+        let project_root = root.join("project");
+        fs::create_dir_all(project_root.join("src")).unwrap();
+        fs::write(project_root.join("src/app.rs"), "").unwrap();
+        fs::write(project_root.join("src/cli.rs"), "").unwrap();
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        record_resource_sample("resource-sample-team-ownership", "normal", Some(17.0));
+
+        let err = admission_report(
+            2,
+            &[],
+            &[(1, "src/app.rs".to_string()), (2, "src/cli.rs".to_string())],
+            &[],
+        )
+        .unwrap_err();
+        let store = observability::status().unwrap();
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        let _ = fs::remove_dir_all(root);
+
+        assert_eq!(err.code, 3);
+        assert!(err.message.contains("status: policy-blocked"));
+        assert!(err.message.contains("policy checks: 2"));
+        assert!(err.message.contains("policy status: approval-required"));
+        assert!(err.message.contains("ownership claims: 2"));
+        assert!(err.message.contains("ownership status: allocated"));
+        assert!(err.message.contains("ownership blocked: no"));
+        assert!(err
+            .message
+            .contains("lane 1: src/app.rs -> assigned (normalized: src/app.rs"));
+        assert!(err
+            .message
+            .contains("lane 2: src/cli.rs -> assigned (normalized: src/cli.rs"));
+        assert_eq!(store.ledger_events, 1);
+    }
+
+    #[test]
+    fn admission_blocks_cross_lane_file_ownership_conflict() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = test_root("rpotato-team-admission-ownership-conflict-test");
+        let project_root = root.join("project");
+        fs::create_dir_all(&project_root).unwrap();
+        fs::write(project_root.join("README.md"), "").unwrap();
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        record_resource_sample(
+            "resource-sample-team-ownership-conflict",
+            "normal",
+            Some(17.0),
+        );
+
+        let err = admission_report(
+            2,
+            &[],
+            &[(1, "README.md".to_string()), (2, "./README.md".to_string())],
+            &[],
+        )
+        .unwrap_err();
+        let store = observability::status().unwrap();
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        let _ = fs::remove_dir_all(root);
+
+        assert_eq!(err.code, 3);
+        assert!(err.message.contains("status: ownership-blocked"));
+        assert!(err.message.contains("policy status: approval-required"));
+        assert!(err.message.contains("ownership status: conflict"));
+        assert!(err.message.contains("ownership blocked: yes"));
+        assert!(err
+            .message
+            .contains("lane 2: ./README.md -> conflict (normalized: README.md"));
         assert!(err.message.contains("ledger event: event-"));
         assert_eq!(store.ledger_events, 1);
     }

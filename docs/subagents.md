@@ -117,7 +117,10 @@ Current implemented slice:
 - `rpotato team admit --lanes <count>` records and enforces the resource lane gate.
 - `rpotato team admit --lanes <count> --write <path> --command <command>` adds
   policy preflight for requested writes and commands. `ask` and `deny` decisions
-  block dispatch until a later approval/ownership flow exists.
+  block dispatch until a later approval flow exists.
+- `rpotato team admit --lanes <count> --write-owner <lane:path>` adds file
+  ownership preflight. Normalized cross-lane write conflicts block dispatch
+  before worker launch.
 
 ## Failure Mode
 

@@ -117,7 +117,10 @@ Admission input:
 - `rpotato team admit --lanes <count>`는 resource lane gate를 기록하고 강제한다.
 - `rpotato team admit --lanes <count> --write <path> --command <command>`는 요청
   write와 command에 대한 policy preflight를 추가한다. `ask`와 `deny` decision은
-  후속 approval/ownership flow가 생기기 전까지 dispatch를 차단한다.
+  후속 approval flow가 생기기 전까지 dispatch를 차단한다.
+- `rpotato team admit --lanes <count> --write-owner <lane:path>`는 file ownership
+  preflight를 추가한다. 정규화된 cross-lane write conflict는 worker launch 전에
+  dispatch를 차단한다.
 
 ## 실패 모드
 
