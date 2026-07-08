@@ -110,6 +110,12 @@ path, admission returns an ownership-blocked result and records it in the same
 ledger event. This is still admission-time preflight, not worker launch or
 merge-time ownership enforcement.
 
+When policy or ownership preflight blocks admission, the runtime also writes a
+redacted project-local approval request under `.rpotato/approval-requests/`.
+`rpotato tui approvals` renders these team admission requests beside patch
+proposal approvals. The TUI remains read-only; approval execution and worker
+dispatch are still separate future gates.
+
 ## TUI Integration
 
 TUI should show:
@@ -118,6 +124,7 @@ TUI should show:
 - worker status
 - active task slice
 - pending approvals
+- team admission approval requests
 - conflicts
 - evidence status
 - final merge status

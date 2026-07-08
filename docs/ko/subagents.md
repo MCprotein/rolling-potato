@@ -121,6 +121,8 @@ Admission input:
 - `rpotato team admit --lanes <count> --write-owner <lane:path>`는 file ownership
   preflight를 추가한다. 정규화된 cross-lane write conflict는 worker launch 전에
   dispatch를 차단한다.
+- 차단된 policy/ownership admission은 `.rpotato/approval-requests/` record를 쓰며,
+  `rpotato tui approvals`는 이 team request를 patch proposal approval 옆에 표시한다.
 
 ## 실패 모드
 

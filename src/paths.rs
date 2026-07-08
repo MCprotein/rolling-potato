@@ -141,3 +141,7 @@ pub fn project_session_ledger_file() -> PathBuf {
 pub fn project_patch_proposals_dir() -> PathBuf {
     project_state_dir().join("patch-proposals")
 }
+
+pub fn project_approval_requests_dir() -> PathBuf {
+    project_state_dir().join("approval-requests")
+}

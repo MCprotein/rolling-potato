@@ -1,4 +1,5 @@
 use crate::app::AppError;
+use crate::approval;
 use crate::{evidence, ledger, model, observability, patch, paths};
 
 const DEFAULT_WIDTH: usize = 92;
@@ -379,6 +380,7 @@ pub fn transcript_report(session_id: &str) -> Result<String, AppError> {
 pub fn approvals_report() -> Result<String, AppError> {
     let width = terminal_width();
     let proposals = patch::proposal_summaries(12)?;
+    let requests = approval::request_summaries(12)?;
 
     let mut lines = Vec::new();
     push_header(&mut lines, width, "rpotato TUI beta - approvals");
@@ -388,26 +390,51 @@ pub fn approvals_report() -> Result<String, AppError> {
         "proposal dir",
         &paths::project_patch_proposals_dir().display().to_string(),
     );
-    push_kv(&mut lines, width, "records", &proposals.len().to_string());
+    push_kv(
+        &mut lines,
+        width,
+        "request dir",
+        &paths::project_approval_requests_dir().display().to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "records",
+        &(proposals.len() + requests.len()).to_string(),
+    );
     push_rule(&mut lines, width);
-    if proposals.is_empty() {
+    if proposals.is_empty() && requests.is_empty() {
         push_wrapped(
             &mut lines,
             width,
-            "No patch proposal records yet. Create one with `rpotato patch preview --path <path> --find <text> --replace <text>`.",
+            "No approval records yet. Create one with `rpotato patch preview --path <path> --find <text> --replace <text>` or a blocking `rpotato team admit` preflight.",
         );
     } else {
         push_wrapped(
             &mut lines,
             width,
-            "status | proposal id | path | replacements",
+            "source | status | id | target/reason | items",
         );
+        for request in &requests {
+            push_wrapped(
+                &mut lines,
+                width,
+                &format!(
+                    "{} | {} | {} | {} | {}",
+                    request.source,
+                    request.status,
+                    request.request_id,
+                    request.reason,
+                    request.item_count
+                ),
+            );
+        }
         for proposal in &proposals {
             push_wrapped(
                 &mut lines,
                 width,
                 &format!(
-                    "{} | {} | {} | {}",
+                    "patch | {} | {} | {} | {}",
                     proposal.status,
                     proposal.proposal_id,
                     proposal.relative_path,
@@ -421,7 +448,7 @@ pub fn approvals_report() -> Result<String, AppError> {
         &mut lines,
         width,
         "inspect",
-        "rpotato tui diff <proposal-id>",
+        "patch rows: rpotato tui diff <proposal-id>; team rows: inspect approval request record",
     );
     push_kv(
         &mut lines,
@@ -877,8 +904,8 @@ mod tests {
         std::env::remove_var("RPOTATO_DATA_HOME");
 
         assert!(report.contains("rpotato TUI beta - approvals"));
-        assert!(report.contains("No patch proposal records yet"));
-        assert!(report.contains("inspect: rpotato tui diff <proposal-id>"));
+        assert!(report.contains("No approval records yet"));
+        assert!(report.contains("inspect: patch rows: rpotato tui diff <proposal-id>"));
     }
 
     #[test]
@@ -905,6 +932,43 @@ mod tests {
         assert!(diff.contains("-pub const X: i32 = 1;"));
         assert!(diff.contains("+pub const X: i32 = 2;"));
         assert!(diff.contains("dry run: rpotato patch approve"));
+    }
+
+    #[test]
+    fn approvals_renders_team_admission_request() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = test_root("rpotato-tui-approvals-team-test");
+        let project_root = root.join("project");
+        std::fs::create_dir_all(&project_root).unwrap();
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        crate::observability::record_resource_sample(&crate::observability::ResourceSampleMetric {
+            resource_sample_id: "resource-sample-tui-approvals-team".to_string(),
+            session_id: "session-tui-approvals-team".to_string(),
+            backend_id: "llama.cpp".to_string(),
+            pid: 4242,
+            process_cpu_percent: Some(12.0),
+            average_rss_bytes: Some(512 * 1024 * 1024),
+            peak_rss_bytes: Some(512 * 1024 * 1024),
+            disk_bytes: Some(2048),
+            sample_count: 1,
+            pressure_status: "normal".to_string(),
+            recorded_at_ms: 1234,
+        })
+        .unwrap();
+        let err =
+            crate::team::admission_report(2, &["README.md".to_string()], &[], &[]).unwrap_err();
+        let report = approvals_report().unwrap();
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+
+        assert!(err.message.contains("approval request: team-event-"));
+        assert!(report.contains("team-admission"));
+        assert!(report.contains("pending-approval"));
+        assert!(report.contains("policy-blocked"));
+        assert!(report.contains("source | status | id | target/reason | items"));
     }
 
     #[test]

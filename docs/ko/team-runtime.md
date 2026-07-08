@@ -104,6 +104,12 @@ Preflight는 공통 runtime policy engine을 사용합니다. `allow` check는 g
 결과를 반환하고 같은 ledger event에 기록합니다. 이것은 아직 worker launch나 merge-time
 ownership enforcement가 아니라 admission-time preflight입니다.
 
+Policy 또는 ownership preflight가 admission을 차단하면 runtime은
+`.rpotato/approval-requests/` 아래에 redacted project-local approval request도 기록합니다.
+`rpotato tui approvals`는 이 team admission request를 patch proposal approval과 함께
+표시합니다. TUI는 계속 read-only이며, approval execution과 worker dispatch는 별도의 후속
+gate입니다.
+
 ## 터미널 UI Integration
 
 TUI는 다음을 보여야 합니다.
@@ -112,6 +118,7 @@ TUI는 다음을 보여야 합니다.
 - worker status
 - active task slice
 - pending approvals
+- team admission approval request
 - conflicts
 - evidence status
 - final merge status
