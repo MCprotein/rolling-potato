@@ -1,5 +1,51 @@
 # 릴리즈 노트
 
+## v0.17.0 - Team Context And Model Governor
+
+릴리즈 날짜: 2026-07-08
+
+이 릴리즈는 첫 team context/model governor preflight를 추가합니다. 여전히
+source-only developer preview이며, 모델 가중치, 외부 plugin package, prebuilt
+`rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- 새 `rpotato team governor --lanes <count> --context-tokens <tokens>` 명령.
+- 명시적인 runtime policy simulation을 위한 선택 옵션
+  `--context-limit <tokens>`와 `--model-tier small|standard|large`.
+- 최신 resource sample을 사용한 admitted-lane 및 context/model governor decision.
+- 설정 budget, degraded-pressure budget, local small-model soft budget에 맞춘
+  effective context-token clamp.
+- Local model route hint: `keep`, `downgrade`, `escalate`, `defer`.
+- Team governor decision의 ledger/SQLite 기록.
+- v0.17.0 governor 범위에 대한 영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (170 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato team status`
+- `rpotato team governor --lanes 2 --context-tokens 6000 --context-limit 4096 --model-tier standard`
+- `rpotato team governor --lanes 2 --context-tokens 1024 --context-limit 4096 --model-tier small`
+- `rpotato monitor status`
+
+Smoke check는 `/private/tmp` 아래 scratch project root를 사용하며, normal pressure에서는
+clamped context/model decision이 기록되고 critical pressure에서는 `defer` route hint로
+차단되는지 확인합니다.
+
+### 알려진 제한
+
+- `team governor`는 preflight/reporting surface입니다. Worker를 시작하거나 실제 model
+  artifact를 선택하거나 model routing을 실행하지 않습니다.
+- Model route hint는 local runtime policy hint일 뿐이며, 실제 model artifact capability에
+  대한 source-backed claim이 아닙니다.
+- Dispatch-time ownership enforcement와 failed-worker continuation은 후속 범위입니다.
+- Resource sampling은 아직 event-driven이며 continuous live polling은 아닙니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.16.0 - Team Approval Queue Integration
 
 릴리즈 날짜: 2026-07-08

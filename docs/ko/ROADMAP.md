@@ -52,7 +52,8 @@
 | v0.14.0 | Phase 11 | Team admission policy preflight: 요청 write path와 command를 dispatch 전에 검사하고 ask/deny는 worker launch 차단 |
 | v0.15.0 | Phase 11 | Team file ownership preflight: lane별 write path를 dispatch 전에 정규화하고 cross-lane conflict는 worker launch 차단 |
 | v0.16.0 | Phase 11 | Team admission approval queue integration: policy/ownership block이 approval request record를 쓰고 `tui approvals`에 표시됨 |
-| v0.17.0+ | Phase 11 | Runtime context/model governor와 남은 subagent/team dispatcher policy: dispatch-time ownership enforcement, model downgrade/escalation hint |
+| v0.17.0 | Phase 11 | Runtime context/model governor preflight: 요청 context clamp, resource-sensitive model route hint, ledger 기록 |
+| v0.18.0+ | Phase 11 | 남은 subagent/team dispatcher policy: dispatch-time ownership enforcement와 failed-worker continuation |
 
 ## 0단계: 프로젝트 정의
 
@@ -446,7 +447,7 @@
 - [ ] subagent lifecycle: start, complete, blocked, failed, cancelled
 - [ ] subagent resource admission control: memory, backend health, token/context budget, file ownership, tool risk, approval queue
 - [x] backend chat resource governor policy: CPU/memory threshold, backend health precheck, critical-pressure 차단, degraded-pressure max-token clamp, pressure hint
-- [ ] runtime context clamp와 backend/model selection용 model downgrade/escalation hint
+- [x] runtime context clamp와 backend/model selection용 model downgrade/escalation hint
 - [ ] parent cancellation propagation
 - [ ] shared file conflict detection
 - [ ] subagent evidence merge
@@ -465,6 +466,7 @@
 - [x] `rpotato team admit --lanes <count>`
 - [x] `rpotato team admit --lanes <count> --write <path> --command <command>`
 - [x] `rpotato team admit --lanes <count> --write-owner <lane:path>`
+- [x] `rpotato team governor --lanes <count> --context-tokens <tokens>`
 - [x] `rpotato tui approvals`에 team admission approval request 표시
 - [x] TUI framework decision
 - [x] `rpotato tui`

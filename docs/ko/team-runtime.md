@@ -110,6 +110,19 @@ Policy 또는 ownership preflight가 admission을 차단하면 runtime은
 표시합니다. TUI는 계속 read-only이며, approval execution과 worker dispatch는 별도의 후속
 gate입니다.
 
+`rpotato team governor --lanes <count> --context-tokens <tokens>`는 첫 context/model
+governor preflight입니다.
+
+```text
+rpotato team governor --lanes 2 --context-tokens 6000 --context-limit 4096 --model-tier standard
+```
+
+이 명령은 최신 resource sample을 읽고 admitted lane을 표시하며, 설정 budget과 pressure
+state에 맞춰 effective context token을 clamp하고, ledger event를 기록하며, local
+model-tier route hint인 `keep`, `downgrade`, `escalate`, `defer`를 냅니다. 이 값은 runtime
+policy hint일 뿐입니다. 실제 model capability를 주장하거나, model artifact를 다운로드/선택하거나,
+worker를 시작하지 않습니다.
+
 ## 터미널 UI Integration
 
 TUI는 다음을 보여야 합니다.

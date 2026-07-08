@@ -32,7 +32,8 @@ it. The release grouping is:
 | v0.14.0 | team admission policy preflight | run requested write path and command policy checks before dispatch; allow-only checks pass, ask/deny checks block worker launch |
 | v0.15.0 | team file ownership preflight | normalize lane-owned write paths before dispatch, record ownership status in ledger output, and block cross-lane write conflicts |
 | v0.16.0 | team admission approval queue integration | write project-local approval request records for blocked policy/ownership decisions and render them in `tui approvals` |
-| v0.17.0+ | remaining dispatcher governor policy | add context/model clamp, dispatch-time ownership enforcement, and model downgrade/escalation hints |
+| v0.17.0 | context/model governor preflight | clamp requested context against the configured budget and resource pressure, emit model route hints, and record the decision in the ledger |
+| v0.18.0+ | remaining dispatcher governor policy | add dispatch-time ownership enforcement and failed-worker continuation |
 
 ## Storage Decision
 
@@ -84,6 +85,7 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato team admit --lanes <count> --write <path> --command <command>` adds policy preflight to the admission gate. Requested write paths and commands are classified with the same policy engine used by `policy check-path` and `policy check-command`; any `ask` or `deny` decision blocks dispatch and is recorded in the team admission ledger event.
 - `rpotato team admit --lanes <count> --write-owner <lane:path>` adds file ownership preflight. Ownership paths are normalized before dispatch; the same normalized write path cannot be owned by multiple lanes, and conflicts are recorded as blocked team admission events.
 - Blocked team admission policy/ownership decisions write redacted project-local approval request records under `.rpotato/approval-requests/`, and `rpotato tui approvals` lists those records alongside patch proposal approvals.
+- `rpotato team governor --lanes <count> --context-tokens <tokens>` records a context/model governor preflight. It consumes the latest resource sample, reports admitted lanes, clamps effective context tokens against `--context-limit` or the runtime default, emits local model-tier route hints (`keep`, `downgrade`, `escalate`, `defer`), and records the decision in the append-only ledger and SQLite projection. These hints are local runtime policy hints, not source-backed claims about a real model artifact.
 - A corrupt SQLite file is preserved with a `.corrupt.<timestamp>` suffix before a new projection is created.
 - Corrupt/stale current state is preserved by `state reconcile` with `.corrupt.<timestamp>` or `.stale.<timestamp>` suffixes.
 - Evidence is stale when the artifact is missing, escapes the project boundary, or exceeds `stale_after_ms`.
@@ -92,7 +94,7 @@ Not implemented yet:
 
 - continuous background CPU/memory/disk resource sampling from the managed backend sidecar
 - full subagent/team dispatcher execution after admission
-- dispatch-time ownership enforcement and context/model admission checks
+- dispatch-time ownership enforcement
 - full transcript replay and conversation continuation after a selected session resume
 - active workflow resume execution by the real agent loop
 - actual retention deletion
