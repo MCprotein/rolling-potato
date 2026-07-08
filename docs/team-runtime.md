@@ -94,15 +94,21 @@ still does not start workers or advance team stages, so future dispatcher work
 can attach worker launch after the gate without changing the admission
 contract.
 
-`team admit` can also preflight requested write paths and commands:
+`team admit` can also preflight requested write paths, lane ownership, and
+commands:
 
 ```text
 rpotato team admit --lanes 2 --write README.md --command "cargo test"
+rpotato team admit --lanes 2 --write-owner 1:src/app.rs --write-owner 2:src/cli.rs
 ```
 
 The preflight uses the shared runtime policy engine. `allow` checks can pass the
 gate; `ask` and `deny` checks block dispatch and are recorded in the same
-admission ledger event. This is a policy gate, not ownership allocation yet.
+admission ledger event. `--write-owner <lane:path>` additionally normalizes
+lane-owned write paths before dispatch. If two lanes claim the same normalized
+path, admission returns an ownership-blocked result and records it in the same
+ledger event. This is still admission-time preflight, not worker launch or
+merge-time ownership enforcement.
 
 ## TUI Integration
 

@@ -50,7 +50,8 @@
 | v0.12.0 | Phase 11 | Read-only team admission preview: 최신 resource sample, parallel admission, sequential fallback, dispatch 차단 |
 | v0.13.0 | Phase 11 | Team admission gate: requested lane enforcement, sequential fallback, critical-pressure 차단, ledger 기록 |
 | v0.14.0 | Phase 11 | Team admission policy preflight: 요청 write path와 command를 dispatch 전에 검사하고 ask/deny는 worker launch 차단 |
-| v0.15.0+ | Phase 11 | Runtime context/model governor와 남은 subagent/team dispatcher policy: file ownership allocation, approval queue integration, model downgrade/escalation hint |
+| v0.15.0 | Phase 11 | Team file ownership preflight: lane별 write path를 dispatch 전에 정규화하고 cross-lane conflict는 worker launch 차단 |
+| v0.16.0+ | Phase 11 | Runtime context/model governor와 남은 subagent/team dispatcher policy: approval queue integration, dispatch-time ownership enforcement, model downgrade/escalation hint |
 
 ## 0단계: 프로젝트 정의
 
@@ -456,10 +457,12 @@
 - [x] team resource admission status와 sequential fallback preview
 - [x] team admission gate의 lane enforcement와 ledger 기록
 - [x] requested write path와 command를 검사하는 team admission policy preflight
+- [x] team admission file ownership preflight와 cross-lane write conflict detection
 - [ ] failed worker continuation policy
 - [x] `rpotato team status`
 - [x] `rpotato team admit --lanes <count>`
 - [x] `rpotato team admit --lanes <count> --write <path> --command <command>`
+- [x] `rpotato team admit --lanes <count> --write-owner <lane:path>`
 - [x] TUI framework decision
 - [x] `rpotato tui`
 - [x] `DESIGN.md` 기반 TUI monitoring UX spec

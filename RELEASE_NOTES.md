@@ -1,5 +1,58 @@
 # Release Notes
 
+## v0.15.0 - Team File Ownership Preflight
+
+Release date: 2026-07-08
+
+This release adds file ownership preflight to the enforced team admission gate.
+It is still a source-only developer preview: it does not ship model weights,
+external plugin packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- `rpotato team admit --lanes <count>` now accepts repeated
+  `--write-owner <lane:path>` ownership claims.
+- Ownership paths are normalized before dispatch so equivalent paths such as
+  `README.md` and `./README.md` resolve to the same ownership key.
+- Cross-lane ownership conflicts block admission before any future worker
+  launch.
+- Owned write paths also participate in the existing write policy preflight, so
+  approval-required writes still block dispatch until approval queue integration
+  exists.
+- Team admission output and ledger event details include ownership claim count,
+  ownership status, ownership blocked flag, owned write paths, and per-claim
+  decisions.
+- English and Korean documentation updates for the v0.15.0 ownership preflight
+  scope.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (163 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato team status`
+- `rpotato team admit --lanes 2`
+- `rpotato team admit --lanes 2 --command "cargo test"`
+- `rpotato team admit --lanes 2 --write-owner 1:src/app.rs --write-owner 2:src/cli.rs`
+- `rpotato team admit --lanes 2 --write-owner 1:README.md --write-owner 2:./README.md`
+- `rpotato monitor status`
+
+The smoke checks use a scratch project root under `/private/tmp` and verify
+that distinct lane-owned paths are allocated while normalized cross-lane
+ownership conflicts block dispatch before worker launch.
+
+### Known Issues
+
+- `team admit` still does not start subagents, dispatch team lanes, advance team
+  stages, or enforce ownership during actual worker execution.
+- `ask` decisions block dispatch because approval queue integration is still
+  planned.
+- Resource sampling is still event-driven, not continuous live polling.
+- Runtime context clamp and model downgrade/escalation hints remain planned.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.14.0 - Team Policy Preflight
 
 Release date: 2026-07-08

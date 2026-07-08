@@ -1,5 +1,54 @@
 # 릴리즈 노트
 
+## v0.15.0 - Team File Ownership Preflight
+
+릴리즈 날짜: 2026-07-08
+
+이 릴리즈는 enforced team admission gate에 file ownership preflight를 추가합니다.
+여전히 source-only developer preview이며, 모델 가중치, 외부 plugin package,
+prebuilt `rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- `rpotato team admit --lanes <count>`가 반복 가능한
+  `--write-owner <lane:path>` ownership claim을 받습니다.
+- Ownership path는 dispatch 전에 정규화됩니다. 예를 들어 `README.md`와
+  `./README.md`는 같은 ownership key로 판정됩니다.
+- Cross-lane ownership conflict는 향후 worker launch 이전 단계에서 admission을
+  차단합니다.
+- Owned write path도 기존 write policy preflight에 포함되므로 approval-required write는
+  approval queue integration이 생기기 전까지 계속 dispatch를 차단합니다.
+- Team admission 출력과 ledger event detail에 ownership claim count, ownership status,
+  ownership blocked flag, owned write path, per-claim decision을 포함합니다.
+- v0.15.0 ownership preflight 범위에 대한 영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (163 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato team status`
+- `rpotato team admit --lanes 2`
+- `rpotato team admit --lanes 2 --command "cargo test"`
+- `rpotato team admit --lanes 2 --write-owner 1:src/app.rs --write-owner 2:src/cli.rs`
+- `rpotato team admit --lanes 2 --write-owner 1:README.md --write-owner 2:./README.md`
+- `rpotato monitor status`
+
+Smoke check는 `/private/tmp` 아래 scratch project root를 사용하며, 서로 다른 lane-owned
+path는 allocation으로 표시되고 정규화된 cross-lane ownership conflict는 worker launch 전에
+dispatch를 차단하는지 확인합니다.
+
+### 알려진 제한
+
+- `team admit`은 아직 subagent 시작, team lane dispatch, team stage 전진, 실제 worker
+  execution 중 ownership enforcement를 수행하지 않습니다.
+- Approval queue integration이 아직 후속 범위라서 `ask` decision은 dispatch를 차단합니다.
+- Resource sampling은 아직 event-driven이며 continuous live polling은 아닙니다.
+- Runtime context clamp와 model downgrade/escalation hint는 후속 범위입니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.14.0 - Team Policy Preflight
 
 릴리즈 날짜: 2026-07-08

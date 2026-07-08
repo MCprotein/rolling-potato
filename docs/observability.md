@@ -30,7 +30,8 @@ it. The release grouping is:
 | v0.12.0 | team admission preview | read the latest resource sample, report admitted lanes, prefer sequential fallback on unknown/degraded pressure, and block dispatch on critical pressure |
 | v0.13.0 | team admission gate | enforce requested lane admission before dispatch, record the decision in the ledger, fall back to one sequential lane on unknown/degraded pressure, and block critical pressure |
 | v0.14.0 | team admission policy preflight | run requested write path and command policy checks before dispatch; allow-only checks pass, ask/deny checks block worker launch |
-| v0.15.0+ | remaining dispatcher governor policy | add file ownership allocation, approval queue integration, context/model clamp, and model downgrade/escalation hints |
+| v0.15.0 | team file ownership preflight | normalize lane-owned write paths before dispatch, record ownership status in ledger output, and block cross-lane write conflicts |
+| v0.16.0+ | remaining dispatcher governor policy | add approval queue integration, context/model clamp, dispatch-time ownership enforcement, and model downgrade/escalation hints |
 
 ## Storage Decision
 
@@ -80,6 +81,7 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato team status` reads the latest resource sample and reports read-only team admission: normal pressure admits parallel lanes, unknown/degraded pressure falls back to one sequential lane, and critical pressure blocks dispatch.
 - `rpotato team admit --lanes <count>` is the first enforced team admission gate. It records the admission decision in the append-only ledger and SQLite projection, admits requested lanes on normal pressure, falls back to one sequential lane on unknown/degraded pressure, and returns a blocked error on critical pressure before any worker launch exists.
 - `rpotato team admit --lanes <count> --write <path> --command <command>` adds policy preflight to the admission gate. Requested write paths and commands are classified with the same policy engine used by `policy check-path` and `policy check-command`; any `ask` or `deny` decision blocks dispatch and is recorded in the team admission ledger event.
+- `rpotato team admit --lanes <count> --write-owner <lane:path>` adds file ownership preflight. Ownership paths are normalized before dispatch; the same normalized write path cannot be owned by multiple lanes, and conflicts are recorded as blocked team admission events.
 - A corrupt SQLite file is preserved with a `.corrupt.<timestamp>` suffix before a new projection is created.
 - Corrupt/stale current state is preserved by `state reconcile` with `.corrupt.<timestamp>` or `.stale.<timestamp>` suffixes.
 - Evidence is stale when the artifact is missing, escapes the project boundary, or exceeds `stale_after_ms`.
@@ -88,7 +90,7 @@ Not implemented yet:
 
 - continuous background CPU/memory/disk resource sampling from the managed backend sidecar
 - full subagent/team dispatcher execution after admission
-- file ownership allocation, approval queue integration, and context/model admission checks
+- approval queue integration, dispatch-time ownership enforcement, and context/model admission checks
 - full transcript replay and conversation continuation after a selected session resume
 - active workflow resume execution by the real agent loop
 - actual retention deletion

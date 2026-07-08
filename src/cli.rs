@@ -18,7 +18,7 @@ rpotato
   rpotato session resume <session-id>
   rpotato session new
   rpotato team status
-  rpotato team admit --lanes <count> [--write <path>] [--command <command>]
+  rpotato team admit --lanes <count> [--write <path>] [--write-owner <lane:path>] [--command <command>]
   rpotato resume [session-id]
   rpotato tui
   rpotato tui monitor
@@ -83,7 +83,7 @@ rpotato
   backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 release payload를 배치합니다.
   backend start/status/stop/chat은 명시 모델 파일 기준의 managed sidecar lifecycle과 non-streaming chat smoke를 다룹니다.
   team status는 최신 resource sample 기준의 read-only admission preview와 sequential fallback 결정을 표시합니다.
-  team admit은 dispatcher 진입 전 resource/policy admission gate를 강제하고 결과를 ledger에 기록합니다.
+  team admit은 dispatcher 진입 전 resource/policy/file-ownership admission gate를 강제하고 결과를 ledger에 기록합니다.
   모델 registry install은 verified 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -140,6 +140,7 @@ pub enum TeamCommand {
     Admit {
         lanes: u32,
         write_paths: Vec<String>,
+        owned_write_paths: Vec<(u32, String)>,
         commands: Vec<String>,
     },
 }
@@ -699,6 +700,7 @@ fn parse_request(args: &[String], command: &str) -> Result<String, AppError> {
 fn parse_team_admit_args(args: &[String]) -> Result<TeamCommand, AppError> {
     let mut lanes = None;
     let mut write_paths = Vec::new();
+    let mut owned_write_paths = Vec::new();
     let mut commands = Vec::new();
     let mut index = 0;
     while index < args.len() {
@@ -741,6 +743,22 @@ fn parse_team_admit_args(args: &[String]) -> Result<TeamCommand, AppError> {
                 write_paths.push(value.clone());
                 index += 1;
             }
+            "--write-owner" => {
+                index += 1;
+                let Some(value) = args.get(index) else {
+                    return Err(AppError::usage(
+                        "team admit은 --write-owner <lane:path> 값이 필요합니다.",
+                    ));
+                };
+                if value.starts_with("--") {
+                    return Err(AppError::usage(
+                        "team admit은 --write-owner <lane:path> 값이 필요합니다.",
+                    ));
+                }
+                let (lane, path) = parse_write_owner(value)?;
+                owned_write_paths.push((lane, path));
+                index += 1;
+            }
             "--command" => {
                 index += 1;
                 let start = index;
@@ -762,12 +780,42 @@ fn parse_team_admit_args(args: &[String]) -> Result<TeamCommand, AppError> {
         }
     }
 
+    let lanes =
+        lanes.ok_or_else(|| AppError::usage("team admit은 --lanes <count> 형식이 필요합니다."))?;
+    if let Some((lane, _)) = owned_write_paths.iter().find(|(lane, _)| *lane > lanes) {
+        return Err(AppError::usage(format!(
+            "team admit의 --write-owner lane {lane}은 --lanes {lanes} 값을 넘을 수 없습니다."
+        )));
+    }
+
     Ok(TeamCommand::Admit {
-        lanes: lanes
-            .ok_or_else(|| AppError::usage("team admit은 --lanes <count> 형식이 필요합니다."))?,
+        lanes,
         write_paths,
+        owned_write_paths,
         commands,
     })
+}
+
+fn parse_write_owner(value: &str) -> Result<(u32, String), AppError> {
+    let Some((lane, path)) = value.split_once(':') else {
+        return Err(AppError::usage(
+            "team admit의 --write-owner 값은 <lane:path> 형식이어야 합니다.",
+        ));
+    };
+    let lane = lane
+        .parse::<u32>()
+        .map_err(|_| AppError::usage("team admit의 --write-owner lane은 양의 정수여야 합니다."))?;
+    if lane == 0 {
+        return Err(AppError::usage(
+            "team admit의 --write-owner lane은 1 이상이어야 합니다.",
+        ));
+    }
+    if path.trim().is_empty() {
+        return Err(AppError::usage(
+            "team admit의 --write-owner path는 비어 있을 수 없습니다.",
+        ));
+    }
+    Ok((lane, path.to_string()))
 }
 
 fn parse_monitor_export(args: &[String]) -> Result<MonitorCommand, AppError> {
@@ -1623,6 +1671,7 @@ mod tests {
             Command::Team(TeamCommand::Admit {
                 lanes: 3,
                 write_paths: Vec::new(),
+                owned_write_paths: Vec::new(),
                 commands: Vec::new()
             })
         );
@@ -1647,9 +1696,52 @@ mod tests {
             Command::Team(TeamCommand::Admit {
                 lanes: 2,
                 write_paths: vec!["README.md".to_string()],
+                owned_write_paths: Vec::new(),
                 commands: vec!["cargo test".to_string()]
             })
         );
+    }
+
+    #[test]
+    fn parses_team_admit_file_ownership_preflight() {
+        let command = parse([
+            "team".to_string(),
+            "admit".to_string(),
+            "--lanes".to_string(),
+            "2".to_string(),
+            "--write-owner".to_string(),
+            "1:src/app.rs".to_string(),
+            "--write-owner".to_string(),
+            "2:src/cli.rs".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Team(TeamCommand::Admit {
+                lanes: 2,
+                write_paths: Vec::new(),
+                owned_write_paths: vec![
+                    (1, "src/app.rs".to_string()),
+                    (2, "src/cli.rs".to_string())
+                ],
+                commands: Vec::new()
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_team_admit_write_owner_outside_requested_lanes() {
+        let err = parse([
+            "team".to_string(),
+            "admit".to_string(),
+            "--lanes".to_string(),
+            "2".to_string(),
+            "--write-owner".to_string(),
+            "3:src/app.rs".to_string(),
+        ])
+        .unwrap_err();
+        assert_eq!(err.code, 2);
+        assert!(err.message.contains("--lanes 2"));
     }
 
     #[test]

@@ -111,11 +111,12 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
         Command::Team(TeamCommand::Admit {
             lanes,
             write_paths,
+            owned_write_paths,
             commands,
         }) => {
             println!(
                 "{}",
-                team::admission_report(lanes, &write_paths, &commands)?
+                team::admission_report(lanes, &write_paths, &owned_write_paths, &commands)?
             );
             Ok(())
         }
