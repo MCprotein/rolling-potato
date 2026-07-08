@@ -1,5 +1,54 @@
 # Release Notes
 
+## v0.17.0 - Team Context And Model Governor
+
+Release date: 2026-07-08
+
+This release adds the first team context/model governor preflight. It is still a
+source-only developer preview: it does not ship model weights, external plugin
+packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- New `rpotato team governor --lanes <count> --context-tokens <tokens>`
+  command.
+- Optional `--context-limit <tokens>` and `--model-tier small|standard|large`
+  inputs for explicit runtime policy simulation.
+- Latest resource sample consumption for admitted-lane and context/model
+  governor decisions.
+- Effective context-token clamp against the configured budget, degraded-pressure
+  budget, and local small-model soft budget.
+- Local model route hints: `keep`, `downgrade`, `escalate`, and `defer`.
+- Ledger/SQLite recording for team governor decisions.
+- English and Korean documentation updates for the v0.17.0 governor scope.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (170 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato team status`
+- `rpotato team governor --lanes 2 --context-tokens 6000 --context-limit 4096 --model-tier standard`
+- `rpotato team governor --lanes 2 --context-tokens 1024 --context-limit 4096 --model-tier small`
+- `rpotato monitor status`
+
+The smoke checks use a scratch project root under `/private/tmp` and verify
+that normal pressure records a clamped context/model decision while critical
+pressure blocks with a `defer` route hint.
+
+### Known Issues
+
+- `team governor` is a preflight/reporting surface. It does not start workers,
+  select real model artifacts, or execute model routing.
+- Model route hints are local runtime policy hints only; they are not
+  source-backed claims about any real model artifact's capability.
+- Dispatch-time ownership enforcement and failed-worker continuation remain
+  planned.
+- Resource sampling is still event-driven, not continuous live polling.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.16.0 - Team Approval Queue Integration
 
 Release date: 2026-07-08

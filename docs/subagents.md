@@ -124,6 +124,10 @@ Current implemented slice:
 - Blocked policy/ownership admission writes `.rpotato/approval-requests/`
   records, and `rpotato tui approvals` displays those team requests next to
   patch proposal approvals.
+- `rpotato team governor --lanes <count> --context-tokens <tokens>` records a
+  context/model governor preflight. It clamps effective context tokens and emits
+  local model-tier route hints without starting workers or claiming real model
+  artifact capability.
 
 ## Failure Mode
 

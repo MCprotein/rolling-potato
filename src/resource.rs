@@ -10,6 +10,9 @@ const DEGRADED_RSS_BYTES: u64 = 8 * GIB_BYTES;
 const CRITICAL_RSS_BYTES: u64 = 12 * GIB_BYTES;
 pub const DEGRADED_CHAT_MAX_TOKENS: u32 = 128;
 pub const DEFAULT_TEAM_REQUESTED_LANES: u32 = 2;
+pub const DEFAULT_CONTEXT_LIMIT_TOKENS: u32 = 4096;
+pub const DEGRADED_CONTEXT_LIMIT_TOKENS: u32 = 2048;
+pub const SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS: u32 = 3072;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResourcePressure {
@@ -39,6 +42,28 @@ pub enum ResourceLaneAdmission {
     Blocked,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContextGovernorAction {
+    Unchanged,
+    Clamped,
+    Blocked,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModelRouteHint {
+    Keep,
+    Downgrade,
+    Escalate,
+    Defer,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModelTier {
+    Small,
+    Standard,
+    Large,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceGovernorDecision {
     pub pressure: ResourcePressure,
@@ -57,6 +82,20 @@ pub struct ResourceLaneDecision {
     pub admitted_lanes: u32,
     pub admission: ResourceLaneAdmission,
     pub fallback: &'static str,
+    pub reason: &'static str,
+    pub hint: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContextModelGovernorDecision {
+    pub pressure: ResourcePressure,
+    pub requested_context_tokens: u32,
+    pub context_limit_tokens: u32,
+    pub effective_context_tokens: Option<u32>,
+    pub context_action: ContextGovernorAction,
+    pub model_tier: ModelTier,
+    pub model_hint: ModelRouteHint,
+    pub admission: ResourceGovernorAdmission,
     pub reason: &'static str,
     pub hint: &'static str,
 }
@@ -112,6 +151,46 @@ impl ResourceLaneAdmission {
     }
 }
 
+impl ContextGovernorAction {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ContextGovernorAction::Unchanged => "unchanged",
+            ContextGovernorAction::Clamped => "clamped",
+            ContextGovernorAction::Blocked => "blocked",
+        }
+    }
+}
+
+impl ModelRouteHint {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ModelRouteHint::Keep => "keep",
+            ModelRouteHint::Downgrade => "downgrade",
+            ModelRouteHint::Escalate => "escalate",
+            ModelRouteHint::Defer => "defer",
+        }
+    }
+}
+
+impl ModelTier {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "small" => Some(Self::Small),
+            "standard" => Some(Self::Standard),
+            "large" => Some(Self::Large),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ModelTier::Small => "small",
+            ModelTier::Standard => "standard",
+            ModelTier::Large => "large",
+        }
+    }
+}
+
 impl ResourceGovernorDecision {
     pub fn is_blocked(&self) -> bool {
         self.admission == ResourceGovernorAdmission::Block
@@ -121,6 +200,12 @@ impl ResourceGovernorDecision {
 impl ResourceLaneDecision {
     pub fn is_blocked(&self) -> bool {
         self.admission == ResourceLaneAdmission::Blocked
+    }
+}
+
+impl ContextModelGovernorDecision {
+    pub fn is_blocked(&self) -> bool {
+        self.admission == ResourceGovernorAdmission::Block
     }
 }
 
@@ -260,6 +345,91 @@ pub fn team_lane_decision(
             reason: "critical resource pressure",
             hint: "do not dispatch new team lanes until backend status recovers or host load is reduced",
         },
+    }
+}
+
+pub fn context_model_governor_decision(
+    pressure: ResourcePressure,
+    requested_context_tokens: u32,
+    context_limit_tokens: u32,
+    model_tier: ModelTier,
+) -> ContextModelGovernorDecision {
+    let requested_context_tokens = requested_context_tokens.max(1);
+    let context_limit_tokens = context_limit_tokens.max(1);
+    if pressure == ResourcePressure::Critical {
+        return ContextModelGovernorDecision {
+            pressure,
+            requested_context_tokens,
+            context_limit_tokens,
+            effective_context_tokens: None,
+            context_action: ContextGovernorAction::Blocked,
+            model_tier,
+            model_hint: ModelRouteHint::Defer,
+            admission: ResourceGovernorAdmission::Block,
+            reason: "critical resource pressure",
+            hint:
+                "defer model selection and context packing until backend or host pressure recovers",
+        };
+    }
+
+    let pressure_limit = if pressure == ResourcePressure::Degraded {
+        context_limit_tokens.min(DEGRADED_CONTEXT_LIMIT_TOKENS)
+    } else {
+        context_limit_tokens
+    };
+    let tier_limit = match model_tier {
+        ModelTier::Small => pressure_limit.min(SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS),
+        ModelTier::Standard | ModelTier::Large => pressure_limit,
+    };
+    let effective_context_tokens = requested_context_tokens.min(tier_limit);
+    let context_action = if effective_context_tokens < requested_context_tokens {
+        ContextGovernorAction::Clamped
+    } else {
+        ContextGovernorAction::Unchanged
+    };
+    let model_hint = if pressure == ResourcePressure::Degraded && model_tier != ModelTier::Small {
+        ModelRouteHint::Downgrade
+    } else if requested_context_tokens > tier_limit {
+        ModelRouteHint::Escalate
+    } else {
+        ModelRouteHint::Keep
+    };
+    let reason = match (pressure, context_action, model_hint) {
+        (ResourcePressure::Degraded, _, ModelRouteHint::Downgrade) => "degraded resource pressure",
+        (_, ContextGovernorAction::Clamped, ModelRouteHint::Escalate) => {
+            "requested context exceeds current model/context budget"
+        }
+        (_, ContextGovernorAction::Clamped, _) => "requested context was clamped",
+        (ResourcePressure::Unknown, _, _) => "resource pressure unknown",
+        _ => "resource pressure normal",
+    };
+    let hint = match model_hint {
+        ModelRouteHint::Downgrade => {
+            "prefer a smaller model tier or sequential lanes while resource pressure is degraded"
+        }
+        ModelRouteHint::Escalate => {
+            "use a larger-context model/backend profile, split the task, or reduce retrieved context"
+        }
+        ModelRouteHint::Keep if pressure == ResourcePressure::Unknown => {
+            "keep the current model tier but avoid parallel context growth until telemetry exists"
+        }
+        ModelRouteHint::Keep => "keep the current model tier and context budget",
+        ModelRouteHint::Defer => {
+            "do not dispatch model work until critical pressure is cleared"
+        }
+    };
+
+    ContextModelGovernorDecision {
+        pressure,
+        requested_context_tokens,
+        context_limit_tokens,
+        effective_context_tokens: Some(effective_context_tokens),
+        context_action,
+        model_tier,
+        model_hint,
+        admission: ResourceGovernorAdmission::Allow,
+        reason,
+        hint,
     }
 }
 
@@ -502,5 +672,44 @@ mod tests {
         assert!(critical.is_blocked());
         assert_eq!(critical.admitted_lanes, 0);
         assert_eq!(critical.fallback, "wait");
+    }
+
+    #[test]
+    fn context_model_governor_clamps_and_hints_without_model_claims() {
+        let normal_small =
+            context_model_governor_decision(ResourcePressure::Normal, 6000, 8192, ModelTier::Small);
+        assert_eq!(normal_small.context_action, ContextGovernorAction::Clamped);
+        assert_eq!(
+            normal_small.effective_context_tokens,
+            Some(SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS)
+        );
+        assert_eq!(normal_small.model_hint, ModelRouteHint::Escalate);
+
+        let degraded_large = context_model_governor_decision(
+            ResourcePressure::Degraded,
+            8000,
+            8192,
+            ModelTier::Large,
+        );
+        assert_eq!(
+            degraded_large.context_action,
+            ContextGovernorAction::Clamped
+        );
+        assert_eq!(
+            degraded_large.effective_context_tokens,
+            Some(DEGRADED_CONTEXT_LIMIT_TOKENS)
+        );
+        assert_eq!(degraded_large.model_hint, ModelRouteHint::Downgrade);
+
+        let critical = context_model_governor_decision(
+            ResourcePressure::Critical,
+            1024,
+            4096,
+            ModelTier::Standard,
+        );
+        assert!(critical.is_blocked());
+        assert_eq!(critical.context_action, ContextGovernorAction::Blocked);
+        assert_eq!(critical.model_hint, ModelRouteHint::Defer);
+        assert_eq!(critical.effective_context_tokens, None);
     }
 }

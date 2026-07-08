@@ -120,6 +120,18 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             );
             Ok(())
         }
+        Command::Team(TeamCommand::Governor {
+            lanes,
+            context_tokens,
+            context_limit,
+            model_tier,
+        }) => {
+            println!(
+                "{}",
+                team::governor_report(lanes, context_tokens, context_limit, model_tier)?
+            );
+            Ok(())
+        }
         Command::Tui(TuiCommand::Overview) => {
             println!("{}", tui::overview_report()?);
             Ok(())

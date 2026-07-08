@@ -116,6 +116,19 @@ redacted project-local approval request under `.rpotato/approval-requests/`.
 proposal approvals. The TUI remains read-only; approval execution and worker
 dispatch are still separate future gates.
 
+`rpotato team governor --lanes <count> --context-tokens <tokens>` is the first
+context/model governor preflight:
+
+```text
+rpotato team governor --lanes 2 --context-tokens 6000 --context-limit 4096 --model-tier standard
+```
+
+It consumes the latest resource sample, reports admitted lanes, clamps effective
+context tokens against the configured budget and pressure state, records a
+ledger event, and emits local model-tier route hints: `keep`, `downgrade`,
+`escalate`, or `defer`. These are runtime policy hints only. They do not claim
+real model capability, download/select model artifacts, or start workers.
+
 ## TUI Integration
 
 TUI should show:

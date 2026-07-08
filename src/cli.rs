@@ -1,4 +1,5 @@
 use crate::app::AppError;
+use crate::resource;
 
 pub const HELP: &str = "\
 rpotato
@@ -19,6 +20,7 @@ rpotato
   rpotato session new
   rpotato team status
   rpotato team admit --lanes <count> [--write <path>] [--write-owner <lane:path>] [--command <command>]
+  rpotato team governor --lanes <count> --context-tokens <tokens> [--context-limit <tokens>] [--model-tier small|standard|large]
   rpotato resume [session-id]
   rpotato tui
   rpotato tui monitor
@@ -84,6 +86,7 @@ rpotato
   backend start/status/stop/chat은 명시 모델 파일 기준의 managed sidecar lifecycle과 non-streaming chat smoke를 다룹니다.
   team status는 최신 resource sample 기준의 read-only admission preview와 sequential fallback 결정을 표시합니다.
   team admit은 dispatcher 진입 전 resource/policy/file-ownership admission gate를 강제하고 결과를 ledger에 기록합니다.
+  team governor는 dispatcher 진입 전 context/model budget clamp와 downgrade/escalation hint를 기록합니다.
   모델 registry install은 verified 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -142,6 +145,12 @@ pub enum TeamCommand {
         write_paths: Vec<String>,
         owned_write_paths: Vec<(u32, String)>,
         commands: Vec<String>,
+    },
+    Governor {
+        lanes: u32,
+        context_tokens: u32,
+        context_limit: Option<u32>,
+        model_tier: resource::ModelTier,
     },
 }
 
@@ -366,8 +375,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, rest @ ..] if group == "team" && action == "admit" => {
             Ok(Command::Team(parse_team_admit_args(rest)?))
         }
+        [group, action, rest @ ..] if group == "team" && action == "governor" => {
+            Ok(Command::Team(parse_team_governor_args(rest)?))
+        }
         [group, ..] if group == "team" => {
-            Err(AppError::usage("team 명령은 status, admit만 허용합니다."))
+            Err(AppError::usage("team 명령은 status, admit, governor만 허용합니다."))
         }
         [arg] if arg == "tui" => Ok(Command::Tui(TuiCommand::Overview)),
         [group, action] if group == "tui" && action == "monitor" => {
@@ -793,6 +805,89 @@ fn parse_team_admit_args(args: &[String]) -> Result<TeamCommand, AppError> {
         write_paths,
         owned_write_paths,
         commands,
+    })
+}
+
+fn parse_team_governor_args(args: &[String]) -> Result<TeamCommand, AppError> {
+    let mut lanes = None;
+    let mut context_tokens = None;
+    let mut context_limit = None;
+    let mut model_tier = resource::ModelTier::Small;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--lanes" => {
+                if lanes.is_some() {
+                    return Err(AppError::usage(
+                        "team governor의 --lanes 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "team governor는 --lanes <count> 값이 필요합니다.",
+                    ));
+                };
+                lanes = Some(parse_positive_u32(value, "lanes")?);
+                index += 2;
+            }
+            "--context-tokens" => {
+                if context_tokens.is_some() {
+                    return Err(AppError::usage(
+                        "team governor의 --context-tokens 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "team governor는 --context-tokens <tokens> 값이 필요합니다.",
+                    ));
+                };
+                context_tokens = Some(parse_positive_u32(value, "context-tokens")?);
+                index += 2;
+            }
+            "--context-limit" => {
+                if context_limit.is_some() {
+                    return Err(AppError::usage(
+                        "team governor의 --context-limit 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "team governor는 --context-limit <tokens> 값이 필요합니다.",
+                    ));
+                };
+                context_limit = Some(parse_positive_u32(value, "context-limit")?);
+                index += 2;
+            }
+            "--model-tier" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "team governor는 --model-tier <small|standard|large> 값이 필요합니다.",
+                    ));
+                };
+                model_tier = resource::ModelTier::parse(value).ok_or_else(|| {
+                    AppError::usage(
+                        "team governor의 --model-tier 값은 small, standard, large 중 하나여야 합니다.",
+                    )
+                })?;
+                index += 2;
+            }
+            unknown => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 team governor 옵션입니다: {unknown}"
+                )));
+            }
+        }
+    }
+
+    Ok(TeamCommand::Governor {
+        lanes: lanes
+            .ok_or_else(|| AppError::usage("team governor는 --lanes <count> 형식이 필요합니다."))?,
+        context_tokens: context_tokens.ok_or_else(|| {
+            AppError::usage("team governor는 --context-tokens <tokens> 형식이 필요합니다.")
+        })?,
+        context_limit,
+        model_tier,
     })
 }
 
@@ -1727,6 +1822,49 @@ mod tests {
                 commands: Vec::new()
             })
         );
+    }
+
+    #[test]
+    fn parses_team_governor() {
+        let command = parse([
+            "team".to_string(),
+            "governor".to_string(),
+            "--lanes".to_string(),
+            "2".to_string(),
+            "--context-tokens".to_string(),
+            "6000".to_string(),
+            "--context-limit".to_string(),
+            "8192".to_string(),
+            "--model-tier".to_string(),
+            "standard".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Team(TeamCommand::Governor {
+                lanes: 2,
+                context_tokens: 6000,
+                context_limit: Some(8192),
+                model_tier: resource::ModelTier::Standard
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_team_governor_model_tier() {
+        let err = parse([
+            "team".to_string(),
+            "governor".to_string(),
+            "--lanes".to_string(),
+            "2".to_string(),
+            "--context-tokens".to_string(),
+            "6000".to_string(),
+            "--model-tier".to_string(),
+            "frontier".to_string(),
+        ])
+        .unwrap_err();
+        assert_eq!(err.code, 2);
+        assert!(err.message.contains("small, standard, large"));
     }
 
     #[test]
