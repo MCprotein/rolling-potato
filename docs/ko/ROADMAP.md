@@ -420,7 +420,7 @@
 - [ ] cancel cleanup
 - [ ] stale workflow terminal 처리
 - [ ] destructive command policy tests
-- [ ] ledger/projection data 기반 performance baseline report: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping
+- [x] ledger/projection data 기반 performance baseline report: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping
 - [ ] fixture benchmark suite
 - [ ] benchmark harness runner foundation: fixture schema 검증, run ledger/projection, reproducibility manifest, redacted report export
 - [ ] benchmark fixture metadata 계약: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence

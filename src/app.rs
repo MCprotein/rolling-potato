@@ -275,6 +275,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", monitor::models_report()?);
             Ok(())
         }
+        Command::Monitor(MonitorCommand::Baseline) => {
+            println!("{}", monitor::baseline_report()?);
+            Ok(())
+        }
         Command::Monitor(MonitorCommand::Export { format }) => {
             print!("{}", monitor::export_report(format)?);
             Ok(())

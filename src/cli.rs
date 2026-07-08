@@ -54,6 +54,7 @@ rpotato
   rpotato cache status
   rpotato monitor status
   rpotato monitor models
+  rpotato monitor baseline
   rpotato monitor export --format jsonl
   rpotato monitor export --format csv
   rpotato monitor prune --before 30d --dry-run
@@ -119,6 +120,7 @@ pub enum Command {
 pub enum MonitorCommand {
     Status,
     Models,
+    Baseline,
     Export { format: MonitorExportFormat },
     Prune { before_days: u64, dry_run: bool },
 }
@@ -533,6 +535,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "monitor" && action == "models" => {
             Ok(Command::Monitor(MonitorCommand::Models))
         }
+        [group, action] if group == "monitor" && action == "baseline" => {
+            Ok(Command::Monitor(MonitorCommand::Baseline))
+        }
         [group, action, rest @ ..] if group == "monitor" && action == "export" => {
             parse_monitor_export(rest).map(Command::Monitor)
         }
@@ -540,7 +545,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             parse_monitor_prune(rest).map(Command::Monitor)
         }
         [group, ..] if group == "monitor" => Err(AppError::usage(
-            "monitor 명령은 status, models, export, prune만 허용합니다.",
+            "monitor 명령은 status, models, baseline, export, prune만 허용합니다.",
         )),
         [group, action] if group == "model" && action == "list" => {
             Ok(Command::Model(ModelCommand::List))
@@ -1704,6 +1709,12 @@ mod tests {
     fn parses_monitor_status() {
         let command = parse(["monitor".to_string(), "status".to_string()]).unwrap();
         assert_eq!(command, Command::Monitor(MonitorCommand::Status));
+    }
+
+    #[test]
+    fn parses_monitor_baseline() {
+        let command = parse(["monitor".to_string(), "baseline".to_string()]).unwrap();
+        assert_eq!(command, Command::Monitor(MonitorCommand::Baseline));
     }
 
     #[test]

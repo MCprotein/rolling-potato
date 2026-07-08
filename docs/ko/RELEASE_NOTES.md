@@ -1,5 +1,42 @@
 # 릴리즈 노트
 
+## v0.18.0 - Performance Baseline Report
+
+릴리즈 날짜: 2026-07-08
+
+이 릴리즈는 read-only local performance baseline report를 추가합니다. 여전히
+source-only developer preview이며, 모델 가중치, 외부 plugin package, prebuilt
+`rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- 새 `rpotato monitor baseline` 명령.
+- 새 raw prompt/source store를 추가하지 않고 기존 local ledger/SQLite projection
+  metric을 집계합니다.
+- p50/p95 latency, average tokens/sec, context clamp count, context tokens
+  dropped, peak RSS, pressure-state distribution, model/backend/session grouping을
+  보고합니다.
+- 이 report는 local metric evidence일 뿐이며, model artifact를 선택하거나
+  source-backed model capability claim을 만들지 않습니다.
+- v0.18.0 performance baseline 범위에 대한 영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (172 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato monitor baseline`
+
+### 알려진 제한
+
+- `monitor baseline`은 local projection에 이미 있는 metric만 보고합니다.
+  Benchmark를 실행하거나 continuous background sample을 수집하지 않습니다.
+- Benchmark harness recording, redacted report export, benchmark-driven
+  optimization policy는 후속 범위입니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.17.0 - Team Context And Model Governor
 
 릴리즈 날짜: 2026-07-08

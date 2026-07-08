@@ -80,6 +80,7 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato cancel` appends a no-op cancel event when there is no active workflow.
 - `rpotato evidence validate <artifact-pointer>` verifies that a project-relative artifact pointer stays inside the project boundary.
 - `rpotato monitor status` and `rpotato monitor models` read SQLite projection.
+- `rpotato monitor baseline` aggregates local ledger/SQLite projection metrics into a read-only performance baseline report with p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, and model/backend/session grouping. It does not store raw prompt/source text and does not choose model artifacts.
 - `rpotato monitor export --format jsonl|csv` renders runtime ledger/projection into human-readable exports.
 - `rpotato monitor prune --before 30d --dry-run` calculates only deletion candidate counts.
 - `rpotato backend start`, `rpotato backend status`, and `rpotato backend chat` record event-driven backend CPU/RSS/disk resource samples.
@@ -97,7 +98,6 @@ Phase 2 currently implements the runtime store foundation.
 Not implemented yet:
 
 - continuous background CPU/memory/disk resource sampling from the managed backend sidecar
-- performance baseline reporting over the local ledger/SQLite projection
 - executable benchmark harness run recording and redacted report export
 - benchmark-driven optimization policy for context budget, lane count, fallback, and model route recommendations
 - full subagent/team dispatcher execution after admission
@@ -226,6 +226,7 @@ Initial commands:
 ```sh
 rpotato monitor status
 rpotato monitor models
+rpotato monitor baseline
 rpotato monitor session <id>
 rpotato session list
 rpotato session history
