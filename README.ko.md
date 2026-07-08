@@ -107,6 +107,7 @@ rpotato backend doctor
 rpotato cache status
 rpotato monitor status
 rpotato monitor models
+rpotato monitor baseline
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
 rpotato monitor prune --before 30d --dry-run
@@ -222,6 +223,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato patch approve <proposal-id> --token <token> [--dry-run] [--verify-command <command>]`
 - `rpotato monitor status`
 - `rpotato monitor models`
+- `rpotato monitor baseline`
 - `rpotato monitor export --format jsonl`
 - `rpotato monitor export --format csv`
 - `rpotato monitor prune --before 30d --dry-run`
@@ -268,7 +270,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `patch preview`는 project-local text file을 읽고 명시적인 단일 find/replace proposal에 대한 unified diff를 렌더링하며, `.rpotato/patch-proposals/` 아래에 project-local proposal record를 저장하고 approval token을 출력합니다. `patch approve <proposal-id> --token <token> --dry-run`은 token을 검증하고 target file을 수정하지 않은 채 approval gate를 기록합니다. `--dry-run` 없이 실행하면 current file SHA-256이 preview 당시 original SHA-256과 일치할 때만 승인된 proposal을 적용하고, rollback record를 쓴 뒤 applied SHA-256을 검증해 ledger event를 남깁니다. `--verify-command <command>`는 apply 이후 allow 정책을 통과한 단순 argv verification command만 실행하며, verification 실패 시 rollback을 시도하고 성공으로 보고하지 않습니다.
 
-`monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
+`monitor baseline`은 local ledger/SQLite projection metric을 읽어 p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, model/backend/session grouping을 보여주는 read-only performance baseline report를 출력합니다. Raw prompt/source text는 저장하지 않으며 model artifact를 선택하지 않습니다. `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 
 `model list`, `model manifest`, `model inspect`, `model registry`, `model download-plan`은 source-backed manifest schema, 후보 상태, 공개 benchmark source ledger, local registry 위치, 다운로드 전 source/license/checksum 표시 항목을 보여줍니다. Qwen과 Gemma는 pinned revision URL, LFS SHA-256, file size가 기록된 source-backed `unverified` GGUF artifact 후보를 갖습니다. `model eval-plan <id>`는 read-only 로컬 평가 preflight입니다. source-backed artifact field, app-data artifact 존재 여부, size/SHA-256 상태, 다음 smoke/benchmark 명령을 다운로드 없이 확인합니다. `model benchmark-plan <id>`는 공개 benchmark 재현 조건과 로컬 제품 benchmark fixture를 분리하고 artifact, quantization, backend, prompt, dataset, scoring 조건이 함께 기록되기 전까지 점수 parity를 거부합니다. `model fetch-candidate <id> --for-evaluation`은 명시적인 평가 전용 다운로드 경로입니다. app-managed partial resume을 지원하고 size/SHA-256을 검증한 뒤 ledger event를 남기지만, 설치된 모델로 registry 등록하지 않습니다. `model verify-file`은 로컬 파일 bytes의 SHA-256을 검증하고 ledger event를 남깁니다. `model cleanup-failed`는 app data 내부의 partial/failed artifact만 dry-run 또는 명시적 delete 대상으로 삼습니다. `model install`은 후보를 `verified`로 승격하기 전까지 registry 설치를 차단하며, local `llama.cpp b9878` smoke, RAM fit, mmproj 필요 여부, benchmark evidence가 남아 있습니다.
 

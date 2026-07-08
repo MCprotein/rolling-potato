@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -34,6 +35,45 @@ pub struct ModelMetricSummary {
     pub completion_tokens: i64,
     pub total_tokens: i64,
     pub avg_latency_ms: Option<f64>,
+    pub avg_tokens_per_second: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PerformanceBaseline {
+    pub store: StoreStatus,
+    pub model_runs: usize,
+    pub token_records: i64,
+    pub resource_samples: usize,
+    pub total_prompt_tokens: i64,
+    pub total_completion_tokens: i64,
+    pub total_tokens: i64,
+    pub context_clamp_count: i64,
+    pub context_tokens_dropped: i64,
+    pub p50_latency_ms: Option<f64>,
+    pub p95_latency_ms: Option<f64>,
+    pub avg_tokens_per_second: Option<f64>,
+    pub peak_rss_bytes: Option<u64>,
+    pub pressure_states: Vec<PressureStateSummary>,
+    pub groups: Vec<PerformanceGroupSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PressureStateSummary {
+    pub pressure_status: String,
+    pub samples: i64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PerformanceGroupSummary {
+    pub model_id: String,
+    pub backend_id: String,
+    pub session_id: String,
+    pub runs: i64,
+    pub total_tokens: i64,
+    pub context_clamp_count: i64,
+    pub context_tokens_dropped: i64,
+    pub p50_latency_ms: Option<f64>,
+    pub p95_latency_ms: Option<f64>,
     pub avg_tokens_per_second: Option<f64>,
 }
 
@@ -162,6 +202,131 @@ pub fn model_summaries() -> Result<Vec<ModelMetricSummary>, AppError> {
 
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(sql_error("model metric 결과를 읽지 못했습니다"))
+}
+
+pub fn performance_baseline() -> Result<PerformanceBaseline, AppError> {
+    let (connection, recovered_from) = open_or_recover()?;
+    replay_ledger(&connection)?;
+    let store = status_from_connection(&connection, recovered_from)?;
+    let model_rows = query_baseline_model_rows(&connection)?;
+    let resource_rows = query_baseline_resource_rows(&connection)?;
+
+    let mut latencies = Vec::new();
+    let mut tokens_per_second = Vec::new();
+    let mut total_prompt_tokens = 0;
+    let mut total_completion_tokens = 0;
+    let mut total_tokens = 0;
+    let mut context_clamp_count = 0;
+    let mut context_tokens_dropped = 0;
+    let mut groups = BTreeMap::<(String, String, String), GroupAccumulator>::new();
+
+    for row in &model_rows {
+        if let Some(value) = row.total_latency_ms {
+            if value.is_finite() {
+                latencies.push(value);
+            }
+        }
+        if let Some(value) = row.tokens_per_second {
+            if value.is_finite() {
+                tokens_per_second.push(value);
+            }
+        }
+        total_prompt_tokens += row.prompt_tokens;
+        total_completion_tokens += row.completion_tokens;
+        total_tokens += row.total_tokens;
+        context_tokens_dropped += row.context_tokens_dropped;
+        if row.context_tokens_dropped > 0 {
+            context_clamp_count += 1;
+        }
+
+        let group = groups
+            .entry((
+                row.model_id.clone(),
+                row.backend_id.clone(),
+                row.session_id.clone(),
+            ))
+            .or_default();
+        group.runs += 1;
+        group.total_tokens += row.total_tokens;
+        group.context_tokens_dropped += row.context_tokens_dropped;
+        if row.context_tokens_dropped > 0 {
+            group.context_clamp_count += 1;
+        }
+        if let Some(value) = row.total_latency_ms {
+            if value.is_finite() {
+                group.latencies.push(value);
+            }
+        }
+        if let Some(value) = row.tokens_per_second {
+            if value.is_finite() {
+                group.tokens_per_second.push(value);
+            }
+        }
+    }
+
+    let mut pressure_counts = BTreeMap::<String, i64>::new();
+    let mut peak_rss_bytes: Option<u64> = None;
+    for row in &resource_rows {
+        *pressure_counts
+            .entry(row.pressure_status.clone())
+            .or_default() += 1;
+        if let Some(value) = row.peak_rss_bytes {
+            peak_rss_bytes = Some(peak_rss_bytes.map_or(value, |current| current.max(value)));
+        }
+    }
+
+    let pressure_states = pressure_counts
+        .into_iter()
+        .map(|(pressure_status, samples)| PressureStateSummary {
+            pressure_status,
+            samples,
+        })
+        .collect();
+
+    let mut groups = groups
+        .into_iter()
+        .map(
+            |((model_id, backend_id, session_id), group)| PerformanceGroupSummary {
+                model_id,
+                backend_id,
+                session_id,
+                runs: group.runs,
+                total_tokens: group.total_tokens,
+                context_clamp_count: group.context_clamp_count,
+                context_tokens_dropped: group.context_tokens_dropped,
+                p50_latency_ms: percentile(group.latencies.clone(), 50.0),
+                p95_latency_ms: percentile(group.latencies, 95.0),
+                avg_tokens_per_second: average(&group.tokens_per_second),
+            },
+        )
+        .collect::<Vec<_>>();
+    groups.sort_by(|left, right| {
+        right
+            .runs
+            .cmp(&left.runs)
+            .then_with(|| right.total_tokens.cmp(&left.total_tokens))
+            .then_with(|| left.model_id.cmp(&right.model_id))
+            .then_with(|| left.backend_id.cmp(&right.backend_id))
+            .then_with(|| left.session_id.cmp(&right.session_id))
+    });
+
+    Ok(PerformanceBaseline {
+        store,
+        model_runs: model_rows.len(),
+        token_records: count_scalar(&connection, "SELECT COUNT(*) FROM token_usage")?,
+        resource_samples: resource_rows.len(),
+        total_prompt_tokens,
+        total_completion_tokens,
+        total_tokens,
+        context_clamp_count,
+        context_tokens_dropped,
+        p50_latency_ms: percentile(latencies.clone(), 50.0),
+        p95_latency_ms: percentile(latencies, 95.0),
+        avg_tokens_per_second: average(&tokens_per_second),
+        peak_rss_bytes,
+        pressure_states,
+        groups,
+    })
 }
 
 pub fn export_jsonl() -> Result<String, AppError> {
@@ -826,6 +991,143 @@ fn count_before(
         ))
 }
 
+#[derive(Debug)]
+struct BaselineModelRow {
+    session_id: String,
+    model_id: String,
+    backend_id: String,
+    total_latency_ms: Option<f64>,
+    tokens_per_second: Option<f64>,
+    prompt_tokens: i64,
+    completion_tokens: i64,
+    total_tokens: i64,
+    context_tokens_dropped: i64,
+}
+
+#[derive(Debug)]
+struct BaselineResourceRow {
+    pressure_status: String,
+    peak_rss_bytes: Option<u64>,
+}
+
+#[derive(Debug, Default)]
+struct GroupAccumulator {
+    runs: i64,
+    total_tokens: i64,
+    context_clamp_count: i64,
+    context_tokens_dropped: i64,
+    latencies: Vec<f64>,
+    tokens_per_second: Vec<f64>,
+}
+
+fn query_baseline_model_rows(connection: &Connection) -> Result<Vec<BaselineModelRow>, AppError> {
+    let mut statement = connection
+        .prepare(
+            "SELECT
+                model_runs.session_id,
+                model_runs.model_id,
+                COALESCE(model_runs.backend_id, 'unknown'),
+                model_runs.total_latency_ms,
+                model_runs.tokens_per_second,
+                COALESCE(token_usage.prompt_tokens, 0),
+                COALESCE(token_usage.completion_tokens, 0),
+                COALESCE(token_usage.total_tokens, 0),
+                COALESCE(token_usage.context_tokens_dropped, 0)
+               FROM model_runs
+          LEFT JOIN (
+                SELECT model_run_id,
+                       SUM(prompt_tokens) AS prompt_tokens,
+                       SUM(completion_tokens) AS completion_tokens,
+                       SUM(total_tokens) AS total_tokens,
+                       SUM(context_tokens_dropped) AS context_tokens_dropped
+                  FROM token_usage
+              GROUP BY model_run_id
+          ) token_usage
+                 ON token_usage.model_run_id = model_runs.model_run_id
+              ORDER BY model_runs.started_at_ms ASC,
+                       model_runs.model_run_id ASC",
+        )
+        .map_err(sql_error(
+            "performance baseline model query를 준비하지 못했습니다",
+        ))?;
+
+    let rows = statement
+        .query_map([], |row| {
+            Ok(BaselineModelRow {
+                session_id: row.get(0)?,
+                model_id: row.get(1)?,
+                backend_id: row.get(2)?,
+                total_latency_ms: row.get(3)?,
+                tokens_per_second: row.get(4)?,
+                prompt_tokens: row.get(5)?,
+                completion_tokens: row.get(6)?,
+                total_tokens: row.get(7)?,
+                context_tokens_dropped: row.get(8)?,
+            })
+        })
+        .map_err(sql_error(
+            "performance baseline model query를 실행하지 못했습니다",
+        ))?;
+
+    rows.collect::<Result<Vec<_>, _>>().map_err(sql_error(
+        "performance baseline model 결과를 읽지 못했습니다",
+    ))
+}
+
+fn query_baseline_resource_rows(
+    connection: &Connection,
+) -> Result<Vec<BaselineResourceRow>, AppError> {
+    let mut statement = connection
+        .prepare(
+            "SELECT pressure_status,
+                    peak_rss_bytes
+               FROM resource_samples
+              ORDER BY recorded_at_ms ASC,
+                       resource_sample_id ASC",
+        )
+        .map_err(sql_error(
+            "performance baseline resource query를 준비하지 못했습니다",
+        ))?;
+
+    let rows = statement
+        .query_map([], |row| {
+            Ok(BaselineResourceRow {
+                pressure_status: row.get(0)?,
+                peak_rss_bytes: option_i64_to_u64(row.get(1)?),
+            })
+        })
+        .map_err(sql_error(
+            "performance baseline resource query를 실행하지 못했습니다",
+        ))?;
+
+    rows.collect::<Result<Vec<_>, _>>().map_err(sql_error(
+        "performance baseline resource 결과를 읽지 못했습니다",
+    ))
+}
+
+fn average(values: &[f64]) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+    Some(values.iter().sum::<f64>() / values.len() as f64)
+}
+
+fn percentile(mut values: Vec<f64>, percentile: f64) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+    values.sort_by(f64::total_cmp);
+    let percentile = percentile.clamp(0.0, 100.0);
+    let position = (percentile / 100.0) * (values.len() - 1) as f64;
+    let lower = position.floor() as usize;
+    let upper = position.ceil() as usize;
+    if lower == upper {
+        return Some(values[lower]);
+    }
+    let weight = position - lower as f64;
+    Some(values[lower] + (values[upper] - values[lower]) * weight)
+}
+
 fn query_session_history(
     connection: &Connection,
     project_id: &str,
@@ -1078,5 +1380,137 @@ mod tests {
         assert_eq!(latest.peak_rss_bytes, Some(512 * 1024 * 1024));
         assert_eq!(latest.disk_bytes, Some(1024));
         assert_eq!(latest.pressure_status, "normal");
+    }
+
+    #[test]
+    fn performance_baseline_aggregates_local_metrics() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-performance-baseline-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let project_root = root.join("project");
+        fs::create_dir_all(&project_root).unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+
+        for (model_run_id, session_id, model_id, latency, tps, dropped, total_tokens) in [
+            (
+                "run-a",
+                "session-a",
+                "qwen-test",
+                100.0,
+                20.0,
+                0_u32,
+                30_u32,
+            ),
+            (
+                "run-b",
+                "session-a",
+                "qwen-test",
+                200.0,
+                30.0,
+                8_u32,
+                40_u32,
+            ),
+            (
+                "run-c",
+                "session-b",
+                "gemma-test",
+                300.0,
+                10.0,
+                0_u32,
+                50_u32,
+            ),
+        ] {
+            record_model_run(&ModelRunMetric {
+                model_run_id: model_run_id.to_string(),
+                session_id: session_id.to_string(),
+                workflow_id: None,
+                model_id: model_id.to_string(),
+                model_artifact_hash: Some(format!("hash-{model_run_id}")),
+                backend_id: Some("llama.cpp".to_string()),
+                backend_version: Some("test".to_string()),
+                quantization: Some("q4".to_string()),
+                context_limit_tokens: Some(4096),
+                started_at_ms: 1,
+                first_token_latency_ms: None,
+                total_latency_ms: Some(latency),
+                prompt_eval_ms: None,
+                generation_eval_ms: None,
+                tokens_per_second: Some(tps),
+                cancelled: false,
+                prompt_tokens: 10,
+                completion_tokens: total_tokens - 10,
+                total_tokens,
+                context_tokens_used: 100,
+                context_tokens_dropped: dropped,
+                ontology_tokens: 0,
+                tool_summary_tokens: 0,
+                max_output_tokens: Some(64),
+            })
+            .unwrap();
+        }
+
+        for (sample_id, pressure, peak_rss) in [
+            ("sample-a", "normal", 256 * 1024 * 1024),
+            ("sample-b", "degraded", 512 * 1024 * 1024),
+        ] {
+            record_resource_sample(&ResourceSampleMetric {
+                resource_sample_id: sample_id.to_string(),
+                session_id: "session-a".to_string(),
+                backend_id: "llama.cpp".to_string(),
+                pid: 123,
+                process_cpu_percent: Some(42.0),
+                average_rss_bytes: Some(128 * 1024 * 1024),
+                peak_rss_bytes: Some(peak_rss),
+                disk_bytes: Some(2048),
+                sample_count: 1,
+                pressure_status: pressure.to_string(),
+                recorded_at_ms: 1000,
+            })
+            .unwrap();
+        }
+
+        let baseline = performance_baseline().unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+
+        assert_eq!(baseline.model_runs, 3);
+        assert_eq!(baseline.token_records, 3);
+        assert_eq!(baseline.resource_samples, 2);
+        assert_eq!(baseline.total_tokens, 120);
+        assert_eq!(baseline.context_clamp_count, 1);
+        assert_eq!(baseline.context_tokens_dropped, 8);
+        assert_eq!(baseline.p50_latency_ms, Some(200.0));
+        assert_eq!(baseline.p95_latency_ms, Some(290.0));
+        assert_eq!(baseline.avg_tokens_per_second, Some(20.0));
+        assert_eq!(baseline.peak_rss_bytes, Some(512 * 1024 * 1024));
+        assert_eq!(
+            baseline.pressure_states,
+            vec![
+                PressureStateSummary {
+                    pressure_status: "degraded".to_string(),
+                    samples: 1
+                },
+                PressureStateSummary {
+                    pressure_status: "normal".to_string(),
+                    samples: 1
+                }
+            ]
+        );
+
+        let qwen_group = baseline
+            .groups
+            .iter()
+            .find(|group| group.model_id == "qwen-test" && group.session_id == "session-a")
+            .unwrap();
+        assert_eq!(qwen_group.runs, 2);
+        assert_eq!(qwen_group.total_tokens, 70);
+        assert_eq!(qwen_group.context_clamp_count, 1);
+        assert_eq!(qwen_group.context_tokens_dropped, 8);
     }
 }

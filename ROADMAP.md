@@ -421,7 +421,7 @@ Goal: require evidence for completion instead of accepting the model's claim tha
 - [ ] Cancel cleanup
 - [ ] Stale workflow terminal handling
 - [ ] Destructive command policy tests
-- [ ] Performance baseline report over ledger/projection data: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping
+- [x] Performance baseline report over ledger/projection data: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping
 - [ ] Fixture benchmark suite
 - [ ] Benchmark harness runner foundation: fixture schema validation, run ledger/projection, reproducibility manifest, redacted report export
 - [ ] Benchmark fixture metadata contract: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence

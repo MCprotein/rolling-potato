@@ -1,5 +1,44 @@
 # Release Notes
 
+## v0.18.0 - Performance Baseline Report
+
+Release date: 2026-07-08
+
+This release adds a read-only local performance baseline report. It is still a
+source-only developer preview: it does not ship model weights, external plugin
+packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- New `rpotato monitor baseline` command.
+- Aggregates existing local ledger/SQLite projection metrics without adding a
+  new raw prompt/source store.
+- Reports p50/p95 latency, average tokens/sec, context clamp count, context
+  tokens dropped, peak RSS, pressure-state distribution, and
+  model/backend/session grouping.
+- Keeps the report as local metric evidence only; it does not select model
+  artifacts or make source-backed model capability claims.
+- English and Korean documentation updates for the v0.18.0 performance
+  baseline scope.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (172 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato monitor baseline`
+
+### Known Issues
+
+- `monitor baseline` reports only metrics already present in the local
+  projection. It does not run benchmarks or collect continuous background
+  samples.
+- Benchmark harness recording, redacted report export, and benchmark-driven
+  optimization policy remain planned.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.17.0 - Team Context And Model Governor
 
 Release date: 2026-07-08

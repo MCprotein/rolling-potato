@@ -80,6 +80,7 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 - `rpotato cancel`은 active workflow가 없으면 no-op cancel event만 append한다.
 - `rpotato evidence validate <artifact-pointer>`는 project-relative artifact pointer가 project boundary 안에 있는지 검증한다.
 - `rpotato monitor status`와 `rpotato monitor models`는 SQLite projection을 읽는다.
+- `rpotato monitor baseline`은 local ledger/SQLite projection metric을 읽어 p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, model/backend/session grouping을 보여주는 read-only performance baseline report를 출력한다. Raw prompt/source text는 저장하지 않으며 model artifact를 선택하지 않는다.
 - `rpotato monitor export --format jsonl|csv`는 runtime ledger/projection을 사람이 볼 수 있는 형태로 출력한다.
 - `rpotato monitor prune --before 30d --dry-run`은 삭제 후보 count만 계산한다.
 - `rpotato backend start`, `rpotato backend status`, `rpotato backend chat`은 event-driven backend CPU/RSS/disk resource sample을 기록한다.
@@ -97,7 +98,6 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 아직 구현하지 않은 부분:
 
 - managed backend sidecar의 continuous background CPU/memory/disk resource sampling
-- local ledger/SQLite projection 기반 performance baseline reporting
 - executable benchmark harness run 기록과 redacted report export
 - context budget, lane count, fallback, model route 추천을 위한 benchmark-driven optimization policy
 - admission 이후 실제 subagent/team dispatcher 실행
@@ -226,6 +226,7 @@ benchmark_runs
 ```sh
 rpotato monitor status
 rpotato monitor models
+rpotato monitor baseline
 rpotato monitor session <id>
 rpotato session list
 rpotato session history
