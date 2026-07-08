@@ -1,5 +1,56 @@
 # Release Notes
 
+## v0.14.0 - Team Policy Preflight
+
+Release date: 2026-07-08
+
+This release adds policy preflight to the enforced team admission gate. It is
+still a source-only developer preview: it does not ship model weights, external
+plugin packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- `rpotato team admit --lanes <count>` now accepts repeated `--write <path>` and
+  `--command <command>` preflight checks.
+- Requested write paths are classified with the same policy engine as
+  `policy check-path --write`.
+- Requested commands are classified with the same policy engine as
+  `policy check-command`.
+- `allow` policy checks can pass the admission gate.
+- `ask` and `deny` policy checks block dispatch before any future worker launch.
+- Team admission output and ledger event details include policy check count,
+  policy status, policy blocked flag, requested writes, redacted commands, and
+  per-check decisions.
+- English and Korean documentation updates for the v0.14.0 policy preflight
+  scope.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (159 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato init`
+- `rpotato team status`
+- `rpotato team admit --lanes 2`
+- `rpotato team admit --lanes 2 --command "cargo test"`
+- `rpotato team admit --lanes 2 --write README.md`
+- `rpotato monitor status`
+
+The smoke checks use a scratch project root under `/private/tmp` and verify
+that command preflight can pass while write preflight blocks with
+`approval-required` before worker launch.
+
+### Known Issues
+
+- `team admit` still does not start subagents, dispatch team lanes, advance team
+  stages, or allocate file ownership.
+- `ask` decisions block dispatch because approval queue integration is still
+  planned.
+- Resource sampling is still event-driven, not continuous live polling.
+- Runtime context clamp and model downgrade/escalation hints remain planned.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.13.0 - Team Admission Gate
 
 Release date: 2026-07-07
@@ -38,9 +89,8 @@ lane when no resource sample exists.
 
 ### Known Issues
 
-- `team admit` enforces only the resource-pressure lane gate. It does not start
-  subagents, dispatch team lanes, advance team stages, or enforce file ownership
-  yet.
+- Policy preflight for requested writes and commands is introduced in v0.14.0.
+  Full worker dispatch and file ownership allocation remain planned.
 - Resource sampling is still event-driven, not continuous live polling.
 - Runtime context clamp, file ownership, tool risk, approval queue, and model
   downgrade/escalation hints remain planned.

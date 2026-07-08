@@ -94,6 +94,16 @@ still does not start workers or advance team stages, so future dispatcher work
 can attach worker launch after the gate without changing the admission
 contract.
 
+`team admit` can also preflight requested write paths and commands:
+
+```text
+rpotato team admit --lanes 2 --write README.md --command "cargo test"
+```
+
+The preflight uses the shared runtime policy engine. `allow` checks can pass the
+gate; `ask` and `deny` checks block dispatch and are recorded in the same
+admission ledger event. This is a policy gate, not ownership allocation yet.
+
 ## TUI Integration
 
 TUI should show:
