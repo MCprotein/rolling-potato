@@ -25,6 +25,10 @@ jobs:
             target: aarch64-apple-darwin
             binary: rpotato
             archive: tar.gz
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            binary: rpotato
+            archive: tar.gz
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             binary: rpotato.exe
@@ -71,6 +75,14 @@ jobs:
           binary="target/${{ matrix.target }}/release/${{ matrix.binary }}"
           scripts/release/verify-release-binary-smoke.sh "$binary" "$VERSION"
 
+      - name: Smoke Windows uninstall plans
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="target/${{ matrix.target }}/release/${{ matrix.binary }}"
+          scripts/release/verify-uninstall-smoke.sh "$binary"
+
       - name: Package macOS archive
         if: matrix.archive == 'tar.gz'
         shell: bash
@@ -97,7 +109,7 @@ jobs:
           $archive = "dist/$env:ASSET_BASE.zip"
           Compress-Archive -Path "$packageDir/*" -DestinationPath $archive -Force
           $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
-          "$hash  $env:ASSET_BASE.zip" | Out-File -FilePath "$archive.sha256" -Encoding ascii -NoNewline
+          "$hash  $env:ASSET_BASE.zip" | Out-File -FilePath "$archive.sha256" -Encoding ascii
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
@@ -118,4 +130,47 @@ jobs:
           gh release upload "$RELEASE_TAG" \
             "dist/${ASSET_BASE}.${{ matrix.archive }}" \
             "dist/${ASSET_BASE}.${{ matrix.archive }}.sha256" \
+            --clobber
+
+  checksums:
+    name: publish aggregate checksums
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/artifacts
+          pattern: rpotato-${{ env.RELEASE_TAG }}-*
+
+      - name: Build aggregate checksum file
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          find dist/artifacts -name '*.sha256' -type f -print0 \
+            | sort -z \
+            | xargs -0 cat \
+            > "dist/rpotato-${RELEASE_TAG}-checksums.txt"
+          test -s "dist/rpotato-${RELEASE_TAG}-checksums.txt"
+
+      - name: Upload checksum workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpotato-${{ env.RELEASE_TAG }}-checksums
+          path: dist/rpotato-${{ env.RELEASE_TAG }}-checksums.txt
+          if-no-files-found: error
+
+      - name: Upload checksum file to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" \
+            "dist/rpotato-${RELEASE_TAG}-checksums.txt" \
             --clobber

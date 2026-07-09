@@ -105,22 +105,32 @@ GitHub repository setting은 source tree 밖에 있으므로 maintainer가 GitHu
 `release-binaries`는 GitHub Release가 publish될 때 release asset을 build합니다.
 Workflow 검증용으로 `release_tag` input을 넣어 수동 실행할 수도 있습니다.
 
-현재 v0.23.0 asset:
+현재 v0.24.0 asset:
 
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
+- `rpotato-vX.Y.Z-x86_64-apple-darwin.tar.gz`
+- `rpotato-vX.Y.Z-x86_64-apple-darwin.tar.gz.sha256`
 - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip`
 - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip.sha256`
+- `rpotato-vX.Y.Z-checksums.txt`
 
 Workflow는 `cargo test --locked`를 실행하고 release binary를 build한 뒤,
 `scripts/release/verify-release-binary-smoke.sh`로 built binary를 smoke test하고 archive와
-checksum을 GitHub Release에 upload합니다. `rpotato doctor`는 package version, target
-OS/arch, binary suffix, backend/model/cache summary를 표시하고 model download, backend
-install, sidecar start, network access를 하지 않기 때문에 release-smoke command로 씁니다.
+checksum을 GitHub Release에 upload합니다. Windows job은
+`scripts/release/verify-uninstall-smoke.sh`도 실행해 `--keep-cache`와 `--purge-cache`
+dry-run plan이 packaged binary에서도 보이고 non-destructive인지 확인합니다. `rpotato
+doctor`는 package version, target OS/arch, binary suffix, backend/model/cache summary를
+표시하고 model download, backend install, sidecar start, network access를 하지 않기 때문에
+release-smoke command로 씁니다.
+
+모든 target artifact가 build된 뒤 `checksums` job은 per-asset `.sha256` file을 합쳐
+`rpotato-vX.Y.Z-checksums.txt`를 publish합니다.
 
 Runner label은 첫 지원 target에 맞춰 고정합니다.
 
 - `macos-14`: macOS Apple Silicon / `aarch64-apple-darwin`
+- `macos-15-intel`: macOS Intel / `x86_64-apple-darwin`
 - `windows-latest`: Windows x86_64 / `x86_64-pc-windows-msvc`
 
 Reference: GitHub-hosted runners reference, checked 2026-07-09:
@@ -131,11 +141,11 @@ https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 초기 목표:
 
 - macOS Apple Silicon
+- macOS Intel
 - Windows x86_64
 
 추후 목표:
 
-- macOS Intel
 - Linux x86_64
 - Linux ARM64
 - package manager channel: Homebrew, Scoop, winget
@@ -154,8 +164,10 @@ https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 8. plugin adapter가 포함된 release라면 local import only와 remote source rejection smoke test
 9. release notes 작성
 10. binary checksum 생성
-11. GitHub Release publish 후 `release-binaries` workflow가 두 target archive와
-    대응 `.sha256` file을 upload했는지 확인
+11. GitHub Release publish 후 `release-binaries` workflow가 모든 target archive와
+    대응 `.sha256` file, aggregate `checksums.txt` file을 upload했는지 확인
+
+새 release note entry는 [release-notes-template.md](release-notes-template.md)를 사용합니다.
 
 ## 모델 manifest 배포
 
