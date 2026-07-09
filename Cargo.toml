@@ -1,13 +1,13 @@
 [package]
 name = "rpotato"
-version = "0.23.0"
+version = "0.23.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "Local coding agents for potato PCs."
 
 [dependencies]
 flate2 = "1.1.9"
-rusqlite = { version = "0.40.1", default-features = false }
+rusqlite = { version = "0.40.1", default-features = false, features = ["bundled-windows"] }
 sha2 = "0.11.0"
 tar = { version = "0.4.46", default-features = false }
 ureq = "3.3.0"
