@@ -36,6 +36,7 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | v0.23.0 | Released | 공식 binary download foundation: macOS Apple Silicon과 Windows x86_64용 GitHub Release binary workflow, release asset checksum, `rpotato doctor` binary smoke |
 | v0.23.1 | Released | Windows binary link fix: `rusqlite`가 bundled Windows SQLite linkage를 사용해 release asset이 runner-provided `sqlite3.lib`에 의존하지 않음 |
 | v0.24.0 | Released | Cross-platform release hardening: macOS Intel artifact, aggregate checksum publication, Windows keep-cache/purge-cache uninstall smoke, release notes template |
+| v0.24.1 | Released | Checksum workflow fix: basename-only `.sha256` path, aggregate release upload repository context, checksum path smoke guard |
 | v0.25.0 | Planned | Verified model install path: local evidence 후 source-backed candidate 승격, registry registration, install download flow, RAM/mmproj evidence gate |
 | v0.26.0 | Planned | Ontology runtime store: canonical internal typed graph/store, compact context view, source-pointer reread rule, import/export inspection view |
 | v0.27.0 | Planned | Plugin adapter hardening: Codex local-directory import completion, Claude Code adapter follow-up, external command/MCP/background permission 기본 차단 |

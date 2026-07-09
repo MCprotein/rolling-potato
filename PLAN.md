@@ -436,7 +436,7 @@ This can be relaxed later with trust modes.
 Initial publishing:
 
 - GitHub repo
-- GitHub Releases for binaries, with v0.24.0 workflow assets for macOS Apple
+- GitHub Releases for binaries, with v0.24.1 workflow assets for macOS Apple
   Silicon, macOS Intel, and Windows x86_64 plus per-asset `.sha256` files and
   an aggregate checksums file
 - model manifest in repo or release asset

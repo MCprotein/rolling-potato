@@ -1,5 +1,37 @@
 # Release Notes
 
+## v0.24.1 - Checksum Workflow Fix
+
+Release date: 2026-07-09
+
+This patch release fixes checksum publishing so GitHub Release checksum files are
+usable directly beside downloaded release assets.
+
+### Included
+
+- macOS `.sha256` files now record release asset basenames instead of
+  build-directory paths.
+- The aggregate checksum upload step now has explicit GitHub repository context.
+- Added `scripts/release/verify-checksum-basenames.sh` and wired it into release
+  packaging and aggregate checksum generation.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test --locked` (197 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `bash -n scripts/release/verify-checksum-basenames.sh`
+- `scripts/release/verify-checksum-basenames.sh <fixture-checksum-file>`
+- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/release-binaries.yml")'`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.24.1`
+
+### Boundary
+
+This release does not change supported binary targets or add package-manager
+distribution.
+
 ## v0.24.0 - Cross-Platform Release Hardening
 
 Release date: 2026-07-09
