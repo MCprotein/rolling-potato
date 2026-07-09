@@ -1,5 +1,5 @@
 use crate::app::AppError;
-use crate::resource;
+use crate::{benchmark, resource};
 
 pub const HELP: &str = "\
 rpotato
@@ -58,6 +58,9 @@ rpotato
   rpotato monitor export --format jsonl
   rpotato monitor export --format csv
   rpotato monitor prune --before 30d --dry-run
+  rpotato benchmark validate <fixture.json>
+  rpotato benchmark record --fixture <fixture.json>
+  rpotato benchmark report --format jsonl
   rpotato model list
   rpotato model manifest
   rpotato model inspect <id>
@@ -88,6 +91,7 @@ rpotato
   team status는 최신 resource sample 기준의 read-only admission preview와 sequential fallback 결정을 표시합니다.
   team admit은 dispatcher 진입 전 resource/policy/file-ownership admission gate를 강제하고 결과를 ledger에 기록합니다.
   team governor는 dispatcher 진입 전 context/model budget clamp와 downgrade/escalation hint를 기록합니다.
+  benchmark record/report는 model 실행 없이 metadata-only not-comparable run과 redacted JSONL export만 기록합니다.
   모델 registry install은 verified 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -111,6 +115,7 @@ pub enum Command {
     Backend(BackendCommand),
     CacheStatus,
     Monitor(MonitorCommand),
+    Benchmark(BenchmarkCommand),
     Model(ModelCommand),
     Plugin(PluginCommand),
     Uninstall(UninstallCommand),
@@ -123,6 +128,19 @@ pub enum MonitorCommand {
     Baseline,
     Export { format: MonitorExportFormat },
     Prune { before_days: u64, dry_run: bool },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum BenchmarkCommand {
+    Validate {
+        path: String,
+    },
+    Record {
+        fixture: String,
+    },
+    Report {
+        format: benchmark::BenchmarkReportFormat,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -547,6 +565,23 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, ..] if group == "monitor" => Err(AppError::usage(
             "monitor 명령은 status, models, baseline, export, prune만 허용합니다.",
         )),
+        [group, action, path] if group == "benchmark" && action == "validate" => {
+            Ok(Command::Benchmark(BenchmarkCommand::Validate {
+                path: path.clone(),
+            }))
+        }
+        [group, action, ..] if group == "benchmark" && action == "validate" => Err(
+            AppError::usage("benchmark validate에는 fixture JSON path가 필요합니다."),
+        ),
+        [group, action, rest @ ..] if group == "benchmark" && action == "record" => {
+            parse_benchmark_record(rest).map(Command::Benchmark)
+        }
+        [group, action, rest @ ..] if group == "benchmark" && action == "report" => {
+            parse_benchmark_report(rest).map(Command::Benchmark)
+        }
+        [group, ..] if group == "benchmark" => Err(AppError::usage(
+            "benchmark 명령은 validate, record, report만 허용합니다.",
+        )),
         [group, action] if group == "model" && action == "list" => {
             Ok(Command::Model(ModelCommand::List))
         }
@@ -934,6 +969,36 @@ fn parse_monitor_export(args: &[String]) -> Result<MonitorCommand, AppError> {
         }
         _ => Err(AppError::usage(
             "monitor export에는 --format jsonl 또는 --format csv가 필요합니다.",
+        )),
+    }
+}
+
+fn parse_benchmark_record(args: &[String]) -> Result<BenchmarkCommand, AppError> {
+    match args {
+        [flag, fixture] if flag == "--fixture" => Ok(BenchmarkCommand::Record {
+            fixture: fixture.clone(),
+        }),
+        _ => Err(AppError::usage(
+            "benchmark record에는 --fixture <fixture.json> 형식이 필요합니다.",
+        )),
+    }
+}
+
+fn parse_benchmark_report(args: &[String]) -> Result<BenchmarkCommand, AppError> {
+    match args {
+        [flag, format] if flag == "--format" => {
+            let format = match format.as_str() {
+                "jsonl" => benchmark::BenchmarkReportFormat::Jsonl,
+                _ => {
+                    return Err(AppError::usage(
+                        "benchmark report format은 jsonl만 허용합니다.",
+                    ));
+                }
+            };
+            Ok(BenchmarkCommand::Report { format })
+        }
+        _ => Err(AppError::usage(
+            "benchmark report에는 --format jsonl 형식이 필요합니다.",
         )),
     }
 }
@@ -1715,6 +1780,59 @@ mod tests {
     fn parses_monitor_baseline() {
         let command = parse(["monitor".to_string(), "baseline".to_string()]).unwrap();
         assert_eq!(command, Command::Monitor(MonitorCommand::Baseline));
+    }
+
+    #[test]
+    fn parses_benchmark_validate() {
+        let command = parse([
+            "benchmark".to_string(),
+            "validate".to_string(),
+            "benchmarks/fixtures/sample.json".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Benchmark(BenchmarkCommand::Validate {
+                path: "benchmarks/fixtures/sample.json".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_benchmark_record() {
+        let command = parse([
+            "benchmark".to_string(),
+            "record".to_string(),
+            "--fixture".to_string(),
+            "benchmarks/fixtures/sample.json".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Benchmark(BenchmarkCommand::Record {
+                fixture: "benchmarks/fixtures/sample.json".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_benchmark_report_jsonl() {
+        let command = parse([
+            "benchmark".to_string(),
+            "report".to_string(),
+            "--format".to_string(),
+            "jsonl".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Benchmark(BenchmarkCommand::Report {
+                format: benchmark::BenchmarkReportFormat::Jsonl
+            })
+        );
     }
 
     #[test]

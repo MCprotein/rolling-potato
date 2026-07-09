@@ -119,6 +119,23 @@ Each fixture should declare:
 - expected failure category when the run does not pass
 - minimum score and promotion reason when the fixture is a regression case
 
+Implemented v0.19.0 commands:
+
+```bash
+rpotato benchmark validate benchmarks/fixtures/sample.json
+rpotato benchmark record --fixture benchmarks/fixtures/sample.json
+rpotato benchmark report --format jsonl
+```
+
+The v0.19.0 harness foundation is metadata-only. `benchmark record` writes a
+`benchmark.run.recorded` ledger event and a SQLite `benchmark_runs` projection
+row with `claim_state=not-comparable`, `score=null`, a reproducibility manifest,
+and a redacted local report. It does not execute a model, grade a fixture, or
+claim parity with public benchmark results.
+
+The repository includes `benchmarks/fixtures/sample.json` as a CLI-contract
+smoke fixture. It stores no raw prompt or source text.
+
 ## Common Scoring
 
 Each task is scored from 0 to 3.
@@ -233,6 +250,10 @@ Each benchmark run should emit a reproducibility manifest with:
 - ontology view and context budget
 - redaction status
 - raw artifact retention policy
+
+In v0.19.0, OS and architecture are recorded directly, while hardware, RAM, and
+power/thermal fields are present as `not-recorded` placeholders until executable
+benchmark runs collect them.
 
 ## Runtime Metrics
 
@@ -351,8 +372,11 @@ hardware, quantization, dataset, prompt, and scoring conditions.
 Benchmark runs should use the same metric schema as normal runtime monitoring.
 
 - `benchmark_runs` links to model/backend/session metrics.
-- reports include `run_id`, `session_id`, `model_run_id`, artifact hash, backend
-  options, guard/tool/stop metrics, and failure category
+- v0.19.0 reports include `benchmark_run_id`, `session_id`, fixture id/checksum,
+  claim state, optional score fields, harness ref, dataset/backend refs,
+  reproducibility manifest, and redacted local report.
+- Later executable runs should add `model_run_id`, artifact hash, backend
+  options, guard/tool/stop metrics, and failure category.
 - Published-vs-local score comparison stores artifact hash and runtime options.
 - Raw prompt/source text is not stored long term during benchmarks.
 - Benchmark reports are generated from SQLite projection, but JSONL export should be available for reproducibility.

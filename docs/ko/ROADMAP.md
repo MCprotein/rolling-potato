@@ -422,14 +422,14 @@
 - [ ] destructive command policy tests
 - [x] ledger/projection data 기반 performance baseline report: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping
 - [ ] fixture benchmark suite
-- [ ] benchmark harness runner foundation: fixture schema 검증, run ledger/projection, reproducibility manifest, redacted report export
-- [ ] benchmark fixture metadata 계약: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence
-- [ ] benchmark 실패 분류: model, prompt/context, ontology/source-pointer, runtime policy/parser, tool/command, backend/runtime, fixture issue
+- [x] benchmark harness runner foundation: fixture schema 검증, run ledger/projection, reproducibility manifest, redacted report export
+- [x] benchmark fixture metadata 계약: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence
+- [x] benchmark 실패 분류: model, prompt/context, ontology/source-pointer, runtime policy/parser, tool/command, backend/runtime, fixture issue
 - [ ] 실제 unsafe action, source-read omission, stale-claim use, policy violation, score regression에서 regression fixture로 승격하는 policy
 - [ ] regression fixture promotion gate: redaction, minimal repro, quarantine, owner review, supersede/demote reason
 - [ ] benchmark reliability control: run count, warm/cold split, variance threshold, flaky quarantine, environment drift detection
 - [ ] log, command, path, prompt, export, regression record의 secret을 겨냥한 benchmark privacy/redaction adversarial fixture
-- [ ] benchmark reproducibility manifest: harness version, fixture checksum, runner command, run count, seed policy, sampling limit, OS power/thermal note
+- [x] benchmark reproducibility manifest: harness version, fixture checksum, runner command, run count, seed policy, sampling limit, OS power/thermal note
 - [ ] static-only vs Layer A vs Layer B ontology benchmark
 - [ ] 2B-4B ontology representation benchmark: view format별 task score, hallucination, source-read compliance, latency, memory, token budget
 - [ ] small-model abstention/escalation benchmark: evidence gap, invariant risk, stale claim, context exhaustion, repeated invalid output

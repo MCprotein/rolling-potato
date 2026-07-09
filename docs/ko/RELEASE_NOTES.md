@@ -1,5 +1,53 @@
 # 릴리즈 노트
 
+## v0.19.0 - Benchmark Harness Foundation
+
+릴리즈 날짜: 2026-07-09
+
+이 릴리즈는 첫 metadata-only benchmark harness surface를 추가합니다. 여전히
+source-only developer preview이며, 모델 가중치, 외부 plugin package, prebuilt
+`rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- 새 `rpotato benchmark validate <fixture.json>` 명령.
+- 새 `rpotato benchmark record --fixture <fixture.json>` 명령.
+- 새 `rpotato benchmark report --format jsonl` 명령.
+- Project-local fixture schema 검증: runtime capability, model/runtime responsibility,
+  expected route, policy decision, escalation target, required tool/source/evidence
+  record, abstention requirement, ontology view, context budget, backend/model artifact
+  identifier, sampling policy, raw artifact retention policy.
+- SQLite migration v3가 `benchmark_runs`에 session, fixture checksum, claim state,
+  reproducibility manifest, redacted report field를 추가합니다.
+- Metadata-only benchmark record는 `claim_state=not-comparable`, `score=null`을
+  사용합니다. Model 실행이나 public benchmark parity claim은 하지 않습니다.
+- `benchmarks/fixtures/sample.json`은 raw prompt/source가 없는 CLI-contract smoke
+  fixture입니다.
+- Benchmark fixture contract, observability integration, v0.19.0 rollout status에 대한
+  영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (179 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato benchmark validate benchmarks/fixtures/sample.json`
+- `rpotato benchmark record --fixture benchmarks/fixtures/sample.json`
+- `rpotato benchmark report --format jsonl`
+- `rpotato monitor status`
+
+### 알려진 제한
+
+- Benchmark 명령은 model 실행, fixture score 산정, public benchmark와 local score 비교를
+  하지 않습니다.
+- Hardware/RAM/power/thermal manifest field는 executable benchmark run이 수집하기 전까지
+  `not-recorded` placeholder입니다.
+- Fixture suite, ontology-view scoring, public benchmark parity report,
+  benchmark-driven optimization policy는 후속 범위입니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.18.0 - Performance Baseline Report
 
 릴리즈 날짜: 2026-07-08

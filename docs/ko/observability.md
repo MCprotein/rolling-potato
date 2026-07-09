@@ -69,7 +69,7 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 - `rpotato init`이 app data root, project-local `.rpotato/`, current-state, runtime ledger, project session ledger, runtime evidence JSONL, SQLite projection을 만든다.
 - Append-only ledger는 source of truth이며, SQLite `ledger_events`는 replay 가능한 projection이다.
 - SQLite session history는 projection이 재생성될 때 replay된 `ledger_events`에서 현재 project 기준으로 복원할 수 있다.
-- SQLite migration v2는 `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `resource_samples`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, `benchmark_runs`를 만든다.
+- SQLite migration v3는 `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `resource_samples`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, 확장된 `benchmark_runs` projection을 만든다.
 - `rpotato state`는 current-state와 ledger/projection count를 보여준다.
 - `rpotato state reconcile`은 missing/stale/corrupt current-state를 복구하고 보존 이동 이벤트를 ledger에 남긴다.
 - `rpotato state resume`은 no active workflow, active pointer detected, blocked 상태를 구분해 ledger에 남긴다.
@@ -83,6 +83,9 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 - `rpotato monitor baseline`은 local ledger/SQLite projection metric을 읽어 p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, model/backend/session grouping을 보여주는 read-only performance baseline report를 출력한다. Raw prompt/source text는 저장하지 않으며 model artifact를 선택하지 않는다.
 - `rpotato monitor export --format jsonl|csv`는 runtime ledger/projection을 사람이 볼 수 있는 형태로 출력한다.
 - `rpotato monitor prune --before 30d --dry-run`은 삭제 후보 count만 계산한다.
+- `rpotato benchmark validate <fixture.json>`는 project-local fixture metadata를 검증한다. Runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence record, abstention requirement, ontology view, context budget, backend/model artifact identifier, sampling policy, raw artifact retention policy를 확인한다.
+- `rpotato benchmark record --fixture <fixture.json>`는 metadata-only benchmark run을 append-only ledger와 SQLite `benchmark_runs` projection에 기록한다. 기록은 `claim_state=not-comparable`, score 없음, reproducibility manifest, redacted local report만 포함한다.
+- `rpotato benchmark report --format jsonl`은 redacted benchmark projection과 reproducibility metadata를 export한다. Model 실행, score 산정, public benchmark parity claim은 하지 않는다.
 - `rpotato backend start`, `rpotato backend status`, `rpotato backend chat`은 event-driven backend CPU/RSS/disk resource sample을 기록한다.
 - `rpotato backend chat`은 첫 runtime resource governor slice를 적용한다. Critical pressure는 model 실행 전에 chat을 차단하고, degraded pressure는 effective max-token budget을 clamp하며, normal/unknown pressure는 요청 token budget을 유지한다.
 - `rpotato team status`는 최신 resource sample을 읽고 read-only team admission을 표시한다. Normal pressure는 parallel lane을 허용하고, unknown/degraded pressure는 sequential lane 하나로 fallback하며, critical pressure는 dispatch를 차단한다.
@@ -98,7 +101,7 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 아직 구현하지 않은 부분:
 
 - managed backend sidecar의 continuous background CPU/memory/disk resource sampling
-- executable benchmark harness run 기록과 redacted report export
+- executable benchmark model run과 scoring
 - context budget, lane count, fallback, model route 추천을 위한 benchmark-driven optimization policy
 - admission 이후 실제 subagent/team dispatcher 실행
 - dispatch-time ownership enforcement

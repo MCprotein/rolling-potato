@@ -69,7 +69,7 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato init` creates app data root, project-local `.rpotato/`, current state, runtime ledger, project session ledger, runtime evidence JSONL, and SQLite projection.
 - Append-only ledger is the source of truth; SQLite `ledger_events` is a replayable projection.
 - SQLite session history can be restored for the current project from replayed `ledger_events` if the projection is recreated.
-- SQLite migration v2 creates `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `resource_samples`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, and `benchmark_runs`.
+- SQLite migration v3 creates `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `resource_samples`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, and the extended `benchmark_runs` projection.
 - `rpotato state` shows current-state and ledger/projection counts.
 - `rpotato state reconcile` recovers missing/stale/corrupt current state and records preserve-move events in the ledger.
 - `rpotato state resume` distinguishes no active workflow, active pointer detected, and blocked states, then records a ledger event.
@@ -83,6 +83,9 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato monitor baseline` aggregates local ledger/SQLite projection metrics into a read-only performance baseline report with p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, and model/backend/session grouping. It does not store raw prompt/source text and does not choose model artifacts.
 - `rpotato monitor export --format jsonl|csv` renders runtime ledger/projection into human-readable exports.
 - `rpotato monitor prune --before 30d --dry-run` calculates only deletion candidate counts.
+- `rpotato benchmark validate <fixture.json>` validates project-local fixture metadata for runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence records, abstention requirement, ontology view, context budget, backend/model artifact identifiers, sampling policy, and raw artifact retention policy.
+- `rpotato benchmark record --fixture <fixture.json>` records a metadata-only benchmark run in the append-only ledger and SQLite `benchmark_runs` projection with `claim_state=not-comparable`, no score, a reproducibility manifest, and a redacted local report.
+- `rpotato benchmark report --format jsonl` exports the redacted benchmark projection with reproducibility metadata. It does not execute a model, assign scores, or claim public benchmark parity.
 - `rpotato backend start`, `rpotato backend status`, and `rpotato backend chat` record event-driven backend CPU/RSS/disk resource samples.
 - `rpotato backend chat` applies the first runtime resource governor slice: critical pressure blocks chat before model execution, degraded pressure clamps the effective max-token budget, and normal/unknown pressure preserves the requested token budget.
 - `rpotato team status` reads the latest resource sample and reports read-only team admission: normal pressure admits parallel lanes, unknown/degraded pressure falls back to one sequential lane, and critical pressure blocks dispatch.
@@ -98,7 +101,7 @@ Phase 2 currently implements the runtime store foundation.
 Not implemented yet:
 
 - continuous background CPU/memory/disk resource sampling from the managed backend sidecar
-- executable benchmark harness run recording and redacted report export
+- executable benchmark model runs and scoring
 - benchmark-driven optimization policy for context budget, lane count, fallback, and model route recommendations
 - full subagent/team dispatcher execution after admission
 - dispatch-time ownership enforcement

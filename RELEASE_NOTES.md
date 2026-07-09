@@ -1,5 +1,54 @@
 # Release Notes
 
+## v0.19.0 - Benchmark Harness Foundation
+
+Release date: 2026-07-09
+
+This release adds the first metadata-only benchmark harness surface. It is still
+a source-only developer preview: it does not ship model weights, external plugin
+packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- New `rpotato benchmark validate <fixture.json>` command.
+- New `rpotato benchmark record --fixture <fixture.json>` command.
+- New `rpotato benchmark report --format jsonl` command.
+- Project-local fixture schema validation for runtime capability, model/runtime
+  responsibility, expected route, policy decision, escalation target, required
+  tool/source/evidence records, abstention requirement, ontology view, context
+  budget, backend/model artifact identifiers, sampling policy, and raw artifact
+  retention policy.
+- SQLite migration v3 extends `benchmark_runs` with session, fixture checksum,
+  claim state, reproducibility manifest, and redacted report fields.
+- Metadata-only benchmark records use `claim_state=not-comparable` and
+  `score=null`; no model execution or public benchmark parity claim is made.
+- `benchmarks/fixtures/sample.json` provides a no-raw-prompt/source CLI-contract
+  smoke fixture.
+- English and Korean documentation updates for benchmark fixture contracts,
+  observability integration, and v0.19.0 rollout status.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (179 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato benchmark validate benchmarks/fixtures/sample.json`
+- `rpotato benchmark record --fixture benchmarks/fixtures/sample.json`
+- `rpotato benchmark report --format jsonl`
+- `rpotato monitor status`
+
+### Known Issues
+
+- Benchmark commands do not execute models, score fixtures, or compare local
+  scores with public benchmarks.
+- Hardware/RAM/power/thermal manifest fields are present only as
+  `not-recorded` placeholders until executable benchmark runs collect them.
+- Fixture suites, ontology-view scoring, public benchmark parity reports, and
+  benchmark-driven optimization policy remain planned.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.18.0 - Performance Baseline Report
 
 Release date: 2026-07-08
