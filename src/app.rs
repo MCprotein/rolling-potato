@@ -3,8 +3,9 @@ use crate::benchmark;
 use crate::cache;
 use crate::cli::{
     BackendCommand, BenchmarkCommand, Command, EvidenceCommand, HooksCommand, IntentCommand,
-    ModelCommand, MonitorCommand, PatchCommand, PluginCommand, PolicyCommand, PolicyPathMode,
-    SessionCommand, SkillCommand, StateCommand, TeamCommand, TuiCommand, UninstallCommand,
+    ModelCommand, MonitorCommand, OntologyCommand, PatchCommand, PluginCommand, PolicyCommand,
+    PolicyPathMode, SessionCommand, SkillCommand, StateCommand, TeamCommand, TuiCommand,
+    UninstallCommand,
 };
 use crate::config;
 use crate::evidence;
@@ -12,6 +13,7 @@ use crate::hooks;
 use crate::intent;
 use crate::model;
 use crate::monitor;
+use crate::ontology;
 use crate::patch;
 use crate::plugin;
 use crate::policy;
@@ -310,6 +312,34 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             dry_run,
         }) => {
             println!("{}", monitor::prune_report(before_days, dry_run)?);
+            Ok(())
+        }
+        Command::Ontology(OntologyCommand::Status) => {
+            println!("{}", ontology::status_report()?);
+            Ok(())
+        }
+        Command::Ontology(OntologyCommand::Seed) => {
+            println!("{}", ontology::seed_report()?);
+            Ok(())
+        }
+        Command::Ontology(OntologyCommand::Inspect) => {
+            println!("{}", ontology::inspect_report()?);
+            Ok(())
+        }
+        Command::Ontology(OntologyCommand::Context { query }) => {
+            println!("{}", ontology::context_report(&query)?);
+            Ok(())
+        }
+        Command::Ontology(OntologyCommand::Reread { pointer }) => {
+            println!("{}", ontology::reread_report(&pointer)?);
+            Ok(())
+        }
+        Command::Ontology(OntologyCommand::Export { format }) => {
+            print!("{}", ontology::export_report(format)?);
+            Ok(())
+        }
+        Command::Ontology(OntologyCommand::Import { path, dry_run }) => {
+            println!("{}", ontology::import_report(&path, dry_run)?);
             Ok(())
         }
         Command::Benchmark(BenchmarkCommand::Validate { path }) => {

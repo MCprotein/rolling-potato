@@ -14,6 +14,7 @@ mod ledger;
 mod model;
 mod monitor;
 mod observability;
+mod ontology;
 mod patch;
 mod paths;
 mod plugin;

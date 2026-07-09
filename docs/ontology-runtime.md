@@ -202,6 +202,22 @@ comparison until the loss is explicit and accepted.
 
 The runtime version of this design stores those concepts in the ontology graph and ledger, then renders human-readable views on demand.
 
+## Implemented In v0.26.0
+
+v0.26.0 adds the first runtime store slice:
+
+- `.rpotato/ontology/graph.jsonl` is the project-local typed graph store.
+- `.rpotato/ontology/schema.json` records the store contract and claim-state rules.
+- `rpotato init` creates the ontology layout and seeds deterministic Layer A facts.
+- `rpotato ontology seed` refreshes Layer A facts by stable IDs and appends changed records.
+- `rpotato ontology status` and `rpotato ontology inspect` report current projection diagnostics.
+- `rpotato ontology context --query <text>` renders a compact source-pointer-first view.
+- `rpotato ontology reread <source-pointer>` reopens the authoritative source file and reports the current SHA-256.
+- `rpotato ontology export --format json|jsonl` emits inspection views.
+- `rpotato ontology import --file <path> --dry-run` validates import candidates and blocks confirmed Layer B semantic claims without source pointer and source hash.
+
+This slice intentionally does not promote model output into confirmed ontology, does not use RDF/OWL as canonical storage, and does not wire ontology invariant checks into patch application yet.
+
 ## Runtime Use
 
 ### `rpotato init`

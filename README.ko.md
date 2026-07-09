@@ -240,6 +240,14 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato monitor export --format jsonl`
 - `rpotato monitor export --format csv`
 - `rpotato monitor prune --before 30d --dry-run`
+- `rpotato ontology status`
+- `rpotato ontology seed`
+- `rpotato ontology inspect`
+- `rpotato ontology context --query <text>`
+- `rpotato ontology reread <source-pointer>`
+- `rpotato ontology export --format json`
+- `rpotato ontology export --format jsonl`
+- `rpotato ontology import --file <path> --dry-run`
 - `rpotato benchmark validate <fixture.json>`
 - `rpotato benchmark record --fixture <fixture.json>`
 - `rpotato benchmark run --fixture <fixture.json> --prompt <artifact> [--max-tokens <tokens>]`
@@ -270,7 +278,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato uninstall --keep-cache`
 - `rpotato uninstall --purge-cache`
 
-`rpotato init`은 app data root와 project-local `.rpotato/` 아래에 current-state, append-only ledger, runtime evidence JSONL, SQLite observability projection을 초기화합니다.
+`rpotato init`은 app data root와 project-local `.rpotato/` 아래에 current-state, append-only ledger, runtime evidence JSONL, SQLite observability projection, project-local ontology store/schema를 초기화합니다. Ontology store에는 raw source text를 장기 저장하지 않고, source-backed project file에서 결정적 Layer A fact만 source pointer와 hash로 seed합니다.
 
 `state reconcile`은 stale/corrupt current-state를 보존 이동한 뒤 새 current-state를 기록합니다. `state resume`은 active workflow pointer를 감지하거나, 재개할 작업이 없으면 no-op ledger event를 남깁니다.
 
@@ -289,6 +297,8 @@ MVP의 기본 결정은 다음과 같습니다.
 `patch preview`는 project-local text file을 읽고 명시적인 단일 find/replace proposal에 대한 unified diff를 렌더링하며, `.rpotato/patch-proposals/` 아래에 project-local proposal record를 저장하고 approval token을 출력합니다. `patch approve <proposal-id> --token <token> --dry-run`은 token을 검증하고 target file을 수정하지 않은 채 approval gate를 기록합니다. `--dry-run` 없이 실행하면 current file SHA-256이 preview 당시 original SHA-256과 일치할 때만 승인된 proposal을 적용하고, rollback record를 쓴 뒤 applied SHA-256을 검증해 ledger event를 남깁니다. `--verify-command <command>`는 apply 이후 allow 정책을 통과한 단순 argv verification command만 실행하며, verification 실패 시 rollback을 시도하고 성공으로 보고하지 않습니다.
 
 `monitor baseline`은 local ledger/SQLite projection metric을 읽어 p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, model/backend/session grouping을 보여주는 read-only performance baseline report를 출력합니다. Raw prompt/source text는 저장하지 않으며 model artifact를 선택하지 않습니다. `monitor optimize`는 이 local metric과 `measured-locally` benchmark row만 읽어 context budget, team lane count, fallback mode, model route hint를 추천합니다. 실제 model artifact를 선택하거나 public benchmark parity를 주장하지 않습니다. `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
+
+`ontology status`, `ontology seed`, `ontology inspect`는 project-local `.rpotato/ontology/graph.jsonl` typed graph store와 `.rpotato/ontology/schema.json` contract를 다룹니다. Layer A seed는 indexed file, package manifest, entrypoint, generated-exclusion rule 같은 결정적 사실을 source pointer와 SHA-256 hash로 기록합니다. `ontology context --query <text>`는 작은 모델 prompt용 source-pointer-first compact context view를 렌더링합니다. `ontology reread <source-pointer>`는 edit decision 전에 authoritative project file을 다시 열고 현재 file hash를 보고합니다. `ontology export --format json|jsonl`은 inspection view만 내보내며, JSON/YAML/RDF/OWL류 export가 runtime store보다 더 authoritative하지 않습니다. `ontology import --file <path> --dry-run`은 import 후보를 검증하고 source pointer/hash 없는 confirmed Layer B semantic claim을 차단합니다.
 
 공식 binary download는 GitHub Releases로 배포합니다. v0.24.2부터 release workflow는 macOS Apple Silicon(`aarch64-apple-darwin`), macOS Intel(`x86_64-apple-darwin`), Windows x86_64(`x86_64-pc-windows-msvc`)용 `rpotato` archive를 만들고, basename-only `.sha256` checksum file과 aggregate checksums file을 생성하며, asset upload 전에 packaged binary smoke test를 실행합니다.
 

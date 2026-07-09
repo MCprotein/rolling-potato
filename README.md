@@ -237,6 +237,14 @@ Implemented command surfaces:
 - `rpotato monitor export --format jsonl`
 - `rpotato monitor export --format csv`
 - `rpotato monitor prune --before 30d --dry-run`
+- `rpotato ontology status`
+- `rpotato ontology seed`
+- `rpotato ontology inspect`
+- `rpotato ontology context --query <text>`
+- `rpotato ontology reread <source-pointer>`
+- `rpotato ontology export --format json`
+- `rpotato ontology export --format jsonl`
+- `rpotato ontology import --file <path> --dry-run`
 - `rpotato benchmark validate <fixture.json>`
 - `rpotato benchmark record --fixture <fixture.json>`
 - `rpotato benchmark report --format jsonl`
@@ -266,7 +274,7 @@ Implemented command surfaces:
 - `rpotato uninstall --keep-cache`
 - `rpotato uninstall --purge-cache`
 
-`rpotato init` initializes the app data root and project-local `.rpotato/` state, including current state, append-only ledgers, runtime evidence JSONL, and a SQLite observability projection.
+`rpotato init` initializes the app data root and project-local `.rpotato/` state, including current state, append-only ledgers, runtime evidence JSONL, a SQLite observability projection, and the project-local ontology store/schema. It seeds deterministic Layer A facts from source-backed project files without storing raw source text in the ontology store.
 
 `state reconcile` preserves stale or corrupt current-state files before writing a fresh current-state file. `state resume` detects an active workflow pointer or records a no-op ledger event when there is nothing to resume.
 
@@ -285,6 +293,8 @@ Implemented command surfaces:
 `patch preview` reads a project-local text file, renders a unified diff for a single explicit find/replace proposal, writes a project-local proposal record under `.rpotato/patch-proposals/`, and prints an approval token. `patch approve <proposal-id> --token <token> --dry-run` verifies the token and records the approval gate without modifying the target file. Without `--dry-run`, `patch approve` applies the approved proposal only when the current file SHA-256 still matches the previewed original SHA-256, writes a rollback record, verifies the applied SHA-256, and records a ledger event. `--verify-command <command>` runs an allow-listed simple argv verification command after apply; verification failure attempts rollback and is not reported as success.
 
 `monitor baseline` aggregates local ledger/SQLite projection metrics into a read-only performance baseline report with p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, and model/backend/session grouping. It does not store raw prompt/source text and does not choose model artifacts. `monitor optimize` reads those local metrics plus `measured-locally` benchmark rows and recommends a context budget, team lane count, fallback mode, and model route hint without selecting a real model artifact or claiming public benchmark parity. `monitor export` emits the runtime ledger as JSONL or CSV. `monitor prune` is currently dry-run only.
+
+`ontology status`, `ontology seed`, and `ontology inspect` manage the project-local `.rpotato/ontology/graph.jsonl` typed graph store and `.rpotato/ontology/schema.json` contract. Layer A seed records deterministic facts such as indexed files, package manifests, entrypoints, and generated-exclusion rules with source pointers and SHA-256 hashes. `ontology context --query <text>` renders a compact source-pointer-first context view for small-model prompts. `ontology reread <source-pointer>` reopens the authoritative project file and reports the current file hash before any edit decision. `ontology export --format json|jsonl` emits inspection views only; JSON/YAML/RDF/OWL-style exports are not more authoritative than the runtime store. `ontology import --file <path> --dry-run` validates import candidates and blocks confirmed Layer B semantic claims that lack source pointers and source hashes.
 
 Official binary downloads are distributed through GitHub Releases. Starting in v0.24.2, the release workflow builds macOS Apple Silicon (`aarch64-apple-darwin`), macOS Intel (`x86_64-apple-darwin`), and Windows x86_64 (`x86_64-pc-windows-msvc`) `rpotato` archives, emits matching basename-only `.sha256` checksum files plus an aggregate checksums file, and runs packaged-binary smoke tests before uploading assets.
 

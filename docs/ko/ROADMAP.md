@@ -39,6 +39,6 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | v0.24.1 | Released | Checksum workflow fix: basename-only `.sha256` path, aggregate release upload repository context, checksum path smoke guard |
 | v0.24.2 | Released | Aggregate checksum checkout fix: checksum job이 repo-local checksum guard 실행 전 repo를 checkout |
 | v0.25.0 | Released | Verified model install gate: source-backed candidate는 registry 등록 전 local promotion evidence, artifact checksum/size, backend smoke ledger, RAM/mmproj evidence, measured benchmark row가 필요 |
-| v0.26.0 | Planned | Ontology runtime store: canonical internal typed graph/store, compact context view, source-pointer reread rule, import/export inspection view |
+| v0.26.0 | Released | Ontology runtime store: project-local canonical typed graph JSONL, Layer A seed, compact context view, source-pointer reread rule, import/export inspection view |
 | v0.27.0 | Planned | Plugin adapter hardening: Codex local-directory import completion, Claude Code adapter follow-up, external command/MCP/background permission 기본 차단 |
 | v0.28.0+ | Planned | Post-MVP packaging decision: Homebrew/Scoop/winget 결정, Linux x86_64와 Linux ARM64 artifact, optional local HTML report/dashboard |

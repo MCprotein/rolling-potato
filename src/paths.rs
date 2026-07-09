@@ -149,3 +149,15 @@ pub fn project_patch_proposals_dir() -> PathBuf {
 pub fn project_approval_requests_dir() -> PathBuf {
     project_state_dir().join("approval-requests")
 }
+
+pub fn project_ontology_dir() -> PathBuf {
+    project_state_dir().join("ontology")
+}
+
+pub fn project_ontology_store_file() -> PathBuf {
+    project_ontology_dir().join("graph.jsonl")
+}
+
+pub fn project_ontology_schema_file() -> PathBuf {
+    project_ontology_dir().join("schema.json")
+}

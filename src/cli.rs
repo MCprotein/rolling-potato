@@ -1,4 +1,5 @@
 use crate::app::AppError;
+use crate::ontology;
 use crate::{benchmark, resource};
 
 pub const HELP: &str = "\
@@ -60,6 +61,14 @@ rpotato
   rpotato monitor export --format jsonl
   rpotato monitor export --format csv
   rpotato monitor prune --before 30d --dry-run
+  rpotato ontology status
+  rpotato ontology seed
+  rpotato ontology inspect
+  rpotato ontology context --query <text>
+  rpotato ontology reread <source-pointer>
+  rpotato ontology export --format json
+  rpotato ontology export --format jsonl
+  rpotato ontology import --file <path> --dry-run
   rpotato benchmark validate <fixture.json>
   rpotato benchmark record --fixture <fixture.json>
   rpotato benchmark run --fixture <fixture.json> --prompt <artifact> [--max-tokens <tokens>]
@@ -98,6 +107,7 @@ rpotato
   team governor는 dispatcher 진입 전 context/model budget clamp와 downgrade/escalation hint를 기록합니다.
   benchmark record는 metadata-only not-comparable run을 기록하고, benchmark run은 실행 중인 backend sidecar로 local measured run을 기록합니다.
   monitor optimize는 측정된 local metric과 benchmark evidence만으로 context/lane/fallback/model route hint를 추천합니다.
+  ontology store는 project-local typed graph JSONL을 canonical runtime store로 두고, source-pointer-first compact context view와 원문 reread rule을 제공합니다.
   모델 registry install은 source-backed manifest와 local promotion evidence가 검증되기 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -121,6 +131,7 @@ pub enum Command {
     Backend(BackendCommand),
     CacheStatus,
     Monitor(MonitorCommand),
+    Ontology(OntologyCommand),
     Benchmark(BenchmarkCommand),
     Model(ModelCommand),
     Plugin(PluginCommand),
@@ -152,6 +163,26 @@ pub enum BenchmarkCommand {
     },
     Report {
         format: benchmark::BenchmarkReportFormat,
+    },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum OntologyCommand {
+    Status,
+    Seed,
+    Inspect,
+    Context {
+        query: String,
+    },
+    Reread {
+        pointer: String,
+    },
+    Export {
+        format: ontology::OntologyExportFormat,
+    },
+    Import {
+        path: String,
+        dry_run: bool,
     },
 }
 
@@ -589,6 +620,35 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         }
         [group, ..] if group == "monitor" => Err(AppError::usage(
             "monitor 명령은 status, models, baseline, optimize, export, prune만 허용합니다.",
+        )),
+        [group, action] if group == "ontology" && action == "status" => {
+            Ok(Command::Ontology(OntologyCommand::Status))
+        }
+        [group, action] if group == "ontology" && action == "seed" => {
+            Ok(Command::Ontology(OntologyCommand::Seed))
+        }
+        [group, action] if group == "ontology" && action == "inspect" => {
+            Ok(Command::Ontology(OntologyCommand::Inspect))
+        }
+        [group, action, rest @ ..] if group == "ontology" && action == "context" => {
+            parse_ontology_context(rest).map(Command::Ontology)
+        }
+        [group, action, pointer] if group == "ontology" && action == "reread" => {
+            Ok(Command::Ontology(OntologyCommand::Reread {
+                pointer: pointer.clone(),
+            }))
+        }
+        [group, action, ..] if group == "ontology" && action == "reread" => Err(
+            AppError::usage("ontology reread에는 <source-pointer>가 필요합니다."),
+        ),
+        [group, action, rest @ ..] if group == "ontology" && action == "export" => {
+            parse_ontology_export(rest).map(Command::Ontology)
+        }
+        [group, action, rest @ ..] if group == "ontology" && action == "import" => {
+            parse_ontology_import(rest).map(Command::Ontology)
+        }
+        [group, ..] if group == "ontology" => Err(AppError::usage(
+            "ontology 명령은 status, seed, inspect, context, reread, export, import만 허용합니다.",
         )),
         [group, action, path] if group == "benchmark" && action == "validate" => {
             Ok(Command::Benchmark(BenchmarkCommand::Validate {
@@ -1118,6 +1178,91 @@ fn parse_monitor_export(args: &[String]) -> Result<MonitorCommand, AppError> {
     }
 }
 
+fn parse_ontology_context(args: &[String]) -> Result<OntologyCommand, AppError> {
+    match args {
+        [flag, rest @ ..] if flag == "--query" => {
+            if rest.is_empty() {
+                return Err(AppError::usage(
+                    "ontology context에는 --query <text> 값이 필요합니다.",
+                ));
+            }
+            Ok(OntologyCommand::Context {
+                query: rest.join(" "),
+            })
+        }
+        _ => Err(AppError::usage(
+            "ontology context는 --query <text> 형식이 필요합니다.",
+        )),
+    }
+}
+
+fn parse_ontology_export(args: &[String]) -> Result<OntologyCommand, AppError> {
+    match args {
+        [flag, format] if flag == "--format" => {
+            let format = match format.as_str() {
+                "json" => ontology::OntologyExportFormat::Json,
+                "jsonl" => ontology::OntologyExportFormat::Jsonl,
+                _ => {
+                    return Err(AppError::usage(
+                        "ontology export format은 json 또는 jsonl만 허용합니다.",
+                    ));
+                }
+            };
+            Ok(OntologyCommand::Export { format })
+        }
+        _ => Err(AppError::usage(
+            "ontology export에는 --format json 또는 --format jsonl 형식이 필요합니다.",
+        )),
+    }
+}
+
+fn parse_ontology_import(args: &[String]) -> Result<OntologyCommand, AppError> {
+    let mut path = None;
+    let mut dry_run = false;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--file" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "ontology import --file에는 path가 필요합니다.",
+                    ));
+                };
+                if path.is_some() {
+                    return Err(AppError::usage(
+                        "ontology import --file은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                path = Some(value.clone());
+                index += 2;
+            }
+            "--dry-run" => {
+                dry_run = true;
+                index += 1;
+            }
+            unknown => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 ontology import 옵션입니다: {unknown}"
+                )));
+            }
+        }
+    }
+
+    let Some(path) = path else {
+        return Err(AppError::usage(
+            "ontology import에는 --file <path>가 필요합니다.",
+        ));
+    };
+    if !dry_run {
+        return Err(AppError::usage(
+            "ontology import는 현재 --dry-run을 명시해야 합니다.",
+        ));
+    }
+
+    Ok(OntologyCommand::Import { path, dry_run })
+}
+
 fn parse_benchmark_record(args: &[String]) -> Result<BenchmarkCommand, AppError> {
     match args {
         [flag, fixture] if flag == "--fixture" => Ok(BenchmarkCommand::Record {
@@ -1592,6 +1737,76 @@ fn parse_plugin_import(args: &[String]) -> Result<PluginCommand, AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_ontology_context_query() {
+        let command = parse([
+            "ontology".to_string(),
+            "context".to_string(),
+            "--query".to_string(),
+            "runtime".to_string(),
+            "entrypoint".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Ontology(OntologyCommand::Context {
+                query: "runtime entrypoint".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_ontology_reread() {
+        let command = parse([
+            "ontology".to_string(),
+            "reread".to_string(),
+            "src/main.rs:1".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Ontology(OntologyCommand::Reread {
+                pointer: "src/main.rs:1".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_ontology_export_jsonl() {
+        let command = parse([
+            "ontology".to_string(),
+            "export".to_string(),
+            "--format".to_string(),
+            "jsonl".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Ontology(OntologyCommand::Export {
+                format: ontology::OntologyExportFormat::Jsonl
+            })
+        );
+    }
+
+    #[test]
+    fn parses_ontology_import_dry_run() {
+        let command = parse([
+            "ontology".to_string(),
+            "import".to_string(),
+            "--file".to_string(),
+            "ontology-view.jsonl".to_string(),
+            "--dry-run".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Ontology(OntologyCommand::Import {
+                path: "ontology-view.jsonl".to_string(),
+                dry_run: true
+            })
+        );
+    }
 
     #[test]
     fn parses_model_install() {
