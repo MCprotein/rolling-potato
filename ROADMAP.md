@@ -39,7 +39,7 @@ evidence.
 | v0.24.0 | Released | Cross-platform release hardening: macOS Intel artifact, aggregate checksum publication, Windows keep-cache/purge-cache uninstall smoke, release notes template |
 | v0.24.1 | Released | Checksum workflow fix: basename-only `.sha256` paths, aggregate release upload repository context, checksum path smoke guard |
 | v0.24.2 | Released | Aggregate checksum checkout fix: checksum job checks out repo before running repo-local checksum guard |
-| v0.25.0 | Planned | Verified model install path: promote source-backed candidates only after local evidence, registry registration, install download flow, RAM/mmproj evidence gate |
+| v0.25.0 | Released | Verified model install gate: source-backed candidates require local promotion evidence, artifact checksum/size, backend smoke ledger, RAM/mmproj evidence, measured benchmark row before registry registration |
 | v0.26.0 | Planned | Ontology runtime store: canonical internal typed graph/store, compact context views, source-pointer reread rules, import/export inspection views |
 | v0.27.0 | Planned | Plugin adapter hardening: Codex local-directory import completion, Claude Code adapter follow-up, default-deny external commands/MCP/background permissions |
 | v0.28.0+ | Planned | Post-MVP packaging decisions: Homebrew/Scoop/winget decision, Linux x86_64 and Linux ARM64 artifacts, optional local HTML report/dashboard |

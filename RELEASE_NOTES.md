@@ -1,5 +1,41 @@
 # Release Notes
 
+## v0.25.0 - Verified Model Install Gate
+
+Release date: 2026-07-10
+
+This release adds the first registry install path for source-backed model
+candidates, gated by local evidence instead of unsupported model claims.
+
+### Included
+
+- Added `rpotato model promote <id> --evidence <file>` to validate local
+  promotion evidence before registry installation.
+- Promotion now requires source-backed artifact size/SHA-256 match, a backend
+  smoke ledger event, RAM-fit/mmproj fields, and a SQLite
+  `measured-locally` benchmark row with matching peak RSS.
+- `rpotato model install <id>` now registers a model only when the static
+  manifest is `verified` or the normalized local promotion evidence revalidates.
+- Model registry entries now record promotion evidence path, backend version,
+  and benchmark run id.
+- README and model manifest docs now document the fetch, benchmark, promote,
+  install flow and the promotion evidence JSON schema.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test --locked` (203 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.25.0`
+- `RPOTATO_DATA_HOME=<tmp> RPOTATO_PROJECT_ROOT=<tmp> target/release/rpotato model install qwen3.5-4b` (expected block before promotion evidence)
+
+### Boundary
+
+This release does not claim Qwen or Gemma public benchmark parity, does not
+bundle model weights, and does not auto-promote a model without local evidence.
+
 ## v0.24.2 - Aggregate Checksum Checkout Fix
 
 Release date: 2026-07-09

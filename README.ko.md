@@ -102,8 +102,12 @@ rpotato team dispatch --lanes 2 --write-owner 1:src/team.rs --write-owner 2:src/
 rpotato team dispatch --lanes 3 --write-owner 1:src/team.rs --write-owner 2:src/cli.rs --write-owner 3:src/app.rs --failed-lane 2 --failure "worker timed out"
 rpotato team governor --lanes 2 --context-tokens 6000 --context-limit 4096 --model-tier standard
 rpotato model list
-rpotato model knowledge
-rpotato model knowledge inspect qwen3.5-4b
+rpotato model manifest
+rpotato model inspect qwen3.5-4b
+rpotato model eval-plan qwen3.5-4b
+rpotato model benchmark-plan qwen3.5-4b
+rpotato model fetch-candidate qwen3.5-4b --for-evaluation
+rpotato model promote qwen3.5-4b --evidence evidence/qwen3.5-4b-local.json
 rpotato model install qwen3.5-4b
 rpotato backend doctor
 rpotato cache status
@@ -136,8 +140,9 @@ Plugin adapter는 marketplace를 거치지 않습니다. 사용자가 직접 가
 6. CLI surface가 사용자 승인 prompt를 표시한다.
 7. runtime core가 이어받기 가능한 방식으로 모델을 다운로드한다.
 8. runtime core가 해시를 검증한다.
-9. runtime core가 로컬 설정에 모델을 등록한다.
-10. runtime core가 추론 백엔드를 시작하거나 기존 프로세스를 재사용한다.
+9. runtime core가 local smoke, RAM/mmproj, measured benchmark evidence가 있을 때만 후보를 승격한다.
+10. runtime core가 로컬 설정에 모델을 등록한다.
+11. runtime core가 추론 백엔드를 시작하거나 기존 프로세스를 재사용한다.
 
 모델 가중치는 `rpotato` release artifact에 포함하지 않습니다.
 `llama.cpp`도 사용자가 직접 전역 설치하지 않아도 되는 관리형 sidecar를 기본 경로로 둡니다.
@@ -248,6 +253,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato model benchmark-plan <id>`
 - `rpotato model fetch-candidate <id> --for-evaluation`
 - `rpotato model verify-file <path> --sha256 <hash>`
+- `rpotato model promote <id> --evidence <file>`
 - `rpotato model cleanup-failed <id> --dry-run`
 - `rpotato model install <id>`
 - `rpotato plugin import --from codex <local-path> --dry-run`
@@ -288,7 +294,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `benchmark validate <fixture.json>`는 project-local benchmark fixture metadata를 검증합니다. Runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence record, abstention requirement, ontology view, context budget, backend/model artifact identifier, sampling policy, raw artifact retention policy를 확인합니다. `benchmark record --fixture <fixture.json>`는 metadata-only benchmark run을 append-only ledger와 SQLite `benchmark_runs` projection에 기록합니다. 이 기록은 `claim_state=not-comparable`, score 없음, reproducibility manifest, redacted local report만 포함합니다. `benchmark run --fixture <fixture.json> --prompt <artifact> [--max-tokens <tokens>]`는 실행 중인 backend sidecar에 prompt artifact를 보내고 `claim_state=measured-locally`, deterministic 0-3 local product score, `model_run_id`, token/latency/resource summary, redacted reproducibility field를 기록합니다. SQLite에는 raw prompt/source text를 저장하지 않습니다. `benchmark report --format jsonl`은 redacted benchmark record를 JSONL로 출력합니다. Benchmark output은 public benchmark parity를 주장하지 않습니다.
 
-`model list`, `model manifest`, `model inspect`, `model registry`, `model download-plan`은 source-backed manifest schema, 후보 상태, 공개 benchmark source ledger, local registry 위치, 다운로드 전 source/license/checksum 표시 항목을 보여줍니다. Qwen과 Gemma는 pinned revision URL, LFS SHA-256, file size가 기록된 source-backed `unverified` GGUF artifact 후보를 갖습니다. `model eval-plan <id>`는 read-only 로컬 평가 preflight입니다. source-backed artifact field, app-data artifact 존재 여부, size/SHA-256 상태, 다음 smoke/benchmark 명령을 다운로드 없이 확인합니다. `model benchmark-plan <id>`는 공개 benchmark 재현 조건과 로컬 제품 benchmark fixture를 분리하고 artifact, quantization, backend, prompt, dataset, scoring 조건이 함께 기록되기 전까지 점수 parity를 거부합니다. `model fetch-candidate <id> --for-evaluation`은 명시적인 평가 전용 다운로드 경로입니다. app-managed partial resume을 지원하고 size/SHA-256을 검증한 뒤 ledger event를 남기지만, 설치된 모델로 registry 등록하지 않습니다. `model verify-file`은 로컬 파일 bytes의 SHA-256을 검증하고 ledger event를 남깁니다. `model cleanup-failed`는 app data 내부의 partial/failed artifact만 dry-run 또는 명시적 delete 대상으로 삼습니다. `model install`은 후보를 `verified`로 승격하기 전까지 registry 설치를 차단하며, local `llama.cpp b9878` smoke, RAM fit, mmproj 필요 여부, benchmark evidence가 남아 있습니다.
+`model list`, `model manifest`, `model inspect`, `model registry`, `model download-plan`은 source-backed manifest schema, 후보 상태, 공개 benchmark source ledger, local registry 위치, 다운로드 전 source/license/checksum 표시 항목을 보여줍니다. Qwen과 Gemma는 pinned revision URL, LFS SHA-256, file size가 기록된 source-backed `unverified` GGUF artifact 후보를 갖습니다. `model eval-plan <id>`는 read-only 로컬 평가 preflight입니다. source-backed artifact field, app-data artifact 존재 여부, size/SHA-256 상태, 다음 smoke/benchmark 명령을 다운로드 없이 확인합니다. `model benchmark-plan <id>`는 공개 benchmark 재현 조건과 로컬 제품 benchmark fixture를 분리하고 artifact, quantization, backend, prompt, dataset, scoring 조건이 함께 기록되기 전까지 점수 parity를 거부합니다. `model fetch-candidate <id> --for-evaluation`은 명시적인 평가 전용 다운로드 경로입니다. app-managed partial resume을 지원하고 size/SHA-256을 검증한 뒤 ledger event를 남기지만, 설치된 모델로 registry 등록하지 않습니다. `model verify-file`은 로컬 파일 bytes의 SHA-256을 검증하고 ledger event를 남깁니다. `model promote <id> --evidence <file>`은 local promotion evidence JSON을 app-managed artifact, backend smoke ledger event, RAM-fit/mmproj field, SQLite `measured-locally` benchmark row와 대조해 검증한 뒤 `models/evidence/<model-id>.promotion.json`을 기록합니다. `model cleanup-failed`는 app data 내부의 partial/failed artifact만 dry-run 또는 명시적 delete 대상으로 삼습니다. `model install`은 static `verified` manifest entry가 있거나 local promotion evidence가 여전히 재검증될 때만 registry에 등록합니다.
 
 `backend doctor`는 관리형 `llama.cpp` sidecar discovery, env override path, port, health URL, executable bit, install gate, 기록된 managed binary의 version detection을 보여줍니다. `backend install-plan`은 지원 OS/CPU 조합에 대해 source-backed `llama.cpp` release `b9878` CPU artifact를 선택하고 release URL, archive URL, SHA-256, size, license source, download path를 표시합니다. `backend install`은 archive를 다운로드하거나 cache를 재사용하고, size와 SHA-256을 검증한 뒤 staging에서 압축을 풀어 release payload를 managed backend directory에 배치합니다. Unix에서는 실행 권한을 설정하고, 교체 실패 시 rollback하며, install record와 ledger event를 남깁니다. `backend start --model <path> [--ctx-size <tokens>]`는 명시된 로컬 모델 파일과 선택적 runtime context limit으로 selected sidecar를 시작하고 pid/log path를 기록한 뒤 `/health`를 기다리며 CPU/RSS/disk resource status를 sampling하고, startup timeout이면 child를 종료합니다. `backend status`는 sidecar pid record, health 상태, 실행 중인 sidecar의 최신 sampled resource pressure를 읽고, `backend stop`은 stale record를 제거하거나 기록된 sidecar를 종료합니다. Env override binary는 `doctor`가 실행하지 않으며 명시적인 lifecycle 명령에서만 실행됩니다. `backend verify-archive`는 로컬 backend archive SHA-256을 검증합니다. `backend health-check`는 선택된 host/port의 `/health`를 짧은 timeout으로 진단합니다. `backend chat --prompt <text> [--max-tokens <tokens>]`는 요청 전에 실행 중인 sidecar를 sampling하고, critical resource pressure에서는 chat을 차단하며, degraded pressure에서는 더 작은 effective max-token budget으로 clamp한 뒤 `/v1/chat/completions`를 호출합니다. Qwen3.5 thinking은 `chat_template_kwargs.enable_thinking=false`로 끄며, 누수된 `<think>` trace는 표시 전에 제거하고 raw prompt/response 없이 token 사용량과 redacted resource sample을 ledger에 기록합니다.
 
@@ -298,7 +304,7 @@ Backend CPU/RSS/disk resource sampling은 `backend start`, `backend status`, `ba
 
 다음 구현 전 작업:
 
-- source-recorded GGUF artifact 후보의 local smoke/RAM-fit/mmproj 검증
+- source-recorded GGUF artifact 후보의 반복 가능한 local smoke/RAM-fit/mmproj 증거 수집
 - `Qwen3.5-4B` Q4_K_M 후보와 `Gemma 4 E4B` IT QAT q4_0 후보 벤치마크
 - 실제 agent loop의 transcript replay와 active workflow resume 실행
 - streaming response path와 generation cancellation path 설계

@@ -203,7 +203,7 @@ local smoke 또는 benchmark 실행 전 `rpotato model eval-plan <id>`를 실행
 - `rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32`는 benchmark run `benchmark-event-1783583665619790000-97803-benchmark-run-executed`를 기록했습니다. 결과는 `claim_state=measured-locally`, score `3/3`, `local_pass=true`, expected markers `1/1`, forbidden matches `0`, latency `243ms`, `28.806584` tokens/sec, `prompt tokens: 76`, `completion tokens: 7`, `total tokens: 83`, resource pressure `normal`, peak RSS `3351363584` bytes입니다.
 - 측정 후 `rpotato backend stop`으로 sidecar를 중지했습니다.
 
-이 증거만으로 Qwen3.5-4B를 `verified`로 승격하지 않습니다. 다만 non-thinking chat path 기반 첫 executable local smoke benchmark는 통과했습니다. Gemma 비교, 더 넓은 prompt compiler behavior, source-read/hallucination scoring, public benchmark parity는 아직 열려 있습니다.
+이 증거만으로 Qwen3.5-4B를 자동으로 `verified` 승격하지 않습니다. v0.25.0부터 승격에는 `rpotato model promote qwen3.5-4b --evidence <file>`이 필요하며, evidence file은 app-managed artifact, backend smoke ledger event, RAM-fit/mmproj field, SQLite `measured-locally` benchmark row와 일치해야 합니다. 위 증거는 non-thinking chat path 기반 첫 executable local smoke benchmark 통과를 증명합니다. Gemma 비교, 더 넓은 prompt compiler behavior, source-read/hallucination scoring, public benchmark parity는 아직 열려 있습니다.
 
 ## `verified` 승격 전 확인 사항
 

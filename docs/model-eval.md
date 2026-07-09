@@ -203,7 +203,7 @@ Checked 2026-07-09:
 - `rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32` recorded benchmark run `benchmark-event-1783583665619790000-97803-benchmark-run-executed` with `claim_state=measured-locally`, score `3/3`, `local_pass=true`, expected markers `1/1`, forbidden matches `0`, latency `243ms`, `28.806584` tokens/sec, `prompt tokens: 76`, `completion tokens: 7`, `total tokens: 83`, resource pressure `normal`, and peak RSS `3351363584` bytes.
 - The sidecar was stopped after the measurement with `rpotato backend stop`.
 
-This evidence does not promote Qwen3.5-4B to `verified`. It proves the first executable local smoke benchmark through the non-thinking chat path. Gemma comparison, broader prompt compiler behavior, source-read/hallucination scoring, and public benchmark parity remain open.
+This evidence does not automatically promote Qwen3.5-4B to `verified`. Starting in v0.25.0, promotion requires `rpotato model promote qwen3.5-4b --evidence <file>`, where the evidence file must match the app-managed artifact, a backend smoke ledger event, RAM-fit/mmproj fields, and a SQLite `measured-locally` benchmark row. The evidence above proves the first executable local smoke benchmark through the non-thinking chat path. Gemma comparison, broader prompt compiler behavior, source-read/hallucination scoring, and public benchmark parity remain open.
 
 ## Before Confirming An Artifact
 

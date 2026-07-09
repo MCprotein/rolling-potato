@@ -6,6 +6,7 @@ use crate::app::AppError;
 use crate::{checksum, ledger, observability, paths, state};
 
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
+const BYTES_PER_GIB: u64 = 1024 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CandidateStatus {
@@ -103,6 +104,28 @@ struct LocalArtifactState {
     status: &'static str,
     detail: String,
     verified: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PromotionEvidence {
+    model_id: String,
+    artifact_sha256: String,
+    artifact_size_bytes: u64,
+    backend_id: String,
+    backend_version: String,
+    backend_smoke_event_id: String,
+    ram_fit: String,
+    recommended_ram_gb: u32,
+    peak_rss_bytes: u64,
+    mmproj: String,
+    benchmark_run_id: String,
+    recorded_at: String,
+}
+
+#[derive(Debug, Clone)]
+struct PromotionReadiness {
+    validation: InstallValidation,
+    evidence: Option<PromotionEvidence>,
 }
 
 const QWEN_4B_BLOCKERS: &[&str] = &[
@@ -252,7 +275,7 @@ pub fn candidate_summary() -> String {
         counts.verified,
         CANDIDATES
             .iter()
-            .filter(|candidate| validate_install_ready(candidate).ready)
+            .filter(|candidate| install_ready_for_report(candidate))
             .count()
     )
 }
@@ -268,14 +291,17 @@ pub fn list_report() -> String {
         counts.verified,
         CANDIDATES
             .iter()
-            .filter(|candidate| validate_install_ready(candidate).ready)
+            .filter(|candidate| install_ready_for_report(candidate))
             .count(),
         paths::model_registry_dir().display()
     );
 
     for candidate in CANDIDATES {
         let validation = validate_install_ready(candidate);
-        let install_state = if validation.ready {
+        let promotion_ready = local_promotion_readiness(candidate)
+            .map(|readiness| readiness.validation.ready)
+            .unwrap_or(false);
+        let install_state = if validation.ready || promotion_ready {
             "설치 가능"
         } else {
             "설치 차단"
@@ -314,7 +340,7 @@ pub fn list_report() -> String {
 
 pub fn manifest_report() -> String {
     format!(
-        "model manifest schema\n- schemaVersion: 1\n- required status: {}\n- required source-backed fields: upstreamModel, upstreamUrl, license, licenseSource, licenseCheckedAt, artifactUrl, artifactProvider, artifactTermsUrl, sha256, sizeBytes, quantization, backendCompatibility, recommendedRamEvidence\n- benchmark ledger fields: publishedScoreSource, checkedAt, harness, dataset, scoring, backend, quantization, contextLength, localScore, parityStatus\n- install gate: verified status plus valid SHA-256 and non-empty artifact/source/license/backend fields\n- local registry: app data models/registry/<model-id>.json\n- 금지: checksum 없는 설치, license 미표기 설치, 출처 없는 RAM/backend/benchmark claim 확정",
+        "model manifest schema\n- schemaVersion: 1\n- required status: {}\n- required source-backed fields: upstreamModel, upstreamUrl, license, licenseSource, licenseCheckedAt, artifactUrl, artifactProvider, artifactTermsUrl, sha256, sizeBytes, quantization, backendCompatibility, recommendedRamEvidence\n- benchmark ledger fields: publishedScoreSource, checkedAt, harness, dataset, scoring, backend, quantization, contextLength, localScore, parityStatus\n- install gate: static verified manifest 또는 verified-local-promotion evidence\n- local promotion gate: artifact checksum/size match, backend smoke ledger event, RAM-fit evidence, mmproj evidence, measured-local benchmark row\n- local evidence: app data models/evidence/<model-id>.promotion.json\n- local registry: app data models/registry/<model-id>.json\n- 금지: checksum 없는 설치, license 미표기 설치, 출처 없는 RAM/backend/benchmark claim 확정",
         STATUS_SCHEMA
             .iter()
             .map(|status| status.label())
@@ -326,13 +352,21 @@ pub fn manifest_report() -> String {
 pub fn inspect_report(id: &str) -> Result<String, AppError> {
     let candidate = find_candidate(id)?;
     let validation = validate_install_ready(candidate);
+    let promotion = local_promotion_readiness(candidate)?;
     Ok(format!(
-        "model inspect\n- id: {}\n- display name: {}\n- status: {}\n- install ready: {}\n- blockers: {}\n- upstream model: {}\n- upstream source: {}\n- license claim: {}\n- license source: {}\n- license checked-at: {}\n- artifact provider: {}\n- artifact URL: {}\n- artifact terms: {}\n- artifact name: {}\n- format: {}\n- backend: {}\n- quantization: {}\n- sha256: {}\n- size bytes: {}\n- context length: {}\n- recommended RAM GB: {}\n- backend compatibility: {}\n- public benchmark source: {}\n- benchmark checked-at: {}\n- benchmark claim status: {}\n- benchmark harness: {}\n- benchmark dataset: {}\n- benchmark prompt: {}\n- benchmark scoring: {}\n- benchmark hardware/backend: {}\n- reproducibility: {}",
+        "model inspect\n- id: {}\n- display name: {}\n- status: {}\n- install ready: {}\n- blockers: {}\n- local promotion ready: {}\n- local promotion evidence: {}\n- local promotion blockers: {}\n- upstream model: {}\n- upstream source: {}\n- license claim: {}\n- license source: {}\n- license checked-at: {}\n- artifact provider: {}\n- artifact URL: {}\n- artifact terms: {}\n- artifact name: {}\n- format: {}\n- backend: {}\n- quantization: {}\n- sha256: {}\n- size bytes: {}\n- context length: {}\n- recommended RAM GB: {}\n- backend compatibility: {}\n- public benchmark source: {}\n- benchmark checked-at: {}\n- benchmark claim status: {}\n- benchmark harness: {}\n- benchmark dataset: {}\n- benchmark prompt: {}\n- benchmark scoring: {}\n- benchmark hardware/backend: {}\n- reproducibility: {}",
         candidate.id,
         candidate.display_name,
         candidate.status.label(),
-        if validation.ready { "yes" } else { "no" },
+        if validation.ready || promotion.validation.ready {
+            "yes"
+        } else {
+            "no"
+        },
         display_vec(&validation.blockers),
+        if promotion.validation.ready { "yes" } else { "no" },
+        promotion_evidence_path(candidate.id).display(),
+        display_vec(&promotion.validation.blockers),
         candidate.upstream_model,
         candidate.upstream_url,
         candidate.license.claim,
@@ -437,7 +471,10 @@ pub fn eval_plan_report(id: &str) -> Result<String, AppError> {
         "blocked-before-backend-smoke"
     };
     let next = if has_local_measurement {
-        "run the broader product benchmark suite and Gemma comparison before promoting the model to verified.".to_string()
+        format!(
+            "prepare a local promotion evidence JSON, then run `rpotato model promote {} --evidence <file>` before `rpotato model install {}`.",
+            candidate.id, candidate.id
+        )
     } else if local_state.verified {
         format!(
             "run `rpotato backend install-plan`, verify backend state with `rpotato backend doctor`, then run `rpotato backend start --model {} --ctx-size 4096` for local smoke before benchmark scoring.",
@@ -504,6 +541,219 @@ fn local_benchmark_status(artifact: ModelArtifactDescriptor) -> Result<String, A
             .unwrap_or_else(|| "unknown".to_string()),
         row.resource_pressure.as_deref().unwrap_or("unknown")
     ))
+}
+
+fn local_promotion_readiness(
+    candidate: &'static ModelManifestEntry,
+) -> Result<PromotionReadiness, AppError> {
+    let mut blockers = Vec::new();
+    let source_blockers = source_backed_artifact_blockers(candidate);
+    if !source_blockers.is_empty() {
+        blockers.extend(
+            source_blockers
+                .into_iter()
+                .map(|blocker| format!("source-backed artifact: {blocker}")),
+        );
+        return Ok(PromotionReadiness {
+            validation: InstallValidation {
+                ready: false,
+                blockers,
+            },
+            evidence: None,
+        });
+    }
+
+    let evidence_path = promotion_evidence_path(candidate.id);
+    if !evidence_path.exists() {
+        blockers.push(format!(
+            "local promotion evidence 없음: {}",
+            evidence_path.display()
+        ));
+        return Ok(PromotionReadiness {
+            validation: InstallValidation {
+                ready: false,
+                blockers,
+            },
+            evidence: None,
+        });
+    }
+    if !evidence_path.is_file() {
+        return Err(AppError::blocked(format!(
+            "local promotion evidence path가 file이 아닙니다: {}",
+            evidence_path.display()
+        )));
+    }
+
+    let evidence = read_promotion_evidence_file(&evidence_path)?;
+    let artifact = source_backed_artifact(candidate)?;
+    let final_path = model_artifact_path(artifact);
+    let local_state = local_artifact_state(artifact, &final_path)?;
+    let benchmark = promotion_benchmark_run(&evidence, artifact)?;
+    let backend_smoke_event_seen = backend_smoke_event_seen(&evidence.backend_smoke_event_id)?;
+    let validation = validate_promotion_evidence(
+        candidate,
+        &evidence,
+        artifact,
+        &local_state,
+        benchmark.as_ref(),
+        backend_smoke_event_seen,
+    );
+
+    Ok(PromotionReadiness {
+        validation,
+        evidence: Some(evidence),
+    })
+}
+
+fn promotion_benchmark_run(
+    evidence: &PromotionEvidence,
+    artifact: ModelArtifactDescriptor,
+) -> Result<Option<observability::BenchmarkRunReport>, AppError> {
+    if !paths::observability_db_file().exists() {
+        return Ok(None);
+    }
+
+    let expected_model_id = artifact_model_id(artifact);
+    Ok(observability::benchmark_run_reports()?
+        .into_iter()
+        .rev()
+        .find(|row| {
+            row.benchmark_run_id == evidence.benchmark_run_id && row.model_id == expected_model_id
+        }))
+}
+
+fn backend_smoke_event_seen(event_id: &str) -> Result<bool, AppError> {
+    if event_id.trim().is_empty() {
+        return Ok(false);
+    }
+
+    Ok(ledger::read_runtime_events()?.into_iter().any(|event| {
+        event.event_id == event_id
+            && matches!(
+                event.event_type.as_str(),
+                "backend.sidecar.start.completed" | "backend.chat.completed"
+            )
+    }))
+}
+
+fn validate_promotion_evidence(
+    candidate: &ModelManifestEntry,
+    evidence: &PromotionEvidence,
+    artifact: ModelArtifactDescriptor,
+    local_state: &LocalArtifactState,
+    benchmark: Option<&observability::BenchmarkRunReport>,
+    backend_smoke_event_seen: bool,
+) -> InstallValidation {
+    let mut blockers = Vec::new();
+
+    if evidence.model_id != candidate.id {
+        push_unique(
+            &mut blockers,
+            &format!(
+                "evidence modelId가 후보와 다릅니다: expected {}, actual {}",
+                candidate.id, evidence.model_id
+            ),
+        );
+    }
+    if evidence.artifact_sha256 != artifact.sha256 {
+        push_unique(
+            &mut blockers,
+            "evidence artifactSha256이 source-backed manifest와 일치하지 않습니다.",
+        );
+    }
+    if evidence.artifact_size_bytes != artifact.size_bytes {
+        push_unique(
+            &mut blockers,
+            "evidence artifactSizeBytes가 source-backed manifest와 일치하지 않습니다.",
+        );
+    }
+    if evidence.backend_id != candidate.backend {
+        push_unique(
+            &mut blockers,
+            "evidence backendId가 후보 backend와 일치하지 않습니다.",
+        );
+    }
+    if evidence.backend_version.trim().is_empty() {
+        push_unique(&mut blockers, "backendVersion evidence가 비어 있습니다.");
+    }
+    if !backend_smoke_event_seen {
+        push_unique(
+            &mut blockers,
+            "backend smoke ledger event를 확인하지 못했습니다.",
+        );
+    }
+    if !local_state.verified {
+        push_unique(
+            &mut blockers,
+            &format!(
+                "local artifact가 manifest와 일치하지 않습니다: {}",
+                local_state.detail
+            ),
+        );
+    }
+    if evidence.ram_fit != "passed" {
+        push_unique(&mut blockers, "ramFit은 passed여야 합니다.");
+    }
+    if evidence.recommended_ram_gb == 0 {
+        push_unique(&mut blockers, "recommendedRamGb는 1 이상이어야 합니다.");
+    }
+    if evidence.peak_rss_bytes == 0 {
+        push_unique(&mut blockers, "peakRssBytes RAM evidence가 필요합니다.");
+    }
+    let ram_budget_bytes = (evidence.recommended_ram_gb as u64).saturating_mul(BYTES_PER_GIB);
+    if evidence.peak_rss_bytes > ram_budget_bytes {
+        push_unique(
+            &mut blockers,
+            "peakRssBytes가 recommendedRamGb budget을 초과합니다.",
+        );
+    }
+    if !matches!(
+        evidence.mmproj.as_str(),
+        "not-required-text-only" | "not-required" | "required"
+    ) {
+        push_unique(
+            &mut blockers,
+            "mmproj evidence는 not-required-text-only, not-required, required 중 하나여야 합니다.",
+        );
+    }
+
+    match benchmark {
+        Some(row) => {
+            if row.claim_state != "measured-locally" {
+                push_unique(
+                    &mut blockers,
+                    "benchmark claim_state는 measured-locally여야 합니다.",
+                );
+            }
+            if row.local_pass != Some(true) {
+                push_unique(
+                    &mut blockers,
+                    "benchmark local_pass=true evidence가 필요합니다.",
+                );
+            }
+            if row.backend_id.as_deref() != Some(candidate.backend) {
+                push_unique(
+                    &mut blockers,
+                    "benchmark backend_id가 후보 backend와 일치하지 않습니다.",
+                );
+            }
+            if row.peak_rss_bytes != Some(evidence.peak_rss_bytes) {
+                push_unique(
+                    &mut blockers,
+                    "benchmark peak_rss_bytes가 promotion evidence와 일치하지 않습니다.",
+                );
+            }
+        }
+        None => push_unique(
+            &mut blockers,
+            "benchmarkRunId에 대응하는 measured local benchmark evidence가 없습니다.",
+        ),
+    }
+
+    InstallValidation {
+        ready: blockers.is_empty(),
+        blockers,
+    }
 }
 
 fn artifact_model_id(artifact: ModelArtifactDescriptor) -> String {
@@ -583,6 +833,86 @@ pub fn fetch_candidate_for_evaluation_report(id: &str) -> Result<String, AppErro
         final_path.display(),
         event_id,
         final_path.display()
+    ))
+}
+
+pub fn promote_candidate_report(id: &str, evidence_path: &str) -> Result<String, AppError> {
+    let candidate = find_candidate(id)?;
+    let evidence_source = PathBuf::from(evidence_path);
+    let evidence = read_promotion_evidence_file(&evidence_source)?;
+    let artifact = source_backed_artifact(candidate)?;
+    let final_path = model_artifact_path(artifact);
+    let local_state = local_artifact_state(artifact, &final_path)?;
+    let benchmark = promotion_benchmark_run(&evidence, artifact)?;
+    let backend_smoke_event_seen = backend_smoke_event_seen(&evidence.backend_smoke_event_id)?;
+    let validation = validate_promotion_evidence(
+        candidate,
+        &evidence,
+        artifact,
+        &local_state,
+        benchmark.as_ref(),
+        backend_smoke_event_seen,
+    );
+
+    if !validation.ready {
+        let event_id = state::record_event(
+            "model.promotion.blocked",
+            "model local promotion evidence 차단",
+            &format!(
+                "model_id={} evidence={} blockers={}",
+                candidate.id,
+                evidence_source.display(),
+                validation.blockers.join(",")
+            ),
+        )?;
+        return Err(AppError::blocked(format!(
+            "model verified 승격을 차단했습니다\n- id: {}\n- evidence: {}\n- blockers:\n- {}\n- local artifact: {}\n- local benchmark: {}\n- ledger event: {}\n- 다음 단계: artifact checksum/size, backend smoke ledger event, RAM-fit/mmproj 판단, measured-local benchmark를 모두 채운 뒤 다시 실행하세요.",
+            candidate.id,
+            evidence_source.display(),
+            validation.blockers.join("\n- "),
+            local_state.status,
+            benchmark
+                .as_ref()
+                .map(|row| row.benchmark_run_id.as_str())
+                .unwrap_or("missing"),
+            event_id
+        )));
+    }
+
+    let benchmark = benchmark.expect("validated benchmark evidence");
+    persist_promotion_evidence(candidate, &evidence, artifact, &benchmark, &evidence_source)?;
+    let event_id = state::record_event(
+        "model.promotion.verified",
+        "model local promotion evidence 검증 완료",
+        &format!(
+            "model_id={} artifact={} sha256={} benchmark_run_id={} backend_smoke_event_id={} recommended_ram_gb={} peak_rss_bytes={} mmproj={}",
+            candidate.id,
+            final_path.display(),
+            evidence.artifact_sha256,
+            evidence.benchmark_run_id,
+            evidence.backend_smoke_event_id,
+            evidence.recommended_ram_gb,
+            evidence.peak_rss_bytes,
+            evidence.mmproj
+        ),
+    )?;
+
+    Ok(format!(
+        "model local promotion evidence 검증 완료\n- id: {}\n- status: verified-local-promotion\n- evidence source: {}\n- normalized evidence: {}\n- artifact: {}\n- artifact sha256: {}\n- backend: {} {}\n- backend smoke event: {}\n- benchmark run: {}\n- recommended RAM GB: {}\n- peak RSS bytes: {}\n- mmproj: {}\n- ledger event: {}\n- 다음 단계: rpotato model install {} 로 registry 등록을 진행할 수 있습니다.",
+        candidate.id,
+        evidence_source.display(),
+        promotion_evidence_path(candidate.id).display(),
+        final_path.display(),
+        artifact.sha256,
+        evidence.backend_id,
+        evidence.backend_version,
+        evidence.backend_smoke_event_id,
+        benchmark.benchmark_run_id,
+        evidence.recommended_ram_gb,
+        evidence.peak_rss_bytes,
+        evidence.mmproj,
+        event_id,
+        candidate.id
     ))
 }
 
@@ -708,9 +1038,23 @@ pub fn cleanup_failed_report(id: &str, dry_run: bool) -> Result<String, AppError
 
 pub fn install_candidate(id: &str) -> Result<(), AppError> {
     let candidate = find_candidate(id)?;
-    let validation = validate_install_ready(candidate);
+    let manifest_validation = validate_install_ready(candidate);
+    let promotion = local_promotion_readiness(candidate)?;
+    let promotion_ready = promotion.validation.ready;
 
-    if !validation.ready {
+    if !manifest_validation.ready && !promotion_ready {
+        let mut blockers = manifest_validation
+            .blockers
+            .iter()
+            .map(|blocker| format!("manifest: {blocker}"))
+            .collect::<Vec<_>>();
+        blockers.extend(
+            promotion
+                .validation
+                .blockers
+                .iter()
+                .map(|blocker| format!("local promotion: {blocker}")),
+        );
         let event_id = state::record_event(
             "model.install.blocked",
             "미검증 model install 차단",
@@ -718,14 +1062,14 @@ pub fn install_candidate(id: &str) -> Result<(), AppError> {
                 "model_id={} status={} blockers={}",
                 candidate.id,
                 candidate.status.label(),
-                validation.blockers.join(",")
+                blockers.join(",")
             ),
         )?;
         return Err(AppError::blocked(format!(
             "설치를 차단했습니다: {}\n상태: {}\n이유:\n- {}\nsource: {}\nlicense source: {}\nbenchmark source: {}\nlocal registry: {}\nledger event: {}\n다음 단계: source-recorded artifact field를 유지하면서 local backend smoke, RAM-fit/mmproj 측정, byte-level SHA-256 검증, benchmark evidence를 채운 뒤 verified 상태로 승격해야 합니다.",
             candidate.id,
             candidate.status.label(),
-            validation.blockers.join("\n- "),
+            blockers.join("\n- "),
             candidate.upstream_url,
             candidate.license.source,
             candidate.benchmark.source,
@@ -734,17 +1078,32 @@ pub fn install_candidate(id: &str) -> Result<(), AppError> {
         )));
     }
 
-    persist_registry_entry(candidate)?;
+    let promotion_for_registry = if promotion_ready {
+        promotion.evidence.as_ref()
+    } else {
+        None
+    };
+    persist_registry_entry(candidate, promotion_for_registry)?;
     let event_id = state::record_event(
         "model.install.registered",
         "검증된 model registry 등록",
-        &format!("model_id={}", candidate.id),
+        &format!(
+            "model_id={} promotion_ready={} evidence={}",
+            candidate.id,
+            promotion_ready,
+            promotion_evidence_path(candidate.id).display()
+        ),
     )?;
 
     println!(
-        "모델 registry 등록 완료\n- id: {}\n- registry: {}\n- ledger event: {}\n- 동작: 다운로드 실행 경로는 이어받기와 checksum 검증 phase에서 연결합니다.",
+        "모델 registry 등록 완료\n- id: {}\n- registry: {}\n- promotion evidence: {}\n- ledger event: {}\n- 동작: registry 등록 전 artifact checksum/size와 local promotion evidence를 재검증했습니다.",
         candidate.id,
         registry_path(candidate.id).display(),
+        if promotion_ready {
+            promotion_evidence_path(candidate.id).display().to_string()
+        } else {
+            "source-backed manifest verified".to_string()
+        },
         event_id
     );
     Ok(())
@@ -797,6 +1156,13 @@ fn find_candidate(id: &str) -> Result<&'static ModelManifestEntry, AppError> {
                 "알 수 없는 모델 id입니다: {id}\n사용 가능 후보는 `rpotato model list`로 확인하세요."
             ))
         })
+}
+
+fn install_ready_for_report(candidate: &'static ModelManifestEntry) -> bool {
+    validate_install_ready(candidate).ready
+        || local_promotion_readiness(candidate)
+            .map(|readiness| readiness.validation.ready)
+            .unwrap_or(false)
 }
 
 fn validate_install_ready(candidate: &ModelManifestEntry) -> InstallValidation {
@@ -1289,7 +1655,36 @@ impl ModelArtifactFetchStatus {
     }
 }
 
-fn persist_registry_entry(candidate: &ModelManifestEntry) -> Result<(), AppError> {
+fn persist_promotion_evidence(
+    candidate: &ModelManifestEntry,
+    evidence: &PromotionEvidence,
+    artifact: ModelArtifactDescriptor,
+    benchmark: &observability::BenchmarkRunReport,
+    evidence_source: &Path,
+) -> Result<(), AppError> {
+    fs::create_dir_all(paths::model_evidence_dir()).map_err(|err| {
+        AppError::runtime(format!(
+            "model evidence directory를 만들지 못했습니다: {} ({err})",
+            paths::model_evidence_dir().display()
+        ))
+    })?;
+
+    fs::write(
+        promotion_evidence_path(candidate.id),
+        promotion_evidence_json(candidate, evidence, artifact, benchmark, evidence_source),
+    )
+    .map_err(|err| {
+        AppError::runtime(format!(
+            "model promotion evidence를 기록하지 못했습니다: {} ({err})",
+            promotion_evidence_path(candidate.id).display()
+        ))
+    })
+}
+
+fn persist_registry_entry(
+    candidate: &ModelManifestEntry,
+    promotion: Option<&PromotionEvidence>,
+) -> Result<(), AppError> {
     fs::create_dir_all(paths::model_registry_dir()).map_err(|err| {
         AppError::runtime(format!(
             "model registry directory를 만들지 못했습니다: {} ({err})",
@@ -1297,7 +1692,11 @@ fn persist_registry_entry(candidate: &ModelManifestEntry) -> Result<(), AppError
         ))
     })?;
 
-    fs::write(registry_path(candidate.id), registry_entry_json(candidate)).map_err(|err| {
+    fs::write(
+        registry_path(candidate.id),
+        registry_entry_json(candidate, promotion),
+    )
+    .map_err(|err| {
         AppError::runtime(format!(
             "model registry entry를 기록하지 못했습니다: {} ({err})",
             registry_path(candidate.id).display()
@@ -1395,6 +1794,10 @@ fn registry_path(id: &str) -> PathBuf {
     paths::model_registry_dir().join(format!("{id}.json"))
 }
 
+fn promotion_evidence_path(id: &str) -> PathBuf {
+    paths::model_evidence_dir().join(format!("{id}.promotion.json"))
+}
+
 fn failed_artifact_paths(candidate: &ModelManifestEntry) -> Vec<PathBuf> {
     let artifact_name = candidate.artifact_name.unwrap_or(candidate.id);
     vec![
@@ -1404,11 +1807,34 @@ fn failed_artifact_paths(candidate: &ModelManifestEntry) -> Vec<PathBuf> {
     ]
 }
 
-fn registry_entry_json(candidate: &ModelManifestEntry) -> String {
+fn registry_entry_json(
+    candidate: &ModelManifestEntry,
+    promotion: Option<&PromotionEvidence>,
+) -> String {
+    let evidence_status = if promotion.is_some() {
+        "verified-local-promotion"
+    } else {
+        "source-backed-manifest"
+    };
+    let evidence_path = if promotion.is_some() {
+        promotion_evidence_path(candidate.id).display().to_string()
+    } else {
+        String::new()
+    };
+    let backend_version = promotion
+        .map(|evidence| evidence.backend_version.as_str())
+        .unwrap_or("");
+    let benchmark_run_id = promotion
+        .map(|evidence| evidence.benchmark_run_id.as_str())
+        .unwrap_or("");
     format!(
-        "{{\n  \"schemaVersion\": 1,\n  \"id\": \"{}\",\n  \"displayName\": \"{}\",\n  \"status\": \"installed\",\n  \"upstreamModel\": \"{}\",\n  \"upstreamUrl\": \"{}\",\n  \"artifactPath\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"licenseSource\": \"{}\",\n  \"licenseCheckedAt\": \"{}\"\n}}\n",
+        "{{\n  \"schemaVersion\": 1,\n  \"id\": \"{}\",\n  \"displayName\": \"{}\",\n  \"status\": \"installed\",\n  \"evidenceStatus\": \"{}\",\n  \"promotionEvidencePath\": \"{}\",\n  \"backendVersion\": \"{}\",\n  \"benchmarkRunId\": \"{}\",\n  \"upstreamModel\": \"{}\",\n  \"upstreamUrl\": \"{}\",\n  \"artifactPath\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"licenseSource\": \"{}\",\n  \"licenseCheckedAt\": \"{}\"\n}}\n",
         ledger::json_string(candidate.id),
         ledger::json_string(candidate.display_name),
+        ledger::json_string(evidence_status),
+        ledger::json_string(&evidence_path),
+        ledger::json_string(backend_version),
+        ledger::json_string(benchmark_run_id),
         ledger::json_string(candidate.upstream_model),
         ledger::json_string(candidate.upstream_url),
         ledger::json_string(
@@ -1421,6 +1847,108 @@ fn registry_entry_json(candidate: &ModelManifestEntry) -> String {
         ledger::json_string(candidate.license.source),
         ledger::json_string(candidate.license.checked_at)
     )
+}
+
+fn promotion_evidence_json(
+    candidate: &ModelManifestEntry,
+    evidence: &PromotionEvidence,
+    artifact: ModelArtifactDescriptor,
+    benchmark: &observability::BenchmarkRunReport,
+    evidence_source: &Path,
+) -> String {
+    format!(
+        "{{\n  \"schemaVersion\": 1,\n  \"status\": \"verified-local-promotion\",\n  \"modelId\": \"{}\",\n  \"displayName\": \"{}\",\n  \"artifactPath\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"artifactSizeBytes\": {},\n  \"backendId\": \"{}\",\n  \"backendVersion\": \"{}\",\n  \"backendSmokeEventId\": \"{}\",\n  \"ramFit\": \"{}\",\n  \"recommendedRamGb\": {},\n  \"peakRssBytes\": {},\n  \"mmproj\": \"{}\",\n  \"benchmarkRunId\": \"{}\",\n  \"benchmarkName\": \"{}\",\n  \"benchmarkScore\": {},\n  \"benchmarkLocalPass\": {},\n  \"sourceEvidencePath\": \"{}\",\n  \"recordedAt\": \"{}\"\n}}\n",
+        ledger::json_string(candidate.id),
+        ledger::json_string(candidate.display_name),
+        ledger::json_string(&model_artifact_path(artifact).display().to_string()),
+        ledger::json_string(&evidence.artifact_sha256),
+        evidence.artifact_size_bytes,
+        ledger::json_string(&evidence.backend_id),
+        ledger::json_string(&evidence.backend_version),
+        ledger::json_string(&evidence.backend_smoke_event_id),
+        ledger::json_string(&evidence.ram_fit),
+        evidence.recommended_ram_gb,
+        evidence.peak_rss_bytes,
+        ledger::json_string(&evidence.mmproj),
+        ledger::json_string(&benchmark.benchmark_run_id),
+        ledger::json_string(&benchmark.benchmark_name),
+        benchmark
+            .score
+            .map(|score| format!("{score:.6}"))
+            .unwrap_or_else(|| "null".to_string()),
+        benchmark
+            .local_pass
+            .map(|value| if value { "true" } else { "false" })
+            .unwrap_or("null"),
+        ledger::json_string(&evidence_source.display().to_string()),
+        ledger::json_string(&evidence.recorded_at)
+    )
+}
+
+fn read_promotion_evidence_file(path: &Path) -> Result<PromotionEvidence, AppError> {
+    let text = fs::read_to_string(path).map_err(|err| {
+        AppError::runtime(format!(
+            "model promotion evidence를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    parse_promotion_evidence(&text)
+}
+
+fn parse_promotion_evidence(text: &str) -> Result<PromotionEvidence, AppError> {
+    let schema_version = required_json_u64(text, "schemaVersion")?;
+    if schema_version != 1 {
+        return Err(AppError::usage(format!(
+            "model promotion evidence schemaVersion은 1이어야 합니다: {schema_version}"
+        )));
+    }
+
+    let artifact_sha256 = required_json_string(text, "artifactSha256")?;
+    if !checksum::is_valid_sha256(&artifact_sha256) {
+        return Err(AppError::usage(
+            "model promotion evidence artifactSha256은 64자리 hex string이어야 합니다.",
+        ));
+    }
+
+    Ok(PromotionEvidence {
+        model_id: required_json_string(text, "modelId")?,
+        artifact_sha256,
+        artifact_size_bytes: required_json_u64(text, "artifactSizeBytes")?,
+        backend_id: required_json_string(text, "backendId")?,
+        backend_version: required_json_string(text, "backendVersion")?,
+        backend_smoke_event_id: required_json_string(text, "backendSmokeEventId")?,
+        ram_fit: required_json_string(text, "ramFit")?,
+        recommended_ram_gb: required_json_u32(text, "recommendedRamGb")?,
+        peak_rss_bytes: required_json_u64(text, "peakRssBytes")?,
+        mmproj: required_json_string(text, "mmproj")?,
+        benchmark_run_id: required_json_string(text, "benchmarkRunId")?,
+        recorded_at: required_json_string(text, "recordedAt")?,
+    })
+}
+
+fn required_json_string(text: &str, key: &str) -> Result<String, AppError> {
+    extract_json_string(text, key).ok_or_else(|| {
+        AppError::usage(format!(
+            "model promotion evidence에 필수 string field가 없습니다: {key}"
+        ))
+    })
+}
+
+fn required_json_u64(text: &str, key: &str) -> Result<u64, AppError> {
+    extract_json_u64(text, key).ok_or_else(|| {
+        AppError::usage(format!(
+            "model promotion evidence에 필수 number field가 없습니다: {key}"
+        ))
+    })
+}
+
+fn required_json_u32(text: &str, key: &str) -> Result<u32, AppError> {
+    let value = required_json_u64(text, key)?;
+    u32::try_from(value).map_err(|_| {
+        AppError::usage(format!(
+            "model promotion evidence number field가 u32 범위를 넘습니다: {key}"
+        ))
+    })
 }
 
 fn push_unique(values: &mut Vec<String>, value: &str) {
@@ -1437,21 +1965,20 @@ fn display_vec(values: &[String]) -> String {
     }
 }
 
-fn extract_json_string(line: &str, key: &str) -> Option<String> {
-    let needle = format!("\"{key}\":\"");
-    let start = line.find(&needle)? + needle.len();
-    let mut value = String::new();
+fn extract_json_string(text: &str, key: &str) -> Option<String> {
+    let raw_value = json_value_after_key(text, key)?.strip_prefix('"')?;
+    let mut parsed = String::new();
     let mut escaped = false;
 
-    for ch in line[start..].chars() {
+    for ch in raw_value.chars() {
         if escaped {
             match ch {
-                '"' => value.push('"'),
-                '\\' => value.push('\\'),
-                'n' => value.push('\n'),
-                'r' => value.push('\r'),
-                't' => value.push('\t'),
-                other => value.push(other),
+                '"' => parsed.push('"'),
+                '\\' => parsed.push('\\'),
+                'n' => parsed.push('\n'),
+                'r' => parsed.push('\r'),
+                't' => parsed.push('\t'),
+                other => parsed.push(other),
             }
             escaped = false;
             continue;
@@ -1459,12 +1986,33 @@ fn extract_json_string(line: &str, key: &str) -> Option<String> {
 
         match ch {
             '\\' => escaped = true,
-            '"' => return Some(value),
-            other => value.push(other),
+            '"' => return Some(parsed),
+            other => parsed.push(other),
         }
     }
 
     None
+}
+
+fn extract_json_u64(text: &str, key: &str) -> Option<u64> {
+    let value = json_value_after_key(text, key)?;
+    let digits = value
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect::<String>();
+    if digits.is_empty() {
+        return None;
+    }
+
+    digits.parse().ok()
+}
+
+fn json_value_after_key<'a>(text: &'a str, key: &str) -> Option<&'a str> {
+    let quoted_key = format!("\"{key}\"");
+    let key_start = text.find(&quoted_key)?;
+    let after_key = &text[key_start + quoted_key.len()..];
+    let colon = after_key.find(':')?;
+    Some(after_key[colon + 1..].trim_start())
 }
 
 #[cfg(test)]
@@ -1630,6 +2178,100 @@ mod tests {
     }
 
     #[test]
+    fn promotion_evidence_parser_accepts_pretty_json() {
+        let text = r#"{
+  "schemaVersion": 1,
+  "modelId": "qwen3.5-4b",
+  "artifactSha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+  "artifactSizeBytes": 2740937888,
+  "backendId": "llama.cpp",
+  "backendVersion": "b9878",
+  "backendSmokeEventId": "event-backend-chat",
+  "ramFit": "passed",
+  "recommendedRamGb": 16,
+  "peakRssBytes": 3351363584,
+  "mmproj": "not-required-text-only",
+  "benchmarkRunId": "benchmark-local",
+  "recordedAt": "2026-07-10T00:00:00Z"
+}"#;
+
+        let evidence = parse_promotion_evidence(text).unwrap();
+
+        assert_eq!(evidence.model_id, "qwen3.5-4b");
+        assert_eq!(evidence.backend_version, "b9878");
+        assert_eq!(evidence.recommended_ram_gb, 16);
+    }
+
+    #[test]
+    fn promotion_evidence_validation_accepts_measured_local_benchmark() {
+        let candidate = find_candidate("qwen3.5-4b").unwrap();
+        let artifact = source_backed_artifact(candidate).unwrap();
+        let evidence = qwen_promotion_evidence(artifact);
+        let benchmark = qwen_benchmark_report(artifact, &evidence);
+        let local_state = LocalArtifactState {
+            status: "verified-local-artifact",
+            detail: "test artifact verified".to_string(),
+            verified: true,
+        };
+
+        let validation = validate_promotion_evidence(
+            candidate,
+            &evidence,
+            artifact,
+            &local_state,
+            Some(&benchmark),
+            true,
+        );
+
+        assert!(validation.ready, "{:?}", validation.blockers);
+    }
+
+    #[test]
+    fn promotion_evidence_validation_blocks_ram_and_benchmark_gaps() {
+        let candidate = find_candidate("qwen3.5-4b").unwrap();
+        let artifact = source_backed_artifact(candidate).unwrap();
+        let mut evidence = qwen_promotion_evidence(artifact);
+        evidence.ram_fit = "unknown".to_string();
+        evidence.peak_rss_bytes = 20 * BYTES_PER_GIB;
+        let local_state = LocalArtifactState {
+            status: "verified-local-artifact",
+            detail: "test artifact verified".to_string(),
+            verified: true,
+        };
+
+        let validation =
+            validate_promotion_evidence(candidate, &evidence, artifact, &local_state, None, false);
+
+        assert!(!validation.ready);
+        assert!(validation
+            .blockers
+            .iter()
+            .any(|blocker| blocker.contains("ramFit")));
+        assert!(validation
+            .blockers
+            .iter()
+            .any(|blocker| blocker.contains("recommendedRamGb")));
+        assert!(validation
+            .blockers
+            .iter()
+            .any(|blocker| blocker.contains("benchmarkRunId")));
+        assert!(validation
+            .blockers
+            .iter()
+            .any(|blocker| blocker.contains("backend smoke")));
+    }
+
+    #[test]
+    fn registry_parser_accepts_pretty_json_entries() {
+        let text = registry_entry_json(find_candidate("qwen3.5-4b").unwrap(), None);
+        let entry = parse_registry_entry(&text).unwrap();
+
+        assert_eq!(entry.id, "qwen3.5-4b");
+        assert_eq!(entry.status, "installed");
+        assert!(entry.artifact_sha256.starts_with("00fe"));
+    }
+
+    #[test]
     fn eval_plan_blocks_candidate_without_artifact_source() {
         let report = eval_plan_report("qwen3.5-9b").unwrap();
 
@@ -1646,6 +2288,60 @@ mod tests {
         assert!(report.contains("blocked-until-conditions-fixed"));
         assert!(report.contains("local product benchmark suite"));
         assert!(report.contains("published-vs-local rule"));
+    }
+
+    fn qwen_promotion_evidence(artifact: ModelArtifactDescriptor) -> PromotionEvidence {
+        PromotionEvidence {
+            model_id: "qwen3.5-4b".to_string(),
+            artifact_sha256: artifact.sha256.to_string(),
+            artifact_size_bytes: artifact.size_bytes,
+            backend_id: "llama.cpp".to_string(),
+            backend_version: "b9878".to_string(),
+            backend_smoke_event_id: "event-backend-chat".to_string(),
+            ram_fit: "passed".to_string(),
+            recommended_ram_gb: 16,
+            peak_rss_bytes: 3_351_363_584,
+            mmproj: "not-required-text-only".to_string(),
+            benchmark_run_id: "benchmark-local".to_string(),
+            recorded_at: "2026-07-10T00:00:00Z".to_string(),
+        }
+    }
+
+    fn qwen_benchmark_report(
+        artifact: ModelArtifactDescriptor,
+        evidence: &PromotionEvidence,
+    ) -> observability::BenchmarkRunReport {
+        observability::BenchmarkRunReport {
+            benchmark_run_id: evidence.benchmark_run_id.clone(),
+            session_id: "session-test".to_string(),
+            model_run_id: Some("model-run-test".to_string()),
+            model_id: artifact_model_id(artifact),
+            benchmark_name: "ontology-view-smoke".to_string(),
+            fixture_id: "fixture-test".to_string(),
+            fixture_sha256: "fixture-sha".to_string(),
+            prompt_artifact_sha256: Some("prompt-sha".to_string()),
+            prompt_chars: Some(147),
+            claim_state: "measured-locally".to_string(),
+            score: Some(3.0),
+            score_unit: Some("0-3-local-product-score".to_string()),
+            local_pass: Some(true),
+            expected_matches: Some(1),
+            expected_total: Some(1),
+            forbidden_matches: Some(0),
+            harness_ref: "rpotato-benchmark-harness@test".to_string(),
+            dataset_ref: Some("local-executable-smoke".to_string()),
+            backend_id: Some("llama.cpp".to_string()),
+            latency_ms: Some(243.0),
+            tokens_per_second: Some(28.8),
+            prompt_tokens: Some(76),
+            completion_tokens: Some(7),
+            total_tokens: Some(83),
+            resource_pressure: Some("normal".to_string()),
+            peak_rss_bytes: Some(evidence.peak_rss_bytes),
+            reproducibility_manifest: "{}".to_string(),
+            redacted_report: "{}".to_string(),
+            recorded_at_ms: 1000,
+        }
     }
 
     #[test]
