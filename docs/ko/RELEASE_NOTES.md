@@ -1,5 +1,44 @@
 # 릴리즈 노트
 
+## v0.24.0 - Cross-Platform Release Hardening
+
+릴리즈 날짜: 2026-07-09
+
+이 릴리즈는 macOS Intel artifact, aggregate checksum publication, Windows uninstall
+smoke coverage, future release용 release notes template로 공식 binary publishing
+경로를 강화합니다.
+
+### 포함된 것
+
+- `release-binaries`가 macOS Apple Silicon과 Windows x86_64에 더해
+  `x86_64-apple-darwin`도 build합니다.
+- Release asset에 aggregate checksum publication file인
+  `rpotato-vX.Y.Z-checksums.txt`를 추가합니다.
+- Windows release job이 `rpotato uninstall --dry-run --keep-cache`와
+  `rpotato uninstall --dry-run --purge-cache` smoke check를 실행합니다.
+- `docs/release-notes-template.md`와 `docs/ko/release-notes-template.md`를 추가했습니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (197 tests)
+- `cargo test --locked` (197 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --locked`
+- `cargo build --release --locked`
+- `cargo build --release --locked --target x86_64-apple-darwin`
+- `file target/x86_64-apple-darwin/release/rpotato`
+- `bash -n scripts/release/verify-uninstall-smoke.sh`
+- `scripts/release/verify-uninstall-smoke.sh target/release/rpotato`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.24.0`
+- `scripts/release/verify-release-binary-smoke.sh target/x86_64-apple-darwin/release/rpotato 0.24.0`
+
+### 경계
+
+이 릴리즈는 Linux artifact, package-manager channel, signing, notarization,
+auto-update 배포를 추가하지 않습니다.
+
 ## v0.23.1 - Windows Binary Link Fix
 
 릴리즈 날짜: 2026-07-09

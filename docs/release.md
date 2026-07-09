@@ -126,23 +126,33 @@ enforcement surface.
 `release-binaries` builds release assets when a GitHub Release is published.
 It can also be run manually with a `release_tag` input for workflow validation.
 
-Current v0.23.0 assets:
+Current v0.24.0 assets:
 
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
+- `rpotato-vX.Y.Z-x86_64-apple-darwin.tar.gz`
+- `rpotato-vX.Y.Z-x86_64-apple-darwin.tar.gz.sha256`
 - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip`
 - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip.sha256`
+- `rpotato-vX.Y.Z-checksums.txt`
 
 The workflow runs `cargo test --locked`, builds the release binary, runs
 `scripts/release/verify-release-binary-smoke.sh` against the built binary, then
-uploads the archive and checksum to the GitHub Release. `rpotato doctor` is the
-release-smoke command because it reports package version, target OS/arch,
-binary suffix, backend/model/cache summaries, and does not download models,
-install backends, start sidecars, or require network access.
+uploads the archive and checksum to the GitHub Release. Windows jobs also run
+`scripts/release/verify-uninstall-smoke.sh` so `--keep-cache` and
+`--purge-cache` dry-run plans stay visible and non-destructive in packaged
+binaries. `rpotato doctor` is the release-smoke command because it reports
+package version, target OS/arch, binary suffix, backend/model/cache summaries,
+and does not download models, install backends, start sidecars, or require
+network access.
+
+After all target artifacts are built, the `checksums` job publishes
+`rpotato-vX.Y.Z-checksums.txt` by concatenating the per-asset `.sha256` files.
 
 The runner labels are pinned to the first supported targets:
 
 - `macos-14` for macOS Apple Silicon / `aarch64-apple-darwin`
+- `macos-15-intel` for macOS Intel / `x86_64-apple-darwin`
 - `windows-latest` for Windows x86_64 / `x86_64-pc-windows-msvc`
 
 Reference: GitHub-hosted runners reference, checked 2026-07-09:
@@ -153,11 +163,11 @@ https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 Initial targets:
 
 - macOS Apple Silicon
+- macOS Intel
 - Windows x86_64
 
 Later targets:
 
-- macOS Intel
 - Linux x86_64
 - Linux ARM64
 - package-manager channels: Homebrew, Scoop, winget
@@ -177,7 +187,11 @@ Before release:
 9. release notes
 10. binary checksums
 11. after publishing the GitHub Release, confirm the `release-binaries` workflow
-    uploaded both target archives and matching `.sha256` files
+    uploaded all target archives, matching `.sha256` files, and the aggregate
+    `checksums.txt` file
+
+Use [release-notes-template.md](release-notes-template.md) for new release note
+entries.
 
 ## Model Manifest Distribution
 
