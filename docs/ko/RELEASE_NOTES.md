@@ -1,5 +1,35 @@
 # 릴리즈 노트
 
+## v0.24.2 - Aggregate Checksum Checkout Fix
+
+릴리즈 날짜: 2026-07-09
+
+이 patch release는 aggregate checksum job이 repo-local checksum guard를 실행하기 전에
+repository를 checkout하도록 수정합니다.
+
+### 포함된 것
+
+- `checksums` job이 workflow artifact를 download하고
+  `scripts/release/verify-checksum-basenames.sh`를 실행하기 전에 `actions/checkout@v4`를
+  실행합니다.
+- 현재 release 문서가 v0.24.2 binary workflow를 가리키도록 갱신했습니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test --locked` (197 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `bash -n scripts/release/verify-checksum-basenames.sh`
+- `scripts/release/verify-checksum-basenames.sh <fixture-checksum-file>`
+- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/release-binaries.yml")'`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.24.2`
+
+### 경계
+
+이 릴리즈는 지원 binary target이나 package-manager distribution을 변경하지 않습니다.
+
 ## v0.24.1 - Checksum Workflow Fix
 
 릴리즈 날짜: 2026-07-09
