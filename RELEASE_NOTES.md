@@ -1,5 +1,49 @@
 # Release Notes
 
+## v0.23.0 - Official Binary Download Foundation
+
+Release date: 2026-07-09
+
+This release adds the first official binary release pipeline. Published GitHub
+Releases now trigger managed `rpotato` binary builds for macOS Apple Silicon and
+Windows x86_64, with checksums and binary smoke validation.
+
+### Included
+
+- New `release-binaries` GitHub Actions workflow.
+- Release asset targets:
+  - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
+  - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
+  - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip`
+  - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip.sha256`
+- `scripts/release/verify-release-binary-smoke.sh` for packaged binary smoke
+  checks.
+- `rpotato doctor` now reports package name, package version, target OS/arch,
+  binary suffix, and release-smoke availability.
+- Release docs now define the v0.23.0 asset workflow and note that macOS Intel,
+  Linux, and package-manager channels remain later work.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (197 tests)
+- `cargo test --locked` (197 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build`
+- `cargo build --locked`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/debug/rpotato 0.23.0`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.23.0`
+- `rpotato doctor`
+
+### Boundary
+
+This release does not add macOS Intel, Linux, Homebrew, Scoop, winget, signing,
+notarization, or auto-update distribution. It also does not include model
+weights, backend binaries, or external plugin packages in the `rpotato` release
+binary.
+
 ## v0.22.0 - Dispatcher Hardening
 
 Release date: 2026-07-09

@@ -436,7 +436,8 @@ This can be relaxed later with trust modes.
 Initial publishing:
 
 - GitHub repo
-- GitHub Releases for binaries
+- GitHub Releases for binaries, with v0.23.0 workflow assets for macOS Apple
+  Silicon and Windows x86_64 plus `.sha256` files
 - model manifest in repo or release asset
 
 Likely package channels:

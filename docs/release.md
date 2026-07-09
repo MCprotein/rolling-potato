@@ -82,8 +82,9 @@ Rules:
 6. Push the tag. If the matching remote release branch still exists, the
    `release-policy` workflow verifies that it was merged into `main`, then
    deletes it.
-7. Create the GitHub Release from that tag.
-8. Delete the local release branch.
+7. Create the GitHub Release from that tag. The `release-binaries` workflow
+   builds and uploads supported binary assets when the release is published.
+8. Verify release assets and checksums, then delete the local release branch.
 
 `main` is the integration branch. Release branches are not long-running support
 branches and must not accumulate unrelated post-release work.
@@ -120,18 +121,46 @@ Repository settings are outside the source tree, so they must be configured in
 GitHub by a maintainer. The workflow and script provide the repo-local
 enforcement surface.
 
+## Binary Release Workflow
+
+`release-binaries` builds release assets when a GitHub Release is published.
+It can also be run manually with a `release_tag` input for workflow validation.
+
+Current v0.23.0 assets:
+
+- `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
+- `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
+- `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip`
+- `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip.sha256`
+
+The workflow runs `cargo test --locked`, builds the release binary, runs
+`scripts/release/verify-release-binary-smoke.sh` against the built binary, then
+uploads the archive and checksum to the GitHub Release. `rpotato doctor` is the
+release-smoke command because it reports package version, target OS/arch,
+binary suffix, backend/model/cache summaries, and does not download models,
+install backends, start sidecars, or require network access.
+
+The runner labels are pinned to the first supported targets:
+
+- `macos-14` for macOS Apple Silicon / `aarch64-apple-darwin`
+- `windows-latest` for Windows x86_64 / `x86_64-pc-windows-msvc`
+
+Reference: GitHub-hosted runners reference, checked 2026-07-09:
+https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+
 ## Artifact Targets
 
 Initial targets:
 
 - macOS Apple Silicon
-- macOS Intel
 - Windows x86_64
 
 Later targets:
 
+- macOS Intel
 - Linux x86_64
 - Linux ARM64
+- package-manager channels: Homebrew, Scoop, winget
 
 ## Release Checklist
 
@@ -147,6 +176,8 @@ Before release:
 8. if plugin adapter is included, local-import-only and remote-source rejection smoke tests
 9. release notes
 10. binary checksums
+11. after publishing the GitHub Release, confirm the `release-binaries` workflow
+    uploaded both target archives and matching `.sha256` files
 
 ## Model Manifest Distribution
 

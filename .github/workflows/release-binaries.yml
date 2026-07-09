@@ -1,0 +1,121 @@
+name: release-binaries
+
+permissions:
+  contents: write
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to build, for example v0.23.0"
+        required: true
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            binary: rpotato
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: rpotato.exe
+            archive: zip
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_TAG}" ]; then
+            echo "RELEASE_TAG is required" >&2
+            exit 1
+          fi
+          version="${RELEASE_TAG#v}"
+          cargo_version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1)"
+          if [ "$version" != "$cargo_version" ]; then
+            echo "release tag ${RELEASE_TAG} does not match Cargo.toml version ${cargo_version}" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "ASSET_BASE=rpotato-${RELEASE_TAG}-${{ matrix.target }}" >> "$GITHUB_ENV"
+
+      - name: Install Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build release binary
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Smoke packaged binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="target/${{ matrix.target }}/release/${{ matrix.binary }}"
+          scripts/release/verify-release-binary-smoke.sh "$binary" "$VERSION"
+
+      - name: Package macOS archive
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_dir="dist/staging/${ASSET_BASE}"
+          mkdir -p "$package_dir"
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "$package_dir/"
+          cp README.md LICENSE "$package_dir/"
+          chmod +x "$package_dir/${{ matrix.binary }}"
+          tar -czf "dist/${ASSET_BASE}.tar.gz" -C "dist/staging" "$ASSET_BASE"
+          shasum -a 256 "dist/${ASSET_BASE}.tar.gz" > "dist/${ASSET_BASE}.tar.gz.sha256"
+
+      - name: Package Windows archive
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $packageDir = "dist/staging/$env:ASSET_BASE"
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" "$packageDir/"
+          Copy-Item README.md "$packageDir/"
+          Copy-Item LICENSE "$packageDir/"
+          $archive = "dist/$env:ASSET_BASE.zip"
+          Compress-Archive -Path "$packageDir/*" -DestinationPath $archive -Force
+          $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          "$hash  $env:ASSET_BASE.zip" | Out-File -FilePath "$archive.sha256" -Encoding ascii -NoNewline
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ASSET_BASE }}
+          path: |
+            dist/${{ env.ASSET_BASE }}.${{ matrix.archive }}
+            dist/${{ env.ASSET_BASE }}.${{ matrix.archive }}.sha256
+          if-no-files-found: error
+
+      - name: Upload assets to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" \
+            "dist/${ASSET_BASE}.${{ matrix.archive }}" \
+            "dist/${ASSET_BASE}.${{ matrix.archive }}.sha256" \
+            --clobber
