@@ -9,8 +9,8 @@ use crate::app::AppError;
 use crate::ledger::{self, LedgerEvent, RuntimeIdentity};
 use crate::paths;
 
-const MIGRATION_VERSION: i64 = 3;
-const MIGRATION_DESCRIPTION: &str = "v0_19_benchmark_runs";
+const MIGRATION_VERSION: i64 = 4;
+const MIGRATION_DESCRIPTION: &str = "v0_20_executable_benchmark_runs";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoreStatus {
@@ -82,16 +82,30 @@ pub struct PerformanceGroupSummary {
 pub struct BenchmarkRunMetric {
     pub benchmark_run_id: String,
     pub session_id: String,
+    pub model_run_id: Option<String>,
     pub model_id: String,
     pub benchmark_name: String,
     pub fixture_id: String,
     pub fixture_sha256: String,
+    pub prompt_artifact_sha256: Option<String>,
+    pub prompt_chars: Option<u32>,
     pub claim_state: String,
     pub score: Option<f64>,
     pub score_unit: Option<String>,
+    pub local_pass: Option<bool>,
+    pub expected_matches: Option<u32>,
+    pub expected_total: Option<u32>,
+    pub forbidden_matches: Option<u32>,
     pub harness_ref: String,
     pub dataset_ref: Option<String>,
     pub backend_id: Option<String>,
+    pub latency_ms: Option<f64>,
+    pub tokens_per_second: Option<f64>,
+    pub prompt_tokens: Option<u32>,
+    pub completion_tokens: Option<u32>,
+    pub total_tokens: Option<u32>,
+    pub resource_pressure: Option<String>,
+    pub peak_rss_bytes: Option<u64>,
     pub reproducibility_manifest: String,
     pub redacted_report: String,
     pub recorded_at_ms: u128,
@@ -101,16 +115,30 @@ pub struct BenchmarkRunMetric {
 pub struct BenchmarkRunReport {
     pub benchmark_run_id: String,
     pub session_id: String,
+    pub model_run_id: Option<String>,
     pub model_id: String,
     pub benchmark_name: String,
     pub fixture_id: String,
     pub fixture_sha256: String,
+    pub prompt_artifact_sha256: Option<String>,
+    pub prompt_chars: Option<u32>,
     pub claim_state: String,
     pub score: Option<f64>,
     pub score_unit: Option<String>,
+    pub local_pass: Option<bool>,
+    pub expected_matches: Option<u32>,
+    pub expected_total: Option<u32>,
+    pub forbidden_matches: Option<u32>,
     pub harness_ref: String,
     pub dataset_ref: Option<String>,
     pub backend_id: Option<String>,
+    pub latency_ms: Option<f64>,
+    pub tokens_per_second: Option<f64>,
+    pub prompt_tokens: Option<u32>,
+    pub completion_tokens: Option<u32>,
+    pub total_tokens: Option<u32>,
+    pub resource_pressure: Option<String>,
+    pub peak_rss_bytes: Option<u64>,
     pub reproducibility_manifest: String,
     pub redacted_report: String,
     pub recorded_at_ms: i64,
@@ -599,33 +627,63 @@ pub fn record_benchmark_run(metric: &BenchmarkRunMetric) -> Result<(), AppError>
             "INSERT INTO benchmark_runs (
                 benchmark_run_id,
                 session_id,
+                model_run_id,
                 model_id,
                 benchmark_name,
                 fixture_id,
                 fixture_sha256,
+                prompt_artifact_sha256,
+                prompt_chars,
                 claim_state,
                 score,
                 score_unit,
+                local_pass,
+                expected_matches,
+                expected_total,
+                forbidden_matches,
                 harness_ref,
                 dataset_ref,
                 backend_id,
+                latency_ms,
+                tokens_per_second,
+                prompt_tokens,
+                completion_tokens,
+                total_tokens,
+                resource_pressure,
+                peak_rss_bytes,
                 reproducibility_manifest,
                 redacted_report,
                 recorded_at_ms
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29)",
             params![
                 metric.benchmark_run_id,
                 metric.session_id,
+                metric.model_run_id,
                 metric.model_id,
                 metric.benchmark_name,
                 metric.fixture_id,
                 metric.fixture_sha256,
+                metric.prompt_artifact_sha256,
+                metric.prompt_chars.map(i64::from),
                 metric.claim_state,
                 metric.score,
                 metric.score_unit,
+                metric.local_pass.map(|value| if value { 1 } else { 0 }),
+                metric.expected_matches.map(i64::from),
+                metric.expected_total.map(i64::from),
+                metric.forbidden_matches.map(i64::from),
                 metric.harness_ref,
                 metric.dataset_ref,
                 metric.backend_id,
+                metric.latency_ms,
+                metric.tokens_per_second,
+                metric.prompt_tokens.map(i64::from),
+                metric.completion_tokens.map(i64::from),
+                metric.total_tokens.map(i64::from),
+                metric.resource_pressure,
+                metric
+                    .peak_rss_bytes
+                    .map(|value| to_i64(u128::from(value))),
                 metric.reproducibility_manifest,
                 metric.redacted_report,
                 to_i64(metric.recorded_at_ms),
@@ -644,16 +702,30 @@ pub fn benchmark_run_reports() -> Result<Vec<BenchmarkRunReport>, AppError> {
             "SELECT
                 benchmark_run_id,
                 session_id,
+                model_run_id,
                 model_id,
                 benchmark_name,
                 fixture_id,
                 fixture_sha256,
+                prompt_artifact_sha256,
+                prompt_chars,
                 claim_state,
                 score,
                 score_unit,
+                local_pass,
+                expected_matches,
+                expected_total,
+                forbidden_matches,
                 harness_ref,
                 dataset_ref,
                 backend_id,
+                latency_ms,
+                tokens_per_second,
+                prompt_tokens,
+                completion_tokens,
+                total_tokens,
+                resource_pressure,
+                peak_rss_bytes,
                 reproducibility_manifest,
                 redacted_report,
                 recorded_at_ms
@@ -670,19 +742,33 @@ pub fn benchmark_run_reports() -> Result<Vec<BenchmarkRunReport>, AppError> {
             Ok(BenchmarkRunReport {
                 benchmark_run_id: row.get(0)?,
                 session_id: row.get(1)?,
-                model_id: row.get(2)?,
-                benchmark_name: row.get(3)?,
-                fixture_id: row.get(4)?,
-                fixture_sha256: row.get(5)?,
-                claim_state: row.get(6)?,
-                score: row.get(7)?,
-                score_unit: row.get(8)?,
-                harness_ref: row.get(9)?,
-                dataset_ref: row.get(10)?,
-                backend_id: row.get(11)?,
-                reproducibility_manifest: row.get(12)?,
-                redacted_report: row.get(13)?,
-                recorded_at_ms: row.get(14)?,
+                model_run_id: row.get(2)?,
+                model_id: row.get(3)?,
+                benchmark_name: row.get(4)?,
+                fixture_id: row.get(5)?,
+                fixture_sha256: row.get(6)?,
+                prompt_artifact_sha256: row.get(7)?,
+                prompt_chars: option_i64_to_u32(row.get(8)?),
+                claim_state: row.get(9)?,
+                score: row.get(10)?,
+                score_unit: row.get(11)?,
+                local_pass: option_i64_to_bool(row.get(12)?),
+                expected_matches: option_i64_to_u32(row.get(13)?),
+                expected_total: option_i64_to_u32(row.get(14)?),
+                forbidden_matches: option_i64_to_u32(row.get(15)?),
+                harness_ref: row.get(16)?,
+                dataset_ref: row.get(17)?,
+                backend_id: row.get(18)?,
+                latency_ms: row.get(19)?,
+                tokens_per_second: row.get(20)?,
+                prompt_tokens: option_i64_to_u32(row.get(21)?),
+                completion_tokens: option_i64_to_u32(row.get(22)?),
+                total_tokens: option_i64_to_u32(row.get(23)?),
+                resource_pressure: row.get(24)?,
+                peak_rss_bytes: option_i64_to_u64(row.get(25)?),
+                reproducibility_manifest: row.get(26)?,
+                redacted_report: row.get(27)?,
+                recorded_at_ms: row.get(28)?,
             })
         })
         .map_err(sql_error(
@@ -950,16 +1036,30 @@ fn migrate(connection: &Connection) -> Result<(), AppError> {
             CREATE TABLE IF NOT EXISTS benchmark_runs (
                 benchmark_run_id TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL DEFAULT '',
+                model_run_id TEXT,
                 model_id TEXT NOT NULL,
                 benchmark_name TEXT NOT NULL,
                 fixture_id TEXT NOT NULL DEFAULT '',
                 fixture_sha256 TEXT NOT NULL DEFAULT '',
+                prompt_artifact_sha256 TEXT,
+                prompt_chars INTEGER,
                 claim_state TEXT NOT NULL DEFAULT 'not-comparable',
                 score REAL,
                 score_unit TEXT,
+                local_pass INTEGER,
+                expected_matches INTEGER,
+                expected_total INTEGER,
+                forbidden_matches INTEGER,
                 harness_ref TEXT NOT NULL,
                 dataset_ref TEXT,
                 backend_id TEXT,
+                latency_ms REAL,
+                tokens_per_second REAL,
+                prompt_tokens INTEGER,
+                completion_tokens INTEGER,
+                total_tokens INTEGER,
+                resource_pressure TEXT,
+                peak_rss_bytes INTEGER,
                 reproducibility_manifest TEXT NOT NULL DEFAULT '{}',
                 redacted_report TEXT NOT NULL DEFAULT '{}',
                 recorded_at_ms INTEGER NOT NULL
@@ -988,12 +1088,31 @@ fn migrate(connection: &Connection) -> Result<(), AppError> {
         "fixture_sha256",
         "TEXT NOT NULL DEFAULT ''",
     )?;
+    ensure_column(connection, "benchmark_runs", "model_run_id", "TEXT")?;
+    ensure_column(
+        connection,
+        "benchmark_runs",
+        "prompt_artifact_sha256",
+        "TEXT",
+    )?;
+    ensure_column(connection, "benchmark_runs", "prompt_chars", "INTEGER")?;
     ensure_column(
         connection,
         "benchmark_runs",
         "claim_state",
         "TEXT NOT NULL DEFAULT 'not-comparable'",
     )?;
+    ensure_column(connection, "benchmark_runs", "local_pass", "INTEGER")?;
+    ensure_column(connection, "benchmark_runs", "expected_matches", "INTEGER")?;
+    ensure_column(connection, "benchmark_runs", "expected_total", "INTEGER")?;
+    ensure_column(connection, "benchmark_runs", "forbidden_matches", "INTEGER")?;
+    ensure_column(connection, "benchmark_runs", "latency_ms", "REAL")?;
+    ensure_column(connection, "benchmark_runs", "tokens_per_second", "REAL")?;
+    ensure_column(connection, "benchmark_runs", "prompt_tokens", "INTEGER")?;
+    ensure_column(connection, "benchmark_runs", "completion_tokens", "INTEGER")?;
+    ensure_column(connection, "benchmark_runs", "total_tokens", "INTEGER")?;
+    ensure_column(connection, "benchmark_runs", "resource_pressure", "TEXT")?;
+    ensure_column(connection, "benchmark_runs", "peak_rss_bytes", "INTEGER")?;
     ensure_column(
         connection,
         "benchmark_runs",
@@ -1479,6 +1598,14 @@ fn i64_to_u32(value: i64) -> u32 {
     u32::try_from(value).unwrap_or_default()
 }
 
+fn option_i64_to_u32(value: Option<i64>) -> Option<u32> {
+    value.and_then(|value| u32::try_from(value).ok())
+}
+
+fn option_i64_to_bool(value: Option<i64>) -> Option<bool> {
+    value.map(|value| value != 0)
+}
+
 fn option_i64_to_u64(value: Option<i64>) -> Option<u64> {
     value.and_then(|value| u64::try_from(value).ok())
 }
@@ -1614,16 +1741,30 @@ mod tests {
         let metric = BenchmarkRunMetric {
             benchmark_run_id: "benchmark-run-test".to_string(),
             session_id: "session-test".to_string(),
+            model_run_id: Some("model-run-test".to_string()),
             model_id: "qwen-test".to_string(),
             benchmark_name: "foundation-smoke".to_string(),
             fixture_id: "fixture-test".to_string(),
             fixture_sha256: "sha256-test".to_string(),
-            claim_state: "not-comparable".to_string(),
-            score: None,
-            score_unit: None,
+            prompt_artifact_sha256: Some("prompt-sha256-test".to_string()),
+            prompt_chars: Some(42),
+            claim_state: "measured-locally".to_string(),
+            score: Some(3.0),
+            score_unit: Some("0-3-local-product-score".to_string()),
+            local_pass: Some(true),
+            expected_matches: Some(1),
+            expected_total: Some(1),
+            forbidden_matches: Some(0),
             harness_ref: "rpotato-benchmark-harness@test".to_string(),
             dataset_ref: Some("local-fixture".to_string()),
             backend_id: Some("llama.cpp".to_string()),
+            latency_ms: Some(123.0),
+            tokens_per_second: Some(4.5),
+            prompt_tokens: Some(10),
+            completion_tokens: Some(5),
+            total_tokens: Some(15),
+            resource_pressure: Some("normal".to_string()),
+            peak_rss_bytes: Some(2048),
             reproducibility_manifest: "{\"fixture_id\":\"fixture-test\"}".to_string(),
             redacted_report: "{\"raw_prompt_source_stored\":false}".to_string(),
             recorded_at_ms: 1000,
@@ -1643,9 +1784,19 @@ mod tests {
         assert_eq!(reports.len(), 1);
         assert_eq!(reports[0].benchmark_run_id, "benchmark-run-test");
         assert_eq!(reports[0].session_id, "session-test");
+        assert_eq!(reports[0].model_run_id.as_deref(), Some("model-run-test"));
         assert_eq!(reports[0].fixture_id, "fixture-test");
-        assert_eq!(reports[0].claim_state, "not-comparable");
-        assert_eq!(reports[0].score, None);
+        assert_eq!(reports[0].claim_state, "measured-locally");
+        assert_eq!(reports[0].score, Some(3.0));
+        assert_eq!(reports[0].local_pass, Some(true));
+        assert_eq!(reports[0].expected_matches, Some(1));
+        assert_eq!(reports[0].expected_total, Some(1));
+        assert_eq!(reports[0].forbidden_matches, Some(0));
+        assert_eq!(reports[0].prompt_tokens, Some(10));
+        assert_eq!(reports[0].completion_tokens, Some(5));
+        assert_eq!(reports[0].total_tokens, Some(15));
+        assert_eq!(reports[0].resource_pressure.as_deref(), Some("normal"));
+        assert_eq!(reports[0].peak_rss_bytes, Some(2048));
         assert!(reports[0]
             .reproducibility_manifest
             .contains("\"fixture_id\":\"fixture-test\""));

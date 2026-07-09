@@ -136,6 +136,21 @@ claim parity with public benchmark results.
 The repository includes `benchmarks/fixtures/sample.json` as a CLI-contract
 smoke fixture. It stores no raw prompt or source text.
 
+Implemented v0.20.0 command:
+
+```bash
+rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32
+```
+
+The v0.20.0 executable runner calls the currently running backend sidecar using
+a project-local prompt artifact. It stores the prompt artifact SHA-256 and
+character count, not the raw prompt text, and records a local
+`claim_state=measured-locally` result with deterministic 0-3 product score
+metadata. The row links to `model_run_id` and records token, latency, resource
+pressure, and peak RSS summaries copied from the same local observability flow
+used by normal backend chat. This is a local product benchmark result only; it
+does not claim public benchmark parity.
+
 ## Common Scoring
 
 Each task is scored from 0 to 3.
@@ -361,7 +376,7 @@ anecdotal results.
 | --- | --- | --- |
 | v0.18.0 | Performance baseline report | Aggregate local p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, and backend/model/session grouping from existing ledger/projection data. |
 | v0.19.0 | Benchmark harness foundation | Validate fixture metadata, record benchmark run events/projections, emit reproducibility metadata, and export redacted local reports. |
-| v0.20.0 | Small-model ontology representation benchmark | Compare prompt-facing ontology views for 2B-4B target models using task score, hallucination, source-read compliance, latency, memory, and token budget metrics. |
+| v0.20.0 | Executable small-model benchmark runner | Run project-local prompt artifacts through the active backend sidecar, store redacted `measured-locally` score rows, and link benchmark rows to model/token/resource metrics. |
 | v0.21.0 | Benchmark-driven optimization policy | Use measured local metrics and benchmark evidence to recommend context budget, lane count, fallback, and model route. |
 
 Published benchmark parity remains gated by comparable artifact, backend,
@@ -375,8 +390,11 @@ Benchmark runs should use the same metric schema as normal runtime monitoring.
 - v0.19.0 reports include `benchmark_run_id`, `session_id`, fixture id/checksum,
   claim state, optional score fields, harness ref, dataset/backend refs,
   reproducibility manifest, and redacted local report.
-- Later executable runs should add `model_run_id`, artifact hash, backend
-  options, guard/tool/stop metrics, and failure category.
+- v0.20.0 executable reports add `model_run_id`, prompt artifact checksum,
+  prompt length, local pass flag, expected/forbidden marker counts,
+  latency, token counts, resource pressure, and peak RSS.
+- Later executable runs should add artifact hash, backend options,
+  guard/tool/stop metrics, richer hallucination/source-read scoring, and failure category.
 - Published-vs-local score comparison stores artifact hash and runtime options.
 - Raw prompt/source text is not stored long term during benchmarks.
 - Benchmark reports are generated from SQLite projection, but JSONL export should be available for reproducibility.

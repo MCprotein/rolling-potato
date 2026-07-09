@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::app::AppError;
-use crate::{checksum, ledger, observability, paths};
+use crate::{backend, checksum, ledger, observability, paths};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct BenchmarkFixture {
@@ -34,6 +34,29 @@ struct BenchmarkFixture {
     seed_policy: String,
     sampling_options: String,
     raw_artifact_retention_policy: String,
+    expected_response_contains: Vec<String>,
+    forbidden_response_contains: Vec<String>,
+    minimum_score: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BenchmarkPromptArtifact {
+    path: PathBuf,
+    sha256: String,
+    text: String,
+    chars: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BenchmarkScore {
+    score: u32,
+    local_pass: bool,
+    expected_matches: u32,
+    expected_total: u32,
+    forbidden_matches: u32,
+    abstention_ok: bool,
+    matched_expected: Vec<String>,
+    matched_forbidden: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,16 +114,30 @@ pub fn record_report(path: &str) -> Result<String, AppError> {
     let metric = observability::BenchmarkRunMetric {
         benchmark_run_id: benchmark_run_id.clone(),
         session_id: identity.session_id.clone(),
+        model_run_id: None,
         model_id: fixture.model_id.clone(),
         benchmark_name: fixture.benchmark_name.clone(),
         fixture_id: fixture.fixture_id.clone(),
         fixture_sha256: fixture.sha256.clone(),
+        prompt_artifact_sha256: None,
+        prompt_chars: None,
         claim_state: "not-comparable".to_string(),
         score: None,
         score_unit: None,
+        local_pass: None,
+        expected_matches: None,
+        expected_total: None,
+        forbidden_matches: None,
         harness_ref: harness_ref(),
         dataset_ref: Some(fixture.dataset_ref.clone()),
         backend_id: Some(fixture.backend_id.clone()),
+        latency_ms: None,
+        tokens_per_second: None,
+        prompt_tokens: None,
+        completion_tokens: None,
+        total_tokens: None,
+        resource_pressure: None,
+        peak_rss_bytes: None,
         reproducibility_manifest: manifest,
         redacted_report,
         recorded_at_ms: event.ts_ms,
@@ -122,6 +159,137 @@ pub fn record_report(path: &str) -> Result<String, AppError> {
     ))
 }
 
+pub fn run_report(
+    fixture_path: &str,
+    prompt_path: &str,
+    max_tokens: Option<u32>,
+) -> Result<String, AppError> {
+    run_report_with_chat(fixture_path, prompt_path, max_tokens, backend::chat_once)
+}
+
+fn run_report_with_chat(
+    fixture_path: &str,
+    prompt_path: &str,
+    max_tokens: Option<u32>,
+    chat_once: impl FnOnce(&str, Option<u32>) -> Result<backend::BackendChatRun, AppError>,
+) -> Result<String, AppError> {
+    let fixture = read_fixture(fixture_path)?;
+    if fixture.expected_response_contains.is_empty() {
+        return Err(AppError::usage(
+            "benchmark run에는 expected_response_contains fixture field가 필요합니다.",
+        ));
+    }
+    let prompt = read_prompt_artifact(prompt_path)?;
+    let run = chat_once(&prompt.text, max_tokens)?;
+    let score = score_response(&fixture, &run.response);
+    let identity = ledger::current_identity();
+    let event = ledger::new_event_for(
+        &identity,
+        "benchmark.run.executed",
+        "benchmark executable run recorded",
+        &format!(
+            "fixture_id={} benchmark={} fixture_sha256={} prompt_sha256={} model_id={} backend_id={} model_run_id=model-run-{} score={} local_pass={} claim_state=measured-locally",
+            fixture.fixture_id,
+            fixture.benchmark_name,
+            fixture.sha256,
+            prompt.sha256,
+            run.model_id,
+            run.backend_id,
+            run.ledger_event,
+            score.score,
+            score.local_pass
+        ),
+    );
+    let benchmark_run_id = format!("benchmark-{}", event.event_id);
+    let model_run_id = format!("model-run-{}", run.ledger_event);
+    let recorded_at_ms = event.ts_ms;
+    let manifest = executable_reproducibility_manifest_json(
+        &fixture,
+        &prompt,
+        &run,
+        &score,
+        &benchmark_run_id,
+        &model_run_id,
+        recorded_at_ms,
+    );
+    let redacted_report = executable_redacted_report_json(
+        &fixture,
+        &prompt,
+        &run,
+        &score,
+        &benchmark_run_id,
+        &model_run_id,
+    );
+    let completion_tokens = run.completion_tokens.unwrap_or(0);
+    let tokens_per_second = if completion_tokens > 0 && run.elapsed_ms > 0 {
+        Some((completion_tokens as f64) / ((run.elapsed_ms as f64) / 1000.0))
+    } else {
+        None
+    };
+
+    ledger::append_event(&event)?;
+    observability::project_event(&event)?;
+    observability::record_benchmark_run(&observability::BenchmarkRunMetric {
+        benchmark_run_id: benchmark_run_id.clone(),
+        session_id: identity.session_id.clone(),
+        model_run_id: Some(model_run_id.clone()),
+        model_id: run.model_id.clone(),
+        benchmark_name: fixture.benchmark_name.clone(),
+        fixture_id: fixture.fixture_id.clone(),
+        fixture_sha256: fixture.sha256.clone(),
+        prompt_artifact_sha256: Some(prompt.sha256.clone()),
+        prompt_chars: Some(prompt.chars),
+        claim_state: "measured-locally".to_string(),
+        score: Some(score.score as f64),
+        score_unit: Some("0-3-local-product-score".to_string()),
+        local_pass: Some(score.local_pass),
+        expected_matches: Some(score.expected_matches),
+        expected_total: Some(score.expected_total),
+        forbidden_matches: Some(score.forbidden_matches),
+        harness_ref: harness_ref(),
+        dataset_ref: Some(fixture.dataset_ref.clone()),
+        backend_id: Some(run.backend_id.clone()),
+        latency_ms: Some(run.elapsed_ms as f64),
+        tokens_per_second,
+        prompt_tokens: run.prompt_tokens,
+        completion_tokens: run.completion_tokens,
+        total_tokens: run.total_tokens,
+        resource_pressure: Some(run.resource_pressure.clone()),
+        peak_rss_bytes: run.resource_peak_rss_bytes,
+        reproducibility_manifest: manifest,
+        redacted_report,
+        recorded_at_ms,
+    })?;
+
+    Ok(format!(
+        "benchmark executable run\n- status: recorded\n- benchmark run id: {}\n- model run id: {}\n- session id: {}\n- fixture id: {}\n- benchmark: {}\n- ontology view: {}\n- fixture sha256: {}\n- prompt artifact: {}\n- prompt artifact sha256: {}\n- model id: {}\n- backend: {}\n- claim state: measured-locally\n- score: {}/3\n- minimum score: {}\n- local pass: {}\n- expected markers: {}/{}\n- forbidden marker matches: {}\n- latency ms: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- resource pressure: {}\n- peak rss bytes: {}\n- ledger event: {}\n- raw prompt/source 저장: 없음\n- boundary: local product benchmark score만 기록했습니다. public benchmark parity claim은 수행하지 않았습니다.",
+        benchmark_run_id,
+        model_run_id,
+        identity.session_id,
+        fixture.fixture_id,
+        fixture.benchmark_name,
+        fixture.ontology_view,
+        fixture.sha256,
+        prompt.path.display(),
+        prompt.sha256,
+        run.model_id,
+        run.backend_id,
+        score.score,
+        fixture.minimum_score.unwrap_or(2),
+        if score.local_pass { "yes" } else { "no" },
+        score.expected_matches,
+        score.expected_total,
+        score.forbidden_matches,
+        run.elapsed_ms,
+        display_optional_u32(run.prompt_tokens),
+        display_optional_u32(run.completion_tokens),
+        display_optional_u32(run.total_tokens),
+        run.resource_pressure,
+        display_optional_u64(run.resource_peak_rss_bytes),
+        event.event_id
+    ))
+}
+
 pub fn report_export(format: BenchmarkReportFormat) -> Result<String, AppError> {
     match format {
         BenchmarkReportFormat::Jsonl => {
@@ -129,21 +297,35 @@ pub fn report_export(format: BenchmarkReportFormat) -> Result<String, AppError> 
             let mut output = String::new();
             for row in rows {
                 output.push_str(&format!(
-                    "{{\"benchmark_run_id\":\"{}\",\"session_id\":\"{}\",\"model_id\":\"{}\",\"benchmark_name\":\"{}\",\"fixture_id\":\"{}\",\"fixture_sha256\":\"{}\",\"claim_state\":\"{}\",\"score\":{},\"score_unit\":{},\"harness_ref\":\"{}\",\"dataset_ref\":{},\"backend_id\":{},\"recorded_at_ms\":{},\"reproducibility_manifest\":{},\"redacted_report\":{}}}\n",
+                    "{{\"benchmark_run_id\":\"{}\",\"session_id\":\"{}\",\"model_run_id\":{},\"model_id\":\"{}\",\"benchmark_name\":\"{}\",\"fixture_id\":\"{}\",\"fixture_sha256\":\"{}\",\"prompt_artifact_sha256\":{},\"prompt_chars\":{},\"claim_state\":\"{}\",\"score\":{},\"score_unit\":{},\"local_pass\":{},\"expected_matches\":{},\"expected_total\":{},\"forbidden_matches\":{},\"harness_ref\":\"{}\",\"dataset_ref\":{},\"backend_id\":{},\"latency_ms\":{},\"tokens_per_second\":{},\"prompt_tokens\":{},\"completion_tokens\":{},\"total_tokens\":{},\"resource_pressure\":{},\"peak_rss_bytes\":{},\"recorded_at_ms\":{},\"reproducibility_manifest\":{},\"redacted_report\":{}}}\n",
                     ledger::json_string(&row.benchmark_run_id),
                     ledger::json_string(&row.session_id),
+                    json_option(&row.model_run_id),
                     ledger::json_string(&row.model_id),
                     ledger::json_string(&row.benchmark_name),
                     ledger::json_string(&row.fixture_id),
                     ledger::json_string(&row.fixture_sha256),
+                    json_option(&row.prompt_artifact_sha256),
+                    json_option_u32(row.prompt_chars),
                     ledger::json_string(&row.claim_state),
                     row.score
                         .map(|score| format!("{score:.6}"))
                         .unwrap_or_else(|| "null".to_string()),
                     json_option(&row.score_unit),
+                    json_option_bool(row.local_pass),
+                    json_option_u32(row.expected_matches),
+                    json_option_u32(row.expected_total),
+                    json_option_u32(row.forbidden_matches),
                     ledger::json_string(&row.harness_ref),
                     json_option(&row.dataset_ref),
                     json_option(&row.backend_id),
+                    json_option_f64(row.latency_ms),
+                    json_option_f64(row.tokens_per_second),
+                    json_option_u32(row.prompt_tokens),
+                    json_option_u32(row.completion_tokens),
+                    json_option_u32(row.total_tokens),
+                    json_option(&row.resource_pressure),
+                    json_option_u64(row.peak_rss_bytes),
                     row.recorded_at_ms,
                     json_raw_or_string(&row.reproducibility_manifest),
                     json_raw_or_string(&row.redacted_report)
@@ -202,6 +384,9 @@ fn read_fixture(path: &str) -> Result<BenchmarkFixture, AppError> {
         seed_policy: required_string(&fields, "seed_policy")?,
         sampling_options: required_string(&fields, "sampling_options")?,
         raw_artifact_retention_policy: required_string(&fields, "raw_artifact_retention_policy")?,
+        expected_response_contains: optional_string_array(&fields, "expected_response_contains")?,
+        forbidden_response_contains: optional_string_array(&fields, "forbidden_response_contains")?,
+        minimum_score: optional_u32(&fields, "minimum_score")?,
         path,
     };
 
@@ -248,7 +433,92 @@ fn validate_fixture_semantics(fixture: &BenchmarkFixture) -> Result<(), AppError
         return Err(AppError::usage("context_budget은 1 이상이어야 합니다."));
     }
 
+    if fixture.minimum_score.is_some_and(|score| score > 3) {
+        return Err(AppError::usage("minimum_score는 0부터 3 사이여야 합니다."));
+    }
+
     Ok(())
+}
+
+fn read_prompt_artifact(path: &str) -> Result<BenchmarkPromptArtifact, AppError> {
+    let path = project_local_file(path)?;
+    let text = fs::read_to_string(&path).map_err(|err| {
+        AppError::runtime(format!(
+            "benchmark prompt artifact를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    if text.trim().is_empty() {
+        return Err(AppError::usage(
+            "benchmark prompt artifact는 비어 있을 수 없습니다.",
+        ));
+    }
+    let chars = u32::try_from(text.chars().count()).unwrap_or(u32::MAX);
+    Ok(BenchmarkPromptArtifact {
+        sha256: checksum::sha256_file(&path)?,
+        path,
+        text,
+        chars,
+    })
+}
+
+fn score_response(fixture: &BenchmarkFixture, response: &str) -> BenchmarkScore {
+    let matched_expected = fixture
+        .expected_response_contains
+        .iter()
+        .filter(|marker| response.contains(marker.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    let matched_forbidden = fixture
+        .forbidden_response_contains
+        .iter()
+        .filter(|marker| response.contains(marker.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    let expected_matches = u32::try_from(matched_expected.len()).unwrap_or(u32::MAX);
+    let expected_total =
+        u32::try_from(fixture.expected_response_contains.len()).unwrap_or(u32::MAX);
+    let forbidden_matches = u32::try_from(matched_forbidden.len()).unwrap_or(u32::MAX);
+    let abstention_ok =
+        !fixture.abstention_required || response_contains_abstention_marker(response);
+
+    let mut score = 0;
+    if !response.trim().is_empty() {
+        score += 1;
+    }
+    if expected_total > 0 && expected_matches == expected_total {
+        score += 1;
+    }
+    if forbidden_matches == 0 && abstention_ok {
+        score += 1;
+    }
+    let minimum_score = fixture.minimum_score.unwrap_or(2);
+
+    BenchmarkScore {
+        score,
+        local_pass: score >= minimum_score,
+        expected_matches,
+        expected_total,
+        forbidden_matches,
+        abstention_ok,
+        matched_expected,
+        matched_forbidden,
+    }
+}
+
+fn response_contains_abstention_marker(response: &str) -> bool {
+    let lowered = response.to_lowercase();
+    [
+        "모르",
+        "불확실",
+        "확인할 수",
+        "cannot verify",
+        "can't verify",
+        "not enough evidence",
+        "insufficient evidence",
+    ]
+    .iter()
+    .any(|marker| lowered.contains(marker))
 }
 
 fn project_local_file(path: &str) -> Result<PathBuf, AppError> {
@@ -347,6 +617,106 @@ fn redacted_report_json(fixture: &BenchmarkFixture, benchmark_run_id: &str) -> S
     )
 }
 
+fn executable_reproducibility_manifest_json(
+    fixture: &BenchmarkFixture,
+    prompt: &BenchmarkPromptArtifact,
+    run: &backend::BackendChatRun,
+    score: &BenchmarkScore,
+    benchmark_run_id: &str,
+    model_run_id: &str,
+    recorded_at_ms: u128,
+) -> String {
+    format!(
+        "{{\"harness_ref\":\"{}\",\"benchmark_run_id\":\"{}\",\"model_run_id\":\"{}\",\"fixture_id\":\"{}\",\"fixture_sha256\":\"{}\",\"prompt_artifact_sha256\":\"{}\",\"prompt_chars\":{},\"runner_command\":\"{}\",\"run_count\":1,\"retry_count\":0,\"seed_policy\":\"{}\",\"sampling_options\":\"{}\",\"os\":\"{}\",\"arch\":\"{}\",\"hardware_note\":\"{}\",\"ram_note\":\"{}\",\"power_thermal_note\":\"{}\",\"backend_id\":\"{}\",\"backend_version\":\"{}\",\"model_id\":\"{}\",\"model_artifact_hash\":\"{}\",\"quantization\":\"{}\",\"prompt_runtime_version\":\"{}\",\"tool_policy_version\":\"{}\",\"ontology_view\":\"{}\",\"context_budget\":{},\"expected_escalation_target\":\"{}\",\"abstention_required\":{},\"score\":{},\"score_unit\":\"0-3-local-product-score\",\"minimum_score\":{},\"local_pass\":{},\"expected_matches\":{},\"expected_total\":{},\"forbidden_matches\":{},\"latency_ms\":{},\"tokens_per_second\":{},\"prompt_tokens\":{},\"completion_tokens\":{},\"total_tokens\":{},\"resource_pressure\":\"{}\",\"peak_rss_bytes\":{},\"redaction_status\":\"redacted\",\"raw_artifact_retention_policy\":\"{}\",\"raw_prompt_source_stored\":false,\"public_benchmark_parity\":\"not-claimed\",\"recorded_at_ms\":{}}}",
+        ledger::json_string(&harness_ref()),
+        ledger::json_string(benchmark_run_id),
+        ledger::json_string(model_run_id),
+        ledger::json_string(&fixture.fixture_id),
+        ledger::json_string(&fixture.sha256),
+        ledger::json_string(&prompt.sha256),
+        prompt.chars,
+        ledger::json_string("rpotato benchmark run --fixture <path> --prompt <artifact>"),
+        ledger::json_string(&fixture.seed_policy),
+        ledger::json_string(&fixture.sampling_options),
+        ledger::json_string(std::env::consts::OS),
+        ledger::json_string(std::env::consts::ARCH),
+        ledger::json_string("not-recorded"),
+        ledger::json_string("not-recorded"),
+        ledger::json_string("not-recorded"),
+        ledger::json_string(&run.backend_id),
+        ledger::json_string(&fixture.backend_version),
+        ledger::json_string(&run.model_id),
+        ledger::json_string(&fixture.model_artifact_hash),
+        ledger::json_string(&fixture.quantization),
+        ledger::json_string(&fixture.prompt_runtime_version),
+        ledger::json_string(&fixture.tool_policy_version),
+        ledger::json_string(&fixture.ontology_view),
+        fixture.context_budget,
+        ledger::json_string(&fixture.expected_escalation_target),
+        fixture.abstention_required,
+        score.score,
+        fixture.minimum_score.unwrap_or(2),
+        score.local_pass,
+        score.expected_matches,
+        score.expected_total,
+        score.forbidden_matches,
+        run.elapsed_ms,
+        json_option_f64(local_tokens_per_second(run)),
+        json_option_u32(run.prompt_tokens),
+        json_option_u32(run.completion_tokens),
+        json_option_u32(run.total_tokens),
+        ledger::json_string(&run.resource_pressure),
+        json_option_u64(run.resource_peak_rss_bytes),
+        ledger::json_string(&fixture.raw_artifact_retention_policy),
+        recorded_at_ms
+    )
+}
+
+fn executable_redacted_report_json(
+    fixture: &BenchmarkFixture,
+    prompt: &BenchmarkPromptArtifact,
+    run: &backend::BackendChatRun,
+    score: &BenchmarkScore,
+    benchmark_run_id: &str,
+    model_run_id: &str,
+) -> String {
+    format!(
+        "{{\"benchmark_run_id\":\"{}\",\"model_run_id\":\"{}\",\"fixture_id\":\"{}\",\"benchmark_name\":\"{}\",\"runtime_capability_under_test\":\"{}\",\"ontology_view\":\"{}\",\"prompt_artifact_sha256\":\"{}\",\"prompt_chars\":{},\"response_chars\":{},\"expected_policy_decision\":\"{}\",\"expected_escalation_target\":\"{}\",\"required_tools\":{},\"required_source_reads\":{},\"required_evidence_records\":{},\"abstention_required\":{},\"expected_failure_category\":\"{}\",\"claim_state\":\"measured-locally\",\"score\":{},\"score_unit\":\"0-3-local-product-score\",\"minimum_score\":{},\"local_pass\":{},\"expected_matches\":{},\"expected_total\":{},\"forbidden_matches\":{},\"abstention_ok\":{},\"matched_expected\":{},\"matched_forbidden\":{},\"latency_ms\":{},\"tokens_per_second\":{},\"prompt_tokens\":{},\"completion_tokens\":{},\"total_tokens\":{},\"resource_pressure\":\"{}\",\"peak_rss_bytes\":{},\"raw_prompt_source_stored\":false,\"public_benchmark_parity\":\"not-claimed\"}}",
+        ledger::json_string(benchmark_run_id),
+        ledger::json_string(model_run_id),
+        ledger::json_string(&fixture.fixture_id),
+        ledger::json_string(&fixture.benchmark_name),
+        ledger::json_string(&fixture.runtime_capability_under_test),
+        ledger::json_string(&fixture.ontology_view),
+        ledger::json_string(&prompt.sha256),
+        prompt.chars,
+        run.response_chars,
+        ledger::json_string(&fixture.expected_policy_decision),
+        ledger::json_string(&fixture.expected_escalation_target),
+        json_string_array(&fixture.required_tools),
+        json_string_array(&fixture.required_source_reads),
+        json_string_array(&fixture.required_evidence_records),
+        fixture.abstention_required,
+        ledger::json_string(&fixture.expected_failure_category),
+        score.score,
+        fixture.minimum_score.unwrap_or(2),
+        score.local_pass,
+        score.expected_matches,
+        score.expected_total,
+        score.forbidden_matches,
+        score.abstention_ok,
+        json_string_array(&score.matched_expected),
+        json_string_array(&score.matched_forbidden),
+        run.elapsed_ms,
+        json_option_f64(local_tokens_per_second(run)),
+        json_option_u32(run.prompt_tokens),
+        json_option_u32(run.completion_tokens),
+        json_option_u32(run.total_tokens),
+        ledger::json_string(&run.resource_pressure),
+        json_option_u64(run.resource_peak_rss_bytes)
+    )
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum FixtureJsonValue {
     String(String),
@@ -407,6 +777,41 @@ fn required_string_array(
     Ok(values.clone())
 }
 
+fn optional_string_array(
+    fields: &BTreeMap<String, FixtureJsonValue>,
+    key: &str,
+) -> Result<Vec<String>, AppError> {
+    let Some(value) = fields.get(key) else {
+        return Ok(Vec::new());
+    };
+    let FixtureJsonValue::StringArray(values) = value else {
+        return Err(AppError::usage(format!(
+            "benchmark fixture optional field의 type이 다릅니다: {key}"
+        )));
+    };
+    if values.iter().any(|value| value.trim().is_empty()) {
+        return Err(AppError::usage(format!(
+            "benchmark fixture array field에는 빈 문자열을 넣을 수 없습니다: {key}"
+        )));
+    }
+    Ok(values.clone())
+}
+
+fn optional_u32(
+    fields: &BTreeMap<String, FixtureJsonValue>,
+    key: &str,
+) -> Result<Option<u32>, AppError> {
+    let Some(value) = fields.get(key) else {
+        return Ok(None);
+    };
+    let FixtureJsonValue::U32(value) = value else {
+        return Err(AppError::usage(format!(
+            "benchmark fixture optional field의 type이 다릅니다: {key}"
+        )));
+    };
+    Ok(Some(*value))
+}
+
 fn validate_fixture_schema(fields: &BTreeMap<String, FixtureJsonValue>) -> Result<(), AppError> {
     let expected = expected_fixture_fields();
     for key in fields.keys() {
@@ -451,6 +856,9 @@ fn expected_fixture_fields() -> &'static [&'static str] {
         "seed_policy",
         "sampling_options",
         "raw_artifact_retention_policy",
+        "expected_response_contains",
+        "forbidden_response_contains",
+        "minimum_score",
     ]
 }
 
@@ -668,6 +1076,56 @@ fn json_option(value: &Option<String>) -> String {
         .unwrap_or_else(|| "null".to_string())
 }
 
+fn json_option_bool(value: Option<bool>) -> String {
+    value
+        .map(|value| {
+            if value {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            }
+        })
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn json_option_u32(value: Option<u32>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn json_option_u64(value: Option<u64>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn json_option_f64(value: Option<f64>) -> String {
+    value
+        .map(|value| format!("{value:.6}"))
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn display_optional_u32(value: Option<u32>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "없음".to_string())
+}
+
+fn display_optional_u64(value: Option<u64>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "없음".to_string())
+}
+
+fn local_tokens_per_second(run: &backend::BackendChatRun) -> Option<f64> {
+    let completion_tokens = run.completion_tokens?;
+    if completion_tokens == 0 || run.elapsed_ms == 0 {
+        return None;
+    }
+    Some((completion_tokens as f64) / ((run.elapsed_ms as f64) / 1000.0))
+}
+
 fn json_string_array(values: &[String]) -> String {
     format!(
         "[{}]",
@@ -746,6 +1204,56 @@ mod tests {
         assert!(export.contains("\"fixture_id\":\"sample-fixture\""));
         assert!(export.contains("\"claim_state\":\"not-comparable\""));
         assert!(export.contains("\"score\":null"));
+    }
+
+    #[test]
+    fn executable_run_records_local_score_without_prompt_text() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-benchmark-executable-test-{}",
+            std::process::id()
+        ));
+        let data_root = root.join("data");
+        let project_root = root.join("project");
+        fs::create_dir_all(&project_root).unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", &data_root);
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        let fixture_path = write_fixture(&project_root);
+        mutate_fixture(&fixture_path, |text| {
+            text.replace(
+                "\"raw_artifact_retention_policy\": \"redacted-only\"",
+                "\"raw_artifact_retention_policy\": \"redacted-only\",\n  \"expected_response_contains\": [\"RPOTATO_BENCHMARK_OK\"],\n  \"forbidden_response_contains\": [\"SECRET_PROMPT\"],\n  \"minimum_score\": 3",
+            )
+        });
+        let prompt_path = project_root.join("prompt.txt");
+        fs::write(
+            &prompt_path,
+            "SECRET_PROMPT: reply with RPOTATO_BENCHMARK_OK only.",
+        )
+        .unwrap();
+
+        let report = run_report_with_chat(
+            fixture_path.to_str().unwrap(),
+            prompt_path.to_str().unwrap(),
+            Some(16),
+            |_prompt, _max_tokens| Ok(fake_chat_run("RPOTATO_BENCHMARK_OK")),
+        )
+        .unwrap();
+        let export = report_export(BenchmarkReportFormat::Jsonl).unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+
+        assert!(report.contains("claim state: measured-locally"));
+        assert!(report.contains("score: 3/3"));
+        assert!(export.contains("\"claim_state\":\"measured-locally\""));
+        assert!(export.contains("\"score\":3.000000"));
+        assert!(export.contains("\"model_run_id\":\"model-run-backend-chat-event\""));
+        assert!(export.contains("\"expected_matches\":1"));
+        assert!(export.contains("\"forbidden_matches\":0"));
+        assert!(export.contains("\"prompt_artifact_sha256\""));
+        assert!(!export.contains("SECRET_PROMPT"));
     }
 
     #[test]
@@ -917,5 +1425,38 @@ mod tests {
     fn mutate_fixture(path: &Path, mutate: impl FnOnce(String) -> String) {
         let text = fs::read_to_string(path).unwrap();
         fs::write(path, mutate(text)).unwrap();
+    }
+
+    fn fake_chat_run(response: &str) -> backend::BackendChatRun {
+        backend::BackendChatRun {
+            backend_id: "llama.cpp".to_string(),
+            pid: 1234,
+            model_id: "qwen-test".to_string(),
+            model_path: PathBuf::from("/tmp/model.gguf"),
+            ctx_size: Some(2048),
+            prompt_chars: 52,
+            response_chars: response.chars().count(),
+            requested_max_tokens: 16,
+            effective_max_tokens: 16,
+            finish_reason: "stop".to_string(),
+            guard_status: "pass",
+            prompt_tokens: Some(8),
+            completion_tokens: Some(4),
+            total_tokens: Some(12),
+            elapsed_ms: 200,
+            ledger_event: "backend-chat-event".to_string(),
+            resource_governor_admission: "allow".to_string(),
+            resource_governor_token_action: "none".to_string(),
+            resource_governor_reason: "normal",
+            resource_governor_hint: "none",
+            resource_governor_sample_event: "resource-governor-event".to_string(),
+            resource_pressure: "normal".to_string(),
+            resource_cpu_percent: Some(12.0),
+            resource_average_rss_bytes: Some(1024),
+            resource_peak_rss_bytes: Some(2048),
+            resource_disk_bytes: Some(4096),
+            resource_sample_event: "resource-sample-event".to_string(),
+            response: response.to_string(),
+        }
     }
 }

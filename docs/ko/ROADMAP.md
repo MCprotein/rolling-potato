@@ -55,7 +55,7 @@
 | v0.17.0 | Phase 11 | Runtime context/model governor preflight: 요청 context clamp, resource-sensitive model route hint, ledger 기록 |
 | v0.18.0 | Phase 6 + Phase 10 | local runtime metric 기반 performance baseline report: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping |
 | v0.19.0 | Phase 10 | Benchmark harness foundation: fixture schema 검증, benchmark run ledger/projection, reproducibility metadata, redacted local report export |
-| v0.20.0 | Phase 10 | Small-model ontology representation benchmark: 2B-4B target model에서 prompt-facing ontology view별 task score, hallucination, source-read compliance, latency, memory, token metric 비교 |
+| v0.20.0 | Phase 10 | Executable benchmark runner: active backend sidecar로 prompt artifact를 실행하고 local 0-3 score, `measured-locally` benchmark row, model/token/resource metric linkage를 기록 |
 | v0.21.0 | Phase 11 + Phase 10 | Benchmark-driven optimization policy: 측정된 local metric과 benchmark evidence로 context budget, lane count, fallback, model route 추천 |
 | v0.22.0+ | Phase 11 | 남은 subagent/team dispatcher policy: dispatch-time ownership enforcement와 failed-worker continuation |
 
@@ -423,6 +423,7 @@
 - [x] ledger/projection data 기반 performance baseline report: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping
 - [ ] fixture benchmark suite
 - [x] benchmark harness runner foundation: fixture schema 검증, run ledger/projection, reproducibility manifest, redacted report export
+- [x] executable benchmark runner: project-local prompt artifact, active backend sidecar call, deterministic local score, model_run_id linkage, token/latency/resource summary
 - [x] benchmark fixture metadata 계약: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence
 - [x] benchmark 실패 분류: model, prompt/context, ontology/source-pointer, runtime policy/parser, tool/command, backend/runtime, fixture issue
 - [ ] 실제 unsafe action, source-read omission, stale-claim use, policy violation, score regression에서 regression fixture로 승격하는 policy
@@ -434,7 +435,8 @@
 - [ ] 2B-4B ontology representation benchmark: view format별 task score, hallucination, source-read compliance, latency, memory, token budget
 - [ ] small-model abstention/escalation benchmark: evidence gap, invariant risk, stale claim, context exhaustion, repeated invalid output
 - [ ] required source reread가 포함된 resume/compaction stale-claim benchmark
-- [ ] benchmark result claim state: measured-locally, source-listed-unreproduced, not-comparable, rejected, superseded
+- [x] local row용 benchmark result claim state: measured-locally, not-comparable
+- [ ] 전체 benchmark result claim state와 transition: source-listed-unreproduced, rejected, superseded
 - [ ] 모델별 product benchmark suite
 - [ ] 모델별 공개 benchmark parity suite
 - [ ] 공개 benchmark 점수 비교 report: published vs local, 조건 차이, 재현 실패 사유

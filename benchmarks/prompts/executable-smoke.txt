@@ -1,0 +1,6 @@
+You are running a rolling-potato executable benchmark smoke test.
+
+Use the static-summary ontology view.
+
+Reply with exactly:
+RPOTATO_BENCHMARK_OK

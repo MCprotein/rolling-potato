@@ -1,5 +1,55 @@
 # 릴리즈 노트
 
+## v0.20.0 - Executable Benchmark Runner
+
+릴리즈 날짜: 2026-07-09
+
+이 릴리즈는 첫 executable local benchmark runner를 추가합니다. 여전히
+source-only developer preview이며, 모델 가중치, 외부 plugin package, prebuilt
+`rpotato` binary는 포함하지 않습니다.
+
+### 포함된 것
+
+- 새 `rpotato benchmark run --fixture <fixture.json> --prompt <artifact>
+  [--max-tokens <tokens>]` 명령.
+- `benchmark run`은 실행 중인 backend sidecar를 호출하고 local
+  `claim_state=measured-locally` benchmark row를 기록합니다.
+- Expected/forbidden response marker, abstention requirement, 비어 있지 않은 model
+  output을 기준으로 deterministic 0-3 local product score를 산정합니다.
+- SQLite migration v4가 `benchmark_runs`에 `model_run_id`, prompt artifact
+  checksum/length, local pass flag, marker count, latency, token count, resource
+  pressure, peak RSS field를 추가합니다.
+- `benchmark report --format jsonl`이 executable benchmark field를 export합니다.
+- `benchmarks/fixtures/executable-smoke.json`과
+  `benchmarks/prompts/executable-smoke.txt`가 첫 executable smoke fixture/prompt
+  pair를 제공합니다.
+- Executable benchmark boundary, redaction, observability linkage에 대한
+  영문/한국어 문서 업데이트.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (185 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato benchmark validate benchmarks/fixtures/sample.json`
+- `rpotato benchmark validate benchmarks/fixtures/executable-smoke.json`
+- `rpotato benchmark record --fixture benchmarks/fixtures/sample.json`
+- `rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32` 실행 중인 sidecar가 없을 때 fail-closed
+- `rpotato benchmark report --format jsonl`
+
+### 알려진 제한
+
+- `benchmark run`은 이미 실행 중인 backend sidecar와 `rpotato backend start`로
+  시작한 local model file이 필요합니다. 이 릴리즈는 model weight를 bundle하거나
+  자동 선택하지 않습니다.
+- Executable runner는 local product score만 기록합니다. Public benchmark score와
+  비교하거나 leaderboard parity를 주장하지 않습니다.
+- Source-read compliance와 hallucination scoring은 아직 marker/proxy 기반입니다.
+  Tool/evidence-aware scoring은 후속 범위입니다.
+- 이 preview release에는 prebuilt `rpotato` binary artifact를 첨부하지 않습니다.
+
 ## v0.19.0 - Benchmark Harness Foundation
 
 릴리즈 날짜: 2026-07-09

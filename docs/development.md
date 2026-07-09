@@ -52,6 +52,7 @@ Implemented first boundaries:
 - `rpotato monitor prune --before 30d --dry-run`
 - `rpotato benchmark validate <fixture.json>`
 - `rpotato benchmark record --fixture <fixture.json>`
+- `rpotato benchmark run --fixture <fixture.json> --prompt <artifact> [--max-tokens <tokens>]`
 - `rpotato benchmark report --format jsonl`
 - `rpotato model list`
 - `rpotato model manifest`
@@ -88,7 +89,7 @@ Model install is still blocked for unverified candidates, but read-only evaluati
 
 `tui monitor` reads the same SQLite observability projection and shows schema, model/token counts, latest resource pressure, CPU percent, average/peak RSS, disk bytes, model latency, and average token throughput in a dependency-free terminal-safe layout. It remains read-only and delegates export/prune actions to monitor CLI commands.
 
-`benchmark validate`, `benchmark record --fixture`, and `benchmark report --format jsonl` provide the first benchmark harness foundation. They validate fixture metadata, record metadata-only `not-comparable` benchmark runs into the ledger/SQLite projection, and export redacted JSONL reports with reproducibility manifests. They do not run a model or assign scores.
+`benchmark validate`, `benchmark record --fixture`, `benchmark run --fixture --prompt`, and `benchmark report --format jsonl` provide the benchmark harness surface. `record` remains metadata-only with `claim_state=not-comparable`; `run` executes a project-local prompt artifact through the running backend sidecar and records `claim_state=measured-locally`, a deterministic 0-3 local product score, the linked `model_run_id`, token/latency/resource summaries, and redacted reproducibility metadata. It still does not store raw prompt/source text in SQLite or claim public benchmark parity.
 
 `patch preview --path <path> --find <text> --replace <text>` renders a unified diff for one explicit project-local text replacement, records a proposal under `.rpotato/patch-proposals/`, and prints an approval token. `patch approve <proposal-id> --token <token> --dry-run` verifies that token and records the approval gate without applying the patch. Without `--dry-run`, `patch approve` applies the proposal only when the current file still matches the previewed original SHA-256, writes a rollback record, verifies the applied SHA-256, and optionally runs `--verify-command <command>` when policy classifies it as an allowed simple argv verification command.
 
@@ -177,6 +178,8 @@ cargo run -- monitor export --format csv
 cargo run -- monitor prune --before 30d --dry-run
 cargo run -- benchmark validate benchmarks/fixtures/sample.json
 cargo run -- benchmark record --fixture benchmarks/fixtures/sample.json
+cargo run -- benchmark validate benchmarks/fixtures/executable-smoke.json
+cargo run -- benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32
 cargo run -- benchmark report --format jsonl
 cargo run -- model list
 cargo run -- model manifest

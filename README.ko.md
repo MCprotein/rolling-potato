@@ -113,6 +113,7 @@ rpotato monitor export --format csv
 rpotato monitor prune --before 30d --dry-run
 rpotato benchmark validate benchmarks/fixtures/sample.json
 rpotato benchmark record --fixture benchmarks/fixtures/sample.json
+rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32
 rpotato benchmark report --format jsonl
 rpotato uninstall --keep-cache
 rpotato uninstall --purge-cache
@@ -232,6 +233,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato monitor prune --before 30d --dry-run`
 - `rpotato benchmark validate <fixture.json>`
 - `rpotato benchmark record --fixture <fixture.json>`
+- `rpotato benchmark run --fixture <fixture.json> --prompt <artifact> [--max-tokens <tokens>]`
 - `rpotato benchmark report --format jsonl`
 - `rpotato model list`
 - `rpotato model manifest`
@@ -278,7 +280,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `monitor baseline`은 local ledger/SQLite projection metric을 읽어 p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, model/backend/session grouping을 보여주는 read-only performance baseline report를 출력합니다. Raw prompt/source text는 저장하지 않으며 model artifact를 선택하지 않습니다. `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 
-`benchmark validate <fixture.json>`는 project-local benchmark fixture metadata를 검증합니다. Runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence record, abstention requirement, ontology view, context budget, backend/model artifact identifier, sampling policy, raw artifact retention policy를 확인합니다. `benchmark record --fixture <fixture.json>`는 metadata-only benchmark run을 append-only ledger와 SQLite `benchmark_runs` projection에 기록합니다. 이 기록은 `claim_state=not-comparable`, score 없음, reproducibility manifest, redacted local report만 포함합니다. `benchmark report --format jsonl`은 이 redacted benchmark record를 JSONL로 출력합니다. 이 명령들은 model을 실행하거나 fixture를 채점하거나 public benchmark parity를 주장하지 않습니다.
+`benchmark validate <fixture.json>`는 project-local benchmark fixture metadata를 검증합니다. Runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence record, abstention requirement, ontology view, context budget, backend/model artifact identifier, sampling policy, raw artifact retention policy를 확인합니다. `benchmark record --fixture <fixture.json>`는 metadata-only benchmark run을 append-only ledger와 SQLite `benchmark_runs` projection에 기록합니다. 이 기록은 `claim_state=not-comparable`, score 없음, reproducibility manifest, redacted local report만 포함합니다. `benchmark run --fixture <fixture.json> --prompt <artifact> [--max-tokens <tokens>]`는 실행 중인 backend sidecar에 prompt artifact를 보내고 `claim_state=measured-locally`, deterministic 0-3 local product score, `model_run_id`, token/latency/resource summary, redacted reproducibility field를 기록합니다. SQLite에는 raw prompt/source text를 저장하지 않습니다. `benchmark report --format jsonl`은 redacted benchmark record를 JSONL로 출력합니다. Benchmark output은 public benchmark parity를 주장하지 않습니다.
 
 `model list`, `model manifest`, `model inspect`, `model registry`, `model download-plan`은 source-backed manifest schema, 후보 상태, 공개 benchmark source ledger, local registry 위치, 다운로드 전 source/license/checksum 표시 항목을 보여줍니다. Qwen과 Gemma는 pinned revision URL, LFS SHA-256, file size가 기록된 source-backed `unverified` GGUF artifact 후보를 갖습니다. `model eval-plan <id>`는 read-only 로컬 평가 preflight입니다. source-backed artifact field, app-data artifact 존재 여부, size/SHA-256 상태, 다음 smoke/benchmark 명령을 다운로드 없이 확인합니다. `model benchmark-plan <id>`는 공개 benchmark 재현 조건과 로컬 제품 benchmark fixture를 분리하고 artifact, quantization, backend, prompt, dataset, scoring 조건이 함께 기록되기 전까지 점수 parity를 거부합니다. `model fetch-candidate <id> --for-evaluation`은 명시적인 평가 전용 다운로드 경로입니다. app-managed partial resume을 지원하고 size/SHA-256을 검증한 뒤 ledger event를 남기지만, 설치된 모델로 registry 등록하지 않습니다. `model verify-file`은 로컬 파일 bytes의 SHA-256을 검증하고 ledger event를 남깁니다. `model cleanup-failed`는 app data 내부의 partial/failed artifact만 dry-run 또는 명시적 delete 대상으로 삼습니다. `model install`은 후보를 `verified`로 승격하기 전까지 registry 설치를 차단하며, local `llama.cpp b9878` smoke, RAM fit, mmproj 필요 여부, benchmark evidence가 남아 있습니다.
 

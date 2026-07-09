@@ -56,7 +56,7 @@ optimization and dispatcher policy consume it.
 | v0.17.0 | Phase 11 | Runtime context/model governor preflight: requested context clamp, resource-sensitive model route hints, ledger recording |
 | v0.18.0 | Phase 6 + Phase 10 | Performance baseline report over local runtime metrics: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, and backend/model/session grouping |
 | v0.19.0 | Phase 10 | Benchmark harness foundation: fixture schema validation, benchmark run ledger/projection, reproducibility metadata, and redacted local report export |
-| v0.20.0 | Phase 10 | Small-model ontology representation benchmark: compare prompt-facing ontology views for 2B-4B target models with task score, hallucination, source-read compliance, latency, memory, and token metrics |
+| v0.20.0 | Phase 10 | Executable benchmark runner: prompt artifact execution through active backend sidecar, local 0-3 score, `measured-locally` benchmark rows, and model/token/resource metric linkage |
 | v0.21.0 | Phase 11 + Phase 10 | Benchmark-driven optimization policy: recommend context budget, lane count, fallback, and model route from measured local metrics and benchmark evidence |
 | v0.22.0+ | Phase 11 | Remaining subagent/team dispatcher policy: dispatch-time ownership enforcement and failed-worker continuation |
 
@@ -424,6 +424,7 @@ Goal: require evidence for completion instead of accepting the model's claim tha
 - [x] Performance baseline report over ledger/projection data: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping
 - [ ] Fixture benchmark suite
 - [x] Benchmark harness runner foundation: fixture schema validation, run ledger/projection, reproducibility manifest, redacted report export
+- [x] Executable benchmark runner: project-local prompt artifact, active backend sidecar call, deterministic local score, model_run_id linkage, token/latency/resource summary
 - [x] Benchmark fixture metadata contract: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence
 - [x] Benchmark failure taxonomy: model, prompt/context, ontology/source-pointer, runtime policy/parser, tool/command, backend/runtime, fixture issue
 - [ ] Regression fixture promotion policy from real unsafe actions, source-read omissions, stale-claim use, policy violations, and score regressions
@@ -435,7 +436,8 @@ Goal: require evidence for completion instead of accepting the model's claim tha
 - [ ] 2B-4B ontology representation benchmark: view format vs task score, hallucination, source-read compliance, latency, memory, token budget
 - [ ] Small-model abstention/escalation benchmark: evidence gaps, invariant risk, stale claims, context exhaustion, repeated invalid output
 - [ ] Resume/compaction stale-claim benchmark with required source reread
-- [ ] Benchmark result claim states: measured-locally, source-listed-unreproduced, not-comparable, rejected, superseded
+- [x] Benchmark result claim states wired for local rows: measured-locally and not-comparable
+- [ ] Full benchmark result claim states and transitions: source-listed-unreproduced, rejected, superseded
 - [ ] Per-model product benchmark suite
 - [ ] Per-model public benchmark parity suite
 - [ ] Public benchmark comparison report: published vs local, condition differences, unreproducible reasons
