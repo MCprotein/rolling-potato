@@ -80,6 +80,10 @@ rpotato plugin import --from codex ./my-plugin
 rpotato plugin inspect imported.example-plugin
 rpotato plugin enable imported.example-plugin
 rpotato team status
+rpotato team admit --lanes 2
+rpotato team dispatch --lanes 2 --write-owner 1:src/team.rs --write-owner 2:src/cli.rs
+rpotato team dispatch --lanes 3 --write-owner 1:src/team.rs --write-owner 2:src/cli.rs --write-owner 3:src/app.rs --failed-lane 2 --failure "worker timed out"
+rpotato team governor --lanes 2 --context-tokens 6000 --context-limit 4096 --model-tier standard
 rpotato model list
 rpotato model manifest
 rpotato model inspect qwen3.5-4b

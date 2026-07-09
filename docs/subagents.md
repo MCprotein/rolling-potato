@@ -124,6 +124,10 @@ Current implemented slice:
 - Blocked policy/ownership admission writes `.rpotato/approval-requests/`
   records, and `rpotato tui approvals` displays those team requests next to
   patch proposal approvals.
+- `rpotato team dispatch --lanes <count> --write-owner <lane:path>` rechecks
+  normalized file ownership at the dispatch boundary, records dispatch status,
+  and can record failed-worker continuation with `--failed-lane <lane>
+  --failure <reason>`. It still does not launch workers.
 - `rpotato team governor --lanes <count> --context-tokens <tokens>` records a
   context/model governor preflight. It clamps effective context tokens and emits
   local model-tier route hints without starting workers or claiming real model

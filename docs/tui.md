@@ -75,7 +75,7 @@ Minimum TUI views:
 - model/token usage summary
 - CPU/memory/resource-pressure summary
 - subagent status
-- team status
+- team status and latest team runtime event
 - plugin permission review
 - evidence/stop-gate status
 - logs and diagnostics

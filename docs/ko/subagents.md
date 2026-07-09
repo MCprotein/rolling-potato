@@ -123,6 +123,10 @@ Admission input:
   dispatch를 차단한다.
 - 차단된 policy/ownership admission은 `.rpotato/approval-requests/` record를 쓰며,
   `rpotato tui approvals`는 이 team request를 patch proposal approval 옆에 표시한다.
+- `rpotato team dispatch --lanes <count> --write-owner <lane:path>`는 dispatch
+  boundary에서 normalized file ownership을 다시 검사하고 dispatch status를 기록하며,
+  `--failed-lane <lane> --failure <reason>`으로 failed-worker continuation을 기록할 수
+  있다. 아직 worker를 시작하지 않는다.
 - `rpotato team governor --lanes <count> --context-tokens <tokens>`는 context/model
   governor preflight를 기록한다. Worker를 시작하거나 실제 model artifact capability를
   주장하지 않고 effective context token을 clamp하며 local model-tier route hint를 낸다.
