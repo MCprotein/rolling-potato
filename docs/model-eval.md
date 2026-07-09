@@ -194,7 +194,16 @@ Checked 2026-07-06:
 - Raw `/completion` still emitted reasoning trace text and hit the generation limit before a clean final answer.
 - `rpotato backend chat --prompt "한국어로 한 문장만 답해. 감자는 무엇인가?" --max-tokens 64` used `/v1/chat/completions` with `chat_template_kwargs.enable_thinking=false`; it returned `guard: pass`, `finish reason: stop`, `prompt tokens: 57`, `completion tokens: 16`, `total tokens: 73`, and the clean response `감자는 땅속에서 자라는 식물의 뿌리줄기입니다.`
 
-This evidence does not promote Qwen3.5-4B to `verified`. RAM fit, peak memory, Gemma comparison, broader prompt compiler behavior, and benchmark scores remain open.
+Checked 2026-07-09:
+
+- `rpotato model eval-plan qwen3.5-4b` reported `local artifact status: verified-local-artifact`; the app-managed `Qwen3.5-4B-Q4_K_M.gguf` file matched expected size `2740937888` and SHA-256 `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`.
+- `rpotato backend doctor` reported the managed `llama.cpp` backend binary at version `9878 (2da668617)`.
+- `rpotato backend start --model <app-data>/models/Qwen3.5-4B-Q4_K_M.gguf --ctx-size 4096` started the sidecar in `726ms` with resource pressure `normal` and initial peak RSS `3240476672` bytes.
+- `rpotato backend chat --prompt "Reply with exactly: RPOTATO_BENCHMARK_OK" --max-tokens 32` returned `RPOTATO_BENCHMARK_OK` with `prompt tokens: 53`, `completion tokens: 7`, `total tokens: 60`, `elapsed ms: 243`, resource pressure `normal`, and peak RSS `3298017280` bytes.
+- `rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32` recorded benchmark run `benchmark-event-1783583665619790000-97803-benchmark-run-executed` with `claim_state=measured-locally`, score `3/3`, `local_pass=true`, expected markers `1/1`, forbidden matches `0`, latency `243ms`, `28.806584` tokens/sec, `prompt tokens: 76`, `completion tokens: 7`, `total tokens: 83`, resource pressure `normal`, and peak RSS `3351363584` bytes.
+- The sidecar was stopped after the measurement with `rpotato backend stop`.
+
+This evidence does not promote Qwen3.5-4B to `verified`. It proves the first executable local smoke benchmark through the non-thinking chat path. Gemma comparison, broader prompt compiler behavior, source-read/hallucination scoring, and public benchmark parity remain open.
 
 ## Before Confirming An Artifact
 

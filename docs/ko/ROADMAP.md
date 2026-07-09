@@ -257,7 +257,8 @@
 - [x] Qwen3.5-4B 평가용 artifact fetch와 `--ctx-size 4096` 기반 local `llama.cpp b9878` lifecycle smoke
 - [ ] Gemma 평가용 artifact fetch와 local `llama.cpp b9878` lifecycle smoke
 - [x] `chat_template_kwargs.enable_thinking=false`와 `<think>` trace 표시 guard 기반 Qwen3.5 non-thinking chat path
-- [ ] non-thinking chat path를 통한 Qwen 최종 응답 품질 benchmark scoring
+- [x] non-thinking chat path를 통한 Qwen executable smoke benchmark scoring
+- [ ] smoke marker fixture를 넘어서는 Qwen 최종 응답 품질 benchmark suite
 - [ ] 선택한 Qwen/Gemma artifact 후보의 RAM-fit과 mmproj 필요 여부 측정
 - [x] SHA-256 gate가 있는 평가용 artifact 이어받기 다운로드
 - [ ] verified install 다운로드와 registry 등록

@@ -258,7 +258,8 @@ Goal: install and register only source- and checksum-verified model candidates.
 - [x] Qwen3.5-4B evaluation artifact fetch and local `llama.cpp b9878` lifecycle smoke with `--ctx-size 4096`
 - [ ] Gemma evaluation artifact fetch and local `llama.cpp b9878` lifecycle smoke
 - [x] Qwen3.5 non-thinking chat path with `chat_template_kwargs.enable_thinking=false` and `<think>` trace display guard
-- [ ] Qwen final-answer quality benchmark scoring through the non-thinking chat path
+- [x] Qwen executable smoke benchmark scoring through the non-thinking chat path
+- [ ] Broader Qwen final-answer quality benchmark suite beyond the smoke marker fixture
 - [ ] RAM-fit and mmproj-need measurement for selected Qwen/Gemma artifact candidates
 - [x] Resumable evaluation artifact download with SHA-256 gate
 - [ ] Verified install download and registry registration

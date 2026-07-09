@@ -194,7 +194,16 @@ local smoke 또는 benchmark 실행 전 `rpotato model eval-plan <id>`를 실행
 - raw `/completion`에서는 Qwen 출력이 reasoning trace text를 생성했고 clean final answer 전에 generation limit에 걸렸습니다.
 - `rpotato backend chat --prompt "한국어로 한 문장만 답해. 감자는 무엇인가?" --max-tokens 64`는 `/v1/chat/completions`와 `chat_template_kwargs.enable_thinking=false`를 사용했고, `guard: pass`, `finish reason: stop`, `prompt tokens: 57`, `completion tokens: 16`, `total tokens: 73`, clean response `감자는 땅속에서 자라는 식물의 뿌리줄기입니다.`를 반환했습니다.
 
-이 증거만으로 Qwen3.5-4B를 `verified`로 승격하지 않습니다. RAM fit, peak memory, Gemma 비교, 더 넓은 prompt compiler behavior, benchmark score는 아직 열려 있습니다.
+2026-07-09 확인:
+
+- `rpotato model eval-plan qwen3.5-4b`는 `local artifact status: verified-local-artifact`를 보고했습니다. App-managed `Qwen3.5-4B-Q4_K_M.gguf` 파일은 expected size `2740937888`과 SHA-256 `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`와 일치했습니다.
+- `rpotato backend doctor`는 managed `llama.cpp` backend binary version `9878 (2da668617)`를 보고했습니다.
+- `rpotato backend start --model <app-data>/models/Qwen3.5-4B-Q4_K_M.gguf --ctx-size 4096`은 sidecar를 `726ms`에 시작했고 resource pressure `normal`, initial peak RSS `3240476672` bytes를 기록했습니다.
+- `rpotato backend chat --prompt "Reply with exactly: RPOTATO_BENCHMARK_OK" --max-tokens 32`는 `RPOTATO_BENCHMARK_OK`를 반환했고 `prompt tokens: 53`, `completion tokens: 7`, `total tokens: 60`, `elapsed ms: 243`, resource pressure `normal`, peak RSS `3298017280` bytes를 기록했습니다.
+- `rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32`는 benchmark run `benchmark-event-1783583665619790000-97803-benchmark-run-executed`를 기록했습니다. 결과는 `claim_state=measured-locally`, score `3/3`, `local_pass=true`, expected markers `1/1`, forbidden matches `0`, latency `243ms`, `28.806584` tokens/sec, `prompt tokens: 76`, `completion tokens: 7`, `total tokens: 83`, resource pressure `normal`, peak RSS `3351363584` bytes입니다.
+- 측정 후 `rpotato backend stop`으로 sidecar를 중지했습니다.
+
+이 증거만으로 Qwen3.5-4B를 `verified`로 승격하지 않습니다. 다만 non-thinking chat path 기반 첫 executable local smoke benchmark는 통과했습니다. Gemma 비교, 더 넓은 prompt compiler behavior, source-read/hallucination scoring, public benchmark parity는 아직 열려 있습니다.
 
 ## `verified` 승격 전 확인 사항
 
