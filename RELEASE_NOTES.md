@@ -30,7 +30,7 @@ packages, or prebuilt `rpotato` binaries.
 ### Verified In This Release
 
 - `cargo fmt --check`
-- `cargo test` (179 tests)
+- `cargo test` (183 tests)
 - `cargo clippy --all-targets -- -D warnings`
 - `cargo build`
 - `scripts/release/verify-release-policy.sh`

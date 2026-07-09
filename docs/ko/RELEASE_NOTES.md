@@ -29,7 +29,7 @@ source-only developer preview이며, 모델 가중치, 외부 plugin package, pr
 ### 이 릴리즈에서 검증한 것
 
 - `cargo fmt --check`
-- `cargo test` (179 tests)
+- `cargo test` (183 tests)
 - `cargo clippy --all-targets -- -D warnings`
 - `cargo build`
 - `scripts/release/verify-release-policy.sh`
