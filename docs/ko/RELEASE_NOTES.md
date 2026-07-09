@@ -1,5 +1,30 @@
 # 릴리즈 노트
 
+## v0.23.1 - Windows Binary Link Fix
+
+릴리즈 날짜: 2026-07-09
+
+이 patch release는 `rusqlite`의 `bundled-windows` feature를 켜서 Windows x86_64
+release build를 수정합니다. Release workflow가 runner에 설치된 `sqlite3.lib`에
+의존하지 않도록 합니다.
+
+### 포함된 것
+
+- Windows release binary가 system SQLite import library 대신 locked Rust dependency
+  graph를 통해 SQLite를 link합니다.
+- v0.23.0의 macOS packaging 동작은 그대로 유지합니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (197 tests)
+- `cargo test --locked` (197 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --locked`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.23.1`
+
 ## v0.23.0 - Official Binary Download Foundation
 
 릴리즈 날짜: 2026-07-09
