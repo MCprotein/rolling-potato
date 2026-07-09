@@ -37,7 +37,7 @@ it. The release grouping is:
 | v0.19.0 | benchmark harness foundation | record benchmark runs in the ledger/projection, validate fixture metadata, emit reproducibility metadata, and export redacted local reports |
 | v0.20.0 | executable benchmark runner | link active-backend prompt artifact runs, local score, token/latency, and resource metrics through the same runtime monitoring schema |
 | v0.21.0 | benchmark-driven optimization policy | `monitor optimize` recommends context budget, lane count, fallback, and model route from measured local metrics and benchmark evidence |
-| v0.22.0+ | remaining dispatcher governor policy | add dispatch-time ownership enforcement and failed-worker continuation |
+| v0.22.0 | dispatcher hardening | enforce dispatch-time file ownership, record failed-worker continuation, and surface latest team runtime status |
 
 ## Storage Decision
 
@@ -90,11 +90,12 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato benchmark report --format jsonl` exports the redacted benchmark projection with reproducibility metadata. Public benchmark parity remains explicitly unclaimed.
 - `rpotato backend start`, `rpotato backend status`, and `rpotato backend chat` record event-driven backend CPU/RSS/disk resource samples.
 - `rpotato backend chat` applies the first runtime resource governor slice: critical pressure blocks chat before model execution, degraded pressure clamps the effective max-token budget, and normal/unknown pressure preserves the requested token budget.
-- `rpotato team status` reads the latest resource sample and reports read-only team admission: normal pressure admits parallel lanes, unknown/degraded pressure falls back to one sequential lane, and critical pressure blocks dispatch.
+- `rpotato team status` reads the latest resource sample and reports read-only team admission: normal pressure admits parallel lanes, unknown/degraded pressure falls back to one sequential lane, and critical pressure blocks dispatch. It also surfaces the latest `team.*` runtime ledger event for the current project.
 - `rpotato team admit --lanes <count>` is the first enforced team admission gate. It records the admission decision in the append-only ledger and SQLite projection, admits requested lanes on normal pressure, falls back to one sequential lane on unknown/degraded pressure, and returns a blocked error on critical pressure before any worker launch exists.
 - `rpotato team admit --lanes <count> --write <path> --command <command>` adds policy preflight to the admission gate. Requested write paths and commands are classified with the same policy engine used by `policy check-path` and `policy check-command`; any `ask` or `deny` decision blocks dispatch and is recorded in the team admission ledger event.
 - `rpotato team admit --lanes <count> --write-owner <lane:path>` adds file ownership preflight. Ownership paths are normalized before dispatch; the same normalized write path cannot be owned by multiple lanes, and conflicts are recorded as blocked team admission events.
 - Blocked team admission policy/ownership decisions write redacted project-local approval request records under `.rpotato/approval-requests/`, and `rpotato tui approvals` lists those records alongside patch proposal approvals.
+- `rpotato team dispatch --lanes <count> --write-owner <lane:path>` rechecks normalized file ownership at the dispatch boundary, records ready/fallback/blocked events in the append-only ledger and SQLite projection, and blocks cross-lane ownership conflicts before worker launch exists. `--failed-lane <lane> --failure <reason>` records failed-worker continuation state and whether remaining admitted lanes may continue.
 - `rpotato team governor --lanes <count> --context-tokens <tokens>` records a context/model governor preflight. It consumes the latest resource sample, reports admitted lanes, clamps effective context tokens against `--context-limit` or the runtime default, emits local model-tier route hints (`keep`, `downgrade`, `escalate`, `defer`), and records the decision in the append-only ledger and SQLite projection. These hints are local runtime policy hints, not source-backed claims about a real model artifact.
 - A corrupt SQLite file is preserved with a `.corrupt.<timestamp>` suffix before a new projection is created.
 - Corrupt/stale current state is preserved by `state reconcile` with `.corrupt.<timestamp>` or `.stale.<timestamp>` suffixes.
@@ -103,7 +104,7 @@ Phase 2 currently implements the runtime store foundation.
 Not implemented yet:
 
 - continuous background CPU/memory/disk resource sampling from the managed backend sidecar
-- full subagent/team dispatcher execution after admission
+- full subagent/team dispatcher execution after dispatch preflight
 - dispatch-time ownership enforcement
 - full transcript replay and conversation continuation after a selected session resume
 - active workflow resume execution by the real agent loop

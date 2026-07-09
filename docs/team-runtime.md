@@ -82,9 +82,10 @@ single-agent workflow and record the reason in the ledger. Team admission must
 not silently drop assigned work.
 
 `rpotato team status` is the current read-only admission preview. It consumes
-the latest resource sample and reports whether a future team dispatch would be
-parallel, sequential fallback, or blocked. It does not start workers or mutate
-workflow state yet.
+the latest resource sample, reports whether a future team dispatch would be
+parallel, sequential fallback, or blocked, and surfaces the latest `team.*`
+runtime ledger event for the current project. It does not start workers or
+mutate workflow state yet.
 
 `rpotato team admit --lanes <count>` is the first enforced admission gate. It
 uses the same resource policy but records a ledger event and returns a blocked
@@ -109,6 +110,22 @@ lane-owned write paths before dispatch. If two lanes claim the same normalized
 path, admission returns an ownership-blocked result and records it in the same
 ledger event. This is still admission-time preflight, not worker launch or
 merge-time ownership enforcement.
+
+`rpotato team dispatch --lanes <count> --write-owner <lane:path>` is the first
+dispatch-time hardening surface:
+
+```text
+rpotato team dispatch --lanes 2 --write-owner 1:src/team.rs --write-owner 2:src/cli.rs
+rpotato team dispatch --lanes 3 --write-owner 1:src/team.rs --write-owner 2:src/cli.rs --write-owner 3:src/app.rs --failed-lane 2 --failure "worker timed out"
+```
+
+It reuses the resource lane decision and normalized file ownership rules at the
+dispatch boundary. Cross-lane ownership conflicts, invalid failed lanes, and
+critical resource pressure return blocked errors and record ledger/SQLite
+projection events. `--failed-lane <lane> --failure <reason>` records whether
+the runtime can continue with the remaining admitted lanes. This command is
+still a preflight/reporting surface: it does not launch subagents, execute
+tools, merge files, or advance team stages.
 
 When policy or ownership preflight blocks admission, the runtime also writes a
 redacted project-local approval request under `.rpotato/approval-requests/`.

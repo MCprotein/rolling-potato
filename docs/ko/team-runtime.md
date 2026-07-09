@@ -81,7 +81,8 @@ Admission이 실패하면 runtime은 sequential subagent 또는 single-agent wor
 
 `rpotato team status`는 현재 read-only admission preview입니다. 최신 resource sample을
 사용해 향후 team dispatch가 parallel, sequential fallback, blocked 중 어디에 해당하는지
-보여줍니다. 아직 worker를 시작하거나 workflow state를 변경하지 않습니다.
+보여주고, 현재 project의 최신 `team.*` runtime ledger event도 표시합니다. 아직 worker를
+시작하거나 workflow state를 변경하지 않습니다.
 
 `rpotato team admit --lanes <count>`는 첫 enforced admission gate입니다. 같은 resource
 policy를 사용하지만 ledger event를 기록하고 critical pressure에서는 blocked error를
@@ -103,6 +104,21 @@ Preflight는 공통 runtime policy engine을 사용합니다. `allow` check는 g
 정규화합니다. 두 lane이 같은 normalized path를 claim하면 admission은 ownership-blocked
 결과를 반환하고 같은 ledger event에 기록합니다. 이것은 아직 worker launch나 merge-time
 ownership enforcement가 아니라 admission-time preflight입니다.
+
+`rpotato team dispatch --lanes <count> --write-owner <lane:path>`는 첫
+dispatch-time hardening surface입니다.
+
+```text
+rpotato team dispatch --lanes 2 --write-owner 1:src/team.rs --write-owner 2:src/cli.rs
+rpotato team dispatch --lanes 3 --write-owner 1:src/team.rs --write-owner 2:src/cli.rs --write-owner 3:src/app.rs --failed-lane 2 --failure "worker timed out"
+```
+
+이 명령은 dispatch boundary에서 resource lane decision과 normalized file ownership rule을
+다시 적용합니다. Cross-lane ownership conflict, invalid failed lane, critical resource
+pressure는 blocked error를 반환하고 ledger/SQLite projection event를 기록합니다.
+`--failed-lane <lane> --failure <reason>`은 남은 admitted lane으로 계속 진행할 수 있는지
+기록합니다. 이 명령도 preflight/reporting surface입니다. Subagent를 시작하거나 tool을
+실행하거나 file을 merge하거나 team stage를 전진시키지 않습니다.
 
 Policy 또는 ownership preflight가 admission을 차단하면 runtime은
 `.rpotato/approval-requests/` 아래에 redacted project-local approval request도 기록합니다.

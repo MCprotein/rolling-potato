@@ -1,5 +1,41 @@
 # 릴리즈 노트
 
+## v0.22.0 - Dispatcher Hardening
+
+릴리즈 날짜: 2026-07-09
+
+이 릴리즈는 첫 dispatch-time team hardening surface를 추가합니다. Worker를 시작하거나
+team stage를 전진시키지 않고 dispatch ownership decision과 failed-worker continuation
+상태를 기록합니다.
+
+### 포함된 것
+
+- 새 `rpotato team dispatch --lanes <count> --write-owner <lane:path>` 명령.
+- Dispatch-time normalized file ownership enforcement. Cross-lane ownership
+  conflict와 critical resource pressure는 blocked error를 반환하고 ledger/SQLite
+  projection event를 기록합니다.
+- `--failed-lane <lane> --failure <reason>`으로 failed-worker continuation을 기록합니다.
+  남은 admitted lane 수와 continuation action도 표시합니다.
+- `rpotato team status`가 현재 project의 최신 `team.*` runtime ledger event를 표시합니다.
+- 영문/한국어 문서가 `team dispatch`를 worker launcher가 아니라 preflight/reporting
+  boundary로 설명하도록 업데이트되었습니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (196 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato team dispatch --lanes 2 --write-owner 1:src/team.rs --write-owner 2:src/cli.rs`
+- `rpotato team status`
+
+### 경계
+
+이 릴리즈는 subagent 시작, tool 실행, worker output merge, team stage 전진, full
+dispatcher를 구현하지 않습니다. Worker launch가 생기기 전에 필요한 dispatch preflight
+state를 기록하고 강제하는 기능만 제공합니다.
+
 ## v0.21.0 - Benchmark-Driven Optimization Policy
 
 릴리즈 날짜: 2026-07-09

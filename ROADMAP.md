@@ -33,7 +33,7 @@ evidence.
 | v0.20.0 | Released | Executable benchmark runner: prompt artifact execution through active backend sidecar, local 0-3 score, `measured-locally` benchmark rows, model/token/resource metric linkage |
 | v0.20.1 | Released | Benchmark evidence status: real Qwen executable smoke measurement documented; `model eval-plan` surfaces latest local measured benchmark row |
 | v0.21.0 | Released | Benchmark-driven optimization policy: `monitor optimize` recommends context budget, lane count, fallback, and model route from measured local metrics and benchmark evidence |
-| v0.22.0 | Planned | Dispatcher hardening: dispatch-time file ownership enforcement, failed-worker continuation, subagent/team status surfacing |
+| v0.22.0 | Released | Dispatcher hardening: `team dispatch` enforces dispatch-time file ownership, records failed-worker continuation, and surfaces latest team runtime status |
 | v0.23.0 | Planned | Official binary download foundation: release build pipeline, GitHub Release assets, macOS Apple Silicon and Windows x86_64 `rpotato` artifacts, binary checksums, `rpotato doctor` release smoke |
 | v0.24.0 | Planned | Cross-platform release hardening: macOS Intel artifact, checksum publication, Windows keep-cache/purge-cache uninstall smoke, release notes template |
 | v0.25.0 | Planned | Verified model install path: promote source-backed candidates only after local evidence, registry registration, install download flow, RAM/mmproj evidence gate |

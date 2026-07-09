@@ -20,6 +20,7 @@ rpotato
   rpotato session new
   rpotato team status
   rpotato team admit --lanes <count> [--write <path>] [--write-owner <lane:path>] [--command <command>]
+  rpotato team dispatch --lanes <count> --write-owner <lane:path> [--failed-lane <lane>] [--failure <reason>]
   rpotato team governor --lanes <count> --context-tokens <tokens> [--context-limit <tokens>] [--model-tier small|standard|large]
   rpotato resume [session-id]
   rpotato tui
@@ -92,6 +93,7 @@ rpotato
   backend start/status/stop/chat은 명시 모델 파일 기준의 managed sidecar lifecycle과 non-streaming chat smoke를 다룹니다.
   team status는 최신 resource sample 기준의 read-only admission preview와 sequential fallback 결정을 표시합니다.
   team admit은 dispatcher 진입 전 resource/policy/file-ownership admission gate를 강제하고 결과를 ledger에 기록합니다.
+  team dispatch는 dispatch 직전 file ownership을 다시 강제하고 failed-worker continuation 상태를 ledger에 기록합니다.
   team governor는 dispatcher 진입 전 context/model budget clamp와 downgrade/escalation hint를 기록합니다.
   benchmark record는 metadata-only not-comparable run을 기록하고, benchmark run은 실행 중인 backend sidecar로 local measured run을 기록합니다.
   monitor optimize는 측정된 local metric과 benchmark evidence만으로 context/lane/fallback/model route hint를 추천합니다.
@@ -174,6 +176,12 @@ pub enum TeamCommand {
         write_paths: Vec<String>,
         owned_write_paths: Vec<(u32, String)>,
         commands: Vec<String>,
+    },
+    Dispatch {
+        lanes: u32,
+        owned_write_paths: Vec<(u32, String)>,
+        failed_lane: Option<u32>,
+        failure_reason: Option<String>,
     },
     Governor {
         lanes: u32,
@@ -404,11 +412,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, rest @ ..] if group == "team" && action == "admit" => {
             Ok(Command::Team(parse_team_admit_args(rest)?))
         }
+        [group, action, rest @ ..] if group == "team" && action == "dispatch" => {
+            Ok(Command::Team(parse_team_dispatch_args(rest)?))
+        }
         [group, action, rest @ ..] if group == "team" && action == "governor" => {
             Ok(Command::Team(parse_team_governor_args(rest)?))
         }
         [group, ..] if group == "team" => {
-            Err(AppError::usage("team 명령은 status, admit, governor만 허용합니다."))
+            Err(AppError::usage("team 명령은 status, admit, dispatch, governor만 허용합니다."))
         }
         [arg] if arg == "tui" => Ok(Command::Tui(TuiCommand::Overview)),
         [group, action] if group == "tui" && action == "monitor" => {
@@ -822,7 +833,7 @@ fn parse_team_admit_args(args: &[String]) -> Result<TeamCommand, AppError> {
                         "team admit은 --write-owner <lane:path> 값이 필요합니다.",
                     ));
                 }
-                let (lane, path) = parse_write_owner(value)?;
+                let (lane, path) = parse_write_owner_for(value, "team admit")?;
                 owned_write_paths.push((lane, path));
                 index += 1;
             }
@@ -860,6 +871,110 @@ fn parse_team_admit_args(args: &[String]) -> Result<TeamCommand, AppError> {
         write_paths,
         owned_write_paths,
         commands,
+    })
+}
+
+fn parse_team_dispatch_args(args: &[String]) -> Result<TeamCommand, AppError> {
+    let mut lanes = None;
+    let mut owned_write_paths = Vec::new();
+    let mut failed_lane = None;
+    let mut failure_reason = None;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--lanes" => {
+                if lanes.is_some() {
+                    return Err(AppError::usage(
+                        "team dispatch의 --lanes 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "team dispatch는 --lanes <count> 값이 필요합니다.",
+                    ));
+                };
+                lanes = Some(parse_positive_u32(value, "lanes")?);
+                index += 2;
+            }
+            "--write-owner" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "team dispatch는 --write-owner <lane:path> 값이 필요합니다.",
+                    ));
+                };
+                if value.starts_with("--") {
+                    return Err(AppError::usage(
+                        "team dispatch는 --write-owner <lane:path> 값이 필요합니다.",
+                    ));
+                }
+                let (lane, path) = parse_write_owner_for(value, "team dispatch")?;
+                owned_write_paths.push((lane, path));
+                index += 2;
+            }
+            "--failed-lane" => {
+                if failed_lane.is_some() {
+                    return Err(AppError::usage(
+                        "team dispatch의 --failed-lane 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "team dispatch는 --failed-lane <lane> 값이 필요합니다.",
+                    ));
+                };
+                failed_lane = Some(parse_positive_u32(value, "failed-lane")?);
+                index += 2;
+            }
+            "--failure" => {
+                if failure_reason.is_some() {
+                    return Err(AppError::usage(
+                        "team dispatch의 --failure 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                index += 1;
+                let start = index;
+                while index < args.len() && !args[index].starts_with("--") {
+                    index += 1;
+                }
+                if start == index {
+                    return Err(AppError::usage(
+                        "team dispatch는 --failure <reason> 값이 필요합니다.",
+                    ));
+                }
+                failure_reason = Some(args[start..index].join(" "));
+            }
+            unknown => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 team dispatch 옵션입니다: {unknown}"
+                )));
+            }
+        }
+    }
+
+    let lanes = lanes
+        .ok_or_else(|| AppError::usage("team dispatch는 --lanes <count> 형식이 필요합니다."))?;
+    if owned_write_paths.is_empty() {
+        return Err(AppError::usage(
+            "team dispatch는 최소 하나의 --write-owner <lane:path> 값이 필요합니다.",
+        ));
+    }
+    if let Some((lane, _)) = owned_write_paths.iter().find(|(lane, _)| *lane > lanes) {
+        return Err(AppError::usage(format!(
+            "team dispatch의 --write-owner lane {lane}은 --lanes {lanes} 값을 넘을 수 없습니다."
+        )));
+    }
+    if failure_reason.is_some() && failed_lane.is_none() {
+        return Err(AppError::usage(
+            "team dispatch의 --failure는 --failed-lane <lane>과 함께 사용해야 합니다.",
+        ));
+    }
+
+    Ok(TeamCommand::Dispatch {
+        lanes,
+        owned_write_paths,
+        failed_lane,
+        failure_reason,
     })
 }
 
@@ -946,24 +1061,26 @@ fn parse_team_governor_args(args: &[String]) -> Result<TeamCommand, AppError> {
     })
 }
 
-fn parse_write_owner(value: &str) -> Result<(u32, String), AppError> {
+fn parse_write_owner_for(value: &str, command: &str) -> Result<(u32, String), AppError> {
     let Some((lane, path)) = value.split_once(':') else {
-        return Err(AppError::usage(
-            "team admit의 --write-owner 값은 <lane:path> 형식이어야 합니다.",
-        ));
+        return Err(AppError::usage(format!(
+            "{command}의 --write-owner 값은 <lane:path> 형식이어야 합니다."
+        )));
     };
-    let lane = lane
-        .parse::<u32>()
-        .map_err(|_| AppError::usage("team admit의 --write-owner lane은 양의 정수여야 합니다."))?;
+    let lane = lane.parse::<u32>().map_err(|_| {
+        AppError::usage(format!(
+            "{command}의 --write-owner lane은 양의 정수여야 합니다."
+        ))
+    })?;
     if lane == 0 {
-        return Err(AppError::usage(
-            "team admit의 --write-owner lane은 1 이상이어야 합니다.",
-        ));
+        return Err(AppError::usage(format!(
+            "{command}의 --write-owner lane은 1 이상이어야 합니다."
+        )));
     }
     if path.trim().is_empty() {
-        return Err(AppError::usage(
-            "team admit의 --write-owner path는 비어 있을 수 없습니다.",
-        ));
+        return Err(AppError::usage(format!(
+            "{command}의 --write-owner path는 비어 있을 수 없습니다."
+        )));
     }
     Ok((lane, path.to_string()))
 }
@@ -2068,6 +2185,66 @@ mod tests {
     }
 
     #[test]
+    fn parses_team_dispatch_file_ownership_preflight() {
+        let command = parse([
+            "team".to_string(),
+            "dispatch".to_string(),
+            "--lanes".to_string(),
+            "2".to_string(),
+            "--write-owner".to_string(),
+            "1:src/app.rs".to_string(),
+            "--write-owner".to_string(),
+            "2:src/cli.rs".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Team(TeamCommand::Dispatch {
+                lanes: 2,
+                owned_write_paths: vec![
+                    (1, "src/app.rs".to_string()),
+                    (2, "src/cli.rs".to_string())
+                ],
+                failed_lane: None,
+                failure_reason: None,
+            })
+        );
+    }
+
+    #[test]
+    fn parses_team_dispatch_failed_lane_continuation() {
+        let command = parse([
+            "team".to_string(),
+            "dispatch".to_string(),
+            "--lanes".to_string(),
+            "3".to_string(),
+            "--write-owner".to_string(),
+            "1:src/app.rs".to_string(),
+            "--write-owner".to_string(),
+            "2:src/cli.rs".to_string(),
+            "--failed-lane".to_string(),
+            "2".to_string(),
+            "--failure".to_string(),
+            "worker".to_string(),
+            "timed".to_string(),
+            "out".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Team(TeamCommand::Dispatch {
+                lanes: 3,
+                owned_write_paths: vec![
+                    (1, "src/app.rs".to_string()),
+                    (2, "src/cli.rs".to_string())
+                ],
+                failed_lane: Some(2),
+                failure_reason: Some("worker timed out".to_string()),
+            })
+        );
+    }
+
+    #[test]
     fn parses_team_governor() {
         let command = parse([
             "team".to_string(),
@@ -2123,6 +2300,38 @@ mod tests {
         .unwrap_err();
         assert_eq!(err.code, 2);
         assert!(err.message.contains("--lanes 2"));
+    }
+
+    #[test]
+    fn rejects_team_dispatch_without_write_owner() {
+        let err = parse([
+            "team".to_string(),
+            "dispatch".to_string(),
+            "--lanes".to_string(),
+            "2".to_string(),
+        ])
+        .unwrap_err();
+        assert_eq!(err.code, 2);
+        assert!(err.message.contains("--write-owner"));
+    }
+
+    #[test]
+    fn rejects_team_dispatch_failure_without_failed_lane() {
+        let err = parse([
+            "team".to_string(),
+            "dispatch".to_string(),
+            "--lanes".to_string(),
+            "2".to_string(),
+            "--write-owner".to_string(),
+            "1:src/app.rs".to_string(),
+            "--failure".to_string(),
+            "worker".to_string(),
+            "timed".to_string(),
+            "out".to_string(),
+        ])
+        .unwrap_err();
+        assert_eq!(err.code, 2);
+        assert!(err.message.contains("--failed-lane"));
     }
 
     #[test]

@@ -121,6 +121,23 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             );
             Ok(())
         }
+        Command::Team(TeamCommand::Dispatch {
+            lanes,
+            owned_write_paths,
+            failed_lane,
+            failure_reason,
+        }) => {
+            println!(
+                "{}",
+                team::dispatch_report(
+                    lanes,
+                    &owned_write_paths,
+                    failed_lane,
+                    failure_reason.as_deref()
+                )?
+            );
+            Ok(())
+        }
         Command::Team(TeamCommand::Governor {
             lanes,
             context_tokens,
