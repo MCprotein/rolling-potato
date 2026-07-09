@@ -112,6 +112,9 @@ rpotato monitor baseline
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
 rpotato monitor prune --before 30d --dry-run
+rpotato benchmark validate benchmarks/fixtures/sample.json
+rpotato benchmark record --fixture benchmarks/fixtures/sample.json
+rpotato benchmark report --format jsonl
 rpotato uninstall --keep-cache
 rpotato uninstall --purge-cache
 rpotato doctor
@@ -224,6 +227,9 @@ Implemented command surfaces:
 - `rpotato monitor export --format jsonl`
 - `rpotato monitor export --format csv`
 - `rpotato monitor prune --before 30d --dry-run`
+- `rpotato benchmark validate <fixture.json>`
+- `rpotato benchmark record --fixture <fixture.json>`
+- `rpotato benchmark report --format jsonl`
 - `rpotato model list`
 - `rpotato model manifest`
 - `rpotato model inspect <id>`
@@ -268,6 +274,8 @@ Implemented command surfaces:
 `patch preview` reads a project-local text file, renders a unified diff for a single explicit find/replace proposal, writes a project-local proposal record under `.rpotato/patch-proposals/`, and prints an approval token. `patch approve <proposal-id> --token <token> --dry-run` verifies the token and records the approval gate without modifying the target file. Without `--dry-run`, `patch approve` applies the approved proposal only when the current file SHA-256 still matches the previewed original SHA-256, writes a rollback record, verifies the applied SHA-256, and records a ledger event. `--verify-command <command>` runs an allow-listed simple argv verification command after apply; verification failure attempts rollback and is not reported as success.
 
 `monitor baseline` aggregates local ledger/SQLite projection metrics into a read-only performance baseline report with p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, and model/backend/session grouping. It does not store raw prompt/source text and does not choose model artifacts. `monitor export` emits the runtime ledger as JSONL or CSV. `monitor prune` is currently dry-run only.
+
+`benchmark validate <fixture.json>` validates project-local benchmark fixture metadata, including runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence records, abstention requirement, ontology view, context budget, backend/model artifact identifiers, sampling policy, and raw artifact retention policy. `benchmark record --fixture <fixture.json>` records a metadata-only benchmark run in the append-only ledger and SQLite `benchmark_runs` projection with `claim_state=not-comparable`, no score, a reproducibility manifest, and a redacted local report. `benchmark report --format jsonl` exports those redacted benchmark records. These commands do not execute a model, score a fixture, or claim public benchmark parity.
 
 `model list`, `model manifest`, `model inspect`, `model registry`, and `model download-plan` expose source-backed manifest structure, candidate status, benchmark source ledgers, local registry paths, and pre-download source/license/checksum fields. Qwen and Gemma now have source-recorded unverified GGUF artifact candidates, including pinned revision URLs, LFS SHA-256, and file size. `model eval-plan <id>` is the read-only local evaluation preflight: it checks source-backed artifact fields, app-data artifact presence, size/SHA-256 state, and the next smoke/benchmark command without downloading. `model benchmark-plan <id>` separates public benchmark reproduction conditions from local product benchmark fixtures and refuses score parity until artifact, quantization, backend, prompt, dataset, and scoring conditions are recorded together. `model fetch-candidate <id> --for-evaluation` is the explicit evaluation-only download path: it supports app-managed partial resume, verifies size and SHA-256, records a ledger event, and does not register the artifact as installed. `model verify-file` verifies SHA-256 over local file bytes and records a ledger event. `model cleanup-failed` targets only partial or failed artifacts under app data. `model install` still blocks registry installation until the candidate is promoted to `verified`; local `llama.cpp b9878` smoke, RAM fit, mmproj need, and benchmark evidence remain open.
 

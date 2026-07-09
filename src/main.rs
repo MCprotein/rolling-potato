@@ -1,6 +1,7 @@
 mod app;
 mod approval;
 mod backend;
+mod benchmark;
 mod cache;
 mod checksum;
 mod cli;

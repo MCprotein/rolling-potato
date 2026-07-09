@@ -50,6 +50,9 @@
 - `rpotato monitor export --format jsonl`
 - `rpotato monitor export --format csv`
 - `rpotato monitor prune --before 30d --dry-run`
+- `rpotato benchmark validate <fixture.json>`
+- `rpotato benchmark record --fixture <fixture.json>`
+- `rpotato benchmark report --format jsonl`
 - `rpotato model list`
 - `rpotato model manifest`
 - `rpotato model inspect <id>`
@@ -84,6 +87,8 @@
 `run`은 deterministic routing, intent ledger 기록, source pointer가 포함된 bounded repository context pack 생성, runtime-owned action candidate와 next gate 준비, 실행 중인 backend sidecar 호출, model의 structured action line 또는 인식 가능한 action text를 실행 불가 model-action record로 파싱, SQLite token/latency metric 기록까지 수행합니다. Model output을 승인된 patch apply flow로 자동 연결하는 agent-loop 처리는 후속 phase입니다.
 
 `tui monitor`는 같은 SQLite observability projection을 읽고 schema, model/token count, 최신 resource pressure, CPU percent, average/peak RSS, disk bytes, model latency, average token throughput을 dependency-free terminal-safe layout으로 보여줍니다. 이 surface는 계속 read-only이며 export/prune action은 monitor CLI command가 담당합니다.
+
+`benchmark validate`, `benchmark record --fixture`, `benchmark report --format jsonl`은 첫 benchmark harness foundation입니다. Fixture metadata를 검증하고 metadata-only `not-comparable` benchmark run을 ledger/SQLite projection에 기록하며, reproducibility manifest가 포함된 redacted JSONL report를 출력합니다. Model 실행이나 score 산정은 하지 않습니다.
 
 `patch preview --path <path> --find <text> --replace <text>`는 project-local text replacement 하나에 대한 unified diff를 렌더링하고 `.rpotato/patch-proposals/` 아래에 proposal을 기록한 뒤 approval token을 출력합니다. `patch approve <proposal-id> --token <token> --dry-run`은 token을 검증하고 patch를 적용하지 않은 채 approval gate event를 기록합니다. `--dry-run` 없이 실행하면 current file이 preview 당시 original SHA-256과 일치할 때만 proposal을 적용하고, rollback record를 쓴 뒤 applied SHA-256을 검증합니다. `--verify-command <command>`는 policy가 allow한 단순 argv verification command만 apply 이후 실행합니다.
 
@@ -170,6 +175,9 @@ cargo run -- monitor baseline
 cargo run -- monitor export --format jsonl
 cargo run -- monitor export --format csv
 cargo run -- monitor prune --before 30d --dry-run
+cargo run -- benchmark validate benchmarks/fixtures/sample.json
+cargo run -- benchmark record --fixture benchmarks/fixtures/sample.json
+cargo run -- benchmark report --format jsonl
 cargo run -- model list
 cargo run -- model manifest
 cargo run -- model inspect qwen3.5-4b

@@ -423,14 +423,14 @@ Goal: require evidence for completion instead of accepting the model's claim tha
 - [ ] Destructive command policy tests
 - [x] Performance baseline report over ledger/projection data: p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, backend/model/session grouping
 - [ ] Fixture benchmark suite
-- [ ] Benchmark harness runner foundation: fixture schema validation, run ledger/projection, reproducibility manifest, redacted report export
-- [ ] Benchmark fixture metadata contract: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence
-- [ ] Benchmark failure taxonomy: model, prompt/context, ontology/source-pointer, runtime policy/parser, tool/command, backend/runtime, fixture issue
+- [x] Benchmark harness runner foundation: fixture schema validation, run ledger/projection, reproducibility manifest, redacted report export
+- [x] Benchmark fixture metadata contract: runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required evidence
+- [x] Benchmark failure taxonomy: model, prompt/context, ontology/source-pointer, runtime policy/parser, tool/command, backend/runtime, fixture issue
 - [ ] Regression fixture promotion policy from real unsafe actions, source-read omissions, stale-claim use, policy violations, and score regressions
 - [ ] Regression fixture promotion gate: redaction, minimal repro, quarantine, owner review, supersede/demote reason
 - [ ] Benchmark reliability controls: run count, warm/cold split, variance threshold, flaky quarantine, environment drift detection
 - [ ] Benchmark privacy/redaction adversarial fixtures for secrets in logs, commands, paths, prompts, exports, and regression records
-- [ ] Benchmark reproducibility manifest: harness version, fixture checksum, runner command, run count, seed policy, sampling limits, OS power/thermal note
+- [x] Benchmark reproducibility manifest: harness version, fixture checksum, runner command, run count, seed policy, sampling limits, OS power/thermal note
 - [ ] Static-only vs Layer A vs Layer B ontology benchmark
 - [ ] 2B-4B ontology representation benchmark: view format vs task score, hallucination, source-read compliance, latency, memory, token budget
 - [ ] Small-model abstention/escalation benchmark: evidence gaps, invariant risk, stale claims, context exhaustion, repeated invalid output

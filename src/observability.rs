@@ -9,8 +9,8 @@ use crate::app::AppError;
 use crate::ledger::{self, LedgerEvent, RuntimeIdentity};
 use crate::paths;
 
-const MIGRATION_VERSION: i64 = 2;
-const MIGRATION_DESCRIPTION: &str = "v0_9_resource_samples";
+const MIGRATION_VERSION: i64 = 3;
+const MIGRATION_DESCRIPTION: &str = "v0_19_benchmark_runs";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoreStatus {
@@ -23,6 +23,7 @@ pub struct StoreStatus {
     pub model_runs: i64,
     pub token_records: i64,
     pub resource_samples: i64,
+    pub benchmark_runs: i64,
     pub evidence_records: i64,
     pub stop_gate_results: i64,
 }
@@ -75,6 +76,44 @@ pub struct PerformanceGroupSummary {
     pub p50_latency_ms: Option<f64>,
     pub p95_latency_ms: Option<f64>,
     pub avg_tokens_per_second: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BenchmarkRunMetric {
+    pub benchmark_run_id: String,
+    pub session_id: String,
+    pub model_id: String,
+    pub benchmark_name: String,
+    pub fixture_id: String,
+    pub fixture_sha256: String,
+    pub claim_state: String,
+    pub score: Option<f64>,
+    pub score_unit: Option<String>,
+    pub harness_ref: String,
+    pub dataset_ref: Option<String>,
+    pub backend_id: Option<String>,
+    pub reproducibility_manifest: String,
+    pub redacted_report: String,
+    pub recorded_at_ms: u128,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BenchmarkRunReport {
+    pub benchmark_run_id: String,
+    pub session_id: String,
+    pub model_id: String,
+    pub benchmark_name: String,
+    pub fixture_id: String,
+    pub fixture_sha256: String,
+    pub claim_state: String,
+    pub score: Option<f64>,
+    pub score_unit: Option<String>,
+    pub harness_ref: String,
+    pub dataset_ref: Option<String>,
+    pub backend_id: Option<String>,
+    pub reproducibility_manifest: String,
+    pub redacted_report: String,
+    pub recorded_at_ms: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -550,6 +589,110 @@ pub fn record_resource_sample(metric: &ResourceSampleMetric) -> Result<(), AppEr
     Ok(())
 }
 
+pub fn record_benchmark_run(metric: &BenchmarkRunMetric) -> Result<(), AppError> {
+    let identity = ledger::current_identity();
+    let (connection, _) = open_or_recover()?;
+    record_session(&connection, &identity)?;
+    replay_ledger(&connection)?;
+    connection
+        .execute(
+            "INSERT INTO benchmark_runs (
+                benchmark_run_id,
+                session_id,
+                model_id,
+                benchmark_name,
+                fixture_id,
+                fixture_sha256,
+                claim_state,
+                score,
+                score_unit,
+                harness_ref,
+                dataset_ref,
+                backend_id,
+                reproducibility_manifest,
+                redacted_report,
+                recorded_at_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            params![
+                metric.benchmark_run_id,
+                metric.session_id,
+                metric.model_id,
+                metric.benchmark_name,
+                metric.fixture_id,
+                metric.fixture_sha256,
+                metric.claim_state,
+                metric.score,
+                metric.score_unit,
+                metric.harness_ref,
+                metric.dataset_ref,
+                metric.backend_id,
+                metric.reproducibility_manifest,
+                metric.redacted_report,
+                to_i64(metric.recorded_at_ms),
+            ],
+        )
+        .map_err(sql_error("benchmark run metric을 저장하지 못했습니다"))?;
+
+    Ok(())
+}
+
+pub fn benchmark_run_reports() -> Result<Vec<BenchmarkRunReport>, AppError> {
+    let (connection, _) = open_or_recover()?;
+    replay_ledger(&connection)?;
+    let mut statement = connection
+        .prepare(
+            "SELECT
+                benchmark_run_id,
+                session_id,
+                model_id,
+                benchmark_name,
+                fixture_id,
+                fixture_sha256,
+                claim_state,
+                score,
+                score_unit,
+                harness_ref,
+                dataset_ref,
+                backend_id,
+                reproducibility_manifest,
+                redacted_report,
+                recorded_at_ms
+               FROM benchmark_runs
+              ORDER BY recorded_at_ms ASC,
+                       benchmark_run_id ASC",
+        )
+        .map_err(sql_error(
+            "benchmark run report query를 준비하지 못했습니다",
+        ))?;
+
+    let rows = statement
+        .query_map([], |row| {
+            Ok(BenchmarkRunReport {
+                benchmark_run_id: row.get(0)?,
+                session_id: row.get(1)?,
+                model_id: row.get(2)?,
+                benchmark_name: row.get(3)?,
+                fixture_id: row.get(4)?,
+                fixture_sha256: row.get(5)?,
+                claim_state: row.get(6)?,
+                score: row.get(7)?,
+                score_unit: row.get(8)?,
+                harness_ref: row.get(9)?,
+                dataset_ref: row.get(10)?,
+                backend_id: row.get(11)?,
+                reproducibility_manifest: row.get(12)?,
+                redacted_report: row.get(13)?,
+                recorded_at_ms: row.get(14)?,
+            })
+        })
+        .map_err(sql_error(
+            "benchmark run report query를 실행하지 못했습니다",
+        ))?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(sql_error("benchmark run report 결과를 읽지 못했습니다"))
+}
+
 pub fn latest_resource_sample() -> Result<Option<ResourceSampleMetric>, AppError> {
     let (connection, _) = open_or_recover()?;
     let result = connection.query_row(
@@ -806,13 +949,19 @@ fn migrate(connection: &Connection) -> Result<(), AppError> {
 
             CREATE TABLE IF NOT EXISTS benchmark_runs (
                 benchmark_run_id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL DEFAULT '',
                 model_id TEXT NOT NULL,
                 benchmark_name TEXT NOT NULL,
+                fixture_id TEXT NOT NULL DEFAULT '',
+                fixture_sha256 TEXT NOT NULL DEFAULT '',
+                claim_state TEXT NOT NULL DEFAULT 'not-comparable',
                 score REAL,
                 score_unit TEXT,
                 harness_ref TEXT NOT NULL,
                 dataset_ref TEXT,
                 backend_id TEXT,
+                reproducibility_manifest TEXT NOT NULL DEFAULT '{}',
+                redacted_report TEXT NOT NULL DEFAULT '{}',
                 recorded_at_ms INTEGER NOT NULL
             );
             ",
@@ -820,6 +969,43 @@ fn migrate(connection: &Connection) -> Result<(), AppError> {
         .map_err(sql_error(
             "observability schema migration을 적용하지 못했습니다",
         ))?;
+
+    ensure_column(
+        connection,
+        "benchmark_runs",
+        "session_id",
+        "TEXT NOT NULL DEFAULT ''",
+    )?;
+    ensure_column(
+        connection,
+        "benchmark_runs",
+        "fixture_id",
+        "TEXT NOT NULL DEFAULT ''",
+    )?;
+    ensure_column(
+        connection,
+        "benchmark_runs",
+        "fixture_sha256",
+        "TEXT NOT NULL DEFAULT ''",
+    )?;
+    ensure_column(
+        connection,
+        "benchmark_runs",
+        "claim_state",
+        "TEXT NOT NULL DEFAULT 'not-comparable'",
+    )?;
+    ensure_column(
+        connection,
+        "benchmark_runs",
+        "reproducibility_manifest",
+        "TEXT NOT NULL DEFAULT '{}'",
+    )?;
+    ensure_column(
+        connection,
+        "benchmark_runs",
+        "redacted_report",
+        "TEXT NOT NULL DEFAULT '{}'",
+    )?;
 
     connection
         .execute(
@@ -966,9 +1152,39 @@ fn status_from_connection(
         model_runs: count_scalar(connection, "SELECT COUNT(*) FROM model_runs")?,
         token_records: count_scalar(connection, "SELECT COUNT(*) FROM token_usage")?,
         resource_samples: count_scalar(connection, "SELECT COUNT(*) FROM resource_samples")?,
+        benchmark_runs: count_scalar(connection, "SELECT COUNT(*) FROM benchmark_runs")?,
         evidence_records: count_scalar(connection, "SELECT COUNT(*) FROM evidence_records")?,
         stop_gate_results: count_scalar(connection, "SELECT COUNT(*) FROM stop_gate_results")?,
     })
+}
+
+fn ensure_column(
+    connection: &Connection,
+    table: &str,
+    column: &str,
+    definition: &str,
+) -> Result<(), AppError> {
+    let existing_columns = {
+        let pragma = format!("PRAGMA table_info({table})");
+        let mut statement = connection
+            .prepare(&pragma)
+            .map_err(sql_error("schema column query를 준비하지 못했습니다"))?;
+        let rows = statement
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(sql_error("schema column query를 실행하지 못했습니다"))?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(sql_error("schema column 결과를 읽지 못했습니다"))?
+    };
+
+    if existing_columns.iter().any(|existing| existing == column) {
+        return Ok(());
+    }
+
+    let sql = format!("ALTER TABLE {table} ADD COLUMN {column} {definition}");
+    connection
+        .execute(&sql, [])
+        .map_err(sql_error("schema column 추가를 적용하지 못했습니다"))?;
+    Ok(())
 }
 
 fn count_scalar(connection: &Connection, sql: &str) -> Result<i64, AppError> {
@@ -1380,6 +1596,62 @@ mod tests {
         assert_eq!(latest.peak_rss_bytes, Some(512 * 1024 * 1024));
         assert_eq!(latest.disk_bytes, Some(1024));
         assert_eq!(latest.pressure_status, "normal");
+    }
+
+    #[test]
+    fn record_benchmark_run_projects_report_rows() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-benchmark-run-metric-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let project_root = root.join("project");
+        fs::create_dir_all(&project_root).unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+
+        let metric = BenchmarkRunMetric {
+            benchmark_run_id: "benchmark-run-test".to_string(),
+            session_id: "session-test".to_string(),
+            model_id: "qwen-test".to_string(),
+            benchmark_name: "foundation-smoke".to_string(),
+            fixture_id: "fixture-test".to_string(),
+            fixture_sha256: "sha256-test".to_string(),
+            claim_state: "not-comparable".to_string(),
+            score: None,
+            score_unit: None,
+            harness_ref: "rpotato-benchmark-harness@test".to_string(),
+            dataset_ref: Some("local-fixture".to_string()),
+            backend_id: Some("llama.cpp".to_string()),
+            reproducibility_manifest: "{\"fixture_id\":\"fixture-test\"}".to_string(),
+            redacted_report: "{\"raw_prompt_source_stored\":false}".to_string(),
+            recorded_at_ms: 1000,
+        };
+        record_benchmark_run(&metric).unwrap();
+        let duplicate_err = record_benchmark_run(&metric).unwrap_err();
+
+        let status = status().unwrap();
+        let reports = benchmark_run_reports().unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+
+        assert_eq!(status.benchmark_runs, 1);
+        assert_eq!(duplicate_err.code, 1);
+        assert_eq!(reports.len(), 1);
+        assert_eq!(reports[0].benchmark_run_id, "benchmark-run-test");
+        assert_eq!(reports[0].session_id, "session-test");
+        assert_eq!(reports[0].fixture_id, "fixture-test");
+        assert_eq!(reports[0].claim_state, "not-comparable");
+        assert_eq!(reports[0].score, None);
+        assert!(reports[0]
+            .reproducibility_manifest
+            .contains("\"fixture_id\":\"fixture-test\""));
+        assert!(reports[0]
+            .redacted_report
+            .contains("\"raw_prompt_source_stored\":false"));
     }
 
     #[test]

@@ -12,7 +12,7 @@ pub fn status_report() -> Result<String, AppError> {
         .unwrap_or_default();
 
     Ok(format!(
-        "monitor 상태\n- observability store: {}\n- schema migration: v{}\n- runtime ledger: {}\n- runtime evidence: {}\n- ledger events: {}\n- sessions: {}\n- workflows: {}\n- model runs: {}\n- token usage records: {}\n- resource samples: {}\n- latest resource pressure: {}\n- latest resource cpu percent: {}\n- latest resource average rss bytes: {}\n- latest resource peak rss bytes: {}\n- latest resource disk bytes: {}\n- evidence records: {}\n- stop gate results: {}\n- raw prompt/source 저장: 기본 비활성{}",
+        "monitor 상태\n- observability store: {}\n- schema migration: v{}\n- runtime ledger: {}\n- runtime evidence: {}\n- ledger events: {}\n- sessions: {}\n- workflows: {}\n- model runs: {}\n- token usage records: {}\n- resource samples: {}\n- benchmark runs: {}\n- latest resource pressure: {}\n- latest resource cpu percent: {}\n- latest resource average rss bytes: {}\n- latest resource peak rss bytes: {}\n- latest resource disk bytes: {}\n- evidence records: {}\n- stop gate results: {}\n- raw prompt/source 저장: 기본 비활성{}",
         store.path.display(),
         store.migration_version,
         paths::runtime_ledger_file().display(),
@@ -23,6 +23,7 @@ pub fn status_report() -> Result<String, AppError> {
         store.model_runs,
         store.token_records,
         store.resource_samples,
+        store.benchmark_runs,
         latest_resource
             .as_ref()
             .map(|sample| sample.pressure_status.as_str())

@@ -101,6 +101,9 @@ rpotato monitor baseline
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
 rpotato monitor prune --before 30d --dry-run
+rpotato benchmark validate benchmarks/fixtures/sample.json
+rpotato benchmark record --fixture benchmarks/fixtures/sample.json
+rpotato benchmark report --format jsonl
 rpotato uninstall --keep-cache
 rpotato uninstall --purge-cache
 rpotato doctor

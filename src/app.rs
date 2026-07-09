@@ -1,9 +1,10 @@
 use crate::backend;
+use crate::benchmark;
 use crate::cache;
 use crate::cli::{
-    BackendCommand, Command, EvidenceCommand, HooksCommand, IntentCommand, ModelCommand,
-    MonitorCommand, PatchCommand, PluginCommand, PolicyCommand, PolicyPathMode, SessionCommand,
-    SkillCommand, StateCommand, TeamCommand, TuiCommand, UninstallCommand,
+    BackendCommand, BenchmarkCommand, Command, EvidenceCommand, HooksCommand, IntentCommand,
+    ModelCommand, MonitorCommand, PatchCommand, PluginCommand, PolicyCommand, PolicyPathMode,
+    SessionCommand, SkillCommand, StateCommand, TeamCommand, TuiCommand, UninstallCommand,
 };
 use crate::config;
 use crate::evidence;
@@ -288,6 +289,18 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             dry_run,
         }) => {
             println!("{}", monitor::prune_report(before_days, dry_run)?);
+            Ok(())
+        }
+        Command::Benchmark(BenchmarkCommand::Validate { path }) => {
+            println!("{}", benchmark::validate_report(&path)?);
+            Ok(())
+        }
+        Command::Benchmark(BenchmarkCommand::Record { fixture }) => {
+            println!("{}", benchmark::record_report(&fixture)?);
+            Ok(())
+        }
+        Command::Benchmark(BenchmarkCommand::Report { format }) => {
+            print!("{}", benchmark::report_export(format)?);
             Ok(())
         }
         Command::Model(ModelCommand::List) => {
