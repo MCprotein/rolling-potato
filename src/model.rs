@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use crate::app::AppError;
-use crate::{checksum, ledger, paths, state};
+use crate::{checksum, ledger, observability, paths, state};
 
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 
@@ -427,12 +427,18 @@ pub fn eval_plan_report(id: &str) -> Result<String, AppError> {
     let final_path = model_artifact_path(artifact);
     let part_path = model_artifact_part_path(candidate);
     let local_state = local_artifact_state(artifact, &final_path)?;
-    let plan_status = if local_state.verified {
+    let benchmark_status = local_benchmark_status(artifact)?;
+    let has_local_measurement = benchmark_status.starts_with("measured-locally");
+    let plan_status = if has_local_measurement {
+        "local-smoke-measured"
+    } else if local_state.verified {
         "ready-for-backend-smoke"
     } else {
         "blocked-before-backend-smoke"
     };
-    let next = if local_state.verified {
+    let next = if has_local_measurement {
+        "run the broader product benchmark suite and Gemma comparison before promoting the model to verified.".to_string()
+    } else if local_state.verified {
         format!(
             "run `rpotato backend install-plan`, verify backend state with `rpotato backend doctor`, then run `rpotato backend start --model {} --ctx-size 4096` for local smoke before benchmark scoring.",
             final_path.display()
@@ -445,7 +451,7 @@ pub fn eval_plan_report(id: &str) -> Result<String, AppError> {
     };
 
     Ok(format!(
-        "model evaluation plan\n- id: {}\n- status: {}\n- manifest status: {}\n- role: {}\n- artifact provider: {}\n- artifact source: {}\n- artifact terms: {}\n- expected file: {}\n- expected size bytes: {}\n- expected sha256: {}\n- local artifact status: {}\n- local artifact detail: {}\n- partial path: {}\n- final path: {}\n- registry: not installed by eval-plan\n- public benchmark source: {}\n- benchmark claim status: {}\n- local benchmark status: not-run\n- next: {}",
+        "model evaluation plan\n- id: {}\n- status: {}\n- manifest status: {}\n- role: {}\n- artifact provider: {}\n- artifact source: {}\n- artifact terms: {}\n- expected file: {}\n- expected size bytes: {}\n- expected sha256: {}\n- local artifact status: {}\n- local artifact detail: {}\n- partial path: {}\n- final path: {}\n- registry: not installed by eval-plan\n- public benchmark source: {}\n- benchmark claim status: {}\n- local benchmark status: {}\n- next: {}",
         candidate.id,
         plan_status,
         candidate.status.label(),
@@ -462,8 +468,50 @@ pub fn eval_plan_report(id: &str) -> Result<String, AppError> {
         final_path.display(),
         candidate.benchmark.source,
         candidate.benchmark.claim_status,
+        benchmark_status,
         next
     ))
+}
+
+fn local_benchmark_status(artifact: ModelArtifactDescriptor) -> Result<String, AppError> {
+    if !paths::observability_db_file().exists() {
+        return Ok("not-run".to_string());
+    }
+
+    let expected_model_id = artifact_model_id(artifact);
+    let latest = observability::benchmark_run_reports()?
+        .into_iter()
+        .rfind(|row| row.model_id == expected_model_id && row.claim_state == "measured-locally");
+
+    let Some(row) = latest else {
+        return Ok("not-run".to_string());
+    };
+
+    Ok(format!(
+        "measured-locally latest_run={} score={} local_pass={} latency_ms={} total_tokens={} resource_pressure={}",
+        row.benchmark_run_id,
+        row.score
+            .map(|score| format!("{score:.6}"))
+            .unwrap_or_else(|| "none".to_string()),
+        row.local_pass
+            .map(|value| if value { "true" } else { "false" })
+            .unwrap_or("unknown"),
+        row.latency_ms
+            .map(|value| format!("{value:.3}"))
+            .unwrap_or_else(|| "unknown".to_string()),
+        row.total_tokens
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "unknown".to_string()),
+        row.resource_pressure.as_deref().unwrap_or("unknown")
+    ))
+}
+
+fn artifact_model_id(artifact: ModelArtifactDescriptor) -> String {
+    Path::new(artifact.file_name)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or(artifact.file_name)
+        .to_string()
 }
 
 pub fn benchmark_plan_report(id: &str) -> Result<String, AppError> {
@@ -1520,7 +1568,65 @@ mod tests {
 
         assert!(report.contains("blocked-before-backend-smoke"));
         assert!(report.contains("local artifact status: missing"));
+        assert!(report.contains("local benchmark status: not-run"));
         assert!(report.contains("fetch-candidate qwen3.5-4b --for-evaluation"));
+    }
+
+    #[test]
+    fn local_benchmark_status_reports_measured_qwen_row() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let data_root = std::env::temp_dir().join(format!(
+            "rpotato-benchmark-status-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&data_root);
+        std::env::set_var("RPOTATO_DATA_HOME", &data_root);
+        std::env::set_var("RPOTATO_PROJECT_ROOT", data_root.join("project"));
+
+        observability::record_benchmark_run(&observability::BenchmarkRunMetric {
+            benchmark_run_id: "benchmark-qwen-smoke".to_string(),
+            session_id: "session-test".to_string(),
+            model_run_id: Some("model-run-test".to_string()),
+            model_id: "Qwen3.5-4B-Q4_K_M".to_string(),
+            benchmark_name: "ontology-view-smoke".to_string(),
+            fixture_id: "executable-smoke".to_string(),
+            fixture_sha256: "fixture-sha".to_string(),
+            prompt_artifact_sha256: Some("prompt-sha".to_string()),
+            prompt_chars: Some(147),
+            claim_state: "measured-locally".to_string(),
+            score: Some(3.0),
+            score_unit: Some("0-3-local-product-score".to_string()),
+            local_pass: Some(true),
+            expected_matches: Some(1),
+            expected_total: Some(1),
+            forbidden_matches: Some(0),
+            harness_ref: "rpotato-benchmark-harness@test".to_string(),
+            dataset_ref: Some("local-executable-smoke".to_string()),
+            backend_id: Some("llama.cpp".to_string()),
+            latency_ms: Some(243.0),
+            tokens_per_second: Some(28.8),
+            prompt_tokens: Some(76),
+            completion_tokens: Some(7),
+            total_tokens: Some(83),
+            resource_pressure: Some("normal".to_string()),
+            peak_rss_bytes: Some(3_351_363_584),
+            reproducibility_manifest: "{}".to_string(),
+            redacted_report: "{}".to_string(),
+            recorded_at_ms: 1000,
+        })
+        .unwrap();
+
+        let artifact = source_backed_artifact(find_candidate("qwen3.5-4b").unwrap()).unwrap();
+        let status = local_benchmark_status(artifact).unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(data_root);
+
+        assert!(status.contains("measured-locally"));
+        assert!(status.contains("latest_run=benchmark-qwen-smoke"));
+        assert!(status.contains("score=3.000000"));
+        assert!(status.contains("local_pass=true"));
     }
 
     #[test]

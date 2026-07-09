@@ -1,5 +1,45 @@
 # 릴리즈 노트
 
+## v0.20.1 - Benchmark Evidence Status
+
+릴리즈 날짜: 2026-07-09
+
+이 패치 릴리즈는 첫 Qwen executable smoke 실측 결과를 기록하고, model
+evaluation preflight가 로컬 benchmark 측정 row를 반영하도록 수정합니다.
+
+### 수정
+
+- `rpotato model eval-plan qwen3.5-4b`가 더 이상 항상 `local benchmark
+  status: not-run`을 표시하지 않습니다. SQLite `benchmark_runs` projection의
+  최신 local `measured-locally` benchmark row를 표시합니다.
+- 후보 artifact model id에 측정 row가 있으면 status가 `local-smoke-measured`로
+  올라갑니다.
+
+### 기록된 증거
+
+- Qwen3.5-4B Q4_K_M local artifact는 이미 존재했고 SHA-256 검증을 통과했습니다.
+- Managed `llama.cpp` version `9878 (2da668617)`가 `--ctx-size 4096`으로 Qwen
+  sidecar를 시작했습니다.
+- `rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json
+  --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32`는 score
+  `3/3`, `local_pass=true`, latency `243ms`, total tokens `83`, resource
+  pressure `normal`, peak RSS `3351363584` bytes를 기록했습니다.
+- 측정 후 sidecar를 중지했습니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (186 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build`
+- `rpotato model eval-plan qwen3.5-4b`
+- `rpotato backend status`
+
+### 경계
+
+이 결과는 local smoke benchmark일 뿐입니다. Qwen3.5-4B를 `verified`로
+승격하지 않으며 public benchmark parity도 주장하지 않습니다.
+
 ## v0.20.0 - Executable Benchmark Runner
 
 릴리즈 날짜: 2026-07-09
