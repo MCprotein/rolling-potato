@@ -1,5 +1,44 @@
 # 릴리즈 노트
 
+## v0.26.0 - Ontology Runtime Store
+
+릴리즈 날짜: 2026-07-10
+
+이 릴리즈는 `rolling-potato`의 온톨로지를 문서상의 설계에서 실제 project-local
+runtime store로 옮기는 첫 단계입니다. 작은 모델 prompt에는 source pointer 중심의 compact
+view만 제공하고, 원문 판단은 다시 파일을 읽도록 강제합니다.
+
+### 포함된 것
+
+- `.rpotato/ontology/graph.jsonl` typed graph store와
+  `.rpotato/ontology/schema.json` schema contract를 추가했습니다.
+- `rpotato init`이 ontology store/schema를 만들고 source-backed Layer A fact를 seed합니다.
+- `rpotato ontology status`, `seed`, `inspect`, `context --query <text>`,
+  `reread <source-pointer>`, `export --format json|jsonl`,
+  `import --file <path> --dry-run` 명령을 추가했습니다.
+- Layer A seed는 indexed file, package manifest, entrypoint, generated-exclusion rule을
+  source pointer와 SHA-256 hash로 기록하고 raw source text를 store에 장기 저장하지 않습니다.
+- Import dry-run은 source pointer와 source hash 없는 confirmed Layer B semantic claim을
+  차단합니다.
+- `rpotato doctor`가 ontology store diagnostic을 함께 표시합니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test --locked` (212 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.26.0`
+- isolated `rpotato init`, `ontology status`, `ontology context`, `ontology reread`,
+  `ontology import --dry-run` smoke
+
+### 경계
+
+이 릴리즈는 model output을 confirmed ontology로 승격하지 않고, RDF/OWL을 canonical
+store로 사용하지 않으며, ontology invariant check를 patch apply나 agent loop에 아직 연결하지
+않습니다.
+
 ## v0.25.0 - Verified Model Install Gate
 
 릴리즈 날짜: 2026-07-10

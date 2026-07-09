@@ -193,6 +193,22 @@ Export/import path는 다음을 보존해야 합니다.
 
 Runtime 버전의 이 설계는 위 개념을 ontology graph와 ledger에 저장하고, 사람이 읽을 수 있는 view는 필요할 때 렌더링합니다.
 
+## v0.26.0 구현 범위
+
+v0.26.0은 첫 runtime store slice를 추가합니다.
+
+- `.rpotato/ontology/graph.jsonl`은 project-local typed graph store입니다.
+- `.rpotato/ontology/schema.json`은 store contract와 claim-state rule을 기록합니다.
+- `rpotato init`은 ontology layout을 만들고 결정적 Layer A fact를 seed합니다.
+- `rpotato ontology seed`는 stable ID 기준으로 Layer A fact를 refresh하고 변경 record만 append합니다.
+- `rpotato ontology status`와 `rpotato ontology inspect`는 current projection diagnostic을 보여줍니다.
+- `rpotato ontology context --query <text>`는 source-pointer-first compact view를 렌더링합니다.
+- `rpotato ontology reread <source-pointer>`는 authoritative source file을 다시 열고 current SHA-256을 보고합니다.
+- `rpotato ontology export --format json|jsonl`은 inspection view를 출력합니다.
+- `rpotato ontology import --file <path> --dry-run`은 import 후보를 검증하고 source pointer와 source hash 없는 confirmed Layer B semantic claim을 차단합니다.
+
+이 slice는 model output을 confirmed ontology로 승격하지 않고, RDF/OWL을 canonical storage로 사용하지 않으며, ontology invariant check를 patch apply에 아직 연결하지 않습니다.
+
 ## Runtime 사용 위치
 
 ### `rpotato init`
