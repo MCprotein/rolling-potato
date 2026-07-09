@@ -299,6 +299,14 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", benchmark::record_report(&fixture)?);
             Ok(())
         }
+        Command::Benchmark(BenchmarkCommand::Run {
+            fixture,
+            prompt,
+            max_tokens,
+        }) => {
+            println!("{}", benchmark::run_report(&fixture, &prompt, max_tokens)?);
+            Ok(())
+        }
         Command::Benchmark(BenchmarkCommand::Report { format }) => {
             print!("{}", benchmark::report_export(format)?);
             Ok(())

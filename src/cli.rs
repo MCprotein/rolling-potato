@@ -60,6 +60,7 @@ rpotato
   rpotato monitor prune --before 30d --dry-run
   rpotato benchmark validate <fixture.json>
   rpotato benchmark record --fixture <fixture.json>
+  rpotato benchmark run --fixture <fixture.json> --prompt <artifact> [--max-tokens <tokens>]
   rpotato benchmark report --format jsonl
   rpotato model list
   rpotato model manifest
@@ -91,7 +92,7 @@ rpotato
   team status는 최신 resource sample 기준의 read-only admission preview와 sequential fallback 결정을 표시합니다.
   team admit은 dispatcher 진입 전 resource/policy/file-ownership admission gate를 강제하고 결과를 ledger에 기록합니다.
   team governor는 dispatcher 진입 전 context/model budget clamp와 downgrade/escalation hint를 기록합니다.
-  benchmark record/report는 model 실행 없이 metadata-only not-comparable run과 redacted JSONL export만 기록합니다.
+  benchmark record는 metadata-only not-comparable run을 기록하고, benchmark run은 실행 중인 backend sidecar로 local measured run을 기록합니다.
   모델 registry install은 verified 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -137,6 +138,11 @@ pub enum BenchmarkCommand {
     },
     Record {
         fixture: String,
+    },
+    Run {
+        fixture: String,
+        prompt: String,
+        max_tokens: Option<u32>,
     },
     Report {
         format: benchmark::BenchmarkReportFormat,
@@ -576,11 +582,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, rest @ ..] if group == "benchmark" && action == "record" => {
             parse_benchmark_record(rest).map(Command::Benchmark)
         }
+        [group, action, rest @ ..] if group == "benchmark" && action == "run" => {
+            parse_benchmark_run(rest).map(Command::Benchmark)
+        }
         [group, action, rest @ ..] if group == "benchmark" && action == "report" => {
             parse_benchmark_report(rest).map(Command::Benchmark)
         }
         [group, ..] if group == "benchmark" => Err(AppError::usage(
-            "benchmark 명령은 validate, record, report만 허용합니다.",
+            "benchmark 명령은 validate, record, run, report만 허용합니다.",
         )),
         [group, action] if group == "model" && action == "list" => {
             Ok(Command::Model(ModelCommand::List))
@@ -982,6 +991,75 @@ fn parse_benchmark_record(args: &[String]) -> Result<BenchmarkCommand, AppError>
             "benchmark record에는 --fixture <fixture.json> 형식이 필요합니다.",
         )),
     }
+}
+
+fn parse_benchmark_run(args: &[String]) -> Result<BenchmarkCommand, AppError> {
+    let mut fixture = None;
+    let mut prompt = None;
+    let mut max_tokens = None;
+    let mut index = 0;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--fixture" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "benchmark run --fixture에는 fixture path가 필요합니다.",
+                    ));
+                };
+                fixture = Some(value.clone());
+                index += 2;
+            }
+            "--prompt" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "benchmark run --prompt에는 prompt artifact path가 필요합니다.",
+                    ));
+                };
+                prompt = Some(value.clone());
+                index += 2;
+            }
+            "--max-tokens" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "benchmark run --max-tokens에는 양의 정수가 필요합니다.",
+                    ));
+                };
+                let parsed = value.parse::<u32>().map_err(|_| {
+                    AppError::usage("benchmark run --max-tokens에는 양의 정수가 필요합니다.")
+                })?;
+                if parsed == 0 {
+                    return Err(AppError::usage(
+                        "benchmark run --max-tokens는 1 이상이어야 합니다.",
+                    ));
+                }
+                max_tokens = Some(parsed);
+                index += 2;
+            }
+            _ => {
+                return Err(AppError::usage(
+                    "benchmark run은 --fixture <fixture.json> --prompt <artifact> [--max-tokens <tokens>] 형식이 필요합니다.",
+                ));
+            }
+        }
+    }
+
+    let Some(fixture) = fixture else {
+        return Err(AppError::usage(
+            "benchmark run에는 --fixture <fixture.json>이 필요합니다.",
+        ));
+    };
+    let Some(prompt) = prompt else {
+        return Err(AppError::usage(
+            "benchmark run에는 --prompt <artifact>가 필요합니다.",
+        ));
+    };
+
+    Ok(BenchmarkCommand::Run {
+        fixture,
+        prompt,
+        max_tokens,
+    })
 }
 
 fn parse_benchmark_report(args: &[String]) -> Result<BenchmarkCommand, AppError> {
@@ -1813,6 +1891,30 @@ mod tests {
             command,
             Command::Benchmark(BenchmarkCommand::Record {
                 fixture: "benchmarks/fixtures/sample.json".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_benchmark_run() {
+        let command = parse([
+            "benchmark".to_string(),
+            "run".to_string(),
+            "--fixture".to_string(),
+            "benchmarks/fixtures/executable-smoke.json".to_string(),
+            "--prompt".to_string(),
+            "benchmarks/prompts/executable-smoke.txt".to_string(),
+            "--max-tokens".to_string(),
+            "32".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Benchmark(BenchmarkCommand::Run {
+                fixture: "benchmarks/fixtures/executable-smoke.json".to_string(),
+                prompt: "benchmarks/prompts/executable-smoke.txt".to_string(),
+                max_tokens: Some(32)
             })
         );
     }

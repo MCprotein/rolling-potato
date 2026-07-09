@@ -103,6 +103,7 @@ rpotato monitor export --format csv
 rpotato monitor prune --before 30d --dry-run
 rpotato benchmark validate benchmarks/fixtures/sample.json
 rpotato benchmark record --fixture benchmarks/fixtures/sample.json
+rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32
 rpotato benchmark report --format jsonl
 rpotato uninstall --keep-cache
 rpotato uninstall --purge-cache
@@ -341,6 +342,13 @@ Required model metrics:
 - stop gate pass/fail
 
 SQLite is appropriate because the runtime needs cross-session queries such as model-level token totals, failure rates, latency percentiles, and benchmark-vs-real-run comparisons. The append-only ledger remains the event source; SQLite is the projection for fast local queries.
+
+`benchmark run` is the first executable benchmark slice. It reads a
+project-local prompt artifact, calls the active backend sidecar, records a local
+`measured-locally` 0-3 product score, links the benchmark row to `model_run_id`,
+and stores token/latency/resource summaries plus redacted reproducibility
+metadata. It does not store raw prompt/source text in SQLite and does not claim
+public benchmark parity.
 
 ## Uninstall And Cache Policy
 

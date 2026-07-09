@@ -103,6 +103,7 @@ rpotato monitor export --format csv
 rpotato monitor prune --before 30d --dry-run
 rpotato benchmark validate benchmarks/fixtures/sample.json
 rpotato benchmark record --fixture benchmarks/fixtures/sample.json
+rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32
 rpotato benchmark report --format jsonl
 rpotato uninstall --keep-cache
 rpotato uninstall --purge-cache
@@ -334,6 +335,8 @@ LLM wiki는 model knowledge base로 도입합니다. 즉 manifest record, benchm
 - stop gate pass/fail
 
 runtime은 model-level token total, failure rate, latency percentile, benchmark와 실제 run 비교 같은 cross-session query가 필요하므로 SQLite가 적합합니다. append-only ledger는 event source로 남고, SQLite는 빠른 local query를 위한 projection입니다.
+
+`benchmark run`은 첫 executable benchmark slice입니다. Project-local prompt artifact를 읽고 active backend sidecar를 호출한 뒤 local `measured-locally` 0-3 product score, `model_run_id` link, token/latency/resource summary, redacted reproducibility metadata를 저장합니다. SQLite에는 raw prompt/source text를 저장하지 않고 public benchmark parity도 주장하지 않습니다.
 
 ## 삭제와 Cache 정책
 

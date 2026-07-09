@@ -35,7 +35,7 @@ it. The release grouping is:
 | v0.17.0 | context/model governor preflight | clamp requested context against the configured budget and resource pressure, emit model route hints, and record the decision in the ledger |
 | v0.18.0 | performance baseline report | aggregate local p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, and backend/model/session metrics without storing raw prompt/source text |
 | v0.19.0 | benchmark harness foundation | record benchmark runs in the ledger/projection, validate fixture metadata, emit reproducibility metadata, and export redacted local reports |
-| v0.20.0 | small-model ontology benchmark | compare prompt-facing ontology views for 2B-4B target models using the same runtime monitoring schema |
+| v0.20.0 | executable benchmark runner | link active-backend prompt artifact runs, local score, token/latency, and resource metrics through the same runtime monitoring schema |
 | v0.21.0 | benchmark-driven optimization policy | recommend context budget, lane count, fallback, and model route from measured local metrics and benchmark evidence |
 | v0.22.0+ | remaining dispatcher governor policy | add dispatch-time ownership enforcement and failed-worker continuation |
 
@@ -85,7 +85,8 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato monitor prune --before 30d --dry-run` calculates only deletion candidate counts.
 - `rpotato benchmark validate <fixture.json>` validates project-local fixture metadata for runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence records, abstention requirement, ontology view, context budget, backend/model artifact identifiers, sampling policy, and raw artifact retention policy.
 - `rpotato benchmark record --fixture <fixture.json>` records a metadata-only benchmark run in the append-only ledger and SQLite `benchmark_runs` projection with `claim_state=not-comparable`, no score, a reproducibility manifest, and a redacted local report.
-- `rpotato benchmark report --format jsonl` exports the redacted benchmark projection with reproducibility metadata. It does not execute a model, assign scores, or claim public benchmark parity.
+- `rpotato benchmark run --fixture <fixture.json> --prompt <artifact>` executes the prompt artifact through the running backend sidecar and records a local `measured-locally` benchmark row linked to `model_run_id`, prompt artifact checksum, token/latency/resource summaries, deterministic score metadata, reproducibility manifest, and redacted report.
+- `rpotato benchmark report --format jsonl` exports the redacted benchmark projection with reproducibility metadata. Public benchmark parity remains explicitly unclaimed.
 - `rpotato backend start`, `rpotato backend status`, and `rpotato backend chat` record event-driven backend CPU/RSS/disk resource samples.
 - `rpotato backend chat` applies the first runtime resource governor slice: critical pressure blocks chat before model execution, degraded pressure clamps the effective max-token budget, and normal/unknown pressure preserves the requested token budget.
 - `rpotato team status` reads the latest resource sample and reports read-only team admission: normal pressure admits parallel lanes, unknown/degraded pressure falls back to one sequential lane, and critical pressure blocks dispatch.

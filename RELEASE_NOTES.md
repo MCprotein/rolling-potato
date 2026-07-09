@@ -1,5 +1,55 @@
 # Release Notes
 
+## v0.20.0 - Executable Benchmark Runner
+
+Release date: 2026-07-09
+
+This release adds the first executable local benchmark runner. It is still a
+source-only developer preview: it does not ship model weights, external plugin
+packages, or prebuilt `rpotato` binaries.
+
+### Included
+
+- New `rpotato benchmark run --fixture <fixture.json> --prompt <artifact>
+  [--max-tokens <tokens>]` command.
+- `benchmark run` calls the currently running backend sidecar and records a
+  local `claim_state=measured-locally` benchmark row.
+- Deterministic 0-3 local product score based on expected/forbidden response
+  markers, abstention requirement, and non-empty model output.
+- SQLite migration v4 extends `benchmark_runs` with `model_run_id`, prompt
+  artifact checksum/length, local pass flag, marker counts, latency, token
+  counts, resource pressure, and peak RSS.
+- `benchmark report --format jsonl` exports the new executable benchmark fields.
+- `benchmarks/fixtures/executable-smoke.json` and
+  `benchmarks/prompts/executable-smoke.txt` provide the first executable smoke
+  fixture/prompt pair.
+- English and Korean documentation updates for executable benchmark boundaries,
+  redaction, and observability linkage.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (185 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato benchmark validate benchmarks/fixtures/sample.json`
+- `rpotato benchmark validate benchmarks/fixtures/executable-smoke.json`
+- `rpotato benchmark record --fixture benchmarks/fixtures/sample.json`
+- `rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32` fail-closed without a running sidecar
+- `rpotato benchmark report --format jsonl`
+
+### Known Issues
+
+- `benchmark run` requires an already running backend sidecar and a local model
+  file started through `rpotato backend start`; this release does not bundle or
+  auto-select model weights.
+- The executable runner records local product scores only. It does not compare
+  against public benchmark scores or claim leaderboard parity.
+- Source-read compliance and hallucination scoring are still marker/proxy based;
+  richer tool/evidence-aware scoring remains planned.
+- No prebuilt `rpotato` binary artifacts are attached to this preview release.
+
 ## v0.19.0 - Benchmark Harness Foundation
 
 Release date: 2026-07-09
