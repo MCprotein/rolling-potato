@@ -47,6 +47,7 @@
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor baseline`
+- `rpotato monitor optimize`
 - `rpotato monitor export --format jsonl`
 - `rpotato monitor export --format csv`
 - `rpotato monitor prune --before 30d --dry-run`
@@ -173,6 +174,7 @@ cargo run -- hooks validate-result '{"status":"allow"}'
 cargo run -- monitor status
 cargo run -- monitor models
 cargo run -- monitor baseline
+cargo run -- monitor optimize
 cargo run -- monitor export --format jsonl
 cargo run -- monitor export --format csv
 cargo run -- monitor prune --before 30d --dry-run

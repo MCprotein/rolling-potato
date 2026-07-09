@@ -377,7 +377,7 @@ anecdotal results.
 | v0.18.0 | Performance baseline report | Aggregate local p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, and backend/model/session grouping from existing ledger/projection data. |
 | v0.19.0 | Benchmark harness foundation | Validate fixture metadata, record benchmark run events/projections, emit reproducibility metadata, and export redacted local reports. |
 | v0.20.0 | Executable small-model benchmark runner | Run project-local prompt artifacts through the active backend sidecar, store redacted `measured-locally` score rows, and link benchmark rows to model/token/resource metrics. |
-| v0.21.0 | Benchmark-driven optimization policy | Use measured local metrics and benchmark evidence to recommend context budget, lane count, fallback, and model route. |
+| v0.21.0 | Benchmark-driven optimization policy | `rpotato monitor optimize` uses measured local metrics and benchmark evidence to recommend context budget, lane count, fallback, and model route. |
 
 Published benchmark parity remains gated by comparable artifact, backend,
 hardware, quantization, dataset, prompt, and scoring conditions.
@@ -393,6 +393,9 @@ Benchmark runs should use the same metric schema as normal runtime monitoring.
 - v0.20.0 executable reports add `model_run_id`, prompt artifact checksum,
   prompt length, local pass flag, expected/forbidden marker counts,
   latency, token counts, resource pressure, and peak RSS.
+- v0.21.0 optimization reports consume only `measured-locally` benchmark rows
+  and local performance metrics. They emit runtime hints, not model promotion or
+  public benchmark parity claims.
 - Later executable runs should add artifact hash, backend options,
   guard/tool/stop metrics, richer hallucination/source-read scoring, and failure category.
 - Published-vs-local score comparison stores artifact hash and runtime options.

@@ -1,5 +1,44 @@
 # 릴리즈 노트
 
+## v0.21.0 - Benchmark-Driven Optimization Policy
+
+릴리즈 날짜: 2026-07-09
+
+이 릴리즈는 첫 read-only optimization policy surface를 추가합니다. Local runtime
+metric과 local benchmark evidence를 읽어 작은 모델 실행에 더 안전한 context,
+team lane, fallback, model route hint를 추천합니다.
+
+### 포함된 것
+
+- 새 `rpotato monitor optimize` 명령.
+- Resource pressure, model-run metric, context clamp count, p95 latency, average
+  tokens/sec, local benchmark pass/fail evidence를 사용하는 deterministic
+  optimization policy.
+- `monitor optimize`는 measured benchmark run count, pass/fail count, average
+  local score, 최신 measured benchmark row, recommended context tokens,
+  recommended team lanes, fallback mode, model route hint를 출력합니다.
+- 추천은 read-only local runtime hint입니다. 실제 model artifact를 선택하거나,
+  model status를 승격하거나, raw prompt/source text를 저장하거나, public
+  benchmark parity를 주장하지 않습니다.
+- 영문/한국어 문서가 `monitor optimize`를 v0.21.0 benchmark-driven optimization
+  policy surface로 설명하도록 업데이트되었습니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (189 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato monitor baseline`
+- `rpotato monitor optimize`
+
+### 경계
+
+이 릴리즈는 dispatcher worker launch, model 승격, public benchmark parity, 자동
+model 선택을 구현하지 않습니다. Local SQLite projection evidence를 보수적인 runtime
+policy hint로 바꾸는 기능만 제공합니다.
+
 ## v0.20.1 - Benchmark Evidence Status
 
 릴리즈 날짜: 2026-07-09

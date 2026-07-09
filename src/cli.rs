@@ -55,6 +55,7 @@ rpotato
   rpotato monitor status
   rpotato monitor models
   rpotato monitor baseline
+  rpotato monitor optimize
   rpotato monitor export --format jsonl
   rpotato monitor export --format csv
   rpotato monitor prune --before 30d --dry-run
@@ -93,6 +94,7 @@ rpotato
   team admit은 dispatcher 진입 전 resource/policy/file-ownership admission gate를 강제하고 결과를 ledger에 기록합니다.
   team governor는 dispatcher 진입 전 context/model budget clamp와 downgrade/escalation hint를 기록합니다.
   benchmark record는 metadata-only not-comparable run을 기록하고, benchmark run은 실행 중인 backend sidecar로 local measured run을 기록합니다.
+  monitor optimize는 측정된 local metric과 benchmark evidence만으로 context/lane/fallback/model route hint를 추천합니다.
   모델 registry install은 verified 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -127,6 +129,7 @@ pub enum MonitorCommand {
     Status,
     Models,
     Baseline,
+    Optimize,
     Export { format: MonitorExportFormat },
     Prune { before_days: u64, dry_run: bool },
 }
@@ -562,6 +565,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "monitor" && action == "baseline" => {
             Ok(Command::Monitor(MonitorCommand::Baseline))
         }
+        [group, action] if group == "monitor" && action == "optimize" => {
+            Ok(Command::Monitor(MonitorCommand::Optimize))
+        }
         [group, action, rest @ ..] if group == "monitor" && action == "export" => {
             parse_monitor_export(rest).map(Command::Monitor)
         }
@@ -569,7 +575,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             parse_monitor_prune(rest).map(Command::Monitor)
         }
         [group, ..] if group == "monitor" => Err(AppError::usage(
-            "monitor 명령은 status, models, baseline, export, prune만 허용합니다.",
+            "monitor 명령은 status, models, baseline, optimize, export, prune만 허용합니다.",
         )),
         [group, action, path] if group == "benchmark" && action == "validate" => {
             Ok(Command::Benchmark(BenchmarkCommand::Validate {
@@ -1858,6 +1864,12 @@ mod tests {
     fn parses_monitor_baseline() {
         let command = parse(["monitor".to_string(), "baseline".to_string()]).unwrap();
         assert_eq!(command, Command::Monitor(MonitorCommand::Baseline));
+    }
+
+    #[test]
+    fn parses_monitor_optimize() {
+        let command = parse(["monitor".to_string(), "optimize".to_string()]).unwrap();
+        assert_eq!(command, Command::Monitor(MonitorCommand::Optimize));
     }
 
     #[test]
