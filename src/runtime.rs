@@ -40,9 +40,39 @@ pub fn doctor_report() -> String {
     let backend = backend::doctor_summary();
     let cache = cache::status_summary();
     let models = model::candidate_summary();
+    let release = release_smoke_summary();
 
     format!(
-        "rpotato 진단\n- CLI: 사용 가능\n- runtime core: CLI surface에서 분리된 report boundary 사용\n- backend: {}\n- model: {}\n- cache: {}",
-        backend, models, cache
+        "rpotato 진단\n- CLI: 사용 가능\n- package: {}\n- package version: {}\n- release target os: {}\n- release target arch: {}\n- release binary suffix: {}\n- release smoke: {}\n- runtime core: CLI surface에서 분리된 report boundary 사용\n- backend: {}\n- model: {}\n- cache: {}",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        std::env::consts::EXE_SUFFIX,
+        release,
+        backend,
+        models,
+        cache
     )
+}
+
+fn release_smoke_summary() -> &'static str {
+    "available; doctor does not download models, install backends, start sidecars, or require network access"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn doctor_report_includes_release_smoke_fields() {
+        let report = doctor_report();
+
+        assert!(report.contains("package: rpotato"));
+        assert!(report.contains(&format!("package version: {}", env!("CARGO_PKG_VERSION"))));
+        assert!(report.contains("release target os:"));
+        assert!(report.contains("release target arch:"));
+        assert!(report.contains("release binary suffix:"));
+        assert!(report.contains("release smoke: available"));
+    }
 }

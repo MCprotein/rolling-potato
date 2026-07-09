@@ -34,7 +34,7 @@ evidence.
 | v0.20.1 | Released | Benchmark evidence status: real Qwen executable smoke measurement documented; `model eval-plan` surfaces latest local measured benchmark row |
 | v0.21.0 | Released | Benchmark-driven optimization policy: `monitor optimize` recommends context budget, lane count, fallback, and model route from measured local metrics and benchmark evidence |
 | v0.22.0 | Released | Dispatcher hardening: `team dispatch` enforces dispatch-time file ownership, records failed-worker continuation, and surfaces latest team runtime status |
-| v0.23.0 | Planned | Official binary download foundation: release build pipeline, GitHub Release assets, macOS Apple Silicon and Windows x86_64 `rpotato` artifacts, binary checksums, `rpotato doctor` release smoke |
+| v0.23.0 | Released | Official binary download foundation: GitHub Release binary workflow for macOS Apple Silicon and Windows x86_64, release asset checksums, and `rpotato doctor` binary smoke |
 | v0.24.0 | Planned | Cross-platform release hardening: macOS Intel artifact, checksum publication, Windows keep-cache/purge-cache uninstall smoke, release notes template |
 | v0.25.0 | Planned | Verified model install path: promote source-backed candidates only after local evidence, registry registration, install download flow, RAM/mmproj evidence gate |
 | v0.26.0 | Planned | Ontology runtime store: canonical internal typed graph/store, compact context views, source-pointer reread rules, import/export inspection views |

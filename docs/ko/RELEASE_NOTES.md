@@ -1,5 +1,47 @@
 # 릴리즈 노트
 
+## v0.23.0 - Official Binary Download Foundation
+
+릴리즈 날짜: 2026-07-09
+
+이 릴리즈는 첫 공식 binary release pipeline을 추가합니다. Published GitHub Release가
+macOS Apple Silicon과 Windows x86_64용 managed `rpotato` binary build를 trigger하고,
+checksum과 binary smoke 검증을 함께 생성합니다.
+
+### 포함된 것
+
+- 새 `release-binaries` GitHub Actions workflow.
+- Release asset target:
+  - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
+  - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
+  - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip`
+  - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip.sha256`
+- Packaged binary smoke check용 `scripts/release/verify-release-binary-smoke.sh`.
+- `rpotato doctor`가 package name, package version, target OS/arch, binary suffix,
+  release-smoke 가능 여부를 표시합니다.
+- Release 문서가 v0.23.0 asset workflow를 정의하고, macOS Intel, Linux, package
+  manager channel은 후속 작업으로 남긴다고 명시합니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test` (197 tests)
+- `cargo test --locked` (197 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build`
+- `cargo build --locked`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/debug/rpotato 0.23.0`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.23.0`
+- `rpotato doctor`
+
+### 경계
+
+이 릴리즈는 macOS Intel, Linux, Homebrew, Scoop, winget, signing, notarization,
+auto-update 배포를 추가하지 않습니다. 또한 model weight, backend binary, external plugin
+package를 `rpotato` release binary에 포함하지 않습니다.
+
 ## v0.22.0 - Dispatcher Hardening
 
 릴리즈 날짜: 2026-07-09

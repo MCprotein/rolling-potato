@@ -67,8 +67,9 @@ Branch 이름:
 5. merge commit에 `vX.Y.Z` 또는 대응되는 prerelease tag를 붙인다.
 6. tag를 push한다. matching remote release branch가 아직 남아 있으면
    `release-policy` workflow가 `main`에 merge됐는지 확인한 뒤 삭제한다.
-7. 해당 tag로 GitHub Release를 만든다.
-8. local release branch를 삭제한다.
+7. 해당 tag로 GitHub Release를 만든다. Release가 publish되면 `release-binaries`
+   workflow가 지원 binary asset을 build/upload한다.
+8. Release asset과 checksum을 확인한 뒤 local release branch를 삭제한다.
 
 `main`은 integration branch입니다. Release branch는 장기 support branch가 아니며, release 이후의 unrelated work를 쌓으면 안 됩니다.
 
@@ -99,18 +100,45 @@ scripts/release/verify-release-policy.sh
 
 GitHub repository setting은 source tree 밖에 있으므로 maintainer가 GitHub에서 설정해야 합니다. Workflow와 script는 repo-local enforcement surface입니다.
 
+## Binary Release Workflow
+
+`release-binaries`는 GitHub Release가 publish될 때 release asset을 build합니다.
+Workflow 검증용으로 `release_tag` input을 넣어 수동 실행할 수도 있습니다.
+
+현재 v0.23.0 asset:
+
+- `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
+- `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
+- `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip`
+- `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip.sha256`
+
+Workflow는 `cargo test --locked`를 실행하고 release binary를 build한 뒤,
+`scripts/release/verify-release-binary-smoke.sh`로 built binary를 smoke test하고 archive와
+checksum을 GitHub Release에 upload합니다. `rpotato doctor`는 package version, target
+OS/arch, binary suffix, backend/model/cache summary를 표시하고 model download, backend
+install, sidecar start, network access를 하지 않기 때문에 release-smoke command로 씁니다.
+
+Runner label은 첫 지원 target에 맞춰 고정합니다.
+
+- `macos-14`: macOS Apple Silicon / `aarch64-apple-darwin`
+- `windows-latest`: Windows x86_64 / `x86_64-pc-windows-msvc`
+
+Reference: GitHub-hosted runners reference, checked 2026-07-09:
+https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+
 ## artifact 목표
 
 초기 목표:
 
 - macOS Apple Silicon
-- macOS Intel
 - Windows x86_64
 
 추후 목표:
 
+- macOS Intel
 - Linux x86_64
 - Linux ARM64
+- package manager channel: Homebrew, Scoop, winget
 
 ## 릴리즈 체크리스트
 
@@ -126,6 +154,8 @@ GitHub repository setting은 source tree 밖에 있으므로 maintainer가 GitHu
 8. plugin adapter가 포함된 release라면 local import only와 remote source rejection smoke test
 9. release notes 작성
 10. binary checksum 생성
+11. GitHub Release publish 후 `release-binaries` workflow가 두 target archive와
+    대응 `.sha256` file을 upload했는지 확인
 
 ## 모델 manifest 배포
 
