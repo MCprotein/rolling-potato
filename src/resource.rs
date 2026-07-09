@@ -13,6 +13,8 @@ pub const DEFAULT_TEAM_REQUESTED_LANES: u32 = 2;
 pub const DEFAULT_CONTEXT_LIMIT_TOKENS: u32 = 4096;
 pub const DEGRADED_CONTEXT_LIMIT_TOKENS: u32 = 2048;
 pub const SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS: u32 = 3072;
+pub const OPTIMIZATION_LOW_TOKENS_PER_SECOND: f64 = 5.0;
+pub const OPTIMIZATION_HIGH_P95_LATENCY_MS: f64 = 30_000.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResourcePressure {
@@ -64,6 +66,14 @@ pub enum ModelTier {
     Large,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OptimizationPolicyStatus {
+    Recommend,
+    InsufficientEvidence,
+    Constrained,
+    Blocked,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceGovernorDecision {
     pub pressure: ResourcePressure,
@@ -96,6 +106,28 @@ pub struct ContextModelGovernorDecision {
     pub model_tier: ModelTier,
     pub model_hint: ModelRouteHint,
     pub admission: ResourceGovernorAdmission,
+    pub reason: &'static str,
+    pub hint: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct OptimizationPolicyInput {
+    pub pressure: ResourcePressure,
+    pub model_runs: usize,
+    pub measured_benchmark_runs: usize,
+    pub failed_benchmark_runs: usize,
+    pub context_clamp_count: i64,
+    pub p95_latency_ms: Option<f64>,
+    pub avg_tokens_per_second: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OptimizationPolicyDecision {
+    pub status: OptimizationPolicyStatus,
+    pub recommended_context_tokens: Option<u32>,
+    pub recommended_lanes: u32,
+    pub fallback: &'static str,
+    pub model_hint: ModelRouteHint,
     pub reason: &'static str,
     pub hint: &'static str,
 }
@@ -187,6 +219,17 @@ impl ModelTier {
             ModelTier::Small => "small",
             ModelTier::Standard => "standard",
             ModelTier::Large => "large",
+        }
+    }
+}
+
+impl OptimizationPolicyStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            OptimizationPolicyStatus::Recommend => "recommend",
+            OptimizationPolicyStatus::InsufficientEvidence => "insufficient-evidence",
+            OptimizationPolicyStatus::Constrained => "constrained",
+            OptimizationPolicyStatus::Blocked => "blocked",
         }
     }
 }
@@ -430,6 +473,131 @@ pub fn context_model_governor_decision(
         admission: ResourceGovernorAdmission::Allow,
         reason,
         hint,
+    }
+}
+
+pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> OptimizationPolicyDecision {
+    if input.pressure == ResourcePressure::Critical {
+        return OptimizationPolicyDecision {
+            status: OptimizationPolicyStatus::Blocked,
+            recommended_context_tokens: None,
+            recommended_lanes: 0,
+            fallback: "wait",
+            model_hint: ModelRouteHint::Defer,
+            reason: "critical resource pressure",
+            hint: "do not dispatch model/team work until backend or host pressure recovers",
+        };
+    }
+
+    let has_local_metrics = input.model_runs > 0 || input.measured_benchmark_runs > 0;
+    let has_benchmark_evidence = input.measured_benchmark_runs > 0;
+    if !has_local_metrics {
+        return OptimizationPolicyDecision {
+            status: OptimizationPolicyStatus::InsufficientEvidence,
+            recommended_context_tokens: Some(DEGRADED_CONTEXT_LIMIT_TOKENS),
+            recommended_lanes: 1,
+            fallback: "sequential",
+            model_hint: ModelRouteHint::Keep,
+            reason: "no local runtime metrics or measured benchmark evidence",
+            hint: "run monitor baseline and executable benchmarks before increasing context or parallel lanes",
+        };
+    }
+
+    if input.pressure == ResourcePressure::Degraded {
+        return OptimizationPolicyDecision {
+            status: OptimizationPolicyStatus::Constrained,
+            recommended_context_tokens: Some(DEGRADED_CONTEXT_LIMIT_TOKENS),
+            recommended_lanes: 1,
+            fallback: "sequential",
+            model_hint: ModelRouteHint::Downgrade,
+            reason: "degraded resource pressure",
+            hint:
+                "prefer a smaller model/context profile and sequential lanes until pressure clears",
+        };
+    }
+
+    if input.pressure == ResourcePressure::Unknown {
+        return OptimizationPolicyDecision {
+            status: if has_benchmark_evidence {
+                OptimizationPolicyStatus::Recommend
+            } else {
+                OptimizationPolicyStatus::InsufficientEvidence
+            },
+            recommended_context_tokens: Some(SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS),
+            recommended_lanes: 1,
+            fallback: "sequential",
+            model_hint: if input.failed_benchmark_runs > 0 {
+                ModelRouteHint::Escalate
+            } else {
+                ModelRouteHint::Keep
+            },
+            reason: "resource pressure unknown",
+            hint: "keep dispatch sequential until a fresh resource sample exists",
+        };
+    }
+
+    if input.failed_benchmark_runs > 0 {
+        return OptimizationPolicyDecision {
+            status: OptimizationPolicyStatus::Constrained,
+            recommended_context_tokens: Some(DEFAULT_CONTEXT_LIMIT_TOKENS),
+            recommended_lanes: 1,
+            fallback: "review-before-parallel",
+            model_hint: ModelRouteHint::Escalate,
+            reason: "measured benchmark failure exists",
+            hint: "review failed local benchmark rows before widening team lanes or accepting the current model route",
+        };
+    }
+
+    if input.context_clamp_count > 0 {
+        return OptimizationPolicyDecision {
+            status: OptimizationPolicyStatus::Constrained,
+            recommended_context_tokens: Some(SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS),
+            recommended_lanes: 1,
+            fallback: "sequential",
+            model_hint: ModelRouteHint::Keep,
+            reason: "context clamp observed in local metrics",
+            hint: "lower retrieval/context packing budget before increasing parallelism",
+        };
+    }
+
+    let slow_latency = input
+        .p95_latency_ms
+        .is_some_and(|value| value.is_finite() && value >= OPTIMIZATION_HIGH_P95_LATENCY_MS);
+    let low_throughput = input.avg_tokens_per_second.is_some_and(|value| {
+        value.is_finite() && value > 0.0 && value <= OPTIMIZATION_LOW_TOKENS_PER_SECOND
+    });
+    if slow_latency || low_throughput {
+        return OptimizationPolicyDecision {
+            status: OptimizationPolicyStatus::Constrained,
+            recommended_context_tokens: Some(DEGRADED_CONTEXT_LIMIT_TOKENS),
+            recommended_lanes: 1,
+            fallback: "sequential",
+            model_hint: ModelRouteHint::Downgrade,
+            reason: "slow local latency or token throughput observed",
+            hint: "reduce context or route to a lighter model profile before enabling parallel team lanes",
+        };
+    }
+
+    if !has_benchmark_evidence {
+        return OptimizationPolicyDecision {
+            status: OptimizationPolicyStatus::InsufficientEvidence,
+            recommended_context_tokens: Some(SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS),
+            recommended_lanes: 1,
+            fallback: "sequential",
+            model_hint: ModelRouteHint::Keep,
+            reason: "local model metrics exist but measured benchmark evidence is missing",
+            hint: "record at least one measured benchmark row before widening team lanes",
+        };
+    }
+
+    OptimizationPolicyDecision {
+        status: OptimizationPolicyStatus::Recommend,
+        recommended_context_tokens: Some(DEFAULT_CONTEXT_LIMIT_TOKENS),
+        recommended_lanes: DEFAULT_TEAM_REQUESTED_LANES,
+        fallback: "none",
+        model_hint: ModelRouteHint::Keep,
+        reason: "measured local metrics and benchmark evidence are within policy limits",
+        hint: "current context budget and parallel lane default may proceed within approval and ownership policy",
     }
 }
 
@@ -711,5 +879,69 @@ mod tests {
         assert_eq!(critical.context_action, ContextGovernorAction::Blocked);
         assert_eq!(critical.model_hint, ModelRouteHint::Defer);
         assert_eq!(critical.effective_context_tokens, None);
+    }
+
+    #[test]
+    fn optimization_policy_uses_local_metrics_and_benchmark_evidence() {
+        let healthy = optimization_policy_decision(OptimizationPolicyInput {
+            pressure: ResourcePressure::Normal,
+            model_runs: 2,
+            measured_benchmark_runs: 1,
+            failed_benchmark_runs: 0,
+            context_clamp_count: 0,
+            p95_latency_ms: Some(200.0),
+            avg_tokens_per_second: Some(25.0),
+        });
+        assert_eq!(healthy.status, OptimizationPolicyStatus::Recommend);
+        assert_eq!(
+            healthy.recommended_context_tokens,
+            Some(DEFAULT_CONTEXT_LIMIT_TOKENS)
+        );
+        assert_eq!(healthy.recommended_lanes, DEFAULT_TEAM_REQUESTED_LANES);
+        assert_eq!(healthy.model_hint, ModelRouteHint::Keep);
+
+        let failed_benchmark = optimization_policy_decision(OptimizationPolicyInput {
+            pressure: ResourcePressure::Normal,
+            model_runs: 2,
+            measured_benchmark_runs: 2,
+            failed_benchmark_runs: 1,
+            context_clamp_count: 0,
+            p95_latency_ms: Some(200.0),
+            avg_tokens_per_second: Some(25.0),
+        });
+        assert_eq!(
+            failed_benchmark.status,
+            OptimizationPolicyStatus::Constrained
+        );
+        assert_eq!(failed_benchmark.recommended_lanes, 1);
+        assert_eq!(failed_benchmark.model_hint, ModelRouteHint::Escalate);
+
+        let no_evidence = optimization_policy_decision(OptimizationPolicyInput {
+            pressure: ResourcePressure::Normal,
+            model_runs: 0,
+            measured_benchmark_runs: 0,
+            failed_benchmark_runs: 0,
+            context_clamp_count: 0,
+            p95_latency_ms: None,
+            avg_tokens_per_second: None,
+        });
+        assert_eq!(
+            no_evidence.status,
+            OptimizationPolicyStatus::InsufficientEvidence
+        );
+        assert_eq!(no_evidence.recommended_lanes, 1);
+
+        let critical = optimization_policy_decision(OptimizationPolicyInput {
+            pressure: ResourcePressure::Critical,
+            model_runs: 2,
+            measured_benchmark_runs: 1,
+            failed_benchmark_runs: 0,
+            context_clamp_count: 0,
+            p95_latency_ms: Some(200.0),
+            avg_tokens_per_second: Some(25.0),
+        });
+        assert_eq!(critical.status, OptimizationPolicyStatus::Blocked);
+        assert_eq!(critical.recommended_context_tokens, None);
+        assert_eq!(critical.model_hint, ModelRouteHint::Defer);
     }
 }

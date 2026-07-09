@@ -36,7 +36,7 @@ it. The release grouping is:
 | v0.18.0 | performance baseline report | aggregate local p50/p95 latency, tokens/sec, context clamp count, peak RSS, pressure state, and backend/model/session metrics without storing raw prompt/source text |
 | v0.19.0 | benchmark harness foundation | record benchmark runs in the ledger/projection, validate fixture metadata, emit reproducibility metadata, and export redacted local reports |
 | v0.20.0 | executable benchmark runner | link active-backend prompt artifact runs, local score, token/latency, and resource metrics through the same runtime monitoring schema |
-| v0.21.0 | benchmark-driven optimization policy | recommend context budget, lane count, fallback, and model route from measured local metrics and benchmark evidence |
+| v0.21.0 | benchmark-driven optimization policy | `monitor optimize` recommends context budget, lane count, fallback, and model route from measured local metrics and benchmark evidence |
 | v0.22.0+ | remaining dispatcher governor policy | add dispatch-time ownership enforcement and failed-worker continuation |
 
 ## Storage Decision
@@ -69,7 +69,7 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato init` creates app data root, project-local `.rpotato/`, current state, runtime ledger, project session ledger, runtime evidence JSONL, and SQLite projection.
 - Append-only ledger is the source of truth; SQLite `ledger_events` is a replayable projection.
 - SQLite session history can be restored for the current project from replayed `ledger_events` if the projection is recreated.
-- SQLite migration v3 creates `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `resource_samples`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, and the extended `benchmark_runs` projection.
+- SQLite migration v4 creates `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `resource_samples`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, and the extended `benchmark_runs` projection.
 - `rpotato state` shows current-state and ledger/projection counts.
 - `rpotato state reconcile` recovers missing/stale/corrupt current state and records preserve-move events in the ledger.
 - `rpotato state resume` distinguishes no active workflow, active pointer detected, and blocked states, then records a ledger event.
@@ -81,6 +81,7 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato evidence validate <artifact-pointer>` verifies that a project-relative artifact pointer stays inside the project boundary.
 - `rpotato monitor status` and `rpotato monitor models` read SQLite projection.
 - `rpotato monitor baseline` aggregates local ledger/SQLite projection metrics into a read-only performance baseline report with p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, and model/backend/session grouping. It does not store raw prompt/source text and does not choose model artifacts.
+- `rpotato monitor optimize` reads the local performance baseline, latest resource sample, and `measured-locally` benchmark rows to recommend context budget, team lane count, fallback mode, and model route hint. It is read-only and does not select a real model artifact, promote model status, or claim public benchmark parity.
 - `rpotato monitor export --format jsonl|csv` renders runtime ledger/projection into human-readable exports.
 - `rpotato monitor prune --before 30d --dry-run` calculates only deletion candidate counts.
 - `rpotato benchmark validate <fixture.json>` validates project-local fixture metadata for runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence records, abstention requirement, ontology view, context budget, backend/model artifact identifiers, sampling policy, and raw artifact retention policy.
@@ -102,8 +103,6 @@ Phase 2 currently implements the runtime store foundation.
 Not implemented yet:
 
 - continuous background CPU/memory/disk resource sampling from the managed backend sidecar
-- executable benchmark model runs and scoring
-- benchmark-driven optimization policy for context budget, lane count, fallback, and model route recommendations
 - full subagent/team dispatcher execution after admission
 - dispatch-time ownership enforcement
 - full transcript replay and conversation continuation after a selected session resume
@@ -231,6 +230,7 @@ Initial commands:
 rpotato monitor status
 rpotato monitor models
 rpotato monitor baseline
+rpotato monitor optimize
 rpotato monitor session <id>
 rpotato session list
 rpotato session history

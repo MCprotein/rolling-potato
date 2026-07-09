@@ -108,6 +108,7 @@ rpotato cache status
 rpotato monitor status
 rpotato monitor models
 rpotato monitor baseline
+rpotato monitor optimize
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
 rpotato monitor prune --before 30d --dry-run
@@ -228,6 +229,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor baseline`
+- `rpotato monitor optimize`
 - `rpotato monitor export --format jsonl`
 - `rpotato monitor export --format csv`
 - `rpotato monitor prune --before 30d --dry-run`
@@ -278,7 +280,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `patch preview`는 project-local text file을 읽고 명시적인 단일 find/replace proposal에 대한 unified diff를 렌더링하며, `.rpotato/patch-proposals/` 아래에 project-local proposal record를 저장하고 approval token을 출력합니다. `patch approve <proposal-id> --token <token> --dry-run`은 token을 검증하고 target file을 수정하지 않은 채 approval gate를 기록합니다. `--dry-run` 없이 실행하면 current file SHA-256이 preview 당시 original SHA-256과 일치할 때만 승인된 proposal을 적용하고, rollback record를 쓴 뒤 applied SHA-256을 검증해 ledger event를 남깁니다. `--verify-command <command>`는 apply 이후 allow 정책을 통과한 단순 argv verification command만 실행하며, verification 실패 시 rollback을 시도하고 성공으로 보고하지 않습니다.
 
-`monitor baseline`은 local ledger/SQLite projection metric을 읽어 p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, model/backend/session grouping을 보여주는 read-only performance baseline report를 출력합니다. Raw prompt/source text는 저장하지 않으며 model artifact를 선택하지 않습니다. `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
+`monitor baseline`은 local ledger/SQLite projection metric을 읽어 p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, model/backend/session grouping을 보여주는 read-only performance baseline report를 출력합니다. Raw prompt/source text는 저장하지 않으며 model artifact를 선택하지 않습니다. `monitor optimize`는 이 local metric과 `measured-locally` benchmark row만 읽어 context budget, team lane count, fallback mode, model route hint를 추천합니다. 실제 model artifact를 선택하거나 public benchmark parity를 주장하지 않습니다. `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 
 `benchmark validate <fixture.json>`는 project-local benchmark fixture metadata를 검증합니다. Runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence record, abstention requirement, ontology view, context budget, backend/model artifact identifier, sampling policy, raw artifact retention policy를 확인합니다. `benchmark record --fixture <fixture.json>`는 metadata-only benchmark run을 append-only ledger와 SQLite `benchmark_runs` projection에 기록합니다. 이 기록은 `claim_state=not-comparable`, score 없음, reproducibility manifest, redacted local report만 포함합니다. `benchmark run --fixture <fixture.json> --prompt <artifact> [--max-tokens <tokens>]`는 실행 중인 backend sidecar에 prompt artifact를 보내고 `claim_state=measured-locally`, deterministic 0-3 local product score, `model_run_id`, token/latency/resource summary, redacted reproducibility field를 기록합니다. SQLite에는 raw prompt/source text를 저장하지 않습니다. `benchmark report --format jsonl`은 redacted benchmark record를 JSONL로 출력합니다. Benchmark output은 public benchmark parity를 주장하지 않습니다.
 

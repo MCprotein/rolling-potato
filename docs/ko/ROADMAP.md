@@ -31,7 +31,7 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | v0.19.0 | Released | Benchmark harness foundation: fixture schema 검증, benchmark run ledger/projection, reproducibility metadata, redacted local report export |
 | v0.20.0 | Released | Executable benchmark runner: active backend sidecar로 prompt artifact를 실행하고 local 0-3 score, `measured-locally` benchmark row, model/token/resource metric linkage 기록 |
 | v0.20.1 | Released | Benchmark evidence status: 실제 Qwen executable smoke 측정 문서화, `model eval-plan`이 최신 local measured benchmark row를 표시 |
-| v0.21.0 | Planned | Benchmark-driven optimization policy: 측정된 local metric과 benchmark evidence로 context budget, lane count, fallback, model route 추천 |
+| v0.21.0 | Released | Benchmark-driven optimization policy: `monitor optimize`가 측정된 local metric과 benchmark evidence로 context budget, lane count, fallback, model route 추천 |
 | v0.22.0 | Planned | Dispatcher hardening: dispatch-time file ownership enforcement, failed-worker continuation, subagent/team status 표시 |
 | v0.23.0 | Planned | 공식 binary download foundation: release build pipeline, GitHub Release asset, macOS Apple Silicon과 Windows x86_64 `rpotato` artifact, binary checksum, `rpotato doctor` release smoke |
 | v0.24.0 | Planned | Cross-platform release hardening: macOS Intel artifact, checksum publication, Windows keep-cache/purge-cache uninstall smoke, release notes template |

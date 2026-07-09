@@ -152,6 +152,49 @@ pub fn baseline_report() -> Result<String, AppError> {
     ))
 }
 
+pub fn optimize_report() -> Result<String, AppError> {
+    let policy = observability::optimization_policy()?;
+    let recovered = policy
+        .store
+        .recovered_from
+        .as_ref()
+        .map(|path| format!("\n- recovered corrupt db: {}", path.display()))
+        .unwrap_or_default();
+
+    Ok(format!(
+        "optimization policy\n- status: {}\n- observability store: {}\n- evidence source: local SQLite projection\n- model runs: {}\n- resource samples: {}\n- latest resource pressure: {}\n- context clamp count: {}\n- context tokens dropped: {}\n- p95 latency: {}\n- avg tokens/sec: {}\n- peak RSS bytes: {}\n- measured benchmark runs: {}\n- benchmark passed: {}\n- benchmark failed: {}\n- avg benchmark score: {}\n- latest benchmark run: {}\n- latest benchmark model: {}\n- latest benchmark name: {}\n- recommended context tokens: {}\n- recommended team lanes: {}\n- fallback: {}\n- model route hint: {}\n- reason: {}\n- hint: {}\n- raw prompt/source 저장: 없음\n- boundary: local policy recommendation only; does not select a real model artifact, promote a model to verified, or claim public benchmark parity.{}",
+        policy.decision.status.as_str(),
+        policy.store.path.display(),
+        policy.model_runs,
+        policy.resource_samples,
+        policy.latest_resource_pressure,
+        policy.context_clamp_count,
+        policy.context_tokens_dropped,
+        ms_label(policy.p95_latency_ms),
+        tps_label(policy.avg_tokens_per_second),
+        display_optional_u64(policy.peak_rss_bytes),
+        policy.benchmark_evidence.measured_runs,
+        policy.benchmark_evidence.passed_runs,
+        policy.benchmark_evidence.failed_runs,
+        score_label(policy.benchmark_evidence.avg_score),
+        display_optional_str(
+            policy
+                .benchmark_evidence
+                .latest_benchmark_run_id
+                .as_deref()
+        ),
+        display_optional_str(policy.benchmark_evidence.latest_model_id.as_deref()),
+        display_optional_str(policy.benchmark_evidence.latest_benchmark_name.as_deref()),
+        display_optional_u32(policy.decision.recommended_context_tokens),
+        policy.decision.recommended_lanes,
+        policy.decision.fallback,
+        policy.decision.model_hint.as_str(),
+        policy.decision.reason,
+        policy.decision.hint,
+        recovered
+    ))
+}
+
 pub fn export_report(format: MonitorExportFormat) -> Result<String, AppError> {
     match format {
         MonitorExportFormat::Jsonl => observability::export_jsonl(),
@@ -191,6 +234,16 @@ fn display_optional_u64(value: Option<u64>) -> String {
         .unwrap_or_else(|| "없음".to_string())
 }
 
+fn display_optional_u32(value: Option<u32>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "없음".to_string())
+}
+
+fn display_optional_str(value: Option<&str>) -> String {
+    value.unwrap_or("없음").to_string()
+}
+
 fn ms_label(value: Option<f64>) -> String {
     value
         .map(|value| format!("{value:.1}ms"))
@@ -200,5 +253,11 @@ fn ms_label(value: Option<f64>) -> String {
 fn tps_label(value: Option<f64>) -> String {
     value
         .map(|value| format!("{value:.1} tok/s"))
+        .unwrap_or_else(|| "미기록".to_string())
+}
+
+fn score_label(value: Option<f64>) -> String {
+    value
+        .map(|value| format!("{value:.2}/3"))
         .unwrap_or_else(|| "미기록".to_string())
 }

@@ -109,6 +109,7 @@ rpotato cache status
 rpotato monitor status
 rpotato monitor models
 rpotato monitor baseline
+rpotato monitor optimize
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
 rpotato monitor prune --before 30d --dry-run
@@ -224,6 +225,7 @@ Implemented command surfaces:
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor baseline`
+- `rpotato monitor optimize`
 - `rpotato monitor export --format jsonl`
 - `rpotato monitor export --format csv`
 - `rpotato monitor prune --before 30d --dry-run`
@@ -273,7 +275,7 @@ Implemented command surfaces:
 
 `patch preview` reads a project-local text file, renders a unified diff for a single explicit find/replace proposal, writes a project-local proposal record under `.rpotato/patch-proposals/`, and prints an approval token. `patch approve <proposal-id> --token <token> --dry-run` verifies the token and records the approval gate without modifying the target file. Without `--dry-run`, `patch approve` applies the approved proposal only when the current file SHA-256 still matches the previewed original SHA-256, writes a rollback record, verifies the applied SHA-256, and records a ledger event. `--verify-command <command>` runs an allow-listed simple argv verification command after apply; verification failure attempts rollback and is not reported as success.
 
-`monitor baseline` aggregates local ledger/SQLite projection metrics into a read-only performance baseline report with p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, and model/backend/session grouping. It does not store raw prompt/source text and does not choose model artifacts. `monitor export` emits the runtime ledger as JSONL or CSV. `monitor prune` is currently dry-run only.
+`monitor baseline` aggregates local ledger/SQLite projection metrics into a read-only performance baseline report with p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, and model/backend/session grouping. It does not store raw prompt/source text and does not choose model artifacts. `monitor optimize` reads those local metrics plus `measured-locally` benchmark rows and recommends a context budget, team lane count, fallback mode, and model route hint without selecting a real model artifact or claiming public benchmark parity. `monitor export` emits the runtime ledger as JSONL or CSV. `monitor prune` is currently dry-run only.
 
 `benchmark validate <fixture.json>` validates project-local benchmark fixture metadata, including runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence records, abstention requirement, ontology view, context budget, backend/model artifact identifiers, sampling policy, and raw artifact retention policy. `benchmark record --fixture <fixture.json>` records a metadata-only benchmark run in the append-only ledger and SQLite `benchmark_runs` projection with `claim_state=not-comparable`, no score, a reproducibility manifest, and a redacted local report. `benchmark run --fixture <fixture.json> --prompt <artifact> [--max-tokens <tokens>]` executes the prompt artifact through the running backend sidecar, records `claim_state=measured-locally`, deterministic 0-3 local product score metadata, `model_run_id`, token/latency/resource summaries, and redacted reproducibility fields without storing raw prompt/source text in SQLite. `benchmark report --format jsonl` exports those redacted benchmark records. Benchmark output still does not claim public benchmark parity.
 

@@ -1,5 +1,44 @@
 # Release Notes
 
+## v0.21.0 - Benchmark-Driven Optimization Policy
+
+Release date: 2026-07-09
+
+This release adds the first read-only optimization policy surface. It consumes
+local runtime metrics and local benchmark evidence to recommend safer context,
+team-lane, fallback, and model-route hints for small-model execution.
+
+### Included
+
+- New `rpotato monitor optimize` command.
+- Deterministic optimization policy over resource pressure, model-run metrics,
+  context clamp count, p95 latency, average tokens/sec, and local benchmark
+  pass/fail evidence.
+- `monitor optimize` reports measured benchmark run count, pass/fail count,
+  average local score, latest measured benchmark row, recommended context
+  tokens, recommended team lanes, fallback mode, and model route hint.
+- Recommendations are read-only local runtime hints. They do not choose a real
+  model artifact, promote model status, store raw prompt/source text, or claim
+  public benchmark parity.
+- English and Korean docs now describe `monitor optimize` as the v0.21.0
+  benchmark-driven optimization policy surface.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test` (189 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build`
+- `scripts/release/verify-release-policy.sh`
+- `rpotato monitor baseline`
+- `rpotato monitor optimize`
+
+### Boundary
+
+This release does not implement dispatcher worker launch, model promotion,
+public benchmark parity, or automatic model selection. It only converts local
+SQLite projection evidence into conservative runtime policy hints.
+
 ## v0.20.1 - Benchmark Evidence Status
 
 Release date: 2026-07-09

@@ -7,7 +7,7 @@ use rusqlite::{params, Connection};
 
 use crate::app::AppError;
 use crate::ledger::{self, LedgerEvent, RuntimeIdentity};
-use crate::paths;
+use crate::{paths, resource};
 
 const MIGRATION_VERSION: i64 = 4;
 const MIGRATION_DESCRIPTION: &str = "v0_20_executable_benchmark_runs";
@@ -142,6 +142,32 @@ pub struct BenchmarkRunReport {
     pub reproducibility_manifest: String,
     pub redacted_report: String,
     pub recorded_at_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BenchmarkEvidenceSummary {
+    pub measured_runs: usize,
+    pub passed_runs: usize,
+    pub failed_runs: usize,
+    pub avg_score: Option<f64>,
+    pub latest_benchmark_run_id: Option<String>,
+    pub latest_model_id: Option<String>,
+    pub latest_benchmark_name: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OptimizationPolicy {
+    pub store: StoreStatus,
+    pub model_runs: usize,
+    pub resource_samples: usize,
+    pub latest_resource_pressure: String,
+    pub context_clamp_count: i64,
+    pub context_tokens_dropped: i64,
+    pub p95_latency_ms: Option<f64>,
+    pub avg_tokens_per_second: Option<f64>,
+    pub peak_rss_bytes: Option<u64>,
+    pub benchmark_evidence: BenchmarkEvidenceSummary,
+    pub decision: resource::OptimizationPolicyDecision,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -393,6 +419,39 @@ pub fn performance_baseline() -> Result<PerformanceBaseline, AppError> {
         peak_rss_bytes,
         pressure_states,
         groups,
+    })
+}
+
+pub fn optimization_policy() -> Result<OptimizationPolicy, AppError> {
+    let baseline = performance_baseline()?;
+    let latest_resource = latest_resource_sample()?;
+    let latest_resource_pressure = latest_resource
+        .as_ref()
+        .map(|sample| sample.pressure_status.clone())
+        .unwrap_or_else(|| "unknown".to_string());
+    let benchmark_evidence = benchmark_evidence_summary(&benchmark_run_reports()?);
+    let decision = resource::optimization_policy_decision(resource::OptimizationPolicyInput {
+        pressure: resource_pressure_from_status(&latest_resource_pressure),
+        model_runs: baseline.model_runs,
+        measured_benchmark_runs: benchmark_evidence.measured_runs,
+        failed_benchmark_runs: benchmark_evidence.failed_runs,
+        context_clamp_count: baseline.context_clamp_count,
+        p95_latency_ms: baseline.p95_latency_ms,
+        avg_tokens_per_second: baseline.avg_tokens_per_second,
+    });
+
+    Ok(OptimizationPolicy {
+        store: baseline.store.clone(),
+        model_runs: baseline.model_runs,
+        resource_samples: baseline.resource_samples,
+        latest_resource_pressure,
+        context_clamp_count: baseline.context_clamp_count,
+        context_tokens_dropped: baseline.context_tokens_dropped,
+        p95_latency_ms: baseline.p95_latency_ms,
+        avg_tokens_per_second: baseline.avg_tokens_per_second,
+        peak_rss_bytes: baseline.peak_rss_bytes,
+        benchmark_evidence,
+        decision,
     })
 }
 
@@ -1440,6 +1499,48 @@ fn query_baseline_resource_rows(
     ))
 }
 
+fn benchmark_evidence_summary(rows: &[BenchmarkRunReport]) -> BenchmarkEvidenceSummary {
+    let measured = rows
+        .iter()
+        .filter(|row| row.claim_state == "measured-locally")
+        .collect::<Vec<_>>();
+    let scores = measured
+        .iter()
+        .filter_map(|row| row.score)
+        .filter(|score| score.is_finite())
+        .collect::<Vec<_>>();
+    let latest = measured.iter().max_by(|left, right| {
+        left.recorded_at_ms
+            .cmp(&right.recorded_at_ms)
+            .then_with(|| left.benchmark_run_id.cmp(&right.benchmark_run_id))
+    });
+
+    BenchmarkEvidenceSummary {
+        measured_runs: measured.len(),
+        passed_runs: measured
+            .iter()
+            .filter(|row| row.local_pass == Some(true))
+            .count(),
+        failed_runs: measured
+            .iter()
+            .filter(|row| row.local_pass == Some(false))
+            .count(),
+        avg_score: average(&scores),
+        latest_benchmark_run_id: latest.map(|row| row.benchmark_run_id.clone()),
+        latest_model_id: latest.map(|row| row.model_id.clone()),
+        latest_benchmark_name: latest.map(|row| row.benchmark_name.clone()),
+    }
+}
+
+fn resource_pressure_from_status(value: &str) -> resource::ResourcePressure {
+    match value {
+        "normal" => resource::ResourcePressure::Normal,
+        "degraded" => resource::ResourcePressure::Degraded,
+        "critical" => resource::ResourcePressure::Critical,
+        _ => resource::ResourcePressure::Unknown,
+    }
+}
+
 fn average(values: &[f64]) -> Option<f64> {
     if values.is_empty() {
         return None;
@@ -1935,5 +2036,124 @@ mod tests {
         assert_eq!(qwen_group.total_tokens, 70);
         assert_eq!(qwen_group.context_clamp_count, 1);
         assert_eq!(qwen_group.context_tokens_dropped, 8);
+    }
+
+    #[test]
+    fn optimization_policy_reads_metrics_and_measured_benchmark_evidence() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-optimization-policy-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let project_root = root.join("project");
+        fs::create_dir_all(&project_root).unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+
+        record_model_run(&ModelRunMetric {
+            model_run_id: "model-run-optimization-test".to_string(),
+            session_id: "session-test".to_string(),
+            workflow_id: None,
+            model_id: "qwen-test".to_string(),
+            model_artifact_hash: Some("hash-test".to_string()),
+            backend_id: Some("llama.cpp".to_string()),
+            backend_version: Some("test".to_string()),
+            quantization: Some("q4".to_string()),
+            context_limit_tokens: Some(4096),
+            started_at_ms: 1,
+            first_token_latency_ms: None,
+            total_latency_ms: Some(250.0),
+            prompt_eval_ms: None,
+            generation_eval_ms: None,
+            tokens_per_second: Some(32.0),
+            cancelled: false,
+            prompt_tokens: 10,
+            completion_tokens: 10,
+            total_tokens: 20,
+            context_tokens_used: 100,
+            context_tokens_dropped: 0,
+            ontology_tokens: 0,
+            tool_summary_tokens: 0,
+            max_output_tokens: Some(64),
+        })
+        .unwrap();
+        record_resource_sample(&ResourceSampleMetric {
+            resource_sample_id: "resource-sample-optimization-test".to_string(),
+            session_id: "session-test".to_string(),
+            backend_id: "llama.cpp".to_string(),
+            pid: 123,
+            process_cpu_percent: Some(22.0),
+            average_rss_bytes: Some(256 * 1024 * 1024),
+            peak_rss_bytes: Some(512 * 1024 * 1024),
+            disk_bytes: Some(1024),
+            sample_count: 1,
+            pressure_status: "normal".to_string(),
+            recorded_at_ms: 1000,
+        })
+        .unwrap();
+        record_benchmark_run(&BenchmarkRunMetric {
+            benchmark_run_id: "benchmark-run-optimization-test".to_string(),
+            session_id: "session-test".to_string(),
+            model_run_id: Some("model-run-optimization-test".to_string()),
+            model_id: "qwen-test".to_string(),
+            benchmark_name: "optimization-smoke".to_string(),
+            fixture_id: "fixture-optimization".to_string(),
+            fixture_sha256: "sha256-test".to_string(),
+            prompt_artifact_sha256: Some("prompt-sha256-test".to_string()),
+            prompt_chars: Some(42),
+            claim_state: "measured-locally".to_string(),
+            score: Some(3.0),
+            score_unit: Some("0-3-local-product-score".to_string()),
+            local_pass: Some(true),
+            expected_matches: Some(1),
+            expected_total: Some(1),
+            forbidden_matches: Some(0),
+            harness_ref: "rpotato-benchmark-harness@test".to_string(),
+            dataset_ref: Some("local-fixture".to_string()),
+            backend_id: Some("llama.cpp".to_string()),
+            latency_ms: Some(250.0),
+            tokens_per_second: Some(32.0),
+            prompt_tokens: Some(10),
+            completion_tokens: Some(10),
+            total_tokens: Some(20),
+            resource_pressure: Some("normal".to_string()),
+            peak_rss_bytes: Some(512 * 1024 * 1024),
+            reproducibility_manifest: "{\"fixture_id\":\"fixture-optimization\"}".to_string(),
+            redacted_report: "{\"raw_prompt_source_stored\":false}".to_string(),
+            recorded_at_ms: 1100,
+        })
+        .unwrap();
+
+        let policy = optimization_policy().unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+
+        assert_eq!(policy.model_runs, 1);
+        assert_eq!(policy.resource_samples, 1);
+        assert_eq!(policy.latest_resource_pressure, "normal");
+        assert_eq!(policy.benchmark_evidence.measured_runs, 1);
+        assert_eq!(policy.benchmark_evidence.passed_runs, 1);
+        assert_eq!(policy.benchmark_evidence.failed_runs, 0);
+        assert_eq!(policy.benchmark_evidence.avg_score, Some(3.0));
+        assert_eq!(
+            policy.benchmark_evidence.latest_benchmark_run_id.as_deref(),
+            Some("benchmark-run-optimization-test")
+        );
+        assert_eq!(
+            policy.decision.status,
+            resource::OptimizationPolicyStatus::Recommend
+        );
+        assert_eq!(
+            policy.decision.recommended_context_tokens,
+            Some(resource::DEFAULT_CONTEXT_LIMIT_TOKENS)
+        );
+        assert_eq!(
+            policy.decision.recommended_lanes,
+            resource::DEFAULT_TEAM_REQUESTED_LANES
+        );
+        assert_eq!(policy.decision.model_hint, resource::ModelRouteHint::Keep);
     }
 }
