@@ -105,6 +105,7 @@
 - `rpotato model benchmark-plan <id>`
 - `rpotato model fetch-candidate <id> --for-evaluation`
 - `rpotato model verify-file <path> --sha256 <hash>`
+- `rpotato model promote <id> --evidence <file>`
 - `rpotato model cleanup-failed <id> --dry-run`
 - `rpotato model install <id>`
 
@@ -124,9 +125,39 @@
 
 `model verify-file`은 로컬 파일을 streaming으로 읽어 SHA-256을 계산하고 expected hash와 비교합니다. 성공과 실패 모두 ledger event를 남기며, 실패 시 registry 등록은 차단되어야 합니다.
 
+`model promote <id> --evidence <file>`은 registry 등록 전에 local promotion evidence를 검증합니다. 이 명령은 다음을 요구합니다.
+
+- app-managed artifact file size와 SHA-256이 source-backed manifest와 일치해야 한다.
+- `backend.sidecar.start.completed` 또는 `backend.chat.completed` ledger event id가 있어야 한다.
+- `ramFit=passed`, `recommendedRamGb`, `peakRssBytes` RAM evidence가 있어야 한다.
+- `mmproj` evidence는 `not-required-text-only`, `not-required`, `required` 중 하나여야 한다.
+- `benchmarkRunId`에 대응하는 SQLite benchmark row가 `claim_state=measured-locally`, `local_pass=true`이고 후보 backend를 사용하며 `peak_rss_bytes`가 evidence와 일치해야 한다.
+
+Promotion evidence JSON schema:
+
+```json
+{
+  "schemaVersion": 1,
+  "modelId": "qwen3.5-4b",
+  "artifactSha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+  "artifactSizeBytes": 2740937888,
+  "backendId": "llama.cpp",
+  "backendVersion": "b9878",
+  "backendSmokeEventId": "event-...",
+  "ramFit": "passed",
+  "recommendedRamGb": 16,
+  "peakRssBytes": 3351363584,
+  "mmproj": "not-required-text-only",
+  "benchmarkRunId": "benchmark-event-...",
+  "recordedAt": "2026-07-10T00:00:00Z"
+}
+```
+
+승격이 성공하면 정규화된 evidence를 `models/evidence/<model-id>.promotion.json`에 기록합니다. 이 evidence는 local evidence일 뿐 public benchmark parity claim이 아닙니다.
+
 `model cleanup-failed`는 app data의 `downloads/`와 `models/` 아래에 있는 app-managed partial/failed artifact path만 대상으로 합니다. 삭제는 `--delete`가 명시된 경우에만 실행하고, 기본 검증과 문서 smoke는 `--dry-run`을 사용합니다.
 
-`model install`은 `verified`가 아닌 항목을 차단하고 ledger event를 남깁니다. 현재 구현은 unverified 후보를 registry 설치하거나 등록하지 않습니다. local registry는 `models/registry/<model-id>.json` 위치에 verified artifact만 기록하는 경계로 준비되어 있습니다.
+`model install`은 source-backed manifest entry가 정적으로 `verified`이거나 `models/evidence/<model-id>.promotion.json`이 local artifact, ledger, RAM/mmproj, benchmark evidence와 다시 일치할 때만 모델을 등록합니다. Registry entry는 `models/registry/<model-id>.json`에 기록합니다.
 
 ## 필수 검증
 
@@ -138,6 +169,7 @@
 4. 사용자가 승인해야 다운로드한다.
 5. 다운로드 후 SHA-256을 검증한다.
 6. 검증 실패 시 모델 registry에 등록하지 않는다.
+7. unverified source-backed candidate를 설치하기 전에 local promotion evidence를 요구한다.
 
 ## 금지 사항
 

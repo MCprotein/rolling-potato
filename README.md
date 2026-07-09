@@ -103,8 +103,12 @@ rpotato team dispatch --lanes 2 --write-owner 1:src/team.rs --write-owner 2:src/
 rpotato team dispatch --lanes 3 --write-owner 1:src/team.rs --write-owner 2:src/cli.rs --write-owner 3:src/app.rs --failed-lane 2 --failure "worker timed out"
 rpotato team governor --lanes 2 --context-tokens 6000 --context-limit 4096 --model-tier standard
 rpotato model list
-rpotato model knowledge
-rpotato model knowledge inspect qwen3.5-4b
+rpotato model manifest
+rpotato model inspect qwen3.5-4b
+rpotato model eval-plan qwen3.5-4b
+rpotato model benchmark-plan qwen3.5-4b
+rpotato model fetch-candidate qwen3.5-4b --for-evaluation
+rpotato model promote qwen3.5-4b --evidence evidence/qwen3.5-4b-local.json
 rpotato model install qwen3.5-4b
 rpotato backend doctor
 rpotato cache status
@@ -136,8 +140,10 @@ The expected initialization flow is:
 6. The CLI surface shows an explicit approval prompt.
 7. The runtime core downloads the model with resume support.
 8. The runtime core verifies the hash.
-9. The runtime core registers the model in local config.
-10. The runtime core starts or reuses the local inference backend.
+9. The runtime core promotes the candidate only after local smoke, RAM/mmproj,
+   and measured benchmark evidence.
+10. The runtime core registers the model in local config.
+11. The runtime core starts or reuses the local inference backend.
 
 Model weights are not bundled into the `rpotato` release artifact. The default path also does not require users to install `llama.cpp` globally; the runtime manages the sidecar. Removal is handled through `rpotato uninstall --keep-cache` or `rpotato uninstall --purge-cache`.
 
@@ -243,6 +249,7 @@ Implemented command surfaces:
 - `rpotato model benchmark-plan <id>`
 - `rpotato model fetch-candidate <id> --for-evaluation`
 - `rpotato model verify-file <path> --sha256 <hash>`
+- `rpotato model promote <id> --evidence <file>`
 - `rpotato model cleanup-failed <id> --dry-run`
 - `rpotato model install <id>`
 - `rpotato plugin import --from codex <local-path> --dry-run`
@@ -283,7 +290,7 @@ Official binary downloads are distributed through GitHub Releases. Starting in v
 
 `benchmark validate <fixture.json>` validates project-local benchmark fixture metadata, including runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence records, abstention requirement, ontology view, context budget, backend/model artifact identifiers, sampling policy, and raw artifact retention policy. `benchmark record --fixture <fixture.json>` records a metadata-only benchmark run in the append-only ledger and SQLite `benchmark_runs` projection with `claim_state=not-comparable`, no score, a reproducibility manifest, and a redacted local report. `benchmark run --fixture <fixture.json> --prompt <artifact> [--max-tokens <tokens>]` executes the prompt artifact through the running backend sidecar, records `claim_state=measured-locally`, deterministic 0-3 local product score metadata, `model_run_id`, token/latency/resource summaries, and redacted reproducibility fields without storing raw prompt/source text in SQLite. `benchmark report --format jsonl` exports those redacted benchmark records. Benchmark output still does not claim public benchmark parity.
 
-`model list`, `model manifest`, `model inspect`, `model registry`, and `model download-plan` expose source-backed manifest structure, candidate status, benchmark source ledgers, local registry paths, and pre-download source/license/checksum fields. Qwen and Gemma now have source-recorded unverified GGUF artifact candidates, including pinned revision URLs, LFS SHA-256, and file size. `model eval-plan <id>` is the read-only local evaluation preflight: it checks source-backed artifact fields, app-data artifact presence, size/SHA-256 state, and the next smoke/benchmark command without downloading. `model benchmark-plan <id>` separates public benchmark reproduction conditions from local product benchmark fixtures and refuses score parity until artifact, quantization, backend, prompt, dataset, and scoring conditions are recorded together. `model fetch-candidate <id> --for-evaluation` is the explicit evaluation-only download path: it supports app-managed partial resume, verifies size and SHA-256, records a ledger event, and does not register the artifact as installed. `model verify-file` verifies SHA-256 over local file bytes and records a ledger event. `model cleanup-failed` targets only partial or failed artifacts under app data. `model install` still blocks registry installation until the candidate is promoted to `verified`; local `llama.cpp b9878` smoke, RAM fit, mmproj need, and benchmark evidence remain open.
+`model list`, `model manifest`, `model inspect`, `model registry`, and `model download-plan` expose source-backed manifest structure, candidate status, benchmark source ledgers, local registry paths, and pre-download source/license/checksum fields. Qwen and Gemma have source-recorded unverified GGUF artifact candidates, including pinned revision URLs, LFS SHA-256, and file size. `model eval-plan <id>` is the read-only local evaluation preflight: it checks source-backed artifact fields, app-data artifact presence, size/SHA-256 state, and the next smoke/benchmark command without downloading. `model benchmark-plan <id>` separates public benchmark reproduction conditions from local product benchmark fixtures and refuses score parity until artifact, quantization, backend, prompt, dataset, and scoring conditions are recorded together. `model fetch-candidate <id> --for-evaluation` is the explicit evaluation-only download path: it supports app-managed partial resume, verifies size and SHA-256, records a ledger event, and does not register the artifact as installed. `model verify-file` verifies SHA-256 over local file bytes and records a ledger event. `model promote <id> --evidence <file>` validates a local promotion evidence JSON against the app-managed artifact, backend smoke ledger event, RAM-fit/mmproj fields, and a SQLite `measured-locally` benchmark row before writing `models/evidence/<model-id>.promotion.json`. `model cleanup-failed` targets only partial or failed artifacts under app data. `model install` registers the model only when either a static `verified` manifest entry exists or the local promotion evidence still revalidates.
 
 `backend doctor` shows managed `llama.cpp` sidecar discovery, environment override path, port, health URL, executable bit, install gate state, and version detection for recorded managed binaries. `backend install-plan` selects a source-backed `llama.cpp` release `b9878` CPU artifact for supported OS/CPU pairs and displays the release URL, archive URL, SHA-256, size, license source, and download path. `backend install` downloads or reuses the cached archive, verifies size and SHA-256, extracts it in staging, places the release payload in the managed backend directory, sets executable permissions on Unix, rolls back failed replacement, writes an install record, and records a ledger event. `backend start --model <path> [--ctx-size <tokens>]` starts the selected sidecar with an explicit local model file and optional runtime context limit, records pid/log paths, waits for `/health`, samples CPU/RSS/disk resource status, and kills the child on startup timeout. `backend status` reads the sidecar pid record, health status, and latest sampled resource pressure for running sidecars. `backend stop` removes stale records or terminates the recorded sidecar. Env override binaries are not executed by `doctor`; they are executed only by explicit lifecycle commands. `backend verify-archive` verifies a local backend archive SHA-256. `backend health-check` checks `/health` on the selected host and port with a short timeout. `backend chat --prompt <text> [--max-tokens <tokens>]` samples the running sidecar before the request, blocks chat on critical resource pressure, clamps degraded-pressure requests to a smaller effective max-token budget, calls `/v1/chat/completions`, disables Qwen3.5 thinking with `chat_template_kwargs.enable_thinking=false`, strips any leaked `<think>` trace before display, records token usage without storing the raw prompt or response in the ledger, and records redacted resource samples.
 

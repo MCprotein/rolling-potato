@@ -68,6 +68,10 @@ pub fn model_registry_dir() -> PathBuf {
     models_dir().join("registry")
 }
 
+pub fn model_evidence_dir() -> PathBuf {
+    models_dir().join("evidence")
+}
+
 pub fn downloads_dir() -> PathBuf {
     app_data_root().join("downloads")
 }

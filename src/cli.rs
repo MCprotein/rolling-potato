@@ -73,6 +73,7 @@ rpotato
   rpotato model benchmark-plan <id>
   rpotato model fetch-candidate <id> --for-evaluation
   rpotato model verify-file <path> --sha256 <hash>
+  rpotato model promote <id> --evidence <file>
   rpotato model cleanup-failed <id> --dry-run
   rpotato model install <id>
   rpotato plugin import --from codex <local-path> --dry-run
@@ -97,7 +98,7 @@ rpotato
   team governor는 dispatcher 진입 전 context/model budget clamp와 downgrade/escalation hint를 기록합니다.
   benchmark record는 metadata-only not-comparable run을 기록하고, benchmark run은 실행 중인 backend sidecar로 local measured run을 기록합니다.
   monitor optimize는 측정된 local metric과 benchmark evidence만으로 context/lane/fallback/model route hint를 추천합니다.
-  모델 registry install은 verified 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
+  모델 registry install은 source-backed manifest와 local promotion evidence가 검증되기 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
@@ -293,6 +294,7 @@ pub enum ModelCommand {
     BenchmarkPlan { id: String },
     FetchCandidate { id: String },
     VerifyFile { path: String, sha256: String },
+    Promote { id: String, evidence: String },
     CleanupFailed { id: String, dry_run: bool },
     Install { id: String },
 }
@@ -652,6 +654,17 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, ..] if group == "model" && action == "verify-file" => Err(
             AppError::usage("model verify-file은 <path> --sha256 <hash> 형식이 필요합니다."),
         ),
+        [group, action, id, flag, evidence]
+            if group == "model" && action == "promote" && flag == "--evidence" =>
+        {
+            Ok(Command::Model(ModelCommand::Promote {
+                id: id.clone(),
+                evidence: evidence.clone(),
+            }))
+        }
+        [group, action, ..] if group == "model" && action == "promote" => Err(
+            AppError::usage("model promote는 <id> --evidence <file> 형식이 필요합니다."),
+        ),
         [group, action, id, flag] if group == "model" && action == "cleanup-failed" => {
             let dry_run = match flag.as_str() {
                 "--dry-run" => true,
@@ -679,7 +692,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             "모델 id가 필요합니다. 예: rpotato model install qwen3.5-4b",
         )),
         [group, ..] if group == "model" => Err(AppError::usage(
-            "model 명령은 list, manifest, inspect, registry, download-plan, eval-plan, benchmark-plan, fetch-candidate, verify-file, cleanup-failed, install만 허용합니다.",
+            "model 명령은 list, manifest, inspect, registry, download-plan, eval-plan, benchmark-plan, fetch-candidate, verify-file, promote, cleanup-failed, install만 허용합니다.",
         )),
         [group, action, rest @ ..] if group == "plugin" && action == "import" => {
             parse_plugin_import(rest).map(Command::Plugin)
@@ -1720,6 +1733,38 @@ mod tests {
                     .to_string()
             })
         );
+    }
+
+    #[test]
+    fn parses_model_promote_with_evidence_file() {
+        let command = parse([
+            "model".to_string(),
+            "promote".to_string(),
+            "qwen3.5-4b".to_string(),
+            "--evidence".to_string(),
+            "evidence/qwen3.5-4b-local.json".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Model(ModelCommand::Promote {
+                id: "qwen3.5-4b".to_string(),
+                evidence: "evidence/qwen3.5-4b-local.json".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn model_promote_requires_evidence_file() {
+        let err = parse([
+            "model".to_string(),
+            "promote".to_string(),
+            "qwen3.5-4b".to_string(),
+        ])
+        .unwrap_err();
+
+        assert_eq!(err.code, 2);
+        assert!(err.message.contains("--evidence"));
     }
 
     #[test]

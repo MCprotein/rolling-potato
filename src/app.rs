@@ -368,6 +368,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", model::verify_file_report(&path, &sha256)?);
             Ok(())
         }
+        Command::Model(ModelCommand::Promote { id, evidence }) => {
+            println!("{}", model::promote_candidate_report(&id, &evidence)?);
+            Ok(())
+        }
         Command::Model(ModelCommand::CleanupFailed { id, dry_run }) => {
             println!("{}", model::cleanup_failed_report(&id, dry_run)?);
             Ok(())

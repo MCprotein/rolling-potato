@@ -105,6 +105,7 @@ Current CLI surface:
 - `rpotato model benchmark-plan <id>`
 - `rpotato model fetch-candidate <id> --for-evaluation`
 - `rpotato model verify-file <path> --sha256 <hash>`
+- `rpotato model promote <id> --evidence <file>`
 - `rpotato model cleanup-failed <id> --dry-run`
 - `rpotato model install <id>`
 
@@ -124,9 +125,39 @@ Candidate states:
 
 `model verify-file` streams a local file, computes SHA-256, and compares it to the expected hash. Success and failure both record ledger events, and failure must block registry registration.
 
+`model promote <id> --evidence <file>` validates local promotion evidence before any registry registration. The command requires:
+
+- app-managed artifact file size and SHA-256 to match the source-backed manifest
+- a `backend.sidecar.start.completed` or `backend.chat.completed` ledger event id
+- `ramFit=passed`, `recommendedRamGb`, and `peakRssBytes` RAM evidence
+- explicit `mmproj` evidence: `not-required-text-only`, `not-required`, or `required`
+- a SQLite benchmark row whose `benchmarkRunId` is `claim_state=measured-locally`, `local_pass=true`, uses the candidate backend, and carries matching `peak_rss_bytes`
+
+Promotion evidence JSON schema:
+
+```json
+{
+  "schemaVersion": 1,
+  "modelId": "qwen3.5-4b",
+  "artifactSha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+  "artifactSizeBytes": 2740937888,
+  "backendId": "llama.cpp",
+  "backendVersion": "b9878",
+  "backendSmokeEventId": "event-...",
+  "ramFit": "passed",
+  "recommendedRamGb": 16,
+  "peakRssBytes": 3351363584,
+  "mmproj": "not-required-text-only",
+  "benchmarkRunId": "benchmark-event-...",
+  "recordedAt": "2026-07-10T00:00:00Z"
+}
+```
+
+Successful promotion writes normalized evidence to `models/evidence/<model-id>.promotion.json`. This is still local evidence, not a public benchmark parity claim.
+
 `model cleanup-failed` targets only app-managed partial/failed artifact paths under app data `downloads/` and `models/`. Deletion runs only with explicit `--delete`; default verification and doc smoke use `--dry-run`.
 
-`model install` blocks entries that are not `verified` and records a ledger event. Current implementation does not register or install unverified candidates. The local registry is prepared as a boundary that records only verified artifacts at `models/registry/<model-id>.json`.
+`model install` registers a model only when either the source-backed manifest entry is statically `verified` or `models/evidence/<model-id>.promotion.json` revalidates against local artifact, ledger, RAM/mmproj, and benchmark evidence. Registry entries are written to `models/registry/<model-id>.json`.
 
 ## Required Verification
 
@@ -138,6 +169,7 @@ Model install must:
 4. require user approval before download
 5. verify SHA-256 after download
 6. avoid registry registration after verification failure
+7. require local promotion evidence before installing unverified source-backed candidates
 
 ## Forbidden
 

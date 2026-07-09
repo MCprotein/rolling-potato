@@ -105,7 +105,7 @@ GitHub repository setting은 source tree 밖에 있으므로 maintainer가 GitHu
 `release-binaries`는 GitHub Release가 publish될 때 release asset을 build합니다.
 Workflow 검증용으로 `release_tag` input을 넣어 수동 실행할 수도 있습니다.
 
-현재 v0.24.2 asset:
+현재 v0.25.0 asset:
 
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
