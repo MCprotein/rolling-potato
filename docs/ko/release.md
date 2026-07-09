@@ -105,7 +105,7 @@ GitHub repository setting은 source tree 밖에 있으므로 maintainer가 GitHu
 `release-binaries`는 GitHub Release가 publish될 때 release asset을 build합니다.
 Workflow 검증용으로 `release_tag` input을 넣어 수동 실행할 수도 있습니다.
 
-현재 v0.24.0 asset:
+현재 v0.24.1 asset:
 
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
@@ -125,7 +125,8 @@ doctor`는 package version, target OS/arch, binary suffix, backend/model/cache s
 release-smoke command로 씁니다.
 
 모든 target artifact가 build된 뒤 `checksums` job은 per-asset `.sha256` file을 합쳐
-`rpotato-vX.Y.Z-checksums.txt`를 publish합니다.
+`rpotato-vX.Y.Z-checksums.txt`를 publish합니다. 모든 checksum entry는 build-directory
+path가 아니라 release asset basename을 가리켜야 합니다.
 
 Runner label은 첫 지원 target에 맞춰 고정합니다.
 

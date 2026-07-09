@@ -94,7 +94,7 @@ jobs:
           cp README.md LICENSE "$package_dir/"
           chmod +x "$package_dir/${{ matrix.binary }}"
           tar -czf "dist/${ASSET_BASE}.tar.gz" -C "dist/staging" "$ASSET_BASE"
-          shasum -a 256 "dist/${ASSET_BASE}.tar.gz" > "dist/${ASSET_BASE}.tar.gz.sha256"
+          (cd dist && shasum -a 256 "${ASSET_BASE}.tar.gz" > "${ASSET_BASE}.tar.gz.sha256")
 
       - name: Package Windows archive
         if: matrix.archive == 'zip'
@@ -110,6 +110,12 @@ jobs:
           Compress-Archive -Path "$packageDir/*" -DestinationPath $archive -Force
           $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
           "$hash  $env:ASSET_BASE.zip" | Out-File -FilePath "$archive.sha256" -Encoding ascii
+
+      - name: Verify checksum paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/release/verify-checksum-basenames.sh "dist/${ASSET_BASE}.${{ matrix.archive }}.sha256"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
@@ -139,6 +145,7 @@ jobs:
       - build
     env:
       RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - name: Download release artifacts
         uses: actions/download-artifact@v4
@@ -156,6 +163,7 @@ jobs:
             | xargs -0 cat \
             > "dist/rpotato-${RELEASE_TAG}-checksums.txt"
           test -s "dist/rpotato-${RELEASE_TAG}-checksums.txt"
+          scripts/release/verify-checksum-basenames.sh "dist/rpotato-${RELEASE_TAG}-checksums.txt"
 
       - name: Upload checksum workflow artifact
         uses: actions/upload-artifact@v4

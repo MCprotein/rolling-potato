@@ -424,7 +424,7 @@ CLI surface는 표시하고 묻습니다. runtime core는 판단하고 강제합
 초기 배포:
 
 - GitHub repository
-- binary용 GitHub Releases. v0.24.0 workflow는 macOS Apple Silicon, macOS Intel,
+- binary용 GitHub Releases. v0.24.1 workflow는 macOS Apple Silicon, macOS Intel,
   Windows x86_64 asset, per-asset `.sha256` file, aggregate checksums file을 만든다.
 - repository 또는 release asset 안의 model manifest
 

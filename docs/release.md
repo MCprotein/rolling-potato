@@ -126,7 +126,7 @@ enforcement surface.
 `release-binaries` builds release assets when a GitHub Release is published.
 It can also be run manually with a `release_tag` input for workflow validation.
 
-Current v0.24.0 assets:
+Current v0.24.1 assets:
 
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
@@ -148,6 +148,8 @@ network access.
 
 After all target artifacts are built, the `checksums` job publishes
 `rpotato-vX.Y.Z-checksums.txt` by concatenating the per-asset `.sha256` files.
+All checksum entries must point to release asset basenames, not build-directory
+paths.
 
 The runner labels are pinned to the first supported targets:
 
