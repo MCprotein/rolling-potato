@@ -1,12 +1,47 @@
 # 릴리즈 노트
 
+## v0.28.3 - Serialized Release Test Gate
+
+릴리즈 날짜: 2026-07-10
+
+이 패치 릴리즈는 v0.28.2 release test gate가 GitHub runner shutdown signal로 다시
+중단되어 asset이 publish되지 않은 상태를 보완해 Linux/macOS/Windows binary publication을
+완성합니다.
+
+### 포함된 것
+
+- Release test gate를 `cargo test --locked -- --test-threads=1`로 실행해 release job에서
+  process-oriented backend lifecycle test가 서로 겹치지 않게 했습니다.
+- Fake timeout backend fixture는 `exec sleep` 상태로 유지해 timeout cleanup 이후 wrapper
+  child가 남지 않게 합니다.
+- Target job은 native target build, packaged-binary smoke, archive 생성, checksum 생성,
+  release upload에 집중하도록 유지합니다.
+- Release docs, README binary download 설명, roadmap entry를 v0.28.3 complete Linux
+  artifact publication 기준으로 업데이트했습니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test --locked` (215 tests)
+- `cargo test --locked -- --test-threads=1` (215 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.28.3`
+- `scripts/release/verify-release-target-matrix.sh`
+
+### 경계
+
+이 릴리즈는 Homebrew, Scoop, winget, apt, rpm, container 배포를 추가하지 않습니다. 직접
+다운로드 가능한 GitHub Release archive와 checksum publish 안정화만 다룹니다.
+
 ## v0.28.2 - Linux Test Gate Process Cleanup
 
 릴리즈 날짜: 2026-07-10
 
-이 패치 릴리즈는 v0.28.1 release test gate가 Linux에서 signal 143으로 종료되어 release
-asset이 publish되지 않은 상태를 보완해 Linux/macOS/Windows binary publication을
-완성합니다.
+이 패치 릴리즈는 v0.28.1 release test gate가 Linux에서 signal 143으로 종료된 상태를
+보완하려고 했습니다. Published v0.28.2 release도 GitHub runner shutdown signal로 binary
+asset upload 전에 실패했습니다. v0.28.3이 이를 supersede합니다.
 
 ### 포함된 것
 
@@ -16,8 +51,8 @@ asset이 publish되지 않은 상태를 보완해 Linux/macOS/Windows binary pub
   않고 `exec sleep`을 사용하게 했습니다.
 - v0.28.1의 `release test gate` 설계는 유지합니다. Full test는 target build 전에 한 번
   실행하고, target job은 build, smoke, package, checksum, upload에 집중합니다.
-- Release docs, README binary download 설명, roadmap entry를 v0.28.2 complete Linux
-  artifact publication 기준으로 업데이트했습니다.
+- Release docs, README binary download 설명, roadmap entry를 attempted Linux artifact
+  publication path 기준으로 업데이트했습니다.
 
 ### 이 릴리즈에서 검증한 것
 
