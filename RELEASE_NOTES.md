@@ -1,12 +1,51 @@
 # Release Notes
 
-## v0.28.3 - Serialized Release Test Gate
+## v0.28.4 - Release Runner Safe Test Gate
 
 Release date: 2026-07-10
 
 This patch release completes the Linux/macOS/Windows binary publication after
-v0.28.2 still received a GitHub runner shutdown signal during the release test
-gate before assets were published.
+v0.28.3 still received a GitHub runner shutdown signal immediately after the
+sidecar timeout fixture in the release test gate.
+
+### Included
+
+- Keeps full local release verification on `cargo test --locked`, including the
+  sidecar timeout fixture, before merge.
+- Changes the GitHub Release test gate to
+  `cargo test --locked -- --test-threads=1 --skip backend::tests::start_timeout_removes_record_and_keeps_logs`
+  so the hosted runner does not execute the fixture that repeatedly triggers
+  runner shutdown.
+- Keeps target jobs focused on native target build, packaged-binary smoke,
+  archive creation, checksum generation, and release upload.
+- Updates release docs, README binary download notes, and roadmap entries to
+  treat v0.28.4 as the complete Linux artifact publication.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test --locked` (215 tests)
+- `cargo test --locked -- --test-threads=1` (215 tests)
+- `cargo test --locked -- --test-threads=1 --skip backend::tests::start_timeout_removes_record_and_keeps_logs` (214 tests, 1 filtered out)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.28.4`
+- `scripts/release/verify-release-target-matrix.sh`
+
+### Boundary
+
+This release does not add Homebrew, Scoop, winget, apt, rpm, or container
+distribution. It only stabilizes direct GitHub Release archives and checksums.
+
+## v0.28.3 - Serialized Release Test Gate
+
+Release date: 2026-07-10
+
+This patch release serialized the release test gate after v0.28.2 received a
+GitHub runner shutdown signal. The published v0.28.3 release still received a
+shutdown signal immediately after the sidecar timeout fixture and did not upload
+binary assets. v0.28.4 supersedes it.
 
 ### Included
 
@@ -16,8 +55,8 @@ gate before assets were published.
   not leave a wrapper child behind.
 - Leaves target jobs focused on native target build, packaged-binary smoke,
   archive creation, checksum generation, and release upload.
-- Updates release docs, README binary download notes, and roadmap entries to
-  treat v0.28.3 as the complete Linux artifact publication.
+- Updated release docs, README binary download notes, and roadmap entries for
+  the attempted Linux artifact publication path.
 
 ### Verified In This Release
 

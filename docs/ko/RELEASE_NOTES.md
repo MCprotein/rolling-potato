@@ -1,12 +1,50 @@
 # 릴리즈 노트
 
+## v0.28.4 - Release Runner Safe Test Gate
+
+릴리즈 날짜: 2026-07-10
+
+이 패치 릴리즈는 v0.28.3 release test gate가 sidecar timeout fixture 직후 GitHub runner
+shutdown signal로 다시 실패한 상태를 보완해 Linux/macOS/Windows binary publication을
+완성합니다.
+
+### 포함된 것
+
+- Merge 전 local release verification에서는 sidecar timeout fixture를 포함한
+  `cargo test --locked` full suite를 계속 실행합니다.
+- GitHub Release test gate는
+  `cargo test --locked -- --test-threads=1 --skip backend::tests::start_timeout_removes_record_and_keeps_logs`
+  로 바꿔 hosted runner shutdown을 반복적으로 유발하는 fixture를 release runner에서만
+  제외합니다.
+- Target job은 native target build, packaged-binary smoke, archive 생성, checksum 생성,
+  release upload에 집중하도록 유지합니다.
+- Release docs, README binary download 설명, roadmap entry를 v0.28.4 complete Linux
+  artifact publication 기준으로 업데이트했습니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test --locked` (215 tests)
+- `cargo test --locked -- --test-threads=1` (215 tests)
+- `cargo test --locked -- --test-threads=1 --skip backend::tests::start_timeout_removes_record_and_keeps_logs` (214 tests, 1 filtered out)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.28.4`
+- `scripts/release/verify-release-target-matrix.sh`
+
+### 경계
+
+이 릴리즈는 Homebrew, Scoop, winget, apt, rpm, container 배포를 추가하지 않습니다. 직접
+다운로드 가능한 GitHub Release archive와 checksum publish 안정화만 다룹니다.
+
 ## v0.28.3 - Serialized Release Test Gate
 
 릴리즈 날짜: 2026-07-10
 
-이 패치 릴리즈는 v0.28.2 release test gate가 GitHub runner shutdown signal로 다시
-중단되어 asset이 publish되지 않은 상태를 보완해 Linux/macOS/Windows binary publication을
-완성합니다.
+이 패치 릴리즈는 v0.28.2의 GitHub runner shutdown 이후 release test gate를 직렬화했습니다.
+Published v0.28.3 release도 sidecar timeout fixture 직후 shutdown signal을 받아 binary
+asset을 upload하지 못했습니다. v0.28.4가 이를 supersede합니다.
 
 ### 포함된 것
 
@@ -16,8 +54,8 @@
   child가 남지 않게 합니다.
 - Target job은 native target build, packaged-binary smoke, archive 생성, checksum 생성,
   release upload에 집중하도록 유지합니다.
-- Release docs, README binary download 설명, roadmap entry를 v0.28.3 complete Linux
-  artifact publication 기준으로 업데이트했습니다.
+- Release docs, README binary download 설명, roadmap entry를 attempted Linux artifact
+  publication path 기준으로 업데이트했습니다.
 
 ### 이 릴리즈에서 검증한 것
 
