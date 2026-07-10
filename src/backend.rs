@@ -2446,12 +2446,15 @@ fn normalize_version_output(stdout: &[u8], stderr: &[u8]) -> Option<String> {
 
 #[cfg(unix)]
 fn process_is_running(pid: u32) -> bool {
-    if process_is_zombie(pid) {
+    let Some(pid_arg) = unix_pid_arg(pid) else {
+        return false;
+    };
+    if process_is_zombie_arg(&pid_arg) {
         return false;
     }
     Command::new("kill")
         .arg("-0")
-        .arg(pid.to_string())
+        .arg(&pid_arg)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
@@ -2460,10 +2463,10 @@ fn process_is_running(pid: u32) -> bool {
 }
 
 #[cfg(unix)]
-fn process_is_zombie(pid: u32) -> bool {
+fn process_is_zombie_arg(pid_arg: &str) -> bool {
     Command::new("ps")
         .arg("-p")
-        .arg(pid.to_string())
+        .arg(pid_arg)
         .arg("-o")
         .arg("stat=")
         .output()
@@ -2473,6 +2476,15 @@ fn process_is_zombie(pid: u32) -> bool {
                 .starts_with('Z')
         })
         .unwrap_or(false)
+}
+
+#[cfg(unix)]
+fn unix_pid_arg(pid: u32) -> Option<String> {
+    if pid == 0 || pid > i32::MAX as u32 {
+        None
+    } else {
+        Some(pid.to_string())
+    }
 }
 
 #[cfg(windows)]
@@ -2492,9 +2504,12 @@ fn process_is_running(_pid: u32) -> bool {
 
 #[cfg(unix)]
 fn process_command_matches_record(record: &BackendSidecarRecord) -> bool {
+    let Some(pid_arg) = unix_pid_arg(record.pid) else {
+        return false;
+    };
     let Ok(output) = Command::new("ps")
         .arg("-p")
-        .arg(record.pid.to_string())
+        .arg(pid_arg)
         .arg("-o")
         .arg("command=")
         .output()
@@ -2533,12 +2548,17 @@ fn process_command_matches_record(_record: &BackendSidecarRecord) -> bool {
 
 #[cfg(unix)]
 fn terminate_process(pid: u32, force: bool) -> Result<(), AppError> {
+    let Some(pid_arg) = unix_pid_arg(pid) else {
+        return Err(AppError::runtime(format!(
+            "backend process 종료 명령이 실패했습니다: invalid unix pid={pid}"
+        )));
+    };
     let mut command = Command::new("kill");
     if force {
         command.arg("-9");
     }
     let status = command
-        .arg(pid.to_string())
+        .arg(pid_arg)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
@@ -3043,6 +3063,17 @@ mod tests {
         assert!(record.is_none());
         assert!(stdout_logs > 0);
         assert!(stderr_logs > 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unix_pid_arg_rejects_wrapping_values() {
+        assert_eq!(unix_pid_arg(0), None);
+        assert_eq!(unix_pid_arg(u32::MAX), None);
+        assert_eq!(
+            unix_pid_arg(i32::MAX as u32),
+            Some((i32::MAX as u32).to_string())
+        );
     }
 
     #[test]

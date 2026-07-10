@@ -1,12 +1,49 @@
 # Release Notes
 
+## v0.28.5 - Unix PID Guard for Release Gate
+
+Release date: 2026-07-10
+
+This patch release fixes the root cause behind the release-gate runner
+shutdowns. A stale sidecar test used `u32::MAX` as a fake PID; on Linux, passing
+that value to process commands can wrap through `pid_t` semantics and signal the
+runner process group. v0.28.5 rejects invalid Unix PID values before invoking
+`kill` or `ps`, then restores the full serialized release test gate.
+
+### Included
+
+- Added a Unix PID argument guard that rejects `0` and values above
+  `i32::MAX` before `kill`/`ps` process checks.
+- Added a regression test for wrapping PID values.
+- Restored the GitHub Release test gate to the full
+  `cargo test --locked -- --test-threads=1` suite.
+- Updated release docs, README binary download notes, and roadmap entries to
+  treat v0.28.5 as the complete Linux artifact publication.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test --locked` (216 tests)
+- `cargo test --locked -- --test-threads=1` (216 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.28.5`
+- `scripts/release/verify-release-target-matrix.sh`
+
+### Boundary
+
+This release does not add Homebrew, Scoop, winget, apt, rpm, or container
+distribution. It only stabilizes direct GitHub Release archives and checksums.
+
 ## v0.28.4 - Release Runner Safe Test Gate
 
 Release date: 2026-07-10
 
-This patch release completes the Linux/macOS/Windows binary publication after
-v0.28.3 still received a GitHub runner shutdown signal immediately after the
-sidecar timeout fixture in the release test gate.
+This patch release attempted to avoid the GitHub runner shutdown by skipping the
+sidecar timeout fixture on the hosted release runner. The published v0.28.4
+release still failed because the stale-record test exposed a Unix PID wrap
+hazard. v0.28.5 supersedes it.
 
 ### Included
 
@@ -18,8 +55,8 @@ sidecar timeout fixture in the release test gate.
   runner shutdown.
 - Keeps target jobs focused on native target build, packaged-binary smoke,
   archive creation, checksum generation, and release upload.
-- Updates release docs, README binary download notes, and roadmap entries to
-  treat v0.28.4 as the complete Linux artifact publication.
+- Updated release docs, README binary download notes, and roadmap entries for
+  the attempted Linux artifact publication path.
 
 ### Verified In This Release
 

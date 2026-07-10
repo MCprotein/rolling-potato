@@ -1,12 +1,48 @@
 # 릴리즈 노트
 
+## v0.28.5 - Unix PID Guard for Release Gate
+
+릴리즈 날짜: 2026-07-10
+
+이 패치 릴리즈는 release gate runner shutdown의 root cause를 수정합니다. Stale sidecar
+test가 fake PID로 `u32::MAX`를 사용했는데, Linux에서 이 값을 process command에 넘기면
+`pid_t` 의미론 때문에 wrap되어 runner process group에 signal이 갈 수 있습니다. v0.28.5는
+`kill`이나 `ps`를 호출하기 전에 invalid Unix PID 값을 거부하고 full serialized release test
+gate를 복구합니다.
+
+### 포함된 것
+
+- Unix PID argument guard를 추가해 `kill`/`ps` process check 전에 `0`과 `i32::MAX` 초과
+  값을 거부합니다.
+- Wrapping PID value에 대한 regression test를 추가했습니다.
+- GitHub Release test gate를 전체 `cargo test --locked -- --test-threads=1` suite로
+  복구했습니다.
+- Release docs, README binary download 설명, roadmap entry를 v0.28.5 complete Linux
+  artifact publication 기준으로 업데이트했습니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test --locked` (216 tests)
+- `cargo test --locked -- --test-threads=1` (216 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.28.5`
+- `scripts/release/verify-release-target-matrix.sh`
+
+### 경계
+
+이 릴리즈는 Homebrew, Scoop, winget, apt, rpm, container 배포를 추가하지 않습니다. 직접
+다운로드 가능한 GitHub Release archive와 checksum publish 안정화만 다룹니다.
+
 ## v0.28.4 - Release Runner Safe Test Gate
 
 릴리즈 날짜: 2026-07-10
 
-이 패치 릴리즈는 v0.28.3 release test gate가 sidecar timeout fixture 직후 GitHub runner
-shutdown signal로 다시 실패한 상태를 보완해 Linux/macOS/Windows binary publication을
-완성합니다.
+이 패치 릴리즈는 hosted release runner에서 sidecar timeout fixture를 skip해 GitHub runner
+shutdown을 피하려고 했습니다. Published v0.28.4 release도 stale-record test에서 Unix PID
+wrap hazard가 드러나 실패했습니다. v0.28.5가 이를 supersede합니다.
 
 ### 포함된 것
 
@@ -18,8 +54,8 @@ shutdown signal로 다시 실패한 상태를 보완해 Linux/macOS/Windows bina
   제외합니다.
 - Target job은 native target build, packaged-binary smoke, archive 생성, checksum 생성,
   release upload에 집중하도록 유지합니다.
-- Release docs, README binary download 설명, roadmap entry를 v0.28.4 complete Linux
-  artifact publication 기준으로 업데이트했습니다.
+- Release docs, README binary download 설명, roadmap entry를 attempted Linux artifact
+  publication path 기준으로 업데이트했습니다.
 
 ### 이 릴리즈에서 검증한 것
 
