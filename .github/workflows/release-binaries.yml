@@ -43,7 +43,7 @@ jobs:
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Test
-        run: cargo test --locked -- --test-threads=1 --skip backend::tests::start_timeout_removes_record_and_keeps_logs
+        run: cargo test --locked -- --test-threads=1
 
       - name: Verify release target matrix
         run: scripts/release/verify-release-target-matrix.sh

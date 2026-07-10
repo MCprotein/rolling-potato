@@ -126,7 +126,7 @@ enforcement surface.
 `release-binaries` builds release assets when a GitHub Release is published.
 It can also be run manually with a `release_tag` input for workflow validation.
 
-Current v0.28.4 assets:
+Current v0.28.5 assets:
 
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
@@ -141,10 +141,9 @@ Current v0.28.4 assets:
 - `rpotato-vX.Y.Z-checksums.txt`
 
 The workflow first runs a `release test gate` job on `ubuntu-24.04` with
-`cargo test --locked -- --test-threads=1 --skip backend::tests::start_timeout_removes_record_and_keeps_logs`
-and `scripts/release/verify-release-target-matrix.sh`. Full local release
-verification still runs the complete `cargo test --locked` suite, including the
-sidecar timeout fixture, before the release branch is merged.
+`cargo test --locked -- --test-threads=1` and
+`scripts/release/verify-release-target-matrix.sh`. The serialized gate includes
+the backend sidecar timeout/stale-record lifecycle tests.
 Target build jobs depend on that gate, then build the release binary, run
 `scripts/release/verify-release-binary-smoke.sh` against the built binary, and
 upload the archive and checksum to the GitHub Release. Windows jobs also run

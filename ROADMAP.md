@@ -46,5 +46,6 @@ evidence.
 | v0.28.1 | Superseded | Release test gate added, but Linux test execution still exited with signal 143 before artifact publication |
 | v0.28.2 | Superseded | Added sidecar timeout cleanup, but release test gate still received a GitHub runner shutdown signal before artifact publication |
 | v0.28.3 | Superseded | Serialized release test gate still hit GitHub runner shutdown after the sidecar timeout fixture, before artifact publication |
-| v0.28.4 | Released | Complete Linux/macOS/Windows release artifacts: release-runner-safe serialized gate with local full-suite verification, per-target build/smoke/package jobs, Linux x86_64 and Linux ARM64 tarballs, and aggregate checksum publication |
+| v0.28.4 | Superseded | Release-runner-safe skip gate still failed because the stale-record test exposed a Unix PID wrap hazard |
+| v0.28.5 | Released | Complete Linux/macOS/Windows release artifacts: Unix PID guard for stale sidecar records, restored full serialized release gate, per-target build/smoke/package jobs, Linux x86_64 and Linux ARM64 tarballs, and aggregate checksum publication |
 | v0.29.0+ | Planned | Post-MVP packaging decisions: Homebrew/Scoop/winget decision, optional local HTML report/dashboard |

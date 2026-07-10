@@ -45,5 +45,6 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | v0.28.1 | Superseded | Release test gate를 추가했지만 Linux test execution이 signal 143으로 종료되어 artifact publication 전 실패 |
 | v0.28.2 | Superseded | Sidecar timeout cleanup을 추가했지만 release test gate가 GitHub runner shutdown signal로 artifact publication 전 실패 |
 | v0.28.3 | Superseded | Serialized release test gate도 sidecar timeout fixture 이후 GitHub runner shutdown으로 artifact publication 전 실패 |
-| v0.28.4 | Released | 완성된 Linux/macOS/Windows release artifact: local full-suite verification을 유지한 release-runner-safe serialized gate, target별 build/smoke/package job, Linux x86_64/Linux ARM64 tarball, aggregate checksum publication |
+| v0.28.4 | Superseded | Release-runner-safe skip gate도 stale-record test에서 Unix PID wrap hazard가 드러나 실패 |
+| v0.28.5 | Released | 완성된 Linux/macOS/Windows release artifact: stale sidecar record용 Unix PID guard, full serialized release gate 복구, target별 build/smoke/package job, Linux x86_64/Linux ARM64 tarball, aggregate checksum publication |
 | v0.29.0+ | Planned | Post-MVP packaging decision: Homebrew/Scoop/winget 결정, optional local HTML report/dashboard |
