@@ -14,8 +14,44 @@ on:
         required: true
 
 jobs:
+  test:
+    name: release test gate
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_TAG}" ]; then
+            echo "RELEASE_TAG is required" >&2
+            exit 1
+          fi
+          version="${RELEASE_TAG#v}"
+          cargo_version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1)"
+          if [ "$version" != "$cargo_version" ]; then
+            echo "release tag ${RELEASE_TAG} does not match Cargo.toml version ${cargo_version}" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Verify release target matrix
+        run: scripts/release/verify-release-target-matrix.sh
+
   build:
     name: build ${{ matrix.target }}
+    needs:
+      - test
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -69,9 +105,6 @@ jobs:
 
       - name: Install Rust target
         run: rustup target add ${{ matrix.target }}
-
-      - name: Test
-        run: cargo test --locked
 
       - name: Build release binary
         run: cargo build --release --locked --target ${{ matrix.target }}

@@ -34,6 +34,17 @@ expect_entry "ubuntu-24.04" "x86_64-unknown-linux-gnu" "rpotato" "tar.gz"
 expect_entry "ubuntu-24.04-arm" "aarch64-unknown-linux-gnu" "rpotato" "tar.gz"
 expect_entry "windows-latest" "x86_64-pc-windows-msvc" "rpotato.exe" "zip"
 
+grep -F "name: release test gate" "$workflow" >/dev/null \
+  || fail "release test gate job is missing"
+grep -F "cargo test --locked" "$workflow" >/dev/null \
+  || fail "release test gate must run cargo test --locked"
+grep -F "      - test" "$workflow" >/dev/null \
+  || fail "build job must depend on the release test gate"
+test_count="$(grep -F "cargo test --locked" "$workflow" | wc -l | tr -d ' ')"
+if [ "$test_count" != "1" ]; then
+  fail "cargo test --locked must run once in the release test gate, found $test_count"
+fi
+
 grep -F "name: Package tar.gz archive" "$workflow" >/dev/null \
   || fail "tar.gz packaging step must stay OS-neutral"
 grep -F "name: Package Windows archive" "$workflow" >/dev/null \
