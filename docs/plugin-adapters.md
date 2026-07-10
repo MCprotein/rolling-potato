@@ -160,7 +160,7 @@ rpotato plugin remove <id> --purge-data
 
 ## Current Implementation
 
-Phase 3 currently implements:
+v0.27.0 currently implements:
 
 - `rpotato plugin import --from codex <local-path> --dry-run`
 - `rpotato plugin import --from claude-code <local-path> --dry-run`
@@ -175,6 +175,15 @@ Phase 3 currently implements:
 - `rpotato plugin remove <id> --purge-data`
 
 Import accepts only local directories and rejects remote URLs, marketplace, registry, catalog sources, `..` path traversal, and source symlinks.
+The normalized manifest schema is version 2 and records:
+
+- source runtime and adapter version
+- permission policy version
+- source manifest SHA-256
+- imported source snapshot SHA-256
+- mapped capability summaries
+- required permissions and blocked permissions
+- unsupported or review-required assets
 
 Storage:
 
@@ -188,7 +197,9 @@ rpotato app data root/
     data/<plugin-id>/
 ```
 
-`enable` changes registry state; it does not grant execution authority. Shell, `bin/`, MCP, hook, and background process capabilities remain listed in the permission report and blocked until runtime policy approval.
+`validate` and `enable` re-check the imported `source/` directory against the stored manifest and snapshot hashes. If the imported source drifts, `rpotato` marks the plugin `blocked`, records a ledger event, and requires re-import from a trusted local directory.
+
+`enable` changes registry state; it does not grant execution authority. Shell, `bin/`, MCP, hook, LSP, monitor/background process, runtime setting, remote connector, sensitive config, and file-write capabilities remain listed in the permission report and blocked until runtime policy approval.
 
 All import commands must be dry-run friendly:
 
@@ -200,8 +211,11 @@ Dry-run output must include:
 
 - detected source runtime
 - source manifest path
+- source manifest hash
+- source snapshot hash
 - capability list
 - required permissions
+- blocked permissions
 - shell/background/server components
 - unsupported components
 - files that would be copied into app data

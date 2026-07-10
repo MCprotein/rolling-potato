@@ -126,7 +126,7 @@ enforcement surface.
 `release-binaries` builds release assets when a GitHub Release is published.
 It can also be run manually with a `release_tag` input for workflow validation.
 
-Current v0.26.0 assets:
+Current v0.27.0 assets:
 
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`

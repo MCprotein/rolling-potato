@@ -160,7 +160,7 @@ rpotato plugin remove <id> --purge-data
 
 ## 현재 구현
 
-Phase 3의 현재 구현:
+v0.27.0의 현재 구현:
 
 - `rpotato plugin import --from codex <local-path> --dry-run`
 - `rpotato plugin import --from claude-code <local-path> --dry-run`
@@ -175,6 +175,15 @@ Phase 3의 현재 구현:
 - `rpotato plugin remove <id> --purge-data`
 
 Import는 local directory만 허용하며 remote URL, marketplace, registry, catalog source, `..` path traversal, source symlink를 차단합니다.
+Normalized manifest schema는 version 2이며 다음을 기록합니다.
+
+- source runtime과 adapter version
+- permission policy version
+- source manifest SHA-256
+- imported source snapshot SHA-256
+- mapping된 capability summary
+- required permission과 blocked permission
+- unsupported 또는 review-required asset
 
 저장 위치:
 
@@ -188,7 +197,9 @@ rpotato app data root/
     data/<plugin-id>/
 ```
 
-`enable`은 실행 권한 부여가 아니라 registry 상태 변경입니다. shell, `bin/`, MCP, hook, background process capability는 permission report에 남고 runtime policy 승인 전까지 기본 차단입니다.
+`validate`와 `enable`은 imported `source/` directory를 저장된 manifest/snapshot hash와 다시 대조합니다. Imported source가 바뀌면 `rpotato`는 plugin을 `blocked`로 표시하고 ledger event를 남기며, 신뢰 가능한 local directory에서 다시 import하도록 요구합니다.
+
+`enable`은 실행 권한 부여가 아니라 registry 상태 변경입니다. shell, `bin/`, MCP, hook, LSP, monitor/background process, runtime setting, remote connector, sensitive config, file-write capability는 permission report에 남고 runtime policy 승인 전까지 기본 차단입니다.
 
 모든 import command는 dry-run friendly해야 합니다.
 
@@ -200,8 +211,11 @@ dry-run output에는 다음이 포함되어야 합니다.
 
 - 감지한 source runtime
 - source manifest path
+- source manifest hash
+- source snapshot hash
 - capability list
 - required permission
+- blocked permission
 - shell/background/server component
 - unsupported component
 - app data로 copy될 file 목록

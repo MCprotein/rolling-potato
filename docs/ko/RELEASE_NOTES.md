@@ -1,5 +1,41 @@
 # 릴리즈 노트
 
+## v0.27.0 - Plugin Adapter Hardening
+
+릴리즈 날짜: 2026-07-10
+
+이 릴리즈는 외부 plugin 실행을 열지 않고, local Codex/Claude Code형 plugin import
+경로를 hash와 permission 정책 기준으로 강화합니다.
+
+### 포함된 것
+
+- Normalized plugin manifest를 schema version 2로 올리고 adapter version,
+  permission policy, source manifest SHA-256, imported source snapshot SHA-256을
+  기록합니다.
+- `plugin import`가 보이는 Codex/Claude Code plugin surface를 capability summary로
+  mapping하고 required/blocked permission을 함께 보고합니다.
+- Shell, `bin/`, MCP, hook, LSP, monitor/background, runtime setting, remote
+  connector, sensitive config, file-write permission은 기본 차단 상태로 유지합니다.
+- `plugin validate`와 `plugin enable`이 imported source snapshot hash를 다시 확인하고
+  drift가 있으면 plugin을 `blocked`로 표시합니다.
+- Capability report, manifest hash persistence, Claude Code surface detection,
+  drift blocking test를 추가했습니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test --locked` (215 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.27.0`
+
+### 경계
+
+이 릴리즈는 imported plugin code를 실행하지 않고, 외부 plugin marketplace를 연동하지
+않으며, MCP/shell/background permission을 부여하지 않습니다. 외부 plugin format은 policy
+approval 없이 trusted native runtime extension이 되지 않습니다.
+
 ## v0.26.0 - Ontology Runtime Store
 
 릴리즈 날짜: 2026-07-10
