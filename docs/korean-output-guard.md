@@ -34,6 +34,12 @@ Relaxed:
 5. If leakage is detected, regenerate once with stricter Korean-only instruction.
 6. If it still fails, fail closed with a Korean error message.
 
+The v0.29.0 runtime implements this contract as the reusable
+`korean_guard` module. Patch-loop errors and deterministic terminal reports use
+the same validator. Structured IDs, hashes, paths, command lines, and captured
+stdout/stderr fields are treated as technical data; natural-language lines remain
+subject to the Korean/Chinese/Japanese/English leakage checks.
+
 ## Allowed Exceptions
 
 Allowed examples:

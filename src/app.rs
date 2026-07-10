@@ -64,7 +64,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             Ok(())
         }
         Command::Run { request } => {
-            println!("{}", intent::run_report(&request)?);
+            println!("{}", runtime::agent_run_report(&request)?);
             Ok(())
         }
         Command::Intent(IntentCommand::Classify { request }) => {
@@ -92,7 +92,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             Ok(())
         }
         Command::State(StateCommand::Resume) => {
-            println!("{}", state::resume_report()?);
+            println!("{}", runtime::workflow_resume_report()?);
             Ok(())
         }
         Command::Session(SessionCommand::List) => {
@@ -240,8 +240,17 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
         }) => {
             println!(
                 "{}",
-                patch::approve_report(&proposal_id, &token, dry_run, verify_command.as_deref())?
+                runtime::patch_approve_report(
+                    &proposal_id,
+                    &token,
+                    dry_run,
+                    verify_command.as_deref(),
+                )?
             );
+            Ok(())
+        }
+        Command::Patch(PatchCommand::TokenRotate { proposal_id }) => {
+            println!("{}", patch::rotate_workflow_token_report(&proposal_id)?);
             Ok(())
         }
         Command::Backend(BackendCommand::Doctor) => {

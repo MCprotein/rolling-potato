@@ -10,6 +10,8 @@ mod context;
 mod evidence;
 mod hooks;
 mod intent;
+mod korean_guard;
+mod lease;
 mod ledger;
 mod model;
 mod monitor;
@@ -23,6 +25,7 @@ mod resource;
 mod runtime;
 mod skill;
 mod state;
+mod strict_json;
 mod team;
 #[cfg(test)]
 mod test_support;
@@ -35,7 +38,7 @@ fn main() -> ExitCode {
     match app::run(std::env::args().skip(1)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            eprintln!("{}", err.message);
+            eprintln!("{}", korean_guard::guard_or_failure(&err.message));
             ExitCode::from(err.code)
         }
     }

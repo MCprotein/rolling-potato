@@ -86,3 +86,36 @@ Repeated invalid output은 scope를 좁히거나 escalate합니다. Runtime은 r
 - model knowledge hint가 manifest/policy를 우회하지 않음
 - retry budget이 repeated invalid output을 멈춤
 - fixture issue를 model failure로 scoring하지 않음
+
+## v0.29.0 Workflow Checkpoint
+
+Patch workflow는 `.rpotato/workflows/` 아래에 저장됩니다. 변경 불가 versioned snapshot,
+대응 append-only `workflow.checkpoint` event, atomic 교체되는 committed-revision pointer가
+함께 resume 권위를 가집니다. Sync된 transaction record를 이용해 startup이 중단된
+snapshot/ledger/pointer window를 idempotent하게 완료합니다. 각 revision은
+`previous_hash`와 `artifact_hash`를 연결하며 malformed ledger line, 누락 revision, stale
+latest checkpoint, chain conflict는 fail-closed로 차단합니다.
+
+Recovery는 `current-state.json`만 신뢰하지 않고 모든 workflow pointer, transaction,
+snapshot directory를 검사합니다. Nonterminal workflow가 둘 이상이면 conflict로
+fail-closed합니다. Crash 뒤 terminal workflow가 active pointer에 남으면 다시 검증한 뒤
+pointer를 atomic하게 비웁니다. Pending approval, 저장된 approval, verification evidence,
+terminal failure, completion은 process restart 뒤에도 유지됩니다. `pending-approval`
+resume은 model backend에 다시 진입하지 않고, complete resume도 proposal binding,
+source, evidence, stop gate를 다시 검증합니다.
+`model-pending`과 `action-recorded` recovery는 backend에 다시 진입하지 않고 사실에 맞는
+terminal failure를 기록합니다. `verification-started`는 결과가 불명확한 durable
+boundary이므로 resume은 fail-closed하고 command를 replay하지 않으며 새 explicit
+user-controlled 경로가 필요합니다. Approval/token rotate와 workflow checkpoint는 PID/nonce
+recoverable lease와 workflow revision CAS를 함께 사용합니다. Linux/macOS/Windows liveness가
+owner 사망을 확정한 경우에만 reclaim하고 live/unknown owner는 fail-closed합니다. 명시적
+`cancel`은 hash가 맞는 applied bytes를 복원하거나 verification replay 없이 durable conflict를
+기록합니다.
+
+손상된 workflow 또는 ledger artifact는 원래 위치에 보존합니다. 별도의 sync된
+validation-gap JSONL에는 failure class와 artifact descriptor hash만 기록하므로 recovery가
+손상된 authoritative ledger에 만들어 낸 history를 append하지 않습니다. Verification
+evidence는 deterministic ID, atomic artifact replace, sync된 runtime append, ledger event
+dedupe를 사용합니다. 새 ledger line은 `previous_event_hash`/`event_hash`로 physical append
+order를 binding하고 sync된 head가 reorder, tamper, tail truncation을 차단합니다. Legacy
+prefix는 chained suffix 앞에서만 허용합니다.

@@ -73,6 +73,12 @@ pub struct PolicyDecision {
     pub approval_prompt: &'static str,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsedCommand {
+    pub display: String,
+    pub argv: Vec<String>,
+}
+
 pub fn check_command_report(command: &str) -> Result<String, AppError> {
     let decision = classify_command(command)?;
     let event_id = state::record_event(
@@ -152,51 +158,23 @@ pub fn schema_report() -> String {
 }
 
 pub fn classify_command(command: &str) -> Result<PolicyDecision, AppError> {
-    let trimmed = command.trim();
-    if trimmed.is_empty() {
-        return Err(AppError::usage("검사할 command가 필요합니다."));
-    }
-
-    let lower = trimmed.to_ascii_lowercase();
-    let first = lower.split_whitespace().next().unwrap_or_default();
-
-    if contains_any(
-        &lower,
-        &[
-            "rm -rf",
-            "git reset --hard",
-            "git checkout --",
-            "mkfs",
-            "dd if=",
-            "chmod -r",
-            "chown -r",
-            "prod deploy",
-            "production deploy",
-        ],
-    ) {
+    let parsed = parse_exact_argv(command)?;
+    let first = parsed.argv[0].as_str();
+    if matches!(
+        first,
+        "rm" | "sh" | "bash" | "zsh" | "python" | "python3" | "mkfs" | "dd"
+    ) || matches!(parsed.argv.as_slice(), [a, b, ..] if a == "git" && ((b == "reset" && parsed.argv.iter().any(|v| v == "--hard")) || b == "checkout"))
+    {
         return Ok(PolicyDecision::new(
             Decision::Deny,
             ActionKind::RunCommand,
-            "destructive-command",
-            "destructive command는 기본 차단합니다.",
+            "destructive-or-interpreter",
+            "shell/interpreter/destructive command는 차단합니다.",
             "차단",
         ));
     }
-
-    if contains_any(
-        &lower,
-        &[
-            "curl ",
-            "wget ",
-            "git clone",
-            "cargo add",
-            "npm install",
-            "npm i ",
-            "pip install",
-            "docker run",
-            "docker pull",
-        ],
-    ) || matches!(first, "curl" | "wget")
+    if matches!(first, "curl" | "wget")
+        || matches!(parsed.argv.as_slice(), [a, b, ..] if (a == "git" && b == "clone") || (a == "cargo" && b == "add"))
     {
         return Ok(PolicyDecision::new(
             Decision::Ask,
@@ -206,23 +184,7 @@ pub fn classify_command(command: &str) -> Result<PolicyDecision, AppError> {
             "사용자 승인 필요",
         ));
     }
-
-    if contains_any(
-        &lower,
-        &[
-            "cargo test",
-            "cargo clippy",
-            "cargo fmt --check",
-            "git status",
-            "git diff",
-            "rg ",
-            "ls ",
-            "pwd",
-            "head ",
-            "tail ",
-            "wc ",
-        ],
-    ) || matches!(first, "rg" | "ls" | "pwd")
+    if is_general_read_only(&parsed.argv) || validate_patch_verification_argv(&parsed.argv).is_ok()
     {
         return Ok(PolicyDecision::new(
             Decision::Allow,
@@ -240,6 +202,130 @@ pub fn classify_command(command: &str) -> Result<PolicyDecision, AppError> {
         "side effect 여부가 확실하지 않아 승인 prompt가 필요합니다.",
         "사용자 승인 필요",
     ))
+}
+
+pub fn parse_patch_verification(command: &str) -> Result<ParsedCommand, AppError> {
+    let parsed = parse_exact_argv(command)?;
+    validate_patch_verification_argv(&parsed.argv)?;
+    Ok(parsed)
+}
+
+fn parse_exact_argv(command: &str) -> Result<ParsedCommand, AppError> {
+    let trimmed = command.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::usage("검사할 command가 필요합니다."));
+    }
+    if trimmed.chars().any(|ch| {
+        matches!(
+            ch,
+            ';' | '|' | '&' | '<' | '>' | '`' | '$' | '\n' | '\r' | '"' | '\'' | '(' | ')'
+        )
+    }) {
+        return Err(AppError::blocked(
+            "command 검증 차단\n- 이유: shell metacharacter 또는 chaining은 허용하지 않습니다.",
+        ));
+    }
+    let argv = trimmed
+        .split_ascii_whitespace()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    if argv
+        .first()
+        .is_some_and(|arg| arg.contains('/') || arg.contains('\\'))
+    {
+        return Err(AppError::blocked(
+            "command 검증 차단\n- 이유: path-like executable/argument는 허용하지 않습니다.",
+        ));
+    }
+    Ok(ParsedCommand {
+        display: argv.join(" "),
+        argv,
+    })
+}
+
+fn validate_patch_verification_argv(argv: &[String]) -> Result<(), AppError> {
+    if argv == ["pwd"] {
+        return Ok(());
+    }
+    if argv.first().map(String::as_str) != Some("cargo") || argv.len() < 2 {
+        return Err(AppError::blocked(
+            "patch verification 차단\n- 이유: pwd 또는 제한된 cargo verification만 허용합니다.",
+        ));
+    }
+    let subcommand = argv[1].as_str();
+    if !matches!(subcommand, "test" | "check" | "fmt" | "clippy") {
+        return Err(AppError::blocked(
+            "patch verification 차단\n- 이유: cargo test/check/fmt/clippy만 허용합니다.",
+        ));
+    }
+    if subcommand == "fmt" {
+        if argv != ["cargo", "fmt", "--", "--check"] {
+            return Err(AppError::blocked(
+                "patch verification 차단\n- 이유: cargo fmt는 정확히 `cargo fmt -- --check`만 허용합니다.",
+            ));
+        }
+        return Ok(());
+    }
+    let mut index = 2;
+    while index < argv.len() {
+        let arg = argv[index].as_str();
+        if matches!(arg, "--manifest-path" | "--package" | "-p")
+            || arg.starts_with("--manifest-path=")
+            || arg.starts_with("--package=")
+        {
+            return Err(AppError::blocked(
+                "patch verification 차단\n- 이유: 외부 manifest/package 지정은 허용하지 않습니다.",
+            ));
+        }
+        let takes_value = matches!(arg, "--bin" | "--test" | "--example" | "--features");
+        let allowed = matches!(
+            arg,
+            "--locked"
+                | "--all-targets"
+                | "--tests"
+                | "--bins"
+                | "--lib"
+                | "--examples"
+                | "--release"
+                | "--check"
+                | "--no-default-features"
+                | "--bin"
+                | "--test"
+                | "--example"
+                | "--features"
+        );
+        if !allowed {
+            return Err(AppError::blocked(format!(
+                "patch verification 차단\n- 이유: 허용되지 않은 cargo argument: {arg}"
+            )));
+        }
+        if takes_value {
+            index += 1;
+            let Some(value) = argv.get(index) else {
+                return Err(AppError::blocked(
+                    "patch verification 차단\n- 이유: cargo argument 값이 누락되었습니다.",
+                ));
+            };
+            if value.is_empty()
+                || !value
+                    .chars()
+                    .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | ','))
+            {
+                return Err(AppError::blocked("patch verification 차단\n- 이유: cargo argument 값이 안전한 identifier가 아닙니다."));
+            }
+        }
+        index += 1;
+    }
+    Ok(())
+}
+
+fn is_general_read_only(argv: &[String]) -> bool {
+    matches!(argv, [one] if one == "pwd" || one == "ls" || one == "git")
+        || matches!(argv, [one, two] if (one == "git" && matches!(two.as_str(), "status" | "diff")) || (one == "cargo" && matches!(two.as_str(), "test" | "check" | "clippy")))
+        || matches!(
+            argv.first().map(String::as_str),
+            Some("rg" | "head" | "tail" | "wc")
+        )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -429,5 +515,53 @@ mod tests {
     #[test]
     fn schema_report_names_diff_before_write() {
         assert!(schema_report().contains("diff-before-write"));
+    }
+
+    #[test]
+    fn patch_verification_rejects_smuggling_and_external_selection() {
+        for command in [
+            "sh pwd",
+            "rm ignored cargo test",
+            "python cargo test",
+            "/usr/bin/cargo test",
+            "cargo test; pwd",
+            "cargo test && pwd",
+            "cargo test | pwd",
+            "cargo test --manifest-path ../other/Cargo.toml",
+            "cargo test --manifest-path=other/Cargo.toml",
+            "cargo test --package other",
+            "cargo test -p other",
+            "cargo test --workspace",
+            "cargo test --all",
+            "cargo fmt",
+            "cargo fmt --all",
+            "cargo fmt --check",
+            "cargo fmt --all -- --check",
+        ] {
+            assert!(
+                parse_patch_verification(command).is_err(),
+                "smuggled verification must be rejected: {command}"
+            );
+        }
+        assert_eq!(
+            parse_patch_verification("cargo fmt -- --check")
+                .unwrap()
+                .argv,
+            ["cargo", "fmt", "--", "--check"]
+        );
+    }
+
+    #[test]
+    fn classification_uses_exact_first_argv_not_substrings() {
+        assert_eq!(classify_command("sh pwd").unwrap().decision, Decision::Deny);
+        assert_eq!(
+            classify_command("rm ignored cargo test").unwrap().decision,
+            Decision::Deny
+        );
+        assert_eq!(
+            classify_command("cargo test").unwrap().decision,
+            Decision::Allow
+        );
+        assert!(classify_command("cargo test; rm ignored").is_err());
     }
 }

@@ -495,25 +495,14 @@ pub fn diff_report(proposal_id: &str) -> Result<String, AppError> {
     push_kv(
         &mut lines,
         width,
-        "approval command",
-        &format!(
-            "rpotato patch approve {} --token {}",
-            detail.summary.proposal_id, detail.approval_token
-        ),
+        "approval",
+        "최초 proposal 출력에서 발급된 token을 사용하세요; 상태/TUI에는 hash만 남아 token을 재구성할 수 없습니다.",
     );
     push_rule(&mut lines, width);
     push_section(&mut lines, width, "diff");
     push_literal_block(&mut lines, width, &detail.diff);
     push_rule(&mut lines, width);
-    push_kv(
-        &mut lines,
-        width,
-        "dry run",
-        &format!(
-            "rpotato patch approve {} --token {} --dry-run",
-            detail.summary.proposal_id, detail.approval_token
-        ),
-    );
+    push_kv(&mut lines, width, "token display", "unavailable by design");
     push_footer(&mut lines, width);
     Ok(lines.join("\n"))
 }
@@ -931,7 +920,8 @@ mod tests {
         assert!(diff.contains("rpotato TUI beta - diff"));
         assert!(diff.contains("-pub const X: i32 = 1;"));
         assert!(diff.contains("+pub const X: i32 = 2;"));
-        assert!(diff.contains("dry run: rpotato patch approve"));
+        assert!(diff.contains("token display: unavailable by design"));
+        assert!(!diff.contains("--token "));
     }
 
     #[test]

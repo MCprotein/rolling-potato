@@ -1,5 +1,68 @@
 # Release Notes
 
+## v0.29.0 - Durable Single-Agent Patch Loop
+
+Status: In Progress
+
+v0.29.0 connects `run`, `state resume`, and `patch approve` through one
+restart-safe workflow. Model text is persisted as a non-executable action;
+runtime-owned source rereads, approval bindings, guarded apply, verification
+evidence, and the stop gate own every side effect and completion decision.
+
+### Included
+
+- Added immutable versioned workflow snapshots, a synced recovery transaction,
+  and an atomic committed-revision pointer with schema/revision/hash chains matched
+  to strictly parsed append-only ledger checkpoints.
+- Added full nonterminal artifact discovery with multi-active fail-closed recovery,
+  including atomic cleanup of a revalidated terminal active pointer.
+- Bound approval to workflow/action/proposal IDs, before/after hashes, and the
+  exact policy-allowed verification plan; an OS-CSPRNG nonce is shown once, only
+  its hash is stored, approval is persisted before apply, and an explicit
+  `patch token-rotate` command safely replaces a lost pending token.
+- Replaced substring command checks with one shell-free parsed argv grammar shared
+  by classification and execution. Patch verification permits only `pwd` and
+  narrow current-crate Cargo checks and rejects command smuggling, external
+  manifest/package/workspace selection, path executables, and metacharacters.
+- Added restart-safe pending approval and approved-apply resume without another
+  model call, atomic guarded apply, hash-verified atomic rollback with truthful
+  failure evidence, hash-only evidence, and fresh-source/evidence stop-gate checks
+  even when resuming a completed workflow.
+- Made standalone previews diff-only, added PID/nonce recoverable leases and
+  explicit crash reconciliation through `cancel`, installed source bytes with a
+  no-clobber guard transaction, and chained physical ledger order with a synced
+  truncation-detecting head.
+- Added deterministic Korean success/failure reports and subprocess coverage for
+  happy path, restart, stale hashes, token rejection/redaction, denied commands,
+  rollback, corrupt workflow state, idempotence, complete-state tampering, and
+  hostile model text/path parsing. Portable unit/state tests cover checkpoint fault
+  windows, multi-active state, ledger partial/chain conflicts, rollback tamper and
+  failure, token recovery, evidence deduplication, strict malformed artifacts,
+  projection truth, and the reusable eight-fixture Korean output guard.
+
+### Verified During Implementation
+
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1` (275 tests: 264 unit and 11 Unix subprocess integration)
+- `cargo clippy --all-targets --locked -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- Isolated release-binary `doctor`, `help`, and `init` smoke
+
+### Boundary
+
+This release does not implement full conversation transcript replay, streaming,
+subagent/team execution, or interactive TUI mutation. Those remain later roadmap
+items. SQLite is a rebuildable workflow projection, never a second authority.
+Mode-0600 project-local workflow/proposal artifacts retain the snippets, proposal
+diff/proposed source, transaction metadata, and rollback source required for
+recovery until project cleanup; SQLite/monitor, ledger details, and evidence do
+not store raw source bytes. Legacy v2 plaintext credentials are atomically scrubbed
+to hash-only form and then require a fresh canonical workflow preview.
+The portable unit/state boundary runs on Windows, but the true fake-sidecar
+subprocess suite remains Unix-only; Windows subprocess end-to-end coverage is not
+claimed in v0.29.0.
+
 ## v0.28.5 - Unix PID Guard for Release Gate
 
 Release date: 2026-07-10

@@ -44,6 +44,7 @@ rpotato
   rpotato hooks validate-result <json>
   rpotato patch preview --path <path> --find <text> --replace <text>
   rpotato patch approve <proposal-id> --token <token> [--dry-run] [--verify-command <command>]
+  rpotato patch token-rotate <proposal-id>
   rpotato backend doctor
   rpotato backend install-plan
   rpotato backend install
@@ -97,6 +98,11 @@ rpotato
   rpotato uninstall --keep-cache
   rpotato uninstall --purge-cache
   rpotato uninstall --dry-run --purge-cache
+
+patch workflow 규칙:
+  run이 만든 proposal은 verification plan을 미리 binding합니다.
+  state resume은 pending approval에서 backend를 다시 호출하지 않습니다.
+  workflow proposal의 --verify-command는 binding된 값과 정확히 같아야 합니다.
 
 현재 상태:
   backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 release payload를 배치합니다.
@@ -283,6 +289,9 @@ pub enum PatchCommand {
         token: String,
         dry_run: bool,
         verify_command: Option<String>,
+    },
+    TokenRotate {
+        proposal_id: String,
     },
 }
 
@@ -558,8 +567,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, rest @ ..] if group == "patch" && action == "approve" => {
             parse_patch_approve(rest).map(Command::Patch)
         }
+        [group, action, proposal_id] if group == "patch" && action == "token-rotate" => {
+            Ok(Command::Patch(PatchCommand::TokenRotate { proposal_id: proposal_id.clone() }))
+        }
         [group, ..] if group == "patch" => Err(AppError::usage(
-            "patch 명령은 preview 또는 approve만 허용합니다.",
+            "patch 명령은 preview, approve, token-rotate만 허용합니다.",
         )),
         [group, action] if group == "backend" && action == "doctor" => {
             Ok(Command::Backend(BackendCommand::Doctor))
@@ -2181,6 +2193,23 @@ mod tests {
                 token: "token123".to_string(),
                 dry_run: true,
                 verify_command: None
+            })
+        );
+    }
+
+    #[test]
+    fn parses_patch_token_rotate() {
+        let command = parse([
+            "patch".to_string(),
+            "token-rotate".to_string(),
+            "patch-proposal-wf-example".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Patch(PatchCommand::TokenRotate {
+                proposal_id: "patch-proposal-wf-example".to_string()
             })
         );
     }

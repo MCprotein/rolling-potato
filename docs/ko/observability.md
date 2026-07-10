@@ -69,10 +69,11 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 - `rpotato init`이 app data root, project-local `.rpotato/`, current-state, runtime ledger, project session ledger, runtime evidence JSONL, SQLite projection을 만든다.
 - Append-only ledger는 source of truth이며, SQLite `ledger_events`는 replay 가능한 projection이다.
 - SQLite session history는 projection이 재생성될 때 replay된 `ledger_events`에서 현재 project 기준으로 복원할 수 있다.
-- SQLite migration v4는 `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `resource_samples`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, 확장된 `benchmark_runs` projection을 만든다.
+- SQLite migration v5는 기존 runtime table을 유지하고 append-only `workflow.checkpoint` detail에서 `workflows`를 재구성한다. SQLite는 workflow 권위가 아닌 projection이다.
 - `rpotato state`는 current-state와 ledger/projection count를 보여준다.
 - `rpotato state reconcile`은 missing/stale/corrupt current-state를 복구하고 보존 이동 이벤트를 ledger에 남긴다.
-- `rpotato state resume`은 no active workflow, active pointer detected, blocked 상태를 구분해 ledger에 남긴다.
+- `rpotato state resume`은 모든 ledger line을 strict하게 parse하고 canonical snapshot/checkpoint 전체 hash chain과 latest committed revision을 검증한 뒤 안전한 phase를 idempotent하게 재개한다. Pending approval은 backend 호출 없이 diff와 token placeholder를 표시하며 최초 발급 token은 다시 표시할 수 없다.
+- Patch verification은 source, command output, approval token plaintext 대신 hash와 status를 담은 project evidence JSON/runtime evidence JSONL을 기록한다. Stop gate는 성공 전 artifact와 authoritative source를 다시 읽는다.
 - `rpotato session list`와 `rpotato session history`는 현재 project의 SQLite projection에서 session history를 읽는다.
 - `rpotato session new`는 새 session identity를 만들고 current-state에 기록한 뒤 `session.new` ledger event와 SQLite projection을 남긴다.
 - `rpotato session resume <session-id>`와 `rpotato resume <session-id>`는 SQLite history에서 이전 session을 선택하고 그 session id를 current-state에 다시 기록한다.
@@ -278,6 +279,7 @@ Retention은 privacy와 debugging value를 같이 봅니다.
 | project session ledger | project-local | project cleanup만 | `.rpotato/`에 묶임 |
 | transcript metadata | project-local | project cleanup만 | raw transcript storage는 opt-in/later |
 | evidence artifact | stale 또는 user cleanup 전까지 | `evidence validate`, 이후 evidence prune | project-bound pointer 필요 |
+| patch rollback bytes | project cleanup 전까지 | project `.rpotato/` cleanup | 제한된 project-local 원본 bytes이며 SQLite/monitor 또는 ledger/evidence payload로 projection하지 않음 |
 | command output summary | short 또는 redacted | monitor/log prune | raw log보다 summary 우선 |
 | backend log | short | monitor/log prune | crash 진단에 유용하지만 privacy-sensitive |
 | benchmark report | redacted면 long term | benchmark/report prune | reproducibility manifest 포함 |
@@ -291,6 +293,10 @@ Export redaction behavior:
 - 실패한 export는 redacted reason과 함께 ledger event를 남긴다.
 - export artifact는 새로운 source of truth로 취급하지 않는다.
 - export는 raw prompt/source text를 저장하지 않으면서 local evidence를 다시 조회할 수 있는 id를 보존해야 한다.
+
+SQLite projection은 status/TUI query를 위해 verification evidence와 stop-gate result row를
+포함합니다. 이 row에는 ID, hash, pass/fail state, event timestamp만 있고 rollback artifact가
+보존하는 raw source는 포함하지 않습니다.
 
 ## Compaction과 Resume 정책
 

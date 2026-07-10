@@ -1,5 +1,63 @@
 # 릴리즈 노트
 
+## v0.29.0 - 지속 가능한 Single-Agent Patch Loop
+
+상태: In Progress
+
+v0.29.0은 `run`, `state resume`, `patch approve`를 하나의 restart-safe workflow로
+연결합니다. Model text는 실행 불가 action으로 저장되고 runtime이 소유한 source reread,
+approval binding, guarded apply, verification evidence, stop gate만 side effect와 completion을
+결정합니다.
+
+### 포함된 것
+
+- 변경 불가 versioned workflow snapshot, sync된 recovery transaction, atomic
+  committed-revision pointer를 추가하고 schema/revision/hash chain이 strict parse된
+  append-only ledger checkpoint와 일치하도록 했습니다.
+- 모든 nonterminal artifact를 검색하고 multi-active를 fail-closed하며 검증된 terminal
+  active pointer를 atomic하게 정리하는 recovery를 추가했습니다.
+- Approval을 workflow/action/proposal ID, before/after hash, 정확한 policy-allowed
+  verification plan에 binding합니다. OS CSPRNG nonce는 한 번만 표시하고 hash만 저장하며
+  approval은 apply 전에 저장합니다. Pending token을 잃은 경우 명시적인 `patch
+  token-rotate`가 안전하게 새 token으로 교체합니다.
+- Substring command 판정을 하나의 shell-free parsed argv grammar로 교체하고
+  classification과 execution이 같은 결과를 사용하게 했습니다. Patch verification은 `pwd`와
+  현재 crate의 제한된 Cargo 검사만 허용하며 command smuggling, 외부
+  manifest/package/workspace 선택, path executable, metacharacter를 거부합니다.
+- Model 재호출 없는 pending approval/approved-apply resume, guarded idempotent apply,
+  atomic guarded apply, hash 검증 atomic rollback과 사실에 맞는 실패 evidence, hash-only
+  evidence, complete resume에도 적용되는 fresh source/evidence stop gate를 추가했습니다.
+- Standalone preview를 diff-only로 제한하고 PID/nonce recoverable lease, 명시적 `cancel`
+  crash reconciliation, no-clobber source guard transaction, synced truncation head를 가진
+  physical ledger chain을 추가했습니다.
+- Deterministic 한국어 성공/실패 보고와 happy path, restart, stale hash, token 거부/redaction,
+  denied command, rollback, corrupt workflow, idempotence, complete-state tamper, hostile model
+  text/path parsing subprocess test를 추가했습니다. Portable unit/state test는 checkpoint fault
+  window, multi-active state, ledger partial/chain conflict, rollback tamper/failure, token recovery,
+  evidence dedupe, strict malformed artifact, projection truth, 재사용 가능한 8-fixture 한국어
+  output guard를 검증합니다.
+
+### 구현 중 검증한 것
+
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1` (275 tests: unit 264개, Unix subprocess integration 11개)
+- `cargo clippy --all-targets --locked -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- 격리된 release binary `doctor`, `help`, `init` smoke
+
+### 경계
+
+이 릴리즈는 전체 conversation transcript replay, streaming, subagent/team 실행,
+interactive TUI mutation을 구현하지 않습니다. 해당 기능은 후속 roadmap 항목입니다.
+SQLite는 rebuild 가능한 workflow projection이며 두 번째 권위가 아닙니다.
+Mode 0600 project-local workflow/proposal artifact는 project cleanup 전까지 recovery에 필요한
+snippet, proposal diff/proposed source, transaction metadata, rollback source를 보존합니다.
+SQLite/monitor, ledger detail, evidence에는 raw source bytes를 저장하지 않습니다. Legacy v2
+plaintext credential은 atomic hash-only scrub 뒤 새 canonical workflow preview가 필요합니다.
+Portable unit/state boundary는 Windows에서 실행되지만 true fake-sidecar subprocess suite는 현재
+Unix 전용이므로 v0.29.0은 Windows subprocess end-to-end coverage를 주장하지 않습니다.
+
 ## v0.28.5 - Unix PID Guard for Release Gate
 
 릴리즈 날짜: 2026-07-10

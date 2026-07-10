@@ -32,10 +32,18 @@ struct ParsedModelAction {
     next_gate: String,
     requested_side_effects: String,
     executable_now: bool,
+    target_path: String,
+    find_text: String,
+    replace_text: String,
+    verification_command: String,
 }
 
 pub fn run_report(request: &str) -> Result<String, AppError> {
+    if let Some(workflow_id) = state::active_workflow_id()? {
+        return crate::patch::resume_workflow_report(&workflow_id);
+    }
     let decision = classify(request)?;
+    let mut workflow = state::create_workflow(request)?;
     let intent_event_id = state::record_event(
         "intent.classified",
         "사용자 요청 intent 정규화",
@@ -68,7 +76,14 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         ),
     )?;
     let agent_prompt = agent_loop_prompt(request, &decision, &context_pack, &action_candidate);
-    let run = backend::chat_once(&agent_prompt, Some(RUN_MAX_TOKENS))?;
+    let run = match backend::chat_once(&agent_prompt, Some(RUN_MAX_TOKENS)) {
+        Ok(run) => run,
+        Err(err) => {
+            workflow.phase = "failed".to_string();
+            workflow.failure_reason = "backend-call-failed".to_string();
+            return Err(checkpoint_failure_or_original(workflow, err));
+        }
+    };
     let model_action = parse_model_action(&run.response, &action_candidate, &context_pack);
     let model_action_event_id = state::record_event(
         "model.action.parsed",
@@ -84,8 +99,65 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         ),
     )?;
 
+    workflow.action_status = model_action.status.to_string();
+    workflow.source_path = model_action.target_path.clone();
+    workflow.find_text = model_action.find_text.clone();
+    workflow.replace_text = model_action.replace_text.clone();
+    workflow.verification_plan = model_action.verification_command.clone();
+    workflow.phase = "action-recorded".to_string();
+    workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+
+    let expected_pointer = format!("{}:1", model_action.target_path);
+    let action_is_safe = model_action.status == "parsed"
+        && model_action.kind == "patch-proposal"
+        && model_action.requested_side_effects == "none"
+        && !model_action.target_path.is_empty()
+        && !model_action.find_text.is_empty()
+        && !model_action.verification_command.is_empty()
+        && model_action
+            .source_pointers
+            .split(',')
+            .map(str::trim)
+            .any(|pointer| pointer == expected_pointer);
+    if !action_is_safe {
+        workflow.phase = "failed".to_string();
+        workflow.failure_reason = "invalid-or-hostile-model-action".to_string();
+        workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+        return Err(AppError::blocked(format!(
+            "run agent loop 차단\n- workflow id: {}\n- 이유: model action은 non-executable record로 저장했지만 안전한 patch proposal 계약을 충족하지 못했습니다.\n- model side effect 실행: 없음",
+            workflow.workflow_id
+        )));
+    }
+
+    let proposal = match crate::patch::prepare_workflow_proposal(
+        &workflow.workflow_id,
+        &workflow.action_id,
+        &model_action.target_path,
+        &model_action.find_text,
+        &model_action.replace_text,
+        &model_action.verification_command,
+    ) {
+        Ok(proposal) => proposal,
+        Err(err) => {
+            workflow.phase = "failed".to_string();
+            workflow.failure_reason = "proposal-preparation-failed".to_string();
+            return Err(checkpoint_failure_or_original(workflow, err));
+        }
+    };
+    workflow.source_path = proposal.relative_path.clone();
+    workflow.source_hash = proposal.original_sha256.clone();
+    workflow.proposal_id = proposal.proposal_id.clone();
+    workflow.proposal_hash = proposal.proposal_hash.clone();
+    workflow.approval_credential_hash = proposal.approval_credential_hash.clone();
+    workflow.before_hash = proposal.original_sha256.clone();
+    workflow.after_hash = proposal.proposed_sha256.clone();
+    workflow.verification_plan = proposal.verification_command.clone();
+    workflow.approval_state = "pending".to_string();
+    workflow.phase = "pending-approval".to_string();
+    workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+
     Ok(format!(
-        "run agent loop\n- status: model-response-action-parsed\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- action candidate: {}\n- approval required before side effect: {}\n- next gate: {}\n- allowed side effects now: {}\n- model action parse: {}\n- model action kind: {}\n- model action source pointers: {}\n- model action next gate: {}\n- model action requested side effects: {}\n- model action executable now: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- action ledger event: {}\n- model action ledger event: {}\n- model ledger event: {}\n- boundary: 아직 파일 수정, patch 적용, command 실행은 하지 않습니다. Snippet은 context hint이며 승인된 action 전에는 source pointer 원본을 다시 읽어야 합니다.\n- response:\n{}",
+        "run agent loop\n- status: pending-approval\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- action candidate: {}\n- approval required before side effect: {}\n- next gate: {}\n- allowed side effects now: {}\n- model action parse: {}\n- model action kind: {}\n- model action source pointers: {}\n- model action next gate: {}\n- model action requested side effects: {}\n- model action executable now: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- action ledger event: {}\n- model action ledger event: {}\n- model ledger event: {}\n- workflow id: {}\n- workflow revision: {}\n- proposal id: {}\n- verification plan: {}\n- approval command: rpotato patch approve {} --token {}\n- boundary: model output은 실행되지 않았고 원본 source를 다시 읽어 diff만 만들었습니다.\n- response:\n{}\n- diff:\n{}",
         request,
         decision.invocation,
         decision.skill_id,
@@ -129,8 +201,34 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         action_event_id,
         model_action_event_id,
         run.ledger_event,
-        run.response
+        workflow.workflow_id,
+        workflow.revision,
+        proposal.proposal_id,
+        crate::ledger::redact_text(&proposal.verification_command),
+        proposal.proposal_id,
+        proposal.approval_token,
+        run.response,
+        proposal.diff
     ))
+}
+
+fn checkpoint_failure_or_original(workflow: state::WorkflowRecord, original: AppError) -> AppError {
+    match state::checkpoint_workflow(workflow.clone(), workflow.revision) {
+        Ok(_) => original,
+        Err(persistence) => {
+            let _ = state::record_validation_gap(
+                "workflow-failure-checkpoint",
+                &format!("{}:{}", workflow.workflow_id, workflow.failure_reason),
+            );
+            AppError {
+                code: original.code,
+                message: format!(
+                    "{}\n- failure checkpoint: 저장 실패\n- persistence error: {}",
+                    original.message, persistence.message
+                ),
+            }
+        }
+    }
 }
 
 pub fn classify_report(request: &str) -> Result<String, AppError> {
@@ -373,6 +471,11 @@ fn parse_model_action(
         next_gate: normalize_next_gate(&raw_next_gate, runtime_candidate),
         requested_side_effects: side_effects,
         executable_now: false,
+        target_path: field_value(&fields, &["path", "target_path"]).unwrap_or_default(),
+        find_text: decode_action_text(field_value(&fields, &["find_hex"]).as_deref()),
+        replace_text: decode_action_text(field_value(&fields, &["replace_hex"]).as_deref()),
+        verification_command: field_value(&fields, &["verification", "verification_command"])
+            .unwrap_or_default(),
     }
 }
 
@@ -396,6 +499,10 @@ fn parse_model_action_text(
         next_gate: next_gate_from_text(response, runtime_candidate),
         requested_side_effects: runtime_candidate.allowed_side_effects.to_string(),
         executable_now: false,
+        target_path: String::new(),
+        find_text: String::new(),
+        replace_text: String::new(),
+        verification_command: String::new(),
     })
 }
 
@@ -552,7 +659,31 @@ fn fallback_model_action(
         next_gate: runtime_candidate.next_gate.to_string(),
         requested_side_effects: runtime_candidate.allowed_side_effects.to_string(),
         executable_now: false,
+        target_path: String::new(),
+        find_text: String::new(),
+        replace_text: String::new(),
+        verification_command: String::new(),
     }
+}
+
+fn decode_action_text(value: Option<&str>) -> String {
+    let Some(value) = value else {
+        return String::new();
+    };
+    if !value.len().is_multiple_of(2) {
+        return String::new();
+    }
+    let mut bytes = Vec::with_capacity(value.len() / 2);
+    for pair in value.as_bytes().chunks_exact(2) {
+        let Ok(hex) = std::str::from_utf8(pair) else {
+            return String::new();
+        };
+        let Ok(byte) = u8::from_str_radix(hex, 16) else {
+            return String::new();
+        };
+        bytes.push(byte);
+    }
+    String::from_utf8(bytes).unwrap_or_default()
 }
 
 fn agent_loop_prompt(
@@ -577,7 +708,9 @@ fn agent_loop_prompt(
          - allowed side effects now: {}\n\n\
          model response action contract:\n\
          - 마지막 줄은 반드시 아래 형식으로 씁니다.\n\
-         - MODEL ACTION: kind={}; source_pointers={}; next_gate={}; side_effects=none\n\n\
+         - find/replace는 UTF-8 bytes의 lowercase hex로 인코딩합니다.\n\
+         - verification은 shell operator 없는 policy-allowed 단순 argv 명령입니다.\n\
+         - MODEL ACTION: kind={}; source_pointers={}; path=<project-relative-path>; find_hex=<hex>; replace_hex=<hex>; verification=<command>; next_gate={}; side_effects=none\n\n\
          {}\n\
          현재 구현 단계의 경계:\n\
          - 파일 수정, patch 적용, command 실행은 하지 않습니다.\n\
