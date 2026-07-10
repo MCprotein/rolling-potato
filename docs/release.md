@@ -126,7 +126,7 @@ enforcement surface.
 `release-binaries` builds release assets when a GitHub Release is published.
 It can also be run manually with a `release_tag` input for workflow validation.
 
-Current v0.28.0 assets:
+Current v0.28.1 assets:
 
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
@@ -140,9 +140,11 @@ Current v0.28.0 assets:
 - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip.sha256`
 - `rpotato-vX.Y.Z-checksums.txt`
 
-The workflow runs `cargo test --locked`, builds the release binary, runs
-`scripts/release/verify-release-binary-smoke.sh` against the built binary, then
-uploads the archive and checksum to the GitHub Release. Windows jobs also run
+The workflow first runs a `release test gate` job on `ubuntu-24.04` with
+`cargo test --locked` and `scripts/release/verify-release-target-matrix.sh`.
+Target build jobs depend on that gate, then build the release binary, run
+`scripts/release/verify-release-binary-smoke.sh` against the built binary, and
+upload the archive and checksum to the GitHub Release. Windows jobs also run
 `scripts/release/verify-uninstall-smoke.sh` so `--keep-cache` and
 `--purge-cache` dry-run plans stay visible and non-destructive in packaged
 binaries. `rpotato doctor` is the release-smoke command because it reports

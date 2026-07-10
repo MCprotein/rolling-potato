@@ -1,5 +1,39 @@
 # Release Notes
 
+## v0.28.1 - Release Artifact Workflow Stabilization
+
+Release date: 2026-07-10
+
+This patch release completes the Linux/macOS/Windows binary publication after
+the v0.28.0 GitHub Actions run was interrupted by a shutdown signal on the
+Linux ARM64 runner before Linux assets and aggregate checksums were published.
+
+### Included
+
+- Added a dedicated `release test gate` job on `ubuntu-24.04` that runs
+  `cargo test --locked` once before target builds.
+- Kept target build jobs focused on native target build, packaged-binary smoke,
+  archive creation, checksum generation, and release upload.
+- Hardened `scripts/release/verify-release-target-matrix.sh` so release tests
+  stay centralized and the Linux/macOS/Windows matrix remains pinned.
+- Updated release docs, README binary download notes, and roadmap entries to
+  treat v0.28.1 as the complete Linux artifact publication.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test --locked` (215 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.28.1`
+- `scripts/release/verify-release-target-matrix.sh`
+
+### Boundary
+
+This release does not add Homebrew, Scoop, winget, apt, rpm, or container
+distribution. It only stabilizes direct GitHub Release archives and checksums.
+
 ## v0.28.0 - Linux Release Artifacts
 
 Release date: 2026-07-10
