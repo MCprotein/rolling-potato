@@ -105,12 +105,16 @@ GitHub repository setting은 source tree 밖에 있으므로 maintainer가 GitHu
 `release-binaries`는 GitHub Release가 publish될 때 release asset을 build합니다.
 Workflow 검증용으로 `release_tag` input을 넣어 수동 실행할 수도 있습니다.
 
-현재 v0.27.0 asset:
+현재 v0.28.0 asset:
 
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
 - `rpotato-vX.Y.Z-x86_64-apple-darwin.tar.gz`
 - `rpotato-vX.Y.Z-x86_64-apple-darwin.tar.gz.sha256`
+- `rpotato-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz`
+- `rpotato-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz.sha256`
+- `rpotato-vX.Y.Z-aarch64-unknown-linux-gnu.tar.gz`
+- `rpotato-vX.Y.Z-aarch64-unknown-linux-gnu.tar.gz.sha256`
 - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip`
 - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip.sha256`
 - `rpotato-vX.Y.Z-checksums.txt`
@@ -127,28 +131,33 @@ release-smoke command로 씁니다.
 모든 target artifact가 build된 뒤 `checksums` job은 per-asset `.sha256` file을 합쳐
 `rpotato-vX.Y.Z-checksums.txt`를 publish합니다. 모든 checksum entry는 build-directory
 path가 아니라 release asset basename을 가리켜야 합니다.
+`scripts/release/verify-release-target-matrix.sh`는 workflow matrix가 지원 target을 계속
+포함하는지 검사합니다.
 
-Runner label은 첫 지원 target에 맞춰 고정합니다.
+Runner label은 첫 지원 target에 고정합니다.
 
-- `macos-14`: macOS Apple Silicon / `aarch64-apple-darwin`
-- `macos-15-intel`: macOS Intel / `x86_64-apple-darwin`
-- `windows-latest`: Windows x86_64 / `x86_64-pc-windows-msvc`
+- macOS Apple Silicon: `macos-14` / `aarch64-apple-darwin`
+- macOS Intel: `macos-15-intel` / `x86_64-apple-darwin`
+- Linux x86_64: `ubuntu-24.04` / `x86_64-unknown-linux-gnu`
+- Linux ARM64: `ubuntu-24.04-arm` / `aarch64-unknown-linux-gnu`
+- Windows x86_64: `windows-latest` / `x86_64-pc-windows-msvc`
 
-Reference: GitHub-hosted runners reference, checked 2026-07-09:
+GitHub hosted runner reference는 2026-07-10 확인 시 Linux x64 standard runner로
+`ubuntu-24.04`, Linux arm64 standard runner로 `ubuntu-24.04-arm`을 명시했습니다.
 https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 
 ## artifact 목표
 
-초기 목표:
+현재 archive target:
 
 - macOS Apple Silicon
 - macOS Intel
+- Linux x86_64
+- Linux ARM64
 - Windows x86_64
 
 추후 목표:
 
-- Linux x86_64
-- Linux ARM64
 - package manager channel: Homebrew, Scoop, winget
 
 ## 릴리즈 체크리스트
@@ -164,8 +173,9 @@ https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 7. destructive command policy tests
 8. plugin adapter가 포함된 release라면 local import only와 remote source rejection smoke test
 9. release notes 작성
-10. binary checksum 생성
-11. GitHub Release publish 후 `release-binaries` workflow가 모든 target archive와
+10. release target matrix guard
+11. binary checksum 생성
+12. GitHub Release publish 후 `release-binaries` workflow가 모든 target archive와
     대응 `.sha256` file, aggregate `checksums.txt` file을 upload했는지 확인
 
 새 release note entry는 [release-notes-template.md](release-notes-template.md)를 사용합니다.

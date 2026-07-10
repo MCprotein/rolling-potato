@@ -1,5 +1,40 @@
 # 릴리즈 노트
 
+## v0.28.0 - Linux Release Artifacts
+
+릴리즈 날짜: 2026-07-10
+
+이 릴리즈는 기존 checksum과 packaged-binary smoke gate를 유지하면서 공식 GitHub Release
+binary target을 Linux x86_64와 Linux ARM64까지 확장합니다.
+
+### 포함된 것
+
+- `ubuntu-24.04` runner에서 build하는 `x86_64-unknown-linux-gnu` release artifact를
+  추가했습니다.
+- `ubuntu-24.04-arm` runner에서 build하는 `aarch64-unknown-linux-gnu` release artifact를
+  추가했습니다.
+- macOS와 Linux가 같은 OS-neutral `tar.gz` packaging path를 쓰도록 tarball packaging step을
+  정리했습니다.
+- Release workflow target list를 고정하는
+  `scripts/release/verify-release-target-matrix.sh`를 추가했습니다.
+- Release docs, README binary download 설명, roadmap entry를 새 Linux target 기준으로
+  업데이트했습니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test --locked` (215 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.28.0`
+- `scripts/release/verify-release-target-matrix.sh`
+
+### 경계
+
+이 릴리즈는 Homebrew, Scoop, winget, apt, rpm, container 배포를 추가하지 않습니다. 직접
+다운로드 가능한 GitHub Release archive와 checksum만 publish합니다.
+
 ## v0.27.0 - Plugin Adapter Hardening
 
 릴리즈 날짜: 2026-07-10

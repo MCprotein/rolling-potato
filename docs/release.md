@@ -126,12 +126,16 @@ enforcement surface.
 `release-binaries` builds release assets when a GitHub Release is published.
 It can also be run manually with a `release_tag` input for workflow validation.
 
-Current v0.27.0 assets:
+Current v0.28.0 assets:
 
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz`
 - `rpotato-vX.Y.Z-aarch64-apple-darwin.tar.gz.sha256`
 - `rpotato-vX.Y.Z-x86_64-apple-darwin.tar.gz`
 - `rpotato-vX.Y.Z-x86_64-apple-darwin.tar.gz.sha256`
+- `rpotato-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz`
+- `rpotato-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz.sha256`
+- `rpotato-vX.Y.Z-aarch64-unknown-linux-gnu.tar.gz`
+- `rpotato-vX.Y.Z-aarch64-unknown-linux-gnu.tar.gz.sha256`
 - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip`
 - `rpotato-vX.Y.Z-x86_64-pc-windows-msvc.zip.sha256`
 - `rpotato-vX.Y.Z-checksums.txt`
@@ -149,29 +153,34 @@ network access.
 After all target artifacts are built, the `checksums` job publishes
 `rpotato-vX.Y.Z-checksums.txt` by concatenating the per-asset `.sha256` files.
 All checksum entries must point to release asset basenames, not build-directory
-paths.
+paths. `scripts/release/verify-release-target-matrix.sh` keeps the workflow
+matrix pinned to the supported release targets.
 
 The runner labels are pinned to the first supported targets:
 
-- `macos-14` for macOS Apple Silicon / `aarch64-apple-darwin`
-- `macos-15-intel` for macOS Intel / `x86_64-apple-darwin`
-- `windows-latest` for Windows x86_64 / `x86_64-pc-windows-msvc`
+- macOS Apple Silicon: `macos-14` / `aarch64-apple-darwin`
+- macOS Intel: `macos-15-intel` / `x86_64-apple-darwin`
+- Linux x86_64: `ubuntu-24.04` / `x86_64-unknown-linux-gnu`
+- Linux ARM64: `ubuntu-24.04-arm` / `aarch64-unknown-linux-gnu`
+- Windows x86_64: `windows-latest` / `x86_64-pc-windows-msvc`
 
-Reference: GitHub-hosted runners reference, checked 2026-07-09:
+GitHub's hosted runner reference listed `ubuntu-24.04` for Linux x64 and
+`ubuntu-24.04-arm` for Linux arm64 standard runners when checked on
+2026-07-10:
 https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 
 ## Artifact Targets
 
-Initial targets:
+Current archive targets:
 
 - macOS Apple Silicon
 - macOS Intel
+- Linux x86_64
+- Linux ARM64
 - Windows x86_64
 
 Later targets:
 
-- Linux x86_64
-- Linux ARM64
 - package-manager channels: Homebrew, Scoop, winget
 
 ## Release Checklist
@@ -187,8 +196,9 @@ Before release:
 7. destructive command policy tests
 8. if plugin adapter is included, local-import-only and remote-source rejection smoke tests
 9. release notes
-10. binary checksums
-11. after publishing the GitHub Release, confirm the `release-binaries` workflow
+10. release target matrix guard
+11. binary checksums
+12. after publishing the GitHub Release, confirm the `release-binaries` workflow
     uploaded all target archives, matching `.sha256` files, and the aggregate
     `checksums.txt` file
 

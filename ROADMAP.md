@@ -42,4 +42,5 @@ evidence.
 | v0.25.0 | Released | Verified model install gate: source-backed candidates require local promotion evidence, artifact checksum/size, backend smoke ledger, RAM/mmproj evidence, measured benchmark row before registry registration |
 | v0.26.0 | Released | Ontology runtime store: project-local canonical typed graph JSONL, Layer A seed, compact context views, source-pointer reread rules, import/export inspection views |
 | v0.27.0 | Released | Plugin adapter hardening: Codex/Claude Code local-directory import records source manifest and snapshot hashes, maps capabilities, keeps shell/MCP/background/runtime-setting permissions blocked by default, and blocks validate/enable on source drift |
-| v0.28.0+ | Planned | Post-MVP packaging decisions: Homebrew/Scoop/winget decision, Linux x86_64 and Linux ARM64 artifacts, optional local HTML report/dashboard |
+| v0.28.0 | Released | Linux release artifacts: GitHub Release workflow builds and smokes Linux x86_64 and Linux ARM64 tarballs with checksum publication alongside macOS and Windows assets |
+| v0.29.0+ | Planned | Post-MVP packaging decisions: Homebrew/Scoop/winget decision, optional local HTML report/dashboard |
