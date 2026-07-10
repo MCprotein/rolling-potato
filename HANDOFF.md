@@ -93,7 +93,8 @@ an aggregate checksum file.
 ## Next Versions
 
 The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
-sequence is:
+sequence and non-skippable release gates are defined in
+`docs/release-train.md`. The immediate sequence is:
 
 1. `v0.29.0`: connect `run` to persisted workflow/action/approval/evidence
    state and the complete approved patch, verification, stop-gate, and Korean

@@ -3,6 +3,9 @@
 이 로드맵은 버전 전용으로 관리합니다. 새 로드맵 항목은 반드시 구체적인
 버전 행으로 추가합니다.
 
+현재 `v0.29.0`-`v0.41.0` train의 실행 순서, release cycle, 건너뛸 수 없는
+gate는 [release-train.md](release-train.md)에 정의합니다.
+
 `rolling-potato`는 작은 로컬 모델용 coding-agent runtime입니다. Runtime은
 instruction, permission, state, ledger, transcript, evidence, monitoring,
 ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합니다.

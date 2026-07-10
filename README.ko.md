@@ -338,6 +338,7 @@ Backend CPU/RSS/disk resource sampling은 `backend start`, `backend status`, `ba
 - [docs/development.md](docs/development.md): 개발 환경과 검증 흐름
 - [docs/cli-output-style.md](docs/cli-output-style.md): CLI 출력 스타일
 - [docs/release.md](docs/release.md): 릴리즈 정책
+- [docs/ko/release-train.md](docs/ko/release-train.md): `v0.29.0`-`v0.41.0` 실행 순서와 건너뛸 수 없는 gate
 - [DESIGN.md](DESIGN.md): CLI/TUI/monitoring UX source of truth
 - [docs/runtime-architecture.md](docs/runtime-architecture.md): runtime core와 surface/backend 경계
 - [docs/glossary.md](docs/glossary.md): 프로젝트 용어 정의

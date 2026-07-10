@@ -319,6 +319,7 @@ Start with:
 
 - [PLAN.md](PLAN.md)
 - [ROADMAP.md](ROADMAP.md)
+- [docs/release-train.md](docs/release-train.md)
 - [docs/runtime-architecture.md](docs/runtime-architecture.md)
 - [docs/ontology-runtime.md](docs/ontology-runtime.md)
 - [docs/architecture.md](docs/architecture.md)

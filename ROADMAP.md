@@ -3,6 +3,10 @@
 This roadmap is version-only. New roadmap work must be added as a concrete
 version row.
 
+The execution order, release cycle, and non-skippable gates for the active
+`v0.29.0`-`v0.41.0` train are defined in
+[docs/release-train.md](docs/release-train.md).
+
 `rolling-potato` is a local coding-agent runtime for small local models. The
 runtime owns instruction, permission, state, ledger, transcript, evidence,
 monitoring, ontology-backed context, plugins, hooks, subagents, teams, and TUI
