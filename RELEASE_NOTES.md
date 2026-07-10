@@ -1,12 +1,48 @@
 # Release Notes
 
-## v0.28.2 - Linux Test Gate Process Cleanup
+## v0.28.3 - Serialized Release Test Gate
 
 Release date: 2026-07-10
 
 This patch release completes the Linux/macOS/Windows binary publication after
-the v0.28.1 release test gate exited with signal 143 on Linux before any release
-assets were published.
+v0.28.2 still received a GitHub runner shutdown signal during the release test
+gate before assets were published.
+
+### Included
+
+- Runs the release test gate with `cargo test --locked -- --test-threads=1` so
+  process-oriented backend lifecycle tests do not overlap in the release job.
+- Keeps the fake timeout backend fixture as `exec sleep` so timeout cleanup does
+  not leave a wrapper child behind.
+- Leaves target jobs focused on native target build, packaged-binary smoke,
+  archive creation, checksum generation, and release upload.
+- Updates release docs, README binary download notes, and roadmap entries to
+  treat v0.28.3 as the complete Linux artifact publication.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test --locked` (215 tests)
+- `cargo test --locked -- --test-threads=1` (215 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.28.3`
+- `scripts/release/verify-release-target-matrix.sh`
+
+### Boundary
+
+This release does not add Homebrew, Scoop, winget, apt, rpm, or container
+distribution. It only stabilizes direct GitHub Release archives and checksums.
+
+## v0.28.2 - Linux Test Gate Process Cleanup
+
+Release date: 2026-07-10
+
+This patch release attempted to complete the Linux/macOS/Windows binary
+publication after the v0.28.1 release test gate exited with signal 143 on Linux.
+The published v0.28.2 release still received a GitHub runner shutdown signal
+before binary assets were uploaded. v0.28.3 supersedes it.
 
 ### Included
 
@@ -16,8 +52,8 @@ assets were published.
   lingering child process.
 - Kept the v0.28.1 `release test gate` design: full tests run once before target
   build jobs, while target jobs build, smoke, package, checksum, and upload.
-- Updated release docs, README binary download notes, and roadmap entries to
-  treat v0.28.2 as the complete Linux artifact publication.
+- Updated release docs, README binary download notes, and roadmap entries for
+  the attempted Linux artifact publication path.
 
 ### Verified In This Release
 

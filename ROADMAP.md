@@ -44,5 +44,6 @@ evidence.
 | v0.27.0 | Released | Plugin adapter hardening: Codex/Claude Code local-directory import records source manifest and snapshot hashes, maps capabilities, keeps shell/MCP/background/runtime-setting permissions blocked by default, and blocks validate/enable on source drift |
 | v0.28.0 | Superseded | Linux release artifact matrix introduced, but the first publication was interrupted on the GitHub ARM runner before Linux assets and aggregate checksums completed |
 | v0.28.1 | Superseded | Release test gate added, but Linux test execution still exited with signal 143 before artifact publication |
-| v0.28.2 | Released | Complete Linux/macOS/Windows release artifacts: release test gate plus Unix sidecar timeout process-group cleanup, per-target build/smoke/package jobs, Linux x86_64 and Linux ARM64 tarballs, and aggregate checksum publication |
+| v0.28.2 | Superseded | Added sidecar timeout cleanup, but release test gate still received a GitHub runner shutdown signal before artifact publication |
+| v0.28.3 | Released | Complete Linux/macOS/Windows release artifacts: serialized release test gate, orphan-free timeout fixture, per-target build/smoke/package jobs, Linux x86_64 and Linux ARM64 tarballs, and aggregate checksum publication |
 | v0.29.0+ | Planned | Post-MVP packaging decisions: Homebrew/Scoop/winget decision, optional local HTML report/dashboard |

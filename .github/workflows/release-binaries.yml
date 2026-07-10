@@ -43,7 +43,7 @@ jobs:
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Test
-        run: cargo test --locked
+        run: cargo test --locked -- --test-threads=1
 
       - name: Verify release target matrix
         run: scripts/release/verify-release-target-matrix.sh
