@@ -1,5 +1,39 @@
 # Release Notes
 
+## v0.28.0 - Linux Release Artifacts
+
+Release date: 2026-07-10
+
+This release expands official GitHub Release binaries to Linux x86_64 and Linux
+ARM64 while keeping the existing checksum and packaged-binary smoke gates.
+
+### Included
+
+- Added `x86_64-unknown-linux-gnu` release artifacts built on `ubuntu-24.04`.
+- Added `aarch64-unknown-linux-gnu` release artifacts built on
+  `ubuntu-24.04-arm`.
+- Renamed the tarball packaging step so macOS and Linux share the same
+  OS-neutral `tar.gz` packaging path.
+- Added `scripts/release/verify-release-target-matrix.sh` to guard the release
+  workflow target list.
+- Updated release docs, README binary download notes, and roadmap entries for
+  the new Linux targets.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test --locked` (215 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.28.0`
+- `scripts/release/verify-release-target-matrix.sh`
+
+### Boundary
+
+This release does not add Homebrew, Scoop, winget, apt, rpm, or container
+distribution. It only publishes direct GitHub Release archives and checksums.
+
 ## v0.27.0 - Plugin Adapter Hardening
 
 Release date: 2026-07-10

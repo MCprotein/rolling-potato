@@ -41,4 +41,5 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | v0.25.0 | Released | Verified model install gate: source-backed candidate는 registry 등록 전 local promotion evidence, artifact checksum/size, backend smoke ledger, RAM/mmproj evidence, measured benchmark row가 필요 |
 | v0.26.0 | Released | Ontology runtime store: project-local canonical typed graph JSONL, Layer A seed, compact context view, source-pointer reread rule, import/export inspection view |
 | v0.27.0 | Released | Plugin adapter hardening: Codex/Claude Code local-directory import가 source manifest/snapshot hash를 기록하고 capability를 mapping하며 shell/MCP/background/runtime-setting permission을 기본 차단하고 source drift 시 validate/enable을 차단 |
-| v0.28.0+ | Planned | Post-MVP packaging decision: Homebrew/Scoop/winget 결정, Linux x86_64와 Linux ARM64 artifact, optional local HTML report/dashboard |
+| v0.28.0 | Released | Linux release artifact: GitHub Release workflow가 macOS/Windows asset과 함께 Linux x86_64와 Linux ARM64 tarball을 build/smoke하고 checksum을 publish |
+| v0.29.0+ | Planned | Post-MVP packaging decision: Homebrew/Scoop/winget 결정, optional local HTML report/dashboard |
