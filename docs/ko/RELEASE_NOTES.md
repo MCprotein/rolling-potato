@@ -1,12 +1,47 @@
 # 릴리즈 노트
 
+## v0.28.2 - Linux Test Gate Process Cleanup
+
+릴리즈 날짜: 2026-07-10
+
+이 패치 릴리즈는 v0.28.1 release test gate가 Linux에서 signal 143으로 종료되어 release
+asset이 publish되지 않은 상태를 보완해 Linux/macOS/Windows binary publication을
+완성합니다.
+
+### 포함된 것
+
+- Backend sidecar startup timeout에서 wrapper child가 timeout test 이후 남지 않도록 Unix
+  process-group cleanup을 추가했습니다.
+- Fake timeout backend fixture가 lingering child process를 만들지 않도록 `sleep`을 spawn하지
+  않고 `exec sleep`을 사용하게 했습니다.
+- v0.28.1의 `release test gate` 설계는 유지합니다. Full test는 target build 전에 한 번
+  실행하고, target job은 build, smoke, package, checksum, upload에 집중합니다.
+- Release docs, README binary download 설명, roadmap entry를 v0.28.2 complete Linux
+  artifact publication 기준으로 업데이트했습니다.
+
+### 이 릴리즈에서 검증한 것
+
+- `cargo fmt --check`
+- `cargo test --locked` (215 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.28.2`
+- `scripts/release/verify-release-target-matrix.sh`
+
+### 경계
+
+이 릴리즈는 Homebrew, Scoop, winget, apt, rpm, container 배포를 추가하지 않습니다. 직접
+다운로드 가능한 GitHub Release archive와 checksum publish 안정화만 다룹니다.
+
 ## v0.28.1 - Release Artifact Workflow Stabilization
 
 릴리즈 날짜: 2026-07-10
 
 이 패치 릴리즈는 v0.28.0 GitHub Actions 실행이 Linux ARM64 runner 종료 신호로
-끊기면서 Linux asset과 aggregate checksum publish가 완료되지 않은 상태를 보완해
-Linux/macOS/Windows binary publication을 완성합니다.
+끊긴 뒤 release test gate를 추가했습니다. Published v0.28.1 release는 Linux test gate가
+여전히 signal 143으로 종료되어 binary asset을 upload하지 못했습니다. v0.28.2가 이를
+supersede합니다.
 
 ### 포함된 것
 
@@ -16,8 +51,8 @@ Linux/macOS/Windows binary publication을 완성합니다.
   생성, release upload에 집중하도록 정리했습니다.
 - `scripts/release/verify-release-target-matrix.sh`가 release test 중앙화와
   Linux/macOS/Windows matrix 고정을 함께 검증하도록 강화했습니다.
-- Release docs, README binary download 설명, roadmap entry를 v0.28.1 complete Linux
-  artifact publication 기준으로 업데이트했습니다.
+- Release docs, README binary download 설명, roadmap entry를 attempted Linux artifact
+  publication path 기준으로 업데이트했습니다.
 
 ### 이 릴리즈에서 검증한 것
 

@@ -1,12 +1,47 @@
 # Release Notes
 
-## v0.28.1 - Release Artifact Workflow Stabilization
+## v0.28.2 - Linux Test Gate Process Cleanup
 
 Release date: 2026-07-10
 
 This patch release completes the Linux/macOS/Windows binary publication after
-the v0.28.0 GitHub Actions run was interrupted by a shutdown signal on the
-Linux ARM64 runner before Linux assets and aggregate checksums were published.
+the v0.28.1 release test gate exited with signal 143 on Linux before any release
+assets were published.
+
+### Included
+
+- Added Unix process-group cleanup for backend sidecar startup timeouts so
+  wrapper children do not survive timeout tests.
+- Updated the fake timeout backend fixture to `exec sleep` instead of spawning a
+  lingering child process.
+- Kept the v0.28.1 `release test gate` design: full tests run once before target
+  build jobs, while target jobs build, smoke, package, checksum, and upload.
+- Updated release docs, README binary download notes, and roadmap entries to
+  treat v0.28.2 as the complete Linux artifact publication.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test --locked` (215 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.28.2`
+- `scripts/release/verify-release-target-matrix.sh`
+
+### Boundary
+
+This release does not add Homebrew, Scoop, winget, apt, rpm, or container
+distribution. It only stabilizes direct GitHub Release archives and checksums.
+
+## v0.28.1 - Release Artifact Workflow Stabilization
+
+Release date: 2026-07-10
+
+This patch release added the release test gate after the v0.28.0 GitHub Actions
+run was interrupted by a shutdown signal on the Linux ARM64 runner. The
+published v0.28.1 release did not upload binary assets because the Linux test
+gate still exited with signal 143. v0.28.2 supersedes it.
 
 ### Included
 
@@ -16,8 +51,8 @@ Linux ARM64 runner before Linux assets and aggregate checksums were published.
   archive creation, checksum generation, and release upload.
 - Hardened `scripts/release/verify-release-target-matrix.sh` so release tests
   stay centralized and the Linux/macOS/Windows matrix remains pinned.
-- Updated release docs, README binary download notes, and roadmap entries to
-  treat v0.28.1 as the complete Linux artifact publication.
+- Updated release docs, README binary download notes, and roadmap entries for
+  the attempted Linux artifact publication path.
 
 ### Verified In This Release
 
