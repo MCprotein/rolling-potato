@@ -1,5 +1,84 @@
 # Release Notes
 
+## v0.27.0 - Plugin Adapter Hardening
+
+Release date: 2026-07-10
+
+This release hardens local Codex/Claude Code-style plugin import without
+opening foreign plugin execution.
+
+### Included
+
+- Normalized plugin manifests now use schema version 2 with adapter version,
+  permission policy, source manifest SHA-256, and imported source snapshot
+  SHA-256 fields.
+- `plugin import` maps visible Codex/Claude Code plugin surfaces into
+  capability summaries and reports required plus blocked permissions.
+- Shell, `bin/`, MCP, hook, LSP, monitor/background, runtime setting, remote
+  connector, sensitive config, and file-write permissions remain blocked by
+  default.
+- `plugin validate` and `plugin enable` re-check the imported source snapshot
+  hash and mark the plugin `blocked` if the imported source drifts.
+- Added tests for capability reporting, manifest hash persistence, Claude Code
+  surface detection, and drift blocking.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test --locked` (215 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.27.0`
+
+### Boundary
+
+This release still does not execute imported plugin code, integrate external
+plugin marketplaces, grant MCP/shell/background permissions, or convert foreign
+plugin formats into trusted native runtime extensions without policy approval.
+
+## v0.26.0 - Ontology Runtime Store
+
+Release date: 2026-07-10
+
+This release moves the `rolling-potato` ontology from design documentation into
+the first project-local runtime store slice. Small-model prompts receive compact
+source-pointer-first views, while authoritative source decisions must reread the
+original file.
+
+### Included
+
+- Added the `.rpotato/ontology/graph.jsonl` typed graph store and
+  `.rpotato/ontology/schema.json` schema contract.
+- `rpotato init` now creates the ontology store/schema and seeds source-backed
+  deterministic Layer A facts.
+- Added `rpotato ontology status`, `seed`, `inspect`, `context --query <text>`,
+  `reread <source-pointer>`, `export --format json|jsonl`, and
+  `import --file <path> --dry-run`.
+- Layer A seed records indexed files, package manifests, entrypoints, and
+  generated-exclusion rules with source pointers and SHA-256 hashes without
+  storing raw source text in the ontology store.
+- Import dry-run blocks confirmed Layer B semantic claims that lack source
+  pointers and source hashes.
+- `rpotato doctor` now reports ontology store diagnostics.
+
+### Verified In This Release
+
+- `cargo fmt --check`
+- `cargo test --locked` (212 tests)
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.26.0`
+- isolated `rpotato init`, `ontology status`, `ontology context`,
+  `ontology reread`, and `ontology import --dry-run` smoke
+
+### Boundary
+
+This release does not promote model output into confirmed ontology, does not use
+RDF/OWL as the canonical store, and does not yet wire ontology invariant checks
+into patch apply or the agent loop.
+
 ## v0.25.0 - Verified Model Install Gate
 
 Release date: 2026-07-10
