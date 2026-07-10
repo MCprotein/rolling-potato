@@ -3,7 +3,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::app::AppError;
@@ -2004,7 +2004,7 @@ fn start_sidecar_with_timeout(
         }
 
         if started_at.elapsed() >= timeout {
-            let _ = child.kill();
+            terminate_sidecar_child_tree(&mut child);
             let _ = child.wait();
             remove_file_if_exists(&backend_sidecar_record_path())?;
             let event_id = state::record_event(
@@ -2057,6 +2057,29 @@ fn configure_sidecar_process(command: &mut Command) {
 
 #[cfg(not(unix))]
 fn configure_sidecar_process(_command: &mut Command) {}
+
+#[cfg(unix)]
+fn terminate_sidecar_child_tree(child: &mut Child) {
+    let _ = signal_process_group(child.id(), "TERM");
+    std::thread::sleep(Duration::from_millis(50));
+    let _ = signal_process_group(child.id(), "KILL");
+    let _ = child.kill();
+}
+
+#[cfg(unix)]
+fn signal_process_group(pid: u32, signal: &str) -> std::io::Result<std::process::ExitStatus> {
+    Command::new("kill")
+        .arg(format!("-{signal}"))
+        .arg(format!("-{pid}"))
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+}
+
+#[cfg(not(unix))]
+fn terminate_sidecar_child_tree(child: &mut Child) {
+    let _ = child.kill();
+}
 
 fn create_log_file(path: &Path) -> Result<File, AppError> {
     OpenOptions::new()
@@ -3006,7 +3029,7 @@ mod tests {
         let backend_script = root.join("fake-llama-server-timeout");
         fs::write(
             &backend_script,
-            "#!/bin/sh\necho 'booting stdout'\necho 'booting stderr' >&2\nsleep 10\n",
+            "#!/bin/sh\necho 'booting stdout'\necho 'booting stderr' >&2\nexec sleep 10\n",
         )
         .unwrap();
         set_executable_bit(&backend_script).unwrap();
