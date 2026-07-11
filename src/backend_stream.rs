@@ -513,6 +513,28 @@ mod tests {
     }
 
     #[test]
+    fn accepts_chunk_extension_and_trailer() {
+        let response = concat!(
+            "HTTP/1.1 200 OK\r\n",
+            "Content-Type: text/event-stream\r\n",
+            "Transfer-Encoding: chunked\r\n\r\n",
+            "5;source=test\r\ndata:\r\n",
+            "8\r\n hello\n\n\r\n",
+            "0\r\nX-Trace: complete\r\n\r\n"
+        );
+        let mut decoder = HttpResponseDecoder::default();
+        let mut body = Vec::new();
+        for part in response.as_bytes().chunks(2) {
+            for chunk in decoder.push(part).unwrap() {
+                body.extend_from_slice(&chunk);
+            }
+        }
+
+        assert_eq!(body, b"data: hello\n\n");
+        assert!(decoder.body_complete);
+    }
+
+    #[test]
     fn decodes_sse_content_usage_and_done_across_boundaries() {
         let events = concat!(
             "data: {\"id\":\"chatcmpl-1\",\"choices\":[{\"delta\":{\"content\":\"감\"},\"finish_reason\":null}]}\n\n",
@@ -541,6 +563,43 @@ mod tests {
         assert_eq!(completion.completion_tokens, Some(2));
         assert_eq!(completion.total_tokens, Some(13));
         assert_eq!(completion.first_token_latency_ms, Some(42));
+    }
+
+    #[test]
+    fn accepts_multiline_data_and_discards_reasoning_content() {
+        let events = concat!(
+            "data: {\"reasoning_content\":\"secret\",\"choices\":[\n",
+            "data: {\"delta\":{\"content\":\"answer\"},\"finish_reason\":\"stop\"}]}\n\n",
+            "data: [DONE]\n\n"
+        );
+        let mut decoder = ChatSseDecoder::default();
+        let mut streamed = String::new();
+        decoder
+            .push(events.as_bytes(), Duration::from_millis(7), &mut |delta| {
+                streamed.push_str(delta);
+                Ok(())
+            })
+            .unwrap();
+
+        assert!(decoder.done);
+        assert_eq!(streamed, "answer");
+        assert_eq!(decoder.completion().content, "answer");
+        assert!(!streamed.contains("secret"));
+    }
+
+    #[test]
+    fn rejects_stream_error_event() {
+        let mut decoder = ChatSseDecoder::default();
+        let error = decoder
+            .push(
+                b"data: {\"error\":{\"message\":\"model unavailable\"}}\n\n",
+                Duration::from_millis(1),
+                &mut |_| Ok(()),
+            )
+            .unwrap_err();
+
+        assert!(error.message.contains("streaming response"));
+        assert!(error.message.contains("model unavailable"));
     }
 
     #[test]
