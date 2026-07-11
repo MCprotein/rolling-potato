@@ -7,7 +7,7 @@
 ```
 
 - Remote: `https://github.com/MCprotein/rolling-potato.git`
-- Latest release: `v0.28.5`
+- Latest release: `v0.29.0`
 - CLI: `rpotato`
 - Product: local-first coding-agent runtime for small local models
 
@@ -38,7 +38,7 @@ policy, explicit approval where required, evidence recording, and verification.
 
 ## Current Release State
 
-`v0.28.5` is the current complete release. GitHub Releases provides checksummed
+`v0.29.0` is the current complete release. GitHub Releases provides checksummed
 binaries for:
 
 - macOS Apple Silicon
@@ -99,15 +99,11 @@ The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
 sequence and non-skippable release gates are defined in
 `docs/release-train.md`. The immediate sequence is:
 
-1. `v0.29.0`: finish the correction gate in
-   `docs/v0.29-correction-plan.md`, reverify persisted workflow/action state,
-   split approvals, canonical ledger authority, recovery, and Korean reports,
-   then release without changing the version.
-2. `v0.30.0`: close model evaluation evidence and managed model install/default
+1. `v0.30.0`: close model evaluation evidence and managed model install/default
    selection without predeclaring a winning Qwen/Gemma candidate.
-3. `v0.31.0`: add backend response streaming and cancellation.
-4. `v0.32.0`: implement durable transcript replay and real workflow resume.
-5. `v0.33.0` onward: executable hooks/skills, interactive TUI, subagents,
+2. `v0.31.0`: add backend response streaming and cancellation.
+3. `v0.32.0`: implement durable transcript replay and real workflow resume.
+4. `v0.33.0` onward: executable hooks/skills, interactive TUI, subagents,
    teams, and plugin execution adapters.
 
 Package-manager distribution and an optional local HTML monitoring report come

@@ -2,7 +2,7 @@
 
 ## v0.29.0 - 지속 가능한 Single-Agent Runtime 보정
 
-상태: In Progress
+릴리즈 날짜: 2026-07-11
 
 v0.29.0은 `run`, `state resume`, `patch approve`, `patch verify`를 하나의 restart-safe
 workflow로 연결합니다. Model text는 실행 불가 typed action으로 저장되고 runtime이 소유한

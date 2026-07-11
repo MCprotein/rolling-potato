@@ -2,7 +2,7 @@
 
 ## v0.29.0 - Durable Single-Agent Runtime Correction
 
-Status: In Progress
+Release date: 2026-07-11
 
 v0.29.0 connects `run`, `state resume`, `patch approve`, and `patch verify`
 through one restart-safe workflow. Model text is persisted as a non-executable
