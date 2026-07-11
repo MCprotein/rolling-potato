@@ -1,16 +1,30 @@
 # 릴리즈 노트
 
-## v0.29.0 - 지속 가능한 Single-Agent Patch Loop
+## v0.29.0 - 지속 가능한 Single-Agent Runtime 보정
 
 상태: In Progress
 
-v0.29.0은 `run`, `state resume`, `patch approve`를 하나의 restart-safe workflow로
-연결합니다. Model text는 실행 불가 action으로 저장되고 runtime이 소유한 source reread,
-approval binding, guarded apply, verification evidence, stop gate만 side effect와 completion을
-결정합니다.
+v0.29.0은 `run`, `state resume`, `patch approve`, `patch verify`를 하나의 restart-safe
+workflow로 연결합니다. Model text는 실행 불가 typed action으로 저장되고 runtime이 소유한
+ontology context/source reread, 분리된 approval binding, guarded apply, verification evidence,
+stop gate만 side effect와 completion을 결정합니다.
 
 ### 포함된 것
 
+- Patch 전용 workflow identity를 범용 workflow envelope와 typed action state로 분리하고,
+  read-only `run`과 patch proposal을 독립적으로 종료할 수 있게 했습니다.
+- Ontology projection을 첫 context 선택 계층으로 사용하고, source pointer를 patch proposal에
+  binding하기 전에 authoritative source를 다시 읽습니다.
+- Raw model response를 사용자 최종 보고로 표시하지 않고 read-only, pending approval,
+  blocked, terminal 결과 모두에 deterministic 한국어 output guard를 적용합니다.
+- Patch 적용 승인과 verification command 승인을 별도 일회성 credential로 분리했습니다.
+  `patch approve`는 command를 실행하지 않으며 `patch verify`만 pre-bound plan을 승인합니다.
+- Workflow schema v3를 추가하되 immutable v2 snapshot/hash를 보존하고, 단방향 v2에서 v3
+  append migration과 strict recovery binding을 적용했습니다.
+- Runtime/project ledger append를 recoverable writer lease로 직렬화하고, 손상된
+  current-state mutation은 fail-closed하며 SQLite-only session은 resume 권위에서 제거했습니다.
+- Approve/cancel 경쟁, 이미 복구된 rollback, 변조된 source recovery artifact 경로를
+  idempotent하고 fail-closed하게 처리합니다.
 - 변경 불가 versioned workflow snapshot, sync된 recovery transaction, atomic
   committed-revision pointer를 추가하고 schema/revision/hash chain이 strict parse된
   append-only ledger checkpoint와 일치하도록 했습니다.
@@ -40,17 +54,19 @@ approval binding, guarded apply, verification evidence, stop gate만 side effect
 ### 구현 중 검증한 것
 
 - `cargo fmt --all -- --check`
-- `cargo test --locked -- --test-threads=1` (275 tests: unit 264개, Unix subprocess integration 11개)
-- `cargo clippy --all-targets --locked -- -D warnings`
+- `cargo test --locked -- --test-threads=1` (294 tests: unit 282개, Unix subprocess integration 12개)
+- `cargo clippy --locked --all-targets -- -D warnings`
 - `cargo build --release --locked`
 - `scripts/release/verify-release-policy.sh`
-- 격리된 release binary `doctor`, `help`, `init` smoke
+- `scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-binary-smoke.sh`를 통한 release binary `doctor` smoke
 
 ### 경계
 
 이 릴리즈는 전체 conversation transcript replay, streaming, subagent/team 실행,
 interactive TUI mutation을 구현하지 않습니다. 해당 기능은 후속 roadmap 항목입니다.
-SQLite는 rebuild 가능한 workflow projection이며 두 번째 권위가 아닙니다.
+SQLite는 canonical runtime ledger에서 rebuild 가능한 workflow/session projection이며 두 번째
+권위가 아닙니다.
 Mode 0600 project-local workflow/proposal artifact는 project cleanup 전까지 recovery에 필요한
 snippet, proposal diff/proposed source, transaction metadata, rollback source를 보존합니다.
 SQLite/monitor, ledger detail, evidence에는 raw source bytes를 저장하지 않습니다. Legacy v2

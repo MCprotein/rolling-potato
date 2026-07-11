@@ -4,7 +4,7 @@
 
 Monitoring은 외부 telemetry가 아니라 local-first runtime capability입니다. 기본값은 로컬 저장이며, 사용자 코드나 prompt 원문을 외부로 보내지 않습니다.
 
-Monitoring UX의 기준은 [DESIGN.md](../DESIGN.md)와 [tui.md](tui.md)를 따릅니다. TUI는 SSH/Linux server에서 쓰는 primary monitoring surface이고, HTML은 이후 선택 가능한 local report/dashboard surface입니다.
+Monitoring UX의 기준은 [DESIGN.md](DESIGN.md)와 [tui.md](tui.md)를 따릅니다. TUI는 SSH/Linux server에서 쓰는 primary monitoring surface이고, HTML은 이후 선택 가능한 local report/dashboard surface입니다.
 
 ## 목표
 
@@ -74,9 +74,9 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 - `rpotato state reconcile`은 missing/stale/corrupt current-state를 복구하고 보존 이동 이벤트를 ledger에 남긴다.
 - `rpotato state resume`은 모든 ledger line을 strict하게 parse하고 canonical snapshot/checkpoint 전체 hash chain과 latest committed revision을 검증한 뒤 안전한 phase를 idempotent하게 재개한다. Pending approval은 backend 호출 없이 diff와 token placeholder를 표시하며 최초 발급 token은 다시 표시할 수 없다.
 - Patch verification은 source, command output, approval token plaintext 대신 hash와 status를 담은 project evidence JSON/runtime evidence JSONL을 기록한다. Stop gate는 성공 전 artifact와 authoritative source를 다시 읽는다.
-- `rpotato session list`와 `rpotato session history`는 현재 project의 SQLite projection에서 session history를 읽는다.
+- `rpotato session list`와 `rpotato session history`는 현재 project의 canonical runtime ledger에서 재생성한 SQLite session view를 읽는다. Replay는 SQLite에만 있는 session row를 제거한다.
 - `rpotato session new`는 새 session identity를 만들고 current-state에 기록한 뒤 `session.new` ledger event와 SQLite projection을 남긴다.
-- `rpotato session resume <session-id>`와 `rpotato resume <session-id>`는 SQLite history에서 이전 session을 선택하고 그 session id를 current-state에 다시 기록한다.
+- `rpotato session resume <session-id>`와 `rpotato resume <session-id>`는 canonical runtime ledger에 이전 session이 존재할 때만 그 session id를 current-state에 다시 기록한다.
 - id 없이 실행한 `rpotato resume`은 session history를 보여주므로 TUI/CLI surface가 사용자가 재개할 대상을 고르게 만들 수 있다.
 - `rpotato cancel`은 active workflow가 없으면 no-op cancel event만 append한다.
 - `rpotato evidence validate <artifact-pointer>`는 project-relative artifact pointer가 project boundary 안에 있는지 검증한다.
@@ -306,8 +306,8 @@ Compacted summary는 source of truth가 아닙니다.
 - 원본 판단 근거는 runtime ledger, project session ledger, evidence artifact pointer를 다시 읽어 확인한다.
 - compacted summary는 resume bundle의 탐색 힌트로만 사용하고, 파일/명령/모델 claim을 확정하는 근거로 쓰지 않는다.
 - compacted summary artifact도 `evidence validate`와 같은 project boundary 검증을 통과해야 한다.
-- active workflow resume은 current-state pointer를 감지하고 ledger event를 남긴 뒤, 후속 agent loop phase가 실제 실행을 맡는다.
-- session resume은 히스토리 우선으로 동작한다. SQLite가 선택 가능한 session list를 제공하고, append-only ledger는 audit source로 남으며, current-state는 선택된 `session_id`와 resume metadata만 저장한다.
+- Runtime core는 bounded patch workflow의 안전한 영속 phase를 재개한다. Durable transcript replay와 transcript 기반 agent workflow continuation은 후속 capability다.
+- session resume은 ledger 권위로 동작한다. SQLite는 선택 가능한 session list를 표시하고 append-only runtime ledger가 각 선택을 승인하며, current-state는 선택된 `session_id`와 resume metadata만 저장한다.
 - `rpotato resume <session-id>`는 현재 선택한 session을 이후 명령의 대상 session으로 정한다. model transcript replay는 후속 agent-loop capability다.
 
 ## 검증

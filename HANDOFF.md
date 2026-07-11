@@ -59,9 +59,10 @@ an aggregate checksum file.
   verification, benchmark planning, and a promotion/install gate
 - Deterministic `run` routing, bounded repository context, source pointers,
   model response parsing, and non-executable model-action records
-- Guarded patch preview, approval token, apply, rollback record, and allowed
-  verification command execution
-- SQLite observability projection plus append-only ledger for sessions, model
+- Guarded patch preview, independent one-time patch/verification credentials,
+  no-clobber apply, rollback record, and policy-allowed verification execution
+- Canonical append-only runtime/project ledgers with a rebuildable SQLite
+  observability projection for sessions, model
   runs, tokens, latency, resources, benchmarks, evidence, and team events
 - Session history and session selection for resume
 - Read-only TUI views for overview, monitoring, sessions, transcript events,
@@ -75,12 +76,14 @@ an aggregate checksum file.
 
 ## Important Incomplete Boundaries
 
-- `run` records model actions but does not connect them to the approved
-  patch/apply/verify/final-report loop.
+- `run` supports typed read-only completion and a bounded restart-safe patch
+  workflow through separate apply/verification approvals, evidence, stop gate,
+  and guarded Korean final reporting. General tool orchestration remains later.
 - Model candidates are not defaults until source, license, artifact, backend,
   RAM/mmproj, and measured benchmark evidence passes the install gate.
-- `resume` selects a session but does not replay a durable conversation and
-  continue the interrupted workflow.
+- Runtime core resumes safe persisted phases of bounded patch workflows.
+  Session `resume` still does not replay a durable conversation or continue a
+  transcript-driven agent workflow.
 - Hooks and skills expose validation/routing foundations but are not yet a full
   executable lifecycle state machine.
 - TUI is read-only; it cannot approve, apply, resume, cancel, or mutate work.
@@ -96,9 +99,10 @@ The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
 sequence and non-skippable release gates are defined in
 `docs/release-train.md`. The immediate sequence is:
 
-1. `v0.29.0`: connect `run` to persisted workflow/action/approval/evidence
-   state and the complete approved patch, verification, stop-gate, and Korean
-   final-report loop.
+1. `v0.29.0`: finish the correction gate in
+   `docs/v0.29-correction-plan.md`, reverify persisted workflow/action state,
+   split approvals, canonical ledger authority, recovery, and Korean reports,
+   then release without changing the version.
 2. `v0.30.0`: close model evaluation evidence and managed model install/default
    selection without predeclaring a winning Qwen/Gemma candidate.
 3. `v0.31.0`: add backend response streaming and cancellation.

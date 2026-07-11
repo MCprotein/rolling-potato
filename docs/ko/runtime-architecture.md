@@ -130,10 +130,10 @@ Adapter는 외부 plugin을 직접 실행하지 않습니다. Codex source runti
 Runtime은 세 계층을 분리합니다.
 
 - append-only ledger: session event의 audit source
-- SQLite projection: CLI/TUI 선택을 위한 query 가능한 session history
+- SQLite projection: CLI/TUI 선택을 위한 재생성 가능한 session-history view
 - current-state: 현재 선택된 `session_id`와 resume metadata
 
-`rpotato session list`, `rpotato session history`, id 없는 `rpotato resume`은 SQLite에서 선택 가능한 history를 읽습니다. `rpotato session resume <session-id>`와 `rpotato resume <session-id>`는 선택한 session id를 current-state에 기록해 이후 명령이 선택된 session identity 아래에 이어 기록되게 합니다. 후속 agent-loop phase는 이 선택된 session으로 transcript를 replay하고 context를 재구성한 뒤 대화를 이어갑니다.
+`rpotato session list`, `rpotato session history`, id 없는 `rpotato resume`은 canonical runtime ledger에서 재생성한 SQLite view를 표시합니다. `rpotato session resume <session-id>`와 `rpotato resume <session-id>`는 먼저 해당 ledger에서 project/session event를 확인하고, 존재할 때만 선택한 session id를 current-state에 기록합니다. 후속 agent-loop phase는 이 선택된 session으로 transcript를 replay하고 context를 재구성한 뒤 대화를 이어갑니다.
 
 ## 모델 Artifact
 

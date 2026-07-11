@@ -130,10 +130,10 @@ Session resume is a runtime-core responsibility, not a CLI-only shortcut.
 The runtime keeps three separate layers:
 
 - append-only ledger: audit source for session events
-- SQLite projection: queryable session history for CLI/TUI selection
+- SQLite projection: rebuildable session-history view for CLI/TUI selection
 - current state: the currently selected `session_id` and resume metadata
 
-`rpotato session list`, `rpotato session history`, and bare `rpotato resume` read selectable history from SQLite. `rpotato session resume <session-id>` and `rpotato resume <session-id>` write the selected session id into current state so later commands append under the selected session identity. The later agent-loop phase uses that selected session to replay transcript, rebuild context, and continue conversation.
+`rpotato session list`, `rpotato session history`, and bare `rpotato resume` render a SQLite view rebuilt from the canonical runtime ledger. `rpotato session resume <session-id>` and `rpotato resume <session-id>` first require a matching project/session event in that ledger; only then do they write the selected session id into current state. The later agent-loop phase uses that selected session to replay transcript, rebuild context, and continue conversation.
 
 ## Model Artifact
 

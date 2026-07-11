@@ -36,7 +36,11 @@ State-changing operation은 다음 순서로 진행합니다.
 Replay rule:
 
 - ledger event는 event-time/order sequence로 replay한다.
+- runtime ledger, project session ledger, operation log append는 하나의
+  recoverable writer lease를 공유해 동시 process가 hash chain을 fork하지 못하게 한다.
 - projection row는 stable event id로 idempotency를 보장한다.
+- SQLite `ledger_events`와 선택 가능한 session row는 canonical runtime ledger에서
+  재생성하며 SQLite에만 존재하는 session은 제거한다.
 - partial write는 missing projection row 또는 mismatched hash로 감지한다.
 - corrupt projection file은 재생성 전에 보존한다.
 - current-state pointer는 ledger/session history를 읽은 뒤에만 복구한다.
@@ -95,13 +99,19 @@ Patch workflow는 `.rpotato/workflows/` 아래에 저장됩니다. 변경 불가
 snapshot/ledger/pointer window를 idempotent하게 완료합니다. 각 revision은
 `previous_hash`와 `artifact_hash`를 연결하며 malformed ledger line, 누락 revision, stale
 latest checkpoint, chain conflict는 fail-closed로 차단합니다.
+Legacy schema v2 snapshot은 변경하지 않고 계속 읽습니다. 다음 checkpoint가 필요한 v2
+workflow는 기존 v2 hash를 보존한 채 schema v3 revision을 append하며 `v2*`, `v3*`,
+단방향 `v2+ -> v3+` chain만 허용합니다.
 
 Recovery는 `current-state.json`만 신뢰하지 않고 모든 workflow pointer, transaction,
 snapshot directory를 검사합니다. Nonterminal workflow가 둘 이상이면 conflict로
 fail-closed합니다. Crash 뒤 terminal workflow가 active pointer에 남으면 다시 검증한 뒤
-pointer를 atomic하게 비웁니다. Pending approval, 저장된 approval, verification evidence,
-terminal failure, completion은 process restart 뒤에도 유지됩니다. `pending-approval`
-resume은 model backend에 다시 진입하지 않고, complete resume도 proposal binding,
+pointer를 atomic하게 비웁니다. Patch approval과 verification approval은 서로 독립된
+영속 gate입니다. `patch approve`는 binding된 patch만 적용하고
+`pending-verification-approval`에서 멈추며, 별도로 발급한 credential만 `patch verify`를
+승인할 수 있습니다. 두 pending gate, verification evidence, terminal failure,
+completion은 process restart 뒤에도 유지됩니다. Resume은 일회성 credential을 다시
+표시하거나 model backend에 재진입하지 않으며, complete resume도 proposal binding,
 source, evidence, stop gate를 다시 검증합니다.
 `model-pending`과 `action-recorded` recovery는 backend에 다시 진입하지 않고 사실에 맞는
 terminal failure를 기록합니다. `verification-started`는 결과가 불명확한 durable

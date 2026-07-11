@@ -71,15 +71,16 @@ Phase 3 implements pre-execution normalization, and `rpotato run` now uses that 
 
 - `rpotato skill list` prints the built-in skill registry.
 - `rpotato skill run <id>` normalizes skill id, mode, allowed tools, context requirements, evidence requirements, and stop criteria, then records a ledger event.
-- `rpotato run "<request>"` maps user requests to skill/mode through deterministic intent rules, builds a bounded repository context pack with source pointers, prepares a runtime-owned action candidate and next gate, calls the running backend sidecar, parses the model's structured action line or recognized action text without execution, records intent/context/action/model-action/backend chat ledger events, and records token/latency metrics.
+- `rpotato run "<request>"` selects ontology-backed context, persists a runtime-owned typed read-only or patch action, rereads authoritative source for a valid patch, and stops at either a guarded Korean report or the exact `patch approve` gate.
 - `rpotato intent classify "<request>"` runs the same rules but prints only a classification report instead of planning an agent loop.
 - `rpotato intent routes` prints TUI command-palette routing to runtime commands.
-- `rpotato patch preview --path <path> --find <text> --replace <text>` renders a diff and approval token without modifying the target file.
+- `rpotato patch preview --path <path> --find <text> --replace <text>` renders a diff-only standalone record that cannot be approved, applied, or verified.
 - `rpotato patch approve <proposal-id> --token <token> --dry-run` verifies the approval gate and records a ledger event without applying the patch.
-- `rpotato patch approve <proposal-id> --token <token> [--verify-command <command>]` applies the approved patch when the current file hash still matches the previewed original hash, writes a rollback record, verifies the applied hash, and can run an allowed simple argv verification command.
+- `rpotato patch approve <proposal-id> --token <token>` accepts only a workflow proposal created by `run`, applies it when the source and proposal bindings remain valid, writes a rollback record, and issues a separate verification credential without running the command.
+- `rpotato patch verify <proposal-id> --token <token>` separately approves and runs the pre-bound policy-allowed argv verification plan.
 - Current state owns the active workflow; skill/plugin/TUI actions need a parent workflow pointer.
 - The optional model classifier is disabled. Current routing uses deterministic rules only.
-- Model-output-to-tool orchestration, verification output interpretation, and final reporting happen in later phases.
+- `run` owns the persisted workflow/action/proposal loop and typed final reporting; general model-output-to-tool orchestration beyond the bounded patch action remains a later phase.
 
 Current built-in skills:
 

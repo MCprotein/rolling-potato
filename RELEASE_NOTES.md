@@ -1,16 +1,34 @@
 # Release Notes
 
-## v0.29.0 - Durable Single-Agent Patch Loop
+## v0.29.0 - Durable Single-Agent Runtime Correction
 
 Status: In Progress
 
-v0.29.0 connects `run`, `state resume`, and `patch approve` through one
-restart-safe workflow. Model text is persisted as a non-executable action;
-runtime-owned source rereads, approval bindings, guarded apply, verification
-evidence, and the stop gate own every side effect and completion decision.
+v0.29.0 connects `run`, `state resume`, `patch approve`, and `patch verify`
+through one restart-safe workflow. Model text is persisted as a non-executable
+typed action; runtime-owned ontology context/source rereads, separate approval
+bindings, guarded apply, verification evidence, and the stop gate own every side
+effect and completion decision.
 
 ### Included
 
+- Separated the patch-only workflow identity into a generic workflow envelope
+  and typed action state, allowing read-only `run` and patch proposals to finish
+  through independent runtime paths.
+- Made the ontology projection the first context-selection layer and reread the
+  authoritative source before binding a source pointer into a patch proposal.
+- Stopped rendering raw model responses as final output and applied the guarded
+  Korean report contract to read-only, pending, blocked, and terminal results.
+- Split patch application and verification-command execution into separate
+  one-time credentials. `patch approve` never runs the command; only
+  `patch verify` can approve the pre-bound verification plan.
+- Added workflow schema v3 while preserving immutable v2 snapshots and hashes,
+  with one-way v2-to-v3 append migration and strict recovery binding.
+- Serialized runtime/project ledger mutation under a recoverable writer lease,
+  made corrupt current-state mutation fail closed, and removed SQLite-only
+  sessions from resume authority.
+- Made approve/cancel races, already-restored rollback, and tampered source
+  recovery artifact paths idempotent or fail closed.
 - Added immutable versioned workflow snapshots, a synced recovery transaction,
   and an atomic committed-revision pointer with schema/revision/hash chains matched
   to strictly parsed append-only ledger checkpoints.
@@ -43,17 +61,19 @@ evidence, and the stop gate own every side effect and completion decision.
 ### Verified During Implementation
 
 - `cargo fmt --all -- --check`
-- `cargo test --locked -- --test-threads=1` (275 tests: 264 unit and 11 Unix subprocess integration)
-- `cargo clippy --all-targets --locked -- -D warnings`
+- `cargo test --locked -- --test-threads=1` (294 tests: 282 unit and 12 Unix subprocess integration)
+- `cargo clippy --locked --all-targets -- -D warnings`
 - `cargo build --release --locked`
 - `scripts/release/verify-release-policy.sh`
-- Isolated release-binary `doctor`, `help`, and `init` smoke
+- `scripts/release/verify-release-target-matrix.sh`
+- Release-binary `doctor` smoke through `scripts/release/verify-release-binary-smoke.sh`
 
 ### Boundary
 
 This release does not implement full conversation transcript replay, streaming,
 subagent/team execution, or interactive TUI mutation. Those remain later roadmap
-items. SQLite is a rebuildable workflow projection, never a second authority.
+items. SQLite is a workflow/session projection rebuilt from the canonical runtime
+ledger, never a second authority.
 Mode-0600 project-local workflow/proposal artifacts retain the snippets, proposal
 diff/proposed source, transaction metadata, and rollback source required for
 recovery until project cleanup; SQLite/monitor, ledger details, and evidence do
