@@ -1,5 +1,38 @@
 # Release Notes
 
+## v0.30.0 - Verified Local Model Adoption
+
+Release date: 2026-07-11
+
+This release turns source-backed Qwen/Gemma candidates into a measured, fail-closed local adoption path. It does not bundle model weights and does not treat public benchmark scores as comparable to the local GGUF runs.
+
+### Included
+
+- Added strict persistent `model default [<id>]` selection and optional `backend start --model`; every resolution revalidates registry, artifact bytes, and promotion evidence.
+- Bound promotion to an exact `backend.chat.completed` event carrying backend binary, model artifact, context, sampling, mmproj, OS, and architecture provenance.
+- Added the canonical `model-adoption-smoke-v1` fixture and direct benchmark-to-chat event linkage.
+- Kept Qwen-only non-thinking options out of Gemma requests.
+- Preserved and rebuilt corrupt project ledger mirrors from the valid app-global canonical ledger without weakening global-ledger validation.
+- Evaluated both pinned artifacts on the same local host; Gemma alone passed exact-response equality and was promoted, installed, and selected as the persistent default.
+
+### Measured Local Evidence
+
+Host: MacBook Pro `Mac17,8`, Apple M5 Pro, 64 GB RAM, macOS arm64; managed `llama.cpp b9878`; context 4096; temperature 0.1; top-p 0.8.
+
+| Artifact | Result | Latency | Tokens/s | Peak RSS |
+| --- | --- | ---: | ---: | ---: |
+| Qwen3.5 4B Q4_K_M | `2/3`, exact response failed; markers `5/5`, forbidden `0` | `1680 ms` | `61.9048` | `3296378880` bytes |
+| Gemma 4 E4B IT QAT q4_0 | `3/3`, exact response passed; markers `5/5`, forbidden `0` | `1686 ms` | `61.6845` | `5521932288` bytes |
+
+Qwen emitted the instruction sentence before the five required lines, so its lower measured RSS did not override the failed contract. Gemma's local `recommendedRamGb=8` is derived as the measured peak RSS rounded up to GiB plus 2 GiB headroom. This is not a 16 GB host test, a universal model ranking, or public benchmark parity.
+
+### Boundary
+
+- Static manifest candidates remain `unverified`; local promotion is valid only while its evidence revalidates.
+- The adoption smoke checks a narrow instruction/safety contract, not full repository code-edit or tool-execution quality.
+- Model weights remain in user app data and are not committed or attached to the GitHub Release.
+- Windows and 16 GB model runtime validation remain open.
+
 ## v0.29.1 - Cross-Platform Aggregate Checksum Fix
 
 Release date: 2026-07-11

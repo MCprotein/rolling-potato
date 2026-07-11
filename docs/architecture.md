@@ -257,7 +257,7 @@ Model metadata is managed through manifests.
 
 `null` and `TODO` are schema placeholders, not product facts.
 
-Qwen and Gemma now have source-recorded `unverified` artifact candidates in the scaffold manifest. They are not installable defaults until local backend smoke, RAM-fit measurement, mmproj-need review, and benchmark/source review promote them to `verified`. Model claims follow [model-source-policy.md](model-source-policy.md).
+Qwen and Gemma have source-recorded static `unverified` artifact candidates in the scaffold manifest. Static status is never rewritten by one machine's result. A host may install and select a candidate only while separate local promotion evidence revalidates the artifact bytes, exact backend chat provenance, RAM/mmproj result, and hash-pinned canonical benchmark. Model claims follow [model-source-policy.md](model-source-policy.md).
 
 ## Later Adapters
 

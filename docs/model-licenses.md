@@ -33,8 +33,8 @@ Current policy:
 
 | Candidate | Role | Status | Notes |
 | --- | --- | --- | --- |
-| `Qwen3.5-4B` GGUF | priority evaluation candidate | `unverified` artifact candidate selected | `unsloth/Qwen3.5-4B-GGUF` Q4_K_M artifact URL, SHA-256, and size are source-recorded; local `llama.cpp` smoke, RAM fit, and mmproj need are still unverified |
-| `Gemma 4 E4B` GGUF | comparison candidate | `unverified` artifact candidate selected | Google `gemma-4-E4B-it-qat-q4_0-gguf` artifact URL, SHA-256, and size are source-recorded; local `llama.cpp` smoke, RAM fit, and mmproj need are still unverified |
+| `Qwen3.5-4B` GGUF | priority evaluation candidate | static `unverified`; local v0.30.0 adoption gate failed | Pinned Q4_K_M bytes and license sources were verified, but the recorded 64 GB macOS run added an extra instruction line and failed exact-response equality |
+| `Gemma 4 E4B` GGUF | comparison candidate | static `unverified`; local v0.30.0 promotion passed | Pinned q4_0 bytes and license sources were verified; the recorded host passed the canonical local adoption gate and selected Gemma as its persistent default |
 | `Qwen3.5-9B` GGUF | quality reference candidate | upstream license checked, product default postponed | RAM impact and runtime fit remain unconfirmed before measurement |
 
 ## Confirmed Source Ledger
@@ -49,16 +49,14 @@ The following source ledger separates source-recorded artifact fields from runti
 | Apache License 2.0 allows use, reproduction, modification, sublicensing, and distribution when conditions are followed, and requires license copy, modification notice, preservation of existing attribution/NOTICE, and trademark limits. | https://ai.google.dev/gemma/apache_2 | 2026-06-25 | confirmed |
 | The Hugging Face API for `Qwen/Qwen3.5-4B` reports `license:apache-2.0` and the `unsloth/Qwen3.5-4B-GGUF` artifact card reports `license:apache-2.0`, base model `Qwen/Qwen3.5-4B`, and license link to the upstream Qwen license. | https://huggingface.co/api/models/Qwen/Qwen3.5-4B, https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF | 2026-07-06 | confirmed for source fields; runtime fit unverified |
 | The `Qwen3.5-4B-Q4_K_M.gguf` artifact entry lists size `2740937888` and LFS oid `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`. | https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/tree/main?recursive=1 | 2026-07-06 | source-recorded expected hash; download-byte verification still required |
-| The Hugging Face API for `google/gemma-4-E4B-it-qat-q4_0-gguf` reports `license:apache-2.0`, license link to the Gemma 4 license page, base model `google/gemma-4-E4B-it-qat-q4_0-unquantized`, GGUF architecture `gemma4`, and `endpoints_compatible`. | https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf, https://ai.google.dev/gemma/docs/gemma_4_license | 2026-07-06 | confirmed for source fields; runtime fit unverified |
+| The Hugging Face API for `google/gemma-4-E4B-it-qat-q4_0-gguf` reports `license:apache-2.0`, and Google's current Gemma page publishes Apache License 2.0. | https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf, https://ai.google.dev/gemma/apache_2 | 2026-07-11 | confirmed for source fields; license is separate from host-specific runtime fit |
 | The `gemma-4-E4B_q4_0-it.gguf` artifact entry lists size `5154939136` and LFS oid `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d`. | https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf/tree/main?recursive=1 | 2026-07-06 | source-recorded expected hash; download-byte verification still required |
 
 ## Not Yet Confirmed
 
-- default recommended model
-- actual `llama.cpp` compatibility
 - real performance and stability on 16 GB RAM
-- Korean output guard pass rate
-- whether text-only runs require mmproj for the selected multimodal GGUF artifacts
+- broad Korean output guard pass rate beyond the five-marker adoption smoke
+- whether the recorded text-only mmproj result generalizes to multimodal use
 
 ## Artifact Selection Checklist
 
@@ -86,4 +84,4 @@ When a model is added to the manifest, record:
 
 ## Open Issue
 
-The exact `Qwen3.5-4B` artifact candidate is selected as `unverified`, not as a product default. Run the local backend smoke, RAM-fit measurement, Korean/code guard, and benchmark evaluation in [model-eval.md](model-eval.md) and [benchmarks.md](benchmarks.md) before promoting it to `verified`.
+Both static entries remain `unverified`; v0.30.0 permits a host-local promotion only while artifact, backend chat provenance, RAM/mmproj evidence, and canonical benchmark linkage revalidate. The recorded machine selected Gemma locally after Qwen failed exact-response equality. This does not bundle or redistribute either model and does not establish a universal default.

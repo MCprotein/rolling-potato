@@ -267,6 +267,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             model_path,
             ctx_size,
         }) => {
+            let model_path = match model_path {
+                Some(path) => path,
+                None => model::default_artifact_path()?.display().to_string(),
+            };
             println!("{}", backend::start_report(&model_path, ctx_size)?);
             Ok(())
         }
@@ -383,6 +387,14 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
         }
         Command::Model(ModelCommand::Registry) => {
             println!("{}", model::registry_report());
+            Ok(())
+        }
+        Command::Model(ModelCommand::Default) => {
+            println!("{}", model::default_report()?);
+            Ok(())
+        }
+        Command::Model(ModelCommand::SetDefault { id }) => {
+            println!("{}", model::set_default_report(&id)?);
             Ok(())
         }
         Command::Model(ModelCommand::DownloadPlan { id }) => {

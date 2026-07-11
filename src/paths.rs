@@ -72,6 +72,10 @@ pub fn model_evidence_dir() -> PathBuf {
     models_dir().join("evidence")
 }
 
+pub fn model_default_file() -> PathBuf {
+    models_dir().join("default.json")
+}
+
 pub fn downloads_dir() -> PathBuf {
     app_data_root().join("downloads")
 }

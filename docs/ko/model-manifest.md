@@ -41,8 +41,8 @@
 
 | Model ID | Artifact provider | Artifact | Revision | Quantization | Size bytes | SHA-256 | Source status |
 | --- | --- | --- | --- | --- | ---: | --- | --- |
-| `qwen3.5-4b` | `unsloth/Qwen3.5-4B-GGUF` | `Qwen3.5-4B-Q4_K_M.gguf` | `e87f176479d0855a907a41277aca2f8ee7a09523` | `Q4_K_M` | `2740937888` | `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4` | `unverified`: source-listed artifact이며 local `llama.cpp b9878` smoke, RAM fit, mmproj 필요 여부는 아직 측정하지 않음 |
-| `gemma-4-e4b` | `google/gemma-4-E4B-it-qat-q4_0-gguf` | `gemma-4-E4B_q4_0-it.gguf` | `bb3b92e6f031fa438b409f898dd9f14f499a0cb0` | `QAT q4_0` | `5154939136` | `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d` | `unverified`: source-listed artifact이며 local `llama.cpp b9878` smoke, RAM fit, mmproj 필요 여부는 아직 측정하지 않음 |
+| `qwen3.5-4b` | `unsloth/Qwen3.5-4B-GGUF` | `Qwen3.5-4B-Q4_K_M.gguf` | `e87f176479d0855a907a41277aca2f8ee7a09523` | `Q4_K_M` | `2740937888` | `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4` | Static `unverified`; 기록된 host-local smoke/RAM/mmproj evidence는 있지만 exact-response equality를 실패해 local promotion은 무효 |
+| `gemma-4-e4b` | `google/gemma-4-E4B-it-qat-q4_0-gguf` | `gemma-4-E4B_q4_0-it.gguf` | `bb3b92e6f031fa438b409f898dd9f14f499a0cb0` | `QAT q4_0` | `5154939136` | `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d` | Static `unverified`; 기록된 host-local smoke/RAM/mmproj evidence가 통과해 재검증되는 local promotion/default selection을 지원 |
 
 2026-07-06 확인 source:
 
@@ -108,6 +108,7 @@
 - `rpotato model promote <id> --evidence <file>`
 - `rpotato model cleanup-failed <id> --dry-run`
 - `rpotato model install <id>`
+- `rpotato model default [<id>]`
 
 후보 상태:
 
@@ -128,28 +129,28 @@
 `model promote <id> --evidence <file>`은 registry 등록 전에 local promotion evidence를 검증합니다. 이 명령은 다음을 요구합니다.
 
 - app-managed artifact file size와 SHA-256이 source-backed manifest와 일치해야 한다.
-- `backend.sidecar.start.completed` 또는 `backend.chat.completed` ledger event id가 있어야 한다.
-- `ramFit=passed`, `recommendedRamGb`, `peakRssBytes` RAM evidence가 있어야 한다.
+- backend binary, model artifact, context, sampling, mmproj 상태, OS, architecture provenance가 후보와 일치하는 `backend.chat.completed` event가 있어야 한다.
+- `ramFit=observed-within-local-host`, 실제 `peakRssBytes`, `ceil(peak RSS GiB) + 2 GiB`와 같은 `recommendedRamGb`가 있어야 한다.
 - `mmproj` evidence는 `not-required-text-only`, `not-required`, `required` 중 하나여야 한다.
-- `benchmarkRunId`에 대응하는 SQLite benchmark row가 `claim_state=measured-locally`, `local_pass=true`이고 후보 backend를 사용하며 `peak_rss_bytes`가 evidence와 일치해야 한다.
+- SQLite row의 fixture ID, fixture SHA-256, prompt SHA-256, benchmark name, dataset reference가 release-pinned canonical adoption contract와 일치하고, requested/effective max token이 모두 192이며, quantization이 source-backed model manifest에서 resolve되어야 한다. 또한 chat event를 `model_run_id`로 직접 가리키고, `claim_state=measured-locally`, `local_pass=true`, 후보 backend, 동일한 `peak_rss_bytes`를 가져야 한다.
 
 Promotion evidence JSON schema:
 
 ```json
 {
   "schemaVersion": 1,
-  "modelId": "qwen3.5-4b",
-  "artifactSha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
-  "artifactSizeBytes": 2740937888,
+  "modelId": "gemma-4-e4b",
+  "artifactSha256": "e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d",
+  "artifactSizeBytes": 5154939136,
   "backendId": "llama.cpp",
   "backendVersion": "b9878",
   "backendSmokeEventId": "event-...",
-  "ramFit": "passed",
-  "recommendedRamGb": 16,
-  "peakRssBytes": 3351363584,
+  "ramFit": "observed-within-local-host",
+  "recommendedRamGb": 8,
+  "peakRssBytes": 5521932288,
   "mmproj": "not-required-text-only",
   "benchmarkRunId": "benchmark-event-...",
-  "recordedAt": "2026-07-10T00:00:00Z"
+  "recordedAt": "2026-07-11T00:00:00Z"
 }
 ```
 
@@ -158,6 +159,14 @@ Promotion evidence JSON schema:
 `model cleanup-failed`는 app data의 `downloads/`와 `models/` 아래에 있는 app-managed partial/failed artifact path만 대상으로 합니다. 삭제는 `--delete`가 명시된 경우에만 실행하고, 기본 검증과 문서 smoke는 `--dry-run`을 사용합니다.
 
 `model install`은 source-backed manifest entry가 정적으로 `verified`이거나 `models/evidence/<model-id>.promotion.json`이 local artifact, ledger, RAM/mmproj, benchmark evidence와 다시 일치할 때만 모델을 등록합니다. Registry entry는 `models/registry/<model-id>.json`에 기록합니다.
+
+`model default <id>`는 artifact와 promotion evidence가 재검증되는 registry 모델만 선택합니다. `model default`는 현재 선택을 보여줍니다. `backend start`에서 `--model`을 생략하면 지속 기본 모델을 재검증해 사용하며 실패 시 fail-closed합니다.
+
+## v0.30.0 로컬 도입 기록
+
+2026-07-11 Apple M5 Pro와 64GB RAM의 MacBook Pro, `llama.cpp b9878`, context 4096, temperature 0.1, top-p 0.8 조건에서 두 pinned artifact에 같은 hash-pinned 5-line local adoption contract를 실행했습니다. 최신 Gemma 실행은 `1686ms`, `61.6845 tokens/s`, peak RSS `5521932288` bytes와 `3/3` 통과를 기록했습니다. Qwen은 `1680ms`, `61.9048 tokens/s`, peak RSS `3296378880` bytes였지만 필수 marker 5개 앞에 지시문을 한 줄 추가해 `2/3`으로 실패했습니다. 두 모델 모두 금지 marker는 0건이었습니다.
+
+Gemma는 exact-response equality를 통과해 local promotion, registry 등록, 지속 기본 선택을 완료했습니다. Qwen의 낮은 RSS는 instruction contract 실패보다 우선하지 않습니다. 이는 보편적 model ranking, 16GB evidence, public benchmark parity가 아닙니다. Model weight는 repository와 release asset에 포함하지 않습니다.
 
 ## 필수 검증
 

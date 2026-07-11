@@ -53,7 +53,7 @@ local smoke 또는 benchmark 실행 전 `rpotato model eval-plan <id>`를 실행
 
 ## 평가 환경
 
-초기 기준 환경:
+v0.30.0 도입 측정에서는 아직 사용하지 않은 목표 기준 환경:
 
 - 16 GB RAM laptop
 - macOS 또는 Windows
@@ -184,6 +184,19 @@ local smoke 또는 benchmark 실행 전 `rpotato model eval-plan <id>`를 실행
 
 ## 현재 로컬 실행 증거
 
+2026-07-11 v0.30.0 확인:
+
+- Host: MacBook Pro `Mac17,8`, Apple M5 Pro, 64GB RAM, macOS arm64. 이 결과는 16GB 실행 가능성이나 Windows 동작을 증명하지 않습니다.
+- Backend: managed `llama.cpp b9878`, binary SHA-256 `12df97ffa9d48545e96cd3237a71f78efd1cc0222f971cbd65f7ab57e793b128`, context 4096, temperature 0.1, top-p 0.8, text-only `mmproj=not-required-text-only`.
+- Canonical fixture: dataset ref가 `local-model-adoption-smoke-v1`인 `benchmarks/fixtures/model-adoption-smoke-v1.json`. 고정된 한국어/instruction/code-route/source-abstention/destructive-denial marker 5개를 검사합니다. 이는 좁은 제품 도입 smoke이며 광범위한 coding quality benchmark가 아닙니다.
+- Qwen `Qwen3.5-4B-Q4_K_M.gguf`: source-pinned size `2740937888`, SHA-256 `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`와 실제 bytes 일치, startup `622ms`, score `2/3`, 필수 marker `5/5`, 금지 marker `0`, latency `1680ms`, `61.9047619047619 tokens/s`, prompt/completion/total token `146/104/250`, peak RSS `3296378880` bytes. 요구된 다섯 줄 앞에 지시문 문장을 추가 출력해 exact-response equality를 실패했습니다.
+- Gemma `gemma-4-E4B_q4_0-it.gguf`: source-pinned size `5154939136`, SHA-256 `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d`와 실제 bytes 일치, startup `940ms`, score `3/3`, 필수 marker `5/5`, 금지 marker `0`, latency `1686ms`, `61.6844602609727 tokens/s`, prompt/completion/total token `167/104/271`, peak RSS `5521932288` bytes. 요구된 다섯 줄과 정확히 일치했습니다.
+- Gemma를 local promotion, install, 지속 기본 모델로 선택했습니다. RAM evidence의 `recommendedRamGb=8`은 `ceil(5521932288 / 1 GiB) + 2 GiB`로 계산했습니다. Qwen의 더 낮은 측정 RSS는 instruction contract 실패를 덮지 않습니다.
+- `model default <id>`는 재검증된 registry 모델만 지속 선택합니다. `backend start`에서 `--model`을 생략하면 registry, artifact bytes, promotion evidence를 다시 검증한 뒤에만 선택을 사용합니다.
+- 실행 중 발견한 손상된 project-local ledger mirror는 `.corrupt.<timestamp>`로 보존하고 정상인 app-global canonical ledger에서 재구축했습니다. Global ledger는 계속 fail-closed하며 파생 project mirror만 복구합니다.
+
+두 결과 모두 `measured-locally`입니다. 이 실행은 upstream 공개 점수의 원 artifact, quantization, prompt, harness, backend, hardware, scoring 조건과 같지 않으므로 published score는 계속 `non-comparable`입니다. Gemma 선택은 좁은 host-local adoption 결정이며 보편적인 capability 또는 performance claim이 아닙니다.
+
 2026-07-06 확인:
 
 - `rpotato model fetch-candidate qwen3.5-4b --for-evaluation`로 source-recorded Qwen3.5-4B Q4_K_M GGUF artifact를 app-managed model storage에 다운로드했고, file size `2740937888`과 SHA-256 `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`를 검증했습니다.
@@ -203,7 +216,7 @@ local smoke 또는 benchmark 실행 전 `rpotato model eval-plan <id>`를 실행
 - `rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32`는 benchmark run `benchmark-event-1783583665619790000-97803-benchmark-run-executed`를 기록했습니다. 결과는 `claim_state=measured-locally`, score `3/3`, `local_pass=true`, expected markers `1/1`, forbidden matches `0`, latency `243ms`, `28.806584` tokens/sec, `prompt tokens: 76`, `completion tokens: 7`, `total tokens: 83`, resource pressure `normal`, peak RSS `3351363584` bytes입니다.
 - 측정 후 `rpotato backend stop`으로 sidecar를 중지했습니다.
 
-이 증거만으로 Qwen3.5-4B를 자동으로 `verified` 승격하지 않습니다. v0.25.0부터 승격에는 `rpotato model promote qwen3.5-4b --evidence <file>`이 필요하며, evidence file은 app-managed artifact, backend smoke ledger event, RAM-fit/mmproj field, SQLite `measured-locally` benchmark row와 일치해야 합니다. 위 증거는 non-thinking chat path 기반 첫 executable local smoke benchmark 통과를 증명합니다. Gemma 비교, 더 넓은 prompt compiler behavior, source-read/hallucination scoring, public benchmark parity는 아직 열려 있습니다.
+기존 2026-07-09 smoke만으로는 Qwen을 승격하지 않았습니다. 위 2026-07-11의 더 엄격한 evidence가 v0.30.0 local promotion path를 완료했습니다. 더 넓은 prompt compiler behavior, 실제 repository code-edit 품질, tool 실행, source-read/hallucination scoring, 16GB/Windows 검증, public benchmark parity는 아직 열려 있습니다.
 
 ## `verified` 승격 전 확인 사항
 

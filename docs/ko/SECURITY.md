@@ -35,4 +35,4 @@ MVP 보안 경계:
 - 모델 checksum 검증 실패 시 등록 금지
 - 로그에 credential 저장 금지
 
-자세한 위협 모델은 [docs/threat-model.md](docs/threat-model.md)를 따릅니다.
+자세한 위협 모델은 [threat-model.md](threat-model.md)를 따릅니다.

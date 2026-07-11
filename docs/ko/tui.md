@@ -4,7 +4,7 @@ TUI는 Claude Code/Codex replacement experience에 필요한 필수 product surf
 
 첫 구현은 CLI command에서 시작할 수 있지만, target runtime은 interactive work를 위한 terminal UI를 지원해야 합니다.
 
-TUI design source of truth는 [DESIGN.md](../DESIGN.md)입니다. 특히 monitoring 화면은 SSH/Linux server에서도 쓸 수 있어야 하므로 browser나 GUI를 전제하지 않습니다.
+TUI design source of truth는 [DESIGN.md](../../DESIGN.md)입니다. 특히 monitoring 화면은 SSH/Linux server에서도 쓸 수 있어야 하므로 browser나 GUI를 전제하지 않습니다.
 
 ## 현재 Beta Surface
 
