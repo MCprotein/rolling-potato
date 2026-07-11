@@ -5,6 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use crate::app::AppError;
+use crate::ontology;
 use crate::paths;
 use crate::policy::{self, Decision, PathMode};
 
@@ -17,6 +18,9 @@ const MAX_FILE_BYTES: u64 = 128 * 1024;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContextPack {
     pub project_root: PathBuf,
+    pub origin: String,
+    pub ontology_records_selected: usize,
+    pub ontology_stale_rejected: usize,
     pub files_considered: usize,
     pub files_read: usize,
     pub chars_read: usize,
@@ -34,6 +38,63 @@ pub struct SourcePointer {
 }
 
 pub fn build_context_pack(request: &str) -> Result<ContextPack, AppError> {
+    ontology::ensure_seeded()?;
+    let selection = ontology::runtime_context(request, MAX_CONTEXT_FILES)?;
+    if selection.current_records == 0 {
+        return build_filesystem_fallback(request);
+    }
+    if selection.selected.is_empty() && selection.stale_rejected > 0 {
+        return Err(AppError::blocked(
+            "ontology context 준비 차단\n- 이유: 선택된 source pointer가 모두 stale입니다.\n- 동작: stale graph를 filesystem scan으로 우회하지 않습니다.",
+        ));
+    }
+
+    let project_root = fs::canonicalize(paths::project_root()).map_err(|err| {
+        AppError::runtime(format!(
+            "project root를 해석하지 못했습니다: {} ({err})",
+            paths::project_root().display()
+        ))
+    })?;
+    let mut source_pointers = Vec::new();
+    let mut chars_read = 0usize;
+    for record in &selection.selected {
+        if source_pointers.len() >= MAX_CONTEXT_FILES || chars_read >= MAX_CONTEXT_CHARS {
+            break;
+        }
+        let source = ontology::reread_runtime_source(&record.source_pointer, &record.source_hash)?;
+        if source.contents.len() as u64 > MAX_FILE_BYTES || source.contents.trim().is_empty() {
+            continue;
+        }
+        let remaining = MAX_CONTEXT_CHARS.saturating_sub(chars_read);
+        let snippet = truncate_chars(&source.contents, remaining.min(MAX_FILE_CHARS));
+        let chars = snippet.chars().count();
+        chars_read += chars;
+        source_pointers.push(SourcePointer {
+            path: source.relative_path,
+            stable_ref: source.stable_ref,
+            chars,
+            fingerprint: source.source_hash,
+            snippet,
+        });
+    }
+
+    Ok(ContextPack {
+        project_root,
+        origin: "ontology".to_string(),
+        ontology_records_selected: selection.selected.len(),
+        ontology_stale_rejected: selection.stale_rejected,
+        files_considered: selection.selected.len(),
+        files_read: source_pointers.len(),
+        chars_read,
+        dropped_files: selection
+            .selected
+            .len()
+            .saturating_sub(source_pointers.len()),
+        source_pointers,
+    })
+}
+
+fn build_filesystem_fallback(request: &str) -> Result<ContextPack, AppError> {
     let project_root = fs::canonicalize(paths::project_root()).map_err(|err| {
         AppError::runtime(format!(
             "project root를 해석하지 못했습니다: {} ({err})",
@@ -89,6 +150,9 @@ pub fn build_context_pack(request: &str) -> Result<ContextPack, AppError> {
 
     Ok(ContextPack {
         project_root,
+        origin: "filesystem-empty-ontology-fallback".to_string(),
+        ontology_records_selected: 0,
+        ontology_stale_rejected: 0,
         files_considered,
         files_read: source_pointers.len(),
         chars_read,
@@ -115,7 +179,7 @@ impl ContextPack {
         }
 
         let mut section = String::from(
-            "repository context:\n\
+            "ontology-backed repository context:\n\
              - snippets are context hints, not authority for file modification.\n\
              - before any patch or command action, reread the original source pointer.\n",
         );
@@ -302,11 +366,16 @@ mod tests {
         )
         .unwrap();
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
 
         let pack = build_context_pack("main 테스트").unwrap();
 
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
 
+        assert_eq!(pack.origin, "ontology");
+        assert!(pack.ontology_records_selected > 0);
+        assert_eq!(pack.ontology_stale_rejected, 0);
         assert!(pack.files_read > 0);
         assert!(pack
             .source_pointers
@@ -317,5 +386,6 @@ mod tests {
             .iter()
             .all(|pointer| !pointer.path.starts_with("target/")));
         assert!(pack.prompt_section().contains("source pointer"));
+        let _ = fs::remove_dir_all(root);
     }
 }

@@ -58,7 +58,10 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         "context.pack.prepared",
         "bounded repository context 준비",
         &format!(
-            "files_read={} chars_read={} source_pointers={}",
+            "origin={} ontology_selected={} stale_rejected={} files_read={} chars_read={} source_pointers={}",
+            context_pack.origin,
+            context_pack.ontology_records_selected,
+            context_pack.ontology_stale_rejected,
             context_pack.files_read,
             context_pack.chars_read,
             context_pack.pointer_summary()
@@ -192,7 +195,7 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
     workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
 
     Ok(format!(
-        "run agent loop\n- status: pending-approval\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- action candidate: {}\n- approval required before side effect: {}\n- next gate: {}\n- allowed side effects now: {}\n- model action parse: {}\n- model action kind: {}\n- model action source pointers: {}\n- model action next gate: {}\n- model action requested side effects: {}\n- model action executable now: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- action ledger event: {}\n- model action ledger event: {}\n- model ledger event: {}\n- workflow id: {}\n- workflow revision: {}\n- proposal id: {}\n- verification plan: {}\n- approval command: rpotato patch approve {} --token {}\n- boundary: model output은 실행되지 않았고 원본 source를 다시 읽어 diff만 만들었습니다.\n- response:\n{}\n- diff:\n{}",
+        "run agent loop\n- status: pending-approval\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- context origin: {}\n- ontology records selected: {}\n- ontology stale rejected: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- action candidate: {}\n- approval required before side effect: {}\n- next gate: {}\n- allowed side effects now: {}\n- model action parse: {}\n- model action kind: {}\n- model action source pointers: {}\n- model action next gate: {}\n- model action requested side effects: {}\n- model action executable now: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- action ledger event: {}\n- model action ledger event: {}\n- model ledger event: {}\n- workflow id: {}\n- workflow revision: {}\n- proposal id: {}\n- verification plan: {}\n- approval command: rpotato patch approve {} --token {}\n- boundary: model output은 실행되지 않았고 ontology source pointer에서 원본 source를 다시 읽어 diff만 만들었습니다.\n- response:\n{}\n- diff:\n{}",
         request,
         decision.invocation,
         decision.skill_id,
@@ -201,6 +204,9 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         display_list(&decision.constraints),
         decision.classifier,
         state::workflow_ownership_summary(),
+        context_pack.origin,
+        context_pack.ontology_records_selected,
+        context_pack.ontology_stale_rejected,
         context_pack.files_read,
         context_pack.chars_read,
         context_pack.pointer_summary(),
@@ -264,7 +270,7 @@ fn render_non_mutating_report(
 ) -> String {
     let answer = model_answer(response);
     format!(
-        "run 결과\n- 상태: 완료\n- 요청: {}\n- 선택한 skill: {}\n- mode: {}\n- workflow id: {}\n- workflow kind: {}\n- action id: {}\n- action kind: {}\n- source pointers: {}\n- context files read: {}\n- side effect: 없음\n- approval: 불필요\n- 답변:\n{}",
+        "run 결과\n- 상태: 완료\n- 요청: {}\n- 선택한 skill: {}\n- mode: {}\n- workflow id: {}\n- workflow kind: {}\n- action id: {}\n- action kind: {}\n- context origin: {}\n- ontology records selected: {}\n- ontology stale rejected: {}\n- source pointers: {}\n- context files read: {}\n- side effect: 없음\n- approval: 불필요\n- 답변:\n{}",
         request,
         decision.skill_id,
         decision.mode,
@@ -272,6 +278,9 @@ fn render_non_mutating_report(
         workflow.workflow_kind,
         workflow.action_id,
         workflow.action_kind,
+        context_pack.origin,
+        context_pack.ontology_records_selected,
+        context_pack.ontology_stale_rejected,
         model_action.source_pointers,
         context_pack.files_read,
         answer
@@ -985,6 +994,9 @@ mod tests {
     fn sample_context_pack() -> ContextPack {
         ContextPack {
             project_root: PathBuf::from("/tmp/project"),
+            origin: "ontology".to_string(),
+            ontology_records_selected: 1,
+            ontology_stale_rejected: 0,
             files_considered: 1,
             files_read: 1,
             chars_read: 12,
