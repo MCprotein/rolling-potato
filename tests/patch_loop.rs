@@ -298,6 +298,57 @@ fn happy_path_is_restart_safe_and_reports_korean() {
 }
 
 #[test]
+fn read_only_run_completes_without_patch_gate() {
+    let fixture = fixture("read-only-subprocess");
+    fs::write(
+        &fixture.response,
+        "구조를 확인했으며 파일 변경은 필요하지 않습니다.\nMODEL ACTION: kind=inspect-sources; source_pointers=src/lib.rs:1; next_gate=source-reread-before-claim; side_effects=none",
+    )
+    .unwrap();
+    fixture.start();
+
+    let run = fixture.command(&["run", "저장소 구조를 분석해줘"]);
+    assert!(
+        run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let report = String::from_utf8(run.stdout).unwrap();
+    assert!(report.starts_with("run 결과\n- 상태: 완료"));
+    assert!(report.contains("- action kind: inspect-sources"));
+    assert!(report.contains("- side effect: 없음"));
+    assert!(report.contains("구조를 확인했으며 파일 변경은 필요하지 않습니다."));
+    assert!(!report.contains("MODEL ACTION"));
+    assert_eq!(
+        fs::read_to_string(fixture.project.join("src/lib.rs")).unwrap(),
+        "pub const VALUE: i32 = 1;\n"
+    );
+
+    let workflow_id = field(&report, "workflow id");
+    let snapshots = fixture
+        .project
+        .join(".rpotato/workflows")
+        .join(format!("{workflow_id}.snapshots"));
+    let latest = fs::read_dir(snapshots)
+        .unwrap()
+        .filter_map(Result::ok)
+        .max_by_key(|entry| entry.file_name())
+        .unwrap();
+    let stored = fs::read_to_string(latest.path()).unwrap();
+    assert!(stored.contains("\"workflow_kind\": \"agent-run\""));
+    assert!(stored.contains("\"action_kind\": \"inspect-sources\""));
+    assert!(stored.contains("\"phase\": \"complete\""));
+
+    let status = fixture.command(&["state"]);
+    assert!(
+        status.status.success(),
+        "{}",
+        String::from_utf8_lossy(&status.stderr)
+    );
+    assert!(String::from_utf8_lossy(&status.stdout).contains("active workflow: 없음"));
+}
+
+#[test]
 fn complete_resume_revalidates_deleted_evidence() {
     let fixture = fixture("complete-evidence-delete");
     fixture.start();

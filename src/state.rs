@@ -10,7 +10,7 @@ use crate::observability::{self, StoreStatus};
 use crate::paths;
 use sha2::{Digest, Sha256};
 
-const WORKFLOW_SCHEMA_VERSION: u64 = 1;
+const WORKFLOW_SCHEMA_VERSION: u64 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkflowRecord {
@@ -22,8 +22,11 @@ pub struct WorkflowRecord {
     pub session_id: String,
     pub phase: String,
     pub request_hash: String,
+    pub workflow_kind: String,
     pub action_id: String,
+    pub action_kind: String,
     pub action_status: String,
+    pub result_summary: String,
     pub source_path: String,
     pub source_hash: String,
     pub find_text: String,
@@ -58,7 +61,10 @@ impl WorkflowRecord {
             session_id: identity.session_id,
             phase: "model-pending".to_string(),
             request_hash: sha256_text(request),
+            workflow_kind: "agent-run".to_string(),
+            action_kind: "unclassified".to_string(),
             action_status: "runtime-candidate".to_string(),
+            result_summary: String::new(),
             source_path: String::new(),
             source_hash: String::new(),
             find_text: String::new(),
@@ -135,13 +141,15 @@ pub fn checkpoint_workflow(
         "workflow.checkpoint",
         "canonical workflow revision persisted",
         &format!(
-            "workflow_id={} revision={} artifact_hash={} previous_hash={} phase={} action_id={} proposal_id={} evidence_id={}",
+            "workflow_id={} revision={} artifact_hash={} previous_hash={} phase={} workflow_kind={} action_id={} action_kind={} proposal_id={} evidence_id={}",
             next.workflow_id,
             next.revision,
             next.artifact_hash,
             next.previous_hash,
             next.phase,
+            next.workflow_kind,
             next.action_id,
+            next.action_kind,
             display_empty(&next.proposal_id),
             display_empty(&next.evidence_id)
         ),
@@ -184,7 +192,7 @@ pub fn load_workflow(workflow_id: &str) -> Result<WorkflowRecord, AppError> {
         != WORKFLOW_SCHEMA_VERSION
         || crate::strict_json::string(&object, "artifact_version", &context)
             .map_err(|_| corrupt_workflow(&pointer_path))?
-            != "workflow-commit-v1"
+            != "workflow-commit-v2"
     {
         return Err(corrupt_workflow(&pointer_path));
     }
@@ -896,7 +904,7 @@ impl ReconcileOutcome {
 
 fn workflow_payload(record: &WorkflowRecord) -> String {
     format!(
-        "schema_version={WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\naction_id={}\naction_status={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
+        "schema_version={WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
         record.workflow_id,
         record.revision,
         record.previous_hash,
@@ -904,8 +912,11 @@ fn workflow_payload(record: &WorkflowRecord) -> String {
         record.session_id,
         record.phase,
         record.request_hash,
+        record.workflow_kind,
         record.action_id,
+        record.action_kind,
         record.action_status,
+        record.result_summary,
         record.source_path,
         record.source_hash,
         record.find_text,
@@ -928,7 +939,7 @@ fn render_workflow(record: &WorkflowRecord) -> String {
         concat!(
             "{{\n",
             "  \"schema_version\": {},\n",
-            "  \"artifact_version\": \"workflow-v1\",\n",
+            "  \"artifact_version\": \"workflow-v2\",\n",
             "  \"workflow_id\": \"{}\",\n",
             "  \"revision\": {},\n",
             "  \"previous_hash\": \"{}\",\n",
@@ -937,8 +948,11 @@ fn render_workflow(record: &WorkflowRecord) -> String {
             "  \"session_id\": \"{}\",\n",
             "  \"phase\": \"{}\",\n",
             "  \"request_hash\": \"{}\",\n",
+            "  \"workflow_kind\": \"{}\",\n",
             "  \"action_id\": \"{}\",\n",
+            "  \"action_kind\": \"{}\",\n",
             "  \"action_status\": \"{}\",\n",
+            "  \"result_summary\": \"{}\",\n",
             "  \"source_path\": \"{}\",\n",
             "  \"source_hash\": \"{}\",\n",
             "  \"find_text\": \"{}\",\n",
@@ -964,8 +978,11 @@ fn render_workflow(record: &WorkflowRecord) -> String {
         ledger::json_string(&record.session_id),
         ledger::json_string(&record.phase),
         ledger::json_string(&record.request_hash),
+        ledger::json_string(&record.workflow_kind),
         ledger::json_string(&record.action_id),
+        ledger::json_string(&record.action_kind),
         ledger::json_string(&record.action_status),
+        ledger::json_string(&record.result_summary),
         ledger::json_string(&record.source_path),
         ledger::json_string(&record.source_hash),
         ledger::json_string(&record.find_text),
@@ -1022,7 +1039,7 @@ fn write_workflow_snapshot(record: &WorkflowRecord) -> Result<(), AppError> {
 
 fn write_workflow_pointer(record: &WorkflowRecord) -> Result<(), AppError> {
     let body = format!(
-        "{{\n  \"schema_version\": 1,\n  \"artifact_version\": \"workflow-commit-v1\",\n  \"workflow_id\": \"{}\",\n  \"committed_revision\": {},\n  \"artifact_hash\": \"{}\"\n}}\n",
+        "{{\n  \"schema_version\": {WORKFLOW_SCHEMA_VERSION},\n  \"artifact_version\": \"workflow-commit-v2\",\n  \"workflow_id\": \"{}\",\n  \"committed_revision\": {},\n  \"artifact_hash\": \"{}\"\n}}\n",
         ledger::json_string(&record.workflow_id),
         record.revision,
         record.artifact_hash
@@ -1082,7 +1099,7 @@ fn recover_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
             != WORKFLOW_SCHEMA_VERSION
             || crate::strict_json::string(&object, "artifact_version", &context)
                 .map_err(|_| corrupt_workflow(&pointer_path))?
-                != "workflow-commit-v1"
+                != "workflow-commit-v2"
         {
             return Err(corrupt_workflow(&pointer_path));
         }
@@ -1181,8 +1198,11 @@ fn parse_workflow_snapshot(path: &std::path::Path, body: &str) -> Result<Workflo
         "session_id",
         "phase",
         "request_hash",
+        "workflow_kind",
         "action_id",
+        "action_kind",
         "action_status",
+        "result_summary",
         "source_path",
         "source_hash",
         "find_text",
@@ -1209,7 +1229,7 @@ fn parse_workflow_snapshot(path: &std::path::Path, body: &str) -> Result<Workflo
     let text = |key| {
         crate::strict_json::string(&object, key, &context).map_err(|_| corrupt_workflow(path))
     };
-    if text("artifact_version")? != "workflow-v1" {
+    if text("artifact_version")? != "workflow-v2" {
         return Err(corrupt_workflow(path));
     }
     let record = WorkflowRecord {
@@ -1222,8 +1242,11 @@ fn parse_workflow_snapshot(path: &std::path::Path, body: &str) -> Result<Workflo
         session_id: text("session_id")?,
         phase: text("phase")?,
         request_hash: text("request_hash")?,
+        workflow_kind: text("workflow_kind")?,
         action_id: text("action_id")?,
+        action_kind: text("action_kind")?,
         action_status: text("action_status")?,
+        result_summary: text("result_summary")?,
         source_path: text("source_path")?,
         source_hash: text("source_hash")?,
         find_text: text("find_text")?,
