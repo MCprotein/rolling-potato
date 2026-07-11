@@ -1,5 +1,43 @@
 # Release Notes
 
+## v0.31.0 - Backend Streaming And Cancellation
+
+Release date: 2026-07-11
+
+This release replaces the buffered one-shot backend chat transport with a bounded SSE lifecycle. It adds live display, explicit cross-process cancellation, timeout cleanup, and terminal observability while keeping the managed `llama.cpp` sidecar alive after an interrupted generation.
+
+### Included
+
+- `backend chat` always requests SSE with `stream_options.include_usage=true`; `--stream` flushes filtered visible deltas while the default display remains buffered.
+- `backend cancel` targets the active generation published behind an exclusive lock, closes only the chat connection, waits for a terminal record, and reports the recorded `completed`, `cancelled`, `timed-out`, or `failed` outcome instead of inferring cancellation from lease disappearance. The managed sidecar remains running.
+- Total request timeout defaults to 30 seconds, accepts 1-300,000 ms through `--timeout-ms`, and covers address resolution, connection, request upload, and response reading. Request upload and response reading poll cancellation at intervals no longer than 100 ms.
+- Requests are not retried after their HTTP body is sent. The adapter uses the normal non-resumable stream path and does not send `X-Conversation-Id`.
+- Incremental filtering discards `reasoning_content` and split `<think>` traces before either buffered or streaming display. Streaming language validation holds complete text units before emission, so forbidden model bytes are never flushed. First-token latency starts at the first visible filtered delta.
+- SSE event, HTTP chunk, and incomplete body buffers are bounded, and cumulative visible completion text is capped at 2 MiB. Upstream error payloads are reduced to a fixed category before display or persistence.
+- Start, cancellation request, cancellation, timeout, failure, completion, and stale-lease cleanup write lifecycle evidence. Terminal paths also record resource and model-run evidence without raw prompt/response text. `backend stop` waits up to five seconds for a terminal acknowledgement before sidecar shutdown and records a forced-stop outcome if that wait expires. Concurrent ledger readers share the recoverable writer lease so they cannot misclassify an in-progress JSONL/head update as corruption.
+- Final token usage is projected only when the final usage chunk arrives. Interrupted or failed runs keep missing usage unknown instead of recording fabricated zero tokens.
+
+### Boundary
+
+- One app-data root permits one active generation at a time.
+- Cancellation and timeout interrupt generation; they do not stop the backend sidecar.
+- Streaming is available in the CLI. Interactive TUI stream operation remains planned for v0.34.0.
+- The current SQLite model-run projection has an interruption boolean; cancellation and timeout remain distinguishable through their lifecycle ledger event types.
+- A cross-platform process test compiles a Rust fake sidecar and proves `backend cancel` keeps it running while `backend stop` waits for cancellation acknowledgement and then terminates it. Unix-only hostile fixtures additionally cover timeout, language rejection, error redaction, and stop ordering. The Windows release job runs the cross-platform process test plus the portable streaming and generation-state suites natively.
+
+### Upstream Contract
+
+The implementation is pinned to `llama.cpp b9878`. Upstream SSE, cancellation-on-reader-destruction, disconnect, and final-usage behavior were checked on 2026-07-11: [chat completions](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/README.md#post-v1chatcompletions), [response-reader lifecycle](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.h#L168-L208), [cancellation posting](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.cpp#L441-L460), [disconnect handling](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-http.cpp#L521-L565), and [final usage chunk](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-task.cpp#L526-L537).
+
+### Verified During Implementation
+
+- `cargo test --locked -- --test-threads=1` (323 unit tests and 20 process-level integration tests)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.31.0`
+
 ## v0.30.0 - Verified Local Model Adoption
 
 Release date: 2026-07-11

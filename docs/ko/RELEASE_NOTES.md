@@ -1,5 +1,43 @@
 # 릴리즈 노트
 
+## v0.31.0 - Backend Streaming과 Cancellation
+
+릴리즈 날짜: 2026-07-11
+
+이 릴리즈는 buffered one-shot backend chat transport를 bounded SSE lifecycle로 교체합니다. Live display, 명시적 cross-process cancellation, timeout cleanup, terminal observability를 추가하면서 generation이 중단되어도 managed `llama.cpp` sidecar는 계속 실행합니다.
+
+### 포함된 것
+
+- `backend chat`은 항상 `stream_options.include_usage=true`인 SSE를 요청합니다. `--stream`은 filtering된 visible delta를 즉시 flush하고 기본 display는 기존처럼 모아서 출력합니다.
+- `backend cancel`은 exclusive lock 뒤에서 publish된 active generation을 대상으로 chat connection만 닫고 terminal record를 기다립니다. Lease가 사라졌다는 사실로 cancellation을 추정하지 않고 기록된 `completed`, `cancelled`, `timed-out`, `failed` outcome을 보고하며 managed sidecar는 계속 실행합니다.
+- 전체 request timeout 기본값은 30초이며 `--timeout-ms`로 1-300,000ms를 지정할 수 있습니다. 이 제한은 address resolution, connection, request upload, response read 전체에 적용되고 upload/read 중 cancellation은 최대 100ms 간격으로 확인합니다.
+- HTTP body 전송 뒤 request retry는 0회입니다. Adapter는 normal non-resumable stream path를 사용하며 `X-Conversation-Id`를 보내지 않습니다.
+- Incremental filtering은 buffered/streaming display 전에 `reasoning_content`와 split `<think>` trace를 폐기합니다. Streaming 언어 검증은 완전한 text unit을 검사할 때까지 보류하므로 금지된 model byte를 flush하지 않습니다. First-token latency는 처음 표시 가능한 filtered delta부터 측정합니다.
+- SSE event, HTTP chunk, 미완성 body buffer 크기를 제한하고 누적 visible completion text는 2 MiB로 제한합니다. Upstream error payload는 display 또는 persistence 전에 고정 category로 축약합니다.
+- 시작, cancellation 요청, cancellation, timeout, failure, completion, stale lease cleanup을 lifecycle evidence로 남깁니다. 모든 terminal path는 raw prompt/response text 없이 resource/model-run evidence도 기록합니다. `backend stop`은 sidecar 종료 전에 terminal acknowledgement를 최대 5초 기다리고 시간이 만료되면 forced-stop outcome을 기록합니다. 병렬 ledger reader는 recoverable writer lease를 공유하므로 진행 중인 JSONL/head 갱신을 손상으로 오판하지 않습니다.
+- Final usage chunk가 도착한 경우에만 token usage를 projection합니다. 중단되거나 실패한 run의 누락 usage는 임의의 0이 아니라 unknown으로 유지합니다.
+
+### 경계
+
+- App-data root 하나에서는 active generation 하나만 허용합니다.
+- Cancellation과 timeout은 generation을 중단하지만 backend sidecar를 종료하지 않습니다.
+- Streaming은 CLI에서 사용할 수 있습니다. Interactive TUI stream 조작은 v0.34.0 범위에 남아 있습니다.
+- 현재 SQLite model-run projection은 interruption boolean을 사용합니다. Cancellation과 timeout은 lifecycle ledger event type으로 구분할 수 있습니다.
+- Cross-platform process test는 Rust fake sidecar를 compile해 `backend cancel`이 sidecar를 유지하고 `backend stop`이 cancellation acknowledgement 뒤 sidecar를 종료하는지 검증합니다. Unix 전용 hostile fixture는 timeout, 언어 거부, error redaction, stop ordering을 추가로 검증합니다. Windows release job은 cross-platform process test와 portable streaming/generation-state suite를 Windows에서 직접 실행합니다.
+
+### Upstream Contract
+
+구현은 `llama.cpp b9878`에 고정되어 있습니다. Upstream SSE, response reader 파기 시 cancellation, disconnect, final usage 동작을 2026-07-11 확인했습니다: [chat completions](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/README.md#post-v1chatcompletions), [response-reader lifecycle](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.h#L168-L208), [cancellation posting](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.cpp#L441-L460), [disconnect handling](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-http.cpp#L521-L565), [final usage chunk](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-task.cpp#L526-L537).
+
+### 구현 중 검증한 것
+
+- `cargo test --locked -- --test-threads=1` (unit test 323개, process-level integration test 20개)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.31.0`
+
 ## v0.30.0 - 검증된 로컬 모델 도입
 
 릴리즈 날짜: 2026-07-11

@@ -164,7 +164,7 @@ pub fn append_event(event: &LedgerEvent) -> Result<(), AppError> {
 }
 
 fn rebuild_project_ledger_from_runtime(path: &Path, project_id: &str) -> Result<(), AppError> {
-    let events = read_runtime_events()?
+    let events = read_runtime_events_unlocked()?
         .into_iter()
         .filter(|event| event.project_id == project_id)
         .collect::<Vec<_>>();
@@ -222,6 +222,15 @@ fn preserve_corrupt_ledger_file(path: &Path) -> Result<Option<std::path::PathBuf
 }
 
 pub fn read_runtime_events() -> Result<Vec<ParsedLedgerEvent>, AppError> {
+    let _reader = crate::lease::RecoverableLease::acquire_with_wait(
+        paths::runtime_ledger_writer_lock(),
+        "runtime ledger reader",
+        Duration::from_secs(5),
+    )?;
+    read_runtime_events_unlocked()
+}
+
+fn read_runtime_events_unlocked() -> Result<Vec<ParsedLedgerEvent>, AppError> {
     let path = paths::runtime_ledger_file();
     if !path.exists() {
         return Ok(Vec::new());

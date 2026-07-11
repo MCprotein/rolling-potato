@@ -40,10 +40,18 @@ grep -F "cargo test --locked" "$workflow" >/dev/null \
   || fail "release test gate must run cargo test --locked"
 grep -F "      - test" "$workflow" >/dev/null \
   || fail "build job must depend on the release test gate"
-test_count="$(grep -F "cargo test --locked" "$workflow" | wc -l | tr -d ' ')"
-if [ "$test_count" != "1" ]; then
-  fail "cargo test --locked must run once in the release test gate, found $test_count"
-fi
+grep -F "run: cargo test --locked -- --test-threads=1" "$workflow" >/dev/null \
+  || fail "release test gate must run the complete locked test suite"
+grep -F "name: Test native Windows backend lifecycle" "$workflow" >/dev/null \
+  || fail "native Windows backend lifecycle test step is missing"
+grep -F "if: matrix.target == 'x86_64-pc-windows-msvc'" "$workflow" >/dev/null \
+  || fail "native lifecycle test must be scoped to the Windows target"
+grep -F 'cargo test --locked --target ${{ matrix.target }} --bin rpotato backend_stream::tests:: -- --test-threads=1' "$workflow" >/dev/null \
+  || fail "native Windows streaming transport tests are missing"
+grep -F 'cargo test --locked --target ${{ matrix.target }} --bin rpotato generation_ -- --test-threads=1' "$workflow" >/dev/null \
+  || fail "native Windows generation lifecycle tests are missing"
+grep -F 'cargo test --locked --target ${{ matrix.target }} --test backend_lifecycle -- --test-threads=1' "$workflow" >/dev/null \
+  || fail "native Windows backend process lifecycle test is missing"
 
 grep -F "name: Package tar.gz archive" "$workflow" >/dev/null \
   || fail "tar.gz packaging step must stay OS-neutral"

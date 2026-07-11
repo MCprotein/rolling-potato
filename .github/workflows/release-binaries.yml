@@ -106,6 +106,13 @@ jobs:
       - name: Install Rust target
         run: rustup target add ${{ matrix.target }}
 
+      - name: Test native Windows backend lifecycle
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        run: |
+          cargo test --locked --target ${{ matrix.target }} --bin rpotato backend_stream::tests:: -- --test-threads=1
+          cargo test --locked --target ${{ matrix.target }} --bin rpotato generation_ -- --test-threads=1
+          cargo test --locked --target ${{ matrix.target }} --test backend_lifecycle -- --test-threads=1
+
       - name: Build release binary
         run: cargo build --release --locked --target ${{ matrix.target }}
 

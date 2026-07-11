@@ -31,8 +31,8 @@ fn fixture(name: &str) -> Fixture {
         &backend,
         format!(
             r#"#!/usr/bin/env python3
-import argparse, json
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import argparse, json, time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 p=argparse.ArgumentParser(add_help=False)
 p.add_argument('--port', type=int, required=True)
 p.add_argument('--host', default='127.0.0.1')
@@ -44,12 +44,39 @@ class H(BaseHTTPRequestHandler):
   def do_GET(self):
     self.send_response(200); self.end_headers(); self.wfile.write(b'{{"status":"ok"}}')
   def do_POST(self):
-    n=int(self.headers.get('Content-Length','0')); self.rfile.read(n)
+    n=int(self.headers.get('Content-Length','0')); request=json.loads(self.rfile.read(n))
     with open({calls:?}, 'a') as f: f.write('chat\n')
     with open({response:?}) as f: content=f.read()
-    body=json.dumps({{"choices":[{{"message":{{"content":content}},"finish_reason":"stop"}}],"usage":{{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}}}).encode()
-    self.send_response(200); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
-HTTPServer((a.host,a.port),H).serve_forever()
+    if request.get('stream'):
+      prompt=request.get('messages',[{{}}])[-1].get('content','')
+      if prompt == 'RPOTATO_STALL':
+        self.send_response(200); self.send_header('Content-Type','text/event-stream'); self.end_headers()
+        try:
+          while True:
+            self.wfile.write(b': keepalive\n\n'); self.wfile.flush(); time.sleep(0.05)
+        except (BrokenPipeError, ConnectionResetError):
+          return
+      if prompt == 'RPOTATO_UPSTREAM_ERROR':
+        body=b'data: {{"error":{{"message":"RPOTATO_SECRET_UPSTREAM_DETAIL"}}}}\n\n'
+        self.send_response(200); self.send_header('Content-Type','text/event-stream'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
+        return
+      if prompt == 'RPOTATO_HTTP_ERROR':
+        self.wfile.write(b'HTTP/1.1 503 RPOTATO_SECRET_REASON_PHRASE\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
+        return
+      if prompt == 'RPOTATO_MIXED_LANGUAGE':
+        parts=['정상 한국어 문장입니다. ', 'Forbidden English ', 'sentence.']
+      else:
+        parts=[content]
+      events=[{{"choices":[{{"delta":{{"content":part}},"finish_reason":None}}]}} for part in parts]
+      events[-1]['choices'][0]['finish_reason']='stop'
+      events.append({{"choices":[],"usage":{{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}}})
+      body=(''.join('data: '+json.dumps(event)+'\n\n' for event in events)+'data: [DONE]\n\n').encode()
+      content_type='text/event-stream'
+    else:
+      body=json.dumps({{"choices":[{{"message":{{"content":content}},"finish_reason":"stop"}}],"usage":{{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}}}).encode()
+      content_type='application/json'
+    self.send_response(200); self.send_header('Content-Type',content_type); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
+ThreadingHTTPServer((a.host,a.port),H).serve_forever()
 "#,
             calls = calls.display().to_string(),
             response = response.display().to_string()
@@ -204,6 +231,40 @@ fn captured_output(captured: &CapturedChild, status: ExitStatus) -> Output {
         stdout,
         stderr,
     }
+}
+
+fn wait_for_path(path: &Path, timeout: Duration) {
+    let deadline = Instant::now() + timeout;
+    while Instant::now() < deadline {
+        if path.exists() {
+            return;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    panic!(
+        "path가 timeout 안에 생성되지 않았습니다: {}",
+        path.display()
+    );
+}
+
+fn tree_contains(root: &Path, needle: &[u8]) -> bool {
+    let Ok(entries) = fs::read_dir(root) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if tree_contains(&path, needle) {
+                return true;
+            }
+        } else if fs::read(path)
+            .map(|bytes| bytes.windows(needle.len()).any(|window| window == needle))
+            .unwrap_or(false)
+        {
+            return true;
+        }
+    }
+    false
 }
 
 fn port_for(path: &Path) -> u16 {
@@ -639,6 +700,242 @@ fn corrupt_workflow_blocks_resume_without_backend_reentry() {
         fs::read_to_string(&fixture.calls).unwrap().lines().count(),
         1
     );
+}
+
+#[test]
+fn backend_generation_cancel_keeps_sidecar_and_cleans_active_state() {
+    let fixture = fixture("backend-generation-cancel");
+    fixture.start();
+    let mut command = fixture.command_builder(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "RPOTATO_STALL",
+        "--stream",
+        "--timeout-ms",
+        "5000",
+    ]);
+    let chat = spawn_captured(&mut command).unwrap();
+    let active_record = fixture.data.join("state/backend-active-generation.txt");
+    wait_for_path(&active_record, Duration::from_secs(2));
+
+    let cancel = fixture.command(&["backend", "cancel"]);
+    assert!(
+        cancel.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cancel.stderr)
+    );
+    let chat = wait_bounded(chat, &["backend", "chat", "--stream"]);
+    assert!(!chat.status.success());
+    assert!(
+        String::from_utf8_lossy(&chat.stderr).contains("취소됨"),
+        "stdout={}\nstderr={}",
+        String::from_utf8_lossy(&chat.stdout),
+        String::from_utf8_lossy(&chat.stderr)
+    );
+
+    let status = fixture.command(&["backend", "status"]);
+    assert!(status.status.success());
+    assert!(String::from_utf8_lossy(&status.stdout).contains("status: running"));
+    assert!(!active_record.exists());
+    assert!(!fixture
+        .data
+        .join("state/backend-active-generation.lock")
+        .exists());
+    assert!(!fixture
+        .data
+        .join("state/backend-active-generation.cancel")
+        .exists());
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
+    assert!(ledger.contains("backend.generation.cancelled"));
+    assert!(ledger.contains("backend.resource.sampled"));
+}
+
+#[test]
+fn backend_generation_timeout_records_terminal_evidence_and_cleans_state() {
+    let fixture = fixture("backend-generation-timeout");
+    fixture.start();
+
+    let chat = fixture.command(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "RPOTATO_STALL",
+        "--timeout-ms",
+        "150",
+    ]);
+    assert!(!chat.status.success());
+    assert!(
+        String::from_utf8_lossy(&chat.stderr).contains("시간 초과"),
+        "stdout={}\nstderr={}",
+        String::from_utf8_lossy(&chat.stdout),
+        String::from_utf8_lossy(&chat.stderr)
+    );
+
+    let status = fixture.command(&["backend", "status"]);
+    assert!(status.status.success());
+    assert!(String::from_utf8_lossy(&status.stdout).contains("status: running"));
+    assert!(!fixture
+        .data
+        .join("state/backend-active-generation.txt")
+        .exists());
+    assert!(!fixture
+        .data
+        .join("state/backend-active-generation.lock")
+        .exists());
+    assert!(!fixture
+        .data
+        .join("state/backend-active-generation.cancel")
+        .exists());
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
+    assert!(ledger.contains("backend.generation.timeout"));
+    assert!(ledger.contains("backend.resource.sampled"));
+}
+
+#[test]
+fn streaming_guard_blocks_forbidden_model_bytes_before_output_or_success_ledger() {
+    let fixture = fixture("backend-stream-language-guard");
+    let forbidden = "This model response must never be emitted.";
+    fs::write(&fixture.response, forbidden).unwrap();
+    fixture.start();
+
+    let chat = fixture.command(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "언어 경계를 검증해줘",
+        "--stream",
+    ]);
+
+    assert_eq!(chat.status.code(), Some(3));
+    assert!(!String::from_utf8_lossy(&chat.stdout).contains(forbidden));
+    assert!(!String::from_utf8_lossy(&chat.stderr).contains(forbidden));
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
+    assert!(ledger.contains("backend.generation.failed"));
+    assert!(!ledger.contains("backend.chat.completed"));
+    assert!(!ledger.contains(forbidden));
+}
+
+#[test]
+fn upstream_stream_error_detail_is_redacted_from_output_and_persistent_state() {
+    let fixture = fixture("backend-stream-error-redaction");
+    fixture.start();
+    let secret = b"RPOTATO_SECRET_UPSTREAM_DETAIL";
+
+    let chat = fixture.command(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "RPOTATO_UPSTREAM_ERROR",
+        "--stream",
+    ]);
+
+    assert_eq!(chat.status.code(), Some(3));
+    assert!(!chat
+        .stdout
+        .windows(secret.len())
+        .any(|window| window == secret));
+    assert!(!chat
+        .stderr
+        .windows(secret.len())
+        .any(|window| window == secret));
+    assert!(!tree_contains(&fixture.data, secret));
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
+    assert!(ledger.contains("error_detail=redacted"));
+}
+
+#[test]
+fn upstream_http_reason_phrase_is_redacted_from_output_and_persistent_state() {
+    let fixture = fixture("backend-http-error-redaction");
+    fixture.start();
+    let secret = b"RPOTATO_SECRET_REASON_PHRASE";
+
+    let chat = fixture.command(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "RPOTATO_HTTP_ERROR",
+        "--stream",
+    ]);
+
+    assert_eq!(chat.status.code(), Some(3));
+    assert!(!chat
+        .stdout
+        .windows(secret.len())
+        .any(|window| window == secret));
+    assert!(!chat
+        .stderr
+        .windows(secret.len())
+        .any(|window| window == secret));
+    assert!(String::from_utf8_lossy(&chat.stderr).contains("backend request 실패"));
+    assert!(!tree_contains(&fixture.data, secret));
+}
+
+#[test]
+fn streaming_guard_emits_prior_korean_but_never_later_forbidden_unit() {
+    let fixture = fixture("backend-stream-mixed-language-guard");
+    fixture.start();
+    let forbidden = "Forbidden English sentence.";
+
+    let chat = fixture.command(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "RPOTATO_MIXED_LANGUAGE",
+        "--stream",
+    ]);
+
+    assert_eq!(chat.status.code(), Some(3));
+    let stdout = String::from_utf8_lossy(&chat.stdout);
+    assert!(stdout.contains("정상 한국어 문장입니다."));
+    assert!(!stdout.contains(forbidden));
+    assert!(!String::from_utf8_lossy(&chat.stderr).contains(forbidden));
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
+    assert!(ledger.contains("backend.generation.failed"));
+    assert!(!ledger.contains("backend.chat.completed"));
+    assert!(!ledger.contains(forbidden));
+}
+
+#[test]
+fn backend_stop_acknowledges_generation_cancellation_before_sidecar_shutdown() {
+    let fixture = fixture("backend-stop-active-generation");
+    fixture.start();
+    let mut command = fixture.command_builder(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "RPOTATO_STALL",
+        "--stream",
+        "--timeout-ms",
+        "5000",
+    ]);
+    let chat = spawn_captured(&mut command).unwrap();
+    wait_for_path(
+        &fixture.data.join("state/backend-active-generation.txt"),
+        Duration::from_secs(2),
+    );
+
+    let stop = fixture.command(&["backend", "stop"]);
+    let chat = wait_bounded(chat, &["backend", "chat", "--stream"]);
+
+    assert!(stop.status.success());
+    assert!(
+        String::from_utf8_lossy(&stop.stdout).contains("generation outcome: cancelled"),
+        "stdout={}\nstderr={}",
+        String::from_utf8_lossy(&stop.stdout),
+        String::from_utf8_lossy(&stop.stderr)
+    );
+    assert!(!chat.status.success());
+    assert!(String::from_utf8_lossy(&chat.stderr).contains("취소됨"));
+    for name in [
+        "backend-active-generation.txt",
+        "backend-active-generation.lock",
+        "backend-active-generation.cancel",
+    ] {
+        assert!(!fixture.data.join("state").join(name).exists(), "{name}");
+    }
+    let status = fixture.command(&["backend", "status"]);
+    assert!(String::from_utf8_lossy(&status.stdout).contains("status: stopped"));
 }
 
 #[test]

@@ -8,15 +8,12 @@ pub enum Value {
     Array(Vec<Value>),
     String(String),
     Number(u64),
+    Decimal(String),
     Bool(bool),
     Null,
 }
 
-pub fn parse_object(
-    input: &str,
-    allowed: &[&str],
-    context: &str,
-) -> Result<BTreeMap<String, Value>, AppError> {
+pub fn parse_value(input: &str, context: &str) -> Result<Value, AppError> {
     let mut parser = Parser {
         bytes: input.as_bytes(),
         pos: 0,
@@ -26,6 +23,15 @@ pub fn parse_object(
     if parser.pos != parser.bytes.len() {
         return Err(blocked(context, "trailing garbage"));
     }
+    Ok(value)
+}
+
+pub fn parse_object(
+    input: &str,
+    allowed: &[&str],
+    context: &str,
+) -> Result<BTreeMap<String, Value>, AppError> {
+    let value = parse_value(input, context)?;
     let Value::Object(object) = value else {
         return Err(blocked(context, "root must be an object"));
     };
@@ -97,7 +103,7 @@ impl Parser<'_> {
                 self.literal(b"null")?;
                 Ok(Value::Null)
             }
-            Some(b'0'..=b'9') => self.number_value().map(Value::Number),
+            Some(b'-' | b'0'..=b'9') => self.number_value(),
             _ => Err(blocked("JSON", "invalid value")),
         }
     }
@@ -167,49 +173,102 @@ impl Parser<'_> {
                     b'r' => out.push('\r'),
                     b't' => out.push('\t'),
                     b'u' => {
-                        let code = self.hex4()?;
+                        let mut code = self.hex4()?;
+                        if (0xD800..=0xDBFF).contains(&code) {
+                            self.take(b'\\')?;
+                            self.take(b'u')?;
+                            let low = self.hex4()?;
+                            if !(0xDC00..=0xDFFF).contains(&low) {
+                                return Err(blocked("JSON", "invalid surrogate pair"));
+                            }
+                            code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00);
+                        } else if (0xDC00..=0xDFFF).contains(&code) {
+                            return Err(blocked("JSON", "unpaired low surrogate"));
+                        }
                         let ch = char::from_u32(code)
                             .ok_or_else(|| blocked("JSON", "invalid unicode escape"))?;
-                        if (0xD800..=0xDFFF).contains(&code) {
-                            return Err(blocked("JSON", "surrogate escape unsupported"));
-                        }
                         out.push(ch);
                     }
                     _ => return Err(blocked("JSON", "invalid escape")),
                 },
                 0..=31 => return Err(blocked("JSON", "control character in string")),
-                0x80..=0xff => {
+                first @ 0x80..=0xff => {
                     self.pos -= 1;
-                    let rest = std::str::from_utf8(&self.bytes[self.pos..])
+                    let width = match first {
+                        0xC2..=0xDF => 2,
+                        0xE0..=0xEF => 3,
+                        0xF0..=0xF4 => 4,
+                        _ => return Err(blocked("JSON", "invalid UTF-8")),
+                    };
+                    let end = self
+                        .pos
+                        .checked_add(width)
+                        .ok_or_else(|| blocked("JSON", "invalid UTF-8"))?;
+                    let encoded = self
+                        .bytes
+                        .get(self.pos..end)
+                        .ok_or_else(|| blocked("JSON", "invalid UTF-8"))?;
+                    let ch = std::str::from_utf8(encoded)
                         .map_err(|_| blocked("JSON", "invalid UTF-8"))?;
-                    let ch = rest
+                    let ch = ch
                         .chars()
                         .next()
                         .ok_or_else(|| blocked("JSON", "invalid UTF-8"))?;
                     out.push(ch);
-                    self.pos += ch.len_utf8();
+                    self.pos = end;
                 }
                 other => out.push(other as char),
             }
         }
     }
 
-    fn number_value(&mut self) -> Result<u64, AppError> {
-        if self.peek() == Some(b'0') && self.bytes.get(self.pos + 1).is_some_and(u8::is_ascii_digit)
-        {
-            return Err(blocked("JSON", "leading-zero number"));
-        }
+    fn number_value(&mut self) -> Result<Value, AppError> {
         let start = self.pos;
-        while matches!(self.peek(), Some(b'0'..=b'9')) {
+        self.consume(b'-');
+        match self.peek() {
+            Some(b'0') => {
+                self.pos += 1;
+                if self.peek().is_some_and(|byte| byte.is_ascii_digit()) {
+                    return Err(blocked("JSON", "leading-zero number"));
+                }
+            }
+            Some(b'1'..=b'9') => {
+                while self.peek().is_some_and(|byte| byte.is_ascii_digit()) {
+                    self.pos += 1;
+                }
+            }
+            _ => return Err(blocked("JSON", "invalid number")),
+        }
+        if self.consume(b'.') {
+            let fraction_start = self.pos;
+            while self.peek().is_some_and(|byte| byte.is_ascii_digit()) {
+                self.pos += 1;
+            }
+            if self.pos == fraction_start {
+                return Err(blocked("JSON", "invalid fraction"));
+            }
+        }
+        if matches!(self.peek(), Some(b'e' | b'E')) {
             self.pos += 1;
+            if matches!(self.peek(), Some(b'+' | b'-')) {
+                self.pos += 1;
+            }
+            let exponent_start = self.pos;
+            while self.peek().is_some_and(|byte| byte.is_ascii_digit()) {
+                self.pos += 1;
+            }
+            if self.pos == exponent_start {
+                return Err(blocked("JSON", "invalid exponent"));
+            }
         }
-        if self.peek() == Some(b'.') || matches!(self.peek(), Some(b'e' | b'E' | b'-' | b'+')) {
-            return Err(blocked("JSON", "only unsigned integer numbers are allowed"));
+        let raw = std::str::from_utf8(&self.bytes[start..self.pos])
+            .map_err(|_| blocked("JSON", "invalid number"))?;
+        if !raw.starts_with('-') && !raw.contains(['.', 'e', 'E']) {
+            if let Ok(value) = raw.parse::<u64>() {
+                return Ok(Value::Number(value));
+            }
         }
-        std::str::from_utf8(&self.bytes[start..self.pos])
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .ok_or_else(|| blocked("JSON", "invalid number"))
+        Ok(Value::Decimal(raw.to_string()))
     }
 
     fn hex4(&mut self) -> Result<u32, AppError> {
@@ -285,5 +344,22 @@ mod tests {
     #[test]
     fn rejects_leading_zero_number() {
         assert!(parse_object("{\"schema\":01}", &["schema"], "fixture").is_err());
+    }
+
+    #[test]
+    fn generic_parser_accepts_standard_numbers_and_surrogate_pairs() {
+        let parsed = parse_value(
+            r#"{"negative":-1,"fraction":1.25,"exponent":2e3,"emoji":"\uD83D\uDE00"}"#,
+            "fixture",
+        )
+        .unwrap();
+        let Value::Object(object) = parsed else {
+            panic!("object가 필요합니다.");
+        };
+
+        assert_eq!(object.get("negative"), Some(&Value::Decimal("-1".into())));
+        assert_eq!(object.get("fraction"), Some(&Value::Decimal("1.25".into())));
+        assert_eq!(object.get("exponent"), Some(&Value::Decimal("2e3".into())));
+        assert_eq!(object.get("emoji"), Some(&Value::String("😀".into())));
     }
 }

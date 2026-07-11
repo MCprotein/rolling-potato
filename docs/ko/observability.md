@@ -91,6 +91,8 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 - `rpotato benchmark report --format jsonl`은 redacted benchmark projection과 reproducibility metadata를 export한다. Public benchmark parity는 명시적으로 주장하지 않는다.
 - `rpotato backend start`, `rpotato backend status`, `rpotato backend chat`은 event-driven backend CPU/RSS/disk resource sample을 기록한다.
 - `rpotato backend chat`은 첫 runtime resource governor slice를 적용한다. Critical pressure는 model 실행 전에 chat을 차단하고, degraded pressure는 effective max-token budget을 clamp하며, normal/unknown pressure는 요청 token budget을 유지한다.
+- Backend chat은 첫 visible token latency, total latency, 정상 완료 token usage, effective output budget, terminal resource sample, lifecycle event를 기록한다. Cancellation과 timeout은 서로 다른 ledger event type으로 남기고 model-run interruption flag는 둘 다 interrupted로 표시한다.
+- 중단되거나 실패한 SSE stream이 final usage chunk를 보내지 않으면 해당 run의 `token_usage`를 의도적으로 생략한다. 누락 usage는 0이 아니라 unknown이다. Raw prompt, raw response, reasoning trace는 저장하지 않는다.
 - `rpotato team status`는 최신 resource sample을 읽고 read-only team admission을 표시한다. Normal pressure는 parallel lane을 허용하고, unknown/degraded pressure는 sequential lane 하나로 fallback하며, critical pressure는 dispatch를 차단한다. 또한 현재 project의 최신 `team.*` runtime ledger event를 표시한다.
 - `rpotato team admit --lanes <count>`는 첫 enforced team admission gate다. Admission decision을 append-only ledger와 SQLite projection에 기록하고, normal pressure에서는 requested lane을 허용하며, unknown/degraded pressure에서는 sequential lane 하나로 fallback하고, critical pressure에서는 worker launch가 생기기 전 blocked error를 반환한다.
 - `rpotato team admit --lanes <count> --write <path> --command <command>`는 admission gate에 policy preflight를 추가한다. 요청 write path와 command는 `policy check-path`, `policy check-command`와 같은 policy engine으로 분류하며, `ask` 또는 `deny` decision이 하나라도 있으면 dispatch를 차단하고 team admission ledger event에 기록한다.
@@ -106,10 +108,11 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 
 - managed backend sidecar의 continuous background CPU/memory/disk resource sampling
 - dispatch preflight 이후 실제 subagent/team dispatcher 실행
-- dispatch-time ownership enforcement
 - 선택한 session resume 이후 전체 transcript replay와 대화 이어달리기
 - 실제 agent loop의 active workflow resume 실행
 - 실제 retention 삭제
+- cancellation과 timeout을 구분하는 별도 SQLite terminal-outcome enum
+- token stream 통계를 실시간으로 표시하는 TUI
 
 ## 로컬 파일 Layout
 

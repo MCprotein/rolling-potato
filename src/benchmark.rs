@@ -1525,6 +1525,8 @@ mod tests {
             completion_tokens: Some(4),
             total_tokens: Some(12),
             elapsed_ms: 200,
+            first_token_latency_ms: Some(50),
+            streaming_display: false,
             ledger_event: "backend-chat-event".to_string(),
             resource_governor_admission: "allow".to_string(),
             resource_governor_token_action: "none".to_string(),
