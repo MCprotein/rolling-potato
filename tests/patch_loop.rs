@@ -56,10 +56,20 @@ class H(BaseHTTPRequestHandler):
             self.wfile.write(b': keepalive\n\n'); self.wfile.flush(); time.sleep(0.05)
         except (BrokenPipeError, ConnectionResetError):
           return
-      events=[
-        {{"choices":[{{"delta":{{"content":content}},"finish_reason":"stop"}}]}},
-        {{"choices":[],"usage":{{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}}}
-      ]
+      if prompt == 'RPOTATO_UPSTREAM_ERROR':
+        body=b'data: {{"error":{{"message":"RPOTATO_SECRET_UPSTREAM_DETAIL"}}}}\n\n'
+        self.send_response(200); self.send_header('Content-Type','text/event-stream'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
+        return
+      if prompt == 'RPOTATO_HTTP_ERROR':
+        self.wfile.write(b'HTTP/1.1 503 RPOTATO_SECRET_REASON_PHRASE\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
+        return
+      if prompt == 'RPOTATO_MIXED_LANGUAGE':
+        parts=['정상 한국어 문장입니다. ', 'Forbidden English ', 'sentence.']
+      else:
+        parts=[content]
+      events=[{{"choices":[{{"delta":{{"content":part}},"finish_reason":None}}]}} for part in parts]
+      events[-1]['choices'][0]['finish_reason']='stop'
+      events.append({{"choices":[],"usage":{{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}}})
       body=(''.join('data: '+json.dumps(event)+'\n\n' for event in events)+'data: [DONE]\n\n').encode()
       content_type='text/event-stream'
     else:
@@ -235,6 +245,26 @@ fn wait_for_path(path: &Path, timeout: Duration) {
         "path가 timeout 안에 생성되지 않았습니다: {}",
         path.display()
     );
+}
+
+fn tree_contains(root: &Path, needle: &[u8]) -> bool {
+    let Ok(entries) = fs::read_dir(root) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if tree_contains(&path, needle) {
+                return true;
+            }
+        } else if fs::read(path)
+            .map(|bytes| bytes.windows(needle.len()).any(|window| window == needle))
+            .unwrap_or(false)
+        {
+            return true;
+        }
+    }
+    false
 }
 
 fn port_for(path: &Path) -> u16 {
@@ -710,6 +740,10 @@ fn backend_generation_cancel_keeps_sidecar_and_cleans_active_state() {
     assert!(!active_record.exists());
     assert!(!fixture
         .data
+        .join("state/backend-active-generation.lock")
+        .exists());
+    assert!(!fixture
+        .data
         .join("state/backend-active-generation.cancel")
         .exists());
     let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
@@ -747,11 +781,161 @@ fn backend_generation_timeout_records_terminal_evidence_and_cleans_state() {
         .exists());
     assert!(!fixture
         .data
+        .join("state/backend-active-generation.lock")
+        .exists());
+    assert!(!fixture
+        .data
         .join("state/backend-active-generation.cancel")
         .exists());
     let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
     assert!(ledger.contains("backend.generation.timeout"));
     assert!(ledger.contains("backend.resource.sampled"));
+}
+
+#[test]
+fn streaming_guard_blocks_forbidden_model_bytes_before_output_or_success_ledger() {
+    let fixture = fixture("backend-stream-language-guard");
+    let forbidden = "This model response must never be emitted.";
+    fs::write(&fixture.response, forbidden).unwrap();
+    fixture.start();
+
+    let chat = fixture.command(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "언어 경계를 검증해줘",
+        "--stream",
+    ]);
+
+    assert_eq!(chat.status.code(), Some(3));
+    assert!(!String::from_utf8_lossy(&chat.stdout).contains(forbidden));
+    assert!(!String::from_utf8_lossy(&chat.stderr).contains(forbidden));
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
+    assert!(ledger.contains("backend.generation.failed"));
+    assert!(!ledger.contains("backend.chat.completed"));
+    assert!(!ledger.contains(forbidden));
+}
+
+#[test]
+fn upstream_stream_error_detail_is_redacted_from_output_and_persistent_state() {
+    let fixture = fixture("backend-stream-error-redaction");
+    fixture.start();
+    let secret = b"RPOTATO_SECRET_UPSTREAM_DETAIL";
+
+    let chat = fixture.command(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "RPOTATO_UPSTREAM_ERROR",
+        "--stream",
+    ]);
+
+    assert_eq!(chat.status.code(), Some(3));
+    assert!(!chat
+        .stdout
+        .windows(secret.len())
+        .any(|window| window == secret));
+    assert!(!chat
+        .stderr
+        .windows(secret.len())
+        .any(|window| window == secret));
+    assert!(!tree_contains(&fixture.data, secret));
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
+    assert!(ledger.contains("error_detail=redacted"));
+}
+
+#[test]
+fn upstream_http_reason_phrase_is_redacted_from_output_and_persistent_state() {
+    let fixture = fixture("backend-http-error-redaction");
+    fixture.start();
+    let secret = b"RPOTATO_SECRET_REASON_PHRASE";
+
+    let chat = fixture.command(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "RPOTATO_HTTP_ERROR",
+        "--stream",
+    ]);
+
+    assert_eq!(chat.status.code(), Some(3));
+    assert!(!chat
+        .stdout
+        .windows(secret.len())
+        .any(|window| window == secret));
+    assert!(!chat
+        .stderr
+        .windows(secret.len())
+        .any(|window| window == secret));
+    assert!(String::from_utf8_lossy(&chat.stderr).contains("backend request 실패"));
+    assert!(!tree_contains(&fixture.data, secret));
+}
+
+#[test]
+fn streaming_guard_emits_prior_korean_but_never_later_forbidden_unit() {
+    let fixture = fixture("backend-stream-mixed-language-guard");
+    fixture.start();
+    let forbidden = "Forbidden English sentence.";
+
+    let chat = fixture.command(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "RPOTATO_MIXED_LANGUAGE",
+        "--stream",
+    ]);
+
+    assert_eq!(chat.status.code(), Some(3));
+    let stdout = String::from_utf8_lossy(&chat.stdout);
+    assert!(stdout.contains("정상 한국어 문장입니다."));
+    assert!(!stdout.contains(forbidden));
+    assert!(!String::from_utf8_lossy(&chat.stderr).contains(forbidden));
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
+    assert!(ledger.contains("backend.generation.failed"));
+    assert!(!ledger.contains("backend.chat.completed"));
+    assert!(!ledger.contains(forbidden));
+}
+
+#[test]
+fn backend_stop_acknowledges_generation_cancellation_before_sidecar_shutdown() {
+    let fixture = fixture("backend-stop-active-generation");
+    fixture.start();
+    let mut command = fixture.command_builder(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "RPOTATO_STALL",
+        "--stream",
+        "--timeout-ms",
+        "5000",
+    ]);
+    let chat = spawn_captured(&mut command).unwrap();
+    wait_for_path(
+        &fixture.data.join("state/backend-active-generation.txt"),
+        Duration::from_secs(2),
+    );
+
+    let stop = fixture.command(&["backend", "stop"]);
+    let chat = wait_bounded(chat, &["backend", "chat", "--stream"]);
+
+    assert!(stop.status.success());
+    assert!(
+        String::from_utf8_lossy(&stop.stdout).contains("generation outcome: cancelled"),
+        "stdout={}\nstderr={}",
+        String::from_utf8_lossy(&stop.stdout),
+        String::from_utf8_lossy(&stop.stderr)
+    );
+    assert!(!chat.status.success());
+    assert!(String::from_utf8_lossy(&chat.stderr).contains("취소됨"));
+    for name in [
+        "backend-active-generation.txt",
+        "backend-active-generation.lock",
+        "backend-active-generation.cancel",
+    ] {
+        assert!(!fixture.data.join("state").join(name).exists(), "{name}");
+    }
+    let status = fixture.command(&["backend", "status"]);
+    assert!(String::from_utf8_lossy(&status.stdout).contains("status: stopped"));
 }
 
 #[test]
