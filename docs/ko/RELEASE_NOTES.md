@@ -27,6 +27,15 @@
 
 구현은 `llama.cpp b9878`에 고정되어 있습니다. Upstream SSE, response reader 파기 시 cancellation, disconnect, final usage 동작을 2026-07-11 확인했습니다: [chat completions](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/README.md#post-v1chatcompletions), [response-reader lifecycle](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.h#L168-L208), [cancellation posting](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.cpp#L441-L460), [disconnect handling](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-http.cpp#L521-L565), [final usage chunk](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-task.cpp#L526-L537).
 
+### 구현 중 검증한 것
+
+- `cargo test --locked -- --test-threads=1` (unit test 305개, process-level integration test 14개)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.31.0`
+
 ## v0.30.0 - 검증된 로컬 모델 도입
 
 릴리즈 날짜: 2026-07-11

@@ -27,6 +27,15 @@ This release replaces the buffered one-shot backend chat transport with a bounde
 
 The implementation is pinned to `llama.cpp b9878`. Upstream SSE, cancellation-on-reader-destruction, disconnect, and final-usage behavior were checked on 2026-07-11: [chat completions](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/README.md#post-v1chatcompletions), [response-reader lifecycle](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.h#L168-L208), [cancellation posting](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.cpp#L441-L460), [disconnect handling](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-http.cpp#L521-L565), and [final usage chunk](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-task.cpp#L526-L537).
 
+### Verified During Implementation
+
+- `cargo test --locked -- --test-threads=1` (305 unit tests and 14 process-level integration tests)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.31.0`
+
 ## v0.30.0 - Verified Local Model Adoption
 
 Release date: 2026-07-11
