@@ -229,7 +229,9 @@ Implemented command surfaces:
 - `rpotato tui diff <proposal-id>`
 - `rpotato tui evidence`
 - `rpotato patch preview --path <path> --find <text> --replace <text>`
-- `rpotato patch approve <proposal-id> --token <token> [--dry-run] [--verify-command <command>]`
+- `rpotato patch approve <proposal-id> --token <token> [--dry-run]`
+- `rpotato patch verify <proposal-id> --token <token>`
+- `rpotato patch token-rotate <proposal-id>`
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor baseline`
@@ -278,11 +280,11 @@ Implemented command surfaces:
 
 `state reconcile` preserves stale or corrupt current-state files before writing a fresh current-state file. `state resume` detects an active workflow pointer or records a no-op ledger event when there is nothing to resume.
 
-`session list` and `session history` read the current project's session history from the SQLite projection. `session new` creates a new session identity and switches current state to that session. `session resume <session-id>` and `resume <session-id>` write the selected history entry into current state so later commands continue appending to the same session ledger and SQLite projection. Real model/backend agent-loop transcript replay and conversational continuation are still owned by the later agent-loop phase, which will consume this current-state pointer.
+`session list` and `session history` render the current project's session history through a SQLite projection rebuilt from the canonical runtime ledger. `session new` creates a new session identity and switches current state to that session. `session resume <session-id>` and `resume <session-id>` accept a selection only when that session exists in the canonical ledger, then write it into current state so later commands continue under the same session identity. A SQLite-only row can never authorize resume. Real model/backend agent-loop transcript replay and conversational continuation are still owned by the later agent-loop phase, which will consume this current-state pointer.
 
 `evidence validate` checks that artifact pointers are local, project-relative paths that do not escape the project boundary.
 
-`run` normalizes the user request into skill, mode, context, and evidence requirements, builds a bounded repository context pack with source pointers, prepares a runtime-owned action candidate and next gate, calls the running backend sidecar, and parses the model's structured action line or recognized action text without executing it. It records intent, context, action-candidate, model-action, and backend chat ledger events plus token/latency metrics in the local SQLite observability projection. It still does not apply patches, run commands, or treat model output as an approved action.
+`run` normalizes the user request into skill, mode, context, and evidence requirements, selects ontology-backed context with source pointers, calls the running backend sidecar, and parses the model result into a runtime-owned typed action without executing model text. Read-only actions finish through a guarded Korean report. A valid patch action persists a restart-safe workflow and proposal, rereads the authoritative source, and stops with the exact `patch approve` gate. `run` itself never applies the patch or runs verification; those side effects require the separate credentials described below. Intent, context, action, backend, ledger, and token/latency projection records remain local.
 
 `intent classify`, `intent routes`, and `skill run` remain pre-execution surfaces: they normalize routing state and record ledger events without calling the model.
 
@@ -290,7 +292,7 @@ Implemented command surfaces:
 
 `policy` and `hooks` commands provide command/path permission decisions, credential redaction, lifecycle hook registry output, and fail-closed hook result validation. Real tool execution has not yet been wired behind this policy surface.
 
-`patch preview` reads a project-local text file, renders a unified diff for a single explicit find/replace proposal, writes a project-local proposal record under `.rpotato/patch-proposals/`, and prints an approval token. `patch approve <proposal-id> --token <token> --dry-run` verifies the token and records the approval gate without modifying the target file. Without `--dry-run`, `patch approve` applies the approved proposal only when the current file SHA-256 still matches the previewed original SHA-256, writes a rollback record, verifies the applied SHA-256, and records a ledger event. `--verify-command <command>` runs an allow-listed simple argv verification command after apply; verification failure attempts rollback and is not reported as success.
+`patch preview` reads a project-local text file, renders a unified diff for a single explicit find/replace proposal, and writes a project-local record under `.rpotato/patch-proposals/`. This standalone surface is diff-only and cannot be approved, applied, or verified. Only a workflow proposal created by `run` can pass `patch approve`. `patch approve <proposal-id> --token <token> --dry-run` validates the patch-application gate without modifying the target file. Without `--dry-run`, `patch approve` applies the workflow proposal only when every binding and the current source SHA-256 remain valid, then emits a separate one-time verification credential without running the command. `patch verify <proposal-id> --token <token>` approves and runs only the pre-bound, policy-allowed argv verification plan. Verification failure attempts rollback and is never reported as success. `patch token-rotate` rotates the credential for the gate currently awaiting approval; neither credential is stored in plaintext or redisplayed after its initial delivery.
 
 `monitor baseline` aggregates local ledger/SQLite projection metrics into a read-only performance baseline report with p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, and model/backend/session grouping. It does not store raw prompt/source text and does not choose model artifacts. `monitor optimize` reads those local metrics plus `measured-locally` benchmark rows and recommends a context budget, team lane count, fallback mode, and model route hint without selecting a real model artifact or claiming public benchmark parity. `monitor export` emits the runtime ledger as JSONL or CSV. `monitor prune` is currently dry-run only.
 

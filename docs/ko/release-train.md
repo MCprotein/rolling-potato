@@ -47,7 +47,7 @@ release를 만듭니다. 실패 tag는 evidence를 기록한 경우에만 Supers
 
 | 버전 | 필수 완료 증거 |
 | --- | --- |
-| `v0.29.0` | 영속화된 action, pending approval, patch proposal, guarded apply, verification 해석, stop gate, evidence, 한국어 최종 보고를 포함하고 재시작 후에도 이어지는 `run` workflow |
+| `v0.29.0` | 영속 typed action, ontology 기반 source reread, 분리된 patch/verification 승인, guarded apply, verification 해석, canonical ledger 권위, stop gate, evidence, guarded 한국어 최종 보고를 포함하고 재시작 후에도 이어지는 `run` workflow |
 | `v0.30.0` | 출처 기반 candidate 평가, 실제 local backend/RAM/mmproj/benchmark 기록, install-gate 결정, gate를 통과한 candidate만 사용하는 managed install/default flow |
 | `v0.31.0` | Streaming response/cancellation test, bounded timeout/retry, stale sidecar process 0건, lifecycle/resource ledger evidence |
 | `v0.32.0` | 선택한 session을 resume하고 durable transcript/source pointer에서 bounded context를 재구성해 중단 workflow를 idempotent하게 계속하는 process-restart test |

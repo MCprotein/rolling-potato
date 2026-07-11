@@ -11,7 +11,7 @@ pub fn overview_report() -> Result<String, AppError> {
     let store = observability::status()?;
     let models = observability::model_summaries()?;
     let sessions = observability::session_history(5)?;
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
 
     let mut lines = Vec::new();
     push_header(&mut lines, width, "rpotato TUI beta - overview");
@@ -235,7 +235,7 @@ pub fn monitor_report() -> Result<String, AppError> {
 
 pub fn sessions_report() -> Result<String, AppError> {
     let width = terminal_width();
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let sessions = observability::session_history(10)?;
 
     let mut lines = Vec::new();
@@ -495,32 +495,21 @@ pub fn diff_report(proposal_id: &str) -> Result<String, AppError> {
     push_kv(
         &mut lines,
         width,
-        "approval command",
-        &format!(
-            "rpotato patch approve {} --token {}",
-            detail.summary.proposal_id, detail.approval_token
-        ),
+        "approval",
+        "최초 proposal 출력에서 발급된 token을 사용하세요; 상태/TUI에는 hash만 남아 token을 재구성할 수 없습니다.",
     );
     push_rule(&mut lines, width);
     push_section(&mut lines, width, "diff");
     push_literal_block(&mut lines, width, &detail.diff);
     push_rule(&mut lines, width);
-    push_kv(
-        &mut lines,
-        width,
-        "dry run",
-        &format!(
-            "rpotato patch approve {} --token {} --dry-run",
-            detail.summary.proposal_id, detail.approval_token
-        ),
-    );
+    push_kv(&mut lines, width, "token display", "unavailable by design");
     push_footer(&mut lines, width);
     Ok(lines.join("\n"))
 }
 
 pub fn evidence_report() -> Result<String, AppError> {
     let width = terminal_width();
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let store = observability::status()?;
     let evidence = evidence::store_status()?;
 
@@ -786,7 +775,7 @@ mod tests {
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
         std::env::set_var("COLUMNS", "64");
-        let identity = ledger::current_identity();
+        let identity = ledger::validated_current_identity().unwrap();
 
         observability::record_model_run(&observability::ModelRunMetric {
             model_run_id: "model-run-tui-resource".to_string(),
@@ -931,7 +920,8 @@ mod tests {
         assert!(diff.contains("rpotato TUI beta - diff"));
         assert!(diff.contains("-pub const X: i32 = 1;"));
         assert!(diff.contains("+pub const X: i32 = 2;"));
-        assert!(diff.contains("dry run: rpotato patch approve"));
+        assert!(diff.contains("token display: unavailable by design"));
+        assert!(!diff.contains("--token "));
     }
 
     #[test]

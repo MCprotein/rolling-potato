@@ -100,12 +100,20 @@ pub fn runtime_evidence_file() -> PathBuf {
     state_dir().join("runtime-evidence.jsonl")
 }
 
+pub fn validation_gaps_file() -> PathBuf {
+    project_state_dir().join("validation-gaps.jsonl")
+}
+
 pub fn observability_db_file() -> PathBuf {
     state_dir().join("observability.sqlite")
 }
 
 pub fn runtime_ledger_file() -> PathBuf {
     state_dir().join("runtime-ledger.jsonl")
+}
+
+pub fn runtime_ledger_writer_lock() -> PathBuf {
+    state_dir().join("runtime-ledger.writer.lock")
 }
 
 pub fn plugins_dir() -> PathBuf {
@@ -144,6 +152,26 @@ pub fn project_session_ledger_file() -> PathBuf {
 
 pub fn project_patch_proposals_dir() -> PathBuf {
     project_state_dir().join("patch-proposals")
+}
+
+pub fn project_workflows_dir() -> PathBuf {
+    project_state_dir().join("workflows")
+}
+
+pub fn project_workflow_file(workflow_id: &str) -> PathBuf {
+    project_workflows_dir().join(format!("{workflow_id}.json"))
+}
+
+pub fn project_workflow_snapshots_dir(workflow_id: &str) -> PathBuf {
+    project_workflows_dir().join(format!("{workflow_id}.snapshots"))
+}
+
+pub fn project_workflow_snapshot_file(workflow_id: &str, revision: u64) -> PathBuf {
+    project_workflow_snapshots_dir(workflow_id).join(format!("{revision:020}.json"))
+}
+
+pub fn project_workflow_transaction_file(workflow_id: &str) -> PathBuf {
+    project_workflows_dir().join(format!("{workflow_id}.txn"))
 }
 
 pub fn project_approval_requests_dir() -> PathBuf {

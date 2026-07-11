@@ -1,5 +1,88 @@
 # Release Notes
 
+## v0.29.0 - Durable Single-Agent Runtime Correction
+
+Release date: 2026-07-11
+
+v0.29.0 connects `run`, `state resume`, `patch approve`, and `patch verify`
+through one restart-safe workflow. Model text is persisted as a non-executable
+typed action; runtime-owned ontology context/source rereads, separate approval
+bindings, guarded apply, verification evidence, and the stop gate own every side
+effect and completion decision.
+
+### Included
+
+- Separated the patch-only workflow identity into a generic workflow envelope
+  and typed action state, allowing read-only `run` and patch proposals to finish
+  through independent runtime paths.
+- Made the ontology projection the first context-selection layer and reread the
+  authoritative source before binding a source pointer into a patch proposal.
+- Stopped rendering raw model responses as final output and applied the guarded
+  Korean report contract to read-only, pending, blocked, and terminal results.
+- Split patch application and verification-command execution into separate
+  one-time credentials. `patch approve` never runs the command; only
+  `patch verify` can approve the pre-bound verification plan.
+- Added workflow schema v3 while preserving immutable v2 snapshots and hashes,
+  with one-way v2-to-v3 append migration and strict recovery binding.
+- Serialized runtime/project ledger mutation under a recoverable writer lease,
+  made corrupt current-state mutation fail closed, and removed SQLite-only
+  sessions from resume authority.
+- Made approve/cancel races, already-restored rollback, and tampered source
+  recovery artifact paths idempotent or fail closed.
+- Added immutable versioned workflow snapshots, a synced recovery transaction,
+  and an atomic committed-revision pointer with schema/revision/hash chains matched
+  to strictly parsed append-only ledger checkpoints.
+- Added full nonterminal artifact discovery with multi-active fail-closed recovery,
+  including atomic cleanup of a revalidated terminal active pointer.
+- Bound approval to workflow/action/proposal IDs, before/after hashes, and the
+  exact policy-allowed verification plan; an OS-CSPRNG nonce is shown once, only
+  its hash is stored, approval is persisted before apply, and an explicit
+  `patch token-rotate` command safely replaces a lost pending token.
+- Replaced substring command checks with one shell-free parsed argv grammar shared
+  by classification and execution. Patch verification permits only `pwd` and
+  narrow current-crate Cargo checks and rejects command smuggling, external
+  manifest/package/workspace selection, path executables, and metacharacters.
+- Added restart-safe pending approval and approved-apply resume without another
+  model call, atomic guarded apply, hash-verified atomic rollback with truthful
+  failure evidence, hash-only evidence, and fresh-source/evidence stop-gate checks
+  even when resuming a completed workflow.
+- Made standalone previews diff-only, added PID/nonce recoverable leases and
+  explicit crash reconciliation through `cancel`, installed source bytes with a
+  no-clobber guard transaction, and chained physical ledger order with a synced
+  truncation-detecting head.
+- Added deterministic Korean success/failure reports and subprocess coverage for
+  happy path, restart, stale hashes, token rejection/redaction, denied commands,
+  rollback, corrupt workflow state, idempotence, complete-state tampering, and
+  hostile model text/path parsing. Portable unit/state tests cover checkpoint fault
+  windows, multi-active state, ledger partial/chain conflicts, rollback tamper and
+  failure, token recovery, evidence deduplication, strict malformed artifacts,
+  projection truth, and the reusable eight-fixture Korean output guard.
+
+### Verified During Implementation
+
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1` (294 tests: 282 unit and 12 Unix subprocess integration)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- Release-binary `doctor` smoke through `scripts/release/verify-release-binary-smoke.sh`
+
+### Boundary
+
+This release does not implement full conversation transcript replay, streaming,
+subagent/team execution, or interactive TUI mutation. Those remain later roadmap
+items. SQLite is a workflow/session projection rebuilt from the canonical runtime
+ledger, never a second authority.
+Mode-0600 project-local workflow/proposal artifacts retain the snippets, proposal
+diff/proposed source, transaction metadata, and rollback source required for
+recovery until project cleanup; SQLite/monitor, ledger details, and evidence do
+not store raw source bytes. Legacy v2 plaintext credentials are atomically scrubbed
+to hash-only form and then require a fresh canonical workflow preview.
+The portable unit/state boundary runs on Windows, but the true fake-sidecar
+subprocess suite remains Unix-only; Windows subprocess end-to-end coverage is not
+claimed in v0.29.0.
+
 ## v0.28.5 - Unix PID Guard for Release Gate
 
 Release date: 2026-07-10

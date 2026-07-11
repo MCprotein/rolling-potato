@@ -32,10 +32,18 @@ struct ParsedModelAction {
     next_gate: String,
     requested_side_effects: String,
     executable_now: bool,
+    target_path: String,
+    find_text: String,
+    replace_text: String,
+    verification_command: String,
 }
 
 pub fn run_report(request: &str) -> Result<String, AppError> {
+    if let Some(workflow_id) = state::active_workflow_id()? {
+        return crate::patch::resume_workflow_report(&workflow_id);
+    }
     let decision = classify(request)?;
+    let mut workflow = state::create_workflow(request)?;
     let intent_event_id = state::record_event(
         "intent.classified",
         "사용자 요청 intent 정규화",
@@ -50,7 +58,10 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         "context.pack.prepared",
         "bounded repository context 준비",
         &format!(
-            "files_read={} chars_read={} source_pointers={}",
+            "origin={} ontology_selected={} stale_rejected={} files_read={} chars_read={} source_pointers={}",
+            context_pack.origin,
+            context_pack.ontology_records_selected,
+            context_pack.ontology_stale_rejected,
             context_pack.files_read,
             context_pack.chars_read,
             context_pack.pointer_summary()
@@ -68,7 +79,14 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         ),
     )?;
     let agent_prompt = agent_loop_prompt(request, &decision, &context_pack, &action_candidate);
-    let run = backend::chat_once(&agent_prompt, Some(RUN_MAX_TOKENS))?;
+    let run = match backend::chat_once(&agent_prompt, Some(RUN_MAX_TOKENS)) {
+        Ok(run) => run,
+        Err(err) => {
+            workflow.phase = "failed".to_string();
+            workflow.failure_reason = "backend-call-failed".to_string();
+            return Err(checkpoint_failure_or_original(workflow, err));
+        }
+    };
     let model_action = parse_model_action(&run.response, &action_candidate, &context_pack);
     let model_action_event_id = state::record_event(
         "model.action.parsed",
@@ -84,8 +102,100 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         ),
     )?;
 
+    workflow.action_kind = model_action.kind.clone();
+    workflow.action_status = model_action.status.to_string();
+    workflow.source_path = model_action.target_path.clone();
+    workflow.find_text = model_action.find_text.clone();
+    workflow.replace_text = model_action.replace_text.clone();
+    workflow.verification_plan = model_action.verification_command.clone();
+    workflow.phase = "action-recorded".to_string();
+    workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+
+    if is_non_mutating_action(&model_action.kind) {
+        let pointers_are_valid = model_action.kind != "inspect-sources"
+            || (!matches!(model_action.source_pointers.as_str(), "none" | "unverified"));
+        let action_is_safe = model_action.status == "parsed"
+            && model_action.requested_side_effects == "none"
+            && pointers_are_valid;
+        if !action_is_safe {
+            workflow.phase = "failed".to_string();
+            workflow.failure_reason = "invalid-or-hostile-model-action".to_string();
+            workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+            state::clear_terminal_workflow_pointer(&workflow)?;
+            return Err(AppError::blocked(format!(
+                "run agent loop 차단\n- workflow id: {}\n- 이유: 읽기 전용 model action이 runtime 계약을 충족하지 못했습니다.\n- model side effect 실행: 없음",
+                workflow.workflow_id
+            )));
+        }
+
+        workflow.phase = "complete".to_string();
+        workflow.action_status = "complete".to_string();
+        workflow.approval_state = "not-required".to_string();
+        workflow.result_summary = "non-mutating action completed".to_string();
+        workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+        state::clear_terminal_workflow_pointer(&workflow)?;
+        return Ok(render_non_mutating_report(
+            request,
+            &decision,
+            &context_pack,
+            &model_action,
+            &run.response,
+            &workflow,
+        ));
+    }
+
+    let expected_pointer = format!("{}:1", model_action.target_path);
+    let action_is_safe = model_action.status == "parsed"
+        && model_action.kind == "patch-proposal"
+        && model_action.requested_side_effects == "none"
+        && !model_action.target_path.is_empty()
+        && !model_action.find_text.is_empty()
+        && !model_action.verification_command.is_empty()
+        && model_action
+            .source_pointers
+            .split(',')
+            .map(str::trim)
+            .any(|pointer| pointer == expected_pointer);
+    if !action_is_safe {
+        workflow.phase = "failed".to_string();
+        workflow.failure_reason = "invalid-or-hostile-model-action".to_string();
+        workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+        return Err(AppError::blocked(format!(
+            "run agent loop 차단\n- workflow id: {}\n- 이유: model action은 non-executable record로 저장했지만 안전한 patch proposal 계약을 충족하지 못했습니다.\n- model side effect 실행: 없음",
+            workflow.workflow_id
+        )));
+    }
+
+    let proposal = match crate::patch::prepare_workflow_proposal(
+        &workflow.workflow_id,
+        &workflow.action_id,
+        &model_action.target_path,
+        &model_action.find_text,
+        &model_action.replace_text,
+        &model_action.verification_command,
+    ) {
+        Ok(proposal) => proposal,
+        Err(err) => {
+            workflow.phase = "failed".to_string();
+            workflow.failure_reason = "proposal-preparation-failed".to_string();
+            return Err(checkpoint_failure_or_original(workflow, err));
+        }
+    };
+    workflow.source_path = proposal.relative_path.clone();
+    workflow.source_hash = proposal.original_sha256.clone();
+    workflow.proposal_id = proposal.proposal_id.clone();
+    workflow.proposal_hash = proposal.proposal_hash.clone();
+    workflow.approval_credential_hash = proposal.approval_credential_hash.clone();
+    workflow.before_hash = proposal.original_sha256.clone();
+    workflow.after_hash = proposal.proposed_sha256.clone();
+    workflow.verification_plan = proposal.verification_command.clone();
+    workflow.approval_state = "pending".to_string();
+    workflow.result_summary = "patch proposal awaiting apply approval".to_string();
+    workflow.phase = "pending-approval".to_string();
+    workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+
     Ok(format!(
-        "run agent loop\n- status: model-response-action-parsed\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- action candidate: {}\n- approval required before side effect: {}\n- next gate: {}\n- allowed side effects now: {}\n- model action parse: {}\n- model action kind: {}\n- model action source pointers: {}\n- model action next gate: {}\n- model action requested side effects: {}\n- model action executable now: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- action ledger event: {}\n- model action ledger event: {}\n- model ledger event: {}\n- boundary: 아직 파일 수정, patch 적용, command 실행은 하지 않습니다. Snippet은 context hint이며 승인된 action 전에는 source pointer 원본을 다시 읽어야 합니다.\n- response:\n{}",
+        "run agent loop\n- status: pending-approval\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- context origin: {}\n- ontology records selected: {}\n- ontology stale rejected: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- action candidate: {}\n- approval required before side effect: {}\n- next gate: {}\n- allowed side effects now: {}\n- model action parse: {}\n- model action kind: {}\n- model action source pointers: {}\n- model action next gate: {}\n- model action requested side effects: {}\n- model action executable now: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- action ledger event: {}\n- model action ledger event: {}\n- model ledger event: {}\n- workflow id: {}\n- workflow revision: {}\n- proposal id: {}\n- verification plan: {}\n- approval command: rpotato patch approve {} --token {}\n- model response visibility: action record만 저장하고 raw response는 표시하지 않음\n- boundary: model output은 실행되지 않았고 ontology source pointer에서 원본 source를 다시 읽어 diff만 만들었습니다.\n- diff:\n{}",
         request,
         decision.invocation,
         decision.skill_id,
@@ -94,6 +204,9 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         display_list(&decision.constraints),
         decision.classifier,
         state::workflow_ownership_summary(),
+        context_pack.origin,
+        context_pack.ontology_records_selected,
+        context_pack.ontology_stale_rejected,
         context_pack.files_read,
         context_pack.chars_read,
         context_pack.pointer_summary(),
@@ -129,8 +242,100 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         action_event_id,
         model_action_event_id,
         run.ledger_event,
-        run.response
+        workflow.workflow_id,
+        workflow.revision,
+        proposal.proposal_id,
+        crate::ledger::redact_text(&proposal.verification_command),
+        proposal.proposal_id,
+        proposal.approval_token,
+        proposal.diff
     ))
+}
+
+fn is_non_mutating_action(kind: &str) -> bool {
+    matches!(
+        kind,
+        "answer-only" | "inspect-sources" | "generated-artifact-plan"
+    )
+}
+
+fn render_non_mutating_report(
+    request: &str,
+    decision: &IntentDecision,
+    context_pack: &ContextPack,
+    model_action: &ParsedModelAction,
+    response: &str,
+    workflow: &state::WorkflowRecord,
+) -> String {
+    let answer = model_answer(response);
+    format!(
+        "run 결과\n- 상태: 완료\n- 요청: {}\n- 선택한 skill: {}\n- mode: {}\n- workflow id: {}\n- workflow kind: {}\n- action id: {}\n- action kind: {}\n- context origin: {}\n- ontology records selected: {}\n- ontology stale rejected: {}\n- source pointers: {}\n- context files read: {}\n- side effect: 없음\n- approval: 불필요\n- 답변:\n{}",
+        request,
+        decision.skill_id,
+        decision.mode,
+        workflow.workflow_id,
+        workflow.workflow_kind,
+        workflow.action_id,
+        workflow.action_kind,
+        context_pack.origin,
+        context_pack.ontology_records_selected,
+        context_pack.ontology_stale_rejected,
+        model_action.source_pointers,
+        context_pack.files_read,
+        answer
+    )
+}
+
+fn model_answer(response: &str) -> String {
+    let without_thinking = strip_thinking_sections(response);
+    let visible = without_thinking
+        .lines()
+        .filter(|line| model_action_body(line).is_none())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let visible = visible.trim();
+    if visible.is_empty() {
+        "요청을 읽기 전용으로 처리했으며 실행할 변경은 없습니다.".to_string()
+    } else {
+        crate::korean_guard::guard_or_failure(visible)
+    }
+}
+
+fn strip_thinking_sections(response: &str) -> String {
+    let mut remaining = response;
+    let mut visible = String::new();
+    loop {
+        let Some(start) = remaining.find("<think>") else {
+            visible.push_str(remaining);
+            break;
+        };
+        visible.push_str(&remaining[..start]);
+        let after_start = &remaining[start + "<think>".len()..];
+        let Some(end) = after_start.find("</think>") else {
+            break;
+        };
+        remaining = &after_start[end + "</think>".len()..];
+    }
+    visible
+}
+
+fn checkpoint_failure_or_original(workflow: state::WorkflowRecord, original: AppError) -> AppError {
+    match state::checkpoint_workflow(workflow.clone(), workflow.revision) {
+        Ok(_) => original,
+        Err(persistence) => {
+            let _ = state::record_validation_gap(
+                "workflow-failure-checkpoint",
+                &format!("{}:{}", workflow.workflow_id, workflow.failure_reason),
+            );
+            AppError {
+                code: original.code,
+                message: format!(
+                    "{}\n- failure checkpoint: 저장 실패\n- persistence error: {}",
+                    original.message, persistence.message
+                ),
+            }
+        }
+    }
 }
 
 pub fn classify_report(request: &str) -> Result<String, AppError> {
@@ -373,6 +578,11 @@ fn parse_model_action(
         next_gate: normalize_next_gate(&raw_next_gate, runtime_candidate),
         requested_side_effects: side_effects,
         executable_now: false,
+        target_path: field_value(&fields, &["path", "target_path"]).unwrap_or_default(),
+        find_text: decode_action_text(field_value(&fields, &["find_hex"]).as_deref()),
+        replace_text: decode_action_text(field_value(&fields, &["replace_hex"]).as_deref()),
+        verification_command: field_value(&fields, &["verification", "verification_command"])
+            .unwrap_or_default(),
     }
 }
 
@@ -396,6 +606,10 @@ fn parse_model_action_text(
         next_gate: next_gate_from_text(response, runtime_candidate),
         requested_side_effects: runtime_candidate.allowed_side_effects.to_string(),
         executable_now: false,
+        target_path: String::new(),
+        find_text: String::new(),
+        replace_text: String::new(),
+        verification_command: String::new(),
     })
 }
 
@@ -552,7 +766,31 @@ fn fallback_model_action(
         next_gate: runtime_candidate.next_gate.to_string(),
         requested_side_effects: runtime_candidate.allowed_side_effects.to_string(),
         executable_now: false,
+        target_path: String::new(),
+        find_text: String::new(),
+        replace_text: String::new(),
+        verification_command: String::new(),
     }
+}
+
+fn decode_action_text(value: Option<&str>) -> String {
+    let Some(value) = value else {
+        return String::new();
+    };
+    if !value.len().is_multiple_of(2) {
+        return String::new();
+    }
+    let mut bytes = Vec::with_capacity(value.len() / 2);
+    for pair in value.as_bytes().chunks_exact(2) {
+        let Ok(hex) = std::str::from_utf8(pair) else {
+            return String::new();
+        };
+        let Ok(byte) = u8::from_str_radix(hex, 16) else {
+            return String::new();
+        };
+        bytes.push(byte);
+    }
+    String::from_utf8(bytes).unwrap_or_default()
 }
 
 fn agent_loop_prompt(
@@ -577,7 +815,9 @@ fn agent_loop_prompt(
          - allowed side effects now: {}\n\n\
          model response action contract:\n\
          - 마지막 줄은 반드시 아래 형식으로 씁니다.\n\
-         - MODEL ACTION: kind={}; source_pointers={}; next_gate={}; side_effects=none\n\n\
+         - find/replace는 UTF-8 bytes의 lowercase hex로 인코딩합니다.\n\
+         - verification은 shell operator 없는 policy-allowed 단순 argv 명령입니다.\n\
+         - MODEL ACTION: kind={}; source_pointers={}; path=<project-relative-path>; find_hex=<hex>; replace_hex=<hex>; verification=<command>; next_gate={}; side_effects=none\n\n\
          {}\n\
          현재 구현 단계의 경계:\n\
          - 파일 수정, patch 적용, command 실행은 하지 않습니다.\n\
@@ -739,9 +979,36 @@ mod tests {
         assert!(!parsed.executable_now);
     }
 
+    #[test]
+    fn model_answer_hides_action_contract_and_thinking() {
+        let answer = model_answer(
+            "<think>internal plan</think>\n구조를 확인했으며 변경은 필요하지 않습니다.\nMODEL ACTION: kind=answer-only; source_pointers=none; next_gate=korean-output-guard; side_effects=none",
+        );
+
+        assert_eq!(answer, "구조를 확인했으며 변경은 필요하지 않습니다.");
+        assert!(!answer.contains("MODEL ACTION"));
+        assert!(!answer.contains("internal plan"));
+    }
+
+    #[test]
+    fn model_answer_fails_closed_on_non_korean_natural_language() {
+        let answer = model_answer(
+            "This is an unguarded English answer.\nMODEL ACTION: kind=answer-only; source_pointers=none; next_gate=korean-output-guard; side_effects=none",
+        );
+
+        assert_eq!(
+            answer,
+            "응답 언어 검증에 실패했습니다. 출력이 한국어 기준을 만족하지 않아 결과를 표시하지 않았습니다."
+        );
+        assert!(!answer.contains("English answer"));
+    }
+
     fn sample_context_pack() -> ContextPack {
         ContextPack {
             project_root: PathBuf::from("/tmp/project"),
+            origin: "ontology".to_string(),
+            ontology_records_selected: 1,
+            ontology_stale_rejected: 0,
             files_considered: 1,
             files_read: 1,
             chars_read: 12,

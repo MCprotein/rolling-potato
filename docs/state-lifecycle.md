@@ -40,7 +40,11 @@ writes must be idempotent by event id.
 Replay rules:
 
 - ledger events are replayed in event-time/order sequence
+- runtime-ledger, project-session-ledger, and operation-log appends share one
+  recoverable writer lease so concurrent processes cannot fork a hash chain
 - projection rows use stable event ids for idempotency
+- SQLite `ledger_events` and selectable session rows are rebuilt from the
+  canonical runtime ledger; SQLite-only sessions are removed
 - partial writes are detected by missing projection rows or mismatched hashes
 - corrupt projection files are preserved before recreation
 - current-state pointers are repaired only after ledger/session history is read
@@ -95,3 +99,43 @@ Required tests:
 - model knowledge hint does not bypass manifest/policy
 - retry budget stops repeated invalid output
 - fixture issue is not scored as model failure
+
+## v0.29.0 Workflow Checkpoints
+
+Patch workflows live under `.rpotato/workflows/`. An immutable versioned snapshot,
+its matching append-only `workflow.checkpoint` event, and the atomically replaced
+committed-revision pointer jointly authorize resume. A synced transaction record
+lets startup finish any interrupted snapshot/ledger/pointer window idempotently.
+Every revision links `previous_hash` to `artifact_hash`; malformed ledger lines,
+missing revisions, stale latest checkpoints, and chain conflicts fail closed.
+Legacy schema v2 snapshots remain immutable and readable. A touched v2 workflow
+appends its next revision as schema v3, preserving the v2 hash and allowing only
+`v2*`, `v3*`, or one-way `v2+ -> v3+` chains.
+
+Recovery scans every workflow pointer, transaction, and snapshot directory rather
+than trusting only `current-state.json`. More than one nonterminal workflow is a
+conflict and fails closed. A terminal workflow left in the active pointer after a
+crash is revalidated and then cleared atomically. Patch approval and verification
+approval are independent persisted gates. `patch approve` applies the bound patch
+and stops at `pending-verification-approval`; only a separately issued credential
+can authorize `patch verify`. Both pending gates, verification evidence, terminal
+failure, and completion survive process restart. Resume never redisplays a
+one-time credential or re-enters the model backend, and a completed resume reruns
+proposal binding, source, evidence, and stop-gate checks.
+`model-pending` and `action-recorded` recovery records a truthful terminal failure
+instead of re-entering the backend. `verification-started` is an inconclusive
+durable boundary: resume fails closed and requires a new explicit user-controlled
+path rather than replaying the command. Approval/token rotation and workflow
+checkpointing use PID/nonce recoverable leases plus workflow revision CAS.
+Linux, macOS, and Windows liveness checks reclaim only a provably dead owner;
+live or unknown owners fail closed. Explicit `cancel` restores hash-matched
+applied bytes or records a durable conflict without replaying verification.
+
+Corrupt workflow or ledger artifacts are preserved in place. A separate synced
+validation-gap JSONL records only the failure class and an artifact descriptor
+hash, so recovery never appends invented history to the damaged authoritative
+ledger. Verification evidence uses deterministic IDs, atomic artifact replacement,
+synced runtime append, and ledger-event deduplication. New ledger lines bind
+physical append order with `previous_event_hash`/`event_hash`; a synced head
+detects reorder, tamper, and tail truncation. An explicit legacy prefix is
+accepted only before the chained suffix.

@@ -43,7 +43,9 @@ rpotato
   rpotato hooks list
   rpotato hooks validate-result <json>
   rpotato patch preview --path <path> --find <text> --replace <text>
-  rpotato patch approve <proposal-id> --token <token> [--dry-run] [--verify-command <command>]
+  rpotato patch approve <proposal-id> --token <token> [--dry-run]
+  rpotato patch verify <proposal-id> --token <token>
+  rpotato patch token-rotate <proposal-id>
   rpotato backend doctor
   rpotato backend install-plan
   rpotato backend install
@@ -97,6 +99,12 @@ rpotato
   rpotato uninstall --keep-cache
   rpotato uninstall --purge-cache
   rpotato uninstall --dry-run --purge-cache
+
+patch workflow 규칙:
+  run이 만든 proposal은 verification plan을 미리 binding합니다.
+  patch approve는 patch만 적용하고 patch verify는 별도 승인 후 command를 실행합니다.
+  state resume은 pending approval에서 backend를 다시 호출하지 않습니다.
+  verification command는 proposal에 binding되며 CLI에서 바꿀 수 없습니다.
 
 현재 상태:
   backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 release payload를 배치합니다.
@@ -282,7 +290,13 @@ pub enum PatchCommand {
         proposal_id: String,
         token: String,
         dry_run: bool,
-        verify_command: Option<String>,
+    },
+    Verify {
+        proposal_id: String,
+        token: String,
+    },
+    TokenRotate {
+        proposal_id: String,
     },
 }
 
@@ -558,8 +572,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, rest @ ..] if group == "patch" && action == "approve" => {
             parse_patch_approve(rest).map(Command::Patch)
         }
+        [group, action, rest @ ..] if group == "patch" && action == "verify" => {
+            parse_patch_verify(rest).map(Command::Patch)
+        }
+        [group, action, proposal_id] if group == "patch" && action == "token-rotate" => {
+            Ok(Command::Patch(PatchCommand::TokenRotate { proposal_id: proposal_id.clone() }))
+        }
         [group, ..] if group == "patch" => Err(AppError::usage(
-            "patch 명령은 preview 또는 approve만 허용합니다.",
+            "patch 명령은 preview, approve, verify, token-rotate만 허용합니다.",
         )),
         [group, action] if group == "backend" && action == "doctor" => {
             Ok(Command::Backend(BackendCommand::Doctor))
@@ -1472,7 +1492,6 @@ fn parse_patch_approve(args: &[String]) -> Result<PatchCommand, AppError> {
     let mut proposal_id = None;
     let mut token = None;
     let mut dry_run = false;
-    let mut verify_command = None;
     let mut index = 0;
 
     while index < args.len() {
@@ -1489,20 +1508,6 @@ fn parse_patch_approve(args: &[String]) -> Result<PatchCommand, AppError> {
             "--dry-run" => {
                 dry_run = true;
                 index += 1;
-            }
-            "--verify-command" => {
-                let Some(value) = args.get(index + 1) else {
-                    return Err(AppError::usage(
-                        "patch approve는 --verify-command <command> 값이 필요합니다.",
-                    ));
-                };
-                if verify_command.is_some() {
-                    return Err(AppError::usage(
-                        "patch approve verification command는 하나만 지정할 수 있습니다.",
-                    ));
-                }
-                verify_command = Some(value.clone());
-                index += 2;
             }
             value if value.starts_with('-') => {
                 return Err(AppError::usage(format!(
@@ -1536,7 +1541,45 @@ fn parse_patch_approve(args: &[String]) -> Result<PatchCommand, AppError> {
         proposal_id,
         token,
         dry_run,
-        verify_command,
+    })
+}
+
+fn parse_patch_verify(args: &[String]) -> Result<PatchCommand, AppError> {
+    let mut proposal_id = None;
+    let mut token = None;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--token" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "patch verify는 --token <token> 값이 필요합니다.",
+                    ));
+                };
+                token = Some(value.clone());
+                index += 2;
+            }
+            value if value.starts_with('-') => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 patch verify 옵션입니다: {value}"
+                )));
+            }
+            value => {
+                if proposal_id.is_some() {
+                    return Err(AppError::usage(
+                        "patch verify proposal id는 하나만 지정할 수 있습니다.",
+                    ));
+                }
+                proposal_id = Some(value.to_string());
+                index += 1;
+            }
+        }
+    }
+    Ok(PatchCommand::Verify {
+        proposal_id: proposal_id
+            .ok_or_else(|| AppError::usage("patch verify에는 proposal id가 필요합니다."))?,
+        token: token
+            .ok_or_else(|| AppError::usage("patch verify는 --token <token> 값이 필요합니다."))?,
     })
 }
 
@@ -2179,15 +2222,31 @@ mod tests {
             Command::Patch(PatchCommand::Approve {
                 proposal_id: "patch-proposal-abc123".to_string(),
                 token: "token123".to_string(),
-                dry_run: true,
-                verify_command: None
+                dry_run: true
             })
         );
     }
 
     #[test]
-    fn parses_patch_approve_apply_with_verify_command() {
+    fn parses_patch_token_rotate() {
         let command = parse([
+            "patch".to_string(),
+            "token-rotate".to_string(),
+            "patch-proposal-wf-example".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Patch(PatchCommand::TokenRotate {
+                proposal_id: "patch-proposal-wf-example".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_patch_approve_with_verify_command() {
+        let error = parse([
             "patch".to_string(),
             "approve".to_string(),
             "patch-proposal-abc123".to_string(),
@@ -2196,15 +2255,27 @@ mod tests {
             "--verify-command".to_string(),
             "cargo fmt --check".to_string(),
         ])
+        .unwrap_err();
+
+        assert!(error.message.contains("알 수 없는 patch approve 옵션"));
+    }
+
+    #[test]
+    fn parses_patch_verify() {
+        let command = parse([
+            "patch".to_string(),
+            "verify".to_string(),
+            "patch-proposal-abc123".to_string(),
+            "--token".to_string(),
+            "token123".to_string(),
+        ])
         .unwrap();
 
         assert_eq!(
             command,
-            Command::Patch(PatchCommand::Approve {
+            Command::Patch(PatchCommand::Verify {
                 proposal_id: "patch-proposal-abc123".to_string(),
-                token: "token123".to_string(),
-                dry_run: false,
-                verify_command: Some("cargo fmt --check".to_string())
+                token: "token123".to_string()
             })
         );
     }

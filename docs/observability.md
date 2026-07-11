@@ -69,13 +69,14 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato init` creates app data root, project-local `.rpotato/`, current state, runtime ledger, project session ledger, runtime evidence JSONL, and SQLite projection.
 - Append-only ledger is the source of truth; SQLite `ledger_events` is a replayable projection.
 - SQLite session history can be restored for the current project from replayed `ledger_events` if the projection is recreated.
-- SQLite migration v4 creates `sessions`, `workflows`, `workflow_transitions`, `checkpoint_records`, `resource_samples`, `model_runs`, `token_usage`, `backend_runs`, `tool_calls`, `command_runs`, `guard_results`, `stop_gate_results`, `evidence_records`, and the extended `benchmark_runs` projection.
+- SQLite migration v5 creates the existing runtime tables and rebuilds `workflows` from append-only `workflow.checkpoint` details; SQLite remains a projection, not workflow authority.
 - `rpotato state` shows current-state and ledger/projection counts.
 - `rpotato state reconcile` recovers missing/stale/corrupt current state and records preserve-move events in the ledger.
-- `rpotato state resume` distinguishes no active workflow, active pointer detected, and blocked states, then records a ledger event.
-- `rpotato session list` and `rpotato session history` read session history from the SQLite projection for the current project.
+- `rpotato state resume` strictly parses every ledger line, validates the full canonical snapshot/checkpoint hash chain and latest committed revision, and resumes safe phases idempotently. Pending approval displays the diff and a token placeholder without a backend call; the one-time token cannot be redisplayed.
+- Patch verification writes project evidence JSON plus runtime evidence JSONL containing hashes and status, not source, command output, or approval token plaintext. The stop gate rereads the artifact and authoritative source before success.
+- `rpotato session list` and `rpotato session history` read a SQLite session view rebuilt from the canonical runtime ledger for the current project. Replay removes SQLite-only session rows.
 - `rpotato session new` creates a fresh session identity, writes it to current state, appends a `session.new` ledger event, and projects it into SQLite.
-- `rpotato session resume <session-id>` and `rpotato resume <session-id>` select a prior session from SQLite history and write that session id back into current state.
+- `rpotato session resume <session-id>` and `rpotato resume <session-id>` require the prior session in the canonical runtime ledger before writing that session id back into current state.
 - `rpotato resume` without an id shows session history, so a TUI/CLI surface can let users choose the target before resuming.
 - `rpotato cancel` appends a no-op cancel event when there is no active workflow.
 - `rpotato evidence validate <artifact-pointer>` verifies that a project-relative artifact pointer stays inside the project boundary.
@@ -278,6 +279,7 @@ Initial retention matrix:
 | project session ledger | project-local | project cleanup only | tied to `.rpotato/` |
 | transcript metadata | project-local | project cleanup only | raw transcript storage remains opt-in/later |
 | evidence artifacts | until stale or user cleanup | `evidence validate`, later evidence prune | project-bound pointer required |
+| patch rollback bytes | until project cleanup | project `.rpotato/` cleanup | restricted project-local original bytes; never projected to SQLite/monitor or ledger/evidence payloads |
 | command output summaries | short or redacted | monitor/log prune | prefer summaries over raw logs |
 | backend logs | short | monitor/log prune | useful for crashes, privacy-sensitive |
 | benchmark reports | long term if redacted | benchmark/report prune | include reproducibility manifest |
@@ -293,6 +295,10 @@ Export redaction behavior:
 - exports must preserve enough ids to re-query local evidence without storing
   raw prompt or source text
 
+The SQLite projection includes verification-evidence and stop-gate result rows
+for status/TUI queries. These rows contain IDs, hashes, pass/fail state, and event
+timestamps only. They never contain the raw source retained by a rollback artifact.
+
 ## Compaction And Resume Policy
 
 Compacted summaries are not source of truth.
@@ -301,8 +307,8 @@ Compacted summaries are not source of truth.
 - Original decision evidence is rechecked from runtime ledger, project session ledger, and evidence artifact pointers.
 - Compacted summary is only a resume-bundle navigation hint and is not used to confirm file, command, or model claims.
 - Compacted summary artifacts must pass the same project-boundary validation as `evidence validate`.
-- Active workflow resume detects current-state pointers, records ledger events, and leaves actual execution to the later agent-loop phase.
-- Session resume is history-first: SQLite provides the selectable session list, append-only ledger remains the audit source, and current state stores only the selected `session_id` plus resume metadata.
+- Runtime core resumes safe persisted phases of bounded patch workflows. Durable transcript replay and transcript-driven agent workflow continuation remain later capabilities.
+- Session resume is ledger-authoritative: SQLite renders the selectable session list, the append-only runtime ledger authorizes each selection, and current state stores only the selected `session_id` plus resume metadata.
 - `rpotato resume <session-id>` currently selects the target session for subsequent commands; model transcript replay is a later agent-loop capability.
 
 ## Validation

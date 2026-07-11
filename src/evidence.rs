@@ -1,8 +1,301 @@
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 
 use crate::app::AppError;
 use crate::paths;
+use crate::{ledger, state};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerificationEvidence {
+    pub evidence_id: String,
+    pub artifact_hash: String,
+    pub passed: bool,
+}
+
+pub fn record_patch_verification(
+    workflow: &state::WorkflowRecord,
+    command: &str,
+    passed: bool,
+    exit_code: &str,
+    source_hash: &str,
+    stdout: &str,
+    stderr: &str,
+) -> Result<VerificationEvidence, AppError> {
+    let evidence_id = format!(
+        "evidence-{}",
+        &state::sha256_text(&format!(
+            "{}\n{}\n{}\n{}\n{}",
+            workflow.workflow_id, workflow.proposal_id, command, exit_code, source_hash
+        ))[..20]
+    );
+    fs::create_dir_all(paths::project_evidence_dir())
+        .map_err(|err| AppError::runtime(format!("evidence directory 생성 실패: {err}")))?;
+    let payload = format!(
+        "workflow_id={}\nproposal_id={}\naction_id={}\ncommand_hash={}\npassed={}\nexit_code={}\nsource_hash={}\nstdout_hash={}\nstderr_hash={}\n",
+        workflow.workflow_id,
+        workflow.proposal_id,
+        workflow.action_id,
+        state::sha256_text(command),
+        passed,
+        exit_code,
+        source_hash,
+        state::sha256_text(stdout),
+        state::sha256_text(stderr)
+    );
+    let artifact_hash = state::sha256_text(&payload);
+    let body = format!(
+        "{{\n  \"schema_version\": 1,\n  \"evidence_id\": \"{}\",\n  \"artifact_hash\": \"{}\",\n  \"workflow_id\": \"{}\",\n  \"proposal_id\": \"{}\",\n  \"action_id\": \"{}\",\n  \"command_hash\": \"{}\",\n  \"passed\": {},\n  \"exit_code\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"stdout_hash\": \"{}\",\n  \"stderr_hash\": \"{}\"\n}}\n",
+        evidence_id,
+        artifact_hash,
+        workflow.workflow_id,
+        workflow.proposal_id,
+        workflow.action_id,
+        state::sha256_text(command),
+        passed,
+        ledger::json_string(exit_code),
+        source_hash,
+        state::sha256_text(stdout),
+        state::sha256_text(stderr)
+    );
+    let path = paths::project_evidence_dir().join(format!("{evidence_id}.json"));
+    if path.exists() {
+        let existing = fs::read_to_string(&path).map_err(|err| {
+            AppError::blocked(format!(
+                "verification evidence 기존 artifact 읽기 실패: {err}"
+            ))
+        })?;
+        if existing != body {
+            return Err(AppError::blocked("verification evidence 충돌\n- 이유: deterministic evidence id에 다른 artifact가 존재합니다."));
+        }
+    } else {
+        state::atomic_replace_bytes(&path, body.as_bytes())?;
+    }
+    evidence_fault("after-artifact")?;
+    let runtime_line = format!(
+        "{{\"schema_version\":1,\"evidence_id\":\"{}\",\"workflow_id\":\"{}\",\"artifact_hash\":\"{}\",\"passed\":{},\"source_hash\":\"{}\"}}",
+        evidence_id, workflow.workflow_id, artifact_hash, passed, source_hash
+    );
+    if let Some(parent) = paths::runtime_evidence_file().parent() {
+        fs::create_dir_all(parent).map_err(|err| {
+            AppError::runtime(format!("runtime evidence directory 생성 실패: {err}"))
+        })?;
+    }
+    let runtime_path = paths::runtime_evidence_file();
+    let existing_runtime = match fs::read_to_string(&runtime_path) {
+        Ok(contents) => contents,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(err) => {
+            return Err(AppError::runtime(format!(
+                "runtime evidence 읽기 실패: {err}"
+            )))
+        }
+    };
+    let mut found = false;
+    for line in existing_runtime.lines() {
+        let object = crate::strict_json::parse_object(
+            line,
+            &[
+                "schema_version",
+                "evidence_id",
+                "workflow_id",
+                "artifact_hash",
+                "passed",
+                "source_hash",
+            ],
+            "runtime evidence line",
+        )?;
+        if crate::strict_json::number(&object, "schema_version", "runtime evidence line")? != 1 {
+            return Err(AppError::blocked("runtime evidence schema version 불일치"));
+        }
+        if crate::strict_json::string(&object, "evidence_id", "runtime evidence line")?
+            == evidence_id
+        {
+            if line != runtime_line {
+                return Err(AppError::blocked("runtime evidence deterministic id 충돌"));
+            }
+            found = true;
+        }
+    }
+    if !found {
+        let mut runtime = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&runtime_path)
+            .map_err(|err| AppError::runtime(format!("runtime evidence open 실패: {err}")))?;
+        writeln!(runtime, "{runtime_line}")
+            .map_err(|err| AppError::runtime(format!("runtime evidence append 실패: {err}")))?;
+        runtime
+            .sync_all()
+            .map_err(|err| AppError::runtime(format!("runtime evidence sync 실패: {err}")))?;
+    }
+    evidence_fault("after-runtime")?;
+    if !ledger::event_detail_exists(
+        "verification.evidence.recorded",
+        "evidence_id",
+        &evidence_id,
+    )? {
+        state::record_event(
+            "verification.evidence.recorded",
+            "patch verification evidence recorded",
+            &format!(
+                "workflow_id={} evidence_id={} artifact_hash={} passed={} source_hash={}",
+                workflow.workflow_id, evidence_id, artifact_hash, passed, source_hash
+            ),
+        )?;
+    }
+    evidence_fault("after-event")?;
+    Ok(VerificationEvidence {
+        evidence_id,
+        artifact_hash,
+        passed,
+    })
+}
+
+pub fn evaluate_patch_stop_gate(workflow: &state::WorkflowRecord) -> Result<(), AppError> {
+    validate_patch_stop_gate_inner(workflow, true)
+}
+
+pub fn validate_patch_stop_gate(workflow: &state::WorkflowRecord) -> Result<(), AppError> {
+    validate_patch_stop_gate_inner(workflow, false)
+}
+
+fn validate_patch_stop_gate_inner(
+    workflow: &state::WorkflowRecord,
+    record_event: bool,
+) -> Result<(), AppError> {
+    let path = paths::project_evidence_dir().join(format!("{}.json", workflow.evidence_id));
+    let body = fs::read_to_string(&path)
+        .map_err(|_| stop_gate_error(workflow, "verification evidence missing", record_event))?;
+    const KEYS: &[&str] = &[
+        "schema_version",
+        "evidence_id",
+        "artifact_hash",
+        "workflow_id",
+        "proposal_id",
+        "action_id",
+        "command_hash",
+        "passed",
+        "exit_code",
+        "source_hash",
+        "stdout_hash",
+        "stderr_hash",
+    ];
+    let object = crate::strict_json::parse_object(&body, KEYS, "verification evidence")
+        .map_err(|_| stop_gate_error(workflow, "malformed verification evidence", record_event))?;
+    if crate::strict_json::number(&object, "schema_version", "verification evidence")
+        .map_err(|_| stop_gate_error(workflow, "malformed verification evidence", record_event))?
+        != 1
+    {
+        return Err(stop_gate_error(
+            workflow,
+            "verification evidence schema version mismatch",
+            record_event,
+        ));
+    }
+    let field = |key| {
+        crate::strict_json::string(&object, key, "verification evidence")
+            .map_err(|_| stop_gate_error(workflow, "malformed verification evidence", record_event))
+    };
+    let evidence_id = field("evidence_id")?;
+    let body_artifact_hash = field("artifact_hash")?;
+    let evidence_workflow = field("workflow_id")?;
+    let evidence_proposal = field("proposal_id")?;
+    let evidence_action = field("action_id")?;
+    let command_hash = field("command_hash")?;
+    let exit_code = field("exit_code")?;
+    let source_hash = field("source_hash")?;
+    let stdout_hash = field("stdout_hash")?;
+    let stderr_hash = field("stderr_hash")?;
+    let passed = crate::strict_json::boolean(&object, "passed", "verification evidence")
+        .map_err(|_| stop_gate_error(workflow, "malformed verification evidence", record_event))?;
+    let payload = format!(
+        "workflow_id={}\nproposal_id={}\naction_id={}\ncommand_hash={}\npassed={}\nexit_code={}\nsource_hash={}\nstdout_hash={}\nstderr_hash={}\n",
+        evidence_workflow,
+        evidence_proposal,
+        evidence_action,
+        command_hash,
+        passed,
+        exit_code,
+        source_hash,
+        stdout_hash,
+        stderr_hash
+    );
+    let recomputed_hash = state::sha256_text(&payload);
+    let evidence_fresh = recomputed_hash == workflow.evidence_hash
+        && body_artifact_hash == recomputed_hash
+        && evidence_id == workflow.evidence_id
+        && evidence_workflow == workflow.workflow_id
+        && evidence_proposal == workflow.proposal_id
+        && evidence_action == workflow.action_id
+        && command_hash == state::sha256_text(&workflow.verification_plan)
+        && source_hash == workflow.after_hash
+        && passed;
+    let source =
+        fs::read_to_string(paths::project_root().join(&workflow.source_path)).map_err(|_| {
+            stop_gate_error(workflow, "authoritative source reread failed", record_event)
+        })?;
+    let source_fresh = state::sha256_text(&source) == workflow.after_hash;
+    if !matches!(workflow.phase.as_str(), "verified" | "complete")
+        || workflow.approval_state != "applied"
+        || workflow.verification_approval_state != "approved"
+        || workflow.proposal_id.is_empty()
+        || workflow.evidence_id.is_empty()
+        || !evidence_fresh
+        || !source_fresh
+    {
+        return Err(stop_gate_error(
+            workflow,
+            "missing or stale applied/verification evidence",
+            record_event,
+        ));
+    }
+    if record_event {
+        state::record_event(
+            "workflow.stop_gate.passed",
+            "workflow stop gate passed",
+            &format!(
+                "workflow_id={} proposal_id={} evidence_id={} applied_hash={} unresolved_approval=false",
+                workflow.workflow_id, workflow.proposal_id, workflow.evidence_id, workflow.after_hash
+            ),
+        )?;
+    }
+    Ok(())
+}
+
+fn evidence_fault(point: &str) -> Result<(), AppError> {
+    if cfg!(debug_assertions)
+        && std::env::var("RPOTATO_TEST_EVIDENCE_FAULT").as_deref() == Ok(point)
+    {
+        return Err(AppError::runtime(format!(
+            "injected evidence crash: {point}"
+        )));
+    }
+    Ok(())
+}
+
+fn stop_gate_error(workflow: &state::WorkflowRecord, reason: &str, record_event: bool) -> AppError {
+    let persistence = if record_event {
+        state::record_event(
+            "workflow.stop_gate.failed",
+            "workflow stop gate failed",
+            &format!(
+                "workflow_id={} reason={}",
+                workflow.workflow_id,
+                reason.replace(' ', "-")
+            ),
+        )
+        .err()
+        .map(|err| format!("\n- stop-gate failure event 저장 실패: {}", err.message))
+        .unwrap_or_default()
+    } else {
+        String::new()
+    };
+    AppError::blocked(format!(
+        "workflow stop gate 차단\n- workflow id: {}\n- 이유: {}\n- 동작: 성공 보고를 생성하지 않습니다.{}",
+        workflow.workflow_id, reason, persistence
+    ))
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvidenceStoreStatus {
@@ -219,5 +512,100 @@ mod tests {
         assert_eq!(status.runtime_evidence_records, 2);
         assert_eq!(status.project_artifacts, 2);
         assert_eq!(status.stale_policy, stale_policy_summary());
+    }
+
+    #[test]
+    fn stop_gate_rejects_missing_and_stale_evidence() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root =
+            std::env::temp_dir().join(format!("rpotato-stop-gate-test-{}", std::process::id()));
+        let project = root.join("project");
+        let data = root.join("data");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(project.join("src")).unwrap();
+        fs::create_dir_all(project.join(".rpotato/evidence")).unwrap();
+        fs::write(project.join("src/lib.rs"), "after\n").unwrap();
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project);
+        std::env::set_var("RPOTATO_DATA_HOME", &data);
+        let after_hash = state::sha256_text("after\n");
+        let mut workflow = state::WorkflowRecord::new(&ledger::fresh_identity(), "test");
+        workflow.phase = "verified".to_string();
+        workflow.approval_state = "approved".to_string();
+        workflow.proposal_id = "patch-proposal-test".to_string();
+        workflow.source_path = "src/lib.rs".to_string();
+        workflow.after_hash = after_hash.clone();
+        workflow.evidence_id = "evidence-missing".to_string();
+        workflow.evidence_hash = "expected".to_string();
+
+        let missing = evaluate_patch_stop_gate(&workflow).unwrap_err();
+        assert_eq!(missing.code, 3);
+
+        fs::write(
+            project.join(".rpotato/evidence/evidence-missing.json"),
+            format!(
+                "{{\"artifact_hash\": \"wrong\", \"workflow_id\": \"{}\", \"proposal_id\": \"{}\", \"source_hash\": \"{}\", \"passed\": true}}",
+                workflow.workflow_id, workflow.proposal_id, after_hash
+            ),
+        )
+        .unwrap();
+        let stale = evaluate_patch_stop_gate(&workflow).unwrap_err();
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(stale.code, 3);
+        assert!(stale.message.contains("malformed verification evidence"));
+    }
+
+    #[test]
+    fn evidence_crash_after_event_is_idempotent_without_duplicate_receipts() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        for point in ["after-artifact", "after-runtime", "after-event"] {
+            let root = std::env::temp_dir().join(format!(
+                "rpotato-evidence-dedupe-{point}-{}",
+                std::process::id()
+            ));
+            let project = root.join("project");
+            let data = root.join("data");
+            let _ = fs::remove_dir_all(&root);
+            fs::create_dir_all(project.join("src")).unwrap();
+            std::env::set_var("RPOTATO_PROJECT_ROOT", &project);
+            std::env::set_var("RPOTATO_DATA_HOME", &data);
+            state::initialize().unwrap();
+            let mut workflow =
+                state::WorkflowRecord::new(&ledger::fresh_identity(), "evidence dedupe");
+            workflow.proposal_id = "patch-proposal-evidence-test".to_string();
+            workflow.action_id = "action-evidence-test".to_string();
+            let source_hash = state::sha256_text("after\n");
+            std::env::set_var("RPOTATO_TEST_EVIDENCE_FAULT", point);
+            let injected =
+                record_patch_verification(&workflow, "pwd", true, "0", &source_hash, "ok", "")
+                    .unwrap_err();
+            std::env::remove_var("RPOTATO_TEST_EVIDENCE_FAULT");
+            let receipt =
+                record_patch_verification(&workflow, "pwd", true, "0", &source_hash, "ok", "")
+                    .unwrap();
+            let runtime_records = fs::read_to_string(paths::runtime_evidence_file())
+                .unwrap()
+                .lines()
+                .filter(|line| line.contains(&receipt.evidence_id))
+                .count();
+            let ledger_events = ledger::read_runtime_events()
+                .unwrap()
+                .into_iter()
+                .filter(|event| {
+                    event.event_type == "verification.evidence.recorded"
+                        && event
+                            .details
+                            .contains(&format!("evidence_id={}", receipt.evidence_id))
+                })
+                .count();
+            std::env::remove_var("RPOTATO_PROJECT_ROOT");
+            std::env::remove_var("RPOTATO_DATA_HOME");
+            let _ = fs::remove_dir_all(root);
+            assert_eq!(injected.code, 1, "point: {point}");
+            assert_eq!(runtime_records, 1, "point: {point}");
+            assert_eq!(ledger_events, 1, "point: {point}");
+        }
     }
 }

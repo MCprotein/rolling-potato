@@ -232,7 +232,9 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato tui diff <proposal-id>`
 - `rpotato tui evidence`
 - `rpotato patch preview --path <path> --find <text> --replace <text>`
-- `rpotato patch approve <proposal-id> --token <token> [--dry-run] [--verify-command <command>]`
+- `rpotato patch approve <proposal-id> --token <token> [--dry-run]`
+- `rpotato patch verify <proposal-id> --token <token>`
+- `rpotato patch token-rotate <proposal-id>`
 - `rpotato monitor status`
 - `rpotato monitor models`
 - `rpotato monitor baseline`
@@ -282,11 +284,11 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `state reconcile`은 stale/corrupt current-state를 보존 이동한 뒤 새 current-state를 기록합니다. `state resume`은 active workflow pointer를 감지하거나, 재개할 작업이 없으면 no-op ledger event를 남깁니다.
 
-`session list`와 `session history`는 SQLite projection에서 현재 project의 session history를 읽습니다. `session new`는 새 session identity를 만들고 current-state를 그 session으로 전환합니다. `session resume <session-id>`와 `resume <session-id>`는 history에서 고른 session id를 current-state에 기록해 이후 명령이 같은 session ledger/SQLite projection으로 이어지게 합니다. 실제 model/backend agent loop의 transcript replay와 대화 이어달리기는 후속 agent-loop phase에서 이 current-state를 사용해 구현합니다.
+`session list`와 `session history`는 canonical runtime ledger에서 재생성한 SQLite projection으로 현재 project의 session history를 표시합니다. `session new`는 새 session identity를 만들고 current-state를 그 session으로 전환합니다. `session resume <session-id>`와 `resume <session-id>`는 해당 session이 canonical ledger에 존재할 때만 선택을 허용하고 current-state에 기록해 이후 명령이 같은 session identity로 이어지게 합니다. SQLite에만 존재하는 row는 resume 권위가 될 수 없습니다. 실제 model/backend agent loop의 transcript replay와 대화 이어달리기는 후속 agent-loop phase에서 이 current-state를 사용해 구현합니다.
 
 `evidence validate`는 artifact pointer가 local project-relative path이고 project boundary를 벗어나지 않는지 확인합니다.
 
-`run`은 user request를 skill/mode/context/evidence 요구사항으로 정규화하고, source pointer가 포함된 bounded repository context pack을 만들며, runtime-owned action candidate와 next gate를 준비한 뒤 실행 중인 backend sidecar를 호출하고 model의 structured action line 또는 인식 가능한 action text를 실행 없이 파싱합니다. Intent, context, action-candidate, model-action, backend chat ledger event와 token/latency metric을 local SQLite observability projection에 기록합니다. 아직 patch 적용, command 실행, model output의 승인된 action 처리까지는 수행하지 않습니다.
+`run`은 user request를 skill/mode/context/evidence 요구사항으로 정규화하고, source pointer가 포함된 ontology 기반 context를 선택하며, 실행 중인 backend sidecar 결과를 model text 실행 없이 runtime-owned typed action으로 파싱합니다. Read-only action은 guarded 한국어 보고로 종료합니다. 유효한 patch action은 restart-safe workflow와 proposal을 저장하고 authoritative source를 다시 읽은 뒤 정확한 `patch approve` gate에서 멈춥니다. `run` 자체는 patch를 적용하거나 verification을 실행하지 않으며, 아래의 분리된 credential이 각 side effect에 필요합니다. Intent, context, action, backend, ledger, token/latency projection record는 local에만 남습니다.
 
 `intent classify`, `intent routes`, `skill run`은 model을 호출하지 않는 pre-execution surface입니다. Routing state를 정규화하고 ledger event만 남깁니다.
 
@@ -294,7 +296,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `policy`와 `hooks` 명령은 command/path 권한 결정, credential redaction, lifecycle hook registry, fail-closed hook result 검사를 제공합니다. 실제 tool execution은 아직 이 policy surface 뒤에 연결되지 않았습니다.
 
-`patch preview`는 project-local text file을 읽고 명시적인 단일 find/replace proposal에 대한 unified diff를 렌더링하며, `.rpotato/patch-proposals/` 아래에 project-local proposal record를 저장하고 approval token을 출력합니다. `patch approve <proposal-id> --token <token> --dry-run`은 token을 검증하고 target file을 수정하지 않은 채 approval gate를 기록합니다. `--dry-run` 없이 실행하면 current file SHA-256이 preview 당시 original SHA-256과 일치할 때만 승인된 proposal을 적용하고, rollback record를 쓴 뒤 applied SHA-256을 검증해 ledger event를 남깁니다. `--verify-command <command>`는 apply 이후 allow 정책을 통과한 단순 argv verification command만 실행하며, verification 실패 시 rollback을 시도하고 성공으로 보고하지 않습니다.
+`patch preview`는 project-local text file을 읽고 명시적인 단일 find/replace proposal에 대한 unified diff를 렌더링하며, `.rpotato/patch-proposals/` 아래에 project-local record를 저장합니다. 이 standalone surface는 diff-only라 approve/apply/verify할 수 없습니다. `patch approve`는 `run`이 생성한 workflow proposal에만 사용할 수 있습니다. `patch approve <proposal-id> --token <token> --dry-run`은 target file을 수정하지 않고 patch 적용 gate를 검증합니다. `--dry-run` 없이 실행하면 workflow/proposal binding과 current source SHA-256이 모두 유효할 때만 workflow proposal을 적용하며 command는 실행하지 않고 별도의 일회성 verification credential을 발급합니다. `patch verify <proposal-id> --token <token>`은 pre-bound되고 policy가 허용한 argv verification plan만 별도로 승인해 실행합니다. Verification 실패는 rollback을 시도하며 성공으로 보고하지 않습니다. `patch token-rotate`는 현재 승인 대기 중인 gate의 credential을 교체합니다. 두 credential 모두 plaintext로 저장하거나 최초 전달 뒤 다시 표시하지 않습니다.
 
 `monitor baseline`은 local ledger/SQLite projection metric을 읽어 p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, model/backend/session grouping을 보여주는 read-only performance baseline report를 출력합니다. Raw prompt/source text는 저장하지 않으며 model artifact를 선택하지 않습니다. `monitor optimize`는 이 local metric과 `measured-locally` benchmark row만 읽어 context budget, team lane count, fallback mode, model route hint를 추천합니다. 실제 model artifact를 선택하거나 public benchmark parity를 주장하지 않습니다. `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 

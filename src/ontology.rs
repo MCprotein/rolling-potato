@@ -32,6 +32,31 @@ pub struct OntologySeedOutcome {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeContextRecord {
+    pub id: String,
+    pub layer: String,
+    pub kind: String,
+    pub label: String,
+    pub source_pointer: String,
+    pub source_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeContextSelection {
+    pub current_records: usize,
+    pub selected: Vec<RuntimeContextRecord>,
+    pub stale_rejected: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeSourceRead {
+    pub relative_path: String,
+    pub stable_ref: String,
+    pub source_hash: String,
+    pub contents: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct OntologyRecord {
     id: String,
     layer: String,
@@ -210,6 +235,80 @@ pub fn context_report(query: &str) -> Result<String, AppError> {
         selected.len(),
         rows
     ))
+}
+
+pub fn runtime_context(query: &str, limit: usize) -> Result<RuntimeContextSelection, AppError> {
+    ensure_layout()?;
+    let projection = load_projection()?;
+    let mut selected = select_context_records(&projection.current_records, query, limit);
+    if selected.is_empty() {
+        selected = projection
+            .current_records
+            .iter()
+            .filter(|record| {
+                record.layer == "A"
+                    && matches!(
+                        record.kind.as_str(),
+                        "entrypoint" | "package-manager" | "file"
+                    )
+            })
+            .take(limit)
+            .cloned()
+            .collect();
+    }
+
+    let mut stale_rejected = 0;
+    let selected = selected
+        .into_iter()
+        .filter_map(|record| {
+            if record_source_is_stale(&record) {
+                stale_rejected += 1;
+                return None;
+            }
+            Some(RuntimeContextRecord {
+                id: record.id,
+                layer: record.layer,
+                kind: record.kind,
+                label: record.label,
+                source_pointer: record.source_pointer,
+                source_hash: record.source_hash,
+            })
+        })
+        .collect();
+
+    Ok(RuntimeContextSelection {
+        current_records: projection.current_records.len(),
+        selected,
+        stale_rejected,
+    })
+}
+
+pub fn reread_runtime_source(
+    pointer: &str,
+    expected_hash: &str,
+) -> Result<RuntimeSourceRead, AppError> {
+    let source = resolve_source_pointer(pointer)?;
+    let current_hash = checksum::sha256_file(&source.path)?;
+    if current_hash != expected_hash {
+        return Err(AppError::blocked(format!(
+            "ontology source reread 차단\n- source pointer: {pointer}\n- 이유: graph source hash와 현재 원문 hash가 다릅니다.\n- 동작: ontology seed를 갱신한 뒤 다시 시도하세요."
+        )));
+    }
+    let contents = fs::read_to_string(&source.path).map_err(|err| {
+        AppError::runtime(format!(
+            "ontology source 원문을 읽지 못했습니다: {} ({err})",
+            source.path.display()
+        ))
+    })?;
+    let root = canonical_project_root()?;
+    let relative_path = relative_to_root(&source.path, &root)
+        .ok_or_else(|| AppError::blocked("ontology source가 project boundary를 벗어났습니다."))?;
+    Ok(RuntimeSourceRead {
+        relative_path,
+        stable_ref: pointer.to_string(),
+        source_hash: current_hash,
+        contents,
+    })
 }
 
 pub fn reread_report(pointer: &str) -> Result<String, AppError> {
@@ -1165,6 +1264,30 @@ mod tests {
         assert_eq!(seed.records_added, 2);
         assert!(store.contains("\"supersedes\":\"a:file:"));
         assert!(store.contains("\"supersedes\":\"a:entrypoint:"));
+    }
+
+    #[test]
+    fn runtime_context_binds_reread_to_graph_hash() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let project = with_temp_project("runtime-context");
+        ensure_seeded().unwrap();
+
+        let selection = runtime_context("main", 4).unwrap();
+        let record = selection
+            .selected
+            .iter()
+            .find(|record| record.source_pointer == "src/main.rs:1")
+            .unwrap();
+        let source = reread_runtime_source(&record.source_pointer, &record.source_hash).unwrap();
+        assert_eq!(source.relative_path, "src/main.rs");
+        assert_eq!(source.contents, "fn main() {}\n");
+
+        fs::write(project.join("src/main.rs"), "fn main() { panic!(); }\n").unwrap();
+        let err = reread_runtime_source(&record.source_pointer, &record.source_hash).unwrap_err();
+        clear_env();
+
+        assert_eq!(err.code, 3);
+        assert!(err.message.contains("graph source hash"));
     }
 
     #[test]

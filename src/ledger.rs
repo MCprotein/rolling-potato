@@ -4,7 +4,9 @@ use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::Path;
 use std::process;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use sha2::{Digest, Sha256};
 
 use crate::app::AppError;
 use crate::paths;
@@ -35,14 +37,66 @@ pub struct ParsedLedgerEvent {
     pub project_id: String,
     pub session_id: String,
     pub summary: String,
+    pub details: String,
+    pub previous_event_hash: Option<String>,
+    pub event_hash: Option<String>,
 }
 
-pub fn current_identity() -> RuntimeIdentity {
-    if let Some(identity) = identity_from_current_state() {
-        return identity;
-    }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkflowCheckpoint {
+    pub revision: u64,
+    pub artifact_hash: String,
+    pub previous_hash: String,
+}
 
-    fresh_identity()
+pub fn validated_current_identity() -> Result<RuntimeIdentity, AppError> {
+    let path = paths::current_state_file();
+    if !path.exists() {
+        return Ok(fresh_identity());
+    }
+    let contents = fs::read_to_string(&path)
+        .map_err(|err| AppError::blocked(format!("current-state identity 읽기 실패: {err}")))?;
+    let object = crate::strict_json::parse_object(
+        &contents,
+        &[
+            "schema_version",
+            "project_id",
+            "project_root",
+            "session_id",
+            "active_workflow",
+            "parent_session_id",
+            "branch_from_event_id",
+            "compaction_boundary",
+            "resume_source",
+            "terminal_states",
+        ],
+        "current-state identity",
+    )?;
+    if crate::strict_json::number(&object, "schema_version", "current-state identity")? != 1 {
+        return Err(AppError::blocked("current-state identity schema 불일치"));
+    }
+    let fresh = fresh_identity();
+    let project_id = crate::strict_json::string(&object, "project_id", "current-state identity")?;
+    let project_root =
+        crate::strict_json::string(&object, "project_root", "current-state identity")?;
+    if project_id != fresh.project_id || project_root != fresh.project_root {
+        return Err(AppError::blocked(
+            "current-state identity project binding 불일치",
+        ));
+    }
+    if !matches!(
+        object.get("terminal_states"),
+        Some(crate::strict_json::Value::Array(_))
+    ) {
+        return Err(AppError::blocked(
+            "current-state terminal_states type 불일치",
+        ));
+    }
+    Ok(RuntimeIdentity {
+        project_id,
+        session_id: crate::strict_json::string(&object, "session_id", "current-state identity")?,
+        project_root,
+    })
 }
 
 pub fn fresh_identity() -> RuntimeIdentity {
@@ -85,8 +139,13 @@ pub fn new_event_for(
 }
 
 pub fn append_event(event: &LedgerEvent) -> Result<(), AppError> {
-    append_line(&paths::runtime_ledger_file(), &event.to_json_line())?;
-    append_line(&paths::project_session_ledger_file(), &event.to_json_line())?;
+    let _writer = crate::lease::RecoverableLease::acquire_with_wait(
+        paths::runtime_ledger_writer_lock(),
+        "runtime ledger writer",
+        Duration::from_secs(5),
+    )?;
+    append_chained_event(&paths::runtime_ledger_file(), event)?;
+    append_chained_event(&paths::project_session_ledger_file(), event)?;
     append_line(&paths::operation_log_file(), &event.to_log_line())?;
     Ok(())
 }
@@ -104,18 +163,320 @@ pub fn read_runtime_events() -> Result<Vec<ParsedLedgerEvent>, AppError> {
         ))
     })?;
 
-    Ok(contents.lines().filter_map(parse_event_line).collect())
+    validate_ledger_contents(&path, &contents)
 }
 
+fn validate_ledger_contents(
+    path: &Path,
+    contents: &str,
+) -> Result<Vec<ParsedLedgerEvent>, AppError> {
+    let mut events = Vec::new();
+    let mut legacy_prefix = String::new();
+    let mut previous_hash: Option<String> = None;
+    for (index, line) in contents.lines().enumerate() {
+        if line.trim().is_empty() {
+            return Err(ledger_corrupt(path, index + 1, "빈 JSONL record"));
+        }
+        let event = parse_event_line_strict(line)
+            .map_err(|_| ledger_corrupt(path, index + 1, "malformed JSONL record"))?;
+        match (&event.previous_event_hash, &event.event_hash) {
+            (None, None) if previous_hash.is_none() => {
+                legacy_prefix.push_str(line);
+                legacy_prefix.push('\n');
+            }
+            (Some(previous), Some(hash)) => {
+                let expected_previous = previous_hash.clone().unwrap_or_else(|| {
+                    if legacy_prefix.is_empty() {
+                        "root".to_string()
+                    } else {
+                        format!("legacy:{}", sha256_bytes(legacy_prefix.as_bytes()))
+                    }
+                });
+                if previous != &expected_previous || hash != &event_physical_hash(&event, previous)
+                {
+                    return Err(ledger_corrupt(
+                        path,
+                        index + 1,
+                        "physical hash chain 불일치",
+                    ));
+                }
+                previous_hash = Some(hash.clone());
+            }
+            _ => {
+                return Err(ledger_corrupt(
+                    path,
+                    index + 1,
+                    "legacy event가 chained suffix 뒤에 존재함",
+                ))
+            }
+        }
+        events.push(event);
+    }
+    validate_ledger_head(path, events.len(), previous_hash.as_deref(), &legacy_prefix)?;
+    Ok(events)
+}
+
+#[cfg(test)]
 pub fn parse_event_line(line: &str) -> Option<ParsedLedgerEvent> {
-    Some(ParsedLedgerEvent {
-        event_id: extract_json_string(line, "event_id")?,
-        ts_ms: extract_json_u128(line, "ts_ms")?,
-        event_type: extract_json_string(line, "event_type")?,
-        project_id: extract_json_string(line, "project_id")?,
-        session_id: extract_json_string(line, "session_id")?,
-        summary: extract_json_string(line, "summary")?,
+    parse_event_line_strict(line).ok()
+}
+
+fn parse_event_line_strict(line: &str) -> Result<ParsedLedgerEvent, AppError> {
+    const KEYS: &[&str] = &[
+        "schema_version",
+        "event_id",
+        "ts_ms",
+        "event_type",
+        "project_id",
+        "session_id",
+        "summary",
+        "details",
+        "previous_event_hash",
+        "event_hash",
+    ];
+    let object = crate::strict_json::parse_object(line, KEYS, "runtime ledger line")?;
+    let schema = crate::strict_json::number(&object, "schema_version", "runtime ledger line")?;
+    if !matches!(schema, 1 | 2) {
+        return Err(AppError::blocked("runtime ledger schema version 불일치"));
+    }
+    let (previous_event_hash, event_hash) = if schema == 2 {
+        (
+            Some(crate::strict_json::string(
+                &object,
+                "previous_event_hash",
+                "runtime ledger line",
+            )?),
+            Some(crate::strict_json::string(
+                &object,
+                "event_hash",
+                "runtime ledger line",
+            )?),
+        )
+    } else {
+        if object.contains_key("previous_event_hash") || object.contains_key("event_hash") {
+            return Err(AppError::blocked("legacy ledger에 chain field가 존재함"));
+        }
+        (None, None)
+    };
+    Ok(ParsedLedgerEvent {
+        event_id: crate::strict_json::string(&object, "event_id", "runtime ledger line")?,
+        ts_ms: crate::strict_json::number(&object, "ts_ms", "runtime ledger line")? as u128,
+        event_type: crate::strict_json::string(&object, "event_type", "runtime ledger line")?,
+        project_id: crate::strict_json::string(&object, "project_id", "runtime ledger line")?,
+        session_id: crate::strict_json::string(&object, "session_id", "runtime ledger line")?,
+        summary: crate::strict_json::string(&object, "summary", "runtime ledger line")?,
+        details: crate::strict_json::string(&object, "details", "runtime ledger line")?,
+        previous_event_hash,
+        event_hash,
     })
+}
+
+fn append_chained_event(path: &Path, event: &LedgerEvent) -> Result<(), AppError> {
+    let contents = match fs::read_to_string(path) {
+        Ok(contents) => contents,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(err) => {
+            return Err(AppError::runtime(format!(
+                "ledger append reread 실패: {err}"
+            )))
+        }
+    };
+    let existing = validate_ledger_contents(path, &contents)?;
+    let previous = existing
+        .last()
+        .and_then(|entry| entry.event_hash.clone())
+        .unwrap_or_else(|| {
+            if contents.is_empty() {
+                "root".to_string()
+            } else {
+                format!("legacy:{}", sha256_bytes(contents.as_bytes()))
+            }
+        });
+    let payload = event_chain_payload(event, &previous);
+    let event_hash = sha256_bytes(payload.as_bytes());
+    let line = format!(
+        "{{{},\"event_hash\":\"{}\"}}",
+        payload.trim_start_matches('{').trim_end_matches('}'),
+        event_hash
+    );
+    append_line(path, &line)?;
+    write_ledger_head(path, existing.len() + 1, &event_hash)
+}
+
+fn event_chain_payload(event: &LedgerEvent, previous: &str) -> String {
+    format!(
+        "{{\"schema_version\":2,\"event_id\":\"{}\",\"ts_ms\":{},\"event_type\":\"{}\",\"project_id\":\"{}\",\"session_id\":\"{}\",\"summary\":\"{}\",\"details\":\"{}\",\"previous_event_hash\":\"{}\"}}",
+        json_string(&event.event_id), event.ts_ms, json_string(&event.event_type),
+        json_string(&event.project_id), json_string(&event.session_id), json_string(&event.summary),
+        json_string(&event.details), previous
+    )
+}
+
+fn event_physical_hash(event: &ParsedLedgerEvent, previous: &str) -> String {
+    let synthetic = LedgerEvent {
+        event_id: event.event_id.clone(),
+        ts_ms: event.ts_ms,
+        event_type: event.event_type.clone(),
+        project_id: event.project_id.clone(),
+        session_id: event.session_id.clone(),
+        summary: event.summary.clone(),
+        details: event.details.clone(),
+    };
+    sha256_bytes(event_chain_payload(&synthetic, previous).as_bytes())
+}
+
+fn ledger_head_path(path: &Path) -> std::path::PathBuf {
+    path.with_extension(format!(
+        "{}.head",
+        path.extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("ledger")
+    ))
+}
+
+fn write_ledger_head(path: &Path, count: usize, hash: &str) -> Result<(), AppError> {
+    let body = format!(
+        "{{\"schema_version\":1,\"event_count\":{count},\"last_event_hash\":\"{hash}\"}}\n"
+    );
+    crate::state::atomic_replace_bytes(&ledger_head_path(path), body.as_bytes())
+}
+
+fn validate_ledger_head(
+    path: &Path,
+    count: usize,
+    last_hash: Option<&str>,
+    legacy_prefix: &str,
+) -> Result<(), AppError> {
+    let head_path = ledger_head_path(path);
+    if !head_path.exists() {
+        if last_hash.is_some() {
+            return Err(ledger_corrupt(path, count, "chained ledger head 누락"));
+        }
+        return Ok(());
+    }
+    let body = fs::read_to_string(&head_path)
+        .map_err(|err| AppError::blocked(format!("ledger head 읽기 실패: {err}")))?;
+    let object = crate::strict_json::parse_object(
+        &body,
+        &["schema_version", "event_count", "last_event_hash"],
+        "ledger head",
+    )?;
+    let expected_hash = last_hash.unwrap_or({
+        if legacy_prefix.is_empty() {
+            "root"
+        } else {
+            "legacy"
+        }
+    });
+    if crate::strict_json::number(&object, "schema_version", "ledger head")? != 1
+        || crate::strict_json::number(&object, "event_count", "ledger head")? != count as u64
+        || crate::strict_json::string(&object, "last_event_hash", "ledger head")? != expected_hash
+    {
+        return Err(ledger_corrupt(path, count, "ledger truncation/head 불일치"));
+    }
+    Ok(())
+}
+
+fn ledger_corrupt(path: &Path, line: usize, reason: &str) -> AppError {
+    let gap = crate::state::record_validation_gap(
+        "corrupt-ledger",
+        &format!("{}:{line}:{reason}", path.display()),
+    );
+    let suffix = gap
+        .err()
+        .map(|err| format!("\n- validation-gap 저장 실패: {}", err.message))
+        .unwrap_or_default();
+    AppError::blocked(format!(
+        "runtime ledger 검증 차단\n- 이유: {reason}\n- path: {}\n- line: {line}{suffix}",
+        path.display()
+    ))
+}
+
+fn sha256_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+pub fn event_detail_exists(event_type: &str, field: &str, value: &str) -> Result<bool, AppError> {
+    Ok(read_runtime_events()?.iter().any(|event| {
+        event.event_type == event_type && detail_value(&event.details, field) == Some(value)
+    }))
+}
+
+pub fn workflow_checkpoint_exists(
+    workflow_id: &str,
+    revision: u64,
+    artifact_hash: &str,
+) -> Result<bool, AppError> {
+    Ok(workflow_checkpoints(workflow_id)?.iter().any(|checkpoint| {
+        checkpoint.revision == revision && checkpoint.artifact_hash == artifact_hash
+    }))
+}
+
+pub fn workflow_checkpoints(workflow_id: &str) -> Result<Vec<WorkflowCheckpoint>, AppError> {
+    let mut checkpoints = Vec::new();
+    for event in read_runtime_events()? {
+        if event.event_type != "workflow.checkpoint"
+            || detail_value(&event.details, "workflow_id") != Some(workflow_id)
+        {
+            continue;
+        }
+        let revision = detail_value(&event.details, "revision")
+            .and_then(|value| value.parse::<u64>().ok())
+            .ok_or_else(|| malformed_checkpoint(&event.event_id))?;
+        let artifact_hash = detail_value(&event.details, "artifact_hash")
+            .filter(|value| is_sha256(value))
+            .ok_or_else(|| malformed_checkpoint(&event.event_id))?
+            .to_string();
+        let previous_hash = detail_value(&event.details, "previous_hash")
+            .filter(|value| *value == "none" || is_sha256(value))
+            .ok_or_else(|| malformed_checkpoint(&event.event_id))?
+            .to_string();
+        checkpoints.push(WorkflowCheckpoint {
+            revision,
+            artifact_hash,
+            previous_hash,
+        });
+    }
+    checkpoints.sort_by_key(|checkpoint| checkpoint.revision);
+    for (index, checkpoint) in checkpoints.iter().enumerate() {
+        let expected_revision = index as u64 + 1;
+        let expected_previous = if index == 0 {
+            "none"
+        } else {
+            checkpoints[index - 1].artifact_hash.as_str()
+        };
+        if checkpoint.revision != expected_revision || checkpoint.previous_hash != expected_previous
+        {
+            return Err(AppError::blocked(format!(
+                "workflow ledger chain 검증 차단\n- workflow id: {workflow_id}\n- revision: {}\n- 이유: latest checkpoint 또는 previous_hash chain 불일치",
+                checkpoint.revision
+            )));
+        }
+    }
+    Ok(checkpoints)
+}
+
+fn detail_value<'a>(details: &'a str, key: &str) -> Option<&'a str> {
+    details.split_whitespace().find_map(|field| {
+        let (candidate, value) = field.split_once('=')?;
+        (candidate == key).then_some(value)
+    })
+}
+
+fn is_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn malformed_checkpoint(event_id: &str) -> AppError {
+    AppError::blocked(format!(
+        "workflow ledger checkpoint 검증 차단\n- event id: {event_id}\n- 이유: required checkpoint field가 malformed입니다."
+    ))
 }
 
 pub fn redact_text(value: &str) -> String {
@@ -169,29 +530,13 @@ fn append_line(path: &Path, line: &str) -> Result<(), AppError> {
             "파일에 기록하지 못했습니다: {} ({err})",
             path.display()
         ))
-    })
-}
-
-fn identity_from_current_state() -> Option<RuntimeIdentity> {
-    let path = paths::current_state_file();
-    let contents = fs::read_to_string(path).ok()?;
-    let project_root = paths::project_root().display().to_string();
-    let mut hasher = DefaultHasher::new();
-    project_root.hash(&mut hasher);
-    let project_id = format!("project-{:016x}", hasher.finish());
-
-    if extract_json_string_tolerant(&contents, "project_id")? != project_id {
-        return None;
-    }
-
-    Some(RuntimeIdentity {
-        project_id,
-        session_id: extract_json_string_tolerant(&contents, "session_id")?,
-        project_root,
-    })
+    })?;
+    file.sync_all()
+        .map_err(|err| AppError::runtime(format!("ledger sync 실패: {} ({err})", path.display())))
 }
 
 impl LedgerEvent {
+    #[cfg(test)]
     pub fn to_json_line(&self) -> String {
         format!(
             "{{\"schema_version\":1,\"event_id\":\"{}\",\"ts_ms\":{},\"event_type\":\"{}\",\"project_id\":\"{}\",\"session_id\":\"{}\",\"summary\":\"{}\",\"details\":\"{}\"}}",
@@ -227,79 +572,6 @@ pub fn json_string(value: &str) -> String {
         }
     }
     escaped
-}
-
-fn extract_json_string(line: &str, key: &str) -> Option<String> {
-    let needle = format!("\"{key}\":\"");
-    let start = line.find(&needle)? + needle.len();
-    let mut value = String::new();
-    let mut escaped = false;
-
-    for ch in line[start..].chars() {
-        if escaped {
-            match ch {
-                '"' => value.push('"'),
-                '\\' => value.push('\\'),
-                'n' => value.push('\n'),
-                'r' => value.push('\r'),
-                't' => value.push('\t'),
-                other => value.push(other),
-            }
-            escaped = false;
-            continue;
-        }
-
-        match ch {
-            '\\' => escaped = true,
-            '"' => return Some(value),
-            other => value.push(other),
-        }
-    }
-
-    None
-}
-
-fn extract_json_string_tolerant(contents: &str, key: &str) -> Option<String> {
-    let needle = format!("\"{key}\"");
-    let key_start = contents.find(&needle)? + needle.len();
-    let after_key = contents[key_start..].trim_start();
-    let after_colon = after_key.strip_prefix(':')?.trim_start();
-    let quoted = after_colon.strip_prefix('"')?;
-    let mut value = String::new();
-    let mut escaped = false;
-
-    for ch in quoted.chars() {
-        if escaped {
-            match ch {
-                '"' => value.push('"'),
-                '\\' => value.push('\\'),
-                'n' => value.push('\n'),
-                'r' => value.push('\r'),
-                't' => value.push('\t'),
-                other => value.push(other),
-            }
-            escaped = false;
-            continue;
-        }
-
-        match ch {
-            '\\' => escaped = true,
-            '"' => return Some(value),
-            other => value.push(other),
-        }
-    }
-
-    None
-}
-
-fn extract_json_u128(line: &str, key: &str) -> Option<u128> {
-    let needle = format!("\"{key}\":");
-    let start = line.find(&needle)? + needle.len();
-    let value = line[start..]
-        .chars()
-        .take_while(|ch| ch.is_ascii_digit())
-        .collect::<String>();
-    value.parse().ok()
 }
 
 fn sanitize_event_type(value: &str) -> String {
@@ -359,5 +631,137 @@ mod tests {
     fn redacts_sensitive_words_before_persistence() {
         let redacted = redact_text("token=abc safe password=hunter2");
         assert_eq!(redacted, "[REDACTED] safe [REDACTED]");
+    }
+
+    #[test]
+    fn malformed_runtime_ledger_line_fails_closed() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root =
+            std::env::temp_dir().join(format!("rpotato-ledger-malformed-{}", std::process::id()));
+        std::env::set_var("RPOTATO_DATA_HOME", &root);
+        fs::create_dir_all(paths::state_dir()).unwrap();
+        fs::write(paths::runtime_ledger_file(), "{partial\n").unwrap();
+
+        let error = read_runtime_events().unwrap_err();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(error.code, 3);
+        assert!(error.message.contains("malformed JSONL"));
+    }
+
+    #[test]
+    fn workflow_checkpoint_previous_hash_chain_is_strict() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root =
+            std::env::temp_dir().join(format!("rpotato-ledger-chain-{}", std::process::id()));
+        std::env::set_var("RPOTATO_DATA_HOME", &root);
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        fs::create_dir_all(paths::project_state_dir()).unwrap();
+        let identity = fresh_identity();
+        let first_hash = "a".repeat(64);
+        let second_hash = "b".repeat(64);
+        let first = new_event_for(
+            &identity,
+            "workflow.checkpoint",
+            "first",
+            &format!(
+                "workflow_id=workflow-chain revision=1 artifact_hash={first_hash} previous_hash=none phase=model-pending action_id=action proposal_id=none evidence_id=none"
+            ),
+        );
+        let stale = new_event_for(
+            &identity,
+            "workflow.checkpoint",
+            "stale",
+            &format!(
+                "workflow_id=workflow-chain revision=2 artifact_hash={second_hash} previous_hash={} phase=approved action_id=action proposal_id=none evidence_id=none",
+                "c".repeat(64)
+            ),
+        );
+        append_event(&first).unwrap();
+        append_event(&stale).unwrap();
+
+        let error = workflow_checkpoints("workflow-chain").unwrap_err();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(error.code, 3);
+        assert!(error.message.contains("previous_hash chain"));
+    }
+
+    #[test]
+    fn physical_chain_reorder_and_truncation_fail_closed() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        for mode in ["reorder", "truncate"] {
+            let root = std::env::temp_dir().join(format!(
+                "rpotato-ledger-physical-{mode}-{}",
+                std::process::id()
+            ));
+            std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+            std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+            let identity = fresh_identity();
+            append_event(&new_event_for(&identity, "one", "하나", "safe")).unwrap();
+            append_event(&new_event_for(&identity, "two", "둘", "safe")).unwrap();
+            let path = paths::runtime_ledger_file();
+            let body = fs::read_to_string(&path).unwrap();
+            let mut lines = body.lines().collect::<Vec<_>>();
+            if mode == "reorder" {
+                lines.swap(0, 1);
+            } else {
+                lines.pop();
+            }
+            fs::write(&path, format!("{}\n", lines.join("\n"))).unwrap();
+            assert!(read_runtime_events().is_err(), "mode: {mode}");
+            std::env::remove_var("RPOTATO_DATA_HOME");
+            std::env::remove_var("RPOTATO_PROJECT_ROOT");
+            let _ = fs::remove_dir_all(root);
+        }
+    }
+
+    #[test]
+    fn concurrent_writers_preserve_both_ledger_chains() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-ledger-concurrent-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        let identity = fresh_identity();
+        let writers = 12;
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(writers));
+        let handles = (0..writers)
+            .map(|index| {
+                let barrier = barrier.clone();
+                let identity = identity.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    append_event(&new_event_for(
+                        &identity,
+                        "concurrent.write",
+                        &format!("writer {index}"),
+                        "safe",
+                    ))
+                })
+            })
+            .collect::<Vec<_>>();
+
+        for handle in handles {
+            handle.join().unwrap().unwrap();
+        }
+        let runtime_events = read_runtime_events().unwrap();
+        let project_path = paths::project_session_ledger_file();
+        let project_contents = fs::read_to_string(&project_path).unwrap();
+        let project_events = validate_ledger_contents(&project_path, &project_contents).unwrap();
+        let operation_log = fs::read_to_string(paths::operation_log_file()).unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(runtime_events.len(), writers);
+        assert_eq!(project_events.len(), writers);
+        assert_eq!(operation_log.lines().count(), writers);
     }
 }

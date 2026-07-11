@@ -5,7 +5,9 @@ version row.
 
 The execution order, release cycle, and non-skippable gates for the active
 `v0.29.0`-`v0.41.0` train are defined in
-[docs/release-train.md](docs/release-train.md).
+[docs/release-train.md](docs/release-train.md). The release-blocking foundation
+corrections for the active version are tracked in
+[docs/v0.29-correction-plan.md](docs/v0.29-correction-plan.md).
 
 `rolling-potato` is a local coding-agent runtime for small local models. The
 runtime owns instruction, permission, state, ledger, transcript, evidence,
@@ -52,7 +54,7 @@ evidence.
 | v0.28.3 | Superseded | Serialized release test gate still hit GitHub runner shutdown after the sidecar timeout fixture, before artifact publication |
 | v0.28.4 | Superseded | Release-runner-safe skip gate still failed because the stale-record test exposed a Unix PID wrap hazard |
 | v0.28.5 | Released | Complete Linux/macOS/Windows release artifacts: Unix PID guard for stale sidecar records, restored full serialized release gate, per-target build/smoke/package jobs, Linux x86_64 and Linux ARM64 tarballs, and aggregate checksum publication |
-| v0.29.0 | Planned | Durable end-to-end single-agent patch loop: connect `run` model actions to persisted workflow/action/approval/evidence state, patch proposals, explicit approval, guarded apply, verification interpretation, stop-gate evidence, and a Korean final report |
+| v0.29.0 | Released | Durable single-agent runtime correction: preserve the restart-safe patch loop while restoring generic workflow/action boundaries, non-patch `run`, ontology-backed context, separate apply/verification approvals, canonical ledger authority, and deterministic Korean reporting |
 | v0.30.0 | Planned | Verified model adoption: finish source-backed Qwen/Gemma candidate evaluation, record local backend/RAM/mmproj/benchmark evidence, promote only candidates that pass the install gate, and provide managed model install/default selection without bundling weights |
 | v0.31.0 | Planned | Backend streaming and cancellation: stream managed-sidecar responses, support generation cancellation and timeout cleanup, and record lifecycle/resource evidence without weakening policy gates |
 | v0.32.0 | Planned | Durable conversation resume: persist user/model/tool/evidence transcript records, rebuild bounded context from source pointers, and make `resume`/`continue` continue an interrupted workflow instead of selecting only a session id |

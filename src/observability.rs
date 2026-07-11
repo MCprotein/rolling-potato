@@ -9,8 +9,8 @@ use crate::app::AppError;
 use crate::ledger::{self, LedgerEvent, RuntimeIdentity};
 use crate::{paths, resource};
 
-const MIGRATION_VERSION: i64 = 4;
-const MIGRATION_DESCRIPTION: &str = "v0_20_executable_benchmark_runs";
+const MIGRATION_VERSION: i64 = 5;
+const MIGRATION_DESCRIPTION: &str = "v0_29_durable_patch_workflows";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoreStatus {
@@ -529,7 +529,7 @@ pub fn prune_preview(before_days: u64) -> Result<PrunePreview, AppError> {
 }
 
 pub fn session_history(limit: usize) -> Result<Vec<SessionHistoryEntry>, AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let (connection, _) = open_or_recover()?;
     replay_ledger(&connection)?;
     project_sessions_from_events(&connection, &identity)?;
@@ -537,7 +537,7 @@ pub fn session_history(limit: usize) -> Result<Vec<SessionHistoryEntry>, AppErro
 }
 
 pub fn session_entry(session_id: &str) -> Result<Option<SessionHistoryEntry>, AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let (connection, _) = open_or_recover()?;
     replay_ledger(&connection)?;
     project_sessions_from_events(&connection, &identity)?;
@@ -548,7 +548,7 @@ pub fn session_entry(session_id: &str) -> Result<Option<SessionHistoryEntry>, Ap
 }
 
 pub fn session_events(session_id: &str, limit: usize) -> Result<Vec<SessionEventEntry>, AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let (connection, _) = open_or_recover()?;
     replay_ledger(&connection)?;
     project_sessions_from_events(&connection, &identity)?;
@@ -556,7 +556,7 @@ pub fn session_events(session_id: &str, limit: usize) -> Result<Vec<SessionEvent
 }
 
 pub fn record_model_run(metric: &ModelRunMetric) -> Result<(), AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let (connection, _) = open_or_recover()?;
     record_session(&connection, &identity)?;
     replay_ledger(&connection)?;
@@ -636,7 +636,7 @@ pub fn record_model_run(metric: &ModelRunMetric) -> Result<(), AppError> {
 }
 
 pub fn record_resource_sample(metric: &ResourceSampleMetric) -> Result<(), AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let (connection, _) = open_or_recover()?;
     record_session(&connection, &identity)?;
     replay_ledger(&connection)?;
@@ -677,7 +677,7 @@ pub fn record_resource_sample(metric: &ResourceSampleMetric) -> Result<(), AppEr
 }
 
 pub fn record_benchmark_run(metric: &BenchmarkRunMetric) -> Result<(), AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let (connection, _) = open_or_recover()?;
     record_session(&connection, &identity)?;
     replay_ledger(&connection)?;
@@ -1241,6 +1241,9 @@ fn record_session(connection: &Connection, identity: &RuntimeIdentity) -> Result
 }
 
 fn replay_ledger(connection: &Connection) -> Result<(), AppError> {
+    connection
+        .execute("DELETE FROM ledger_events", [])
+        .map_err(sql_error("ledger replay projection 초기화에 실패했습니다"))?;
     for event in ledger::read_runtime_events()? {
         connection
             .execute(
@@ -1257,6 +1260,20 @@ fn replay_ledger(connection: &Connection) -> Result<(), AppError> {
                 ],
             )
             .map_err(sql_error("ledger replay projection을 저장하지 못했습니다"))?;
+        project_workflow_checkpoint(
+            connection,
+            &event.event_type,
+            &event.details,
+            &event.session_id,
+            event.ts_ms,
+        )?;
+        project_patch_evidence_event(
+            connection,
+            &event.event_type,
+            &event.details,
+            &event.session_id,
+            event.ts_ms,
+        )?;
     }
     Ok(())
 }
@@ -1265,6 +1282,20 @@ fn project_sessions_from_events(
     connection: &Connection,
     identity: &RuntimeIdentity,
 ) -> Result<(), AppError> {
+    connection
+        .execute(
+            "DELETE FROM sessions
+              WHERE project_id = ?1
+                AND session_id NOT IN (
+                    SELECT session_id
+                      FROM ledger_events
+                     WHERE project_id = ?1
+                )",
+            params![identity.project_id],
+        )
+        .map_err(sql_error(
+            "canonical ledger에 없는 session projection 제거에 실패했습니다",
+        ))?;
     connection
         .execute(
             "INSERT OR IGNORE INTO sessions (
@@ -1310,7 +1341,94 @@ fn insert_ledger_event(connection: &Connection, event: &LedgerEvent) -> Result<(
             ],
         )
         .map_err(sql_error("ledger event projection을 저장하지 못했습니다"))?;
+    project_workflow_checkpoint(
+        connection,
+        &event.event_type,
+        &event.details,
+        &event.session_id,
+        event.ts_ms,
+    )?;
+    project_patch_evidence_event(
+        connection,
+        &event.event_type,
+        &event.details,
+        &event.session_id,
+        event.ts_ms,
+    )
+}
+
+fn project_patch_evidence_event(
+    connection: &Connection,
+    event_type: &str,
+    details: &str,
+    session_id: &str,
+    ts_ms: u128,
+) -> Result<(), AppError> {
+    let field = |key: &str| {
+        details.split_whitespace().find_map(|item| {
+            item.split_once('=')
+                .and_then(|(candidate, value)| (candidate == key).then_some(value))
+        })
+    };
+    if event_type == "verification.evidence.recorded" {
+        let Some(evidence_id) = field("evidence_id") else {
+            return Ok(());
+        };
+        connection.execute(
+            "INSERT OR REPLACE INTO evidence_records (evidence_id, session_id, workflow_id, evidence_type, artifact_pointer, artifact_hash, stale_after_ms, recorded_at_ms) VALUES (?1, ?2, ?3, 'patch-verification', ?4, ?5, NULL, ?6)",
+            params![evidence_id, session_id, field("workflow_id"), format!(".rpotato/evidence/{evidence_id}.json"), field("artifact_hash"), to_i64(ts_ms)],
+        ).map_err(sql_error("patch evidence projection 저장 실패"))?;
+    }
+    if matches!(
+        event_type,
+        "workflow.stop_gate.passed" | "workflow.stop_gate.failed"
+    ) {
+        let workflow_id = field("workflow_id").unwrap_or("unknown");
+        let passed = i64::from(event_type.ends_with("passed"));
+        connection.execute(
+            "INSERT OR REPLACE INTO stop_gate_results (stop_gate_result_id, session_id, workflow_id, passed, missing_evidence_count, recorded_at_ms) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![format!("stop-gate-{workflow_id}"), session_id, workflow_id, passed, i64::from(passed == 0), to_i64(ts_ms)],
+        ).map_err(sql_error("stop gate projection 저장 실패"))?;
+    }
     Ok(())
+}
+
+fn project_workflow_checkpoint(
+    connection: &Connection,
+    event_type: &str,
+    details: &str,
+    session_id: &str,
+    ts_ms: u128,
+) -> Result<(), AppError> {
+    if event_type != "workflow.checkpoint" {
+        return Ok(());
+    }
+    let Some(workflow_id) = detail_value(details, "workflow_id") else {
+        return Ok(());
+    };
+    let state = detail_value(details, "phase").unwrap_or("unknown");
+    connection
+        .execute(
+            "INSERT INTO workflows (workflow_id, session_id, state, active_skill_id, updated_at_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(workflow_id) DO UPDATE SET
+                session_id=excluded.session_id,
+                state=excluded.state,
+                active_skill_id=excluded.active_skill_id,
+                updated_at_ms=excluded.updated_at_ms",
+            params![workflow_id, session_id, state, "small-patch", to_i64(ts_ms)],
+        )
+        .map_err(sql_error(
+            "workflow checkpoint projection을 저장하지 못했습니다",
+        ))?;
+    Ok(())
+}
+
+fn detail_value<'a>(details: &'a str, key: &str) -> Option<&'a str> {
+    let prefix = format!("{key}=");
+    details
+        .split_whitespace()
+        .find_map(|part| part.strip_prefix(&prefix))
 }
 
 fn status_from_connection(
@@ -1730,6 +1848,41 @@ mod tests {
     }
 
     #[test]
+    fn evidence_and_stop_gate_events_are_projected_as_rebuildable_truth_views() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-patch-projection-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let project_root = root.join("project");
+        fs::create_dir_all(&project_root).unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        crate::state::initialize().unwrap();
+
+        crate::state::record_event(
+            "verification.evidence.recorded",
+            "evidence",
+            "workflow_id=workflow-test evidence_id=evidence-test artifact_hash=abc passed=true source_hash=def",
+        )
+        .unwrap();
+        crate::state::record_event(
+            "workflow.stop_gate.passed",
+            "stop gate",
+            "workflow_id=workflow-test proposal_id=proposal-test evidence_id=evidence-test applied_hash=def unresolved_approval=false",
+        )
+        .unwrap();
+        let projected = status().unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(projected.evidence_records, 1);
+        assert_eq!(projected.stop_gate_results, 1);
+    }
+
+    #[test]
     fn record_model_run_updates_model_summary() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root =
@@ -1793,7 +1946,7 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
-        let identity = ledger::current_identity();
+        let identity = ledger::validated_current_identity().unwrap();
 
         record_resource_sample(&ResourceSampleMetric {
             resource_sample_id: "resource-sample-test".to_string(),

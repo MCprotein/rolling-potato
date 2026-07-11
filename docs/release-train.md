@@ -46,7 +46,7 @@ complete.
 
 | Version | Required completion evidence |
 | --- | --- |
-| `v0.29.0` | Restart-safe `run` workflow covering persisted action, pending approval, patch proposal, guarded apply, verification interpretation, stop gate, evidence, and Korean final report |
+| `v0.29.0` | Restart-safe `run` workflow covering persisted typed action, ontology-backed source reread, separate patch/verification approvals, guarded apply, verification interpretation, canonical ledger authority, stop gate, evidence, and guarded Korean final report |
 | `v0.30.0` | Source-backed candidate evaluation, actual local backend/RAM/mmproj/benchmark records, install-gate decision, and managed install/default flow only for a candidate that passes |
 | `v0.31.0` | Streaming response and cancellation tests, bounded timeout/retry behavior, no stale sidecar process, and lifecycle/resource ledger evidence |
 | `v0.32.0` | Process-restart test that resumes a selected session, rebuilds bounded context from durable transcript/source pointers, and continues the interrupted workflow idempotently |

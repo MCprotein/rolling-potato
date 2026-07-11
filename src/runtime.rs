@@ -1,4 +1,36 @@
-use crate::{backend, cache, model, ontology, paths, state};
+use crate::{backend, cache, intent, model, ontology, patch, paths, state};
+
+pub fn agent_run_report(request: &str) -> Result<String, crate::app::AppError> {
+    intent::run_report(request)
+}
+
+pub fn workflow_resume_report() -> Result<String, crate::app::AppError> {
+    let report = state::resume_report()?;
+    Ok(guard_patch_terminal_report(report))
+}
+
+pub fn patch_approve_report(
+    proposal_id: &str,
+    token: &str,
+    dry_run: bool,
+    verify_command: Option<&str>,
+) -> Result<String, crate::app::AppError> {
+    let report = patch::approve_report(proposal_id, token, dry_run, verify_command)?;
+    Ok(guard_patch_terminal_report(report))
+}
+
+pub fn patch_verify_report(proposal_id: &str, token: &str) -> Result<String, crate::app::AppError> {
+    let report = patch::verify_report(proposal_id, token)?;
+    Ok(guard_patch_terminal_report(report))
+}
+
+fn guard_patch_terminal_report(report: String) -> String {
+    if report.starts_with("패치 작업 ") {
+        crate::korean_guard::guard_or_failure(&report)
+    } else {
+        report
+    }
+}
 
 pub fn init_report() -> Result<String, crate::app::AppError> {
     let init = state::initialize()?;
@@ -47,7 +79,7 @@ pub fn doctor_report() -> String {
     let release = release_smoke_summary();
 
     format!(
-        "rpotato 진단\n- CLI: 사용 가능\n- package: {}\n- package version: {}\n- release target os: {}\n- release target arch: {}\n- release binary suffix: {}\n- release smoke: {}\n- runtime core: CLI surface에서 분리된 report boundary 사용\n- backend: {}\n- model: {}\n- ontology: {}\n- cache: {}",
+        "rpotato 진단\n- CLI: 사용 가능\n- package: {}\n- package version: {}\n- release target os: {}\n- release target arch: {}\n- release binary suffix: {}\n- release smoke: {}\n- runtime core: durable workflow/report boundary 사용\n- backend: {}\n- model: {}\n- ontology: {}\n- cache: {}",
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
         std::env::consts::OS,
