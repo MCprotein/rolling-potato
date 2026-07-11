@@ -7,8 +7,6 @@ use crate::{checksum, ledger, observability, paths, state};
 
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 const BYTES_PER_GIB: u64 = 1024 * 1024 * 1024;
-const PROMOTION_FIXTURE_ID: &str = "model-adoption-smoke-v1";
-const PROMOTION_DATASET_REF: &str = "local-model-adoption-smoke-v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CandidateStatus {
@@ -84,8 +82,12 @@ struct RegistryEntry {
     promotion_evidence_path: String,
     backend_version: String,
     benchmark_run_id: String,
+    upstream_model: String,
+    upstream_url: String,
     artifact_path: String,
     artifact_sha256: String,
+    license_source: String,
+    license_checked_at: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -158,14 +160,14 @@ struct BackendSmokeEvidence {
 }
 
 const QWEN_4B_BLOCKERS: &[&str] = &[
-    "local llama.cpp b9878 smoke 미실행",
+    "정적 manifest에는 host-local promotion evidence가 내장되지 않음",
     "16 GB runtime fit 미측정",
-    "텍스트 전용 실행 시 mmproj 필요 여부 미확정",
+    "host-local promotion evidence 없이는 설치 불가",
 ];
 const GEMMA_4B_BLOCKERS: &[&str] = &[
-    "local llama.cpp b9878 smoke 미실행",
+    "정적 manifest에는 host-local promotion evidence가 내장되지 않음",
     "16 GB runtime fit 미측정",
-    "텍스트 전용 실행 시 mmproj 필요 여부 미확정",
+    "host-local promotion evidence 없이는 설치 불가",
 ];
 const QWEN_9B_BLOCKERS: &[&str] = &["제품 기본값 보류", "16 GB runtime fit 미측정"];
 
@@ -195,7 +197,7 @@ const CANDIDATES: &[ModelManifestEntry] = &[
         context_length: Some(262_144),
         recommended_ram_gb: None,
         backend_compatibility: Some(SourceClaim {
-            claim: "Hugging Face API lists this artifact as GGUF with architecture qwen35 and endpoints_compatible; local llama.cpp b9878 smoke is not yet run.",
+            claim: "Hugging Face API lists this artifact as GGUF with architecture qwen35 and endpoints_compatible; compatibility still requires host-local promotion evidence.",
             source: "https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF",
             checked_at: "2026-07-06",
             status: "source-listed-unverified",
@@ -223,9 +225,9 @@ const CANDIDATES: &[ModelManifestEntry] = &[
         format: "gguf",
         backend: "llama.cpp",
         license: SourceClaim {
-            claim: "Hugging Face model card license field is apache-2.0 and license_link points to the Gemma 4 license page.",
-            source: "https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf, https://ai.google.dev/gemma/docs/gemma_4_license",
-            checked_at: "2026-07-06",
+            claim: "Hugging Face model card license field is apache-2.0 and Google's current Gemma page publishes Apache License 2.0.",
+            source: "https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf, https://ai.google.dev/gemma/apache_2",
+            checked_at: "2026-07-11",
             status: "confirmed",
         },
         artifact_provider: Some("google/gemma-4-E4B-it-qat-q4_0-gguf"),
@@ -238,7 +240,7 @@ const CANDIDATES: &[ModelManifestEntry] = &[
         context_length: Some(131_072),
         recommended_ram_gb: None,
         backend_compatibility: Some(SourceClaim {
-            claim: "Hugging Face API lists this artifact as GGUF with architecture gemma4 and endpoints_compatible; local llama.cpp b9878 smoke is not yet run.",
+            claim: "Hugging Face API lists this artifact as GGUF with architecture gemma4 and endpoints_compatible; compatibility still requires host-local promotion evidence.",
             source: "https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf",
             checked_at: "2026-07-06",
             status: "source-listed-unverified",
@@ -910,8 +912,12 @@ fn validate_promotion_evidence(
                     "benchmark backend_id가 후보 backend와 일치하지 않습니다.",
                 );
             }
-            if row.fixture_id != PROMOTION_FIXTURE_ID
-                || row.dataset_ref.as_deref() != Some(PROMOTION_DATASET_REF)
+            if row.fixture_id != crate::benchmark::ADOPTION_FIXTURE_ID
+                || row.fixture_sha256 != crate::benchmark::ADOPTION_FIXTURE_SHA256
+                || row.prompt_artifact_sha256.as_deref()
+                    != Some(crate::benchmark::ADOPTION_PROMPT_SHA256)
+                || row.benchmark_name != crate::benchmark::ADOPTION_BENCHMARK_NAME
+                || row.dataset_ref.as_deref() != Some(crate::benchmark::ADOPTION_DATASET_REF)
             {
                 push_unique(
                     &mut blockers,
@@ -948,6 +954,13 @@ fn validate_promotion_evidence(
 fn measured_ram_budget_gb(peak_rss_bytes: u64) -> u32 {
     let measured_gib = peak_rss_bytes.saturating_add(BYTES_PER_GIB - 1) / BYTES_PER_GIB;
     measured_gib.saturating_add(2).min(u64::from(u32::MAX)) as u32
+}
+
+pub(crate) fn quantization_for_artifact_hash(hash: &str) -> Option<&'static str> {
+    CANDIDATES
+        .iter()
+        .find(|candidate| candidate.sha256 == Some(hash))
+        .and_then(|candidate| candidate.quantization)
 }
 
 fn detail_value<'a>(details: &'a str, key: &str) -> Option<&'a str> {
@@ -2026,9 +2039,60 @@ fn parse_registry_entry(text: &str) -> Result<RegistryEntry, AppError> {
         )?,
         backend_version: crate::strict_json::string(&object, "backendVersion", context)?,
         benchmark_run_id: crate::strict_json::string(&object, "benchmarkRunId", context)?,
+        upstream_model: crate::strict_json::string(&object, "upstreamModel", context)?,
+        upstream_url: crate::strict_json::string(&object, "upstreamUrl", context)?,
         artifact_path: crate::strict_json::string(&object, "artifactPath", context)?,
         artifact_sha256: crate::strict_json::string(&object, "artifactSha256", context)?,
+        license_source: crate::strict_json::string(&object, "licenseSource", context)?,
+        license_checked_at: crate::strict_json::string(&object, "licenseCheckedAt", context)?,
     })
+}
+
+fn validate_registry_manifest_binding(
+    entry: &RegistryEntry,
+    candidate: &ModelManifestEntry,
+    artifact: ModelArtifactDescriptor,
+) -> Result<(), AppError> {
+    if entry.display_name != candidate.display_name
+        || entry.upstream_model != candidate.upstream_model
+        || entry.upstream_url != candidate.upstream_url
+        || entry.license_source != candidate.license.source
+        || entry.license_checked_at != candidate.license.checked_at
+    {
+        return Err(AppError::blocked(
+            "model registry source/license provenance가 source-backed manifest와 다릅니다.",
+        ));
+    }
+    if Path::new(&entry.artifact_path) != model_artifact_path(artifact) {
+        return Err(AppError::blocked(
+            "model registry artifact path가 source-backed manifest와 다릅니다.",
+        ));
+    }
+    if entry.artifact_sha256 != artifact.sha256 {
+        return Err(AppError::blocked(
+            "model registry artifact SHA-256이 source-backed manifest와 다릅니다.",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_registry_promotion_binding(
+    entry: &RegistryEntry,
+    id: &str,
+    evidence: Option<&PromotionEvidence>,
+) -> Result<(), AppError> {
+    if entry.evidence_status != "verified-local-promotion"
+        || entry.promotion_evidence_path != promotion_evidence_path(id).display().to_string()
+        || evidence.is_none_or(|evidence| {
+            entry.backend_version != evidence.backend_version
+                || entry.benchmark_run_id != evidence.benchmark_run_id
+        })
+    {
+        return Err(AppError::blocked(
+            "model registry promotion binding이 canonical evidence와 다릅니다.",
+        ));
+    }
+    Ok(())
 }
 
 fn validated_registry_entry(id: &str) -> Result<RegistryEntry, AppError> {
@@ -2047,16 +2111,7 @@ fn validated_registry_entry(id: &str) -> Result<RegistryEntry, AppError> {
     }
     let artifact = source_backed_artifact(candidate)?;
     let expected_path = model_artifact_path(artifact);
-    if Path::new(&entry.artifact_path) != expected_path {
-        return Err(AppError::blocked(
-            "model registry artifact path가 source-backed manifest와 다릅니다.",
-        ));
-    }
-    if entry.artifact_sha256 != artifact.sha256 {
-        return Err(AppError::blocked(
-            "model registry artifact SHA-256이 source-backed manifest와 다릅니다.",
-        ));
-    }
+    validate_registry_manifest_binding(&entry, candidate, artifact)?;
     let local_state = local_artifact_state(artifact, &expected_path)?;
     if !local_state.verified {
         return Err(AppError::blocked(format!(
@@ -2072,13 +2127,7 @@ fn validated_registry_entry(id: &str) -> Result<RegistryEntry, AppError> {
                 promotion.validation.blockers.join("\n- ")
             )));
         }
-        if entry.evidence_status != "verified-local-promotion"
-            || entry.promotion_evidence_path != promotion_evidence_path(id).display().to_string()
-        {
-            return Err(AppError::blocked(
-                "model registry promotion binding이 canonical evidence와 다릅니다.",
-            ));
-        }
+        validate_registry_promotion_binding(&entry, id, promotion.evidence.as_ref())?;
     }
     Ok(entry)
 }
@@ -2386,7 +2435,7 @@ mod tests {
         assert!(validation
             .blockers
             .iter()
-            .any(|blocker| blocker.contains("smoke")));
+            .any(|blocker| blocker.contains("promotion evidence")));
         assert!(validation
             .blockers
             .iter()
@@ -2483,7 +2532,7 @@ mod tests {
             session_id: "session-test".to_string(),
             model_run_id: Some("model-run-test".to_string()),
             model_id: "Qwen3.5-4B-Q4_K_M".to_string(),
-            benchmark_name: "ontology-view-smoke".to_string(),
+            benchmark_name: crate::benchmark::ADOPTION_BENCHMARK_NAME.to_string(),
             fixture_id: "executable-smoke".to_string(),
             fixture_sha256: "fixture-sha".to_string(),
             prompt_artifact_sha256: Some("prompt-sha".to_string()),
@@ -2610,13 +2659,93 @@ mod tests {
     }
 
     #[test]
+    fn promotion_evidence_rejects_canonical_benchmark_contract_drift() {
+        let candidate = find_candidate("qwen3.5-4b").unwrap();
+        let artifact = source_backed_artifact(candidate).unwrap();
+        let evidence = qwen_promotion_evidence(artifact);
+        let smoke = qwen_backend_smoke(artifact, &evidence);
+        let local_state = LocalArtifactState {
+            status: "verified-local-artifact",
+            detail: "test artifact verified".to_string(),
+            verified: true,
+        };
+        let canonical = qwen_benchmark_report(artifact, &evidence);
+
+        for benchmark in [
+            {
+                let mut row = canonical.clone();
+                row.fixture_sha256 = "a".repeat(64);
+                row
+            },
+            {
+                let mut row = canonical.clone();
+                row.prompt_artifact_sha256 = Some("b".repeat(64));
+                row
+            },
+            {
+                let mut row = canonical.clone();
+                row.benchmark_name = "easier-smoke".to_string();
+                row
+            },
+        ] {
+            let validation = validate_promotion_evidence(
+                candidate,
+                &evidence,
+                artifact,
+                &local_state,
+                Some(&benchmark),
+                Some(&smoke),
+            );
+            assert!(!validation.ready);
+            assert!(validation
+                .blockers
+                .iter()
+                .any(|blocker| blocker.contains("canonical model adoption smoke")));
+        }
+    }
+
+    #[test]
     fn registry_parser_accepts_pretty_json_entries() {
-        let text = registry_entry_json(find_candidate("qwen3.5-4b").unwrap(), None);
+        let candidate = find_candidate("qwen3.5-4b").unwrap();
+        let artifact = source_backed_artifact(candidate).unwrap();
+        let text = registry_entry_json(candidate, None);
         let entry = parse_registry_entry(&text).unwrap();
 
         assert_eq!(entry.id, "qwen3.5-4b");
         assert_eq!(entry.status, "installed");
         assert!(entry.artifact_sha256.starts_with("00fe"));
+        validate_registry_manifest_binding(&entry, candidate, artifact).unwrap();
+
+        for drifted in [
+            text.replace(candidate.license.source, "https://invalid.example/license"),
+            text.replace(candidate.license.checked_at, "1999-01-01"),
+            text.replace(candidate.upstream_model, "invalid/model"),
+            text.replace(candidate.upstream_url, "https://invalid.example/model"),
+        ] {
+            let entry = parse_registry_entry(&drifted).unwrap();
+            assert!(validate_registry_manifest_binding(&entry, candidate, artifact).is_err());
+        }
+    }
+
+    #[test]
+    fn registry_promotion_binding_rejects_backend_and_benchmark_drift() {
+        let candidate = find_candidate("qwen3.5-4b").unwrap();
+        let artifact = source_backed_artifact(candidate).unwrap();
+        let evidence = qwen_promotion_evidence(artifact);
+        let text = registry_entry_json(candidate, Some(&evidence));
+        let entry = parse_registry_entry(&text).unwrap();
+
+        validate_registry_promotion_binding(&entry, candidate.id, Some(&evidence)).unwrap();
+        for drifted in [
+            text.replace(&evidence.backend_version, "b0000"),
+            text.replace(&evidence.benchmark_run_id, "benchmark-drifted"),
+        ] {
+            let entry = parse_registry_entry(&drifted).unwrap();
+            assert!(
+                validate_registry_promotion_binding(&entry, candidate.id, Some(&evidence),)
+                    .is_err()
+            );
+        }
     }
 
     #[test]
@@ -2699,10 +2828,10 @@ mod tests {
             session_id: "session-test".to_string(),
             model_run_id: Some(format!("model-run-{}", evidence.backend_smoke_event_id)),
             model_id: artifact_model_id(artifact),
-            benchmark_name: "ontology-view-smoke".to_string(),
-            fixture_id: PROMOTION_FIXTURE_ID.to_string(),
-            fixture_sha256: "fixture-sha".to_string(),
-            prompt_artifact_sha256: Some("prompt-sha".to_string()),
+            benchmark_name: crate::benchmark::ADOPTION_BENCHMARK_NAME.to_string(),
+            fixture_id: crate::benchmark::ADOPTION_FIXTURE_ID.to_string(),
+            fixture_sha256: crate::benchmark::ADOPTION_FIXTURE_SHA256.to_string(),
+            prompt_artifact_sha256: Some(crate::benchmark::ADOPTION_PROMPT_SHA256.to_string()),
             prompt_chars: Some(147),
             claim_state: "measured-locally".to_string(),
             score: Some(3.0),
@@ -2712,7 +2841,7 @@ mod tests {
             expected_total: Some(1),
             forbidden_matches: Some(0),
             harness_ref: "rpotato-benchmark-harness@test".to_string(),
-            dataset_ref: Some(PROMOTION_DATASET_REF.to_string()),
+            dataset_ref: Some(crate::benchmark::ADOPTION_DATASET_REF.to_string()),
             backend_id: Some("llama.cpp".to_string()),
             latency_ms: Some(243.0),
             tokens_per_second: Some(28.8),

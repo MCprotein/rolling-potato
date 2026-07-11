@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::app::AppError;
 use crate::paths;
-use crate::{checksum, ledger, observability, resource, state};
+use crate::{checksum, ledger, model, observability, resource, state};
 
 const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 const DEFAULT_HOST: &str = "127.0.0.1";
@@ -22,6 +22,10 @@ const STARTUP_TIMEOUT_MS: u64 = 60_000;
 const STOP_TIMEOUT_MS: u64 = 5_000;
 const CHAT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_CHAT_MAX_TOKENS: u32 = 128;
+const CHAT_SAMPLING: BackendChatSampling = BackendChatSampling {
+    temperature: 0.1,
+    top_p: 0.8,
+};
 const QWEN_NON_THINKING_SOURCE: &str =
     "https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode";
 
@@ -147,6 +151,18 @@ struct BackendChatCompletion {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct BackendChatSampling {
+    pub temperature: f64,
+    pub top_p: f64,
+}
+
+impl BackendChatSampling {
+    fn ledger_label(&self) -> String {
+        format!("temperature-{}_top-p-{}", self.temperature, self.top_p)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct BackendChatRun {
     pub backend_id: String,
     pub backend_version: String,
@@ -159,6 +175,7 @@ pub struct BackendChatRun {
     pub response_chars: usize,
     pub requested_max_tokens: u32,
     pub effective_max_tokens: u32,
+    pub sampling: BackendChatSampling,
     pub finish_reason: String,
     pub guard_status: &'static str,
     pub prompt_tokens: Option<u32>,
@@ -790,7 +807,8 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
 
     let started_at_ms = now_ms();
     let started_at = Instant::now();
-    let completion = request_chat_completion(&record, prompt, effective_max_tokens)?;
+    let sampling = CHAT_SAMPLING;
+    let completion = request_chat_completion(&record, prompt, effective_max_tokens, &sampling)?;
     let elapsed_ms = started_at.elapsed().as_millis();
     let (display_content, had_reasoning_trace) = strip_reasoning_trace(&completion.content);
     let display_content = display_content.trim().to_string();
@@ -812,7 +830,7 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         event_type,
         "backend chat completion 실행",
         &format!(
-            "pid={} backend={} backend_release={} binary_sha256={} model_id={} model_sha256={} model_size_bytes={} ctx_size={} mmproj={} sampling=temperature-0.1_top-p-0.8 host_os={} host_arch={} prompt_chars={} output_chars={} requested_max_tokens={} effective_max_tokens={} resource_governor_admission={} resource_governor_token_action={} resource_governor_reason={} resource_governor_sample_event={} finish_reason={} guard_status={} prompt_tokens={} completion_tokens={} total_tokens={} elapsed_ms={}",
+            "pid={} backend={} backend_release={} binary_sha256={} model_id={} model_sha256={} model_size_bytes={} ctx_size={} mmproj={} sampling={} host_os={} host_arch={} prompt_chars={} output_chars={} requested_max_tokens={} effective_max_tokens={} resource_governor_admission={} resource_governor_token_action={} resource_governor_reason={} resource_governor_sample_event={} finish_reason={} guard_status={} prompt_tokens={} completion_tokens={} total_tokens={} elapsed_ms={}",
             record.pid,
             record.backend_id,
             record.backend_release,
@@ -822,6 +840,7 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
             record.model_size_bytes,
             display_optional_u32(record.ctx_size),
             record.mmproj,
+            sampling.ledger_label(),
             std::env::consts::OS,
             std::env::consts::ARCH,
             prompt.chars().count(),
@@ -865,7 +884,8 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         model_artifact_hash: Some(record.model_sha256.clone()),
         backend_id: Some(record.backend_id.clone()),
         backend_version: Some(record.backend_release.clone()),
-        quantization: None,
+        quantization: model::quantization_for_artifact_hash(&record.model_sha256)
+            .map(str::to_string),
         context_limit_tokens: record.ctx_size,
         started_at_ms,
         first_token_latency_ms: None,
@@ -897,6 +917,7 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         response_chars: display_content.chars().count(),
         requested_max_tokens,
         effective_max_tokens,
+        sampling,
         finish_reason: completion.finish_reason,
         guard_status,
         prompt_tokens: completion.prompt_tokens,
@@ -1028,8 +1049,9 @@ fn request_chat_completion(
     record: &BackendSidecarRecord,
     prompt: &str,
     max_tokens: u32,
+    sampling: &BackendChatSampling,
 ) -> Result<BackendChatCompletion, AppError> {
-    let body = chat_request_body(&record.model_path, prompt, max_tokens);
+    let body = chat_request_body(&record.model_path, prompt, max_tokens, sampling);
     let response_body = post_json(
         &record.host,
         record.port,
@@ -1044,7 +1066,12 @@ fn request_chat_completion(
     })
 }
 
-fn chat_request_body(model_path: &Path, prompt: &str, max_tokens: u32) -> String {
+fn chat_request_body(
+    model_path: &Path,
+    prompt: &str,
+    max_tokens: u32,
+    sampling: &BackendChatSampling,
+) -> String {
     let system_prompt = "사용자에게 보이는 최종 답변만 한국어로 작성합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다.";
     let template_options = if model_id_from_path(model_path)
         .to_ascii_lowercase()
@@ -1055,10 +1082,12 @@ fn chat_request_body(model_path: &Path, prompt: &str, max_tokens: u32) -> String
         ""
     };
     format!(
-        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}],\"max_tokens\":{},\"temperature\":0.1,\"top_p\":0.8{}}}",
+        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}}}",
         ledger::json_string(system_prompt),
         ledger::json_string(prompt),
         max_tokens,
+        sampling.temperature,
+        sampling.top_p,
         template_options
     )
 }
@@ -3169,7 +3198,12 @@ mod tests {
 
     #[test]
     fn chat_request_body_disables_qwen_thinking() {
-        let body = chat_request_body(Path::new("Qwen3.5-4B-Q4_K_M.gguf"), "감자는 무엇인가?", 64);
+        let body = chat_request_body(
+            Path::new("Qwen3.5-4B-Q4_K_M.gguf"),
+            "감자는 무엇인가?",
+            64,
+            &CHAT_SAMPLING,
+        );
 
         assert!(body.contains("\"chat_template_kwargs\":{\"enable_thinking\":false}"));
         assert!(body.contains("\"max_tokens\":64"));
@@ -3179,7 +3213,12 @@ mod tests {
 
     #[test]
     fn chat_request_body_does_not_send_qwen_option_to_gemma() {
-        let body = chat_request_body(Path::new("gemma-4-E4B_q4_0-it.gguf"), "감자", 64);
+        let body = chat_request_body(
+            Path::new("gemma-4-E4B_q4_0-it.gguf"),
+            "감자",
+            64,
+            &CHAT_SAMPLING,
+        );
 
         assert!(!body.contains("chat_template_kwargs"));
         assert!(body.contains("\"temperature\":0.1"));
