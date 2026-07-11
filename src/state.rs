@@ -10,7 +10,8 @@ use crate::observability::{self, StoreStatus};
 use crate::paths;
 use sha2::{Digest, Sha256};
 
-const WORKFLOW_SCHEMA_VERSION: u64 = 2;
+const WORKFLOW_SCHEMA_VERSION: u64 = 3;
+const LEGACY_WORKFLOW_SCHEMA_VERSION: u64 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkflowRecord {
@@ -38,6 +39,8 @@ pub struct WorkflowRecord {
     pub after_hash: String,
     pub verification_plan: String,
     pub approval_state: String,
+    pub verification_credential_hash: String,
+    pub verification_approval_state: String,
     pub evidence_id: String,
     pub evidence_hash: String,
     pub failure_reason: String,
@@ -76,6 +79,8 @@ impl WorkflowRecord {
             after_hash: String::new(),
             verification_plan: String::new(),
             approval_state: "not-requested".to_string(),
+            verification_credential_hash: String::new(),
+            verification_approval_state: "not-issued".to_string(),
             evidence_id: String::new(),
             evidence_hash: String::new(),
             failure_reason: String::new(),
@@ -174,40 +179,17 @@ pub fn load_workflow(workflow_id: &str) -> Result<WorkflowRecord, AppError> {
             pointer_path.display()
         ))
     })?;
-    let context = pointer_path.display().to_string();
-    let object = crate::strict_json::parse_object(
-        &pointer,
-        &[
-            "schema_version",
-            "artifact_version",
-            "workflow_id",
-            "committed_revision",
-            "artifact_hash",
-        ],
-        &context,
-    )
-    .map_err(|_| corrupt_workflow(&pointer_path))?;
-    if crate::strict_json::number(&object, "schema_version", &context)
-        .map_err(|_| corrupt_workflow(&pointer_path))?
-        != WORKFLOW_SCHEMA_VERSION
-        || crate::strict_json::string(&object, "artifact_version", &context)
-            .map_err(|_| corrupt_workflow(&pointer_path))?
-            != "workflow-commit-v2"
-    {
+    let pointer = parse_workflow_pointer(&pointer_path, &pointer)?;
+    if pointer.workflow_id != workflow_id || pointer.committed_revision == 0 {
         return Err(corrupt_workflow(&pointer_path));
     }
-    let pointer_workflow = crate::strict_json::string(&object, "workflow_id", &context)
-        .map_err(|_| corrupt_workflow(&pointer_path))?;
-    let revision = crate::strict_json::number(&object, "committed_revision", &context)
-        .map_err(|_| corrupt_workflow(&pointer_path))?;
-    let pointer_hash = crate::strict_json::string(&object, "artifact_hash", &context)
-        .map_err(|_| corrupt_workflow(&pointer_path))?;
-    if pointer_workflow != workflow_id || revision == 0 {
-        return Err(corrupt_workflow(&pointer_path));
-    }
-    let record = validate_workflow_chain(workflow_id, revision)?;
+    let record = validate_workflow_chain(
+        workflow_id,
+        pointer.committed_revision,
+        pointer.schema_version,
+    )?;
     let identity = ledger::validated_current_identity()?;
-    if record.artifact_hash != pointer_hash || record.project_id != identity.project_id {
+    if record.artifact_hash != pointer.artifact_hash || record.project_id != identity.project_id {
         return Err(corrupt_workflow(&pointer_path));
     }
     Ok(record)
@@ -904,7 +886,41 @@ impl ReconcileOutcome {
 
 fn workflow_payload(record: &WorkflowRecord) -> String {
     format!(
-        "schema_version={WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
+        "schema_version={WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nverification_credential_hash={}\nverification_approval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
+        record.workflow_id,
+        record.revision,
+        record.previous_hash,
+        record.project_id,
+        record.session_id,
+        record.phase,
+        record.request_hash,
+        record.workflow_kind,
+        record.action_id,
+        record.action_kind,
+        record.action_status,
+        record.result_summary,
+        record.source_path,
+        record.source_hash,
+        record.find_text,
+        record.replace_text,
+        record.proposal_id,
+        record.proposal_hash,
+        record.approval_credential_hash,
+        record.before_hash,
+        record.after_hash,
+        record.verification_plan,
+        record.approval_state,
+        record.verification_credential_hash,
+        record.verification_approval_state,
+        record.evidence_id,
+        record.evidence_hash,
+        record.failure_reason
+    )
+}
+
+fn workflow_payload_v2(record: &WorkflowRecord) -> String {
+    format!(
+        "schema_version={LEGACY_WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
         record.workflow_id,
         record.revision,
         record.previous_hash,
@@ -939,7 +955,7 @@ fn render_workflow(record: &WorkflowRecord) -> String {
         concat!(
             "{{\n",
             "  \"schema_version\": {},\n",
-            "  \"artifact_version\": \"workflow-v2\",\n",
+            "  \"artifact_version\": \"workflow-v3\",\n",
             "  \"workflow_id\": \"{}\",\n",
             "  \"revision\": {},\n",
             "  \"previous_hash\": \"{}\",\n",
@@ -964,6 +980,8 @@ fn render_workflow(record: &WorkflowRecord) -> String {
             "  \"after_hash\": \"{}\",\n",
             "  \"verification_plan\": \"{}\",\n",
             "  \"approval_state\": \"{}\",\n",
+            "  \"verification_credential_hash\": \"{}\",\n",
+            "  \"verification_approval_state\": \"{}\",\n",
             "  \"evidence_id\": \"{}\",\n",
             "  \"evidence_hash\": \"{}\",\n",
             "  \"failure_reason\": \"{}\"\n",
@@ -994,10 +1012,32 @@ fn render_workflow(record: &WorkflowRecord) -> String {
         ledger::json_string(&record.after_hash),
         ledger::json_string(&record.verification_plan),
         ledger::json_string(&record.approval_state),
+        ledger::json_string(&record.verification_credential_hash),
+        ledger::json_string(&record.verification_approval_state),
         ledger::json_string(&record.evidence_id),
         ledger::json_string(&record.evidence_hash),
         ledger::json_string(&record.failure_reason)
     )
+}
+
+fn render_workflow_v2(record: &WorkflowRecord) -> String {
+    let rendered = render_workflow(record)
+        .replacen(
+            &format!("\"schema_version\": {WORKFLOW_SCHEMA_VERSION}"),
+            &format!("\"schema_version\": {LEGACY_WORKFLOW_SCHEMA_VERSION}"),
+            1,
+        )
+        .replacen("workflow-v3", "workflow-v2", 1);
+    let mut lines = rendered
+        .lines()
+        .filter(|line| {
+            !line.contains("\"verification_credential_hash\"")
+                && !line.contains("\"verification_approval_state\"")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    lines.push('\n');
+    lines
 }
 
 fn write_workflow_transaction(record: &WorkflowRecord) -> Result<(), AppError> {
@@ -1008,6 +1048,26 @@ fn write_workflow_transaction(record: &WorkflowRecord) -> Result<(), AppError> {
 }
 
 fn write_workflow_snapshot(record: &WorkflowRecord) -> Result<(), AppError> {
+    write_workflow_snapshot_for_schema(record, WORKFLOW_SCHEMA_VERSION)
+}
+
+fn write_workflow_snapshot_for_schema(
+    record: &WorkflowRecord,
+    schema_version: u64,
+) -> Result<(), AppError> {
+    let rendered = match schema_version {
+        LEGACY_WORKFLOW_SCHEMA_VERSION => render_workflow_v2(record),
+        WORKFLOW_SCHEMA_VERSION => render_workflow(record),
+        _ => {
+            return Err(AppError::blocked(
+                "workflow snapshot schema 지원 범위 밖입니다.",
+            ))
+        }
+    };
+    write_workflow_snapshot_bytes(record, rendered.as_bytes())
+}
+
+fn write_workflow_snapshot_bytes(record: &WorkflowRecord, rendered: &[u8]) -> Result<(), AppError> {
     let path = paths::project_workflow_snapshot_file(&record.workflow_id, record.revision);
     let parent = path
         .parent()
@@ -1018,7 +1078,6 @@ fn write_workflow_snapshot(record: &WorkflowRecord) -> Result<(), AppError> {
             parent.display()
         ))
     })?;
-    let rendered = render_workflow(record);
     if path.exists() {
         let existing = fs::read(&path).map_err(|err| {
             AppError::runtime(format!(
@@ -1026,7 +1085,7 @@ fn write_workflow_snapshot(record: &WorkflowRecord) -> Result<(), AppError> {
                 path.display()
             ))
         })?;
-        if existing == rendered.as_bytes() {
+        if existing == rendered {
             return Ok(());
         }
         return Err(AppError::blocked(format!(
@@ -1034,12 +1093,28 @@ fn write_workflow_snapshot(record: &WorkflowRecord) -> Result<(), AppError> {
             path.display()
         )));
     }
-    atomic_replace_bytes(&path, rendered.as_bytes())
+    atomic_replace_bytes(&path, rendered)
 }
 
 fn write_workflow_pointer(record: &WorkflowRecord) -> Result<(), AppError> {
+    write_workflow_pointer_for_schema(record, WORKFLOW_SCHEMA_VERSION)
+}
+
+fn write_workflow_pointer_for_schema(
+    record: &WorkflowRecord,
+    schema_version: u64,
+) -> Result<(), AppError> {
+    let artifact_version = match schema_version {
+        LEGACY_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v2",
+        WORKFLOW_SCHEMA_VERSION => "workflow-commit-v3",
+        _ => {
+            return Err(AppError::blocked(
+                "workflow pointer schema 지원 범위 밖입니다.",
+            ))
+        }
+    };
     let body = format!(
-        "{{\n  \"schema_version\": {WORKFLOW_SCHEMA_VERSION},\n  \"artifact_version\": \"workflow-commit-v2\",\n  \"workflow_id\": \"{}\",\n  \"committed_revision\": {},\n  \"artifact_hash\": \"{}\"\n}}\n",
+        "{{\n  \"schema_version\": {schema_version},\n  \"artifact_version\": \"{artifact_version}\",\n  \"workflow_id\": \"{}\",\n  \"committed_revision\": {},\n  \"artifact_hash\": \"{}\"\n}}\n",
         ledger::json_string(&record.workflow_id),
         record.revision,
         record.artifact_hash
@@ -1048,6 +1123,51 @@ fn write_workflow_pointer(record: &WorkflowRecord) -> Result<(), AppError> {
         &paths::project_workflow_file(&record.workflow_id),
         body.as_bytes(),
     )
+}
+
+#[derive(Debug)]
+struct WorkflowPointer {
+    schema_version: u64,
+    workflow_id: String,
+    committed_revision: u64,
+    artifact_hash: String,
+}
+
+fn parse_workflow_pointer(path: &std::path::Path, body: &str) -> Result<WorkflowPointer, AppError> {
+    const KEYS: &[&str] = &[
+        "schema_version",
+        "artifact_version",
+        "workflow_id",
+        "committed_revision",
+        "artifact_hash",
+    ];
+    let context = path.display().to_string();
+    let object = crate::strict_json::parse_object(body, KEYS, &context)
+        .map_err(|_| corrupt_workflow(path))?;
+    if object.len() != KEYS.len() || KEYS.iter().any(|key| !object.contains_key(*key)) {
+        return Err(corrupt_workflow(path));
+    }
+    let schema_version = crate::strict_json::number(&object, "schema_version", &context)
+        .map_err(|_| corrupt_workflow(path))?;
+    let artifact_version = crate::strict_json::string(&object, "artifact_version", &context)
+        .map_err(|_| corrupt_workflow(path))?;
+    let expected_artifact_version = match schema_version {
+        LEGACY_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v2",
+        WORKFLOW_SCHEMA_VERSION => "workflow-commit-v3",
+        _ => return Err(corrupt_workflow(path)),
+    };
+    if artifact_version != expected_artifact_version {
+        return Err(corrupt_workflow(path));
+    }
+    Ok(WorkflowPointer {
+        schema_version,
+        workflow_id: crate::strict_json::string(&object, "workflow_id", &context)
+            .map_err(|_| corrupt_workflow(path))?,
+        committed_revision: crate::strict_json::number(&object, "committed_revision", &context)
+            .map_err(|_| corrupt_workflow(path))?,
+        artifact_hash: crate::strict_json::string(&object, "artifact_hash", &context)
+            .map_err(|_| corrupt_workflow(path))?,
+    })
 }
 
 fn remove_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
@@ -1073,6 +1193,7 @@ fn recover_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
             transaction_path.display()
         ))
     })?;
+    let transaction_schema = workflow_snapshot_schema(&transaction_path, &body)?;
     let record = parse_workflow_snapshot(&transaction_path, &body)?;
     if record.workflow_id != workflow_id {
         return Err(corrupt_workflow(&transaction_path));
@@ -1081,48 +1202,85 @@ fn recover_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
     if pointer_path.exists() {
         let pointer =
             fs::read_to_string(&pointer_path).map_err(|_| corrupt_workflow(&pointer_path))?;
-        let context = pointer_path.display().to_string();
-        let object = crate::strict_json::parse_object(
-            &pointer,
-            &[
-                "schema_version",
-                "artifact_version",
-                "workflow_id",
-                "committed_revision",
-                "artifact_hash",
-            ],
-            &context,
-        )
-        .map_err(|_| corrupt_workflow(&pointer_path))?;
-        if crate::strict_json::number(&object, "schema_version", &context)
-            .map_err(|_| corrupt_workflow(&pointer_path))?
-            != WORKFLOW_SCHEMA_VERSION
-            || crate::strict_json::string(&object, "artifact_version", &context)
-                .map_err(|_| corrupt_workflow(&pointer_path))?
-                != "workflow-commit-v2"
-        {
+        let pointer = parse_workflow_pointer(&pointer_path, &pointer)?;
+        if pointer.workflow_id != workflow_id {
             return Err(corrupt_workflow(&pointer_path));
         }
-        let committed = crate::strict_json::number(&object, "committed_revision", &context)
-            .map_err(|_| corrupt_workflow(&pointer_path))?;
-        let committed_hash = crate::strict_json::string(&object, "artifact_hash", &context)
-            .map_err(|_| corrupt_workflow(&pointer_path))?;
-        if committed == record.revision && committed_hash == record.artifact_hash {
+        if pointer.committed_revision == record.revision
+            && pointer.artifact_hash == record.artifact_hash
+        {
+            if pointer.schema_version != transaction_schema {
+                return Err(corrupt_workflow(&transaction_path));
+            }
+            validate_workflow_chain(
+                workflow_id,
+                pointer.committed_revision,
+                pointer.schema_version,
+            )?;
             remove_workflow_transaction(workflow_id)?;
             return Ok(());
         }
-        if committed + 1 != record.revision {
+        let schema_transition_allowed = pointer.schema_version == transaction_schema
+            || (pointer.schema_version == LEGACY_WORKFLOW_SCHEMA_VERSION
+                && transaction_schema == WORKFLOW_SCHEMA_VERSION);
+        if pointer.committed_revision + 1 != record.revision
+            || record.previous_hash != pointer.artifact_hash
+            || !schema_transition_allowed
+        {
             return Err(corrupt_workflow(&transaction_path));
         }
-    } else if record.revision != 1 {
-        return Err(corrupt_workflow(&transaction_path));
+        let checkpoints = ledger::workflow_checkpoints(workflow_id)?;
+        if checkpoints.len() != pointer.committed_revision as usize
+            && checkpoints.len() != record.revision as usize
+        {
+            return Err(corrupt_workflow(&transaction_path));
+        }
+        let committed = validate_workflow_chain_with_checkpoints(
+            workflow_id,
+            pointer.committed_revision,
+            pointer.schema_version,
+            &checkpoints[..pointer.committed_revision as usize],
+        )?;
+        if committed.artifact_hash != pointer.artifact_hash
+            || committed.project_id != record.project_id
+            || committed.session_id != record.session_id
+            || committed.action_id != record.action_id
+        {
+            return Err(corrupt_workflow(&transaction_path));
+        }
+        if checkpoints.len() == record.revision as usize {
+            let pending = &checkpoints[record.revision as usize - 1];
+            if pending.revision != record.revision
+                || pending.artifact_hash != record.artifact_hash
+                || pending.previous_hash != record.previous_hash
+            {
+                return Err(corrupt_workflow(&transaction_path));
+            }
+        }
+    } else {
+        let checkpoints = ledger::workflow_checkpoints(workflow_id)?;
+        if record.revision != 1
+            || record.previous_hash != "none"
+            || checkpoints.len() > 1
+            || checkpoints.first().is_some_and(|checkpoint| {
+                checkpoint.revision != record.revision
+                    || checkpoint.artifact_hash != record.artifact_hash
+                    || checkpoint.previous_hash != record.previous_hash
+            })
+        {
+            return Err(corrupt_workflow(&transaction_path));
+        }
+        let identity = ledger::validated_current_identity()?;
+        if record.project_id != identity.project_id {
+            return Err(corrupt_workflow(&transaction_path));
+        }
     }
 
-    write_workflow_snapshot(&record)?;
+    write_workflow_snapshot_bytes(&record, body.as_bytes())?;
     if !ledger::workflow_checkpoint_exists(workflow_id, record.revision, &record.artifact_hash)? {
         append_workflow_checkpoint_event(&record)?;
     }
-    write_workflow_pointer(&record)?;
+    write_workflow_pointer_for_schema(&record, transaction_schema)?;
     remove_workflow_transaction(workflow_id)
 }
 
@@ -1151,6 +1309,7 @@ fn append_workflow_checkpoint_event(record: &WorkflowRecord) -> Result<(), AppEr
 fn validate_workflow_chain(
     workflow_id: &str,
     committed_revision: u64,
+    expected_latest_schema: u64,
 ) -> Result<WorkflowRecord, AppError> {
     let checkpoints = ledger::workflow_checkpoints(workflow_id)?;
     if checkpoints.len() != committed_revision as usize {
@@ -1159,7 +1318,25 @@ fn validate_workflow_chain(
             checkpoints.len()
         )));
     }
+    validate_workflow_chain_with_checkpoints(
+        workflow_id,
+        committed_revision,
+        expected_latest_schema,
+        &checkpoints,
+    )
+}
+
+fn validate_workflow_chain_with_checkpoints(
+    workflow_id: &str,
+    committed_revision: u64,
+    expected_latest_schema: u64,
+    checkpoints: &[ledger::WorkflowCheckpoint],
+) -> Result<WorkflowRecord, AppError> {
+    if checkpoints.len() != committed_revision as usize {
+        return Err(corrupt_workflow(&paths::project_workflow_file(workflow_id)));
+    }
     let mut previous_hash = "none".to_string();
+    let mut previous_schema = None;
     let mut latest = None;
     for revision in 1..=committed_revision {
         let path = paths::project_workflow_snapshot_file(workflow_id, revision);
@@ -1169,6 +1346,10 @@ fn validate_workflow_chain(
                 path.display()
             ))
         })?;
+        let schema = workflow_snapshot_schema(&path, &body)?;
+        if previous_schema.is_some_and(|previous| schema < previous) {
+            return Err(corrupt_workflow(&path));
+        }
         let record = parse_workflow_snapshot(&path, &body)?;
         let checkpoint = &checkpoints[(revision - 1) as usize];
         if record.workflow_id != workflow_id
@@ -1181,58 +1362,116 @@ fn validate_workflow_chain(
             return Err(corrupt_workflow(&path));
         }
         previous_hash = record.artifact_hash.clone();
+        previous_schema = Some(schema);
         latest = Some(record);
+    }
+    if previous_schema != Some(expected_latest_schema) {
+        return Err(corrupt_workflow(&paths::project_workflow_file(workflow_id)));
     }
     latest.ok_or_else(|| corrupt_workflow(&paths::project_workflow_file(workflow_id)))
 }
 
-fn parse_workflow_snapshot(path: &std::path::Path, body: &str) -> Result<WorkflowRecord, AppError> {
-    const KEYS: &[&str] = &[
-        "schema_version",
-        "artifact_version",
-        "workflow_id",
-        "revision",
-        "previous_hash",
-        "artifact_hash",
-        "project_id",
-        "session_id",
-        "phase",
-        "request_hash",
-        "workflow_kind",
-        "action_id",
-        "action_kind",
-        "action_status",
-        "result_summary",
-        "source_path",
-        "source_hash",
-        "find_text",
-        "replace_text",
-        "proposal_id",
-        "proposal_hash",
-        "approval_credential_hash",
-        "before_hash",
-        "after_hash",
-        "verification_plan",
-        "approval_state",
-        "evidence_id",
-        "evidence_hash",
-        "failure_reason",
-    ];
+const WORKFLOW_V3_KEYS: &[&str] = &[
+    "schema_version",
+    "artifact_version",
+    "workflow_id",
+    "revision",
+    "previous_hash",
+    "artifact_hash",
+    "project_id",
+    "session_id",
+    "phase",
+    "request_hash",
+    "workflow_kind",
+    "action_id",
+    "action_kind",
+    "action_status",
+    "result_summary",
+    "source_path",
+    "source_hash",
+    "find_text",
+    "replace_text",
+    "proposal_id",
+    "proposal_hash",
+    "approval_credential_hash",
+    "before_hash",
+    "after_hash",
+    "verification_plan",
+    "approval_state",
+    "verification_credential_hash",
+    "verification_approval_state",
+    "evidence_id",
+    "evidence_hash",
+    "failure_reason",
+];
+const WORKFLOW_V2_KEYS: &[&str] = &[
+    "schema_version",
+    "artifact_version",
+    "workflow_id",
+    "revision",
+    "previous_hash",
+    "artifact_hash",
+    "project_id",
+    "session_id",
+    "phase",
+    "request_hash",
+    "workflow_kind",
+    "action_id",
+    "action_kind",
+    "action_status",
+    "result_summary",
+    "source_path",
+    "source_hash",
+    "find_text",
+    "replace_text",
+    "proposal_id",
+    "proposal_hash",
+    "approval_credential_hash",
+    "before_hash",
+    "after_hash",
+    "verification_plan",
+    "approval_state",
+    "evidence_id",
+    "evidence_hash",
+    "failure_reason",
+];
+
+fn workflow_snapshot_schema(path: &std::path::Path, body: &str) -> Result<u64, AppError> {
     let context = path.display().to_string();
-    let object = crate::strict_json::parse_object(body, KEYS, &context)
+    let object = crate::strict_json::parse_object(body, WORKFLOW_V3_KEYS, &context)
         .map_err(|_| corrupt_workflow(path))?;
     let schema = crate::strict_json::number(&object, "schema_version", &context)
         .map_err(|_| corrupt_workflow(path))?;
-    if schema != WORKFLOW_SCHEMA_VERSION {
+    let (keys, artifact_version) = match schema {
+        LEGACY_WORKFLOW_SCHEMA_VERSION => (WORKFLOW_V2_KEYS, "workflow-v2"),
+        WORKFLOW_SCHEMA_VERSION => (WORKFLOW_V3_KEYS, "workflow-v3"),
+        _ => return Err(corrupt_workflow(path)),
+    };
+    if object.len() != keys.len()
+        || keys.iter().any(|key| !object.contains_key(*key))
+        || crate::strict_json::string(&object, "artifact_version", &context)
+            .map_err(|_| corrupt_workflow(path))?
+            != artifact_version
+    {
         return Err(corrupt_workflow(path));
     }
+    Ok(schema)
+}
+
+fn parse_workflow_snapshot(path: &std::path::Path, body: &str) -> Result<WorkflowRecord, AppError> {
+    let schema = workflow_snapshot_schema(path, body)?;
+    let keys = if schema == LEGACY_WORKFLOW_SCHEMA_VERSION {
+        WORKFLOW_V2_KEYS
+    } else {
+        WORKFLOW_V3_KEYS
+    };
+    let context = path.display().to_string();
+    let object = crate::strict_json::parse_object(body, keys, &context)
+        .map_err(|_| corrupt_workflow(path))?;
     let text = |key| {
         crate::strict_json::string(&object, key, &context).map_err(|_| corrupt_workflow(path))
     };
-    if text("artifact_version")? != "workflow-v2" {
-        return Err(corrupt_workflow(path));
-    }
-    let record = WorkflowRecord {
+    let mut record = WorkflowRecord {
         workflow_id: text("workflow_id")?,
         revision: crate::strict_json::number(&object, "revision", &context)
             .map_err(|_| corrupt_workflow(path))?,
@@ -1258,12 +1497,52 @@ fn parse_workflow_snapshot(path: &std::path::Path, body: &str) -> Result<Workflo
         after_hash: text("after_hash")?,
         verification_plan: text("verification_plan")?,
         approval_state: text("approval_state")?,
+        verification_credential_hash: if schema == WORKFLOW_SCHEMA_VERSION {
+            text("verification_credential_hash")?
+        } else {
+            String::new()
+        },
+        verification_approval_state: if schema == WORKFLOW_SCHEMA_VERSION {
+            text("verification_approval_state")?
+        } else {
+            "not-issued".to_string()
+        },
         evidence_id: text("evidence_id")?,
         evidence_hash: text("evidence_hash")?,
         failure_reason: text("failure_reason")?,
     };
-    if record.artifact_hash != sha256_text(&workflow_payload(&record)) {
+    let payload = if schema == LEGACY_WORKFLOW_SCHEMA_VERSION {
+        workflow_payload_v2(&record)
+    } else {
+        workflow_payload(&record)
+    };
+    if record.artifact_hash != sha256_text(&payload) {
         return Err(corrupt_workflow(path));
+    }
+    if schema == LEGACY_WORKFLOW_SCHEMA_VERSION {
+        match record.phase.as_str() {
+            "verification-started" if !record.proposal_id.is_empty() => {
+                record.approval_state = "applied".to_string();
+                record.verification_approval_state = "approved".to_string();
+            }
+            "verified" | "complete"
+                if !record.proposal_id.is_empty()
+                    && !record.evidence_id.is_empty()
+                    && !record.source_path.is_empty()
+                    && !record.after_hash.is_empty() =>
+            {
+                record.approval_state = "applied".to_string();
+                record.verification_approval_state = "approved".to_string();
+            }
+            "failed" if !record.proposal_id.is_empty() && !record.evidence_id.is_empty() => {
+                record.approval_state = "applied".to_string();
+                record.verification_approval_state = "approved".to_string();
+            }
+            "cancelled" if !record.proposal_id.is_empty() => {
+                record.verification_approval_state = "cancelled".to_string();
+            }
+            _ => {}
+        }
     }
     Ok(record)
 }
@@ -1790,6 +2069,215 @@ mod tests {
                 assert!(!paths::project_workflow_transaction_file(&workflow_id).exists());
             });
         }
+    }
+
+    #[test]
+    fn legacy_v2_chain_is_preserved_and_next_checkpoint_appends_v3() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        with_workflow_env("workflow-v2-upgrade", |_| {
+            let mut legacy = WorkflowRecord::new("legacy pending workflow");
+            legacy.revision = 1;
+            legacy.previous_hash = "none".to_string();
+            legacy.phase = "pending-approval".to_string();
+            legacy.approval_state = "pending".to_string();
+            legacy.artifact_hash = sha256_text(&workflow_payload_v2(&legacy));
+            let snapshot = paths::project_workflow_snapshot_file(&legacy.workflow_id, 1);
+            atomic_replace_bytes(&snapshot, render_workflow_v2(&legacy).as_bytes()).unwrap();
+            append_workflow_checkpoint_event(&legacy).unwrap();
+            write_workflow_pointer_for_schema(&legacy, LEGACY_WORKFLOW_SCHEMA_VERSION).unwrap();
+            let legacy_bytes = fs::read(&snapshot).unwrap();
+
+            let mut loaded = load_workflow(&legacy.workflow_id).unwrap();
+            assert_eq!(loaded.revision, 1);
+            assert_eq!(loaded.verification_approval_state, "not-issued");
+            loaded.result_summary = "v2 workflow upgraded".to_string();
+            let upgraded = checkpoint_workflow(loaded.clone(), loaded.revision).unwrap();
+
+            assert_eq!(upgraded.revision, 2);
+            assert_eq!(upgraded.previous_hash, legacy.artifact_hash);
+            assert_eq!(fs::read(&snapshot).unwrap(), legacy_bytes);
+            let pointer =
+                fs::read_to_string(paths::project_workflow_file(&legacy.workflow_id)).unwrap();
+            assert!(pointer.contains("\"schema_version\": 3"));
+            assert!(pointer.contains("workflow-commit-v3"));
+            let v3 = fs::read_to_string(paths::project_workflow_snapshot_file(
+                &legacy.workflow_id,
+                2,
+            ))
+            .unwrap();
+            assert!(v3.contains("\"artifact_version\": \"workflow-v3\""));
+            assert_eq!(load_workflow(&legacy.workflow_id).unwrap(), upgraded);
+        });
+    }
+
+    #[test]
+    fn legacy_v2_complete_maps_split_approval_evidence_without_rewriting() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        with_workflow_env("workflow-v2-complete-map", |root| {
+            let mut non_mutating = WorkflowRecord::new("legacy read-only complete workflow");
+            non_mutating.revision = 1;
+            non_mutating.previous_hash = "none".to_string();
+            non_mutating.phase = "complete".to_string();
+            non_mutating.action_kind = "inspect-sources".to_string();
+            non_mutating.approval_state = "not-required".to_string();
+            non_mutating.artifact_hash = sha256_text(&workflow_payload_v2(&non_mutating));
+            let parsed_non_mutating = parse_workflow_snapshot(
+                &root.join("non-mutating-v2.json"),
+                &render_workflow_v2(&non_mutating),
+            )
+            .unwrap();
+            assert_eq!(parsed_non_mutating.approval_state, "not-required");
+            assert_eq!(
+                parsed_non_mutating.verification_approval_state,
+                "not-issued"
+            );
+
+            let mut legacy = WorkflowRecord::new("legacy complete workflow");
+            legacy.revision = 1;
+            legacy.previous_hash = "none".to_string();
+            legacy.phase = "complete".to_string();
+            legacy.action_kind = "patch-proposal".to_string();
+            legacy.approval_state = "approved".to_string();
+            legacy.proposal_id = "patch-proposal-legacy".to_string();
+            legacy.source_path = "src/lib.rs".to_string();
+            legacy.after_hash = "a".repeat(64);
+            legacy.evidence_id = "evidence-legacy".to_string();
+            legacy.artifact_hash = sha256_text(&workflow_payload_v2(&legacy));
+            let snapshot = paths::project_workflow_snapshot_file(&legacy.workflow_id, 1);
+            let bytes = render_workflow_v2(&legacy);
+            atomic_replace_bytes(&snapshot, bytes.as_bytes()).unwrap();
+            append_workflow_checkpoint_event(&legacy).unwrap();
+            write_workflow_pointer_for_schema(&legacy, LEGACY_WORKFLOW_SCHEMA_VERSION).unwrap();
+
+            let loaded = load_workflow(&legacy.workflow_id).unwrap();
+
+            assert_eq!(loaded.phase, "complete");
+            assert_eq!(loaded.approval_state, "applied");
+            assert_eq!(loaded.verification_approval_state, "approved");
+            assert_eq!(fs::read_to_string(snapshot).unwrap(), bytes);
+        });
+    }
+
+    #[test]
+    fn interrupted_legacy_v2_transaction_recovers_with_original_schema() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        with_workflow_env("workflow-v2-transaction", |_| {
+            let mut first = WorkflowRecord::new("legacy transaction workflow");
+            first.revision = 1;
+            first.previous_hash = "none".to_string();
+            first.phase = "pending-approval".to_string();
+            first.approval_state = "pending".to_string();
+            first.artifact_hash = sha256_text(&workflow_payload_v2(&first));
+            atomic_replace_bytes(
+                &paths::project_workflow_snapshot_file(&first.workflow_id, 1),
+                render_workflow_v2(&first).as_bytes(),
+            )
+            .unwrap();
+            append_workflow_checkpoint_event(&first).unwrap();
+            write_workflow_pointer_for_schema(&first, LEGACY_WORKFLOW_SCHEMA_VERSION).unwrap();
+
+            let mut second = first.clone();
+            second.revision = 2;
+            second.previous_hash = first.artifact_hash.clone();
+            second.phase = "verification-started".to_string();
+            second.approval_state = "approved".to_string();
+            second.proposal_id = "patch-proposal-legacy-transaction".to_string();
+            second.artifact_hash = sha256_text(&workflow_payload_v2(&second));
+            let transaction = render_workflow_v2(&second);
+            atomic_replace_bytes(
+                &paths::project_workflow_transaction_file(&second.workflow_id),
+                transaction.as_bytes(),
+            )
+            .unwrap();
+
+            let recovered = load_workflow(&second.workflow_id).unwrap();
+
+            assert_eq!(recovered.revision, 2);
+            assert_eq!(recovered.phase, "verification-started");
+            assert_eq!(recovered.approval_state, "applied");
+            assert_eq!(recovered.verification_approval_state, "approved");
+            assert_eq!(
+                fs::read_to_string(paths::project_workflow_snapshot_file(
+                    &second.workflow_id,
+                    2,
+                ))
+                .unwrap(),
+                transaction
+            );
+            let pointer =
+                fs::read_to_string(paths::project_workflow_file(&second.workflow_id)).unwrap();
+            assert!(pointer.contains("workflow-commit-v2"));
+            assert!(!paths::project_workflow_transaction_file(&second.workflow_id).exists());
+            assert_eq!(
+                ledger::workflow_checkpoints(&second.workflow_id)
+                    .unwrap()
+                    .len(),
+                2
+            );
+        });
+    }
+
+    #[test]
+    fn workflow_recovery_rejects_unbound_previous_hash_before_append() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        with_workflow_env("workflow-recovery-binding", |_| {
+            let mut first = WorkflowRecord::new("recovery binding workflow");
+            first.revision = 1;
+            first.previous_hash = "none".to_string();
+            first.artifact_hash = sha256_text(&workflow_payload_v2(&first));
+            atomic_replace_bytes(
+                &paths::project_workflow_snapshot_file(&first.workflow_id, 1),
+                render_workflow_v2(&first).as_bytes(),
+            )
+            .unwrap();
+            append_workflow_checkpoint_event(&first).unwrap();
+            write_workflow_pointer_for_schema(&first, LEGACY_WORKFLOW_SCHEMA_VERSION).unwrap();
+
+            let mut forged = first.clone();
+            forged.revision = 2;
+            forged.previous_hash = "f".repeat(64);
+            forged.artifact_hash = sha256_text(&workflow_payload(&forged));
+            atomic_replace_bytes(
+                &paths::project_workflow_transaction_file(&forged.workflow_id),
+                render_workflow(&forged).as_bytes(),
+            )
+            .unwrap();
+
+            let error = load_workflow(&forged.workflow_id).unwrap_err();
+
+            assert_eq!(error.code, 3);
+            assert!(!paths::project_workflow_snapshot_file(&forged.workflow_id, 2).exists());
+            assert_eq!(
+                ledger::workflow_checkpoints(&forged.workflow_id)
+                    .unwrap()
+                    .len(),
+                1
+            );
+        });
+    }
+
+    #[test]
+    fn workflow_chain_rejects_v3_to_v2_schema_downgrade() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        with_workflow_env("workflow-schema-downgrade", |_| {
+            let first = create_workflow("schema downgrade workflow").unwrap();
+            let mut downgraded = first.clone();
+            downgraded.revision = 2;
+            downgraded.previous_hash = first.artifact_hash.clone();
+            downgraded.artifact_hash = sha256_text(&workflow_payload_v2(&downgraded));
+            atomic_replace_bytes(
+                &paths::project_workflow_snapshot_file(&downgraded.workflow_id, 2),
+                render_workflow_v2(&downgraded).as_bytes(),
+            )
+            .unwrap();
+            append_workflow_checkpoint_event(&downgraded).unwrap();
+            write_workflow_pointer_for_schema(&downgraded, LEGACY_WORKFLOW_SCHEMA_VERSION).unwrap();
+
+            let error = load_workflow(&downgraded.workflow_id).unwrap_err();
+
+            assert_eq!(error.code, 3);
+            assert!(error.message.contains("fail-closed"));
+        });
     }
 
     #[test]

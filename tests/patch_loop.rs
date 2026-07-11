@@ -221,6 +221,24 @@ fn field(output: &str, key: &str) -> String {
         .to_string()
 }
 
+fn command_token(output: &str, prefix: &str) -> String {
+    output
+        .lines()
+        .find_map(|line| line.strip_prefix(prefix))
+        .unwrap()
+        .split(" --token ")
+        .nth(1)
+        .unwrap()
+        .to_string()
+}
+
+fn verification_token(output: &str) -> String {
+    command_token(
+        output,
+        "- verification command approval: rpotato patch verify ",
+    )
+}
+
 #[test]
 fn happy_path_is_restart_safe_and_reports_korean() {
     let fixture = fixture("happy-subprocess");
@@ -269,19 +287,39 @@ fn happy_path_is_restart_safe_and_reports_korean() {
         "{}",
         String::from_utf8_lossy(&approve.stderr)
     );
-    let report = String::from_utf8(approve.stdout).unwrap();
-    assert!(report.starts_with("패치 작업 완료\n- 결과: 성공"));
-    assert!(report.contains("패치 작업 완료"));
-    assert!(report.contains("stop gate: 통과"));
-    assert!(!report.contains("MODEL ACTION"));
+    let approve_report = String::from_utf8(approve.stdout).unwrap();
+    assert!(approve_report.starts_with("patch approve\n- status: applied-awaiting-verification"));
+    assert!(approve_report.contains("verification approval: required"));
+    assert!(approve_report.contains("verification command는 아직 실행하지 않았습니다"));
+    assert!(!approve_report.contains("패치 작업 완료"));
+    assert!(!approve_report.contains("MODEL ACTION"));
     assert_eq!(
         fs::read_to_string(fixture.project.join("src/lib.rs")).unwrap(),
         "pub const VALUE: i32 = 2;\n"
     );
+    let verify_token = verification_token(&approve_report);
+
+    let resumed = fixture.command(&["state", "resume"]);
+    assert!(resumed.status.success());
+    let resumed_out = String::from_utf8_lossy(&resumed.stdout);
+    assert!(resumed_out.contains("verification 승인 대기"));
+    assert!(resumed_out.contains("verification 실행: 없음"));
+    assert!(!resumed_out.contains(&verify_token));
+
+    let verify = fixture.command(&["patch", "verify", &proposal, "--token", &verify_token]);
+    assert!(
+        verify.status.success(),
+        "{}",
+        String::from_utf8_lossy(&verify.stderr)
+    );
+    let report = String::from_utf8(verify.stdout).unwrap();
+    assert!(report.starts_with("패치 작업 완료\n- 결과: 성공"));
+    assert!(report.contains("stop gate: 통과"));
+    assert!(!report.contains("MODEL ACTION"));
 
     let ledger_path = fixture.data.join("state/runtime-ledger.jsonl");
     let event_count = fs::read_to_string(&ledger_path).unwrap().lines().count();
-    let repeated = fixture.command(&["patch", "approve", &proposal, "--token", &token]);
+    let repeated = fixture.command(&["patch", "verify", &proposal, "--token", &verify_token]);
     assert!(
         repeated.status.success(),
         "status={:?}\nstderr={}\nstdout={}",
@@ -369,7 +407,11 @@ fn complete_resume_revalidates_deleted_evidence() {
         .to_string();
     let approve = fixture.command(&["patch", "approve", &proposal, "--token", &token]);
     assert!(approve.status.success());
-    let report = String::from_utf8(approve.stdout).unwrap();
+    let approve_report = String::from_utf8(approve.stdout).unwrap();
+    let verify_token = verification_token(&approve_report);
+    let verify = fixture.command(&["patch", "verify", &proposal, "--token", &verify_token]);
+    assert!(verify.status.success());
+    let report = String::from_utf8(verify.stdout).unwrap();
     let evidence_id = field(&report, "evidence id");
     fs::remove_file(
         fixture
@@ -379,7 +421,7 @@ fn complete_resume_revalidates_deleted_evidence() {
     )
     .unwrap();
 
-    let resumed = fixture.command(&["patch", "approve", &proposal, "--token", &token]);
+    let resumed = fixture.command(&["patch", "verify", &proposal, "--token", &verify_token]);
     assert_eq!(resumed.status.code(), Some(3));
     let error = String::from_utf8_lossy(&resumed.stderr);
     assert!(error.contains("verification evidence missing"));
@@ -404,13 +446,17 @@ fn complete_resume_revalidates_changed_source() {
         .to_string();
     let approve = fixture.command(&["patch", "approve", &proposal, "--token", &token]);
     assert!(approve.status.success());
+    let approve_report = String::from_utf8(approve.stdout).unwrap();
+    let verify_token = verification_token(&approve_report);
+    let verify = fixture.command(&["patch", "verify", &proposal, "--token", &verify_token]);
+    assert!(verify.status.success());
     fs::write(
         fixture.project.join("src/lib.rs"),
         "pub const VALUE: i32 = 9;\n",
     )
     .unwrap();
 
-    let resumed = fixture.command(&["patch", "approve", &proposal, "--token", &token]);
+    let resumed = fixture.command(&["patch", "verify", &proposal, "--token", &verify_token]);
     assert_eq!(resumed.status.code(), Some(3));
     let error = String::from_utf8_lossy(&resumed.stderr);
     assert!(
@@ -546,14 +592,22 @@ fn verification_failure_restores_original_and_blocks_success() {
         .nth(1)
         .unwrap();
     let approve = fixture.command(&["patch", "approve", &proposal, "--token", token]);
-    assert_eq!(approve.status.code(), Some(3));
-    let error = String::from_utf8_lossy(&approve.stderr);
+    assert!(approve.status.success());
+    let approve_report = String::from_utf8(approve.stdout).unwrap();
+    assert_eq!(
+        fs::read_to_string(fixture.project.join("src/lib.rs")).unwrap(),
+        "pub const VALUE: i32 = 2;\n"
+    );
+    let verify_token = verification_token(&approve_report);
+    let verify = fixture.command(&["patch", "verify", &proposal, "--token", &verify_token]);
+    assert_eq!(verify.status.code(), Some(3));
+    let error = String::from_utf8_lossy(&verify.stderr);
     assert!(
         error.contains("verification-failed-rolled-back"),
         "status={:?}\nstderr={}\nstdout={}",
-        approve.status.code(),
+        verify.status.code(),
         error,
-        String::from_utf8_lossy(&approve.stdout)
+        String::from_utf8_lossy(&verify.stdout)
     );
     assert!(!error.contains("패치 작업 완료"));
     assert_eq!(
@@ -665,6 +719,12 @@ fn concurrent_approve_processes_create_one_apply_receipt() {
     let first = wait_bounded(first, &args);
     let second = wait_bounded(second, &args);
     assert!(first.status.success() || second.status.success());
+    let successful_output = if first.status.success() {
+        String::from_utf8(first.stdout).unwrap()
+    } else {
+        String::from_utf8(second.stdout).unwrap()
+    };
+    let verify_token = verification_token(&successful_output);
     assert_eq!(
         fs::read_to_string(fixture.project.join("src/lib.rs")).unwrap(),
         "pub const VALUE: i32 = 2;\n"
@@ -677,6 +737,17 @@ fn concurrent_approve_processes_create_one_apply_receipt() {
             .count(),
         1
     );
+    assert_eq!(
+        ledger
+            .lines()
+            .filter(|line| line.contains("\"event_type\":\"verification.evidence.recorded\""))
+            .count(),
+        0
+    );
+
+    let verify = fixture.command(&["patch", "verify", &proposal, "--token", &verify_token]);
+    assert!(verify.status.success());
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
     assert_eq!(
         ledger
             .lines()

@@ -236,17 +236,15 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             proposal_id,
             token,
             dry_run,
-            verify_command,
         }) => {
             println!(
                 "{}",
-                runtime::patch_approve_report(
-                    &proposal_id,
-                    &token,
-                    dry_run,
-                    verify_command.as_deref(),
-                )?
+                runtime::patch_approve_report(&proposal_id, &token, dry_run, None)?
             );
+            Ok(())
+        }
+        Command::Patch(PatchCommand::Verify { proposal_id, token }) => {
+            println!("{}", runtime::patch_verify_report(&proposal_id, &token)?);
             Ok(())
         }
         Command::Patch(PatchCommand::TokenRotate { proposal_id }) => {

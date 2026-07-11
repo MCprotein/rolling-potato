@@ -182,7 +182,6 @@ pub fn approve_report(
     verify_command: Option<&str>,
 ) -> Result<String, AppError> {
     validate_proposal_id(proposal_id)?;
-    let discovered_active = state::active_workflow_id()?;
     let proposal_path = paths::project_patch_proposals_dir().join(format!("{proposal_id}.txt"));
     let record = load_proposal_record(proposal_id, &proposal_path)?;
     if record.workflow_id.is_empty() {
@@ -191,32 +190,16 @@ pub fn approve_report(
         ));
     }
 
-    let requested_verification = verify_command.unwrap_or(&record.verification_command);
-    if !record.workflow_id.is_empty() && requested_verification != record.verification_command {
+    if verify_command.is_some() {
         return Err(AppError::blocked(
-            "patch approve 차단\n- 이유: approval 시 verification plan을 변경할 수 없습니다.",
+            "patch approve 차단\n- 이유: patch 적용 승인과 verification command 승인은 분리되어 있습니다.\n- 동작: patch approve 후 발급되는 credential로 rpotato patch verify를 실행하세요.",
         ));
     }
-    let effective_verification = if record.workflow_id.is_empty() {
-        requested_verification
-    } else {
-        &record.verification_command
-    };
-    let verification_plan = if effective_verification.is_empty() {
-        None
-    } else {
-        Some(build_verification_plan(effective_verification)?)
-    };
 
-    let mut workflow = {
-        let workflow = state::load_workflow(&record.workflow_id)?;
-        if !workflow.is_terminal()
-            && discovered_active.as_deref() != Some(record.workflow_id.as_str())
-        {
-            return Err(AppError::blocked("patch approve 차단\n- 이유: current pointer/active workflow가 proposal workflow와 일치하지 않습니다."));
-        }
-        validate_workflow_binding(&workflow, &record)?;
-        validate_token_hash(&workflow.approval_credential_hash, token, &record)?;
+    if dry_run {
+        let discovered_active = state::active_workflow_id()?;
+        let workflow =
+            load_validated_approval_workflow(&record, token, discovered_active.as_deref())?;
         if workflow.phase == "complete" {
             crate::evidence::validate_patch_stop_gate(&workflow)?;
             state::clear_terminal_workflow_pointer(&workflow)?;
@@ -225,29 +208,79 @@ pub fn approve_report(
         if workflow.phase == "failed" {
             return Err(AppError::blocked(failure_report(&workflow)));
         }
-        Some(workflow)
-    };
-
-    if dry_run {
         return dry_run_approval_report(&record, verify_command);
     }
 
+    approval_prelock_test_barrier()?;
     let _approval_lock = ApprovalLock::acquire(&record.proposal_id)?;
-
-    if let Some(current) = workflow.as_mut() {
-        if current.phase == "pending-approval" {
-            current.phase = "approved".to_string();
-            current.approval_state = "approved".to_string();
-            *current = state::checkpoint_workflow(current.clone(), current.revision)?;
-        } else if current.phase != "approved" {
-            return Err(AppError::blocked(format!(
-                "patch approve 차단\n- 이유: workflow phase가 approval/apply 재개를 허용하지 않습니다.\n- phase: {}",
-                current.phase
-            )));
-        }
+    let discovered_active = state::active_workflow_id()?;
+    let mut workflow =
+        load_validated_approval_workflow(&record, token, discovered_active.as_deref())?;
+    if workflow.phase == "complete" {
+        crate::evidence::validate_patch_stop_gate(&workflow)?;
+        state::clear_terminal_workflow_pointer(&workflow)?;
+        return Ok(success_report(&workflow));
+    }
+    if workflow.phase == "failed" {
+        return Err(AppError::blocked(failure_report(&workflow)));
     }
 
-    continue_approved_workflow(record, workflow, verification_plan)
+    if workflow.phase == "pending-approval" {
+        workflow.phase = "approved".to_string();
+        workflow.approval_state = "approved".to_string();
+        workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+    } else if workflow.phase != "approved" {
+        return Err(AppError::blocked(format!(
+            "patch approve 차단\n- 이유: workflow phase가 approval/apply 재개를 허용하지 않습니다.\n- phase: {}",
+            workflow.phase
+        )));
+    }
+
+    continue_approved_workflow(record, Some(workflow), None)
+}
+
+pub fn verify_report(proposal_id: &str, token: &str) -> Result<String, AppError> {
+    validate_proposal_id(proposal_id)?;
+    let _approval_lock = ApprovalLock::acquire(proposal_id)?;
+    let active = state::active_workflow_id()?;
+    let proposal_path = paths::project_patch_proposals_dir().join(format!("{proposal_id}.txt"));
+    let record = load_proposal_record(proposal_id, &proposal_path)?;
+    if record.workflow_id.is_empty() {
+        return Err(AppError::blocked(
+            "patch verify 차단\n- 이유: workflow proposal만 verification을 실행할 수 있습니다.",
+        ));
+    }
+    let mut workflow = state::load_workflow(&record.workflow_id)?;
+    if !workflow.is_terminal() && active.as_deref() != Some(record.workflow_id.as_str()) {
+        return Err(AppError::blocked(
+            "patch verify 차단\n- 이유: active workflow/current pointer가 일치하지 않습니다.",
+        ));
+    }
+    validate_workflow_binding(&workflow, &record)?;
+    validate_token_hash(&workflow.verification_credential_hash, token, &record)?;
+    if workflow.phase == "complete" {
+        crate::evidence::validate_patch_stop_gate(&workflow)?;
+        state::clear_terminal_workflow_pointer(&workflow)?;
+        return Ok(success_report(&workflow));
+    }
+    if workflow.phase == "failed" {
+        return Err(AppError::blocked(failure_report(&workflow)));
+    }
+    if workflow.phase != "pending-verification-approval"
+        && workflow.phase != "verification-approved"
+    {
+        return Err(AppError::blocked(format!(
+            "patch verify 차단\n- 이유: verification approval을 받을 수 없는 phase입니다.\n- phase: {}",
+            workflow.phase
+        )));
+    }
+    if workflow.phase == "pending-verification-approval" {
+        workflow.phase = "verification-approved".to_string();
+        workflow.verification_approval_state = "approved".to_string();
+        workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+    }
+    let plan = build_verification_plan(&record.verification_command)?;
+    continue_approved_workflow(record, Some(workflow), Some(plan))
 }
 
 pub fn rotate_workflow_token_report(proposal_id: &str) -> Result<String, AppError> {
@@ -266,16 +299,26 @@ pub fn rotate_workflow_token_report(proposal_id: &str) -> Result<String, AppErro
     }
     let mut workflow = state::load_workflow(&record.workflow_id)?;
     validate_workflow_binding(&workflow, &record)?;
-    if workflow.phase != "pending-approval" {
-        return Err(AppError::blocked(
-            "approval token 재발급 차단\n- 이유: pending-approval phase에서만 가능합니다.",
-        ));
-    }
     let token = issue_approval_token()?;
-    workflow.approval_credential_hash = sha256_text(&token);
-    workflow.approval_state = "pending-rotated".to_string();
+    let gate = match workflow.phase.as_str() {
+        "pending-approval" => {
+            workflow.approval_credential_hash = sha256_text(&token);
+            workflow.approval_state = "pending-rotated".to_string();
+            "patch-apply"
+        }
+        "pending-verification-approval" => {
+            workflow.verification_credential_hash = sha256_text(&token);
+            workflow.verification_approval_state = "pending-rotated".to_string();
+            "verification-command"
+        }
+        _ => {
+            return Err(AppError::blocked(
+                "approval token 재발급 차단\n- 이유: pending approval phase에서만 가능합니다.",
+            ))
+        }
+    };
     workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
-    Ok(format!("승인 token 재발급\n- workflow id: {}\n- proposal id: {}\n- workflow revision: {}\n- 새 approval token: {}\n- 이전 token: 폐기됨\n- token 재표시: 불가", workflow.workflow_id, workflow.proposal_id, workflow.revision, token))
+    Ok(format!("승인 token 재발급\n- gate: {}\n- workflow id: {}\n- proposal id: {}\n- workflow revision: {}\n- 새 approval token: {}\n- 이전 token: 폐기됨\n- token 재표시: 불가", gate, workflow.workflow_id, workflow.proposal_id, workflow.revision, token))
 }
 
 fn continue_approved_workflow(
@@ -313,9 +356,9 @@ fn continue_approved_workflow(
     };
     let verification = if let Some(plan) = verification_plan.as_ref() {
         if let Some(current) = workflow.as_mut() {
-            if current.phase != "approved" {
+            if current.phase != "verification-approved" {
                 return Err(AppError::blocked(format!(
-                    "verification 시작 차단\n- 이유: approved phase가 아닙니다.\n- phase: {}",
+                    "verification 시작 차단\n- 이유: verification-approved phase가 아닙니다.\n- phase: {}",
                     current.phase
                 )));
             }
@@ -410,8 +453,16 @@ fn continue_approved_workflow(
     };
 
     let event_id = state::record_event(
-        "patch.applied",
-        "approved patch applied",
+        if verification.is_some() {
+            "patch.verification.passed"
+        } else {
+            "patch.applied"
+        },
+        if verification.is_some() {
+            "separately approved patch verification passed"
+        } else {
+            "approved patch applied"
+        },
         &format!(
             "proposal_id={} path={} original_sha256={} applied_sha256={} verification={}",
             record.proposal_id,
@@ -444,6 +495,26 @@ fn continue_approved_workflow(
         *current = state::checkpoint_workflow(current.clone(), current.revision)?;
         state::clear_terminal_workflow_pointer(current)?;
         return Ok(success_report(current));
+    }
+
+    if let Some(current) = workflow.as_mut() {
+        let verification_token = issue_approval_token()?;
+        current.phase = "pending-verification-approval".to_string();
+        current.approval_state = "applied".to_string();
+        current.verification_credential_hash = sha256_text(&verification_token);
+        current.verification_approval_state = "pending".to_string();
+        current.result_summary = "patch applied; verification approval pending".to_string();
+        *current = state::checkpoint_workflow(current.clone(), current.revision)?;
+        return Ok(format!(
+            "patch approve\n- status: applied-awaiting-verification\n- proposal id: {}\n- path: {}\n- approval token: accepted\n- applied sha256: {}\n- verification command: {}\n- verification approval: required\n- verification command approval: rpotato patch verify {} --token {}\n- ledger event: {}\n- boundary: patch만 적용했으며 verification command는 아직 실행하지 않았습니다.",
+            record.proposal_id,
+            apply.relative_path,
+            apply.applied_sha256,
+            ledger::redact_text(&record.verification_command),
+            record.proposal_id,
+            verification_token,
+            event_id
+        ));
     }
 
     Ok(format!(
@@ -503,7 +574,7 @@ pub fn proposal_summaries(limit: usize) -> Result<Vec<PatchProposalSummary>, App
 }
 
 pub fn resume_workflow_report(workflow_id: &str) -> Result<String, AppError> {
-    let mut workflow = state::load_workflow(workflow_id)?;
+    let (mut workflow, _approval_lock) = load_workflow_under_approval_lock(workflow_id)?;
     match workflow.phase.as_str() {
         "model-pending" | "action-recorded" => {
             workflow.failure_reason = format!("resume-incomplete-{}", workflow.phase);
@@ -538,9 +609,32 @@ pub fn resume_workflow_report(workflow_id: &str) -> Result<String, AppError> {
                 .join(format!("{}.txt", workflow.proposal_id));
             let record = load_proposal_record(&workflow.proposal_id, &proposal_path)?;
             validate_workflow_binding(&workflow, &record)?;
-            let verification_plan = Some(build_verification_plan(&workflow.verification_plan)?);
-            let _approval_lock = ApprovalLock::acquire(&workflow.proposal_id)?;
-            continue_approved_workflow(record, Some(workflow), verification_plan)
+            continue_approved_workflow(record, Some(workflow), None)
+        }
+        "pending-verification-approval" => {
+            let source_hash = current_source_hash(&workflow.source_path)?;
+            if source_hash != workflow.after_hash {
+                return Err(AppError::blocked(format!(
+                    "workflow resume 차단\n- 이유: verification 승인 대기 중 source hash가 변경되었습니다.\n- expected: {}\n- current: {}",
+                    workflow.after_hash, source_hash
+                )));
+            }
+            Ok(format!(
+                "workflow 재개\n- 상태: verification 승인 대기\n- workflow id: {}\n- proposal id: {}\n- 적용 SHA-256: {}\n- verification command: {}\n- 승인 명령: rpotato patch verify {} --token <최초-발급-token>\n- token 재표시: 불가 (hash만 저장됨)\n- verification 실행: 없음",
+                workflow.workflow_id,
+                workflow.proposal_id,
+                workflow.after_hash,
+                ledger::redact_text(&workflow.verification_plan),
+                workflow.proposal_id
+            ))
+        }
+        "verification-approved" => {
+            let proposal_path = paths::project_patch_proposals_dir()
+                .join(format!("{}.txt", workflow.proposal_id));
+            let record = load_proposal_record(&workflow.proposal_id, &proposal_path)?;
+            validate_workflow_binding(&workflow, &record)?;
+            let plan = build_verification_plan(&workflow.verification_plan)?;
+            continue_approved_workflow(record, Some(workflow), Some(plan))
         }
         "verification-started" => Err(AppError::blocked(
             {
@@ -575,7 +669,7 @@ pub fn resume_workflow_report(workflow_id: &str) -> Result<String, AppError> {
 }
 
 pub fn cancel_workflow_report(workflow_id: &str) -> Result<String, AppError> {
-    let mut workflow = state::load_workflow(workflow_id)?;
+    let (mut workflow, _approval_lock) = load_workflow_under_approval_lock(workflow_id)?;
     if workflow.phase == "complete" {
         let proposal_path =
             paths::project_patch_proposals_dir().join(format!("{}.txt", workflow.proposal_id));
@@ -591,14 +685,13 @@ pub fn cancel_workflow_report(workflow_id: &str) -> Result<String, AppError> {
         state::clear_terminal_workflow_pointer(&workflow)?;
         return Ok(failure_report(&workflow));
     }
-    let _approval_lock = if workflow.proposal_id.is_empty() {
-        None
-    } else {
-        Some(ApprovalLock::acquire(&workflow.proposal_id)?)
-    };
     if matches!(
         workflow.phase.as_str(),
-        "approved" | "verification-started" | "verified"
+        "approved"
+            | "pending-verification-approval"
+            | "verification-approved"
+            | "verification-started"
+            | "verified"
     ) {
         let proposal_path =
             paths::project_patch_proposals_dir().join(format!("{}.txt", workflow.proposal_id));
@@ -621,6 +714,7 @@ pub fn cancel_workflow_report(workflow_id: &str) -> Result<String, AppError> {
     workflow.phase = "cancelled".to_string();
     workflow.failure_reason = "user-cancelled".to_string();
     workflow.approval_state = "cancelled".to_string();
+    workflow.verification_approval_state = "cancelled".to_string();
     workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
     state::record_validation_gap(
         "workflow-user-cancelled",
@@ -656,7 +750,12 @@ fn validate_workflow_binding(
     let allowed = current_hash == record.original_sha256
         || (matches!(
             workflow.phase.as_str(),
-            "approved" | "verification-started" | "verified" | "complete"
+            "approved"
+                | "pending-verification-approval"
+                | "verification-approved"
+                | "verification-started"
+                | "verified"
+                | "complete"
         ) && current_hash == record.proposed_sha256);
     if !allowed {
         return Err(AppError::blocked(format!(
@@ -665,6 +764,22 @@ fn validate_workflow_binding(
         )));
     }
     Ok(())
+}
+
+fn load_validated_approval_workflow(
+    record: &ProposalRecord,
+    token: &str,
+    active_workflow_id: Option<&str>,
+) -> Result<state::WorkflowRecord, AppError> {
+    let workflow = state::load_workflow(&record.workflow_id)?;
+    if !workflow.is_terminal() && active_workflow_id != Some(record.workflow_id.as_str()) {
+        return Err(AppError::blocked(
+            "patch approve 차단\n- 이유: current pointer/active workflow가 proposal workflow와 일치하지 않습니다.",
+        ));
+    }
+    validate_workflow_binding(&workflow, record)?;
+    validate_token_hash(&workflow.approval_credential_hash, token, record)?;
+    Ok(workflow)
 }
 
 fn success_report(workflow: &state::WorkflowRecord) -> String {
@@ -1191,6 +1306,31 @@ fn restore_from_rollback(record: &ProposalRecord, rollback_path: &Path) -> Rollb
             }
         }
     };
+    let current = match fs::read(&target.absolute_path) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            return RollbackResult {
+                restored: false,
+                status: format!("restore-conflict: target reread failed: {err}"),
+            }
+        }
+    };
+    let current_hash = sha256_bytes(&current);
+    if current_hash == record.original_sha256 {
+        return RollbackResult {
+            restored: true,
+            status: format!(
+                "already-restored-and-verified sha256={}",
+                record.original_sha256
+            ),
+        };
+    }
+    if current_hash != record.proposed_sha256 {
+        return RollbackResult {
+            restored: false,
+            status: format!("restore-conflict: target changed concurrently current={current_hash}"),
+        };
+    }
     let original = match fs::read(rollback_path) {
         Ok(contents) => contents,
         Err(err) => {
@@ -1204,22 +1344,6 @@ fn restore_from_rollback(record: &ProposalRecord, rollback_path: &Path) -> Rollb
         return RollbackResult {
             restored: false,
             status: "restore-failed: rollback record hash mismatch".to_string(),
-        };
-    }
-    let current = match fs::read(&target.absolute_path) {
-        Ok(bytes) => bytes,
-        Err(err) => {
-            return RollbackResult {
-                restored: false,
-                status: format!("restore-conflict: target reread failed: {err}"),
-            }
-        }
-    };
-    let current_hash = sha256_bytes(&current);
-    if current_hash != record.proposed_sha256 {
-        return RollbackResult {
-            restored: false,
-            status: format!("restore-conflict: target changed concurrently current={current_hash}"),
         };
     }
     let source_transaction = record
@@ -1244,6 +1368,44 @@ impl ApprovalLock {
         crate::lease::RecoverableLease::acquire(path, "patch approve")
             .map(|lease| Self { _lease: lease })
     }
+}
+
+fn approval_prelock_test_barrier() -> Result<(), AppError> {
+    if !cfg!(debug_assertions) {
+        return Ok(());
+    }
+    let Ok(base) = std::env::var("RPOTATO_TEST_APPROVAL_PRELOCK_BARRIER") else {
+        return Ok(());
+    };
+    let ready = PathBuf::from(format!("{base}.ready"));
+    let release = PathBuf::from(format!("{base}.release"));
+    fs::write(&ready, b"ready")
+        .map_err(|err| AppError::runtime(format!("approval test barrier 생성 실패: {err}")))?;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !release.exists() {
+        if std::time::Instant::now() >= deadline {
+            return Err(AppError::runtime("approval test barrier timeout"));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    Ok(())
+}
+
+fn load_workflow_under_approval_lock(
+    workflow_id: &str,
+) -> Result<(state::WorkflowRecord, Option<ApprovalLock>), AppError> {
+    let discovered = state::load_workflow(workflow_id)?;
+    if discovered.proposal_id.is_empty() {
+        return Ok((discovered, None));
+    }
+    let lock = ApprovalLock::acquire(&discovered.proposal_id)?;
+    let current = state::load_workflow(workflow_id)?;
+    if current.proposal_id != discovered.proposal_id {
+        return Err(AppError::blocked(
+            "workflow 작업 차단\n- 이유: approval lease 획득 중 proposal binding이 변경되었습니다.",
+        ));
+    }
+    Ok((current, Some(lock)))
 }
 
 fn restore_bytes(
@@ -1762,8 +1924,9 @@ mod tests {
 
         assert_eq!(contents, "pub const X: i32 = 2;\n");
         assert!(rollback_exists);
-        assert!(approval.contains("결과: 성공"));
-        assert!(approval.contains("stop gate: 통과"));
+        assert!(approval.contains("status: applied-awaiting-verification"));
+        assert!(approval.contains("verification command는 아직 실행하지 않았습니다"));
+        assert!(!approval.contains("stop gate: 통과"));
     }
 
     #[test]
@@ -1786,7 +1949,7 @@ mod tests {
     }
 
     #[test]
-    fn approve_blocks_disallowed_verification_before_apply() {
+    fn approve_rejects_inline_verification_command_before_apply() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = std::env::temp_dir().join(format!(
             "rpotato-patch-verify-block-test-{}",
@@ -1806,31 +1969,41 @@ mod tests {
         assert_eq!(err.code, 3);
         assert!(err
             .message
-            .contains("verification plan을 변경할 수 없습니다"));
+            .contains("verification command 승인은 분리되어 있습니다"));
         assert_eq!(contents, "pub const X: i32 = 1;\n");
     }
 
     #[cfg(unix)]
     #[test]
-    fn approve_runs_allowed_verification_command() {
+    fn verification_runs_only_after_separate_approval() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = std::env::temp_dir().join(format!(
             "rpotato-patch-verify-run-test-{}",
             std::process::id()
         ));
         let (target, _workflow, proposal) = create_pending_workflow(&root, "pwd");
-        let approval = approve_report(
-            &proposal.proposal_id,
-            &proposal.approval_token,
-            false,
-            Some("pwd"),
-        )
-        .unwrap();
+        let approval =
+            approve_report(&proposal.proposal_id, &proposal.approval_token, false, None).unwrap();
+        let pending = state::load_workflow(&_workflow.workflow_id).unwrap();
+        let verify_token = verification_token(&approval);
+        let apply_token_rejected =
+            verify_report(&proposal.proposal_id, &proposal.approval_token).unwrap_err();
+        let verify_token_rejected =
+            approve_report(&proposal.proposal_id, &verify_token, false, None).unwrap_err();
+        let verified = verify_report(&proposal.proposal_id, &verify_token).unwrap();
         let contents = fs::read_to_string(&target).unwrap();
         clear_patch_test_env(&root);
 
         assert_eq!(contents, "pub const X: i32 = 2;\n");
-        assert!(approval.contains("검증: 통과"));
+        assert_eq!(pending.phase, "pending-verification-approval");
+        assert!(pending.evidence_id.is_empty());
+        assert_eq!(apply_token_rejected.code, 3);
+        assert_eq!(verify_token_rejected.code, 3);
+        assert!(verified.contains("검증: 통과"));
+        assert!(
+            crate::korean_guard::validate(&verified),
+            "guard rejected report: {verified}"
+        );
     }
 
     #[test]
@@ -1915,7 +2088,7 @@ mod tests {
         clear_patch_test_env(&root);
 
         assert_eq!(rejected.code, 3);
-        assert!(accepted.contains("결과: 성공"));
+        assert!(accepted.contains("status: applied-awaiting-verification"));
         assert_eq!(contents, "pub const X: i32 = 2;\n");
     }
 
@@ -1957,6 +2130,35 @@ mod tests {
         assert_ne!(rotated.approval_credential_hash, sha256_text(&old_token));
         assert_eq!(old_error.code, 3);
         assert!(accepted.contains("gate-passed"));
+    }
+
+    #[test]
+    fn verification_token_rotate_invalidates_old_token() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = patch_test_root("verification-token-rotate");
+        let (_target, workflow, proposal) = create_pending_workflow(&root, "pwd");
+        let approval =
+            approve_report(&proposal.proposal_id, &proposal.approval_token, false, None).unwrap();
+        let old_token = verification_token(&approval);
+
+        let rotation = rotate_workflow_token_report(&proposal.proposal_id).unwrap();
+        let new_token = report_value(&rotation, "새 approval token").unwrap();
+        let rotated = state::load_workflow(&workflow.workflow_id).unwrap();
+        let old_error = verify_report(&proposal.proposal_id, &old_token).unwrap_err();
+        let verified = verify_report(&proposal.proposal_id, &new_token).unwrap();
+
+        clear_patch_test_env(&root);
+        assert_eq!(rotated.verification_approval_state, "pending-rotated");
+        assert_eq!(
+            rotated.verification_credential_hash,
+            sha256_text(&new_token)
+        );
+        assert_ne!(
+            rotated.verification_credential_hash,
+            sha256_text(&old_token)
+        );
+        assert_eq!(old_error.code, 3);
+        assert!(verified.contains("검증: 통과"));
     }
 
     #[test]
@@ -2047,13 +2249,14 @@ mod tests {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = patch_test_root("verification-started");
         let (target, workflow, proposal) = create_pending_workflow(&root, "pwd");
+        let approval =
+            approve_report(&proposal.proposal_id, &proposal.approval_token, false, None).unwrap();
+        let verify_token = verification_token(&approval);
         std::env::set_var(
             "RPOTATO_TEST_VERIFICATION_FAULT",
             "after-started-checkpoint",
         );
-
-        let injected = approve_report(&proposal.proposal_id, &proposal.approval_token, false, None)
-            .unwrap_err();
+        let injected = verify_report(&proposal.proposal_id, &verify_token).unwrap_err();
         std::env::remove_var("RPOTATO_TEST_VERIFICATION_FAULT");
         let started = state::load_workflow(&workflow.workflow_id).unwrap();
         let resume = resume_workflow_report(&workflow.workflow_id).unwrap_err();
@@ -2071,17 +2274,106 @@ mod tests {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = patch_test_root("verification-cancel");
         let (target, workflow, proposal) = create_pending_workflow(&root, "pwd");
+        let approval =
+            approve_report(&proposal.proposal_id, &proposal.approval_token, false, None).unwrap();
+        let verify_token = verification_token(&approval);
         std::env::set_var(
             "RPOTATO_TEST_VERIFICATION_FAULT",
             "after-started-checkpoint",
         );
-        approve_report(&proposal.proposal_id, &proposal.approval_token, false, None).unwrap_err();
+        verify_report(&proposal.proposal_id, &verify_token).unwrap_err();
         std::env::remove_var("RPOTATO_TEST_VERIFICATION_FAULT");
 
         let report = cancel_workflow_report(&workflow.workflow_id).unwrap();
         let cancelled = state::load_workflow(&workflow.workflow_id).unwrap();
         let source = fs::read_to_string(&target).unwrap();
         clear_patch_test_env(&root);
+        assert!(report.contains("workflow 취소 완료"));
+        assert_eq!(cancelled.phase, "cancelled");
+        assert_eq!(source, "pub const X: i32 = 1;\n");
+    }
+
+    #[test]
+    fn approved_checkpoint_can_be_cancelled_before_apply_without_rollback_record() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = patch_test_root("approved-before-apply-cancel");
+        let (target, mut workflow, _proposal) = create_pending_workflow(&root, "pwd");
+        workflow.phase = "approved".to_string();
+        workflow.approval_state = "approved".to_string();
+        workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision).unwrap();
+
+        let report = cancel_workflow_report(&workflow.workflow_id).unwrap();
+        let cancelled = state::load_workflow(&workflow.workflow_id).unwrap();
+        let source = fs::read_to_string(&target).unwrap();
+        clear_patch_test_env(&root);
+
+        assert!(report.contains("workflow 취소 완료"));
+        assert_eq!(cancelled.phase, "cancelled");
+        assert_eq!(source, "pub const X: i32 = 1;\n");
+    }
+
+    #[test]
+    fn approve_reloads_cancelled_workflow_after_prelock_race() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = patch_test_root("approve-cancel-race");
+        let (target, mut workflow, proposal) = create_pending_workflow(&root, "pwd");
+        workflow.phase = "approved".to_string();
+        workflow.approval_state = "approved".to_string();
+        workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision).unwrap();
+        let barrier = root.join("approve-prelock");
+        std::env::set_var("RPOTATO_TEST_APPROVAL_PRELOCK_BARRIER", &barrier);
+        let proposal_id = proposal.proposal_id.clone();
+        let token = proposal.approval_token.clone();
+        let approve = std::thread::spawn(move || {
+            approve_report(&proposal_id, &token, false, None).unwrap_err()
+        });
+        let ready = PathBuf::from(format!("{}.ready", barrier.display()));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !ready.exists() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "approve prelock barrier timeout"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+
+        let cancelled_report = cancel_workflow_report(&workflow.workflow_id).unwrap();
+        fs::write(
+            PathBuf::from(format!("{}.release", barrier.display())),
+            b"release",
+        )
+        .unwrap();
+        let approve_error = approve.join().unwrap();
+        std::env::remove_var("RPOTATO_TEST_APPROVAL_PRELOCK_BARRIER");
+        let cancelled = state::load_workflow(&workflow.workflow_id).unwrap();
+        let source = fs::read_to_string(&target).unwrap();
+        clear_patch_test_env(&root);
+
+        assert!(cancelled_report.contains("workflow 취소 완료"));
+        assert_eq!(approve_error.code, 3);
+        assert!(approve_error.message.contains("phase: cancelled"));
+        assert_eq!(cancelled.phase, "cancelled");
+        assert_eq!(source, "pub const X: i32 = 1;\n");
+    }
+
+    #[test]
+    fn cancel_is_idempotent_after_source_was_already_restored() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = patch_test_root("already-restored-cancel");
+        let (target, workflow, proposal) = create_pending_workflow(&root, "pwd");
+        let approval =
+            approve_report(&proposal.proposal_id, &proposal.approval_token, false, None).unwrap();
+        assert!(approval.contains("applied-awaiting-verification"));
+        fs::write(&target, "pub const X: i32 = 1;\n").unwrap();
+        let rollback_path =
+            paths::project_patch_proposals_dir().join(format!("{}.rollback", proposal.proposal_id));
+        fs::remove_file(rollback_path).unwrap();
+
+        let report = cancel_workflow_report(&workflow.workflow_id).unwrap();
+        let cancelled = state::load_workflow(&workflow.workflow_id).unwrap();
+        let source = fs::read_to_string(&target).unwrap();
+        clear_patch_test_env(&root);
+
         assert!(report.contains("workflow 취소 완료"));
         assert_eq!(cancelled.phase, "cancelled");
         assert_eq!(source, "pub const X: i32 = 1;\n");
@@ -2229,10 +2521,12 @@ mod tests {
             workflow.phase = "pending-approval".to_string();
             workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision).unwrap();
 
-            std::env::set_var("RPOTATO_TEST_ROLLBACK_FAULT", fault);
-            let error =
+            let approval =
                 approve_report(&proposal.proposal_id, &proposal.approval_token, false, None)
-                    .unwrap_err();
+                    .unwrap();
+            let verify_token = verification_token(&approval);
+            std::env::set_var("RPOTATO_TEST_ROLLBACK_FAULT", fault);
+            let error = verify_report(&proposal.proposal_id, &verify_token).unwrap_err();
             std::env::remove_var("RPOTATO_TEST_ROLLBACK_FAULT");
             let failed = state::load_workflow(&workflow.workflow_id).unwrap();
             let source = fs::read_to_string(&target).unwrap();
@@ -2278,6 +2572,16 @@ mod tests {
         report
             .lines()
             .find_map(|line| line.strip_prefix(&prefix).map(|value| value.to_string()))
+    }
+
+    fn verification_token(report: &str) -> String {
+        report_value(report, "verification command approval")
+            .and_then(|command| {
+                command
+                    .split_once(" --token ")
+                    .map(|(_, token)| token.to_string())
+            })
+            .expect("verification approval token")
     }
 
     fn patch_test_root(name: &str) -> PathBuf {

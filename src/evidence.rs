@@ -237,7 +237,8 @@ fn validate_patch_stop_gate_inner(
         })?;
     let source_fresh = state::sha256_text(&source) == workflow.after_hash;
     if !matches!(workflow.phase.as_str(), "verified" | "complete")
-        || workflow.approval_state != "approved"
+        || workflow.approval_state != "applied"
+        || workflow.verification_approval_state != "approved"
         || workflow.proposal_id.is_empty()
         || workflow.evidence_id.is_empty()
         || !evidence_fresh

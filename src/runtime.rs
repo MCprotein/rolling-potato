@@ -19,6 +19,11 @@ pub fn patch_approve_report(
     Ok(guard_patch_terminal_report(report))
 }
 
+pub fn patch_verify_report(proposal_id: &str, token: &str) -> Result<String, crate::app::AppError> {
+    let report = patch::verify_report(proposal_id, token)?;
+    Ok(guard_patch_terminal_report(report))
+}
+
 fn guard_patch_terminal_report(report: String) -> String {
     if report.starts_with("패치 작업 ") {
         crate::korean_guard::guard_or_failure(&report)
