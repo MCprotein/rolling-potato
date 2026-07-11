@@ -73,13 +73,19 @@ Phase 6의 현재 구현:
 - `rpotato backend install`은 archive를 다운로드하거나 cache를 재사용하고, file size와 SHA-256을 검증한 뒤 staging directory에서 압축을 풀어 release payload를 managed backend directory에 배치합니다. Unix에서는 실행 권한을 설정하고, 교체 실패 시 rollback하며, managed binary SHA-256을 포함한 install record와 ledger event를 남깁니다.
 - `rpotato backend start [--model <path>] [--ctx-size <tokens>]`는 명시된 로컬 모델 파일 또는 재검증된 지속 기본 모델과 선택적 runtime context limit으로 selected sidecar를 시작하고 app state 아래 pid record를 쓰며, stdout/stderr를 log file로 capture하고 `/health`를 기다린 뒤 startup timeout이면 child를 종료합니다.
 - `rpotato backend status`는 pid record를 읽어 `running`, `stale`, `stopped`를 보고하고, process가 실행 중이면 health 상태도 포함합니다.
-- `rpotato backend stop`은 stale record를 제거하거나 기록된 sidecar process를 종료하고 ledger event를 남깁니다.
+- `rpotato backend stop`은 active generation에 cancellation을 요청한 뒤 stale record를 제거하거나 기록된 sidecar process를 종료하고 ledger event를 남깁니다.
 - `rpotato backend verify-archive <path> --sha256 <hash>`는 로컬 backend archive bytes의 SHA-256을 검증하고 ledger event를 남깁니다.
 - `rpotato backend health-check`는 selected host/port의 `/health`에 500ms timeout으로 HTTP 요청을 보내고 `healthy`, `unhealthy`, `unreachable` 중 하나로 보고합니다.
-- `rpotato backend chat --prompt <text> [--max-tokens <tokens>]`는 실행 중인 sidecar에 non-streaming `/v1/chat/completions` request를 보냅니다. Qwen3.5에는 Qwen model card의 non-thinking mode guidance에 따라 `chat_template_kwargs.enable_thinking=false`를 보내고, 누수된 `<think>` trace는 표시 전에 제거합니다. Ledger detail에는 길이, finish reason, token count만 기록하고 raw prompt 또는 raw response text는 기록하지 않습니다.
+- `rpotato backend chat --prompt <text> [--max-tokens <tokens>] [--stream] [--timeout-ms <ms>]`는 항상 `/v1/chat/completions` SSE transport를 사용합니다. 기본 display는 filtering된 response를 모아 출력하고, `--stream`은 표시 가능한 delta를 도착 즉시 flush합니다. 전체 timeout 기본값은 30초이며 1-300,000ms 범위로 제한합니다.
+- `rpotato backend cancel`은 app-data root에서 실행 중인 generation 하나에 generation-specific cancellation request를 기록합니다. Chat client는 100ms 간격으로 cancellation을 확인하고 자신의 HTTP socket만 닫은 뒤 generation lease를 정리하며 managed sidecar는 계속 실행합니다.
+- Request는 `stream_options.include_usage=true`를 설정합니다. 정상 완료 시 final usage chunk를 `token_usage`에 projection하고, cancellation/timeout/failure로 해당 chunk를 받지 못하면 unknown을 유지해 잘못된 0-token row를 만들지 않습니다.
+- HTTP body 전송 뒤 request retry는 0회입니다. Cancellation과 timeout은 normal non-resumable stream path를 사용하며 `X-Conversation-Id`를 보내지 않습니다.
+- Qwen3.5에는 Qwen model card의 non-thinking mode guidance에 따라 `chat_template_kwargs.enable_thinking=false`를 보냅니다. `reasoning_content`는 폐기하고 incremental filter가 split된 `<think>` trace를 buffered/streaming display에 노출하지 않도록 막습니다. Ledger에는 raw prompt 또는 raw response text를 기록하지 않습니다.
+- Generation 시작, cancellation 요청, cancellation, timeout, failure, completion, stale lease cleanup을 terminal resource/model-run evidence와 함께 기록합니다. Generation lease는 atomically 생성하고 기록된 owner process가 더 이상 살아 있지 않을 때만 회수합니다.
 - `rpotato doctor`도 같은 discovery summary를 보여줍니다.
 - Version detection은 install record와 현재 binary SHA-256이 선택된 release manifest와 일치하는 recorded managed binary에만 수행합니다. Env override binary는 실행하지 않고 skipped로 표시합니다.
-- Streaming response handling과 generation cancellation은 후속 Phase 6 작업입니다.
+
+Transport contract는 pinned upstream `llama.cpp b9878`을 기준으로 확인했습니다. Upstream은 SSE chat streaming을 문서화하고, normal stream의 response reader가 파기되면 task를 취소하며, `include_usage`가 활성화된 경우에만 final usage를 보냅니다. 2026-07-11 확인 출처: [chat completions](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/README.md#post-v1chatcompletions), [response-reader lifecycle](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.h#L168-L208), [cancellation posting](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.cpp#L441-L460), [disconnect handling](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-http.cpp#L521-L565), [final usage chunk](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-task.cpp#L526-L537).
 
 ## 후순위 adapter
 

@@ -109,7 +109,7 @@ patch workflow 규칙:
 
 현재 상태:
   backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 release payload를 배치합니다.
-  backend start/status/stop/chat은 명시 모델 파일 기준의 managed sidecar lifecycle과 non-streaming chat smoke를 다룹니다.
+  backend start/status/stop/chat/cancel은 managed sidecar lifecycle, SSE chat streaming, generation 취소를 다룹니다.
   team status는 최신 resource sample 기준의 read-only admission preview와 sequential fallback 결정을 표시합니다.
   team admit은 dispatcher 진입 전 resource/policy/file-ownership admission gate를 강제하고 결과를 ledger에 기록합니다.
   team dispatch는 dispatch 직전 file ownership을 다시 강제하고 failed-worker continuation 상태를 ledger에 기록합니다.

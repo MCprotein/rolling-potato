@@ -1,5 +1,32 @@
 # 릴리즈 노트
 
+## v0.31.0 - Backend Streaming과 Cancellation
+
+릴리즈 날짜: 2026-07-11
+
+이 릴리즈는 buffered one-shot backend chat transport를 bounded SSE lifecycle로 교체합니다. Live display, 명시적 cross-process cancellation, timeout cleanup, terminal observability를 추가하면서 generation이 중단되어도 managed `llama.cpp` sidecar는 계속 실행합니다.
+
+### 포함된 것
+
+- `backend chat`은 항상 `stream_options.include_usage=true`인 SSE를 요청합니다. `--stream`은 filtering된 visible delta를 즉시 flush하고 기본 display는 기존처럼 모아서 출력합니다.
+- `backend cancel`은 atomically 기록된 active generation을 대상으로 chat connection만 닫고 cleanup acknowledgement를 기다리며 managed sidecar는 계속 실행합니다.
+- 전체 request timeout 기본값은 30초이며 `--timeout-ms`로 1-300,000ms를 지정할 수 있습니다. Cancellation은 100ms 간격으로 확인합니다.
+- HTTP body 전송 뒤 request retry는 0회입니다. Adapter는 normal non-resumable stream path를 사용하며 `X-Conversation-Id`를 보내지 않습니다.
+- Incremental filtering은 buffered/streaming display 전에 `reasoning_content`와 split `<think>` trace를 폐기합니다. First-token latency는 처음 표시 가능한 filtered delta부터 측정합니다.
+- 시작, cancellation 요청, cancellation, timeout, failure, completion, stale lease cleanup을 lifecycle evidence로 남깁니다. 모든 terminal path는 raw prompt/response text 없이 resource/model-run evidence도 기록합니다.
+- Final usage chunk가 도착한 경우에만 token usage를 projection합니다. 중단되거나 실패한 run의 누락 usage는 임의의 0이 아니라 unknown으로 유지합니다.
+
+### 경계
+
+- App-data root 하나에서는 active generation 하나만 허용합니다.
+- Cancellation과 timeout은 generation을 중단하지만 backend sidecar를 종료하지 않습니다.
+- Streaming은 CLI에서 사용할 수 있습니다. Interactive TUI stream 조작은 v0.34.0 범위에 남아 있습니다.
+- 현재 SQLite model-run projection은 interruption boolean을 사용합니다. Cancellation과 timeout은 lifecycle ledger event type으로 구분할 수 있습니다.
+
+### Upstream Contract
+
+구현은 `llama.cpp b9878`에 고정되어 있습니다. Upstream SSE, response reader 파기 시 cancellation, disconnect, final usage 동작을 2026-07-11 확인했습니다: [chat completions](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/README.md#post-v1chatcompletions), [response-reader lifecycle](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.h#L168-L208), [cancellation posting](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.cpp#L441-L460), [disconnect handling](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-http.cpp#L521-L565), [final usage chunk](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-task.cpp#L526-L537).
+
 ## v0.30.0 - 검증된 로컬 모델 도입
 
 릴리즈 날짜: 2026-07-11

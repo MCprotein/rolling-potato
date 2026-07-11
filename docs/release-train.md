@@ -48,7 +48,7 @@ complete.
 | --- | --- |
 | `v0.29.0` | Restart-safe `run` workflow covering persisted typed action, ontology-backed source reread, separate patch/verification approvals, guarded apply, verification interpretation, canonical ledger authority, stop gate, evidence, and guarded Korean final report |
 | `v0.30.0` | Source-backed candidate evaluation, actual local backend/RAM/mmproj/benchmark records, install-gate decision, and managed install/default flow only for a candidate that passes |
-| `v0.31.0` | Streaming response and cancellation tests, bounded timeout/retry behavior, no stale sidecar process, and lifecycle/resource ledger evidence |
+| `v0.31.0` | Streaming response and separate-process cancellation tests, a 1-300,000 ms total timeout, zero retries after request send, no stale generation lease or terminated sidecar on interruption, and lifecycle/resource/model-run evidence with unknown incomplete usage preserved |
 | `v0.32.0` | Process-restart test that resumes a selected session, rebuilds bounded context from durable transcript/source pointers, and continues the interrupted workflow idempotently |
 | `v0.33.0` | Hook ordering/fail-closed fixtures and executable built-in skill state-machine tests proving policy, evidence, and stop criteria cannot be bypassed |
 | `v0.34.0` | Interactive terminal tests for approve/deny, diff/tool output, resume/cancel, and monitoring/session operations through runtime-owned state |

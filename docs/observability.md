@@ -91,6 +91,8 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato benchmark report --format jsonl` exports the redacted benchmark projection with reproducibility metadata. Public benchmark parity remains explicitly unclaimed.
 - `rpotato backend start`, `rpotato backend status`, and `rpotato backend chat` record event-driven backend CPU/RSS/disk resource samples.
 - `rpotato backend chat` applies the first runtime resource governor slice: critical pressure blocks chat before model execution, degraded pressure clamps the effective max-token budget, and normal/unknown pressure preserves the requested token budget.
+- Backend chat records first-visible-token and total latency, completed token usage, effective output budget, terminal resource samples, and lifecycle events. Cancellation and timeout retain distinct ledger event types while the model-run interruption flag marks both as interrupted.
+- If an interrupted or failed SSE stream does not deliver the final usage chunk, `token_usage` is intentionally omitted for that run. Missing usage is unknown, not zero. Raw prompt, raw response, and reasoning trace are not persisted.
 - `rpotato team status` reads the latest resource sample and reports read-only team admission: normal pressure admits parallel lanes, unknown/degraded pressure falls back to one sequential lane, and critical pressure blocks dispatch. It also surfaces the latest `team.*` runtime ledger event for the current project.
 - `rpotato team admit --lanes <count>` is the first enforced team admission gate. It records the admission decision in the append-only ledger and SQLite projection, admits requested lanes on normal pressure, falls back to one sequential lane on unknown/degraded pressure, and returns a blocked error on critical pressure before any worker launch exists.
 - `rpotato team admit --lanes <count> --write <path> --command <command>` adds policy preflight to the admission gate. Requested write paths and commands are classified with the same policy engine used by `policy check-path` and `policy check-command`; any `ask` or `deny` decision blocks dispatch and is recorded in the team admission ledger event.
@@ -106,10 +108,11 @@ Not implemented yet:
 
 - continuous background CPU/memory/disk resource sampling from the managed backend sidecar
 - full subagent/team dispatcher execution after dispatch preflight
-- dispatch-time ownership enforcement
 - full transcript replay and conversation continuation after a selected session resume
 - active workflow resume execution by the real agent loop
 - actual retention deletion
+- separate SQLite terminal-outcome enum for cancellation versus timeout
+- live TUI rendering of token-stream statistics
 
 ## Local File Layout
 

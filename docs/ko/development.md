@@ -15,9 +15,10 @@
 - `rpotato backend start [--model <path>] [--ctx-size <tokens>]`
 - `rpotato backend status`
 - `rpotato backend stop`
+- `rpotato backend cancel`
 - `rpotato backend verify-archive <path> --sha256 <hash>`
 - `rpotato backend health-check`
-- `rpotato backend chat --prompt <text> [--max-tokens <tokens>]`
+- `rpotato backend chat --prompt <text> [--max-tokens <tokens>] [--stream] [--timeout-ms <ms>]`
 - `rpotato cache status`
 - `rpotato config`
 - `rpotato init`
@@ -102,7 +103,7 @@ clippy` 변형만 허용합니다.
 
 `patch preview --path <path> --find <text> --replace <text>`는 approve/apply/verification을 할 수 없는 diff-only standalone surface입니다. Mutation 권위는 `run`이 만든 workflow/action/proposal ID, before/after hash, 정확한 verification plan binding에만 있습니다. `patch approve`는 모든 binding과 fresh source hash를 검증하고 patch approval을 side effect 전에 저장한 뒤 no-clobber guard transaction과 rollback record로 적용합니다. 이후 command를 실행하지 않고 `pending-verification-approval`에서 멈추며 별도의 일회성 credential을 발급합니다. `patch verify`가 두 번째 gate를 검증한 뒤 policy가 허용한 pre-bound argv plan만 실행하고 hash-only evidence를 기록하며 applied source와 evidence가 fresh할 때만 stop gate를 통과합니다. `rpotato cancel`은 verification을 재실행하지 않고 applied 또는 inconclusive phase를 명시적으로 정리합니다. Verification 실패는 original byte를 복원하고 성공/실패 보고는 deterministic 한국어 text로 생성합니다.
 
-`backend doctor`는 관리형 `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, install gate, recorded managed binary의 version detection을 표시합니다. `backend install-plan`은 선택된 backend archive URL, SHA-256, size, source를 표시합니다. `backend install`은 archive를 다운로드하거나 cache를 재사용하고, 검증 후 staging에서 압축을 풀어 release payload를 배치하며 install record와 ledger event를 남깁니다. `backend start [--model <path>] [--ctx-size <tokens>]`는 명시된 로컬 모델 파일 또는 재검증된 지속 기본 모델과 선택적 runtime context limit으로 selected sidecar를 시작하고 stdout/stderr log와 pid record를 남긴 뒤 `/health`를 기다리며 CPU/RSS/disk resource status를 sampling하고, startup timeout이면 child를 종료합니다. `backend status`는 pid record, health 상태, 실행 중인 sidecar의 sampled resource pressure를 읽고, `backend stop`은 stale record를 제거하거나 기록된 sidecar를 종료합니다. `backend chat --prompt <text> [--max-tokens <tokens>]`는 모델 실행 전에 sidecar를 sampling하고, critical pressure를 차단하며, degraded pressure 요청을 governor의 effective max-token budget으로 clamp한 뒤 `/v1/chat/completions`를 호출합니다. `chat_template_kwargs.enable_thinking=false`는 Qwen3.5에만 보내며, 누수된 `<think>` trace를 표시 전에 제거하고 raw prompt/response text 없이 token 사용량과 redacted resource sample을 ledger에 기록합니다. Env override binary는 `doctor`가 실행하지 않으며 명시적인 lifecycle 명령에서만 실행됩니다.
+`backend doctor`는 관리형 `llama.cpp` sidecar discovery, `RPOTATO_BACKEND_LLAMA_CPP_PATH` override, `RPOTATO_BACKEND_PORT` override, health URL, executable bit, install gate, recorded managed binary의 version detection을 표시합니다. `backend install-plan`은 선택된 backend archive URL, SHA-256, size, source를 표시합니다. `backend install`은 archive를 다운로드하거나 cache를 재사용하고, 검증 후 staging에서 압축을 풀어 release payload를 배치하며 install record와 ledger event를 남깁니다. `backend start [--model <path>] [--ctx-size <tokens>]`는 명시된 로컬 모델 파일 또는 재검증된 지속 기본 모델과 선택적 runtime context limit으로 selected sidecar를 시작하고 stdout/stderr log와 pid record를 남긴 뒤 `/health`를 기다리며 CPU/RSS/disk resource status를 sampling하고, startup timeout이면 child를 종료합니다. `backend status`는 pid record, health 상태, 실행 중인 sidecar의 sampled resource pressure를 읽고, `backend stop`은 sidecar 종료 전에 active generation을 취소합니다. `backend chat --prompt <text> [--max-tokens <tokens>] [--stream] [--timeout-ms <ms>]`는 모델 실행 전에 resource governor를 적용하고 `/v1/chat/completions` SSE를 소비합니다. `--stream`은 filtering된 visible delta를 즉시 flush하고 기본값은 모아서 출력합니다. Timeout 기본값은 30초, 최대값은 300초이며 전송한 request는 재시도하지 않습니다. `backend cancel`은 client connection을 닫아 active generation 하나를 중단하고 sidecar는 계속 실행합니다. 정상 완료된 final usage만 projection하며 중단된 usage는 unknown으로 유지합니다. Raw prompt/response text는 저장하지 않습니다. Env override binary는 `doctor`가 실행하지 않으며 명시적인 lifecycle 명령에서만 실행됩니다.
 
 `team status`는 read-only team-runtime admission preview입니다. 최신 SQLite resource sample을 읽어 requested/admitted lane을 표시하고 향후 dispatch가 parallel, sequential fallback, blocked 중 어디에 해당하는지 보여주며 현재 project의 최신 `team.*` runtime ledger event도 표시합니다. `team admit --lanes <count>`는 enforced gate입니다. Admission decision을 ledger/SQLite projection에 기록하고 critical pressure에서는 blocked error를 반환하지만, 아직 worker를 시작하거나 team stage를 전진시키지는 않습니다. `team admit --lanes <count> --write <path> --command <command>`는 요청 write와 tool command도 공통 policy engine으로 preflight하며, `ask` 또는 `deny`는 dispatch를 차단합니다. `team admit --lanes <count> --write-owner <lane:path>`는 lane별 write path를 정규화하고 향후 worker launch 전에 cross-lane conflict를 차단합니다. 차단된 policy/ownership admission은 `.rpotato/approval-requests/` 아래 project-local approval request를 기록하고, `tui approvals`는 이 team request를 patch proposal approval과 함께 표시합니다. `team dispatch --lanes <count> --write-owner <lane:path>`는 dispatch boundary에서 normalized file ownership을 다시 검사하고 cross-lane conflict를 차단하며 ledger/SQLite event를 기록합니다. `--failed-lane <lane> --failure <reason>`으로 failed-worker continuation도 기록할 수 있지만 worker를 시작하지 않습니다. `team governor --lanes <count> --context-tokens <tokens>`는 context/model governor preflight decision을 기록하고, effective context token을 clamp하며, 실제 model artifact를 선택하지 않고 local model-tier route hint를 냅니다.
 
@@ -153,9 +154,10 @@ cargo run -- backend install
 cargo run -- backend start --model /path/to/model.gguf --ctx-size 4096
 cargo run -- backend status
 cargo run -- backend stop
+cargo run -- backend cancel
 cargo run -- backend verify-archive /path/to/llama.cpp.zip --sha256 <64-hex>
 cargo run -- backend health-check
-cargo run -- backend chat --prompt "한국어로 한 문장만 답해. 감자는 무엇인가?" --max-tokens 64
+cargo run -- backend chat --prompt "한국어로 한 문장만 답해. 감자는 무엇인가?" --max-tokens 64 --stream --timeout-ms 30000
 cargo run -- init
 cargo run -- run "테스트 실패 고쳐줘"
 cargo run -- intent classify "리뷰해줘"
