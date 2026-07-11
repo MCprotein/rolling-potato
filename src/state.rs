@@ -1746,6 +1746,13 @@ fn recover_source_replace(
     if recorded_target != target || !is_sha256(original_hash) || !is_sha256(replacement_hash) {
         return Err(AppError::blocked("source transaction binding 손상"));
     }
+    let guard_nonce = source_recovery_nonce(target, &guard, "guard")?;
+    let temporary_nonce = source_recovery_nonce(target, &temporary, "new")?;
+    if guard_nonce != temporary_nonce || guard == temporary {
+        return Err(AppError::blocked(
+            "source transaction artifact binding 손상",
+        ));
+    }
     if target.exists() {
         let hash = sha256_bytes(&fs::read(target).map_err(|err| {
             AppError::blocked(format!("source transaction target reread 실패: {err}"))
@@ -1773,6 +1780,45 @@ fn recover_source_replace(
     fs::remove_file(transaction_path)
         .map_err(|err| AppError::runtime(format!("source recovery txn cleanup 실패: {err}")))?;
     sync_parent(target)
+}
+
+fn source_recovery_nonce(
+    target: &std::path::Path,
+    artifact: &std::path::Path,
+    kind: &str,
+) -> Result<String, AppError> {
+    let parent = target
+        .parent()
+        .ok_or_else(|| AppError::blocked("source transaction target parent 누락"))?;
+    if artifact.parent() != Some(parent) {
+        return Err(AppError::blocked(
+            "source transaction artifact parent 불일치",
+        ));
+    }
+    let target_name = target
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("source");
+    let artifact_name = artifact
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| AppError::blocked("source transaction artifact name 손상"))?;
+    let prefix = format!(".{target_name}.rpotato-{kind}-");
+    let nonce = artifact_name
+        .strip_prefix(&prefix)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::blocked("source transaction artifact name 불일치"))?;
+    let Some((pid, timestamp)) = nonce.split_once('.') else {
+        return Err(AppError::blocked("source transaction artifact nonce 손상"));
+    };
+    if pid.is_empty()
+        || timestamp.is_empty()
+        || !pid.bytes().all(|byte| byte.is_ascii_digit())
+        || !timestamp.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return Err(AppError::blocked("source transaction artifact nonce 손상"));
+    }
+    Ok(nonce.to_string())
 }
 
 fn source_replace_fault(point: &str) -> Result<(), AppError> {
@@ -2340,6 +2386,79 @@ mod tests {
             assert_eq!(error.code, 3);
             assert!(error.message.contains("fail-closed"));
         });
+    }
+
+    #[test]
+    fn source_recovery_rejects_artifacts_outside_target_parent() {
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-source-recovery-parent-{}-{}",
+            std::process::id(),
+            now_ms()
+        ));
+        let source_dir = root.join("source");
+        let outside_dir = root.join("outside");
+        fs::create_dir_all(&source_dir).unwrap();
+        fs::create_dir_all(&outside_dir).unwrap();
+        let target = source_dir.join("lib.rs");
+        let victim = outside_dir.join("victim.rs");
+        let temporary = source_dir.join(".lib.rs.rpotato-new-1.2");
+        let transaction = root.join("source.txn");
+        fs::write(&target, b"original").unwrap();
+        fs::write(&victim, b"must-survive").unwrap();
+        fs::write(&temporary, b"replacement").unwrap();
+        fs::write(
+            &transaction,
+            format!(
+                "target={}\nguard={}\ntemporary={}\nexpected_current_hash={}\nexpected_replacement_hash={}\n",
+                target.display(),
+                victim.display(),
+                temporary.display(),
+                sha256_bytes(b"original"),
+                sha256_bytes(b"replacement")
+            ),
+        )
+        .unwrap();
+
+        let error = recover_source_replace(&target, &transaction).unwrap_err();
+        assert!(error.message.contains("artifact parent 불일치"));
+        assert_eq!(fs::read(&victim).unwrap(), b"must-survive");
+        assert!(transaction.exists());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn source_recovery_rejects_mismatched_artifact_nonce() {
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-source-recovery-nonce-{}-{}",
+            std::process::id(),
+            now_ms()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let target = root.join("lib.rs");
+        let guard = root.join(".lib.rs.rpotato-guard-1.2");
+        let temporary = root.join(".lib.rs.rpotato-new-1.3");
+        let transaction = root.join("source.txn");
+        fs::write(&target, b"original").unwrap();
+        fs::write(&guard, b"must-survive").unwrap();
+        fs::write(&temporary, b"replacement").unwrap();
+        fs::write(
+            &transaction,
+            format!(
+                "target={}\nguard={}\ntemporary={}\nexpected_current_hash={}\nexpected_replacement_hash={}\n",
+                target.display(),
+                guard.display(),
+                temporary.display(),
+                sha256_bytes(b"original"),
+                sha256_bytes(b"replacement")
+            ),
+        )
+        .unwrap();
+
+        let error = recover_source_replace(&target, &transaction).unwrap_err();
+        assert!(error.message.contains("artifact binding 손상"));
+        assert_eq!(fs::read(&guard).unwrap(), b"must-survive");
+        assert!(transaction.exists());
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
