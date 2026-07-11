@@ -53,7 +53,7 @@ Forbidden:
 
 ## Evaluation Environment
 
-Initial baseline:
+Target baseline, not yet measured by the v0.30.0 adoption run:
 
 - 16 GB RAM laptop
 - macOS or Windows
@@ -184,6 +184,19 @@ Minimum pass criteria by model:
 
 ## Current Local Execution Evidence
 
+Checked 2026-07-11 for v0.30.0:
+
+- Host: MacBook Pro `Mac17,8`, Apple M5 Pro, 64 GB RAM, macOS arm64. These results do not establish 16 GB viability or Windows behavior.
+- Backend: managed `llama.cpp b9878`, binary SHA-256 `12df97ffa9d48545e96cd3237a71f78efd1cc0222f971cbd65f7ab57e793b128`, context 4096, temperature 0.1, top-p 0.8, text-only `mmproj=not-required-text-only`.
+- Canonical fixture: `benchmarks/fixtures/model-adoption-smoke-v1.json` with dataset reference `local-model-adoption-smoke-v1`. It checks five fixed Korean/instruction/code-route/source-abstention/destructive-denial markers. It is a narrow product adoption smoke, not a broad coding-quality benchmark.
+- Qwen `Qwen3.5-4B-Q4_K_M.gguf`: source-pinned bytes matched size `2740937888` and SHA-256 `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`; startup `622 ms`; score `2/3`; required markers `5/5`; forbidden markers `0`; latency `1680 ms`; `61.9047619047619` tokens/s; prompt/completion/total tokens `146/104/250`; peak RSS `3296378880` bytes. It emitted the instruction sentence before the five required lines and therefore failed exact-response equality.
+- Gemma `gemma-4-E4B_q4_0-it.gguf`: source-pinned bytes matched size `5154939136` and SHA-256 `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d`; startup `940 ms`; score `3/3`; required markers `5/5`; forbidden markers `0`; latency `1686 ms`; `61.6844602609727` tokens/s; prompt/completion/total tokens `167/104/271`; peak RSS `5521932288` bytes. It matched the required five-line response exactly.
+- Gemma was locally promoted, installed, and selected as the persistent default. Its deterministic RAM evidence is `recommendedRamGb=8`, calculated as `ceil(5521932288 / 1 GiB) + 2 GiB`. Qwen's lower measured RSS does not override its failed instruction contract.
+- `model default <id>` persists only a revalidated registry model. `backend start` without `--model` resolves the selection only after revalidating registry, artifact bytes, and promotion evidence.
+- A corrupted project-local ledger mirror discovered during the run was preserved as `.corrupt.<timestamp>` and rebuilt from the valid app-global canonical ledger. The global ledger remains fail-closed; only its derived project mirror is recoverable.
+
+Both local results are `measured-locally`. Published upstream scores remain `non-comparable` because this run does not match their original artifact, quantization, prompt, harness, backend, hardware, and scoring conditions. The Gemma selection is a narrow host-local adoption decision, not a universal capability or performance claim.
+
 Checked 2026-07-06:
 
 - `rpotato model fetch-candidate qwen3.5-4b --for-evaluation` downloaded the source-recorded Qwen3.5-4B Q4_K_M GGUF artifact into app-managed model storage, verified file size `2740937888`, and verified SHA-256 `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`.
@@ -203,7 +216,7 @@ Checked 2026-07-09:
 - `rpotato benchmark run --fixture benchmarks/fixtures/executable-smoke.json --prompt benchmarks/prompts/executable-smoke.txt --max-tokens 32` recorded benchmark run `benchmark-event-1783583665619790000-97803-benchmark-run-executed` with `claim_state=measured-locally`, score `3/3`, `local_pass=true`, expected markers `1/1`, forbidden matches `0`, latency `243ms`, `28.806584` tokens/sec, `prompt tokens: 76`, `completion tokens: 7`, `total tokens: 83`, resource pressure `normal`, and peak RSS `3351363584` bytes.
 - The sidecar was stopped after the measurement with `rpotato backend stop`.
 
-This evidence does not automatically promote Qwen3.5-4B to `verified`. Starting in v0.25.0, promotion requires `rpotato model promote qwen3.5-4b --evidence <file>`, where the evidence file must match the app-managed artifact, a backend smoke ledger event, RAM-fit/mmproj fields, and a SQLite `measured-locally` benchmark row. The evidence above proves the first executable local smoke benchmark through the non-thinking chat path. Gemma comparison, broader prompt compiler behavior, source-read/hallucination scoring, and public benchmark parity remain open.
+The older 2026-07-09 smoke did not itself promote Qwen. The stricter 2026-07-11 evidence above completed the v0.30.0 local promotion path. Broader prompt compiler behavior, real repository code-edit quality, tool execution, source-read/hallucination scoring, 16 GB/Windows validation, and public benchmark parity remain open.
 
 ## Before Confirming An Artifact
 

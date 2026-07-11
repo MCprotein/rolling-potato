@@ -1,5 +1,38 @@
 # 릴리즈 노트
 
+## v0.30.0 - 검증된 로컬 모델 도입
+
+릴리즈 날짜: 2026-07-11
+
+이 릴리즈는 source-backed Qwen/Gemma 후보를 실제 측정과 fail-closed 검증을 거치는 local adoption path로 연결합니다. Model weight를 bundle하지 않고 공개 benchmark 점수를 local GGUF 실행과 동일 조건으로 취급하지 않습니다.
+
+### 포함된 것
+
+- Strict persistent `model default [<id>]`와 optional `backend start --model`을 추가하고 selection마다 registry, artifact bytes, promotion evidence를 재검증합니다.
+- Promotion을 backend binary, model artifact, context, sampling, mmproj, OS, architecture provenance가 있는 정확한 `backend.chat.completed` event에 binding합니다.
+- Canonical `model-adoption-smoke-v1` fixture와 benchmark-to-chat event 직접 linkage를 추가합니다.
+- Qwen 전용 non-thinking option을 Gemma request에 보내지 않습니다.
+- 손상된 project ledger mirror를 보존하고 정상 app-global canonical ledger에서 재구축하되 global ledger 검증은 약화하지 않습니다.
+- 같은 local host에서 pinned artifact 두 개를 평가하고 exact-response equality를 통과한 Gemma만 promotion, install, 지속 기본 선택했습니다.
+
+### 로컬 실측 증거
+
+Host: MacBook Pro `Mac17,8`, Apple M5 Pro, 64GB RAM, macOS arm64, managed `llama.cpp b9878`, context 4096, temperature 0.1, top-p 0.8.
+
+| Artifact | 결과 | Latency | Tokens/s | Peak RSS |
+| --- | --- | ---: | ---: | ---: |
+| Qwen3.5 4B Q4_K_M | `2/3`, exact response 실패, marker `5/5`, 금지 `0` | `1680ms` | `61.9048` | `3296378880` bytes |
+| Gemma 4 E4B IT QAT q4_0 | `3/3`, exact response 통과, marker `5/5`, 금지 `0` | `1686ms` | `61.6845` | `5521932288` bytes |
+
+Qwen은 요구된 다섯 줄 앞에 지시문 문장을 추가 출력했으므로 더 낮은 측정 RSS가 계약 실패를 덮지 않습니다. Gemma의 local `recommendedRamGb=8`은 측정 peak RSS를 GiB로 올림한 값에 2GiB headroom을 더해 계산했습니다. 이는 16GB host test, 보편적 model ranking, public benchmark parity가 아닙니다.
+
+### 경계
+
+- Static manifest 후보는 계속 `unverified`이며 local promotion은 evidence가 재검증되는 동안에만 유효합니다.
+- Adoption smoke는 좁은 instruction/safety contract를 검사하며 전체 repository code-edit 또는 tool execution quality benchmark가 아닙니다.
+- Model weight는 user app data에만 있고 commit이나 GitHub Release asset에 포함하지 않습니다.
+- Windows와 16GB model runtime 검증은 아직 열려 있습니다.
+
 ## v0.29.1 - 크로스 플랫폼 Aggregate Checksum 수정
 
 릴리즈 날짜: 2026-07-11

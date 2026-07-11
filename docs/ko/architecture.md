@@ -257,7 +257,7 @@ guard 단계:
 
 `null`과 `TODO`는 schema placeholder이며 제품 사실이 아닙니다.
 
-Qwen과 Gemma는 scaffold manifest에 source-recorded `unverified` artifact 후보가 들어가 있습니다. Local backend smoke, RAM-fit 측정, mmproj 필요 여부 검토, benchmark/source review로 `verified` 승격하기 전까지 installable default가 아닙니다. 모델 관련 claim은 [model-source-policy.md](model-source-policy.md)를 따릅니다.
+Qwen과 Gemma는 scaffold manifest에 source-recorded static `unverified` artifact 후보로 들어가며 한 machine의 결과로 static status를 덮어쓰지 않습니다. Host는 artifact bytes, 정확한 backend chat provenance, RAM/mmproj 결과, hash-pinned canonical benchmark를 별도 local promotion evidence가 계속 재검증하는 동안에만 후보를 install하고 선택할 수 있습니다. 모델 관련 claim은 [model-source-policy.md](model-source-policy.md)를 따릅니다.
 
 ## 후순위 adapter
 

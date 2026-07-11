@@ -41,8 +41,8 @@ These entries are candidate facts, not install-ready defaults. The Hugging Face 
 
 | Model ID | Artifact provider | Artifact | Revision | Quantization | Size bytes | SHA-256 | Source status |
 | --- | --- | --- | --- | --- | ---: | --- | --- |
-| `qwen3.5-4b` | `unsloth/Qwen3.5-4B-GGUF` | `Qwen3.5-4B-Q4_K_M.gguf` | `e87f176479d0855a907a41277aca2f8ee7a09523` | `Q4_K_M` | `2740937888` | `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4` | `unverified`: source-listed artifact; local `llama.cpp b9878` smoke, RAM fit, and mmproj need are not measured |
-| `gemma-4-e4b` | `google/gemma-4-E4B-it-qat-q4_0-gguf` | `gemma-4-E4B_q4_0-it.gguf` | `bb3b92e6f031fa438b409f898dd9f14f499a0cb0` | `QAT q4_0` | `5154939136` | `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d` | `unverified`: source-listed artifact; local `llama.cpp b9878` smoke, RAM fit, and mmproj need are not measured |
+| `qwen3.5-4b` | `unsloth/Qwen3.5-4B-GGUF` | `Qwen3.5-4B-Q4_K_M.gguf` | `e87f176479d0855a907a41277aca2f8ee7a09523` | `Q4_K_M` | `2740937888` | `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4` | Static `unverified`; recorded host-local smoke/RAM/mmproj evidence exists, but exact-response equality failed and local promotion is invalid |
+| `gemma-4-e4b` | `google/gemma-4-E4B-it-qat-q4_0-gguf` | `gemma-4-E4B_q4_0-it.gguf` | `bb3b92e6f031fa438b409f898dd9f14f499a0cb0` | `QAT q4_0` | `5154939136` | `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d` | Static `unverified`; recorded host-local smoke/RAM/mmproj evidence passed and supports a revalidated local promotion/default selection |
 
 Sources checked on 2026-07-06:
 
@@ -108,6 +108,7 @@ Current CLI surface:
 - `rpotato model promote <id> --evidence <file>`
 - `rpotato model cleanup-failed <id> --dry-run`
 - `rpotato model install <id>`
+- `rpotato model default [<id>]`
 
 Candidate states:
 
@@ -128,28 +129,28 @@ Candidate states:
 `model promote <id> --evidence <file>` validates local promotion evidence before any registry registration. The command requires:
 
 - app-managed artifact file size and SHA-256 to match the source-backed manifest
-- a `backend.sidecar.start.completed` or `backend.chat.completed` ledger event id
-- `ramFit=passed`, `recommendedRamGb`, and `peakRssBytes` RAM evidence
+- a `backend.chat.completed` event whose backend binary, model artifact, context, sampling, mmproj state, OS, and architecture provenance match the candidate
+- `ramFit=observed-within-local-host`, measured `peakRssBytes`, and `recommendedRamGb` equal to `ceil(peak RSS GiB) + 2 GiB`
 - explicit `mmproj` evidence: `not-required-text-only`, `not-required`, or `required`
-- a SQLite benchmark row whose `benchmarkRunId` is `claim_state=measured-locally`, `local_pass=true`, uses the candidate backend, and carries matching `peak_rss_bytes`
+- a SQLite row whose fixture ID, fixture SHA-256, prompt SHA-256, benchmark name, and dataset reference match the release-pinned canonical adoption contract; whose requested/effective max tokens are both 192; whose quantization resolves from the source-backed model manifest; and whose `model_run_id` directly names that chat event, is `claim_state=measured-locally`, has `local_pass=true`, uses the candidate backend, and carries matching `peak_rss_bytes`
 
 Promotion evidence JSON schema:
 
 ```json
 {
   "schemaVersion": 1,
-  "modelId": "qwen3.5-4b",
-  "artifactSha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
-  "artifactSizeBytes": 2740937888,
+  "modelId": "gemma-4-e4b",
+  "artifactSha256": "e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d",
+  "artifactSizeBytes": 5154939136,
   "backendId": "llama.cpp",
   "backendVersion": "b9878",
   "backendSmokeEventId": "event-...",
-  "ramFit": "passed",
-  "recommendedRamGb": 16,
-  "peakRssBytes": 3351363584,
+  "ramFit": "observed-within-local-host",
+  "recommendedRamGb": 8,
+  "peakRssBytes": 5521932288,
   "mmproj": "not-required-text-only",
   "benchmarkRunId": "benchmark-event-...",
-  "recordedAt": "2026-07-10T00:00:00Z"
+  "recordedAt": "2026-07-11T00:00:00Z"
 }
 ```
 
@@ -158,6 +159,14 @@ Successful promotion writes normalized evidence to `models/evidence/<model-id>.p
 `model cleanup-failed` targets only app-managed partial/failed artifact paths under app data `downloads/` and `models/`. Deletion runs only with explicit `--delete`; default verification and doc smoke use `--dry-run`.
 
 `model install` registers a model only when either the source-backed manifest entry is statically `verified` or `models/evidence/<model-id>.promotion.json` revalidates against local artifact, ledger, RAM/mmproj, and benchmark evidence. Registry entries are written to `models/registry/<model-id>.json`.
+
+`model default <id>` selects only a registered model whose artifact and promotion evidence still revalidate. `model default` shows the selection. `backend start` may omit `--model`; it then revalidates and resolves the persistent default or fails closed.
+
+## v0.30.0 Local Adoption Record
+
+On 2026-07-11, both pinned artifacts ran the same hash-pinned five-line local adoption contract on a MacBook Pro with Apple M5 Pro and 64 GB RAM, `llama.cpp b9878`, context 4096, temperature 0.1, and top-p 0.8. The latest Gemma run recorded `1686 ms`, `61.6845 tokens/s`, peak RSS `5521932288` bytes, and passed `3/3`. Qwen recorded `1680 ms`, `61.9048 tokens/s`, peak RSS `3296378880` bytes, but scored `2/3` because it echoed the instruction line before all 5 required markers. Both matched no forbidden marker.
+
+Gemma was locally promoted, registered, and selected as the persistent default because it passed exact-response equality. Qwen's lower RSS did not override the failed instruction contract. This is not a universal model ranking, 16 GB evidence, or public benchmark parity. Model weights remain outside repository and release assets.
 
 ## Required Verification
 
