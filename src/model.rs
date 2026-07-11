@@ -7,6 +7,8 @@ use crate::{checksum, ledger, observability, paths, state};
 
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 const BYTES_PER_GIB: u64 = 1024 * 1024 * 1024;
+const PROMOTION_FIXTURE_ID: &str = "model-adoption-smoke-v1";
+const PROMOTION_DATASET_REF: &str = "local-model-adoption-smoke-v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CandidateStatus {
@@ -906,6 +908,14 @@ fn validate_promotion_evidence(
                 push_unique(
                     &mut blockers,
                     "benchmark backend_id가 후보 backend와 일치하지 않습니다.",
+                );
+            }
+            if row.fixture_id != PROMOTION_FIXTURE_ID
+                || row.dataset_ref.as_deref() != Some(PROMOTION_DATASET_REF)
+            {
+                push_unique(
+                    &mut blockers,
+                    "benchmark가 canonical model adoption smoke fixture가 아닙니다.",
                 );
             }
             if row.peak_rss_bytes != Some(evidence.peak_rss_bytes) {
@@ -2690,7 +2700,7 @@ mod tests {
             model_run_id: Some(format!("model-run-{}", evidence.backend_smoke_event_id)),
             model_id: artifact_model_id(artifact),
             benchmark_name: "ontology-view-smoke".to_string(),
-            fixture_id: "fixture-test".to_string(),
+            fixture_id: PROMOTION_FIXTURE_ID.to_string(),
             fixture_sha256: "fixture-sha".to_string(),
             prompt_artifact_sha256: Some("prompt-sha".to_string()),
             prompt_chars: Some(147),
@@ -2702,7 +2712,7 @@ mod tests {
             expected_total: Some(1),
             forbidden_matches: Some(0),
             harness_ref: "rpotato-benchmark-harness@test".to_string(),
-            dataset_ref: Some("local-executable-smoke".to_string()),
+            dataset_ref: Some(PROMOTION_DATASET_REF.to_string()),
             backend_id: Some("llama.cpp".to_string()),
             latency_ms: Some(243.0),
             tokens_per_second: Some(28.8),

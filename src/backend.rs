@@ -149,9 +149,11 @@ struct BackendChatCompletion {
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackendChatRun {
     pub backend_id: String,
+    pub backend_version: String,
     pub pid: u32,
     pub model_id: String,
     pub model_path: PathBuf,
+    pub model_artifact_hash: String,
     pub ctx_size: Option<u32>,
     pub prompt_chars: usize,
     pub response_chars: usize,
@@ -885,9 +887,11 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
 
     Ok(BackendChatRun {
         backend_id: record.backend_id,
+        backend_version: record.backend_release,
         pid: record.pid,
         model_id,
         model_path: record.model_path,
+        model_artifact_hash: record.model_sha256,
         ctx_size: record.ctx_size,
         prompt_chars: prompt.chars().count(),
         response_chars: display_content.chars().count(),

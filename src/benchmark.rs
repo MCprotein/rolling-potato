@@ -644,9 +644,9 @@ fn executable_reproducibility_manifest_json(
         ledger::json_string("not-recorded"),
         ledger::json_string("not-recorded"),
         ledger::json_string(&run.backend_id),
-        ledger::json_string(&fixture.backend_version),
+        ledger::json_string(&run.backend_version),
         ledger::json_string(&run.model_id),
-        ledger::json_string(&fixture.model_artifact_hash),
+        ledger::json_string(&run.model_artifact_hash),
         ledger::json_string(&fixture.quantization),
         ledger::json_string(&fixture.prompt_runtime_version),
         ledger::json_string(&fixture.tool_policy_version),
@@ -1430,9 +1430,12 @@ mod tests {
     fn fake_chat_run(response: &str) -> backend::BackendChatRun {
         backend::BackendChatRun {
             backend_id: "llama.cpp".to_string(),
+            backend_version: "b9878".to_string(),
             pid: 1234,
             model_id: "qwen-test".to_string(),
             model_path: PathBuf::from("/tmp/model.gguf"),
+            model_artifact_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                .to_string(),
             ctx_size: Some(2048),
             prompt_chars: 52,
             response_chars: response.chars().count(),
@@ -1458,5 +1461,25 @@ mod tests {
             resource_sample_event: "resource-sample-event".to_string(),
             response: response.to_string(),
         }
+    }
+
+    #[test]
+    fn canonical_model_adoption_fixture_is_valid() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let project_root = paths::project_root();
+        let fixture_dir = project_root.join("benchmarks/fixtures");
+        fs::create_dir_all(&fixture_dir).unwrap();
+        let fixture_path = fixture_dir.join("model-adoption-smoke-v1.json");
+        fs::write(
+            &fixture_path,
+            include_str!("../benchmarks/fixtures/model-adoption-smoke-v1.json"),
+        )
+        .unwrap();
+
+        let fixture = read_fixture(fixture_path.to_str().unwrap()).unwrap();
+
+        assert_eq!(fixture.fixture_id, "model-adoption-smoke-v1");
+        assert_eq!(fixture.dataset_ref, "local-model-adoption-smoke-v1");
+        assert_eq!(fixture.minimum_score, Some(3));
     }
 }
