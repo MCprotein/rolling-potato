@@ -282,6 +282,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", backend::stop_report()?);
             Ok(())
         }
+        Command::Backend(BackendCommand::Cancel) => {
+            println!("{}", backend::cancel_generation_report()?);
+            Ok(())
+        }
         Command::Backend(BackendCommand::VerifyArchive { path, sha256 }) => {
             println!("{}", backend::verify_archive_report(&path, &sha256)?);
             Ok(())
@@ -290,8 +294,22 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", backend::health_check_report());
             Ok(())
         }
-        Command::Backend(BackendCommand::Chat { prompt, max_tokens }) => {
-            println!("{}", backend::chat_report(&prompt, max_tokens)?);
+        Command::Backend(BackendCommand::Chat {
+            prompt,
+            max_tokens,
+            stream,
+            timeout_ms,
+        }) => {
+            if stream {
+                let stdout = std::io::stdout();
+                let mut writer = stdout.lock();
+                let report =
+                    backend::chat_stream_report(&prompt, max_tokens, timeout_ms, &mut writer)?;
+                drop(writer);
+                println!("{report}");
+            } else {
+                println!("{}", backend::chat_report(&prompt, max_tokens, timeout_ms)?);
+            }
             Ok(())
         }
         Command::CacheStatus => {

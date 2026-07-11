@@ -794,6 +794,7 @@ mod tests {
             generation_eval_ms: None,
             tokens_per_second: Some(12.5),
             cancelled: false,
+            token_usage_complete: true,
             prompt_tokens: 10,
             completion_tokens: 20,
             total_tokens: 30,

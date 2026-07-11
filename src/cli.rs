@@ -1,6 +1,6 @@
 use crate::app::AppError;
 use crate::ontology;
-use crate::{benchmark, resource};
+use crate::{backend, benchmark, resource};
 
 pub const HELP: &str = "\
 rpotato
@@ -52,9 +52,10 @@ rpotato
   rpotato backend start --model <path> [--ctx-size <tokens>]
   rpotato backend status
   rpotato backend stop
+  rpotato backend cancel
   rpotato backend verify-archive <path> --sha256 <hash>
   rpotato backend health-check
-  rpotato backend chat --prompt <text> [--max-tokens <tokens>]
+  rpotato backend chat --prompt <text> [--max-tokens <tokens>] [--stream] [--timeout-ms <ms>]
   rpotato cache status
   rpotato monitor status
   rpotato monitor models
@@ -311,6 +312,7 @@ pub enum BackendCommand {
     },
     Status,
     Stop,
+    Cancel,
     VerifyArchive {
         path: String,
         sha256: String,
@@ -319,6 +321,8 @@ pub enum BackendCommand {
     Chat {
         prompt: String,
         max_tokens: Option<u32>,
+        stream: bool,
+        timeout_ms: Option<u32>,
     },
 }
 
@@ -600,6 +604,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         }
         [group, action] if group == "backend" && action == "stop" => {
             Ok(Command::Backend(BackendCommand::Stop))
+        }
+        [group, action] if group == "backend" && action == "cancel" => {
+            Ok(Command::Backend(BackendCommand::Cancel))
         }
         [group, action, path, flag, sha256]
             if group == "backend" && action == "verify-archive" && flag == "--sha256" =>
@@ -1588,6 +1595,8 @@ fn parse_patch_verify(args: &[String]) -> Result<PatchCommand, AppError> {
 fn parse_backend_chat(args: &[String]) -> Result<BackendCommand, AppError> {
     let mut prompt = None;
     let mut max_tokens = None;
+    let mut stream = false;
+    let mut timeout_ms = None;
     let mut index = 0;
 
     while index < args.len() {
@@ -1620,6 +1629,36 @@ fn parse_backend_chat(args: &[String]) -> Result<BackendCommand, AppError> {
                 max_tokens = Some(parse_positive_u32(value, "max-tokens")?);
                 index += 2;
             }
+            "--stream" => {
+                if stream {
+                    return Err(AppError::usage(
+                        "backend chat의 --stream 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                stream = true;
+                index += 1;
+            }
+            "--timeout-ms" => {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "backend chat은 --timeout-ms <ms> 값이 필요합니다.",
+                    ));
+                };
+                if timeout_ms.is_some() {
+                    return Err(AppError::usage(
+                        "backend chat의 --timeout-ms 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                let value = parse_positive_u32(value, "timeout-ms")?;
+                if value > backend::MAX_CHAT_TIMEOUT_MS {
+                    return Err(AppError::usage(format!(
+                        "backend chat timeout은 1..={} ms 범위여야 합니다.",
+                        backend::MAX_CHAT_TIMEOUT_MS
+                    )));
+                }
+                timeout_ms = Some(value);
+                index += 2;
+            }
             unknown => {
                 return Err(AppError::usage(format!(
                     "알 수 없는 backend chat 옵션입니다: {unknown}"
@@ -1634,7 +1673,12 @@ fn parse_backend_chat(args: &[String]) -> Result<BackendCommand, AppError> {
         ));
     };
 
-    Ok(BackendCommand::Chat { prompt, max_tokens })
+    Ok(BackendCommand::Chat {
+        prompt,
+        max_tokens,
+        stream,
+        timeout_ms,
+    })
 }
 
 fn parse_positive_u32(value: &str, label: &str) -> Result<u32, AppError> {
@@ -2201,9 +2245,42 @@ mod tests {
             command,
             Command::Backend(BackendCommand::Chat {
                 prompt: "감자는 무엇인가?".to_string(),
-                max_tokens: Some(64)
+                max_tokens: Some(64),
+                stream: false,
+                timeout_ms: None,
             })
         );
+    }
+
+    #[test]
+    fn parses_backend_stream_chat_timeout() {
+        let command = parse([
+            "backend".to_string(),
+            "chat".to_string(),
+            "--prompt".to_string(),
+            "감자".to_string(),
+            "--stream".to_string(),
+            "--timeout-ms".to_string(),
+            "1500".to_string(),
+        ])
+        .unwrap();
+
+        assert_eq!(
+            command,
+            Command::Backend(BackendCommand::Chat {
+                prompt: "감자".to_string(),
+                max_tokens: None,
+                stream: true,
+                timeout_ms: Some(1500),
+            })
+        );
+    }
+
+    #[test]
+    fn parses_backend_generation_cancel() {
+        let command = parse(["backend".to_string(), "cancel".to_string()]).unwrap();
+
+        assert_eq!(command, Command::Backend(BackendCommand::Cancel));
     }
 
     #[test]

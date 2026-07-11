@@ -216,6 +216,7 @@ pub struct ModelRunMetric {
     pub generation_eval_ms: Option<f64>,
     pub tokens_per_second: Option<f64>,
     pub cancelled: bool,
+    pub token_usage_complete: bool,
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
     pub total_tokens: u32,
@@ -601,9 +602,10 @@ pub fn record_model_run(metric: &ModelRunMetric) -> Result<(), AppError> {
         )
         .map_err(sql_error("model run metric을 저장하지 못했습니다"))?;
 
-    connection
-        .execute(
-            "INSERT OR IGNORE INTO token_usage (
+    if metric.token_usage_complete {
+        connection
+            .execute(
+                "INSERT OR IGNORE INTO token_usage (
                 token_usage_id,
                 model_run_id,
                 model_id,
@@ -616,21 +618,22 @@ pub fn record_model_run(metric: &ModelRunMetric) -> Result<(), AppError> {
                 tool_summary_tokens,
                 max_output_tokens
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-            params![
-                format!("token-{}", metric.model_run_id),
-                metric.model_run_id,
-                metric.model_id,
-                i64::from(metric.prompt_tokens),
-                i64::from(metric.completion_tokens),
-                i64::from(metric.total_tokens),
-                i64::from(metric.context_tokens_used),
-                i64::from(metric.context_tokens_dropped),
-                i64::from(metric.ontology_tokens),
-                i64::from(metric.tool_summary_tokens),
-                metric.max_output_tokens.map(i64::from),
-            ],
-        )
-        .map_err(sql_error("token usage metric을 저장하지 못했습니다"))?;
+                params![
+                    format!("token-{}", metric.model_run_id),
+                    metric.model_run_id,
+                    metric.model_id,
+                    i64::from(metric.prompt_tokens),
+                    i64::from(metric.completion_tokens),
+                    i64::from(metric.total_tokens),
+                    i64::from(metric.context_tokens_used),
+                    i64::from(metric.context_tokens_dropped),
+                    i64::from(metric.ontology_tokens),
+                    i64::from(metric.tool_summary_tokens),
+                    metric.max_output_tokens.map(i64::from),
+                ],
+            )
+            .map_err(sql_error("token usage metric을 저장하지 못했습니다"))?;
+    }
 
     Ok(())
 }
@@ -1908,6 +1911,7 @@ mod tests {
             generation_eval_ms: None,
             tokens_per_second: Some(120.0),
             cancelled: false,
+            token_usage_complete: true,
             prompt_tokens: 10,
             completion_tokens: 12,
             total_tokens: 22,
@@ -1932,6 +1936,58 @@ mod tests {
         assert_eq!(summaries[0].total_tokens, 22);
         assert_eq!(summaries[0].avg_latency_ms, Some(100.0));
         assert_eq!(summaries[0].avg_tokens_per_second, Some(120.0));
+    }
+
+    #[test]
+    fn incomplete_stream_usage_keeps_model_run_without_zero_token_record() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-incomplete-stream-metric-test-{}",
+            std::process::id()
+        ));
+        let project_root = root.join("project");
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+
+        record_model_run(&ModelRunMetric {
+            model_run_id: "model-run-incomplete-stream".to_string(),
+            session_id: "session-test".to_string(),
+            workflow_id: None,
+            model_id: "qwen-test".to_string(),
+            model_artifact_hash: None,
+            backend_id: Some("llama.cpp".to_string()),
+            backend_version: None,
+            quantization: None,
+            context_limit_tokens: Some(4096),
+            started_at_ms: 1,
+            first_token_latency_ms: Some(25.0),
+            total_latency_ms: Some(100.0),
+            prompt_eval_ms: None,
+            generation_eval_ms: None,
+            tokens_per_second: None,
+            cancelled: true,
+            token_usage_complete: false,
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
+            context_tokens_used: 0,
+            context_tokens_dropped: 0,
+            ontology_tokens: 0,
+            tool_summary_tokens: 0,
+            max_output_tokens: Some(64),
+        })
+        .unwrap();
+
+        let store = status().unwrap();
+        let summaries = model_summaries().unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+
+        assert_eq!(store.model_runs, 1);
+        assert_eq!(store.token_records, 0);
+        assert!(summaries.is_empty());
     }
 
     #[test]
@@ -2118,6 +2174,7 @@ mod tests {
                 generation_eval_ms: None,
                 tokens_per_second: Some(tps),
                 cancelled: false,
+                token_usage_complete: true,
                 prompt_tokens: 10,
                 completion_tokens: total_tokens - 10,
                 total_tokens,
@@ -2221,6 +2278,7 @@ mod tests {
             generation_eval_ms: None,
             tokens_per_second: Some(32.0),
             cancelled: false,
+            token_usage_complete: true,
             prompt_tokens: 10,
             completion_tokens: 10,
             total_tokens: 20,

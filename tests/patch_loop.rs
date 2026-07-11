@@ -31,8 +31,8 @@ fn fixture(name: &str) -> Fixture {
         &backend,
         format!(
             r#"#!/usr/bin/env python3
-import argparse, json
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import argparse, json, time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 p=argparse.ArgumentParser(add_help=False)
 p.add_argument('--port', type=int, required=True)
 p.add_argument('--host', default='127.0.0.1')
@@ -44,12 +44,29 @@ class H(BaseHTTPRequestHandler):
   def do_GET(self):
     self.send_response(200); self.end_headers(); self.wfile.write(b'{{"status":"ok"}}')
   def do_POST(self):
-    n=int(self.headers.get('Content-Length','0')); self.rfile.read(n)
+    n=int(self.headers.get('Content-Length','0')); request=json.loads(self.rfile.read(n))
     with open({calls:?}, 'a') as f: f.write('chat\n')
     with open({response:?}) as f: content=f.read()
-    body=json.dumps({{"choices":[{{"message":{{"content":content}},"finish_reason":"stop"}}],"usage":{{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}}}).encode()
-    self.send_response(200); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
-HTTPServer((a.host,a.port),H).serve_forever()
+    if request.get('stream'):
+      prompt=request.get('messages',[{{}}])[-1].get('content','')
+      if prompt == 'RPOTATO_STALL':
+        self.send_response(200); self.send_header('Content-Type','text/event-stream'); self.end_headers()
+        try:
+          while True:
+            self.wfile.write(b': keepalive\n\n'); self.wfile.flush(); time.sleep(0.05)
+        except (BrokenPipeError, ConnectionResetError):
+          return
+      events=[
+        {{"choices":[{{"delta":{{"content":content}},"finish_reason":"stop"}}]}},
+        {{"choices":[],"usage":{{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}}}
+      ]
+      body=(''.join('data: '+json.dumps(event)+'\n\n' for event in events)+'data: [DONE]\n\n').encode()
+      content_type='text/event-stream'
+    else:
+      body=json.dumps({{"choices":[{{"message":{{"content":content}},"finish_reason":"stop"}}],"usage":{{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}}}).encode()
+      content_type='application/json'
+    self.send_response(200); self.send_header('Content-Type',content_type); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
+ThreadingHTTPServer((a.host,a.port),H).serve_forever()
 "#,
             calls = calls.display().to_string(),
             response = response.display().to_string()
@@ -204,6 +221,20 @@ fn captured_output(captured: &CapturedChild, status: ExitStatus) -> Output {
         stdout,
         stderr,
     }
+}
+
+fn wait_for_path(path: &Path, timeout: Duration) {
+    let deadline = Instant::now() + timeout;
+    while Instant::now() < deadline {
+        if path.exists() {
+            return;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    panic!(
+        "path가 timeout 안에 생성되지 않았습니다: {}",
+        path.display()
+    );
 }
 
 fn port_for(path: &Path) -> u16 {
@@ -639,6 +670,88 @@ fn corrupt_workflow_blocks_resume_without_backend_reentry() {
         fs::read_to_string(&fixture.calls).unwrap().lines().count(),
         1
     );
+}
+
+#[test]
+fn backend_generation_cancel_keeps_sidecar_and_cleans_active_state() {
+    let fixture = fixture("backend-generation-cancel");
+    fixture.start();
+    let mut command = fixture.command_builder(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "RPOTATO_STALL",
+        "--stream",
+        "--timeout-ms",
+        "5000",
+    ]);
+    let chat = spawn_captured(&mut command).unwrap();
+    let active_record = fixture.data.join("state/backend-active-generation.txt");
+    wait_for_path(&active_record, Duration::from_secs(2));
+
+    let cancel = fixture.command(&["backend", "cancel"]);
+    assert!(
+        cancel.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cancel.stderr)
+    );
+    let chat = wait_bounded(chat, &["backend", "chat", "--stream"]);
+    assert!(!chat.status.success());
+    assert!(
+        String::from_utf8_lossy(&chat.stderr).contains("취소됨"),
+        "stdout={}\nstderr={}",
+        String::from_utf8_lossy(&chat.stdout),
+        String::from_utf8_lossy(&chat.stderr)
+    );
+
+    let status = fixture.command(&["backend", "status"]);
+    assert!(status.status.success());
+    assert!(String::from_utf8_lossy(&status.stdout).contains("status: running"));
+    assert!(!active_record.exists());
+    assert!(!fixture
+        .data
+        .join("state/backend-active-generation.cancel")
+        .exists());
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
+    assert!(ledger.contains("backend.generation.cancelled"));
+    assert!(ledger.contains("backend.resource.sampled"));
+}
+
+#[test]
+fn backend_generation_timeout_records_terminal_evidence_and_cleans_state() {
+    let fixture = fixture("backend-generation-timeout");
+    fixture.start();
+
+    let chat = fixture.command(&[
+        "backend",
+        "chat",
+        "--prompt",
+        "RPOTATO_STALL",
+        "--timeout-ms",
+        "150",
+    ]);
+    assert!(!chat.status.success());
+    assert!(
+        String::from_utf8_lossy(&chat.stderr).contains("시간 초과"),
+        "stdout={}\nstderr={}",
+        String::from_utf8_lossy(&chat.stdout),
+        String::from_utf8_lossy(&chat.stderr)
+    );
+
+    let status = fixture.command(&["backend", "status"]);
+    assert!(status.status.success());
+    assert!(String::from_utf8_lossy(&status.stdout).contains("status: running"));
+    assert!(!fixture
+        .data
+        .join("state/backend-active-generation.txt")
+        .exists());
+    assert!(!fixture
+        .data
+        .join("state/backend-active-generation.cancel")
+        .exists());
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
+    assert!(ledger.contains("backend.generation.timeout"));
+    assert!(ledger.contains("backend.resource.sampled"));
 }
 
 #[test]

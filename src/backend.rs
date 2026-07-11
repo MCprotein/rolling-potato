@@ -7,6 +7,7 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::app::AppError;
+use crate::backend_stream::{self, StreamTermination};
 use crate::paths;
 use crate::{checksum, ledger, model, observability, resource, state};
 
@@ -21,6 +22,8 @@ const VERSION_TIMEOUT_MS: u64 = 5_000;
 const STARTUP_TIMEOUT_MS: u64 = 60_000;
 const STOP_TIMEOUT_MS: u64 = 5_000;
 const CHAT_TIMEOUT_MS: u64 = 30_000;
+pub const MAX_CHAT_TIMEOUT_MS: u32 = 300_000;
+const CANCEL_WAIT_MS: u64 = 2_000;
 const DEFAULT_CHAT_MAX_TOKENS: u32 = 128;
 const CHAT_SAMPLING: BackendChatSampling = BackendChatSampling {
     temperature: 0.1,
@@ -141,6 +144,41 @@ struct BackendSidecarRecord {
     started_at_ms: u128,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BackendGenerationRecord {
+    generation_id: String,
+    client_pid: u32,
+    sidecar_pid: u32,
+    started_at_ms: u128,
+    timeout_ms: u32,
+    streaming_display: bool,
+}
+
+struct GenerationTerminalContext {
+    started_event: String,
+    started_at_ms: u128,
+    elapsed_ms: u128,
+    requested_max_tokens: u32,
+    effective_max_tokens: u32,
+}
+
+struct ActiveGenerationGuard {
+    generation_id: String,
+}
+
+impl Drop for ActiveGenerationGuard {
+    fn drop(&mut self) {
+        remove_generation_state_if_owned(&self.generation_id);
+    }
+}
+
+impl ActiveGenerationGuard {
+    fn finish(self) -> Result<(), AppError> {
+        remove_generation_state_if_owned_checked(&self.generation_id)
+    }
+}
+
+#[cfg(test)]
 #[derive(Debug, Clone, PartialEq)]
 struct BackendChatCompletion {
     content: String,
@@ -182,6 +220,8 @@ pub struct BackendChatRun {
     pub completion_tokens: Option<u32>,
     pub total_tokens: Option<u32>,
     pub elapsed_ms: u128,
+    pub first_token_latency_ms: Option<u128>,
+    pub streaming_display: bool,
     pub ledger_event: String,
     pub resource_governor_admission: String,
     pub resource_governor_token_action: String,
@@ -589,6 +629,20 @@ pub fn stop_report() -> Result<String, AppError> {
 
     let command_matched = process_command_matches_record(&record);
 
+    if let Some(generation) = read_backend_generation_record()? {
+        if generation.sidecar_pid == record.pid && process_is_running(generation.client_pid) {
+            write_generation_cancel_marker(&generation.generation_id)?;
+            state::record_event(
+                "backend.generation.cancel.requested",
+                "backend stop 전 generation 취소 요청",
+                &format!(
+                    "generation_id={} client_pid={} sidecar_pid={} requester=backend-stop",
+                    generation.generation_id, generation.client_pid, generation.sidecar_pid
+                ),
+            )?;
+        }
+    }
+
     terminate_process(record.pid, false)?;
     let stopped = wait_until_process_stops(record.pid, Duration::from_millis(STOP_TIMEOUT_MS));
     if !stopped {
@@ -699,13 +753,48 @@ pub fn health_check_report() -> String {
     )
 }
 
-pub fn chat_report(prompt: &str, max_tokens: Option<u32>) -> Result<String, AppError> {
-    let run = chat_once(prompt, max_tokens)?;
+pub fn chat_report(
+    prompt: &str,
+    max_tokens: Option<u32>,
+    timeout_ms: Option<u32>,
+) -> Result<String, AppError> {
+    let run = chat_once_with_options(prompt, max_tokens, false, timeout_ms, |_| Ok(()))?;
 
-    Ok(format!(
-        "backend chat\n- status: completed\n- backend: {}\n- pid: {}\n- endpoint: /v1/chat/completions\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- non-thinking source: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- resource governor hint: {}\n- resource governor sample event: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- ledger event: {}\n- response:\n{}",
+    Ok(format_chat_run(&run, true))
+}
+
+pub fn chat_stream_report(
+    prompt: &str,
+    max_tokens: Option<u32>,
+    timeout_ms: Option<u32>,
+    writer: &mut impl Write,
+) -> Result<String, AppError> {
+    writer
+        .write_all(b"backend chat\n- status: streaming\n- response:\n")
+        .map_err(|err| AppError::runtime(format!("streaming output write 실패: {err}")))?;
+    writer
+        .flush()
+        .map_err(|err| AppError::runtime(format!("streaming output flush 실패: {err}")))?;
+    let run = chat_once_with_options(prompt, max_tokens, true, timeout_ms, |delta| {
+        writer
+            .write_all(delta.as_bytes())
+            .and_then(|_| writer.flush())
+            .map_err(|err| AppError::runtime(format!("streaming output write 실패: {err}")))
+    })?;
+    writer
+        .write_all(b"\n")
+        .map_err(|err| AppError::runtime(format!("streaming output write 실패: {err}")))?;
+
+    Ok(format_chat_run(&run, false))
+}
+
+fn format_chat_run(run: &BackendChatRun, include_response: bool) -> String {
+    let mut report = format!(
+        "backend chat{}\n- status: completed\n- backend: {}\n- pid: {}\n- endpoint: /v1/chat/completions\n- transport: server-sent events\n- streaming display: {}\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- non-thinking source: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- resource governor hint: {}\n- resource governor sample event: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- first token latency ms: {}\n- elapsed ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- ledger event: {}",
+        if include_response { "" } else { " summary" },
         run.backend_id,
         run.pid,
+        run.streaming_display,
         QWEN_NON_THINKING_SOURCE,
         run.model_id,
         run.model_path.display(),
@@ -723,6 +812,7 @@ pub fn chat_report(prompt: &str, max_tokens: Option<u32>) -> Result<String, AppE
         display_optional_u32(run.prompt_tokens),
         display_optional_u32(run.completion_tokens),
         display_optional_u32(run.total_tokens),
+        display_optional_u128(run.first_token_latency_ms),
         run.elapsed_ms,
         run.resource_pressure,
         display_optional_f64(run.resource_cpu_percent),
@@ -730,12 +820,26 @@ pub fn chat_report(prompt: &str, max_tokens: Option<u32>) -> Result<String, AppE
         display_optional_u64_unknown(run.resource_peak_rss_bytes),
         display_optional_u64_unknown(run.resource_disk_bytes),
         run.resource_sample_event,
-        run.ledger_event,
-        run.response
-    ))
+        run.ledger_event
+    );
+    if include_response {
+        report.push_str("\n- response:\n");
+        report.push_str(&run.response);
+    }
+    report
 }
 
 pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun, AppError> {
+    chat_once_with_options(prompt, max_tokens, false, None, |_| Ok(()))
+}
+
+fn chat_once_with_options(
+    prompt: &str,
+    max_tokens: Option<u32>,
+    streaming_display: bool,
+    timeout_ms: Option<u32>,
+    mut on_delta: impl FnMut(&str) -> Result<(), AppError>,
+) -> Result<BackendChatRun, AppError> {
     if prompt.trim().is_empty() {
         return Err(AppError::usage(
             "backend chat은 비어 있지 않은 --prompt <text> 값이 필요합니다.",
@@ -805,14 +909,130 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         .effective_max_tokens
         .unwrap_or(requested_max_tokens);
 
+    let timeout_ms = timeout_ms.unwrap_or(CHAT_TIMEOUT_MS as u32);
+    if timeout_ms == 0 || timeout_ms > MAX_CHAT_TIMEOUT_MS {
+        return Err(AppError::usage(format!(
+            "backend chat timeout은 1..={MAX_CHAT_TIMEOUT_MS} ms 범위여야 합니다."
+        )));
+    }
+    let generation = begin_active_generation(&record, timeout_ms, streaming_display)?;
+    let generation_guard = ActiveGenerationGuard {
+        generation_id: generation.generation_id.clone(),
+    };
+    let started_event = state::record_event(
+        "backend.generation.started",
+        "backend generation 시작",
+        &format!(
+            "generation_id={} client_pid={} sidecar_pid={} backend={} model_id={} prompt_chars={} requested_max_tokens={} effective_max_tokens={} timeout_ms={} transport=sse streaming_display={} resource_governor_sample_event={}",
+            generation.generation_id,
+            generation.client_pid,
+            generation.sidecar_pid,
+            record.backend_id,
+            model_id_from_path(&record.model_path),
+            prompt.chars().count(),
+            requested_max_tokens,
+            effective_max_tokens,
+            timeout_ms,
+            streaming_display,
+            governor_sample.ledger_event
+        ),
+    )?;
     let started_at_ms = now_ms();
     let started_at = Instant::now();
     let sampling = CHAT_SAMPLING;
-    let completion = request_chat_completion(&record, prompt, effective_max_tokens, &sampling)?;
+    let body = chat_request_body(
+        &record.model_path,
+        prompt,
+        effective_max_tokens,
+        &sampling,
+        true,
+    );
+    let stream_outcome = backend_stream::post_chat_stream(
+        &record.host,
+        record.port,
+        "/v1/chat/completions",
+        &body,
+        Duration::from_millis(u64::from(timeout_ms)),
+        || generation_cancel_requested(&generation.generation_id),
+        &mut on_delta,
+    );
     let elapsed_ms = started_at.elapsed().as_millis();
-    let (display_content, had_reasoning_trace) = strip_reasoning_trace(&completion.content);
-    let display_content = display_content.trim().to_string();
-    let guard_status = if had_reasoning_trace {
+    let outcome = match stream_outcome {
+        Ok(outcome) => outcome,
+        Err(err) => {
+            let event_id = state::record_event(
+                "backend.generation.failed",
+                "backend generation 실패",
+                &format!(
+                    "generation_id={} sidecar_pid={} started_event={} timeout_ms={} elapsed_ms={} error={}",
+                    generation.generation_id,
+                    record.pid,
+                    started_event,
+                    timeout_ms,
+                    elapsed_ms,
+                    preview_for_error(&err.message)
+                ),
+            )?;
+            let resource_sample = record_backend_resource_sample(&record, "chat-failed")?;
+            let identity = ledger::validated_current_identity()?;
+            observability::record_model_run(&observability::ModelRunMetric {
+                model_run_id: format!("model-run-{event_id}"),
+                session_id: identity.session_id,
+                workflow_id: None,
+                model_id: model_id_from_path(&record.model_path),
+                model_artifact_hash: Some(record.model_sha256.clone()),
+                backend_id: Some(record.backend_id.clone()),
+                backend_version: Some(record.backend_release.clone()),
+                quantization: model::quantization_for_artifact_hash(&record.model_sha256)
+                    .map(str::to_string),
+                context_limit_tokens: record.ctx_size,
+                started_at_ms,
+                first_token_latency_ms: None,
+                total_latency_ms: Some(elapsed_ms as f64),
+                prompt_eval_ms: None,
+                generation_eval_ms: None,
+                tokens_per_second: None,
+                cancelled: false,
+                token_usage_complete: false,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                context_tokens_used: 0,
+                context_tokens_dropped: 0,
+                ontology_tokens: 0,
+                tool_summary_tokens: 0,
+                max_output_tokens: Some(effective_max_tokens),
+            })?;
+            generation_guard.finish()?;
+            return Err(AppError {
+                code: err.code,
+                message: format!(
+                    "{}\n- resource sample event: {}\n- lifecycle event: {event_id}",
+                    err.message, resource_sample.ledger_event
+                ),
+            });
+        }
+    };
+    if outcome.termination != StreamTermination::Completed {
+        let interrupted = finish_interrupted_generation(
+            &record,
+            &generation,
+            &outcome,
+            GenerationTerminalContext {
+                started_event,
+                started_at_ms,
+                elapsed_ms,
+                requested_max_tokens,
+                effective_max_tokens,
+            },
+        );
+        generation_guard.finish()?;
+        return interrupted;
+    }
+
+    let completion = outcome.completion;
+    let display_content = completion.content.trim().to_string();
+    let guard_status = if completion.had_reasoning_trace {
         if display_content.is_empty() {
             "blocked-empty-after-reasoning-strip"
         } else {
@@ -830,7 +1050,9 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         event_type,
         "backend chat completion 실행",
         &format!(
-            "pid={} backend={} backend_release={} binary_sha256={} model_id={} model_sha256={} model_size_bytes={} ctx_size={} mmproj={} sampling={} host_os={} host_arch={} prompt_chars={} output_chars={} requested_max_tokens={} effective_max_tokens={} resource_governor_admission={} resource_governor_token_action={} resource_governor_reason={} resource_governor_sample_event={} finish_reason={} guard_status={} prompt_tokens={} completion_tokens={} total_tokens={} elapsed_ms={}",
+            "generation_id={} started_event={} pid={} backend={} backend_release={} binary_sha256={} model_id={} model_sha256={} model_size_bytes={} ctx_size={} mmproj={} sampling={} host_os={} host_arch={} prompt_chars={} output_chars={} requested_max_tokens={} effective_max_tokens={} timeout_ms={} transport=sse streaming_display={} resource_governor_admission={} resource_governor_token_action={} resource_governor_reason={} resource_governor_sample_event={} finish_reason={} guard_status={} prompt_tokens={} completion_tokens={} total_tokens={} first_token_latency_ms={} elapsed_ms={}",
+            generation.generation_id,
+            started_event,
             record.pid,
             record.backend_id,
             record.backend_release,
@@ -847,6 +1069,8 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
             display_content.chars().count(),
             requested_max_tokens,
             effective_max_tokens,
+            timeout_ms,
+            streaming_display,
             governor.admission.as_str(),
             governor.token_action.as_str(),
             governor.reason,
@@ -856,16 +1080,10 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
             display_optional_u32(completion.prompt_tokens),
             display_optional_u32(completion.completion_tokens),
             display_optional_u32(completion.total_tokens),
+            display_optional_u128(completion.first_token_latency_ms),
             elapsed_ms
         ),
     )?;
-
-    if display_content.is_empty() {
-        return Err(AppError::blocked(format!(
-            "backend chat 차단\n- 이유: reasoning trace 제거 후 표시 가능한 응답이 없습니다.\n- endpoint: /v1/chat/completions\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- guard: {}\n- finish reason: {}\n- ledger event: {}",
-            guard_status, completion.finish_reason, event_id
-        )));
-    }
 
     let identity = ledger::validated_current_identity()?;
     let model_id = model_id_from_path(&record.model_path);
@@ -888,12 +1106,15 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
             .map(str::to_string),
         context_limit_tokens: record.ctx_size,
         started_at_ms,
-        first_token_latency_ms: None,
+        first_token_latency_ms: completion.first_token_latency_ms.map(|value| value as f64),
         total_latency_ms: Some(elapsed_ms as f64),
         prompt_eval_ms: None,
         generation_eval_ms: None,
         tokens_per_second,
         cancelled: false,
+        token_usage_complete: completion.prompt_tokens.is_some()
+            && completion.completion_tokens.is_some()
+            && completion.total_tokens.is_some(),
         prompt_tokens: completion.prompt_tokens.unwrap_or(0),
         completion_tokens,
         total_tokens: completion.total_tokens.unwrap_or(0),
@@ -903,9 +1124,27 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         tool_summary_tokens: 0,
         max_output_tokens: Some(effective_max_tokens),
     })?;
-    let resource_sample = record_backend_resource_sample(&record, "chat")?;
+    let resource_sample = record_backend_resource_sample(
+        &record,
+        if streaming_display {
+            "chat-stream"
+        } else {
+            "chat"
+        },
+    )?;
 
-    Ok(BackendChatRun {
+    if display_content.is_empty() {
+        generation_guard.finish()?;
+        return Err(AppError::blocked(format!(
+            "backend chat 차단\n- 이유: reasoning trace 제거 후 표시 가능한 응답이 없습니다.\n- endpoint: /v1/chat/completions\n- thinking mode: disabled via chat_template_kwargs.enable_thinking=false\n- guard: {}\n- finish reason: {}\n- resource sample event: {}\n- lifecycle event: {}",
+            guard_status,
+            completion.finish_reason,
+            resource_sample.ledger_event,
+            event_id
+        )));
+    }
+
+    let run = BackendChatRun {
         backend_id: record.backend_id,
         backend_version: record.backend_release,
         pid: record.pid,
@@ -924,6 +1163,8 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         completion_tokens: completion.completion_tokens,
         total_tokens: completion.total_tokens,
         elapsed_ms,
+        first_token_latency_ms: completion.first_token_latency_ms,
+        streaming_display,
         ledger_event: event_id,
         resource_governor_admission: governor.admission.as_str().to_string(),
         resource_governor_token_action: governor.token_action.as_str().to_string(),
@@ -937,7 +1178,165 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         resource_disk_bytes: resource_sample.metric.disk_bytes,
         resource_sample_event: resource_sample.ledger_event,
         response: display_content,
-    })
+    };
+    generation_guard.finish()?;
+    Ok(run)
+}
+
+fn finish_interrupted_generation(
+    record: &BackendSidecarRecord,
+    generation: &BackendGenerationRecord,
+    outcome: &backend_stream::StreamOutcome,
+    terminal: GenerationTerminalContext,
+) -> Result<BackendChatRun, AppError> {
+    let (event_type, status, status_label, resource_label) = match outcome.termination {
+        StreamTermination::Cancelled => (
+            "backend.generation.cancelled",
+            "cancelled",
+            "사용자 요청으로 취소됨",
+            "chat-cancelled",
+        ),
+        StreamTermination::TimedOut => (
+            "backend.generation.timeout",
+            "timed-out",
+            "제한 시간 초과로 취소됨",
+            "chat-timeout",
+        ),
+        StreamTermination::Completed => {
+            return Err(AppError::runtime(
+                "완료된 generation을 interrupted 상태로 처리할 수 없습니다.",
+            ));
+        }
+    };
+    let completion = &outcome.completion;
+    let resource_sample = record_backend_resource_sample(record, resource_label)?;
+    let event_id = state::record_event(
+        event_type,
+        "backend generation 중단",
+        &format!(
+            "generation_id={} started_event={} client_pid={} sidecar_pid={} status={} timeout_ms={} elapsed_ms={} output_chars={} requested_max_tokens={} effective_max_tokens={} first_token_latency_ms={} prompt_tokens={} completion_tokens={} total_tokens={} resource_sample_event={}",
+            generation.generation_id,
+            terminal.started_event,
+            generation.client_pid,
+            generation.sidecar_pid,
+            status,
+            generation.timeout_ms,
+            terminal.elapsed_ms,
+            completion.content.chars().count(),
+            terminal.requested_max_tokens,
+            terminal.effective_max_tokens,
+            display_optional_u128(completion.first_token_latency_ms),
+            display_optional_u32(completion.prompt_tokens),
+            display_optional_u32(completion.completion_tokens),
+            display_optional_u32(completion.total_tokens),
+            resource_sample.ledger_event
+        ),
+    )?;
+    let identity = ledger::validated_current_identity()?;
+    observability::record_model_run(&observability::ModelRunMetric {
+        model_run_id: format!("model-run-{event_id}"),
+        session_id: identity.session_id,
+        workflow_id: None,
+        model_id: model_id_from_path(&record.model_path),
+        model_artifact_hash: Some(record.model_sha256.clone()),
+        backend_id: Some(record.backend_id.clone()),
+        backend_version: Some(record.backend_release.clone()),
+        quantization: model::quantization_for_artifact_hash(&record.model_sha256)
+            .map(str::to_string),
+        context_limit_tokens: record.ctx_size,
+        started_at_ms: terminal.started_at_ms,
+        first_token_latency_ms: completion.first_token_latency_ms.map(|value| value as f64),
+        total_latency_ms: Some(terminal.elapsed_ms as f64),
+        prompt_eval_ms: None,
+        generation_eval_ms: None,
+        tokens_per_second: None,
+        cancelled: true,
+        token_usage_complete: completion.prompt_tokens.is_some()
+            && completion.completion_tokens.is_some()
+            && completion.total_tokens.is_some(),
+        prompt_tokens: completion.prompt_tokens.unwrap_or(0),
+        completion_tokens: completion.completion_tokens.unwrap_or(0),
+        total_tokens: completion.total_tokens.unwrap_or(0),
+        context_tokens_used: completion.prompt_tokens.unwrap_or(0),
+        context_tokens_dropped: 0,
+        ontology_tokens: 0,
+        tool_summary_tokens: 0,
+        max_output_tokens: Some(terminal.effective_max_tokens),
+    })?;
+
+    Err(AppError::runtime(format!(
+        "backend chat 중단\n- 상태: {status_label}\n- generation id: {}\n- sidecar pid: {}\n- 경과 시간 ms: {}\n- 부분 출력 문자 수: {}\n- resource sample event: {}\n- lifecycle event: {}\n- sidecar 동작: 계속 실행",
+        generation.generation_id,
+        generation.sidecar_pid,
+        terminal.elapsed_ms,
+        completion.content.chars().count(),
+        resource_sample.ledger_event,
+        event_id
+    )))
+}
+
+pub fn cancel_generation_report() -> Result<String, AppError> {
+    let Some(record) = read_backend_generation_record()? else {
+        return Ok(format!(
+            "backend generation cancel\n- status: idle\n- active generation record: {}",
+            backend_generation_record_path().display()
+        ));
+    };
+    if !process_is_running(record.client_pid) {
+        remove_generation_state_if_owned(&record.generation_id);
+        let event_id = state::record_event(
+            "backend.generation.stale.cleaned",
+            "stale backend generation record 정리",
+            &format!(
+                "generation_id={} client_pid={} sidecar_pid={} reason=client-not-running",
+                record.generation_id, record.client_pid, record.sidecar_pid
+            ),
+        )?;
+        return Ok(format!(
+            "backend generation cancel\n- status: stale-record-cleaned\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- sidecar action: kept-running\n- ledger event: {}",
+            record.generation_id, record.client_pid, record.sidecar_pid, event_id
+        ));
+    }
+
+    write_generation_cancel_marker(&record.generation_id)?;
+    let event_id = state::record_event(
+        "backend.generation.cancel.requested",
+        "backend generation 취소 요청",
+        &format!(
+            "generation_id={} client_pid={} sidecar_pid={} transport=cancel-marker sidecar_action=kept-running",
+            record.generation_id, record.client_pid, record.sidecar_pid
+        ),
+    )?;
+
+    let wait_started = Instant::now();
+    let mut acknowledged = false;
+    while wait_started.elapsed() < Duration::from_millis(CANCEL_WAIT_MS) {
+        let still_active = read_backend_generation_record()?
+            .map(|active| active.generation_id == record.generation_id)
+            .unwrap_or(false);
+        if !still_active {
+            acknowledged = true;
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    if acknowledged {
+        remove_generation_state_if_owned_checked(&record.generation_id)?;
+    }
+
+    Ok(format!(
+        "backend generation cancel\n- status: {}\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- wait ms: {}\n- sidecar action: kept-running\n- ledger event: {}",
+        if acknowledged {
+            "cancelled"
+        } else {
+            "requested"
+        },
+        record.generation_id,
+        record.client_pid,
+        record.sidecar_pid,
+        wait_started.elapsed().as_millis(),
+        event_id
+    ))
 }
 
 fn discover_llama_cpp() -> BackendDiscovery {
@@ -1045,32 +1444,12 @@ fn probe_health(host: &str, port: u16, timeout: Duration) -> HealthProbe {
     }
 }
 
-fn request_chat_completion(
-    record: &BackendSidecarRecord,
-    prompt: &str,
-    max_tokens: u32,
-    sampling: &BackendChatSampling,
-) -> Result<BackendChatCompletion, AppError> {
-    let body = chat_request_body(&record.model_path, prompt, max_tokens, sampling);
-    let response_body = post_json(
-        &record.host,
-        record.port,
-        "/v1/chat/completions",
-        &body,
-        Duration::from_millis(CHAT_TIMEOUT_MS),
-    )?;
-    parse_chat_completion_response(&response_body).ok_or_else(|| {
-        AppError::blocked(
-            "backend chat 응답을 해석하지 못했습니다. content 또는 usage field가 예상 형식과 다릅니다.",
-        )
-    })
-}
-
 fn chat_request_body(
     model_path: &Path,
     prompt: &str,
     max_tokens: u32,
     sampling: &BackendChatSampling,
+    stream: bool,
 ) -> String {
     let system_prompt = "사용자에게 보이는 최종 답변만 한국어로 작성합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다.";
     let template_options = if model_id_from_path(model_path)
@@ -1081,69 +1460,24 @@ fn chat_request_body(
     } else {
         ""
     };
+    let stream_options = if stream {
+        ",\"stream\":true,\"stream_options\":{\"include_usage\":true}"
+    } else {
+        ""
+    };
     format!(
-        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}}}",
+        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}{}}}",
         ledger::json_string(system_prompt),
         ledger::json_string(prompt),
         max_tokens,
         sampling.temperature,
         sampling.top_p,
-        template_options
+        template_options,
+        stream_options
     )
 }
 
-fn post_json(
-    host: &str,
-    port: u16,
-    path: &str,
-    body: &str,
-    timeout: Duration,
-) -> Result<String, AppError> {
-    let address = format!("{host}:{port}");
-    let mut addresses = address.to_socket_addrs().map_err(|err| {
-        AppError::runtime(format!("backend address resolve 실패: {address} ({err})"))
-    })?;
-    let socket_addr = addresses
-        .next()
-        .ok_or_else(|| AppError::runtime(format!("backend address 없음: {address}")))?;
-    let mut stream = TcpStream::connect_timeout(&socket_addr, timeout)
-        .map_err(|err| AppError::runtime(format!("backend 연결 실패: {socket_addr} ({err})")))?;
-    let _ = stream.set_read_timeout(Some(timeout));
-    let _ = stream.set_write_timeout(Some(timeout));
-
-    let request = format!(
-        "POST {path} HTTP/1.1\r\nHost: {host}:{port}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-        body.len(),
-        body
-    );
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|err| AppError::runtime(format!("backend request write 실패: {err}")))?;
-
-    let mut response = String::new();
-    stream
-        .read_to_string(&mut response)
-        .map_err(|err| AppError::runtime(format!("backend response read 실패: {err}")))?;
-    let status_line = response.lines().next().unwrap_or("");
-    let response_body = response
-        .split_once("\r\n\r\n")
-        .map(|(_, body)| body.to_string())
-        .unwrap_or_default();
-    if !(status_line.contains(" 200 ") || status_line.ends_with(" 200")) {
-        return Err(AppError::blocked(format!(
-            "backend request 실패\n- endpoint: {}\n- status: {}\n- body preview: {}",
-            path,
-            if status_line.is_empty() {
-                "없음"
-            } else {
-                status_line
-            },
-            preview_for_error(&response_body)
-        )));
-    }
-    Ok(response_body)
-}
-
+#[cfg(test)]
 fn parse_chat_completion_response(body: &str) -> Option<BackendChatCompletion> {
     Some(BackendChatCompletion {
         content: extract_json_string_value(body, "content")?,
@@ -1155,6 +1489,7 @@ fn parse_chat_completion_response(body: &str) -> Option<BackendChatCompletion> {
     })
 }
 
+#[cfg(test)]
 fn extract_json_string_value(text: &str, key: &str) -> Option<String> {
     let needle = format!("\"{key}\":");
     let start = text.find(&needle)? + needle.len();
@@ -1195,6 +1530,7 @@ fn extract_json_string_value(text: &str, key: &str) -> Option<String> {
     None
 }
 
+#[cfg(test)]
 fn extract_json_u32_value(text: &str, key: &str) -> Option<u32> {
     let needle = format!("\"{key}\":");
     let start = text.find(&needle)? + needle.len();
@@ -1209,6 +1545,7 @@ fn extract_json_u32_value(text: &str, key: &str) -> Option<u32> {
     number.parse::<u32>().ok()
 }
 
+#[cfg(test)]
 fn strip_reasoning_trace(content: &str) -> (String, bool) {
     let mut output = String::new();
     let mut rest = content;
@@ -1803,6 +2140,12 @@ fn display_optional_u32(value: Option<u32>) -> String {
         .unwrap_or_else(|| "model-default".to_string())
 }
 
+fn display_optional_u128(value: Option<u128>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
 fn display_optional_f64(value: Option<f64>) -> String {
     value
         .map(|value| format!("{value:.1}"))
@@ -1877,6 +2220,189 @@ fn model_id_from_path(path: &Path) -> String {
         .to_string()
 }
 
+fn begin_active_generation(
+    sidecar: &BackendSidecarRecord,
+    timeout_ms: u32,
+    streaming_display: bool,
+) -> Result<BackendGenerationRecord, AppError> {
+    if let Some(active) = read_backend_generation_record()? {
+        if process_is_running(active.client_pid) {
+            return Err(AppError::blocked(format!(
+                "backend chat 차단\n- 이유: 이미 active generation이 있습니다.\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- 다음 단계: rpotato backend cancel",
+                active.generation_id, active.client_pid, active.sidecar_pid
+            )));
+        }
+        remove_generation_state_if_owned(&active.generation_id);
+        state::record_event(
+            "backend.generation.stale.cleaned",
+            "stale backend generation record 정리",
+            &format!(
+                "generation_id={} client_pid={} sidecar_pid={} reason=next-generation",
+                active.generation_id, active.client_pid, active.sidecar_pid
+            ),
+        )?;
+    }
+
+    let record = BackendGenerationRecord {
+        generation_id: format!(
+            "generation-{}-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos(),
+            std::process::id()
+        ),
+        client_pid: std::process::id(),
+        sidecar_pid: sidecar.pid,
+        started_at_ms: now_ms(),
+        timeout_ms,
+        streaming_display,
+    };
+    remove_file_if_exists(&backend_generation_cancel_path())?;
+    write_backend_generation_record(&record)?;
+    Ok(record)
+}
+
+fn write_backend_generation_record(record: &BackendGenerationRecord) -> Result<(), AppError> {
+    let path = backend_generation_record_path();
+    let parent = path.parent().ok_or_else(|| {
+        AppError::runtime(format!(
+            "backend generation record parent path를 계산하지 못했습니다: {}",
+            path.display()
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(|err| {
+        AppError::runtime(format!(
+            "backend generation record directory를 만들지 못했습니다: {} ({err})",
+            parent.display()
+        ))
+    })?;
+    let contents = render_backend_generation_record(record);
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    let mut file = options.open(&path).map_err(|err| {
+        AppError::blocked(format!(
+            "backend active generation record를 생성하지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    file.write_all(contents.as_bytes()).map_err(|err| {
+        AppError::runtime(format!(
+            "backend generation record를 쓰지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    file.sync_all().map_err(|err| {
+        AppError::runtime(format!(
+            "backend generation record를 sync하지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })
+}
+
+fn render_backend_generation_record(record: &BackendGenerationRecord) -> String {
+    format!(
+        "generation_id={}\nclient_pid={}\nsidecar_pid={}\nstarted_at_ms={}\ntimeout_ms={}\nstreaming_display={}\n",
+        record.generation_id,
+        record.client_pid,
+        record.sidecar_pid,
+        record.started_at_ms,
+        record.timeout_ms,
+        record.streaming_display
+    )
+}
+
+fn read_backend_generation_record() -> Result<Option<BackendGenerationRecord>, AppError> {
+    let path = backend_generation_record_path();
+    if !path.exists() {
+        return Ok(None);
+    }
+    let contents = fs::read_to_string(&path).map_err(|err| {
+        AppError::runtime(format!(
+            "backend generation record를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    parse_backend_generation_record(&contents)
+        .map(Some)
+        .ok_or_else(|| {
+            AppError::blocked(format!(
+                "backend generation record 형식이 유효하지 않습니다: {}",
+                path.display()
+            ))
+        })
+}
+
+fn parse_backend_generation_record(contents: &str) -> Option<BackendGenerationRecord> {
+    Some(BackendGenerationRecord {
+        generation_id: record_value(contents, "generation_id")?.to_string(),
+        client_pid: record_value(contents, "client_pid")?.parse().ok()?,
+        sidecar_pid: record_value(contents, "sidecar_pid")?.parse().ok()?,
+        started_at_ms: record_value(contents, "started_at_ms")?.parse().ok()?,
+        timeout_ms: record_value(contents, "timeout_ms")?.parse().ok()?,
+        streaming_display: record_value(contents, "streaming_display")?.parse().ok()?,
+    })
+}
+
+fn record_value<'a>(contents: &'a str, key: &str) -> Option<&'a str> {
+    contents.lines().find_map(|line| {
+        let (candidate, value) = line.split_once('=')?;
+        (candidate == key).then_some(value)
+    })
+}
+
+fn generation_cancel_requested(generation_id: &str) -> Result<bool, AppError> {
+    let path = backend_generation_cancel_path();
+    if !path.exists() {
+        return Ok(false);
+    }
+    let contents = fs::read_to_string(&path).map_err(|err| {
+        AppError::runtime(format!(
+            "backend generation cancel marker를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    Ok(record_value(&contents, "generation_id") == Some(generation_id))
+}
+
+fn write_generation_cancel_marker(generation_id: &str) -> Result<(), AppError> {
+    let marker = format!(
+        "generation_id={}\nrequested_at_ms={}\nrequester_pid={}\n",
+        generation_id,
+        now_ms(),
+        std::process::id()
+    );
+    state::atomic_replace_bytes(&backend_generation_cancel_path(), marker.as_bytes())
+}
+
+fn remove_generation_state_if_owned(generation_id: &str) {
+    let _ = remove_generation_state_if_owned_checked(generation_id);
+}
+
+fn remove_generation_state_if_owned_checked(generation_id: &str) -> Result<(), AppError> {
+    let record_path = backend_generation_record_path();
+    let owned = fs::read_to_string(&record_path)
+        .ok()
+        .and_then(|contents| {
+            record_value(&contents, "generation_id").map(|value| value == generation_id)
+        })
+        .unwrap_or(false);
+    if owned {
+        remove_file_if_exists(&record_path)?;
+    }
+    let cancel_path = backend_generation_cancel_path();
+    let owned_marker = fs::read_to_string(&cancel_path)
+        .ok()
+        .and_then(|contents| {
+            record_value(&contents, "generation_id").map(|value| value == generation_id)
+        })
+        .unwrap_or(false);
+    if owned_marker {
+        remove_file_if_exists(&cancel_path)?;
+    }
+    Ok(())
+}
+
 fn backend_install_record_path() -> PathBuf {
     paths::backends_dir()
         .join("llama.cpp")
@@ -1885,6 +2411,14 @@ fn backend_install_record_path() -> PathBuf {
 
 fn backend_sidecar_record_path() -> PathBuf {
     paths::state_dir().join("backend-llama.cpp-sidecar.txt")
+}
+
+fn backend_generation_record_path() -> PathBuf {
+    paths::state_dir().join("backend-active-generation.txt")
+}
+
+fn backend_generation_cancel_path() -> PathBuf {
+    paths::state_dir().join("backend-active-generation.cancel")
 }
 
 fn start_sidecar_with_timeout(
@@ -3203,10 +3737,13 @@ mod tests {
             "감자는 무엇인가?",
             64,
             &CHAT_SAMPLING,
+            true,
         );
 
         assert!(body.contains("\"chat_template_kwargs\":{\"enable_thinking\":false}"));
         assert!(body.contains("\"max_tokens\":64"));
+        assert!(body.contains("\"stream\":true"));
+        assert!(body.contains("\"include_usage\":true"));
         assert!(body.contains("reasoning trace"));
         assert!(body.contains("감자는 무엇인가?"));
     }
@@ -3218,6 +3755,7 @@ mod tests {
             "감자",
             64,
             &CHAT_SAMPLING,
+            true,
         );
 
         assert!(!body.contains("chat_template_kwargs"));
