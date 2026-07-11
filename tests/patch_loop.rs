@@ -232,6 +232,9 @@ fn happy_path_is_restart_safe_and_reports_korean() {
         String::from_utf8_lossy(&run.stderr)
     );
     let run_out = String::from_utf8(run.stdout).unwrap();
+    assert!(!run_out.contains("MODEL ACTION"));
+    assert!(!run_out.contains("- response:"));
+    assert!(run_out.contains("raw response는 표시하지 않음"));
     let proposal = field(&run_out, "proposal id");
     let token = run_out
         .lines()
