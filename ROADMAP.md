@@ -3,10 +3,10 @@
 This roadmap is version-only. New roadmap work must be added as a concrete
 version row.
 
-The execution order, release cycle, and non-skippable gates for the active
+The execution order, release cycle, and non-skippable gates for the
 `v0.29.0`-`v0.41.0` train are defined in
-[docs/release-train.md](docs/release-train.md). The release-blocking foundation
-corrections for the active version are tracked in
+[docs/release-train.md](docs/release-train.md). The v0.29.0 release-blocking
+foundation corrections, retained by v0.29.1, are recorded in
 [docs/v0.29-correction-plan.md](docs/v0.29-correction-plan.md).
 
 `rolling-potato` is a local coding-agent runtime for small local models. The
@@ -54,7 +54,8 @@ evidence.
 | v0.28.3 | Superseded | Serialized release test gate still hit GitHub runner shutdown after the sidecar timeout fixture, before artifact publication |
 | v0.28.4 | Superseded | Release-runner-safe skip gate still failed because the stale-record test exposed a Unix PID wrap hazard |
 | v0.28.5 | Released | Complete Linux/macOS/Windows release artifacts: Unix PID guard for stale sidecar records, restored full serialized release gate, per-target build/smoke/package jobs, Linux x86_64 and Linux ARM64 tarballs, and aggregate checksum publication |
-| v0.29.0 | Released | Durable single-agent runtime correction: preserve the restart-safe patch loop while restoring generic workflow/action boundaries, non-patch `run`, ontology-backed context, separate apply/verification approvals, canonical ledger authority, and deterministic Korean reporting |
+| v0.29.0 | Superseded | Durable single-agent runtime correction shipped, but the Windows `.sha256` CRLF ending made the aggregate checksum fail Unix `shasum -c` validation |
+| v0.29.1 | Released | Cross-platform aggregate checksum fix: explicit ASCII/LF Windows checksum output plus LF/CRLF regression guards, retaining the v0.29.0 runtime correction |
 | v0.30.0 | Planned | Verified model adoption: finish source-backed Qwen/Gemma candidate evaluation, record local backend/RAM/mmproj/benchmark evidence, promote only candidates that pass the install gate, and provide managed model install/default selection without bundling weights |
 | v0.31.0 | Planned | Backend streaming and cancellation: stream managed-sidecar responses, support generation cancellation and timeout cleanup, and record lifecycle/resource evidence without weakening policy gates |
 | v0.32.0 | Planned | Durable conversation resume: persist user/model/tool/evidence transcript records, rebuild bounded context from source pointers, and make `resume`/`continue` continue an interrupted workflow instead of selecting only a session id |

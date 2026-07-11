@@ -1,5 +1,40 @@
 # 릴리즈 노트
 
+## v0.29.1 - 크로스 플랫폼 Aggregate Checksum 수정
+
+릴리즈 날짜: 2026-07-11
+
+이 patch release는 v0.29.0의 모든 release asset을 독립적으로 내려받아 검증하는 과정에서
+발견한 Windows checksum 줄바꿈 문제를 수정합니다. PowerShell이 Windows `.sha256` file을
+CRLF로 기록해 aggregate checksum의 zip filename에 보이지 않는 carriage return이 남았고,
+Unix `shasum -c`가 실패했습니다. v0.29.1은 v0.29.0 publication을 supersede하면서 해당
+runtime 변경은 그대로 유지합니다.
+
+### 포함된 것
+
+- Windows checksum을 명시적인 ASCII encoding과 LF terminator로 기록합니다.
+- Per-asset과 aggregate checksum file의 carriage return을 거부합니다.
+- Release target guard에서 유효한 LF와 잘못된 CRLF fixture를 검증합니다.
+- 5개 플랫폼 build, packaged binary smoke, Windows uninstall smoke, aggregate checksum
+  publication은 그대로 유지합니다.
+
+### 구현 중 검증한 것
+
+- `bash -n scripts/release/verify-checksum-basenames.sh`
+- `bash -n scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1` (294 tests)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-binary-smoke.sh`를 통한 release binary `doctor` smoke
+
+### 경계
+
+이 릴리즈는 packaging과 checksum validation만 변경합니다. v0.29 runtime 동작, model
+manifest, 지원 target matrix는 변경하지 않습니다.
+
 ## v0.29.0 - 지속 가능한 Single-Agent Runtime 보정
 
 릴리즈 날짜: 2026-07-11

@@ -18,10 +18,26 @@ for checksum_file in "$@"; do
   while IFS= read -r line || [ -n "$line" ]; do
     [ -z "$line" ] && continue
 
+    case "$line" in
+      *$'\r'*)
+        fail "checksum lines must use LF endings: $checksum_file"
+        ;;
+    esac
+
     set -- $line
     if [ "$#" -ne 2 ]; then
       fail "checksum line must have exactly hash and basename fields: $checksum_file"
     fi
+
+    checksum="$1"
+    if [ "${#checksum}" -ne 64 ]; then
+      fail "checksum hash must contain exactly 64 hexadecimal characters: $checksum_file"
+    fi
+    case "$checksum" in
+      *[!0-9A-Fa-f]*)
+        fail "checksum hash must be hexadecimal: $checksum_file"
+        ;;
+    esac
 
     asset_name="$2"
     case "$asset_name" in

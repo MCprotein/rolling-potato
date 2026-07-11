@@ -150,7 +150,8 @@ jobs:
           $archive = "dist/$env:ASSET_BASE.zip"
           Compress-Archive -Path "$packageDir/*" -DestinationPath $archive -Force
           $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
-          "$hash  $env:ASSET_BASE.zip" | Out-File -FilePath "$archive.sha256" -Encoding ascii
+          $checksumLine = "$hash  $env:ASSET_BASE.zip`n"
+          [System.IO.File]::WriteAllText("$archive.sha256", $checksumLine, [System.Text.Encoding]::ASCII)
 
       - name: Verify checksum paths
         shell: bash

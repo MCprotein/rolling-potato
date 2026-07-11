@@ -1,5 +1,40 @@
 # Release Notes
 
+## v0.29.1 - Cross-Platform Aggregate Checksum Fix
+
+Release date: 2026-07-11
+
+This patch release fixes the Windows checksum line ending discovered by
+independently downloading and verifying all v0.29.0 release assets. PowerShell
+emitted the Windows `.sha256` file with CRLF, so the aggregate checksum retained
+an invisible carriage return in the zip filename and failed `shasum -c` on Unix.
+v0.29.1 supersedes the v0.29.0 publication while retaining its runtime changes.
+
+### Included
+
+- Write the Windows checksum with explicit ASCII encoding and an LF terminator.
+- Reject carriage returns in per-asset and aggregate checksum files.
+- Exercise valid LF and invalid CRLF fixtures in the release target guard.
+- Keep the five-platform build, packaged binary smoke, Windows uninstall smoke,
+  and aggregate checksum publication unchanged.
+
+### Verified During Implementation
+
+- `bash -n scripts/release/verify-checksum-basenames.sh`
+- `bash -n scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1` (294 tests)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- Release-binary `doctor` smoke through `scripts/release/verify-release-binary-smoke.sh`
+
+### Boundary
+
+This release changes packaging and checksum validation only. It does not alter
+the v0.29 runtime behavior, model manifests, or supported target matrix.
+
 ## v0.29.0 - Durable Single-Agent Runtime Correction
 
 Release date: 2026-07-11
