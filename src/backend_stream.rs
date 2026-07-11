@@ -1,12 +1,17 @@
+use std::collections::BTreeMap;
 use std::io::{ErrorKind, Read, Write};
 use std::net::{Shutdown, TcpStream, ToSocketAddrs};
 use std::time::{Duration, Instant};
 
 use crate::app::AppError;
+use crate::strict_json::Value;
 
 const READ_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_HTTP_HEADERS_BYTES: usize = 64 * 1024;
 const MAX_SSE_EVENT_BYTES: usize = 1024 * 1024;
+const MAX_HTTP_CHUNK_BYTES: usize = MAX_SSE_EVENT_BYTES;
+const MAX_HTTP_BODY_BUFFER_BYTES: usize = MAX_SSE_EVENT_BYTES + 64 * 1024;
+const MAX_COMPLETION_BYTES: usize = 2 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StreamTermination {
@@ -15,7 +20,7 @@ pub enum StreamTermination {
     TimedOut,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct StreamCompletion {
     pub content: String,
     pub finish_reason: String,
@@ -41,6 +46,10 @@ pub fn post_chat_stream(
     mut cancel_requested: impl FnMut() -> Result<bool, AppError>,
     mut on_delta: impl FnMut(&str) -> Result<(), AppError>,
 ) -> Result<StreamOutcome, AppError> {
+    let started_at = Instant::now();
+    if cancel_requested()? {
+        return Ok(empty_outcome(StreamTermination::Cancelled));
+    }
     let address = format!("{host}:{port}");
     let mut addresses = address.to_socket_addrs().map_err(|err| {
         AppError::runtime(format!("backend address resolve 실패: {address} ({err})"))
@@ -48,21 +57,46 @@ pub fn post_chat_stream(
     let socket_addr = addresses
         .next()
         .ok_or_else(|| AppError::runtime(format!("backend address 없음: {address}")))?;
-    let mut stream = TcpStream::connect_timeout(&socket_addr, timeout)
-        .map_err(|err| AppError::runtime(format!("backend 연결 실패: {socket_addr} ({err})")))?;
-    let _ = stream.set_read_timeout(Some(READ_POLL_INTERVAL.min(timeout)));
-    let _ = stream.set_write_timeout(Some(timeout));
+    let Some(connect_timeout) = remaining_timeout(started_at, timeout) else {
+        return Ok(empty_outcome(StreamTermination::TimedOut));
+    };
+    let mut stream = match TcpStream::connect_timeout(&socket_addr, connect_timeout) {
+        Ok(stream) => stream,
+        Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
+            return Ok(empty_outcome(StreamTermination::TimedOut));
+        }
+        Err(err) => {
+            return Err(AppError::runtime(format!(
+                "backend 연결 실패: {socket_addr} ({err})"
+            )));
+        }
+    };
+    if cancel_requested()? {
+        let _ = stream.shutdown(Shutdown::Both);
+        return Ok(empty_outcome(StreamTermination::Cancelled));
+    }
+    let Some(write_timeout) = remaining_timeout(started_at, timeout) else {
+        let _ = stream.shutdown(Shutdown::Both);
+        return Ok(empty_outcome(StreamTermination::TimedOut));
+    };
+    let _ = stream.set_read_timeout(Some(READ_POLL_INTERVAL.min(write_timeout)));
 
     let request = format!(
         "POST {path} HTTP/1.1\r\nHost: {host}:{port}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nAccept: text/event-stream\r\nConnection: close\r\n\r\n{}",
         body.len(),
         body
     );
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|err| AppError::runtime(format!("backend request write 실패: {err}")))?;
+    if let Some(termination) = write_request_with_polling(
+        &mut stream,
+        request.as_bytes(),
+        started_at,
+        timeout,
+        &mut cancel_requested,
+    )? {
+        let _ = stream.shutdown(Shutdown::Both);
+        return Ok(empty_outcome(termination));
+    }
 
-    let started_at = Instant::now();
     let mut http = HttpResponseDecoder::default();
     let mut sse = ChatSseDecoder::default();
     let mut read_buffer = [0_u8; 16 * 1024];
@@ -102,9 +136,9 @@ pub fn post_chat_stream(
                 for body_chunk in http.push(&read_buffer[..read_bytes])? {
                     sse.push(&body_chunk, started_at.elapsed(), &mut on_delta)?;
                 }
-                if let Some(status_line) = http.failed_status_line() {
+                if let Some(status_code) = http.failed_status_code() {
                     return Err(AppError::blocked(format!(
-                        "backend request 실패\n- endpoint: {path}\n- status: {status_line}"
+                        "backend request 실패\n- endpoint: {path}\n- status code: {status_code}"
                     )));
                 }
                 if sse.done {
@@ -125,10 +159,61 @@ pub fn post_chat_stream(
     }
 }
 
+fn write_request_with_polling(
+    stream: &mut TcpStream,
+    request: &[u8],
+    started_at: Instant,
+    timeout: Duration,
+    cancel_requested: &mut impl FnMut() -> Result<bool, AppError>,
+) -> Result<Option<StreamTermination>, AppError> {
+    let mut written = 0;
+    while written < request.len() {
+        if cancel_requested()? {
+            return Ok(Some(StreamTermination::Cancelled));
+        }
+        let Some(remaining) = remaining_timeout(started_at, timeout) else {
+            return Ok(Some(StreamTermination::TimedOut));
+        };
+        stream
+            .set_write_timeout(Some(READ_POLL_INTERVAL.min(remaining)))
+            .map_err(|err| {
+                AppError::runtime(format!("backend request write timeout 설정 실패: {err}"))
+            })?;
+        match stream.write(&request[written..]) {
+            Ok(0) => {
+                return Err(AppError::runtime(
+                    "backend request write가 완료 전에 종료되었습니다.",
+                ));
+            }
+            Ok(bytes) => written += bytes,
+            Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+            Err(err) => {
+                return Err(AppError::runtime(format!(
+                    "backend request write 실패: {err}"
+                )));
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn remaining_timeout(started_at: Instant, timeout: Duration) -> Option<Duration> {
+    timeout
+        .checked_sub(started_at.elapsed())
+        .filter(|remaining| !remaining.is_zero())
+}
+
+fn empty_outcome(termination: StreamTermination) -> StreamOutcome {
+    StreamOutcome {
+        termination,
+        completion: StreamCompletion::default(),
+    }
+}
+
 #[derive(Debug, Default)]
 struct HttpResponseDecoder {
     buffer: Vec<u8>,
-    status_line: Option<String>,
+    status_code: Option<u16>,
     headers_complete: bool,
     chunked: bool,
     chunk_remaining: Option<usize>,
@@ -151,7 +236,16 @@ impl HttpResponseDecoder {
             let headers = String::from_utf8(header_bytes).map_err(|_| {
                 AppError::blocked("backend response header가 유효한 UTF-8이 아닙니다.")
             })?;
-            self.status_line = headers.lines().next().map(str::to_string);
+            let status_code = headers
+                .lines()
+                .next()
+                .and_then(|line| line.split_ascii_whitespace().nth(1))
+                .and_then(|value| value.parse::<u16>().ok())
+                .filter(|value| (100..=599).contains(value))
+                .ok_or_else(|| {
+                    AppError::blocked("backend response status line 형식이 유효하지 않습니다.")
+                })?;
+            self.status_code = Some(status_code);
             self.chunked = headers.lines().skip(1).any(|line| {
                 line.split_once(':')
                     .map(|(name, value)| {
@@ -166,8 +260,13 @@ impl HttpResponseDecoder {
             self.headers_complete = true;
         }
 
-        if self.failed_status_line().is_some() || self.body_complete {
+        if self.failed_status_code().is_some() || self.body_complete {
             return Ok(Vec::new());
+        }
+        if self.buffer.len() > MAX_HTTP_BODY_BUFFER_BYTES {
+            return Err(AppError::blocked(
+                "backend response body buffer가 허용 크기를 초과했습니다.",
+            ));
         }
         if !self.chunked {
             if self.buffer.is_empty() {
@@ -192,6 +291,11 @@ impl HttpResponseDecoder {
                         "backend chunk size를 해석하지 못했습니다: {size_line}"
                     ))
                 })?;
+                if size > MAX_HTTP_CHUNK_BYTES {
+                    return Err(AppError::blocked(format!(
+                        "backend chunk가 허용 크기를 초과했습니다: {size} bytes"
+                    )));
+                }
                 self.buffer.drain(..line_end + 2);
                 if size == 0 {
                     self.body_complete = true;
@@ -201,7 +305,10 @@ impl HttpResponseDecoder {
             }
 
             let size = self.chunk_remaining.unwrap_or(0);
-            if self.buffer.len() < size + 2 {
+            let framed_size = size.checked_add(2).ok_or_else(|| {
+                AppError::blocked("backend chunk framing 크기가 overflow되었습니다.")
+            })?;
+            if self.buffer.len() < framed_size {
                 break;
             }
             if &self.buffer[size..size + 2] != b"\r\n" {
@@ -216,13 +323,8 @@ impl HttpResponseDecoder {
         Ok(output)
     }
 
-    fn failed_status_line(&self) -> Option<&str> {
-        let status_line = self.status_line.as_deref()?;
-        if status_line.contains(" 200 ") || status_line.ends_with(" 200") {
-            None
-        } else {
-            Some(status_line)
-        }
+    fn failed_status_code(&self) -> Option<u16> {
+        self.status_code.filter(|code| *code != 200)
     }
 }
 
@@ -292,24 +394,39 @@ impl ChatSseDecoder {
             self.done = true;
             return Ok(());
         }
-        if data.contains("\"error\":") {
-            return Err(AppError::blocked(format!(
-                "backend streaming response 오류: {}",
-                preview_for_error(&data)
-            )));
+        let value = crate::strict_json::parse_value(&data, "backend SSE event")
+            .map_err(|_| malformed_sse_event())?;
+        let Value::Object(object) = value else {
+            return Err(malformed_sse_event());
+        };
+        if object.contains_key("error") {
+            return Err(AppError::blocked(
+                "backend streaming response 오류\n- category: upstream-error-event",
+            ));
+        }
+        let choice = first_choice(&object)?;
+
+        if let Some(choice) = choice {
+            match choice.get("finish_reason") {
+                Some(Value::String(reason)) => self.finish_reason = Some(reason.clone()),
+                Some(Value::Null) | None => {}
+                Some(_) => return Err(malformed_sse_event()),
+            }
+        }
+        if let Some(Value::Object(usage)) = object.get("usage") {
+            self.prompt_tokens = json_u32(usage, "prompt_tokens")?.or(self.prompt_tokens);
+            self.completion_tokens =
+                json_u32(usage, "completion_tokens")?.or(self.completion_tokens);
+            self.total_tokens = json_u32(usage, "total_tokens")?.or(self.total_tokens);
+        } else if object.contains_key("usage") && !matches!(object.get("usage"), Some(Value::Null))
+        {
+            return Err(malformed_sse_event());
         }
 
-        if let Some(reason) = extract_json_string_value(&data, "finish_reason") {
-            self.finish_reason = Some(reason);
-        }
-        self.prompt_tokens = extract_json_u32_value(&data, "prompt_tokens").or(self.prompt_tokens);
-        self.completion_tokens =
-            extract_json_u32_value(&data, "completion_tokens").or(self.completion_tokens);
-        self.total_tokens = extract_json_u32_value(&data, "total_tokens").or(self.total_tokens);
-
-        if let Some(delta) = extract_json_string_value(&data, "content") {
+        if let Some(delta) = choice.map(choice_content).transpose()?.flatten() {
             let safe = self.reasoning_filter.push(&delta);
             if !safe.is_empty() {
+                self.ensure_completion_capacity(safe.len())?;
                 if self.first_token_latency_ms.is_none() {
                     self.first_token_latency_ms = Some(elapsed.as_millis());
                 }
@@ -326,8 +443,18 @@ impl ChatSseDecoder {
     ) -> Result<(), AppError> {
         let safe = self.reasoning_filter.finish();
         if !safe.is_empty() {
+            self.ensure_completion_capacity(safe.len())?;
             self.content.push_str(&safe);
             on_delta(&safe)?;
+        }
+        Ok(())
+    }
+
+    fn ensure_completion_capacity(&self, additional: usize) -> Result<(), AppError> {
+        if self.content.len().saturating_add(additional) > MAX_COMPLETION_BYTES {
+            return Err(AppError::blocked(
+                "backend filtered completion이 허용 크기를 초과했습니다.",
+            ));
         }
         Ok(())
     }
@@ -420,66 +547,49 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .position(|window| window == needle)
 }
 
-fn extract_json_string_value(text: &str, key: &str) -> Option<String> {
-    let needle = format!("\"{key}\":");
-    let start = text.find(&needle)? + needle.len();
-    let mut chars = text[start..].chars().peekable();
-    while matches!(chars.peek(), Some(ch) if ch.is_whitespace()) {
-        chars.next();
-    }
-    if chars.next()? != '"' {
-        return None;
-    }
-
-    let mut value = String::new();
-    while let Some(ch) = chars.next() {
-        match ch {
-            '"' => return Some(value),
-            '\\' => match chars.next()? {
-                '"' => value.push('"'),
-                '\\' => value.push('\\'),
-                '/' => value.push('/'),
-                'b' => value.push('\u{0008}'),
-                'f' => value.push('\u{000c}'),
-                'n' => value.push('\n'),
-                'r' => value.push('\r'),
-                't' => value.push('\t'),
-                'u' => {
-                    let mut code = String::new();
-                    for _ in 0..4 {
-                        code.push(chars.next()?);
-                    }
-                    let scalar = u32::from_str_radix(&code, 16).ok()?;
-                    value.push(char::from_u32(scalar)?);
-                }
-                other => value.push(other),
-            },
-            other => value.push(other),
-        }
-    }
-    None
+fn malformed_sse_event() -> AppError {
+    AppError::blocked("backend streaming response 오류\n- category: upstream-malformed-event")
 }
 
-fn extract_json_u32_value(text: &str, key: &str) -> Option<u32> {
-    let needle = format!("\"{key}\":");
-    let start = text.find(&needle)? + needle.len();
-    let number: String = text[start..]
-        .trim_start()
-        .chars()
-        .take_while(|ch| ch.is_ascii_digit())
-        .collect();
-    (!number.is_empty())
-        .then(|| number.parse::<u32>().ok())
-        .flatten()
+fn first_choice(
+    object: &BTreeMap<String, Value>,
+) -> Result<Option<&BTreeMap<String, Value>>, AppError> {
+    let Some(choices) = object.get("choices") else {
+        return Ok(None);
+    };
+    let Value::Array(choices) = choices else {
+        return Err(malformed_sse_event());
+    };
+    let Some(choice) = choices.first() else {
+        return Ok(None);
+    };
+    let Value::Object(choice) = choice else {
+        return Err(malformed_sse_event());
+    };
+    Ok(Some(choice))
 }
 
-fn preview_for_error(value: &str) -> String {
-    let compact = value.replace(['\r', '\n', '\t'], " ");
-    let preview: String = compact.chars().take(200).collect();
-    if compact.chars().count() > 200 {
-        format!("{preview}...")
-    } else {
-        preview
+fn choice_content(choice: &BTreeMap<String, Value>) -> Result<Option<String>, AppError> {
+    let Some(delta) = choice.get("delta") else {
+        return Ok(None);
+    };
+    let Value::Object(delta) = delta else {
+        return Err(malformed_sse_event());
+    };
+    match delta.get("content") {
+        Some(Value::String(content)) => Ok(Some(content.clone())),
+        Some(Value::Null) | None => Ok(None),
+        Some(_) => Err(malformed_sse_event()),
+    }
+}
+
+fn json_u32(object: &BTreeMap<String, Value>, key: &str) -> Result<Option<u32>, AppError> {
+    match object.get(key) {
+        Some(Value::Number(value)) => u32::try_from(*value)
+            .map(Some)
+            .map_err(|_| malformed_sse_event()),
+        Some(_) => Err(malformed_sse_event()),
+        None => Ok(None),
     }
 }
 
@@ -487,7 +597,8 @@ fn preview_for_error(value: &str) -> String {
 mod tests {
     use super::*;
     use std::net::TcpListener;
-    use std::sync::mpsc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{mpsc, Arc};
     use std::thread;
 
     #[test]
@@ -599,7 +710,128 @@ mod tests {
             .unwrap_err();
 
         assert!(error.message.contains("streaming response"));
-        assert!(error.message.contains("model unavailable"));
+        assert!(error.message.contains("upstream-error-event"));
+        assert!(!error.message.contains("model unavailable"));
+    }
+
+    #[test]
+    fn rejects_whitespace_variant_error_without_emitting_nested_content() {
+        let mut decoder = ChatSseDecoder::default();
+        let mut streamed = String::new();
+        let error = decoder
+            .push(
+                b"data: {\"error\" : {\"content\":\"sensitive detail\"}}\n\n",
+                Duration::from_millis(1),
+                &mut |delta| {
+                    streamed.push_str(delta);
+                    Ok(())
+                },
+            )
+            .unwrap_err();
+
+        assert!(error.message.contains("upstream-error-event"));
+        assert!(!error.message.contains("sensitive detail"));
+        assert!(streamed.is_empty());
+        assert!(decoder.content.is_empty());
+    }
+
+    #[test]
+    fn rejects_oversized_and_overflowing_chunk_declarations() {
+        for size in [
+            format!("{:X}", MAX_HTTP_CHUNK_BYTES + 1),
+            format!("{:X}", usize::MAX),
+        ] {
+            let response =
+                format!("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n{size}\r\n");
+            let mut decoder = HttpResponseDecoder::default();
+            let error = decoder.push(response.as_bytes()).unwrap_err();
+
+            assert!(error.message.contains("허용 크기"));
+        }
+    }
+
+    #[test]
+    fn rejects_incomplete_body_buffer_over_limit() {
+        let mut decoder = HttpResponseDecoder::default();
+        decoder
+            .push(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n100000\r\n")
+            .unwrap();
+        let error = decoder
+            .push(&vec![b'x'; MAX_HTTP_BODY_BUFFER_BYTES + 1])
+            .unwrap_err();
+
+        assert!(error.message.contains("body buffer"));
+    }
+
+    #[test]
+    fn rejects_many_valid_events_over_total_completion_limit() {
+        let mut decoder = ChatSseDecoder::default();
+        let chunk = "가".repeat(300_000);
+        let event =
+            format!("data: {{\"choices\":[{{\"delta\":{{\"content\":\"{chunk}\"}}}}]}}\n\n");
+        let mut error = None;
+        for _ in 0..3 {
+            match decoder.push(event.as_bytes(), Duration::from_millis(1), &mut |_| Ok(())) {
+                Ok(()) => {}
+                Err(err) => {
+                    error = Some(err);
+                    break;
+                }
+            }
+        }
+
+        let error = error.expect("누적 completion 제한을 초과해야 합니다.");
+        assert!(error.message.contains("filtered completion"));
+        assert!(decoder.content.len() <= MAX_COMPLETION_BYTES);
+    }
+
+    #[test]
+    fn reasoning_filter_finish_cannot_exceed_total_completion_limit() {
+        let mut decoder = ChatSseDecoder {
+            content: "x".repeat(MAX_COMPLETION_BYTES),
+            ..ChatSseDecoder::default()
+        };
+        assert!(decoder.reasoning_filter.push("<thin").is_empty());
+        let mut streamed = String::new();
+
+        let error = decoder
+            .finish(&mut |delta| {
+                streamed.push_str(delta);
+                Ok(())
+            })
+            .unwrap_err();
+
+        assert!(error.message.contains("filtered completion"));
+        assert!(streamed.is_empty());
+        assert_eq!(decoder.content.len(), MAX_COMPLETION_BYTES);
+    }
+
+    #[test]
+    fn total_timeout_includes_work_before_connect() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let started = Instant::now();
+        let mut checks = 0;
+
+        let outcome = post_chat_stream(
+            "127.0.0.1",
+            port,
+            "/v1/chat/completions",
+            "{}",
+            Duration::from_millis(10),
+            || {
+                checks += 1;
+                if checks == 1 {
+                    thread::sleep(Duration::from_millis(25));
+                }
+                Ok(false)
+            },
+            |_| Ok(()),
+        )
+        .unwrap();
+
+        assert_eq!(outcome.termination, StreamTermination::TimedOut);
+        assert!(started.elapsed() < Duration::from_secs(1));
     }
 
     #[test]
@@ -697,15 +929,18 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         let (closed_tx, closed_rx) = mpsc::channel();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancellation_flag = Arc::clone(&cancelled);
         let server = thread::spawn(move || {
             let (mut socket, _) = listener.accept().unwrap();
             read_http_request(&mut socket);
+            cancellation_flag.store(true, Ordering::Release);
             socket
                 .set_read_timeout(Some(Duration::from_secs(1)))
                 .unwrap();
             let mut byte = [0_u8; 1];
             closed_tx
-                .send(socket.read(&mut byte).unwrap_or(0) == 0)
+                .send(socket_close_result(socket.read(&mut byte)))
                 .unwrap();
         });
 
@@ -715,14 +950,57 @@ mod tests {
             "/v1/chat/completions",
             "{}",
             Duration::from_secs(2),
-            || Ok(true),
+            || Ok(cancelled.load(Ordering::Acquire)),
             |_| Ok(()),
         )
         .unwrap();
         server.join().unwrap();
 
         assert_eq!(outcome.termination, StreamTermination::Cancelled);
-        assert!(closed_rx.recv().unwrap());
+        closed_rx.recv().unwrap().unwrap();
+    }
+
+    #[test]
+    fn cancellation_interrupts_a_stalled_request_upload() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (accepted_tx, accepted_rx) = mpsc::channel();
+        let (closed_tx, closed_rx) = mpsc::channel();
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            accepted_tx.send(()).unwrap();
+            thread::sleep(Duration::from_millis(300));
+            closed_tx
+                .send(socket_eventually_closed(&mut socket))
+                .unwrap();
+        });
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancellation_flag = Arc::clone(&cancelled);
+        let canceller = thread::spawn(move || {
+            accepted_rx.recv().unwrap();
+            thread::sleep(Duration::from_millis(50));
+            cancellation_flag.store(true, Ordering::Release);
+        });
+        let body = "x".repeat(32 * 1024 * 1024);
+        let started = Instant::now();
+
+        let outcome = post_chat_stream(
+            "127.0.0.1",
+            port,
+            "/v1/chat/completions",
+            &body,
+            Duration::from_secs(2),
+            || Ok(cancelled.load(Ordering::Acquire)),
+            |_| Ok(()),
+        )
+        .unwrap();
+        let elapsed = started.elapsed();
+        canceller.join().unwrap();
+        server.join().unwrap();
+
+        assert_eq!(outcome.termination, StreamTermination::Cancelled);
+        assert!(elapsed < Duration::from_millis(500));
+        closed_rx.recv().unwrap().unwrap();
     }
 
     #[test]
@@ -738,7 +1016,7 @@ mod tests {
                 .unwrap();
             let mut byte = [0_u8; 1];
             closed_tx
-                .send(socket.read(&mut byte).unwrap_or(0) == 0)
+                .send(socket_close_result(socket.read(&mut byte)))
                 .unwrap();
         });
 
@@ -755,7 +1033,53 @@ mod tests {
         server.join().unwrap();
 
         assert_eq!(outcome.termination, StreamTermination::TimedOut);
-        assert!(closed_rx.recv().unwrap());
+        closed_rx.recv().unwrap().unwrap();
+    }
+
+    fn socket_close_result(result: std::io::Result<usize>) -> Result<(), String> {
+        match result {
+            Ok(0) => Ok(()),
+            Err(err)
+                if matches!(
+                    err.kind(),
+                    ErrorKind::ConnectionReset
+                        | ErrorKind::ConnectionAborted
+                        | ErrorKind::BrokenPipe
+                ) =>
+            {
+                Ok(())
+            }
+            Ok(bytes) => Err(format!("socket에 종료 후에도 {bytes} byte가 도착했습니다.")),
+            Err(err) => Err(format!("socket 종료 대신 read 오류가 발생했습니다: {err}")),
+        }
+    }
+
+    fn socket_eventually_closed(socket: &mut TcpStream) -> Result<(), String> {
+        socket
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .map_err(|err| err.to_string())?;
+        let mut buffer = [0_u8; 64 * 1024];
+        loop {
+            match socket.read(&mut buffer) {
+                Ok(0) => return Ok(()),
+                Ok(_) => {}
+                Err(err)
+                    if matches!(
+                        err.kind(),
+                        ErrorKind::ConnectionReset
+                            | ErrorKind::ConnectionAborted
+                            | ErrorKind::BrokenPipe
+                    ) =>
+                {
+                    return Ok(());
+                }
+                Err(err) => {
+                    return Err(format!(
+                        "buffered upload를 비운 뒤 socket 종료를 확인하지 못했습니다: {err}"
+                    ));
+                }
+            }
+        }
     }
 
     fn read_http_request(socket: &mut TcpStream) {

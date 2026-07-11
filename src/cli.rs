@@ -626,7 +626,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             parse_backend_chat(rest).map(Command::Backend)
         }
         [group, ..] if group == "backend" => Err(AppError::usage(
-            "backend 명령은 doctor, install-plan, install, start, status, stop, verify-archive, health-check, chat만 허용합니다.",
+            "backend 명령은 doctor, install-plan, install, start, status, stop, cancel, verify-archive, health-check, chat만 허용합니다.",
         )),
         [group, action] if group == "cache" && action == "status" => Ok(Command::CacheStatus),
         [group, action] if group == "monitor" && action == "status" => {
@@ -2281,6 +2281,13 @@ mod tests {
         let command = parse(["backend".to_string(), "cancel".to_string()]).unwrap();
 
         assert_eq!(command, Command::Backend(BackendCommand::Cancel));
+    }
+
+    #[test]
+    fn unknown_backend_command_guidance_includes_cancel() {
+        let error = parse(["backend".to_string(), "unknown".to_string()]).unwrap_err();
+
+        assert!(error.message.contains("stop, cancel, verify-archive"));
     }
 
     #[test]

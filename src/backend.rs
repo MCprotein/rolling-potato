@@ -9,7 +9,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use crate::app::AppError;
 use crate::backend_stream::{self, StreamTermination};
 use crate::paths;
-use crate::{checksum, ledger, model, observability, resource, state};
+use crate::{checksum, korean_guard, ledger, model, observability, resource, state};
 
 const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 const DEFAULT_HOST: &str = "127.0.0.1";
@@ -24,6 +24,8 @@ const STOP_TIMEOUT_MS: u64 = 5_000;
 const CHAT_TIMEOUT_MS: u64 = 30_000;
 pub const MAX_CHAT_TIMEOUT_MS: u32 = 300_000;
 const CANCEL_WAIT_MS: u64 = 2_000;
+const STOP_CANCEL_WAIT_MS: u64 = 5_000;
+const TERMINAL_RECORD_RETENTION_MS: u128 = 5 * 60 * 1_000;
 const DEFAULT_CHAT_MAX_TOKENS: u32 = 128;
 const CHAT_SAMPLING: BackendChatSampling = BackendChatSampling {
     temperature: 0.1,
@@ -152,6 +154,14 @@ struct BackendGenerationRecord {
     started_at_ms: u128,
     timeout_ms: u32,
     streaming_display: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BackendGenerationTerminalRecord {
+    generation_id: String,
+    outcome: String,
+    lifecycle_event: String,
+    recorded_at_ms: u128,
 }
 
 struct GenerationTerminalContext {
@@ -629,19 +639,7 @@ pub fn stop_report() -> Result<String, AppError> {
 
     let command_matched = process_command_matches_record(&record);
 
-    if let Some(generation) = read_backend_generation_record()? {
-        if generation.sidecar_pid == record.pid && process_is_running(generation.client_pid) {
-            write_generation_cancel_marker(&generation.generation_id)?;
-            state::record_event(
-                "backend.generation.cancel.requested",
-                "backend stop 전 generation 취소 요청",
-                &format!(
-                    "generation_id={} client_pid={} sidecar_pid={} requester=backend-stop",
-                    generation.generation_id, generation.client_pid, generation.sidecar_pid
-                ),
-            )?;
-        }
-    }
+    let generation_outcome = cancel_active_generation_before_stop(&record)?;
 
     terminate_process(record.pid, false)?;
     let stopped = wait_until_process_stops(record.pid, Duration::from_millis(STOP_TIMEOUT_MS));
@@ -659,21 +657,75 @@ pub fn stop_report() -> Result<String, AppError> {
         "backend.sidecar.stop.completed",
         "backend sidecar 종료 완료",
         &format!(
-            "pid={} binary={} command_matched={}",
+            "pid={} binary={} command_matched={} generation_outcome={}",
             record.pid,
             record.binary_path.display(),
-            command_matched
+            command_matched,
+            generation_outcome
         ),
     )?;
 
     Ok(format!(
-        "backend stop\n- status: stopped\n- pid: {}\n- command matched: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
+        "backend stop\n- status: stopped\n- pid: {}\n- command matched: {}\n- generation outcome: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
         record.pid,
         command_matched,
+        generation_outcome,
         record.stdout_log.display(),
         record.stderr_log.display(),
         event_id
     ))
+}
+
+fn cancel_active_generation_before_stop(record: &BackendSidecarRecord) -> Result<String, AppError> {
+    let mut generation_outcome = "none".to_string();
+    if let Some(generation) = read_backend_generation_record()? {
+        if generation.sidecar_pid == record.pid && process_is_running(generation.client_pid) {
+            write_generation_cancel_marker(&generation.generation_id)?;
+            state::record_event(
+                "backend.generation.cancel.requested",
+                "backend stop 전 generation 취소 요청",
+                &format!(
+                    "generation_id={} client_pid={} sidecar_pid={} requester=backend-stop",
+                    generation.generation_id, generation.client_pid, generation.sidecar_pid
+                ),
+            )?;
+            if let Some(terminal) = wait_for_generation_terminal(
+                &generation.generation_id,
+                Duration::from_millis(STOP_CANCEL_WAIT_MS),
+            )? {
+                generation_outcome = terminal.outcome;
+                remove_generation_state_if_owned_checked(&generation.generation_id)?;
+                remove_file_if_exists(&backend_generation_terminal_path(
+                    &generation.generation_id,
+                ))?;
+            } else {
+                generation_outcome = "forced-sidecar-stop".to_string();
+                state::record_event(
+                    "backend.generation.cancel.force-stop",
+                    "generation cancellation acknowledgement timeout",
+                    &format!(
+                        "generation_id={} client_pid={} sidecar_pid={} wait_ms={}",
+                        generation.generation_id,
+                        generation.client_pid,
+                        generation.sidecar_pid,
+                        STOP_CANCEL_WAIT_MS
+                    ),
+                )?;
+            }
+        } else if generation.sidecar_pid == record.pid {
+            remove_generation_state_if_owned_checked(&generation.generation_id)?;
+            generation_outcome = "stale-generation-cleaned".to_string();
+            state::record_event(
+                "backend.generation.stale.cleaned",
+                "backend stop 전 stale generation 정리",
+                &format!(
+                    "generation_id={} client_pid={} sidecar_pid={} reason=backend-stop-client-not-running",
+                    generation.generation_id, generation.client_pid, generation.sidecar_pid
+                ),
+            )?;
+        }
+    }
+    Ok(generation_outcome)
 }
 
 pub fn verify_archive_report(path: &str, expected_sha256: &str) -> Result<String, AppError> {
@@ -769,6 +821,7 @@ pub fn chat_stream_report(
     timeout_ms: Option<u32>,
     writer: &mut impl Write,
 ) -> Result<String, AppError> {
+    let mut language_guard = korean_guard::StreamingGuard::default();
     writer
         .write_all(b"backend chat\n- status: streaming\n- response:\n")
         .map_err(|err| AppError::runtime(format!("streaming output write 실패: {err}")))?;
@@ -776,8 +829,16 @@ pub fn chat_stream_report(
         .flush()
         .map_err(|err| AppError::runtime(format!("streaming output flush 실패: {err}")))?;
     let run = chat_once_with_options(prompt, max_tokens, true, timeout_ms, |delta| {
+        let guarded = match delta {
+            Some(delta) => language_guard.push(delta),
+            None => language_guard.finish(),
+        }
+        .map_err(AppError::blocked)?;
+        if guarded.is_empty() {
+            return Ok(());
+        }
         writer
-            .write_all(delta.as_bytes())
+            .write_all(guarded.as_bytes())
             .and_then(|_| writer.flush())
             .map_err(|err| AppError::runtime(format!("streaming output write 실패: {err}")))
     })?;
@@ -838,7 +899,7 @@ fn chat_once_with_options(
     max_tokens: Option<u32>,
     streaming_display: bool,
     timeout_ms: Option<u32>,
-    mut on_delta: impl FnMut(&str) -> Result<(), AppError>,
+    mut on_delta: impl FnMut(Option<&str>) -> Result<(), AppError>,
 ) -> Result<BackendChatRun, AppError> {
     if prompt.trim().is_empty() {
         return Err(AppError::usage(
@@ -954,8 +1015,14 @@ fn chat_once_with_options(
         &body,
         Duration::from_millis(u64::from(timeout_ms)),
         || generation_cancel_requested(&generation.generation_id),
-        &mut on_delta,
+        |delta| on_delta(Some(delta)),
     );
+    let stream_outcome = match stream_outcome {
+        Ok(outcome) if outcome.termination == StreamTermination::Completed => {
+            on_delta(None).map(|()| outcome)
+        }
+        other => other,
+    };
     let elapsed_ms = started_at.elapsed().as_millis();
     let outcome = match stream_outcome {
         Ok(outcome) => outcome,
@@ -964,15 +1031,15 @@ fn chat_once_with_options(
                 "backend.generation.failed",
                 "backend generation 실패",
                 &format!(
-                    "generation_id={} sidecar_pid={} started_event={} timeout_ms={} elapsed_ms={} error={}",
+                    "generation_id={} sidecar_pid={} started_event={} timeout_ms={} elapsed_ms={} error_code={} error_detail=redacted",
                     generation.generation_id,
                     record.pid,
                     started_event,
                     timeout_ms,
-                    elapsed_ms,
-                    preview_for_error(&err.message)
+                    elapsed_ms, err.code
                 ),
             )?;
+            write_generation_terminal_record(&generation.generation_id, "failed", &event_id)?;
             let resource_sample = record_backend_resource_sample(&record, "chat-failed")?;
             let identity = ledger::validated_current_identity()?;
             observability::record_model_run(&observability::ModelRunMetric {
@@ -1085,6 +1152,16 @@ fn chat_once_with_options(
         ),
     )?;
 
+    write_generation_terminal_record(&generation.generation_id, "completed", &event_id)?;
+    let resource_sample = record_backend_resource_sample(
+        &record,
+        if streaming_display {
+            "chat-stream"
+        } else {
+            "chat"
+        },
+    )?;
+
     let identity = ledger::validated_current_identity()?;
     let model_id = model_id_from_path(&record.model_path);
     let model_run_id = format!("model-run-{event_id}");
@@ -1124,15 +1201,6 @@ fn chat_once_with_options(
         tool_summary_tokens: 0,
         max_output_tokens: Some(effective_max_tokens),
     })?;
-    let resource_sample = record_backend_resource_sample(
-        &record,
-        if streaming_display {
-            "chat-stream"
-        } else {
-            "chat"
-        },
-    )?;
-
     if display_content.is_empty() {
         generation_guard.finish()?;
         return Err(AppError::blocked(format!(
@@ -1209,12 +1277,11 @@ fn finish_interrupted_generation(
         }
     };
     let completion = &outcome.completion;
-    let resource_sample = record_backend_resource_sample(record, resource_label)?;
     let event_id = state::record_event(
         event_type,
         "backend generation 중단",
         &format!(
-            "generation_id={} started_event={} client_pid={} sidecar_pid={} status={} timeout_ms={} elapsed_ms={} output_chars={} requested_max_tokens={} effective_max_tokens={} first_token_latency_ms={} prompt_tokens={} completion_tokens={} total_tokens={} resource_sample_event={}",
+            "generation_id={} started_event={} client_pid={} sidecar_pid={} status={} timeout_ms={} elapsed_ms={} output_chars={} requested_max_tokens={} effective_max_tokens={} first_token_latency_ms={} prompt_tokens={} completion_tokens={} total_tokens={}",
             generation.generation_id,
             terminal.started_event,
             generation.client_pid,
@@ -1228,10 +1295,11 @@ fn finish_interrupted_generation(
             display_optional_u128(completion.first_token_latency_ms),
             display_optional_u32(completion.prompt_tokens),
             display_optional_u32(completion.completion_tokens),
-            display_optional_u32(completion.total_tokens),
-            resource_sample.ledger_event
+            display_optional_u32(completion.total_tokens)
         ),
     )?;
+    write_generation_terminal_record(&generation.generation_id, status, &event_id)?;
+    let resource_sample = record_backend_resource_sample(record, resource_label)?;
     let identity = ledger::validated_current_identity()?;
     observability::record_model_run(&observability::ModelRunMetric {
         model_run_id: format!("model-run-{event_id}"),
@@ -1263,7 +1331,6 @@ fn finish_interrupted_generation(
         tool_summary_tokens: 0,
         max_output_tokens: Some(terminal.effective_max_tokens),
     })?;
-
     Err(AppError::runtime(format!(
         "backend chat 중단\n- 상태: {status_label}\n- generation id: {}\n- sidecar pid: {}\n- 경과 시간 ms: {}\n- 부분 출력 문자 수: {}\n- resource sample event: {}\n- lifecycle event: {}\n- sidecar 동작: 계속 실행",
         generation.generation_id,
@@ -1309,32 +1376,30 @@ pub fn cancel_generation_report() -> Result<String, AppError> {
     )?;
 
     let wait_started = Instant::now();
-    let mut acknowledged = false;
-    while wait_started.elapsed() < Duration::from_millis(CANCEL_WAIT_MS) {
-        let still_active = read_backend_generation_record()?
-            .map(|active| active.generation_id == record.generation_id)
-            .unwrap_or(false);
-        if !still_active {
-            acknowledged = true;
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(25));
-    }
-    if acknowledged {
+    let terminal =
+        wait_for_generation_terminal(&record.generation_id, Duration::from_millis(CANCEL_WAIT_MS))?;
+    if terminal.is_some() {
         remove_generation_state_if_owned_checked(&record.generation_id)?;
+        remove_file_if_exists(&backend_generation_terminal_path(&record.generation_id))?;
     }
+    let terminal_outcome = terminal
+        .as_ref()
+        .map(|record| record.outcome.as_str())
+        .unwrap_or("pending");
+    let terminal_event = terminal
+        .as_ref()
+        .map(|record| record.lifecycle_event.as_str())
+        .unwrap_or("not-acknowledged");
 
     Ok(format!(
-        "backend generation cancel\n- status: {}\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- wait ms: {}\n- sidecar action: kept-running\n- ledger event: {}",
-        if acknowledged {
-            "cancelled"
-        } else {
-            "requested"
-        },
+        "backend generation cancel\n- status: {}\n- terminal outcome: {}\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- wait ms: {}\n- sidecar action: kept-running\n- terminal lifecycle event: {}\n- request ledger event: {}",
+        if terminal.is_some() { "acknowledged" } else { "requested" },
+        terminal_outcome,
         record.generation_id,
         record.client_pid,
         record.sidecar_pid,
         wait_started.elapsed().as_millis(),
+        terminal_event,
         event_id
     ))
 }
@@ -1562,18 +1627,6 @@ fn strip_reasoning_trace(content: &str) -> (String, bool) {
     }
     output.push_str(rest);
     (output, stripped)
-}
-
-fn preview_for_error(value: &str) -> String {
-    let compact = value.replace(['\r', '\n', '\t'], " ");
-    let preview: String = compact.chars().take(200).collect();
-    if compact.chars().count() > 200 {
-        format!("{preview}...")
-    } else if preview.is_empty() {
-        "없음".to_string()
-    } else {
-        preview
-    }
 }
 
 fn backend_archive_path(artifact: &BackendReleaseArtifact) -> PathBuf {
@@ -2225,6 +2278,7 @@ fn begin_active_generation(
     timeout_ms: u32,
     streaming_display: bool,
 ) -> Result<BackendGenerationRecord, AppError> {
+    prune_generation_terminal_records();
     if let Some(active) = read_backend_generation_record()? {
         if process_is_running(active.client_pid) {
             return Err(AppError::blocked(format!(
@@ -2239,6 +2293,22 @@ fn begin_active_generation(
             &format!(
                 "generation_id={} client_pid={} sidecar_pid={} reason=next-generation",
                 active.generation_id, active.client_pid, active.sidecar_pid
+            ),
+        )?;
+    } else if let Some(lock) = read_backend_generation_lock_record()? {
+        if process_is_running(lock.client_pid) {
+            return Err(AppError::blocked(format!(
+                "backend chat 차단\n- 이유: generation lease가 publish 중입니다.\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- 다음 단계: 잠시 후 다시 시도하거나 rpotato backend cancel",
+                lock.generation_id, lock.client_pid, lock.sidecar_pid
+            )));
+        }
+        remove_generation_state_if_owned(&lock.generation_id);
+        state::record_event(
+            "backend.generation.stale.cleaned",
+            "publish 전 중단된 backend generation lease 정리",
+            &format!(
+                "generation_id={} client_pid={} sidecar_pid={} reason=unpublished-lock-owner-not-running",
+                lock.generation_id, lock.client_pid, lock.sidecar_pid
             ),
         )?;
     }
@@ -2258,46 +2328,56 @@ fn begin_active_generation(
         timeout_ms,
         streaming_display,
     };
-    remove_file_if_exists(&backend_generation_cancel_path())?;
-    write_backend_generation_record(&record)?;
+    acquire_backend_generation_lock(&record)?;
+    if let Err(err) = write_backend_generation_record(&record) {
+        let _ = remove_generation_lock_if_owned_checked(&record.generation_id);
+        return Err(err);
+    }
     Ok(record)
 }
 
-fn write_backend_generation_record(record: &BackendGenerationRecord) -> Result<(), AppError> {
-    let path = backend_generation_record_path();
+fn acquire_backend_generation_lock(record: &BackendGenerationRecord) -> Result<(), AppError> {
+    let path = backend_generation_lock_path();
     let parent = path.parent().ok_or_else(|| {
         AppError::runtime(format!(
-            "backend generation record parent path를 계산하지 못했습니다: {}",
+            "backend generation lock parent path를 계산하지 못했습니다: {}",
             path.display()
         ))
     })?;
     fs::create_dir_all(parent).map_err(|err| {
         AppError::runtime(format!(
-            "backend generation record directory를 만들지 못했습니다: {} ({err})",
+            "backend generation lock directory를 만들지 못했습니다: {} ({err})",
             parent.display()
         ))
     })?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .map_err(|err| {
+            AppError::blocked(format!(
+                "backend generation lease를 획득하지 못했습니다: {} ({err})",
+                path.display()
+            ))
+        })?;
+    if let Err(err) = file
+        .write_all(render_backend_generation_record(record).as_bytes())
+        .and_then(|_| file.sync_all())
+    {
+        drop(file);
+        let _ = fs::remove_file(&path);
+        return Err(AppError::runtime(format!(
+            "backend generation lease를 기록하지 못했습니다: {} ({err})",
+            path.display()
+        )));
+    }
+    Ok(())
+}
+
+fn write_backend_generation_record(record: &BackendGenerationRecord) -> Result<(), AppError> {
+    let path = backend_generation_record_path();
     let contents = render_backend_generation_record(record);
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-    let mut file = options.open(&path).map_err(|err| {
-        AppError::blocked(format!(
-            "backend active generation record를 생성하지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    file.write_all(contents.as_bytes()).map_err(|err| {
-        AppError::runtime(format!(
-            "backend generation record를 쓰지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    file.sync_all().map_err(|err| {
-        AppError::runtime(format!(
-            "backend generation record를 sync하지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })
+    state::atomic_replace_bytes(&path, contents.as_bytes())
 }
 
 fn render_backend_generation_record(record: &BackendGenerationRecord) -> String {
@@ -2328,6 +2408,27 @@ fn read_backend_generation_record() -> Result<Option<BackendGenerationRecord>, A
         .ok_or_else(|| {
             AppError::blocked(format!(
                 "backend generation record 형식이 유효하지 않습니다: {}",
+                path.display()
+            ))
+        })
+}
+
+fn read_backend_generation_lock_record() -> Result<Option<BackendGenerationRecord>, AppError> {
+    let path = backend_generation_lock_path();
+    if !path.exists() {
+        return Ok(None);
+    }
+    let contents = fs::read_to_string(&path).map_err(|err| {
+        AppError::runtime(format!(
+            "backend generation lock을 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    parse_backend_generation_record(&contents)
+        .map(Some)
+        .ok_or_else(|| {
+            AppError::blocked(format!(
+                "backend generation lock 형식이 유효하지 않습니다: {}",
                 path.display()
             ))
         })
@@ -2375,6 +2476,103 @@ fn write_generation_cancel_marker(generation_id: &str) -> Result<(), AppError> {
     state::atomic_replace_bytes(&backend_generation_cancel_path(), marker.as_bytes())
 }
 
+fn write_generation_terminal_record(
+    generation_id: &str,
+    outcome: &str,
+    lifecycle_event: &str,
+) -> Result<(), AppError> {
+    let record = BackendGenerationTerminalRecord {
+        generation_id: generation_id.to_string(),
+        outcome: outcome.to_string(),
+        lifecycle_event: lifecycle_event.to_string(),
+        recorded_at_ms: now_ms(),
+    };
+    let contents = format!(
+        "generation_id={}\noutcome={}\nlifecycle_event={}\nrecorded_at_ms={}\n",
+        record.generation_id, record.outcome, record.lifecycle_event, record.recorded_at_ms
+    );
+    state::atomic_replace_bytes(
+        &backend_generation_terminal_path(generation_id),
+        contents.as_bytes(),
+    )
+}
+
+fn read_generation_terminal_record(
+    generation_id: &str,
+) -> Result<Option<BackendGenerationTerminalRecord>, AppError> {
+    let path = backend_generation_terminal_path(generation_id);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let contents = fs::read_to_string(&path).map_err(|err| {
+        AppError::runtime(format!(
+            "backend generation terminal record를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    let record = BackendGenerationTerminalRecord {
+        generation_id: record_value(&contents, "generation_id")
+            .ok_or_else(|| AppError::blocked("generation terminal id가 없습니다."))?
+            .to_string(),
+        outcome: record_value(&contents, "outcome")
+            .ok_or_else(|| AppError::blocked("generation terminal outcome이 없습니다."))?
+            .to_string(),
+        lifecycle_event: record_value(&contents, "lifecycle_event")
+            .ok_or_else(|| AppError::blocked("generation terminal lifecycle event가 없습니다."))?
+            .to_string(),
+        recorded_at_ms: record_value(&contents, "recorded_at_ms")
+            .and_then(|value| value.parse().ok())
+            .ok_or_else(|| {
+                AppError::blocked("generation terminal timestamp가 유효하지 않습니다.")
+            })?,
+    };
+    if record.generation_id != generation_id {
+        return Err(AppError::blocked(
+            "generation terminal record id가 요청과 일치하지 않습니다.",
+        ));
+    }
+    Ok(Some(record))
+}
+
+fn wait_for_generation_terminal(
+    generation_id: &str,
+    timeout: Duration,
+) -> Result<Option<BackendGenerationTerminalRecord>, AppError> {
+    let started = Instant::now();
+    loop {
+        if let Some(record) = read_generation_terminal_record(generation_id)? {
+            return Ok(Some(record));
+        }
+        if started.elapsed() >= timeout {
+            return Ok(None);
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+}
+
+fn prune_generation_terminal_records() {
+    let directory = paths::state_dir().join("backend-generation-terminals");
+    let Ok(entries) = fs::read_dir(directory) else {
+        return;
+    };
+    let now = now_ms();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let old = fs::read_to_string(&path)
+            .ok()
+            .and_then(|contents| {
+                record_value(&contents, "recorded_at_ms")?
+                    .parse::<u128>()
+                    .ok()
+            })
+            .map(|recorded| now.saturating_sub(recorded) > TERMINAL_RECORD_RETENTION_MS)
+            .unwrap_or(false);
+        if old {
+            let _ = fs::remove_file(path);
+        }
+    }
+}
+
 fn remove_generation_state_if_owned(generation_id: &str) {
     let _ = remove_generation_state_if_owned_checked(generation_id);
 }
@@ -2400,6 +2598,21 @@ fn remove_generation_state_if_owned_checked(generation_id: &str) -> Result<(), A
     if owned_marker {
         remove_file_if_exists(&cancel_path)?;
     }
+    remove_generation_lock_if_owned_checked(generation_id)?;
+    Ok(())
+}
+
+fn remove_generation_lock_if_owned_checked(generation_id: &str) -> Result<(), AppError> {
+    let path = backend_generation_lock_path();
+    let owned = fs::read_to_string(&path)
+        .ok()
+        .and_then(|contents| {
+            record_value(&contents, "generation_id").map(|value| value == generation_id)
+        })
+        .unwrap_or(false);
+    if owned {
+        remove_file_if_exists(&path)?;
+    }
     Ok(())
 }
 
@@ -2417,8 +2630,18 @@ fn backend_generation_record_path() -> PathBuf {
     paths::state_dir().join("backend-active-generation.txt")
 }
 
+fn backend_generation_lock_path() -> PathBuf {
+    paths::state_dir().join("backend-active-generation.lock")
+}
+
 fn backend_generation_cancel_path() -> PathBuf {
     paths::state_dir().join("backend-active-generation.cancel")
+}
+
+fn backend_generation_terminal_path(generation_id: &str) -> PathBuf {
+    paths::state_dir()
+        .join("backend-generation-terminals")
+        .join(format!("{generation_id}.txt"))
 }
 
 fn start_sidecar_with_timeout(
@@ -3363,6 +3586,28 @@ fn is_executable(path: &Path) -> bool {
 mod tests {
     use super::*;
     use std::fs;
+    use std::sync::{Arc, Barrier};
+    use std::thread;
+
+    fn generation_test_sidecar() -> BackendSidecarRecord {
+        BackendSidecarRecord {
+            backend_id: LLAMA_CPP_BACKEND_ID.to_string(),
+            pid: std::process::id(),
+            binary_path: PathBuf::from("llama-server"),
+            model_path: PathBuf::from("model.gguf"),
+            model_sha256: "a".repeat(64),
+            model_size_bytes: 1,
+            backend_release: "b9878".to_string(),
+            binary_sha256: "b".repeat(64),
+            mmproj: "not-required-text-only".to_string(),
+            host: DEFAULT_HOST.to_string(),
+            port: DEFAULT_PORT,
+            ctx_size: Some(4096),
+            stdout_log: PathBuf::from("stdout.log"),
+            stderr_log: PathBuf::from("stderr.log"),
+            started_at_ms: now_ms(),
+        }
+    }
 
     #[test]
     fn default_discovery_uses_managed_path() {
@@ -3605,6 +3850,187 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
 
         assert_eq!(restored.ctx_size, Some(4096));
+    }
+
+    #[test]
+    fn generation_start_does_not_delete_foreign_cancel_marker() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = env::temp_dir().join(format!(
+            "rpotato-generation-marker-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("project")).unwrap();
+        env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        fs::create_dir_all(paths::state_dir()).unwrap();
+        state::atomic_replace_bytes(
+            &backend_generation_cancel_path(),
+            b"generation_id=another-generation\n",
+        )
+        .unwrap();
+        let sidecar = BackendSidecarRecord {
+            backend_id: LLAMA_CPP_BACKEND_ID.to_string(),
+            pid: std::process::id(),
+            binary_path: PathBuf::from("llama-server"),
+            model_path: PathBuf::from("model.gguf"),
+            model_sha256: "a".repeat(64),
+            model_size_bytes: 1,
+            backend_release: "b9878".to_string(),
+            binary_sha256: "b".repeat(64),
+            mmproj: "not-required-text-only".to_string(),
+            host: DEFAULT_HOST.to_string(),
+            port: DEFAULT_PORT,
+            ctx_size: Some(4096),
+            stdout_log: PathBuf::from("stdout.log"),
+            stderr_log: PathBuf::from("stderr.log"),
+            started_at_ms: now_ms(),
+        };
+
+        let generation = begin_active_generation(&sidecar, 1_000, false).unwrap();
+        let marker = fs::read_to_string(backend_generation_cancel_path()).unwrap();
+
+        assert!(marker.contains("generation_id=another-generation"));
+        remove_generation_state_if_owned_checked(&generation.generation_id).unwrap();
+        env::remove_var("RPOTATO_DATA_HOME");
+        env::remove_var("RPOTATO_PROJECT_ROOT");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn cancel_reports_the_recorded_terminal_outcome_and_cleans_generation_state() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = env::temp_dir().join(format!(
+            "rpotato-generation-terminal-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("project")).unwrap();
+        env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        let generation = BackendGenerationRecord {
+            generation_id: "generation-terminal-race".to_string(),
+            client_pid: std::process::id(),
+            sidecar_pid: std::process::id(),
+            started_at_ms: now_ms(),
+            timeout_ms: 1_000,
+            streaming_display: true,
+        };
+        acquire_backend_generation_lock(&generation).unwrap();
+        write_backend_generation_record(&generation).unwrap();
+        write_generation_terminal_record(&generation.generation_id, "completed", "event-done")
+            .unwrap();
+
+        let report = cancel_generation_report().unwrap();
+
+        assert!(report.contains("status: acknowledged"));
+        assert!(report.contains("terminal outcome: completed"));
+        assert!(report.contains("terminal lifecycle event: event-done"));
+        assert!(!backend_generation_record_path().exists());
+        assert!(!backend_generation_lock_path().exists());
+        assert!(!backend_generation_cancel_path().exists());
+        assert!(!backend_generation_terminal_path(&generation.generation_id).exists());
+        env::remove_var("RPOTATO_DATA_HOME");
+        env::remove_var("RPOTATO_PROJECT_ROOT");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn generation_stop_waits_for_terminal_acknowledgement_before_returning() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = env::temp_dir().join(format!(
+            "rpotato-generation-stop-order-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("project")).unwrap();
+        env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        let generation = BackendGenerationRecord {
+            generation_id: "generation-stop-order".to_string(),
+            client_pid: std::process::id(),
+            sidecar_pid: std::process::id(),
+            started_at_ms: now_ms(),
+            timeout_ms: 1_000,
+            streaming_display: true,
+        };
+        acquire_backend_generation_lock(&generation).unwrap();
+        write_backend_generation_record(&generation).unwrap();
+        let generation_id = generation.generation_id.clone();
+        let acknowledger = thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while Instant::now() < deadline {
+                if generation_cancel_requested(&generation_id).unwrap() {
+                    write_generation_terminal_record(
+                        &generation_id,
+                        "cancelled",
+                        "event-stop-cancelled",
+                    )
+                    .unwrap();
+                    return;
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+            panic!("backend stop cancellation marker가 생성되지 않았습니다.");
+        });
+
+        let outcome = cancel_active_generation_before_stop(&generation_test_sidecar()).unwrap();
+        acknowledger.join().unwrap();
+
+        assert_eq!(outcome, "cancelled");
+        assert!(!backend_generation_record_path().exists());
+        assert!(!backend_generation_lock_path().exists());
+        assert!(!backend_generation_cancel_path().exists());
+        env::remove_var("RPOTATO_DATA_HOME");
+        env::remove_var("RPOTATO_PROJECT_ROOT");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn concurrent_generation_start_publishes_exactly_one_owner() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = env::temp_dir().join(format!(
+            "rpotato-generation-race-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("project")).unwrap();
+        env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        let sidecar = Arc::new(generation_test_sidecar());
+        let barrier = Arc::new(Barrier::new(3));
+        let contenders = (0..2)
+            .map(|_| {
+                let barrier = Arc::clone(&barrier);
+                let sidecar = Arc::clone(&sidecar);
+                thread::spawn(move || {
+                    barrier.wait();
+                    begin_active_generation(&sidecar, 1_000, false)
+                })
+            })
+            .collect::<Vec<_>>();
+        barrier.wait();
+        let results = contenders
+            .into_iter()
+            .map(|thread| thread.join().unwrap())
+            .collect::<Vec<_>>();
+        let winners = results
+            .iter()
+            .filter_map(|result| result.as_ref().ok())
+            .collect::<Vec<_>>();
+
+        assert_eq!(winners.len(), 1);
+        let winner = winners[0];
+        let active = read_backend_generation_record().unwrap().unwrap();
+        let lock = read_backend_generation_lock_record().unwrap().unwrap();
+        assert_eq!(active.generation_id, winner.generation_id);
+        assert_eq!(lock.generation_id, winner.generation_id);
+        remove_generation_state_if_owned_checked(&winner.generation_id).unwrap();
+        let next = begin_active_generation(&sidecar, 1_000, false).unwrap();
+        remove_generation_state_if_owned_checked(&next.generation_id).unwrap();
+        env::remove_var("RPOTATO_DATA_HOME");
+        env::remove_var("RPOTATO_PROJECT_ROOT");
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]
