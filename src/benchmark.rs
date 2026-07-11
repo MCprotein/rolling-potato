@@ -93,7 +93,7 @@ pub fn validate_report(path: &str) -> Result<String, AppError> {
 
 pub fn record_report(path: &str) -> Result<String, AppError> {
     let fixture = read_fixture(path)?;
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let event = ledger::new_event_for(
         &identity,
         "benchmark.run.recorded",
@@ -182,7 +182,7 @@ fn run_report_with_chat(
     let prompt = read_prompt_artifact(prompt_path)?;
     let run = chat_once(&prompt.text, max_tokens)?;
     let score = score_response(&fixture, &run.response);
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let event = ledger::new_event_for(
         &identity,
         "benchmark.run.executed",

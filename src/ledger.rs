@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::Path;
 use std::process;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha256};
 
@@ -47,10 +47,6 @@ pub struct WorkflowCheckpoint {
     pub revision: u64,
     pub artifact_hash: String,
     pub previous_hash: String,
-}
-
-pub fn current_identity() -> RuntimeIdentity {
-    validated_current_identity().unwrap_or_else(|_| fresh_identity())
 }
 
 pub fn validated_current_identity() -> Result<RuntimeIdentity, AppError> {
@@ -143,6 +139,11 @@ pub fn new_event_for(
 }
 
 pub fn append_event(event: &LedgerEvent) -> Result<(), AppError> {
+    let _writer = crate::lease::RecoverableLease::acquire_with_wait(
+        paths::runtime_ledger_writer_lock(),
+        "runtime ledger writer",
+        Duration::from_secs(5),
+    )?;
     append_chained_event(&paths::runtime_ledger_file(), event)?;
     append_chained_event(&paths::project_session_ledger_file(), event)?;
     append_line(&paths::operation_log_file(), &event.to_log_line())?;
@@ -716,5 +717,51 @@ mod tests {
             std::env::remove_var("RPOTATO_PROJECT_ROOT");
             let _ = fs::remove_dir_all(root);
         }
+    }
+
+    #[test]
+    fn concurrent_writers_preserve_both_ledger_chains() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-ledger-concurrent-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        let identity = fresh_identity();
+        let writers = 12;
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(writers));
+        let handles = (0..writers)
+            .map(|index| {
+                let barrier = barrier.clone();
+                let identity = identity.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    append_event(&new_event_for(
+                        &identity,
+                        "concurrent.write",
+                        &format!("writer {index}"),
+                        "safe",
+                    ))
+                })
+            })
+            .collect::<Vec<_>>();
+
+        for handle in handles {
+            handle.join().unwrap().unwrap();
+        }
+        let runtime_events = read_runtime_events().unwrap();
+        let project_path = paths::project_session_ledger_file();
+        let project_contents = fs::read_to_string(&project_path).unwrap();
+        let project_events = validate_ledger_contents(&project_path, &project_contents).unwrap();
+        let operation_log = fs::read_to_string(paths::operation_log_file()).unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(runtime_events.len(), writers);
+        assert_eq!(project_events.len(), writers);
+        assert_eq!(operation_log.lines().count(), writers);
     }
 }

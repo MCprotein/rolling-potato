@@ -528,7 +528,7 @@ mod tests {
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project);
         std::env::set_var("RPOTATO_DATA_HOME", &data);
         let after_hash = state::sha256_text("after\n");
-        let mut workflow = state::WorkflowRecord::new("test");
+        let mut workflow = state::WorkflowRecord::new(&ledger::fresh_identity(), "test");
         workflow.phase = "verified".to_string();
         workflow.approval_state = "approved".to_string();
         workflow.proposal_id = "patch-proposal-test".to_string();
@@ -572,7 +572,8 @@ mod tests {
             std::env::set_var("RPOTATO_PROJECT_ROOT", &project);
             std::env::set_var("RPOTATO_DATA_HOME", &data);
             state::initialize().unwrap();
-            let mut workflow = state::WorkflowRecord::new("evidence dedupe");
+            let mut workflow =
+                state::WorkflowRecord::new(&ledger::fresh_identity(), "evidence dedupe");
             workflow.proposal_id = "patch-proposal-evidence-test".to_string();
             workflow.action_id = "action-evidence-test".to_string();
             let source_hash = state::sha256_text("after\n");

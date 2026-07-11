@@ -11,7 +11,7 @@ pub fn overview_report() -> Result<String, AppError> {
     let store = observability::status()?;
     let models = observability::model_summaries()?;
     let sessions = observability::session_history(5)?;
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
 
     let mut lines = Vec::new();
     push_header(&mut lines, width, "rpotato TUI beta - overview");
@@ -235,7 +235,7 @@ pub fn monitor_report() -> Result<String, AppError> {
 
 pub fn sessions_report() -> Result<String, AppError> {
     let width = terminal_width();
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let sessions = observability::session_history(10)?;
 
     let mut lines = Vec::new();
@@ -509,7 +509,7 @@ pub fn diff_report(proposal_id: &str) -> Result<String, AppError> {
 
 pub fn evidence_report() -> Result<String, AppError> {
     let width = terminal_width();
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let store = observability::status()?;
     let evidence = evidence::store_status()?;
 
@@ -775,7 +775,7 @@ mod tests {
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
         std::env::set_var("COLUMNS", "64");
-        let identity = ledger::current_identity();
+        let identity = ledger::validated_current_identity().unwrap();
 
         observability::record_model_run(&observability::ModelRunMetric {
             model_run_id: "model-run-tui-resource".to_string(),

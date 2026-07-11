@@ -47,8 +47,7 @@ pub struct WorkflowRecord {
 }
 
 impl WorkflowRecord {
-    pub fn new(request: &str) -> Self {
-        let identity = ledger::current_identity();
+    pub fn new(identity: &RuntimeIdentity, request: &str) -> Self {
         let nonce = format!("{}\n{}\n{}", identity.session_id, request, now_ms());
         let workflow_id = format!("workflow-{}", &sha256_text(&nonce)[..20]);
         Self {
@@ -60,8 +59,8 @@ impl WorkflowRecord {
             revision: 0,
             previous_hash: "none".to_string(),
             artifact_hash: String::new(),
-            project_id: identity.project_id,
-            session_id: identity.session_id,
+            project_id: identity.project_id.clone(),
+            session_id: identity.session_id.clone(),
             phase: "model-pending".to_string(),
             request_hash: sha256_text(request),
             workflow_kind: "agent-run".to_string(),
@@ -94,8 +93,8 @@ impl WorkflowRecord {
 
 pub fn create_workflow(request: &str) -> Result<WorkflowRecord, AppError> {
     ensure_layout()?;
-    ledger::validated_current_identity()?;
-    let record = WorkflowRecord::new(request);
+    let identity = ledger::validated_current_identity()?;
+    let record = WorkflowRecord::new(&identity, request);
     checkpoint_workflow(record, 0)
 }
 
@@ -443,8 +442,11 @@ pub fn status_report() -> Result<String, AppError> {
 }
 
 pub fn reconcile_report() -> Result<String, AppError> {
-    let identity = ledger::current_identity();
     ensure_layout()?;
+    let identity = match ledger::validated_current_identity() {
+        Ok(identity) => identity,
+        Err(_) => ledger::fresh_identity(),
+    };
     let outcome = reconcile_current_state(&identity)?;
     let summary = outcome.summary();
     let event = ledger::new_event_for(
@@ -470,7 +472,7 @@ pub fn resume_report() -> Result<String, AppError> {
     if let Some(workflow_id) = active_workflow_id()? {
         return crate::patch::resume_workflow_report(&workflow_id);
     }
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     observability::initialize(&identity)?;
     let status = current_state_status(&identity)?;
     let (event_type, summary, action) = match status {
@@ -516,7 +518,7 @@ pub fn cancel_report() -> Result<String, AppError> {
     if let Some(workflow_id) = active_workflow_id()? {
         return crate::patch::cancel_workflow_report(&workflow_id);
     }
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     observability::initialize(&identity)?;
     let event = ledger::new_event_for(
         &identity,
@@ -535,7 +537,7 @@ pub fn cancel_report() -> Result<String, AppError> {
 }
 
 pub fn session_list_report() -> Result<String, AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     ensure_layout()?;
     let sessions = observability::session_history(20)?;
     if sessions.is_empty() {
@@ -559,6 +561,7 @@ pub fn session_list_report() -> Result<String, AppError> {
 
 pub fn session_new_report() -> Result<String, AppError> {
     ensure_layout()?;
+    ledger::validated_current_identity()?;
     let identity = ledger::fresh_identity();
     write_current_state(&identity)?;
     ensure_runtime_evidence_file()?;
@@ -582,17 +585,27 @@ pub fn session_new_report() -> Result<String, AppError> {
 
 pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
     ensure_layout()?;
+    let identity = ledger::validated_current_identity()?;
+    let canonical_session = ledger::read_runtime_events()?
+        .into_iter()
+        .any(|event| event.project_id == identity.project_id && event.session_id == session_id);
+    if !canonical_session {
+        return Err(AppError::blocked(format!(
+            "session resume 차단\n- session id: {}\n- 이유: canonical runtime ledger에서 현재 project의 session을 찾지 못했습니다.\n- 확인: `rpotato session list`",
+            session_id
+        )));
+    }
     let Some(session) = observability::session_entry(session_id)? else {
         return Err(AppError::blocked(format!(
-            "session resume 차단\n- session id: {}\n- 이유: 현재 project의 SQLite session history에서 찾지 못했습니다.\n- 확인: `rpotato session list`",
+            "session resume 차단\n- session id: {}\n- 이유: canonical ledger에는 존재하지만 SQLite projection 재생성 후 session을 찾지 못했습니다.\n- 확인: `rpotato state status`",
             session_id
         )));
     };
 
     let resumed = RuntimeIdentity {
-        project_id: session.project_id.clone(),
+        project_id: identity.project_id,
         session_id: session.session_id.clone(),
-        project_root: session.project_root.clone(),
+        project_root: identity.project_root,
     };
     write_current_state_for_session(&resumed, Some("session-history"), None)?;
     let event = ledger::new_event_for(
@@ -615,7 +628,7 @@ pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
 }
 
 pub fn record_event(event_type: &str, summary: &str, details: &str) -> Result<String, AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     ensure_layout()?;
     observability::initialize(&identity)?;
     let event = ledger::new_event_for(&identity, event_type, summary, details);
@@ -731,7 +744,7 @@ fn read_current_state_summary() -> Result<String, AppError> {
         ))
     })?;
 
-    let identity = ledger::current_identity();
+    let identity = ledger::fresh_identity();
     match classify_current_state(&contents, &identity) {
         CurrentStateStatus::CleanNoActiveWorkflow => {
             Ok("초기화됨, active_workflow 없음".to_string())
@@ -2042,6 +2055,63 @@ mod tests {
     }
 
     #[test]
+    fn corrupt_current_state_blocks_canonical_mutation() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = workflow_test_root("corrupt-state-mutation");
+        let project = root.join("project");
+        fs::create_dir_all(&project).unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project);
+        fs::create_dir_all(paths::state_dir()).unwrap();
+        fs::write(paths::current_state_file(), b"not-json").unwrap();
+
+        let event_error = record_event("test.mutation", "blocked", "safe").unwrap_err();
+        let workflow_error = create_workflow("must not start").unwrap_err();
+        let ledger_exists = paths::runtime_ledger_file().exists();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(event_error.code, 3);
+        assert_eq!(workflow_error.code, 3);
+        assert!(!ledger_exists);
+    }
+
+    #[test]
+    fn sqlite_only_session_is_removed_and_cannot_resume() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        with_workflow_env("sqlite-session-authority", |_| {
+            let identity = ledger::validated_current_identity().unwrap();
+            let connection = rusqlite::Connection::open(paths::observability_db_file()).unwrap();
+            connection
+                .execute(
+                    "INSERT INTO sessions (session_id, project_id, project_root, started_at_ms) VALUES (?1, ?2, ?3, 1)",
+                    rusqlite::params!["session-sqlite-only", identity.project_id, identity.project_root],
+                )
+                .unwrap();
+            drop(connection);
+
+            let sessions = observability::session_history(20).unwrap();
+            assert!(sessions
+                .iter()
+                .all(|session| session.session_id != "session-sqlite-only"));
+            let error = session_resume_report("session-sqlite-only").unwrap_err();
+            assert_eq!(error.code, 3);
+            assert!(error.message.contains("canonical runtime ledger"));
+
+            let connection = rusqlite::Connection::open(paths::observability_db_file()).unwrap();
+            let count: i64 = connection
+                .query_row(
+                    "SELECT COUNT(*) FROM sessions WHERE session_id = 'session-sqlite-only'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 0);
+        });
+    }
+
+    #[test]
     fn session_list_does_not_create_current_state_when_history_is_empty() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = std::env::temp_dir().join(format!(
@@ -2121,7 +2191,8 @@ mod tests {
     fn legacy_v2_chain_is_preserved_and_next_checkpoint_appends_v3() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         with_workflow_env("workflow-v2-upgrade", |_| {
-            let mut legacy = WorkflowRecord::new("legacy pending workflow");
+            let mut legacy =
+                WorkflowRecord::new(&ledger::fresh_identity(), "legacy pending workflow");
             legacy.revision = 1;
             legacy.previous_hash = "none".to_string();
             legacy.phase = "pending-approval".to_string();
@@ -2160,7 +2231,10 @@ mod tests {
     fn legacy_v2_complete_maps_split_approval_evidence_without_rewriting() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         with_workflow_env("workflow-v2-complete-map", |root| {
-            let mut non_mutating = WorkflowRecord::new("legacy read-only complete workflow");
+            let mut non_mutating = WorkflowRecord::new(
+                &ledger::fresh_identity(),
+                "legacy read-only complete workflow",
+            );
             non_mutating.revision = 1;
             non_mutating.previous_hash = "none".to_string();
             non_mutating.phase = "complete".to_string();
@@ -2178,7 +2252,8 @@ mod tests {
                 "not-issued"
             );
 
-            let mut legacy = WorkflowRecord::new("legacy complete workflow");
+            let mut legacy =
+                WorkflowRecord::new(&ledger::fresh_identity(), "legacy complete workflow");
             legacy.revision = 1;
             legacy.previous_hash = "none".to_string();
             legacy.phase = "complete".to_string();
@@ -2208,7 +2283,8 @@ mod tests {
     fn interrupted_legacy_v2_transaction_recovers_with_original_schema() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         with_workflow_env("workflow-v2-transaction", |_| {
-            let mut first = WorkflowRecord::new("legacy transaction workflow");
+            let mut first =
+                WorkflowRecord::new(&ledger::fresh_identity(), "legacy transaction workflow");
             first.revision = 1;
             first.previous_hash = "none".to_string();
             first.phase = "pending-approval".to_string();
@@ -2267,7 +2343,8 @@ mod tests {
     fn workflow_recovery_rejects_unbound_previous_hash_before_append() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         with_workflow_env("workflow-recovery-binding", |_| {
-            let mut first = WorkflowRecord::new("recovery binding workflow");
+            let mut first =
+                WorkflowRecord::new(&ledger::fresh_identity(), "recovery binding workflow");
             first.revision = 1;
             first.previous_hash = "none".to_string();
             first.artifact_hash = sha256_text(&workflow_payload_v2(&first));

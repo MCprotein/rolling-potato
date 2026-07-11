@@ -112,6 +112,10 @@ pub fn runtime_ledger_file() -> PathBuf {
     state_dir().join("runtime-ledger.jsonl")
 }
 
+pub fn runtime_ledger_writer_lock() -> PathBuf {
+    state_dir().join("runtime-ledger.writer.lock")
+}
+
 pub fn plugins_dir() -> PathBuf {
     app_data_root().join("plugins")
 }

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 
 pub fn status_report() -> Result<String, AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let store = observability::status()?;
     let sample = observability::latest_resource_sample()?;
     let pressure = sample
@@ -65,7 +65,7 @@ pub fn admission_report(
     owned_write_paths: &[(u32, String)],
     commands: &[String],
 ) -> Result<String, AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let store = observability::initialize(&identity)?;
     let sample = observability::latest_resource_sample()?;
     let pressure = sample
@@ -190,7 +190,7 @@ pub fn dispatch_report(
     failed_lane: Option<u32>,
     failure_reason: Option<&str>,
 ) -> Result<String, AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let store = observability::initialize(&identity)?;
     let sample = observability::latest_resource_sample()?;
     let pressure = sample
@@ -310,7 +310,7 @@ pub fn governor_report(
     context_limit_tokens: Option<u32>,
     model_tier: resource::ModelTier,
 ) -> Result<String, AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let store = observability::initialize(&identity)?;
     let sample = observability::latest_resource_sample()?;
     let pressure = sample

@@ -832,7 +832,7 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         )));
     }
 
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let model_id = model_id_from_path(&record.model_path);
     let model_run_id = format!("model-run-{event_id}");
     let completion_tokens = completion.completion_tokens.unwrap_or(0);
@@ -1790,7 +1790,7 @@ fn record_backend_resource_sample(
             snapshot.pressure.as_str()
         ),
     )?;
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let metric = observability::ResourceSampleMetric {
         resource_sample_id: format!("resource-sample-{event_id}"),
         session_id: identity.session_id,

@@ -1,6 +1,7 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::app::AppError;
@@ -26,42 +27,81 @@ impl RecoverableLease {
         }
         let nonce = format!("{}-{}", std::process::id(), now_nanos());
         let body = format!("pid={}\nnonce={}\n", std::process::id(), nonce);
-        match create_lease(&path, &body) {
-            Ok(()) => return Ok(Self { path, nonce }),
-            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(err) => {
-                return Err(AppError::runtime(format!(
-                    "{context} lock 생성 실패: {err}"
-                )))
+        loop {
+            match create_lease(&path, &body) {
+                Ok(()) => return Ok(Self { path, nonce }),
+                Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(err) => {
+                    return Err(AppError::runtime(format!(
+                        "{context} lock 생성 실패: {err}"
+                    )))
+                }
             }
-        }
 
-        let existing = fs::read_to_string(&path)
-            .map_err(|err| AppError::blocked(format!("{context} lock 읽기 차단: {err}")))?;
-        let (owner_pid, _) = parse_lease(&existing, context)?;
-        match process_liveness(owner_pid) {
-            ProcessLiveness::Alive | ProcessLiveness::Unknown => {
-                return Err(AppError::blocked(format!(
-                    "{context} lock 차단\n- owner pid: {owner_pid}\n- liveness: {:?}",
-                    process_liveness(owner_pid)
-                )))
+            let existing = match fs::read_to_string(&path) {
+                Ok(existing) => existing,
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(err) => {
+                    return Err(AppError::blocked(format!(
+                        "{context} lock 읽기 차단: {err}"
+                    )))
+                }
+            };
+            let (owner_pid, _) = parse_lease(&existing, context)?;
+            match process_liveness(owner_pid) {
+                ProcessLiveness::Alive | ProcessLiveness::Unknown => {
+                    return Err(AppError::blocked(format!(
+                        "{context} lock 차단\n- owner pid: {owner_pid}\n- liveness: {:?}",
+                        process_liveness(owner_pid)
+                    )))
+                }
+                ProcessLiveness::Dead => {}
             }
-            ProcessLiveness::Dead => {}
+            let reclaimed = path.with_extension(format!("stale.{}.{}", owner_pid, now_nanos()));
+            match fs::rename(&path, &reclaimed) {
+                Ok(()) => {}
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(err) => {
+                    return Err(AppError::blocked(format!(
+                        "{context} dead-owner lock atomic reclaim 실패: {err}"
+                    )))
+                }
+            }
+            match create_lease(&path, &body) {
+                Ok(()) => {
+                    let _ = fs::remove_file(reclaimed);
+                    return Ok(Self { path, nonce });
+                }
+                Err(err) => {
+                    let _ = fs::remove_file(reclaimed);
+                    return Err(AppError::blocked(format!(
+                        "{context} lock reclaim 경쟁 차단: {err}"
+                    )));
+                }
+            }
         }
-        let reclaimed = path.with_extension(format!("stale.{}.{}", owner_pid, now_nanos()));
-        fs::rename(&path, &reclaimed).map_err(|err| {
-            AppError::blocked(format!(
-                "{context} dead-owner lock atomic reclaim 실패: {err}"
-            ))
-        })?;
-        match create_lease(&path, &body) {
-            Ok(()) => {
-                let _ = fs::remove_file(reclaimed);
-                Ok(Self { path, nonce })
+    }
+
+    pub fn acquire_with_wait(
+        path: PathBuf,
+        context: &str,
+        timeout: Duration,
+    ) -> Result<Self, AppError> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            match Self::acquire(path.clone(), context) {
+                Ok(lease) => return Ok(lease),
+                Err(err)
+                    if Instant::now() < deadline
+                        && (err.message.contains(&format!("{context} lock 차단"))
+                            || err
+                                .message
+                                .contains(&format!("{context} lock reclaim 경쟁 차단"))) =>
+                {
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                Err(err) => return Err(err),
             }
-            Err(err) => Err(AppError::blocked(format!(
-                "{context} lock reclaim 경쟁 차단: {err}"
-            ))),
         }
     }
 }
@@ -81,6 +121,8 @@ impl Drop for RecoverableLease {
 }
 
 fn create_lease(path: &Path, body: &str) -> std::io::Result<()> {
+    let candidate =
+        path.with_extension(format!("candidate.{}.{}", std::process::id(), now_nanos()));
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]
@@ -88,9 +130,18 @@ fn create_lease(path: &Path, body: &str) -> std::io::Result<()> {
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(0o600);
     }
-    let mut file = options.open(path)?;
-    file.write_all(body.as_bytes())?;
-    file.sync_all()
+    let mut file = options.open(&candidate)?;
+    let prepared = file
+        .write_all(body.as_bytes())
+        .and_then(|_| file.sync_all());
+    drop(file);
+    if let Err(err) = prepared {
+        let _ = fs::remove_file(&candidate);
+        return Err(err);
+    }
+    let linked = fs::hard_link(&candidate, path);
+    let _ = fs::remove_file(&candidate);
+    linked
 }
 
 fn parse_lease(body: &str, context: &str) -> Result<(u32, String), AppError> {

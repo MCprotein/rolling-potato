@@ -529,7 +529,7 @@ pub fn prune_preview(before_days: u64) -> Result<PrunePreview, AppError> {
 }
 
 pub fn session_history(limit: usize) -> Result<Vec<SessionHistoryEntry>, AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let (connection, _) = open_or_recover()?;
     replay_ledger(&connection)?;
     project_sessions_from_events(&connection, &identity)?;
@@ -537,7 +537,7 @@ pub fn session_history(limit: usize) -> Result<Vec<SessionHistoryEntry>, AppErro
 }
 
 pub fn session_entry(session_id: &str) -> Result<Option<SessionHistoryEntry>, AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let (connection, _) = open_or_recover()?;
     replay_ledger(&connection)?;
     project_sessions_from_events(&connection, &identity)?;
@@ -548,7 +548,7 @@ pub fn session_entry(session_id: &str) -> Result<Option<SessionHistoryEntry>, Ap
 }
 
 pub fn session_events(session_id: &str, limit: usize) -> Result<Vec<SessionEventEntry>, AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let (connection, _) = open_or_recover()?;
     replay_ledger(&connection)?;
     project_sessions_from_events(&connection, &identity)?;
@@ -556,7 +556,7 @@ pub fn session_events(session_id: &str, limit: usize) -> Result<Vec<SessionEvent
 }
 
 pub fn record_model_run(metric: &ModelRunMetric) -> Result<(), AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let (connection, _) = open_or_recover()?;
     record_session(&connection, &identity)?;
     replay_ledger(&connection)?;
@@ -636,7 +636,7 @@ pub fn record_model_run(metric: &ModelRunMetric) -> Result<(), AppError> {
 }
 
 pub fn record_resource_sample(metric: &ResourceSampleMetric) -> Result<(), AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let (connection, _) = open_or_recover()?;
     record_session(&connection, &identity)?;
     replay_ledger(&connection)?;
@@ -677,7 +677,7 @@ pub fn record_resource_sample(metric: &ResourceSampleMetric) -> Result<(), AppEr
 }
 
 pub fn record_benchmark_run(metric: &BenchmarkRunMetric) -> Result<(), AppError> {
-    let identity = ledger::current_identity();
+    let identity = ledger::validated_current_identity()?;
     let (connection, _) = open_or_recover()?;
     record_session(&connection, &identity)?;
     replay_ledger(&connection)?;
@@ -1241,6 +1241,9 @@ fn record_session(connection: &Connection, identity: &RuntimeIdentity) -> Result
 }
 
 fn replay_ledger(connection: &Connection) -> Result<(), AppError> {
+    connection
+        .execute("DELETE FROM ledger_events", [])
+        .map_err(sql_error("ledger replay projection 초기화에 실패했습니다"))?;
     for event in ledger::read_runtime_events()? {
         connection
             .execute(
@@ -1279,6 +1282,20 @@ fn project_sessions_from_events(
     connection: &Connection,
     identity: &RuntimeIdentity,
 ) -> Result<(), AppError> {
+    connection
+        .execute(
+            "DELETE FROM sessions
+              WHERE project_id = ?1
+                AND session_id NOT IN (
+                    SELECT session_id
+                      FROM ledger_events
+                     WHERE project_id = ?1
+                )",
+            params![identity.project_id],
+        )
+        .map_err(sql_error(
+            "canonical ledger에 없는 session projection 제거에 실패했습니다",
+        ))?;
     connection
         .execute(
             "INSERT OR IGNORE INTO sessions (
@@ -1929,7 +1946,7 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
-        let identity = ledger::current_identity();
+        let identity = ledger::validated_current_identity().unwrap();
 
         record_resource_sample(&ResourceSampleMetric {
             resource_sample_id: "resource-sample-test".to_string(),
