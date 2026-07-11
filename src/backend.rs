@@ -124,6 +124,11 @@ struct BackendSidecarRecord {
     pid: u32,
     binary_path: PathBuf,
     model_path: PathBuf,
+    model_sha256: String,
+    model_size_bytes: u64,
+    backend_release: String,
+    binary_sha256: String,
+    mmproj: String,
     host: String,
     port: u16,
     ctx_size: Option<u32>,
@@ -805,9 +810,18 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         event_type,
         "backend chat completion 실행",
         &format!(
-            "pid={} backend={} prompt_chars={} output_chars={} requested_max_tokens={} effective_max_tokens={} resource_governor_admission={} resource_governor_token_action={} resource_governor_reason={} resource_governor_sample_event={} finish_reason={} guard_status={} prompt_tokens={} completion_tokens={} total_tokens={} elapsed_ms={}",
+            "pid={} backend={} backend_release={} binary_sha256={} model_id={} model_sha256={} model_size_bytes={} ctx_size={} mmproj={} sampling=temperature-0.1_top-p-0.8 host_os={} host_arch={} prompt_chars={} output_chars={} requested_max_tokens={} effective_max_tokens={} resource_governor_admission={} resource_governor_token_action={} resource_governor_reason={} resource_governor_sample_event={} finish_reason={} guard_status={} prompt_tokens={} completion_tokens={} total_tokens={} elapsed_ms={}",
             record.pid,
             record.backend_id,
+            record.backend_release,
+            record.binary_sha256,
+            model_id_from_path(&record.model_path),
+            record.model_sha256,
+            record.model_size_bytes,
+            display_optional_u32(record.ctx_size),
+            record.mmproj,
+            std::env::consts::OS,
+            std::env::consts::ARCH,
             prompt.chars().count(),
             display_content.chars().count(),
             requested_max_tokens,
@@ -846,9 +860,9 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
         session_id: identity.session_id,
         workflow_id: None,
         model_id: model_id.clone(),
-        model_artifact_hash: None,
+        model_artifact_hash: Some(record.model_sha256.clone()),
         backend_id: Some(record.backend_id.clone()),
-        backend_version: None,
+        backend_version: Some(record.backend_release.clone()),
         quantization: None,
         context_limit_tokens: record.ctx_size,
         started_at_ms,
@@ -1011,7 +1025,7 @@ fn request_chat_completion(
     prompt: &str,
     max_tokens: u32,
 ) -> Result<BackendChatCompletion, AppError> {
-    let body = chat_request_body(prompt, max_tokens);
+    let body = chat_request_body(&record.model_path, prompt, max_tokens);
     let response_body = post_json(
         &record.host,
         record.port,
@@ -1026,13 +1040,22 @@ fn request_chat_completion(
     })
 }
 
-fn chat_request_body(prompt: &str, max_tokens: u32) -> String {
+fn chat_request_body(model_path: &Path, prompt: &str, max_tokens: u32) -> String {
     let system_prompt = "사용자에게 보이는 최종 답변만 한국어로 작성합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다.";
+    let template_options = if model_id_from_path(model_path)
+        .to_ascii_lowercase()
+        .starts_with("qwen")
+    {
+        ",\"chat_template_kwargs\":{\"enable_thinking\":false}"
+    } else {
+        ""
+    };
     format!(
-        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}],\"max_tokens\":{},\"temperature\":0.1,\"top_p\":0.8,\"chat_template_kwargs\":{{\"enable_thinking\":false}}}}",
+        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}],\"max_tokens\":{},\"temperature\":0.1,\"top_p\":0.8{}}}",
         ledger::json_string(system_prompt),
         ledger::json_string(prompt),
-        max_tokens
+        max_tokens,
+        template_options
     )
 }
 
@@ -1882,6 +1905,22 @@ fn start_sidecar_with_timeout(
             discovery.selected_path.display()
         ))
     })?;
+    let model_size_bytes = model_path
+        .metadata()
+        .map_err(|err| {
+            AppError::runtime(format!(
+                "model artifact metadata를 읽지 못했습니다: {} ({err})",
+                model_path.display()
+            ))
+        })?
+        .len();
+    let model_sha256 = checksum::sha256_file(&model_path)?;
+    let binary_sha256 = checksum::sha256_file(&binary_path)?;
+    let backend_release = if discovery.selected_source == "managed" {
+        LLAMA_CPP_RELEASE.release_tag.to_string()
+    } else {
+        "override-unverified".to_string()
+    };
     fs::create_dir_all(paths::logs_dir()).map_err(|err| {
         AppError::runtime(format!(
             "backend log directory를 만들지 못했습니다: {} ({err})",
@@ -1923,6 +1962,11 @@ fn start_sidecar_with_timeout(
         pid: child.id(),
         binary_path,
         model_path,
+        model_sha256,
+        model_size_bytes,
+        backend_release,
+        binary_sha256,
+        mmproj: "not-required-text-only".to_string(),
         host: discovery.host.to_string(),
         port: discovery.port,
         ctx_size,
@@ -1945,15 +1989,20 @@ fn start_sidecar_with_timeout(
                 "backend.sidecar.start.completed",
                 "backend sidecar 시작 완료",
                 &format!(
-                    "pid={} binary={} model={} port={} ctx_size={} startup_ms={} stdout_log={} stderr_log={}",
+                    "pid={} backend={} backend_release={} binary_sha256={} model_id={} model_sha256={} model_size_bytes={} port={} ctx_size={} mmproj={} sampling=temperature-0.1_top-p-0.8 host_os={} host_arch={} startup_ms={}",
                     record.pid,
-                    record.binary_path.display(),
-                    record.model_path.display(),
+                    record.backend_id,
+                    record.backend_release,
+                    record.binary_sha256,
+                    model_id_from_path(&record.model_path),
+                    record.model_sha256,
+                    record.model_size_bytes,
                     record.port,
                     display_optional_u32(record.ctx_size),
-                    startup_ms,
-                    record.stdout_log.display(),
-                    record.stderr_log.display()
+                    record.mmproj,
+                    std::env::consts::OS,
+                    std::env::consts::ARCH,
+                    startup_ms
                 ),
             )?;
             let resource_sample = record_backend_resource_sample(&record, "start")?;
@@ -2082,11 +2131,16 @@ fn write_backend_sidecar_record(record: &BackendSidecarRecord) -> Result<(), App
     })?;
 
     let contents = format!(
-        "backend_id={}\npid={}\nbinary_path={}\nmodel_path={}\nhost={}\nport={}\nctx_size={}\nstdout_log={}\nstderr_log={}\nstarted_at_ms={}\n",
+        "backend_id={}\npid={}\nbinary_path={}\nmodel_path={}\nmodel_sha256={}\nmodel_size_bytes={}\nbackend_release={}\nbinary_sha256={}\nmmproj={}\nhost={}\nport={}\nctx_size={}\nstdout_log={}\nstderr_log={}\nstarted_at_ms={}\n",
         record.backend_id,
         record.pid,
         record.binary_path.display(),
         record.model_path.display(),
+        record.model_sha256,
+        record.model_size_bytes,
+        record.backend_release,
+        record.binary_sha256,
+        record.mmproj,
         record.host,
         record.port,
         record
@@ -2131,6 +2185,11 @@ fn parse_backend_sidecar_record(contents: &str) -> Option<BackendSidecarRecord> 
     let mut pid = None;
     let mut binary_path = None;
     let mut model_path = None;
+    let mut model_sha256 = None;
+    let mut model_size_bytes = None;
+    let mut backend_release = None;
+    let mut binary_sha256 = None;
+    let mut mmproj = None;
     let mut host = None;
     let mut port = None;
     let mut ctx_size = None;
@@ -2145,6 +2204,11 @@ fn parse_backend_sidecar_record(contents: &str) -> Option<BackendSidecarRecord> 
             "pid" => pid = value.parse::<u32>().ok(),
             "binary_path" => binary_path = Some(PathBuf::from(value)),
             "model_path" => model_path = Some(PathBuf::from(value)),
+            "model_sha256" => model_sha256 = Some(value.to_string()),
+            "model_size_bytes" => model_size_bytes = value.parse::<u64>().ok(),
+            "backend_release" => backend_release = Some(value.to_string()),
+            "binary_sha256" => binary_sha256 = Some(value.to_string()),
+            "mmproj" => mmproj = Some(value.to_string()),
             "host" => host = Some(value.to_string()),
             "port" => port = value.parse::<u16>().ok(),
             "ctx_size" => {
@@ -2170,6 +2234,11 @@ fn parse_backend_sidecar_record(contents: &str) -> Option<BackendSidecarRecord> 
         pid: pid?,
         binary_path: binary_path?,
         model_path: model_path?,
+        model_sha256: model_sha256.unwrap_or_else(|| "unknown".to_string()),
+        model_size_bytes: model_size_bytes.unwrap_or(0),
+        backend_release: backend_release.unwrap_or_else(|| "unknown".to_string()),
+        binary_sha256: binary_sha256.unwrap_or_else(|| "unknown".to_string()),
+        mmproj: mmproj.unwrap_or_else(|| "unknown".to_string()),
         host: host?,
         port: port?,
         ctx_size: ctx_size.unwrap_or(None),
@@ -2949,6 +3018,11 @@ mod tests {
             pid: 1234,
             binary_path: root.join("llama-server"),
             model_path: root.join("model.gguf"),
+            model_sha256: "a".repeat(64),
+            model_size_bytes: 1024,
+            backend_release: "b9878".to_string(),
+            binary_sha256: "b".repeat(64),
+            mmproj: "not-required-text-only".to_string(),
             host: DEFAULT_HOST.to_string(),
             port: DEFAULT_PORT,
             ctx_size: Some(4096),
@@ -2986,6 +3060,11 @@ mod tests {
             pid: u32::MAX,
             binary_path: fs::canonicalize("/bin/sleep").unwrap(),
             model_path: fs::canonicalize(&model_path).unwrap(),
+            model_sha256: checksum::sha256_file(&model_path).unwrap(),
+            model_size_bytes: 10,
+            backend_release: "b9878".to_string(),
+            binary_sha256: checksum::sha256_file(Path::new("/bin/sleep")).unwrap(),
+            mmproj: "not-required-text-only".to_string(),
             host: DEFAULT_HOST.to_string(),
             port: 65534,
             ctx_size: Some(4096),
@@ -3086,12 +3165,20 @@ mod tests {
 
     #[test]
     fn chat_request_body_disables_qwen_thinking() {
-        let body = chat_request_body("감자는 무엇인가?", 64);
+        let body = chat_request_body(Path::new("Qwen3.5-4B-Q4_K_M.gguf"), "감자는 무엇인가?", 64);
 
         assert!(body.contains("\"chat_template_kwargs\":{\"enable_thinking\":false}"));
         assert!(body.contains("\"max_tokens\":64"));
         assert!(body.contains("reasoning trace"));
         assert!(body.contains("감자는 무엇인가?"));
+    }
+
+    #[test]
+    fn chat_request_body_does_not_send_qwen_option_to_gemma() {
+        let body = chat_request_body(Path::new("gemma-4-E4B_q4_0-it.gguf"), "감자", 64);
+
+        assert!(!body.contains("chat_template_kwargs"));
+        assert!(body.contains("\"temperature\":0.1"));
     }
 
     #[test]

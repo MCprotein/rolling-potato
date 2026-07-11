@@ -78,8 +78,19 @@ struct RegistryEntry {
     id: String,
     display_name: String,
     status: String,
+    evidence_status: String,
+    promotion_evidence_path: String,
+    backend_version: String,
+    benchmark_run_id: String,
     artifact_path: String,
     artifact_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DefaultSelection {
+    model_id: String,
+    artifact_sha256: String,
+    selected_at_ms: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -126,6 +137,22 @@ struct PromotionEvidence {
 struct PromotionReadiness {
     validation: InstallValidation,
     evidence: Option<PromotionEvidence>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BackendSmokeEvidence {
+    event_id: String,
+    backend_id: String,
+    backend_release: String,
+    binary_sha256: String,
+    model_id: String,
+    model_sha256: String,
+    model_size_bytes: u64,
+    ctx_size: String,
+    mmproj: String,
+    sampling: String,
+    host_os: String,
+    host_arch: String,
 }
 
 const QWEN_4B_BLOCKERS: &[&str] = &[
@@ -412,6 +439,69 @@ pub fn registry_report() -> String {
     registry_summary()
 }
 
+pub fn default_report() -> Result<String, AppError> {
+    let selection = read_default_selection()?;
+    let entry = validated_registry_entry(&selection.model_id)?;
+    if selection.artifact_sha256 != entry.artifact_sha256 {
+        return Err(AppError::blocked(
+            "기본 모델 선택의 artifact SHA-256이 registry와 다릅니다.",
+        ));
+    }
+
+    Ok(format!(
+        "기본 모델\n- id: {}\n- display name: {}\n- artifact: {}\n- sha256: {}\n- backend version: {}\n- benchmark run: {}\n- selected at ms: {}\n- 상태: registry, artifact, promotion evidence 재검증 완료",
+        entry.id,
+        entry.display_name,
+        entry.artifact_path,
+        entry.artifact_sha256,
+        entry.backend_version,
+        entry.benchmark_run_id,
+        selection.selected_at_ms
+    ))
+}
+
+pub fn set_default_report(id: &str) -> Result<String, AppError> {
+    let entry = validated_registry_entry(id)?;
+    let selection = DefaultSelection {
+        model_id: entry.id.clone(),
+        artifact_sha256: entry.artifact_sha256.clone(),
+        selected_at_ms: now_ms_u64(),
+    };
+    let body = default_selection_json(&selection);
+    state::atomic_replace_bytes(&paths::model_default_file(), body.as_bytes())?;
+    let event_id = state::record_event(
+        "model.default.selected",
+        "기본 모델 선택 완료",
+        &format!(
+            "model_id={} artifact_sha256={} registry={} selection={}",
+            entry.id,
+            entry.artifact_sha256,
+            registry_path(&entry.id).display(),
+            paths::model_default_file().display()
+        ),
+    )?;
+
+    Ok(format!(
+        "기본 모델 선택 완료\n- id: {}\n- artifact: {}\n- sha256: {}\n- selection: {}\n- ledger event: {}\n- 동작: backend start에서 --model을 생략하면 이 모델을 재검증한 뒤 사용합니다.",
+        entry.id,
+        entry.artifact_path,
+        entry.artifact_sha256,
+        paths::model_default_file().display(),
+        event_id
+    ))
+}
+
+pub fn default_artifact_path() -> Result<PathBuf, AppError> {
+    let selection = read_default_selection()?;
+    let entry = validated_registry_entry(&selection.model_id)?;
+    if selection.artifact_sha256 != entry.artifact_sha256 {
+        return Err(AppError::blocked(
+            "기본 모델 선택의 artifact SHA-256이 registry와 다릅니다.",
+        ));
+    }
+    Ok(PathBuf::from(entry.artifact_path))
+}
+
 pub fn download_plan_report(id: &str) -> Result<String, AppError> {
     let candidate = find_candidate(id)?;
     let validation = validate_install_ready(candidate);
@@ -589,14 +679,14 @@ fn local_promotion_readiness(
     let final_path = model_artifact_path(artifact);
     let local_state = local_artifact_state(artifact, &final_path)?;
     let benchmark = promotion_benchmark_run(&evidence, artifact)?;
-    let backend_smoke_event_seen = backend_smoke_event_seen(&evidence.backend_smoke_event_id)?;
+    let backend_smoke = backend_smoke_evidence(&evidence.backend_smoke_event_id)?;
     let validation = validate_promotion_evidence(
         candidate,
         &evidence,
         artifact,
         &local_state,
         benchmark.as_ref(),
-        backend_smoke_event_seen,
+        backend_smoke.as_ref(),
     );
 
     Ok(PromotionReadiness {
@@ -622,18 +712,40 @@ fn promotion_benchmark_run(
         }))
 }
 
-fn backend_smoke_event_seen(event_id: &str) -> Result<bool, AppError> {
+fn backend_smoke_evidence(event_id: &str) -> Result<Option<BackendSmokeEvidence>, AppError> {
     if event_id.trim().is_empty() {
-        return Ok(false);
+        return Ok(None);
     }
-
-    Ok(ledger::read_runtime_events()?.into_iter().any(|event| {
-        event.event_id == event_id
-            && matches!(
-                event.event_type.as_str(),
-                "backend.sidecar.start.completed" | "backend.chat.completed"
-            )
-    }))
+    let Some(event) = ledger::read_runtime_events()?
+        .into_iter()
+        .find(|event| event.event_id == event_id && event.event_type == "backend.chat.completed")
+    else {
+        return Ok(None);
+    };
+    let field = |key| detail_value(&event.details, key).map(str::to_string);
+    let Some(model_size_bytes) = field("model_size_bytes").and_then(|value| value.parse().ok())
+    else {
+        return Ok(None);
+    };
+    let Some(evidence) = (|| {
+        Some(BackendSmokeEvidence {
+            event_id: event.event_id,
+            backend_id: field("backend")?,
+            backend_release: field("backend_release")?,
+            binary_sha256: field("binary_sha256")?,
+            model_id: field("model_id")?,
+            model_sha256: field("model_sha256")?,
+            model_size_bytes,
+            ctx_size: field("ctx_size")?,
+            mmproj: field("mmproj")?,
+            sampling: field("sampling")?,
+            host_os: field("host_os")?,
+            host_arch: field("host_arch")?,
+        })
+    })() else {
+        return Ok(None);
+    };
+    Ok(Some(evidence))
 }
 
 fn validate_promotion_evidence(
@@ -642,7 +754,7 @@ fn validate_promotion_evidence(
     artifact: ModelArtifactDescriptor,
     local_state: &LocalArtifactState,
     benchmark: Option<&observability::BenchmarkRunReport>,
-    backend_smoke_event_seen: bool,
+    backend_smoke: Option<&BackendSmokeEvidence>,
 ) -> InstallValidation {
     let mut blockers = Vec::new();
 
@@ -676,11 +788,61 @@ fn validate_promotion_evidence(
     if evidence.backend_version.trim().is_empty() {
         push_unique(&mut blockers, "backendVersion evidence가 비어 있습니다.");
     }
-    if !backend_smoke_event_seen {
-        push_unique(
+    match backend_smoke {
+        Some(smoke) => {
+            if smoke.backend_id != candidate.backend {
+                push_unique(&mut blockers, "backend smoke backend가 후보와 다릅니다.");
+            }
+            if smoke.backend_release != evidence.backend_version {
+                push_unique(
+                    &mut blockers,
+                    "backend smoke release가 promotion evidence와 다릅니다.",
+                );
+            }
+            if !checksum::is_valid_sha256(&smoke.binary_sha256) {
+                push_unique(
+                    &mut blockers,
+                    "backend smoke binary SHA-256이 유효하지 않습니다.",
+                );
+            }
+            if smoke.model_id != artifact_model_id(artifact)
+                || smoke.model_sha256 != artifact.sha256
+                || smoke.model_size_bytes != artifact.size_bytes
+            {
+                push_unique(
+                    &mut blockers,
+                    "backend smoke model artifact provenance가 후보 manifest와 다릅니다.",
+                );
+            }
+            if smoke.ctx_size == "model-default" || smoke.ctx_size.parse::<u32>().is_err() {
+                push_unique(
+                    &mut blockers,
+                    "backend smoke context size가 고정되지 않았습니다.",
+                );
+            }
+            if smoke.mmproj != evidence.mmproj {
+                push_unique(
+                    &mut blockers,
+                    "backend smoke mmproj 결과가 evidence와 다릅니다.",
+                );
+            }
+            if smoke.sampling != "temperature-0.1_top-p-0.8" {
+                push_unique(
+                    &mut blockers,
+                    "backend smoke sampling 조건이 고정값과 다릅니다.",
+                );
+            }
+            if smoke.host_os.trim().is_empty() || smoke.host_arch.trim().is_empty() {
+                push_unique(
+                    &mut blockers,
+                    "backend smoke host 환경 evidence가 비어 있습니다.",
+                );
+            }
+        }
+        None => push_unique(
             &mut blockers,
-            "backend smoke ledger event를 확인하지 못했습니다.",
-        );
+            "동일 artifact provenance를 가진 backend chat smoke event를 확인하지 못했습니다.",
+        ),
     }
     if !local_state.verified {
         push_unique(
@@ -691,8 +853,11 @@ fn validate_promotion_evidence(
             ),
         );
     }
-    if evidence.ram_fit != "passed" {
-        push_unique(&mut blockers, "ramFit은 passed여야 합니다.");
+    if evidence.ram_fit != "observed-within-local-host" {
+        push_unique(
+            &mut blockers,
+            "ramFit은 observed-within-local-host여야 합니다.",
+        );
     }
     if evidence.recommended_ram_gb == 0 {
         push_unique(&mut blockers, "recommendedRamGb는 1 이상이어야 합니다.");
@@ -705,6 +870,12 @@ fn validate_promotion_evidence(
         push_unique(
             &mut blockers,
             "peakRssBytes가 recommendedRamGb budget을 초과합니다.",
+        );
+    }
+    if evidence.recommended_ram_gb != measured_ram_budget_gb(evidence.peak_rss_bytes) {
+        push_unique(
+            &mut blockers,
+            "recommendedRamGb는 measured peak RSS + 2 GiB headroom 공식과 일치해야 합니다.",
         );
     }
     if !matches!(
@@ -743,6 +914,14 @@ fn validate_promotion_evidence(
                     "benchmark peak_rss_bytes가 promotion evidence와 일치하지 않습니다.",
                 );
             }
+            if row.model_run_id.as_deref()
+                != Some(format!("model-run-{}", evidence.backend_smoke_event_id).as_str())
+            {
+                push_unique(
+                    &mut blockers,
+                    "benchmark model_run_id가 backend smoke event와 직접 연결되지 않았습니다.",
+                );
+            }
         }
         None => push_unique(
             &mut blockers,
@@ -754,6 +933,18 @@ fn validate_promotion_evidence(
         ready: blockers.is_empty(),
         blockers,
     }
+}
+
+fn measured_ram_budget_gb(peak_rss_bytes: u64) -> u32 {
+    let measured_gib = peak_rss_bytes.saturating_add(BYTES_PER_GIB - 1) / BYTES_PER_GIB;
+    measured_gib.saturating_add(2).min(u64::from(u32::MAX)) as u32
+}
+
+fn detail_value<'a>(details: &'a str, key: &str) -> Option<&'a str> {
+    details.split_whitespace().find_map(|field| {
+        let (candidate, value) = field.split_once('=')?;
+        (candidate == key).then_some(value)
+    })
 }
 
 fn artifact_model_id(artifact: ModelArtifactDescriptor) -> String {
@@ -844,14 +1035,14 @@ pub fn promote_candidate_report(id: &str, evidence_path: &str) -> Result<String,
     let final_path = model_artifact_path(artifact);
     let local_state = local_artifact_state(artifact, &final_path)?;
     let benchmark = promotion_benchmark_run(&evidence, artifact)?;
-    let backend_smoke_event_seen = backend_smoke_event_seen(&evidence.backend_smoke_event_id)?;
+    let backend_smoke = backend_smoke_evidence(&evidence.backend_smoke_event_id)?;
     let validation = validate_promotion_evidence(
         candidate,
         &evidence,
         artifact,
         &local_state,
         benchmark.as_ref(),
-        backend_smoke_event_seen,
+        backend_smoke.as_ref(),
     );
 
     if !validation.ready {
@@ -1705,6 +1896,7 @@ fn persist_registry_entry(
 }
 
 fn registry_summary() -> String {
+    let selected_id = read_default_selection().ok().map(|value| value.model_id);
     match read_registry_entries() {
         Ok(entries) if entries.is_empty() => format!(
             "model registry\n- installed models: 0\n- registry dir: {}",
@@ -1715,8 +1907,17 @@ fn registry_summary() -> String {
                 .iter()
                 .map(|entry| {
                     format!(
-                        "- {} | status: {} | sha256: {} | path: {}",
-                        entry.id, entry.status, entry.artifact_sha256, entry.artifact_path
+                        "- {}{} | status: {} | evidence: {} | sha256: {} | path: {}",
+                        entry.id,
+                        if selected_id.as_deref() == Some(entry.id.as_str()) {
+                            " | default"
+                        } else {
+                            ""
+                        },
+                        entry.status,
+                        entry.evidence_status,
+                        entry.artifact_sha256,
+                        entry.artifact_path
                     )
                 })
                 .collect::<Vec<_>>()
@@ -1771,23 +1972,148 @@ fn read_registry_entries() -> Result<Vec<RegistryEntry>, AppError> {
             ))
         })?;
 
-        if let Some(registry_entry) = parse_registry_entry(&text) {
-            entries.push(registry_entry);
-        }
+        entries.push(parse_registry_entry(&text)?);
     }
 
     entries.sort_by(|left, right| left.id.cmp(&right.id));
     Ok(entries)
 }
 
-fn parse_registry_entry(text: &str) -> Option<RegistryEntry> {
-    Some(RegistryEntry {
-        id: extract_json_string(text, "id")?,
-        display_name: extract_json_string(text, "displayName")?,
-        status: extract_json_string(text, "status")?,
-        artifact_path: extract_json_string(text, "artifactPath")?,
-        artifact_sha256: extract_json_string(text, "artifactSha256")?,
+fn parse_registry_entry(text: &str) -> Result<RegistryEntry, AppError> {
+    let context = "model registry entry";
+    let object = crate::strict_json::parse_object(
+        text,
+        &[
+            "schemaVersion",
+            "id",
+            "displayName",
+            "status",
+            "evidenceStatus",
+            "promotionEvidencePath",
+            "backendVersion",
+            "benchmarkRunId",
+            "upstreamModel",
+            "upstreamUrl",
+            "artifactPath",
+            "artifactSha256",
+            "licenseSource",
+            "licenseCheckedAt",
+        ],
+        context,
+    )?;
+    if crate::strict_json::number(&object, "schemaVersion", context)? != 1 {
+        return Err(AppError::blocked("model registry schemaVersion 불일치"));
+    }
+    Ok(RegistryEntry {
+        id: crate::strict_json::string(&object, "id", context)?,
+        display_name: crate::strict_json::string(&object, "displayName", context)?,
+        status: crate::strict_json::string(&object, "status", context)?,
+        evidence_status: crate::strict_json::string(&object, "evidenceStatus", context)?,
+        promotion_evidence_path: crate::strict_json::string(
+            &object,
+            "promotionEvidencePath",
+            context,
+        )?,
+        backend_version: crate::strict_json::string(&object, "backendVersion", context)?,
+        benchmark_run_id: crate::strict_json::string(&object, "benchmarkRunId", context)?,
+        artifact_path: crate::strict_json::string(&object, "artifactPath", context)?,
+        artifact_sha256: crate::strict_json::string(&object, "artifactSha256", context)?,
     })
+}
+
+fn validated_registry_entry(id: &str) -> Result<RegistryEntry, AppError> {
+    let candidate = find_candidate(id)?;
+    let entry = read_registry_entries()?
+        .into_iter()
+        .find(|entry| entry.id == id)
+        .ok_or_else(|| {
+            AppError::blocked(format!("설치된 model registry entry가 없습니다: {id}"))
+        })?;
+    if entry.status != "installed" {
+        return Err(AppError::blocked(format!(
+            "model registry 상태가 installed가 아닙니다: {}",
+            entry.status
+        )));
+    }
+    let artifact = source_backed_artifact(candidate)?;
+    let expected_path = model_artifact_path(artifact);
+    if Path::new(&entry.artifact_path) != expected_path {
+        return Err(AppError::blocked(
+            "model registry artifact path가 source-backed manifest와 다릅니다.",
+        ));
+    }
+    if entry.artifact_sha256 != artifact.sha256 {
+        return Err(AppError::blocked(
+            "model registry artifact SHA-256이 source-backed manifest와 다릅니다.",
+        ));
+    }
+    let local_state = local_artifact_state(artifact, &expected_path)?;
+    if !local_state.verified {
+        return Err(AppError::blocked(format!(
+            "model registry artifact 재검증 실패: {}",
+            local_state.detail
+        )));
+    }
+    if candidate.status != CandidateStatus::Verified {
+        let promotion = local_promotion_readiness(candidate)?;
+        if !promotion.validation.ready {
+            return Err(AppError::blocked(format!(
+                "model promotion evidence 재검증 실패:\n- {}",
+                promotion.validation.blockers.join("\n- ")
+            )));
+        }
+        if entry.evidence_status != "verified-local-promotion"
+            || entry.promotion_evidence_path != promotion_evidence_path(id).display().to_string()
+        {
+            return Err(AppError::blocked(
+                "model registry promotion binding이 canonical evidence와 다릅니다.",
+            ));
+        }
+    }
+    Ok(entry)
+}
+
+fn read_default_selection() -> Result<DefaultSelection, AppError> {
+    let path = paths::model_default_file();
+    if !path.exists() {
+        return Err(AppError::blocked(format!(
+            "기본 모델이 선택되지 않았습니다. `rpotato model default <id>`를 실행하세요.\n- selection: {}",
+            path.display()
+        )));
+    }
+    let text = fs::read_to_string(&path).map_err(|err| {
+        AppError::runtime(format!(
+            "기본 모델 선택을 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    parse_default_selection(&text)
+}
+
+fn parse_default_selection(text: &str) -> Result<DefaultSelection, AppError> {
+    let context = "default model selection";
+    let object = crate::strict_json::parse_object(
+        text,
+        &["schemaVersion", "modelId", "artifactSha256", "selectedAtMs"],
+        context,
+    )?;
+    if crate::strict_json::number(&object, "schemaVersion", context)? != 1 {
+        return Err(AppError::blocked("default model schemaVersion 불일치"));
+    }
+    Ok(DefaultSelection {
+        model_id: crate::strict_json::string(&object, "modelId", context)?,
+        artifact_sha256: crate::strict_json::string(&object, "artifactSha256", context)?,
+        selected_at_ms: crate::strict_json::number(&object, "selectedAtMs", context)?,
+    })
+}
+
+fn default_selection_json(selection: &DefaultSelection) -> String {
+    format!(
+        "{{\n  \"schemaVersion\": 1,\n  \"modelId\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"selectedAtMs\": {}\n}}\n",
+        ledger::json_string(&selection.model_id),
+        ledger::json_string(&selection.artifact_sha256),
+        selection.selected_at_ms
+    )
 }
 
 fn registry_path(id: &str) -> PathBuf {
@@ -2015,6 +2341,17 @@ fn json_value_after_key<'a>(text: &'a str, key: &str) -> Option<&'a str> {
     Some(after_key[colon + 1..].trim_start())
 }
 
+fn now_ms_u64() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .try_into()
+        .unwrap_or(u64::MAX)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2187,8 +2524,8 @@ mod tests {
   "backendId": "llama.cpp",
   "backendVersion": "b9878",
   "backendSmokeEventId": "event-backend-chat",
-  "ramFit": "passed",
-  "recommendedRamGb": 16,
+  "ramFit": "observed-within-local-host",
+  "recommendedRamGb": 6,
   "peakRssBytes": 3351363584,
   "mmproj": "not-required-text-only",
   "benchmarkRunId": "benchmark-local",
@@ -2199,7 +2536,7 @@ mod tests {
 
         assert_eq!(evidence.model_id, "qwen3.5-4b");
         assert_eq!(evidence.backend_version, "b9878");
-        assert_eq!(evidence.recommended_ram_gb, 16);
+        assert_eq!(evidence.recommended_ram_gb, 6);
     }
 
     #[test]
@@ -2208,6 +2545,7 @@ mod tests {
         let artifact = source_backed_artifact(candidate).unwrap();
         let evidence = qwen_promotion_evidence(artifact);
         let benchmark = qwen_benchmark_report(artifact, &evidence);
+        let smoke = qwen_backend_smoke(artifact, &evidence);
         let local_state = LocalArtifactState {
             status: "verified-local-artifact",
             detail: "test artifact verified".to_string(),
@@ -2220,7 +2558,7 @@ mod tests {
             artifact,
             &local_state,
             Some(&benchmark),
-            true,
+            Some(&smoke),
         );
 
         assert!(validation.ready, "{:?}", validation.blockers);
@@ -2240,7 +2578,7 @@ mod tests {
         };
 
         let validation =
-            validate_promotion_evidence(candidate, &evidence, artifact, &local_state, None, false);
+            validate_promotion_evidence(candidate, &evidence, artifact, &local_state, None, None);
 
         assert!(!validation.ready);
         assert!(validation
@@ -2258,7 +2596,7 @@ mod tests {
         assert!(validation
             .blockers
             .iter()
-            .any(|blocker| blocker.contains("backend smoke")));
+            .any(|blocker| blocker.contains("smoke event")));
     }
 
     #[test]
@@ -2269,6 +2607,41 @@ mod tests {
         assert_eq!(entry.id, "qwen3.5-4b");
         assert_eq!(entry.status, "installed");
         assert!(entry.artifact_sha256.starts_with("00fe"));
+    }
+
+    #[test]
+    fn default_selection_parser_is_strict_and_round_trips() {
+        let selection = DefaultSelection {
+            model_id: "qwen3.5-4b".to_string(),
+            artifact_sha256: "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+                .to_string(),
+            selected_at_ms: 42,
+        };
+        assert_eq!(
+            parse_default_selection(&default_selection_json(&selection)).unwrap(),
+            selection
+        );
+        assert!(parse_default_selection(
+            r#"{"schemaVersion":1,"modelId":"qwen3.5-4b","artifactSha256":"x","selectedAtMs":42,"unknown":true}"#
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn default_resolution_fails_closed_when_selection_is_missing() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let data_root =
+            std::env::temp_dir().join(format!("rpotato-default-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&data_root);
+        std::env::set_var("RPOTATO_DATA_HOME", &data_root);
+        std::env::set_var("RPOTATO_PROJECT_ROOT", data_root.join("project"));
+
+        let error = default_artifact_path().unwrap_err();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(data_root);
+        assert!(error.message.contains("기본 모델이 선택되지 않았습니다"));
     }
 
     #[test]
@@ -2298,8 +2671,8 @@ mod tests {
             backend_id: "llama.cpp".to_string(),
             backend_version: "b9878".to_string(),
             backend_smoke_event_id: "event-backend-chat".to_string(),
-            ram_fit: "passed".to_string(),
-            recommended_ram_gb: 16,
+            ram_fit: "observed-within-local-host".to_string(),
+            recommended_ram_gb: measured_ram_budget_gb(3_351_363_584),
             peak_rss_bytes: 3_351_363_584,
             mmproj: "not-required-text-only".to_string(),
             benchmark_run_id: "benchmark-local".to_string(),
@@ -2314,7 +2687,7 @@ mod tests {
         observability::BenchmarkRunReport {
             benchmark_run_id: evidence.benchmark_run_id.clone(),
             session_id: "session-test".to_string(),
-            model_run_id: Some("model-run-test".to_string()),
+            model_run_id: Some(format!("model-run-{}", evidence.backend_smoke_event_id)),
             model_id: artifact_model_id(artifact),
             benchmark_name: "ontology-view-smoke".to_string(),
             fixture_id: "fixture-test".to_string(),
@@ -2341,6 +2714,27 @@ mod tests {
             reproducibility_manifest: "{}".to_string(),
             redacted_report: "{}".to_string(),
             recorded_at_ms: 1000,
+        }
+    }
+
+    fn qwen_backend_smoke(
+        artifact: ModelArtifactDescriptor,
+        evidence: &PromotionEvidence,
+    ) -> BackendSmokeEvidence {
+        BackendSmokeEvidence {
+            event_id: evidence.backend_smoke_event_id.clone(),
+            backend_id: "llama.cpp".to_string(),
+            backend_release: evidence.backend_version.clone(),
+            binary_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                .to_string(),
+            model_id: artifact_model_id(artifact),
+            model_sha256: artifact.sha256.to_string(),
+            model_size_bytes: artifact.size_bytes,
+            ctx_size: "4096".to_string(),
+            mmproj: evidence.mmproj.clone(),
+            sampling: "temperature-0.1_top-p-0.8".to_string(),
+            host_os: "macos".to_string(),
+            host_arch: "aarch64".to_string(),
         }
     }
 

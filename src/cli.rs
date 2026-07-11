@@ -306,7 +306,7 @@ pub enum BackendCommand {
     InstallPlan,
     Install,
     Start {
-        model_path: String,
+        model_path: Option<String>,
         ctx_size: Option<u32>,
     },
     Status,
@@ -334,6 +334,8 @@ pub enum ModelCommand {
     Manifest,
     Inspect { id: String },
     Registry,
+    Default,
+    SetDefault { id: String },
     DownloadPlan { id: String },
     EvalPlan { id: String },
     BenchmarkPlan { id: String },
@@ -702,6 +704,12 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "model" && action == "registry" => {
             Ok(Command::Model(ModelCommand::Registry))
         }
+        [group, action] if group == "model" && action == "default" => {
+            Ok(Command::Model(ModelCommand::Default))
+        }
+        [group, action, id] if group == "model" && action == "default" => {
+            Ok(Command::Model(ModelCommand::SetDefault { id: id.clone() }))
+        }
         [group, action, id] if group == "model" && action == "download-plan" => {
             Ok(Command::Model(ModelCommand::DownloadPlan { id: id.clone() }))
         }
@@ -772,7 +780,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             "모델 id가 필요합니다. 예: rpotato model install qwen3.5-4b",
         )),
         [group, ..] if group == "model" => Err(AppError::usage(
-            "model 명령은 list, manifest, inspect, registry, download-plan, eval-plan, benchmark-plan, fetch-candidate, verify-file, promote, cleanup-failed, install만 허용합니다.",
+            "model 명령은 list, manifest, inspect, registry, default, download-plan, eval-plan, benchmark-plan, fetch-candidate, verify-file, promote, cleanup-failed, install만 허용합니다.",
         )),
         [group, action, rest @ ..] if group == "plugin" && action == "import" => {
             parse_plugin_import(rest).map(Command::Plugin)
@@ -1425,12 +1433,6 @@ fn parse_backend_start(args: &[String]) -> Result<BackendCommand, AppError> {
         }
     }
 
-    let Some(model_path) = model_path else {
-        return Err(AppError::usage(
-            "backend start는 --model <path> 형식이 필요합니다.",
-        ));
-    };
-
     Ok(BackendCommand::Start {
         model_path,
         ctx_size,
@@ -1896,6 +1898,25 @@ mod tests {
     }
 
     #[test]
+    fn parses_model_default_show_and_select() {
+        assert_eq!(
+            parse(["model".to_string(), "default".to_string()]).unwrap(),
+            Command::Model(ModelCommand::Default)
+        );
+        assert_eq!(
+            parse([
+                "model".to_string(),
+                "default".to_string(),
+                "qwen3.5-4b".to_string(),
+            ])
+            .unwrap(),
+            Command::Model(ModelCommand::SetDefault {
+                id: "qwen3.5-4b".to_string()
+            })
+        );
+    }
+
+    #[test]
     fn parses_model_download_plan() {
         let command = parse([
             "model".to_string(),
@@ -2073,7 +2094,19 @@ mod tests {
         assert_eq!(
             command,
             Command::Backend(BackendCommand::Start {
-                model_path: "model.gguf".to_string(),
+                model_path: Some("model.gguf".to_string()),
+                ctx_size: None
+            })
+        );
+    }
+
+    #[test]
+    fn parses_backend_start_without_model_for_default_resolution() {
+        let command = parse(["backend".to_string(), "start".to_string()]).unwrap();
+        assert_eq!(
+            command,
+            Command::Backend(BackendCommand::Start {
+                model_path: None,
                 ctx_size: None
             })
         );
@@ -2093,7 +2126,7 @@ mod tests {
         assert_eq!(
             command,
             Command::Backend(BackendCommand::Start {
-                model_path: "model.gguf".to_string(),
+                model_path: Some("model.gguf".to_string()),
                 ctx_size: Some(4096)
             })
         );
