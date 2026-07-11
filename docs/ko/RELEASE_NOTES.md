@@ -1,5 +1,26 @@
 # 릴리즈 노트
 
+## v0.31.1 - Windows Sidecar Stop Fallback
+
+릴리즈 날짜: 2026-07-11
+
+이 patch release는 불완전한 v0.31.0 release에서 누락된 Windows artifact를 복구합니다. v0.31.0 Windows release job은 새 native cancellation lifecycle을 실제로 검증했지만 non-forced `taskkill` 실패 시 기존 forced-stop branch에 도달하기 전에 반환하는 문제를 발견했습니다.
+
+### 포함된 것
+
+- `backend stop`은 graceful termination command 실패 뒤 process liveness를 확인하고 process가 남아 있으면 즉시 force fallback을 실행합니다.
+- Force command와 자연 종료가 경합해 command가 실패해도 기록된 process가 사라졌음을 liveness로 확인한 경우에만 성공으로 처리합니다.
+- Platform-independent unit test가 두 fallback path를 검증하고, Windows release job은 artifact build 전에 실제 fake-sidecar cancellation/stop lifecycle을 다시 실행합니다.
+
+### 구현 중 검증한 것
+
+- `cargo test --locked -- --test-threads=1` (unit test 326개, process-level integration test 20개)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.31.1`
+
 ## v0.31.0 - Backend Streaming과 Cancellation
 
 릴리즈 날짜: 2026-07-11

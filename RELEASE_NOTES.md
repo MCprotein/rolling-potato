@@ -1,5 +1,26 @@
 # Release Notes
 
+## v0.31.1 - Windows Sidecar Stop Fallback
+
+Release date: 2026-07-11
+
+This patch release restores the missing Windows artifact from the incomplete v0.31.0 release. The v0.31.0 Windows release job proved the new native cancellation lifecycle but exposed that a non-forced `taskkill` failure returned before the existing forced-stop branch could run.
+
+### Included
+
+- `backend stop` checks process liveness after a graceful termination command fails and immediately attempts the force fallback when the process remains alive.
+- A force command that races with natural process exit is accepted only after liveness confirms the recorded process is gone.
+- Platform-independent unit tests cover both fallback paths; the Windows release job reruns the real fake-sidecar cancellation and stop lifecycle before building the artifact.
+
+### Verified During Implementation
+
+- `cargo test --locked -- --test-threads=1` (326 unit tests and 20 process-level integration tests)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.31.1`
+
 ## v0.31.0 - Backend Streaming And Cancellation
 
 Release date: 2026-07-11

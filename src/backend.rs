@@ -641,17 +641,7 @@ pub fn stop_report() -> Result<String, AppError> {
 
     let generation_outcome = cancel_active_generation_before_stop(&record)?;
 
-    terminate_process(record.pid, false)?;
-    let stopped = wait_until_process_stops(record.pid, Duration::from_millis(STOP_TIMEOUT_MS));
-    if !stopped {
-        terminate_process(record.pid, true)?;
-        if !wait_until_process_stops(record.pid, Duration::from_millis(STOP_TIMEOUT_MS)) {
-            return Err(AppError::blocked(format!(
-                "backend stop 실패\n- pid: {}\n- 이유: graceful/force 종료 후에도 process가 남아 있습니다.",
-                record.pid
-            )));
-        }
-    }
+    terminate_process_with_fallback(record.pid)?;
     remove_file_if_exists(&backend_sidecar_record_path())?;
     let event_id = state::record_event(
         "backend.sidecar.stop.completed",
@@ -674,6 +664,48 @@ pub fn stop_report() -> Result<String, AppError> {
         record.stderr_log.display(),
         event_id
     ))
+}
+
+fn terminate_process_with_fallback(pid: u32) -> Result<(), AppError> {
+    terminate_with_fallback(
+        || terminate_process(pid, false),
+        || terminate_process(pid, true),
+        || process_running_status(pid),
+        || wait_until_process_stops_checked(pid, Duration::from_millis(STOP_TIMEOUT_MS)),
+        pid,
+    )
+}
+
+fn terminate_with_fallback(
+    graceful: impl FnOnce() -> Result<(), AppError>,
+    force: impl FnOnce() -> Result<(), AppError>,
+    is_running: impl Fn() -> Result<bool, AppError>,
+    wait_until_stopped: impl Fn() -> Result<bool, AppError>,
+    pid: u32,
+) -> Result<(), AppError> {
+    let graceful_succeeded = graceful().is_ok();
+    let stopped = if graceful_succeeded {
+        wait_until_stopped()?
+    } else {
+        !is_running()?
+    };
+    if stopped {
+        return Ok(());
+    }
+
+    if let Err(error) = force() {
+        if is_running()? {
+            return Err(error);
+        }
+        return Ok(());
+    }
+    if wait_until_stopped()? {
+        Ok(())
+    } else {
+        Err(AppError::blocked(format!(
+            "backend stop 실패\n- pid: {pid}\n- 이유: graceful/force 종료 후에도 process가 남아 있습니다."
+        )))
+    }
 }
 
 fn cancel_active_generation_before_stop(record: &BackendSidecarRecord) -> Result<String, AppError> {
@@ -3305,11 +3337,16 @@ fn normalize_version_output(stdout: &[u8], stderr: &[u8]) -> Option<String> {
 
 #[cfg(unix)]
 fn process_is_running(pid: u32) -> bool {
+    process_running_status(pid).unwrap_or(false)
+}
+
+#[cfg(unix)]
+fn process_running_status(pid: u32) -> Result<bool, AppError> {
     let Some(pid_arg) = unix_pid_arg(pid) else {
-        return false;
+        return Ok(false);
     };
     if process_is_zombie_arg(&pid_arg) {
-        return false;
+        return Ok(false);
     }
     Command::new("kill")
         .arg("-0")
@@ -3318,7 +3355,7 @@ fn process_is_running(pid: u32) -> bool {
         .stderr(Stdio::null())
         .status()
         .map(|status| status.success())
-        .unwrap_or(false)
+        .map_err(|err| AppError::runtime(format!("backend process 상태 확인 실패: {err}")))
 }
 
 #[cfg(unix)]
@@ -3348,17 +3385,34 @@ fn unix_pid_arg(pid: u32) -> Option<String> {
 
 #[cfg(windows)]
 fn process_is_running(pid: u32) -> bool {
-    Command::new("tasklist")
+    process_running_status(pid).unwrap_or(false)
+}
+
+#[cfg(windows)]
+fn process_running_status(pid: u32) -> Result<bool, AppError> {
+    let output = Command::new("tasklist")
         .arg("/FI")
         .arg(format!("PID eq {pid}"))
         .output()
-        .map(|output| String::from_utf8_lossy(&output.stdout).contains(&pid.to_string()))
-        .unwrap_or(false)
+        .map_err(|err| AppError::runtime(format!("backend process 상태 확인 실패: {err}")))?;
+    if !output.status.success() {
+        return Err(AppError::runtime(format!(
+            "backend process 상태 확인 명령이 실패했습니다: pid={pid}"
+        )));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).contains(&pid.to_string()))
 }
 
 #[cfg(not(any(unix, windows)))]
 fn process_is_running(_pid: u32) -> bool {
     false
+}
+
+#[cfg(not(any(unix, windows)))]
+fn process_running_status(_pid: u32) -> Result<bool, AppError> {
+    Err(AppError::blocked(
+        "현재 platform에서는 backend process 상태 확인을 지원하지 않습니다.",
+    ))
 }
 
 #[cfg(unix)]
@@ -3459,15 +3513,15 @@ fn terminate_process(_pid: u32, _force: bool) -> Result<(), AppError> {
     ))
 }
 
-fn wait_until_process_stops(pid: u32, timeout: Duration) -> bool {
+fn wait_until_process_stops_checked(pid: u32, timeout: Duration) -> Result<bool, AppError> {
     let started_at = Instant::now();
     while started_at.elapsed() < timeout {
-        if !process_is_running(pid) {
-            return true;
+        if !process_running_status(pid)? {
+            return Ok(true);
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-    !process_is_running(pid)
+    Ok(!process_running_status(pid)?)
 }
 
 fn selected_backend_release_artifact(
@@ -3589,6 +3643,69 @@ mod tests {
     use std::sync::{Arc, Barrier};
     use std::thread;
 
+    #[test]
+    fn termination_fallback_forces_a_process_after_graceful_command_failure() {
+        let calls = std::cell::RefCell::new(Vec::new());
+        let running = std::cell::Cell::new(true);
+
+        terminate_with_fallback(
+            || {
+                calls.borrow_mut().push("graceful");
+                Err(AppError::runtime("graceful unsupported"))
+            },
+            || {
+                calls.borrow_mut().push("force");
+                running.set(false);
+                Ok(())
+            },
+            || Ok(running.get()),
+            || Ok(!running.get()),
+            42,
+        )
+        .unwrap();
+
+        assert_eq!(*calls.borrow(), ["graceful", "force"]);
+        assert!(!running.get());
+    }
+
+    #[test]
+    fn termination_fallback_accepts_force_race_when_process_is_already_gone() {
+        let running = std::cell::Cell::new(true);
+
+        terminate_with_fallback(
+            || Err(AppError::runtime("graceful unsupported")),
+            || {
+                running.set(false);
+                Err(AppError::runtime("process already exited"))
+            },
+            || Ok(running.get()),
+            || Ok(!running.get()),
+            43,
+        )
+        .unwrap();
+
+        assert!(!running.get());
+    }
+
+    #[test]
+    fn termination_fallback_fails_closed_when_liveness_check_fails() {
+        let force_called = std::cell::Cell::new(false);
+
+        let error = terminate_with_fallback(
+            || Err(AppError::runtime("graceful unsupported")),
+            || {
+                force_called.set(true);
+                Ok(())
+            },
+            || Err(AppError::runtime("liveness unavailable")),
+            || Ok(false),
+            44,
+        )
+        .unwrap_err();
+
+        assert!(error.message.contains("liveness unavailable"));
+        assert!(!force_called.get());
+    }
     fn generation_test_sidecar() -> BackendSidecarRecord {
         BackendSidecarRecord {
             backend_id: LLAMA_CPP_BACKEND_ID.to_string(),
