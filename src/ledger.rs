@@ -145,9 +145,80 @@ pub fn append_event(event: &LedgerEvent) -> Result<(), AppError> {
         Duration::from_secs(5),
     )?;
     append_chained_event(&paths::runtime_ledger_file(), event)?;
-    append_chained_event(&paths::project_session_ledger_file(), event)?;
+    let project_ledger = paths::project_session_ledger_file();
+    if let Err(error) = append_chained_event(&project_ledger, event) {
+        if error.code != 3 {
+            return Err(error);
+        }
+        rebuild_project_ledger_from_runtime(&project_ledger, &event.project_id).map_err(
+            |recovery_error| {
+                AppError::blocked(format!(
+                    "project ledger 자동 복구 실패\n- 원래 오류: {}\n- 복구 오류: {}",
+                    error.message, recovery_error.message
+                ))
+            },
+        )?;
+    }
     append_line(&paths::operation_log_file(), &event.to_log_line())?;
     Ok(())
+}
+
+fn rebuild_project_ledger_from_runtime(path: &Path, project_id: &str) -> Result<(), AppError> {
+    let events = read_runtime_events()?
+        .into_iter()
+        .filter(|event| event.project_id == project_id)
+        .collect::<Vec<_>>();
+    let (body, last_hash) = render_chained_ledger(&events);
+
+    preserve_corrupt_ledger_file(path)?;
+    preserve_corrupt_ledger_file(&ledger_head_path(path))?;
+    crate::state::atomic_replace_bytes(path, body.as_bytes())?;
+    write_ledger_head(path, events.len(), last_hash.as_deref().unwrap_or("root"))
+}
+
+fn render_chained_ledger(events: &[ParsedLedgerEvent]) -> (String, Option<String>) {
+    let mut body = String::new();
+    let mut previous = "root".to_string();
+    for event in events {
+        let event = LedgerEvent {
+            event_id: event.event_id.clone(),
+            ts_ms: event.ts_ms,
+            event_type: event.event_type.clone(),
+            project_id: event.project_id.clone(),
+            session_id: event.session_id.clone(),
+            summary: event.summary.clone(),
+            details: event.details.clone(),
+        };
+        let payload = event_chain_payload(&event, &previous);
+        let event_hash = sha256_bytes(payload.as_bytes());
+        body.push_str(&format!(
+            "{{{},\"event_hash\":\"{}\"}}\n",
+            payload.trim_start_matches('{').trim_end_matches('}'),
+            event_hash
+        ));
+        previous = event_hash;
+    }
+    let last_hash = (!events.is_empty()).then_some(previous);
+    (body, last_hash)
+}
+
+fn preserve_corrupt_ledger_file(path: &Path) -> Result<Option<std::path::PathBuf>, AppError> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("ledger");
+    let backup = path.with_extension(format!("{extension}.corrupt.{}", now_nanos()));
+    fs::rename(path, &backup).map_err(|err| {
+        AppError::runtime(format!(
+            "손상 ledger 백업 실패: {} -> {} ({err})",
+            path.display(),
+            backup.display()
+        ))
+    })?;
+    Ok(Some(backup))
 }
 
 pub fn read_runtime_events() -> Result<Vec<ParsedLedgerEvent>, AppError> {
@@ -717,6 +788,37 @@ mod tests {
             std::env::remove_var("RPOTATO_PROJECT_ROOT");
             let _ = fs::remove_dir_all(root);
         }
+    }
+
+    #[test]
+    fn corrupt_project_mirror_is_preserved_and_rebuilt_from_runtime() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let identity = fresh_identity();
+        let first = new_event_for(&identity, "mirror.first", "첫 이벤트", "safe");
+        let second = new_event_for(&identity, "mirror.second", "두 번째 이벤트", "safe");
+        append_event(&first).unwrap();
+
+        let project_path = paths::project_session_ledger_file();
+        let head_path = ledger_head_path(&project_path);
+        fs::write(&project_path, "{malformed\n").unwrap();
+        fs::write(&head_path, "{stale-head}\n").unwrap();
+
+        append_event(&second).unwrap();
+
+        let body = fs::read_to_string(&project_path).unwrap();
+        let rebuilt = validate_ledger_contents(&project_path, &body).unwrap();
+        let backups = fs::read_dir(paths::project_state_dir())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|name| name.contains(".corrupt."))
+            .collect::<Vec<_>>();
+        let runtime = read_runtime_events().unwrap();
+
+        assert_eq!(runtime.len(), 2);
+        assert_eq!(rebuilt.len(), 2);
+        assert_eq!(rebuilt[0].event_id, first.event_id);
+        assert_eq!(rebuilt[1].event_id, second.event_id);
+        assert_eq!(backups.len(), 2);
     }
 
     #[test]
