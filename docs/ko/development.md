@@ -126,7 +126,7 @@ Plugin source snapshot, persistent registry, inspect, validate, enable/disable/r
 필수 도구:
 
 - Git
-- Rust stable toolchain
+- `rust-toolchain.toml`과 `mise.toml`에 고정된 Rust 1.97.0 stable toolchain
 - SQLite runtime/library usable by `rusqlite`
 - platform-specific C/C++ runtime needed by `llama.cpp`
 
@@ -135,6 +135,10 @@ Plugin source snapshot, persistent registry, inspect, validate, enable/disable/r
 - `rustfmt`
 - `clippy`
 - GitHub CLI
+
+저장소 pin이 build source of truth입니다. Hosted runner에 우연히 설치된 compiler에
+의존하지 말고 `rust-toolchain.toml`, `mise.toml`, `Cargo.toml`의
+`package.rust-version`을 함께 갱신합니다.
 
 ## 기본 검증 명령
 

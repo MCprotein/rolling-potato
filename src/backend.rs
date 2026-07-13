@@ -267,12 +267,12 @@ const LLAMA_CPP_RELEASE: BackendReleaseManifest = BackendReleaseManifest {
     id: LLAMA_CPP_BACKEND_ID,
     upstream_source: "https://github.com/ggml-org/llama.cpp",
     license: "MIT",
-    license_source: "https://github.com/ggml-org/llama.cpp/blob/master/LICENSE",
-    license_checked_at: "2026-06-29",
-    release_tag: "b9878",
-    release_url: "https://github.com/ggml-org/llama.cpp/releases/tag/b9878",
+    license_source: "https://github.com/ggml-org/llama.cpp/blob/b9982/LICENSE",
+    license_checked_at: "2026-07-13",
+    release_tag: "b9982",
+    release_url: "https://github.com/ggml-org/llama.cpp/releases/tag/b9982",
     release_api_source: "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest",
-    release_checked_at: "2026-07-06",
+    release_checked_at: "2026-07-13",
     artifacts: &LLAMA_CPP_RELEASE_ARTIFACTS,
     install_blockers: &[],
 };
@@ -281,60 +281,60 @@ const LLAMA_CPP_RELEASE_ARTIFACTS: [BackendReleaseArtifact; 6] = [
     BackendReleaseArtifact {
         os: "macos",
         arch: "aarch64",
-        archive_name: "llama-b9878-bin-macos-arm64.tar.gz",
-        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9878/llama-b9878-bin-macos-arm64.tar.gz",
-        archive_sha256: "3c18b48c3d4e4fb6e66c8188c6ac06849d9da6919511c061e310e18682432b57",
-        archive_size_bytes: 11_136_305,
+        archive_name: "llama-b9982-bin-macos-arm64.tar.gz",
+        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9982/llama-b9982-bin-macos-arm64.tar.gz",
+        archive_sha256: "9606e3a609bc9483730f50f17ce78c3d764df8eaec63fcbb47d2f8b235667c9c",
+        archive_size_bytes: 10_746_432,
         archive_kind: BackendArchiveKind::TarGz,
         binary_relative_path: "llama-server",
     },
     BackendReleaseArtifact {
         os: "macos",
         arch: "x86_64",
-        archive_name: "llama-b9878-bin-macos-x64.tar.gz",
-        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9878/llama-b9878-bin-macos-x64.tar.gz",
-        archive_sha256: "4b62fc570e58984517bb91f12143b348ffdca6810b1fbbce781a50ec53cae081",
-        archive_size_bytes: 11_451_412,
+        archive_name: "llama-b9982-bin-macos-x64.tar.gz",
+        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9982/llama-b9982-bin-macos-x64.tar.gz",
+        archive_sha256: "da109cc18574392ab88936de826ca00f8d196b9ef5a1c19da72fbfb06bea7cd0",
+        archive_size_bytes: 11_022_427,
         archive_kind: BackendArchiveKind::TarGz,
         binary_relative_path: "llama-server",
     },
     BackendReleaseArtifact {
         os: "linux",
         arch: "aarch64",
-        archive_name: "llama-b9878-bin-ubuntu-arm64.tar.gz",
-        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9878/llama-b9878-bin-ubuntu-arm64.tar.gz",
-        archive_sha256: "f45b9dc866e939e975ac49345e0ddd302450de637b49648bfaf7ac2c2d20b1d5",
-        archive_size_bytes: 12_865_159,
+        archive_name: "llama-b9982-bin-ubuntu-arm64.tar.gz",
+        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9982/llama-b9982-bin-ubuntu-arm64.tar.gz",
+        archive_sha256: "9468c0282c15e286216a63122e7471f7d14888d3858bdab61b72d14a2531cf60",
+        archive_size_bytes: 12_782_598,
         archive_kind: BackendArchiveKind::TarGz,
         binary_relative_path: "llama-server",
     },
     BackendReleaseArtifact {
         os: "linux",
         arch: "x86_64",
-        archive_name: "llama-b9878-bin-ubuntu-x64.tar.gz",
-        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9878/llama-b9878-bin-ubuntu-x64.tar.gz",
-        archive_sha256: "fa52c1bdc6a17f28bfeaad28ca6783ff94cf85f36dca4a4bb2d9c7e8687c007b",
-        archive_size_bytes: 15_866_030,
+        archive_name: "llama-b9982-bin-ubuntu-x64.tar.gz",
+        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9982/llama-b9982-bin-ubuntu-x64.tar.gz",
+        archive_sha256: "0c1f0445f6f86a0f049de3586b7eabdde7108d827d0a9b2c5c0dc2185506ffee",
+        archive_size_bytes: 15_850_588,
         archive_kind: BackendArchiveKind::TarGz,
         binary_relative_path: "llama-server",
     },
     BackendReleaseArtifact {
         os: "windows",
         arch: "aarch64",
-        archive_name: "llama-b9878-bin-win-cpu-arm64.zip",
-        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9878/llama-b9878-bin-win-cpu-arm64.zip",
-        archive_sha256: "a7f3307a62b2fdf367d62302217fdcd0a2f2723ed0fd55052f8a880b33e14fe5",
-        archive_size_bytes: 11_380_283,
+        archive_name: "llama-b9982-bin-win-cpu-arm64.zip",
+        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9982/llama-b9982-bin-win-cpu-arm64.zip",
+        archive_sha256: "11ad20d8df121d5760900b4e2fa9943a065856075ef44df52ed7a8dc58b08b2f",
+        archive_size_bytes: 12_151_247,
         archive_kind: BackendArchiveKind::Zip,
         binary_relative_path: "llama-server.exe",
     },
     BackendReleaseArtifact {
         os: "windows",
         arch: "x86_64",
-        archive_name: "llama-b9878-bin-win-cpu-x64.zip",
-        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9878/llama-b9878-bin-win-cpu-x64.zip",
-        archive_sha256: "66e0e038c73aedefeed54c92ebfc3e7b8531fbf0b49ad6c21e50d93afd7e224e",
-        archive_size_bytes: 17_482_794,
+        archive_name: "llama-b9982-bin-win-cpu-x64.zip",
+        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9982/llama-b9982-bin-win-cpu-x64.zip",
+        archive_sha256: "69337038e8e56feb3c04d99588fa19f9241b294bae6f6c2e665a301605726e2a",
+        archive_size_bytes: 18_247_652,
         archive_kind: BackendArchiveKind::Zip,
         binary_relative_path: "llama-server.exe",
     },
@@ -3723,7 +3723,7 @@ mod tests {
             model_path: PathBuf::from("model.gguf"),
             model_sha256: "a".repeat(64),
             model_size_bytes: 1,
-            backend_release: "b9878".to_string(),
+            backend_release: LLAMA_CPP_RELEASE.release_tag.to_string(),
             binary_sha256: "b".repeat(64),
             mmproj: "not-required-text-only".to_string(),
             host: DEFAULT_HOST.to_string(),
@@ -3785,20 +3785,93 @@ mod tests {
     }
 
     #[test]
-    fn release_manifest_has_source_backed_supported_artifact() {
-        let artifact = release_artifact_for(&LLAMA_CPP_RELEASE, "macos", "aarch64")
-            .expect("macOS arm64 backend artifact should be recorded");
+    fn release_manifest_has_source_backed_supported_artifacts() {
+        let expected = [
+            (
+                "macos",
+                "aarch64",
+                "llama-b9982-bin-macos-arm64.tar.gz",
+                "9606e3a609bc9483730f50f17ce78c3d764df8eaec63fcbb47d2f8b235667c9c",
+                10_746_432,
+                BackendArchiveKind::TarGz,
+                "llama-server",
+            ),
+            (
+                "macos",
+                "x86_64",
+                "llama-b9982-bin-macos-x64.tar.gz",
+                "da109cc18574392ab88936de826ca00f8d196b9ef5a1c19da72fbfb06bea7cd0",
+                11_022_427,
+                BackendArchiveKind::TarGz,
+                "llama-server",
+            ),
+            (
+                "linux",
+                "aarch64",
+                "llama-b9982-bin-ubuntu-arm64.tar.gz",
+                "9468c0282c15e286216a63122e7471f7d14888d3858bdab61b72d14a2531cf60",
+                12_782_598,
+                BackendArchiveKind::TarGz,
+                "llama-server",
+            ),
+            (
+                "linux",
+                "x86_64",
+                "llama-b9982-bin-ubuntu-x64.tar.gz",
+                "0c1f0445f6f86a0f049de3586b7eabdde7108d827d0a9b2c5c0dc2185506ffee",
+                15_850_588,
+                BackendArchiveKind::TarGz,
+                "llama-server",
+            ),
+            (
+                "windows",
+                "aarch64",
+                "llama-b9982-bin-win-cpu-arm64.zip",
+                "11ad20d8df121d5760900b4e2fa9943a065856075ef44df52ed7a8dc58b08b2f",
+                12_151_247,
+                BackendArchiveKind::Zip,
+                "llama-server.exe",
+            ),
+            (
+                "windows",
+                "x86_64",
+                "llama-b9982-bin-win-cpu-x64.zip",
+                "69337038e8e56feb3c04d99588fa19f9241b294bae6f6c2e665a301605726e2a",
+                18_247_652,
+                BackendArchiveKind::Zip,
+                "llama-server.exe",
+            ),
+        ];
 
-        assert!(artifact
-            .archive_url
-            .starts_with("https://github.com/ggml-org/llama.cpp/releases/download/b9878/"));
-        assert!(checksum::is_valid_sha256(artifact.archive_sha256));
-        assert!(artifact.archive_size_bytes > 0);
-        assert_eq!(artifact.archive_kind, BackendArchiveKind::TarGz);
-        assert_eq!(
-            backend_install_blockers(&LLAMA_CPP_RELEASE, Some(artifact)),
-            Vec::<String>::new()
-        );
+        for (
+            os,
+            arch,
+            archive_name,
+            archive_sha256,
+            archive_size_bytes,
+            archive_kind,
+            binary_relative_path,
+        ) in expected
+        {
+            let artifact = release_artifact_for(&LLAMA_CPP_RELEASE, os, arch)
+                .unwrap_or_else(|| panic!("{os}/{arch} backend artifact should be recorded"));
+            assert_eq!(artifact.archive_name, archive_name);
+            assert_eq!(
+                artifact.archive_url,
+                format!(
+                    "https://github.com/ggml-org/llama.cpp/releases/download/{}/{}",
+                    LLAMA_CPP_RELEASE.release_tag, artifact.archive_name
+                )
+            );
+            assert_eq!(artifact.archive_sha256, archive_sha256);
+            assert_eq!(artifact.archive_size_bytes, archive_size_bytes);
+            assert_eq!(artifact.archive_kind, archive_kind);
+            assert_eq!(artifact.binary_relative_path, binary_relative_path);
+            assert_eq!(
+                backend_install_blockers(&LLAMA_CPP_RELEASE, Some(artifact)),
+                Vec::<String>::new()
+            );
+        }
     }
 
     #[test]
@@ -3808,7 +3881,7 @@ mod tests {
         if selected_backend_release_artifact(&LLAMA_CPP_RELEASE).is_some() {
             assert!(report.contains("status: ready"));
             assert!(report.contains("archive sha256: "));
-            assert!(report.contains("release tag: b9878"));
+            assert!(report.contains(&format!("release tag: {}", LLAMA_CPP_RELEASE.release_tag)));
         } else {
             assert!(report.contains("status: blocked"));
             assert!(report.contains("지원 platform artifact 미확정"));
@@ -3902,9 +3975,10 @@ mod tests {
         let artifact = selected_backend_release_artifact(&LLAMA_CPP_RELEASE).unwrap();
         let managed_binary = LlamaCppAdapter.managed_binary_path();
         fs::create_dir_all(managed_binary.parent().unwrap()).unwrap();
+        let expected_version = format!("llama.cpp fake version {}", LLAMA_CPP_RELEASE.release_tag);
         fs::write(
             &managed_binary,
-            "#!/bin/sh\necho 'llama.cpp fake version b9878'\n",
+            format!("#!/bin/sh\necho '{expected_version}'\n"),
         )
         .unwrap();
         set_executable_bit(&managed_binary).unwrap();
@@ -3916,7 +3990,7 @@ mod tests {
         env::remove_var("RPOTATO_DATA_HOME");
         fs::remove_dir_all(root).unwrap();
         assert!(report.contains("version detection: ok"));
-        assert!(report.contains("llama.cpp fake version b9878"));
+        assert!(report.contains(&expected_version));
     }
 
     #[test]
@@ -3958,7 +4032,7 @@ mod tests {
             model_path: root.join("model.gguf"),
             model_sha256: "a".repeat(64),
             model_size_bytes: 1024,
-            backend_release: "b9878".to_string(),
+            backend_release: LLAMA_CPP_RELEASE.release_tag.to_string(),
             binary_sha256: "b".repeat(64),
             mmproj: "not-required-text-only".to_string(),
             host: DEFAULT_HOST.to_string(),
@@ -4002,7 +4076,7 @@ mod tests {
             model_path: PathBuf::from("model.gguf"),
             model_sha256: "a".repeat(64),
             model_size_bytes: 1,
-            backend_release: "b9878".to_string(),
+            backend_release: LLAMA_CPP_RELEASE.release_tag.to_string(),
             binary_sha256: "b".repeat(64),
             mmproj: "not-required-text-only".to_string(),
             host: DEFAULT_HOST.to_string(),
@@ -4181,7 +4255,7 @@ mod tests {
             model_path: fs::canonicalize(&model_path).unwrap(),
             model_sha256: checksum::sha256_file(&model_path).unwrap(),
             model_size_bytes: 10,
-            backend_release: "b9878".to_string(),
+            backend_release: LLAMA_CPP_RELEASE.release_tag.to_string(),
             binary_sha256: checksum::sha256_file(Path::new("/bin/sleep")).unwrap(),
             mmproj: "not-required-text-only".to_string(),
             host: DEFAULT_HOST.to_string(),

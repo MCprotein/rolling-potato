@@ -60,6 +60,7 @@ evidence.
 | v0.31.0 | Superseded | Backend streaming and cancellation shipped, but the first release was incomplete because the Windows artifact failed during sidecar stop fallback |
 | v0.31.1 | Released | Windows sidecar stop fallback restored the complete five-platform artifact set while retaining v0.31.0 streaming and cancellation behavior |
 | v0.32.0 | Released | Durable conversation resume: canonical user/visible-model/tool/evidence transcripts, ledger-ordered rebuildable SQLite projection, one shared bounded source-context budget, preflight-before-mutation session selection, and idempotent `resume`/`continue` without uncertain side-effect replay |
+| v0.32.1 | Released | Stable toolchain refresh: Rust 1.97.0, current stable Cargo resolution, Node.js 24 GitHub Actions, current GA hosted runners, and source-pinned llama.cpp b9982 artifacts with verified install provenance |
 | v0.33.0 | Planned | Executable hooks and skills: wire lifecycle hooks and built-in skill state machines into the agent loop with deterministic ordering, fail-closed results, policy enforcement, evidence, and stop criteria |
 | v0.34.0 | Planned | Interactive TUI: approve or deny pending actions, inspect diffs and tool output, resume or cancel workflows, and operate monitoring/session views through the same runtime and SQLite state |
 | v0.35.0 | Planned | Subagent execution: launch bounded workers with scoped context, declared tools, write ownership, resource limits, structured results, failure handling, and parent-workflow evidence merge |

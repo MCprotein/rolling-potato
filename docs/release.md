@@ -161,18 +161,24 @@ paths, and must use LF line endings so the aggregate file is verifiable on Unix
 and Windows. `scripts/release/verify-release-target-matrix.sh` keeps the workflow
 matrix pinned to the supported release targets.
 
-The runner labels are pinned to the first supported targets:
+The workflow pins the immutable commits for the current stable Node.js 24
+action releases checked on 2026-07-13: `actions/checkout` v7.0.0,
+`actions/upload-artifact` v7.0.1, and `actions/download-artifact` v8.0.1.
+The version comments remain beside each full commit SHA in the workflow.
+`scripts/release/verify-toolchain-pins.sh` enforces the coordinated Rust,
+Action-SHA, and GA runner pins in pull-request and release test gates.
 
-- macOS Apple Silicon: `macos-14` / `aarch64-apple-darwin`
-- macOS Intel: `macos-15-intel` / `x86_64-apple-darwin`
+The runner labels are pinned to the current GA target images:
+
+- macOS Apple Silicon: `macos-26` / `aarch64-apple-darwin`
+- macOS Intel: `macos-26-intel` / `x86_64-apple-darwin`
 - Linux x86_64: `ubuntu-24.04` / `x86_64-unknown-linux-gnu`
 - Linux ARM64: `ubuntu-24.04-arm` / `aarch64-unknown-linux-gnu`
-- Windows x86_64: `windows-latest` / `x86_64-pc-windows-msvc`
+- Windows x86_64: `windows-2025` / `x86_64-pc-windows-msvc`
 
-GitHub's hosted runner reference listed `ubuntu-24.04` for Linux x64 and
-`ubuntu-24.04-arm` for Linux arm64 standard runners when checked on
-2026-07-10:
-https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+GitHub's runner-images reference listed these GA labels when checked on
+2026-07-13:
+https://github.com/actions/runner-images
 
 ## Artifact Targets
 
@@ -201,9 +207,10 @@ Before release:
 7. destructive command policy tests
 8. if plugin adapter is included, local-import-only and remote-source rejection smoke tests
 9. release notes
-10. release target matrix guard
-11. binary checksums
-12. after publishing the GitHub Release, confirm the `release-binaries` workflow
+10. repository toolchain pin guard
+11. release target matrix guard
+12. binary checksums
+13. after publishing the GitHub Release, confirm the `release-binaries` workflow
     uploaded all target archives, matching `.sha256` files, and the aggregate
     `checksums.txt` file
 

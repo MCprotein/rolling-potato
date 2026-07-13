@@ -18,21 +18,32 @@ expect_entry() {
   binary="$3"
   archive="$4"
 
-  grep -F "os: $os" "$workflow" >/dev/null \
-    || fail "missing runner label: $os"
-  grep -F "target: $target" "$workflow" >/dev/null \
-    || fail "missing Rust target: $target"
-  grep -F "binary: $binary" "$workflow" >/dev/null \
-    || fail "missing binary name: $binary"
-  grep -F "archive: $archive" "$workflow" >/dev/null \
-    || fail "missing archive format: $archive"
+  awk \
+    -v os="$os" \
+    -v target="$target" \
+    -v binary="$binary" \
+    -v archive="$archive" '
+      $0 == "          - os: " os {
+        active = 1
+        found_os = 1
+        next
+      }
+      active && /^          - os: / { active = 0 }
+      active && $0 == "            target: " target { found_target = 1 }
+      active && $0 == "            binary: " binary { found_binary = 1 }
+      active && $0 == "            archive: " archive { found_archive = 1 }
+      END { exit !(found_os && found_target && found_binary && found_archive) }
+    ' "$workflow" || fail "missing matrix tuple: $os/$target/$binary/$archive"
 }
 
-expect_entry "macos-14" "aarch64-apple-darwin" "rpotato" "tar.gz"
-expect_entry "macos-15-intel" "x86_64-apple-darwin" "rpotato" "tar.gz"
+expect_entry "macos-26" "aarch64-apple-darwin" "rpotato" "tar.gz"
+expect_entry "macos-26-intel" "x86_64-apple-darwin" "rpotato" "tar.gz"
 expect_entry "ubuntu-24.04" "x86_64-unknown-linux-gnu" "rpotato" "tar.gz"
 expect_entry "ubuntu-24.04-arm" "aarch64-unknown-linux-gnu" "rpotato" "tar.gz"
-expect_entry "windows-latest" "x86_64-pc-windows-msvc" "rpotato.exe" "zip"
+expect_entry "windows-2025" "x86_64-pc-windows-msvc" "rpotato.exe" "zip"
+
+matrix_count="$(awk '/^          - os: / { count++ } END { print count + 0 }' "$workflow")"
+[ "$matrix_count" -eq 5 ] || fail "expected 5 release matrix entries, found $matrix_count"
 
 grep -F "name: release test gate" "$workflow" >/dev/null \
   || fail "release test gate job is missing"
