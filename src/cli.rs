@@ -35,7 +35,7 @@ rpotato
   rpotato cancel
   rpotato evidence validate <artifact-pointer>
   rpotato skill list
-  rpotato skill run <id>
+  rpotato skill run <id> \"<request>\"
   rpotato policy schema
   rpotato policy check-command <command>
   rpotato policy check-path --read <path>
@@ -252,7 +252,7 @@ pub enum EvidenceCommand {
 #[derive(Debug, PartialEq, Eq)]
 pub enum SkillCommand {
     List,
-    Run { id: String },
+    Run { id: String, request: String },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -529,11 +529,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "skill" && action == "list" => {
             Ok(Command::Skill(SkillCommand::List))
         }
-        [group, action, id] if group == "skill" && action == "run" => {
-            Ok(Command::Skill(SkillCommand::Run { id: id.clone() }))
+        [group, action, id, rest @ ..] if group == "skill" && action == "run" => {
+            Ok(Command::Skill(SkillCommand::Run {
+                id: id.clone(),
+                request: parse_request(rest, "skill run")?,
+            }))
         }
         [group, action, ..] if group == "skill" && action == "run" => Err(AppError::usage(
-            "skill run에는 skill id가 필요합니다. 예: rpotato skill run fix-test",
+            "skill run에는 skill id와 요청이 필요합니다. 예: rpotato skill run fix-test \"테스트 실패를 고쳐줘\"",
         )),
         [group, ..] if group == "skill" => {
             Err(AppError::usage("skill 명령은 list 또는 run만 허용합니다."))
@@ -2922,15 +2925,31 @@ mod tests {
             "skill".to_string(),
             "run".to_string(),
             "fix-test".to_string(),
+            "테스트".to_string(),
+            "고쳐줘".to_string(),
         ])
         .unwrap();
 
         assert_eq!(
             command,
             Command::Skill(SkillCommand::Run {
-                id: "fix-test".to_string()
+                id: "fix-test".to_string(),
+                request: "테스트 고쳐줘".to_string()
             })
         );
+    }
+
+    #[test]
+    fn skill_run_requires_request() {
+        let error = parse([
+            "skill".to_string(),
+            "run".to_string(),
+            "fix-test".to_string(),
+        ])
+        .unwrap_err();
+
+        assert_eq!(error.code, 2);
+        assert!(error.message.contains("request 문자열"));
     }
 
     #[test]

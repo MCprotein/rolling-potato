@@ -400,6 +400,120 @@ fn happy_path_is_restart_safe_and_reports_korean() {
 }
 
 #[test]
+fn explicit_skill_run_persists_lifecycle_state_and_sqlite_projection() {
+    let fixture = fixture("explicit-skill-lifecycle");
+    fixture.start();
+
+    let run = fixture.command(&[
+        "skill",
+        "run",
+        "small-patch",
+        "src/lib.rs의 값을 2로 고쳐줘",
+    ]);
+    assert!(
+        run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let report = String::from_utf8(run.stdout).unwrap();
+    assert!(report.contains("- invocation: explicit-skill"));
+    assert!(report.contains("- selected skill: small-patch"));
+    let workflow_id = field(&report, "workflow id");
+    let proposal = field(&report, "proposal id");
+    let token = command_token(&report, "- approval command: rpotato patch approve ");
+
+    let pending = latest_workflow_snapshot(&fixture, &workflow_id);
+    assert!(pending.contains("\"active_skill_id\": \"small-patch\""));
+    assert!(pending.contains("\"skill_invocation\": \"explicit\""));
+    assert!(pending.contains("\"skill_state\": \"awaiting-approval\""));
+    assert!(pending.contains("pre_model_request"));
+    assert!(pending.contains("diff_review"));
+
+    let connection =
+        rusqlite::Connection::open(fixture.data.join("state/observability.sqlite")).unwrap();
+    let projected_skill: String = connection
+        .query_row(
+            "SELECT active_skill_id FROM workflows WHERE workflow_id = ?1",
+            [&workflow_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(projected_skill, "small-patch");
+
+    let approve = fixture.command(&["patch", "approve", &proposal, "--token", &token]);
+    assert!(approve.status.success());
+    let verify_token = verification_token(&String::from_utf8(approve.stdout).unwrap());
+    let verify = fixture.command(&["patch", "verify", &proposal, "--token", &verify_token]);
+    assert!(
+        verify.status.success(),
+        "{}",
+        String::from_utf8_lossy(&verify.stderr)
+    );
+
+    let complete = latest_workflow_snapshot(&fixture, &workflow_id);
+    assert!(complete.contains("\"skill_state\": \"complete\""));
+    assert!(complete.contains("diff_review,targeted_verification"));
+    assert!(complete.contains("patch_applied,verification_passed,korean_report_passed"));
+    for hook in [
+        "session_start",
+        "user_request_received",
+        "pre_context_pack",
+        "post_context_pack",
+        "pre_model_request",
+        "post_model_response",
+        "pre_action_parse",
+        "post_action_parse",
+        "pre_tool_call",
+        "post_tool_result",
+        "pre_patch_apply",
+        "post_patch_apply",
+        "pre_command_run",
+        "post_command_run",
+        "pre_final_report",
+        "stop_gate",
+        "session_end",
+    ] {
+        assert!(complete.contains(hook), "missing persisted hook: {hook}");
+    }
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
+    assert!(ledger.contains("\"event_type\":\"hook.dispatched\""));
+    assert!(ledger.contains("hook=session_start"));
+    assert!(ledger.contains("hook=stop_gate"));
+}
+
+#[test]
+fn explicit_skill_missing_context_fails_before_model_call() {
+    let fixture = fixture("explicit-skill-missing-context");
+    fixture.start();
+
+    let run = fixture.command(&["skill", "run", "fix-test", "실패한 테스트를 고쳐줘"]);
+
+    assert_eq!(run.status.code(), Some(3));
+    assert!(
+        String::from_utf8_lossy(&run.stderr).contains("skill requirement 차단"),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert!(!fixture.calls.exists());
+    let state = fixture.command(&["state"]);
+    assert!(state.status.success());
+    assert!(String::from_utf8_lossy(&state.stdout).contains("active workflow: 없음"));
+}
+
+fn latest_workflow_snapshot(fixture: &Fixture, workflow_id: &str) -> String {
+    let snapshots = fixture
+        .project
+        .join(".rpotato/workflows")
+        .join(format!("{workflow_id}.snapshots"));
+    let latest = fs::read_dir(snapshots)
+        .unwrap()
+        .filter_map(Result::ok)
+        .max_by_key(|entry| entry.file_name())
+        .unwrap();
+    fs::read_to_string(latest.path()).unwrap()
+}
+
+#[test]
 fn durable_transcript_rebuilds_after_db_loss_and_continue_is_idempotent() {
     let fixture = fixture("durable-conversation-resume");
     fixture.start();

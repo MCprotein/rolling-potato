@@ -39,16 +39,92 @@ struct ParsedModelAction {
 }
 
 pub fn run_report(request: &str) -> Result<String, AppError> {
+    let decision = classify(request)?;
+    run_with_decision(request, decision)
+}
+
+pub fn run_skill_report(skill_id: &str, request: &str) -> Result<String, AppError> {
+    let request = request.trim();
+    if request.is_empty() {
+        return Err(AppError::usage("skill run request가 필요합니다."));
+    }
+    let Some(manifest) = skill::find_skill(skill_id) else {
+        return Err(AppError::usage(format!(
+            "등록된 skill을 찾지 못했습니다: {skill_id}\n확인: rpotato skill list"
+        )));
+    };
+    let decision = IntentDecision {
+        skill_id: manifest.id.to_string(),
+        mode: manifest.mode,
+        invocation: "explicit-skill",
+        signals: vec!["explicit-invocation"],
+        constraints: detect_constraints(request),
+        classifier: "explicit-built-in-skill",
+    };
+    run_with_decision(request, decision)
+}
+
+fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, AppError> {
     if let Some(workflow_id) = state::active_workflow_id()? {
         return crate::patch::resume_workflow_report(&workflow_id);
     }
     backend::preflight_chat_ready()?;
-    let decision = classify(request)?;
     let identity = crate::ledger::validated_current_identity()?;
     let mut resume_context = context::rebuild_resume_context(&identity.session_id, None)?;
+    let mut workflow = state::create_workflow(request)?;
+    let invocation = if decision.invocation == "explicit-skill" {
+        "explicit"
+    } else {
+        "natural-language"
+    };
+    let mut skill_runtime = skill::SkillRuntimeState::new(&decision.skill_id, invocation)?;
+    skill_runtime.store_in_workflow(&mut workflow);
+    workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+    dispatch_skill_hook(
+        &workflow,
+        &mut skill_runtime,
+        "session_start",
+        "session",
+        None,
+    )?;
+    dispatch_skill_hook(
+        &workflow,
+        &mut skill_runtime,
+        "user_request_received",
+        "request",
+        None,
+    )?;
+    dispatch_skill_hook(
+        &workflow,
+        &mut skill_runtime,
+        "pre_context_pack",
+        "context",
+        None,
+    )?;
     let mut context_pack = context::build_context_pack(request)?;
     context::enforce_shared_source_budget(&mut resume_context, &mut context_pack);
-    let mut workflow = state::create_workflow(request)?;
+    dispatch_skill_hook(
+        &workflow,
+        &mut skill_runtime,
+        "post_context_pack",
+        &context_pack.pointer_summary(),
+        None,
+    )?;
+    let manifest = skill::find_skill(&decision.skill_id)
+        .ok_or_else(|| AppError::blocked("selected skill manifest가 사라졌습니다."))?;
+    let available_context = available_context_labels(manifest, request, &context_pack);
+    if let Err(error) = skill::enforce_context(manifest, &available_context) {
+        let _ = skill_runtime.transition(skill::SkillState::Failed);
+        skill_runtime.store_in_workflow(&mut workflow);
+        workflow.phase = "failed".to_string();
+        workflow.failure_reason = "skill-context-requirements-missing".to_string();
+        workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+        state::clear_terminal_workflow_pointer(&workflow)?;
+        return Err(error);
+    }
+    skill_runtime.transition(skill::SkillState::ContextReady)?;
+    skill_runtime.store_in_workflow(&mut workflow);
+    workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
     crate::transcript::record_workflow_turn(&workflow, "user", "request", request, &[])?;
     let intent_event_id = state::record_event(
         "intent.classified",
@@ -103,15 +179,48 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         &context_pack,
         &action_candidate,
     );
+    dispatch_skill_hook(
+        &workflow,
+        &mut skill_runtime,
+        "pre_model_request",
+        "chat_once",
+        None,
+    )?;
+    skill_runtime.transition(skill::SkillState::ModelRequested)?;
+    skill_runtime.store_in_workflow(&mut workflow);
+    workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
     let run = match backend::chat_once(&agent_prompt, Some(RUN_MAX_TOKENS)) {
         Ok(run) => run,
         Err(err) => {
+            let _ = skill_runtime.transition(skill::SkillState::Failed);
+            skill_runtime.store_in_workflow(&mut workflow);
             workflow.phase = "failed".to_string();
             workflow.failure_reason = "backend-call-failed".to_string();
             return Err(checkpoint_failure_or_original(workflow, err));
         }
     };
+    dispatch_skill_hook(
+        &workflow,
+        &mut skill_runtime,
+        "post_model_response",
+        "response-recorded",
+        None,
+    )?;
+    dispatch_skill_hook(
+        &workflow,
+        &mut skill_runtime,
+        "pre_action_parse",
+        "model-action",
+        None,
+    )?;
     let model_action = parse_model_action(&run.response, &action_candidate, &context_pack);
+    dispatch_skill_hook(
+        &workflow,
+        &mut skill_runtime,
+        "post_action_parse",
+        model_action.status,
+        None,
+    )?;
     let model_transcript = model_transcript_content(&run.response, &model_action);
     crate::transcript::record_workflow_turn(
         &workflow,
@@ -141,6 +250,8 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
     workflow.replace_text = model_action.replace_text.clone();
     workflow.verification_plan = model_action.verification_command.clone();
     workflow.phase = "action-recorded".to_string();
+    skill_runtime.transition(skill::SkillState::ActionRecorded)?;
+    skill_runtime.store_in_workflow(&mut workflow);
     workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
 
     if is_non_mutating_action(&model_action.kind) {
@@ -150,6 +261,8 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
             && model_action.requested_side_effects == "none"
             && pointers_are_valid;
         if !action_is_safe {
+            let _ = skill_runtime.transition(skill::SkillState::Failed);
+            skill_runtime.store_in_workflow(&mut workflow);
             workflow.phase = "failed".to_string();
             workflow.failure_reason = "invalid-or-hostile-model-action".to_string();
             workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
@@ -160,6 +273,39 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
             )));
         }
 
+        let answer = model_answer(&run.response);
+        record_non_mutating_outcomes(
+            manifest,
+            &context_pack,
+            &model_action,
+            &answer,
+            &mut skill_runtime,
+        );
+        dispatch_skill_hook(
+            &workflow,
+            &mut skill_runtime,
+            "pre_final_report",
+            "non-mutating-report",
+            None,
+        )?;
+        dispatch_skill_hook(
+            &workflow,
+            &mut skill_runtime,
+            "stop_gate",
+            "non-mutating-stop",
+            None,
+        )?;
+        dispatch_skill_hook(
+            &workflow,
+            &mut skill_runtime,
+            "session_end",
+            "complete",
+            None,
+        )?;
+        skill_runtime.validate_stop()?;
+        skill_runtime.transition(skill::SkillState::StopPassed)?;
+        skill_runtime.transition(skill::SkillState::Complete)?;
+        skill_runtime.store_in_workflow(&mut workflow);
         workflow.phase = "complete".to_string();
         workflow.action_status = "complete".to_string();
         workflow.approval_state = "not-required".to_string();
@@ -172,7 +318,7 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
             &context_pack,
             &resume_context,
             &model_action,
-            &run.response,
+            &answer,
             &workflow,
         ));
     }
@@ -190,6 +336,8 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
             .map(str::trim)
             .any(|pointer| pointer == expected_pointer);
     if !action_is_safe {
+        let _ = skill_runtime.transition(skill::SkillState::Failed);
+        skill_runtime.store_in_workflow(&mut workflow);
         workflow.phase = "failed".to_string();
         workflow.failure_reason = "invalid-or-hostile-model-action".to_string();
         workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
@@ -199,6 +347,13 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         )));
     }
 
+    dispatch_skill_hook(
+        &workflow,
+        &mut skill_runtime,
+        "pre_tool_call",
+        "render_diff",
+        Some("render_diff"),
+    )?;
     let proposal = match crate::patch::prepare_workflow_proposal(
         &workflow.workflow_id,
         &workflow.action_id,
@@ -209,11 +364,30 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
     ) {
         Ok(proposal) => proposal,
         Err(err) => {
+            let _ = skill_runtime.transition(skill::SkillState::Failed);
+            skill_runtime.store_in_workflow(&mut workflow);
             workflow.phase = "failed".to_string();
             workflow.failure_reason = "proposal-preparation-failed".to_string();
             return Err(checkpoint_failure_or_original(workflow, err));
         }
     };
+    dispatch_skill_hook(
+        &workflow,
+        &mut skill_runtime,
+        "post_tool_result",
+        "render_diff",
+        Some("render_diff"),
+    )?;
+    if manifest.evidence_requirements.contains(&"diff_review") {
+        skill_runtime.record_evidence("diff_review");
+    }
+    if manifest
+        .evidence_requirements
+        .contains(&"failing_test_before")
+        && available_context.contains(&"test_output")
+    {
+        skill_runtime.record_evidence("failing_test_before");
+    }
     workflow.source_path = proposal.relative_path.clone();
     workflow.source_hash = proposal.original_sha256.clone();
     workflow.proposal_id = proposal.proposal_id.clone();
@@ -225,6 +399,8 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
     workflow.approval_state = "pending".to_string();
     workflow.result_summary = "patch proposal awaiting apply approval".to_string();
     workflow.phase = "pending-approval".to_string();
+    skill_runtime.transition(skill::SkillState::AwaitingApproval)?;
+    skill_runtime.store_in_workflow(&mut workflow);
     workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
 
     Ok(format!(
@@ -299,10 +475,9 @@ fn render_non_mutating_report(
     context_pack: &ContextPack,
     resume_context: &ResumeContext,
     model_action: &ParsedModelAction,
-    response: &str,
+    answer: &str,
     workflow: &state::WorkflowRecord,
 ) -> String {
-    let answer = model_answer(response);
     format!(
         "run 결과\n- 상태: 완료\n- 요청: {}\n- 선택한 skill: {}\n- mode: {}\n- workflow id: {}\n- workflow kind: {}\n- action id: {}\n- action kind: {}\n- resumed context: {}\n- context origin: {}\n- ontology records selected: {}\n- ontology stale rejected: {}\n- source pointers: {}\n- context files read: {}\n- side effect: 없음\n- approval: 불필요\n- 답변:\n{}",
         request,
@@ -392,6 +567,141 @@ fn checkpoint_failure_or_original(workflow: state::WorkflowRecord, original: App
     }
 }
 
+fn dispatch_skill_hook(
+    workflow: &state::WorkflowRecord,
+    runtime: &mut skill::SkillRuntimeState,
+    hook: &str,
+    payload: &str,
+    tool: Option<&str>,
+) -> Result<(), AppError> {
+    crate::hooks::dispatch_native_lifecycle(
+        crate::hooks::HookInput {
+            hook,
+            workflow_id: Some(&workflow.workflow_id),
+            active_skill_id: Some(&runtime.active_skill_id),
+            mode: skill::find_skill(&runtime.active_skill_id)
+                .map(|manifest| manifest.mode)
+                .unwrap_or("unknown"),
+            payload,
+        },
+        tool,
+    )?;
+    runtime.record_hook(hook)
+}
+
+fn available_context_labels(
+    manifest: &skill::SkillManifest,
+    request: &str,
+    context_pack: &ContextPack,
+) -> Vec<&'static str> {
+    let request_lower = request.to_ascii_lowercase();
+    let has_pointer = !context_pack.source_pointers.is_empty();
+    let has_test_signal =
+        has_any(&request_lower, &["test", "pytest", "cargo test"]) || has_any(request, &["테스트"]);
+    let has_test_output = has_any(
+        &request_lower,
+        &[
+            "test result: failed",
+            "assertion failed",
+            "panicked at",
+            "failed:",
+            "failures:",
+        ],
+    ) || has_any(request, &["테스트 결과:", "실패 로그:", "검증 출력:"]);
+    let has_error_output = has_any(
+        &request_lower,
+        &["error[", "error:", "panicked at", "traceback", "exception:"],
+    ) || has_any(request, &["에러 로그:", "오류 출력:", "예외:"]);
+    let project_root = crate::paths::project_root();
+    let has_package_manifest = ["Cargo.toml", "package.json", "pyproject.toml", "go.mod"]
+        .iter()
+        .any(|name| project_root.join(name).is_file());
+
+    manifest
+        .context_requirements
+        .iter()
+        .copied()
+        .filter(|requirement| match *requirement {
+            "repo_root" => true,
+            "acceptance_criteria" => !request.trim().is_empty(),
+            "target_file" | "source_pointer" | "diff_or_files" => has_pointer,
+            "test_output" => has_test_output,
+            "error_output" => has_error_output,
+            "test_context" => has_test_signal,
+            "package_manifest" => has_package_manifest,
+            "ontology_source" => context_pack.ontology_records_selected > 0,
+            "runtime_state" => pointer_path_contains(context_pack, "state"),
+            "operation_log" => {
+                pointer_path_contains(context_pack, "log")
+                    || pointer_path_contains(context_pack, "ledger")
+            }
+            "release_scope" => {
+                has_any(&request_lower, &["release", "version"])
+                    || has_any(request, &["릴리스", "버전"])
+            }
+            "test_results" => has_test_output,
+            "model_manifest" | "model_source" => pointer_path_contains(context_pack, "model"),
+            "benchmark_spec" => pointer_path_contains(context_pack, "benchmark"),
+            "license_source" => pointer_path_contains(context_pack, "license"),
+            "artifact_manifest" => pointer_path_contains(context_pack, "manifest"),
+            _ => false,
+        })
+        .collect()
+}
+
+fn pointer_path_contains(context_pack: &ContextPack, needle: &str) -> bool {
+    context_pack
+        .source_pointers
+        .iter()
+        .any(|pointer| pointer.path.to_ascii_lowercase().contains(needle))
+}
+
+fn record_non_mutating_outcomes(
+    manifest: &skill::SkillManifest,
+    context_pack: &ContextPack,
+    model_action: &ParsedModelAction,
+    answer: &str,
+    runtime: &mut skill::SkillRuntimeState,
+) {
+    let has_pointer = !context_pack.source_pointers.is_empty()
+        && !matches!(model_action.source_pointers.as_str(), "none" | "unverified");
+    for requirement in manifest.evidence_requirements {
+        let satisfied = match *requirement {
+            "source_reference"
+            | "file_reference"
+            | "file_line_reference"
+            | "benchmark_source"
+            | "source_url_or_file"
+            | "confidence_record" => has_pointer,
+            "diagnostic_output" | "check_result" => !answer.trim().is_empty(),
+            "checksum_record" => answer.to_ascii_lowercase().contains("sha256"),
+            "local_result_artifact" => false,
+            _ => false,
+        };
+        if satisfied {
+            runtime.record_evidence(requirement);
+        }
+    }
+
+    for criterion in manifest.stop_criteria {
+        let satisfied = match *criterion {
+            "korean_report_passed" => crate::korean_guard::validate(answer),
+            "claims_source_backed" => has_pointer,
+            "cause_explained"
+            | "findings_ranked"
+            | "map_reported"
+            | "benchmark_plan_ready"
+            | "diagnosis_reported"
+            | "ontology_delta_ready"
+            | "release_findings_reported" => !answer.trim().is_empty(),
+            _ => false,
+        };
+        if satisfied {
+            runtime.record_stop_criterion(criterion);
+        }
+    }
+}
+
 pub fn classify_report(request: &str) -> Result<String, AppError> {
     let decision = classify(request)?;
     Ok(format!(
@@ -438,9 +748,11 @@ pub fn classify(request: &str) -> Result<IntentDecision, AppError> {
 
     let lower = trimmed.to_ascii_lowercase();
     let mut signals = Vec::new();
-    let (skill_id, mode) = if has_any(&lower, &["test", "cargo test", "pytest"])
-        || has_any(trimmed, &["테스트", "실패"])
-    {
+    let has_test_signal =
+        has_any(&lower, &["test", "cargo test", "pytest"]) || has_any(trimmed, &["테스트"]);
+    let has_failure_signal = has_any(&lower, &["failed", "failure", "panic", "error"])
+        || has_any(trimmed, &["실패", "에러", "오류"]);
+    let (skill_id, mode) = if has_test_signal && has_failure_signal {
         signals.push("test-signal");
         ("fix-test", "execute")
     } else if has_any(&lower, &["review", "code review"]) || has_any(trimmed, &["리뷰", "검토"])

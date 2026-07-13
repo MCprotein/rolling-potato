@@ -192,8 +192,8 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", skill::list_report());
             Ok(())
         }
-        Command::Skill(SkillCommand::Run { id }) => {
-            println!("{}", skill::run_report(&id)?);
+        Command::Skill(SkillCommand::Run { id, request }) => {
+            println!("{}", intent::run_skill_report(&id, &request)?);
             Ok(())
         }
         Command::Policy(PolicyCommand::Schema) => {
