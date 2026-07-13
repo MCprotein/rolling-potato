@@ -1,12 +1,33 @@
-use crate::{backend, cache, intent, model, ontology, patch, paths, state};
+use crate::{backend, cache, context, intent, ledger, model, ontology, patch, paths, state};
 
 pub fn agent_run_report(request: &str) -> Result<String, crate::app::AppError> {
     intent::run_report(request)
 }
 
 pub fn workflow_resume_report() -> Result<String, crate::app::AppError> {
+    let identity = ledger::validated_current_identity()?;
+    let resumed_context = context::rebuild_resume_context(&identity.session_id, None)?;
     let report = state::resume_report()?;
-    Ok(guard_patch_terminal_report(report))
+    Ok(format!(
+        "{}\n- reconstructed context: {}",
+        guard_patch_terminal_report(report),
+        resumed_context.summary()
+    ))
+}
+
+pub fn session_resume_report(session_id: &str) -> Result<String, crate::app::AppError> {
+    let resumed_context = context::rebuild_resume_context(session_id, None)?;
+    if let Some(workflow_id) = state::session_resume_preflight(session_id)? {
+        patch::preflight_resume_workflow(&workflow_id)?;
+    }
+    let selection = state::session_resume_report(session_id)?;
+    let continuation = state::resume_report()?;
+    Ok(format!(
+        "{}\n- reconstructed context: {}\n- continuation:\n{}",
+        selection,
+        resumed_context.summary(),
+        guard_patch_terminal_report(continuation)
+    ))
 }
 
 pub fn patch_approve_report(

@@ -12,7 +12,7 @@ pub fn status_report() -> Result<String, AppError> {
         .unwrap_or_default();
 
     Ok(format!(
-        "monitor 상태\n- observability store: {}\n- schema migration: v{}\n- runtime ledger: {}\n- runtime evidence: {}\n- ledger events: {}\n- sessions: {}\n- workflows: {}\n- model runs: {}\n- token usage records: {}\n- resource samples: {}\n- benchmark runs: {}\n- latest resource pressure: {}\n- latest resource cpu percent: {}\n- latest resource average rss bytes: {}\n- latest resource peak rss bytes: {}\n- latest resource disk bytes: {}\n- evidence records: {}\n- stop gate results: {}\n- raw prompt/source 저장: 기본 비활성{}",
+        "monitor 상태\n- observability store: {}\n- schema migration: v{}\n- runtime ledger: {}\n- runtime evidence: {}\n- ledger events: {}\n- sessions: {}\n- workflows: {}\n- transcript records: {}\n- model runs: {}\n- token usage records: {}\n- resource samples: {}\n- benchmark runs: {}\n- latest resource pressure: {}\n- latest resource cpu percent: {}\n- latest resource average rss bytes: {}\n- latest resource peak rss bytes: {}\n- latest resource disk bytes: {}\n- evidence records: {}\n- stop gate results: {}\n- transcript 저장: user/visible model/normalized tool/evidence만 영속화; hidden model response와 raw source는 저장하지 않음{}",
         store.path.display(),
         store.migration_version,
         paths::runtime_ledger_file().display(),
@@ -20,6 +20,7 @@ pub fn status_report() -> Result<String, AppError> {
         store.ledger_events,
         store.sessions,
         store.workflows,
+        store.transcript_records,
         store.model_runs,
         store.token_records,
         store.resource_samples,

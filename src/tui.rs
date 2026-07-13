@@ -37,8 +37,14 @@ pub fn overview_report() -> Result<String, AppError> {
     push_kv(
         &mut lines,
         width,
-        "raw prompt/source",
-        "disabled by default",
+        "transcript records",
+        &store.transcript_records.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "transcript boundary",
+        "visible/normalized turns persisted; hidden response and raw source excluded",
     );
     if let Some(path) = store.recovered_from {
         push_kv(
@@ -136,6 +142,12 @@ pub fn monitor_report() -> Result<String, AppError> {
         width,
         "token records",
         &store.token_records.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "transcript records",
+        &store.transcript_records.to_string(),
     );
     push_kv(
         &mut lines,
@@ -299,6 +311,7 @@ pub fn transcript_report(session_id: &str) -> Result<String, AppError> {
         ))
     })?;
     let events = observability::session_events(session_id, 40)?;
+    let transcript = crate::transcript::records_for_session(session_id)?;
 
     let mut lines = Vec::new();
     push_header(&mut lines, width, "rpotato TUI beta - transcript");
@@ -325,6 +338,24 @@ pub fn transcript_report(session_id: &str) -> Result<String, AppError> {
         "events",
         &session.event_count.to_string(),
     );
+    push_rule(&mut lines, width);
+    push_section(&mut lines, width, "durable conversation");
+    if transcript.is_empty() {
+        push_wrapped(&mut lines, width, "No durable conversation turns recorded.");
+    } else {
+        for record in &transcript {
+            push_wrapped(
+                &mut lines,
+                width,
+                &format!(
+                    "{} | {} | {}",
+                    record.kind,
+                    short_id(&record.workflow_id),
+                    record.content
+                ),
+            );
+        }
+    }
     push_rule(&mut lines, width);
     push_section(&mut lines, width, "timeline");
     if events.is_empty() {

@@ -144,6 +144,22 @@ pub fn record_patch_verification(
             ),
         )?;
     }
+    crate::transcript::record_workflow_turn(
+        workflow,
+        "evidence",
+        &evidence_id,
+        &format!(
+            "patch verification: evidence_id={} passed={} exit_code={} source_hash={} artifact_hash={} stdout_hash={} stderr_hash={}",
+            evidence_id,
+            passed,
+            exit_code,
+            source_hash,
+            artifact_hash,
+            state::sha256_text(stdout),
+            state::sha256_text(stderr)
+        ),
+        &[],
+    )?;
     evidence_fault("after-event")?;
     Ok(VerificationEvidence {
         evidence_id,

@@ -24,6 +24,7 @@ rpotato
   rpotato team dispatch --lanes <count> --write-owner <lane:path> [--failed-lane <lane>] [--failure <reason>]
   rpotato team governor --lanes <count> --context-tokens <tokens> [--context-limit <tokens>] [--model-tier small|standard|large]
   rpotato resume [session-id]
+  rpotato continue [session-id]
   rpotato tui
   rpotato tui monitor
   rpotato tui sessions
@@ -443,6 +444,13 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         })),
         [arg, ..] if arg == "resume" => Err(AppError::usage(
             "resume은 인자 없이 session history를 보거나 resume <session-id> 형식만 허용합니다.",
+        )),
+        [arg] if arg == "continue" => Ok(Command::State(StateCommand::Resume)),
+        [arg, id] if arg == "continue" => Ok(Command::Session(SessionCommand::Resume {
+            id: id.clone(),
+        })),
+        [arg, ..] if arg == "continue" => Err(AppError::usage(
+            "continue는 인자 없이 현재 workflow를 이어가거나 continue <session-id> 형식만 허용합니다.",
         )),
         [group, action] if group == "session" && (action == "list" || action == "history") => {
             Ok(Command::Session(SessionCommand::List))
@@ -2804,6 +2812,23 @@ mod tests {
     #[test]
     fn parses_top_level_resume_with_id() {
         let command = parse(["resume".to_string(), "session-1".to_string()]).unwrap();
+        assert_eq!(
+            command,
+            Command::Session(SessionCommand::Resume {
+                id: "session-1".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_top_level_continue_as_current_workflow_resume() {
+        let command = parse(["continue".to_string()]).unwrap();
+        assert_eq!(command, Command::State(StateCommand::Resume));
+    }
+
+    #[test]
+    fn parses_top_level_continue_with_session_id() {
+        let command = parse(["continue".to_string(), "session-1".to_string()]).unwrap();
         assert_eq!(
             command,
             Command::Session(SessionCommand::Resume {

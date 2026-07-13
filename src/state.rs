@@ -424,7 +424,7 @@ pub fn status_report() -> Result<String, AppError> {
         .unwrap_or_default();
 
     Ok(format!(
-        "state 상태\n- app state dir: {}\n- project state dir: {}\n- runtime ledger: {}\n- project session ledger: {}\n- current state: {}\n- observability db: {}\n- schema migration: v{}\n- ledger events: {}\n- sessions: {}\n- workflows: {}\n- active workflow: {}\n- transcript parent/branch pointer: current-state schema에 null로 보존\n- evidence stale policy: {}{}",
+        "state 상태\n- app state dir: {}\n- project state dir: {}\n- runtime ledger: {}\n- project session ledger: {}\n- current state: {}\n- observability db: {}\n- schema migration: v{}\n- ledger events: {}\n- sessions: {}\n- workflows: {}\n- transcript records: {}\n- active workflow: {}\n- transcript parent/branch pointer: current-state schema에 null로 보존\n- evidence stale policy: {}{}",
         paths::state_dir().display(),
         paths::project_state_dir().display(),
         paths::runtime_ledger_file().display(),
@@ -435,6 +435,7 @@ pub fn status_report() -> Result<String, AppError> {
         store.ledger_events,
         store.sessions,
         store.workflows,
+        store.transcript_records,
         active,
         crate::evidence::stale_policy_summary(),
         recovered
@@ -583,7 +584,7 @@ pub fn session_new_report() -> Result<String, AppError> {
     ))
 }
 
-pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
+pub fn session_resume_preflight(session_id: &str) -> Result<Option<String>, AppError> {
     ensure_layout()?;
     let identity = ledger::validated_current_identity()?;
     let canonical_session = ledger::read_runtime_events()?
@@ -595,19 +596,52 @@ pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
             session_id
         )));
     }
-    let Some(session) = observability::session_entry(session_id)? else {
+    if observability::session_entry(session_id)?.is_none() {
         return Err(AppError::blocked(format!(
             "session resume 차단\n- session id: {}\n- 이유: canonical ledger에는 존재하지만 SQLite projection 재생성 후 session을 찾지 못했습니다.\n- 확인: `rpotato state status`",
             session_id
         )));
+    }
+
+    let active_workflow = discover_active_workflow()?
+        .map(|workflow_id| load_workflow(&workflow_id))
+        .transpose()?;
+    if let Some(workflow) = active_workflow.as_ref() {
+        if workflow.session_id != session_id {
+            return Err(AppError::blocked(format!(
+                "session resume 차단\n- session id: {}\n- 이유: 다른 session이 소유한 non-terminal workflow가 있습니다.\n- active workflow: {}\n- owner session: {}\n- 동작: current-state를 변경하지 않았습니다.",
+                session_id, workflow.workflow_id, workflow.session_id
+            )));
+        }
+    }
+    Ok(active_workflow.map(|workflow| workflow.workflow_id))
+}
+
+pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
+    session_resume_preflight(session_id)?;
+    let identity = ledger::validated_current_identity()?;
+    let Some(session) = observability::session_entry(session_id)? else {
+        return Err(AppError::blocked(format!(
+            "session resume 차단\n- session id: {}\n- 이유: session projection을 찾지 못했습니다.",
+            session_id
+        )));
     };
+    let active_workflow = discover_active_workflow()?
+        .map(|workflow_id| load_workflow(&workflow_id))
+        .transpose()?;
 
     let resumed = RuntimeIdentity {
         project_id: identity.project_id,
         session_id: session.session_id.clone(),
         project_root: identity.project_root,
     };
-    write_current_state_for_session(&resumed, Some("session-history"), None)?;
+    write_current_state_for_session(
+        &resumed,
+        Some("session-history"),
+        active_workflow
+            .as_ref()
+            .map(|workflow| workflow.workflow_id.as_str()),
+    )?;
     let event = ledger::new_event_for(
         &resumed,
         "session.resume.selected",
@@ -618,7 +652,7 @@ pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
     observability::project_event(&event)?;
 
     Ok(format!(
-        "session resume 결과\n- selected session: {}\n- events: {}\n- last event: {}\n- current state: {}\n- ledger event: {}\n- 동작: 이후 명령은 선택한 session id로 이어 기록됩니다. 실제 agent loop 재개는 backend/agent phase에서 이 current-state를 사용합니다.",
+        "session resume 결과\n- selected session: {}\n- events: {}\n- last event: {}\n- current state: {}\n- ledger event: {}\n- 동작: 선택한 session id를 기록했습니다. Runtime wrapper는 검증된 같은-session workflow checkpoint만 계속하며 새 model turn은 자동 생성하지 않습니다.",
         session.session_id,
         session.event_count,
         session.last_summary.unwrap_or_else(|| "없음".to_string()),

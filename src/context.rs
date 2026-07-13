@@ -1,7 +1,6 @@
 use std::cmp::Reverse;
-use std::collections::{hash_map::DefaultHasher, VecDeque};
+use std::collections::{BTreeSet, VecDeque};
 use std::fs;
-use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use crate::app::AppError;
@@ -14,6 +13,9 @@ const MAX_CONTEXT_CHARS: usize = 3_200;
 const MAX_FILE_CHARS: usize = 1_000;
 const MAX_SCAN_FILES: usize = 512;
 const MAX_FILE_BYTES: u64 = 128 * 1024;
+const MAX_RESUME_TURNS: usize = 8;
+const MAX_RESUME_TRANSCRIPT_CHARS: usize = 2_400;
+const MAX_RESUME_TURN_CHARS: usize = 800;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContextPack {
@@ -35,6 +37,16 @@ pub struct SourcePointer {
     pub chars: usize,
     pub fingerprint: String,
     pub snippet: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResumeContext {
+    pub session_id: String,
+    pub transcript_records_considered: usize,
+    pub transcript_turns_selected: usize,
+    pub transcript_chars: usize,
+    pub transcript: Vec<(String, String)>,
+    pub sources: ContextPack,
 }
 
 pub fn build_context_pack(request: &str) -> Result<ContextPack, AppError> {
@@ -92,6 +104,165 @@ pub fn build_context_pack(request: &str) -> Result<ContextPack, AppError> {
             .saturating_sub(source_pointers.len()),
         source_pointers,
     })
+}
+
+pub fn rebuild_resume_context(
+    session_id: &str,
+    exclude_workflow_id: Option<&str>,
+) -> Result<ResumeContext, AppError> {
+    let records = crate::transcript::records_for_session(session_id)?;
+    let eligible = records
+        .iter()
+        .filter(|record| exclude_workflow_id != Some(record.workflow_id.as_str()))
+        .collect::<Vec<_>>();
+
+    let mut selected_reversed = Vec::new();
+    let mut transcript_chars = 0usize;
+    for record in eligible.iter().rev() {
+        if selected_reversed.len() >= MAX_RESUME_TURNS
+            || transcript_chars >= MAX_RESUME_TRANSCRIPT_CHARS
+        {
+            break;
+        }
+        let remaining = MAX_RESUME_TRANSCRIPT_CHARS.saturating_sub(transcript_chars);
+        let content = truncate_tail_chars(&record.content, remaining.min(MAX_RESUME_TURN_CHARS));
+        let chars = content.chars().count();
+        if chars == 0 {
+            continue;
+        }
+        transcript_chars += chars;
+        selected_reversed.push((record.kind.clone(), content));
+    }
+    selected_reversed.reverse();
+
+    let project_root = fs::canonicalize(paths::project_root()).map_err(|err| {
+        AppError::runtime(format!(
+            "project root를 해석하지 못했습니다: {} ({err})",
+            paths::project_root().display()
+        ))
+    })?;
+    let mut seen = BTreeSet::new();
+    let mut pointers_reversed = Vec::new();
+    let mut files_considered = 0usize;
+    for record in eligible.iter().rev() {
+        for pointer in record.source_pointers.iter().rev() {
+            if pointers_reversed.len() >= MAX_CONTEXT_FILES {
+                break;
+            }
+            if seen.insert(pointer.stable_ref.clone()) {
+                files_considered += 1;
+                pointers_reversed.push(pointer.clone());
+            }
+        }
+        if pointers_reversed.len() >= MAX_CONTEXT_FILES {
+            break;
+        }
+    }
+    pointers_reversed.reverse();
+
+    let mut source_pointers = Vec::new();
+    let mut chars_read = 0usize;
+    for pointer in pointers_reversed {
+        if chars_read >= MAX_CONTEXT_CHARS {
+            break;
+        }
+        let source = ontology::reread_runtime_source(&pointer.stable_ref, &pointer.source_hash)?;
+        if source.relative_path != pointer.path {
+            return Err(AppError::blocked(format!(
+                "resume source pointer binding 불일치\n- pointer: {}",
+                pointer.stable_ref
+            )));
+        }
+        if source.contents.len() as u64 > MAX_FILE_BYTES || source.contents.trim().is_empty() {
+            continue;
+        }
+        let remaining = MAX_CONTEXT_CHARS.saturating_sub(chars_read);
+        let snippet = truncate_chars(&source.contents, remaining.min(MAX_FILE_CHARS));
+        let chars = snippet.chars().count();
+        chars_read += chars;
+        source_pointers.push(SourcePointer {
+            path: source.relative_path,
+            stable_ref: source.stable_ref,
+            chars,
+            fingerprint: source.source_hash,
+            snippet,
+        });
+    }
+
+    Ok(ResumeContext {
+        session_id: session_id.to_string(),
+        transcript_records_considered: eligible.len(),
+        transcript_turns_selected: selected_reversed.len(),
+        transcript_chars,
+        transcript: selected_reversed,
+        sources: ContextPack {
+            project_root,
+            origin: "durable-transcript-source-pointers".to_string(),
+            ontology_records_selected: 0,
+            ontology_stale_rejected: 0,
+            files_considered,
+            files_read: source_pointers.len(),
+            chars_read,
+            dropped_files: files_considered.saturating_sub(source_pointers.len()),
+            source_pointers,
+        },
+    })
+}
+
+pub fn enforce_shared_source_budget(resume: &mut ResumeContext, current: &mut ContextPack) {
+    let mut seen = BTreeSet::new();
+    let mut remaining_files = MAX_CONTEXT_FILES;
+    let mut remaining_chars = MAX_CONTEXT_CHARS;
+
+    clamp_source_pack(
+        current,
+        &mut seen,
+        &mut remaining_files,
+        &mut remaining_chars,
+    );
+    clamp_source_pack(
+        &mut resume.sources,
+        &mut seen,
+        &mut remaining_files,
+        &mut remaining_chars,
+    );
+}
+
+fn clamp_source_pack(
+    pack: &mut ContextPack,
+    seen: &mut BTreeSet<String>,
+    remaining_files: &mut usize,
+    remaining_chars: &mut usize,
+) {
+    let mut selected = Vec::new();
+    let original_count = pack.source_pointers.len();
+    for mut pointer in std::mem::take(&mut pack.source_pointers) {
+        if *remaining_files == 0 || *remaining_chars == 0 {
+            break;
+        }
+        if !seen.insert(pointer.stable_ref.clone()) {
+            continue;
+        }
+        pointer.snippet = truncate_chars(&pointer.snippet, (*remaining_chars).min(MAX_FILE_CHARS));
+        pointer.chars = pointer.snippet.chars().count();
+        if pointer.chars == 0 {
+            continue;
+        }
+        *remaining_files -= 1;
+        *remaining_chars -= pointer.chars;
+        selected.push(pointer);
+    }
+    pack.source_pointers = selected;
+    pack.files_read = pack.source_pointers.len();
+    pack.chars_read = pack
+        .source_pointers
+        .iter()
+        .map(|pointer| pointer.chars)
+        .sum();
+    pack.dropped_files = pack
+        .files_considered
+        .max(original_count)
+        .saturating_sub(pack.files_read);
 }
 
 fn build_filesystem_fallback(request: &str) -> Result<ContextPack, AppError> {
@@ -190,6 +361,31 @@ impl ContextPack {
             ));
         }
         section
+    }
+}
+
+impl ResumeContext {
+    pub fn prompt_section(&self) -> String {
+        if self.transcript.is_empty() && self.sources.source_pointers.is_empty() {
+            return String::new();
+        }
+        let mut section = format!(
+            "durable resumed session context (session={}):\n",
+            self.session_id
+        );
+        for (kind, content) in &self.transcript {
+            section.push_str(&format!("\n{kind} turn:\n{content}\n"));
+        }
+        section.push('\n');
+        section.push_str(&self.sources.prompt_section());
+        section
+    }
+
+    pub fn summary(&self) -> String {
+        format!(
+            "transcript turns={} chars={} source pointers={}",
+            self.transcript_turns_selected, self.transcript_chars, self.sources.files_read
+        )
     }
 }
 
@@ -329,17 +525,42 @@ fn relative_path(root: &Path, path: &Path) -> String {
 }
 
 fn truncate_chars(contents: &str, max_chars: usize) -> String {
-    let mut snippet = contents.chars().take(max_chars).collect::<String>();
-    if contents.chars().count() > max_chars {
-        snippet.push_str("\n[truncated]");
+    let count = contents.chars().count();
+    if count <= max_chars {
+        return contents.to_string();
     }
-    snippet
+    const MARKER: &str = "\n[truncated]";
+    let marker_chars = MARKER.chars().count();
+    if max_chars <= marker_chars {
+        return MARKER.chars().take(max_chars).collect();
+    }
+    let prefix = contents
+        .chars()
+        .take(max_chars - marker_chars)
+        .collect::<String>();
+    format!("{prefix}{MARKER}")
+}
+
+fn truncate_tail_chars(contents: &str, max_chars: usize) -> String {
+    let count = contents.chars().count();
+    if count <= max_chars {
+        return contents.to_string();
+    }
+    const MARKER: &str = "[truncated]\n";
+    let marker_chars = MARKER.chars().count();
+    if max_chars <= marker_chars {
+        return MARKER.chars().take(max_chars).collect();
+    }
+    let tail_chars = max_chars - marker_chars;
+    let tail = contents
+        .chars()
+        .skip(count - tail_chars)
+        .collect::<String>();
+    format!("{MARKER}{tail}")
 }
 
 fn content_fingerprint(contents: &str) -> String {
-    let mut hasher = DefaultHasher::new();
-    contents.hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
+    crate::state::sha256_text(contents)
 }
 
 #[cfg(test)]
@@ -386,6 +607,119 @@ mod tests {
             .iter()
             .all(|pointer| !pointer.path.starts_with("target/")));
         assert!(pack.prompt_section().contains("source pointer"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn current_and_resume_sources_share_one_budget_and_deduplicate() {
+        let pointer = |name: &str, chars: usize| SourcePointer {
+            path: name.to_string(),
+            stable_ref: format!("{name}:1"),
+            chars,
+            fingerprint: "a".repeat(64),
+            snippet: name.repeat(chars.div_ceil(name.len())),
+        };
+        let pack = |pointers: Vec<SourcePointer>| ContextPack {
+            project_root: PathBuf::from("/project"),
+            origin: "test".to_string(),
+            ontology_records_selected: 0,
+            ontology_stale_rejected: 0,
+            files_considered: pointers.len(),
+            files_read: pointers.len(),
+            chars_read: pointers.iter().map(|pointer| pointer.chars).sum(),
+            dropped_files: 0,
+            source_pointers: pointers,
+        };
+        let mut current = pack(vec![
+            pointer("current.rs", 1_800),
+            pointer("shared.rs", 1_800),
+        ]);
+        let mut resume = ResumeContext {
+            session_id: "session-test".to_string(),
+            transcript_records_considered: 0,
+            transcript_turns_selected: 0,
+            transcript_chars: 0,
+            transcript: Vec::new(),
+            sources: pack(vec![
+                pointer("shared.rs", 1_000),
+                pointer("older.rs", 1_000),
+            ]),
+        };
+
+        enforce_shared_source_budget(&mut resume, &mut current);
+
+        let pointer_count = current.files_read + resume.sources.files_read;
+        let source_chars = current.chars_read + resume.sources.chars_read;
+        let prompt = format!("{}{}", resume.prompt_section(), current.prompt_section());
+        assert!(pointer_count <= MAX_CONTEXT_FILES);
+        assert!(source_chars <= MAX_CONTEXT_CHARS);
+        assert_eq!(prompt.matches("source pointer: shared.rs:1").count(), 1);
+    }
+
+    #[test]
+    fn resume_context_is_bounded_and_rejects_stale_source_pointer() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-resume-context-test-{}",
+            std::process::id()
+        ));
+        let project_root = root.join("project");
+        let source_path = project_root.join("src/main.rs");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(source_path.parent().unwrap()).unwrap();
+        fs::write(&source_path, "fn main() {}\n").unwrap();
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        crate::state::initialize().unwrap();
+        let workflow = crate::state::create_workflow("resume context test").unwrap();
+        let pointer = SourcePointer {
+            path: "src/main.rs".to_string(),
+            stable_ref: "src/main.rs:1".to_string(),
+            chars: 0,
+            fingerprint: crate::checksum::sha256_file(&source_path).unwrap(),
+            snippet: String::new(),
+        };
+        for index in 0..12 {
+            crate::transcript::record_workflow_turn(
+                &workflow,
+                if index % 2 == 0 { "user" } else { "model" },
+                &format!("turn-{index}"),
+                &format!("turn {index} {}", "x".repeat(500)),
+                std::slice::from_ref(&pointer),
+            )
+            .unwrap();
+        }
+        let other_identity = crate::ledger::RuntimeIdentity {
+            project_id: workflow.project_id.clone(),
+            session_id: "session-other".to_string(),
+            project_root: project_root.display().to_string(),
+        };
+        let other_workflow = crate::state::WorkflowRecord::new(&other_identity, "other session");
+        crate::transcript::record_workflow_turn(
+            &other_workflow,
+            "user",
+            "other-turn",
+            "OTHER_SESSION_SENTINEL",
+            &[],
+        )
+        .unwrap();
+
+        let resumed = rebuild_resume_context(&workflow.session_id, None).unwrap();
+        assert!(resumed.transcript_turns_selected > 0);
+        assert!(resumed.transcript_turns_selected <= MAX_RESUME_TURNS);
+        assert!(resumed.transcript_chars <= MAX_RESUME_TRANSCRIPT_CHARS);
+        assert_eq!(resumed.sources.files_read, 1);
+        assert!(resumed.sources.chars_read <= MAX_CONTEXT_CHARS);
+        assert!(!resumed.prompt_section().contains("OTHER_SESSION_SENTINEL"));
+
+        fs::write(&source_path, "fn main() { println!(\"changed\"); }\n").unwrap();
+        let stale = rebuild_resume_context(&workflow.session_id, None).unwrap_err();
+        assert_eq!(stale.code, 3);
+        assert!(stale.message.contains("source reread 차단"));
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
         let _ = fs::remove_dir_all(root);
     }
 }

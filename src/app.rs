@@ -104,7 +104,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             Ok(())
         }
         Command::Session(SessionCommand::Resume { id }) => {
-            println!("{}", state::session_resume_report(&id)?);
+            println!("{}", runtime::session_resume_report(&id)?);
             Ok(())
         }
         Command::Team(TeamCommand::Status) => {

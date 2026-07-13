@@ -926,19 +926,11 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
     chat_once_with_options(prompt, max_tokens, false, None, |_| Ok(()))
 }
 
-fn chat_once_with_options(
-    prompt: &str,
-    max_tokens: Option<u32>,
-    streaming_display: bool,
-    timeout_ms: Option<u32>,
-    mut on_delta: impl FnMut(Option<&str>) -> Result<(), AppError>,
-) -> Result<BackendChatRun, AppError> {
-    if prompt.trim().is_empty() {
-        return Err(AppError::usage(
-            "backend chat은 비어 있지 않은 --prompt <text> 값이 필요합니다.",
-        ));
-    }
-    let requested_max_tokens = max_tokens.unwrap_or(DEFAULT_CHAT_MAX_TOKENS);
+pub fn preflight_chat_ready() -> Result<(), AppError> {
+    ready_sidecar_record().map(|_| ())
+}
+
+fn ready_sidecar_record() -> Result<BackendSidecarRecord, AppError> {
     let Some(record) = read_backend_sidecar_record()? else {
         return Err(AppError::blocked(format!(
             "backend chat 차단\n- 이유: 실행 중인 sidecar record가 없습니다.\n- 다음 단계: rpotato backend start --model <path> --ctx-size 4096\n- sidecar record: {}",
@@ -965,6 +957,23 @@ fn chat_once_with_options(
             health.error.unwrap_or_else(|| "없음".to_string())
         )));
     }
+    Ok(record)
+}
+
+fn chat_once_with_options(
+    prompt: &str,
+    max_tokens: Option<u32>,
+    streaming_display: bool,
+    timeout_ms: Option<u32>,
+    mut on_delta: impl FnMut(Option<&str>) -> Result<(), AppError>,
+) -> Result<BackendChatRun, AppError> {
+    if prompt.trim().is_empty() {
+        return Err(AppError::usage(
+            "backend chat은 비어 있지 않은 --prompt <text> 값이 필요합니다.",
+        ));
+    }
+    let requested_max_tokens = max_tokens.unwrap_or(DEFAULT_CHAT_MAX_TOKENS);
+    let record = ready_sidecar_record()?;
 
     let governor_sample = record_backend_resource_sample(&record, "chat-governor")?;
     let governor = resource::chat_governor_decision(governor_sample.pressure, requested_max_tokens);

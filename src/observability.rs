@@ -9,8 +9,8 @@ use crate::app::AppError;
 use crate::ledger::{self, LedgerEvent, RuntimeIdentity};
 use crate::{paths, resource};
 
-const MIGRATION_VERSION: i64 = 5;
-const MIGRATION_DESCRIPTION: &str = "v0_29_durable_patch_workflows";
+const MIGRATION_VERSION: i64 = 6;
+const MIGRATION_DESCRIPTION: &str = "v0_32_durable_conversation_resume";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoreStatus {
@@ -20,6 +20,7 @@ pub struct StoreStatus {
     pub ledger_events: i64,
     pub sessions: i64,
     pub workflows: i64,
+    pub transcript_records: i64,
     pub model_runs: i64,
     pub token_records: i64,
     pub resource_samples: i64,
@@ -1095,6 +1096,22 @@ fn migrate(connection: &Connection) -> Result<(), AppError> {
                 recorded_at_ms INTEGER NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS transcript_records (
+                record_id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                workflow_id TEXT NOT NULL,
+                ledger_event_id TEXT NOT NULL,
+                event_ordinal INTEGER NOT NULL,
+                record_kind TEXT NOT NULL,
+                causal_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                source_pointers_json TEXT NOT NULL,
+                artifact_pointer TEXT NOT NULL,
+                artifact_hash TEXT NOT NULL,
+                recorded_at_ms INTEGER NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS benchmark_runs (
                 benchmark_run_id TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL DEFAULT '',
@@ -1183,6 +1200,26 @@ fn migrate(connection: &Connection) -> Result<(), AppError> {
     )?;
     ensure_column(
         connection,
+        "transcript_records",
+        "ledger_event_id",
+        "TEXT NOT NULL DEFAULT ''",
+    )?;
+    ensure_column(
+        connection,
+        "transcript_records",
+        "event_ordinal",
+        "INTEGER NOT NULL DEFAULT 0",
+    )?;
+    connection
+        .execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_transcript_ledger_event
+                 ON transcript_records (ledger_event_id);
+             CREATE INDEX IF NOT EXISTS idx_transcript_session_order
+                 ON transcript_records (session_id, event_ordinal);",
+        )
+        .map_err(sql_error("transcript 순서 index 생성 실패"))?;
+    ensure_column(
+        connection,
         "benchmark_runs",
         "redacted_report",
         "TEXT NOT NULL DEFAULT '{}'",
@@ -1247,7 +1284,12 @@ fn replay_ledger(connection: &Connection) -> Result<(), AppError> {
     connection
         .execute("DELETE FROM ledger_events", [])
         .map_err(sql_error("ledger replay projection 초기화에 실패했습니다"))?;
-    for event in ledger::read_runtime_events()? {
+    connection
+        .execute("DELETE FROM transcript_records", [])
+        .map_err(sql_error(
+            "transcript replay projection 초기화에 실패했습니다",
+        ))?;
+    for (index, event) in ledger::read_runtime_events()?.into_iter().enumerate() {
         connection
             .execute(
                 "INSERT OR IGNORE INTO ledger_events (
@@ -1276,6 +1318,15 @@ fn replay_ledger(connection: &Connection) -> Result<(), AppError> {
             &event.details,
             &event.session_id,
             event.ts_ms,
+        )?;
+        project_transcript_event(
+            connection,
+            &event.project_id,
+            &event.session_id,
+            &event.event_type,
+            &event.details,
+            &event.event_id,
+            to_i64((index + 1) as u128),
         )?;
     }
     Ok(())
@@ -1357,7 +1408,74 @@ fn insert_ledger_event(connection: &Connection, event: &LedgerEvent) -> Result<(
         &event.details,
         &event.session_id,
         event.ts_ms,
+    )?;
+    project_transcript_event(
+        connection,
+        &event.project_id,
+        &event.session_id,
+        &event.event_type,
+        &event.details,
+        &event.event_id,
+        canonical_event_ordinal(&event.event_id)?,
     )
+}
+
+fn canonical_event_ordinal(event_id: &str) -> Result<i64, AppError> {
+    ledger::read_runtime_events()?
+        .iter()
+        .position(|event| event.event_id == event_id)
+        .map(|index| to_i64((index + 1) as u128))
+        .ok_or_else(|| {
+            AppError::blocked(format!(
+                "observability projection 차단\n- 이유: canonical ledger event ordinal을 찾지 못했습니다.\n- event id: {event_id}"
+            ))
+        })
+}
+
+fn project_transcript_event(
+    connection: &Connection,
+    project_id: &str,
+    session_id: &str,
+    event_type: &str,
+    details: &str,
+    ledger_event_id: &str,
+    event_ordinal: i64,
+) -> Result<(), AppError> {
+    if event_type != "transcript.recorded" {
+        return Ok(());
+    }
+    let record =
+        crate::transcript::record_from_binding(project_id, session_id, event_type, details)?;
+    let artifact_pointer = format!(
+        "state/transcripts/{}/{}/{}.json",
+        record.project_id, record.session_id, record.record_id
+    );
+    connection
+        .execute(
+            "INSERT OR REPLACE INTO transcript_records (
+                record_id, session_id, workflow_id, ledger_event_id, event_ordinal,
+                record_kind, causal_id,
+                content, content_hash, source_pointers_json, artifact_pointer,
+                artifact_hash, recorded_at_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            params![
+                record.record_id,
+                record.session_id,
+                record.workflow_id,
+                ledger_event_id,
+                event_ordinal,
+                record.kind,
+                record.causal_id,
+                record.content,
+                record.content_hash,
+                record.source_pointers_json(),
+                artifact_pointer,
+                record.artifact_hash,
+                to_i64(record.recorded_at_ms)
+            ],
+        )
+        .map_err(sql_error("transcript projection 저장 실패"))?;
+    Ok(())
 }
 
 fn project_patch_evidence_event(
@@ -1448,6 +1566,7 @@ fn status_from_connection(
         ledger_events: count_scalar(connection, "SELECT COUNT(*) FROM ledger_events")?,
         sessions: count_scalar(connection, "SELECT COUNT(*) FROM sessions")?,
         workflows: count_scalar(connection, "SELECT COUNT(*) FROM workflows")?,
+        transcript_records: count_scalar(connection, "SELECT COUNT(*) FROM transcript_records")?,
         model_runs: count_scalar(connection, "SELECT COUNT(*) FROM model_runs")?,
         token_records: count_scalar(connection, "SELECT COUNT(*) FROM token_usage")?,
         resource_samples: count_scalar(connection, "SELECT COUNT(*) FROM resource_samples")?,
