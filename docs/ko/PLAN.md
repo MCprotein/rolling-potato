@@ -74,7 +74,7 @@ rpotato continue
 rpotato continue <session-id>
 rpotato evidence validate logs/test.log
 rpotato skill list
-rpotato skill run fix-test
+rpotato skill run fix-test "실패한 테스트를 고쳐줘"
 rpotato policy check-command "cargo test"
 rpotato hooks list
 rpotato plugin import --from claude-code ./my-plugin

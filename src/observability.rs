@@ -1528,6 +1528,7 @@ fn project_workflow_checkpoint(
         return Ok(());
     };
     let state = detail_value(details, "phase").unwrap_or("unknown");
+    let active_skill_id = detail_value(details, "active_skill_id");
     connection
         .execute(
             "INSERT INTO workflows (workflow_id, session_id, state, active_skill_id, updated_at_ms)
@@ -1537,7 +1538,13 @@ fn project_workflow_checkpoint(
                 state=excluded.state,
                 active_skill_id=excluded.active_skill_id,
                 updated_at_ms=excluded.updated_at_ms",
-            params![workflow_id, session_id, state, "small-patch", to_i64(ts_ms)],
+            params![
+                workflow_id,
+                session_id,
+                state,
+                active_skill_id,
+                to_i64(ts_ms)
+            ],
         )
         .map_err(sql_error(
             "workflow checkpoint projection을 저장하지 못했습니다",
@@ -1967,6 +1974,47 @@ mod tests {
         assert_eq!(csv_cell("plain"), "plain");
         assert_eq!(csv_cell("a,b"), "\"a,b\"");
         assert_eq!(csv_cell("a\"b"), "\"a\"\"b\"");
+    }
+
+    #[test]
+    fn workflow_projection_uses_checkpoint_active_skill_id() {
+        let connection = Connection::open_in_memory().unwrap();
+        migrate(&connection).unwrap();
+
+        project_workflow_checkpoint(
+            &connection,
+            "workflow.checkpoint",
+            "workflow_id=workflow-skill phase=running active_skill_id=ralph skill_state=active",
+            "session-test",
+            42,
+        )
+        .unwrap();
+        project_workflow_checkpoint(
+            &connection,
+            "workflow.checkpoint",
+            "workflow_id=workflow-legacy phase=model-pending",
+            "session-test",
+            43,
+        )
+        .unwrap();
+
+        let actual: Option<String> = connection
+            .query_row(
+                "SELECT active_skill_id FROM workflows WHERE workflow_id = 'workflow-skill'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let absent: Option<String> = connection
+            .query_row(
+                "SELECT active_skill_id FROM workflows WHERE workflow_id = 'workflow-legacy'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(actual.as_deref(), Some("ralph"));
+        assert_eq!(absent, None);
     }
 
     #[test]

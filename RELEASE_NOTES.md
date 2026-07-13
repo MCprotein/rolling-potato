@@ -1,5 +1,56 @@
 # Release Notes
 
+## v0.33.0 - Executable Hooks And Skills
+
+Release date: 2026-07-13
+
+This release moves built-in skills and runtime-owned lifecycle hooks from
+validation/routing foundations into the durable agent loop. Policy, evidence,
+and stop criteria are now executable state-machine gates rather than prompt
+conventions.
+
+### Included
+
+- Dispatches the 17 lifecycle hook points in deterministic runtime, project,
+  skill, session, and observer layer order, then by hook id. Strict JSON parsing
+  fails closed and the conflict rule keeps the stricter result.
+- Executes explicit `rpotato skill run <id> "<request>"` and naturally routed
+  built-in skills through the same context, model, typed-action, approval,
+  verification, final-report, and stop-gate loop.
+- Enforces declared context, allowed tools, required hooks, evidence, and stop
+  criteria at state transitions. Missing context fails before a model request;
+  incomplete terminal state cannot be accepted.
+- Requires workflow phase and skill state to agree before every patch or command
+  side effect. `fix-test` runs the same canonical `cargo test` command before and
+  after an approved patch, binding the observed pre-patch failure to workflow and
+  command hashes in the ledger.
+- Rejects empty or non-Korean read-only model answers and derives completion
+  evidence only from source, line, diagnostic, benchmark, checksum, or ranked
+  finding details visible in the guarded answer.
+- Adds workflow schema v4 for active skill, invocation, skill state, completed
+  hooks, evidence, and stop criteria while preserving immutable v2/v3 artifacts
+  and one-way upgrade compatibility. SQLite projects the actual active skill
+  from canonical checkpoint data.
+- Records hook dispatch evidence using payload SHA-256 values rather than raw
+  payloads. Direct command and project-file writes are not hook capabilities.
+  Imported/plugin hook executables remain disabled and default-deny.
+
+### Breaking Before 1.0
+
+- `rpotato skill run` now requires both a built-in skill id and a request. The
+  previous id-only command only recorded pre-execution routing state and did not
+  have enough input to execute the agent loop.
+
+### Verified During Implementation
+
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1` (`351` unit, `1` backend
+  lifecycle, and `28` process tests passed)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- release policy, toolchain pin, target matrix, packaged-binary, and uninstall
+  smoke checks
+
 ## v0.32.1 - Stable Toolchain Refresh
 
 Release date: 2026-07-13

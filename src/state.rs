@@ -10,7 +10,8 @@ use crate::observability::{self, StoreStatus};
 use crate::paths;
 use sha2::{Digest, Sha256};
 
-const WORKFLOW_SCHEMA_VERSION: u64 = 3;
+const WORKFLOW_SCHEMA_VERSION: u64 = 4;
+const PREVIOUS_WORKFLOW_SCHEMA_VERSION: u64 = 3;
 const LEGACY_WORKFLOW_SCHEMA_VERSION: u64 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,6 +25,12 @@ pub struct WorkflowRecord {
     pub phase: String,
     pub request_hash: String,
     pub workflow_kind: String,
+    pub active_skill_id: String,
+    pub skill_invocation: String,
+    pub skill_state: String,
+    pub skill_completed_hooks: String,
+    pub skill_evidence: String,
+    pub skill_stop_criteria: String,
     pub action_id: String,
     pub action_kind: String,
     pub action_status: String,
@@ -64,6 +71,12 @@ impl WorkflowRecord {
             phase: "model-pending".to_string(),
             request_hash: sha256_text(request),
             workflow_kind: "agent-run".to_string(),
+            active_skill_id: String::new(),
+            skill_invocation: String::new(),
+            skill_state: String::new(),
+            skill_completed_hooks: String::new(),
+            skill_evidence: String::new(),
+            skill_stop_criteria: String::new(),
             action_kind: "unclassified".to_string(),
             action_status: "runtime-candidate".to_string(),
             result_summary: String::new(),
@@ -145,13 +158,15 @@ pub fn checkpoint_workflow(
         "workflow.checkpoint",
         "canonical workflow revision persisted",
         &format!(
-            "workflow_id={} revision={} artifact_hash={} previous_hash={} phase={} workflow_kind={} action_id={} action_kind={} proposal_id={} evidence_id={}",
+            "workflow_id={} revision={} artifact_hash={} previous_hash={} phase={} workflow_kind={} active_skill_id={} skill_state={} action_id={} action_kind={} proposal_id={} evidence_id={}",
             next.workflow_id,
             next.revision,
             next.artifact_hash,
             next.previous_hash,
             next.phase,
             next.workflow_kind,
+            next.active_skill_id,
+            next.skill_state,
             next.action_id,
             next.action_kind,
             display_empty(&next.proposal_id),
@@ -933,7 +948,7 @@ impl ReconcileOutcome {
 
 fn workflow_payload(record: &WorkflowRecord) -> String {
     format!(
-        "schema_version={WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nverification_credential_hash={}\nverification_approval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
+        "schema_version={WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\nactive_skill_id={}\nskill_invocation={}\nskill_state={}\nskill_completed_hooks={}\nskill_evidence={}\nskill_stop_criteria={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nverification_credential_hash={}\nverification_approval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
         record.workflow_id,
         record.revision,
         record.previous_hash,
@@ -942,6 +957,12 @@ fn workflow_payload(record: &WorkflowRecord) -> String {
         record.phase,
         record.request_hash,
         record.workflow_kind,
+        record.active_skill_id,
+        record.skill_invocation,
+        record.skill_state,
+        record.skill_completed_hooks,
+        record.skill_evidence,
+        record.skill_stop_criteria,
         record.action_id,
         record.action_kind,
         record.action_status,
@@ -997,12 +1018,46 @@ fn workflow_payload_v2(record: &WorkflowRecord) -> String {
     )
 }
 
+fn workflow_payload_v3(record: &WorkflowRecord) -> String {
+    format!(
+        "schema_version={PREVIOUS_WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nverification_credential_hash={}\nverification_approval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
+        record.workflow_id,
+        record.revision,
+        record.previous_hash,
+        record.project_id,
+        record.session_id,
+        record.phase,
+        record.request_hash,
+        record.workflow_kind,
+        record.action_id,
+        record.action_kind,
+        record.action_status,
+        record.result_summary,
+        record.source_path,
+        record.source_hash,
+        record.find_text,
+        record.replace_text,
+        record.proposal_id,
+        record.proposal_hash,
+        record.approval_credential_hash,
+        record.before_hash,
+        record.after_hash,
+        record.verification_plan,
+        record.approval_state,
+        record.verification_credential_hash,
+        record.verification_approval_state,
+        record.evidence_id,
+        record.evidence_hash,
+        record.failure_reason
+    )
+}
+
 fn render_workflow(record: &WorkflowRecord) -> String {
     format!(
         concat!(
             "{{\n",
             "  \"schema_version\": {},\n",
-            "  \"artifact_version\": \"workflow-v3\",\n",
+            "  \"artifact_version\": \"workflow-v4\",\n",
             "  \"workflow_id\": \"{}\",\n",
             "  \"revision\": {},\n",
             "  \"previous_hash\": \"{}\",\n",
@@ -1012,6 +1067,12 @@ fn render_workflow(record: &WorkflowRecord) -> String {
             "  \"phase\": \"{}\",\n",
             "  \"request_hash\": \"{}\",\n",
             "  \"workflow_kind\": \"{}\",\n",
+            "  \"active_skill_id\": \"{}\",\n",
+            "  \"skill_invocation\": \"{}\",\n",
+            "  \"skill_state\": \"{}\",\n",
+            "  \"skill_completed_hooks\": \"{}\",\n",
+            "  \"skill_evidence\": \"{}\",\n",
+            "  \"skill_stop_criteria\": \"{}\",\n",
             "  \"action_id\": \"{}\",\n",
             "  \"action_kind\": \"{}\",\n",
             "  \"action_status\": \"{}\",\n",
@@ -1044,6 +1105,12 @@ fn render_workflow(record: &WorkflowRecord) -> String {
         ledger::json_string(&record.phase),
         ledger::json_string(&record.request_hash),
         ledger::json_string(&record.workflow_kind),
+        ledger::json_string(&record.active_skill_id),
+        ledger::json_string(&record.skill_invocation),
+        ledger::json_string(&record.skill_state),
+        ledger::json_string(&record.skill_completed_hooks),
+        ledger::json_string(&record.skill_evidence),
+        ledger::json_string(&record.skill_stop_criteria),
         ledger::json_string(&record.action_id),
         ledger::json_string(&record.action_kind),
         ledger::json_string(&record.action_status),
@@ -1067,10 +1134,34 @@ fn render_workflow(record: &WorkflowRecord) -> String {
     )
 }
 
-fn render_workflow_v2(record: &WorkflowRecord) -> String {
+fn render_workflow_v3(record: &WorkflowRecord) -> String {
     let rendered = render_workflow(record)
         .replacen(
             &format!("\"schema_version\": {WORKFLOW_SCHEMA_VERSION}"),
+            &format!("\"schema_version\": {PREVIOUS_WORKFLOW_SCHEMA_VERSION}"),
+            1,
+        )
+        .replacen("workflow-v4", "workflow-v3", 1);
+    let mut lines = rendered
+        .lines()
+        .filter(|line| {
+            !line.contains("\"active_skill_id\"")
+                && !line.contains("\"skill_invocation\"")
+                && !line.contains("\"skill_state\"")
+                && !line.contains("\"skill_completed_hooks\"")
+                && !line.contains("\"skill_evidence\"")
+                && !line.contains("\"skill_stop_criteria\"")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    lines.push('\n');
+    lines
+}
+
+fn render_workflow_v2(record: &WorkflowRecord) -> String {
+    let rendered = render_workflow_v3(record)
+        .replacen(
+            &format!("\"schema_version\": {PREVIOUS_WORKFLOW_SCHEMA_VERSION}"),
             &format!("\"schema_version\": {LEGACY_WORKFLOW_SCHEMA_VERSION}"),
             1,
         )
@@ -1104,6 +1195,7 @@ fn write_workflow_snapshot_for_schema(
 ) -> Result<(), AppError> {
     let rendered = match schema_version {
         LEGACY_WORKFLOW_SCHEMA_VERSION => render_workflow_v2(record),
+        PREVIOUS_WORKFLOW_SCHEMA_VERSION => render_workflow_v3(record),
         WORKFLOW_SCHEMA_VERSION => render_workflow(record),
         _ => {
             return Err(AppError::blocked(
@@ -1153,7 +1245,8 @@ fn write_workflow_pointer_for_schema(
 ) -> Result<(), AppError> {
     let artifact_version = match schema_version {
         LEGACY_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v2",
-        WORKFLOW_SCHEMA_VERSION => "workflow-commit-v3",
+        PREVIOUS_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v3",
+        WORKFLOW_SCHEMA_VERSION => "workflow-commit-v4",
         _ => {
             return Err(AppError::blocked(
                 "workflow pointer schema 지원 범위 밖입니다.",
@@ -1200,7 +1293,8 @@ fn parse_workflow_pointer(path: &std::path::Path, body: &str) -> Result<Workflow
         .map_err(|_| corrupt_workflow(path))?;
     let expected_artifact_version = match schema_version {
         LEGACY_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v2",
-        WORKFLOW_SCHEMA_VERSION => "workflow-commit-v3",
+        PREVIOUS_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v3",
+        WORKFLOW_SCHEMA_VERSION => "workflow-commit-v4",
         _ => return Err(corrupt_workflow(path)),
     };
     if artifact_version != expected_artifact_version {
@@ -1267,9 +1361,7 @@ fn recover_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
             remove_workflow_transaction(workflow_id)?;
             return Ok(());
         }
-        let schema_transition_allowed = pointer.schema_version == transaction_schema
-            || (pointer.schema_version == LEGACY_WORKFLOW_SCHEMA_VERSION
-                && transaction_schema == WORKFLOW_SCHEMA_VERSION);
+        let schema_transition_allowed = pointer.schema_version <= transaction_schema;
         if pointer.committed_revision + 1 != record.revision
             || record.previous_hash != pointer.artifact_hash
             || !schema_transition_allowed
@@ -1338,12 +1430,14 @@ fn append_workflow_checkpoint_event(record: &WorkflowRecord) -> Result<(), AppEr
         "workflow.checkpoint",
         "canonical workflow revision persisted",
         &format!(
-            "workflow_id={} revision={} artifact_hash={} previous_hash={} phase={} action_id={} proposal_id={} evidence_id={}",
+            "workflow_id={} revision={} artifact_hash={} previous_hash={} phase={} active_skill_id={} skill_state={} action_id={} proposal_id={} evidence_id={}",
             record.workflow_id,
             record.revision,
             record.artifact_hash,
             record.previous_hash,
             record.phase,
+            record.active_skill_id,
+            record.skill_state,
             record.action_id,
             display_empty(&record.proposal_id),
             display_empty(&record.evidence_id)
@@ -1451,6 +1545,45 @@ const WORKFLOW_V3_KEYS: &[&str] = &[
     "evidence_hash",
     "failure_reason",
 ];
+const WORKFLOW_V4_KEYS: &[&str] = &[
+    "schema_version",
+    "artifact_version",
+    "workflow_id",
+    "revision",
+    "previous_hash",
+    "artifact_hash",
+    "project_id",
+    "session_id",
+    "phase",
+    "request_hash",
+    "workflow_kind",
+    "active_skill_id",
+    "skill_invocation",
+    "skill_state",
+    "skill_completed_hooks",
+    "skill_evidence",
+    "skill_stop_criteria",
+    "action_id",
+    "action_kind",
+    "action_status",
+    "result_summary",
+    "source_path",
+    "source_hash",
+    "find_text",
+    "replace_text",
+    "proposal_id",
+    "proposal_hash",
+    "approval_credential_hash",
+    "before_hash",
+    "after_hash",
+    "verification_plan",
+    "approval_state",
+    "verification_credential_hash",
+    "verification_approval_state",
+    "evidence_id",
+    "evidence_hash",
+    "failure_reason",
+];
 const WORKFLOW_V2_KEYS: &[&str] = &[
     "schema_version",
     "artifact_version",
@@ -1485,13 +1618,14 @@ const WORKFLOW_V2_KEYS: &[&str] = &[
 
 fn workflow_snapshot_schema(path: &std::path::Path, body: &str) -> Result<u64, AppError> {
     let context = path.display().to_string();
-    let object = crate::strict_json::parse_object(body, WORKFLOW_V3_KEYS, &context)
+    let object = crate::strict_json::parse_object(body, WORKFLOW_V4_KEYS, &context)
         .map_err(|_| corrupt_workflow(path))?;
     let schema = crate::strict_json::number(&object, "schema_version", &context)
         .map_err(|_| corrupt_workflow(path))?;
     let (keys, artifact_version) = match schema {
         LEGACY_WORKFLOW_SCHEMA_VERSION => (WORKFLOW_V2_KEYS, "workflow-v2"),
-        WORKFLOW_SCHEMA_VERSION => (WORKFLOW_V3_KEYS, "workflow-v3"),
+        PREVIOUS_WORKFLOW_SCHEMA_VERSION => (WORKFLOW_V3_KEYS, "workflow-v3"),
+        WORKFLOW_SCHEMA_VERSION => (WORKFLOW_V4_KEYS, "workflow-v4"),
         _ => return Err(corrupt_workflow(path)),
     };
     if object.len() != keys.len()
@@ -1507,10 +1641,11 @@ fn workflow_snapshot_schema(path: &std::path::Path, body: &str) -> Result<u64, A
 
 fn parse_workflow_snapshot(path: &std::path::Path, body: &str) -> Result<WorkflowRecord, AppError> {
     let schema = workflow_snapshot_schema(path, body)?;
-    let keys = if schema == LEGACY_WORKFLOW_SCHEMA_VERSION {
-        WORKFLOW_V2_KEYS
-    } else {
-        WORKFLOW_V3_KEYS
+    let keys = match schema {
+        LEGACY_WORKFLOW_SCHEMA_VERSION => WORKFLOW_V2_KEYS,
+        PREVIOUS_WORKFLOW_SCHEMA_VERSION => WORKFLOW_V3_KEYS,
+        WORKFLOW_SCHEMA_VERSION => WORKFLOW_V4_KEYS,
+        _ => return Err(corrupt_workflow(path)),
     };
     let context = path.display().to_string();
     let object = crate::strict_json::parse_object(body, keys, &context)
@@ -1529,6 +1664,36 @@ fn parse_workflow_snapshot(path: &std::path::Path, body: &str) -> Result<Workflo
         phase: text("phase")?,
         request_hash: text("request_hash")?,
         workflow_kind: text("workflow_kind")?,
+        active_skill_id: if schema == WORKFLOW_SCHEMA_VERSION {
+            text("active_skill_id")?
+        } else {
+            String::new()
+        },
+        skill_invocation: if schema == WORKFLOW_SCHEMA_VERSION {
+            text("skill_invocation")?
+        } else {
+            String::new()
+        },
+        skill_state: if schema == WORKFLOW_SCHEMA_VERSION {
+            text("skill_state")?
+        } else {
+            String::new()
+        },
+        skill_completed_hooks: if schema == WORKFLOW_SCHEMA_VERSION {
+            text("skill_completed_hooks")?
+        } else {
+            String::new()
+        },
+        skill_evidence: if schema == WORKFLOW_SCHEMA_VERSION {
+            text("skill_evidence")?
+        } else {
+            String::new()
+        },
+        skill_stop_criteria: if schema == WORKFLOW_SCHEMA_VERSION {
+            text("skill_stop_criteria")?
+        } else {
+            String::new()
+        },
         action_id: text("action_id")?,
         action_kind: text("action_kind")?,
         action_status: text("action_status")?,
@@ -1544,12 +1709,12 @@ fn parse_workflow_snapshot(path: &std::path::Path, body: &str) -> Result<Workflo
         after_hash: text("after_hash")?,
         verification_plan: text("verification_plan")?,
         approval_state: text("approval_state")?,
-        verification_credential_hash: if schema == WORKFLOW_SCHEMA_VERSION {
+        verification_credential_hash: if schema >= PREVIOUS_WORKFLOW_SCHEMA_VERSION {
             text("verification_credential_hash")?
         } else {
             String::new()
         },
-        verification_approval_state: if schema == WORKFLOW_SCHEMA_VERSION {
+        verification_approval_state: if schema >= PREVIOUS_WORKFLOW_SCHEMA_VERSION {
             text("verification_approval_state")?
         } else {
             "not-issued".to_string()
@@ -1558,10 +1723,11 @@ fn parse_workflow_snapshot(path: &std::path::Path, body: &str) -> Result<Workflo
         evidence_hash: text("evidence_hash")?,
         failure_reason: text("failure_reason")?,
     };
-    let payload = if schema == LEGACY_WORKFLOW_SCHEMA_VERSION {
-        workflow_payload_v2(&record)
-    } else {
-        workflow_payload(&record)
+    let payload = match schema {
+        LEGACY_WORKFLOW_SCHEMA_VERSION => workflow_payload_v2(&record),
+        PREVIOUS_WORKFLOW_SCHEMA_VERSION => workflow_payload_v3(&record),
+        WORKFLOW_SCHEMA_VERSION => workflow_payload(&record),
+        _ => return Err(corrupt_workflow(path)),
     };
     if record.artifact_hash != sha256_text(&payload) {
         return Err(corrupt_workflow(path));
@@ -2222,7 +2388,7 @@ mod tests {
     }
 
     #[test]
-    fn legacy_v2_chain_is_preserved_and_next_checkpoint_appends_v3() {
+    fn legacy_v2_chain_is_preserved_and_next_checkpoint_appends_v4() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         with_workflow_env("workflow-v2-upgrade", |_| {
             let mut legacy =
@@ -2249,15 +2415,58 @@ mod tests {
             assert_eq!(fs::read(&snapshot).unwrap(), legacy_bytes);
             let pointer =
                 fs::read_to_string(paths::project_workflow_file(&legacy.workflow_id)).unwrap();
-            assert!(pointer.contains("\"schema_version\": 3"));
-            assert!(pointer.contains("workflow-commit-v3"));
-            let v3 = fs::read_to_string(paths::project_workflow_snapshot_file(
+            assert!(pointer.contains("\"schema_version\": 4"));
+            assert!(pointer.contains("workflow-commit-v4"));
+            let v4 = fs::read_to_string(paths::project_workflow_snapshot_file(
                 &legacy.workflow_id,
                 2,
             ))
             .unwrap();
-            assert!(v3.contains("\"artifact_version\": \"workflow-v3\""));
+            assert!(v4.contains("\"artifact_version\": \"workflow-v4\""));
             assert_eq!(load_workflow(&legacy.workflow_id).unwrap(), upgraded);
+        });
+    }
+
+    #[test]
+    fn v3_loads_without_rewrite_and_next_checkpoint_persists_skill_state_as_v4() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        with_workflow_env("workflow-v3-upgrade", |_| {
+            let mut v3 = WorkflowRecord::new(&ledger::fresh_identity(), "v3 workflow");
+            v3.revision = 1;
+            v3.previous_hash = "none".to_string();
+            v3.phase = "model-pending".to_string();
+            v3.artifact_hash = sha256_text(&workflow_payload_v3(&v3));
+            let snapshot = paths::project_workflow_snapshot_file(&v3.workflow_id, 1);
+            let v3_bytes = render_workflow_v3(&v3);
+            atomic_replace_bytes(&snapshot, v3_bytes.as_bytes()).unwrap();
+            append_workflow_checkpoint_event(&v3).unwrap();
+            write_workflow_pointer_for_schema(&v3, PREVIOUS_WORKFLOW_SCHEMA_VERSION).unwrap();
+
+            let mut loaded = load_workflow(&v3.workflow_id).unwrap();
+            assert_eq!(fs::read_to_string(&snapshot).unwrap(), v3_bytes);
+            assert!(loaded.active_skill_id.is_empty());
+            assert!(loaded.skill_state.is_empty());
+
+            loaded.active_skill_id = "built-in-plan".to_string();
+            loaded.skill_invocation = "$plan --consensus".to_string();
+            loaded.skill_state = "running".to_string();
+            loaded.skill_completed_hooks = "session-start,preflight".to_string();
+            loaded.skill_evidence = "artifact:plan-v1".to_string();
+            loaded.skill_stop_criteria = "verified".to_string();
+            let checkpointed = checkpoint_workflow(loaded.clone(), loaded.revision).unwrap();
+            let restarted = load_workflow(&v3.workflow_id).unwrap();
+
+            assert_eq!(restarted, checkpointed);
+            assert_eq!(restarted.active_skill_id, "built-in-plan");
+            assert_eq!(restarted.skill_invocation, "$plan --consensus");
+            assert_eq!(restarted.skill_state, "running");
+            assert_eq!(restarted.skill_completed_hooks, "session-start,preflight");
+            assert_eq!(restarted.skill_evidence, "artifact:plan-v1");
+            assert_eq!(restarted.skill_stop_criteria, "verified");
+            assert_eq!(fs::read_to_string(&snapshot).unwrap(), v3_bytes);
+            let pointer =
+                fs::read_to_string(paths::project_workflow_file(&v3.workflow_id)).unwrap();
+            assert!(pointer.contains("workflow-commit-v4"));
         });
     }
 
@@ -2417,7 +2626,18 @@ mod tests {
     fn workflow_chain_rejects_v3_to_v2_schema_downgrade() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         with_workflow_env("workflow-schema-downgrade", |_| {
-            let first = create_workflow("schema downgrade workflow").unwrap();
+            let mut first =
+                WorkflowRecord::new(&ledger::fresh_identity(), "schema downgrade workflow");
+            first.revision = 1;
+            first.previous_hash = "none".to_string();
+            first.artifact_hash = sha256_text(&workflow_payload_v3(&first));
+            atomic_replace_bytes(
+                &paths::project_workflow_snapshot_file(&first.workflow_id, 1),
+                render_workflow_v3(&first).as_bytes(),
+            )
+            .unwrap();
+            append_workflow_checkpoint_event(&first).unwrap();
+            write_workflow_pointer_for_schema(&first, PREVIOUS_WORKFLOW_SCHEMA_VERSION).unwrap();
             let mut downgraded = first.clone();
             downgraded.revision = 2;
             downgraded.previous_hash = first.artifact_hash.clone();

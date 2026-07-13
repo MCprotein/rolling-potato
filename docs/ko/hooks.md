@@ -66,14 +66,17 @@ Hook은 정책을 우회하는 shell callback이 아닙니다. 제한된 runtime
 
 ## 현재 구현
 
-Phase 4의 현재 구현:
+v0.33 runtime의 현재 구현:
 
 - `rpotato hooks list`
 - `rpotato hooks validate-result <json>`
+- built-in skill agent loop의 native lifecycle dispatch
 
 `hooks list`는 lifecycle hook registry, ordering, conflict rule, input/output schema를 출력합니다.
 
 `hooks validate-result`는 hook output의 `status`를 검사합니다. 알 수 없는 status나 파싱 실패는 fail-closed로 `deny` 처리합니다.
+
+Native dispatch는 strict JSON을 검증하고 layer와 id 순서로 hook을 평가하며, 더 엄격한 conflict result를 적용하고 runtime tool policy를 강제합니다. Ledger의 `hook.dispatched` evidence에는 raw payload 대신 payload SHA-256을 기록합니다. 직접 command 실행과 project file write는 hook capability가 아닙니다.
 
 구현된 conflict rule:
 
@@ -118,7 +121,9 @@ Hook 순서는 deterministic해야 합니다.
 
 Hook 결과가 충돌하면 더 엄격한 결과가 이깁니다.
 
-`deny` > `ask` > `modify` > `allow` > `observe`
+`error`/`deny` > `ask` > `modify` > `allow` > `observe`
+
+v0.33의 executable registry에는 runtime-owned native rule만 들어 있습니다. Project, session, imported/plugin hook executable은 별도로 검토된 loader와 permission path가 구현될 때까지 실행하지 않습니다.
 
 ## 저장소
 

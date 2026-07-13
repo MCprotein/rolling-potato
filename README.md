@@ -94,7 +94,7 @@ rpotato continue
 rpotato continue <session-id>
 rpotato evidence validate logs/test.log
 rpotato skill list
-rpotato skill run fix-test
+rpotato skill run fix-test "fix the failing test in tests/api.rs"
 rpotato plugin import --from claude-code ./my-plugin
 rpotato plugin inspect imported.example-plugin
 rpotato team status
@@ -221,7 +221,7 @@ Implemented command surfaces:
 - `rpotato cancel`
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
-- `rpotato skill run <id>`
+- `rpotato skill run <id> "<request>"`
 - `rpotato policy schema`
 - `rpotato policy check-command <command>`
 - `rpotato policy check-path --read <path>`
@@ -295,11 +295,11 @@ Implemented command surfaces:
 
 `run` normalizes the user request into skill, mode, context, and evidence requirements, reconstructs up to 8 recent durable turns within 2,400 characters, and shares one 4-pointer/3,200-character source budget across current-request and resumed context before creating a workflow or calling the backend sidecar. It parses the result into a runtime-owned typed action without executing model text. Canonical transcript artifacts store the user turn, visible or normalized model result, normalized tool record, and evidence record; source contents and patch fragments remain pointers plus SHA-256, and hidden reasoning/raw backend responses are excluded. SQLite `transcript_records` is a rebuildable ordered projection, not resume authority. Read-only actions finish through a guarded Korean report. A valid patch action persists a restart-safe workflow and proposal, rereads the authoritative source, and stops with the exact `patch approve` gate.
 
-`intent classify`, `intent routes`, and `skill run` remain pre-execution surfaces: they normalize routing state and record ledger events without calling the model.
+`intent classify` and `intent routes` remain pre-execution surfaces. `skill run <id> "<request>"` explicitly selects a built-in skill and enters the same durable agent loop as `run`, including context checks, lifecycle hooks, runtime policy, evidence collection, and stop criteria.
 
 `tui`, `tui monitor`, `tui sessions`, `tui transcript <session-id>`, `tui approvals`, `tui diff <proposal-id>`, and `tui evidence` render read-only TUI beta surfaces. The transcript view validates and shows durable user/model/tool/evidence turns alongside the ledger event timeline. It excludes hidden model responses, source-file bodies, patch fragments, and verification-command text. TUI views do not approve, apply, resume, cancel, pass or fail stop gates, or mutate workflows.
 
-`policy` and `hooks` commands provide command/path permission decisions, credential redaction, lifecycle hook registry output, and fail-closed hook result validation. Real tool execution has not yet been wired behind this policy surface.
+`policy` and `hooks` commands provide command/path permission decisions, credential redaction, lifecycle hook registry output, and strict fail-closed hook result validation. Native runtime hooks now guard context packing, model requests, action parsing, patch application, verification commands, final reporting, and the stop gate. Hook results are ordered by runtime, project, skill, session, and observer layers; stricter outcomes win. External/plugin hook executables remain disabled and cannot gain command or file-write authority through import or enable.
 
 `patch preview` reads a project-local text file, renders a unified diff for a single explicit find/replace proposal, and writes a project-local record under `.rpotato/patch-proposals/`. This standalone surface is diff-only and cannot be approved, applied, or verified. Only a workflow proposal created by `run` can pass `patch approve`. `patch approve <proposal-id> --token <token> --dry-run` validates the patch-application gate without modifying the target file. Without `--dry-run`, `patch approve` applies the workflow proposal only when every binding and the current source SHA-256 remain valid, then emits a separate one-time verification credential without running the command. `patch verify <proposal-id> --token <token>` approves and runs only the pre-bound, policy-allowed argv verification plan. Verification failure attempts rollback and is never reported as success. `patch token-rotate` rotates the credential for the gate currently awaiting approval; neither credential is stored in plaintext or redisplayed after its initial delivery.
 

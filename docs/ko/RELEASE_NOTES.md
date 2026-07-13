@@ -1,5 +1,53 @@
 # 릴리즈 노트
 
+## v0.33.0 - 실행 가능한 훅과 스킬
+
+릴리즈 날짜: 2026-07-13
+
+이 릴리스는 built-in skill과 runtime-owned lifecycle hook을 validation/routing
+기반 기능에서 영속 agent loop의 실행 기능으로 올립니다. Policy, evidence, stop
+criteria는 이제 prompt 관례가 아니라 실행되는 state-machine gate입니다.
+
+### 포함된 것
+
+- 17개 lifecycle hook point를 runtime, project, skill, session, observer layer와
+  hook id 순서로 deterministic하게 dispatch합니다. Strict JSON parsing은
+  fail-closed하고 conflict rule은 더 엄격한 result를 유지합니다.
+- 명시적 `rpotato skill run <id> "<request>"`와 자연어로 routing된 built-in
+  skill을 동일한 context, model, typed action, approval, verification, final report,
+  stop-gate loop로 실행합니다.
+- State transition마다 선언된 context, allowed tool, required hook, evidence,
+  stop criteria를 강제합니다. Context가 빠지면 model request 전에 실패하고,
+  요구사항이 덜 채워진 terminal state는 인정하지 않습니다.
+- Patch 또는 command side effect 전에 workflow phase와 skill state가 일치해야 합니다.
+  `fix-test`는 승인된 patch 전후에 동일한 canonical `cargo test` command를 실행하고,
+  관측한 patch 전 실패를 ledger의 workflow/command hash에 binding합니다.
+- 비어 있거나 한국어 guard를 통과하지 못한 read-only model answer를 거부하고,
+  guarded answer에 실제로 표시된 source, line, diagnostic, benchmark, checksum,
+  ranked finding detail만 completion evidence로 인정합니다.
+- Active skill, invocation, skill state, completed hook, evidence, stop criteria를
+  저장하는 workflow schema v4를 추가하면서 immutable v2/v3 artifact와 단방향
+  upgrade 호환성을 유지합니다. SQLite는 canonical checkpoint의 실제 active skill을
+  projection합니다.
+- Raw payload 대신 payload SHA-256을 hook dispatch evidence로 기록합니다. 직접
+  command 실행과 project file write는 hook capability가 아닙니다. Imported/plugin
+  hook executable은 계속 비활성이고 default-deny입니다.
+
+### 1.0 이전 Breaking 변경
+
+- `rpotato skill run`은 이제 built-in skill id와 request를 모두 요구합니다. 기존
+  id-only command는 실행 전 routing state만 기록했고 agent loop를 실행할 입력이
+  부족했습니다.
+
+### 구현 중 검증
+
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1` (`351` unit, `1` backend
+  lifecycle, `28` process test 통과)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- release policy, toolchain pin, target matrix, packaged-binary, uninstall smoke check
+
 ## v0.32.1 - 안정 도구 체계 갱신
 
 릴리즈 날짜: 2026-07-13

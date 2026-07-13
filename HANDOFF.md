@@ -7,7 +7,7 @@
 ```
 
 - Remote: `https://github.com/MCprotein/rolling-potato.git`
-- Latest release: `v0.32.1`
+- Latest release: `v0.33.0`
 - CLI: `rpotato`
 - Product: local-first coding-agent runtime for small local models
 
@@ -38,7 +38,7 @@ policy, explicit approval where required, evidence recording, and verification.
 
 ## Current Release State
 
-`v0.32.1` is the current complete release. GitHub Releases provides checksummed
+`v0.33.0` is the current complete release. GitHub Releases provides checksummed
 binaries for:
 
 - macOS Apple Silicon
@@ -78,6 +78,8 @@ remain historical evidence.
   source-pointer reread rules
 - Codex/Claude Code local-directory plugin import, hash/drift validation,
   capability mapping, and default-deny permission reporting
+- Executable built-in skills and runtime-owned lifecycle hooks with durable
+  state, deterministic ordering, policy enforcement, evidence, and stop gates
 
 ## Important Incomplete Boundaries
 
@@ -89,8 +91,9 @@ remain historical evidence.
 - Runtime core resumes safe persisted phases of bounded patch workflows and
   reconstructs durable bounded conversation/source context. It never
   automatically repeats an uncertain backend request or verification command.
-- Hooks and skills expose validation/routing foundations but are not yet a full
-  executable lifecycle state machine.
+- Only runtime-owned native hooks execute. Project/session/plugin hook
+  executables remain disabled pending a separately reviewed loader and
+  permission path.
 - TUI is read-only; it cannot approve, apply, resume, cancel, or mutate work.
 - Team dispatch records policy and ownership decisions but does not launch real
   workers or advance/merge team stages.
@@ -104,8 +107,8 @@ The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
 sequence and non-skippable release gates are defined in
 `docs/release-train.md`. The immediate sequence is:
 
-1. `v0.33.0`: executable hooks and skills with deterministic fail-closed lifecycle integration.
-2. `v0.34.0` onward: interactive TUI, subagents,
+1. `v0.34.0`: interactive TUI operations through runtime-owned state.
+2. `v0.35.0` onward: subagents,
    teams, and plugin execution adapters.
 
 Package-manager distribution and an optional local HTML monitoring report come

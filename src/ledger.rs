@@ -488,6 +488,15 @@ pub fn event_detail_exists(event_type: &str, field: &str, value: &str) -> Result
     }))
 }
 
+pub fn event_details_match(event_type: &str, fields: &[(&str, &str)]) -> Result<bool, AppError> {
+    Ok(read_runtime_events()?.iter().any(|event| {
+        event.event_type == event_type
+            && fields
+                .iter()
+                .all(|(field, value)| detail_value(&event.details, field) == Some(*value))
+    }))
+}
+
 pub fn workflow_checkpoint_exists(
     workflow_id: &str,
     revision: u64,

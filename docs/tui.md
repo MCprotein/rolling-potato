@@ -171,7 +171,7 @@ Phase 3 fixed command-palette routing:
 
 - `request.submit` -> `rpotato run <request>`
 - `intent.preview` -> `rpotato intent classify <request>`
-- `skill.run` -> `rpotato skill run <id>`
+- `skill.run` -> `rpotato skill run <id> "<request>"`
 - `plugin.review` -> `rpotato plugin inspect <id>` or `rpotato plugin validate <id>`
 - `plugin.toggle` -> `rpotato plugin enable <id>` or `rpotato plugin disable <id>`
 - `workflow.cancel` -> `rpotato cancel`

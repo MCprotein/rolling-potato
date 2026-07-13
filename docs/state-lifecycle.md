@@ -108,9 +108,9 @@ committed-revision pointer jointly authorize resume. A synced transaction record
 lets startup finish any interrupted snapshot/ledger/pointer window idempotently.
 Every revision links `previous_hash` to `artifact_hash`; malformed ledger lines,
 missing revisions, stale latest checkpoints, and chain conflicts fail closed.
-Legacy schema v2 snapshots remain immutable and readable. A touched v2 workflow
-appends its next revision as schema v3, preserving the v2 hash and allowing only
-`v2*`, `v3*`, or one-way `v2+ -> v3+` chains.
+Legacy schema v2 and v3 snapshots remain immutable and readable. A touched legacy
+workflow appends its next revision as schema v4 while preserving the previous
+artifact hash. Schema versions are monotonic and never downgrade.
 
 Recovery scans every workflow pointer, transaction, and snapshot directory rather
 than trusting only `current-state.json`. More than one nonterminal workflow is a
@@ -139,3 +139,15 @@ synced runtime append, and ledger-event deduplication. New ledger lines bind
 physical append order with `previous_event_hash`/`event_hash`; a synced head
 detects reorder, tamper, and tail truncation. An explicit legacy prefix is
 accepted only before the chained suffix.
+
+## v0.33.0 Skill State Checkpoints
+
+Workflow schema v4 adds `active_skill_id`, invocation source, skill state,
+completed lifecycle hooks, evidence keys, and satisfied stop criteria. The
+canonical workflow snapshot and ledger checkpoint own this state; SQLite only
+projects the active skill for queries and monitoring. Resume revalidates the
+persisted skill contract before continuing or accepting a terminal workflow.
+Side effects additionally require an exact workflow-phase/skill-state pairing.
+For `fix-test`, the canonical ledger must contain a pre-patch failing-test event
+bound to both workflow id and normalized command hash; a matching evidence label
+without that event cannot authorize apply, verification, resume, or completion.

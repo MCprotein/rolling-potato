@@ -50,7 +50,7 @@ Each skill should have a manifest.
 
 Skills can be invoked through:
 
-- explicit command: `rpotato skill run fix-test`
+- explicit command: `rpotato skill run fix-test "fix the failing API test"`
 - natural command routing: `rpotato run "테스트 실패 고쳐줘"`
 - TUI command palette
 - team plan step
@@ -67,10 +67,10 @@ Runtime core interprets invocation into:
 
 ## Current Implementation
 
-Phase 3 implements pre-execution normalization, and `rpotato run` now uses that routing state to enter the first context-aware model-response agent-loop skeleton.
+The v0.33 runtime executes built-in skills as durable state machines inside the agent loop.
 
 - `rpotato skill list` prints the built-in skill registry.
-- `rpotato skill run <id>` normalizes skill id, mode, allowed tools, context requirements, evidence requirements, and stop criteria, then records a ledger event.
+- `rpotato skill run <id> "<request>"` explicitly selects a built-in skill and executes the same durable loop as `run`.
 - `rpotato run "<request>"` selects ontology-backed context, persists a runtime-owned typed read-only or patch action, rereads authoritative source for a valid patch, and stops at either a guarded Korean report or the exact `patch approve` gate.
 - `rpotato intent classify "<request>"` runs the same rules but prints only a classification report instead of planning an agent loop.
 - `rpotato intent routes` prints TUI command-palette routing to runtime commands.
@@ -79,6 +79,11 @@ Phase 3 implements pre-execution normalization, and `rpotato run` now uses that 
 - `rpotato patch approve <proposal-id> --token <token>` accepts only a workflow proposal created by `run`, applies it when the source and proposal bindings remain valid, writes a rollback record, and issues a separate verification credential without running the command.
 - `rpotato patch verify <proposal-id> --token <token>` separately approves and runs the pre-bound policy-allowed argv verification plan.
 - Current state owns the active workflow; skill/plugin/TUI actions need a parent workflow pointer.
+- Each transition validates required context, allowed tools, completed lifecycle hooks, evidence, and stop criteria. Missing requirements fail closed before completion.
+- Workflow phase and skill state must agree at every side-effect boundary. A resumed or tampered workflow cannot apply a patch or run verification from a skipped skill state.
+- `fix-test` accepts an actual `cargo test` argv plan only. The same canonical command must fail before proposal creation and pass after the approved patch; the pre-patch ledger event is bound to the workflow id and command hash.
+- Read-only and review skills require a non-empty Korean answer whose evidence is present in the visible answer. A source pointer alone does not satisfy file, line, diagnostic, benchmark, checksum, or ranked-finding evidence.
+- Workflow schema v4 persists the active skill, invocation, state, completed hooks, evidence, and stop criteria so restart and resume cannot bypass the skill contract.
 - The optional model classifier is disabled. Current routing uses deterministic rules only.
 - `run` owns the persisted workflow/action/proposal loop and typed final reporting; general model-output-to-tool orchestration beyond the bounded patch action remains a later phase.
 
@@ -124,17 +129,17 @@ See [plugin-adapters.md](plugin-adapters.md) for the plugin compatibility bounda
 
 ## Skill Runtime State
 
-Skill execution should record:
+Skill execution records:
 
 - active skill id
 - parent workflow id
-- context bundle id
-- tool call id
-- evidence id
-- stop gate result
-- final report id
+- invocation source
+- current skill state
+- completed required hooks
+- evidence keys
+- satisfied stop criteria
 
-This makes skill runs resumable and auditable.
+The built-in state machine uses `selected`, `context-ready`, `model-requested`, `action-recorded`, `awaiting-approval`, `awaiting-verification`, `stop-passed`, `complete`, `failed`, and `cancelled`. Invalid transitions and incomplete completion attempts fail closed.
 
 ## Subagents And Teams
 

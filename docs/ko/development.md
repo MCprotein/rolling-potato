@@ -39,7 +39,7 @@
 - `rpotato cancel`
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
-- `rpotato skill run <id>`
+- `rpotato skill run <id> "<request>"`
 - `rpotato policy schema`
 - `rpotato policy check-command <command>`
 - `rpotato policy check-path --read <path>`
@@ -182,7 +182,7 @@ cargo run -- continue
 cargo run -- continue <session-id>
 cargo run -- evidence validate .rpotato/evidence/smoke.txt
 cargo run -- skill list
-cargo run -- skill run fix-test
+cargo run -- skill run fix-test "tests/api.rs의 실패를 고쳐줘"
 cargo run -- policy schema
 cargo run -- policy check-command cargo test
 cargo run -- policy check-path --write src/main.rs
