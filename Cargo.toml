@@ -1,7 +1,8 @@
 [package]
 name = "rpotato"
-version = "0.32.0"
+version = "0.32.1"
 edition = "2021"
+rust-version = "1.97.0"
 license = "Apache-2.0"
 description = "Local coding agents for potato PCs."
 

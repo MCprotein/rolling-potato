@@ -22,7 +22,7 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
@@ -42,6 +42,9 @@ jobs:
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
+      - name: Verify repository tool pins
+        run: scripts/release/verify-toolchain-pins.sh
+
       - name: Test
         run: cargo test --locked -- --test-threads=1
 
@@ -57,11 +60,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          - os: macos-26
             target: aarch64-apple-darwin
             binary: rpotato
             archive: tar.gz
-          - os: macos-15-intel
+          - os: macos-26-intel
             target: x86_64-apple-darwin
             binary: rpotato
             archive: tar.gz
@@ -73,7 +76,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
             binary: rpotato
             archive: tar.gz
-          - os: windows-latest
+          - os: windows-2025
             target: x86_64-pc-windows-msvc
             binary: rpotato.exe
             archive: zip
@@ -82,7 +85,7 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
@@ -167,7 +170,7 @@ jobs:
           scripts/release/verify-checksum-basenames.sh "dist/${ASSET_BASE}.${{ matrix.archive }}.sha256"
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ env.ASSET_BASE }}
           path: |
@@ -189,7 +192,7 @@ jobs:
 
   checksums:
     name: publish aggregate checksums
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - build
     env:
@@ -197,10 +200,10 @@ jobs:
       GH_REPO: ${{ github.repository }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Download release artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: dist/artifacts
           pattern: rpotato-${{ env.RELEASE_TAG }}-*
@@ -218,7 +221,7 @@ jobs:
           scripts/release/verify-checksum-basenames.sh "dist/rpotato-${RELEASE_TAG}-checksums.txt"
 
       - name: Upload checksum workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: rpotato-${{ env.RELEASE_TAG }}-checksums
           path: dist/rpotato-${{ env.RELEASE_TAG }}-checksums.txt
