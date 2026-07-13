@@ -139,17 +139,23 @@ file을 검증할 수 있도록 LF line ending을 사용해야 합니다.
 `scripts/release/verify-release-target-matrix.sh`는 workflow matrix가 지원 target을 계속
 포함하는지 검사합니다.
 
-Runner label은 첫 지원 target에 고정합니다.
+Workflow는 2026-07-13 확인한 최신 안정 Node.js 24 action release인
+`actions/checkout` v7.0.0, `actions/upload-artifact` v7.0.1,
+`actions/download-artifact` v8.0.1의 immutable commit을 고정합니다. Workflow의
+각 full commit SHA 옆에는 version comment를 유지합니다.
+`scripts/release/verify-toolchain-pins.sh`는 PR과 release test gate에서 Rust,
+Action SHA, GA runner pin의 일관성을 강제합니다.
 
-- macOS Apple Silicon: `macos-14` / `aarch64-apple-darwin`
-- macOS Intel: `macos-15-intel` / `x86_64-apple-darwin`
+Runner label은 현재 GA target image에 고정합니다.
+
+- macOS Apple Silicon: `macos-26` / `aarch64-apple-darwin`
+- macOS Intel: `macos-26-intel` / `x86_64-apple-darwin`
 - Linux x86_64: `ubuntu-24.04` / `x86_64-unknown-linux-gnu`
 - Linux ARM64: `ubuntu-24.04-arm` / `aarch64-unknown-linux-gnu`
-- Windows x86_64: `windows-latest` / `x86_64-pc-windows-msvc`
+- Windows x86_64: `windows-2025` / `x86_64-pc-windows-msvc`
 
-GitHub hosted runner reference는 2026-07-10 확인 시 Linux x64 standard runner로
-`ubuntu-24.04`, Linux arm64 standard runner로 `ubuntu-24.04-arm`을 명시했습니다.
-https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+GitHub runner-images reference는 2026-07-13 확인 시 위 label을 GA image로
+명시했습니다: https://github.com/actions/runner-images
 
 ## artifact 목표
 
@@ -178,9 +184,10 @@ https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 7. destructive command policy tests
 8. plugin adapter가 포함된 release라면 local import only와 remote source rejection smoke test
 9. release notes 작성
-10. release target matrix guard
-11. binary checksum 생성
-12. GitHub Release publish 후 `release-binaries` workflow가 모든 target archive와
+10. repository toolchain pin guard
+11. release target matrix guard
+12. binary checksum 생성
+13. GitHub Release publish 후 `release-binaries` workflow가 모든 target archive와
     대응 `.sha256` file, aggregate `checksums.txt` file을 upload했는지 확인
 
 새 release note entry는 [release-notes-template.md](release-notes-template.md)를 사용합니다.

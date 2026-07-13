@@ -68,7 +68,7 @@ Phase 6의 현재 구현:
 - port override는 `RPOTATO_BACKEND_PORT`로 지정하고, 기본 port는 `17842`입니다.
 - doctor는 selected binary, selected source, executable bit, health URL, install gate를 표시합니다.
 - `rpotato backend install-plan`은 현재 platform artifact, release URL, archive URL, archive name, file size, SHA-256, license source, download path를 렌더링합니다.
-- 현재 manifest는 `llama.cpp` release `b9878`의 CPU artifact를 macOS arm64/x64, Linux arm64/x64, Windows arm64/x64 대상으로 고정합니다. Source: GitHub Releases API https://api.github.com/repos/ggml-org/llama.cpp/releases/latest 및 release page https://github.com/ggml-org/llama.cpp/releases/tag/b9878, checked 2026-07-06.
+- 현재 manifest는 `llama.cpp` release `b9982`의 CPU artifact를 macOS arm64/x64, Linux arm64/x64, Windows arm64/x64 대상으로 고정합니다. Artifact name, byte size, SHA-256 digest는 2026-07-13 확인한 GitHub Releases API https://api.github.com/repos/ggml-org/llama.cpp/releases/latest 및 release page https://github.com/ggml-org/llama.cpp/releases/tag/b9982 를 근거로 합니다.
 - `backend install-plan`은 현재 OS/CPU 조합의 artifact가 기록되어 있을 때만 `ready`이며, 지원하지 않는 platform은 계속 blocked입니다.
 - `rpotato backend install`은 archive를 다운로드하거나 cache를 재사용하고, file size와 SHA-256을 검증한 뒤 staging directory에서 압축을 풀어 release payload를 managed backend directory에 배치합니다. Unix에서는 실행 권한을 설정하고, 교체 실패 시 rollback하며, managed binary SHA-256을 포함한 install record와 ledger event를 남깁니다.
 - `rpotato backend start [--model <path>] [--ctx-size <tokens>]`는 명시된 로컬 모델 파일 또는 재검증된 지속 기본 모델과 선택적 runtime context limit으로 selected sidecar를 시작하고 app state 아래 pid record를 쓰며, stdout/stderr를 log file로 capture하고 `/health`를 기다린 뒤 startup timeout이면 child를 종료합니다.
@@ -85,7 +85,7 @@ Phase 6의 현재 구현:
 - `rpotato doctor`도 같은 discovery summary를 보여줍니다.
 - Version detection은 install record와 현재 binary SHA-256이 선택된 release manifest와 일치하는 recorded managed binary에만 수행합니다. Env override binary는 실행하지 않고 skipped로 표시합니다.
 
-Transport contract는 pinned upstream `llama.cpp b9878`을 기준으로 확인했습니다. Upstream은 SSE chat streaming을 문서화하고, normal stream의 response reader가 파기되면 task를 취소하며, `include_usage`가 활성화된 경우에만 final usage를 보냅니다. 2026-07-11 확인 출처: [chat completions](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/README.md#post-v1chatcompletions), [response-reader lifecycle](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.h#L168-L208), [cancellation posting](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-queue.cpp#L441-L460), [disconnect handling](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-http.cpp#L521-L565), [final usage chunk](https://github.com/ggml-org/llama.cpp/blob/b9878/tools/server/server-task.cpp#L526-L537).
+Transport contract는 pinned upstream `llama.cpp b9982`를 기준으로 확인했습니다. Upstream은 SSE chat streaming을 문서화하고, normal stream의 response reader가 파기되면 task를 취소하며, `include_usage`가 활성화된 경우에만 final usage를 보냅니다. 2026-07-13 확인 출처: [chat completions](https://github.com/ggml-org/llama.cpp/blob/b9982/tools/server/README.md#post-v1chatcompletions), [response-reader lifecycle](https://github.com/ggml-org/llama.cpp/blob/b9982/tools/server/server-queue.h#L168-L208), [cancellation posting](https://github.com/ggml-org/llama.cpp/blob/b9982/tools/server/server-queue.cpp#L441-L460), [disconnect handling](https://github.com/ggml-org/llama.cpp/blob/b9982/tools/server/server-http.cpp#L520-L568), [final usage chunk](https://github.com/ggml-org/llama.cpp/blob/b9982/tools/server/server-task.cpp#L526-L537).
 
 ## 후순위 adapter
 

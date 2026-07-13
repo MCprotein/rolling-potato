@@ -126,7 +126,7 @@ Plugin source snapshot, persistent registry, inspect, validate, enable/disable/r
 Required tools:
 
 - Git
-- Rust stable toolchain
+- Rust 1.97.0 stable toolchain, pinned by `rust-toolchain.toml` and `mise.toml`
 - SQLite runtime/library usable by `rusqlite`
 - platform-specific C/C++ runtime needed by `llama.cpp`
 
@@ -135,6 +135,10 @@ Recommended tools:
 - `rustfmt`
 - `clippy`
 - GitHub CLI
+
+The repository pin is the build source of truth. Update `rust-toolchain.toml`,
+`mise.toml`, and `package.rust-version` in `Cargo.toml` together; do not rely on
+whatever compiler happens to be preinstalled on a hosted runner.
 
 ## Default Verification Commands
 

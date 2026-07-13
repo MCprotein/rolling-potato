@@ -1,5 +1,60 @@
 # Release Notes
 
+## v0.32.1 - Stable Toolchain Refresh
+
+Release date: 2026-07-13
+
+This maintenance release moves every repository-managed active tool pin to the
+latest stable upstream release checked on 2026-07-13 without rewriting
+historical model measurements.
+
+### Included
+
+- Pinned Rust `1.97.0` consistently in `rust-toolchain.toml`, `mise.toml`, and
+  `Cargo.toml`; refreshed the Cargo lock graph to `bytes 1.12.1`, `cc 1.2.67`,
+  and `memchr 2.8.3`. All six direct Cargo dependencies were already at their
+  latest stable releases; the published `zip 9.0.0-pre2` prerelease was not
+  adopted.
+- Upgraded the release workflows to immutable commits for the current Node.js
+  24 actions: `actions/checkout` v7.0.0, `actions/upload-artifact` v7.0.1, and
+  `actions/download-artifact` v8.0.1.
+- Moved release jobs to current GA hosted images: macOS 26 arm64, macOS 26
+  Intel, Ubuntu 24.04 x64/arm64, and Windows Server 2025 x64.
+- Updated the managed backend manifest from `llama.cpp b9878` to source-pinned
+  `b9982` with official release-API names, sizes, and SHA-256 digests for all
+  six supported backend artifacts. A real macOS arm64 archive download passed
+  size/SHA-256/install verification and the installed binary reported build
+  `9982 (99f3dc322)`.
+- Rechecked the pinned SSE, disconnect cancellation, response-reader, and final
+  usage contracts against the `b9982` upstream source. Model adoption results
+  measured on `b9878` remain historical evidence and are not relabeled as
+  `b9982` measurements.
+
+### Upstream Evidence
+
+- Rust 1.97.0: https://static.rust-lang.org/dist/channel-rust-1.97.0.toml
+- GitHub Actions releases: https://github.com/actions/checkout/releases/tag/v7.0.0,
+  https://github.com/actions/upload-artifact/releases/tag/v7.0.1, and
+  https://github.com/actions/download-artifact/releases/tag/v8.0.1
+- Hosted runner labels: https://github.com/actions/runner-images
+- llama.cpp b9982: https://github.com/ggml-org/llama.cpp/releases/tag/b9982
+
+### Verified During Implementation
+
+- `cargo update --dry-run` under Rust 1.97.0 (`0 packages` pending)
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1` (`331` unit, `1` backend
+  lifecycle, and `23` process tests passed)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-toolchain-pins.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.32.1`
+- `scripts/release/verify-uninstall-smoke.sh target/release/rpotato`
+- Real managed `llama.cpp b9982` macOS arm64 download, checksum, install,
+  install-record, and version-detection smoke
+
 ## v0.32.0 - Durable Conversation Resume
 
 Release date: 2026-07-13

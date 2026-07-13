@@ -1,5 +1,56 @@
 # 릴리즈 노트
 
+## v0.32.1 - 안정 도구 체계 갱신
+
+릴리즈 날짜: 2026-07-13
+
+이 maintenance release는 과거 모델 측정값을 다시 쓰지 않으면서 저장소가 관리하는
+모든 active tool pin을 2026-07-13 확인한 최신 안정 upstream release로 올립니다.
+
+### 포함된 것
+
+- Rust `1.97.0`을 `rust-toolchain.toml`, `mise.toml`, `Cargo.toml`에 일관되게
+  고정하고 Cargo lock graph의 `bytes`를 1.12.1, `cc`를 1.2.67, `memchr`를
+  2.8.3으로 갱신했습니다. 직접 Cargo dependency 6개는 모두 이미 최신 안정 release였고,
+  공개된 `zip 9.0.0-pre2` prerelease는 도입하지 않았습니다.
+- Release workflow를 최신 Node.js 24 action인 `actions/checkout` v7.0.0,
+  `actions/upload-artifact` v7.0.1, `actions/download-artifact` v8.0.1의
+  immutable commit으로 갱신했습니다.
+- Release job을 현재 GA hosted image인 macOS 26 arm64, macOS 26 Intel,
+  Ubuntu 24.04 x64/arm64, Windows Server 2025 x64로 옮겼습니다.
+- Managed backend manifest를 `llama.cpp b9878`에서 source-pinned `b9982`로
+  갱신하고 6개 지원 artifact의 name, size, SHA-256을 official release API와
+  일치시켰습니다. 실제 macOS arm64 archive download가 size/SHA-256/install 검증을
+  통과했고 설치된 binary는 build `9982 (99f3dc322)`를 보고했습니다.
+- `b9982` upstream source를 기준으로 SSE, disconnect cancellation,
+  response-reader, final usage contract를 다시 확인했습니다. `b9878`에서 측정한 모델
+  adoption 결과는 과거 evidence로 유지하며 `b9982` 측정값으로 바꾸지 않습니다.
+
+### Upstream 근거
+
+- Rust 1.97.0: https://static.rust-lang.org/dist/channel-rust-1.97.0.toml
+- GitHub Actions release: https://github.com/actions/checkout/releases/tag/v7.0.0,
+  https://github.com/actions/upload-artifact/releases/tag/v7.0.1,
+  https://github.com/actions/download-artifact/releases/tag/v8.0.1
+- Hosted runner label: https://github.com/actions/runner-images
+- llama.cpp b9982: https://github.com/ggml-org/llama.cpp/releases/tag/b9982
+
+### 구현 중 검증
+
+- Rust 1.97.0의 `cargo update --dry-run` (추가 갱신 `0 packages`)
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1` (`331` unit, `1` backend
+  lifecycle, `23` process test 통과)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-toolchain-pins.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.32.1`
+- `scripts/release/verify-uninstall-smoke.sh target/release/rpotato`
+- 실제 managed `llama.cpp b9982` macOS arm64 download, checksum, install,
+  install record, version detection smoke
+
 ## v0.32.0 - 지속 가능한 대화 Resume
 
 릴리즈 날짜: 2026-07-13

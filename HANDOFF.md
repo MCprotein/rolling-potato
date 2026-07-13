@@ -7,7 +7,7 @@
 ```
 
 - Remote: `https://github.com/MCprotein/rolling-potato.git`
-- Latest release: `v0.32.0`
+- Latest release: `v0.32.1`
 - CLI: `rpotato`
 - Product: local-first coding-agent runtime for small local models
 
@@ -38,7 +38,7 @@ policy, explicit approval where required, evidence recording, and verification.
 
 ## Current Release State
 
-`v0.32.0` is the current complete release. GitHub Releases provides checksummed
+`v0.32.1` is the current complete release. GitHub Releases provides checksummed
 binaries for:
 
 - macOS Apple Silicon
@@ -49,7 +49,10 @@ binaries for:
 
 The release workflow runs the serialized Rust test gate, per-target build and
 smoke checks, packages each binary, publishes per-asset checksums, and produces
-an aggregate checksum file.
+an aggregate checksum file. The active repository toolchain is pinned to Rust
+1.97.0, current Node.js 24 GitHub Actions, current GA hosted runners, and
+managed `llama.cpp b9982`; model measurements made on older pinned backends
+remain historical evidence.
 
 ## Implemented Runtime Foundations
 
