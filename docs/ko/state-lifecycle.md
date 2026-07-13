@@ -99,9 +99,9 @@ Patch workflow는 `.rpotato/workflows/` 아래에 저장됩니다. 변경 불가
 snapshot/ledger/pointer window를 idempotent하게 완료합니다. 각 revision은
 `previous_hash`와 `artifact_hash`를 연결하며 malformed ledger line, 누락 revision, stale
 latest checkpoint, chain conflict는 fail-closed로 차단합니다.
-Legacy schema v2 snapshot은 변경하지 않고 계속 읽습니다. 다음 checkpoint가 필요한 v2
-workflow는 기존 v2 hash를 보존한 채 schema v3 revision을 append하며 `v2*`, `v3*`,
-단방향 `v2+ -> v3+` chain만 허용합니다.
+Legacy schema v2와 v3 snapshot은 변경하지 않고 계속 읽습니다. 다음 checkpoint가 필요한
+legacy workflow는 이전 artifact hash를 보존한 채 schema v4 revision을 append합니다.
+Schema version은 단방향으로만 증가하고 downgrade하지 않습니다.
 
 Recovery는 `current-state.json`만 신뢰하지 않고 모든 workflow pointer, transaction,
 snapshot directory를 검사합니다. Nonterminal workflow가 둘 이상이면 conflict로
@@ -129,3 +129,11 @@ evidence는 deterministic ID, atomic artifact replace, sync된 runtime append, l
 dedupe를 사용합니다. 새 ledger line은 `previous_event_hash`/`event_hash`로 physical append
 order를 binding하고 sync된 head가 reorder, tamper, tail truncation을 차단합니다. Legacy
 prefix는 chained suffix 앞에서만 허용합니다.
+
+## v0.33.0 Skill State Checkpoint
+
+Workflow schema v4는 `active_skill_id`, invocation source, skill state, completed lifecycle
+hook, evidence key, satisfied stop criteria를 추가합니다. Canonical workflow snapshot과
+ledger checkpoint가 이 상태의 권위를 가지며 SQLite는 query와 monitoring용 active skill만
+projection합니다. Resume은 계속 실행하거나 terminal workflow를 인정하기 전에 저장된 skill
+contract를 다시 검증합니다.

@@ -50,7 +50,7 @@ Skill은 단순 prompt template이 아닙니다. 반복 workflow에 필요한 in
 
 Skill은 다음 경로로 호출될 수 있습니다.
 
-- explicit command: `rpotato skill run fix-test`
+- explicit command: `rpotato skill run fix-test "실패한 API 테스트를 고쳐줘"`
 - natural command routing: `rpotato run "테스트 실패 고쳐줘"`
 - TUI command palette
 - team plan step
@@ -67,10 +67,10 @@ Runtime core는 invocation을 다음 runtime decision으로 해석합니다.
 
 ## 현재 구현
 
-Phase 3의 현재 구현은 skill 실행 전 정규화 단계이며, `rpotato run`은 이 routing state를 사용해 첫 context-aware model-response agent-loop 골격까지 진입합니다.
+v0.33 runtime은 built-in skill을 agent loop 안의 영속 state machine으로 실행합니다.
 
 - `rpotato skill list`는 built-in skill registry를 출력한다.
-- `rpotato skill run <id>`는 skill id, mode, allowed tools, context requirements, evidence requirements, stop criteria를 정규화하고 ledger event를 남긴다.
+- `rpotato skill run <id> "<request>"`는 built-in skill을 명시적으로 선택하고 `run`과 같은 영속 loop를 실행한다.
 - `rpotato run "<request>"`은 ontology 기반 context를 선택하고 runtime-owned typed read-only 또는 patch action을 저장하며, 유효한 patch는 authoritative source를 다시 읽은 뒤 guarded 한국어 보고 또는 정확한 `patch approve` gate에서 멈춘다.
 - `rpotato intent classify "<request>"`는 같은 rule을 실행하되 agent loop 계획 대신 classification report만 출력한다.
 - `rpotato intent routes`는 TUI command palette action이 어떤 runtime command로 매핑되는지 출력한다.
@@ -79,6 +79,8 @@ Phase 3의 현재 구현은 skill 실행 전 정규화 단계이며, `rpotato ru
 - `rpotato patch approve <proposal-id> --token <token>`은 `run`이 생성한 workflow proposal만 받고, source와 proposal binding이 유효할 때 patch를 적용해 rollback record를 쓴 뒤 command 실행 없이 별도의 verification credential을 발급한다.
 - `rpotato patch verify <proposal-id> --token <token>`은 pre-bound되고 policy가 허용한 argv verification plan을 별도로 승인해 실행한다.
 - active workflow는 current-state가 소유하고, skill/plugin/TUI는 parent workflow pointer를 받아야 한다.
+- 각 transition은 required context, allowed tool, 완료된 lifecycle hook, evidence, stop criteria를 검증하며 요구사항이 빠지면 completion 전에 fail-closed한다.
+- Workflow schema v4는 active skill, invocation, state, completed hook, evidence, stop criteria를 저장하므로 restart/resume이 skill contract를 우회할 수 없다.
 - optional model classifier는 아직 비활성이다. 현재는 deterministic rule만 사용한다.
 - `run`은 영속 workflow/action/proposal loop와 typed 최종 보고를 소유한다. 제한된 patch action을 넘어서는 일반 model-output-to-tool orchestration은 후속 phase에서 처리한다.
 
@@ -124,17 +126,17 @@ Import 규칙:
 
 ## 스킬 Runtime State
 
-Skill 실행은 다음 상태를 기록해야 합니다.
+Skill 실행은 다음 상태를 기록합니다.
 
 - active skill id
 - parent workflow id
-- context bundle id
-- tool call id
-- evidence id
-- stop gate result
-- final report id
+- invocation source
+- current skill state
+- completed required hook
+- evidence key
+- satisfied stop criteria
 
-이 기록으로 skill run을 resume 가능하고 audit 가능하게 만듭니다.
+Built-in state machine은 `selected`, `context-ready`, `model-requested`, `action-recorded`, `awaiting-approval`, `awaiting-verification`, `stop-passed`, `complete`, `failed`, `cancelled`를 사용합니다. 허용되지 않은 transition과 요구사항이 덜 채워진 completion은 fail-closed합니다.
 
 ## Subagents와 Teams
 

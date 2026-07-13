@@ -93,7 +93,7 @@ rpotato continue
 rpotato continue <session-id>
 rpotato evidence validate logs/test.log
 rpotato skill list
-rpotato skill run fix-test
+rpotato skill run fix-test "tests/api.rs의 실패를 고쳐줘"
 rpotato plugin import --from claude-code ./my-plugin
 rpotato plugin inspect imported.example-plugin
 rpotato team status
@@ -224,7 +224,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato cancel`
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
-- `rpotato skill run <id>`
+- `rpotato skill run <id> "<request>"`
 - `rpotato policy schema`
 - `rpotato policy check-command <command>`
 - `rpotato policy check-path --read <path>`
@@ -299,11 +299,11 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `run`은 user request를 skill/mode/context/evidence 요구사항으로 정규화하고 최근 durable turn을 최대 8개·2,400자 안에서 재구성합니다. 현재 요청과 resume context 전체에 source pointer 최대 4개·3,200자의 단일 공유 budget을 적용한 뒤에만 workflow를 만들고 backend sidecar를 호출합니다. Canonical transcript artifact에는 user turn, visible 또는 normalized model result, normalized tool record, evidence record를 저장합니다. Source 원문과 patch fragment는 pointer와 SHA-256만 남기고 hidden reasoning/raw backend response는 제외합니다. SQLite `transcript_records`는 순서를 보존하는 재생성 가능한 projection이며 resume 권위가 아닙니다. 유효한 patch action은 restart-safe workflow와 proposal을 저장하고 정확한 `patch approve` gate에서 멈춥니다.
 
-`intent classify`, `intent routes`, `skill run`은 model을 호출하지 않는 pre-execution surface입니다. Routing state를 정규화하고 ledger event만 남깁니다.
+`intent classify`와 `intent routes`는 실행 전 surface로 유지됩니다. `skill run <id> "<request>"`는 built-in skill을 명시적으로 선택하고 `run`과 같은 영속 agent loop에 진입해 context 검사, lifecycle hook, runtime policy, evidence 수집, stop criteria를 적용합니다.
 
 `tui`, `tui monitor`, `tui sessions`, `tui transcript <session-id>`, `tui approvals`, `tui diff <proposal-id>`, `tui evidence`는 read-only TUI beta surface입니다. Transcript view는 durable user/model/tool/evidence turn을 검증해 ledger event timeline과 함께 표시합니다. Hidden model response, source file body, patch fragment, verification command 원문은 표시하지 않습니다. TUI는 approval, patch apply, resume, cancel, stop gate pass/fail 판정, workflow mutation을 수행하지 않습니다.
 
-`policy`와 `hooks` 명령은 command/path 권한 결정, credential redaction, lifecycle hook registry, fail-closed hook result 검사를 제공합니다. 실제 tool execution은 아직 이 policy surface 뒤에 연결되지 않았습니다.
+`policy`와 `hooks` 명령은 command/path 권한 결정, credential redaction, lifecycle hook registry, strict fail-closed hook result 검사를 제공합니다. Native runtime hook은 context packing, model request, action parsing, patch apply, verification command, final report, stop gate를 실제로 보호합니다. Hook result는 runtime, project, skill, session, observer layer 순서로 평가하고 더 엄격한 결과가 우선합니다. 외부/plugin hook executable은 계속 비활성 상태이며 import나 enable만으로 command 또는 file-write 권한을 얻을 수 없습니다.
 
 `patch preview`는 project-local text file을 읽고 명시적인 단일 find/replace proposal에 대한 unified diff를 렌더링하며, `.rpotato/patch-proposals/` 아래에 project-local record를 저장합니다. 이 standalone surface는 diff-only라 approve/apply/verify할 수 없습니다. `patch approve`는 `run`이 생성한 workflow proposal에만 사용할 수 있습니다. `patch approve <proposal-id> --token <token> --dry-run`은 target file을 수정하지 않고 patch 적용 gate를 검증합니다. `--dry-run` 없이 실행하면 workflow/proposal binding과 current source SHA-256이 모두 유효할 때만 workflow proposal을 적용하며 command는 실행하지 않고 별도의 일회성 verification credential을 발급합니다. `patch verify <proposal-id> --token <token>`은 pre-bound되고 policy가 허용한 argv verification plan만 별도로 승인해 실행합니다. Verification 실패는 rollback을 시도하며 성공으로 보고하지 않습니다. `patch token-rotate`는 현재 승인 대기 중인 gate의 credential을 교체합니다. 두 credential 모두 plaintext로 저장하거나 최초 전달 뒤 다시 표시하지 않습니다.
 

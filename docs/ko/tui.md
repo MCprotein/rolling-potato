@@ -171,7 +171,7 @@ Phase 3에서 고정한 command palette routing contract:
 
 - `request.submit` -> `rpotato run <request>`
 - `intent.preview` -> `rpotato intent classify <request>`
-- `skill.run` -> `rpotato skill run <id>`
+- `skill.run` -> `rpotato skill run <id> "<request>"`
 - `plugin.review` -> `rpotato plugin inspect <id>` 또는 `rpotato plugin validate <id>`
 - `plugin.toggle` -> `rpotato plugin enable <id>` 또는 `rpotato plugin disable <id>`
 - `workflow.cancel` -> `rpotato cancel`

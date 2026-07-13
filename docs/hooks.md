@@ -66,14 +66,17 @@ Each hook returns:
 
 ## Current Implementation
 
-Phase 4 currently implements:
+The v0.33 runtime implements:
 
 - `rpotato hooks list`
 - `rpotato hooks validate-result <json>`
+- native lifecycle dispatch from the built-in skill agent loop
 
 `hooks list` prints lifecycle hook registry, ordering, conflict rule, and input/output schema.
 
 `hooks validate-result` checks the hook output `status`. Unknown status or parse failure fails closed as `deny`.
+
+Native dispatch validates strict JSON, orders hooks by layer and id, applies the stricter conflict result, enforces runtime tool policy, and records `hook.dispatched` evidence with a payload SHA-256 rather than raw payload contents. Direct command and project-file writes are not hook capabilities.
 
 Implemented conflict rule:
 
@@ -118,7 +121,9 @@ Hook order must be deterministic.
 
 When hook results conflict, the stricter result wins.
 
-`deny` > `ask` > `modify` > `allow` > `observe`
+`error`/`deny` > `ask` > `modify` > `allow` > `observe`
+
+The executable registry in v0.33 contains runtime-owned native rules only. Project, session, and imported/plugin hook executables remain non-executable until a later capability supplies a separately reviewed loader and permission path.
 
 ## Storage
 
