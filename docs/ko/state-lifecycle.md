@@ -136,4 +136,7 @@ Workflow schema v4는 `active_skill_id`, invocation source, skill state, complet
 hook, evidence key, satisfied stop criteria를 추가합니다. Canonical workflow snapshot과
 ledger checkpoint가 이 상태의 권위를 가지며 SQLite는 query와 monitoring용 active skill만
 projection합니다. Resume은 계속 실행하거나 terminal workflow를 인정하기 전에 저장된 skill
-contract를 다시 검증합니다.
+contract를 다시 검증합니다. Side effect는 정확한 workflow-phase/skill-state pairing도
+요구합니다. `fix-test`는 workflow id와 정규화된 command hash에 binding된 patch 전 실제
+failing-test event가 canonical ledger에 있어야 하며, event 없는 evidence label만으로는 apply,
+verification, resume, completion을 승인할 수 없습니다.

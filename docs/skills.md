@@ -80,6 +80,9 @@ The v0.33 runtime executes built-in skills as durable state machines inside the 
 - `rpotato patch verify <proposal-id> --token <token>` separately approves and runs the pre-bound policy-allowed argv verification plan.
 - Current state owns the active workflow; skill/plugin/TUI actions need a parent workflow pointer.
 - Each transition validates required context, allowed tools, completed lifecycle hooks, evidence, and stop criteria. Missing requirements fail closed before completion.
+- Workflow phase and skill state must agree at every side-effect boundary. A resumed or tampered workflow cannot apply a patch or run verification from a skipped skill state.
+- `fix-test` accepts an actual `cargo test` argv plan only. The same canonical command must fail before proposal creation and pass after the approved patch; the pre-patch ledger event is bound to the workflow id and command hash.
+- Read-only and review skills require a non-empty Korean answer whose evidence is present in the visible answer. A source pointer alone does not satisfy file, line, diagnostic, benchmark, checksum, or ranked-finding evidence.
 - Workflow schema v4 persists the active skill, invocation, state, completed hooks, evidence, and stop criteria so restart and resume cannot bypass the skill contract.
 - The optional model classifier is disabled. Current routing uses deterministic rules only.
 - `run` owns the persisted workflow/action/proposal loop and typed final reporting; general model-output-to-tool orchestration beyond the bounded patch action remains a later phase.

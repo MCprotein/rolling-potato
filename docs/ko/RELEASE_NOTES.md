@@ -19,6 +19,12 @@ criteria는 이제 prompt 관례가 아니라 실행되는 state-machine gate입
 - State transition마다 선언된 context, allowed tool, required hook, evidence,
   stop criteria를 강제합니다. Context가 빠지면 model request 전에 실패하고,
   요구사항이 덜 채워진 terminal state는 인정하지 않습니다.
+- Patch 또는 command side effect 전에 workflow phase와 skill state가 일치해야 합니다.
+  `fix-test`는 승인된 patch 전후에 동일한 canonical `cargo test` command를 실행하고,
+  관측한 patch 전 실패를 ledger의 workflow/command hash에 binding합니다.
+- 비어 있거나 한국어 guard를 통과하지 못한 read-only model answer를 거부하고,
+  guarded answer에 실제로 표시된 source, line, diagnostic, benchmark, checksum,
+  ranked finding detail만 completion evidence로 인정합니다.
 - Active skill, invocation, skill state, completed hook, evidence, stop criteria를
   저장하는 workflow schema v4를 추가하면서 immutable v2/v3 artifact와 단방향
   upgrade 호환성을 유지합니다. SQLite는 canonical checkpoint의 실제 active skill을
@@ -36,8 +42,8 @@ criteria는 이제 prompt 관례가 아니라 실행되는 state-machine gate입
 ### 구현 중 검증
 
 - `cargo fmt --all -- --check`
-- `cargo test --locked -- --test-threads=1` (`346` unit, `1` backend
-  lifecycle, `25` process test 통과)
+- `cargo test --locked -- --test-threads=1` (`351` unit, `1` backend
+  lifecycle, `28` process test 통과)
 - `cargo clippy --locked --all-targets -- -D warnings`
 - `cargo build --release --locked`
 - release policy, toolchain pin, target matrix, packaged-binary, uninstall smoke check

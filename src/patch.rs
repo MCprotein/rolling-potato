@@ -105,6 +105,49 @@ struct VerificationResult {
     stderr: String,
 }
 
+pub fn validate_skill_verification(skill_id: &str, command: &str) -> Result<(), AppError> {
+    let plan = build_verification_plan(command)?;
+    if skill_id == "fix-test" && !is_test_verification(&plan) {
+        return Err(AppError::blocked(
+            "fix-test verification 차단\n- 이유: fix-test는 실제 `cargo test` command로만 전후 evidence를 만들 수 있습니다.",
+        ));
+    }
+    Ok(())
+}
+
+pub fn record_failing_test_before(
+    workflow: &state::WorkflowRecord,
+    command: &str,
+) -> Result<String, AppError> {
+    validate_skill_verification("fix-test", command)?;
+    let plan = build_verification_plan(command)?;
+    let result = run_verification(&plan);
+    let failed_exit = result
+        .exit_code
+        .parse::<i32>()
+        .ok()
+        .is_some_and(|code| code != 0);
+    if !failed_exit {
+        return Err(AppError::blocked(format!(
+            "fix-test 시작 차단\n- 이유: patch 전 실제 test failure를 관측하지 못했습니다.\n- exit code: {}\n- command: {}",
+            result.exit_code,
+            ledger::redact_text(&result.command)
+        )));
+    }
+    state::record_event(
+        "skill.test_failure.observed",
+        "fix-test patch 전 실패 관측",
+        &format!(
+            "workflow_id={} command_hash={} exit_code={} stdout_hash={} stderr_hash={}",
+            workflow.workflow_id,
+            state::sha256_text(&plan.command),
+            result.exit_code,
+            state::sha256_text(&result.stdout),
+            state::sha256_text(&result.stderr)
+        ),
+    )
+}
+
 impl VerificationResult {
     fn passed(&self) -> bool {
         self.exit_code == "0"
@@ -201,7 +244,7 @@ pub fn approve_report(
         let workflow =
             load_validated_approval_workflow(&record, token, discovered_active.as_deref())?;
         if workflow.phase == "complete" {
-            crate::evidence::validate_patch_stop_gate(&workflow)?;
+            validate_completed_workflow(&workflow)?;
             state::clear_terminal_workflow_pointer(&workflow)?;
             return Ok(success_report(&workflow));
         }
@@ -217,7 +260,7 @@ pub fn approve_report(
     let mut workflow =
         load_validated_approval_workflow(&record, token, discovered_active.as_deref())?;
     if workflow.phase == "complete" {
-        crate::evidence::validate_patch_stop_gate(&workflow)?;
+        validate_completed_workflow(&workflow)?;
         state::clear_terminal_workflow_pointer(&workflow)?;
         return Ok(success_report(&workflow));
     }
@@ -259,7 +302,7 @@ pub fn verify_report(proposal_id: &str, token: &str) -> Result<String, AppError>
     validate_workflow_binding(&workflow, &record)?;
     validate_token_hash(&workflow.verification_credential_hash, token, &record)?;
     if workflow.phase == "complete" {
-        crate::evidence::validate_patch_stop_gate(&workflow)?;
+        validate_completed_workflow(&workflow)?;
         state::clear_terminal_workflow_pointer(&workflow)?;
         return Ok(success_report(&workflow));
     }
@@ -331,6 +374,11 @@ fn continue_approved_workflow(
         .map(workflow_skill_runtime)
         .transpose()?
         .flatten();
+    if let (Some(current), Some(runtime)) = (workflow.as_ref(), skill_runtime.as_ref()) {
+        validate_skill_phase_for_side_effect(current, runtime)?;
+        validate_skill_verification(&runtime.active_skill_id, &record.verification_command)?;
+        validate_failing_test_before(current, runtime)?;
+    }
     let first_apply = skill_runtime
         .as_ref()
         .is_some_and(|runtime| runtime.state == crate::skill::SkillState::AwaitingApproval);
@@ -554,7 +602,9 @@ fn continue_approved_workflow(
         current.evidence_hash = evidence.artifact_hash;
         if let Some(runtime) = skill_runtime.as_mut() {
             match runtime.active_skill_id.as_str() {
-                "fix-test" => runtime.record_evidence("passing_test_after"),
+                "fix-test" if verification_plan.as_ref().is_some_and(is_test_verification) => {
+                    runtime.record_evidence("passing_test_after")
+                }
                 "small-patch" => runtime.record_evidence("targeted_verification"),
                 _ => {}
             }
@@ -620,6 +670,84 @@ fn workflow_skill_runtime(
         return Ok(None);
     }
     crate::skill::SkillRuntimeState::from_workflow(workflow).map(Some)
+}
+
+fn validate_skill_phase_for_side_effect(
+    workflow: &state::WorkflowRecord,
+    runtime: &crate::skill::SkillRuntimeState,
+) -> Result<(), AppError> {
+    let expected = match workflow.phase.as_str() {
+        "approved" => crate::skill::SkillState::AwaitingApproval,
+        "verification-approved" => crate::skill::SkillState::AwaitingVerification,
+        _ => {
+            return Err(AppError::blocked(format!(
+                "skill side effect 차단\n- workflow phase: {}\n- 이유: side effect를 허용하는 phase가 아닙니다.",
+                workflow.phase
+            )))
+        }
+    };
+    if runtime.state != expected {
+        return Err(AppError::blocked(format!(
+            "skill side effect 차단\n- workflow phase: {}\n- skill state: {}\n- expected skill state: {}",
+            workflow.phase,
+            runtime.state.label(),
+            expected.label()
+        )));
+    }
+    Ok(())
+}
+
+fn validate_failing_test_before(
+    workflow: &state::WorkflowRecord,
+    runtime: &crate::skill::SkillRuntimeState,
+) -> Result<(), AppError> {
+    if runtime.active_skill_id != "fix-test" {
+        return Ok(());
+    }
+    let command_hash =
+        state::sha256_text(&build_verification_plan(&workflow.verification_plan)?.command);
+    if !runtime
+        .evidence
+        .iter()
+        .any(|evidence| evidence == "failing_test_before")
+        || !ledger::event_details_match(
+            "skill.test_failure.observed",
+            &[
+                ("workflow_id", &workflow.workflow_id),
+                ("command_hash", &command_hash),
+            ],
+        )?
+    {
+        return Err(AppError::blocked(
+            "fix-test evidence 차단\n- 이유: patch 전 실제 failing test event와 workflow evidence binding이 없습니다.",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_completed_workflow(workflow: &state::WorkflowRecord) -> Result<(), AppError> {
+    if workflow.phase != "complete" {
+        return Err(AppError::blocked(
+            "workflow complete 검증 차단\n- 이유: complete phase가 아닙니다.",
+        ));
+    }
+    if let Some(runtime) = workflow_skill_runtime(workflow)? {
+        if runtime.state != crate::skill::SkillState::Complete {
+            return Err(AppError::blocked(format!(
+                "workflow complete 검증 차단\n- skill: {}\n- skill state: {}",
+                runtime.active_skill_id,
+                runtime.state.label()
+            )));
+        }
+        validate_skill_verification(&runtime.active_skill_id, &workflow.verification_plan)?;
+        validate_failing_test_before(workflow, &runtime)?;
+        runtime.validate_stop()?;
+    }
+    crate::evidence::validate_patch_stop_gate(workflow)
+}
+
+fn is_test_verification(plan: &VerificationPlan) -> bool {
+    matches!(plan.argv.as_slice(), [cargo, test, ..] if cargo == "cargo" && test == "test")
 }
 
 fn dispatch_workflow_skill_hook(
@@ -750,7 +878,11 @@ pub fn preflight_resume_workflow(workflow_id: &str) -> Result<(), AppError> {
                 .join(format!("{}.txt", workflow.proposal_id));
             let record = load_proposal_record(&workflow.proposal_id, &proposal_path)?;
             validate_workflow_binding(&workflow, &record)?;
-            crate::evidence::validate_patch_stop_gate(&workflow)
+            if workflow.phase == "complete" {
+                validate_completed_workflow(&workflow)
+            } else {
+                crate::evidence::validate_patch_stop_gate(&workflow)
+            }
         }
         "verification-started" => Err(AppError::blocked(
             "workflow resume preflight 차단\n- 이유: verification 결과가 확정되지 않아 session을 선택할 수 없습니다.",
@@ -852,17 +984,7 @@ pub fn resume_workflow_report(workflow_id: &str) -> Result<String, AppError> {
                 .join(format!("{}.txt", workflow.proposal_id));
             let record = load_proposal_record(&workflow.proposal_id, &proposal_path)?;
             validate_workflow_binding(&workflow, &record)?;
-            crate::evidence::validate_patch_stop_gate(&workflow)?;
-            if let Some(runtime) = workflow_skill_runtime(&workflow)? {
-                if runtime.state != crate::skill::SkillState::Complete {
-                    return Err(AppError::blocked(format!(
-                        "workflow complete 검증 차단\n- skill: {}\n- skill state: {}",
-                        runtime.active_skill_id,
-                        runtime.state.label()
-                    )));
-                }
-                runtime.validate_stop()?;
-            }
+            validate_completed_workflow(&workflow)?;
             state::clear_terminal_workflow_pointer(&workflow)?;
             Ok(success_report(&workflow))
         }
@@ -880,7 +1002,7 @@ pub fn cancel_workflow_report(workflow_id: &str) -> Result<String, AppError> {
             paths::project_patch_proposals_dir().join(format!("{}.txt", workflow.proposal_id));
         let record = load_proposal_record(&workflow.proposal_id, &proposal_path)?;
         validate_workflow_binding(&workflow, &record)?;
-        crate::evidence::validate_patch_stop_gate(&workflow)?;
+        validate_completed_workflow(&workflow)?;
         state::clear_terminal_workflow_pointer(&workflow)?;
         return Err(AppError::blocked(
             "cancel 차단\n- 이유: 완료된 workflow는 취소할 수 없습니다.",
@@ -2075,6 +2197,71 @@ fn read_decision_label(decision: Decision) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fix_test_requires_cargo_test_verification() {
+        let error = validate_skill_verification("fix-test", "pwd").unwrap_err();
+
+        assert_eq!(error.code, 3);
+        assert!(error.message.contains("cargo test"));
+        validate_skill_verification("fix-test", "cargo test").unwrap();
+        validate_skill_verification("small-patch", "pwd").unwrap();
+    }
+
+    #[test]
+    fn skill_phase_mismatch_blocks_before_patch_apply() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = patch_test_root("skill-phase-mismatch");
+        let (target, mut workflow, proposal) = create_pending_workflow(&root, "pwd");
+        let mut runtime = crate::skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
+        for state in [
+            crate::skill::SkillState::ContextReady,
+            crate::skill::SkillState::ModelRequested,
+            crate::skill::SkillState::ActionRecorded,
+        ] {
+            runtime.transition(state).unwrap();
+        }
+        runtime.store_in_workflow(&mut workflow);
+        state::checkpoint_workflow(workflow.clone(), workflow.revision).unwrap();
+
+        let error = approve_report(&proposal.proposal_id, &proposal.approval_token, false, None)
+            .unwrap_err();
+        let source = fs::read_to_string(&target).unwrap();
+        clear_patch_test_env(&root);
+
+        assert_eq!(error.code, 3);
+        assert!(error.message.contains("skill side effect 차단"));
+        assert!(error
+            .message
+            .contains("expected skill state: awaiting-approval"));
+        assert_eq!(source, "pub const X: i32 = 1;\n");
+    }
+
+    #[test]
+    fn completed_workflow_requires_complete_skill_state() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = patch_test_root("complete-skill-state");
+        let (_target, mut workflow, _proposal) = create_pending_workflow(&root, "pwd");
+        let mut runtime = crate::skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
+        for state in [
+            crate::skill::SkillState::ContextReady,
+            crate::skill::SkillState::ModelRequested,
+            crate::skill::SkillState::ActionRecorded,
+            crate::skill::SkillState::AwaitingApproval,
+            crate::skill::SkillState::AwaitingVerification,
+            crate::skill::SkillState::StopPassed,
+        ] {
+            runtime.transition(state).unwrap();
+        }
+        runtime.store_in_workflow(&mut workflow);
+        workflow.phase = "complete".to_string();
+
+        let error = validate_completed_workflow(&workflow).unwrap_err();
+        clear_patch_test_env(&root);
+
+        assert_eq!(error.code, 3);
+        assert!(error.message.contains("skill state: stop-passed"));
+    }
 
     #[test]
     fn preview_creates_diff_record_without_modifying_target() {

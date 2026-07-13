@@ -80,6 +80,9 @@ v0.33 runtime은 built-in skill을 agent loop 안의 영속 state machine으로 
 - `rpotato patch verify <proposal-id> --token <token>`은 pre-bound되고 policy가 허용한 argv verification plan을 별도로 승인해 실행한다.
 - active workflow는 current-state가 소유하고, skill/plugin/TUI는 parent workflow pointer를 받아야 한다.
 - 각 transition은 required context, allowed tool, 완료된 lifecycle hook, evidence, stop criteria를 검증하며 요구사항이 빠지면 completion 전에 fail-closed한다.
+- Side effect 경계마다 workflow phase와 skill state가 일치해야 한다. Resume되거나 변조된 workflow는 skill state를 건너뛴 채 patch 적용이나 verification을 실행할 수 없다.
+- `fix-test`는 실제 `cargo test` argv plan만 허용한다. 동일한 canonical command가 proposal 생성 전에는 실패하고 승인된 patch 뒤에는 통과해야 하며, patch 전 ledger event는 workflow id와 command hash에 binding된다.
+- Read-only/review skill은 비어 있지 않은 한국어 답변과 visible answer 안의 실제 evidence를 요구한다. Source pointer만 존재하는 것으로 file, line, diagnostic, benchmark, checksum, ranked finding evidence를 충족하지 않는다.
 - Workflow schema v4는 active skill, invocation, state, completed hook, evidence, stop criteria를 저장하므로 restart/resume이 skill contract를 우회할 수 없다.
 - optional model classifier는 아직 비활성이다. 현재는 deterministic rule만 사용한다.
 - `run`은 영속 workflow/action/proposal loop와 typed 최종 보고를 소유한다. 제한된 patch action을 넘어서는 일반 model-output-to-tool orchestration은 후속 phase에서 처리한다.

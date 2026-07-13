@@ -160,6 +160,20 @@ impl Drop for Fixture {
     }
 }
 
+fn setup_failing_test_project(fixture: &Fixture) {
+    fs::write(
+        fixture.project.join("Cargo.toml"),
+        "[package]\nname = \"rpotato-fixture\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+    )
+    .unwrap();
+    fs::create_dir_all(fixture.project.join("tests")).unwrap();
+    fs::write(
+        fixture.project.join("tests/value.rs"),
+        "use rpotato_fixture::VALUE;\n\n#[test]\nfn value_is_two() {\n    assert_eq!(VALUE, 2);\n}\n",
+    )
+    .unwrap();
+}
+
 struct CapturedChild {
     child: Child,
     stdout_path: PathBuf,
@@ -500,6 +514,104 @@ fn explicit_skill_missing_context_fails_before_model_call() {
     assert!(String::from_utf8_lossy(&state.stdout).contains("active workflow: 없음"));
 }
 
+#[test]
+fn fix_test_records_real_failure_before_patch_and_pass_after_patch() {
+    let fixture = fixture("fix-test-real-evidence");
+    setup_failing_test_project(&fixture);
+    fs::write(
+        &fixture.response,
+        "MODEL ACTION: kind=patch-proposal; source_pointers=src/lib.rs:1; path=src/lib.rs; find_hex=31; replace_hex=32; verification=cargo test; next_gate=diff-before-write; side_effects=none",
+    )
+    .unwrap();
+    fixture.start();
+
+    let run = fixture.command(&[
+        "skill",
+        "run",
+        "fix-test",
+        "src/lib.rs 테스트 결과: test result: FAILED, VALUE는 2여야 합니다.",
+    ]);
+    assert!(
+        run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let report = String::from_utf8(run.stdout).unwrap();
+    let workflow_id = field(&report, "workflow id");
+    let proposal = field(&report, "proposal id");
+    let token = command_token(&report, "- approval command: rpotato patch approve ");
+    let pending = latest_workflow_snapshot(&fixture, &workflow_id);
+    assert!(pending.contains("failing_test_before"));
+    let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
+    assert!(ledger.contains("\"event_type\":\"skill.test_failure.observed\""));
+    assert!(ledger.contains(&format!("workflow_id={workflow_id}")));
+
+    let approve = fixture.command(&["patch", "approve", &proposal, "--token", &token]);
+    assert!(
+        approve.status.success(),
+        "{}",
+        String::from_utf8_lossy(&approve.stderr)
+    );
+    let verify_token = verification_token(&String::from_utf8(approve.stdout).unwrap());
+    let verify = fixture.command(&["patch", "verify", &proposal, "--token", &verify_token]);
+    assert!(
+        verify.status.success(),
+        "{}",
+        String::from_utf8_lossy(&verify.stderr)
+    );
+
+    assert_eq!(
+        fs::read_to_string(fixture.project.join("src/lib.rs")).unwrap(),
+        "pub const VALUE: i32 = 2;\n"
+    );
+    let complete = latest_workflow_snapshot(&fixture, &workflow_id);
+    assert!(complete.contains("\"skill_state\": \"complete\""));
+    assert!(complete.contains("failing_test_before,passing_test_after"));
+}
+
+#[test]
+fn fix_test_rejects_non_test_verification_without_leaving_active_workflow() {
+    let fixture = fixture("fix-test-non-test-verification");
+    setup_failing_test_project(&fixture);
+    fixture.start();
+
+    let run = fixture.command(&[
+        "skill",
+        "run",
+        "fix-test",
+        "src/lib.rs 테스트 결과: test result: FAILED, VALUE는 2여야 합니다.",
+    ]);
+
+    assert_eq!(run.status.code(), Some(3));
+    assert!(String::from_utf8_lossy(&run.stderr).contains("cargo test"));
+    assert_eq!(
+        fs::read_to_string(fixture.project.join("src/lib.rs")).unwrap(),
+        "pub const VALUE: i32 = 1;\n"
+    );
+    let state = fixture.command(&["state"]);
+    assert!(state.status.success());
+    assert!(String::from_utf8_lossy(&state.stdout).contains("active workflow: 없음"));
+}
+
+#[test]
+fn read_only_action_without_visible_answer_fails_closed() {
+    let fixture = fixture("read-only-empty-answer");
+    fs::write(
+        &fixture.response,
+        "MODEL ACTION: kind=inspect-sources; source_pointers=src/lib.rs:1; next_gate=source-reread-before-claim; side_effects=none",
+    )
+    .unwrap();
+    fixture.start();
+
+    let run = fixture.command(&["skill", "run", "repo-map", "저장소 구조를 분석해줘"]);
+
+    assert_eq!(run.status.code(), Some(3));
+    assert!(String::from_utf8_lossy(&run.stderr).contains("답변이 비어 있습니다"));
+    let state = fixture.command(&["state"]);
+    assert!(state.status.success());
+    assert!(String::from_utf8_lossy(&state.stdout).contains("active workflow: 없음"));
+}
+
 fn latest_workflow_snapshot(fixture: &Fixture, workflow_id: &str) -> String {
     let snapshots = fixture
         .project
@@ -658,7 +770,7 @@ fn stale_resume_context_blocks_before_workflow_or_ledger_mutation() {
     let fixture = fixture("resume-preflight-no-mutation");
     fs::write(
         &fixture.response,
-        "읽기 전용 확인을 완료했습니다.\nMODEL ACTION: kind=inspect-sources; source_pointers=src/lib.rs:1; next_gate=source-reread-before-claim; side_effects=none",
+        "src/lib.rs를 읽기 전용으로 확인했습니다.\nMODEL ACTION: kind=inspect-sources; source_pointers=src/lib.rs:1; next_gate=source-reread-before-claim; side_effects=none",
     )
     .unwrap();
     fixture.start();
@@ -750,7 +862,7 @@ fn read_only_run_completes_without_patch_gate() {
     let fixture = fixture("read-only-subprocess");
     fs::write(
         &fixture.response,
-        "구조를 확인했으며 파일 변경은 필요하지 않습니다.\nMODEL ACTION: kind=inspect-sources; source_pointers=src/lib.rs:1; next_gate=source-reread-before-claim; side_effects=none",
+        "src/lib.rs 구조를 확인했으며 파일 변경은 필요하지 않습니다.\nMODEL ACTION: kind=inspect-sources; source_pointers=src/lib.rs:1; next_gate=source-reread-before-claim; side_effects=none",
     )
     .unwrap();
     fixture.start();
@@ -765,7 +877,7 @@ fn read_only_run_completes_without_patch_gate() {
     assert!(report.starts_with("run 결과\n- 상태: 완료"));
     assert!(report.contains("- action kind: inspect-sources"));
     assert!(report.contains("- side effect: 없음"));
-    assert!(report.contains("구조를 확인했으며 파일 변경은 필요하지 않습니다."));
+    assert!(report.contains("src/lib.rs 구조를 확인했으며 파일 변경은 필요하지 않습니다."));
     assert!(!report.contains("MODEL ACTION"));
     assert_eq!(
         fs::read_to_string(fixture.project.join("src/lib.rs")).unwrap(),

@@ -221,7 +221,18 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
         model_action.status,
         None,
     )?;
-    let model_transcript = model_transcript_content(&run.response, &model_action);
+    let model_transcript = match model_transcript_content(&run.response, &model_action) {
+        Ok(content) => content,
+        Err(error) => {
+            skill_runtime.transition(skill::SkillState::Failed)?;
+            skill_runtime.store_in_workflow(&mut workflow);
+            workflow.phase = "failed".to_string();
+            workflow.failure_reason = "model-answer-guard-failed".to_string();
+            workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+            state::clear_terminal_workflow_pointer(&workflow)?;
+            return Err(error);
+        }
+    };
     crate::transcript::record_workflow_turn(
         &workflow,
         "model",
@@ -273,7 +284,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
             )));
         }
 
-        let answer = model_answer(&run.response);
+        let answer = model_transcript;
         record_non_mutating_outcomes(
             manifest,
             &context_pack,
@@ -302,7 +313,14 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
             "complete",
             None,
         )?;
-        skill_runtime.validate_stop()?;
+        if let Err(error) = skill_runtime.validate_stop() {
+            return Err(fail_skill_workflow(
+                &mut workflow,
+                &mut skill_runtime,
+                "skill-stop-gate-failed",
+                error,
+            ));
+        }
         skill_runtime.transition(skill::SkillState::StopPassed)?;
         skill_runtime.transition(skill::SkillState::Complete)?;
         skill_runtime.store_in_workflow(&mut workflow);
@@ -347,6 +365,60 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
         )));
     }
 
+    if manifest.id == "fix-test" {
+        if let Err(error) = crate::patch::validate_skill_verification(
+            manifest.id,
+            &model_action.verification_command,
+        ) {
+            return Err(fail_skill_workflow(
+                &mut workflow,
+                &mut skill_runtime,
+                "fix-test-verification-invalid",
+                error,
+            ));
+        }
+        dispatch_skill_hook(
+            &workflow,
+            &mut skill_runtime,
+            "pre_tool_call",
+            "run_command",
+            Some("run_command"),
+        )?;
+        dispatch_skill_hook(
+            &workflow,
+            &mut skill_runtime,
+            "pre_command_run",
+            "failing-test-before",
+            None,
+        )?;
+        let observed =
+            crate::patch::record_failing_test_before(&workflow, &model_action.verification_command);
+        dispatch_skill_hook(
+            &workflow,
+            &mut skill_runtime,
+            "post_command_run",
+            "failing-test-before",
+            None,
+        )?;
+        dispatch_skill_hook(
+            &workflow,
+            &mut skill_runtime,
+            "post_tool_result",
+            "run_command",
+            Some("run_command"),
+        )?;
+        if let Err(error) = observed {
+            skill_runtime.transition(skill::SkillState::Failed)?;
+            skill_runtime.store_in_workflow(&mut workflow);
+            workflow.phase = "failed".to_string();
+            workflow.failure_reason = "failing-test-before-not-observed".to_string();
+            workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+            state::clear_terminal_workflow_pointer(&workflow)?;
+            return Err(error);
+        }
+        skill_runtime.record_evidence("failing_test_before");
+    }
+
     dispatch_skill_hook(
         &workflow,
         &mut skill_runtime,
@@ -380,13 +452,6 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
     )?;
     if manifest.evidence_requirements.contains(&"diff_review") {
         skill_runtime.record_evidence("diff_review");
-    }
-    if manifest
-        .evidence_requirements
-        .contains(&"failing_test_before")
-        && available_context.contains(&"test_output")
-    {
-        skill_runtime.record_evidence("failing_test_before");
     }
     workflow.source_path = proposal.relative_path.clone();
     workflow.source_hash = proposal.original_sha256.clone();
@@ -497,11 +562,14 @@ fn render_non_mutating_report(
     )
 }
 
-fn model_transcript_content(response: &str, action: &ParsedModelAction) -> String {
+fn model_transcript_content(
+    response: &str,
+    action: &ParsedModelAction,
+) -> Result<String, AppError> {
     if is_non_mutating_action(&action.kind) {
         return model_answer(response);
     }
-    format!(
+    Ok(format!(
         "status={} kind={} source_pointers={} path={} find_sha256={} replace_sha256={} verification_sha256={} next_gate={} requested_side_effects={}",
         action.status,
         action.kind,
@@ -512,10 +580,10 @@ fn model_transcript_content(response: &str, action: &ParsedModelAction) -> Strin
         state::sha256_text(&action.verification_command),
         action.next_gate,
         action.requested_side_effects
-    )
+    ))
 }
 
-fn model_answer(response: &str) -> String {
+fn model_answer(response: &str) -> Result<String, AppError> {
     let without_thinking = strip_thinking_sections(response);
     let visible = without_thinking
         .lines()
@@ -524,10 +592,16 @@ fn model_answer(response: &str) -> String {
         .join("\n");
     let visible = visible.trim();
     if visible.is_empty() {
-        "요청을 읽기 전용으로 처리했으며 실행할 변경은 없습니다.".to_string()
-    } else {
-        crate::korean_guard::guard_or_failure(visible)
+        return Err(AppError::blocked(
+            "run agent loop 차단\n- 이유: model의 읽기 전용 답변이 비어 있습니다.\n- 성공 보고: 생성하지 않음",
+        ));
     }
+    if !crate::korean_guard::validate(visible) {
+        return Err(AppError::blocked(
+            "run agent loop 차단\n- 이유: model의 읽기 전용 답변이 한국어 출력 기준을 통과하지 못했습니다.\n- 성공 보고: 생성하지 않음",
+        ));
+    }
+    Ok(visible.to_string())
 }
 
 fn strip_thinking_sections(response: &str) -> String {
@@ -564,6 +638,34 @@ fn checkpoint_failure_or_original(workflow: state::WorkflowRecord, original: App
                 ),
             }
         }
+    }
+}
+
+fn fail_skill_workflow(
+    workflow: &mut state::WorkflowRecord,
+    runtime: &mut skill::SkillRuntimeState,
+    reason: &str,
+    original: AppError,
+) -> AppError {
+    let _ = runtime.transition(skill::SkillState::Failed);
+    runtime.store_in_workflow(workflow);
+    workflow.phase = "failed".to_string();
+    workflow.failure_reason = reason.to_string();
+    match state::checkpoint_workflow(workflow.clone(), workflow.revision) {
+        Ok(checkpointed) => {
+            *workflow = checkpointed;
+            if let Err(clear_error) = state::clear_terminal_workflow_pointer(workflow) {
+                return AppError {
+                    code: original.code,
+                    message: format!(
+                        "{}\n- terminal pointer 정리 실패: {}",
+                        original.message, clear_error.message
+                    ),
+                };
+            }
+            original
+        }
+        Err(_) => checkpoint_failure_or_original(workflow.clone(), original),
     }
 }
 
@@ -665,16 +767,45 @@ fn record_non_mutating_outcomes(
 ) {
     let has_pointer = !context_pack.source_pointers.is_empty()
         && !matches!(model_action.source_pointers.as_str(), "none" | "unverified");
+    let has_file_reference = has_pointer
+        && context_pack
+            .source_pointers
+            .iter()
+            .any(|pointer| answer.contains(&pointer.path));
+    let has_file_line_reference = context_pack
+        .source_pointers
+        .iter()
+        .any(|pointer| contains_file_line_reference(answer, &pointer.path));
+    let lower = answer.to_ascii_lowercase();
+    let has_ranked_findings = ["[high]", "[medium]", "[low]", "[critical]"]
+        .iter()
+        .any(|marker| lower.contains(marker))
+        || ["[심각]", "[높음]", "[중간]", "[낮음]"]
+            .iter()
+            .any(|marker| answer.contains(marker));
+    let has_no_findings = answer.contains("발견 사항 없음") || answer.contains("문제 없음");
     for requirement in manifest.evidence_requirements {
         let satisfied = match *requirement {
-            "source_reference"
-            | "file_reference"
-            | "file_line_reference"
-            | "benchmark_source"
-            | "source_url_or_file"
-            | "confidence_record" => has_pointer,
-            "diagnostic_output" | "check_result" => !answer.trim().is_empty(),
-            "checksum_record" => answer.to_ascii_lowercase().contains("sha256"),
+            "source_reference" | "file_reference" => has_file_reference,
+            "file_line_reference" => has_file_line_reference,
+            "benchmark_source" => {
+                has_file_reference && (lower.contains("benchmark") || answer.contains("벤치마크"))
+            }
+            "source_url_or_file" => has_file_reference || lower.contains("https://"),
+            "confidence_record" => {
+                has_file_reference && (lower.contains("confidence") || answer.contains("신뢰도"))
+            }
+            "diagnostic_output" => {
+                lower.contains("diagnostic") || answer.contains("진단") || answer.contains("상태")
+            }
+            "check_result" => {
+                lower.contains("pass")
+                    || lower.contains("fail")
+                    || answer.contains("통과")
+                    || answer.contains("실패")
+                    || answer.contains("점검")
+            }
+            "checksum_record" => lower.contains("sha256"),
             "local_result_artifact" => false,
             _ => false,
         };
@@ -686,20 +817,74 @@ fn record_non_mutating_outcomes(
     for criterion in manifest.stop_criteria {
         let satisfied = match *criterion {
             "korean_report_passed" => crate::korean_guard::validate(answer),
-            "claims_source_backed" => has_pointer,
-            "cause_explained"
-            | "findings_ranked"
-            | "map_reported"
-            | "benchmark_plan_ready"
-            | "diagnosis_reported"
-            | "ontology_delta_ready"
-            | "release_findings_reported" => !answer.trim().is_empty(),
+            "claims_source_backed" => manifest
+                .evidence_requirements
+                .iter()
+                .all(|required| runtime.evidence.iter().any(|actual| actual == required)),
+            "cause_explained" => {
+                runtime
+                    .evidence
+                    .iter()
+                    .any(|value| value == "source_reference")
+                    && (answer.contains("원인")
+                        || answer.contains("이유")
+                        || answer.contains("때문"))
+            }
+            "findings_ranked" => {
+                runtime
+                    .evidence
+                    .iter()
+                    .any(|value| value == "file_line_reference")
+                    && (has_ranked_findings || has_no_findings)
+            }
+            "map_reported" => runtime
+                .evidence
+                .iter()
+                .any(|value| value == "file_reference"),
+            "benchmark_plan_ready" => {
+                runtime
+                    .evidence
+                    .iter()
+                    .any(|value| value == "benchmark_source")
+                    && (lower.contains("plan") || answer.contains("계획"))
+            }
+            "diagnosis_reported" => runtime
+                .evidence
+                .iter()
+                .any(|value| value == "diagnostic_output"),
+            "ontology_delta_ready" => {
+                runtime
+                    .evidence
+                    .iter()
+                    .any(|value| value == "source_reference")
+                    && (lower.contains("delta")
+                        || answer.contains("변경")
+                        || answer.contains("갱신"))
+            }
+            "release_findings_reported" => {
+                runtime.evidence.iter().any(|value| value == "check_result")
+            }
             _ => false,
         };
         if satisfied {
             runtime.record_stop_criterion(criterion);
         }
     }
+}
+
+fn contains_file_line_reference(answer: &str, path: &str) -> bool {
+    let mut remaining = answer;
+    while let Some(index) = remaining.find(path) {
+        let suffix = &remaining[index + path.len()..];
+        if suffix
+            .strip_prefix(':')
+            .is_some_and(|value| value.chars().next().is_some_and(|ch| ch.is_ascii_digit()))
+        {
+            return true;
+        }
+        remaining = &suffix[suffix.chars().next().map(char::len_utf8).unwrap_or(0)..];
+    }
+    false
 }
 
 pub fn classify_report(request: &str) -> Result<String, AppError> {
@@ -1352,7 +1537,8 @@ mod tests {
     fn model_answer_hides_action_contract_and_thinking() {
         let answer = model_answer(
             "<think>internal plan</think>\n구조를 확인했으며 변경은 필요하지 않습니다.\nMODEL ACTION: kind=answer-only; source_pointers=none; next_gate=korean-output-guard; side_effects=none",
-        );
+        )
+        .unwrap();
 
         assert_eq!(answer, "구조를 확인했으며 변경은 필요하지 않습니다.");
         assert!(!answer.contains("MODEL ACTION"));
@@ -1361,15 +1547,74 @@ mod tests {
 
     #[test]
     fn model_answer_fails_closed_on_non_korean_natural_language() {
-        let answer = model_answer(
+        let error = model_answer(
             "This is an unguarded English answer.\nMODEL ACTION: kind=answer-only; source_pointers=none; next_gate=korean-output-guard; side_effects=none",
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, 3);
+        assert!(error.message.contains("한국어 출력 기준"));
+        assert!(!error.message.contains("English answer"));
+    }
+
+    #[test]
+    fn model_answer_fails_closed_when_only_action_contract_is_present() {
+        let error = model_answer(
+            "MODEL ACTION: kind=inspect-sources; source_pointers=src/main.rs:1; next_gate=source-reread-before-claim; side_effects=none",
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, 3);
+        assert!(error.message.contains("답변이 비어 있습니다"));
+    }
+
+    #[test]
+    fn review_outcomes_require_answer_bound_file_and_severity_evidence() {
+        let manifest = skill::find_skill("code-review").unwrap();
+        let pack = sample_context_pack();
+        let decision = classify("src/main.rs 코드를 리뷰해줘").unwrap();
+        let candidate = plan_action_candidate(&decision, &pack);
+        let action = parse_model_action(
+            "MODEL ACTION: kind=inspect-sources; source_pointers=src/main.rs:1; next_gate=source-reread-before-claim; side_effects=none",
+            &candidate,
+            &pack,
+        );
+        let mut generic = skill::SkillRuntimeState::new("code-review", "explicit").unwrap();
+
+        record_non_mutating_outcomes(
+            manifest,
+            &pack,
+            &action,
+            "코드를 확인했으며 검토를 완료했습니다.",
+            &mut generic,
         );
 
-        assert_eq!(
-            answer,
-            "응답 언어 검증에 실패했습니다. 출력이 한국어 기준을 만족하지 않아 결과를 표시하지 않았습니다."
+        assert!(!generic
+            .evidence
+            .iter()
+            .any(|value| value == "file_line_reference"));
+        assert!(!generic
+            .completed_stop_criteria
+            .iter()
+            .any(|value| value == "findings_ranked"));
+
+        let mut grounded = skill::SkillRuntimeState::new("code-review", "explicit").unwrap();
+        record_non_mutating_outcomes(
+            manifest,
+            &pack,
+            &action,
+            "[높음] src/main.rs:1: 반환값 검증이 없어 잘못된 상태를 허용합니다.",
+            &mut grounded,
         );
-        assert!(!answer.contains("English answer"));
+
+        assert!(grounded
+            .evidence
+            .iter()
+            .any(|value| value == "file_line_reference"));
+        assert!(grounded
+            .completed_stop_criteria
+            .iter()
+            .any(|value| value == "findings_ranked"));
     }
 
     fn sample_context_pack() -> ContextPack {

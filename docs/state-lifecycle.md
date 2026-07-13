@@ -147,3 +147,7 @@ completed lifecycle hooks, evidence keys, and satisfied stop criteria. The
 canonical workflow snapshot and ledger checkpoint own this state; SQLite only
 projects the active skill for queries and monitoring. Resume revalidates the
 persisted skill contract before continuing or accepting a terminal workflow.
+Side effects additionally require an exact workflow-phase/skill-state pairing.
+For `fix-test`, the canonical ledger must contain a pre-patch failing-test event
+bound to both workflow id and normalized command hash; a matching evidence label
+without that event cannot authorize apply, verification, resume, or completion.
