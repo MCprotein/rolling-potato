@@ -37,7 +37,8 @@ conventions.
 ### Verified During Implementation
 
 - `cargo fmt --all -- --check`
-- `cargo test --locked -- --test-threads=1`
+- `cargo test --locked -- --test-threads=1` (`346` unit, `1` backend
+  lifecycle, and `25` process tests passed)
 - `cargo clippy --locked --all-targets -- -D warnings`
 - `cargo build --release --locked`
 - release policy, toolchain pin, target matrix, packaged-binary, and uninstall

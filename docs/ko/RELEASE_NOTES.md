@@ -36,7 +36,8 @@ criteria는 이제 prompt 관례가 아니라 실행되는 state-machine gate입
 ### 구현 중 검증
 
 - `cargo fmt --all -- --check`
-- `cargo test --locked -- --test-threads=1`
+- `cargo test --locked -- --test-threads=1` (`346` unit, `1` backend
+  lifecycle, `25` process test 통과)
 - `cargo clippy --locked --all-targets -- -D warnings`
 - `cargo build --release --locked`
 - release policy, toolchain pin, target matrix, packaged-binary, uninstall smoke check
