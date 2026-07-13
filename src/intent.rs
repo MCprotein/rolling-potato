@@ -1,6 +1,6 @@
 use crate::app::AppError;
 use crate::backend;
-use crate::context::{self, ContextPack};
+use crate::context::{self, ContextPack, ResumeContext};
 use crate::skill;
 use crate::state;
 
@@ -42,8 +42,14 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
     if let Some(workflow_id) = state::active_workflow_id()? {
         return crate::patch::resume_workflow_report(&workflow_id);
     }
+    backend::preflight_chat_ready()?;
     let decision = classify(request)?;
+    let identity = crate::ledger::validated_current_identity()?;
+    let mut resume_context = context::rebuild_resume_context(&identity.session_id, None)?;
+    let mut context_pack = context::build_context_pack(request)?;
+    context::enforce_shared_source_budget(&mut resume_context, &mut context_pack);
     let mut workflow = state::create_workflow(request)?;
+    crate::transcript::record_workflow_turn(&workflow, "user", "request", request, &[])?;
     let intent_event_id = state::record_event(
         "intent.classified",
         "사용자 요청 intent 정규화",
@@ -52,7 +58,6 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
             decision.skill_id, decision.mode, decision.invocation, decision.signals
         ),
     )?;
-    let context_pack = context::build_context_pack(request)?;
     let action_candidate = plan_action_candidate(&decision, &context_pack);
     let context_event_id = state::record_event(
         "context.pack.prepared",
@@ -67,6 +72,19 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
             context_pack.pointer_summary()
         ),
     )?;
+    crate::transcript::record_workflow_turn(
+        &workflow,
+        "tool",
+        &context_event_id,
+        &format!(
+            "context pack prepared: origin={} files={} chars={} pointers={}",
+            context_pack.origin,
+            context_pack.files_read,
+            context_pack.chars_read,
+            context_pack.pointer_summary()
+        ),
+        &context_pack.source_pointers,
+    )?;
     let action_event_id = state::record_event(
         "action.candidate.prepared",
         "run action candidate 준비",
@@ -78,7 +96,13 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
             context_pack.pointer_summary()
         ),
     )?;
-    let agent_prompt = agent_loop_prompt(request, &decision, &context_pack, &action_candidate);
+    let agent_prompt = agent_loop_prompt(
+        request,
+        &decision,
+        &resume_context,
+        &context_pack,
+        &action_candidate,
+    );
     let run = match backend::chat_once(&agent_prompt, Some(RUN_MAX_TOKENS)) {
         Ok(run) => run,
         Err(err) => {
@@ -88,6 +112,14 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         }
     };
     let model_action = parse_model_action(&run.response, &action_candidate, &context_pack);
+    let model_transcript = model_transcript_content(&run.response, &model_action);
+    crate::transcript::record_workflow_turn(
+        &workflow,
+        "model",
+        &run.ledger_event,
+        &model_transcript,
+        &[],
+    )?;
     let model_action_event_id = state::record_event(
         "model.action.parsed",
         "model response action parsing",
@@ -138,6 +170,7 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
             request,
             &decision,
             &context_pack,
+            &resume_context,
             &model_action,
             &run.response,
             &workflow,
@@ -195,7 +228,7 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
     workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
 
     Ok(format!(
-        "run agent loop\n- status: pending-approval\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- context origin: {}\n- ontology records selected: {}\n- ontology stale rejected: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- action candidate: {}\n- approval required before side effect: {}\n- next gate: {}\n- allowed side effects now: {}\n- model action parse: {}\n- model action kind: {}\n- model action source pointers: {}\n- model action next gate: {}\n- model action requested side effects: {}\n- model action executable now: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- action ledger event: {}\n- model action ledger event: {}\n- model ledger event: {}\n- workflow id: {}\n- workflow revision: {}\n- proposal id: {}\n- verification plan: {}\n- approval command: rpotato patch approve {} --token {}\n- model response visibility: action record만 저장하고 raw response는 표시하지 않음\n- boundary: model output은 실행되지 않았고 ontology source pointer에서 원본 source를 다시 읽어 diff만 만들었습니다.\n- diff:\n{}",
+        "run agent loop\n- status: pending-approval\n- request: {}\n- invocation: {}\n- selected skill: {}\n- mode: {}\n- signals: {}\n- constraints: {}\n- classifier: {}\n- workflow ownership: {}\n- resumed context: {}\n- context origin: {}\n- ontology records selected: {}\n- ontology stale rejected: {}\n- context files read: {}\n- context chars: {}\n- source pointers: {}\n- action candidate: {}\n- approval required before side effect: {}\n- next gate: {}\n- allowed side effects now: {}\n- model action parse: {}\n- model action kind: {}\n- model action source pointers: {}\n- model action next gate: {}\n- model action requested side effects: {}\n- model action executable now: {}\n- backend: {}\n- model id: {}\n- model path: {}\n- ctx size: {}\n- prompt chars: {}\n- response chars: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- resource governor admission: {}\n- resource governor token action: {}\n- resource governor reason: {}\n- finish reason: {}\n- guard: {}\n- prompt tokens: {}\n- completion tokens: {}\n- total tokens: {}\n- elapsed ms: {}\n- intent ledger event: {}\n- context ledger event: {}\n- action ledger event: {}\n- model action ledger event: {}\n- model ledger event: {}\n- workflow id: {}\n- workflow revision: {}\n- proposal id: {}\n- verification plan: {}\n- approval command: rpotato patch approve {} --token {}\n- model response visibility: action record만 저장하고 raw response는 표시하지 않음\n- boundary: model output은 실행되지 않았고 ontology source pointer에서 원본 source를 다시 읽어 diff만 만들었습니다.\n- diff:\n{}",
         request,
         decision.invocation,
         decision.skill_id,
@@ -204,6 +237,7 @@ pub fn run_report(request: &str) -> Result<String, AppError> {
         display_list(&decision.constraints),
         decision.classifier,
         state::workflow_ownership_summary(),
+        resume_context.summary(),
         context_pack.origin,
         context_pack.ontology_records_selected,
         context_pack.ontology_stale_rejected,
@@ -263,13 +297,14 @@ fn render_non_mutating_report(
     request: &str,
     decision: &IntentDecision,
     context_pack: &ContextPack,
+    resume_context: &ResumeContext,
     model_action: &ParsedModelAction,
     response: &str,
     workflow: &state::WorkflowRecord,
 ) -> String {
     let answer = model_answer(response);
     format!(
-        "run 결과\n- 상태: 완료\n- 요청: {}\n- 선택한 skill: {}\n- mode: {}\n- workflow id: {}\n- workflow kind: {}\n- action id: {}\n- action kind: {}\n- context origin: {}\n- ontology records selected: {}\n- ontology stale rejected: {}\n- source pointers: {}\n- context files read: {}\n- side effect: 없음\n- approval: 불필요\n- 답변:\n{}",
+        "run 결과\n- 상태: 완료\n- 요청: {}\n- 선택한 skill: {}\n- mode: {}\n- workflow id: {}\n- workflow kind: {}\n- action id: {}\n- action kind: {}\n- resumed context: {}\n- context origin: {}\n- ontology records selected: {}\n- ontology stale rejected: {}\n- source pointers: {}\n- context files read: {}\n- side effect: 없음\n- approval: 불필요\n- 답변:\n{}",
         request,
         decision.skill_id,
         decision.mode,
@@ -277,12 +312,31 @@ fn render_non_mutating_report(
         workflow.workflow_kind,
         workflow.action_id,
         workflow.action_kind,
+        resume_context.summary(),
         context_pack.origin,
         context_pack.ontology_records_selected,
         context_pack.ontology_stale_rejected,
         model_action.source_pointers,
         context_pack.files_read,
         answer
+    )
+}
+
+fn model_transcript_content(response: &str, action: &ParsedModelAction) -> String {
+    if is_non_mutating_action(&action.kind) {
+        return model_answer(response);
+    }
+    format!(
+        "status={} kind={} source_pointers={} path={} find_sha256={} replace_sha256={} verification_sha256={} next_gate={} requested_side_effects={}",
+        action.status,
+        action.kind,
+        action.source_pointers,
+        action.target_path,
+        state::sha256_text(&action.find_text),
+        state::sha256_text(&action.replace_text),
+        state::sha256_text(&action.verification_command),
+        action.next_gate,
+        action.requested_side_effects
     )
 }
 
@@ -796,6 +850,7 @@ fn decode_action_text(value: Option<&str>) -> String {
 fn agent_loop_prompt(
     request: &str,
     decision: &IntentDecision,
+    resume_context: &ResumeContext,
     context_pack: &ContextPack,
     action_candidate: &ActionCandidate,
 ) -> String {
@@ -818,6 +873,7 @@ fn agent_loop_prompt(
          - find/replace는 UTF-8 bytes의 lowercase hex로 인코딩합니다.\n\
          - verification은 shell operator 없는 policy-allowed 단순 argv 명령입니다.\n\
          - MODEL ACTION: kind={}; source_pointers={}; path=<project-relative-path>; find_hex=<hex>; replace_hex=<hex>; verification=<command>; next_gate={}; side_effects=none\n\n\
+         {}\n\n\
          {}\n\
          현재 구현 단계의 경계:\n\
          - 파일 수정, patch 적용, command 실행은 하지 않습니다.\n\
@@ -837,6 +893,7 @@ fn agent_loop_prompt(
         action_candidate.kind,
         context_pack.pointer_summary(),
         action_candidate.next_gate,
+        resume_context.prompt_section(),
         context_pack.prompt_section()
     )
 }

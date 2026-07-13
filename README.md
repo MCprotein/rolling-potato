@@ -90,6 +90,8 @@ rpotato session resume <session-id>
 rpotato session new
 rpotato resume
 rpotato resume <session-id>
+rpotato continue
+rpotato continue <session-id>
 rpotato evidence validate logs/test.log
 rpotato skill list
 rpotato skill run fix-test
@@ -214,6 +216,8 @@ Implemented command surfaces:
 - `rpotato session new`
 - `rpotato resume`
 - `rpotato resume <session-id>`
+- `rpotato continue`
+- `rpotato continue <session-id>`
 - `rpotato cancel`
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
@@ -283,17 +287,17 @@ Implemented command surfaces:
 
 `rpotato init` initializes the app data root and project-local `.rpotato/` state, including current state, append-only ledgers, runtime evidence JSONL, a SQLite observability projection, and the project-local ontology store/schema. It seeds deterministic Layer A facts from source-backed project files without storing raw source text in the ontology store.
 
-`state reconcile` preserves stale or corrupt current-state files before writing a fresh current-state file. `state resume` detects an active workflow pointer or records a no-op ledger event when there is nothing to resume.
+`state reconcile` preserves stale or corrupt current-state files before writing a fresh current-state file. `state resume` and `continue` validate and reconstruct the selected session's bounded durable context before continuing a safe active workflow checkpoint. Pending approval does not call the backend again, and an uncertain backend request or verification command is never automatically repeated.
 
-`session list` and `session history` render the current project's session history through a SQLite projection rebuilt from the canonical runtime ledger. `session new` creates a new session identity and switches current state to that session. `session resume <session-id>` and `resume <session-id>` accept a selection only when that session exists in the canonical ledger, then write it into current state so later commands continue under the same session identity. A SQLite-only row can never authorize resume. Real model/backend agent-loop transcript replay and conversational continuation are still owned by the later agent-loop phase, which will consume this current-state pointer.
+`session list` and `session history` render the current project's session history through a SQLite projection rebuilt from the canonical runtime ledger. `session new` creates a new session identity and switches current state to that session. `session resume <session-id>`, `resume <session-id>`, and `continue <session-id>` require canonical-ledger ownership, validate durable transcript artifacts and source hashes before changing current state, then continue only a matching safe workflow checkpoint. A SQLite-only row can never authorize resume, and a non-terminal workflow owned by another session blocks selection without mutation.
 
 `evidence validate` checks that artifact pointers are local, project-relative paths that do not escape the project boundary.
 
-`run` normalizes the user request into skill, mode, context, and evidence requirements, selects ontology-backed context with source pointers, calls the running backend sidecar, and parses the model result into a runtime-owned typed action without executing model text. Read-only actions finish through a guarded Korean report. A valid patch action persists a restart-safe workflow and proposal, rereads the authoritative source, and stops with the exact `patch approve` gate. `run` itself never applies the patch or runs verification; those side effects require the separate credentials described below. Intent, context, action, backend, ledger, and token/latency projection records remain local.
+`run` normalizes the user request into skill, mode, context, and evidence requirements, reconstructs up to 8 recent durable turns within 2,400 characters, and shares one 4-pointer/3,200-character source budget across current-request and resumed context before creating a workflow or calling the backend sidecar. It parses the result into a runtime-owned typed action without executing model text. Canonical transcript artifacts store the user turn, visible or normalized model result, normalized tool record, and evidence record; source contents and patch fragments remain pointers plus SHA-256, and hidden reasoning/raw backend responses are excluded. SQLite `transcript_records` is a rebuildable ordered projection, not resume authority. Read-only actions finish through a guarded Korean report. A valid patch action persists a restart-safe workflow and proposal, rereads the authoritative source, and stops with the exact `patch approve` gate.
 
 `intent classify`, `intent routes`, and `skill run` remain pre-execution surfaces: they normalize routing state and record ledger events without calling the model.
 
-`tui`, `tui monitor`, `tui sessions`, `tui transcript <session-id>`, `tui approvals`, `tui diff <proposal-id>`, and `tui evidence` render read-only TUI beta surfaces using existing runtime state, the SQLite observability projection, project-local patch proposal records, team admission approval request records, and evidence store paths. They show project/session state, model/token/TPS summaries, CPU/RSS/disk resource pressure, session history, selected-session event timelines, approval queue records, proposal metadata, literal diffs, evidence counts, stop-gate result counts, stale policy, and read-only boundaries in terminal-friendly ASCII layouts. They do not approve, apply, resume, cancel, replay transcripts, pass or fail stop gates, or mutate workflows.
+`tui`, `tui monitor`, `tui sessions`, `tui transcript <session-id>`, `tui approvals`, `tui diff <proposal-id>`, and `tui evidence` render read-only TUI beta surfaces. The transcript view validates and shows durable user/model/tool/evidence turns alongside the ledger event timeline. It excludes hidden model responses, source-file bodies, patch fragments, and verification-command text. TUI views do not approve, apply, resume, cancel, pass or fail stop gates, or mutate workflows.
 
 `policy` and `hooks` commands provide command/path permission decisions, credential redaction, lifecycle hook registry output, and fail-closed hook result validation. Real tool execution has not yet been wired behind this policy surface.
 

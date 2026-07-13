@@ -30,7 +30,7 @@ The following must not be stored by default:
 - passwords
 - private keys
 - command output containing raw credentials
-- raw source code or raw prompts in the monitoring database
+- complete backend prompts, hidden reasoning/raw model responses, or complete source-file bodies stored solely for monitoring
 
 ## Network Use
 
@@ -55,7 +55,9 @@ Principles:
 
 - monitoring is local-first
 - external telemetry is not part of the MVP default
-- raw prompts, raw source code, and command output containing credentials are not stored in the monitoring database by default
+- durable local resume stores user turns and visible/normalized model, tool, and evidence turns; normalized patch actions store paths, action metadata, and hashes instead of find/replace or verification-command text
+- the complete backend prompt, hidden/raw model response, complete source-file body, and credential-bearing command output are excluded from transcript storage
+- SQLite may project those durable transcript records for local queries and can be rebuilt from canonical ledger/artifact state
 - exports run only when the user invokes an export command
 
 ## External Adapters

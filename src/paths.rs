@@ -120,6 +120,18 @@ pub fn runtime_ledger_writer_lock() -> PathBuf {
     state_dir().join("runtime-ledger.writer.lock")
 }
 
+pub fn transcripts_dir() -> PathBuf {
+    state_dir().join("transcripts")
+}
+
+pub fn transcript_session_dir(project_id: &str, session_id: &str) -> PathBuf {
+    transcripts_dir().join(project_id).join(session_id)
+}
+
+pub fn transcript_file(project_id: &str, session_id: &str, record_id: &str) -> PathBuf {
+    transcript_session_dir(project_id, session_id).join(format!("{record_id}.json"))
+}
+
 pub fn plugins_dir() -> PathBuf {
     app_data_root().join("plugins")
 }

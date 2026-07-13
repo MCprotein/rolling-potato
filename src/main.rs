@@ -30,6 +30,7 @@ mod strict_json;
 mod team;
 #[cfg(test)]
 mod test_support;
+mod transcript;
 mod tui;
 mod uninstall;
 

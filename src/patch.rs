@@ -476,6 +476,29 @@ fn continue_approved_workflow(
         ),
     )?;
 
+    if let Some(current) = workflow.as_ref() {
+        let updated_pointer = crate::context::SourcePointer {
+            path: apply.relative_path.clone(),
+            stable_ref: format!("{}:1", apply.relative_path),
+            chars: 0,
+            fingerprint: apply.applied_sha256.clone(),
+            snippet: String::new(),
+        };
+        crate::transcript::record_workflow_turn(
+            current,
+            "tool",
+            &event_id,
+            &format!(
+                "patch applied: proposal_id={} path={} original_sha256={} applied_sha256={}",
+                record.proposal_id,
+                apply.relative_path,
+                apply.original_sha256,
+                apply.applied_sha256
+            ),
+            &[updated_pointer],
+        )?;
+    }
+
     if let (Some(current), Some(verification)) = (workflow.as_mut(), verification.as_ref()) {
         let evidence = crate::evidence::record_patch_verification(
             current,
@@ -571,6 +594,65 @@ pub fn proposal_summaries(limit: usize) -> Result<Vec<PatchProposalSummary>, App
         .take(limit)
         .map(|(_, summary)| summary)
         .collect())
+}
+
+pub fn preflight_resume_workflow(workflow_id: &str) -> Result<(), AppError> {
+    let workflow = state::load_workflow(workflow_id)?;
+    match workflow.phase.as_str() {
+        "model-pending" | "action-recorded" => Ok(()),
+        "pending-approval" => {
+            let proposal_path = paths::project_patch_proposals_dir()
+                .join(format!("{}.txt", workflow.proposal_id));
+            let record = load_proposal_record(&workflow.proposal_id, &proposal_path)?;
+            validate_workflow_binding(&workflow, &record)?;
+            let source_hash = current_source_hash(&workflow.source_path)?;
+            if source_hash != workflow.before_hash {
+                return Err(AppError::blocked(format!(
+                    "workflow resume preflight 차단\n- 이유: pending approval target hash가 stale합니다.\n- expected: {}\n- current: {}",
+                    workflow.before_hash, source_hash
+                )));
+            }
+            Ok(())
+        }
+        "approved" | "verification-approved" => {
+            let proposal_path = paths::project_patch_proposals_dir()
+                .join(format!("{}.txt", workflow.proposal_id));
+            let record = load_proposal_record(&workflow.proposal_id, &proposal_path)?;
+            validate_workflow_binding(&workflow, &record)?;
+            if workflow.phase == "verification-approved" {
+                build_verification_plan(&workflow.verification_plan)?;
+            }
+            Ok(())
+        }
+        "pending-verification-approval" => {
+            let proposal_path = paths::project_patch_proposals_dir()
+                .join(format!("{}.txt", workflow.proposal_id));
+            let record = load_proposal_record(&workflow.proposal_id, &proposal_path)?;
+            validate_workflow_binding(&workflow, &record)?;
+            let source_hash = current_source_hash(&workflow.source_path)?;
+            if source_hash != workflow.after_hash {
+                return Err(AppError::blocked(format!(
+                    "workflow resume preflight 차단\n- 이유: verification 승인 대기 중 source hash가 변경되었습니다.\n- expected: {}\n- current: {}",
+                    workflow.after_hash, source_hash
+                )));
+            }
+            Ok(())
+        }
+        "verified" | "complete" => {
+            let proposal_path = paths::project_patch_proposals_dir()
+                .join(format!("{}.txt", workflow.proposal_id));
+            let record = load_proposal_record(&workflow.proposal_id, &proposal_path)?;
+            validate_workflow_binding(&workflow, &record)?;
+            crate::evidence::validate_patch_stop_gate(&workflow)
+        }
+        "verification-started" => Err(AppError::blocked(
+            "workflow resume preflight 차단\n- 이유: verification 결과가 확정되지 않아 session을 선택할 수 없습니다.",
+        )),
+        "failed" | "cancelled" => Err(AppError::blocked(failure_report(&workflow))),
+        other => Err(AppError::blocked(format!(
+            "workflow resume preflight 차단\n- 이유: 안전하게 재개할 수 없는 phase입니다.\n- phase: {other}"
+        ))),
+    }
 }
 
 pub fn resume_workflow_report(workflow_id: &str) -> Result<String, AppError> {

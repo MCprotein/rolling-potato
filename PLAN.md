@@ -70,6 +70,8 @@ rpotato session resume <session-id>
 rpotato session new
 rpotato resume
 rpotato resume <session-id>
+rpotato continue
+rpotato continue <session-id>
 rpotato evidence validate logs/test.log
 rpotato skill list
 rpotato skill run fix-test
@@ -283,6 +285,7 @@ rpotato app data root/
   state/
     observability.sqlite
     runtime-ledger.jsonl
+    transcripts/<project-id>/<session-id>/*.json
   plugins/
     imported/
     data/
@@ -306,8 +309,8 @@ Default decision:
 
 - Use SQLite as the local query/index/reporting store.
 - Keep append-only ledger/JSONL as the audit trail and crash-recovery source.
-- Store token, latency, backend, guard, tool, evidence, and stop-gate metrics by session/workflow/model.
-- Do not store raw prompt, source code, or credential-bearing command output by default.
+- Store token, latency, backend, guard, tool, evidence, stop-gate, and rebuildable transcript projections by session/workflow/model.
+- Persist local user turns plus visible/normalized model, tool, and evidence turns for resume. Do not persist the complete backend prompt, hidden/raw model response, raw source body, or credential-bearing command output.
 - Expose monitoring through `rpotato monitor ...`, `doctor`, benchmark reports, and TUI views.
 
 ## Model Knowledge Base

@@ -34,6 +34,8 @@
 - `rpotato session new`
 - `rpotato resume`
 - `rpotato resume <session-id>`
+- `rpotato continue`
+- `rpotato continue <session-id>`
 - `rpotato cancel`
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
@@ -83,11 +85,11 @@
 
 `rpotato init`은 state layout, current-state, append-only ledger, runtime evidence JSONL, SQLite observability projection을 실제로 초기화합니다.
 
-세션 히스토리의 권위는 현재 project의 canonical runtime ledger에 있습니다. `session list`/`session history`는 이 ledger에서 재생성한 SQLite projection을 조회하고, `session new`는 새 session identity를 만들며, `session resume <session-id>` 또는 `resume <session-id>`는 ledger에서 session 존재를 확인한 뒤에만 current-state에 기록합니다. 전체 agent loop transcript replay는 아직 구현하지 않았습니다.
+현재 project의 session history와 transcript 순서 권위는 canonical runtime ledger에 있습니다. `session list`/`session history`는 재생성 가능한 SQLite projection을 조회합니다. `session resume <session-id>`, `resume <session-id>`, `continue <session-id>`는 canonical transcript artifact와 source hash를 먼저 검증한 뒤 session을 선택하고 같은 session의 안전한 workflow checkpoint만 계속합니다. `continue`는 현재 선택을 재개하며 SQLite-only row는 권위가 아닙니다.
 
 정적 `unverified` 후보는 계속 설치가 차단됩니다. Source-backed 후보는 artifact bytes, 정확한 `backend.chat.completed` provenance, 실제 RAM/mmproj 상태, hash-pinned canonical adoption benchmark/prompt pair가 모두 재검증될 때만 local promotion할 수 있습니다. 그 뒤 `model install`로 registry 등록하고 `model default <id>`로 지속 기본 모델을 선택하며 `backend start`에서 `--model`을 생략할 수 있습니다. v0.30.0 strict 비교에서는 Qwen이 exact-response equality를 실패해 Gemma를 선택했으며, `model-eval.md`의 이 host-specific 결과는 public benchmark parity나 16GB evidence가 아닙니다.
 
-`run`은 backend 호출 전에 canonical workflow artifact를 시작하고 model response를 실행 불가 action으로 저장합니다. Structured source pointer/path/find/replace/pre-bound verification plan을 요구하고 authoritative source를 다시 읽은 뒤 diff와 정확한 `patch approve` 명령을 출력하며 `pending-approval`에서 종료합니다. `state resume`은 workflow와 ledger checkpoint를 검증하며 승인 대기 중에는 backend를 다시 호출하지 않습니다.
+`run`은 durable resume context를 검증하고 현재 요청과 resume context 전체에 source pointer 최대 4개·3,200자의 단일 공유 budget을 적용한 뒤 canonical workflow를 만들고 backend를 호출합니다. 이후 user, visible/normalized model, tool, evidence transcript artifact를 canonical하게 저장합니다. Resume는 최근 turn을 최대 8개·2,400자 안에서 재구성하며 stale hash는 workflow 생성 없이 fail-closed합니다. Hidden reasoning, raw backend response, raw source body, patch fragment, verification command 원문은 transcript artifact에서 제외합니다. `state resume`은 session 선택 전에 transcript/workflow/ledger checkpoint를 검증하고 pending approval에서 backend를 다시 호출하거나 불확실한 verification command를 자동 재실행하지 않습니다.
 
 Checkpoint, ledger chain, CSPRNG token, atomic rollback, stop gate, streaming transport, generation-state lifecycle test는 플랫폼 독립적인 unit/state test입니다. `tests/backend_lifecycle.rs`는 Rust fake sidecar를 compile해 Windows를 포함한 모든 release platform에서 실제 CLI child process를 실행합니다. `tests/patch_loop.rs`의 hostile fixture는 실행 가능한 Python fake sidecar와 Unix process permission을 사용하므로 계속 Unix 전용이며, Unix에서는 추가로 CLI process 사이의 timeout, 언어 거부, upstream-error redaction, sidecar-stop ordering을 검증합니다.
 
@@ -172,6 +174,8 @@ cargo run -- session history
 cargo run -- session resume <session-id>
 cargo run -- resume
 cargo run -- resume <session-id>
+cargo run -- continue
+cargo run -- continue <session-id>
 cargo run -- evidence validate .rpotato/evidence/smoke.txt
 cargo run -- skill list
 cargo run -- skill run fix-test

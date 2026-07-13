@@ -1,5 +1,34 @@
 # 릴리즈 노트
 
+## v0.32.0 - 지속 가능한 대화 Resume
+
+릴리즈 날짜: 2026-07-13
+
+이 release는 local conversation state를 process restart 뒤에도 재개 가능하게 만듭니다. Immutable app-data transcript artifact에는 user, visible/normalized model, tool, evidence turn을 저장하고 canonical ledger event가 순서와 binding 권위를 가지며, SQLite migration v6의 `transcript_records`는 재생성 가능한 query projection입니다.
+
+### 포함된 것
+
+- `run`은 workflow 생성이나 model 실행 전에 최근 turn을 최대 8개·2,400자 안에서 재구성하고 현재 요청과 resume context 전체에 source pointer 최대 4개·3,200자의 단일 공유 budget을 적용합니다.
+- `state resume`, `resume <session-id>`, 새 `continue [session-id]`는 session 선택이나 안전한 checkpoint continuation 전에 transcript artifact, 현재 source SHA-256, workflow/proposal/evidence binding을 검증합니다. Pending approval은 backend를 다시 호출하지 않고, 결과가 불확실한 backend/verification side effect는 재시도하지 않습니다.
+- `tui transcript <session-id>`, `state`, `monitor status`는 hidden model response, raw source body, patch fragment, verification command 원문을 노출하지 않고 ledger 순서의 durable transcript record를 보여줍니다.
+- Process-level test가 SQLite 삭제 뒤 순서가 보존되는 projection 재구축, 반복 resume의 backend 2차 호출 없음, 선택 session continuation, mutation 전 preflight, patch fragment 제외, artifact 변조 fail-closed를 검증합니다.
+
+### Privacy 경계
+
+Durable resume는 local user turn과 visible/normalized model/tool/evidence record를 저장합니다. 전체 backend prompt, hidden reasoning/raw backend response, raw source body, patch fragment, verification command 원문, credential 포함 command output은 저장하지 않습니다. Source context는 project-relative pointer와 SHA-256으로 남기고 resume 시 원문을 다시 읽습니다.
+
+### 구현 중 검증한 것
+
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1` (`331` unit, `1` backend lifecycle, `23` process test 통과)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.32.0`
+- `scripts/release/verify-uninstall-smoke.sh target/release/rpotato`
+- 독립 release-blocker 재리뷰: proposal binding, transcript root, privacy, ordering, preflight 보정 후 승인
+
 ## v0.31.1 - Windows Sidecar Stop Fallback
 
 릴리즈 날짜: 2026-07-11

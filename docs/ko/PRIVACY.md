@@ -30,7 +30,7 @@
 - password
 - private key
 - 원문 credential이 포함된 command output
-- 사용자 source code 또는 prompt 원문을 기본 monitoring DB에 저장하는 것
+- monitoring만을 위해 전체 backend prompt, hidden reasoning/raw model response, source file 전체 body를 저장하는 것
 
 ## 네트워크 사용
 
@@ -55,7 +55,9 @@ MVP에서 허용되는 네트워크 사용:
 
 - monitoring은 local-first입니다.
 - 외부 telemetry 전송은 MVP 기본 기능에 포함하지 않습니다.
-- raw prompt, source code 원문, credential 포함 command output은 기본 monitoring DB에 저장하지 않습니다.
+- durable local resume는 user turn과 visible/normalized model/tool/evidence turn을 저장하며 normalized patch action에는 find/replace 또는 verification command 원문 대신 path, action metadata, hash만 저장합니다.
+- 전체 backend prompt, hidden/raw model response, source file 전체 body, credential 포함 command output은 transcript storage에서 제외합니다.
+- SQLite는 local query용 durable transcript record를 projection할 수 있으며 canonical ledger/artifact state에서 재생성할 수 있습니다.
 - export 기능은 사용자 명령으로만 실행합니다.
 
 ## 외부 adapter

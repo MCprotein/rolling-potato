@@ -17,8 +17,8 @@
 monitor 상태
 - observability store: /path/to/observability.sqlite
 - runtime ledger: /path/to/runtime-ledger.jsonl
-- raw prompt/source 저장: 기본 비활성
-- 현재 상태: SQLite projection은 Phase 2에서 생성 예정
+- transcript records: user/visible-model/tool/evidence local persistence
+- excluded content: complete backend prompt, hidden response, raw source body
 ```
 
 ## Forbidden
