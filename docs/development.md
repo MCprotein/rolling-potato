@@ -34,6 +34,8 @@ Implemented first boundaries:
 - `rpotato session new`
 - `rpotato resume`
 - `rpotato resume <session-id>`
+- `rpotato continue`
+- `rpotato continue <session-id>`
 - `rpotato cancel`
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
@@ -83,11 +85,11 @@ Implemented first boundaries:
 
 `rpotato init` initializes state layout, current state, append-only ledger, runtime evidence JSONL, and SQLite observability projection.
 
-Session history is ledger-authoritative for the current project. `session list`/`session history` query a SQLite projection rebuilt from the canonical runtime ledger, `session new` creates a fresh session identity, and `session resume <session-id>` or `resume <session-id>` writes the selection to current state only after confirming the session in that ledger. Full agent-loop transcript replay is not implemented yet.
+Session history and transcript ordering are ledger-authoritative for the current project. `session list`/`session history` query rebuildable SQLite projections. `session resume <session-id>`, `resume <session-id>`, and `continue <session-id>` validate canonical transcript artifacts and source hashes before selecting the session and continuing a matching safe workflow checkpoint. `continue` resumes the current selection. SQLite-only rows never authorize resume.
 
 Static unverified candidates remain blocked from installation. A source-backed candidate can now be promoted locally only after its artifact bytes, exact `backend.chat.completed` provenance, measured RAM/mmproj state, and hash-pinned canonical adoption benchmark/prompt pair all revalidate. `model install` then registers it, `model default <id>` selects it persistently, and `backend start` may omit `--model`. The v0.30.0 strict comparison selected Gemma after Qwen failed exact-response equality; this host-specific result in `model-eval.md` is not public benchmark parity or 16 GB evidence.
 
-`run` now starts a canonical workflow artifact before calling the backend, persists the model response as a non-executable action, requires a structured source pointer/path/find/replace/pre-bound verification plan, rereads the authoritative source, and exits at `pending-approval` with a diff and exact `patch approve` command. `state resume` validates the workflow plus ledger checkpoint and does not call the backend again while approval is pending.
+`run` validates durable resume context and applies one shared 4-pointer/3,200-character source budget across current-request and resumed context before creating a canonical workflow or calling the backend. It then persists canonical user, visible/normalized model, tool, and evidence transcript artifacts. Resume rebuilds at most 8 recent turns/2,400 characters; stale hashes fail closed without creating a workflow. The runtime excludes hidden reasoning, the raw backend response, raw source bodies, patch fragments, and verification-command text from transcript artifacts. `state resume` validates transcript/workflow/ledger checkpoints before session selection and does not call the backend again while approval is pending or automatically rerun an uncertain verification command.
 
 The checkpoint, ledger-chain, CSPRNG-token, atomic rollback, stop-gate, streaming-transport, and generation-state lifecycle tests are platform-independent unit/state tests. `tests/backend_lifecycle.rs` compiles a Rust fake sidecar and exercises real CLI child processes on every release platform, including Windows. `tests/patch_loop.rs` remains Unix-only because its hostile fixture uses an executable Python fake sidecar and Unix process permissions; Unix additionally proves timeout, language rejection, upstream-error redaction, and sidecar-stop ordering across CLI processes.
 
@@ -172,6 +174,8 @@ cargo run -- session history
 cargo run -- session resume <session-id>
 cargo run -- resume
 cargo run -- resume <session-id>
+cargo run -- continue
+cargo run -- continue <session-id>
 cargo run -- evidence validate .rpotato/evidence/smoke.txt
 cargo run -- skill list
 cargo run -- skill run fix-test

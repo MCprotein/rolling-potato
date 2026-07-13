@@ -89,6 +89,8 @@ rpotato session resume <session-id>
 rpotato session new
 rpotato resume
 rpotato resume <session-id>
+rpotato continue
+rpotato continue <session-id>
 rpotato evidence validate logs/test.log
 rpotato skill list
 rpotato skill run fix-test
@@ -217,6 +219,8 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato session new`
 - `rpotato resume`
 - `rpotato resume <session-id>`
+- `rpotato continue`
+- `rpotato continue <session-id>`
 - `rpotato cancel`
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
@@ -287,17 +291,17 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `rpotato init`은 app data root와 project-local `.rpotato/` 아래에 current-state, append-only ledger, runtime evidence JSONL, SQLite observability projection, project-local ontology store/schema를 초기화합니다. Ontology store에는 raw source text를 장기 저장하지 않고, source-backed project file에서 결정적 Layer A fact만 source pointer와 hash로 seed합니다.
 
-`state reconcile`은 stale/corrupt current-state를 보존 이동한 뒤 새 current-state를 기록합니다. `state resume`은 active workflow pointer를 감지하거나, 재개할 작업이 없으면 no-op ledger event를 남깁니다.
+`state reconcile`은 stale/corrupt current-state를 보존 이동한 뒤 새 current-state를 기록합니다. `state resume`과 `continue`는 선택한 session의 bounded durable context를 검증·재구성한 뒤 안전한 active workflow checkpoint만 계속합니다. Pending approval에서는 backend를 다시 호출하지 않고, 결과가 불확실한 backend request나 verification command는 자동 재실행하지 않습니다.
 
-`session list`와 `session history`는 canonical runtime ledger에서 재생성한 SQLite projection으로 현재 project의 session history를 표시합니다. `session new`는 새 session identity를 만들고 current-state를 그 session으로 전환합니다. `session resume <session-id>`와 `resume <session-id>`는 해당 session이 canonical ledger에 존재할 때만 선택을 허용하고 current-state에 기록해 이후 명령이 같은 session identity로 이어지게 합니다. SQLite에만 존재하는 row는 resume 권위가 될 수 없습니다. 실제 model/backend agent loop의 transcript replay와 대화 이어달리기는 후속 agent-loop phase에서 이 current-state를 사용해 구현합니다.
+`session list`와 `session history`는 canonical runtime ledger에서 재생성한 SQLite projection으로 현재 project의 session history를 표시합니다. `session new`는 새 session identity를 만들고 current-state를 그 session으로 전환합니다. `session resume <session-id>`, `resume <session-id>`, `continue <session-id>`는 canonical ledger 소유권을 요구하고 current-state 변경 전에 durable transcript artifact와 source hash를 검증한 뒤 같은 session의 안전한 workflow checkpoint만 계속합니다. SQLite-only row는 resume 권위가 될 수 없고, 다른 session 소유의 non-terminal workflow가 있으면 mutation 없이 차단합니다.
 
 `evidence validate`는 artifact pointer가 local project-relative path이고 project boundary를 벗어나지 않는지 확인합니다.
 
-`run`은 user request를 skill/mode/context/evidence 요구사항으로 정규화하고, source pointer가 포함된 ontology 기반 context를 선택하며, 실행 중인 backend sidecar 결과를 model text 실행 없이 runtime-owned typed action으로 파싱합니다. Read-only action은 guarded 한국어 보고로 종료합니다. 유효한 patch action은 restart-safe workflow와 proposal을 저장하고 authoritative source를 다시 읽은 뒤 정확한 `patch approve` gate에서 멈춥니다. `run` 자체는 patch를 적용하거나 verification을 실행하지 않으며, 아래의 분리된 credential이 각 side effect에 필요합니다. Intent, context, action, backend, ledger, token/latency projection record는 local에만 남습니다.
+`run`은 user request를 skill/mode/context/evidence 요구사항으로 정규화하고 최근 durable turn을 최대 8개·2,400자 안에서 재구성합니다. 현재 요청과 resume context 전체에 source pointer 최대 4개·3,200자의 단일 공유 budget을 적용한 뒤에만 workflow를 만들고 backend sidecar를 호출합니다. Canonical transcript artifact에는 user turn, visible 또는 normalized model result, normalized tool record, evidence record를 저장합니다. Source 원문과 patch fragment는 pointer와 SHA-256만 남기고 hidden reasoning/raw backend response는 제외합니다. SQLite `transcript_records`는 순서를 보존하는 재생성 가능한 projection이며 resume 권위가 아닙니다. 유효한 patch action은 restart-safe workflow와 proposal을 저장하고 정확한 `patch approve` gate에서 멈춥니다.
 
 `intent classify`, `intent routes`, `skill run`은 model을 호출하지 않는 pre-execution surface입니다. Routing state를 정규화하고 ledger event만 남깁니다.
 
-`tui`, `tui monitor`, `tui sessions`, `tui transcript <session-id>`, `tui approvals`, `tui diff <proposal-id>`, `tui evidence`는 기존 runtime state, SQLite observability projection, project-local patch proposal record, team admission approval request record, evidence store path를 읽는 read-only TUI beta surface입니다. Project/session 상태, model/token/TPS summary, CPU/RSS/disk resource pressure, session history, 선택한 session의 event timeline, approval queue record, proposal metadata, literal diff, evidence count, stop-gate result count, stale policy, read-only boundary를 terminal-friendly ASCII layout으로 보여줍니다. Approval, patch apply, resume, cancel, transcript replay, stop gate pass/fail 판정, workflow mutation은 수행하지 않습니다.
+`tui`, `tui monitor`, `tui sessions`, `tui transcript <session-id>`, `tui approvals`, `tui diff <proposal-id>`, `tui evidence`는 read-only TUI beta surface입니다. Transcript view는 durable user/model/tool/evidence turn을 검증해 ledger event timeline과 함께 표시합니다. Hidden model response, source file body, patch fragment, verification command 원문은 표시하지 않습니다. TUI는 approval, patch apply, resume, cancel, stop gate pass/fail 판정, workflow mutation을 수행하지 않습니다.
 
 `policy`와 `hooks` 명령은 command/path 권한 결정, credential redaction, lifecycle hook registry, fail-closed hook result 검사를 제공합니다. 실제 tool execution은 아직 이 policy surface 뒤에 연결되지 않았습니다.
 
@@ -318,15 +322,6 @@ MVP의 기본 결정은 다음과 같습니다.
 Backend CPU/RSS/disk resource sampling은 `backend start`, `backend status`, `backend chat`, `monitor status`, read-only `tui monitor` resource-pressure panel에서 사용할 수 있습니다. 첫 runtime resource governor slice는 backend chat에 적용되어 있습니다. `team status`는 계속 read-only admission preview이며 현재 project의 최신 `team.*` runtime ledger event를 표시합니다. `team admit --lanes <count>`는 enforced team admission gate입니다. Normal pressure에서는 parallel lane을 허용하고, unknown/degraded pressure에서는 sequential lane 하나로 fallback하며, critical pressure에서는 worker launch가 생기기 전 단계에서 dispatch를 차단하고 decision을 ledger에 기록합니다. `team admit`은 반복 가능한 `--write <path>`, `--write-owner <lane:path>`, `--command <command>` preflight check도 받습니다. Policy가 `ask` 또는 `deny`를 반환하면 dispatch를 차단하고, 정규화된 같은 write path를 여러 lane이 소유하려 하면 worker launch 전에 차단합니다. Policy/ownership block은 `.rpotato/approval-requests/` 아래 project-local approval request를 기록하며, `rpotato tui approvals`는 이 team request를 patch proposal과 함께 표시합니다. `team dispatch --lanes <count> --write-owner <lane:path>`는 dispatch 시점에 정규화된 file ownership을 다시 검사하고 cross-lane conflict를 차단하며 ledger/SQLite projection에 결과를 기록합니다. `--failed-lane <lane> --failure <reason>`으로 failed-worker continuation도 기록할 수 있지만 worker를 시작하거나 team stage를 전진시키지는 않습니다. `team governor --lanes <count> --context-tokens <tokens>`는 첫 context/model governor preflight를 기록합니다. Admitted lane을 표시하고, 요청 context를 설정 budget과 현재 resource pressure에 맞춰 clamp하며, 실제 model capability를 주장하거나 artifact를 선택하지 않고 local model-tier route hint(`keep`, `downgrade`, `escalate`, `defer`)만 냅니다.
 
 `plugin import`는 local Codex/Claude Code형 plugin directory만 받습니다. Source를 app data 아래에 snapshot하고 normalized schema v2 manifest에 source manifest SHA-256과 source snapshot SHA-256을 기록하며, 보이는 capability와 required/blocked permission을 보고합니다. `plugin validate`와 `plugin enable`은 imported snapshot hash를 다시 확인하고 drift가 있으면 plugin을 `blocked`로 표시합니다. Import와 enable은 shell, MCP, hook, background, runtime-setting, remote-connector, sensitive-config, file-write 실행 권한을 그 자체로 부여하지 않습니다.
-
-다음 구현 전 작업:
-
-- source-recorded GGUF artifact 후보의 반복 가능한 local smoke/RAM-fit/mmproj 증거 수집
-- `Qwen3.5-4B` Q4_K_M 후보와 `Gemma 4 E4B` IT QAT q4_0 후보 벤치마크
-- 실제 agent loop의 transcript replay와 active workflow resume 실행
-- streaming response path와 generation cancellation path 설계
-
-벤치마크 초안은 [docs/model-eval.md](docs/model-eval.md)를 따릅니다.
 
 ## 공개 저장소 운영
 

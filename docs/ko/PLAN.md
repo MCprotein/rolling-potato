@@ -70,6 +70,8 @@ rpotato session resume <session-id>
 rpotato session new
 rpotato resume
 rpotato resume <session-id>
+rpotato continue
+rpotato continue <session-id>
 rpotato evidence validate logs/test.log
 rpotato skill list
 rpotato skill run fix-test
@@ -283,6 +285,7 @@ rpotato app data root/
   state/
     observability.sqlite
     runtime-ledger.jsonl
+    transcripts/<project-id>/<session-id>/*.json
   plugins/
     imported/
     data/
@@ -306,8 +309,8 @@ platform path는 Phase 1에서 결정하지만 경계는 안정적으로 유지�
 
 - SQLite를 local query/index/reporting store로 사용한다.
 - append-only ledger/JSONL은 audit trail과 crash recovery source로 유지한다.
-- token, latency, backend, guard, tool, evidence, stop-gate metric을 session/workflow/model별로 저장한다.
-- raw prompt, source code, credential이 포함될 수 있는 command output은 기본 저장하지 않는다.
+- token, latency, backend, guard, tool, evidence, stop-gate metric과 재생성 가능한 transcript projection을 session/workflow/model별로 저장한다.
+- resume를 위해 local user turn과 visible/normalized model/tool/evidence turn을 저장한다. 전체 backend prompt, hidden/raw model response, raw source body, credential이 포함될 수 있는 command output은 저장하지 않는다.
 - `rpotato monitor ...`, `doctor`, benchmark report, TUI view로 monitoring을 노출한다.
 
 ## Model Knowledge Base

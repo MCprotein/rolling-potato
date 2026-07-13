@@ -87,7 +87,7 @@
 - telemetry 없음
 - remote adapter opt-in
 - logs redaction
-- raw prompt/source 원문 미저장 기본값
+- local user와 visible/normalized model/tool/evidence turn만 영속화하고 전체 backend prompt, hidden response, raw source body는 제외
 
 ### 외부 Plugin supply chain
 

@@ -15,7 +15,7 @@ Monitoring UX follows [DESIGN.md](../DESIGN.md) and [tui.md](tui.md). TUI is the
 - Compare benchmark results and real-use results through the same schema.
 - Let TUI and `doctor` show current state and recent failure causes.
 - Let the runtime reduce work when local resources are under pressure instead of waiting for the OS to fail first.
-- Support useful diagnosis without storing raw prompts or raw source code by default.
+- Support useful diagnosis without storing the complete backend prompt, hidden/raw model response, or raw source body.
 
 ## Resource Monitoring Rollout
 
@@ -60,7 +60,7 @@ SQLite does not own:
 - user approval policy
 - stop-gate decisions
 - source-of-truth event append order
-- long-term raw prompt/source storage
+- long-term complete backend-prompt, hidden-response, or raw-source storage
 
 ## Current Implementation
 
@@ -69,14 +69,14 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato init` creates app data root, project-local `.rpotato/`, current state, runtime ledger, project session ledger, runtime evidence JSONL, and SQLite projection.
 - Append-only ledger is the source of truth; SQLite `ledger_events` is a replayable projection.
 - SQLite session history can be restored for the current project from replayed `ledger_events` if the projection is recreated.
-- SQLite migration v5 creates the existing runtime tables and rebuilds `workflows` from append-only `workflow.checkpoint` details; SQLite remains a projection, not workflow authority.
+- SQLite migration v6 adds rebuildable `transcript_records` and continues rebuilding `workflows` from append-only `workflow.checkpoint` details; SQLite remains a projection, not workflow or transcript authority.
 - `rpotato state` shows current-state and ledger/projection counts.
 - `rpotato state reconcile` recovers missing/stale/corrupt current state and records preserve-move events in the ledger.
 - `rpotato state resume` strictly parses every ledger line, validates the full canonical snapshot/checkpoint hash chain and latest committed revision, and resumes safe phases idempotently. Pending approval displays the diff and a token placeholder without a backend call; the one-time token cannot be redisplayed.
 - Patch verification writes project evidence JSON plus runtime evidence JSONL containing hashes and status, not source, command output, or approval token plaintext. The stop gate rereads the artifact and authoritative source before success.
 - `rpotato session list` and `rpotato session history` read a SQLite session view rebuilt from the canonical runtime ledger for the current project. Replay removes SQLite-only session rows.
 - `rpotato session new` creates a fresh session identity, writes it to current state, appends a `session.new` ledger event, and projects it into SQLite.
-- `rpotato session resume <session-id>` and `rpotato resume <session-id>` require the prior session in the canonical runtime ledger before writing that session id back into current state.
+- `rpotato session resume <session-id>`, `rpotato resume <session-id>`, and `rpotato continue <session-id>` require canonical ledger ownership, validate immutable transcript artifacts and source hashes before current-state mutation, and continue only a matching safe workflow checkpoint. Bare `continue` resumes the current selection.
 - `rpotato resume` without an id shows session history, so a TUI/CLI surface can let users choose the target before resuming.
 - `rpotato cancel` appends a no-op cancel event when there is no active workflow.
 - `rpotato evidence validate <artifact-pointer>` verifies that a project-relative artifact pointer stays inside the project boundary.
@@ -108,8 +108,7 @@ Not implemented yet:
 
 - continuous background CPU/memory/disk resource sampling from the managed backend sidecar
 - full subagent/team dispatcher execution after dispatch preflight
-- full transcript replay and conversation continuation after a selected session resume
-- active workflow resume execution by the real agent loop
+- compaction/summarization of transcript histories beyond the bounded recent-turn window
 - actual retention deletion
 - separate SQLite terminal-outcome enum for cancellation versus timeout
 - live TUI rendering of token-stream statistics
@@ -217,11 +216,13 @@ guard_results
 stop_gate_results
 evidence_records
 benchmark_runs
+transcript_records
 ```
 
 Principles:
 
-- Do not store raw prompts or raw source by default.
+- Durable resume stores user and visible/normalized model/tool/evidence turns; normalized patch actions store paths, action metadata, and SHA-256 values instead of patch fragments or verification-command text.
+- Do not store complete backend prompts, hidden/raw model responses, or complete source-file bodies in the transcript projection.
 - Store source paths as project-relative paths plus hashes.
 - Prefer redacted summaries and artifact pointers for command output.
 - Keep raw logs opt-in or short-retention.
@@ -243,6 +244,8 @@ rpotato session resume <session-id>
 rpotato session new
 rpotato resume
 rpotato resume <session-id>
+rpotato continue
+rpotato continue <session-id>
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
 rpotato monitor prune --before 30d --dry-run
@@ -280,7 +283,7 @@ Initial retention matrix:
 | SQLite projection | long term while app data exists | rebuildable from ledger where possible | projection, not event source |
 | append-only runtime ledger | long term | explicit user cleanup only | audit source |
 | project session ledger | project-local | project cleanup only | tied to `.rpotato/` |
-| transcript metadata | project-local | project cleanup only | raw transcript storage remains opt-in/later |
+| durable transcript artifacts | app-data lifetime | app-data cleanup only | local user plus visible/normalized model/tool/evidence turns; no hidden response or raw source body |
 | evidence artifacts | until stale or user cleanup | `evidence validate`, later evidence prune | project-bound pointer required |
 | patch rollback bytes | until project cleanup | project `.rpotato/` cleanup | restricted project-local original bytes; never projected to SQLite/monitor or ledger/evidence payloads |
 | command output summaries | short or redacted | monitor/log prune | prefer summaries over raw logs |
@@ -310,9 +313,10 @@ Compacted summaries are not source of truth.
 - Original decision evidence is rechecked from runtime ledger, project session ledger, and evidence artifact pointers.
 - Compacted summary is only a resume-bundle navigation hint and is not used to confirm file, command, or model claims.
 - Compacted summary artifacts must pass the same project-boundary validation as `evidence validate`.
-- Runtime core resumes safe persisted phases of bounded patch workflows. Durable transcript replay and transcript-driven agent workflow continuation remain later capabilities.
-- Session resume is ledger-authoritative: SQLite renders the selectable session list, the append-only runtime ledger authorizes each selection, and current state stores only the selected `session_id` plus resume metadata.
-- `rpotato resume <session-id>` currently selects the target session for subsequent commands; model transcript replay is a later agent-loop capability.
+- Runtime core reconstructs up to 8 recent transcript turns/2,400 characters and applies one shared 4-pointer/3,200-character source budget across current-request and resumed context before creating or continuing a workflow.
+- Session resume is ledger/artifact-authoritative: SQLite renders selectable session/transcript views, while append-only ledger events and immutable transcript artifacts authorize replay. Current state stores the selected `session_id` plus resume metadata.
+- Every transcript projection row stores its canonical ledger event ID and monotonic event ordinal; replay restores `(session_id, event_ordinal)` order even when timestamps collide.
+- `resume`/`continue` never automatically repeat an uncertain backend request or verification command. Stale source hashes, corrupt artifacts, cross-project bindings, and cross-session active workflow ownership fail closed before mutation.
 
 ## Validation
 

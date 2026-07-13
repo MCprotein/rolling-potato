@@ -87,7 +87,7 @@ Mitigations:
 - no telemetry
 - remote adapter opt-in
 - log redaction
-- raw prompt/source not stored by default
+- only local user and visible/normalized model/tool/evidence turns are durable; complete backend prompts, hidden responses, and raw source bodies are excluded
 
 ### Foreign Plugin Supply Chain
 

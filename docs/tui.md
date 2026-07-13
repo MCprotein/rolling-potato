@@ -27,7 +27,7 @@ The approval view reads project-local `.rpotato/patch-proposals/` records and sh
 
 - `rpotato tui transcript <session-id>`
 
-The transcript view reads the SQLite ledger projection for the current project and shows session metadata plus a timestamp-ordered event timeline. It intentionally does not replay raw model transcripts, continue conversations, or expose raw event details by default.
+As of v0.32.0, the transcript view validates canonical durable user/visible-model/tool/evidence artifacts and shows those turns beside the ledger-ordered event timeline. It remains read-only and excludes hidden model responses, source-file bodies, patch fragments, verification-command text, and raw event details.
 
 `v0.8.0` extends the read-only beta with evidence and stop-gate status inspection:
 

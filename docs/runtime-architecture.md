@@ -129,11 +129,11 @@ Session resume is a runtime-core responsibility, not a CLI-only shortcut.
 
 The runtime keeps three separate layers:
 
-- append-only ledger: audit source for session events
-- SQLite projection: rebuildable session-history view for CLI/TUI selection
+- append-only ledger plus immutable transcript artifacts: audit ownership/order and durable user/visible-model/tool/evidence turns
+- SQLite projection: rebuildable session-history and `transcript_records` view for CLI/TUI queries
 - current state: the currently selected `session_id` and resume metadata
 
-`rpotato session list`, `rpotato session history`, and bare `rpotato resume` render a SQLite view rebuilt from the canonical runtime ledger. `rpotato session resume <session-id>` and `rpotato resume <session-id>` first require a matching project/session event in that ledger; only then do they write the selected session id into current state. The later agent-loop phase uses that selected session to replay transcript, rebuild context, and continue conversation.
+`rpotato session list`, `rpotato session history`, and bare `rpotato resume` render SQLite views rebuilt from canonical artifacts. `rpotato session resume <session-id>`, `rpotato resume <session-id>`, and `rpotato continue <session-id>` validate ledger ownership, every referenced transcript artifact, current source hashes, and the matching workflow/proposal/evidence bindings before changing current state. They then continue only a matching safe workflow checkpoint. Bare `continue` uses the current session. Resume compiles at most 8 recent turns within 2,400 characters, while current-request and resumed source context share one limit of 4 pointers and 3,200 characters. Hidden reasoning/raw backend responses, raw source bodies, patch fragments, and verification-command text are not transcript records. Uncertain backend requests and verification commands are never automatically repeated.
 
 ## Model Artifact
 
@@ -150,7 +150,7 @@ The runtime core blocks model install until the following are confirmed:
 - backend compatibility
 - RAM-fit evidence for product default selection
 
-Current Qwen/Gemma GGUF candidates have source-recorded URLs, file sizes, and expected SHA-256 values, but they remain `unverified` until local `llama.cpp b9878` smoke, RAM-fit measurement, and mmproj-need review are complete.
+The v0.30.0 local adoption gate promoted the measured Gemma artifact and selected it as the persistent default after the pinned Qwen candidate failed exact-response equality on this host. This is a local product result documented in [model-eval.md](model-eval.md), not a public benchmark-parity or universal hardware-fit claim.
 
 ## Control Flow
 

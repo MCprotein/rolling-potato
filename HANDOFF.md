@@ -7,7 +7,7 @@
 ```
 
 - Remote: `https://github.com/MCprotein/rolling-potato.git`
-- Latest release: `v0.29.1`
+- Latest release: `v0.32.0`
 - CLI: `rpotato`
 - Product: local-first coding-agent runtime for small local models
 
@@ -38,7 +38,7 @@ policy, explicit approval where required, evidence recording, and verification.
 
 ## Current Release State
 
-`v0.29.1` is the current complete release. GitHub Releases provides checksummed
+`v0.32.0` is the current complete release. GitHub Releases provides checksummed
 binaries for:
 
 - macOS Apple Silicon
@@ -64,8 +64,10 @@ an aggregate checksum file.
 - Canonical append-only runtime/project ledgers with a rebuildable SQLite
   observability projection for sessions, model
   runs, tokens, latency, resources, benchmarks, evidence, and team events
-- Session history and session selection for resume
-- Read-only TUI views for overview, monitoring, sessions, transcript events,
+- Canonical durable user/visible-model/tool/evidence transcripts, rebuildable
+  SQLite transcript projection, bounded source-pointer context reconstruction,
+  and idempotent session/workflow `resume`/`continue`
+- Read-only TUI views for overview, monitoring, sessions, durable transcript turns and events,
   approvals, diffs, evidence, and stop-gate state
 - Resource governor, benchmark-driven optimization recommendations, and team
   admission/policy/ownership/dispatch preflight
@@ -81,9 +83,9 @@ an aggregate checksum file.
   and guarded Korean final reporting. General tool orchestration remains later.
 - Model candidates are not defaults until source, license, artifact, backend,
   RAM/mmproj, and measured benchmark evidence passes the install gate.
-- Runtime core resumes safe persisted phases of bounded patch workflows.
-  Session `resume` still does not replay a durable conversation or continue a
-  transcript-driven agent workflow.
+- Runtime core resumes safe persisted phases of bounded patch workflows and
+  reconstructs durable bounded conversation/source context. It never
+  automatically repeats an uncertain backend request or verification command.
 - Hooks and skills expose validation/routing foundations but are not yet a full
   executable lifecycle state machine.
 - TUI is read-only; it cannot approve, apply, resume, cancel, or mutate work.
@@ -99,11 +101,8 @@ The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
 sequence and non-skippable release gates are defined in
 `docs/release-train.md`. The immediate sequence is:
 
-1. `v0.30.0`: close model evaluation evidence and managed model install/default
-   selection without predeclaring a winning Qwen/Gemma candidate.
-2. `v0.31.0`: add backend response streaming and cancellation.
-3. `v0.32.0`: implement durable transcript replay and real workflow resume.
-4. `v0.33.0` onward: executable hooks/skills, interactive TUI, subagents,
+1. `v0.33.0`: executable hooks and skills with deterministic fail-closed lifecycle integration.
+2. `v0.34.0` onward: interactive TUI, subagents,
    teams, and plugin execution adapters.
 
 Package-manager distribution and an optional local HTML monitoring report come

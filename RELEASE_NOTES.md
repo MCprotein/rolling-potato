@@ -1,5 +1,34 @@
 # Release Notes
 
+## v0.32.0 - Durable Conversation Resume
+
+Release date: 2026-07-13
+
+This release makes local conversation state process-restart durable. Immutable app-data transcript artifacts store user, visible/normalized model, tool, and evidence turns; canonical ledger events own their order and bindings, while SQLite migration v6 provides a rebuildable `transcript_records` query projection.
+
+### Included
+
+- `run` reconstructs at most 8 recent turns within 2,400 characters and shares one 4-pointer/3,200-character source budget across current-request and resumed context before workflow creation or model execution.
+- `state resume`, `resume <session-id>`, and the new `continue [session-id]` validate transcript artifacts, current source SHA-256 values, and workflow/proposal/evidence bindings before selecting a session or continuing a safe checkpoint. Pending approval never re-enters the backend, and uncertain backend/verification side effects are not retried.
+- `tui transcript <session-id>`, `state`, and `monitor status` expose ledger-ordered durable transcript records without showing hidden model responses, raw source bodies, patch fragments, or verification-command text.
+- Process-level tests delete SQLite and prove ordered projection rebuild, repeated resume without a second backend call, selected-session continuation, preflight-before-mutation, patch-fragment exclusion, and fail-closed artifact tamper handling.
+
+### Privacy Boundary
+
+Durable resume stores the local user turn and visible/normalized model, tool, and evidence records. It does not store the complete backend prompt, hidden reasoning/raw backend response, raw source body, patch fragment, verification-command text, or credential-bearing command output. Source context persists as a project-relative pointer and SHA-256 and is reread on resume.
+
+### Verified During Implementation
+
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1` (`331` unit, `1` backend lifecycle, and `23` process tests passed)
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- `scripts/release/verify-release-policy.sh`
+- `scripts/release/verify-release-target-matrix.sh`
+- `scripts/release/verify-release-binary-smoke.sh target/release/rpotato 0.32.0`
+- `scripts/release/verify-uninstall-smoke.sh target/release/rpotato`
+- Independent release-blocker re-review: approved after proposal-binding, transcript-root, privacy, ordering, and preflight corrections
+
 ## v0.31.1 - Windows Sidecar Stop Fallback
 
 Release date: 2026-07-11

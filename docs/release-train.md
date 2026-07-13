@@ -1,8 +1,9 @@
 # v0.29.0-v0.41.0 Release Train
 
-This document is the durable execution contract for the Ultragoal run that
-implements and releases every concrete version in [ROADMAP.md](../ROADMAP.md)
-from `v0.29.0` through `v0.41.0`.
+This document is the durable execution contract for one-version-at-a-time Codex
+Goal runs that implement and release the concrete versions in
+[ROADMAP.md](../ROADMAP.md) from `v0.29.0` through `v0.41.0`. Ultragoal is not
+used for this release train.
 
 ## Objective
 
@@ -11,9 +12,9 @@ runtime for small local models. Execute one minor-version release cycle at a
 time. Do not skip a version, declare unmeasured model results, or move packaging
 polish ahead of runtime correctness.
 
-The aggregate Goal is complete only when `v0.41.0` is released, all earlier
-versions have passed their gates, the final Ultragoal quality gate is clean,
-and no unresolved blocker story remains.
+Each version uses a separate Goal and completes only after its tag, GitHub
+Release, required assets, checksums, workflow gates, branch cleanup, and review
+evidence are verified. The next version starts with a new Goal.
 
 ## Required Version Cycle
 
@@ -34,8 +35,8 @@ Every version must complete this sequence:
    GitHub Release.
 10. Verify the GitHub Actions conclusion, every required platform archive,
     per-asset checksums, aggregate checksums, and packaged-binary smoke results.
-11. Remove the merged local/remote release branch and checkpoint the Ultragoal
-    story with concrete evidence before starting the next version.
+11. Remove the merged local/remote release branch and complete the current
+    version Goal with concrete evidence before starting the next version Goal.
 
 If a published tag cannot satisfy the release asset gate, create the smallest
 patch recovery release. Mark the failed tag superseded only with recorded
@@ -129,21 +130,21 @@ story active or record a blocker story when there is:
 - a destructive, credential-gated, license-changing, or materially scope-changing
   decision that lacks user authority
 
-Ultragoal steering may split work, add a blocker-resolution story, reorder only
-pending work when evidence proves it necessary, or revise pending wording. It
-must not weaken a gate, fabricate completion, silently skip a version, or change
-the aggregate product objective.
+Per-version Goal execution may split work, add blocker-resolution tasks, reorder
+only pending work when evidence proves it necessary, or revise pending wording.
+It must not weaken a gate, fabricate completion, silently skip a version, or
+change the product objective.
 
 ## Final Quality Gate
 
-Before marking the aggregate Goal complete:
+Before marking a version Goal complete:
 
-1. Verify `v0.41.0` and the complete release history.
-2. Run the Ultragoal-required changed-file cleanup pass.
+1. Verify the version tag, GitHub Release, workflow, assets, checksums, and branch cleanup.
+2. Run a changed-file cleanup and consistency pass.
 3. Rerun the full verification suite.
 4. Prove the architecture invariants from this document, `PLAN.md`,
    `ROADMAP.md`, and the runtime architecture documents.
-5. Obtain distinct independent `code-reviewer` approval and `architect` clear
-   evidence.
-6. Record the structured final quality gate and only then complete the Codex
-   Goal.
+5. Obtain independent `code-reviewer` approval; require an additional
+   `architect` review for architecture-changing versions and the final `v0.41.0`
+   train closeout.
+6. Record the final quality evidence and only then complete that version's Codex Goal.

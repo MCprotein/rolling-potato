@@ -27,7 +27,7 @@ Approval view는 project-local `.rpotato/patch-proposals/` record를 읽고 prop
 
 - `rpotato tui transcript <session-id>`
 
-Transcript view는 현재 project의 SQLite ledger projection을 읽고 session metadata와 timestamp 순 event timeline을 보여줍니다. Raw model transcript replay, conversation continuation, raw event detail 기본 노출은 의도적으로 수행하지 않습니다.
+v0.32.0부터 Transcript view는 canonical durable user/visible-model/tool/evidence artifact를 검증하고 해당 turn을 ledger 순서의 event timeline과 함께 보여줍니다. 계속 read-only이며 hidden model response, source file body, patch fragment, verification command 원문, raw event detail은 표시하지 않습니다.
 
 `v0.8.0`은 read-only beta에 evidence/stop-gate status inspection을 추가합니다.
 
