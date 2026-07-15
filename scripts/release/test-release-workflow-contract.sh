@@ -29,7 +29,7 @@ policy_body="$(cat "$policy_workflow")"
 require_line "$policy_body" 'RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS: ${{ github.ref_type == '\''tag'\'' && '\''1'\'' || '\''0'\'' }}'
 require_line "$policy_body" 'RPOTATO_REQUIRE_TAG_ON_MAIN: ${{ github.ref_type == '\''tag'\'' && '\''1'\'' || '\''0'\'' }}'
 require_line "$policy_body" 'RPOTATO_DELETE_RELEASE_BRANCH: "0"'
-if rg -n 'git push .*--delete|RPOTATO_DELETE_RELEASE_BRANCH: (1|"1")' "$policy_workflow" >/dev/null; then
+if grep -En 'git push .*--delete|RPOTATO_DELETE_RELEASE_BRANCH: (1|"1")' "$policy_workflow" >/dev/null; then
   fail "release-policy workflow must validate only and never own deletion"
 fi
 
@@ -49,7 +49,7 @@ delete_count="$(awk '/RPOTATO_DELETE_RELEASE_BRANCH:/ { count++ } END { print co
 [ "$delete_count" -eq 1 ] || fail "release workflow must have exactly one delete owner"
 grep -x '      RPOTATO_DELETE_RELEASE_BRANCH: 1' "$release_workflow" >/dev/null \
   || fail "delete owner must be the cleanup job-level env literal"
-if rg -n 'export[[:space:]]+RPOTATO_DELETE_RELEASE_BRANCH|^[[:space:]]{10,}RPOTATO_DELETE_RELEASE_BRANCH:|RPOTATO_DELETE_RELEASE_BRANCH:.*\$\{\{' "$release_workflow" >/dev/null; then
+if grep -En 'export[[:space:]]+RPOTATO_DELETE_RELEASE_BRANCH|^[[:space:]]{10,}RPOTATO_DELETE_RELEASE_BRANCH:|RPOTATO_DELETE_RELEASE_BRANCH:.*\$\{\{' "$release_workflow" >/dev/null; then
   fail "step-scoped, exported, or dynamic delete owner is forbidden"
 fi
 require_line "$cleanup" '      RPOTATO_DELETE_RELEASE_BRANCH: 1'
@@ -119,7 +119,7 @@ release_failure_diagnostic_is_exact_and_always_emitted() {
   [ "$actual" = "$expected" ] || fail "ReleaseDiagnosticV1 fixture bytes changed"
   [ ! -s "$stdout" ] || fail "ReleaseDiagnosticV1 wrote unexpected stdout"
   [ "$before" = "$after" ] || fail "release failure reporter changed the release branch"
-  if rg -F "$secret" "$stdout" "$stderr" >/dev/null; then
+  if grep -F -- "$secret" "$stdout" "$stderr" >/dev/null; then
     fail "release failure diagnostic leaked environment secret"
   fi
 
@@ -129,9 +129,9 @@ release_failure_diagnostic_is_exact_and_always_emitted() {
     "$missing_branch" "$remote" >"$stdout" 2>"$stderr"; then
     fail "missing release branch diagnostic unexpectedly succeeded"
   fi
-  rg -F -- '- branch-status: missing' "$stderr" >/dev/null \
+  grep -F -- '- branch-status: missing' "$stderr" >/dev/null \
     || fail "missing branch diagnostic was not emitted"
-  rg -F -- '- remote-status: reachable' "$stderr" >/dev/null \
+  grep -F -- '- remote-status: reachable' "$stderr" >/dev/null \
     || fail "missing branch remote status was not emitted"
 
   if scripts/release/report-release-failure.sh build:failure \
@@ -139,9 +139,9 @@ release_failure_diagnostic_is_exact_and_always_emitted() {
     "$branch" "$fixture/unavailable.git" >"$stdout" 2>"$stderr"; then
     fail "unavailable remote diagnostic unexpectedly succeeded"
   fi
-  rg -F -- '- branch-status: unverifiable' "$stderr" >/dev/null \
+  grep -F -- '- branch-status: unverifiable' "$stderr" >/dev/null \
     || fail "unverifiable branch diagnostic was not emitted"
-  rg -F -- '- remote-status: unavailable' "$stderr" >/dev/null \
+  grep -F -- '- remote-status: unavailable' "$stderr" >/dev/null \
     || fail "unavailable remote diagnostic was not emitted"
   rm -rf "$fixture"
 }
