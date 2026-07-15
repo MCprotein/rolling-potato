@@ -1,5 +1,32 @@
 # Release Notes
 
+## v0.34.1 - Portable Release Recovery
+
+Release date: 2026-07-16
+
+This patch release supersedes the incomplete v0.34.0 binary publication. The v0.34.0
+source tag remains immutable, but its release workflow could not publish the exact
+11-asset set because the Windows build used unstable metadata APIs and the Linux ARM64
+source-install path attempted an unnecessary ownership syscall.
+
+### Fixed
+
+- Replaces unstable Windows `MetadataExt` file identifiers with stable
+  `GetFileInformationByHandle` volume/file identity checks, preserving the existing
+  path-versus-open-handle fail-closed contract without adding a dependency.
+- Restricts Unix-only source-recovery tests to Unix so Windows test binaries compile.
+- Skips `fchown` when a newly created Unix source-install file already has the required
+  owner and group. A required ownership change still uses the same capability check and
+  fails closed if the syscall fails.
+- Adds a native Windows file-identity test to the release matrix.
+
+### Release Recovery
+
+- v0.34.0 remains available as immutable source history, but its partial binary assets
+  are not the supported release set.
+- v0.34.1 is the supported replacement and must pass the full five-target pre-publication
+  workflow before its GitHub Release is published.
+
 ## v0.34.0 - Runtime-Owned Interactive TUI
 
 Release date: 2026-07-16

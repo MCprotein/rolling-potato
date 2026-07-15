@@ -1,6 +1,6 @@
 [package]
 name = "rpotato"
-version = "0.34.0"
+version = "0.34.1"
 edition = "2021"
 rust-version = "1.97.0"
 license = "Apache-2.0"

@@ -1,5 +1,32 @@
 # 릴리즈 노트
 
+## v0.34.1 - Portable Release Recovery
+
+릴리즈 날짜: 2026-07-16
+
+이 patch release는 binary publication이 완결되지 못한 v0.34.0을 대체합니다. v0.34.0
+source tag는 immutable하게 유지하지만, Windows build의 unstable metadata API와 Linux
+ARM64 source-install 경로의 불필요한 ownership syscall 때문에 exact 11-asset set을
+게시하지 못했습니다.
+
+### 수정한 것
+
+- Unstable Windows `MetadataExt` file identifier 대신 stable
+  `GetFileInformationByHandle` volume/file identity 검사를 사용합니다. Dependency를
+  추가하지 않고 기존 path/open-handle fail-closed contract를 유지합니다.
+- Unix 전용 source-recovery test를 Unix로 제한해 Windows test binary가 compile됩니다.
+- 새 Unix source-install file이 이미 필요한 owner/group을 가지면 `fchown`을 생략합니다.
+  실제 ownership 변경이 필요하면 기존 capability 검사를 유지하고 syscall 실패 시
+  fail-closed합니다.
+- Release matrix에 native Windows file-identity test를 추가합니다.
+
+### 릴리즈 복구
+
+- v0.34.0은 immutable source history로 유지하지만, 일부만 게시된 binary asset은 지원
+  release set이 아닙니다.
+- v0.34.1을 지원 replacement로 삼고 GitHub Release 게시 전에 5개 target 전체
+  pre-publication workflow를 통과시킵니다.
+
 ## v0.34.0 - Runtime-Owned Interactive TUI
 
 릴리즈 날짜: 2026-07-16
