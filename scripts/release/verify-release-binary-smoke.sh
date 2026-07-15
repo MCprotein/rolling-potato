@@ -60,4 +60,22 @@ case "$output" in
   *) fail "doctor output did not report release smoke availability" ;;
 esac
 
+smoke_root="$(mktemp -d)"
+trap 'rm -rf "$smoke_root"' EXIT
+smoke_project="$smoke_root/project"
+smoke_data="$smoke_root/data"
+mkdir -p "$smoke_project"
+RPOTATO_PROJECT_ROOT="$smoke_project" \
+  RPOTATO_DATA_HOME="$smoke_data" \
+  "$binary_path" init >/dev/null
+tui_output="$(printf 'quit\n' | \
+  RPOTATO_PROJECT_ROOT="$smoke_project" \
+  RPOTATO_DATA_HOME="$smoke_data" \
+  RPOTATO_TEST_TERMINAL_FAULT="invalid-release-smoke-value" \
+  "$binary_path" tui interactive)"
+case "$tui_output" in
+  *"rpotato interactive | overview"*) ;;
+  *) fail "release build did not ignore the debug-only terminal fault seam" ;;
+esac
+
 printf 'release binary smoke ok: %s\n' "$binary_path"

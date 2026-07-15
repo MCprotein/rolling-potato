@@ -45,8 +45,46 @@ jobs:
       - name: Verify repository tool pins
         run: scripts/release/verify-toolchain-pins.sh
 
+      - name: Test release asset verifier
+        run: bash scripts/release/test-verify-release-assets.sh
+
+      - name: Test release workflow contract
+        run: bash scripts/release/test-release-workflow-contract.sh
+
       - name: Test
         run: cargo test --locked -- --test-threads=1
+
+      - name: Verify v0.34.0 named release proofs
+        run: |
+          cargo test --locked --bin rpotato observability::tests::sqlite_replay_faults_are_atomic_and_concurrent_readers_see_complete_rows -- --exact --test-threads=1
+          cargo test --locked --bin rpotato patch::tests::projection_lag_crash_after_lag_removal_before_journal_cleanup_converges -- --exact --test-threads=1
+          cargo test --locked --bin rpotato patch::tests::projection_lag_journal_cleanup_state_matrix_is_closed -- --exact --test-threads=1
+          cargo test --locked --bin rpotato patch::tests::projection_lag_orphan_without_journal_blocks -- --exact --test-threads=1
+          cargo test --locked --bin rpotato patch::tests::projection_lag_reference_and_member_mutation_matrix_fails_closed -- --exact --test-threads=1
+          cargo test --locked --bin rpotato patch::tests::projection_lag_restart_validates_reference_member_installed_bytes_and_head -- --exact --test-threads=1
+          cargo test --locked --bin rpotato patch::tests::projection_success_receipt_requires_lag_and_journal_parent_fsyncs -- --exact --test-threads=1
+          cargo test --locked --bin rpotato patch::tests::t10_lag_install_failure_preserves_committed_journal -- --exact --test-threads=1
+          cargo test --locked --bin rpotato runtime::tests::denial_truth_table_outcome_mapping_is_total -- --exact --test-threads=1
+          cargo test --locked --bin rpotato runtime::tests::docs_recovery_outcome_oracles_are_bilingual_and_exact -- --exact --test-threads=1
+          cargo test --locked --bin rpotato runtime::tests::runtime_tui_outcome_oracle_all_families_exact_utf8 -- --exact --test-threads=1
+          cargo test --locked --bin rpotato runtime::tests::tui_outcome_public_dto_and_exact_fixtures_share_field_order -- --exact --test-threads=1
+          cargo test --locked --bin rpotato runtime::tests::tui_read_facade_all_views_are_canonical_bounded_fresh_and_non_mutating -- --exact --test-threads=1
+          cargo test --locked --bin rpotato lease::tests::concurrent_kernel_lease_has_exactly_one_winner -- --exact --test-threads=1
+          cargo test --locked --bin rpotato ledger::tests::event_sink_single_acquisition_concurrency_matrix -- --exact --test-threads=1
+          cargo test --locked --bin rpotato ledger::tests::event_sink_crash_recovery_never_nests_ledger_lease -- --exact --test-threads=1
+          cargo test --locked --bin rpotato patch::tests::tui_workflow_resume_revalidates_lease_and_persists_exact_intent_receipt -- --exact --test-threads=1
+          cargo test --locked --bin rpotato state::tests::bootstrap_creation_crash_matrix_is_idempotent -- --exact --test-threads=1
+          cargo test --locked --bin rpotato state::tests::session_new_crash_race_restart_is_single_commit -- --exact --test-threads=1
+          cargo test --locked --bin rpotato state::tests::session_resume_transaction_never_exposes_current_before_ledger -- --exact --test-threads=1
+          cargo test --locked --bin rpotato state::tests::low_level_writer_recovery_is_idempotent -- --exact --test-threads=1
+          cargo test --locked --bin rpotato state::tests::workflow_checkpoint_writer_crash_matrix -- --exact --test-threads=1
+          cargo test --locked --bin rpotato state::tests::workflow_recovery_replays_only_prepared_suffix -- --exact --test-threads=1
+          cargo test --locked --bin rpotato state::tests::active_workflow_pointer_recovery_is_single_and_idempotent -- --exact --test-threads=1
+          cargo test --locked --bin rpotato state::tests::terminal_pointer_cleanup_crash_race_restart_is_idempotent -- --exact --test-threads=1
+          cargo test --locked --bin rpotato state::tests::reconcile_writer_crash_matrix_preserves_evidence -- --exact --test-threads=1
+          cargo test --locked --bin rpotato state::tests::state_writer_callgraph_is_closed_and_serialized_by_project_transition -- --exact --test-threads=1
+          cargo test --locked --bin rpotato transition::tests::projection_lag_member_full_bytes_golden_is_independent -- --exact --test-threads=1
+          cargo test --locked --test interactive_tui interactive_tui_recovery_outcome_matrix_exact -- --exact --test-threads=1
 
       - name: Verify release target matrix
         run: scripts/release/verify-release-target-matrix.sh
@@ -115,6 +153,11 @@ jobs:
           cargo test --locked --target ${{ matrix.target }} --bin rpotato backend_stream::tests:: -- --test-threads=1
           cargo test --locked --target ${{ matrix.target }} --bin rpotato generation_ -- --test-threads=1
           cargo test --locked --target ${{ matrix.target }} --test backend_lifecycle -- --test-threads=1
+
+      - name: Test native interactive terminal
+        run: |
+          cargo test --locked --target ${{ matrix.target }} --test native_terminal entry_quit -- --exact --test-threads=1
+          cargo test --locked --target ${{ matrix.target }} --test native_terminal full_adapter -- --exact --test-threads=1
 
       - name: Build release binary
         run: cargo build --release --locked --target ${{ matrix.target }}
@@ -208,23 +251,28 @@ jobs:
           path: dist/artifacts
           pattern: rpotato-${{ env.RELEASE_TAG }}-*
 
-      - name: Build aggregate checksum file
+      - name: Validate artifacts and build aggregate checksum file
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist
-          find dist/artifacts -name '*.sha256' -type f -print0 \
+          rm -rf dist/release-assets
+          mkdir -p dist/release-assets
+          find dist/artifacts -type f -print0 \
+            | while IFS= read -r -d '' asset; do
+                cp "$asset" "dist/release-assets/$(basename "$asset")"
+              done
+          find dist/release-assets -name '*.sha256' -type f -print0 \
             | sort -z \
             | xargs -0 cat \
-            > "dist/rpotato-${RELEASE_TAG}-checksums.txt"
-          test -s "dist/rpotato-${RELEASE_TAG}-checksums.txt"
-          scripts/release/verify-checksum-basenames.sh "dist/rpotato-${RELEASE_TAG}-checksums.txt"
+            | LC_ALL=C sort -t ' ' -k3,3 \
+            > "dist/release-assets/rpotato-${RELEASE_TAG}-checksums.txt"
+          scripts/release/verify-release-assets.sh "$RELEASE_TAG" dist/release-assets
 
       - name: Upload checksum workflow artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: rpotato-${{ env.RELEASE_TAG }}-checksums
-          path: dist/rpotato-${{ env.RELEASE_TAG }}-checksums.txt
+          path: dist/release-assets/rpotato-${{ env.RELEASE_TAG }}-checksums.txt
           if-no-files-found: error
 
       - name: Upload checksum file to GitHub Release
@@ -235,5 +283,108 @@ jobs:
         run: |
           set -euo pipefail
           gh release upload "$RELEASE_TAG" \
-            "dist/rpotato-${RELEASE_TAG}-checksums.txt" \
+            "dist/release-assets/rpotato-${RELEASE_TAG}-checksums.txt" \
             --clobber
+
+  published-assets-verify:
+    name: verify published release assets
+    if: github.event_name == 'release'
+    runs-on: ubuntu-24.04
+    needs:
+      - test
+      - build
+      - checksums
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Download and verify published assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist/published
+          mkdir -p dist/published
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --dir dist/published
+          scripts/release/verify-release-assets.sh "$RELEASE_TAG" dist/published
+
+  cleanup-release-branch:
+    name: cleanup verified release branch
+    if: >-
+      github.event_name == 'release' &&
+      needs.test.result == 'success' && needs.build.result == 'success' &&
+      needs.checksums.result == 'success' &&
+      needs.published-assets-verify.result == 'success'
+    runs-on: ubuntu-24.04
+    needs:
+      - test
+      - build
+      - checksums
+      - published-assets-verify
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RPOTATO_RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RPOTATO_RELEASE_BRANCH: release/${{ github.event.release.tag_name }}
+      RPOTATO_REQUIRE_TAG_ON_MAIN: 1
+      RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS: 1
+      RPOTATO_DELETE_RELEASE_BRANCH: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Delete release branch after asset verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/release/verify-release-policy.sh
+          if git ls-remote --exit-code --heads origin "release/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "release branch still exists after cleanup" >&2
+            exit 1
+          fi
+
+  release-failure-preserves-branch:
+    name: preserve release branch after failed verification
+    if: >-
+      always() && github.event_name == 'release' &&
+      (needs.test.result != 'success' || needs.build.result != 'success' ||
+      needs.checksums.result != 'success' ||
+      needs.published-assets-verify.result != 'success')
+    runs-on: ubuntu-24.04
+    needs:
+      - test
+      - build
+      - checksums
+      - published-assets-verify
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RELEASE_BRANCH: release/${{ github.event.release.tag_name }}
+      TEST_RESULT: ${{ needs.test.result }}
+      BUILD_RESULT: ${{ needs.build.result }}
+      CHECKSUMS_RESULT: ${{ needs.checksums.result }}
+      PUBLISHED_ASSETS_RESULT: ${{ needs.published-assets-verify.result }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Verify failed release preserved its branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          failure_cause="published-assets-verify:$PUBLISHED_ASSETS_RESULT"
+          if [ "$TEST_RESULT" != success ]; then
+            failure_cause="test:$TEST_RESULT"
+          elif [ "$BUILD_RESULT" != success ]; then
+            failure_cause="build:$BUILD_RESULT"
+          elif [ "$CHECKSUMS_RESULT" != success ]; then
+            failure_cause="checksums:$CHECKSUMS_RESULT"
+          fi
+          upstream_results="test=$TEST_RESULT,build=$BUILD_RESULT,checksums=$CHECKSUMS_RESULT,published-assets-verify=$PUBLISHED_ASSETS_RESULT"
+          scripts/release/report-release-failure.sh "$failure_cause" "$upstream_results" "$RELEASE_BRANCH" origin

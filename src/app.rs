@@ -54,7 +54,28 @@ impl AppError {
 }
 
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
-    match crate::cli::parse(args)? {
+    let command = crate::cli::parse(args)?;
+    if matches!(&command, Command::Tui(TuiCommand::Interactive))
+        || (matches!(&command, Command::Tui(TuiCommand::Auto)) && crate::terminal::attached())
+    {
+        crate::terminal::validate_native_fault_configuration()
+            .map_err(crate::tui::terminal_fault_error)?;
+    }
+    // A source-install request on an unsupported platform is a strict
+    // NotDispatched boundary: do not even discover or repair journals before
+    // returning the typed platform result. Other commands recover through the
+    // ordinary startup path (and mutating TUI actions also recover under their
+    // transition guard).
+    let unsupported_source_entry = !cfg!(unix)
+        && (matches!(
+            &command,
+            Command::Patch(PatchCommand::Approve { dry_run: false, .. })
+        ) || matches!(&command, Command::Tui(TuiCommand::Interactive))
+            || (matches!(&command, Command::Tui(TuiCommand::Auto)) && crate::terminal::attached()));
+    if !unsupported_source_entry {
+        crate::transition::recover_pending_source_bundles()?;
+    }
+    match command {
         Command::Help => {
             println!("{}", crate::cli::HELP);
             Ok(())
@@ -152,9 +173,20 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             );
             Ok(())
         }
-        Command::Tui(TuiCommand::Overview) => {
-            println!("{}", tui::overview_report()?);
-            Ok(())
+        Command::Tui(TuiCommand::Auto) => {
+            if cfg!(unix)
+                && crate::terminal::attached()
+                && !crate::paths::current_state_file().is_file()
+            {
+                state::initialize()?;
+            }
+            tui::run_auto()
+        }
+        Command::Tui(TuiCommand::Interactive) => {
+            if cfg!(unix) && !crate::paths::current_state_file().is_file() {
+                state::initialize()?;
+            }
+            tui::run_interactive()
         }
         Command::Tui(TuiCommand::Monitor) => {
             println!("{}", tui::monitor_report()?);
@@ -236,13 +268,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             proposal_id,
             token,
             dry_run,
-        }) => {
-            println!(
-                "{}",
-                runtime::patch_approve_report(&proposal_id, &token, dry_run, None)?
-            );
-            Ok(())
-        }
+        }) => runtime::patch_approve_to_stdout(&proposal_id, &token, dry_run, None),
         Command::Patch(PatchCommand::Verify { proposal_id, token }) => {
             println!("{}", runtime::patch_verify_report(&proposal_id, &token)?);
             Ok(())
@@ -517,7 +543,11 @@ mod tests {
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
 
         assert_eq!(err.code, 3);
-        assert!(err.message.contains("설치를 차단했습니다"));
+        assert!(
+            err.message.contains("설치를 차단했습니다"),
+            "unexpected error: {}",
+            err.message
+        );
         assert!(err.message.contains("verified 상태로 승격"));
     }
 

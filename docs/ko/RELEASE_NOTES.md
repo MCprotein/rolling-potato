@@ -1,5 +1,64 @@
 # 릴리즈 노트
 
+## v0.34.0 - Runtime-Owned Interactive TUI
+
+릴리즈 날짜: 2026-07-14
+
+이 릴리스는 dependency-free terminal surface를 실제 interactive controller로 올리면서
+모든 권위를 runtime core에 유지합니다. 승인된 built-in-skill patch도 서로 느슨한 여러
+write가 아니라 복구 가능한 하나의 exact prepared transaction으로 만듭니다.
+
+### 포함된 것
+
+- `rpotato tui`의 attached-terminal 자동 선택과 명시적 `rpotato tui interactive`
+  line controller를 추가합니다. Canonical view, paging, selection, patch/verification
+  승인, pending-gate 거부, workflow resume, cancel을 지원합니다.
+- Runtime-owned selection lease, intent ID, confirmation, no-echo one-shot secret input,
+  closed 27-row outcome table을 사용합니다. Terminal output은 ANSI/OSC/control byte를
+  escape하고 live terminal dimension을 따르며 SIGINT/SIGTERM 또는 Windows console
+  종료 전에 echo를 복원하고 dispatch 전 frame failure와 commit 뒤 display failure를
+  구분합니다.
+- 모든 mutating TUI lease를 선택된 active workflow에 binding하고 approval/diff read는
+  해당 workflow의 bounded canonical proposal만 허용합니다. 다른 project의 tool artifact,
+  변조되거나 과대한 resume proposal, 보유 중 교체된 lock-file inode는 fail-closed하며,
+  kernel-locked per-lock owner namespace와 claim이 replacement inode의 두 번째 writer 진입을 막습니다.
+- 성공한 built-in-skill patch approval을 immutable exact-11 bundle 하나로 commit하고
+  preplanned E0-E9 event chain을 실제 effect boundary에서 append합니다. Workflow R+1/R+2
+  snapshot과 shared pointer, current-state C+1 image 하나, sanitized no-stream tool output,
+  TranscriptRecord v2, rollback/source data, projection lag metadata가 hash와 identity로
+  binding됩니다.
+- T1-T10의 모든 중단을 저장된 journal byte에서 duplicate event/revision 없이 복구하고,
+  설치된 R+2 pointer를 내리지 않으며, 반복된 committed intent에는 refresh-only receipt를
+  반환합니다. Projection repair는 project ledger, operation log, SQLite가 순서대로 수렴할
+  때까지 exact E9 lag marker를 보존합니다.
+- Current-state를 revision/hash/ledger/workflow binding이 있는 strict canonical schema v2로
+  올리고 검증된 schema-v1 promotion을 유지합니다. Runtime ledger만 event authority이며
+  project/SQLite record는 재생성 가능한 projection입니다.
+- Remote release branch cleanup을 published exact 11-asset set 검증 성공 뒤로 옮깁니다.
+  Tag-policy와 failed/cancelled release path는 branch를 보존하고, failure diagnostic은
+  실제 실패 job result와 remote branch의 preserved/missing/unverifiable 상태를 항상
+  구분해 출력합니다.
+
+### 알려진 제한
+
+- v0.34.0의 승인된 source installation 성공 경로는 Unix만 지원합니다. 미지원 platform은
+  journal commit과 target effect 전에 차단합니다.
+- Interaction은 line-oriented이며 raw-key/full-screen protocol이 아닙니다.
+- 마지막 pathname validation 뒤 시작해 validate-to-unlink race를 이기는 동시 외부
+  writer는 지원 보장 밖입니다. 관측 가능한 conflict는 fail-closed하지만 이 관측 불가능한
+  interval까지 atomic하다고 주장하지 않습니다.
+- Secret value는 재표시하지 않습니다. 반복된 committed intent에는 refresh-only receipt만
+  반환합니다.
+
+### 구현 중 검증
+
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1`
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- release policy, toolchain pin, target matrix, exact release-asset fixture,
+  packaged-binary, uninstall smoke check
+
 ## v0.33.0 - 실행 가능한 훅과 스킬
 
 릴리즈 날짜: 2026-07-13

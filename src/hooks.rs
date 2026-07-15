@@ -335,6 +335,53 @@ pub fn dispatch_native_lifecycle(
     input: HookInput<'_>,
     tool: Option<&str>,
 ) -> Result<HookDispatch, AppError> {
+    let rules = native_lifecycle_rules(input, tool);
+    dispatch_and_record(input, &rules)
+}
+
+pub(crate) fn prepare_native_lifecycle_event(
+    input: HookInput<'_>,
+    tool: Option<&str>,
+    identity: &crate::ledger::RuntimeIdentity,
+) -> Result<(HookDispatch, crate::ledger::LedgerEvent), AppError> {
+    let rules = native_lifecycle_rules(input, tool);
+    let mut result = dispatch(input, &rules);
+    validate_dispatch_result(input, &result)?;
+    let event = crate::ledger::new_event_for(
+        identity,
+        "hook.dispatched",
+        &format!("{} lifecycle hook 처리", input.hook),
+        &dispatch_ledger_details(input, &result),
+    );
+    result.ledger_event_id = Some(event.event_id.clone());
+    Ok((result, event))
+}
+
+pub(crate) fn validate_prepared_native_lifecycle_event(
+    input: HookInput<'_>,
+    tool: Option<&str>,
+    identity: &crate::ledger::RuntimeIdentity,
+    event: &crate::ledger::LedgerEvent,
+) -> Result<(), AppError> {
+    let rules = native_lifecycle_rules(input, tool);
+    let result = dispatch(input, &rules);
+    validate_dispatch_result(input, &result)?;
+    let expected_summary = format!("{} lifecycle hook 처리", input.hook);
+    let expected_details = dispatch_ledger_details(input, &result);
+    if event.event_type != "hook.dispatched"
+        || event.project_id != identity.project_id
+        || event.session_id != identity.session_id
+        || event.summary != expected_summary
+        || event.details != expected_details
+    {
+        return Err(AppError::blocked(
+            "prepared native lifecycle event semantic binding 불일치",
+        ));
+    }
+    Ok(())
+}
+
+fn native_lifecycle_rules(input: HookInput<'_>, tool: Option<&str>) -> Vec<HookRule> {
     let mut rules = vec![HookRule::decision(
         "runtime.lifecycle",
         HookLayer::Runtime,
@@ -380,7 +427,26 @@ pub fn dispatch_native_lifecycle(
         HookStatus::Observe,
         "ledger projection enabled",
     ));
-    dispatch_and_record(input, &rules)
+    rules
+}
+
+fn validate_dispatch_result(input: HookInput<'_>, result: &HookDispatch) -> Result<(), AppError> {
+    match result.status {
+        HookStatus::Deny | HookStatus::Error => Err(AppError::blocked(format!(
+            "hook 실행 차단\n- hook: {}\n- status: {}\n- rules: {}\n- 이유: {}",
+            input.hook,
+            status_label(result.status),
+            result.ordered_rule_ids.join(","),
+            result.reasons.join(" | ")
+        ))),
+        HookStatus::Ask => Err(AppError::blocked(format!(
+            "hook 승인 필요\n- hook: {}\n- rules: {}\n- 이유: {}",
+            input.hook,
+            result.ordered_rule_ids.join(","),
+            result.reasons.join(" | ")
+        ))),
+        HookStatus::Observe | HookStatus::Allow | HookStatus::Modify => Ok(()),
+    }
 }
 
 pub fn resolve_conflict(statuses: &[HookStatus]) -> HookStatus {

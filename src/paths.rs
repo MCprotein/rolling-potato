@@ -100,6 +100,14 @@ pub fn current_state_file() -> PathBuf {
     state_dir().join("current-state.json")
 }
 
+pub fn current_state_transition_lock() -> PathBuf {
+    state_dir().join("current-state.transition.lock")
+}
+
+pub fn current_state_v2_promotion_temp() -> PathBuf {
+    state_dir().join("current-state.json.v2-promote.tmp")
+}
+
 pub fn runtime_evidence_file() -> PathBuf {
     state_dir().join("runtime-evidence.jsonl")
 }
@@ -130,6 +138,35 @@ pub fn transcript_session_dir(project_id: &str, session_id: &str) -> PathBuf {
 
 pub fn transcript_file(project_id: &str, session_id: &str, record_id: &str) -> PathBuf {
     transcript_session_dir(project_id, session_id).join(format!("{record_id}.json"))
+}
+
+pub fn tool_outputs_dir() -> PathBuf {
+    state_dir().join("tool-output")
+}
+
+pub fn tool_output_workflow_dir(project_id: &str, session_id: &str, workflow_id: &str) -> PathBuf {
+    tool_outputs_dir()
+        .join(project_id)
+        .join(session_id)
+        .join(workflow_id)
+}
+
+pub fn tool_output_file(
+    project_id: &str,
+    session_id: &str,
+    workflow_id: &str,
+    artifact_id: &str,
+) -> PathBuf {
+    tool_output_workflow_dir(project_id, session_id, workflow_id)
+        .join(format!("{artifact_id}.json"))
+}
+
+pub fn projection_lag_dir() -> PathBuf {
+    state_dir().join("projection-lag")
+}
+
+pub fn projection_lag_file(intent_id: &str, event_id: &str) -> PathBuf {
+    projection_lag_dir().join(format!("{intent_id}-{event_id}.json"))
 }
 
 pub fn plugins_dir() -> PathBuf {
@@ -168,6 +205,24 @@ pub fn project_session_ledger_file() -> PathBuf {
 
 pub fn project_patch_proposals_dir() -> PathBuf {
     project_state_dir().join("patch-proposals")
+}
+
+pub fn project_transition_journal_dir(project_id: &str) -> PathBuf {
+    project_state_dir()
+        .join("transition-journal")
+        .join(project_id)
+}
+
+pub fn project_transition_journal_file(project_id: &str, intent_id: &str) -> PathBuf {
+    project_transition_journal_dir(project_id).join(format!("{intent_id}.prepared.json"))
+}
+
+pub fn project_transition_journal_temp(project_id: &str, intent_id: &str) -> PathBuf {
+    project_transition_journal_dir(project_id).join(format!("{intent_id}.prepared.json.tmp"))
+}
+
+pub fn project_transition_lock(project_id: &str) -> PathBuf {
+    project_transition_journal_dir(project_id).join("transition.lock")
 }
 
 pub fn project_workflows_dir() -> PathBuf {

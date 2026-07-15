@@ -6,7 +6,7 @@ The first implementation can start from CLI commands, but the target runtime mus
 
 The TUI design source of truth is [DESIGN.md](../DESIGN.md). Monitoring screens must also work on SSH/Linux servers, so they cannot assume a browser or GUI.
 
-## Current Beta Surface
+## Current Surface
 
 `v0.5.0` adds a dependency-free, read-only ASCII TUI beta:
 
@@ -21,7 +21,7 @@ The beta reads existing runtime state and the SQLite observability projection. I
 - `rpotato tui approvals`
 - `rpotato tui diff <proposal-id>`
 
-The approval view reads project-local `.rpotato/patch-proposals/` records and shows proposal status, id, path, and replacement count. The diff view shows proposal metadata, approval/dry-run command hints, and the stored unified diff without applying or approving the patch.
+The original approval view read project-local `.rpotato/patch-proposals/` records. As of v0.34.0, both one-shot commands delegate to the same bounded canonical runtime facade as the interactive controller: approvals show only canonical team-admission events and the active workflow-bound proposal, while diff rejects unbound or oversized directory-only records without applying or approving a patch.
 
 `v0.7.0` extends the read-only beta with selected-session event inspection:
 
@@ -42,6 +42,65 @@ The evidence view reads the runtime evidence JSONL path, project evidence direct
 The monitor view reads SQLite model summaries and the latest `resource_samples` row. It shows model run counts, token records, average latency, average tokens per second, resource sample count, latest pressure status, CPU percent, average/peak RSS, disk bytes, and recorded timestamp. It remains read-only; export, prune, and governor behavior stay outside the TUI beta.
 
 This is the framework decision for the first beta: keep the initial surface dependency-free and terminal-safe, then decide later whether a richer TUI crate is justified after interaction requirements stabilize.
+
+`v0.34.0` promotes the terminal surface from read-only inspection to a runtime-owned,
+line-oriented interactive controller without adding a dependency:
+
+- `rpotato tui` starts the controller when both input and output are attached to a
+  terminal; redirected use keeps the read-only overview.
+- `rpotato tui interactive` starts the same controller explicitly and also supports
+  deterministic piped-input tests.
+- `view`, `next`, `prev`, and `select <canonical-id>` navigate canonical runtime
+  state. `select session <session-id>` confirms and dispatches a canonical session
+  selection through the runtime lease boundary. Unknown input is a read-only help
+  no-op and is never treated as a shell command.
+- `view tool-output <artifact-id>` opens a ledger-bound, owner/path/hash-validated,
+  size-bounded sanitized tool artifact. Session and transcript pages use the canonical
+  ledger and durable artifacts; SQLite is never their authority.
+- `approve <proposal>`, `approve verification <proposal>`, `deny`, `resume`, and
+  `cancel` require a selected workflow, a fresh runtime selection lease, and an
+  explicit `yes` confirmation. Credentials are read once with terminal echo disabled;
+  SIGINT/SIGTERM and Windows console termination restore the captured input mode before
+  process termination.
+
+<!-- TUI-READ-CONTRACT:START -->
+The eight views (`overview`, `monitor`, `sessions`, `transcript`, `tool-output`,
+`approvals`, `diff`, and `evidence`) use view-specific item, byte, scan, line, and
+pagination bounds. Every page carries canonical current/workflow revision and hash,
+ledger sequence and hash, relevant content or transcript hash, projection watermark,
+validation time, and one typed continuation: `complete`, `next-page`, `truncated`,
+`unavailable`, or `redacted`. SQLite is a derived metrics/freshness projection only;
+freshness is exactly `fresh`, `stale`, `projection-lag`, or `unavailable`. Read paths do
+not acquire mutation leases, repair state, write validation gaps, or admit corrupt,
+unbound, SQLite-only, or directory-scan-only candidates.
+<!-- TUI-READ-CONTRACT:END -->
+
+The runtime owns all mutation, intent IDs, immutable receipts, and the closed 27-row
+outcome table. A successful patch approval commits one exact prepared bundle containing
+11 ordered members and the exact E0-E9 semantic event chain. Restart recovery replays
+only idempotent stored effects, never downgrades an installed R+2 workflow pointer, and
+returns a refresh-only receipt for a repeated committed intent without re-displaying a
+secret. The first successful approval writes the new verification credential to the
+terminal exactly once and never stores it in the next rendered notice. Read-facing
+commands do not create new product mutations, but command startup may finish an
+already-committed transition journal or rebuild a lagging derived projection. Project
+ledger, operation log, and SQLite are derived in that order; a failed
+projection preserves the journal and an exact E9 lag marker until repair converges.
+
+Terminal output escapes ANSI/OSC and control bytes, applies width/height-aware bounded
+rendering, and distinguishes frame failure before dispatch from failure after commit so
+the latter is never retried as a new mutation. Tool output is restricted to the current
+project's canonical ledger events; approval and diff views expose only the active
+workflow's bounded, workflow/action/hash-bound proposal.
+
+Known v0.34.0 limits:
+
+- Approved source installation succeeds only on Unix. Unsupported platforms block
+  before journal commitment and before any source effect.
+- Interaction is line-oriented, not a raw-key or full-screen terminal protocol.
+- A concurrent external writer that starts after the final pathname validation and
+  wins the validate-to-unlink race is outside the supported guarantee. Observable
+  conflicts fail closed; the unobservable interval is not claimed to be atomic.
 
 ## Goals
 

@@ -1,10 +1,9 @@
-use std::collections::BTreeMap;
 use std::io::{ErrorKind, Read, Write};
 use std::net::{Shutdown, TcpStream, ToSocketAddrs};
 use std::time::{Duration, Instant};
 
 use crate::app::AppError;
-use crate::strict_json::Value;
+use crate::strict_json::{Object, Value};
 
 const READ_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_HTTP_HEADERS_BYTES: usize = 64 * 1024;
@@ -551,9 +550,7 @@ fn malformed_sse_event() -> AppError {
     AppError::blocked("backend streaming response 오류\n- category: upstream-malformed-event")
 }
 
-fn first_choice(
-    object: &BTreeMap<String, Value>,
-) -> Result<Option<&BTreeMap<String, Value>>, AppError> {
+fn first_choice(object: &Object) -> Result<Option<&Object>, AppError> {
     let Some(choices) = object.get("choices") else {
         return Ok(None);
     };
@@ -569,7 +566,7 @@ fn first_choice(
     Ok(Some(choice))
 }
 
-fn choice_content(choice: &BTreeMap<String, Value>) -> Result<Option<String>, AppError> {
+fn choice_content(choice: &Object) -> Result<Option<String>, AppError> {
     let Some(delta) = choice.get("delta") else {
         return Ok(None);
     };
@@ -583,7 +580,7 @@ fn choice_content(choice: &BTreeMap<String, Value>) -> Result<Option<String>, Ap
     }
 }
 
-fn json_u32(object: &BTreeMap<String, Value>, key: &str) -> Result<Option<u32>, AppError> {
+fn json_u32(object: &Object, key: &str) -> Result<Option<u32>, AppError> {
     match object.get(key) {
         Some(Value::Number(value)) => u32::try_from(*value)
             .map(Some)

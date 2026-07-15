@@ -26,6 +26,7 @@ rpotato
   rpotato resume [session-id]
   rpotato continue [session-id]
   rpotato tui
+  rpotato tui interactive
   rpotato tui monitor
   rpotato tui sessions
   rpotato tui transcript <session-id>
@@ -235,7 +236,8 @@ pub enum TeamCommand {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TuiCommand {
-    Overview,
+    Auto,
+    Interactive,
     Monitor,
     Sessions,
     Transcript { session_id: String },
@@ -482,7 +484,10 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, ..] if group == "team" => {
             Err(AppError::usage("team 명령은 status, admit, dispatch, governor만 허용합니다."))
         }
-        [arg] if arg == "tui" => Ok(Command::Tui(TuiCommand::Overview)),
+        [arg] if arg == "tui" => Ok(Command::Tui(TuiCommand::Auto)),
+        [group, action] if group == "tui" && action == "interactive" => {
+            Ok(Command::Tui(TuiCommand::Interactive))
+        }
         [group, action] if group == "tui" && action == "monitor" => {
             Ok(Command::Tui(TuiCommand::Monitor))
         }
@@ -512,7 +517,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             Ok(Command::Tui(TuiCommand::Evidence))
         }
         [group, ..] if group == "tui" => Err(AppError::usage(
-            "tui 명령은 인자 없음, monitor, sessions, transcript, approvals, diff, evidence만 허용합니다.",
+            "tui 명령은 인자 없음, interactive, monitor, sessions, transcript, approvals, diff, evidence만 허용합니다.",
         )),
         [arg] if arg == "cancel" => Ok(Command::Cancel),
         [group, action, pointer] if group == "evidence" && action == "validate" => {
@@ -2843,7 +2848,13 @@ mod tests {
     #[test]
     fn parses_tui_overview() {
         let command = parse(["tui".to_string()]).unwrap();
-        assert_eq!(command, Command::Tui(TuiCommand::Overview));
+        assert_eq!(command, Command::Tui(TuiCommand::Auto));
+    }
+
+    #[test]
+    fn parses_explicit_interactive_tui() {
+        let command = parse(["tui".to_string(), "interactive".to_string()]).unwrap();
+        assert_eq!(command, Command::Tui(TuiCommand::Interactive));
     }
 
     #[test]

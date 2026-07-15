@@ -1,5 +1,65 @@
 # Release Notes
 
+## v0.34.0 - Runtime-Owned Interactive TUI
+
+Release date: 2026-07-14
+
+This release turns the dependency-free terminal surface into a real interactive
+controller while keeping all authority in the runtime core. It also makes an approved
+built-in-skill patch one recoverable, exact prepared transaction instead of a sequence of
+loosely coupled writes.
+
+### Included
+
+- Adds attached-terminal auto-selection through `rpotato tui` and an explicit
+  `rpotato tui interactive` line controller with canonical views, paging, selection,
+  patch/verification approval, pending-gate denial, workflow resume, and cancellation.
+- Uses runtime-owned selection leases, intent IDs, confirmations, no-echo one-shot secret
+  input, and a closed 27-row outcome table. Terminal output escapes ANSI/OSC/control
+  bytes, respects live terminal dimensions, restores echo before SIGINT/SIGTERM or
+  Windows console termination, and distinguishes pre-dispatch frame failure from
+  post-commit display failure.
+- Binds every mutating TUI lease to the selected active workflow and every approval/diff
+  read to that workflow's bounded canonical proposal. Cross-project tool artifacts,
+  tampered or oversized resume proposals, and replaced live lock-file inodes fail closed;
+  a kernel-locked per-lock owner namespace plus claim prevents a replacement inode from admitting a second writer.
+- Commits successful built-in-skill patch approval as one immutable exact-11 bundle and
+  appends the preplanned E0-E9 event chain at its physical effect boundaries. Workflow
+  R+1/R+2 snapshots and the shared pointer, one current-state C+1 image, sanitized
+  no-stream tool output, TranscriptRecord v2, rollback/source data, and projection lag
+  metadata are hash- and identity-bound.
+- Recovers every T1-T10 interruption from stored journal bytes without duplicate events
+  or revisions, never downgrades an installed R+2 pointer, and returns a refresh-only
+  receipt for a repeated committed intent. Projection repair preserves an exact E9 lag
+  marker until project ledger, operation log, and SQLite converge in order.
+- Promotes current-state to strict canonical schema v2 with revision/hash/ledger/workflow
+  bindings and preserves validated schema-v1 promotion. Runtime ledger remains the sole
+  event authority; project and SQLite records are rebuildable projections.
+- Moves release-branch cleanup behind successful verification of the published exact
+  11-asset set. Tag-policy and failed/cancelled release paths preserve the branch, while
+  failure diagnostics report the actual failed job result and always distinguish a
+  preserved, missing, or unverifiable remote branch.
+
+### Known Limits
+
+- Approved source installation succeeds only on Unix in v0.34.0. Unsupported platforms
+  block before journal commitment and before any target effect.
+- Interaction is line-oriented rather than a raw-key/full-screen protocol.
+- A concurrent external writer that starts after final pathname validation and wins the
+  validate-to-unlink race is outside the supported guarantee. Observable conflicts fail
+  closed; that unobservable interval is not claimed to be atomic.
+- Secret values are never replayed. A repeated committed intent returns only a
+  refresh-only receipt.
+
+### Verified During Implementation
+
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1`
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- release policy, toolchain pin, target matrix, exact release-asset fixtures,
+  packaged-binary, and uninstall smoke checks
+
 ## v0.33.0 - Executable Hooks And Skills
 
 Release date: 2026-07-13

@@ -79,12 +79,12 @@ Rules:
 3. Finish release notes, docs, manifests, and release checks on that branch.
 4. Merge the release branch into `main` only after the release checklist passes.
 5. Tag the merge commit as `vX.Y.Z` or the matching prerelease tag.
-6. Push the tag. If the matching remote release branch still exists, the
-   `release-policy` workflow verifies that it was merged into `main`, then
-   deletes it.
+6. Push the tag while preserving the matching remote release branch.
 7. Create the GitHub Release from that tag. The `release-binaries` workflow
-   builds and uploads supported binary assets when the release is published.
-8. Verify release assets and checksums, then delete the local release branch.
+   builds and uploads supported binary assets, downloads the published set,
+   verifies the exact 11 regular non-symlink assets and all checksums, and only
+   then deletes the merged matching remote release branch.
+8. Verify the published workflow and assets, then delete the local release branch.
 
 `main` is the integration branch. Release branches are not long-running support
 branches and must not accumulate unrelated post-release work.
@@ -105,8 +105,8 @@ The check enforces:
 - release tags are on `origin/main`
 - release tags require the matching remote release branch to be merged when it
   still exists
-- successful release tag checks delete the merged remote release branch when it
-  still exists
+- tag-policy validation never deletes the remote release branch; cleanup has one
+  owner in the successful published-asset verification DAG
 
 Required GitHub repository settings:
 

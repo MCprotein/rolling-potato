@@ -1,21 +1,25 @@
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::app::AppError;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProcessLiveness {
-    Alive,
-    Dead,
-    Unknown,
+pub struct RecoverableLease {
+    _file: File,
+    _owner_claim: OwnerClaim,
 }
 
-pub struct RecoverableLease {
+struct OwnerClaim {
     path: PathBuf,
-    nonce: String,
+    file: File,
+    _namespace: OwnerNamespace,
+}
+
+struct OwnerNamespace {
+    directory: PathBuf,
+    _guard_path: PathBuf,
+    _guard: File,
 }
 
 impl RecoverableLease {
@@ -25,61 +29,45 @@ impl RecoverableLease {
                 AppError::runtime(format!("{context} lock directory 실패: {err}"))
             })?;
         }
-        let nonce = format!("{}-{}", std::process::id(), now_nanos());
-        let body = format!("pid={}\nnonce={}\n", std::process::id(), nonce);
-        loop {
-            match create_lease(&path, &body) {
-                Ok(()) => return Ok(Self { path, nonce }),
-                Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {}
-                Err(err) => {
-                    return Err(AppError::runtime(format!(
-                        "{context} lock 생성 실패: {err}"
-                    )))
-                }
+        let owner_namespace = OwnerNamespace::acquire(&path, context)?;
+        remove_stale_owner_claims(&owner_namespace.directory, context)?;
+        let owner_claim = OwnerClaim::create(owner_namespace, context)?;
+        reject_non_regular_lock_path(&path, context)?;
+        let mut options = OpenOptions::new();
+        options.read(true).write(true).create(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options
+            .open(&path)
+            .map_err(|err| AppError::runtime(format!("{context} lock 열기 실패: {err}")))?;
+        validate_open_lock_identity(&path, &file, context)?;
+        match file.try_lock() {
+            Ok(()) => {}
+            Err(std::fs::TryLockError::WouldBlock) => {
+                return Err(AppError::blocked(format!("{context} lock 차단")))
             }
-
-            let existing = match fs::read_to_string(&path) {
-                Ok(existing) => existing,
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
-                Err(err) => {
-                    return Err(AppError::blocked(format!(
-                        "{context} lock 읽기 차단: {err}"
-                    )))
-                }
-            };
-            let (owner_pid, _) = parse_lease(&existing, context)?;
-            match process_liveness(owner_pid) {
-                ProcessLiveness::Alive | ProcessLiveness::Unknown => {
-                    return Err(AppError::blocked(format!(
-                        "{context} lock 차단\n- owner pid: {owner_pid}\n- liveness: {:?}",
-                        process_liveness(owner_pid)
-                    )))
-                }
-                ProcessLiveness::Dead => {}
-            }
-            let reclaimed = path.with_extension(format!("stale.{}.{}", owner_pid, now_nanos()));
-            match fs::rename(&path, &reclaimed) {
-                Ok(()) => {}
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
-                Err(err) => {
-                    return Err(AppError::blocked(format!(
-                        "{context} dead-owner lock atomic reclaim 실패: {err}"
-                    )))
-                }
-            }
-            match create_lease(&path, &body) {
-                Ok(()) => {
-                    let _ = fs::remove_file(reclaimed);
-                    return Ok(Self { path, nonce });
-                }
-                Err(err) => {
-                    let _ = fs::remove_file(reclaimed);
-                    return Err(AppError::blocked(format!(
-                        "{context} lock reclaim 경쟁 차단: {err}"
-                    )));
-                }
+            Err(std::fs::TryLockError::Error(err)) => {
+                return Err(AppError::runtime(format!(
+                    "{context} kernel lock 획득 실패: {err}"
+                )))
             }
         }
+        validate_open_lock_identity(&path, &file, context)?;
+        let nonce = format!("{}-{}", std::process::id(), now_nanos());
+        let body = format!("pid={}\nnonce={nonce}\n", std::process::id());
+        file.set_len(0)
+            .and_then(|_| file.seek(SeekFrom::Start(0)).map(|_| ()))
+            .and_then(|_| file.write_all(body.as_bytes()))
+            .and_then(|_| file.sync_all())
+            .map_err(|err| AppError::runtime(format!("{context} lock 기록 실패: {err}")))?;
+        validate_open_lock_identity(&path, &file, context)?;
+        Ok(Self {
+            _file: file,
+            _owner_claim: owner_claim,
+        })
     }
 
     pub fn acquire_with_wait(
@@ -87,17 +75,37 @@ impl RecoverableLease {
         context: &str,
         timeout: Duration,
     ) -> Result<Self, AppError> {
+        Self::acquire_with_wait_observing(path, context, timeout, || {})
+    }
+
+    #[cfg(test)]
+    pub(crate) fn acquire_with_wait_after_first_block(
+        path: PathBuf,
+        context: &str,
+        timeout: Duration,
+        on_first_block: impl FnOnce(),
+    ) -> Result<Self, AppError> {
+        Self::acquire_with_wait_observing(path, context, timeout, on_first_block)
+    }
+
+    fn acquire_with_wait_observing(
+        path: PathBuf,
+        context: &str,
+        timeout: Duration,
+        on_first_block: impl FnOnce(),
+    ) -> Result<Self, AppError> {
         let deadline = Instant::now() + timeout;
+        let mut on_first_block = Some(on_first_block);
         loop {
             match Self::acquire(path.clone(), context) {
                 Ok(lease) => return Ok(lease),
                 Err(err)
                     if Instant::now() < deadline
-                        && (err.message.contains(&format!("{context} lock 차단"))
-                            || err
-                                .message
-                                .contains(&format!("{context} lock reclaim 경쟁 차단"))) =>
+                        && err.message.contains(&format!("{context} lock 차단")) =>
                 {
+                    if let Some(on_first_block) = on_first_block.take() {
+                        on_first_block();
+                    }
                     std::thread::sleep(Duration::from_millis(5));
                 }
                 Err(err) => return Err(err),
@@ -106,117 +114,365 @@ impl RecoverableLease {
     }
 }
 
-impl Drop for RecoverableLease {
+impl OwnerClaim {
+    fn create(namespace: OwnerNamespace, context: &str) -> Result<Self, AppError> {
+        for sequence in 0..8_u8 {
+            let nonce = format!("{}-{}-{sequence}", std::process::id(), now_nanos());
+            let path = namespace.directory.join(format!("claim-{nonce}"));
+            let mut options = OpenOptions::new();
+            options.read(true).write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                options.mode(0o600);
+            }
+            let mut file = match options.open(&path) {
+                Ok(file) => file,
+                Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(err) => {
+                    return Err(AppError::runtime(format!(
+                        "{context} owner claim 생성 실패: {err}"
+                    )))
+                }
+            };
+            match file.try_lock() {
+                Ok(()) => {}
+                Err(std::fs::TryLockError::WouldBlock) => {
+                    return Err(AppError::blocked(format!(
+                        "{context} lock 차단: owner claim kernel lock"
+                    )))
+                }
+                Err(std::fs::TryLockError::Error(err)) => {
+                    return Err(AppError::runtime(format!(
+                        "{context} owner claim kernel lock 획득 실패: {err}"
+                    )))
+                }
+            }
+            file.write_all(format!("pid={}\nnonce={nonce}\n", std::process::id()).as_bytes())
+                .and_then(|_| file.sync_all())
+                .map_err(|err| {
+                    AppError::runtime(format!("{context} owner claim 기록 실패: {err}"))
+                })?;
+            validate_open_lock_identity(&path, &file, context)?;
+            return Ok(Self {
+                path,
+                file,
+                _namespace: namespace,
+            });
+        }
+        Err(AppError::blocked(format!(
+            "{context} owner claim nonce 충돌"
+        )))
+    }
+}
+
+impl OwnerNamespace {
+    fn acquire(lock_path: &Path, context: &str) -> Result<Self, AppError> {
+        let directory = owner_claim_directory(lock_path, context)?;
+        let (guard_path, guard) = open_owner_namespace_guard(&directory, context)?;
+        validate_open_owner_namespace_identity(&guard_path, &guard, context)?;
+        match guard.try_lock() {
+            Ok(()) => {}
+            Err(std::fs::TryLockError::WouldBlock) => {
+                return Err(AppError::blocked(format!(
+                    "{context} lock 차단: active owner namespace"
+                )))
+            }
+            Err(std::fs::TryLockError::Error(err)) => {
+                return Err(AppError::runtime(format!(
+                    "{context} owner namespace kernel lock 획득 실패: {err}"
+                )))
+            }
+        }
+        validate_open_owner_namespace_identity(&guard_path, &guard, context)?;
+        Ok(Self {
+            directory,
+            _guard_path: guard_path,
+            _guard: guard,
+        })
+    }
+}
+
+impl Drop for OwnerClaim {
     fn drop(&mut self) {
-        let Ok(body) = fs::read_to_string(&self.path) else {
-            return;
-        };
-        if parse_lease(&body, "lease cleanup")
-            .map(|(_, nonce)| nonce == self.nonce)
-            .unwrap_or(false)
-        {
+        if validate_open_lock_identity(&self.path, &self.file, "owner claim cleanup").is_ok() {
             let _ = fs::remove_file(&self.path);
         }
     }
 }
 
-fn create_lease(path: &Path, body: &str) -> std::io::Result<()> {
-    let candidate =
-        path.with_extension(format!("candidate.{}.{}", std::process::id(), now_nanos()));
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
+fn remove_stale_owner_claims(directory: &Path, context: &str) -> Result<(), AppError> {
+    const OWNER_SCAN_LIMIT: usize = 128;
+    let mut matched = 0_usize;
+    for entry in fs::read_dir(directory)
+        .map_err(|err| AppError::runtime(format!("{context} owner claim scan 실패: {err}")))?
     {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut file = options.open(&candidate)?;
-    let prepared = file
-        .write_all(body.as_bytes())
-        .and_then(|_| file.sync_all());
-    drop(file);
-    if let Err(err) = prepared {
-        let _ = fs::remove_file(&candidate);
-        return Err(err);
-    }
-    let linked = fs::hard_link(&candidate, path);
-    let _ = fs::remove_file(&candidate);
-    linked
-}
-
-fn parse_lease(body: &str, context: &str) -> Result<(u32, String), AppError> {
-    let mut pid = None;
-    let mut nonce = None;
-    for line in body.lines() {
-        let (key, value) = line
-            .split_once('=')
-            .ok_or_else(|| AppError::blocked(format!("{context} malformed lease")))?;
-        match key {
-            "pid" if pid.is_none() => pid = value.parse().ok(),
-            "nonce" if nonce.is_none() && !value.is_empty() => nonce = Some(value.to_string()),
-            _ => return Err(AppError::blocked(format!("{context} malformed lease"))),
+        let entry = entry
+            .map_err(|err| AppError::runtime(format!("{context} owner claim entry 실패: {err}")))?;
+        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+            continue;
+        };
+        if !name.starts_with("claim-") {
+            return Err(AppError::blocked(format!(
+                "{context} owner claim namespace 불일치; 증거를 보존했습니다."
+            )));
+        }
+        matched = matched.saturating_add(1);
+        if matched > OWNER_SCAN_LIMIT {
+            return Err(AppError::blocked(format!(
+                "{context} owner claim scan budget 초과; 증거를 보존했습니다."
+            )));
+        }
+        let owner_path = entry.path();
+        reject_non_regular_lock_path(&owner_path, context)?;
+        let owner = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&owner_path)
+            .map_err(|err| {
+                if err.kind() == std::io::ErrorKind::NotFound {
+                    AppError::blocked(format!(
+                        "{context} lock 차단: owner claim changed during scan"
+                    ))
+                } else {
+                    AppError::blocked(format!("{context} owner claim 열기 실패: {err}"))
+                }
+            })?;
+        validate_open_owner_claim_identity(&owner_path, &owner, context)?;
+        match owner.try_lock() {
+            Err(std::fs::TryLockError::WouldBlock) => {
+                return Err(AppError::blocked(format!(
+                    "{context} lock 차단: active owner claim"
+                )))
+            }
+            Err(std::fs::TryLockError::Error(err)) => {
+                return Err(AppError::runtime(format!(
+                    "{context} owner claim 검사 실패: {err}"
+                )))
+            }
+            Ok(()) => {
+                validate_open_owner_claim_identity(&owner_path, &owner, context)?;
+                drop(owner);
+                match fs::remove_file(&owner_path) {
+                    Ok(()) => {}
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(err) => {
+                        return Err(AppError::blocked(format!(
+                            "{context} stale owner claim 정리 실패: {err}"
+                        )))
+                    }
+                }
+            }
         }
     }
-    Ok((
-        pid.ok_or_else(|| AppError::blocked(format!("{context} lease pid 누락")))?,
-        nonce.ok_or_else(|| AppError::blocked(format!("{context} lease nonce 누락")))?,
-    ))
+    Ok(())
 }
 
 #[cfg(unix)]
-pub fn process_liveness(pid: u32) -> ProcessLiveness {
-    if pid == 0 || pid > i32::MAX as u32 {
-        return ProcessLiveness::Dead;
+fn open_owner_namespace_guard(
+    directory: &Path,
+    context: &str,
+) -> Result<(PathBuf, File), AppError> {
+    let guard = File::open(directory)
+        .map_err(|err| AppError::runtime(format!("{context} owner namespace 열기 실패: {err}")))?;
+    Ok((directory.to_path_buf(), guard))
+}
+
+#[cfg(not(unix))]
+fn open_owner_namespace_guard(
+    directory: &Path,
+    context: &str,
+) -> Result<(PathBuf, File), AppError> {
+    let guard_path = directory
+        .parent()
+        .ok_or_else(|| AppError::runtime(format!("{context} owner namespace parent 누락")))?
+        .join("namespace.lock");
+    let mut options = OpenOptions::new();
+    options.read(true).write(true).create(true);
+    let guard = options
+        .open(&guard_path)
+        .map_err(|err| AppError::runtime(format!("{context} owner namespace 열기 실패: {err}")))?;
+    Ok((guard_path, guard))
+}
+
+#[cfg(unix)]
+fn validate_open_owner_namespace_identity(
+    path: &Path,
+    file: &File,
+    context: &str,
+) -> Result<(), AppError> {
+    use std::os::unix::fs::MetadataExt;
+
+    let path_metadata = fs::symlink_metadata(path).map_err(|err| {
+        AppError::blocked(format!("{context} owner namespace 경로 재검증 실패: {err}"))
+    })?;
+    let file_metadata = file.metadata().map_err(|err| {
+        AppError::blocked(format!("{context} owner namespace handle 검증 실패: {err}"))
+    })?;
+    if path_metadata.file_type().is_symlink()
+        || !path_metadata.is_dir()
+        || !file_metadata.is_dir()
+        || path_metadata.dev() != file_metadata.dev()
+        || path_metadata.ino() != file_metadata.ino()
+    {
+        return Err(AppError::blocked(format!(
+            "{context} owner namespace path/handle identity 불일치; 증거를 보존했습니다."
+        )));
     }
-    unsafe extern "C" {
-        fn kill(pid: i32, signal: i32) -> i32;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn validate_open_owner_namespace_identity(
+    path: &Path,
+    file: &File,
+    context: &str,
+) -> Result<(), AppError> {
+    validate_open_lock_identity(path, file, context)
+}
+
+fn validate_open_owner_claim_identity(
+    path: &Path,
+    file: &File,
+    context: &str,
+) -> Result<(), AppError> {
+    match validate_open_lock_identity(path, file, context) {
+        Ok(()) => Ok(()),
+        Err(error) => match fs::symlink_metadata(path) {
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Err(AppError::blocked(
+                format!("{context} lock 차단: owner claim changed during scan"),
+            )),
+            _ => Err(error),
+        },
     }
-    let result = unsafe { kill(pid as i32, 0) };
-    if result == 0 {
-        ProcessLiveness::Alive
-    } else {
-        match std::io::Error::last_os_error().raw_os_error() {
-            Some(3) => ProcessLiveness::Dead,
-            Some(1) => ProcessLiveness::Alive,
-            _ => ProcessLiveness::Unknown,
+}
+
+fn owner_claim_directory(lock_path: &Path, context: &str) -> Result<PathBuf, AppError> {
+    let parent = lock_path
+        .parent()
+        .ok_or_else(|| AppError::runtime(format!("{context} lock parent 누락")))?;
+    let parent = fs::canonicalize(parent).map_err(|err| {
+        AppError::runtime(format!("{context} lock parent canonicalize 실패: {err}"))
+    })?;
+    let file_name = lock_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| AppError::blocked(format!("{context} lock filename 불일치")))?;
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in parent
+        .as_os_str()
+        .as_encoded_bytes()
+        .iter()
+        .copied()
+        .chain([0])
+        .chain(file_name.as_bytes().iter().copied())
+    {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    let root = std::env::temp_dir().join(format!("rpotato-lease-owner-claims-{hash:016x}"));
+    let directory = root.join("claims");
+    fs::create_dir_all(&directory).map_err(|err| {
+        AppError::runtime(format!("{context} owner claim directory 생성 실패: {err}"))
+    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).map_err(|err| {
+            AppError::runtime(format!("{context} owner claim root 권한 설정 실패: {err}"))
+        })?;
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).map_err(|err| {
+            AppError::runtime(format!(
+                "{context} owner claim directory 권한 설정 실패: {err}"
+            ))
+        })?;
+    }
+    for path in [&root, &directory] {
+        let metadata = fs::symlink_metadata(path).map_err(|err| {
+            AppError::blocked(format!("{context} owner claim directory 검증 실패: {err}"))
+        })?;
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err(AppError::blocked(format!(
+                "{context} owner claim directory type 불일치"
+            )));
         }
     }
+    Ok(directory)
+}
+
+fn reject_non_regular_lock_path(path: &Path, context: &str) -> Result<(), AppError> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.file_type().is_file() => {
+            Err(AppError::blocked(format!(
+                "{context} lock type 불일치; 증거를 보존했습니다."
+            )))
+        }
+        Ok(_) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(AppError::blocked(format!(
+            "{context} lock metadata 실패: {err}"
+        ))),
+    }
+}
+
+#[cfg(unix)]
+fn validate_open_lock_identity(path: &Path, file: &File, context: &str) -> Result<(), AppError> {
+    use std::os::unix::fs::MetadataExt;
+
+    let path_metadata = fs::symlink_metadata(path)
+        .map_err(|err| AppError::blocked(format!("{context} lock 경로 재검증 실패: {err}")))?;
+    let file_metadata = file
+        .metadata()
+        .map_err(|err| AppError::blocked(format!("{context} lock handle 검증 실패: {err}")))?;
+    if path_metadata.file_type().is_symlink()
+        || !path_metadata.file_type().is_file()
+        || path_metadata.dev() != file_metadata.dev()
+        || path_metadata.ino() != file_metadata.ino()
+    {
+        return Err(AppError::blocked(format!(
+            "{context} lock path/handle identity 불일치; 증거를 보존했습니다."
+        )));
+    }
+    Ok(())
 }
 
 #[cfg(windows)]
-pub fn process_liveness(pid: u32) -> ProcessLiveness {
-    type Handle = *mut std::ffi::c_void;
-    #[link(name = "kernel32")]
-    unsafe extern "system" {
-        fn OpenProcess(access: u32, inherit: i32, pid: u32) -> Handle;
-        fn GetExitCodeProcess(process: Handle, code: *mut u32) -> i32;
-        fn CloseHandle(object: Handle) -> i32;
+fn validate_open_lock_identity(path: &Path, file: &File, context: &str) -> Result<(), AppError> {
+    use std::os::windows::fs::MetadataExt;
+
+    let path_metadata = fs::symlink_metadata(path)
+        .map_err(|err| AppError::blocked(format!("{context} lock 경로 재검증 실패: {err}")))?;
+    let file_metadata = file
+        .metadata()
+        .map_err(|err| AppError::blocked(format!("{context} lock handle 검증 실패: {err}")))?;
+    if path_metadata.file_type().is_symlink()
+        || !path_metadata.file_type().is_file()
+        || path_metadata.volume_serial_number() != file_metadata.volume_serial_number()
+        || path_metadata.file_index() != file_metadata.file_index()
+    {
+        return Err(AppError::blocked(format!(
+            "{context} lock path/handle identity 불일치; 증거를 보존했습니다."
+        )));
     }
-    const QUERY: u32 = 0x1000;
-    const STILL_ACTIVE: u32 = 259;
-    let handle = unsafe { OpenProcess(QUERY, 0, pid) };
-    if handle.is_null() {
-        return match std::io::Error::last_os_error().raw_os_error() {
-            Some(87) => ProcessLiveness::Dead,
-            Some(5) => ProcessLiveness::Unknown,
-            _ => ProcessLiveness::Unknown,
-        };
-    }
-    let mut code = 0;
-    let ok = unsafe { GetExitCodeProcess(handle, &mut code) };
-    unsafe { CloseHandle(handle) };
-    if ok == 0 {
-        ProcessLiveness::Unknown
-    } else if code == STILL_ACTIVE {
-        ProcessLiveness::Alive
-    } else {
-        ProcessLiveness::Dead
-    }
+    Ok(())
 }
 
 #[cfg(not(any(unix, windows)))]
-pub fn process_liveness(_pid: u32) -> ProcessLiveness {
-    ProcessLiveness::Unknown
+fn validate_open_lock_identity(path: &Path, file: &File, context: &str) -> Result<(), AppError> {
+    let path_metadata = fs::symlink_metadata(path)
+        .map_err(|err| AppError::blocked(format!("{context} lock 경로 재검증 실패: {err}")))?;
+    let file_metadata = file
+        .metadata()
+        .map_err(|err| AppError::blocked(format!("{context} lock handle 검증 실패: {err}")))?;
+    if path_metadata.file_type().is_symlink()
+        || !path_metadata.file_type().is_file()
+        || path_metadata.len() != file_metadata.len()
+    {
+        return Err(AppError::blocked(format!(
+            "{context} lock path/handle identity 불일치; 증거를 보존했습니다."
+        )));
+    }
+    Ok(())
 }
 
 fn now_nanos() -> u128 {
@@ -229,33 +485,164 @@ fn now_nanos() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{mpsc, Arc, Barrier};
 
     #[test]
-    fn live_owner_is_excluded_and_dead_owner_is_reclaimed() {
-        let root = std::env::temp_dir().join(format!("rpotato-lease-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+    fn kernel_lease_excludes_live_owner_and_reuses_persistent_lock_file() {
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-kernel-lease-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
         fs::create_dir_all(&root).unwrap();
         let path = root.join("lease.lock");
         let first = RecoverableLease::acquire(path.clone(), "test").unwrap();
         assert!(RecoverableLease::acquire(path.clone(), "test").is_err());
         drop(first);
-        fs::write(&path, "pid=4294967295\nnonce=dead\n").unwrap();
-        let reclaimed = RecoverableLease::acquire(path.clone(), "test").unwrap();
-        drop(reclaimed);
+        assert!(path.exists());
+        let second = RecoverableLease::acquire(path.clone(), "test").unwrap();
+        drop(second);
+        assert!(path.exists());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn concurrent_kernel_lease_has_exactly_one_winner() {
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-kernel-lease-race-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("lease.lock");
+        let start = Arc::new(Barrier::new(9));
+        let finish = Arc::new(Barrier::new(9));
+        let (sender, receiver) = mpsc::channel();
+        let mut workers = Vec::new();
+        for _ in 0..8 {
+            let path = path.clone();
+            let start = Arc::clone(&start);
+            let finish = Arc::clone(&finish);
+            let sender = sender.clone();
+            workers.push(std::thread::spawn(move || {
+                start.wait();
+                let lease = RecoverableLease::acquire(path, "race").ok();
+                sender.send(lease.is_some()).unwrap();
+                finish.wait();
+                drop(lease);
+            }));
+        }
+        start.wait();
+        let winners = (0..8)
+            .map(|_| receiver.recv().unwrap())
+            .filter(|won| *won)
+            .count();
+        assert_eq!(winners, 1);
+        finish.wait();
+        for worker in workers {
+            worker.join().unwrap();
+        }
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn replacing_persistent_lock_path_cannot_create_a_second_live_owner() {
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-kernel-lease-replaced-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("lease.lock");
+        let displaced = root.join("lease.lock.displaced");
+        let first = RecoverableLease::acquire(path.clone(), "replacement").unwrap();
+        fs::rename(&path, &displaced).unwrap();
+        fs::write(&path, b"replacement inode").unwrap();
+
+        let blocked = match RecoverableLease::acquire(path.clone(), "replacement") {
+            Ok(_) => panic!("replacement inode acquired while owner claim was live"),
+            Err(error) => error,
+        };
+        assert!(blocked.message.contains("active owner namespace"));
+
+        drop(first);
+        let second = RecoverableLease::acquire(path.clone(), "replacement").unwrap();
+        drop(second);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn namespace_guard_blocks_when_live_claim_path_is_displaced() {
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-kernel-lease-hidden-claim-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("lease.lock");
+        let displaced_lock = root.join("lease.lock.displaced");
+        let first = RecoverableLease::acquire(path.clone(), "hidden-claim").unwrap();
+        let claims = owner_claim_directory(&path, "hidden-claim").unwrap();
+        let live_claim = fs::read_dir(&claims)
+            .unwrap()
+            .map(Result::unwrap)
+            .find(|entry| entry.file_name().to_string_lossy().starts_with("claim-"))
+            .expect("live owner claim이 필요합니다.")
+            .path();
+        let hidden_claim = claims.parent().unwrap().join("hidden-live-claim");
+        fs::rename(&live_claim, &hidden_claim).unwrap();
+        fs::rename(&path, &displaced_lock).unwrap();
+        fs::write(&path, b"replacement inode").unwrap();
+
+        let blocked = match RecoverableLease::acquire(path.clone(), "hidden-claim") {
+            Ok(_) => panic!("replacement inode acquired after live claim displacement"),
+            Err(error) => error,
+        };
+        assert!(blocked.message.contains("active owner namespace"));
+
+        drop(first);
+        fs::remove_file(hidden_claim).unwrap();
+        let second = RecoverableLease::acquire(path.clone(), "hidden-claim").unwrap();
+        drop(second);
         let _ = fs::remove_dir_all(root);
     }
 
     #[cfg(unix)]
     #[test]
-    fn abruptly_killed_owner_lease_is_reclaimed_but_live_owner_is_excluded() {
+    fn kernel_lease_is_released_when_owner_process_is_killed() {
         use std::process::Command;
 
-        let root = std::env::temp_dir().join(format!("rpotato-lease-kill-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+        if let Some(path) = std::env::var_os("RPOTATO_TEST_KERNEL_LEASE_HELPER") {
+            let path = PathBuf::from(path);
+            let ready = path.with_extension("ready");
+            let _lease = RecoverableLease::acquire(path, "helper").unwrap();
+            fs::write(ready, b"ready").unwrap();
+            std::thread::sleep(Duration::from_secs(30));
+            return;
+        }
+
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-kernel-lease-kill-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
         fs::create_dir_all(&root).unwrap();
         let path = root.join("lease.lock");
-        let mut owner = Command::new("sleep").arg("30").spawn().unwrap();
-        fs::write(&path, format!("pid={}\nnonce=child\n", owner.id())).unwrap();
+        let ready = path.with_extension("ready");
+        let mut owner = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "lease::tests::kernel_lease_is_released_when_owner_process_is_killed",
+                "--nocapture",
+            ])
+            .env("RPOTATO_TEST_KERNEL_LEASE_HELPER", &path)
+            .spawn()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !ready.exists() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(ready.exists());
         assert!(RecoverableLease::acquire(path.clone(), "test").is_err());
         owner.kill().unwrap();
         owner.wait().unwrap();

@@ -63,6 +63,16 @@ grep -F 'cargo test --locked --target ${{ matrix.target }} --bin rpotato generat
   || fail "native Windows generation lifecycle tests are missing"
 grep -F 'cargo test --locked --target ${{ matrix.target }} --test backend_lifecycle -- --test-threads=1' "$workflow" >/dev/null \
   || fail "native Windows backend process lifecycle test is missing"
+grep -F 'cargo test --locked --target ${{ matrix.target }} --test native_terminal entry_quit -- --exact --test-threads=1' "$workflow" >/dev/null \
+  || fail "native terminal entry_quit test is missing from the build matrix"
+grep -F 'cargo test --locked --target ${{ matrix.target }} --test native_terminal full_adapter -- --exact --test-threads=1' "$workflow" >/dev/null \
+  || fail "native terminal full_adapter test is missing from the build matrix"
+grep -F 'bash scripts/release/test-verify-release-assets.sh' "$workflow" >/dev/null \
+  || fail "release asset verifier fixture gate is missing"
+grep -F 'bash scripts/release/test-release-workflow-contract.sh' "$workflow" >/dev/null \
+  || fail "release workflow contract fixture gate is missing"
+grep -F 'RPOTATO_TEST_TERMINAL_FAULT="invalid-release-smoke-value"' scripts/release/verify-release-binary-smoke.sh >/dev/null \
+  || fail "release binary smoke must prove the debug-only terminal fault seam is ignored"
 
 grep -F "name: Package tar.gz archive" "$workflow" >/dev/null \
   || fail "tar.gz packaging step must stay OS-neutral"
@@ -74,6 +84,24 @@ grep -F '$checksumLine = "$hash  $env:ASSET_BASE.zip`n"' "$workflow" >/dev/null 
   || fail "Windows checksum writer must terminate the line with explicit LF"
 grep -F '[System.IO.File]::WriteAllText("$archive.sha256", $checksumLine, [System.Text.Encoding]::ASCII)' "$workflow" >/dev/null \
   || fail "Windows checksum writer must use BOM-free ASCII WriteAllText"
+grep -F 'scripts/release/verify-release-assets.sh "$RELEASE_TAG" dist/release-assets' "$workflow" >/dev/null \
+  || fail "aggregate checksum job must validate the exact release asset set"
+grep -F 'name: verify published release assets' "$workflow" >/dev/null \
+  || fail "published release asset verification job is missing"
+grep -F 'gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"' "$workflow" >/dev/null \
+  || fail "published verification must download the complete uploaded asset set"
+if grep -F 'gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern' "$workflow" >/dev/null; then
+  fail "published verification must not hide unexpected assets behind a download pattern"
+fi
+grep -F 'scripts/release/verify-release-assets.sh "$RELEASE_TAG" dist/published' "$workflow" >/dev/null \
+  || fail "published assets must be downloaded and verified"
+grep -F 'name: cleanup verified release branch' "$workflow" >/dev/null \
+  || fail "release branch cleanup job is missing"
+grep -F '      - published-assets-verify' "$workflow" >/dev/null \
+  || fail "release branch cleanup must depend on published asset verification"
+grep -F 'RPOTATO_DELETE_RELEASE_BRANCH: "0"' .github/workflows/release-policy.yml >/dev/null \
+  || fail "release policy workflow must not delete the branch before asset verification"
+bash scripts/release/test-release-workflow-contract.sh
 
 fixture_dir="$(mktemp -d)"
 trap 'rm -rf "$fixture_dir"' EXIT

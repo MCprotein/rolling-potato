@@ -1,15 +1,18 @@
 use std::collections::hash_map::DefaultHasher;
 use std::fs::{self, OpenOptions};
 use std::hash::{Hash, Hasher};
-use std::io::Write;
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::process;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha256};
 
 use crate::app::AppError;
 use crate::paths;
+
+static EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeIdentity {
@@ -49,6 +52,427 @@ pub struct WorkflowCheckpoint {
     pub previous_hash: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LedgerBinding {
+    pub event_count: u64,
+    pub event_id: Option<String>,
+    pub event_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ReadOnlyLedgerTail {
+    pub binding: LedgerBinding,
+    pub events: Vec<ParsedLedgerEvent>,
+    pub truncated: bool,
+}
+
+pub(crate) struct LedgerWriterGuard {
+    _lease: crate::lease::RecoverableLease,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AppendedEvent {
+    pub ordinal: u64,
+    pub event_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PlannedEvent {
+    pub event: LedgerEvent,
+    pub ordinal: u64,
+    pub previous_event_hash: String,
+    pub event_hash: String,
+}
+
+pub(crate) struct EventSink<'guard> {
+    guard: &'guard LedgerWriterGuard,
+    planned: &'guard [PlannedEvent],
+    next_index: usize,
+}
+
+impl LedgerWriterGuard {
+    pub(crate) fn acquire() -> Result<Self, AppError> {
+        let lease = crate::lease::RecoverableLease::acquire_with_wait(
+            paths::runtime_ledger_writer_lock(),
+            "runtime ledger writer",
+            Duration::from_secs(5),
+        )?;
+        read_runtime_events_unlocked()?;
+        Ok(Self { _lease: lease })
+    }
+
+    #[cfg(test)]
+    fn acquire_after_first_block(on_first_block: impl FnOnce()) -> Result<Self, AppError> {
+        let lease = crate::lease::RecoverableLease::acquire_with_wait_after_first_block(
+            paths::runtime_ledger_writer_lock(),
+            "runtime ledger writer",
+            Duration::from_secs(5),
+            on_first_block,
+        )?;
+        read_runtime_events_unlocked()?;
+        Ok(Self { _lease: lease })
+    }
+
+    pub(crate) fn events(&self) -> Result<Vec<ParsedLedgerEvent>, AppError> {
+        read_runtime_events_unlocked()
+    }
+
+    pub(crate) fn binding(&self) -> Result<LedgerBinding, AppError> {
+        let events = read_runtime_events_unlocked()?;
+        let Some(last) = events.last() else {
+            return Ok(LedgerBinding {
+                event_count: 0,
+                event_id: None,
+                event_hash: "root".to_string(),
+            });
+        };
+        Ok(LedgerBinding {
+            event_count: u64::try_from(events.len())
+                .map_err(|_| AppError::blocked("ledger event count overflow"))?,
+            event_id: Some(last.event_id.clone()),
+            event_hash: last
+                .event_hash
+                .clone()
+                .ok_or_else(|| AppError::blocked("ledger head hash 누락"))?,
+        })
+    }
+
+    pub(crate) fn append_planned(&self, event: &LedgerEvent) -> Result<AppendedEvent, AppError> {
+        let existing = read_runtime_events_unlocked()?;
+        if let Some((index, installed)) = existing
+            .iter()
+            .enumerate()
+            .find(|(_, installed)| installed.event_id == event.event_id)
+        {
+            if !same_semantic_event(installed, event) {
+                return Err(AppError::blocked(format!(
+                    "planned ledger event id 충돌\n- event id: {}",
+                    event.event_id
+                )));
+            }
+            self.converge_derived(&event.project_id)?;
+            return Ok(AppendedEvent {
+                ordinal: u64::try_from(index + 1)
+                    .map_err(|_| AppError::blocked("ledger ordinal overflow"))?,
+                event_hash: installed
+                    .event_hash
+                    .clone()
+                    .ok_or_else(|| AppError::blocked("planned ledger event hash 누락"))?,
+            });
+        }
+        let planned = self.plan_events(std::slice::from_ref(event))?;
+        let appended = self.append_runtime_planned(&planned[0])?;
+        self.converge_derived(&event.project_id)?;
+        Ok(appended)
+    }
+
+    pub(crate) fn plan_events(
+        &self,
+        events: &[LedgerEvent],
+    ) -> Result<Vec<PlannedEvent>, AppError> {
+        let before = read_runtime_events_unlocked()?;
+        let base = u64::try_from(before.len())
+            .map_err(|_| AppError::blocked("ledger event count overflow"))?;
+        let mut previous = ledger_previous_hash(&before)?;
+        let mut seen = std::collections::BTreeSet::new();
+        let mut planned = Vec::with_capacity(events.len());
+        for (index, event) in events.iter().enumerate() {
+            if !seen.insert(event.event_id.as_str()) {
+                return Err(AppError::blocked("planned ledger duplicate event id"));
+            }
+            if before
+                .iter()
+                .any(|existing| existing.event_id == event.event_id)
+            {
+                return Err(AppError::blocked(format!(
+                    "planned ledger event는 이미 존재함\n- event id: {}",
+                    event.event_id
+                )));
+            }
+            if before
+                .iter()
+                .any(|existing| same_semantic_payload(existing, event))
+            {
+                return Err(AppError::blocked(format!(
+                    "planned ledger semantic payload가 다른 event id로 이미 존재함\n- event id: {}",
+                    event.event_id
+                )));
+            }
+            let offset = u64::try_from(index + 1)
+                .map_err(|_| AppError::blocked("ledger ordinal overflow"))?;
+            let ordinal = base
+                .checked_add(offset)
+                .ok_or_else(|| AppError::blocked("ledger ordinal overflow"))?;
+            let event_hash = planned_event_hash(event, &previous);
+            planned.push(PlannedEvent {
+                event: event.clone(),
+                ordinal,
+                previous_event_hash: previous,
+                event_hash: event_hash.clone(),
+            });
+            previous = event_hash;
+        }
+        Ok(planned)
+    }
+
+    pub(crate) fn append_runtime_planned(
+        &self,
+        planned: &PlannedEvent,
+    ) -> Result<AppendedEvent, AppError> {
+        let before = read_runtime_events_unlocked()?;
+        if let Some((index, existing)) = before
+            .iter()
+            .enumerate()
+            .find(|(_, existing)| existing.event_id == planned.event.event_id)
+        {
+            let ordinal = u64::try_from(index + 1)
+                .map_err(|_| AppError::blocked("ledger ordinal overflow"))?;
+            if !same_semantic_event(existing, &planned.event)
+                || ordinal != planned.ordinal
+                || existing.previous_event_hash.as_deref()
+                    != Some(planned.previous_event_hash.as_str())
+                || existing.event_hash.as_deref() != Some(planned.event_hash.as_str())
+            {
+                return Err(AppError::blocked(
+                    "planned ledger installed event binding 충돌",
+                ));
+            }
+            return Ok(AppendedEvent {
+                ordinal,
+                event_hash: planned.event_hash.clone(),
+            });
+        }
+        let ordinal = u64::try_from(before.len() + 1)
+            .map_err(|_| AppError::blocked("ledger ordinal overflow"))?;
+        if ordinal != planned.ordinal
+            || ledger_previous_hash(&before)? != planned.previous_event_hash
+        {
+            return Err(AppError::blocked(
+                "planned ledger predecessor/ordinal changed before append",
+            ));
+        }
+        append_chained_event(&paths::runtime_ledger_file(), &planned.event)?;
+        let after = read_runtime_events_unlocked()?;
+        let installed = after
+            .get(before.len())
+            .ok_or_else(|| AppError::blocked("planned ledger append reread 누락"))?;
+        if !same_semantic_event(installed, &planned.event)
+            || installed.previous_event_hash.as_deref()
+                != Some(planned.previous_event_hash.as_str())
+            || installed.event_hash.as_deref() != Some(planned.event_hash.as_str())
+        {
+            return Err(AppError::blocked(
+                "planned ledger append ordinal/semantic binding 불일치",
+            ));
+        }
+        Ok(AppendedEvent {
+            ordinal: planned.ordinal,
+            event_hash: planned.event_hash.clone(),
+        })
+    }
+
+    pub(crate) fn converge_derived(&self, project_id: &str) -> Result<(), AppError> {
+        let events = read_runtime_events_unlocked()?;
+        converge_derived_outputs_unlocked(&events, project_id)
+    }
+
+    pub(crate) fn prepared_target_is_converged(
+        &self,
+        bundle: &crate::transition::PreparedSourceBundle,
+        journal: &Path,
+    ) -> Result<bool, AppError> {
+        crate::transition::validate_committed_bundle_cleanup_authority(bundle, journal)?;
+        let planned = crate::transition::planned_events(bundle)?;
+        let events = read_runtime_events_unlocked()?;
+        let target_ordinal = planned
+            .last()
+            .map(|event| event.ordinal)
+            .ok_or_else(|| AppError::blocked("prepared convergence target event 누락"))?;
+        let installed_count = u64::try_from(events.len())
+            .map_err(|_| AppError::blocked("prepared convergence runtime count overflow"))?;
+        if installed_count > target_ordinal {
+            return Err(AppError::blocked(
+                "prepared convergence runtime head가 journal target을 초과했습니다.",
+            ));
+        }
+        for expected in planned
+            .iter()
+            .filter(|event| event.ordinal <= installed_count)
+        {
+            let index = usize::try_from(expected.ordinal.saturating_sub(1))
+                .map_err(|_| AppError::blocked("prepared convergence ordinal overflow"))?;
+            let installed = events
+                .get(index)
+                .ok_or_else(|| AppError::blocked("prepared convergence runtime prefix 누락"))?;
+            if !same_semantic_event(installed, &expected.event)
+                || installed.previous_event_hash.as_deref()
+                    != Some(expected.previous_event_hash.as_str())
+                || installed.event_hash.as_deref() != Some(expected.event_hash.as_str())
+            {
+                return Err(AppError::blocked(
+                    "prepared convergence runtime prefix가 journal과 충돌합니다.",
+                ));
+            }
+        }
+        if installed_count != target_ordinal {
+            return Ok(false);
+        }
+        validate_prepared_runtime_suffix(&events, &planned)?;
+        Ok(validate_derived_outputs_unlocked(&events, &bundle.project_id).is_ok())
+    }
+
+    pub(crate) fn event_sink<'guard>(
+        &'guard self,
+        planned: &'guard [PlannedEvent],
+    ) -> EventSink<'guard> {
+        EventSink {
+            guard: self,
+            planned,
+            next_index: 0,
+        }
+    }
+}
+
+impl EventSink<'_> {
+    pub(crate) fn append_planned_under_guard(
+        &mut self,
+        index: usize,
+        event: &LedgerEvent,
+    ) -> Result<AppendedEvent, AppError> {
+        if index != self.next_index {
+            return Err(AppError::blocked(format!(
+                "transaction event sink 순서 불일치\n- expected index: {}\n- requested index: {index}",
+                self.next_index
+            )));
+        }
+        let planned = self
+            .planned
+            .get(index)
+            .ok_or_else(|| AppError::blocked("transaction event sink index 범위 초과"))?;
+        if &planned.event != event {
+            return Err(AppError::blocked(
+                "transaction event sink semantic event binding 불일치",
+            ));
+        }
+        let appended = self.guard.append_runtime_planned(planned)?;
+        self.next_index = self
+            .next_index
+            .checked_add(1)
+            .ok_or_else(|| AppError::blocked("transaction event sink index overflow"))?;
+        Ok(appended)
+    }
+
+    pub(crate) fn finish(&self) -> Result<(), AppError> {
+        if self.next_index != self.planned.len() {
+            return Err(AppError::blocked(format!(
+                "transaction event sink 미완료\n- appended: {}\n- planned: {}",
+                self.next_index,
+                self.planned.len()
+            )));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn converge_derived(&self, project_id: &str) -> Result<(), AppError> {
+        self.guard.converge_derived(project_id)?;
+        let events = self.guard.events()?;
+        crate::observability::converge_from_events(&events)
+    }
+
+    pub(crate) fn converge_prepared(
+        &self,
+        bundle: &crate::transition::PreparedSourceBundle,
+        journal: &Path,
+    ) -> Result<(), AppError> {
+        self.finish()?;
+        crate::transition::validate_committed_bundle_cleanup_authority(bundle, journal)?;
+        let prepared = crate::transition::planned_events(bundle)?;
+        if prepared.len() != self.planned.len()
+            || prepared.iter().zip(self.planned).any(|(left, right)| {
+                left.event != right.event
+                    || left.ordinal != right.ordinal
+                    || left.previous_event_hash != right.previous_event_hash
+                    || left.event_hash != right.event_hash
+            })
+        {
+            return Err(AppError::blocked(
+                "prepared convergence event sink/journal binding 불일치",
+            ));
+        }
+        self.guard.converge_derived(&bundle.project_id)?;
+        let events = self.guard.events()?;
+        crate::observability::converge_from_events(&events)?;
+        validate_prepared_runtime_suffix(&events, &prepared)?;
+        validate_derived_outputs_unlocked(&events, &bundle.project_id)?;
+        crate::transition::validate_committed_bundle_cleanup_authority(bundle, journal)
+    }
+}
+
+fn validate_prepared_runtime_suffix(
+    events: &[ParsedLedgerEvent],
+    planned: &[PlannedEvent],
+) -> Result<(), AppError> {
+    let Some(final_event) = planned.last() else {
+        return Err(AppError::blocked("prepared convergence event plan 누락"));
+    };
+    if u64::try_from(events.len()).ok() != Some(final_event.ordinal) {
+        return Err(AppError::blocked(
+            "prepared convergence runtime ledger head ordinal 불일치",
+        ));
+    }
+    for expected in planned {
+        let index = usize::try_from(expected.ordinal.saturating_sub(1))
+            .map_err(|_| AppError::blocked("prepared convergence ordinal overflow"))?;
+        let installed = events
+            .get(index)
+            .ok_or_else(|| AppError::blocked("prepared convergence runtime event 누락"))?;
+        if !same_semantic_event(installed, &expected.event)
+            || installed.previous_event_hash.as_deref()
+                != Some(expected.previous_event_hash.as_str())
+            || installed.event_hash.as_deref() != Some(expected.event_hash.as_str())
+        {
+            return Err(AppError::blocked(
+                "prepared convergence runtime event/head binding 불일치",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn ledger_previous_hash(events: &[ParsedLedgerEvent]) -> Result<String, AppError> {
+    events.last().map_or_else(
+        || Ok("root".to_string()),
+        |last| {
+            last.event_hash
+                .clone()
+                .ok_or_else(|| AppError::blocked("planned ledger predecessor hash 누락"))
+        },
+    )
+}
+
+pub fn validated_ledger_binding() -> Result<LedgerBinding, AppError> {
+    let events = read_runtime_events()?;
+    let event_count = u64::try_from(events.len())
+        .map_err(|_| AppError::blocked("runtime ledger event count 범위 초과"))?;
+    let Some(last) = events.last() else {
+        return Ok(LedgerBinding {
+            event_count,
+            event_id: None,
+            event_hash: "root".to_string(),
+        });
+    };
+    let event_hash = last.event_hash.clone().ok_or_else(|| {
+        AppError::blocked(
+            "current-state v2 ledger binding 차단\n- 이유: legacy ledger에는 canonical chained head가 없습니다.",
+        )
+    })?;
+    Ok(LedgerBinding {
+        event_count,
+        event_id: Some(last.event_id.clone()),
+        event_hash,
+    })
+}
+
 pub fn validated_current_identity() -> Result<RuntimeIdentity, AppError> {
     let path = paths::current_state_file();
     if !path.exists() {
@@ -56,47 +480,8 @@ pub fn validated_current_identity() -> Result<RuntimeIdentity, AppError> {
     }
     let contents = fs::read_to_string(&path)
         .map_err(|err| AppError::blocked(format!("current-state identity 읽기 실패: {err}")))?;
-    let object = crate::strict_json::parse_object(
-        &contents,
-        &[
-            "schema_version",
-            "project_id",
-            "project_root",
-            "session_id",
-            "active_workflow",
-            "parent_session_id",
-            "branch_from_event_id",
-            "compaction_boundary",
-            "resume_source",
-            "terminal_states",
-        ],
-        "current-state identity",
-    )?;
-    if crate::strict_json::number(&object, "schema_version", "current-state identity")? != 1 {
-        return Err(AppError::blocked("current-state identity schema 불일치"));
-    }
     let fresh = fresh_identity();
-    let project_id = crate::strict_json::string(&object, "project_id", "current-state identity")?;
-    let project_root =
-        crate::strict_json::string(&object, "project_root", "current-state identity")?;
-    if project_id != fresh.project_id || project_root != fresh.project_root {
-        return Err(AppError::blocked(
-            "current-state identity project binding 불일치",
-        ));
-    }
-    if !matches!(
-        object.get("terminal_states"),
-        Some(crate::strict_json::Value::Array(_))
-    ) {
-        return Err(AppError::blocked(
-            "current-state terminal_states type 불일치",
-        ));
-    }
-    Ok(RuntimeIdentity {
-        project_id,
-        session_id: crate::strict_json::string(&object, "session_id", "current-state identity")?,
-        project_root,
-    })
+    crate::state::validated_identity_from_current_state(&contents, &fresh)
 }
 
 pub fn fresh_identity() -> RuntimeIdentity {
@@ -121,9 +506,10 @@ pub fn new_event_for(
 ) -> LedgerEvent {
     let ts_ms = now_ms();
     let event_id = format!(
-        "event-{}-{}-{}",
+        "event-{}-{}-{}-{}",
         now_nanos(),
         process::id(),
+        EVENT_SEQUENCE.fetch_add(1, Ordering::Relaxed),
         sanitize_event_type(event_type)
     );
 
@@ -139,39 +525,181 @@ pub fn new_event_for(
 }
 
 pub fn append_event(event: &LedgerEvent) -> Result<(), AppError> {
-    let _writer = crate::lease::RecoverableLease::acquire_with_wait(
-        paths::runtime_ledger_writer_lock(),
-        "runtime ledger writer",
-        Duration::from_secs(5),
-    )?;
-    append_chained_event(&paths::runtime_ledger_file(), event)?;
-    let project_ledger = paths::project_session_ledger_file();
-    if let Err(error) = append_chained_event(&project_ledger, event) {
-        if error.code != 3 {
-            return Err(error);
-        }
-        rebuild_project_ledger_from_runtime(&project_ledger, &event.project_id).map_err(
-            |recovery_error| {
-                AppError::blocked(format!(
-                    "project ledger 자동 복구 실패\n- 원래 오류: {}\n- 복구 오류: {}",
-                    error.message, recovery_error.message
-                ))
-            },
-        )?;
-    }
-    append_line(&paths::operation_log_file(), &event.to_log_line())?;
+    LedgerWriterGuard::acquire()?.append_planned(event)?;
     Ok(())
 }
 
-fn rebuild_project_ledger_from_runtime(path: &Path, project_id: &str) -> Result<(), AppError> {
-    let events = read_runtime_events_unlocked()?
-        .into_iter()
+fn same_semantic_event(existing: &ParsedLedgerEvent, event: &LedgerEvent) -> bool {
+    existing.event_id == event.event_id && same_semantic_payload(existing, event)
+}
+
+fn same_semantic_payload(existing: &ParsedLedgerEvent, event: &LedgerEvent) -> bool {
+    existing.ts_ms == event.ts_ms
+        && existing.event_type == event.event_type
+        && existing.project_id == event.project_id
+        && existing.session_id == event.session_id
+        && existing.summary == event.summary
+        && existing.details == event.details
+}
+
+fn converge_derived_outputs_unlocked(
+    events: &[ParsedLedgerEvent],
+    project_id: &str,
+) -> Result<(), AppError> {
+    rebuild_project_ledger_from_events(&paths::project_session_ledger_file(), events, project_id)?;
+    rebuild_operation_log_from_events(events)
+}
+
+fn validate_derived_outputs_unlocked(
+    events: &[ParsedLedgerEvent],
+    project_id: &str,
+) -> Result<(), AppError> {
+    let project_events = events
+        .iter()
         .filter(|event| event.project_id == project_id)
+        .cloned()
+        .collect::<Vec<_>>();
+    let (expected_project, expected_head_hash) = render_chained_ledger(&project_events);
+    let expected_head = format!(
+        "{{\"schema_version\":1,\"event_count\":{},\"last_event_hash\":\"{}\"}}\n",
+        project_events.len(),
+        expected_head_hash.as_deref().unwrap_or("root")
+    );
+    let project_path = paths::project_session_ledger_file();
+    if fs::read(&project_path).map_err(|err| {
+        AppError::blocked(format!("prepared project ledger 재검증 읽기 실패: {err}"))
+    })? != expected_project.as_bytes()
+        || fs::read(ledger_head_path(&project_path)).map_err(|err| {
+            AppError::blocked(format!("prepared project head 재검증 읽기 실패: {err}"))
+        })? != expected_head.as_bytes()
+    {
+        return Err(AppError::blocked(
+            "prepared project ledger/head convergence 불일치",
+        ));
+    }
+    let expected_operation_log = events
+        .iter()
+        .map(|event| {
+            LedgerEvent {
+                event_id: event.event_id.clone(),
+                ts_ms: event.ts_ms,
+                event_type: event.event_type.clone(),
+                project_id: event.project_id.clone(),
+                session_id: event.session_id.clone(),
+                summary: event.summary.clone(),
+                details: event.details.clone(),
+            }
+            .to_log_line()
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let expected_operation_log = if expected_operation_log.is_empty() {
+        expected_operation_log
+    } else {
+        format!("{expected_operation_log}\n")
+    };
+    if fs::read(paths::operation_log_file()).map_err(|err| {
+        AppError::blocked(format!("prepared operation log 재검증 읽기 실패: {err}"))
+    })? != expected_operation_log.as_bytes()
+    {
+        return Err(AppError::blocked(
+            "prepared operation log convergence 불일치",
+        ));
+    }
+    let connection = rusqlite::Connection::open(paths::observability_db_file())
+        .map_err(|err| AppError::blocked(format!("prepared sqlite 재검증 열기 실패: {err}")))?;
+    let mut statement = connection
+        .prepare(
+            "SELECT rowid, event_id, ts_ms, event_type, project_id, session_id, summary
+               FROM ledger_events
+           ORDER BY rowid",
+        )
+        .map_err(|err| AppError::blocked(format!("prepared sqlite 재검증 준비 실패: {err}")))?;
+    let projected = statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, String>(6)?,
+            ))
+        })
+        .map_err(|err| AppError::blocked(format!("prepared sqlite 재검증 query 실패: {err}")))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| AppError::blocked(format!("prepared sqlite 재검증 row 실패: {err}")))?;
+    if projected
+        != events
+            .iter()
+            .enumerate()
+            .map(|(index, event)| {
+                (
+                    i64::try_from(index + 1).unwrap_or(i64::MAX),
+                    event.event_id.clone(),
+                    i64::try_from(event.ts_ms).unwrap_or(i64::MAX),
+                    event.event_type.clone(),
+                    event.project_id.clone(),
+                    event.session_id.clone(),
+                    event.summary.clone(),
+                )
+            })
+            .collect::<Vec<_>>()
+    {
+        return Err(AppError::blocked(
+            "prepared sqlite convergence event sequence 불일치",
+        ));
+    }
+    Ok(())
+}
+
+fn rebuild_operation_log_from_events(events: &[ParsedLedgerEvent]) -> Result<(), AppError> {
+    let body = events
+        .iter()
+        .map(|event| {
+            LedgerEvent {
+                event_id: event.event_id.clone(),
+                ts_ms: event.ts_ms,
+                event_type: event.event_type.clone(),
+                project_id: event.project_id.clone(),
+                session_id: event.session_id.clone(),
+                summary: event.summary.clone(),
+                details: event.details.clone(),
+            }
+            .to_log_line()
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let body = if body.is_empty() {
+        body
+    } else {
+        format!("{body}\n")
+    };
+    crate::state::atomic_replace_bytes(&paths::operation_log_file(), body.as_bytes())
+}
+
+fn rebuild_project_ledger_from_events(
+    path: &Path,
+    events: &[ParsedLedgerEvent],
+    project_id: &str,
+) -> Result<(), AppError> {
+    let events = events
+        .iter()
+        .filter(|event| event.project_id == project_id)
+        .cloned()
         .collect::<Vec<_>>();
     let (body, last_hash) = render_chained_ledger(&events);
 
-    preserve_corrupt_ledger_file(path)?;
-    preserve_corrupt_ledger_file(&ledger_head_path(path))?;
+    if path.exists() {
+        let existing = fs::read_to_string(path).map_err(|err| {
+            AppError::blocked(format!("project ledger convergence read 실패: {err}"))
+        })?;
+        if validate_ledger_contents(path, &existing).is_err() {
+            preserve_corrupt_ledger_file(path)?;
+            preserve_corrupt_ledger_file(&ledger_head_path(path))?;
+        }
+    }
     crate::state::atomic_replace_bytes(path, body.as_bytes())?;
     write_ledger_head(path, events.len(), last_hash.as_deref().unwrap_or("root"))
 }
@@ -230,9 +758,198 @@ pub fn read_runtime_events() -> Result<Vec<ParsedLedgerEvent>, AppError> {
     read_runtime_events_unlocked()
 }
 
+pub(crate) fn read_runtime_tail_read_only(
+    max_events: usize,
+    max_bytes: u64,
+) -> Result<ReadOnlyLedgerTail, AppError> {
+    if max_events == 0 || max_bytes == 0 {
+        return Err(AppError::blocked(
+            "runtime ledger read-only budget은 0보다 커야 합니다.",
+        ));
+    }
+    let path = paths::runtime_ledger_file();
+    let head_path = ledger_head_path(&path);
+    if !path.exists() && !head_path.exists() {
+        return Ok(ReadOnlyLedgerTail {
+            binding: LedgerBinding {
+                event_count: 0,
+                event_id: None,
+                event_hash: "root".to_string(),
+            },
+            events: Vec::new(),
+            truncated: false,
+        });
+    }
+    ensure_read_only_regular_file(&path, "runtime ledger")?;
+    ensure_read_only_regular_file(&head_path, "runtime ledger head")?;
+    let head_before = read_ledger_head_read_only(&head_path)?;
+
+    let mut file = fs::File::open(&path)
+        .map_err(|err| AppError::blocked(format!("runtime ledger read-only open 실패: {err}")))?;
+    let before = file
+        .metadata()
+        .map_err(|err| AppError::blocked(format!("runtime ledger metadata 실패: {err}")))?;
+    let start = before.len().saturating_sub(max_bytes);
+    file.seek(SeekFrom::Start(start))
+        .map_err(|err| AppError::blocked(format!("runtime ledger tail seek 실패: {err}")))?;
+    let mut bytes = Vec::new();
+    file.take(max_bytes)
+        .read_to_end(&mut bytes)
+        .map_err(|err| AppError::blocked(format!("runtime ledger tail 읽기 실패: {err}")))?;
+    let after = fs::metadata(&path)
+        .map_err(|err| AppError::blocked(format!("runtime ledger reread metadata 실패: {err}")))?;
+    let head_after = read_ledger_head_read_only(&head_path)?;
+    if before.len() != after.len()
+        || before.modified().ok() != after.modified().ok()
+        || head_before != head_after
+    {
+        return Err(AppError::blocked(
+            "runtime ledger read-only snapshot 중 canonical head가 변경되었습니다.",
+        ));
+    }
+    if !bytes.is_empty() && !bytes.ends_with(b"\n") {
+        return Err(AppError::blocked(
+            "runtime ledger read-only tail이 완결된 JSONL record로 끝나지 않습니다.",
+        ));
+    }
+    if start > 0 {
+        let Some(boundary) = bytes.iter().position(|byte| *byte == b'\n') else {
+            return Err(AppError::blocked(
+                "runtime ledger record가 read-only byte budget을 초과했습니다.",
+            ));
+        };
+        bytes.drain(..=boundary);
+    }
+    let body = std::str::from_utf8(&bytes)
+        .map_err(|_| AppError::blocked("runtime ledger tail UTF-8 불일치"))?;
+    let lines = body
+        .lines()
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    if head_before.event_count == 0 {
+        if before.len() != 0 || !lines.is_empty() || head_before.event_hash != "root" {
+            return Err(AppError::blocked(
+                "runtime ledger empty head/file binding 불일치",
+            ));
+        }
+        return Ok(ReadOnlyLedgerTail {
+            binding: head_before,
+            events: Vec::new(),
+            truncated: false,
+        });
+    }
+    let take = lines.len().min(max_events);
+    if take == 0 {
+        return Err(AppError::blocked(
+            "runtime ledger canonical tail이 read-only budget 안에 없습니다.",
+        ));
+    }
+    let mut events = lines[lines.len() - take..]
+        .iter()
+        .map(|line| parse_event_line_strict(line))
+        .collect::<Result<Vec<_>, _>>()?;
+    for (index, event) in events.iter().enumerate() {
+        let previous = event.previous_event_hash.as_deref().ok_or_else(|| {
+            AppError::blocked("runtime ledger read-only view는 chained event만 허용합니다.")
+        })?;
+        let hash = event
+            .event_hash
+            .as_deref()
+            .ok_or_else(|| AppError::blocked("runtime ledger read-only event hash 누락"))?;
+        if hash != event_physical_hash(event, previous) {
+            return Err(AppError::blocked(
+                "runtime ledger read-only physical hash chain 불일치",
+            ));
+        }
+        if index > 0 && Some(previous) != events[index - 1].event_hash.as_deref() {
+            return Err(AppError::blocked(
+                "runtime ledger read-only adjacent hash chain 불일치",
+            ));
+        }
+    }
+    let last = events
+        .last()
+        .ok_or_else(|| AppError::blocked("runtime ledger read-only tail 누락"))?;
+    if last.event_hash.as_deref() != Some(head_before.event_hash.as_str())
+        || u64::try_from(events.len()).ok().is_none()
+        || head_before.event_count < events.len() as u64
+    {
+        return Err(AppError::blocked(
+            "runtime ledger read-only tail/head binding 불일치",
+        ));
+    }
+    let binding = LedgerBinding {
+        event_count: head_before.event_count,
+        event_id: Some(last.event_id.clone()),
+        event_hash: head_before.event_hash,
+    };
+    let truncated = binding.event_count > events.len() as u64;
+    events.shrink_to_fit();
+    Ok(ReadOnlyLedgerTail {
+        binding,
+        events,
+        truncated,
+    })
+}
+
+fn ensure_read_only_regular_file(path: &Path, label: &str) -> Result<(), AppError> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|err| AppError::blocked(format!("{label} metadata 실패: {err}")))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(AppError::blocked(format!(
+            "{label} read-only file boundary 불일치"
+        )));
+    }
+    Ok(())
+}
+
+fn read_ledger_head_read_only(path: &Path) -> Result<LedgerBinding, AppError> {
+    let metadata = fs::metadata(path)
+        .map_err(|err| AppError::blocked(format!("runtime ledger head metadata 실패: {err}")))?;
+    if metadata.len() > 4_096 {
+        return Err(AppError::blocked("runtime ledger head byte limit 초과"));
+    }
+    let body = fs::read_to_string(path)
+        .map_err(|err| AppError::blocked(format!("runtime ledger head 읽기 실패: {err}")))?;
+    let object = crate::strict_json::parse_canonical_object(
+        body.trim_end_matches('\n'),
+        &["schema_version", "event_count", "last_event_hash"],
+        "runtime ledger read-only head",
+    )?;
+    if crate::strict_json::canonical_u64(
+        &object,
+        "schema_version",
+        "runtime ledger read-only head",
+    )? != 1
+    {
+        return Err(AppError::blocked("runtime ledger head schema 불일치"));
+    }
+    let event_count =
+        crate::strict_json::canonical_u64(&object, "event_count", "runtime ledger read-only head")?;
+    let event_hash = match object.get("last_event_hash") {
+        Some(crate::strict_json::CanonicalValue::String(value)) => value.clone(),
+        _ => return Err(AppError::blocked("runtime ledger head hash type 불일치")),
+    };
+    if event_hash != "root" && !is_sha256(&event_hash) {
+        return Err(AppError::blocked("runtime ledger head hash 형식 불일치"));
+    }
+    Ok(LedgerBinding {
+        event_count,
+        event_id: None,
+        event_hash,
+    })
+}
+
 fn read_runtime_events_unlocked() -> Result<Vec<ParsedLedgerEvent>, AppError> {
     let path = paths::runtime_ledger_file();
     if !path.exists() {
+        if ledger_head_path(&path).exists() {
+            return Err(ledger_corrupt(
+                &path,
+                0,
+                "ledger JSONL 없이 orphan head가 존재합니다",
+            ));
+        }
         return Ok(Vec::new());
     }
 
@@ -243,12 +960,27 @@ fn read_runtime_events_unlocked() -> Result<Vec<ParsedLedgerEvent>, AppError> {
         ))
     })?;
 
-    validate_ledger_contents(&path, &contents)
+    validate_ledger_contents_with_head_repair(&path, &contents)
 }
 
 fn validate_ledger_contents(
     path: &Path,
     contents: &str,
+) -> Result<Vec<ParsedLedgerEvent>, AppError> {
+    validate_ledger_contents_inner(path, contents, false)
+}
+
+fn validate_ledger_contents_with_head_repair(
+    path: &Path,
+    contents: &str,
+) -> Result<Vec<ParsedLedgerEvent>, AppError> {
+    validate_ledger_contents_inner(path, contents, true)
+}
+
+fn validate_ledger_contents_inner(
+    path: &Path,
+    contents: &str,
+    allow_head_repair: bool,
 ) -> Result<Vec<ParsedLedgerEvent>, AppError> {
     let mut events = Vec::new();
     let mut legacy_prefix = String::new();
@@ -292,7 +1024,13 @@ fn validate_ledger_contents(
         }
         events.push(event);
     }
-    validate_ledger_head(path, events.len(), previous_hash.as_deref(), &legacy_prefix)?;
+    validate_ledger_head(
+        path,
+        &events,
+        previous_hash.as_deref(),
+        &legacy_prefix,
+        allow_head_repair,
+    )?;
     Ok(events)
 }
 
@@ -340,7 +1078,7 @@ fn parse_event_line_strict(line: &str) -> Result<ParsedLedgerEvent, AppError> {
     };
     Ok(ParsedLedgerEvent {
         event_id: crate::strict_json::string(&object, "event_id", "runtime ledger line")?,
-        ts_ms: crate::strict_json::number(&object, "ts_ms", "runtime ledger line")? as u128,
+        ts_ms: crate::strict_json::number_u128(&object, "ts_ms", "runtime ledger line")?,
         event_type: crate::strict_json::string(&object, "event_type", "runtime ledger line")?,
         project_id: crate::strict_json::string(&object, "project_id", "runtime ledger line")?,
         session_id: crate::strict_json::string(&object, "session_id", "runtime ledger line")?,
@@ -392,6 +1130,10 @@ fn event_chain_payload(event: &LedgerEvent, previous: &str) -> String {
     )
 }
 
+pub(crate) fn planned_event_hash(event: &LedgerEvent, previous: &str) -> String {
+    sha256_bytes(event_chain_payload(event, previous).as_bytes())
+}
+
 fn event_physical_hash(event: &ParsedLedgerEvent, previous: &str) -> String {
     let synthetic = LedgerEvent {
         event_id: event.event_id.clone(),
@@ -423,13 +1165,23 @@ fn write_ledger_head(path: &Path, count: usize, hash: &str) -> Result<(), AppErr
 
 fn validate_ledger_head(
     path: &Path,
-    count: usize,
+    events: &[ParsedLedgerEvent],
     last_hash: Option<&str>,
     legacy_prefix: &str,
+    allow_repair: bool,
 ) -> Result<(), AppError> {
+    let count = events.len();
     let head_path = ledger_head_path(path);
     if !head_path.exists() {
-        if last_hash.is_some() {
+        if let Some(last_hash) = last_hash {
+            let chained_count = events
+                .iter()
+                .filter(|event| event.event_hash.is_some())
+                .count();
+            if allow_repair && chained_count == 1 {
+                write_ledger_head(path, count, last_hash)?;
+                return Ok(());
+            }
             return Err(ledger_corrupt(path, count, "chained ledger head 누락"));
         }
         return Ok(());
@@ -448,13 +1200,32 @@ fn validate_ledger_head(
             "legacy"
         }
     });
-    if crate::strict_json::number(&object, "schema_version", "ledger head")? != 1
-        || crate::strict_json::number(&object, "event_count", "ledger head")? != count as u64
-        || crate::strict_json::string(&object, "last_event_hash", "ledger head")? != expected_hash
-    {
-        return Err(ledger_corrupt(path, count, "ledger truncation/head 불일치"));
+    let schema = crate::strict_json::number(&object, "schema_version", "ledger head")?;
+    let head_count = crate::strict_json::number(&object, "event_count", "ledger head")?;
+    let head_hash = crate::strict_json::string(&object, "last_event_hash", "ledger head")?;
+    if schema == 1 && head_count == count as u64 && head_hash == expected_hash {
+        return Ok(());
     }
-    Ok(())
+    if schema == 1 && allow_repair && head_count.checked_add(1) == Some(count as u64) {
+        let chained_count = events
+            .iter()
+            .filter(|event| event.event_hash.is_some())
+            .count();
+        let previous = events
+            .last()
+            .and_then(|event| event.previous_event_hash.as_deref());
+        let legacy_anchor = (!legacy_prefix.is_empty())
+            .then(|| format!("legacy:{}", sha256_bytes(legacy_prefix.as_bytes())));
+        let predecessor_matches = previous == Some(head_hash.as_str())
+            || (chained_count == 1
+                && head_hash == "legacy"
+                && previous == legacy_anchor.as_deref());
+        if predecessor_matches {
+            write_ledger_head(path, count, expected_hash)?;
+            return Ok(());
+        }
+    }
+    Err(ledger_corrupt(path, count, "ledger truncation/head 불일치"))
 }
 
 fn ledger_corrupt(path: &Path, line: usize, reason: &str) -> AppError {
@@ -809,6 +1580,93 @@ mod tests {
     }
 
     #[test]
+    fn runtime_head_repairs_only_the_single_durable_append_gap() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-ledger-head-repair-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        let identity = fresh_identity();
+        let first = new_event_for(&identity, "head.first", "첫 이벤트", "safe");
+        append_event(&first).unwrap();
+        let path = paths::runtime_ledger_file();
+        let first_events = read_runtime_events().unwrap();
+        let first_hash = first_events[0].event_hash.clone().unwrap();
+        let second = new_event_for(&identity, "head.second", "두 번째 이벤트", "safe");
+        let payload = event_chain_payload(&second, &first_hash);
+        let second_hash = sha256_bytes(payload.as_bytes());
+        let line = format!(
+            "{{{},\"event_hash\":\"{}\"}}",
+            payload.trim_start_matches('{').trim_end_matches('}'),
+            second_hash
+        );
+
+        append_line(&path, &line).unwrap();
+        let repaired = read_runtime_events().unwrap();
+        let head = fs::read_to_string(ledger_head_path(&path)).unwrap();
+
+        assert_eq!(repaired.len(), 2);
+        assert!(head.contains("\"event_count\":2"));
+        assert!(head.contains(&second_hash));
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn missing_head_is_repaired_only_for_the_first_chained_append() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-ledger-first-head-repair-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        let identity = fresh_identity();
+        append_event(&new_event_for(&identity, "head.first", "첫 이벤트", "safe")).unwrap();
+        let path = paths::runtime_ledger_file();
+        fs::remove_file(ledger_head_path(&path)).unwrap();
+
+        let repaired = read_runtime_events().unwrap();
+
+        assert_eq!(repaired.len(), 1);
+        assert!(ledger_head_path(&path).is_file());
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn orphan_runtime_head_without_jsonl_fails_closed() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-ledger-orphan-head-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        let path = paths::runtime_ledger_file();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        write_ledger_head(&path, 0, "root").unwrap();
+
+        let error = read_runtime_events().unwrap_err();
+
+        assert!(error.message.contains("orphan head"));
+        assert!(!path.exists());
+        assert!(ledger_head_path(&path).exists());
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn corrupt_project_mirror_is_preserved_and_rebuilt_from_runtime() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let identity = fresh_identity();
@@ -883,5 +1741,253 @@ mod tests {
         assert_eq!(runtime_events.len(), writers);
         assert_eq!(project_events.len(), writers);
         assert_eq!(operation_log.lines().count(), writers);
+    }
+
+    #[test]
+    fn event_sink_single_acquisition_concurrency_matrix() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-ledger-event-sink-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        let identity = fresh_identity();
+        let events = [
+            new_event_for(&identity, "sink.first", "첫 이벤트", "index=0"),
+            new_event_for(&identity, "sink.second", "두 번째 이벤트", "index=1"),
+        ];
+        let writer = LedgerWriterGuard::acquire().unwrap();
+        let planned = writer.plan_events(&events).unwrap();
+        let mut sink = writer.event_sink(&planned);
+        let concurrent_identity = identity.clone();
+        let (ready_sender, ready_receiver) = std::sync::mpsc::channel();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let concurrent = std::thread::spawn(move || {
+            let event = new_event_for(
+                &concurrent_identity,
+                "sink.concurrent",
+                "경쟁 이벤트",
+                "index=2",
+            );
+            let result = LedgerWriterGuard::acquire_after_first_block(|| {
+                ready_sender.send(()).unwrap();
+            })
+            .and_then(|writer| writer.append_planned(&event).map(|_| ()));
+            sender.send(result).unwrap();
+        });
+        ready_receiver
+            .recv_timeout(Duration::from_secs(5))
+            .expect("contender가 held lease에서 실제로 차단되어야 합니다.");
+        assert!(receiver.recv_timeout(Duration::from_millis(100)).is_err());
+
+        assert!(sink.append_planned_under_guard(1, &events[1]).is_err());
+        sink.append_planned_under_guard(0, &events[0]).unwrap();
+        assert!(sink.append_planned_under_guard(1, &events[0]).is_err());
+        sink.append_planned_under_guard(1, &events[1]).unwrap();
+        sink.finish().unwrap();
+        sink.converge_derived(&identity.project_id).unwrap();
+        drop(writer);
+        receiver
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap()
+            .unwrap();
+        concurrent.join().unwrap();
+
+        let runtime = read_runtime_events().unwrap();
+        assert_eq!(runtime.len(), 3);
+        assert_eq!(runtime[0].event_id, events[0].event_id);
+        assert_eq!(runtime[1].event_id, events[1].event_id);
+        assert_eq!(runtime[2].event_type, "sink.concurrent");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn event_sink_crash_recovery_never_nests_ledger_lease() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-ledger-event-sink-restart-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        let identity = fresh_identity();
+        let first = new_event_for(&identity, "sink.restart.first", "첫 이벤트", "index=0");
+        let second = new_event_for(&identity, "sink.restart.second", "둘째 이벤트", "index=1");
+        {
+            let writer = LedgerWriterGuard::acquire().unwrap();
+            let planned = writer.plan_events(std::slice::from_ref(&first)).unwrap();
+            let mut sink = writer.event_sink(&planned);
+            sink.append_planned_under_guard(0, &first).unwrap();
+        }
+        {
+            let writer = LedgerWriterGuard::acquire().unwrap();
+            let planned = writer.plan_events(std::slice::from_ref(&second)).unwrap();
+            let mut sink = writer.event_sink(&planned);
+            sink.append_planned_under_guard(0, &second).unwrap();
+            sink.finish().unwrap();
+            sink.converge_derived(&identity.project_id).unwrap();
+        }
+        let events = read_runtime_events().unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].event_id, first.event_id);
+        assert_eq!(events[1].event_id, second.event_id);
+        let source = include_str!("ledger.rs")
+            .split("impl EventSink<'_> {")
+            .nth(1)
+            .unwrap()
+            .split("fn validate_prepared_runtime_suffix")
+            .next()
+            .unwrap();
+        assert!(!source.contains("LedgerWriterGuard::acquire"));
+        assert!(!source.contains("RecoverableLease::acquire"));
+        assert!(!source.contains("append_event("));
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn t10_rebuilds_all_derived_outputs_from_runtime_authority() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-ledger-t10-convergence-{}-{}",
+            std::process::id(),
+            now_nanos()
+        ));
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        fs::create_dir_all(paths::project_root()).unwrap();
+        let identity = fresh_identity();
+        let first = new_event_for(&identity, "t10.first", "첫 이벤트", "safe=one");
+        let second = new_event_for(&identity, "t10.second", "두 번째 이벤트", "safe=two");
+        append_event(&first).unwrap();
+        append_event(&second).unwrap();
+        crate::observability::converge_from_events(&read_runtime_events().unwrap()).unwrap();
+
+        let project_path = paths::project_session_ledger_file();
+        {
+            let connection = rusqlite::Connection::open(paths::observability_db_file()).unwrap();
+            connection
+                .execute(
+                    "UPDATE ledger_events SET summary = 'tampered-same-id' WHERE event_id = ?1",
+                    rusqlite::params![first.event_id],
+                )
+                .unwrap();
+        }
+        assert!(validate_derived_outputs_unlocked(
+            &read_runtime_events().unwrap(),
+            &identity.project_id
+        )
+        .unwrap_err()
+        .message
+        .contains("sqlite convergence event sequence"));
+        fs::write(&project_path, b"{corrupt-project-ledger\n").unwrap();
+        fs::write(ledger_head_path(&project_path), b"{corrupt-head}\n").unwrap();
+        fs::write(paths::operation_log_file(), b"stale extra operation\n").unwrap();
+
+        let writer = LedgerWriterGuard::acquire().unwrap();
+        writer.converge_derived(&identity.project_id).unwrap();
+        let runtime = writer.events().unwrap();
+        crate::observability::converge_from_events(&runtime).unwrap();
+        drop(writer);
+
+        let project_events = runtime
+            .iter()
+            .filter(|event| event.project_id == identity.project_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        let (expected_project, expected_head_hash) = render_chained_ledger(&project_events);
+        let expected_head = format!(
+            "{{\"schema_version\":1,\"event_count\":{},\"last_event_hash\":\"{}\"}}\n",
+            project_events.len(),
+            expected_head_hash.as_deref().unwrap_or("root")
+        );
+        let expected_operation_log = runtime
+            .iter()
+            .map(|event| {
+                format!(
+                    "{} {} {} {}\n",
+                    event.ts_ms, event.event_type, event.session_id, event.summary
+                )
+            })
+            .collect::<String>();
+
+        assert_eq!(fs::read_to_string(&project_path).unwrap(), expected_project);
+        assert_eq!(
+            fs::read_to_string(ledger_head_path(&project_path)).unwrap(),
+            expected_head
+        );
+        assert_eq!(
+            fs::read_to_string(paths::operation_log_file()).unwrap(),
+            expected_operation_log
+        );
+        let projected_rows = {
+            let connection = rusqlite::Connection::open(paths::observability_db_file()).unwrap();
+            let mut statement = connection
+                .prepare(
+                    "SELECT rowid, event_id, ts_ms, event_type, project_id, session_id, summary
+                       FROM ledger_events
+                   ORDER BY rowid",
+                )
+                .unwrap();
+            statement
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, String>(5)?,
+                        row.get::<_, String>(6)?,
+                    ))
+                })
+                .unwrap()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap()
+        };
+        assert_eq!(
+            projected_rows,
+            runtime
+                .iter()
+                .enumerate()
+                .map(|(index, event)| (
+                    i64::try_from(index + 1).unwrap(),
+                    event.event_id.clone(),
+                    i64::try_from(event.ts_ms).unwrap(),
+                    event.event_type.clone(),
+                    event.project_id.clone(),
+                    event.session_id.clone(),
+                    event.summary.clone(),
+                ))
+                .collect::<Vec<_>>()
+        );
+
+        let before_restart = (
+            fs::read(&project_path).unwrap(),
+            fs::read(ledger_head_path(&project_path)).unwrap(),
+            fs::read(paths::operation_log_file()).unwrap(),
+        );
+        let writer = LedgerWriterGuard::acquire().unwrap();
+        writer.converge_derived(&identity.project_id).unwrap();
+        crate::observability::converge_from_events(&writer.events().unwrap()).unwrap();
+        drop(writer);
+        assert_eq!(
+            before_restart,
+            (
+                fs::read(&project_path).unwrap(),
+                fs::read(ledger_head_path(&project_path)).unwrap(),
+                fs::read(paths::operation_log_file()).unwrap(),
+            )
+        );
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
     }
 }

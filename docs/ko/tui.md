@@ -6,7 +6,7 @@ TUI는 Claude Code/Codex replacement experience에 필요한 필수 product surf
 
 TUI design source of truth는 [DESIGN.md](../../DESIGN.md)입니다. 특히 monitoring 화면은 SSH/Linux server에서도 쓸 수 있어야 하므로 browser나 GUI를 전제하지 않습니다.
 
-## 현재 Beta Surface
+## 현재 Surface
 
 `v0.5.0`은 dependency-free, read-only ASCII TUI beta를 추가합니다.
 
@@ -21,7 +21,7 @@ TUI design source of truth는 [DESIGN.md](../../DESIGN.md)입니다. 특히 moni
 - `rpotato tui approvals`
 - `rpotato tui diff <proposal-id>`
 
-Approval view는 project-local `.rpotato/patch-proposals/` record를 읽고 proposal status, id, path, replacement count를 보여줍니다. Diff view는 proposal metadata, approval/dry-run command hint, 저장된 unified diff를 보여주며 patch approve나 apply는 수행하지 않습니다.
+초기 approval view는 project-local `.rpotato/patch-proposals/` record를 읽었습니다. v0.34.0부터 두 one-shot command 모두 interactive controller와 같은 bounded canonical runtime facade를 사용합니다. Approvals는 canonical team-admission event와 active workflow에 bound된 proposal만 보여주고, diff는 unbound 또는 oversized directory-only record를 읽거나 표시하지 않으며 patch approve/apply도 수행하지 않습니다.
 
 `v0.7.0`은 read-only beta에 선택한 session의 event inspection을 추가합니다.
 
@@ -42,6 +42,63 @@ Evidence view는 runtime evidence JSONL path, project evidence directory, SQLite
 Monitor view는 SQLite model summary와 최신 `resource_samples` row를 읽습니다. Model run count, token record, average latency, average tokens per second, resource sample count, 최신 pressure status, CPU percent, average/peak RSS, disk bytes, recorded timestamp를 보여줍니다. 계속 read-only이며 export, prune, governor behavior는 TUI beta 밖에 둡니다.
 
 첫 beta의 framework decision은 dependency-free terminal-safe surface로 시작하는 것입니다. Interaction requirement가 안정된 뒤 더 풍부한 TUI crate가 필요한지 결정합니다.
+
+`v0.34.0`은 dependency를 추가하지 않고 terminal surface를 read-only inspection에서
+runtime-owned line-oriented interactive controller로 올립니다.
+
+- `rpotato tui`는 input과 output이 모두 terminal에 연결되면 controller를 시작하고,
+  redirect된 사용에서는 read-only overview를 유지합니다.
+- `rpotato tui interactive`는 같은 controller를 명시적으로 시작하며 deterministic
+  piped-input test도 지원합니다.
+- `view`, `next`, `prev`, `select <canonical-id>`는 canonical runtime state를
+  이동합니다. `select session <session-id>`는 확인 후 runtime lease 경계에서 canonical
+  session 선택을 보냅니다. 알 수 없는 입력은 read-only help no-op이며 shell command로
+  취급하지 않습니다.
+- `view tool-output <artifact-id>`는 ledger binding, owner/path/hash, 크기를 검증한
+  sanitized tool artifact를 엽니다. Session/transcript page의 authority는 canonical
+  ledger와 durable artifact이며 SQLite를 정본으로 사용하지 않습니다.
+- `approve <proposal>`, `approve verification <proposal>`, `deny`, `resume`, `cancel`은
+  선택된 workflow, fresh runtime selection lease, 명시적 `yes` 확인을 요구합니다.
+  Credential은 terminal echo를 끈 상태에서 한 번만 읽고, SIGINT/SIGTERM 또는 Windows
+  console 종료 시 process 종료 전에 캡처한 input mode를 복원합니다.
+
+<!-- TUI-READ-CONTRACT:START -->
+8개 view(`overview`, `monitor`, `sessions`, `transcript`, `tool-output`, `approvals`,
+`diff`, `evidence`)는 view별 item, byte, scan, line, pagination 상한을 적용합니다. 모든
+page는 canonical current/workflow revision과 hash, ledger sequence와 hash, 관련 content
+또는 transcript hash, projection watermark, validation time, 그리고 `complete`,
+`next-page`, `truncated`, `unavailable`, `redacted` 중 하나의 typed continuation을
+포함합니다. SQLite는 파생된 metrics/freshness projection일 뿐이며 freshness 표기는 정확히
+`fresh`, `stale`, `projection-lag`, `unavailable`입니다. 읽기 경로는 mutation lease를
+획득하거나 state를 복구하거나 validation gap을 쓰지 않으며 corrupt, unbound,
+SQLite-only, directory-scan-only candidate를 허용하지 않습니다.
+<!-- TUI-READ-CONTRACT:END -->
+
+모든 mutation, intent ID, immutable receipt, closed 27-row outcome table은 runtime이
+소유합니다. 성공한 patch approval은 11개 ordered member와 exact E0-E9 semantic event
+chain을 포함한 하나의 prepared bundle을 commit합니다. Restart recovery는 저장된 effect를
+idempotent하게만 재생하고 설치된 R+2 workflow pointer를 R+1로 내리지 않으며, 같은
+committed intent가 반복되면 secret을 다시 표시하지 않고 refresh-only receipt를
+반환합니다. 첫 approval 성공은 새 verification credential을 terminal에 정확히 한 번
+출력하고 다음 rendered notice에는 저장하지 않습니다. 읽기 surface는 새 product mutation을
+만들지 않지만 command startup은 이미 commit된 transition journal을 마저 수렴하거나 지연된
+derived projection을 재구축할 수 있습니다. Project ledger, operation log, SQLite는 이 순서로 파생되고 projection이
+실패하면 수렴할 때까지 journal과 exact E9 lag marker를 보존합니다.
+
+Terminal output은 ANSI/OSC와 control byte를 escape하고 width/height에 맞춘 bounded
+rendering을 적용합니다. Dispatch 전 frame failure와 commit 뒤 frame failure를 구분해
+후자를 새 mutation으로 재시도하지 않습니다. Tool output은 현재 project의 canonical
+ledger event로 제한하고 approval/diff view는 active workflow의 bounded
+workflow/action/hash-bound proposal만 노출합니다.
+
+v0.34.0 제한:
+
+- 승인된 source installation 성공 경로는 Unix만 지원합니다. 미지원 platform은 journal
+  commit과 source effect 전에 차단합니다.
+- Interaction은 line-oriented이며 raw-key/full-screen terminal protocol이 아닙니다.
+- 마지막 pathname validation 뒤 시작해 validate-to-unlink race를 이기는 동시 외부
+  writer는 지원 보장 밖입니다. 관측 가능한 conflict는 fail-closed하지만 관측 불가능한
+  interval까지 atomic하다고 주장하지 않습니다.
 
 ## 목표
 
