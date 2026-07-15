@@ -103,8 +103,8 @@ The check enforces:
 - release tag matches `Cargo.toml` package version
 - release PRs into `main` come from `release/v...` branches
 - release tags are on `origin/main`
-- release tags require the matching remote release branch to be merged when it
-  still exists
+- release tags require the matching remote release branch to be a direct
+  ancestor or an exact tree-equivalent squash merge when it still exists
 - tag-policy validation never deletes the remote release branch; cleanup has one
   owner in the successful published-asset verification DAG
 

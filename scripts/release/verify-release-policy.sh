@@ -57,8 +57,9 @@ if [ -n "$tag" ]; then
   if git ls-remote --exit-code --heads origin "$expected_branch" >/dev/null 2>&1; then
     git fetch --quiet origin "$expected_branch:$remote_branch_ref"
     release_branch_commit="$(git rev-parse "$remote_branch_ref")"
-    if ! git merge-base --is-ancestor "$release_branch_commit" "$tag_commit"; then
-      fail "release branch must be merged before tagging: $expected_branch"
+    if ! git merge-base --is-ancestor "$release_branch_commit" "$tag_commit" \
+      && ! git diff --quiet "$release_branch_commit" "$tag_commit"; then
+      fail "release branch must be merged or squash-tree-equivalent before tagging: $expected_branch"
     fi
 
     if [ "${RPOTATO_DELETE_RELEASE_BRANCH:-0}" = "1" ]; then

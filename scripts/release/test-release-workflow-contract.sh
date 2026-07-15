@@ -146,6 +146,49 @@ release_failure_diagnostic_is_exact_and_always_emitted() {
   rm -rf "$fixture"
 }
 
+release_policy_accepts_squash_merged_tree() {
+  local fixture remote seed output
+  fixture="$(mktemp -d)"
+  remote="$fixture/remote.git"
+  seed="$fixture/seed"
+  output="$fixture/output"
+  git init --bare --quiet "$remote"
+  git init --initial-branch=main --quiet "$seed"
+  git -C "$seed" config user.name release-contract
+  git -C "$seed" config user.email release-contract@example.invalid
+  mkdir -p "$seed/scripts/release"
+  printf '[package]\nname = "release-policy-fixture"\nversion = "0.34.0"\n' \
+    >"$seed/Cargo.toml"
+  cp scripts/release/verify-release-policy.sh "$seed/scripts/release/verify-release-policy.sh"
+  git -C "$seed" add Cargo.toml scripts/release/verify-release-policy.sh
+  git -C "$seed" commit --quiet -m 'test: release policy base'
+  git -C "$seed" remote add origin "$remote"
+  git -C "$seed" push --quiet origin main
+  git -C "$seed" checkout --quiet -b release/v0.34.0
+  printf 'release tree\n' >"$seed/release.txt"
+  git -C "$seed" add release.txt
+  git -C "$seed" commit --quiet -m 'test: release tree'
+  git -C "$seed" push --quiet origin release/v0.34.0
+  git -C "$seed" checkout --quiet main
+  git -C "$seed" merge --quiet --squash release/v0.34.0 >/dev/null 2>&1
+  git -C "$seed" commit --quiet -m 'test: squash release tree'
+  git -C "$seed" tag v0.34.0
+  git -C "$seed" push --quiet origin main
+
+  (
+    cd "$seed"
+    RPOTATO_RELEASE_BRANCH=main \
+      RPOTATO_RELEASE_TAG=v0.34.0 \
+      RPOTATO_REQUIRE_TAG_ON_MAIN=1 \
+      RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS=1 \
+      scripts/release/verify-release-policy.sh
+  ) >"$output"
+  grep -F -- 'release policy ok: version=0.34.0 branch=main tag=v0.34.0' "$output" \
+    >/dev/null || fail "squash-merged release tree was rejected"
+  rm -rf "$fixture"
+}
+
 release_failure_diagnostic_is_exact_and_always_emitted
+release_policy_accepts_squash_merged_tree
 
 printf 'release workflow contract ok: cleanup-success-only preservation-failure-only\n'
