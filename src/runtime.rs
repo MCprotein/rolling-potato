@@ -1199,7 +1199,7 @@ pub fn read_tui_page(request: TuiReadRequest) -> Result<TuiReadPage, crate::app:
                         projected_events,
                     ),
                     state_page_authority(&snapshot, projected_events),
-                    page_continuation(has_next, false),
+                    page_continuation(has_next, snapshot.ledger_tail_truncated),
                 ),
             ))
         }
@@ -2070,6 +2070,56 @@ mod tests {
                 max_chars: TUI_MAX_CHARS,
             }
         );
+    }
+
+    #[test]
+    fn approvals_never_report_complete_when_canonical_tail_is_truncated() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-runtime-approvals-truncated-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::fs::create_dir_all(paths::project_root()).unwrap();
+        let initialized = state::initialize().unwrap();
+        let older_approval = ledger::new_event_for(
+            &initialized.identity,
+            "team.admission.policy_blocked",
+            "older approval",
+            "bounded tail 밖의 승인",
+        );
+        ledger::append_event(&older_approval).unwrap();
+        for index in 0..80 {
+            let noise = ledger::new_event_for(
+                &initialized.identity,
+                "runtime.noise",
+                "tail displacement",
+                &format!("index={index}"),
+            );
+            ledger::append_event(&noise).unwrap();
+        }
+        state::create_workflow("refresh current-state binding").unwrap();
+
+        let page = read_tui_page(TuiReadRequest::Approvals {
+            page: 0,
+            budget: TuiReadBudget::bounded(20, 24 * 1024),
+        })
+        .unwrap();
+
+        assert_eq!(page.continuation, TuiReadContinuation::Truncated);
+        assert!(page
+            .lines
+            .iter()
+            .all(|line| !line.contains(&older_approval.event_id)));
+
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]
