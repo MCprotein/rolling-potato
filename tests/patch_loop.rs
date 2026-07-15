@@ -261,6 +261,23 @@ fn wait_for_path(path: &Path, timeout: Duration) {
     );
 }
 
+fn wait_for_lines(path: &Path, expected: usize, timeout: Duration) {
+    let deadline = Instant::now() + timeout;
+    while Instant::now() < deadline {
+        let lines = fs::read_to_string(path)
+            .map(|text| text.lines().count())
+            .unwrap_or(0);
+        if lines >= expected {
+            return;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    panic!(
+        "line count가 timeout 안에 도달하지 않았습니다: {} expected {expected}",
+        path.display()
+    );
+}
+
 fn tree_contains(root: &Path, needle: &[u8]) -> bool {
     let Ok(entries) = fs::read_dir(root) else {
         return false;
@@ -698,10 +715,13 @@ fn durable_transcript_rebuilds_after_db_loss_and_continue_is_idempotent() {
     let session_dir = project_dir.join(&session_id);
     let artifact = fs::read_dir(session_dir)
         .unwrap()
-        .next()
-        .unwrap()
-        .unwrap()
-        .path();
+        .map(Result::unwrap)
+        .map(|entry| entry.path())
+        .find(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "json")
+        })
+        .expect("canonical transcript JSON artifact");
     fs::write(artifact, "{}\n").unwrap();
 
     let blocked = fixture.command(&["continue"]);
@@ -1378,13 +1398,14 @@ fn backend_stop_acknowledges_generation_cancellation_before_sidecar_shutdown() {
         "RPOTATO_STALL",
         "--stream",
         "--timeout-ms",
-        "5000",
+        "15000",
     ]);
     let chat = spawn_captured(&mut command).unwrap();
     wait_for_path(
         &fixture.data.join("state/backend-active-generation.txt"),
-        Duration::from_secs(2),
+        Duration::from_secs(5),
     );
+    wait_for_lines(&fixture.calls, 1, Duration::from_secs(5));
 
     let stop = fixture.command(&["backend", "stop"]);
     let chat = wait_bounded(chat, &["backend", "chat", "--stream"]);

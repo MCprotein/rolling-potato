@@ -33,7 +33,12 @@ fn native_backend_cancel_and_stop_lifecycle() {
     wait_for_lines(&fixture.requests, 1, Duration::from_secs(5));
     let cancel = fixture.command(&["backend", "cancel"]);
     assert_success(&cancel, "backend cancel");
-    assert!(text(&cancel.stdout).contains("terminal outcome: cancelled"));
+    assert!(
+        text(&cancel.stdout).contains("terminal outcome: cancelled"),
+        "stdout={}\nstderr={}",
+        text(&cancel.stdout),
+        text(&cancel.stderr)
+    );
     let first_chat = wait_bounded(first_chat, "first backend chat");
     assert!(!first_chat.status.success());
     assert!(
