@@ -50,7 +50,7 @@ expect_line rust-toolchain.toml "channel = \"$rust_version\""
 
 reject_unapproved_action_refs "$release_workflow"
 reject_unapproved_action_refs "$policy_workflow"
-expect_count "$release_workflow" "$checkout_pin" 3
+expect_count "$release_workflow" "$checkout_pin" 6
 expect_count "$release_workflow" "$upload_pin" 2
 expect_count "$release_workflow" "$download_pin" 1
 expect_count "$policy_workflow" "$checkout_pin" 1
