@@ -1386,7 +1386,7 @@ fn finish_interrupted_generation(
 pub fn cancel_generation_report() -> Result<String, AppError> {
     let Some(record) = read_backend_generation_record()? else {
         return Ok(format!(
-            "backend generation cancel\n- status: idle\n- active generation record: {}",
+            "backend generation 취소\n- status: idle\n- active generation record: {}",
             backend_generation_record_path().display()
         ));
     };
@@ -1401,7 +1401,7 @@ pub fn cancel_generation_report() -> Result<String, AppError> {
             ),
         )?;
         return Ok(format!(
-            "backend generation cancel\n- status: stale-record-cleaned\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- sidecar action: kept-running\n- ledger event: {}",
+            "backend generation 취소\n- status: stale-record-cleaned\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- sidecar action: kept-running\n- ledger event: {}",
             record.generation_id, record.client_pid, record.sidecar_pid, event_id
         ));
     }
@@ -1433,7 +1433,7 @@ pub fn cancel_generation_report() -> Result<String, AppError> {
         .unwrap_or("not-acknowledged");
 
     Ok(format!(
-        "backend generation cancel\n- status: {}\n- terminal outcome: {}\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- wait ms: {}\n- sidecar action: kept-running\n- terminal lifecycle event: {}\n- request ledger event: {}",
+        "backend generation 취소\n- status: {}\n- terminal outcome: {}\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- wait ms: {}\n- sidecar action: kept-running\n- terminal lifecycle event: {}\n- request ledger event: {}",
         if terminal.is_some() { "acknowledged" } else { "requested" },
         terminal_outcome,
         record.generation_id,

@@ -48,6 +48,13 @@ pub fn write_request(request: &ApprovalRequest) -> Result<PathBuf, AppError> {
 }
 
 pub fn request_summaries(limit: usize) -> Result<Vec<ApprovalRequestSummary>, AppError> {
+    request_summaries_bounded(limit, usize::MAX)
+}
+
+pub fn request_summaries_bounded(
+    limit: usize,
+    scan_limit: usize,
+) -> Result<Vec<ApprovalRequestSummary>, AppError> {
     let dir = paths::project_approval_requests_dir();
     let entries = match fs::read_dir(&dir) {
         Ok(entries) => entries,
@@ -61,7 +68,12 @@ pub fn request_summaries(limit: usize) -> Result<Vec<ApprovalRequestSummary>, Ap
     };
 
     let mut rows = Vec::new();
-    for entry in entries {
+    for (index, entry) in entries.enumerate() {
+        if index >= scan_limit {
+            return Err(AppError::blocked(
+                "approval request view directory scan budget 초과",
+            ));
+        }
         let entry = entry.map_err(|err| {
             AppError::runtime(format!("approval request entry를 읽지 못했습니다: {err}"))
         })?;
@@ -104,6 +116,17 @@ fn render_request_record(request: &ApprovalRequest) -> String {
 }
 
 fn summary_from_path(path: &Path) -> Result<ApprovalRequestSummary, AppError> {
+    let metadata = fs::symlink_metadata(path).map_err(|err| {
+        AppError::blocked(format!(
+            "approval request record metadata를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() || metadata.len() > 64 * 1024 {
+        return Err(AppError::blocked(
+            "approval request summary regular-file/byte budget 불일치",
+        ));
+    }
     let contents = fs::read_to_string(path).map_err(|err| {
         AppError::runtime(format!(
             "approval request record를 읽지 못했습니다: {} ({err})",

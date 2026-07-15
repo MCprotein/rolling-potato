@@ -28,9 +28,11 @@ mod skill;
 mod state;
 mod strict_json;
 mod team;
+mod terminal;
 #[cfg(test)]
 mod test_support;
 mod transcript;
+mod transition;
 mod tui;
 mod uninstall;
 

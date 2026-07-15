@@ -195,6 +195,11 @@ fn is_relaxed_technical_line(line: &str) -> bool {
     let label = label.to_ascii_lowercase();
     [
         "path",
+        "code",
+        "kind",
+        "effect",
+        "retry",
+        "intent",
         " id",
         "hash",
         "sha",
@@ -375,6 +380,13 @@ mod tests {
     #[test]
     fn patch_verification_failure_contract_is_preserved() {
         let report = "패치 승인 실패\n- status: verification-failed-rolled-back\n- proposal id: proposal-1\n- path: src/lib.rs\n- approval token: accepted\n- original sha256: aaa\n- attempted sha256: bbb\n- actual source sha256: aaa\n- rollback record: rollback.json\n- rollback status: restored\n- verification command: cargo test\n- verification exit code: 1\n- verification stdout: none\n- verification stderr: failed\n- ledger event: event-1\n- boundary: patch verification과 rollback 결과를 실제 bytes/hash로 확인했으며 성공으로 보고하지 않습니다.";
+        assert_eq!(guard_or_failure(report), report);
+    }
+
+    #[test]
+    fn typed_terminal_failure_contract_is_preserved() {
+        let report = "터미널 장애 주입 구성 오류\n- kind: InvalidFaultConfiguration\n- effect: NotDispatched\n- retry: FixConfiguration\n- 동작: 런타임 요청을 보내지 않았습니다.";
+
         assert_eq!(guard_or_failure(report), report);
     }
 

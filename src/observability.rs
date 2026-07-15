@@ -1,9 +1,12 @@
 use std::collections::BTreeMap;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::{Read, Write};
+use std::ops::Deref;
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OpenFlags};
 
 use crate::app::AppError;
 use crate::ledger::{self, LedgerEvent, RuntimeIdentity};
@@ -11,6 +14,36 @@ use crate::{paths, resource};
 
 const MIGRATION_VERSION: i64 = 6;
 const MIGRATION_DESCRIPTION: &str = "v0_32_durable_conversation_resume";
+const READ_ONLY_PROJECTION_FILE_MAX_BYTES: u64 = 128 * 1024 * 1024;
+static READ_ONLY_SNAPSHOT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+struct ReadOnlyProjection {
+    connection: Option<Connection>,
+    snapshot_dir: PathBuf,
+}
+
+impl Deref for ReadOnlyProjection {
+    type Target = Connection;
+
+    fn deref(&self) -> &Self::Target {
+        self.connection
+            .as_ref()
+            .expect("read-only projection connection remains live until drop")
+    }
+}
+
+impl Drop for ReadOnlyProjection {
+    fn drop(&mut self) {
+        drop(self.connection.take());
+        let _ = fs::remove_dir_all(&self.snapshot_dir);
+    }
+}
+
+#[derive(PartialEq, Eq)]
+struct StableProjectionFiles {
+    database: Vec<u8>,
+    wal: Option<Vec<u8>>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoreStatus {
@@ -38,6 +71,12 @@ pub struct ModelMetricSummary {
     pub total_tokens: i64,
     pub avg_latency_ms: Option<f64>,
     pub avg_tokens_per_second: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MonitorProjectionSnapshot {
+    pub status: StoreStatus,
+    pub model_summaries: Vec<ModelMetricSummary>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -257,9 +296,78 @@ pub fn status() -> Result<StoreStatus, AppError> {
     status_from_connection(&connection, recovered_from)
 }
 
+pub fn status_read_only() -> Result<StoreStatus, AppError> {
+    let connection = open_read_only()?;
+    status_from_connection(&connection, None)
+}
+
+pub fn monitor_snapshot_read_only(limit: usize) -> Result<MonitorProjectionSnapshot, AppError> {
+    let connection = open_read_only()?;
+    Ok(MonitorProjectionSnapshot {
+        status: status_from_connection(&connection, None)?,
+        model_summaries: model_summaries_from_connection(&connection, limit)?,
+    })
+}
+
+fn model_summaries_from_connection(
+    connection: &Connection,
+    limit: usize,
+) -> Result<Vec<ModelMetricSummary>, AppError> {
+    let mut statement = connection
+        .prepare(
+            "SELECT token_usage.model_id,
+                    COUNT(*) AS runs,
+                    COALESCE(SUM(token_usage.prompt_tokens), 0),
+                    COALESCE(SUM(token_usage.completion_tokens), 0),
+                    COALESCE(SUM(token_usage.total_tokens), 0),
+                    AVG(model_runs.total_latency_ms),
+                    AVG(model_runs.tokens_per_second)
+               FROM token_usage
+          LEFT JOIN model_runs
+                 ON token_usage.model_run_id = model_runs.model_run_id
+              GROUP BY token_usage.model_id
+              ORDER BY SUM(token_usage.total_tokens) DESC, token_usage.model_id ASC
+                 LIMIT ?1",
+        )
+        .map_err(sql_error("read-only model metric query 준비 실패"))?;
+    let rows = statement
+        .query_map(params![i64::try_from(limit).unwrap_or(i64::MAX)], |row| {
+            Ok(ModelMetricSummary {
+                model_id: row.get(0)?,
+                runs: row.get(1)?,
+                prompt_tokens: row.get(2)?,
+                completion_tokens: row.get(3)?,
+                total_tokens: row.get(4)?,
+                avg_latency_ms: row.get(5)?,
+                avg_tokens_per_second: row.get(6)?,
+            })
+        })
+        .map_err(sql_error("read-only model metric query 실행 실패"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(sql_error("read-only model metric 결과 읽기 실패"))?;
+    Ok(rows)
+}
+
 pub fn project_event(event: &LedgerEvent) -> Result<(), AppError> {
     let (connection, _) = open_or_recover()?;
-    insert_ledger_event(&connection, event)
+    insert_ledger_event(&connection, event, None)
+}
+
+pub(crate) fn project_event_with_ordinal(
+    event: &LedgerEvent,
+    ordinal: u64,
+) -> Result<(), AppError> {
+    let ordinal = i64::try_from(ordinal)
+        .map_err(|_| AppError::blocked("observability event ordinal 범위 초과"))?;
+    let (connection, _) = open_or_recover()?;
+    insert_ledger_event(&connection, event, Some(ordinal))
+}
+
+pub(crate) fn converge_from_events(
+    events: &[crate::ledger::ParsedLedgerEvent],
+) -> Result<(), AppError> {
+    let (connection, _) = open_or_recover()?;
+    replay_ledger_events(&connection, events)
 }
 
 pub fn model_summaries() -> Result<Vec<ModelMetricSummary>, AppError> {
@@ -926,6 +1034,203 @@ fn open_or_recover() -> Result<(Connection, Option<PathBuf>), AppError> {
     }
 }
 
+fn open_read_only() -> Result<ReadOnlyProjection, AppError> {
+    let path = paths::observability_db_file();
+    if !path.is_file() {
+        return Err(AppError::blocked(format!(
+            "observability read-only projection unavailable: {}",
+            path.display()
+        )));
+    }
+    open_read_only_path(&path)
+}
+
+fn open_read_only_path(path: &std::path::Path) -> Result<ReadOnlyProjection, AppError> {
+    let files = stable_projection_files(path)?;
+    let snapshot_dir = create_read_only_snapshot_dir()?;
+    let snapshot_path = snapshot_dir.join("observability.sqlite");
+    if let Err(error) = write_private_snapshot_file(&snapshot_path, &files.database) {
+        let _ = fs::remove_dir_all(&snapshot_dir);
+        return Err(error);
+    }
+    if let Some(wal) = files.wal.as_ref() {
+        if let Err(error) =
+            write_private_snapshot_file(&companion_path(&snapshot_path, "-wal"), wal)
+        {
+            let _ = fs::remove_dir_all(&snapshot_dir);
+            return Err(error);
+        }
+    }
+    let connection = match Connection::open_with_flags(
+        &snapshot_path,
+        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    ) {
+        Ok(connection) => connection,
+        Err(error) => {
+            let _ = fs::remove_dir_all(&snapshot_dir);
+            return Err(sql_error("observability DB read-only snapshot open 실패")(
+                error,
+            ));
+        }
+    };
+    if let Err(error) = connection.execute_batch("PRAGMA query_only = ON;") {
+        drop(connection);
+        let _ = fs::remove_dir_all(&snapshot_dir);
+        return Err(sql_error("observability DB read-only snapshot 설정 실패")(
+            error,
+        ));
+    }
+    Ok(ReadOnlyProjection {
+        connection: Some(connection),
+        snapshot_dir,
+    })
+}
+
+fn stable_projection_files(path: &std::path::Path) -> Result<StableProjectionFiles, AppError> {
+    let journal = companion_path(path, "-journal");
+    if fs::symlink_metadata(&journal).is_ok() {
+        return Err(AppError::blocked(
+            "observability read-only snapshot unavailable: rollback journal이 존재합니다.",
+        ));
+    }
+    for _ in 0..3 {
+        let first = capture_projection_files(path)?;
+        std::thread::yield_now();
+        let second = capture_projection_files(path)?;
+        if first == second {
+            return Ok(first);
+        }
+    }
+    Err(AppError::blocked(
+        "observability read-only snapshot unavailable: DB/WAL 세대가 안정되지 않았습니다.",
+    ))
+}
+
+fn capture_projection_files(path: &std::path::Path) -> Result<StableProjectionFiles, AppError> {
+    Ok(StableProjectionFiles {
+        database: read_regular_snapshot_file(path, true)?.expect("required database checked"),
+        wal: read_regular_snapshot_file(&companion_path(path, "-wal"), false)?,
+    })
+}
+
+fn read_regular_snapshot_file(
+    path: &std::path::Path,
+    required: bool,
+) -> Result<Option<Vec<u8>>, AppError> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound && !required => return Ok(None),
+        Err(error) => {
+            return Err(AppError::blocked(format!(
+                "observability read-only snapshot metadata 실패: {} ({error})",
+                path.display()
+            )))
+        }
+    };
+    if !metadata.file_type().is_file() || metadata.file_type().is_symlink() {
+        return Err(AppError::blocked(format!(
+            "observability read-only snapshot regular-file binding 불일치: {}",
+            path.display()
+        )));
+    }
+    if metadata.len() > READ_ONLY_PROJECTION_FILE_MAX_BYTES {
+        return Err(AppError::blocked(format!(
+            "observability read-only snapshot byte budget 초과: {}",
+            path.display()
+        )));
+    }
+    let file = fs::File::open(path).map_err(|error| {
+        AppError::blocked(format!(
+            "observability read-only snapshot open 실패: {} ({error})",
+            path.display()
+        ))
+    })?;
+    let mut bytes = Vec::new();
+    file.take(READ_ONLY_PROJECTION_FILE_MAX_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| {
+            AppError::blocked(format!(
+                "observability read-only snapshot read 실패: {} ({error})",
+                path.display()
+            ))
+        })?;
+    if bytes.len() as u64 > READ_ONLY_PROJECTION_FILE_MAX_BYTES {
+        return Err(AppError::blocked(format!(
+            "observability read-only snapshot byte budget 초과: {}",
+            path.display()
+        )));
+    }
+    Ok(Some(bytes))
+}
+
+fn create_read_only_snapshot_dir() -> Result<PathBuf, AppError> {
+    for _ in 0..8 {
+        let sequence = READ_ONLY_SNAPSHOT_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!(
+            "rpotato-observability-read-{}-{}-{}",
+            std::process::id(),
+            now_ms(),
+            sequence
+        ));
+        match fs::create_dir(&path) {
+            Ok(()) => {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).map_err(
+                        |error| {
+                            AppError::runtime(format!(
+                                "observability read-only snapshot directory mode 실패: {error}"
+                            ))
+                        },
+                    )?;
+                }
+                return Ok(path);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(AppError::runtime(format!(
+                    "observability read-only snapshot directory 생성 실패: {error}"
+                )))
+            }
+        }
+    }
+    Err(AppError::runtime(
+        "observability read-only snapshot directory 이름 충돌",
+    ))
+}
+
+fn write_private_snapshot_file(path: &std::path::Path, bytes: &[u8]) -> Result<(), AppError> {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path).map_err(|error| {
+        AppError::runtime(format!(
+            "observability read-only snapshot file 생성 실패: {error}"
+        ))
+    })?;
+    file.write_all(bytes).map_err(|error| {
+        AppError::runtime(format!(
+            "observability read-only snapshot file write 실패: {error}"
+        ))
+    })?;
+    file.sync_all().map_err(|error| {
+        AppError::runtime(format!(
+            "observability read-only snapshot file fsync 실패: {error}"
+        ))
+    })
+}
+
+fn companion_path(path: &std::path::Path, suffix: &str) -> PathBuf {
+    let mut value = path.as_os_str().to_os_string();
+    value.push(suffix);
+    PathBuf::from(value)
+}
+
 fn migrate(connection: &Connection) -> Result<(), AppError> {
     connection
         .execute_batch(
@@ -1281,16 +1586,29 @@ fn record_session(connection: &Connection, identity: &RuntimeIdentity) -> Result
 }
 
 fn replay_ledger(connection: &Connection) -> Result<(), AppError> {
-    connection
+    let events = ledger::read_runtime_events()?;
+    replay_ledger_events(connection, &events)
+}
+
+fn replay_ledger_events(
+    connection: &Connection,
+    events: &[crate::ledger::ParsedLedgerEvent],
+) -> Result<(), AppError> {
+    let transaction = connection
+        .unchecked_transaction()
+        .map_err(sql_error("ledger replay transaction을 시작하지 못했습니다"))?;
+    transaction
         .execute("DELETE FROM ledger_events", [])
         .map_err(sql_error("ledger replay projection 초기화에 실패했습니다"))?;
-    connection
+    transaction
         .execute("DELETE FROM transcript_records", [])
         .map_err(sql_error(
             "transcript replay projection 초기화에 실패했습니다",
         ))?;
-    for (index, event) in ledger::read_runtime_events()?.into_iter().enumerate() {
-        connection
+    sqlite_replay_fault("after-clear")?;
+    sqlite_replay_pause("after-clear")?;
+    for (index, event) in events.iter().enumerate() {
+        transaction
             .execute(
                 "INSERT OR IGNORE INTO ledger_events (
                     event_id, ts_ms, event_type, project_id, session_id, summary
@@ -1306,21 +1624,21 @@ fn replay_ledger(connection: &Connection) -> Result<(), AppError> {
             )
             .map_err(sql_error("ledger replay projection을 저장하지 못했습니다"))?;
         project_workflow_checkpoint(
-            connection,
+            &transaction,
             &event.event_type,
             &event.details,
             &event.session_id,
             event.ts_ms,
         )?;
         project_patch_evidence_event(
-            connection,
+            &transaction,
             &event.event_type,
             &event.details,
             &event.session_id,
             event.ts_ms,
         )?;
         project_transcript_event(
-            connection,
+            &transaction,
             &event.project_id,
             &event.session_id,
             &event.event_type,
@@ -1328,6 +1646,48 @@ fn replay_ledger(connection: &Connection) -> Result<(), AppError> {
             &event.event_id,
             to_i64((index + 1) as u128),
         )?;
+        if index == 0 {
+            sqlite_replay_fault("after-first-event")?;
+        }
+    }
+    transaction
+        .commit()
+        .map_err(sql_error("ledger replay transaction commit에 실패했습니다"))
+}
+
+fn sqlite_replay_fault(point: &str) -> Result<(), AppError> {
+    if cfg!(debug_assertions)
+        && std::env::var("RPOTATO_TEST_SQLITE_REPLAY_FAULT").as_deref() == Ok(point)
+    {
+        return Err(AppError::runtime(format!(
+            "injected sqlite replay fault: {point}"
+        )));
+    }
+    Ok(())
+}
+
+fn sqlite_replay_pause(point: &str) -> Result<(), AppError> {
+    if !cfg!(debug_assertions) {
+        return Ok(());
+    }
+    let Ok(root) = std::env::var("RPOTATO_TEST_SQLITE_REPLAY_PAUSE_DIR") else {
+        return Ok(());
+    };
+    let root = PathBuf::from(root);
+    fs::create_dir_all(&root)
+        .map_err(|err| AppError::runtime(format!("sqlite replay pause dir 생성 실패: {err}")))?;
+    let entered = root.join(format!("{point}.entered"));
+    let release = root.join(format!("{point}.release"));
+    fs::write(&entered, b"entered")
+        .map_err(|err| AppError::runtime(format!("sqlite replay pause marker 실패: {err}")))?;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !release.exists() {
+        if Instant::now() >= deadline {
+            return Err(AppError::runtime(format!(
+                "sqlite replay pause release timeout: {point}"
+            )));
+        }
+        std::thread::sleep(Duration::from_millis(5));
     }
     Ok(())
 }
@@ -1379,7 +1739,11 @@ fn project_sessions_from_events(
     Ok(())
 }
 
-fn insert_ledger_event(connection: &Connection, event: &LedgerEvent) -> Result<(), AppError> {
+fn insert_ledger_event(
+    connection: &Connection,
+    event: &LedgerEvent,
+    supplied_ordinal: Option<i64>,
+) -> Result<(), AppError> {
     connection
         .execute(
             "INSERT OR IGNORE INTO ledger_events (
@@ -1416,7 +1780,10 @@ fn insert_ledger_event(connection: &Connection, event: &LedgerEvent) -> Result<(
         &event.event_type,
         &event.details,
         &event.event_id,
-        canonical_event_ordinal(&event.event_id)?,
+        match supplied_ordinal {
+            Some(ordinal) => ordinal,
+            None => canonical_event_ordinal(&event.event_id)?,
+        },
     )
 }
 
@@ -1968,6 +2335,116 @@ fn now_ms() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    type LedgerProjectionRow = (i64, String, i64, String, String, String, String);
+
+    fn replay_test_event(index: u64) -> crate::ledger::ParsedLedgerEvent {
+        crate::ledger::ParsedLedgerEvent {
+            event_id: format!("event-replay-{index}"),
+            ts_ms: u128::from(index),
+            event_type: "test.replay".to_string(),
+            project_id: "project-replay".to_string(),
+            session_id: "session-replay".to_string(),
+            summary: format!("summary-{index}"),
+            details: format!("detail={index}"),
+            previous_event_hash: None,
+            event_hash: None,
+        }
+    }
+
+    fn ledger_projection_rows(connection: &Connection) -> Vec<LedgerProjectionRow> {
+        let mut statement = connection
+            .prepare(
+                "SELECT rowid, event_id, ts_ms, event_type, project_id, session_id, summary
+                   FROM ledger_events
+               ORDER BY rowid",
+            )
+            .unwrap();
+        statement
+            .query_map([], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                ))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap()
+    }
+
+    #[test]
+    fn sqlite_replay_faults_are_atomic_and_concurrent_readers_see_complete_rows() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-sqlite-atomic-replay-{}-{}",
+            std::process::id(),
+            now_ms()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let database = root.join("observability.sqlite");
+        let connection = Connection::open(&database).unwrap();
+        migrate(&connection).unwrap();
+        let original = vec![replay_test_event(1), replay_test_event(2)];
+        replay_ledger_events(&connection, &original).unwrap();
+        let original_rows = ledger_projection_rows(&connection);
+        drop(connection);
+
+        let replacement = vec![
+            replay_test_event(10),
+            replay_test_event(11),
+            replay_test_event(12),
+        ];
+        let pause_dir = root.join("pause");
+        std::env::set_var("RPOTATO_TEST_SQLITE_REPLAY_PAUSE_DIR", &pause_dir);
+        let replay_database = database.clone();
+        let replay_events = replacement.clone();
+        let replay = std::thread::spawn(move || {
+            let connection = Connection::open(replay_database).unwrap();
+            replay_ledger_events(&connection, &replay_events)
+        });
+        let entered = pause_dir.join("after-clear.entered");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !entered.exists() {
+            assert!(
+                Instant::now() < deadline,
+                "sqlite replay pause 진입 timeout"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let reader = open_read_only_path(&database).unwrap();
+        assert_eq!(ledger_projection_rows(&reader), original_rows);
+        fs::write(pause_dir.join("after-clear.release"), b"release").unwrap();
+        replay.join().unwrap().unwrap();
+        std::env::remove_var("RPOTATO_TEST_SQLITE_REPLAY_PAUSE_DIR");
+        assert_eq!(ledger_projection_rows(&reader), original_rows);
+        drop(reader);
+        let reader = open_read_only_path(&database).unwrap();
+        let replacement_rows = ledger_projection_rows(&reader);
+        assert_eq!(replacement_rows.len(), replacement.len());
+        assert_ne!(replacement_rows, original_rows);
+        drop(reader);
+
+        let connection = Connection::open(&database).unwrap();
+        for point in ["after-clear", "after-first-event"] {
+            std::env::set_var("RPOTATO_TEST_SQLITE_REPLAY_FAULT", point);
+            let error = replay_ledger_events(&connection, &original).unwrap_err();
+            std::env::remove_var("RPOTATO_TEST_SQLITE_REPLAY_FAULT");
+            assert!(error.message.contains(point));
+            assert_eq!(
+                ledger_projection_rows(&connection),
+                replacement_rows,
+                "fault point: {point}"
+            );
+        }
+
+        drop(connection);
+        let _ = fs::remove_dir_all(root);
+    }
 
     #[test]
     fn csv_cell_quotes_only_when_needed() {
