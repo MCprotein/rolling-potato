@@ -3081,18 +3081,11 @@ fn validate_open_read_identity(
     file: &File,
     label: &str,
 ) -> Result<(), AppError> {
-    use std::os::windows::fs::MetadataExt;
-
     let path_metadata = fs::symlink_metadata(path)
         .map_err(|err| AppError::blocked(format!("{label} 경로 재검증 실패: {err}")))?;
-    let file_metadata = file
-        .metadata()
+    let same_file = crate::windows_file::path_refers_to_open_file(path, file)
         .map_err(|err| AppError::blocked(format!("{label} handle 검증 실패: {err}")))?;
-    if path_metadata.file_type().is_symlink()
-        || !path_metadata.is_file()
-        || path_metadata.volume_serial_number() != file_metadata.volume_serial_number()
-        || path_metadata.file_index() != file_metadata.file_index()
-    {
+    if path_metadata.file_type().is_symlink() || !path_metadata.is_file() || !same_file {
         return Err(AppError::blocked(format!(
             "{label} path/handle identity 불일치; 증거를 보존했습니다."
         )));
@@ -5314,24 +5307,31 @@ fn install_prepared_temp(
     }
     let mut file = source_dir.create_new(&source_dir.temporary, 0o600)?;
     use std::os::fd::AsRawFd;
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     unsafe extern "C" {
         fn fchown(fd: i32, owner: u32, group: u32) -> i32;
     }
-    // SAFETY: `file` owns a valid open descriptor and the uid/gid were capability-checked
-    // before the transition journal was committed.
-    if unsafe {
-        fchown(
-            file.as_raw_fd(),
-            plan.unix_metadata.install_uid,
-            plan.unix_metadata.install_gid,
-        )
-    } != 0
+    let created_metadata = file
+        .metadata()
+        .map_err(|err| AppError::runtime(format!("source install temp metadata 실패: {err}")))?;
+    if created_metadata.uid() != plan.unix_metadata.install_uid
+        || created_metadata.gid() != plan.unix_metadata.install_gid
     {
-        return Err(AppError::runtime(format!(
-            "source install ownership 적용 실패: {}",
-            std::io::Error::last_os_error()
-        )));
+        // SAFETY: `file` owns a valid open descriptor and the uid/gid were capability-checked
+        // before the transition journal was committed.
+        if unsafe {
+            fchown(
+                file.as_raw_fd(),
+                plan.unix_metadata.install_uid,
+                plan.unix_metadata.install_gid,
+            )
+        } != 0
+        {
+            return Err(AppError::runtime(format!(
+                "source install ownership 적용 실패\n- error: {}",
+                std::io::Error::last_os_error()
+            )));
+        }
     }
     file.write_all(proposed)
         .map_err(|err| AppError::runtime(format!("source install temp write 실패: {err}")))?;
@@ -7017,6 +7017,7 @@ mod tests {
         let _ = fs::remove_dir_all(root);
     }
 
+    #[cfg(unix)]
     #[test]
     fn source_recovery_rejects_artifacts_outside_target_parent() {
         let root = std::env::temp_dir().join(format!(
@@ -7056,6 +7057,7 @@ mod tests {
         let _ = fs::remove_dir_all(root);
     }
 
+    #[cfg(unix)]
     #[test]
     fn source_recovery_rejects_mismatched_artifact_nonce() {
         let root = std::env::temp_dir().join(format!(
