@@ -2,6 +2,7 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command as ProcessCommand;
+#[cfg(test)]
 use std::time::SystemTime;
 
 use sha2::{Digest, Sha256};
@@ -1978,10 +1979,12 @@ fn finalize_verified_skill(
     Ok(())
 }
 
+#[cfg(test)]
 pub fn proposal_summaries(limit: usize) -> Result<Vec<PatchProposalSummary>, AppError> {
     proposal_summaries_bounded(limit, usize::MAX)
 }
 
+#[cfg(test)]
 pub fn proposal_summaries_bounded(
     limit: usize,
     scan_limit: usize,
@@ -2905,6 +2908,7 @@ fn read_proposal_contents_bounded(
     String::from_utf8(bytes).map_err(|_| AppError::blocked("patch proposal UTF-8 불일치"))
 }
 
+#[cfg(test)]
 fn summary_from_path(path: &Path) -> Result<PatchProposalSummary, AppError> {
     let metadata = fs::symlink_metadata(path).map_err(|err| {
         AppError::blocked(format!(
@@ -2937,6 +2941,7 @@ fn summary_from_path(path: &Path) -> Result<PatchProposalSummary, AppError> {
     summary_from_record(path, &prefix[..end + 2])
 }
 
+#[cfg(test)]
 fn summary_from_record(path: &Path, contents: &str) -> Result<PatchProposalSummary, AppError> {
     let (header, _) = parse_proposal_header(contents, path)?;
     summary_from_header(path, &header)

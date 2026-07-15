@@ -1,5 +1,8 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+#[cfg(test)]
+use std::path::Path;
+use std::path::PathBuf;
+#[cfg(test)]
 use std::time::SystemTime;
 
 use crate::app::AppError;
@@ -18,6 +21,7 @@ pub struct ApprovalRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(test)]
 pub struct ApprovalRequestSummary {
     pub request_id: String,
     pub source: String,
@@ -47,10 +51,12 @@ pub fn write_request(request: &ApprovalRequest) -> Result<PathBuf, AppError> {
     Ok(path)
 }
 
+#[cfg(test)]
 pub fn request_summaries(limit: usize) -> Result<Vec<ApprovalRequestSummary>, AppError> {
     request_summaries_bounded(limit, usize::MAX)
 }
 
+#[cfg(test)]
 pub fn request_summaries_bounded(
     limit: usize,
     scan_limit: usize,
@@ -115,6 +121,7 @@ fn render_request_record(request: &ApprovalRequest) -> String {
     lines.join("\n")
 }
 
+#[cfg(test)]
 fn summary_from_path(path: &Path) -> Result<ApprovalRequestSummary, AppError> {
     let metadata = fs::symlink_metadata(path).map_err(|err| {
         AppError::blocked(format!(
@@ -143,6 +150,7 @@ fn summary_from_path(path: &Path) -> Result<ApprovalRequestSummary, AppError> {
     })
 }
 
+#[cfg(test)]
 fn required_record_value(record: &str, key: &str, path: &Path) -> Result<String, AppError> {
     record_value_for(record, key).ok_or_else(|| {
         AppError::runtime(format!(
@@ -153,6 +161,7 @@ fn required_record_value(record: &str, key: &str, path: &Path) -> Result<String,
     })
 }
 
+#[cfg(test)]
 fn record_value_for(record: &str, key: &str) -> Option<String> {
     let prefix = format!("{key}=");
     record
