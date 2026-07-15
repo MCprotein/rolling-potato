@@ -1416,18 +1416,11 @@ fn validate_open_regular_file_identity(
     file: &fs::File,
     context: &str,
 ) -> Result<(), AppError> {
-    use std::os::windows::fs::MetadataExt;
-
     let path_metadata = fs::symlink_metadata(path)
         .map_err(|err| AppError::blocked(format!("{context} 경로 재검증 실패: {err}")))?;
-    let file_metadata = file
-        .metadata()
+    let same_file = crate::windows_file::path_refers_to_open_file(path, file)
         .map_err(|err| AppError::blocked(format!("{context} handle 검증 실패: {err}")))?;
-    if path_metadata.file_type().is_symlink()
-        || !path_metadata.is_file()
-        || path_metadata.volume_serial_number() != file_metadata.volume_serial_number()
-        || path_metadata.file_index() != file_metadata.file_index()
-    {
+    if path_metadata.file_type().is_symlink() || !path_metadata.is_file() || !same_file {
         return Err(AppError::blocked(format!(
             "{context} path/handle identity 불일치; 증거를 보존했습니다."
         )));
@@ -2904,6 +2897,7 @@ fn render_optional_string(value: Option<&str>) -> String {
         .unwrap_or_else(|| "null".to_string())
 }
 
+#[cfg(not(windows))]
 fn sync_parent(path: &Path) -> Result<(), AppError> {
     let parent = path
         .parent()
@@ -2913,6 +2907,11 @@ fn sync_parent(path: &Path) -> Result<(), AppError> {
     directory
         .sync_all()
         .map_err(|err| AppError::runtime(format!("transition parent fsync 실패: {err}")))
+}
+
+#[cfg(windows)]
+fn sync_parent(_path: &Path) -> Result<(), AppError> {
+    Ok(())
 }
 
 fn now_ms() -> u128 {

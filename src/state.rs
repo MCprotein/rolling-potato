@@ -3081,18 +3081,11 @@ fn validate_open_read_identity(
     file: &File,
     label: &str,
 ) -> Result<(), AppError> {
-    use std::os::windows::fs::MetadataExt;
-
     let path_metadata = fs::symlink_metadata(path)
         .map_err(|err| AppError::blocked(format!("{label} 경로 재검증 실패: {err}")))?;
-    let file_metadata = file
-        .metadata()
+    let same_file = crate::windows_file::path_refers_to_open_file(path, file)
         .map_err(|err| AppError::blocked(format!("{label} handle 검증 실패: {err}")))?;
-    if path_metadata.file_type().is_symlink()
-        || !path_metadata.is_file()
-        || path_metadata.volume_serial_number() != file_metadata.volume_serial_number()
-        || path_metadata.file_index() != file_metadata.file_index()
-    {
+    if path_metadata.file_type().is_symlink() || !path_metadata.is_file() || !same_file {
         return Err(AppError::blocked(format!(
             "{label} path/handle identity 불일치; 증거를 보존했습니다."
         )));
@@ -5073,16 +5066,32 @@ impl PreparedRollbackDir {
 mod unix_open_flags {
     #[cfg(target_os = "macos")]
     pub const READ_DIRECTORY_NOFOLLOW: i32 = 0x0010_0000 | 0x0000_0100 | 0x0100_0000;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    pub const READ_DIRECTORY_NOFOLLOW: i32 = 0x0000_4000 | 0x0000_8000 | 0x0008_0000;
+    #[cfg(all(
+        not(target_os = "macos"),
+        not(all(target_os = "linux", target_arch = "aarch64"))
+    ))]
     pub const READ_DIRECTORY_NOFOLLOW: i32 = 0x0001_0000 | 0x0002_0000 | 0x0008_0000;
     #[cfg(target_os = "macos")]
     pub const READ_FILE_NOFOLLOW: i32 = 0x0000_0100 | 0x0100_0000;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    pub const READ_FILE_NOFOLLOW: i32 = 0x0000_8000 | 0x0008_0000;
+    #[cfg(all(
+        not(target_os = "macos"),
+        not(all(target_os = "linux", target_arch = "aarch64"))
+    ))]
     pub const READ_FILE_NOFOLLOW: i32 = 0x0002_0000 | 0x0008_0000;
     #[cfg(target_os = "macos")]
     pub const WRITE_CREATE_NEW_NOFOLLOW: i32 =
         0x0000_0001 | 0x0000_0200 | 0x0000_0800 | 0x0000_0100 | 0x0100_0000;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    pub const WRITE_CREATE_NEW_NOFOLLOW: i32 =
+        0x0000_0001 | 0x0000_0040 | 0x0000_0080 | 0x0000_8000 | 0x0008_0000;
+    #[cfg(all(
+        not(target_os = "macos"),
+        not(all(target_os = "linux", target_arch = "aarch64"))
+    ))]
     pub const WRITE_CREATE_NEW_NOFOLLOW: i32 =
         0x0000_0001 | 0x0000_0040 | 0x0000_0080 | 0x0002_0000 | 0x0008_0000;
 }
@@ -7017,6 +7026,7 @@ mod tests {
         let _ = fs::remove_dir_all(root);
     }
 
+    #[cfg(unix)]
     #[test]
     fn source_recovery_rejects_artifacts_outside_target_parent() {
         let root = std::env::temp_dir().join(format!(
@@ -7056,6 +7066,7 @@ mod tests {
         let _ = fs::remove_dir_all(root);
     }
 
+    #[cfg(unix)]
     #[test]
     fn source_recovery_rejects_mismatched_artifact_nonce() {
         let root = std::env::temp_dir().join(format!(

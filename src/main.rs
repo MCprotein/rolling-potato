@@ -35,6 +35,8 @@ mod transcript;
 mod transition;
 mod tui;
 mod uninstall;
+#[cfg(windows)]
+mod windows_file;
 
 use std::process::ExitCode;
 
