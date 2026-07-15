@@ -7,7 +7,7 @@ Release date: 2026-07-16
 This patch release supersedes the incomplete v0.34.0 binary publication. The v0.34.0
 source tag remains immutable, but its release workflow could not publish the exact
 11-asset set because the Windows build used unstable metadata APIs and the Linux ARM64
-source-install path attempted an unnecessary ownership syscall.
+source-recovery path used Linux x86-specific `openat` flag values.
 
 ### Fixed
 
@@ -15,9 +15,10 @@ source-install path attempted an unnecessary ownership syscall.
   `GetFileInformationByHandle` volume/file identity checks, preserving the existing
   path-versus-open-handle fail-closed contract without adding a dependency.
 - Restricts Unix-only source-recovery tests to Unix so Windows test binaries compile.
-- Skips `fchown` when a newly created Unix source-install file already has the required
-  owner and group. A required ownership change still uses the same capability check and
-  fails closed if the syscall fails.
+- Avoids unsupported transition-parent directory opens on Windows, matching the existing
+  Windows atomic-replace durability path.
+- Uses the architecture-correct Linux ARM64 values for `O_DIRECTORY` and `O_NOFOLLOW`,
+  preserving fail-closed descriptor-relative source traversal on both Linux architectures.
 - Adds a native Windows file-identity test to the release matrix.
 
 ### Release Recovery

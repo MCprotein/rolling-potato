@@ -5066,16 +5066,32 @@ impl PreparedRollbackDir {
 mod unix_open_flags {
     #[cfg(target_os = "macos")]
     pub const READ_DIRECTORY_NOFOLLOW: i32 = 0x0010_0000 | 0x0000_0100 | 0x0100_0000;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    pub const READ_DIRECTORY_NOFOLLOW: i32 = 0x0000_4000 | 0x0000_8000 | 0x0008_0000;
+    #[cfg(all(
+        not(target_os = "macos"),
+        not(all(target_os = "linux", target_arch = "aarch64"))
+    ))]
     pub const READ_DIRECTORY_NOFOLLOW: i32 = 0x0001_0000 | 0x0002_0000 | 0x0008_0000;
     #[cfg(target_os = "macos")]
     pub const READ_FILE_NOFOLLOW: i32 = 0x0000_0100 | 0x0100_0000;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    pub const READ_FILE_NOFOLLOW: i32 = 0x0000_8000 | 0x0008_0000;
+    #[cfg(all(
+        not(target_os = "macos"),
+        not(all(target_os = "linux", target_arch = "aarch64"))
+    ))]
     pub const READ_FILE_NOFOLLOW: i32 = 0x0002_0000 | 0x0008_0000;
     #[cfg(target_os = "macos")]
     pub const WRITE_CREATE_NEW_NOFOLLOW: i32 =
         0x0000_0001 | 0x0000_0200 | 0x0000_0800 | 0x0000_0100 | 0x0100_0000;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    pub const WRITE_CREATE_NEW_NOFOLLOW: i32 =
+        0x0000_0001 | 0x0000_0040 | 0x0000_0080 | 0x0000_8000 | 0x0008_0000;
+    #[cfg(all(
+        not(target_os = "macos"),
+        not(all(target_os = "linux", target_arch = "aarch64"))
+    ))]
     pub const WRITE_CREATE_NEW_NOFOLLOW: i32 =
         0x0000_0001 | 0x0000_0040 | 0x0000_0080 | 0x0002_0000 | 0x0008_0000;
 }
@@ -5307,31 +5323,24 @@ fn install_prepared_temp(
     }
     let mut file = source_dir.create_new(&source_dir.temporary, 0o600)?;
     use std::os::fd::AsRawFd;
-    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    use std::os::unix::fs::PermissionsExt;
     unsafe extern "C" {
         fn fchown(fd: i32, owner: u32, group: u32) -> i32;
     }
-    let created_metadata = file
-        .metadata()
-        .map_err(|err| AppError::runtime(format!("source install temp metadata 실패: {err}")))?;
-    if created_metadata.uid() != plan.unix_metadata.install_uid
-        || created_metadata.gid() != plan.unix_metadata.install_gid
+    // SAFETY: `file` owns a valid open descriptor and the uid/gid were capability-checked
+    // before the transition journal was committed.
+    if unsafe {
+        fchown(
+            file.as_raw_fd(),
+            plan.unix_metadata.install_uid,
+            plan.unix_metadata.install_gid,
+        )
+    } != 0
     {
-        // SAFETY: `file` owns a valid open descriptor and the uid/gid were capability-checked
-        // before the transition journal was committed.
-        if unsafe {
-            fchown(
-                file.as_raw_fd(),
-                plan.unix_metadata.install_uid,
-                plan.unix_metadata.install_gid,
-            )
-        } != 0
-        {
-            return Err(AppError::runtime(format!(
-                "source install ownership 적용 실패\n- error: {}",
-                std::io::Error::last_os_error()
-            )));
-        }
+        return Err(AppError::runtime(format!(
+            "source install ownership 적용 실패: {}",
+            std::io::Error::last_os_error()
+        )));
     }
     file.write_all(proposed)
         .map_err(|err| AppError::runtime(format!("source install temp write 실패: {err}")))?;

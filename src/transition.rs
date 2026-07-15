@@ -2897,6 +2897,7 @@ fn render_optional_string(value: Option<&str>) -> String {
         .unwrap_or_else(|| "null".to_string())
 }
 
+#[cfg(not(windows))]
 fn sync_parent(path: &Path) -> Result<(), AppError> {
     let parent = path
         .parent()
@@ -2906,6 +2907,11 @@ fn sync_parent(path: &Path) -> Result<(), AppError> {
     directory
         .sync_all()
         .map_err(|err| AppError::runtime(format!("transition parent fsync 실패: {err}")))
+}
+
+#[cfg(windows)]
+fn sync_parent(_path: &Path) -> Result<(), AppError> {
+    Ok(())
 }
 
 fn now_ms() -> u128 {

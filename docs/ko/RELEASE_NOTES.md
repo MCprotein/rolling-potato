@@ -6,8 +6,8 @@
 
 이 patch release는 binary publication이 완결되지 못한 v0.34.0을 대체합니다. v0.34.0
 source tag는 immutable하게 유지하지만, Windows build의 unstable metadata API와 Linux
-ARM64 source-install 경로의 불필요한 ownership syscall 때문에 exact 11-asset set을
-게시하지 못했습니다.
+ARM64 source-recovery 경로가 Linux x86 전용 `openat` flag 값을 사용해 exact 11-asset
+set을 게시하지 못했습니다.
 
 ### 수정한 것
 
@@ -15,9 +15,10 @@ ARM64 source-install 경로의 불필요한 ownership syscall 때문에 exact 11
   `GetFileInformationByHandle` volume/file identity 검사를 사용합니다. Dependency를
   추가하지 않고 기존 path/open-handle fail-closed contract를 유지합니다.
 - Unix 전용 source-recovery test를 Unix로 제한해 Windows test binary가 compile됩니다.
-- 새 Unix source-install file이 이미 필요한 owner/group을 가지면 `fchown`을 생략합니다.
-  실제 ownership 변경이 필요하면 기존 capability 검사를 유지하고 syscall 실패 시
-  fail-closed합니다.
+- Windows에서 지원하지 않는 transition-parent directory open을 생략해 기존 Windows
+  atomic-replace durability 경로와 일치시킵니다.
+- Linux ARM64의 `O_DIRECTORY`와 `O_NOFOLLOW`에 architecture-correct 값을 사용해 두 Linux
+  architecture 모두에서 descriptor-relative source traversal을 fail-closed로 유지합니다.
 - Release matrix에 native Windows file-identity test를 추가합니다.
 
 ### 릴리즈 복구
