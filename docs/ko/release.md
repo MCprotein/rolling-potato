@@ -65,11 +65,12 @@ Branch 이름:
 3. release note, docs, manifest, release check를 해당 branch에서 마무리한다.
 4. release checklist가 통과한 뒤에만 release branch를 `main`에 merge한다.
 5. merge commit에 `vX.Y.Z` 또는 대응되는 prerelease tag를 붙인다.
-6. tag를 push한다. matching remote release branch가 아직 남아 있으면
-   `release-policy` workflow가 `main`에 merge됐는지 확인한 뒤 삭제한다.
+6. matching remote release branch를 보존한 상태로 tag를 push한다.
 7. 해당 tag로 GitHub Release를 만든다. Release가 publish되면 `release-binaries`
-   workflow가 지원 binary asset을 build/upload한다.
-8. Release asset과 checksum을 확인한 뒤 local release branch를 삭제한다.
+   workflow가 지원 binary asset을 build/upload하고 published set을 다시 내려받아
+   정확한 11개 regular non-symlink asset과 모든 checksum을 검증한 뒤에만 merge된
+   matching remote release branch를 삭제한다.
+8. Published workflow와 asset을 확인한 뒤 local release branch를 삭제한다.
 
 `main`은 integration branch입니다. Release branch는 장기 support branch가 아니며, release 이후의 unrelated work를 쌓으면 안 됩니다.
 
@@ -88,7 +89,8 @@ scripts/release/verify-release-policy.sh
 - `main`으로 들어오는 release PR은 `release/v...` branch에서만 허용
 - release tag가 `origin/main` 위에 있음
 - 대응되는 remote release branch가 아직 남아 있으면 release tag 시 merge 상태여야 함
-- release tag check가 성공하면 아직 남아 있는 merged remote release branch를 삭제
+- tag-policy validation은 remote release branch를 삭제하지 않으며, cleanup owner는
+  published-asset verification success DAG 안에 하나만 존재
 
 필수 GitHub repository setting:
 
