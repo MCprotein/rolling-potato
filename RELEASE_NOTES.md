@@ -2,7 +2,7 @@
 
 ## v0.34.0 - Runtime-Owned Interactive TUI
 
-Release date: 2026-07-14
+Release date: 2026-07-16
 
 This release turns the dependency-free terminal surface into a real interactive
 controller while keeping all authority in the runtime core. It also makes an approved
