@@ -14,6 +14,7 @@ const MAX_SOURCE_INSTALL_BYTES: usize = 32_768;
 const MAX_PREPARED_BUNDLE_BYTES: usize = 1_048_576;
 const MAX_RECOVERY_JOURNAL_ENTRIES: usize = 4;
 const MAX_RECOVERY_JOURNAL_BYTES: usize = 2 * MAX_PREPARED_BUNDLE_BYTES + 64 * 1024;
+const MAX_RECOVERY_PROJECT_ENTRIES: usize = 128;
 const MAX_PROJECTION_LAG_ENTRIES: usize = 4;
 const MAX_PROJECTION_LAG_BYTES: usize = 256 * 1024;
 const STATE_TRANSITION_INTENT_KINDS: &[&str] = &[
@@ -1294,41 +1295,17 @@ pub(crate) enum ProjectionLagReadStatus {
 }
 
 pub(crate) fn projection_lag_status_read_only(project_id: &str) -> ProjectionLagReadStatus {
-    let lag_directory = crate::paths::projection_lag_dir();
-    let lag_entries = match bounded_regular_entries(
-        &lag_directory,
-        MAX_PROJECTION_LAG_ENTRIES,
-        MAX_PROJECTION_LAG_BYTES,
-        |name| name.ends_with(".json") || name.ends_with(".json.tmp"),
-    ) {
-        Ok(entries) => entries,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return ProjectionLagReadStatus::Clear
-        }
-        Err(_) => return ProjectionLagReadStatus::Unavailable,
-    };
-    if lag_entries == 0 {
-        return ProjectionLagReadStatus::Clear;
-    }
     let journal_directory = crate::paths::project_transition_journal_dir(project_id);
-    if bounded_regular_entries(
-        &journal_directory,
-        MAX_RECOVERY_JOURNAL_ENTRIES,
-        MAX_RECOVERY_JOURNAL_BYTES,
-        |name| {
-            name == "transition.lock"
-                || name.ends_with(".prepared.json")
-                || name.ends_with(".prepared.json.tmp")
-        },
-    )
-    .is_err()
-    {
-        return ProjectionLagReadStatus::Unavailable;
-    }
     match validate_projection_lag_authority(project_id, &journal_directory) {
-        Ok(()) => ProjectionLagReadStatus::Lagging,
+        Ok(false) => ProjectionLagReadStatus::Clear,
+        Ok(true) => ProjectionLagReadStatus::Lagging,
         Err(_) => ProjectionLagReadStatus::Unavailable,
     }
+}
+
+struct BoundedRegularEntry {
+    name: String,
+    path: PathBuf,
 }
 
 fn bounded_regular_entries(
@@ -1336,12 +1313,13 @@ fn bounded_regular_entries(
     max_entries: usize,
     max_bytes: usize,
     allowed_name: impl Fn(&str) -> bool,
-) -> Result<usize, std::io::Error> {
-    let mut count = 0_usize;
+) -> Result<Vec<BoundedRegularEntry>, std::io::Error> {
+    let mut entries = Vec::new();
     let mut bytes = 0_usize;
     for entry in fs::read_dir(directory)? {
         let entry = entry?;
-        let metadata = fs::symlink_metadata(entry.path())?;
+        let path = entry.path();
+        let metadata = fs::symlink_metadata(&path)?;
         let name = entry
             .file_name()
             .to_str()
@@ -1353,17 +1331,18 @@ fn bounded_regular_entries(
         {
             return Err(std::io::Error::other("invalid recovery entry"));
         }
-        count = count
-            .checked_add(1)
-            .ok_or_else(|| std::io::Error::other("recovery entry count overflow"))?;
+        if entries.len() >= max_entries {
+            return Err(std::io::Error::other("recovery read bound exceeded"));
+        }
         bytes = bytes
             .checked_add(usize::try_from(metadata.len()).unwrap_or(usize::MAX))
             .ok_or_else(|| std::io::Error::other("recovery entry byte overflow"))?;
-        if count > max_entries || bytes > max_bytes {
+        if bytes > max_bytes {
             return Err(std::io::Error::other("recovery read bound exceeded"));
         }
+        entries.push(BoundedRegularEntry { name, path });
     }
-    Ok(count)
+    Ok(entries)
 }
 
 fn read_regular_utf8_bounded(
@@ -1489,7 +1468,12 @@ fn recovery_work_may_exist() -> bool {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return false,
         Err(_) => return true,
     };
+    let mut project_count = 0_usize;
     for project in projects {
+        project_count = project_count.saturating_add(1);
+        if project_count > MAX_RECOVERY_PROJECT_ENTRIES {
+            return true;
+        }
         let Ok(project) = project else {
             return true;
         };
@@ -1539,7 +1523,7 @@ fn recover_pending_bundles_under_guard(project_id: &str) -> Result<usize, AppErr
     if !directory.exists() {
         return Ok(0);
     }
-    bounded_regular_entries(
+    let mut entries = bounded_regular_entries(
         &directory,
         MAX_RECOVERY_JOURNAL_ENTRIES,
         MAX_RECOVERY_JOURNAL_BYTES,
@@ -1550,41 +1534,18 @@ fn recover_pending_bundles_under_guard(project_id: &str) -> Result<usize, AppErr
             "transition journal recovery bound 검증 실패: {err}"
         ))
     })?;
-    let mut entries = fs::read_dir(&directory)
-        .map_err(|err| AppError::blocked(format!("transition journal discovery 실패: {err}")))?
-        .map(|entry| {
-            entry.map_err(|err| {
-                AppError::blocked(format!("transition journal entry 읽기 실패: {err}"))
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    entries.sort_by(|left, right| {
-        left.file_name()
-            .as_encoded_bytes()
-            .cmp(right.file_name().as_encoded_bytes())
-    });
+    entries.sort_by(|left, right| left.name.as_bytes().cmp(right.name.as_bytes()));
     let mut recovered = 0_usize;
     for entry in entries {
-        let name = entry
-            .file_name()
-            .to_str()
-            .ok_or_else(|| AppError::blocked("transition journal filename UTF-8 불일치"))?
-            .to_string();
+        let name = entry.name;
         if name == "transition.lock" {
             continue;
-        }
-        let metadata = fs::symlink_metadata(entry.path())
-            .map_err(|err| AppError::blocked(format!("transition journal metadata 실패: {err}")))?;
-        if !metadata.file_type().is_file() || metadata.file_type().is_symlink() {
-            return Err(AppError::blocked(
-                "transition journal entry type 불일치; 증거를 보존했습니다.",
-            ));
         }
         if let Some(intent_id) = name.strip_suffix(".prepared.json.tmp") {
             validate_ascii_id(intent_id, "intent")?;
             let final_path = crate::paths::project_transition_journal_file(project_id, intent_id);
             let temp_body = read_regular_utf8_bounded(
-                &entry.path(),
+                &entry.path,
                 MAX_PREPARED_BUNDLE_BYTES,
                 "transition temp",
             )?;
@@ -1604,10 +1565,10 @@ fn recover_pending_bundles_under_guard(project_id: &str) -> Result<usize, AppErr
                     return Err(AppError::blocked("transition final/temp bytes conflict"));
                 }
             }
-            fs::remove_file(entry.path()).map_err(|err| {
+            fs::remove_file(&entry.path).map_err(|err| {
                 AppError::runtime(format!("zero-effect transition temp cleanup 실패: {err}"))
             })?;
-            sync_parent(&entry.path())?;
+            sync_parent(&entry.path)?;
             continue;
         }
         let Some(intent_id) = name.strip_suffix(".prepared.json") else {
@@ -1616,11 +1577,8 @@ fn recover_pending_bundles_under_guard(project_id: &str) -> Result<usize, AppErr
             )));
         };
         validate_ascii_id(intent_id, "intent")?;
-        let body = read_regular_utf8_bounded(
-            &entry.path(),
-            MAX_PREPARED_BUNDLE_BYTES,
-            "transition final",
-        )?;
+        let body =
+            read_regular_utf8_bounded(&entry.path, MAX_PREPARED_BUNDLE_BYTES, "transition final")?;
         let bundle = parse_prepared_source_bundle(&body)?;
         if bundle.intent_id != intent_id || bundle.project_id != project_id {
             return Err(AppError::blocked(
@@ -1641,7 +1599,7 @@ fn recover_pending_bundles_under_guard(project_id: &str) -> Result<usize, AppErr
                         &bundle.current_artifact_hash,
                         None,
                     )?;
-                    crate::state::install_prepared_source_bundle(&bundle, &entry.path())?;
+                    crate::state::install_prepared_source_bundle(&bundle, &entry.path)?;
                 }
             }
             "approve-patch" => {
@@ -1651,15 +1609,15 @@ fn recover_pending_bundles_under_guard(project_id: &str) -> Result<usize, AppErr
                     std::env::consts::OS
                 )));
                 #[cfg(unix)]
-                crate::patch::recover_prepared_approval_bundle(&bundle, &entry.path())?;
+                crate::patch::recover_prepared_approval_bundle(&bundle, &entry.path)?;
             }
             "approve-verification" => {
-                crate::patch::recover_prepared_verification_bundle(&bundle, &entry.path())?;
+                crate::patch::recover_prepared_verification_bundle(&bundle, &entry.path)?;
             }
             kind if is_terminal_action_intent_kind(kind) => {
                 crate::state::recover_project_current_state_prepared_terminal_action(
                     &bundle,
-                    &entry.path(),
+                    &entry.path,
                 )?;
             }
             kind if is_state_transition_intent_kind(kind) => {
@@ -1667,7 +1625,7 @@ fn recover_pending_bundles_under_guard(project_id: &str) -> Result<usize, AppErr
             }
             _ => return Err(AppError::blocked("transition recovery intent kind 불일치")),
         }
-        remove_committed_source_bundle(&bundle, &entry.path())?;
+        remove_committed_source_bundle(&bundle, &entry.path)?;
         recovered = recovered
             .checked_add(1)
             .ok_or_else(|| AppError::blocked("transition recovery count overflow"))?;
@@ -1678,40 +1636,45 @@ fn recover_pending_bundles_under_guard(project_id: &str) -> Result<usize, AppErr
 fn validate_projection_lag_authority(
     project_id: &str,
     journal_directory: &Path,
-) -> Result<(), AppError> {
+) -> Result<bool, AppError> {
     let lag_directory = crate::paths::projection_lag_dir();
     if !lag_directory.exists() {
-        return Ok(());
+        return Ok(false);
+    }
+    let lag_entries = bounded_regular_entries(
+        &lag_directory,
+        MAX_PROJECTION_LAG_ENTRIES,
+        MAX_PROJECTION_LAG_BYTES,
+        |name| name.ends_with(".json") || name.ends_with(".json.tmp"),
+    )
+    .map_err(|err| AppError::blocked(format!("projection lag recovery bound 검증 실패: {err}")))?;
+    if lag_entries.is_empty() {
+        return Ok(false);
     }
     let mut bundles = Vec::new();
     if journal_directory.exists() {
-        bounded_regular_entries(
+        let entries = bounded_regular_entries(
             journal_directory,
             MAX_RECOVERY_JOURNAL_ENTRIES,
             MAX_RECOVERY_JOURNAL_BYTES,
-            |_| true,
+            |name| {
+                name == "transition.lock"
+                    || name.ends_with(".prepared.json")
+                    || name.ends_with(".prepared.json.tmp")
+            },
         )
         .map_err(|err| {
             AppError::blocked(format!(
                 "projection lag journal recovery bound 검증 실패: {err}"
             ))
         })?;
-        for entry in fs::read_dir(journal_directory).map_err(|err| {
-            AppError::blocked(format!("projection lag journal discovery 실패: {err}"))
-        })? {
-            let entry = entry.map_err(|err| {
-                AppError::blocked(format!("projection lag journal entry 읽기 실패: {err}"))
-            })?;
-            let Some(name) = entry.file_name().to_str().map(str::to_string) else {
-                return Err(AppError::blocked(
-                    "projection lag journal filename UTF-8 불일치",
-                ));
-            };
+        for entry in entries {
+            let name = entry.name;
             if name == "transition.lock" || !name.ends_with(".prepared.json") {
                 continue;
             }
             let body = read_regular_utf8_bounded(
-                &entry.path(),
+                &entry.path,
                 MAX_PREPARED_BUNDLE_BYTES,
                 "projection lag journal",
             )?;
@@ -1724,30 +1687,8 @@ fn validate_projection_lag_authority(
             bundles.push(bundle);
         }
     }
-    bounded_regular_entries(
-        &lag_directory,
-        MAX_PROJECTION_LAG_ENTRIES,
-        MAX_PROJECTION_LAG_BYTES,
-        |name| name.ends_with(".json") || name.ends_with(".json.tmp"),
-    )
-    .map_err(|err| AppError::blocked(format!("projection lag recovery bound 검증 실패: {err}")))?;
-    for entry in fs::read_dir(&lag_directory)
-        .map_err(|err| AppError::blocked(format!("projection lag discovery 실패: {err}")))?
-    {
-        let entry = entry
-            .map_err(|err| AppError::blocked(format!("projection lag entry 읽기 실패: {err}")))?;
-        let metadata = fs::symlink_metadata(entry.path())
-            .map_err(|err| AppError::blocked(format!("projection lag metadata 실패: {err}")))?;
-        if !metadata.file_type().is_file() || metadata.file_type().is_symlink() {
-            return Err(AppError::blocked(
-                "projection lag entry type 불일치; 증거를 보존했습니다.",
-            ));
-        }
-        let name = entry
-            .file_name()
-            .to_str()
-            .ok_or_else(|| AppError::blocked("projection lag filename UTF-8 불일치"))?
-            .to_string();
+    for entry in lag_entries {
+        let name = entry.name;
         let final_name = name.strip_suffix(".tmp").unwrap_or(&name);
         if !final_name.ends_with(".json") {
             return Err(AppError::blocked(
@@ -1755,7 +1696,7 @@ fn validate_projection_lag_authority(
             ));
         }
         let body =
-            read_regular_utf8_bounded(&entry.path(), MAX_PROJECTION_LAG_BYTES, "projection lag")?;
+            read_regular_utf8_bounded(&entry.path, MAX_PROJECTION_LAG_BYTES, "projection lag")?;
         let matches = bundles
             .iter()
             .filter(|bundle| {
@@ -1775,7 +1716,7 @@ fn validate_projection_lag_authority(
             ));
         }
     }
-    Ok(())
+    Ok(true)
 }
 
 fn validate_prepared_source_bundle(bundle: &PreparedSourceBundle) -> Result<(), AppError> {
@@ -3829,6 +3770,35 @@ mod tests {
 
         assert!(oversized_lag.exists());
         drop(transition_guard);
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn recovery_discovery_treats_oversized_project_root_as_suspicious() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-transition-project-discovery-bound-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let project_root = root.join("project");
+        let data_home = root.join("data");
+        fs::create_dir_all(&project_root).unwrap();
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        std::env::set_var("RPOTATO_DATA_HOME", &data_home);
+        crate::state::initialize().unwrap();
+        let journal_root = crate::paths::project_state_dir().join("transition-journal");
+        for index in 0..=MAX_RECOVERY_PROJECT_ENTRIES {
+            fs::create_dir_all(journal_root.join(format!("empty-project-{index}"))).unwrap();
+        }
+
+        assert!(recovery_work_may_exist());
+
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
         std::env::remove_var("RPOTATO_DATA_HOME");
         let _ = fs::remove_dir_all(root);

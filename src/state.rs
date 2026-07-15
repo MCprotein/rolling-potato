@@ -14,6 +14,9 @@ use sha2::{Digest, Sha256};
 const WORKFLOW_SCHEMA_VERSION: u64 = 4;
 const PREVIOUS_WORKFLOW_SCHEMA_VERSION: u64 = 3;
 const LEGACY_WORKFLOW_SCHEMA_VERSION: u64 = 2;
+const MAX_WORKFLOW_POINTER_BYTES: u64 = 64 * 1024;
+const MAX_WORKFLOW_SNAPSHOT_BYTES: u64 = 512 * 1024;
+const MAX_PREPARED_SOURCE_BUNDLE_BYTES: u64 = 1024 * 1024;
 const CURRENT_STATE_V1_KEYS: &[&str] = &[
     "schema_version",
     "project_id",
@@ -320,11 +323,11 @@ impl WorkflowCheckpointGuard {
         allowed_bindings: &[(u64, &str)],
     ) -> Result<WorkflowRecord, AppError> {
         let pointer_path = paths::project_workflow_file(&self.workflow_id);
-        let pointer_bytes = fs::read_to_string(&pointer_path).map_err(|err| {
-            AppError::blocked(format!(
-                "prepared recovery workflow pointer 읽기 실패: {err}"
-            ))
-        })?;
+        let pointer_bytes = read_regular_file_bounded(
+            &pointer_path,
+            MAX_WORKFLOW_POINTER_BYTES,
+            "prepared recovery workflow pointer",
+        )?;
         let pointer = parse_workflow_pointer(&pointer_path, &pointer_bytes)?;
         if pointer.workflow_id != self.workflow_id
             || !allowed_bindings.iter().any(|(revision, hash)| {
@@ -337,11 +340,11 @@ impl WorkflowCheckpointGuard {
         }
         let snapshot_path =
             paths::project_workflow_snapshot_file(&self.workflow_id, pointer.committed_revision);
-        let snapshot_bytes = fs::read_to_string(&snapshot_path).map_err(|err| {
-            AppError::blocked(format!(
-                "prepared recovery workflow snapshot 읽기 실패: {err}"
-            ))
-        })?;
+        let snapshot_bytes = read_regular_file_bounded(
+            &snapshot_path,
+            MAX_WORKFLOW_SNAPSHOT_BYTES,
+            "prepared recovery workflow snapshot",
+        )?;
         let record = parse_workflow_snapshot(&snapshot_path, &snapshot_bytes)?;
         if record.workflow_id != self.workflow_id
             || record.revision != pointer.committed_revision
@@ -403,9 +406,11 @@ impl WorkflowCheckpointGuard {
             ));
         }
         if prepared.pointer_path.exists() {
-            let existing_bytes = fs::read_to_string(&prepared.pointer_path).map_err(|err| {
-                AppError::blocked(format!("prepared workflow pointer reread 실패: {err}"))
-            })?;
+            let existing_bytes = read_regular_file_bounded(
+                &prepared.pointer_path,
+                MAX_WORKFLOW_POINTER_BYTES,
+                "prepared workflow pointer reread",
+            )?;
             let existing = parse_workflow_pointer(&prepared.pointer_path, &existing_bytes)?;
             if existing.workflow_id != self.workflow_id {
                 return Err(AppError::blocked(
@@ -434,11 +439,11 @@ impl WorkflowCheckpointGuard {
                     &self.workflow_id,
                     existing.committed_revision,
                 );
-                let newer_bytes = fs::read_to_string(&newer_path).map_err(|err| {
-                    AppError::blocked(format!(
-                        "prepared workflow pointer newer snapshot read 실패: {err}"
-                    ))
-                })?;
+                let newer_bytes = read_regular_file_bounded(
+                    &newer_path,
+                    MAX_WORKFLOW_SNAPSHOT_BYTES,
+                    "prepared workflow pointer newer snapshot",
+                )?;
                 let newer = parse_workflow_snapshot(&newer_path, &newer_bytes)?;
                 if newer.workflow_id != self.workflow_id
                     || newer.revision != existing.committed_revision
@@ -1899,12 +1904,11 @@ fn load_workflow_under_transition(workflow_id: &str) -> Result<WorkflowRecord, A
     validate_workflow_id(workflow_id)?;
     recover_workflow_transaction(workflow_id)?;
     let pointer_path = paths::project_workflow_file(workflow_id);
-    let pointer = fs::read_to_string(&pointer_path).map_err(|err| {
-        AppError::blocked(format!(
-            "workflow 읽기 차단\n- 이유: committed workflow pointer를 읽지 못했습니다.\n- workflow id: {workflow_id}\n- path: {}\n- error: {err}",
-            pointer_path.display()
-        ))
-    })?;
+    let pointer = read_regular_file_bounded(
+        &pointer_path,
+        MAX_WORKFLOW_POINTER_BYTES,
+        "committed workflow pointer",
+    )?;
     let pointer = parse_workflow_pointer(&pointer_path, &pointer)?;
     if pointer.workflow_id != workflow_id || pointer.committed_revision == 0 {
         return Err(corrupt_workflow(&pointer_path));
@@ -4147,12 +4151,11 @@ fn recover_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
     if !transaction_path.exists() {
         return Ok(());
     }
-    let body = fs::read_to_string(&transaction_path).map_err(|err| {
-        AppError::blocked(format!(
-            "workflow recovery 차단\n- 이유: transaction을 읽지 못했습니다.\n- path: {}\n- error: {err}",
-            transaction_path.display()
-        ))
-    })?;
+    let body = read_regular_file_bounded(
+        &transaction_path,
+        MAX_WORKFLOW_SNAPSHOT_BYTES,
+        "workflow recovery transaction",
+    )?;
     let transaction_schema = workflow_snapshot_schema(&transaction_path, &body)?;
     let record = parse_workflow_snapshot(&transaction_path, &body)?;
     if record.workflow_id != workflow_id {
@@ -4160,8 +4163,11 @@ fn recover_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
     }
     let pointer_path = paths::project_workflow_file(workflow_id);
     if pointer_path.exists() {
-        let pointer =
-            fs::read_to_string(&pointer_path).map_err(|_| corrupt_workflow(&pointer_path))?;
+        let pointer = read_regular_file_bounded(
+            &pointer_path,
+            MAX_WORKFLOW_POINTER_BYTES,
+            "workflow recovery pointer",
+        )?;
         let pointer = parse_workflow_pointer(&pointer_path, &pointer)?;
         if pointer.workflow_id != workflow_id {
             return Err(corrupt_workflow(&pointer_path));
@@ -4285,12 +4291,11 @@ fn validate_workflow_chain_with_checkpoints(
     let mut latest = None;
     for revision in 1..=committed_revision {
         let path = paths::project_workflow_snapshot_file(workflow_id, revision);
-        let body = fs::read_to_string(&path).map_err(|err| {
-            AppError::blocked(format!(
-                "workflow chain 검증 차단\n- 이유: revision snapshot 누락\n- path: {}\n- error: {err}",
-                path.display()
-            ))
-        })?;
+        let body = read_regular_file_bounded(
+            &path,
+            MAX_WORKFLOW_SNAPSHOT_BYTES,
+            "workflow chain revision snapshot",
+        )?;
         let schema = workflow_snapshot_schema(&path, &body)?;
         if previous_schema.is_some_and(|previous| schema < previous) {
             return Err(corrupt_workflow(&path));
@@ -4682,8 +4687,11 @@ pub(crate) fn install_prepared_source_bundle(
     bundle: &crate::transition::PreparedSourceBundle,
     journal_path: &std::path::Path,
 ) -> Result<(), AppError> {
-    let body = fs::read_to_string(journal_path)
-        .map_err(|err| AppError::blocked(format!("prepared source journal 읽기 실패: {err}")))?;
+    let body = read_regular_file_bounded(
+        journal_path,
+        MAX_PREPARED_SOURCE_BUNDLE_BYTES,
+        "prepared source journal",
+    )?;
     if crate::transition::parse_prepared_source_bundle(&body)? != *bundle {
         return Err(AppError::blocked(
             "prepared source journal/bundle binding 불일치",
@@ -5186,8 +5194,11 @@ fn recover_source_replace(transaction_path: &std::path::Path) -> Result<(), AppE
     if !transaction_path.exists() {
         return Ok(());
     }
-    let body = fs::read_to_string(transaction_path)
-        .map_err(|err| AppError::blocked(format!("source transaction 읽기 실패: {err}")))?;
+    let body = read_regular_file_bounded(
+        transaction_path,
+        MAX_PREPARED_SOURCE_BUNDLE_BYTES,
+        "source recovery transaction",
+    )?;
     let bundle = crate::transition::parse_prepared_source_bundle(&body)?;
     let plan = bundle
         .source_install
@@ -6938,6 +6949,72 @@ mod tests {
             assert_eq!(error.code, 3);
             assert!(error.message.contains("fail-closed"));
         });
+    }
+
+    #[test]
+    fn workflow_recovery_bounds_transaction_pointer_and_revision_snapshot_reads() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        with_workflow_env("workflow-recovery-read-bounds", |_| {
+            let workflow = create_workflow("bounded workflow recovery").unwrap();
+            let transaction = paths::project_workflow_transaction_file(&workflow.workflow_id);
+            fs::write(
+                &transaction,
+                vec![b'x'; usize::try_from(MAX_WORKFLOW_SNAPSHOT_BYTES).unwrap() + 1],
+            )
+            .unwrap();
+            let transaction_error =
+                recover_workflow_transaction(&workflow.workflow_id).unwrap_err();
+            assert!(transaction_error
+                .message
+                .contains("regular-file/byte budget"));
+
+            let pointer = paths::project_workflow_file(&workflow.workflow_id);
+            let pointer_body = fs::read(&pointer).unwrap();
+            let snapshot =
+                paths::project_workflow_snapshot_file(&workflow.workflow_id, workflow.revision);
+            fs::write(&transaction, fs::read(&snapshot).unwrap()).unwrap();
+            fs::write(
+                &pointer,
+                vec![b'x'; usize::try_from(MAX_WORKFLOW_POINTER_BYTES).unwrap() + 1],
+            )
+            .unwrap();
+            let pointer_error = recover_workflow_transaction(&workflow.workflow_id).unwrap_err();
+            assert!(pointer_error.message.contains("regular-file/byte budget"));
+
+            fs::remove_file(&transaction).unwrap();
+            fs::write(&pointer, pointer_body).unwrap();
+            fs::write(
+                &snapshot,
+                vec![b'x'; usize::try_from(MAX_WORKFLOW_SNAPSHOT_BYTES).unwrap() + 1],
+            )
+            .unwrap();
+            let snapshot_error = validate_workflow_chain(
+                &workflow.workflow_id,
+                workflow.revision,
+                WORKFLOW_SCHEMA_VERSION,
+            )
+            .unwrap_err();
+            assert!(snapshot_error.message.contains("regular-file/byte budget"));
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn source_recovery_rejects_oversized_transaction_before_parsing() {
+        let root = workflow_test_root("source-recovery-read-bound");
+        fs::create_dir_all(&root).unwrap();
+        let transaction = root.join("oversized-source-transaction.json");
+        fs::write(
+            &transaction,
+            vec![b'x'; usize::try_from(MAX_PREPARED_SOURCE_BUNDLE_BYTES).unwrap() + 1],
+        )
+        .unwrap();
+
+        let error = recover_source_replace(&transaction).unwrap_err();
+
+        assert!(error.message.contains("regular-file/byte budget"));
+        assert!(transaction.exists());
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
