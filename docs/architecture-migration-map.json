@@ -2548,6 +2548,23 @@
       ]
     },
     {
+      "path": "src/runtime_core/collaboration/team_reconciliation.rs",
+      "slices": [
+        {
+          "responsibility": "team reconciliation binding, stage, ownership, and artifact policy",
+          "target": "src/runtime_core/collaboration/team_reconciliation.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_reconciliation.rs",
+            "src/team_reconciliation.rs",
+            "tests/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/collaboration/team_state.rs",
       "slices": [
         {
@@ -4696,6 +4713,12 @@
       "path": "src/runtime_core/collaboration/team_execution.rs",
       "responsibilities": [
         "team execution binding, stage, mode, and action ownership policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_reconciliation.rs",
+      "responsibilities": [
+        "team reconciliation binding, stage, ownership, and artifact policy"
       ]
     },
     {
