@@ -1727,6 +1727,16 @@ fn v03713_uninstall_plan_uses_composition_and_filesystem_owners() {
     assert!(!main.lines().any(|line| line == "mod uninstall;"));
 }
 
+#[test]
+fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
+    assert!(!Path::new("src/test_support.rs").exists());
+    assert!(Path::new("tests/support/runtime_fixture.rs").is_file());
+
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(main.contains("#[path = \"../tests/support/runtime_fixture.rs\"]"));
+    assert!(main.contains("mod test_support;"));
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

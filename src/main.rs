@@ -30,6 +30,7 @@ mod team_execution;
 mod team_reconciliation;
 pub mod team_state;
 #[cfg(test)]
+#[path = "../tests/support/runtime_fixture.rs"]
 mod test_support;
 mod transcript;
 mod transition;

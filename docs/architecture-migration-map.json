@@ -3407,18 +3407,6 @@
       ]
     },
     {
-      "path": "src/test_support.rs",
-      "slices": [
-        {
-          "responsibility": "owner-local and cross-crate test fixtures",
-          "target": "tests/support/runtime_fixture.rs",
-          "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
       "path": "src/transcript.rs",
       "slices": [
         {
@@ -3765,6 +3753,21 @@
           "release": "0.37.13",
           "state": "planned",
           "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "tests/support/runtime_fixture.rs",
+      "slices": [
+        {
+          "responsibility": "owner-local unit-test environment fixture",
+          "target": "tests/support/runtime_fixture.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/support/runtime_fixture.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -5157,12 +5160,6 @@
       ]
     },
     {
-      "path": "src/test_support.rs",
-      "responsibilities": [
-        "owner-local and cross-crate test fixtures"
-      ]
-    },
-    {
       "path": "src/transcript.rs",
       "responsibilities": [
         "canonical transcript records",
@@ -5284,6 +5281,12 @@
       "path": "tests/support/native_terminal_probe.rs",
       "responsibilities": [
         "cross-crate integration fixture"
+      ]
+    },
+    {
+      "path": "tests/support/runtime_fixture.rs",
+      "responsibilities": [
+        "owner-local unit-test environment fixture"
       ]
     },
     {
