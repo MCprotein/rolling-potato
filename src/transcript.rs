@@ -9,6 +9,9 @@ use crate::context::SourcePointer;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, ParsedLedgerEvent, RuntimeIdentity};
+pub use crate::runtime_core::workflow::storage_compat::transcript::{
+    ToolOutputArtifactBinding, TranscriptRecord, TranscriptSourcePointer,
+};
 use crate::{observability, state};
 
 const TRANSCRIPT_SCHEMA_V1: u64 = 1;
@@ -71,20 +74,6 @@ const TOOL_ARTIFACT_KEYS: &[&str] = &[
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TranscriptSourcePointer {
-    pub stable_ref: String,
-    pub path: String,
-    pub source_hash: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ToolOutputArtifactBinding {
-    pub id: String,
-    pub path: String,
-    pub hash: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ToolOutputView {
     pub artifact_id: String,
     pub session_id: String,
@@ -118,23 +107,6 @@ struct SanitizedToolOutputArtifact {
     stdout_redacted: bool,
     stderr_redacted: bool,
     content_hash: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TranscriptRecord {
-    pub schema_version: u64,
-    pub record_id: String,
-    pub project_id: String,
-    pub session_id: String,
-    pub workflow_id: String,
-    pub kind: String,
-    pub causal_id: String,
-    pub content: String,
-    pub content_hash: String,
-    pub source_pointers: Vec<TranscriptSourcePointer>,
-    pub recorded_at_ms: u128,
-    pub tool_output_artifact: Option<ToolOutputArtifactBinding>,
-    pub artifact_hash: String,
 }
 
 #[derive(Debug, Clone)]
