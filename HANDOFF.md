@@ -133,13 +133,17 @@ sequence and non-skippable release gates are defined in
    codecs, and llama.cpp/process/filesystem adapters are implemented; the
    private command/report facades are explicitly scheduled for final
    composition cleanup and the patch is awaiting release.
-4. `v0.37.4` through `v0.37.13+`: migrate every remaining ledger slice by
+4. `v0.37.4`: canonical workflow snapshot/pointer codecs, ledger event
+   encoding/hash/append, transcript record encoding/validation/install, and
+   focused byte/order/hash/failure contracts are implemented and awaiting
+   release.
+5. `v0.37.5` through `v0.37.13+`: migrate every remaining ledger slice by
    coherent domain and rollback boundary, preserving durable bytes, recovery
    order, policy, CLI behavior, backend behavior, and release contracts. The
    train ends only at complete ledger coverage with zero compatibility facades.
-5. `v0.38.0`: Claude Code local plugin execution conformance through the
+6. `v0.38.0`: Claude Code local plugin execution conformance through the
    established native adapter and default-deny permission boundary.
-6. `v0.39.0` onward: integrated performance hardening followed by distribution
+7. `v0.39.0` onward: integrated performance hardening followed by distribution
    and optional local monitoring surfaces.
 
 Package-manager distribution and an optional local HTML monitoring report come

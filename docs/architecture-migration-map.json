@@ -2060,8 +2060,11 @@
           "responsibility": "canonical event append and hashing",
           "target": "src/runtime_core/workflow/storage_compat/ledger.rs",
           "release": "0.37.4",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/ledger.rs",
+            "tests/workflow/storage_compat.rs"
+          ]
         },
         {
           "responsibility": "cross-store transaction coordination",
@@ -2499,6 +2502,62 @@
       ]
     },
     {
+      "path": "src/runtime_core/workflow/storage_compat/mod.rs",
+      "slices": [
+        {
+          "responsibility": "workflow storage compatibility module ownership",
+          "target": "src/runtime_core/workflow/storage_compat/mod.rs",
+          "release": "0.37.4",
+          "state": "complete",
+          "evidence": [
+            "tests/workflow/storage_compat.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/ledger.rs",
+      "slices": [
+        {
+          "responsibility": "canonical event append and hashing",
+          "target": "src/runtime_core/workflow/storage_compat/ledger.rs",
+          "release": "0.37.4",
+          "state": "complete",
+          "evidence": [
+            "tests/workflow/storage_compat.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record.rs",
+      "slices": [
+        {
+          "responsibility": "byte-compatible workflow storage DTO and codec",
+          "target": "src/runtime_core/workflow/storage_compat/record.rs",
+          "release": "0.37.4",
+          "state": "complete",
+          "evidence": [
+            "tests/workflow/storage_compat.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/transcript.rs",
+      "slices": [
+        {
+          "responsibility": "canonical transcript records",
+          "target": "src/runtime_core/workflow/storage_compat/transcript.rs",
+          "release": "0.37.4",
+          "state": "complete",
+          "evidence": [
+            "tests/workflow/storage_compat.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/skill.rs",
       "slices": [
         {
@@ -2517,8 +2576,11 @@
           "responsibility": "byte-compatible workflow storage DTO and codec",
           "target": "src/runtime_core/workflow/storage_compat/record.rs",
           "release": "0.37.4",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/record.rs",
+            "tests/workflow/storage_compat.rs"
+          ]
         },
         {
           "responsibility": "validated workflow and session views",
@@ -2669,8 +2731,11 @@
           "responsibility": "canonical transcript records",
           "target": "src/runtime_core/workflow/storage_compat/transcript.rs",
           "release": "0.37.4",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/transcript.rs",
+            "tests/workflow/storage_compat.rs"
+          ]
         },
         {
           "responsibility": "validated transcript session views",
@@ -2857,8 +2922,10 @@
           "responsibility": "workflow storage compatibility contract",
           "target": "tests/workflow/storage_compat.rs",
           "release": "0.37.4",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/workflow/storage_compat.rs"
+          ]
         },
         {
           "responsibility": "workflow recovery and ordering contract",
@@ -2873,6 +2940,34 @@
           "release": "0.37.9",
           "state": "planned",
           "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "tests/workflow.rs",
+      "slices": [
+        {
+          "responsibility": "workflow integration test harness",
+          "target": "tests/workflow.rs",
+          "release": "0.37.4",
+          "state": "complete",
+          "evidence": [
+            "tests/workflow/storage_compat.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/workflow/storage_compat.rs",
+      "slices": [
+        {
+          "responsibility": "workflow storage compatibility contract",
+          "target": "tests/workflow/storage_compat.rs",
+          "release": "0.37.4",
+          "state": "complete",
+          "evidence": [
+            "tests/workflow/storage_compat.rs"
+          ]
         }
       ]
     },
@@ -2937,7 +3032,7 @@
       ]
     }
   ],
-  "current_release": "0.37.3",
+  "current_release": "0.37.4",
   "train_completion": false,
   "logical_proofs": [
     {
@@ -3971,6 +4066,30 @@
       ]
     },
     {
+      "path": "src/runtime_core/workflow/storage_compat/mod.rs",
+      "responsibilities": [
+        "workflow storage compatibility module ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/ledger.rs",
+      "responsibilities": [
+        "canonical event append and hashing"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record.rs",
+      "responsibilities": [
+        "byte-compatible workflow storage DTO and codec"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/transcript.rs",
+      "responsibilities": [
+        "canonical transcript records"
+      ]
+    },
+    {
       "path": "src/skill.rs",
       "responsibilities": [
         "skill manifest lifecycle and execution facade"
@@ -4118,6 +4237,18 @@
         "workflow storage compatibility contract",
         "workflow recovery and ordering contract",
         "patch lifecycle contract"
+      ]
+    },
+    {
+      "path": "tests/workflow.rs",
+      "responsibilities": [
+        "workflow integration test harness"
+      ]
+    },
+    {
+      "path": "tests/workflow/storage_compat.rs",
+      "responsibilities": [
+        "workflow storage compatibility contract"
       ]
     },
     {

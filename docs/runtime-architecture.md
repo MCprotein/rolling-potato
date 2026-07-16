@@ -182,6 +182,10 @@ monotonic revision, previous hash, and artifact hash. A synced transaction recor
 recovers interrupted checkpoint windows. Missing, corrupt, stale-project,
 hash-conflicting, multi-active, malformed-ledger, or ledger-unmatched state fails
 closed. SQLite is only a rebuildable projection.
+The v0.37.4 private storage-compatibility owner provides the canonical workflow
+snapshot/pointer codecs, ledger event encoding/hash/append, and transcript
+record encoding/validation/install without changing this transaction or recovery
+order.
 
 Model output is stored as a non-executable action. The runtime rereads the named
 source before proposal, approval, apply, and stop-gate evaluation. Approval binds

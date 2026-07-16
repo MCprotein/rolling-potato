@@ -182,6 +182,9 @@ hash, artifact hash를 기록하고 sync된 transaction record가 중단된 chec
 복구합니다. Artifact 누락·손상·stale project·hash conflict·multi-active·malformed
 ledger·ledger 불일치는 fail-closed로 차단합니다. SQLite는 재생성 가능한 projection일
 뿐입니다.
+v0.37.4 private storage compatibility owner는 이 transaction/recovery 순서를 바꾸지
+않고 canonical workflow snapshot/pointer codec, ledger event encoding/hash/append,
+transcript record encoding/validation/install을 제공합니다.
 
 Model output은 실행 불가 action으로 저장됩니다. Runtime은 proposal, approval, apply,
 stop gate 전마다 지정 source 원문을 다시 읽습니다. Approval은 workflow/action/proposal

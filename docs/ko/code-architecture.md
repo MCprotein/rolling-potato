@@ -63,6 +63,10 @@ v0.37.3 inference 경계는 backend/model/benchmark/resource 규칙, durable
 inference codec, llama.cpp/process/filesystem 구현을 이제 이 private root에서
 소유합니다. 남은 최상위 inference command/report module은 v0.37.13의 최종
 composition cleanup 대상으로 명시된 compatibility facade입니다.
+v0.37.4 workflow storage compatibility 경계는 canonical workflow snapshot과
+pointer, ledger event encoding/hash/append, transcript record encoding/validation/install을
+소유합니다. 기존 최상위 module에는 이후 slice에서 이동할 path, lock, transaction,
+recovery, projection, command orchestration만 남깁니다.
 
 ## 의존 방향
 
@@ -105,10 +109,12 @@ owner, rationale, v0.37.x expiry release를 기록해야 합니다.
 
 ## 영속 workflow 경계
 
-바이트 호환 `WorkflowRecord`와 관련 영속 aggregate는 앞으로 생길
-`runtime_core/workflow/storage_compat` 경계에서 하나의 canonical codec owner를
-유지합니다. Domain view와 command는 이 record를 검증해서 사용하며 train 도중
-독립적으로 다시 정의하거나 직렬화하지 않습니다.
+바이트 호환 `WorkflowRecord`, ledger event, transcript record는 이제
+`runtime_core/workflow/storage_compat` 경계에 하나의 canonical codec owner를
+둡니다. Domain view와 command는 이 record를 검증해서 사용하며 train 도중
+독립적으로 다시 정의하거나 직렬화하지 않습니다. Storage compatibility integration
+test는 workflow snapshot/pointer byte, ledger append order/hash chain/failure 경계,
+transcript exact/idempotent/immutable install을 고정합니다.
 
 하나의 workflow application transaction coordinator가 다음 cross-store 순서를
 소유합니다.
