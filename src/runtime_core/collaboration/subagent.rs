@@ -6,12 +6,9 @@ use crate::foundation::serialization as strict_json;
 pub(crate) use crate::runtime_core::inference::backend::MAX_CHAT_TIMEOUT_MS;
 use std::collections::BTreeSet;
 use std::path::{Component, Path};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 const SUBAGENT_SCHEMA_VERSION: u64 = 1;
 pub(crate) const MAX_RECORD_REVISIONS: u64 = 4;
-static SUBAGENT_ID_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 const RECORD_KEYS: &[&str] = &[
     "schema_version",
     "subagent_id",
@@ -221,58 +218,11 @@ pub struct SubagentRecordV1 {
 }
 
 impl SubagentRecordV1 {
-    pub fn new(
-        project_id: &str,
-        session_id: &str,
-        parent_workflow_id: &str,
-        parent_revision: u64,
-        parent_artifact_hash: &str,
-        launch: ValidatedLaunch,
-    ) -> Result<Self, AppError> {
-        let created_at_ms = now_ms()?;
-        let nonce = format!(
-            "{project_id}\n{session_id}\n{parent_workflow_id}\n{}\n{created_at_ms}\n{}\n{}",
-            launch.task_hash,
-            std::process::id(),
-            SUBAGENT_ID_SEQUENCE.fetch_add(1, Ordering::Relaxed)
-        );
-        let record = Self {
-            subagent_id: format!("subagent-{}", &integrity::sha256_text(&nonce)[..20]),
-            revision: 0,
-            previous_hash: String::new(),
-            artifact_hash: String::new(),
-            project_id: project_id.to_string(),
-            session_id: session_id.to_string(),
-            parent_workflow_id: parent_workflow_id.to_string(),
-            parent_revision,
-            parent_artifact_hash: parent_artifact_hash.to_string(),
-            role: launch.role,
-            task_hash: launch.task_hash,
-            declared_tools: launch.declared_tools,
-            read_paths: launch.read_paths,
-            write_paths: launch.write_paths,
-            timeout_ms: launch.timeout_ms,
-            requested_max_tokens: launch.requested_max_tokens,
-            effective_max_tokens: launch.requested_max_tokens,
-            status: SubagentStatus::Requested,
-            backend_event_id: String::new(),
-            result_artifact_id: String::new(),
-            result_artifact_hash: String::new(),
-            evidence_id: String::new(),
-            evidence_hash: String::new(),
-            failure_code: String::new(),
-            created_at_ms,
-            started_at_ms: 0,
-            finished_at_ms: 0,
-        };
-        validate_record(&record, false)?;
-        Ok(record)
-    }
-
-    pub fn transition_to(
+    pub(crate) fn transition_to_at(
         &mut self,
         next: SubagentStatus,
         failure_code: Option<&str>,
+        timestamp: u128,
     ) -> Result<(), AppError> {
         if !self.status.permits(next) {
             return Err(AppError::blocked(format!(
@@ -281,7 +231,6 @@ impl SubagentRecordV1 {
                 next.as_str()
             )));
         }
-        let timestamp = now_ms()?;
         if next == SubagentStatus::Running {
             self.started_at_ms = timestamp;
         }
@@ -292,6 +241,49 @@ impl SubagentRecordV1 {
         self.status = next;
         Ok(())
     }
+}
+
+pub(crate) fn create_record_at(
+    subagent_id: String,
+    project_id: &str,
+    session_id: &str,
+    parent_workflow_id: &str,
+    parent_revision: u64,
+    parent_artifact_hash: &str,
+    launch: ValidatedLaunch,
+    created_at_ms: u128,
+) -> Result<SubagentRecordV1, AppError> {
+    let record = SubagentRecordV1 {
+        subagent_id,
+        revision: 0,
+        previous_hash: String::new(),
+        artifact_hash: String::new(),
+        project_id: project_id.to_string(),
+        session_id: session_id.to_string(),
+        parent_workflow_id: parent_workflow_id.to_string(),
+        parent_revision,
+        parent_artifact_hash: parent_artifact_hash.to_string(),
+        role: launch.role,
+        task_hash: launch.task_hash,
+        declared_tools: launch.declared_tools,
+        read_paths: launch.read_paths,
+        write_paths: launch.write_paths,
+        timeout_ms: launch.timeout_ms,
+        requested_max_tokens: launch.requested_max_tokens,
+        effective_max_tokens: launch.requested_max_tokens,
+        status: SubagentStatus::Requested,
+        backend_event_id: String::new(),
+        result_artifact_id: String::new(),
+        result_artifact_hash: String::new(),
+        evidence_id: String::new(),
+        evidence_hash: String::new(),
+        failure_code: String::new(),
+        created_at_ms,
+        started_at_ms: 0,
+        finished_at_ms: 0,
+    };
+    validate_record(&record, false)?;
+    Ok(record)
 }
 
 pub fn validate_launch(
@@ -766,11 +758,4 @@ fn render_string_array(values: &[String]) -> String {
 
 fn escape(value: &str) -> String {
     strict_json::escape_string_content(value)
-}
-
-fn now_ms() -> Result<u128, AppError> {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
-        .map_err(|_| AppError::runtime("subagent system clock 오류"))
 }

@@ -1,12 +1,15 @@
 use crate::foundation::error::AppError;
+use crate::runtime_core::collaboration::subagent as subagent_policy;
 pub(crate) use crate::runtime_core::collaboration::subagent::*;
 use crate::{
     adapters::filesystem::layout as paths, adapters::filesystem::lease, backend, ledger, state,
 };
 use std::fs;
-use std::time::Duration;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const MAX_SUBAGENT_RECORDS: usize = 256;
+static SUBAGENT_ID_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug)]
 pub(crate) struct AdmittedLaunch {
@@ -66,6 +69,43 @@ pub(crate) struct CompletedTeamMember {
     pub member_id: String,
     pub record: SubagentRecordV1,
     pub summary: String,
+}
+
+impl SubagentRecordV1 {
+    pub fn new(
+        project_id: &str,
+        session_id: &str,
+        parent_workflow_id: &str,
+        parent_revision: u64,
+        parent_artifact_hash: &str,
+        launch: ValidatedLaunch,
+    ) -> Result<Self, AppError> {
+        let created_at_ms = now_ms()?;
+        let nonce = format!(
+            "{project_id}\n{session_id}\n{parent_workflow_id}\n{}\n{created_at_ms}\n{}\n{}",
+            launch.task_hash,
+            std::process::id(),
+            SUBAGENT_ID_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        );
+        subagent_policy::create_record_at(
+            format!("subagent-{}", &state::sha256_text(&nonce)[..20]),
+            project_id,
+            session_id,
+            parent_workflow_id,
+            parent_revision,
+            parent_artifact_hash,
+            launch,
+            created_at_ms,
+        )
+    }
+
+    pub fn transition_to(
+        &mut self,
+        next: SubagentStatus,
+        failure_code: Option<&str>,
+    ) -> Result<(), AppError> {
+        self.transition_to_at(next, failure_code, now_ms()?)
+    }
 }
 
 pub fn create_record(record: SubagentRecordV1) -> Result<SubagentRecordV1, AppError> {
@@ -1198,6 +1238,13 @@ fn load_record_unlocked(subagent_id: &str) -> Result<SubagentRecordV1, AppError>
     )?;
     verify_snapshot_chain(&record, &body)?;
     Ok(record)
+}
+
+fn now_ms() -> Result<u128, AppError> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .map_err(|_| AppError::runtime("subagent system clock 오류"))
 }
 
 fn install_snapshot(record: &SubagentRecordV1, body: &str) -> Result<(), AppError> {
