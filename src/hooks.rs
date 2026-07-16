@@ -5,7 +5,7 @@ use crate::state;
 
 pub(crate) use crate::runtime_core::extensions::hook::{
     dispatch, list_report, status_label, validate_result_report, HookDispatch, HookInput,
-    HookLayer, HookRule, HookStatus, HOOK_POINTS,
+    HookLayer, HookRule, HookStatus,
 };
 
 pub(crate) fn dispatch_and_record(
