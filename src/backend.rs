@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::env;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
@@ -36,13 +37,13 @@ const CHAT_SAMPLING: BackendChatSampling = BackendChatSampling {
 const QWEN_NON_THINKING_SOURCE: &str =
     "https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode";
 struct GenerationAdmissionState {
-    active_count: usize,
+    active_generation_ids: BTreeSet<String>,
     primary_generation_id: Option<String>,
 }
 
 static GENERATION_ADMISSION_STATE: Mutex<GenerationAdmissionState> =
     Mutex::new(GenerationAdmissionState {
-        active_count: 0,
+        active_generation_ids: BTreeSet::new(),
         primary_generation_id: None,
     });
 
@@ -1493,8 +1494,13 @@ pub fn cancel_generation_report() -> Result<String, AppError> {
     let wait_started = Instant::now();
     let terminal =
         wait_for_generation_terminal(&record.generation_id, Duration::from_millis(CANCEL_WAIT_MS))?;
-    if terminal.is_some() {
-        remove_generation_state_if_owned_checked(&record.generation_id)?;
+    let remaining = Duration::from_millis(CANCEL_WAIT_MS).saturating_sub(wait_started.elapsed());
+    let group_released = if terminal.is_some() {
+        wait_for_generation_group_release(&record.generation_id, remaining)?
+    } else {
+        false
+    };
+    if group_released {
         remove_file_if_exists(&backend_generation_terminal_path(&record.generation_id))?;
     }
     let terminal_outcome = terminal
@@ -1508,7 +1514,7 @@ pub fn cancel_generation_report() -> Result<String, AppError> {
 
     Ok(format!(
         "backend generation 취소\n- status: {}\n- terminal outcome: {}\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- wait ms: {}\n- sidecar action: kept-running\n- terminal lifecycle event: {}\n- request ledger event: {}",
-        if terminal.is_some() { "acknowledged" } else { "requested" },
+        if terminal.is_some() && group_released { "acknowledged" } else { "requested" },
         terminal_outcome,
         record.generation_id,
         record.client_pid,
@@ -2433,7 +2439,7 @@ fn begin_active_generation(
         if process_is_running(active.client_pid) {
             if active.client_pid == std::process::id()
                 && active.sidecar_pid == sidecar.pid
-                && admission.active_count > 0
+                && !admission.active_generation_ids.is_empty()
                 && admission.primary_generation_id.as_deref() == Some(active.generation_id.as_str())
             {
                 publish_primary = false;
@@ -2495,10 +2501,18 @@ fn begin_active_generation(
         }
         admission.primary_generation_id = Some(record.generation_id.clone());
     }
-    admission.active_count = admission
-        .active_count
-        .checked_add(1)
-        .ok_or_else(|| AppError::blocked("backend generation admission count overflow"))?;
+    if !admission
+        .active_generation_ids
+        .insert(record.generation_id.clone())
+    {
+        if publish_primary {
+            admission.primary_generation_id = None;
+            remove_generation_state_if_owned_checked(&record.generation_id)?;
+        }
+        return Err(AppError::blocked(
+            "backend generation admission id collision",
+        ));
+    }
     Ok(record)
 }
 
@@ -2629,7 +2643,19 @@ fn generation_cancel_requested(generation_id: &str) -> Result<bool, AppError> {
             path.display()
         ))
     })?;
-    Ok(record_value(&contents, "generation_id") == Some(generation_id))
+    let Some(cancel_generation_id) = record_value(&contents, "generation_id") else {
+        return Ok(false);
+    };
+    if cancel_generation_id == generation_id {
+        return Ok(true);
+    }
+    let admission = GENERATION_ADMISSION_STATE
+        .lock()
+        .map_err(|_| AppError::runtime("backend generation admission lock poisoned"))?;
+    Ok(
+        admission.primary_generation_id.as_deref() == Some(cancel_generation_id)
+            && admission.active_generation_ids.contains(generation_id),
+    )
 }
 
 fn write_generation_cancel_marker(generation_id: &str) -> Result<(), AppError> {
@@ -2716,6 +2742,24 @@ fn wait_for_generation_terminal(
     }
 }
 
+fn wait_for_generation_group_release(
+    primary_generation_id: &str,
+    timeout: Duration,
+) -> Result<bool, AppError> {
+    let started = Instant::now();
+    loop {
+        let released = read_backend_generation_record()?
+            .is_none_or(|record| record.generation_id != primary_generation_id);
+        if released {
+            return Ok(true);
+        }
+        if started.elapsed() >= timeout {
+            return Ok(false);
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+}
+
 fn prune_generation_terminal_records() {
     let directory = paths::state_dir().join("backend-generation-terminals");
     let Ok(entries) = fs::read_dir(directory) else {
@@ -2747,11 +2791,15 @@ fn release_generation_admission(generation_id: &str) -> Result<(), AppError> {
     let mut admission = GENERATION_ADMISSION_STATE
         .lock()
         .map_err(|_| AppError::runtime("backend generation admission lock poisoned"))?;
-    if admission.active_count == 0 {
+    if admission.active_generation_ids.is_empty() {
         return remove_generation_state_if_owned_checked(generation_id);
     }
-    admission.active_count -= 1;
-    if admission.active_count > 0 {
+    if !admission.active_generation_ids.remove(generation_id) {
+        return Err(AppError::blocked(format!(
+            "backend generation admission release binding 누락: {generation_id}"
+        )));
+    }
+    if !admission.active_generation_ids.is_empty() {
         return Ok(());
     }
     let primary_generation_id = admission
@@ -4280,20 +4328,24 @@ mod tests {
         fs::create_dir_all(root.join("project")).unwrap();
         env::set_var("RPOTATO_DATA_HOME", root.join("data"));
         env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
-        let generation = BackendGenerationRecord {
-            generation_id: "generation-terminal-race".to_string(),
-            client_pid: std::process::id(),
-            sidecar_pid: std::process::id(),
-            started_at_ms: now_ms(),
-            timeout_ms: 1_000,
-            streaming_display: true,
-        };
-        acquire_backend_generation_lock(&generation).unwrap();
-        write_backend_generation_record(&generation).unwrap();
-        write_generation_terminal_record(&generation.generation_id, "completed", "event-done")
-            .unwrap();
+        let generation = begin_active_generation(&generation_test_sidecar(), 1_000, true).unwrap();
+        let generation_id = generation.generation_id.clone();
+        let acknowledger = thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while Instant::now() < deadline {
+                if generation_cancel_requested(&generation_id).unwrap() {
+                    write_generation_terminal_record(&generation_id, "completed", "event-done")
+                        .unwrap();
+                    release_generation_admission(&generation_id).unwrap();
+                    return;
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+            panic!("generation cancellation marker가 생성되지 않았습니다.");
+        });
 
         let report = cancel_generation_report().unwrap();
+        acknowledger.join().unwrap();
 
         assert!(report.contains("status: acknowledged"));
         assert!(report.contains("terminal outcome: completed"));
@@ -4302,6 +4354,65 @@ mod tests {
         assert!(!backend_generation_lock_path().exists());
         assert!(!backend_generation_cancel_path().exists());
         assert!(!backend_generation_terminal_path(&generation.generation_id).exists());
+        env::remove_var("RPOTATO_DATA_HOME");
+        env::remove_var("RPOTATO_PROJECT_ROOT");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn parallel_generation_cancel_reaches_secondary_and_keeps_state_until_last_release() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = env::temp_dir().join(format!(
+            "rpotato-generation-group-cancel-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("project")).unwrap();
+        env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        let sidecar = generation_test_sidecar();
+        let primary = begin_active_generation(&sidecar, 1_000, false).unwrap();
+        let secondary = begin_active_generation(&sidecar, 1_000, false).unwrap();
+        assert_eq!(
+            read_backend_generation_record()
+                .unwrap()
+                .unwrap()
+                .generation_id,
+            primary.generation_id
+        );
+        write_generation_terminal_record(&primary.generation_id, "completed", "event-primary")
+            .unwrap();
+        release_generation_admission(&primary.generation_id).unwrap();
+        assert!(backend_generation_record_path().exists());
+
+        let primary_id = primary.generation_id.clone();
+        let secondary_id = secondary.generation_id.clone();
+        let secondary_acknowledger = thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while Instant::now() < deadline {
+                if generation_cancel_requested(&secondary_id).unwrap() {
+                    write_generation_terminal_record(&secondary_id, "cancelled", "event-secondary")
+                        .unwrap();
+                    let both_terminal_while_active = backend_generation_terminal_path(&primary_id)
+                        .exists()
+                        && backend_generation_terminal_path(&secondary_id).exists()
+                        && backend_generation_record_path().exists();
+                    release_generation_admission(&secondary_id).unwrap();
+                    return both_terminal_while_active;
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+            panic!("secondary generation이 primary cancel marker를 관찰하지 못했습니다.");
+        });
+
+        let report = cancel_generation_report().unwrap();
+        assert!(secondary_acknowledger.join().unwrap());
+
+        assert!(report.contains("status: acknowledged"));
+        assert!(!backend_generation_record_path().exists());
+        assert!(!backend_generation_lock_path().exists());
+        assert!(!backend_generation_cancel_path().exists());
+        remove_file_if_exists(&backend_generation_terminal_path(&secondary.generation_id)).unwrap();
         env::remove_var("RPOTATO_DATA_HOME");
         env::remove_var("RPOTATO_PROJECT_ROOT");
         fs::remove_dir_all(root).unwrap();

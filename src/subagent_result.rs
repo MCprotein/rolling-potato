@@ -30,6 +30,18 @@ const PATCH_KEYS: &[&str] = &[
     "find_text",
     "replacement_text",
 ];
+const EVIDENCE_V2_KEYS: &[&str] = &[
+    "schema_version",
+    "evidence_id",
+    "artifact_hash",
+    "subagent_id",
+    "parent_workflow_id",
+    "result_artifact_id",
+    "result_artifact_hash",
+    "evidence_refs",
+    "source_bindings",
+];
+const SOURCE_BINDING_KEYS: &[&str] = &["path", "stable_ref", "fingerprint"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubagentPatchProposalV1 {
@@ -61,6 +73,14 @@ pub struct StoredSubagentResult {
     pub evidence_id: String,
     pub evidence_hash: String,
     result_body: String,
+    evidence_sources: Vec<EvidenceSourceBinding>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EvidenceSourceBinding {
+    path: String,
+    stable_ref: String,
+    fingerprint: String,
 }
 
 pub fn parse_and_store(
@@ -77,12 +97,14 @@ pub fn parse_and_store(
         "subagent result",
     )?;
     let evidence_id = evidence_id(record, &result_artifact_hash);
-    let evidence_payload = render_evidence_payload(
+    let evidence_sources = evidence_source_bindings(context, &result.evidence_refs)?;
+    let evidence_payload = render_evidence_payload_v2(
         &evidence_id,
         record,
         &result_artifact_id,
         &result_artifact_hash,
         &result.evidence_refs,
+        &evidence_sources,
     );
     let evidence_hash = state::sha256_text(&evidence_payload);
     let evidence_body = installable_evidence_body(&evidence_payload, &evidence_hash);
@@ -98,6 +120,7 @@ pub fn parse_and_store(
         evidence_id,
         evidence_hash,
         result_body: body.to_string(),
+        evidence_sources,
     })
 }
 
@@ -116,12 +139,13 @@ pub fn verify_stored_artifacts(
             "subagent result artifact hash binding 불일치",
         ));
     }
-    let evidence_payload = render_evidence_payload(
+    let evidence_payload = render_evidence_payload_v2(
         &stored.evidence_id,
         record,
         &stored.result_artifact_id,
         &stored.result_artifact_hash,
         &stored.result.evidence_refs,
+        &stored.evidence_sources,
     );
     let evidence_body = installable_evidence_body(&evidence_payload, &stored.evidence_hash);
     let installed_evidence = fs::read_to_string(
@@ -167,29 +191,51 @@ pub fn verify_completed_artifacts(record: &SubagentRecordV1) -> Result<(), AppEr
             "subagent completed evidence identity binding 불일치",
         ));
     }
-    let evidence_payload = render_evidence_payload(
-        &record.evidence_id,
-        record,
-        &record.result_artifact_id,
-        &record.result_artifact_hash,
-        &result.evidence_refs,
-    );
-    let evidence_hash = state::sha256_text(&evidence_payload);
-    if evidence_hash != record.evidence_hash {
-        return Err(AppError::blocked(
-            "subagent completed evidence hash binding 불일치",
-        ));
-    }
-    let expected_evidence_body = installable_evidence_body(&evidence_payload, &evidence_hash);
     let installed_evidence = state::read_regular_file_bounded(
         &paths::project_evidence_dir().join(format!("{}.json", record.evidence_id)),
         MAX_RESULT_BYTES as u64,
         "subagent completed evidence artifact",
     )?;
-    if installed_evidence != expected_evidence_body {
+    verify_evidence_artifact(record, &result, &installed_evidence)?;
+    Ok(())
+}
+
+pub fn verify_completed_source_freshness(record: &SubagentRecordV1) -> Result<(), AppError> {
+    verify_completed_artifacts(record)?;
+    let result_body = state::read_regular_file_bounded(
+        &paths::project_subagent_result_file(&record.result_artifact_id),
+        MAX_RESULT_BYTES as u64,
+        "subagent completed result artifact",
+    )?;
+    let result = parse_result_shape(record, &result_body)?;
+    let installed_evidence = state::read_regular_file_bounded(
+        &paths::project_evidence_dir().join(format!("{}.json", record.evidence_id)),
+        MAX_RESULT_BYTES as u64,
+        "subagent completed evidence artifact",
+    )?;
+    let Some(expected_sources) = verify_evidence_artifact(record, &result, &installed_evidence)?
+    else {
         return Err(AppError::blocked(
-            "subagent completed evidence artifact binding 불일치",
+            "subagent completed evidence source fingerprint binding 누락",
         ));
+    };
+    let current = crate::context::build_declared_context_pack(&record.read_paths)?;
+    for expected in expected_sources {
+        let Some(actual) = current
+            .source_pointers
+            .iter()
+            .find(|pointer| pointer.stable_ref == expected.stable_ref)
+        else {
+            return Err(AppError::blocked(
+                "subagent completed evidence source pointer 누락",
+            ));
+        };
+        if actual.path != expected.path || actual.fingerprint != expected.fingerprint {
+            return Err(AppError::blocked(format!(
+                "subagent completed evidence source stale\n- source pointer: {}",
+                expected.stable_ref
+            )));
+        }
     }
     Ok(())
 }
@@ -436,7 +482,167 @@ fn validate_bounded_text(
     Ok(())
 }
 
-fn render_evidence_payload(
+fn evidence_source_bindings(
+    context: &ContextPack,
+    evidence_refs: &[String],
+) -> Result<Vec<EvidenceSourceBinding>, AppError> {
+    evidence_refs
+        .iter()
+        .map(|stable_ref| {
+            let pointer = context
+                .source_pointers
+                .iter()
+                .find(|pointer| pointer.stable_ref == *stable_ref)
+                .ok_or_else(|| {
+                    AppError::blocked("subagent evidence source pointer binding 누락")
+                })?;
+            Ok(EvidenceSourceBinding {
+                path: pointer.path.clone(),
+                stable_ref: pointer.stable_ref.clone(),
+                fingerprint: pointer.fingerprint.clone(),
+            })
+        })
+        .collect()
+}
+
+fn verify_evidence_artifact(
+    record: &SubagentRecordV1,
+    result: &SubagentResultV1,
+    installed: &str,
+) -> Result<Option<Vec<EvidenceSourceBinding>>, AppError> {
+    let legacy_payload = render_evidence_payload_v1(
+        &record.evidence_id,
+        record,
+        &record.result_artifact_id,
+        &record.result_artifact_hash,
+        &result.evidence_refs,
+    );
+    let legacy_hash = state::sha256_text(&legacy_payload);
+    if legacy_hash == record.evidence_hash
+        && installed == installable_evidence_body(&legacy_payload, &legacy_hash)
+    {
+        return Ok(None);
+    }
+
+    let object =
+        strict_json::parse_canonical_object(installed, EVIDENCE_V2_KEYS, "subagent evidence v2")?;
+    if strict_json::canonical_u64(&object, "schema_version", "subagent evidence v2")? != 2 {
+        return Err(AppError::blocked(
+            "subagent completed evidence schema version 불일치",
+        ));
+    }
+    let sources = parse_source_bindings(&object)?;
+    let evidence_refs = evidence_string_array(&object, "evidence_refs")?;
+    if evidence_string(&object, "evidence_id")? != record.evidence_id
+        || evidence_string(&object, "artifact_hash")? != record.evidence_hash
+        || evidence_string(&object, "subagent_id")? != record.subagent_id
+        || evidence_string(&object, "parent_workflow_id")? != record.parent_workflow_id
+        || evidence_string(&object, "result_artifact_id")? != record.result_artifact_id
+        || evidence_string(&object, "result_artifact_hash")? != record.result_artifact_hash
+        || evidence_refs != result.evidence_refs
+        || sources.len() != evidence_refs.len()
+        || sources
+            .iter()
+            .zip(&evidence_refs)
+            .any(|(source, reference)| source.stable_ref != *reference)
+        || sources
+            .iter()
+            .any(|source| !record.read_paths.iter().any(|path| path == &source.path))
+    {
+        return Err(AppError::blocked(
+            "subagent completed evidence v2 binding 불일치",
+        ));
+    }
+    let payload = render_evidence_payload_v2(
+        &record.evidence_id,
+        record,
+        &record.result_artifact_id,
+        &record.result_artifact_hash,
+        &evidence_refs,
+        &sources,
+    );
+    let evidence_hash = state::sha256_text(&payload);
+    if evidence_hash != record.evidence_hash
+        || installed != installable_evidence_body(&payload, &evidence_hash)
+    {
+        return Err(AppError::blocked(
+            "subagent completed evidence artifact binding 불일치",
+        ));
+    }
+    Ok(Some(sources))
+}
+
+fn parse_source_bindings(object: &CanonicalObject) -> Result<Vec<EvidenceSourceBinding>, AppError> {
+    let Some(CanonicalValue::Array(values)) = object.get("source_bindings") else {
+        return Err(AppError::blocked(
+            "subagent evidence source_bindings type 오류",
+        ));
+    };
+    let mut seen = BTreeSet::new();
+    values
+        .iter()
+        .map(|value| {
+            let CanonicalValue::Object(source) = value else {
+                return Err(AppError::blocked(
+                    "subagent evidence source binding item type 오류",
+                ));
+            };
+            let actual = source
+                .entries
+                .iter()
+                .map(|(key, _)| key.as_str())
+                .collect::<Vec<_>>();
+            if actual != SOURCE_BINDING_KEYS {
+                return Err(AppError::blocked(
+                    "subagent evidence source binding key order 불일치",
+                ));
+            }
+            let binding = EvidenceSourceBinding {
+                path: evidence_string(source, "path")?,
+                stable_ref: evidence_string(source, "stable_ref")?,
+                fingerprint: evidence_string(source, "fingerprint")?,
+            };
+            if binding.path.is_empty()
+                || binding.stable_ref.is_empty()
+                || !is_sha256(&binding.fingerprint)
+                || !seen.insert(binding.stable_ref.clone())
+            {
+                return Err(AppError::blocked(
+                    "subagent evidence source binding canonical 값 오류",
+                ));
+            }
+            Ok(binding)
+        })
+        .collect()
+}
+
+fn evidence_string(object: &CanonicalObject, key: &str) -> Result<String, AppError> {
+    match object.get(key) {
+        Some(CanonicalValue::String(value)) => Ok(value.clone()),
+        _ => Err(AppError::blocked(format!(
+            "subagent evidence missing/wrong string: {key}"
+        ))),
+    }
+}
+
+fn evidence_string_array(object: &CanonicalObject, key: &str) -> Result<Vec<String>, AppError> {
+    let Some(CanonicalValue::Array(values)) = object.get(key) else {
+        return Err(AppError::blocked(format!(
+            "subagent evidence missing/wrong array: {key}"
+        )));
+    };
+    values
+        .iter()
+        .map(|value| match value {
+            CanonicalValue::String(value) => Ok(value.clone()),
+            _ => Err(AppError::blocked(format!(
+                "subagent evidence array item type 오류: {key}"
+            ))),
+        })
+        .collect()
+}
+
+fn render_evidence_payload_v1(
     evidence_id: &str,
     record: &SubagentRecordV1,
     result_artifact_id: &str,
@@ -452,6 +658,46 @@ fn render_evidence_payload(
         result_artifact_hash,
         render_string_array(evidence_refs),
     )
+}
+
+fn render_evidence_payload_v2(
+    evidence_id: &str,
+    record: &SubagentRecordV1,
+    result_artifact_id: &str,
+    result_artifact_hash: &str,
+    evidence_refs: &[String],
+    sources: &[EvidenceSourceBinding],
+) -> String {
+    format!(
+        "{{\"schema_version\":2,\"evidence_id\":\"{}\",\"subagent_id\":\"{}\",\"parent_workflow_id\":\"{}\",\"result_artifact_id\":\"{}\",\"result_artifact_hash\":\"{}\",\"evidence_refs\":{},\"source_bindings\":{}}}",
+        ledger::json_string(evidence_id),
+        ledger::json_string(&record.subagent_id),
+        ledger::json_string(&record.parent_workflow_id),
+        ledger::json_string(result_artifact_id),
+        result_artifact_hash,
+        render_string_array(evidence_refs),
+        render_source_bindings(sources),
+    )
+}
+
+fn render_source_bindings(sources: &[EvidenceSourceBinding]) -> String {
+    format!(
+        "[{}]",
+        sources
+            .iter()
+            .map(|source| format!(
+                "{{\"path\":\"{}\",\"stable_ref\":\"{}\",\"fingerprint\":\"{}\"}}",
+                ledger::json_string(&source.path),
+                ledger::json_string(&source.stable_ref),
+                source.fingerprint,
+            ))
+            .collect::<Vec<_>>()
+            .join(",")
+    )
+}
+
+fn is_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn evidence_id(record: &SubagentRecordV1, result_artifact_hash: &str) -> String {

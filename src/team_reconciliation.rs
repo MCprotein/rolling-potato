@@ -350,7 +350,7 @@ fn verify_stop_inputs(
         return stop_gate_failed(team, "unresolved worker validation gaps");
     }
     for member in members {
-        subagent_result::verify_completed_artifacts(&member.record)
+        subagent_result::verify_completed_source_freshness(&member.record)
             .map_err(|_| stop_gate_error(team, "missing or stale worker evidence"))?;
     }
     Ok(())

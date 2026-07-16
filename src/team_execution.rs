@@ -1,5 +1,6 @@
 use crate::app::AppError;
-use crate::{backend, ledger, observability, resource, subagent, team_state};
+use crate::{backend, lease, ledger, observability, paths, resource, subagent, team_state};
+use std::collections::BTreeMap;
 
 type TeamRunner = fn(&str, u32, u32, &str) -> Result<subagent::WorkerGeneration, AppError>;
 type TeamPreflight = fn() -> Result<(), AppError>;
@@ -17,6 +18,11 @@ struct OwnedAction {
     source_hash: String,
 }
 
+enum ExecutionStart {
+    Run(Vec<subagent::AdmittedTeamMember>),
+    Completed(Vec<subagent::CompletedTeamMember>),
+}
+
 pub fn execute_report(team_id: &str) -> Result<String, AppError> {
     execute_with(team_id, backend::preflight_chat_ready, backend_runner)
 }
@@ -26,6 +32,10 @@ fn execute_with(
     preflight: TeamPreflight,
     runner: TeamRunner,
 ) -> Result<String, AppError> {
+    let operation = lease::RecoverableLease::acquire(
+        paths::project_team_operation_lock(team_id),
+        "team operation",
+    )?;
     let identity = ledger::validated_current_identity()?;
     let mut team = team_state::load_state(team_id)?;
     let manifest = team_state::load_manifest(team_id)?;
@@ -41,7 +51,9 @@ fn execute_with(
     }
     if !matches!(
         team.stage,
-        team_state::TeamStage::Plan | team_state::TeamStage::Dispatch
+        team_state::TeamStage::Plan
+            | team_state::TeamStage::Dispatch
+            | team_state::TeamStage::Execute
     ) {
         return Err(AppError::blocked(format!(
             "team execute stage 차단\n- team id: {}\n- current stage: {}",
@@ -85,48 +97,26 @@ fn execute_with(
         )?;
     }
 
-    let launches = manifest
-        .members
-        .iter()
-        .cloned()
-        .map(|member| subagent::TeamMemberLaunch {
-            lane: member.lane,
-            member_id: member.member_id,
-            role: member.role,
-            task: member.task,
-            declared_tools: member.tools,
-            read_paths: member.read_paths,
-            write_paths: member.write_paths,
-            timeout_ms: member.timeout_ms,
-            max_tokens: member.max_tokens,
-        })
-        .collect::<Vec<_>>();
-    let admitted = subagent::admit_team_members(
-        &team.parent_workflow_id,
-        team.parent_revision,
-        &team.parent_artifact_hash,
-        launches,
-    )?;
-    for member in &admitted {
-        append_worker_event(
-            &identity,
-            "team.worker.admitted",
-            "team worker admitted",
-            team_id,
-            member.lane,
-            &member.member_id,
-            member.subagent_id(),
-            "admitted",
-            "none",
-            "none",
-        )?;
+    let start = recover_or_admit_execution(&identity, &team, &manifest)?;
+    if matches!(&start, ExecutionStart::Run(_)) && team.stage == team_state::TeamStage::Dispatch {
+        team = team_state::advance_state(team_id, team_state::TeamStage::Execute, None, None)?;
     }
-    team = team_state::advance_state(team_id, team_state::TeamStage::Execute, None, None)?;
+    drop(operation);
 
-    let outcomes = if team.execution_mode == "parallel" {
-        run_parallel(admitted, runner, team_id)?
-    } else {
-        run_sequential(admitted, runner, team_id)
+    let outcomes = match start {
+        ExecutionStart::Run(admitted) if team.execution_mode == "parallel" => {
+            run_parallel(admitted, runner, team_id)?
+        }
+        ExecutionStart::Run(admitted) => run_sequential(admitted, runner, team_id),
+        ExecutionStart::Completed(completed) => completed
+            .into_iter()
+            .map(|member| MemberOutcome {
+                lane: member.lane,
+                member_id: member.member_id.clone(),
+                subagent_id: member.record.subagent_id.clone(),
+                result: Ok(member),
+            })
+            .collect(),
     };
     let mut completed = Vec::new();
     let mut failures = Vec::new();
@@ -233,6 +223,233 @@ fn execute_with(
             .collect::<Vec<_>>()
             .join(", "),
     ))
+}
+
+fn recover_or_admit_execution(
+    identity: &ledger::RuntimeIdentity,
+    team: &team_state::TeamStateV1,
+    manifest: &team_state::TeamManifestV1,
+) -> Result<ExecutionStart, AppError> {
+    let launches = team_launches(manifest);
+    let bindings = admitted_worker_bindings(identity, team)?;
+    if bindings.is_empty() && team.stage == team_state::TeamStage::Dispatch {
+        let interrupted = subagent::records_for_parent(&team.parent_workflow_id)?
+            .into_iter()
+            .filter(|record| !record.status.is_terminal())
+            .collect::<Vec<_>>();
+        if interrupted
+            .iter()
+            .any(|record| record.status == subagent::SubagentStatus::Running)
+        {
+            return fail_interrupted_execution(
+                team,
+                interrupted
+                    .iter()
+                    .map(|record| record.subagent_id.clone())
+                    .collect(),
+                "unbound running worker cannot be replayed",
+            );
+        }
+        if !interrupted.is_empty() {
+            subagent::terminalize_interrupted_team_members(
+                &interrupted
+                    .iter()
+                    .map(|record| record.subagent_id.clone())
+                    .collect::<Vec<_>>(),
+            )?;
+        }
+        let admitted = subagent::admit_team_members(
+            &team.parent_workflow_id,
+            team.parent_revision,
+            &team.parent_artifact_hash,
+            launches,
+        )?;
+        for member in &admitted {
+            append_worker_event(
+                identity,
+                "team.worker.admitted",
+                "team worker admitted",
+                &team.team_id,
+                member.lane,
+                &member.member_id,
+                member.subagent_id(),
+                "admitted",
+                "none",
+                "none",
+            )?;
+        }
+        return Ok(ExecutionStart::Run(admitted));
+    }
+
+    if bindings.len() != manifest.members.len() {
+        let interrupted = subagent::records_for_parent(&team.parent_workflow_id)?
+            .into_iter()
+            .filter(|record| !record.status.is_terminal())
+            .map(|record| record.subagent_id)
+            .collect();
+        return fail_interrupted_execution(
+            team,
+            interrupted,
+            "partial team admission receipts cannot be reconstructed safely",
+        );
+    }
+
+    let mut records = Vec::with_capacity(manifest.members.len());
+    for (member, launch) in manifest.members.iter().zip(launches.iter()) {
+        let (event_member_id, subagent_id) = bindings
+            .get(&member.lane)
+            .ok_or_else(|| AppError::blocked("team execute admitted lane binding 누락"))?;
+        if event_member_id != &member.member_id {
+            return fail_interrupted_execution(
+                team,
+                Vec::new(),
+                "team admission member binding mismatch",
+            );
+        }
+        let record = subagent::load_record(subagent_id)?;
+        if !record_matches_team(identity, team, launch, &record) {
+            return fail_interrupted_execution(
+                team,
+                vec![record.subagent_id],
+                "team admission immutable binding mismatch",
+            );
+        }
+        records.push((launch.clone(), record));
+    }
+
+    if team.stage == team_state::TeamStage::Execute
+        && records
+            .iter()
+            .all(|(_, record)| record.status == subagent::SubagentStatus::Completed)
+    {
+        let completed = records
+            .into_iter()
+            .map(|(launch, record)| {
+                let result = crate::subagent_result::load_completed_result(&record)?;
+                Ok(subagent::CompletedTeamMember {
+                    lane: launch.lane,
+                    member_id: launch.member_id,
+                    record,
+                    summary: result.summary,
+                })
+            })
+            .collect::<Result<Vec<_>, AppError>>()?;
+        return Ok(ExecutionStart::Completed(completed));
+    }
+
+    if records
+        .iter()
+        .all(|(_, record)| record.status == subagent::SubagentStatus::Admitted)
+    {
+        let admitted = records
+            .into_iter()
+            .map(|(launch, record)| {
+                subagent::resume_admitted_team_member(launch, &record.subagent_id)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        return Ok(ExecutionStart::Run(admitted));
+    }
+
+    fail_interrupted_execution(
+        team,
+        records
+            .into_iter()
+            .filter(|(_, record)| !record.status.is_terminal())
+            .map(|(_, record)| record.subagent_id)
+            .collect(),
+        "running or partial worker result cannot be replayed safely",
+    )
+}
+
+fn team_launches(manifest: &team_state::TeamManifestV1) -> Vec<subagent::TeamMemberLaunch> {
+    manifest
+        .members
+        .iter()
+        .cloned()
+        .map(|member| subagent::TeamMemberLaunch {
+            lane: member.lane,
+            member_id: member.member_id,
+            role: member.role,
+            task: member.task,
+            declared_tools: member.tools,
+            read_paths: member.read_paths,
+            write_paths: member.write_paths,
+            timeout_ms: member.timeout_ms,
+            max_tokens: member.max_tokens,
+        })
+        .collect()
+}
+
+fn admitted_worker_bindings(
+    identity: &ledger::RuntimeIdentity,
+    team: &team_state::TeamStateV1,
+) -> Result<BTreeMap<u32, (String, String)>, AppError> {
+    let mut bindings = BTreeMap::new();
+    for event in ledger::read_runtime_events()?.into_iter().filter(|event| {
+        event.project_id == identity.project_id
+            && event.session_id == identity.session_id
+            && event.event_type == "team.worker.admitted"
+            && detail_token(&event.details, "team_id") == Some(team.team_id.as_str())
+    }) {
+        let lane = detail_token(&event.details, "lane")
+            .and_then(|value| value.parse::<u32>().ok())
+            .ok_or_else(|| AppError::blocked("team execute admitted event lane binding 오류"))?;
+        let binding = (
+            detail_token(&event.details, "member_id")
+                .ok_or_else(|| AppError::blocked("team execute admitted member binding 누락"))?
+                .to_string(),
+            detail_token(&event.details, "subagent_id")
+                .ok_or_else(|| AppError::blocked("team execute admitted subagent binding 누락"))?
+                .to_string(),
+        );
+        if bindings
+            .insert(lane, binding.clone())
+            .is_some_and(|existing| existing != binding)
+        {
+            return Err(AppError::blocked(
+                "team execute admitted lane에 conflicting worker binding이 있습니다.",
+            ));
+        }
+    }
+    Ok(bindings)
+}
+
+fn record_matches_team(
+    identity: &ledger::RuntimeIdentity,
+    team: &team_state::TeamStateV1,
+    launch: &subagent::TeamMemberLaunch,
+    record: &subagent::SubagentRecordV1,
+) -> bool {
+    record.project_id == identity.project_id
+        && record.session_id == identity.session_id
+        && record.parent_workflow_id == team.parent_workflow_id
+        && record.parent_revision == team.parent_revision
+        && record.parent_artifact_hash == team.parent_artifact_hash
+        && record.role.as_str() == launch.role
+        && record.task_hash == crate::state::sha256_text(launch.task.trim())
+        && record.declared_tools == launch.declared_tools
+        && record.read_paths == launch.read_paths
+        && record.write_paths == launch.write_paths
+        && record.timeout_ms == launch.timeout_ms
+        && record.requested_max_tokens == launch.max_tokens
+}
+
+fn fail_interrupted_execution(
+    team: &team_state::TeamStateV1,
+    subagent_ids: Vec<String>,
+    reason: &str,
+) -> Result<ExecutionStart, AppError> {
+    if !subagent_ids.is_empty() {
+        subagent::terminalize_interrupted_team_members(&subagent_ids)?;
+    }
+    let current = team_state::load_state(&team.team_id)?;
+    if !current.stage.is_terminal() {
+        team_state::advance_state(&team.team_id, team_state::TeamStage::Failed, None, None)?;
+    }
+    Err(AppError::blocked(format!(
+        "team execute interrupted recovery\n- team id: {}\n- stage: failed\n- reason: {reason}",
+        team.team_id
+    )))
 }
 
 fn enforce_action_ownership(
@@ -400,24 +617,28 @@ fn append_action_event(
     member: &subagent::CompletedTeamMember,
     action: Option<&OwnedAction>,
 ) -> Result<(), AppError> {
+    let details = format!(
+        "team_id={} lane={} member_id={} subagent_id={} action={} target_path={} source_hash={}",
+        team_id,
+        member.lane,
+        member.member_id,
+        member.record.subagent_id,
+        if action.is_some() { "patch" } else { "none" },
+        action
+            .map(|action| action.target_path.as_str())
+            .unwrap_or("none"),
+        action
+            .map(|action| action.source_hash.as_str())
+            .unwrap_or("none"),
+    );
+    if has_exact_event(identity, "team.worker.action-owned", &details)? {
+        return Ok(());
+    }
     let event = ledger::new_event_for(
         identity,
         "team.worker.action-owned",
         "team worker action ownership enforced",
-        &format!(
-            "team_id={} lane={} member_id={} subagent_id={} action={} target_path={} source_hash={}",
-            team_id,
-            member.lane,
-            member.member_id,
-            member.record.subagent_id,
-            if action.is_some() { "patch" } else { "none" },
-            action
-                .map(|action| action.target_path.as_str())
-                .unwrap_or("none"),
-            action
-                .map(|action| action.source_hash.as_str())
-                .unwrap_or("none"),
-        ),
+        &details,
     );
     ledger::append_event(&event)?;
     observability::project_event(&event)
@@ -436,23 +657,35 @@ fn append_worker_event(
     result_artifact_id: &str,
     evidence_id: &str,
 ) -> Result<(), AppError> {
-    let event = ledger::new_event_for(
-        identity,
-        event_type,
-        summary,
-        &format!(
-            "team_id={} lane={} member_id={} subagent_id={} status={} result_artifact_id={} evidence_id={}",
-            team_id,
-            lane,
-            member_id,
-            subagent_id,
-            status,
-            result_artifact_id,
-            evidence_id,
-        ),
+    let details = format!(
+        "team_id={} lane={} member_id={} subagent_id={} status={} result_artifact_id={} evidence_id={}",
+        team_id, lane, member_id, subagent_id, status, result_artifact_id, evidence_id,
     );
+    if has_exact_event(identity, event_type, &details)? {
+        return Ok(());
+    }
+    let event = ledger::new_event_for(identity, event_type, summary, &details);
     ledger::append_event(&event)?;
     observability::project_event(&event)
+}
+
+fn has_exact_event(
+    identity: &ledger::RuntimeIdentity,
+    event_type: &str,
+    details: &str,
+) -> Result<bool, AppError> {
+    Ok(ledger::read_runtime_events()?.iter().any(|event| {
+        event.project_id == identity.project_id
+            && event.session_id == identity.session_id
+            && event.event_type == event_type
+            && event.details == details
+    }))
+}
+
+fn detail_token<'a>(details: &'a str, key: &str) -> Option<&'a str> {
+    details
+        .split_whitespace()
+        .find_map(|token| token.strip_prefix(&format!("{key}=")))
 }
 
 #[cfg(test)]
@@ -468,6 +701,9 @@ mod tests {
     static MAX_ACTIVE_RUNNERS: AtomicUsize = AtomicUsize::new(0);
     static CANCEL_STARTED: AtomicBool = AtomicBool::new(false);
     static CANCEL_OBSERVERS: AtomicUsize = AtomicUsize::new(0);
+    static ADMISSION_BARRIER_READY: AtomicBool = AtomicBool::new(false);
+    static ADMISSION_BARRIER_RELEASE: AtomicBool = AtomicBool::new(false);
+    static RECOVERY_RUNNERS: AtomicUsize = AtomicUsize::new(0);
 
     fn initialize_team() -> state::WorkflowRecord {
         fs::create_dir_all(paths::project_root().join("src")).unwrap();
@@ -497,6 +733,18 @@ mod tests {
     }
 
     fn fake_preflight() -> Result<(), AppError> {
+        Ok(())
+    }
+
+    fn admission_barrier_preflight() -> Result<(), AppError> {
+        ADMISSION_BARRIER_READY.store(true, Ordering::SeqCst);
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while !ADMISSION_BARRIER_RELEASE.load(Ordering::SeqCst) {
+            if std::time::Instant::now() >= deadline {
+                return Err(AppError::runtime("admission barrier timeout"));
+            }
+            std::thread::yield_now();
+        }
         Ok(())
     }
 
@@ -605,6 +853,16 @@ mod tests {
         Err(AppError::runtime("team cancellation marker 누락"))
     }
 
+    fn counting_runner(
+        prompt: &str,
+        max_tokens: u32,
+        timeout_ms: u32,
+        team_id: &str,
+    ) -> Result<subagent::WorkerGeneration, AppError> {
+        RECOVERY_RUNNERS.fetch_add(1, Ordering::SeqCst);
+        fake_runner(prompt, max_tokens, timeout_ms, team_id)
+    }
+
     fn prompt_value<'a>(prompt: &'a str, marker: &str) -> &'a str {
         prompt
             .split(marker)
@@ -635,6 +893,43 @@ mod tests {
         MAX_ACTIVE_RUNNERS.store(0, Ordering::SeqCst);
     }
 
+    fn admit_without_execute_transition() -> Vec<subagent::AdmittedTeamMember> {
+        let identity = ledger::validated_current_identity().unwrap();
+        let planned = team_state::load_state("team-execution").unwrap();
+        let dispatch = team_state::advance_state(
+            "team-execution",
+            team_state::TeamStage::Dispatch,
+            Some(2),
+            Some("parallel"),
+        )
+        .unwrap();
+        assert_eq!(planned.stage, team_state::TeamStage::Plan);
+        let manifest = team_state::load_manifest("team-execution").unwrap();
+        let admitted = subagent::admit_team_members(
+            &dispatch.parent_workflow_id,
+            dispatch.parent_revision,
+            &dispatch.parent_artifact_hash,
+            team_launches(&manifest),
+        )
+        .unwrap();
+        for member in &admitted {
+            append_worker_event(
+                &identity,
+                "team.worker.admitted",
+                "team worker admitted",
+                "team-execution",
+                member.lane,
+                &member.member_id,
+                member.subagent_id(),
+                "admitted",
+                "none",
+                "none",
+            )
+            .unwrap();
+        }
+        admitted
+    }
+
     #[test]
     fn normal_pressure_executes_all_members_in_parallel_without_parent_merge() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
@@ -653,6 +948,150 @@ mod tests {
         assert_eq!(team.stage, team_state::TeamStage::Execute);
         assert_eq!(parent_after.revision, parent.revision);
         assert!(parent_after.skill_evidence.is_empty());
+    }
+
+    #[test]
+    fn dispatch_retry_resumes_fully_admitted_workers_without_duplicate_admission() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_team();
+        record_sample("normal");
+        let admitted = admit_without_execute_transition();
+        let original_ids = admitted
+            .iter()
+            .map(|member| member.subagent_id().to_string())
+            .collect::<Vec<_>>();
+        drop(admitted);
+
+        let report = execute_with("team-execution", fake_preflight, fake_runner).unwrap();
+        let records = subagent::records_for_parent(&parent.workflow_id).unwrap();
+        let admitted_events = ledger::read_runtime_events()
+            .unwrap()
+            .into_iter()
+            .filter(|event| event.event_type == "team.worker.admitted")
+            .count();
+
+        assert!(report.contains("status: workers-completed"));
+        assert_eq!(records.len(), 2);
+        assert!(records
+            .iter()
+            .all(|record| original_ids.contains(&record.subagent_id)));
+        assert!(records
+            .iter()
+            .all(|record| record.status == subagent::SubagentStatus::Completed));
+        assert_eq!(admitted_events, 2);
+    }
+
+    #[test]
+    fn execute_retry_terminalizes_interrupted_running_workers_without_replay() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_team();
+        record_sample("normal");
+        let admitted = admit_without_execute_transition();
+        team_state::advance_state("team-execution", team_state::TeamStage::Execute, None, None)
+            .unwrap();
+        let prepared = subagent::prepare_team_members(admitted).unwrap();
+        drop(prepared);
+        RECOVERY_RUNNERS.store(0, Ordering::SeqCst);
+
+        let error = execute_with("team-execution", fake_preflight, counting_runner).unwrap_err();
+        let team = team_state::load_state("team-execution").unwrap();
+        let records = subagent::records_for_parent(&parent.workflow_id).unwrap();
+
+        assert!(error.message.contains("cannot be replayed safely"));
+        assert_eq!(team.stage, team_state::TeamStage::Failed);
+        assert_eq!(RECOVERY_RUNNERS.load(Ordering::SeqCst), 0);
+        assert!(records.iter().all(|record| {
+            record.status == subagent::SubagentStatus::Failed
+                && record.failure_code == "interrupted-no-replay"
+        }));
+    }
+
+    #[test]
+    fn execute_retry_rebuilds_missing_completion_receipts_idempotently() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_team();
+        record_sample("normal");
+        let admitted = admit_without_execute_transition();
+        team_state::advance_state("team-execution", team_state::TeamStage::Execute, None, None)
+            .unwrap();
+        let mut completed = admitted
+            .into_iter()
+            .map(|member| {
+                subagent::execute_admitted_team_member_with(
+                    member,
+                    |prompt, max_tokens, timeout| {
+                        fake_runner(prompt, max_tokens, timeout, "team-execution")
+                    },
+                )
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
+        completed.sort_by_key(|member| member.lane);
+        let identity = ledger::validated_current_identity().unwrap();
+        append_action_event(&identity, "team-execution", &completed[0], None).unwrap();
+
+        let report = execute_with("team-execution", fake_preflight, counting_runner).unwrap();
+        let reconciliation =
+            crate::team_reconciliation::reconcile_report("team-execution").unwrap();
+        let events = ledger::read_runtime_events().unwrap();
+
+        assert!(report.contains("completed members: 2"));
+        assert!(reconciliation.contains("stop gate: passed"));
+        assert_eq!(RECOVERY_RUNNERS.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| event.event_type == "team.worker.action-owned")
+                .count(),
+            2
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| event.event_type == "team.worker.completed")
+                .count(),
+            2
+        );
+        assert_eq!(
+            state::load_workflow(&parent.workflow_id).unwrap().revision,
+            parent.revision + 1
+        );
+    }
+
+    #[test]
+    fn cancel_cannot_cross_the_admission_operation_barrier() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        initialize_team();
+        ADMISSION_BARRIER_READY.store(false, Ordering::SeqCst);
+        ADMISSION_BARRIER_RELEASE.store(false, Ordering::SeqCst);
+        let execute = std::thread::spawn(|| {
+            execute_with("team-execution", admission_barrier_preflight, fake_runner)
+        });
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while !ADMISSION_BARRIER_READY.load(Ordering::SeqCst) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "execute did not reach admission barrier"
+            );
+            std::thread::yield_now();
+        }
+
+        let cancel = team_state::cancel_report("team-execution").unwrap_err();
+        assert!(cancel.message.contains("team operation lock 차단"));
+        assert!(!team_state::cancellation_requested("team-execution").unwrap());
+        ADMISSION_BARRIER_RELEASE.store(true, Ordering::SeqCst);
+        let report = execute.join().unwrap().unwrap();
+        let records = subagent::records_for_parent(
+            &team_state::load_state("team-execution")
+                .unwrap()
+                .parent_workflow_id,
+        )
+        .unwrap();
+
+        assert!(report.contains("status: workers-completed"));
+        assert!(records
+            .iter()
+            .all(|record| record.status == subagent::SubagentStatus::Completed));
     }
 
     #[test]
@@ -809,6 +1248,32 @@ mod tests {
         let unchanged_parent = state::load_workflow(&parent.workflow_id).unwrap();
 
         assert!(error.message.contains("unresolved worker validation gaps"));
+        assert_eq!(blocked.stage, team_state::TeamStage::Review);
+        assert_eq!(unchanged_parent.revision, parent.revision);
+        assert!(unchanged_parent.skill_evidence.is_empty());
+        assert!(ledger::read_runtime_events()
+            .unwrap()
+            .iter()
+            .any(|event| event.event_type == "team.stop-gate.failed"));
+    }
+
+    #[test]
+    fn source_change_after_worker_completion_blocks_before_parent_evidence_merge() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_team();
+        record_sample("normal");
+        execute_with("team-execution", fake_preflight, fake_runner).unwrap();
+        fs::write(
+            paths::project_root().join("src/main.rs"),
+            "fn main() { println!(\"changed\"); }\n",
+        )
+        .unwrap();
+
+        let error = crate::team_reconciliation::reconcile_report("team-execution").unwrap_err();
+        let blocked = team_state::load_state("team-execution").unwrap();
+        let unchanged_parent = state::load_workflow(&parent.workflow_id).unwrap();
+
+        assert!(error.message.contains("missing or stale worker evidence"));
         assert_eq!(blocked.stage, team_state::TeamStage::Review);
         assert_eq!(unchanged_parent.revision, parent.revision);
         assert!(unchanged_parent.skill_evidence.is_empty());
