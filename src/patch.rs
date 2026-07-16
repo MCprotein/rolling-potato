@@ -16,6 +16,9 @@ use crate::runtime::{
 };
 #[cfg(test)]
 use crate::runtime::{TuiEffect, TuiOutcomeStatus};
+use crate::runtime_core::patch::application::{
+    self as application_domain, ApplyAdmission, ApplyResult, RollbackAdmission, RollbackResult,
+};
 use crate::runtime_core::patch::approval::{self as approval_domain, APPROVAL_TOKEN_BYTES};
 use crate::runtime_core::patch::proposal::{
     self as proposal_domain, parse_header as parse_proposal_header, required_header,
@@ -83,20 +86,6 @@ impl ApprovalDispatch {
         }
         self.report
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ApplyResult {
-    relative_path: String,
-    original_sha256: String,
-    applied_sha256: String,
-    rollback_path: PathBuf,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct RollbackResult {
-    restored: bool,
-    status: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3153,12 +3142,11 @@ fn validate_applied_proposal(record: &ProposalRecord) -> Result<ApplyResult, App
         ))
     })?;
     let current_sha256 = sha256_bytes(&current);
-    if current_sha256 != record.proposed_sha256 {
-        return Err(AppError::blocked(format!(
-            "patch verification 차단\n- 이유: 적용된 source hash가 proposal과 일치하지 않습니다.\n- path: {}\n- expected proposed sha256: {}\n- current sha256: {}",
-            target.relative_path, record.proposed_sha256, current_sha256
-        )));
-    }
+    application_domain::validate_applied_source(
+        &target.relative_path,
+        &current_sha256,
+        &record.proposed_sha256,
+    )?;
     let rollback_path = rollback_path_for_record(record)?;
     let rollback = fs::read(&rollback_path).map_err(|err| {
         AppError::blocked(format!(
@@ -3166,11 +3154,10 @@ fn validate_applied_proposal(record: &ProposalRecord) -> Result<ApplyResult, App
             rollback_path.display()
         ))
     })?;
-    if sha256_bytes(&rollback) != record.original_sha256 {
-        return Err(AppError::blocked(
-            "patch verification 차단\n- 이유: rollback record hash가 original hash와 일치하지 않습니다.",
-        ));
-    }
+    application_domain::validate_applied_rollback(
+        &sha256_bytes(&rollback),
+        &record.original_sha256,
+    )?;
     Ok(ApplyResult {
         relative_path: target.relative_path,
         original_sha256: record.original_sha256.clone(),
@@ -3348,29 +3335,29 @@ fn apply_proposal(record: &ProposalRecord) -> Result<ApplyResult, AppError> {
         &record.original_sha256,
         &record.proposed_sha256,
     )?;
-    if current_sha256 == record.proposed_sha256 && rollback_path.is_file() {
-        let rollback_bytes = fs::read(&rollback_path).map_err(|err| {
+    let rollback_sha256 = if current_sha256 == record.proposed_sha256 && rollback_path.is_file() {
+        Some(sha256_bytes(&fs::read(&rollback_path).map_err(|err| {
             AppError::blocked(format!(
                 "patch approve 차단\n- 이유: rollback record를 읽지 못했습니다.\n- error: {err}"
             ))
-        })?;
-        if sha256_bytes(&rollback_bytes) != record.original_sha256 {
-            return Err(AppError::blocked(
-                "patch approve 차단\n- 이유: rollback record hash가 original hash와 일치하지 않습니다.",
-            ));
-        }
+        })?))
+    } else {
+        None
+    };
+    if application_domain::admit_apply(
+        &target.relative_path,
+        &current_sha256,
+        &record.original_sha256,
+        &record.proposed_sha256,
+        rollback_sha256.as_deref(),
+    )? == ApplyAdmission::AlreadyApplied
+    {
         return Ok(ApplyResult {
             relative_path: target.relative_path,
             original_sha256: record.original_sha256.clone(),
             applied_sha256: record.proposed_sha256.clone(),
             rollback_path,
         });
-    }
-    if current_sha256 != record.original_sha256 {
-        return Err(AppError::blocked(format!(
-            "patch approve 차단\n- 이유: 대상 파일이 preview 이후 변경되었습니다.\n- path: {}\n- expected original sha256: {}\n- current sha256: {}\n- 동작: patch preview를 다시 생성하세요.",
-            target.relative_path, record.original_sha256, current_sha256
-        )));
     }
 
     let source_plan = crate::transition::prepare_source_install_v1(
@@ -3504,20 +3491,15 @@ fn restore_from_rollback(record: &ProposalRecord, rollback_path: &Path) -> Rollb
         }
     };
     let current_hash = sha256_bytes(&current);
-    if current_hash == record.original_sha256 {
-        return RollbackResult {
-            restored: true,
-            status: format!(
-                "already-restored-and-verified sha256={}",
-                record.original_sha256
-            ),
-        };
-    }
-    if current_hash != record.proposed_sha256 {
-        return RollbackResult {
-            restored: false,
-            status: format!("restore-conflict: target changed concurrently current={current_hash}"),
-        };
+    match application_domain::admit_rollback(
+        &current_hash,
+        &record.original_sha256,
+        &record.proposed_sha256,
+    ) {
+        RollbackAdmission::AlreadyRestored(result) | RollbackAdmission::Conflict(result) => {
+            return result;
+        }
+        RollbackAdmission::Ready => {}
     }
     let original = match fs::read(rollback_path) {
         Ok(contents) => contents,
@@ -3528,11 +3510,11 @@ fn restore_from_rollback(record: &ProposalRecord, rollback_path: &Path) -> Rollb
             }
         }
     };
-    if sha256_bytes(&original) != record.original_sha256 {
-        return RollbackResult {
-            restored: false,
-            status: "restore-failed: rollback record hash mismatch".to_string(),
-        };
+    if let Err(result) = application_domain::validate_rollback_record(
+        &sha256_bytes(&original),
+        &record.original_sha256,
+    ) {
+        return result;
     }
     restore_bytes(
         &target.absolute_path,
@@ -3630,14 +3612,14 @@ fn restore_bytes(
     expected_current_hash: &str,
     expected_hash: &str,
 ) -> RollbackResult {
-    if fs::read(target)
-        .ok()
-        .is_some_and(|bytes| sha256_bytes(&bytes) == expected_hash)
-    {
-        return RollbackResult {
-            restored: true,
-            status: format!("already-restored-and-verified sha256={expected_hash}"),
-        };
+    if let Ok(bytes) = fs::read(target) {
+        if let RollbackAdmission::AlreadyRestored(result) = application_domain::admit_rollback(
+            &sha256_bytes(&bytes),
+            expected_hash,
+            expected_current_hash,
+        ) {
+            return result;
+        }
     }
     if cfg!(debug_assertions)
         && std::env::var("RPOTATO_TEST_ROLLBACK_FAULT").as_deref() == Ok("replace-failure")
@@ -3648,16 +3630,16 @@ fn restore_bytes(
         };
     }
     let current = match fs::read(target) {
-        Ok(current) if sha256_bytes(&current) == expected_current_hash => current,
-        Ok(current) => {
-            return RollbackResult {
-                restored: false,
-                status: format!(
-                    "restore-conflict: target changed concurrently current={}",
-                    sha256_bytes(&current)
-                ),
+        Ok(current) => match application_domain::admit_rollback(
+            &sha256_bytes(&current),
+            expected_hash,
+            expected_current_hash,
+        ) {
+            RollbackAdmission::Ready => current,
+            RollbackAdmission::AlreadyRestored(result) | RollbackAdmission::Conflict(result) => {
+                return result;
             }
-        }
+        },
         Err(err) => {
             return RollbackResult {
                 restored: false,
@@ -3729,17 +3711,7 @@ fn restore_bytes(
         };
     }
     match fs::read(target) {
-        Ok(actual) if sha256_bytes(&actual) == expected_hash => RollbackResult {
-            restored: true,
-            status: format!("restored-and-verified sha256={expected_hash}"),
-        },
-        Ok(actual) => RollbackResult {
-            restored: false,
-            status: format!(
-                "restore-failed: restored hash mismatch actual={}",
-                sha256_bytes(&actual)
-            ),
-        },
+        Ok(actual) => application_domain::restored_result(&sha256_bytes(&actual), expected_hash),
         Err(err) => RollbackResult {
             restored: false,
             status: format!("restore-failed: restored bytes reread error: {err}"),
