@@ -339,6 +339,15 @@ pub fn dispatch_native_lifecycle(
     dispatch_and_record(input, &rules)
 }
 
+pub fn dispatch_native_lifecycle_for_skill(
+    input: HookInput<'_>,
+    tool: Option<&str>,
+    skill: &crate::skill::ResolvedSkillManifest,
+) -> Result<HookDispatch, AppError> {
+    let rules = native_lifecycle_rules_for_skill(input, tool, skill);
+    dispatch_and_record(input, &rules)
+}
+
 pub(crate) fn prepare_native_lifecycle_event(
     input: HookInput<'_>,
     tool: Option<&str>,
@@ -424,6 +433,60 @@ fn native_lifecycle_rules(input: HookInput<'_>, tool: Option<&str>) -> Vec<HookR
                 HookStatus::Deny,
                 error.message,
             ),
+        };
+        rules.push(skill_rule);
+    }
+    rules.push(HookRule::decision(
+        "observer.ledger",
+        HookLayer::Observer,
+        HookStatus::Observe,
+        "ledger projection enabled",
+    ));
+    rules
+}
+
+fn native_lifecycle_rules_for_skill(
+    input: HookInput<'_>,
+    tool: Option<&str>,
+    skill: &crate::skill::ResolvedSkillManifest,
+) -> Vec<HookRule> {
+    let mut rules = vec![HookRule::decision(
+        "runtime.lifecycle",
+        HookLayer::Runtime,
+        HookStatus::Allow,
+        "registered native lifecycle point",
+    )];
+    if let Some(skill_id) = input.active_skill_id {
+        let skill_rule = if skill_id != skill.id() {
+            HookRule::decision(
+                format!("skill.{skill_id}"),
+                HookLayer::Skill,
+                HookStatus::Deny,
+                format!("resolved skill binding mismatch: {}", skill.id()),
+            )
+        } else {
+            match tool {
+                Some(tool) => match crate::skill::enforce_resolved_tool(skill, tool) {
+                    Ok(()) => HookRule::decision(
+                        format!("skill.{}", skill.id()),
+                        HookLayer::Skill,
+                        HookStatus::Allow,
+                        format!("tool allowed: {tool}"),
+                    ),
+                    Err(error) => HookRule::decision(
+                        format!("skill.{}", skill.id()),
+                        HookLayer::Skill,
+                        HookStatus::Deny,
+                        error.message,
+                    ),
+                },
+                None => HookRule::decision(
+                    format!("skill.{}", skill.id()),
+                    HookLayer::Skill,
+                    HookStatus::Allow,
+                    "required lifecycle hook",
+                ),
+            }
         };
         rules.push(skill_rule);
     }

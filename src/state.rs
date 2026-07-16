@@ -2157,6 +2157,49 @@ pub(crate) fn record_tui_workflow_resume_receipt_under_transition(
     Ok(event.event_id)
 }
 
+pub(crate) fn record_workflow_event_under_transition(
+    transition_guard: &crate::transition::TransitionGuard,
+    workflow: &WorkflowRecord,
+    event_type: &str,
+    summary: &str,
+    details: &str,
+) -> Result<String, AppError> {
+    let previous = read_valid_current_for_transition()?
+        .ok_or_else(|| AppError::blocked("workflow event current-state 누락"))?;
+    let Some(active) = previous.active_workflow.as_ref() else {
+        return Err(AppError::blocked(
+            "workflow event current/workflow binding 누락",
+        ));
+    };
+    if previous.project_id != workflow.project_id
+        || previous.session_id != workflow.session_id
+        || active.workflow_id != workflow.workflow_id
+        || active.revision != workflow.revision
+        || active.artifact_hash != workflow.artifact_hash
+    {
+        return Err(AppError::blocked(
+            "workflow event current/workflow binding 불일치",
+        ));
+    }
+    let identity = workflow_identity(workflow);
+    let event = ledger::new_event_for(&identity, event_type, summary, details);
+    let intent_id = internal_transition_intent_id(&event);
+    transition_project_current_state_under_guard(
+        transition_guard,
+        StateTransitionRequest {
+            intent_id: &intent_id,
+            intent: crate::transition::CurrentStateIntent::RecordEvent,
+            identity: &identity,
+            event: &event,
+            resume_source: Some("workflow-event-recovery"),
+            active_workflow: Some(workflow),
+            previous: Some(&previous),
+            workflow: None,
+        },
+    )?;
+    Ok(event.event_id)
+}
+
 fn discover_active_workflow() -> Result<Option<String>, AppError> {
     let entries = match fs::read_dir(paths::project_workflows_dir()) {
         Ok(entries) => entries,

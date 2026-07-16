@@ -211,19 +211,26 @@ pub struct SkillRuntimeState {
 }
 
 impl SkillRuntimeState {
+    #[cfg(test)]
     pub fn new(skill_id: &str, invocation: &str) -> Result<Self, AppError> {
-        if resolve_skill(skill_id)?.is_none() {
-            return Err(AppError::usage(format!(
-                "등록된 skill을 찾지 못했습니다: {skill_id}"
-            )));
-        }
+        let manifest = resolve_skill(skill_id)?.ok_or_else(|| {
+            AppError::usage(format!("등록된 skill을 찾지 못했습니다: {skill_id}"))
+        })?;
+        Self::new_resolved(&manifest, invocation)
+    }
+
+    pub fn new_resolved(
+        manifest: &ResolvedSkillManifest,
+        invocation: &str,
+    ) -> Result<Self, AppError> {
         if !matches!(invocation, "explicit" | "natural-language") {
             return Err(AppError::blocked(format!(
-                "skill invocation 차단\n- skill: {skill_id}\n- 이유: 알 수 없는 invocation source: {invocation}"
+                "skill invocation 차단\n- skill: {}\n- 이유: 알 수 없는 invocation source: {invocation}",
+                manifest.id()
             )));
         }
         Ok(Self {
-            active_skill_id: skill_id.to_string(),
+            active_skill_id: manifest.id().to_string(),
             invocation: invocation.to_string(),
             state: SkillState::Selected,
             completed_hooks: Vec::new(),
@@ -292,6 +299,27 @@ impl SkillRuntimeState {
     }
 
     pub fn from_workflow(workflow: &state::WorkflowRecord) -> Result<Self, AppError> {
+        let manifest = resolve_skill(&workflow.active_skill_id)?.ok_or_else(|| {
+            AppError::blocked(format!(
+                "skill resume 차단\n- workflow: {}\n- 이유: skill manifest 없음: {}",
+                workflow.workflow_id, workflow.active_skill_id
+            ))
+        })?;
+        Self::from_workflow_against(workflow, &manifest)
+    }
+
+    pub fn from_workflow_against(
+        workflow: &state::WorkflowRecord,
+        manifest: &ResolvedSkillManifest,
+    ) -> Result<Self, AppError> {
+        if workflow.active_skill_id != manifest.id() {
+            return Err(AppError::blocked(format!(
+                "skill resume 차단\n- workflow: {}\n- stored skill: {}\n- resolved skill: {}",
+                workflow.workflow_id,
+                workflow.active_skill_id,
+                manifest.id()
+            )));
+        }
         let state = SkillState::parse(&workflow.skill_state).ok_or_else(|| {
             AppError::blocked(format!(
                 "skill resume 차단\n- workflow: {}\n- skill: {}\n- state: {}",
@@ -306,10 +334,10 @@ impl SkillRuntimeState {
             evidence: split_labels(&workflow.skill_evidence),
             completed_stop_criteria: split_labels(&workflow.skill_stop_criteria),
         };
-        if resolve_skill(&runtime.active_skill_id)?.is_none() {
+        if !matches!(runtime.invocation.as_str(), "explicit" | "natural-language") {
             return Err(AppError::blocked(format!(
-                "skill resume 차단\n- workflow: {}\n- 이유: skill manifest 없음: {}",
-                workflow.workflow_id, runtime.active_skill_id
+                "skill resume 차단\n- workflow: {}\n- 이유: 알 수 없는 invocation source: {}",
+                workflow.workflow_id, runtime.invocation
             )));
         }
         Ok(runtime)

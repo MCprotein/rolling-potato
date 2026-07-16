@@ -40,7 +40,9 @@ struct ParsedModelAction {
 
 pub fn run_report(request: &str) -> Result<String, AppError> {
     let decision = classify(request)?;
-    run_with_decision(request, decision)
+    let manifest = skill::resolve_skill(&decision.skill_id)?
+        .ok_or_else(|| AppError::blocked("selected skill manifest가 사라졌습니다."))?;
+    run_with_decision(request, decision, manifest)
 }
 
 pub fn run_skill_report(skill_id: &str, request: &str) -> Result<String, AppError> {
@@ -65,15 +67,17 @@ pub fn run_skill_report(skill_id: &str, request: &str) -> Result<String, AppErro
             "explicit-built-in-skill"
         },
     };
-    run_with_decision(request, decision)
+    run_with_decision(request, decision, manifest)
 }
 
-fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, AppError> {
+fn run_with_decision(
+    request: &str,
+    decision: IntentDecision,
+    manifest: skill::ResolvedSkillManifest,
+) -> Result<String, AppError> {
     if let Some(workflow_id) = state::active_workflow_id()? {
         return crate::patch::resume_workflow_report(&workflow_id);
     }
-    let manifest = skill::resolve_skill(&decision.skill_id)?
-        .ok_or_else(|| AppError::blocked("selected skill manifest가 사라졌습니다."))?;
     backend::preflight_chat_ready()?;
     let identity = crate::ledger::validated_current_identity()?;
     let mut resume_context = context::rebuild_resume_context(&identity.session_id, None)?;
@@ -83,7 +87,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
     } else {
         "natural-language"
     };
-    let mut skill_runtime = skill::SkillRuntimeState::new(&decision.skill_id, invocation)?;
+    let mut skill_runtime = skill::SkillRuntimeState::new_resolved(&manifest, invocation)?;
     if let Some(imported) = manifest.imported() {
         workflow.workflow_kind = "plugin-capability".to_string();
         workflow.source_path = imported.source_path.clone();
@@ -112,6 +116,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
     skill_runtime.store_in_workflow(&mut workflow);
     workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
     dispatch_skill_hook(
+        &manifest,
         &workflow,
         &mut skill_runtime,
         "session_start",
@@ -119,6 +124,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
         None,
     )?;
     dispatch_skill_hook(
+        &manifest,
         &workflow,
         &mut skill_runtime,
         "user_request_received",
@@ -126,6 +132,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
         None,
     )?;
     dispatch_skill_hook(
+        &manifest,
         &workflow,
         &mut skill_runtime,
         "pre_context_pack",
@@ -135,6 +142,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
     let mut context_pack = context::build_context_pack(request)?;
     context::enforce_shared_source_budget(&mut resume_context, &mut context_pack);
     dispatch_skill_hook(
+        &manifest,
         &workflow,
         &mut skill_runtime,
         "post_context_pack",
@@ -210,6 +218,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
         &manifest,
     );
     dispatch_skill_hook(
+        &manifest,
         &workflow,
         &mut skill_runtime,
         "pre_model_request",
@@ -230,6 +239,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
         }
     };
     dispatch_skill_hook(
+        &manifest,
         &workflow,
         &mut skill_runtime,
         "post_model_response",
@@ -237,6 +247,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
         None,
     )?;
     dispatch_skill_hook(
+        &manifest,
         &workflow,
         &mut skill_runtime,
         "pre_action_parse",
@@ -245,6 +256,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
     )?;
     let model_action = parse_model_action(&run.response, &action_candidate, &context_pack);
     dispatch_skill_hook(
+        &manifest,
         &workflow,
         &mut skill_runtime,
         "post_action_parse",
@@ -325,6 +337,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
             &mut skill_runtime,
         );
         dispatch_skill_hook(
+            &manifest,
             &workflow,
             &mut skill_runtime,
             "pre_final_report",
@@ -332,6 +345,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
             None,
         )?;
         dispatch_skill_hook(
+            &manifest,
             &workflow,
             &mut skill_runtime,
             "stop_gate",
@@ -339,13 +353,24 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
             None,
         )?;
         dispatch_skill_hook(
+            &manifest,
             &workflow,
             &mut skill_runtime,
             "session_end",
             "complete",
             None,
         )?;
-        if manifest.imported().is_some() {
+        let completed_imported = manifest
+            .imported()
+            .map(|imported| {
+                crate::plugin::revalidate_completed_codex_skill(
+                    &imported.id,
+                    &imported.source_path,
+                    &imported.source_sha256,
+                )
+            })
+            .transpose()?;
+        if completed_imported.is_some() {
             skill_runtime.record_stop_criterion("plugin_capability_completed");
         }
         if let Err(error) = skill_runtime.validate_stop_against(&manifest) {
@@ -364,7 +389,8 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
         workflow.approval_state = "not-required".to_string();
         workflow.result_summary = "non-mutating action completed".to_string();
         workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
-        if let Some(imported) = manifest.imported() {
+        if let Some(imported) = completed_imported.as_ref() {
+            plugin_completion_fault("before-event")?;
             state::record_event(
                 "plugin.capability.completed",
                 "instruction-only Codex plugin skill 실행 완료",
@@ -377,6 +403,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
                     imported.source_sha256
                 ),
             )?;
+            plugin_completion_fault("before-pointer-clear")?;
         }
         state::clear_terminal_workflow_pointer(&workflow)?;
         let mut report = render_non_mutating_report(
@@ -434,6 +461,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
             ));
         }
         dispatch_skill_hook(
+            &manifest,
             &workflow,
             &mut skill_runtime,
             "pre_tool_call",
@@ -441,6 +469,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
             Some("run_command"),
         )?;
         dispatch_skill_hook(
+            &manifest,
             &workflow,
             &mut skill_runtime,
             "pre_command_run",
@@ -450,6 +479,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
         let observed =
             crate::patch::record_failing_test_before(&workflow, &model_action.verification_command);
         dispatch_skill_hook(
+            &manifest,
             &workflow,
             &mut skill_runtime,
             "post_command_run",
@@ -457,6 +487,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
             None,
         )?;
         dispatch_skill_hook(
+            &manifest,
             &workflow,
             &mut skill_runtime,
             "post_tool_result",
@@ -476,6 +507,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
     }
 
     dispatch_skill_hook(
+        &manifest,
         &workflow,
         &mut skill_runtime,
         "pre_tool_call",
@@ -500,6 +532,7 @@ fn run_with_decision(request: &str, decision: IntentDecision) -> Result<String, 
         }
     };
     dispatch_skill_hook(
+        &manifest,
         &workflow,
         &mut skill_runtime,
         "post_tool_result",
@@ -726,26 +759,40 @@ fn fail_skill_workflow(
 }
 
 fn dispatch_skill_hook(
+    manifest: &skill::ResolvedSkillManifest,
     workflow: &state::WorkflowRecord,
     runtime: &mut skill::SkillRuntimeState,
     hook: &str,
     payload: &str,
     tool: Option<&str>,
 ) -> Result<(), AppError> {
-    let mode = skill::resolve_skill(&runtime.active_skill_id)?
-        .map(|manifest| manifest.mode())
-        .unwrap_or("unknown");
-    crate::hooks::dispatch_native_lifecycle(
+    crate::hooks::dispatch_native_lifecycle_for_skill(
         crate::hooks::HookInput {
             hook,
             workflow_id: Some(&workflow.workflow_id),
             active_skill_id: Some(&runtime.active_skill_id),
-            mode,
+            mode: manifest.mode(),
             payload,
         },
         tool,
+        manifest,
     )?;
     runtime.record_hook(hook)
+}
+
+#[cfg(debug_assertions)]
+fn plugin_completion_fault(point: &str) -> Result<(), AppError> {
+    if std::env::var("RPOTATO_TEST_PLUGIN_COMPLETION_FAULT").as_deref() == Ok(point) {
+        return Err(AppError::runtime(format!(
+            "injected plugin completion fault: {point}"
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(not(debug_assertions))]
+fn plugin_completion_fault(_point: &str) -> Result<(), AppError> {
+    Ok(())
 }
 
 fn available_context_labels(

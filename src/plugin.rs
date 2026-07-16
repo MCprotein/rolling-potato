@@ -56,6 +56,13 @@ struct PluginCapability {
 pub fn resolve_imported_codex_skill(
     id: &str,
 ) -> Result<Option<crate::skill::ImportedSkillManifest>, AppError> {
+    resolve_imported_codex_skill_inner(id, true)
+}
+
+fn resolve_imported_codex_skill_inner(
+    id: &str,
+    require_enabled: bool,
+) -> Result<Option<crate::skill::ImportedSkillManifest>, AppError> {
     let Some(tail) = id.strip_prefix("imported.codex.") else {
         return Ok(None);
     };
@@ -66,12 +73,18 @@ pub fn resolve_imported_codex_skill(
     validate_component_name(skill_name, "skill")?;
     let plugin_id = format!("imported.codex.{plugin_name}");
     let mut plugin = read_plugin(&plugin_id)?;
+    if plugin.id != plugin_id {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- requested plugin: {}\n- stored plugin: {}\n- 이유: normalized manifest id binding이 다릅니다.",
+            plugin_id, plugin.id
+        )));
+    }
     if plugin.source != PluginSource::Codex {
         return Err(AppError::blocked(format!(
             "plugin skill 실행 차단\n- skill: {id}\n- 이유: Codex plugin capability가 아닙니다."
         )));
     }
-    if plugin.status != "enabled" {
+    if require_enabled && plugin.status != "enabled" {
         return Err(AppError::blocked(format!(
             "plugin skill 실행 차단\n- plugin: {}\n- skill: {}\n- status: {}\n- 다음: plugin validate와 plugin enable을 먼저 실행하세요.",
             plugin.id, id, plugin.status
@@ -85,7 +98,8 @@ pub fn resolve_imported_codex_skill(
             plugin.id, plugin.adapter_version, PLUGIN_ADAPTER_VERSION
         )));
     }
-    verify_imported_snapshot(&mut plugin)?;
+    let manifest_path = verify_imported_snapshot(&mut plugin)?;
+    verify_execution_metadata(&mut plugin, &plugin_id, &manifest_path)?;
 
     let relative_path = format!("skills/{skill_name}/SKILL.md");
     let capability = plugin
@@ -157,6 +171,84 @@ pub fn resolve_imported_codex_skill(
         source_path: capability.path.clone(),
         source_sha256,
     }))
+}
+
+pub fn revalidate_completed_codex_skill(
+    id: &str,
+    expected_source_path: &str,
+    expected_source_sha256: &str,
+) -> Result<crate::skill::ImportedSkillManifest, AppError> {
+    let manifest = resolve_imported_codex_skill_inner(id, false)?
+        .ok_or_else(|| AppError::blocked("completed plugin skill manifest를 찾지 못했습니다."))?;
+    if manifest.source_path != expected_source_path
+        || manifest.source_sha256 != expected_source_sha256
+    {
+        return Err(AppError::blocked(format!(
+            "completed plugin workflow source binding 불일치\n- skill: {}\n- expected path: {}\n- actual path: {}\n- expected sha256: {}\n- actual sha256: {}",
+            id,
+            expected_source_path,
+            manifest.source_path,
+            expected_source_sha256,
+            manifest.source_sha256
+        )));
+    }
+    Ok(manifest)
+}
+
+fn verify_execution_metadata(
+    plugin: &mut PluginSnapshot,
+    requested_id: &str,
+    manifest_path: &Path,
+) -> Result<(), AppError> {
+    let source_dir = plugin_dir(requested_id).join("source");
+    let manifest_text = fs::read_to_string(manifest_path).map_err(|err| {
+        AppError::usage(format!(
+            "plugin source manifest를 읽지 못했습니다: {} ({err})",
+            manifest_path.display()
+        ))
+    })?;
+    let source_name = extract_json_string_field(&manifest_text, "name").ok_or_else(|| {
+        AppError::blocked(format!(
+            "plugin execution metadata 차단\n- plugin: {requested_id}\n- 이유: source manifest name이 없습니다."
+        ))
+    })?;
+    let expected_id = format!("imported.codex.{}", slug(&source_name));
+    let mut scan = scan_directory(&source_dir, PluginSource::Codex)?;
+    apply_manifest_risk_markers(&manifest_text, &mut scan.required_permissions);
+    finalize_permissions(&mut scan.required_permissions);
+    let expected_blocked = blocked_permissions(&scan.required_permissions);
+    let mut actual_capabilities = capability_summary(&plugin.capabilities);
+    let mut scanned_capabilities = capability_summary(&scan.capabilities);
+    actual_capabilities.sort();
+    scanned_capabilities.sort();
+    let metadata_matches = plugin.id == requested_id
+        && expected_id == requested_id
+        && plugin.name == source_name
+        && plugin.files == scan.files
+        && plugin.directories == scan.directories
+        && actual_capabilities == scanned_capabilities
+        && plugin.required_permissions == scan.required_permissions
+        && plugin.blocked_permissions == expected_blocked
+        && plugin.unsupported == scan.unsupported;
+    if metadata_matches {
+        return Ok(());
+    }
+
+    plugin.status = "blocked".to_string();
+    write_plugin_manifest(plugin)?;
+    write_validation_report(plugin)?;
+    let event_id = state::record_event(
+        "plugin.validation.blocked",
+        "plugin execution metadata drift 차단",
+        &format!(
+            "plugin_id={} reason=normalized-capability-metadata-mismatch",
+            plugin.id
+        ),
+    )?;
+    Err(AppError::blocked(format!(
+        "plugin execution metadata 차단\n- plugin: {}\n- status: blocked\n- 이유: source 재스캔 결과와 normalized capability metadata가 다릅니다.\n- ledger event: {}\n- 다음: 신뢰하는 local directory에서 plugin을 다시 import하세요.",
+        plugin.id, event_id
+    )))
 }
 
 struct ParsedCodexSkill {
@@ -292,6 +384,9 @@ pub fn enabled_codex_skill_rows() -> Vec<String> {
             && plugin.adapter_version == PLUGIN_ADAPTER_VERSION
             && plugin.permission_policy == PLUGIN_PERMISSION_POLICY
     }) {
+        let Some(plugin_name) = plugin.id.strip_prefix("imported.codex.") else {
+            continue;
+        };
         for capability in plugin.capabilities.iter().filter(|capability| {
             capability.kind == "skill"
                 && capability.status == "mapped"
@@ -315,7 +410,7 @@ pub fn enabled_codex_skill_rows() -> Vec<String> {
             }
             rows.push(format!(
                 "- imported.codex.{}.{} | mode: read-only | 실행 시 snapshot/frontmatter 재검증",
-                plugin.name, skill_name
+                plugin_name, skill_name
             ));
         }
     }
@@ -1848,6 +1943,60 @@ mod tests {
         let error = resolve_imported_codex_skill("imported.codex.script-plugin.hello").unwrap_err();
         assert_eq!(error.code, 3);
         assert!(error.message.contains("별도 승인이 필요한 실행 capability"));
+
+        cleanup_codex_skill_test(root, data_root);
+    }
+
+    #[test]
+    fn tampered_normalized_capability_summary_cannot_admit_scripted_skill() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let (root, data_root) = prepare_codex_skill_plugin(
+            "tampered-capabilities",
+            "tampered-plugin",
+            "hello",
+            "---\nname: hello\ndescription: 안내\n---\n요청을 요약하세요.\n",
+            Some(("run.py", "print('unsafe')\n")),
+        );
+
+        import_report(PluginSource::Codex, root.to_str().unwrap(), false).unwrap();
+        set_enabled_report("imported.codex.tampered-plugin", true).unwrap();
+        let manifest_path = normalized_manifest_path("imported.codex.tampered-plugin");
+        let manifest = fs::read_to_string(&manifest_path).unwrap();
+        let tampered = manifest.replace(
+            "skill-script|skills/hello/scripts/run.py|blocked-by-default|skill-script",
+            "skill-script|skills/hello/scripts/run.py|mapped|none",
+        );
+        assert_ne!(tampered, manifest);
+        fs::write(&manifest_path, tampered).unwrap();
+
+        let error =
+            resolve_imported_codex_skill("imported.codex.tampered-plugin.hello").unwrap_err();
+        assert_eq!(error.code, 3);
+        assert!(error.message.contains("normalized capability metadata"));
+        assert!(inspect_report("imported.codex.tampered-plugin")
+            .unwrap()
+            .contains("status: blocked"));
+
+        cleanup_codex_skill_test(root, data_root);
+    }
+
+    #[test]
+    fn skill_discovery_uses_slugged_plugin_id() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let (root, data_root) = prepare_codex_skill_plugin(
+            "slugged-discovery",
+            "My Plugin_v1.0",
+            "hello",
+            "---\nname: hello\ndescription: 안내\n---\n요청을 요약하세요.\n",
+            None,
+        );
+
+        import_report(PluginSource::Codex, root.to_str().unwrap(), false).unwrap();
+        set_enabled_report("imported.codex.my-plugin-v1-0", true).unwrap();
+
+        let report = crate::skill::list_report();
+        assert!(report.contains("imported.codex.my-plugin-v1-0.hello"));
+        assert!(!report.contains("imported.codex.My Plugin_v1.0.hello"));
 
         cleanup_codex_skill_test(root, data_root);
     }
