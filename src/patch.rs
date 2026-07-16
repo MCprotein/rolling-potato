@@ -25,13 +25,15 @@ use crate::runtime_core::patch::proposal::{
     validate_proposal_id, PatchPreview, PreviewInput, ProposalRecord, RecordParse,
     MAX_PATCH_FILE_BYTES,
 };
+use crate::runtime_core::patch::verification::{
+    self as verification_domain, RecoveryAdmission, VerificationPlan, VerificationResult,
+};
 use crate::state;
 
 pub use crate::runtime_core::patch::proposal::{
     PatchProposalDetail, PatchProposalSummary, WorkflowProposal,
 };
 
-const MAX_VERIFICATION_OUTPUT_CHARS: usize = 2_000;
 const MAX_PROPOSAL_RECORD_BYTES: usize = 2 * 1024 * 1024;
 
 struct ApprovalDispatch {
@@ -88,23 +90,9 @@ impl ApprovalDispatch {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct VerificationPlan {
-    command: String,
-    argv: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct VerificationResult {
-    command: String,
-    exit_code: String,
-    stdout: String,
-    stderr: String,
-}
-
 pub fn validate_skill_verification(skill_id: &str, command: &str) -> Result<(), AppError> {
     let plan = build_verification_plan(command)?;
-    if skill_id == "fix-test" && !is_test_verification(&plan) {
+    if skill_id == "fix-test" && !verification_domain::is_test_plan(&plan) {
         return Err(AppError::blocked(
             "fix-test verification 차단\n- 이유: fix-test는 실제 `cargo test` command로만 전후 evidence를 만들 수 있습니다.",
         ));
@@ -143,12 +131,6 @@ pub fn record_failing_test_before(
             state::sha256_text(&result.stderr)
         ),
     )
-}
-
-impl VerificationResult {
-    fn passed(&self) -> bool {
-        self.exit_code == "0"
-    }
 }
 
 pub fn preview_report(path: &str, find: &str, replace: &str) -> Result<String, AppError> {
@@ -1740,7 +1722,11 @@ fn continue_approved_workflow(
         current.evidence_hash = evidence.artifact_hash;
         if let Some(runtime) = skill_runtime.as_mut() {
             match runtime.active_skill_id.as_str() {
-                "fix-test" if verification_plan.as_ref().is_some_and(is_test_verification) => {
+                "fix-test"
+                    if verification_plan
+                        .as_ref()
+                        .is_some_and(verification_domain::is_test_plan) =>
+                {
                     runtime.record_evidence("passing_test_after")
                 }
                 "small-patch" => runtime.record_evidence("targeted_verification"),
@@ -2010,10 +1996,6 @@ fn plugin_completion_recovery_report(workflow: &state::WorkflowRecord) -> String
     )
 }
 
-fn is_test_verification(plan: &VerificationPlan) -> bool {
-    matches!(plan.argv.as_slice(), [cargo, test, ..] if cargo == "cargo" && test == "test")
-}
-
 fn dispatch_workflow_skill_hook(
     workflow: &state::WorkflowRecord,
     runtime: &mut crate::skill::SkillRuntimeState,
@@ -2163,9 +2145,14 @@ pub fn preflight_resume_workflow(workflow_id: &str) -> Result<(), AppError> {
                 validate_completed_workflow(&workflow)
             }
         }
-        "verification-started" => Err(AppError::blocked(
+        phase
+            if verification_domain::recovery_admission(phase)
+                == RecoveryAdmission::InconclusiveNeverRerun =>
+        {
+            Err(AppError::blocked(
             "workflow resume preflight 차단\n- 이유: verification 결과가 확정되지 않아 session을 선택할 수 없습니다.",
-        )),
+            ))
+        }
         "failed" | "cancelled" => Err(AppError::blocked(failure_report(&workflow))),
         other => Err(AppError::blocked(format!(
             "workflow resume preflight 차단\n- 이유: 안전하게 재개할 수 없는 phase입니다.\n- phase: {other}"
@@ -2235,15 +2222,18 @@ pub fn resume_workflow_report(workflow_id: &str) -> Result<String, AppError> {
         "verification-approved" => Err(AppError::blocked(
             "workflow 재개 차단\n- 이유: prepared verification journal 없이 verification-approved phase를 직접 재개할 수 없습니다.\n- 동작: 명령을 자동 실행하지 않습니다.",
         )),
-        "verification-started" => Err(AppError::blocked(
-            {
+        phase
+            if verification_domain::recovery_admission(phase)
+                == RecoveryAdmission::InconclusiveNeverRerun =>
+        {
+            Err(AppError::blocked({
                 state::record_validation_gap(
                     "verification-inconclusive",
                     &format!("{}:verification-started", workflow.workflow_id),
                 )?;
                 "workflow 재개 차단\n- 이유: verification 시작 checkpoint 뒤 결과가 확정되지 않았습니다.\n- validation gap: verification-inconclusive\n- 동작: command를 자동 재실행하지 않습니다. `rpotato cancel`로 명시적으로 정리하세요."
-            },
-        )),
+            }))
+        }
         "verified" => {
             crate::evidence::evaluate_patch_stop_gate(&workflow)?;
             let mut runtime = workflow_skill_runtime(&workflow)?;
@@ -3420,17 +3410,7 @@ fn apply_proposal(record: &ProposalRecord) -> Result<ApplyResult, AppError> {
 }
 
 fn build_verification_plan(command: &str) -> Result<VerificationPlan, AppError> {
-    let trimmed = command.trim();
-    if trimmed.is_empty() {
-        return Err(AppError::usage(
-            "patch approve verification command는 비어 있을 수 없습니다.",
-        ));
-    }
-    let parsed = policy::parse_patch_verification(trimmed)?;
-    Ok(VerificationPlan {
-        command: parsed.display,
-        argv: parsed.argv,
-    })
+    verification_domain::build_plan(command)
 }
 
 fn run_verification(plan: &VerificationPlan) -> VerificationResult {
@@ -3442,22 +3422,13 @@ fn run_verification(plan: &VerificationPlan) -> VerificationResult {
         .output();
 
     match output {
-        Ok(output) => VerificationResult {
-            command: plan.command.clone(),
-            exit_code: output
-                .status
-                .code()
-                .map(|code| code.to_string())
-                .unwrap_or_else(|| "terminated-by-signal".to_string()),
-            stdout: output_excerpt(&output.stdout),
-            stderr: output_excerpt(&output.stderr),
-        },
-        Err(err) => VerificationResult {
-            command: plan.command.clone(),
-            exit_code: "spawn-error".to_string(),
-            stdout: "(empty)".to_string(),
-            stderr: output_text_excerpt(&err.to_string()),
-        },
+        Ok(output) => VerificationResult::from_output(
+            plan,
+            output.status.code(),
+            &output.stdout,
+            &output.stderr,
+        ),
+        Err(err) => VerificationResult::spawn_error(plan, &err.to_string()),
     }
 }
 
@@ -3930,26 +3901,6 @@ fn display_none(value: &str) -> &str {
     } else {
         value
     }
-}
-
-fn output_excerpt(bytes: &[u8]) -> String {
-    output_text_excerpt(&String::from_utf8_lossy(bytes))
-}
-
-fn output_text_excerpt(value: &str) -> String {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return "(empty)".to_string();
-    }
-    let mut output = trimmed
-        .chars()
-        .take(MAX_VERIFICATION_OUTPUT_CHARS)
-        .collect::<String>()
-        .replace('\n', "\\n");
-    if trimmed.chars().count() > MAX_VERIFICATION_OUTPUT_CHARS {
-        output.push_str("...");
-    }
-    output
 }
 
 fn sha256_text(value: &str) -> String {
