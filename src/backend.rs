@@ -1521,17 +1521,40 @@ fn probe_health(host: &str, port: u16, timeout: Duration) -> HealthProbe {
         };
     }
 
-    let mut response = String::new();
-    if let Err(err) = stream.read_to_string(&mut response) {
-        return HealthProbe {
-            status: "unhealthy",
-            tcp_connected: true,
-            http_status_line: None,
-            error: Some(format!("health response read 실패: {err}")),
-        };
-    }
-
-    let status_line = response.lines().next().unwrap_or("").to_string();
+    let mut response = Vec::with_capacity(256);
+    let status_line = loop {
+        if let Some(status_line) = first_http_status_line(&response) {
+            break status_line;
+        }
+        if response.len() >= 8 * 1024 {
+            return HealthProbe {
+                status: "unhealthy",
+                tcp_connected: true,
+                http_status_line: None,
+                error: Some("health response status line이 8 KiB를 초과했습니다.".to_string()),
+            };
+        }
+        let mut buffer = [0_u8; 256];
+        match stream.read(&mut buffer) {
+            Ok(0) => {
+                return HealthProbe {
+                    status: "unhealthy",
+                    tcp_connected: true,
+                    http_status_line: None,
+                    error: Some("health response가 status line 전에 종료됐습니다.".to_string()),
+                };
+            }
+            Ok(read) => response.extend_from_slice(&buffer[..read]),
+            Err(err) => {
+                return HealthProbe {
+                    status: "unhealthy",
+                    tcp_connected: true,
+                    http_status_line: None,
+                    error: Some(format!("health response read 실패: {err}")),
+                };
+            }
+        }
+    };
     let status = if status_line.contains(" 200 ") || status_line.ends_with(" 200") {
         "healthy"
     } else {
@@ -1548,6 +1571,14 @@ fn probe_health(host: &str, port: u16, timeout: Duration) -> HealthProbe {
         }),
         error: None,
     }
+}
+
+fn first_http_status_line(response: &[u8]) -> Option<String> {
+    let end = response.iter().position(|byte| *byte == b'\n')?;
+    let line = response[..end]
+        .strip_suffix(b"\r")
+        .unwrap_or(&response[..end]);
+    std::str::from_utf8(line).ok().map(str::to_string)
 }
 
 fn chat_request_body(
@@ -3651,6 +3682,17 @@ mod tests {
     use std::fs;
     use std::sync::{Arc, Barrier};
     use std::thread;
+
+    #[test]
+    fn health_status_line_does_not_require_connection_eof() {
+        let response = b"HTTP/1.1 200 OK\r\nContent-Length: 15\r\nConnection: keep-alive\r\n";
+
+        assert_eq!(
+            first_http_status_line(response).as_deref(),
+            Some("HTTP/1.1 200 OK")
+        );
+        assert_eq!(first_http_status_line(b"HTTP/1.1 200 OK"), None);
+    }
 
     #[test]
     fn termination_fallback_forces_a_process_after_graceful_command_failure() {
