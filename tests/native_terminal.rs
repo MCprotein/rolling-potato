@@ -125,11 +125,21 @@ fn full_adapter() {
     let frame_before_snapshot = tree_snapshot(&[&fixture.project, &fixture.data]);
     let mut terminal = NativePty::spawn(120, 40);
     terminal.wait_for("rpotato> ");
-    terminal.send(&format!("select {}\n", pending.workflow_id));
-    terminal.wait_for(&format!("선택: {}", pending.workflow_id));
-    terminal.send(&format!("approve {}\n", pending.proposal_id));
-    terminal.wait_for("패치 적용 승인을 확인하려면 yes를 입력하세요.");
-    terminal.send("yes\n");
+    #[cfg(unix)]
+    {
+        terminal.send(&format!("select {}\n", pending.workflow_id));
+        terminal.wait_for(&format!("선택: {}", pending.workflow_id));
+        terminal.send(&format!("approve {}\n", pending.proposal_id));
+        terminal.wait_for("패치 적용 승인을 확인하려면 yes를 입력하세요.");
+        terminal.send("yes\n");
+    }
+    #[cfg(windows)]
+    {
+        let session_id = fixture.current_session_id();
+        terminal.send(&format!("select session {session_id}\n"));
+        terminal.wait_for("세션 선택을 확인하려면 yes를 입력하세요.");
+        terminal.send("yes\n");
+    }
     terminal.wait_for("terminal.frame-write.pre-dispatch");
     let output = terminal.finish_failure();
     std::env::remove_var("RPOTATO_TEST_TERMINAL_FAULT");
