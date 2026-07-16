@@ -4,6 +4,7 @@ use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::app::AppError;
@@ -34,6 +35,16 @@ const CHAT_SAMPLING: BackendChatSampling = BackendChatSampling {
 };
 const QWEN_NON_THINKING_SOURCE: &str =
     "https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode";
+struct GenerationAdmissionState {
+    active_count: usize,
+    primary_generation_id: Option<String>,
+}
+
+static GENERATION_ADMISSION_STATE: Mutex<GenerationAdmissionState> =
+    Mutex::new(GenerationAdmissionState {
+        active_count: 0,
+        primary_generation_id: None,
+    });
 
 pub trait BackendAdapter {
     fn id(&self) -> &'static str;
@@ -175,17 +186,22 @@ struct GenerationTerminalContext {
 
 struct ActiveGenerationGuard {
     generation_id: String,
+    finished: bool,
 }
 
 impl Drop for ActiveGenerationGuard {
     fn drop(&mut self) {
-        remove_generation_state_if_owned(&self.generation_id);
+        if !self.finished {
+            let _ = release_generation_admission(&self.generation_id);
+        }
     }
 }
 
 impl ActiveGenerationGuard {
-    fn finish(self) -> Result<(), AppError> {
-        remove_generation_state_if_owned_checked(&self.generation_id)
+    fn finish(mut self) -> Result<(), AppError> {
+        release_generation_admission(&self.generation_id)?;
+        self.finished = true;
+        Ok(())
     }
 }
 
@@ -1035,6 +1051,7 @@ fn chat_once_with_options(
     let generation = begin_active_generation(&record, timeout_ms, streaming_display)?;
     let generation_guard = ActiveGenerationGuard {
         generation_id: generation.generation_id.clone(),
+        finished: false,
     };
     let started_event = state::record_event(
         "backend.generation.started",
@@ -2370,23 +2387,36 @@ fn begin_active_generation(
     timeout_ms: u32,
     streaming_display: bool,
 ) -> Result<BackendGenerationRecord, AppError> {
+    let mut admission = GENERATION_ADMISSION_STATE
+        .lock()
+        .map_err(|_| AppError::runtime("backend generation admission lock poisoned"))?;
     prune_generation_terminal_records();
+    let mut publish_primary = true;
     if let Some(active) = read_backend_generation_record()? {
         if process_is_running(active.client_pid) {
-            return Err(AppError::blocked(format!(
-                "backend chat 차단\n- 이유: 이미 active generation이 있습니다.\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- 다음 단계: rpotato backend cancel",
-                active.generation_id, active.client_pid, active.sidecar_pid
-            )));
+            if active.client_pid == std::process::id()
+                && active.sidecar_pid == sidecar.pid
+                && admission.active_count > 0
+                && admission.primary_generation_id.as_deref() == Some(active.generation_id.as_str())
+            {
+                publish_primary = false;
+            } else {
+                return Err(AppError::blocked(format!(
+                    "backend chat 차단\n- 이유: 이미 active generation이 있습니다.\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- 다음 단계: rpotato backend cancel",
+                    active.generation_id, active.client_pid, active.sidecar_pid
+                )));
+            }
+        } else {
+            remove_generation_state_if_owned(&active.generation_id);
+            state::record_event(
+                "backend.generation.stale.cleaned",
+                "stale backend generation record 정리",
+                &format!(
+                    "generation_id={} client_pid={} sidecar_pid={} reason=next-generation",
+                    active.generation_id, active.client_pid, active.sidecar_pid
+                ),
+            )?;
         }
-        remove_generation_state_if_owned(&active.generation_id);
-        state::record_event(
-            "backend.generation.stale.cleaned",
-            "stale backend generation record 정리",
-            &format!(
-                "generation_id={} client_pid={} sidecar_pid={} reason=next-generation",
-                active.generation_id, active.client_pid, active.sidecar_pid
-            ),
-        )?;
     } else if let Some(lock) = read_backend_generation_lock_record()? {
         if process_is_running(lock.client_pid) {
             return Err(AppError::blocked(format!(
@@ -2420,11 +2450,18 @@ fn begin_active_generation(
         timeout_ms,
         streaming_display,
     };
-    acquire_backend_generation_lock(&record)?;
-    if let Err(err) = write_backend_generation_record(&record) {
-        let _ = remove_generation_lock_if_owned_checked(&record.generation_id);
-        return Err(err);
+    if publish_primary {
+        acquire_backend_generation_lock(&record)?;
+        if let Err(err) = write_backend_generation_record(&record) {
+            let _ = remove_generation_lock_if_owned_checked(&record.generation_id);
+            return Err(err);
+        }
+        admission.primary_generation_id = Some(record.generation_id.clone());
     }
+    admission.active_count = admission
+        .active_count
+        .checked_add(1)
+        .ok_or_else(|| AppError::blocked("backend generation admission count overflow"))?;
     Ok(record)
 }
 
@@ -2667,6 +2704,24 @@ fn prune_generation_terminal_records() {
 
 fn remove_generation_state_if_owned(generation_id: &str) {
     let _ = remove_generation_state_if_owned_checked(generation_id);
+}
+
+fn release_generation_admission(generation_id: &str) -> Result<(), AppError> {
+    let mut admission = GENERATION_ADMISSION_STATE
+        .lock()
+        .map_err(|_| AppError::runtime("backend generation admission lock poisoned"))?;
+    if admission.active_count == 0 {
+        return remove_generation_state_if_owned_checked(generation_id);
+    }
+    admission.active_count -= 1;
+    if admission.active_count > 0 {
+        return Ok(());
+    }
+    let primary_generation_id = admission
+        .primary_generation_id
+        .take()
+        .unwrap_or_else(|| generation_id.to_string());
+    remove_generation_state_if_owned_checked(&primary_generation_id)
 }
 
 fn remove_generation_state_if_owned_checked(generation_id: &str) -> Result<(), AppError> {
@@ -4171,7 +4226,7 @@ mod tests {
         let marker = fs::read_to_string(backend_generation_cancel_path()).unwrap();
 
         assert!(marker.contains("generation_id=another-generation"));
-        remove_generation_state_if_owned_checked(&generation.generation_id).unwrap();
+        release_generation_admission(&generation.generation_id).unwrap();
         env::remove_var("RPOTATO_DATA_HOME");
         env::remove_var("RPOTATO_PROJECT_ROOT");
         fs::remove_dir_all(root).unwrap();
@@ -4294,20 +4349,31 @@ mod tests {
             .into_iter()
             .map(|thread| thread.join().unwrap())
             .collect::<Vec<_>>();
-        let winners = results
+        let admitted = results
             .iter()
             .filter_map(|result| result.as_ref().ok())
             .collect::<Vec<_>>();
 
-        assert_eq!(winners.len(), 1);
-        let winner = winners[0];
+        assert_eq!(admitted.len(), 2);
         let active = read_backend_generation_record().unwrap().unwrap();
         let lock = read_backend_generation_lock_record().unwrap().unwrap();
-        assert_eq!(active.generation_id, winner.generation_id);
-        assert_eq!(lock.generation_id, winner.generation_id);
-        remove_generation_state_if_owned_checked(&winner.generation_id).unwrap();
+        assert!(admitted
+            .iter()
+            .any(|generation| generation.generation_id == active.generation_id));
+        assert_eq!(lock.generation_id, active.generation_id);
+        release_generation_admission(&admitted[0].generation_id).unwrap();
+        assert_eq!(
+            read_backend_generation_record()
+                .unwrap()
+                .unwrap()
+                .generation_id,
+            active.generation_id
+        );
+        release_generation_admission(&admitted[1].generation_id).unwrap();
+        assert!(!backend_generation_record_path().exists());
+        assert!(!backend_generation_lock_path().exists());
         let next = begin_active_generation(&sidecar, 1_000, false).unwrap();
-        remove_generation_state_if_owned_checked(&next.generation_id).unwrap();
+        release_generation_admission(&next.generation_id).unwrap();
         env::remove_var("RPOTATO_DATA_HOME");
         env::remove_var("RPOTATO_PROJECT_ROOT");
         fs::remove_dir_all(root).unwrap();

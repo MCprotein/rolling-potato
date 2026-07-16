@@ -45,9 +45,31 @@ rpotato team plan --manifest plans/team.json
 the plan to the exact parent revision/hash, installs the manifest under
 `.rpotato/teams/`, and creates revision 1 of the hash-chained `team-plan`
 state. Retrying the same plan is idempotent. It does not start a worker or
-advance to `team-dispatch`; later v0.36.0 slices consume this durable state.
+advance to `team-dispatch`; `team execute` consumes this durable state.
 `team status` exposes the latest team id, stage, status, revision, and execution
 mode for the active parent.
+
+## Worker Execution
+
+```text
+rpotato team execute --team fix-regression-team
+```
+
+`team execute` verifies the exact state, manifest, parent workflow, project,
+session, and backend bindings before admitting workers. Under normal resource
+pressure it checkpoints every admitted member as running and executes their
+bounded backend generations in parallel. Under unknown or degraded pressure it
+uses one admitted lane but still executes every manifest member sequentially;
+assigned work is never silently dropped. Critical pressure blocks before worker
+admission or a team stage transition.
+
+Successful worker results and evidence are stored as immutable subagent
+artifacts and the durable team state advances through `team-dispatch` to
+`team-exec`. Workers do not merge evidence into the parent independently. The
+parent revision and evidence remain unchanged until a later reconciliation
+stage validates and merges the complete team result set. `team dispatch`
+remains the older standalone preflight/reporting command described below; it is
+not an alias for `team execute`.
 
 ## Write Policy
 

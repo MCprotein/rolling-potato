@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Component, Path};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub const DEFAULT_TIMEOUT_MS: u32 = 30_000;
 pub const DEFAULT_MAX_TOKENS: u32 = 256;
@@ -187,16 +187,63 @@ pub struct ValidatedLaunch {
 }
 
 #[derive(Debug)]
-struct AdmittedLaunch {
+pub(crate) struct AdmittedLaunch {
     record: SubagentRecordV1,
     context: crate::context::ContextPack,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct WorkerGeneration {
-    backend_event_id: String,
-    effective_max_tokens: u32,
-    response: String,
+pub(crate) struct WorkerGeneration {
+    pub backend_event_id: String,
+    pub effective_max_tokens: u32,
+    pub response: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TeamMemberLaunch {
+    pub lane: u32,
+    pub member_id: String,
+    pub role: String,
+    pub task: String,
+    pub declared_tools: Vec<String>,
+    pub read_paths: Vec<String>,
+    pub write_paths: Vec<String>,
+    pub timeout_ms: u32,
+    pub max_tokens: u32,
+}
+
+#[derive(Debug)]
+pub(crate) struct AdmittedTeamMember {
+    pub lane: u32,
+    pub member_id: String,
+    task: String,
+    admitted: AdmittedLaunch,
+}
+
+pub(crate) struct PreparedTeamMember {
+    pub lane: u32,
+    pub member_id: String,
+    prepared: PreparedLaunch,
+}
+
+impl PreparedTeamMember {
+    pub fn subagent_id(&self) -> &str {
+        &self.prepared.running.subagent_id
+    }
+}
+
+impl AdmittedTeamMember {
+    pub fn subagent_id(&self) -> &str {
+        &self.admitted.record.subagent_id
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CompletedTeamMember {
+    pub lane: u32,
+    pub member_id: String,
+    pub record: SubagentRecordV1,
+    pub summary: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -491,7 +538,7 @@ pub fn launch_report(
     )?;
     backend::preflight_chat_ready()?;
     let admitted = admit_launch(launch)?;
-    let completed = dispatch_admitted(admitted, task, |prompt, max_tokens, timeout_ms| {
+    let completed = dispatch_admitted(admitted, task, true, |prompt, max_tokens, timeout_ms| {
         let run = backend::chat_once_bounded(prompt, max_tokens, timeout_ms)?;
         Ok(WorkerGeneration {
             backend_event_id: run.ledger_event,
@@ -522,6 +569,171 @@ pub fn launch_report(
         record.evidence_id,
         completed.summary,
     ))
+}
+
+pub(crate) fn admit_team_members(
+    parent_workflow_id: &str,
+    parent_revision: u64,
+    parent_artifact_hash: &str,
+    members: Vec<TeamMemberLaunch>,
+) -> Result<Vec<AdmittedTeamMember>, AppError> {
+    if members.is_empty() {
+        return Err(AppError::blocked("team execution member가 없습니다."));
+    }
+    let mut prepared = Vec::with_capacity(members.len());
+    for member in members {
+        let launch = validate_launch(
+            &member.role,
+            &member.task,
+            &member.declared_tools,
+            &member.read_paths,
+            &member.write_paths,
+            Some(member.timeout_ms),
+            Some(member.max_tokens),
+        )?;
+        let context = crate::context::build_declared_context_pack(&launch.read_paths)?;
+        prepared.push((member, launch, context));
+    }
+
+    recover_completed_parent_merges(parent_workflow_id)?;
+    let identity = ledger::validated_current_identity()?;
+    let _parent_lease = lease::RecoverableLease::acquire(
+        paths::project_subagent_parent_lock(parent_workflow_id),
+        "team member admission",
+    )?;
+    if state::active_workflow_id()?.as_deref() != Some(parent_workflow_id) {
+        return Err(AppError::blocked(
+            "team member admission 차단: active parent pointer 변경",
+        ));
+    }
+    let workflow_guard = state::WorkflowCheckpointGuard::acquire(parent_workflow_id)?;
+    let parent = workflow_guard.load_current()?;
+    if parent.is_terminal()
+        || parent.project_id != identity.project_id
+        || parent.session_id != identity.session_id
+        || parent.revision != parent_revision
+        || parent.artifact_hash != parent_artifact_hash
+    {
+        return Err(AppError::blocked(
+            "team member admission 차단: exact parent binding 변경",
+        ));
+    }
+    if let Some(existing) = records_for_parent(parent_workflow_id)?
+        .into_iter()
+        .find(|record| !record.status.is_terminal())
+    {
+        return Err(AppError::blocked(format!(
+            "team member admission 차단: 기존 non-terminal child가 있습니다.\n- subagent id: {}\n- status: {}",
+            existing.subagent_id,
+            existing.status.as_str()
+        )));
+    }
+
+    let mut admitted_members = Vec::with_capacity(prepared.len());
+    for (member, launch, context) in prepared {
+        let result = (|| {
+            let requested = create_record(SubagentRecordV1::new(
+                &parent.project_id,
+                &parent.session_id,
+                &parent.workflow_id,
+                parent.revision,
+                &parent.artifact_hash,
+                launch,
+            )?)?;
+            append_lifecycle_event(
+                &identity,
+                &requested,
+                "team.subagent.requested",
+                "team member requested",
+            )?;
+            let mut admitted = requested.clone();
+            admitted.transition_to(SubagentStatus::Admitted, None)?;
+            let admitted = checkpoint_record(admitted, requested.revision)?;
+            append_lifecycle_event(
+                &identity,
+                &admitted,
+                "team.subagent.admitted",
+                "team member admitted",
+            )?;
+            Ok(AdmittedTeamMember {
+                lane: member.lane,
+                member_id: member.member_id,
+                task: member.task,
+                admitted: AdmittedLaunch {
+                    record: admitted,
+                    context,
+                },
+            })
+        })();
+        match result {
+            Ok(admitted) => admitted_members.push(admitted),
+            Err(error) => {
+                for admitted in &admitted_members {
+                    let current = load_record(&admitted.admitted.record.subagent_id)?;
+                    if !current.status.is_terminal() {
+                        terminalize_locked(
+                            &current,
+                            SubagentStatus::Cancelled,
+                            "team-admission-rollback",
+                            "team.subagent.cancelled",
+                        )?;
+                    }
+                }
+                return Err(error);
+            }
+        }
+    }
+    Ok(admitted_members)
+}
+
+pub(crate) fn execute_admitted_team_member_with(
+    member: AdmittedTeamMember,
+    runner: impl FnOnce(&str, u32, u32) -> Result<WorkerGeneration, AppError>,
+) -> Result<CompletedTeamMember, AppError> {
+    let completed = dispatch_admitted(member.admitted, &member.task, false, runner)?;
+    Ok(CompletedTeamMember {
+        lane: member.lane,
+        member_id: member.member_id,
+        record: completed.record,
+        summary: completed.summary,
+    })
+}
+
+pub(crate) fn prepare_team_members(
+    members: Vec<AdmittedTeamMember>,
+) -> Result<Vec<PreparedTeamMember>, AppError> {
+    let subagent_ids = members
+        .iter()
+        .map(|member| member.subagent_id().to_string())
+        .collect::<Vec<_>>();
+    let mut prepared_members = Vec::with_capacity(members.len());
+    for member in members {
+        match prepare_admitted_launch(member.admitted, member.task) {
+            Ok(prepared) => prepared_members.push(PreparedTeamMember {
+                lane: member.lane,
+                member_id: member.member_id,
+                prepared,
+            }),
+            Err(error) => {
+                rollback_team_preparation(&subagent_ids)?;
+                return Err(error);
+            }
+        }
+    }
+    Ok(prepared_members)
+}
+
+pub(crate) fn execute_prepared_team_member_with(
+    member: PreparedTeamMember,
+    runner: impl FnOnce(&str, u32, u32) -> Result<WorkerGeneration, AppError>,
+) -> Result<CompletedTeamMember, AppError> {
+    let completed = execute_prepared_launch(member.prepared, false, runner)?;
+    Ok(CompletedTeamMember {
+        lane: member.lane,
+        member_id: member.member_id,
+        record: completed.record,
+        summary: completed.summary,
+    })
 }
 
 pub fn status_report(subagent_id: Option<&str>) -> Result<String, AppError> {
@@ -573,17 +785,52 @@ struct CompletedLaunch {
     summary: String,
 }
 
+struct PreparedLaunch {
+    _execution_lease: lease::RecoverableLease,
+    running: SubagentRecordV1,
+    context: crate::context::ContextPack,
+    task: String,
+}
+
 fn dispatch_admitted(
     admitted: AdmittedLaunch,
     task: &str,
+    merge_parent: bool,
     runner: impl FnOnce(&str, u32, u32) -> Result<WorkerGeneration, AppError>,
 ) -> Result<CompletedLaunch, AppError> {
-    let _execution_lease = lease::RecoverableLease::acquire(
+    let prepared = prepare_admitted_launch(admitted, task.to_string())?;
+    execute_prepared_launch(prepared, merge_parent, runner)
+}
+
+fn prepare_admitted_launch(
+    admitted: AdmittedLaunch,
+    task: String,
+) -> Result<PreparedLaunch, AppError> {
+    let execution_lease = lease::RecoverableLease::acquire(
         paths::project_subagent_execution_lock(&admitted.record.subagent_id),
         "subagent execution",
     )?;
     let (running, context) = prepare_running(&admitted)?;
-    let prompt = render_worker_prompt(&running, task, &context);
+    Ok(PreparedLaunch {
+        _execution_lease: execution_lease,
+        running,
+        context,
+        task,
+    })
+}
+
+fn execute_prepared_launch(
+    prepared: PreparedLaunch,
+    merge_parent: bool,
+    runner: impl FnOnce(&str, u32, u32) -> Result<WorkerGeneration, AppError>,
+) -> Result<CompletedLaunch, AppError> {
+    let PreparedLaunch {
+        _execution_lease,
+        running,
+        context,
+        task,
+    } = prepared;
+    let prompt = render_worker_prompt(&running, &task, &context);
     let generation = match runner(&prompt, running.requested_max_tokens, running.timeout_ms) {
         Ok(generation) => generation,
         Err(error) => {
@@ -599,16 +846,41 @@ fn dispatch_admitted(
             });
         }
     };
-    complete_generation(running, context, generation)
+    complete_generation(running, context, generation, merge_parent)
+}
+
+fn rollback_team_preparation(subagent_ids: &[String]) -> Result<(), AppError> {
+    let Some(first_id) = subagent_ids.first() else {
+        return Ok(());
+    };
+    let first = load_record(first_id)?;
+    let _parent_lease = lease::RecoverableLease::acquire_with_wait(
+        paths::project_subagent_parent_lock(&first.parent_workflow_id),
+        "subagent parent admission",
+        Duration::from_secs(5),
+    )?;
+    for subagent_id in subagent_ids {
+        let current = load_record(subagent_id)?;
+        if !current.status.is_terminal() {
+            terminalize_locked(
+                &current,
+                SubagentStatus::Cancelled,
+                "team-prepare-rollback",
+                "team.subagent.cancelled",
+            )?;
+        }
+    }
+    Ok(())
 }
 
 fn prepare_running(
     admitted: &AdmittedLaunch,
 ) -> Result<(SubagentRecordV1, crate::context::ContextPack), AppError> {
     let record = &admitted.record;
-    let _parent_lease = lease::RecoverableLease::acquire(
+    let _parent_lease = lease::RecoverableLease::acquire_with_wait(
         paths::project_subagent_parent_lock(&record.parent_workflow_id),
         "subagent parent admission",
+        Duration::from_secs(5),
     )?;
     if state::active_workflow_id()?.as_deref() != Some(record.parent_workflow_id.as_str()) {
         return Err(AppError::blocked(
@@ -651,10 +923,12 @@ fn complete_generation(
     running: SubagentRecordV1,
     context: crate::context::ContextPack,
     generation: WorkerGeneration,
+    merge_parent: bool,
 ) -> Result<CompletedLaunch, AppError> {
-    let _parent_lease = lease::RecoverableLease::acquire(
+    let _parent_lease = lease::RecoverableLease::acquire_with_wait(
         paths::project_subagent_parent_lock(&running.parent_workflow_id),
         "subagent parent admission",
+        Duration::from_secs(5),
     )?;
     let current = load_record(&running.subagent_id)?;
     if current.status == SubagentStatus::Cancelled {
@@ -745,7 +1019,9 @@ fn complete_generation(
         "team.subagent.completed",
         "subagent completed",
     )?;
-    merge_completed_result(&completed)?;
+    if merge_parent {
+        merge_completed_result(&completed)?;
+    }
     Ok(CompletedLaunch {
         record: completed,
         context,
@@ -757,9 +1033,10 @@ fn terminalize_running_error(
     running: &SubagentRecordV1,
     error: &AppError,
 ) -> Result<SubagentRecordV1, AppError> {
-    let _parent_lease = lease::RecoverableLease::acquire(
+    let _parent_lease = lease::RecoverableLease::acquire_with_wait(
         paths::project_subagent_parent_lock(&running.parent_workflow_id),
         "subagent parent admission",
+        Duration::from_secs(5),
     )?;
     let current = load_record(&running.subagent_id)?;
     if current.status.is_terminal() {
@@ -2001,17 +2278,18 @@ mod tests {
         let parent = initialize_parent();
         let admitted = admit_launch(launch("explore")).unwrap();
         let response = completed_result(&admitted.record, &admitted.context);
-        let completed = dispatch_admitted(admitted, "bounded task", |prompt, max, timeout| {
-            assert!(prompt.contains("canonical compact JSON"));
-            assert_eq!(max, DEFAULT_MAX_TOKENS);
-            assert_eq!(timeout, DEFAULT_TIMEOUT_MS);
-            Ok(WorkerGeneration {
-                backend_event_id: "backend-event-test".to_string(),
-                effective_max_tokens: 128,
-                response,
+        let completed =
+            dispatch_admitted(admitted, "bounded task", true, |prompt, max, timeout| {
+                assert!(prompt.contains("canonical compact JSON"));
+                assert_eq!(max, DEFAULT_MAX_TOKENS);
+                assert_eq!(timeout, DEFAULT_TIMEOUT_MS);
+                Ok(WorkerGeneration {
+                    backend_event_id: "backend-event-test".to_string(),
+                    effective_max_tokens: 128,
+                    response,
+                })
             })
-        })
-        .unwrap();
+            .unwrap();
         assert_eq!(completed.record.status, SubagentStatus::Completed);
         assert_eq!(completed.record.revision, 4);
         assert_eq!(completed.record.effective_max_tokens, 128);
@@ -2119,7 +2397,7 @@ mod tests {
         let parent = initialize_parent();
         let admitted = admit_launch(launch("explore")).unwrap();
         let subagent_id = admitted.record.subagent_id.clone();
-        let error = dispatch_admitted(admitted, "bounded task", |_, _, _| {
+        let error = dispatch_admitted(admitted, "bounded task", true, |_, _, _| {
             Ok(WorkerGeneration {
                 backend_event_id: "backend-event-invalid".to_string(),
                 effective_max_tokens: 128,
@@ -2140,7 +2418,7 @@ mod tests {
         initialize_parent();
         let admitted = admit_launch(launch("explore")).unwrap();
         let subagent_id = admitted.record.subagent_id.clone();
-        let error = dispatch_admitted(admitted, "bounded task", |_, _, _| {
+        let error = dispatch_admitted(admitted, "bounded task", true, |_, _, _| {
             Err(AppError::runtime(
                 "backend chat 중단: 제한 시간 초과로 취소됨",
             ))
@@ -2159,7 +2437,7 @@ mod tests {
         let parent = initialize_parent();
         let admitted = admit_launch(launch("explore")).unwrap();
         let subagent_id = admitted.record.subagent_id.clone();
-        let error = dispatch_admitted(admitted, "bounded task", |_, _, _| {
+        let error = dispatch_admitted(admitted, "bounded task", true, |_, _, _| {
             Err(AppError::blocked(
                 "backend chat resource governor 차단: critical pressure",
             ))
@@ -2186,7 +2464,7 @@ mod tests {
         let admitted = admit_launch(launch("explore")).unwrap();
         let subagent_id = admitted.record.subagent_id.clone();
         let response = completed_result(&admitted.record, &admitted.context);
-        let error = dispatch_admitted(admitted, "bounded task", |_, _, _| {
+        let error = dispatch_admitted(admitted, "bounded task", true, |_, _, _| {
             let report = cancel_report(&subagent_id).unwrap();
             assert!(report.contains("action: cancelled"));
             Ok(WorkerGeneration {
@@ -2212,7 +2490,7 @@ mod tests {
         let response = completed_result(&admitted.record, &admitted.context);
         let mut changed_parent = parent.clone();
         changed_parent.result_summary = "parent changed".to_string();
-        let error = dispatch_admitted(admitted, "bounded task", |_, _, _| {
+        let error = dispatch_admitted(admitted, "bounded task", true, |_, _, _| {
             state::checkpoint_workflow(changed_parent, parent.revision).unwrap();
             Ok(WorkerGeneration {
                 backend_event_id: "backend-event-stale-parent".to_string(),
@@ -2231,7 +2509,7 @@ mod tests {
         let admitted = admit_launch(launch("explore")).unwrap();
         let subagent_id = admitted.record.subagent_id.clone();
         let response = completed_result(&admitted.record, &admitted.context);
-        let error = dispatch_admitted(admitted, "bounded task", |_, _, _| {
+        let error = dispatch_admitted(admitted, "bounded task", true, |_, _, _| {
             fs::write(
                 paths::project_root().join("src/main.rs"),
                 "fn main() { changed(); }\n",

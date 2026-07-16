@@ -137,6 +137,10 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", crate::team_state::plan_report(&manifest_path)?);
             Ok(())
         }
+        Command::Team(TeamCommand::Execute { team_id }) => {
+            println!("{}", crate::team_execution::execute_report(&team_id)?);
+            Ok(())
+        }
         Command::Team(TeamCommand::Admit {
             lanes,
             write_paths,

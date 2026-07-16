@@ -364,6 +364,20 @@ pub fn parse_manifest(body: &str) -> Result<TeamManifestV1, AppError> {
     })
 }
 
+pub fn load_manifest(team_id: &str) -> Result<TeamManifestV1, AppError> {
+    validate_id(team_id, "team id", MAX_TEAM_ID_BYTES)?;
+    let body = state::read_regular_file_bounded(
+        &paths::project_team_manifest_file(team_id),
+        MAX_MANIFEST_BYTES,
+        "team manifest",
+    )?;
+    let manifest = parse_manifest(&body)?;
+    if manifest.team_id != team_id {
+        return Err(AppError::blocked("team manifest identity binding 불일치"));
+    }
+    Ok(manifest)
+}
+
 pub fn create_state(record: TeamStateV1) -> Result<TeamStateV1, AppError> {
     checkpoint_state(record, 0)
 }
@@ -439,6 +453,36 @@ pub fn load_state(team_id: &str) -> Result<TeamStateV1, AppError> {
         ));
     }
     Ok(record)
+}
+
+pub fn advance_state(
+    team_id: &str,
+    next: TeamStage,
+    admitted_lanes: Option<u32>,
+    execution_mode: Option<&str>,
+) -> Result<TeamStateV1, AppError> {
+    let identity = ledger::validated_current_identity()?;
+    let current = load_state(team_id)?;
+    if current.project_id != identity.project_id || current.session_id != identity.session_id {
+        return Err(AppError::blocked("team stage owner binding 불일치"));
+    }
+    if current.stage == next {
+        if next == TeamStage::Dispatch
+            && (current.admitted_lanes != admitted_lanes.unwrap_or(0)
+                || current.execution_mode != execution_mode.unwrap_or(""))
+        {
+            return Err(AppError::blocked(
+                "team dispatch stage 재시도 admission binding 불일치",
+            ));
+        }
+        append_stage_event_if_missing(&identity, &current)?;
+        return Ok(current);
+    }
+    let mut next_record = current.clone();
+    next_record.transition_to(next, admitted_lanes, execution_mode)?;
+    let installed = checkpoint_state(next_record, current.revision)?;
+    append_stage_event_if_missing(&identity, &installed)?;
+    Ok(installed)
 }
 
 pub fn latest_for_parent(parent_workflow_id: &str) -> Result<Option<TeamStateV1>, AppError> {
@@ -829,6 +873,50 @@ fn append_planned_event_if_missing(
             record.parent_workflow_id,
             record.member_count,
             record.manifest_hash,
+        ),
+    );
+    ledger::append_event(&event)?;
+    observability::project_event(&event)
+}
+
+fn append_stage_event_if_missing(
+    identity: &ledger::RuntimeIdentity,
+    record: &TeamStateV1,
+) -> Result<(), AppError> {
+    let event_type = match record.stage {
+        TeamStage::Plan => "team.stage.planned",
+        TeamStage::Dispatch => "team.stage.dispatched",
+        TeamStage::Execute => "team.stage.executing",
+        TeamStage::Review => "team.stage.reviewing",
+        TeamStage::Verify => "team.stage.verifying",
+        TeamStage::Merge => "team.stage.merging",
+        TeamStage::Report => "team.stage.reporting",
+        TeamStage::Complete => "team.stage.completed",
+        TeamStage::Failed => "team.stage.failed",
+        TeamStage::Cancelled => "team.stage.cancelled",
+    };
+    if ledger::event_details_match(
+        event_type,
+        &[
+            ("team_id", record.team_id.as_str()),
+            ("stage", record.stage.as_str()),
+        ],
+    )? {
+        return Ok(());
+    }
+    let event = ledger::new_event_for(
+        identity,
+        event_type,
+        "team stage advanced",
+        &format!(
+            "team_id={} revision={} stage={} status={} requested_lanes={} admitted_lanes={} execution_mode={}",
+            record.team_id,
+            record.revision,
+            record.stage.as_str(),
+            record.status,
+            record.requested_lanes,
+            record.admitted_lanes,
+            record.execution_mode,
         ),
     );
     ledger::append_event(&event)?;
