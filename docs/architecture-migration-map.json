@@ -1742,7 +1742,7 @@
       "path": "src/adapters/process/backend.rs",
       "slices": [
         {
-          "responsibility": "backend process lifecycle",
+          "responsibility": "backend process lifecycle and command identity inspection",
           "target": "src/adapters/process/backend.rs",
           "release": "0.37.3",
           "state": "complete",
@@ -3630,7 +3630,7 @@
     {
       "path": "src/adapters/process/backend.rs",
       "responsibilities": [
-        "backend process lifecycle"
+        "backend process lifecycle and command identity inspection"
       ]
     },
     {

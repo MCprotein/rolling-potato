@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
@@ -15,6 +16,75 @@ pub(crate) fn configure_child(_command: &mut Command) {}
 
 pub(crate) fn is_running(pid: u32) -> bool {
     running_status(pid).unwrap_or(false)
+}
+
+#[cfg(unix)]
+pub(crate) fn command_matches(
+    pid: u32,
+    binary_path: &Path,
+    binary_name: &str,
+    trusted_backend: bool,
+) -> bool {
+    let Some(pid_arg) = unix_pid_arg(pid) else {
+        return false;
+    };
+    let Ok(output) = Command::new("ps")
+        .arg("-p")
+        .arg(pid_arg)
+        .arg("-o")
+        .arg("command=")
+        .output()
+    else {
+        return false;
+    };
+    command_identifies_binary(
+        &String::from_utf8_lossy(&output.stdout),
+        binary_path,
+        binary_name,
+        trusted_backend && binary_path.is_file(),
+    )
+}
+
+#[cfg(windows)]
+pub(crate) fn command_matches(
+    pid: u32,
+    binary_path: &Path,
+    _binary_name: &str,
+    _trusted_backend: bool,
+) -> bool {
+    Command::new("wmic")
+        .arg("process")
+        .arg("where")
+        .arg(format!("processid={pid}"))
+        .arg("get")
+        .arg("CommandLine")
+        .output()
+        .map(|output| {
+            String::from_utf8_lossy(&output.stdout).contains(&binary_path.display().to_string())
+        })
+        .unwrap_or(false)
+}
+
+#[cfg(not(any(unix, windows)))]
+pub(crate) fn command_matches(
+    _pid: u32,
+    _binary_path: &Path,
+    _binary_name: &str,
+    _trusted_backend: bool,
+) -> bool {
+    false
+}
+
+#[cfg(unix)]
+fn command_identifies_binary(
+    command: &str,
+    binary_path: &Path,
+    binary_name: &str,
+    trusted_file_exists: bool,
+) -> bool {
+    command.contains(&binary_path.display().to_string())
+        || command.contains(binary_name)
+        || trusted_file_exists
 }
 
 #[cfg(unix)]
@@ -157,5 +227,36 @@ mod tests {
         assert_eq!(unix_pid_arg(0), None);
         assert_eq!(unix_pid_arg(u32::MAX), None);
         assert_eq!(unix_pid_arg(i32::MAX as u32), Some(i32::MAX.to_string()));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn command_identity_accepts_path_name_or_trusted_install() {
+        let binary_path = Path::new("/managed/llama-server");
+
+        assert!(command_identifies_binary(
+            "/managed/llama-server --port 8080",
+            binary_path,
+            "llama-server",
+            false,
+        ));
+        assert!(command_identifies_binary(
+            "llama-server --port 8080",
+            binary_path,
+            "llama-server",
+            false,
+        ));
+        assert!(command_identifies_binary(
+            "",
+            binary_path,
+            "llama-server",
+            true,
+        ));
+        assert!(!command_identifies_binary(
+            "other-server --port 8080",
+            binary_path,
+            "llama-server",
+            false,
+        ));
     }
 }

@@ -395,7 +395,12 @@ pub fn stop_report() -> Result<String, AppError> {
         ));
     }
 
-    let command_matched = process_command_matches_record(&record);
+    let command_matched = backend_process::command_matches(
+        record.pid,
+        &record.binary_path,
+        LlamaCppAdapter.binary_name(),
+        record.backend_id == LLAMA_CPP_BACKEND_ID,
+    );
 
     let generation_outcome = cancel_active_generation_before_stop(&record)?;
 
@@ -2210,50 +2215,6 @@ fn read_backend_sidecar_record() -> Result<Option<BackendSidecarRecord>, AppErro
             path.display()
         ))
     })
-}
-
-#[cfg(unix)]
-fn process_command_matches_record(record: &BackendSidecarRecord) -> bool {
-    let Some(pid_arg) = backend_process::unix_pid_arg(record.pid) else {
-        return false;
-    };
-    let Ok(output) = Command::new("ps")
-        .arg("-p")
-        .arg(pid_arg)
-        .arg("-o")
-        .arg("command=")
-        .output()
-    else {
-        return false;
-    };
-    let command = String::from_utf8_lossy(&output.stdout);
-    if command.trim().is_empty() {
-        return record.backend_id == LLAMA_CPP_BACKEND_ID && record.binary_path.is_file();
-    }
-    command.contains(&record.binary_path.display().to_string())
-        || command.contains(LlamaCppAdapter.binary_name())
-        || (record.backend_id == LLAMA_CPP_BACKEND_ID && record.binary_path.is_file())
-}
-
-#[cfg(windows)]
-fn process_command_matches_record(record: &BackendSidecarRecord) -> bool {
-    Command::new("wmic")
-        .arg("process")
-        .arg("where")
-        .arg(format!("processid={}", record.pid))
-        .arg("get")
-        .arg("CommandLine")
-        .output()
-        .map(|output| {
-            String::from_utf8_lossy(&output.stdout)
-                .contains(&record.binary_path.display().to_string())
-        })
-        .unwrap_or(false)
-}
-
-#[cfg(not(any(unix, windows)))]
-fn process_command_matches_record(_record: &BackendSidecarRecord) -> bool {
-    false
 }
 
 fn display_vec(values: &[String]) -> String {
