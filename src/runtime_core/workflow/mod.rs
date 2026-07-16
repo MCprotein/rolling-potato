@@ -5,5 +5,6 @@
 //! the compatibility boundary so their bytes can remain stable while domain
 //! views evolve independently.
 
+pub(crate) mod application;
 pub(crate) mod domain;
 pub(crate) mod storage_compat;
