@@ -1,7 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::process;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -11,10 +11,13 @@ use crate::adapters::filesystem::{layout as paths, lease};
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 #[cfg(test)]
+use crate::runtime_core::workflow::storage_compat::ledger::append_line;
+#[cfg(test)]
 pub use crate::runtime_core::workflow::storage_compat::ledger::parse_event_line;
 pub(crate) use crate::runtime_core::workflow::storage_compat::ledger::parse_event_line_strict;
 pub(crate) use crate::runtime_core::workflow::storage_compat::ledger::{
-    event_chain_payload, event_physical_hash, planned_event_hash, sha256_bytes,
+    append_canonical_event, event_chain_payload, event_physical_hash, planned_event_hash,
+    sha256_bytes,
 };
 pub use crate::runtime_core::workflow::storage_compat::ledger::{
     json_string, LedgerBinding, LedgerEvent, ParsedLedgerEvent, RuntimeIdentity, WorkflowCheckpoint,
@@ -1014,14 +1017,7 @@ fn append_chained_event(path: &Path, event: &LedgerEvent) -> Result<(), AppError
                 format!("legacy:{}", sha256_bytes(contents.as_bytes()))
             }
         });
-    let payload = event_chain_payload(event, &previous);
-    let event_hash = sha256_bytes(payload.as_bytes());
-    let line = format!(
-        "{{{},\"event_hash\":\"{}\"}}",
-        payload.trim_start_matches('{').trim_end_matches('}'),
-        event_hash
-    );
-    append_line(path, &line)?;
+    let event_hash = append_canonical_event(path, event, &previous)?;
     write_ledger_head(path, existing.len() + 1, &event_hash)
 }
 
@@ -1289,37 +1285,6 @@ pub fn redact_text(value: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-fn append_line(path: &Path, line: &str) -> Result<(), AppError> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|err| {
-            AppError::runtime(format!(
-                "디렉터리를 만들지 못했습니다: {} ({err})",
-                parent.display()
-            ))
-        })?;
-    }
-
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-        .map_err(|err| {
-            AppError::runtime(format!(
-                "파일을 열지 못했습니다: {} ({err})",
-                path.display()
-            ))
-        })?;
-
-    writeln!(file, "{line}").map_err(|err| {
-        AppError::runtime(format!(
-            "파일에 기록하지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    file.sync_all()
-        .map_err(|err| AppError::runtime(format!("ledger sync 실패: {} ({err})", path.display())))
 }
 
 fn sanitize_event_type(value: &str) -> String {
