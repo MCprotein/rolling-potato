@@ -447,7 +447,7 @@ pub const BUILTIN_SKILLS: &[SkillManifest] = &[
 ];
 
 pub fn list_report() -> String {
-    let skills = BUILTIN_SKILLS
+    let mut skills = BUILTIN_SKILLS
         .iter()
         .map(|skill| {
             format!(
@@ -455,13 +455,15 @@ pub fn list_report() -> String {
                 skill.id, skill.display_name, skill.mode, skill.description
             )
         })
-        .collect::<Vec<_>>()
-        .join("\n");
+        .collect::<Vec<_>>();
+    let imported = crate::plugin::enabled_codex_skill_rows();
+    skills.extend(imported.iter().cloned());
 
     format!(
-        "skill registry\n- native skills: {}\n- imported skill namespace: imported.codex.<plugin>.<skill>\n- 실행 경계: skill은 tool을 직접 실행하지 않고 runtime policy/evidence gate를 통과해야 합니다.\n{}",
+        "skill registry\n- native skills: {}\n- enabled imported Codex skills: {}\n- imported skill namespace: imported.codex.<plugin>.<skill>\n- 실행 경계: imported skill은 실행 시 source snapshot과 SKILL.md를 다시 검증하고 runtime policy/evidence gate를 통과해야 합니다.\n{}",
         BUILTIN_SKILLS.len(),
-        skills
+        imported.len(),
+        skills.join("\n")
     )
 }
 

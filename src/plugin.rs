@@ -281,6 +281,49 @@ pub fn list_report() -> String {
     )
 }
 
+pub fn enabled_codex_skill_rows() -> Vec<String> {
+    let Ok(plugins) = read_plugins() else {
+        return Vec::new();
+    };
+    let mut rows = Vec::new();
+    for plugin in plugins.into_iter().filter(|plugin| {
+        plugin.source == PluginSource::Codex
+            && plugin.status == "enabled"
+            && plugin.adapter_version == PLUGIN_ADAPTER_VERSION
+            && plugin.permission_policy == PLUGIN_PERMISSION_POLICY
+    }) {
+        for capability in plugin.capabilities.iter().filter(|capability| {
+            capability.kind == "skill"
+                && capability.status == "mapped"
+                && capability.required_permission == "none"
+        }) {
+            let Some(skill_name) = capability
+                .path
+                .strip_prefix("skills/")
+                .and_then(|path| path.strip_suffix("/SKILL.md"))
+            else {
+                continue;
+            };
+            if validate_component_name(skill_name, "skill").is_err()
+                || plugin.capabilities.iter().any(|candidate| {
+                    candidate.required_permission != "none"
+                        && Path::new(&candidate.path)
+                            .starts_with(Path::new(&format!("skills/{skill_name}")))
+                })
+            {
+                continue;
+            }
+            rows.push(format!(
+                "- imported.codex.{}.{} | mode: read-only | 실행 시 snapshot/frontmatter 재검증",
+                plugin.name, skill_name
+            ));
+        }
+    }
+    rows.sort();
+    rows.dedup();
+    rows
+}
+
 pub fn import_report(
     source: PluginSource,
     raw_path: &str,
@@ -1738,6 +1781,7 @@ mod tests {
         assert_eq!(skill.source_path, "skills/hello/SKILL.md");
         assert_eq!(skill.instructions, "요청을 한국어로 요약하세요.");
         assert_eq!(skill.source_sha256.len(), 64);
+        assert!(crate::skill::list_report().contains("imported.codex.safe-plugin.hello"));
 
         cleanup_codex_skill_test(root, data_root);
     }
