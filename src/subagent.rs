@@ -686,6 +686,88 @@ pub(crate) fn admit_team_members(
     Ok(admitted_members)
 }
 
+pub(crate) fn resume_admitted_team_member(
+    member: TeamMemberLaunch,
+    subagent_id: &str,
+) -> Result<AdmittedTeamMember, AppError> {
+    let launch = validate_launch(
+        &member.role,
+        &member.task,
+        &member.declared_tools,
+        &member.read_paths,
+        &member.write_paths,
+        Some(member.timeout_ms),
+        Some(member.max_tokens),
+    )?;
+    let record = load_record(subagent_id)?;
+    if record.status != SubagentStatus::Admitted
+        || record.role != launch.role
+        || record.task_hash != launch.task_hash
+        || record.declared_tools != launch.declared_tools
+        || record.read_paths != launch.read_paths
+        || record.write_paths != launch.write_paths
+        || record.timeout_ms != launch.timeout_ms
+        || record.requested_max_tokens != launch.requested_max_tokens
+    {
+        return Err(AppError::blocked(
+            "team admitted recovery immutable launch binding 불일치",
+        ));
+    }
+    let context = crate::context::build_declared_context_pack(&record.read_paths)?;
+    Ok(AdmittedTeamMember {
+        lane: member.lane,
+        member_id: member.member_id,
+        task: member.task,
+        admitted: AdmittedLaunch { record, context },
+    })
+}
+
+pub(crate) fn terminalize_interrupted_team_members(
+    subagent_ids: &[String],
+) -> Result<Vec<SubagentRecordV1>, AppError> {
+    let mut execution_leases = Vec::new();
+    for subagent_id in subagent_ids {
+        let current = load_record(subagent_id)?;
+        if !current.status.is_terminal() {
+            execution_leases.push(lease::RecoverableLease::acquire(
+                paths::project_subagent_execution_lock(subagent_id),
+                "subagent interrupted recovery",
+            )?);
+        }
+    }
+    let Some(first_id) = subagent_ids.first() else {
+        return Ok(Vec::new());
+    };
+    let first = load_record(first_id)?;
+    let _parent_lease = lease::RecoverableLease::acquire_with_wait(
+        paths::project_subagent_parent_lock(&first.parent_workflow_id),
+        "subagent parent admission",
+        Duration::from_secs(5),
+    )?;
+    let mut recovered = Vec::with_capacity(subagent_ids.len());
+    for subagent_id in subagent_ids {
+        let current = load_record(subagent_id)?;
+        let terminal = match current.status {
+            SubagentStatus::Requested | SubagentStatus::Admitted => terminalize_locked(
+                &current,
+                SubagentStatus::Cancelled,
+                "team-interrupted-before-send",
+                "team.subagent.cancelled",
+            )?,
+            SubagentStatus::Running => terminalize_locked(
+                &current,
+                SubagentStatus::Failed,
+                "interrupted-no-replay",
+                "team.subagent.failed",
+            )?,
+            _ => current,
+        };
+        recovered.push(terminal);
+    }
+    drop(execution_leases);
+    Ok(recovered)
+}
+
 pub(crate) fn execute_admitted_team_member_with(
     member: AdmittedTeamMember,
     runner: impl FnOnce(&str, u32, u32) -> Result<WorkerGeneration, AppError>,
@@ -1335,7 +1417,9 @@ fn latest_active_parent_record() -> Result<SubagentRecordV1, AppError> {
         .ok_or_else(|| AppError::blocked("active parent에 기록된 subagent가 없습니다."))
 }
 
-fn records_for_parent(parent_workflow_id: &str) -> Result<Vec<SubagentRecordV1>, AppError> {
+pub(crate) fn records_for_parent(
+    parent_workflow_id: &str,
+) -> Result<Vec<SubagentRecordV1>, AppError> {
     let entries = match fs::read_dir(paths::project_subagents_dir()) {
         Ok(entries) => entries,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
