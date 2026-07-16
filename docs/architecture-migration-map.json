@@ -2482,6 +2482,39 @@
       ]
     },
     {
+      "path": "src/runtime_core/collaboration/subagent.rs",
+      "slices": [
+        {
+          "responsibility": "subagent role, tool, launch, and lifecycle policy",
+          "target": "src/runtime_core/collaboration/subagent.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/subagent.rs",
+            "tests/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent_result.rs",
+      "slices": [
+        {
+          "responsibility": "canonical subagent result shape and patch proposal policy",
+          "target": "src/runtime_core/collaboration/subagent_result.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent_result.rs",
+            "src/subagent_result.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/extensions/mod.rs",
       "slices": [
         {
@@ -4589,6 +4622,18 @@
       "path": "src/runtime_core/collaboration/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent.rs",
+      "responsibilities": [
+        "subagent role, tool, launch, and lifecycle policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent_result.rs",
+      "responsibilities": [
+        "canonical subagent result shape and patch proposal policy"
       ]
     },
     {
