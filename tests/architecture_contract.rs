@@ -1202,6 +1202,151 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     );
 }
 
+#[test]
+fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
+    let korean_guard = "src/runtime_core/reporting/korean_guard.rs";
+    let runtime_report = "src/runtime_core/reporting/runtime_report.rs";
+    let runner = "src/runtime_core/workflow/application/runner.rs";
+    for target in [korean_guard, runtime_report, runner] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing v0.37.10 runtime owner: {target}"
+        );
+    }
+
+    let runtime_core = fs::read_to_string("src/runtime_core/mod.rs").unwrap();
+    assert!(
+        runtime_core
+            .lines()
+            .any(|line| line == "pub(crate) mod reporting;"),
+        "reporting runtime owner is not crate-private"
+    );
+    let reporting_mod = fs::read_to_string("src/runtime_core/reporting/mod.rs").unwrap();
+    for child in ["korean_guard", "runtime_report"] {
+        let expected = format!("pub(crate) mod {child};");
+        assert!(
+            reporting_mod.lines().any(|line| line == expected),
+            "reporting child is not crate-private: {child}"
+        );
+    }
+    let application_mod =
+        fs::read_to_string("src/runtime_core/workflow/application/mod.rs").unwrap();
+    assert!(
+        application_mod
+            .lines()
+            .any(|line| line == "pub(crate) mod runner;"),
+        "workflow application runner is not crate-private"
+    );
+
+    for (owner, rules) in [
+        (
+            korean_guard,
+            [
+                "struct StreamingGuard",
+                "fn guard_or_failure",
+                "fn validate",
+            ]
+            .as_slice(),
+        ),
+        (
+            runtime_report,
+            [
+                "struct WorkflowResumeReport",
+                "struct SessionResumeReport",
+                "struct InitReport",
+                "struct DoctorReport",
+                "fn render_workflow_resume",
+                "fn render_session_resume",
+                "fn guard_patch_terminal",
+                "fn render_init",
+                "fn render_doctor",
+            ]
+            .as_slice(),
+        ),
+        (
+            runner,
+            [
+                "trait RuntimeApplicationPort",
+                "fn agent_run_report",
+                "fn workflow_resume_report",
+                "fn session_resume_report",
+                "fn patch_approve_to_stdout",
+                "fn patch_verify_report",
+            ]
+            .as_slice(),
+        ),
+    ] {
+        let source = fs::read_to_string(owner).unwrap();
+        for rule in rules {
+            assert!(
+                source.contains(rule),
+                "v0.37.10 owner is missing runtime rule: {owner} -> {rule}"
+            );
+        }
+        for forbidden in [
+            "crate::adapters",
+            "crate::backend",
+            "crate::context",
+            "crate::intent",
+            "crate::ledger",
+            "crate::model",
+            "crate::ontology",
+            "crate::patch",
+            "crate::state",
+            "std::env",
+            "std::fs",
+            "std::process",
+        ] {
+            assert!(
+                !source.contains(forbidden),
+                "runtime owner has concrete reverse dependency: {owner} -> {forbidden}"
+            );
+        }
+    }
+
+    let guard_facade = fs::read_to_string("src/korean_guard.rs").unwrap();
+    assert!(
+        guard_facade.lines().count() <= 8
+            && guard_facade.contains("runtime_core::reporting::korean_guard"),
+        "Korean guard compatibility facade retained implementation"
+    );
+
+    let runtime_facade = fs::read_to_string("src/runtime.rs").unwrap();
+    let production = runtime_facade
+        .split("#[cfg(test)]")
+        .next()
+        .unwrap_or(&runtime_facade);
+    for forbidden in [
+        "fn guard_patch_terminal_report",
+        "fn release_smoke_summary",
+        "rpotato 진단\\n- CLI",
+        "{}\\n- reconstructed context: {}",
+    ] {
+        assert!(
+            !production.contains(forbidden),
+            "legacy runtime facade retains moved report rule: {forbidden}"
+        );
+    }
+    for delegation in [
+        "impl RuntimeApplicationPort for LegacyRuntimeApplicationPort",
+        "runner::workflow_resume_report",
+        "runner::session_resume_report",
+        "runner::patch_approve_to_stdout",
+        "runner::patch_verify_report",
+        "runtime_report::render_init",
+        "runtime_report::render_doctor",
+    ] {
+        assert!(
+            production.contains(delegation),
+            "legacy runtime facade is missing owner delegation: {delegation}"
+        );
+    }
+    assert!(
+        runtime_facade.lines().count() <= 3_100,
+        "runtime facade regrew beyond the v0.37.10 boundary"
+    );
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

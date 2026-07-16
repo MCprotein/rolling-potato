@@ -1,5 +1,31 @@
 # 릴리즈 노트
 
+## 미출시 v0.37.10 - Runtime과 Reporting 경계
+
+이 patch는 CLI command, 출력 byte와 field 순서, exit code, synchronous 실행을
+바꾸지 않고 workflow runtime 호출 순서와 report/Korean output 규칙을 private
+application/reporting owner로 이동합니다.
+
+### 포함한 것
+
+- Agent run, workflow/session resume, patch approve/verify 호출 순서를 explicit
+  `RuntimeApplicationPort` 위의 `runtime_core::workflow::application::runner`로 이동
+- Workflow/session resume, init, doctor report의 typed input과 canonical field/order
+  rendering을 `runtime_core::reporting::runtime_report`로 이동
+- Streaming/non-streaming 한국어 output invariant 전체를
+  `runtime_core::reporting::korean_guard`로 이동
+- 기존 `runtime` module은 concrete state, ledger, context, patch, backend adapter와
+  TUI bridge를 조립하고 새 owner에 위임하는 facade로 축소
+- 기존 `korean_guard` module은 crate 내부 호출 경로를 보존하는 5줄 re-export
+  facade로 축소
+
+### 호환성 경계
+
+- TUI read/intent/outcome bridge는 계획대로 v0.37.13 surface/composition 단계까지
+  `runtime` facade에 남습니다.
+- CLI 동작과 출력, report field/order, patch guard 조건, recovery preflight 순서,
+  dependency, synchronous execution은 변경하지 않습니다.
+
 ## 미출시 v0.37.9 - Patch Workflow 경계
 
 이 patch는 CLI 출력, approval secret 전달, source/journal 설치 순서를 바꾸지 않고
