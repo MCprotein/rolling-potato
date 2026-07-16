@@ -671,7 +671,6 @@ mod windows {
     type HpcOn = Handle;
     type HResult = i32;
 
-    const HANDLE_FLAG_INHERIT: Dword = 0x0000_0001;
     const EXTENDED_STARTUPINFO_PRESENT: Dword = 0x0008_0000;
     const CREATE_UNICODE_ENVIRONMENT: Dword = 0x0000_0400;
     const PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE: usize = 0x0002_0016;
@@ -737,7 +736,6 @@ mod windows {
             attributes: *mut SecurityAttributes,
             size: Dword,
         ) -> Bool;
-        fn SetHandleInformation(handle: Handle, mask: Dword, flags: Dword) -> Bool;
         fn CloseHandle(handle: Handle) -> Bool;
         fn CreatePseudoConsole(
             size: Coord,
@@ -831,36 +829,36 @@ mod windows {
 
     impl ReusableConsole {
         fn new(columns: u16, rows: u16) -> Self {
-            let mut attributes = SecurityAttributes {
-                length: std::mem::size_of::<SecurityAttributes>() as Dword,
-                security_descriptor: std::ptr::null_mut(),
-                inherit_handle: 1,
-            };
             let mut console_input = std::ptr::null_mut();
             let mut parent_input = std::ptr::null_mut();
             let mut parent_output = std::ptr::null_mut();
             let mut console_output = std::ptr::null_mut();
-            // SAFETY: all handle output pointers and the attributes structure are valid.
+            // SAFETY: all handle output pointers are valid. The channels are deliberately
+            // non-inheritable; the pseudoconsole process attribute owns attachment.
             assert_ne!(
-                unsafe { CreatePipe(&mut console_input, &mut parent_input, &mut attributes, 0,) },
+                unsafe {
+                    CreatePipe(
+                        &mut console_input,
+                        &mut parent_input,
+                        std::ptr::null_mut(),
+                        0,
+                    )
+                },
                 0,
                 "ConPTY input pipe creation failed"
             );
-            // SAFETY: all handle output pointers and the attributes structure are valid.
+            // SAFETY: all handle output pointers are valid.
             assert_ne!(
-                unsafe { CreatePipe(&mut parent_output, &mut console_output, &mut attributes, 0,) },
+                unsafe {
+                    CreatePipe(
+                        &mut parent_output,
+                        &mut console_output,
+                        std::ptr::null_mut(),
+                        0,
+                    )
+                },
                 0,
                 "ConPTY output pipe creation failed"
-            );
-            // SAFETY: parent handles are valid and must not be inherited by the child.
-            assert_ne!(
-                unsafe { SetHandleInformation(parent_input, HANDLE_FLAG_INHERIT, 0) },
-                0
-            );
-            // SAFETY: parent handles are valid and must not be inherited by the child.
-            assert_ne!(
-                unsafe { SetHandleInformation(parent_output, HANDLE_FLAG_INHERIT, 0) },
-                0
             );
 
             let mut console = std::ptr::null_mut();
@@ -1240,7 +1238,6 @@ mod windows {
         startup.startup.cb = std::mem::size_of::<StartupInfoExW>() as Dword;
         startup.attribute_list = attribute_list;
         let mut process: ProcessInformation = unsafe { std::mem::zeroed() };
-        let binary = wide(application.as_os_str());
         let command_text = if arguments.is_empty() {
             format!("\"{}\"", application.display())
         } else {
@@ -1250,7 +1247,7 @@ mod windows {
         let mut environment = explicit_environment_block(environment_overrides);
         let launched = unsafe {
             CreateProcessW(
-                binary.as_ptr(),
+                std::ptr::null(),
                 command.as_mut_ptr(),
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
@@ -1300,41 +1297,6 @@ mod windows {
         assert_ne!(unsafe { GetExitCodeProcess(process, &mut exit_code) }, 0);
         assert_eq!(exit_code, 0, "{context} failed");
         unsafe { CloseHandle(process) };
-    }
-
-    fn drain_pipe(output: Handle, output_bytes: &mut Vec<u8>) {
-        loop {
-            let mut available = 0;
-            let peeked = unsafe {
-                PeekNamedPipe(
-                    output,
-                    std::ptr::null_mut(),
-                    0,
-                    std::ptr::null_mut(),
-                    &mut available,
-                    std::ptr::null_mut(),
-                )
-            };
-            if peeked == 0 || available == 0 {
-                break;
-            }
-            let mut buffer = [0_u8; 4096];
-            let request = available.min(buffer.len() as Dword);
-            let mut read = 0;
-            let ok = unsafe {
-                ReadFile(
-                    output,
-                    buffer.as_mut_ptr().cast::<c_void>(),
-                    request,
-                    &mut read,
-                    std::ptr::null_mut(),
-                )
-            };
-            if ok == 0 || read == 0 {
-                break;
-            }
-            output_bytes.extend_from_slice(&buffer[..usize::try_from(read).unwrap()]);
-        }
     }
 
     fn mode_probe_values(output: &[u8]) -> Vec<String> {
