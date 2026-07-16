@@ -12,6 +12,7 @@ use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, RuntimeIdentity};
 use crate::observability::SessionHistoryEntry;
 use crate::observability::{self, StoreStatus};
+use crate::runtime_core::workflow::storage_compat::record::WorkflowPointer;
 pub use crate::runtime_core::workflow::storage_compat::record::WorkflowRecord;
 use crate::runtime_core::workflow::storage_compat::record::{
     payload as workflow_payload, render as render_workflow,
@@ -24,7 +25,9 @@ use crate::runtime_core::workflow::storage_compat::record::{
 use sha2::{Digest, Sha256};
 
 const WORKFLOW_SCHEMA_VERSION: u64 = 4;
+#[cfg(test)]
 const PREVIOUS_WORKFLOW_SCHEMA_VERSION: u64 = 3;
+#[cfg(test)]
 const LEGACY_WORKFLOW_SCHEMA_VERSION: u64 = 2;
 const MAX_WORKFLOW_POINTER_BYTES: u64 = 64 * 1024;
 const MAX_WORKFLOW_SNAPSHOT_BYTES: u64 = 512 * 1024;
@@ -3825,69 +3828,15 @@ fn render_workflow_pointer_bytes(
     record: &WorkflowRecord,
     schema_version: u64,
 ) -> Result<String, AppError> {
-    let artifact_version = match schema_version {
-        LEGACY_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v2",
-        PREVIOUS_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v3",
-        WORKFLOW_SCHEMA_VERSION => "workflow-commit-v4",
-        _ => {
-            return Err(AppError::blocked(
-                "workflow pointer schema 지원 범위 밖입니다.",
-            ))
-        }
-    };
-    let body = format!(
-        "{{\n  \"schema_version\": {schema_version},\n  \"artifact_version\": \"{artifact_version}\",\n  \"workflow_id\": \"{}\",\n  \"committed_revision\": {},\n  \"artifact_hash\": \"{}\"\n}}\n",
-        ledger::json_string(&record.workflow_id),
-        record.revision,
-        record.artifact_hash
-    );
-    Ok(body)
-}
-
-#[derive(Debug)]
-struct WorkflowPointer {
-    schema_version: u64,
-    workflow_id: String,
-    committed_revision: u64,
-    artifact_hash: String,
+    crate::runtime_core::workflow::storage_compat::record::render_pointer(record, schema_version)
 }
 
 fn parse_workflow_pointer(path: &std::path::Path, body: &str) -> Result<WorkflowPointer, AppError> {
-    const KEYS: &[&str] = &[
-        "schema_version",
-        "artifact_version",
-        "workflow_id",
-        "committed_revision",
-        "artifact_hash",
-    ];
-    let context = path.display().to_string();
-    let object =
-        strict_json::parse_object(body, KEYS, &context).map_err(|_| corrupt_workflow(path))?;
-    if object.len() != KEYS.len() || KEYS.iter().any(|key| !object.contains_key(key)) {
-        return Err(corrupt_workflow(path));
-    }
-    let schema_version = strict_json::number(&object, "schema_version", &context)
-        .map_err(|_| corrupt_workflow(path))?;
-    let artifact_version = strict_json::string(&object, "artifact_version", &context)
-        .map_err(|_| corrupt_workflow(path))?;
-    let expected_artifact_version = match schema_version {
-        LEGACY_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v2",
-        PREVIOUS_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v3",
-        WORKFLOW_SCHEMA_VERSION => "workflow-commit-v4",
-        _ => return Err(corrupt_workflow(path)),
-    };
-    if artifact_version != expected_artifact_version {
-        return Err(corrupt_workflow(path));
-    }
-    Ok(WorkflowPointer {
-        schema_version,
-        workflow_id: strict_json::string(&object, "workflow_id", &context)
-            .map_err(|_| corrupt_workflow(path))?,
-        committed_revision: strict_json::number(&object, "committed_revision", &context)
-            .map_err(|_| corrupt_workflow(path))?,
-        artifact_hash: strict_json::string(&object, "artifact_hash", &context)
-            .map_err(|_| corrupt_workflow(path))?,
-    })
+    crate::runtime_core::workflow::storage_compat::record::parse_pointer(
+        path,
+        body,
+        corrupt_workflow,
+    )
 }
 
 fn remove_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
