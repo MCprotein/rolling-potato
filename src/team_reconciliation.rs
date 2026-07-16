@@ -2,8 +2,8 @@ use crate::foundation::error::AppError;
 use crate::runtime_core::collaboration::team_execution::{detail_token, RuntimeIdentityBinding};
 use crate::runtime_core::collaboration::team_reconciliation::{
     parse_unique_evidence, render_reconciliation as render_reconciliation_policy,
-    validate_action_ownership, validate_reconciliation_binding, validate_reconciliation_stage,
-    ReconciliationMemberBinding,
+    validate_action_ownership, validate_member_record, validate_reconciliation_binding,
+    validate_reconciliation_stage, ReconciliationMemberBinding,
 };
 use crate::{
     adapters::filesystem::layout as paths, adapters::filesystem::lease, ledger, observability,
@@ -208,7 +208,15 @@ fn collect_members(
             ));
         }
         let record = subagent::load_record(subagent_id)?;
-        validate_member_record(identity, team, member, &record)?;
+        validate_member_record(
+            &RuntimeIdentityBinding {
+                project_id: &identity.project_id,
+                session_id: &identity.session_id,
+            },
+            team,
+            member,
+            &record,
+        )?;
         let result = subagent_result::load_completed_result(&record)?;
         let (action, target_path, source_hash) =
             validate_action_ownership(manifest, member, &result)?;
@@ -250,33 +258,6 @@ fn collect_members(
         });
     }
     Ok(reconciled)
-}
-
-fn validate_member_record(
-    identity: &ledger::RuntimeIdentity,
-    team: &team_state::TeamStateV1,
-    member: &team_state::TeamMemberV1,
-    record: &subagent::SubagentRecordV1,
-) -> Result<(), AppError> {
-    if record.project_id != identity.project_id
-        || record.session_id != identity.session_id
-        || record.parent_workflow_id != team.parent_workflow_id
-        || record.parent_revision != team.parent_revision
-        || record.parent_artifact_hash != team.parent_artifact_hash
-        || record.status != subagent::SubagentStatus::Completed
-        || record.role.as_str() != member.role
-        || record.task_hash != member.task_hash
-        || record.declared_tools != member.tools
-        || record.read_paths != member.read_paths
-        || record.write_paths != member.write_paths
-        || record.timeout_ms != member.timeout_ms
-        || record.requested_max_tokens != member.max_tokens
-    {
-        return Err(AppError::blocked(
-            "team reconciliation worker immutable binding 불일치",
-        ));
-    }
-    Ok(())
 }
 
 fn verify_stop_inputs(

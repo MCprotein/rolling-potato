@@ -6,7 +6,7 @@ use crate::runtime_core::collaboration::team_state::{
     TEAM_SCHEMA_VERSION,
 };
 pub(crate) use crate::runtime_core::collaboration::team_state::{
-    parse_manifest, TeamManifestV1, TeamMemberV1, TeamStage, TeamStateV1,
+    parse_manifest, TeamManifestV1, TeamStage, TeamStateV1,
 };
 use crate::{
     adapters::filesystem::layout as paths, adapters::filesystem::lease, ledger, observability,

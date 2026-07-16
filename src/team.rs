@@ -1,15 +1,16 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::collaboration::team::{
-    admission_event_type, admission_summary, continuation_decision, dispatch_event_type,
-    dispatch_status, dispatch_summary, governor_event_type, governor_status, governor_summary,
-    is_team_runtime_event, overall_status, pressure_from_status,
+    admission_event_type, admission_summary, continuation_decision, decision_label,
+    dispatch_event_type, dispatch_status, dispatch_summary, evaluate_ownership_gate,
+    evaluate_policy_gate, governor_event_type, governor_status, governor_summary,
+    is_team_runtime_event, overall_status, policy_write_paths, pressure_from_status,
+    OwnershipCheck, OwnershipClaim, OwnershipGate, PolicyCheck, PolicyGate,
 };
 use crate::runtime_core::inference::resource;
 use crate::{
     adapters::filesystem::layout as paths, approval, ledger, observability, policy, state,
     team_state,
 };
-use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 
 pub fn status_report() -> Result<String, AppError> {
@@ -108,8 +109,11 @@ pub fn admission_report(
         .unwrap_or(resource::ResourcePressure::Unknown);
     let decision = resource::team_lane_decision(pressure, requested_lanes);
     let policy_write_paths = policy_write_paths(write_paths, owned_write_paths);
-    let policy_gate = policy_preflight(&policy_write_paths, commands)?;
-    let ownership_gate = ownership_preflight(decision.admitted_lanes, owned_write_paths)?;
+    let policy_gate = evaluate_policy_gate(classify_policy_inputs(&policy_write_paths, commands)?);
+    let ownership_gate = evaluate_ownership_gate(
+        decision.admitted_lanes,
+        normalize_ownership_claims(owned_write_paths)?,
+    );
     let blocked_by_resource = decision.is_blocked();
     let blocked_by_policy = policy_gate.is_blocked();
     let blocked_by_ownership = ownership_gate.is_blocked();
@@ -232,7 +236,10 @@ pub fn dispatch_report(
         .map(|sample| pressure_from_status(&sample.pressure_status))
         .unwrap_or(resource::ResourcePressure::Unknown);
     let lane_decision = resource::team_lane_decision(pressure, requested_lanes);
-    let ownership_gate = ownership_preflight(lane_decision.admitted_lanes, owned_write_paths)?;
+    let ownership_gate = evaluate_ownership_gate(
+        lane_decision.admitted_lanes,
+        normalize_ownership_claims(owned_write_paths)?,
+    );
     let continuation = continuation_decision(
         lane_decision.admitted_lanes,
         failed_lane,
@@ -456,77 +463,15 @@ fn latest_team_runtime_event(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct PolicyGate {
-    status: &'static str,
-    checks: Vec<PolicyCheck>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct PolicyCheck {
-    target_type: &'static str,
-    target: String,
-    decision: policy::Decision,
-    class: &'static str,
-    approval_prompt: &'static str,
-    reason: String,
-}
-
-impl PolicyGate {
-    fn is_blocked(&self) -> bool {
-        matches!(self.status, "approval-required" | "blocked")
-    }
-
-    fn blocked_label(&self) -> &'static str {
-        if self.is_blocked() {
-            "yes"
-        } else {
-            "no"
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct OwnershipGate {
-    status: &'static str,
-    checks: Vec<OwnershipCheck>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct OwnershipCheck {
-    lane: u32,
-    raw_path: String,
-    normalized_path: String,
-    status: &'static str,
-    reason: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 struct RecordedApprovalRequest {
     request_id: String,
     path: PathBuf,
 }
 
-impl OwnershipGate {
-    fn is_blocked(&self) -> bool {
-        matches!(self.status, "invalid" | "conflict")
-    }
-
-    fn blocked_label(&self) -> &'static str {
-        if self.is_blocked() {
-            "yes"
-        } else {
-            "no"
-        }
-    }
-}
-
-fn policy_write_paths(write_paths: &[String], owned_write_paths: &[(u32, String)]) -> Vec<String> {
-    let mut paths = write_paths.to_vec();
-    paths.extend(owned_write_paths.iter().map(|(_, path)| path.clone()));
-    paths
-}
-
-fn policy_preflight(write_paths: &[String], commands: &[String]) -> Result<PolicyGate, AppError> {
+fn classify_policy_inputs(
+    write_paths: &[String],
+    commands: &[String],
+) -> Result<Vec<PolicyCheck>, AppError> {
     let mut checks = Vec::new();
     for path in write_paths {
         let decision = policy::classify_path(policy::PathMode::Write, path)?;
@@ -551,77 +496,22 @@ fn policy_preflight(write_paths: &[String], commands: &[String]) -> Result<Polic
         });
     }
 
-    let status = if checks.is_empty() {
-        "not-requested"
-    } else if checks
-        .iter()
-        .any(|check| check.decision == policy::Decision::Deny)
-    {
-        "blocked"
-    } else if checks
-        .iter()
-        .any(|check| check.decision == policy::Decision::Ask)
-    {
-        "approval-required"
-    } else {
-        "allowed"
-    };
-
-    Ok(PolicyGate { status, checks })
+    Ok(checks)
 }
 
-fn ownership_preflight(
-    admitted_lanes: u32,
+fn normalize_ownership_claims(
     owned_write_paths: &[(u32, String)],
-) -> Result<OwnershipGate, AppError> {
-    if owned_write_paths.is_empty() {
-        return Ok(OwnershipGate {
-            status: "not-requested",
-            checks: Vec::new(),
-        });
-    }
-
-    let mut owners: HashMap<String, u32> = HashMap::new();
-    let mut checks = Vec::new();
+) -> Result<Vec<OwnershipClaim>, AppError> {
+    let mut claims = Vec::new();
     for (lane, raw_path) in owned_write_paths {
         let normalized_path = normalize_ownership_path(raw_path)?;
-        let mut status = "assigned";
-        let mut reason = "write path assigned to lane before dispatch".to_string();
-
-        if *lane > admitted_lanes {
-            status = "invalid";
-            reason = format!(
-                "lane {lane} exceeds admitted lanes {admitted_lanes}; reduce lanes or wait for resources"
-            );
-        } else if let Some(existing_lane) = owners.get(&normalized_path) {
-            if *existing_lane != *lane {
-                status = "conflict";
-                reason = format!(
-                    "path already owned by lane {existing_lane}; cross-lane writes are blocked"
-                );
-            }
-        } else {
-            owners.insert(normalized_path.clone(), *lane);
-        }
-
-        checks.push(OwnershipCheck {
+        claims.push(OwnershipClaim {
             lane: *lane,
             raw_path: raw_path.clone(),
             normalized_path,
-            status,
-            reason,
         });
     }
-
-    let status = if checks.iter().any(|check| check.status == "conflict") {
-        "conflict"
-    } else if checks.iter().any(|check| check.status == "invalid") {
-        "invalid"
-    } else {
-        "allocated"
-    };
-
-    Ok(OwnershipGate { status, checks })
+    Ok(claims)
 }
 
 fn normalize_ownership_path(raw_path: &str) -> Result<String, AppError> {
@@ -799,14 +689,6 @@ fn format_ownership_checks(checks: &[OwnershipCheck]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-fn decision_label(decision: policy::Decision) -> &'static str {
-    match decision {
-        policy::Decision::Allow => "allow",
-        policy::Decision::Ask => "ask",
-        policy::Decision::Deny => "deny",
-    }
 }
 
 fn display_list(values: &[String]) -> String {

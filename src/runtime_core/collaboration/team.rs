@@ -1,6 +1,155 @@
 //! Team admission, dispatch, continuation, and governor decision policy.
 
 use crate::runtime_core::inference::resource;
+use crate::runtime_core::policy::decision::Decision;
+use std::collections::HashMap;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PolicyGate {
+    pub status: &'static str,
+    pub checks: Vec<PolicyCheck>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PolicyCheck {
+    pub target_type: &'static str,
+    pub target: String,
+    pub decision: Decision,
+    pub class: &'static str,
+    pub approval_prompt: &'static str,
+    pub reason: String,
+}
+
+impl PolicyGate {
+    pub(crate) fn is_blocked(&self) -> bool {
+        matches!(self.status, "approval-required" | "blocked")
+    }
+
+    pub(crate) fn blocked_label(&self) -> &'static str {
+        if self.is_blocked() {
+            "yes"
+        } else {
+            "no"
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct OwnershipGate {
+    pub status: &'static str,
+    pub checks: Vec<OwnershipCheck>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct OwnershipCheck {
+    pub lane: u32,
+    pub raw_path: String,
+    pub normalized_path: String,
+    pub status: &'static str,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct OwnershipClaim {
+    pub lane: u32,
+    pub raw_path: String,
+    pub normalized_path: String,
+}
+
+impl OwnershipGate {
+    pub(crate) fn is_blocked(&self) -> bool {
+        matches!(self.status, "invalid" | "conflict")
+    }
+
+    pub(crate) fn blocked_label(&self) -> &'static str {
+        if self.is_blocked() {
+            "yes"
+        } else {
+            "no"
+        }
+    }
+}
+
+pub(crate) fn policy_write_paths(
+    write_paths: &[String],
+    owned_write_paths: &[(u32, String)],
+) -> Vec<String> {
+    let mut paths = write_paths.to_vec();
+    paths.extend(owned_write_paths.iter().map(|(_, path)| path.clone()));
+    paths
+}
+
+pub(crate) fn evaluate_policy_gate(checks: Vec<PolicyCheck>) -> PolicyGate {
+    let status = if checks.is_empty() {
+        "not-requested"
+    } else if checks.iter().any(|check| check.decision == Decision::Deny) {
+        "blocked"
+    } else if checks.iter().any(|check| check.decision == Decision::Ask) {
+        "approval-required"
+    } else {
+        "allowed"
+    };
+    PolicyGate { status, checks }
+}
+
+pub(crate) fn evaluate_ownership_gate(
+    admitted_lanes: u32,
+    claims: Vec<OwnershipClaim>,
+) -> OwnershipGate {
+    if claims.is_empty() {
+        return OwnershipGate {
+            status: "not-requested",
+            checks: Vec::new(),
+        };
+    }
+
+    let mut owners: HashMap<String, u32> = HashMap::new();
+    let mut checks = Vec::new();
+    for claim in claims {
+        let mut status = "assigned";
+        let mut reason = "write path assigned to lane before dispatch".to_string();
+        if claim.lane > admitted_lanes {
+            status = "invalid";
+            reason = format!(
+                "lane {} exceeds admitted lanes {admitted_lanes}; reduce lanes or wait for resources",
+                claim.lane
+            );
+        } else if let Some(existing_lane) = owners.get(&claim.normalized_path) {
+            if *existing_lane != claim.lane {
+                status = "conflict";
+                reason = format!(
+                    "path already owned by lane {existing_lane}; cross-lane writes are blocked"
+                );
+            }
+        } else {
+            owners.insert(claim.normalized_path.clone(), claim.lane);
+        }
+        checks.push(OwnershipCheck {
+            lane: claim.lane,
+            raw_path: claim.raw_path,
+            normalized_path: claim.normalized_path,
+            status,
+            reason,
+        });
+    }
+
+    let status = if checks.iter().any(|check| check.status == "conflict") {
+        "conflict"
+    } else if checks.iter().any(|check| check.status == "invalid") {
+        "invalid"
+    } else {
+        "allocated"
+    };
+    OwnershipGate { status, checks }
+}
+
+pub(crate) fn decision_label(decision: Decision) -> &'static str {
+    match decision {
+        Decision::Allow => "allow",
+        Decision::Ask => "ask",
+        Decision::Deny => "deny",
+    }
+}
 
 pub(crate) fn pressure_from_status(value: &str) -> resource::ResourcePressure {
     match value {

@@ -1,8 +1,9 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::collaboration::team::pressure_from_status;
 use crate::runtime_core::collaboration::team_execution::{
-    detail_token, execution_mode, validate_action_owner, validate_execution_binding,
-    validate_execution_stage, RuntimeIdentityBinding,
+    detail_token, execution_mode, record_matches_team, validate_action_owner,
+    validate_completed_member_binding, validate_execution_binding, validate_execution_stage,
+    ExecutionLaunchBinding, RuntimeIdentityBinding,
 };
 use crate::runtime_core::inference::resource;
 use crate::{
@@ -299,7 +300,23 @@ fn recover_or_admit_execution(
             );
         }
         let record = subagent::load_record(subagent_id)?;
-        if !record_matches_team(identity, team, launch, &record) {
+        if !record_matches_team(
+            &RuntimeIdentityBinding {
+                project_id: &identity.project_id,
+                session_id: &identity.session_id,
+            },
+            team,
+            &ExecutionLaunchBinding {
+                role: &launch.role,
+                task: &launch.task,
+                declared_tools: &launch.declared_tools,
+                read_paths: &launch.read_paths,
+                write_paths: &launch.write_paths,
+                timeout_ms: launch.timeout_ms,
+                max_tokens: launch.max_tokens,
+            },
+            &record,
+        ) {
             return fail_interrupted_execution(
                 team,
                 vec![record.subagent_id],
@@ -406,26 +423,6 @@ fn admitted_worker_bindings(
     Ok(bindings)
 }
 
-fn record_matches_team(
-    identity: &ledger::RuntimeIdentity,
-    team: &team_state::TeamStateV1,
-    launch: &subagent::TeamMemberLaunch,
-    record: &subagent::SubagentRecordV1,
-) -> bool {
-    record.project_id == identity.project_id
-        && record.session_id == identity.session_id
-        && record.parent_workflow_id == team.parent_workflow_id
-        && record.parent_revision == team.parent_revision
-        && record.parent_artifact_hash == team.parent_artifact_hash
-        && record.role.as_str() == launch.role
-        && record.task_hash == crate::state::sha256_text(launch.task.trim())
-        && record.declared_tools == launch.declared_tools
-        && record.read_paths == launch.read_paths
-        && record.write_paths == launch.write_paths
-        && record.timeout_ms == launch.timeout_ms
-        && record.requested_max_tokens == launch.max_tokens
-}
-
 fn fail_interrupted_execution(
     team: &team_state::TeamStateV1,
     subagent_ids: Vec<String>,
@@ -454,18 +451,7 @@ fn enforce_action_ownership(
         .find(|member| member.lane == completed.lane && member.member_id == completed.member_id)
         .ok_or_else(|| AppError::blocked("team completed member manifest binding 누락"))?;
     let record = &completed.record;
-    if record.role.as_str() != member.role
-        || record.task_hash != member.task_hash
-        || record.declared_tools != member.tools
-        || record.read_paths != member.read_paths
-        || record.write_paths != member.write_paths
-        || record.timeout_ms != member.timeout_ms
-        || record.requested_max_tokens != member.max_tokens
-    {
-        return Err(AppError::blocked(
-            "team completed member immutable launch binding 불일치",
-        ));
-    }
+    validate_completed_member_binding(member, record)?;
     let result = crate::subagent_result::load_completed_result(record)?;
     let Some(patch) = result.patch_proposal else {
         return Ok(None);
