@@ -2,6 +2,6 @@
 
 pub(crate) mod filesystem;
 pub(crate) mod llama_cpp;
-mod process;
+pub(crate) mod process;
 mod sqlite;
 pub(crate) mod terminal;

@@ -1707,13 +1707,20 @@
           "release": "0.37.3",
           "state": "planned",
           "evidence": []
-        },
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/process/backend.rs",
+      "slices": [
         {
           "responsibility": "backend process lifecycle",
           "target": "src/adapters/process/backend.rs",
           "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/adapters/process/backend.rs"
+          ]
         }
       ]
     },
@@ -3433,7 +3440,12 @@
       "path": "src/backend.rs",
       "responsibilities": [
         "inference backend use cases",
-        "llama.cpp discovery installation and protocol",
+        "llama.cpp discovery installation and protocol"
+      ]
+    },
+    {
+      "path": "src/adapters/process/backend.rs",
+      "responsibilities": [
         "backend process lifecycle"
       ]
     },

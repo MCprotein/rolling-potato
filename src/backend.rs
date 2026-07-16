@@ -11,6 +11,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::llama_cpp::stream as backend_stream;
+use crate::adapters::process::backend as backend_process;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::inference::backend::BackendAdapter;
@@ -519,7 +520,7 @@ pub fn status_report() -> Result<String, AppError> {
         ));
     };
 
-    let running = process_is_running(record.pid);
+    let running = backend_process::is_running(record.pid);
     let health = if running {
         Some(probe_health(
             &record.host,
@@ -593,7 +594,7 @@ pub fn stop_report() -> Result<String, AppError> {
         ));
     };
 
-    if !process_is_running(record.pid) {
+    if !backend_process::is_running(record.pid) {
         remove_file_if_exists(&backend_sidecar_record_path())?;
         let event_id = state::record_event(
             "backend.sidecar.stop.stale",
@@ -639,10 +640,10 @@ pub fn stop_report() -> Result<String, AppError> {
 
 fn terminate_process_with_fallback(pid: u32) -> Result<(), AppError> {
     terminate_with_fallback(
-        || terminate_process(pid, false),
-        || terminate_process(pid, true),
-        || process_running_status(pid),
-        || wait_until_process_stops_checked(pid, Duration::from_millis(STOP_TIMEOUT_MS)),
+        || backend_process::terminate(pid, false),
+        || backend_process::terminate(pid, true),
+        || backend_process::running_status(pid),
+        || backend_process::wait_until_stopped(pid, Duration::from_millis(STOP_TIMEOUT_MS)),
         pid,
     )
 }
@@ -682,7 +683,9 @@ fn terminate_with_fallback(
 fn cancel_active_generation_before_stop(record: &BackendSidecarRecord) -> Result<String, AppError> {
     let mut generation_outcome = "none".to_string();
     if let Some(generation) = read_backend_generation_record()? {
-        if generation.sidecar_pid == record.pid && process_is_running(generation.client_pid) {
+        if generation.sidecar_pid == record.pid
+            && backend_process::is_running(generation.client_pid)
+        {
             write_generation_cancel_marker(&generation.generation_id)?;
             state::record_event(
                 "backend.generation.cancel.requested",
@@ -953,7 +956,7 @@ fn ready_sidecar_record() -> Result<BackendSidecarRecord, AppError> {
             backend_sidecar_record_path().display()
         )));
     };
-    if !process_is_running(record.pid) {
+    if !backend_process::is_running(record.pid) {
         return Err(AppError::blocked(format!(
             "backend chat 차단\n- 이유: sidecar record는 있지만 process가 실행 중이 아닙니다.\n- pid: {}\n- 다음 단계: rpotato backend stop으로 stale record를 정리한 뒤 다시 시작하세요.",
             record.pid
@@ -1418,7 +1421,7 @@ pub fn cancel_generation_report() -> Result<String, AppError> {
             backend_generation_record_path().display()
         ));
     };
-    if !process_is_running(record.client_pid) {
+    if !backend_process::is_running(record.client_pid) {
         remove_generation_state_if_owned(&record.generation_id);
         let event_id = state::record_event(
             "backend.generation.stale.cleaned",
@@ -2395,7 +2398,7 @@ fn begin_active_generation(
     prune_generation_terminal_records();
     let mut publish_primary = true;
     if let Some(active) = read_backend_generation_record()? {
-        if process_is_running(active.client_pid) {
+        if backend_process::is_running(active.client_pid) {
             if active.client_pid == std::process::id()
                 && active.sidecar_pid == sidecar.pid
                 && !admission.active_generation_ids.is_empty()
@@ -2420,7 +2423,7 @@ fn begin_active_generation(
             )?;
         }
     } else if let Some(lock) = read_backend_generation_lock_record()? {
-        if process_is_running(lock.client_pid) {
+        if backend_process::is_running(lock.client_pid) {
             return Err(AppError::blocked(format!(
                 "backend chat 차단\n- 이유: generation lease가 publish 중입니다.\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- 다음 단계: 잠시 후 다시 시도하거나 rpotato backend cancel",
                 lock.generation_id, lock.client_pid, lock.sidecar_pid
@@ -2857,7 +2860,7 @@ fn start_sidecar_with_timeout(
     }
 
     if let Some(record) = read_backend_sidecar_record()? {
-        if process_is_running(record.pid) {
+        if backend_process::is_running(record.pid) {
             let resource_sample = record_backend_resource_sample(&record, "start-existing")?;
             return Ok(format!(
                 "backend start\n- status: already-running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}",
@@ -2926,7 +2929,7 @@ fn start_sidecar_with_timeout(
     if let Some(ctx_size) = ctx_size {
         command.arg("--ctx-size").arg(ctx_size.to_string());
     }
-    configure_sidecar_process(&mut command);
+    backend_process::configure_child(&mut command);
     let mut child = command
         .stdin(Stdio::null())
         .stdout(Stdio::from(stdout_file))
@@ -3095,16 +3098,6 @@ fn canonical_existing_file(path: &str, label: &str) -> Result<PathBuf, AppError>
         ))
     })
 }
-
-#[cfg(unix)]
-fn configure_sidecar_process(command: &mut Command) {
-    use std::os::unix::process::CommandExt;
-
-    command.process_group(0);
-}
-
-#[cfg(not(unix))]
-fn configure_sidecar_process(_command: &mut Command) {}
 
 fn create_log_file(path: &Path) -> Result<File, AppError> {
     OpenOptions::new()
@@ -3513,88 +3506,8 @@ fn normalize_version_output(stdout: &[u8], stderr: &[u8]) -> Option<String> {
 }
 
 #[cfg(unix)]
-fn process_is_running(pid: u32) -> bool {
-    process_running_status(pid).unwrap_or(false)
-}
-
-#[cfg(unix)]
-fn process_running_status(pid: u32) -> Result<bool, AppError> {
-    let Some(pid_arg) = unix_pid_arg(pid) else {
-        return Ok(false);
-    };
-    if process_is_zombie_arg(&pid_arg) {
-        return Ok(false);
-    }
-    Command::new("kill")
-        .arg("-0")
-        .arg(&pid_arg)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|status| status.success())
-        .map_err(|err| AppError::runtime(format!("backend process 상태 확인 실패: {err}")))
-}
-
-#[cfg(unix)]
-fn process_is_zombie_arg(pid_arg: &str) -> bool {
-    Command::new("ps")
-        .arg("-p")
-        .arg(pid_arg)
-        .arg("-o")
-        .arg("stat=")
-        .output()
-        .map(|output| {
-            String::from_utf8_lossy(&output.stdout)
-                .trim_start()
-                .starts_with('Z')
-        })
-        .unwrap_or(false)
-}
-
-#[cfg(unix)]
-fn unix_pid_arg(pid: u32) -> Option<String> {
-    if pid == 0 || pid > i32::MAX as u32 {
-        None
-    } else {
-        Some(pid.to_string())
-    }
-}
-
-#[cfg(windows)]
-fn process_is_running(pid: u32) -> bool {
-    process_running_status(pid).unwrap_or(false)
-}
-
-#[cfg(windows)]
-fn process_running_status(pid: u32) -> Result<bool, AppError> {
-    let output = Command::new("tasklist")
-        .arg("/FI")
-        .arg(format!("PID eq {pid}"))
-        .output()
-        .map_err(|err| AppError::runtime(format!("backend process 상태 확인 실패: {err}")))?;
-    if !output.status.success() {
-        return Err(AppError::runtime(format!(
-            "backend process 상태 확인 명령이 실패했습니다: pid={pid}"
-        )));
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).contains(&pid.to_string()))
-}
-
-#[cfg(not(any(unix, windows)))]
-fn process_is_running(_pid: u32) -> bool {
-    false
-}
-
-#[cfg(not(any(unix, windows)))]
-fn process_running_status(_pid: u32) -> Result<bool, AppError> {
-    Err(AppError::blocked(
-        "현재 platform에서는 backend process 상태 확인을 지원하지 않습니다.",
-    ))
-}
-
-#[cfg(unix)]
 fn process_command_matches_record(record: &BackendSidecarRecord) -> bool {
-    let Some(pid_arg) = unix_pid_arg(record.pid) else {
+    let Some(pid_arg) = backend_process::unix_pid_arg(record.pid) else {
         return false;
     };
     let Ok(output) = Command::new("ps")
@@ -3634,71 +3547,6 @@ fn process_command_matches_record(record: &BackendSidecarRecord) -> bool {
 #[cfg(not(any(unix, windows)))]
 fn process_command_matches_record(_record: &BackendSidecarRecord) -> bool {
     false
-}
-
-#[cfg(unix)]
-fn terminate_process(pid: u32, force: bool) -> Result<(), AppError> {
-    let Some(pid_arg) = unix_pid_arg(pid) else {
-        return Err(AppError::runtime(format!(
-            "backend process 종료 명령이 실패했습니다: invalid unix pid={pid}"
-        )));
-    };
-    let mut command = Command::new("kill");
-    if force {
-        command.arg("-9");
-    }
-    let status = command
-        .arg(pid_arg)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|err| AppError::runtime(format!("backend process 종료 명령 실패: {err}")))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(AppError::runtime(format!(
-            "backend process 종료 명령이 실패했습니다: pid={pid}"
-        )))
-    }
-}
-
-#[cfg(windows)]
-fn terminate_process(pid: u32, force: bool) -> Result<(), AppError> {
-    let mut command = Command::new("taskkill");
-    command.arg("/PID").arg(pid.to_string()).arg("/T");
-    if force {
-        command.arg("/F");
-    }
-    let status = command
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|err| AppError::runtime(format!("backend process 종료 명령 실패: {err}")))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(AppError::runtime(format!(
-            "backend process 종료 명령이 실패했습니다: pid={pid}"
-        )))
-    }
-}
-
-#[cfg(not(any(unix, windows)))]
-fn terminate_process(_pid: u32, _force: bool) -> Result<(), AppError> {
-    Err(AppError::blocked(
-        "현재 platform에서는 backend process stop을 지원하지 않습니다.",
-    ))
-}
-
-fn wait_until_process_stops_checked(pid: u32, timeout: Duration) -> Result<bool, AppError> {
-    let started_at = Instant::now();
-    while started_at.elapsed() < timeout {
-        if !process_running_status(pid)? {
-            return Ok(true);
-        }
-        std::thread::sleep(Duration::from_millis(100));
-    }
-    Ok(!process_running_status(pid)?)
 }
 
 fn selected_backend_release_artifact(
@@ -4593,10 +4441,10 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn unix_pid_arg_rejects_wrapping_values() {
-        assert_eq!(unix_pid_arg(0), None);
-        assert_eq!(unix_pid_arg(u32::MAX), None);
+        assert_eq!(backend_process::unix_pid_arg(0), None);
+        assert_eq!(backend_process::unix_pid_arg(u32::MAX), None);
         assert_eq!(
-            unix_pid_arg(i32::MAX as u32),
+            backend_process::unix_pid_arg(i32::MAX as u32),
             Some((i32::MAX as u32).to_string())
         );
     }
