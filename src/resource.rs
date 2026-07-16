@@ -1,9 +1,12 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 const KIB_BYTES: u64 = 1024;
 const GIB_BYTES: u64 = 1024 * 1024 * 1024;
+const PROCESS_SAMPLE_COMMAND_TIMEOUT: Duration = Duration::from_secs(2);
 const DEGRADED_CPU_PERCENT: f64 = 80.0;
 const CRITICAL_CPU_PERCENT: f64 = 95.0;
 const DEGRADED_RSS_BYTES: u64 = 8 * GIB_BYTES;
@@ -603,15 +606,15 @@ pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> Optimizat
 
 #[cfg(unix)]
 fn process_cpu_and_rss(pid: u32) -> (Option<f64>, Option<u64>) {
-    let Ok(output) = Command::new("ps")
+    let mut command = Command::new("ps");
+    command
         .arg("-o")
         .arg("%cpu=")
         .arg("-o")
         .arg("rss=")
         .arg("-p")
-        .arg(pid.to_string())
-        .output()
-    else {
+        .arg(pid.to_string());
+    let Some(output) = bounded_command_output(&mut command, PROCESS_SAMPLE_COMMAND_TIMEOUT) else {
         return (None, None);
     };
     if !output.status.success() {
@@ -624,17 +627,16 @@ fn process_cpu_and_rss(pid: u32) -> (Option<f64>, Option<u64>) {
 #[cfg(windows)]
 fn process_cpu_and_rss(pid: u32) -> (Option<f64>, Option<u64>) {
     let query = format!("ProcessId={pid}");
-    let Ok(output) = Command::new("wmic")
-        .args([
-            "process",
-            "where",
-            query.as_str(),
-            "get",
-            "WorkingSetSize,PeakWorkingSetSize",
-            "/format:list",
-        ])
-        .output()
-    else {
+    let mut command = Command::new("wmic");
+    command.args([
+        "process",
+        "where",
+        query.as_str(),
+        "get",
+        "WorkingSetSize,PeakWorkingSetSize",
+        "/format:list",
+    ]);
+    let Some(output) = bounded_command_output(&mut command, PROCESS_SAMPLE_COMMAND_TIMEOUT) else {
         return (None, None);
     };
     if !output.status.success() {
@@ -656,6 +658,31 @@ fn process_cpu_and_rss(pid: u32) -> (Option<f64>, Option<u64>) {
 #[cfg(not(any(unix, windows)))]
 fn process_cpu_and_rss(_pid: u32) -> (Option<f64>, Option<u64>) {
     (None, None)
+}
+
+fn bounded_command_output(command: &mut Command, timeout: Duration) -> Option<Output> {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    let mut child = command.spawn().ok()?;
+    let deadline = Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => return child.wait_with_output().ok(),
+            Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+        }
+    }
 }
 
 fn parse_ps_cpu_rss(contents: &str) -> (Option<f64>, Option<u64>) {
@@ -778,6 +805,17 @@ mod tests {
 
         assert_eq!(cpu, Some(12.7));
         assert_eq!(rss, Some(4 * 1024 * 1024));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn process_sample_command_timeout_is_bounded() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "sleep 5"]);
+        let started = Instant::now();
+
+        assert!(bounded_command_output(&mut command, Duration::from_millis(50)).is_none());
+        assert!(started.elapsed() < Duration::from_secs(2));
     }
 
     #[test]
