@@ -65,6 +65,11 @@ The v0.37.3 inference boundary now owns backend/model/benchmark/resource rules,
 durable inference codecs, and llama.cpp/process/filesystem implementations in
 these private roots. The remaining top-level inference command/report modules
 are compatibility facades scheduled for final composition cleanup in v0.37.13.
+The v0.37.4 workflow storage-compatibility boundary now owns canonical workflow
+snapshots and pointers, ledger event encoding/hashing/append, and transcript
+record encoding/validation/install. Existing top-level modules retain path,
+locking, transaction, recovery, projection, and command orchestration scheduled
+for their later migration slices.
 
 ## Dependency direction
 
@@ -111,10 +116,12 @@ migration ledger.
 
 ## Durable workflow boundary
 
-The byte-compatible `WorkflowRecord` and related persisted aggregates retain one
-canonical codec owner under the future `runtime_core/workflow/storage_compat`
-boundary. Domain views and commands validate those records; they do not redefine
-or independently serialize them during the train.
+The byte-compatible `WorkflowRecord`, ledger events, and transcript records now
+have one canonical codec owner under `runtime_core/workflow/storage_compat`.
+Domain views and commands validate those records; they do not redefine or
+independently serialize them during the train. Storage compatibility integration
+tests lock workflow snapshot/pointer bytes, ledger append order/hash chains and
+failure boundaries, and transcript exact/idempotent/immutable installation.
 
 One workflow application transaction coordinator owns cross-store ordering:
 

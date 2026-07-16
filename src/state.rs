@@ -12,10 +12,22 @@ use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, RuntimeIdentity};
 use crate::observability::SessionHistoryEntry;
 use crate::observability::{self, StoreStatus};
+use crate::runtime_core::workflow::storage_compat::record::WorkflowPointer;
+pub use crate::runtime_core::workflow::storage_compat::record::WorkflowRecord;
+use crate::runtime_core::workflow::storage_compat::record::{
+    payload as workflow_payload, render as render_workflow,
+};
+#[cfg(test)]
+use crate::runtime_core::workflow::storage_compat::record::{
+    payload_v2 as workflow_payload_v2, payload_v3 as workflow_payload_v3,
+    render_v2 as render_workflow_v2, render_v3 as render_workflow_v3,
+};
 use sha2::{Digest, Sha256};
 
 const WORKFLOW_SCHEMA_VERSION: u64 = 4;
+#[cfg(test)]
 const PREVIOUS_WORKFLOW_SCHEMA_VERSION: u64 = 3;
+#[cfg(test)]
 const LEGACY_WORKFLOW_SCHEMA_VERSION: u64 = 2;
 const MAX_WORKFLOW_POINTER_BYTES: u64 = 64 * 1024;
 const MAX_WORKFLOW_SNAPSHOT_BYTES: u64 = 512 * 1024;
@@ -128,96 +140,6 @@ pub(crate) struct PreparedTerminalSource {
     pub plan: crate::transition::SourceInstallV1,
     pub before: Vec<u8>,
     pub proposed: Vec<u8>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WorkflowRecord {
-    pub workflow_id: String,
-    pub revision: u64,
-    pub previous_hash: String,
-    pub artifact_hash: String,
-    pub project_id: String,
-    pub session_id: String,
-    pub phase: String,
-    pub request_hash: String,
-    pub workflow_kind: String,
-    pub active_skill_id: String,
-    pub skill_invocation: String,
-    pub skill_state: String,
-    pub skill_completed_hooks: String,
-    pub skill_evidence: String,
-    pub skill_stop_criteria: String,
-    pub action_id: String,
-    pub action_kind: String,
-    pub action_status: String,
-    pub result_summary: String,
-    pub source_path: String,
-    pub source_hash: String,
-    pub find_text: String,
-    pub replace_text: String,
-    pub proposal_id: String,
-    pub proposal_hash: String,
-    pub approval_credential_hash: String,
-    pub before_hash: String,
-    pub after_hash: String,
-    pub verification_plan: String,
-    pub approval_state: String,
-    pub verification_credential_hash: String,
-    pub verification_approval_state: String,
-    pub evidence_id: String,
-    pub evidence_hash: String,
-    pub failure_reason: String,
-}
-
-impl WorkflowRecord {
-    pub fn new(identity: &RuntimeIdentity, request: &str) -> Self {
-        let nonce = format!("{}\n{}\n{}", identity.session_id, request, now_ms());
-        let workflow_id = format!("workflow-{}", &sha256_text(&nonce)[..20]);
-        Self {
-            action_id: format!(
-                "action-{}",
-                &sha256_text(&format!("{workflow_id}\naction"))[..20]
-            ),
-            workflow_id,
-            revision: 0,
-            previous_hash: "none".to_string(),
-            artifact_hash: String::new(),
-            project_id: identity.project_id.clone(),
-            session_id: identity.session_id.clone(),
-            phase: "model-pending".to_string(),
-            request_hash: sha256_text(request),
-            workflow_kind: "agent-run".to_string(),
-            active_skill_id: String::new(),
-            skill_invocation: String::new(),
-            skill_state: String::new(),
-            skill_completed_hooks: String::new(),
-            skill_evidence: String::new(),
-            skill_stop_criteria: String::new(),
-            action_kind: "unclassified".to_string(),
-            action_status: "runtime-candidate".to_string(),
-            result_summary: String::new(),
-            source_path: String::new(),
-            source_hash: String::new(),
-            find_text: String::new(),
-            replace_text: String::new(),
-            proposal_id: String::new(),
-            proposal_hash: String::new(),
-            approval_credential_hash: String::new(),
-            before_hash: String::new(),
-            after_hash: String::new(),
-            verification_plan: String::new(),
-            approval_state: "not-requested".to_string(),
-            verification_credential_hash: String::new(),
-            verification_approval_state: "not-issued".to_string(),
-            evidence_id: String::new(),
-            evidence_hash: String::new(),
-            failure_reason: String::new(),
-        }
-    }
-
-    pub fn is_terminal(&self) -> bool {
-        matches!(self.phase.as_str(), "complete" | "failed" | "cancelled")
-    }
 }
 
 pub fn create_workflow(request: &str) -> Result<WorkflowRecord, AppError> {
@@ -3862,240 +3784,6 @@ impl ReconcileOutcome {
     }
 }
 
-fn workflow_payload(record: &WorkflowRecord) -> String {
-    format!(
-        "schema_version={WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\nactive_skill_id={}\nskill_invocation={}\nskill_state={}\nskill_completed_hooks={}\nskill_evidence={}\nskill_stop_criteria={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nverification_credential_hash={}\nverification_approval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
-        record.workflow_id,
-        record.revision,
-        record.previous_hash,
-        record.project_id,
-        record.session_id,
-        record.phase,
-        record.request_hash,
-        record.workflow_kind,
-        record.active_skill_id,
-        record.skill_invocation,
-        record.skill_state,
-        record.skill_completed_hooks,
-        record.skill_evidence,
-        record.skill_stop_criteria,
-        record.action_id,
-        record.action_kind,
-        record.action_status,
-        record.result_summary,
-        record.source_path,
-        record.source_hash,
-        record.find_text,
-        record.replace_text,
-        record.proposal_id,
-        record.proposal_hash,
-        record.approval_credential_hash,
-        record.before_hash,
-        record.after_hash,
-        record.verification_plan,
-        record.approval_state,
-        record.verification_credential_hash,
-        record.verification_approval_state,
-        record.evidence_id,
-        record.evidence_hash,
-        record.failure_reason
-    )
-}
-
-fn workflow_payload_v2(record: &WorkflowRecord) -> String {
-    format!(
-        "schema_version={LEGACY_WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
-        record.workflow_id,
-        record.revision,
-        record.previous_hash,
-        record.project_id,
-        record.session_id,
-        record.phase,
-        record.request_hash,
-        record.workflow_kind,
-        record.action_id,
-        record.action_kind,
-        record.action_status,
-        record.result_summary,
-        record.source_path,
-        record.source_hash,
-        record.find_text,
-        record.replace_text,
-        record.proposal_id,
-        record.proposal_hash,
-        record.approval_credential_hash,
-        record.before_hash,
-        record.after_hash,
-        record.verification_plan,
-        record.approval_state,
-        record.evidence_id,
-        record.evidence_hash,
-        record.failure_reason
-    )
-}
-
-fn workflow_payload_v3(record: &WorkflowRecord) -> String {
-    format!(
-        "schema_version={PREVIOUS_WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nverification_credential_hash={}\nverification_approval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
-        record.workflow_id,
-        record.revision,
-        record.previous_hash,
-        record.project_id,
-        record.session_id,
-        record.phase,
-        record.request_hash,
-        record.workflow_kind,
-        record.action_id,
-        record.action_kind,
-        record.action_status,
-        record.result_summary,
-        record.source_path,
-        record.source_hash,
-        record.find_text,
-        record.replace_text,
-        record.proposal_id,
-        record.proposal_hash,
-        record.approval_credential_hash,
-        record.before_hash,
-        record.after_hash,
-        record.verification_plan,
-        record.approval_state,
-        record.verification_credential_hash,
-        record.verification_approval_state,
-        record.evidence_id,
-        record.evidence_hash,
-        record.failure_reason
-    )
-}
-
-fn render_workflow(record: &WorkflowRecord) -> String {
-    format!(
-        concat!(
-            "{{\n",
-            "  \"schema_version\": {},\n",
-            "  \"artifact_version\": \"workflow-v4\",\n",
-            "  \"workflow_id\": \"{}\",\n",
-            "  \"revision\": {},\n",
-            "  \"previous_hash\": \"{}\",\n",
-            "  \"artifact_hash\": \"{}\",\n",
-            "  \"project_id\": \"{}\",\n",
-            "  \"session_id\": \"{}\",\n",
-            "  \"phase\": \"{}\",\n",
-            "  \"request_hash\": \"{}\",\n",
-            "  \"workflow_kind\": \"{}\",\n",
-            "  \"active_skill_id\": \"{}\",\n",
-            "  \"skill_invocation\": \"{}\",\n",
-            "  \"skill_state\": \"{}\",\n",
-            "  \"skill_completed_hooks\": \"{}\",\n",
-            "  \"skill_evidence\": \"{}\",\n",
-            "  \"skill_stop_criteria\": \"{}\",\n",
-            "  \"action_id\": \"{}\",\n",
-            "  \"action_kind\": \"{}\",\n",
-            "  \"action_status\": \"{}\",\n",
-            "  \"result_summary\": \"{}\",\n",
-            "  \"source_path\": \"{}\",\n",
-            "  \"source_hash\": \"{}\",\n",
-            "  \"find_text\": \"{}\",\n",
-            "  \"replace_text\": \"{}\",\n",
-            "  \"proposal_id\": \"{}\",\n",
-            "  \"proposal_hash\": \"{}\",\n",
-            "  \"approval_credential_hash\": \"{}\",\n",
-            "  \"before_hash\": \"{}\",\n",
-            "  \"after_hash\": \"{}\",\n",
-            "  \"verification_plan\": \"{}\",\n",
-            "  \"approval_state\": \"{}\",\n",
-            "  \"verification_credential_hash\": \"{}\",\n",
-            "  \"verification_approval_state\": \"{}\",\n",
-            "  \"evidence_id\": \"{}\",\n",
-            "  \"evidence_hash\": \"{}\",\n",
-            "  \"failure_reason\": \"{}\"\n",
-            "}}\n"
-        ),
-        WORKFLOW_SCHEMA_VERSION,
-        ledger::json_string(&record.workflow_id),
-        record.revision,
-        ledger::json_string(&record.previous_hash),
-        ledger::json_string(&record.artifact_hash),
-        ledger::json_string(&record.project_id),
-        ledger::json_string(&record.session_id),
-        ledger::json_string(&record.phase),
-        ledger::json_string(&record.request_hash),
-        ledger::json_string(&record.workflow_kind),
-        ledger::json_string(&record.active_skill_id),
-        ledger::json_string(&record.skill_invocation),
-        ledger::json_string(&record.skill_state),
-        ledger::json_string(&record.skill_completed_hooks),
-        ledger::json_string(&record.skill_evidence),
-        ledger::json_string(&record.skill_stop_criteria),
-        ledger::json_string(&record.action_id),
-        ledger::json_string(&record.action_kind),
-        ledger::json_string(&record.action_status),
-        ledger::json_string(&record.result_summary),
-        ledger::json_string(&record.source_path),
-        ledger::json_string(&record.source_hash),
-        ledger::json_string(&record.find_text),
-        ledger::json_string(&record.replace_text),
-        ledger::json_string(&record.proposal_id),
-        ledger::json_string(&record.proposal_hash),
-        ledger::json_string(&record.approval_credential_hash),
-        ledger::json_string(&record.before_hash),
-        ledger::json_string(&record.after_hash),
-        ledger::json_string(&record.verification_plan),
-        ledger::json_string(&record.approval_state),
-        ledger::json_string(&record.verification_credential_hash),
-        ledger::json_string(&record.verification_approval_state),
-        ledger::json_string(&record.evidence_id),
-        ledger::json_string(&record.evidence_hash),
-        ledger::json_string(&record.failure_reason)
-    )
-}
-
-#[cfg(test)]
-fn render_workflow_v3(record: &WorkflowRecord) -> String {
-    let rendered = render_workflow(record)
-        .replacen(
-            &format!("\"schema_version\": {WORKFLOW_SCHEMA_VERSION}"),
-            &format!("\"schema_version\": {PREVIOUS_WORKFLOW_SCHEMA_VERSION}"),
-            1,
-        )
-        .replacen("workflow-v4", "workflow-v3", 1);
-    let mut lines = rendered
-        .lines()
-        .filter(|line| {
-            !line.contains("\"active_skill_id\"")
-                && !line.contains("\"skill_invocation\"")
-                && !line.contains("\"skill_state\"")
-                && !line.contains("\"skill_completed_hooks\"")
-                && !line.contains("\"skill_evidence\"")
-                && !line.contains("\"skill_stop_criteria\"")
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    lines.push('\n');
-    lines
-}
-
-#[cfg(test)]
-fn render_workflow_v2(record: &WorkflowRecord) -> String {
-    let rendered = render_workflow_v3(record)
-        .replacen(
-            &format!("\"schema_version\": {PREVIOUS_WORKFLOW_SCHEMA_VERSION}"),
-            &format!("\"schema_version\": {LEGACY_WORKFLOW_SCHEMA_VERSION}"),
-            1,
-        )
-        .replacen("workflow-v3", "workflow-v2", 1);
-    let mut lines = rendered
-        .lines()
-        .filter(|line| {
-            !line.contains("\"verification_credential_hash\"")
-                && !line.contains("\"verification_approval_state\"")
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    lines.push('\n');
-    lines
-}
-
 fn write_workflow_snapshot_bytes(record: &WorkflowRecord, rendered: &[u8]) -> Result<(), AppError> {
     let path = paths::project_workflow_snapshot_file(&record.workflow_id, record.revision);
     let parent = path
@@ -4140,69 +3828,15 @@ fn render_workflow_pointer_bytes(
     record: &WorkflowRecord,
     schema_version: u64,
 ) -> Result<String, AppError> {
-    let artifact_version = match schema_version {
-        LEGACY_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v2",
-        PREVIOUS_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v3",
-        WORKFLOW_SCHEMA_VERSION => "workflow-commit-v4",
-        _ => {
-            return Err(AppError::blocked(
-                "workflow pointer schema 지원 범위 밖입니다.",
-            ))
-        }
-    };
-    let body = format!(
-        "{{\n  \"schema_version\": {schema_version},\n  \"artifact_version\": \"{artifact_version}\",\n  \"workflow_id\": \"{}\",\n  \"committed_revision\": {},\n  \"artifact_hash\": \"{}\"\n}}\n",
-        ledger::json_string(&record.workflow_id),
-        record.revision,
-        record.artifact_hash
-    );
-    Ok(body)
-}
-
-#[derive(Debug)]
-struct WorkflowPointer {
-    schema_version: u64,
-    workflow_id: String,
-    committed_revision: u64,
-    artifact_hash: String,
+    crate::runtime_core::workflow::storage_compat::record::render_pointer(record, schema_version)
 }
 
 fn parse_workflow_pointer(path: &std::path::Path, body: &str) -> Result<WorkflowPointer, AppError> {
-    const KEYS: &[&str] = &[
-        "schema_version",
-        "artifact_version",
-        "workflow_id",
-        "committed_revision",
-        "artifact_hash",
-    ];
-    let context = path.display().to_string();
-    let object =
-        strict_json::parse_object(body, KEYS, &context).map_err(|_| corrupt_workflow(path))?;
-    if object.len() != KEYS.len() || KEYS.iter().any(|key| !object.contains_key(key)) {
-        return Err(corrupt_workflow(path));
-    }
-    let schema_version = strict_json::number(&object, "schema_version", &context)
-        .map_err(|_| corrupt_workflow(path))?;
-    let artifact_version = strict_json::string(&object, "artifact_version", &context)
-        .map_err(|_| corrupt_workflow(path))?;
-    let expected_artifact_version = match schema_version {
-        LEGACY_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v2",
-        PREVIOUS_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v3",
-        WORKFLOW_SCHEMA_VERSION => "workflow-commit-v4",
-        _ => return Err(corrupt_workflow(path)),
-    };
-    if artifact_version != expected_artifact_version {
-        return Err(corrupt_workflow(path));
-    }
-    Ok(WorkflowPointer {
-        schema_version,
-        workflow_id: strict_json::string(&object, "workflow_id", &context)
-            .map_err(|_| corrupt_workflow(path))?,
-        committed_revision: strict_json::number(&object, "committed_revision", &context)
-            .map_err(|_| corrupt_workflow(path))?,
-        artifact_hash: strict_json::string(&object, "artifact_hash", &context)
-            .map_err(|_| corrupt_workflow(path))?,
-    })
+    crate::runtime_core::workflow::storage_compat::record::parse_pointer(
+        path,
+        body,
+        corrupt_workflow,
+    )
 }
 
 fn remove_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
@@ -4392,251 +4026,20 @@ fn validate_workflow_chain_with_checkpoints(
     latest.ok_or_else(|| corrupt_workflow(&paths::project_workflow_file(workflow_id)))
 }
 
-const WORKFLOW_V3_KEYS: &[&str] = &[
-    "schema_version",
-    "artifact_version",
-    "workflow_id",
-    "revision",
-    "previous_hash",
-    "artifact_hash",
-    "project_id",
-    "session_id",
-    "phase",
-    "request_hash",
-    "workflow_kind",
-    "action_id",
-    "action_kind",
-    "action_status",
-    "result_summary",
-    "source_path",
-    "source_hash",
-    "find_text",
-    "replace_text",
-    "proposal_id",
-    "proposal_hash",
-    "approval_credential_hash",
-    "before_hash",
-    "after_hash",
-    "verification_plan",
-    "approval_state",
-    "verification_credential_hash",
-    "verification_approval_state",
-    "evidence_id",
-    "evidence_hash",
-    "failure_reason",
-];
-const WORKFLOW_V4_KEYS: &[&str] = &[
-    "schema_version",
-    "artifact_version",
-    "workflow_id",
-    "revision",
-    "previous_hash",
-    "artifact_hash",
-    "project_id",
-    "session_id",
-    "phase",
-    "request_hash",
-    "workflow_kind",
-    "active_skill_id",
-    "skill_invocation",
-    "skill_state",
-    "skill_completed_hooks",
-    "skill_evidence",
-    "skill_stop_criteria",
-    "action_id",
-    "action_kind",
-    "action_status",
-    "result_summary",
-    "source_path",
-    "source_hash",
-    "find_text",
-    "replace_text",
-    "proposal_id",
-    "proposal_hash",
-    "approval_credential_hash",
-    "before_hash",
-    "after_hash",
-    "verification_plan",
-    "approval_state",
-    "verification_credential_hash",
-    "verification_approval_state",
-    "evidence_id",
-    "evidence_hash",
-    "failure_reason",
-];
-const WORKFLOW_V2_KEYS: &[&str] = &[
-    "schema_version",
-    "artifact_version",
-    "workflow_id",
-    "revision",
-    "previous_hash",
-    "artifact_hash",
-    "project_id",
-    "session_id",
-    "phase",
-    "request_hash",
-    "workflow_kind",
-    "action_id",
-    "action_kind",
-    "action_status",
-    "result_summary",
-    "source_path",
-    "source_hash",
-    "find_text",
-    "replace_text",
-    "proposal_id",
-    "proposal_hash",
-    "approval_credential_hash",
-    "before_hash",
-    "after_hash",
-    "verification_plan",
-    "approval_state",
-    "evidence_id",
-    "evidence_hash",
-    "failure_reason",
-];
-
 fn workflow_snapshot_schema(path: &std::path::Path, body: &str) -> Result<u64, AppError> {
-    let context = path.display().to_string();
-    let object = strict_json::parse_object(body, WORKFLOW_V4_KEYS, &context)
-        .map_err(|_| corrupt_workflow(path))?;
-    let schema = strict_json::number(&object, "schema_version", &context)
-        .map_err(|_| corrupt_workflow(path))?;
-    let (keys, artifact_version) = match schema {
-        LEGACY_WORKFLOW_SCHEMA_VERSION => (WORKFLOW_V2_KEYS, "workflow-v2"),
-        PREVIOUS_WORKFLOW_SCHEMA_VERSION => (WORKFLOW_V3_KEYS, "workflow-v3"),
-        WORKFLOW_SCHEMA_VERSION => (WORKFLOW_V4_KEYS, "workflow-v4"),
-        _ => return Err(corrupt_workflow(path)),
-    };
-    if object.len() != keys.len()
-        || keys.iter().any(|key| !object.contains_key(key))
-        || strict_json::string(&object, "artifact_version", &context)
-            .map_err(|_| corrupt_workflow(path))?
-            != artifact_version
-    {
-        return Err(corrupt_workflow(path));
-    }
-    Ok(schema)
+    crate::runtime_core::workflow::storage_compat::record::snapshot_schema(
+        path,
+        body,
+        corrupt_workflow,
+    )
 }
 
 fn parse_workflow_snapshot(path: &std::path::Path, body: &str) -> Result<WorkflowRecord, AppError> {
-    let schema = workflow_snapshot_schema(path, body)?;
-    let keys = match schema {
-        LEGACY_WORKFLOW_SCHEMA_VERSION => WORKFLOW_V2_KEYS,
-        PREVIOUS_WORKFLOW_SCHEMA_VERSION => WORKFLOW_V3_KEYS,
-        WORKFLOW_SCHEMA_VERSION => WORKFLOW_V4_KEYS,
-        _ => return Err(corrupt_workflow(path)),
-    };
-    let context = path.display().to_string();
-    let object =
-        strict_json::parse_object(body, keys, &context).map_err(|_| corrupt_workflow(path))?;
-    let text =
-        |key| strict_json::string(&object, key, &context).map_err(|_| corrupt_workflow(path));
-    let mut record = WorkflowRecord {
-        workflow_id: text("workflow_id")?,
-        revision: strict_json::number(&object, "revision", &context)
-            .map_err(|_| corrupt_workflow(path))?,
-        previous_hash: text("previous_hash")?,
-        artifact_hash: text("artifact_hash")?,
-        project_id: text("project_id")?,
-        session_id: text("session_id")?,
-        phase: text("phase")?,
-        request_hash: text("request_hash")?,
-        workflow_kind: text("workflow_kind")?,
-        active_skill_id: if schema == WORKFLOW_SCHEMA_VERSION {
-            text("active_skill_id")?
-        } else {
-            String::new()
-        },
-        skill_invocation: if schema == WORKFLOW_SCHEMA_VERSION {
-            text("skill_invocation")?
-        } else {
-            String::new()
-        },
-        skill_state: if schema == WORKFLOW_SCHEMA_VERSION {
-            text("skill_state")?
-        } else {
-            String::new()
-        },
-        skill_completed_hooks: if schema == WORKFLOW_SCHEMA_VERSION {
-            text("skill_completed_hooks")?
-        } else {
-            String::new()
-        },
-        skill_evidence: if schema == WORKFLOW_SCHEMA_VERSION {
-            text("skill_evidence")?
-        } else {
-            String::new()
-        },
-        skill_stop_criteria: if schema == WORKFLOW_SCHEMA_VERSION {
-            text("skill_stop_criteria")?
-        } else {
-            String::new()
-        },
-        action_id: text("action_id")?,
-        action_kind: text("action_kind")?,
-        action_status: text("action_status")?,
-        result_summary: text("result_summary")?,
-        source_path: text("source_path")?,
-        source_hash: text("source_hash")?,
-        find_text: text("find_text")?,
-        replace_text: text("replace_text")?,
-        proposal_id: text("proposal_id")?,
-        proposal_hash: text("proposal_hash")?,
-        approval_credential_hash: text("approval_credential_hash")?,
-        before_hash: text("before_hash")?,
-        after_hash: text("after_hash")?,
-        verification_plan: text("verification_plan")?,
-        approval_state: text("approval_state")?,
-        verification_credential_hash: if schema >= PREVIOUS_WORKFLOW_SCHEMA_VERSION {
-            text("verification_credential_hash")?
-        } else {
-            String::new()
-        },
-        verification_approval_state: if schema >= PREVIOUS_WORKFLOW_SCHEMA_VERSION {
-            text("verification_approval_state")?
-        } else {
-            "not-issued".to_string()
-        },
-        evidence_id: text("evidence_id")?,
-        evidence_hash: text("evidence_hash")?,
-        failure_reason: text("failure_reason")?,
-    };
-    let payload = match schema {
-        LEGACY_WORKFLOW_SCHEMA_VERSION => workflow_payload_v2(&record),
-        PREVIOUS_WORKFLOW_SCHEMA_VERSION => workflow_payload_v3(&record),
-        WORKFLOW_SCHEMA_VERSION => workflow_payload(&record),
-        _ => return Err(corrupt_workflow(path)),
-    };
-    if record.artifact_hash != sha256_text(&payload) {
-        return Err(corrupt_workflow(path));
-    }
-    if schema == LEGACY_WORKFLOW_SCHEMA_VERSION {
-        match record.phase.as_str() {
-            "verification-started" if !record.proposal_id.is_empty() => {
-                record.approval_state = "applied".to_string();
-                record.verification_approval_state = "approved".to_string();
-            }
-            "verified" | "complete"
-                if !record.proposal_id.is_empty()
-                    && !record.evidence_id.is_empty()
-                    && !record.source_path.is_empty()
-                    && !record.after_hash.is_empty() =>
-            {
-                record.approval_state = "applied".to_string();
-                record.verification_approval_state = "approved".to_string();
-            }
-            "failed" if !record.proposal_id.is_empty() && !record.evidence_id.is_empty() => {
-                record.approval_state = "applied".to_string();
-                record.verification_approval_state = "approved".to_string();
-            }
-            "cancelled" if !record.proposal_id.is_empty() => {
-                record.verification_approval_state = "cancelled".to_string();
-            }
-            _ => {}
-        }
-    }
-    Ok(record)
+    crate::runtime_core::workflow::storage_compat::record::parse_snapshot(
+        path,
+        body,
+        corrupt_workflow,
+    )
 }
 
 fn workflow_identity(record: &WorkflowRecord) -> RuntimeIdentity {

@@ -1,5 +1,54 @@
 # 릴리즈 노트
 
+## 미출시 v0.37.4 - Workflow Storage Compatibility
+
+이 patch는 기존 command, storage schema, append 순서, recovery 동작, synchronous
+runtime을 유지하면서 durable workflow, ledger, transcript byte의 canonical
+compatibility owner를 하나로 확립합니다.
+
+### 포함한 것
+
+- Byte-compatible workflow record DTO, v2/v3/v4 snapshot codec, commit pointer
+  codec, schema probe, hash validation을 `runtime_core::workflow::storage_compat`로 이동
+- Ledger event DTO, strict parser, chain payload, physical/planned hash, sync를
+  포함한 canonical line append를 같은 compatibility 경계로 이동하고 cross-store
+  coordination 순서는 유지
+- Transcript DTO, v1/v2 render/parser, source/tool binding validation, canonical
+  hash, exact immutable record install을 compatibility 경계로 이동
+- Snapshot/pointer byte, ledger append order/hash chain/failure 경계, transcript
+  exact/idempotent/immutable install을 고정하는 focused workflow integration target 추가
+- Migration ledger를 v0.37.4로 진행하고 예정된 storage compatibility slice를 모두 complete로 전환
+
+### 호환성 경계
+
+- 기존 최상위 state, ledger, transcript module은 이후 v0.37.x slice에 배정된 path,
+  lock, transaction, recovery, projection, command orchestration facade만 유지합니다.
+- CLI output과 exit code, durable schema와 byte, event identity와 순서, recovery와
+  projection 순서, security policy, dependency, synchronous runtime은 변경하지 않습니다.
+
+## 미출시 v0.37.3 - Inference 경계
+
+이 patch는 synchronous runtime과 기존 command 동작을 유지하면서 inference rule과
+durable record codec을 llama.cpp, process, filesystem 구현에서 분리합니다.
+
+### 포함한 것
+
+- Backend contract, generation admission, lifecycle DTO/codec, resource policy,
+  stream outcome을 `runtime_core::inference`로 이동
+- Llama.cpp discovery, release/install, request, health/version, bounded SSE transport를
+  OS process lifecycle과 command identity check에서 분리
+- Model manifest, registry/default/promotion codec, adoption policy, artifact path
+  contract와 benchmark fixture/scoring/adoption rule을 owning domain과 adapter로 이동
+- Legacy backend stream/resource module과 obsolete buffered parser test를 제거하고
+  migration ledger의 v0.37.3 slice 21개를 complete로 전환
+
+### 호환성 경계
+
+- `backend.rs`, `benchmark.rs`, `model.rs`는 private command/report와 cross-store
+  orchestration facade로 남고 최종 composition 이동은 v0.37.13에 배정합니다.
+- CLI output, exit code, durable record byte, event order, install/promotion gate,
+  timeout/cancellation, manifest, dependency, synchronous runtime은 변경하지 않습니다.
+
 ## 미출시 v0.37.2 - Foundation과 Platform 경계
 
 이 patch는 동작과 synchronous runtime을 유지하면서 운영 소유권 이동을 시작합니다.

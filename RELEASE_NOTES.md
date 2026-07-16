@@ -1,5 +1,37 @@
 # Release Notes
 
+## Unreleased v0.37.4 - Workflow Storage Compatibility
+
+This patch establishes one canonical compatibility owner for durable workflow,
+ledger, and transcript bytes while preserving existing commands, storage
+schemas, append order, recovery behavior, and the synchronous runtime.
+
+### Included
+
+- Moves byte-compatible workflow record DTOs, v2/v3/v4 snapshot codecs, commit
+  pointer codecs, schema probes, and hash validation under
+  `runtime_core::workflow::storage_compat`.
+- Moves ledger event DTOs, strict parsing, chain payloads, physical/planned
+  hashing, and synced canonical line append into the same compatibility
+  boundary while leaving cross-store coordination unchanged.
+- Moves transcript DTOs, v1/v2 rendering and parsing, source/tool binding
+  validation, canonical hashing, and exact immutable record installation into
+  the compatibility boundary.
+- Adds a focused workflow integration target that locks snapshot/pointer bytes,
+  ledger append order and hash chains, append failure boundaries, and transcript
+  exact/idempotent/immutable installation.
+- Advances the migration ledger to v0.37.4 with every scheduled storage
+  compatibility slice complete.
+
+### Compatibility Boundary
+
+- Existing top-level state, ledger, and transcript modules remain private
+  facades only for path, lock, transaction, recovery, projection, and command
+  orchestration assigned to later v0.37.x slices.
+- CLI output and exit codes, durable schemas and bytes, event identity and
+  order, recovery and projection order, security policy, dependencies, and the
+  synchronous runtime remain unchanged.
+
 ## Unreleased v0.37.3 - Inference Boundary
 
 This patch separates inference rules and durable record codecs from llama.cpp,
