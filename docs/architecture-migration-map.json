@@ -2515,6 +2515,23 @@
       ]
     },
     {
+      "path": "src/runtime_core/collaboration/team_state.rs",
+      "slices": [
+        {
+          "responsibility": "team manifest DTOs, persisted state DTO, and stage transition policy",
+          "target": "src/runtime_core/collaboration/team_state.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_state.rs",
+            "src/team_state.rs",
+            "tests/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/extensions/mod.rs",
       "slices": [
         {
@@ -4634,6 +4651,12 @@
       "path": "src/runtime_core/collaboration/subagent_result.rs",
       "responsibilities": [
         "canonical subagent result shape and patch proposal policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_state.rs",
+      "responsibilities": [
+        "team manifest DTOs, persisted state DTO, and stage transition policy"
       ]
     },
     {
