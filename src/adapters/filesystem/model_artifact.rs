@@ -14,6 +14,12 @@ use crate::runtime_core::inference::model::ModelArtifactPaths;
 
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 
+pub(crate) struct FailedArtifactCleanup {
+    pub(crate) rows: Vec<String>,
+    pub(crate) removed: usize,
+    pub(crate) missing: usize,
+}
+
 pub(crate) fn paths() -> ModelArtifactPaths {
     ModelArtifactPaths {
         downloads_dir: layout::downloads_dir(),
@@ -40,6 +46,57 @@ pub(crate) fn failed_artifact_paths(candidate: &ModelManifestEntry) -> Vec<PathB
         paths().failed_download(candidate.id),
         paths().failed_model(artifact_name),
     ]
+}
+
+pub(crate) fn sha256_for_file(path: &Path) -> Result<String, AppError> {
+    if !path.is_file() {
+        return Err(AppError::usage(format!(
+            "검증 대상 파일을 찾지 못했습니다: {}",
+            path.display()
+        )));
+    }
+    checksum::sha256_file(path)
+}
+
+pub(crate) fn cleanup_failed_artifacts(
+    candidate: &ModelManifestEntry,
+    dry_run: bool,
+) -> Result<FailedArtifactCleanup, AppError> {
+    let mut rows = Vec::new();
+    let mut removed = 0;
+    let mut missing = 0;
+
+    for path in failed_artifact_paths(candidate) {
+        if !path.exists() {
+            missing += 1;
+            rows.push(format!("- {} | missing", path.display()));
+            continue;
+        }
+        if !path.is_file() {
+            return Err(AppError::blocked(format!(
+                "failed artifact cleanup 대상은 file이어야 합니다: {}",
+                path.display()
+            )));
+        }
+        if dry_run {
+            rows.push(format!("- {} | would delete", path.display()));
+            continue;
+        }
+        fs::remove_file(&path).map_err(|err| {
+            AppError::runtime(format!(
+                "failed artifact를 삭제하지 못했습니다: {} ({err})",
+                path.display()
+            ))
+        })?;
+        removed += 1;
+        rows.push(format!("- {} | deleted", path.display()));
+    }
+
+    Ok(FailedArtifactCleanup {
+        rows,
+        removed,
+        missing,
+    })
 }
 
 pub(crate) fn write_registry_entry(id: &str, contents: &str) -> Result<(), AppError> {

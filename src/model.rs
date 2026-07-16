@@ -1,10 +1,11 @@
+#[cfg(test)]
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::adapters::filesystem::model_artifact::{
-    self, failed_artifact_paths, fetch_evaluation_artifact, local_artifact_state,
-    model_artifact_part_path, model_artifact_path, promotion_evidence_path, read_default_selection,
-    read_registry_entries, registry_path,
+    self, fetch_evaluation_artifact, local_artifact_state, model_artifact_part_path,
+    model_artifact_path, promotion_evidence_path, read_default_selection, read_registry_entries,
+    registry_path,
 };
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
@@ -669,14 +670,7 @@ pub fn verify_file_report(path: &str, expected_sha256: &str) -> Result<String, A
     }
 
     let path = PathBuf::from(path);
-    if !path.is_file() {
-        return Err(AppError::usage(format!(
-            "검증 대상 파일을 찾지 못했습니다: {}",
-            path.display()
-        )));
-    }
-
-    let actual_sha256 = checksum::sha256_file(&path)?;
+    let actual_sha256 = model_artifact::sha256_for_file(&path)?;
     let matched = actual_sha256.eq_ignore_ascii_case(expected_sha256);
     let event_type = if matched {
         "model.sha256.verified"
@@ -720,38 +714,7 @@ pub fn verify_file_report(path: &str, expected_sha256: &str) -> Result<String, A
 
 pub fn cleanup_failed_report(id: &str, dry_run: bool) -> Result<String, AppError> {
     let candidate = find_candidate(id)?;
-    let cleanup_paths = failed_artifact_paths(candidate);
-    let mut rows = Vec::new();
-    let mut removed = 0;
-    let mut missing = 0;
-
-    for path in cleanup_paths {
-        if !path.exists() {
-            missing += 1;
-            rows.push(format!("- {} | missing", path.display()));
-            continue;
-        }
-
-        if !path.is_file() {
-            return Err(AppError::blocked(format!(
-                "failed artifact cleanup 대상은 file이어야 합니다: {}",
-                path.display()
-            )));
-        }
-
-        if dry_run {
-            rows.push(format!("- {} | would delete", path.display()));
-        } else {
-            fs::remove_file(&path).map_err(|err| {
-                AppError::runtime(format!(
-                    "failed artifact를 삭제하지 못했습니다: {} ({err})",
-                    path.display()
-                ))
-            })?;
-            removed += 1;
-            rows.push(format!("- {} | deleted", path.display()));
-        }
-    }
+    let cleanup = model_artifact::cleanup_failed_artifacts(candidate, dry_run)?;
 
     let event_id = state::record_event(
         if dry_run {
@@ -766,7 +729,7 @@ pub fn cleanup_failed_report(id: &str, dry_run: bool) -> Result<String, AppError
         },
         &format!(
             "model_id={} dry_run={} removed={} missing={}",
-            candidate.id, dry_run, removed, missing
+            candidate.id, dry_run, cleanup.removed, cleanup.missing
         ),
     )?;
 
@@ -774,10 +737,10 @@ pub fn cleanup_failed_report(id: &str, dry_run: bool) -> Result<String, AppError
         "failed artifact cleanup {}\n- id: {}\n- removed: {}\n- missing: {}\n- ledger event: {}\n{}\n- boundary: app data downloads/models 아래의 failed/partial artifact만 대상으로 합니다.",
         if dry_run { "dry-run" } else { "결과" },
         candidate.id,
-        removed,
-        missing,
+        cleanup.removed,
+        cleanup.missing,
         event_id,
-        rows.join("\n")
+        cleanup.rows.join("\n")
     ))
 }
 

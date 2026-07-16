@@ -2195,7 +2195,7 @@
       "path": "src/adapters/filesystem/model_artifact.rs",
       "slices": [
         {
-          "responsibility": "model artifact download, verification, and registry persistence I/O",
+          "responsibility": "model artifact download, verification, cleanup, and registry persistence I/O",
           "target": "src/adapters/filesystem/model_artifact.rs",
           "release": "0.37.3",
           "state": "complete",
@@ -3859,7 +3859,7 @@
     {
       "path": "src/adapters/filesystem/model_artifact.rs",
       "responsibilities": [
-        "model artifact download, verification, and registry persistence I/O"
+        "model artifact download, verification, cleanup, and registry persistence I/O"
       ]
     },
     {
