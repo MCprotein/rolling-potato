@@ -44,10 +44,6 @@ fn main() -> ExitCode {
     match app::run(std::env::args().skip(1)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            #[cfg(debug_assertions)]
-            if let Some(path) = std::env::var_os("RPOTATO_TEST_RAW_ERROR_PATH") {
-                let _ = std::fs::write(path, &err.message);
-            }
             eprintln!("{}", korean_guard::guard_or_failure(&err.message));
             ExitCode::from(err.code)
         }
