@@ -17,6 +17,7 @@ const DEFAULT_PORT: u16 = 17842;
 const HEALTH_TIMEOUT_MS: u64 = 500;
 const ENV_BACKEND_PATH: &str = "RPOTATO_BACKEND_LLAMA_CPP_PATH";
 const ENV_BACKEND_PORT: &str = "RPOTATO_BACKEND_PORT";
+const ENV_BACKEND_START_TRACE: &str = "RPOTATO_TEST_BACKEND_START_TRACE";
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 const VERSION_TIMEOUT_MS: u64 = 5_000;
 const STARTUP_TIMEOUT_MS: u64 = 60_000;
@@ -2794,6 +2795,7 @@ fn start_sidecar_with_timeout(
     let stderr_log = paths::logs_dir().join(format!("backend-llama.cpp-{run_id}-stderr.log"));
     let stdout_file = create_log_file(&stdout_log)?;
     let stderr_file = create_log_file(&stderr_log)?;
+    trace_backend_start("logs-created");
 
     let mut command = Command::new(&binary_path);
     command
@@ -2818,6 +2820,7 @@ fn start_sidecar_with_timeout(
                 binary_path.display()
             ))
         })?;
+    trace_backend_start(&format!("sidecar-spawned pid={}", child.id()));
 
     let record = BackendSidecarRecord {
         backend_id: discovery.adapter_id.to_string(),
@@ -2837,14 +2840,17 @@ fn start_sidecar_with_timeout(
         started_at_ms: now_ms(),
     };
     write_backend_sidecar_record(&record)?;
+    trace_backend_start("sidecar-record-written");
 
     let started_at = Instant::now();
     loop {
+        trace_backend_start("health-probe-start");
         let health = probe_health(
             &record.host,
             record.port,
             Duration::from_millis(HEALTH_TIMEOUT_MS),
         );
+        trace_backend_start(&format!("health-probe-finished status={}", health.status));
         if health.status == "healthy" {
             let startup_ms = started_at.elapsed().as_millis();
             let event_id = state::record_event(
@@ -2867,7 +2873,9 @@ fn start_sidecar_with_timeout(
                     startup_ms
                 ),
             )?;
+            trace_backend_start("start-event-recorded");
             let resource_sample = record_backend_resource_sample(&record, "start")?;
+            trace_backend_start("resource-sample-recorded");
             return Ok(format!(
                 "backend start\n- status: running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- startup ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
                 record.pid,
@@ -2941,6 +2949,17 @@ fn start_sidecar_with_timeout(
 
         std::thread::sleep(Duration::from_millis(100));
     }
+}
+
+fn trace_backend_start(message: &str) {
+    let Some(path) = env::var_os(ENV_BACKEND_START_TRACE) else {
+        return;
+    };
+    let Ok(mut trace) = OpenOptions::new().create(true).append(true).open(path) else {
+        return;
+    };
+    let _ = writeln!(trace, "{message}");
+    let _ = trace.flush();
 }
 
 fn canonical_existing_file(path: &str, label: &str) -> Result<PathBuf, AppError> {

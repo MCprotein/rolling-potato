@@ -140,7 +140,11 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
                     .env("RPOTATO_PROJECT_ROOT", &self.project)
                     .env("RPOTATO_DATA_HOME", &self.data)
                     .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend)
-                    .env("RPOTATO_BACKEND_PORT", port.to_string()),
+                    .env("RPOTATO_BACKEND_PORT", port.to_string())
+                    .env(
+                        "RPOTATO_TEST_BACKEND_START_TRACE",
+                        self.data.join("logs/backend-start-trace.log"),
+                    ),
                 &label,
                 &self.data,
             );
