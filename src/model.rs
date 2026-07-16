@@ -2,12 +2,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::adapters::filesystem::model_artifact::{
-    self, fetch_evaluation_artifact, local_artifact_state, model_artifact_part_path,
-    model_artifact_path,
+    self, failed_artifact_paths, fetch_evaluation_artifact, local_artifact_state,
+    model_artifact_part_path, model_artifact_path, promotion_evidence_path, read_default_selection,
+    read_registry_entries, registry_path,
 };
+#[cfg(test)]
+use crate::adapters::filesystem::model_artifact::{parse_default_selection, parse_registry_entry};
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
-use crate::foundation::serialization as strict_json;
 use crate::runtime_core::inference::benchmark as benchmark_policy;
 use crate::runtime_core::inference::model::manifest::{
     find_candidate, source_backed_artifact, source_backed_artifact_blockers,
@@ -1057,46 +1059,17 @@ fn persist_promotion_evidence(
     benchmark: &observability::BenchmarkRunReport,
     evidence_source: &Path,
 ) -> Result<(), AppError> {
-    fs::create_dir_all(&model_artifact::paths().evidence_dir).map_err(|err| {
-        AppError::runtime(format!(
-            "model evidence directory를 만들지 못했습니다: {} ({err})",
-            model_artifact::paths().evidence_dir.display()
-        ))
-    })?;
-
-    fs::write(
-        promotion_evidence_path(candidate.id),
-        promotion_evidence_json(candidate, evidence, artifact, benchmark, evidence_source),
+    model_artifact::write_promotion_evidence(
+        candidate.id,
+        &promotion_evidence_json(candidate, evidence, artifact, benchmark, evidence_source),
     )
-    .map_err(|err| {
-        AppError::runtime(format!(
-            "model promotion evidence를 기록하지 못했습니다: {} ({err})",
-            promotion_evidence_path(candidate.id).display()
-        ))
-    })
 }
 
 fn persist_registry_entry(
     candidate: &ModelManifestEntry,
     promotion: Option<&PromotionEvidence>,
 ) -> Result<(), AppError> {
-    fs::create_dir_all(&model_artifact::paths().registry_dir).map_err(|err| {
-        AppError::runtime(format!(
-            "model registry directory를 만들지 못했습니다: {} ({err})",
-            model_artifact::paths().registry_dir.display()
-        ))
-    })?;
-
-    fs::write(
-        registry_path(candidate.id),
-        registry_entry_json(candidate, promotion),
-    )
-    .map_err(|err| {
-        AppError::runtime(format!(
-            "model registry entry를 기록하지 못했습니다: {} ({err})",
-            registry_path(candidate.id).display()
-        ))
-    })
+    model_artifact::write_registry_entry(candidate.id, &registry_entry_json(candidate, promotion))
 }
 
 fn registry_summary() -> String {
@@ -1139,90 +1112,6 @@ fn registry_summary() -> String {
             model_artifact::paths().registry_dir.display()
         ),
     }
-}
-
-fn read_registry_entries() -> Result<Vec<RegistryEntry>, AppError> {
-    let dir = model_artifact::paths().registry_dir;
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-
-    let mut entries = Vec::new();
-    for entry in fs::read_dir(&dir).map_err(|err| {
-        AppError::runtime(format!(
-            "model registry directory를 읽지 못했습니다: {} ({err})",
-            dir.display()
-        ))
-    })? {
-        let entry = entry.map_err(|err| {
-            AppError::runtime(format!(
-                "model registry entry를 읽지 못했습니다: {} ({err})",
-                dir.display()
-            ))
-        })?;
-
-        if !entry
-            .file_type()
-            .map(|kind| kind.is_file())
-            .unwrap_or(false)
-        {
-            continue;
-        }
-
-        let text = fs::read_to_string(entry.path()).map_err(|err| {
-            AppError::runtime(format!(
-                "model registry entry를 읽지 못했습니다: {} ({err})",
-                entry.path().display()
-            ))
-        })?;
-
-        entries.push(parse_registry_entry(&text)?);
-    }
-
-    entries.sort_by(|left, right| left.id.cmp(&right.id));
-    Ok(entries)
-}
-
-fn parse_registry_entry(text: &str) -> Result<RegistryEntry, AppError> {
-    let context = "model registry entry";
-    let object = strict_json::parse_object(
-        text,
-        &[
-            "schemaVersion",
-            "id",
-            "displayName",
-            "status",
-            "evidenceStatus",
-            "promotionEvidencePath",
-            "backendVersion",
-            "benchmarkRunId",
-            "upstreamModel",
-            "upstreamUrl",
-            "artifactPath",
-            "artifactSha256",
-            "licenseSource",
-            "licenseCheckedAt",
-        ],
-        context,
-    )?;
-    if strict_json::number(&object, "schemaVersion", context)? != 1 {
-        return Err(AppError::blocked("model registry schemaVersion 불일치"));
-    }
-    Ok(RegistryEntry {
-        id: strict_json::string(&object, "id", context)?,
-        display_name: strict_json::string(&object, "displayName", context)?,
-        status: strict_json::string(&object, "status", context)?,
-        evidence_status: strict_json::string(&object, "evidenceStatus", context)?,
-        promotion_evidence_path: strict_json::string(&object, "promotionEvidencePath", context)?,
-        backend_version: strict_json::string(&object, "backendVersion", context)?,
-        benchmark_run_id: strict_json::string(&object, "benchmarkRunId", context)?,
-        upstream_model: strict_json::string(&object, "upstreamModel", context)?,
-        upstream_url: strict_json::string(&object, "upstreamUrl", context)?,
-        artifact_path: strict_json::string(&object, "artifactPath", context)?,
-        artifact_sha256: strict_json::string(&object, "artifactSha256", context)?,
-        license_source: strict_json::string(&object, "licenseSource", context)?,
-        license_checked_at: strict_json::string(&object, "licenseCheckedAt", context)?,
-    })
 }
 
 fn validate_registry_manifest_binding(
@@ -1309,40 +1198,6 @@ fn validated_registry_entry(id: &str) -> Result<RegistryEntry, AppError> {
     Ok(entry)
 }
 
-fn read_default_selection() -> Result<DefaultSelection, AppError> {
-    let path = model_artifact::paths().default_file;
-    if !path.exists() {
-        return Err(AppError::blocked(format!(
-            "기본 모델이 선택되지 않았습니다. `rpotato model default <id>`를 실행하세요.\n- selection: {}",
-            path.display()
-        )));
-    }
-    let text = fs::read_to_string(&path).map_err(|err| {
-        AppError::runtime(format!(
-            "기본 모델 선택을 읽지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    parse_default_selection(&text)
-}
-
-fn parse_default_selection(text: &str) -> Result<DefaultSelection, AppError> {
-    let context = "default model selection";
-    let object = strict_json::parse_object(
-        text,
-        &["schemaVersion", "modelId", "artifactSha256", "selectedAtMs"],
-        context,
-    )?;
-    if strict_json::number(&object, "schemaVersion", context)? != 1 {
-        return Err(AppError::blocked("default model schemaVersion 불일치"));
-    }
-    Ok(DefaultSelection {
-        model_id: strict_json::string(&object, "modelId", context)?,
-        artifact_sha256: strict_json::string(&object, "artifactSha256", context)?,
-        selected_at_ms: strict_json::number(&object, "selectedAtMs", context)?,
-    })
-}
-
 fn default_selection_json(selection: &DefaultSelection) -> String {
     format!(
         "{{\n  \"schemaVersion\": 1,\n  \"modelId\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"selectedAtMs\": {}\n}}\n",
@@ -1350,23 +1205,6 @@ fn default_selection_json(selection: &DefaultSelection) -> String {
         ledger::json_string(&selection.artifact_sha256),
         selection.selected_at_ms
     )
-}
-
-fn registry_path(id: &str) -> PathBuf {
-    model_artifact::paths().registry_entry(id)
-}
-
-fn promotion_evidence_path(id: &str) -> PathBuf {
-    model_artifact::paths().promotion_evidence(id)
-}
-
-fn failed_artifact_paths(candidate: &ModelManifestEntry) -> Vec<PathBuf> {
-    let artifact_name = candidate.artifact_name.unwrap_or(candidate.id);
-    vec![
-        model_artifact::paths().partial(candidate.id),
-        model_artifact::paths().failed_download(candidate.id),
-        model_artifact::paths().failed_model(artifact_name),
-    ]
 }
 
 fn registry_entry_json(
@@ -1448,12 +1286,7 @@ fn promotion_evidence_json(
 }
 
 fn read_promotion_evidence_file(path: &Path) -> Result<PromotionEvidence, AppError> {
-    let text = fs::read_to_string(path).map_err(|err| {
-        AppError::runtime(format!(
-            "model promotion evidence를 읽지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
+    let text = model_artifact::read_promotion_evidence(path)?;
     parse_promotion_evidence(&text)
 }
 
