@@ -3,7 +3,7 @@ use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::{capability, native};
 use crate::backend;
 use crate::benchmark;
-use crate::composition::config;
+use crate::composition::{config, uninstall};
 use crate::evidence;
 use crate::foundation::error::AppError;
 use crate::hooks;
@@ -29,7 +29,6 @@ use crate::surfaces::cli::{
 };
 use crate::team;
 use crate::tui;
-use crate::uninstall;
 
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
     let command = parser::parse(args)?;

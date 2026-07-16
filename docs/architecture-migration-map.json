@@ -1962,6 +1962,21 @@
       ]
     },
     {
+      "path": "src/composition/uninstall.rs",
+      "slices": [
+        {
+          "responsibility": "uninstall plan orchestration",
+          "target": "src/composition/uninstall.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/uninstall.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/context.rs",
       "slices": [
         {
@@ -2242,6 +2257,21 @@
           "state": "complete",
           "evidence": [
             "src/adapters/filesystem/model_artifact.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/uninstall.rs",
+      "slices": [
+        {
+          "responsibility": "managed uninstall path discovery",
+          "target": "src/adapters/filesystem/uninstall.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/uninstall.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -3475,25 +3505,6 @@
       ]
     },
     {
-      "path": "src/uninstall.rs",
-      "slices": [
-        {
-          "responsibility": "uninstall orchestration",
-          "target": "src/composition/uninstall.rs",
-          "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
-        },
-        {
-          "responsibility": "managed path deletion",
-          "target": "src/adapters/filesystem/uninstall.rs",
-          "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
       "path": "tests/architecture_contract.rs",
       "slices": [
         {
@@ -4600,6 +4611,12 @@
       ]
     },
     {
+      "path": "src/composition/uninstall.rs",
+      "responsibilities": [
+        "uninstall plan orchestration"
+      ]
+    },
+    {
       "path": "src/context.rs",
       "responsibilities": [
         "bounded source context"
@@ -4703,6 +4720,12 @@
       "path": "src/adapters/filesystem/model_artifact.rs",
       "responsibilities": [
         "model artifact download, verification, cleanup, and registry persistence I/O"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/uninstall.rs",
+      "responsibilities": [
+        "managed uninstall path discovery"
       ]
     },
     {
@@ -5160,13 +5183,6 @@
         "TUI controller and input",
         "TUI view models",
         "TUI rendering"
-      ]
-    },
-    {
-      "path": "src/uninstall.rs",
-      "responsibilities": [
-        "uninstall orchestration",
-        "managed path deletion"
       ]
     },
     {

@@ -1712,6 +1712,21 @@ fn v03713_binary_entrypoint_delegates_process_outcome_to_startup() {
     assert!(startup.contains("ExitCode::from(err.code)"));
 }
 
+#[test]
+fn v03713_uninstall_plan_uses_composition_and_filesystem_owners() {
+    let composition = fs::read_to_string("src/composition/uninstall.rs").unwrap();
+    assert!(composition.contains("uninstall::managed_paths"));
+    assert!(composition.contains("pub(crate) fn plan_report"));
+
+    let adapter = fs::read_to_string("src/adapters/filesystem/uninstall.rs").unwrap();
+    assert!(adapter.contains("struct ManagedUninstallPaths"));
+    assert!(adapter.contains("pub(crate) fn managed_paths"));
+
+    assert!(!Path::new("src/uninstall.rs").exists());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod uninstall;"));
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

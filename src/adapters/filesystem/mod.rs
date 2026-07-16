@@ -7,5 +7,6 @@ pub(crate) mod config;
 pub(crate) mod layout;
 pub(crate) mod lease;
 pub(crate) mod model_artifact;
+pub(crate) mod uninstall;
 #[cfg(windows)]
 pub(crate) mod windows_replace;

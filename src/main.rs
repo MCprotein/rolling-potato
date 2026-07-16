@@ -34,7 +34,6 @@ mod test_support;
 mod transcript;
 mod transition;
 mod tui;
-mod uninstall;
 
 fn main() -> std::process::ExitCode {
     composition::startup::run(std::env::args().skip(1), app::run)

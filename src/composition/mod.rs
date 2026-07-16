@@ -5,3 +5,4 @@
 
 pub(crate) mod config;
 pub(crate) mod startup;
+pub(crate) mod uninstall;
