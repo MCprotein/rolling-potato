@@ -4,7 +4,7 @@
 //! admitted through the owning capability boundary, not through concrete files.
 
 mod collaboration;
-mod extensions;
+pub(crate) mod extensions;
 pub(crate) mod inference;
 pub(crate) mod knowledge;
 pub(crate) mod observability;
