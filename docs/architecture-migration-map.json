@@ -2094,6 +2094,20 @@
       ]
     },
     {
+      "path": "src/runtime_core/inference/model/manifest.rs",
+      "slices": [
+        {
+          "responsibility": "model manifest catalog and lifecycle DTOs",
+          "target": "src/runtime_core/inference/model/manifest.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/manifest.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/filesystem/model_artifact.rs",
       "slices": [
         {
@@ -3686,6 +3700,12 @@
       "path": "src/runtime_core/inference/model.rs",
       "responsibilities": [
         "model artifact path contract"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/manifest.rs",
+      "responsibilities": [
+        "model manifest catalog and lifecycle DTOs"
       ]
     },
     {

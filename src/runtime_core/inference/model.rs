@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+pub(crate) mod manifest;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ModelArtifactPaths {
     pub(crate) downloads_dir: PathBuf,
