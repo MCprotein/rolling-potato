@@ -11,7 +11,7 @@ use super::manifest::{
 
 pub(crate) const BYTES_PER_GIB: u64 = 1024 * 1024 * 1024;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PromotionBenchmarkEvidence {
     pub(crate) claim_state: String,
     pub(crate) local_pass: Option<bool>,
@@ -20,6 +20,7 @@ pub(crate) struct PromotionBenchmarkEvidence {
     pub(crate) fixture_sha256: String,
     pub(crate) prompt_artifact_sha256: Option<String>,
     pub(crate) benchmark_name: String,
+    pub(crate) score: Option<f64>,
     pub(crate) dataset_ref: Option<String>,
     pub(crate) peak_rss_bytes: Option<u64>,
     pub(crate) model_run_id: Option<String>,

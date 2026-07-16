@@ -14,7 +14,8 @@ use crate::runtime_core::inference::benchmark as benchmark_policy;
 #[cfg(test)]
 use crate::runtime_core::inference::model::codec::{parse_default_selection, parse_registry_entry};
 use crate::runtime_core::inference::model::codec::{
-    parse_promotion_evidence, render_default_selection, render_registry_entry,
+    parse_promotion_evidence, render_default_selection, render_promotion_evidence,
+    render_registry_entry,
 };
 #[cfg(test)]
 use crate::runtime_core::inference::model::manifest::LocalArtifactState;
@@ -460,6 +461,7 @@ fn promotion_benchmark_evidence(
         fixture_sha256: row.fixture_sha256.clone(),
         prompt_artifact_sha256: row.prompt_artifact_sha256.clone(),
         benchmark_name: row.benchmark_name.clone(),
+        score: row.score,
         dataset_ref: row.dataset_ref.clone(),
         peak_rss_bytes: row.peak_rss_bytes,
         model_run_id: row.model_run_id.clone(),
@@ -626,7 +628,14 @@ pub fn promote_candidate_report(id: &str, evidence_path: &str) -> Result<String,
     }
 
     let benchmark = benchmark.expect("validated benchmark evidence");
-    persist_promotion_evidence(candidate, &evidence, artifact, &benchmark, &evidence_source)?;
+    let benchmark_evidence = promotion_benchmark_evidence(&benchmark);
+    persist_promotion_evidence(
+        candidate,
+        &evidence,
+        artifact,
+        &benchmark_evidence,
+        &evidence_source,
+    )?;
     let event_id = state::record_event(
         "model.promotion.verified",
         "model local promotion evidence 검증 완료",
@@ -828,12 +837,19 @@ fn persist_promotion_evidence(
     candidate: &ModelManifestEntry,
     evidence: &PromotionEvidence,
     artifact: ModelArtifactDescriptor,
-    benchmark: &observability::BenchmarkRunReport,
+    benchmark: &PromotionBenchmarkEvidence,
     evidence_source: &Path,
 ) -> Result<(), AppError> {
+    let artifact_path = model_artifact_path(artifact);
     model_artifact::write_promotion_evidence(
         candidate.id,
-        &promotion_evidence_json(candidate, evidence, artifact, benchmark, evidence_source),
+        &render_promotion_evidence(
+            candidate,
+            evidence,
+            &artifact_path,
+            benchmark,
+            evidence_source,
+        ),
     )
 }
 
@@ -939,42 +955,6 @@ fn registry_entry_json(
         promotion,
         &artifact_path,
         evidence_path.as_deref(),
-    )
-}
-
-fn promotion_evidence_json(
-    candidate: &ModelManifestEntry,
-    evidence: &PromotionEvidence,
-    artifact: ModelArtifactDescriptor,
-    benchmark: &observability::BenchmarkRunReport,
-    evidence_source: &Path,
-) -> String {
-    format!(
-        "{{\n  \"schemaVersion\": 1,\n  \"status\": \"verified-local-promotion\",\n  \"modelId\": \"{}\",\n  \"displayName\": \"{}\",\n  \"artifactPath\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"artifactSizeBytes\": {},\n  \"backendId\": \"{}\",\n  \"backendVersion\": \"{}\",\n  \"backendSmokeEventId\": \"{}\",\n  \"ramFit\": \"{}\",\n  \"recommendedRamGb\": {},\n  \"peakRssBytes\": {},\n  \"mmproj\": \"{}\",\n  \"benchmarkRunId\": \"{}\",\n  \"benchmarkName\": \"{}\",\n  \"benchmarkScore\": {},\n  \"benchmarkLocalPass\": {},\n  \"sourceEvidencePath\": \"{}\",\n  \"recordedAt\": \"{}\"\n}}\n",
-        ledger::json_string(candidate.id),
-        ledger::json_string(candidate.display_name),
-        ledger::json_string(&model_artifact_path(artifact).display().to_string()),
-        ledger::json_string(&evidence.artifact_sha256),
-        evidence.artifact_size_bytes,
-        ledger::json_string(&evidence.backend_id),
-        ledger::json_string(&evidence.backend_version),
-        ledger::json_string(&evidence.backend_smoke_event_id),
-        ledger::json_string(&evidence.ram_fit),
-        evidence.recommended_ram_gb,
-        evidence.peak_rss_bytes,
-        ledger::json_string(&evidence.mmproj),
-        ledger::json_string(&benchmark.benchmark_run_id),
-        ledger::json_string(&benchmark.benchmark_name),
-        benchmark
-            .score
-            .map(|score| format!("{score:.6}"))
-            .unwrap_or_else(|| "null".to_string()),
-        benchmark
-            .local_pass
-            .map(|value| if value { "true" } else { "false" })
-            .unwrap_or("null"),
-        ledger::json_string(&evidence_source.display().to_string()),
-        ledger::json_string(&evidence.recorded_at)
     )
 }
 

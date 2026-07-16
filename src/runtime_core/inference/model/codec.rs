@@ -5,6 +5,7 @@ use crate::foundation::integrity as checksum;
 use crate::foundation::serialization as strict_json;
 
 use super::manifest::{DefaultSelection, ModelManifestEntry, PromotionEvidence, RegistryEntry};
+use super::promotion::PromotionBenchmarkEvidence;
 
 pub(crate) fn render_default_selection(selection: &DefaultSelection) -> String {
     format!(
@@ -49,6 +50,42 @@ pub(crate) fn render_registry_entry(
         strict_json::escape_string_content(candidate.sha256.unwrap_or("")),
         strict_json::escape_string_content(candidate.license.source),
         strict_json::escape_string_content(candidate.license.checked_at)
+    )
+}
+
+pub(crate) fn render_promotion_evidence(
+    candidate: &ModelManifestEntry,
+    evidence: &PromotionEvidence,
+    artifact_path: &Path,
+    benchmark: &PromotionBenchmarkEvidence,
+    evidence_source: &Path,
+) -> String {
+    format!(
+        "{{\n  \"schemaVersion\": 1,\n  \"status\": \"verified-local-promotion\",\n  \"modelId\": \"{}\",\n  \"displayName\": \"{}\",\n  \"artifactPath\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"artifactSizeBytes\": {},\n  \"backendId\": \"{}\",\n  \"backendVersion\": \"{}\",\n  \"backendSmokeEventId\": \"{}\",\n  \"ramFit\": \"{}\",\n  \"recommendedRamGb\": {},\n  \"peakRssBytes\": {},\n  \"mmproj\": \"{}\",\n  \"benchmarkRunId\": \"{}\",\n  \"benchmarkName\": \"{}\",\n  \"benchmarkScore\": {},\n  \"benchmarkLocalPass\": {},\n  \"sourceEvidencePath\": \"{}\",\n  \"recordedAt\": \"{}\"\n}}\n",
+        strict_json::escape_string_content(candidate.id),
+        strict_json::escape_string_content(candidate.display_name),
+        strict_json::escape_string_content(&artifact_path.display().to_string()),
+        strict_json::escape_string_content(&evidence.artifact_sha256),
+        evidence.artifact_size_bytes,
+        strict_json::escape_string_content(&evidence.backend_id),
+        strict_json::escape_string_content(&evidence.backend_version),
+        strict_json::escape_string_content(&evidence.backend_smoke_event_id),
+        strict_json::escape_string_content(&evidence.ram_fit),
+        evidence.recommended_ram_gb,
+        evidence.peak_rss_bytes,
+        strict_json::escape_string_content(&evidence.mmproj),
+        strict_json::escape_string_content(&evidence.benchmark_run_id),
+        strict_json::escape_string_content(&benchmark.benchmark_name),
+        benchmark
+            .score
+            .map(|score| format!("{score:.6}"))
+            .unwrap_or_else(|| "null".to_string()),
+        benchmark
+            .local_pass
+            .map(|value| if value { "true" } else { "false" })
+            .unwrap_or("null"),
+        strict_json::escape_string_content(&evidence_source.display().to_string()),
+        strict_json::escape_string_content(&evidence.recorded_at)
     )
 }
 
@@ -215,4 +252,59 @@ fn json_value_after_key<'a>(text: &'a str, key: &str) -> Option<&'a str> {
     let after_key = &text[key_start + quoted_key.len()..];
     let colon = after_key.find(':')?;
     Some(after_key[colon + 1..].trim_start())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn promotion_evidence_renderer_preserves_exact_bytes() {
+        let candidate = &super::super::manifest::CANDIDATES[0];
+        let evidence = PromotionEvidence {
+            model_id: candidate.id.to_string(),
+            artifact_sha256: "a".repeat(64),
+            artifact_size_bytes: 123,
+            backend_id: "llama.cpp".to_string(),
+            backend_version: "b1".to_string(),
+            backend_smoke_event_id: "event-1".to_string(),
+            ram_fit: "observed-within-local-host".to_string(),
+            recommended_ram_gb: 8,
+            peak_rss_bytes: 456,
+            mmproj: "not-required-text-only".to_string(),
+            benchmark_run_id: "benchmark-1".to_string(),
+            recorded_at: "2026-07-16".to_string(),
+        };
+        let benchmark = PromotionBenchmarkEvidence {
+            claim_state: "measured-locally".to_string(),
+            local_pass: Some(true),
+            backend_id: Some("llama.cpp".to_string()),
+            fixture_id: "fixture-1".to_string(),
+            fixture_sha256: "b".repeat(64),
+            prompt_artifact_sha256: Some("c".repeat(64)),
+            benchmark_name: "local-smoke".to_string(),
+            score: Some(3.0),
+            dataset_ref: Some("dataset-1".to_string()),
+            peak_rss_bytes: Some(456),
+            model_run_id: Some("model-run-1".to_string()),
+        };
+
+        let rendered = render_promotion_evidence(
+            candidate,
+            &evidence,
+            Path::new("/models/model.gguf"),
+            &benchmark,
+            Path::new("/evidence/source.json"),
+        );
+
+        assert_eq!(
+            rendered,
+            format!(
+                "{{\n  \"schemaVersion\": 1,\n  \"status\": \"verified-local-promotion\",\n  \"modelId\": \"{}\",\n  \"displayName\": \"{}\",\n  \"artifactPath\": \"/models/model.gguf\",\n  \"artifactSha256\": \"{}\",\n  \"artifactSizeBytes\": 123,\n  \"backendId\": \"llama.cpp\",\n  \"backendVersion\": \"b1\",\n  \"backendSmokeEventId\": \"event-1\",\n  \"ramFit\": \"observed-within-local-host\",\n  \"recommendedRamGb\": 8,\n  \"peakRssBytes\": 456,\n  \"mmproj\": \"not-required-text-only\",\n  \"benchmarkRunId\": \"benchmark-1\",\n  \"benchmarkName\": \"local-smoke\",\n  \"benchmarkScore\": 3.000000,\n  \"benchmarkLocalPass\": true,\n  \"sourceEvidencePath\": \"/evidence/source.json\",\n  \"recordedAt\": \"2026-07-16\"\n}}\n",
+                candidate.id,
+                candidate.display_name,
+                "a".repeat(64)
+            )
+        );
+    }
 }
