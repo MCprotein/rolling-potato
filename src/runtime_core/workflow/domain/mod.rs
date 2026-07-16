@@ -2,3 +2,4 @@
 
 pub(crate) mod snapshot;
 pub(crate) mod transcript;
+pub(crate) mod transition;

@@ -10,6 +10,14 @@ use crate::adapters::filesystem::{layout as paths, lease};
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 use crate::foundation::serialization::{CanonicalObject, CanonicalValue};
+use crate::runtime_core::workflow::domain::transition::{
+    is_state_transition_intent_kind, is_terminal_action_intent_kind,
+};
+pub(crate) use crate::runtime_core::workflow::domain::transition::{
+    CurrentStateIntent, PreparedBlob, PreparedBundleContext, PreparedEventChain, PreparedMember,
+    PreparedMemberBinding, PreparedMemberKind, PreparedPath, PreparedSourceBundle, SourceInstallV1,
+    SourceOwnership, SourcePermissions, UnixSourceMetadata,
+};
 
 pub(crate) const MAX_SOURCE_BLOB_BYTES: usize = 262_144;
 const MAX_PREPARED_EVENT_BYTES: usize = 16_384;
@@ -21,20 +29,6 @@ const MAX_RECOVERY_JOURNAL_BYTES: usize = 2 * MAX_PREPARED_BUNDLE_BYTES + 64 * 1
 const MAX_RECOVERY_PROJECT_ENTRIES: usize = 128;
 const MAX_PROJECTION_LAG_ENTRIES: usize = 4;
 const MAX_PROJECTION_LAG_BYTES: usize = 256 * 1024;
-const STATE_TRANSITION_INTENT_KINDS: &[&str] = &[
-    "bootstrap",
-    "checkpoint-workflow",
-    "repair-workflow-pointer",
-    "clear-terminal-workflow",
-    "reconcile",
-    "resume",
-    "cancel",
-    "start-session",
-    "select-session",
-    "record-event",
-];
-const TERMINAL_ACTION_INTENT_KINDS: &[&str] =
-    &["deny-patch", "deny-verification", "cancel-workflow"];
 
 fn enforce_byte_limit(length: usize, limit: usize, message: &'static str) -> Result<(), AppError> {
     if length > limit {
@@ -187,194 +181,9 @@ const PROJECTION_LAG_KEYS: &[&str] = &[
     "required_event_ids",
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum PreparedMemberKind {
-    ToolOutput,
-    TranscriptV2,
-    WorkflowSnapshot,
-    WorkflowPointer,
-    CurrentImage,
-    ProjectionLag,
-}
-
-impl PreparedMemberKind {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::ToolOutput => "tool_output",
-            Self::TranscriptV2 => "transcript_v2",
-            Self::WorkflowSnapshot => "workflow_snapshot",
-            Self::WorkflowPointer => "workflow_pointer",
-            Self::CurrentImage => "current_image",
-            Self::ProjectionLag => "projection_lag",
-        }
-    }
-
-    fn rank(self) -> u8 {
-        match self {
-            Self::ToolOutput => 3,
-            Self::TranscriptV2 => 4,
-            Self::WorkflowSnapshot => 5,
-            Self::WorkflowPointer => 6,
-            Self::CurrentImage => 7,
-            Self::ProjectionLag => 8,
-        }
-    }
-
-    fn parse(value: &str) -> Result<Self, AppError> {
-        match value {
-            "tool_output" => Ok(Self::ToolOutput),
-            "transcript_v2" => Ok(Self::TranscriptV2),
-            "workflow_snapshot" => Ok(Self::WorkflowSnapshot),
-            "workflow_pointer" => Ok(Self::WorkflowPointer),
-            "current_image" => Ok(Self::CurrentImage),
-            "projection_lag" => Ok(Self::ProjectionLag),
-            _ => Err(AppError::blocked("prepared member kind 불일치")),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct PreparedMemberBinding {
-    pub artifact_id: Option<String>,
-    pub causal_id: Option<String>,
-    pub source_key: Option<String>,
-    pub event_id: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct PreparedMember {
-    pub kind: PreparedMemberKind,
-    pub path: String,
-    pub schema_version: u64,
-    pub binding: PreparedMemberBinding,
-    pub bytes_utf8: String,
-    pub expected_type: String,
-    pub expected_identity: Option<String>,
-    pub readonly: bool,
-    pub mode: u32,
-    pub ownership: Option<String>,
-    pub semantic_role_rank: u8,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct PreparedPath {
-    pub namespace: String,
-    pub path: String,
-    pub parent: String,
-    pub basename: String,
-    pub expected_type: String,
-    pub expected_identity: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct PreparedBlob {
-    pub blob_id: String,
-    pub member_path: String,
-    pub sha256: String,
-    pub byte_length: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct SourcePermissions {
-    pub before_readonly: bool,
-    pub install_readonly: bool,
-    pub before_mode: u32,
-    pub install_mode: u32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct SourceOwnership {
-    pub before_owner: String,
-    pub install_owner: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct UnixSourceMetadata {
-    pub before_mode: u32,
-    pub install_mode: u32,
-    pub before_uid: u32,
-    pub before_gid: u32,
-    pub install_uid: u32,
-    pub install_gid: u32,
-    pub before_dev: u64,
-    pub before_ino: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct SourceInstallV1 {
-    pub schema_version: u64,
-    pub source_key: String,
-    pub target: PreparedPath,
-    pub before_blob: PreparedBlob,
-    pub proposed_blob: PreparedBlob,
-    pub rollback_final: PreparedPath,
-    pub install_temp: PreparedPath,
-    pub guard_path: PreparedPath,
-    pub before_sha256: String,
-    pub before_byte_length: u64,
-    pub proposed_sha256: String,
-    pub proposed_byte_length: u64,
-    pub permissions: SourcePermissions,
-    pub ownership: SourceOwnership,
-    pub platform: String,
-    pub unix_metadata: UnixSourceMetadata,
-    pub operations: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct PreparedSourceBundle {
-    pub intent_id: String,
-    pub intent_kind: String,
-    pub project_id: String,
-    pub session_id: String,
-    pub workflow_id: Option<String>,
-    pub prepared_at_ms: u128,
-    pub current_revision: u64,
-    pub current_artifact_hash: String,
-    pub ledger_binding: crate::ledger::LedgerBinding,
-    pub source_install: Option<SourceInstallV1>,
-    pub before_bytes: Option<String>,
-    pub proposed_bytes: Option<String>,
-    pub additional_members: Vec<PreparedMember>,
-    pub semantic_events: Vec<crate::ledger::LedgerEvent>,
-    pub event_chain_plan: Vec<PreparedEventChain>,
-    pub projection_lag_member_index: Option<u64>,
-}
-
-pub(crate) struct PreparedBundleContext<'a> {
-    pub identity: &'a crate::ledger::RuntimeIdentity,
-    pub lease: &'a crate::runtime_core::workflow::domain::snapshot::CurrentStateLeaseView,
-    pub ledger_binding: crate::ledger::LedgerBinding,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct PreparedEventChain {
-    pub event_id: String,
-    pub ordinal: u64,
-    pub previous_event_hash: String,
-    pub event_hash: String,
-}
-
 pub(crate) struct TransitionGuard {
     project_id: String,
     _lease: lease::RecoverableLease,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum CurrentStateIntent {
-    Bootstrap,
-    CheckpointWorkflow,
-    RecoverWorkflow,
-    RepairWorkflowPointer,
-    ClearTerminalWorkflow,
-    Reconcile,
-    ApprovePatch,
-    ApproveVerification,
-    Resume,
-    Cancel,
-    StartSession,
-    SelectSession,
-    RecordEvent,
 }
 
 impl TransitionGuard {
@@ -424,34 +233,6 @@ impl TransitionGuard {
         }
         remove_committed_source_bundle(bundle, path)
     }
-}
-
-impl CurrentStateIntent {
-    pub(crate) const fn as_str(self) -> &'static str {
-        match self {
-            Self::Bootstrap => "bootstrap",
-            Self::CheckpointWorkflow => "checkpoint-workflow",
-            Self::RecoverWorkflow => "recover-workflow",
-            Self::RepairWorkflowPointer => "repair-workflow-pointer",
-            Self::ClearTerminalWorkflow => "clear-terminal-workflow",
-            Self::Reconcile => "reconcile",
-            Self::ApprovePatch => "approve-patch",
-            Self::ApproveVerification => "approve-verification",
-            Self::Resume => "resume",
-            Self::Cancel => "cancel",
-            Self::StartSession => "start-session",
-            Self::SelectSession => "select-session",
-            Self::RecordEvent => "record-event",
-        }
-    }
-}
-
-fn is_state_transition_intent_kind(value: &str) -> bool {
-    STATE_TRANSITION_INTENT_KINDS.contains(&value)
-}
-
-fn is_terminal_action_intent_kind(value: &str) -> bool {
-    TERMINAL_ACTION_INTENT_KINDS.contains(&value)
 }
 
 pub(crate) fn prepare_state_transition_bundle(
