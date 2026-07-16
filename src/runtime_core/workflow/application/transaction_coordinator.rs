@@ -154,6 +154,30 @@ pub(crate) trait TerminalActionTransactionPort {
     fn remove_journal(&mut self) -> Result<(), AppError>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StateTransitionFault {
+    Journal,
+    CheckpointTransaction,
+    CheckpointSnapshot,
+    Artifacts,
+    Ledger,
+    CheckpointLedger,
+    CheckpointPointer,
+    Current,
+    Projection,
+}
+
+pub(crate) trait StateTransitionTransactionPort {
+    fn fault(&mut self, point: StateTransitionFault) -> Result<(), AppError>;
+    fn install_snapshot(&mut self) -> Result<(), AppError>;
+    fn append_event(&mut self) -> Result<(), AppError>;
+    fn install_pointer(&mut self) -> Result<(), AppError>;
+    fn finish_events(&mut self) -> Result<(), AppError>;
+    fn install_current(&mut self) -> Result<(), AppError>;
+    fn converge(&mut self) -> Result<(), AppError>;
+    fn remove_journal(&mut self) -> Result<(), AppError>;
+}
+
 pub(crate) fn execute_approval_transaction(
     port: &mut impl ApprovalTransactionPort,
     execution: TransactionExecution,
@@ -304,6 +328,36 @@ pub(crate) fn execute_terminal_action_transaction(
     Ok(())
 }
 
+pub(crate) fn execute_state_transition(
+    port: &mut impl StateTransitionTransactionPort,
+    checkpoint: bool,
+) -> Result<(), AppError> {
+    port.fault(StateTransitionFault::Journal)?;
+    if checkpoint {
+        port.fault(StateTransitionFault::CheckpointTransaction)?;
+    }
+    port.install_snapshot()?;
+    if checkpoint {
+        port.fault(StateTransitionFault::CheckpointSnapshot)?;
+    }
+    port.fault(StateTransitionFault::Artifacts)?;
+    port.append_event()?;
+    port.fault(StateTransitionFault::Ledger)?;
+    if checkpoint {
+        port.fault(StateTransitionFault::CheckpointLedger)?;
+    }
+    port.install_pointer()?;
+    if checkpoint {
+        port.fault(StateTransitionFault::CheckpointPointer)?;
+    }
+    port.finish_events()?;
+    port.install_current()?;
+    port.fault(StateTransitionFault::Current)?;
+    port.converge()?;
+    port.fault(StateTransitionFault::Projection)?;
+    port.remove_journal()
+}
+
 impl<'plan> TransactionCoordinator<'plan> {
     pub(crate) fn new(planned: &'plan [PlannedEvent]) -> Self {
         Self {
@@ -403,6 +457,53 @@ mod tests {
     #[derive(Default)]
     struct FakeTerminalActionPort {
         calls: Vec<String>,
+    }
+
+    #[derive(Default)]
+    struct FakeStateTransitionPort {
+        calls: Vec<String>,
+    }
+
+    impl StateTransitionTransactionPort for FakeStateTransitionPort {
+        fn fault(&mut self, point: StateTransitionFault) -> Result<(), AppError> {
+            self.calls.push(format!("fault:{point:?}"));
+            Ok(())
+        }
+
+        fn install_snapshot(&mut self) -> Result<(), AppError> {
+            self.calls.push("snapshot".to_owned());
+            Ok(())
+        }
+
+        fn append_event(&mut self) -> Result<(), AppError> {
+            self.calls.push("append".to_owned());
+            Ok(())
+        }
+
+        fn install_pointer(&mut self) -> Result<(), AppError> {
+            self.calls.push("pointer".to_owned());
+            Ok(())
+        }
+
+        fn finish_events(&mut self) -> Result<(), AppError> {
+            self.calls.push("finish".to_owned());
+            Ok(())
+        }
+
+        fn install_current(&mut self) -> Result<(), AppError> {
+            self.calls.push("current".to_owned());
+            Ok(())
+        }
+
+        fn converge(&mut self) -> Result<(), AppError> {
+            self.calls.push("converge".to_owned());
+            Ok(())
+        }
+
+        fn remove_journal(&mut self) -> Result<(), AppError> {
+            self.calls.push("remove-journal".to_owned());
+            Ok(())
+        }
     }
 
     impl TerminalActionTransactionPort for FakeTerminalActionPort {
@@ -726,6 +827,35 @@ mod tests {
             [
                 "append:0", "source", "snapshot", "append:1", "pointer", "append:2", "finish",
                 "current", "converge",
+            ]
+        );
+    }
+
+    #[test]
+    fn checkpoint_transition_order_is_application_owned() {
+        let mut port = FakeStateTransitionPort::default();
+
+        execute_state_transition(&mut port, true).unwrap();
+
+        assert_eq!(
+            port.calls,
+            [
+                "fault:Journal",
+                "fault:CheckpointTransaction",
+                "snapshot",
+                "fault:CheckpointSnapshot",
+                "fault:Artifacts",
+                "append",
+                "fault:Ledger",
+                "fault:CheckpointLedger",
+                "pointer",
+                "fault:CheckpointPointer",
+                "finish",
+                "current",
+                "fault:Current",
+                "converge",
+                "fault:Projection",
+                "remove-journal",
             ]
         );
     }

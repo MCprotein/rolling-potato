@@ -18,7 +18,8 @@ use crate::runtime_core::workflow::application::recovery::{
 };
 use crate::runtime_core::workflow::application::transaction_coordinator::{
     self as transaction_coordinator, ApprovalFault, ApprovalRevision, ApprovalTransactionPort,
-    TerminalActionFault, TerminalActionTransactionPort, TransactionExecution, VerificationFault,
+    StateTransitionFault, StateTransitionTransactionPort, TerminalActionFault,
+    TerminalActionTransactionPort, TransactionExecution, VerificationFault,
     VerificationTransactionPort,
 };
 use crate::runtime_core::workflow::domain::snapshot::{
@@ -997,34 +998,83 @@ fn transition_project_current_state_under_guard(
     ));
     crate::transition::bind_additional_members(&mut bundle, members)?;
     let journal = transition_guard.commit(&bundle)?;
-    state_transition_fault("after-journal")?;
-    if intent == crate::transition::CurrentStateIntent::CheckpointWorkflow {
-        checkpoint_fault("after-transaction")?;
-    }
-    let mut sink = writer.event_sink(&planned);
-    if let Some((workflow_guard, prepared)) = workflow {
-        workflow_guard.install_snapshot(prepared)?;
-        checkpoint_fault("after-snapshot")?;
-    }
-    state_transition_fault("after-artifacts")?;
-    sink.append_planned_under_guard(0, event)?;
-    state_transition_fault("after-ledger")?;
-    if intent == crate::transition::CurrentStateIntent::CheckpointWorkflow {
-        checkpoint_fault("after-ledger")?;
-    }
-    if let Some((workflow_guard, prepared)) = workflow {
-        workflow_guard.install_pointer(prepared)?;
-        checkpoint_fault("after-pointer")?;
-    }
-    sink.finish()?;
-    if !validate_state_transition_current_cas(&bundle, &current_image.bytes)? {
-        atomic_replace_bytes(&current_image.path, current_image.bytes.as_bytes())?;
-    }
-    state_transition_fault("after-current")?;
-    sink.converge_derived(&identity.project_id)?;
-    state_transition_fault("after-projection")?;
-    transition_guard.remove(&bundle, &journal)?;
+    let checkpoint = intent == crate::transition::CurrentStateIntent::CheckpointWorkflow;
+    let mut port = StateTransitionTransactionAdapter {
+        transition_guard,
+        bundle: &bundle,
+        current: &current_image,
+        workflow,
+        event,
+        journal: &journal,
+        sink: writer.event_sink(&planned),
+    };
+    transaction_coordinator::execute_state_transition(&mut port, checkpoint)?;
     Ok(current_image)
+}
+
+struct StateTransitionTransactionAdapter<'a> {
+    transition_guard: &'a crate::transition::TransitionGuard,
+    bundle: &'a crate::transition::PreparedSourceBundle,
+    current: &'a PreparedCurrentImage,
+    workflow: Option<(&'a WorkflowCheckpointGuard, &'a PreparedWorkflowRevision)>,
+    event: &'a ledger::LedgerEvent,
+    journal: &'a std::path::Path,
+    sink: ledger::EventSink<'a>,
+}
+
+impl StateTransitionTransactionPort for StateTransitionTransactionAdapter<'_> {
+    fn fault(&mut self, point: StateTransitionFault) -> Result<(), AppError> {
+        match point {
+            StateTransitionFault::Journal => state_transition_fault("after-journal"),
+            StateTransitionFault::CheckpointTransaction => checkpoint_fault("after-transaction"),
+            StateTransitionFault::CheckpointSnapshot => checkpoint_fault("after-snapshot"),
+            StateTransitionFault::Artifacts => state_transition_fault("after-artifacts"),
+            StateTransitionFault::Ledger => state_transition_fault("after-ledger"),
+            StateTransitionFault::CheckpointLedger => checkpoint_fault("after-ledger"),
+            StateTransitionFault::CheckpointPointer => checkpoint_fault("after-pointer"),
+            StateTransitionFault::Current => state_transition_fault("after-current"),
+            StateTransitionFault::Projection => state_transition_fault("after-projection"),
+        }
+    }
+
+    fn install_snapshot(&mut self) -> Result<(), AppError> {
+        if let Some((guard, prepared)) = self.workflow {
+            guard.install_snapshot(prepared)?;
+        }
+        Ok(())
+    }
+
+    fn append_event(&mut self) -> Result<(), AppError> {
+        self.sink
+            .append_planned_under_guard(0, self.event)
+            .map(|_| ())
+    }
+
+    fn install_pointer(&mut self) -> Result<(), AppError> {
+        if let Some((guard, prepared)) = self.workflow {
+            guard.install_pointer(prepared)?;
+        }
+        Ok(())
+    }
+
+    fn finish_events(&mut self) -> Result<(), AppError> {
+        self.sink.finish()
+    }
+
+    fn install_current(&mut self) -> Result<(), AppError> {
+        if !validate_state_transition_current_cas(self.bundle, &self.current.bytes)? {
+            atomic_replace_bytes(&self.current.path, self.current.bytes.as_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn converge(&mut self) -> Result<(), AppError> {
+        self.sink.converge_derived(&self.bundle.project_id)
+    }
+
+    fn remove_journal(&mut self) -> Result<(), AppError> {
+        self.transition_guard.remove(self.bundle, self.journal)
+    }
 }
 
 fn prepared_workflow_member(
