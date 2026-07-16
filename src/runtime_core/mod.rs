@@ -11,4 +11,4 @@ mod observability;
 mod patch;
 mod policy;
 mod reporting;
-mod workflow;
+pub(crate) mod workflow;
