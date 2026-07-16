@@ -15,9 +15,11 @@ use crate::adapters::llama_cpp::stream as backend_stream;
 use crate::adapters::process::backend as backend_process;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
+#[cfg(test)]
+use crate::runtime_core::inference::backend::lifecycle::parse_generation_record;
 use crate::runtime_core::inference::backend::lifecycle::{
-    parse_generation_record, record_value, render_generation_record, BackendGenerationRecord,
-    BackendGenerationTerminalRecord, BackendSidecarRecord,
+    render_generation_record, BackendGenerationRecord, BackendGenerationTerminalRecord,
+    BackendSidecarRecord,
 };
 use crate::runtime_core::inference::backend::BackendAdapter;
 use crate::runtime_core::inference::backend::{
@@ -472,7 +474,7 @@ fn terminate_with_fallback(
 
 fn cancel_active_generation_before_stop(record: &BackendSidecarRecord) -> Result<String, AppError> {
     let mut generation_outcome = "none".to_string();
-    if let Some(generation) = read_backend_generation_record()? {
+    if let Some(generation) = backend_state::read_generation_record()? {
         if generation.sidecar_pid == record.pid
             && backend_process::is_running(generation.client_pid)
         {
@@ -490,10 +492,8 @@ fn cancel_active_generation_before_stop(record: &BackendSidecarRecord) -> Result
                 Duration::from_millis(STOP_CANCEL_WAIT_MS),
             )? {
                 generation_outcome = terminal.outcome;
-                remove_generation_state_if_owned_checked(&generation.generation_id)?;
-                remove_file_if_exists(&backend_generation_terminal_path(
-                    &generation.generation_id,
-                ))?;
+                backend_state::remove_generation_state_if_owned(&generation.generation_id)?;
+                backend_state::remove_generation_terminal_record(&generation.generation_id)?;
             } else {
                 generation_outcome = "forced-sidecar-stop".to_string();
                 state::record_event(
@@ -509,7 +509,7 @@ fn cancel_active_generation_before_stop(record: &BackendSidecarRecord) -> Result
                 )?;
             }
         } else if generation.sidecar_pid == record.pid {
-            remove_generation_state_if_owned_checked(&generation.generation_id)?;
+            backend_state::remove_generation_state_if_owned(&generation.generation_id)?;
             generation_outcome = "stale-generation-cleaned".to_string();
             state::record_event(
                 "backend.generation.stale.cleaned",
@@ -1203,10 +1203,10 @@ fn finish_interrupted_generation(
 }
 
 pub fn cancel_generation_report() -> Result<String, AppError> {
-    let Some(record) = read_backend_generation_record()? else {
+    let Some(record) = backend_state::read_generation_record()? else {
         return Ok(format!(
             "backend generation 취소\n- status: idle\n- active generation record: {}",
-            backend_generation_record_path().display()
+            backend_state::generation_record_path().display()
         ));
     };
     if !backend_process::is_running(record.client_pid) {
@@ -1245,7 +1245,7 @@ pub fn cancel_generation_report() -> Result<String, AppError> {
         false
     };
     if group_released {
-        remove_file_if_exists(&backend_generation_terminal_path(&record.generation_id))?;
+        backend_state::remove_generation_terminal_record(&record.generation_id)?;
     }
     let terminal_outcome = terminal
         .as_ref()
@@ -1392,15 +1392,6 @@ fn install_backend_from_archive(
     })
 }
 
-fn remove_file_if_exists(path: &Path) -> Result<(), AppError> {
-    if path.exists() {
-        fs::remove_file(path).map_err(|err| {
-            AppError::runtime(format!("file 삭제 실패: {} ({err})", path.display()))
-        })?;
-    }
-    Ok(())
-}
-
 fn display_optional_u32(value: Option<u32>) -> String {
     value
         .map(|value| value.to_string())
@@ -1501,9 +1492,9 @@ fn begin_active_generation(
     let mut admission = GENERATION_ADMISSION_STATE
         .lock()
         .map_err(|_| AppError::runtime("backend generation admission lock poisoned"))?;
-    prune_generation_terminal_records();
+    backend_state::prune_generation_terminal_records(now_ms(), TERMINAL_RECORD_RETENTION_MS);
     let mut publish_primary = true;
-    if let Some(active) = read_backend_generation_record()? {
+    if let Some(active) = backend_state::read_generation_record()? {
         if backend_process::is_running(active.client_pid) {
             if active.client_pid == std::process::id()
                 && active.sidecar_pid == sidecar.pid
@@ -1528,7 +1519,7 @@ fn begin_active_generation(
                 ),
             )?;
         }
-    } else if let Some(lock) = read_backend_generation_lock_record()? {
+    } else if let Some(lock) = backend_state::read_generation_lock_record()? {
         if backend_process::is_running(lock.client_pid) {
             return Err(AppError::blocked(format!(
                 "backend chat 차단\n- 이유: generation lease가 publish 중입니다.\n- generation id: {}\n- client pid: {}\n- sidecar pid: {}\n- 다음 단계: 잠시 후 다시 시도하거나 rpotato backend cancel",
@@ -1562,9 +1553,9 @@ fn begin_active_generation(
         streaming_display,
     };
     if publish_primary {
-        acquire_backend_generation_lock(&record)?;
+        backend_state::acquire_generation_lock(&record)?;
         if let Err(err) = write_backend_generation_record(&record) {
-            let _ = remove_generation_lock_if_owned_checked(&record.generation_id);
+            let _ = backend_state::remove_generation_lock_if_owned(&record.generation_id);
             return Err(err);
         }
         admission.primary_generation_id = Some(record.generation_id.clone());
@@ -1575,7 +1566,7 @@ fn begin_active_generation(
     {
         if publish_primary {
             admission.primary_generation_id = None;
-            remove_generation_state_if_owned_checked(&record.generation_id)?;
+            backend_state::remove_generation_state_if_owned(&record.generation_id)?;
         }
         return Err(AppError::blocked(
             "backend generation admission id collision",
@@ -1584,100 +1575,14 @@ fn begin_active_generation(
     Ok(record)
 }
 
-fn acquire_backend_generation_lock(record: &BackendGenerationRecord) -> Result<(), AppError> {
-    let path = backend_generation_lock_path();
-    let parent = path.parent().ok_or_else(|| {
-        AppError::runtime(format!(
-            "backend generation lock parent path를 계산하지 못했습니다: {}",
-            path.display()
-        ))
-    })?;
-    fs::create_dir_all(parent).map_err(|err| {
-        AppError::runtime(format!(
-            "backend generation lock directory를 만들지 못했습니다: {} ({err})",
-            parent.display()
-        ))
-    })?;
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&path)
-        .map_err(|err| {
-            AppError::blocked(format!(
-                "backend generation lease를 획득하지 못했습니다: {} ({err})",
-                path.display()
-            ))
-        })?;
-    if let Err(err) = file
-        .write_all(render_generation_record(record).as_bytes())
-        .and_then(|_| file.sync_all())
-    {
-        drop(file);
-        let _ = fs::remove_file(&path);
-        return Err(AppError::runtime(format!(
-            "backend generation lease를 기록하지 못했습니다: {} ({err})",
-            path.display()
-        )));
-    }
-    Ok(())
-}
-
 fn write_backend_generation_record(record: &BackendGenerationRecord) -> Result<(), AppError> {
-    let path = backend_generation_record_path();
+    let path = backend_state::generation_record_path();
     let contents = render_generation_record(record);
     state::atomic_replace_bytes(&path, contents.as_bytes())
 }
 
-fn read_backend_generation_record() -> Result<Option<BackendGenerationRecord>, AppError> {
-    let path = backend_generation_record_path();
-    if !path.exists() {
-        return Ok(None);
-    }
-    let contents = fs::read_to_string(&path).map_err(|err| {
-        AppError::runtime(format!(
-            "backend generation record를 읽지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    parse_generation_record(&contents).map(Some).ok_or_else(|| {
-        AppError::blocked(format!(
-            "backend generation record 형식이 유효하지 않습니다: {}",
-            path.display()
-        ))
-    })
-}
-
-fn read_backend_generation_lock_record() -> Result<Option<BackendGenerationRecord>, AppError> {
-    let path = backend_generation_lock_path();
-    if !path.exists() {
-        return Ok(None);
-    }
-    let contents = fs::read_to_string(&path).map_err(|err| {
-        AppError::runtime(format!(
-            "backend generation lock을 읽지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    parse_generation_record(&contents).map(Some).ok_or_else(|| {
-        AppError::blocked(format!(
-            "backend generation lock 형식이 유효하지 않습니다: {}",
-            path.display()
-        ))
-    })
-}
-
 fn generation_cancel_requested(generation_id: &str) -> Result<bool, AppError> {
-    let path = backend_generation_cancel_path();
-    if !path.exists() {
-        return Ok(false);
-    }
-    let contents = fs::read_to_string(&path).map_err(|err| {
-        AppError::runtime(format!(
-            "backend generation cancel marker를 읽지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    let Some(cancel_generation_id) = record_value(&contents, "generation_id") else {
+    let Some(cancel_generation_id) = backend_state::read_cancel_generation_id()? else {
         return Ok(false);
     };
     if cancel_generation_id == generation_id {
@@ -1687,7 +1592,7 @@ fn generation_cancel_requested(generation_id: &str) -> Result<bool, AppError> {
         .lock()
         .map_err(|_| AppError::runtime("backend generation admission lock poisoned"))?;
     Ok(
-        admission.primary_generation_id.as_deref() == Some(cancel_generation_id)
+        admission.primary_generation_id.as_deref() == Some(cancel_generation_id.as_str())
             && admission.active_generation_ids.contains(generation_id),
     )
 }
@@ -1699,7 +1604,7 @@ fn write_generation_cancel_marker(generation_id: &str) -> Result<(), AppError> {
         now_ms(),
         std::process::id()
     );
-    state::atomic_replace_bytes(&backend_generation_cancel_path(), marker.as_bytes())
+    state::atomic_replace_bytes(&backend_state::generation_cancel_path(), marker.as_bytes())
 }
 
 fn write_generation_terminal_record(
@@ -1718,46 +1623,9 @@ fn write_generation_terminal_record(
         record.generation_id, record.outcome, record.lifecycle_event, record.recorded_at_ms
     );
     state::atomic_replace_bytes(
-        &backend_generation_terminal_path(generation_id),
+        &backend_state::generation_terminal_path(generation_id),
         contents.as_bytes(),
     )
-}
-
-fn read_generation_terminal_record(
-    generation_id: &str,
-) -> Result<Option<BackendGenerationTerminalRecord>, AppError> {
-    let path = backend_generation_terminal_path(generation_id);
-    if !path.exists() {
-        return Ok(None);
-    }
-    let contents = fs::read_to_string(&path).map_err(|err| {
-        AppError::runtime(format!(
-            "backend generation terminal record를 읽지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    let record = BackendGenerationTerminalRecord {
-        generation_id: record_value(&contents, "generation_id")
-            .ok_or_else(|| AppError::blocked("generation terminal id가 없습니다."))?
-            .to_string(),
-        outcome: record_value(&contents, "outcome")
-            .ok_or_else(|| AppError::blocked("generation terminal outcome이 없습니다."))?
-            .to_string(),
-        lifecycle_event: record_value(&contents, "lifecycle_event")
-            .ok_or_else(|| AppError::blocked("generation terminal lifecycle event가 없습니다."))?
-            .to_string(),
-        recorded_at_ms: record_value(&contents, "recorded_at_ms")
-            .and_then(|value| value.parse().ok())
-            .ok_or_else(|| {
-                AppError::blocked("generation terminal timestamp가 유효하지 않습니다.")
-            })?,
-    };
-    if record.generation_id != generation_id {
-        return Err(AppError::blocked(
-            "generation terminal record id가 요청과 일치하지 않습니다.",
-        ));
-    }
-    Ok(Some(record))
 }
 
 fn wait_for_generation_terminal(
@@ -1766,7 +1634,7 @@ fn wait_for_generation_terminal(
 ) -> Result<Option<BackendGenerationTerminalRecord>, AppError> {
     let started = Instant::now();
     loop {
-        if let Some(record) = read_generation_terminal_record(generation_id)? {
+        if let Some(record) = backend_state::read_generation_terminal_record(generation_id)? {
             return Ok(Some(record));
         }
         if started.elapsed() >= timeout {
@@ -1782,7 +1650,7 @@ fn wait_for_generation_group_release(
 ) -> Result<bool, AppError> {
     let started = Instant::now();
     loop {
-        let released = read_backend_generation_record()?
+        let released = backend_state::read_generation_record()?
             .is_none_or(|record| record.generation_id != primary_generation_id);
         if released {
             return Ok(true);
@@ -1794,31 +1662,8 @@ fn wait_for_generation_group_release(
     }
 }
 
-fn prune_generation_terminal_records() {
-    let directory = paths::state_dir().join("backend-generation-terminals");
-    let Ok(entries) = fs::read_dir(directory) else {
-        return;
-    };
-    let now = now_ms();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let old = fs::read_to_string(&path)
-            .ok()
-            .and_then(|contents| {
-                record_value(&contents, "recorded_at_ms")?
-                    .parse::<u128>()
-                    .ok()
-            })
-            .map(|recorded| now.saturating_sub(recorded) > TERMINAL_RECORD_RETENTION_MS)
-            .unwrap_or(false);
-        if old {
-            let _ = fs::remove_file(path);
-        }
-    }
-}
-
 fn remove_generation_state_if_owned(generation_id: &str) {
-    let _ = remove_generation_state_if_owned_checked(generation_id);
+    let _ = backend_state::remove_generation_state_if_owned(generation_id);
 }
 
 fn release_generation_admission(generation_id: &str) -> Result<(), AppError> {
@@ -1826,7 +1671,7 @@ fn release_generation_admission(generation_id: &str) -> Result<(), AppError> {
         .lock()
         .map_err(|_| AppError::runtime("backend generation admission lock poisoned"))?;
     if admission.active_generation_ids.is_empty() {
-        return remove_generation_state_if_owned_checked(generation_id);
+        return backend_state::remove_generation_state_if_owned(generation_id);
     }
     if !admission.active_generation_ids.remove(generation_id) {
         return Err(AppError::blocked(format!(
@@ -1840,64 +1685,7 @@ fn release_generation_admission(generation_id: &str) -> Result<(), AppError> {
         .primary_generation_id
         .take()
         .unwrap_or_else(|| generation_id.to_string());
-    remove_generation_state_if_owned_checked(&primary_generation_id)
-}
-
-fn remove_generation_state_if_owned_checked(generation_id: &str) -> Result<(), AppError> {
-    let record_path = backend_generation_record_path();
-    let owned = fs::read_to_string(&record_path)
-        .ok()
-        .and_then(|contents| {
-            record_value(&contents, "generation_id").map(|value| value == generation_id)
-        })
-        .unwrap_or(false);
-    if owned {
-        remove_file_if_exists(&record_path)?;
-    }
-    let cancel_path = backend_generation_cancel_path();
-    let owned_marker = fs::read_to_string(&cancel_path)
-        .ok()
-        .and_then(|contents| {
-            record_value(&contents, "generation_id").map(|value| value == generation_id)
-        })
-        .unwrap_or(false);
-    if owned_marker {
-        remove_file_if_exists(&cancel_path)?;
-    }
-    remove_generation_lock_if_owned_checked(generation_id)?;
-    Ok(())
-}
-
-fn remove_generation_lock_if_owned_checked(generation_id: &str) -> Result<(), AppError> {
-    let path = backend_generation_lock_path();
-    let owned = fs::read_to_string(&path)
-        .ok()
-        .and_then(|contents| {
-            record_value(&contents, "generation_id").map(|value| value == generation_id)
-        })
-        .unwrap_or(false);
-    if owned {
-        remove_file_if_exists(&path)?;
-    }
-    Ok(())
-}
-
-fn backend_generation_record_path() -> PathBuf {
-    paths::state_dir().join("backend-active-generation.txt")
-}
-
-fn backend_generation_lock_path() -> PathBuf {
-    paths::state_dir().join("backend-active-generation.lock")
-}
-
-fn backend_generation_cancel_path() -> PathBuf {
-    paths::state_dir().join("backend-active-generation.cancel")
-}
-
-fn backend_generation_terminal_path(generation_id: &str) -> PathBuf {
-    paths::state_dir()
-        .join("backend-generation-terminals")
-        .join(format!("{generation_id}.txt"))
+    backend_state::remove_generation_state_if_owned(&primary_generation_id)
 }
 
 fn start_sidecar_with_timeout(
@@ -2646,7 +2434,7 @@ mod tests {
         env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
         fs::create_dir_all(paths::state_dir()).unwrap();
         state::atomic_replace_bytes(
-            &backend_generation_cancel_path(),
+            &backend_state::generation_cancel_path(),
             b"generation_id=another-generation\n",
         )
         .unwrap();
@@ -2669,7 +2457,7 @@ mod tests {
         };
 
         let generation = begin_active_generation(&sidecar, 1_000, false).unwrap();
-        let marker = fs::read_to_string(backend_generation_cancel_path()).unwrap();
+        let marker = fs::read_to_string(backend_state::generation_cancel_path()).unwrap();
 
         assert!(marker.contains("generation_id=another-generation"));
         release_generation_admission(&generation.generation_id).unwrap();
@@ -2711,10 +2499,10 @@ mod tests {
         assert!(report.contains("status: acknowledged"));
         assert!(report.contains("terminal outcome: completed"));
         assert!(report.contains("terminal lifecycle event: event-done"));
-        assert!(!backend_generation_record_path().exists());
-        assert!(!backend_generation_lock_path().exists());
-        assert!(!backend_generation_cancel_path().exists());
-        assert!(!backend_generation_terminal_path(&generation.generation_id).exists());
+        assert!(!backend_state::generation_record_path().exists());
+        assert!(!backend_state::generation_lock_path().exists());
+        assert!(!backend_state::generation_cancel_path().exists());
+        assert!(!backend_state::generation_terminal_path(&generation.generation_id).exists());
         env::remove_var("RPOTATO_DATA_HOME");
         env::remove_var("RPOTATO_PROJECT_ROOT");
         fs::remove_dir_all(root).unwrap();
@@ -2735,7 +2523,7 @@ mod tests {
         let primary = begin_active_generation(&sidecar, 1_000, false).unwrap();
         let secondary = begin_active_generation(&sidecar, 1_000, false).unwrap();
         assert_eq!(
-            read_backend_generation_record()
+            backend_state::read_generation_record()
                 .unwrap()
                 .unwrap()
                 .generation_id,
@@ -2744,7 +2532,7 @@ mod tests {
         write_generation_terminal_record(&primary.generation_id, "completed", "event-primary")
             .unwrap();
         release_generation_admission(&primary.generation_id).unwrap();
-        assert!(backend_generation_record_path().exists());
+        assert!(backend_state::generation_record_path().exists());
 
         let primary_id = primary.generation_id.clone();
         let secondary_id = secondary.generation_id.clone();
@@ -2754,10 +2542,10 @@ mod tests {
                 if generation_cancel_requested(&secondary_id).unwrap() {
                     write_generation_terminal_record(&secondary_id, "cancelled", "event-secondary")
                         .unwrap();
-                    let both_terminal_while_active = backend_generation_terminal_path(&primary_id)
-                        .exists()
-                        && backend_generation_terminal_path(&secondary_id).exists()
-                        && backend_generation_record_path().exists();
+                    let both_terminal_while_active =
+                        backend_state::generation_terminal_path(&primary_id).exists()
+                            && backend_state::generation_terminal_path(&secondary_id).exists()
+                            && backend_state::generation_record_path().exists();
                     release_generation_admission(&secondary_id).unwrap();
                     return both_terminal_while_active;
                 }
@@ -2770,10 +2558,10 @@ mod tests {
         assert!(secondary_acknowledger.join().unwrap());
 
         assert!(report.contains("status: acknowledged"));
-        assert!(!backend_generation_record_path().exists());
-        assert!(!backend_generation_lock_path().exists());
-        assert!(!backend_generation_cancel_path().exists());
-        remove_file_if_exists(&backend_generation_terminal_path(&secondary.generation_id)).unwrap();
+        assert!(!backend_state::generation_record_path().exists());
+        assert!(!backend_state::generation_lock_path().exists());
+        assert!(!backend_state::generation_cancel_path().exists());
+        backend_state::remove_generation_terminal_record(&secondary.generation_id).unwrap();
         env::remove_var("RPOTATO_DATA_HOME");
         env::remove_var("RPOTATO_PROJECT_ROOT");
         fs::remove_dir_all(root).unwrap();
@@ -2798,7 +2586,7 @@ mod tests {
             timeout_ms: 1_000,
             streaming_display: true,
         };
-        acquire_backend_generation_lock(&generation).unwrap();
+        backend_state::acquire_generation_lock(&generation).unwrap();
         write_backend_generation_record(&generation).unwrap();
         let generation_id = generation.generation_id.clone();
         let acknowledger = thread::spawn(move || {
@@ -2822,9 +2610,9 @@ mod tests {
         acknowledger.join().unwrap();
 
         assert_eq!(outcome, "cancelled");
-        assert!(!backend_generation_record_path().exists());
-        assert!(!backend_generation_lock_path().exists());
-        assert!(!backend_generation_cancel_path().exists());
+        assert!(!backend_state::generation_record_path().exists());
+        assert!(!backend_state::generation_lock_path().exists());
+        assert!(!backend_state::generation_cancel_path().exists());
         env::remove_var("RPOTATO_DATA_HOME");
         env::remove_var("RPOTATO_PROJECT_ROOT");
         fs::remove_dir_all(root).unwrap();
@@ -2864,23 +2652,25 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(admitted.len(), 2);
-        let active = read_backend_generation_record().unwrap().unwrap();
-        let lock = read_backend_generation_lock_record().unwrap().unwrap();
+        let active = backend_state::read_generation_record().unwrap().unwrap();
+        let lock = backend_state::read_generation_lock_record()
+            .unwrap()
+            .unwrap();
         assert!(admitted
             .iter()
             .any(|generation| generation.generation_id == active.generation_id));
         assert_eq!(lock.generation_id, active.generation_id);
         release_generation_admission(&admitted[0].generation_id).unwrap();
         assert_eq!(
-            read_backend_generation_record()
+            backend_state::read_generation_record()
                 .unwrap()
                 .unwrap()
                 .generation_id,
             active.generation_id
         );
         release_generation_admission(&admitted[1].generation_id).unwrap();
-        assert!(!backend_generation_record_path().exists());
-        assert!(!backend_generation_lock_path().exists());
+        assert!(!backend_state::generation_record_path().exists());
+        assert!(!backend_state::generation_lock_path().exists());
         let next = begin_active_generation(&sidecar, 1_000, false).unwrap();
         release_generation_admission(&next.generation_id).unwrap();
         env::remove_var("RPOTATO_DATA_HOME");

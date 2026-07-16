@@ -2195,7 +2195,7 @@
       "path": "src/adapters/filesystem/backend_state.rs",
       "slices": [
         {
-          "responsibility": "backend sidecar record persistence I/O",
+          "responsibility": "backend sidecar and generation state persistence I/O",
           "target": "src/adapters/filesystem/backend_state.rs",
           "release": "0.37.3",
           "state": "complete",
@@ -3831,7 +3831,7 @@
     {
       "path": "src/adapters/filesystem/backend_state.rs",
       "responsibilities": [
-        "backend sidecar record persistence I/O"
+        "backend sidecar and generation state persistence I/O"
       ]
     },
     {
