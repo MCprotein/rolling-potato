@@ -1,15 +1,110 @@
-//! Compatibility facade for observability domain records and SQLite projection operations.
+//! Compatibility facade for surface-neutral observability projection ports.
 
-pub use crate::adapters::sqlite::observability_projection::{
-    benchmark_run_reports, export_csv, export_jsonl, initialize, latest_resource_sample,
-    model_summaries, monitor_snapshot_read_only, optimization_policy, performance_baseline,
-    project_event, prune_preview, record_benchmark_run, record_model_run, record_resource_sample,
-    session_entry, session_events, session_history, status, status_read_only,
-};
-pub(crate) use crate::adapters::sqlite::observability_projection::{
-    converge_from_events, project_event_with_ordinal,
-};
+use crate::adapters::sqlite::observability_projection::SqliteObservabilityProjection;
+use crate::foundation::error::AppError;
+use crate::ledger::{LedgerEvent, ParsedLedgerEvent, RuntimeIdentity};
+use crate::runtime_core::observability::facade::ObservabilityProjectionPort;
+
 pub use crate::runtime_core::observability::facade::{
     BenchmarkRunMetric, BenchmarkRunReport, ModelRunMetric, ResourceSampleMetric,
     SessionHistoryEntry, StoreStatus,
 };
+
+const PROJECTION: SqliteObservabilityProjection = SqliteObservabilityProjection;
+
+pub fn initialize(identity: &RuntimeIdentity) -> Result<StoreStatus, AppError> {
+    PROJECTION.initialize(identity)
+}
+
+pub fn status() -> Result<StoreStatus, AppError> {
+    PROJECTION.status()
+}
+
+pub fn status_read_only() -> Result<StoreStatus, AppError> {
+    PROJECTION.status_read_only()
+}
+
+pub fn monitor_snapshot_read_only(
+    limit: usize,
+) -> Result<crate::runtime_core::observability::facade::MonitorProjectionSnapshot, AppError> {
+    PROJECTION.monitor_snapshot_read_only(limit)
+}
+
+pub fn project_event(event: &LedgerEvent) -> Result<(), AppError> {
+    PROJECTION.project_event(event)
+}
+
+pub(crate) fn project_event_with_ordinal(
+    event: &LedgerEvent,
+    ordinal: u64,
+) -> Result<(), AppError> {
+    PROJECTION.project_event_with_ordinal(event, ordinal)
+}
+
+pub(crate) fn converge_from_events(events: &[ParsedLedgerEvent]) -> Result<(), AppError> {
+    PROJECTION.converge_from_events(events)
+}
+
+pub fn model_summaries(
+) -> Result<Vec<crate::runtime_core::observability::facade::ModelMetricSummary>, AppError> {
+    PROJECTION.model_summaries()
+}
+
+pub fn performance_baseline(
+) -> Result<crate::runtime_core::observability::facade::PerformanceBaseline, AppError> {
+    PROJECTION.performance_baseline()
+}
+
+pub fn optimization_policy(
+) -> Result<crate::runtime_core::observability::facade::OptimizationPolicy, AppError> {
+    PROJECTION.optimization_policy()
+}
+
+pub fn export_jsonl() -> Result<String, AppError> {
+    PROJECTION.export_jsonl()
+}
+
+pub fn export_csv() -> Result<String, AppError> {
+    PROJECTION.export_csv()
+}
+
+pub fn prune_preview(
+    before_days: u64,
+) -> Result<crate::runtime_core::observability::facade::PrunePreview, AppError> {
+    PROJECTION.prune_preview(before_days)
+}
+
+pub fn session_history(limit: usize) -> Result<Vec<SessionHistoryEntry>, AppError> {
+    PROJECTION.session_history(limit)
+}
+
+pub fn session_entry(session_id: &str) -> Result<Option<SessionHistoryEntry>, AppError> {
+    PROJECTION.session_entry(session_id)
+}
+
+pub fn session_events(
+    session_id: &str,
+    limit: usize,
+) -> Result<Vec<crate::runtime_core::observability::facade::SessionEventEntry>, AppError> {
+    PROJECTION.session_events(session_id, limit)
+}
+
+pub fn record_model_run(metric: &ModelRunMetric) -> Result<(), AppError> {
+    PROJECTION.record_model_run(metric)
+}
+
+pub fn record_resource_sample(metric: &ResourceSampleMetric) -> Result<(), AppError> {
+    PROJECTION.record_resource_sample(metric)
+}
+
+pub fn record_benchmark_run(metric: &BenchmarkRunMetric) -> Result<(), AppError> {
+    PROJECTION.record_benchmark_run(metric)
+}
+
+pub fn benchmark_run_reports() -> Result<Vec<BenchmarkRunReport>, AppError> {
+    PROJECTION.benchmark_run_reports()
+}
+
+pub fn latest_resource_sample() -> Result<Option<ResourceSampleMetric>, AppError> {
+    PROJECTION.latest_resource_sample()
+}

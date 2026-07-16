@@ -2,7 +2,63 @@
 
 use std::path::PathBuf;
 
+use crate::foundation::error::AppError;
 use crate::runtime_core::inference::resource;
+use crate::runtime_core::workflow::storage_compat::ledger::{
+    LedgerEvent, ParsedLedgerEvent, RuntimeIdentity,
+};
+
+pub(crate) trait ObservabilityProjectionPort {
+    fn initialize(&self, identity: &RuntimeIdentity) -> Result<StoreStatus, AppError>;
+
+    fn status(&self) -> Result<StoreStatus, AppError>;
+
+    fn status_read_only(&self) -> Result<StoreStatus, AppError>;
+
+    fn monitor_snapshot_read_only(
+        &self,
+        limit: usize,
+    ) -> Result<MonitorProjectionSnapshot, AppError>;
+
+    fn project_event(&self, event: &LedgerEvent) -> Result<(), AppError>;
+
+    fn project_event_with_ordinal(&self, event: &LedgerEvent, ordinal: u64)
+        -> Result<(), AppError>;
+
+    fn converge_from_events(&self, events: &[ParsedLedgerEvent]) -> Result<(), AppError>;
+
+    fn model_summaries(&self) -> Result<Vec<ModelMetricSummary>, AppError>;
+
+    fn performance_baseline(&self) -> Result<PerformanceBaseline, AppError>;
+
+    fn optimization_policy(&self) -> Result<OptimizationPolicy, AppError>;
+
+    fn export_jsonl(&self) -> Result<String, AppError>;
+
+    fn export_csv(&self) -> Result<String, AppError>;
+
+    fn prune_preview(&self, before_days: u64) -> Result<PrunePreview, AppError>;
+
+    fn session_history(&self, limit: usize) -> Result<Vec<SessionHistoryEntry>, AppError>;
+
+    fn session_entry(&self, session_id: &str) -> Result<Option<SessionHistoryEntry>, AppError>;
+
+    fn session_events(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Result<Vec<SessionEventEntry>, AppError>;
+
+    fn record_model_run(&self, metric: &ModelRunMetric) -> Result<(), AppError>;
+
+    fn record_resource_sample(&self, metric: &ResourceSampleMetric) -> Result<(), AppError>;
+
+    fn record_benchmark_run(&self, metric: &BenchmarkRunMetric) -> Result<(), AppError>;
+
+    fn benchmark_run_reports(&self) -> Result<Vec<BenchmarkRunReport>, AppError>;
+
+    fn latest_resource_sample(&self) -> Result<Option<ResourceSampleMetric>, AppError>;
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoreStatus {

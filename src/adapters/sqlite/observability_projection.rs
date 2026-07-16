@@ -14,15 +14,117 @@ use crate::ledger::{self, LedgerEvent, RuntimeIdentity};
 use crate::runtime_core::inference::resource;
 use crate::runtime_core::observability::facade::{
     BenchmarkEvidenceSummary, BenchmarkRunMetric, BenchmarkRunReport, ModelMetricSummary,
-    ModelRunMetric, MonitorProjectionSnapshot, OptimizationPolicy, PerformanceBaseline,
-    PerformanceGroupSummary, PressureStateSummary, PrunePreview, ResourceSampleMetric,
-    SessionEventEntry, SessionHistoryEntry, StoreStatus,
+    ModelRunMetric, MonitorProjectionSnapshot, ObservabilityProjectionPort, OptimizationPolicy,
+    PerformanceBaseline, PerformanceGroupSummary, PressureStateSummary, PrunePreview,
+    ResourceSampleMetric, SessionEventEntry, SessionHistoryEntry, StoreStatus,
 };
 
 const MIGRATION_VERSION: i64 = 6;
 const MIGRATION_DESCRIPTION: &str = "v0_32_durable_conversation_resume";
 const READ_ONLY_PROJECTION_FILE_MAX_BYTES: u64 = 128 * 1024 * 1024;
 static READ_ONLY_SNAPSHOT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+pub(crate) struct SqliteObservabilityProjection;
+
+impl ObservabilityProjectionPort for SqliteObservabilityProjection {
+    fn initialize(&self, identity: &RuntimeIdentity) -> Result<StoreStatus, AppError> {
+        initialize(identity)
+    }
+
+    fn status(&self) -> Result<StoreStatus, AppError> {
+        status()
+    }
+
+    fn status_read_only(&self) -> Result<StoreStatus, AppError> {
+        status_read_only()
+    }
+
+    fn monitor_snapshot_read_only(
+        &self,
+        limit: usize,
+    ) -> Result<MonitorProjectionSnapshot, AppError> {
+        monitor_snapshot_read_only(limit)
+    }
+
+    fn project_event(&self, event: &LedgerEvent) -> Result<(), AppError> {
+        project_event(event)
+    }
+
+    fn project_event_with_ordinal(
+        &self,
+        event: &LedgerEvent,
+        ordinal: u64,
+    ) -> Result<(), AppError> {
+        project_event_with_ordinal(event, ordinal)
+    }
+
+    fn converge_from_events(
+        &self,
+        events: &[crate::ledger::ParsedLedgerEvent],
+    ) -> Result<(), AppError> {
+        converge_from_events(events)
+    }
+
+    fn model_summaries(&self) -> Result<Vec<ModelMetricSummary>, AppError> {
+        model_summaries()
+    }
+
+    fn performance_baseline(&self) -> Result<PerformanceBaseline, AppError> {
+        performance_baseline()
+    }
+
+    fn optimization_policy(&self) -> Result<OptimizationPolicy, AppError> {
+        optimization_policy()
+    }
+
+    fn export_jsonl(&self) -> Result<String, AppError> {
+        export_jsonl()
+    }
+
+    fn export_csv(&self) -> Result<String, AppError> {
+        export_csv()
+    }
+
+    fn prune_preview(&self, before_days: u64) -> Result<PrunePreview, AppError> {
+        prune_preview(before_days)
+    }
+
+    fn session_history(&self, limit: usize) -> Result<Vec<SessionHistoryEntry>, AppError> {
+        session_history(limit)
+    }
+
+    fn session_entry(&self, session_id: &str) -> Result<Option<SessionHistoryEntry>, AppError> {
+        session_entry(session_id)
+    }
+
+    fn session_events(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Result<Vec<SessionEventEntry>, AppError> {
+        session_events(session_id, limit)
+    }
+
+    fn record_model_run(&self, metric: &ModelRunMetric) -> Result<(), AppError> {
+        record_model_run(metric)
+    }
+
+    fn record_resource_sample(&self, metric: &ResourceSampleMetric) -> Result<(), AppError> {
+        record_resource_sample(metric)
+    }
+
+    fn record_benchmark_run(&self, metric: &BenchmarkRunMetric) -> Result<(), AppError> {
+        record_benchmark_run(metric)
+    }
+
+    fn benchmark_run_reports(&self) -> Result<Vec<BenchmarkRunReport>, AppError> {
+        benchmark_run_reports()
+    }
+
+    fn latest_resource_sample(&self) -> Result<Option<ResourceSampleMetric>, AppError> {
+        latest_resource_sample()
+    }
+}
 
 struct ReadOnlyProjection {
     connection: Option<Connection>,
