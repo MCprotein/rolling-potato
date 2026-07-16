@@ -662,6 +662,8 @@ mod windows {
     use super::*;
     use std::cell::RefCell;
     use std::ffi::{c_void, OsStr};
+    use std::fs::OpenOptions;
+    use std::io::Write;
     use std::os::windows::ffi::OsStrExt;
     use std::rc::Rc;
 
@@ -827,6 +829,20 @@ mod windows {
         output_start: usize,
         terminal_eof: bool,
         waited: bool,
+    }
+
+    pub fn trace_stage(message: &str) {
+        eprintln!("[native-terminal] {message}");
+        let Some(path) = std::env::var_os("RPOTATO_NATIVE_TERMINAL_TRACE") else {
+            return;
+        };
+        let mut trace = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .expect("native terminal trace file must open");
+        writeln!(trace, "[native-terminal] {message}")
+            .expect("native terminal trace line must flush");
     }
 
     impl ReusableConsole {
@@ -1025,7 +1041,7 @@ mod windows {
 
     impl NativePty {
         pub fn spawn(columns: u16, rows: u16) -> Self {
-            eprintln!("[native-terminal] spawn {columns}x{rows}");
+            trace_stage(&format!("spawn {columns}x{rows}"));
             let session = reused_console(columns, rows);
             let (process, output_start) = {
                 let mut session_ref = session.borrow_mut();
@@ -1104,7 +1120,7 @@ mod windows {
         }
 
         pub fn wait_for(&mut self, needle: &str) -> String {
-            eprintln!("[native-terminal] wait for {needle:?}");
+            trace_stage(&format!("wait for {needle:?}"));
             let deadline = Instant::now() + Duration::from_secs(10);
             loop {
                 let output = {
@@ -1113,7 +1129,7 @@ mod windows {
                     String::from_utf8_lossy(&session.output_bytes[self.output_start..]).into_owned()
                 };
                 if output.contains(needle) {
-                    eprintln!("[native-terminal] found {needle:?}");
+                    trace_stage(&format!("found {needle:?}"));
                     return output;
                 }
                 assert!(
@@ -1133,7 +1149,7 @@ mod windows {
         }
 
         fn finish_with_status(mut self, success: bool) -> String {
-            eprintln!("[native-terminal] wait for child; success={success}");
+            trace_stage(&format!("wait for child; success={success}"));
             // SAFETY: process is a live child handle.
             let wait = unsafe { WaitForSingleObject(self.process, 10_000) };
             assert_eq!(wait, WAIT_OBJECT_0, "ConPTY child wait failed: {wait}");
@@ -1148,7 +1164,7 @@ mod windows {
             } else {
                 assert_ne!(exit_code, 0, "ConPTY child unexpectedly succeeded");
             }
-            eprintln!("[native-terminal] child exited with {exit_code:#x}");
+            trace_stage(&format!("child exited with {exit_code:#x}"));
             let output = {
                 let mut session = self.session.borrow_mut();
                 session.drain_available();
@@ -1157,9 +1173,9 @@ mod windows {
                     unsafe { CloseHandle(session.input) };
                     session.input = std::ptr::null_mut();
                 } else {
-                    eprintln!("[native-terminal] run echo restoration probe");
+                    trace_stage("run echo restoration probe");
                     session.run_mode_probe();
-                    eprintln!("[native-terminal] echo restoration probe passed");
+                    trace_stage("echo restoration probe passed");
                 }
                 session.active = false;
                 String::from_utf8_lossy(&session.output_bytes[self.output_start..]).into_owned()
@@ -1349,4 +1365,4 @@ mod windows {
 }
 
 #[cfg(windows)]
-pub use windows::NativePty;
+pub use windows::{trace_stage, NativePty};

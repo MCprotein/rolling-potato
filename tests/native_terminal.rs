@@ -6,6 +6,9 @@ use native_terminal_support::{tree_snapshot, NativeTerminalFixture};
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
 use native_terminal_support::NativePty;
 
+#[cfg(windows)]
+use native_terminal_support::trace_stage;
+
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
 #[test]
 fn entry_quit() {
@@ -62,8 +65,14 @@ fn secret_prompt_restores_echo_before_sigint_and_sigterm_exit() {
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
 #[test]
 fn full_adapter() {
+    #[cfg(windows)]
+    trace_stage("full_adapter start");
     let fixture = NativeTerminalFixture::new("full-adapter");
+    #[cfg(windows)]
+    trace_stage("fixture initialized");
     let pending = fixture.prepare_source_approval();
+    #[cfg(windows)]
+    trace_stage("source approval prepared");
     #[cfg(unix)]
     let before_ledger = runtime_ledger(&fixture);
     #[cfg(unix)]
