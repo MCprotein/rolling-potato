@@ -745,7 +745,7 @@ fn complete_generation(
         "team.subagent.completed",
         "subagent completed",
     )?;
-    merge_completed_result(&completed, &stored)?;
+    merge_completed_result(&completed)?;
     Ok(CompletedLaunch {
         record: completed,
         context,
@@ -820,21 +820,15 @@ fn classify_backend_error(error: &AppError) -> (SubagentStatus, &'static str, &'
     }
 }
 
-fn merge_completed_result(
-    completed: &SubagentRecordV1,
-    stored: &crate::subagent_result::StoredSubagentResult,
-) -> Result<(), AppError> {
-    if completed.status != SubagentStatus::Completed
-        || completed.result_artifact_id != stored.result_artifact_id
-        || completed.result_artifact_hash != stored.result_artifact_hash
-        || completed.evidence_id != stored.evidence_id
-        || completed.evidence_hash != stored.evidence_hash
-    {
+fn merge_completed_result(completed: &SubagentRecordV1) -> Result<(), AppError> {
+    crate::subagent_result::verify_completed_artifacts(completed)?;
+    let parent = state::load_workflow(&completed.parent_workflow_id)?;
+    if parent.project_id != completed.project_id || parent.session_id != completed.session_id {
         return Err(AppError::blocked(
-            "subagent completed artifact/evidence binding 불일치",
+            "subagent parent merge owner binding 불일치",
         ));
     }
-    crate::subagent_result::verify_stored_artifacts(completed, stored)?;
+    let parent_has_evidence = workflow_has_evidence(&parent, &completed.evidence_id);
     let prior_merge = ledger::read_runtime_events()?.into_iter().find(|event| {
         event.event_type == "team.subagent.result-merged"
             && detail_token(&event.details, "subagent_id") == Some(completed.subagent_id.as_str())
@@ -842,6 +836,7 @@ fn merge_completed_result(
     if let Some(prior) = prior_merge {
         if detail_token(&prior.details, "result_hash")
             == Some(completed.result_artifact_hash.as_str())
+            && parent_has_evidence
         {
             return Ok(());
         }
@@ -849,28 +844,29 @@ fn merge_completed_result(
             "subagent second different result merge 차단",
         ));
     }
-    let parent = state::load_workflow(&completed.parent_workflow_id)?;
-    if parent.revision != completed.parent_revision
-        || parent.artifact_hash != completed.parent_artifact_hash
-        || parent.project_id != completed.project_id
-        || parent.session_id != completed.session_id
-        || parent.is_terminal()
-    {
+    let exact_parent_binding = parent.revision == completed.parent_revision
+        && parent.artifact_hash == completed.parent_artifact_hash
+        && !parent.is_terminal();
+    if !exact_parent_binding && !parent_has_evidence {
         return Err(AppError::blocked(
             "subagent parent merge exact binding 불일치",
         ));
     }
-    let mut evidence = parent
-        .skill_evidence
-        .split(',')
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .collect::<Vec<_>>();
-    if !evidence.iter().any(|value| value == &completed.evidence_id) {
+    if exact_parent_binding && !parent_has_evidence {
+        let mut evidence = workflow_evidence(&parent);
         evidence.push(completed.evidence_id.clone());
         let mut merged = parent.clone();
         merged.skill_evidence = evidence.join(",");
         state::checkpoint_workflow(merged, parent.revision)?;
+    }
+    let installed_parent = state::load_workflow(&completed.parent_workflow_id)?;
+    if installed_parent.project_id != completed.project_id
+        || installed_parent.session_id != completed.session_id
+        || !workflow_has_evidence(&installed_parent, &completed.evidence_id)
+    {
+        return Err(AppError::blocked(
+            "subagent parent evidence install binding 불일치",
+        ));
     }
     append_lifecycle_event(
         &ledger::validated_current_identity()?,
@@ -878,6 +874,31 @@ fn merge_completed_result(
         "team.subagent.result-merged",
         "subagent result merged",
     )?;
+    Ok(())
+}
+
+fn workflow_evidence(parent: &state::WorkflowRecord) -> Vec<String> {
+    parent
+        .skill_evidence
+        .split(',')
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn workflow_has_evidence(parent: &state::WorkflowRecord, evidence_id: &str) -> bool {
+    parent
+        .skill_evidence
+        .split(',')
+        .any(|value| value == evidence_id)
+}
+
+fn recover_completed_parent_merges(parent_workflow_id: &str) -> Result<(), AppError> {
+    for record in records_for_parent(parent_workflow_id)? {
+        if record.status == SubagentStatus::Completed {
+            merge_completed_result(&record)?;
+        }
+    }
     Ok(())
 }
 
@@ -926,6 +947,7 @@ fn admit_launch(launch: ValidatedLaunch) -> Result<AdmittedLaunch, AppError> {
             "subagent admission 차단\n- 이유: active parent pointer가 admission 중 변경되었습니다.",
         ));
     }
+    recover_completed_parent_merges(&parent_workflow_id)?;
     let workflow_guard = state::WorkflowCheckpointGuard::acquire(&parent_workflow_id)?;
     let parent = workflow_guard.load_current()?;
     if parent.is_terminal()
@@ -2020,17 +2042,68 @@ mod tests {
                 "team.subagent.result-merged",
             ]
         );
-        let result_body = fs::read_to_string(paths::project_subagent_result_file(
-            &completed.record.result_artifact_id,
-        ))
-        .unwrap();
-        let stored = crate::subagent_result::parse_and_store(
-            &completed.record,
-            &completed.context,
-            &result_body,
-        )
-        .unwrap();
-        merge_completed_result(&completed.record, &stored).unwrap();
+        merge_completed_result(&completed.record).unwrap();
+        assert_eq!(
+            ledger::read_runtime_events()
+                .unwrap()
+                .into_iter()
+                .filter(|event| event.event_type == "team.subagent.result-merged")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn admission_recovers_merge_interrupted_after_parent_checkpoint() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_parent();
+        let admitted = admit_launch(launch("explore")).unwrap();
+        let (running, context) = prepare_running(&admitted).unwrap();
+        let body = completed_result(&running, &context);
+        let stored = crate::subagent_result::parse_and_store(&running, &context, &body).unwrap();
+        crate::subagent_result::verify_stored_artifacts(&running, &stored).unwrap();
+
+        let mut completed = running.clone();
+        completed.backend_event_id = "backend-event-interrupted".to_string();
+        completed.effective_max_tokens = 128;
+        completed.result_artifact_id = stored.result_artifact_id;
+        completed.result_artifact_hash = stored.result_artifact_hash;
+        completed.evidence_id = stored.evidence_id;
+        completed.evidence_hash = stored.evidence_hash;
+        completed
+            .transition_to(SubagentStatus::Completed, None)
+            .unwrap();
+        let completed = checkpoint_record(completed, running.revision).unwrap();
+
+        let mut interrupted_parent = parent.clone();
+        interrupted_parent.skill_evidence = completed.evidence_id.clone();
+        let interrupted_parent =
+            state::checkpoint_workflow(interrupted_parent, parent.revision).unwrap();
+        assert_eq!(
+            ledger::read_runtime_events()
+                .unwrap()
+                .into_iter()
+                .filter(|event| event.event_type == "team.subagent.result-merged")
+                .count(),
+            0
+        );
+
+        let next = admit_launch(launch("planner")).unwrap();
+        assert_eq!(next.record.parent_revision, interrupted_parent.revision);
+        assert_eq!(
+            state::load_workflow(&parent.workflow_id).unwrap(),
+            interrupted_parent
+        );
+        assert_eq!(
+            ledger::read_runtime_events()
+                .unwrap()
+                .into_iter()
+                .filter(|event| event.event_type == "team.subagent.result-merged")
+                .count(),
+            1
+        );
+
+        merge_completed_result(&completed).unwrap();
         assert_eq!(
             ledger::read_runtime_events()
                 .unwrap()

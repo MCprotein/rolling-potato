@@ -2992,7 +2992,7 @@ fn load_workflow_read_only(
     Ok(workflow)
 }
 
-fn read_regular_file_bounded(
+pub(crate) fn read_regular_file_bounded(
     path: &std::path::Path,
     max_bytes: u64,
     label: &str,

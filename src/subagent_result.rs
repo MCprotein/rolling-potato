@@ -68,11 +68,6 @@ pub fn parse_and_store(
     context: &ContextPack,
     body: &str,
 ) -> Result<StoredSubagentResult, AppError> {
-    if body.is_empty() || body.len() > MAX_RESULT_BYTES {
-        return Err(AppError::blocked(format!(
-            "subagent result byte 범위 오류: 1..={MAX_RESULT_BYTES}"
-        )));
-    }
     let result = parse_result(record, context, body)?;
     let result_artifact_hash = state::sha256_text(body);
     let result_artifact_id = format!("subagent-result-{}", &result_artifact_hash[..20]);
@@ -81,13 +76,7 @@ pub fn parse_and_store(
         body,
         "subagent result",
     )?;
-    let evidence_id = format!(
-        "evidence-subagent-{}",
-        &state::sha256_text(&format!(
-            "{}\n{}\n{}",
-            record.subagent_id, record.parent_workflow_id, result_artifact_hash
-        ))[..20]
-    );
+    let evidence_id = evidence_id(record, &result_artifact_hash);
     let evidence_payload = render_evidence_payload(
         &evidence_id,
         record,
@@ -96,11 +85,7 @@ pub fn parse_and_store(
         &result.evidence_refs,
     );
     let evidence_hash = state::sha256_text(&evidence_payload);
-    let evidence_body = evidence_payload.replacen(
-        "\"subagent_id\"",
-        &format!("\"artifact_hash\":\"{}\",\"subagent_id\"", evidence_hash),
-        1,
-    );
+    let evidence_body = installable_evidence_body(&evidence_payload, &evidence_hash);
     install_exact_artifact(
         &paths::project_evidence_dir().join(format!("{evidence_id}.json")),
         &evidence_body,
@@ -138,14 +123,7 @@ pub fn verify_stored_artifacts(
         &stored.result_artifact_hash,
         &stored.result.evidence_refs,
     );
-    let evidence_body = evidence_payload.replacen(
-        "\"subagent_id\"",
-        &format!(
-            "\"artifact_hash\":\"{}\",\"subagent_id\"",
-            stored.evidence_hash
-        ),
-        1,
-    );
+    let evidence_body = installable_evidence_body(&evidence_payload, &stored.evidence_hash);
     let installed_evidence = fs::read_to_string(
         paths::project_evidence_dir().join(format!("{}.json", stored.evidence_id)),
     )
@@ -160,11 +138,92 @@ pub fn verify_stored_artifacts(
     Ok(())
 }
 
+pub fn verify_completed_artifacts(record: &SubagentRecordV1) -> Result<(), AppError> {
+    if record.status != crate::subagent::SubagentStatus::Completed
+        || !has_artifact_id(&record.result_artifact_id, "subagent-result-")
+        || !has_artifact_id(&record.evidence_id, "evidence-subagent-")
+    {
+        return Err(AppError::blocked(
+            "subagent completed artifact/evidence binding 불일치",
+        ));
+    }
+    let result_body = state::read_regular_file_bounded(
+        &paths::project_subagent_result_file(&record.result_artifact_id),
+        MAX_RESULT_BYTES as u64,
+        "subagent completed result artifact",
+    )?;
+    let result_hash = state::sha256_text(&result_body);
+    let expected_result_id = format!("subagent-result-{}", &result_hash[..20]);
+    if result_hash != record.result_artifact_hash || expected_result_id != record.result_artifact_id
+    {
+        return Err(AppError::blocked(
+            "subagent completed result artifact hash binding 불일치",
+        ));
+    }
+    let result = parse_result_shape(record, &result_body)?;
+    let expected_evidence_id = evidence_id(record, &result_hash);
+    if expected_evidence_id != record.evidence_id {
+        return Err(AppError::blocked(
+            "subagent completed evidence identity binding 불일치",
+        ));
+    }
+    let evidence_payload = render_evidence_payload(
+        &record.evidence_id,
+        record,
+        &record.result_artifact_id,
+        &record.result_artifact_hash,
+        &result.evidence_refs,
+    );
+    let evidence_hash = state::sha256_text(&evidence_payload);
+    if evidence_hash != record.evidence_hash {
+        return Err(AppError::blocked(
+            "subagent completed evidence hash binding 불일치",
+        ));
+    }
+    let expected_evidence_body = installable_evidence_body(&evidence_payload, &evidence_hash);
+    let installed_evidence = state::read_regular_file_bounded(
+        &paths::project_evidence_dir().join(format!("{}.json", record.evidence_id)),
+        MAX_RESULT_BYTES as u64,
+        "subagent completed evidence artifact",
+    )?;
+    if installed_evidence != expected_evidence_body {
+        return Err(AppError::blocked(
+            "subagent completed evidence artifact binding 불일치",
+        ));
+    }
+    Ok(())
+}
+
 fn parse_result(
     record: &SubagentRecordV1,
     context: &ContextPack,
     body: &str,
 ) -> Result<SubagentResultV1, AppError> {
+    let result = parse_result_shape(record, body)?;
+    let allowed_evidence = context
+        .source_pointers
+        .iter()
+        .map(|pointer| pointer.stable_ref.as_str())
+        .collect::<BTreeSet<_>>();
+    if result
+        .evidence_refs
+        .iter()
+        .any(|reference| !allowed_evidence.contains(reference.as_str()))
+    {
+        return Err(AppError::blocked(
+            "subagent result evidence ref가 declared context binding 밖입니다.",
+        ));
+    }
+    validate_patch(record, context, result.patch_proposal.as_ref())?;
+    Ok(result)
+}
+
+fn parse_result_shape(record: &SubagentRecordV1, body: &str) -> Result<SubagentResultV1, AppError> {
+    if body.is_empty() || body.len() > MAX_RESULT_BYTES {
+        return Err(AppError::blocked(format!(
+            "subagent result byte 범위 오류: 1..={MAX_RESULT_BYTES}"
+        )));
+    }
     let object = strict_json::parse_canonical_object(body, RESULT_KEYS, "subagent result")?;
     if strict_json::canonical_u64(&object, "schema_version", "subagent result")? != 1 {
         return Err(AppError::blocked("subagent result schema version 불일치"));
@@ -200,22 +259,29 @@ fn parse_result(
     validate_items(&result.findings, "findings", false)?;
     validate_items(&result.evidence_refs, "evidence_refs", true)?;
     validate_items(&result.validation_gaps, "validation_gaps", false)?;
-    let allowed_evidence = context
-        .source_pointers
-        .iter()
-        .map(|pointer| pointer.stable_ref.as_str())
-        .collect::<BTreeSet<_>>();
-    if result
-        .evidence_refs
-        .iter()
-        .any(|reference| !allowed_evidence.contains(reference.as_str()))
-    {
-        return Err(AppError::blocked(
-            "subagent result evidence ref가 declared context binding 밖입니다.",
-        ));
+    if result_text_fields(&result).any(ledger::contains_sensitive_text) {
+        return Err(AppError::blocked("subagent result sensitive output 차단"));
     }
-    validate_patch(record, context, result.patch_proposal.as_ref())?;
     Ok(result)
+}
+
+fn result_text_fields(result: &SubagentResultV1) -> impl Iterator<Item = &str> {
+    std::iter::once(result.summary.as_str())
+        .chain(result.findings.iter().map(String::as_str))
+        .chain(result.validation_gaps.iter().map(String::as_str))
+        .chain(std::iter::once(result.suggested_next_action.as_str()))
+        .chain(
+            result
+                .patch_proposal
+                .iter()
+                .flat_map(|patch| [patch.find_text.as_str(), patch.replacement_text.as_str()]),
+        )
+}
+
+fn has_artifact_id(value: &str, prefix: &str) -> bool {
+    value.strip_prefix(prefix).is_some_and(|suffix| {
+        suffix.len() == 20 && suffix.bytes().all(|byte| byte.is_ascii_hexdigit())
+    })
 }
 
 fn validate_patch(
@@ -378,6 +444,24 @@ fn render_evidence_payload(
     )
 }
 
+fn evidence_id(record: &SubagentRecordV1, result_artifact_hash: &str) -> String {
+    format!(
+        "evidence-subagent-{}",
+        &state::sha256_text(&format!(
+            "{}\n{}\n{}",
+            record.subagent_id, record.parent_workflow_id, result_artifact_hash
+        ))[..20]
+    )
+}
+
+fn installable_evidence_body(evidence_payload: &str, evidence_hash: &str) -> String {
+    evidence_payload.replacen(
+        "\"subagent_id\"",
+        &format!("\"artifact_hash\":\"{evidence_hash}\",\"subagent_id\""),
+        1,
+    )
+}
+
 fn render_string_array(values: &[String]) -> String {
     format!(
         "[{}]",
@@ -507,6 +591,24 @@ mod tests {
         assert!(parse_and_store(&record, &context, &invalid).is_err());
         let mismatched = valid.replacen(&record.subagent_id, "subagent-other", 1);
         assert!(parse_and_store(&record, &context, &mismatched).is_err());
+    }
+
+    #[test]
+    fn sensitive_result_is_rejected_before_artifact_install() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let (record, context) = fixture("explore");
+        let sensitive = result_json(&record, &context, None).replacen(
+            "완료 요약",
+            "token=SUPER_SECRET_SENTINEL",
+            1,
+        );
+
+        let error = parse_and_store(&record, &context, &sensitive).unwrap_err();
+
+        assert!(error.message.contains("sensitive output 차단"));
+        assert!(!error.message.contains("SUPER_SECRET_SENTINEL"));
+        assert!(!paths::project_subagent_results_dir().exists());
+        assert!(!paths::project_evidence_dir().exists());
     }
 
     #[test]
