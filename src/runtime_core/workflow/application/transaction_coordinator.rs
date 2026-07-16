@@ -16,6 +16,139 @@ pub(crate) struct TransactionCoordinator<'plan> {
     next_index: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TransactionExecution {
+    Commit,
+    Recovery,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ApprovalFault {
+    T1,
+    T2,
+    T3BeforePointer,
+    T3,
+    T4,
+    T5,
+    T6,
+    T7,
+    T8BeforePointer,
+    T8,
+    T9,
+    T10,
+}
+
+impl ApprovalFault {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::T1 => "T1",
+            Self::T2 => "T2",
+            Self::T3BeforePointer => "T3-before-pointer",
+            Self::T3 => "T3",
+            Self::T4 => "T4",
+            Self::T5 => "T5",
+            Self::T6 => "T6",
+            Self::T7 => "T7",
+            Self::T8BeforePointer => "T8-before-pointer",
+            Self::T8 => "T8",
+            Self::T9 => "T9",
+            Self::T10 => "T10",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ApprovalRevision {
+    First,
+    Second,
+}
+
+pub(crate) trait ApprovalTransactionPort {
+    fn fault(&mut self, point: ApprovalFault) -> Result<(), AppError>;
+    fn append_event(&mut self, index: usize) -> Result<(), AppError>;
+    fn install_snapshot(&mut self, revision: ApprovalRevision) -> Result<(), AppError>;
+    fn install_pointer(&mut self, revision: ApprovalRevision) -> Result<(), AppError>;
+    fn install_source(&mut self) -> Result<(), AppError>;
+    fn install_transcript(&mut self) -> Result<(), AppError>;
+    fn install_current(&mut self) -> Result<(), AppError>;
+    fn finish_events(&mut self) -> Result<(), AppError>;
+    fn converge(&mut self) -> Result<(), AppError>;
+    fn projection_repair_required(&mut self, convergence_error: AppError) -> AppError;
+    fn remove_projection_lag(&mut self) -> Result<(), AppError>;
+    fn validate_cleanup_authority(&mut self) -> Result<(), AppError>;
+    fn remove_journal(&mut self) -> Result<(), AppError>;
+}
+
+pub(crate) fn execute_approval_transaction(
+    port: &mut impl ApprovalTransactionPort,
+    execution: TransactionExecution,
+) -> Result<(), AppError> {
+    let commit = execution == TransactionExecution::Commit;
+    if commit {
+        port.fault(ApprovalFault::T1)?;
+    }
+    port.append_event(0)?;
+    if commit {
+        port.fault(ApprovalFault::T2)?;
+    }
+    port.install_snapshot(ApprovalRevision::First)?;
+    port.append_event(1)?;
+    if commit {
+        port.fault(ApprovalFault::T3BeforePointer)?;
+    }
+    port.install_pointer(ApprovalRevision::First)?;
+    if commit {
+        port.fault(ApprovalFault::T3)?;
+    }
+    for index in 2..5 {
+        port.append_event(index)?;
+    }
+    if commit {
+        port.fault(ApprovalFault::T4)?;
+    }
+    port.install_source()?;
+    if commit {
+        port.fault(ApprovalFault::T5)?;
+    }
+    for index in 5..8 {
+        port.append_event(index)?;
+    }
+    if commit {
+        port.fault(ApprovalFault::T6)?;
+    }
+    port.install_transcript()?;
+    port.append_event(8)?;
+    if commit {
+        port.fault(ApprovalFault::T7)?;
+    }
+    port.install_snapshot(ApprovalRevision::Second)?;
+    port.append_event(9)?;
+    if commit {
+        port.fault(ApprovalFault::T8BeforePointer)?;
+    }
+    port.install_pointer(ApprovalRevision::Second)?;
+    if commit {
+        port.fault(ApprovalFault::T8)?;
+    }
+    port.install_current()?;
+    if commit {
+        port.fault(ApprovalFault::T9)?;
+    }
+    port.finish_events()?;
+    if let Err(error) = port.converge() {
+        return Err(port.projection_repair_required(error));
+    }
+    if commit {
+        port.fault(ApprovalFault::T10)?;
+    }
+    port.remove_projection_lag()?;
+    port.validate_cleanup_authority()?;
+    if commit {
+        port.remove_journal()?;
+    }
+    Ok(())
+}
+
 impl<'plan> TransactionCoordinator<'plan> {
     pub(crate) fn new(planned: &'plan [PlannedEvent]) -> Self {
         Self {
@@ -102,6 +235,78 @@ mod tests {
         }
     }
 
+    #[derive(Default)]
+    struct FakeApprovalPort {
+        calls: Vec<String>,
+    }
+
+    impl ApprovalTransactionPort for FakeApprovalPort {
+        fn fault(&mut self, point: ApprovalFault) -> Result<(), AppError> {
+            self.calls.push(format!("fault:{}", point.as_str()));
+            Ok(())
+        }
+
+        fn append_event(&mut self, index: usize) -> Result<(), AppError> {
+            self.calls.push(format!("append:{index}"));
+            Ok(())
+        }
+
+        fn install_snapshot(&mut self, revision: ApprovalRevision) -> Result<(), AppError> {
+            self.calls.push(format!("snapshot:{revision:?}"));
+            Ok(())
+        }
+
+        fn install_pointer(&mut self, revision: ApprovalRevision) -> Result<(), AppError> {
+            self.calls.push(format!("pointer:{revision:?}"));
+            Ok(())
+        }
+
+        fn install_source(&mut self) -> Result<(), AppError> {
+            self.calls.push("source".to_owned());
+            Ok(())
+        }
+
+        fn install_transcript(&mut self) -> Result<(), AppError> {
+            self.calls.push("transcript".to_owned());
+            Ok(())
+        }
+
+        fn install_current(&mut self) -> Result<(), AppError> {
+            self.calls.push("current".to_owned());
+            Ok(())
+        }
+
+        fn finish_events(&mut self) -> Result<(), AppError> {
+            self.calls.push("finish".to_owned());
+            Ok(())
+        }
+
+        fn converge(&mut self) -> Result<(), AppError> {
+            self.calls.push("converge".to_owned());
+            Ok(())
+        }
+
+        fn projection_repair_required(&mut self, _convergence_error: AppError) -> AppError {
+            self.calls.push("projection-repair".to_owned());
+            AppError::blocked("projection repair")
+        }
+
+        fn remove_projection_lag(&mut self) -> Result<(), AppError> {
+            self.calls.push("remove-lag".to_owned());
+            Ok(())
+        }
+
+        fn validate_cleanup_authority(&mut self) -> Result<(), AppError> {
+            self.calls.push("validate-cleanup".to_owned());
+            Ok(())
+        }
+
+        fn remove_journal(&mut self) -> Result<(), AppError> {
+            self.calls.push("remove-journal".to_owned());
+            Ok(())
+        }
+    }
+
     #[test]
     fn accepts_only_the_next_bound_event() {
         let first = event("first");
@@ -131,5 +336,67 @@ mod tests {
         coordinator.validate_next(1, &second).unwrap();
         coordinator.record_appended(1).unwrap();
         coordinator.finish().unwrap();
+    }
+
+    #[test]
+    fn approval_commit_order_is_application_owned() {
+        let mut port = FakeApprovalPort::default();
+
+        execute_approval_transaction(&mut port, TransactionExecution::Commit).unwrap();
+
+        assert_eq!(
+            port.calls,
+            [
+                "fault:T1",
+                "append:0",
+                "fault:T2",
+                "snapshot:First",
+                "append:1",
+                "fault:T3-before-pointer",
+                "pointer:First",
+                "fault:T3",
+                "append:2",
+                "append:3",
+                "append:4",
+                "fault:T4",
+                "source",
+                "fault:T5",
+                "append:5",
+                "append:6",
+                "append:7",
+                "fault:T6",
+                "transcript",
+                "append:8",
+                "fault:T7",
+                "snapshot:Second",
+                "append:9",
+                "fault:T8-before-pointer",
+                "pointer:Second",
+                "fault:T8",
+                "current",
+                "fault:T9",
+                "finish",
+                "converge",
+                "fault:T10",
+                "remove-lag",
+                "validate-cleanup",
+                "remove-journal",
+            ]
+        );
+    }
+
+    #[test]
+    fn approval_recovery_reuses_order_without_faults_or_journal_cleanup() {
+        let mut port = FakeApprovalPort::default();
+
+        execute_approval_transaction(&mut port, TransactionExecution::Recovery).unwrap();
+
+        assert!(port.calls.iter().all(|call| !call.starts_with("fault:")));
+        assert!(!port.calls.iter().any(|call| call == "remove-journal"));
+        assert_eq!(port.calls.first().map(String::as_str), Some("append:0"));
+        assert_eq!(
+            port.calls.last().map(String::as_str),
+            Some("validate-cleanup")
+        );
     }
 }

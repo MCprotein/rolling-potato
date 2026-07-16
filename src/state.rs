@@ -16,6 +16,10 @@ use crate::runtime_core::workflow::application::recovery::{
     self as workflow_recovery, PendingWorkflowTransaction, PreparedStateRecoveryPort,
     ProjectionBarrierRecoveryPort, RecoveryArtifact, WorkflowRecoveryPort,
 };
+use crate::runtime_core::workflow::application::transaction_coordinator::{
+    self as transaction_coordinator, ApprovalFault, ApprovalRevision, ApprovalTransactionPort,
+    TransactionExecution,
+};
 use crate::runtime_core::workflow::domain::snapshot::{
     self as snapshot_domain, CurrentStateLeaseView, CurrentStateSnapshot, CurrentWorkflowBinding,
     TuiStateSnapshot,
@@ -1207,7 +1211,7 @@ pub(crate) fn transition_project_current_state_prepared_approval(
         .transition_guard
         .ok_or_else(|| AppError::blocked("prepared approval transition guard 누락"))?;
     let journal = transition_guard.commit(prepared.bundle)?;
-    execute_prepared_approval(prepared, &journal, true, true)
+    execute_prepared_approval(prepared, &journal, TransactionExecution::Commit)
 }
 
 pub(crate) fn recover_project_current_state_prepared_approval(
@@ -1276,15 +1280,14 @@ impl ProjectionBarrierRecoveryPort for ApprovalProjectionRecoveryPort<'_> {
             .prepared
             .take()
             .expect("approval recovery executes at most once");
-        execute_prepared_approval(prepared, self.journal, false, false)
+        execute_prepared_approval(prepared, self.journal, TransactionExecution::Recovery)
     }
 }
 
 fn execute_prepared_approval(
     prepared: PreparedApprovalTransition<'_>,
     journal: &std::path::Path,
-    inject_faults: bool,
-    remove_journal: bool,
+    execution: TransactionExecution,
 ) -> Result<(), AppError> {
     let PreparedApprovalTransition {
         transition_guard,
@@ -1298,89 +1301,118 @@ fn execute_prepared_approval(
         current,
         events,
     } = prepared;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T1")?;
-    }
-    let mut sink = writer.event_sink(planned);
-    sink.append_planned_under_guard(0, &events[0])?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T2")?;
-    }
-    workflow_guard.install_snapshot(r1)?;
-    sink.append_planned_under_guard(1, &events[1])?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T3-before-pointer")?;
-    }
-    workflow_guard.install_pointer(r1)?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T3")?;
-    }
-    for (index, event) in events.iter().enumerate().take(5).skip(2) {
-        sink.append_planned_under_guard(index, event)?;
-    }
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T4")?;
-    }
-    install_prepared_source_bundle(bundle, journal)?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T5")?;
-    }
-    for (index, event) in events.iter().enumerate().take(8).skip(5) {
-        sink.append_planned_under_guard(index, event)?;
-    }
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T6")?;
-    }
-    crate::transcript::install_prepared_no_stream_tool_turn(transcript)?;
-    sink.append_planned_under_guard(8, &events[8])?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T7")?;
-    }
-    workflow_guard.install_snapshot(r2)?;
-    sink.append_planned_under_guard(9, &events[9])?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T8-before-pointer")?;
-    }
-    workflow_guard.install_pointer(r2)?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T8")?;
-    }
-    install_current_image(
+    let mut port = StateApprovalTransactionPort {
+        transition_guard,
+        workflow_guard,
+        bundle,
+        r1,
+        r2,
+        transcript,
         current,
-        bundle.current_revision,
-        &bundle.current_artifact_hash,
-    )?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T9")?;
+        events,
+        journal,
+        sink: writer.event_sink(planned),
+    };
+    transaction_coordinator::execute_approval_transaction(&mut port, execution)
+}
+
+struct StateApprovalTransactionPort<'a> {
+    transition_guard: Option<&'a crate::transition::TransitionGuard>,
+    workflow_guard: &'a WorkflowCheckpointGuard,
+    bundle: &'a crate::transition::PreparedSourceBundle,
+    r1: &'a PreparedWorkflowRevision,
+    r2: &'a PreparedWorkflowRevision,
+    transcript: &'a crate::transcript::PreparedTranscriptTurn,
+    current: &'a PreparedCurrentImage,
+    events: &'a [ledger::LedgerEvent],
+    journal: &'a std::path::Path,
+    sink: ledger::EventSink<'a>,
+}
+
+impl ApprovalTransactionPort for StateApprovalTransactionPort<'_> {
+    fn fault(&mut self, point: ApprovalFault) -> Result<(), AppError> {
+        crate::patch::approval_transaction_fault(point.as_str())
     }
-    sink.finish()?;
-    let convergence = crate::patch::approval_projection_fault()
-        .and_then(|_| sink.converge_prepared(bundle, journal));
-    if let Err(error) = convergence {
-        let lag = crate::transition::install_projection_lag(bundle).map_err(|lag_error| {
-            AppError::blocked(format!(
+
+    fn append_event(&mut self, index: usize) -> Result<(), AppError> {
+        let event = self
+            .events
+            .get(index)
+            .ok_or_else(|| AppError::blocked("prepared approval event index 범위 초과"))?;
+        self.sink
+            .append_planned_under_guard(index, event)
+            .map(|_| ())
+    }
+
+    fn install_snapshot(&mut self, revision: ApprovalRevision) -> Result<(), AppError> {
+        let prepared = match revision {
+            ApprovalRevision::First => self.r1,
+            ApprovalRevision::Second => self.r2,
+        };
+        self.workflow_guard.install_snapshot(prepared)
+    }
+
+    fn install_pointer(&mut self, revision: ApprovalRevision) -> Result<(), AppError> {
+        let prepared = match revision {
+            ApprovalRevision::First => self.r1,
+            ApprovalRevision::Second => self.r2,
+        };
+        self.workflow_guard.install_pointer(prepared)
+    }
+
+    fn install_source(&mut self) -> Result<(), AppError> {
+        install_prepared_source_bundle(self.bundle, self.journal)
+    }
+
+    fn install_transcript(&mut self) -> Result<(), AppError> {
+        crate::transcript::install_prepared_no_stream_tool_turn(self.transcript)
+    }
+
+    fn install_current(&mut self) -> Result<(), AppError> {
+        install_current_image(
+            self.current,
+            self.bundle.current_revision,
+            &self.bundle.current_artifact_hash,
+        )
+    }
+
+    fn finish_events(&mut self) -> Result<(), AppError> {
+        self.sink.finish()
+    }
+
+    fn converge(&mut self) -> Result<(), AppError> {
+        crate::patch::approval_projection_fault()
+            .and_then(|_| self.sink.converge_prepared(self.bundle, self.journal))
+    }
+
+    fn projection_repair_required(&mut self, convergence_error: AppError) -> AppError {
+        match crate::transition::install_projection_lag(self.bundle) {
+            Ok(lag) => AppError::blocked(format!(
+                "projection repair 필요\n- code: projection.repair-required\n- intent: {}\n- lag: {}\n- error: {}",
+                self.bundle.intent_id,
+                lag.display(),
+                convergence_error.message,
+            )),
+            Err(lag_error) => AppError::blocked(format!(
                 "projection lag install 실패\n- code: projection.lag-install-failed\n- intent: {}\n- converge error: {}\n- lag error: {}",
-                bundle.intent_id, error.message, lag_error.message
-            ))
-        })?;
-        return Err(AppError::blocked(format!(
-            "projection repair 필요\n- code: projection.repair-required\n- intent: {}\n- lag: {}\n- error: {}",
-            bundle.intent_id,
-            lag.display(),
-            error.message
-        )));
+                self.bundle.intent_id, convergence_error.message, lag_error.message,
+            )),
+        }
     }
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T10")?;
+
+    fn remove_projection_lag(&mut self) -> Result<(), AppError> {
+        crate::transition::remove_projection_lag(self.bundle)
     }
-    crate::transition::remove_projection_lag(bundle)?;
-    crate::transition::validate_committed_bundle_cleanup_authority(bundle, journal)?;
-    if remove_journal {
-        transition_guard
+
+    fn validate_cleanup_authority(&mut self) -> Result<(), AppError> {
+        crate::transition::validate_committed_bundle_cleanup_authority(self.bundle, self.journal)
+    }
+
+    fn remove_journal(&mut self) -> Result<(), AppError> {
+        self.transition_guard
             .ok_or_else(|| AppError::blocked("prepared approval cleanup guard 누락"))?
-            .remove(bundle, journal)?;
+            .remove(self.bundle, self.journal)
     }
-    Ok(())
 }
 
 pub(crate) struct PreparedVerificationTransition<'a> {
