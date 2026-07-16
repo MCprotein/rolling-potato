@@ -5,6 +5,7 @@ use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -46,6 +47,7 @@ static GENERATION_ADMISSION_STATE: Mutex<GenerationAdmissionState> =
         active_generation_ids: BTreeSet::new(),
         primary_generation_id: None,
     });
+static BACKEND_RESOURCE_SAMPLE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 pub trait BackendAdapter {
     fn id(&self) -> &'static str;
@@ -2378,12 +2380,18 @@ fn record_backend_resource_sample(
 ) -> Result<BackendResourceSampleReport, AppError> {
     let snapshot = resource::sample_process(record.pid, &backend_resource_paths(record));
     let recorded_at_ms = now_ms();
+    let sample_nonce = format!(
+        "{}-{}",
+        std::process::id(),
+        BACKEND_RESOURCE_SAMPLE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    );
     let event_id = state::record_event(
         "backend.resource.sampled",
         "backend sidecar resource sample 기록",
         &format!(
-            "reason={} pid={} backend={} cpu_percent={} average_rss_bytes={} peak_rss_bytes={} disk_bytes={} sample_count={} pressure_status={}",
+            "reason={} sample_nonce={} pid={} backend={} cpu_percent={} average_rss_bytes={} peak_rss_bytes={} disk_bytes={} sample_count={} pressure_status={}",
             reason,
+            sample_nonce,
             record.pid,
             record.backend_id,
             display_optional_f64(snapshot.process_cpu_percent),
