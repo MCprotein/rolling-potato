@@ -14,7 +14,7 @@ use crate::observability::SessionHistoryEntry;
 use crate::observability::{self, StoreStatus};
 use crate::runtime_core::workflow::application::recovery::{
     self as workflow_recovery, PendingWorkflowTransaction, PreparedStateRecoveryPort,
-    RecoveryArtifact, WorkflowRecoveryPort,
+    ProjectionBarrierRecoveryPort, RecoveryArtifact, WorkflowRecoveryPort,
 };
 use crate::runtime_core::workflow::domain::snapshot::{
     self as snapshot_domain, CurrentStateLeaseView, CurrentStateSnapshot, CurrentWorkflowBinding,
@@ -1215,26 +1215,69 @@ pub(crate) fn recover_project_current_state_prepared_approval(
     journal: &std::path::Path,
 ) -> Result<(), AppError> {
     let lag_path = crate::transition::projection_lag_path(prepared.bundle)?;
-    let lag_temp_exists = lag_path.with_extension("json.tmp").exists();
-    if !lag_path.exists()
-        && (lag_temp_exists
-            || !prepared
-                .writer
-                .prepared_target_is_converged(prepared.bundle, journal)?)
-    {
-        let lag = crate::transition::install_projection_lag(prepared.bundle).map_err(|error| {
+    let mut port = ApprovalProjectionRecoveryPort {
+        prepared: Some(prepared),
+        journal,
+        lag_path,
+    };
+    workflow_recovery::recover_through_projection_barrier(&mut port)
+}
+
+struct ApprovalProjectionRecoveryPort<'a> {
+    prepared: Option<PreparedApprovalTransition<'a>>,
+    journal: &'a std::path::Path,
+    lag_path: PathBuf,
+}
+
+impl ApprovalProjectionRecoveryPort<'_> {
+    fn prepared(&self) -> &PreparedApprovalTransition<'_> {
+        self.prepared
+            .as_ref()
+            .expect("approval recovery port retains prepared transition")
+    }
+}
+
+impl ProjectionBarrierRecoveryPort for ApprovalProjectionRecoveryPort<'_> {
+    fn lag_exists(&self) -> bool {
+        self.lag_path.exists()
+    }
+
+    fn lag_temp_exists(&self) -> bool {
+        self.lag_path.with_extension("json.tmp").exists()
+    }
+
+    fn target_is_converged(&self) -> Result<bool, AppError> {
+        let prepared = self.prepared();
+        prepared
+            .writer
+            .prepared_target_is_converged(prepared.bundle, self.journal)
+    }
+
+    fn install_lag(&self) -> Result<PathBuf, AppError> {
+        let prepared = self.prepared();
+        crate::transition::install_projection_lag(prepared.bundle).map_err(|error| {
             AppError::blocked(format!(
                 "projection lag install 실패\n- code: projection.lag-install-failed\n- intent: {}\n- error: {}",
-                prepared.bundle.intent_id, error.message
+                prepared.bundle.intent_id, error.message,
             ))
-        })?;
-        return Err(AppError::blocked(format!(
-            "projection repair 필요\n- code: projection.repair-required\n- intent: {}\n- lag: {}\n- error: interrupted repair requires a durable lag marker",
-            prepared.bundle.intent_id,
-            lag.display()
-        )));
+        })
     }
-    execute_prepared_approval(prepared, journal, false, false)
+
+    fn repair_required(&self, lag: &std::path::Path) -> AppError {
+        AppError::blocked(format!(
+            "projection repair 필요\n- code: projection.repair-required\n- intent: {}\n- lag: {}\n- error: interrupted repair requires a durable lag marker",
+            self.prepared().bundle.intent_id,
+            lag.display()
+        ))
+    }
+
+    fn resume_recovery(&mut self) -> Result<(), AppError> {
+        let prepared = self
+            .prepared
+            .take()
+            .expect("approval recovery executes at most once");
+        execute_prepared_approval(prepared, self.journal, false, false)
+    }
 }
 
 fn execute_prepared_approval(
