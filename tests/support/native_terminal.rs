@@ -1238,11 +1238,15 @@ mod windows {
         startup.startup.cb = std::mem::size_of::<StartupInfoExW>() as Dword;
         startup.attribute_list = attribute_list;
         let mut process: ProcessInformation = unsafe { std::mem::zeroed() };
-        let command_text = if arguments.is_empty() {
+        let child_command = if arguments.is_empty() {
             format!("\"{}\"", application.display())
         } else {
             format!("\"{}\" {arguments}", application.display())
         };
+        // GitHub's Windows runner launches the Rust test host without a native console.
+        // Make the platform shell the ConPTY root client, matching normal Windows use,
+        // and let the production binary inherit that console session from the shell.
+        let command_text = format!("cmd.exe /d /s /c \"{child_command}\"");
         let mut command = wide(OsStr::new(&command_text));
         let mut environment = explicit_environment_block(environment_overrides);
         let launched = unsafe {
