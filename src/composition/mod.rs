@@ -4,4 +4,4 @@
 //! until their scheduled migration. This private root only reserves ownership.
 
 pub(crate) mod config;
-mod startup;
+pub(crate) mod startup;

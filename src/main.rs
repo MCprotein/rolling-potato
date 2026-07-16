@@ -36,14 +36,6 @@ mod transition;
 mod tui;
 mod uninstall;
 
-use std::process::ExitCode;
-
-fn main() -> ExitCode {
-    match app::run(std::env::args().skip(1)) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(err) => {
-            eprintln!("{}", korean_guard::guard_or_failure(&err.message));
-            ExitCode::from(err.code)
-        }
-    }
+fn main() -> std::process::ExitCode {
+    composition::startup::run(std::env::args().skip(1), app::run)
 }

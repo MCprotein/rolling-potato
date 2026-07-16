@@ -1700,6 +1700,18 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     assert!(!main.lines().any(|line| line == "mod cli;"));
 }
 
+#[test]
+fn v03713_binary_entrypoint_delegates_process_outcome_to_startup() {
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(main.contains("composition::startup::run"));
+    assert!(!main.contains("eprintln!"));
+    assert!(!main.contains("match app::run"));
+
+    let startup = fs::read_to_string("src/composition/startup.rs").unwrap();
+    assert!(startup.contains("korean_guard::guard_or_failure"));
+    assert!(startup.contains("ExitCode::from(err.code)"));
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

@@ -1935,11 +1935,13 @@
       "path": "src/composition/startup.rs",
       "slices": [
         {
-          "responsibility": "reserved architecture ownership",
+          "responsibility": "application composition bootstrap",
           "target": "src/composition/startup.rs",
-          "release": "0.37.1",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
+            "src/composition/startup.rs",
+            "src/main.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2142,15 +2144,23 @@
           "responsibility": "binary entrypoint",
           "target": "src/main.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/main.rs",
+            "src/composition/startup.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "application composition bootstrap",
           "target": "src/composition/startup.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/composition/startup.rs",
+            "src/main.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -4580,7 +4590,7 @@
     {
       "path": "src/composition/startup.rs",
       "responsibilities": [
-        "reserved architecture ownership"
+        "application composition bootstrap"
       ]
     },
     {

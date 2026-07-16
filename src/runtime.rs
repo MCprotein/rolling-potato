@@ -2985,7 +2985,7 @@ mod tests {
         let terminal = "패치 작업 완료\nSummary\n- 결과: 성공".to_string();
         assert_eq!(
             runtime_report::guard_patch_terminal(terminal.clone()),
-            crate::korean_guard::guard_or_failure(&terminal)
+            crate::runtime_core::reporting::korean_guard::guard_or_failure(&terminal)
         );
 
         let non_terminal = "patch approve\nSummary\n- status: applied".to_string();
