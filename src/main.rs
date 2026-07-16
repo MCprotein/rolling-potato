@@ -20,7 +20,6 @@ mod ontology;
 mod patch;
 mod plugin;
 mod policy;
-mod resource;
 mod runtime;
 mod runtime_core;
 mod skill;

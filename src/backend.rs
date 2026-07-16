@@ -13,7 +13,8 @@ use crate::adapters::filesystem::layout as paths;
 use crate::backend_stream::{self, StreamTermination};
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
-use crate::{korean_guard, ledger, model, observability, resource, state};
+use crate::runtime_core::inference::resource;
+use crate::{korean_guard, ledger, model, observability, state};
 
 const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 const DEFAULT_HOST: &str = "127.0.0.1";

@@ -8,9 +8,10 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, Connection, OpenFlags};
 
+use crate::adapters::filesystem::layout as paths;
 use crate::foundation::error::AppError;
 use crate::ledger::{self, LedgerEvent, RuntimeIdentity};
-use crate::{adapters::filesystem::layout as paths, resource};
+use crate::runtime_core::inference::resource;
 
 const MIGRATION_VERSION: i64 = 6;
 const MIGRATION_DESCRIPTION: &str = "v0_32_durable_conversation_resume";

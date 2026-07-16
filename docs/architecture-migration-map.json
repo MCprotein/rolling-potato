@@ -2106,14 +2106,17 @@
       ]
     },
     {
-      "path": "src/resource.rs",
+      "path": "src/runtime_core/inference/resource.rs",
       "slices": [
         {
           "responsibility": "resource sampling and governance",
           "target": "src/runtime_core/inference/resource.rs",
           "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/resource.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3568,7 +3571,7 @@
       ]
     },
     {
-      "path": "src/resource.rs",
+      "path": "src/runtime_core/inference/resource.rs",
       "responsibilities": [
         "resource sampling and governance"
       ]

@@ -1,6 +1,7 @@
 use crate::foundation::error::AppError;
 use crate::ontology;
-use crate::{backend, benchmark, resource};
+use crate::runtime_core::inference::resource;
+use crate::{backend, benchmark};
 
 pub const HELP: &str = "\
 rpotato

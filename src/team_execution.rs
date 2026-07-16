@@ -1,7 +1,8 @@
 use crate::foundation::error::AppError;
+use crate::runtime_core::inference::resource;
 use crate::{
     adapters::filesystem::layout as paths, adapters::filesystem::lease, backend, ledger,
-    observability, resource, subagent, team_state,
+    observability, subagent, team_state,
 };
 use std::collections::BTreeMap;
 
