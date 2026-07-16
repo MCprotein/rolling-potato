@@ -28,6 +28,7 @@ mod skill;
 mod state;
 mod strict_json;
 mod subagent;
+mod subagent_result;
 mod team;
 mod terminal;
 #[cfg(test)]

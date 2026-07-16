@@ -207,6 +207,32 @@ pub fn build_declared_context_pack(read_paths: &[String]) -> Result<ContextPack,
     })
 }
 
+pub fn verify_declared_context_pack(
+    expected: &ContextPack,
+    read_paths: &[String],
+) -> Result<ContextPack, AppError> {
+    let actual = build_declared_context_pack(read_paths)?;
+    let expected_bindings = expected
+        .source_pointers
+        .iter()
+        .map(|pointer| (&pointer.path, &pointer.stable_ref, &pointer.fingerprint))
+        .collect::<Vec<_>>();
+    let actual_bindings = actual
+        .source_pointers
+        .iter()
+        .map(|pointer| (&pointer.path, &pointer.stable_ref, &pointer.fingerprint))
+        .collect::<Vec<_>>();
+    if expected.project_root != actual.project_root
+        || expected.files_read != actual.files_read
+        || expected_bindings != actual_bindings
+    {
+        return Err(AppError::blocked(
+            "subagent declared context source binding이 dispatch 전에 변경되었습니다.",
+        ));
+    }
+    Ok(actual)
+}
+
 pub fn rebuild_resume_context(
     session_id: &str,
     exclude_workflow_id: Option<&str>,
@@ -450,10 +476,15 @@ impl ContextPack {
             return "repository context:\n- source pointers: 없음\n".to_string();
         }
 
-        let mut section = String::from(
-            "ontology-backed repository context:\n\
+        let mut section = format!(
+            "{} repository context:\n\
              - snippets are context hints, not authority for file modification.\n\
              - before any patch or command action, reread the original source pointer.\n",
+            if self.origin == "ontology" {
+                "ontology-backed"
+            } else {
+                "declared-path"
+            }
         );
         for pointer in &self.source_pointers {
             section.push_str(&format!(

@@ -193,6 +193,13 @@ struct AdmittedLaunch {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct WorkerGeneration {
+    backend_event_id: String,
+    effective_max_tokens: u32,
+    response: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubagentRecordV1 {
     pub subagent_id: String,
     pub revision: u64,
@@ -470,10 +477,19 @@ pub fn launch_report(
         timeout_ms,
         max_tokens,
     )?;
+    backend::preflight_chat_ready()?;
     let admitted = admit_launch(launch)?;
-    let record = &admitted.record;
+    let completed = dispatch_admitted(admitted, task, |prompt, max_tokens, timeout_ms| {
+        let run = backend::chat_once_bounded(prompt, max_tokens, timeout_ms)?;
+        Ok(WorkerGeneration {
+            backend_event_id: run.ledger_event,
+            effective_max_tokens: run.effective_max_tokens,
+            response: run.response,
+        })
+    })?;
+    let record = &completed.record;
     Ok(format!(
-        "subagent launch\n- status: {}\n- subagent id: {}\n- parent workflow: {}\n- parent revision: {}\n- role: {}\n- task hash: {}\n- tools: {}\n- read paths: {}\n- write paths: {}\n- timeout ms: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- context origin: {}\n- context files: {}\n- context chars: {}\n- source pointers: {}\n- next gate: bounded context reread and backend dispatch\n- boundary: admission only; no backend request, command execution, file write, or parent merge occurred.",
+        "subagent launch\n- status: {}\n- subagent id: {}\n- parent workflow: {}\n- parent revision: {}\n- role: {}\n- task hash: {}\n- tools: {}\n- read paths: {}\n- write paths: {}\n- timeout ms: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- context origin: {}\n- context files: {}\n- context chars: {}\n- source pointers: {}\n- result artifact: {}\n- evidence: {}\n- summary: {}\n- boundary: child output was strictly parsed and recorded; no command or patch was executed.",
         record.status.as_str(),
         record.subagent_id,
         record.parent_workflow_id,
@@ -486,10 +502,13 @@ pub fn launch_report(
         record.timeout_ms,
         record.requested_max_tokens,
         record.effective_max_tokens,
-        admitted.context.origin,
-        admitted.context.files_read,
-        admitted.context.chars_read,
-        admitted.context.pointer_summary(),
+        completed.context.origin,
+        completed.context.files_read,
+        completed.context.chars_read,
+        completed.context.pointer_summary(),
+        record.result_artifact_id,
+        record.evidence_id,
+        completed.summary,
     ))
 }
 
@@ -520,6 +539,9 @@ pub fn cancel_report(subagent_id: &str) -> Result<String, AppError> {
     if current.status.is_terminal() {
         return Ok(render_status_report(&current, "terminal-preserved-no-op"));
     }
+    if current.status == SubagentStatus::Running {
+        backend::cancel_generation_report()?;
+    }
     let mut cancelled = current.clone();
     cancelled.transition_to(SubagentStatus::Cancelled, Some("user-cancelled"))?;
     let cancelled = checkpoint_record(cancelled, current.revision)?;
@@ -530,6 +552,350 @@ pub fn cancel_report(subagent_id: &str) -> Result<String, AppError> {
         "subagent cancelled",
     )?;
     Ok(render_status_report(&cancelled, "cancelled"))
+}
+
+#[derive(Debug)]
+struct CompletedLaunch {
+    record: SubagentRecordV1,
+    context: crate::context::ContextPack,
+    summary: String,
+}
+
+fn dispatch_admitted(
+    admitted: AdmittedLaunch,
+    task: &str,
+    runner: impl FnOnce(&str, u32, u32) -> Result<WorkerGeneration, AppError>,
+) -> Result<CompletedLaunch, AppError> {
+    let _execution_lease = lease::RecoverableLease::acquire(
+        paths::project_subagent_execution_lock(&admitted.record.subagent_id),
+        "subagent execution",
+    )?;
+    let (running, context) = prepare_running(&admitted)?;
+    let prompt = render_worker_prompt(&running, task, &context);
+    let generation = match runner(&prompt, running.requested_max_tokens, running.timeout_ms) {
+        Ok(generation) => generation,
+        Err(error) => {
+            let terminal = terminalize_running_error(&running, &error)?;
+            return Err(AppError {
+                code: error.code,
+                message: format!(
+                    "{}\n- subagent id: {}\n- subagent status: {}\n- partial output: discarded",
+                    error.message,
+                    terminal.subagent_id,
+                    terminal.status.as_str()
+                ),
+            });
+        }
+    };
+    complete_generation(running, context, generation)
+}
+
+fn prepare_running(
+    admitted: &AdmittedLaunch,
+) -> Result<(SubagentRecordV1, crate::context::ContextPack), AppError> {
+    let record = &admitted.record;
+    let _parent_lease = lease::RecoverableLease::acquire(
+        paths::project_subagent_parent_lock(&record.parent_workflow_id),
+        "subagent parent admission",
+    )?;
+    if state::active_workflow_id()?.as_deref() != Some(record.parent_workflow_id.as_str()) {
+        return Err(AppError::blocked(
+            "subagent dispatch 차단: active parent pointer 변경",
+        ));
+    }
+    let workflow_guard = state::WorkflowCheckpointGuard::acquire(&record.parent_workflow_id)?;
+    let parent = workflow_guard.load_current()?;
+    if parent.is_terminal()
+        || parent.revision != record.parent_revision
+        || parent.artifact_hash != record.parent_artifact_hash
+        || parent.project_id != record.project_id
+        || parent.session_id != record.session_id
+    {
+        return Err(AppError::blocked(
+            "subagent dispatch 차단: exact parent binding 변경",
+        ));
+    }
+    let current = load_record(&record.subagent_id)?;
+    if current != *record || current.status != SubagentStatus::Admitted {
+        return Err(AppError::blocked(
+            "subagent dispatch 차단: admitted state binding 변경",
+        ));
+    }
+    let context =
+        crate::context::verify_declared_context_pack(&admitted.context, &current.read_paths)?;
+    let mut running = current.clone();
+    running.transition_to(SubagentStatus::Running, None)?;
+    let running = checkpoint_record(running, current.revision)?;
+    append_lifecycle_event(
+        &ledger::validated_current_identity()?,
+        &running,
+        "team.subagent.started",
+        "subagent started",
+    )?;
+    Ok((running, context))
+}
+
+fn complete_generation(
+    running: SubagentRecordV1,
+    context: crate::context::ContextPack,
+    generation: WorkerGeneration,
+) -> Result<CompletedLaunch, AppError> {
+    let _parent_lease = lease::RecoverableLease::acquire(
+        paths::project_subagent_parent_lock(&running.parent_workflow_id),
+        "subagent parent admission",
+    )?;
+    let current = load_record(&running.subagent_id)?;
+    if current.status == SubagentStatus::Cancelled {
+        return Err(AppError::blocked(format!(
+            "subagent completion 폐기\n- subagent id: {}\n- 이유: cancellation이 먼저 terminal state를 획득했습니다.",
+            current.subagent_id
+        )));
+    }
+    if current != running || current.status != SubagentStatus::Running {
+        return Err(AppError::blocked(
+            "subagent completion 차단: running state binding 변경",
+        ));
+    }
+    let parent = state::load_workflow(&running.parent_workflow_id)?;
+    if parent.is_terminal()
+        || parent.revision != running.parent_revision
+        || parent.artifact_hash != running.parent_artifact_hash
+        || parent.project_id != running.project_id
+        || parent.session_id != running.session_id
+    {
+        let blocked = terminalize_locked(
+            &current,
+            SubagentStatus::Blocked,
+            "stale-parent",
+            "team.subagent.blocked",
+        )?;
+        return Err(AppError::blocked(format!(
+            "subagent result merge 차단: stale parent\n- subagent id: {}\n- status: {}",
+            blocked.subagent_id,
+            blocked.status.as_str()
+        )));
+    }
+    let context = match crate::context::verify_declared_context_pack(&context, &running.read_paths)
+    {
+        Ok(context) => context,
+        Err(error) => {
+            terminalize_locked(
+                &current,
+                SubagentStatus::Blocked,
+                "stale-context",
+                "team.subagent.blocked",
+            )?;
+            return Err(error);
+        }
+    };
+    if generation.effective_max_tokens == 0
+        || generation.effective_max_tokens > running.requested_max_tokens
+        || generation.backend_event_id.is_empty()
+    {
+        terminalize_locked(
+            &current,
+            SubagentStatus::Blocked,
+            "invalid-backend-metadata",
+            "team.subagent.blocked",
+        )?;
+        return Err(AppError::blocked("subagent backend metadata binding 오류"));
+    }
+    let stored =
+        match crate::subagent_result::parse_and_store(&running, &context, &generation.response) {
+            Ok(stored) => stored,
+            Err(error) => {
+                terminalize_locked(
+                    &current,
+                    SubagentStatus::Blocked,
+                    "invalid-result",
+                    "team.subagent.blocked",
+                )?;
+                return Err(AppError::blocked(format!(
+                    "subagent result 검증 차단\n- subagent id: {}\n- reason: {}",
+                    running.subagent_id, error.message
+                )));
+            }
+        };
+    crate::subagent_result::verify_stored_artifacts(&running, &stored)?;
+    let mut completed = current.clone();
+    completed.backend_event_id = generation.backend_event_id;
+    completed.effective_max_tokens = generation.effective_max_tokens;
+    completed.result_artifact_id = stored.result_artifact_id.clone();
+    completed.result_artifact_hash = stored.result_artifact_hash.clone();
+    completed.evidence_id = stored.evidence_id.clone();
+    completed.evidence_hash = stored.evidence_hash.clone();
+    completed.transition_to(SubagentStatus::Completed, None)?;
+    let completed = checkpoint_record(completed, current.revision)?;
+    let identity = ledger::validated_current_identity()?;
+    append_lifecycle_event(
+        &identity,
+        &completed,
+        "team.subagent.completed",
+        "subagent completed",
+    )?;
+    merge_completed_result(&completed, &stored)?;
+    Ok(CompletedLaunch {
+        record: completed,
+        context,
+        summary: stored.result.summary,
+    })
+}
+
+fn terminalize_running_error(
+    running: &SubagentRecordV1,
+    error: &AppError,
+) -> Result<SubagentRecordV1, AppError> {
+    let _parent_lease = lease::RecoverableLease::acquire(
+        paths::project_subagent_parent_lock(&running.parent_workflow_id),
+        "subagent parent admission",
+    )?;
+    let current = load_record(&running.subagent_id)?;
+    if current.status.is_terminal() {
+        return Ok(current);
+    }
+    if current != *running || current.status != SubagentStatus::Running {
+        return Err(AppError::blocked(
+            "subagent backend failure state binding 변경",
+        ));
+    }
+    let (status, failure_code, event_type) = classify_backend_error(error);
+    terminalize_locked(&current, status, failure_code, event_type)
+}
+
+fn terminalize_locked(
+    current: &SubagentRecordV1,
+    status: SubagentStatus,
+    failure_code: &str,
+    event_type: &str,
+) -> Result<SubagentRecordV1, AppError> {
+    let mut terminal = current.clone();
+    terminal.transition_to(status, Some(failure_code))?;
+    let terminal = checkpoint_record(terminal, current.revision)?;
+    append_lifecycle_event(
+        &ledger::validated_current_identity()?,
+        &terminal,
+        event_type,
+        "subagent terminal failure",
+    )?;
+    Ok(terminal)
+}
+
+fn classify_backend_error(error: &AppError) -> (SubagentStatus, &'static str, &'static str) {
+    if error.message.contains("제한 시간 초과") || error.message.contains("timed-out") {
+        (
+            SubagentStatus::TimedOut,
+            "backend-timeout",
+            "team.subagent.timed-out",
+        )
+    } else if error.message.contains("취소됨") || error.message.contains("cancelled") {
+        (
+            SubagentStatus::Cancelled,
+            "backend-cancelled",
+            "team.subagent.cancelled",
+        )
+    } else if error.code == 3 {
+        (
+            SubagentStatus::Blocked,
+            "backend-blocked",
+            "team.subagent.blocked",
+        )
+    } else {
+        (
+            SubagentStatus::Failed,
+            "backend-failed",
+            "team.subagent.failed",
+        )
+    }
+}
+
+fn merge_completed_result(
+    completed: &SubagentRecordV1,
+    stored: &crate::subagent_result::StoredSubagentResult,
+) -> Result<(), AppError> {
+    if completed.status != SubagentStatus::Completed
+        || completed.result_artifact_id != stored.result_artifact_id
+        || completed.result_artifact_hash != stored.result_artifact_hash
+        || completed.evidence_id != stored.evidence_id
+        || completed.evidence_hash != stored.evidence_hash
+    {
+        return Err(AppError::blocked(
+            "subagent completed artifact/evidence binding 불일치",
+        ));
+    }
+    crate::subagent_result::verify_stored_artifacts(completed, stored)?;
+    let prior_merge = ledger::read_runtime_events()?.into_iter().find(|event| {
+        event.event_type == "team.subagent.result-merged"
+            && detail_token(&event.details, "subagent_id") == Some(completed.subagent_id.as_str())
+    });
+    if let Some(prior) = prior_merge {
+        if detail_token(&prior.details, "result_hash")
+            == Some(completed.result_artifact_hash.as_str())
+        {
+            return Ok(());
+        }
+        return Err(AppError::blocked(
+            "subagent second different result merge 차단",
+        ));
+    }
+    let parent = state::load_workflow(&completed.parent_workflow_id)?;
+    if parent.revision != completed.parent_revision
+        || parent.artifact_hash != completed.parent_artifact_hash
+        || parent.project_id != completed.project_id
+        || parent.session_id != completed.session_id
+        || parent.is_terminal()
+    {
+        return Err(AppError::blocked(
+            "subagent parent merge exact binding 불일치",
+        ));
+    }
+    let mut evidence = parent
+        .skill_evidence
+        .split(',')
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if !evidence.iter().any(|value| value == &completed.evidence_id) {
+        evidence.push(completed.evidence_id.clone());
+        let mut merged = parent.clone();
+        merged.skill_evidence = evidence.join(",");
+        state::checkpoint_workflow(merged, parent.revision)?;
+    }
+    append_lifecycle_event(
+        &ledger::validated_current_identity()?,
+        completed,
+        "team.subagent.result-merged",
+        "subagent result merged",
+    )?;
+    Ok(())
+}
+
+fn detail_token<'a>(details: &'a str, key: &str) -> Option<&'a str> {
+    details
+        .split_whitespace()
+        .find_map(|token| token.strip_prefix(&format!("{key}=")))
+}
+
+fn render_worker_prompt(
+    record: &SubagentRecordV1,
+    task: &str,
+    context: &crate::context::ContextPack,
+) -> String {
+    format!(
+        "You are one bounded {} subagent. Return exactly one canonical compact JSON object and no surrounding text.\n\
+         Required key order: schema_version, subagent_id, parent_workflow_id, role, status, summary, findings, patch_proposal, evidence_refs, validation_gaps, suggested_next_action.\n\
+         Use schema_version=1, status=completed, subagent_id={}, parent_workflow_id={}, role={}.\n\
+         evidence_refs must contain only declared source pointers listed below. patch_proposal must be null unless the executor render_diff capability is declared.\n\
+         Never execute commands, apply patches, reveal secrets, or claim unperformed validation.\n\
+         Declared tools: {}\nDeclared write ownership: {}\nTask:\n{}\n\n{}",
+        record.role.as_str(),
+        record.subagent_id,
+        record.parent_workflow_id,
+        record.role.as_str(),
+        record.declared_tools.join(", "),
+        display_list(&record.write_paths),
+        task,
+        context.prompt_section(),
+    )
 }
 
 fn admit_launch(launch: ValidatedLaunch) -> Result<AdmittedLaunch, AppError> {
@@ -564,17 +930,47 @@ fn admit_launch(launch: ValidatedLaunch) -> Result<AdmittedLaunch, AppError> {
         .into_iter()
         .find(|record| !record.status.is_terminal())
     {
-        append_lifecycle_event(
-            &identity,
-            &existing,
-            "team.subagent.blocked",
-            "subagent admission blocked",
-        )?;
-        return Err(AppError::blocked(format!(
-            "subagent admission 차단\n- 이유: parent당 non-terminal child는 하나만 허용합니다.\n- existing child: {}\n- existing status: {}",
-            existing.subagent_id,
-            existing.status.as_str()
-        )));
+        if existing.status == SubagentStatus::Running {
+            match lease::RecoverableLease::acquire(
+                paths::project_subagent_execution_lock(&existing.subagent_id),
+                "subagent execution",
+            ) {
+                Ok(_recovery_lease) => {
+                    terminalize_locked(
+                        &existing,
+                        SubagentStatus::Failed,
+                        "interrupted-no-replay",
+                        "team.subagent.failed",
+                    )?;
+                }
+                Err(error) if error.message.contains("subagent execution lock 차단") => {
+                    append_lifecycle_event(
+                        &identity,
+                        &existing,
+                        "team.subagent.blocked",
+                        "subagent admission blocked",
+                    )?;
+                    return Err(AppError::blocked(format!(
+                        "subagent admission 차단\n- 이유: parent당 non-terminal child는 하나만 허용합니다.\n- existing child: {}\n- existing status: {}",
+                        existing.subagent_id,
+                        existing.status.as_str()
+                    )));
+                }
+                Err(error) => return Err(error),
+            }
+        } else {
+            append_lifecycle_event(
+                &identity,
+                &existing,
+                "team.subagent.blocked",
+                "subagent admission blocked",
+            )?;
+            return Err(AppError::blocked(format!(
+                "subagent admission 차단\n- 이유: parent당 non-terminal child는 하나만 허용합니다.\n- existing child: {}\n- existing status: {}",
+                existing.subagent_id,
+                existing.status.as_str()
+            )));
+        }
     }
     let context = crate::context::build_declared_context_pack(&launch.read_paths)?;
     let requested = create_record(SubagentRecordV1::new(
@@ -692,7 +1088,7 @@ fn append_lifecycle_event(
         event_type,
         summary,
         &format!(
-            "subagent_id={} parent_workflow_id={} parent_revision={} revision={} status={} role={} task_hash={} artifact_hash={}",
+            "subagent_id={} parent_workflow_id={} parent_revision={} revision={} status={} role={} task_hash={} artifact_hash={} result_hash={}",
             record.subagent_id,
             record.parent_workflow_id,
             record.parent_revision,
@@ -701,6 +1097,7 @@ fn append_lifecycle_event(
             record.role.as_str(),
             record.task_hash,
             record.artifact_hash,
+            display_value(&record.result_artifact_hash),
         ),
     );
     ledger::append_event(&event)?;
@@ -855,7 +1252,7 @@ fn normalize_paths(kind: &str, values: &[String], required: bool) -> Result<Vec<
     Ok(normalized.into_iter().collect())
 }
 
-fn normalize_relative_path(value: &str) -> Result<String, AppError> {
+pub(crate) fn normalize_relative_path(value: &str) -> Result<String, AppError> {
     let value = value.trim();
     if value.is_empty() || value.contains(['\\', ':']) {
         return Err(AppError::blocked(format!(
@@ -926,12 +1323,21 @@ fn validate_record(record: &SubagentRecordV1, installed: bool) -> Result<(), App
     }
     match record.status {
         SubagentStatus::Requested | SubagentStatus::Admitted => {
-            if record.started_at_ms != 0 || record.finished_at_ms != 0 {
+            if record.started_at_ms != 0
+                || record.finished_at_ms != 0
+                || !record.backend_event_id.is_empty()
+                || has_result_binding(record)
+                || !record.failure_code.is_empty()
+            {
                 return Err(AppError::blocked("subagent pre-run timestamp 오류"));
             }
         }
         SubagentStatus::Running => {
-            if record.started_at_ms == 0 || record.finished_at_ms != 0 {
+            if record.started_at_ms == 0
+                || record.finished_at_ms != 0
+                || has_result_binding(record)
+                || !record.failure_code.is_empty()
+            {
                 return Err(AppError::blocked("subagent running timestamp 오류"));
             }
         }
@@ -942,7 +1348,8 @@ fn validate_record(record: &SubagentRecordV1, installed: bool) -> Result<(), App
                 return Err(AppError::blocked("subagent terminal timestamp 오류"));
             }
             if status == SubagentStatus::Completed {
-                if record.result_artifact_id.is_empty()
+                if record.backend_event_id.is_empty()
+                    || record.result_artifact_id.is_empty()
                     || !is_sha256(&record.result_artifact_hash)
                     || record.evidence_id.is_empty()
                     || !is_sha256(&record.evidence_hash)
@@ -950,8 +1357,10 @@ fn validate_record(record: &SubagentRecordV1, installed: bool) -> Result<(), App
                 {
                     return Err(AppError::blocked("subagent completed binding 오류"));
                 }
-            } else if record.failure_code.is_empty() {
-                return Err(AppError::blocked("subagent terminal failure code 누락"));
+            } else if record.failure_code.is_empty() || has_result_binding(record) {
+                return Err(AppError::blocked(
+                    "subagent terminal failure/result binding 오류",
+                ));
             }
         }
         _ => unreachable!(),
@@ -967,6 +1376,13 @@ fn validate_record(record: &SubagentRecordV1, installed: bool) -> Result<(), App
         }
     }
     Ok(())
+}
+
+fn has_result_binding(record: &SubagentRecordV1) -> bool {
+    !record.result_artifact_id.is_empty()
+        || !record.result_artifact_hash.is_empty()
+        || !record.evidence_id.is_empty()
+        || !record.evidence_hash.is_empty()
 }
 
 fn validate_stored_tools_and_paths(record: &SubagentRecordV1) -> Result<(), AppError> {
@@ -1232,6 +1648,20 @@ mod tests {
         state::create_workflow("subagent parent fixture").unwrap()
     }
 
+    fn completed_result(
+        record: &SubagentRecordV1,
+        context: &crate::context::ContextPack,
+    ) -> String {
+        let evidence_ref = &context.source_pointers[0].stable_ref;
+        format!(
+            "{{\"schema_version\":1,\"subagent_id\":\"{}\",\"parent_workflow_id\":\"{}\",\"role\":\"{}\",\"status\":\"completed\",\"summary\":\"검증된 결과\",\"findings\":[\"선언된 파일을 확인했습니다.\"],\"patch_proposal\":null,\"evidence_refs\":[\"{}\"],\"validation_gaps\":[],\"suggested_next_action\":\"부모 작업을 계속합니다.\"}}",
+            record.subagent_id,
+            record.parent_workflow_id,
+            record.role.as_str(),
+            evidence_ref,
+        )
+    }
+
     #[test]
     fn launch_contract_enforces_role_tool_and_write_boundaries() {
         let error = validate_launch(
@@ -1363,6 +1793,7 @@ mod tests {
             .unwrap();
         let running = checkpoint_record(running, admitted.revision).unwrap();
         let mut completed = running.clone();
+        completed.backend_event_id = "backend-event-test".to_string();
         completed.result_artifact_id = "result-test".to_string();
         completed.result_artifact_hash = "b".repeat(64);
         completed.evidence_id = "evidence-test".to_string();
@@ -1504,5 +1935,207 @@ mod tests {
         let retry = cancel_report(&admitted.subagent_id).unwrap();
         assert!(retry.contains("already-cancelled-no-op"));
         assert_eq!(load_record(&admitted.subagent_id).unwrap().revision, 3);
+    }
+
+    #[test]
+    fn dispatch_completes_and_merges_evidence_once() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_parent();
+        let admitted = admit_launch(launch("explore")).unwrap();
+        let response = completed_result(&admitted.record, &admitted.context);
+        let completed = dispatch_admitted(admitted, "bounded task", |prompt, max, timeout| {
+            assert!(prompt.contains("canonical compact JSON"));
+            assert_eq!(max, DEFAULT_MAX_TOKENS);
+            assert_eq!(timeout, DEFAULT_TIMEOUT_MS);
+            Ok(WorkerGeneration {
+                backend_event_id: "backend-event-test".to_string(),
+                effective_max_tokens: 128,
+                response,
+            })
+        })
+        .unwrap();
+        assert_eq!(completed.record.status, SubagentStatus::Completed);
+        assert_eq!(completed.record.revision, 4);
+        assert_eq!(completed.record.effective_max_tokens, 128);
+        assert!(!completed.record.result_artifact_id.is_empty());
+        assert!(!completed.record.evidence_id.is_empty());
+        assert!(
+            paths::project_subagent_result_file(&completed.record.result_artifact_id).is_file()
+        );
+        assert!(paths::project_evidence_dir()
+            .join(format!("{}.json", completed.record.evidence_id))
+            .is_file());
+        let merged_parent = state::load_workflow(&parent.workflow_id).unwrap();
+        assert_eq!(merged_parent.revision, parent.revision + 1);
+        assert_eq!(merged_parent.skill_evidence, completed.record.evidence_id);
+        assert_eq!(
+            ledger::read_runtime_events()
+                .unwrap()
+                .into_iter()
+                .filter(|event| event.event_type.starts_with("team.subagent."))
+                .map(|event| event.event_type)
+                .collect::<Vec<_>>(),
+            vec![
+                "team.subagent.requested",
+                "team.subagent.admitted",
+                "team.subagent.started",
+                "team.subagent.completed",
+                "team.subagent.result-merged",
+            ]
+        );
+        let result_body = fs::read_to_string(paths::project_subagent_result_file(
+            &completed.record.result_artifact_id,
+        ))
+        .unwrap();
+        let stored = crate::subagent_result::parse_and_store(
+            &completed.record,
+            &completed.context,
+            &result_body,
+        )
+        .unwrap();
+        merge_completed_result(&completed.record, &stored).unwrap();
+        assert_eq!(
+            ledger::read_runtime_events()
+                .unwrap()
+                .into_iter()
+                .filter(|event| event.event_type == "team.subagent.result-merged")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn dispatch_blocks_invalid_result_without_parent_merge() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_parent();
+        let admitted = admit_launch(launch("explore")).unwrap();
+        let subagent_id = admitted.record.subagent_id.clone();
+        let error = dispatch_admitted(admitted, "bounded task", |_, _, _| {
+            Ok(WorkerGeneration {
+                backend_event_id: "backend-event-invalid".to_string(),
+                effective_max_tokens: 128,
+                response: "{}".to_string(),
+            })
+        })
+        .unwrap_err();
+        assert!(error.message.contains("result 검증 차단"));
+        let blocked = load_record(&subagent_id).unwrap();
+        assert_eq!(blocked.status, SubagentStatus::Blocked);
+        assert_eq!(blocked.failure_code, "invalid-result");
+        assert_eq!(state::load_workflow(&parent.workflow_id).unwrap(), parent);
+    }
+
+    #[test]
+    fn dispatch_timeout_discards_partial_output_and_records_timed_out() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        initialize_parent();
+        let admitted = admit_launch(launch("explore")).unwrap();
+        let subagent_id = admitted.record.subagent_id.clone();
+        let error = dispatch_admitted(admitted, "bounded task", |_, _, _| {
+            Err(AppError::runtime(
+                "backend chat 중단: 제한 시간 초과로 취소됨",
+            ))
+        })
+        .unwrap_err();
+        assert!(error.message.contains("partial output: discarded"));
+        let timed_out = load_record(&subagent_id).unwrap();
+        assert_eq!(timed_out.status, SubagentStatus::TimedOut);
+        assert_eq!(timed_out.failure_code, "backend-timeout");
+        assert!(timed_out.result_artifact_id.is_empty());
+    }
+
+    #[test]
+    fn manual_cancel_wins_before_backend_completion_merge() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_parent();
+        let admitted = admit_launch(launch("explore")).unwrap();
+        let subagent_id = admitted.record.subagent_id.clone();
+        let response = completed_result(&admitted.record, &admitted.context);
+        let error = dispatch_admitted(admitted, "bounded task", |_, _, _| {
+            let report = cancel_report(&subagent_id).unwrap();
+            assert!(report.contains("action: cancelled"));
+            Ok(WorkerGeneration {
+                backend_event_id: "backend-event-after-cancel".to_string(),
+                effective_max_tokens: 128,
+                response,
+            })
+        })
+        .unwrap_err();
+        assert!(error.message.contains("cancellation이 먼저"));
+        let cancelled = load_record(&subagent_id).unwrap();
+        assert_eq!(cancelled.status, SubagentStatus::Cancelled);
+        assert!(cancelled.result_artifact_id.is_empty());
+        assert_eq!(state::load_workflow(&parent.workflow_id).unwrap(), parent);
+    }
+
+    #[test]
+    fn stale_parent_or_context_blocks_completion_without_merge() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_parent();
+        let admitted = admit_launch(launch("explore")).unwrap();
+        let subagent_id = admitted.record.subagent_id.clone();
+        let response = completed_result(&admitted.record, &admitted.context);
+        let mut changed_parent = parent.clone();
+        changed_parent.result_summary = "parent changed".to_string();
+        let error = dispatch_admitted(admitted, "bounded task", |_, _, _| {
+            state::checkpoint_workflow(changed_parent, parent.revision).unwrap();
+            Ok(WorkerGeneration {
+                backend_event_id: "backend-event-stale-parent".to_string(),
+                effective_max_tokens: 128,
+                response,
+            })
+        })
+        .unwrap_err();
+        assert!(error.message.contains("stale parent"));
+        assert_eq!(
+            load_record(&subagent_id).unwrap().failure_code,
+            "stale-parent"
+        );
+
+        let current_parent = state::load_workflow(&parent.workflow_id).unwrap();
+        let admitted = admit_launch(launch("explore")).unwrap();
+        let subagent_id = admitted.record.subagent_id.clone();
+        let response = completed_result(&admitted.record, &admitted.context);
+        let error = dispatch_admitted(admitted, "bounded task", |_, _, _| {
+            fs::write(
+                paths::project_root().join("src/main.rs"),
+                "fn main() { changed(); }\n",
+            )
+            .unwrap();
+            Ok(WorkerGeneration {
+                backend_event_id: "backend-event-stale-context".to_string(),
+                effective_max_tokens: 128,
+                response,
+            })
+        })
+        .unwrap_err();
+        assert!(error.message.contains("source binding"));
+        assert_eq!(
+            load_record(&subagent_id).unwrap().failure_code,
+            "stale-context"
+        );
+        assert_eq!(
+            state::load_workflow(&parent.workflow_id).unwrap(),
+            current_parent
+        );
+    }
+
+    #[test]
+    fn stale_running_child_recovers_as_failed_without_backend_replay() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        initialize_parent();
+        let admitted = admit_launch(launch("explore")).unwrap().record;
+        let mut running = admitted.clone();
+        running
+            .transition_to(SubagentStatus::Running, None)
+            .unwrap();
+        let running = checkpoint_record(running, admitted.revision).unwrap();
+
+        let replacement = admit_launch(launch("planner")).unwrap().record;
+        let recovered = load_record(&running.subagent_id).unwrap();
+        assert_eq!(recovered.status, SubagentStatus::Failed);
+        assert_eq!(recovered.failure_code, "interrupted-no-replay");
+        assert_eq!(replacement.status, SubagentStatus::Admitted);
+        assert_ne!(replacement.subagent_id, recovered.subagent_id);
     }
 }
