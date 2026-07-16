@@ -927,6 +927,20 @@ pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun
     chat_once_with_options(prompt, max_tokens, false, None, |_| Ok(()))
 }
 
+pub fn chat_once_bounded(
+    prompt: &str,
+    max_tokens: u32,
+    timeout_ms: u32,
+) -> Result<BackendChatRun, AppError> {
+    chat_once_with_options(
+        prompt,
+        Some(max_tokens),
+        false,
+        Some(timeout_ms),
+        |_| Ok(()),
+    )
+}
+
 pub fn preflight_chat_ready() -> Result<(), AppError> {
     ready_sidecar_record().map(|_| ())
 }
