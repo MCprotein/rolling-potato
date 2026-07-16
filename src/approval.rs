@@ -6,19 +6,8 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 use crate::foundation::error::AppError;
+pub use crate::runtime_core::policy::approval::ApprovalRequest;
 use crate::{adapters::filesystem::layout as paths, ledger};
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ApprovalRequest {
-    pub request_id: String,
-    pub source: String,
-    pub status: String,
-    pub reason: String,
-    pub event_id: String,
-    pub session_id: String,
-    pub summary: String,
-    pub items: Vec<String>,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg(test)]
@@ -32,7 +21,7 @@ pub struct ApprovalRequestSummary {
 }
 
 pub fn write_request(request: &ApprovalRequest) -> Result<PathBuf, AppError> {
-    validate_request_id(&request.request_id)?;
+    crate::runtime_core::policy::approval::validate_request_id(&request.request_id)?;
     let dir = paths::project_approval_requests_dir();
     fs::create_dir_all(&dir).map_err(|err| {
         AppError::runtime(format!(
@@ -42,7 +31,11 @@ pub fn write_request(request: &ApprovalRequest) -> Result<PathBuf, AppError> {
     })?;
 
     let path = dir.join(format!("{}.txt", request.request_id));
-    fs::write(&path, render_request_record(request)).map_err(|err| {
+    fs::write(
+        &path,
+        crate::runtime_core::policy::approval::render_request_record(request, ledger::redact_text),
+    )
+    .map_err(|err| {
         AppError::runtime(format!(
             "approval request record를 쓰지 못했습니다: {} ({err})",
             path.display()
@@ -102,25 +95,6 @@ pub fn request_summaries_bounded(
         .collect())
 }
 
-fn render_request_record(request: &ApprovalRequest) -> String {
-    let mut lines = vec![
-        "record_version=1".to_string(),
-        format!("request_id={}", record_value(&request.request_id)),
-        format!("source={}", record_value(&request.source)),
-        format!("status={}", record_value(&request.status)),
-        format!("reason={}", record_value(&request.reason)),
-        format!("event_id={}", record_value(&request.event_id)),
-        format!("session_id={}", record_value(&request.session_id)),
-        format!("summary={}", record_value(&request.summary)),
-        format!("item_count={}", request.items.len()),
-    ];
-    for (index, item) in request.items.iter().enumerate() {
-        lines.push(format!("item_{}={}", index + 1, record_value(item)));
-    }
-    lines.push(String::new());
-    lines.join("\n")
-}
-
 #[cfg(test)]
 fn summary_from_path(path: &Path) -> Result<ApprovalRequestSummary, AppError> {
     let metadata = fs::symlink_metadata(path).map_err(|err| {
@@ -169,39 +143,25 @@ fn record_value_for(record: &str, key: &str) -> Option<String> {
         .find_map(|line| line.strip_prefix(&prefix).map(|value| value.to_string()))
 }
 
-fn record_value(value: &str) -> String {
-    ledger::redact_text(value).replace(['\n', '\r'], " ")
-}
-
-fn validate_request_id(request_id: &str) -> Result<(), AppError> {
-    if request_id.is_empty()
-        || !request_id
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
-    {
-        return Err(AppError::runtime(format!(
-            "approval request id가 안전하지 않습니다: {request_id}"
-        )));
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn approval_request_record_bytes_are_stable() {
-        let rendered = render_request_record(&ApprovalRequest {
-            request_id: "approval-fixture".to_string(),
-            source: "team-admission".to_string(),
-            status: "pending-approval".to_string(),
-            reason: "policy-blocked".to_string(),
-            event_id: "event-fixture".to_string(),
-            session_id: "session-fixture".to_string(),
-            summary: "policy approval required".to_string(),
-            items: vec!["write: README.md -> ask".to_string()],
-        });
+        let rendered = crate::runtime_core::policy::approval::render_request_record(
+            &ApprovalRequest {
+                request_id: "approval-fixture".to_string(),
+                source: "team-admission".to_string(),
+                status: "pending-approval".to_string(),
+                reason: "policy-blocked".to_string(),
+                event_id: "event-fixture".to_string(),
+                session_id: "session-fixture".to_string(),
+                summary: "policy approval required".to_string(),
+                items: vec!["write: README.md -> ask".to_string()],
+            },
+            ledger::redact_text,
+        );
 
         assert_eq!(
             rendered,
