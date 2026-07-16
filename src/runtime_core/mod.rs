@@ -8,7 +8,7 @@ mod extensions;
 pub(crate) mod inference;
 pub(crate) mod knowledge;
 pub(crate) mod observability;
-mod patch;
+pub(crate) mod patch;
 pub(crate) mod policy;
 mod reporting;
 pub(crate) mod workflow;
