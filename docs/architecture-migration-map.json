@@ -2476,8 +2476,12 @@
           "responsibility": "TUI runtime bridge",
           "target": "src/surfaces/tui/runtime_bridge.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "migrating",
+          "evidence": [
+            "src/surfaces/tui/runtime_bridge.rs",
+            "src/runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3334,6 +3338,21 @@
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge.rs",
+      "slices": [
+        {
+          "responsibility": "TUI read, freshness, and selection DTOs",
+          "target": "src/surfaces/tui/runtime_bridge.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/runtime_bridge.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5131,6 +5150,12 @@
       "path": "src/surfaces/tui/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge.rs",
+      "responsibilities": [
+        "TUI read, freshness, and selection DTOs"
       ]
     },
     {

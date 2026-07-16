@@ -2,6 +2,10 @@ use crate::adapters::filesystem::{cache, layout as paths};
 use crate::foundation::error::AppError;
 use crate::runtime_core::reporting::runtime_report::{self, DoctorReport, InitReport};
 use crate::runtime_core::workflow::application::runner::{self, RuntimeApplicationPort};
+pub(crate) use crate::surfaces::tui::runtime_bridge::{
+    ObservedWorkflow, SelectionLease, TuiFreshness, TuiGateKind, TuiReadAuthority, TuiReadBudget,
+    TuiReadContinuation, TuiReadPage, TuiReadRequest,
+};
 use crate::{
     backend, context, evidence, intent, ledger, model, observability, ontology, patch, state,
     transcript,
@@ -11,132 +15,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static TUI_INTENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-
-const TUI_MAX_ITEMS: usize = 120;
-const TUI_MAX_CHARS: usize = 65_536;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TuiReadBudget {
-    pub max_items: usize,
-    pub max_chars: usize,
-}
-
-impl TuiReadBudget {
-    pub fn bounded(max_items: usize, max_chars: usize) -> Self {
-        Self {
-            max_items: max_items.clamp(1, TUI_MAX_ITEMS),
-            max_chars: max_chars.clamp(1, TUI_MAX_CHARS),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TuiReadRequest {
-    Overview {
-        budget: TuiReadBudget,
-    },
-    Monitor {
-        budget: TuiReadBudget,
-    },
-    Sessions {
-        page: u64,
-        budget: TuiReadBudget,
-    },
-    Transcript {
-        session_id: String,
-        page: u64,
-        budget: TuiReadBudget,
-    },
-    ToolOutput {
-        artifact_id: String,
-        page: u64,
-        budget: TuiReadBudget,
-    },
-    Approvals {
-        page: u64,
-        budget: TuiReadBudget,
-    },
-    Diff {
-        proposal_id: String,
-        page: u64,
-        budget: TuiReadBudget,
-    },
-    Evidence {
-        page: u64,
-        budget: TuiReadBudget,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TuiReadPage {
-    pub title: String,
-    pub lines: Vec<String>,
-    pub page: u64,
-    pub has_previous: bool,
-    pub has_next: bool,
-    pub freshness: TuiFreshness,
-    pub continuation: TuiReadContinuation,
-    pub authority: TuiReadAuthority,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TuiReadContinuation {
-    Complete,
-    NextPage,
-    Truncated,
-    Unavailable,
-    Redacted,
-}
-
-impl TuiReadContinuation {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Complete => "complete",
-            Self::NextPage => "next-page",
-            Self::Truncated => "truncated",
-            Self::Unavailable => "unavailable",
-            Self::Redacted => "redacted",
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct TuiReadAuthority {
-    pub current_revision: Option<u64>,
-    pub current_hash: Option<String>,
-    pub workflow_revision: Option<u64>,
-    pub workflow_hash: Option<String>,
-    pub ledger_sequence: Option<u64>,
-    pub ledger_hash: Option<String>,
-    pub projected_sequence: Option<u64>,
-    pub content_hash: Option<String>,
-    pub transcript_hash: Option<String>,
-    pub validated_at_ms: Option<u128>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SelectionLease {
-    pub project_id: String,
-    pub session_id: String,
-    pub selected_object_id: String,
-    pub current_revision: u64,
-    pub current_hash: String,
-    pub active_session_id: String,
-    pub active_workflow: Option<ObservedWorkflow>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ObservedWorkflow {
-    pub workflow_id: String,
-    pub revision: u64,
-    pub hash: String,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TuiGateKind {
-    PatchApply,
-    VerificationCommand,
-}
 
 pub enum TuiIntent {
     #[allow(dead_code)] // closed read-intent contract; presentation calls the read facade directly
@@ -325,25 +203,6 @@ pub enum TuiEffect {
     RolledBack,
     RecoveryPending,
     Refreshed,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TuiFreshness {
-    Fresh,
-    Stale,
-    Unavailable,
-    ProjectionLag,
-}
-
-impl TuiFreshness {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Fresh => "fresh",
-            Self::Stale => "stale",
-            Self::Unavailable => "unavailable",
-            Self::ProjectionLag => "projection-lag",
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2068,8 +1927,8 @@ mod tests {
         assert_eq!(
             TuiReadBudget::bounded(usize::MAX, usize::MAX),
             TuiReadBudget {
-                max_items: TUI_MAX_ITEMS,
-                max_chars: TUI_MAX_CHARS,
+                max_items: crate::surfaces::tui::runtime_bridge::TUI_MAX_ITEMS,
+                max_chars: crate::surfaces::tui::runtime_bridge::TUI_MAX_CHARS,
             }
         );
     }

@@ -1738,6 +1738,28 @@ fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
 }
 
 #[test]
+fn v03713_tui_bridge_owns_read_and_selection_dtos() {
+    let owner = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
+    for definition in [
+        "struct TuiReadBudget",
+        "enum TuiReadRequest",
+        "struct TuiReadPage",
+        "struct SelectionLease",
+        "enum TuiFreshness",
+    ] {
+        assert!(
+            owner.contains(definition),
+            "TUI bridge is missing {definition}"
+        );
+    }
+
+    let runtime = fs::read_to_string("src/runtime.rs").unwrap();
+    assert!(runtime.contains("surfaces::tui::runtime_bridge"));
+    assert!(!runtime.contains("pub struct TuiReadBudget"));
+    assert!(!runtime.contains("pub struct SelectionLease"));
+}
+
+#[test]
 fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
     for name in [
         "fake_sidecar.rs",
