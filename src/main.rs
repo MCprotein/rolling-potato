@@ -2,7 +2,6 @@ mod adapters;
 mod app;
 mod approval;
 mod backend;
-mod backend_stream;
 mod benchmark;
 mod cli;
 mod composition;

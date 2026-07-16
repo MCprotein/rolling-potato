@@ -10,10 +10,13 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::adapters::filesystem::layout as paths;
-use crate::backend_stream::{self, StreamTermination};
+use crate::adapters::llama_cpp::stream as backend_stream;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
-use crate::runtime_core::inference::resource;
+use crate::runtime_core::inference::{
+    resource,
+    stream::{StreamOutcome, StreamTermination},
+};
 use crate::{korean_guard, ledger, model, observability, state};
 
 const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
@@ -1374,7 +1377,7 @@ fn chat_once_with_options(
 fn finish_interrupted_generation(
     record: &BackendSidecarRecord,
     generation: &BackendGenerationRecord,
-    outcome: &backend_stream::StreamOutcome,
+    outcome: &StreamOutcome,
     terminal: GenerationTerminalContext,
 ) -> Result<BackendChatRun, AppError> {
     let (event_type, status, status_label, resource_label) = match outcome.termination {

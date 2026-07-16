@@ -1718,21 +1718,30 @@
       ]
     },
     {
-      "path": "src/backend_stream.rs",
+      "path": "src/runtime_core/inference/stream.rs",
       "slices": [
         {
           "responsibility": "stream lifecycle contract",
           "target": "src/runtime_core/inference/stream.rs",
           "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
-        },
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/stream.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream.rs",
+      "slices": [
         {
           "responsibility": "llama.cpp streaming transport",
           "target": "src/adapters/llama_cpp/stream.rs",
           "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/stream.rs"
+          ]
         }
       ]
     },
@@ -3415,9 +3424,14 @@
       ]
     },
     {
-      "path": "src/backend_stream.rs",
+      "path": "src/runtime_core/inference/stream.rs",
       "responsibilities": [
-        "stream lifecycle contract",
+        "stream lifecycle contract"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream.rs",
+      "responsibilities": [
         "llama.cpp streaming transport"
       ]
     },
