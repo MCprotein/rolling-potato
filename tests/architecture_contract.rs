@@ -593,6 +593,64 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
     }
 }
 
+#[test]
+fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
+    for target in [
+        "src/runtime_core/inference/backend.rs",
+        "src/runtime_core/inference/backend/admission.rs",
+        "src/runtime_core/inference/backend/lifecycle.rs",
+        "src/runtime_core/inference/benchmark.rs",
+        "src/runtime_core/inference/benchmark/fixture.rs",
+        "src/runtime_core/inference/benchmark/report.rs",
+        "src/runtime_core/inference/model.rs",
+        "src/runtime_core/inference/model/codec.rs",
+        "src/runtime_core/inference/model/manifest.rs",
+        "src/runtime_core/inference/model/promotion.rs",
+        "src/runtime_core/inference/resource.rs",
+        "src/runtime_core/inference/stream.rs",
+        "src/adapters/filesystem/backend_state.rs",
+        "src/adapters/filesystem/benchmark_artifact.rs",
+        "src/adapters/filesystem/model_artifact.rs",
+        "src/adapters/llama_cpp/backend.rs",
+        "src/adapters/llama_cpp/install.rs",
+        "src/adapters/llama_cpp/stream.rs",
+        "src/adapters/process/backend.rs",
+    ] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing inference owner: {target}"
+        );
+    }
+    for legacy in ["src/backend_stream.rs", "src/resource.rs"] {
+        assert!(
+            !Path::new(legacy).exists(),
+            "legacy inference owner remains: {legacy}"
+        );
+    }
+
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    for legacy_module in ["backend_stream", "resource"] {
+        assert!(
+            !main
+                .lines()
+                .any(|line| line == format!("mod {legacy_module};")),
+            "legacy inference module remains compile-connected: {legacy_module}"
+        );
+    }
+
+    for (facade, moved_definition) in [
+        ("src/backend.rs", "struct BackendSidecarRecord"),
+        ("src/benchmark.rs", "struct BenchmarkFixture"),
+        ("src/model.rs", "const CANDIDATES"),
+    ] {
+        let source = fs::read_to_string(facade).unwrap();
+        assert!(
+            !source.contains(moved_definition),
+            "legacy facade still owns moved definition: {facade} -> {moved_definition}"
+        );
+    }
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

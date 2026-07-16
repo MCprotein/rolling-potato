@@ -1,5 +1,38 @@
 # Release Notes
 
+## Unreleased v0.37.3 - Inference Boundary
+
+This patch separates inference rules and durable record codecs from llama.cpp,
+process, and filesystem implementations while preserving the synchronous
+runtime and all existing command behavior.
+
+### Included
+
+- Moves backend contracts, generation admission, lifecycle DTOs/codecs,
+  resource policy, and stream outcomes under `runtime_core::inference`.
+- Separates llama.cpp discovery, release/install, request, health/version, and
+  bounded SSE transport from OS process lifecycle and command identity checks.
+- Moves model manifests, registry/default/promotion codecs, adoption policy,
+  and artifact path contracts into the inference domain, with download,
+  verification, cleanup, registry, evidence, and sidecar/generation state I/O
+  under filesystem adapters.
+- Moves benchmark fixture parsing, scoring, canonical adoption gates,
+  reproducibility/redacted serialization, and project-local artifact reads to
+  their owning domain and adapter modules.
+- Removes the legacy backend stream/resource modules and the obsolete buffered
+  chat parser tests, then advances the migration ledger to v0.37.3 with all 21
+  scheduled slices complete.
+
+### Compatibility Boundary
+
+- `backend.rs`, `benchmark.rs`, and `model.rs` remain private command/report and
+  cross-store orchestration facades. Their final composition move is explicitly
+  scheduled for v0.37.13; they no longer own the migrated domain or adapter
+  responsibilities.
+- CLI output, exit codes, durable record bytes, event order, install/promotion
+  gates, timeout/cancellation behavior, model/backend manifests, dependencies,
+  and the synchronous runtime remain unchanged.
+
 ## Unreleased v0.37.2 - Foundation and Platform Seams
 
 This patch begins production ownership migration while preserving behavior and

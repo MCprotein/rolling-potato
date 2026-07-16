@@ -129,13 +129,17 @@ sequence and non-skippable release gates are defined in
 2. `v0.37.2`: private foundation, filesystem, configuration, and terminal
    ownership is implemented without completed-slice compatibility facades and
    is awaiting release.
-3. `v0.37.3` through `v0.37.13+`: migrate every remaining ledger slice by
+3. `v0.37.3`: inference domain rules, durable lifecycle/model/benchmark
+   codecs, and llama.cpp/process/filesystem adapters are implemented; the
+   private command/report facades are explicitly scheduled for final
+   composition cleanup and the patch is awaiting release.
+4. `v0.37.4` through `v0.37.13+`: migrate every remaining ledger slice by
    coherent domain and rollback boundary, preserving durable bytes, recovery
    order, policy, CLI behavior, backend behavior, and release contracts. The
    train ends only at complete ledger coverage with zero compatibility facades.
-4. `v0.38.0`: Claude Code local plugin execution conformance through the
+5. `v0.38.0`: Claude Code local plugin execution conformance through the
    established native adapter and default-deny permission boundary.
-5. `v0.39.0` onward: integrated performance hardening followed by distribution
+6. `v0.39.0` onward: integrated performance hardening followed by distribution
    and optional local monitoring surfaces.
 
 Package-manager distribution and an optional local HTML monitoring report come

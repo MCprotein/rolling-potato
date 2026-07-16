@@ -1695,17 +1695,10 @@
       "path": "src/backend.rs",
       "slices": [
         {
-          "responsibility": "inference backend use cases",
-          "target": "src/runtime_core/inference/backend.rs",
-          "release": "0.37.3",
-          "state": "migrating",
-          "evidence": []
-        },
-        {
-          "responsibility": "llama.cpp installation and chat protocol orchestration",
-          "target": "src/adapters/llama_cpp/backend.rs",
-          "release": "0.37.3",
-          "state": "migrating",
+          "responsibility": "backend command and cross-store orchestration compatibility facade",
+          "target": "src/composition/inference.rs",
+          "release": "0.37.13",
+          "state": "planned",
           "evidence": []
         }
       ]
@@ -1826,13 +1819,11 @@
       "path": "src/benchmark.rs",
       "slices": [
         {
-          "responsibility": "benchmark report orchestration and persistence",
-          "target": "src/runtime_core/inference/benchmark.rs",
-          "release": "0.37.3",
-          "state": "migrating",
-          "evidence": [
-            "src/benchmark.rs"
-          ]
+          "responsibility": "benchmark command and cross-store orchestration compatibility facade",
+          "target": "src/composition/inference.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
         }
       ]
     },
@@ -2120,17 +2111,10 @@
       "path": "src/model.rs",
       "slices": [
         {
-          "responsibility": "model manifest and lifecycle orchestration",
-          "target": "src/runtime_core/inference/model.rs",
-          "release": "0.37.3",
-          "state": "migrating",
-          "evidence": []
-        },
-        {
-          "responsibility": "model artifact persistence operations",
-          "target": "src/adapters/filesystem/model_artifact.rs",
-          "release": "0.37.3",
-          "state": "migrating",
+          "responsibility": "model command and cross-store orchestration compatibility facade",
+          "target": "src/composition/inference.rs",
+          "release": "0.37.13",
+          "state": "planned",
           "evidence": []
         }
       ]
@@ -2953,7 +2937,7 @@
       ]
     }
   ],
-  "current_release": "0.37.2",
+  "current_release": "0.37.3",
   "train_completion": false,
   "logical_proofs": [
     {
@@ -3653,8 +3637,7 @@
     {
       "path": "src/backend.rs",
       "responsibilities": [
-        "inference backend use cases",
-        "llama.cpp installation and chat protocol orchestration"
+        "backend command and cross-store orchestration compatibility facade"
       ]
     },
     {
@@ -3708,7 +3691,7 @@
     {
       "path": "src/benchmark.rs",
       "responsibilities": [
-        "benchmark report orchestration and persistence"
+        "benchmark command and cross-store orchestration compatibility facade"
       ]
     },
     {
@@ -3828,8 +3811,7 @@
     {
       "path": "src/model.rs",
       "responsibilities": [
-        "model manifest and lifecycle orchestration",
-        "model artifact persistence operations"
+        "model command and cross-store orchestration compatibility facade"
       ]
     },
     {
