@@ -26,6 +26,8 @@ require_line() {
 }
 
 policy_body="$(cat "$policy_workflow")"
+require_line "$policy_body" 'RPOTATO_RELEASE_BASE_REF: ${{ github.event_name == '\''pull_request'\'' && format('\''origin/{0}'\'', github.base_ref) || '\'''\'' }}'
+require_line "$policy_body" 'RPOTATO_REQUIRE_RELEASE_BRANCH: ${{ github.event_name == '\''pull_request'\'' && '\''auto'\'' || '\''0'\'' }}'
 require_line "$policy_body" 'RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS: ${{ github.ref_type == '\''tag'\'' && '\''1'\'' || '\''0'\'' }}'
 require_line "$policy_body" 'RPOTATO_REQUIRE_TAG_ON_MAIN: ${{ github.ref_type == '\''tag'\'' && '\''1'\'' || '\''0'\'' }}'
 require_line "$policy_body" 'RPOTATO_DELETE_RELEASE_BRANCH: "0"'
@@ -188,7 +190,54 @@ release_policy_accepts_squash_merged_tree() {
   rm -rf "$fixture"
 }
 
+release_policy_scopes_release_branches_to_version_changes() {
+  local fixture same_output changed_stderr
+  fixture="$(mktemp -d)"
+  same_output="$fixture/same-output"
+  changed_stderr="$fixture/changed-stderr"
+  git init --initial-branch=main --quiet "$fixture/repo"
+  git -C "$fixture/repo" config user.name release-contract
+  git -C "$fixture/repo" config user.email release-contract@example.invalid
+  mkdir -p "$fixture/repo/scripts/release"
+  printf '[package]\nname = "release-policy-fixture"\nversion = "0.34.3"\n' \
+    >"$fixture/repo/Cargo.toml"
+  cp scripts/release/verify-release-policy.sh \
+    "$fixture/repo/scripts/release/verify-release-policy.sh"
+  git -C "$fixture/repo" add Cargo.toml scripts/release/verify-release-policy.sh
+  git -C "$fixture/repo" commit --quiet -m 'test: release policy base'
+  git -C "$fixture/repo" checkout --quiet -b docs/policy
+
+  (
+    cd "$fixture/repo"
+    RPOTATO_RELEASE_BRANCH=docs/policy \
+      RPOTATO_RELEASE_BASE_REF=main \
+      RPOTATO_REQUIRE_RELEASE_BRANCH=auto \
+      scripts/release/verify-release-policy.sh
+  ) >"$same_output"
+  grep -F -- 'release policy ok: version=0.34.3 branch=docs/policy tag=none' \
+    "$same_output" >/dev/null \
+    || fail "ordinary pull request was rejected as release work"
+
+  sed -i.bak 's/version = "0.34.3"/version = "0.34.4"/' \
+    "$fixture/repo/Cargo.toml"
+  if (
+    cd "$fixture/repo"
+    RPOTATO_RELEASE_BRANCH=docs/policy \
+      RPOTATO_RELEASE_BASE_REF=main \
+      RPOTATO_REQUIRE_RELEASE_BRANCH=auto \
+      scripts/release/verify-release-policy.sh
+  ) 2>"$changed_stderr"; then
+    fail "version-changing feature branch unexpectedly passed release policy"
+  fi
+  grep -F -- \
+    'release policy error: release PR branch must be release/v0.34.4, got docs/policy' \
+    "$changed_stderr" >/dev/null \
+    || fail "version-changing feature branch emitted the wrong policy failure"
+  rm -rf "$fixture"
+}
+
 release_failure_diagnostic_is_exact_and_always_emitted
 release_policy_accepts_squash_merged_tree
+release_policy_scopes_release_branches_to_version_changes
 
 printf 'release workflow contract ok: cleanup-success-only preservation-failure-only\n'

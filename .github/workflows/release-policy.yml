@@ -33,7 +33,8 @@ jobs:
         env:
           RPOTATO_RELEASE_BRANCH: ${{ github.head_ref }}
           RPOTATO_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          RPOTATO_REQUIRE_RELEASE_BRANCH: ${{ github.event_name == 'pull_request' && '1' || '0' }}
+          RPOTATO_RELEASE_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+          RPOTATO_REQUIRE_RELEASE_BRANCH: ${{ github.event_name == 'pull_request' && 'auto' || '0' }}
           RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS: ${{ github.ref_type == 'tag' && '1' || '0' }}
           RPOTATO_REQUIRE_TAG_ON_MAIN: ${{ github.ref_type == 'tag' && '1' || '0' }}
           RPOTATO_DELETE_RELEASE_BRANCH: "0"
