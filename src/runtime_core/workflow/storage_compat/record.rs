@@ -2,8 +2,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
-use crate::ledger::RuntimeIdentity;
 use sha2::{Digest, Sha256};
+
+use super::ledger::RuntimeIdentity;
 
 const WORKFLOW_SCHEMA_VERSION: u64 = 4;
 const PREVIOUS_WORKFLOW_SCHEMA_VERSION: u64 = 3;
