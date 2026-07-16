@@ -1,4 +1,3 @@
-use std::collections::BTreeSet;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -9,6 +8,8 @@ use crate::context::SourcePointer;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, ParsedLedgerEvent, RuntimeIdentity};
+use crate::runtime_core::workflow::domain::transcript as transcript_domain;
+pub use crate::runtime_core::workflow::domain::transcript::ToolOutputView;
 #[cfg(test)]
 use crate::runtime_core::workflow::storage_compat::transcript::TRANSCRIPT_V2_KEYS;
 use crate::runtime_core::workflow::storage_compat::transcript::{
@@ -45,21 +46,6 @@ const TOOL_ARTIFACT_KEYS: &[&str] = &[
     "stderr_redacted",
     "content_hash",
 ];
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ToolOutputView {
-    pub artifact_id: String,
-    pub session_id: String,
-    pub workflow_id: String,
-    pub tool_id: String,
-    pub created_at_ms: u128,
-    pub stdout: String,
-    pub stderr: String,
-    pub stdout_truncated: bool,
-    pub stderr_truncated: bool,
-    pub stdout_redacted: bool,
-    pub stderr_redacted: bool,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SanitizedToolOutputArtifact {
@@ -485,25 +471,13 @@ pub fn record_workflow_turn_with_streams(
 pub fn records_for_session(session_id: &str) -> Result<Vec<TranscriptRecord>, AppError> {
     validate_id("session id", session_id)?;
     let identity = ledger::validated_current_identity()?;
-    let mut records = Vec::new();
-    let mut seen = BTreeSet::new();
-    for event in ledger::read_runtime_events()? {
-        if event.project_id != identity.project_id
-            || event.session_id != session_id
-            || event.event_type != "transcript.recorded"
-        {
-            continue;
-        }
-        let record = record_from_event(&event)?;
-        if !seen.insert(record.record_id.clone()) {
-            return Err(AppError::blocked(format!(
-                "transcript replay 차단\n- 이유: duplicate canonical record event\n- record id: {}",
-                record.record_id
-            )));
-        }
-        records.push(record);
-    }
-    Ok(records)
+    let events = ledger::read_runtime_events()?;
+    transcript_domain::collect_session_records(
+        &identity.project_id,
+        session_id,
+        &events,
+        record_from_event,
+    )
 }
 
 pub(crate) fn tool_output_view_from_canonical_record(
@@ -570,15 +544,7 @@ pub fn record_from_event(event: &ParsedLedgerEvent) -> Result<TranscriptRecord, 
     )?;
     if record.schema_version == TRANSCRIPT_SCHEMA_V2 {
         let expected = transcript_ledger_event(&record)?;
-        if event.event_id != expected.event_id
-            || event.ts_ms != expected.ts_ms
-            || event.summary != expected.summary
-        {
-            return Err(AppError::blocked(format!(
-                "transcript event identity/timestamp 불일치\n- record id: {}",
-                record.record_id
-            )));
-        }
+        transcript_domain::validate_event_identity(event, &expected, &record.record_id)?;
     }
     Ok(record)
 }
@@ -589,70 +555,12 @@ pub fn record_from_binding(
     event_type: &str,
     details: &str,
 ) -> Result<TranscriptRecord, AppError> {
-    if event_type != "transcript.recorded" {
-        return Err(AppError::blocked("transcript event type 불일치"));
-    }
-    validate_id("project id", project_id)?;
-    validate_id("session id", session_id)?;
-    let parsed_details = parse_event_details(details)?;
-    let record_id = detail_from_pairs(&parsed_details, "record_id")
-        .ok_or_else(|| AppError::blocked("transcript event field 누락: record_id"))?;
-    validate_id("record id", record_id)?;
-    let expected_pointer = format!(
-        "state/transcripts/{}/{}/{}.json",
-        project_id, session_id, record_id
-    );
-    if detail_from_pairs(&parsed_details, "artifact_pointer") != Some(expected_pointer.as_str()) {
-        return Err(AppError::blocked(format!(
-            "transcript event artifact pointer 불일치\n- record id: {record_id}"
-        )));
-    }
+    let binding =
+        transcript_domain::parse_event_binding(project_id, session_id, event_type, details)?;
+    let record_id = binding.record_id();
     let path = validated_transcript_path(project_id, session_id, record_id, false)?;
     let record = load_record_path(&path)?;
-    validate_event_details_for_schema(details, record.schema_version)?;
-    if record.record_id != record_id
-        || record.project_id != project_id
-        || record.session_id != session_id
-        || detail_from_pairs(&parsed_details, "workflow_id") != Some(record.workflow_id.as_str())
-        || detail_from_pairs(&parsed_details, "kind") != Some(record.kind.as_str())
-        || detail_from_pairs(&parsed_details, "content_hash") != Some(record.content_hash.as_str())
-        || detail_from_pairs(&parsed_details, "artifact_hash")
-            != Some(record.artifact_hash.as_str())
-    {
-        return Err(AppError::blocked(format!(
-            "transcript event binding 불일치\n- record id: {record_id}"
-        )));
-    }
-    if record.schema_version == TRANSCRIPT_SCHEMA_V2 {
-        let expected = record.tool_output_artifact.as_ref();
-        for (key, actual) in [
-            (
-                "tool_output_artifact_id",
-                detail_from_pairs(&parsed_details, "tool_output_artifact_id"),
-            ),
-            (
-                "tool_output_artifact_path",
-                detail_from_pairs(&parsed_details, "tool_output_artifact_path"),
-            ),
-            (
-                "tool_output_artifact_hash",
-                detail_from_pairs(&parsed_details, "tool_output_artifact_hash"),
-            ),
-        ] {
-            let wanted = match (key, expected) {
-                ("tool_output_artifact_id", Some(binding)) => binding.id.as_str(),
-                ("tool_output_artifact_path", Some(binding)) => binding.path.as_str(),
-                ("tool_output_artifact_hash", Some(binding)) => binding.hash.as_str(),
-                (_, None) => "none",
-                _ => unreachable!(),
-            };
-            if actual != Some(wanted) {
-                return Err(AppError::blocked(format!(
-                    "transcript event tool binding 불일치\n- record id: {record_id}"
-                )));
-            }
-        }
-    }
+    binding.validate_record(&record)?;
     Ok(record)
 }
 
@@ -1315,65 +1223,15 @@ fn validate_expected_record(
 }
 
 fn parse_event_details(details: &str) -> Result<Vec<(&str, &str)>, AppError> {
-    if details.is_empty()
-        || details.trim() != details
-        || details.contains("  ")
-        || details.contains(['\n', '\r', '\t'])
-    {
-        return Err(AppError::blocked("transcript event details spacing 불일치"));
-    }
-    let mut pairs = Vec::new();
-    for part in details.split(' ') {
-        let (key, value) = part
-            .split_once('=')
-            .ok_or_else(|| AppError::blocked("transcript event detail token 불일치"))?;
-        if key.is_empty() || value.is_empty() || pairs.iter().any(|(stored, _)| *stored == key) {
-            return Err(AppError::blocked(
-                "transcript event detail key/value 불일치",
-            ));
-        }
-        pairs.push((key, value));
-    }
-    Ok(pairs)
+    transcript_domain::parse_event_details(details)
 }
 
 fn detail_from_pairs<'a>(pairs: &'a [(&'a str, &'a str)], key: &str) -> Option<&'a str> {
-    pairs
-        .iter()
-        .find_map(|(stored, value)| (*stored == key).then_some(*value))
+    transcript_domain::detail_from_pairs(pairs, key)
 }
 
 fn validate_event_details_for_schema(details: &str, schema_version: u64) -> Result<(), AppError> {
-    let pairs = parse_event_details(details)?;
-    let actual = pairs.iter().map(|(key, _)| *key).collect::<Vec<_>>();
-    let expected = match schema_version {
-        TRANSCRIPT_SCHEMA_V1 => vec![
-            "record_id",
-            "workflow_id",
-            "kind",
-            "artifact_pointer",
-            "artifact_hash",
-            "content_hash",
-        ],
-        TRANSCRIPT_SCHEMA_V2 => vec![
-            "record_id",
-            "workflow_id",
-            "kind",
-            "artifact_pointer",
-            "artifact_hash",
-            "content_hash",
-            "tool_output_artifact_id",
-            "tool_output_artifact_path",
-            "tool_output_artifact_hash",
-        ],
-        _ => return Err(AppError::blocked("transcript event schema 불일치")),
-    };
-    if actual != expected {
-        return Err(AppError::blocked(
-            "transcript event detail key/order 불일치",
-        ));
-    }
-    Ok(())
+    transcript_domain::validate_event_details_for_schema(details, schema_version)
 }
 
 fn validate_kind(kind: &str) -> Result<(), AppError> {
