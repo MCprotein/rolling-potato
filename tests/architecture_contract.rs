@@ -547,10 +547,7 @@ fn dependency_contract_rejects_forbidden_imports_and_new_parser_crates() {
                 else {
                     continue;
                 };
-                let target_root = import
-                    .split(|ch: char| ch == ':' || ch == ';' || ch == '{')
-                    .next()
-                    .unwrap_or("");
+                let target_root = import.split([':', ';', '{']).next().unwrap_or("");
                 assert!(
                     roots.contains(target_root),
                     "{path}:{} imports concrete legacy root {target_root}",
