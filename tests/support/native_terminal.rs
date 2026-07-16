@@ -142,6 +142,7 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
                     .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend)
                     .env("RPOTATO_BACKEND_PORT", port.to_string()),
                 &label,
+                &self.data,
             );
             #[cfg(windows)]
             windows::trace_stage(&format!("finished {label}"));
@@ -160,7 +161,7 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
             "native source fixture backend start failed\nstdout={}\nstderr={}\n{}",
             String::from_utf8_lossy(&start.stdout),
             String::from_utf8_lossy(&start.stderr),
-            self.backend_failure_diagnostics(),
+            backend_failure_diagnostics(&self.data),
         );
         let run = command(&[
             "skill",
@@ -208,41 +209,6 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
         }
     }
 
-    fn backend_failure_diagnostics(&self) -> String {
-        let mut diagnostics = Vec::new();
-        let logs = self.data.join("logs");
-        if let Ok(entries) = std::fs::read_dir(&logs) {
-            let mut paths = entries
-                .flatten()
-                .map(|entry| entry.path())
-                .filter(|path| path.is_file())
-                .collect::<Vec<_>>();
-            paths.sort();
-            for path in paths {
-                diagnostics.push(format!(
-                    "log {}:\n{}",
-                    path.display(),
-                    String::from_utf8_lossy(&std::fs::read(&path).unwrap_or_default())
-                ));
-            }
-        }
-        let ledger = std::fs::read_to_string(self.data.join("state/runtime-ledger.jsonl"))
-            .unwrap_or_default();
-        diagnostics.push(format!(
-            "ledger tail:\n{}",
-            ledger
-                .lines()
-                .rev()
-                .take(20)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect::<Vec<_>>()
-                .join("\n")
-        ));
-        diagnostics.join("\n")
-    }
-
     #[cfg(windows)]
     pub fn current_session_id(&self) -> String {
         let body = std::fs::read_to_string(self.data.join("state/current-state.json")).unwrap();
@@ -258,7 +224,7 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
     }
 }
 
-fn run_bounded_command(command: &mut Command, label: &str) -> Output {
+fn run_bounded_command(command: &mut Command, label: &str, data: &std::path::Path) -> Output {
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -283,16 +249,52 @@ fn run_bounded_command(command: &mut Command, label: &str) -> Output {
                 let status = child.wait().unwrap();
                 let output = captured_command_output(&stdout_path, &stderr_path, status);
                 panic!(
-                    "native fixture command timeout after {:?}: {label}\nstdout={}\nstderr={}",
+                    "native fixture command timeout after {:?}: {label}\nstdout={}\nstderr={}\n{}",
                     FIXTURE_COMMAND_TIMEOUT,
                     String::from_utf8_lossy(&output.stdout),
-                    String::from_utf8_lossy(&output.stderr)
+                    String::from_utf8_lossy(&output.stderr),
+                    backend_failure_diagnostics(data),
                 );
             }
             Err(error) => panic!("native fixture command wait failed: {label}: {error}"),
         }
     };
     captured_command_output(&stdout_path, &stderr_path, status)
+}
+
+fn backend_failure_diagnostics(data: &std::path::Path) -> String {
+    let mut diagnostics = Vec::new();
+    let logs = data.join("logs");
+    if let Ok(entries) = std::fs::read_dir(&logs) {
+        let mut paths = entries
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| path.is_file())
+            .collect::<Vec<_>>();
+        paths.sort();
+        for path in paths {
+            diagnostics.push(format!(
+                "log {}:\n{}",
+                path.display(),
+                String::from_utf8_lossy(&std::fs::read(&path).unwrap_or_default())
+            ));
+        }
+    }
+    let ledger =
+        std::fs::read_to_string(data.join("state/runtime-ledger.jsonl")).unwrap_or_default();
+    diagnostics.push(format!(
+        "ledger tail:\n{}",
+        ledger
+            .lines()
+            .rev()
+            .take(20)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join("\n")
+    ));
+    diagnostics.join("\n")
 }
 
 fn captured_command_output(
