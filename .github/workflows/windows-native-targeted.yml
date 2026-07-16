@@ -21,4 +21,4 @@ jobs:
 
       - name: Test full native adapter
         timeout-minutes: 5
-        run: cargo test --locked --target x86_64-pc-windows-msvc --test native_terminal full_adapter -- --exact --test-threads=1
+        run: cargo test --locked --target x86_64-pc-windows-msvc --test native_terminal full_adapter -- --exact --test-threads=1 --nocapture
