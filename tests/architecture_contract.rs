@@ -1750,6 +1750,8 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "struct OneShotSecret",
         "enum TuiOutcomeCode",
         "struct TuiOutcome",
+        "fn exact_tui_outcome",
+        "fn validate_tui_id",
     ] {
         assert!(
             owner.contains(definition),
@@ -1765,6 +1767,8 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!runtime.contains("pub struct OneShotSecret"));
     assert!(!runtime.contains("pub enum TuiOutcomeCode"));
     assert!(!runtime.contains("pub struct TuiOutcome"));
+    assert!(!runtime.contains("pub(crate) fn exact_tui_outcome"));
+    assert!(!runtime.contains("fn validate_tui_id"));
 }
 
 #[test]

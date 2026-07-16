@@ -11,11 +11,11 @@ use crate::adapters::filesystem::{layout as paths, lease};
 use crate::foundation::error::AppError;
 use crate::ledger;
 use crate::policy::{self, Decision, PathMode};
+#[cfg(test)]
+use crate::runtime::TuiEffect;
 use crate::runtime::{
     exact_tui_outcome, OneShotSecret, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext,
 };
-#[cfg(test)]
-use crate::runtime::{TuiEffect, TuiOutcomeStatus};
 use crate::runtime_core::patch::application::{
     self as application_domain, ApplyAdmission, ApplyResult, RollbackAdmission, RollbackResult,
 };
@@ -29,6 +29,8 @@ use crate::runtime_core::patch::verification::{
     self as verification_domain, RecoveryAdmission, VerificationPlan, VerificationResult,
 };
 use crate::state;
+#[cfg(test)]
+use crate::surfaces::tui::runtime_bridge::TuiOutcomeStatus;
 
 pub use crate::runtime_core::patch::proposal::{
     PatchProposalDetail, PatchProposalSummary, WorkflowProposal,
