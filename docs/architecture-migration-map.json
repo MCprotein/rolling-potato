@@ -2105,8 +2105,11 @@
           "responsibility": "Korean output invariant",
           "target": "src/runtime_core/reporting/korean_guard.rs",
           "release": "0.37.10",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/korean_guard.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2433,15 +2436,21 @@
           "responsibility": "workflow execution orchestration",
           "target": "src/runtime_core/workflow/application/runner.rs",
           "release": "0.37.10",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/runner.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "surface-neutral runtime reports",
           "target": "src/runtime_core/reporting/runtime_report.rs",
           "release": "0.37.10",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/runtime_report.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "TUI runtime bridge",
@@ -2759,6 +2768,36 @@
       ]
     },
     {
+      "path": "src/runtime_core/reporting/korean_guard.rs",
+      "slices": [
+        {
+          "responsibility": "Korean output invariant",
+          "target": "src/runtime_core/reporting/korean_guard.rs",
+          "release": "0.37.10",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/korean_guard.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/runtime_report.rs",
+      "slices": [
+        {
+          "responsibility": "surface-neutral runtime reports",
+          "target": "src/runtime_core/reporting/runtime_report.rs",
+          "release": "0.37.10",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/runtime_report.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/workflow/mod.rs",
       "slices": [
         {
@@ -2812,6 +2851,21 @@
           "evidence": [
             "src/runtime_core/workflow/application/recovery.rs",
             "tests/workflow/recovery.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/runner.rs",
+      "slices": [
+        {
+          "responsibility": "workflow execution orchestration",
+          "target": "src/runtime_core/workflow/application/runner.rs",
+          "release": "0.37.10",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/runner.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3486,7 +3540,7 @@
       ]
     }
   ],
-  "current_release": "0.37.9",
+  "current_release": "0.37.10",
   "train_completion": false,
   "logical_proofs": [
     {
@@ -4604,6 +4658,18 @@
       ]
     },
     {
+      "path": "src/runtime_core/reporting/korean_guard.rs",
+      "responsibilities": [
+        "Korean output invariant"
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/runtime_report.rs",
+      "responsibilities": [
+        "surface-neutral runtime reports"
+      ]
+    },
+    {
       "path": "src/runtime_core/workflow/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -4625,6 +4691,12 @@
       "path": "src/runtime_core/workflow/application/recovery.rs",
       "responsibilities": [
         "workflow state recovery"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/runner.rs",
+      "responsibilities": [
+        "workflow execution orchestration"
       ]
     },
     {

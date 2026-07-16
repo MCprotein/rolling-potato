@@ -2,4 +2,5 @@
 
 pub(crate) mod projection_barrier;
 pub(crate) mod recovery;
+pub(crate) mod runner;
 pub(crate) mod transaction_coordinator;

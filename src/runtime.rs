@@ -1,5 +1,7 @@
 use crate::adapters::filesystem::{cache, layout as paths};
 use crate::foundation::error::AppError;
+use crate::runtime_core::reporting::runtime_report::{self, DoctorReport, InitReport};
+use crate::runtime_core::workflow::application::runner::{self, RuntimeApplicationPort};
 use crate::{
     backend, context, evidence, intent, ledger, model, observability, ontology, patch, state,
     transcript,
@@ -1880,34 +1882,62 @@ fn secret_refresh_only(intent_id: &str) -> TuiOutcome {
     .expect("validated TUI intent IDs always produce the refresh-only outcome")
 }
 
+struct LegacyRuntimeApplicationPort;
+
+impl RuntimeApplicationPort for LegacyRuntimeApplicationPort {
+    fn run_agent(&mut self, request: &str) -> Result<String, AppError> {
+        intent::run_report(request)
+    }
+
+    fn current_session_id(&mut self) -> Result<String, AppError> {
+        Ok(ledger::validated_current_identity()?.session_id)
+    }
+
+    fn rebuild_resume_context(&mut self, session_id: &str) -> Result<String, AppError> {
+        Ok(context::rebuild_resume_context(session_id, None)?.summary())
+    }
+
+    fn resume_report(&mut self) -> Result<String, AppError> {
+        state::resume_report()
+    }
+
+    fn session_resume_preflight(&mut self, session_id: &str) -> Result<Option<String>, AppError> {
+        state::session_resume_preflight(session_id)
+    }
+
+    fn preflight_workflow(&mut self, workflow_id: &str) -> Result<(), AppError> {
+        patch::preflight_resume_workflow(workflow_id)
+    }
+
+    fn session_resume_report(&mut self, session_id: &str) -> Result<String, AppError> {
+        state::session_resume_report(session_id)
+    }
+
+    fn approve_patch(
+        &mut self,
+        proposal_id: &str,
+        token: &str,
+        dry_run: bool,
+        verify_command: Option<&str>,
+    ) -> Result<(), AppError> {
+        patch::approve_to_stdout(proposal_id, token, dry_run, verify_command)
+    }
+
+    fn verify_patch(&mut self, proposal_id: &str, token: &str) -> Result<String, AppError> {
+        patch::verify_report(proposal_id, token)
+    }
+}
+
 pub fn agent_run_report(request: &str) -> Result<String, AppError> {
-    intent::run_report(request)
+    runner::agent_run_report(&mut LegacyRuntimeApplicationPort, request)
 }
 
 pub fn workflow_resume_report() -> Result<String, AppError> {
-    let identity = ledger::validated_current_identity()?;
-    let resumed_context = context::rebuild_resume_context(&identity.session_id, None)?;
-    let report = state::resume_report()?;
-    Ok(format!(
-        "{}\n- reconstructed context: {}",
-        guard_patch_terminal_report(report),
-        resumed_context.summary()
-    ))
+    runner::workflow_resume_report(&mut LegacyRuntimeApplicationPort)
 }
 
 pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
-    let resumed_context = context::rebuild_resume_context(session_id, None)?;
-    if let Some(workflow_id) = state::session_resume_preflight(session_id)? {
-        patch::preflight_resume_workflow(&workflow_id)?;
-    }
-    let selection = state::session_resume_report(session_id)?;
-    let continuation = state::resume_report()?;
-    Ok(format!(
-        "{}\n- reconstructed context: {}\n- continuation:\n{}",
-        selection,
-        resumed_context.summary(),
-        guard_patch_terminal_report(continuation)
-    ))
+    runner::session_resume_report(&mut LegacyRuntimeApplicationPort, session_id)
 }
 
 pub fn patch_approve_to_stdout(
@@ -1916,59 +1946,47 @@ pub fn patch_approve_to_stdout(
     dry_run: bool,
     verify_command: Option<&str>,
 ) -> Result<(), AppError> {
-    patch::approve_to_stdout(proposal_id, token, dry_run, verify_command)
+    runner::patch_approve_to_stdout(
+        &mut LegacyRuntimeApplicationPort,
+        proposal_id,
+        token,
+        dry_run,
+        verify_command,
+    )
 }
 
 pub fn patch_verify_report(proposal_id: &str, token: &str) -> Result<String, AppError> {
-    let report = patch::verify_report(proposal_id, token)?;
-    Ok(guard_patch_terminal_report(report))
-}
-
-fn guard_patch_terminal_report(report: String) -> String {
-    if report.starts_with("패치 작업 ") {
-        crate::korean_guard::guard_or_failure(&report)
-    } else {
-        report
-    }
+    runner::patch_verify_report(&mut LegacyRuntimeApplicationPort, proposal_id, token)
 }
 
 pub fn init_report() -> Result<String, AppError> {
     let init = state::initialize()?;
     let ontology = ontology::ensure_seeded()?;
-    let created = if init.created_paths.is_empty() {
-        "새로 만든 디렉터리 없음".to_string()
-    } else {
-        init.created_paths
+    Ok(runtime_report::render_init(InitReport {
+        app_data_root: paths::app_data_root().display().to_string(),
+        config_file: paths::config_file().display().to_string(),
+        state_dir: paths::state_dir().display().to_string(),
+        project_state_dir: paths::project_state_dir().display().to_string(),
+        project_id: init.identity.project_id,
+        session_id: init.identity.session_id,
+        runtime_ledger: paths::runtime_ledger_file().display().to_string(),
+        observability_db: init.store.path.display().to_string(),
+        observability_schema: init.store.migration_version,
+        ontology_store: ontology.store.display().to_string(),
+        ontology_records_added: ontology.records_added,
+        created_paths: init
+            .created_paths
             .iter()
-            .map(|path| format!("  - {}", path.display()))
-            .collect::<Vec<_>>()
-            .join("\n")
-    };
-    let recovered = init
-        .store
-        .recovered_from
-        .as_ref()
-        .map(|path| format!("\n- recovered corrupt db: {}", path.display()))
-        .unwrap_or_default();
-
-    Ok(format!(
-        "rpotato init 결과\n- app data root: {}\n- config file: {}\n- state dir: {}\n- project state dir: {}\n- project id: {}\n- session id: {}\n- runtime ledger: {}\n- observability db: {} (schema v{})\n- ontology store: {} (added Layer A records {})\n- created paths:\n{}\n- backend: {}\n- model: {}\n- 동작: 상태 디렉터리, current-state, ledger, SQLite projection, ontology store/schema를 초기화했습니다. 모델/backend 다운로드는 수행하지 않았습니다.{}",
-        paths::app_data_root().display(),
-        paths::config_file().display(),
-        paths::state_dir().display(),
-        paths::project_state_dir().display(),
-        init.identity.project_id,
-        init.identity.session_id,
-        paths::runtime_ledger_file().display(),
-        init.store.path.display(),
-        init.store.migration_version,
-        ontology.store.display(),
-        ontology.records_added,
-        created,
-        backend::doctor_summary(),
-        model::candidate_summary(),
-        recovered
-    ))
+            .map(|path| path.display().to_string())
+            .collect(),
+        backend: backend::doctor_summary(),
+        model: model::candidate_summary(),
+        recovered_corrupt_db: init
+            .store
+            .recovered_from
+            .as_ref()
+            .map(|path| path.display().to_string()),
+    }))
 }
 
 pub fn doctor_report() -> String {
@@ -1976,32 +1994,23 @@ pub fn doctor_report() -> String {
     let cache = cache::status_summary();
     let models = model::candidate_summary();
     let ontology = ontology::doctor_summary();
-    let release = release_smoke_summary();
-    let tui_outcome_contract = TuiOutcomeCode::ALL
+    let tui_outcome_codes = TuiOutcomeCode::ALL
         .iter()
-        .map(|code| code.as_str())
-        .collect::<Vec<_>>()
-        .join(",");
+        .map(|code| code.as_str().to_string())
+        .collect();
 
-    format!(
-        "rpotato 진단\n- CLI: 사용 가능\n- package: {}\n- package version: {}\n- release target os: {}\n- release target arch: {}\n- release binary suffix: {}\n- release smoke: {}\n- TUI outcome contract: {} codes ({})\n- runtime core: durable workflow/report boundary 사용\n- backend: {}\n- model: {}\n- ontology: {}\n- cache: {}",
-        env!("CARGO_PKG_NAME"),
-        env!("CARGO_PKG_VERSION"),
-        std::env::consts::OS,
-        std::env::consts::ARCH,
-        std::env::consts::EXE_SUFFIX,
-        release,
-        TuiOutcomeCode::ALL.len(),
-        tui_outcome_contract,
+    runtime_report::render_doctor(DoctorReport {
+        package: env!("CARGO_PKG_NAME").to_string(),
+        package_version: env!("CARGO_PKG_VERSION").to_string(),
+        target_os: std::env::consts::OS.to_string(),
+        target_arch: std::env::consts::ARCH.to_string(),
+        binary_suffix: std::env::consts::EXE_SUFFIX.to_string(),
+        tui_outcome_codes,
         backend,
-        models,
+        model: models,
         ontology,
-        cache
-    )
-}
-
-fn release_smoke_summary() -> &'static str {
-    "available; doctor does not download models, install backends, start sidecars, or require network access"
+        cache,
+    })
 }
 
 #[cfg(test)]
@@ -2969,6 +2978,53 @@ mod tests {
         assert!(english.contains("exact E9 lag marker until repair converges"));
         assert!(korean.contains("closed 27-row outcome table"));
         assert!(korean.contains("exact E9 lag marker를 보존"));
+    }
+
+    #[test]
+    fn patch_terminal_guard_is_scoped_to_completion_reports() {
+        let terminal = "패치 작업 완료\nSummary\n- 결과: 성공".to_string();
+        assert_eq!(
+            runtime_report::guard_patch_terminal(terminal.clone()),
+            crate::korean_guard::guard_or_failure(&terminal)
+        );
+
+        let non_terminal = "patch approve\nSummary\n- status: applied".to_string();
+        assert_eq!(
+            runtime_report::guard_patch_terminal(non_terminal.clone()),
+            non_terminal
+        );
+    }
+
+    #[test]
+    fn doctor_report_field_order_is_stable() {
+        let prefixes = doctor_report()
+            .lines()
+            .map(|line| {
+                line.split_once(':')
+                    .map_or(line, |(prefix, _)| prefix)
+                    .to_string()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            prefixes,
+            [
+                "rpotato 진단",
+                "- CLI",
+                "- package",
+                "- package version",
+                "- release target os",
+                "- release target arch",
+                "- release binary suffix",
+                "- release smoke",
+                "- TUI outcome contract",
+                "- runtime core",
+                "- backend",
+                "- model",
+                "- ontology",
+                "- cache",
+            ]
+        );
     }
 
     #[test]
