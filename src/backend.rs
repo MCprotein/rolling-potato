@@ -24,11 +24,12 @@ use crate::runtime_core::inference::backend::BackendAdapter;
 use crate::runtime_core::inference::backend::{
     BackendChatRun, BackendChatSampling, MAX_CHAT_TIMEOUT_MS,
 };
+use crate::runtime_core::inference::model::manifest::quantization_for_artifact_hash;
 use crate::runtime_core::inference::{
     resource,
     stream::{StreamOutcome, StreamTermination},
 };
-use crate::{korean_guard, ledger, model, observability, state};
+use crate::{korean_guard, ledger, observability, state};
 use llama_backend::{BackendDiscovery, LlamaCppAdapter, ENV_BACKEND_PATH, LLAMA_CPP_BACKEND_ID};
 #[cfg(test)]
 use llama_backend::{DEFAULT_HOST, DEFAULT_PORT, ENV_BACKEND_PORT};
@@ -917,7 +918,7 @@ fn chat_once_with_options(
                 model_artifact_hash: Some(record.model_sha256.clone()),
                 backend_id: Some(record.backend_id.clone()),
                 backend_version: Some(record.backend_release.clone()),
-                quantization: model::quantization_for_artifact_hash(&record.model_sha256)
+                quantization: quantization_for_artifact_hash(&record.model_sha256)
                     .map(str::to_string),
                 context_limit_tokens: record.ctx_size,
                 started_at_ms,
@@ -1046,8 +1047,7 @@ fn chat_once_with_options(
         model_artifact_hash: Some(record.model_sha256.clone()),
         backend_id: Some(record.backend_id.clone()),
         backend_version: Some(record.backend_release.clone()),
-        quantization: model::quantization_for_artifact_hash(&record.model_sha256)
-            .map(str::to_string),
+        quantization: quantization_for_artifact_hash(&record.model_sha256).map(str::to_string),
         context_limit_tokens: record.ctx_size,
         started_at_ms,
         first_token_latency_ms: completion.first_token_latency_ms.map(|value| value as f64),
@@ -1176,8 +1176,7 @@ fn finish_interrupted_generation(
         model_artifact_hash: Some(record.model_sha256.clone()),
         backend_id: Some(record.backend_id.clone()),
         backend_version: Some(record.backend_release.clone()),
-        quantization: model::quantization_for_artifact_hash(&record.model_sha256)
-            .map(str::to_string),
+        quantization: quantization_for_artifact_hash(&record.model_sha256).map(str::to_string),
         context_limit_tokens: record.ctx_size,
         started_at_ms: terminal.started_at_ms,
         first_token_latency_ms: completion.first_token_latency_ms.map(|value| value as f64),

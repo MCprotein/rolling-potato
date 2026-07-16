@@ -501,13 +501,6 @@ fn backend_smoke_evidence(event_id: &str) -> Result<Option<BackendSmokeEvidence>
     Ok(Some(evidence))
 }
 
-pub(crate) fn quantization_for_artifact_hash(hash: &str) -> Option<&'static str> {
-    CANDIDATES
-        .iter()
-        .find(|candidate| candidate.sha256 == Some(hash))
-        .and_then(|candidate| candidate.quantization)
-}
-
 fn detail_value<'a>(details: &'a str, key: &str) -> Option<&'a str> {
     details.split_whitespace().find_map(|field| {
         let (candidate, value) = field.split_once('=')?;

@@ -14,7 +14,8 @@ use crate::runtime_core::inference::benchmark::{
     ADOPTION_DATASET_REF, ADOPTION_FIXTURE_ID, ADOPTION_FIXTURE_SHA256, ADOPTION_MAX_TOKENS,
     ADOPTION_PROMPT_SHA256,
 };
-use crate::{adapters::filesystem::layout as paths, backend, ledger, model, observability};
+use crate::runtime_core::inference::model::manifest::quantization_for_artifact_hash;
+use crate::{adapters::filesystem::layout as paths, backend, ledger, observability};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct BenchmarkFixture {
@@ -509,7 +510,7 @@ fn validate_canonical_adoption_run(
             "canonical model adoption run은 requested/effective max tokens가 모두 {ADOPTION_MAX_TOKENS}이어야 합니다."
         )));
     }
-    if model::quantization_for_artifact_hash(&run.model_artifact_hash).is_none() {
+    if quantization_for_artifact_hash(&run.model_artifact_hash).is_none() {
         return Err(AppError::blocked(
             "canonical model adoption run의 quantization을 source-backed manifest에서 확인하지 못했습니다.",
         ));
@@ -630,7 +631,7 @@ fn executable_reproducibility_manifest_json(
         run.effective_max_tokens
     );
     let quantization =
-        model::quantization_for_artifact_hash(&run.model_artifact_hash).unwrap_or("unresolved");
+        quantization_for_artifact_hash(&run.model_artifact_hash).unwrap_or("unresolved");
     format!(
         "{{\"harness_ref\":\"{}\",\"benchmark_run_id\":\"{}\",\"model_run_id\":\"{}\",\"fixture_id\":\"{}\",\"fixture_sha256\":\"{}\",\"prompt_artifact_sha256\":\"{}\",\"prompt_chars\":{},\"runner_command\":\"{}\",\"run_count\":1,\"retry_count\":0,\"seed_policy\":\"{}\",\"sampling_options\":\"{}\",\"os\":\"{}\",\"arch\":\"{}\",\"hardware_note\":\"{}\",\"ram_note\":\"{}\",\"power_thermal_note\":\"{}\",\"backend_id\":\"{}\",\"backend_version\":\"{}\",\"model_id\":\"{}\",\"model_artifact_hash\":\"{}\",\"quantization\":\"{}\",\"prompt_runtime_version\":\"{}\",\"tool_policy_version\":\"{}\",\"ontology_view\":\"{}\",\"context_budget\":{},\"expected_escalation_target\":\"{}\",\"abstention_required\":{},\"score\":{},\"score_unit\":\"0-3-local-product-score\",\"minimum_score\":{},\"local_pass\":{},\"expected_matches\":{},\"expected_total\":{},\"forbidden_matches\":{},\"latency_ms\":{},\"tokens_per_second\":{},\"prompt_tokens\":{},\"completion_tokens\":{},\"total_tokens\":{},\"resource_pressure\":\"{}\",\"peak_rss_bytes\":{},\"redaction_status\":\"redacted\",\"raw_artifact_retention_policy\":\"{}\",\"raw_prompt_source_stored\":false,\"public_benchmark_parity\":\"not-claimed\",\"recorded_at_ms\":{}}}",
         ledger::json_string(&harness_ref()),

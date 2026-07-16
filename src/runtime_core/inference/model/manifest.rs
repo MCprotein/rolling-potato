@@ -336,6 +336,13 @@ pub(crate) fn find_candidate(id: &str) -> Result<&'static ModelManifestEntry, Ap
         })
 }
 
+pub(crate) fn quantization_for_artifact_hash(hash: &str) -> Option<&'static str> {
+    CANDIDATES
+        .iter()
+        .find(|candidate| candidate.sha256 == Some(hash))
+        .and_then(|candidate| candidate.quantization)
+}
+
 pub(crate) fn validate_install_ready(candidate: &ModelManifestEntry) -> InstallValidation {
     let mut blockers = Vec::new();
 
@@ -476,6 +483,17 @@ mod tests {
 
         let incomplete = find_candidate("qwen3.5-9b").unwrap();
         assert!(source_backed_artifact(incomplete).is_err());
+    }
+
+    #[test]
+    fn quantization_lookup_tracks_source_backed_manifest_hashes() {
+        assert_eq!(
+            quantization_for_artifact_hash(
+                "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+            ),
+            Some("Q4_K_M")
+        );
+        assert_eq!(quantization_for_artifact_hash(&"f".repeat(64)), None);
     }
 }
 use crate::foundation::error::AppError;
