@@ -1,5 +1,29 @@
 # 릴리즈 노트
 
+## v0.34.2 - Windows ConPTY Release Recovery
+
+릴리즈 날짜: 2026-07-16
+
+이 patch release는 binary publication이 완결되지 못한 v0.34.1을 대체합니다. v0.34.1
+source tag는 immutable하게 유지하지만, Windows archive build 전에 native-terminal
+gate가 test host lifecycle 결함 두 개를 드러냈습니다.
+
+### 수정한 것
+
+- Windows pseudoconsole startup contract에 맞춰 첫 attached client를 생성할 때까지
+  ConPTY-side pipe handle을 유지합니다. 따라서 초기 console-mode probe가 유효한 standard
+  handle을 받습니다.
+- Fixture cleanup에서 `ClosePseudoConsole`보다 host output pipe를 먼저 닫아, pseudoconsole
+  close가 대기하는 Windows version의 문서화된 deadlock 위험을 제거합니다.
+- Entry/EOF lifecycle과 full adapter test를 각각 5분으로 제한한 수동 실행 Windows
+  native-terminal targeted workflow를 추가합니다.
+
+### 릴리즈 복구
+
+- v0.34.0과 v0.34.1은 immutable source history로 유지하지만, 일부만 게시된 binary
+  asset은 지원 release set이 아닙니다.
+- v0.34.2를 지원 replacement로 삼고 검증된 exact 11-asset set을 게시합니다.
+
 ## v0.34.1 - Portable Release Recovery
 
 릴리즈 날짜: 2026-07-16
@@ -25,8 +49,8 @@ set을 게시하지 못했습니다.
 
 - v0.34.0은 immutable source history로 유지하지만, 일부만 게시된 binary asset은 지원
   release set이 아닙니다.
-- v0.34.1을 지원 replacement로 삼고 GitHub Release 게시 전에 5개 target 전체
-  pre-publication workflow를 통과시킵니다.
+- v0.34.1은 immutable source history로 유지하지만, 일부만 게시된 binary asset은 지원
+  release set이 아닙니다. v0.34.2가 이를 대체합니다.
 
 ## v0.34.0 - Runtime-Owned Interactive TUI
 
