@@ -1,8 +1,7 @@
 use crate::adapters::filesystem::{cache, layout as paths};
 use crate::foundation::error::AppError;
-use crate::runtime_core::reporting::runtime_report::{
-    self, DoctorReport, InitReport, SessionResumeReport, WorkflowResumeReport,
-};
+use crate::runtime_core::reporting::runtime_report::{self, DoctorReport, InitReport};
+use crate::runtime_core::workflow::application::runner::{self, RuntimeApplicationPort};
 use crate::{
     backend, context, evidence, intent, ledger, model, observability, ontology, patch, state,
     transcript,
@@ -1883,33 +1882,62 @@ fn secret_refresh_only(intent_id: &str) -> TuiOutcome {
     .expect("validated TUI intent IDs always produce the refresh-only outcome")
 }
 
+struct LegacyRuntimeApplicationPort;
+
+impl RuntimeApplicationPort for LegacyRuntimeApplicationPort {
+    fn run_agent(&mut self, request: &str) -> Result<String, AppError> {
+        intent::run_report(request)
+    }
+
+    fn current_session_id(&mut self) -> Result<String, AppError> {
+        Ok(ledger::validated_current_identity()?.session_id)
+    }
+
+    fn rebuild_resume_context(&mut self, session_id: &str) -> Result<String, AppError> {
+        Ok(context::rebuild_resume_context(session_id, None)?.summary())
+    }
+
+    fn resume_report(&mut self) -> Result<String, AppError> {
+        state::resume_report()
+    }
+
+    fn session_resume_preflight(&mut self, session_id: &str) -> Result<Option<String>, AppError> {
+        state::session_resume_preflight(session_id)
+    }
+
+    fn preflight_workflow(&mut self, workflow_id: &str) -> Result<(), AppError> {
+        patch::preflight_resume_workflow(workflow_id)
+    }
+
+    fn session_resume_report(&mut self, session_id: &str) -> Result<String, AppError> {
+        state::session_resume_report(session_id)
+    }
+
+    fn approve_patch(
+        &mut self,
+        proposal_id: &str,
+        token: &str,
+        dry_run: bool,
+        verify_command: Option<&str>,
+    ) -> Result<(), AppError> {
+        patch::approve_to_stdout(proposal_id, token, dry_run, verify_command)
+    }
+
+    fn verify_patch(&mut self, proposal_id: &str, token: &str) -> Result<String, AppError> {
+        patch::verify_report(proposal_id, token)
+    }
+}
+
 pub fn agent_run_report(request: &str) -> Result<String, AppError> {
-    intent::run_report(request)
+    runner::agent_run_report(&mut LegacyRuntimeApplicationPort, request)
 }
 
 pub fn workflow_resume_report() -> Result<String, AppError> {
-    let identity = ledger::validated_current_identity()?;
-    let resumed_context = context::rebuild_resume_context(&identity.session_id, None)?;
-    Ok(runtime_report::render_workflow_resume(
-        WorkflowResumeReport {
-            continuation: state::resume_report()?,
-            reconstructed_context: resumed_context.summary(),
-        },
-    ))
+    runner::workflow_resume_report(&mut LegacyRuntimeApplicationPort)
 }
 
 pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
-    let resumed_context = context::rebuild_resume_context(session_id, None)?;
-    if let Some(workflow_id) = state::session_resume_preflight(session_id)? {
-        patch::preflight_resume_workflow(&workflow_id)?;
-    }
-    let selection = state::session_resume_report(session_id)?;
-    let continuation = state::resume_report()?;
-    Ok(runtime_report::render_session_resume(SessionResumeReport {
-        selection,
-        reconstructed_context: resumed_context.summary(),
-        continuation,
-    }))
+    runner::session_resume_report(&mut LegacyRuntimeApplicationPort, session_id)
 }
 
 pub fn patch_approve_to_stdout(
@@ -1918,12 +1946,17 @@ pub fn patch_approve_to_stdout(
     dry_run: bool,
     verify_command: Option<&str>,
 ) -> Result<(), AppError> {
-    patch::approve_to_stdout(proposal_id, token, dry_run, verify_command)
+    runner::patch_approve_to_stdout(
+        &mut LegacyRuntimeApplicationPort,
+        proposal_id,
+        token,
+        dry_run,
+        verify_command,
+    )
 }
 
 pub fn patch_verify_report(proposal_id: &str, token: &str) -> Result<String, AppError> {
-    let report = patch::verify_report(proposal_id, token)?;
-    Ok(runtime_report::guard_patch_terminal(report))
+    runner::patch_verify_report(&mut LegacyRuntimeApplicationPort, proposal_id, token)
 }
 
 pub fn init_report() -> Result<String, AppError> {
