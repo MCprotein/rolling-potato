@@ -1,11 +1,13 @@
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, ExitStatus, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 static NATIVE_TERMINAL_LOCK: Mutex<()> = Mutex::new(());
 static SOURCE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+const FIXTURE_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub struct NativeTerminalFixture {
     _lock: std::sync::MutexGuard<'static, ()>,
@@ -129,14 +131,21 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
         std::fs::write(&model, b"fake model").unwrap();
         let port = native_port(&self.root);
         let command = |args: &[&str]| {
-            Command::new(env!("CARGO_BIN_EXE_rpotato"))
-                .args(args)
-                .env("RPOTATO_PROJECT_ROOT", &self.project)
-                .env("RPOTATO_DATA_HOME", &self.data)
-                .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend)
-                .env("RPOTATO_BACKEND_PORT", port.to_string())
-                .output()
-                .unwrap()
+            let label = args.join(" ");
+            #[cfg(windows)]
+            windows::trace_stage(&format!("run {label}"));
+            let output = run_bounded_command(
+                Command::new(env!("CARGO_BIN_EXE_rpotato"))
+                    .args(args)
+                    .env("RPOTATO_PROJECT_ROOT", &self.project)
+                    .env("RPOTATO_DATA_HOME", &self.data)
+                    .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend)
+                    .env("RPOTATO_BACKEND_PORT", port.to_string()),
+                &label,
+            );
+            #[cfg(windows)]
+            windows::trace_stage(&format!("finished {label}"));
+            output
         };
         let start = command(&[
             "backend",
@@ -197,6 +206,59 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| panic!("current-state session_id missing: {body}"))
             .to_string()
+    }
+}
+
+fn run_bounded_command(command: &mut Command, label: &str) -> Output {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let base = std::env::temp_dir().join(format!(
+        "rpotato-native-terminal-output-{}-{nonce}",
+        std::process::id()
+    ));
+    let stdout_path = base.with_extension("stdout");
+    let stderr_path = base.with_extension("stderr");
+    command
+        .stdout(Stdio::from(std::fs::File::create(&stdout_path).unwrap()))
+        .stderr(Stdio::from(std::fs::File::create(&stderr_path).unwrap()));
+    let mut child = command.spawn().unwrap();
+    let deadline = Instant::now() + FIXTURE_COMMAND_TIMEOUT;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(20)),
+            Ok(None) => {
+                let _ = child.kill();
+                let status = child.wait().unwrap();
+                let output = captured_command_output(&stdout_path, &stderr_path, status);
+                panic!(
+                    "native fixture command timeout after {:?}: {label}\nstdout={}\nstderr={}",
+                    FIXTURE_COMMAND_TIMEOUT,
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+            Err(error) => panic!("native fixture command wait failed: {label}: {error}"),
+        }
+    };
+    captured_command_output(&stdout_path, &stderr_path, status)
+}
+
+fn captured_command_output(
+    stdout_path: &std::path::Path,
+    stderr_path: &std::path::Path,
+    status: ExitStatus,
+) -> Output {
+    let stdout = std::fs::read(stdout_path).unwrap_or_default();
+    let stderr = std::fs::read(stderr_path).unwrap_or_default();
+    let _ = std::fs::remove_file(stdout_path);
+    let _ = std::fs::remove_file(stderr_path);
+    Output {
+        status,
+        stdout,
+        stderr,
     }
 }
 
