@@ -541,7 +541,7 @@ fn assert_exact_outcome_block(capture: &str, expected: &str, context: &str) {
 }
 
 fn normalized_terminal_capture(capture: &str) -> String {
-    capture
+    strip_terminal_controls(capture)
         .replace("\r\n", "\n")
         .replace('\r', "\n")
         .lines()
@@ -552,6 +552,46 @@ fn normalized_terminal_capture(capture: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn strip_terminal_controls(capture: &str) -> String {
+    let mut output = String::with_capacity(capture.len());
+    let mut characters = capture.chars().peekable();
+    while let Some(character) = characters.next() {
+        if character != '\u{001b}' {
+            if !character.is_control() || matches!(character, '\n' | '\r' | '\t') {
+                output.push(character);
+            }
+            continue;
+        }
+        match characters.next() {
+            Some('[') => {
+                for control in characters.by_ref() {
+                    if ('@'..='~').contains(&control) {
+                        break;
+                    }
+                }
+            }
+            Some(']') => {
+                while let Some(control) = characters.next() {
+                    if control == '\u{0007}' {
+                        break;
+                    }
+                    if control == '\u{001b}' && characters.next_if_eq(&'\\').is_some() {
+                        break;
+                    }
+                }
+            }
+            Some(_) | None => {}
+        }
+    }
+    output
+}
+
+#[test]
+fn normalizes_windows_title_and_cursor_control_sequences() {
+    let capture = "\u{001b}[?25l결과\n- 다음: 완료.\u{001b}]0;C:\\rpotato.exe\u{0007}\u{001b}[?25h";
+    assert_eq!(normalized_terminal_capture(capture), "결과\n- 다음: 완료.");
 }
 
 fn capture_field(capture: &str, code: &str, field: &str) -> String {
