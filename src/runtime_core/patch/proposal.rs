@@ -7,6 +7,8 @@ use sha2::{Digest, Sha256};
 
 use crate::foundation::error::AppError;
 
+use super::approval::hash_token;
+
 pub(crate) const MAX_PATCH_FILE_BYTES: u64 = 256 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -164,7 +166,7 @@ pub(crate) fn render_record(preview: &PatchPreview) -> String {
         preview.workflow_id,
         preview.action_id,
         preview.relative_path,
-        sha256_text(&preview.approval_token),
+        hash_token(&preview.approval_token),
         preview.original_sha256,
         preview.proposed_sha256,
         encode_hex_text(&preview.verification_command),
@@ -234,7 +236,7 @@ pub(crate) fn parse_record(
             .replacen("record_version=2", "record_version=4", 1)
             .replacen(
                 &format!("approval_token={plaintext}"),
-                &format!("approval_token_hash={}", sha256_text(&plaintext)),
+                &format!("approval_token_hash={}", hash_token(&plaintext)),
                 1,
             );
         return Ok(RecordParse::LegacyMigration { scrubbed });

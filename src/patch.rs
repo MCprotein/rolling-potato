@@ -16,6 +16,7 @@ use crate::runtime::{
 };
 #[cfg(test)]
 use crate::runtime::{TuiEffect, TuiOutcomeStatus};
+use crate::runtime_core::patch::approval::{self as approval_domain, APPROVAL_TOKEN_BYTES};
 use crate::runtime_core::patch::proposal::{
     self as proposal_domain, parse_header as parse_proposal_header, required_header,
     validate_proposal_id, PatchPreview, PreviewInput, ProposalRecord, RecordParse,
@@ -1491,12 +1492,12 @@ pub fn rotate_workflow_token_report(proposal_id: &str) -> Result<String, AppErro
     let token = issue_approval_token()?;
     let gate = match workflow.phase.as_str() {
         "pending-approval" => {
-            workflow.approval_credential_hash = sha256_text(&token);
+            workflow.approval_credential_hash = approval_domain::hash_token(&token);
             workflow.approval_state = "pending-rotated".to_string();
             "patch-apply"
         }
         "pending-verification-approval" => {
-            workflow.verification_credential_hash = sha256_text(&token);
+            workflow.verification_credential_hash = approval_domain::hash_token(&token);
             workflow.verification_approval_state = "pending-rotated".to_string();
             "verification-command"
         }
@@ -3213,7 +3214,7 @@ fn validate_token_hash(
     token: &str,
     record: &ProposalRecord,
 ) -> Result<(), AppError> {
-    if constant_time_eq(expected_hash, &sha256_text(token)) {
+    if approval_domain::matches_hash(expected_hash, token) {
         return Ok(());
     }
 
@@ -3236,16 +3237,6 @@ fn validate_token_hash(
         "patch approve 차단\n- 이유: approval token 불일치\n- proposal id: {}\n- approval prompt: 사용자 승인 필요",
         record.proposal_id
     )))
-}
-
-fn constant_time_eq(left: &str, right: &str) -> bool {
-    if left.len() != right.len() {
-        return false;
-    }
-    left.bytes()
-        .zip(right.bytes())
-        .fold(0_u8, |difference, (a, b)| difference | (a ^ b))
-        == 0
 }
 
 fn dry_run_approval_report(
@@ -3918,9 +3909,9 @@ fn write_proposal_record(preview: &PatchPreview) -> Result<(), AppError> {
 }
 
 fn issue_approval_token() -> Result<String, AppError> {
-    let mut bytes = [0_u8; 32];
+    let mut bytes = [0_u8; APPROVAL_TOKEN_BYTES];
     fill_os_random(&mut bytes)?;
-    Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
+    Ok(approval_domain::token_from_entropy(&bytes))
 }
 
 #[cfg(unix)]
