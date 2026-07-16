@@ -3,8 +3,7 @@ use std::path::{Path, PathBuf};
 use crate::foundation::error::AppError;
 use crate::runtime_core::policy::decision::{self, PathPolicyPort};
 pub use crate::runtime_core::policy::decision::{
-    classify_command, parse_patch_verification, schema_report, ActionKind, Decision, PathMode,
-    PolicyDecision,
+    classify_command, parse_patch_verification, schema_report, Decision, PathMode, PolicyDecision,
 };
 use crate::{adapters::filesystem::layout as paths, ledger, state};
 
@@ -112,6 +111,7 @@ pub fn classify_path(mode: PathMode, raw_path: &str) -> Result<PolicyDecision, A
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime_core::policy::decision::ActionKind;
 
     #[test]
     fn denies_destructive_command() {
