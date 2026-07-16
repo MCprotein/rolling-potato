@@ -18,8 +18,8 @@ use crate::runtime_core::workflow::application::recovery::{
 };
 use crate::runtime_core::workflow::application::transaction_coordinator::{
     self as transaction_coordinator, ApprovalFault, ApprovalRevision, ApprovalTransactionPort,
-    StateTransitionFault, StateTransitionTransactionPort, TerminalActionFault,
-    TerminalActionTransactionPort, TransactionExecution, VerificationFault,
+    ReconcileTransactionPort, StateTransitionFault, StateTransitionTransactionPort,
+    TerminalActionFault, TerminalActionTransactionPort, TransactionExecution, VerificationFault,
     VerificationTransactionPort,
 };
 use crate::runtime_core::workflow::domain::snapshot::{
@@ -1870,20 +1870,15 @@ fn reconcile_invalid_current_under_guard(
     let current = state_transition_current_member(&current_image, &event.event_id, None, "file");
     crate::transition::bind_additional_members(&mut bundle, vec![backup, current])?;
     let journal = transition_guard.commit(&bundle)?;
-    state_transition_fault("after-journal")?;
-    install_prepared_reconcile_backup(&bundle)?;
-    state_transition_fault("after-artifacts")?;
-    let mut sink = writer.event_sink(&planned);
-    sink.append_planned_under_guard(0, &event)?;
-    state_transition_fault("after-ledger")?;
-    sink.finish()?;
-    if !validate_state_transition_current_cas(&bundle, &current_image.bytes)? {
-        atomic_replace_bytes(&current_image.path, current_image.bytes.as_bytes())?;
-    }
-    state_transition_fault("after-current")?;
-    sink.converge_derived(&identity.project_id)?;
-    state_transition_fault("after-projection")?;
-    transition_guard.remove(&bundle, &journal)?;
+    let mut port = StateReconcileTransactionPort {
+        transition_guard,
+        bundle: &bundle,
+        current: &current_image,
+        event: &event,
+        journal: &journal,
+        sink: writer.event_sink(&planned),
+    };
+    transaction_coordinator::execute_reconcile_transaction(&mut port)?;
     let backup = bundle
         .additional_members
         .first()
@@ -1895,6 +1890,62 @@ fn reconcile_invalid_current_under_guard(
         .map(|name| paths::state_dir().join(name))
         .ok_or_else(|| AppError::blocked("reconcile backup result path 불일치"))?;
     Ok((event, backup))
+}
+
+struct StateReconcileTransactionPort<'a> {
+    transition_guard: &'a crate::transition::TransitionGuard,
+    bundle: &'a crate::transition::PreparedSourceBundle,
+    current: &'a PreparedCurrentImage,
+    event: &'a ledger::LedgerEvent,
+    journal: &'a std::path::Path,
+    sink: ledger::EventSink<'a>,
+}
+
+impl ReconcileTransactionPort for StateReconcileTransactionPort<'_> {
+    fn fault(&mut self, point: StateTransitionFault) -> Result<(), AppError> {
+        match point {
+            StateTransitionFault::Journal => state_transition_fault("after-journal"),
+            StateTransitionFault::Artifacts => state_transition_fault("after-artifacts"),
+            StateTransitionFault::Ledger => state_transition_fault("after-ledger"),
+            StateTransitionFault::Current => state_transition_fault("after-current"),
+            StateTransitionFault::Projection => state_transition_fault("after-projection"),
+            StateTransitionFault::CheckpointTransaction
+            | StateTransitionFault::CheckpointSnapshot
+            | StateTransitionFault::CheckpointLedger
+            | StateTransitionFault::CheckpointPointer => Err(AppError::blocked(
+                "reconcile transaction checkpoint fault 범위 불일치",
+            )),
+        }
+    }
+
+    fn install_backup(&mut self) -> Result<(), AppError> {
+        install_prepared_reconcile_backup(self.bundle)
+    }
+
+    fn append_event(&mut self) -> Result<(), AppError> {
+        self.sink
+            .append_planned_under_guard(0, self.event)
+            .map(|_| ())
+    }
+
+    fn finish_events(&mut self) -> Result<(), AppError> {
+        self.sink.finish()
+    }
+
+    fn install_current(&mut self) -> Result<(), AppError> {
+        if !validate_state_transition_current_cas(self.bundle, &self.current.bytes)? {
+            atomic_replace_bytes(&self.current.path, self.current.bytes.as_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn converge(&mut self) -> Result<(), AppError> {
+        self.sink.converge_derived(&self.bundle.project_id)
+    }
+
+    fn remove_journal(&mut self) -> Result<(), AppError> {
+        self.transition_guard.remove(self.bundle, self.journal)
+    }
 }
 
 fn install_current_image(

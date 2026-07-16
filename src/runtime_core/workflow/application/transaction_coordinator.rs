@@ -178,6 +178,16 @@ pub(crate) trait StateTransitionTransactionPort {
     fn remove_journal(&mut self) -> Result<(), AppError>;
 }
 
+pub(crate) trait ReconcileTransactionPort {
+    fn fault(&mut self, point: StateTransitionFault) -> Result<(), AppError>;
+    fn install_backup(&mut self) -> Result<(), AppError>;
+    fn append_event(&mut self) -> Result<(), AppError>;
+    fn finish_events(&mut self) -> Result<(), AppError>;
+    fn install_current(&mut self) -> Result<(), AppError>;
+    fn converge(&mut self) -> Result<(), AppError>;
+    fn remove_journal(&mut self) -> Result<(), AppError>;
+}
+
 pub(crate) fn execute_approval_transaction(
     port: &mut impl ApprovalTransactionPort,
     execution: TransactionExecution,
@@ -358,6 +368,22 @@ pub(crate) fn execute_state_transition(
     port.remove_journal()
 }
 
+pub(crate) fn execute_reconcile_transaction(
+    port: &mut impl ReconcileTransactionPort,
+) -> Result<(), AppError> {
+    port.fault(StateTransitionFault::Journal)?;
+    port.install_backup()?;
+    port.fault(StateTransitionFault::Artifacts)?;
+    port.append_event()?;
+    port.fault(StateTransitionFault::Ledger)?;
+    port.finish_events()?;
+    port.install_current()?;
+    port.fault(StateTransitionFault::Current)?;
+    port.converge()?;
+    port.fault(StateTransitionFault::Projection)?;
+    port.remove_journal()
+}
+
 impl<'plan> TransactionCoordinator<'plan> {
     pub(crate) fn new(planned: &'plan [PlannedEvent]) -> Self {
         Self {
@@ -462,6 +488,48 @@ mod tests {
     #[derive(Default)]
     struct FakeStateTransitionPort {
         calls: Vec<String>,
+    }
+
+    #[derive(Default)]
+    struct FakeReconcilePort {
+        calls: Vec<String>,
+    }
+
+    impl ReconcileTransactionPort for FakeReconcilePort {
+        fn fault(&mut self, point: StateTransitionFault) -> Result<(), AppError> {
+            self.calls.push(format!("fault:{point:?}"));
+            Ok(())
+        }
+
+        fn install_backup(&mut self) -> Result<(), AppError> {
+            self.calls.push("backup".to_owned());
+            Ok(())
+        }
+
+        fn append_event(&mut self) -> Result<(), AppError> {
+            self.calls.push("append".to_owned());
+            Ok(())
+        }
+
+        fn finish_events(&mut self) -> Result<(), AppError> {
+            self.calls.push("finish".to_owned());
+            Ok(())
+        }
+
+        fn install_current(&mut self) -> Result<(), AppError> {
+            self.calls.push("current".to_owned());
+            Ok(())
+        }
+
+        fn converge(&mut self) -> Result<(), AppError> {
+            self.calls.push("converge".to_owned());
+            Ok(())
+        }
+
+        fn remove_journal(&mut self) -> Result<(), AppError> {
+            self.calls.push("remove-journal".to_owned());
+            Ok(())
+        }
     }
 
     impl StateTransitionTransactionPort for FakeStateTransitionPort {
@@ -850,6 +918,30 @@ mod tests {
                 "fault:CheckpointLedger",
                 "pointer",
                 "fault:CheckpointPointer",
+                "finish",
+                "current",
+                "fault:Current",
+                "converge",
+                "fault:Projection",
+                "remove-journal",
+            ]
+        );
+    }
+
+    #[test]
+    fn reconcile_preserves_backup_before_canonical_append() {
+        let mut port = FakeReconcilePort::default();
+
+        execute_reconcile_transaction(&mut port).unwrap();
+
+        assert_eq!(
+            port.calls,
+            [
+                "fault:Journal",
+                "backup",
+                "fault:Artifacts",
+                "append",
+                "fault:Ledger",
                 "finish",
                 "current",
                 "fault:Current",
