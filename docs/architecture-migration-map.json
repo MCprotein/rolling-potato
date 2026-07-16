@@ -1837,6 +1837,20 @@
       ]
     },
     {
+      "path": "src/runtime_core/inference/benchmark/fixture.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark fixture DTO, parser, schema, and semantic policy",
+          "target": "src/runtime_core/inference/benchmark/fixture.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/benchmark/fixture.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/cli.rs",
       "slices": [
         {
@@ -3639,6 +3653,12 @@
       "path": "src/runtime_core/inference/benchmark.rs",
       "responsibilities": [
         "benchmark scoring and adoption policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark/fixture.rs",
+      "responsibilities": [
+        "benchmark fixture DTO, parser, schema, and semantic policy"
       ]
     },
     {

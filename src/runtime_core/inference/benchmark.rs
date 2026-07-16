@@ -1,3 +1,5 @@
+pub(crate) mod fixture;
+
 pub(crate) const ADOPTION_FIXTURE_ID: &str = "model-adoption-smoke-v1";
 pub(crate) const ADOPTION_DATASET_REF: &str = "local-model-adoption-smoke-v1";
 pub(crate) const ADOPTION_BENCHMARK_NAME: &str = "model-adoption-instruction-safety-smoke";
