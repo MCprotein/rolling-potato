@@ -557,9 +557,9 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
     for target in [
         "src/adapters/terminal/capability.rs",
         "src/adapters/terminal/native.rs",
-        "tests/platform.rs",
-        "tests/platform/interactive_tui.rs",
-        "tests/platform/native_terminal.rs",
+        "tests/surfaces.rs",
+        "tests/surfaces/interactive_tui.rs",
+        "tests/surfaces/native_terminal.rs",
     ] {
         assert!(
             Path::new(target).is_file(),
@@ -1748,8 +1748,12 @@ fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
         assert!(Path::new(&format!("tests/support/platform/{name}")).is_file());
     }
 
-    let harness = fs::read_to_string("tests/platform.rs").unwrap();
+    let harness = fs::read_to_string("tests/surfaces.rs").unwrap();
     assert!(harness.contains("support/platform/native_terminal.rs"));
+    assert!(harness.contains("surfaces/interactive_tui.rs"));
+    assert!(harness.contains("surfaces/native_terminal.rs"));
+    assert!(!Path::new("tests/platform.rs").exists());
+    assert!(!Path::new("tests/platform").exists());
 }
 
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {

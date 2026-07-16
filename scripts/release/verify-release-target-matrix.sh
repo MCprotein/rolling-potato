@@ -68,9 +68,9 @@ grep -F 'cargo test --locked --target ${{ matrix.target }} --bin rpotato generat
   || fail "native Windows generation lifecycle tests are missing"
 grep -F 'cargo test --locked --target ${{ matrix.target }} --test inference backend_lifecycle::native_backend_cancel_and_stop_lifecycle -- --test-threads=1' "$workflow" >/dev/null \
   || fail "native Windows backend process lifecycle test is missing"
-grep -F 'cargo test --locked --target ${{ matrix.target }} --test platform native_terminal::entry_quit -- --exact --test-threads=1' "$workflow" >/dev/null \
+grep -F 'cargo test --locked --target ${{ matrix.target }} --test surfaces native_terminal::entry_quit -- --exact --test-threads=1' "$workflow" >/dev/null \
   || fail "native terminal entry_quit test is missing from the build matrix"
-grep -F 'cargo test --locked --target ${{ matrix.target }} --test platform native_terminal::full_adapter -- --exact --test-threads=1' "$workflow" >/dev/null \
+grep -F 'cargo test --locked --target ${{ matrix.target }} --test surfaces native_terminal::full_adapter -- --exact --test-threads=1' "$workflow" >/dev/null \
   || fail "native terminal full_adapter test is missing from the build matrix"
 grep -F 'bash scripts/release/test-verify-release-assets.sh' "$workflow" >/dev/null \
   || fail "release asset verifier fixture gate is missing"

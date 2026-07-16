@@ -1,6 +1,6 @@
-#[path = "platform/interactive_tui.rs"]
+#[path = "surfaces/interactive_tui.rs"]
 mod interactive_tui;
-#[path = "platform/native_terminal.rs"]
+#[path = "surfaces/native_terminal.rs"]
 mod native_terminal;
 #[path = "support/platform/native_terminal.rs"]
 mod native_terminal_support;

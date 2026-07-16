@@ -37,4 +37,4 @@ run_proof state-terminal-pointer-cleanup --bin rpotato state::tests::terminal_po
 run_proof state-reconcile-preserves-evidence --bin rpotato state::tests::reconcile_writer_crash_matrix_preserves_evidence
 run_proof state-writer-callgraph-closed --bin rpotato state::tests::state_writer_callgraph_is_closed_and_serialized_by_project_transition
 run_proof transition-projection-member-golden --bin rpotato transition::tests::projection_lag_member_full_bytes_golden_is_independent
-run_proof tui-recovery-outcome-matrix --test platform interactive_tui::interactive_tui_recovery_outcome_matrix_exact
+run_proof tui-recovery-outcome-matrix --test surfaces interactive_tui::interactive_tui_recovery_outcome_matrix_exact
