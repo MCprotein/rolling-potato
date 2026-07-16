@@ -7,7 +7,7 @@ mod collaboration;
 mod extensions;
 pub(crate) mod inference;
 mod knowledge;
-mod observability;
+pub(crate) mod observability;
 mod patch;
 mod policy;
 mod reporting;
