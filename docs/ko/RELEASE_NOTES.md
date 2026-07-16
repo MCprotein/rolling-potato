@@ -1,5 +1,29 @@
 # 릴리즈 노트
 
+## 미출시 v0.37.11 - Extension 경계
+
+이 patch는 CLI 동작, plugin normalized manifest byte, hook ordering, skill state와
+default-deny 실행 정책을 바꾸지 않고 extension의 순수 규칙을 private runtime
+owner로 이동합니다.
+
+### 포함한 것
+
+- Hook registry, layer ordering, conflict resolution, fail-closed result와 payload
+  modification 규칙을 `runtime_core::extensions::hook`으로 이동
+- Built-in/imported skill manifest, lifecycle state machine, context/tool/evidence/stop
+  policy를 `runtime_core::extensions::skill`로 이동
+- Codex `SKILL.md` frontmatter parsing, plugin/component ID validation, normalized
+  capability와 default-deny permission 규칙을 `runtime_core::extensions::plugin`으로 이동
+- 기존 `hooks`, `skill`, `plugin` module은 ledger/state, workflow persistence,
+  filesystem snapshot과 plugin discovery를 새 owner에 연결하는 compatibility facade로 축소
+
+### 호환성 경계
+
+- Plugin source scan/copy/checksum, normalized manifest persistence와 ledger event는
+  concrete facade에 남고 v0.37.13 composition cleanup에서 최종 정리합니다.
+- CLI 출력과 exit code, persisted manifest/workflow byte, hook/skill/plugin 실행 순서,
+  dependency와 synchronous execution은 변경하지 않습니다.
+
 ## 미출시 v0.37.10 - Runtime과 Reporting 경계
 
 이 patch는 CLI command, 출력 byte와 field 순서, exit code, synchronous 실행을

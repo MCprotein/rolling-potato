@@ -82,6 +82,10 @@ query/report use case를 소유합니다. SQLite adapter는 재생성 가능한 
 query, ledger validation, transcript row 연산을 소유하며 canonical ledger와
 transcript만 durable authority로 유지합니다. 최상위 observability와 monitor facade는
 v0.37.13 composition cleanup까지 단계적 compatibility path로 남습니다.
+v0.37.11 extension 경계는 deterministic hook policy, skill manifest/lifecycle
+policy, plugin manifest/capability admission 규칙을 소유합니다. 최상위 hooks,
+skill, plugin facade에는 v0.37.13 composition cleanup까지 concrete ledger/state,
+workflow persistence, filesystem snapshot, discovery 연결만 남습니다.
 
 ## 의존 방향
 

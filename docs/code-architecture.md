@@ -88,6 +88,11 @@ schema, replay, query, ledger-validation, and transcript-row operations, while
 the canonical ledger and transcript remain the only durable authorities. The
 top-level observability and monitor facades remain staged compatibility paths
 until the v0.37.13 composition cleanup.
+The v0.37.11 extension boundary owns deterministic hook policy, skill manifest
+and lifecycle policy, and plugin manifest/capability admission rules. The
+top-level hook, skill, and plugin facades retain only concrete ledger/state,
+workflow persistence, filesystem snapshot, and discovery integration until the
+v0.37.13 composition cleanup.
 
 ## Dependency direction
 
