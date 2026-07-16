@@ -76,7 +76,7 @@ fn execute_with(
             .unwrap_or(resource::ResourcePressure::Unknown);
         let decision = resource::team_lane_decision(pressure, team.requested_lanes);
         if decision.is_blocked() {
-            append_execution_blocked(&identity, &team, &decision.reason)?;
+            append_execution_blocked(&identity, &team, decision.reason)?;
             return Err(AppError::blocked(format!(
                 "team execute resource admission 차단\n- team id: {}\n- pressure: {}\n- reason: {}",
                 team.team_id,

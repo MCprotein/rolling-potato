@@ -108,8 +108,10 @@ remain historical evidence.
 - Team workers return bounded evidence and non-executing patch proposals. Team
   reconciliation does not apply worker-authored patches, and workers have no
   command, direct-write, nested-team, or nested-subagent authority.
-- Imported plugins are inspected and validated but receive no execution
-  authority yet.
+- Enabled canonical Codex instruction-only skills can execute through the
+  native read-only runtime after snapshot/frontmatter revalidation. Plugin
+  scripts, hooks, MCP/app integrations, shell/background, remote, and write
+  capabilities receive no execution authority.
 - HTML monitoring and package-manager channels are intentionally later work.
 
 ## Next Versions

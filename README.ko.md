@@ -98,8 +98,10 @@ rpotato skill run fix-test "tests/api.rs의 실패를 고쳐줘"
 rpotato subagent launch --role explore --task "module 구조를 확인해줘" --tool read_file --read src/lib.rs
 rpotato subagent status
 rpotato subagent cancel <subagent-id>
-rpotato plugin import --from claude-code ./my-plugin
-rpotato plugin inspect imported.example-plugin
+rpotato plugin import --from codex ./my-plugin
+rpotato plugin validate imported.codex.my-plugin
+rpotato plugin enable imported.codex.my-plugin
+rpotato skill run imported.codex.my-plugin.review "이 저장소를 리뷰해줘"
 rpotato team status
 rpotato team admit --lanes 2
 rpotato team admit --lanes 2 --write README.md --command "cargo test"
@@ -137,7 +139,7 @@ rpotato doctor
 rpotato config
 ```
 
-Plugin adapter는 marketplace를 거치지 않습니다. 사용자가 직접 가진 Codex/Claude Code형 plugin directory를 local path로 import하고, `rpotato`가 manifest와 권한 위험을 inspect/validate한 뒤 enable합니다.
+Plugin adapter는 marketplace를 거치지 않습니다. 사용자가 직접 가진 Codex/Claude Code형 plugin directory를 local path로 import하고, `rpotato`가 manifest와 권한 위험을 inspect/validate한 뒤 enable합니다. Enable된 Codex plugin은 canonical instruction-only `skills/<name>/SKILL.md`를 `skill list`와 `skill run imported.codex.<plugin>.<skill>`로 노출할 수 있습니다. Runtime은 실행 시 imported snapshot과 frontmatter를 다시 검증하고 capability를 read-only로 유지합니다. Skill script, hook, MCP server, app integration, shell/background process, remote connector, write capability는 계속 차단하며 plugin enable은 이들의 실행 승인이 아닙니다.
 
 초기 흐름은 명확해야 합니다.
 
@@ -306,7 +308,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `run`은 user request를 skill/mode/context/evidence 요구사항으로 정규화하고 최근 durable turn을 최대 8개·2,400자 안에서 재구성합니다. 현재 요청과 resume context 전체에 source pointer 최대 4개·3,200자의 단일 공유 budget을 적용한 뒤에만 workflow를 만들고 backend sidecar를 호출합니다. Canonical transcript artifact에는 user turn, visible 또는 normalized model result, normalized tool record, evidence record를 저장합니다. Source 원문과 patch fragment는 pointer와 SHA-256만 남기고 hidden reasoning/raw backend response는 제외합니다. SQLite `transcript_records`는 순서를 보존하는 재생성 가능한 projection이며 resume 권위가 아닙니다. 유효한 patch action은 restart-safe workflow와 proposal을 저장하고 정확한 `patch approve` gate에서 멈춥니다.
 
-`intent classify`와 `intent routes`는 실행 전 surface로 유지됩니다. `skill run <id> "<request>"`는 built-in skill을 명시적으로 선택하고 `run`과 같은 영속 agent loop에 진입해 context 검사, lifecycle hook, runtime policy, evidence 수집, stop criteria를 적용합니다.
+`intent classify`와 `intent routes`는 실행 전 surface로 유지됩니다. `skill run <id> "<request>"`는 built-in skill 또는 enable된 instruction-only Codex skill을 명시적으로 선택하고 `run`과 같은 영속 agent loop에 진입해 context 검사, lifecycle hook, runtime policy, evidence 수집, stop criteria를 적용합니다. Imported instruction은 신뢰하지 않는 prompt content이며 runtime이 소유한 action contract, tool policy, approval boundary, 한국어 guard, evidence requirement, stop gate를 넓힐 수 없습니다.
 
 `subagent launch`는 active parent workflow 아래에서 sequential bounded child 하나를 실행합니다. Runtime은 backend dispatch 전에 role, 선언한 tool, project-relative read path, optional executor write ownership, timeout, token budget, resource admission, source-pointer context를 고정합니다. Child는 strict structured result 하나만 반환하며 command 실행, file write, patch apply, nested worker 시작, parent approval 우회를 할 수 없습니다. `subagent status`는 read-only이고, `subagent cancel`은 completion과 경쟁해 terminal state 하나만 얻습니다. Credential 형태의 output은 persistence 전에 차단하며 검증된 evidence merge는 restart 뒤에도 idempotent하게 복구됩니다.
 
@@ -330,7 +332,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 Backend CPU/RSS/disk resource sampling은 `backend start`, `backend status`, `backend chat`, `monitor status`, read-only `tui monitor` resource-pressure panel에서 사용할 수 있습니다. 첫 runtime resource governor slice는 backend chat에 적용되어 있습니다. `team status`는 계속 read-only admission preview이며 현재 project의 최신 `team.*` runtime ledger event를 표시합니다. `team admit --lanes <count>`는 enforced team admission gate입니다. Normal pressure에서는 parallel lane을 허용하고, unknown/degraded pressure에서는 sequential lane 하나로 fallback하며, critical pressure에서는 worker launch가 생기기 전 단계에서 dispatch를 차단하고 decision을 ledger에 기록합니다. `team admit`은 반복 가능한 `--write <path>`, `--write-owner <lane:path>`, `--command <command>` preflight check도 받습니다. Policy가 `ask` 또는 `deny`를 반환하면 dispatch를 차단하고, 정규화된 같은 write path를 여러 lane이 소유하려 하면 worker launch 전에 차단합니다. Policy/ownership block은 `.rpotato/approval-requests/` 아래 project-local approval request를 기록하며, `rpotato tui approvals`는 directory scan 대신 대응하는 canonical ledger event와 active workflow-bound patch proposal만 표시합니다. `team dispatch --lanes <count> --write-owner <lane:path>`는 dispatch 시점에 정규화된 file ownership을 다시 검사하고 cross-lane conflict를 차단하며 ledger/SQLite projection에 결과를 기록합니다. `--failed-lane <lane> --failure <reason>`으로 failed-worker continuation도 기록할 수 있지만 worker를 시작하거나 team stage를 전진시키지는 않습니다. `team governor --lanes <count> --context-tokens <tokens>`는 첫 context/model governor preflight를 기록합니다. Admitted lane을 표시하고, 요청 context를 설정 budget과 현재 resource pressure에 맞춰 clamp하며, 실제 model capability를 주장하거나 artifact를 선택하지 않고 local model-tier route hint(`keep`, `downgrade`, `escalate`, `defer`)만 냅니다.
 
-`plugin import`는 local Codex/Claude Code형 plugin directory만 받습니다. Source를 app data 아래에 snapshot하고 normalized schema v2 manifest에 source manifest SHA-256과 source snapshot SHA-256을 기록하며, 보이는 capability와 required/blocked permission을 보고합니다. `plugin validate`와 `plugin enable`은 imported snapshot hash를 다시 확인하고 drift가 있으면 plugin을 `blocked`로 표시합니다. Import와 enable은 shell, MCP, hook, background, runtime-setting, remote-connector, sensitive-config, file-write 실행 권한을 그 자체로 부여하지 않습니다.
+`plugin import`는 local Codex/Claude Code형 plugin directory만 받습니다. Source를 app data 아래에 snapshot하고 normalized schema v2 manifest에 source manifest SHA-256과 source snapshot SHA-256을 기록하며, 보이는 capability와 required/blocked permission을 보고합니다. `plugin validate`와 `plugin enable`은 imported snapshot hash를 다시 확인하고 drift가 있으면 plugin을 `blocked`로 표시합니다. v0.37은 frontmatter와 instruction body가 유효하고 같은 skill directory에 permission-requiring capability가 없는 enable된 canonical Codex `SKILL.md`만 실행합니다. 매 실행은 source SHA-256에 binding된 plugin admission/completion을 기록하고 native read-only hook/skill/evidence/stop-gate 경로를 사용합니다. Import와 enable은 shell, script, MCP, app, hook, background, runtime-setting, remote-connector, sensitive-config, file-write 실행 권한을 그 자체로 부여하지 않습니다.
 
 ## 공개 저장소 운영
 

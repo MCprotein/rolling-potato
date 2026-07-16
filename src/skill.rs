@@ -14,6 +14,107 @@ pub struct SkillManifest {
     pub stop_criteria: &'static [&'static str],
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportedSkillManifest {
+    pub id: String,
+    pub display_name: String,
+    pub description: String,
+    pub instructions: String,
+    pub plugin_id: String,
+    pub source_path: String,
+    pub source_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResolvedSkillManifest {
+    Builtin(&'static SkillManifest),
+    Imported(ImportedSkillManifest),
+}
+
+const IMPORTED_SKILL_TOOLS: &[&str] = &["read_file"];
+const IMPORTED_SKILL_CONTEXT: &[&str] = &["repo_root"];
+const IMPORTED_SKILL_EVIDENCE: &[&str] = &["plugin_capability_admission"];
+const IMPORTED_SKILL_STOP: &[&str] = &["plugin_capability_completed", "korean_report_passed"];
+
+impl ResolvedSkillManifest {
+    pub fn id(&self) -> &str {
+        match self {
+            Self::Builtin(manifest) => manifest.id,
+            Self::Imported(manifest) => &manifest.id,
+        }
+    }
+
+    pub fn display_name(&self) -> &str {
+        match self {
+            Self::Builtin(manifest) => manifest.display_name,
+            Self::Imported(manifest) => &manifest.display_name,
+        }
+    }
+
+    pub fn description(&self) -> &str {
+        match self {
+            Self::Builtin(manifest) => manifest.description,
+            Self::Imported(manifest) => &manifest.description,
+        }
+    }
+
+    pub fn mode(&self) -> &'static str {
+        match self {
+            Self::Builtin(manifest) => manifest.mode,
+            Self::Imported(_) => "read-only",
+        }
+    }
+
+    pub fn required_hooks(&self) -> &'static [&'static str] {
+        match self {
+            Self::Builtin(manifest) => manifest.required_hooks,
+            Self::Imported(_) => READ_ONLY_HOOKS,
+        }
+    }
+
+    pub fn allowed_tools(&self) -> &'static [&'static str] {
+        match self {
+            Self::Builtin(manifest) => manifest.allowed_tools,
+            Self::Imported(_) => IMPORTED_SKILL_TOOLS,
+        }
+    }
+
+    pub fn context_requirements(&self) -> &'static [&'static str] {
+        match self {
+            Self::Builtin(manifest) => manifest.context_requirements,
+            Self::Imported(_) => IMPORTED_SKILL_CONTEXT,
+        }
+    }
+
+    pub fn evidence_requirements(&self) -> &'static [&'static str] {
+        match self {
+            Self::Builtin(manifest) => manifest.evidence_requirements,
+            Self::Imported(_) => IMPORTED_SKILL_EVIDENCE,
+        }
+    }
+
+    pub fn stop_criteria(&self) -> &'static [&'static str] {
+        match self {
+            Self::Builtin(manifest) => manifest.stop_criteria,
+            Self::Imported(_) => IMPORTED_SKILL_STOP,
+        }
+    }
+
+    pub fn instructions(&self) -> &str {
+        match self {
+            Self::Builtin(manifest) => manifest.description,
+            Self::Imported(manifest) => &manifest.instructions,
+        }
+    }
+
+    pub fn imported(&self) -> Option<&ImportedSkillManifest> {
+        match self {
+            Self::Builtin(_) => None,
+            Self::Imported(manifest) => Some(manifest),
+        }
+    }
+}
+
 pub const READ_ONLY_HOOKS: &[&str] = &[
     "session_start",
     "user_request_received",
@@ -110,19 +211,26 @@ pub struct SkillRuntimeState {
 }
 
 impl SkillRuntimeState {
+    #[cfg(test)]
     pub fn new(skill_id: &str, invocation: &str) -> Result<Self, AppError> {
-        if find_skill(skill_id).is_none() {
-            return Err(AppError::usage(format!(
-                "등록된 skill을 찾지 못했습니다: {skill_id}"
-            )));
-        }
+        let manifest = resolve_skill(skill_id)?.ok_or_else(|| {
+            AppError::usage(format!("등록된 skill을 찾지 못했습니다: {skill_id}"))
+        })?;
+        Self::new_resolved(&manifest, invocation)
+    }
+
+    pub fn new_resolved(
+        manifest: &ResolvedSkillManifest,
+        invocation: &str,
+    ) -> Result<Self, AppError> {
         if !matches!(invocation, "explicit" | "natural-language") {
             return Err(AppError::blocked(format!(
-                "skill invocation 차단\n- skill: {skill_id}\n- 이유: 알 수 없는 invocation source: {invocation}"
+                "skill invocation 차단\n- skill: {}\n- 이유: 알 수 없는 invocation source: {invocation}",
+                manifest.id()
             )));
         }
         Ok(Self {
-            active_skill_id: skill_id.to_string(),
+            active_skill_id: manifest.id().to_string(),
             invocation: invocation.to_string(),
             state: SkillState::Selected,
             completed_hooks: Vec::new(),
@@ -160,33 +268,58 @@ impl SkillRuntimeState {
     }
 
     pub fn validate_stop(&self) -> Result<(), AppError> {
-        let manifest = find_skill(&self.active_skill_id).ok_or_else(|| {
+        let manifest = resolve_skill(&self.active_skill_id)?.ok_or_else(|| {
             AppError::blocked(format!(
                 "skill stop gate 차단\n- skill: {}\n- 이유: manifest 없음",
                 self.active_skill_id
             ))
         })?;
+        self.validate_stop_against(&manifest)
+    }
+
+    pub fn validate_stop_against(&self, manifest: &ResolvedSkillManifest) -> Result<(), AppError> {
         validate_required(
-            manifest.id,
+            manifest.id(),
             "hook",
-            manifest.required_hooks,
+            manifest.required_hooks(),
             &self.completed_hooks,
         )?;
         validate_required(
-            manifest.id,
+            manifest.id(),
             "evidence",
-            manifest.evidence_requirements,
+            manifest.evidence_requirements(),
             &self.evidence,
         )?;
         validate_required(
-            manifest.id,
+            manifest.id(),
             "stop criterion",
-            manifest.stop_criteria,
+            manifest.stop_criteria(),
             &self.completed_stop_criteria,
         )
     }
 
     pub fn from_workflow(workflow: &state::WorkflowRecord) -> Result<Self, AppError> {
+        let manifest = resolve_skill(&workflow.active_skill_id)?.ok_or_else(|| {
+            AppError::blocked(format!(
+                "skill resume 차단\n- workflow: {}\n- 이유: skill manifest 없음: {}",
+                workflow.workflow_id, workflow.active_skill_id
+            ))
+        })?;
+        Self::from_workflow_against(workflow, &manifest)
+    }
+
+    pub fn from_workflow_against(
+        workflow: &state::WorkflowRecord,
+        manifest: &ResolvedSkillManifest,
+    ) -> Result<Self, AppError> {
+        if workflow.active_skill_id != manifest.id() {
+            return Err(AppError::blocked(format!(
+                "skill resume 차단\n- workflow: {}\n- stored skill: {}\n- resolved skill: {}",
+                workflow.workflow_id,
+                workflow.active_skill_id,
+                manifest.id()
+            )));
+        }
         let state = SkillState::parse(&workflow.skill_state).ok_or_else(|| {
             AppError::blocked(format!(
                 "skill resume 차단\n- workflow: {}\n- skill: {}\n- state: {}",
@@ -201,10 +334,10 @@ impl SkillRuntimeState {
             evidence: split_labels(&workflow.skill_evidence),
             completed_stop_criteria: split_labels(&workflow.skill_stop_criteria),
         };
-        if find_skill(&runtime.active_skill_id).is_none() {
+        if !matches!(runtime.invocation.as_str(), "explicit" | "natural-language") {
             return Err(AppError::blocked(format!(
-                "skill resume 차단\n- workflow: {}\n- 이유: built-in skill manifest 없음: {}",
-                workflow.workflow_id, runtime.active_skill_id
+                "skill resume 차단\n- workflow: {}\n- 이유: 알 수 없는 invocation source: {}",
+                workflow.workflow_id, runtime.invocation
             )));
         }
         Ok(runtime)
@@ -342,7 +475,7 @@ pub const BUILTIN_SKILLS: &[SkillManifest] = &[
 ];
 
 pub fn list_report() -> String {
-    let skills = BUILTIN_SKILLS
+    let mut skills = BUILTIN_SKILLS
         .iter()
         .map(|skill| {
             format!(
@@ -350,13 +483,15 @@ pub fn list_report() -> String {
                 skill.id, skill.display_name, skill.mode, skill.description
             )
         })
-        .collect::<Vec<_>>()
-        .join("\n");
+        .collect::<Vec<_>>();
+    let imported = crate::plugin::enabled_codex_skill_rows();
+    skills.extend(imported.iter().cloned());
 
     format!(
-        "skill registry\n- native skills: {}\n- imported skill namespace: imported.<plugin>.<skill>\n- 실행 경계: skill은 tool을 직접 실행하지 않고 runtime policy/evidence gate를 통과해야 합니다.\n{}",
+        "skill registry\n- native skills: {}\n- enabled imported Codex skills: {}\n- imported skill namespace: imported.codex.<plugin>.<skill>\n- 실행 경계: imported skill은 실행 시 source snapshot과 SKILL.md를 다시 검증하고 runtime policy/evidence gate를 통과해야 합니다.\n{}",
         BUILTIN_SKILLS.len(),
-        skills
+        imported.len(),
+        skills.join("\n")
     )
 }
 
@@ -364,11 +499,22 @@ pub fn find_skill(id: &str) -> Option<&'static SkillManifest> {
     BUILTIN_SKILLS.iter().find(|skill| skill.id == id)
 }
 
-pub fn enforce_context(skill: &SkillManifest, available: &[&str]) -> Result<(), AppError> {
+pub fn resolve_skill(id: &str) -> Result<Option<ResolvedSkillManifest>, AppError> {
+    if let Some(manifest) = find_skill(id) {
+        return Ok(Some(ResolvedSkillManifest::Builtin(manifest)));
+    }
+    crate::plugin::resolve_imported_codex_skill(id)
+        .map(|manifest| manifest.map(ResolvedSkillManifest::Imported))
+}
+
+pub fn enforce_resolved_context(
+    skill: &ResolvedSkillManifest,
+    available: &[&str],
+) -> Result<(), AppError> {
     validate_required(
-        skill.id,
+        skill.id(),
         "context",
-        skill.context_requirements,
+        skill.context_requirements(),
         &available
             .iter()
             .map(|value| value.to_string())
@@ -376,15 +522,15 @@ pub fn enforce_context(skill: &SkillManifest, available: &[&str]) -> Result<(), 
     )
 }
 
-pub fn enforce_tool(skill: &SkillManifest, tool: &str) -> Result<(), AppError> {
-    if skill.allowed_tools.contains(&tool) {
+pub fn enforce_resolved_tool(skill: &ResolvedSkillManifest, tool: &str) -> Result<(), AppError> {
+    if skill.allowed_tools().contains(&tool) {
         return Ok(());
     }
     Err(AppError::blocked(format!(
         "skill tool policy 차단\n- skill: {}\n- tool: {}\n- allowed: {}",
-        skill.id,
+        skill.id(),
         tool,
-        skill.allowed_tools.join(",")
+        skill.allowed_tools().join(",")
     )))
 }
 
@@ -468,7 +614,7 @@ mod tests {
     #[test]
     fn list_includes_import_namespace_rule() {
         let report = list_report();
-        assert!(report.contains("imported.<plugin>.<skill>"));
+        assert!(report.contains("imported.codex.<plugin>.<skill>"));
     }
 
     #[test]
@@ -491,16 +637,16 @@ mod tests {
 
     #[test]
     fn missing_context_fails_closed() {
-        let skill = find_skill("small-patch").unwrap();
-        let error = enforce_context(skill, &["target_file"]).unwrap_err();
+        let skill = ResolvedSkillManifest::Builtin(find_skill("small-patch").unwrap());
+        let error = enforce_resolved_context(&skill, &["target_file"]).unwrap_err();
 
         assert!(error.message.contains("acceptance_criteria"));
     }
 
     #[test]
     fn tool_outside_manifest_is_denied() {
-        let skill = find_skill("model-artifact-audit").unwrap();
-        let error = enforce_tool(skill, "run_command").unwrap_err();
+        let skill = ResolvedSkillManifest::Builtin(find_skill("model-artifact-audit").unwrap());
+        let error = enforce_resolved_tool(&skill, "run_command").unwrap_err();
 
         assert!(error.message.contains("tool policy 차단"));
     }
