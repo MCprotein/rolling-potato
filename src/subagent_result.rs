@@ -194,6 +194,16 @@ pub fn verify_completed_artifacts(record: &SubagentRecordV1) -> Result<(), AppEr
     Ok(())
 }
 
+pub fn load_completed_result(record: &SubagentRecordV1) -> Result<SubagentResultV1, AppError> {
+    verify_completed_artifacts(record)?;
+    let body = state::read_regular_file_bounded(
+        &paths::project_subagent_result_file(&record.result_artifact_id),
+        MAX_RESULT_BYTES as u64,
+        "subagent completed result artifact",
+    )?;
+    parse_result_shape(record, &body)
+}
+
 fn parse_result(
     record: &SubagentRecordV1,
     context: &ContextPack,

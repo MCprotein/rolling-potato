@@ -612,15 +612,29 @@ fn validate_member_set(members: &[TeamMemberV1]) -> Result<(), AppError> {
             return Err(AppError::blocked("team member id 중복 차단"));
         }
         for path in &member.write_paths {
-            if let Some(owner) = ownership.insert(path.clone(), member.lane) {
+            if let Some((owned_path, owner)) = ownership
+                .iter()
+                .find(|(owned_path, _)| ownership_paths_overlap(owned_path, path))
+            {
                 return Err(AppError::blocked(format!(
-                    "team manifest cross-lane ownership 충돌\n- path: {path}\n- lanes: {owner}, {}",
+                    "team manifest cross-lane ownership 충돌\n- paths: {owned_path}, {path}\n- lanes: {owner}, {}",
                     member.lane
                 )));
             }
+            ownership.insert(path.clone(), member.lane);
         }
     }
     Ok(())
+}
+
+fn ownership_paths_overlap(left: &str, right: &str) -> bool {
+    left == right
+        || left
+            .strip_prefix(right)
+            .is_some_and(|suffix| suffix.starts_with('/'))
+        || right
+            .strip_prefix(left)
+            .is_some_and(|suffix| suffix.starts_with('/'))
 }
 
 fn install_manifest(manifest: &TeamManifestV1) -> Result<(), AppError> {
@@ -1058,6 +1072,16 @@ mod tests {
 
         let conflict = manifest(&parent, true);
         assert!(parse_manifest(&conflict)
+            .unwrap_err()
+            .message
+            .contains("ownership 충돌"));
+
+        let ancestor_conflict = conflict.replacen(
+            "\"write_paths\":[\"src/main.rs\"]",
+            "\"write_paths\":[\"src\"]",
+            1,
+        );
+        assert!(parse_manifest(&ancestor_conflict)
             .unwrap_err()
             .message
             .contains("ownership 충돌"));
