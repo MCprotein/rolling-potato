@@ -1739,7 +1739,7 @@ fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
 
 #[test]
 fn v03713_tui_bridge_owns_read_and_selection_dtos() {
-    let owner = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
+    let bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
     for definition in [
         "struct TuiReadBudget",
         "enum TuiReadRequest",
@@ -1748,18 +1748,28 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "enum TuiFreshness",
         "enum TuiIntent",
         "struct OneShotSecret",
+    ] {
+        assert!(
+            bridge.contains(definition),
+            "TUI runtime bridge is missing {definition}"
+        );
+    }
+
+    let outcome = fs::read_to_string("src/surfaces/tui/outcome.rs").unwrap();
+    for definition in [
         "enum TuiOutcomeCode",
         "struct TuiOutcome",
         "fn exact_tui_outcome",
         "fn validate_tui_id",
     ] {
         assert!(
-            owner.contains(definition),
-            "TUI bridge is missing {definition}"
+            outcome.contains(definition),
+            "TUI outcome owner is missing {definition}"
         );
     }
 
     let runtime = fs::read_to_string("src/runtime.rs").unwrap();
+    assert!(runtime.contains("surfaces::tui::outcome"));
     assert!(runtime.contains("surfaces::tui::runtime_bridge"));
     assert!(!runtime.contains("pub struct TuiReadBudget"));
     assert!(!runtime.contains("pub struct SelectionLease"));

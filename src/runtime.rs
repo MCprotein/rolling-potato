@@ -2,11 +2,13 @@ use crate::adapters::filesystem::{cache, layout as paths};
 use crate::foundation::error::AppError;
 use crate::runtime_core::reporting::runtime_report::{self, DoctorReport, InitReport};
 use crate::runtime_core::workflow::application::runner::{self, RuntimeApplicationPort};
+pub(crate) use crate::surfaces::tui::outcome::{
+    exact_tui_outcome, validate_tui_id, verification_credential_issued, TuiEffect, TuiOutcome,
+    TuiOutcomeCode, TuiOutcomeContext,
+};
 pub(crate) use crate::surfaces::tui::runtime_bridge::{
-    exact_tui_outcome, validate_tui_id, verification_credential_issued, ObservedWorkflow,
-    OneShotSecret, SelectionLease, TuiEffect, TuiFreshness, TuiGateKind, TuiIntent, TuiOutcome,
-    TuiOutcomeCode, TuiOutcomeContext, TuiReadAuthority, TuiReadBudget, TuiReadContinuation,
-    TuiReadPage, TuiReadRequest,
+    ObservedWorkflow, OneShotSecret, SelectionLease, TuiFreshness, TuiGateKind, TuiIntent,
+    TuiReadAuthority, TuiReadBudget, TuiReadContinuation, TuiReadPage, TuiReadRequest,
 };
 use crate::{
     backend, context, evidence, intent, ledger, model, observability, ontology, patch, state,
@@ -1202,7 +1204,7 @@ pub fn doctor_report() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::surfaces::tui::runtime_bridge::{TuiNextAction, TuiOutcomeStatus};
+    use crate::surfaces::tui::outcome::{TuiNextAction, TuiOutcomeStatus};
 
     fn snapshot_tree(root: &std::path::Path) -> BTreeMap<String, Vec<u8>> {
         fn visit(
@@ -2087,7 +2089,7 @@ mod tests {
 
     #[test]
     fn tui_outcome_public_dto_and_exact_fixtures_share_field_order() {
-        let source = include_str!("surfaces/tui/runtime_bridge.rs");
+        let source = include_str!("surfaces/tui/outcome.rs");
         let start = source.find("pub(crate) struct TuiOutcome {").unwrap();
         let end = source[start..].find("\n}").unwrap() + start;
         let definition = &source[start..end];

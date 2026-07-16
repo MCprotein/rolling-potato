@@ -30,7 +30,7 @@ use crate::runtime_core::patch::verification::{
 };
 use crate::state;
 #[cfg(test)]
-use crate::surfaces::tui::runtime_bridge::TuiOutcomeStatus;
+use crate::surfaces::tui::outcome::TuiOutcomeStatus;
 
 pub use crate::runtime_core::patch::proposal::{
     PatchProposalDetail, PatchProposalSummary, WorkflowProposal,

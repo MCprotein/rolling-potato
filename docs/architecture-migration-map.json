@@ -3344,10 +3344,25 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/outcome.rs",
+      "slices": [
+        {
+          "responsibility": "TUI exact outcome contracts and validation",
+          "target": "src/surfaces/tui/outcome.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/outcome.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/tui/runtime_bridge.rs",
       "slices": [
         {
-          "responsibility": "TUI interaction and outcome contracts with exact result oracle",
+          "responsibility": "TUI read, selection, and intent contracts with one-shot secret",
           "target": "src/surfaces/tui/runtime_bridge.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -5153,9 +5168,15 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/outcome.rs",
+      "responsibilities": [
+        "TUI exact outcome contracts and validation"
+      ]
+    },
+    {
       "path": "src/surfaces/tui/runtime_bridge.rs",
       "responsibilities": [
-        "TUI interaction and outcome contracts with exact result oracle"
+        "TUI read, selection, and intent contracts with one-shot secret"
       ]
     },
     {
