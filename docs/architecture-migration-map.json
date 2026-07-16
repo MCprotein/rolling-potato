@@ -1714,7 +1714,7 @@
       "path": "src/adapters/llama_cpp/backend.rs",
       "slices": [
         {
-          "responsibility": "llama.cpp discovery, health, and request protocol",
+          "responsibility": "llama.cpp discovery, health, version probe, and request protocol",
           "target": "src/adapters/llama_cpp/backend.rs",
           "release": "0.37.3",
           "state": "complete",
@@ -3618,7 +3618,7 @@
     {
       "path": "src/adapters/llama_cpp/backend.rs",
       "responsibilities": [
-        "llama.cpp discovery, health, and request protocol"
+        "llama.cpp discovery, health, version probe, and request protocol"
       ]
     },
     {
