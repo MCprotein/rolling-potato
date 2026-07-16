@@ -1737,6 +1737,21 @@ fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
     assert!(main.contains("mod test_support;"));
 }
 
+#[test]
+fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
+    for name in [
+        "fake_sidecar.rs",
+        "native_terminal.rs",
+        "native_terminal_probe.rs",
+    ] {
+        assert!(!Path::new(&format!("tests/support/{name}")).exists());
+        assert!(Path::new(&format!("tests/support/platform/{name}")).is_file());
+    }
+
+    let harness = fs::read_to_string("tests/platform.rs").unwrap();
+    assert!(harness.contains("support/platform/native_terminal.rs"));
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

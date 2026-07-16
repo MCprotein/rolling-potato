@@ -185,7 +185,8 @@ impl Fixture {
         } else {
             "fake-sidecar"
         });
-        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/fake_sidecar.rs");
+        let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/support/platform/fake_sidecar.rs");
         let compile = Command::new("rustc")
             .arg("--edition=2021")
             .arg(source)

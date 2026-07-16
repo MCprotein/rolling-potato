@@ -82,8 +82,8 @@ impl NativeTerminalFixture {
         } else {
             "fake-sidecar"
         });
-        let fake_sidecar =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/fake_sidecar.rs");
+        let fake_sidecar = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/support/platform/fake_sidecar.rs");
         let compile = Command::new("rustc")
             .arg("--edition=2021")
             .arg(fake_sidecar)
@@ -1305,7 +1305,7 @@ mod windows {
         ));
         let binary = stem.with_extension("exe");
         let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/support/native_terminal_probe.rs");
+            .join("tests/support/platform/native_terminal_probe.rs");
         let output = Command::new("rustc")
             .arg("--edition=2021")
             .arg(&source)

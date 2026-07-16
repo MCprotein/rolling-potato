@@ -3721,38 +3721,47 @@
       ]
     },
     {
-      "path": "tests/support/fake_sidecar.rs",
+      "path": "tests/support/platform/fake_sidecar.rs",
       "slices": [
         {
           "responsibility": "cross-crate integration fixture",
           "target": "tests/support/platform/fake_sidecar.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/fake_sidecar.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
     {
-      "path": "tests/support/native_terminal.rs",
+      "path": "tests/support/platform/native_terminal.rs",
       "slices": [
         {
           "responsibility": "cross-crate integration fixture",
           "target": "tests/support/platform/native_terminal.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
     {
-      "path": "tests/support/native_terminal_probe.rs",
+      "path": "tests/support/platform/native_terminal_probe.rs",
       "slices": [
         {
           "responsibility": "cross-crate integration fixture",
           "target": "tests/support/platform/native_terminal_probe.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal_probe.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -5266,19 +5275,19 @@
       ]
     },
     {
-      "path": "tests/support/fake_sidecar.rs",
+      "path": "tests/support/platform/fake_sidecar.rs",
       "responsibilities": [
         "cross-crate integration fixture"
       ]
     },
     {
-      "path": "tests/support/native_terminal.rs",
+      "path": "tests/support/platform/native_terminal.rs",
       "responsibilities": [
         "cross-crate integration fixture"
       ]
     },
     {
-      "path": "tests/support/native_terminal_probe.rs",
+      "path": "tests/support/platform/native_terminal_probe.rs",
       "responsibilities": [
         "cross-crate integration fixture"
       ]
