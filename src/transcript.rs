@@ -244,9 +244,16 @@ pub(crate) fn install_prepared_no_stream_tool_turn(
             prepared.transcript_path.with_extension("checkpoint.lock"),
             "transcript checkpoint",
         )?;
-        install_exact_artifact(&prepared.transcript_path, &prepared.transcript_bytes)?;
+        let installed_bytes = transcript_codec::install_record(
+            &prepared.transcript_path,
+            &prepared.record,
+            state::atomic_replace_bytes,
+        )?;
         let record = load_record_path(&prepared.transcript_path)?;
-        if record != prepared.record || record.to_json() != prepared.transcript_bytes {
+        if installed_bytes != prepared.transcript_bytes
+            || record != prepared.record
+            || record.to_json() != prepared.transcript_bytes
+        {
             return Err(AppError::blocked(
                 "prepared TranscriptRecord installed bytes 불일치",
             ));
@@ -467,13 +474,7 @@ pub fn record_workflow_turn_with_streams(
             };
             validate_tool_binding_for_record(&record)?;
             record.artifact_hash = state::sha256_text(&record.artifact_payload());
-            let bytes = record.to_json();
-            if bytes.len() > 128 * 1024 {
-                return Err(AppError::blocked(
-                    "TranscriptRecord v2 canonical byte limit 초과",
-                ));
-            }
-            state::atomic_replace_bytes(&path, bytes.as_bytes())?;
+            transcript_codec::install_record(&path, &record, state::atomic_replace_bytes)?;
             record
         }
     };

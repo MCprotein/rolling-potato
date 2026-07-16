@@ -1,5 +1,6 @@
 //! Canonical transcript DTOs, codecs, and durable record ownership.
 
+use std::fs;
 use std::path::{Component, Path};
 
 use sha2::{Digest, Sha256};
@@ -220,6 +221,35 @@ pub(crate) fn parse_record(body: &str) -> Result<TranscriptRecord, AppError> {
     }
     record.artifact_hash = expected_artifact_hash;
     Ok(record)
+}
+
+pub(crate) fn install_record(
+    path: &Path,
+    record: &TranscriptRecord,
+    atomic_replace: impl FnOnce(&Path, &[u8]) -> Result<(), AppError>,
+) -> Result<String, AppError> {
+    let bytes = record.to_json();
+    if bytes.len() > 128 * 1024 {
+        return Err(AppError::blocked(
+            "TranscriptRecord v2 canonical byte limit 초과",
+        ));
+    }
+    if parse_record(&bytes)? != *record {
+        return Err(AppError::blocked(
+            "TranscriptRecord canonical codec round-trip 불일치",
+        ));
+    }
+    if path.exists() {
+        let existing = fs::read_to_string(path).map_err(|err| {
+            AppError::blocked(format!("TranscriptRecord canonical reread 실패: {err}"))
+        })?;
+        if existing == bytes {
+            return Ok(bytes);
+        }
+        return Err(AppError::blocked("TranscriptRecord immutable conflict"));
+    }
+    atomic_replace(path, bytes.as_bytes())?;
+    Ok(bytes)
 }
 
 fn parse_v1(body: &str) -> Result<TranscriptRecord, AppError> {
