@@ -265,6 +265,10 @@ pub fn project_subagent_lock(subagent_id: &str) -> PathBuf {
     project_subagents_dir().join(format!("{subagent_id}.lock"))
 }
 
+pub fn project_subagent_parent_lock(workflow_id: &str) -> PathBuf {
+    project_subagents_dir().join(format!("parent-{workflow_id}.lock"))
+}
+
 pub fn project_approval_requests_dir() -> PathBuf {
     project_state_dir().join("approval-requests")
 }

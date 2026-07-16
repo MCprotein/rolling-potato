@@ -23,6 +23,9 @@ rpotato
   rpotato team admit --lanes <count> [--write <path>] [--write-owner <lane:path>] [--command <command>]
   rpotato team dispatch --lanes <count> --write-owner <lane:path> [--failed-lane <lane>] [--failure <reason>]
   rpotato team governor --lanes <count> --context-tokens <tokens> [--context-limit <tokens>] [--model-tier small|standard|large]
+  rpotato subagent launch --role <role> --task <text> --tool <tool> --read <path> [--tool <tool>] [--read <path>] [--write <path>] [--timeout-ms <ms>] [--max-tokens <tokens>]
+  rpotato subagent status [subagent-id]
+  rpotato subagent cancel <subagent-id>
   rpotato resume [session-id]
   rpotato continue [session-id]
   rpotato tui
@@ -132,6 +135,7 @@ pub enum Command {
     State(StateCommand),
     Session(SessionCommand),
     Team(TeamCommand),
+    Subagent(SubagentCommand),
     Tui(TuiCommand),
     Cancel,
     Evidence(EvidenceCommand),
@@ -231,6 +235,25 @@ pub enum TeamCommand {
         context_tokens: u32,
         context_limit: Option<u32>,
         model_tier: resource::ModelTier,
+    },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum SubagentCommand {
+    Launch {
+        role: String,
+        task: String,
+        tools: Vec<String>,
+        read_paths: Vec<String>,
+        write_paths: Vec<String>,
+        timeout_ms: Option<u32>,
+        max_tokens: Option<u32>,
+    },
+    Status {
+        id: Option<String>,
+    },
+    Cancel {
+        id: String,
     },
 }
 
@@ -484,6 +507,29 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, ..] if group == "team" => {
             Err(AppError::usage("team 명령은 status, admit, dispatch, governor만 허용합니다."))
         }
+        [group, action, rest @ ..] if group == "subagent" && action == "launch" => {
+            parse_subagent_launch_args(rest).map(Command::Subagent)
+        }
+        [group, action] if group == "subagent" && action == "status" => {
+            Ok(Command::Subagent(SubagentCommand::Status { id: None }))
+        }
+        [group, action, id] if group == "subagent" && action == "status" => {
+            Ok(Command::Subagent(SubagentCommand::Status {
+                id: Some(id.clone()),
+            }))
+        }
+        [group, action, id] if group == "subagent" && action == "cancel" => {
+            Ok(Command::Subagent(SubagentCommand::Cancel { id: id.clone() }))
+        }
+        [group, action, ..] if group == "subagent" && action == "status" => Err(
+            AppError::usage("subagent status는 선택적인 subagent id 하나만 허용합니다."),
+        ),
+        [group, action, ..] if group == "subagent" && action == "cancel" => Err(
+            AppError::usage("subagent cancel에는 subagent id 하나가 필요합니다."),
+        ),
+        [group, ..] if group == "subagent" => Err(AppError::usage(
+            "subagent 명령은 launch, status, cancel만 허용합니다.",
+        )),
         [arg] if arg == "tui" => Ok(Command::Tui(TuiCommand::Auto)),
         [group, action] if group == "tui" && action == "interactive" => {
             Ok(Command::Tui(TuiCommand::Interactive))
@@ -996,6 +1042,107 @@ fn parse_team_admit_args(args: &[String]) -> Result<TeamCommand, AppError> {
         owned_write_paths,
         commands,
     })
+}
+
+fn parse_subagent_launch_args(args: &[String]) -> Result<SubagentCommand, AppError> {
+    let mut role = None;
+    let mut task = None;
+    let mut tools = Vec::new();
+    let mut read_paths = Vec::new();
+    let mut write_paths = Vec::new();
+    let mut timeout_ms = None;
+    let mut max_tokens = None;
+    let mut index = 0;
+
+    while index < args.len() {
+        let flag = args[index].as_str();
+        let Some(value) = args.get(index + 1) else {
+            return Err(AppError::usage(format!(
+                "subagent launch의 {flag} 옵션에는 값이 필요합니다."
+            )));
+        };
+        if value.starts_with("--") {
+            return Err(AppError::usage(format!(
+                "subagent launch의 {flag} 옵션에는 값이 필요합니다."
+            )));
+        }
+        match flag {
+            "--role" => set_subagent_single_value(&mut role, value, flag)?,
+            "--task" => set_subagent_single_value(&mut task, value, flag)?,
+            "--tool" => tools.push(value.clone()),
+            "--read" => read_paths.push(value.clone()),
+            "--write" => write_paths.push(value.clone()),
+            "--timeout-ms" => {
+                if timeout_ms.is_some() {
+                    return Err(AppError::usage(
+                        "subagent launch의 --timeout-ms 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                timeout_ms = Some(parse_subagent_u32(value, "--timeout-ms")?);
+            }
+            "--max-tokens" => {
+                if max_tokens.is_some() {
+                    return Err(AppError::usage(
+                        "subagent launch의 --max-tokens 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                max_tokens = Some(parse_subagent_u32(value, "--max-tokens")?);
+            }
+            unknown => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 subagent launch 옵션입니다: {unknown}"
+                )));
+            }
+        }
+        index += 2;
+    }
+
+    let role =
+        role.ok_or_else(|| AppError::usage("subagent launch에는 --role <role> 값이 필요합니다."))?;
+    let task =
+        task.ok_or_else(|| AppError::usage("subagent launch에는 --task <text> 값이 필요합니다."))?;
+    if tools.is_empty() || read_paths.is_empty() {
+        return Err(AppError::usage(
+            "subagent launch에는 최소 하나의 --tool <tool>과 --read <path>가 필요합니다.",
+        ));
+    }
+    Ok(SubagentCommand::Launch {
+        role,
+        task,
+        tools,
+        read_paths,
+        write_paths,
+        timeout_ms,
+        max_tokens,
+    })
+}
+
+fn set_subagent_single_value(
+    slot: &mut Option<String>,
+    value: &str,
+    flag: &str,
+) -> Result<(), AppError> {
+    if slot.is_some() {
+        return Err(AppError::usage(format!(
+            "subagent launch의 {flag} 옵션은 한 번만 지정할 수 있습니다."
+        )));
+    }
+    *slot = Some(value.to_string());
+    Ok(())
+}
+
+fn parse_subagent_u32(value: &str, flag: &str) -> Result<u32, AppError> {
+    let parsed = value.parse::<u32>().map_err(|_| {
+        AppError::usage(format!(
+            "subagent launch의 {flag} 값은 양의 정수여야 합니다."
+        ))
+    })?;
+    if parsed == 0 {
+        return Err(AppError::usage(format!(
+            "subagent launch의 {flag} 값은 1 이상이어야 합니다."
+        )));
+    }
+    Ok(parsed)
 }
 
 fn parse_team_dispatch_args(args: &[String]) -> Result<TeamCommand, AppError> {
@@ -1842,6 +1989,87 @@ fn parse_plugin_import(args: &[String]) -> Result<PluginCommand, AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_subagent_launch_status_and_cancel() {
+        let command = parse([
+            "subagent".to_string(),
+            "launch".to_string(),
+            "--role".to_string(),
+            "executor".to_string(),
+            "--task".to_string(),
+            "bounded change".to_string(),
+            "--tool".to_string(),
+            "read_file".to_string(),
+            "--tool".to_string(),
+            "render_diff".to_string(),
+            "--read".to_string(),
+            "src/main.rs".to_string(),
+            "--write".to_string(),
+            "src/main.rs".to_string(),
+            "--timeout-ms".to_string(),
+            "1000".to_string(),
+            "--max-tokens".to_string(),
+            "128".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Subagent(SubagentCommand::Launch {
+                role: "executor".to_string(),
+                task: "bounded change".to_string(),
+                tools: vec!["read_file".to_string(), "render_diff".to_string()],
+                read_paths: vec!["src/main.rs".to_string()],
+                write_paths: vec!["src/main.rs".to_string()],
+                timeout_ms: Some(1000),
+                max_tokens: Some(128),
+            })
+        );
+        assert_eq!(
+            parse(["subagent".to_string(), "status".to_string()]).unwrap(),
+            Command::Subagent(SubagentCommand::Status { id: None })
+        );
+        assert_eq!(
+            parse([
+                "subagent".to_string(),
+                "cancel".to_string(),
+                "subagent-example".to_string(),
+            ])
+            .unwrap(),
+            Command::Subagent(SubagentCommand::Cancel {
+                id: "subagent-example".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn subagent_launch_rejects_missing_and_duplicate_singleton_options() {
+        let missing = parse([
+            "subagent".to_string(),
+            "launch".to_string(),
+            "--role".to_string(),
+            "explore".to_string(),
+        ])
+        .unwrap_err();
+        assert!(missing.message.contains("--task"));
+
+        let duplicate = parse([
+            "subagent".to_string(),
+            "launch".to_string(),
+            "--role".to_string(),
+            "explore".to_string(),
+            "--role".to_string(),
+            "planner".to_string(),
+            "--task".to_string(),
+            "task".to_string(),
+            "--tool".to_string(),
+            "read_file".to_string(),
+            "--read".to_string(),
+            "src/main.rs".to_string(),
+        ])
+        .unwrap_err();
+        assert!(duplicate.message.contains("한 번만"));
+    }
 
     #[test]
     fn parses_ontology_context_query() {
