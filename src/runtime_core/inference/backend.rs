@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+pub(crate) mod lifecycle;
+
 pub(crate) const MAX_CHAT_TIMEOUT_MS: u32 = 300_000;
 
 pub(crate) trait BackendAdapter {

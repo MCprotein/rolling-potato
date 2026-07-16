@@ -15,6 +15,11 @@ use crate::adapters::llama_cpp::stream as backend_stream;
 use crate::adapters::process::backend as backend_process;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
+use crate::runtime_core::inference::backend::lifecycle::{
+    parse_generation_record, parse_sidecar_record, record_value, render_generation_record,
+    render_sidecar_record, BackendGenerationRecord, BackendGenerationTerminalRecord,
+    BackendSidecarRecord,
+};
 use crate::runtime_core::inference::backend::BackendAdapter;
 use crate::runtime_core::inference::backend::{
     BackendChatRun, BackendChatSampling, MAX_CHAT_TIMEOUT_MS,
@@ -80,43 +85,6 @@ struct BackendVersionProbe {
     exit_code: Option<i32>,
     output: Option<String>,
     error: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct BackendSidecarRecord {
-    backend_id: String,
-    pid: u32,
-    binary_path: PathBuf,
-    model_path: PathBuf,
-    model_sha256: String,
-    model_size_bytes: u64,
-    backend_release: String,
-    binary_sha256: String,
-    mmproj: String,
-    host: String,
-    port: u16,
-    ctx_size: Option<u32>,
-    stdout_log: PathBuf,
-    stderr_log: PathBuf,
-    started_at_ms: u128,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct BackendGenerationRecord {
-    generation_id: String,
-    client_pid: u32,
-    sidecar_pid: u32,
-    started_at_ms: u128,
-    timeout_ms: u32,
-    streaming_display: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct BackendGenerationTerminalRecord {
-    generation_id: String,
-    outcome: String,
-    lifecycle_event: String,
-    recorded_at_ms: u128,
 }
 
 struct GenerationTerminalContext {
@@ -1648,7 +1616,7 @@ fn acquire_backend_generation_lock(record: &BackendGenerationRecord) -> Result<(
             ))
         })?;
     if let Err(err) = file
-        .write_all(render_backend_generation_record(record).as_bytes())
+        .write_all(render_generation_record(record).as_bytes())
         .and_then(|_| file.sync_all())
     {
         drop(file);
@@ -1663,20 +1631,8 @@ fn acquire_backend_generation_lock(record: &BackendGenerationRecord) -> Result<(
 
 fn write_backend_generation_record(record: &BackendGenerationRecord) -> Result<(), AppError> {
     let path = backend_generation_record_path();
-    let contents = render_backend_generation_record(record);
+    let contents = render_generation_record(record);
     state::atomic_replace_bytes(&path, contents.as_bytes())
-}
-
-fn render_backend_generation_record(record: &BackendGenerationRecord) -> String {
-    format!(
-        "generation_id={}\nclient_pid={}\nsidecar_pid={}\nstarted_at_ms={}\ntimeout_ms={}\nstreaming_display={}\n",
-        record.generation_id,
-        record.client_pid,
-        record.sidecar_pid,
-        record.started_at_ms,
-        record.timeout_ms,
-        record.streaming_display
-    )
 }
 
 fn read_backend_generation_record() -> Result<Option<BackendGenerationRecord>, AppError> {
@@ -1690,14 +1646,12 @@ fn read_backend_generation_record() -> Result<Option<BackendGenerationRecord>, A
             path.display()
         ))
     })?;
-    parse_backend_generation_record(&contents)
-        .map(Some)
-        .ok_or_else(|| {
-            AppError::blocked(format!(
-                "backend generation record 형식이 유효하지 않습니다: {}",
-                path.display()
-            ))
-        })
+    parse_generation_record(&contents).map(Some).ok_or_else(|| {
+        AppError::blocked(format!(
+            "backend generation record 형식이 유효하지 않습니다: {}",
+            path.display()
+        ))
+    })
 }
 
 fn read_backend_generation_lock_record() -> Result<Option<BackendGenerationRecord>, AppError> {
@@ -1711,31 +1665,11 @@ fn read_backend_generation_lock_record() -> Result<Option<BackendGenerationRecor
             path.display()
         ))
     })?;
-    parse_backend_generation_record(&contents)
-        .map(Some)
-        .ok_or_else(|| {
-            AppError::blocked(format!(
-                "backend generation lock 형식이 유효하지 않습니다: {}",
-                path.display()
-            ))
-        })
-}
-
-fn parse_backend_generation_record(contents: &str) -> Option<BackendGenerationRecord> {
-    Some(BackendGenerationRecord {
-        generation_id: record_value(contents, "generation_id")?.to_string(),
-        client_pid: record_value(contents, "client_pid")?.parse().ok()?,
-        sidecar_pid: record_value(contents, "sidecar_pid")?.parse().ok()?,
-        started_at_ms: record_value(contents, "started_at_ms")?.parse().ok()?,
-        timeout_ms: record_value(contents, "timeout_ms")?.parse().ok()?,
-        streaming_display: record_value(contents, "streaming_display")?.parse().ok()?,
-    })
-}
-
-fn record_value<'a>(contents: &'a str, key: &str) -> Option<&'a str> {
-    contents.lines().find_map(|line| {
-        let (candidate, value) = line.split_once('=')?;
-        (candidate == key).then_some(value)
+    parse_generation_record(&contents).map(Some).ok_or_else(|| {
+        AppError::blocked(format!(
+            "backend generation lock 형식이 유효하지 않습니다: {}",
+            path.display()
+        ))
     })
 }
 
@@ -2261,27 +2195,7 @@ fn write_backend_sidecar_record(record: &BackendSidecarRecord) -> Result<(), App
         ))
     })?;
 
-    let contents = format!(
-        "backend_id={}\npid={}\nbinary_path={}\nmodel_path={}\nmodel_sha256={}\nmodel_size_bytes={}\nbackend_release={}\nbinary_sha256={}\nmmproj={}\nhost={}\nport={}\nctx_size={}\nstdout_log={}\nstderr_log={}\nstarted_at_ms={}\n",
-        record.backend_id,
-        record.pid,
-        record.binary_path.display(),
-        record.model_path.display(),
-        record.model_sha256,
-        record.model_size_bytes,
-        record.backend_release,
-        record.binary_sha256,
-        record.mmproj,
-        record.host,
-        record.port,
-        record
-            .ctx_size
-            .map(|value| value.to_string())
-            .unwrap_or_default(),
-        record.stdout_log.display(),
-        record.stderr_log.display(),
-        record.started_at_ms
-    );
+    let contents = render_sidecar_record(record);
     fs::write(&path, contents).map_err(|err| {
         AppError::runtime(format!(
             "backend sidecar record를 쓰지 못했습니다: {} ({err})",
@@ -2301,81 +2215,11 @@ fn read_backend_sidecar_record() -> Result<Option<BackendSidecarRecord>, AppErro
             path.display()
         ))
     })?;
-    parse_backend_sidecar_record(&contents)
-        .map(Some)
-        .ok_or_else(|| {
-            AppError::blocked(format!(
-                "backend sidecar record 형식이 유효하지 않습니다: {}",
-                path.display()
-            ))
-        })
-}
-
-fn parse_backend_sidecar_record(contents: &str) -> Option<BackendSidecarRecord> {
-    let mut backend_id = None;
-    let mut pid = None;
-    let mut binary_path = None;
-    let mut model_path = None;
-    let mut model_sha256 = None;
-    let mut model_size_bytes = None;
-    let mut backend_release = None;
-    let mut binary_sha256 = None;
-    let mut mmproj = None;
-    let mut host = None;
-    let mut port = None;
-    let mut ctx_size = None;
-    let mut stdout_log = None;
-    let mut stderr_log = None;
-    let mut started_at_ms = None;
-
-    for line in contents.lines() {
-        let (key, value) = line.split_once('=')?;
-        match key {
-            "backend_id" => backend_id = Some(value.to_string()),
-            "pid" => pid = value.parse::<u32>().ok(),
-            "binary_path" => binary_path = Some(PathBuf::from(value)),
-            "model_path" => model_path = Some(PathBuf::from(value)),
-            "model_sha256" => model_sha256 = Some(value.to_string()),
-            "model_size_bytes" => model_size_bytes = value.parse::<u64>().ok(),
-            "backend_release" => backend_release = Some(value.to_string()),
-            "binary_sha256" => binary_sha256 = Some(value.to_string()),
-            "mmproj" => mmproj = Some(value.to_string()),
-            "host" => host = Some(value.to_string()),
-            "port" => port = value.parse::<u16>().ok(),
-            "ctx_size" => {
-                ctx_size = if value.is_empty() || value == "model-default" {
-                    Some(None)
-                } else {
-                    let parsed = value.parse::<u32>().ok()?;
-                    if parsed == 0 {
-                        return None;
-                    }
-                    Some(Some(parsed))
-                };
-            }
-            "stdout_log" => stdout_log = Some(PathBuf::from(value)),
-            "stderr_log" => stderr_log = Some(PathBuf::from(value)),
-            "started_at_ms" => started_at_ms = value.parse::<u128>().ok(),
-            _ => {}
-        }
-    }
-
-    Some(BackendSidecarRecord {
-        backend_id: backend_id?,
-        pid: pid?,
-        binary_path: binary_path?,
-        model_path: model_path?,
-        model_sha256: model_sha256.unwrap_or_else(|| "unknown".to_string()),
-        model_size_bytes: model_size_bytes.unwrap_or(0),
-        backend_release: backend_release.unwrap_or_else(|| "unknown".to_string()),
-        binary_sha256: binary_sha256.unwrap_or_else(|| "unknown".to_string()),
-        mmproj: mmproj.unwrap_or_else(|| "unknown".to_string()),
-        host: host?,
-        port: port?,
-        ctx_size: ctx_size.unwrap_or(None),
-        stdout_log: stdout_log?,
-        stderr_log: stderr_log?,
-        started_at_ms: started_at_ms?,
+    parse_sidecar_record(&contents).map(Some).ok_or_else(|| {
+        AppError::blocked(format!(
+            "backend sidecar record 형식이 유효하지 않습니다: {}",
+            path.display()
+        ))
     })
 }
 
@@ -3075,13 +2919,13 @@ mod tests {
             streaming_display: true,
         };
 
-        let rendered = render_backend_generation_record(&record);
+        let rendered = render_generation_record(&record);
 
         assert_eq!(
             rendered,
             "generation_id=generation-codec\nclient_pid=101\nsidecar_pid=202\nstarted_at_ms=303\ntimeout_ms=404\nstreaming_display=true\n"
         );
-        assert_eq!(parse_backend_generation_record(&rendered), Some(record));
+        assert_eq!(parse_generation_record(&rendered), Some(record));
     }
 
     #[test]

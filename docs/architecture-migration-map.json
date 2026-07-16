@@ -1767,6 +1767,20 @@
       ]
     },
     {
+      "path": "src/runtime_core/inference/backend/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "backend lifecycle records and byte-compatible codecs",
+          "target": "src/runtime_core/inference/backend/lifecycle.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/backend/lifecycle.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/inference/stream.rs",
       "slices": [
         {
@@ -3567,6 +3581,12 @@
       "path": "src/runtime_core/inference/backend.rs",
       "responsibilities": [
         "inference backend contracts"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/backend/lifecycle.rs",
+      "responsibilities": [
+        "backend lifecycle records and byte-compatible codecs"
       ]
     },
     {
