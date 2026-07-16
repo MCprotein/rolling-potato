@@ -1,5 +1,38 @@
 # Release Notes
 
+## v0.34.3 - Native Release Gate Recovery
+
+Release date: 2026-07-16
+
+This patch release supersedes the partial v0.34.2 binary publication. The v0.34.2
+source tag remains immutable, but its release gate exposed unbounded platform process
+sampling and a macOS-only native fixture dependency on an external Python listener.
+
+### Fixed
+
+- Bounds platform process sampling commands to two seconds, so stalled `ps` or `wmic`
+  probes cannot block backend startup or lifecycle reporting indefinitely.
+- Completes backend health probes as soon as a valid HTTP status line arrives instead of
+  waiting for connection EOF from a keep-alive server.
+- Reuses the repository's Rust fake sidecar for native adapter tests and closes fixture
+  SSE responses with a graceful TCP half-close, avoiding macOS loopback resets and the
+  external Python listener dependency.
+- Allocates ephemeral native fixture ports and preserves sidecar logs, runtime-ledger
+  tails, and test-only startup stages when a bounded fixture command fails.
+- Runs the failed Windows and macOS native lifecycle surfaces in one manually dispatched,
+  platform-targeted workflow before the release gate.
+
+### Targeted Verification
+
+- [Native targeted run 29475140650](https://github.com/MCprotein/rolling-potato/actions/runs/29475140650)
+  passed Windows x86_64, macOS arm64, and macOS x86_64 lifecycle and full-adapter tests.
+
+### Release Recovery
+
+- v0.34.0 through v0.34.2 remain immutable source history, but their partial binary
+  assets are not supported release sets.
+- v0.34.3 is the supported replacement and must publish the verified exact 11-asset set.
+
 ## v0.34.2 - Windows ConPTY Release Recovery
 
 Release date: 2026-07-16
@@ -32,7 +65,8 @@ lifecycle and long-path defects before the Windows archive could be built.
 
 - v0.34.0 and v0.34.1 remain immutable source history, but their partial binary assets are
   not supported release sets.
-- v0.34.2 is the supported replacement and must publish the verified exact 11-asset set.
+- v0.34.2 remains immutable source history, but its partial binary assets are not a
+  supported release set. v0.34.3 supersedes it.
 
 ## v0.34.1 - Portable Release Recovery
 
