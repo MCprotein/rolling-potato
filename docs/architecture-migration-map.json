@@ -2125,7 +2125,7 @@
       "path": "src/runtime_core/inference/model/promotion.rs",
       "slices": [
         {
-          "responsibility": "model promotion evidence validation policy",
+          "responsibility": "model promotion and registry binding validation policy",
           "target": "src/runtime_core/inference/model/promotion.rs",
           "release": "0.37.3",
           "state": "complete",
@@ -3745,7 +3745,7 @@
     {
       "path": "src/runtime_core/inference/model/promotion.rs",
       "responsibilities": [
-        "model promotion evidence validation policy"
+        "model promotion and registry binding validation policy"
       ]
     },
     {

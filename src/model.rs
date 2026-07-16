@@ -22,7 +22,8 @@ use crate::runtime_core::inference::model::manifest::{
     STATUS_SCHEMA,
 };
 use crate::runtime_core::inference::model::promotion::{
-    artifact_model_id, validate_promotion_evidence, PromotionBenchmarkEvidence,
+    artifact_model_id, validate_promotion_evidence, validate_registry_manifest_binding,
+    validate_registry_promotion_binding, PromotionBenchmarkEvidence,
 };
 #[cfg(test)]
 use crate::runtime_core::inference::model::promotion::{measured_ram_budget_gb, BYTES_PER_GIB};
@@ -927,53 +928,6 @@ fn registry_summary() -> String {
     }
 }
 
-fn validate_registry_manifest_binding(
-    entry: &RegistryEntry,
-    candidate: &ModelManifestEntry,
-    artifact: ModelArtifactDescriptor,
-) -> Result<(), AppError> {
-    if entry.display_name != candidate.display_name
-        || entry.upstream_model != candidate.upstream_model
-        || entry.upstream_url != candidate.upstream_url
-        || entry.license_source != candidate.license.source
-        || entry.license_checked_at != candidate.license.checked_at
-    {
-        return Err(AppError::blocked(
-            "model registry source/license provenance가 source-backed manifest와 다릅니다.",
-        ));
-    }
-    if Path::new(&entry.artifact_path) != model_artifact_path(artifact) {
-        return Err(AppError::blocked(
-            "model registry artifact path가 source-backed manifest와 다릅니다.",
-        ));
-    }
-    if entry.artifact_sha256 != artifact.sha256 {
-        return Err(AppError::blocked(
-            "model registry artifact SHA-256이 source-backed manifest와 다릅니다.",
-        ));
-    }
-    Ok(())
-}
-
-fn validate_registry_promotion_binding(
-    entry: &RegistryEntry,
-    id: &str,
-    evidence: Option<&PromotionEvidence>,
-) -> Result<(), AppError> {
-    if entry.evidence_status != "verified-local-promotion"
-        || entry.promotion_evidence_path != promotion_evidence_path(id).display().to_string()
-        || evidence.is_none_or(|evidence| {
-            entry.backend_version != evidence.backend_version
-                || entry.benchmark_run_id != evidence.benchmark_run_id
-        })
-    {
-        return Err(AppError::blocked(
-            "model registry promotion binding이 canonical evidence와 다릅니다.",
-        ));
-    }
-    Ok(())
-}
-
 fn validated_registry_entry(id: &str) -> Result<RegistryEntry, AppError> {
     let candidate = find_candidate(id)?;
     let entry = read_registry_entries()?
@@ -990,7 +944,7 @@ fn validated_registry_entry(id: &str) -> Result<RegistryEntry, AppError> {
     }
     let artifact = source_backed_artifact(candidate)?;
     let expected_path = model_artifact_path(artifact);
-    validate_registry_manifest_binding(&entry, candidate, artifact)?;
+    validate_registry_manifest_binding(&entry, candidate, artifact, &expected_path)?;
     let local_state = local_artifact_state(artifact, &expected_path)?;
     if !local_state.verified {
         return Err(AppError::blocked(format!(
@@ -1006,7 +960,11 @@ fn validated_registry_entry(id: &str) -> Result<RegistryEntry, AppError> {
                 promotion.validation.blockers.join("\n- ")
             )));
         }
-        validate_registry_promotion_binding(&entry, id, promotion.evidence.as_ref())?;
+        validate_registry_promotion_binding(
+            &entry,
+            &promotion_evidence_path(id),
+            promotion.evidence.as_ref(),
+        )?;
     }
     Ok(entry)
 }
@@ -1428,7 +1386,13 @@ mod tests {
         assert_eq!(entry.id, "qwen3.5-4b");
         assert_eq!(entry.status, "installed");
         assert!(entry.artifact_sha256.starts_with("00fe"));
-        validate_registry_manifest_binding(&entry, candidate, artifact).unwrap();
+        validate_registry_manifest_binding(
+            &entry,
+            candidate,
+            artifact,
+            &model_artifact_path(artifact),
+        )
+        .unwrap();
 
         for drifted in [
             text.replace(candidate.license.source, "https://invalid.example/license"),
@@ -1437,7 +1401,13 @@ mod tests {
             text.replace(candidate.upstream_url, "https://invalid.example/model"),
         ] {
             let entry = parse_registry_entry(&drifted).unwrap();
-            assert!(validate_registry_manifest_binding(&entry, candidate, artifact).is_err());
+            assert!(validate_registry_manifest_binding(
+                &entry,
+                candidate,
+                artifact,
+                &model_artifact_path(artifact),
+            )
+            .is_err());
         }
     }
 
@@ -1450,16 +1420,23 @@ mod tests {
         let text = registry_entry_json(candidate, Some(&evidence));
         let entry = parse_registry_entry(&text).unwrap();
 
-        validate_registry_promotion_binding(&entry, candidate.id, Some(&evidence)).unwrap();
+        validate_registry_promotion_binding(
+            &entry,
+            &promotion_evidence_path(candidate.id),
+            Some(&evidence),
+        )
+        .unwrap();
         for drifted in [
             text.replace(&evidence.backend_version, "b0000"),
             text.replace(&evidence.benchmark_run_id, "benchmark-drifted"),
         ] {
             let entry = parse_registry_entry(&drifted).unwrap();
-            assert!(
-                validate_registry_promotion_binding(&entry, candidate.id, Some(&evidence),)
-                    .is_err()
-            );
+            assert!(validate_registry_promotion_binding(
+                &entry,
+                &promotion_evidence_path(candidate.id),
+                Some(&evidence),
+            )
+            .is_err());
         }
     }
 

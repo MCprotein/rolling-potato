@@ -1,11 +1,12 @@
 use std::path::Path;
 
+use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::inference::benchmark as benchmark_policy;
 
 use super::manifest::{
     BackendSmokeEvidence, InstallValidation, LocalArtifactState, ModelArtifactDescriptor,
-    ModelManifestEntry, PromotionEvidence,
+    ModelManifestEntry, PromotionEvidence, RegistryEntry,
 };
 
 pub(crate) const BYTES_PER_GIB: u64 = 1024 * 1024 * 1024;
@@ -221,6 +222,54 @@ pub(crate) fn validate_promotion_evidence(
         ready: blockers.is_empty(),
         blockers,
     }
+}
+
+pub(crate) fn validate_registry_manifest_binding(
+    entry: &RegistryEntry,
+    candidate: &ModelManifestEntry,
+    artifact: ModelArtifactDescriptor,
+    expected_artifact_path: &Path,
+) -> Result<(), AppError> {
+    if entry.display_name != candidate.display_name
+        || entry.upstream_model != candidate.upstream_model
+        || entry.upstream_url != candidate.upstream_url
+        || entry.license_source != candidate.license.source
+        || entry.license_checked_at != candidate.license.checked_at
+    {
+        return Err(AppError::blocked(
+            "model registry source/license provenance가 source-backed manifest와 다릅니다.",
+        ));
+    }
+    if Path::new(&entry.artifact_path) != expected_artifact_path {
+        return Err(AppError::blocked(
+            "model registry artifact path가 source-backed manifest와 다릅니다.",
+        ));
+    }
+    if entry.artifact_sha256 != artifact.sha256 {
+        return Err(AppError::blocked(
+            "model registry artifact SHA-256이 source-backed manifest와 다릅니다.",
+        ));
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_registry_promotion_binding(
+    entry: &RegistryEntry,
+    expected_evidence_path: &Path,
+    evidence: Option<&PromotionEvidence>,
+) -> Result<(), AppError> {
+    if entry.evidence_status != "verified-local-promotion"
+        || Path::new(&entry.promotion_evidence_path) != expected_evidence_path
+        || evidence.is_none_or(|evidence| {
+            entry.backend_version != evidence.backend_version
+                || entry.benchmark_run_id != evidence.benchmark_run_id
+        })
+    {
+        return Err(AppError::blocked(
+            "model registry promotion binding이 canonical evidence와 다릅니다.",
+        ));
+    }
+    Ok(())
 }
 
 pub(crate) fn measured_ram_budget_gb(peak_rss_bytes: u64) -> u32 {
