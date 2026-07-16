@@ -2111,7 +2111,7 @@
       "path": "src/runtime_core/inference/model/manifest.rs",
       "slices": [
         {
-          "responsibility": "model manifest catalog and lifecycle DTOs",
+          "responsibility": "model manifest catalog, lifecycle DTOs, and evidence codecs",
           "target": "src/runtime_core/inference/model/manifest.rs",
           "release": "0.37.3",
           "state": "complete",
@@ -3725,7 +3725,7 @@
     {
       "path": "src/runtime_core/inference/model/manifest.rs",
       "responsibilities": [
-        "model manifest catalog and lifecycle DTOs"
+        "model manifest catalog, lifecycle DTOs, and evidence codecs"
       ]
     },
     {
