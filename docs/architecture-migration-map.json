@@ -1784,11 +1784,27 @@
       "path": "src/benchmark.rs",
       "slices": [
         {
-          "responsibility": "benchmark policy and reports",
+          "responsibility": "benchmark report orchestration and persistence",
           "target": "src/runtime_core/inference/benchmark.rs",
           "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
+          "state": "migrating",
+          "evidence": [
+            "src/benchmark.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark scoring and adoption policy",
+          "target": "src/runtime_core/inference/benchmark.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/benchmark.rs"
+          ]
         }
       ]
     },
@@ -3534,7 +3550,13 @@
     {
       "path": "src/benchmark.rs",
       "responsibilities": [
-        "benchmark policy and reports"
+        "benchmark report orchestration and persistence"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark.rs",
+      "responsibilities": [
+        "benchmark scoring and adoption policy"
       ]
     },
     {

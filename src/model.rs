@@ -6,6 +6,7 @@ use crate::adapters::filesystem::model_artifact;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::foundation::serialization as strict_json;
+use crate::runtime_core::inference::benchmark as benchmark_policy;
 use crate::{ledger, observability, state};
 
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
@@ -913,12 +914,12 @@ fn validate_promotion_evidence(
                     "benchmark backend_id가 후보 backend와 일치하지 않습니다.",
                 );
             }
-            if row.fixture_id != crate::benchmark::ADOPTION_FIXTURE_ID
-                || row.fixture_sha256 != crate::benchmark::ADOPTION_FIXTURE_SHA256
+            if row.fixture_id != benchmark_policy::ADOPTION_FIXTURE_ID
+                || row.fixture_sha256 != benchmark_policy::ADOPTION_FIXTURE_SHA256
                 || row.prompt_artifact_sha256.as_deref()
-                    != Some(crate::benchmark::ADOPTION_PROMPT_SHA256)
-                || row.benchmark_name != crate::benchmark::ADOPTION_BENCHMARK_NAME
-                || row.dataset_ref.as_deref() != Some(crate::benchmark::ADOPTION_DATASET_REF)
+                    != Some(benchmark_policy::ADOPTION_PROMPT_SHA256)
+                || row.benchmark_name != benchmark_policy::ADOPTION_BENCHMARK_NAME
+                || row.dataset_ref.as_deref() != Some(benchmark_policy::ADOPTION_DATASET_REF)
             {
                 push_unique(
                     &mut blockers,
@@ -2529,7 +2530,7 @@ mod tests {
             session_id: "session-test".to_string(),
             model_run_id: Some("model-run-test".to_string()),
             model_id: "Qwen3.5-4B-Q4_K_M".to_string(),
-            benchmark_name: crate::benchmark::ADOPTION_BENCHMARK_NAME.to_string(),
+            benchmark_name: benchmark_policy::ADOPTION_BENCHMARK_NAME.to_string(),
             fixture_id: "executable-smoke".to_string(),
             fixture_sha256: "fixture-sha".to_string(),
             prompt_artifact_sha256: Some("prompt-sha".to_string()),
@@ -2827,10 +2828,10 @@ mod tests {
             session_id: "session-test".to_string(),
             model_run_id: Some(format!("model-run-{}", evidence.backend_smoke_event_id)),
             model_id: artifact_model_id(artifact),
-            benchmark_name: crate::benchmark::ADOPTION_BENCHMARK_NAME.to_string(),
-            fixture_id: crate::benchmark::ADOPTION_FIXTURE_ID.to_string(),
-            fixture_sha256: crate::benchmark::ADOPTION_FIXTURE_SHA256.to_string(),
-            prompt_artifact_sha256: Some(crate::benchmark::ADOPTION_PROMPT_SHA256.to_string()),
+            benchmark_name: benchmark_policy::ADOPTION_BENCHMARK_NAME.to_string(),
+            fixture_id: benchmark_policy::ADOPTION_FIXTURE_ID.to_string(),
+            fixture_sha256: benchmark_policy::ADOPTION_FIXTURE_SHA256.to_string(),
+            prompt_artifact_sha256: Some(benchmark_policy::ADOPTION_PROMPT_SHA256.to_string()),
             prompt_chars: Some(147),
             claim_state: "measured-locally".to_string(),
             score: Some(3.0),
@@ -2840,7 +2841,7 @@ mod tests {
             expected_total: Some(1),
             forbidden_matches: Some(0),
             harness_ref: "rpotato-benchmark-harness@test".to_string(),
-            dataset_ref: Some(crate::benchmark::ADOPTION_DATASET_REF.to_string()),
+            dataset_ref: Some(benchmark_policy::ADOPTION_DATASET_REF.to_string()),
             backend_id: Some("llama.cpp".to_string()),
             latency_ms: Some(243.0),
             tokens_per_second: Some(28.8),
