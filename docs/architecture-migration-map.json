@@ -3347,7 +3347,7 @@
       "path": "src/surfaces/tui/runtime_bridge.rs",
       "slices": [
         {
-          "responsibility": "TUI interaction DTOs and one-shot secret",
+          "responsibility": "TUI interaction and outcome DTOs with one-shot secret",
           "target": "src/surfaces/tui/runtime_bridge.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -5155,7 +5155,7 @@
     {
       "path": "src/surfaces/tui/runtime_bridge.rs",
       "responsibilities": [
-        "TUI interaction DTOs and one-shot secret"
+        "TUI interaction and outcome DTOs with one-shot secret"
       ]
     },
     {

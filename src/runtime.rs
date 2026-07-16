@@ -3,7 +3,8 @@ use crate::foundation::error::AppError;
 use crate::runtime_core::reporting::runtime_report::{self, DoctorReport, InitReport};
 use crate::runtime_core::workflow::application::runner::{self, RuntimeApplicationPort};
 pub(crate) use crate::surfaces::tui::runtime_bridge::{
-    ObservedWorkflow, OneShotSecret, SelectionLease, TuiFreshness, TuiGateKind, TuiIntent,
+    ObservedWorkflow, OneShotSecret, SelectionLease, TuiEffect, TuiFreshness, TuiGateKind,
+    TuiIntent, TuiNextAction, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext, TuiOutcomeStatus,
     TuiReadAuthority, TuiReadBudget, TuiReadContinuation, TuiReadPage, TuiReadRequest,
 };
 use crate::{
@@ -15,183 +16,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static TUI_INTENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TuiOutcomeStatus {
-    Succeeded,
-    Blocked,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TuiOutcomeCode {
-    VerificationCredentialIssued,
-    DenyPatchAccepted,
-    DenyVerificationRolledBack,
-    DenyBlockedNotPending,
-    DenyBlockedTerminalState,
-    RollbackConflict,
-    CancelAccepted,
-    CancelPhaseBlocked,
-    CancelTerminalBlocked,
-    CancelNoActiveWorkflow,
-    ResumeAccepted,
-    ResumeStaleSelection,
-    ResumeCorruptState,
-    ResumeInconclusiveEffect,
-    SecretRefreshOnly,
-    TerminalCapabilitySizeRead,
-    TerminalCapabilityModeRead,
-    TerminalNoEchoSetFailed,
-    TerminalSecretReadFailed,
-    TerminalFrameWritePreDispatch,
-    TerminalFrameWritePostDispatch,
-    SourceInstallRecoveryRequired,
-    SourceInstallRecoveryConflict,
-    SourceInstallRecoveryComplete,
-    ProjectionRepairRequired,
-    ProjectionLagInstallFailed,
-    ProjectionRepairComplete,
-    SourceInstallUnsupportedPlatform,
-}
-
-impl TuiOutcomeCode {
-    pub const ALL: [Self; 27] = [
-        Self::DenyPatchAccepted,
-        Self::DenyVerificationRolledBack,
-        Self::DenyBlockedNotPending,
-        Self::DenyBlockedTerminalState,
-        Self::RollbackConflict,
-        Self::CancelAccepted,
-        Self::CancelPhaseBlocked,
-        Self::CancelTerminalBlocked,
-        Self::CancelNoActiveWorkflow,
-        Self::ResumeAccepted,
-        Self::ResumeStaleSelection,
-        Self::ResumeCorruptState,
-        Self::ResumeInconclusiveEffect,
-        Self::SecretRefreshOnly,
-        Self::TerminalCapabilitySizeRead,
-        Self::TerminalCapabilityModeRead,
-        Self::TerminalNoEchoSetFailed,
-        Self::TerminalSecretReadFailed,
-        Self::TerminalFrameWritePreDispatch,
-        Self::TerminalFrameWritePostDispatch,
-        Self::SourceInstallRecoveryRequired,
-        Self::SourceInstallRecoveryConflict,
-        Self::SourceInstallRecoveryComplete,
-        Self::ProjectionRepairRequired,
-        Self::ProjectionLagInstallFailed,
-        Self::ProjectionRepairComplete,
-        Self::SourceInstallUnsupportedPlatform,
-    ];
-
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::VerificationCredentialIssued => "verification.credential-issued",
-            Self::DenyPatchAccepted => "deny.patch.accepted",
-            Self::DenyVerificationRolledBack => "deny.verification.rolled-back",
-            Self::DenyBlockedNotPending => "deny.blocked.not-pending",
-            Self::DenyBlockedTerminalState => "deny.blocked.terminal-state",
-            Self::RollbackConflict => "rollback.conflict",
-            Self::CancelAccepted => "cancel.accepted",
-            Self::CancelPhaseBlocked => "cancel.phase-blocked",
-            Self::CancelTerminalBlocked => "cancel.terminal-blocked",
-            Self::CancelNoActiveWorkflow => "cancel.no-active-workflow",
-            Self::ResumeAccepted => "resume.accepted",
-            Self::ResumeStaleSelection => "resume.stale-selection",
-            Self::ResumeCorruptState => "resume.corrupt-state",
-            Self::ResumeInconclusiveEffect => "resume.inconclusive-effect",
-            Self::SecretRefreshOnly => "secret.refresh-only",
-            Self::TerminalCapabilitySizeRead => "terminal.capability.size-read",
-            Self::TerminalCapabilityModeRead => "terminal.capability.mode-read",
-            Self::TerminalNoEchoSetFailed => "terminal.no-echo-set.failed",
-            Self::TerminalSecretReadFailed => "terminal.secret-read.failed",
-            Self::TerminalFrameWritePreDispatch => "terminal.frame-write.pre-dispatch",
-            Self::TerminalFrameWritePostDispatch => "terminal.frame-write.post-dispatch",
-            Self::SourceInstallRecoveryRequired => "source-install.recovery-required",
-            Self::SourceInstallRecoveryConflict => "source-install.recovery-conflict",
-            Self::SourceInstallRecoveryComplete => "source-install.recovery-complete",
-            Self::ProjectionRepairRequired => "projection.repair-required",
-            Self::ProjectionLagInstallFailed => "projection.lag-install-failed",
-            Self::ProjectionRepairComplete => "projection.repair-complete",
-            Self::SourceInstallUnsupportedPlatform => "source-install.unsupported-platform",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TuiEffect {
-    NotDispatched,
-    Committed,
-    RolledBack,
-    RecoveryPending,
-    Refreshed,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TuiNextAction {
-    InspectDeniedReceipt,
-    InspectRollbackReceipt,
-    UseCancelOrRefresh,
-    InspectTerminalReceipt,
-    ResolveRollbackConflict,
-    RefreshCanonicalState,
-    ChooseCancellablePhase,
-    CloseOrInspectTerminal,
-    SelectActiveWorkflow,
-    RetryResumeAfterRefresh,
-    RepairCorruptState,
-    ResolveInconclusiveEffect,
-    RefreshOnly,
-    ReadOnly,
-    RetryInput,
-    RetryIntent,
-    RepairSourceInstall,
-    ResolveSourceConflict,
-    RefreshSourceState,
-    RepairProjection,
-    RefreshProjection,
-    UseUnixOrChooseNonSourceAction,
-}
-
-pub struct TuiOutcome {
-    pub status: TuiOutcomeStatus,
-    pub code: TuiOutcomeCode,
-    pub effect: TuiEffect,
-    pub safe_message: String,
-    pub freshness: TuiFreshness,
-    pub next_action: TuiNextAction,
-    pub one_shot_secret: Option<OneShotSecret>,
-}
-
-#[derive(Clone, Copy, Default)]
-pub(crate) struct TuiOutcomeContext<'a> {
-    pub intent_id: Option<&'a str>,
-    pub workflow_id: Option<&'a str>,
-    pub phase: Option<&'a str>,
-    pub platform: Option<&'a str>,
-}
-
-impl TuiOutcome {
-    pub(crate) fn without_secret(
-        status: TuiOutcomeStatus,
-        code: TuiOutcomeCode,
-        effect: TuiEffect,
-        safe_message: String,
-        freshness: TuiFreshness,
-        next_action: TuiNextAction,
-    ) -> Self {
-        Self {
-            status,
-            code,
-            effect,
-            safe_message,
-            freshness,
-            next_action,
-            one_shot_secret: None,
-        }
-    }
-}
 
 pub(crate) fn exact_tui_outcome(
     code: TuiOutcomeCode,
@@ -2682,18 +2506,18 @@ mod tests {
 
     #[test]
     fn tui_outcome_public_dto_and_exact_fixtures_share_field_order() {
-        let source = include_str!("runtime.rs");
-        let start = source.find("pub struct TuiOutcome {").unwrap();
+        let source = include_str!("surfaces/tui/runtime_bridge.rs");
+        let start = source.find("pub(crate) struct TuiOutcome {").unwrap();
         let end = source[start..].find("\n}").unwrap() + start;
         let definition = &source[start..end];
         let fields = [
-            "pub status:",
-            "pub code:",
-            "pub effect:",
-            "pub safe_message:",
-            "pub freshness:",
-            "pub next_action:",
-            "pub one_shot_secret:",
+            "pub(crate) status:",
+            "pub(crate) code:",
+            "pub(crate) effect:",
+            "pub(crate) safe_message:",
+            "pub(crate) freshness:",
+            "pub(crate) next_action:",
+            "pub(crate) one_shot_secret:",
         ];
         let positions = fields
             .iter()
@@ -2701,12 +2525,12 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
-        assert_eq!(definition.matches("    pub ").count(), fields.len());
+        assert_eq!(definition.matches("    pub(crate) ").count(), fields.len());
     }
 
     #[test]
     fn one_shot_secret_plaintext_accessor_consumes_value() {
-        assert!(include_str!("runtime.rs")
+        assert!(include_str!("surfaces/tui/runtime_bridge.rs")
             .contains("fn expose<R>(self, use_plaintext: impl FnOnce(&str) -> R) -> R"));
         let secret = OneShotSecret::new("secret-value".to_string()).unwrap();
         assert_eq!(secret.expose(str::to_string), "secret-value");
