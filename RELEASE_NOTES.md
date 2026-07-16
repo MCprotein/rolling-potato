@@ -1,5 +1,36 @@
 # Release Notes
 
+## Unreleased v0.37.6 - Workflow Transactions and Recovery
+
+This patch moves workflow transition, cross-store transaction ordering, and
+recovery policy into private workflow domain/application owners without
+changing commands, durable bytes, event identity/order, crash behavior, or the
+synchronous runtime.
+
+### Included
+
+- Moves legal transition intent, prepared-member, source-install, event-chain,
+  and bundle records into `runtime_core::workflow::domain::transition`.
+- Adds one application transaction coordinator for exact event progression and
+  state, checkpoint, reconcile, approval, verification, terminal, projection,
+  and cleanup order over consumer-owned ports.
+- Moves prepared workflow suffix recovery, current-state recovery order, and
+  uncertain projection-lag admission into
+  `runtime_core::workflow::application::recovery`.
+- Separates restart and preflight mutation-barrier integration contracts under
+  `tests/workflow/recovery.rs` while retaining the existing patch-loop harness.
+- Advances the migration ledger to v0.37.6 with all scheduled transition,
+  transaction, recovery, and test slices complete.
+
+### Compatibility Boundary
+
+- Existing state, ledger, and transition modules retain concrete filesystem,
+  lease, event-sink, journal, and projection operations but no longer select
+  migrated commit/recovery sequences.
+- CLI behavior and exit codes, canonical schemas/bytes/hashes, event and state
+  order, recovery and fail-closed behavior, dependencies, and synchronous
+  execution remain unchanged.
+
 ## Unreleased v0.37.5 - Validated Domain Views
 
 This patch moves workflow/session/snapshot and transcript-session validation

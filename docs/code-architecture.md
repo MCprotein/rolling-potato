@@ -76,6 +76,12 @@ transcript-session ordering and duplicate rejection, transcript event/record
 binding, and tool-output view DTOs. The top-level state and transcript modules
 remain compatibility facades for filesystem, lock, transaction, recovery,
 projection, and command orchestration assigned to later slices.
+The v0.37.6 workflow application boundary now owns legal transition records,
+exact event progression, state/checkpoint/reconcile/approval/verification/
+terminal transaction order, prepared workflow recovery, current-state recovery,
+and the projection-lag recovery barrier. Top-level state, ledger, and transition
+modules provide concrete filesystem, lock, event-sink, and cleanup operations;
+they no longer select the migrated commit or recovery sequence.
 
 ## Dependency direction
 

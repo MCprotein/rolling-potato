@@ -710,6 +710,84 @@ fn v0375_domain_views_replace_legacy_definitions() {
     }
 }
 
+#[test]
+fn v0376_workflow_application_owns_transaction_and_recovery_order() {
+    for target in [
+        "src/runtime_core/workflow/application/mod.rs",
+        "src/runtime_core/workflow/application/recovery.rs",
+        "src/runtime_core/workflow/application/transaction_coordinator.rs",
+        "src/runtime_core/workflow/domain/transition.rs",
+        "tests/workflow/recovery.rs",
+    ] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing workflow transaction/recovery owner: {target}"
+        );
+    }
+
+    let workflow = fs::read_to_string("src/runtime_core/workflow/mod.rs").unwrap();
+    assert!(
+        workflow
+            .lines()
+            .any(|line| line == "pub(crate) mod application;"),
+        "workflow application owner is not crate-private"
+    );
+    let application = fs::read_to_string("src/runtime_core/workflow/application/mod.rs").unwrap();
+    for owner in ["recovery", "transaction_coordinator"] {
+        let expected = format!("pub(crate) mod {owner};");
+        assert!(
+            application.lines().any(|line| line == expected),
+            "workflow application owner is not crate-private: {owner}"
+        );
+    }
+
+    let coordinator =
+        fs::read_to_string("src/runtime_core/workflow/application/transaction_coordinator.rs")
+            .unwrap();
+    for rule in [
+        "fn execute_approval_transaction",
+        "fn execute_verification_transaction",
+        "fn execute_terminal_action_transaction",
+        "fn execute_state_transition",
+        "fn execute_reconcile_transaction",
+    ] {
+        assert!(
+            coordinator.contains(rule),
+            "transaction coordinator is missing ordered use case: {rule}"
+        );
+    }
+
+    let recovery = fs::read_to_string("src/runtime_core/workflow/application/recovery.rs").unwrap();
+    for rule in [
+        "fn recover_workflow_transaction",
+        "fn recover_prepared_state_transition",
+        "fn recover_through_projection_barrier",
+    ] {
+        assert!(
+            recovery.contains(rule),
+            "workflow recovery owner is missing policy: {rule}"
+        );
+    }
+
+    for (facade, moved_definition) in [
+        ("src/ledger.rs", "struct PlannedEvent"),
+        ("src/transition.rs", "enum CurrentStateIntent"),
+        ("src/transition.rs", "struct PreparedSourceBundle"),
+    ] {
+        let source = fs::read_to_string(facade).unwrap();
+        assert!(
+            !source.contains(moved_definition),
+            "legacy facade still owns moved workflow definition: {facade} -> {moved_definition}"
+        );
+    }
+
+    let patch_loop = fs::read_to_string("tests/patch_loop.rs").unwrap();
+    assert!(
+        patch_loop.contains("#[path = \"workflow/recovery.rs\"]"),
+        "patch-loop recovery filters are not owned by tests/workflow/recovery.rs"
+    );
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

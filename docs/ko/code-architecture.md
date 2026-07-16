@@ -72,6 +72,11 @@ read-only snapshot/checkpoint binding, canonical transcript-session ordering과 
 거부, transcript event/record binding, tool-output view DTO를 소유합니다. 최상위
 state와 transcript module은 이후 slice에 배정된 filesystem, lock, transaction,
 recovery, projection, command orchestration compatibility facade로 남습니다.
+v0.37.6 workflow application 경계는 legal transition record, exact event 진행,
+state/checkpoint/reconcile/approval/verification/terminal transaction 순서, prepared
+workflow recovery, current-state recovery, projection-lag recovery barrier를 소유합니다.
+최상위 state, ledger, transition module은 concrete filesystem, lock, event sink,
+cleanup 연산을 제공하지만 이전된 commit/recovery 순서를 선택하지 않습니다.
 
 ## 의존 방향
 

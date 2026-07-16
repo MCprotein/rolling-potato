@@ -141,13 +141,18 @@ sequence and non-skippable release gates are defined in
    including fail-closed identity/lease/checkpoint binding, ledger ordering,
    duplicate rejection, and event/record/tool binding, are implemented and
    awaiting release.
-6. `v0.37.6` through `v0.37.13+`: migrate every remaining ledger slice by
+6. `v0.37.6`: legal transition records, exact event progression, state and
+   workflow recovery, projection-lag recovery admission, and cross-store
+   state/checkpoint/reconcile/approval/verification/terminal ordering are
+   implemented under the private workflow application boundary and awaiting
+   release.
+7. `v0.37.7` through `v0.37.13+`: migrate every remaining ledger slice by
    coherent domain and rollback boundary, preserving durable bytes, recovery
    order, policy, CLI behavior, backend behavior, and release contracts. The
    train ends only at complete ledger coverage with zero compatibility facades.
-7. `v0.38.0`: Claude Code local plugin execution conformance through the
+8. `v0.38.0`: Claude Code local plugin execution conformance through the
    established native adapter and default-deny permission boundary.
-8. `v0.39.0` onward: integrated performance hardening followed by distribution
+9. `v0.39.0` onward: integrated performance hardening followed by distribution
    and optional local monitoring surfaces.
 
 Package-manager distribution and an optional local HTML monitoring report come

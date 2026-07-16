@@ -12,6 +12,16 @@ use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, RuntimeIdentity};
 use crate::observability::SessionHistoryEntry;
 use crate::observability::{self, StoreStatus};
+use crate::runtime_core::workflow::application::recovery::{
+    self as workflow_recovery, PendingWorkflowTransaction, PreparedStateRecoveryPort,
+    ProjectionBarrierRecoveryPort, RecoveryArtifact, WorkflowRecoveryPort,
+};
+use crate::runtime_core::workflow::application::transaction_coordinator::{
+    self as transaction_coordinator, ApprovalFault, ApprovalRevision, ApprovalTransactionPort,
+    ReconcileTransactionPort, StateTransitionFault, StateTransitionTransactionPort,
+    TerminalActionFault, TerminalActionTransactionPort, TransactionExecution, VerificationFault,
+    VerificationTransactionPort,
+};
 use crate::runtime_core::workflow::domain::snapshot::{
     self as snapshot_domain, CurrentStateLeaseView, CurrentStateSnapshot, CurrentWorkflowBinding,
     TuiStateSnapshot,
@@ -778,30 +788,82 @@ pub(crate) fn recover_prepared_state_transition(
         None
     };
     let writer = ledger::LedgerWriterGuard::acquire()?;
-    let mut sink = writer.event_sink(&planned);
-    install_prepared_reconcile_backup(bundle)?;
-    if let Some((guard, prepared)) = workflow.as_ref() {
-        guard.install_snapshot(prepared)?;
-    }
-    sink.append_planned_under_guard(0, &bundle.semantic_events[0])?;
-    if let Some((guard, prepared)) = workflow.as_ref() {
-        guard.install_pointer(prepared)?;
-    }
-    sink.finish()?;
     let expected_binding = ledger::LedgerBinding {
         event_count: planned[0].ordinal,
         event_id: Some(planned[0].event.event_id.clone()),
         event_hash: planned[0].event_hash.clone(),
     };
-    if writer.binding()? != expected_binding {
-        return Err(AppError::blocked(
-            "prepared state transition ledger successor conflict",
-        ));
+    let mut port = StateTransitionRecoveryPort {
+        bundle,
+        current_image: &current_image,
+        workflow: workflow.as_ref(),
+        writer: &writer,
+        sink: writer.event_sink(&planned),
+        expected_binding,
+    };
+    workflow_recovery::recover_prepared_state_transition(&mut port)
+}
+
+struct StateTransitionRecoveryPort<'a> {
+    bundle: &'a crate::transition::PreparedSourceBundle,
+    current_image: &'a PreparedCurrentImage,
+    workflow: Option<&'a (WorkflowCheckpointGuard, PreparedWorkflowRevision)>,
+    writer: &'a ledger::LedgerWriterGuard,
+    sink: ledger::EventSink<'a>,
+    expected_binding: ledger::LedgerBinding,
+}
+
+impl PreparedStateRecoveryPort for StateTransitionRecoveryPort<'_> {
+    fn install_reconcile_backup(&mut self) -> Result<(), AppError> {
+        install_prepared_reconcile_backup(self.bundle)
     }
-    if !validate_state_transition_current_cas(bundle, &current_image.bytes)? {
-        atomic_replace_bytes(&current_image.path, current_image.bytes.as_bytes())?;
+
+    fn install_workflow_snapshot(&mut self) -> Result<(), AppError> {
+        if let Some((guard, prepared)) = self.workflow {
+            guard.install_snapshot(prepared)?;
+        }
+        Ok(())
     }
-    sink.converge_derived(&bundle.project_id)
+
+    fn append_event(&mut self) -> Result<(), AppError> {
+        self.sink
+            .append_planned_under_guard(0, &self.bundle.semantic_events[0])
+            .map(|_| ())
+    }
+
+    fn install_workflow_pointer(&mut self) -> Result<(), AppError> {
+        if let Some((guard, prepared)) = self.workflow {
+            guard.install_pointer(prepared)?;
+        }
+        Ok(())
+    }
+
+    fn finish_events(&mut self) -> Result<(), AppError> {
+        self.sink.finish()
+    }
+
+    fn validate_ledger_binding(&mut self) -> Result<(), AppError> {
+        if self.writer.binding()? != self.expected_binding {
+            return Err(AppError::blocked(
+                "prepared state transition ledger successor conflict",
+            ));
+        }
+        Ok(())
+    }
+
+    fn install_current_state(&mut self) -> Result<(), AppError> {
+        if !validate_state_transition_current_cas(self.bundle, &self.current_image.bytes)? {
+            atomic_replace_bytes(
+                &self.current_image.path,
+                self.current_image.bytes.as_bytes(),
+            )?;
+        }
+        Ok(())
+    }
+
+    fn converge_projections(&mut self) -> Result<(), AppError> {
+        self.sink.converge_derived(&self.bundle.project_id)
+    }
 }
 
 fn install_prepared_reconcile_backup(
@@ -936,34 +998,83 @@ fn transition_project_current_state_under_guard(
     ));
     crate::transition::bind_additional_members(&mut bundle, members)?;
     let journal = transition_guard.commit(&bundle)?;
-    state_transition_fault("after-journal")?;
-    if intent == crate::transition::CurrentStateIntent::CheckpointWorkflow {
-        checkpoint_fault("after-transaction")?;
-    }
-    let mut sink = writer.event_sink(&planned);
-    if let Some((workflow_guard, prepared)) = workflow {
-        workflow_guard.install_snapshot(prepared)?;
-        checkpoint_fault("after-snapshot")?;
-    }
-    state_transition_fault("after-artifacts")?;
-    sink.append_planned_under_guard(0, event)?;
-    state_transition_fault("after-ledger")?;
-    if intent == crate::transition::CurrentStateIntent::CheckpointWorkflow {
-        checkpoint_fault("after-ledger")?;
-    }
-    if let Some((workflow_guard, prepared)) = workflow {
-        workflow_guard.install_pointer(prepared)?;
-        checkpoint_fault("after-pointer")?;
-    }
-    sink.finish()?;
-    if !validate_state_transition_current_cas(&bundle, &current_image.bytes)? {
-        atomic_replace_bytes(&current_image.path, current_image.bytes.as_bytes())?;
-    }
-    state_transition_fault("after-current")?;
-    sink.converge_derived(&identity.project_id)?;
-    state_transition_fault("after-projection")?;
-    transition_guard.remove(&bundle, &journal)?;
+    let checkpoint = intent == crate::transition::CurrentStateIntent::CheckpointWorkflow;
+    let mut port = StateTransitionTransactionAdapter {
+        transition_guard,
+        bundle: &bundle,
+        current: &current_image,
+        workflow,
+        event,
+        journal: &journal,
+        sink: writer.event_sink(&planned),
+    };
+    transaction_coordinator::execute_state_transition(&mut port, checkpoint)?;
     Ok(current_image)
+}
+
+struct StateTransitionTransactionAdapter<'a> {
+    transition_guard: &'a crate::transition::TransitionGuard,
+    bundle: &'a crate::transition::PreparedSourceBundle,
+    current: &'a PreparedCurrentImage,
+    workflow: Option<(&'a WorkflowCheckpointGuard, &'a PreparedWorkflowRevision)>,
+    event: &'a ledger::LedgerEvent,
+    journal: &'a std::path::Path,
+    sink: ledger::EventSink<'a>,
+}
+
+impl StateTransitionTransactionPort for StateTransitionTransactionAdapter<'_> {
+    fn fault(&mut self, point: StateTransitionFault) -> Result<(), AppError> {
+        match point {
+            StateTransitionFault::Journal => state_transition_fault("after-journal"),
+            StateTransitionFault::CheckpointTransaction => checkpoint_fault("after-transaction"),
+            StateTransitionFault::CheckpointSnapshot => checkpoint_fault("after-snapshot"),
+            StateTransitionFault::Artifacts => state_transition_fault("after-artifacts"),
+            StateTransitionFault::Ledger => state_transition_fault("after-ledger"),
+            StateTransitionFault::CheckpointLedger => checkpoint_fault("after-ledger"),
+            StateTransitionFault::CheckpointPointer => checkpoint_fault("after-pointer"),
+            StateTransitionFault::Current => state_transition_fault("after-current"),
+            StateTransitionFault::Projection => state_transition_fault("after-projection"),
+        }
+    }
+
+    fn install_snapshot(&mut self) -> Result<(), AppError> {
+        if let Some((guard, prepared)) = self.workflow {
+            guard.install_snapshot(prepared)?;
+        }
+        Ok(())
+    }
+
+    fn append_event(&mut self) -> Result<(), AppError> {
+        self.sink
+            .append_planned_under_guard(0, self.event)
+            .map(|_| ())
+    }
+
+    fn install_pointer(&mut self) -> Result<(), AppError> {
+        if let Some((guard, prepared)) = self.workflow {
+            guard.install_pointer(prepared)?;
+        }
+        Ok(())
+    }
+
+    fn finish_events(&mut self) -> Result<(), AppError> {
+        self.sink.finish()
+    }
+
+    fn install_current(&mut self) -> Result<(), AppError> {
+        if !validate_state_transition_current_cas(self.bundle, &self.current.bytes)? {
+            atomic_replace_bytes(&self.current.path, self.current.bytes.as_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn converge(&mut self) -> Result<(), AppError> {
+        self.sink.converge_derived(&self.bundle.project_id)
+    }
+
+    fn remove_journal(&mut self) -> Result<(), AppError> {
+        self.transition_guard.remove(self.bundle, self.journal)
+    }
 }
 
 fn prepared_workflow_member(
@@ -1103,32 +1214,85 @@ pub(crate) fn transition_project_current_state_prepared_terminal_action(
         ],
     )?;
     let journal = transition_guard.commit(&bundle)?;
-    terminal_action_fault("A1-after-journal")?;
-    let mut sink = writer.event_sink(&planned);
-    sink.append_planned_under_guard(0, &events[0])?;
-    terminal_action_fault("A2-after-intent")?;
-    if bundle.source_install.is_some() {
-        install_prepared_source_bundle(&bundle, &journal)?;
-    }
-    terminal_action_fault("A3-after-source")?;
-    workflow_guard.install_snapshot(&revision)?;
-    sink.append_planned_under_guard(1, &events[1])?;
-    terminal_action_fault("A4-after-snapshot")?;
-    workflow_guard.install_pointer(&revision)?;
-    terminal_action_fault("A5-after-pointer")?;
-    sink.append_planned_under_guard(2, &events[2])?;
-    sink.finish()?;
-    terminal_action_fault("A6-after-ledger")?;
-    install_current_image(
-        &current,
-        bundle.current_revision,
-        &bundle.current_artifact_hash,
+    let mut port = StateTerminalActionTransactionPort {
+        transition_guard: Some(transition_guard),
+        workflow_guard,
+        bundle: &bundle,
+        revision: &revision,
+        current: &current,
+        events: &events,
+        journal: &journal,
+        sink: writer.event_sink(&planned),
+    };
+    transaction_coordinator::execute_terminal_action_transaction(
+        &mut port,
+        TransactionExecution::Commit,
     )?;
-    terminal_action_fault("A7-after-current")?;
-    sink.converge_prepared(&bundle, &journal)?;
-    terminal_action_fault("A8-after-projection")?;
-    transition_guard.remove(&bundle, &journal)?;
     Ok(revision.record)
+}
+
+struct StateTerminalActionTransactionPort<'a> {
+    transition_guard: Option<&'a crate::transition::TransitionGuard>,
+    workflow_guard: &'a WorkflowCheckpointGuard,
+    bundle: &'a crate::transition::PreparedSourceBundle,
+    revision: &'a PreparedWorkflowRevision,
+    current: &'a PreparedCurrentImage,
+    events: &'a [ledger::LedgerEvent],
+    journal: &'a std::path::Path,
+    sink: ledger::EventSink<'a>,
+}
+
+impl TerminalActionTransactionPort for StateTerminalActionTransactionPort<'_> {
+    fn fault(&mut self, point: TerminalActionFault) -> Result<(), AppError> {
+        terminal_action_fault(point.as_str())
+    }
+
+    fn append_event(&mut self, index: usize) -> Result<(), AppError> {
+        let event = self
+            .events
+            .get(index)
+            .ok_or_else(|| AppError::blocked("prepared terminal event index 범위 초과"))?;
+        self.sink
+            .append_planned_under_guard(index, event)
+            .map(|_| ())
+    }
+
+    fn install_source(&mut self) -> Result<(), AppError> {
+        if self.bundle.source_install.is_some() {
+            install_prepared_source_bundle(self.bundle, self.journal)?;
+        }
+        Ok(())
+    }
+
+    fn install_snapshot(&mut self) -> Result<(), AppError> {
+        self.workflow_guard.install_snapshot(self.revision)
+    }
+
+    fn install_pointer(&mut self) -> Result<(), AppError> {
+        self.workflow_guard.install_pointer(self.revision)
+    }
+
+    fn finish_events(&mut self) -> Result<(), AppError> {
+        self.sink.finish()
+    }
+
+    fn install_current(&mut self) -> Result<(), AppError> {
+        install_current_image(
+            self.current,
+            self.bundle.current_revision,
+            &self.bundle.current_artifact_hash,
+        )
+    }
+
+    fn converge(&mut self) -> Result<(), AppError> {
+        self.sink.converge_prepared(self.bundle, self.journal)
+    }
+
+    fn remove_journal(&mut self) -> Result<(), AppError> {
+        self.transition_guard
+            .ok_or_else(|| AppError::blocked("prepared terminal cleanup guard 누락"))?
+            .remove(self.bundle, self.journal)
+    }
 }
 
 pub(crate) struct PreparedApprovalTransition<'a> {
@@ -1151,7 +1315,7 @@ pub(crate) fn transition_project_current_state_prepared_approval(
         .transition_guard
         .ok_or_else(|| AppError::blocked("prepared approval transition guard 누락"))?;
     let journal = transition_guard.commit(prepared.bundle)?;
-    execute_prepared_approval(prepared, &journal, true, true)
+    execute_prepared_approval(prepared, &journal, TransactionExecution::Commit)
 }
 
 pub(crate) fn recover_project_current_state_prepared_approval(
@@ -1159,33 +1323,75 @@ pub(crate) fn recover_project_current_state_prepared_approval(
     journal: &std::path::Path,
 ) -> Result<(), AppError> {
     let lag_path = crate::transition::projection_lag_path(prepared.bundle)?;
-    let lag_temp_exists = lag_path.with_extension("json.tmp").exists();
-    if !lag_path.exists()
-        && (lag_temp_exists
-            || !prepared
-                .writer
-                .prepared_target_is_converged(prepared.bundle, journal)?)
-    {
-        let lag = crate::transition::install_projection_lag(prepared.bundle).map_err(|error| {
+    let mut port = ApprovalProjectionRecoveryPort {
+        prepared: Some(prepared),
+        journal,
+        lag_path,
+    };
+    workflow_recovery::recover_through_projection_barrier(&mut port)
+}
+
+struct ApprovalProjectionRecoveryPort<'a> {
+    prepared: Option<PreparedApprovalTransition<'a>>,
+    journal: &'a std::path::Path,
+    lag_path: PathBuf,
+}
+
+impl ApprovalProjectionRecoveryPort<'_> {
+    fn prepared(&self) -> &PreparedApprovalTransition<'_> {
+        self.prepared
+            .as_ref()
+            .expect("approval recovery port retains prepared transition")
+    }
+}
+
+impl ProjectionBarrierRecoveryPort for ApprovalProjectionRecoveryPort<'_> {
+    fn lag_exists(&self) -> bool {
+        self.lag_path.exists()
+    }
+
+    fn lag_temp_exists(&self) -> bool {
+        self.lag_path.with_extension("json.tmp").exists()
+    }
+
+    fn target_is_converged(&self) -> Result<bool, AppError> {
+        let prepared = self.prepared();
+        prepared
+            .writer
+            .prepared_target_is_converged(prepared.bundle, self.journal)
+    }
+
+    fn install_lag(&self) -> Result<PathBuf, AppError> {
+        let prepared = self.prepared();
+        crate::transition::install_projection_lag(prepared.bundle).map_err(|error| {
             AppError::blocked(format!(
                 "projection lag install 실패\n- code: projection.lag-install-failed\n- intent: {}\n- error: {}",
-                prepared.bundle.intent_id, error.message
+                prepared.bundle.intent_id, error.message,
             ))
-        })?;
-        return Err(AppError::blocked(format!(
-            "projection repair 필요\n- code: projection.repair-required\n- intent: {}\n- lag: {}\n- error: interrupted repair requires a durable lag marker",
-            prepared.bundle.intent_id,
-            lag.display()
-        )));
+        })
     }
-    execute_prepared_approval(prepared, journal, false, false)
+
+    fn repair_required(&self, lag: &std::path::Path) -> AppError {
+        AppError::blocked(format!(
+            "projection repair 필요\n- code: projection.repair-required\n- intent: {}\n- lag: {}\n- error: interrupted repair requires a durable lag marker",
+            self.prepared().bundle.intent_id,
+            lag.display()
+        ))
+    }
+
+    fn resume_recovery(&mut self) -> Result<(), AppError> {
+        let prepared = self
+            .prepared
+            .take()
+            .expect("approval recovery executes at most once");
+        execute_prepared_approval(prepared, self.journal, TransactionExecution::Recovery)
+    }
 }
 
 fn execute_prepared_approval(
     prepared: PreparedApprovalTransition<'_>,
     journal: &std::path::Path,
-    inject_faults: bool,
-    remove_journal: bool,
+    execution: TransactionExecution,
 ) -> Result<(), AppError> {
     let PreparedApprovalTransition {
         transition_guard,
@@ -1199,89 +1405,118 @@ fn execute_prepared_approval(
         current,
         events,
     } = prepared;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T1")?;
-    }
-    let mut sink = writer.event_sink(planned);
-    sink.append_planned_under_guard(0, &events[0])?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T2")?;
-    }
-    workflow_guard.install_snapshot(r1)?;
-    sink.append_planned_under_guard(1, &events[1])?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T3-before-pointer")?;
-    }
-    workflow_guard.install_pointer(r1)?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T3")?;
-    }
-    for (index, event) in events.iter().enumerate().take(5).skip(2) {
-        sink.append_planned_under_guard(index, event)?;
-    }
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T4")?;
-    }
-    install_prepared_source_bundle(bundle, journal)?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T5")?;
-    }
-    for (index, event) in events.iter().enumerate().take(8).skip(5) {
-        sink.append_planned_under_guard(index, event)?;
-    }
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T6")?;
-    }
-    crate::transcript::install_prepared_no_stream_tool_turn(transcript)?;
-    sink.append_planned_under_guard(8, &events[8])?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T7")?;
-    }
-    workflow_guard.install_snapshot(r2)?;
-    sink.append_planned_under_guard(9, &events[9])?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T8-before-pointer")?;
-    }
-    workflow_guard.install_pointer(r2)?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T8")?;
-    }
-    install_current_image(
+    let mut port = StateApprovalTransactionPort {
+        transition_guard,
+        workflow_guard,
+        bundle,
+        r1,
+        r2,
+        transcript,
         current,
-        bundle.current_revision,
-        &bundle.current_artifact_hash,
-    )?;
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T9")?;
+        events,
+        journal,
+        sink: writer.event_sink(planned),
+    };
+    transaction_coordinator::execute_approval_transaction(&mut port, execution)
+}
+
+struct StateApprovalTransactionPort<'a> {
+    transition_guard: Option<&'a crate::transition::TransitionGuard>,
+    workflow_guard: &'a WorkflowCheckpointGuard,
+    bundle: &'a crate::transition::PreparedSourceBundle,
+    r1: &'a PreparedWorkflowRevision,
+    r2: &'a PreparedWorkflowRevision,
+    transcript: &'a crate::transcript::PreparedTranscriptTurn,
+    current: &'a PreparedCurrentImage,
+    events: &'a [ledger::LedgerEvent],
+    journal: &'a std::path::Path,
+    sink: ledger::EventSink<'a>,
+}
+
+impl ApprovalTransactionPort for StateApprovalTransactionPort<'_> {
+    fn fault(&mut self, point: ApprovalFault) -> Result<(), AppError> {
+        crate::patch::approval_transaction_fault(point.as_str())
     }
-    sink.finish()?;
-    let convergence = crate::patch::approval_projection_fault()
-        .and_then(|_| sink.converge_prepared(bundle, journal));
-    if let Err(error) = convergence {
-        let lag = crate::transition::install_projection_lag(bundle).map_err(|lag_error| {
-            AppError::blocked(format!(
+
+    fn append_event(&mut self, index: usize) -> Result<(), AppError> {
+        let event = self
+            .events
+            .get(index)
+            .ok_or_else(|| AppError::blocked("prepared approval event index 범위 초과"))?;
+        self.sink
+            .append_planned_under_guard(index, event)
+            .map(|_| ())
+    }
+
+    fn install_snapshot(&mut self, revision: ApprovalRevision) -> Result<(), AppError> {
+        let prepared = match revision {
+            ApprovalRevision::First => self.r1,
+            ApprovalRevision::Second => self.r2,
+        };
+        self.workflow_guard.install_snapshot(prepared)
+    }
+
+    fn install_pointer(&mut self, revision: ApprovalRevision) -> Result<(), AppError> {
+        let prepared = match revision {
+            ApprovalRevision::First => self.r1,
+            ApprovalRevision::Second => self.r2,
+        };
+        self.workflow_guard.install_pointer(prepared)
+    }
+
+    fn install_source(&mut self) -> Result<(), AppError> {
+        install_prepared_source_bundle(self.bundle, self.journal)
+    }
+
+    fn install_transcript(&mut self) -> Result<(), AppError> {
+        crate::transcript::install_prepared_no_stream_tool_turn(self.transcript)
+    }
+
+    fn install_current(&mut self) -> Result<(), AppError> {
+        install_current_image(
+            self.current,
+            self.bundle.current_revision,
+            &self.bundle.current_artifact_hash,
+        )
+    }
+
+    fn finish_events(&mut self) -> Result<(), AppError> {
+        self.sink.finish()
+    }
+
+    fn converge(&mut self) -> Result<(), AppError> {
+        crate::patch::approval_projection_fault()
+            .and_then(|_| self.sink.converge_prepared(self.bundle, self.journal))
+    }
+
+    fn projection_repair_required(&mut self, convergence_error: AppError) -> AppError {
+        match crate::transition::install_projection_lag(self.bundle) {
+            Ok(lag) => AppError::blocked(format!(
+                "projection repair 필요\n- code: projection.repair-required\n- intent: {}\n- lag: {}\n- error: {}",
+                self.bundle.intent_id,
+                lag.display(),
+                convergence_error.message,
+            )),
+            Err(lag_error) => AppError::blocked(format!(
                 "projection lag install 실패\n- code: projection.lag-install-failed\n- intent: {}\n- converge error: {}\n- lag error: {}",
-                bundle.intent_id, error.message, lag_error.message
-            ))
-        })?;
-        return Err(AppError::blocked(format!(
-            "projection repair 필요\n- code: projection.repair-required\n- intent: {}\n- lag: {}\n- error: {}",
-            bundle.intent_id,
-            lag.display(),
-            error.message
-        )));
+                self.bundle.intent_id, convergence_error.message, lag_error.message,
+            )),
+        }
     }
-    if inject_faults {
-        crate::patch::approval_transaction_fault("T10")?;
+
+    fn remove_projection_lag(&mut self) -> Result<(), AppError> {
+        crate::transition::remove_projection_lag(self.bundle)
     }
-    crate::transition::remove_projection_lag(bundle)?;
-    crate::transition::validate_committed_bundle_cleanup_authority(bundle, journal)?;
-    if remove_journal {
-        transition_guard
+
+    fn validate_cleanup_authority(&mut self) -> Result<(), AppError> {
+        crate::transition::validate_committed_bundle_cleanup_authority(self.bundle, self.journal)
+    }
+
+    fn remove_journal(&mut self) -> Result<(), AppError> {
+        self.transition_guard
             .ok_or_else(|| AppError::blocked("prepared approval cleanup guard 누락"))?
-            .remove(bundle, journal)?;
+            .remove(self.bundle, self.journal)
     }
-    Ok(())
 }
 
 pub(crate) struct PreparedVerificationTransition<'a> {
@@ -1302,21 +1537,20 @@ pub(crate) fn transition_project_current_state_prepared_verification(
         .transition_guard
         .ok_or_else(|| AppError::blocked("prepared verification transition guard 누락"))?;
     let journal = transition_guard.commit(prepared.bundle)?;
-    execute_prepared_verification(prepared, &journal, true, true)
+    execute_prepared_verification(prepared, &journal, TransactionExecution::Commit)
 }
 
 pub(crate) fn recover_project_current_state_prepared_verification(
     prepared: PreparedVerificationTransition<'_>,
     journal: &std::path::Path,
 ) -> Result<(), AppError> {
-    execute_prepared_verification(prepared, journal, false, false)
+    execute_prepared_verification(prepared, journal, TransactionExecution::Recovery)
 }
 
 fn execute_prepared_verification(
     prepared: PreparedVerificationTransition<'_>,
     journal: &std::path::Path,
-    inject_faults: bool,
-    remove_journal: bool,
+    execution: TransactionExecution,
 ) -> Result<(), AppError> {
     let PreparedVerificationTransition {
         transition_guard,
@@ -1328,46 +1562,74 @@ fn execute_prepared_verification(
         current,
         events,
     } = prepared;
-    if inject_faults {
-        crate::patch::verification_approval_transaction_fault("V1")?;
-    }
-    let mut sink = writer.event_sink(planned);
-    sink.append_planned_under_guard(0, &events[0])?;
-    if inject_faults {
-        crate::patch::verification_approval_transaction_fault("V2")?;
-    }
-    workflow_guard.install_snapshot(revision)?;
-    sink.append_planned_under_guard(1, &events[1])?;
-    if inject_faults {
-        crate::patch::verification_approval_transaction_fault("V3-before-pointer")?;
-    }
-    workflow_guard.install_pointer(revision)?;
-    if inject_faults {
-        crate::patch::verification_approval_transaction_fault("V3")?;
-    }
-    sink.append_planned_under_guard(2, &events[2])?;
-    if inject_faults {
-        crate::patch::verification_approval_transaction_fault("V4")?;
-    }
-    install_current_image(
+    let mut port = StateVerificationTransactionPort {
+        transition_guard,
+        workflow_guard,
+        bundle,
+        revision,
         current,
-        bundle.current_revision,
-        &bundle.current_artifact_hash,
-    )?;
-    if inject_faults {
-        crate::patch::verification_approval_transaction_fault("V5")?;
+        events,
+        journal,
+        sink: writer.event_sink(planned),
+    };
+    transaction_coordinator::execute_verification_transaction(&mut port, execution)
+}
+
+struct StateVerificationTransactionPort<'a> {
+    transition_guard: Option<&'a crate::transition::TransitionGuard>,
+    workflow_guard: &'a WorkflowCheckpointGuard,
+    bundle: &'a crate::transition::PreparedSourceBundle,
+    revision: &'a PreparedWorkflowRevision,
+    current: &'a PreparedCurrentImage,
+    events: &'a [ledger::LedgerEvent],
+    journal: &'a std::path::Path,
+    sink: ledger::EventSink<'a>,
+}
+
+impl VerificationTransactionPort for StateVerificationTransactionPort<'_> {
+    fn fault(&mut self, point: VerificationFault) -> Result<(), AppError> {
+        crate::patch::verification_approval_transaction_fault(point.as_str())
     }
-    sink.finish()?;
-    sink.converge_prepared(bundle, journal)?;
-    if inject_faults {
-        crate::patch::verification_approval_transaction_fault("V6")?;
+
+    fn append_event(&mut self, index: usize) -> Result<(), AppError> {
+        let event = self
+            .events
+            .get(index)
+            .ok_or_else(|| AppError::blocked("prepared verification event index 범위 초과"))?;
+        self.sink
+            .append_planned_under_guard(index, event)
+            .map(|_| ())
     }
-    if remove_journal {
-        transition_guard
+
+    fn install_snapshot(&mut self) -> Result<(), AppError> {
+        self.workflow_guard.install_snapshot(self.revision)
+    }
+
+    fn install_pointer(&mut self) -> Result<(), AppError> {
+        self.workflow_guard.install_pointer(self.revision)
+    }
+
+    fn install_current(&mut self) -> Result<(), AppError> {
+        install_current_image(
+            self.current,
+            self.bundle.current_revision,
+            &self.bundle.current_artifact_hash,
+        )
+    }
+
+    fn finish_events(&mut self) -> Result<(), AppError> {
+        self.sink.finish()
+    }
+
+    fn converge(&mut self) -> Result<(), AppError> {
+        self.sink.converge_prepared(self.bundle, self.journal)
+    }
+
+    fn remove_journal(&mut self) -> Result<(), AppError> {
+        self.transition_guard
             .ok_or_else(|| AppError::blocked("prepared verification cleanup guard 누락"))?
-            .remove(bundle, journal)?;
+            .remove(self.bundle, self.journal)
     }
-    Ok(())
 }
 
 pub(crate) fn recover_project_current_state_prepared_terminal_action(
@@ -1431,22 +1693,20 @@ pub(crate) fn recover_project_current_state_prepared_terminal_action(
         ));
     }
     let writer = ledger::LedgerWriterGuard::acquire()?;
-    let mut sink = writer.event_sink(&planned);
-    sink.append_planned_under_guard(0, &bundle.semantic_events[0])?;
-    if bundle.source_install.is_some() {
-        install_prepared_source_bundle(bundle, journal)?;
-    }
-    workflow_guard.install_snapshot(&revision)?;
-    sink.append_planned_under_guard(1, &bundle.semantic_events[1])?;
-    workflow_guard.install_pointer(&revision)?;
-    sink.append_planned_under_guard(2, &bundle.semantic_events[2])?;
-    sink.finish()?;
-    install_current_image(
-        &current,
-        bundle.current_revision,
-        &bundle.current_artifact_hash,
-    )?;
-    sink.converge_prepared(bundle, journal)
+    let mut port = StateTerminalActionTransactionPort {
+        transition_guard: None,
+        workflow_guard: &workflow_guard,
+        bundle,
+        revision: &revision,
+        current: &current,
+        events: &bundle.semantic_events,
+        journal,
+        sink: writer.event_sink(&planned),
+    };
+    transaction_coordinator::execute_terminal_action_transaction(
+        &mut port,
+        TransactionExecution::Recovery,
+    )
 }
 
 fn terminal_action_fault(point: &str) -> Result<(), AppError> {
@@ -1610,20 +1870,15 @@ fn reconcile_invalid_current_under_guard(
     let current = state_transition_current_member(&current_image, &event.event_id, None, "file");
     crate::transition::bind_additional_members(&mut bundle, vec![backup, current])?;
     let journal = transition_guard.commit(&bundle)?;
-    state_transition_fault("after-journal")?;
-    install_prepared_reconcile_backup(&bundle)?;
-    state_transition_fault("after-artifacts")?;
-    let mut sink = writer.event_sink(&planned);
-    sink.append_planned_under_guard(0, &event)?;
-    state_transition_fault("after-ledger")?;
-    sink.finish()?;
-    if !validate_state_transition_current_cas(&bundle, &current_image.bytes)? {
-        atomic_replace_bytes(&current_image.path, current_image.bytes.as_bytes())?;
-    }
-    state_transition_fault("after-current")?;
-    sink.converge_derived(&identity.project_id)?;
-    state_transition_fault("after-projection")?;
-    transition_guard.remove(&bundle, &journal)?;
+    let mut port = StateReconcileTransactionPort {
+        transition_guard,
+        bundle: &bundle,
+        current: &current_image,
+        event: &event,
+        journal: &journal,
+        sink: writer.event_sink(&planned),
+    };
+    transaction_coordinator::execute_reconcile_transaction(&mut port)?;
     let backup = bundle
         .additional_members
         .first()
@@ -1635,6 +1890,62 @@ fn reconcile_invalid_current_under_guard(
         .map(|name| paths::state_dir().join(name))
         .ok_or_else(|| AppError::blocked("reconcile backup result path 불일치"))?;
     Ok((event, backup))
+}
+
+struct StateReconcileTransactionPort<'a> {
+    transition_guard: &'a crate::transition::TransitionGuard,
+    bundle: &'a crate::transition::PreparedSourceBundle,
+    current: &'a PreparedCurrentImage,
+    event: &'a ledger::LedgerEvent,
+    journal: &'a std::path::Path,
+    sink: ledger::EventSink<'a>,
+}
+
+impl ReconcileTransactionPort for StateReconcileTransactionPort<'_> {
+    fn fault(&mut self, point: StateTransitionFault) -> Result<(), AppError> {
+        match point {
+            StateTransitionFault::Journal => state_transition_fault("after-journal"),
+            StateTransitionFault::Artifacts => state_transition_fault("after-artifacts"),
+            StateTransitionFault::Ledger => state_transition_fault("after-ledger"),
+            StateTransitionFault::Current => state_transition_fault("after-current"),
+            StateTransitionFault::Projection => state_transition_fault("after-projection"),
+            StateTransitionFault::CheckpointTransaction
+            | StateTransitionFault::CheckpointSnapshot
+            | StateTransitionFault::CheckpointLedger
+            | StateTransitionFault::CheckpointPointer => Err(AppError::blocked(
+                "reconcile transaction checkpoint fault 범위 불일치",
+            )),
+        }
+    }
+
+    fn install_backup(&mut self) -> Result<(), AppError> {
+        install_prepared_reconcile_backup(self.bundle)
+    }
+
+    fn append_event(&mut self) -> Result<(), AppError> {
+        self.sink
+            .append_planned_under_guard(0, self.event)
+            .map(|_| ())
+    }
+
+    fn finish_events(&mut self) -> Result<(), AppError> {
+        self.sink.finish()
+    }
+
+    fn install_current(&mut self) -> Result<(), AppError> {
+        if !validate_state_transition_current_cas(self.bundle, &self.current.bytes)? {
+            atomic_replace_bytes(&self.current.path, self.current.bytes.as_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn converge(&mut self) -> Result<(), AppError> {
+        self.sink.converge_derived(&self.bundle.project_id)
+    }
+
+    fn remove_journal(&mut self) -> Result<(), AppError> {
+        self.transition_guard.remove(self.bundle, self.journal)
+    }
 }
 
 fn install_current_image(
@@ -3714,107 +4025,111 @@ fn remove_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
 }
 
 fn recover_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
-    let transaction_path = paths::project_workflow_transaction_file(workflow_id);
-    if !transaction_path.exists() {
-        return Ok(());
+    workflow_recovery::recover_workflow_transaction(&StateWorkflowRecoveryPort, workflow_id)
+}
+
+struct StateWorkflowRecoveryPort;
+
+impl WorkflowRecoveryPort for StateWorkflowRecoveryPort {
+    fn load_transaction(
+        &self,
+        workflow_id: &str,
+    ) -> Result<Option<PendingWorkflowTransaction>, AppError> {
+        let path = paths::project_workflow_transaction_file(workflow_id);
+        if !path.exists() {
+            return Ok(None);
+        }
+        let body = read_regular_file_bounded(
+            &path,
+            MAX_WORKFLOW_SNAPSHOT_BYTES,
+            "workflow recovery transaction",
+        )?;
+        let schema_version = workflow_snapshot_schema(&path, &body)?;
+        let record = parse_workflow_snapshot(&path, &body)?;
+        Ok(Some(PendingWorkflowTransaction {
+            schema_version,
+            record,
+            body,
+        }))
     }
-    let body = read_regular_file_bounded(
-        &transaction_path,
-        MAX_WORKFLOW_SNAPSHOT_BYTES,
-        "workflow recovery transaction",
-    )?;
-    let transaction_schema = workflow_snapshot_schema(&transaction_path, &body)?;
-    let record = parse_workflow_snapshot(&transaction_path, &body)?;
-    if record.workflow_id != workflow_id {
-        return Err(corrupt_workflow(&transaction_path));
-    }
-    let pointer_path = paths::project_workflow_file(workflow_id);
-    if pointer_path.exists() {
-        let pointer = read_regular_file_bounded(
-            &pointer_path,
+
+    fn load_pointer(&self, workflow_id: &str) -> Result<Option<WorkflowPointer>, AppError> {
+        let path = paths::project_workflow_file(workflow_id);
+        if !path.exists() {
+            return Ok(None);
+        }
+        let body = read_regular_file_bounded(
+            &path,
             MAX_WORKFLOW_POINTER_BYTES,
             "workflow recovery pointer",
         )?;
-        let pointer = parse_workflow_pointer(&pointer_path, &pointer)?;
-        if pointer.workflow_id != workflow_id {
-            return Err(corrupt_workflow(&pointer_path));
-        }
-        if pointer.committed_revision == record.revision
-            && pointer.artifact_hash == record.artifact_hash
-        {
-            if pointer.schema_version != transaction_schema {
-                return Err(corrupt_workflow(&transaction_path));
-            }
-            validate_workflow_chain(
-                workflow_id,
-                pointer.committed_revision,
-                pointer.schema_version,
-            )?;
-            remove_workflow_transaction(workflow_id)?;
-            return Ok(());
-        }
-        let schema_transition_allowed = pointer.schema_version <= transaction_schema;
-        if pointer.committed_revision + 1 != record.revision
-            || record.previous_hash != pointer.artifact_hash
-            || !schema_transition_allowed
-        {
-            return Err(corrupt_workflow(&transaction_path));
-        }
-        let checkpoints = ledger::workflow_checkpoints(workflow_id)?;
-        if checkpoints.len() != pointer.committed_revision as usize
-            && checkpoints.len() != record.revision as usize
-        {
-            return Err(corrupt_workflow(&transaction_path));
-        }
-        let committed = validate_workflow_chain_with_checkpoints(
-            workflow_id,
-            pointer.committed_revision,
-            pointer.schema_version,
-            &checkpoints[..pointer.committed_revision as usize],
-        )?;
-        if committed.artifact_hash != pointer.artifact_hash
-            || committed.project_id != record.project_id
-            || committed.session_id != record.session_id
-            || committed.action_id != record.action_id
-        {
-            return Err(corrupt_workflow(&transaction_path));
-        }
-        if checkpoints.len() == record.revision as usize {
-            let pending = &checkpoints[record.revision as usize - 1];
-            if pending.revision != record.revision
-                || pending.artifact_hash != record.artifact_hash
-                || pending.previous_hash != record.previous_hash
-            {
-                return Err(corrupt_workflow(&transaction_path));
-            }
-        }
-    } else {
-        let checkpoints = ledger::workflow_checkpoints(workflow_id)?;
-        if record.revision != 1
-            || record.previous_hash != "none"
-            || checkpoints.len() > 1
-            || checkpoints.first().is_some_and(|checkpoint| {
-                checkpoint.revision != record.revision
-                    || checkpoint.artifact_hash != record.artifact_hash
-                    || checkpoint.previous_hash != record.previous_hash
-            })
-        {
-            return Err(corrupt_workflow(&transaction_path));
-        }
-        let identity = ledger::validated_current_identity()?;
-        if record.project_id != identity.project_id {
-            return Err(corrupt_workflow(&transaction_path));
-        }
+        parse_workflow_pointer(&path, &body).map(Some)
     }
 
-    if !ledger::workflow_checkpoint_exists(workflow_id, record.revision, &record.artifact_hash)? {
-        return Err(AppError::blocked(
-            "legacy workflow transaction recovery 차단\n- 이유: exact prepared semantic event가 없습니다.\n- 동작: transaction 증거를 보존했습니다.",
-        ));
+    fn checkpoints(&self, workflow_id: &str) -> Result<Vec<ledger::WorkflowCheckpoint>, AppError> {
+        ledger::workflow_checkpoints(workflow_id)
     }
-    write_workflow_snapshot_bytes(&record, body.as_bytes())?;
-    write_workflow_pointer_for_schema(&record, transaction_schema)?;
-    remove_workflow_transaction(workflow_id)
+
+    fn validate_chain(
+        &self,
+        workflow_id: &str,
+        committed_revision: u64,
+        expected_latest_schema: u64,
+    ) -> Result<WorkflowRecord, AppError> {
+        validate_workflow_chain(workflow_id, committed_revision, expected_latest_schema)
+    }
+
+    fn validate_chain_with_checkpoints(
+        &self,
+        workflow_id: &str,
+        committed_revision: u64,
+        expected_latest_schema: u64,
+        checkpoints: &[ledger::WorkflowCheckpoint],
+    ) -> Result<WorkflowRecord, AppError> {
+        validate_workflow_chain_with_checkpoints(
+            workflow_id,
+            committed_revision,
+            expected_latest_schema,
+            checkpoints,
+        )
+    }
+
+    fn current_identity(&self) -> Result<RuntimeIdentity, AppError> {
+        ledger::validated_current_identity()
+    }
+
+    fn checkpoint_exists(
+        &self,
+        workflow_id: &str,
+        revision: u64,
+        artifact_hash: &str,
+    ) -> Result<bool, AppError> {
+        ledger::workflow_checkpoint_exists(workflow_id, revision, artifact_hash)
+    }
+
+    fn install_snapshot(&self, record: &WorkflowRecord, body: &[u8]) -> Result<(), AppError> {
+        write_workflow_snapshot_bytes(record, body)
+    }
+
+    fn install_pointer(
+        &self,
+        record: &WorkflowRecord,
+        schema_version: u64,
+    ) -> Result<(), AppError> {
+        write_workflow_pointer_for_schema(record, schema_version)
+    }
+
+    fn remove_transaction(&self, workflow_id: &str) -> Result<(), AppError> {
+        remove_workflow_transaction(workflow_id)
+    }
+
+    fn corrupt(&self, workflow_id: &str, artifact: RecoveryArtifact) -> AppError {
+        let path = match artifact {
+            RecoveryArtifact::Transaction => paths::project_workflow_transaction_file(workflow_id),
+            RecoveryArtifact::Pointer => paths::project_workflow_file(workflow_id),
+        };
+        corrupt_workflow(&path)
+    }
 }
 
 #[cfg(test)]

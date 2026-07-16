@@ -2070,8 +2070,12 @@
           "responsibility": "cross-store transaction coordination",
           "target": "src/runtime_core/workflow/application/transaction_coordinator.rs",
           "release": "0.37.6",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "tests/workflow/recovery.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "ledger observability projection",
@@ -2502,6 +2506,52 @@
       ]
     },
     {
+      "path": "src/runtime_core/workflow/application/mod.rs",
+      "slices": [
+        {
+          "responsibility": "workflow application module ownership",
+          "target": "src/runtime_core/workflow/application/mod.rs",
+          "release": "0.37.6",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/recovery.rs",
+      "slices": [
+        {
+          "responsibility": "workflow state recovery",
+          "target": "src/runtime_core/workflow/application/recovery.rs",
+          "release": "0.37.6",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery.rs",
+            "tests/workflow/recovery.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator.rs",
+      "slices": [
+        {
+          "responsibility": "cross-store transaction coordination",
+          "target": "src/runtime_core/workflow/application/transaction_coordinator.rs",
+          "release": "0.37.6",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "tests/workflow/recovery.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/workflow/domain/mod.rs",
       "slices": [
         {
@@ -2540,6 +2590,21 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/domain/transcript.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/transition.rs",
+      "slices": [
+        {
+          "responsibility": "legal workflow transitions",
+          "target": "src/runtime_core/workflow/domain/transition.rs",
+          "release": "0.37.6",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2640,8 +2705,12 @@
           "responsibility": "workflow state recovery",
           "target": "src/runtime_core/workflow/application/recovery.rs",
           "release": "0.37.6",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery.rs",
+            "tests/workflow/recovery.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2810,8 +2879,11 @@
           "responsibility": "legal workflow transitions",
           "target": "src/runtime_core/workflow/domain/transition.rs",
           "release": "0.37.6",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "projection-lag and recovery gates",
@@ -2981,8 +3053,10 @@
           "responsibility": "workflow recovery and ordering contract",
           "target": "tests/workflow/recovery.rs",
           "release": "0.37.6",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/workflow/recovery.rs"
+          ]
         },
         {
           "responsibility": "patch lifecycle contract",
@@ -3003,6 +3077,20 @@
           "state": "complete",
           "evidence": [
             "tests/workflow/storage_compat.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/workflow/recovery.rs",
+      "slices": [
+        {
+          "responsibility": "workflow recovery and ordering contract",
+          "target": "tests/workflow/recovery.rs",
+          "release": "0.37.6",
+          "state": "complete",
+          "evidence": [
+            "tests/workflow/recovery.rs"
           ]
         }
       ]
@@ -3082,7 +3170,7 @@
       ]
     }
   ],
-  "current_release": "0.37.5",
+  "current_release": "0.37.6",
   "train_completion": false,
   "logical_proofs": [
     {
@@ -4116,6 +4204,24 @@
       ]
     },
     {
+      "path": "src/runtime_core/workflow/application/mod.rs",
+      "responsibilities": [
+        "workflow application module ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/recovery.rs",
+      "responsibilities": [
+        "workflow state recovery"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator.rs",
+      "responsibilities": [
+        "cross-store transaction coordination"
+      ]
+    },
+    {
       "path": "src/runtime_core/workflow/domain/mod.rs",
       "responsibilities": [
         "workflow domain view module ownership"
@@ -4131,6 +4237,12 @@
       "path": "src/runtime_core/workflow/domain/transcript.rs",
       "responsibilities": [
         "validated transcript session views"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/transition.rs",
+      "responsibilities": [
+        "legal workflow transitions"
       ]
     },
     {
@@ -4311,6 +4423,12 @@
       "path": "tests/workflow.rs",
       "responsibilities": [
         "workflow integration test harness"
+      ]
+    },
+    {
+      "path": "tests/workflow/recovery.rs",
+      "responsibilities": [
+        "workflow recovery and ordering contract"
       ]
     },
     {

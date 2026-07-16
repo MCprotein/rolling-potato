@@ -191,6 +191,11 @@ leases, session-resume authority, bounded read-only workflow checkpoints, and
 ledger-ordered transcript session views. It also rejects duplicate canonical
 transcript events and mismatched transcript event/record/tool bindings without
 changing durable bytes, filesystem access, lock acquisition, or recovery order.
+The v0.37.6 private workflow-application owner selects exact event progression
+and cross-store state/checkpoint/reconcile/approval/verification/terminal commit
+and recovery order. Consumer-owned ports keep the existing filesystem, lease,
+ledger, projection, and cleanup implementations while preventing those adapters
+from independently choosing replay or cleanup order.
 
 Model output is stored as a non-executable action. The runtime rereads the named
 source before proposal, approval, apply, and stop-gate evaluation. Approval binds

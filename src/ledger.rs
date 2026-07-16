@@ -10,6 +10,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::adapters::filesystem::{layout as paths, lease};
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
+pub(crate) use crate::runtime_core::workflow::application::transaction_coordinator::PlannedEvent;
+use crate::runtime_core::workflow::application::transaction_coordinator::TransactionCoordinator;
 #[cfg(test)]
 use crate::runtime_core::workflow::storage_compat::ledger::append_line;
 #[cfg(test)]
@@ -42,18 +44,9 @@ pub(crate) struct AppendedEvent {
     pub event_hash: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct PlannedEvent {
-    pub event: LedgerEvent,
-    pub ordinal: u64,
-    pub previous_event_hash: String,
-    pub event_hash: String,
-}
-
 pub(crate) struct EventSink<'guard> {
     guard: &'guard LedgerWriterGuard,
-    planned: &'guard [PlannedEvent],
-    next_index: usize,
+    coordinator: TransactionCoordinator<'guard>,
 }
 
 impl LedgerWriterGuard {
@@ -293,8 +286,7 @@ impl LedgerWriterGuard {
     ) -> EventSink<'guard> {
         EventSink {
             guard: self,
-            planned,
-            next_index: 0,
+            coordinator: TransactionCoordinator::new(planned),
         }
     }
 }
@@ -305,38 +297,14 @@ impl EventSink<'_> {
         index: usize,
         event: &LedgerEvent,
     ) -> Result<AppendedEvent, AppError> {
-        if index != self.next_index {
-            return Err(AppError::blocked(format!(
-                "transaction event sink 순서 불일치\n- expected index: {}\n- requested index: {index}",
-                self.next_index
-            )));
-        }
-        let planned = self
-            .planned
-            .get(index)
-            .ok_or_else(|| AppError::blocked("transaction event sink index 범위 초과"))?;
-        if &planned.event != event {
-            return Err(AppError::blocked(
-                "transaction event sink semantic event binding 불일치",
-            ));
-        }
+        let planned = self.coordinator.validate_next(index, event)?;
         let appended = self.guard.append_runtime_planned(planned)?;
-        self.next_index = self
-            .next_index
-            .checked_add(1)
-            .ok_or_else(|| AppError::blocked("transaction event sink index overflow"))?;
+        self.coordinator.record_appended(index)?;
         Ok(appended)
     }
 
     pub(crate) fn finish(&self) -> Result<(), AppError> {
-        if self.next_index != self.planned.len() {
-            return Err(AppError::blocked(format!(
-                "transaction event sink 미완료\n- appended: {}\n- planned: {}",
-                self.next_index,
-                self.planned.len()
-            )));
-        }
-        Ok(())
+        self.coordinator.finish()
     }
 
     pub(crate) fn converge_derived(&self, project_id: &str) -> Result<(), AppError> {
@@ -353,8 +321,9 @@ impl EventSink<'_> {
         self.finish()?;
         crate::transition::validate_committed_bundle_cleanup_authority(bundle, journal)?;
         let prepared = crate::transition::planned_events(bundle)?;
-        if prepared.len() != self.planned.len()
-            || prepared.iter().zip(self.planned).any(|(left, right)| {
+        let planned = self.coordinator.planned();
+        if prepared.len() != planned.len()
+            || prepared.iter().zip(planned).any(|(left, right)| {
                 left.event != right.event
                     || left.ordinal != right.ordinal
                     || left.previous_event_hash != right.previous_event_hash
