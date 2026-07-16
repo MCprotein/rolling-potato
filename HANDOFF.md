@@ -7,7 +7,7 @@
 ```
 
 - Remote: `https://github.com/MCprotein/rolling-potato.git`
-- Latest release: `v0.35.0`
+- Latest release: `v0.35.1`
 - CLI: `rpotato`
 - Product: local-first coding-agent runtime for small local models
 
@@ -38,7 +38,7 @@ policy, explicit approval where required, evidence recording, and verification.
 
 ## Current Release State
 
-`v0.35.0` is the current complete release. GitHub Releases provides checksummed
+`v0.35.1` is the current complete release. GitHub Releases provides checksummed
 binaries for:
 
 - macOS Apple Silicon
