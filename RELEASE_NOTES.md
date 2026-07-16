@@ -10,9 +10,9 @@ lifecycle defects before the Windows archive could be built.
 
 ### Fixed
 
-- Keeps the ConPTY-side pipe handles alive until the first attached client is created,
-  following the Windows pseudoconsole startup contract so the initial console-mode probe
-  receives valid standard handles.
+- Keeps the ConPTY-side pipe handles alive until the first production client is created,
+  following the Windows pseudoconsole startup contract. Post-child probes then verify that
+  each production client restores input echo on the reused console.
 - Closes the host output pipe before `ClosePseudoConsole` during fixture cleanup, avoiding
   the documented deadlock risk on Windows versions where pseudoconsole close waits.
 - Adds a manually dispatched Windows native-terminal workflow with separate five-minute

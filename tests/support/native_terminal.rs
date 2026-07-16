@@ -815,6 +815,8 @@ mod windows {
         console: HpcOn,
         input: Handle,
         output: Handle,
+        console_input: Handle,
+        console_output: Handle,
         probe_binary: PathBuf,
         output_bytes: Vec<u8>,
         active: bool,
@@ -877,34 +879,31 @@ mod windows {
                 "CreatePseudoConsole failed: HRESULT={created:#x}"
             );
             let probe_binary = compile_mode_probe();
-            let before_probe = launch_in_console(
-                console,
-                &probe_binary,
-                "",
-                &[("RPOTATO_PROBE_EXPECT_ECHO", "1")],
-            );
-            // SAFETY: the first attached client has been created, so the host-side copies of
-            // the pipe ends supplied to CreatePseudoConsole are no longer needed.
-            unsafe {
-                CloseHandle(console_input);
-                CloseHandle(console_output);
-            }
-            wait_for_success(before_probe, "before terminal mode probe");
-            let mut output_bytes = Vec::new();
-            drain_pipe(parent_output, &mut output_bytes);
-            assert_eq!(
-                mode_probe_values(&output_bytes),
-                ["1"],
-                "initial same-ConPTY probe must prove echo enabled exactly"
-            );
 
             Self {
                 console,
                 input: parent_input,
                 output: parent_output,
+                console_input,
+                console_output,
                 probe_binary,
-                output_bytes,
+                output_bytes: Vec::new(),
                 active: false,
+            }
+        }
+
+        fn release_creation_pipe_ends(&mut self) {
+            // SAFETY: once the first production client has been created, the host-side
+            // copies supplied to CreatePseudoConsole are no longer needed.
+            unsafe {
+                if !self.console_input.is_null() {
+                    CloseHandle(self.console_input);
+                    self.console_input = std::ptr::null_mut();
+                }
+                if !self.console_output.is_null() {
+                    CloseHandle(self.console_output);
+                    self.console_output = std::ptr::null_mut();
+                }
             }
         }
 
@@ -985,6 +984,14 @@ mod windows {
                     CloseHandle(self.input);
                     self.input = std::ptr::null_mut();
                 }
+                if !self.console_input.is_null() {
+                    CloseHandle(self.console_input);
+                    self.console_input = std::ptr::null_mut();
+                }
+                if !self.console_output.is_null() {
+                    CloseHandle(self.console_output);
+                    self.console_output = std::ptr::null_mut();
+                }
                 if !self.console.is_null() {
                     ClosePseudoConsole(self.console);
                     self.console = std::ptr::null_mut();
@@ -1028,6 +1035,7 @@ mod windows {
                     "tui",
                     &[],
                 );
+                session_ref.release_creation_pipe_ends();
                 session_ref.active = true;
                 (process, output_start)
             };

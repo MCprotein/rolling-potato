@@ -10,9 +10,9 @@ gate가 test host lifecycle 결함 두 개를 드러냈습니다.
 
 ### 수정한 것
 
-- Windows pseudoconsole startup contract에 맞춰 첫 attached client를 생성할 때까지
-  ConPTY-side pipe handle을 유지합니다. 따라서 초기 console-mode probe가 유효한 standard
-  handle을 받습니다.
+- Windows pseudoconsole startup contract에 맞춰 첫 production client를 생성할 때까지
+  ConPTY-side pipe handle을 유지합니다. 이후 각 production client가 재사용 console의 input
+  echo를 복구했는지 post-child probe로 검증합니다.
 - Fixture cleanup에서 `ClosePseudoConsole`보다 host output pipe를 먼저 닫아, pseudoconsole
   close가 대기하는 Windows version의 문서화된 deadlock 위험을 제거합니다.
 - Entry/EOF lifecycle과 full adapter test를 각각 5분으로 제한한 수동 실행 Windows
