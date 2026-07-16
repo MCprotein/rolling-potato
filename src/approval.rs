@@ -191,6 +191,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn approval_request_record_bytes_are_stable() {
+        let rendered = render_request_record(&ApprovalRequest {
+            request_id: "approval-fixture".to_string(),
+            source: "team-admission".to_string(),
+            status: "pending-approval".to_string(),
+            reason: "policy-blocked".to_string(),
+            event_id: "event-fixture".to_string(),
+            session_id: "session-fixture".to_string(),
+            summary: "policy approval required".to_string(),
+            items: vec!["write: README.md -> ask".to_string()],
+        });
+
+        assert_eq!(
+            rendered,
+            "record_version=1\nrequest_id=approval-fixture\nsource=team-admission\nstatus=pending-approval\nreason=policy-blocked\nevent_id=event-fixture\nsession_id=session-fixture\nsummary=policy approval required\nitem_count=1\nitem_1=write: README.md -> ask\n"
+        );
+    }
+
+    #[test]
     fn writes_and_summarizes_approval_request() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = std::env::temp_dir().join(format!(
