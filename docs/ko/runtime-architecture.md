@@ -194,6 +194,10 @@ v0.37.6 private workflow application owner는 exact event 진행과 cross-store
 state/checkpoint/reconcile/approval/verification/terminal commit/recovery 순서를 선택합니다.
 Consumer-owned port는 기존 filesystem, lease, ledger, projection, cleanup 구현을
 유지하면서 adapter가 replay 또는 cleanup 순서를 독립적으로 선택하지 못하게 합니다.
+v0.37.7 projection 경계는 재생성 가능한 SQLite schema, replay, query, ledger
+validation, transcript row 설치, monitor report use case를 canonical ledger/transcript
+권위에서 분리합니다. Projection-lag recovery admission은 workflow application
+barrier가 소유하며 단계적 최상위 facade는 최종 composition cleanup까지만 남습니다.
 
 Model output은 실행 불가 action으로 저장됩니다. Runtime은 proposal, approval, apply,
 stop gate 전마다 지정 source 원문을 다시 읽습니다. Approval은 workflow/action/proposal

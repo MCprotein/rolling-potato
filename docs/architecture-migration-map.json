@@ -1626,6 +1626,51 @@
       ]
     },
     {
+      "path": "src/adapters/sqlite/ledger_projection.rs",
+      "slices": [
+        {
+          "responsibility": "ledger observability projection",
+          "target": "src/adapters/sqlite/ledger_projection.rs",
+          "release": "0.37.7",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/ledger_projection.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection.rs",
+      "slices": [
+        {
+          "responsibility": "SQLite observability projection",
+          "target": "src/adapters/sqlite/observability_projection.rs",
+          "release": "0.37.7",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/transcript_projection.rs",
+      "slices": [
+        {
+          "responsibility": "transcript projection",
+          "target": "src/adapters/sqlite/transcript_projection.rs",
+          "release": "0.37.7",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/transcript_projection.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/terminal/mod.rs",
       "slices": [
         {
@@ -2081,8 +2126,11 @@
           "responsibility": "ledger observability projection",
           "target": "src/adapters/sqlite/ledger_projection.rs",
           "release": "0.37.7",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/ledger_projection.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2231,8 +2279,11 @@
           "responsibility": "runtime monitoring queries",
           "target": "src/runtime_core/observability/monitor.rs",
           "release": "0.37.7",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/monitor.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2243,15 +2294,21 @@
           "responsibility": "observability events and queries",
           "target": "src/runtime_core/observability/facade.rs",
           "release": "0.37.7",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/facade.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "SQLite observability projection",
           "target": "src/adapters/sqlite/observability_projection.rs",
           "release": "0.37.7",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2450,6 +2507,36 @@
       ]
     },
     {
+      "path": "src/runtime_core/observability/facade.rs",
+      "slices": [
+        {
+          "responsibility": "observability events and queries",
+          "target": "src/runtime_core/observability/facade.rs",
+          "release": "0.37.7",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/facade.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/monitor.rs",
+      "slices": [
+        {
+          "responsibility": "runtime monitoring queries",
+          "target": "src/runtime_core/observability/monitor.rs",
+          "release": "0.37.7",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/monitor.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/patch/mod.rs",
       "slices": [
         {
@@ -2514,6 +2601,21 @@
           "release": "0.37.6",
           "state": "complete",
           "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/projection_barrier.rs",
+      "slices": [
+        {
+          "responsibility": "projection-lag and recovery gates",
+          "target": "src/runtime_core/workflow/application/projection_barrier.rs",
+          "release": "0.37.7",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/projection_barrier.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2867,8 +2969,11 @@
           "responsibility": "transcript projection",
           "target": "src/adapters/sqlite/transcript_projection.rs",
           "release": "0.37.7",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/transcript_projection.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2889,8 +2994,11 @@
           "responsibility": "projection-lag and recovery gates",
           "target": "src/runtime_core/workflow/application/projection_barrier.rs",
           "release": "0.37.7",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/projection_barrier.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3170,7 +3278,7 @@
       ]
     }
   ],
-  "current_release": "0.37.6",
+  "current_release": "0.37.7",
   "train_completion": false,
   "logical_proofs": [
     {
@@ -3838,6 +3946,24 @@
       ]
     },
     {
+      "path": "src/adapters/sqlite/ledger_projection.rs",
+      "responsibilities": [
+        "ledger observability projection"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection.rs",
+      "responsibilities": [
+        "SQLite observability projection"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/transcript_projection.rs",
+      "responsibilities": [
+        "transcript projection"
+      ]
+    },
+    {
       "path": "src/adapters/terminal/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -4180,6 +4306,18 @@
       ]
     },
     {
+      "path": "src/runtime_core/observability/facade.rs",
+      "responsibilities": [
+        "observability events and queries"
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/monitor.rs",
+      "responsibilities": [
+        "runtime monitoring queries"
+      ]
+    },
+    {
       "path": "src/runtime_core/patch/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -4207,6 +4345,12 @@
       "path": "src/runtime_core/workflow/application/mod.rs",
       "responsibilities": [
         "workflow application module ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/projection_barrier.rs",
+      "responsibilities": [
+        "projection-lag and recovery gates"
       ]
     },
     {

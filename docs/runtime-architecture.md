@@ -196,6 +196,11 @@ and cross-store state/checkpoint/reconcile/approval/verification/terminal commit
 and recovery order. Consumer-owned ports keep the existing filesystem, lease,
 ledger, projection, and cleanup implementations while preventing those adapters
 from independently choosing replay or cleanup order.
+The v0.37.7 projection boundary separates rebuildable SQLite schema, replay,
+queries, ledger validation, transcript-row installation, and monitor report use
+cases from canonical ledger/transcript authority. Projection-lag recovery
+admission belongs to the workflow application barrier; staged top-level facades
+remain only until final composition cleanup.
 
 Model output is stored as a non-executable action. The runtime rereads the named
 source before proposal, approval, apply, and stop-gate evaluation. Approval binds

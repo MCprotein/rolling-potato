@@ -1,5 +1,36 @@
 # Release Notes
 
+## Unreleased v0.37.7 - Projections and Observability
+
+This patch moves surface-neutral observability records, projection/query ports,
+monitor report use cases, and projection-lag recovery admission into private
+runtime owners. Rebuildable SQLite schema, replay, ledger validation, and
+transcript-row installation now live in explicit adapter modules.
+
+### Included
+
+- Defines `ObservabilityProjectionPort` and moves observability records into
+  `runtime_core::observability::facade`.
+- Defines `MonitorQueryPort` and moves status, model, baseline, optimization,
+  export, prune, and Korean report rendering into
+  `runtime_core::observability::monitor`.
+- Isolates the SQLite observability projection plus ledger and transcript
+  projection helpers under `adapters::sqlite`.
+- Moves projection-lag recovery admission into the workflow application
+  `projection_barrier` owner.
+- Advances the migration ledger to v0.37.7 and locks the new ownership and
+  forbidden legacy paths with the architecture contract.
+
+### Compatibility Boundary
+
+- The top-level observability and monitor modules remain private compatibility
+  facades until the v0.37.13 composition cleanup. The SQLite projection still
+  reads canonical ledger/transcript authority through that staged boundary.
+- CLI behavior and output, durable schemas/bytes/hashes, canonical event order,
+  recovery and synchronization behavior, dependencies, and synchronous
+  execution remain unchanged. SQLite remains rebuildable and is never a second
+  source of truth.
+
 ## Unreleased v0.37.6 - Workflow Transactions and Recovery
 
 This patch moves workflow transition, cross-store transaction ordering, and

@@ -82,6 +82,12 @@ terminal transaction order, prepared workflow recovery, current-state recovery,
 and the projection-lag recovery barrier. Top-level state, ledger, and transition
 modules provide concrete filesystem, lock, event-sink, and cleanup operations;
 they no longer select the migrated commit or recovery sequence.
+The v0.37.7 observability boundary now owns surface-neutral projection records
+and ports plus monitor query/report use cases. SQLite adapters own rebuildable
+schema, replay, query, ledger-validation, and transcript-row operations, while
+the canonical ledger and transcript remain the only durable authorities. The
+top-level observability and monitor facades remain staged compatibility paths
+until the v0.37.13 composition cleanup.
 
 ## Dependency direction
 

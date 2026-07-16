@@ -76,7 +76,7 @@ evidence.
 | v0.37.4 | Implemented | Canonical workflow storage compatibility: byte-identical workflow/ledger/transcript DTOs and codecs, isolated append/install ownership, and focused byte/order/hash/failure contracts; release pending |
 | v0.37.5 | Implemented | Validated workflow/session/snapshot and transcript-session views now own fail-closed binding, ordering, and duplicate-event rules around the unchanged storage compatibility boundary; release pending |
 | v0.37.6 | Implemented | Workflow application owners now select legal transition records, exact event progression, prepared workflow/current-state recovery, projection-lag recovery admission, and state/checkpoint/reconcile/approval/verification/terminal cross-store order; release pending |
-| v0.37.7 | Planned | Observability boundary: projection-lag barriers, rebuildable SQLite projections, monitoring queries, and convergence evidence |
+| v0.37.7 | Implemented | Observability boundary: runtime-owned projection/query/monitor ports and reports, isolated SQLite observability/ledger/transcript projections, and workflow-owned projection-lag recovery admission; release pending |
 | v0.37.8 | Planned | Knowledge and policy boundaries: context, evidence, ontology, approval, and fail-closed decision ownership |
 | v0.37.9 | Planned | Patch boundary: intent, proposal, preview, approval credentials, apply, verification, rollback, and recovery ownership |
 | v0.37.10 | Planned | Runtime and reporting boundaries: workflow runner, surface-neutral reports, and Korean output invariants |

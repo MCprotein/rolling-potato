@@ -1,5 +1,34 @@
 # 릴리즈 노트
 
+## 미출시 v0.37.7 - Projection과 Observability
+
+이 patch는 surface-neutral observability record, projection/query port, monitor
+report use case, projection-lag recovery admission을 private runtime owner로
+이동합니다. 재생성 가능한 SQLite schema/replay, ledger validation, transcript row
+설치는 명시적인 adapter module이 소유합니다.
+
+### 포함한 것
+
+- `ObservabilityProjectionPort`를 정의하고 observability record를
+  `runtime_core::observability::facade`로 이동
+- `MonitorQueryPort`를 정의하고 status, model, baseline, optimization, export,
+  prune, 한국어 report rendering을 `runtime_core::observability::monitor`로 이동
+- SQLite observability projection과 ledger/transcript projection helper를
+  `adapters::sqlite` 아래로 분리
+- Projection-lag recovery admission을 workflow application의
+  `projection_barrier` owner로 이동
+- Migration ledger를 v0.37.7로 진행하고 architecture contract로 새 소유권과
+  금지된 legacy path를 고정
+
+### 호환성 경계
+
+- 최상위 observability와 monitor module은 v0.37.13 composition cleanup까지
+  private compatibility facade로 남습니다. SQLite projection은 이 단계적 경계를
+  통해 canonical ledger/transcript 권위를 계속 읽습니다.
+- CLI 동작과 출력, durable schema/byte/hash, canonical event 순서, recovery와
+  synchronization 동작, dependency, synchronous execution은 변경하지 않습니다.
+  SQLite는 계속 재생성 가능하며 두 번째 source of truth가 아닙니다.
+
 ## 미출시 v0.37.6 - Workflow Transaction과 Recovery
 
 이 patch는 command, durable byte, event identity/order, crash 동작, synchronous

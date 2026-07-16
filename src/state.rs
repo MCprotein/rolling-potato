@@ -12,9 +12,12 @@ use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, RuntimeIdentity};
 use crate::observability::SessionHistoryEntry;
 use crate::observability::{self, StoreStatus};
+use crate::runtime_core::workflow::application::projection_barrier::{
+    self as projection_barrier, ProjectionBarrierRecoveryPort,
+};
 use crate::runtime_core::workflow::application::recovery::{
     self as workflow_recovery, PendingWorkflowTransaction, PreparedStateRecoveryPort,
-    ProjectionBarrierRecoveryPort, RecoveryArtifact, WorkflowRecoveryPort,
+    RecoveryArtifact, WorkflowRecoveryPort,
 };
 use crate::runtime_core::workflow::application::transaction_coordinator::{
     self as transaction_coordinator, ApprovalFault, ApprovalRevision, ApprovalTransactionPort,
@@ -1328,7 +1331,7 @@ pub(crate) fn recover_project_current_state_prepared_approval(
         journal,
         lag_path,
     };
-    workflow_recovery::recover_through_projection_barrier(&mut port)
+    projection_barrier::recover_through_projection_barrier(&mut port)
 }
 
 struct ApprovalProjectionRecoveryPort<'a> {

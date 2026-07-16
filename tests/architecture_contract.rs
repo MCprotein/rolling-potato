@@ -761,7 +761,6 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     for rule in [
         "fn recover_workflow_transaction",
         "fn recover_prepared_state_transition",
-        "fn recover_through_projection_barrier",
     ] {
         assert!(
             recovery.contains(rule),
@@ -786,6 +785,130 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         patch_loop.contains("#[path = \"workflow/recovery.rs\"]"),
         "patch-loop recovery filters are not owned by tests/workflow/recovery.rs"
     );
+}
+
+#[test]
+fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
+    for target in [
+        "src/adapters/sqlite/ledger_projection.rs",
+        "src/adapters/sqlite/observability_projection.rs",
+        "src/adapters/sqlite/transcript_projection.rs",
+        "src/runtime_core/observability/facade.rs",
+        "src/runtime_core/observability/monitor.rs",
+        "src/runtime_core/workflow/application/projection_barrier.rs",
+    ] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing v0.37.7 observability owner: {target}"
+        );
+    }
+
+    let runtime_core = fs::read_to_string("src/runtime_core/mod.rs").unwrap();
+    assert!(
+        runtime_core
+            .lines()
+            .any(|line| line == "pub(crate) mod observability;"),
+        "runtime observability owner is not crate-private"
+    );
+    let observability_mod = fs::read_to_string("src/runtime_core/observability/mod.rs").unwrap();
+    for owner in ["facade", "monitor"] {
+        let expected = format!("pub(crate) mod {owner};");
+        assert!(
+            observability_mod.lines().any(|line| line == expected),
+            "runtime observability child is not crate-private: {owner}"
+        );
+    }
+
+    let facade = fs::read_to_string("src/runtime_core/observability/facade.rs").unwrap();
+    assert!(
+        facade.contains("trait ObservabilityProjectionPort"),
+        "observability facade does not own the projection port"
+    );
+    assert!(
+        facade.contains("trait CanonicalLedgerReadPort"),
+        "observability facade does not own the canonical ledger read port"
+    );
+    for record in [
+        "struct StoreStatus",
+        "struct MonitorProjectionSnapshot",
+        "struct ModelRunMetric",
+        "struct SessionHistoryEntry",
+    ] {
+        assert!(
+            facade.contains(record),
+            "observability facade is missing projection record: {record}"
+        );
+    }
+
+    let monitor = fs::read_to_string("src/runtime_core/observability/monitor.rs").unwrap();
+    for rule in [
+        "trait MonitorQueryPort",
+        "fn status_report",
+        "fn models_report",
+        "fn baseline_report",
+        "fn optimize_report",
+        "fn prune_report",
+    ] {
+        assert!(
+            monitor.contains(rule),
+            "monitor owner is missing use case: {rule}"
+        );
+    }
+
+    let sqlite = fs::read_to_string("src/adapters/sqlite/observability_projection.rs").unwrap();
+    for rule in [
+        "impl ObservabilityProjectionPort for SqliteObservabilityProjection",
+        "fn replay_ledger_events",
+        "PRAGMA journal_mode = WAL",
+    ] {
+        assert!(sqlite.contains(rule), "SQLite adapter is missing: {rule}");
+    }
+    let sqlite_production = sqlite.split("#[cfg(test)]").next().unwrap_or(&sqlite);
+    assert!(
+        !sqlite_production.contains("crate::ledger"),
+        "SQLite projection adapter bypasses the consumer-owned projection port"
+    );
+
+    let transcript = fs::read_to_string("src/adapters/sqlite/transcript_projection.rs").unwrap();
+    assert!(
+        transcript.contains("INSERT OR REPLACE INTO transcript_records"),
+        "transcript SQLite adapter does not own row installation"
+    );
+    let ledger = fs::read_to_string("src/adapters/sqlite/ledger_projection.rs").unwrap();
+    assert!(
+        ledger.contains("fn validate_event_sequence"),
+        "ledger SQLite adapter does not own sequence validation"
+    );
+
+    let barrier =
+        fs::read_to_string("src/runtime_core/workflow/application/projection_barrier.rs").unwrap();
+    for rule in [
+        "trait ProjectionBarrierRecoveryPort",
+        "fn recover_through_projection_barrier",
+    ] {
+        assert!(
+            barrier.contains(rule),
+            "projection barrier owner is missing policy: {rule}"
+        );
+    }
+    let recovery = fs::read_to_string("src/runtime_core/workflow/application/recovery.rs").unwrap();
+    assert!(
+        !recovery.contains("fn recover_through_projection_barrier"),
+        "workflow recovery still owns the moved projection barrier"
+    );
+
+    for (facade_path, forbidden) in [
+        ("src/observability.rs", "rusqlite"),
+        ("src/monitor.rs", "performance baseline\\n"),
+        ("src/ledger.rs", "rusqlite::Connection"),
+    ] {
+        let source = fs::read_to_string(facade_path).unwrap();
+        let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
+        assert!(
+            !production.contains(forbidden),
+            "legacy facade retains moved implementation: {facade_path} -> {forbidden}"
+        );
+    }
 }
 
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {

@@ -74,7 +74,7 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | v0.37.4 | Implemented | Canonical workflow storage compatibility: 바이트 동일 workflow/ledger/transcript DTO·codec, 분리된 append/install 소유권, byte/order/hash/failure contract; release 대기 |
 | v0.37.5 | Implemented | 변경되지 않은 storage compatibility 경계 위에서 fail-closed binding, ordering, duplicate event 규칙을 소유하는 validated workflow/session/snapshot 및 transcript-session view; release 대기 |
 | v0.37.6 | Implemented | Workflow application owner가 legal transition record, exact event 진행, prepared workflow/current-state recovery, projection-lag recovery admission, state/checkpoint/reconcile/approval/verification/terminal cross-store 순서를 선택함; release 대기 |
-| v0.37.7 | Planned | Observability 경계: projection-lag barrier, rebuildable SQLite projection, monitoring query, convergence evidence |
+| v0.37.7 | Implemented | Observability 경계: runtime 소유 projection/query/monitor port와 report, 분리된 SQLite observability/ledger/transcript projection, workflow 소유 projection-lag recovery admission; release 대기 |
 | v0.37.8 | Planned | Knowledge와 policy 경계: context, evidence, ontology, approval, fail-closed decision 소유권 |
 | v0.37.9 | Planned | Patch 경계: intent, proposal, preview, approval credential, apply, verification, rollback, recovery 소유권 |
 | v0.37.10 | Planned | Runtime과 reporting 경계: workflow runner, surface-neutral report, 한국어 output invariant |
