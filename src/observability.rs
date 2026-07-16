@@ -2,8 +2,11 @@
 
 use crate::adapters::sqlite::observability_projection::SqliteObservabilityProjection;
 use crate::foundation::error::AppError;
-use crate::ledger::{LedgerEvent, ParsedLedgerEvent, RuntimeIdentity};
+use crate::ledger;
 use crate::runtime_core::observability::facade::ObservabilityProjectionPort;
+use crate::runtime_core::workflow::storage_compat::ledger::{
+    LedgerEvent, ParsedLedgerEvent, RuntimeIdentity,
+};
 
 pub use crate::runtime_core::observability::facade::{
     BenchmarkRunMetric, BenchmarkRunReport, ModelRunMetric, ResourceSampleMetric,
@@ -13,11 +16,11 @@ pub use crate::runtime_core::observability::facade::{
 const PROJECTION: SqliteObservabilityProjection = SqliteObservabilityProjection;
 
 pub fn initialize(identity: &RuntimeIdentity) -> Result<StoreStatus, AppError> {
-    PROJECTION.initialize(identity)
+    PROJECTION.initialize(identity, &ledger::read_runtime_events()?)
 }
 
 pub fn status() -> Result<StoreStatus, AppError> {
-    PROJECTION.status()
+    PROJECTION.status(&ledger::read_runtime_events()?)
 }
 
 pub fn status_read_only() -> Result<StoreStatus, AppError> {
@@ -31,7 +34,7 @@ pub fn monitor_snapshot_read_only(
 }
 
 pub fn project_event(event: &LedgerEvent) -> Result<(), AppError> {
-    PROJECTION.project_event(event)
+    PROJECTION.project_event(event, &ledger::read_runtime_events()?)
 }
 
 pub(crate) fn project_event_with_ordinal(
@@ -52,12 +55,12 @@ pub fn model_summaries(
 
 pub fn performance_baseline(
 ) -> Result<crate::runtime_core::observability::facade::PerformanceBaseline, AppError> {
-    PROJECTION.performance_baseline()
+    PROJECTION.performance_baseline(&ledger::read_runtime_events()?)
 }
 
 pub fn optimization_policy(
 ) -> Result<crate::runtime_core::observability::facade::OptimizationPolicy, AppError> {
-    PROJECTION.optimization_policy()
+    PROJECTION.optimization_policy(&ledger::read_runtime_events()?)
 }
 
 pub fn export_jsonl() -> Result<String, AppError> {
@@ -65,7 +68,7 @@ pub fn export_jsonl() -> Result<String, AppError> {
 }
 
 pub fn export_csv() -> Result<String, AppError> {
-    PROJECTION.export_csv()
+    PROJECTION.export_csv(&ledger::read_runtime_events()?)
 }
 
 pub fn prune_preview(
@@ -75,34 +78,45 @@ pub fn prune_preview(
 }
 
 pub fn session_history(limit: usize) -> Result<Vec<SessionHistoryEntry>, AppError> {
-    PROJECTION.session_history(limit)
+    let identity = ledger::validated_current_identity()?;
+    PROJECTION.session_history(&identity, &ledger::read_runtime_events()?, limit)
 }
 
 pub fn session_entry(session_id: &str) -> Result<Option<SessionHistoryEntry>, AppError> {
-    PROJECTION.session_entry(session_id)
+    let identity = ledger::validated_current_identity()?;
+    PROJECTION.session_entry(&identity, &ledger::read_runtime_events()?, session_id)
 }
 
 pub fn session_events(
     session_id: &str,
     limit: usize,
 ) -> Result<Vec<crate::runtime_core::observability::facade::SessionEventEntry>, AppError> {
-    PROJECTION.session_events(session_id, limit)
+    let identity = ledger::validated_current_identity()?;
+    PROJECTION.session_events(
+        &identity,
+        &ledger::read_runtime_events()?,
+        session_id,
+        limit,
+    )
 }
 
 pub fn record_model_run(metric: &ModelRunMetric) -> Result<(), AppError> {
-    PROJECTION.record_model_run(metric)
+    let identity = ledger::validated_current_identity()?;
+    PROJECTION.record_model_run(&identity, &ledger::read_runtime_events()?, metric)
 }
 
 pub fn record_resource_sample(metric: &ResourceSampleMetric) -> Result<(), AppError> {
-    PROJECTION.record_resource_sample(metric)
+    let identity = ledger::validated_current_identity()?;
+    PROJECTION.record_resource_sample(&identity, &ledger::read_runtime_events()?, metric)
 }
 
 pub fn record_benchmark_run(metric: &BenchmarkRunMetric) -> Result<(), AppError> {
-    PROJECTION.record_benchmark_run(metric)
+    let identity = ledger::validated_current_identity()?;
+    PROJECTION.record_benchmark_run(&identity, &ledger::read_runtime_events()?, metric)
 }
 
 pub fn benchmark_run_reports() -> Result<Vec<BenchmarkRunReport>, AppError> {
-    PROJECTION.benchmark_run_reports()
+    PROJECTION.benchmark_run_reports(&ledger::read_runtime_events()?)
 }
 
 pub fn latest_resource_sample() -> Result<Option<ResourceSampleMetric>, AppError> {
