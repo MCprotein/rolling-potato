@@ -160,7 +160,7 @@ rpotato plugin remove <id> --purge-data
 
 ## Current Implementation
 
-v0.27.0 currently implements:
+v0.37.0 implements the existing import/inspection surface plus the first Codex execution adapter:
 
 - `rpotato plugin import --from codex <local-path> --dry-run`
 - `rpotato plugin import --from claude-code <local-path> --dry-run`
@@ -173,6 +173,8 @@ v0.27.0 currently implements:
 - `rpotato plugin disable <id>`
 - `rpotato plugin remove <id> --keep-data`
 - `rpotato plugin remove <id> --purge-data`
+- `rpotato skill list` discovery for enabled, instruction-only Codex skills
+- `rpotato skill run imported.codex.<plugin>.<skill> "<request>"`
 
 Import accepts only local directories and rejects remote URLs, marketplace, registry, catalog sources, `..` path traversal, and source symlinks.
 The normalized manifest schema is version 2 and records:
@@ -199,7 +201,19 @@ rpotato app data root/
 
 `validate` and `enable` re-check the imported `source/` directory against the stored manifest and snapshot hashes. If the imported source drifts, `rpotato` marks the plugin `blocked`, records a ledger event, and requires re-import from a trusted local directory.
 
-`enable` changes registry state; it does not grant execution authority. Shell, `bin/`, MCP, hook, LSP, monitor/background process, runtime setting, remote connector, sensitive config, and file-write capabilities remain listed in the permission report and blocked until runtime policy approval.
+`enable` changes registry state; it does not grant general execution authority. The v0.37 adapter admits only a canonical `skills/<name>/SKILL.md` regular file up to 64 KiB when:
+
+- its YAML frontmatter contains a `name` matching the directory and a non-empty `description`
+- its instruction body is non-empty
+- the imported plugin is enabled under the current adapter and permission-policy versions
+- the imported source snapshot still matches its recorded SHA-256
+- the same skill directory has no script or other permission-requiring capability
+
+The imported instruction is untrusted prompt content. Execution is always read-only and goes through the native context, lifecycle-hook, typed-action, Korean-output, evidence, ledger, and stop-gate contracts. Admission and completion events bind the plugin ID, skill ID, source path, and source SHA-256. A model response cannot turn the imported skill into a patch or command path.
+
+Shell, skill scripts, `bin/`, MCP, app integrations, plugin hooks, LSP, monitor/background processes, runtime settings, remote connectors, sensitive config, and file-write capabilities remain listed in the permission report and blocked. v0.37 has no approval grant or execution surface for these risky capabilities; `plugin enable` is not such an approval. A later implementation must add an explicit capability-scoped approval lease and revalidation before any of them can execute.
+
+`skill list` shows enabled candidates without mutating plugin state. `skill run` performs the authoritative source snapshot and frontmatter revalidation. Plugins imported under an older adapter or permission-policy version must be re-imported from a trusted local directory.
 
 All import commands must be dry-run friendly:
 
@@ -225,7 +239,7 @@ Dry-run output must include:
 
 | Source capability | rpotato target | MVP behavior |
 | --- | --- | --- |
-| Codex skill | `rpotato` skill | Import only after manifest/frontmatter parse and policy review |
+| Codex skill | `rpotato` skill | Execute canonical instruction-only skills through the native read-only runtime after snapshot/frontmatter revalidation |
 | Codex MCP server | MCP adapter entry | Disabled until user enables and approves server command |
 | Codex app integration | Unsupported | Requires separate app connector contract |
 | Claude Code skill | `rpotato` skill | Import as namespaced skill with explicit tool/evidence requirements |
@@ -363,7 +377,7 @@ Before implementation:
 
 ## References
 
-- Codex official manual, `Plugins` and `Build plugins` sections, fetched through the local Codex documentation helper on 2026-06-29.
+- Codex official manual, `Plugins`, `Build plugins`, and `Build skills` sections, fetched through the local Codex documentation helper on 2026-07-16.
 - OpenAI Codex Docs: [Plugins](https://developers.openai.com/codex/plugins)
 - OpenAI Codex Docs: [Build plugins](https://developers.openai.com/codex/plugins/build)
 - Anthropic Claude Code Docs: [Create plugins](https://code.claude.com/docs/en/plugins)

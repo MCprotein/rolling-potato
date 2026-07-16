@@ -160,7 +160,7 @@ rpotato plugin remove <id> --purge-data
 
 ## 현재 구현
 
-v0.27.0의 현재 구현:
+v0.37.0은 기존 import/inspection surface와 첫 Codex 실행 adapter를 구현합니다.
 
 - `rpotato plugin import --from codex <local-path> --dry-run`
 - `rpotato plugin import --from claude-code <local-path> --dry-run`
@@ -173,6 +173,8 @@ v0.27.0의 현재 구현:
 - `rpotato plugin disable <id>`
 - `rpotato plugin remove <id> --keep-data`
 - `rpotato plugin remove <id> --purge-data`
+- Enable된 instruction-only Codex skill을 찾는 `rpotato skill list`
+- `rpotato skill run imported.codex.<plugin>.<skill> "<request>"`
 
 Import는 local directory만 허용하며 remote URL, marketplace, registry, catalog source, `..` path traversal, source symlink를 차단합니다.
 Normalized manifest schema는 version 2이며 다음을 기록합니다.
@@ -199,7 +201,19 @@ rpotato app data root/
 
 `validate`와 `enable`은 imported `source/` directory를 저장된 manifest/snapshot hash와 다시 대조합니다. Imported source가 바뀌면 `rpotato`는 plugin을 `blocked`로 표시하고 ledger event를 남기며, 신뢰 가능한 local directory에서 다시 import하도록 요구합니다.
 
-`enable`은 실행 권한 부여가 아니라 registry 상태 변경입니다. shell, `bin/`, MCP, hook, LSP, monitor/background process, runtime setting, remote connector, sensitive config, file-write capability는 permission report에 남고 runtime policy 승인 전까지 기본 차단입니다.
+`enable`은 일반 실행 권한 부여가 아니라 registry 상태 변경입니다. v0.37 adapter는 다음 조건을 모두 만족하는 64 KiB 이하 regular file인 canonical `skills/<name>/SKILL.md`만 admit합니다.
+
+- YAML frontmatter에 directory와 같은 `name`, 비어 있지 않은 `description`이 있습니다.
+- Instruction body가 비어 있지 않습니다.
+- Imported plugin이 현재 adapter/permission-policy version 아래에서 enable되어 있습니다.
+- Imported source snapshot이 기록된 SHA-256과 계속 일치합니다.
+- 같은 skill directory에 script나 다른 permission-requiring capability가 없습니다.
+
+Imported instruction은 신뢰하지 않는 prompt content입니다. 실행은 항상 read-only이며 native context, lifecycle hook, typed action, 한국어 output, evidence, ledger, stop gate contract를 통과합니다. Admission/completion event는 plugin ID, skill ID, source path, source SHA-256에 binding됩니다. Model response는 imported skill을 patch나 command 경로로 바꿀 수 없습니다.
+
+Shell, skill script, `bin/`, MCP, app integration, plugin hook, LSP, monitor/background process, runtime setting, remote connector, sensitive config, file-write capability는 permission report에 남고 계속 차단됩니다. v0.37에는 이 risky capability를 위한 approval grant 또는 실행 surface가 없으며 `plugin enable`은 그러한 승인이 아닙니다. 이후 구현이 이를 실행하려면 capability scope에 binding된 명시적 approval lease와 재검증을 먼저 추가해야 합니다.
+
+`skill list`는 plugin state를 바꾸지 않고 enable된 candidate를 표시합니다. `skill run`이 authoritative source snapshot/frontmatter 재검증을 수행합니다. 이전 adapter 또는 permission-policy version에서 import한 plugin은 신뢰 가능한 local directory에서 다시 import해야 합니다.
 
 모든 import command는 dry-run friendly해야 합니다.
 
@@ -225,7 +239,7 @@ dry-run output에는 다음이 포함되어야 합니다.
 
 | Source capability | rpotato target | MVP 동작 |
 | --- | --- | --- |
-| Codex skill | `rpotato` skill | manifest/frontmatter parse와 policy review 후에만 import |
+| Codex skill | `rpotato` skill | Snapshot/frontmatter 재검증 뒤 canonical instruction-only skill을 native read-only runtime으로 실행 |
 | Codex MCP server | MCP adapter entry | 사용자가 enable하고 server command를 승인하기 전까지 disabled |
 | Codex app integration | Unsupported | 별도 app connector contract 필요 |
 | Claude Code skill | `rpotato` skill | 명시적 tool/evidence requirement를 가진 namespaced skill로 import |
@@ -363,7 +377,7 @@ adapter validation은 다음을 포함해야 합니다.
 
 ## 참고 자료
 
-- Codex official manual, `Plugins` and `Build plugins` sections, fetched through the local Codex documentation helper on 2026-06-29.
+- Codex official manual, `Plugins`, `Build plugins`, `Build skills` sections, fetched through the local Codex documentation helper on 2026-07-16.
 - OpenAI Codex Docs: [Plugins](https://developers.openai.com/codex/plugins)
 - OpenAI Codex Docs: [Build plugins](https://developers.openai.com/codex/plugins/build)
 - Anthropic Claude Code Docs: [Create plugins](https://code.claude.com/docs/en/plugins)
