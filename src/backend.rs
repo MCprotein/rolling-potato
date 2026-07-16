@@ -859,7 +859,14 @@ pub fn chat_report(
     max_tokens: Option<u32>,
     timeout_ms: Option<u32>,
 ) -> Result<String, AppError> {
-    let run = chat_once_with_options(prompt, max_tokens, false, timeout_ms, |_| Ok(()))?;
+    let run = chat_once_with_options(
+        prompt,
+        max_tokens,
+        false,
+        timeout_ms,
+        || Ok(false),
+        |_| Ok(()),
+    )?;
 
     Ok(format_chat_run(&run, true))
 }
@@ -877,20 +884,27 @@ pub fn chat_stream_report(
     writer
         .flush()
         .map_err(|err| AppError::runtime(format!("streaming output flush 실패: {err}")))?;
-    let run = chat_once_with_options(prompt, max_tokens, true, timeout_ms, |delta| {
-        let guarded = match delta {
-            Some(delta) => language_guard.push(delta),
-            None => language_guard.finish(),
-        }
-        .map_err(AppError::blocked)?;
-        if guarded.is_empty() {
-            return Ok(());
-        }
-        writer
-            .write_all(guarded.as_bytes())
-            .and_then(|_| writer.flush())
-            .map_err(|err| AppError::runtime(format!("streaming output write 실패: {err}")))
-    })?;
+    let run = chat_once_with_options(
+        prompt,
+        max_tokens,
+        true,
+        timeout_ms,
+        || Ok(false),
+        |delta| {
+            let guarded = match delta {
+                Some(delta) => language_guard.push(delta),
+                None => language_guard.finish(),
+            }
+            .map_err(AppError::blocked)?;
+            if guarded.is_empty() {
+                return Ok(());
+            }
+            writer
+                .write_all(guarded.as_bytes())
+                .and_then(|_| writer.flush())
+                .map_err(|err| AppError::runtime(format!("streaming output write 실패: {err}")))
+        },
+    )?;
     writer
         .write_all(b"\n")
         .map_err(|err| AppError::runtime(format!("streaming output write 실패: {err}")))?;
@@ -940,7 +954,7 @@ fn format_chat_run(run: &BackendChatRun, include_response: bool) -> String {
 }
 
 pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun, AppError> {
-    chat_once_with_options(prompt, max_tokens, false, None, |_| Ok(()))
+    chat_once_with_options(prompt, max_tokens, false, None, || Ok(false), |_| Ok(()))
 }
 
 pub fn chat_once_bounded(
@@ -953,6 +967,23 @@ pub fn chat_once_bounded(
         Some(max_tokens),
         false,
         Some(timeout_ms),
+        || Ok(false),
+        |_| Ok(()),
+    )
+}
+
+pub fn chat_once_bounded_with_cancel(
+    prompt: &str,
+    max_tokens: u32,
+    timeout_ms: u32,
+    cancel_requested: impl FnMut() -> Result<bool, AppError>,
+) -> Result<BackendChatRun, AppError> {
+    chat_once_with_options(
+        prompt,
+        Some(max_tokens),
+        false,
+        Some(timeout_ms),
+        cancel_requested,
         |_| Ok(()),
     )
 }
@@ -996,6 +1027,7 @@ fn chat_once_with_options(
     max_tokens: Option<u32>,
     streaming_display: bool,
     timeout_ms: Option<u32>,
+    mut external_cancel_requested: impl FnMut() -> Result<bool, AppError>,
     mut on_delta: impl FnMut(Option<&str>) -> Result<(), AppError>,
 ) -> Result<BackendChatRun, AppError> {
     if prompt.trim().is_empty() {
@@ -1087,7 +1119,12 @@ fn chat_once_with_options(
         "/v1/chat/completions",
         &body,
         Duration::from_millis(u64::from(timeout_ms)),
-        || generation_cancel_requested(&generation.generation_id),
+        || {
+            if generation_cancel_requested(&generation.generation_id)? {
+                return Ok(true);
+            }
+            external_cancel_requested()
+        },
         |delta| on_delta(Some(delta)),
     );
     let stream_outcome = match stream_outcome {

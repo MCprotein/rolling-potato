@@ -293,6 +293,10 @@ pub fn project_team_manifest_file(team_id: &str) -> PathBuf {
     project_teams_dir().join(format!("{team_id}.manifest.json"))
 }
 
+pub fn project_team_cancel_file(team_id: &str) -> PathBuf {
+    project_teams_dir().join(format!("{team_id}.cancel.json"))
+}
+
 pub fn project_team_snapshots_dir(team_id: &str) -> PathBuf {
     project_teams_dir().join(format!("{team_id}.snapshots"))
 }

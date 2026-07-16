@@ -22,6 +22,7 @@ rpotato
   rpotato team status
   rpotato team plan --manifest <project-relative-json>
   rpotato team execute --team <team-id>
+  rpotato team cancel --team <team-id>
   rpotato team admit --lanes <count> [--write <path>] [--write-owner <lane:path>] [--command <command>]
   rpotato team dispatch --lanes <count> --write-owner <lane:path> [--failed-lane <lane>] [--failure <reason>]
   rpotato team governor --lanes <count> --context-tokens <tokens> [--context-limit <tokens>] [--model-tier small|standard|large]
@@ -120,6 +121,7 @@ patch workflow 규칙:
   team status는 최신 resource sample 기준의 read-only admission preview와 sequential fallback 결정을 표시합니다.
   team plan은 canonical team manifest를 active parent workflow에 binding하고 durable team-plan state를 기록합니다.
   team execute는 durable team plan의 모든 member를 resource pressure에 따라 병렬 또는 순차 실행합니다.
+  team cancel은 durable marker를 기록해 active team worker 전체에 취소를 전파합니다.
   team admit은 dispatcher 진입 전 resource/policy/file-ownership admission gate를 강제하고 결과를 ledger에 기록합니다.
   team dispatch는 dispatch 직전 file ownership을 다시 강제하고 failed-worker continuation 상태를 ledger에 기록합니다.
   team governor는 dispatcher 진입 전 context/model budget clamp와 downgrade/escalation hint를 기록합니다.
@@ -226,6 +228,9 @@ pub enum TeamCommand {
         manifest_path: String,
     },
     Execute {
+        team_id: String,
+    },
+    Cancel {
         team_id: String,
     },
     Admit {
@@ -511,6 +516,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, rest @ ..] if group == "team" && action == "execute" => {
             Ok(Command::Team(parse_team_execute_args(rest)?))
         }
+        [group, action, rest @ ..] if group == "team" && action == "cancel" => {
+            Ok(Command::Team(parse_team_cancel_args(rest)?))
+        }
         [group, action, rest @ ..] if group == "team" && action == "admit" => {
             Ok(Command::Team(parse_team_admit_args(rest)?))
         }
@@ -522,7 +530,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         }
         [group, ..] if group == "team" => {
             Err(AppError::usage(
-                "team 명령은 status, plan, execute, admit, dispatch, governor만 허용합니다.",
+                "team 명령은 status, plan, execute, cancel, admit, dispatch, governor만 허용합니다.",
             ))
         }
         [group, action, rest @ ..] if group == "subagent" && action == "launch" => {
@@ -1002,40 +1010,50 @@ fn parse_team_plan_args(args: &[String]) -> Result<TeamCommand, AppError> {
 }
 
 fn parse_team_execute_args(args: &[String]) -> Result<TeamCommand, AppError> {
+    Ok(TeamCommand::Execute {
+        team_id: parse_team_id_args(args, "team execute")?,
+    })
+}
+
+fn parse_team_cancel_args(args: &[String]) -> Result<TeamCommand, AppError> {
+    Ok(TeamCommand::Cancel {
+        team_id: parse_team_id_args(args, "team cancel")?,
+    })
+}
+
+fn parse_team_id_args(args: &[String], command: &str) -> Result<String, AppError> {
     let mut team_id = None;
     let mut index = 0;
     while index < args.len() {
         match args[index].as_str() {
             "--team" => {
                 if team_id.is_some() {
-                    return Err(AppError::usage(
-                        "team execute의 --team 옵션은 한 번만 지정할 수 있습니다.",
-                    ));
+                    return Err(AppError::usage(format!(
+                        "{command}: --team 옵션은 한 번만 지정할 수 있습니다."
+                    )));
                 }
                 let Some(value) = args.get(index + 1) else {
-                    return Err(AppError::usage(
-                        "team execute는 --team <team-id> 값이 필요합니다.",
-                    ));
+                    return Err(AppError::usage(format!(
+                        "{command}: --team <team-id> 값이 필요합니다."
+                    )));
                 };
                 if value.starts_with("--") || value.trim().is_empty() {
-                    return Err(AppError::usage(
-                        "team execute는 --team <team-id> 값이 필요합니다.",
-                    ));
+                    return Err(AppError::usage(format!(
+                        "{command}: --team <team-id> 값이 필요합니다."
+                    )));
                 }
                 team_id = Some(value.clone());
                 index += 2;
             }
             unknown => {
                 return Err(AppError::usage(format!(
-                    "알 수 없는 team execute 옵션입니다: {unknown}"
+                    "알 수 없는 {command} 옵션입니다: {unknown}"
                 )));
             }
         }
     }
-    Ok(TeamCommand::Execute {
-        team_id: team_id
-            .ok_or_else(|| AppError::usage("team execute는 --team <team-id> 형식이 필요합니다."))?,
-    })
+    team_id
+        .ok_or_else(|| AppError::usage(format!("{command}: --team <team-id> 형식이 필요합니다.")))
 }
 
 fn parse_team_admit_args(args: &[String]) -> Result<TeamCommand, AppError> {
@@ -2960,6 +2978,39 @@ mod tests {
             vec!["team", "execute"],
             vec!["team", "execute", "--team"],
             vec!["team", "execute", "--team", "one", "--team", "two"],
+        ] {
+            assert_eq!(
+                parse(args.into_iter().map(str::to_string))
+                    .unwrap_err()
+                    .code,
+                2
+            );
+        }
+    }
+
+    #[test]
+    fn parses_team_cancel_id() {
+        let command = parse([
+            "team".to_string(),
+            "cancel".to_string(),
+            "--team".to_string(),
+            "team-execution".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Team(TeamCommand::Cancel {
+                team_id: "team-execution".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn team_cancel_requires_exactly_one_id() {
+        for args in [
+            vec!["team", "cancel"],
+            vec!["team", "cancel", "--team"],
+            vec!["team", "cancel", "--team", "one", "--team", "two"],
         ] {
             assert_eq!(
                 parse(args.into_iter().map(str::to_string))
