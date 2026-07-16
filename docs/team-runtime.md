@@ -28,23 +28,26 @@ Each stage is a runtime state transition.
 
 ## Team Manifest
 
-Team execution should have a manifest.
+Team execution starts from a canonical compact JSON manifest whose keys use the
+exact order shown below. `parent_workflow_id` must name the active non-terminal
+workflow. Lanes are consecutive from 1, and each member carries the same
+bounded role/tool/path/token contract used by the subagent runtime.
 
 ```json
-{
-  "schemaVersion": 1,
-  "teamId": "fix-regression-team",
-  "parentWorkflowId": "workflow-123",
-  "members": [
-    {"id": "explore-1", "role": "explore"},
-    {"id": "executor-1", "role": "executor"},
-    {"id": "verifier-1", "role": "verifier"}
-  ],
-  "writePolicy": "single_writer",
-  "mergePolicy": "runtime_owned",
-  "stopGate": "evidence_required"
-}
+{"schema_version":1,"team_id":"fix-regression-team","parent_workflow_id":"workflow-123","members":[{"lane":1,"id":"explore-1","role":"explore","task":"map the affected files","tools":["read_file"],"read_paths":["src"],"write_paths":[],"timeout_ms":30000,"max_tokens":256}],"write_policy":"single_writer","merge_policy":"runtime_owned","stop_gate":"evidence_required"}
 ```
+
+```text
+rpotato team plan --manifest plans/team.json
+```
+
+`team plan` validates the manifest, rejects cross-lane write ownership, binds
+the plan to the exact parent revision/hash, installs the manifest under
+`.rpotato/teams/`, and creates revision 1 of the hash-chained `team-plan`
+state. Retrying the same plan is idempotent. It does not start a worker or
+advance to `team-dispatch`; later v0.36.0 slices consume this durable state.
+`team status` exposes the latest team id, stage, status, revision, and execution
+mode for the active parent.
 
 ## Write Policy
 

@@ -28,23 +28,25 @@ Team runtime은 parallel 또는 staged work가 실제로 도움이 되는 작업
 
 ## 팀 Manifest
 
-Team execution은 manifest를 가져야 합니다.
+Team execution은 아래 key 순서를 그대로 사용하는 canonical compact JSON manifest에서
+시작합니다. `parent_workflow_id`는 active non-terminal workflow여야 합니다. Lane은 1부터
+연속으로 선언하며 각 member는 subagent runtime과 동일한 bounded role/tool/path/token
+contract를 가집니다.
 
 ```json
-{
-  "schemaVersion": 1,
-  "teamId": "fix-regression-team",
-  "parentWorkflowId": "workflow-123",
-  "members": [
-    {"id": "explore-1", "role": "explore"},
-    {"id": "executor-1", "role": "executor"},
-    {"id": "verifier-1", "role": "verifier"}
-  ],
-  "writePolicy": "single_writer",
-  "mergePolicy": "runtime_owned",
-  "stopGate": "evidence_required"
-}
+{"schema_version":1,"team_id":"fix-regression-team","parent_workflow_id":"workflow-123","members":[{"lane":1,"id":"explore-1","role":"explore","task":"영향받는 파일을 확인한다","tools":["read_file"],"read_paths":["src"],"write_paths":[],"timeout_ms":30000,"max_tokens":256}],"write_policy":"single_writer","merge_policy":"runtime_owned","stop_gate":"evidence_required"}
 ```
+
+```text
+rpotato team plan --manifest plans/team.json
+```
+
+`team plan`은 manifest를 검증하고 cross-lane write ownership을 차단하며, 정확한 parent
+revision/hash에 plan을 binding합니다. Manifest는 `.rpotato/teams/`에 설치되고 hash-chain을
+가진 revision 1 `team-plan` state가 생성됩니다. 같은 plan 재시도는 idempotent합니다.
+이 명령은 worker를 시작하거나 `team-dispatch`로 전진하지 않으며 다음 v0.36.0 slice가 이
+durable state를 소비합니다. `team status`는 active parent의 최신 team id, stage, status,
+revision, execution mode를 표시합니다.
 
 ## 쓰기 Policy
 

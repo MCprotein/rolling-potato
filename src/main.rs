@@ -30,6 +30,7 @@ mod strict_json;
 mod subagent;
 mod subagent_result;
 mod team;
+pub mod team_state;
 mod terminal;
 #[cfg(test)]
 mod test_support;

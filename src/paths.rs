@@ -281,6 +281,30 @@ pub fn project_subagent_result_file(result_artifact_id: &str) -> PathBuf {
     project_subagent_results_dir().join(format!("{result_artifact_id}.json"))
 }
 
+pub fn project_teams_dir() -> PathBuf {
+    project_state_dir().join("teams")
+}
+
+pub fn project_team_file(team_id: &str) -> PathBuf {
+    project_teams_dir().join(format!("{team_id}.json"))
+}
+
+pub fn project_team_manifest_file(team_id: &str) -> PathBuf {
+    project_teams_dir().join(format!("{team_id}.manifest.json"))
+}
+
+pub fn project_team_snapshots_dir(team_id: &str) -> PathBuf {
+    project_teams_dir().join(format!("{team_id}.snapshots"))
+}
+
+pub fn project_team_snapshot_file(team_id: &str, revision: u64) -> PathBuf {
+    project_team_snapshots_dir(team_id).join(format!("{revision:020}.json"))
+}
+
+pub fn project_team_lock(team_id: &str) -> PathBuf {
+    project_teams_dir().join(format!("{team_id}.lock"))
+}
+
 pub fn project_approval_requests_dir() -> PathBuf {
     project_state_dir().join("approval-requests")
 }
