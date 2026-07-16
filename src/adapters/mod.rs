@@ -4,4 +4,4 @@ pub(crate) mod filesystem;
 mod llama_cpp;
 mod process;
 mod sqlite;
-mod terminal;
+pub(crate) mod terminal;

@@ -536,6 +536,47 @@ fn v0372_filesystem_owners_replace_legacy_modules() {
     }
 }
 
+#[test]
+fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
+    for target in [
+        "src/adapters/terminal/capability.rs",
+        "src/adapters/terminal/native.rs",
+        "tests/platform.rs",
+        "tests/platform/interactive_tui.rs",
+        "tests/platform/native_terminal.rs",
+    ] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing terminal owner: {target}"
+        );
+    }
+    for legacy in [
+        "src/terminal.rs",
+        "tests/interactive_tui.rs",
+        "tests/native_terminal.rs",
+    ] {
+        assert!(
+            !Path::new(legacy).exists(),
+            "legacy terminal owner remains: {legacy}"
+        );
+    }
+
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(
+        !main.lines().any(|line| line == "mod terminal;"),
+        "legacy terminal module remains compile-connected"
+    );
+
+    let terminal = fs::read_to_string("src/adapters/terminal/mod.rs").unwrap();
+    for owner in ["capability", "native"] {
+        let expected = format!("pub(crate) mod {owner};");
+        assert!(
+            terminal.lines().any(|line| line == expected),
+            "terminal owner is not crate-private: {owner}"
+        );
+    }
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

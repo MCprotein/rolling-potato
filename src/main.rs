@@ -32,7 +32,6 @@ mod team;
 mod team_execution;
 mod team_reconciliation;
 pub mod team_state;
-mod terminal;
 #[cfg(test)]
 mod test_support;
 mod transcript;

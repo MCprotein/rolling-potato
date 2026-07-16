@@ -1,5 +1,6 @@
 use crate::adapters::filesystem::cache;
 use crate::adapters::filesystem::layout as paths;
+use crate::adapters::terminal::{capability, native};
 use crate::backend;
 use crate::benchmark;
 use crate::cli::{
@@ -30,10 +31,9 @@ use crate::uninstall;
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
     let command = crate::cli::parse(args)?;
     if matches!(&command, Command::Tui(TuiCommand::Interactive))
-        || (matches!(&command, Command::Tui(TuiCommand::Auto)) && crate::terminal::attached())
+        || (matches!(&command, Command::Tui(TuiCommand::Auto)) && capability::attached())
     {
-        crate::terminal::validate_native_fault_configuration()
-            .map_err(crate::tui::terminal_fault_error)?;
+        native::validate_native_fault_configuration().map_err(crate::tui::terminal_fault_error)?;
     }
     // A source-install request on an unsupported platform is a strict
     // NotDispatched boundary: do not even discover or repair journals before
@@ -45,7 +45,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             &command,
             Command::Patch(PatchCommand::Approve { dry_run: false, .. })
         ) || matches!(&command, Command::Tui(TuiCommand::Interactive))
-            || (matches!(&command, Command::Tui(TuiCommand::Auto)) && crate::terminal::attached()));
+            || (matches!(&command, Command::Tui(TuiCommand::Auto)) && capability::attached()));
     if !unsupported_source_entry {
         crate::transition::recover_pending_source_bundles()?;
     }
@@ -198,7 +198,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             Ok(())
         }
         Command::Tui(TuiCommand::Auto) => {
-            if cfg!(unix) && crate::terminal::attached() && !paths::current_state_file().is_file() {
+            if cfg!(unix) && capability::attached() && !paths::current_state_file().is_file() {
                 state::initialize()?;
             }
             tui::run_auto()

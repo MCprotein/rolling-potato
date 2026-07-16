@@ -1640,6 +1640,34 @@
       ]
     },
     {
+      "path": "src/adapters/terminal/capability.rs",
+      "slices": [
+        {
+          "responsibility": "terminal capability detection",
+          "target": "src/adapters/terminal/capability.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal IO",
+          "target": "src/adapters/terminal/native.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app.rs",
       "slices": [
         {
@@ -2408,25 +2436,6 @@
       ]
     },
     {
-      "path": "src/terminal.rs",
-      "slices": [
-        {
-          "responsibility": "terminal capability detection",
-          "target": "src/adapters/terminal/capability.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
-        },
-        {
-          "responsibility": "native terminal IO",
-          "target": "src/adapters/terminal/native.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
       "path": "src/test_support.rs",
       "slices": [
         {
@@ -2555,14 +2564,30 @@
       ]
     },
     {
-      "path": "tests/interactive_tui.rs",
+      "path": "tests/platform.rs",
+      "slices": [
+        {
+          "responsibility": "platform integration test harness",
+          "target": "tests/platform.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "tests/platform.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/platform/interactive_tui.rs",
       "slices": [
         {
           "responsibility": "terminal-backed TUI contract",
           "target": "tests/platform/interactive_tui.rs",
           "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/platform/interactive_tui.rs"
+          ]
         },
         {
           "responsibility": "TUI behavior contract",
@@ -2574,14 +2599,16 @@
       ]
     },
     {
-      "path": "tests/native_terminal.rs",
+      "path": "tests/platform/native_terminal.rs",
       "slices": [
         {
           "responsibility": "native terminal adapter contract",
           "target": "tests/platform/native_terminal.rs",
           "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/platform/native_terminal.rs"
+          ]
         },
         {
           "responsibility": "CLI terminal behavior contract",
@@ -3353,6 +3380,18 @@
       ]
     },
     {
+      "path": "src/adapters/terminal/capability.rs",
+      "responsibilities": [
+        "terminal capability detection"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native.rs",
+      "responsibilities": [
+        "native terminal IO"
+      ]
+    },
+    {
       "path": "src/app.rs",
       "responsibilities": [
         "top-level command dispatch"
@@ -3671,13 +3710,6 @@
       ]
     },
     {
-      "path": "src/terminal.rs",
-      "responsibilities": [
-        "terminal capability detection",
-        "native terminal IO"
-      ]
-    },
-    {
       "path": "src/test_support.rs",
       "responsibilities": [
         "owner-local and cross-crate test fixtures"
@@ -3726,14 +3758,20 @@
       ]
     },
     {
-      "path": "tests/interactive_tui.rs",
+      "path": "tests/platform.rs",
+      "responsibilities": [
+        "platform integration test harness"
+      ]
+    },
+    {
+      "path": "tests/platform/interactive_tui.rs",
       "responsibilities": [
         "terminal-backed TUI contract",
         "TUI behavior contract"
       ]
     },
     {
-      "path": "tests/native_terminal.rs",
+      "path": "tests/platform/native_terminal.rs",
       "responsibilities": [
         "native terminal adapter contract",
         "CLI terminal behavior contract"
