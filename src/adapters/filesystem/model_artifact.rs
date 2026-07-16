@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::adapters::filesystem::layout;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
-use crate::foundation::serialization as strict_json;
+use crate::runtime_core::inference::model::codec::{parse_default_selection, parse_registry_entry};
 use crate::runtime_core::inference::model::manifest::{
     DefaultSelection, LocalArtifactState, ModelArtifactDescriptor, ModelArtifactFetchStatus,
     ModelManifestEntry, RegistryEntry,
@@ -96,48 +96,6 @@ pub(crate) fn read_registry_entries() -> Result<Vec<RegistryEntry>, AppError> {
     Ok(entries)
 }
 
-pub(crate) fn parse_registry_entry(text: &str) -> Result<RegistryEntry, AppError> {
-    let context = "model registry entry";
-    let object = strict_json::parse_object(
-        text,
-        &[
-            "schemaVersion",
-            "id",
-            "displayName",
-            "status",
-            "evidenceStatus",
-            "promotionEvidencePath",
-            "backendVersion",
-            "benchmarkRunId",
-            "upstreamModel",
-            "upstreamUrl",
-            "artifactPath",
-            "artifactSha256",
-            "licenseSource",
-            "licenseCheckedAt",
-        ],
-        context,
-    )?;
-    if strict_json::number(&object, "schemaVersion", context)? != 1 {
-        return Err(AppError::blocked("model registry schemaVersion 불일치"));
-    }
-    Ok(RegistryEntry {
-        id: strict_json::string(&object, "id", context)?,
-        display_name: strict_json::string(&object, "displayName", context)?,
-        status: strict_json::string(&object, "status", context)?,
-        evidence_status: strict_json::string(&object, "evidenceStatus", context)?,
-        promotion_evidence_path: strict_json::string(&object, "promotionEvidencePath", context)?,
-        backend_version: strict_json::string(&object, "backendVersion", context)?,
-        benchmark_run_id: strict_json::string(&object, "benchmarkRunId", context)?,
-        upstream_model: strict_json::string(&object, "upstreamModel", context)?,
-        upstream_url: strict_json::string(&object, "upstreamUrl", context)?,
-        artifact_path: strict_json::string(&object, "artifactPath", context)?,
-        artifact_sha256: strict_json::string(&object, "artifactSha256", context)?,
-        license_source: strict_json::string(&object, "licenseSource", context)?,
-        license_checked_at: strict_json::string(&object, "licenseCheckedAt", context)?,
-    })
-}
-
 pub(crate) fn write_promotion_evidence(id: &str, contents: &str) -> Result<(), AppError> {
     fs::create_dir_all(&paths().evidence_dir).map_err(|err| {
         AppError::runtime(format!(
@@ -178,23 +136,6 @@ pub(crate) fn read_default_selection() -> Result<DefaultSelection, AppError> {
         ))
     })?;
     parse_default_selection(&text)
-}
-
-pub(crate) fn parse_default_selection(text: &str) -> Result<DefaultSelection, AppError> {
-    let context = "default model selection";
-    let object = strict_json::parse_object(
-        text,
-        &["schemaVersion", "modelId", "artifactSha256", "selectedAtMs"],
-        context,
-    )?;
-    if strict_json::number(&object, "schemaVersion", context)? != 1 {
-        return Err(AppError::blocked("default model schemaVersion 불일치"));
-    }
-    Ok(DefaultSelection {
-        model_id: strict_json::string(&object, "modelId", context)?,
-        artifact_sha256: strict_json::string(&object, "artifactSha256", context)?,
-        selected_at_ms: strict_json::number(&object, "selectedAtMs", context)?,
-    })
 }
 
 pub(crate) fn local_artifact_state(

@@ -6,20 +6,22 @@ use crate::adapters::filesystem::model_artifact::{
     model_artifact_part_path, model_artifact_path, promotion_evidence_path, read_default_selection,
     read_registry_entries, registry_path,
 };
-#[cfg(test)]
-use crate::adapters::filesystem::model_artifact::{parse_default_selection, parse_registry_entry};
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 #[cfg(test)]
 use crate::runtime_core::inference::benchmark as benchmark_policy;
 #[cfg(test)]
+use crate::runtime_core::inference::model::codec::{parse_default_selection, parse_registry_entry};
+use crate::runtime_core::inference::model::codec::{
+    parse_promotion_evidence, render_default_selection, render_registry_entry,
+};
+#[cfg(test)]
 use crate::runtime_core::inference::model::manifest::LocalArtifactState;
 use crate::runtime_core::inference::model::manifest::{
-    find_candidate, parse_promotion_evidence, source_backed_artifact,
-    source_backed_artifact_blockers, validate_install_ready, BackendSmokeEvidence, CandidateStatus,
-    DefaultSelection, InstallValidation, ManifestCounts, ModelArtifactDescriptor,
-    ModelManifestEntry, PromotionEvidence, PromotionReadiness, RegistryEntry, CANDIDATES,
-    STATUS_SCHEMA,
+    find_candidate, source_backed_artifact, source_backed_artifact_blockers,
+    validate_install_ready, BackendSmokeEvidence, CandidateStatus, DefaultSelection,
+    InstallValidation, ManifestCounts, ModelArtifactDescriptor, ModelManifestEntry,
+    PromotionEvidence, PromotionReadiness, RegistryEntry, CANDIDATES, STATUS_SCHEMA,
 };
 use crate::runtime_core::inference::model::promotion::{
     artifact_model_id, validate_promotion_evidence, validate_registry_manifest_binding,
@@ -202,7 +204,7 @@ pub fn set_default_report(id: &str) -> Result<String, AppError> {
         artifact_sha256: entry.artifact_sha256.clone(),
         selected_at_ms: now_ms_u64(),
     };
-    let body = default_selection_json(&selection);
+    let body = render_default_selection(&selection);
     state::atomic_replace_bytes(&model_artifact::paths().default_file, body.as_bytes())?;
     let event_id = state::record_event(
         "model.default.selected",
@@ -969,54 +971,18 @@ fn validated_registry_entry(id: &str) -> Result<RegistryEntry, AppError> {
     Ok(entry)
 }
 
-fn default_selection_json(selection: &DefaultSelection) -> String {
-    format!(
-        "{{\n  \"schemaVersion\": 1,\n  \"modelId\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"selectedAtMs\": {}\n}}\n",
-        ledger::json_string(&selection.model_id),
-        ledger::json_string(&selection.artifact_sha256),
-        selection.selected_at_ms
-    )
-}
-
 fn registry_entry_json(
     candidate: &ModelManifestEntry,
     promotion: Option<&PromotionEvidence>,
 ) -> String {
-    let evidence_status = if promotion.is_some() {
-        "verified-local-promotion"
-    } else {
-        "source-backed-manifest"
-    };
-    let evidence_path = if promotion.is_some() {
-        promotion_evidence_path(candidate.id).display().to_string()
-    } else {
-        String::new()
-    };
-    let backend_version = promotion
-        .map(|evidence| evidence.backend_version.as_str())
-        .unwrap_or("");
-    let benchmark_run_id = promotion
-        .map(|evidence| evidence.benchmark_run_id.as_str())
-        .unwrap_or("");
-    format!(
-        "{{\n  \"schemaVersion\": 1,\n  \"id\": \"{}\",\n  \"displayName\": \"{}\",\n  \"status\": \"installed\",\n  \"evidenceStatus\": \"{}\",\n  \"promotionEvidencePath\": \"{}\",\n  \"backendVersion\": \"{}\",\n  \"benchmarkRunId\": \"{}\",\n  \"upstreamModel\": \"{}\",\n  \"upstreamUrl\": \"{}\",\n  \"artifactPath\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"licenseSource\": \"{}\",\n  \"licenseCheckedAt\": \"{}\"\n}}\n",
-        ledger::json_string(candidate.id),
-        ledger::json_string(candidate.display_name),
-        ledger::json_string(evidence_status),
-        ledger::json_string(&evidence_path),
-        ledger::json_string(backend_version),
-        ledger::json_string(benchmark_run_id),
-        ledger::json_string(candidate.upstream_model),
-        ledger::json_string(candidate.upstream_url),
-        ledger::json_string(
-            &model_artifact::paths()
-                .artifact(candidate.artifact_name.unwrap_or(candidate.id))
-                .display()
-                .to_string()
-        ),
-        ledger::json_string(candidate.sha256.unwrap_or("")),
-        ledger::json_string(candidate.license.source),
-        ledger::json_string(candidate.license.checked_at)
+    let artifact_path =
+        model_artifact::paths().artifact(candidate.artifact_name.unwrap_or(candidate.id));
+    let evidence_path = promotion.map(|_| promotion_evidence_path(candidate.id));
+    render_registry_entry(
+        candidate,
+        promotion,
+        &artifact_path,
+        evidence_path.as_deref(),
     )
 }
 
@@ -1448,10 +1414,12 @@ mod tests {
                 .to_string(),
             selected_at_ms: 42,
         };
+        let rendered = render_default_selection(&selection);
         assert_eq!(
-            parse_default_selection(&default_selection_json(&selection)).unwrap(),
-            selection
+            rendered,
+            "{\n  \"schemaVersion\": 1,\n  \"modelId\": \"qwen3.5-4b\",\n  \"artifactSha256\": \"00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4\",\n  \"selectedAtMs\": 42\n}\n"
         );
+        assert_eq!(parse_default_selection(&rendered).unwrap(), selection);
         assert!(parse_default_selection(
             r#"{"schemaVersion":1,"modelId":"qwen3.5-4b","artifactSha256":"x","selectedAtMs":42,"unknown":true}"#
         )

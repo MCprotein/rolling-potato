@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+pub(crate) mod codec;
 pub(crate) mod manifest;
 pub(crate) mod promotion;
 
