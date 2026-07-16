@@ -5,6 +5,11 @@ use crate::runtime_core::inference::model::manifest::quantization_for_artifact_h
 use super::fixture::{BenchmarkFixture, BenchmarkPromptArtifact};
 use super::BenchmarkScore;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BenchmarkReportFormat {
+    Jsonl,
+}
+
 pub(crate) fn reproducibility_manifest_json(
     fixture: &BenchmarkFixture,
     benchmark_run_id: &str,

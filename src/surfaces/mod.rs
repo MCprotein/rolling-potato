@@ -1,4 +1,4 @@
 //! User-facing input and presentation boundaries.
 
-mod cli;
+pub(crate) mod cli;
 mod tui;

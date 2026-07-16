@@ -1668,6 +1668,30 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     );
 }
 
+#[test]
+fn v03713_cli_command_dtos_live_in_surface_owner() {
+    let owner = fs::read_to_string("src/surfaces/cli/command.rs").unwrap();
+    for definition in [
+        "pub enum Command",
+        "pub enum TeamCommand",
+        "pub enum BackendCommand",
+        "pub enum PluginCommand",
+        "pub enum UninstallCommand",
+    ] {
+        assert!(
+            owner.contains(definition),
+            "CLI command owner is missing definition: {definition}"
+        );
+    }
+
+    let facade = fs::read_to_string("src/cli.rs").unwrap();
+    assert!(facade.contains("surfaces::cli::command::*"));
+    assert!(
+        !facade.contains("pub enum Command"),
+        "legacy CLI facade retains command DTO definitions"
+    );
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

@@ -15,7 +15,7 @@ use crate::runtime_core::inference::benchmark::report::{
     display_optional_u32, display_optional_u64, executable_redacted_report_json,
     executable_reproducibility_manifest_json, harness_ref, json_option, json_option_bool,
     json_option_f64, json_option_u32, json_option_u64, json_raw_or_string, redacted_report_json,
-    reproducibility_manifest_json,
+    reproducibility_manifest_json, BenchmarkReportFormat,
 };
 #[cfg(test)]
 use crate::runtime_core::inference::benchmark::ADOPTION_EXACT_RESPONSE;
@@ -23,11 +23,6 @@ use crate::runtime_core::inference::benchmark::{
     self as benchmark_policy, BenchmarkScore, BenchmarkScoringPolicy,
 };
 use crate::{backend, ledger, observability};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BenchmarkReportFormat {
-    Jsonl,
-}
 
 pub fn validate_report(path: &str) -> Result<String, AppError> {
     let fixture = benchmark_artifact::read_fixture(path)?;

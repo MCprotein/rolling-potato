@@ -1,7 +1,6 @@
-use crate::benchmark;
 use crate::foundation::error::AppError;
-use crate::ontology;
-use crate::runtime_core::inference::{backend::MAX_CHAT_TIMEOUT_MS, resource};
+use crate::runtime_core::inference::backend::MAX_CHAT_TIMEOUT_MS;
+pub(crate) use crate::surfaces::cli::command::*;
 
 pub const HELP: &str = "\
 rpotato
@@ -132,324 +131,6 @@ patch workflow 규칙:
   monitor optimize는 측정된 local metric과 benchmark evidence만으로 context/lane/fallback/model route hint를 추천합니다.
   ontology store는 project-local typed graph JSONL을 canonical runtime store로 두고, source-pointer-first compact context view와 원문 reread rule을 제공합니다.
   모델 registry install은 source-backed manifest와 local promotion evidence가 검증되기 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Command {
-    Help,
-    Init,
-    Run { request: String },
-    Intent(IntentCommand),
-    Doctor,
-    Config,
-    State(StateCommand),
-    Session(SessionCommand),
-    Team(TeamCommand),
-    Subagent(SubagentCommand),
-    Tui(TuiCommand),
-    Cancel,
-    Evidence(EvidenceCommand),
-    Skill(SkillCommand),
-    Policy(PolicyCommand),
-    Hooks(HooksCommand),
-    Patch(PatchCommand),
-    Backend(BackendCommand),
-    CacheStatus,
-    Monitor(MonitorCommand),
-    Ontology(OntologyCommand),
-    Benchmark(BenchmarkCommand),
-    Model(ModelCommand),
-    Plugin(PluginCommand),
-    Uninstall(UninstallCommand),
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum MonitorCommand {
-    Status,
-    Models,
-    Baseline,
-    Optimize,
-    Export { format: MonitorExportFormat },
-    Prune { before_days: u64, dry_run: bool },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum BenchmarkCommand {
-    Validate {
-        path: String,
-    },
-    Record {
-        fixture: String,
-    },
-    Run {
-        fixture: String,
-        prompt: String,
-        max_tokens: Option<u32>,
-    },
-    Report {
-        format: benchmark::BenchmarkReportFormat,
-    },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum OntologyCommand {
-    Status,
-    Seed,
-    Inspect,
-    Context {
-        query: String,
-    },
-    Reread {
-        pointer: String,
-    },
-    Export {
-        format: ontology::OntologyExportFormat,
-    },
-    Import {
-        path: String,
-        dry_run: bool,
-    },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum StateCommand {
-    Status,
-    Reconcile,
-    Resume,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum SessionCommand {
-    List,
-    New,
-    Resume { id: String },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum TeamCommand {
-    Status,
-    Plan {
-        manifest_path: String,
-    },
-    Execute {
-        team_id: String,
-    },
-    Reconcile {
-        team_id: String,
-    },
-    Cancel {
-        team_id: String,
-    },
-    Admit {
-        lanes: u32,
-        write_paths: Vec<String>,
-        owned_write_paths: Vec<(u32, String)>,
-        commands: Vec<String>,
-    },
-    Dispatch {
-        lanes: u32,
-        owned_write_paths: Vec<(u32, String)>,
-        failed_lane: Option<u32>,
-        failure_reason: Option<String>,
-    },
-    Governor {
-        lanes: u32,
-        context_tokens: u32,
-        context_limit: Option<u32>,
-        model_tier: resource::ModelTier,
-    },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum SubagentCommand {
-    Launch {
-        role: String,
-        task: String,
-        tools: Vec<String>,
-        read_paths: Vec<String>,
-        write_paths: Vec<String>,
-        timeout_ms: Option<u32>,
-        max_tokens: Option<u32>,
-    },
-    Status {
-        id: Option<String>,
-    },
-    Cancel {
-        id: String,
-    },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum TuiCommand {
-    Auto,
-    Interactive,
-    Monitor,
-    Sessions,
-    Transcript { session_id: String },
-    Approvals,
-    Diff { proposal_id: String },
-    Evidence,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum EvidenceCommand {
-    Validate { pointer: String },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum SkillCommand {
-    List,
-    Run { id: String, request: String },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum IntentCommand {
-    Classify { request: String },
-    Routes,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum PolicyCommand {
-    Schema,
-    CheckCommand { command: String },
-    CheckPath { mode: PolicyPathMode, path: String },
-    Redact { text: String },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PolicyPathMode {
-    Read,
-    Write,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum HooksCommand {
-    List,
-    ValidateResult { json: String },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum PatchCommand {
-    Preview {
-        path: String,
-        find: String,
-        replace: String,
-    },
-    Approve {
-        proposal_id: String,
-        token: String,
-        dry_run: bool,
-    },
-    Verify {
-        proposal_id: String,
-        token: String,
-    },
-    TokenRotate {
-        proposal_id: String,
-    },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum BackendCommand {
-    Doctor,
-    InstallPlan,
-    Install,
-    Start {
-        model_path: Option<String>,
-        ctx_size: Option<u32>,
-    },
-    Status,
-    Stop,
-    Cancel,
-    VerifyArchive {
-        path: String,
-        sha256: String,
-    },
-    HealthCheck,
-    Chat {
-        prompt: String,
-        max_tokens: Option<u32>,
-        stream: bool,
-        timeout_ms: Option<u32>,
-    },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum MonitorExportFormat {
-    Jsonl,
-    Csv,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum ModelCommand {
-    List,
-    Manifest,
-    Inspect { id: String },
-    Registry,
-    Default,
-    SetDefault { id: String },
-    DownloadPlan { id: String },
-    EvalPlan { id: String },
-    BenchmarkPlan { id: String },
-    FetchCandidate { id: String },
-    VerifyFile { path: String, sha256: String },
-    Promote { id: String, evidence: String },
-    CleanupFailed { id: String, dry_run: bool },
-    Install { id: String },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum PluginCommand {
-    Import {
-        source: PluginSource,
-        path: String,
-        dry_run: bool,
-    },
-    List,
-    Inspect {
-        id: String,
-    },
-    Validate {
-        id: String,
-    },
-    Enable {
-        id: String,
-    },
-    Disable {
-        id: String,
-    },
-    Remove {
-        id: String,
-        purge_data: bool,
-    },
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum UninstallCommand {
-    Plan { purge_cache: bool, dry_run: bool },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PluginSource {
-    Codex,
-    ClaudeCode,
-}
-
-impl PluginSource {
-    pub fn parse(value: &str) -> Option<Self> {
-        match value {
-            "codex" => Some(Self::Codex),
-            "claude-code" => Some(Self::ClaudeCode),
-            _ => None,
-        }
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Codex => "codex",
-            Self::ClaudeCode => "claude-code",
-        }
-    }
-}
 
 pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError> {
     let args: Vec<String> = args.into_iter().collect();
@@ -1379,7 +1060,7 @@ fn parse_team_governor_args(args: &[String]) -> Result<TeamCommand, AppError> {
     let mut lanes = None;
     let mut context_tokens = None;
     let mut context_limit = None;
-    let mut model_tier = resource::ModelTier::Small;
+    let mut model_tier = ModelTier::Small;
     let mut index = 0;
 
     while index < args.len() {
@@ -1432,7 +1113,7 @@ fn parse_team_governor_args(args: &[String]) -> Result<TeamCommand, AppError> {
                         "team governor는 --model-tier <small|standard|large> 값이 필요합니다.",
                     ));
                 };
-                model_tier = resource::ModelTier::parse(value).ok_or_else(|| {
+                model_tier = ModelTier::parse(value).ok_or_else(|| {
                     AppError::usage(
                         "team governor의 --model-tier 값은 small, standard, large 중 하나여야 합니다.",
                     )
@@ -1524,8 +1205,8 @@ fn parse_ontology_export(args: &[String]) -> Result<OntologyCommand, AppError> {
     match args {
         [flag, format] if flag == "--format" => {
             let format = match format.as_str() {
-                "json" => ontology::OntologyExportFormat::Json,
-                "jsonl" => ontology::OntologyExportFormat::Jsonl,
+                "json" => OntologyExportFormat::Json,
+                "jsonl" => OntologyExportFormat::Jsonl,
                 _ => {
                     return Err(AppError::usage(
                         "ontology export format은 json 또는 jsonl만 허용합니다.",
@@ -1671,7 +1352,7 @@ fn parse_benchmark_report(args: &[String]) -> Result<BenchmarkCommand, AppError>
     match args {
         [flag, format] if flag == "--format" => {
             let format = match format.as_str() {
-                "jsonl" => benchmark::BenchmarkReportFormat::Jsonl,
+                "jsonl" => BenchmarkReportFormat::Jsonl,
                 _ => {
                     return Err(AppError::usage(
                         "benchmark report format은 jsonl만 허용합니다.",
@@ -2243,7 +1924,7 @@ mod tests {
         assert_eq!(
             command,
             Command::Ontology(OntologyCommand::Export {
-                format: ontology::OntologyExportFormat::Jsonl
+                format: OntologyExportFormat::Jsonl
             })
         );
     }
@@ -2879,7 +2560,7 @@ mod tests {
         assert_eq!(
             command,
             Command::Benchmark(BenchmarkCommand::Report {
-                format: benchmark::BenchmarkReportFormat::Jsonl
+                format: BenchmarkReportFormat::Jsonl
             })
         );
     }
@@ -3222,7 +2903,7 @@ mod tests {
                 lanes: 2,
                 context_tokens: 6000,
                 context_limit: Some(8192),
-                model_tier: resource::ModelTier::Standard
+                model_tier: ModelTier::Standard
             })
         );
     }

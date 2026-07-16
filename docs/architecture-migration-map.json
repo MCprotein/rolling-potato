@@ -1931,8 +1931,12 @@
           "responsibility": "CLI command DTOs",
           "target": "src/surfaces/cli/command.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "compatibility-facade",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/cli.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "CLI presentation",
@@ -3233,6 +3237,21 @@
             "src/runtime_core/collaboration/subagent_result.rs",
             "src/subagent_result.rs",
             "tests/collaboration/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/command.rs",
+      "slices": [
+        {
+          "responsibility": "CLI command DTOs",
+          "target": "src/surfaces/cli/command.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5050,6 +5069,12 @@
       "path": "src/subagent_result.rs",
       "responsibilities": [
         "subagent result validation and merge"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/command.rs",
+      "responsibilities": [
+        "CLI command DTOs"
       ]
     },
     {
