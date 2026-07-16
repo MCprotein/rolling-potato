@@ -1407,14 +1407,16 @@ fn replay_ledger_events(
             &event.session_id,
             event.ts_ms,
         )?;
-        project_transcript_event(
+        crate::adapters::sqlite::transcript_projection::project_event(
             &transaction,
-            &event.project_id,
-            &event.session_id,
-            &event.event_type,
-            &event.details,
-            &event.event_id,
-            to_i64((index + 1) as u128),
+            crate::adapters::sqlite::transcript_projection::TranscriptProjectionEvent {
+                project_id: &event.project_id,
+                session_id: &event.session_id,
+                event_type: &event.event_type,
+                details: &event.details,
+                ledger_event_id: &event.event_id,
+                event_ordinal: to_i64((index + 1) as u128),
+            },
         )?;
         if index == 0 {
             sqlite_replay_fault("after-first-event")?;
@@ -1543,16 +1545,18 @@ fn insert_ledger_event(
         &event.session_id,
         event.ts_ms,
     )?;
-    project_transcript_event(
+    crate::adapters::sqlite::transcript_projection::project_event(
         connection,
-        &event.project_id,
-        &event.session_id,
-        &event.event_type,
-        &event.details,
-        &event.event_id,
-        match supplied_ordinal {
-            Some(ordinal) => ordinal,
-            None => canonical_event_ordinal(&event.event_id)?,
+        crate::adapters::sqlite::transcript_projection::TranscriptProjectionEvent {
+            project_id: &event.project_id,
+            session_id: &event.session_id,
+            event_type: &event.event_type,
+            details: &event.details,
+            ledger_event_id: &event.event_id,
+            event_ordinal: match supplied_ordinal {
+                Some(ordinal) => ordinal,
+                None => canonical_event_ordinal(&event.event_id)?,
+            },
         },
     )
 }
@@ -1567,52 +1571,6 @@ fn canonical_event_ordinal(event_id: &str) -> Result<i64, AppError> {
                 "observability projection 차단\n- 이유: canonical ledger event ordinal을 찾지 못했습니다.\n- event id: {event_id}"
             ))
         })
-}
-
-fn project_transcript_event(
-    connection: &Connection,
-    project_id: &str,
-    session_id: &str,
-    event_type: &str,
-    details: &str,
-    ledger_event_id: &str,
-    event_ordinal: i64,
-) -> Result<(), AppError> {
-    if event_type != "transcript.recorded" {
-        return Ok(());
-    }
-    let record =
-        crate::transcript::record_from_binding(project_id, session_id, event_type, details)?;
-    let artifact_pointer = format!(
-        "state/transcripts/{}/{}/{}.json",
-        record.project_id, record.session_id, record.record_id
-    );
-    connection
-        .execute(
-            "INSERT OR REPLACE INTO transcript_records (
-                record_id, session_id, workflow_id, ledger_event_id, event_ordinal,
-                record_kind, causal_id,
-                content, content_hash, source_pointers_json, artifact_pointer,
-                artifact_hash, recorded_at_ms
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-            params![
-                record.record_id,
-                record.session_id,
-                record.workflow_id,
-                ledger_event_id,
-                event_ordinal,
-                record.kind,
-                record.causal_id,
-                record.content,
-                record.content_hash,
-                record.source_pointers_json(),
-                artifact_pointer,
-                record.artifact_hash,
-                to_i64(record.recorded_at_ms)
-            ],
-        )
-        .map_err(sql_error("transcript projection 저장 실패"))?;
-    Ok(())
 }
 
 fn project_patch_evidence_event(
