@@ -1,7 +1,5 @@
 //! Workflow transaction recovery ordering over explicit persistence ports.
 
-use std::path::PathBuf;
-
 use crate::foundation::error::AppError;
 use crate::runtime_core::workflow::storage_compat::ledger::{RuntimeIdentity, WorkflowCheckpoint};
 use crate::runtime_core::workflow::storage_compat::record::{WorkflowPointer, WorkflowRecord};
@@ -80,20 +78,6 @@ pub(crate) trait PreparedStateRecoveryPort {
     fn converge_projections(&mut self) -> Result<(), AppError>;
 }
 
-pub(crate) trait ProjectionBarrierRecoveryPort {
-    fn lag_exists(&self) -> bool;
-
-    fn lag_temp_exists(&self) -> bool;
-
-    fn target_is_converged(&self) -> Result<bool, AppError>;
-
-    fn install_lag(&self) -> Result<PathBuf, AppError>;
-
-    fn repair_required(&self, lag: &std::path::Path) -> AppError;
-
-    fn resume_recovery(&mut self) -> Result<(), AppError>;
-}
-
 pub(crate) fn recover_prepared_state_transition(
     port: &mut impl PreparedStateRecoveryPort,
 ) -> Result<(), AppError> {
@@ -105,16 +89,6 @@ pub(crate) fn recover_prepared_state_transition(
     port.validate_ledger_binding()?;
     port.install_current_state()?;
     port.converge_projections()
-}
-
-pub(crate) fn recover_through_projection_barrier(
-    port: &mut impl ProjectionBarrierRecoveryPort,
-) -> Result<(), AppError> {
-    if !port.lag_exists() && (port.lag_temp_exists() || !port.target_is_converged()?) {
-        let lag = port.install_lag()?;
-        return Err(port.repair_required(&lag));
-    }
-    port.resume_recovery()
 }
 
 pub(crate) fn recover_workflow_transaction(
@@ -228,45 +202,6 @@ mod tests {
     #[derive(Default)]
     struct FakeStateRecoveryPort {
         calls: Vec<&'static str>,
-    }
-
-    struct FakeProjectionBarrierPort {
-        lag_exists: bool,
-        lag_temp_exists: bool,
-        target_is_converged: bool,
-        calls: RefCell<Vec<&'static str>>,
-    }
-
-    impl ProjectionBarrierRecoveryPort for FakeProjectionBarrierPort {
-        fn lag_exists(&self) -> bool {
-            self.calls.borrow_mut().push("lag-exists");
-            self.lag_exists
-        }
-
-        fn lag_temp_exists(&self) -> bool {
-            self.calls.borrow_mut().push("lag-temp-exists");
-            self.lag_temp_exists
-        }
-
-        fn target_is_converged(&self) -> Result<bool, AppError> {
-            self.calls.borrow_mut().push("target-is-converged");
-            Ok(self.target_is_converged)
-        }
-
-        fn install_lag(&self) -> Result<PathBuf, AppError> {
-            self.calls.borrow_mut().push("install-lag");
-            Ok(PathBuf::from("projection-lag.json"))
-        }
-
-        fn repair_required(&self, _lag: &std::path::Path) -> AppError {
-            self.calls.borrow_mut().push("repair-required");
-            AppError::blocked("projection repair required")
-        }
-
-        fn resume_recovery(&mut self) -> Result<(), AppError> {
-            self.calls.borrow_mut().push("resume-recovery");
-            Ok(())
-        }
     }
 
     impl PreparedStateRecoveryPort for FakeStateRecoveryPort {
@@ -520,42 +455,5 @@ mod tests {
                 "converge-projections",
             ]
         );
-    }
-
-    #[test]
-    fn projection_barrier_preserves_uncertain_recovery_before_replay() {
-        let mut port = FakeProjectionBarrierPort {
-            lag_exists: false,
-            lag_temp_exists: false,
-            target_is_converged: false,
-            calls: RefCell::new(Vec::new()),
-        };
-
-        assert!(recover_through_projection_barrier(&mut port).is_err());
-
-        assert_eq!(
-            *port.calls.borrow(),
-            [
-                "lag-exists",
-                "lag-temp-exists",
-                "target-is-converged",
-                "install-lag",
-                "repair-required",
-            ]
-        );
-    }
-
-    #[test]
-    fn durable_lag_marker_allows_idempotent_recovery_without_rechecking_target() {
-        let mut port = FakeProjectionBarrierPort {
-            lag_exists: true,
-            lag_temp_exists: true,
-            target_is_converged: false,
-            calls: RefCell::new(Vec::new()),
-        };
-
-        recover_through_projection_barrier(&mut port).unwrap();
-
-        assert_eq!(*port.calls.borrow(), ["lag-exists", "resume-recovery"]);
     }
 }
