@@ -1059,6 +1059,7 @@ mod windows {
         pub fn send(&mut self, input: &str) {
             let handle = self.session.borrow().input;
             assert!(!handle.is_null(), "ConPTY input is closed");
+            let input = input.replace("\r\n", "\n").replace('\n', "\r");
             let mut offset = 0usize;
             while offset < input.len() {
                 let remaining = &input.as_bytes()[offset..];
