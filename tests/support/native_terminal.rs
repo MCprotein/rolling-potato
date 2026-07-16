@@ -76,60 +76,29 @@ impl NativeTerminalFixture {
             ),
         )
         .unwrap();
-        let server = self.root.join("fake_server.py");
         let calls = self.root.join("calls.txt");
-        std::fs::write(
-            &server,
-            format!(
-                r#"import argparse, json
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-p=argparse.ArgumentParser(add_help=False)
-p.add_argument('--port', type=int, required=True)
-p.add_argument('--host', default='127.0.0.1')
-p.add_argument('--model')
-p.add_argument('--ctx-size')
-a,_=p.parse_known_args()
-class H(BaseHTTPRequestHandler):
-  def log_message(self, *args): pass
-  def do_GET(self):
-    self.send_response(200); self.end_headers(); self.wfile.write(b'{{"status":"ok"}}')
-  def do_POST(self):
-    n=int(self.headers.get('Content-Length','0')); request=json.loads(self.rfile.read(n))
-    with open({calls:?}, 'a') as f: f.write('chat\n')
-    with open({response:?}, encoding='utf-8') as f: content=f.read()
-    events=[{{"choices":[{{"delta":{{"content":content}},"finish_reason":"stop"}}]}},{{"choices":[],"usage":{{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}}}]
-    body=(''.join('data: '+json.dumps(event)+'\n\n' for event in events)+'data: [DONE]\n\n').encode()
-    self.send_response(200); self.send_header('Content-Type','text/event-stream'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
-ThreadingHTTPServer((a.host,a.port),H).serve_forever()
-"#,
-                calls = calls.display().to_string(),
-                response = response.display().to_string(),
-            ),
-        )
-        .unwrap();
-        let backend = if cfg!(windows) {
-            let shim = self.root.join("fake-llama-server.cmd");
-            std::fs::write(&shim, format!("@python \"{}\" %*\r\n", server.display())).unwrap();
-            shim
+        let backend = self.root.join(if cfg!(windows) {
+            "fake-sidecar.exe"
         } else {
-            let shim = self.root.join("fake-llama-server");
-            std::fs::write(
-                &shim,
-                format!("#!/bin/sh\nexec python3 \"{}\" \"$@\"\n", server.display()),
-            )
+            "fake-sidecar"
+        });
+        let fake_sidecar =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/fake_sidecar.rs");
+        let compile = Command::new("rustc")
+            .arg("--edition=2021")
+            .arg(fake_sidecar)
+            .arg("-o")
+            .arg(&backend)
+            .output()
             .unwrap();
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let mut permissions = std::fs::metadata(&shim).unwrap().permissions();
-                permissions.set_mode(0o755);
-                std::fs::set_permissions(&shim, permissions).unwrap();
-            }
-            shim
-        };
+        assert!(
+            compile.status.success(),
+            "native fixture fake sidecar compile failed: {}",
+            String::from_utf8_lossy(&compile.stderr)
+        );
         let model = self.root.join("model.gguf");
         std::fs::write(&model, b"fake model").unwrap();
-        let port = native_port(&self.root);
+        let port = native_port();
         let command = |args: &[&str]| {
             let label = args.join(" ");
             #[cfg(windows)]
@@ -140,8 +109,15 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
                     .env("RPOTATO_PROJECT_ROOT", &self.project)
                     .env("RPOTATO_DATA_HOME", &self.data)
                     .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend)
-                    .env("RPOTATO_BACKEND_PORT", port.to_string()),
+                    .env("RPOTATO_BACKEND_PORT", port.to_string())
+                    .env("RPOTATO_FAKE_REQUEST_MARKER", &calls)
+                    .env("RPOTATO_FAKE_RESPONSE_FILE", &response)
+                    .env(
+                        "RPOTATO_TEST_BACKEND_START_TRACE",
+                        self.data.join("logs/backend-start-trace.log"),
+                    ),
                 &label,
+                &self.data,
             );
             #[cfg(windows)]
             windows::trace_stage(&format!("finished {label}"));
@@ -157,8 +133,10 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
         ]);
         assert!(
             start.status.success(),
-            "native source fixture backend start failed: {}",
-            String::from_utf8_lossy(&start.stderr)
+            "native source fixture backend start failed\nstdout={}\nstderr={}\n{}",
+            String::from_utf8_lossy(&start.stdout),
+            String::from_utf8_lossy(&start.stderr),
+            backend_failure_diagnostics(&self.data),
         );
         let run = command(&[
             "skill",
@@ -180,9 +158,10 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
             .join("\n");
         assert!(
             run.status.success(),
-            "native source fixture skill run failed\nstdout={}\nstderr={}\nledger tail={ledger_tail}",
+            "native source fixture skill run failed\nstdout={}\nstderr={}\nledger tail={ledger_tail}\n{}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr),
+            backend_failure_diagnostics(&self.data),
         );
         let report = String::from_utf8(run.stdout).unwrap();
         let field = |key: &str| {
@@ -221,7 +200,7 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
     }
 }
 
-fn run_bounded_command(command: &mut Command, label: &str) -> Output {
+fn run_bounded_command(command: &mut Command, label: &str, data: &std::path::Path) -> Output {
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -246,16 +225,52 @@ fn run_bounded_command(command: &mut Command, label: &str) -> Output {
                 let status = child.wait().unwrap();
                 let output = captured_command_output(&stdout_path, &stderr_path, status);
                 panic!(
-                    "native fixture command timeout after {:?}: {label}\nstdout={}\nstderr={}",
+                    "native fixture command timeout after {:?}: {label}\nstdout={}\nstderr={}\n{}",
                     FIXTURE_COMMAND_TIMEOUT,
                     String::from_utf8_lossy(&output.stdout),
-                    String::from_utf8_lossy(&output.stderr)
+                    String::from_utf8_lossy(&output.stderr),
+                    backend_failure_diagnostics(data),
                 );
             }
             Err(error) => panic!("native fixture command wait failed: {label}: {error}"),
         }
     };
     captured_command_output(&stdout_path, &stderr_path, status)
+}
+
+fn backend_failure_diagnostics(data: &std::path::Path) -> String {
+    let mut diagnostics = Vec::new();
+    let logs = data.join("logs");
+    if let Ok(entries) = std::fs::read_dir(&logs) {
+        let mut paths = entries
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| path.is_file())
+            .collect::<Vec<_>>();
+        paths.sort();
+        for path in paths {
+            diagnostics.push(format!(
+                "log {}:\n{}",
+                path.display(),
+                String::from_utf8_lossy(&std::fs::read(&path).unwrap_or_default())
+            ));
+        }
+    }
+    let ledger =
+        std::fs::read_to_string(data.join("state/runtime-ledger.jsonl")).unwrap_or_default();
+    diagnostics.push(format!(
+        "ledger tail:\n{}",
+        ledger
+            .lines()
+            .rev()
+            .take(20)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join("\n")
+    ));
+    diagnostics.join("\n")
 }
 
 fn captured_command_output(
@@ -274,11 +289,13 @@ fn captured_command_output(
     }
 }
 
-fn native_port(path: &std::path::Path) -> u16 {
-    let hash = path.display().to_string().bytes().fold(0_u16, |acc, byte| {
-        acc.wrapping_mul(31).wrapping_add(u16::from(byte))
-    });
-    30_000 + (hash % 20_000)
+fn native_port() -> u16 {
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0))
+        .expect("native fixture ephemeral port reservation");
+    listener
+        .local_addr()
+        .expect("native fixture local address")
+        .port()
 }
 
 pub fn tree_snapshot(roots: &[&std::path::Path]) -> std::collections::BTreeMap<String, Vec<u8>> {

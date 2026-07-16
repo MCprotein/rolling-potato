@@ -17,6 +17,7 @@ const DEFAULT_PORT: u16 = 17842;
 const HEALTH_TIMEOUT_MS: u64 = 500;
 const ENV_BACKEND_PATH: &str = "RPOTATO_BACKEND_LLAMA_CPP_PATH";
 const ENV_BACKEND_PORT: &str = "RPOTATO_BACKEND_PORT";
+const ENV_BACKEND_START_TRACE: &str = "RPOTATO_TEST_BACKEND_START_TRACE";
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 const VERSION_TIMEOUT_MS: u64 = 5_000;
 const STARTUP_TIMEOUT_MS: u64 = 60_000;
@@ -1068,6 +1069,11 @@ fn chat_once_with_options(
     let outcome = match stream_outcome {
         Ok(outcome) => outcome,
         Err(err) => {
+            trace_backend_start(&format!(
+                "generation-failed code={} message={}",
+                err.code,
+                err.message.replace('\n', " | ")
+            ));
             let event_id = state::record_event(
                 "backend.generation.failed",
                 "backend generation 실패",
@@ -1521,17 +1527,40 @@ fn probe_health(host: &str, port: u16, timeout: Duration) -> HealthProbe {
         };
     }
 
-    let mut response = String::new();
-    if let Err(err) = stream.read_to_string(&mut response) {
-        return HealthProbe {
-            status: "unhealthy",
-            tcp_connected: true,
-            http_status_line: None,
-            error: Some(format!("health response read 실패: {err}")),
-        };
-    }
-
-    let status_line = response.lines().next().unwrap_or("").to_string();
+    let mut response = Vec::with_capacity(256);
+    let status_line = loop {
+        if let Some(status_line) = first_http_status_line(&response) {
+            break status_line;
+        }
+        if response.len() >= 8 * 1024 {
+            return HealthProbe {
+                status: "unhealthy",
+                tcp_connected: true,
+                http_status_line: None,
+                error: Some("health response status line이 8 KiB를 초과했습니다.".to_string()),
+            };
+        }
+        let mut buffer = [0_u8; 256];
+        match stream.read(&mut buffer) {
+            Ok(0) => {
+                return HealthProbe {
+                    status: "unhealthy",
+                    tcp_connected: true,
+                    http_status_line: None,
+                    error: Some("health response가 status line 전에 종료됐습니다.".to_string()),
+                };
+            }
+            Ok(read) => response.extend_from_slice(&buffer[..read]),
+            Err(err) => {
+                return HealthProbe {
+                    status: "unhealthy",
+                    tcp_connected: true,
+                    http_status_line: None,
+                    error: Some(format!("health response read 실패: {err}")),
+                };
+            }
+        }
+    };
     let status = if status_line.contains(" 200 ") || status_line.ends_with(" 200") {
         "healthy"
     } else {
@@ -1548,6 +1577,14 @@ fn probe_health(host: &str, port: u16, timeout: Duration) -> HealthProbe {
         }),
         error: None,
     }
+}
+
+fn first_http_status_line(response: &[u8]) -> Option<String> {
+    let end = response.iter().position(|byte| *byte == b'\n')?;
+    let line = response[..end]
+        .strip_suffix(b"\r")
+        .unwrap_or(&response[..end]);
+    std::str::from_utf8(line).ok().map(str::to_string)
 }
 
 fn chat_request_body(
@@ -2763,6 +2800,7 @@ fn start_sidecar_with_timeout(
     let stderr_log = paths::logs_dir().join(format!("backend-llama.cpp-{run_id}-stderr.log"));
     let stdout_file = create_log_file(&stdout_log)?;
     let stderr_file = create_log_file(&stderr_log)?;
+    trace_backend_start("logs-created");
 
     let mut command = Command::new(&binary_path);
     command
@@ -2787,6 +2825,7 @@ fn start_sidecar_with_timeout(
                 binary_path.display()
             ))
         })?;
+    trace_backend_start(&format!("sidecar-spawned pid={}", child.id()));
 
     let record = BackendSidecarRecord {
         backend_id: discovery.adapter_id.to_string(),
@@ -2806,14 +2845,17 @@ fn start_sidecar_with_timeout(
         started_at_ms: now_ms(),
     };
     write_backend_sidecar_record(&record)?;
+    trace_backend_start("sidecar-record-written");
 
     let started_at = Instant::now();
     loop {
+        trace_backend_start("health-probe-start");
         let health = probe_health(
             &record.host,
             record.port,
             Duration::from_millis(HEALTH_TIMEOUT_MS),
         );
+        trace_backend_start(&format!("health-probe-finished status={}", health.status));
         if health.status == "healthy" {
             let startup_ms = started_at.elapsed().as_millis();
             let event_id = state::record_event(
@@ -2836,7 +2878,9 @@ fn start_sidecar_with_timeout(
                     startup_ms
                 ),
             )?;
+            trace_backend_start("start-event-recorded");
             let resource_sample = record_backend_resource_sample(&record, "start")?;
+            trace_backend_start("resource-sample-recorded");
             return Ok(format!(
                 "backend start\n- status: running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- startup ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
                 record.pid,
@@ -2910,6 +2954,17 @@ fn start_sidecar_with_timeout(
 
         std::thread::sleep(Duration::from_millis(100));
     }
+}
+
+fn trace_backend_start(message: &str) {
+    let Some(path) = env::var_os(ENV_BACKEND_START_TRACE) else {
+        return;
+    };
+    let Ok(mut trace) = OpenOptions::new().create(true).append(true).open(path) else {
+        return;
+    };
+    let _ = writeln!(trace, "{message}");
+    let _ = trace.flush();
 }
 
 fn canonical_existing_file(path: &str, label: &str) -> Result<PathBuf, AppError> {
@@ -3651,6 +3706,17 @@ mod tests {
     use std::fs;
     use std::sync::{Arc, Barrier};
     use std::thread;
+
+    #[test]
+    fn health_status_line_does_not_require_connection_eof() {
+        let response = b"HTTP/1.1 200 OK\r\nContent-Length: 15\r\nConnection: keep-alive\r\n";
+
+        assert_eq!(
+            first_http_status_line(response).as_deref(),
+            Some("HTTP/1.1 200 OK")
+        );
+        assert_eq!(first_http_status_line(b"HTTP/1.1 200 OK"), None);
+    }
 
     #[test]
     fn termination_fallback_forces_a_process_after_graceful_command_failure() {

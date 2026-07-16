@@ -1,5 +1,38 @@
 # 릴리즈 노트
 
+## v0.34.3 - Native Release Gate Recovery
+
+릴리즈 날짜: 2026-07-16
+
+이 patch release는 binary publication이 일부만 완료된 v0.34.2를 대체합니다. v0.34.2
+source tag는 immutable하게 유지하지만, release gate에서 platform process sampling의
+무제한 대기와 macOS native fixture의 외부 Python listener 의존이 드러났습니다.
+
+### 수정한 것
+
+- Platform process sampling command를 2초로 제한해 멈춘 `ps` 또는 `wmic` probe가
+  backend startup이나 lifecycle reporting을 무기한 막지 못하게 합니다.
+- Keep-alive server의 connection EOF를 기다리지 않고 유효한 HTTP status line을 받는 즉시
+  backend health probe를 완료합니다.
+- Native adapter test가 저장소의 Rust fake sidecar를 재사용하고 fixture SSE response를
+  정상 TCP half-close로 끝내도록 해, macOS loopback reset과 외부 Python listener 의존을
+  제거합니다.
+- Native fixture port를 ephemeral port로 할당하고, bounded fixture command 실패 시
+  sidecar log, runtime-ledger tail, test-only startup stage를 보존합니다.
+- 실패했던 Windows와 macOS native lifecycle surface를 release gate 전에 하나의 수동
+  platform-targeted workflow에서 실행합니다.
+
+### Targeted 검증
+
+- [Native targeted run 29475140650](https://github.com/MCprotein/rolling-potato/actions/runs/29475140650)에서
+  Windows x86_64, macOS arm64, macOS x86_64의 lifecycle과 full-adapter test가 통과했습니다.
+
+### 릴리즈 복구
+
+- v0.34.0부터 v0.34.2까지는 immutable source history로 유지하지만, 일부만 게시된
+  binary asset은 지원 release set이 아닙니다.
+- v0.34.3을 지원 replacement로 삼고 검증된 exact 11-asset set을 게시합니다.
+
 ## v0.34.2 - Windows ConPTY Release Recovery
 
 릴리즈 날짜: 2026-07-16
@@ -33,7 +66,8 @@ gate가 test host lifecycle과 long-path 결함을 드러냈습니다.
 
 - v0.34.0과 v0.34.1은 immutable source history로 유지하지만, 일부만 게시된 binary
   asset은 지원 release set이 아닙니다.
-- v0.34.2를 지원 replacement로 삼고 검증된 exact 11-asset set을 게시합니다.
+- v0.34.2는 immutable source history로 유지하지만, 일부만 게시된 binary asset은 지원
+  release set이 아닙니다. v0.34.3이 이를 대체합니다.
 
 ## v0.34.1 - Portable Release Recovery
 

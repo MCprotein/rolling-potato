@@ -1,6 +1,6 @@
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{Shutdown, TcpListener, TcpStream};
 use std::thread;
 use std::time::Duration;
 
@@ -81,6 +81,36 @@ fn handle(mut stream: TcpStream) {
         }
     }
 
+    if let Ok(path) = std::env::var("RPOTATO_FAKE_RESPONSE_FILE") {
+        let content = match std::fs::read_to_string(&path) {
+            Ok(content) => content,
+            Err(error) => {
+                eprintln!("fake sidecar response read failed: {path}: {error}");
+                return;
+            }
+        };
+        let body = format!(
+            "data: {{\"choices\":[{{\"delta\":{{\"content\":{}}},\"finish_reason\":\"stop\"}}]}}\n\ndata: {{\"choices\":[],\"usage\":{{\"prompt_tokens\":10,\"completion_tokens\":10,\"total_tokens\":20}}}}\n\ndata: [DONE]\n\n",
+            json_string(&content)
+        );
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        );
+        if let Err(error) = stream
+            .write_all(response.as_bytes())
+            .and_then(|_| stream.write_all(body.as_bytes()))
+            .and_then(|_| stream.flush())
+        {
+            eprintln!("fake sidecar fixture response write failed: {error}");
+            return;
+        }
+        let _ = stream.shutdown(Shutdown::Write);
+        let mut drain = [0_u8; 256];
+        while matches!(stream.read(&mut drain), Ok(read) if read > 0) {}
+        return;
+    }
+
     if stream
         .write_all(
             b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
@@ -101,4 +131,23 @@ fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
         .position(|window| window == needle)
+}
+
+fn json_string(value: &str) -> String {
+    let mut escaped = String::from("\"");
+    for character in value.chars() {
+        match character {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            character if character <= '\u{001f}' => {
+                escaped.push_str(&format!("\\u{:04x}", character as u32));
+            }
+            character => escaped.push(character),
+        }
+    }
+    escaped.push('"');
+    escaped
 }
