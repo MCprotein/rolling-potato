@@ -76,57 +76,26 @@ impl NativeTerminalFixture {
             ),
         )
         .unwrap();
-        let server = self.root.join("fake_server.py");
         let calls = self.root.join("calls.txt");
-        std::fs::write(
-            &server,
-            format!(
-                r#"import argparse, json
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-p=argparse.ArgumentParser(add_help=False)
-p.add_argument('--port', type=int, required=True)
-p.add_argument('--host', default='127.0.0.1')
-p.add_argument('--model')
-p.add_argument('--ctx-size')
-a,_=p.parse_known_args()
-class H(BaseHTTPRequestHandler):
-  def log_message(self, *args): pass
-  def do_GET(self):
-    self.send_response(200); self.end_headers(); self.wfile.write(b'{{"status":"ok"}}')
-  def do_POST(self):
-    n=int(self.headers.get('Content-Length','0')); request=json.loads(self.rfile.read(n))
-    with open({calls:?}, 'a') as f: f.write('chat\n')
-    with open({response:?}, encoding='utf-8') as f: content=f.read()
-    events=[{{"choices":[{{"delta":{{"content":content}},"finish_reason":"stop"}}]}},{{"choices":[],"usage":{{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}}}]
-    body=(''.join('data: '+json.dumps(event)+'\n\n' for event in events)+'data: [DONE]\n\n').encode()
-    self.send_response(200); self.send_header('Content-Type','text/event-stream'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
-ThreadingHTTPServer((a.host,a.port),H).serve_forever()
-"#,
-                calls = calls.display().to_string(),
-                response = response.display().to_string(),
-            ),
-        )
-        .unwrap();
-        let backend = if cfg!(windows) {
-            let shim = self.root.join("fake-llama-server.cmd");
-            std::fs::write(&shim, format!("@python \"{}\" %*\r\n", server.display())).unwrap();
-            shim
+        let backend = self.root.join(if cfg!(windows) {
+            "fake-sidecar.exe"
         } else {
-            let shim = self.root.join("fake-llama-server");
-            std::fs::write(
-                &shim,
-                format!("#!/bin/sh\nexec python3 \"{}\" \"$@\"\n", server.display()),
-            )
+            "fake-sidecar"
+        });
+        let fake_sidecar =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/fake_sidecar.rs");
+        let compile = Command::new("rustc")
+            .arg("--edition=2021")
+            .arg(fake_sidecar)
+            .arg("-o")
+            .arg(&backend)
+            .output()
             .unwrap();
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let mut permissions = std::fs::metadata(&shim).unwrap().permissions();
-                permissions.set_mode(0o755);
-                std::fs::set_permissions(&shim, permissions).unwrap();
-            }
-            shim
-        };
+        assert!(
+            compile.status.success(),
+            "native fixture fake sidecar compile failed: {}",
+            String::from_utf8_lossy(&compile.stderr)
+        );
         let model = self.root.join("model.gguf");
         std::fs::write(&model, b"fake model").unwrap();
         let port = native_port();
@@ -141,6 +110,8 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
                     .env("RPOTATO_DATA_HOME", &self.data)
                     .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend)
                     .env("RPOTATO_BACKEND_PORT", port.to_string())
+                    .env("RPOTATO_FAKE_REQUEST_MARKER", &calls)
+                    .env("RPOTATO_FAKE_RESPONSE_FILE", &response)
                     .env(
                         "RPOTATO_TEST_BACKEND_START_TRACE",
                         self.data.join("logs/backend-start-trace.log"),
@@ -187,9 +158,10 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
             .join("\n");
         assert!(
             run.status.success(),
-            "native source fixture skill run failed\nstdout={}\nstderr={}\nledger tail={ledger_tail}",
+            "native source fixture skill run failed\nstdout={}\nstderr={}\nledger tail={ledger_tail}\n{}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr),
+            backend_failure_diagnostics(&self.data),
         );
         let report = String::from_utf8(run.stdout).unwrap();
         let field = |key: &str| {

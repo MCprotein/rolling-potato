@@ -28,11 +28,9 @@ reject_unapproved_action_refs() {
   file="$1"
   awk \
     -v checkout="$checkout_pin" \
-    -v setup_python="$setup_python_pin" \
     -v upload="$upload_pin" \
     -v download="$download_pin" '
       /uses: actions\/checkout@/ && index($0, checkout) == 0 { bad = 1 }
-      /uses: actions\/setup-python@/ && index($0, setup_python) == 0 { bad = 1 }
       /uses: actions\/upload-artifact@/ && index($0, upload) == 0 { bad = 1 }
       /uses: actions\/download-artifact@/ && index($0, download) == 0 { bad = 1 }
       END { exit bad }
@@ -41,12 +39,10 @@ reject_unapproved_action_refs() {
 
 rust_version="1.97.0"
 checkout_pin="actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0"
-setup_python_pin="actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6"
 upload_pin="actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1"
 download_pin="actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1"
 release_workflow=".github/workflows/release-binaries.yml"
 policy_workflow=".github/workflows/release-policy.yml"
-native_targeted_workflow=".github/workflows/windows-native-targeted.yml"
 
 expect_line Cargo.toml "rust-version = \"$rust_version\""
 expect_line mise.toml "rust = \"$rust_version\""
@@ -54,13 +50,9 @@ expect_line rust-toolchain.toml "channel = \"$rust_version\""
 
 reject_unapproved_action_refs "$release_workflow"
 reject_unapproved_action_refs "$policy_workflow"
-reject_unapproved_action_refs "$native_targeted_workflow"
 expect_count "$release_workflow" "$checkout_pin" 6
-expect_count "$release_workflow" "$setup_python_pin" 2
 expect_count "$release_workflow" "$upload_pin" 2
 expect_count "$release_workflow" "$download_pin" 1
 expect_count "$policy_workflow" "$checkout_pin" 1
-expect_count "$native_targeted_workflow" "$checkout_pin" 2
-expect_count "$native_targeted_workflow" "$setup_python_pin" 2
 
 printf 'toolchain pins ok: rust=%s actions=node24 runners=ga\n' "$rust_version"

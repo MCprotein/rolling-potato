@@ -1069,6 +1069,11 @@ fn chat_once_with_options(
     let outcome = match stream_outcome {
         Ok(outcome) => outcome,
         Err(err) => {
+            trace_backend_start(&format!(
+                "generation-failed code={} message={}",
+                err.code,
+                err.message.replace('\n', " | ")
+            ));
             let event_id = state::record_event(
                 "backend.generation.failed",
                 "backend generation 실패",
