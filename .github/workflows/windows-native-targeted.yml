@@ -17,7 +17,7 @@ jobs:
 
       - name: Test backend lifecycle
         timeout-minutes: 5
-        run: cargo test --locked --target x86_64-pc-windows-msvc --test backend_lifecycle -- --test-threads=1
+        run: cargo test --locked --target x86_64-pc-windows-msvc --test inference backend_lifecycle::native_backend_cancel_and_stop_lifecycle -- --test-threads=1
 
       - name: Test entry and EOF lifecycle
         timeout-minutes: 5

@@ -2599,14 +2599,30 @@
       ]
     },
     {
-      "path": "tests/backend_lifecycle.rs",
+      "path": "tests/inference.rs",
+      "slices": [
+        {
+          "responsibility": "inference integration test harness",
+          "target": "tests/inference.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "tests/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/inference/backend_lifecycle.rs",
       "slices": [
         {
           "responsibility": "inference backend lifecycle contract",
           "target": "tests/inference/backend_lifecycle.rs",
           "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/inference/backend_lifecycle.rs"
+          ]
         }
       ]
     },
@@ -3821,7 +3837,13 @@
       ]
     },
     {
-      "path": "tests/backend_lifecycle.rs",
+      "path": "tests/inference.rs",
+      "responsibilities": [
+        "inference integration test harness"
+      ]
+    },
+    {
+      "path": "tests/inference/backend_lifecycle.rs",
       "responsibilities": [
         "inference backend lifecycle contract"
       ]

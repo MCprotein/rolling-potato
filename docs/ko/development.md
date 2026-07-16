@@ -91,7 +91,7 @@
 
 `run`은 durable resume context를 검증하고 현재 요청과 resume context 전체에 source pointer 최대 4개·3,200자의 단일 공유 budget을 적용한 뒤 canonical workflow를 만들고 backend를 호출합니다. 이후 user, visible/normalized model, tool, evidence transcript artifact를 canonical하게 저장합니다. Resume는 최근 turn을 최대 8개·2,400자 안에서 재구성하며 stale hash는 workflow 생성 없이 fail-closed합니다. Hidden reasoning, raw backend response, raw source body, patch fragment, verification command 원문은 transcript artifact에서 제외합니다. `state resume`은 session 선택 전에 transcript/workflow/ledger checkpoint를 검증하고 pending approval에서 backend를 다시 호출하거나 불확실한 verification command를 자동 재실행하지 않습니다.
 
-Checkpoint, ledger chain, CSPRNG token, atomic rollback, stop gate, streaming transport, generation-state lifecycle test는 플랫폼 독립적인 unit/state test입니다. `tests/backend_lifecycle.rs`는 Rust fake sidecar를 compile해 Windows를 포함한 모든 release platform에서 실제 CLI child process를 실행합니다. `tests/patch_loop.rs`의 hostile fixture는 실행 가능한 Python fake sidecar와 Unix process permission을 사용하므로 계속 Unix 전용이며, Unix에서는 추가로 CLI process 사이의 timeout, 언어 거부, upstream-error redaction, sidecar-stop ordering을 검증합니다.
+Checkpoint, ledger chain, CSPRNG token, atomic rollback, stop gate, streaming transport, generation-state lifecycle test는 플랫폼 독립적인 unit/state test입니다. `tests/inference/backend_lifecycle.rs`는 Rust fake sidecar를 compile해 Windows를 포함한 모든 release platform에서 실제 CLI child process를 실행합니다. `tests/patch_loop.rs`의 hostile fixture는 실행 가능한 Python fake sidecar와 Unix process permission을 사용하므로 계속 Unix 전용이며, Unix에서는 추가로 CLI process 사이의 timeout, 언어 거부, upstream-error redaction, sidecar-stop ordering을 검증합니다.
 
 한 번만 표시되는 approval token을 확보하지 못했다면 workflow가 pending인 동안 `rpotato
 patch token-rotate <proposal-id>`를 사용합니다. 이 명령은 새 credential hash를 저장하고
