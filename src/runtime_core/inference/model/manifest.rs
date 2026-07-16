@@ -1,3 +1,6 @@
+use crate::foundation::error::AppError;
+use crate::foundation::integrity as checksum;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CandidateStatus {
     Candidate,
@@ -496,5 +499,3 @@ mod tests {
         assert_eq!(quantization_for_artifact_hash(&"f".repeat(64)), None);
     }
 }
-use crate::foundation::error::AppError;
-use crate::foundation::integrity as checksum;
