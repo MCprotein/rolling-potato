@@ -915,7 +915,16 @@ mod windows {
                 &[("RPOTATO_PROBE_EXPECT_ECHO", "1")],
             );
             wait_for_success(process, "terminal mode restoration probe");
-            self.drain_available();
+            let deadline = Instant::now() + Duration::from_secs(2);
+            loop {
+                self.drain_available();
+                if mode_probe_values(&self.output_bytes).len() > count_before
+                    || Instant::now() >= deadline
+                {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
             let modes = mode_probe_values(&self.output_bytes);
             assert_eq!(
                 modes.len(),
