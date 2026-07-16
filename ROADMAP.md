@@ -70,6 +70,19 @@ evidence.
 | v0.35.1 | Released | Hermetic release-contract fixture that clears ambient tag context while retaining the complete v0.35 bounded subagent implementation |
 | v0.36.0 | Released | Team execution: dispatch admitted lanes, advance team stages, enforce ownership at action time, reconcile results, handle failed lanes, and apply verification/stop gates before completion |
 | v0.37.0 | Released | Codex plugin execution adapter: execute supported locally imported capabilities through native policy/hook/skill boundaries while shell, MCP, background, remote, and write capabilities remain blocked until explicit approval |
+| v0.37.1 | Planned | Architecture foundation: canonical bilingual code-architecture contract, complete migration ledger, private compile-connected module skeleton, architecture contract test, and exact-head candidate CI without production logic movement |
+| v0.37.2 | Planned | Foundation and platform seams: filesystem, terminal, configuration, checksum, strict serialization, lease, cache, and Windows atomic replacement ownership |
+| v0.37.3 | Planned | Inference boundary: backend, model, benchmark, and resource domain rules separated from llama.cpp, process, and filesystem adapters |
+| v0.37.4 | Planned | Canonical workflow storage compatibility: byte-identical DTOs/codecs plus isolated ledger and transcript append ownership |
+| v0.37.5 | Planned | Validated workflow, session, snapshot, and transcript views around the unchanged storage compatibility boundary |
+| v0.37.6 | Planned | Workflow transitions, crash recovery, and one transaction coordinator owning cross-store commit and recovery order |
+| v0.37.7 | Planned | Observability boundary: projection-lag barriers, rebuildable SQLite projections, monitoring queries, and convergence evidence |
+| v0.37.8 | Planned | Knowledge and policy boundaries: context, evidence, ontology, approval, and fail-closed decision ownership |
+| v0.37.9 | Planned | Patch boundary: intent, proposal, preview, approval credentials, apply, verification, rollback, and recovery ownership |
+| v0.37.10 | Planned | Runtime and reporting boundaries: workflow runner, surface-neutral reports, and Korean output invariants |
+| v0.37.11 | Planned | Extension boundary: skill, hook, and plugin manifests, validation, lifecycle, and execution facade ownership |
+| v0.37.12 | Planned | Collaboration boundary: subagent and team lifecycle, execution, persisted state, result validation, and reconciliation |
+| v0.37.13 | Planned | Surface and composition completion: CLI/TUI ownership, startup and dispatch wiring, uninstall orchestration, legacy facade removal, and zero-unmapped-slice gate |
 | v0.38.0 | Planned | Claude Code plugin execution adapter: map supported local capabilities onto the established native adapter contract, report unsupported semantics, and preserve the same default-deny permission boundary |
 | v0.39.0 | Planned | Integrated performance hardening: benchmark completed agent/subagent/team workflows, optimize CPU/RSS/context/token usage from measured evidence, and promote regressions into reproducible fixtures without unsupported model claims |
 | v0.40.0 | Planned | Package-manager distribution: decide and implement maintainable Homebrew/Scoop/winget channels against signed or checksummed GitHub Release assets, with install/upgrade/uninstall validation |

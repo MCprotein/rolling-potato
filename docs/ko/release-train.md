@@ -57,6 +57,8 @@ release를 만듭니다. 실패 tag는 evidence를 기록한 경우에만 Supers
 | `v0.35.0` | Bounded subagent launch, scoped context/tool/write/resource enforcement, structured result, failure handling, parent evidence merge test |
 | `v0.36.0` | Parallel/sequential mode, action-time ownership, failed lane, resource pressure, verification, stop gate를 포함한 실제 team lane dispatch/stage/reconciliation test |
 | `v0.37.0` | Native adapter를 통한 Codex local plugin capability execution test, 명시적 승인 전 risky capability 차단, marketplace/remote source path 부재 |
+| `v0.37.1` | 영문/한국어 코드 아키텍처 계약, 재귀적으로 완전한 file-and-slice migration ledger, private compile-connected skeleton, dependency contract test, exact-head read-only candidate CI |
+| `v0.37.2`-`v0.37.13+` | 각 ledger slice의 targeted behavior lock과 migration evidence, byte/order/recovery/security 호환성, 안정화된 patch별 bounded review 1회, v0.38.0 전 compatibility facade 0건 |
 | `v0.38.0` | Claude Code local plugin mapping/conformance test, unsupported semantic 명시적 보고, 동일한 default-deny boundary |
 | `v0.39.0` | 실제 agent/subagent/team CPU, RSS, context, token, latency, throughput 측정 evidence와 확인된 failure용 regression fixture |
 | `v0.40.0` | GitHub Release checksum을 기준으로 채택한 Homebrew/Scoop/winget channel의 최신 공식 package format 검증과 clean install/upgrade/uninstall test |
