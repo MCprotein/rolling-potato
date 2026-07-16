@@ -100,16 +100,6 @@ impl ActiveGenerationGuard {
     }
 }
 
-#[cfg(test)]
-#[derive(Debug, Clone, PartialEq)]
-struct BackendChatCompletion {
-    content: String,
-    finish_reason: String,
-    prompt_tokens: Option<u32>,
-    completion_tokens: Option<u32>,
-    total_tokens: Option<u32>,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 struct BackendResourceSampleReport {
     metric: observability::ResourceSampleMetric,
@@ -1259,93 +1249,6 @@ pub fn cancel_generation_report() -> Result<String, AppError> {
         terminal_event,
         event_id
     ))
-}
-
-#[cfg(test)]
-fn parse_chat_completion_response(body: &str) -> Option<BackendChatCompletion> {
-    Some(BackendChatCompletion {
-        content: extract_json_string_value(body, "content")?,
-        finish_reason: extract_json_string_value(body, "finish_reason")
-            .unwrap_or_else(|| "unknown".to_string()),
-        prompt_tokens: extract_json_u32_value(body, "prompt_tokens"),
-        completion_tokens: extract_json_u32_value(body, "completion_tokens"),
-        total_tokens: extract_json_u32_value(body, "total_tokens"),
-    })
-}
-
-#[cfg(test)]
-fn extract_json_string_value(text: &str, key: &str) -> Option<String> {
-    let needle = format!("\"{key}\":");
-    let start = text.find(&needle)? + needle.len();
-    let mut chars = text[start..].chars().peekable();
-    while matches!(chars.peek(), Some(ch) if ch.is_whitespace()) {
-        chars.next();
-    }
-    if chars.next()? != '"' {
-        return None;
-    }
-
-    let mut value = String::new();
-    while let Some(ch) = chars.next() {
-        match ch {
-            '"' => return Some(value),
-            '\\' => match chars.next()? {
-                '"' => value.push('"'),
-                '\\' => value.push('\\'),
-                '/' => value.push('/'),
-                'b' => value.push('\u{0008}'),
-                'f' => value.push('\u{000c}'),
-                'n' => value.push('\n'),
-                'r' => value.push('\r'),
-                't' => value.push('\t'),
-                'u' => {
-                    let mut code = String::new();
-                    for _ in 0..4 {
-                        code.push(chars.next()?);
-                    }
-                    let scalar = u32::from_str_radix(&code, 16).ok()?;
-                    value.push(char::from_u32(scalar)?);
-                }
-                other => value.push(other),
-            },
-            other => value.push(other),
-        }
-    }
-    None
-}
-
-#[cfg(test)]
-fn extract_json_u32_value(text: &str, key: &str) -> Option<u32> {
-    let needle = format!("\"{key}\":");
-    let start = text.find(&needle)? + needle.len();
-    let trimmed = text[start..].trim_start();
-    let number: String = trimmed
-        .chars()
-        .take_while(|ch| ch.is_ascii_digit())
-        .collect();
-    if number.is_empty() {
-        return None;
-    }
-    number.parse::<u32>().ok()
-}
-
-#[cfg(test)]
-fn strip_reasoning_trace(content: &str) -> (String, bool) {
-    let mut output = String::new();
-    let mut rest = content;
-    let mut stripped = false;
-
-    while let Some(start) = rest.find("<think>") {
-        stripped = true;
-        output.push_str(&rest[..start]);
-        let after_start = &rest[start + "<think>".len()..];
-        let Some(end) = after_start.find("</think>") else {
-            return (output, true);
-        };
-        rest = &after_start[end + "</think>".len()..];
-    }
-    output.push_str(rest);
-    (output, stripped)
 }
 
 fn install_backend_from_archive(
@@ -2776,42 +2679,10 @@ mod tests {
     }
 
     #[test]
-    fn parses_chat_completion_response_content_and_usage() {
-        let body = r#"{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"감자는 땅속에서 자라는 식물입니다."}}],"usage":{"completion_tokens":14,"prompt_tokens":26,"total_tokens":40}}"#;
-
-        let completion = parse_chat_completion_response(body).unwrap();
-
-        assert_eq!(completion.content, "감자는 땅속에서 자라는 식물입니다.");
-        assert_eq!(completion.finish_reason, "stop");
-        assert_eq!(completion.prompt_tokens, Some(26));
-        assert_eq!(completion.completion_tokens, Some(14));
-        assert_eq!(completion.total_tokens, Some(40));
-    }
-
-    #[test]
     fn model_id_comes_from_model_file_stem() {
         let model_id = model_id_from_path(Path::new("/tmp/Qwen3.5-4B-Q4_K_M.gguf"));
 
         assert_eq!(model_id, "Qwen3.5-4B-Q4_K_M");
-    }
-
-    #[test]
-    fn strips_closed_reasoning_trace_without_showing_it() {
-        let (content, stripped) = strip_reasoning_trace(
-            "\n<think>\n내부 추론입니다.\n</think>\n\n감자는 땅속에서 자랍니다.",
-        );
-
-        assert!(stripped);
-        assert_eq!(content.trim(), "감자는 땅속에서 자랍니다.");
-        assert!(!content.contains("내부 추론"));
-    }
-
-    #[test]
-    fn strips_unclosed_reasoning_trace_to_empty() {
-        let (content, stripped) = strip_reasoning_trace("<think>\nThinking Process:");
-
-        assert!(stripped);
-        assert!(content.trim().is_empty());
     }
 
     fn write_test_tar_gz(path: &Path, files: &[(&str, &[u8])]) -> std::io::Result<()> {
