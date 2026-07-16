@@ -16,9 +16,17 @@ use crate::runtime::{
 };
 #[cfg(test)]
 use crate::runtime::{TuiEffect, TuiOutcomeStatus};
+use crate::runtime_core::patch::proposal::{
+    self as proposal_domain, parse_header as parse_proposal_header, required_header,
+    validate_proposal_id, PatchPreview, PreviewInput, ProposalRecord, RecordParse,
+    MAX_PATCH_FILE_BYTES,
+};
 use crate::state;
 
-const MAX_PATCH_FILE_BYTES: u64 = 256 * 1024;
+pub use crate::runtime_core::patch::proposal::{
+    PatchProposalDetail, PatchProposalSummary, WorkflowProposal,
+};
+
 const MAX_VERIFICATION_OUTPUT_CHARS: usize = 2_000;
 const MAX_PROPOSAL_RECORD_BYTES: usize = 2 * 1024 * 1024;
 
@@ -74,68 +82,6 @@ impl ApprovalDispatch {
         }
         self.report
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct PatchPreview {
-    proposal_id: String,
-    approval_token: String,
-    relative_path: String,
-    original_sha256: String,
-    proposed_sha256: String,
-    replacements: usize,
-    diff: String,
-    proposal_path: PathBuf,
-    proposed_content: String,
-    workflow_id: String,
-    action_id: String,
-    verification_command: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ProposalRecord {
-    proposal_id: String,
-    approval_token_hash: String,
-    relative_path: String,
-    original_sha256: String,
-    proposed_sha256: String,
-    proposed_content: String,
-    proposal_path: PathBuf,
-    workflow_id: String,
-    action_id: String,
-    verification_command: String,
-    artifact_hash: String,
-    legacy_plaintext_token: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WorkflowProposal {
-    pub proposal_id: String,
-    pub approval_token: String,
-    pub relative_path: String,
-    pub original_sha256: String,
-    pub proposed_sha256: String,
-    pub diff: String,
-    pub verification_command: String,
-    pub proposal_hash: String,
-    pub approval_credential_hash: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PatchProposalSummary {
-    pub proposal_id: String,
-    pub relative_path: String,
-    pub original_sha256: String,
-    pub proposed_sha256: String,
-    pub replacements: String,
-    pub status: String,
-    pub proposal_path: PathBuf,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PatchProposalDetail {
-    pub summary: PatchProposalSummary,
-    pub diff: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3247,154 +3193,21 @@ fn parse_proposal_record_contents(
     contents: &str,
     allow_legacy_migration: bool,
 ) -> Result<ProposalRecord, AppError> {
-    let (header, _) = parse_proposal_header(contents, proposal_path)?;
-    let recorded_id = required_header(&header, "proposal_id", proposal_path)?;
-    if recorded_id != proposal_id {
-        return Err(AppError::blocked(format!(
-            "patch approve 차단\n- 이유: proposal id가 record와 일치하지 않습니다.\n- requested: {}\n- recorded: {}",
-            proposal_id, recorded_id
-        )));
-    }
-    let proposed_sha256 = required_header(&header, "proposed_sha256", proposal_path)?;
-    let proposed_content_hex =
-        required_header(&header, "proposed_content_hex", proposal_path).map_err(|_| {
-            AppError::blocked(format!(
-                "patch approve 차단\n- 이유: v0.4.0 apply에는 proposed_content_hex가 필요합니다.\n- path: {}\n- 동작: patch preview를 다시 생성하세요.",
-                proposal_path.display()
+    match proposal_domain::parse_record(
+        proposal_id,
+        proposal_path,
+        contents,
+        allow_legacy_migration,
+    )? {
+        RecordParse::Canonical(record) => Ok(record),
+        RecordParse::LegacyMigration { scrubbed } => {
+            state::atomic_replace_bytes(proposal_path, scrubbed.as_bytes())?;
+            Err(AppError::blocked(
+                "legacy proposal migration 완료\n- plaintext token을 hash-only로 atomic scrub했습니다.\n- 동작: 기존 binding은 폐기하고 canonical workflow preview를 다시 생성하세요.",
             ))
-        })?;
-    let proposed_content = decode_hex_text(&proposed_content_hex).map_err(|message| {
-        AppError::blocked(format!(
-            "patch approve 차단\n- 이유: proposal record의 proposed_content_hex를 해석하지 못했습니다.\n- path: {}\n- error: {}",
-            proposal_path.display(),
-            message
-        ))
-    })?;
-    let decoded_sha256 = sha256_text(&proposed_content);
-    if decoded_sha256 != proposed_sha256 {
-        return Err(AppError::blocked(format!(
-            "patch approve 차단\n- 이유: proposal record의 proposed content hash가 일치하지 않습니다.\n- expected: {}\n- actual: {}",
-            proposed_sha256, decoded_sha256
-        )));
-    }
-
-    let version = required_header(&header, "record_version", proposal_path)?;
-    let legacy_plaintext_token = version == "2";
-    if !matches!(version.as_str(), "2" | "4") {
-        return Err(AppError::blocked(
-            "patch approve 차단\n- 이유: 지원하지 않는 proposal record version입니다.",
-        ));
-    }
-    if legacy_plaintext_token {
-        if !allow_legacy_migration {
-            return Err(AppError::blocked(
-                "legacy proposal read 차단\n- 동작: read-only/resume 경계에서 proposal을 변경하지 않았습니다.",
-            ));
         }
-        if header.contains_key("approval_token_hash") {
-            return Err(AppError::blocked(
-                "proposal strict parse 차단\n- 이유: v2 record에 hash credential이 함께 존재합니다.",
-            ));
-        }
-        let plaintext = required_header(&header, "approval_token", proposal_path)?;
-        let scrubbed = contents
-            .replacen("record_version=2", "record_version=4", 1)
-            .replacen(
-                &format!("approval_token={plaintext}"),
-                &format!("approval_token_hash={}", sha256_text(&plaintext)),
-                1,
-            );
-        state::atomic_replace_bytes(proposal_path, scrubbed.as_bytes())?;
-        return Err(AppError::blocked(
-            "legacy proposal migration 완료\n- plaintext token을 hash-only로 atomic scrub했습니다.\n- 동작: 기존 binding은 폐기하고 canonical workflow preview를 다시 생성하세요.",
-        ));
-    } else if header.contains_key("approval_token") {
-        return Err(AppError::blocked(
-            "proposal strict parse 차단\n- 이유: v4 record에 plaintext credential이 존재합니다.",
-        ));
     }
-    let approval_token_hash = required_header(&header, "approval_token_hash", proposal_path)?;
-    Ok(ProposalRecord {
-        proposal_id: recorded_id,
-        approval_token_hash,
-        relative_path: required_header(&header, "path", proposal_path)?,
-        original_sha256: required_header(&header, "original_sha256", proposal_path)?,
-        proposed_sha256,
-        proposed_content,
-        proposal_path: proposal_path.to_path_buf(),
-        workflow_id: header.get("workflow_id").cloned().unwrap_or_default(),
-        action_id: header.get("action_id").cloned().unwrap_or_default(),
-        verification_command: header
-            .get("verification_command_hex")
-            .cloned()
-            .map(|value| decode_hex_text(&value))
-            .transpose()
-            .map_err(|message| {
-                AppError::blocked(format!("verification plan decode 실패: {message}"))
-            })?
-            .unwrap_or_default(),
-        artifact_hash: sha256_bytes(contents.as_bytes()),
-        legacy_plaintext_token,
-    })
 }
-
-fn parse_proposal_header<'a>(
-    contents: &'a str,
-    path: &Path,
-) -> Result<(std::collections::BTreeMap<String, String>, &'a str), AppError> {
-    const ALLOWED: &[&str] = &[
-        "record_version",
-        "proposal_id",
-        "workflow_id",
-        "action_id",
-        "path",
-        "approval_token_hash",
-        "approval_token",
-        "original_sha256",
-        "proposed_sha256",
-        "verification_command_hex",
-        "replacements",
-        "content_encoding",
-        "proposed_content_hex",
-    ];
-    let (head, diff) = contents.split_once("\n\n").ok_or_else(|| {
-        AppError::blocked(format!(
-            "proposal strict parse 차단\n- path: {}\n- 이유: header terminator 없음",
-            path.display()
-        ))
-    })?;
-    let mut map = std::collections::BTreeMap::new();
-    for line in head.lines() {
-        let (key, value) = line.split_once('=').ok_or_else(|| {
-            AppError::blocked("proposal strict parse 차단\n- 이유: malformed field")
-        })?;
-        if !ALLOWED.contains(&key) {
-            return Err(AppError::blocked(format!(
-                "proposal strict parse 차단\n- 이유: unknown key: {key}"
-            )));
-        }
-        if map.insert(key.to_string(), value.to_string()).is_some() {
-            return Err(AppError::blocked(format!(
-                "proposal strict parse 차단\n- 이유: duplicate key: {key}"
-            )));
-        }
-    }
-    Ok((map, diff))
-}
-
-fn required_header(
-    map: &std::collections::BTreeMap<String, String>,
-    key: &str,
-    path: &Path,
-) -> Result<String, AppError> {
-    map.get(key).cloned().ok_or_else(|| {
-        AppError::blocked(format!(
-            "patch approve 차단\n- 이유: proposal record에 {key} 값이 없습니다.\n- path: {}",
-            path.display()
-        ))
-    })
-}
-
 fn validate_token_hash(
     expected_hash: &str,
     token: &str,
@@ -3977,7 +3790,7 @@ fn build_preview(
     let read_decision = policy::classify_path(PathMode::Read, &target.relative_path)?;
     if read_decision.decision != Decision::Allow {
         return Err(AppError::blocked(format!(
-            "patch preview 차단\n- 이유: target read policy가 allow가 아닙니다.\n- path: {}\n- decision: {}",
+            "patch preview 차단\\n- 이유: target read policy가 allow가 아닙니다.\\n- path: {}\\n- decision: {}",
             target.relative_path,
             read_decision_label(read_decision.decision)
         )));
@@ -3985,7 +3798,7 @@ fn build_preview(
     let write_decision = policy::classify_path(PathMode::Write, &target.relative_path)?;
     if write_decision.decision == Decision::Deny {
         return Err(AppError::blocked(format!(
-            "patch preview 차단\n- 이유: target write policy가 deny입니다.\n- path: {}",
+            "patch preview 차단\\n- 이유: target write policy가 deny입니다.\\n- path: {}",
             target.relative_path
         )));
     }
@@ -4001,12 +3814,12 @@ fn build_preview(
             target.relative_path
         )));
     }
-    if metadata.len() > MAX_PATCH_FILE_BYTES {
+    if metadata.len() > proposal_domain::MAX_PATCH_FILE_BYTES {
         return Err(AppError::blocked(format!(
-            "patch preview 차단\n- 이유: 대상 파일이 preview 한도를 초과했습니다.\n- path: {}\n- size bytes: {}\n- max bytes: {}",
+            "patch preview 차단\\n- 이유: 대상 파일이 preview 한도를 초과했습니다.\\n- path: {}\\n- size bytes: {}\\n- max bytes: {}",
             target.relative_path,
             metadata.len(),
-            MAX_PATCH_FILE_BYTES
+            proposal_domain::MAX_PATCH_FILE_BYTES
         )));
     }
     let original = fs::read_to_string(&target.absolute_path).map_err(|err| {
@@ -4015,74 +3828,24 @@ fn build_preview(
             target.relative_path
         ))
     })?;
-    let matches = original.matches(find).count();
-    if matches == 0 {
-        return Err(AppError::blocked(format!(
-            "patch preview 차단\n- 이유: --find text를 대상 파일에서 찾지 못했습니다.\n- path: {}",
-            target.relative_path
-        )));
-    }
-    if matches > 1 {
-        return Err(AppError::blocked(format!(
-            "patch preview 차단\n- 이유: --find text가 여러 번 나타나 patch target이 모호합니다.\n- path: {}\n- matches: {}",
-            target.relative_path, matches
-        )));
-    }
-    let proposed = original.replacen(find, replace, 1);
-    if proposed.len() > usize::try_from(MAX_PATCH_FILE_BYTES).expect("patch limit fits usize") {
-        return Err(AppError::blocked(format!(
-            "patch preview 차단\n- 이유: proposed content가 preview 한도를 초과했습니다.\n- path: {}\n- size bytes: {}\n- max bytes: {}",
-            target.relative_path,
-            proposed.len(),
-            MAX_PATCH_FILE_BYTES
-        )));
-    }
-    if proposed == original {
-        return Err(AppError::blocked(format!(
-            "patch preview 차단\n- 이유: proposed content가 original과 동일합니다.\n- path: {}",
-            target.relative_path
-        )));
-    }
-
-    let original_sha256 = sha256_text(&original);
-    let proposed_sha256 = sha256_text(&proposed);
-    let diff = render_unified_diff(&target.relative_path, &original, &proposed);
-    let content_id = &sha256_text(&format!(
-        "{}\n{}\n{}",
-        target.relative_path, original_sha256, proposed_sha256
-    ))[..16];
-    let proposal_id = if workflow_id.is_empty() {
-        format!("patch-proposal-standalone-{content_id}")
-    } else {
-        format!(
-            "patch-proposal-wf-{}-act-{}-{content_id}",
-            safe_id_tail(workflow_id),
-            safe_id_tail(action_id)
-        )
-    };
     let approval_token = if workflow_id.is_empty() {
         String::new()
     } else {
         issue_approval_token()?
     };
-    let proposal_path = paths::project_patch_proposals_dir().join(format!("{proposal_id}.txt"));
 
-    Ok(PatchPreview {
-        proposal_id,
+    proposal_domain::build_preview(PreviewInput {
+        relative_path: &target.relative_path,
+        original: &original,
+        find,
+        replace,
+        workflow_id,
+        action_id,
+        verification_command,
         approval_token,
-        relative_path: target.relative_path,
-        original_sha256,
-        proposed_sha256,
-        replacements: matches,
-        diff,
-        proposal_path,
-        proposed_content: proposed,
-        workflow_id: workflow_id.to_string(),
-        action_id: action_id.to_string(),
-        verification_command: verification_command.to_string(),
+        proposal_dir: &paths::project_patch_proposals_dir(),
     })
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TargetPath {
     absolute_path: PathBuf,
@@ -4150,71 +3913,8 @@ fn write_proposal_record(preview: &PatchPreview) -> Result<(), AppError> {
     if preview.proposal_path.exists() {
         return Err(AppError::blocked(format!("patch proposal 저장 차단\n- 이유: immutable proposal artifact가 이미 존재합니다.\n- path: {}", preview.proposal_path.display())));
     }
-    let body = format!(
-            "record_version=4\nproposal_id={}\nworkflow_id={}\naction_id={}\npath={}\napproval_token_hash={}\noriginal_sha256={}\nproposed_sha256={}\nverification_command_hex={}\nreplacements={}\ncontent_encoding=utf8-hex\nproposed_content_hex={}\n\n{}\n",
-            preview.proposal_id,
-            preview.workflow_id,
-            preview.action_id,
-            preview.relative_path,
-            sha256_text(&preview.approval_token),
-            preview.original_sha256,
-            preview.proposed_sha256,
-            encode_hex_text(&preview.verification_command),
-            preview.replacements,
-            encode_hex_text(&preview.proposed_content),
-            preview.diff
-        );
+    let body = proposal_domain::render_record(preview);
     state::atomic_replace_bytes(&preview.proposal_path, body.as_bytes())
-}
-
-fn safe_id_tail(value: &str) -> &str {
-    value.rsplit('-').next().unwrap_or(value)
-}
-
-fn render_unified_diff(path: &str, original: &str, proposed: &str) -> String {
-    let old_lines = original.split('\n').collect::<Vec<_>>();
-    let new_lines = proposed.split('\n').collect::<Vec<_>>();
-    let mut prefix = 0usize;
-    while prefix < old_lines.len()
-        && prefix < new_lines.len()
-        && old_lines[prefix] == new_lines[prefix]
-    {
-        prefix += 1;
-    }
-
-    let mut suffix = 0usize;
-    while suffix + prefix < old_lines.len()
-        && suffix + prefix < new_lines.len()
-        && old_lines[old_lines.len() - 1 - suffix] == new_lines[new_lines.len() - 1 - suffix]
-    {
-        suffix += 1;
-    }
-
-    let context_before = prefix.saturating_sub(3);
-    let context_after_old = (old_lines.len() - suffix + 3).min(old_lines.len());
-    let context_after_new = (new_lines.len() - suffix + 3).min(new_lines.len());
-    let old_start = context_before + 1;
-    let new_start = context_before + 1;
-    let old_count = context_after_old.saturating_sub(context_before).max(1);
-    let new_count = context_after_new.saturating_sub(context_before).max(1);
-
-    let mut diff = format!(
-        "--- a/{path}\n+++ b/{path}\n@@ -{},{} +{},{} @@\n",
-        old_start, old_count, new_start, new_count
-    );
-    for line in &old_lines[context_before..prefix] {
-        diff.push_str(&format!(" {line}\n"));
-    }
-    for line in &old_lines[prefix..old_lines.len() - suffix] {
-        diff.push_str(&format!("-{line}\n"));
-    }
-    for line in &new_lines[prefix..new_lines.len() - suffix] {
-        diff.push_str(&format!("+{line}\n"));
-    }
-    for line in &old_lines[old_lines.len() - suffix..context_after_old] {
-        diff.push_str(&format!(" {line}\n"));
-    }
-    diff
 }
 
 fn issue_approval_token() -> Result<String, AppError> {
@@ -4269,39 +3969,6 @@ fn display_none(value: &str) -> &str {
     }
 }
 
-fn encode_hex_text(value: &str) -> String {
-    let mut output = String::with_capacity(value.len() * 2);
-    for byte in value.as_bytes() {
-        output.push_str(&format!("{byte:02x}"));
-    }
-    output
-}
-
-fn decode_hex_text(value: &str) -> Result<String, String> {
-    if !value.len().is_multiple_of(2) {
-        return Err("hex length must be even".to_string());
-    }
-    let mut bytes = Vec::with_capacity(value.len() / 2);
-    let chars = value.as_bytes();
-    let mut index = 0usize;
-    while index < chars.len() {
-        let high = hex_value(chars[index]).ok_or_else(|| "invalid high nibble".to_string())?;
-        let low = hex_value(chars[index + 1]).ok_or_else(|| "invalid low nibble".to_string())?;
-        bytes.push((high << 4) | low);
-        index += 2;
-    }
-    String::from_utf8(bytes).map_err(|err| err.to_string())
-}
-
-fn hex_value(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
-    }
-}
-
 fn output_excerpt(bytes: &[u8]) -> String {
     output_text_excerpt(&String::from_utf8_lossy(bytes))
 }
@@ -4320,20 +3987,6 @@ fn output_text_excerpt(value: &str) -> String {
         output.push_str("...");
     }
     output
-}
-
-fn validate_proposal_id(proposal_id: &str) -> Result<(), AppError> {
-    if proposal_id.starts_with("patch-proposal-")
-        && proposal_id
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
-    {
-        return Ok(());
-    }
-
-    Err(AppError::usage(
-        "patch approve proposal id 형식이 올바르지 않습니다.",
-    ))
 }
 
 fn sha256_text(value: &str) -> String {
