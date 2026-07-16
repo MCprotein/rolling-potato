@@ -59,6 +59,10 @@ src/
 노출합니다. v0.37.1 트리는 문서와 소유권 예약만 포함했습니다. v0.37.2부터는
 ledger slice, targeted test, legacy path 제거가 함께 닫히는 경우에만 운영 동작을
 이동합니다.
+v0.37.3 inference 경계는 backend/model/benchmark/resource 규칙, durable
+inference codec, llama.cpp/process/filesystem 구현을 이제 이 private root에서
+소유합니다. 남은 최상위 inference command/report module은 v0.37.13의 최종
+composition cleanup 대상으로 명시된 compatibility facade입니다.
 
 ## 의존 방향
 

@@ -66,7 +66,7 @@ grep -F 'cargo test --locked --target ${{ matrix.target }} --bin rpotato backend
   || fail "native Windows streaming transport tests are missing"
 grep -F 'cargo test --locked --target ${{ matrix.target }} --bin rpotato generation_ -- --test-threads=1' "$workflow" >/dev/null \
   || fail "native Windows generation lifecycle tests are missing"
-grep -F 'cargo test --locked --target ${{ matrix.target }} --test backend_lifecycle -- --test-threads=1' "$workflow" >/dev/null \
+grep -F 'cargo test --locked --target ${{ matrix.target }} --test inference backend_lifecycle::native_backend_cancel_and_stop_lifecycle -- --test-threads=1' "$workflow" >/dev/null \
   || fail "native Windows backend process lifecycle test is missing"
 grep -F 'cargo test --locked --target ${{ matrix.target }} --test platform native_terminal::entry_quit -- --exact --test-threads=1' "$workflow" >/dev/null \
   || fail "native terminal entry_quit test is missing from the build matrix"

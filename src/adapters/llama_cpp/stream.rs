@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
+use crate::runtime_core::inference::stream::{StreamCompletion, StreamOutcome, StreamTermination};
 use strict_json::{Object, Value};
 
 const READ_POLL_INTERVAL: Duration = Duration::from_millis(100);
@@ -13,31 +14,7 @@ const MAX_HTTP_CHUNK_BYTES: usize = MAX_SSE_EVENT_BYTES;
 const MAX_HTTP_BODY_BUFFER_BYTES: usize = MAX_SSE_EVENT_BYTES + 64 * 1024;
 const MAX_COMPLETION_BYTES: usize = 2 * 1024 * 1024;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StreamTermination {
-    Completed,
-    Cancelled,
-    TimedOut,
-}
-
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct StreamCompletion {
-    pub content: String,
-    pub finish_reason: String,
-    pub prompt_tokens: Option<u32>,
-    pub completion_tokens: Option<u32>,
-    pub total_tokens: Option<u32>,
-    pub first_token_latency_ms: Option<u128>,
-    pub had_reasoning_trace: bool,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct StreamOutcome {
-    pub termination: StreamTermination,
-    pub completion: StreamCompletion,
-}
-
-pub fn post_chat_stream(
+pub(crate) fn post_chat_stream(
     host: &str,
     port: u16,
     path: &str,

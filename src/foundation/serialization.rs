@@ -276,6 +276,25 @@ pub fn render_compact(value: &Value) -> String {
     out
 }
 
+pub(crate) fn escape_string_content(value: &str) -> String {
+    let mut escaped = String::new();
+    for ch in value.chars() {
+        match ch {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            ch if ch.is_control() => {
+                use std::fmt::Write as _;
+                write!(escaped, "\\u{:04x}", ch as u32).expect("String 쓰기는 실패하지 않습니다.");
+            }
+            ch => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
 fn render_value(value: &Value, out: &mut String) {
     match value {
         Value::Object(object) => {
@@ -595,6 +614,15 @@ impl Parser<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn escapes_json_string_content_without_adding_quotes() {
+        assert_eq!(
+            escape_string_content("한글\n\"quoted\"\\path\u{0008}"),
+            "한글\\n\\\"quoted\\\"\\\\path\\u0008"
+        );
+    }
+
     #[test]
     fn rejects_duplicate_unknown_escape_type_and_trailing() {
         for input in [

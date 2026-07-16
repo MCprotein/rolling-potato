@@ -61,6 +61,10 @@ Modules are private by default. A boundary becomes visible only to the narrowest
 consumer that needs it. The v0.37.1 tree was documentation-only and reserved
 ownership. Beginning with v0.37.2, production behavior moves only when its
 ledger slice, targeted tests, and legacy-path removal close together.
+The v0.37.3 inference boundary now owns backend/model/benchmark/resource rules,
+durable inference codecs, and llama.cpp/process/filesystem implementations in
+these private roots. The remaining top-level inference command/report modules
+are compatibility facades scheduled for final composition cleanup in v0.37.13.
 
 ## Dependency direction
 

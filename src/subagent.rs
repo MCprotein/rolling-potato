@@ -1,5 +1,6 @@
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
+use crate::runtime_core::inference::backend::MAX_CHAT_TIMEOUT_MS;
 use crate::{
     adapters::filesystem::layout as paths, adapters::filesystem::lease, backend, ledger, state,
 };
@@ -329,10 +330,10 @@ pub fn validate_launch(
         ));
     }
     let timeout_ms = timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS);
-    if timeout_ms == 0 || timeout_ms > backend::MAX_CHAT_TIMEOUT_MS {
+    if timeout_ms == 0 || timeout_ms > MAX_CHAT_TIMEOUT_MS {
         return Err(AppError::usage(format!(
             "subagent timeout은 1..={} ms 범위여야 합니다.",
-            backend::MAX_CHAT_TIMEOUT_MS
+            MAX_CHAT_TIMEOUT_MS
         )));
     }
     let requested_max_tokens = max_tokens.unwrap_or(DEFAULT_MAX_TOKENS);
@@ -1705,7 +1706,7 @@ fn validate_record(record: &SubagentRecordV1, installed: bool) -> Result<(), App
     if !is_sha256(&record.task_hash) {
         return Err(AppError::blocked("subagent task hash 오류"));
     }
-    if record.timeout_ms == 0 || record.timeout_ms > backend::MAX_CHAT_TIMEOUT_MS {
+    if record.timeout_ms == 0 || record.timeout_ms > MAX_CHAT_TIMEOUT_MS {
         return Err(AppError::blocked("subagent timeout state 오류"));
     }
     if record.requested_max_tokens == 0
@@ -2106,7 +2107,7 @@ mod tests {
             &strings(&["read_file"]),
             &strings(&["src/main.rs"]),
             &[],
-            Some(backend::MAX_CHAT_TIMEOUT_MS),
+            Some(MAX_CHAT_TIMEOUT_MS),
             Some(MAX_MAX_TOKENS),
         )
         .unwrap();

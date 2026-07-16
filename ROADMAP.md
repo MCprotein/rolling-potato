@@ -72,7 +72,7 @@ evidence.
 | v0.37.0 | Released | Codex plugin execution adapter: execute supported locally imported capabilities through native policy/hook/skill boundaries while shell, MCP, background, remote, and write capabilities remain blocked until explicit approval |
 | v0.37.1 | Implemented | Architecture foundation: canonical bilingual code-architecture contract, complete migration ledger, private compile-connected module skeleton, architecture contract test, and exact-head candidate CI without production logic movement; release pending |
 | v0.37.2 | Implemented | Foundation and platform seams: filesystem, terminal, configuration, checksum, strict serialization, lease, cache, and Windows atomic replacement ownership; release pending |
-| v0.37.3 | Planned | Inference boundary: backend, model, benchmark, and resource domain rules separated from llama.cpp, process, and filesystem adapters |
+| v0.37.3 | Implemented | Inference boundary: backend, model, benchmark, resource, lifecycle, stream, and promotion rules separated from llama.cpp, process, and filesystem adapters; release pending |
 | v0.37.4 | Planned | Canonical workflow storage compatibility: byte-identical DTOs/codecs plus isolated ledger and transcript append ownership |
 | v0.37.5 | Planned | Validated workflow, session, snapshot, and transcript views around the unchanged storage compatibility boundary |
 | v0.37.6 | Planned | Workflow transitions, crash recovery, and one transaction coordinator owning cross-store commit and recovery order |

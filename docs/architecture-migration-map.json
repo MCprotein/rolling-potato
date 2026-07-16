@@ -1695,44 +1695,123 @@
       "path": "src/backend.rs",
       "slices": [
         {
-          "responsibility": "inference backend use cases and contracts",
-          "target": "src/runtime_core/inference/backend.rs",
-          "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
-        },
-        {
-          "responsibility": "llama.cpp discovery installation and protocol",
-          "target": "src/adapters/llama_cpp/backend.rs",
-          "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
-        },
-        {
-          "responsibility": "backend process lifecycle",
-          "target": "src/adapters/process/backend.rs",
-          "release": "0.37.3",
+          "responsibility": "backend command and cross-store orchestration compatibility facade",
+          "target": "src/composition/inference.rs",
+          "release": "0.37.13",
           "state": "planned",
           "evidence": []
         }
       ]
     },
     {
-      "path": "src/backend_stream.rs",
+      "path": "src/adapters/llama_cpp/backend.rs",
+      "slices": [
+        {
+          "responsibility": "llama.cpp discovery, health, version probe, and request protocol",
+          "target": "src/adapters/llama_cpp/backend.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/backend.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/install.rs",
+      "slices": [
+        {
+          "responsibility": "llama.cpp release manifest, download, and installation",
+          "target": "src/adapters/llama_cpp/install.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/process/backend.rs",
+      "slices": [
+        {
+          "responsibility": "backend process lifecycle and command identity inspection",
+          "target": "src/adapters/process/backend.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/process/backend.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/backend.rs",
+      "slices": [
+        {
+          "responsibility": "inference backend contracts",
+          "target": "src/runtime_core/inference/backend.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/backend.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/backend/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "backend lifecycle records and byte-compatible codecs",
+          "target": "src/runtime_core/inference/backend/lifecycle.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/backend/lifecycle.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/backend/admission.rs",
+      "slices": [
+        {
+          "responsibility": "backend generation admission and cancellation policy",
+          "target": "src/runtime_core/inference/backend/admission.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/backend/admission.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/stream.rs",
       "slices": [
         {
           "responsibility": "stream lifecycle contract",
           "target": "src/runtime_core/inference/stream.rs",
           "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
-        },
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/stream.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream.rs",
+      "slices": [
         {
           "responsibility": "llama.cpp streaming transport",
           "target": "src/adapters/llama_cpp/stream.rs",
           "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/stream.rs"
+          ]
         }
       ]
     },
@@ -1740,11 +1819,53 @@
       "path": "src/benchmark.rs",
       "slices": [
         {
-          "responsibility": "benchmark policy and reports",
-          "target": "src/runtime_core/inference/benchmark.rs",
-          "release": "0.37.3",
+          "responsibility": "benchmark command and cross-store orchestration compatibility facade",
+          "target": "src/composition/inference.rs",
+          "release": "0.37.13",
           "state": "planned",
           "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark scoring and adoption policy",
+          "target": "src/runtime_core/inference/benchmark.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/benchmark.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark/fixture.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark fixture DTO, parser, schema, and semantic policy",
+          "target": "src/runtime_core/inference/benchmark/fixture.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/benchmark/fixture.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark/report.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark reproducibility and redacted report serialization",
+          "target": "src/runtime_core/inference/benchmark/report.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/benchmark/report.rs"
+          ]
         }
       ]
     },
@@ -1990,18 +2111,109 @@
       "path": "src/model.rs",
       "slices": [
         {
-          "responsibility": "model manifest and lifecycle",
+          "responsibility": "model command and cross-store orchestration compatibility facade",
+          "target": "src/composition/inference.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model.rs",
+      "slices": [
+        {
+          "responsibility": "model artifact path contract",
           "target": "src/runtime_core/inference/model.rs",
           "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
-        },
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/codec.rs",
+      "slices": [
         {
-          "responsibility": "model artifact persistence",
+          "responsibility": "model registry, default selection, and promotion evidence codecs",
+          "target": "src/runtime_core/inference/model/codec.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/manifest.rs",
+      "slices": [
+        {
+          "responsibility": "model manifest catalog and lifecycle DTOs",
+          "target": "src/runtime_core/inference/model/manifest.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/manifest.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/promotion.rs",
+      "slices": [
+        {
+          "responsibility": "model promotion and registry binding validation policy",
+          "target": "src/runtime_core/inference/model/promotion.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/promotion.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/model_artifact.rs",
+      "slices": [
+        {
+          "responsibility": "model artifact download, verification, cleanup, and registry persistence I/O",
           "target": "src/adapters/filesystem/model_artifact.rs",
           "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/model_artifact.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/backend_state.rs",
+      "slices": [
+        {
+          "responsibility": "backend sidecar and generation state persistence I/O",
+          "target": "src/adapters/filesystem/backend_state.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/backend_state.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/benchmark_artifact.rs",
+      "slices": [
+        {
+          "responsibility": "project-local benchmark fixture and prompt artifact I/O",
+          "target": "src/adapters/filesystem/benchmark_artifact.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/benchmark_artifact.rs"
+          ]
         }
       ]
     },
@@ -2106,14 +2318,17 @@
       ]
     },
     {
-      "path": "src/resource.rs",
+      "path": "src/runtime_core/inference/resource.rs",
       "slices": [
         {
           "responsibility": "resource sampling and governance",
           "target": "src/runtime_core/inference/resource.rs",
           "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/resource.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2552,14 +2767,30 @@
       ]
     },
     {
-      "path": "tests/backend_lifecycle.rs",
+      "path": "tests/inference.rs",
+      "slices": [
+        {
+          "responsibility": "inference integration test harness",
+          "target": "tests/inference.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "tests/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/inference/backend_lifecycle.rs",
       "slices": [
         {
           "responsibility": "inference backend lifecycle contract",
           "target": "tests/inference/backend_lifecycle.rs",
           "release": "0.37.3",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/inference/backend_lifecycle.rs"
+          ]
         }
       ]
     },
@@ -2706,7 +2937,7 @@
       ]
     }
   ],
-  "current_release": "0.37.2",
+  "current_release": "0.37.3",
   "train_completion": false,
   "logical_proofs": [
     {
@@ -3406,22 +3637,79 @@
     {
       "path": "src/backend.rs",
       "responsibilities": [
-        "inference backend use cases and contracts",
-        "llama.cpp discovery installation and protocol",
-        "backend process lifecycle"
+        "backend command and cross-store orchestration compatibility facade"
       ]
     },
     {
-      "path": "src/backend_stream.rs",
+      "path": "src/adapters/llama_cpp/backend.rs",
       "responsibilities": [
-        "stream lifecycle contract",
+        "llama.cpp discovery, health, version probe, and request protocol"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/install.rs",
+      "responsibilities": [
+        "llama.cpp release manifest, download, and installation"
+      ]
+    },
+    {
+      "path": "src/adapters/process/backend.rs",
+      "responsibilities": [
+        "backend process lifecycle and command identity inspection"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/backend.rs",
+      "responsibilities": [
+        "inference backend contracts"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/backend/lifecycle.rs",
+      "responsibilities": [
+        "backend lifecycle records and byte-compatible codecs"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/backend/admission.rs",
+      "responsibilities": [
+        "backend generation admission and cancellation policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/stream.rs",
+      "responsibilities": [
+        "stream lifecycle contract"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream.rs",
+      "responsibilities": [
         "llama.cpp streaming transport"
       ]
     },
     {
       "path": "src/benchmark.rs",
       "responsibilities": [
-        "benchmark policy and reports"
+        "benchmark command and cross-store orchestration compatibility facade"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark.rs",
+      "responsibilities": [
+        "benchmark scoring and adoption policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark/fixture.rs",
+      "responsibilities": [
+        "benchmark fixture DTO, parser, schema, and semantic policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark/report.rs",
+      "responsibilities": [
+        "benchmark reproducibility and redacted report serialization"
       ]
     },
     {
@@ -3523,8 +3811,49 @@
     {
       "path": "src/model.rs",
       "responsibilities": [
-        "model manifest and lifecycle",
-        "model artifact persistence"
+        "model command and cross-store orchestration compatibility facade"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model.rs",
+      "responsibilities": [
+        "model artifact path contract"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/codec.rs",
+      "responsibilities": [
+        "model registry, default selection, and promotion evidence codecs"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/manifest.rs",
+      "responsibilities": [
+        "model manifest catalog and lifecycle DTOs"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/promotion.rs",
+      "responsibilities": [
+        "model promotion and registry binding validation policy"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/model_artifact.rs",
+      "responsibilities": [
+        "model artifact download, verification, cleanup, and registry persistence I/O"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/backend_state.rs",
+      "responsibilities": [
+        "backend sidecar and generation state persistence I/O"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/benchmark_artifact.rs",
+      "responsibilities": [
+        "project-local benchmark fixture and prompt artifact I/O"
       ]
     },
     {
@@ -3568,7 +3897,7 @@
       ]
     },
     {
-      "path": "src/resource.rs",
+      "path": "src/runtime_core/inference/resource.rs",
       "responsibilities": [
         "resource sampling and governance"
       ]
@@ -3752,7 +4081,13 @@
       ]
     },
     {
-      "path": "tests/backend_lifecycle.rs",
+      "path": "tests/inference.rs",
+      "responsibilities": [
+        "inference integration test harness"
+      ]
+    },
+    {
+      "path": "tests/inference/backend_lifecycle.rs",
       "responsibilities": [
         "inference backend lifecycle contract"
       ]
