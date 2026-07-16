@@ -1,5 +1,7 @@
 # 아키텍처
 
+구현 소유권과 의존 방향은 [코드 아키텍처](code-architecture.md)에서 정의합니다.
+
 ## MVP 결정
 
 MVP는 Rust runtime core, CLI surface, 관리형 `llama.cpp` sidecar로 시작합니다.

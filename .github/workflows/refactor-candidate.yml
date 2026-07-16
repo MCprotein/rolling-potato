@@ -1,0 +1,79 @@
+name: refactor-candidate
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - labeled
+      - reopened
+      - synchronize
+
+concurrency:
+  group: refactor-candidate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  candidate:
+    if: contains(github.event.pull_request.labels.*.name, 'release-candidate')
+    runs-on: ubuntu-24.04
+    outputs:
+      candidate_sha: ${{ steps.candidate.outputs.candidate_sha }}
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Assert and record candidate
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$CANDIDATE_SHA" ]; then
+            printf 'candidate SHA mismatch: expected %s, got %s\n' "$CANDIDATE_SHA" "$actual_sha" >&2
+            exit 1
+          fi
+          printf 'candidate_sha=%s\n' "$actual_sha" >> "$GITHUB_OUTPUT"
+          printf '## Refactor candidate\n\n- SHA: `%s`\n- Label: `release-candidate`\n' "$actual_sha" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify repository tool pins
+        run: scripts/release/verify-toolchain-pins.sh
+
+      - name: Verify release target matrix
+        run: scripts/release/verify-release-target-matrix.sh
+
+      - name: Verify release workflow contract
+        run: bash scripts/release/test-release-workflow-contract.sh
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Test exact candidate
+        run: cargo test --locked -- --test-threads=1
+
+      - name: Lint exact candidate
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+      - name: Build exact candidate
+        run: cargo build --locked --release
+
+      - name: Enforce release branch and tag policy
+        env:
+          RPOTATO_RELEASE_BRANCH: ${{ github.head_ref }}
+          RPOTATO_RELEASE_BASE_REF: origin/${{ github.base_ref }}
+          RPOTATO_REQUIRE_RELEASE_BRANCH: auto
+          RPOTATO_RELEASE_TAG: ""
+          RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS: "0"
+          RPOTATO_REQUIRE_TAG_ON_MAIN: "0"
+          RPOTATO_DELETE_RELEASE_BRANCH: "0"
+        run: scripts/release/verify-release-policy.sh

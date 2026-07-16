@@ -8,6 +8,7 @@ fail() {
 
 release_workflow=".github/workflows/release-binaries.yml"
 policy_workflow=".github/workflows/release-policy.yml"
+candidate_workflow=".github/workflows/refactor-candidate.yml"
 checkout_pin='actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0'
 
 job_block() {
@@ -26,6 +27,28 @@ require_line() {
 }
 
 policy_body="$(cat "$policy_workflow")"
+candidate_body="$(cat "$candidate_workflow")"
+candidate_permissions="$(awk '
+  /^permissions:$/ { active = 1 }
+  active && NR != 1 && /^[^[:space:]]/ && $0 != "permissions:" { exit }
+  active { print }
+' "$candidate_workflow")"
+[ "$candidate_permissions" = $'permissions:\n  contents: read' ] \
+  || fail "candidate workflow permissions must be exactly contents: read"
+require_line "$candidate_body" "    if: contains(github.event.pull_request.labels.*.name, 'release-candidate')"
+require_line "$candidate_body" '    outputs:'
+require_line "$candidate_body" '      candidate_sha: ${{ steps.candidate.outputs.candidate_sha }}'
+require_line "$candidate_body" '      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}'
+require_line "$candidate_body" '          persist-credentials: false'
+require_line "$candidate_body" '          ref: ${{ github.event.pull_request.head.sha }}'
+require_line "$candidate_body" '        id: candidate'
+require_line "$candidate_body" '          actual_sha="$(git rev-parse HEAD)"'
+require_line "$candidate_body" '          if [ "$actual_sha" != "$CANDIDATE_SHA" ]; then'
+require_line "$candidate_body" "            printf 'candidate SHA mismatch: expected %s, got %s\\n' \"\$CANDIDATE_SHA\" \"\$actual_sha\" >&2"
+require_line "$candidate_body" '            exit 1'
+require_line "$candidate_body" '        run: cargo test --locked -- --test-threads=1'
+require_line "$candidate_body" '        run: cargo clippy --locked --all-targets --all-features -- -D warnings'
+require_line "$candidate_body" '        run: cargo build --locked --release'
 require_line "$policy_body" 'RPOTATO_RELEASE_BASE_REF: ${{ github.event_name == '\''pull_request'\'' && format('\''origin/{0}'\'', github.base_ref) || '\'''\'' }}'
 require_line "$policy_body" 'RPOTATO_REQUIRE_RELEASE_BRANCH: ${{ github.event_name == '\''pull_request'\'' && '\''auto'\'' || '\''0'\'' }}'
 require_line "$policy_body" 'RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS: ${{ github.ref_type == '\''tag'\'' && '\''1'\'' || '\''0'\'' }}'

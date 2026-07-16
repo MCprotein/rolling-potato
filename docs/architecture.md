@@ -1,5 +1,8 @@
 # Architecture
 
+Implementation ownership and dependency direction are defined in
+[Code architecture](code-architecture.md).
+
 ## MVP Decision
 
 The MVP starts with a Rust runtime core, a CLI surface, and a managed `llama.cpp` sidecar.

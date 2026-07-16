@@ -43,6 +43,7 @@ upload_pin="actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v
 download_pin="actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1"
 release_workflow=".github/workflows/release-binaries.yml"
 policy_workflow=".github/workflows/release-policy.yml"
+candidate_workflow=".github/workflows/refactor-candidate.yml"
 
 expect_line Cargo.toml "rust-version = \"$rust_version\""
 expect_line mise.toml "rust = \"$rust_version\""
@@ -50,9 +51,11 @@ expect_line rust-toolchain.toml "channel = \"$rust_version\""
 
 reject_unapproved_action_refs "$release_workflow"
 reject_unapproved_action_refs "$policy_workflow"
+reject_unapproved_action_refs "$candidate_workflow"
 expect_count "$release_workflow" "$checkout_pin" 6
 expect_count "$release_workflow" "$upload_pin" 2
 expect_count "$release_workflow" "$download_pin" 1
 expect_count "$policy_workflow" "$checkout_pin" 1
+expect_count "$candidate_workflow" "$checkout_pin" 1
 
 printf 'toolchain pins ok: rust=%s actions=node24 runners=ga\n' "$rust_version"
