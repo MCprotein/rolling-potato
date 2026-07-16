@@ -1702,11 +1702,25 @@
           "evidence": []
         },
         {
-          "responsibility": "llama.cpp discovery installation and protocol",
+          "responsibility": "llama.cpp installation and chat protocol orchestration",
           "target": "src/adapters/llama_cpp/backend.rs",
           "release": "0.37.3",
-          "state": "planned",
+          "state": "migrating",
           "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend.rs",
+      "slices": [
+        {
+          "responsibility": "llama.cpp discovery and health protocol",
+          "target": "src/adapters/llama_cpp/backend.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/backend.rs"
+          ]
         }
       ]
     },
@@ -3440,7 +3454,13 @@
       "path": "src/backend.rs",
       "responsibilities": [
         "inference backend use cases",
-        "llama.cpp discovery installation and protocol"
+        "llama.cpp installation and chat protocol orchestration"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/backend.rs",
+      "responsibilities": [
+        "llama.cpp discovery and health protocol"
       ]
     },
     {

@@ -2,7 +2,6 @@ use std::collections::BTreeSet;
 use std::env;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
-use std::net::{TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -10,6 +9,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::adapters::filesystem::layout as paths;
+use crate::adapters::llama_cpp::backend as llama_backend;
 use crate::adapters::llama_cpp::stream as backend_stream;
 use crate::adapters::process::backend as backend_process;
 use crate::foundation::error::AppError;
@@ -23,13 +23,11 @@ use crate::runtime_core::inference::{
     stream::{StreamOutcome, StreamTermination},
 };
 use crate::{korean_guard, ledger, model, observability, state};
+use llama_backend::{BackendDiscovery, LlamaCppAdapter, ENV_BACKEND_PATH, LLAMA_CPP_BACKEND_ID};
+#[cfg(test)]
+use llama_backend::{DEFAULT_HOST, DEFAULT_PORT, ENV_BACKEND_PORT};
 
-const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
-const DEFAULT_HOST: &str = "127.0.0.1";
-const DEFAULT_PORT: u16 = 17842;
 const HEALTH_TIMEOUT_MS: u64 = 500;
-const ENV_BACKEND_PATH: &str = "RPOTATO_BACKEND_LLAMA_CPP_PATH";
-const ENV_BACKEND_PORT: &str = "RPOTATO_BACKEND_PORT";
 const ENV_BACKEND_START_TRACE: &str = "RPOTATO_TEST_BACKEND_START_TRACE";
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 const VERSION_TIMEOUT_MS: u64 = 5_000;
@@ -57,26 +55,6 @@ static GENERATION_ADMISSION_STATE: Mutex<GenerationAdmissionState> =
         primary_generation_id: None,
     });
 static BACKEND_RESOURCE_SAMPLE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct LlamaCppAdapter;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct BackendDiscovery {
-    adapter_id: &'static str,
-    binary_name: &'static str,
-    managed_path: PathBuf,
-    selected_path: PathBuf,
-    selected_source: &'static str,
-    override_path: Option<PathBuf>,
-    binary_exists: bool,
-    binary_is_file: bool,
-    binary_executable: bool,
-    host: &'static str,
-    port: u16,
-    port_source: &'static str,
-    health_url: String,
-}
 
 #[derive(Debug, Clone, Copy)]
 struct BackendReleaseManifest {
@@ -312,34 +290,8 @@ const LLAMA_CPP_RELEASE_ARTIFACTS: [BackendReleaseArtifact; 6] = [
     },
 ];
 
-impl BackendAdapter for LlamaCppAdapter {
-    fn id(&self) -> &'static str {
-        LLAMA_CPP_BACKEND_ID
-    }
-
-    fn binary_name(&self) -> &'static str {
-        if cfg!(target_os = "windows") {
-            "llama-server.exe"
-        } else {
-            "llama-server"
-        }
-    }
-
-    fn managed_binary_path(&self) -> PathBuf {
-        paths::managed_backend_path()
-    }
-
-    fn default_host(&self) -> &'static str {
-        DEFAULT_HOST
-    }
-
-    fn default_port(&self) -> u16 {
-        DEFAULT_PORT
-    }
-}
-
 pub fn doctor_summary() -> String {
-    let discovery = discover_llama_cpp();
+    let discovery = llama_backend::discover();
     if discovery.binary_exists && discovery.binary_is_file {
         format!(
             "llama.cpp backend 발견 ({}, source: {})",
@@ -356,7 +308,7 @@ pub fn doctor_summary() -> String {
 }
 
 pub fn doctor_report() -> String {
-    let discovery = discover_llama_cpp();
+    let discovery = llama_backend::discover();
     let version_probe = probe_backend_version(&discovery);
     let executable_status = if discovery.binary_executable {
         "yes"
@@ -403,7 +355,7 @@ pub fn doctor_report() -> String {
 }
 
 pub fn install_plan_report() -> String {
-    let discovery = discover_llama_cpp();
+    let discovery = llama_backend::discover();
     let artifact = selected_backend_release_artifact(&LLAMA_CPP_RELEASE);
     let blockers = backend_install_blockers(&LLAMA_CPP_RELEASE, artifact);
     let install_status = if blockers.is_empty() {
@@ -522,7 +474,7 @@ pub fn status_report() -> Result<String, AppError> {
 
     let running = backend_process::is_running(record.pid);
     let health = if running {
-        Some(probe_health(
+        Some(llama_backend::probe_health(
             &record.host,
             record.port,
             Duration::from_millis(HEALTH_TIMEOUT_MS),
@@ -790,8 +742,8 @@ pub fn verify_archive_report(path: &str, expected_sha256: &str) -> Result<String
 }
 
 pub fn health_check_report() -> String {
-    let discovery = discover_llama_cpp();
-    let probe = probe_health(
+    let discovery = llama_backend::discover();
+    let probe = llama_backend::probe_health(
         discovery.host,
         discovery.port,
         Duration::from_millis(HEALTH_TIMEOUT_MS),
@@ -963,7 +915,7 @@ fn ready_sidecar_record() -> Result<BackendSidecarRecord, AppError> {
         )));
     }
 
-    let health = probe_health(
+    let health = llama_backend::probe_health(
         &record.host,
         record.port,
         Duration::from_millis(HEALTH_TIMEOUT_MS),
@@ -1479,142 +1431,6 @@ pub fn cancel_generation_report() -> Result<String, AppError> {
         terminal_event,
         event_id
     ))
-}
-
-fn discover_llama_cpp() -> BackendDiscovery {
-    let adapter = LlamaCppAdapter;
-    let managed_path = adapter.managed_binary_path();
-    let override_path = env::var_os(ENV_BACKEND_PATH).map(PathBuf::from);
-    let (selected_path, selected_source) = match &override_path {
-        Some(path) => (path.clone(), "env override"),
-        None => (managed_path.clone(), "managed"),
-    };
-    let (port, port_source) = configured_port(adapter.default_port());
-    let health_url = format!("http://{}:{}/health", adapter.default_host(), port);
-
-    BackendDiscovery {
-        adapter_id: adapter.id(),
-        binary_name: adapter.binary_name(),
-        managed_path,
-        selected_path: selected_path.clone(),
-        selected_source,
-        override_path,
-        binary_exists: selected_path.exists(),
-        binary_is_file: selected_path.is_file(),
-        binary_executable: is_executable(&selected_path),
-        host: adapter.default_host(),
-        port,
-        port_source,
-        health_url,
-    }
-}
-
-struct HealthProbe {
-    status: &'static str,
-    tcp_connected: bool,
-    http_status_line: Option<String>,
-    error: Option<String>,
-}
-
-fn probe_health(host: &str, port: u16, timeout: Duration) -> HealthProbe {
-    let address = format!("{host}:{port}");
-    let Ok(mut addresses) = address.to_socket_addrs() else {
-        return HealthProbe {
-            status: "unreachable",
-            tcp_connected: false,
-            http_status_line: None,
-            error: Some(format!("address resolve 실패: {address}")),
-        };
-    };
-    let Some(socket_addr) = addresses.next() else {
-        return HealthProbe {
-            status: "unreachable",
-            tcp_connected: false,
-            http_status_line: None,
-            error: Some(format!("address 없음: {address}")),
-        };
-    };
-
-    let Ok(mut stream) = TcpStream::connect_timeout(&socket_addr, timeout) else {
-        return HealthProbe {
-            status: "unreachable",
-            tcp_connected: false,
-            http_status_line: None,
-            error: Some(format!("connect 실패: {socket_addr}")),
-        };
-    };
-
-    let _ = stream.set_read_timeout(Some(timeout));
-    let _ = stream.set_write_timeout(Some(timeout));
-    let request =
-        format!("GET /health HTTP/1.1\r\nHost: {host}:{port}\r\nConnection: close\r\n\r\n");
-    if let Err(err) = stream.write_all(request.as_bytes()) {
-        return HealthProbe {
-            status: "unhealthy",
-            tcp_connected: true,
-            http_status_line: None,
-            error: Some(format!("health request write 실패: {err}")),
-        };
-    }
-
-    let mut response = Vec::with_capacity(256);
-    let status_line = loop {
-        if let Some(status_line) = first_http_status_line(&response) {
-            break status_line;
-        }
-        if response.len() >= 8 * 1024 {
-            return HealthProbe {
-                status: "unhealthy",
-                tcp_connected: true,
-                http_status_line: None,
-                error: Some("health response status line이 8 KiB를 초과했습니다.".to_string()),
-            };
-        }
-        let mut buffer = [0_u8; 256];
-        match stream.read(&mut buffer) {
-            Ok(0) => {
-                return HealthProbe {
-                    status: "unhealthy",
-                    tcp_connected: true,
-                    http_status_line: None,
-                    error: Some("health response가 status line 전에 종료됐습니다.".to_string()),
-                };
-            }
-            Ok(read) => response.extend_from_slice(&buffer[..read]),
-            Err(err) => {
-                return HealthProbe {
-                    status: "unhealthy",
-                    tcp_connected: true,
-                    http_status_line: None,
-                    error: Some(format!("health response read 실패: {err}")),
-                };
-            }
-        }
-    };
-    let status = if status_line.contains(" 200 ") || status_line.ends_with(" 200") {
-        "healthy"
-    } else {
-        "unhealthy"
-    };
-
-    HealthProbe {
-        status,
-        tcp_connected: true,
-        http_status_line: Some(if status_line.is_empty() {
-            "없음".to_string()
-        } else {
-            status_line
-        }),
-        error: None,
-    }
-}
-
-fn first_http_status_line(response: &[u8]) -> Option<String> {
-    let end = response.iter().position(|byte| *byte == b'\n')?;
-    let line = response[..end]
-        .strip_suffix(b"\r")
-        .unwrap_or(&response[..end]);
-    std::str::from_utf8(line).ok().map(str::to_string)
 }
 
 fn chat_request_body(
@@ -2844,7 +2660,7 @@ fn start_sidecar_with_timeout(
     timeout: Duration,
 ) -> Result<String, AppError> {
     let model_path = canonical_existing_file(model_path, "model")?;
-    let discovery = discover_llama_cpp();
+    let discovery = llama_backend::discover();
     if !discovery.binary_exists || !discovery.binary_is_file {
         return Err(AppError::blocked(format!(
             "backend start 차단\n- 이유: backend binary를 찾지 못했습니다.\n- selected binary: {}\n- 다음 단계: rpotato backend install 또는 {} 설정",
@@ -2966,7 +2782,7 @@ fn start_sidecar_with_timeout(
     let started_at = Instant::now();
     loop {
         trace_backend_start("health-probe-start");
-        let health = probe_health(
+        let health = llama_backend::probe_health(
             &record.host,
             record.port,
             Duration::from_millis(HEALTH_TIMEOUT_MS),
@@ -3634,50 +3450,12 @@ fn now_ms() -> u128 {
         .unwrap_or_default()
 }
 
-fn configured_port(default_port: u16) -> (u16, &'static str) {
-    let Some(raw_port) = env::var_os(ENV_BACKEND_PORT) else {
-        return (default_port, "default");
-    };
-    let Some(raw_port) = raw_port.to_str() else {
-        return (default_port, "invalid env, default");
-    };
-    match raw_port.parse::<u16>() {
-        Ok(port) if port > 0 => (port, "env override"),
-        _ => (default_port, "invalid env, default"),
-    }
-}
-
-#[cfg(unix)]
-fn is_executable(path: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-
-    path.metadata()
-        .map(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
-        .unwrap_or(false)
-}
-
-#[cfg(not(unix))]
-fn is_executable(path: &Path) -> bool {
-    path.is_file()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
     use std::sync::{Arc, Barrier};
     use std::thread;
-
-    #[test]
-    fn health_status_line_does_not_require_connection_eof() {
-        let response = b"HTTP/1.1 200 OK\r\nContent-Length: 15\r\nConnection: keep-alive\r\n";
-
-        assert_eq!(
-            first_http_status_line(response).as_deref(),
-            Some("HTTP/1.1 200 OK")
-        );
-        assert_eq!(first_http_status_line(b"HTTP/1.1 200 OK"), None);
-    }
 
     #[test]
     fn termination_fallback_forces_a_process_after_graceful_command_failure() {
@@ -3771,7 +3549,7 @@ mod tests {
             env::temp_dir().join(format!("rpotato-backend-test-{}", std::process::id()));
         env::set_var("RPOTATO_DATA_HOME", &data_root);
 
-        let discovery = discover_llama_cpp();
+        let discovery = llama_backend::discover();
 
         env::remove_var("RPOTATO_DATA_HOME");
         assert_eq!(discovery.adapter_id, "llama.cpp");
@@ -3789,7 +3567,7 @@ mod tests {
         env::set_var(ENV_BACKEND_PATH, &override_path);
         env::set_var(ENV_BACKEND_PORT, "19090");
 
-        let discovery = discover_llama_cpp();
+        let discovery = llama_backend::discover();
 
         env::remove_var(ENV_BACKEND_PATH);
         env::remove_var(ENV_BACKEND_PORT);
@@ -3804,7 +3582,7 @@ mod tests {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         env::set_var(ENV_BACKEND_PORT, "0");
 
-        let discovery = discover_llama_cpp();
+        let discovery = llama_backend::discover();
 
         env::remove_var(ENV_BACKEND_PORT);
         assert_eq!(discovery.port, DEFAULT_PORT);
@@ -3963,7 +3741,7 @@ mod tests {
         .unwrap();
 
         assert!(managed_binary.is_file());
-        assert!(is_executable(&managed_binary));
+        assert!(llama_backend::is_executable(&managed_binary));
         assert_eq!(fs::read(&managed_binary).unwrap(), b"fake backend");
         assert_eq!(
             fs::read(managed_binary.parent().unwrap().join("libllama.dylib")).unwrap(),
