@@ -489,15 +489,54 @@ mod tests {
     }
 
     #[test]
-    fn strict_result_rejects_unknown_identity_and_result_byte_overflow() {
+    fn strict_result_rejects_unknown_missing_duplicate_invalid_and_identity_fields() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let (record, context) = fixture("explore");
         let valid = result_json(&record, &context, None);
         let unknown = valid.replacen("\"summary\":", "\"unknown\":0,\"summary\":", 1);
         assert!(parse_and_store(&record, &context, &unknown).is_err());
+        let missing = valid.replacen("\"summary\":\"완료 요약\",", "", 1);
+        assert!(parse_and_store(&record, &context, &missing).is_err());
+        let duplicate = valid.replacen(
+            "\"summary\":\"완료 요약\",",
+            "\"summary\":\"완료 요약\",\"summary\":\"중복\",",
+            1,
+        );
+        assert!(parse_and_store(&record, &context, &duplicate).is_err());
+        let invalid = valid.replacen("완료 요약", "\\ud800", 1);
+        assert!(parse_and_store(&record, &context, &invalid).is_err());
         let mismatched = valid.replacen(&record.subagent_id, "subagent-other", 1);
         assert!(parse_and_store(&record, &context, &mismatched).is_err());
-        assert!(parse_and_store(&record, &context, &"x".repeat(MAX_RESULT_BYTES + 1)).is_err());
+    }
+
+    #[test]
+    fn strict_result_enforces_exact_result_byte_maximum() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let (record, context) = fixture("executor");
+        let find_text = "f".repeat(MAX_PATCH_TEXT_BYTES);
+        let base_patch = format!(
+            "{{\"target_path\":\"src/main.rs\",\"source_hash\":\"{}\",\"find_text\":\"{find_text}\",\"replacement_text\":\"\"}}",
+            context.source_pointers[0].fingerprint
+        );
+        let base = result_json(&record, &context, Some(&base_patch));
+        let replacement_len = MAX_RESULT_BYTES.checked_sub(base.len()).unwrap();
+        assert!(replacement_len <= MAX_PATCH_TEXT_BYTES);
+        let replacement_text = "r".repeat(replacement_len);
+        let exact_patch = format!(
+            "{{\"target_path\":\"src/main.rs\",\"source_hash\":\"{}\",\"find_text\":\"{find_text}\",\"replacement_text\":\"{replacement_text}\"}}",
+            context.source_pointers[0].fingerprint
+        );
+        let exact = result_json(&record, &context, Some(&exact_patch));
+        assert_eq!(exact.len(), MAX_RESULT_BYTES);
+        assert!(parse_and_store(&record, &context, &exact).is_ok());
+
+        let over_patch = format!(
+            "{{\"target_path\":\"src/main.rs\",\"source_hash\":\"{}\",\"find_text\":\"{find_text}\",\"replacement_text\":\"{replacement_text}r\"}}",
+            context.source_pointers[0].fingerprint
+        );
+        let over = result_json(&record, &context, Some(&over_patch));
+        assert_eq!(over.len(), MAX_RESULT_BYTES + 1);
+        assert!(parse_and_store(&record, &context, &over).is_err());
     }
 
     #[test]

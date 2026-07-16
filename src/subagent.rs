@@ -266,6 +266,18 @@ pub fn validate_launch(
             "render_diff tool과 하나 이상의 write path는 함께 선언해야 합니다.",
         ));
     }
+    if write_paths.iter().any(|owner| {
+        !read_paths.iter().any(|read| {
+            read == owner
+                || read
+                    .strip_prefix(owner)
+                    .is_some_and(|suffix| suffix.starts_with('/'))
+        })
+    }) {
+        return Err(AppError::blocked(
+            "subagent write ownership이 declared read target과 겹치지 않습니다.",
+        ));
+    }
     let timeout_ms = timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS);
     if timeout_ms == 0 || timeout_ms > backend::MAX_CHAT_TIMEOUT_MS {
         return Err(AppError::usage(format!(
@@ -1687,6 +1699,18 @@ mod tests {
         )
         .unwrap_err();
         assert!(error.message.contains("함께 선언"));
+
+        let error = validate_launch(
+            "executor",
+            "task",
+            &strings(&["read_file", "render_diff"]),
+            &strings(&["src/main.rs"]),
+            &strings(&["README.md"]),
+            None,
+            None,
+        )
+        .unwrap_err();
+        assert!(error.message.contains("declared read target"));
     }
 
     #[test]
@@ -1918,6 +1942,19 @@ mod tests {
     }
 
     #[test]
+    fn admission_rejects_terminal_parent() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_parent();
+        let mut terminal = parent.clone();
+        terminal.phase = "complete".to_string();
+        let terminal = state::checkpoint_workflow(terminal, parent.revision).unwrap();
+        assert!(terminal.is_terminal());
+        let error = admit_launch(launch("explore")).unwrap_err();
+        assert!(error.message.contains("active non-terminal 상태"));
+        assert!(records_for_parent(&parent.workflow_id).unwrap().is_empty());
+    }
+
+    #[test]
     fn status_defaults_to_active_parent_and_cancel_is_idempotent() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         initialize_parent();
@@ -2042,6 +2079,32 @@ mod tests {
         assert_eq!(timed_out.status, SubagentStatus::TimedOut);
         assert_eq!(timed_out.failure_code, "backend-timeout");
         assert!(timed_out.result_artifact_id.is_empty());
+    }
+
+    #[test]
+    fn dispatch_resource_denial_records_blocked_without_result_or_parent_merge() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_parent();
+        let admitted = admit_launch(launch("explore")).unwrap();
+        let subagent_id = admitted.record.subagent_id.clone();
+        let error = dispatch_admitted(admitted, "bounded task", |_, _, _| {
+            Err(AppError::blocked(
+                "backend chat resource governor 차단: critical pressure",
+            ))
+        })
+        .unwrap_err();
+        assert!(error.message.contains("resource governor"));
+        let blocked = load_record(&subagent_id).unwrap();
+        assert_eq!(blocked.status, SubagentStatus::Blocked);
+        assert_eq!(blocked.failure_code, "backend-blocked");
+        assert!(blocked.backend_event_id.is_empty());
+        assert!(blocked.result_artifact_id.is_empty());
+        assert!(blocked.evidence_id.is_empty());
+        assert_eq!(state::load_workflow(&parent.workflow_id).unwrap(), parent);
+        assert!(ledger::read_runtime_events()
+            .unwrap()
+            .iter()
+            .any(|event| event.event_type == "team.subagent.blocked"));
     }
 
     #[test]
