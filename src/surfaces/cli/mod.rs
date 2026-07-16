@@ -2,3 +2,4 @@
 
 pub(crate) mod command;
 pub(crate) mod parser;
+pub(crate) mod render;

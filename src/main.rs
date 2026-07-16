@@ -3,7 +3,6 @@ mod app;
 mod approval;
 mod backend;
 mod benchmark;
-mod cli;
 mod composition;
 mod context;
 mod evidence;

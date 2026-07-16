@@ -1918,40 +1918,6 @@
       ]
     },
     {
-      "path": "src/cli.rs",
-      "slices": [
-        {
-          "responsibility": "CLI argument parsing",
-          "target": "src/surfaces/cli/parser.rs",
-          "release": "0.37.13",
-          "state": "compatibility-facade",
-          "evidence": [
-            "src/surfaces/cli/parser.rs",
-            "src/cli.rs",
-            "tests/architecture_contract.rs"
-          ]
-        },
-        {
-          "responsibility": "CLI command DTOs",
-          "target": "src/surfaces/cli/command.rs",
-          "release": "0.37.13",
-          "state": "compatibility-facade",
-          "evidence": [
-            "src/surfaces/cli/command.rs",
-            "src/cli.rs",
-            "tests/architecture_contract.rs"
-          ]
-        },
-        {
-          "responsibility": "CLI presentation",
-          "target": "src/surfaces/cli/render.rs",
-          "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
       "path": "src/composition/mod.rs",
       "slices": [
         {
@@ -3291,6 +3257,21 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/render.rs",
+      "slices": [
+        {
+          "responsibility": "CLI presentation",
+          "target": "src/surfaces/cli/render.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/render.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/mod.rs",
       "slices": [
         {
@@ -4591,14 +4572,6 @@
       ]
     },
     {
-      "path": "src/cli.rs",
-      "responsibilities": [
-        "CLI argument parsing",
-        "CLI command DTOs",
-        "CLI presentation"
-      ]
-    },
-    {
       "path": "src/composition/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -5106,6 +5079,12 @@
       "path": "src/surfaces/cli/parser.rs",
       "responsibilities": [
         "CLI argument parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/render.rs",
+      "responsibilities": [
+        "CLI presentation"
       ]
     },
     {

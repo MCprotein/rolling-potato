@@ -1669,7 +1669,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
 }
 
 #[test]
-fn v03713_cli_command_dtos_live_in_surface_owner() {
+fn v03713_cli_surface_owners_replace_legacy_module() {
     let owner = fs::read_to_string("src/surfaces/cli/command.rs").unwrap();
     for definition in [
         "pub enum Command",
@@ -1684,20 +1684,20 @@ fn v03713_cli_command_dtos_live_in_surface_owner() {
         );
     }
 
-    let facade = fs::read_to_string("src/cli.rs").unwrap();
-    assert!(
-        !facade.contains("pub enum Command"),
-        "legacy CLI facade retains command DTO definitions"
-    );
-
     let parser = fs::read_to_string("src/surfaces/cli/parser.rs").unwrap();
     assert!(parser.contains("pub fn parse"));
     assert!(parser.contains("surfaces::cli::command::*"));
-    assert!(facade.contains("surfaces::cli::parser::*"));
+
+    let render = fs::read_to_string("src/surfaces/cli/render.rs").unwrap();
+    assert!(render.contains("const HELP"));
+    assert!(!parser.contains("const HELP"));
+
     assert!(
-        !facade.contains("pub fn parse"),
-        "legacy CLI facade retains argument parser implementation"
+        !Path::new("src/cli.rs").exists(),
+        "legacy CLI module remains after surface migration"
     );
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod cli;"));
 }
 
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {

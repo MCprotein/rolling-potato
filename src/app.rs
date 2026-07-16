@@ -3,12 +3,6 @@ use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::{capability, native};
 use crate::backend;
 use crate::benchmark;
-use crate::cli::{
-    BackendCommand, BenchmarkCommand, Command, EvidenceCommand, HooksCommand, IntentCommand,
-    ModelCommand, MonitorCommand, OntologyCommand, PatchCommand, PluginCommand, PolicyCommand,
-    PolicyPathMode, SessionCommand, SkillCommand, StateCommand, SubagentCommand, TeamCommand,
-    TuiCommand, UninstallCommand,
-};
 use crate::composition::config;
 use crate::evidence;
 use crate::foundation::error::AppError;
@@ -24,12 +18,21 @@ use crate::runtime;
 use crate::skill;
 use crate::state;
 use crate::subagent;
+use crate::surfaces::cli::{
+    command::{
+        BackendCommand, BenchmarkCommand, Command, EvidenceCommand, HooksCommand, IntentCommand,
+        ModelCommand, MonitorCommand, OntologyCommand, PatchCommand, PluginCommand, PolicyCommand,
+        PolicyPathMode, SessionCommand, SkillCommand, StateCommand, SubagentCommand, TeamCommand,
+        TuiCommand, UninstallCommand,
+    },
+    parser, render,
+};
 use crate::team;
 use crate::tui;
 use crate::uninstall;
 
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
-    let command = crate::cli::parse(args)?;
+    let command = parser::parse(args)?;
     if matches!(&command, Command::Tui(TuiCommand::Interactive))
         || (matches!(&command, Command::Tui(TuiCommand::Auto)) && capability::attached())
     {
@@ -51,7 +54,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
     }
     match command {
         Command::Help => {
-            println!("{}", crate::cli::HELP);
+            println!("{}", render::HELP);
             Ok(())
         }
         Command::Init => {

@@ -1,7 +1,7 @@
-use crate::cli::PluginSource;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::extensions::plugin::*;
+use crate::surfaces::cli::command::PluginSource;
 use crate::{adapters::filesystem::layout as paths, ledger, state};
 
 use std::fs;
