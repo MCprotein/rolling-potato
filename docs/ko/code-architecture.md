@@ -77,6 +77,11 @@ state/checkpoint/reconcile/approval/verification/terminal transaction 순서, pr
 workflow recovery, current-state recovery, projection-lag recovery barrier를 소유합니다.
 최상위 state, ledger, transition module은 concrete filesystem, lock, event sink,
 cleanup 연산을 제공하지만 이전된 commit/recovery 순서를 선택하지 않습니다.
+v0.37.7 observability 경계는 surface-neutral projection record와 port, monitor
+query/report use case를 소유합니다. SQLite adapter는 재생성 가능한 schema, replay,
+query, ledger validation, transcript row 연산을 소유하며 canonical ledger와
+transcript만 durable authority로 유지합니다. 최상위 observability와 monitor facade는
+v0.37.13 composition cleanup까지 단계적 compatibility path로 남습니다.
 
 ## 의존 방향
 
