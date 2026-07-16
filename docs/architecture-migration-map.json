@@ -2518,7 +2518,7 @@
       "path": "src/runtime_core/collaboration/team_state.rs",
       "slices": [
         {
-          "responsibility": "team manifest DTOs, persisted state DTO, and stage transition policy",
+          "responsibility": "team manifest/state codec, DTOs, invariants, and stage transition policy",
           "target": "src/runtime_core/collaboration/team_state.rs",
           "release": "0.37.12",
           "state": "complete",
@@ -4656,7 +4656,7 @@
     {
       "path": "src/runtime_core/collaboration/team_state.rs",
       "responsibilities": [
-        "team manifest DTOs, persisted state DTO, and stage transition policy"
+        "team manifest/state codec, DTOs, invariants, and stage transition policy"
       ]
     },
     {
