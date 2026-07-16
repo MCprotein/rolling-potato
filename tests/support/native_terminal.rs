@@ -825,6 +825,7 @@ mod windows {
         session: Rc<RefCell<ReusableConsole>>,
         process: Handle,
         output_start: usize,
+        terminal_eof: bool,
         waited: bool,
     }
 
@@ -1051,6 +1052,7 @@ mod windows {
                 session,
                 process,
                 output_start,
+                terminal_eof: false,
                 waited: false,
             }
         }
@@ -1095,7 +1097,8 @@ mod windows {
 
         pub fn send_eof(&mut self) {
             // Windows console line input represents EOF as Ctrl+Z followed by Enter.
-            // Closing the host pipe would tear down the entire reused ConPTY session.
+            // The stream cannot host another probe after EOF, so finish closes it.
+            self.terminal_eof = true;
             self.send("\u{001a}\n");
         }
 
@@ -1144,7 +1147,13 @@ mod windows {
             let output = {
                 let mut session = self.session.borrow_mut();
                 session.drain_available();
-                session.run_mode_probe();
+                if self.terminal_eof {
+                    // SAFETY: EOF is terminal for this reused ConPTY input stream.
+                    unsafe { CloseHandle(session.input) };
+                    session.input = std::ptr::null_mut();
+                } else {
+                    session.run_mode_probe();
+                }
                 session.active = false;
                 String::from_utf8_lossy(&session.output_bytes[self.output_start..]).into_owned()
             };

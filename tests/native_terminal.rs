@@ -416,7 +416,7 @@ fn full_adapter() {
         let eof_output = eof_terminal.finish();
         assert!(
             !eof_output.contains("terminal.capability"),
-            "the final EOF child must restore the reused ConPTY before its exact probe"
+            "the final EOF child must exit without a terminal capability failure"
         );
     }
 }
