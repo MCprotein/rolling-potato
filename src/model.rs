@@ -2,10 +2,11 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
+use crate::adapters::filesystem::model_artifact;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::foundation::serialization as strict_json;
-use crate::{adapters::filesystem::layout as paths, ledger, observability, state};
+use crate::{ledger, observability, state};
 
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 const BYTES_PER_GIB: u64 = 1024 * 1024 * 1024;
@@ -326,7 +327,7 @@ pub fn list_report() -> String {
             .iter()
             .filter(|candidate| install_ready_for_report(candidate))
             .count(),
-        paths::model_registry_dir().display()
+        model_artifact::paths().registry_dir.display()
     );
 
     for candidate in CANDIDATES {
@@ -474,7 +475,7 @@ pub fn set_default_report(id: &str) -> Result<String, AppError> {
         selected_at_ms: now_ms_u64(),
     };
     let body = default_selection_json(&selection);
-    state::atomic_replace_bytes(&paths::model_default_file(), body.as_bytes())?;
+    state::atomic_replace_bytes(&model_artifact::paths().default_file, body.as_bytes())?;
     let event_id = state::record_event(
         "model.default.selected",
         "기본 모델 선택 완료",
@@ -483,7 +484,7 @@ pub fn set_default_report(id: &str) -> Result<String, AppError> {
             entry.id,
             entry.artifact_sha256,
             registry_path(&entry.id).display(),
-            paths::model_default_file().display()
+            model_artifact::paths().default_file.display()
         ),
     )?;
 
@@ -492,7 +493,7 @@ pub fn set_default_report(id: &str) -> Result<String, AppError> {
         entry.id,
         entry.artifact_path,
         entry.artifact_sha256,
-        paths::model_default_file().display(),
+        model_artifact::paths().default_file.display(),
         event_id
     ))
 }
@@ -529,11 +530,9 @@ pub fn download_plan_report(id: &str) -> Result<String, AppError> {
             .map(|value| value.to_string())
             .unwrap_or_else(|| "미확정".to_string()),
         candidate.sha256.unwrap_or("미확정"),
-        paths::downloads_dir()
-            .join(format!("{}.part", candidate.id))
-            .display(),
-        paths::models_dir()
-            .join(candidate.artifact_name.unwrap_or(candidate.id))
+        model_artifact::paths().partial(candidate.id).display(),
+        model_artifact::paths()
+            .artifact(candidate.artifact_name.unwrap_or(candidate.id))
             .display(),
         display_vec(&validation.blockers)
     ))
@@ -607,7 +606,7 @@ pub fn eval_plan_report(id: &str) -> Result<String, AppError> {
 }
 
 fn local_benchmark_status(artifact: ModelArtifactDescriptor) -> Result<String, AppError> {
-    if !paths::observability_db_file().exists() {
+    if !model_artifact::paths().observability_db_file.exists() {
         return Ok("not-run".to_string());
     }
 
@@ -705,7 +704,7 @@ fn promotion_benchmark_run(
     evidence: &PromotionEvidence,
     artifact: ModelArtifactDescriptor,
 ) -> Result<Option<observability::BenchmarkRunReport>, AppError> {
-    if !paths::observability_db_file().exists() {
+    if !model_artifact::paths().observability_db_file.exists() {
         return Ok(None);
     }
 
@@ -1289,7 +1288,7 @@ pub fn install_candidate(id: &str) -> Result<(), AppError> {
             candidate.upstream_url,
             candidate.license.source,
             candidate.benchmark.source,
-            paths::model_registry_dir().display(),
+            model_artifact::paths().registry_dir.display(),
             event_id
         )));
     }
@@ -1854,11 +1853,11 @@ fn place_verified_artifact(part_path: &Path, final_path: &Path) -> Result<(), Ap
 }
 
 fn model_artifact_path(artifact: ModelArtifactDescriptor) -> PathBuf {
-    paths::models_dir().join(artifact.file_name)
+    model_artifact::paths().artifact(artifact.file_name)
 }
 
 fn model_artifact_part_path(candidate: &ModelManifestEntry) -> PathBuf {
-    paths::downloads_dir().join(format!("{}.part", candidate.id))
+    model_artifact::paths().partial(candidate.id)
 }
 
 impl ModelArtifactFetchStatus {
@@ -1878,10 +1877,10 @@ fn persist_promotion_evidence(
     benchmark: &observability::BenchmarkRunReport,
     evidence_source: &Path,
 ) -> Result<(), AppError> {
-    fs::create_dir_all(paths::model_evidence_dir()).map_err(|err| {
+    fs::create_dir_all(&model_artifact::paths().evidence_dir).map_err(|err| {
         AppError::runtime(format!(
             "model evidence directory를 만들지 못했습니다: {} ({err})",
-            paths::model_evidence_dir().display()
+            model_artifact::paths().evidence_dir.display()
         ))
     })?;
 
@@ -1901,10 +1900,10 @@ fn persist_registry_entry(
     candidate: &ModelManifestEntry,
     promotion: Option<&PromotionEvidence>,
 ) -> Result<(), AppError> {
-    fs::create_dir_all(paths::model_registry_dir()).map_err(|err| {
+    fs::create_dir_all(&model_artifact::paths().registry_dir).map_err(|err| {
         AppError::runtime(format!(
             "model registry directory를 만들지 못했습니다: {} ({err})",
-            paths::model_registry_dir().display()
+            model_artifact::paths().registry_dir.display()
         ))
     })?;
 
@@ -1925,7 +1924,7 @@ fn registry_summary() -> String {
     match read_registry_entries() {
         Ok(entries) if entries.is_empty() => format!(
             "model registry\n- installed models: 0\n- registry dir: {}",
-            paths::model_registry_dir().display()
+            model_artifact::paths().registry_dir.display()
         ),
         Ok(entries) => {
             let rows = entries
@@ -1950,20 +1949,20 @@ fn registry_summary() -> String {
             format!(
                 "model registry\n- installed models: {}\n- registry dir: {}\n{}",
                 entries.len(),
-                paths::model_registry_dir().display(),
+                model_artifact::paths().registry_dir.display(),
                 rows
             )
         }
         Err(err) => format!(
             "model registry\n- 상태: registry 읽기 실패\n- 이유: {}\n- registry dir: {}",
             err.message,
-            paths::model_registry_dir().display()
+            model_artifact::paths().registry_dir.display()
         ),
     }
 }
 
 fn read_registry_entries() -> Result<Vec<RegistryEntry>, AppError> {
-    let dir = paths::model_registry_dir();
+    let dir = model_artifact::paths().registry_dir;
     if !dir.exists() {
         return Ok(Vec::new());
     }
@@ -2131,7 +2130,7 @@ fn validated_registry_entry(id: &str) -> Result<RegistryEntry, AppError> {
 }
 
 fn read_default_selection() -> Result<DefaultSelection, AppError> {
-    let path = paths::model_default_file();
+    let path = model_artifact::paths().default_file;
     if !path.exists() {
         return Err(AppError::blocked(format!(
             "기본 모델이 선택되지 않았습니다. `rpotato model default <id>`를 실행하세요.\n- selection: {}",
@@ -2174,19 +2173,19 @@ fn default_selection_json(selection: &DefaultSelection) -> String {
 }
 
 fn registry_path(id: &str) -> PathBuf {
-    paths::model_registry_dir().join(format!("{id}.json"))
+    model_artifact::paths().registry_entry(id)
 }
 
 fn promotion_evidence_path(id: &str) -> PathBuf {
-    paths::model_evidence_dir().join(format!("{id}.promotion.json"))
+    model_artifact::paths().promotion_evidence(id)
 }
 
 fn failed_artifact_paths(candidate: &ModelManifestEntry) -> Vec<PathBuf> {
     let artifact_name = candidate.artifact_name.unwrap_or(candidate.id);
     vec![
-        paths::downloads_dir().join(format!("{}.part", candidate.id)),
-        paths::downloads_dir().join(format!("{}.failed", candidate.id)),
-        paths::models_dir().join(format!("{artifact_name}.failed")),
+        model_artifact::paths().partial(candidate.id),
+        model_artifact::paths().failed_download(candidate.id),
+        model_artifact::paths().failed_model(artifact_name),
     ]
 }
 
@@ -2221,8 +2220,8 @@ fn registry_entry_json(
         ledger::json_string(candidate.upstream_model),
         ledger::json_string(candidate.upstream_url),
         ledger::json_string(
-            &paths::models_dir()
-                .join(candidate.artifact_name.unwrap_or(candidate.id))
+            &model_artifact::paths()
+                .artifact(candidate.artifact_name.unwrap_or(candidate.id))
                 .display()
                 .to_string()
         ),
@@ -2704,6 +2703,7 @@ mod tests {
 
     #[test]
     fn registry_parser_accepts_pretty_json_entries() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let candidate = find_candidate("qwen3.5-4b").unwrap();
         let artifact = source_backed_artifact(candidate).unwrap();
         let text = registry_entry_json(candidate, None);
@@ -2727,6 +2727,7 @@ mod tests {
 
     #[test]
     fn registry_promotion_binding_rejects_backend_and_benchmark_drift() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let candidate = find_candidate("qwen3.5-4b").unwrap();
         let artifact = source_backed_artifact(candidate).unwrap();
         let evidence = qwen_promotion_evidence(artifact);

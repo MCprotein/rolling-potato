@@ -2034,18 +2034,46 @@
       "path": "src/model.rs",
       "slices": [
         {
-          "responsibility": "model manifest and lifecycle",
+          "responsibility": "model manifest and lifecycle orchestration",
           "target": "src/runtime_core/inference/model.rs",
           "release": "0.37.3",
-          "state": "planned",
+          "state": "migrating",
           "evidence": []
         },
         {
-          "responsibility": "model artifact persistence",
+          "responsibility": "model artifact persistence operations",
           "target": "src/adapters/filesystem/model_artifact.rs",
           "release": "0.37.3",
-          "state": "planned",
+          "state": "migrating",
           "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model.rs",
+      "slices": [
+        {
+          "responsibility": "model artifact path contract",
+          "target": "src/runtime_core/inference/model.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/model_artifact.rs",
+      "slices": [
+        {
+          "responsibility": "model artifact path resolution",
+          "target": "src/adapters/filesystem/model_artifact.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/model_artifact.rs"
+          ]
         }
       ]
     },
@@ -3608,8 +3636,20 @@
     {
       "path": "src/model.rs",
       "responsibilities": [
-        "model manifest and lifecycle",
-        "model artifact persistence"
+        "model manifest and lifecycle orchestration",
+        "model artifact persistence operations"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model.rs",
+      "responsibilities": [
+        "model artifact path contract"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/model_artifact.rs",
+      "responsibilities": [
+        "model artifact path resolution"
       ]
     },
     {
