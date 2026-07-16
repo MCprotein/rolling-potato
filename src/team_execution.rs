@@ -12,6 +12,11 @@ struct MemberOutcome {
     result: Result<subagent::CompletedTeamMember, AppError>,
 }
 
+struct OwnedAction {
+    target_path: String,
+    source_hash: String,
+}
+
 pub fn execute_report(team_id: &str) -> Result<String, AppError> {
     execute_with(team_id, backend::preflight_chat_ready, backend_runner)
 }
@@ -77,7 +82,8 @@ fn execute_with(
 
     let launches = manifest
         .members
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|member| subagent::TeamMemberLaunch {
             lane: member.lane,
             member_id: member.member_id,
@@ -122,6 +128,26 @@ fn execute_with(
     for outcome in outcomes {
         match outcome.result {
             Ok(member) => {
+                let owned_action = match enforce_action_ownership(&manifest, &member) {
+                    Ok(owned_action) => owned_action,
+                    Err(error) => {
+                        append_worker_event(
+                            &identity,
+                            "team.worker.failed",
+                            "team worker action ownership blocked",
+                            team_id,
+                            member.lane,
+                            &member.member_id,
+                            &member.record.subagent_id,
+                            "ownership-blocked",
+                            &member.record.result_artifact_id,
+                            &member.record.evidence_id,
+                        )?;
+                        failures.push(format!("lane {}: {}", member.lane, error.message));
+                        continue;
+                    }
+                };
+                append_action_event(&identity, team_id, &member, owned_action.as_ref())?;
                 append_worker_event(
                     &identity,
                     "team.worker.completed",
@@ -154,8 +180,12 @@ fn execute_with(
         }
     }
     if !failures.is_empty() {
+        let current = team_state::load_state(team_id)?;
+        if !current.stage.is_terminal() {
+            team_state::advance_state(team_id, team_state::TeamStage::Failed, None, None)?;
+        }
         return Err(AppError::blocked(format!(
-            "team execute worker failure\n- team id: {}\n- completed lanes: {}\n- failures: {}",
+            "team execute worker failure\n- team id: {}\n- stage: failed\n- completed lanes: {}\n- failures: {}",
             team_id,
             completed.len(),
             failures.join(" | ")
@@ -186,6 +216,60 @@ fn execute_with(
             .collect::<Vec<_>>()
             .join(", "),
     ))
+}
+
+fn enforce_action_ownership(
+    manifest: &team_state::TeamManifestV1,
+    completed: &subagent::CompletedTeamMember,
+) -> Result<Option<OwnedAction>, AppError> {
+    let member = manifest
+        .members
+        .iter()
+        .find(|member| member.lane == completed.lane && member.member_id == completed.member_id)
+        .ok_or_else(|| AppError::blocked("team completed member manifest binding 누락"))?;
+    let record = &completed.record;
+    if record.role.as_str() != member.role
+        || record.task_hash != member.task_hash
+        || record.declared_tools != member.tools
+        || record.read_paths != member.read_paths
+        || record.write_paths != member.write_paths
+        || record.timeout_ms != member.timeout_ms
+        || record.requested_max_tokens != member.max_tokens
+    {
+        return Err(AppError::blocked(
+            "team completed member immutable launch binding 불일치",
+        ));
+    }
+    let result = crate::subagent_result::load_completed_result(record)?;
+    let Some(patch) = result.patch_proposal else {
+        return Ok(None);
+    };
+    let owners = manifest
+        .members
+        .iter()
+        .filter(|candidate| {
+            candidate.write_paths.iter().any(|owner| {
+                patch.target_path == *owner
+                    || patch
+                        .target_path
+                        .strip_prefix(owner)
+                        .is_some_and(|suffix| suffix.starts_with('/'))
+            })
+        })
+        .collect::<Vec<_>>();
+    if owners.len() != 1
+        || owners[0].lane != completed.lane
+        || owners[0].member_id != completed.member_id
+    {
+        return Err(AppError::blocked(format!(
+            "team action-time ownership 차단\n- lane: {}\n- member: {}\n- target: {}",
+            completed.lane, completed.member_id, patch.target_path
+        )));
+    }
+    Ok(Some(OwnedAction {
+        target_path: patch.target_path,
+        source_hash: patch.source_hash,
+    }))
 }
 
 fn run_parallel(
@@ -281,6 +365,35 @@ fn append_execution_blocked(
     observability::project_event(&event)
 }
 
+fn append_action_event(
+    identity: &ledger::RuntimeIdentity,
+    team_id: &str,
+    member: &subagent::CompletedTeamMember,
+    action: Option<&OwnedAction>,
+) -> Result<(), AppError> {
+    let event = ledger::new_event_for(
+        identity,
+        "team.worker.action-owned",
+        "team worker action ownership enforced",
+        &format!(
+            "team_id={} lane={} member_id={} subagent_id={} action={} target_path={} source_hash={}",
+            team_id,
+            member.lane,
+            member.member_id,
+            member.record.subagent_id,
+            if action.is_some() { "patch" } else { "none" },
+            action
+                .map(|action| action.target_path.as_str())
+                .unwrap_or("none"),
+            action
+                .map(|action| action.source_hash.as_str())
+                .unwrap_or("none"),
+        ),
+    );
+    ledger::append_event(&event)?;
+    observability::project_event(&event)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn append_worker_event(
     identity: &ledger::RuntimeIdentity,
@@ -338,6 +451,19 @@ mod tests {
         parent
     }
 
+    fn initialize_executor_team() {
+        fs::create_dir_all(paths::project_root().join("src")).unwrap();
+        fs::write(paths::project_root().join("src/main.rs"), "fn main() {}\n").unwrap();
+        state::initialize().unwrap();
+        let parent = state::create_workflow("team executor parent").unwrap();
+        let manifest = format!(
+            "{{\"schema_version\":1,\"team_id\":\"team-action\",\"parent_workflow_id\":\"{}\",\"members\":[{{\"lane\":1,\"id\":\"executor-1\",\"role\":\"executor\",\"task\":\"prepare the bounded patch\",\"tools\":[\"read_file\",\"render_diff\"],\"read_paths\":[\"src/main.rs\"],\"write_paths\":[\"src/main.rs\"],\"timeout_ms\":30000,\"max_tokens\":256}}],\"write_policy\":\"single_writer\",\"merge_policy\":\"runtime_owned\",\"stop_gate\":\"evidence_required\"}}",
+            parent.workflow_id,
+        );
+        fs::write(paths::project_root().join("team-action.json"), manifest).unwrap();
+        team_state::plan_report("team-action.json").unwrap();
+    }
+
     fn fake_preflight() -> Result<(), AppError> {
         Ok(())
     }
@@ -366,6 +492,43 @@ mod tests {
                 subagent_id, parent_workflow_id, role, evidence_ref,
             ),
         })
+    }
+
+    fn patch_runner(
+        prompt: &str,
+        max_tokens: u32,
+        _timeout_ms: u32,
+    ) -> Result<subagent::WorkerGeneration, AppError> {
+        let subagent_id = prompt_value(prompt, "subagent_id=");
+        let parent_workflow_id = prompt_value(prompt, "parent_workflow_id=");
+        let role = prompt_value(prompt, "role=");
+        let evidence_ref = prompt
+            .lines()
+            .find_map(|line| line.strip_prefix("source pointer: "))
+            .unwrap();
+        let source_hash = prompt
+            .lines()
+            .find_map(|line| line.strip_prefix("fingerprint: "))
+            .unwrap();
+        Ok(subagent::WorkerGeneration {
+            backend_event_id: format!("backend-{subagent_id}"),
+            effective_max_tokens: max_tokens,
+            response: format!(
+                "{{\"schema_version\":1,\"subagent_id\":\"{}\",\"parent_workflow_id\":\"{}\",\"role\":\"{}\",\"status\":\"completed\",\"summary\":\"bounded patch\",\"findings\":[],\"patch_proposal\":{{\"target_path\":\"src/main.rs\",\"source_hash\":\"{}\",\"find_text\":\"fn main() {{}}\",\"replacement_text\":\"fn main() {{ println!(\\\"ready\\\"); }}\"}},\"evidence_refs\":[\"{}\"],\"validation_gaps\":[],\"suggested_next_action\":\"reconcile team results\"}}",
+                subagent_id, parent_workflow_id, role, source_hash, evidence_ref,
+            ),
+        })
+    }
+
+    fn one_worker_fails(
+        prompt: &str,
+        max_tokens: u32,
+        timeout_ms: u32,
+    ) -> Result<subagent::WorkerGeneration, AppError> {
+        if prompt.contains("role=verifier") {
+            return Err(AppError::runtime("injected worker failure"));
+        }
+        fake_runner(prompt, max_tokens, timeout_ms)
     }
 
     fn prompt_value<'a>(prompt: &'a str, marker: &str) -> &'a str {
@@ -452,5 +615,44 @@ mod tests {
         assert!(error.message.contains("resource admission 차단"));
         assert_eq!(team.stage, team_state::TeamStage::Plan);
         assert_eq!(worker_events, 0);
+    }
+
+    #[test]
+    fn executor_patch_is_rechecked_against_action_time_lane_ownership() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        initialize_executor_team();
+        record_sample("normal");
+
+        let report = execute_with("team-action", fake_preflight, patch_runner).unwrap();
+        let action_event = ledger::read_runtime_events()
+            .unwrap()
+            .into_iter()
+            .find(|event| event.event_type == "team.worker.action-owned")
+            .unwrap();
+
+        assert!(report.contains("completed members: 1"));
+        assert!(action_event.details.contains("lane=1"));
+        assert!(action_event.details.contains("action=patch"));
+        assert!(action_event.details.contains("target_path=src/main.rs"));
+    }
+
+    #[test]
+    fn worker_failure_collects_remaining_results_and_terminalizes_team() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        initialize_team();
+        record_sample("normal");
+
+        let error = execute_with("team-execution", fake_preflight, one_worker_fails).unwrap_err();
+        let team = team_state::load_state("team-execution").unwrap();
+        let completed_workers = ledger::read_runtime_events()
+            .unwrap()
+            .into_iter()
+            .filter(|event| event.event_type == "team.worker.completed")
+            .count();
+
+        assert!(error.message.contains("stage: failed"));
+        assert!(error.message.contains("injected worker failure"));
+        assert_eq!(team.stage, team_state::TeamStage::Failed);
+        assert_eq!(completed_workers, 1);
     }
 }

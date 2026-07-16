@@ -63,6 +63,14 @@ uses one admitted lane but still executes every manifest member sequentially;
 assigned work is never silently dropped. Critical pressure blocks before worker
 admission or a team stage transition.
 
+Write ownership rejects both identical paths and ancestor/descendant overlaps
+across lanes. When an executor returns a patch action, the runtime reloads its
+immutable result artifact and rechecks the member identity, launch contract,
+target path, and source hash against the canonical manifest owner. Successful
+checks emit `team.worker.action-owned`; an ownership or worker failure is
+recorded, all already-admitted lanes are collected, and the durable team state
+transitions to `failed` without merging partial results into the parent.
+
 Successful worker results and evidence are stored as immutable subagent
 artifacts and the durable team state advances through `team-dispatch` to
 `team-exec`. Workers do not merge evidence into the parent independently. The

@@ -61,6 +61,13 @@ session, backend binding을 검증합니다. Resource pressure가 normal이면 a
 순차 실행하므로 assigned work를 조용히 버리지 않습니다. Critical pressure에서는 worker
 admission이나 team stage 전진 전에 차단합니다.
 
+Write ownership은 lane 사이의 동일 path뿐 아니라 ancestor/descendant overlap도
+차단합니다. Executor가 patch action을 반환하면 runtime은 immutable result artifact를 다시
+읽고 member identity, launch contract, target path, source hash를 canonical manifest owner와
+재대조합니다. 통과한 check는 `team.worker.action-owned` event로 기록됩니다. Ownership 또는
+worker failure가 발생하면 이미 admitted된 lane 결과를 모두 회수한 뒤 partial result를
+parent에 merge하지 않고 durable team state를 `failed`로 전환합니다.
+
 성공한 worker result와 evidence는 immutable subagent artifact로 저장되고 durable team
 state는 `team-dispatch`를 거쳐 `team-exec`로 전진합니다. Worker가 parent에 evidence를
 개별 merge하지는 않습니다. 후속 reconciliation stage가 전체 team result set을 검증하고
