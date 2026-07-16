@@ -167,10 +167,22 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
             "src/lib.rs의 값을 2로 고쳐줘",
         ]);
         let _ = command(&["backend", "stop"]);
+        let ledger = std::fs::read_to_string(self.data.join("state/runtime-ledger.jsonl"))
+            .unwrap_or_default();
+        let ledger_tail = ledger
+            .lines()
+            .rev()
+            .take(20)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(
             run.status.success(),
-            "native source fixture skill run failed: {}",
-            String::from_utf8_lossy(&run.stderr)
+            "native source fixture skill run failed\nstdout={}\nstderr={}\nledger tail={ledger_tail}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr),
         );
         let report = String::from_utf8(run.stdout).unwrap();
         let field = |key: &str| {
