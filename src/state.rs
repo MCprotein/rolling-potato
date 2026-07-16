@@ -18,7 +18,8 @@ use crate::runtime_core::workflow::application::recovery::{
 };
 use crate::runtime_core::workflow::application::transaction_coordinator::{
     self as transaction_coordinator, ApprovalFault, ApprovalRevision, ApprovalTransactionPort,
-    TransactionExecution, VerificationFault, VerificationTransactionPort,
+    TerminalActionFault, TerminalActionTransactionPort, TransactionExecution, VerificationFault,
+    VerificationTransactionPort,
 };
 use crate::runtime_core::workflow::domain::snapshot::{
     self as snapshot_domain, CurrentStateLeaseView, CurrentStateSnapshot, CurrentWorkflowBinding,
@@ -1163,32 +1164,85 @@ pub(crate) fn transition_project_current_state_prepared_terminal_action(
         ],
     )?;
     let journal = transition_guard.commit(&bundle)?;
-    terminal_action_fault("A1-after-journal")?;
-    let mut sink = writer.event_sink(&planned);
-    sink.append_planned_under_guard(0, &events[0])?;
-    terminal_action_fault("A2-after-intent")?;
-    if bundle.source_install.is_some() {
-        install_prepared_source_bundle(&bundle, &journal)?;
-    }
-    terminal_action_fault("A3-after-source")?;
-    workflow_guard.install_snapshot(&revision)?;
-    sink.append_planned_under_guard(1, &events[1])?;
-    terminal_action_fault("A4-after-snapshot")?;
-    workflow_guard.install_pointer(&revision)?;
-    terminal_action_fault("A5-after-pointer")?;
-    sink.append_planned_under_guard(2, &events[2])?;
-    sink.finish()?;
-    terminal_action_fault("A6-after-ledger")?;
-    install_current_image(
-        &current,
-        bundle.current_revision,
-        &bundle.current_artifact_hash,
+    let mut port = StateTerminalActionTransactionPort {
+        transition_guard: Some(transition_guard),
+        workflow_guard,
+        bundle: &bundle,
+        revision: &revision,
+        current: &current,
+        events: &events,
+        journal: &journal,
+        sink: writer.event_sink(&planned),
+    };
+    transaction_coordinator::execute_terminal_action_transaction(
+        &mut port,
+        TransactionExecution::Commit,
     )?;
-    terminal_action_fault("A7-after-current")?;
-    sink.converge_prepared(&bundle, &journal)?;
-    terminal_action_fault("A8-after-projection")?;
-    transition_guard.remove(&bundle, &journal)?;
     Ok(revision.record)
+}
+
+struct StateTerminalActionTransactionPort<'a> {
+    transition_guard: Option<&'a crate::transition::TransitionGuard>,
+    workflow_guard: &'a WorkflowCheckpointGuard,
+    bundle: &'a crate::transition::PreparedSourceBundle,
+    revision: &'a PreparedWorkflowRevision,
+    current: &'a PreparedCurrentImage,
+    events: &'a [ledger::LedgerEvent],
+    journal: &'a std::path::Path,
+    sink: ledger::EventSink<'a>,
+}
+
+impl TerminalActionTransactionPort for StateTerminalActionTransactionPort<'_> {
+    fn fault(&mut self, point: TerminalActionFault) -> Result<(), AppError> {
+        terminal_action_fault(point.as_str())
+    }
+
+    fn append_event(&mut self, index: usize) -> Result<(), AppError> {
+        let event = self
+            .events
+            .get(index)
+            .ok_or_else(|| AppError::blocked("prepared terminal event index 범위 초과"))?;
+        self.sink
+            .append_planned_under_guard(index, event)
+            .map(|_| ())
+    }
+
+    fn install_source(&mut self) -> Result<(), AppError> {
+        if self.bundle.source_install.is_some() {
+            install_prepared_source_bundle(self.bundle, self.journal)?;
+        }
+        Ok(())
+    }
+
+    fn install_snapshot(&mut self) -> Result<(), AppError> {
+        self.workflow_guard.install_snapshot(self.revision)
+    }
+
+    fn install_pointer(&mut self) -> Result<(), AppError> {
+        self.workflow_guard.install_pointer(self.revision)
+    }
+
+    fn finish_events(&mut self) -> Result<(), AppError> {
+        self.sink.finish()
+    }
+
+    fn install_current(&mut self) -> Result<(), AppError> {
+        install_current_image(
+            self.current,
+            self.bundle.current_revision,
+            &self.bundle.current_artifact_hash,
+        )
+    }
+
+    fn converge(&mut self) -> Result<(), AppError> {
+        self.sink.converge_prepared(self.bundle, self.journal)
+    }
+
+    fn remove_journal(&mut self) -> Result<(), AppError> {
+        self.transition_guard
+            .ok_or_else(|| AppError::blocked("prepared terminal cleanup guard 누락"))?
+            .remove(self.bundle, self.journal)
+    }
 }
 
 pub(crate) struct PreparedApprovalTransition<'a> {
@@ -1589,22 +1643,20 @@ pub(crate) fn recover_project_current_state_prepared_terminal_action(
         ));
     }
     let writer = ledger::LedgerWriterGuard::acquire()?;
-    let mut sink = writer.event_sink(&planned);
-    sink.append_planned_under_guard(0, &bundle.semantic_events[0])?;
-    if bundle.source_install.is_some() {
-        install_prepared_source_bundle(bundle, journal)?;
-    }
-    workflow_guard.install_snapshot(&revision)?;
-    sink.append_planned_under_guard(1, &bundle.semantic_events[1])?;
-    workflow_guard.install_pointer(&revision)?;
-    sink.append_planned_under_guard(2, &bundle.semantic_events[2])?;
-    sink.finish()?;
-    install_current_image(
-        &current,
-        bundle.current_revision,
-        &bundle.current_artifact_hash,
-    )?;
-    sink.converge_prepared(bundle, journal)
+    let mut port = StateTerminalActionTransactionPort {
+        transition_guard: None,
+        workflow_guard: &workflow_guard,
+        bundle,
+        revision: &revision,
+        current: &current,
+        events: &bundle.semantic_events,
+        journal,
+        sink: writer.event_sink(&planned),
+    };
+    transaction_coordinator::execute_terminal_action_transaction(
+        &mut port,
+        TransactionExecution::Recovery,
+    )
 }
 
 fn terminal_action_fault(point: &str) -> Result<(), AppError> {

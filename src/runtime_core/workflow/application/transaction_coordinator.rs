@@ -115,6 +115,45 @@ pub(crate) trait VerificationTransactionPort {
     fn remove_journal(&mut self) -> Result<(), AppError>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TerminalActionFault {
+    Journal,
+    Intent,
+    Source,
+    Snapshot,
+    Pointer,
+    Ledger,
+    Current,
+    Projection,
+}
+
+impl TerminalActionFault {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Journal => "A1-after-journal",
+            Self::Intent => "A2-after-intent",
+            Self::Source => "A3-after-source",
+            Self::Snapshot => "A4-after-snapshot",
+            Self::Pointer => "A5-after-pointer",
+            Self::Ledger => "A6-after-ledger",
+            Self::Current => "A7-after-current",
+            Self::Projection => "A8-after-projection",
+        }
+    }
+}
+
+pub(crate) trait TerminalActionTransactionPort {
+    fn fault(&mut self, point: TerminalActionFault) -> Result<(), AppError>;
+    fn append_event(&mut self, index: usize) -> Result<(), AppError>;
+    fn install_source(&mut self) -> Result<(), AppError>;
+    fn install_snapshot(&mut self) -> Result<(), AppError>;
+    fn install_pointer(&mut self) -> Result<(), AppError>;
+    fn finish_events(&mut self) -> Result<(), AppError>;
+    fn install_current(&mut self) -> Result<(), AppError>;
+    fn converge(&mut self) -> Result<(), AppError>;
+    fn remove_journal(&mut self) -> Result<(), AppError>;
+}
+
 pub(crate) fn execute_approval_transaction(
     port: &mut impl ApprovalTransactionPort,
     execution: TransactionExecution,
@@ -223,6 +262,48 @@ pub(crate) fn execute_verification_transaction(
     Ok(())
 }
 
+pub(crate) fn execute_terminal_action_transaction(
+    port: &mut impl TerminalActionTransactionPort,
+    execution: TransactionExecution,
+) -> Result<(), AppError> {
+    let commit = execution == TransactionExecution::Commit;
+    if commit {
+        port.fault(TerminalActionFault::Journal)?;
+    }
+    port.append_event(0)?;
+    if commit {
+        port.fault(TerminalActionFault::Intent)?;
+    }
+    port.install_source()?;
+    if commit {
+        port.fault(TerminalActionFault::Source)?;
+    }
+    port.install_snapshot()?;
+    port.append_event(1)?;
+    if commit {
+        port.fault(TerminalActionFault::Snapshot)?;
+    }
+    port.install_pointer()?;
+    if commit {
+        port.fault(TerminalActionFault::Pointer)?;
+    }
+    port.append_event(2)?;
+    port.finish_events()?;
+    if commit {
+        port.fault(TerminalActionFault::Ledger)?;
+    }
+    port.install_current()?;
+    if commit {
+        port.fault(TerminalActionFault::Current)?;
+    }
+    port.converge()?;
+    if commit {
+        port.fault(TerminalActionFault::Projection)?;
+        port.remove_journal()?;
+    }
+    Ok(())
+}
+
 impl<'plan> TransactionCoordinator<'plan> {
     pub(crate) fn new(planned: &'plan [PlannedEvent]) -> Self {
         Self {
@@ -317,6 +398,58 @@ mod tests {
     #[derive(Default)]
     struct FakeVerificationPort {
         calls: Vec<String>,
+    }
+
+    #[derive(Default)]
+    struct FakeTerminalActionPort {
+        calls: Vec<String>,
+    }
+
+    impl TerminalActionTransactionPort for FakeTerminalActionPort {
+        fn fault(&mut self, point: TerminalActionFault) -> Result<(), AppError> {
+            self.calls.push(format!("fault:{}", point.as_str()));
+            Ok(())
+        }
+
+        fn append_event(&mut self, index: usize) -> Result<(), AppError> {
+            self.calls.push(format!("append:{index}"));
+            Ok(())
+        }
+
+        fn install_source(&mut self) -> Result<(), AppError> {
+            self.calls.push("source".to_owned());
+            Ok(())
+        }
+
+        fn install_snapshot(&mut self) -> Result<(), AppError> {
+            self.calls.push("snapshot".to_owned());
+            Ok(())
+        }
+
+        fn install_pointer(&mut self) -> Result<(), AppError> {
+            self.calls.push("pointer".to_owned());
+            Ok(())
+        }
+
+        fn finish_events(&mut self) -> Result<(), AppError> {
+            self.calls.push("finish".to_owned());
+            Ok(())
+        }
+
+        fn install_current(&mut self) -> Result<(), AppError> {
+            self.calls.push("current".to_owned());
+            Ok(())
+        }
+
+        fn converge(&mut self) -> Result<(), AppError> {
+            self.calls.push("converge".to_owned());
+            Ok(())
+        }
+
+        fn remove_journal(&mut self) -> Result<(), AppError> {
+            self.calls.push("remove-journal".to_owned());
+            Ok(())
+        }
     }
 
     impl VerificationTransactionPort for FakeVerificationPort {
@@ -554,6 +687,45 @@ mod tests {
             [
                 "append:0", "snapshot", "append:1", "pointer", "append:2", "current", "finish",
                 "converge",
+            ]
+        );
+    }
+
+    #[test]
+    fn terminal_action_commit_and_recovery_share_one_order() {
+        let mut commit = FakeTerminalActionPort::default();
+        execute_terminal_action_transaction(&mut commit, TransactionExecution::Commit).unwrap();
+        assert_eq!(
+            commit.calls,
+            [
+                "fault:A1-after-journal",
+                "append:0",
+                "fault:A2-after-intent",
+                "source",
+                "fault:A3-after-source",
+                "snapshot",
+                "append:1",
+                "fault:A4-after-snapshot",
+                "pointer",
+                "fault:A5-after-pointer",
+                "append:2",
+                "finish",
+                "fault:A6-after-ledger",
+                "current",
+                "fault:A7-after-current",
+                "converge",
+                "fault:A8-after-projection",
+                "remove-journal",
+            ]
+        );
+
+        let mut recovery = FakeTerminalActionPort::default();
+        execute_terminal_action_transaction(&mut recovery, TransactionExecution::Recovery).unwrap();
+        assert_eq!(
+            recovery.calls,
+            [
+                "append:0", "source", "snapshot", "append:1", "pointer", "append:2", "finish",
+                "current", "converge",
             ]
         );
     }
