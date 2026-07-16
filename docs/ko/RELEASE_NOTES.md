@@ -1,5 +1,55 @@
 # 릴리즈 노트
 
+## 미출시 v0.37.6 - Workflow Transaction과 Recovery
+
+이 patch는 command, durable byte, event identity/order, crash 동작, synchronous
+runtime을 바꾸지 않고 workflow transition, cross-store transaction 순서, recovery
+policy를 private workflow domain/application owner로 이동합니다.
+
+### 포함한 것
+
+- Legal transition intent, prepared member, source install, event chain, bundle
+  record를 `runtime_core::workflow::domain::transition`으로 이동
+- Consumer-owned port 위에서 exact event 진행과 state, checkpoint, reconcile,
+  approval, verification, terminal, projection, cleanup 순서를 선택하는 단일
+  application transaction coordinator 추가
+- Prepared workflow suffix recovery, current-state recovery 순서, 불확실한
+  projection-lag admission을 `runtime_core::workflow::application::recovery`로 이동
+- 기존 patch-loop harness를 유지하면서 restart와 preflight mutation barrier
+  integration contract를 `tests/workflow/recovery.rs`로 분리
+- Migration ledger를 v0.37.6으로 진행하고 예정된 transition, transaction,
+  recovery, test slice를 모두 complete로 전환
+
+### 호환성 경계
+
+- 기존 state, ledger, transition module은 concrete filesystem, lease, event sink,
+  journal, projection 연산을 유지하지만 이전된 commit/recovery 순서를 선택하지 않습니다.
+- CLI 동작과 exit code, canonical schema/byte/hash, event/state 순서, recovery와
+  fail-closed 동작, dependency, synchronous execution은 변경하지 않습니다.
+
+## 미출시 v0.37.5 - Validated Domain View
+
+이 patch는 command, durable byte, ledger 순서, filesystem/lock/recovery 동작을
+유지하면서 workflow/session/snapshot과 transcript-session validation을 private
+workflow domain owner로 이동합니다.
+
+### 포함한 것
+
+- Current-state, lease, TUI snapshot, active-workflow binding DTO를
+  `runtime_core::workflow::domain::snapshot`으로 이동
+- Session resume 권위, current-state identity/lease, bounded ledger ancestor와
+  workflow checkpoint validation을 해당 owner로 이동
+- Canonical transcript-session filtering, ledger ordering, duplicate 거부,
+  event/record/tool binding, `ToolOutputView`를 workflow transcript domain으로 이동
+- Migration ledger를 v0.37.5로 진행하고 예정된 domain-view slice를 complete로 전환
+
+### 호환성 경계
+
+- 최상위 state와 transcript module은 이후 slice의 filesystem, lock, transaction,
+  recovery, projection, command orchestration facade로 남습니다.
+- CLI 동작, durable schema/byte, canonical event identity/order, recovery/projection
+  순서, dependency, synchronous runtime은 변경하지 않습니다.
+
 ## 미출시 v0.37.4 - Workflow Storage Compatibility
 
 이 patch는 기존 command, storage schema, append 순서, recovery 동작, synchronous

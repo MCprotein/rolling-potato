@@ -190,6 +190,10 @@ v0.37.5 private workflow domain owner는 current-state identity와 lease, sessio
 view를 검증합니다. 또한 durable byte, filesystem access, lock 획득, recovery 순서를
 바꾸지 않고 duplicate canonical transcript event와 transcript event/record/tool binding
 불일치를 차단합니다.
+v0.37.6 private workflow application owner는 exact event 진행과 cross-store
+state/checkpoint/reconcile/approval/verification/terminal commit/recovery 순서를 선택합니다.
+Consumer-owned port는 기존 filesystem, lease, ledger, projection, cleanup 구현을
+유지하면서 adapter가 replay 또는 cleanup 순서를 독립적으로 선택하지 못하게 합니다.
 
 Model output은 실행 불가 action으로 저장됩니다. Runtime은 proposal, approval, apply,
 stop gate 전마다 지정 source 원문을 다시 읽습니다. Approval은 workflow/action/proposal
