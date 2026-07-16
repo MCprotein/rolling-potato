@@ -71,6 +71,17 @@ checks emit `team.worker.action-owned`; an ownership or worker failure is
 recorded, all already-admitted lanes are collected, and the durable team state
 transitions to `failed` without merging partial results into the parent.
 
+```text
+rpotato team cancel --team fix-regression-team
+```
+
+`team cancel` installs a canonical durable marker bound to the team manifest
+hash and parent workflow before advancing the state to `cancelled`. Every
+active backend stream and every later sequentially admitted member checks the
+same marker, so cancellation propagates without relying on a single backend
+generation owner. Repeating the command is idempotent; a malformed or rebound
+marker fails closed. Cancelled worker results are discarded and never merged.
+
 Successful worker results and evidence are stored as immutable subagent
 artifacts and the durable team state advances through `team-dispatch` to
 `team-exec`. Workers do not merge evidence into the parent independently. The

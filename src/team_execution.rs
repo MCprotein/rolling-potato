@@ -1,7 +1,7 @@
 use crate::app::AppError;
 use crate::{backend, ledger, observability, resource, subagent, team_state};
 
-type TeamRunner = fn(&str, u32, u32) -> Result<subagent::WorkerGeneration, AppError>;
+type TeamRunner = fn(&str, u32, u32, &str) -> Result<subagent::WorkerGeneration, AppError>;
 type TeamPreflight = fn() -> Result<(), AppError>;
 
 #[derive(Debug)]
@@ -47,6 +47,11 @@ fn execute_with(
             "team execute stage 차단\n- team id: {}\n- current stage: {}",
             team.team_id,
             team.stage.as_str()
+        )));
+    }
+    if team_state::cancellation_requested(team_id)? {
+        return Err(AppError::blocked(format!(
+            "team execute cancellation 차단\n- team id: {team_id}"
         )));
     }
 
@@ -119,9 +124,9 @@ fn execute_with(
     team = team_state::advance_state(team_id, team_state::TeamStage::Execute, None, None)?;
 
     let outcomes = if team.execution_mode == "parallel" {
-        run_parallel(admitted, runner)?
+        run_parallel(admitted, runner, team_id)?
     } else {
-        run_sequential(admitted, runner)
+        run_sequential(admitted, runner, team_id)
     };
     let mut completed = Vec::new();
     let mut failures = Vec::new();
@@ -181,6 +186,12 @@ fn execute_with(
     }
     if !failures.is_empty() {
         let current = team_state::load_state(team_id)?;
+        if current.stage == team_state::TeamStage::Cancelled {
+            return Err(AppError::blocked(format!(
+                "team execute cancelled\n- team id: {team_id}\n- completed lanes: {}",
+                completed.len()
+            )));
+        }
         if !current.stage.is_terminal() {
             team_state::advance_state(team_id, team_state::TeamStage::Failed, None, None)?;
         }
@@ -189,6 +200,12 @@ fn execute_with(
             team_id,
             completed.len(),
             failures.join(" | ")
+        )));
+    }
+    if team_state::load_state(team_id)?.stage == team_state::TeamStage::Cancelled {
+        return Err(AppError::blocked(format!(
+            "team execute cancelled\n- team id: {team_id}\n- completed lanes: {}",
+            completed.len()
         )));
     }
     completed.sort_by_key(|member| member.lane);
@@ -275,6 +292,7 @@ fn enforce_action_ownership(
 fn run_parallel(
     admitted: Vec<subagent::AdmittedTeamMember>,
     runner: TeamRunner,
+    team_id: &str,
 ) -> Result<Vec<MemberOutcome>, AppError> {
     let prepared = subagent::prepare_team_members(admitted)?;
     let handles = prepared
@@ -283,8 +301,12 @@ fn run_parallel(
             let lane = member.lane;
             let member_id = member.member_id.clone();
             let subagent_id = member.subagent_id().to_string();
+            let team_id = team_id.to_string();
             let handle = std::thread::spawn(move || {
-                subagent::execute_prepared_team_member_with(member, runner)
+                subagent::execute_prepared_team_member_with(
+                    member,
+                    |prompt, max_tokens, timeout| runner(prompt, max_tokens, timeout, &team_id),
+                )
             });
             (lane, member_id, subagent_id, handle)
         })
@@ -305,6 +327,7 @@ fn run_parallel(
 fn run_sequential(
     admitted: Vec<subagent::AdmittedTeamMember>,
     runner: TeamRunner,
+    team_id: &str,
 ) -> Vec<MemberOutcome> {
     admitted
         .into_iter()
@@ -316,7 +339,10 @@ fn run_sequential(
                 lane,
                 member_id,
                 subagent_id,
-                result: subagent::execute_admitted_team_member_with(member, runner),
+                result: subagent::execute_admitted_team_member_with(
+                    member,
+                    |prompt, max_tokens, timeout| runner(prompt, max_tokens, timeout, team_id),
+                ),
             }
         })
         .collect()
@@ -326,8 +352,11 @@ fn backend_runner(
     prompt: &str,
     max_tokens: u32,
     timeout_ms: u32,
+    team_id: &str,
 ) -> Result<subagent::WorkerGeneration, AppError> {
-    let run = backend::chat_once_bounded(prompt, max_tokens, timeout_ms)?;
+    let run = backend::chat_once_bounded_with_cancel(prompt, max_tokens, timeout_ms, || {
+        team_state::cancellation_requested(team_id)
+    })?;
     Ok(subagent::WorkerGeneration {
         backend_event_id: run.ledger_event,
         effective_max_tokens: run.effective_max_tokens,
@@ -431,11 +460,14 @@ mod tests {
     use super::*;
     use crate::{paths, state};
     use std::fs;
+    use std::sync::atomic::AtomicBool;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration;
 
     static ACTIVE_RUNNERS: AtomicUsize = AtomicUsize::new(0);
     static MAX_ACTIVE_RUNNERS: AtomicUsize = AtomicUsize::new(0);
+    static CANCEL_STARTED: AtomicBool = AtomicBool::new(false);
+    static CANCEL_OBSERVERS: AtomicUsize = AtomicUsize::new(0);
 
     fn initialize_team() -> state::WorkflowRecord {
         fs::create_dir_all(paths::project_root().join("src")).unwrap();
@@ -472,6 +504,7 @@ mod tests {
         prompt: &str,
         max_tokens: u32,
         _timeout_ms: u32,
+        _team_id: &str,
     ) -> Result<subagent::WorkerGeneration, AppError> {
         let active = ACTIVE_RUNNERS.fetch_add(1, Ordering::SeqCst) + 1;
         MAX_ACTIVE_RUNNERS.fetch_max(active, Ordering::SeqCst);
@@ -498,6 +531,7 @@ mod tests {
         prompt: &str,
         max_tokens: u32,
         _timeout_ms: u32,
+        _team_id: &str,
     ) -> Result<subagent::WorkerGeneration, AppError> {
         let subagent_id = prompt_value(prompt, "subagent_id=");
         let parent_workflow_id = prompt_value(prompt, "parent_workflow_id=");
@@ -524,11 +558,28 @@ mod tests {
         prompt: &str,
         max_tokens: u32,
         timeout_ms: u32,
+        team_id: &str,
     ) -> Result<subagent::WorkerGeneration, AppError> {
         if prompt.contains("role=verifier") {
             return Err(AppError::runtime("injected worker failure"));
         }
-        fake_runner(prompt, max_tokens, timeout_ms)
+        fake_runner(prompt, max_tokens, timeout_ms, team_id)
+    }
+
+    fn cancelling_runner(
+        _prompt: &str,
+        _max_tokens: u32,
+        _timeout_ms: u32,
+        team_id: &str,
+    ) -> Result<subagent::WorkerGeneration, AppError> {
+        if !CANCEL_STARTED.swap(true, Ordering::SeqCst) {
+            team_state::cancel_report(team_id)?;
+        }
+        if team_state::cancellation_requested(team_id)? {
+            CANCEL_OBSERVERS.fetch_add(1, Ordering::SeqCst);
+            return Err(AppError::blocked("backend chat 취소됨"));
+        }
+        Err(AppError::runtime("team cancellation marker 누락"))
     }
 
     fn prompt_value<'a>(prompt: &'a str, marker: &str) -> &'a str {
@@ -654,5 +705,26 @@ mod tests {
         assert!(error.message.contains("injected worker failure"));
         assert_eq!(team.stage, team_state::TeamStage::Failed);
         assert_eq!(completed_workers, 1);
+    }
+
+    #[test]
+    fn durable_cancellation_marker_reaches_every_sequential_worker() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        initialize_team();
+        CANCEL_STARTED.store(false, Ordering::SeqCst);
+        CANCEL_OBSERVERS.store(0, Ordering::SeqCst);
+
+        let error = execute_with("team-execution", fake_preflight, cancelling_runner).unwrap_err();
+        let team = team_state::load_state("team-execution").unwrap();
+        let cancelled_workers = ledger::read_runtime_events()
+            .unwrap()
+            .into_iter()
+            .filter(|event| event.event_type == "team.subagent.cancelled")
+            .count();
+
+        assert!(error.message.contains("team execute cancelled"));
+        assert_eq!(team.stage, team_state::TeamStage::Cancelled);
+        assert_eq!(CANCEL_OBSERVERS.load(Ordering::SeqCst), 2);
+        assert_eq!(cancelled_workers, 2);
     }
 }

@@ -10,6 +10,7 @@ const MAX_TEAM_ID_BYTES: usize = 64;
 const MAX_MEMBER_ID_BYTES: usize = 64;
 const MAX_MANIFEST_BYTES: u64 = 65_536;
 const MAX_STATE_BYTES: u64 = 65_536;
+const MAX_CANCEL_MARKER_BYTES: u64 = 4_096;
 const MAX_STATE_REVISIONS: u64 = 64;
 const MAX_TEAM_RECORDS: usize = 256;
 
@@ -53,6 +54,13 @@ const STATE_KEYS: &[&str] = &[
     "member_count",
     "created_at_ms",
     "updated_at_ms",
+];
+const CANCEL_MARKER_KEYS: &[&str] = &[
+    "schema_version",
+    "team_id",
+    "manifest_hash",
+    "parent_workflow_id",
+    "requested_at_ms",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -485,6 +493,60 @@ pub fn advance_state(
     Ok(installed)
 }
 
+pub fn cancel_report(team_id: &str) -> Result<String, AppError> {
+    let identity = ledger::validated_current_identity()?;
+    let current = load_state(team_id)?;
+    if current.project_id != identity.project_id || current.session_id != identity.session_id {
+        return Err(AppError::blocked("team cancel owner binding 불일치"));
+    }
+    if current.stage == TeamStage::Cancelled {
+        return Ok(format!(
+            "team cancel\n- status: already-cancelled\n- team id: {}\n- stage: {}",
+            current.team_id,
+            current.stage.as_str()
+        ));
+    }
+    if current.stage.is_terminal() {
+        return Err(AppError::blocked(format!(
+            "team cancel terminal state 차단\n- team id: {}\n- stage: {}",
+            current.team_id,
+            current.stage.as_str()
+        )));
+    }
+    install_cancel_marker(&current)?;
+    let cancelled = advance_state(team_id, TeamStage::Cancelled, None, None)?;
+    Ok(format!(
+        "team cancel\n- status: cancellation-requested\n- team id: {}\n- stage: {}\n- marker: {}\n- boundary: every active or subsequently admitted team worker observes the same durable marker; no worker result is merged.",
+        cancelled.team_id,
+        cancelled.stage.as_str(),
+        paths::project_team_cancel_file(team_id).display(),
+    ))
+}
+
+pub fn cancellation_requested(team_id: &str) -> Result<bool, AppError> {
+    validate_id(team_id, "team id", MAX_TEAM_ID_BYTES)?;
+    let path = paths::project_team_cancel_file(team_id);
+    if !path.exists() {
+        return Ok(false);
+    }
+    let body = state::read_regular_file_bounded(
+        &path,
+        MAX_CANCEL_MARKER_BYTES,
+        "team cancellation marker",
+    )?;
+    let (marker_team_id, manifest_hash, parent_workflow_id) = parse_cancel_marker(&body)?;
+    let current = load_state(team_id)?;
+    if marker_team_id != current.team_id
+        || manifest_hash != current.manifest_hash
+        || parent_workflow_id != current.parent_workflow_id
+    {
+        return Err(AppError::blocked(
+            "team cancellation marker immutable binding 불일치",
+        ));
+    }
+    Ok(true)
+}
+
 pub fn latest_for_parent(parent_workflow_id: &str) -> Result<Option<TeamStateV1>, AppError> {
     let identity = ledger::validated_current_identity()?;
     let dir = paths::project_teams_dir();
@@ -635,6 +697,83 @@ fn ownership_paths_overlap(left: &str, right: &str) -> bool {
         || right
             .strip_prefix(left)
             .is_some_and(|suffix| suffix.starts_with('/'))
+}
+
+fn install_cancel_marker(record: &TeamStateV1) -> Result<(), AppError> {
+    let path = paths::project_team_cancel_file(&record.team_id);
+    if path.exists() {
+        let body = state::read_regular_file_bounded(
+            &path,
+            MAX_CANCEL_MARKER_BYTES,
+            "team cancellation marker",
+        )?;
+        let (team_id, manifest_hash, parent_workflow_id) = parse_cancel_marker(&body)?;
+        if team_id == record.team_id
+            && manifest_hash == record.manifest_hash
+            && parent_workflow_id == record.parent_workflow_id
+        {
+            return Ok(());
+        }
+        return Err(AppError::blocked(
+            "기존 team cancellation marker binding 불일치",
+        ));
+    }
+    let body = format!(
+        "{{\"schema_version\":1,\"team_id\":\"{}\",\"manifest_hash\":\"{}\",\"parent_workflow_id\":\"{}\",\"requested_at_ms\":{}}}",
+        ledger::json_string(&record.team_id),
+        ledger::json_string(&record.manifest_hash),
+        ledger::json_string(&record.parent_workflow_id),
+        now_ms()?,
+    );
+    state::atomic_replace_bytes(&path, body.as_bytes())?;
+    let installed = state::read_regular_file_bounded(
+        &path,
+        MAX_CANCEL_MARKER_BYTES,
+        "team cancellation marker",
+    )?;
+    if installed != body {
+        return Err(AppError::blocked(
+            "team cancellation marker install 검증 실패",
+        ));
+    }
+    Ok(())
+}
+
+fn parse_cancel_marker(body: &str) -> Result<(String, String, String), AppError> {
+    let value = strict_json::parse_value(body, "team cancellation marker")?;
+    if strict_json::render_compact(&value) != body {
+        return Err(AppError::blocked(
+            "team cancellation marker canonical JSON 불일치",
+        ));
+    }
+    let strict_json::Value::Object(object) = value else {
+        return Err(AppError::blocked("team cancellation marker root type 오류"));
+    };
+    require_keys(&object, CANCEL_MARKER_KEYS, "team cancellation marker")?;
+    if strict_json::number(&object, "schema_version", "team cancellation marker")?
+        != TEAM_SCHEMA_VERSION
+    {
+        return Err(AppError::blocked(
+            "team cancellation marker schema version 불일치",
+        ));
+    }
+    let team_id = strict_json::string(&object, "team_id", "team cancellation marker")?;
+    validate_id(&team_id, "team id", MAX_TEAM_ID_BYTES)?;
+    let manifest_hash = strict_json::string(&object, "manifest_hash", "team cancellation marker")?;
+    if manifest_hash.len() != 64 || !manifest_hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(AppError::blocked(
+            "team cancellation marker manifest hash 형식 오류",
+        ));
+    }
+    let parent_workflow_id =
+        strict_json::string(&object, "parent_workflow_id", "team cancellation marker")?;
+    if !parent_workflow_id.starts_with("workflow-") {
+        return Err(AppError::blocked(
+            "team cancellation marker parent workflow 형식 오류",
+        ));
+    }
+    strict_json::number(&object, "requested_at_ms", "team cancellation marker")?;
+    Ok((team_id, manifest_hash, parent_workflow_id))
 }
 
 fn install_manifest(manifest: &TeamManifestV1) -> Result<(), AppError> {
@@ -1119,6 +1258,36 @@ mod tests {
         assert_eq!(executing.admitted_lanes, 2);
         assert_eq!(executing.execution_mode, "parallel");
         assert_eq!(load_state("team-fixture").unwrap(), executing);
+    }
+
+    #[test]
+    fn cancellation_marker_is_durable_idempotent_and_hash_bound() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_parent();
+        let body = manifest(&parent, false);
+        fs::write(paths::project_root().join("team.json"), body).unwrap();
+        plan_report("team.json").unwrap();
+
+        let report = cancel_report("team-fixture").unwrap();
+        let retry = cancel_report("team-fixture").unwrap();
+        let cancelled = load_state("team-fixture").unwrap();
+
+        assert!(report.contains("status: cancellation-requested"));
+        assert!(retry.contains("status: already-cancelled"));
+        assert_eq!(cancelled.stage, TeamStage::Cancelled);
+        assert!(cancellation_requested("team-fixture").unwrap());
+
+        let marker_path = paths::project_team_cancel_file("team-fixture");
+        let marker = fs::read_to_string(&marker_path).unwrap();
+        fs::write(
+            &marker_path,
+            marker.replace(&cancelled.manifest_hash, &"0".repeat(64)),
+        )
+        .unwrap();
+        assert!(cancellation_requested("team-fixture")
+            .unwrap_err()
+            .message
+            .contains("immutable binding"));
     }
 
     #[test]

@@ -68,6 +68,16 @@ Write ownership은 lane 사이의 동일 path뿐 아니라 ancestor/descendant o
 worker failure가 발생하면 이미 admitted된 lane 결과를 모두 회수한 뒤 partial result를
 parent에 merge하지 않고 durable team state를 `failed`로 전환합니다.
 
+```text
+rpotato team cancel --team fix-regression-team
+```
+
+`team cancel`은 team manifest hash와 parent workflow에 binding된 canonical durable
+marker를 먼저 설치한 뒤 state를 `cancelled`로 전진시킵니다. 모든 active backend stream과
+이후 순차 진입하는 member가 같은 marker를 검사하므로 하나의 backend generation owner에
+의존하지 않고 취소가 전파됩니다. 명령 재시도는 idempotent하고 malformed 또는 rebound
+marker는 fail-closed로 차단합니다. 취소된 worker result는 폐기되며 merge되지 않습니다.
+
 성공한 worker result와 evidence는 immutable subagent artifact로 저장되고 durable team
 state는 `team-dispatch`를 거쳐 `team-exec`로 전진합니다. Worker가 parent에 evidence를
 개별 merge하지는 않습니다. 후속 reconciliation stage가 전체 team result set을 검증하고
