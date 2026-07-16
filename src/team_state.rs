@@ -577,10 +577,14 @@ pub fn latest_for_parent(parent_workflow_id: &str) -> Result<Option<TeamStateV1>
         let Some(name) = entry.file_name().to_str().map(str::to_string) else {
             continue;
         };
-        if !name.ends_with(".json") || name.ends_with(".manifest.json") {
+        if !name.ends_with(".json") {
             continue;
         }
-        team_ids.push(name.trim_end_matches(".json").to_string());
+        let team_id = name.trim_end_matches(".json");
+        if validate_id(team_id, "team id", MAX_TEAM_ID_BYTES).is_err() {
+            continue;
+        }
+        team_ids.push(team_id.to_string());
         if team_ids.len() > MAX_TEAM_RECORDS {
             return Err(AppError::blocked("team state record 수 상한 초과"));
         }
