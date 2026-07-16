@@ -12,6 +12,9 @@ use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, RuntimeIdentity};
 use crate::observability::SessionHistoryEntry;
 use crate::observability::{self, StoreStatus};
+use crate::runtime_core::workflow::application::recovery::{
+    self as workflow_recovery, PendingWorkflowTransaction, RecoveryArtifact, WorkflowRecoveryPort,
+};
 use crate::runtime_core::workflow::domain::snapshot::{
     self as snapshot_domain, CurrentStateLeaseView, CurrentStateSnapshot, CurrentWorkflowBinding,
     TuiStateSnapshot,
@@ -3714,107 +3717,111 @@ fn remove_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
 }
 
 fn recover_workflow_transaction(workflow_id: &str) -> Result<(), AppError> {
-    let transaction_path = paths::project_workflow_transaction_file(workflow_id);
-    if !transaction_path.exists() {
-        return Ok(());
+    workflow_recovery::recover_workflow_transaction(&StateWorkflowRecoveryPort, workflow_id)
+}
+
+struct StateWorkflowRecoveryPort;
+
+impl WorkflowRecoveryPort for StateWorkflowRecoveryPort {
+    fn load_transaction(
+        &self,
+        workflow_id: &str,
+    ) -> Result<Option<PendingWorkflowTransaction>, AppError> {
+        let path = paths::project_workflow_transaction_file(workflow_id);
+        if !path.exists() {
+            return Ok(None);
+        }
+        let body = read_regular_file_bounded(
+            &path,
+            MAX_WORKFLOW_SNAPSHOT_BYTES,
+            "workflow recovery transaction",
+        )?;
+        let schema_version = workflow_snapshot_schema(&path, &body)?;
+        let record = parse_workflow_snapshot(&path, &body)?;
+        Ok(Some(PendingWorkflowTransaction {
+            schema_version,
+            record,
+            body,
+        }))
     }
-    let body = read_regular_file_bounded(
-        &transaction_path,
-        MAX_WORKFLOW_SNAPSHOT_BYTES,
-        "workflow recovery transaction",
-    )?;
-    let transaction_schema = workflow_snapshot_schema(&transaction_path, &body)?;
-    let record = parse_workflow_snapshot(&transaction_path, &body)?;
-    if record.workflow_id != workflow_id {
-        return Err(corrupt_workflow(&transaction_path));
-    }
-    let pointer_path = paths::project_workflow_file(workflow_id);
-    if pointer_path.exists() {
-        let pointer = read_regular_file_bounded(
-            &pointer_path,
+
+    fn load_pointer(&self, workflow_id: &str) -> Result<Option<WorkflowPointer>, AppError> {
+        let path = paths::project_workflow_file(workflow_id);
+        if !path.exists() {
+            return Ok(None);
+        }
+        let body = read_regular_file_bounded(
+            &path,
             MAX_WORKFLOW_POINTER_BYTES,
             "workflow recovery pointer",
         )?;
-        let pointer = parse_workflow_pointer(&pointer_path, &pointer)?;
-        if pointer.workflow_id != workflow_id {
-            return Err(corrupt_workflow(&pointer_path));
-        }
-        if pointer.committed_revision == record.revision
-            && pointer.artifact_hash == record.artifact_hash
-        {
-            if pointer.schema_version != transaction_schema {
-                return Err(corrupt_workflow(&transaction_path));
-            }
-            validate_workflow_chain(
-                workflow_id,
-                pointer.committed_revision,
-                pointer.schema_version,
-            )?;
-            remove_workflow_transaction(workflow_id)?;
-            return Ok(());
-        }
-        let schema_transition_allowed = pointer.schema_version <= transaction_schema;
-        if pointer.committed_revision + 1 != record.revision
-            || record.previous_hash != pointer.artifact_hash
-            || !schema_transition_allowed
-        {
-            return Err(corrupt_workflow(&transaction_path));
-        }
-        let checkpoints = ledger::workflow_checkpoints(workflow_id)?;
-        if checkpoints.len() != pointer.committed_revision as usize
-            && checkpoints.len() != record.revision as usize
-        {
-            return Err(corrupt_workflow(&transaction_path));
-        }
-        let committed = validate_workflow_chain_with_checkpoints(
-            workflow_id,
-            pointer.committed_revision,
-            pointer.schema_version,
-            &checkpoints[..pointer.committed_revision as usize],
-        )?;
-        if committed.artifact_hash != pointer.artifact_hash
-            || committed.project_id != record.project_id
-            || committed.session_id != record.session_id
-            || committed.action_id != record.action_id
-        {
-            return Err(corrupt_workflow(&transaction_path));
-        }
-        if checkpoints.len() == record.revision as usize {
-            let pending = &checkpoints[record.revision as usize - 1];
-            if pending.revision != record.revision
-                || pending.artifact_hash != record.artifact_hash
-                || pending.previous_hash != record.previous_hash
-            {
-                return Err(corrupt_workflow(&transaction_path));
-            }
-        }
-    } else {
-        let checkpoints = ledger::workflow_checkpoints(workflow_id)?;
-        if record.revision != 1
-            || record.previous_hash != "none"
-            || checkpoints.len() > 1
-            || checkpoints.first().is_some_and(|checkpoint| {
-                checkpoint.revision != record.revision
-                    || checkpoint.artifact_hash != record.artifact_hash
-                    || checkpoint.previous_hash != record.previous_hash
-            })
-        {
-            return Err(corrupt_workflow(&transaction_path));
-        }
-        let identity = ledger::validated_current_identity()?;
-        if record.project_id != identity.project_id {
-            return Err(corrupt_workflow(&transaction_path));
-        }
+        parse_workflow_pointer(&path, &body).map(Some)
     }
 
-    if !ledger::workflow_checkpoint_exists(workflow_id, record.revision, &record.artifact_hash)? {
-        return Err(AppError::blocked(
-            "legacy workflow transaction recovery 차단\n- 이유: exact prepared semantic event가 없습니다.\n- 동작: transaction 증거를 보존했습니다.",
-        ));
+    fn checkpoints(&self, workflow_id: &str) -> Result<Vec<ledger::WorkflowCheckpoint>, AppError> {
+        ledger::workflow_checkpoints(workflow_id)
     }
-    write_workflow_snapshot_bytes(&record, body.as_bytes())?;
-    write_workflow_pointer_for_schema(&record, transaction_schema)?;
-    remove_workflow_transaction(workflow_id)
+
+    fn validate_chain(
+        &self,
+        workflow_id: &str,
+        committed_revision: u64,
+        expected_latest_schema: u64,
+    ) -> Result<WorkflowRecord, AppError> {
+        validate_workflow_chain(workflow_id, committed_revision, expected_latest_schema)
+    }
+
+    fn validate_chain_with_checkpoints(
+        &self,
+        workflow_id: &str,
+        committed_revision: u64,
+        expected_latest_schema: u64,
+        checkpoints: &[ledger::WorkflowCheckpoint],
+    ) -> Result<WorkflowRecord, AppError> {
+        validate_workflow_chain_with_checkpoints(
+            workflow_id,
+            committed_revision,
+            expected_latest_schema,
+            checkpoints,
+        )
+    }
+
+    fn current_identity(&self) -> Result<RuntimeIdentity, AppError> {
+        ledger::validated_current_identity()
+    }
+
+    fn checkpoint_exists(
+        &self,
+        workflow_id: &str,
+        revision: u64,
+        artifact_hash: &str,
+    ) -> Result<bool, AppError> {
+        ledger::workflow_checkpoint_exists(workflow_id, revision, artifact_hash)
+    }
+
+    fn install_snapshot(&self, record: &WorkflowRecord, body: &[u8]) -> Result<(), AppError> {
+        write_workflow_snapshot_bytes(record, body)
+    }
+
+    fn install_pointer(
+        &self,
+        record: &WorkflowRecord,
+        schema_version: u64,
+    ) -> Result<(), AppError> {
+        write_workflow_pointer_for_schema(record, schema_version)
+    }
+
+    fn remove_transaction(&self, workflow_id: &str) -> Result<(), AppError> {
+        remove_workflow_transaction(workflow_id)
+    }
+
+    fn corrupt(&self, workflow_id: &str, artifact: RecoveryArtifact) -> AppError {
+        let path = match artifact {
+            RecoveryArtifact::Transaction => paths::project_workflow_transaction_file(workflow_id),
+            RecoveryArtifact::Pointer => paths::project_workflow_file(workflow_id),
+        };
+        corrupt_workflow(&path)
+    }
 }
 
 #[cfg(test)]
