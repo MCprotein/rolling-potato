@@ -96,7 +96,7 @@ class H(BaseHTTPRequestHandler):
   def do_POST(self):
     n=int(self.headers.get('Content-Length','0')); request=json.loads(self.rfile.read(n))
     with open({calls:?}, 'a') as f: f.write('chat\n')
-    with open({response:?}) as f: content=f.read()
+    with open({response:?}, encoding='utf-8') as f: content=f.read()
     events=[{{"choices":[{{"delta":{{"content":content}},"finish_reason":"stop"}}]}},{{"choices":[],"usage":{{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}}}]
     body=(''.join('data: '+json.dumps(event)+'\n\n' for event in events)+'data: [DONE]\n\n').encode()
     self.send_response(200); self.send_header('Content-Type','text/event-stream'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
