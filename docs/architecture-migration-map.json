@@ -3211,8 +3211,13 @@
           "responsibility": "subagent lifecycle and dispatch",
           "target": "src/runtime_core/collaboration/subagent.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/subagent.rs",
+            "tests/collaboration/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3223,8 +3228,13 @@
           "responsibility": "subagent result validation and merge",
           "target": "src/runtime_core/collaboration/subagent_result.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent_result.rs",
+            "src/subagent_result.rs",
+            "tests/collaboration/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3277,8 +3287,12 @@
           "responsibility": "team plan and lifecycle",
           "target": "src/runtime_core/collaboration/team.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team.rs",
+            "src/team.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3289,8 +3303,13 @@
           "responsibility": "team lane execution",
           "target": "src/runtime_core/collaboration/team_execution.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_execution.rs",
+            "src/team_execution.rs",
+            "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3301,8 +3320,13 @@
           "responsibility": "team evidence reconciliation",
           "target": "src/runtime_core/collaboration/team_reconciliation.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_reconciliation.rs",
+            "src/team_reconciliation.rs",
+            "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3313,8 +3337,13 @@
           "responsibility": "persisted team state",
           "target": "src/runtime_core/collaboration/team_state.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_state.rs",
+            "src/team_state.rs",
+            "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3730,7 +3759,7 @@
       ]
     }
   ],
-  "current_release": "0.37.11",
+  "current_release": "0.37.12",
   "train_completion": false,
   "logical_proofs": [
     {

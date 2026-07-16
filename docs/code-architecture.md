@@ -93,6 +93,14 @@ and lifecycle policy, and plugin manifest/capability admission rules. The
 top-level hook, skill, and plugin facades retain only concrete ledger/state,
 workflow persistence, filesystem snapshot, and discovery integration until the
 v0.37.13 composition cleanup.
+The v0.37.12 collaboration boundary owns bounded subagent launch and result
+policy; team admission, continuation, stage, and execution decisions; canonical
+team manifest/state codecs; action ownership; and deterministic reconciliation
+rules and artifacts. Top-level subagent and team facades retain concrete
+backend, thread, lease, filesystem, recovery, ledger/projection, and workflow
+checkpoint integration until the v0.37.13 composition cleanup. The root
+`subagent_lifecycle` and `team_runtime` Cargo harnesses delegate to grouped
+integration bodies under `tests/collaboration`.
 
 ## Dependency direction
 

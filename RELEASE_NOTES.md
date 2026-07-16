@@ -1,5 +1,33 @@
 # Release Notes
 
+## Unreleased v0.37.12 - Collaboration Boundaries
+
+This patch moves side-effect-free subagent and team rules into private runtime
+owners without changing CLI behavior, durable bytes, recovery semantics,
+execution order, evidence merge, or stop gates.
+
+### Included
+
+- Moves subagent role/tool admission, bounded launch validation, canonical
+  result shape, and patch proposal policy into `runtime_core::collaboration`.
+- Moves team manifest/state DTOs and codecs, stage transitions, resource and
+  continuation decisions, execution bindings, and action ownership into their
+  collaboration owners.
+- Moves reconciliation binding, stage and ownership gates, unique evidence
+  validation, and deterministic reconciliation artifact rendering into the
+  reconciliation owner.
+- Groups the existing subagent and team CLI integration bodies under
+  `tests/collaboration` while preserving their root Cargo test harnesses.
+
+### Compatibility Boundary
+
+- Top-level collaboration facades retain backend calls, thread coordination,
+  leases, filesystem installation, snapshot recovery, ledger/projection
+  events, and workflow evidence checkpoints until v0.37.13 composition cleanup.
+- CLI output and exit codes, canonical manifests/state/results/artifacts,
+  worker recovery and cancellation behavior, dependencies, and synchronous
+  execution remain unchanged.
+
 ## Unreleased v0.37.11 - Extension Boundaries
 
 This patch moves side-effect-free extension rules into private runtime owners

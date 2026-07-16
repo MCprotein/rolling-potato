@@ -81,7 +81,7 @@ evidence.
 | v0.37.9 | Implemented | Patch boundary: deterministic intent/plans, canonical proposals, approval credentials, guarded apply/rollback, and bounded verification/recovery; release pending |
 | v0.37.10 | Implemented | Runtime and reporting boundaries: port-based workflow runner, typed surface-neutral reports, and Korean output invariants; release pending |
 | v0.37.11 | Implemented | Extension boundary: hook ordering/fail-closed decisions, skill manifest/state/policy, and plugin frontmatter/capability/default-deny ownership; release pending |
-| v0.37.12 | Planned | Collaboration boundary: subagent and team lifecycle, execution, persisted state, result validation, and reconciliation |
+| v0.37.12 | Implemented | Collaboration boundary: subagent launch/result policy, team admission and stage decisions, canonical persisted state, execution/action ownership, reconciliation artifacts, and grouped lifecycle integration contracts; release pending |
 | v0.37.13 | Planned | Surface and composition completion: CLI/TUI ownership, startup and dispatch wiring, uninstall orchestration, legacy facade removal, and zero-unmapped-slice gate |
 | v0.38.0 | Planned | Claude Code plugin execution adapter: map supported local capabilities onto the established native adapter contract, report unsupported semantics, and preserve the same default-deny permission boundary |
 | v0.39.0 | Planned | Integrated performance hardening: benchmark completed agent/subagent/team workflows, optimize CPU/RSS/context/token usage from measured evidence, and promote regressions into reproducible fixtures without unsupported model claims |
