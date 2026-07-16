@@ -13,7 +13,8 @@ use crate::ledger::{self, RuntimeIdentity};
 use crate::observability::SessionHistoryEntry;
 use crate::observability::{self, StoreStatus};
 use crate::runtime_core::workflow::domain::snapshot::{
-    CurrentStateLeaseView, CurrentStateSnapshot, CurrentWorkflowBinding, TuiStateSnapshot,
+    self as snapshot_domain, CurrentStateLeaseView, CurrentStateSnapshot, CurrentWorkflowBinding,
+    TuiStateSnapshot,
 };
 use crate::runtime_core::workflow::storage_compat::record::WorkflowPointer;
 pub use crate::runtime_core::workflow::storage_compat::record::WorkflowRecord;
@@ -2506,30 +2507,21 @@ fn session_resume_preflight_under_transition(
         .into_iter()
         .any(|event| event.project_id == identity.project_id && event.session_id == session_id);
     if !canonical_session {
-        return Err(AppError::blocked(format!(
-            "session resume 차단\n- session id: {}\n- 이유: canonical runtime ledger에서 현재 project의 session을 찾지 못했습니다.\n- 확인: `rpotato session list`",
-            session_id
-        )));
+        return snapshot_domain::validate_session_resume_target(session_id, false, false, None);
     }
-    if observability::session_entry(session_id)?.is_none() {
-        return Err(AppError::blocked(format!(
-            "session resume 차단\n- session id: {}\n- 이유: canonical ledger에는 존재하지만 SQLite projection 재생성 후 session을 찾지 못했습니다.\n- 확인: `rpotato state status`",
-            session_id
-        )));
+    let projected_session = observability::session_entry(session_id)?.is_some();
+    if !projected_session {
+        return snapshot_domain::validate_session_resume_target(session_id, true, false, None);
     }
-
     let active_workflow = discover_active_workflow()?
         .map(|workflow_id| load_workflow_under_transition(&workflow_id))
         .transpose()?;
-    if let Some(workflow) = active_workflow.as_ref() {
-        if workflow.session_id != session_id {
-            return Err(AppError::blocked(format!(
-                "session resume 차단\n- session id: {}\n- 이유: 다른 session이 소유한 non-terminal workflow가 있습니다.\n- active workflow: {}\n- owner session: {}\n- 동작: current-state를 변경하지 않았습니다.",
-                session_id, workflow.workflow_id, workflow.session_id
-            )));
-        }
-    }
-    Ok(active_workflow.map(|workflow| workflow.workflow_id))
+    snapshot_domain::validate_session_resume_target(
+        session_id,
+        canonical_session,
+        projected_session,
+        active_workflow.as_ref(),
+    )
 }
 
 pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
@@ -2821,20 +2813,15 @@ pub(crate) fn tui_state_snapshot_read_only(
             ));
         }
         let fresh = ledger::fresh_identity();
-        if snapshot.project_id != fresh.project_id || snapshot.project_root != fresh.project_root {
-            return Err(AppError::blocked(
-                "TUI current-state project binding 불일치",
-            ));
-        }
+        let identity = snapshot_domain::validated_tui_identity(&snapshot, &fresh)?;
         let ledger_tail =
             ledger::read_runtime_tail_read_only(max_ledger_events.max(1), 2 * 1024 * 1024)?;
         let current_ledger_binding_stale = snapshot.ledger_binding != ledger_tail.binding;
-        validate_read_only_ledger_ancestor(&snapshot.ledger_binding, &ledger_tail)?;
-        let identity = RuntimeIdentity {
-            project_id: snapshot.project_id.clone(),
-            session_id: snapshot.session_id.clone(),
-            project_root: snapshot.project_root.clone(),
-        };
+        snapshot_domain::validate_ledger_ancestor(
+            &snapshot.ledger_binding,
+            &ledger_tail.binding,
+            &ledger_tail.events,
+        )?;
         let active_workflow = snapshot
             .active_workflow
             .as_ref()
@@ -2853,45 +2840,6 @@ pub(crate) fn tui_state_snapshot_read_only(
     })
 }
 
-fn validate_read_only_ledger_ancestor(
-    current: &ledger::LedgerBinding,
-    tail: &ledger::ReadOnlyLedgerTail,
-) -> Result<(), AppError> {
-    if current == &tail.binding || current.event_count == 0 && current.event_hash == "root" {
-        return Ok(());
-    }
-    if current.event_count > tail.binding.event_count || current.event_id.is_none() {
-        return Err(AppError::blocked(
-            "TUI current-state ledger binding은 canonical head의 ancestor가 아닙니다.",
-        ));
-    }
-    let first_ordinal = tail
-        .binding
-        .event_count
-        .saturating_sub(tail.events.len() as u64)
-        .saturating_add(1);
-    let index = current
-        .event_count
-        .checked_sub(first_ordinal)
-        .and_then(|value| usize::try_from(value).ok())
-        .ok_or_else(|| {
-            AppError::blocked(
-                "TUI current-state ledger ancestor가 bounded canonical tail 밖에 있습니다.",
-            )
-        })?;
-    let event = tail.events.get(index).ok_or_else(|| {
-        AppError::blocked("TUI current-state ledger ancestor ordinal이 canonical tail과 다릅니다.")
-    })?;
-    if current.event_id.as_deref() != Some(event.event_id.as_str())
-        || event.event_hash.as_deref() != Some(current.event_hash.as_str())
-    {
-        return Err(AppError::blocked(
-            "TUI current-state ledger ancestor id/hash binding 불일치",
-        ));
-    }
-    Ok(())
-}
-
 fn load_workflow_read_only(
     binding: &CurrentWorkflowBinding,
     identity: &RuntimeIdentity,
@@ -2907,15 +2855,7 @@ fn load_workflow_read_only(
     let pointer_path = paths::project_workflow_file(&binding.workflow_id);
     let pointer_body = read_regular_file_bounded(&pointer_path, 64 * 1024, "TUI workflow pointer")?;
     let pointer = parse_workflow_pointer(&pointer_path, &pointer_body)?;
-    if pointer.workflow_id != binding.workflow_id
-        || pointer.committed_revision != binding.revision
-        || pointer.artifact_hash != binding.artifact_hash
-        || pointer.committed_revision == 0
-    {
-        return Err(AppError::blocked(
-            "TUI workflow pointer/current-state binding 불일치",
-        ));
-    }
+    snapshot_domain::validate_read_only_pointer(binding, &pointer)?;
     let snapshot_path =
         paths::project_workflow_snapshot_file(&binding.workflow_id, binding.revision);
     let snapshot_body =
@@ -2926,32 +2866,7 @@ fn load_workflow_read_only(
         ));
     }
     let workflow = parse_workflow_snapshot(&snapshot_path, &snapshot_body)?;
-    if workflow.workflow_id != binding.workflow_id
-        || workflow.revision != binding.revision
-        || workflow.artifact_hash != binding.artifact_hash
-        || workflow.project_id != identity.project_id
-        || workflow.session_id != identity.session_id
-    {
-        return Err(AppError::blocked(
-            "TUI workflow snapshot owner/hash binding 불일치",
-        ));
-    }
-    let revision = binding.revision.to_string();
-    let checkpoint = ledger_events.iter().rev().find(|event| {
-        event.event_type == "workflow.checkpoint"
-            && event.project_id == identity.project_id
-            && tui_detail_value(&event.details, "workflow_id") == Some(binding.workflow_id.as_str())
-            && tui_detail_value(&event.details, "revision") == Some(revision.as_str())
-            && tui_detail_value(&event.details, "artifact_hash")
-                == Some(binding.artifact_hash.as_str())
-            && tui_detail_value(&event.details, "previous_hash")
-                == Some(workflow.previous_hash.as_str())
-    });
-    if checkpoint.is_none() {
-        return Err(AppError::blocked(
-            "TUI workflow checkpoint가 bounded canonical ledger tail에 없습니다.",
-        ));
-    }
+    snapshot_domain::validate_read_only_workflow(binding, identity, &workflow, ledger_events)?;
     Ok(workflow)
 }
 
@@ -3108,23 +3023,14 @@ pub(crate) fn current_state_lease_view_under_transition() -> Result<CurrentState
     }
     let current_ledger = ledger::validated_ledger_binding()?;
     if snapshot.ledger_binding != current_ledger {
-        return Err(AppError::blocked(
-            "current-state lease 차단\n- code: selection.stale-ledger-binding\n- 동작: ledger와 current-state가 수렴하기 전 선택 권한을 만들지 않았습니다.",
-        ));
+        return snapshot_domain::validate_current_lease(&snapshot, &current_ledger, None);
     }
-    if let Some(binding) = snapshot.active_workflow.as_ref() {
-        let workflow = load_workflow_under_transition(&binding.workflow_id)?;
-        if binding.revision != workflow.revision || binding.artifact_hash != workflow.artifact_hash
-        {
-            return Err(AppError::blocked(
-                "current-state lease 차단\n- code: selection.stale-workflow-binding\n- 동작: workflow pointer와 current-state가 일치하지 않습니다.",
-            ));
-        }
-    }
-    Ok(CurrentStateLeaseView {
-        revision: snapshot.revision,
-        artifact_hash: snapshot.artifact_hash,
-    })
+    let active_workflow = snapshot
+        .active_workflow
+        .as_ref()
+        .map(|binding| load_workflow_under_transition(&binding.workflow_id))
+        .transpose()?;
+    snapshot_domain::validate_current_lease(&snapshot, &current_ledger, active_workflow.as_ref())
 }
 
 pub(crate) fn selection_observation_under_transition() -> Result<
@@ -3140,11 +3046,7 @@ pub(crate) fn selection_observation_under_transition() -> Result<
     let body = fs::read_to_string(paths::current_state_file())
         .map_err(|err| AppError::blocked(format!("selection current-state 읽기 실패: {err}")))?;
     let snapshot = parse_current_state(&body, "selection current-state")?;
-    if snapshot.project_id != identity.project_id || snapshot.session_id != identity.session_id {
-        return Err(AppError::blocked(
-            "selection current-state identity binding 불일치",
-        ));
-    }
+    snapshot_domain::validate_snapshot_identity(&snapshot, &identity)?;
     let active = snapshot
         .active_workflow
         .as_ref()
