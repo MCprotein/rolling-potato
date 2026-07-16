@@ -65,6 +65,13 @@ pub(crate) struct InstalledPayload {
     pub(crate) binary_sha256: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BackendInstallRecord {
+    pub(crate) release_tag: String,
+    pub(crate) archive_sha256: String,
+    pub(crate) binary_sha256: String,
+}
+
 impl BackendArchiveKind {
     pub(crate) fn as_str(self) -> &'static str {
         match self {
@@ -431,6 +438,80 @@ pub(crate) fn prepare_install(
 
 pub(crate) fn cleanup_staging(staging_dir: &Path) -> Result<(), AppError> {
     remove_dir_if_exists(staging_dir)
+}
+
+pub(crate) fn write_install_record(
+    artifact: &BackendReleaseArtifact,
+    binary_sha256: &str,
+) -> Result<(), AppError> {
+    let path = install_record_path();
+    let parent = path.parent().ok_or_else(|| {
+        AppError::runtime(format!(
+            "backend install record parent path를 계산하지 못했습니다: {}",
+            path.display()
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(|err| {
+        AppError::runtime(format!(
+            "backend install record directory를 만들지 못했습니다: {} ({err})",
+            parent.display()
+        ))
+    })?;
+
+    let contents = format!(
+        "release_tag={}\narchive_sha256={}\nbinary_sha256={}\n",
+        LLAMA_CPP_RELEASE.release_tag, artifact.archive_sha256, binary_sha256
+    );
+    fs::write(&path, contents).map_err(|err| {
+        AppError::runtime(format!(
+            "backend install record를 쓰지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })
+}
+
+pub(crate) fn read_install_record() -> Result<BackendInstallRecord, AppError> {
+    let path = install_record_path();
+    let contents = fs::read_to_string(&path).map_err(|err| {
+        AppError::runtime(format!(
+            "backend install record를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    parse_install_record(&contents).ok_or_else(|| {
+        AppError::blocked(format!(
+            "backend install record 형식이 유효하지 않습니다: {}",
+            path.display()
+        ))
+    })
+}
+
+fn install_record_path() -> PathBuf {
+    paths::backends_dir()
+        .join("llama.cpp")
+        .join("install-record.txt")
+}
+
+fn parse_install_record(contents: &str) -> Option<BackendInstallRecord> {
+    let mut release_tag = None;
+    let mut archive_sha256 = None;
+    let mut binary_sha256 = None;
+
+    for line in contents.lines() {
+        let (key, value) = line.split_once('=')?;
+        match key {
+            "release_tag" => release_tag = Some(value.to_string()),
+            "archive_sha256" => archive_sha256 = Some(value.to_string()),
+            "binary_sha256" => binary_sha256 = Some(value.to_string()),
+            _ => {}
+        }
+    }
+
+    Some(BackendInstallRecord {
+        release_tag: release_tag?,
+        archive_sha256: archive_sha256?,
+        binary_sha256: binary_sha256?,
+    })
 }
 
 fn extract_archive(

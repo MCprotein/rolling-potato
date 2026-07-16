@@ -74,13 +74,6 @@ struct BackendInstallResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct BackendInstallRecord {
-    release_tag: String,
-    archive_sha256: String,
-    binary_sha256: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 struct BackendVersionProbe {
     status: &'static str,
     command: String,
@@ -1411,7 +1404,7 @@ fn install_backend_from_archive(
 ) -> Result<BackendInstallResult, AppError> {
     let payload =
         llama_install::prepare_install(artifact, archive_path, managed_binary, staging_dir)?;
-    write_backend_install_record(artifact, &payload.binary_sha256)?;
+    llama_install::write_install_record(artifact, &payload.binary_sha256)?;
     llama_install::cleanup_staging(staging_dir)?;
 
     let event_id = state::record_event(
@@ -1962,12 +1955,6 @@ fn remove_generation_lock_if_owned_checked(generation_id: &str) -> Result<(), Ap
     Ok(())
 }
 
-fn backend_install_record_path() -> PathBuf {
-    paths::backends_dir()
-        .join("llama.cpp")
-        .join("install-record.txt")
-}
-
 fn backend_sidecar_record_path() -> PathBuf {
     paths::state_dir().join("backend-llama.cpp-sidecar.txt")
 }
@@ -2392,74 +2379,6 @@ fn parse_backend_sidecar_record(contents: &str) -> Option<BackendSidecarRecord> 
     })
 }
 
-fn write_backend_install_record(
-    artifact: &BackendReleaseArtifact,
-    binary_sha256: &str,
-) -> Result<(), AppError> {
-    let path = backend_install_record_path();
-    let parent = path.parent().ok_or_else(|| {
-        AppError::runtime(format!(
-            "backend install record parent path를 계산하지 못했습니다: {}",
-            path.display()
-        ))
-    })?;
-    fs::create_dir_all(parent).map_err(|err| {
-        AppError::runtime(format!(
-            "backend install record directory를 만들지 못했습니다: {} ({err})",
-            parent.display()
-        ))
-    })?;
-
-    let contents = format!(
-        "release_tag={}\narchive_sha256={}\nbinary_sha256={}\n",
-        LLAMA_CPP_RELEASE.release_tag, artifact.archive_sha256, binary_sha256
-    );
-    fs::write(&path, contents).map_err(|err| {
-        AppError::runtime(format!(
-            "backend install record를 쓰지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })
-}
-
-fn read_backend_install_record() -> Result<BackendInstallRecord, AppError> {
-    let path = backend_install_record_path();
-    let contents = fs::read_to_string(&path).map_err(|err| {
-        AppError::runtime(format!(
-            "backend install record를 읽지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    parse_backend_install_record(&contents).ok_or_else(|| {
-        AppError::blocked(format!(
-            "backend install record 형식이 유효하지 않습니다: {}",
-            path.display()
-        ))
-    })
-}
-
-fn parse_backend_install_record(contents: &str) -> Option<BackendInstallRecord> {
-    let mut release_tag = None;
-    let mut archive_sha256 = None;
-    let mut binary_sha256 = None;
-
-    for line in contents.lines() {
-        let (key, value) = line.split_once('=')?;
-        match key {
-            "release_tag" => release_tag = Some(value.to_string()),
-            "archive_sha256" => archive_sha256 = Some(value.to_string()),
-            "binary_sha256" => binary_sha256 = Some(value.to_string()),
-            _ => {}
-        }
-    }
-
-    Some(BackendInstallRecord {
-        release_tag: release_tag?,
-        archive_sha256: archive_sha256?,
-        binary_sha256: binary_sha256?,
-    })
-}
-
 fn probe_backend_version(discovery: &BackendDiscovery) -> BackendVersionProbe {
     let command = format!("{} --version", discovery.selected_path.display());
 
@@ -2502,7 +2421,7 @@ fn probe_backend_version(discovery: &BackendDiscovery) -> BackendVersionProbe {
             error: Some("현재 platform artifact manifest가 없습니다.".to_string()),
         };
     };
-    let record = match read_backend_install_record() {
+    let record = match llama_install::read_install_record() {
         Ok(record) => record,
         Err(err) => {
             return BackendVersionProbe {
@@ -3054,7 +2973,7 @@ mod tests {
         .unwrap();
         llama_install::set_executable_bit(&managed_binary).unwrap();
         let binary_sha256 = checksum::sha256_file(&managed_binary).unwrap();
-        write_backend_install_record(artifact, &binary_sha256).unwrap();
+        llama_install::write_install_record(artifact, &binary_sha256).unwrap();
 
         let report = doctor_report();
 
