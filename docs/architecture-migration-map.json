@@ -1,0 +1,3783 @@
+{
+  "schema_version": 1,
+  "train": "0.37.x",
+  "baseline": "13da0f65ed699de61bda369ff544b341352d224a",
+  "governed": {
+    "recursive": [
+      {
+        "root": "src",
+        "extensions": [
+          "rs"
+        ]
+      },
+      {
+        "root": "tests",
+        "extensions": [
+          "rs"
+        ]
+      },
+      {
+        "root": ".github/workflows",
+        "extensions": [
+          "yml",
+          "yaml"
+        ]
+      },
+      {
+        "root": "scripts/release",
+        "extensions": []
+      },
+      {
+        "root": "docs",
+        "extensions": [
+          "md",
+          "json"
+        ]
+      }
+    ],
+    "root_files": [
+      "AGENTS.md",
+      "DESIGN.md",
+      "GOVERNANCE.md",
+      "HANDOFF.md",
+      "MAINTAINERS.md",
+      "PLAN.md",
+      "PRIVACY.md",
+      "README.ko.md",
+      "README.md",
+      "RELEASE_NOTES.md",
+      "ROADMAP.md",
+      "SECURITY.md"
+    ]
+  },
+  "dependency_contract": {
+    "roots": [
+      "composition",
+      "surfaces",
+      "runtime_core",
+      "adapters",
+      "foundation"
+    ],
+    "allowed_edges": [
+      {
+        "from": "composition",
+        "to": "surfaces"
+      },
+      {
+        "from": "composition",
+        "to": "runtime_core"
+      },
+      {
+        "from": "composition",
+        "to": "adapters"
+      },
+      {
+        "from": "composition",
+        "to": "foundation"
+      },
+      {
+        "from": "surfaces",
+        "to": "runtime_core"
+      },
+      {
+        "from": "surfaces",
+        "to": "foundation"
+      },
+      {
+        "from": "runtime_core",
+        "to": "foundation"
+      },
+      {
+        "from": "adapters",
+        "to": "runtime_core"
+      },
+      {
+        "from": "adapters",
+        "to": "foundation"
+      }
+    ],
+    "exceptions": []
+  },
+  "files": [
+    {
+      "path": ".github/workflows/refactor-candidate.yml",
+      "slices": [
+        {
+          "responsibility": "exact-head read-only refactor candidate CI",
+          "target": ".github/workflows/refactor-candidate.yml",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/release-binaries.yml",
+      "slices": [
+        {
+          "responsibility": "release and platform workflow contract",
+          "target": ".github/workflows/release-binaries.yml",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/release-policy.yml",
+      "slices": [
+        {
+          "responsibility": "release and platform workflow contract",
+          "target": ".github/workflows/release-policy.yml",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/windows-native-targeted.yml",
+      "slices": [
+        {
+          "responsibility": "release and platform workflow contract",
+          "target": ".github/workflows/windows-native-targeted.yml",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "AGENTS.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "AGENTS.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "DESIGN.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "DESIGN.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "GOVERNANCE.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "GOVERNANCE.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "HANDOFF.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "HANDOFF.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "MAINTAINERS.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "MAINTAINERS.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "PLAN.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "PLAN.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "PRIVACY.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "PRIVACY.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "README.ko.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "README.ko.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "README.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "README.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "RELEASE_NOTES.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "RELEASE_NOTES.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "ROADMAP.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "ROADMAP.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "SECURITY.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "SECURITY.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/README.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/README.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/agent-retrospectives.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/agent-retrospectives.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/architecture-migration-map.json",
+      "slices": [
+        {
+          "responsibility": "machine-readable migration ownership ledger",
+          "target": "docs/architecture-migration-map.json",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/architecture.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/architecture.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/backend-adapters.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/backend-adapters.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/benchmarks.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/benchmarks.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/cli-output-style.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/cli-output-style.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/code-architecture.md",
+      "slices": [
+        {
+          "responsibility": "canonical bilingual code architecture contract",
+          "target": "docs/code-architecture.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/command-policy.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/command-policy.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/development.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/development.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/glossary.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/glossary.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/hooks.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/hooks.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/DESIGN.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/DESIGN.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/GOVERNANCE.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/GOVERNANCE.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/MAINTAINERS.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/MAINTAINERS.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/PLAN.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/PLAN.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/PRIVACY.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/PRIVACY.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/README.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/README.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/RELEASE_NOTES.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/RELEASE_NOTES.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/ROADMAP.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/ROADMAP.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/SECURITY.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/SECURITY.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/architecture.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/architecture.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/backend-adapters.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/backend-adapters.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/benchmarks.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/benchmarks.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/cli-output-style.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/cli-output-style.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/code-architecture.md",
+      "slices": [
+        {
+          "responsibility": "canonical bilingual code architecture contract",
+          "target": "docs/ko/code-architecture.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/command-policy.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/command-policy.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/development.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/development.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/glossary.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/glossary.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/hooks.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/hooks.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/korean-output-guard.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/korean-output-guard.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/model-eval.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/model-eval.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/model-knowledge-base.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/model-knowledge-base.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/model-licenses.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/model-licenses.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/model-manifest.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/model-manifest.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/model-source-policy.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/model-source-policy.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/mvp.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/mvp.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/observability.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/observability.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/ontology-runtime.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/ontology-runtime.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/plugin-adapters.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/plugin-adapters.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/release-notes-template.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/release-notes-template.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/release-train.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/release-train.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/release.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/release.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/runtime-architecture.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/runtime-architecture.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/skills.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/skills.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/state-lifecycle.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/state-lifecycle.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/subagents.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/subagents.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/team-runtime.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/team-runtime.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/threat-model.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/threat-model.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/tui.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/tui.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/v0.29-correction-plan.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/v0.29-correction-plan.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/korean-output-guard.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/korean-output-guard.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/model-eval.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/model-eval.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/model-knowledge-base.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/model-knowledge-base.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/model-licenses.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/model-licenses.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/model-manifest.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/model-manifest.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/model-source-policy.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/model-source-policy.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/mvp.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/mvp.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/observability.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/observability.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ontology-runtime.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ontology-runtime.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/plugin-adapters.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/plugin-adapters.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/release-notes-template.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/release-notes-template.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/release-train.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/release-train.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/release.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/release.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/runtime-architecture.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/runtime-architecture.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/skills.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/skills.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/state-lifecycle.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/state-lifecycle.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/subagents.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/subagents.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/team-runtime.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/team-runtime.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/threat-model.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/threat-model.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/tui.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/tui.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/v0.29-correction-plan.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/v0.29-correction-plan.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/report-release-failure.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/report-release-failure.sh",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/test-release-workflow-contract.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/test-release-workflow-contract.sh",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/test-verify-release-assets.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/test-verify-release-assets.sh",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/verify-checksum-basenames.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/verify-checksum-basenames.sh",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/verify-durable-runtime-proofs.sh",
+      "slices": [
+        {
+          "responsibility": "stable logical durable runtime proof entrypoint",
+          "target": "scripts/release/verify-durable-runtime-proofs.sh",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/verify-release-assets.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/verify-release-assets.sh",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/verify-release-binary-smoke.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/verify-release-binary-smoke.sh",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/verify-release-policy.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/verify-release-policy.sh",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/verify-release-target-matrix.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/verify-release-target-matrix.sh",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/verify-toolchain-pins.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/verify-toolchain-pins.sh",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/verify-uninstall-smoke.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/verify-uninstall-smoke.sh",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/adapters/filesystem/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/adapters/llama_cpp/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/adapters/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/process/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/adapters/process/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/adapters/sqlite/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/adapters/terminal/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app.rs",
+      "slices": [
+        {
+          "responsibility": "top-level command dispatch",
+          "target": "src/composition/dispatch.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "application error boundary",
+          "target": "src/foundation/error.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/approval.rs",
+      "slices": [
+        {
+          "responsibility": "approval records and decisions",
+          "target": "src/runtime_core/policy/approval.rs",
+          "release": "0.37.8",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/backend.rs",
+      "slices": [
+        {
+          "responsibility": "inference backend use cases and contracts",
+          "target": "src/runtime_core/inference/backend.rs",
+          "release": "0.37.3",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "llama.cpp discovery installation and protocol",
+          "target": "src/adapters/llama_cpp/backend.rs",
+          "release": "0.37.3",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "backend process lifecycle",
+          "target": "src/adapters/process/backend.rs",
+          "release": "0.37.3",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/backend_stream.rs",
+      "slices": [
+        {
+          "responsibility": "stream lifecycle contract",
+          "target": "src/runtime_core/inference/stream.rs",
+          "release": "0.37.3",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "llama.cpp streaming transport",
+          "target": "src/adapters/llama_cpp/stream.rs",
+          "release": "0.37.3",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/benchmark.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark policy and reports",
+          "target": "src/runtime_core/inference/benchmark.rs",
+          "release": "0.37.3",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/cache.rs",
+      "slices": [
+        {
+          "responsibility": "managed cache storage",
+          "target": "src/adapters/filesystem/cache.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/checksum.rs",
+      "slices": [
+        {
+          "responsibility": "typed checksum primitives",
+          "target": "src/foundation/integrity.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/cli.rs",
+      "slices": [
+        {
+          "responsibility": "CLI argument parsing",
+          "target": "src/surfaces/cli/parser.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "CLI command DTOs",
+          "target": "src/surfaces/cli/command.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "CLI presentation",
+          "target": "src/surfaces/cli/render.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/composition/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/composition/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/startup.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/composition/startup.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/config.rs",
+      "slices": [
+        {
+          "responsibility": "effective application configuration",
+          "target": "src/composition/config.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "configuration file and environment loading",
+          "target": "src/adapters/filesystem/config.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/context.rs",
+      "slices": [
+        {
+          "responsibility": "bounded source context",
+          "target": "src/runtime_core/knowledge/context.rs",
+          "release": "0.37.8",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/evidence.rs",
+      "slices": [
+        {
+          "responsibility": "evidence validation and stop inputs",
+          "target": "src/runtime_core/knowledge/evidence.rs",
+          "release": "0.37.8",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/foundation/integrity.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/foundation/integrity.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/foundation/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/foundation/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/foundation/serialization.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/foundation/serialization.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/hooks.rs",
+      "slices": [
+        {
+          "responsibility": "hook lifecycle and ordering",
+          "target": "src/runtime_core/extensions/hook.rs",
+          "release": "0.37.11",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/intent.rs",
+      "slices": [
+        {
+          "responsibility": "intent classification and action planning",
+          "target": "src/runtime_core/patch/intent.rs",
+          "release": "0.37.9",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/korean_guard.rs",
+      "slices": [
+        {
+          "responsibility": "Korean output invariant",
+          "target": "src/runtime_core/reporting/korean_guard.rs",
+          "release": "0.37.10",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/lease.rs",
+      "slices": [
+        {
+          "responsibility": "filesystem lease implementation",
+          "target": "src/adapters/filesystem/lease.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/ledger.rs",
+      "slices": [
+        {
+          "responsibility": "canonical event append and hashing",
+          "target": "src/runtime_core/workflow/storage_compat/ledger.rs",
+          "release": "0.37.4",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "cross-store transaction coordination",
+          "target": "src/runtime_core/workflow/application/transaction_coordinator.rs",
+          "release": "0.37.6",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "ledger observability projection",
+          "target": "src/adapters/sqlite/ledger_projection.rs",
+          "release": "0.37.7",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/main.rs",
+      "slices": [
+        {
+          "responsibility": "private architecture root registration",
+          "target": "src/composition/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        },
+        {
+          "responsibility": "binary entrypoint",
+          "target": "src/main.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "application composition bootstrap",
+          "target": "src/composition/startup.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/model.rs",
+      "slices": [
+        {
+          "responsibility": "model manifest and lifecycle",
+          "target": "src/runtime_core/inference/model.rs",
+          "release": "0.37.3",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "model artifact persistence",
+          "target": "src/adapters/filesystem/model_artifact.rs",
+          "release": "0.37.3",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/monitor.rs",
+      "slices": [
+        {
+          "responsibility": "runtime monitoring queries",
+          "target": "src/runtime_core/observability/monitor.rs",
+          "release": "0.37.7",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/observability.rs",
+      "slices": [
+        {
+          "responsibility": "observability events and queries",
+          "target": "src/runtime_core/observability/facade.rs",
+          "release": "0.37.7",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "SQLite observability projection",
+          "target": "src/adapters/sqlite/observability_projection.rs",
+          "release": "0.37.7",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/ontology.rs",
+      "slices": [
+        {
+          "responsibility": "ontology graph and context projection",
+          "target": "src/runtime_core/knowledge/ontology.rs",
+          "release": "0.37.8",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/patch.rs",
+      "slices": [
+        {
+          "responsibility": "patch proposal and preview",
+          "target": "src/runtime_core/patch/proposal.rs",
+          "release": "0.37.9",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "patch approval credentials",
+          "target": "src/runtime_core/patch/approval.rs",
+          "release": "0.37.9",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "guarded patch apply and rollback",
+          "target": "src/runtime_core/patch/application.rs",
+          "release": "0.37.9",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "patch verification and recovery",
+          "target": "src/runtime_core/patch/verification.rs",
+          "release": "0.37.9",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/paths.rs",
+      "slices": [
+        {
+          "responsibility": "application data and project path layout",
+          "target": "src/adapters/filesystem/layout.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/plugin.rs",
+      "slices": [
+        {
+          "responsibility": "plugin import validation and capability facade",
+          "target": "src/runtime_core/extensions/plugin.rs",
+          "release": "0.37.11",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/policy.rs",
+      "slices": [
+        {
+          "responsibility": "tool and capability policy",
+          "target": "src/runtime_core/policy/decision.rs",
+          "release": "0.37.8",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/resource.rs",
+      "slices": [
+        {
+          "responsibility": "resource sampling and governance",
+          "target": "src/runtime_core/inference/resource.rs",
+          "release": "0.37.3",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/runtime.rs",
+      "slices": [
+        {
+          "responsibility": "workflow execution orchestration",
+          "target": "src/runtime_core/workflow/application/runner.rs",
+          "release": "0.37.10",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "surface-neutral runtime reports",
+          "target": "src/runtime_core/reporting/runtime_report.rs",
+          "release": "0.37.10",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "TUI runtime bridge",
+          "target": "src/surfaces/tui/runtime_bridge.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/runtime_core/collaboration/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/runtime_core/extensions/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/runtime_core/inference/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/runtime_core/knowledge/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/runtime_core/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/runtime_core/observability/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/runtime_core/patch/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/runtime_core/policy/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/runtime_core/reporting/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/runtime_core/workflow/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/skill.rs",
+      "slices": [
+        {
+          "responsibility": "skill manifest lifecycle and execution facade",
+          "target": "src/runtime_core/extensions/skill.rs",
+          "release": "0.37.11",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/state.rs",
+      "slices": [
+        {
+          "responsibility": "byte-compatible workflow storage DTO and codec",
+          "target": "src/runtime_core/workflow/storage_compat/record.rs",
+          "release": "0.37.4",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "validated workflow and session views",
+          "target": "src/runtime_core/workflow/domain/snapshot.rs",
+          "release": "0.37.5",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "workflow state recovery",
+          "target": "src/runtime_core/workflow/application/recovery.rs",
+          "release": "0.37.6",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/strict_json.rs",
+      "slices": [
+        {
+          "responsibility": "strict JSON parsing and canonical serialization",
+          "target": "src/foundation/serialization.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/subagent.rs",
+      "slices": [
+        {
+          "responsibility": "subagent lifecycle and dispatch",
+          "target": "src/runtime_core/collaboration/subagent.rs",
+          "release": "0.37.12",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/subagent_result.rs",
+      "slices": [
+        {
+          "responsibility": "subagent result validation and merge",
+          "target": "src/runtime_core/collaboration/subagent_result.rs",
+          "release": "0.37.12",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/surfaces/cli/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/surfaces/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/mod.rs",
+      "slices": [
+        {
+          "responsibility": "reserved architecture ownership",
+          "target": "src/surfaces/tui/mod.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/team.rs",
+      "slices": [
+        {
+          "responsibility": "team plan and lifecycle",
+          "target": "src/runtime_core/collaboration/team.rs",
+          "release": "0.37.12",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/team_execution.rs",
+      "slices": [
+        {
+          "responsibility": "team lane execution",
+          "target": "src/runtime_core/collaboration/team_execution.rs",
+          "release": "0.37.12",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/team_reconciliation.rs",
+      "slices": [
+        {
+          "responsibility": "team evidence reconciliation",
+          "target": "src/runtime_core/collaboration/team_reconciliation.rs",
+          "release": "0.37.12",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/team_state.rs",
+      "slices": [
+        {
+          "responsibility": "persisted team state",
+          "target": "src/runtime_core/collaboration/team_state.rs",
+          "release": "0.37.12",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/terminal.rs",
+      "slices": [
+        {
+          "responsibility": "terminal capability detection",
+          "target": "src/adapters/terminal/capability.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "native terminal IO",
+          "target": "src/adapters/terminal/native.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/test_support.rs",
+      "slices": [
+        {
+          "responsibility": "owner-local and cross-crate test fixtures",
+          "target": "tests/support/runtime_fixture.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/transcript.rs",
+      "slices": [
+        {
+          "responsibility": "canonical transcript records",
+          "target": "src/runtime_core/workflow/storage_compat/transcript.rs",
+          "release": "0.37.4",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "validated transcript session views",
+          "target": "src/runtime_core/workflow/domain/transcript.rs",
+          "release": "0.37.5",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "transcript projection",
+          "target": "src/adapters/sqlite/transcript_projection.rs",
+          "release": "0.37.7",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/transition.rs",
+      "slices": [
+        {
+          "responsibility": "legal workflow transitions",
+          "target": "src/runtime_core/workflow/domain/transition.rs",
+          "release": "0.37.6",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "projection-lag and recovery gates",
+          "target": "src/runtime_core/workflow/application/projection_barrier.rs",
+          "release": "0.37.7",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/tui.rs",
+      "slices": [
+        {
+          "responsibility": "TUI controller and input",
+          "target": "src/surfaces/tui/controller.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "TUI view models",
+          "target": "src/surfaces/tui/view_model.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "TUI rendering",
+          "target": "src/surfaces/tui/render.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/uninstall.rs",
+      "slices": [
+        {
+          "responsibility": "uninstall orchestration",
+          "target": "src/composition/uninstall.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "managed path deletion",
+          "target": "src/adapters/filesystem/uninstall.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "src/windows_file.rs",
+      "slices": [
+        {
+          "responsibility": "Windows atomic file replacement",
+          "target": "src/adapters/filesystem/windows_replace.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract.rs",
+      "slices": [
+        {
+          "responsibility": "architecture and migration contract",
+          "target": "tests/architecture_contract.rs",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/backend_lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "inference backend lifecycle contract",
+          "target": "tests/inference/backend_lifecycle.rs",
+          "release": "0.37.3",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "tests/interactive_tui.rs",
+      "slices": [
+        {
+          "responsibility": "terminal-backed TUI contract",
+          "target": "tests/platform/interactive_tui.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "TUI behavior contract",
+          "target": "tests/surfaces/interactive_tui.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "tests/native_terminal.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal adapter contract",
+          "target": "tests/platform/native_terminal.rs",
+          "release": "0.37.2",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "CLI terminal behavior contract",
+          "target": "tests/surfaces/native_terminal.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "tests/patch_loop.rs",
+      "slices": [
+        {
+          "responsibility": "workflow storage compatibility contract",
+          "target": "tests/workflow/storage_compat.rs",
+          "release": "0.37.4",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "workflow recovery and ordering contract",
+          "target": "tests/workflow/recovery.rs",
+          "release": "0.37.6",
+          "state": "planned",
+          "evidence": []
+        },
+        {
+          "responsibility": "patch lifecycle contract",
+          "target": "tests/patch/lifecycle.rs",
+          "release": "0.37.9",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "tests/subagent_lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "subagent lifecycle contract",
+          "target": "tests/collaboration/subagent_lifecycle.rs",
+          "release": "0.37.12",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "tests/support/fake_sidecar.rs",
+      "slices": [
+        {
+          "responsibility": "cross-crate integration fixture",
+          "target": "tests/support/platform/fake_sidecar.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "tests/support/native_terminal.rs",
+      "slices": [
+        {
+          "responsibility": "cross-crate integration fixture",
+          "target": "tests/support/platform/native_terminal.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "tests/support/native_terminal_probe.rs",
+      "slices": [
+        {
+          "responsibility": "cross-crate integration fixture",
+          "target": "tests/support/platform/native_terminal_probe.rs",
+          "release": "0.37.13",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "path": "tests/team_runtime.rs",
+      "slices": [
+        {
+          "responsibility": "team runtime contract",
+          "target": "tests/collaboration/team_runtime.rs",
+          "release": "0.37.12",
+          "state": "planned",
+          "evidence": []
+        }
+      ]
+    }
+  ],
+  "current_release": "0.37.1",
+  "train_completion": false,
+  "logical_proofs": [
+    {
+      "id": "architecture-contract",
+      "entrypoint": "cargo test --locked --test architecture_contract -- --test-threads=1"
+    },
+    {
+      "id": "durable-runtime-release-proofs",
+      "entrypoint": "scripts/release/verify-durable-runtime-proofs.sh"
+    }
+  ],
+  "responsibility_inventory": [
+    {
+      "path": ".github/workflows/refactor-candidate.yml",
+      "responsibilities": [
+        "exact-head read-only refactor candidate CI"
+      ]
+    },
+    {
+      "path": ".github/workflows/release-binaries.yml",
+      "responsibilities": [
+        "release and platform workflow contract"
+      ]
+    },
+    {
+      "path": ".github/workflows/release-policy.yml",
+      "responsibilities": [
+        "release and platform workflow contract"
+      ]
+    },
+    {
+      "path": ".github/workflows/windows-native-targeted.yml",
+      "responsibilities": [
+        "release and platform workflow contract"
+      ]
+    },
+    {
+      "path": "AGENTS.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "DESIGN.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "GOVERNANCE.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "HANDOFF.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "MAINTAINERS.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "PLAN.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "PRIVACY.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "README.ko.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "README.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "RELEASE_NOTES.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "ROADMAP.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "SECURITY.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/README.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/agent-retrospectives.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/architecture-migration-map.json",
+      "responsibilities": [
+        "machine-readable migration ownership ledger"
+      ]
+    },
+    {
+      "path": "docs/architecture.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/backend-adapters.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/benchmarks.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/cli-output-style.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/code-architecture.md",
+      "responsibilities": [
+        "canonical bilingual code architecture contract"
+      ]
+    },
+    {
+      "path": "docs/command-policy.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/development.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/glossary.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/hooks.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/DESIGN.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/GOVERNANCE.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/MAINTAINERS.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/PLAN.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/PRIVACY.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/README.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/RELEASE_NOTES.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/ROADMAP.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/SECURITY.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/architecture.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/backend-adapters.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/benchmarks.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/cli-output-style.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/code-architecture.md",
+      "responsibilities": [
+        "canonical bilingual code architecture contract"
+      ]
+    },
+    {
+      "path": "docs/ko/command-policy.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/development.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/glossary.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/hooks.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/korean-output-guard.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/model-eval.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/model-knowledge-base.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/model-licenses.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/model-manifest.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/model-source-policy.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/mvp.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/observability.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/ontology-runtime.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/plugin-adapters.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/release-notes-template.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/release-train.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/release.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/runtime-architecture.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/skills.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/state-lifecycle.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/subagents.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/team-runtime.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/threat-model.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/tui.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ko/v0.29-correction-plan.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/korean-output-guard.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/model-eval.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/model-knowledge-base.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/model-licenses.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/model-manifest.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/model-source-policy.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/mvp.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/observability.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/ontology-runtime.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/plugin-adapters.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/release-notes-template.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/release-train.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/release.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/runtime-architecture.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/skills.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/state-lifecycle.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/subagents.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/team-runtime.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/threat-model.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/tui.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/v0.29-correction-plan.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "scripts/release/report-release-failure.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/test-release-workflow-contract.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/test-verify-release-assets.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/verify-checksum-basenames.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/verify-durable-runtime-proofs.sh",
+      "responsibilities": [
+        "stable logical durable runtime proof entrypoint"
+      ]
+    },
+    {
+      "path": "scripts/release/verify-release-assets.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/verify-release-binary-smoke.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/verify-release-policy.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/verify-release-target-matrix.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/verify-toolchain-pins.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/verify-uninstall-smoke.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/adapters/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/adapters/process/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/app.rs",
+      "responsibilities": [
+        "top-level command dispatch",
+        "application error boundary"
+      ]
+    },
+    {
+      "path": "src/approval.rs",
+      "responsibilities": [
+        "approval records and decisions"
+      ]
+    },
+    {
+      "path": "src/backend.rs",
+      "responsibilities": [
+        "inference backend use cases and contracts",
+        "llama.cpp discovery installation and protocol",
+        "backend process lifecycle"
+      ]
+    },
+    {
+      "path": "src/backend_stream.rs",
+      "responsibilities": [
+        "stream lifecycle contract",
+        "llama.cpp streaming transport"
+      ]
+    },
+    {
+      "path": "src/benchmark.rs",
+      "responsibilities": [
+        "benchmark policy and reports"
+      ]
+    },
+    {
+      "path": "src/cache.rs",
+      "responsibilities": [
+        "managed cache storage"
+      ]
+    },
+    {
+      "path": "src/checksum.rs",
+      "responsibilities": [
+        "typed checksum primitives"
+      ]
+    },
+    {
+      "path": "src/cli.rs",
+      "responsibilities": [
+        "CLI argument parsing",
+        "CLI command DTOs",
+        "CLI presentation"
+      ]
+    },
+    {
+      "path": "src/composition/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/composition/startup.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/config.rs",
+      "responsibilities": [
+        "effective application configuration",
+        "configuration file and environment loading"
+      ]
+    },
+    {
+      "path": "src/context.rs",
+      "responsibilities": [
+        "bounded source context"
+      ]
+    },
+    {
+      "path": "src/evidence.rs",
+      "responsibilities": [
+        "evidence validation and stop inputs"
+      ]
+    },
+    {
+      "path": "src/foundation/integrity.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/foundation/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/foundation/serialization.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/hooks.rs",
+      "responsibilities": [
+        "hook lifecycle and ordering"
+      ]
+    },
+    {
+      "path": "src/intent.rs",
+      "responsibilities": [
+        "intent classification and action planning"
+      ]
+    },
+    {
+      "path": "src/korean_guard.rs",
+      "responsibilities": [
+        "Korean output invariant"
+      ]
+    },
+    {
+      "path": "src/lease.rs",
+      "responsibilities": [
+        "filesystem lease implementation"
+      ]
+    },
+    {
+      "path": "src/ledger.rs",
+      "responsibilities": [
+        "canonical event append and hashing",
+        "cross-store transaction coordination",
+        "ledger observability projection"
+      ]
+    },
+    {
+      "path": "src/main.rs",
+      "responsibilities": [
+        "private architecture root registration",
+        "binary entrypoint",
+        "application composition bootstrap"
+      ]
+    },
+    {
+      "path": "src/model.rs",
+      "responsibilities": [
+        "model manifest and lifecycle",
+        "model artifact persistence"
+      ]
+    },
+    {
+      "path": "src/monitor.rs",
+      "responsibilities": [
+        "runtime monitoring queries"
+      ]
+    },
+    {
+      "path": "src/observability.rs",
+      "responsibilities": [
+        "observability events and queries",
+        "SQLite observability projection"
+      ]
+    },
+    {
+      "path": "src/ontology.rs",
+      "responsibilities": [
+        "ontology graph and context projection"
+      ]
+    },
+    {
+      "path": "src/patch.rs",
+      "responsibilities": [
+        "patch proposal and preview",
+        "patch approval credentials",
+        "guarded patch apply and rollback",
+        "patch verification and recovery"
+      ]
+    },
+    {
+      "path": "src/paths.rs",
+      "responsibilities": [
+        "application data and project path layout"
+      ]
+    },
+    {
+      "path": "src/plugin.rs",
+      "responsibilities": [
+        "plugin import validation and capability facade"
+      ]
+    },
+    {
+      "path": "src/policy.rs",
+      "responsibilities": [
+        "tool and capability policy"
+      ]
+    },
+    {
+      "path": "src/resource.rs",
+      "responsibilities": [
+        "resource sampling and governance"
+      ]
+    },
+    {
+      "path": "src/runtime.rs",
+      "responsibilities": [
+        "workflow execution orchestration",
+        "surface-neutral runtime reports",
+        "TUI runtime bridge"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/skill.rs",
+      "responsibilities": [
+        "skill manifest lifecycle and execution facade"
+      ]
+    },
+    {
+      "path": "src/state.rs",
+      "responsibilities": [
+        "byte-compatible workflow storage DTO and codec",
+        "validated workflow and session views",
+        "workflow state recovery"
+      ]
+    },
+    {
+      "path": "src/strict_json.rs",
+      "responsibilities": [
+        "strict JSON parsing and canonical serialization"
+      ]
+    },
+    {
+      "path": "src/subagent.rs",
+      "responsibilities": [
+        "subagent lifecycle and dispatch"
+      ]
+    },
+    {
+      "path": "src/subagent_result.rs",
+      "responsibilities": [
+        "subagent result validation and merge"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/surfaces/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/mod.rs",
+      "responsibilities": [
+        "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/team.rs",
+      "responsibilities": [
+        "team plan and lifecycle"
+      ]
+    },
+    {
+      "path": "src/team_execution.rs",
+      "responsibilities": [
+        "team lane execution"
+      ]
+    },
+    {
+      "path": "src/team_reconciliation.rs",
+      "responsibilities": [
+        "team evidence reconciliation"
+      ]
+    },
+    {
+      "path": "src/team_state.rs",
+      "responsibilities": [
+        "persisted team state"
+      ]
+    },
+    {
+      "path": "src/terminal.rs",
+      "responsibilities": [
+        "terminal capability detection",
+        "native terminal IO"
+      ]
+    },
+    {
+      "path": "src/test_support.rs",
+      "responsibilities": [
+        "owner-local and cross-crate test fixtures"
+      ]
+    },
+    {
+      "path": "src/transcript.rs",
+      "responsibilities": [
+        "canonical transcript records",
+        "validated transcript session views",
+        "transcript projection"
+      ]
+    },
+    {
+      "path": "src/transition.rs",
+      "responsibilities": [
+        "legal workflow transitions",
+        "projection-lag and recovery gates"
+      ]
+    },
+    {
+      "path": "src/tui.rs",
+      "responsibilities": [
+        "TUI controller and input",
+        "TUI view models",
+        "TUI rendering"
+      ]
+    },
+    {
+      "path": "src/uninstall.rs",
+      "responsibilities": [
+        "uninstall orchestration",
+        "managed path deletion"
+      ]
+    },
+    {
+      "path": "src/windows_file.rs",
+      "responsibilities": [
+        "Windows atomic file replacement"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract.rs",
+      "responsibilities": [
+        "architecture and migration contract"
+      ]
+    },
+    {
+      "path": "tests/backend_lifecycle.rs",
+      "responsibilities": [
+        "inference backend lifecycle contract"
+      ]
+    },
+    {
+      "path": "tests/interactive_tui.rs",
+      "responsibilities": [
+        "terminal-backed TUI contract",
+        "TUI behavior contract"
+      ]
+    },
+    {
+      "path": "tests/native_terminal.rs",
+      "responsibilities": [
+        "native terminal adapter contract",
+        "CLI terminal behavior contract"
+      ]
+    },
+    {
+      "path": "tests/patch_loop.rs",
+      "responsibilities": [
+        "workflow storage compatibility contract",
+        "workflow recovery and ordering contract",
+        "patch lifecycle contract"
+      ]
+    },
+    {
+      "path": "tests/subagent_lifecycle.rs",
+      "responsibilities": [
+        "subagent lifecycle contract"
+      ]
+    },
+    {
+      "path": "tests/support/fake_sidecar.rs",
+      "responsibilities": [
+        "cross-crate integration fixture"
+      ]
+    },
+    {
+      "path": "tests/support/native_terminal.rs",
+      "responsibilities": [
+        "cross-crate integration fixture"
+      ]
+    },
+    {
+      "path": "tests/support/native_terminal_probe.rs",
+      "responsibilities": [
+        "cross-crate integration fixture"
+      ]
+    },
+    {
+      "path": "tests/team_runtime.rs",
+      "responsibilities": [
+        "team runtime contract"
+      ]
+    }
+  ]
+}

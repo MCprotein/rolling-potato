@@ -10,6 +10,7 @@ Korean translations and Korean originals are kept under [docs/ko/](ko/). The roo
 - [Roadmap](../ROADMAP.md)
 - [MVP acceptance criteria](mvp.md)
 - [Architecture](architecture.md)
+- [Code architecture](code-architecture.md)
 - [Runtime architecture](runtime-architecture.md)
 - [State lifecycle](state-lifecycle.md)
 - [Ontology runtime](ontology-runtime.md)

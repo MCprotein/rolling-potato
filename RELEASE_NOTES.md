@@ -1,5 +1,35 @@
 # Release Notes
 
+## Unreleased v0.37.1 - Architecture Foundation
+
+This patch begins the behavior-preserving code-architecture refactor required
+before v0.38.0. It defines ownership and enforcement without moving production
+logic.
+
+### Included
+
+- Canonical English/Korean code-architecture documents and one machine-readable
+  file-and-responsibility migration ledger for the full Rust, test, workflow,
+  release-script, and governed documentation scope.
+- Private compile-connected `composition`, `surfaces`, `runtime_core`,
+  `adapters`, and `foundation` roots containing documentation only.
+- A no-new-dependency architecture contract test for recursive ledger coverage,
+  exact targets, allowed states/releases, private skeletons, dependency edges,
+  bilingual links, and direct dependency stability.
+- A read-only `release-candidate` PR workflow that checks out and records the
+  exact PR head SHA before running the canonical full candidate gate once.
+- A stable durable-runtime proof entrypoint so release workflows no longer
+  depend directly on Rust module-qualified test paths.
+
+### Boundary
+
+- No production logic, public API, persisted schema, canonical bytes, recovery
+  order, CLI behavior, permission policy, backend behavior, or dependency changes
+  are included in v0.37.1.
+- Later v0.37.x patches migrate one coherent ownership/rollback boundary at a
+  time. v0.38.0 remains blocked until the migration ledger is fully complete and
+  compatibility facades reach zero.
+
 ## v0.37.0 - Safe Codex Skill Execution
 
 Release date: 2026-07-16

@@ -53,6 +53,11 @@ grep -F "      - test" "$workflow" >/dev/null \
   || fail "build job must depend on the release test gate"
 grep -F "run: cargo test --locked -- --test-threads=1" "$workflow" >/dev/null \
   || fail "release test gate must run the complete locked test suite"
+grep -F "run: scripts/release/verify-durable-runtime-proofs.sh" "$workflow" >/dev/null \
+  || fail "release workflow must invoke the stable durable runtime proof entrypoint"
+if grep -F "cargo test --locked --bin rpotato observability::tests::" "$workflow" >/dev/null; then
+  fail "release workflow must not depend on module-qualified durable proof names"
+fi
 grep -F "name: Test native Windows backend lifecycle" "$workflow" >/dev/null \
   || fail "native Windows backend lifecycle test step is missing"
 grep -F "if: matrix.target == 'x86_64-pc-windows-msvc'" "$workflow" >/dev/null \
@@ -101,7 +106,6 @@ grep -F '      - published-assets-verify' "$workflow" >/dev/null \
   || fail "release branch cleanup must depend on published asset verification"
 grep -F 'RPOTATO_DELETE_RELEASE_BRANCH: "0"' .github/workflows/release-policy.yml >/dev/null \
   || fail "release policy workflow must not delete the branch before asset verification"
-bash scripts/release/test-release-workflow-contract.sh
 
 fixture_dir="$(mktemp -d)"
 trap 'rm -rf "$fixture_dir"' EXIT

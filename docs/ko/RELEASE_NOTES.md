@@ -1,5 +1,31 @@
 # 릴리즈 노트
 
+## 미출시 v0.37.1 - 아키텍처 기반
+
+이 patch는 v0.38.0 전에 완료할 동작 보존 코드 아키텍처 리팩터링을 시작합니다.
+운영 로직을 옮기지 않고 소유권과 강제 계약을 먼저 정의합니다.
+
+### 포함한 것
+
+- 전체 Rust, test, workflow, release script, 관리 대상 문서 범위를 다루는 영문/한국어
+  코드 아키텍처 정본과 machine-readable file/responsibility migration ledger
+- 문서만 포함하고 private으로 compile graph에 연결된 `composition`, `surfaces`,
+  `runtime_core`, `adapters`, `foundation` root
+- 재귀 원장 coverage, exact target, state/release, private skeleton, dependency edge,
+  bilingual link, direct dependency 불변을 검사하는 새 dependency 없는 architecture contract test
+- 정확한 PR head SHA를 checkout하고 기록한 뒤 정본 full candidate gate를 한 번 실행하는
+  read-only `release-candidate` PR workflow
+- Release workflow가 Rust module-qualified test path를 직접 소유하지 않게 하는 stable
+  durable-runtime proof entrypoint
+
+### 경계
+
+- v0.37.1에는 운영 로직, 공개 API, persisted schema, canonical byte, recovery order,
+  CLI 동작, permission policy, backend 동작, dependency 변경이 없습니다.
+- 이후 v0.37.x patch는 하나의 응집된 ownership/rollback boundary씩 이동합니다.
+  Migration ledger가 모두 complete이고 compatibility facade가 0개가 되기 전에는
+  v0.38.0을 시작하지 않습니다.
+
 ## v0.37.0 - 안전한 Codex Skill 실행
 
 릴리즈 날짜: 2026-07-16

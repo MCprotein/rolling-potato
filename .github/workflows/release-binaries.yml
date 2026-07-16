@@ -54,37 +54,8 @@ jobs:
       - name: Test
         run: cargo test --locked -- --test-threads=1
 
-      - name: Verify v0.34.0 named release proofs
-        run: |
-          cargo test --locked --bin rpotato observability::tests::sqlite_replay_faults_are_atomic_and_concurrent_readers_see_complete_rows -- --exact --test-threads=1
-          cargo test --locked --bin rpotato patch::tests::projection_lag_crash_after_lag_removal_before_journal_cleanup_converges -- --exact --test-threads=1
-          cargo test --locked --bin rpotato patch::tests::projection_lag_journal_cleanup_state_matrix_is_closed -- --exact --test-threads=1
-          cargo test --locked --bin rpotato patch::tests::projection_lag_orphan_without_journal_blocks -- --exact --test-threads=1
-          cargo test --locked --bin rpotato patch::tests::projection_lag_reference_and_member_mutation_matrix_fails_closed -- --exact --test-threads=1
-          cargo test --locked --bin rpotato patch::tests::projection_lag_restart_validates_reference_member_installed_bytes_and_head -- --exact --test-threads=1
-          cargo test --locked --bin rpotato patch::tests::projection_success_receipt_requires_lag_and_journal_parent_fsyncs -- --exact --test-threads=1
-          cargo test --locked --bin rpotato patch::tests::t10_lag_install_failure_preserves_committed_journal -- --exact --test-threads=1
-          cargo test --locked --bin rpotato runtime::tests::denial_truth_table_outcome_mapping_is_total -- --exact --test-threads=1
-          cargo test --locked --bin rpotato runtime::tests::docs_recovery_outcome_oracles_are_bilingual_and_exact -- --exact --test-threads=1
-          cargo test --locked --bin rpotato runtime::tests::runtime_tui_outcome_oracle_all_families_exact_utf8 -- --exact --test-threads=1
-          cargo test --locked --bin rpotato runtime::tests::tui_outcome_public_dto_and_exact_fixtures_share_field_order -- --exact --test-threads=1
-          cargo test --locked --bin rpotato runtime::tests::tui_read_facade_all_views_are_canonical_bounded_fresh_and_non_mutating -- --exact --test-threads=1
-          cargo test --locked --bin rpotato lease::tests::concurrent_kernel_lease_has_exactly_one_winner -- --exact --test-threads=1
-          cargo test --locked --bin rpotato ledger::tests::event_sink_single_acquisition_concurrency_matrix -- --exact --test-threads=1
-          cargo test --locked --bin rpotato ledger::tests::event_sink_crash_recovery_never_nests_ledger_lease -- --exact --test-threads=1
-          cargo test --locked --bin rpotato patch::tests::tui_workflow_resume_revalidates_lease_and_persists_exact_intent_receipt -- --exact --test-threads=1
-          cargo test --locked --bin rpotato state::tests::bootstrap_creation_crash_matrix_is_idempotent -- --exact --test-threads=1
-          cargo test --locked --bin rpotato state::tests::session_new_crash_race_restart_is_single_commit -- --exact --test-threads=1
-          cargo test --locked --bin rpotato state::tests::session_resume_transaction_never_exposes_current_before_ledger -- --exact --test-threads=1
-          cargo test --locked --bin rpotato state::tests::low_level_writer_recovery_is_idempotent -- --exact --test-threads=1
-          cargo test --locked --bin rpotato state::tests::workflow_checkpoint_writer_crash_matrix -- --exact --test-threads=1
-          cargo test --locked --bin rpotato state::tests::workflow_recovery_replays_only_prepared_suffix -- --exact --test-threads=1
-          cargo test --locked --bin rpotato state::tests::active_workflow_pointer_recovery_is_single_and_idempotent -- --exact --test-threads=1
-          cargo test --locked --bin rpotato state::tests::terminal_pointer_cleanup_crash_race_restart_is_idempotent -- --exact --test-threads=1
-          cargo test --locked --bin rpotato state::tests::reconcile_writer_crash_matrix_preserves_evidence -- --exact --test-threads=1
-          cargo test --locked --bin rpotato state::tests::state_writer_callgraph_is_closed_and_serialized_by_project_transition -- --exact --test-threads=1
-          cargo test --locked --bin rpotato transition::tests::projection_lag_member_full_bytes_golden_is_independent -- --exact --test-threads=1
-          cargo test --locked --test interactive_tui interactive_tui_recovery_outcome_matrix_exact -- --exact --test-threads=1
+      - name: Verify durable runtime proof set
+        run: scripts/release/verify-durable-runtime-proofs.sh
 
       - name: Verify release target matrix
         run: scripts/release/verify-release-target-matrix.sh

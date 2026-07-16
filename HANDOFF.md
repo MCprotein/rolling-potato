@@ -123,9 +123,16 @@ The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
 sequence and non-skippable release gates are defined in
 `docs/release-train.md`. The immediate sequence is:
 
-1. `v0.38.0`: Claude Code local plugin execution conformance through the
+1. `v0.37.1`: establish the bilingual code-architecture contract, complete
+   migration ledger, private compile-connected skeleton, architecture tests,
+   and exact-head candidate CI without moving production logic.
+2. `v0.37.2` through `v0.37.13+`: migrate every ledger slice by coherent domain
+   and rollback boundary, preserving durable bytes, recovery order, policy,
+   CLI behavior, backend behavior, and release contracts. The train ends only
+   at complete ledger coverage with zero compatibility facades.
+3. `v0.38.0`: Claude Code local plugin execution conformance through the
    established native adapter and default-deny permission boundary.
-2. `v0.39.0` onward: integrated performance hardening followed by distribution
+4. `v0.39.0` onward: integrated performance hardening followed by distribution
    and optional local monitoring surfaces.
 
 Package-manager distribution and an optional local HTML monitoring report come
@@ -154,13 +161,14 @@ release artifact.
 1. `README.md` or `README.ko.md`
 2. `PLAN.md` or `docs/ko/PLAN.md`
 3. `ROADMAP.md` or `docs/ko/ROADMAP.md`
-4. `docs/runtime-architecture.md`
-5. `docs/mvp.md`
-6. `docs/ontology-runtime.md`
-7. `docs/observability.md`
-8. `docs/hooks.md`, `docs/skills.md`, `docs/subagents.md`,
+4. `docs/code-architecture.md` or `docs/ko/code-architecture.md`
+5. `docs/runtime-architecture.md`
+6. `docs/mvp.md`
+7. `docs/ontology-runtime.md`
+8. `docs/observability.md`
+9. `docs/hooks.md`, `docs/skills.md`, `docs/subagents.md`,
    `docs/team-runtime.md`, `docs/tui.md`, and `docs/plugin-adapters.md`
-9. `docs/model-source-policy.md`, `docs/model-manifest.md`,
+10. `docs/model-source-policy.md`, `docs/model-manifest.md`,
    `docs/model-eval.md`, and `docs/benchmarks.md`
 
 ## Standing Product Constraints
