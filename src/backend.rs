@@ -13,6 +13,10 @@ use crate::adapters::filesystem::layout as paths;
 use crate::adapters::llama_cpp::stream as backend_stream;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
+use crate::runtime_core::inference::backend::BackendAdapter;
+use crate::runtime_core::inference::backend::{
+    BackendChatRun, BackendChatSampling, MAX_CHAT_TIMEOUT_MS,
+};
 use crate::runtime_core::inference::{
     resource,
     stream::{StreamOutcome, StreamTermination},
@@ -31,7 +35,6 @@ const VERSION_TIMEOUT_MS: u64 = 5_000;
 const STARTUP_TIMEOUT_MS: u64 = 60_000;
 const STOP_TIMEOUT_MS: u64 = 5_000;
 const CHAT_TIMEOUT_MS: u64 = 30_000;
-pub const MAX_CHAT_TIMEOUT_MS: u32 = 300_000;
 const CANCEL_WAIT_MS: u64 = 2_000;
 const STOP_CANCEL_WAIT_MS: u64 = 5_000;
 const TERMINAL_RECORD_RETENTION_MS: u128 = 5 * 60 * 1_000;
@@ -54,16 +57,8 @@ static GENERATION_ADMISSION_STATE: Mutex<GenerationAdmissionState> =
     });
 static BACKEND_RESOURCE_SAMPLE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
-pub trait BackendAdapter {
-    fn id(&self) -> &'static str;
-    fn binary_name(&self) -> &'static str;
-    fn managed_binary_path(&self) -> PathBuf;
-    fn default_host(&self) -> &'static str;
-    fn default_port(&self) -> u16;
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct LlamaCppAdapter;
+pub(crate) struct LlamaCppAdapter;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct BackendDiscovery {
@@ -221,55 +216,6 @@ struct BackendChatCompletion {
     prompt_tokens: Option<u32>,
     completion_tokens: Option<u32>,
     total_tokens: Option<u32>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct BackendChatSampling {
-    pub temperature: f64,
-    pub top_p: f64,
-}
-
-impl BackendChatSampling {
-    fn ledger_label(&self) -> String {
-        format!("temperature-{}_top-p-{}", self.temperature, self.top_p)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct BackendChatRun {
-    pub backend_id: String,
-    pub backend_version: String,
-    pub pid: u32,
-    pub model_id: String,
-    pub model_path: PathBuf,
-    pub model_artifact_hash: String,
-    pub ctx_size: Option<u32>,
-    pub prompt_chars: usize,
-    pub response_chars: usize,
-    pub requested_max_tokens: u32,
-    pub effective_max_tokens: u32,
-    pub sampling: BackendChatSampling,
-    pub finish_reason: String,
-    pub guard_status: &'static str,
-    pub prompt_tokens: Option<u32>,
-    pub completion_tokens: Option<u32>,
-    pub total_tokens: Option<u32>,
-    pub elapsed_ms: u128,
-    pub first_token_latency_ms: Option<u128>,
-    pub streaming_display: bool,
-    pub ledger_event: String,
-    pub resource_governor_admission: String,
-    pub resource_governor_token_action: String,
-    pub resource_governor_reason: &'static str,
-    pub resource_governor_hint: &'static str,
-    pub resource_governor_sample_event: String,
-    pub resource_pressure: String,
-    pub resource_cpu_percent: Option<f64>,
-    pub resource_average_rss_bytes: Option<u64>,
-    pub resource_peak_rss_bytes: Option<u64>,
-    pub resource_disk_bytes: Option<u64>,
-    pub resource_sample_event: String,
-    pub response: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]

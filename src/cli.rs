@@ -1,7 +1,7 @@
+use crate::benchmark;
 use crate::foundation::error::AppError;
 use crate::ontology;
-use crate::runtime_core::inference::resource;
-use crate::{backend, benchmark};
+use crate::runtime_core::inference::{backend::MAX_CHAT_TIMEOUT_MS, resource};
 
 pub const HELP: &str = "\
 rpotato
@@ -1939,10 +1939,10 @@ fn parse_backend_chat(args: &[String]) -> Result<BackendCommand, AppError> {
                     ));
                 }
                 let value = parse_positive_u32(value, "timeout-ms")?;
-                if value > backend::MAX_CHAT_TIMEOUT_MS {
+                if value > MAX_CHAT_TIMEOUT_MS {
                     return Err(AppError::usage(format!(
                         "backend chat timeout은 1..={} ms 범위여야 합니다.",
-                        backend::MAX_CHAT_TIMEOUT_MS
+                        MAX_CHAT_TIMEOUT_MS
                     )));
                 }
                 timeout_ms = Some(value);

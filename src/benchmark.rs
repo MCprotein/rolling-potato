@@ -4,6 +4,9 @@ use std::path::{Path, PathBuf};
 
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
+use crate::runtime_core::inference::backend::BackendChatRun;
+#[cfg(test)]
+use crate::runtime_core::inference::backend::BackendChatSampling;
 use crate::{adapters::filesystem::layout as paths, backend, ledger, model, observability};
 
 pub(crate) const ADOPTION_FIXTURE_ID: &str = "model-adoption-smoke-v1";
@@ -182,7 +185,7 @@ fn run_report_with_chat(
     fixture_path: &str,
     prompt_path: &str,
     max_tokens: Option<u32>,
-    chat_once: impl FnOnce(&str, Option<u32>) -> Result<backend::BackendChatRun, AppError>,
+    chat_once: impl FnOnce(&str, Option<u32>) -> Result<BackendChatRun, AppError>,
 ) -> Result<String, AppError> {
     let fixture = read_fixture(fixture_path)?;
     if fixture.expected_response_contains.is_empty() {
@@ -552,7 +555,7 @@ fn validate_canonical_adoption_artifacts(
 
 fn validate_canonical_adoption_run(
     fixture: &BenchmarkFixture,
-    run: &backend::BackendChatRun,
+    run: &BackendChatRun,
 ) -> Result<(), AppError> {
     if fixture.fixture_id != ADOPTION_FIXTURE_ID {
         return Ok(());
@@ -686,7 +689,7 @@ fn redacted_report_json(fixture: &BenchmarkFixture, benchmark_run_id: &str) -> S
 fn executable_reproducibility_manifest_json(
     fixture: &BenchmarkFixture,
     prompt: &BenchmarkPromptArtifact,
-    run: &backend::BackendChatRun,
+    run: &BackendChatRun,
     score: &BenchmarkScore,
     benchmark_run_id: &str,
     model_run_id: &str,
@@ -750,7 +753,7 @@ fn executable_reproducibility_manifest_json(
 fn executable_redacted_report_json(
     fixture: &BenchmarkFixture,
     prompt: &BenchmarkPromptArtifact,
-    run: &backend::BackendChatRun,
+    run: &BackendChatRun,
     score: &BenchmarkScore,
     benchmark_run_id: &str,
     model_run_id: &str,
@@ -1193,7 +1196,7 @@ fn display_optional_u64(value: Option<u64>) -> String {
         .unwrap_or_else(|| "없음".to_string())
 }
 
-fn local_tokens_per_second(run: &backend::BackendChatRun) -> Option<f64> {
+fn local_tokens_per_second(run: &BackendChatRun) -> Option<f64> {
     let completion_tokens = run.completion_tokens?;
     if completion_tokens == 0 || run.elapsed_ms == 0 {
         return None;
@@ -1502,8 +1505,8 @@ mod tests {
         fs::write(path, mutate(text)).unwrap();
     }
 
-    fn fake_chat_run(response: &str) -> backend::BackendChatRun {
-        backend::BackendChatRun {
+    fn fake_chat_run(response: &str) -> BackendChatRun {
+        BackendChatRun {
             backend_id: "llama.cpp".to_string(),
             backend_version: "b9878".to_string(),
             pid: 1234,
@@ -1516,7 +1519,7 @@ mod tests {
             response_chars: response.chars().count(),
             requested_max_tokens: 16,
             effective_max_tokens: 16,
-            sampling: backend::BackendChatSampling {
+            sampling: BackendChatSampling {
                 temperature: 0.1,
                 top_p: 0.8,
             },
