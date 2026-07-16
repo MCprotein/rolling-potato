@@ -1256,4 +1256,30 @@ mod tests {
             .iter()
             .any(|event| event.event_type == "team.stop-gate.failed"));
     }
+
+    #[test]
+    fn source_change_after_worker_completion_blocks_before_parent_evidence_merge() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_team();
+        record_sample("normal");
+        execute_with("team-execution", fake_preflight, fake_runner).unwrap();
+        fs::write(
+            paths::project_root().join("src/main.rs"),
+            "fn main() { println!(\"changed\"); }\n",
+        )
+        .unwrap();
+
+        let error = crate::team_reconciliation::reconcile_report("team-execution").unwrap_err();
+        let blocked = team_state::load_state("team-execution").unwrap();
+        let unchanged_parent = state::load_workflow(&parent.workflow_id).unwrap();
+
+        assert!(error.message.contains("missing or stale worker evidence"));
+        assert_eq!(blocked.stage, team_state::TeamStage::Review);
+        assert_eq!(unchanged_parent.revision, parent.revision);
+        assert!(unchanged_parent.skill_evidence.is_empty());
+        assert!(ledger::read_runtime_events()
+            .unwrap()
+            .iter()
+            .any(|event| event.event_type == "team.stop-gate.failed"));
+    }
 }
