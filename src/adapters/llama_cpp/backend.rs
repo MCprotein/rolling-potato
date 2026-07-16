@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::adapters::filesystem::layout as paths;
-use crate::runtime_core::inference::backend::BackendAdapter;
+use crate::foundation::serialization::escape_string_content;
+use crate::runtime_core::inference::backend::{BackendAdapter, BackendChatSampling};
 
 pub(crate) const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 pub(crate) const DEFAULT_HOST: &str = "127.0.0.1";
@@ -191,6 +192,40 @@ pub(crate) fn first_http_status_line(response: &[u8]) -> Option<String> {
     std::str::from_utf8(line).ok().map(str::to_string)
 }
 
+pub(crate) fn chat_request_body(
+    model_path: &Path,
+    prompt: &str,
+    max_tokens: u32,
+    sampling: &BackendChatSampling,
+    stream: bool,
+) -> String {
+    let system_prompt = "사용자에게 보이는 최종 답변만 한국어로 작성합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다.";
+    let model_id = model_path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("unknown-model");
+    let template_options = if model_id.to_ascii_lowercase().starts_with("qwen") {
+        ",\"chat_template_kwargs\":{\"enable_thinking\":false}"
+    } else {
+        ""
+    };
+    let stream_options = if stream {
+        ",\"stream\":true,\"stream_options\":{\"include_usage\":true}"
+    } else {
+        ""
+    };
+    format!(
+        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}{}}}",
+        escape_string_content(system_prompt),
+        escape_string_content(prompt),
+        max_tokens,
+        sampling.temperature,
+        sampling.top_p,
+        template_options,
+        stream_options
+    )
+}
+
 fn configured_port(default_port: u16) -> (u16, &'static str) {
     let Some(raw_port) = env::var_os(ENV_BACKEND_PORT) else {
         return (default_port, "default");
@@ -231,5 +266,43 @@ mod tests {
             Some("HTTP/1.1 200 OK")
         );
         assert_eq!(first_http_status_line(b"HTTP/1.1 200 OK"), None);
+    }
+
+    #[test]
+    fn chat_request_disables_qwen_thinking_and_enables_usage_stream() {
+        let body = chat_request_body(
+            Path::new("Qwen3.5-4B-Q4_K_M.gguf"),
+            "감자는 무엇인가?",
+            64,
+            &BackendChatSampling {
+                temperature: 0.1,
+                top_p: 0.8,
+            },
+            true,
+        );
+
+        assert!(body.contains("\"chat_template_kwargs\":{\"enable_thinking\":false}"));
+        assert!(body.contains("\"max_tokens\":64"));
+        assert!(body.contains("\"stream\":true"));
+        assert!(body.contains("\"include_usage\":true"));
+        assert!(body.contains("reasoning trace"));
+        assert!(body.contains("감자는 무엇인가?"));
+    }
+
+    #[test]
+    fn chat_request_omits_qwen_option_for_other_models() {
+        let body = chat_request_body(
+            Path::new("gemma-4-E4B_q4_0-it.gguf"),
+            "감자",
+            64,
+            &BackendChatSampling {
+                temperature: 0.1,
+                top_p: 0.8,
+            },
+            true,
+        );
+
+        assert!(!body.contains("chat_template_kwargs"));
+        assert!(body.contains("\"temperature\":0.1"));
     }
 }

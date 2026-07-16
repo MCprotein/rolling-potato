@@ -1015,7 +1015,7 @@ fn chat_once_with_options(
     let started_at_ms = now_ms();
     let started_at = Instant::now();
     let sampling = CHAT_SAMPLING;
-    let body = chat_request_body(
+    let body = llama_backend::chat_request_body(
         &record.model_path,
         prompt,
         effective_max_tokens,
@@ -1431,39 +1431,6 @@ pub fn cancel_generation_report() -> Result<String, AppError> {
         terminal_event,
         event_id
     ))
-}
-
-fn chat_request_body(
-    model_path: &Path,
-    prompt: &str,
-    max_tokens: u32,
-    sampling: &BackendChatSampling,
-    stream: bool,
-) -> String {
-    let system_prompt = "사용자에게 보이는 최종 답변만 한국어로 작성합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다.";
-    let template_options = if model_id_from_path(model_path)
-        .to_ascii_lowercase()
-        .starts_with("qwen")
-    {
-        ",\"chat_template_kwargs\":{\"enable_thinking\":false}"
-    } else {
-        ""
-    };
-    let stream_options = if stream {
-        ",\"stream\":true,\"stream_options\":{\"include_usage\":true}"
-    } else {
-        ""
-    };
-    format!(
-        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}{}}}",
-        ledger::json_string(system_prompt),
-        ledger::json_string(prompt),
-        max_tokens,
-        sampling.temperature,
-        sampling.top_p,
-        template_options,
-        stream_options
-    )
 }
 
 #[cfg(test)]
@@ -4233,38 +4200,6 @@ mod tests {
         assert!(report.contains("backend health check"));
         assert!(report.contains("health URL"));
         assert!(report.contains("timeout ms"));
-    }
-
-    #[test]
-    fn chat_request_body_disables_qwen_thinking() {
-        let body = chat_request_body(
-            Path::new("Qwen3.5-4B-Q4_K_M.gguf"),
-            "감자는 무엇인가?",
-            64,
-            &CHAT_SAMPLING,
-            true,
-        );
-
-        assert!(body.contains("\"chat_template_kwargs\":{\"enable_thinking\":false}"));
-        assert!(body.contains("\"max_tokens\":64"));
-        assert!(body.contains("\"stream\":true"));
-        assert!(body.contains("\"include_usage\":true"));
-        assert!(body.contains("reasoning trace"));
-        assert!(body.contains("감자는 무엇인가?"));
-    }
-
-    #[test]
-    fn chat_request_body_does_not_send_qwen_option_to_gemma() {
-        let body = chat_request_body(
-            Path::new("gemma-4-E4B_q4_0-it.gguf"),
-            "감자",
-            64,
-            &CHAT_SAMPLING,
-            true,
-        );
-
-        assert!(!body.contains("chat_template_kwargs"));
-        assert!(body.contains("\"temperature\":0.1"));
     }
 
     #[test]
