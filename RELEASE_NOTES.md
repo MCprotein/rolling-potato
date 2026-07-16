@@ -1,5 +1,40 @@
 # Release Notes
 
+## v0.35.1 - Hermetic Release Contract Recovery
+
+Release date: 2026-07-16
+
+This patch release replaces the asset-less v0.35.0 publication. The v0.35.0
+source tag remains immutable, but its release test job exposed that the real
+release tag environment leaked into an ordinary-pull-request policy fixture.
+
+### Fixed
+
+- Clears ambient `RPOTATO_RELEASE_TAG`, `GITHUB_REF_TYPE`, and `GITHUB_REF_NAME`
+  inside the ordinary-PR release-policy fixtures, so their synthetic Cargo
+  version is evaluated independently from the release job that invokes the
+  contract test.
+- Runs the release workflow contract under an explicit simulated tag environment
+  before publication, reproducing the exact v0.35.0 failure mode without
+  starting platform builds or creating assets.
+- Retains the complete v0.35 bounded subagent implementation and S01-S18
+  acceptance coverage without changing its runtime behavior.
+
+### Release Recovery
+
+- v0.35.0 remains immutable source history, but its failed
+  [release run 29484349685](https://github.com/MCprotein/rolling-potato/actions/runs/29484349685)
+  stopped before binary builds and published no supported assets.
+- v0.35.1 is the supported replacement and must publish the verified exact
+  11-asset set.
+
+### Verified During Recovery
+
+- Release workflow contract under simulated `v0.35.1` tag environment
+- Release policy, toolchain pin, and target matrix checks
+- v0.35.0 final candidate full test, clippy, release build, packaged-binary, and
+  uninstall smoke evidence remains applicable because runtime code is unchanged
+
 ## v0.35.0 - Bounded Subagent Execution
 
 Release date: 2026-07-16

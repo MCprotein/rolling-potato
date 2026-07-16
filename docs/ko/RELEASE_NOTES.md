@@ -1,5 +1,37 @@
 # 릴리즈 노트
 
+## v0.35.1 - Hermetic Release Contract 복구
+
+릴리즈 날짜: 2026-07-16
+
+이 patch release는 asset이 없는 v0.35.0 publication을 대체합니다. v0.35.0 source tag는
+immutable하게 유지하지만, release test job에서 실제 release tag 환경이 일반 pull request
+policy fixture로 누출되는 문제가 드러났습니다.
+
+### 수정한 것
+
+- 일반 PR release-policy fixture 안에서 ambient `RPOTATO_RELEASE_TAG`, `GITHUB_REF_TYPE`,
+  `GITHUB_REF_NAME`을 지워 synthetic Cargo version을 contract test를 호출한 release job과
+  독립적으로 평가합니다.
+- Publish 전에 명시적인 simulated tag 환경으로 release workflow contract를 실행해 platform
+  build나 asset 생성 없이 v0.35.0의 정확한 실패 조건을 재현·검증합니다.
+- Runtime behavior를 바꾸지 않고 v0.35 bounded subagent 구현 전체와 S01-S18 acceptance
+  coverage를 유지합니다.
+
+### 릴리즈 복구
+
+- v0.35.0은 immutable source history로 유지하지만
+  [release run 29484349685](https://github.com/MCprotein/rolling-potato/actions/runs/29484349685)는
+  binary build 전에 중단되어 지원 asset을 게시하지 못했습니다.
+- v0.35.1을 지원 replacement로 삼고 검증된 exact 11-asset set을 게시합니다.
+
+### 복구 중 검증
+
+- Simulated `v0.35.1` tag 환경에서 release workflow contract
+- Release policy, toolchain pin, target matrix check
+- Runtime code가 바뀌지 않았으므로 v0.35.0 final candidate의 full test, clippy, release build,
+  packaged-binary, uninstall smoke evidence를 그대로 적용
+
 ## v0.35.0 - Bounded Subagent 실행
 
 릴리즈 날짜: 2026-07-16

@@ -209,7 +209,10 @@ release_policy_scopes_release_branches_to_version_changes() {
 
   (
     cd "$fixture/repo"
-    RPOTATO_RELEASE_BRANCH=docs/policy \
+    RPOTATO_RELEASE_TAG= \
+      GITHUB_REF_TYPE= \
+      GITHUB_REF_NAME= \
+      RPOTATO_RELEASE_BRANCH=docs/policy \
       RPOTATO_RELEASE_BASE_REF=main \
       RPOTATO_REQUIRE_RELEASE_BRANCH=auto \
       scripts/release/verify-release-policy.sh
@@ -222,7 +225,10 @@ release_policy_scopes_release_branches_to_version_changes() {
     "$fixture/repo/Cargo.toml"
   if (
     cd "$fixture/repo"
-    RPOTATO_RELEASE_BRANCH=docs/policy \
+    RPOTATO_RELEASE_TAG= \
+      GITHUB_REF_TYPE= \
+      GITHUB_REF_NAME= \
+      RPOTATO_RELEASE_BRANCH=docs/policy \
       RPOTATO_RELEASE_BASE_REF=main \
       RPOTATO_REQUIRE_RELEASE_BRANCH=auto \
       scripts/release/verify-release-policy.sh
