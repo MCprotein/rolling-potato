@@ -1,11 +1,13 @@
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, ExitStatus, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 static NATIVE_TERMINAL_LOCK: Mutex<()> = Mutex::new(());
 static SOURCE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+const FIXTURE_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub struct NativeTerminalFixture {
     _lock: std::sync::MutexGuard<'static, ()>,
@@ -70,7 +72,7 @@ impl NativeTerminalFixture {
         std::fs::write(
             &response,
             format!(
-                "MODEL ACTION: kind=patch-proposal; source_pointers={relative_source}:1; path={relative_source}; find_hex=31; replace_hex=32; verification=pwd; next_gate=diff-before-write; side_effects=none"
+                "수정 후보를 준비했습니다.\nMODEL ACTION: kind=patch-proposal; source_pointers={relative_source}:1; path={relative_source}; find_hex=31; replace_hex=32; verification=pwd; next_gate=diff-before-write; side_effects=none"
             ),
         )
         .unwrap();
@@ -94,7 +96,7 @@ class H(BaseHTTPRequestHandler):
   def do_POST(self):
     n=int(self.headers.get('Content-Length','0')); request=json.loads(self.rfile.read(n))
     with open({calls:?}, 'a') as f: f.write('chat\n')
-    with open({response:?}) as f: content=f.read()
+    with open({response:?}, encoding='utf-8') as f: content=f.read()
     events=[{{"choices":[{{"delta":{{"content":content}},"finish_reason":"stop"}}]}},{{"choices":[],"usage":{{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}}}]
     body=(''.join('data: '+json.dumps(event)+'\n\n' for event in events)+'data: [DONE]\n\n').encode()
     self.send_response(200); self.send_header('Content-Type','text/event-stream'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
@@ -129,14 +131,21 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
         std::fs::write(&model, b"fake model").unwrap();
         let port = native_port(&self.root);
         let command = |args: &[&str]| {
-            Command::new(env!("CARGO_BIN_EXE_rpotato"))
-                .args(args)
-                .env("RPOTATO_PROJECT_ROOT", &self.project)
-                .env("RPOTATO_DATA_HOME", &self.data)
-                .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend)
-                .env("RPOTATO_BACKEND_PORT", port.to_string())
-                .output()
-                .unwrap()
+            let label = args.join(" ");
+            #[cfg(windows)]
+            windows::trace_stage(&format!("run {label}"));
+            let output = run_bounded_command(
+                Command::new(env!("CARGO_BIN_EXE_rpotato"))
+                    .args(args)
+                    .env("RPOTATO_PROJECT_ROOT", &self.project)
+                    .env("RPOTATO_DATA_HOME", &self.data)
+                    .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend)
+                    .env("RPOTATO_BACKEND_PORT", port.to_string()),
+                &label,
+            );
+            #[cfg(windows)]
+            windows::trace_stage(&format!("finished {label}"));
+            output
         };
         let start = command(&[
             "backend",
@@ -158,10 +167,22 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
             "src/lib.rs의 값을 2로 고쳐줘",
         ]);
         let _ = command(&["backend", "stop"]);
+        let ledger = std::fs::read_to_string(self.data.join("state/runtime-ledger.jsonl"))
+            .unwrap_or_default();
+        let ledger_tail = ledger
+            .lines()
+            .rev()
+            .take(20)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(
             run.status.success(),
-            "native source fixture skill run failed: {}",
-            String::from_utf8_lossy(&run.stderr)
+            "native source fixture skill run failed\nstdout={}\nstderr={}\nledger tail={ledger_tail}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr),
         );
         let report = String::from_utf8(run.stdout).unwrap();
         let field = |key: &str| {
@@ -197,6 +218,59 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| panic!("current-state session_id missing: {body}"))
             .to_string()
+    }
+}
+
+fn run_bounded_command(command: &mut Command, label: &str) -> Output {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let base = std::env::temp_dir().join(format!(
+        "rpotato-native-terminal-output-{}-{nonce}",
+        std::process::id()
+    ));
+    let stdout_path = base.with_extension("stdout");
+    let stderr_path = base.with_extension("stderr");
+    command
+        .stdout(Stdio::from(std::fs::File::create(&stdout_path).unwrap()))
+        .stderr(Stdio::from(std::fs::File::create(&stderr_path).unwrap()));
+    let mut child = command.spawn().unwrap();
+    let deadline = Instant::now() + FIXTURE_COMMAND_TIMEOUT;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(20)),
+            Ok(None) => {
+                let _ = child.kill();
+                let status = child.wait().unwrap();
+                let output = captured_command_output(&stdout_path, &stderr_path, status);
+                panic!(
+                    "native fixture command timeout after {:?}: {label}\nstdout={}\nstderr={}",
+                    FIXTURE_COMMAND_TIMEOUT,
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+            Err(error) => panic!("native fixture command wait failed: {label}: {error}"),
+        }
+    };
+    captured_command_output(&stdout_path, &stderr_path, status)
+}
+
+fn captured_command_output(
+    stdout_path: &std::path::Path,
+    stderr_path: &std::path::Path,
+    status: ExitStatus,
+) -> Output {
+    let stdout = std::fs::read(stdout_path).unwrap_or_default();
+    let stderr = std::fs::read(stderr_path).unwrap_or_default();
+    let _ = std::fs::remove_file(stdout_path);
+    let _ = std::fs::remove_file(stderr_path);
+    Output {
+        status,
+        stdout,
+        stderr,
     }
 }
 
@@ -662,6 +736,8 @@ mod windows {
     use super::*;
     use std::cell::RefCell;
     use std::ffi::{c_void, OsStr};
+    use std::fs::OpenOptions;
+    use std::io::Write;
     use std::os::windows::ffi::OsStrExt;
     use std::rc::Rc;
 
@@ -671,9 +747,9 @@ mod windows {
     type HpcOn = Handle;
     type HResult = i32;
 
-    const HANDLE_FLAG_INHERIT: Dword = 0x0000_0001;
     const EXTENDED_STARTUPINFO_PRESENT: Dword = 0x0008_0000;
     const CREATE_UNICODE_ENVIRONMENT: Dword = 0x0000_0400;
+    const STARTF_USESTDHANDLES: Dword = 0x0000_0100;
     const PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE: usize = 0x0002_0016;
     const WAIT_OBJECT_0: Dword = 0;
     const WAIT_TIMEOUT: Dword = 258;
@@ -737,7 +813,6 @@ mod windows {
             attributes: *mut SecurityAttributes,
             size: Dword,
         ) -> Bool;
-        fn SetHandleInformation(handle: Handle, mask: Dword, flags: Dword) -> Bool;
         fn CloseHandle(handle: Handle) -> Bool;
         fn CreatePseudoConsole(
             size: Coord,
@@ -815,6 +890,8 @@ mod windows {
         console: HpcOn,
         input: Handle,
         output: Handle,
+        console_input: Handle,
+        console_output: Handle,
         probe_binary: PathBuf,
         output_bytes: Vec<u8>,
         active: bool,
@@ -824,41 +901,56 @@ mod windows {
         session: Rc<RefCell<ReusableConsole>>,
         process: Handle,
         output_start: usize,
+        terminal_eof: bool,
         waited: bool,
+    }
+
+    pub fn trace_stage(message: &str) {
+        eprintln!("[native-terminal] {message}");
+        let Some(path) = std::env::var_os("RPOTATO_NATIVE_TERMINAL_TRACE") else {
+            return;
+        };
+        let mut trace = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .expect("native terminal trace file must open");
+        writeln!(trace, "[native-terminal] {message}")
+            .expect("native terminal trace line must flush");
     }
 
     impl ReusableConsole {
         fn new(columns: u16, rows: u16) -> Self {
-            let mut attributes = SecurityAttributes {
-                length: std::mem::size_of::<SecurityAttributes>() as Dword,
-                security_descriptor: std::ptr::null_mut(),
-                inherit_handle: 1,
-            };
             let mut console_input = std::ptr::null_mut();
             let mut parent_input = std::ptr::null_mut();
             let mut parent_output = std::ptr::null_mut();
             let mut console_output = std::ptr::null_mut();
-            // SAFETY: all handle output pointers and the attributes structure are valid.
+            // SAFETY: all handle output pointers are valid. The channels are deliberately
+            // non-inheritable; the pseudoconsole process attribute owns attachment.
             assert_ne!(
-                unsafe { CreatePipe(&mut console_input, &mut parent_input, &mut attributes, 0,) },
+                unsafe {
+                    CreatePipe(
+                        &mut console_input,
+                        &mut parent_input,
+                        std::ptr::null_mut(),
+                        0,
+                    )
+                },
                 0,
                 "ConPTY input pipe creation failed"
             );
-            // SAFETY: all handle output pointers and the attributes structure are valid.
+            // SAFETY: all handle output pointers are valid.
             assert_ne!(
-                unsafe { CreatePipe(&mut parent_output, &mut console_output, &mut attributes, 0,) },
+                unsafe {
+                    CreatePipe(
+                        &mut parent_output,
+                        &mut console_output,
+                        std::ptr::null_mut(),
+                        0,
+                    )
+                },
                 0,
                 "ConPTY output pipe creation failed"
-            );
-            // SAFETY: parent handles are valid and must not be inherited by the child.
-            assert_ne!(
-                unsafe { SetHandleInformation(parent_input, HANDLE_FLAG_INHERIT, 0) },
-                0
-            );
-            // SAFETY: parent handles are valid and must not be inherited by the child.
-            assert_ne!(
-                unsafe { SetHandleInformation(parent_output, HANDLE_FLAG_INHERIT, 0) },
-                0
             );
 
             let mut console = std::ptr::null_mut();
@@ -877,34 +969,31 @@ mod windows {
                 "CreatePseudoConsole failed: HRESULT={created:#x}"
             );
             let probe_binary = compile_mode_probe();
-            let before_probe = launch_in_console(
-                console,
-                &probe_binary,
-                "",
-                &[("RPOTATO_PROBE_EXPECT_ECHO", "1")],
-            );
-            // SAFETY: the first attached client has been created, so the host-side copies of
-            // the pipe ends supplied to CreatePseudoConsole are no longer needed.
-            unsafe {
-                CloseHandle(console_input);
-                CloseHandle(console_output);
-            }
-            wait_for_success(before_probe, "before terminal mode probe");
-            let mut output_bytes = Vec::new();
-            drain_pipe(parent_output, &mut output_bytes);
-            assert_eq!(
-                mode_probe_values(&output_bytes),
-                ["1"],
-                "initial same-ConPTY probe must prove echo enabled exactly"
-            );
 
             Self {
                 console,
                 input: parent_input,
                 output: parent_output,
+                console_input,
+                console_output,
                 probe_binary,
-                output_bytes,
+                output_bytes: Vec::new(),
                 active: false,
+            }
+        }
+
+        fn release_creation_pipe_ends(&mut self) {
+            // SAFETY: once the first production client has been created, the host-side
+            // copies supplied to CreatePseudoConsole are no longer needed.
+            unsafe {
+                if !self.console_input.is_null() {
+                    CloseHandle(self.console_input);
+                    self.console_input = std::ptr::null_mut();
+                }
+                if !self.console_output.is_null() {
+                    CloseHandle(self.console_output);
+                    self.console_output = std::ptr::null_mut();
+                }
             }
         }
 
@@ -917,7 +1006,16 @@ mod windows {
                 &[("RPOTATO_PROBE_EXPECT_ECHO", "1")],
             );
             wait_for_success(process, "terminal mode restoration probe");
-            self.drain_available();
+            let deadline = Instant::now() + Duration::from_secs(2);
+            loop {
+                self.drain_available();
+                if mode_probe_values(&self.output_bytes).len() > count_before
+                    || Instant::now() >= deadline
+                {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
             let modes = mode_probe_values(&self.output_bytes);
             assert_eq!(
                 modes.len(),
@@ -985,6 +1083,14 @@ mod windows {
                     CloseHandle(self.input);
                     self.input = std::ptr::null_mut();
                 }
+                if !self.console_input.is_null() {
+                    CloseHandle(self.console_input);
+                    self.console_input = std::ptr::null_mut();
+                }
+                if !self.console_output.is_null() {
+                    CloseHandle(self.console_output);
+                    self.console_output = std::ptr::null_mut();
+                }
                 if !self.console.is_null() {
                     ClosePseudoConsole(self.console);
                     self.console = std::ptr::null_mut();
@@ -1009,6 +1115,7 @@ mod windows {
 
     impl NativePty {
         pub fn spawn(columns: u16, rows: u16) -> Self {
+            trace_stage(&format!("spawn {columns}x{rows}"));
             let session = reused_console(columns, rows);
             let (process, output_start) = {
                 let mut session_ref = session.borrow_mut();
@@ -1028,6 +1135,7 @@ mod windows {
                     "tui",
                     &[],
                 );
+                session_ref.release_creation_pipe_ends();
                 session_ref.active = true;
                 (process, output_start)
             };
@@ -1035,6 +1143,7 @@ mod windows {
                 session,
                 process,
                 output_start,
+                terminal_eof: false,
                 waited: false,
             }
         }
@@ -1052,6 +1161,7 @@ mod windows {
         pub fn send(&mut self, input: &str) {
             let handle = self.session.borrow().input;
             assert!(!handle.is_null(), "ConPTY input is closed");
+            let input = input.replace("\r\n", "\n").replace('\n', "\r");
             let mut offset = 0usize;
             while offset < input.len() {
                 let remaining = &input.as_bytes()[offset..];
@@ -1077,17 +1187,14 @@ mod windows {
         }
 
         pub fn send_eof(&mut self) {
-            let mut session = self.session.borrow_mut();
-            assert!(
-                !session.input.is_null(),
-                "ConPTY EOF must be sent exactly once"
-            );
-            // SAFETY: the reused session owns the drive handle; closing it delivers EOF.
-            unsafe { CloseHandle(session.input) };
-            session.input = std::ptr::null_mut();
+            // Windows console line input represents EOF as Ctrl+Z followed by Enter.
+            // The stream cannot host another probe after EOF, so finish closes it.
+            self.terminal_eof = true;
+            self.send("\u{001a}\n");
         }
 
         pub fn wait_for(&mut self, needle: &str) -> String {
+            trace_stage(&format!("wait for {needle:?}"));
             let deadline = Instant::now() + Duration::from_secs(10);
             loop {
                 let output = {
@@ -1096,6 +1203,7 @@ mod windows {
                     String::from_utf8_lossy(&session.output_bytes[self.output_start..]).into_owned()
                 };
                 if output.contains(needle) {
+                    trace_stage(&format!("found {needle:?}"));
                     return output;
                 }
                 assert!(
@@ -1115,6 +1223,7 @@ mod windows {
         }
 
         fn finish_with_status(mut self, success: bool) -> String {
+            trace_stage(&format!("wait for child; success={success}"));
             // SAFETY: process is a live child handle.
             let wait = unsafe { WaitForSingleObject(self.process, 10_000) };
             assert_eq!(wait, WAIT_OBJECT_0, "ConPTY child wait failed: {wait}");
@@ -1129,10 +1238,19 @@ mod windows {
             } else {
                 assert_ne!(exit_code, 0, "ConPTY child unexpectedly succeeded");
             }
+            trace_stage(&format!("child exited with {exit_code:#x}"));
             let output = {
                 let mut session = self.session.borrow_mut();
                 session.drain_available();
-                session.run_mode_probe();
+                if self.terminal_eof {
+                    // SAFETY: EOF is terminal for this reused ConPTY input stream.
+                    unsafe { CloseHandle(session.input) };
+                    session.input = std::ptr::null_mut();
+                } else {
+                    trace_stage("run echo restoration probe");
+                    session.run_mode_probe();
+                    trace_stage("echo restoration probe passed");
+                }
                 session.active = false;
                 String::from_utf8_lossy(&session.output_bytes[self.output_start..]).into_owned()
             };
@@ -1230,9 +1348,12 @@ mod windows {
         );
         let mut startup: StartupInfoExW = unsafe { std::mem::zeroed() };
         startup.startup.cb = std::mem::size_of::<StartupInfoExW>() as Dword;
+        // Cargo's redirected test host exposes inherited standard handles. Mark the
+        // deliberately zeroed fields as authoritative so only the ConPTY attribute
+        // supplies the child's console handles.
+        startup.startup.flags = STARTF_USESTDHANDLES;
         startup.attribute_list = attribute_list;
         let mut process: ProcessInformation = unsafe { std::mem::zeroed() };
-        let binary = wide(application.as_os_str());
         let command_text = if arguments.is_empty() {
             format!("\"{}\"", application.display())
         } else {
@@ -1242,7 +1363,7 @@ mod windows {
         let mut environment = explicit_environment_block(environment_overrides);
         let launched = unsafe {
             CreateProcessW(
-                binary.as_ptr(),
+                std::ptr::null(),
                 command.as_mut_ptr(),
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
@@ -1294,41 +1415,6 @@ mod windows {
         unsafe { CloseHandle(process) };
     }
 
-    fn drain_pipe(output: Handle, output_bytes: &mut Vec<u8>) {
-        loop {
-            let mut available = 0;
-            let peeked = unsafe {
-                PeekNamedPipe(
-                    output,
-                    std::ptr::null_mut(),
-                    0,
-                    std::ptr::null_mut(),
-                    &mut available,
-                    std::ptr::null_mut(),
-                )
-            };
-            if peeked == 0 || available == 0 {
-                break;
-            }
-            let mut buffer = [0_u8; 4096];
-            let request = available.min(buffer.len() as Dword);
-            let mut read = 0;
-            let ok = unsafe {
-                ReadFile(
-                    output,
-                    buffer.as_mut_ptr().cast::<c_void>(),
-                    request,
-                    &mut read,
-                    std::ptr::null_mut(),
-                )
-            };
-            if ok == 0 || read == 0 {
-                break;
-            }
-            output_bytes.extend_from_slice(&buffer[..usize::try_from(read).unwrap()]);
-        }
-    }
-
     fn mode_probe_values(output: &[u8]) -> Vec<String> {
         String::from_utf8_lossy(output)
             .lines()
@@ -1353,4 +1439,4 @@ mod windows {
 }
 
 #[cfg(windows)]
-pub use windows::NativePty;
+pub use windows::{trace_stage, NativePty};

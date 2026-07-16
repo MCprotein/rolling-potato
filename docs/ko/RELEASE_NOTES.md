@@ -6,13 +6,24 @@
 
 이 patch release는 binary publication이 완결되지 못한 v0.34.1을 대체합니다. v0.34.1
 source tag는 immutable하게 유지하지만, Windows archive build 전에 native-terminal
-gate가 test host lifecycle 결함 두 개를 드러냈습니다.
+gate가 test host lifecycle과 long-path 결함을 드러냈습니다.
 
 ### 수정한 것
 
-- Windows pseudoconsole startup contract에 맞춰 첫 attached client를 생성할 때까지
-  ConPTY-side pipe handle을 유지합니다. 따라서 초기 console-mode probe가 유효한 standard
-  handle을 받습니다.
+- Windows pseudoconsole startup contract에 맞춰 첫 production client를 생성할 때까지
+  ConPTY-side pipe handle을 유지합니다. 이후 각 production client가 재사용 console의 input
+  echo를 복구했는지 post-child probe로 검증합니다.
+- 각 production client를 ConPTY에 attach하기 전에 test host의 redirected standard handle을
+  비우고, Enter는 carriage return으로 보내며 Ctrl+Z 뒤 Enter를 terminal EOF boundary로
+  처리합니다.
+- Mode probe output flush를 기다리고 ConPTY title/cursor control sequence를 정규화해,
+  runner별 화면 rendering에 의존하지 않고 reusable-console lifecycle과 exact terminal
+  outcome을 검증합니다.
+- Fixture subprocess output을 file로 capture하고 30초 상한을 적용해, redirected pipe
+  inheritance가 source-approval setup을 멈추지 않게 합니다.
+- `MoveFileExW` 호출 전 destination parent를 canonicalize해 Windows atomic replacement가
+  long path를 지원하도록 합니다. Native test는 새 deep target과 기존 deep target을 모두
+  검증합니다.
 - Fixture cleanup에서 `ClosePseudoConsole`보다 host output pipe를 먼저 닫아, pseudoconsole
   close가 대기하는 Windows version의 문서화된 deadlock 위험을 제거합니다.
 - Entry/EOF lifecycle과 full adapter test를 각각 5분으로 제한한 수동 실행 Windows

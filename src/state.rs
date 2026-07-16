@@ -5479,12 +5479,12 @@ fn replace_file(source: &std::path::Path, target: &std::path::Path) -> std::io::
     }
     const MOVEFILE_REPLACE_EXISTING: u32 = 0x1;
     const MOVEFILE_WRITE_THROUGH: u32 = 0x8;
-    let source = source
+    let source = canonical_windows_parent_join(source)?
         .as_os_str()
         .encode_wide()
         .chain(Some(0))
         .collect::<Vec<_>>();
-    let target = target
+    let target = canonical_windows_parent_join(target)?
         .as_os_str()
         .encode_wide()
         .chain(Some(0))
@@ -5502,6 +5502,21 @@ fn replace_file(source: &std::path::Path, target: &std::path::Path) -> std::io::
     } else {
         Ok(())
     }
+}
+
+#[cfg(windows)]
+fn canonical_windows_parent_join(path: &std::path::Path) -> std::io::Result<PathBuf> {
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| std::path::Path::new("."));
+    let file_name = path.file_name().ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "replacement path has no file name",
+        )
+    })?;
+    Ok(fs::canonicalize(parent)?.join(file_name))
 }
 
 #[cfg(not(windows))]
@@ -5628,6 +5643,26 @@ fn now_ms() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn atomic_replace_supports_long_new_and_existing_windows_targets() {
+        let root = workflow_test_root("atomic-long-windows");
+        let mut parent = root.clone();
+        for index in 0..4 {
+            parent.push(format!("segment-{index}-{}", "x".repeat(48)));
+        }
+        fs::create_dir_all(&parent).unwrap();
+        let target = parent.join(format!("artifact-{}.json", "y".repeat(48)));
+        assert!(target.as_os_str().len() > 260);
+
+        atomic_replace_bytes(&target, b"first").unwrap();
+        assert_eq!(fs::read(&target).unwrap(), b"first");
+        atomic_replace_bytes(&target, b"second").unwrap();
+        assert_eq!(fs::read(&target).unwrap(), b"second");
+
+        let _ = fs::remove_dir_all(root);
+    }
 
     fn workflow_test_root(name: &str) -> PathBuf {
         std::env::temp_dir().join(format!(

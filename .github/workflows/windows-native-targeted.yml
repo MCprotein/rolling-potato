@@ -21,4 +21,14 @@ jobs:
 
       - name: Test full native adapter
         timeout-minutes: 5
-        run: cargo test --locked --target x86_64-pc-windows-msvc --test native_terminal full_adapter -- --exact --test-threads=1
+        env:
+          RPOTATO_NATIVE_TERMINAL_TRACE: native-terminal-trace.log
+        run: cargo test --locked --target x86_64-pc-windows-msvc --test native_terminal full_adapter -- --exact --test-threads=1 --nocapture
+
+      - name: Print full adapter stage trace
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path native-terminal-trace.log) {
+            Get-Content native-terminal-trace.log
+          }

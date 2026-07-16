@@ -5,14 +5,24 @@
 Release date: 2026-07-16
 
 This patch release supersedes the incomplete v0.34.1 binary publication. The v0.34.1
-source tag remains immutable, but its Windows native-terminal gate exposed two test-host
-lifecycle defects before the Windows archive could be built.
+source tag remains immutable, but its Windows native-terminal gate exposed test-host
+lifecycle and long-path defects before the Windows archive could be built.
 
 ### Fixed
 
-- Keeps the ConPTY-side pipe handles alive until the first attached client is created,
-  following the Windows pseudoconsole startup contract so the initial console-mode probe
-  receives valid standard handles.
+- Keeps the ConPTY-side pipe handles alive until the first production client is created,
+  following the Windows pseudoconsole startup contract. Post-child probes then verify that
+  each production client restores input echo on the reused console.
+- Clears redirected test-host standard handles before attaching each production client to
+  ConPTY, sends console Enter as carriage return, and treats Ctrl+Z followed by Enter as the
+  terminal EOF boundary.
+- Waits for mode-probe output to flush and normalizes ConPTY title/cursor control sequences,
+  so the reusable-console lifecycle and exact terminal outcomes are verified without
+  depending on runner-specific screen rendering.
+- Captures fixture subprocess output in files under a 30-second bound, preventing redirected
+  pipe inheritance from stalling source-approval setup.
+- Makes Windows atomic replacement long-path-safe by canonicalizing the destination parent
+  before calling `MoveFileExW`; the native test covers both new and existing deep targets.
 - Closes the host output pipe before `ClosePseudoConsole` during fixture cleanup, avoiding
   the documented deadlock risk on Windows versions where pseudoconsole close waits.
 - Adds a manually dispatched Windows native-terminal workflow with separate five-minute
