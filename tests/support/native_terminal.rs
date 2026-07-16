@@ -129,6 +129,7 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
         };
         let model = self.root.join("model.gguf");
         std::fs::write(&model, b"fake model").unwrap();
+        let raw_error = self.root.join("raw-error.txt");
         let port = native_port(&self.root);
         let command = |args: &[&str]| {
             let label = args.join(" ");
@@ -140,7 +141,8 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
                     .env("RPOTATO_PROJECT_ROOT", &self.project)
                     .env("RPOTATO_DATA_HOME", &self.data)
                     .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend)
-                    .env("RPOTATO_BACKEND_PORT", port.to_string()),
+                    .env("RPOTATO_BACKEND_PORT", port.to_string())
+                    .env("RPOTATO_TEST_RAW_ERROR_PATH", &raw_error),
                 &label,
             );
             #[cfg(windows)]
@@ -169,6 +171,7 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
         let _ = command(&["backend", "stop"]);
         let ledger = std::fs::read_to_string(self.data.join("state/runtime-ledger.jsonl"))
             .unwrap_or_default();
+        let raw_error = std::fs::read_to_string(&raw_error).unwrap_or_default();
         let ledger_tail = ledger
             .lines()
             .rev()
@@ -180,7 +183,7 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
             .join("\n");
         assert!(
             run.status.success(),
-            "native source fixture skill run failed\nstdout={}\nstderr={}\nledger tail={ledger_tail}",
+            "native source fixture skill run failed\nstdout={}\nstderr={}\nraw error={raw_error}\nledger tail={ledger_tail}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr),
         );
