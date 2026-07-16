@@ -5,6 +5,7 @@ use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const RAW_TASK: &str = "RPOTATO_SUBAGENT_RAW_TASK_MUST_NOT_PERSIST";
+const MODEL_SECRET: &str = "RPOTATO_MODEL_SECRET_MUST_NOT_PERSIST";
 
 #[test]
 fn cli_subagent_lifecycle_is_bounded_deterministic_and_secret_safe() {
@@ -112,15 +113,51 @@ fn cli_subagent_lifecycle_is_bounded_deterministic_and_secret_safe() {
     assert_unchanged(&parent_path, &parent_before);
     assert_unchanged(&ledger_path, &ledger_before);
 
+    let result_count = file_count(&fixture.project.join(".rpotato/subagent-results"));
+    let evidence_count = file_count(&fixture.project.join(".rpotato/evidence"));
+    fixture.write_response(&format!(
+        "{{\"schema_version\":1,\"subagent_id\":\"{{{{SUBAGENT_ID}}}}\",\"parent_workflow_id\":\"{{{{PARENT_WORKFLOW_ID}}}}\",\"role\":\"explore\",\"status\":\"completed\",\"summary\":\"token={MODEL_SECRET}\",\"findings\":[\"src/lib.rs 확인\"],\"patch_proposal\":null,\"evidence_refs\":[\"src/lib.rs:1\"],\"validation_gaps\":[],\"suggested_next_action\":\"부모가 결과를 검토\"}}"
+    ));
+    let sensitive = fixture.command(&[
+        "subagent",
+        "launch",
+        "--role",
+        "explore",
+        "--task",
+        "민감 결과 차단 검사",
+        "--tool",
+        "read_file",
+        "--read",
+        "src/lib.rs",
+        "--timeout-ms",
+        "5000",
+        "--max-tokens",
+        "128",
+    ]);
+    assert_failure(&sensitive, "sensitive subagent result");
+    let sensitive_output = format!("{}{}", text(&sensitive.stdout), text(&sensitive.stderr));
+    assert!(sensitive_output.contains("sensitive output 차단"));
+    assert!(!sensitive_output.contains(MODEL_SECRET));
+    assert_eq!(
+        file_count(&fixture.project.join(".rpotato/subagent-results")),
+        result_count
+    );
+    assert_eq!(
+        file_count(&fixture.project.join(".rpotato/evidence")),
+        evidence_count
+    );
+
     assert_eq!(
         fs::read_to_string(&fixture.requests)
             .unwrap()
             .lines()
             .count(),
-        2
+        3
     );
     assert_tree_omits(&fixture.project.join(".rpotato"), RAW_TASK.as_bytes());
     assert_tree_omits(&fixture.data.join("state"), RAW_TASK.as_bytes());
+    assert_tree_omits(&fixture.project.join(".rpotato"), MODEL_SECRET.as_bytes());
+    assert_tree_omits(&fixture.data.join("state"), MODEL_SECRET.as_bytes());
     assert!(!text(&launch.stderr).contains(RAW_TASK));
     assert!(!status_stdout.contains(RAW_TASK));
 }
@@ -184,6 +221,17 @@ fn assert_tree_contains(root: &Path, needle: &[u8]) {
                 .any(|window| window == needle)
     });
     assert!(found, "expected canonical snapshot binding was not found");
+}
+
+fn file_count(root: &Path) -> usize {
+    fs::read_dir(root)
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .filter(|entry| entry.path().is_file())
+                .count()
+        })
+        .unwrap_or(0)
 }
 
 struct Fixture {
@@ -270,6 +318,15 @@ fn assert_success(output: &Output, label: &str) {
     assert!(
         output.status.success(),
         "{label} failed\nstdout={}\nstderr={}",
+        text(&output.stdout),
+        text(&output.stderr)
+    );
+}
+
+fn assert_failure(output: &Output, label: &str) {
+    assert!(
+        !output.status.success(),
+        "{label} unexpectedly succeeded\nstdout={}\nstderr={}",
         text(&output.stdout),
         text(&output.stderr)
     );
