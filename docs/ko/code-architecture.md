@@ -86,6 +86,13 @@ v0.37.11 extension 경계는 deterministic hook policy, skill manifest/lifecycle
 policy, plugin manifest/capability admission 규칙을 소유합니다. 최상위 hooks,
 skill, plugin facade에는 v0.37.13 composition cleanup까지 concrete ledger/state,
 workflow persistence, filesystem snapshot, discovery 연결만 남습니다.
+v0.37.12 collaboration 경계는 bounded subagent launch/result policy, team
+admission/continuation/stage/execution 결정, canonical team manifest/state codec,
+action ownership, deterministic reconciliation 규칙과 artifact를 소유합니다.
+최상위 subagent와 team facade에는 v0.37.13 composition cleanup까지 concrete
+backend, thread, lease, filesystem, recovery, ledger/projection, workflow
+checkpoint 연결만 남습니다. root `subagent_lifecycle`와 `team_runtime` Cargo
+harness는 `tests/collaboration` 아래의 통합 테스트 본문을 호출합니다.
 
 ## 의존 방향
 

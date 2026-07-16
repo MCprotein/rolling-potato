@@ -5,6 +5,12 @@ use std::path::Path;
 use crate::foundation::error::AppError;
 use sha2::{Digest, Sha256};
 
+pub fn sha256_text(value: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(value.as_bytes());
+    bytes_to_hex(&hasher.finalize())
+}
+
 pub fn sha256_file(path: &Path) -> Result<String, AppError> {
     let mut file = File::open(path).map_err(|err| {
         AppError::runtime(format!(
@@ -71,5 +77,13 @@ mod tests {
         assert!(!is_valid_sha256(
             "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
         ));
+    }
+
+    #[test]
+    fn sha256_text_hashes_utf8_bytes() {
+        assert_eq!(
+            sha256_text("hello"),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
     }
 }

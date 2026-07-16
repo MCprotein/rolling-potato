@@ -1480,6 +1480,194 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     );
 }
 
+#[test]
+fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_policy() {
+    let owners: &[(&str, &[&str])] = &[
+        (
+            "src/runtime_core/collaboration/subagent.rs",
+            &[
+                "enum SubagentRole",
+                "enum SubagentStatus",
+                "struct SubagentRecordV1",
+                "fn validate_launch",
+                "fn normalize_relative_path",
+                "fn validate_record",
+                "fn render_record",
+            ],
+        ),
+        (
+            "src/runtime_core/collaboration/subagent_result.rs",
+            &[
+                "struct SubagentResultV1",
+                "fn parse_result_shape",
+                "fn validate_patch_policy",
+                "fn validate_context_binding",
+                "fn verify_evidence_artifact",
+                "fn render_evidence_payload_v2",
+                "fn validate_bounded_text",
+            ],
+        ),
+        (
+            "src/runtime_core/collaboration/team.rs",
+            &[
+                "struct ContinuationDecision",
+                "struct PolicyGate",
+                "fn continuation_decision",
+                "fn evaluate_policy_gate",
+                "fn evaluate_ownership_gate",
+                "fn dispatch_event_type",
+                "fn admission_summary",
+            ],
+        ),
+        (
+            "src/runtime_core/collaboration/team_execution.rs",
+            &[
+                "fn validate_execution_binding",
+                "fn validate_execution_stage",
+                "fn execution_mode",
+                "fn validate_action_owner",
+                "fn record_matches_team",
+                "fn validate_completed_member_binding",
+            ],
+        ),
+        (
+            "src/runtime_core/collaboration/team_reconciliation.rs",
+            &[
+                "fn validate_reconciliation_binding",
+                "fn validate_reconciliation_stage",
+                "fn validate_action_ownership",
+                "fn validate_member_record",
+                "fn render_reconciliation",
+            ],
+        ),
+        (
+            "src/runtime_core/collaboration/team_state.rs",
+            &[
+                "enum TeamStage",
+                "fn transition_to_at",
+                "fn parse_manifest",
+                "fn parse_state",
+                "fn render_state",
+            ],
+        ),
+    ];
+    let collaboration_mod = fs::read_to_string("src/runtime_core/collaboration/mod.rs").unwrap();
+    for (owner, rules) in owners {
+        assert!(
+            Path::new(owner).is_file(),
+            "missing v0.37.12 collaboration owner: {owner}"
+        );
+        let child = Path::new(owner).file_stem().unwrap().to_str().unwrap();
+        let expected = format!("pub(crate) mod {child};");
+        assert!(
+            collaboration_mod.lines().any(|line| line == expected),
+            "collaboration child is not crate-private: {child}"
+        );
+        let source = fs::read_to_string(owner).unwrap();
+        for rule in *rules {
+            assert!(
+                source.contains(rule),
+                "v0.37.12 owner is missing collaboration rule: {owner} -> {rule}"
+            );
+        }
+        for dependency in [
+            "crate::adapters",
+            "crate::backend",
+            "crate::ledger",
+            "crate::observability",
+            "crate::state",
+            "std::fs",
+            "std::process",
+            "std::thread",
+        ] {
+            assert!(
+                !source.contains(dependency),
+                "collaboration owner has concrete reverse dependency: {owner} -> {dependency}"
+            );
+        }
+    }
+
+    for (facade, moved_definition) in [
+        ("src/subagent.rs", "pub enum SubagentRole"),
+        ("src/subagent.rs", "pub struct SubagentRecordV1"),
+        ("src/subagent.rs", "fn validate_record"),
+        ("src/subagent.rs", "fn render_record"),
+        ("src/subagent.rs", "fn normalize_paths"),
+        ("src/subagent_result.rs", "const RESULT_KEYS"),
+        ("src/subagent_result.rs", "const EVIDENCE_V2_KEYS"),
+        ("src/subagent_result.rs", "fn validate_patch"),
+        ("src/subagent_result.rs", "fn verify_evidence_artifact"),
+        ("src/subagent_result.rs", "fn render_evidence_payload_v2"),
+        ("src/subagent_result.rs", "fn validate_bounded_text"),
+        ("src/team.rs", "struct ContinuationDecision"),
+        ("src/team.rs", "struct PolicyGate"),
+        ("src/team.rs", "fn policy_preflight"),
+        ("src/team.rs", "fn ownership_preflight"),
+        ("src/team.rs", "fn admission_summary"),
+        ("src/team_execution.rs", "fn pressure_from_status"),
+        ("src/team_execution.rs", "fn record_matches_team"),
+        ("src/team_reconciliation.rs", "fn validate_team_binding"),
+        ("src/team_reconciliation.rs", "fn validate_member_record"),
+        ("src/team_state.rs", "pub enum TeamStage"),
+        ("src/team_state.rs", "fn parse_members"),
+        ("src/team_state.rs", "fn render_state"),
+    ] {
+        let source = fs::read_to_string(facade).unwrap();
+        let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
+        assert!(
+            !production.contains(moved_definition),
+            "legacy collaboration facade retains moved rule: {facade} -> {moved_definition}"
+        );
+    }
+
+    for (facade, delegation) in [
+        ("src/subagent.rs", "collaboration::subagent::*"),
+        (
+            "src/subagent_result.rs",
+            "result_policy::parse_result_shape",
+        ),
+        ("src/team.rs", "collaboration::team"),
+        ("src/team_execution.rs", "validate_execution_binding"),
+        (
+            "src/team_reconciliation.rs",
+            "validate_reconciliation_binding",
+        ),
+        ("src/team_state.rs", "collaboration::team_state"),
+    ] {
+        let source = fs::read_to_string(facade).unwrap();
+        assert!(
+            source.contains(delegation),
+            "legacy collaboration facade is missing owner delegation: {facade} -> {delegation}"
+        );
+    }
+
+    for (facade, maximum_lines) in [
+        ("src/subagent.rs", 2_400),
+        ("src/subagent_result.rs", 800),
+        ("src/team.rs", 1_400),
+        ("src/team_execution.rs", 1_300),
+        ("src/team_reconciliation.rs", 550),
+        ("src/team_state.rs", 850),
+    ] {
+        let source = fs::read_to_string(facade).unwrap();
+        assert!(
+            source.lines().count() <= maximum_lines,
+            "collaboration facade regrew beyond the v0.37.12 boundary: {facade}"
+        );
+    }
+
+    assert_eq!(
+        fs::read_to_string("tests/subagent_lifecycle.rs")
+            .unwrap()
+            .trim(),
+        "include!(\"collaboration/subagent_lifecycle.rs\");"
+    );
+    assert_eq!(
+        fs::read_to_string("tests/team_runtime.rs").unwrap().trim(),
+        "include!(\"collaboration/team_runtime.rs\");"
+    );
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

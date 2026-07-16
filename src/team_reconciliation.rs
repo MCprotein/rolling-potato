@@ -1,4 +1,10 @@
 use crate::foundation::error::AppError;
+use crate::runtime_core::collaboration::team_execution::{detail_token, RuntimeIdentityBinding};
+use crate::runtime_core::collaboration::team_reconciliation::{
+    parse_unique_evidence, render_reconciliation as render_reconciliation_policy,
+    validate_action_ownership, validate_member_record, validate_reconciliation_binding,
+    validate_reconciliation_stage, ReconciliationMemberBinding,
+};
 use crate::{
     adapters::filesystem::layout as paths, adapters::filesystem::lease, ledger, observability,
     state, subagent, subagent_result, team_state,
@@ -23,27 +29,15 @@ pub fn reconcile_report(team_id: &str) -> Result<String, AppError> {
     let identity = ledger::validated_current_identity()?;
     let mut team = team_state::load_state(team_id)?;
     let manifest = team_state::load_manifest(team_id)?;
-    validate_team_binding(&identity, &team, &manifest)?;
-    if matches!(
-        team.stage,
-        team_state::TeamStage::Plan | team_state::TeamStage::Dispatch
-    ) {
-        return Err(AppError::blocked(format!(
-            "team reconcile stage 차단\n- team id: {}\n- current stage: {}\n- 이유: worker execution이 완료되지 않았습니다.",
-            team.team_id,
-            team.stage.as_str()
-        )));
-    }
-    if matches!(
-        team.stage,
-        team_state::TeamStage::Failed | team_state::TeamStage::Cancelled
-    ) {
-        return Err(AppError::blocked(format!(
-            "team reconcile terminal state 차단\n- team id: {}\n- current stage: {}",
-            team.team_id,
-            team.stage.as_str()
-        )));
-    }
+    validate_reconciliation_binding(
+        &RuntimeIdentityBinding {
+            project_id: &identity.project_id,
+            session_id: &identity.session_id,
+        },
+        &team,
+        &manifest,
+    )?;
+    validate_reconciliation_stage(&team)?;
     if team_state::cancellation_requested(team_id)? {
         return Err(AppError::blocked(format!(
             "team reconcile cancellation 차단\n- team id: {team_id}"
@@ -163,24 +157,6 @@ pub fn reconcile_report(team_id: &str) -> Result<String, AppError> {
     ))
 }
 
-fn validate_team_binding(
-    identity: &ledger::RuntimeIdentity,
-    team: &team_state::TeamStateV1,
-    manifest: &team_state::TeamManifestV1,
-) -> Result<(), AppError> {
-    if team.manifest_hash != manifest.artifact_hash
-        || team.parent_workflow_id != manifest.parent_workflow_id
-        || team.member_count != manifest.members.len() as u32
-        || team.project_id != identity.project_id
-        || team.session_id != identity.session_id
-    {
-        return Err(AppError::blocked(
-            "team reconcile state/manifest/owner binding 불일치",
-        ));
-    }
-    Ok(())
-}
-
 fn collect_members(
     identity: &ledger::RuntimeIdentity,
     team: &team_state::TeamStateV1,
@@ -232,7 +208,15 @@ fn collect_members(
             ));
         }
         let record = subagent::load_record(subagent_id)?;
-        validate_member_record(identity, team, member, &record)?;
+        validate_member_record(
+            &RuntimeIdentityBinding {
+                project_id: &identity.project_id,
+                session_id: &identity.session_id,
+            },
+            team,
+            member,
+            &record,
+        )?;
         let result = subagent_result::load_completed_result(&record)?;
         let (action, target_path, source_hash) =
             validate_action_ownership(manifest, member, &result)?;
@@ -274,63 +258,6 @@ fn collect_members(
         });
     }
     Ok(reconciled)
-}
-
-fn validate_member_record(
-    identity: &ledger::RuntimeIdentity,
-    team: &team_state::TeamStateV1,
-    member: &team_state::TeamMemberV1,
-    record: &subagent::SubagentRecordV1,
-) -> Result<(), AppError> {
-    if record.project_id != identity.project_id
-        || record.session_id != identity.session_id
-        || record.parent_workflow_id != team.parent_workflow_id
-        || record.parent_revision != team.parent_revision
-        || record.parent_artifact_hash != team.parent_artifact_hash
-        || record.status != subagent::SubagentStatus::Completed
-        || record.role.as_str() != member.role
-        || record.task_hash != member.task_hash
-        || record.declared_tools != member.tools
-        || record.read_paths != member.read_paths
-        || record.write_paths != member.write_paths
-        || record.timeout_ms != member.timeout_ms
-        || record.requested_max_tokens != member.max_tokens
-    {
-        return Err(AppError::blocked(
-            "team reconciliation worker immutable binding 불일치",
-        ));
-    }
-    Ok(())
-}
-
-fn validate_action_ownership<'a>(
-    manifest: &'a team_state::TeamManifestV1,
-    member: &'a team_state::TeamMemberV1,
-    result: &'a subagent_result::SubagentResultV1,
-) -> Result<(&'static str, &'a str, &'a str), AppError> {
-    let Some(patch) = result.patch_proposal.as_ref() else {
-        return Ok(("none", "none", "none"));
-    };
-    let owners = manifest
-        .members
-        .iter()
-        .filter(|candidate| {
-            candidate.write_paths.iter().any(|owner| {
-                patch.target_path == *owner
-                    || patch
-                        .target_path
-                        .strip_prefix(owner)
-                        .is_some_and(|suffix| suffix.starts_with('/'))
-            })
-        })
-        .collect::<Vec<_>>();
-    if owners.len() != 1 || owners[0].lane != member.lane || owners[0].member_id != member.member_id
-    {
-        return Err(AppError::blocked(
-            "team reconciliation action ownership 불일치",
-        ));
-    }
-    Ok(("patch", &patch.target_path, &patch.source_hash))
 }
 
 fn verify_stop_inputs(
@@ -440,46 +367,23 @@ fn is_expected_merged_parent(
 }
 
 fn workflow_evidence(parent: &state::WorkflowRecord) -> Result<Vec<String>, AppError> {
-    let evidence = parent
-        .skill_evidence
-        .split(',')
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .collect::<Vec<_>>();
-    if evidence.iter().collect::<BTreeSet<_>>().len() != evidence.len() {
-        return Err(AppError::blocked(
-            "team parent evidence 기존 목록에 duplicate가 있습니다.",
-        ));
-    }
-    Ok(evidence)
+    parse_unique_evidence(&parent.skill_evidence)
 }
 
 fn render_reconciliation(team: &team_state::TeamStateV1, members: &[ReconciledMember]) -> String {
-    let member_body = members
+    let bindings = members
         .iter()
-        .map(|member| {
-            format!(
-                "{{\"lane\":{},\"member_id\":\"{}\",\"subagent_id\":\"{}\",\"result_artifact_id\":\"{}\",\"result_artifact_hash\":\"{}\",\"evidence_id\":\"{}\",\"evidence_hash\":\"{}\"}}",
-                member.lane,
-                ledger::json_string(&member.member_id),
-                ledger::json_string(&member.record.subagent_id),
-                ledger::json_string(&member.record.result_artifact_id),
-                member.record.result_artifact_hash,
-                ledger::json_string(&member.record.evidence_id),
-                member.record.evidence_hash,
-            )
+        .map(|member| ReconciliationMemberBinding {
+            lane: member.lane,
+            member_id: &member.member_id,
+            subagent_id: &member.record.subagent_id,
+            result_artifact_id: &member.record.result_artifact_id,
+            result_artifact_hash: &member.record.result_artifact_hash,
+            evidence_id: &member.record.evidence_id,
+            evidence_hash: &member.record.evidence_hash,
         })
-        .collect::<Vec<_>>()
-        .join(",");
-    format!(
-        "{{\"schema_version\":1,\"team_id\":\"{}\",\"manifest_hash\":\"{}\",\"parent_workflow_id\":\"{}\",\"parent_revision\":{},\"parent_artifact_hash\":\"{}\",\"members\":[{}]}}",
-        ledger::json_string(&team.team_id),
-        team.manifest_hash,
-        ledger::json_string(&team.parent_workflow_id),
-        team.parent_revision,
-        team.parent_artifact_hash,
-        member_body,
-    )
+        .collect::<Vec<_>>();
+    render_reconciliation_policy(team, &bindings)
 }
 
 fn install_reconciliation(team_id: &str, body: &str) -> Result<(), AppError> {
@@ -539,12 +443,6 @@ fn has_event(
                 .iter()
                 .all(|(key, value)| detail_token(&event.details, key) == Some(*value))
     })
-}
-
-fn detail_token<'a>(details: &'a str, key: &str) -> Option<&'a str> {
-    details
-        .split_whitespace()
-        .find_map(|token| token.strip_prefix(&format!("{key}=")))
 }
 
 fn stop_gate_failed<T>(team: &team_state::TeamStateV1, reason: &str) -> Result<T, AppError> {

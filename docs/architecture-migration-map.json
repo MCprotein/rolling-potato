@@ -2482,6 +2482,106 @@
       ]
     },
     {
+      "path": "src/runtime_core/collaboration/subagent.rs",
+      "slices": [
+        {
+          "responsibility": "subagent role, tool, launch, and lifecycle policy",
+          "target": "src/runtime_core/collaboration/subagent.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/subagent.rs",
+            "tests/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent_result.rs",
+      "slices": [
+        {
+          "responsibility": "canonical subagent result shape and patch proposal policy",
+          "target": "src/runtime_core/collaboration/subagent_result.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent_result.rs",
+            "src/subagent_result.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team.rs",
+      "slices": [
+        {
+          "responsibility": "team admission, dispatch, continuation, and governor decision policy",
+          "target": "src/runtime_core/collaboration/team.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team.rs",
+            "src/team.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_execution.rs",
+      "slices": [
+        {
+          "responsibility": "team execution binding, stage, mode, and action ownership policy",
+          "target": "src/runtime_core/collaboration/team_execution.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_execution.rs",
+            "src/team_execution.rs",
+            "tests/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_reconciliation.rs",
+      "slices": [
+        {
+          "responsibility": "team reconciliation binding, stage, ownership, and artifact policy",
+          "target": "src/runtime_core/collaboration/team_reconciliation.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_reconciliation.rs",
+            "src/team_reconciliation.rs",
+            "tests/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_state.rs",
+      "slices": [
+        {
+          "responsibility": "team manifest/state codec, DTOs, invariants, and stage transition policy",
+          "target": "src/runtime_core/collaboration/team_state.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_state.rs",
+            "src/team_state.rs",
+            "tests/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/extensions/mod.rs",
       "slices": [
         {
@@ -3111,8 +3211,13 @@
           "responsibility": "subagent lifecycle and dispatch",
           "target": "src/runtime_core/collaboration/subagent.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/subagent.rs",
+            "tests/collaboration/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3123,8 +3228,13 @@
           "responsibility": "subagent result validation and merge",
           "target": "src/runtime_core/collaboration/subagent_result.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent_result.rs",
+            "src/subagent_result.rs",
+            "tests/collaboration/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3177,8 +3287,12 @@
           "responsibility": "team plan and lifecycle",
           "target": "src/runtime_core/collaboration/team.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team.rs",
+            "src/team.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3189,8 +3303,13 @@
           "responsibility": "team lane execution",
           "target": "src/runtime_core/collaboration/team_execution.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_execution.rs",
+            "src/team_execution.rs",
+            "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3201,8 +3320,13 @@
           "responsibility": "team evidence reconciliation",
           "target": "src/runtime_core/collaboration/team_reconciliation.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_reconciliation.rs",
+            "src/team_reconciliation.rs",
+            "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3213,8 +3337,13 @@
           "responsibility": "persisted team state",
           "target": "src/runtime_core/collaboration/team_state.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_state.rs",
+            "src/team_state.rs",
+            "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3540,8 +3669,26 @@
           "responsibility": "subagent lifecycle contract",
           "target": "tests/collaboration/subagent_lifecycle.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/subagent_lifecycle.rs",
+            "tests/collaboration/subagent_lifecycle.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/collaboration/subagent_lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "subagent lifecycle integration test body",
+          "target": "tests/collaboration/subagent_lifecycle.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "tests/subagent_lifecycle.rs",
+            "tests/collaboration/subagent_lifecycle.rs"
+          ]
         }
       ]
     },
@@ -3588,13 +3735,31 @@
           "responsibility": "team runtime contract",
           "target": "tests/collaboration/team_runtime.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/team_runtime.rs",
+            "tests/collaboration/team_runtime.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/collaboration/team_runtime.rs",
+      "slices": [
+        {
+          "responsibility": "team runtime integration test body",
+          "target": "tests/collaboration/team_runtime.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "tests/team_runtime.rs",
+            "tests/collaboration/team_runtime.rs"
+          ]
         }
       ]
     }
   ],
-  "current_release": "0.37.11",
+  "current_release": "0.37.12",
   "train_completion": false,
   "logical_proofs": [
     {
@@ -4592,6 +4757,42 @@
       ]
     },
     {
+      "path": "src/runtime_core/collaboration/subagent.rs",
+      "responsibilities": [
+        "subagent role, tool, launch, and lifecycle policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent_result.rs",
+      "responsibilities": [
+        "canonical subagent result shape and patch proposal policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team.rs",
+      "responsibilities": [
+        "team admission, dispatch, continuation, and governor decision policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_execution.rs",
+      "responsibilities": [
+        "team execution binding, stage, mode, and action ownership policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_reconciliation.rs",
+      "responsibilities": [
+        "team reconciliation binding, stage, ownership, and artifact policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_state.rs",
+      "responsibilities": [
+        "team manifest/state codec, DTOs, invariants, and stage transition policy"
+      ]
+    },
+    {
       "path": "src/runtime_core/extensions/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -5007,6 +5208,12 @@
       ]
     },
     {
+      "path": "tests/collaboration/subagent_lifecycle.rs",
+      "responsibilities": [
+        "subagent lifecycle integration test body"
+      ]
+    },
+    {
       "path": "tests/support/fake_sidecar.rs",
       "responsibilities": [
         "cross-crate integration fixture"
@@ -5028,6 +5235,12 @@
       "path": "tests/team_runtime.rs",
       "responsibilities": [
         "team runtime contract"
+      ]
+    },
+    {
+      "path": "tests/collaboration/team_runtime.rs",
+      "responsibilities": [
+        "team runtime integration test body"
       ]
     }
   ]

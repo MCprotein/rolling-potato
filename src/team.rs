@@ -1,10 +1,16 @@
 use crate::foundation::error::AppError;
+use crate::runtime_core::collaboration::team::{
+    admission_event_type, admission_summary, continuation_decision, decision_label,
+    dispatch_event_type, dispatch_status, dispatch_summary, evaluate_ownership_gate,
+    evaluate_policy_gate, governor_event_type, governor_status, governor_summary,
+    is_team_runtime_event, overall_status, policy_write_paths, pressure_from_status,
+    OwnershipCheck, OwnershipClaim, OwnershipGate, PolicyCheck, PolicyGate,
+};
 use crate::runtime_core::inference::resource;
 use crate::{
     adapters::filesystem::layout as paths, approval, ledger, observability, policy, state,
     team_state,
 };
-use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 
 pub fn status_report() -> Result<String, AppError> {
@@ -103,8 +109,11 @@ pub fn admission_report(
         .unwrap_or(resource::ResourcePressure::Unknown);
     let decision = resource::team_lane_decision(pressure, requested_lanes);
     let policy_write_paths = policy_write_paths(write_paths, owned_write_paths);
-    let policy_gate = policy_preflight(&policy_write_paths, commands)?;
-    let ownership_gate = ownership_preflight(decision.admitted_lanes, owned_write_paths)?;
+    let policy_gate = evaluate_policy_gate(classify_policy_inputs(&policy_write_paths, commands)?);
+    let ownership_gate = evaluate_ownership_gate(
+        decision.admitted_lanes,
+        normalize_ownership_claims(owned_write_paths)?,
+    );
     let blocked_by_resource = decision.is_blocked();
     let blocked_by_policy = policy_gate.is_blocked();
     let blocked_by_ownership = ownership_gate.is_blocked();
@@ -227,11 +236,14 @@ pub fn dispatch_report(
         .map(|sample| pressure_from_status(&sample.pressure_status))
         .unwrap_or(resource::ResourcePressure::Unknown);
     let lane_decision = resource::team_lane_decision(pressure, requested_lanes);
-    let ownership_gate = ownership_preflight(lane_decision.admitted_lanes, owned_write_paths)?;
+    let ownership_gate = evaluate_ownership_gate(
+        lane_decision.admitted_lanes,
+        normalize_ownership_claims(owned_write_paths)?,
+    );
     let continuation = continuation_decision(
         lane_decision.admitted_lanes,
         failed_lane,
-        failure_reason.unwrap_or("not-provided"),
+        &ledger::redact_text(failure_reason.unwrap_or("not-provided")),
     );
     let blocked_by_resource = lane_decision.is_blocked();
     let blocked_by_ownership = ownership_gate.is_blocked();
@@ -435,15 +447,6 @@ pub fn governor_report(
     Ok(report)
 }
 
-fn pressure_from_status(value: &str) -> resource::ResourcePressure {
-    match value {
-        "normal" => resource::ResourcePressure::Normal,
-        "degraded" => resource::ResourcePressure::Degraded,
-        "critical" => resource::ResourcePressure::Critical,
-        _ => resource::ResourcePressure::Unknown,
-    }
-}
-
 fn latest_team_runtime_event(
     identity: &ledger::RuntimeIdentity,
 ) -> Result<Option<ledger::ParsedLedgerEvent>, AppError> {
@@ -459,316 +462,16 @@ fn latest_team_runtime_event(
     Ok(events.pop())
 }
 
-fn is_team_runtime_event(event_type: &str) -> bool {
-    event_type.starts_with("team.admission.")
-        || event_type.starts_with("team.dispatch.")
-        || event_type.starts_with("team.continuation.")
-        || event_type.starts_with("team.governor.")
-        || event_type.starts_with("team.worker.")
-        || event_type.starts_with("team.subagent.")
-}
-
-fn governor_status(
-    context_decision: &resource::ContextModelGovernorDecision,
-    lane_decision: &resource::ResourceLaneDecision,
-) -> &'static str {
-    if context_decision.is_blocked() || lane_decision.is_blocked() {
-        "blocked"
-    } else if context_decision.context_action == resource::ContextGovernorAction::Clamped {
-        "clamped"
-    } else if context_decision.model_hint != resource::ModelRouteHint::Keep {
-        "hinted"
-    } else {
-        "allowed"
-    }
-}
-
-fn governor_event_type(status: &str) -> &'static str {
-    match status {
-        "blocked" => "team.governor.blocked",
-        "clamped" => "team.governor.clamped",
-        "hinted" => "team.governor.hinted",
-        _ => "team.governor.allowed",
-    }
-}
-
-fn governor_summary(status: &str) -> &'static str {
-    match status {
-        "blocked" => "team governor blocked",
-        "clamped" => "team governor context clamped",
-        "hinted" => "team governor model route hinted",
-        _ => "team governor allowed",
-    }
-}
-
-fn admission_status(admission: resource::ResourceLaneAdmission) -> &'static str {
-    match admission {
-        resource::ResourceLaneAdmission::AllowParallel => "admitted",
-        resource::ResourceLaneAdmission::SequentialFallback => "sequential-fallback",
-        resource::ResourceLaneAdmission::Blocked => "blocked",
-    }
-}
-
-fn overall_status(
-    admission: resource::ResourceLaneAdmission,
-    blocked_by_policy: bool,
-    blocked_by_ownership: bool,
-) -> &'static str {
-    if admission == resource::ResourceLaneAdmission::Blocked {
-        return "blocked";
-    }
-    if blocked_by_ownership {
-        return "ownership-blocked";
-    }
-    if blocked_by_policy {
-        return "policy-blocked";
-    }
-    admission_status(admission)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ContinuationDecision {
-    status: &'static str,
-    action: &'static str,
-    remaining_lanes: u32,
-    reason: String,
-    hint: &'static str,
-}
-
-impl ContinuationDecision {
-    fn is_blocked(&self) -> bool {
-        self.status == "blocked"
-    }
-}
-
-fn continuation_decision(
-    admitted_lanes: u32,
-    failed_lane: Option<u32>,
-    failure_reason: &str,
-) -> ContinuationDecision {
-    let Some(failed_lane) = failed_lane else {
-        return ContinuationDecision {
-            status: "not-requested",
-            action: "none",
-            remaining_lanes: admitted_lanes,
-            reason: "no failed worker reported".to_string(),
-            hint: "dispatch may proceed without continuation handling if other gates allow it",
-        };
-    };
-
-    if failed_lane == 0 || failed_lane > admitted_lanes {
-        return ContinuationDecision {
-            status: "blocked",
-            action: "none",
-            remaining_lanes: 0,
-            reason: format!(
-                "failed lane {failed_lane} is outside admitted lanes {admitted_lanes}; cannot continue safely"
-            ),
-            hint: "re-run admission with current resources and a valid failed lane before continuing",
-        };
-    }
-
-    if admitted_lanes <= 1 {
-        return ContinuationDecision {
-            status: "blocked",
-            action: "wait",
-            remaining_lanes: 0,
-            reason: "no remaining admitted lanes after the failed worker".to_string(),
-            hint: "resume as a single-agent repair or re-run admission after resources recover",
-        };
-    }
-
-    ContinuationDecision {
-        status: "continue-with-remaining",
-        action: "continue",
-        remaining_lanes: admitted_lanes - 1,
-        reason: format!(
-            "lane {failed_lane} is excluded after failure; reason recorded as {}",
-            ledger::redact_text(failure_reason)
-        ),
-        hint: "continue only unfailed lanes and keep file ownership boundaries unchanged",
-    }
-}
-
-fn dispatch_status(
-    admission: resource::ResourceLaneAdmission,
-    blocked_by_ownership: bool,
-    continuation: &ContinuationDecision,
-) -> &'static str {
-    if admission == resource::ResourceLaneAdmission::Blocked || continuation.is_blocked() {
-        return "blocked";
-    }
-    if blocked_by_ownership {
-        return "ownership-blocked";
-    }
-    if continuation.status == "continue-with-remaining" {
-        return "continuation-ready";
-    }
-    admission_status(admission)
-}
-
-fn dispatch_event_type(
-    admission: resource::ResourceLaneAdmission,
-    blocked_by_ownership: bool,
-    continuation: &ContinuationDecision,
-) -> &'static str {
-    if admission == resource::ResourceLaneAdmission::Blocked {
-        return "team.dispatch.blocked";
-    }
-    if blocked_by_ownership {
-        return "team.dispatch.ownership_blocked";
-    }
-    if continuation.is_blocked() {
-        return "team.continuation.blocked";
-    }
-    if continuation.status == "continue-with-remaining" {
-        return "team.continuation.recorded";
-    }
-    match admission {
-        resource::ResourceLaneAdmission::AllowParallel => "team.dispatch.ready",
-        resource::ResourceLaneAdmission::SequentialFallback => "team.dispatch.fallback",
-        resource::ResourceLaneAdmission::Blocked => "team.dispatch.blocked",
-    }
-}
-
-fn dispatch_summary(
-    admission: resource::ResourceLaneAdmission,
-    blocked_by_ownership: bool,
-    continuation: &ContinuationDecision,
-) -> &'static str {
-    if admission == resource::ResourceLaneAdmission::Blocked {
-        return "team dispatch blocked";
-    }
-    if blocked_by_ownership {
-        return "team dispatch ownership blocked";
-    }
-    if continuation.is_blocked() {
-        return "team continuation blocked";
-    }
-    if continuation.status == "continue-with-remaining" {
-        return "team continuation recorded";
-    }
-    match admission {
-        resource::ResourceLaneAdmission::AllowParallel => "team dispatch ready",
-        resource::ResourceLaneAdmission::SequentialFallback => "team dispatch sequential fallback",
-        resource::ResourceLaneAdmission::Blocked => "team dispatch blocked",
-    }
-}
-
-fn admission_event_type(
-    admission: resource::ResourceLaneAdmission,
-    blocked_by_policy: bool,
-    blocked_by_ownership: bool,
-) -> &'static str {
-    if admission == resource::ResourceLaneAdmission::Blocked {
-        return "team.admission.blocked";
-    }
-    if blocked_by_ownership {
-        return "team.admission.ownership_blocked";
-    }
-    if blocked_by_policy {
-        return "team.admission.policy_blocked";
-    }
-    match admission {
-        resource::ResourceLaneAdmission::AllowParallel => "team.admission.admitted",
-        resource::ResourceLaneAdmission::SequentialFallback => "team.admission.fallback",
-        resource::ResourceLaneAdmission::Blocked => "team.admission.blocked",
-    }
-}
-
-fn admission_summary(
-    admission: resource::ResourceLaneAdmission,
-    blocked_by_policy: bool,
-    blocked_by_ownership: bool,
-) -> &'static str {
-    if admission == resource::ResourceLaneAdmission::Blocked {
-        return "team admission blocked";
-    }
-    if blocked_by_ownership {
-        return "team admission ownership blocked";
-    }
-    if blocked_by_policy {
-        return "team admission policy blocked";
-    }
-    match admission {
-        resource::ResourceLaneAdmission::AllowParallel => "team admission admitted",
-        resource::ResourceLaneAdmission::SequentialFallback => "team admission sequential fallback",
-        resource::ResourceLaneAdmission::Blocked => "team admission blocked",
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct PolicyGate {
-    status: &'static str,
-    checks: Vec<PolicyCheck>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct PolicyCheck {
-    target_type: &'static str,
-    target: String,
-    decision: policy::Decision,
-    class: &'static str,
-    approval_prompt: &'static str,
-    reason: String,
-}
-
-impl PolicyGate {
-    fn is_blocked(&self) -> bool {
-        matches!(self.status, "approval-required" | "blocked")
-    }
-
-    fn blocked_label(&self) -> &'static str {
-        if self.is_blocked() {
-            "yes"
-        } else {
-            "no"
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct OwnershipGate {
-    status: &'static str,
-    checks: Vec<OwnershipCheck>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct OwnershipCheck {
-    lane: u32,
-    raw_path: String,
-    normalized_path: String,
-    status: &'static str,
-    reason: String,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct RecordedApprovalRequest {
     request_id: String,
     path: PathBuf,
 }
 
-impl OwnershipGate {
-    fn is_blocked(&self) -> bool {
-        matches!(self.status, "invalid" | "conflict")
-    }
-
-    fn blocked_label(&self) -> &'static str {
-        if self.is_blocked() {
-            "yes"
-        } else {
-            "no"
-        }
-    }
-}
-
-fn policy_write_paths(write_paths: &[String], owned_write_paths: &[(u32, String)]) -> Vec<String> {
-    let mut paths = write_paths.to_vec();
-    paths.extend(owned_write_paths.iter().map(|(_, path)| path.clone()));
-    paths
-}
-
-fn policy_preflight(write_paths: &[String], commands: &[String]) -> Result<PolicyGate, AppError> {
+fn classify_policy_inputs(
+    write_paths: &[String],
+    commands: &[String],
+) -> Result<Vec<PolicyCheck>, AppError> {
     let mut checks = Vec::new();
     for path in write_paths {
         let decision = policy::classify_path(policy::PathMode::Write, path)?;
@@ -793,77 +496,22 @@ fn policy_preflight(write_paths: &[String], commands: &[String]) -> Result<Polic
         });
     }
 
-    let status = if checks.is_empty() {
-        "not-requested"
-    } else if checks
-        .iter()
-        .any(|check| check.decision == policy::Decision::Deny)
-    {
-        "blocked"
-    } else if checks
-        .iter()
-        .any(|check| check.decision == policy::Decision::Ask)
-    {
-        "approval-required"
-    } else {
-        "allowed"
-    };
-
-    Ok(PolicyGate { status, checks })
+    Ok(checks)
 }
 
-fn ownership_preflight(
-    admitted_lanes: u32,
+fn normalize_ownership_claims(
     owned_write_paths: &[(u32, String)],
-) -> Result<OwnershipGate, AppError> {
-    if owned_write_paths.is_empty() {
-        return Ok(OwnershipGate {
-            status: "not-requested",
-            checks: Vec::new(),
-        });
-    }
-
-    let mut owners: HashMap<String, u32> = HashMap::new();
-    let mut checks = Vec::new();
+) -> Result<Vec<OwnershipClaim>, AppError> {
+    let mut claims = Vec::new();
     for (lane, raw_path) in owned_write_paths {
         let normalized_path = normalize_ownership_path(raw_path)?;
-        let mut status = "assigned";
-        let mut reason = "write path assigned to lane before dispatch".to_string();
-
-        if *lane > admitted_lanes {
-            status = "invalid";
-            reason = format!(
-                "lane {lane} exceeds admitted lanes {admitted_lanes}; reduce lanes or wait for resources"
-            );
-        } else if let Some(existing_lane) = owners.get(&normalized_path) {
-            if *existing_lane != *lane {
-                status = "conflict";
-                reason = format!(
-                    "path already owned by lane {existing_lane}; cross-lane writes are blocked"
-                );
-            }
-        } else {
-            owners.insert(normalized_path.clone(), *lane);
-        }
-
-        checks.push(OwnershipCheck {
+        claims.push(OwnershipClaim {
             lane: *lane,
             raw_path: raw_path.clone(),
             normalized_path,
-            status,
-            reason,
         });
     }
-
-    let status = if checks.iter().any(|check| check.status == "conflict") {
-        "conflict"
-    } else if checks.iter().any(|check| check.status == "invalid") {
-        "invalid"
-    } else {
-        "allocated"
-    };
-
-    Ok(OwnershipGate { status, checks })
+    Ok(claims)
 }
 
 fn normalize_ownership_path(raw_path: &str) -> Result<String, AppError> {
@@ -1041,14 +689,6 @@ fn format_ownership_checks(checks: &[OwnershipCheck]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-fn decision_label(decision: policy::Decision) -> &'static str {
-    match decision {
-        policy::Decision::Allow => "allow",
-        policy::Decision::Ask => "ask",
-        policy::Decision::Deny => "deny",
-    }
 }
 
 fn display_list(values: &[String]) -> String {
