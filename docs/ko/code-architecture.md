@@ -67,6 +67,11 @@ v0.37.4 workflow storage compatibility 경계는 canonical workflow snapshot과
 pointer, ledger event encoding/hash/append, transcript record encoding/validation/install을
 소유합니다. 기존 최상위 module에는 이후 slice에서 이동할 path, lock, transaction,
 recovery, projection, command orchestration만 남깁니다.
+v0.37.5 workflow domain 경계는 current-state와 lease DTO, session resume 권위 확인,
+read-only snapshot/checkpoint binding, canonical transcript-session ordering과 duplicate
+거부, transcript event/record binding, tool-output view DTO를 소유합니다. 최상위
+state와 transcript module은 이후 slice에 배정된 filesystem, lock, transaction,
+recovery, projection, command orchestration compatibility facade로 남습니다.
 
 ## 의존 방향
 

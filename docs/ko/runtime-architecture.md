@@ -185,6 +185,11 @@ ledger·ledger 불일치는 fail-closed로 차단합니다. SQLite는 재생성 
 v0.37.4 private storage compatibility owner는 이 transaction/recovery 순서를 바꾸지
 않고 canonical workflow snapshot/pointer codec, ledger event encoding/hash/append,
 transcript record encoding/validation/install을 제공합니다.
+v0.37.5 private workflow domain owner는 current-state identity와 lease, session resume
+권위, bounded read-only workflow checkpoint, ledger 순서를 보존하는 transcript session
+view를 검증합니다. 또한 durable byte, filesystem access, lock 획득, recovery 순서를
+바꾸지 않고 duplicate canonical transcript event와 transcript event/record/tool binding
+불일치를 차단합니다.
 
 Model output은 실행 불가 action으로 저장됩니다. Runtime은 proposal, approval, apply,
 stop gate 전마다 지정 source 원문을 다시 읽습니다. Approval은 workflow/action/proposal

@@ -137,13 +137,17 @@ sequence and non-skippable release gates are defined in
    encoding/hash/append, transcript record encoding/validation/install, and
    focused byte/order/hash/failure contracts are implemented and awaiting
    release.
-5. `v0.37.5` through `v0.37.13+`: migrate every remaining ledger slice by
+5. `v0.37.5`: validated workflow/session/snapshot and transcript-session views,
+   including fail-closed identity/lease/checkpoint binding, ledger ordering,
+   duplicate rejection, and event/record/tool binding, are implemented and
+   awaiting release.
+6. `v0.37.6` through `v0.37.13+`: migrate every remaining ledger slice by
    coherent domain and rollback boundary, preserving durable bytes, recovery
    order, policy, CLI behavior, backend behavior, and release contracts. The
    train ends only at complete ledger coverage with zero compatibility facades.
-6. `v0.38.0`: Claude Code local plugin execution conformance through the
+7. `v0.38.0`: Claude Code local plugin execution conformance through the
    established native adapter and default-deny permission boundary.
-7. `v0.39.0` onward: integrated performance hardening followed by distribution
+8. `v0.39.0` onward: integrated performance hardening followed by distribution
    and optional local monitoring surfaces.
 
 Package-manager distribution and an optional local HTML monitoring report come
