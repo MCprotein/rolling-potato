@@ -22,6 +22,7 @@ rpotato
   rpotato team status
   rpotato team plan --manifest <project-relative-json>
   rpotato team execute --team <team-id>
+  rpotato team reconcile --team <team-id>
   rpotato team cancel --team <team-id>
   rpotato team admit --lanes <count> [--write <path>] [--write-owner <lane:path>] [--command <command>]
   rpotato team dispatch --lanes <count> --write-owner <lane:path> [--failed-lane <lane>] [--failure <reason>]
@@ -121,6 +122,7 @@ patch workflow 규칙:
   team status는 최신 resource sample 기준의 read-only admission preview와 sequential fallback 결정을 표시합니다.
   team plan은 canonical team manifest를 active parent workflow에 binding하고 durable team-plan state를 기록합니다.
   team execute는 durable team plan의 모든 member를 resource pressure에 따라 병렬 또는 순차 실행합니다.
+  team reconcile은 complete worker set과 evidence를 검증해 parent에 원자적으로 merge하고 stop gate를 통과시킵니다.
   team cancel은 durable marker를 기록해 active team worker 전체에 취소를 전파합니다.
   team admit은 dispatcher 진입 전 resource/policy/file-ownership admission gate를 강제하고 결과를 ledger에 기록합니다.
   team dispatch는 dispatch 직전 file ownership을 다시 강제하고 failed-worker continuation 상태를 ledger에 기록합니다.
@@ -228,6 +230,9 @@ pub enum TeamCommand {
         manifest_path: String,
     },
     Execute {
+        team_id: String,
+    },
+    Reconcile {
         team_id: String,
     },
     Cancel {
@@ -516,6 +521,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action, rest @ ..] if group == "team" && action == "execute" => {
             Ok(Command::Team(parse_team_execute_args(rest)?))
         }
+        [group, action, rest @ ..] if group == "team" && action == "reconcile" => {
+            Ok(Command::Team(parse_team_reconcile_args(rest)?))
+        }
         [group, action, rest @ ..] if group == "team" && action == "cancel" => {
             Ok(Command::Team(parse_team_cancel_args(rest)?))
         }
@@ -530,7 +538,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         }
         [group, ..] if group == "team" => {
             Err(AppError::usage(
-                "team 명령은 status, plan, execute, cancel, admit, dispatch, governor만 허용합니다.",
+                "team 명령은 status, plan, execute, reconcile, cancel, admit, dispatch, governor만 허용합니다.",
             ))
         }
         [group, action, rest @ ..] if group == "subagent" && action == "launch" => {
@@ -1012,6 +1020,12 @@ fn parse_team_plan_args(args: &[String]) -> Result<TeamCommand, AppError> {
 fn parse_team_execute_args(args: &[String]) -> Result<TeamCommand, AppError> {
     Ok(TeamCommand::Execute {
         team_id: parse_team_id_args(args, "team execute")?,
+    })
+}
+
+fn parse_team_reconcile_args(args: &[String]) -> Result<TeamCommand, AppError> {
+    Ok(TeamCommand::Reconcile {
+        team_id: parse_team_id_args(args, "team reconcile")?,
     })
 }
 
@@ -2978,6 +2992,39 @@ mod tests {
             vec!["team", "execute"],
             vec!["team", "execute", "--team"],
             vec!["team", "execute", "--team", "one", "--team", "two"],
+        ] {
+            assert_eq!(
+                parse(args.into_iter().map(str::to_string))
+                    .unwrap_err()
+                    .code,
+                2
+            );
+        }
+    }
+
+    #[test]
+    fn parses_team_reconcile_id() {
+        let command = parse([
+            "team".to_string(),
+            "reconcile".to_string(),
+            "--team".to_string(),
+            "team-execution".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Team(TeamCommand::Reconcile {
+                team_id: "team-execution".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn team_reconcile_requires_exactly_one_id() {
+        for args in [
+            vec!["team", "reconcile"],
+            vec!["team", "reconcile", "--team"],
+            vec!["team", "reconcile", "--team", "one", "--team", "two"],
         ] {
             assert_eq!(
                 parse(args.into_iter().map(str::to_string))

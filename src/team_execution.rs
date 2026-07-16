@@ -566,6 +566,29 @@ mod tests {
         fake_runner(prompt, max_tokens, timeout_ms, team_id)
     }
 
+    fn validation_gap_runner(
+        prompt: &str,
+        max_tokens: u32,
+        _timeout_ms: u32,
+        _team_id: &str,
+    ) -> Result<subagent::WorkerGeneration, AppError> {
+        let subagent_id = prompt_value(prompt, "subagent_id=");
+        let parent_workflow_id = prompt_value(prompt, "parent_workflow_id=");
+        let role = prompt_value(prompt, "role=");
+        let evidence_ref = prompt
+            .lines()
+            .find_map(|line| line.strip_prefix("source pointer: "))
+            .unwrap();
+        Ok(subagent::WorkerGeneration {
+            backend_event_id: format!("backend-{subagent_id}"),
+            effective_max_tokens: max_tokens,
+            response: format!(
+                "{{\"schema_version\":1,\"subagent_id\":\"{}\",\"parent_workflow_id\":\"{}\",\"role\":\"{}\",\"status\":\"completed\",\"summary\":\"bounded result\",\"findings\":[],\"patch_proposal\":null,\"evidence_refs\":[\"{}\"],\"validation_gaps\":[\"verification not completed\"],\"suggested_next_action\":\"resolve verification gap\"}}",
+                subagent_id, parent_workflow_id, role, evidence_ref,
+            ),
+        })
+    }
+
     fn cancelling_runner(
         _prompt: &str,
         _max_tokens: u32,
@@ -726,5 +749,72 @@ mod tests {
         assert_eq!(team.stage, team_state::TeamStage::Cancelled);
         assert_eq!(CANCEL_OBSERVERS.load(Ordering::SeqCst), 2);
         assert_eq!(cancelled_workers, 2);
+    }
+
+    #[test]
+    fn completed_team_reconciles_all_evidence_once_and_retries_idempotently() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_team();
+        record_sample("normal");
+        execute_with("team-execution", fake_preflight, fake_runner).unwrap();
+
+        let report = crate::team_reconciliation::reconcile_report("team-execution").unwrap();
+        let completed = team_state::load_state("team-execution").unwrap();
+        let merged_parent = state::load_workflow(&parent.workflow_id).unwrap();
+        let first_hash = merged_parent.artifact_hash.clone();
+        let retry = crate::team_reconciliation::reconcile_report("team-execution").unwrap();
+        let retried_parent = state::load_workflow(&parent.workflow_id).unwrap();
+        let events = ledger::read_runtime_events().unwrap();
+
+        assert!(report.contains("stop gate: passed"));
+        assert!(retry.contains("status: completed"));
+        assert_eq!(completed.stage, team_state::TeamStage::Complete);
+        assert_eq!(merged_parent.revision, parent.revision + 1);
+        assert_eq!(
+            merged_parent
+                .skill_evidence
+                .split(',')
+                .filter(|value| !value.is_empty())
+                .count(),
+            2
+        );
+        assert_eq!(retried_parent.artifact_hash, first_hash);
+        assert!(paths::project_team_reconciliation_file("team-execution").is_file());
+        for event_type in [
+            "team.result-set.reconciled",
+            "team.evidence.merged",
+            "team.stop-gate.passed",
+            "team.report.completed",
+        ] {
+            assert_eq!(
+                events
+                    .iter()
+                    .filter(|event| event.event_type == event_type)
+                    .count(),
+                1,
+                "{event_type} must be idempotent"
+            );
+        }
+    }
+
+    #[test]
+    fn unresolved_validation_gap_blocks_before_parent_evidence_merge() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let parent = initialize_team();
+        record_sample("normal");
+        execute_with("team-execution", fake_preflight, validation_gap_runner).unwrap();
+
+        let error = crate::team_reconciliation::reconcile_report("team-execution").unwrap_err();
+        let blocked = team_state::load_state("team-execution").unwrap();
+        let unchanged_parent = state::load_workflow(&parent.workflow_id).unwrap();
+
+        assert!(error.message.contains("unresolved worker validation gaps"));
+        assert_eq!(blocked.stage, team_state::TeamStage::Review);
+        assert_eq!(unchanged_parent.revision, parent.revision);
+        assert!(unchanged_parent.skill_evidence.is_empty());
+        assert!(ledger::read_runtime_events()
+            .unwrap()
+            .iter()
+            .any(|event| event.event_type == "team.stop-gate.failed"));
     }
 }

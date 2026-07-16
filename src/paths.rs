@@ -297,6 +297,10 @@ pub fn project_team_cancel_file(team_id: &str) -> PathBuf {
     project_teams_dir().join(format!("{team_id}.cancel.json"))
 }
 
+pub fn project_team_reconciliation_file(team_id: &str) -> PathBuf {
+    project_teams_dir().join(format!("{team_id}.reconciliation.json"))
+}
+
 pub fn project_team_snapshots_dir(team_id: &str) -> PathBuf {
     project_teams_dir().join(format!("{team_id}.snapshots"))
 }
@@ -307,6 +311,10 @@ pub fn project_team_snapshot_file(team_id: &str, revision: u64) -> PathBuf {
 
 pub fn project_team_lock(team_id: &str) -> PathBuf {
     project_teams_dir().join(format!("{team_id}.lock"))
+}
+
+pub fn project_team_operation_lock(team_id: &str) -> PathBuf {
+    project_teams_dir().join(format!("{team_id}.operation.lock"))
 }
 
 pub fn project_approval_requests_dir() -> PathBuf {

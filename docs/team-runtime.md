@@ -90,6 +90,21 @@ stage validates and merges the complete team result set. `team dispatch`
 remains the older standalone preflight/reporting command described below; it is
 not an alias for `team execute`.
 
+```text
+rpotato team reconcile --team fix-regression-team
+```
+
+`team reconcile` rebuilds the exact lane/member/subagent set from canonical
+worker receipts, revalidates every immutable launch/result/action/evidence
+binding, and installs one deterministic reconciliation artifact. Unresolved
+worker validation gaps fail the evidence-required stop gate before the parent
+changes. A valid set advances through `team-review` and `team-verify`, merges
+all lane evidence into the parent in one workflow checkpoint, then advances
+through `team-merge`, `team-report`, and `complete` only after the merged parent
+and reconciliation artifact pass the stop gate. Retries do not add another
+parent revision or duplicate receipt events. Cancellation and reconciliation
+share a short operation lock, so a cancelled team cannot merge late results.
+
 ## Write Policy
 
 Default write policy:
@@ -98,7 +113,8 @@ Default write policy:
 - Runtime core applies patches.
 - Only one writer can own a file at a time.
 - Conflicts escalate to the parent workflow.
-- Verification runs after ownership is resolved and merge is complete.
+- Worker evidence is verified after ownership resolution and before merge; the
+  completion stop gate rechecks the merged parent.
 
 ## Coordination Rules
 

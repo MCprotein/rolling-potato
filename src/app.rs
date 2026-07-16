@@ -141,6 +141,13 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             println!("{}", crate::team_execution::execute_report(&team_id)?);
             Ok(())
         }
+        Command::Team(TeamCommand::Reconcile { team_id }) => {
+            println!(
+                "{}",
+                crate::team_reconciliation::reconcile_report(&team_id)?
+            );
+            Ok(())
+        }
         Command::Team(TeamCommand::Cancel { team_id }) => {
             println!("{}", crate::team_state::cancel_report(&team_id)?);
             Ok(())
