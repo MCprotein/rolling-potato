@@ -1,5 +1,5 @@
-use crate::app::AppError;
 use crate::cli::MonitorExportFormat;
+use crate::foundation::error::AppError;
 use crate::{model, observability, paths};
 
 pub fn status_report() -> Result<String, AppError> {

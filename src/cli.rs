@@ -1,4 +1,4 @@
-use crate::app::AppError;
+use crate::foundation::error::AppError;
 use crate::ontology;
 use crate::{backend, benchmark, resource};
 

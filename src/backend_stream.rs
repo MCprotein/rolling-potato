@@ -2,8 +2,9 @@ use std::io::{ErrorKind, Read, Write};
 use std::net::{Shutdown, TcpStream, ToSocketAddrs};
 use std::time::{Duration, Instant};
 
-use crate::app::AppError;
-use crate::strict_json::{Object, Value};
+use crate::foundation::error::AppError;
+use crate::foundation::serialization as strict_json;
+use strict_json::{Object, Value};
 
 const READ_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_HTTP_HEADERS_BYTES: usize = 64 * 1024;
@@ -393,7 +394,7 @@ impl ChatSseDecoder {
             self.done = true;
             return Ok(());
         }
-        let value = crate::strict_json::parse_value(&data, "backend SSE event")
+        let value = strict_json::parse_value(&data, "backend SSE event")
             .map_err(|_| malformed_sse_event())?;
         let Value::Object(object) = value else {
             return Err(malformed_sse_event());

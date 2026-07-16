@@ -9,6 +9,7 @@ use crate::cli::{
 };
 use crate::config;
 use crate::evidence;
+use crate::foundation::error::AppError;
 use crate::hooks;
 use crate::intent;
 use crate::model;
@@ -24,35 +25,6 @@ use crate::subagent;
 use crate::team;
 use crate::tui;
 use crate::uninstall;
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct AppError {
-    pub code: u8,
-    pub message: String,
-}
-
-impl AppError {
-    pub fn runtime(message: impl Into<String>) -> Self {
-        Self {
-            code: 1,
-            message: message.into(),
-        }
-    }
-
-    pub fn usage(message: impl Into<String>) -> Self {
-        Self {
-            code: 2,
-            message: message.into(),
-        }
-    }
-
-    pub fn blocked(message: impl Into<String>) -> Self {
-        Self {
-            code: 3,
-            message: message.into(),
-        }
-    }
-}
 
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
     let command = crate::cli::parse(args)?;

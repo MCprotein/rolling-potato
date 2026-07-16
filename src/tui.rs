@@ -1,4 +1,4 @@
-use crate::app::AppError;
+use crate::foundation::error::AppError;
 use crate::runtime::{
     self, OneShotSecret, TuiEffect, TuiIntent, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext,
     TuiReadBudget, TuiReadPage, TuiReadRequest,

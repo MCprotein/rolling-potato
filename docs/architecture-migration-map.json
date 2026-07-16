@@ -1578,13 +1578,6 @@
           "release": "0.37.13",
           "state": "planned",
           "evidence": []
-        },
-        {
-          "responsibility": "application error boundary",
-          "target": "src/foundation/error.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
         }
       ]
     },
@@ -1663,18 +1656,6 @@
         {
           "responsibility": "managed cache storage",
           "target": "src/adapters/filesystem/cache.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
-      "path": "src/checksum.rs",
-      "slices": [
-        {
-          "responsibility": "typed checksum primitives",
-          "target": "src/foundation/integrity.rs",
           "release": "0.37.2",
           "state": "planned",
           "evidence": []
@@ -1779,12 +1760,26 @@
       ]
     },
     {
+      "path": "src/foundation/error.rs",
+      "slices": [
+        {
+          "responsibility": "application error boundary",
+          "target": "src/foundation/error.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/foundation/integrity.rs",
       "slices": [
         {
-          "responsibility": "reserved architecture ownership",
+          "responsibility": "typed checksum primitives",
           "target": "src/foundation/integrity.rs",
-          "release": "0.37.1",
+          "release": "0.37.2",
           "state": "complete",
           "evidence": [
             "tests/architecture_contract.rs"
@@ -1810,9 +1805,9 @@
       "path": "src/foundation/serialization.rs",
       "slices": [
         {
-          "responsibility": "reserved architecture ownership",
+          "responsibility": "strict JSON parsing and canonical serialization",
           "target": "src/foundation/serialization.rs",
-          "release": "0.37.1",
+          "release": "0.37.2",
           "state": "complete",
           "evidence": [
             "tests/architecture_contract.rs"
@@ -2264,18 +2259,6 @@
           "responsibility": "workflow state recovery",
           "target": "src/runtime_core/workflow/application/recovery.rs",
           "release": "0.37.6",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
-      "path": "src/strict_json.rs",
-      "slices": [
-        {
-          "responsibility": "strict JSON parsing and canonical serialization",
-          "target": "src/foundation/serialization.rs",
-          "release": "0.37.2",
           "state": "planned",
           "evidence": []
         }
@@ -3325,8 +3308,7 @@
     {
       "path": "src/app.rs",
       "responsibilities": [
-        "top-level command dispatch",
-        "application error boundary"
+        "top-level command dispatch"
       ]
     },
     {
@@ -3360,12 +3342,6 @@
       "path": "src/cache.rs",
       "responsibilities": [
         "managed cache storage"
-      ]
-    },
-    {
-      "path": "src/checksum.rs",
-      "responsibilities": [
-        "typed checksum primitives"
       ]
     },
     {
@@ -3408,9 +3384,15 @@
       ]
     },
     {
+      "path": "src/foundation/error.rs",
+      "responsibilities": [
+        "application error boundary"
+      ]
+    },
+    {
       "path": "src/foundation/integrity.rs",
       "responsibilities": [
-        "reserved architecture ownership"
+        "typed checksum primitives"
       ]
     },
     {
@@ -3422,7 +3404,7 @@
     {
       "path": "src/foundation/serialization.rs",
       "responsibilities": [
-        "reserved architecture ownership"
+        "strict JSON parsing and canonical serialization"
       ]
     },
     {
@@ -3604,12 +3586,6 @@
         "byte-compatible workflow storage DTO and codec",
         "validated workflow and session views",
         "workflow state recovery"
-      ]
-    },
-    {
-      "path": "src/strict_json.rs",
-      "responsibilities": [
-        "strict JSON parsing and canonical serialization"
       ]
     },
     {

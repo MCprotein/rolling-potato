@@ -4,8 +4,9 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
-use crate::app::AppError;
-use crate::strict_json::{self, CanonicalObject, CanonicalValue};
+use crate::foundation::error::AppError;
+use crate::foundation::serialization as strict_json;
+use crate::foundation::serialization::{CanonicalObject, CanonicalValue};
 
 pub(crate) const MAX_SOURCE_BLOB_BYTES: usize = 262_144;
 const MAX_PREPARED_EVENT_BYTES: usize = 16_384;

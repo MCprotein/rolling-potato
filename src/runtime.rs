@@ -1,3 +1,4 @@
+use crate::foundation::error::AppError;
 use crate::{
     backend, cache, context, evidence, intent, ledger, model, observability, ontology, patch,
     paths, state, transcript,
@@ -185,9 +186,9 @@ pub enum TuiIntent {
 pub struct OneShotSecret(Vec<u8>);
 
 impl OneShotSecret {
-    pub fn new(value: String) -> Result<Self, crate::app::AppError> {
+    pub fn new(value: String) -> Result<Self, AppError> {
         if value.is_empty() {
-            return Err(crate::app::AppError::blocked(
+            return Err(AppError::blocked(
                 "비밀 입력 차단\n- 이유: 빈 비밀값은 사용할 수 없습니다.",
             ));
         }
@@ -410,10 +411,10 @@ impl TuiOutcome {
 pub(crate) fn exact_tui_outcome(
     code: TuiOutcomeCode,
     context: TuiOutcomeContext<'_>,
-) -> Result<TuiOutcome, crate::app::AppError> {
+) -> Result<TuiOutcome, AppError> {
     let (status, effect, freshness, next_action, safe_message) = match code {
         TuiOutcomeCode::VerificationCredentialIssued => {
-            return Err(crate::app::AppError::blocked(
+            return Err(AppError::blocked(
                 "verification credential 발급 결과는 exact recovery/refresh oracle에서 만들 수 없습니다.",
             ));
         }
@@ -748,7 +749,7 @@ pub(crate) fn exact_tui_outcome(
 pub(crate) fn verification_credential_issued(
     intent_id: &str,
     credential: OneShotSecret,
-) -> Result<TuiOutcome, crate::app::AppError> {
+) -> Result<TuiOutcome, AppError> {
     validate_tui_id(intent_id, "intent")?;
     let mut outcome = TuiOutcome::without_secret(
         TuiOutcomeStatus::Succeeded,
@@ -764,10 +765,7 @@ pub(crate) fn verification_credential_issued(
     Ok(outcome)
 }
 
-fn required_outcome_id<'a>(
-    value: Option<&'a str>,
-    kind: &str,
-) -> Result<&'a str, crate::app::AppError> {
+fn required_outcome_id<'a>(value: Option<&'a str>, kind: &str) -> Result<&'a str, AppError> {
     let value = value.ok_or_else(|| corrupt_outcome_placeholder(kind))?;
     if validate_tui_id(value, kind).is_ok() {
         Ok(value)
@@ -776,7 +774,7 @@ fn required_outcome_id<'a>(
     }
 }
 
-fn required_outcome_phase(value: Option<&str>) -> Result<&str, crate::app::AppError> {
+fn required_outcome_phase(value: Option<&str>) -> Result<&str, AppError> {
     let value = value.ok_or_else(|| corrupt_outcome_placeholder("phase"))?;
     if matches!(
         value,
@@ -796,7 +794,7 @@ fn required_outcome_phase(value: Option<&str>) -> Result<&str, crate::app::AppEr
     }
 }
 
-fn required_outcome_platform(value: Option<&str>) -> Result<&str, crate::app::AppError> {
+fn required_outcome_platform(value: Option<&str>) -> Result<&str, AppError> {
     let value = value.ok_or_else(|| corrupt_outcome_placeholder("platform"))?;
     let valid = !value.is_empty()
         && value.len() <= 32
@@ -810,15 +808,13 @@ fn required_outcome_platform(value: Option<&str>) -> Result<&str, crate::app::Ap
     }
 }
 
-fn corrupt_outcome_placeholder(kind: &str) -> crate::app::AppError {
-    crate::app::AppError::blocked(format!(
+fn corrupt_outcome_placeholder(kind: &str) -> AppError {
+    AppError::blocked(format!(
         "TUI 결과 상태 검증 차단\n- code: outcome.corrupt-state\n- kind: {kind}\n- 동작: 신뢰할 수 없는 값을 출력하지 않았습니다."
     ))
 }
 
-pub fn unsupported_source_platform_outcome(
-    platform: &str,
-) -> Result<TuiOutcome, crate::app::AppError> {
+pub fn unsupported_source_platform_outcome(platform: &str) -> Result<TuiOutcome, AppError> {
     exact_tui_outcome(
         TuiOutcomeCode::SourceInstallUnsupportedPlatform,
         TuiOutcomeContext {
@@ -828,7 +824,7 @@ pub fn unsupported_source_platform_outcome(
     )
 }
 
-pub fn read_tui_page(request: TuiReadRequest) -> Result<TuiReadPage, crate::app::AppError> {
+pub fn read_tui_page(request: TuiReadRequest) -> Result<TuiReadPage, AppError> {
     match request {
         TuiReadRequest::Overview { budget } => {
             let budget = bounded_budget_for(budget, 20, 24 * 1024);
@@ -1550,9 +1546,7 @@ fn optional_metric(value: Option<f64>) -> String {
         .unwrap_or_else(|| "unavailable".to_string())
 }
 
-pub fn tui_selection_lease(
-    selected_object_id: &str,
-) -> Result<SelectionLease, crate::app::AppError> {
+pub fn tui_selection_lease(selected_object_id: &str) -> Result<SelectionLease, AppError> {
     validate_tui_id(selected_object_id, "selected object")?;
     let identity = ledger::validated_current_identity()?;
     let current = state::current_state_lease_view()?;
@@ -1584,9 +1578,7 @@ pub fn new_tui_intent_id() -> String {
     format!("intent-tui-{:x}-{:x}-{sequence:x}", std::process::id(), now)
 }
 
-pub fn tui_gate_descriptor(
-    workflow_id: &str,
-) -> Result<(String, TuiGateKind), crate::app::AppError> {
+pub fn tui_gate_descriptor(workflow_id: &str) -> Result<(String, TuiGateKind), AppError> {
     let workflow = state::load_workflow(workflow_id)?;
     let kind = match (workflow.phase.as_str(), workflow.failure_reason.as_str()) {
         ("cancelled", "user-denied-patch") => TuiGateKind::PatchApply,
@@ -1611,9 +1603,9 @@ pub fn tui_gate_descriptor(
     Ok((workflow.proposal_id, kind))
 }
 
-pub fn dispatch_tui_intent(intent: TuiIntent) -> Result<TuiOutcome, crate::app::AppError> {
+pub fn dispatch_tui_intent(intent: TuiIntent) -> Result<TuiOutcome, AppError> {
     match intent {
-        TuiIntent::Refresh { .. } | TuiIntent::Inspect { .. } => Err(crate::app::AppError::usage(
+        TuiIntent::Refresh { .. } | TuiIntent::Inspect { .. } => Err(AppError::usage(
             "TUI read intent는 read_tui_page 경계를 사용해야 합니다.",
         )),
         TuiIntent::ApprovePatch {
@@ -1800,7 +1792,7 @@ pub fn dispatch_tui_intent(intent: TuiIntent) -> Result<TuiOutcome, crate::app::
 pub(crate) fn tui_lease_matches_workflow_under_transition(
     lease: &SelectionLease,
     workflow_id: &str,
-) -> Result<bool, crate::app::AppError> {
+) -> Result<bool, AppError> {
     if lease.selected_object_id != workflow_id {
         return Ok(false);
     }
@@ -1830,7 +1822,7 @@ pub(crate) fn tui_lease_matches_workflow_under_transition(
 pub(crate) fn tui_lease_matches_terminal_selection_under_transition(
     lease: &SelectionLease,
     workflow_id: &str,
-) -> Result<bool, crate::app::AppError> {
+) -> Result<bool, AppError> {
     if lease.selected_object_id != workflow_id {
         return Ok(false);
     }
@@ -1851,7 +1843,7 @@ pub(crate) fn tui_lease_matches_terminal_selection_under_transition(
     Ok(&observed == lease)
 }
 
-fn stale_selection_outcome(workflow_id: &str) -> Result<TuiOutcome, crate::app::AppError> {
+fn stale_selection_outcome(workflow_id: &str) -> Result<TuiOutcome, AppError> {
     exact_tui_outcome(
         TuiOutcomeCode::ResumeStaleSelection,
         TuiOutcomeContext {
@@ -1861,7 +1853,7 @@ fn stale_selection_outcome(workflow_id: &str) -> Result<TuiOutcome, crate::app::
     )
 }
 
-fn validate_tui_id(value: &str, kind: &str) -> Result<(), crate::app::AppError> {
+fn validate_tui_id(value: &str, kind: &str) -> Result<(), AppError> {
     let valid = !value.is_empty()
         && value.len() <= 96
         && value.bytes().all(|byte| {
@@ -1870,7 +1862,7 @@ fn validate_tui_id(value: &str, kind: &str) -> Result<(), crate::app::AppError> 
     if valid {
         Ok(())
     } else {
-        Err(crate::app::AppError::blocked(format!(
+        Err(AppError::blocked(format!(
             "TUI 식별자 검증 차단\n- kind: {kind}\n- 동작: 신뢰할 수 없는 식별자를 출력하지 않았습니다."
         )))
     }
@@ -1887,11 +1879,11 @@ fn secret_refresh_only(intent_id: &str) -> TuiOutcome {
     .expect("validated TUI intent IDs always produce the refresh-only outcome")
 }
 
-pub fn agent_run_report(request: &str) -> Result<String, crate::app::AppError> {
+pub fn agent_run_report(request: &str) -> Result<String, AppError> {
     intent::run_report(request)
 }
 
-pub fn workflow_resume_report() -> Result<String, crate::app::AppError> {
+pub fn workflow_resume_report() -> Result<String, AppError> {
     let identity = ledger::validated_current_identity()?;
     let resumed_context = context::rebuild_resume_context(&identity.session_id, None)?;
     let report = state::resume_report()?;
@@ -1902,7 +1894,7 @@ pub fn workflow_resume_report() -> Result<String, crate::app::AppError> {
     ))
 }
 
-pub fn session_resume_report(session_id: &str) -> Result<String, crate::app::AppError> {
+pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
     let resumed_context = context::rebuild_resume_context(session_id, None)?;
     if let Some(workflow_id) = state::session_resume_preflight(session_id)? {
         patch::preflight_resume_workflow(&workflow_id)?;
@@ -1922,11 +1914,11 @@ pub fn patch_approve_to_stdout(
     token: &str,
     dry_run: bool,
     verify_command: Option<&str>,
-) -> Result<(), crate::app::AppError> {
+) -> Result<(), AppError> {
     patch::approve_to_stdout(proposal_id, token, dry_run, verify_command)
 }
 
-pub fn patch_verify_report(proposal_id: &str, token: &str) -> Result<String, crate::app::AppError> {
+pub fn patch_verify_report(proposal_id: &str, token: &str) -> Result<String, AppError> {
     let report = patch::verify_report(proposal_id, token)?;
     Ok(guard_patch_terminal_report(report))
 }
@@ -1939,7 +1931,7 @@ fn guard_patch_terminal_report(report: String) -> String {
     }
 }
 
-pub fn init_report() -> Result<String, crate::app::AppError> {
+pub fn init_report() -> Result<String, AppError> {
     let init = state::initialize()?;
     let ontology = ontology::ensure_seeded()?;
     let created = if init.created_paths.is_empty() {

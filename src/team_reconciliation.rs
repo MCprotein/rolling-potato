@@ -1,4 +1,4 @@
-use crate::app::AppError;
+use crate::foundation::error::AppError;
 use crate::{lease, ledger, observability, paths, state, subagent, subagent_result, team_state};
 use std::collections::{BTreeMap, BTreeSet};
 

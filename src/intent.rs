@@ -1,6 +1,6 @@
-use crate::app::AppError;
 use crate::backend;
 use crate::context::{self, ContextPack, ResumeContext};
+use crate::foundation::error::AppError;
 use crate::skill;
 use crate::state;
 

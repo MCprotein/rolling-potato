@@ -2,7 +2,8 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 
-use crate::app::AppError;
+use crate::foundation::error::AppError;
+use crate::foundation::serialization as strict_json;
 use crate::paths;
 use crate::{ledger, state};
 
@@ -93,7 +94,7 @@ pub fn record_patch_verification(
     };
     let mut found = false;
     for line in existing_runtime.lines() {
-        let object = crate::strict_json::parse_object(
+        let object = strict_json::parse_object(
             line,
             &[
                 "schema_version",
@@ -105,12 +106,10 @@ pub fn record_patch_verification(
             ],
             "runtime evidence line",
         )?;
-        if crate::strict_json::number(&object, "schema_version", "runtime evidence line")? != 1 {
+        if strict_json::number(&object, "schema_version", "runtime evidence line")? != 1 {
             return Err(AppError::blocked("runtime evidence schema version 불일치"));
         }
-        if crate::strict_json::string(&object, "evidence_id", "runtime evidence line")?
-            == evidence_id
-        {
+        if strict_json::string(&object, "evidence_id", "runtime evidence line")? == evidence_id {
             if line != runtime_line {
                 return Err(AppError::blocked("runtime evidence deterministic id 충돌"));
             }
@@ -197,9 +196,9 @@ fn validate_patch_stop_gate_inner(
         "stdout_hash",
         "stderr_hash",
     ];
-    let object = crate::strict_json::parse_object(&body, KEYS, "verification evidence")
+    let object = strict_json::parse_object(&body, KEYS, "verification evidence")
         .map_err(|_| stop_gate_error(workflow, "malformed verification evidence", record_event))?;
-    if crate::strict_json::number(&object, "schema_version", "verification evidence")
+    if strict_json::number(&object, "schema_version", "verification evidence")
         .map_err(|_| stop_gate_error(workflow, "malformed verification evidence", record_event))?
         != 1
     {
@@ -210,7 +209,7 @@ fn validate_patch_stop_gate_inner(
         ));
     }
     let field = |key| {
-        crate::strict_json::string(&object, key, "verification evidence")
+        strict_json::string(&object, key, "verification evidence")
             .map_err(|_| stop_gate_error(workflow, "malformed verification evidence", record_event))
     };
     let evidence_id = field("evidence_id")?;
@@ -223,7 +222,7 @@ fn validate_patch_stop_gate_inner(
     let source_hash = field("source_hash")?;
     let stdout_hash = field("stdout_hash")?;
     let stderr_hash = field("stderr_hash")?;
-    let passed = crate::strict_json::boolean(&object, "passed", "verification evidence")
+    let passed = strict_json::boolean(&object, "passed", "verification evidence")
         .map_err(|_| stop_gate_error(workflow, "malformed verification evidence", record_event))?;
     let payload = format!(
         "workflow_id={}\nproposal_id={}\naction_id={}\ncommand_hash={}\npassed={}\nexit_code={}\nsource_hash={}\nstdout_hash={}\nstderr_hash={}\n",
@@ -492,7 +491,7 @@ fn count_jsonl_records_bounded(
             break;
         }
         count = count.saturating_add(1);
-        crate::strict_json::parse_value(line, "runtime evidence bounded record")?;
+        strict_json::parse_value(line, "runtime evidence bounded record")?;
     }
     Ok((count, byte_truncated || record_truncated))
 }

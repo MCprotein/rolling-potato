@@ -1,5 +1,6 @@
-use crate::app::AppError;
-use crate::{backend, lease, ledger, paths, state, strict_json};
+use crate::foundation::error::AppError;
+use crate::foundation::serialization as strict_json;
+use crate::{backend, lease, ledger, paths, state};
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Component, Path};

@@ -1,4 +1,4 @@
-use crate::app::AppError;
+use crate::foundation::error::AppError;
 use crate::{approval, ledger, observability, paths, policy, resource, state, team_state};
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};

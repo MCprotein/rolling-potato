@@ -1,6 +1,6 @@
 use std::path::{Component, Path, PathBuf};
 
-use crate::app::AppError;
+use crate::foundation::error::AppError;
 use crate::{ledger, paths, state};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

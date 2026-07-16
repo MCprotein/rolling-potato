@@ -1,19 +1,21 @@
 #![allow(dead_code)]
 
-mod app {
-    #[derive(Debug)]
-    pub struct AppError {
-        pub message: String,
-    }
+mod foundation {
+    pub(crate) mod error {
+        #[derive(Debug)]
+        pub(crate) struct AppError {
+            pub(crate) message: String,
+        }
 
-    impl AppError {
-        pub fn blocked(message: String) -> Self {
-            Self { message }
+        impl AppError {
+            pub(crate) fn blocked(message: String) -> Self {
+                Self { message }
+            }
         }
     }
 }
 
-#[path = "../src/strict_json.rs"]
+#[path = "../src/foundation/serialization.rs"]
 mod strict_json;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -423,34 +425,11 @@ fn collect_rust_files(root: &str) -> BTreeSet<String> {
 }
 
 #[test]
-fn private_skeleton_is_compile_connected_and_documentation_only() {
+fn architecture_roots_are_compile_connected_and_private() {
     let main = fs::read_to_string("src/main.rs").expect("src/main.rs must be readable");
     for root in ARCHITECTURE_ROOTS {
         assert!(main.lines().any(|line| line == format!("mod {root};")));
         assert!(!main.lines().any(|line| line == format!("pub mod {root};")));
-
-        for path in collect_rust_files(&format!("src/{root}")) {
-            let source = fs::read_to_string(&path)
-                .unwrap_or_else(|err| panic!("cannot read skeleton {path}: {err}"));
-            for (line_index, line) in source.lines().enumerate() {
-                let line = line.trim();
-                let documentation = line.is_empty() || line.starts_with("//!");
-                let private_module = line
-                    .strip_prefix("mod ")
-                    .and_then(|value| value.strip_suffix(';'))
-                    .is_some_and(|name| {
-                        !name.is_empty()
-                            && name
-                                .bytes()
-                                .all(|byte| byte.is_ascii_lowercase() || byte == b'_')
-                    });
-                assert!(
-                    documentation || private_module,
-                    "{path}:{} contains production or public skeleton code: {line}",
-                    line_index + 1
-                );
-            }
-        }
     }
 
     let english = fs::read_to_string("docs/code-architecture.md").unwrap();
@@ -460,6 +439,52 @@ fn private_skeleton_is_compile_connected_and_documentation_only() {
     assert!(korean.contains("[Code architecture](../code-architecture.md)"));
     assert!(
         korean.contains("[architecture-migration-map.json](../architecture-migration-map.json)")
+    );
+}
+
+#[test]
+fn v0372_foundation_owners_replace_legacy_modules() {
+    for target in [
+        "src/foundation/error.rs",
+        "src/foundation/integrity.rs",
+        "src/foundation/serialization.rs",
+    ] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing foundation owner: {target}"
+        );
+    }
+    for legacy in ["src/checksum.rs", "src/strict_json.rs"] {
+        assert!(
+            !Path::new(legacy).exists(),
+            "legacy foundation owner remains: {legacy}"
+        );
+    }
+
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    for legacy_module in ["checksum", "strict_json"] {
+        assert!(
+            !main
+                .lines()
+                .any(|line| line == format!("mod {legacy_module};")),
+            "legacy module remains compile-connected: {legacy_module}"
+        );
+    }
+
+    let foundation = fs::read_to_string("src/foundation/mod.rs").unwrap();
+    for owner in ["error", "integrity", "serialization"] {
+        assert!(
+            foundation
+                .lines()
+                .any(|line| line == format!("pub(crate) mod {owner};")),
+            "foundation owner is not crate-private: {owner}"
+        );
+    }
+
+    let app = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        !app.contains("pub struct AppError"),
+        "AppError is still owned by command dispatch"
     );
 }
 

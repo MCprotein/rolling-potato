@@ -3,7 +3,7 @@ use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::app::AppError;
+use crate::foundation::error::AppError;
 
 pub struct RecoverableLease {
     _file: File,

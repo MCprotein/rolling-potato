@@ -9,10 +9,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::app::AppError;
 use crate::backend_stream::{self, StreamTermination};
+use crate::foundation::error::AppError;
+use crate::foundation::integrity as checksum;
 use crate::paths;
-use crate::{checksum, korean_guard, ledger, model, observability, resource, state};
+use crate::{korean_guard, ledger, model, observability, resource, state};
 
 const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 const DEFAULT_HOST: &str = "127.0.0.1";

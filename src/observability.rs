@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, Connection, OpenFlags};
 
-use crate::app::AppError;
+use crate::foundation::error::AppError;
 use crate::ledger::{self, LedgerEvent, RuntimeIdentity};
 use crate::{paths, resource};
 

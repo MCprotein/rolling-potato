@@ -1,6 +1,7 @@
-use crate::app::AppError;
 use crate::cli::PluginSource;
-use crate::{checksum, ledger, paths, state};
+use crate::foundation::error::AppError;
+use crate::foundation::integrity as checksum;
+use crate::{ledger, paths, state};
 
 use std::fs;
 use std::path::{Component, Path, PathBuf};

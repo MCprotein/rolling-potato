@@ -5,7 +5,7 @@ use std::path::PathBuf;
 #[cfg(test)]
 use std::time::SystemTime;
 
-use crate::app::AppError;
+use crate::foundation::error::AppError;
 use crate::{ledger, paths};
 
 #[derive(Debug, Clone, PartialEq, Eq)]

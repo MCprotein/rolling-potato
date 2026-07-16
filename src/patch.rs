@@ -7,7 +7,7 @@ use std::time::SystemTime;
 
 use sha2::{Digest, Sha256};
 
-use crate::app::AppError;
+use crate::foundation::error::AppError;
 use crate::ledger;
 use crate::paths;
 use crate::policy::{self, Decision, PathMode};

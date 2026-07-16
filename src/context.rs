@@ -4,7 +4,7 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use crate::app::AppError;
+use crate::foundation::error::AppError;
 use crate::ontology;
 use crate::paths;
 use crate::policy::{self, Decision, PathMode};
@@ -876,7 +876,7 @@ mod tests {
             path: "src/main.rs".to_string(),
             stable_ref: "src/main.rs:1".to_string(),
             chars: 0,
-            fingerprint: crate::checksum::sha256_file(&source_path).unwrap(),
+            fingerprint: crate::foundation::integrity::sha256_file(&source_path).unwrap(),
             snippet: String::new(),
         };
         for index in 0..12 {
