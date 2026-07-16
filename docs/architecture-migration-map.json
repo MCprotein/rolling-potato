@@ -2531,6 +2531,23 @@
       ]
     },
     {
+      "path": "src/runtime_core/collaboration/team_execution.rs",
+      "slices": [
+        {
+          "responsibility": "team execution binding, stage, mode, and action ownership policy",
+          "target": "src/runtime_core/collaboration/team_execution.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_execution.rs",
+            "src/team_execution.rs",
+            "tests/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/collaboration/team_state.rs",
       "slices": [
         {
@@ -4673,6 +4690,12 @@
       "path": "src/runtime_core/collaboration/team.rs",
       "responsibilities": [
         "team admission, dispatch, continuation, and governor decision policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_execution.rs",
+      "responsibilities": [
+        "team execution binding, stage, mode, and action ownership policy"
       ]
     },
     {

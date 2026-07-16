@@ -1,4 +1,9 @@
 use crate::foundation::error::AppError;
+use crate::runtime_core::collaboration::team::pressure_from_status;
+use crate::runtime_core::collaboration::team_execution::{
+    detail_token, execution_mode, validate_action_owner, validate_execution_binding,
+    validate_execution_stage, RuntimeIdentityBinding,
+};
 use crate::runtime_core::inference::resource;
 use crate::{
     adapters::filesystem::layout as paths, adapters::filesystem::lease, backend, ledger,
@@ -43,28 +48,15 @@ fn execute_with(
     let identity = ledger::validated_current_identity()?;
     let mut team = team_state::load_state(team_id)?;
     let manifest = team_state::load_manifest(team_id)?;
-    if team.manifest_hash != manifest.artifact_hash
-        || team.parent_workflow_id != manifest.parent_workflow_id
-        || team.member_count != manifest.members.len() as u32
-        || team.project_id != identity.project_id
-        || team.session_id != identity.session_id
-    {
-        return Err(AppError::blocked(
-            "team execute state/manifest/owner binding 불일치",
-        ));
-    }
-    if !matches!(
-        team.stage,
-        team_state::TeamStage::Plan
-            | team_state::TeamStage::Dispatch
-            | team_state::TeamStage::Execute
-    ) {
-        return Err(AppError::blocked(format!(
-            "team execute stage 차단\n- team id: {}\n- current stage: {}",
-            team.team_id,
-            team.stage.as_str()
-        )));
-    }
+    validate_execution_binding(
+        &RuntimeIdentityBinding {
+            project_id: &identity.project_id,
+            session_id: &identity.session_id,
+        },
+        &team,
+        &manifest,
+    )?;
+    validate_execution_stage(&team)?;
     if team_state::cancellation_requested(team_id)? {
         return Err(AppError::blocked(format!(
             "team execute cancellation 차단\n- team id: {team_id}"
@@ -88,11 +80,7 @@ fn execute_with(
                 decision.reason
             )));
         }
-        let execution_mode = if decision.admitted_lanes > 1 {
-            "parallel"
-        } else {
-            "sequential"
-        };
+        let execution_mode = execution_mode(decision.admitted_lanes);
         team = team_state::advance_state(
             team_id,
             team_state::TeamStage::Dispatch,
@@ -482,28 +470,12 @@ fn enforce_action_ownership(
     let Some(patch) = result.patch_proposal else {
         return Ok(None);
     };
-    let owners = manifest
-        .members
-        .iter()
-        .filter(|candidate| {
-            candidate.write_paths.iter().any(|owner| {
-                patch.target_path == *owner
-                    || patch
-                        .target_path
-                        .strip_prefix(owner)
-                        .is_some_and(|suffix| suffix.starts_with('/'))
-            })
-        })
-        .collect::<Vec<_>>();
-    if owners.len() != 1
-        || owners[0].lane != completed.lane
-        || owners[0].member_id != completed.member_id
-    {
-        return Err(AppError::blocked(format!(
-            "team action-time ownership 차단\n- lane: {}\n- member: {}\n- target: {}",
-            completed.lane, completed.member_id, patch.target_path
-        )));
-    }
+    validate_action_owner(
+        manifest,
+        completed.lane,
+        &completed.member_id,
+        &patch.target_path,
+    )?;
     Ok(Some(OwnedAction {
         target_path: patch.target_path,
         source_hash: patch.source_hash,
@@ -583,15 +555,6 @@ fn backend_runner(
         effective_max_tokens: run.effective_max_tokens,
         response: run.response,
     })
-}
-
-fn pressure_from_status(value: &str) -> resource::ResourcePressure {
-    match value {
-        "normal" => resource::ResourcePressure::Normal,
-        "degraded" => resource::ResourcePressure::Degraded,
-        "critical" => resource::ResourcePressure::Critical,
-        _ => resource::ResourcePressure::Unknown,
-    }
 }
 
 fn append_execution_blocked(
@@ -684,12 +647,6 @@ fn has_exact_event(
             && event.event_type == event_type
             && event.details == details
     }))
-}
-
-fn detail_token<'a>(details: &'a str, key: &str) -> Option<&'a str> {
-    details
-        .split_whitespace()
-        .find_map(|token| token.strip_prefix(&format!("{key}=")))
 }
 
 #[cfg(test)]
