@@ -4,93 +4,21 @@ use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use sha2::{Digest, Sha256};
-
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
+use crate::runtime_core::knowledge::ontology::{
+    diagnostics_from_projection, format_context_row, format_record_row, layer_a_record,
+    parse_projection, record_revision_pointer, runtime_context_selection, schema_body,
+    seeded_record_changed, select_context_records, validate_import_text, OntologyProjection,
+    OntologyRecord, SCHEMA_VERSION, SOURCE_POINTER_NONE,
+};
+pub use crate::runtime_core::knowledge::ontology::{
+    OntologyExportFormat, OntologySeedOutcome, RuntimeContextSelection, RuntimeSourceRead,
+};
 use crate::{adapters::filesystem::layout as paths, ledger, state};
 
-const SCHEMA_VERSION: u32 = 1;
 const MAX_SEEDED_FILES: usize = 256;
 const MAX_INDEXED_FILE_BYTES: u64 = 1024 * 1024;
-const SOURCE_POINTER_NONE: &str = "none";
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OntologyExportFormat {
-    Json,
-    Jsonl,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OntologySeedOutcome {
-    pub store: PathBuf,
-    pub schema: PathBuf,
-    pub records_added: usize,
-    pub current_records: usize,
-    pub layer_a_records: usize,
-    pub layer_b_records: usize,
-    pub event_id: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RuntimeContextRecord {
-    pub id: String,
-    pub layer: String,
-    pub kind: String,
-    pub label: String,
-    pub source_pointer: String,
-    pub source_hash: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RuntimeContextSelection {
-    pub current_records: usize,
-    pub selected: Vec<RuntimeContextRecord>,
-    pub stale_rejected: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RuntimeSourceRead {
-    pub relative_path: String,
-    pub stable_ref: String,
-    pub source_hash: String,
-    pub contents: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct OntologyRecord {
-    id: String,
-    layer: String,
-    kind: String,
-    label: String,
-    status: String,
-    claim_state: String,
-    confidence: String,
-    source_pointer: String,
-    source_hash: String,
-    evidence: String,
-    supersedes: String,
-    current: bool,
-    event_id: String,
-    created_at_ms: u128,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct OntologyProjection {
-    total_records: usize,
-    current_records: Vec<OntologyRecord>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct OntologyDiagnostics {
-    total_records: usize,
-    current_records: usize,
-    layer_a_records: usize,
-    layer_b_records: usize,
-    stale_layer_a: usize,
-    sourceless_confirmed_layer_b: usize,
-    open_questions: usize,
-}
 
 pub fn ensure_seeded() -> Result<OntologySeedOutcome, AppError> {
     ensure_layout()?;
@@ -139,7 +67,7 @@ pub fn ensure_seeded() -> Result<OntologySeedOutcome, AppError> {
     append_records(&records_to_append)?;
 
     let projection = load_projection()?;
-    let diagnostics = diagnostics_from_projection(&projection);
+    let diagnostics = diagnostics_from_projection(&projection, record_source_is_stale);
 
     Ok(OntologySeedOutcome {
         store: paths::project_ontology_store_file(),
@@ -168,7 +96,7 @@ pub fn seed_report() -> Result<String, AppError> {
 
 pub fn status_report() -> Result<String, AppError> {
     ensure_layout()?;
-    let diagnostics = diagnostics_from_projection(&load_projection()?);
+    let diagnostics = diagnostics_from_projection(&load_projection()?, record_source_is_stale);
     Ok(format!(
         "ontology status\n- store: {}\n- schema: {}\n- total records: {}\n- current projection: {}\n- layer A deterministic facts: {}\n- layer B semantic claims: {}\n- stale Layer A source hashes: {}\n- sourceless confirmed Layer B claims: {}\n- open questions: {}\n- compact context: `rpotato ontology context --query <text>`\n- source reread: `rpotato ontology reread <source-pointer>`\n- export views: json, jsonl\n- boundary: JSON/YAML/RDF/OWL은 inspection/export view이며 runtime source of truth는 이 typed graph store입니다.",
         paths::project_ontology_store_file().display(),
@@ -186,7 +114,7 @@ pub fn status_report() -> Result<String, AppError> {
 pub fn inspect_report() -> Result<String, AppError> {
     ensure_layout()?;
     let projection = load_projection()?;
-    let diagnostics = diagnostics_from_projection(&projection);
+    let diagnostics = diagnostics_from_projection(&projection, record_source_is_stale);
     let rows = projection
         .current_records
         .iter()
@@ -241,47 +169,12 @@ pub fn context_report(query: &str) -> Result<String, AppError> {
 pub fn runtime_context(query: &str, limit: usize) -> Result<RuntimeContextSelection, AppError> {
     ensure_layout()?;
     let projection = load_projection()?;
-    let mut selected = select_context_records(&projection.current_records, query, limit);
-    if selected.is_empty() {
-        selected = projection
-            .current_records
-            .iter()
-            .filter(|record| {
-                record.layer == "A"
-                    && matches!(
-                        record.kind.as_str(),
-                        "entrypoint" | "package-manager" | "file"
-                    )
-            })
-            .take(limit)
-            .cloned()
-            .collect();
-    }
-
-    let mut stale_rejected = 0;
-    let selected = selected
-        .into_iter()
-        .filter_map(|record| {
-            if record_source_is_stale(&record) {
-                stale_rejected += 1;
-                return None;
-            }
-            Some(RuntimeContextRecord {
-                id: record.id,
-                layer: record.layer,
-                kind: record.kind,
-                label: record.label,
-                source_pointer: record.source_pointer,
-                source_hash: record.source_hash,
-            })
-        })
-        .collect();
-
-    Ok(RuntimeContextSelection {
-        current_records: projection.current_records.len(),
-        selected,
-        stale_rejected,
-    })
+    Ok(runtime_context_selection(
+        &projection,
+        query,
+        limit,
+        record_source_is_stale,
+    ))
 }
 
 pub fn reread_runtime_source(
@@ -401,7 +294,7 @@ pub fn doctor_summary() -> String {
 
 fn status_summary() -> Result<String, AppError> {
     ensure_layout()?;
-    let diagnostics = diagnostics_from_projection(&load_projection()?);
+    let diagnostics = diagnostics_from_projection(&load_projection()?, record_source_is_stale);
     Ok(format!(
         "ontology store {}, current {}, stale Layer A {}, sourceless confirmed Layer B {}",
         paths::project_ontology_store_file().display(),
@@ -438,13 +331,6 @@ fn ensure_layout() -> Result<(), AppError> {
     }
 
     Ok(())
-}
-
-fn schema_body() -> String {
-    format!(
-        "{{\n  \"schemaVersion\": {},\n  \"canonical\": \"runtime-typed-graph-jsonl\",\n  \"layers\": [\"A\", \"B\"],\n  \"claimStates\": [\"confirmed\", \"proposed\", \"weak\", \"superseded\", \"rejected\", \"open_question\"],\n  \"requiredSourceForConfirmedSemanticClaims\": true,\n  \"rawSourceRetention\": \"source-pointer-and-hash-only\"\n}}\n",
-        SCHEMA_VERSION
-    )
 }
 
 fn seed_candidates() -> Result<Vec<OntologyRecord>, AppError> {
@@ -530,31 +416,6 @@ fn seed_candidates() -> Result<Vec<OntologyRecord>, AppError> {
     }
 
     Ok(records)
-}
-
-fn layer_a_record(
-    kind: &str,
-    label: &str,
-    relative_path: &str,
-    source_hash: &str,
-    evidence: &str,
-) -> OntologyRecord {
-    OntologyRecord {
-        id: format!("a:{kind}:{}", stable_id(relative_path)),
-        layer: "A".to_string(),
-        kind: kind.to_string(),
-        label: label.to_string(),
-        status: "confirmed".to_string(),
-        claim_state: "confirmed".to_string(),
-        confidence: "1.00".to_string(),
-        source_pointer: format!("{relative_path}:1"),
-        source_hash: source_hash.to_string(),
-        evidence: evidence.to_string(),
-        supersedes: String::new(),
-        current: true,
-        event_id: "pending".to_string(),
-        created_at_ms: 0,
-    }
 }
 
 fn push_unique(
@@ -715,86 +576,7 @@ fn load_projection() -> Result<OntologyProjection, AppError> {
             path.display()
         ))
     })?;
-    let mut latest_by_id = HashMap::new();
-    let mut total_records = 0;
-    for line in contents.lines().filter(|line| !line.trim().is_empty()) {
-        total_records += 1;
-        if let Some(record) = OntologyRecord::parse(line) {
-            latest_by_id.insert(record.id.clone(), record);
-        }
-    }
-
-    let mut current_records = latest_by_id
-        .into_values()
-        .filter(|record| record.current)
-        .collect::<Vec<_>>();
-    current_records.sort_by(|a, b| a.id.cmp(&b.id));
-
-    Ok(OntologyProjection {
-        total_records,
-        current_records,
-    })
-}
-
-fn seeded_record_changed(existing: &OntologyRecord, candidate: &OntologyRecord) -> bool {
-    existing.layer != candidate.layer
-        || existing.kind != candidate.kind
-        || existing.label != candidate.label
-        || existing.status != candidate.status
-        || existing.claim_state != candidate.claim_state
-        || existing.source_pointer != candidate.source_pointer
-        || existing.source_hash != candidate.source_hash
-        || existing.evidence != candidate.evidence
-}
-
-fn record_revision_pointer(record: &OntologyRecord) -> String {
-    format!(
-        "{}@{}",
-        record.id,
-        if record.event_id.is_empty() {
-            record.created_at_ms.to_string()
-        } else {
-            record.event_id.clone()
-        }
-    )
-}
-
-fn diagnostics_from_projection(projection: &OntologyProjection) -> OntologyDiagnostics {
-    let layer_a_records = projection
-        .current_records
-        .iter()
-        .filter(|record| record.layer == "A")
-        .count();
-    let layer_b_records = projection
-        .current_records
-        .iter()
-        .filter(|record| record.layer == "B")
-        .count();
-    let stale_layer_a = projection
-        .current_records
-        .iter()
-        .filter(|record| record.layer == "A" && record_source_is_stale(record))
-        .count();
-    let sourceless_confirmed_layer_b = projection
-        .current_records
-        .iter()
-        .filter(|record| semantic_claim_is_sourceless_confirmed(record))
-        .count();
-    let open_questions = projection
-        .current_records
-        .iter()
-        .filter(|record| record.status == "open_question" || record.claim_state == "open_question")
-        .count();
-
-    OntologyDiagnostics {
-        total_records: projection.total_records,
-        current_records: projection.current_records.len(),
-        layer_a_records,
-        layer_b_records,
-        stale_layer_a,
-        sourceless_confirmed_layer_b,
-        open_questions,
-    }
+    Ok(parse_projection(&contents))
 }
 
 fn record_source_is_stale(record: &OntologyRecord) -> bool {
@@ -804,83 +586,6 @@ fn record_source_is_stale(record: &OntologyRecord) -> bool {
     checksum::sha256_file(&source.path)
         .map(|current| current != record.source_hash)
         .unwrap_or(true)
-}
-
-fn semantic_claim_is_sourceless_confirmed(record: &OntologyRecord) -> bool {
-    if record.layer != "B" {
-        return false;
-    }
-    if record.status != "confirmed" && record.claim_state != "confirmed" {
-        return false;
-    }
-    record.source_pointer.trim().is_empty()
-        || record.source_pointer == SOURCE_POINTER_NONE
-        || record.source_hash.trim().is_empty()
-}
-
-fn select_context_records(
-    records: &[OntologyRecord],
-    query: &str,
-    limit: usize,
-) -> Vec<OntologyRecord> {
-    let terms = query
-        .split_whitespace()
-        .map(|term| term.to_ascii_lowercase())
-        .filter(|term| !term.is_empty())
-        .collect::<Vec<_>>();
-    let mut scored = records
-        .iter()
-        .map(|record| {
-            let haystack = format!(
-                "{} {} {} {} {}",
-                record.id, record.kind, record.label, record.evidence, record.source_pointer
-            )
-            .to_ascii_lowercase();
-            let score = terms
-                .iter()
-                .filter(|term| haystack.contains(term.as_str()))
-                .count();
-            (score, record)
-        })
-        .filter(|(score, _)| *score > 0)
-        .collect::<Vec<_>>();
-    scored.sort_by(|(left_score, left), (right_score, right)| {
-        right_score
-            .cmp(left_score)
-            .then_with(|| left.layer.cmp(&right.layer))
-            .then_with(|| left.id.cmp(&right.id))
-    });
-
-    scored
-        .into_iter()
-        .take(limit)
-        .map(|(_, record)| record.clone())
-        .collect()
-}
-
-fn format_record_row(record: &OntologyRecord) -> String {
-    format!(
-        "- [{}:{}:{}] {} | source {} | hash {} | id {}",
-        record.layer,
-        record.kind,
-        record.claim_state,
-        record.label,
-        record.source_pointer,
-        short_hash(&record.source_hash),
-        record.id
-    )
-}
-
-fn format_context_row(record: &OntologyRecord) -> String {
-    format!(
-        "- source={} | {}:{}:{} | {} | id={}",
-        record.source_pointer,
-        record.layer,
-        record.kind,
-        record.claim_state,
-        record.label,
-        record.id
-    )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -969,118 +674,6 @@ fn resolve_project_relative_file(relative: &str) -> Result<PathBuf, AppError> {
     Ok(canonical)
 }
 
-fn validate_import_text(text: &str) -> Result<ImportValidation, AppError> {
-    let schema_version = extract_json_u64_tolerant(text, "schemaVersion").ok_or_else(|| {
-        AppError::usage("ontology import file에는 schemaVersion: 1이 필요합니다.")
-    })?;
-    if schema_version != u64::from(SCHEMA_VERSION) {
-        return Err(AppError::usage(format!(
-            "ontology import schemaVersion은 {}이어야 합니다: {}",
-            SCHEMA_VERSION, schema_version
-        )));
-    }
-
-    let mut records = 0;
-    for line in text.lines().filter(|line| line.contains("\"id\"")) {
-        records += 1;
-        let layer = extract_json_string_tolerant(line, "layer").unwrap_or_default();
-        let status = extract_json_string_tolerant(line, "status").unwrap_or_default();
-        let claim_state = extract_json_string_tolerant(line, "claimState").unwrap_or_default();
-        let source_pointer =
-            extract_json_string_tolerant(line, "sourcePointer").unwrap_or_default();
-        let source_hash = extract_json_string_tolerant(line, "sourceHash").unwrap_or_default();
-        if layer == "B"
-            && (status == "confirmed" || claim_state == "confirmed")
-            && (source_pointer.trim().is_empty()
-                || source_pointer == SOURCE_POINTER_NONE
-                || source_hash.trim().is_empty())
-        {
-            return Err(AppError::blocked(
-                "ontology import 차단: confirmed Layer B semantic claim에는 sourcePointer와 sourceHash가 필요합니다.",
-            ));
-        }
-    }
-
-    if records == 0 {
-        records = text.matches("\"schemaVersion\"").count().saturating_sub(1);
-    }
-
-    Ok(ImportValidation { records })
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ImportValidation {
-    records: usize,
-}
-
-impl OntologyRecord {
-    fn to_json_line(&self) -> String {
-        format!(
-            "{{\"schemaVersion\":{},\"id\":\"{}\",\"layer\":\"{}\",\"kind\":\"{}\",\"label\":\"{}\",\"status\":\"{}\",\"claimState\":\"{}\",\"confidence\":\"{}\",\"sourcePointer\":\"{}\",\"sourceHash\":\"{}\",\"evidence\":\"{}\",\"supersedes\":\"{}\",\"current\":{},\"eventId\":\"{}\",\"createdAtMs\":{}}}",
-            SCHEMA_VERSION,
-            ledger::json_string(&self.id),
-            ledger::json_string(&self.layer),
-            ledger::json_string(&self.kind),
-            ledger::json_string(&self.label),
-            ledger::json_string(&self.status),
-            ledger::json_string(&self.claim_state),
-            ledger::json_string(&self.confidence),
-            ledger::json_string(&self.source_pointer),
-            ledger::json_string(&self.source_hash),
-            ledger::json_string(&self.evidence),
-            ledger::json_string(&self.supersedes),
-            self.current,
-            ledger::json_string(&self.event_id),
-            self.created_at_ms
-        )
-    }
-
-    fn parse(line: &str) -> Option<Self> {
-        let schema_version = extract_json_u64(line, "schemaVersion")?;
-        if schema_version != u64::from(SCHEMA_VERSION) {
-            return None;
-        }
-        Some(Self {
-            id: extract_json_string(line, "id")?,
-            layer: extract_json_string(line, "layer")?,
-            kind: extract_json_string(line, "kind")?,
-            label: extract_json_string(line, "label")?,
-            status: extract_json_string(line, "status")?,
-            claim_state: extract_json_string(line, "claimState")?,
-            confidence: extract_json_string(line, "confidence")?,
-            source_pointer: extract_json_string(line, "sourcePointer")?,
-            source_hash: extract_json_string(line, "sourceHash")?,
-            evidence: extract_json_string(line, "evidence")?,
-            supersedes: extract_json_string(line, "supersedes").unwrap_or_default(),
-            current: extract_json_bool(line, "current").unwrap_or(true),
-            event_id: extract_json_string(line, "eventId").unwrap_or_default(),
-            created_at_ms: extract_json_u128(line, "createdAtMs").unwrap_or_default(),
-        })
-    }
-}
-
-fn stable_id(value: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(value.as_bytes());
-    bytes_to_hex(&hasher.finalize())[..16].to_string()
-}
-
-fn short_hash(value: &str) -> String {
-    if value.len() <= 12 {
-        value.to_string()
-    } else {
-        value[..12].to_string()
-    }
-}
-
-fn bytes_to_hex(bytes: &[u8]) -> String {
-    let mut output = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        output.push_str(&format!("{byte:02x}"));
-    }
-    output
-}
-
 fn canonical_project_root() -> Result<PathBuf, AppError> {
     let root = paths::project_root();
     fs::create_dir_all(&root).map_err(|err| {
@@ -1107,91 +700,6 @@ fn now_ms() -> u128 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
         .unwrap_or_default()
-}
-
-fn extract_json_string(text: &str, key: &str) -> Option<String> {
-    let needle = format!("\"{key}\":\"");
-    let start = text.find(&needle)? + needle.len();
-    parse_json_string_tail(&text[start..])
-}
-
-fn extract_json_string_tolerant(text: &str, key: &str) -> Option<String> {
-    let needle = format!("\"{key}\"");
-    let start = text.find(&needle)? + needle.len();
-    let rest = text[start..].trim_start();
-    let rest = rest.strip_prefix(':')?.trim_start();
-    let rest = rest.strip_prefix('"')?;
-    parse_json_string_tail(rest)
-}
-
-fn parse_json_string_tail(text: &str) -> Option<String> {
-    let mut value = String::new();
-    let mut escaped = false;
-    for ch in text.chars() {
-        if escaped {
-            match ch {
-                '"' => value.push('"'),
-                '\\' => value.push('\\'),
-                'n' => value.push('\n'),
-                'r' => value.push('\r'),
-                't' => value.push('\t'),
-                other => value.push(other),
-            }
-            escaped = false;
-            continue;
-        }
-        match ch {
-            '\\' => escaped = true,
-            '"' => return Some(value),
-            other => value.push(other),
-        }
-    }
-    None
-}
-
-fn extract_json_u64(text: &str, key: &str) -> Option<u64> {
-    let needle = format!("\"{key}\":");
-    let start = text.find(&needle)? + needle.len();
-    text[start..]
-        .chars()
-        .take_while(|ch| ch.is_ascii_digit())
-        .collect::<String>()
-        .parse()
-        .ok()
-}
-
-fn extract_json_u64_tolerant(text: &str, key: &str) -> Option<u64> {
-    let needle = format!("\"{key}\"");
-    let start = text.find(&needle)? + needle.len();
-    let rest = text[start..].trim_start().strip_prefix(':')?.trim_start();
-    rest.chars()
-        .take_while(|ch| ch.is_ascii_digit())
-        .collect::<String>()
-        .parse()
-        .ok()
-}
-
-fn extract_json_u128(text: &str, key: &str) -> Option<u128> {
-    let needle = format!("\"{key}\":");
-    let start = text.find(&needle)? + needle.len();
-    text[start..]
-        .chars()
-        .take_while(|ch| ch.is_ascii_digit())
-        .collect::<String>()
-        .parse()
-        .ok()
-}
-
-fn extract_json_bool(text: &str, key: &str) -> Option<bool> {
-    let needle = format!("\"{key}\":");
-    let start = text.find(&needle)? + needle.len();
-    if text[start..].starts_with("true") {
-        Some(true)
-    } else if text[start..].starts_with("false") {
-        Some(false)
-    } else {
-        None
-    }
 }
 
 #[cfg(test)]

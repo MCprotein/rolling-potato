@@ -1,18 +1,17 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use crate::adapters::filesystem::layout as paths;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
+pub use crate::runtime_core::knowledge::evidence::{
+    stale_policy_summary, EvidenceStoreStatus, EvidenceValidation, VerificationEvidence,
+};
+use crate::runtime_core::knowledge::evidence::{
+    validate_artifact_pointer_syntax, validate_stop_inputs, StopGateInputs,
+};
 use crate::{ledger, state};
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VerificationEvidence {
-    pub evidence_id: String,
-    pub artifact_hash: String,
-    pub passed: bool,
-}
 
 pub fn record_patch_verification(
     workflow: &state::WorkflowRecord,
@@ -237,28 +236,34 @@ fn validate_patch_stop_gate_inner(
         stderr_hash
     );
     let recomputed_hash = state::sha256_text(&payload);
-    let evidence_fresh = recomputed_hash == workflow.evidence_hash
-        && body_artifact_hash == recomputed_hash
-        && evidence_id == workflow.evidence_id
-        && evidence_workflow == workflow.workflow_id
-        && evidence_proposal == workflow.proposal_id
-        && evidence_action == workflow.action_id
-        && command_hash == state::sha256_text(&workflow.verification_plan)
-        && source_hash == workflow.after_hash
-        && passed;
     let source =
         fs::read_to_string(paths::project_root().join(&workflow.source_path)).map_err(|_| {
             stop_gate_error(workflow, "authoritative source reread failed", record_event)
         })?;
-    let source_fresh = state::sha256_text(&source) == workflow.after_hash;
-    if !matches!(workflow.phase.as_str(), "verified" | "complete")
-        || workflow.approval_state != "applied"
-        || workflow.verification_approval_state != "approved"
-        || workflow.proposal_id.is_empty()
-        || workflow.evidence_id.is_empty()
-        || !evidence_fresh
-        || !source_fresh
-    {
+    let expected_command_hash = state::sha256_text(&workflow.verification_plan);
+    let authoritative_source_hash = state::sha256_text(&source);
+    if !validate_stop_inputs(&StopGateInputs {
+        phase: &workflow.phase,
+        approval_state: &workflow.approval_state,
+        verification_approval_state: &workflow.verification_approval_state,
+        expected_workflow_id: &workflow.workflow_id,
+        expected_proposal_id: &workflow.proposal_id,
+        expected_action_id: &workflow.action_id,
+        expected_evidence_id: &workflow.evidence_id,
+        expected_evidence_hash: &workflow.evidence_hash,
+        expected_command_hash: &expected_command_hash,
+        expected_source_hash: &workflow.after_hash,
+        evidence_workflow_id: &evidence_workflow,
+        evidence_proposal_id: &evidence_proposal,
+        evidence_action_id: &evidence_action,
+        evidence_id: &evidence_id,
+        body_artifact_hash: &body_artifact_hash,
+        recomputed_artifact_hash: &recomputed_hash,
+        command_hash: &command_hash,
+        source_hash: &source_hash,
+        authoritative_source_hash: &authoritative_source_hash,
+        passed,
+    }) {
         return Err(stop_gate_error(
             workflow,
             "missing or stale applied/verification evidence",
@@ -312,23 +317,6 @@ fn stop_gate_error(workflow: &state::WorkflowRecord, reason: &str, record_event:
     ))
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EvidenceStoreStatus {
-    pub runtime_evidence_file: PathBuf,
-    pub runtime_evidence_records: usize,
-    pub project_evidence_dir: PathBuf,
-    pub project_artifacts: usize,
-    pub stale_policy: &'static str,
-    pub truncated: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EvidenceValidation {
-    pub artifact: PathBuf,
-    pub project_root: PathBuf,
-    pub stale_policy: &'static str,
-}
-
 pub fn store_status() -> Result<EvidenceStoreStatus, AppError> {
     let runtime_evidence_file = paths::runtime_evidence_file();
     let project_evidence_dir = paths::project_evidence_dir();
@@ -379,32 +367,8 @@ pub fn validate_report(pointer: &str) -> Result<String, AppError> {
 }
 
 pub fn validate_artifact_pointer(pointer: &str) -> Result<EvidenceValidation, AppError> {
-    if pointer.trim().is_empty() {
-        return Err(AppError::usage("evidence artifact pointer가 필요합니다."));
-    }
-
-    if pointer.contains("://") {
-        return Err(AppError::blocked(
-            "evidence artifact pointer는 local project path만 허용합니다.",
-        ));
-    }
-
+    validate_artifact_pointer_syntax(pointer)?;
     let pointer_path = Path::new(pointer);
-    if pointer_path.is_absolute() {
-        return Err(AppError::blocked(
-            "evidence artifact pointer는 project-relative path만 허용합니다.",
-        ));
-    }
-
-    if pointer_path
-        .components()
-        .any(|component| matches!(component, Component::ParentDir))
-    {
-        return Err(AppError::blocked(
-            "evidence artifact pointer는 상위 경로(..)를 포함할 수 없습니다.",
-        ));
-    }
-
     let project_root = canonical_project_root()?;
     let artifact = project_root.join(pointer_path);
     if !artifact.exists() {
@@ -433,10 +397,6 @@ pub fn validate_artifact_pointer(pointer: &str) -> Result<EvidenceValidation, Ap
         project_root,
         stale_policy: stale_policy_summary(),
     })
-}
-
-pub fn stale_policy_summary() -> &'static str {
-    "artifact 누락, project boundary 이탈, stale_after_ms 만료 시 stale"
 }
 
 fn count_jsonl_records(path: &Path) -> Result<usize, AppError> {

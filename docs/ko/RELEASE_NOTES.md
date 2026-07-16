@@ -1,5 +1,36 @@
 # 릴리즈 노트
 
+## 미출시 v0.37.8 - Knowledge와 Policy 경계
+
+이 patch는 filesystem, ledger, transcript, CLI 동작을 바꾸지 않고 bounded
+context, evidence stop gate, typed ontology graph, approval record, tool/path policy의
+판단 규칙과 DTO를 private runtime owner로 이동합니다.
+
+### 포함한 것
+
+- Context pack/source pointer/resume DTO, 공유 파일·문자 예산, 중복 제거,
+  prompt rendering과 truncation을 `runtime_core::knowledge::context`로 이동
+- Evidence DTO, artifact pointer fail-closed 규칙, phase·approval·workflow·proposal·
+  action·evidence·command·source hash를 모두 묶는 stop-input validation을
+  `runtime_core::knowledge::evidence`로 이동
+- Typed ontology record/JSONL codec, latest-current projection, supersession,
+  diagnostics, compact source-first context selection, import validation을
+  `runtime_core::knowledge::ontology`로 이동
+- Approval request DTO, ID 검증, redaction-aware record rendering을
+  `runtime_core::policy::approval`로 이동
+- Command parsing/classification, patch verification allowlist, path policy DTO와
+  `PathPolicyPort`를 `runtime_core::policy::decision`으로 이동
+- Migration ledger를 v0.37.8로 진행하고 architecture contract로 runtime owner,
+  legacy 금지 정의, concrete adapter 역의존 부재를 고정
+
+### 호환성 경계
+
+- 최상위 context/evidence/ontology/approval/policy module은 v0.37.13 composition
+  cleanup까지 filesystem, ledger, transcript, report 조립 facade로 남습니다.
+- CLI 출력과 exit code, durable JSONL/approval/evidence byte와 hash, ledger/event
+  순서, recovery 및 fail-closed 동작, dependency, synchronous execution은
+  변경하지 않습니다.
+
 ## 미출시 v0.37.7 - Projection과 Observability
 
 이 patch는 surface-neutral observability record, projection/query port, monitor

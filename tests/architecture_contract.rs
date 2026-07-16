@@ -911,6 +911,142 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     }
 }
 
+#[test]
+fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
+    let owners = [
+        "src/runtime_core/knowledge/context.rs",
+        "src/runtime_core/knowledge/evidence.rs",
+        "src/runtime_core/knowledge/ontology.rs",
+        "src/runtime_core/policy/approval.rs",
+        "src/runtime_core/policy/decision.rs",
+    ];
+    for target in owners {
+        assert!(
+            Path::new(target).is_file(),
+            "missing v0.37.8 knowledge/policy owner: {target}"
+        );
+    }
+
+    let runtime_core = fs::read_to_string("src/runtime_core/mod.rs").unwrap();
+    for owner in ["knowledge", "policy"] {
+        let expected = format!("pub(crate) mod {owner};");
+        assert!(
+            runtime_core.lines().any(|line| line == expected),
+            "runtime owner is not crate-private: {owner}"
+        );
+    }
+    for (module, children) in [
+        (
+            "src/runtime_core/knowledge/mod.rs",
+            ["context", "evidence", "ontology"].as_slice(),
+        ),
+        (
+            "src/runtime_core/policy/mod.rs",
+            ["approval", "decision"].as_slice(),
+        ),
+    ] {
+        let source = fs::read_to_string(module).unwrap();
+        for child in children {
+            let expected = format!("pub(crate) mod {child};");
+            assert!(
+                source.lines().any(|line| line == expected),
+                "runtime child is not crate-private: {module} -> {child}"
+            );
+        }
+    }
+
+    for (owner, rules) in [
+        (
+            "src/runtime_core/knowledge/context.rs",
+            [
+                "struct ContextPack",
+                "struct ResumeContext",
+                "fn enforce_shared_source_budget",
+                "fn truncate_tail_chars",
+            ]
+            .as_slice(),
+        ),
+        (
+            "src/runtime_core/knowledge/evidence.rs",
+            [
+                "struct StopGateInputs",
+                "fn validate_stop_inputs",
+                "fn validate_artifact_pointer_syntax",
+            ]
+            .as_slice(),
+        ),
+        (
+            "src/runtime_core/knowledge/ontology.rs",
+            [
+                "struct OntologyRecord",
+                "fn parse_projection",
+                "fn runtime_context_selection",
+                "fn validate_import_text",
+            ]
+            .as_slice(),
+        ),
+        (
+            "src/runtime_core/policy/approval.rs",
+            [
+                "struct ApprovalRequest",
+                "fn render_request_record",
+                "fn validate_request_id",
+            ]
+            .as_slice(),
+        ),
+        (
+            "src/runtime_core/policy/decision.rs",
+            [
+                "enum Decision",
+                "trait PathPolicyPort",
+                "fn classify_command",
+                "fn classify_path",
+            ]
+            .as_slice(),
+        ),
+    ] {
+        let source = fs::read_to_string(owner).unwrap();
+        for rule in rules {
+            assert!(
+                source.contains(rule),
+                "v0.37.8 owner is missing domain rule: {owner} -> {rule}"
+            );
+        }
+        for forbidden in ["crate::adapters", "crate::ledger", "crate::state"] {
+            assert!(
+                !source.contains(forbidden),
+                "runtime knowledge/policy owner has concrete reverse dependency: {owner} -> {forbidden}"
+            );
+        }
+    }
+
+    let policy_facade = fs::read_to_string("src/policy.rs").unwrap();
+    assert!(
+        policy_facade.contains("impl PathPolicyPort for ProjectPathPolicy"),
+        "filesystem path policy is not composed through the consumer-owned port"
+    );
+
+    for (facade, forbidden) in [
+        ("src/approval.rs", "struct ApprovalRequest"),
+        ("src/approval.rs", "fn render_request_record"),
+        ("src/context.rs", "pub struct ContextPack"),
+        ("src/context.rs", "fn clamp_source_pack"),
+        ("src/evidence.rs", "struct StopGateInputs"),
+        ("src/evidence.rs", "fn stale_policy_summary"),
+        ("src/ontology.rs", "struct OntologyRecord"),
+        ("src/ontology.rs", "fn select_context_records"),
+        ("src/policy.rs", "pub enum Decision"),
+        ("src/policy.rs", "fn validate_patch_verification_argv"),
+    ] {
+        let source = fs::read_to_string(facade).unwrap();
+        let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
+        assert!(
+            !production.contains(forbidden),
+            "legacy facade retains moved knowledge/policy rule: {facade} -> {forbidden}"
+        );
+    }
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

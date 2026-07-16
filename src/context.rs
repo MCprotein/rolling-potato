@@ -8,47 +8,15 @@ use crate::adapters::filesystem::layout as paths;
 use crate::foundation::error::AppError;
 use crate::ontology;
 use crate::policy::{self, Decision, PathMode};
+pub use crate::runtime_core::knowledge::context::{
+    enforce_shared_source_budget, ContextPack, ResumeContext, SourcePointer,
+};
+use crate::runtime_core::knowledge::context::{
+    truncate_chars, truncate_tail_chars, MAX_CONTEXT_CHARS, MAX_CONTEXT_FILES, MAX_FILE_BYTES,
+    MAX_FILE_CHARS, MAX_RESUME_TRANSCRIPT_CHARS, MAX_RESUME_TURNS, MAX_RESUME_TURN_CHARS,
+};
 
-const MAX_CONTEXT_FILES: usize = 4;
-const MAX_CONTEXT_CHARS: usize = 3_200;
-const MAX_FILE_CHARS: usize = 1_000;
 const MAX_SCAN_FILES: usize = 512;
-const MAX_FILE_BYTES: u64 = 128 * 1024;
-const MAX_RESUME_TURNS: usize = 8;
-const MAX_RESUME_TRANSCRIPT_CHARS: usize = 2_400;
-const MAX_RESUME_TURN_CHARS: usize = 800;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ContextPack {
-    pub project_root: PathBuf,
-    pub origin: String,
-    pub ontology_records_selected: usize,
-    pub ontology_stale_rejected: usize,
-    pub files_considered: usize,
-    pub files_read: usize,
-    pub chars_read: usize,
-    pub dropped_files: usize,
-    pub source_pointers: Vec<SourcePointer>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SourcePointer {
-    pub path: String,
-    pub stable_ref: String,
-    pub chars: usize,
-    pub fingerprint: String,
-    pub snippet: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResumeContext {
-    pub session_id: String,
-    pub transcript_records_considered: usize,
-    pub transcript_turns_selected: usize,
-    pub transcript_chars: usize,
-    pub transcript: Vec<(String, String)>,
-    pub sources: ContextPack,
-}
 
 pub fn build_context_pack(request: &str) -> Result<ContextPack, AppError> {
     ontology::ensure_seeded()?;
@@ -336,62 +304,6 @@ pub fn rebuild_resume_context(
     })
 }
 
-pub fn enforce_shared_source_budget(resume: &mut ResumeContext, current: &mut ContextPack) {
-    let mut seen = BTreeSet::new();
-    let mut remaining_files = MAX_CONTEXT_FILES;
-    let mut remaining_chars = MAX_CONTEXT_CHARS;
-
-    clamp_source_pack(
-        current,
-        &mut seen,
-        &mut remaining_files,
-        &mut remaining_chars,
-    );
-    clamp_source_pack(
-        &mut resume.sources,
-        &mut seen,
-        &mut remaining_files,
-        &mut remaining_chars,
-    );
-}
-
-fn clamp_source_pack(
-    pack: &mut ContextPack,
-    seen: &mut BTreeSet<String>,
-    remaining_files: &mut usize,
-    remaining_chars: &mut usize,
-) {
-    let mut selected = Vec::new();
-    let original_count = pack.source_pointers.len();
-    for mut pointer in std::mem::take(&mut pack.source_pointers) {
-        if *remaining_files == 0 || *remaining_chars == 0 {
-            break;
-        }
-        if !seen.insert(pointer.stable_ref.clone()) {
-            continue;
-        }
-        pointer.snippet = truncate_chars(&pointer.snippet, (*remaining_chars).min(MAX_FILE_CHARS));
-        pointer.chars = pointer.snippet.chars().count();
-        if pointer.chars == 0 {
-            continue;
-        }
-        *remaining_files -= 1;
-        *remaining_chars -= pointer.chars;
-        selected.push(pointer);
-    }
-    pack.source_pointers = selected;
-    pack.files_read = pack.source_pointers.len();
-    pack.chars_read = pack
-        .source_pointers
-        .iter()
-        .map(|pointer| pointer.chars)
-        .sum();
-    pack.dropped_files = pack
-        .files_considered
-        .max(original_count)
-        .saturating_sub(pack.files_read);
-}
-
 fn build_filesystem_fallback(request: &str) -> Result<ContextPack, AppError> {
     let project_root = fs::canonicalize(paths::project_root()).map_err(|err| {
         AppError::runtime(format!(
@@ -457,68 +369,6 @@ fn build_filesystem_fallback(request: &str) -> Result<ContextPack, AppError> {
         dropped_files: files_considered.saturating_sub(source_pointers.len()),
         source_pointers,
     })
-}
-
-impl ContextPack {
-    pub fn pointer_summary(&self) -> String {
-        if self.source_pointers.is_empty() {
-            return "없음".to_string();
-        }
-        self.source_pointers
-            .iter()
-            .map(|pointer| pointer.stable_ref.as_str())
-            .collect::<Vec<_>>()
-            .join(", ")
-    }
-
-    pub fn prompt_section(&self) -> String {
-        if self.source_pointers.is_empty() {
-            return "repository context:\n- source pointers: 없음\n".to_string();
-        }
-
-        let mut section = format!(
-            "{} repository context:\n\
-             - snippets are context hints, not authority for file modification.\n\
-             - before any patch or command action, reread the original source pointer.\n",
-            if self.origin == "ontology" {
-                "ontology-backed"
-            } else {
-                "declared-path"
-            }
-        );
-        for pointer in &self.source_pointers {
-            section.push_str(&format!(
-                "\nsource pointer: {}\nfingerprint: {}\nchars: {}\nsnippet:\n{}\n",
-                pointer.stable_ref, pointer.fingerprint, pointer.chars, pointer.snippet
-            ));
-        }
-        section
-    }
-}
-
-impl ResumeContext {
-    pub fn prompt_section(&self) -> String {
-        if self.transcript.is_empty() && self.sources.source_pointers.is_empty() {
-            return String::new();
-        }
-        let mut section = format!(
-            "durable resumed session context (session={}):\n",
-            self.session_id
-        );
-        for (kind, content) in &self.transcript {
-            section.push_str(&format!("\n{kind} turn:\n{content}\n"));
-        }
-        section.push('\n');
-        section.push_str(&self.sources.prompt_section());
-        section
-    }
-
-    pub fn summary(&self) -> String {
-        format!(
-            "transcript turns={} chars={} source pointers={}",
-            self.transcript_turns_selected, self.transcript_chars, self.sources.files_read
-        )
-    }
 }
 
 fn discover_candidate_files(root: &Path) -> Result<Vec<PathBuf>, AppError> {
@@ -654,41 +504,6 @@ fn relative_path(root: &Path, path: &Path) -> String {
         .unwrap_or(path)
         .to_string_lossy()
         .replace('\\', "/")
-}
-
-fn truncate_chars(contents: &str, max_chars: usize) -> String {
-    let count = contents.chars().count();
-    if count <= max_chars {
-        return contents.to_string();
-    }
-    const MARKER: &str = "\n[truncated]";
-    let marker_chars = MARKER.chars().count();
-    if max_chars <= marker_chars {
-        return MARKER.chars().take(max_chars).collect();
-    }
-    let prefix = contents
-        .chars()
-        .take(max_chars - marker_chars)
-        .collect::<String>();
-    format!("{prefix}{MARKER}")
-}
-
-fn truncate_tail_chars(contents: &str, max_chars: usize) -> String {
-    let count = contents.chars().count();
-    if count <= max_chars {
-        return contents.to_string();
-    }
-    const MARKER: &str = "[truncated]\n";
-    let marker_chars = MARKER.chars().count();
-    if max_chars <= marker_chars {
-        return MARKER.chars().take(max_chars).collect();
-    }
-    let tail_chars = max_chars - marker_chars;
-    let tail = contents
-        .chars()
-        .skip(count - tail_chars)
-        .collect::<String>();
-    format!("{MARKER}{tail}")
 }
 
 fn content_fingerprint(contents: &str) -> String {
