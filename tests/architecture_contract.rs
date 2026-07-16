@@ -1746,6 +1746,8 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "struct TuiReadPage",
         "struct SelectionLease",
         "enum TuiFreshness",
+        "enum TuiIntent",
+        "struct OneShotSecret",
     ] {
         assert!(
             owner.contains(definition),
@@ -1757,6 +1759,8 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(runtime.contains("surfaces::tui::runtime_bridge"));
     assert!(!runtime.contains("pub struct TuiReadBudget"));
     assert!(!runtime.contains("pub struct SelectionLease"));
+    assert!(!runtime.contains("pub enum TuiIntent"));
+    assert!(!runtime.contains("pub struct OneShotSecret"));
 }
 
 #[test]

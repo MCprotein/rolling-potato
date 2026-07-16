@@ -3,8 +3,8 @@ use crate::foundation::error::AppError;
 use crate::runtime_core::reporting::runtime_report::{self, DoctorReport, InitReport};
 use crate::runtime_core::workflow::application::runner::{self, RuntimeApplicationPort};
 pub(crate) use crate::surfaces::tui::runtime_bridge::{
-    ObservedWorkflow, SelectionLease, TuiFreshness, TuiGateKind, TuiReadAuthority, TuiReadBudget,
-    TuiReadContinuation, TuiReadPage, TuiReadRequest,
+    ObservedWorkflow, OneShotSecret, SelectionLease, TuiFreshness, TuiGateKind, TuiIntent,
+    TuiReadAuthority, TuiReadBudget, TuiReadContinuation, TuiReadPage, TuiReadRequest,
 };
 use crate::{
     backend, context, evidence, intent, ledger, model, observability, ontology, patch, state,
@@ -15,83 +15,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static TUI_INTENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-
-pub enum TuiIntent {
-    #[allow(dead_code)] // closed read-intent contract; presentation calls the read facade directly
-    Refresh { request: TuiReadRequest },
-    #[allow(dead_code)] // closed read-intent contract; presentation calls the read facade directly
-    Inspect { request: TuiReadRequest },
-    ApprovePatch {
-        intent_id: String,
-        proposal_id: String,
-        lease: SelectionLease,
-        secret: OneShotSecret,
-    },
-    ApproveVerification {
-        intent_id: String,
-        proposal_id: String,
-        lease: SelectionLease,
-        secret: OneShotSecret,
-    },
-    DenyPendingGate {
-        intent_id: String,
-        workflow_id: String,
-        gate_id: String,
-        gate_kind: TuiGateKind,
-        lease: SelectionLease,
-    },
-    ResumeWorkflow {
-        intent_id: String,
-        workflow_id: String,
-        lease: SelectionLease,
-    },
-    CancelWorkflow {
-        intent_id: String,
-        workflow_id: String,
-        lease: SelectionLease,
-    },
-    #[allow(dead_code)] // session palette wiring is retained as a typed dispatcher boundary
-    SelectSession {
-        intent_id: String,
-        session_id: String,
-        lease: SelectionLease,
-    },
-    #[allow(dead_code)] // session palette wiring is retained as a typed dispatcher boundary
-    ResumeSession {
-        intent_id: String,
-        session_id: String,
-        lease: SelectionLease,
-    },
-}
-
-pub struct OneShotSecret(Vec<u8>);
-
-impl OneShotSecret {
-    pub fn new(value: String) -> Result<Self, AppError> {
-        if value.is_empty() {
-            return Err(AppError::blocked(
-                "비밀 입력 차단\n- 이유: 빈 비밀값은 사용할 수 없습니다.",
-            ));
-        }
-        Ok(Self(value.into_bytes()))
-    }
-
-    pub(crate) fn expose<R>(self, use_plaintext: impl FnOnce(&str) -> R) -> R {
-        let plaintext = std::str::from_utf8(&self.0)
-            .expect("OneShotSecret is constructed only from valid UTF-8 String values");
-        use_plaintext(plaintext)
-    }
-}
-
-impl Drop for OneShotSecret {
-    fn drop(&mut self) {
-        for byte in &mut self.0 {
-            // SAFETY: `byte` is a valid, uniquely borrowed byte in the owned buffer.
-            unsafe { std::ptr::write_volatile(byte, 0) };
-        }
-        std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TuiOutcomeStatus {
