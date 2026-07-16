@@ -7,7 +7,7 @@
 ```
 
 - Remote: `https://github.com/MCprotein/rolling-potato.git`
-- Latest release: `v0.35.1`
+- Latest release: `v0.36.0`
 - CLI: `rpotato`
 - Product: local-first coding-agent runtime for small local models
 
@@ -38,7 +38,7 @@ policy, explicit approval where required, evidence recording, and verification.
 
 ## Current Release State
 
-`v0.35.1` is the current complete release. GitHub Releases provides checksummed
+`v0.36.0` is the current complete release. GitHub Releases provides checksummed
 binaries for:
 
 - macOS Apple Silicon
@@ -85,6 +85,10 @@ remain historical evidence.
 - One bounded sequential subagent per active parent with declared context,
   tools, write ownership, resource budgets, strict results, terminal failure
   handling, secret-safe persistence, and restart-safe parent evidence merge
+- Runtime-owned team execution with exact manifest admission, resource-aware
+  parallel/sequential lanes, action-time ownership, durable cancellation,
+  interrupted-no-replay recovery, deterministic reconciliation, source-fresh
+  evidence, and completion stop gates
 
 ## Important Incomplete Boundaries
 
@@ -101,8 +105,9 @@ remain historical evidence.
   permission path.
 - Approved source installation through the interactive TUI is supported on
   Unix; unsupported platform paths fail closed before target mutation.
-- Team dispatch records policy and ownership decisions but does not launch real
-  workers or advance/merge team stages.
+- Team workers return bounded evidence and non-executing patch proposals. Team
+  reconciliation does not apply worker-authored patches, and workers have no
+  command, direct-write, nested-team, or nested-subagent authority.
 - Imported plugins are inspected and validated but receive no execution
   authority yet.
 - HTML monitoring and package-manager channels are intentionally later work.
@@ -113,9 +118,10 @@ The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
 sequence and non-skippable release gates are defined in
 `docs/release-train.md`. The immediate sequence is:
 
-1. `v0.36.0`: real team lane execution, stage advancement, reconciliation, and
-   completion gates.
-2. `v0.37.0` onward: Codex and Claude Code local plugin execution adapters.
+1. `v0.37.0`: Codex local plugin execution adapter through native runtime
+   policy, hook, skill, evidence, and approval boundaries.
+2. `v0.38.0` onward: Claude Code local plugin execution conformance followed by
+   integrated performance hardening.
 
 Package-manager distribution and an optional local HTML monitoring report come
 after the runtime replacement path is operational.

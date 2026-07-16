@@ -1,5 +1,63 @@
 # Release Notes
 
+## v0.36.0 - Durable Team Execution
+
+Release date: 2026-07-16
+
+This release turns the durable team plan into runtime-owned lane execution and
+evidence reconciliation. The runtime admits the exact manifest members, runs
+them in parallel or sequential fallback mode under resource pressure, and
+completes the parent only after deterministic receipts and stop gates pass.
+
+### Included
+
+- Adds `rpotato team execute` and `rpotato team reconcile` for exact
+  lane/member admission, parallel or sequential execution, durable stage
+  advancement, failed-lane collection, and idempotent completion.
+- Enforces manifest write ownership again at action time. Worker patch proposals
+  remain non-executing artifacts; reconciliation merges verified evidence into
+  the parent without applying worker-authored changes.
+- Propagates one durable cancellation marker to every admitted worker and uses a
+  team operation barrier so cancellation cannot interleave with the admission
+  boundary and leave an orphan child.
+- Recovers interrupted `team-dispatch` workers with their original identities,
+  rebuilds missing completion receipts after all workers finished, and marks an
+  interrupted running request `interrupted-no-replay` instead of sending it
+  again.
+- Binds worker evidence to source path, stable reference, and fingerprint.
+  Validation gaps, missing receipts, tampered artifacts, or source drift stop
+  reconciliation before the parent evidence checkpoint.
+- Applies one cancellation marker to every same-process parallel backend
+  generation and retains the durable active-generation record until the last
+  member reaches a terminal state.
+- Adds real CLI integration coverage with a Rust fake sidecar for initialization,
+  backend start, parent run, team plan, execution, reconciliation, retry, and
+  status reporting.
+
+### Verification Contract
+
+- One bounded independent review was completed for the v0.36 implementation;
+  its four release-blocking findings were closed with targeted regression tests
+  without starting a second review.
+- Targeted unit coverage includes parallel and sequential modes, critical
+  resource pressure, action-time ownership, failed workers, durable
+  cancellation, interrupted execution recovery, source freshness, validation
+  gaps, and parallel generation-group cancellation.
+- The release workflow runs the serialized full Rust test gate, pinned-tool and
+  release-contract checks, five native release builds, packaged-binary smoke,
+  per-asset checksums, and aggregate checksum verification.
+
+### Boundary
+
+- Team workers can return bounded findings, evidence, and non-executing patch
+  proposals. They do not receive command execution, direct writes, patch apply,
+  nested team, or nested subagent authority.
+- Imported Codex and Claude Code plugins remain inspection-only; executable
+  plugin adapters start with v0.37.0.
+- The release continues to use the managed `llama.cpp b9982` backend and the
+  five-platform, exact 11-asset release set. Model weights and external plugin
+  packages are not bundled.
+
 ## v0.35.1 - Hermetic Release Contract Recovery
 
 Release date: 2026-07-16

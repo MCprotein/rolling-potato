@@ -1,5 +1,58 @@
 # 릴리즈 노트
 
+## v0.36.0 - Durable Team 실행
+
+릴리즈 날짜: 2026-07-16
+
+이 릴리즈는 영속 team plan을 runtime이 소유하는 lane 실행과 evidence reconciliation로
+확장합니다. Runtime은 manifest의 정확한 member를 admit하고 resource pressure에 따라
+parallel 또는 sequential fallback으로 실행하며, deterministic receipt와 stop gate가
+통과한 뒤에만 parent를 완료합니다.
+
+### 포함한 것
+
+- 정확한 lane/member admission, parallel 또는 sequential 실행, 영속 stage 진행,
+  failed-lane 수집, idempotent completion을 위한 `rpotato team execute`와
+  `rpotato team reconcile`을 추가합니다.
+- Manifest write ownership을 action 시점에 다시 강제합니다. Worker patch proposal은
+  실행되지 않는 artifact로 유지하며, reconciliation은 worker가 작성한 변경을 적용하지
+  않고 검증된 evidence만 parent에 merge합니다.
+- 하나의 영속 cancellation marker를 모든 admitted worker에 전달하고 team operation
+  barrier로 cancel이 admission 경계에 끼어 orphan child를 남기지 못하게 합니다.
+- 중단된 `team-dispatch` worker는 기존 identity로 재개하고, 모든 worker가 완료된 뒤
+  receipt가 누락되면 이를 복원합니다. 실행 중 중단된 요청은 다시 보내지 않고
+  `interrupted-no-replay`로 종료합니다.
+- Worker evidence를 source path, stable reference, fingerprint에 binding합니다. Validation
+  gap, 누락된 receipt, 변조된 artifact, source drift가 있으면 parent evidence checkpoint
+  전에 reconciliation을 중단합니다.
+- 같은 process의 병렬 backend generation 전체에 하나의 cancellation marker를 적용하고
+  마지막 member가 terminal state에 도달할 때까지 영속 active-generation record를
+  유지합니다.
+- Rust fake sidecar를 사용해 initialization, backend start, parent run, team plan, 실행,
+  reconciliation, retry, status reporting을 잇는 실제 CLI integration coverage를
+  추가합니다.
+
+### 검증 계약
+
+- v0.36 구현에 대해 범위를 제한한 독립 리뷰 한 번을 완료했고, 발견된 release-blocker
+  네 건은 두 번째 리뷰 없이 targeted 회귀 테스트로 닫았습니다.
+- Targeted unit coverage는 parallel/sequential mode, critical resource pressure,
+  action-time ownership, failed worker, 영속 cancellation, 중단 실행 복구, source
+  freshness, validation gap, 병렬 generation-group cancellation을 포함합니다.
+- Release workflow는 serialized full Rust test gate, pinned-tool/release-contract check,
+  5개 native release build, packaged-binary smoke, asset별 checksum, aggregate checksum
+  검증을 실행합니다.
+
+### 경계
+
+- Team worker는 bounded finding, evidence, 실행되지 않는 patch proposal을 반환할 수
+  있습니다. Command 실행, 직접 write, patch apply, nested team, nested subagent 권한은
+  받지 않습니다.
+- Imported Codex/Claude Code plugin은 inspection-only로 유지하며 실행 adapter는
+  v0.37.0부터 시작합니다.
+- 이 릴리즈는 managed `llama.cpp b9982` backend와 5개 platform, exact 11-asset release
+  set을 유지합니다. Model weight와 외부 plugin package는 번들하지 않습니다.
+
 ## v0.35.1 - Hermetic Release Contract 복구
 
 릴리즈 날짜: 2026-07-16
