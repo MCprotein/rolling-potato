@@ -273,13 +273,17 @@ generation 경로를 사용합니다. Running child의 수동 cancel은 backend 
 
 Missing, duplicate, unknown, oversized, invalid UTF-8, identity mismatch field는 fail-closed합니다.
 선언한 write ownership 밖의 executor proposal이나 변경된 source hash 대상은 차단합니다.
-Executor가 아닌 role은 patch proposal을 반환할 수 없습니다.
+Executor가 아닌 role은 patch proposal을 반환할 수 없습니다. Summary, finding, validation
+gap, next action, patch text에서 credential 형태의 text를 발견하면 result/evidence artifact를
+설치하기 전에 차단합니다.
 
 검증된 `completed` result만 parent에 merge할 수 있습니다. Merge는 launch 시 binding한
 정확한 parent artifact hash를 요구하고, child evidence id를 parent skill evidence에 추가한
 뒤 parent를 한 번 checkpoint하며, subagent id와 result hash로 key한 idempotent merge event
-하나를 기록합니다. Stale parent, 변조된 child artifact, missing evidence, 서로 다른 두 번째
-result는 parent를 변경하지 않습니다.
+하나를 기록합니다. Parent checkpoint 뒤 merge event 기록 전에 process가 멈추면 다음 child
+admission이 설치된 result/evidence artifact를 다시 검증하고 이미 설치된 evidence id를 인식해
+두 번째 parent checkpoint 없이 누락된 event를 기록합니다. 해당 evidence가 없는 stale parent,
+변조된 child artifact, missing evidence, 서로 다른 두 번째 result는 parent를 변경하지 않습니다.
 
 Ledger event 이름은 다음으로 고정합니다.
 

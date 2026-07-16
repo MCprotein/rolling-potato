@@ -89,7 +89,7 @@ fn cli_subagent_lifecycle_is_bounded_deterministic_and_secret_safe() {
     assert!(evidence_path.is_file());
     assert_event_order(&ledger_before);
 
-    let status = fixture.command(&["subagent", "status", &subagent_id]);
+    let status = fixture.command(&["subagent", "status", subagent_id]);
     assert_success(&status, "subagent status");
     let status_stdout = text(&status.stdout);
     for expected in [
@@ -106,7 +106,7 @@ fn cli_subagent_lifecycle_is_bounded_deterministic_and_secret_safe() {
     assert_unchanged(&parent_path, &parent_before);
     assert_unchanged(&ledger_path, &ledger_before);
 
-    let cancel = fixture.command(&["subagent", "cancel", &subagent_id]);
+    let cancel = fixture.command(&["subagent", "cancel", subagent_id]);
     assert_success(&cancel, "terminal subagent cancel");
     assert!(text(&cancel.stdout).contains("- action: terminal-preserved-no-op"));
     assert_unchanged(&child_path, &child_before);

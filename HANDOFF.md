@@ -7,7 +7,7 @@
 ```
 
 - Remote: `https://github.com/MCprotein/rolling-potato.git`
-- Latest release: `v0.33.0`
+- Latest release: `v0.35.0`
 - CLI: `rpotato`
 - Product: local-first coding-agent runtime for small local models
 
@@ -38,7 +38,7 @@ policy, explicit approval where required, evidence recording, and verification.
 
 ## Current Release State
 
-`v0.33.0` is the current complete release. GitHub Releases provides checksummed
+`v0.35.0` is the current complete release. GitHub Releases provides checksummed
 binaries for:
 
 - macOS Apple Silicon
@@ -80,6 +80,11 @@ remain historical evidence.
   capability mapping, and default-deny permission reporting
 - Executable built-in skills and runtime-owned lifecycle hooks with durable
   state, deterministic ordering, policy enforcement, evidence, and stop gates
+- Runtime-owned interactive TUI navigation and guarded approval, denial,
+  resume, cancellation, diff, transcript, tool-output, and evidence operations
+- One bounded sequential subagent per active parent with declared context,
+  tools, write ownership, resource budgets, strict results, terminal failure
+  handling, secret-safe persistence, and restart-safe parent evidence merge
 
 ## Important Incomplete Boundaries
 
@@ -94,7 +99,8 @@ remain historical evidence.
 - Only runtime-owned native hooks execute. Project/session/plugin hook
   executables remain disabled pending a separately reviewed loader and
   permission path.
-- TUI is read-only; it cannot approve, apply, resume, cancel, or mutate work.
+- Approved source installation through the interactive TUI is supported on
+  Unix; unsupported platform paths fail closed before target mutation.
 - Team dispatch records policy and ownership decisions but does not launch real
   workers or advance/merge team stages.
 - Imported plugins are inspected and validated but receive no execution
@@ -107,9 +113,9 @@ The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
 sequence and non-skippable release gates are defined in
 `docs/release-train.md`. The immediate sequence is:
 
-1. `v0.34.0`: interactive TUI operations through runtime-owned state.
-2. `v0.35.0` onward: subagents,
-   teams, and plugin execution adapters.
+1. `v0.36.0`: real team lane execution, stage advancement, reconciliation, and
+   completion gates.
+2. `v0.37.0` onward: Codex and Claude Code local plugin execution adapters.
 
 Package-manager distribution and an optional local HTML monitoring report come
 after the runtime replacement path is operational.

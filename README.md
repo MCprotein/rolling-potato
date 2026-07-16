@@ -96,6 +96,9 @@ rpotato continue <session-id>
 rpotato evidence validate logs/test.log
 rpotato skill list
 rpotato skill run fix-test "fix the failing test in tests/api.rs"
+rpotato subagent launch --role explore --task "map the module" --tool read_file --read src/lib.rs
+rpotato subagent status
+rpotato subagent cancel <subagent-id>
 rpotato plugin import --from claude-code ./my-plugin
 rpotato plugin inspect imported.example-plugin
 rpotato team status
@@ -223,6 +226,9 @@ Implemented command surfaces:
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
 - `rpotato skill run <id> "<request>"`
+- `rpotato subagent launch --role <role> --task <text> --tool <tool> --read <path>`
+- `rpotato subagent status [subagent-id]`
+- `rpotato subagent cancel <subagent-id>`
 - `rpotato policy schema`
 - `rpotato policy check-command <command>`
 - `rpotato policy check-path --read <path>`
@@ -297,6 +303,8 @@ Implemented command surfaces:
 `run` normalizes the user request into skill, mode, context, and evidence requirements, reconstructs up to 8 recent durable turns within 2,400 characters, and shares one 4-pointer/3,200-character source budget across current-request and resumed context before creating a workflow or calling the backend sidecar. It parses the result into a runtime-owned typed action without executing model text. Canonical transcript artifacts store the user turn, visible or normalized model result, normalized tool record, and evidence record; source contents and patch fragments remain pointers plus SHA-256, and hidden reasoning/raw backend responses are excluded. SQLite `transcript_records` is a rebuildable ordered projection, not resume authority. Read-only actions finish through a guarded Korean report. A valid patch action persists a restart-safe workflow and proposal, rereads the authoritative source, and stops with the exact `patch approve` gate.
 
 `intent classify` and `intent routes` remain pre-execution surfaces. `skill run <id> "<request>"` explicitly selects a built-in skill and enters the same durable agent loop as `run`, including context checks, lifecycle hooks, runtime policy, evidence collection, and stop criteria.
+
+`subagent launch` runs one sequential, bounded child under the active parent workflow. The runtime fixes the role, declared tools, project-relative read paths, optional executor write ownership, timeout, token budget, resource admission, and source-pointer context before backend dispatch. The child returns one strict structured result and cannot execute commands, write files, apply patches, start nested workers, or bypass parent approval. `subagent status` is read-only, `subagent cancel` races completion to one terminal state, credential-shaped output is rejected before persistence, and verified evidence merge recovers idempotently after restart.
 
 `tui` auto-selects the v0.34.0 interactive line controller when stdin/stdout are attached to a terminal and keeps the read-only overview for non-terminal use. `tui interactive` starts the controller explicitly. It supports canonical view navigation, paging and selection, patch/verification approval, pending-gate denial, workflow resume, and cancellation. Every mutation obtains a runtime-owned selection lease, requires an explicit confirmation, reads credentials with terminal echo disabled, and returns one of the closed runtime outcomes; the TUI never edits state or SQLite directly. The first successful patch approval writes its verification credential to the terminal exactly once; a repeated committed intent returns only a refresh receipt. The transcript and tool views expose only validated, bounded artifacts and exclude hidden model responses, source-file bodies, patch fragments, verification-command text, credentials, and terminal control bytes. Read-facing commands do not create new product mutations, but command startup may finish an already-committed transition journal or rebuild a lagging derived projection under runtime authority. Approved source installation succeeds only on Unix in v0.34.0; other platforms block before the prepared journal or target is changed. A concurrent external writer racing after final pathname validation and before unlink remains outside the v0.34.0 guarantee and is documented as unsupported rather than presented as atomic.
 
