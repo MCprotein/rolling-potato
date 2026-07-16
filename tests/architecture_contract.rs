@@ -781,8 +781,10 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     }
 
     let patch_loop = fs::read_to_string("tests/patch_loop.rs").unwrap();
+    let patch_lifecycle = fs::read_to_string("tests/patch/lifecycle.rs").unwrap();
     assert!(
-        patch_loop.contains("#[path = \"workflow/recovery.rs\"]"),
+        patch_loop.contains("#[path = \"patch/lifecycle.rs\"]")
+            && patch_lifecycle.contains("#[path = \"../workflow/recovery.rs\"]"),
         "patch-loop recovery filters are not owned by tests/workflow/recovery.rs"
     );
 }
@@ -1045,6 +1047,159 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
             "legacy facade retains moved knowledge/policy rule: {facade} -> {forbidden}"
         );
     }
+}
+
+#[test]
+fn v0379_patch_owners_hold_lifecycle_decisions() {
+    let owners = [
+        "src/runtime_core/patch/approval.rs",
+        "src/runtime_core/patch/application.rs",
+        "src/runtime_core/patch/intent.rs",
+        "src/runtime_core/patch/proposal.rs",
+        "src/runtime_core/patch/verification.rs",
+    ];
+    for target in owners {
+        assert!(
+            Path::new(target).is_file(),
+            "missing v0.37.9 patch owner: {target}"
+        );
+    }
+
+    let runtime_core = fs::read_to_string("src/runtime_core/mod.rs").unwrap();
+    assert!(
+        runtime_core
+            .lines()
+            .any(|line| line == "pub(crate) mod patch;"),
+        "patch runtime owner is not crate-private"
+    );
+    let patch_mod = fs::read_to_string("src/runtime_core/patch/mod.rs").unwrap();
+    for child in [
+        "approval",
+        "application",
+        "intent",
+        "proposal",
+        "verification",
+    ] {
+        let expected = format!("pub(crate) mod {child};");
+        assert!(
+            patch_mod.lines().any(|line| line == expected),
+            "patch child is not crate-private: {child}"
+        );
+    }
+
+    for (owner, rules) in [
+        (
+            "src/runtime_core/patch/approval.rs",
+            ["fn token_from_entropy", "fn hash_token", "fn matches_hash"].as_slice(),
+        ),
+        (
+            "src/runtime_core/patch/application.rs",
+            [
+                "enum ApplyAdmission",
+                "fn admit_apply",
+                "fn admit_rollback",
+                "fn validate_applied_source",
+            ]
+            .as_slice(),
+        ),
+        (
+            "src/runtime_core/patch/intent.rs",
+            [
+                "struct IntentDecision",
+                "fn classify",
+                "fn plan_action_candidate",
+                "fn parse_model_action",
+            ]
+            .as_slice(),
+        ),
+        (
+            "src/runtime_core/patch/proposal.rs",
+            [
+                "struct PatchPreview",
+                "fn build_preview",
+                "fn render_record",
+                "fn parse_record",
+            ]
+            .as_slice(),
+        ),
+        (
+            "src/runtime_core/patch/verification.rs",
+            [
+                "struct VerificationPlan",
+                "enum RecoveryAdmission",
+                "fn build_plan",
+                "fn recovery_admission",
+            ]
+            .as_slice(),
+        ),
+    ] {
+        let source = fs::read_to_string(owner).unwrap();
+        for rule in rules {
+            assert!(
+                source.contains(rule),
+                "v0.37.9 owner is missing lifecycle rule: {owner} -> {rule}"
+            );
+        }
+        for forbidden in [
+            "crate::adapters",
+            "crate::ledger",
+            "crate::state",
+            "crate::runtime::",
+            "crate::skill",
+            "std::fs",
+            "std::process",
+        ] {
+            assert!(
+                !source.contains(forbidden),
+                "patch owner has concrete reverse dependency: {owner} -> {forbidden}"
+            );
+        }
+    }
+
+    for (facade, forbidden) in [
+        ("src/intent.rs", "struct IntentDecision"),
+        ("src/intent.rs", "fn plan_action_candidate"),
+        ("src/intent.rs", "fn parse_model_action"),
+        ("src/patch.rs", "struct PatchPreview"),
+        ("src/patch.rs", "struct ProposalRecord"),
+        ("src/patch.rs", "struct ApplyResult"),
+        ("src/patch.rs", "struct RollbackResult"),
+        ("src/patch.rs", "struct VerificationPlan"),
+        ("src/patch.rs", "struct VerificationResult"),
+        ("src/patch.rs", "fn render_unified_diff"),
+        ("src/patch.rs", "fn parse_proposal_header"),
+        ("src/patch.rs", "fn constant_time_eq"),
+        ("src/patch.rs", "fn is_test_verification"),
+        ("src/patch.rs", "fn output_excerpt"),
+    ] {
+        let source = fs::read_to_string(facade).unwrap();
+        let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
+        assert!(
+            !production.contains(forbidden),
+            "legacy facade retains moved patch rule: {facade} -> {forbidden}"
+        );
+    }
+
+    let intent_facade = fs::read_to_string("src/intent.rs").unwrap();
+    let patch_facade = fs::read_to_string("src/patch.rs").unwrap();
+    let patch_harness = fs::read_to_string("tests/patch_loop.rs").unwrap();
+    let patch_contract = fs::read_to_string("tests/patch/lifecycle.rs").unwrap();
+    assert!(
+        intent_facade.lines().count() <= 1_400,
+        "intent facade regrew beyond the v0.37.9 boundary"
+    );
+    assert!(
+        patch_facade.lines().count() <= 6_300,
+        "patch facade regrew beyond the v0.37.9 boundary"
+    );
+    assert!(
+        patch_harness.lines().count() <= 5 && patch_harness.contains("patch/lifecycle.rs"),
+        "patch integration harness is not a thin compatibility entrypoint"
+    );
+    assert!(
+        patch_contract.contains("fn happy_path_is_restart_safe_and_reports_korean"),
+        "patch lifecycle contract was not moved to its owner"
+    );
 }
 
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {

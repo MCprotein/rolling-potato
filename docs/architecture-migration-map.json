@@ -2090,8 +2090,11 @@
           "responsibility": "intent classification and action planning",
           "target": "src/runtime_core/patch/intent.rs",
           "release": "0.37.9",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/intent.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2343,29 +2346,41 @@
           "responsibility": "patch proposal and preview",
           "target": "src/runtime_core/patch/proposal.rs",
           "release": "0.37.9",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/proposal.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "patch approval credentials",
           "target": "src/runtime_core/patch/approval.rs",
           "release": "0.37.9",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/approval.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "guarded patch apply and rollback",
           "target": "src/runtime_core/patch/application.rs",
           "release": "0.37.9",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/application.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "patch verification and recovery",
           "target": "src/runtime_core/patch/verification.rs",
           "release": "0.37.9",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/verification.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2605,6 +2620,81 @@
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/approval.rs",
+      "slices": [
+        {
+          "responsibility": "patch approval credentials",
+          "target": "src/runtime_core/patch/approval.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/approval.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/application.rs",
+      "slices": [
+        {
+          "responsibility": "guarded patch apply and rollback",
+          "target": "src/runtime_core/patch/application.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/application.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent.rs",
+      "slices": [
+        {
+          "responsibility": "intent classification and action planning",
+          "target": "src/runtime_core/patch/intent.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/intent.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/proposal.rs",
+      "slices": [
+        {
+          "responsibility": "patch proposal and preview",
+          "target": "src/runtime_core/patch/proposal.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/proposal.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/verification.rs",
+      "slices": [
+        {
+          "responsibility": "patch verification and recovery",
+          "target": "src/runtime_core/patch/verification.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/verification.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3236,6 +3326,21 @@
       ]
     },
     {
+      "path": "tests/patch/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "patch lifecycle contract",
+          "target": "tests/patch/lifecycle.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/patch_loop.rs",
       "slices": [
         {
@@ -3260,8 +3365,21 @@
           "responsibility": "patch lifecycle contract",
           "target": "tests/patch/lifecycle.rs",
           "release": "0.37.9",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        },
+        {
+          "responsibility": "patch integration test harness",
+          "target": "tests/patch_loop.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "tests/patch_loop.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3368,7 +3486,7 @@
       ]
     }
   ],
-  "current_release": "0.37.8",
+  "current_release": "0.37.9",
   "train_completion": false,
   "logical_proofs": [
     {
@@ -4432,6 +4550,36 @@
       ]
     },
     {
+      "path": "src/runtime_core/patch/approval.rs",
+      "responsibilities": [
+        "patch approval credentials"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/application.rs",
+      "responsibilities": [
+        "guarded patch apply and rollback"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent.rs",
+      "responsibilities": [
+        "intent classification and action planning"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/proposal.rs",
+      "responsibilities": [
+        "patch proposal and preview"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/verification.rs",
+      "responsibilities": [
+        "patch verification and recovery"
+      ]
+    },
+    {
       "path": "src/runtime_core/policy/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -4676,11 +4824,18 @@
       ]
     },
     {
+      "path": "tests/patch/lifecycle.rs",
+      "responsibilities": [
+        "patch lifecycle contract"
+      ]
+    },
+    {
       "path": "tests/patch_loop.rs",
       "responsibilities": [
         "workflow storage compatibility contract",
         "workflow recovery and ordering contract",
-        "patch lifecycle contract"
+        "patch lifecycle contract",
+        "patch integration test harness"
       ]
     },
     {

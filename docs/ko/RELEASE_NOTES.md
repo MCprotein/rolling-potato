@@ -1,5 +1,33 @@
 # 릴리즈 노트
 
+## 미출시 v0.37.9 - Patch Workflow 경계
+
+이 patch는 CLI 출력, approval secret 전달, source/journal 설치 순서를 바꾸지 않고
+intent, proposal, approval credential, apply/rollback, verification/recovery 판단을
+private patch owner로 이동합니다.
+
+### 포함한 것
+
+- Deterministic intent 분류, constraint 탐지, side-effect-free action candidate와
+  model action fail-closed parsing을 `runtime_core::patch::intent`로 이동
+- Proposal DTO, deterministic ID/diff, canonical record bytes, strict header/hex/hash
+  parsing을 `runtime_core::patch::proposal`로 이동
+- Entropy-derived approval token, credential hash와 constant-time 비교를
+  `runtime_core::patch::approval`로 이동
+- Stale source/apply admission, rollback hash, already-restored 상태, concurrent edit
+  보존 판단을 `runtime_core::patch::application`으로 이동
+- Policy-parsed verification plan, bounded result, test-plan 판정과 시작된 command를
+  자동 재실행하지 않는 recovery admission을 `runtime_core::patch::verification`으로 이동
+- 1,618줄 patch integration suite를 작은 `tests/patch_loop.rs` harness와
+  `tests/patch/lifecycle.rs` contract로 분리
+
+### 호환성 경계
+
+- 최상위 intent/patch module은 v0.37.13 composition cleanup까지 backend, skill,
+  filesystem, process, ledger, workflow transaction 조립 facade로 남습니다.
+- CLI 동작과 exit code, proposal/approval byte와 hash, event/journal 순서, rollback,
+  fail-closed 동작, dependency, synchronous execution은 변경하지 않습니다.
+
 ## 미출시 v0.37.8 - Knowledge와 Policy 경계
 
 이 patch는 filesystem, ledger, transcript, CLI 동작을 바꾸지 않고 bounded
