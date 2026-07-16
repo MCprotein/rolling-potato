@@ -2972,6 +2972,53 @@ mod tests {
     }
 
     #[test]
+    fn patch_terminal_guard_is_scoped_to_completion_reports() {
+        let terminal = "패치 작업 완료\nSummary\n- 결과: 성공".to_string();
+        assert_eq!(
+            guard_patch_terminal_report(terminal.clone()),
+            crate::korean_guard::guard_or_failure(&terminal)
+        );
+
+        let non_terminal = "patch approve\nSummary\n- status: applied".to_string();
+        assert_eq!(
+            guard_patch_terminal_report(non_terminal.clone()),
+            non_terminal
+        );
+    }
+
+    #[test]
+    fn doctor_report_field_order_is_stable() {
+        let prefixes = doctor_report()
+            .lines()
+            .map(|line| {
+                line.split_once(':')
+                    .map_or(line, |(prefix, _)| prefix)
+                    .to_string()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            prefixes,
+            [
+                "rpotato 진단",
+                "- CLI",
+                "- package",
+                "- package version",
+                "- release target os",
+                "- release target arch",
+                "- release binary suffix",
+                "- release smoke",
+                "- TUI outcome contract",
+                "- runtime core",
+                "- backend",
+                "- model",
+                "- ontology",
+                "- cache",
+            ]
+        );
+    }
+
+    #[test]
     fn doctor_report_includes_release_smoke_fields() {
         let report = doctor_report();
 
