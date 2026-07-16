@@ -3640,8 +3640,26 @@
           "responsibility": "subagent lifecycle contract",
           "target": "tests/collaboration/subagent_lifecycle.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/subagent_lifecycle.rs",
+            "tests/collaboration/subagent_lifecycle.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/collaboration/subagent_lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "subagent lifecycle integration test body",
+          "target": "tests/collaboration/subagent_lifecycle.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "tests/subagent_lifecycle.rs",
+            "tests/collaboration/subagent_lifecycle.rs"
+          ]
         }
       ]
     },
@@ -3688,8 +3706,26 @@
           "responsibility": "team runtime contract",
           "target": "tests/collaboration/team_runtime.rs",
           "release": "0.37.12",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/team_runtime.rs",
+            "tests/collaboration/team_runtime.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/collaboration/team_runtime.rs",
+      "slices": [
+        {
+          "responsibility": "team runtime integration test body",
+          "target": "tests/collaboration/team_runtime.rs",
+          "release": "0.37.12",
+          "state": "complete",
+          "evidence": [
+            "tests/team_runtime.rs",
+            "tests/collaboration/team_runtime.rs"
+          ]
         }
       ]
     }
@@ -5143,6 +5179,12 @@
       ]
     },
     {
+      "path": "tests/collaboration/subagent_lifecycle.rs",
+      "responsibilities": [
+        "subagent lifecycle integration test body"
+      ]
+    },
+    {
       "path": "tests/support/fake_sidecar.rs",
       "responsibilities": [
         "cross-crate integration fixture"
@@ -5164,6 +5206,12 @@
       "path": "tests/team_runtime.rs",
       "responsibilities": [
         "team runtime contract"
+      ]
+    },
+    {
+      "path": "tests/collaboration/team_runtime.rs",
+      "responsibilities": [
+        "team runtime integration test body"
       ]
     }
   ]
