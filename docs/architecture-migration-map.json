@@ -1781,6 +1781,20 @@
       ]
     },
     {
+      "path": "src/runtime_core/inference/backend/admission.rs",
+      "slices": [
+        {
+          "responsibility": "backend generation admission and cancellation policy",
+          "target": "src/runtime_core/inference/backend/admission.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/backend/admission.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/inference/stream.rs",
       "slices": [
         {
@@ -3657,6 +3671,12 @@
       "path": "src/runtime_core/inference/backend/lifecycle.rs",
       "responsibilities": [
         "backend lifecycle records and byte-compatible codecs"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/backend/admission.rs",
+      "responsibilities": [
+        "backend generation admission and cancellation policy"
       ]
     },
     {

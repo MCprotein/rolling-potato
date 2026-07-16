@@ -1,4 +1,3 @@
-use std::collections::BTreeSet;
 use std::env;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
@@ -15,6 +14,7 @@ use crate::adapters::llama_cpp::stream as backend_stream;
 use crate::adapters::process::backend as backend_process;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
+use crate::runtime_core::inference::backend::admission::{GenerationAdmission, GenerationRelease};
 #[cfg(test)]
 use crate::runtime_core::inference::backend::lifecycle::parse_generation_record;
 use crate::runtime_core::inference::backend::lifecycle::{
@@ -57,16 +57,8 @@ const CHAT_SAMPLING: BackendChatSampling = BackendChatSampling {
 };
 const QWEN_NON_THINKING_SOURCE: &str =
     "https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode";
-struct GenerationAdmissionState {
-    active_generation_ids: BTreeSet<String>,
-    primary_generation_id: Option<String>,
-}
-
-static GENERATION_ADMISSION_STATE: Mutex<GenerationAdmissionState> =
-    Mutex::new(GenerationAdmissionState {
-        active_generation_ids: BTreeSet::new(),
-        primary_generation_id: None,
-    });
+static GENERATION_ADMISSION_STATE: Mutex<GenerationAdmission> =
+    Mutex::new(GenerationAdmission::new());
 static BACKEND_RESOURCE_SAMPLE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1496,11 +1488,7 @@ fn begin_active_generation(
     let mut publish_primary = true;
     if let Some(active) = backend_state::read_generation_record()? {
         if backend_process::is_running(active.client_pid) {
-            if active.client_pid == std::process::id()
-                && active.sidecar_pid == sidecar.pid
-                && !admission.active_generation_ids.is_empty()
-                && admission.primary_generation_id.as_deref() == Some(active.generation_id.as_str())
-            {
+            if admission.can_join(&active, std::process::id(), sidecar.pid) {
                 publish_primary = false;
             } else {
                 return Err(AppError::blocked(format!(
@@ -1558,14 +1546,9 @@ fn begin_active_generation(
             let _ = backend_state::remove_generation_lock_if_owned(&record.generation_id);
             return Err(err);
         }
-        admission.primary_generation_id = Some(record.generation_id.clone());
     }
-    if !admission
-        .active_generation_ids
-        .insert(record.generation_id.clone())
-    {
+    if !admission.register(record.generation_id.clone(), publish_primary) {
         if publish_primary {
-            admission.primary_generation_id = None;
             backend_state::remove_generation_state_if_owned(&record.generation_id)?;
         }
         return Err(AppError::blocked(
@@ -1591,10 +1574,7 @@ fn generation_cancel_requested(generation_id: &str) -> Result<bool, AppError> {
     let admission = GENERATION_ADMISSION_STATE
         .lock()
         .map_err(|_| AppError::runtime("backend generation admission lock poisoned"))?;
-    Ok(
-        admission.primary_generation_id.as_deref() == Some(cancel_generation_id.as_str())
-            && admission.active_generation_ids.contains(generation_id),
-    )
+    Ok(admission.cancellation_applies(&cancel_generation_id, generation_id))
 }
 
 fn write_generation_cancel_marker(generation_id: &str) -> Result<(), AppError> {
@@ -1670,22 +1650,16 @@ fn release_generation_admission(generation_id: &str) -> Result<(), AppError> {
     let mut admission = GENERATION_ADMISSION_STATE
         .lock()
         .map_err(|_| AppError::runtime("backend generation admission lock poisoned"))?;
-    if admission.active_generation_ids.is_empty() {
-        return backend_state::remove_generation_state_if_owned(generation_id);
+    match admission.release(generation_id) {
+        Ok(GenerationRelease::Untracked) => {
+            backend_state::remove_generation_state_if_owned(generation_id)
+        }
+        Ok(GenerationRelease::Retained) => Ok(()),
+        Ok(GenerationRelease::Last {
+            primary_generation_id,
+        }) => backend_state::remove_generation_state_if_owned(&primary_generation_id),
+        Err(message) => Err(AppError::blocked(format!("{message}: {generation_id}"))),
     }
-    if !admission.active_generation_ids.remove(generation_id) {
-        return Err(AppError::blocked(format!(
-            "backend generation admission release binding 누락: {generation_id}"
-        )));
-    }
-    if !admission.active_generation_ids.is_empty() {
-        return Ok(());
-    }
-    let primary_generation_id = admission
-        .primary_generation_id
-        .take()
-        .unwrap_or_else(|| generation_id.to_string());
-    backend_state::remove_generation_state_if_owned(&primary_generation_id)
 }
 
 fn start_sidecar_with_timeout(

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+pub(crate) mod admission;
 pub(crate) mod lifecycle;
 
 pub(crate) const MAX_CHAT_TIMEOUT_MS: u32 = 300_000;
