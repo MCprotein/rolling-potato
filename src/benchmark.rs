@@ -1,13 +1,17 @@
+#[cfg(test)]
 use std::fs;
+#[cfg(test)]
 use std::path::{Path, PathBuf};
 
+use crate::adapters::filesystem::benchmark_artifact;
+#[cfg(test)]
+use crate::adapters::filesystem::layout as paths;
 use crate::foundation::error::AppError;
-use crate::foundation::integrity as checksum;
 use crate::runtime_core::inference::backend::BackendChatRun;
 #[cfg(test)]
 use crate::runtime_core::inference::backend::BackendChatSampling;
 use crate::runtime_core::inference::benchmark::fixture::{
-    parse_fixture, BenchmarkFixture, BenchmarkPromptArtifact,
+    BenchmarkFixture, BenchmarkPromptArtifact,
 };
 use crate::runtime_core::inference::benchmark::report::{
     display_optional_u32, display_optional_u64, executable_redacted_report_json,
@@ -23,7 +27,7 @@ use crate::runtime_core::inference::benchmark::{
     ADOPTION_PROMPT_SHA256,
 };
 use crate::runtime_core::inference::model::manifest::quantization_for_artifact_hash;
-use crate::{adapters::filesystem::layout as paths, backend, ledger, observability};
+use crate::{backend, ledger, observability};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BenchmarkReportFormat {
@@ -31,7 +35,7 @@ pub enum BenchmarkReportFormat {
 }
 
 pub fn validate_report(path: &str) -> Result<String, AppError> {
-    let fixture = read_fixture(path)?;
+    let fixture = benchmark_artifact::read_fixture(path)?;
     Ok(format!(
         "benchmark fixture validation\n- status: valid\n- fixture id: {}\n- benchmark: {}\n- fixture path: {}\n- fixture sha256: {}\n- runtime capability: {}\n- responsibility split: {}\n- expected route: {}\n- expected policy decision: {}\n- expected escalation target: {}\n- required tools: {}\n- required source reads: {}\n- required evidence records: {}\n- abstention required: {}\n- expected failure category: {}\n- ontology view: {}\n- context budget tokens: {}\n- model id: {}\n- backend: {} {}\n- dataset: {}\n- reproducibility metadata: ready\n- raw prompt/source 저장: 없음\n- boundary: fixture metadata validation only; model 실행, scoring, public benchmark parity claim을 수행하지 않음",
         fixture.fixture_id,
@@ -58,7 +62,7 @@ pub fn validate_report(path: &str) -> Result<String, AppError> {
 }
 
 pub fn record_report(path: &str) -> Result<String, AppError> {
-    let fixture = read_fixture(path)?;
+    let fixture = benchmark_artifact::read_fixture(path)?;
     let identity = ledger::validated_current_identity()?;
     let event = ledger::new_event_for(
         &identity,
@@ -139,13 +143,13 @@ fn run_report_with_chat(
     max_tokens: Option<u32>,
     chat_once: impl FnOnce(&str, Option<u32>) -> Result<BackendChatRun, AppError>,
 ) -> Result<String, AppError> {
-    let fixture = read_fixture(fixture_path)?;
+    let fixture = benchmark_artifact::read_fixture(fixture_path)?;
     if fixture.expected_response_contains.is_empty() {
         return Err(AppError::usage(
             "benchmark run에는 expected_response_contains fixture field가 필요합니다.",
         ));
     }
-    let prompt = read_prompt_artifact(prompt_path)?;
+    let prompt = benchmark_artifact::read_prompt_artifact(prompt_path)?;
     validate_canonical_adoption_artifacts(&fixture, &prompt)?;
     let run = chat_once(&prompt.text, max_tokens)?;
     validate_canonical_adoption_run(&fixture, &run)?;
@@ -304,40 +308,6 @@ pub fn report_export(format: BenchmarkReportFormat) -> Result<String, AppError> 
     }
 }
 
-fn read_fixture(path: &str) -> Result<BenchmarkFixture, AppError> {
-    let path = project_local_file(path)?;
-    let text = fs::read_to_string(&path).map_err(|err| {
-        AppError::runtime(format!(
-            "benchmark fixture를 읽지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    let sha256 = checksum::sha256_file(&path)?;
-
-    parse_fixture(&text, path, sha256)
-}
-fn read_prompt_artifact(path: &str) -> Result<BenchmarkPromptArtifact, AppError> {
-    let path = project_local_file(path)?;
-    let text = fs::read_to_string(&path).map_err(|err| {
-        AppError::runtime(format!(
-            "benchmark prompt artifact를 읽지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    if text.trim().is_empty() {
-        return Err(AppError::usage(
-            "benchmark prompt artifact는 비어 있을 수 없습니다.",
-        ));
-    }
-    let chars = u32::try_from(text.chars().count()).unwrap_or(u32::MAX);
-    Ok(BenchmarkPromptArtifact {
-        sha256: checksum::sha256_file(&path)?,
-        path,
-        text,
-        chars,
-    })
-}
-
 fn score_response(fixture: &BenchmarkFixture, response: &str) -> BenchmarkScore {
     benchmark_policy::score_response(
         BenchmarkScoringPolicy {
@@ -390,50 +360,6 @@ fn validate_canonical_adoption_run(
         ));
     }
     Ok(())
-}
-
-fn project_local_file(path: &str) -> Result<PathBuf, AppError> {
-    if path.starts_with("http://") || path.starts_with("https://") {
-        return Err(AppError::usage(
-            "benchmark fixture path는 remote URL일 수 없습니다.",
-        ));
-    }
-
-    let project_root = paths::project_root().canonicalize().map_err(|err| {
-        AppError::runtime(format!(
-            "project root를 확인하지 못했습니다: {} ({err})",
-            paths::project_root().display()
-        ))
-    })?;
-    let candidate = Path::new(path);
-    let full_path = if candidate.is_absolute() {
-        candidate.to_path_buf()
-    } else {
-        project_root.join(candidate)
-    };
-    let canonical = full_path.canonicalize().map_err(|err| {
-        AppError::usage(format!(
-            "benchmark fixture path를 찾지 못했습니다: {} ({err})",
-            full_path.display()
-        ))
-    })?;
-    if !canonical.starts_with(&project_root) {
-        return Err(AppError::usage(
-            "benchmark fixture는 project root 안의 파일이어야 합니다.",
-        ));
-    }
-    let metadata = fs::metadata(&canonical).map_err(|err| {
-        AppError::runtime(format!(
-            "benchmark fixture metadata를 읽지 못했습니다: {} ({err})",
-            canonical.display()
-        ))
-    })?;
-    if !metadata.is_file() {
-        return Err(AppError::usage(
-            "benchmark fixture path는 파일이어야 합니다.",
-        ));
-    }
-    Ok(canonical)
 }
 
 #[cfg(test)]
@@ -774,8 +700,9 @@ mod tests {
         )
         .unwrap();
 
-        let fixture = read_fixture(fixture_path.to_str().unwrap()).unwrap();
-        let prompt = read_prompt_artifact(prompt_path.to_str().unwrap()).unwrap();
+        let fixture = benchmark_artifact::read_fixture(fixture_path.to_str().unwrap()).unwrap();
+        let prompt =
+            benchmark_artifact::read_prompt_artifact(prompt_path.to_str().unwrap()).unwrap();
 
         assert_eq!(fixture.fixture_id, ADOPTION_FIXTURE_ID);
         assert_eq!(fixture.sha256, ADOPTION_FIXTURE_SHA256);
