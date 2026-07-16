@@ -22,7 +22,7 @@ run_proof runtime-recovery-doc-oracles --bin rpotato runtime::tests::docs_recove
 run_proof runtime-tui-outcomes-exact --bin rpotato runtime::tests::runtime_tui_outcome_oracle_all_families_exact_utf8
 run_proof runtime-tui-dto-order-exact --bin rpotato runtime::tests::tui_outcome_public_dto_and_exact_fixtures_share_field_order
 run_proof runtime-tui-reads-canonical --bin rpotato runtime::tests::tui_read_facade_all_views_are_canonical_bounded_fresh_and_non_mutating
-run_proof filesystem-lease-single-winner --bin rpotato lease::tests::concurrent_kernel_lease_has_exactly_one_winner
+run_proof filesystem-lease-single-winner --bin rpotato adapters::filesystem::lease::tests::concurrent_kernel_lease_has_exactly_one_winner
 run_proof ledger-event-sink-single-acquisition --bin rpotato ledger::tests::event_sink_single_acquisition_concurrency_matrix
 run_proof ledger-recovery-no-nested-lease --bin rpotato ledger::tests::event_sink_crash_recovery_never_nests_ledger_lease
 run_proof patch-tui-resume-revalidates --bin rpotato patch::tests::tui_workflow_resume_revalidates_lease_and_persists_exact_intent_receipt
@@ -37,4 +37,4 @@ run_proof state-terminal-pointer-cleanup --bin rpotato state::tests::terminal_po
 run_proof state-reconcile-preserves-evidence --bin rpotato state::tests::reconcile_writer_crash_matrix_preserves_evidence
 run_proof state-writer-callgraph-closed --bin rpotato state::tests::state_writer_callgraph_is_closed_and_serialized_by_project_transition
 run_proof transition-projection-member-golden --bin rpotato transition::tests::projection_lag_member_full_bytes_golden_is_independent
-run_proof tui-recovery-outcome-matrix --test interactive_tui interactive_tui_recovery_outcome_matrix_exact
+run_proof tui-recovery-outcome-matrix --test platform interactive_tui::interactive_tui_recovery_outcome_matrix_exact
