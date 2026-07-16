@@ -7,7 +7,7 @@
 ```
 
 - Remote: `https://github.com/MCprotein/rolling-potato.git`
-- Latest release: `v0.36.0`
+- Latest release: `v0.37.0`
 - CLI: `rpotato`
 - Product: local-first coding-agent runtime for small local models
 
@@ -38,7 +38,7 @@ policy, explicit approval where required, evidence recording, and verification.
 
 ## Current Release State
 
-`v0.36.0` is the current complete release. GitHub Releases provides checksummed
+`v0.37.0` is the current complete release. GitHub Releases provides checksummed
 binaries for:
 
 - macOS Apple Silicon
@@ -78,6 +78,9 @@ remain historical evidence.
   source-pointer reread rules
 - Codex/Claude Code local-directory plugin import, hash/drift validation,
   capability mapping, and default-deny permission reporting
+- Enabled canonical Codex instruction-only skill execution through source
+  revalidation, native read-only hooks, evidence/stop gates, and restart-safe
+  completion recovery
 - Executable built-in skills and runtime-owned lifecycle hooks with durable
   state, deterministic ordering, policy enforcement, evidence, and stop gates
 - Runtime-owned interactive TUI navigation and guarded approval, denial,
@@ -120,10 +123,10 @@ The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
 sequence and non-skippable release gates are defined in
 `docs/release-train.md`. The immediate sequence is:
 
-1. `v0.37.0`: Codex local plugin execution adapter through native runtime
-   policy, hook, skill, evidence, and approval boundaries.
-2. `v0.38.0` onward: Claude Code local plugin execution conformance followed by
-   integrated performance hardening.
+1. `v0.38.0`: Claude Code local plugin execution conformance through the
+   established native adapter and default-deny permission boundary.
+2. `v0.39.0` onward: integrated performance hardening followed by distribution
+   and optional local monitoring surfaces.
 
 Package-manager distribution and an optional local HTML monitoring report come
 after the runtime replacement path is operational.

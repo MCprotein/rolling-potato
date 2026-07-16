@@ -1,5 +1,60 @@
 # Release Notes
 
+## v0.37.0 - Safe Codex Skill Execution
+
+Release date: 2026-07-16
+
+This release adds the first executable foreign-plugin adapter while preserving
+the native runtime as the only policy, hook, evidence, and stop-gate authority.
+Enabled canonical Codex skills can supply bounded instructions to the existing
+read-only agent loop; plugin code and external capabilities remain disabled.
+
+### Included
+
+- Resolves enabled canonical Codex `skills/<name>/SKILL.md` capabilities under
+  the `imported.codex.<plugin>.<skill>` namespace and exposes them through
+  `rpotato skill list` and `rpotato skill run`.
+- Revalidates the copied source snapshot, source manifest, normalized capability
+  metadata, slugged plugin identity, frontmatter, instruction size, and exact
+  `SKILL.md` hash before admission and again at completion.
+- Runs imported instructions through bounded repository context, native
+  read-only lifecycle hooks, typed non-mutating actions, Korean output guard,
+  evidence requirements, and stop criteria. Model output still cannot execute a
+  capability directly.
+- Records source-bound plugin admission and completion events and recovers the
+  crash windows before completion-event persistence or active-pointer cleanup
+  without duplicating the event or replaying the model request.
+- Reuses the admitted manifest across lifecycle hooks so ordinary execution
+  hashes the full plugin snapshot only at admission and completion.
+
+### Verification Contract
+
+- One bounded independent review was completed. Two high-severity and two
+  medium-severity findings were closed with targeted regression tests without a
+  second review.
+- Regression coverage includes normalized capability tampering, script
+  default-deny behavior, slugged discovery IDs, native hook/skill/intent gates,
+  normal imported-skill execution, and both completion recovery windows.
+- The final feature candidate passed 522 unit tests and 41 integration tests,
+  binary clippy with warnings denied, release build, formatting, and release
+  policy checks.
+- The release workflow remains responsible for the serialized Rust release
+  gate, five native builds, packaged-binary smoke tests, per-asset checksums,
+  and aggregate checksum verification.
+
+### Boundary
+
+- Plugin import and enable do not grant shell, script, hook, MCP, app,
+  background, remote connector, runtime setting, sensitive configuration, or
+  file-write authority. v0.37 has no approval grant or execution surface for
+  those capabilities.
+- Claude Code plugins remain inspectable but non-executable until the v0.38
+  conformance adapter is implemented. Marketplace, registry, catalog, mirror,
+  and remote URL sources remain unsupported.
+- The release continues to use the managed `llama.cpp b9982` backend and the
+  five-platform, exact 11-asset release set. Model weights and external plugin
+  packages are not bundled.
+
 ## v0.36.0 - Durable Team Execution
 
 Release date: 2026-07-16

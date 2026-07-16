@@ -1,5 +1,54 @@
 # 릴리즈 노트
 
+## v0.37.0 - 안전한 Codex Skill 실행
+
+릴리즈 날짜: 2026-07-16
+
+이 릴리즈는 native runtime을 유일한 policy, hook, evidence, stop-gate 권위로
+유지하면서 첫 번째 실행 가능한 외부 plugin adapter를 추가합니다. Enable된 canonical
+Codex skill은 기존 read-only agent loop에 bounded instruction을 제공할 수 있지만 plugin
+code와 외부 capability는 계속 비활성 상태로 유지합니다.
+
+### 포함한 것
+
+- Enable된 canonical Codex `skills/<name>/SKILL.md` capability를
+  `imported.codex.<plugin>.<skill>` namespace로 resolve하고 `rpotato skill list`와
+  `rpotato skill run`에서 사용합니다.
+- Admission 전과 completion 시점에 copied source snapshot, source manifest, normalized
+  capability metadata, slugged plugin identity, frontmatter, instruction size, 정확한
+  `SKILL.md` hash를 다시 검증합니다.
+- Imported instruction을 bounded repository context, native read-only lifecycle hook, typed
+  non-mutating action, 한국어 출력 guard, evidence requirement, stop criterion에 연결합니다.
+  Model output은 여전히 capability를 직접 실행할 수 없습니다.
+- Source에 binding된 plugin admission/completion event를 기록하고 completion event 영속화
+  전 또는 active pointer 정리 전 crash window를 event 중복이나 model request replay 없이
+  복구합니다.
+- Lifecycle hook 전체에서 admission된 manifest를 재사용해 일반 실행의 전체 plugin
+  snapshot hash는 admission과 completion 시점에만 계산합니다.
+
+### 검증 계약
+
+- 범위를 제한한 독립 review 한 번을 완료했습니다. High 2건과 Medium 2건을 두 번째
+  review 없이 targeted 회귀 테스트로 닫았습니다.
+- Regression coverage는 normalized capability 변조, script default-deny, slugged discovery
+  ID, native hook/skill/intent gate, 정상 imported-skill 실행, 두 completion recovery
+  window를 포함합니다.
+- 최종 feature candidate는 unit test 522개와 integration test 41개, warning을 거부하는
+  binary clippy, release build, formatting, release policy check를 통과했습니다.
+- Release workflow는 serialized Rust release gate, 5개 native build, packaged-binary smoke,
+  asset별 checksum, aggregate checksum 검증을 수행합니다.
+
+### 경계
+
+- Plugin import와 enable은 shell, script, hook, MCP, app, background, remote connector,
+  runtime setting, sensitive configuration, file-write 권한을 부여하지 않습니다. v0.37에는
+  이 capability를 위한 approval grant 또는 execution surface가 없습니다.
+- Claude Code plugin은 v0.38 conformance adapter가 구현될 때까지 inspect할 수 있지만
+  실행할 수 없습니다. Marketplace, registry, catalog, mirror, remote URL source도 계속
+  지원하지 않습니다.
+- 이 릴리즈는 managed `llama.cpp b9982` backend와 5개 platform, exact 11-asset release
+  set을 유지합니다. Model weight와 외부 plugin package는 번들하지 않습니다.
+
 ## v0.36.0 - Durable Team 실행
 
 릴리즈 날짜: 2026-07-16
