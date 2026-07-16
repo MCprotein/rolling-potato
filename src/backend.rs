@@ -3033,6 +3033,28 @@ mod tests {
             started_at_ms: now_ms(),
         };
         write_backend_sidecar_record(&record).unwrap();
+        let expected = format!(
+            "backend_id={}\npid={}\nbinary_path={}\nmodel_path={}\nmodel_sha256={}\nmodel_size_bytes={}\nbackend_release={}\nbinary_sha256={}\nmmproj={}\nhost={}\nport={}\nctx_size={}\nstdout_log={}\nstderr_log={}\nstarted_at_ms={}\n",
+            record.backend_id,
+            record.pid,
+            record.binary_path.display(),
+            record.model_path.display(),
+            record.model_sha256,
+            record.model_size_bytes,
+            record.backend_release,
+            record.binary_sha256,
+            record.mmproj,
+            record.host,
+            record.port,
+            record.ctx_size.unwrap(),
+            record.stdout_log.display(),
+            record.stderr_log.display(),
+            record.started_at_ms
+        );
+        assert_eq!(
+            fs::read_to_string(backend_sidecar_record_path()).unwrap(),
+            expected
+        );
         let restored = read_backend_sidecar_record().unwrap().unwrap();
 
         env::remove_var("RPOTATO_DATA_HOME");
@@ -3040,6 +3062,26 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
 
         assert_eq!(restored.ctx_size, Some(4096));
+    }
+
+    #[test]
+    fn generation_record_codec_preserves_exact_bytes_and_round_trips() {
+        let record = BackendGenerationRecord {
+            generation_id: "generation-codec".to_string(),
+            client_pid: 101,
+            sidecar_pid: 202,
+            started_at_ms: 303,
+            timeout_ms: 404,
+            streaming_display: true,
+        };
+
+        let rendered = render_backend_generation_record(&record);
+
+        assert_eq!(
+            rendered,
+            "generation_id=generation-codec\nclient_pid=101\nsidecar_pid=202\nstarted_at_ms=303\ntimeout_ms=404\nstreaming_display=true\n"
+        );
+        assert_eq!(parse_backend_generation_record(&rendered), Some(record));
     }
 
     #[test]
