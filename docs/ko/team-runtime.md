@@ -44,9 +44,28 @@ rpotato team plan --manifest plans/team.json
 `team plan`은 manifest를 검증하고 cross-lane write ownership을 차단하며, 정확한 parent
 revision/hash에 plan을 binding합니다. Manifest는 `.rpotato/teams/`에 설치되고 hash-chain을
 가진 revision 1 `team-plan` state가 생성됩니다. 같은 plan 재시도는 idempotent합니다.
-이 명령은 worker를 시작하거나 `team-dispatch`로 전진하지 않으며 다음 v0.36.0 slice가 이
+이 명령은 worker를 시작하거나 `team-dispatch`로 전진하지 않으며 `team execute`가 이
 durable state를 소비합니다. `team status`는 active parent의 최신 team id, stage, status,
 revision, execution mode를 표시합니다.
+
+## Worker 실행
+
+```text
+rpotato team execute --team fix-regression-team
+```
+
+`team execute`는 worker admission 전에 정확한 state, manifest, parent workflow, project,
+session, backend binding을 검증합니다. Resource pressure가 normal이면 admitted member를
+모두 running으로 checkpoint한 뒤 bounded backend generation을 병렬 실행합니다. Unknown
+또는 degraded pressure에서는 admitted lane을 하나로 제한하지만 manifest의 모든 member를
+순차 실행하므로 assigned work를 조용히 버리지 않습니다. Critical pressure에서는 worker
+admission이나 team stage 전진 전에 차단합니다.
+
+성공한 worker result와 evidence는 immutable subagent artifact로 저장되고 durable team
+state는 `team-dispatch`를 거쳐 `team-exec`로 전진합니다. Worker가 parent에 evidence를
+개별 merge하지는 않습니다. 후속 reconciliation stage가 전체 team result set을 검증하고
+merge하기 전까지 parent revision과 evidence는 바뀌지 않습니다. 아래의 `team dispatch`는
+기존 standalone preflight/reporting 명령이며 `team execute`의 alias가 아닙니다.
 
 ## 쓰기 Policy
 

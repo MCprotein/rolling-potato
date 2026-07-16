@@ -99,6 +99,7 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 - `rpotato team admit --lanes <count> --write-owner <lane:path>`는 file ownership preflight를 추가한다. Ownership path는 dispatch 전에 정규화되며, 정규화된 같은 write path를 여러 lane이 소유할 수 없고 conflict는 blocked team admission event로 기록된다.
 - 차단된 team admission policy/ownership decision은 `.rpotato/approval-requests/` 아래에 redacted project-local approval request record를 쓴다. `rpotato tui approvals`는 해당 directory를 scan하지 않고 대응하는 canonical ledger event와 active workflow-bound patch proposal만 읽는다.
 - `rpotato team dispatch --lanes <count> --write-owner <lane:path>`는 dispatch boundary에서 normalized file ownership을 다시 검사하고 ready/fallback/blocked event를 append-only ledger와 SQLite projection에 기록하며, worker launch가 생기기 전 cross-lane ownership conflict를 차단한다. `--failed-lane <lane> --failure <reason>`은 failed-worker continuation 상태와 남은 admitted lane 진행 가능 여부를 기록한다.
+- `rpotato team execute --team <team-id>`는 durable team manifest/state를 소비하고 stage 및 worker lifecycle event를 기록하며, normal pressure에서는 모든 member를 병렬 실행하고 unknown/degraded pressure에서는 모두 순차 실행한다. Immutable result/evidence artifact를 저장하지만 parent workflow에 개별 merge하지는 않는다.
 - `rpotato team governor --lanes <count> --context-tokens <tokens>`는 context/model governor preflight를 기록한다. 최신 resource sample을 읽고 admitted lane을 표시하며, `--context-limit` 또는 runtime default에 맞춰 effective context token을 clamp하고, local model-tier route hint(`keep`, `downgrade`, `escalate`, `defer`)를 낸 뒤 append-only ledger와 SQLite projection에 decision을 기록한다. 이 hint는 local runtime policy hint이며 실제 model artifact에 대한 source-backed capability claim이 아니다.
 - corrupt SQLite file은 `.corrupt.<timestamp>` suffix로 보존 이동한 뒤 새 projection을 만든다.
 - corrupt/stale current-state는 `state reconcile`에서 `.corrupt.<timestamp>` 또는 `.stale.<timestamp>` suffix로 보존 이동한다.
@@ -107,7 +108,7 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 아직 구현하지 않은 부분:
 
 - managed backend sidecar의 continuous background CPU/memory/disk resource sampling
-- dispatch preflight 이후 실제 subagent/team dispatcher 실행
+- team result reconciliation, review, verification, merge, final report stage
 - bounded recent-turn window를 넘는 transcript compaction/summarization
 - 실제 retention 삭제
 - cancellation과 timeout을 구분하는 별도 SQLite terminal-outcome enum
