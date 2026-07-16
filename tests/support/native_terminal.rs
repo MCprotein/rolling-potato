@@ -72,7 +72,7 @@ impl NativeTerminalFixture {
         std::fs::write(
             &response,
             format!(
-                "MODEL ACTION: kind=patch-proposal; source_pointers={relative_source}:1; path={relative_source}; find_hex=31; replace_hex=32; verification=pwd; next_gate=diff-before-write; side_effects=none"
+                "수정 후보를 준비했습니다.\nMODEL ACTION: kind=patch-proposal; source_pointers={relative_source}:1; path={relative_source}; find_hex=31; replace_hex=32; verification=pwd; next_gate=diff-before-write; side_effects=none"
             ),
         )
         .unwrap();
