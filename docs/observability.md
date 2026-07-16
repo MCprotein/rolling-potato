@@ -100,6 +100,7 @@ Phase 2 currently implements the runtime store foundation.
 - Blocked team admission policy/ownership decisions write redacted project-local approval request records under `.rpotato/approval-requests/`; `rpotato tui approvals` reads the corresponding canonical ledger events and the active workflow-bound patch proposal without scanning those record directories.
 - `rpotato team dispatch --lanes <count> --write-owner <lane:path>` rechecks normalized file ownership at the dispatch boundary, records ready/fallback/blocked events in the append-only ledger and SQLite projection, and blocks cross-lane ownership conflicts before worker launch exists. `--failed-lane <lane> --failure <reason>` records failed-worker continuation state and whether remaining admitted lanes may continue.
 - `rpotato team execute --team <team-id>` consumes the durable team manifest/state, records stage and worker lifecycle events, executes every member in parallel under normal pressure or sequentially under unknown/degraded pressure, and stores immutable result/evidence artifacts without independently merging them into the parent workflow. Executor patch actions emit `team.worker.action-owned` only after action-time lane ownership revalidation; worker/action failures collect admitted outcomes and transition the team to durable `failed` state.
+- `rpotato team reconcile --team <team-id>` records `team.result-set.reconciled`, `team.evidence.merged`, `team.stop-gate.*`, and `team.report.completed`. The deterministic reconciliation artifact binds every lane to one completed subagent result/evidence pair; the parent changes in one checkpoint only after all worker evidence and validation gaps pass.
 - `rpotato team cancel --team <team-id>` writes a manifest/parent-bound durable cancellation marker and advances the team to `cancelled`. Active parallel streams and later sequential members observe the same marker; retries are idempotent and marker tampering blocks execution.
 - `rpotato team governor --lanes <count> --context-tokens <tokens>` records a context/model governor preflight. It consumes the latest resource sample, reports admitted lanes, clamps effective context tokens against `--context-limit` or the runtime default, emits local model-tier route hints (`keep`, `downgrade`, `escalate`, `defer`), and records the decision in the append-only ledger and SQLite projection. These hints are local runtime policy hints, not source-backed claims about a real model artifact.
 - A corrupt SQLite file is preserved with a `.corrupt.<timestamp>` suffix before a new projection is created.
@@ -109,7 +110,6 @@ Phase 2 currently implements the runtime store foundation.
 Not implemented yet:
 
 - continuous background CPU/memory/disk resource sampling from the managed backend sidecar
-- team result reconciliation, review, verification, merge, and final report stages
 - compaction/summarization of transcript histories beyond the bounded recent-turn window
 - actual retention deletion
 - separate SQLite terminal-outcome enum for cancellation versus timeout

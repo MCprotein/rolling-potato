@@ -84,6 +84,20 @@ state는 `team-dispatch`를 거쳐 `team-exec`로 전진합니다. Worker가 par
 merge하기 전까지 parent revision과 evidence는 바뀌지 않습니다. 아래의 `team dispatch`는
 기존 standalone preflight/reporting 명령이며 `team execute`의 alias가 아닙니다.
 
+```text
+rpotato team reconcile --team fix-regression-team
+```
+
+`team reconcile`은 canonical worker receipt에서 정확한 lane/member/subagent 집합을
+재구성하고 immutable launch/result/action/evidence binding을 모두 다시 검증한 뒤 하나의
+deterministic reconciliation artifact를 설치합니다. Worker validation gap이 하나라도
+남아 있으면 parent를 바꾸기 전에 evidence-required stop gate가 차단합니다. 유효한 집합은
+`team-review`, `team-verify`를 거쳐 모든 lane evidence를 parent의 단일 workflow
+checkpoint로 merge하고, merged parent와 reconciliation artifact가 stop gate를 통과한
+경우에만 `team-merge`, `team-report`, `complete`로 전진합니다. 재시도해도 parent revision과
+receipt event가 추가되지 않습니다. Cancellation과 reconciliation은 짧은 operation lock을
+공유하므로 cancelled team의 결과가 뒤늦게 merge되지 않습니다.
+
 ## 쓰기 Policy
 
 기본 write policy:
@@ -92,7 +106,8 @@ merge하기 전까지 parent revision과 evidence는 바뀌지 않습니다. 아
 - runtime core가 patch를 apply한다.
 - 한 file에는 한 번에 하나의 writer만 둔다.
 - conflict는 parent workflow로 escalate한다.
-- verification은 ownership 해결 뒤 merge 이후에 실행한다.
+- worker evidence는 ownership 해결 뒤 merge 전에 검증하고 completion stop gate는 merged
+  parent를 다시 검증한다.
 
 ## Coordination 규칙
 

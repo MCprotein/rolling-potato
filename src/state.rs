@@ -1900,6 +1900,41 @@ pub fn load_workflow(workflow_id: &str) -> Result<WorkflowRecord, AppError> {
     load_workflow_under_transition(workflow_id)
 }
 
+pub(crate) fn load_workflow_revision(
+    workflow_id: &str,
+    revision: u64,
+) -> Result<WorkflowRecord, AppError> {
+    if revision == 0 {
+        return Err(AppError::blocked(
+            "workflow historical revision은 1 이상이어야 합니다.",
+        ));
+    }
+    let identity = ledger::validated_current_identity()?;
+    let _transition_guard = crate::transition::TransitionGuard::acquire_for(
+        &identity.project_id,
+        crate::transition::CurrentStateIntent::RecoverWorkflow,
+    )?;
+    let latest = load_workflow_under_transition(workflow_id)?;
+    if revision > latest.revision {
+        return Err(AppError::blocked("workflow historical revision 범위 오류"));
+    }
+    let path = paths::project_workflow_snapshot_file(workflow_id, revision);
+    let body = read_regular_file_bounded(
+        &path,
+        MAX_WORKFLOW_SNAPSHOT_BYTES,
+        "historical workflow snapshot",
+    )?;
+    let record = parse_workflow_snapshot(&path, &body)?;
+    if record.workflow_id != workflow_id
+        || record.revision != revision
+        || record.project_id != identity.project_id
+        || render_workflow(&record) != body
+    {
+        return Err(corrupt_workflow(&path));
+    }
+    Ok(record)
+}
+
 fn load_workflow_under_transition(workflow_id: &str) -> Result<WorkflowRecord, AppError> {
     validate_workflow_id(workflow_id)?;
     recover_workflow_transaction(workflow_id)?;

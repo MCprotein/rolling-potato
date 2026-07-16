@@ -100,6 +100,7 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 - 차단된 team admission policy/ownership decision은 `.rpotato/approval-requests/` 아래에 redacted project-local approval request record를 쓴다. `rpotato tui approvals`는 해당 directory를 scan하지 않고 대응하는 canonical ledger event와 active workflow-bound patch proposal만 읽는다.
 - `rpotato team dispatch --lanes <count> --write-owner <lane:path>`는 dispatch boundary에서 normalized file ownership을 다시 검사하고 ready/fallback/blocked event를 append-only ledger와 SQLite projection에 기록하며, worker launch가 생기기 전 cross-lane ownership conflict를 차단한다. `--failed-lane <lane> --failure <reason>`은 failed-worker continuation 상태와 남은 admitted lane 진행 가능 여부를 기록한다.
 - `rpotato team execute --team <team-id>`는 durable team manifest/state를 소비하고 stage 및 worker lifecycle event를 기록하며, normal pressure에서는 모든 member를 병렬 실행하고 unknown/degraded pressure에서는 모두 순차 실행한다. Immutable result/evidence artifact를 저장하지만 parent workflow에 개별 merge하지는 않는다. Executor patch action은 action-time lane ownership 재검증 후에만 `team.worker.action-owned`를 기록하며, worker/action failure는 admitted outcome을 회수한 뒤 team을 durable `failed` state로 전환한다.
+- `rpotato team reconcile --team <team-id>`는 `team.result-set.reconciled`, `team.evidence.merged`, `team.stop-gate.*`, `team.report.completed`를 기록한다. Deterministic reconciliation artifact는 각 lane을 하나의 completed subagent result/evidence pair에 binding하며, 모든 worker evidence와 validation gap 검증을 통과한 뒤 parent를 checkpoint 한 번으로만 변경한다.
 - `rpotato team cancel --team <team-id>`는 manifest/parent-bound durable cancellation marker를 쓰고 team을 `cancelled`로 전진시킨다. Active parallel stream과 이후 sequential member가 같은 marker를 관측하며, 재시도는 idempotent하고 marker 변조는 실행을 차단한다.
 - `rpotato team governor --lanes <count> --context-tokens <tokens>`는 context/model governor preflight를 기록한다. 최신 resource sample을 읽고 admitted lane을 표시하며, `--context-limit` 또는 runtime default에 맞춰 effective context token을 clamp하고, local model-tier route hint(`keep`, `downgrade`, `escalate`, `defer`)를 낸 뒤 append-only ledger와 SQLite projection에 decision을 기록한다. 이 hint는 local runtime policy hint이며 실제 model artifact에 대한 source-backed capability claim이 아니다.
 - corrupt SQLite file은 `.corrupt.<timestamp>` suffix로 보존 이동한 뒤 새 projection을 만든다.
@@ -109,7 +110,6 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 아직 구현하지 않은 부분:
 
 - managed backend sidecar의 continuous background CPU/memory/disk resource sampling
-- team result reconciliation, review, verification, merge, final report stage
 - bounded recent-turn window를 넘는 transcript compaction/summarization
 - 실제 retention 삭제
 - cancellation과 timeout을 구분하는 별도 SQLite terminal-outcome enum

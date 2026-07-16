@@ -494,6 +494,10 @@ pub fn advance_state(
 }
 
 pub fn cancel_report(team_id: &str) -> Result<String, AppError> {
+    let _operation = lease::RecoverableLease::acquire(
+        paths::project_team_operation_lock(team_id),
+        "team operation",
+    )?;
     let identity = ledger::validated_current_identity()?;
     let current = load_state(team_id)?;
     if current.project_id != identity.project_id || current.session_id != identity.session_id {
