@@ -89,6 +89,8 @@ fn handle(mut stream: TcpStream) {
                 return;
             }
         };
+        let request_body = String::from_utf8_lossy(&request[header_end..]);
+        let content = expand_fixture_template(content, &request_body);
         let body = format!(
             "data: {{\"choices\":[{{\"delta\":{{\"content\":{}}},\"finish_reason\":\"stop\"}}]}}\n\ndata: {{\"choices\":[],\"usage\":{{\"prompt_tokens\":10,\"completion_tokens\":10,\"total_tokens\":20}}}}\n\ndata: [DONE]\n\n",
             json_string(&content)
@@ -150,4 +152,34 @@ fn json_string(value: &str) -> String {
     }
     escaped.push('"');
     escaped
+}
+
+fn expand_fixture_template(mut content: String, request_body: &str) -> String {
+    for (placeholder, marker) in [
+        ("{{SUBAGENT_ID}}", "subagent_id="),
+        ("{{PARENT_WORKFLOW_ID}}", "parent_workflow_id="),
+    ] {
+        if !content.contains(placeholder) {
+            continue;
+        }
+        let Some(value) = token_after(request_body, marker) else {
+            eprintln!("fake sidecar template marker missing: {marker}");
+            return content;
+        };
+        content = content.replace(placeholder, value);
+    }
+    content
+}
+
+fn token_after<'a>(input: &'a str, marker: &str) -> Option<&'a str> {
+    let rest = input.split_once(marker)?.1;
+    let length = rest
+        .bytes()
+        .take_while(|byte| {
+            byte.is_ascii_lowercase()
+                || byte.is_ascii_digit()
+                || matches!(byte, b'-' | b'_' | b'.')
+        })
+        .count();
+    (length > 0).then(|| &rest[..length])
 }

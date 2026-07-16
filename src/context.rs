@@ -746,6 +746,27 @@ mod tests {
     }
 
     #[test]
+    fn declared_context_enforces_exact_file_count_and_byte_bounds() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = paths::project_root();
+        fs::write(root.join("max.txt"), vec![b'x'; MAX_FILE_BYTES as usize]).unwrap();
+        fs::write(
+            root.join("over.txt"),
+            vec![b'x'; MAX_FILE_BYTES as usize + 1],
+        )
+        .unwrap();
+        assert!(build_declared_context_pack(&["max.txt".to_string()]).is_ok());
+        assert!(build_declared_context_pack(&["over.txt".to_string()]).is_err());
+        assert!(build_declared_context_pack(&[]).is_err());
+        assert!(build_declared_context_pack(
+            &(0..=MAX_CONTEXT_FILES)
+                .map(|index| format!("file-{index}.txt"))
+                .collect::<Vec<_>>()
+        )
+        .is_err());
+    }
+
+    #[test]
     fn context_pack_reads_bounded_project_files_and_skips_generated_dirs() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root =
