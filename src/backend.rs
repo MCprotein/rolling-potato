@@ -10,6 +10,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::llama_cpp::backend as llama_backend;
+use crate::adapters::llama_cpp::install as llama_install;
 use crate::adapters::llama_cpp::stream as backend_stream;
 use crate::adapters::process::backend as backend_process;
 use crate::foundation::error::AppError;
@@ -26,6 +27,13 @@ use crate::{korean_guard, ledger, model, observability, state};
 use llama_backend::{BackendDiscovery, LlamaCppAdapter, ENV_BACKEND_PATH, LLAMA_CPP_BACKEND_ID};
 #[cfg(test)]
 use llama_backend::{DEFAULT_HOST, DEFAULT_PORT, ENV_BACKEND_PORT};
+#[cfg(test)]
+use llama_install::release_artifact_for;
+use llama_install::{
+    install_blockers as backend_install_blockers,
+    selected_release_artifact as selected_backend_release_artifact, BackendArchiveKind,
+    BackendReleaseArtifact, BackendReleaseManifest, LLAMA_CPP_RELEASE,
+};
 
 const HEALTH_TIMEOUT_MS: u64 = 500;
 const ENV_BACKEND_START_TRACE: &str = "RPOTATO_TEST_BACKEND_START_TRACE";
@@ -55,39 +63,6 @@ static GENERATION_ADMISSION_STATE: Mutex<GenerationAdmissionState> =
         primary_generation_id: None,
     });
 static BACKEND_RESOURCE_SAMPLE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-
-#[derive(Debug, Clone, Copy)]
-struct BackendReleaseManifest {
-    id: &'static str,
-    upstream_source: &'static str,
-    license: &'static str,
-    license_source: &'static str,
-    license_checked_at: &'static str,
-    release_tag: &'static str,
-    release_url: &'static str,
-    release_api_source: &'static str,
-    release_checked_at: &'static str,
-    artifacts: &'static [BackendReleaseArtifact],
-    install_blockers: &'static [&'static str],
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct BackendReleaseArtifact {
-    os: &'static str,
-    arch: &'static str,
-    archive_name: &'static str,
-    archive_url: &'static str,
-    archive_sha256: &'static str,
-    archive_size_bytes: u64,
-    archive_kind: BackendArchiveKind,
-    binary_relative_path: &'static str,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum BackendArchiveKind {
-    TarGz,
-    Zip,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BackendArchiveDownloadStatus {
@@ -203,92 +178,6 @@ struct BackendResourceSampleReport {
     ledger_event: String,
     pressure: resource::ResourcePressure,
 }
-
-impl BackendArchiveKind {
-    fn as_str(self) -> &'static str {
-        match self {
-            BackendArchiveKind::TarGz => "tar.gz",
-            BackendArchiveKind::Zip => "zip",
-        }
-    }
-}
-
-const LLAMA_CPP_RELEASE: BackendReleaseManifest = BackendReleaseManifest {
-    id: LLAMA_CPP_BACKEND_ID,
-    upstream_source: "https://github.com/ggml-org/llama.cpp",
-    license: "MIT",
-    license_source: "https://github.com/ggml-org/llama.cpp/blob/b9982/LICENSE",
-    license_checked_at: "2026-07-13",
-    release_tag: "b9982",
-    release_url: "https://github.com/ggml-org/llama.cpp/releases/tag/b9982",
-    release_api_source: "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest",
-    release_checked_at: "2026-07-13",
-    artifacts: &LLAMA_CPP_RELEASE_ARTIFACTS,
-    install_blockers: &[],
-};
-
-const LLAMA_CPP_RELEASE_ARTIFACTS: [BackendReleaseArtifact; 6] = [
-    BackendReleaseArtifact {
-        os: "macos",
-        arch: "aarch64",
-        archive_name: "llama-b9982-bin-macos-arm64.tar.gz",
-        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9982/llama-b9982-bin-macos-arm64.tar.gz",
-        archive_sha256: "9606e3a609bc9483730f50f17ce78c3d764df8eaec63fcbb47d2f8b235667c9c",
-        archive_size_bytes: 10_746_432,
-        archive_kind: BackendArchiveKind::TarGz,
-        binary_relative_path: "llama-server",
-    },
-    BackendReleaseArtifact {
-        os: "macos",
-        arch: "x86_64",
-        archive_name: "llama-b9982-bin-macos-x64.tar.gz",
-        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9982/llama-b9982-bin-macos-x64.tar.gz",
-        archive_sha256: "da109cc18574392ab88936de826ca00f8d196b9ef5a1c19da72fbfb06bea7cd0",
-        archive_size_bytes: 11_022_427,
-        archive_kind: BackendArchiveKind::TarGz,
-        binary_relative_path: "llama-server",
-    },
-    BackendReleaseArtifact {
-        os: "linux",
-        arch: "aarch64",
-        archive_name: "llama-b9982-bin-ubuntu-arm64.tar.gz",
-        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9982/llama-b9982-bin-ubuntu-arm64.tar.gz",
-        archive_sha256: "9468c0282c15e286216a63122e7471f7d14888d3858bdab61b72d14a2531cf60",
-        archive_size_bytes: 12_782_598,
-        archive_kind: BackendArchiveKind::TarGz,
-        binary_relative_path: "llama-server",
-    },
-    BackendReleaseArtifact {
-        os: "linux",
-        arch: "x86_64",
-        archive_name: "llama-b9982-bin-ubuntu-x64.tar.gz",
-        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9982/llama-b9982-bin-ubuntu-x64.tar.gz",
-        archive_sha256: "0c1f0445f6f86a0f049de3586b7eabdde7108d827d0a9b2c5c0dc2185506ffee",
-        archive_size_bytes: 15_850_588,
-        archive_kind: BackendArchiveKind::TarGz,
-        binary_relative_path: "llama-server",
-    },
-    BackendReleaseArtifact {
-        os: "windows",
-        arch: "aarch64",
-        archive_name: "llama-b9982-bin-win-cpu-arm64.zip",
-        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9982/llama-b9982-bin-win-cpu-arm64.zip",
-        archive_sha256: "11ad20d8df121d5760900b4e2fa9943a065856075ef44df52ed7a8dc58b08b2f",
-        archive_size_bytes: 12_151_247,
-        archive_kind: BackendArchiveKind::Zip,
-        binary_relative_path: "llama-server.exe",
-    },
-    BackendReleaseArtifact {
-        os: "windows",
-        arch: "x86_64",
-        archive_name: "llama-b9982-bin-win-cpu-x64.zip",
-        archive_url: "https://github.com/ggml-org/llama.cpp/releases/download/b9982/llama-b9982-bin-win-cpu-x64.zip",
-        archive_sha256: "69337038e8e56feb3c04d99588fa19f9241b294bae6f6c2e665a301605726e2a",
-        archive_size_bytes: 18_247_652,
-        archive_kind: BackendArchiveKind::Zip,
-        binary_relative_path: "llama-server.exe",
-    },
-];
 
 pub fn doctor_summary() -> String {
     let discovery = llama_backend::discover();
@@ -3330,76 +3219,6 @@ fn process_command_matches_record(record: &BackendSidecarRecord) -> bool {
 #[cfg(not(any(unix, windows)))]
 fn process_command_matches_record(_record: &BackendSidecarRecord) -> bool {
     false
-}
-
-fn selected_backend_release_artifact(
-    manifest: &BackendReleaseManifest,
-) -> Option<&'static BackendReleaseArtifact> {
-    release_artifact_for(manifest, env::consts::OS, env::consts::ARCH)
-}
-
-fn release_artifact_for(
-    manifest: &BackendReleaseManifest,
-    os: &str,
-    arch: &str,
-) -> Option<&'static BackendReleaseArtifact> {
-    manifest
-        .artifacts
-        .iter()
-        .find(|artifact| artifact.os == os && artifact.arch == arch)
-}
-
-fn backend_install_blockers(
-    manifest: &BackendReleaseManifest,
-    artifact: Option<&BackendReleaseArtifact>,
-) -> Vec<String> {
-    let mut blockers = Vec::new();
-    for blocker in manifest.install_blockers {
-        push_unique(&mut blockers, *blocker);
-    }
-    if manifest.release_url.is_empty() {
-        push_unique(&mut blockers, "release URL 미확정");
-    }
-    if manifest.release_api_source.is_empty() {
-        push_unique(&mut blockers, "release API source 미확정");
-    }
-    if manifest.release_tag.is_empty() {
-        push_unique(&mut blockers, "release tag 미확정");
-    }
-    let Some(artifact) = artifact else {
-        push_unique(
-            &mut blockers,
-            format!(
-                "지원 platform artifact 미확정 ({}/{})",
-                env::consts::OS,
-                env::consts::ARCH
-            ),
-        );
-        return blockers;
-    };
-    if artifact.archive_url.is_empty() {
-        push_unique(&mut blockers, "archive URL 미확정");
-    }
-    if artifact.archive_name.is_empty() {
-        push_unique(&mut blockers, "archive name 미확정");
-    }
-    if !checksum::is_valid_sha256(artifact.archive_sha256) {
-        push_unique(&mut blockers, "archive SHA-256 미확정");
-    }
-    if artifact.archive_size_bytes == 0 {
-        push_unique(&mut blockers, "archive file size 미확정");
-    }
-    if artifact.binary_relative_path.is_empty() {
-        push_unique(&mut blockers, "archive 내부 binary path 미확정");
-    }
-    blockers
-}
-
-fn push_unique(values: &mut Vec<String>, value: impl Into<String>) {
-    let value = value.into();
-    if !values.iter().any(|existing| existing == &value) {
-        values.push(value);
-    }
 }
 
 fn display_vec(values: &[String]) -> String {
