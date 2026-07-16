@@ -13,7 +13,8 @@ use crate::ledger::{self, RuntimeIdentity};
 use crate::observability::SessionHistoryEntry;
 use crate::observability::{self, StoreStatus};
 use crate::runtime_core::workflow::application::recovery::{
-    self as workflow_recovery, PendingWorkflowTransaction, RecoveryArtifact, WorkflowRecoveryPort,
+    self as workflow_recovery, PendingWorkflowTransaction, PreparedStateRecoveryPort,
+    RecoveryArtifact, WorkflowRecoveryPort,
 };
 use crate::runtime_core::workflow::domain::snapshot::{
     self as snapshot_domain, CurrentStateLeaseView, CurrentStateSnapshot, CurrentWorkflowBinding,
@@ -781,30 +782,82 @@ pub(crate) fn recover_prepared_state_transition(
         None
     };
     let writer = ledger::LedgerWriterGuard::acquire()?;
-    let mut sink = writer.event_sink(&planned);
-    install_prepared_reconcile_backup(bundle)?;
-    if let Some((guard, prepared)) = workflow.as_ref() {
-        guard.install_snapshot(prepared)?;
-    }
-    sink.append_planned_under_guard(0, &bundle.semantic_events[0])?;
-    if let Some((guard, prepared)) = workflow.as_ref() {
-        guard.install_pointer(prepared)?;
-    }
-    sink.finish()?;
     let expected_binding = ledger::LedgerBinding {
         event_count: planned[0].ordinal,
         event_id: Some(planned[0].event.event_id.clone()),
         event_hash: planned[0].event_hash.clone(),
     };
-    if writer.binding()? != expected_binding {
-        return Err(AppError::blocked(
-            "prepared state transition ledger successor conflict",
-        ));
+    let mut port = StateTransitionRecoveryPort {
+        bundle,
+        current_image: &current_image,
+        workflow: workflow.as_ref(),
+        writer: &writer,
+        sink: writer.event_sink(&planned),
+        expected_binding,
+    };
+    workflow_recovery::recover_prepared_state_transition(&mut port)
+}
+
+struct StateTransitionRecoveryPort<'a> {
+    bundle: &'a crate::transition::PreparedSourceBundle,
+    current_image: &'a PreparedCurrentImage,
+    workflow: Option<&'a (WorkflowCheckpointGuard, PreparedWorkflowRevision)>,
+    writer: &'a ledger::LedgerWriterGuard,
+    sink: ledger::EventSink<'a>,
+    expected_binding: ledger::LedgerBinding,
+}
+
+impl PreparedStateRecoveryPort for StateTransitionRecoveryPort<'_> {
+    fn install_reconcile_backup(&mut self) -> Result<(), AppError> {
+        install_prepared_reconcile_backup(self.bundle)
     }
-    if !validate_state_transition_current_cas(bundle, &current_image.bytes)? {
-        atomic_replace_bytes(&current_image.path, current_image.bytes.as_bytes())?;
+
+    fn install_workflow_snapshot(&mut self) -> Result<(), AppError> {
+        if let Some((guard, prepared)) = self.workflow {
+            guard.install_snapshot(prepared)?;
+        }
+        Ok(())
     }
-    sink.converge_derived(&bundle.project_id)
+
+    fn append_event(&mut self) -> Result<(), AppError> {
+        self.sink
+            .append_planned_under_guard(0, &self.bundle.semantic_events[0])
+            .map(|_| ())
+    }
+
+    fn install_workflow_pointer(&mut self) -> Result<(), AppError> {
+        if let Some((guard, prepared)) = self.workflow {
+            guard.install_pointer(prepared)?;
+        }
+        Ok(())
+    }
+
+    fn finish_events(&mut self) -> Result<(), AppError> {
+        self.sink.finish()
+    }
+
+    fn validate_ledger_binding(&mut self) -> Result<(), AppError> {
+        if self.writer.binding()? != self.expected_binding {
+            return Err(AppError::blocked(
+                "prepared state transition ledger successor conflict",
+            ));
+        }
+        Ok(())
+    }
+
+    fn install_current_state(&mut self) -> Result<(), AppError> {
+        if !validate_state_transition_current_cas(self.bundle, &self.current_image.bytes)? {
+            atomic_replace_bytes(
+                &self.current_image.path,
+                self.current_image.bytes.as_bytes(),
+            )?;
+        }
+        Ok(())
+    }
+
+    fn converge_projections(&mut self) -> Result<(), AppError> {
+        self.sink.converge_derived(&self.bundle.project_id)
+    }
 }
 
 fn install_prepared_reconcile_backup(

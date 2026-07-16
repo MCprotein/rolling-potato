@@ -60,6 +60,37 @@ pub(crate) trait WorkflowRecoveryPort {
     fn corrupt(&self, workflow_id: &str, artifact: RecoveryArtifact) -> AppError;
 }
 
+pub(crate) trait PreparedStateRecoveryPort {
+    fn install_reconcile_backup(&mut self) -> Result<(), AppError>;
+
+    fn install_workflow_snapshot(&mut self) -> Result<(), AppError>;
+
+    fn append_event(&mut self) -> Result<(), AppError>;
+
+    fn install_workflow_pointer(&mut self) -> Result<(), AppError>;
+
+    fn finish_events(&mut self) -> Result<(), AppError>;
+
+    fn validate_ledger_binding(&mut self) -> Result<(), AppError>;
+
+    fn install_current_state(&mut self) -> Result<(), AppError>;
+
+    fn converge_projections(&mut self) -> Result<(), AppError>;
+}
+
+pub(crate) fn recover_prepared_state_transition(
+    port: &mut impl PreparedStateRecoveryPort,
+) -> Result<(), AppError> {
+    port.install_reconcile_backup()?;
+    port.install_workflow_snapshot()?;
+    port.append_event()?;
+    port.install_workflow_pointer()?;
+    port.finish_events()?;
+    port.validate_ledger_binding()?;
+    port.install_current_state()?;
+    port.converge_projections()
+}
+
 pub(crate) fn recover_workflow_transaction(
     port: &impl WorkflowRecoveryPort,
     workflow_id: &str,
@@ -166,6 +197,53 @@ mod tests {
         committed: WorkflowRecord,
         checkpoint_exists: bool,
         calls: RefCell<Vec<&'static str>>,
+    }
+
+    #[derive(Default)]
+    struct FakeStateRecoveryPort {
+        calls: Vec<&'static str>,
+    }
+
+    impl PreparedStateRecoveryPort for FakeStateRecoveryPort {
+        fn install_reconcile_backup(&mut self) -> Result<(), AppError> {
+            self.calls.push("install-reconcile-backup");
+            Ok(())
+        }
+
+        fn install_workflow_snapshot(&mut self) -> Result<(), AppError> {
+            self.calls.push("install-workflow-snapshot");
+            Ok(())
+        }
+
+        fn append_event(&mut self) -> Result<(), AppError> {
+            self.calls.push("append-event");
+            Ok(())
+        }
+
+        fn install_workflow_pointer(&mut self) -> Result<(), AppError> {
+            self.calls.push("install-workflow-pointer");
+            Ok(())
+        }
+
+        fn finish_events(&mut self) -> Result<(), AppError> {
+            self.calls.push("finish-events");
+            Ok(())
+        }
+
+        fn validate_ledger_binding(&mut self) -> Result<(), AppError> {
+            self.calls.push("validate-ledger-binding");
+            Ok(())
+        }
+
+        fn install_current_state(&mut self) -> Result<(), AppError> {
+            self.calls.push("install-current-state");
+            Ok(())
+        }
+
+        fn converge_projections(&mut self) -> Result<(), AppError> {
+            self.calls.push("converge-projections");
+            Ok(())
+        }
     }
 
     impl WorkflowRecoveryPort for FakePort {
@@ -354,6 +432,27 @@ mod tests {
                 "checkpoints",
                 "current-identity",
                 "checkpoint-exists",
+            ]
+        );
+    }
+
+    #[test]
+    fn prepared_state_recovery_order_is_application_owned() {
+        let mut port = FakeStateRecoveryPort::default();
+
+        recover_prepared_state_transition(&mut port).unwrap();
+
+        assert_eq!(
+            port.calls,
+            [
+                "install-reconcile-backup",
+                "install-workflow-snapshot",
+                "append-event",
+                "install-workflow-pointer",
+                "finish-events",
+                "validate-ledger-binding",
+                "install-current-state",
+                "converge-projections",
             ]
         );
     }
