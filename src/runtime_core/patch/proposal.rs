@@ -86,7 +86,7 @@ pub(crate) struct PreviewInput<'a> {
 }
 
 pub(crate) enum RecordParse {
-    Canonical(ProposalRecord),
+    Canonical(Box<ProposalRecord>),
     LegacyMigration { scrubbed: String },
 }
 
@@ -247,7 +247,7 @@ pub(crate) fn parse_record(
         ));
     }
     let approval_token_hash = required_header(&header, "approval_token_hash", proposal_path)?;
-    Ok(RecordParse::Canonical(ProposalRecord {
+    Ok(RecordParse::Canonical(Box::new(ProposalRecord {
         proposal_id: recorded_id,
         approval_token_hash,
         relative_path: required_header(&header, "path", proposal_path)?,
@@ -268,7 +268,7 @@ pub(crate) fn parse_record(
             .unwrap_or_default(),
         artifact_hash: sha256_bytes(contents.as_bytes()),
         legacy_plaintext_token,
-    }))
+    })))
 }
 
 pub(crate) fn parse_header<'a>(

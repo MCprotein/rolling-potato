@@ -3177,7 +3177,7 @@ fn parse_proposal_record_contents(
         contents,
         allow_legacy_migration,
     )? {
-        RecordParse::Canonical(record) => Ok(record),
+        RecordParse::Canonical(record) => Ok(*record),
         RecordParse::LegacyMigration { scrubbed } => {
             state::atomic_replace_bytes(proposal_path, scrubbed.as_bytes())?;
             Err(AppError::blocked(
