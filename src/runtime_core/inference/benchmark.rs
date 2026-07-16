@@ -1,6 +1,12 @@
 pub(crate) mod fixture;
 pub(crate) mod report;
 
+use crate::foundation::error::AppError;
+
+use super::backend::BackendChatRun;
+use super::model::manifest::quantization_for_artifact_hash;
+use fixture::{BenchmarkFixture, BenchmarkPromptArtifact};
+
 pub(crate) const ADOPTION_FIXTURE_ID: &str = "model-adoption-smoke-v1";
 pub(crate) const ADOPTION_DATASET_REF: &str = "local-model-adoption-smoke-v1";
 pub(crate) const ADOPTION_BENCHMARK_NAME: &str = "model-adoption-instruction-safety-smoke";
@@ -70,6 +76,47 @@ pub(crate) fn score_response(policy: BenchmarkScoringPolicy<'_>, response: &str)
         matched_expected,
         matched_forbidden,
     }
+}
+
+pub(crate) fn validate_canonical_adoption_artifacts(
+    fixture: &BenchmarkFixture,
+    prompt: &BenchmarkPromptArtifact,
+) -> Result<(), AppError> {
+    if fixture.fixture_id != ADOPTION_FIXTURE_ID {
+        return Ok(());
+    }
+    if fixture.sha256 != ADOPTION_FIXTURE_SHA256
+        || prompt.sha256 != ADOPTION_PROMPT_SHA256
+        || fixture.benchmark_name != ADOPTION_BENCHMARK_NAME
+        || fixture.dataset_ref != ADOPTION_DATASET_REF
+    {
+        return Err(AppError::blocked(
+            "canonical model adoption fixture 또는 prompt가 release contract와 다릅니다.",
+        ));
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_canonical_adoption_run(
+    fixture: &BenchmarkFixture,
+    run: &BackendChatRun,
+) -> Result<(), AppError> {
+    if fixture.fixture_id != ADOPTION_FIXTURE_ID {
+        return Ok(());
+    }
+    if run.requested_max_tokens != ADOPTION_MAX_TOKENS
+        || run.effective_max_tokens != ADOPTION_MAX_TOKENS
+    {
+        return Err(AppError::blocked(format!(
+            "canonical model adoption run은 requested/effective max tokens가 모두 {ADOPTION_MAX_TOKENS}이어야 합니다."
+        )));
+    }
+    if quantization_for_artifact_hash(&run.model_artifact_hash).is_none() {
+        return Err(AppError::blocked(
+            "canonical model adoption run의 quantization을 source-backed manifest에서 확인하지 못했습니다.",
+        ));
+    }
+    Ok(())
 }
 
 fn normalize_response_line_endings(response: &str) -> String {

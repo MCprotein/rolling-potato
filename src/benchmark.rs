@@ -10,9 +10,7 @@ use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::BackendChatRun;
 #[cfg(test)]
 use crate::runtime_core::inference::backend::BackendChatSampling;
-use crate::runtime_core::inference::benchmark::fixture::{
-    BenchmarkFixture, BenchmarkPromptArtifact,
-};
+use crate::runtime_core::inference::benchmark::fixture::BenchmarkFixture;
 use crate::runtime_core::inference::benchmark::report::{
     display_optional_u32, display_optional_u64, executable_redacted_report_json,
     executable_reproducibility_manifest_json, harness_ref, json_option, json_option_bool,
@@ -22,11 +20,8 @@ use crate::runtime_core::inference::benchmark::report::{
 #[cfg(test)]
 use crate::runtime_core::inference::benchmark::ADOPTION_EXACT_RESPONSE;
 use crate::runtime_core::inference::benchmark::{
-    self as benchmark_policy, BenchmarkScore, BenchmarkScoringPolicy, ADOPTION_BENCHMARK_NAME,
-    ADOPTION_DATASET_REF, ADOPTION_FIXTURE_ID, ADOPTION_FIXTURE_SHA256, ADOPTION_MAX_TOKENS,
-    ADOPTION_PROMPT_SHA256,
+    self as benchmark_policy, BenchmarkScore, BenchmarkScoringPolicy,
 };
-use crate::runtime_core::inference::model::manifest::quantization_for_artifact_hash;
 use crate::{backend, ledger, observability};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -150,9 +145,9 @@ fn run_report_with_chat(
         ));
     }
     let prompt = benchmark_artifact::read_prompt_artifact(prompt_path)?;
-    validate_canonical_adoption_artifacts(&fixture, &prompt)?;
+    benchmark_policy::validate_canonical_adoption_artifacts(&fixture, &prompt)?;
     let run = chat_once(&prompt.text, max_tokens)?;
-    validate_canonical_adoption_run(&fixture, &run)?;
+    benchmark_policy::validate_canonical_adoption_run(&fixture, &run)?;
     let score = score_response(&fixture, &run.response);
     let identity = ledger::validated_current_identity()?;
     let event = ledger::new_event_for(
@@ -319,47 +314,6 @@ fn score_response(fixture: &BenchmarkFixture, response: &str) -> BenchmarkScore 
         },
         response,
     )
-}
-
-fn validate_canonical_adoption_artifacts(
-    fixture: &BenchmarkFixture,
-    prompt: &BenchmarkPromptArtifact,
-) -> Result<(), AppError> {
-    if fixture.fixture_id != ADOPTION_FIXTURE_ID {
-        return Ok(());
-    }
-    if fixture.sha256 != ADOPTION_FIXTURE_SHA256
-        || prompt.sha256 != ADOPTION_PROMPT_SHA256
-        || fixture.benchmark_name != ADOPTION_BENCHMARK_NAME
-        || fixture.dataset_ref != ADOPTION_DATASET_REF
-    {
-        return Err(AppError::blocked(
-            "canonical model adoption fixture 또는 prompt가 release contract와 다릅니다.",
-        ));
-    }
-    Ok(())
-}
-
-fn validate_canonical_adoption_run(
-    fixture: &BenchmarkFixture,
-    run: &BackendChatRun,
-) -> Result<(), AppError> {
-    if fixture.fixture_id != ADOPTION_FIXTURE_ID {
-        return Ok(());
-    }
-    if run.requested_max_tokens != ADOPTION_MAX_TOKENS
-        || run.effective_max_tokens != ADOPTION_MAX_TOKENS
-    {
-        return Err(AppError::blocked(format!(
-            "canonical model adoption run은 requested/effective max tokens가 모두 {ADOPTION_MAX_TOKENS}이어야 합니다."
-        )));
-    }
-    if quantization_for_artifact_hash(&run.model_artifact_hash).is_none() {
-        return Err(AppError::blocked(
-            "canonical model adoption run의 quantization을 source-backed manifest에서 확인하지 못했습니다.",
-        ));
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -704,12 +658,12 @@ mod tests {
         let prompt =
             benchmark_artifact::read_prompt_artifact(prompt_path.to_str().unwrap()).unwrap();
 
-        assert_eq!(fixture.fixture_id, ADOPTION_FIXTURE_ID);
-        assert_eq!(fixture.sha256, ADOPTION_FIXTURE_SHA256);
-        assert_eq!(fixture.dataset_ref, ADOPTION_DATASET_REF);
-        assert_eq!(prompt.sha256, ADOPTION_PROMPT_SHA256);
+        assert_eq!(fixture.fixture_id, benchmark_policy::ADOPTION_FIXTURE_ID);
+        assert_eq!(fixture.sha256, benchmark_policy::ADOPTION_FIXTURE_SHA256);
+        assert_eq!(fixture.dataset_ref, benchmark_policy::ADOPTION_DATASET_REF);
+        assert_eq!(prompt.sha256, benchmark_policy::ADOPTION_PROMPT_SHA256);
         assert_eq!(fixture.minimum_score, Some(3));
-        validate_canonical_adoption_artifacts(&fixture, &prompt).unwrap();
+        benchmark_policy::validate_canonical_adoption_artifacts(&fixture, &prompt).unwrap();
 
         let exact = score_response(&fixture, ADOPTION_EXACT_RESPONSE);
         assert_eq!(exact.score, 3);
@@ -731,9 +685,9 @@ mod tests {
         let mut run = fake_chat_run(ADOPTION_EXACT_RESPONSE);
         run.model_artifact_hash =
             "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4".to_string();
-        run.requested_max_tokens = ADOPTION_MAX_TOKENS;
-        run.effective_max_tokens = ADOPTION_MAX_TOKENS;
-        validate_canonical_adoption_run(&fixture, &run).unwrap();
+        run.requested_max_tokens = benchmark_policy::ADOPTION_MAX_TOKENS;
+        run.effective_max_tokens = benchmark_policy::ADOPTION_MAX_TOKENS;
+        benchmark_policy::validate_canonical_adoption_run(&fixture, &run).unwrap();
         let manifest = executable_reproducibility_manifest_json(
             &fixture,
             &prompt,
@@ -746,7 +700,7 @@ mod tests {
         assert!(manifest.contains("requested_max_tokens=192,effective_max_tokens=192"));
         assert!(manifest.contains("\"quantization\":\"Q4_K_M\""));
 
-        run.effective_max_tokens = ADOPTION_MAX_TOKENS - 1;
-        assert!(validate_canonical_adoption_run(&fixture, &run).is_err());
+        run.effective_max_tokens = benchmark_policy::ADOPTION_MAX_TOKENS - 1;
+        assert!(benchmark_policy::validate_canonical_adoption_run(&fixture, &run).is_err());
     }
 }
