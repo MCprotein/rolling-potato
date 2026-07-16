@@ -70,6 +70,12 @@ snapshots and pointers, ledger event encoding/hashing/append, and transcript
 record encoding/validation/install. Existing top-level modules retain path,
 locking, transaction, recovery, projection, and command orchestration scheduled
 for their later migration slices.
+The v0.37.5 workflow domain boundary now owns current-state and lease DTOs,
+session-resume authority checks, read-only snapshot/checkpoint binding, canonical
+transcript-session ordering and duplicate rejection, transcript event/record
+binding, and tool-output view DTOs. The top-level state and transcript modules
+remain compatibility facades for filesystem, lock, transaction, recovery,
+projection, and command orchestration assigned to later slices.
 
 ## Dependency direction
 

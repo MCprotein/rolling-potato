@@ -1,5 +1,36 @@
 # Release Notes
 
+## Unreleased v0.37.5 - Validated Domain Views
+
+This patch moves workflow/session/snapshot and transcript-session validation
+into private workflow-domain owners while preserving commands, durable bytes,
+ledger order, filesystem and lock behavior, recovery, and the synchronous
+runtime.
+
+### Included
+
+- Moves current-state, lease, TUI snapshot, and active-workflow binding DTOs
+  into `runtime_core::workflow::domain::snapshot`.
+- Moves session-resume authority checks, current-state identity/lease checks,
+  bounded ledger-ancestor and workflow-checkpoint validation into that owner.
+- Moves canonical transcript-session filtering, ledger-order preservation,
+  duplicate event rejection, strict event/record/tool binding, and
+  `ToolOutputView` into `runtime_core::workflow::domain::transcript`.
+- Adds owner-local regression tests for missing authorities, stale bindings,
+  missing checkpoints, transcript ordering, duplicates, pointer/key-order
+  drift, and event identity/timestamp drift.
+- Advances the migration ledger to v0.37.5 with both scheduled domain-view
+  slices complete.
+
+### Compatibility Boundary
+
+- Top-level state and transcript modules retain filesystem, lock, transaction,
+  recovery, projection, and command orchestration assigned to later v0.37.x
+  slices.
+- CLI behavior, error codes, durable schemas and bytes, canonical event
+  identity/order, recovery and projection order, dependencies, and the
+  synchronous runtime remain unchanged.
+
 ## Unreleased v0.37.4 - Workflow Storage Compatibility
 
 This patch establishes one canonical compatibility owner for durable workflow,

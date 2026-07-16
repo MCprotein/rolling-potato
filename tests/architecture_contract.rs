@@ -651,6 +651,65 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     }
 }
 
+#[test]
+fn v0375_domain_views_replace_legacy_definitions() {
+    for target in [
+        "src/runtime_core/workflow/domain/mod.rs",
+        "src/runtime_core/workflow/domain/snapshot.rs",
+        "src/runtime_core/workflow/domain/transcript.rs",
+    ] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing domain owner: {target}"
+        );
+    }
+
+    let domain = fs::read_to_string("src/runtime_core/workflow/domain/mod.rs").unwrap();
+    for owner in ["snapshot", "transcript"] {
+        let expected = format!("pub(crate) mod {owner};");
+        assert!(
+            domain.lines().any(|line| line == expected),
+            "workflow domain owner is not crate-private: {owner}"
+        );
+    }
+
+    for (facade, moved_definition) in [
+        ("src/state.rs", "struct CurrentStateSnapshot"),
+        ("src/state.rs", "struct CurrentStateLeaseView"),
+        ("src/transcript.rs", "struct ToolOutputView"),
+    ] {
+        let source = fs::read_to_string(facade).unwrap();
+        assert!(
+            !source.contains(moved_definition),
+            "legacy facade still owns moved definition: {facade} -> {moved_definition}"
+        );
+    }
+
+    let snapshot = fs::read_to_string("src/runtime_core/workflow/domain/snapshot.rs").unwrap();
+    for rule in [
+        "fn validate_session_resume_target",
+        "fn validate_current_lease",
+        "fn validate_read_only_workflow",
+    ] {
+        assert!(
+            snapshot.contains(rule),
+            "snapshot owner is missing domain rule: {rule}"
+        );
+    }
+
+    let transcript = fs::read_to_string("src/runtime_core/workflow/domain/transcript.rs").unwrap();
+    for rule in [
+        "fn collect_session_records",
+        "fn parse_event_binding",
+        "fn validate_event_identity",
+    ] {
+        assert!(
+            transcript.contains(rule),
+            "transcript owner is missing domain rule: {rule}"
+        );
+    }
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

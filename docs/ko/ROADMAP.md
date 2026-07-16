@@ -72,7 +72,7 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | v0.37.2 | Implemented | Foundation과 platform seam: filesystem, terminal, configuration, checksum, strict serialization, lease, cache, Windows atomic replacement 소유권; release 대기 |
 | v0.37.3 | Implemented | Inference 경계: backend, model, benchmark, resource domain rule과 durable codec을 llama.cpp, process, filesystem adapter에서 분리; release 대기 |
 | v0.37.4 | Implemented | Canonical workflow storage compatibility: 바이트 동일 workflow/ledger/transcript DTO·codec, 분리된 append/install 소유권, byte/order/hash/failure contract; release 대기 |
-| v0.37.5 | Planned | 변경되지 않은 storage compatibility 경계를 감싼 validated workflow, session, snapshot, transcript view |
+| v0.37.5 | Implemented | 변경되지 않은 storage compatibility 경계 위에서 fail-closed binding, ordering, duplicate event 규칙을 소유하는 validated workflow/session/snapshot 및 transcript-session view; release 대기 |
 | v0.37.6 | Planned | Workflow transition, crash recovery, cross-store commit/recovery 순서를 소유하는 단일 transaction coordinator |
 | v0.37.7 | Planned | Observability 경계: projection-lag barrier, rebuildable SQLite projection, monitoring query, convergence evidence |
 | v0.37.8 | Planned | Knowledge와 policy 경계: context, evidence, ontology, approval, fail-closed decision 소유권 |

@@ -1402,7 +1402,7 @@ fn ledger_page_authority(
 }
 
 fn state_page_authority(
-    snapshot: &state::TuiStateSnapshot,
+    snapshot: &crate::runtime_core::workflow::domain::snapshot::TuiStateSnapshot,
     projected_events: Option<i64>,
 ) -> TuiReadAuthority {
     let mut authority = ledger_page_authority(&snapshot.ledger_binding, projected_events);

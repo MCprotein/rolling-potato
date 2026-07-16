@@ -2502,6 +2502,50 @@
       ]
     },
     {
+      "path": "src/runtime_core/workflow/domain/mod.rs",
+      "slices": [
+        {
+          "responsibility": "workflow domain view module ownership",
+          "target": "src/runtime_core/workflow/domain/mod.rs",
+          "release": "0.37.5",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/snapshot.rs",
+      "slices": [
+        {
+          "responsibility": "validated workflow and session views",
+          "target": "src/runtime_core/workflow/domain/snapshot.rs",
+          "release": "0.37.5",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/snapshot.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/transcript.rs",
+      "slices": [
+        {
+          "responsibility": "validated transcript session views",
+          "target": "src/runtime_core/workflow/domain/transcript.rs",
+          "release": "0.37.5",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transcript.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/workflow/storage_compat/mod.rs",
       "slices": [
         {
@@ -2586,8 +2630,11 @@
           "responsibility": "validated workflow and session views",
           "target": "src/runtime_core/workflow/domain/snapshot.rs",
           "release": "0.37.5",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/snapshot.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "workflow state recovery",
@@ -2741,8 +2788,11 @@
           "responsibility": "validated transcript session views",
           "target": "src/runtime_core/workflow/domain/transcript.rs",
           "release": "0.37.5",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transcript.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "transcript projection",
@@ -3032,7 +3082,7 @@
       ]
     }
   ],
-  "current_release": "0.37.4",
+  "current_release": "0.37.5",
   "train_completion": false,
   "logical_proofs": [
     {
@@ -4063,6 +4113,24 @@
       "path": "src/runtime_core/workflow/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/mod.rs",
+      "responsibilities": [
+        "workflow domain view module ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/snapshot.rs",
+      "responsibilities": [
+        "validated workflow and session views"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/transcript.rs",
+      "responsibilities": [
+        "validated transcript session views"
       ]
     },
     {
