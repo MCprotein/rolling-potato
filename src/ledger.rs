@@ -9,9 +9,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha256};
 
+use crate::adapters::filesystem::{layout as paths, lease};
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
-use crate::paths;
 
 static EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -68,7 +68,7 @@ pub(crate) struct ReadOnlyLedgerTail {
 }
 
 pub(crate) struct LedgerWriterGuard {
-    _lease: crate::lease::RecoverableLease,
+    _lease: lease::RecoverableLease,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,7 +93,7 @@ pub(crate) struct EventSink<'guard> {
 
 impl LedgerWriterGuard {
     pub(crate) fn acquire() -> Result<Self, AppError> {
-        let lease = crate::lease::RecoverableLease::acquire_with_wait(
+        let lease = lease::RecoverableLease::acquire_with_wait(
             paths::runtime_ledger_writer_lock(),
             "runtime ledger writer",
             Duration::from_secs(5),
@@ -104,7 +104,7 @@ impl LedgerWriterGuard {
 
     #[cfg(test)]
     fn acquire_after_first_block(on_first_block: impl FnOnce()) -> Result<Self, AppError> {
-        let lease = crate::lease::RecoverableLease::acquire_with_wait_after_first_block(
+        let lease = lease::RecoverableLease::acquire_with_wait_after_first_block(
             paths::runtime_ledger_writer_lock(),
             "runtime ledger writer",
             Duration::from_secs(5),
@@ -751,7 +751,7 @@ fn preserve_corrupt_ledger_file(path: &Path) -> Result<Option<std::path::PathBuf
 }
 
 pub fn read_runtime_events() -> Result<Vec<ParsedLedgerEvent>, AppError> {
-    let _reader = crate::lease::RecoverableLease::acquire_with_wait(
+    let _reader = lease::RecoverableLease::acquire_with_wait(
         paths::runtime_ledger_writer_lock(),
         "runtime ledger reader",
         Duration::from_secs(5),

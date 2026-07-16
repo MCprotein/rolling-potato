@@ -1,7 +1,8 @@
+use crate::adapters::filesystem::{cache, layout as paths};
 use crate::foundation::error::AppError;
 use crate::{
-    backend, cache, context, evidence, intent, ledger, model, observability, ontology, patch,
-    paths, state, transcript,
+    backend, context, evidence, intent, ledger, model, observability, ontology, patch, state,
+    transcript,
 };
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};

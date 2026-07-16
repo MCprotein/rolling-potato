@@ -488,6 +488,54 @@ fn v0372_foundation_owners_replace_legacy_modules() {
     );
 }
 
+#[test]
+fn v0372_filesystem_owners_replace_legacy_modules() {
+    for target in [
+        "src/adapters/filesystem/cache.rs",
+        "src/adapters/filesystem/config.rs",
+        "src/adapters/filesystem/layout.rs",
+        "src/adapters/filesystem/lease.rs",
+        "src/adapters/filesystem/windows_replace.rs",
+        "src/composition/config.rs",
+    ] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing filesystem owner: {target}"
+        );
+    }
+    for legacy in [
+        "src/cache.rs",
+        "src/config.rs",
+        "src/lease.rs",
+        "src/paths.rs",
+        "src/windows_file.rs",
+    ] {
+        assert!(
+            !Path::new(legacy).exists(),
+            "legacy filesystem owner remains: {legacy}"
+        );
+    }
+
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    for legacy_module in ["cache", "config", "lease", "paths", "windows_file"] {
+        assert!(
+            !main
+                .lines()
+                .any(|line| line == format!("mod {legacy_module};")),
+            "legacy module remains compile-connected: {legacy_module}"
+        );
+    }
+
+    let filesystem = fs::read_to_string("src/adapters/filesystem/mod.rs").unwrap();
+    for owner in ["cache", "config", "layout", "lease", "windows_replace"] {
+        let expected = format!("pub(crate) mod {owner};");
+        assert!(
+            filesystem.lines().any(|line| line == expected),
+            "filesystem owner is not crate-private: {owner}"
+        );
+    }
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

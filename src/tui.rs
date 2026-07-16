@@ -563,7 +563,8 @@ mod legacy_reports {
         runtime, AppError, TuiReadBudget, TuiReadPage, TuiReadRequest, DEFAULT_WIDTH, MAX_WIDTH,
         MIN_WIDTH,
     };
-    use crate::{evidence, ledger, model, observability, paths};
+    use crate::adapters::filesystem::layout as paths;
+    use crate::{evidence, ledger, model, observability};
 
     pub fn overview_report() -> Result<String, AppError> {
         let width = terminal_width();
@@ -1296,7 +1297,8 @@ pub use legacy_reports::{
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ledger, observability, patch, paths};
+    use crate::adapters::filesystem::layout as paths;
+    use crate::{ledger, observability, patch};
 
     #[test]
     fn one_shot_outcome_writes_secret_once_without_storing_it_in_notice() {

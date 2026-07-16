@@ -1,4 +1,4 @@
-use crate::paths;
+use crate::adapters::filesystem::layout as paths;
 
 pub fn plan_report(purge_cache: bool, dry_run: bool) -> String {
     let mode = if purge_cache {

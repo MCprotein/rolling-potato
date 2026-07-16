@@ -1,6 +1,9 @@
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
-use crate::{lease, ledger, observability, paths, state, subagent};
+use crate::{
+    adapters::filesystem::layout as paths, adapters::filesystem::lease, ledger, observability,
+    state, subagent,
+};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};

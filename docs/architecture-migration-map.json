@@ -1500,6 +1500,76 @@
       ]
     },
     {
+      "path": "src/adapters/filesystem/cache.rs",
+      "slices": [
+        {
+          "responsibility": "managed cache storage",
+          "target": "src/adapters/filesystem/cache.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/config.rs",
+      "slices": [
+        {
+          "responsibility": "configuration file and environment loading",
+          "target": "src/adapters/filesystem/config.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/layout.rs",
+      "slices": [
+        {
+          "responsibility": "application data and project path layout",
+          "target": "src/adapters/filesystem/layout.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/lease.rs",
+      "slices": [
+        {
+          "responsibility": "filesystem lease implementation",
+          "target": "src/adapters/filesystem/lease.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/lease.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/windows_replace.rs",
+      "slices": [
+        {
+          "responsibility": "Windows atomic file replacement",
+          "target": "src/adapters/filesystem/windows_replace.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/windows_replace.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/mod.rs",
       "slices": [
         {
@@ -1651,18 +1721,6 @@
       ]
     },
     {
-      "path": "src/cache.rs",
-      "slices": [
-        {
-          "responsibility": "managed cache storage",
-          "target": "src/adapters/filesystem/cache.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
       "path": "src/cli.rs",
       "slices": [
         {
@@ -1717,21 +1775,16 @@
       ]
     },
     {
-      "path": "src/config.rs",
+      "path": "src/composition/config.rs",
       "slices": [
         {
           "responsibility": "effective application configuration",
           "target": "src/composition/config.rs",
           "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
-        },
-        {
-          "responsibility": "configuration file and environment loading",
-          "target": "src/adapters/filesystem/config.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -1846,18 +1899,6 @@
           "responsibility": "Korean output invariant",
           "target": "src/runtime_core/reporting/korean_guard.rs",
           "release": "0.37.10",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
-      "path": "src/lease.rs",
-      "slices": [
-        {
-          "responsibility": "filesystem lease implementation",
-          "target": "src/adapters/filesystem/lease.rs",
-          "release": "0.37.2",
           "state": "planned",
           "evidence": []
         }
@@ -2007,18 +2048,6 @@
           "responsibility": "patch verification and recovery",
           "target": "src/runtime_core/patch/verification.rs",
           "release": "0.37.9",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
-      "path": "src/paths.rs",
-      "slices": [
-        {
-          "responsibility": "application data and project path layout",
-          "target": "src/adapters/filesystem/layout.rs",
-          "release": "0.37.2",
           "state": "planned",
           "evidence": []
         }
@@ -2494,18 +2523,6 @@
           "responsibility": "managed path deletion",
           "target": "src/adapters/filesystem/uninstall.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
-      "path": "src/windows_file.rs",
-      "slices": [
-        {
-          "responsibility": "Windows atomic file replacement",
-          "target": "src/adapters/filesystem/windows_replace.rs",
-          "release": "0.37.2",
           "state": "planned",
           "evidence": []
         }
@@ -3276,6 +3293,36 @@
       ]
     },
     {
+      "path": "src/adapters/filesystem/cache.rs",
+      "responsibilities": [
+        "managed cache storage"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/config.rs",
+      "responsibilities": [
+        "configuration file and environment loading"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/layout.rs",
+      "responsibilities": [
+        "application data and project path layout"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/lease.rs",
+      "responsibilities": [
+        "filesystem lease implementation"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/windows_replace.rs",
+      "responsibilities": [
+        "Windows atomic file replacement"
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -3339,12 +3386,6 @@
       ]
     },
     {
-      "path": "src/cache.rs",
-      "responsibilities": [
-        "managed cache storage"
-      ]
-    },
-    {
       "path": "src/cli.rs",
       "responsibilities": [
         "CLI argument parsing",
@@ -3365,10 +3406,9 @@
       ]
     },
     {
-      "path": "src/config.rs",
+      "path": "src/composition/config.rs",
       "responsibilities": [
-        "effective application configuration",
-        "configuration file and environment loading"
+        "effective application configuration"
       ]
     },
     {
@@ -3426,12 +3466,6 @@
       ]
     },
     {
-      "path": "src/lease.rs",
-      "responsibilities": [
-        "filesystem lease implementation"
-      ]
-    },
-    {
       "path": "src/ledger.rs",
       "responsibilities": [
         "canonical event append and hashing",
@@ -3480,12 +3514,6 @@
         "patch approval credentials",
         "guarded patch apply and rollback",
         "patch verification and recovery"
-      ]
-    },
-    {
-      "path": "src/paths.rs",
-      "responsibilities": [
-        "application data and project path layout"
       ]
     },
     {
@@ -3683,12 +3711,6 @@
       "responsibilities": [
         "uninstall orchestration",
         "managed path deletion"
-      ]
-    },
-    {
-      "path": "src/windows_file.rs",
-      "responsibilities": [
-        "Windows atomic file replacement"
       ]
     },
     {

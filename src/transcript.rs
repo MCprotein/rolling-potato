@@ -4,11 +4,12 @@ use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::adapters::filesystem::{layout as paths, lease};
 use crate::context::SourcePointer;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, ParsedLedgerEvent, RuntimeIdentity};
-use crate::{observability, paths, state};
+use crate::{observability, state};
 
 const TRANSCRIPT_SCHEMA_V1: u64 = 1;
 const TRANSCRIPT_SCHEMA_V2: u64 = 2;
@@ -279,7 +280,7 @@ pub(crate) fn install_prepared_no_stream_tool_turn(
     prepared: &PreparedTranscriptTurn,
 ) -> Result<(), AppError> {
     {
-        let _tool_lock = crate::lease::RecoverableLease::acquire(
+        let _tool_lock = lease::RecoverableLease::acquire(
             prepared.tool_path.with_extension("checkpoint.lock"),
             "tool-output artifact",
         )?;
@@ -294,7 +295,7 @@ pub(crate) fn install_prepared_no_stream_tool_turn(
         }
     }
     {
-        let _transcript_lock = crate::lease::RecoverableLease::acquire(
+        let _transcript_lock = lease::RecoverableLease::acquire(
             prepared.transcript_path.with_extension("checkpoint.lock"),
             "transcript checkpoint",
         )?;
@@ -468,7 +469,7 @@ pub fn record_workflow_turn_with_streams(
 
     if path.exists() {
         let existing = {
-            let _lease = crate::lease::RecoverableLease::acquire(
+            let _lease = lease::RecoverableLease::acquire(
                 path.with_extension("checkpoint.lock"),
                 "transcript checkpoint",
             )?;
@@ -494,7 +495,7 @@ pub fn record_workflow_turn_with_streams(
     };
 
     let record = {
-        let _lease = crate::lease::RecoverableLease::acquire(
+        let _lease = lease::RecoverableLease::acquire(
             path.with_extension("checkpoint.lock"),
             "transcript checkpoint",
         )?;
@@ -855,7 +856,7 @@ fn record_tool_output_artifact(
         &artifact_id,
         true,
     )?;
-    let _lease = crate::lease::RecoverableLease::acquire(
+    let _lease = lease::RecoverableLease::acquire(
         path.with_extension("checkpoint.lock"),
         "tool-output artifact",
     )?;

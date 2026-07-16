@@ -4,12 +4,14 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[cfg(windows)]
+use crate::adapters::filesystem::windows_replace;
+use crate::adapters::filesystem::{layout as paths, lease};
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, RuntimeIdentity};
 use crate::observability::SessionHistoryEntry;
 use crate::observability::{self, StoreStatus};
-use crate::paths;
 use sha2::{Digest, Sha256};
 
 const WORKFLOW_SCHEMA_VERSION: u64 = 4;
@@ -96,7 +98,7 @@ pub(crate) struct TuiStateSnapshot {
 
 pub(crate) struct WorkflowCheckpointGuard {
     workflow_id: String,
-    _lease: crate::lease::RecoverableLease,
+    _lease: lease::RecoverableLease,
 }
 
 #[derive(Debug, Clone)]
@@ -286,7 +288,7 @@ pub(crate) fn checkpoint_workflow_under_transition(
 impl WorkflowCheckpointGuard {
     pub(crate) fn acquire(workflow_id: &str) -> Result<Self, AppError> {
         validate_workflow_id(workflow_id)?;
-        let lease = crate::lease::RecoverableLease::acquire(
+        let lease = lease::RecoverableLease::acquire(
             paths::project_workflows_dir().join(format!("{workflow_id}.checkpoint.lock")),
             "workflow checkpoint",
         )?;
@@ -3162,7 +3164,7 @@ fn validate_open_read_identity(
 ) -> Result<(), AppError> {
     let path_metadata = fs::symlink_metadata(path)
         .map_err(|err| AppError::blocked(format!("{label} 경로 재검증 실패: {err}")))?;
-    let same_file = crate::windows_file::path_refers_to_open_file(path, file)
+    let same_file = windows_replace::path_refers_to_open_file(path, file)
         .map_err(|err| AppError::blocked(format!("{label} handle 검증 실패: {err}")))?;
     if path_metadata.file_type().is_symlink() || !path_metadata.is_file() || !same_file {
         return Err(AppError::blocked(format!(
@@ -3270,7 +3272,7 @@ pub(crate) fn selection_observation_under_transition() -> Result<
 }
 
 fn promote_current_state_v1() -> Result<(), AppError> {
-    let _transition = crate::lease::RecoverableLease::acquire_with_wait(
+    let _transition = lease::RecoverableLease::acquire_with_wait(
         paths::current_state_transition_lock(),
         "current-state v1 promotion",
         Duration::from_secs(5),
@@ -4825,7 +4827,7 @@ impl PreparedSourceDir {
                 "prepared source sibling parent binding 불일치",
             ));
         }
-        let root = crate::paths::project_root().canonicalize().map_err(|err| {
+        let root = paths::project_root().canonicalize().map_err(|err| {
             AppError::blocked(format!(
                 "prepared source project root canonicalize 실패: {err}"
             ))
@@ -5036,7 +5038,7 @@ impl PreparedRollbackDir {
         plan: &crate::transition::SourceInstallV1,
         create_missing: bool,
     ) -> Result<Option<Self>, AppError> {
-        let root = crate::paths::project_root().canonicalize().map_err(|err| {
+        let root = paths::project_root().canonicalize().map_err(|err| {
             AppError::blocked(format!(
                 "prepared rollback project root canonicalize 실패: {err}"
             ))

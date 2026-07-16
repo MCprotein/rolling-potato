@@ -4,6 +4,9 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
+#[cfg(windows)]
+use crate::adapters::filesystem::windows_replace;
+use crate::adapters::filesystem::{layout as paths, lease};
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 use crate::foundation::serialization::{CanonicalObject, CanonicalValue};
@@ -354,7 +357,7 @@ pub(crate) struct PreparedEventChain {
 
 pub(crate) struct TransitionGuard {
     project_id: String,
-    _lease: crate::lease::RecoverableLease,
+    _lease: lease::RecoverableLease,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -377,11 +380,11 @@ pub(crate) enum CurrentStateIntent {
 impl TransitionGuard {
     pub(crate) fn acquire(project_id: &str) -> Result<Self, AppError> {
         validate_ascii_id(project_id, "project")?;
-        fs::create_dir_all(crate::paths::project_transition_journal_dir(project_id)).map_err(
-            |err| AppError::runtime(format!("transition journal directory 생성 실패: {err}")),
-        )?;
-        let lease = crate::lease::RecoverableLease::acquire_with_wait(
-            crate::paths::project_transition_lock(project_id),
+        fs::create_dir_all(paths::project_transition_journal_dir(project_id)).map_err(|err| {
+            AppError::runtime(format!("transition journal directory 생성 실패: {err}"))
+        })?;
+        let lease = lease::RecoverableLease::acquire_with_wait(
+            paths::project_transition_lock(project_id),
             "prepared transition journal",
             std::time::Duration::from_secs(5),
         )?;
@@ -746,7 +749,7 @@ pub(crate) fn install_projection_lag(bundle: &PreparedSourceBundle) -> Result<Pa
         .event_id
         .as_deref()
         .ok_or_else(|| AppError::blocked("prepared projection lag event binding 누락"))?;
-    let path = crate::paths::projection_lag_file(&bundle.intent_id, event_id);
+    let path = paths::projection_lag_file(&bundle.intent_id, event_id);
     let expected_stored = format!(
         "state/projection-lag/{}-{}.json",
         bundle.intent_id, event_id
@@ -816,10 +819,7 @@ pub(crate) fn projection_lag_path(bundle: &PreparedSourceBundle) -> Result<PathB
         .event_id
         .as_deref()
         .ok_or_else(|| AppError::blocked("prepared projection lag event binding 누락"))?;
-    Ok(crate::paths::projection_lag_file(
-        &bundle.intent_id,
-        event_id,
-    ))
+    Ok(paths::projection_lag_file(&bundle.intent_id, event_id))
 }
 
 pub(crate) fn remove_projection_lag(bundle: &PreparedSourceBundle) -> Result<(), AppError> {
@@ -1104,10 +1104,8 @@ fn commit_prepared_source_bundle_under_guard(
     bundle: &PreparedSourceBundle,
 ) -> Result<PathBuf, AppError> {
     let body = render_prepared_source_bundle(bundle)?;
-    let final_path =
-        crate::paths::project_transition_journal_file(&bundle.project_id, &bundle.intent_id);
-    let temp_path =
-        crate::paths::project_transition_journal_temp(&bundle.project_id, &bundle.intent_id);
+    let final_path = paths::project_transition_journal_file(&bundle.project_id, &bundle.intent_id);
+    let temp_path = paths::project_transition_journal_temp(&bundle.project_id, &bundle.intent_id);
     validate_no_competing_prepared_journal(bundle, &final_path, &temp_path)?;
     if final_path.exists() {
         let existing = fs::read_to_string(&final_path)
@@ -1168,7 +1166,7 @@ fn validate_no_competing_prepared_journal(
     final_path: &Path,
     temp_path: &Path,
 ) -> Result<(), AppError> {
-    let directory = crate::paths::project_transition_journal_dir(&bundle.project_id);
+    let directory = paths::project_transition_journal_dir(&bundle.project_id);
     for entry in fs::read_dir(&directory)
         .map_err(|err| AppError::blocked(format!("transition journal discovery 실패: {err}")))?
     {
@@ -1203,8 +1201,7 @@ pub(crate) fn remove_committed_source_bundle(
     bundle: &PreparedSourceBundle,
     path: &Path,
 ) -> Result<(), AppError> {
-    let expected =
-        crate::paths::project_transition_journal_file(&bundle.project_id, &bundle.intent_id);
+    let expected = paths::project_transition_journal_file(&bundle.project_id, &bundle.intent_id);
     if path != expected {
         return Err(AppError::blocked(
             "prepared journal cleanup path binding 불일치",
@@ -1232,8 +1229,7 @@ pub(crate) fn validate_committed_bundle_cleanup_authority(
     journal: &Path,
 ) -> Result<(), AppError> {
     validate_prepared_source_bundle(bundle)?;
-    let expected =
-        crate::paths::project_transition_journal_file(&bundle.project_id, &bundle.intent_id);
+    let expected = paths::project_transition_journal_file(&bundle.project_id, &bundle.intent_id);
     if journal != expected {
         return Err(AppError::blocked(
             "prepared cleanup journal path binding 불일치",
@@ -1255,7 +1251,7 @@ pub(crate) fn validate_committed_bundle_cleanup_authority(
             .file_name()
             .and_then(|value| value.to_str())
             .ok_or_else(|| AppError::blocked("prepared cleanup lag filename 불일치"))?;
-        let path = crate::paths::projection_lag_dir().join(name);
+        let path = paths::projection_lag_dir().join(name);
         let temporary = path.with_extension("json.tmp");
         if temporary.exists() {
             return Err(AppError::blocked(
@@ -1279,7 +1275,7 @@ pub(crate) fn recover_pending_source_bundles() -> Result<usize, AppError> {
     if !recovery_work_may_exist() {
         return Ok(0);
     }
-    let identity = if crate::paths::current_state_file().exists() {
+    let identity = if paths::current_state_file().exists() {
         crate::ledger::validated_current_identity()?
     } else {
         crate::ledger::fresh_identity()
@@ -1296,7 +1292,7 @@ pub(crate) enum ProjectionLagReadStatus {
 }
 
 pub(crate) fn projection_lag_status_read_only(project_id: &str) -> ProjectionLagReadStatus {
-    let journal_directory = crate::paths::project_transition_journal_dir(project_id);
+    let journal_directory = paths::project_transition_journal_dir(project_id);
     match validate_projection_lag_authority(project_id, &journal_directory) {
         Ok(false) => ProjectionLagReadStatus::Clear,
         Ok(true) => ProjectionLagReadStatus::Lagging,
@@ -1419,7 +1415,7 @@ fn validate_open_regular_file_identity(
 ) -> Result<(), AppError> {
     let path_metadata = fs::symlink_metadata(path)
         .map_err(|err| AppError::blocked(format!("{context} 경로 재검증 실패: {err}")))?;
-    let same_file = crate::windows_file::path_refers_to_open_file(path, file)
+    let same_file = windows_replace::path_refers_to_open_file(path, file)
         .map_err(|err| AppError::blocked(format!("{context} handle 검증 실패: {err}")))?;
     if path_metadata.file_type().is_symlink() || !path_metadata.is_file() || !same_file {
         return Err(AppError::blocked(format!(
@@ -1452,11 +1448,11 @@ fn validate_open_regular_file_identity(
 }
 
 fn recovery_work_may_exist() -> bool {
-    let lag_directory = crate::paths::projection_lag_dir();
+    let lag_directory = paths::projection_lag_dir();
     if directory_has_entry_or_is_suspicious(&lag_directory, |_| true) {
         return true;
     }
-    let journal_root = crate::paths::project_state_dir().join("transition-journal");
+    let journal_root = paths::project_state_dir().join("transition-journal");
     let projects = match fs::read_dir(&journal_root) {
         Ok(projects) => projects,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return false,
@@ -1508,8 +1504,8 @@ fn directory_has_entry_or_is_suspicious(
 }
 
 fn recover_pending_bundles_under_guard(project_id: &str) -> Result<usize, AppError> {
-    let directory = crate::paths::project_transition_journal_dir(project_id);
-    let lag_directory = crate::paths::projection_lag_dir();
+    let directory = paths::project_transition_journal_dir(project_id);
+    let lag_directory = paths::projection_lag_dir();
     if !directory.exists() && !lag_directory.exists() {
         return Ok(0);
     }
@@ -1537,7 +1533,7 @@ fn recover_pending_bundles_under_guard(project_id: &str) -> Result<usize, AppErr
         }
         if let Some(intent_id) = name.strip_suffix(".prepared.json.tmp") {
             validate_ascii_id(intent_id, "intent")?;
-            let final_path = crate::paths::project_transition_journal_file(project_id, intent_id);
+            let final_path = paths::project_transition_journal_file(project_id, intent_id);
             let temp_body = read_regular_utf8_bounded(
                 &entry.path,
                 MAX_PREPARED_BUNDLE_BYTES,
@@ -1631,7 +1627,7 @@ fn validate_projection_lag_authority(
     project_id: &str,
     journal_directory: &Path,
 ) -> Result<bool, AppError> {
-    let lag_directory = crate::paths::projection_lag_dir();
+    let lag_directory = paths::projection_lag_dir();
     if !lag_directory.exists() {
         return Ok(false);
     }
@@ -2932,7 +2928,7 @@ pub(crate) fn prepare_source_install_v1(
 ) -> Result<SourceInstallV1, AppError> {
     validate_ascii_id(intent_id, "intent")?;
     validate_ascii_id(proposal_id, "proposal")?;
-    let canonical_root = crate::paths::project_root()
+    let canonical_root = paths::project_root()
         .canonicalize()
         .map_err(|err| AppError::blocked(format!("project root canonicalize 실패: {err}")))?;
     let canonical_target = target
@@ -3314,7 +3310,7 @@ pub(crate) fn source_identity_v1(
 
 pub(crate) fn resolve_prepared_project_path(path: &PreparedPath) -> Result<PathBuf, AppError> {
     validate_prepared_path(path, path.expected_type == "file")?;
-    let root = crate::paths::project_root()
+    let root = paths::project_root()
         .canonicalize()
         .map_err(|err| AppError::blocked(format!("project root canonicalize 실패: {err}")))?;
     let relative = Path::new(&path.path);
@@ -3336,7 +3332,7 @@ pub(crate) fn source_install_rollback_path(
     if !is_sha256(before_sha256) || !is_sha256(proposed_sha256) {
         return Err(AppError::blocked("source rollback hash 형식 불일치"));
     }
-    let root = crate::paths::project_root()
+    let root = paths::project_root()
         .canonicalize()
         .map_err(|err| AppError::blocked(format!("project root canonicalize 실패: {err}")))?;
     let target = target
@@ -3704,7 +3700,7 @@ mod tests {
             .unwrap()
             .project_id;
         let transition_guard = TransitionGuard::acquire(&project_id).unwrap();
-        let directory = crate::paths::project_transition_journal_dir(&project_id);
+        let directory = paths::project_transition_journal_dir(&project_id);
         let malformed = directory.join("transition.candidate.1.2");
         fs::write(&malformed, b"").unwrap();
         let error = recover_pending_bundles_under_guard(&project_id).unwrap_err();
@@ -3738,7 +3734,7 @@ mod tests {
             .unwrap()
             .project_id;
         let transition_guard = TransitionGuard::acquire(&project_id).unwrap();
-        let directory = crate::paths::project_transition_journal_dir(&project_id);
+        let directory = paths::project_transition_journal_dir(&project_id);
 
         for index in 0..MAX_RECOVERY_JOURNAL_ENTRIES {
             fs::write(
@@ -3761,7 +3757,7 @@ mod tests {
         assert!(byte_error.message.contains("regular-file/byte budget"));
 
         fs::remove_file(oversized).unwrap();
-        let lag_directory = crate::paths::projection_lag_dir();
+        let lag_directory = paths::projection_lag_dir();
         fs::create_dir_all(&lag_directory).unwrap();
         let oversized_lag = lag_directory.join("oversized.json");
         fs::write(&oversized_lag, vec![b'x'; MAX_PROJECTION_LAG_BYTES + 1]).unwrap();
@@ -3792,7 +3788,7 @@ mod tests {
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
         std::env::set_var("RPOTATO_DATA_HOME", &data_home);
         crate::state::initialize().unwrap();
-        let journal_root = crate::paths::project_state_dir().join("transition-journal");
+        let journal_root = paths::project_state_dir().join("transition-journal");
         for index in 0..=MAX_RECOVERY_PROJECT_ENTRIES {
             fs::create_dir_all(journal_root.join(format!("empty-project-{index}"))).unwrap();
         }
@@ -3974,11 +3970,9 @@ mod tests {
         assert_eq!(bundle_body.matches("\"member_kind\"").count(), 3);
         let journal = commit_prepared_source_bundle(&bundle).unwrap();
         assert_eq!(commit_prepared_source_bundle(&bundle).unwrap(), journal);
-        assert!(!crate::paths::project_transition_journal_temp(
-            &bundle.project_id,
-            &bundle.intent_id
-        )
-        .exists());
+        assert!(
+            !paths::project_transition_journal_temp(&bundle.project_id, &bundle.intent_id).exists()
+        );
         remove_committed_source_bundle(&bundle, &journal).unwrap();
         assert!(!journal.exists());
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
@@ -4028,7 +4022,7 @@ mod tests {
         assert!(error
             .message
             .contains("rollback path가 journal commit 전에 이미 존재"));
-        assert!(!crate::paths::project_transition_journal_file(
+        assert!(!paths::project_transition_journal_file(
             &crate::ledger::fresh_identity().project_id,
             "intent-rollback-admission"
         )
@@ -4120,18 +4114,16 @@ mod tests {
         .unwrap();
         let bundle =
             prepare_source_bundle("intent-aggregate-cap", None, plan, &before, &proposed).unwrap();
-        let journal =
-            crate::paths::project_transition_journal_file(&bundle.project_id, &bundle.intent_id);
+        let journal = paths::project_transition_journal_file(&bundle.project_id, &bundle.intent_id);
 
         let error = commit_prepared_source_bundle(&bundle).unwrap_err();
 
         assert!(error.message.contains("prepared bundle byte limit"));
         assert!(!journal.exists());
-        assert!(!crate::paths::project_transition_journal_temp(
-            &bundle.project_id,
-            &bundle.intent_id,
-        )
-        .exists());
+        assert!(
+            !paths::project_transition_journal_temp(&bundle.project_id, &bundle.intent_id,)
+                .exists()
+        );
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
         std::env::remove_var("RPOTATO_DATA_HOME");
         let _ = fs::remove_dir_all(root);

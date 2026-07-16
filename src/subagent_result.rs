@@ -3,7 +3,7 @@ use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 use crate::foundation::serialization::{CanonicalObject, CanonicalValue};
 use crate::subagent::{SubagentRecordV1, SubagentRole};
-use crate::{ledger, paths, state};
+use crate::{adapters::filesystem::layout as paths, ledger, state};
 use std::collections::BTreeSet;
 use std::fs;
 

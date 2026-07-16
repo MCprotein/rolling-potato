@@ -4,24 +4,20 @@ mod approval;
 mod backend;
 mod backend_stream;
 mod benchmark;
-mod cache;
 mod cli;
 mod composition;
-mod config;
 mod context;
 mod evidence;
 mod foundation;
 mod hooks;
 mod intent;
 mod korean_guard;
-mod lease;
 mod ledger;
 mod model;
 mod monitor;
 mod observability;
 mod ontology;
 mod patch;
-mod paths;
 mod plugin;
 mod policy;
 mod resource;
@@ -43,8 +39,6 @@ mod transcript;
 mod transition;
 mod tui;
 mod uninstall;
-#[cfg(windows)]
-mod windows_file;
 
 use std::process::ExitCode;
 

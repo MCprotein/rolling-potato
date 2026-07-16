@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
-use crate::{ledger, paths, state};
+use crate::{adapters::filesystem::layout as paths, ledger, state};
 
 const SCHEMA_VERSION: u32 = 1;
 const MAX_SEEDED_FILES: usize = 256;

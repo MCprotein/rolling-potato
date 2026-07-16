@@ -4,9 +4,9 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use crate::adapters::filesystem::layout as paths;
 use crate::foundation::error::AppError;
 use crate::ontology;
-use crate::paths;
 use crate::policy::{self, Decision, PathMode};
 
 const MAX_CONTEXT_FILES: usize = 4;

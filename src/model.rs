@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::foundation::serialization as strict_json;
-use crate::{ledger, observability, paths, state};
+use crate::{adapters::filesystem::layout as paths, ledger, observability, state};
 
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 const BYTES_PER_GIB: u64 = 1024 * 1024 * 1024;

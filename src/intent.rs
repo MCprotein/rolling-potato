@@ -1,3 +1,4 @@
+use crate::adapters::filesystem::layout as paths;
 use crate::backend;
 use crate::context::{self, ContextPack, ResumeContext};
 use crate::foundation::error::AppError;
@@ -818,7 +819,7 @@ fn available_context_labels(
         &request_lower,
         &["error[", "error:", "panicked at", "traceback", "exception:"],
     ) || has_any(request, &["에러 로그:", "오류 출력:", "예외:"]);
-    let project_root = crate::paths::project_root();
+    let project_root = paths::project_root();
     let has_package_manifest = ["Cargo.toml", "package.json", "pyproject.toml", "go.mod"]
         .iter()
         .any(|name| project_root.join(name).is_file());

@@ -1,7 +1,7 @@
 use std::path::{Component, Path, PathBuf};
 
 use crate::foundation::error::AppError;
-use crate::{ledger, paths, state};
+use crate::{adapters::filesystem::layout as paths, ledger, state};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Decision {

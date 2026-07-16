@@ -1,13 +1,14 @@
+use crate::adapters::filesystem::cache;
+use crate::adapters::filesystem::layout as paths;
 use crate::backend;
 use crate::benchmark;
-use crate::cache;
 use crate::cli::{
     BackendCommand, BenchmarkCommand, Command, EvidenceCommand, HooksCommand, IntentCommand,
     ModelCommand, MonitorCommand, OntologyCommand, PatchCommand, PluginCommand, PolicyCommand,
     PolicyPathMode, SessionCommand, SkillCommand, StateCommand, SubagentCommand, TeamCommand,
     TuiCommand, UninstallCommand,
 };
-use crate::config;
+use crate::composition::config;
 use crate::evidence;
 use crate::foundation::error::AppError;
 use crate::hooks;
@@ -197,16 +198,13 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             Ok(())
         }
         Command::Tui(TuiCommand::Auto) => {
-            if cfg!(unix)
-                && crate::terminal::attached()
-                && !crate::paths::current_state_file().is_file()
-            {
+            if cfg!(unix) && crate::terminal::attached() && !paths::current_state_file().is_file() {
                 state::initialize()?;
             }
             tui::run_auto()
         }
         Command::Tui(TuiCommand::Interactive) => {
-            if cfg!(unix) && !crate::paths::current_state_file().is_file() {
+            if cfg!(unix) && !paths::current_state_file().is_file() {
                 state::initialize()?;
             }
             tui::run_interactive()

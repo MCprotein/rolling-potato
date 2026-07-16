@@ -1,5 +1,8 @@
 use crate::foundation::error::AppError;
-use crate::{approval, ledger, observability, paths, policy, resource, state, team_state};
+use crate::{
+    adapters::filesystem::layout as paths, approval, ledger, observability, policy, resource,
+    state, team_state,
+};
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 

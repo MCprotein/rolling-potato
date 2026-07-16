@@ -2,9 +2,9 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 
+use crate::adapters::filesystem::layout as paths;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
-use crate::paths;
 use crate::{ledger, state};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
