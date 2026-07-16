@@ -1399,15 +1399,14 @@ fn validate_record(record: &SubagentRecordV1, installed: bool) -> Result<(), App
         }
         _ => unreachable!(),
     }
-    if installed {
-        if record.revision == 0
+    if installed
+        && (record.revision == 0
             || record.revision > MAX_RECORD_REVISIONS
             || (record.previous_hash != "none" && !is_sha256(&record.previous_hash))
             || !is_sha256(&record.artifact_hash)
-            || state::sha256_text(&render_payload(record)) != record.artifact_hash
-        {
-            return Err(AppError::blocked("subagent canonical hash binding 오류"));
-        }
+            || state::sha256_text(&render_payload(record)) != record.artifact_hash)
+    {
+        return Err(AppError::blocked("subagent canonical hash binding 오류"));
     }
     Ok(())
 }
