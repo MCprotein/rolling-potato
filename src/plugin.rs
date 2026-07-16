@@ -8,9 +8,10 @@ use std::path::{Component, Path, PathBuf};
 use sha2::{Digest, Sha256};
 
 const ENTRY_LIMIT: usize = 10_000;
+const IMPORTED_SKILL_MAX_BYTES: u64 = 64 * 1024;
 const PLUGIN_MANIFEST_SCHEMA_VERSION: usize = 2;
-const PLUGIN_ADAPTER_VERSION: &str = "rpotato-plugin-adapter-v0.27.0";
-const PLUGIN_PERMISSION_POLICY: &str = "default-deny-external-capabilities-v1";
+const PLUGIN_ADAPTER_VERSION: &str = "rpotato-plugin-adapter-v0.37.0";
+const PLUGIN_PERMISSION_POLICY: &str = "default-deny-external-capabilities-v2";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PluginSnapshot {
@@ -50,6 +51,194 @@ struct PluginCapability {
     path: String,
     status: String,
     required_permission: String,
+}
+
+pub fn resolve_imported_codex_skill(
+    id: &str,
+) -> Result<Option<crate::skill::ImportedSkillManifest>, AppError> {
+    let Some(tail) = id.strip_prefix("imported.codex.") else {
+        return Ok(None);
+    };
+    let Some((plugin_name, skill_name)) = tail.split_once('.') else {
+        return Ok(None);
+    };
+    validate_component_name(plugin_name, "plugin")?;
+    validate_component_name(skill_name, "skill")?;
+    let plugin_id = format!("imported.codex.{plugin_name}");
+    let mut plugin = read_plugin(&plugin_id)?;
+    if plugin.source != PluginSource::Codex {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- skill: {id}\n- 이유: Codex plugin capability가 아닙니다."
+        )));
+    }
+    if plugin.status != "enabled" {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- plugin: {}\n- skill: {}\n- status: {}\n- 다음: plugin validate와 plugin enable을 먼저 실행하세요.",
+            plugin.id, id, plugin.status
+        )));
+    }
+    if plugin.adapter_version != PLUGIN_ADAPTER_VERSION
+        || plugin.permission_policy != PLUGIN_PERMISSION_POLICY
+    {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- plugin: {}\n- 이유: adapter 또는 permission policy가 현재 실행 계약과 다릅니다.\n- stored adapter: {}\n- current adapter: {}\n- 다음: 신뢰하는 local directory에서 plugin을 다시 import하세요.",
+            plugin.id, plugin.adapter_version, PLUGIN_ADAPTER_VERSION
+        )));
+    }
+    verify_imported_snapshot(&mut plugin)?;
+
+    let relative_path = format!("skills/{skill_name}/SKILL.md");
+    let capability = plugin
+        .capabilities
+        .iter()
+        .find(|capability| {
+            capability.kind == "skill"
+                && capability.path == relative_path
+                && capability.status == "mapped"
+                && capability.required_permission == "none"
+        })
+        .ok_or_else(|| {
+            AppError::blocked(format!(
+                "plugin skill 실행 차단\n- plugin: {}\n- skill: {}\n- 이유: canonical instruction-only SKILL.md capability가 아닙니다.\n- expected path: {}",
+                plugin.id, id, relative_path
+            ))
+        })?;
+    let skill_dir = plugin_dir(&plugin.id)
+        .join("source")
+        .join("skills")
+        .join(skill_name);
+    if plugin.capabilities.iter().any(|candidate| {
+        candidate.required_permission != "none"
+            && Path::new(&candidate.path).starts_with(Path::new(&format!("skills/{skill_name}")))
+    }) {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- plugin: {}\n- skill: {}\n- 이유: skill directory에 별도 승인이 필요한 실행 capability가 포함되어 있습니다.",
+            plugin.id, id
+        )));
+    }
+    let path = skill_dir.join("SKILL.md");
+    let metadata = fs::metadata(&path).map_err(|err| {
+        AppError::usage(format!(
+            "plugin SKILL.md metadata를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    if !metadata.is_file() || metadata.len() > IMPORTED_SKILL_MAX_BYTES {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- skill: {}\n- path: {}\n- 이유: SKILL.md는 {} bytes 이하 regular file이어야 합니다.",
+            id,
+            path.display(),
+            IMPORTED_SKILL_MAX_BYTES
+        )));
+    }
+    let text = fs::read_to_string(&path).map_err(|err| {
+        AppError::usage(format!(
+            "plugin SKILL.md를 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    let parsed = parse_codex_skill(&text, &path)?;
+    if parsed.name != skill_name {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- skill: {}\n- path: {}\n- 이유: frontmatter name({})과 directory name({})이 다릅니다.",
+            id,
+            path.display(),
+            parsed.name,
+            skill_name
+        )));
+    }
+    let source_sha256 = checksum::sha256_file(&path)?;
+    Ok(Some(crate::skill::ImportedSkillManifest {
+        id: id.to_string(),
+        display_name: parsed.name,
+        description: parsed.description,
+        instructions: parsed.instructions,
+        plugin_id: plugin.id,
+        source_path: capability.path.clone(),
+        source_sha256,
+    }))
+}
+
+struct ParsedCodexSkill {
+    name: String,
+    description: String,
+    instructions: String,
+}
+
+fn parse_codex_skill(text: &str, path: &Path) -> Result<ParsedCodexSkill, AppError> {
+    let normalized = text.replace("\r\n", "\n");
+    let Some(rest) = normalized.strip_prefix("---\n") else {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- path: {}\n- 이유: SKILL.md YAML frontmatter가 없습니다.",
+            path.display()
+        )));
+    };
+    let Some((frontmatter, instructions)) = rest.split_once("\n---\n") else {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- path: {}\n- 이유: SKILL.md YAML frontmatter 종료 marker가 없습니다.",
+            path.display()
+        )));
+    };
+    let field = |name: &str| {
+        frontmatter
+            .lines()
+            .find_map(|line| line.split_once(':').filter(|(key, _)| key.trim() == name))
+            .map(|(_, value)| unquote_yaml_scalar(value.trim()))
+            .filter(|value| !value.is_empty())
+    };
+    let name = field("name").ok_or_else(|| {
+        AppError::blocked(format!(
+            "plugin skill 실행 차단\n- path: {}\n- 이유: frontmatter name이 없습니다.",
+            path.display()
+        ))
+    })?;
+    validate_component_name(&name, "skill")?;
+    let description = field("description").ok_or_else(|| {
+        AppError::blocked(format!(
+            "plugin skill 실행 차단\n- path: {}\n- 이유: frontmatter description이 없습니다.",
+            path.display()
+        ))
+    })?;
+    let instructions = instructions.trim().to_string();
+    if instructions.is_empty() {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- path: {}\n- 이유: instruction body가 비어 있습니다.",
+            path.display()
+        )));
+    }
+    Ok(ParsedCodexSkill {
+        name,
+        description,
+        instructions,
+    })
+}
+
+fn unquote_yaml_scalar(value: &str) -> String {
+    if value.len() >= 2
+        && ((value.starts_with('"') && value.ends_with('"'))
+            || (value.starts_with('\'') && value.ends_with('\'')))
+    {
+        value[1..value.len() - 1].to_string()
+    } else {
+        value.to_string()
+    }
+}
+
+fn validate_component_name(value: &str, kind: &str) -> Result<(), AppError> {
+    let valid = !value.is_empty()
+        && value.len() <= 80
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+        && !value.starts_with('-')
+        && !value.ends_with('-');
+    if valid {
+        Ok(())
+    } else {
+        Err(AppError::blocked(format!(
+            "plugin {kind} name 형식이 올바르지 않습니다: {value}"
+        )))
+    }
 }
 
 pub fn list_report() -> String {
@@ -1121,11 +1310,20 @@ fn classify_runtime_file(source: PluginSource, relative_path: &str, scan: &mut D
     if lower.starts_with("apps/") || lower.starts_with("app-integrations/") {
         push_permission_and_capability(scan, "app-integration", relative_path, "remote-connector");
     }
+    if lower == ".mcp.json" {
+        push_permission_and_capability(scan, "mcp-server", relative_path, "mcp-server");
+    }
+    if lower == ".app.json" {
+        push_permission_and_capability(scan, "app-integration", relative_path, "remote-connector");
+    }
 
     match source {
         PluginSource::Codex => {
             if lower.starts_with("skills/") && lower.ends_with("skill.md") {
                 push_capability(&mut scan.capabilities, "skill", relative_path, "none");
+            }
+            if lower.starts_with("skills/") && lower.contains("/scripts/") {
+                push_permission_and_capability(scan, "skill-script", relative_path, "skill-script");
             }
         }
         PluginSource::ClaudeCode => {
@@ -1519,6 +1717,98 @@ mod tests {
     }
 
     #[test]
+    fn enabled_instruction_only_codex_skill_resolves() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let (root, data_root) = prepare_codex_skill_plugin(
+            "safe-skill",
+            "safe-plugin",
+            "hello",
+            "---\nname: hello\ndescription: 답변 형식을 안내한다.\n---\n요청을 한국어로 요약하세요.\n",
+            None,
+        );
+
+        import_report(PluginSource::Codex, root.to_str().unwrap(), false).unwrap();
+        validate_report("imported.codex.safe-plugin").unwrap();
+        set_enabled_report("imported.codex.safe-plugin", true).unwrap();
+
+        let skill = resolve_imported_codex_skill("imported.codex.safe-plugin.hello")
+            .unwrap()
+            .unwrap();
+        assert_eq!(skill.plugin_id, "imported.codex.safe-plugin");
+        assert_eq!(skill.source_path, "skills/hello/SKILL.md");
+        assert_eq!(skill.instructions, "요청을 한국어로 요약하세요.");
+        assert_eq!(skill.source_sha256.len(), 64);
+
+        cleanup_codex_skill_test(root, data_root);
+    }
+
+    #[test]
+    fn disabled_codex_skill_cannot_resolve() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let (root, data_root) = prepare_codex_skill_plugin(
+            "disabled-skill",
+            "disabled-plugin",
+            "hello",
+            "---\nname: hello\ndescription: 안내\n---\n요청을 요약하세요.\n",
+            None,
+        );
+
+        import_report(PluginSource::Codex, root.to_str().unwrap(), false).unwrap();
+        validate_report("imported.codex.disabled-plugin").unwrap();
+
+        let error =
+            resolve_imported_codex_skill("imported.codex.disabled-plugin.hello").unwrap_err();
+        assert_eq!(error.code, 3);
+        assert!(error.message.contains("status: validated"));
+
+        cleanup_codex_skill_test(root, data_root);
+    }
+
+    #[test]
+    fn codex_skill_without_frontmatter_is_blocked() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let (root, data_root) = prepare_codex_skill_plugin(
+            "missing-frontmatter",
+            "frontmatter-plugin",
+            "hello",
+            "# Hello\n요청을 요약하세요.\n",
+            None,
+        );
+
+        import_report(PluginSource::Codex, root.to_str().unwrap(), false).unwrap();
+        set_enabled_report("imported.codex.frontmatter-plugin", true).unwrap();
+
+        let error =
+            resolve_imported_codex_skill("imported.codex.frontmatter-plugin.hello").unwrap_err();
+        assert_eq!(error.code, 3);
+        assert!(error.message.contains("YAML frontmatter가 없습니다"));
+
+        cleanup_codex_skill_test(root, data_root);
+    }
+
+    #[test]
+    fn codex_skill_with_script_is_blocked_by_default() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let (root, data_root) = prepare_codex_skill_plugin(
+            "script-skill",
+            "script-plugin",
+            "hello",
+            "---\nname: hello\ndescription: 안내\n---\n요청을 요약하세요.\n",
+            Some(("run.py", "print('unsafe')\n")),
+        );
+
+        let report = import_report(PluginSource::Codex, root.to_str().unwrap(), false).unwrap();
+        assert!(report.contains("skill-script"));
+        set_enabled_report("imported.codex.script-plugin", true).unwrap();
+
+        let error = resolve_imported_codex_skill("imported.codex.script-plugin.hello").unwrap_err();
+        assert_eq!(error.code, 3);
+        assert!(error.message.contains("별도 승인이 필요한 실행 capability"));
+
+        cleanup_codex_skill_test(root, data_root);
+    }
+
+    #[test]
     fn claude_code_import_reports_adapter_surfaces() {
         let root = test_plugin_root("claude-capabilities");
         let manifest_dir = root.join(".claude-plugin");
@@ -1594,5 +1884,42 @@ mod tests {
             std::process::id(),
             label
         ))
+    }
+
+    fn prepare_codex_skill_plugin(
+        label: &str,
+        plugin_name: &str,
+        skill_name: &str,
+        skill_text: &str,
+        script: Option<(&str, &str)>,
+    ) -> (PathBuf, PathBuf) {
+        let data_root = test_plugin_root(&format!("{label}-data"));
+        let project_root = test_plugin_root(&format!("{label}-project"));
+        std::env::set_var("RPOTATO_DATA_HOME", &data_root);
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        let root = test_plugin_root(label);
+        let manifest_dir = root.join(".codex-plugin");
+        let skill_dir = root.join("skills").join(skill_name);
+        fs::create_dir_all(&manifest_dir).unwrap();
+        fs::create_dir_all(&skill_dir).unwrap();
+        fs::write(
+            manifest_dir.join("plugin.json"),
+            format!(r#"{{"name":"{plugin_name}","version":"1.0.0","description":"test"}}"#),
+        )
+        .unwrap();
+        fs::write(skill_dir.join("SKILL.md"), skill_text).unwrap();
+        if let Some((name, text)) = script {
+            let scripts = skill_dir.join("scripts");
+            fs::create_dir_all(&scripts).unwrap();
+            fs::write(scripts.join(name), text).unwrap();
+        }
+        (root, data_root)
+    }
+
+    fn cleanup_codex_skill_test(root: PathBuf, data_root: PathBuf) {
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(data_root).unwrap();
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
     }
 }

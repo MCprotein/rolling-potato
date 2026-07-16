@@ -389,34 +389,40 @@ fn native_lifecycle_rules(input: HookInput<'_>, tool: Option<&str>) -> Vec<HookR
         "registered native lifecycle point",
     )];
     if let Some(skill_id) = input.active_skill_id {
-        let skill_rule = match crate::skill::find_skill(skill_id) {
-            Some(skill) => match tool {
-                Some(tool) => match crate::skill::enforce_tool(skill, tool) {
+        let skill_rule = match crate::skill::resolve_skill(skill_id) {
+            Ok(Some(skill)) => match tool {
+                Some(tool) => match crate::skill::enforce_resolved_tool(&skill, tool) {
                     Ok(()) => HookRule::decision(
-                        format!("skill.{}", skill.id),
+                        format!("skill.{}", skill.id()),
                         HookLayer::Skill,
                         HookStatus::Allow,
                         format!("tool allowed: {tool}"),
                     ),
                     Err(error) => HookRule::decision(
-                        format!("skill.{}", skill.id),
+                        format!("skill.{}", skill.id()),
                         HookLayer::Skill,
                         HookStatus::Deny,
                         error.message,
                     ),
                 },
                 None => HookRule::decision(
-                    format!("skill.{}", skill.id),
+                    format!("skill.{}", skill.id()),
                     HookLayer::Skill,
                     HookStatus::Allow,
                     "required lifecycle hook",
                 ),
             },
-            None => HookRule::decision(
+            Ok(None) => HookRule::decision(
                 format!("skill.{skill_id}"),
                 HookLayer::Skill,
                 HookStatus::Deny,
-                "built-in skill manifest not found",
+                "skill manifest not found",
+            ),
+            Err(error) => HookRule::decision(
+                format!("skill.{skill_id}"),
+                HookLayer::Skill,
+                HookStatus::Deny,
+                error.message,
             ),
         };
         rules.push(skill_rule);
