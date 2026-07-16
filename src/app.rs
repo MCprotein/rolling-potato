@@ -4,8 +4,8 @@ use crate::cache;
 use crate::cli::{
     BackendCommand, BenchmarkCommand, Command, EvidenceCommand, HooksCommand, IntentCommand,
     ModelCommand, MonitorCommand, OntologyCommand, PatchCommand, PluginCommand, PolicyCommand,
-    PolicyPathMode, SessionCommand, SkillCommand, StateCommand, TeamCommand, TuiCommand,
-    UninstallCommand,
+    PolicyPathMode, SessionCommand, SkillCommand, StateCommand, SubagentCommand, TeamCommand,
+    TuiCommand, UninstallCommand,
 };
 use crate::config;
 use crate::evidence;
@@ -20,6 +20,7 @@ use crate::policy;
 use crate::runtime;
 use crate::skill;
 use crate::state;
+use crate::subagent;
 use crate::team;
 use crate::tui;
 use crate::uninstall;
@@ -171,6 +172,37 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
                 "{}",
                 team::governor_report(lanes, context_tokens, context_limit, model_tier)?
             );
+            Ok(())
+        }
+        Command::Subagent(SubagentCommand::Launch {
+            role,
+            task,
+            tools,
+            read_paths,
+            write_paths,
+            timeout_ms,
+            max_tokens,
+        }) => {
+            println!(
+                "{}",
+                subagent::launch_report(
+                    &role,
+                    &task,
+                    &tools,
+                    &read_paths,
+                    &write_paths,
+                    timeout_ms,
+                    max_tokens,
+                )?
+            );
+            Ok(())
+        }
+        Command::Subagent(SubagentCommand::Status { id }) => {
+            println!("{}", subagent::status_report(id.as_deref())?);
+            Ok(())
+        }
+        Command::Subagent(SubagentCommand::Cancel { id }) => {
+            println!("{}", subagent::cancel_report(&id)?);
             Ok(())
         }
         Command::Tui(TuiCommand::Auto) => {
