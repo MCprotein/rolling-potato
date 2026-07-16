@@ -1,5 +1,52 @@
 # 릴리즈 노트
 
+## v0.35.0 - Bounded Subagent 실행
+
+릴리즈 날짜: 2026-07-16
+
+이 릴리즈는 활성 parent workflow 아래에 runtime이 소유하는 bounded child worker 하나를
+추가합니다. Runtime은 backend dispatch 전에 child의 context, tool, path, resource, result,
+lifecycle 경계를 고정하고 검증한 evidence만 parent에 merge합니다.
+
+### 포함한 것
+
+- Strict role/tool policy, 정규화한 project-relative read/write ownership, 정확한 task/result
+  상한, bounded timeout/token budget, parent당 non-terminal child 하나를 적용하는
+  `rpotato subagent launch`, `status`, `cancel`을 추가합니다.
+- Dispatch와 completion 직전에 선언한 source pointer를 다시 검증하고 기존 resource governor와
+  bounded backend cancellation 경로로 generation을 실행합니다. Child에는 command 실행이나
+  patch 직접 적용 권한을 주지 않습니다.
+- Canonical `SubagentResultV1` 하나만 strict parse하고, executor가 source hash와 ownership이
+  일치하는 non-executing patch proposal을 반환할 때만 허용합니다. Credential 형태의 model
+  text는 result/evidence artifact 설치 전에 차단합니다.
+- Requested/admitted/running/terminal의 4개 revision lifecycle을 저장하고 timeout, cancel,
+  resource denial, stale context/parent, interrupted-no-replay outcome을 기록합니다. 전송한 model
+  request는 재시도하지 않습니다.
+- Parent merge 전에 result/evidence artifact를 다시 검증합니다. Parent checkpoint 뒤 merge
+  event 전에 restart되면 두 번째 parent checkpoint 없이 누락된 event를 복구합니다. 같은
+  retry는 no-op이고 서로 다른 두 번째 result는 fail-closed합니다.
+- Boundary 최대값, stale/tampered state, cancellation race, restart recovery, result/evidence
+  merge, raw task 비영속성, secret-safe diagnostic을 포함한 S01-S18 unit/실제 CLI process
+  test를 추가합니다.
+
+### 구현 중 검증
+
+- v0.35 구현 계약을 범위로 제한한 독립 리뷰 한 번
+- Targeted subagent unit/실제 CLI lifecycle test
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1`
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- Release policy, toolchain pin, target matrix, packaged-binary, uninstall smoke check
+
+### 경계
+
+- 실행은 sequential이며 parent당 non-terminal child 하나로 제한합니다.
+- Nested subagent, team lane 실행, command tool, child의 직접 write, patch apply, parallel model
+  loading은 범위 밖입니다.
+- 이 릴리즈는 managed `llama.cpp b9982` backend와 기존 5개 platform, exact 11-asset release
+  set을 유지합니다. Model weight와 외부 plugin package는 번들하지 않습니다.
+
 ## v0.34.3 - Native Release Gate Recovery
 
 릴리즈 날짜: 2026-07-16

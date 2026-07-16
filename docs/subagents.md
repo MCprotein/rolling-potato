@@ -288,14 +288,20 @@ ensures that completion and cancellation cannot both win.
 Missing, duplicate, unknown, oversized, invalid UTF-8, or identity-mismatched
 fields fail closed. An executor proposal outside declared write ownership or
 against a changed source hash is blocked. Non-executor roles cannot return a
-patch proposal.
+patch proposal. Credential-shaped text in summaries, findings, validation gaps,
+next actions, or patch text is rejected before result or evidence artifacts are
+installed.
 
 Only a validated `completed` result may merge into the parent. Merge requires
 the exact launch-bound parent artifact hash, appends the child evidence id to
 the parent's skill evidence, checkpoints the parent once, and records one
-idempotent merge event keyed by subagent id and result hash. A stale parent,
-tampered child artifact, missing evidence, or a second different result never
-mutates the parent.
+idempotent merge event keyed by subagent id and result hash. If the process
+stops after the parent checkpoint but before the merge event, the next child
+admission revalidates the installed result/evidence artifacts, recognizes the
+already-installed evidence id, and records the missing event without a second
+parent checkpoint. A stale parent without that evidence, tampered child
+artifact, missing evidence, or a second different result never mutates the
+parent.
 
 Ledger event names are fixed:
 

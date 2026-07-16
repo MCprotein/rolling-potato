@@ -95,6 +95,9 @@ rpotato continue <session-id>
 rpotato evidence validate logs/test.log
 rpotato skill list
 rpotato skill run fix-test "tests/api.rs의 실패를 고쳐줘"
+rpotato subagent launch --role explore --task "module 구조를 확인해줘" --tool read_file --read src/lib.rs
+rpotato subagent status
+rpotato subagent cancel <subagent-id>
 rpotato plugin import --from claude-code ./my-plugin
 rpotato plugin inspect imported.example-plugin
 rpotato team status
@@ -226,6 +229,9 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato evidence validate <artifact-pointer>`
 - `rpotato skill list`
 - `rpotato skill run <id> "<request>"`
+- `rpotato subagent launch --role <role> --task <text> --tool <tool> --read <path>`
+- `rpotato subagent status [subagent-id]`
+- `rpotato subagent cancel <subagent-id>`
 - `rpotato policy schema`
 - `rpotato policy check-command <command>`
 - `rpotato policy check-path --read <path>`
@@ -301,6 +307,8 @@ MVP의 기본 결정은 다음과 같습니다.
 `run`은 user request를 skill/mode/context/evidence 요구사항으로 정규화하고 최근 durable turn을 최대 8개·2,400자 안에서 재구성합니다. 현재 요청과 resume context 전체에 source pointer 최대 4개·3,200자의 단일 공유 budget을 적용한 뒤에만 workflow를 만들고 backend sidecar를 호출합니다. Canonical transcript artifact에는 user turn, visible 또는 normalized model result, normalized tool record, evidence record를 저장합니다. Source 원문과 patch fragment는 pointer와 SHA-256만 남기고 hidden reasoning/raw backend response는 제외합니다. SQLite `transcript_records`는 순서를 보존하는 재생성 가능한 projection이며 resume 권위가 아닙니다. 유효한 patch action은 restart-safe workflow와 proposal을 저장하고 정확한 `patch approve` gate에서 멈춥니다.
 
 `intent classify`와 `intent routes`는 실행 전 surface로 유지됩니다. `skill run <id> "<request>"`는 built-in skill을 명시적으로 선택하고 `run`과 같은 영속 agent loop에 진입해 context 검사, lifecycle hook, runtime policy, evidence 수집, stop criteria를 적용합니다.
+
+`subagent launch`는 active parent workflow 아래에서 sequential bounded child 하나를 실행합니다. Runtime은 backend dispatch 전에 role, 선언한 tool, project-relative read path, optional executor write ownership, timeout, token budget, resource admission, source-pointer context를 고정합니다. Child는 strict structured result 하나만 반환하며 command 실행, file write, patch apply, nested worker 시작, parent approval 우회를 할 수 없습니다. `subagent status`는 read-only이고, `subagent cancel`은 completion과 경쟁해 terminal state 하나만 얻습니다. Credential 형태의 output은 persistence 전에 차단하며 검증된 evidence merge는 restart 뒤에도 idempotent하게 복구됩니다.
 
 `tui`는 stdin/stdout이 terminal에 연결되면 v0.34.0 interactive line controller를 자동 선택하고, terminal이 아니면 read-only overview를 유지합니다. `tui interactive`는 controller를 명시적으로 시작합니다. Canonical view 이동, paging과 selection, patch/verification 승인, pending gate 거부, workflow resume, cancel을 지원합니다. 모든 mutation은 runtime-owned selection lease를 얻고 명시적 확인을 요구하며, credential은 terminal echo를 끈 상태로 한 번만 읽고 closed runtime outcome 중 하나를 반환합니다. 첫 patch approval 성공 때 verification credential을 terminal에 정확히 한 번 출력하고, 같은 committed intent의 반복은 refresh receipt만 반환합니다. TUI가 state나 SQLite를 직접 수정하지는 않습니다. Transcript와 tool view는 검증되고 크기가 제한된 artifact만 표시하며 hidden model response, source file body, patch fragment, verification command 원문, credential, terminal control byte는 제외합니다. 읽기 surface는 새 product mutation을 만들지 않지만 command startup은 runtime 권위 아래 이미 commit된 transition journal을 마저 수렴하거나 지연된 derived projection을 재구축할 수 있습니다. v0.34.0의 승인된 source installation 성공 경로는 Unix만 지원하고 다른 platform은 prepared journal이나 target을 바꾸기 전에 차단합니다. 마지막 pathname validation 뒤 unlink 전에 끼어드는 동시 외부 writer race는 v0.34.0 보장 밖의 unsupported 조건이며 atomic하다고 주장하지 않습니다.
 

@@ -1,5 +1,59 @@
 # Release Notes
 
+## v0.35.0 - Bounded Subagent Execution
+
+Release date: 2026-07-16
+
+This release adds one runtime-owned, bounded child worker under an active parent
+workflow. The runtime fixes the child's context, tool, path, resource, result,
+and lifecycle boundaries before backend dispatch, then merges only verified
+evidence back into the parent.
+
+### Included
+
+- Adds `rpotato subagent launch`, `status`, and `cancel` with strict role/tool
+  policy, normalized project-relative read and write ownership, exact task and
+  result limits, bounded timeout/token budgets, and one non-terminal child per
+  parent.
+- Revalidates declared source pointers immediately before dispatch and
+  completion, routes generation through the existing resource governor and
+  bounded backend cancellation path, and never gives a child command execution
+  or direct patch-application authority.
+- Strictly parses one canonical `SubagentResultV1`, accepts a non-executing patch
+  proposal only from an executor with matching source hash and ownership, and
+  rejects credential-shaped model text before installing result or evidence
+  artifacts.
+- Persists a four-revision requested/admitted/running/terminal child lifecycle,
+  records timeout, cancellation, resource denial, stale context/parent, and
+  interrupted-no-replay outcomes, and never retries a sent model request.
+- Revalidates result and evidence artifacts before parent merge. A restart after
+  the parent checkpoint but before the merge event repairs the missing event
+  without a second parent checkpoint; identical retries are no-ops and a
+  different second result fails closed.
+- Adds unit and real CLI process tests for the S01-S18 contract, including
+  boundary maxima, stale/tampered state, cancellation races, restart recovery,
+  result/evidence merge, raw-task non-persistence, and secret-safe diagnostics.
+
+### Verified During Implementation
+
+- One bounded independent review of the v0.35 implementation contract
+- Targeted subagent unit and real CLI lifecycle tests
+- `cargo fmt --all -- --check`
+- `cargo test --locked -- --test-threads=1`
+- `cargo clippy --locked --all-targets -- -D warnings`
+- `cargo build --release --locked`
+- Release policy, toolchain pin, target matrix, packaged-binary, and uninstall
+  smoke checks
+
+### Boundary
+
+- Execution is sequential and limited to one non-terminal child per parent.
+- Nested subagents, team lane execution, command tools, direct child writes,
+  patch application, and parallel model loading remain out of scope.
+- The release continues to use the managed `llama.cpp b9982` backend and the
+  existing five-platform, exact 11-asset release set; model weights and external
+  plugin packages are not bundled.
+
 ## v0.34.3 - Native Release Gate Recovery
 
 Release date: 2026-07-16

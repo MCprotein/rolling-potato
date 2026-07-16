@@ -66,7 +66,7 @@ evidence.
 | v0.34.1 | Superseded | Recovered portable Windows file identity and Linux ARM64 source handling, but only partially published binaries |
 | v0.34.2 | Superseded | Recovered Windows ConPTY lifecycle, long-path atomic replacement, and bounded native fixtures, but only partially published binaries |
 | v0.34.3 | Released | Recovered the native release gate with bounded platform sampling, status-line health probes, the Rust fake sidecar, and graceful TCP half-close, then published the verified exact 11-asset set |
-| v0.35.0 | Planned | Subagent execution: launch bounded workers with scoped context, declared tools, write ownership, resource limits, structured results, failure handling, and parent-workflow evidence merge |
+| v0.35.0 | Released | Bounded subagent execution: scoped context, declared tools, write ownership, resource limits, strict structured results, terminal failure handling, restart-safe parent evidence merge, and secret-safe output persistence |
 | v0.36.0 | Planned | Team execution: dispatch admitted lanes, advance team stages, enforce ownership at action time, reconcile results, handle failed lanes, and apply verification/stop gates before completion |
 | v0.37.0 | Planned | Codex plugin execution adapter: execute supported locally imported capabilities through native policy/hook/skill boundaries while shell, MCP, background, remote, and write capabilities remain blocked until explicit approval |
 | v0.38.0 | Planned | Claude Code plugin execution adapter: map supported local capabilities onto the established native adapter contract, report unsupported semantics, and preserve the same default-deny permission boundary |
