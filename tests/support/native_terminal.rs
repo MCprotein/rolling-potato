@@ -1094,14 +1094,9 @@ mod windows {
         }
 
         pub fn send_eof(&mut self) {
-            let mut session = self.session.borrow_mut();
-            assert!(
-                !session.input.is_null(),
-                "ConPTY EOF must be sent exactly once"
-            );
-            // SAFETY: the reused session owns the drive handle; closing it delivers EOF.
-            unsafe { CloseHandle(session.input) };
-            session.input = std::ptr::null_mut();
+            // Windows console line input represents EOF as Ctrl+Z followed by Enter.
+            // Closing the host pipe would tear down the entire reused ConPTY session.
+            self.send("\u{001a}\n");
         }
 
         pub fn wait_for(&mut self, needle: &str) -> String {
