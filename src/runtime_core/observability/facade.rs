@@ -8,14 +8,18 @@ use crate::runtime_core::workflow::storage_compat::ledger::{
     LedgerEvent, ParsedLedgerEvent, RuntimeIdentity,
 };
 
+pub(crate) trait CanonicalLedgerReadPort {
+    fn read_events(&self) -> Result<Vec<ParsedLedgerEvent>, AppError>;
+}
+
 pub(crate) trait ObservabilityProjectionPort {
     fn initialize(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
     ) -> Result<StoreStatus, AppError>;
 
-    fn status(&self, events: &[ParsedLedgerEvent]) -> Result<StoreStatus, AppError>;
+    fn status(&self, ledger: &dyn CanonicalLedgerReadPort) -> Result<StoreStatus, AppError>;
 
     fn status_read_only(&self) -> Result<StoreStatus, AppError>;
 
@@ -27,7 +31,7 @@ pub(crate) trait ObservabilityProjectionPort {
     fn project_event(
         &self,
         event: &LedgerEvent,
-        canonical_events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
     ) -> Result<(), AppError>;
 
     fn project_event_with_ordinal(&self, event: &LedgerEvent, ordinal: u64)
@@ -39,38 +43,38 @@ pub(crate) trait ObservabilityProjectionPort {
 
     fn performance_baseline(
         &self,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
     ) -> Result<PerformanceBaseline, AppError>;
 
     fn optimization_policy(
         &self,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
     ) -> Result<OptimizationPolicy, AppError>;
 
     fn export_jsonl(&self) -> Result<String, AppError>;
 
-    fn export_csv(&self, events: &[ParsedLedgerEvent]) -> Result<String, AppError>;
+    fn export_csv(&self, ledger: &dyn CanonicalLedgerReadPort) -> Result<String, AppError>;
 
     fn prune_preview(&self, before_days: u64) -> Result<PrunePreview, AppError>;
 
     fn session_history(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
         limit: usize,
     ) -> Result<Vec<SessionHistoryEntry>, AppError>;
 
     fn session_entry(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
         session_id: &str,
     ) -> Result<Option<SessionHistoryEntry>, AppError>;
 
     fn session_events(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
         session_id: &str,
         limit: usize,
     ) -> Result<Vec<SessionEventEntry>, AppError>;
@@ -78,27 +82,27 @@ pub(crate) trait ObservabilityProjectionPort {
     fn record_model_run(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
         metric: &ModelRunMetric,
     ) -> Result<(), AppError>;
 
     fn record_resource_sample(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
         metric: &ResourceSampleMetric,
     ) -> Result<(), AppError>;
 
     fn record_benchmark_run(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
         metric: &BenchmarkRunMetric,
     ) -> Result<(), AppError>;
 
     fn benchmark_run_reports(
         &self,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
     ) -> Result<Vec<BenchmarkRunReport>, AppError>;
 
     fn latest_resource_sample(&self) -> Result<Option<ResourceSampleMetric>, AppError>;

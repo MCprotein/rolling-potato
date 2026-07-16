@@ -824,6 +824,10 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         facade.contains("trait ObservabilityProjectionPort"),
         "observability facade does not own the projection port"
     );
+    assert!(
+        facade.contains("trait CanonicalLedgerReadPort"),
+        "observability facade does not own the canonical ledger read port"
+    );
     for record in [
         "struct StoreStatus",
         "struct MonitorProjectionSnapshot",

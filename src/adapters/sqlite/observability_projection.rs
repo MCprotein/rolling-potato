@@ -12,10 +12,10 @@ use crate::adapters::filesystem::layout as paths;
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::resource;
 use crate::runtime_core::observability::facade::{
-    BenchmarkEvidenceSummary, BenchmarkRunMetric, BenchmarkRunReport, ModelMetricSummary,
-    ModelRunMetric, MonitorProjectionSnapshot, ObservabilityProjectionPort, OptimizationPolicy,
-    PerformanceBaseline, PerformanceGroupSummary, PressureStateSummary, PrunePreview,
-    ResourceSampleMetric, SessionEventEntry, SessionHistoryEntry, StoreStatus,
+    BenchmarkEvidenceSummary, BenchmarkRunMetric, BenchmarkRunReport, CanonicalLedgerReadPort,
+    ModelMetricSummary, ModelRunMetric, MonitorProjectionSnapshot, ObservabilityProjectionPort,
+    OptimizationPolicy, PerformanceBaseline, PerformanceGroupSummary, PressureStateSummary,
+    PrunePreview, ResourceSampleMetric, SessionEventEntry, SessionHistoryEntry, StoreStatus,
 };
 use crate::runtime_core::workflow::storage_compat::ledger::{
     LedgerEvent, ParsedLedgerEvent, RuntimeIdentity,
@@ -32,13 +32,13 @@ impl ObservabilityProjectionPort for SqliteObservabilityProjection {
     fn initialize(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
     ) -> Result<StoreStatus, AppError> {
-        initialize(identity, events)
+        initialize(identity, ledger)
     }
 
-    fn status(&self, events: &[ParsedLedgerEvent]) -> Result<StoreStatus, AppError> {
-        status(events)
+    fn status(&self, ledger: &dyn CanonicalLedgerReadPort) -> Result<StoreStatus, AppError> {
+        status(ledger)
     }
 
     fn status_read_only(&self) -> Result<StoreStatus, AppError> {
@@ -55,9 +55,9 @@ impl ObservabilityProjectionPort for SqliteObservabilityProjection {
     fn project_event(
         &self,
         event: &LedgerEvent,
-        canonical_events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
     ) -> Result<(), AppError> {
-        project_event(event, canonical_events)
+        project_event(event, ledger)
     }
 
     fn project_event_with_ordinal(
@@ -78,24 +78,24 @@ impl ObservabilityProjectionPort for SqliteObservabilityProjection {
 
     fn performance_baseline(
         &self,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
     ) -> Result<PerformanceBaseline, AppError> {
-        performance_baseline(events)
+        performance_baseline(ledger)
     }
 
     fn optimization_policy(
         &self,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
     ) -> Result<OptimizationPolicy, AppError> {
-        optimization_policy(events)
+        optimization_policy(ledger)
     }
 
     fn export_jsonl(&self) -> Result<String, AppError> {
         export_jsonl()
     }
 
-    fn export_csv(&self, events: &[ParsedLedgerEvent]) -> Result<String, AppError> {
-        export_csv(events)
+    fn export_csv(&self, ledger: &dyn CanonicalLedgerReadPort) -> Result<String, AppError> {
+        export_csv(ledger)
     }
 
     fn prune_preview(&self, before_days: u64) -> Result<PrunePreview, AppError> {
@@ -105,63 +105,63 @@ impl ObservabilityProjectionPort for SqliteObservabilityProjection {
     fn session_history(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
         limit: usize,
     ) -> Result<Vec<SessionHistoryEntry>, AppError> {
-        session_history(identity, events, limit)
+        session_history(identity, ledger, limit)
     }
 
     fn session_entry(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
         session_id: &str,
     ) -> Result<Option<SessionHistoryEntry>, AppError> {
-        session_entry(identity, events, session_id)
+        session_entry(identity, ledger, session_id)
     }
 
     fn session_events(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
         session_id: &str,
         limit: usize,
     ) -> Result<Vec<SessionEventEntry>, AppError> {
-        session_events(identity, events, session_id, limit)
+        session_events(identity, ledger, session_id, limit)
     }
 
     fn record_model_run(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
         metric: &ModelRunMetric,
     ) -> Result<(), AppError> {
-        record_model_run(identity, events, metric)
+        record_model_run(identity, ledger, metric)
     }
 
     fn record_resource_sample(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
         metric: &ResourceSampleMetric,
     ) -> Result<(), AppError> {
-        record_resource_sample(identity, events, metric)
+        record_resource_sample(identity, ledger, metric)
     }
 
     fn record_benchmark_run(
         &self,
         identity: &RuntimeIdentity,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
         metric: &BenchmarkRunMetric,
     ) -> Result<(), AppError> {
-        record_benchmark_run(identity, events, metric)
+        record_benchmark_run(identity, ledger, metric)
     }
 
     fn benchmark_run_reports(
         &self,
-        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalLedgerReadPort,
     ) -> Result<Vec<BenchmarkRunReport>, AppError> {
-        benchmark_run_reports(events)
+        benchmark_run_reports(ledger)
     }
 
     fn latest_resource_sample(&self) -> Result<Option<ResourceSampleMetric>, AppError> {
@@ -199,18 +199,18 @@ struct StableProjectionFiles {
 
 pub fn initialize(
     identity: &RuntimeIdentity,
-    events: &[ParsedLedgerEvent],
+    ledger: &dyn CanonicalLedgerReadPort,
 ) -> Result<StoreStatus, AppError> {
     let (connection, recovered_from) = open_or_recover()?;
     record_session(&connection, identity)?;
-    replay_ledger_events(&connection, events)?;
+    replay_ledger_events(&connection, &ledger.read_events()?)?;
     project_sessions_from_events(&connection, identity)?;
     status_from_connection(&connection, recovered_from)
 }
 
-pub fn status(events: &[ParsedLedgerEvent]) -> Result<StoreStatus, AppError> {
+pub fn status(ledger: &dyn CanonicalLedgerReadPort) -> Result<StoreStatus, AppError> {
     let (connection, recovered_from) = open_or_recover()?;
-    replay_ledger_events(&connection, events)?;
+    replay_ledger_events(&connection, &ledger.read_events()?)?;
     status_from_connection(&connection, recovered_from)
 }
 
@@ -268,10 +268,10 @@ fn model_summaries_from_connection(
 
 pub fn project_event(
     event: &LedgerEvent,
-    canonical_events: &[ParsedLedgerEvent],
+    ledger: &dyn CanonicalLedgerReadPort,
 ) -> Result<(), AppError> {
     let (connection, _) = open_or_recover()?;
-    insert_ledger_event(&connection, event, None, canonical_events)
+    insert_ledger_event(&connection, event, None, Some(ledger))
 }
 
 pub(crate) fn project_event_with_ordinal(
@@ -281,7 +281,7 @@ pub(crate) fn project_event_with_ordinal(
     let ordinal = i64::try_from(ordinal)
         .map_err(|_| AppError::blocked("observability event ordinal 범위 초과"))?;
     let (connection, _) = open_or_recover()?;
-    insert_ledger_event(&connection, event, Some(ordinal), &[])
+    insert_ledger_event(&connection, event, Some(ordinal), None)
 }
 
 pub(crate) fn converge_from_events(events: &[ParsedLedgerEvent]) -> Result<(), AppError> {
@@ -326,9 +326,11 @@ pub fn model_summaries() -> Result<Vec<ModelMetricSummary>, AppError> {
         .map_err(sql_error("model metric 결과를 읽지 못했습니다"))
 }
 
-pub fn performance_baseline(events: &[ParsedLedgerEvent]) -> Result<PerformanceBaseline, AppError> {
+pub fn performance_baseline(
+    ledger: &dyn CanonicalLedgerReadPort,
+) -> Result<PerformanceBaseline, AppError> {
     let (connection, recovered_from) = open_or_recover()?;
-    replay_ledger_events(&connection, events)?;
+    replay_ledger_events(&connection, &ledger.read_events()?)?;
     let store = status_from_connection(&connection, recovered_from)?;
     let model_rows = query_baseline_model_rows(&connection)?;
     let resource_rows = query_baseline_resource_rows(&connection)?;
@@ -451,14 +453,16 @@ pub fn performance_baseline(events: &[ParsedLedgerEvent]) -> Result<PerformanceB
     })
 }
 
-pub fn optimization_policy(events: &[ParsedLedgerEvent]) -> Result<OptimizationPolicy, AppError> {
-    let baseline = performance_baseline(events)?;
+pub fn optimization_policy(
+    ledger: &dyn CanonicalLedgerReadPort,
+) -> Result<OptimizationPolicy, AppError> {
+    let baseline = performance_baseline(ledger)?;
     let latest_resource = latest_resource_sample()?;
     let latest_resource_pressure = latest_resource
         .as_ref()
         .map(|sample| sample.pressure_status.clone())
         .unwrap_or_else(|| "unknown".to_string());
-    let benchmark_evidence = benchmark_evidence_summary(&benchmark_run_reports(events)?);
+    let benchmark_evidence = benchmark_evidence_summary(&benchmark_run_reports(ledger)?);
     let decision = resource::optimization_policy_decision(resource::OptimizationPolicyInput {
         pressure: resource_pressure_from_status(&latest_resource_pressure),
         model_runs: baseline.model_runs,
@@ -498,9 +502,9 @@ pub fn export_jsonl() -> Result<String, AppError> {
     })
 }
 
-pub fn export_csv(events: &[ParsedLedgerEvent]) -> Result<String, AppError> {
+pub fn export_csv(ledger: &dyn CanonicalLedgerReadPort) -> Result<String, AppError> {
     let (connection, _) = open_or_recover()?;
-    replay_ledger_events(&connection, events)?;
+    replay_ledger_events(&connection, &ledger.read_events()?)?;
 
     let mut statement = connection
         .prepare(
@@ -559,22 +563,22 @@ pub fn prune_preview(before_days: u64) -> Result<PrunePreview, AppError> {
 
 pub fn session_history(
     identity: &RuntimeIdentity,
-    events: &[ParsedLedgerEvent],
+    ledger: &dyn CanonicalLedgerReadPort,
     limit: usize,
 ) -> Result<Vec<SessionHistoryEntry>, AppError> {
     let (connection, _) = open_or_recover()?;
-    replay_ledger_events(&connection, events)?;
+    replay_ledger_events(&connection, &ledger.read_events()?)?;
     project_sessions_from_events(&connection, identity)?;
     query_session_history(&connection, &identity.project_id, limit)
 }
 
 pub fn session_entry(
     identity: &RuntimeIdentity,
-    events: &[ParsedLedgerEvent],
+    ledger: &dyn CanonicalLedgerReadPort,
     session_id: &str,
 ) -> Result<Option<SessionHistoryEntry>, AppError> {
     let (connection, _) = open_or_recover()?;
-    replay_ledger_events(&connection, events)?;
+    replay_ledger_events(&connection, &ledger.read_events()?)?;
     project_sessions_from_events(&connection, identity)?;
     let entries = query_session_history(&connection, &identity.project_id, usize::MAX)?;
     Ok(entries
@@ -584,24 +588,24 @@ pub fn session_entry(
 
 pub fn session_events(
     identity: &RuntimeIdentity,
-    events: &[ParsedLedgerEvent],
+    ledger: &dyn CanonicalLedgerReadPort,
     session_id: &str,
     limit: usize,
 ) -> Result<Vec<SessionEventEntry>, AppError> {
     let (connection, _) = open_or_recover()?;
-    replay_ledger_events(&connection, events)?;
+    replay_ledger_events(&connection, &ledger.read_events()?)?;
     project_sessions_from_events(&connection, identity)?;
     query_session_events(&connection, &identity.project_id, session_id, limit)
 }
 
 pub fn record_model_run(
     identity: &RuntimeIdentity,
-    events: &[ParsedLedgerEvent],
+    ledger: &dyn CanonicalLedgerReadPort,
     metric: &ModelRunMetric,
 ) -> Result<(), AppError> {
     let (connection, _) = open_or_recover()?;
     record_session(&connection, identity)?;
-    replay_ledger_events(&connection, events)?;
+    replay_ledger_events(&connection, &ledger.read_events()?)?;
     connection
         .execute(
             "INSERT OR IGNORE INTO model_runs (
@@ -681,12 +685,12 @@ pub fn record_model_run(
 
 pub fn record_resource_sample(
     identity: &RuntimeIdentity,
-    events: &[ParsedLedgerEvent],
+    ledger: &dyn CanonicalLedgerReadPort,
     metric: &ResourceSampleMetric,
 ) -> Result<(), AppError> {
     let (connection, _) = open_or_recover()?;
     record_session(&connection, identity)?;
-    replay_ledger_events(&connection, events)?;
+    replay_ledger_events(&connection, &ledger.read_events()?)?;
     connection
         .execute(
             "INSERT OR IGNORE INTO resource_samples (
@@ -725,12 +729,12 @@ pub fn record_resource_sample(
 
 pub fn record_benchmark_run(
     identity: &RuntimeIdentity,
-    events: &[ParsedLedgerEvent],
+    ledger: &dyn CanonicalLedgerReadPort,
     metric: &BenchmarkRunMetric,
 ) -> Result<(), AppError> {
     let (connection, _) = open_or_recover()?;
     record_session(&connection, identity)?;
-    replay_ledger_events(&connection, events)?;
+    replay_ledger_events(&connection, &ledger.read_events()?)?;
     connection
         .execute(
             "INSERT INTO benchmark_runs (
@@ -804,10 +808,10 @@ pub fn record_benchmark_run(
 }
 
 pub fn benchmark_run_reports(
-    events: &[ParsedLedgerEvent],
+    ledger: &dyn CanonicalLedgerReadPort,
 ) -> Result<Vec<BenchmarkRunReport>, AppError> {
     let (connection, _) = open_or_recover()?;
-    replay_ledger_events(&connection, events)?;
+    replay_ledger_events(&connection, &ledger.read_events()?)?;
     let mut statement = connection
         .prepare(
             "SELECT
@@ -1680,7 +1684,7 @@ fn insert_ledger_event(
     connection: &Connection,
     event: &LedgerEvent,
     supplied_ordinal: Option<i64>,
-    canonical_events: &[ParsedLedgerEvent],
+    ledger: Option<&dyn CanonicalLedgerReadPort>,
 ) -> Result<(), AppError> {
     connection
         .execute(
@@ -1721,7 +1725,12 @@ fn insert_ledger_event(
             ledger_event_id: &event.event_id,
             event_ordinal: match supplied_ordinal {
                 Some(ordinal) => ordinal,
-                None => canonical_event_ordinal(&event.event_id, canonical_events)?,
+                None => canonical_event_ordinal(
+                    &event.event_id,
+                    ledger.ok_or_else(|| {
+                        AppError::blocked("observability canonical ledger port 누락")
+                    })?,
+                )?,
             },
         },
     )
@@ -1729,9 +1738,10 @@ fn insert_ledger_event(
 
 fn canonical_event_ordinal(
     event_id: &str,
-    canonical_events: &[ParsedLedgerEvent],
+    ledger: &dyn CanonicalLedgerReadPort,
 ) -> Result<i64, AppError> {
-    canonical_events
+    ledger
+        .read_events()?
         .iter()
         .position(|event| event.event_id == event_id)
         .map(|index| to_i64((index + 1) as u128))
@@ -2231,9 +2241,20 @@ fn now_ms() -> u128 {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::Cell;
+
     use super::*;
 
     type LedgerProjectionRow = (i64, String, i64, String, String, String, String);
+    const TEST_LEDGER: TestCanonicalLedgerReader = TestCanonicalLedgerReader;
+
+    struct TestCanonicalLedgerReader;
+
+    impl CanonicalLedgerReadPort for TestCanonicalLedgerReader {
+        fn read_events(&self) -> Result<Vec<ParsedLedgerEvent>, AppError> {
+            crate::ledger::read_runtime_events()
+        }
+    }
 
     fn replay_test_event(index: u64) -> ParsedLedgerEvent {
         ParsedLedgerEvent {
@@ -2253,24 +2274,47 @@ mod tests {
         crate::ledger::validated_current_identity().unwrap()
     }
 
-    fn current_events() -> Vec<ParsedLedgerEvent> {
-        crate::ledger::read_runtime_events().unwrap()
-    }
-
     fn projected_status() -> StoreStatus {
-        status(&current_events()).unwrap()
+        status(&TEST_LEDGER).unwrap()
     }
 
     fn record_test_model_run(metric: &ModelRunMetric) -> Result<(), AppError> {
-        record_model_run(&current_identity(), &current_events(), metric)
+        record_model_run(&current_identity(), &TEST_LEDGER, metric)
     }
 
     fn record_test_resource_sample(metric: &ResourceSampleMetric) -> Result<(), AppError> {
-        record_resource_sample(&current_identity(), &current_events(), metric)
+        record_resource_sample(&current_identity(), &TEST_LEDGER, metric)
     }
 
     fn record_test_benchmark_run(metric: &BenchmarkRunMetric) -> Result<(), AppError> {
-        record_benchmark_run(&current_identity(), &current_events(), metric)
+        record_benchmark_run(&current_identity(), &TEST_LEDGER, metric)
+    }
+
+    struct FailingLedgerReader<'a> {
+        database: &'a std::path::Path,
+        called_after_recovery: Cell<bool>,
+    }
+
+    impl CanonicalLedgerReadPort for FailingLedgerReader<'_> {
+        fn read_events(&self) -> Result<Vec<ParsedLedgerEvent>, AppError> {
+            let file_name = self.database.file_name().unwrap().to_string_lossy();
+            let recovered_prefix = format!("{file_name}.corrupt.");
+            let recovered_exists = self
+                .database
+                .parent()
+                .unwrap()
+                .read_dir()
+                .unwrap()
+                .filter_map(Result::ok)
+                .any(|entry| {
+                    entry
+                        .file_name()
+                        .to_string_lossy()
+                        .starts_with(&recovered_prefix)
+                });
+            self.called_after_recovery.set(recovered_exists);
+            Err(AppError::blocked("injected canonical ledger read failure"))
+        }
     }
 
     fn ledger_projection_rows(connection: &Connection) -> Vec<LedgerProjectionRow> {
@@ -2296,6 +2340,38 @@ mod tests {
             .unwrap()
             .collect::<Result<Vec<_>, _>>()
             .unwrap()
+    }
+
+    #[test]
+    fn corrupt_sqlite_is_preserved_before_canonical_ledger_failure() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-sqlite-ledger-recovery-order-{}-{}",
+            std::process::id(),
+            now_ms()
+        ));
+        let project_root = root.join("project");
+        fs::create_dir_all(&project_root).unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+        let database = paths::observability_db_file();
+        fs::create_dir_all(database.parent().unwrap()).unwrap();
+        fs::write(&database, b"corrupt sqlite bytes").unwrap();
+        let ledger = FailingLedgerReader {
+            database: &database,
+            called_after_recovery: Cell::new(false),
+        };
+
+        let error = status(&ledger).unwrap_err();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+        assert_eq!(error.message, "injected canonical ledger read failure");
+        assert!(
+            ledger.called_after_recovery.get(),
+            "canonical ledger was read before corrupt SQLite preservation"
+        );
     }
 
     #[test]
@@ -2648,7 +2724,7 @@ mod tests {
         let duplicate_err = record_test_benchmark_run(&metric).unwrap_err();
 
         let status = projected_status();
-        let reports = benchmark_run_reports(&current_events()).unwrap();
+        let reports = benchmark_run_reports(&TEST_LEDGER).unwrap();
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
@@ -2772,7 +2848,7 @@ mod tests {
             .unwrap();
         }
 
-        let baseline = performance_baseline(&current_events()).unwrap();
+        let baseline = performance_baseline(&TEST_LEDGER).unwrap();
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
@@ -2901,7 +2977,7 @@ mod tests {
         })
         .unwrap();
 
-        let policy = optimization_policy(&current_events()).unwrap();
+        let policy = optimization_policy(&TEST_LEDGER).unwrap();
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
