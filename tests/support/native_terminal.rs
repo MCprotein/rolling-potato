@@ -129,7 +129,7 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
         };
         let model = self.root.join("model.gguf");
         std::fs::write(&model, b"fake model").unwrap();
-        let port = native_port(&self.root);
+        let port = native_port();
         let command = |args: &[&str]| {
             let label = args.join(" ");
             #[cfg(windows)]
@@ -157,8 +157,10 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
         ]);
         assert!(
             start.status.success(),
-            "native source fixture backend start failed: {}",
-            String::from_utf8_lossy(&start.stderr)
+            "native source fixture backend start failed\nstdout={}\nstderr={}\n{}",
+            String::from_utf8_lossy(&start.stdout),
+            String::from_utf8_lossy(&start.stderr),
+            self.backend_failure_diagnostics(),
         );
         let run = command(&[
             "skill",
@@ -204,6 +206,41 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
             approval_token,
             source,
         }
+    }
+
+    fn backend_failure_diagnostics(&self) -> String {
+        let mut diagnostics = Vec::new();
+        let logs = self.data.join("logs");
+        if let Ok(entries) = std::fs::read_dir(&logs) {
+            let mut paths = entries
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| path.is_file())
+                .collect::<Vec<_>>();
+            paths.sort();
+            for path in paths {
+                diagnostics.push(format!(
+                    "log {}:\n{}",
+                    path.display(),
+                    String::from_utf8_lossy(&std::fs::read(&path).unwrap_or_default())
+                ));
+            }
+        }
+        let ledger = std::fs::read_to_string(self.data.join("state/runtime-ledger.jsonl"))
+            .unwrap_or_default();
+        diagnostics.push(format!(
+            "ledger tail:\n{}",
+            ledger
+                .lines()
+                .rev()
+                .take(20)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+        diagnostics.join("\n")
     }
 
     #[cfg(windows)]
@@ -274,11 +311,13 @@ fn captured_command_output(
     }
 }
 
-fn native_port(path: &std::path::Path) -> u16 {
-    let hash = path.display().to_string().bytes().fold(0_u16, |acc, byte| {
-        acc.wrapping_mul(31).wrapping_add(u16::from(byte))
-    });
-    30_000 + (hash % 20_000)
+fn native_port() -> u16 {
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0))
+        .expect("native fixture ephemeral port reservation");
+    listener
+        .local_addr()
+        .expect("native fixture local address")
+        .port()
 }
 
 pub fn tree_snapshot(roots: &[&std::path::Path]) -> std::collections::BTreeMap<String, Vec<u8>> {
