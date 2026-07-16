@@ -1,5 +1,5 @@
 use crate::app::AppError;
-use crate::{approval, ledger, observability, paths, policy, resource};
+use crate::{approval, ledger, observability, paths, policy, resource, state, team_state};
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 
@@ -14,9 +14,14 @@ pub fn status_report() -> Result<String, AppError> {
     let decision = resource::team_lane_decision(pressure, resource::DEFAULT_TEAM_REQUESTED_LANES);
     let dispatch_blocked = if decision.is_blocked() { "yes" } else { "no" };
     let latest_team_event = latest_team_runtime_event(&identity)?;
+    let active_parent = state::active_workflow_id()?;
+    let latest_team_state = match active_parent.as_deref() {
+        Some(parent_workflow_id) => team_state::latest_for_parent(parent_workflow_id)?,
+        None => None,
+    };
 
     Ok(format!(
-        "team status\n- status: admission-preview\n- observability store: {}\n- resource samples: {}\n- resource sample source: {}\n- resource sample id: {}\n- resource recorded ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- requested parallel lanes: {}\n- admitted lanes: {}\n- admission: {}\n- dispatch blocked: {}\n- fallback: {}\n- latest team runtime event: {}\n- latest team runtime summary: {}\n- latest team runtime event id: {}\n- reason: {}\n- hint: {}\n- boundary: read-only status only; does not start subagents, dispatch team lanes, mutate workflows, or bypass approval/file ownership policy.",
+        "team status\n- status: admission-preview\n- observability store: {}\n- resource samples: {}\n- resource sample source: {}\n- resource sample id: {}\n- resource recorded ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- requested parallel lanes: {}\n- admitted lanes: {}\n- admission: {}\n- dispatch blocked: {}\n- fallback: {}\n- current team id: {}\n- current team stage: {}\n- current team status: {}\n- current team revision: {}\n- current team execution mode: {}\n- latest team runtime event: {}\n- latest team runtime summary: {}\n- latest team runtime event id: {}\n- reason: {}\n- hint: {}\n- boundary: read-only status only; does not start subagents, dispatch team lanes, mutate workflows, or bypass approval/file ownership policy.",
         store.path.display(),
         store.resource_samples,
         if sample.is_some() {
@@ -42,6 +47,26 @@ pub fn status_report() -> Result<String, AppError> {
         decision.admission.as_str(),
         dispatch_blocked,
         decision.fallback,
+        latest_team_state
+            .as_ref()
+            .map(|record| record.team_id.as_str())
+            .unwrap_or("없음"),
+        latest_team_state
+            .as_ref()
+            .map(|record| record.stage.as_str())
+            .unwrap_or("없음"),
+        latest_team_state
+            .as_ref()
+            .map(|record| record.status.as_str())
+            .unwrap_or("없음"),
+        latest_team_state
+            .as_ref()
+            .map(|record| record.revision.to_string())
+            .unwrap_or_else(|| "없음".to_string()),
+        latest_team_state
+            .as_ref()
+            .map(|record| record.execution_mode.as_str())
+            .unwrap_or("없음"),
         latest_team_event
             .as_ref()
             .map(|event| event.event_type.as_str())

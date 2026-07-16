@@ -20,6 +20,7 @@ rpotato
   rpotato session resume <session-id>
   rpotato session new
   rpotato team status
+  rpotato team plan --manifest <project-relative-json>
   rpotato team admit --lanes <count> [--write <path>] [--write-owner <lane:path>] [--command <command>]
   rpotato team dispatch --lanes <count> --write-owner <lane:path> [--failed-lane <lane>] [--failure <reason>]
   rpotato team governor --lanes <count> --context-tokens <tokens> [--context-limit <tokens>] [--model-tier small|standard|large]
@@ -116,6 +117,7 @@ patch workflow 규칙:
   backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 release payload를 배치합니다.
   backend start/status/stop/chat/cancel은 managed sidecar lifecycle, SSE chat streaming, generation 취소를 다룹니다.
   team status는 최신 resource sample 기준의 read-only admission preview와 sequential fallback 결정을 표시합니다.
+  team plan은 canonical team manifest를 active parent workflow에 binding하고 durable team-plan state를 기록합니다.
   team admit은 dispatcher 진입 전 resource/policy/file-ownership admission gate를 강제하고 결과를 ledger에 기록합니다.
   team dispatch는 dispatch 직전 file ownership을 다시 강제하고 failed-worker continuation 상태를 ledger에 기록합니다.
   team governor는 dispatcher 진입 전 context/model budget clamp와 downgrade/escalation hint를 기록합니다.
@@ -218,6 +220,9 @@ pub enum SessionCommand {
 #[derive(Debug, PartialEq, Eq)]
 pub enum TeamCommand {
     Status,
+    Plan {
+        manifest_path: String,
+    },
     Admit {
         lanes: u32,
         write_paths: Vec<String>,
@@ -495,6 +500,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, action] if group == "team" && action == "status" => {
             Ok(Command::Team(TeamCommand::Status))
         }
+        [group, action, rest @ ..] if group == "team" && action == "plan" => {
+            Ok(Command::Team(parse_team_plan_args(rest)?))
+        }
         [group, action, rest @ ..] if group == "team" && action == "admit" => {
             Ok(Command::Team(parse_team_admit_args(rest)?))
         }
@@ -505,7 +513,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
             Ok(Command::Team(parse_team_governor_args(rest)?))
         }
         [group, ..] if group == "team" => {
-            Err(AppError::usage("team 명령은 status, admit, dispatch, governor만 허용합니다."))
+            Err(AppError::usage("team 명령은 status, plan, admit, dispatch, governor만 허용합니다."))
         }
         [group, action, rest @ ..] if group == "subagent" && action == "launch" => {
             parse_subagent_launch_args(rest).map(Command::Subagent)
@@ -943,6 +951,44 @@ fn parse_request(args: &[String], command: &str) -> Result<String, AppError> {
     }
 
     Ok(request)
+}
+
+fn parse_team_plan_args(args: &[String]) -> Result<TeamCommand, AppError> {
+    let mut manifest_path = None;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--manifest" => {
+                if manifest_path.is_some() {
+                    return Err(AppError::usage(
+                        "team plan의 --manifest 옵션은 한 번만 지정할 수 있습니다.",
+                    ));
+                }
+                let Some(value) = args.get(index + 1) else {
+                    return Err(AppError::usage(
+                        "team plan은 --manifest <project-relative-json> 값이 필요합니다.",
+                    ));
+                };
+                if value.starts_with("--") || value.trim().is_empty() {
+                    return Err(AppError::usage(
+                        "team plan은 --manifest <project-relative-json> 값이 필요합니다.",
+                    ));
+                }
+                manifest_path = Some(value.clone());
+                index += 2;
+            }
+            unknown => {
+                return Err(AppError::usage(format!(
+                    "알 수 없는 team plan 옵션입니다: {unknown}"
+                )));
+            }
+        }
+    }
+    Ok(TeamCommand::Plan {
+        manifest_path: manifest_path.ok_or_else(|| {
+            AppError::usage("team plan은 --manifest <project-relative-json> 형식이 필요합니다.")
+        })?,
+    })
 }
 
 fn parse_team_admit_args(args: &[String]) -> Result<TeamCommand, AppError> {
@@ -2802,6 +2848,46 @@ mod tests {
     fn parses_team_status() {
         let command = parse(["team".to_string(), "status".to_string()]).unwrap();
         assert_eq!(command, Command::Team(TeamCommand::Status));
+    }
+
+    #[test]
+    fn parses_team_plan_manifest() {
+        let command = parse([
+            "team".to_string(),
+            "plan".to_string(),
+            "--manifest".to_string(),
+            "plans/team.json".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(
+            command,
+            Command::Team(TeamCommand::Plan {
+                manifest_path: "plans/team.json".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn team_plan_requires_exactly_one_manifest() {
+        for args in [
+            vec!["team", "plan"],
+            vec!["team", "plan", "--manifest"],
+            vec![
+                "team",
+                "plan",
+                "--manifest",
+                "one.json",
+                "--manifest",
+                "two.json",
+            ],
+        ] {
+            assert_eq!(
+                parse(args.into_iter().map(str::to_string))
+                    .unwrap_err()
+                    .code,
+                2
+            );
+        }
     }
 
     #[test]
