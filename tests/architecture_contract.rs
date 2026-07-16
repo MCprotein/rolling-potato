@@ -1685,10 +1685,18 @@ fn v03713_cli_command_dtos_live_in_surface_owner() {
     }
 
     let facade = fs::read_to_string("src/cli.rs").unwrap();
-    assert!(facade.contains("surfaces::cli::command::*"));
     assert!(
         !facade.contains("pub enum Command"),
         "legacy CLI facade retains command DTO definitions"
+    );
+
+    let parser = fs::read_to_string("src/surfaces/cli/parser.rs").unwrap();
+    assert!(parser.contains("pub fn parse"));
+    assert!(parser.contains("surfaces::cli::command::*"));
+    assert!(facade.contains("surfaces::cli::parser::*"));
+    assert!(
+        !facade.contains("pub fn parse"),
+        "legacy CLI facade retains argument parser implementation"
     );
 }
 

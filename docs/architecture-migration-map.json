@@ -1924,8 +1924,12 @@
           "responsibility": "CLI argument parsing",
           "target": "src/surfaces/cli/parser.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "compatibility-facade",
+          "evidence": [
+            "src/surfaces/cli/parser.rs",
+            "src/cli.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "CLI command DTOs",
@@ -3266,6 +3270,21 @@
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser.rs",
+      "slices": [
+        {
+          "responsibility": "CLI argument parsing",
+          "target": "src/surfaces/cli/parser.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5081,6 +5100,12 @@
       "path": "src/surfaces/cli/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser.rs",
+      "responsibilities": [
+        "CLI argument parsing"
       ]
     },
     {
