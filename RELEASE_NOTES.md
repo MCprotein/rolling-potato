@@ -1,5 +1,30 @@
 # Release Notes
 
+## Unreleased v0.37.11 - Extension Boundaries
+
+This patch moves side-effect-free extension rules into private runtime owners
+without changing CLI behavior, normalized plugin manifest bytes, hook ordering,
+skill state, or default-deny execution policy.
+
+### Included
+
+- Moves the hook registry, layer ordering, conflict resolution, fail-closed
+  results, and payload modification rules into `runtime_core::extensions::hook`.
+- Moves built-in/imported skill manifests, lifecycle state, and
+  context/tool/evidence/stop policies into `runtime_core::extensions::skill`.
+- Moves Codex `SKILL.md` frontmatter parsing, plugin/component ID validation,
+  normalized capabilities, and default-deny permissions into
+  `runtime_core::extensions::plugin`.
+- Reduces the top-level hook, skill, and plugin modules to compatibility facades
+  for ledger/state, workflow persistence, filesystem snapshots, and discovery.
+
+### Compatibility Boundary
+
+- Plugin source scanning, copying, checksums, normalized-manifest persistence,
+  and ledger events remain concrete adapters until v0.37.13 composition cleanup.
+- CLI output and exit codes, persisted manifest/workflow bytes, extension
+  execution order, dependencies, and synchronous execution remain unchanged.
+
 ## Unreleased v0.37.7 - Projections and Observability
 
 This patch moves surface-neutral observability records, projection/query ports,

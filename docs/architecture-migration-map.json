@@ -2078,8 +2078,11 @@
           "responsibility": "hook lifecycle and ordering",
           "target": "src/runtime_core/extensions/hook.rs",
           "release": "0.37.11",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/hook.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2394,8 +2397,11 @@
           "responsibility": "plugin import validation and capability facade",
           "target": "src/runtime_core/extensions/plugin.rs",
           "release": "0.37.11",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2484,6 +2490,51 @@
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook.rs",
+      "slices": [
+        {
+          "responsibility": "hook lifecycle and ordering",
+          "target": "src/runtime_core/extensions/hook.rs",
+          "release": "0.37.11",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/hook.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/plugin.rs",
+      "slices": [
+        {
+          "responsibility": "plugin manifest and default-deny capability policy",
+          "target": "src/runtime_core/extensions/plugin.rs",
+          "release": "0.37.11",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/skill.rs",
+      "slices": [
+        {
+          "responsibility": "skill manifest lifecycle and policy",
+          "target": "src/runtime_core/extensions/skill.rs",
+          "release": "0.37.11",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/skill.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3009,8 +3060,11 @@
           "responsibility": "skill manifest lifecycle and execution facade",
           "target": "src/runtime_core/extensions/skill.rs",
           "release": "0.37.11",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/skill.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3540,7 +3594,7 @@
       ]
     }
   ],
-  "current_release": "0.37.10",
+  "current_release": "0.37.11",
   "train_completion": false,
   "logical_proofs": [
     {
@@ -4541,6 +4595,24 @@
       "path": "src/runtime_core/extensions/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook.rs",
+      "responsibilities": [
+        "hook lifecycle and ordering"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/plugin.rs",
+      "responsibilities": [
+        "plugin manifest and default-deny capability policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/skill.rs",
+      "responsibilities": [
+        "skill manifest lifecycle and policy"
       ]
     },
     {

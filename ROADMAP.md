@@ -77,10 +77,10 @@ evidence.
 | v0.37.5 | Implemented | Validated workflow/session/snapshot and transcript-session views now own fail-closed binding, ordering, and duplicate-event rules around the unchanged storage compatibility boundary; release pending |
 | v0.37.6 | Implemented | Workflow application owners now select legal transition records, exact event progression, prepared workflow/current-state recovery, projection-lag recovery admission, and state/checkpoint/reconcile/approval/verification/terminal cross-store order; release pending |
 | v0.37.7 | Implemented | Observability boundary: runtime-owned projection/query/monitor ports and reports, isolated SQLite observability/ledger/transcript projections, and workflow-owned projection-lag recovery admission; release pending |
-| v0.37.8 | Planned | Knowledge and policy boundaries: context, evidence, ontology, approval, and fail-closed decision ownership |
-| v0.37.9 | Planned | Patch boundary: intent, proposal, preview, approval credentials, apply, verification, rollback, and recovery ownership |
-| v0.37.10 | Planned | Runtime and reporting boundaries: workflow runner, surface-neutral reports, and Korean output invariants |
-| v0.37.11 | Planned | Extension boundary: skill, hook, and plugin manifests, validation, lifecycle, and execution facade ownership |
+| v0.37.8 | Implemented | Knowledge and policy boundaries: bounded context, evidence stop inputs, ontology projection, approval records, and fail-closed tool/path decisions; release pending |
+| v0.37.9 | Implemented | Patch boundary: deterministic intent/plans, canonical proposals, approval credentials, guarded apply/rollback, and bounded verification/recovery; release pending |
+| v0.37.10 | Implemented | Runtime and reporting boundaries: port-based workflow runner, typed surface-neutral reports, and Korean output invariants; release pending |
+| v0.37.11 | Implemented | Extension boundary: hook ordering/fail-closed decisions, skill manifest/state/policy, and plugin frontmatter/capability/default-deny ownership; release pending |
 | v0.37.12 | Planned | Collaboration boundary: subagent and team lifecycle, execution, persisted state, result validation, and reconciliation |
 | v0.37.13 | Planned | Surface and composition completion: CLI/TUI ownership, startup and dispatch wiring, uninstall orchestration, legacy facade removal, and zero-unmapped-slice gate |
 | v0.38.0 | Planned | Claude Code plugin execution adapter: map supported local capabilities onto the established native adapter contract, report unsupported semantics, and preserve the same default-deny permission boundary |

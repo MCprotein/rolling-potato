@@ -1347,6 +1347,139 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
     );
 }
 
+#[test]
+fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
+    let hook = "src/runtime_core/extensions/hook.rs";
+    let skill = "src/runtime_core/extensions/skill.rs";
+    let plugin = "src/runtime_core/extensions/plugin.rs";
+    for target in [hook, skill, plugin] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing v0.37.11 extension owner: {target}"
+        );
+    }
+
+    let extensions_mod = fs::read_to_string("src/runtime_core/extensions/mod.rs").unwrap();
+    for child in ["hook", "skill", "plugin"] {
+        let expected = format!("pub(crate) mod {child};");
+        assert!(
+            extensions_mod.lines().any(|line| line == expected),
+            "extension child is not crate-private: {child}"
+        );
+    }
+
+    for (owner, rules, forbidden) in [
+        (
+            hook,
+            [
+                "enum HookStatus",
+                "struct HookRule",
+                "const HOOK_POINTS",
+                "fn dispatch",
+                "fn resolve_conflict",
+            ]
+            .as_slice(),
+            [
+                "crate::adapters",
+                "crate::ledger",
+                "crate::plugin",
+                "crate::skill",
+                "crate::state",
+                "std::fs",
+                "std::process",
+            ]
+            .as_slice(),
+        ),
+        (
+            skill,
+            [
+                "struct SkillManifest",
+                "enum ResolvedSkillManifest",
+                "struct SkillRuntimeState",
+                "fn validate_transition",
+                "fn enforce_resolved_tool",
+            ]
+            .as_slice(),
+            [
+                "crate::adapters",
+                "crate::hooks",
+                "crate::plugin",
+                "crate::state",
+                "std::fs",
+                "std::process",
+            ]
+            .as_slice(),
+        ),
+        (
+            plugin,
+            [
+                "struct PluginCapability",
+                "struct ParsedCodexSkill",
+                "fn parse_codex_skill",
+                "fn apply_manifest_risk_markers",
+                "fn blocked_permissions",
+            ]
+            .as_slice(),
+            [
+                "crate::adapters",
+                "crate::cli",
+                "crate::ledger",
+                "crate::state",
+                "std::fs",
+                "std::process",
+            ]
+            .as_slice(),
+        ),
+    ] {
+        let source = fs::read_to_string(owner).unwrap();
+        for rule in rules {
+            assert!(
+                source.contains(rule),
+                "v0.37.11 owner is missing extension rule: {owner} -> {rule}"
+            );
+        }
+        for dependency in forbidden {
+            assert!(
+                !source.contains(dependency),
+                "extension owner has concrete reverse dependency: {owner} -> {dependency}"
+            );
+        }
+    }
+
+    for (facade, moved_definition) in [
+        ("src/hooks.rs", "enum HookStatus"),
+        ("src/hooks.rs", "fn resolve_conflict"),
+        ("src/skill.rs", "struct SkillManifest"),
+        ("src/skill.rs", "fn validate_transition"),
+        ("src/plugin.rs", "struct PluginCapability"),
+        ("src/plugin.rs", "fn parse_codex_skill"),
+        ("src/plugin.rs", "fn apply_manifest_risk_markers"),
+    ] {
+        let source = fs::read_to_string(facade).unwrap();
+        let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
+        assert!(
+            !production.contains(moved_definition),
+            "legacy extension facade retains moved rule: {facade} -> {moved_definition}"
+        );
+    }
+
+    let hooks_facade = fs::read_to_string("src/hooks.rs").unwrap();
+    let skill_facade = fs::read_to_string("src/skill.rs").unwrap();
+    let plugin_facade = fs::read_to_string("src/plugin.rs").unwrap();
+    assert!(
+        hooks_facade.lines().count() <= 300,
+        "hooks facade regrew beyond the v0.37.11 boundary"
+    );
+    assert!(
+        skill_facade.lines().count() <= 250,
+        "skill facade regrew beyond the v0.37.11 boundary"
+    );
+    assert!(
+        plugin_facade.lines().count() <= 1_750,
+        "plugin facade regrew beyond the v0.37.11 boundary"
+    );
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

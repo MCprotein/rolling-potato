@@ -78,7 +78,7 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | v0.37.8 | Implemented | Knowledge와 policy 경계: bounded context DTO/예산, evidence stop-input validation, typed ontology graph/context projection, approval record, fail-closed tool/path decision 소유권; release 대기 |
 | v0.37.9 | Implemented | Patch 경계: deterministic intent/action plan, canonical proposal codec, approval credential, guarded apply/rollback, bounded verification과 no-auto-rerun recovery 소유권; release 대기 |
 | v0.37.10 | Implemented | Runtime과 reporting 경계: explicit port 기반 workflow runner, typed surface-neutral report renderer, streaming/non-streaming 한국어 output invariant; release 대기 |
-| v0.37.11 | Planned | Extension 경계: skill, hook, plugin manifest, validation, lifecycle, execution facade 소유권 |
+| v0.37.11 | Implemented | Extension 경계: hook ordering/fail-closed decision, skill manifest/state/policy, plugin frontmatter/capability/default-deny 규칙 소유권; release 대기 |
 | v0.37.12 | Planned | Collaboration 경계: subagent/team lifecycle, execution, persisted state, result validation, reconciliation |
 | v0.37.13 | Planned | Surface와 composition 완료: CLI/TUI 소유권, startup/dispatch wiring, uninstall orchestration, legacy facade 제거, unmapped slice 0건 gate |
 | v0.38.0 | Planned | Claude Code plugin execution adapter: 지원되는 local capability를 확립된 native adapter contract에 mapping하고 unsupported semantic을 보고하며 동일한 default-deny permission boundary 유지 |
