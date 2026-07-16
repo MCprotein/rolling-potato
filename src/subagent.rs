@@ -186,6 +186,12 @@ pub struct ValidatedLaunch {
     pub requested_max_tokens: u32,
 }
 
+#[derive(Debug)]
+struct AdmittedLaunch {
+    record: SubagentRecordV1,
+    context: crate::context::ContextPack,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubagentRecordV1 {
     pub subagent_id: String,
@@ -465,20 +471,25 @@ pub fn launch_report(
         max_tokens,
     )?;
     let admitted = admit_launch(launch)?;
+    let record = &admitted.record;
     Ok(format!(
-        "subagent launch\n- status: {}\n- subagent id: {}\n- parent workflow: {}\n- parent revision: {}\n- role: {}\n- task hash: {}\n- tools: {}\n- read paths: {}\n- write paths: {}\n- timeout ms: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- next gate: bounded context reread and backend dispatch\n- boundary: admission only; no backend request, command execution, file write, or parent merge occurred.",
-        admitted.status.as_str(),
-        admitted.subagent_id,
-        admitted.parent_workflow_id,
-        admitted.parent_revision,
-        admitted.role.as_str(),
-        admitted.task_hash,
-        admitted.declared_tools.join(", "),
-        admitted.read_paths.join(", "),
-        display_list(&admitted.write_paths),
-        admitted.timeout_ms,
-        admitted.requested_max_tokens,
-        admitted.effective_max_tokens,
+        "subagent launch\n- status: {}\n- subagent id: {}\n- parent workflow: {}\n- parent revision: {}\n- role: {}\n- task hash: {}\n- tools: {}\n- read paths: {}\n- write paths: {}\n- timeout ms: {}\n- requested max tokens: {}\n- effective max tokens: {}\n- context origin: {}\n- context files: {}\n- context chars: {}\n- source pointers: {}\n- next gate: bounded context reread and backend dispatch\n- boundary: admission only; no backend request, command execution, file write, or parent merge occurred.",
+        record.status.as_str(),
+        record.subagent_id,
+        record.parent_workflow_id,
+        record.parent_revision,
+        record.role.as_str(),
+        record.task_hash,
+        record.declared_tools.join(", "),
+        record.read_paths.join(", "),
+        display_list(&record.write_paths),
+        record.timeout_ms,
+        record.requested_max_tokens,
+        record.effective_max_tokens,
+        admitted.context.origin,
+        admitted.context.files_read,
+        admitted.context.chars_read,
+        admitted.context.pointer_summary(),
     ))
 }
 
@@ -521,7 +532,7 @@ pub fn cancel_report(subagent_id: &str) -> Result<String, AppError> {
     Ok(render_status_report(&cancelled, "cancelled"))
 }
 
-fn admit_launch(launch: ValidatedLaunch) -> Result<SubagentRecordV1, AppError> {
+fn admit_launch(launch: ValidatedLaunch) -> Result<AdmittedLaunch, AppError> {
     let identity = ledger::validated_current_identity()?;
     let parent_workflow_id = state::active_workflow_id()?.ok_or_else(|| {
         AppError::blocked(
@@ -565,6 +576,7 @@ fn admit_launch(launch: ValidatedLaunch) -> Result<SubagentRecordV1, AppError> {
             existing.status.as_str()
         )));
     }
+    let context = crate::context::build_declared_context_pack(&launch.read_paths)?;
     let requested = create_record(SubagentRecordV1::new(
         &parent.project_id,
         &parent.session_id,
@@ -588,7 +600,10 @@ fn admit_launch(launch: ValidatedLaunch) -> Result<SubagentRecordV1, AppError> {
         "team.subagent.admitted",
         "subagent admitted",
     )?;
-    Ok(admitted)
+    Ok(AdmittedLaunch {
+        record: admitted,
+        context,
+    })
 }
 
 fn latest_active_parent_record() -> Result<SubagentRecordV1, AppError> {
@@ -1211,6 +1226,8 @@ mod tests {
     }
 
     fn initialize_parent() -> state::WorkflowRecord {
+        fs::create_dir_all(paths::project_root().join("src")).unwrap();
+        fs::write(paths::project_root().join("src/main.rs"), "fn main() {}\n").unwrap();
         state::initialize().unwrap();
         state::create_workflow("subagent parent fixture").unwrap()
     }
@@ -1424,6 +1441,7 @@ mod tests {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let parent = initialize_parent();
         let admitted = admit_launch(launch("explore")).unwrap();
+        let admitted = admitted.record;
         assert_eq!(admitted.status, SubagentStatus::Admitted);
         assert_eq!(admitted.revision, 2);
         assert_eq!(admitted.project_id, parent.project_id);
@@ -1456,8 +1474,10 @@ mod tests {
             .message
             .contains("active non-terminal parent"));
 
-        initialize_parent();
-        let first = admit_launch(launch("explore")).unwrap();
+        fs::create_dir_all(paths::project_root().join("src")).unwrap();
+        fs::write(paths::project_root().join("src/main.rs"), "fn main() {}\n").unwrap();
+        state::create_workflow("subagent parent fixture").unwrap();
+        let first = admit_launch(launch("explore")).unwrap().record;
         let error = admit_launch(launch("planner")).unwrap_err();
         assert!(error.message.contains("non-terminal child"));
         assert_eq!(
@@ -1470,7 +1490,7 @@ mod tests {
     fn status_defaults_to_active_parent_and_cancel_is_idempotent() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         initialize_parent();
-        let admitted = admit_launch(launch("explore")).unwrap();
+        let admitted = admit_launch(launch("explore")).unwrap().record;
         let status = status_report(None).unwrap();
         assert!(status.contains(&admitted.subagent_id));
         assert!(status.contains("status: admitted"));
