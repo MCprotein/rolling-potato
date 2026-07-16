@@ -123,16 +123,19 @@ The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
 sequence and non-skippable release gates are defined in
 `docs/release-train.md`. The immediate sequence is:
 
-1. `v0.37.1`: establish the bilingual code-architecture contract, complete
-   migration ledger, private compile-connected skeleton, architecture tests,
-   and exact-head candidate CI without moving production logic.
-2. `v0.37.2` through `v0.37.13+`: migrate every ledger slice by coherent domain
-   and rollback boundary, preserving durable bytes, recovery order, policy,
-   CLI behavior, backend behavior, and release contracts. The train ends only
-   at complete ledger coverage with zero compatibility facades.
-3. `v0.38.0`: Claude Code local plugin execution conformance through the
+1. `v0.37.1`: the bilingual code-architecture contract, complete migration
+   ledger, private compile-connected skeleton, architecture tests, and
+   exact-head candidate CI are implemented and awaiting release.
+2. `v0.37.2`: private foundation, filesystem, configuration, and terminal
+   ownership is implemented without completed-slice compatibility facades and
+   is awaiting release.
+3. `v0.37.3` through `v0.37.13+`: migrate every remaining ledger slice by
+   coherent domain and rollback boundary, preserving durable bytes, recovery
+   order, policy, CLI behavior, backend behavior, and release contracts. The
+   train ends only at complete ledger coverage with zero compatibility facades.
+4. `v0.38.0`: Claude Code local plugin execution conformance through the
    established native adapter and default-deny permission boundary.
-4. `v0.39.0` onward: integrated performance hardening followed by distribution
+5. `v0.39.0` onward: integrated performance hardening followed by distribution
    and optional local monitoring surfaces.
 
 Package-manager distribution and an optional local HTML monitoring report come

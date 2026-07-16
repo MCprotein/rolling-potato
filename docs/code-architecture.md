@@ -58,9 +58,9 @@ src/
 ```
 
 Modules are private by default. A boundary becomes visible only to the narrowest
-consumer that needs it. The v0.37.1 tree is documentation-only and reserves
-ownership; production behavior remains in the legacy modules until its ledger
-slice is migrated.
+consumer that needs it. The v0.37.1 tree was documentation-only and reserved
+ownership. Beginning with v0.37.2, production behavior moves only when its
+ledger slice, targeted tests, and legacy-path removal close together.
 
 ## Dependency direction
 

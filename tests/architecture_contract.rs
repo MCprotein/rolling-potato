@@ -170,6 +170,7 @@ fn target_is_exact(target: &str) -> bool {
 
 fn lifecycle_violation(
     state: &str,
+    scheduled_patch: u16,
     current_patch: u16,
     train_completion: bool,
     expiry_patch: Option<u16>,
@@ -179,6 +180,11 @@ fn lifecycle_violation(
     }
     if state == "exception" && expiry_patch.is_some_and(|expiry| expiry < current_patch) {
         return Some("exception expired before the current release");
+    }
+    if scheduled_patch <= current_patch
+        && matches!(state, "planned" | "migrating" | "compatibility-facade")
+    {
+        return Some("scheduled release has an unfinished migration slice");
     }
     None
 }
@@ -249,7 +255,7 @@ fn validate_slice(
         target_is_exact(target),
         "{context} target is ambiguous: {target}"
     );
-    release_patch(release, context);
+    let scheduled_patch = release_patch(release, context);
     assert!(
         [
             "planned",
@@ -309,8 +315,13 @@ fn validate_slice(
     } else {
         None
     };
-    if let Some(reason) = lifecycle_violation(state, current_patch, train_completion, expiry_patch)
-    {
+    if let Some(reason) = lifecycle_violation(
+        state,
+        scheduled_patch,
+        current_patch,
+        train_completion,
+        expiry_patch,
+    ) {
         panic!("{context} violates migration lifecycle: {reason}");
     }
 
@@ -401,17 +412,22 @@ fn migration_map_recursively_covers_every_governed_file_and_exact_slice() {
 #[test]
 fn completion_gate_rejects_expired_exceptions_and_incomplete_states() {
     assert_eq!(
-        lifecycle_violation("exception", 8, false, Some(7)),
+        lifecycle_violation("exception", 8, 8, false, Some(7)),
         Some("exception expired before the current release")
     );
-    assert_eq!(lifecycle_violation("exception", 8, false, Some(8)), None);
+    assert_eq!(lifecycle_violation("exception", 8, 8, false, Some(8)), None);
+    assert_eq!(
+        lifecycle_violation("planned", 2, 2, false, None),
+        Some("scheduled release has an unfinished migration slice")
+    );
+    assert_eq!(lifecycle_violation("planned", 3, 2, false, None), None);
     for state in ["planned", "migrating", "compatibility-facade", "exception"] {
         assert_eq!(
-            lifecycle_violation(state, 13, true, Some(13)),
+            lifecycle_violation(state, 13, 13, true, Some(13)),
             Some("train completion requires every slice to be complete")
         );
     }
-    assert_eq!(lifecycle_violation("complete", 13, true, None), None);
+    assert_eq!(lifecycle_violation("complete", 13, 13, true, None), None);
 }
 
 fn collect_rust_files(root: &str) -> BTreeSet<String> {

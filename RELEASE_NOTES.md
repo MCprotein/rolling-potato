@@ -1,5 +1,34 @@
 # Release Notes
 
+## Unreleased v0.37.2 - Foundation and Platform Seams
+
+This patch begins production ownership migration while preserving behavior and
+the synchronous runtime. It removes the completed v0.37.2 legacy module paths
+instead of leaving compatibility facades.
+
+### Included
+
+- Moves the application error boundary, SHA-256 primitives, and the existing
+  strict/canonical JSON implementation under the private `foundation` owner.
+- Moves path layout, cache reporting, configuration-source discovery,
+  recoverable filesystem leases, and Windows file-identity replacement support
+  under `adapters::filesystem`.
+- Separates terminal attachment detection from native terminal I/O under
+  `adapters::terminal`, and consolidates terminal-backed integration contracts
+  in the `platform` test target.
+- Updates release proof and native-build workflows to use the stable new owner
+  paths and test target.
+- Advances the migration ledger to v0.37.2 with all fourteen scheduled slices
+  complete and a gate that rejects unfinished slices scheduled for the current
+  patch.
+
+### Compatibility Boundary
+
+- CLI commands, output, exit codes, durable bytes, recovery order, permission
+  behavior, backend behavior, and direct dependencies remain unchanged.
+- The runtime remains synchronous; no async runtime, actor framework, public
+  API, persisted schema, or new dependency is introduced.
+
 ## Unreleased v0.37.1 - Architecture Foundation
 
 This patch begins the behavior-preserving code-architecture refactor required

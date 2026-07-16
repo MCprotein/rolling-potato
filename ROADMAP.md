@@ -70,8 +70,8 @@ evidence.
 | v0.35.1 | Released | Hermetic release-contract fixture that clears ambient tag context while retaining the complete v0.35 bounded subagent implementation |
 | v0.36.0 | Released | Team execution: dispatch admitted lanes, advance team stages, enforce ownership at action time, reconcile results, handle failed lanes, and apply verification/stop gates before completion |
 | v0.37.0 | Released | Codex plugin execution adapter: execute supported locally imported capabilities through native policy/hook/skill boundaries while shell, MCP, background, remote, and write capabilities remain blocked until explicit approval |
-| v0.37.1 | Planned | Architecture foundation: canonical bilingual code-architecture contract, complete migration ledger, private compile-connected module skeleton, architecture contract test, and exact-head candidate CI without production logic movement |
-| v0.37.2 | Planned | Foundation and platform seams: filesystem, terminal, configuration, checksum, strict serialization, lease, cache, and Windows atomic replacement ownership |
+| v0.37.1 | Implemented | Architecture foundation: canonical bilingual code-architecture contract, complete migration ledger, private compile-connected module skeleton, architecture contract test, and exact-head candidate CI without production logic movement; release pending |
+| v0.37.2 | Implemented | Foundation and platform seams: filesystem, terminal, configuration, checksum, strict serialization, lease, cache, and Windows atomic replacement ownership; release pending |
 | v0.37.3 | Planned | Inference boundary: backend, model, benchmark, and resource domain rules separated from llama.cpp, process, and filesystem adapters |
 | v0.37.4 | Planned | Canonical workflow storage compatibility: byte-identical DTOs/codecs plus isolated ledger and transcript append ownership |
 | v0.37.5 | Planned | Validated workflow, session, snapshot, and transcript views around the unchanged storage compatibility boundary |
