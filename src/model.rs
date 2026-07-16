@@ -10,17 +10,23 @@ use crate::adapters::filesystem::model_artifact::{
 use crate::adapters::filesystem::model_artifact::{parse_default_selection, parse_registry_entry};
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
+#[cfg(test)]
 use crate::runtime_core::inference::benchmark as benchmark_policy;
+#[cfg(test)]
+use crate::runtime_core::inference::model::manifest::LocalArtifactState;
 use crate::runtime_core::inference::model::manifest::{
     find_candidate, parse_promotion_evidence, source_backed_artifact,
     source_backed_artifact_blockers, validate_install_ready, BackendSmokeEvidence, CandidateStatus,
-    DefaultSelection, InstallValidation, LocalArtifactState, ManifestCounts,
-    ModelArtifactDescriptor, ModelManifestEntry, PromotionEvidence, PromotionReadiness,
-    RegistryEntry, CANDIDATES, STATUS_SCHEMA,
+    DefaultSelection, InstallValidation, ManifestCounts, ModelArtifactDescriptor,
+    ModelManifestEntry, PromotionEvidence, PromotionReadiness, RegistryEntry, CANDIDATES,
+    STATUS_SCHEMA,
 };
+use crate::runtime_core::inference::model::promotion::{
+    artifact_model_id, validate_promotion_evidence, PromotionBenchmarkEvidence,
+};
+#[cfg(test)]
+use crate::runtime_core::inference::model::promotion::{measured_ram_budget_gb, BYTES_PER_GIB};
 use crate::{ledger, observability, state};
-
-const BYTES_PER_GIB: u64 = 1024 * 1024 * 1024;
 
 pub fn candidate_summary() -> String {
     let counts = ManifestCounts::from_candidates();
@@ -405,13 +411,14 @@ fn local_promotion_readiness(
     let final_path = model_artifact_path(artifact);
     let local_state = local_artifact_state(artifact, &final_path)?;
     let benchmark = promotion_benchmark_run(&evidence, artifact)?;
+    let benchmark_evidence = benchmark.as_ref().map(promotion_benchmark_evidence);
     let backend_smoke = backend_smoke_evidence(&evidence.backend_smoke_event_id)?;
     let validation = validate_promotion_evidence(
         candidate,
         &evidence,
         artifact,
         &local_state,
-        benchmark.as_ref(),
+        benchmark_evidence.as_ref(),
         backend_smoke.as_ref(),
     );
 
@@ -436,6 +443,23 @@ fn promotion_benchmark_run(
         .find(|row| {
             row.benchmark_run_id == evidence.benchmark_run_id && row.model_id == expected_model_id
         }))
+}
+
+fn promotion_benchmark_evidence(
+    row: &observability::BenchmarkRunReport,
+) -> PromotionBenchmarkEvidence {
+    PromotionBenchmarkEvidence {
+        claim_state: row.claim_state.clone(),
+        local_pass: row.local_pass,
+        backend_id: row.backend_id.clone(),
+        fixture_id: row.fixture_id.clone(),
+        fixture_sha256: row.fixture_sha256.clone(),
+        prompt_artifact_sha256: row.prompt_artifact_sha256.clone(),
+        benchmark_name: row.benchmark_name.clone(),
+        dataset_ref: row.dataset_ref.clone(),
+        peak_rss_bytes: row.peak_rss_bytes,
+        model_run_id: row.model_run_id.clone(),
+    }
 }
 
 fn backend_smoke_evidence(event_id: &str) -> Result<Option<BackendSmokeEvidence>, AppError> {
@@ -474,210 +498,6 @@ fn backend_smoke_evidence(event_id: &str) -> Result<Option<BackendSmokeEvidence>
     Ok(Some(evidence))
 }
 
-fn validate_promotion_evidence(
-    candidate: &ModelManifestEntry,
-    evidence: &PromotionEvidence,
-    artifact: ModelArtifactDescriptor,
-    local_state: &LocalArtifactState,
-    benchmark: Option<&observability::BenchmarkRunReport>,
-    backend_smoke: Option<&BackendSmokeEvidence>,
-) -> InstallValidation {
-    let mut blockers = Vec::new();
-
-    if evidence.model_id != candidate.id {
-        push_unique(
-            &mut blockers,
-            &format!(
-                "evidence modelId가 후보와 다릅니다: expected {}, actual {}",
-                candidate.id, evidence.model_id
-            ),
-        );
-    }
-    if evidence.artifact_sha256 != artifact.sha256 {
-        push_unique(
-            &mut blockers,
-            "evidence artifactSha256이 source-backed manifest와 일치하지 않습니다.",
-        );
-    }
-    if evidence.artifact_size_bytes != artifact.size_bytes {
-        push_unique(
-            &mut blockers,
-            "evidence artifactSizeBytes가 source-backed manifest와 일치하지 않습니다.",
-        );
-    }
-    if evidence.backend_id != candidate.backend {
-        push_unique(
-            &mut blockers,
-            "evidence backendId가 후보 backend와 일치하지 않습니다.",
-        );
-    }
-    if evidence.backend_version.trim().is_empty() {
-        push_unique(&mut blockers, "backendVersion evidence가 비어 있습니다.");
-    }
-    match backend_smoke {
-        Some(smoke) => {
-            if smoke.backend_id != candidate.backend {
-                push_unique(&mut blockers, "backend smoke backend가 후보와 다릅니다.");
-            }
-            if smoke.backend_release != evidence.backend_version {
-                push_unique(
-                    &mut blockers,
-                    "backend smoke release가 promotion evidence와 다릅니다.",
-                );
-            }
-            if !checksum::is_valid_sha256(&smoke.binary_sha256) {
-                push_unique(
-                    &mut blockers,
-                    "backend smoke binary SHA-256이 유효하지 않습니다.",
-                );
-            }
-            if smoke.model_id != artifact_model_id(artifact)
-                || smoke.model_sha256 != artifact.sha256
-                || smoke.model_size_bytes != artifact.size_bytes
-            {
-                push_unique(
-                    &mut blockers,
-                    "backend smoke model artifact provenance가 후보 manifest와 다릅니다.",
-                );
-            }
-            if smoke.ctx_size == "model-default" || smoke.ctx_size.parse::<u32>().is_err() {
-                push_unique(
-                    &mut blockers,
-                    "backend smoke context size가 고정되지 않았습니다.",
-                );
-            }
-            if smoke.mmproj != evidence.mmproj {
-                push_unique(
-                    &mut blockers,
-                    "backend smoke mmproj 결과가 evidence와 다릅니다.",
-                );
-            }
-            if smoke.sampling != "temperature-0.1_top-p-0.8" {
-                push_unique(
-                    &mut blockers,
-                    "backend smoke sampling 조건이 고정값과 다릅니다.",
-                );
-            }
-            if smoke.host_os.trim().is_empty() || smoke.host_arch.trim().is_empty() {
-                push_unique(
-                    &mut blockers,
-                    "backend smoke host 환경 evidence가 비어 있습니다.",
-                );
-            }
-        }
-        None => push_unique(
-            &mut blockers,
-            "동일 artifact provenance를 가진 backend chat smoke event를 확인하지 못했습니다.",
-        ),
-    }
-    if !local_state.verified {
-        push_unique(
-            &mut blockers,
-            &format!(
-                "local artifact가 manifest와 일치하지 않습니다: {}",
-                local_state.detail
-            ),
-        );
-    }
-    if evidence.ram_fit != "observed-within-local-host" {
-        push_unique(
-            &mut blockers,
-            "ramFit은 observed-within-local-host여야 합니다.",
-        );
-    }
-    if evidence.recommended_ram_gb == 0 {
-        push_unique(&mut blockers, "recommendedRamGb는 1 이상이어야 합니다.");
-    }
-    if evidence.peak_rss_bytes == 0 {
-        push_unique(&mut blockers, "peakRssBytes RAM evidence가 필요합니다.");
-    }
-    let ram_budget_bytes = (evidence.recommended_ram_gb as u64).saturating_mul(BYTES_PER_GIB);
-    if evidence.peak_rss_bytes > ram_budget_bytes {
-        push_unique(
-            &mut blockers,
-            "peakRssBytes가 recommendedRamGb budget을 초과합니다.",
-        );
-    }
-    if evidence.recommended_ram_gb != measured_ram_budget_gb(evidence.peak_rss_bytes) {
-        push_unique(
-            &mut blockers,
-            "recommendedRamGb는 measured peak RSS + 2 GiB headroom 공식과 일치해야 합니다.",
-        );
-    }
-    if !matches!(
-        evidence.mmproj.as_str(),
-        "not-required-text-only" | "not-required" | "required"
-    ) {
-        push_unique(
-            &mut blockers,
-            "mmproj evidence는 not-required-text-only, not-required, required 중 하나여야 합니다.",
-        );
-    }
-
-    match benchmark {
-        Some(row) => {
-            if row.claim_state != "measured-locally" {
-                push_unique(
-                    &mut blockers,
-                    "benchmark claim_state는 measured-locally여야 합니다.",
-                );
-            }
-            if row.local_pass != Some(true) {
-                push_unique(
-                    &mut blockers,
-                    "benchmark local_pass=true evidence가 필요합니다.",
-                );
-            }
-            if row.backend_id.as_deref() != Some(candidate.backend) {
-                push_unique(
-                    &mut blockers,
-                    "benchmark backend_id가 후보 backend와 일치하지 않습니다.",
-                );
-            }
-            if row.fixture_id != benchmark_policy::ADOPTION_FIXTURE_ID
-                || row.fixture_sha256 != benchmark_policy::ADOPTION_FIXTURE_SHA256
-                || row.prompt_artifact_sha256.as_deref()
-                    != Some(benchmark_policy::ADOPTION_PROMPT_SHA256)
-                || row.benchmark_name != benchmark_policy::ADOPTION_BENCHMARK_NAME
-                || row.dataset_ref.as_deref() != Some(benchmark_policy::ADOPTION_DATASET_REF)
-            {
-                push_unique(
-                    &mut blockers,
-                    "benchmark가 canonical model adoption smoke fixture가 아닙니다.",
-                );
-            }
-            if row.peak_rss_bytes != Some(evidence.peak_rss_bytes) {
-                push_unique(
-                    &mut blockers,
-                    "benchmark peak_rss_bytes가 promotion evidence와 일치하지 않습니다.",
-                );
-            }
-            if row.model_run_id.as_deref()
-                != Some(format!("model-run-{}", evidence.backend_smoke_event_id).as_str())
-            {
-                push_unique(
-                    &mut blockers,
-                    "benchmark model_run_id가 backend smoke event와 직접 연결되지 않았습니다.",
-                );
-            }
-        }
-        None => push_unique(
-            &mut blockers,
-            "benchmarkRunId에 대응하는 measured local benchmark evidence가 없습니다.",
-        ),
-    }
-
-    InstallValidation {
-        ready: blockers.is_empty(),
-        blockers,
-    }
-}
-
-fn measured_ram_budget_gb(peak_rss_bytes: u64) -> u32 {
-    let measured_gib = peak_rss_bytes.saturating_add(BYTES_PER_GIB - 1) / BYTES_PER_GIB;
-    measured_gib.saturating_add(2).min(u64::from(u32::MAX)) as u32
-}
-
 pub(crate) fn quantization_for_artifact_hash(hash: &str) -> Option<&'static str> {
     CANDIDATES
         .iter()
@@ -690,14 +510,6 @@ fn detail_value<'a>(details: &'a str, key: &str) -> Option<&'a str> {
         let (candidate, value) = field.split_once('=')?;
         (candidate == key).then_some(value)
     })
-}
-
-fn artifact_model_id(artifact: ModelArtifactDescriptor) -> String {
-    Path::new(artifact.file_name)
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .unwrap_or(artifact.file_name)
-        .to_string()
 }
 
 pub fn benchmark_plan_report(id: &str) -> Result<String, AppError> {
@@ -780,13 +592,14 @@ pub fn promote_candidate_report(id: &str, evidence_path: &str) -> Result<String,
     let final_path = model_artifact_path(artifact);
     let local_state = local_artifact_state(artifact, &final_path)?;
     let benchmark = promotion_benchmark_run(&evidence, artifact)?;
+    let benchmark_evidence = benchmark.as_ref().map(promotion_benchmark_evidence);
     let backend_smoke = backend_smoke_evidence(&evidence.backend_smoke_event_id)?;
     let validation = validate_promotion_evidence(
         candidate,
         &evidence,
         artifact,
         &local_state,
-        benchmark.as_ref(),
+        benchmark_evidence.as_ref(),
         backend_smoke.as_ref(),
     );
 
@@ -1290,12 +1103,6 @@ fn read_promotion_evidence_file(path: &Path) -> Result<PromotionEvidence, AppErr
     parse_promotion_evidence(&text)
 }
 
-fn push_unique(values: &mut Vec<String>, value: &str) {
-    if !values.iter().any(|existing| existing == value) {
-        values.push(value.to_string());
-    }
-}
-
 fn display_vec(values: &[String]) -> String {
     if values.is_empty() {
         "없음".to_string()
@@ -1508,6 +1315,7 @@ mod tests {
         let artifact = source_backed_artifact(candidate).unwrap();
         let evidence = qwen_promotion_evidence(artifact);
         let benchmark = qwen_benchmark_report(artifact, &evidence);
+        let benchmark_evidence = promotion_benchmark_evidence(&benchmark);
         let smoke = qwen_backend_smoke(artifact, &evidence);
         let local_state = LocalArtifactState {
             status: "verified-local-artifact",
@@ -1520,7 +1328,7 @@ mod tests {
             &evidence,
             artifact,
             &local_state,
-            Some(&benchmark),
+            Some(&benchmark_evidence),
             Some(&smoke),
         );
 
@@ -1592,12 +1400,13 @@ mod tests {
                 row
             },
         ] {
+            let benchmark_evidence = promotion_benchmark_evidence(&benchmark);
             let validation = validate_promotion_evidence(
                 candidate,
                 &evidence,
                 artifact,
                 &local_state,
-                Some(&benchmark),
+                Some(&benchmark_evidence),
                 Some(&smoke),
             );
             assert!(!validation.ready);

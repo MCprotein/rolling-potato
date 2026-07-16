@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 pub(crate) mod manifest;
+pub(crate) mod promotion;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ModelArtifactPaths {

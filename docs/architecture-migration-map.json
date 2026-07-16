@@ -2122,6 +2122,20 @@
       ]
     },
     {
+      "path": "src/runtime_core/inference/model/promotion.rs",
+      "slices": [
+        {
+          "responsibility": "model promotion evidence validation policy",
+          "target": "src/runtime_core/inference/model/promotion.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/promotion.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/filesystem/model_artifact.rs",
       "slices": [
         {
@@ -3726,6 +3740,12 @@
       "path": "src/runtime_core/inference/model/manifest.rs",
       "responsibilities": [
         "model manifest catalog, lifecycle DTOs, and evidence codecs"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/promotion.rs",
+      "responsibilities": [
+        "model promotion evidence validation policy"
       ]
     },
     {
