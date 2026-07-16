@@ -1,5 +1,6 @@
 //! Filesystem layout, atomic replacement, cache, and lease implementations.
 
+pub(crate) mod backend_state;
 pub(crate) mod cache;
 pub(crate) mod config;
 pub(crate) mod layout;

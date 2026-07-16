@@ -2192,6 +2192,20 @@
       ]
     },
     {
+      "path": "src/adapters/filesystem/backend_state.rs",
+      "slices": [
+        {
+          "responsibility": "backend sidecar record persistence I/O",
+          "target": "src/adapters/filesystem/backend_state.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/backend_state.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/monitor.rs",
       "slices": [
         {
@@ -3812,6 +3826,12 @@
       "path": "src/adapters/filesystem/model_artifact.rs",
       "responsibilities": [
         "model artifact download, verification, and registry persistence I/O"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/backend_state.rs",
+      "responsibilities": [
+        "backend sidecar record persistence I/O"
       ]
     },
     {

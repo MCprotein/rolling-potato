@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::adapters::filesystem::layout as paths;
+use crate::adapters::filesystem::{backend_state, layout as paths};
 use crate::adapters::llama_cpp::backend as llama_backend;
 use crate::adapters::llama_cpp::install as llama_install;
 use crate::adapters::llama_cpp::stream as backend_stream;
@@ -16,9 +16,8 @@ use crate::adapters::process::backend as backend_process;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::inference::backend::lifecycle::{
-    parse_generation_record, parse_sidecar_record, record_value, render_generation_record,
-    render_sidecar_record, BackendGenerationRecord, BackendGenerationTerminalRecord,
-    BackendSidecarRecord,
+    parse_generation_record, record_value, render_generation_record, BackendGenerationRecord,
+    BackendGenerationTerminalRecord, BackendSidecarRecord,
 };
 use crate::runtime_core::inference::backend::BackendAdapter;
 use crate::runtime_core::inference::backend::{
@@ -299,10 +298,10 @@ pub fn start_report(model_path: &str, ctx_size: Option<u32>) -> Result<String, A
 }
 
 pub fn status_report() -> Result<String, AppError> {
-    let Some(record) = read_backend_sidecar_record()? else {
+    let Some(record) = backend_state::read_sidecar_record()? else {
         return Ok(format!(
             "backend status\n- status: stopped\n- sidecar record: {}\n- 다음 단계: rpotato backend start --model <path> [--ctx-size <tokens>]",
-            backend_sidecar_record_path().display()
+            backend_state::sidecar_record_path().display()
         ));
     };
 
@@ -368,20 +367,20 @@ pub fn status_report() -> Result<String, AppError> {
             .unwrap_or("not-recorded"),
         record.stdout_log.display(),
         record.stderr_log.display(),
-        backend_sidecar_record_path().display()
+        backend_state::sidecar_record_path().display()
     ))
 }
 
 pub fn stop_report() -> Result<String, AppError> {
-    let Some(record) = read_backend_sidecar_record()? else {
+    let Some(record) = backend_state::read_sidecar_record()? else {
         return Ok(format!(
             "backend stop\n- status: stopped\n- sidecar record: {}\n- 동작: 실행 중인 managed sidecar record가 없어 no-op입니다.",
-            backend_sidecar_record_path().display()
+            backend_state::sidecar_record_path().display()
         ));
     };
 
     if !backend_process::is_running(record.pid) {
-        remove_file_if_exists(&backend_sidecar_record_path())?;
+        backend_state::remove_sidecar_record()?;
         let event_id = state::record_event(
             "backend.sidecar.stop.stale",
             "stale backend sidecar record 제거",
@@ -390,7 +389,7 @@ pub fn stop_report() -> Result<String, AppError> {
         return Ok(format!(
             "backend stop\n- status: stale-record-removed\n- pid: {}\n- sidecar record: {}\n- ledger event: {}",
             record.pid,
-            backend_sidecar_record_path().display(),
+            backend_state::sidecar_record_path().display(),
             event_id
         ));
     }
@@ -405,7 +404,7 @@ pub fn stop_report() -> Result<String, AppError> {
     let generation_outcome = cancel_active_generation_before_stop(&record)?;
 
     terminate_process_with_fallback(record.pid)?;
-    remove_file_if_exists(&backend_sidecar_record_path())?;
+    backend_state::remove_sidecar_record()?;
     let event_id = state::record_event(
         "backend.sidecar.stop.completed",
         "backend sidecar 종료 완료",
@@ -741,10 +740,10 @@ pub fn preflight_chat_ready() -> Result<(), AppError> {
 }
 
 fn ready_sidecar_record() -> Result<BackendSidecarRecord, AppError> {
-    let Some(record) = read_backend_sidecar_record()? else {
+    let Some(record) = backend_state::read_sidecar_record()? else {
         return Err(AppError::blocked(format!(
             "backend chat 차단\n- 이유: 실행 중인 sidecar record가 없습니다.\n- 다음 단계: rpotato backend start --model <path> --ctx-size 4096\n- sidecar record: {}",
-            backend_sidecar_record_path().display()
+            backend_state::sidecar_record_path().display()
         )));
     };
     if !backend_process::is_running(record.pid) {
@@ -1883,10 +1882,6 @@ fn remove_generation_lock_if_owned_checked(generation_id: &str) -> Result<(), Ap
     Ok(())
 }
 
-fn backend_sidecar_record_path() -> PathBuf {
-    paths::state_dir().join("backend-llama.cpp-sidecar.txt")
-}
-
 fn backend_generation_record_path() -> PathBuf {
     paths::state_dir().join("backend-active-generation.txt")
 }
@@ -1926,7 +1921,7 @@ fn start_sidecar_with_timeout(
         )));
     }
 
-    if let Some(record) = read_backend_sidecar_record()? {
+    if let Some(record) = backend_state::read_sidecar_record()? {
         if backend_process::is_running(record.pid) {
             let resource_sample = record_backend_resource_sample(&record, "start-existing")?;
             return Ok(format!(
@@ -1947,7 +1942,7 @@ fn start_sidecar_with_timeout(
                 record.stderr_log.display()
             ));
         }
-        remove_file_if_exists(&backend_sidecar_record_path())?;
+        backend_state::remove_sidecar_record()?;
     }
 
     let binary_path = fs::canonicalize(&discovery.selected_path).map_err(|err| {
@@ -2027,7 +2022,7 @@ fn start_sidecar_with_timeout(
         stderr_log,
         started_at_ms: now_ms(),
     };
-    write_backend_sidecar_record(&record)?;
+    backend_state::write_sidecar_record(&record)?;
     trace_backend_start("sidecar-record-written");
 
     let started_at = Instant::now();
@@ -2088,7 +2083,7 @@ fn start_sidecar_with_timeout(
         if let Some(status) = child.try_wait().map_err(|err| {
             AppError::runtime(format!("backend sidecar process 상태 확인 실패: {err}"))
         })? {
-            remove_file_if_exists(&backend_sidecar_record_path())?;
+            backend_state::remove_sidecar_record()?;
             let event_id = state::record_event(
                 "backend.sidecar.start.failed",
                 "backend sidecar 시작 실패",
@@ -2113,7 +2108,7 @@ fn start_sidecar_with_timeout(
         if started_at.elapsed() >= timeout {
             let _ = child.kill();
             let _ = child.wait();
-            remove_file_if_exists(&backend_sidecar_record_path())?;
+            backend_state::remove_sidecar_record()?;
             let event_id = state::record_event(
                 "backend.sidecar.start.timeout",
                 "backend sidecar 시작 timeout",
@@ -2172,49 +2167,6 @@ fn create_log_file(path: &Path) -> Result<File, AppError> {
         .write(true)
         .open(path)
         .map_err(|err| AppError::runtime(format!("log file 생성 실패: {} ({err})", path.display())))
-}
-
-fn write_backend_sidecar_record(record: &BackendSidecarRecord) -> Result<(), AppError> {
-    let path = backend_sidecar_record_path();
-    let parent = path.parent().ok_or_else(|| {
-        AppError::runtime(format!(
-            "backend sidecar record parent path를 계산하지 못했습니다: {}",
-            path.display()
-        ))
-    })?;
-    fs::create_dir_all(parent).map_err(|err| {
-        AppError::runtime(format!(
-            "backend sidecar record directory를 만들지 못했습니다: {} ({err})",
-            parent.display()
-        ))
-    })?;
-
-    let contents = render_sidecar_record(record);
-    fs::write(&path, contents).map_err(|err| {
-        AppError::runtime(format!(
-            "backend sidecar record를 쓰지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })
-}
-
-fn read_backend_sidecar_record() -> Result<Option<BackendSidecarRecord>, AppError> {
-    let path = backend_sidecar_record_path();
-    if !path.exists() {
-        return Ok(None);
-    }
-    let contents = fs::read_to_string(&path).map_err(|err| {
-        AppError::runtime(format!(
-            "backend sidecar record를 읽지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    parse_sidecar_record(&contents).map(Some).ok_or_else(|| {
-        AppError::blocked(format!(
-            "backend sidecar record 형식이 유효하지 않습니다: {}",
-            path.display()
-        ))
-    })
 }
 
 fn display_vec(values: &[String]) -> String {
@@ -2629,7 +2581,7 @@ mod tests {
             stderr_log: root.join("stderr.log"),
             started_at_ms: now_ms(),
         };
-        write_backend_sidecar_record(&record).unwrap();
+        backend_state::write_sidecar_record(&record).unwrap();
         let expected = format!(
             "backend_id={}\npid={}\nbinary_path={}\nmodel_path={}\nmodel_sha256={}\nmodel_size_bytes={}\nbackend_release={}\nbinary_sha256={}\nmmproj={}\nhost={}\nport={}\nctx_size={}\nstdout_log={}\nstderr_log={}\nstarted_at_ms={}\n",
             record.backend_id,
@@ -2649,10 +2601,10 @@ mod tests {
             record.started_at_ms
         );
         assert_eq!(
-            fs::read_to_string(backend_sidecar_record_path()).unwrap(),
+            fs::read_to_string(backend_state::sidecar_record_path()).unwrap(),
             expected
         );
-        let restored = read_backend_sidecar_record().unwrap().unwrap();
+        let restored = backend_state::read_sidecar_record().unwrap().unwrap();
 
         env::remove_var("RPOTATO_DATA_HOME");
         env::remove_var("RPOTATO_PROJECT_ROOT");
@@ -2968,11 +2920,11 @@ mod tests {
             stderr_log: root.join("stderr.log"),
             started_at_ms: now_ms(),
         };
-        write_backend_sidecar_record(&record).unwrap();
+        backend_state::write_sidecar_record(&record).unwrap();
 
         let status = status_report().unwrap();
         let stop = stop_report().unwrap();
-        let record_after_stop = read_backend_sidecar_record().unwrap();
+        let record_after_stop = backend_state::read_sidecar_record().unwrap();
 
         env::remove_var("RPOTATO_DATA_HOME");
         env::remove_var("RPOTATO_PROJECT_ROOT");
@@ -3025,7 +2977,7 @@ mod tests {
             .filter_map(Result::ok)
             .filter(|entry| entry.file_name().to_string_lossy().contains("stderr"))
             .count();
-        let record = read_backend_sidecar_record().unwrap();
+        let record = backend_state::read_sidecar_record().unwrap();
 
         env::remove_var("RPOTATO_DATA_HOME");
         env::remove_var("RPOTATO_PROJECT_ROOT");
