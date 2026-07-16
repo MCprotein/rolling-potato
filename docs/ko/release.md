@@ -86,7 +86,9 @@ scripts/release/verify-release-policy.sh
 
 - release branch 이름이 `Cargo.toml` package version과 일치
 - release tag가 `Cargo.toml` package version과 일치
-- `main`으로 들어오는 release PR은 `release/v...` branch에서만 허용
+- package version을 변경하는 PR과 `release/*` 이름의 branch는 일치하는
+  `release/v...` branch를 사용하며, 일반 기능·문서 PR은 release 작업으로
+  오인하지 않음
 - release tag가 `origin/main` 위에 있음
 - 대응되는 remote release branch가 아직 남아 있으면 release tag 시 direct ancestor이거나
   정확히 같은 tree의 squash merge 상태여야 함

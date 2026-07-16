@@ -101,7 +101,9 @@ The check enforces:
 
 - release branch name matches `Cargo.toml` package version
 - release tag matches `Cargo.toml` package version
-- release PRs into `main` come from `release/v...` branches
+- pull requests that change the package version, and branches named `release/*`,
+  must use the matching `release/v...` branch; ordinary feature and docs PRs do
+  not impersonate release work
 - release tags are on `origin/main`
 - release tags require the matching remote release branch to be a direct
   ancestor or an exact tree-equivalent squash merge when it still exists
