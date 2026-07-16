@@ -1728,7 +1728,7 @@
       "path": "src/adapters/llama_cpp/install.rs",
       "slices": [
         {
-          "responsibility": "llama.cpp release manifest and artifact selection",
+          "responsibility": "llama.cpp release manifest, download, and installation",
           "target": "src/adapters/llama_cpp/install.rs",
           "release": "0.37.3",
           "state": "complete",
@@ -3540,7 +3540,7 @@
     {
       "path": "src/adapters/llama_cpp/install.rs",
       "responsibilities": [
-        "llama.cpp release manifest and artifact selection"
+        "llama.cpp release manifest, download, and installation"
       ]
     },
     {
