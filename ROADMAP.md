@@ -68,7 +68,7 @@ evidence.
 | v0.34.3 | Released | Recovered the native release gate with bounded platform sampling, status-line health probes, the Rust fake sidecar, and graceful TCP half-close, then published the verified exact 11-asset set |
 | v0.35.0 | Superseded | Bounded subagent source shipped, but the release test gate inherited the real release tag into an ordinary-PR policy fixture and stopped before binary builds |
 | v0.35.1 | Released | Hermetic release-contract fixture that clears ambient tag context while retaining the complete v0.35 bounded subagent implementation |
-| v0.36.0 | Planned | Team execution: dispatch admitted lanes, advance team stages, enforce ownership at action time, reconcile results, handle failed lanes, and apply verification/stop gates before completion |
+| v0.36.0 | Released | Team execution: dispatch admitted lanes, advance team stages, enforce ownership at action time, reconcile results, handle failed lanes, and apply verification/stop gates before completion |
 | v0.37.0 | Planned | Codex plugin execution adapter: execute supported locally imported capabilities through native policy/hook/skill boundaries while shell, MCP, background, remote, and write capabilities remain blocked until explicit approval |
 | v0.38.0 | Planned | Claude Code plugin execution adapter: map supported local capabilities onto the established native adapter contract, report unsupported semantics, and preserve the same default-deny permission boundary |
 | v0.39.0 | Planned | Integrated performance hardening: benchmark completed agent/subagent/team workflows, optimize CPU/RSS/context/token usage from measured evidence, and promote regressions into reproducible fixtures without unsupported model claims |
