@@ -79,6 +79,42 @@ pub(crate) trait ApprovalTransactionPort {
     fn remove_journal(&mut self) -> Result<(), AppError>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum VerificationFault {
+    V1,
+    V2,
+    V3BeforePointer,
+    V3,
+    V4,
+    V5,
+    V6,
+}
+
+impl VerificationFault {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::V1 => "V1",
+            Self::V2 => "V2",
+            Self::V3BeforePointer => "V3-before-pointer",
+            Self::V3 => "V3",
+            Self::V4 => "V4",
+            Self::V5 => "V5",
+            Self::V6 => "V6",
+        }
+    }
+}
+
+pub(crate) trait VerificationTransactionPort {
+    fn fault(&mut self, point: VerificationFault) -> Result<(), AppError>;
+    fn append_event(&mut self, index: usize) -> Result<(), AppError>;
+    fn install_snapshot(&mut self) -> Result<(), AppError>;
+    fn install_pointer(&mut self) -> Result<(), AppError>;
+    fn install_current(&mut self) -> Result<(), AppError>;
+    fn finish_events(&mut self) -> Result<(), AppError>;
+    fn converge(&mut self) -> Result<(), AppError>;
+    fn remove_journal(&mut self) -> Result<(), AppError>;
+}
+
 pub(crate) fn execute_approval_transaction(
     port: &mut impl ApprovalTransactionPort,
     execution: TransactionExecution,
@@ -144,6 +180,44 @@ pub(crate) fn execute_approval_transaction(
     port.remove_projection_lag()?;
     port.validate_cleanup_authority()?;
     if commit {
+        port.remove_journal()?;
+    }
+    Ok(())
+}
+
+pub(crate) fn execute_verification_transaction(
+    port: &mut impl VerificationTransactionPort,
+    execution: TransactionExecution,
+) -> Result<(), AppError> {
+    let commit = execution == TransactionExecution::Commit;
+    if commit {
+        port.fault(VerificationFault::V1)?;
+    }
+    port.append_event(0)?;
+    if commit {
+        port.fault(VerificationFault::V2)?;
+    }
+    port.install_snapshot()?;
+    port.append_event(1)?;
+    if commit {
+        port.fault(VerificationFault::V3BeforePointer)?;
+    }
+    port.install_pointer()?;
+    if commit {
+        port.fault(VerificationFault::V3)?;
+    }
+    port.append_event(2)?;
+    if commit {
+        port.fault(VerificationFault::V4)?;
+    }
+    port.install_current()?;
+    if commit {
+        port.fault(VerificationFault::V5)?;
+    }
+    port.finish_events()?;
+    port.converge()?;
+    if commit {
+        port.fault(VerificationFault::V6)?;
         port.remove_journal()?;
     }
     Ok(())
@@ -238,6 +312,53 @@ mod tests {
     #[derive(Default)]
     struct FakeApprovalPort {
         calls: Vec<String>,
+    }
+
+    #[derive(Default)]
+    struct FakeVerificationPort {
+        calls: Vec<String>,
+    }
+
+    impl VerificationTransactionPort for FakeVerificationPort {
+        fn fault(&mut self, point: VerificationFault) -> Result<(), AppError> {
+            self.calls.push(format!("fault:{}", point.as_str()));
+            Ok(())
+        }
+
+        fn append_event(&mut self, index: usize) -> Result<(), AppError> {
+            self.calls.push(format!("append:{index}"));
+            Ok(())
+        }
+
+        fn install_snapshot(&mut self) -> Result<(), AppError> {
+            self.calls.push("snapshot".to_owned());
+            Ok(())
+        }
+
+        fn install_pointer(&mut self) -> Result<(), AppError> {
+            self.calls.push("pointer".to_owned());
+            Ok(())
+        }
+
+        fn install_current(&mut self) -> Result<(), AppError> {
+            self.calls.push("current".to_owned());
+            Ok(())
+        }
+
+        fn finish_events(&mut self) -> Result<(), AppError> {
+            self.calls.push("finish".to_owned());
+            Ok(())
+        }
+
+        fn converge(&mut self) -> Result<(), AppError> {
+            self.calls.push("converge".to_owned());
+            Ok(())
+        }
+
+        fn remove_journal(&mut self) -> Result<(), AppError> {
+            self.calls.push("remove-journal".to_owned());
+            Ok(())
+        }
     }
 
     impl ApprovalTransactionPort for FakeApprovalPort {
@@ -397,6 +518,43 @@ mod tests {
         assert_eq!(
             port.calls.last().map(String::as_str),
             Some("validate-cleanup")
+        );
+    }
+
+    #[test]
+    fn verification_commit_and_recovery_share_one_order() {
+        let mut commit = FakeVerificationPort::default();
+        execute_verification_transaction(&mut commit, TransactionExecution::Commit).unwrap();
+        assert_eq!(
+            commit.calls,
+            [
+                "fault:V1",
+                "append:0",
+                "fault:V2",
+                "snapshot",
+                "append:1",
+                "fault:V3-before-pointer",
+                "pointer",
+                "fault:V3",
+                "append:2",
+                "fault:V4",
+                "current",
+                "fault:V5",
+                "finish",
+                "converge",
+                "fault:V6",
+                "remove-journal",
+            ]
+        );
+
+        let mut recovery = FakeVerificationPort::default();
+        execute_verification_transaction(&mut recovery, TransactionExecution::Recovery).unwrap();
+        assert_eq!(
+            recovery.calls,
+            [
+                "append:0", "snapshot", "append:1", "pointer", "append:2", "current", "finish",
+                "converge",
+            ]
         );
     }
 }
