@@ -245,6 +245,26 @@ pub fn project_workflow_transaction_file(workflow_id: &str) -> PathBuf {
     project_workflows_dir().join(format!("{workflow_id}.txn"))
 }
 
+pub fn project_subagents_dir() -> PathBuf {
+    project_state_dir().join("subagents")
+}
+
+pub fn project_subagent_file(subagent_id: &str) -> PathBuf {
+    project_subagents_dir().join(format!("{subagent_id}.json"))
+}
+
+pub fn project_subagent_snapshots_dir(subagent_id: &str) -> PathBuf {
+    project_subagents_dir().join(format!("{subagent_id}.snapshots"))
+}
+
+pub fn project_subagent_snapshot_file(subagent_id: &str, revision: u64) -> PathBuf {
+    project_subagent_snapshots_dir(subagent_id).join(format!("{revision:020}.json"))
+}
+
+pub fn project_subagent_lock(subagent_id: &str) -> PathBuf {
+    project_subagents_dir().join(format!("{subagent_id}.lock"))
+}
+
 pub fn project_approval_requests_dir() -> PathBuf {
     project_state_dir().join("approval-requests")
 }
