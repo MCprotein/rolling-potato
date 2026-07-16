@@ -88,14 +88,16 @@ impl SubagentRecordV1 {
             SUBAGENT_ID_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         );
         subagent_policy::create_record_at(
-            format!("subagent-{}", &state::sha256_text(&nonce)[..20]),
-            project_id,
-            session_id,
-            parent_workflow_id,
-            parent_revision,
-            parent_artifact_hash,
+            NewRecordBinding {
+                subagent_id: format!("subagent-{}", &state::sha256_text(&nonce)[..20]),
+                project_id,
+                session_id,
+                parent_workflow_id,
+                parent_revision,
+                parent_artifact_hash,
+                created_at_ms,
+            },
             launch,
-            created_at_ms,
         )
     }
 

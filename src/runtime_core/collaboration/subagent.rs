@@ -217,6 +217,16 @@ pub struct SubagentRecordV1 {
     pub finished_at_ms: u128,
 }
 
+pub(crate) struct NewRecordBinding<'a> {
+    pub subagent_id: String,
+    pub project_id: &'a str,
+    pub session_id: &'a str,
+    pub parent_workflow_id: &'a str,
+    pub parent_revision: u64,
+    pub parent_artifact_hash: &'a str,
+    pub created_at_ms: u128,
+}
+
 impl SubagentRecordV1 {
     pub(crate) fn transition_to_at(
         &mut self,
@@ -244,25 +254,19 @@ impl SubagentRecordV1 {
 }
 
 pub(crate) fn create_record_at(
-    subagent_id: String,
-    project_id: &str,
-    session_id: &str,
-    parent_workflow_id: &str,
-    parent_revision: u64,
-    parent_artifact_hash: &str,
+    binding: NewRecordBinding<'_>,
     launch: ValidatedLaunch,
-    created_at_ms: u128,
 ) -> Result<SubagentRecordV1, AppError> {
     let record = SubagentRecordV1 {
-        subagent_id,
+        subagent_id: binding.subagent_id,
         revision: 0,
         previous_hash: String::new(),
         artifact_hash: String::new(),
-        project_id: project_id.to_string(),
-        session_id: session_id.to_string(),
-        parent_workflow_id: parent_workflow_id.to_string(),
-        parent_revision,
-        parent_artifact_hash: parent_artifact_hash.to_string(),
+        project_id: binding.project_id.to_string(),
+        session_id: binding.session_id.to_string(),
+        parent_workflow_id: binding.parent_workflow_id.to_string(),
+        parent_revision: binding.parent_revision,
+        parent_artifact_hash: binding.parent_artifact_hash.to_string(),
         role: launch.role,
         task_hash: launch.task_hash,
         declared_tools: launch.declared_tools,
@@ -278,7 +282,7 @@ pub(crate) fn create_record_at(
         evidence_id: String::new(),
         evidence_hash: String::new(),
         failure_code: String::new(),
-        created_at_ms,
+        created_at_ms: binding.created_at_ms,
         started_at_ms: 0,
         finished_at_ms: 0,
     };
