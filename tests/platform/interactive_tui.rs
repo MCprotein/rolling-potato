@@ -5,9 +5,7 @@ use std::process::{Command, Output, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(unix)]
-#[allow(dead_code, unused_imports)]
-#[path = "support/native_terminal.rs"]
-mod native_terminal_support;
+use crate::native_terminal_support;
 
 struct Fixture {
     root: PathBuf,

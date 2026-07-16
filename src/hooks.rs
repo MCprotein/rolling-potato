@@ -1,6 +1,6 @@
-use crate::app::AppError;
+use crate::foundation::error::AppError;
+use crate::foundation::serialization as strict_json;
 use crate::state;
-use crate::strict_json;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HookStatus {

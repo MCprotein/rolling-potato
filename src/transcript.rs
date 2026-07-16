@@ -4,10 +4,12 @@ use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::app::AppError;
+use crate::adapters::filesystem::{layout as paths, lease};
 use crate::context::SourcePointer;
+use crate::foundation::error::AppError;
+use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, ParsedLedgerEvent, RuntimeIdentity};
-use crate::{observability, paths, state};
+use crate::{observability, state};
 
 const TRANSCRIPT_SCHEMA_V1: u64 = 1;
 const TRANSCRIPT_SCHEMA_V2: u64 = 2;
@@ -278,7 +280,7 @@ pub(crate) fn install_prepared_no_stream_tool_turn(
     prepared: &PreparedTranscriptTurn,
 ) -> Result<(), AppError> {
     {
-        let _tool_lock = crate::lease::RecoverableLease::acquire(
+        let _tool_lock = lease::RecoverableLease::acquire(
             prepared.tool_path.with_extension("checkpoint.lock"),
             "tool-output artifact",
         )?;
@@ -293,7 +295,7 @@ pub(crate) fn install_prepared_no_stream_tool_turn(
         }
     }
     {
-        let _transcript_lock = crate::lease::RecoverableLease::acquire(
+        let _transcript_lock = lease::RecoverableLease::acquire(
             prepared.transcript_path.with_extension("checkpoint.lock"),
             "transcript checkpoint",
         )?;
@@ -467,7 +469,7 @@ pub fn record_workflow_turn_with_streams(
 
     if path.exists() {
         let existing = {
-            let _lease = crate::lease::RecoverableLease::acquire(
+            let _lease = lease::RecoverableLease::acquire(
                 path.with_extension("checkpoint.lock"),
                 "transcript checkpoint",
             )?;
@@ -493,7 +495,7 @@ pub fn record_workflow_turn_with_streams(
     };
 
     let record = {
-        let _lease = crate::lease::RecoverableLease::acquire(
+        let _lease = lease::RecoverableLease::acquire(
             path.with_extension("checkpoint.lock"),
             "transcript checkpoint",
         )?;
@@ -854,7 +856,7 @@ fn record_tool_output_artifact(
         &artifact_id,
         true,
     )?;
-    let _lease = crate::lease::RecoverableLease::acquire(
+    let _lease = lease::RecoverableLease::acquire(
         path.with_extension("checkpoint.lock"),
         "tool-output artifact",
     )?;
@@ -1219,8 +1221,8 @@ fn load_record_path(path: &std::path::Path) -> Result<TranscriptRecord, AppError
 
 fn parse_transcript_record_body(body: &str) -> Result<TranscriptRecord, AppError> {
     let version_probe =
-        crate::strict_json::parse_object(body, TRANSCRIPT_V2_KEYS, "transcript artifact version")?;
-    let schema_version = crate::strict_json::number(
+        strict_json::parse_object(body, TRANSCRIPT_V2_KEYS, "transcript artifact version")?;
+    let schema_version = strict_json::number(
         &version_probe,
         "schema_version",
         "transcript artifact version",
@@ -1264,42 +1266,33 @@ fn parse_transcript_record_body(body: &str) -> Result<TranscriptRecord, AppError
 }
 
 fn parse_transcript_v1(body: &str) -> Result<TranscriptRecord, AppError> {
-    let object = crate::strict_json::parse_object(body, TRANSCRIPT_V1_KEYS, "transcript v1")?;
-    if crate::strict_json::number(&object, "schema_version", "transcript v1")?
-        != TRANSCRIPT_SCHEMA_V1
-    {
+    let object = strict_json::parse_object(body, TRANSCRIPT_V1_KEYS, "transcript v1")?;
+    if strict_json::number(&object, "schema_version", "transcript v1")? != TRANSCRIPT_SCHEMA_V1 {
         return Err(AppError::blocked("transcript v1 schema 불일치"));
     }
     Ok(TranscriptRecord {
         schema_version: TRANSCRIPT_SCHEMA_V1,
-        record_id: crate::strict_json::string(&object, "record_id", "transcript v1")?,
-        project_id: crate::strict_json::string(&object, "project_id", "transcript v1")?,
-        session_id: crate::strict_json::string(&object, "session_id", "transcript v1")?,
-        workflow_id: crate::strict_json::string(&object, "workflow_id", "transcript v1")?,
-        kind: crate::strict_json::string(&object, "kind", "transcript v1")?,
-        causal_id: crate::strict_json::string(&object, "causal_id", "transcript v1")?,
-        content: crate::strict_json::string(&object, "content", "transcript v1")?,
-        content_hash: crate::strict_json::string(&object, "content_hash", "transcript v1")?,
+        record_id: strict_json::string(&object, "record_id", "transcript v1")?,
+        project_id: strict_json::string(&object, "project_id", "transcript v1")?,
+        session_id: strict_json::string(&object, "session_id", "transcript v1")?,
+        workflow_id: strict_json::string(&object, "workflow_id", "transcript v1")?,
+        kind: strict_json::string(&object, "kind", "transcript v1")?,
+        causal_id: strict_json::string(&object, "causal_id", "transcript v1")?,
+        content: strict_json::string(&object, "content", "transcript v1")?,
+        content_hash: strict_json::string(&object, "content_hash", "transcript v1")?,
         source_pointers: parse_source_pointers(object.get("source_pointers"))?,
-        recorded_at_ms: crate::strict_json::number_u128(
-            &object,
-            "recorded_at_ms",
-            "transcript v1",
-        )?,
+        recorded_at_ms: strict_json::number_u128(&object, "recorded_at_ms", "transcript v1")?,
         tool_output_artifact: None,
-        artifact_hash: crate::strict_json::string(&object, "artifact_hash", "transcript v1")?,
+        artifact_hash: strict_json::string(&object, "artifact_hash", "transcript v1")?,
     })
 }
 
 fn parse_transcript_v2(body: &str) -> Result<TranscriptRecord, AppError> {
-    use crate::strict_json::CanonicalValue;
+    use strict_json::CanonicalValue;
 
-    let object = crate::strict_json::parse_canonical_object(
-        body,
-        TRANSCRIPT_V2_KEYS,
-        "TranscriptRecord v2",
-    )?;
-    if crate::strict_json::canonical_u64(&object, "schema_version", "TranscriptRecord v2")?
+    let object =
+        strict_json::parse_canonical_object(body, TRANSCRIPT_V2_KEYS, "TranscriptRecord v2")?;
+    if strict_json::canonical_u64(&object, "schema_version", "TranscriptRecord v2")?
         != TRANSCRIPT_SCHEMA_V2
     {
         return Err(AppError::blocked("TranscriptRecord v2 schema 불일치"));
@@ -1323,7 +1316,7 @@ fn parse_transcript_v2(body: &str) -> Result<TranscriptRecord, AppError> {
         content: string("content")?,
         content_hash: string("content_hash")?,
         source_pointers,
-        recorded_at_ms: crate::strict_json::canonical_u128(
+        recorded_at_ms: strict_json::canonical_u128(
             &object,
             "recorded_at_ms",
             "TranscriptRecord v2",
@@ -1376,26 +1369,22 @@ fn load_tool_output_artifact(path: &Path) -> Result<SanitizedToolOutputArtifact,
 }
 
 fn parse_tool_output_artifact_body(body: &str) -> Result<SanitizedToolOutputArtifact, AppError> {
-    use crate::strict_json::CanonicalValue;
+    use strict_json::CanonicalValue;
 
     if body.len() > MAX_TOOL_ARTIFACT_BYTES {
         return Err(AppError::blocked(
             "SanitizedToolOutputArtifact canonical byte limit 초과",
         ));
     }
-    let object = crate::strict_json::parse_canonical_object(
+    let object = strict_json::parse_canonical_object(
         body,
         TOOL_ARTIFACT_KEYS,
         "SanitizedToolOutputArtifact",
     )?;
-    if crate::strict_json::canonical_u64(&object, "schema_version", "SanitizedToolOutputArtifact")?
-        != 1
+    if strict_json::canonical_u64(&object, "schema_version", "SanitizedToolOutputArtifact")? != 1
         || string_from_canonical(&object, "redaction_policy")? != "credential-and-control-redaction"
-        || crate::strict_json::canonical_u64(
-            &object,
-            "redaction_version",
-            "SanitizedToolOutputArtifact",
-        )? != 1
+        || strict_json::canonical_u64(&object, "redaction_version", "SanitizedToolOutputArtifact")?
+            != 1
     {
         return Err(AppError::blocked(
             "SanitizedToolOutputArtifact schema/policy 불일치",
@@ -1413,29 +1402,29 @@ fn parse_tool_output_artifact_body(body: &str) -> Result<SanitizedToolOutputArti
         session_id: string_from_canonical(&object, "session_id")?,
         workflow_id: string_from_canonical(&object, "workflow_id")?,
         tool_id: string_from_canonical(&object, "tool_id")?,
-        created_at_ms: crate::strict_json::canonical_u128(
+        created_at_ms: strict_json::canonical_u128(
             &object,
             "created_at_ms",
             "SanitizedToolOutputArtifact",
         )?,
         stdout: string_from_canonical(&object, "stdout")?,
         stderr: string_from_canonical(&object, "stderr")?,
-        stdout_original_bytes: crate::strict_json::canonical_u64(
+        stdout_original_bytes: strict_json::canonical_u64(
             &object,
             "stdout_original_bytes",
             "SanitizedToolOutputArtifact",
         )?,
-        stderr_original_bytes: crate::strict_json::canonical_u64(
+        stderr_original_bytes: strict_json::canonical_u64(
             &object,
             "stderr_original_bytes",
             "SanitizedToolOutputArtifact",
         )?,
-        stdout_retained_chars: crate::strict_json::canonical_u64(
+        stdout_retained_chars: strict_json::canonical_u64(
             &object,
             "stdout_retained_chars",
             "SanitizedToolOutputArtifact",
         )?,
-        stderr_retained_chars: crate::strict_json::canonical_u64(
+        stderr_retained_chars: strict_json::canonical_u64(
             &object,
             "stderr_retained_chars",
             "SanitizedToolOutputArtifact",
@@ -1471,11 +1460,11 @@ fn parse_tool_output_artifact_body(body: &str) -> Result<SanitizedToolOutputArti
 }
 
 fn string_from_canonical(
-    object: &crate::strict_json::CanonicalObject,
+    object: &strict_json::CanonicalObject,
     key: &str,
 ) -> Result<String, AppError> {
     match object.get(key) {
-        Some(crate::strict_json::CanonicalValue::String(value)) => Ok(value.clone()),
+        Some(strict_json::CanonicalValue::String(value)) => Ok(value.clone()),
         _ => Err(AppError::blocked(format!(
             "canonical string field 불일치: {key}"
         ))),
@@ -1574,14 +1563,14 @@ fn validate_tool_artifact_owner(
 }
 
 fn parse_source_pointers(
-    value: Option<&crate::strict_json::Value>,
+    value: Option<&strict_json::Value>,
 ) -> Result<Vec<TranscriptSourcePointer>, AppError> {
-    let Some(crate::strict_json::Value::Array(values)) = value else {
+    let Some(strict_json::Value::Array(values)) = value else {
         return Err(AppError::blocked("transcript source_pointers type 불일치"));
     };
     let mut pointers = Vec::new();
     for value in values {
-        let crate::strict_json::Value::Object(object) = value else {
+        let strict_json::Value::Object(object) = value else {
             return Err(AppError::blocked("transcript source pointer type 불일치"));
         };
         if object
@@ -1591,18 +1580,18 @@ fn parse_source_pointers(
             return Err(AppError::blocked("transcript source pointer key 불일치"));
         }
         pointers.push(TranscriptSourcePointer {
-            stable_ref: crate::strict_json::string(object, "stable_ref", "transcript pointer")?,
-            path: crate::strict_json::string(object, "path", "transcript pointer")?,
-            source_hash: crate::strict_json::string(object, "source_hash", "transcript pointer")?,
+            stable_ref: strict_json::string(object, "stable_ref", "transcript pointer")?,
+            path: strict_json::string(object, "path", "transcript pointer")?,
+            source_hash: strict_json::string(object, "source_hash", "transcript pointer")?,
         });
     }
     Ok(pointers)
 }
 
 fn parse_canonical_source_pointers(
-    value: Option<&crate::strict_json::CanonicalValue>,
+    value: Option<&strict_json::CanonicalValue>,
 ) -> Result<Vec<TranscriptSourcePointer>, AppError> {
-    use crate::strict_json::CanonicalValue;
+    use strict_json::CanonicalValue;
 
     let Some(CanonicalValue::Array(values)) = value else {
         return Err(AppError::blocked(
@@ -1643,9 +1632,9 @@ fn parse_canonical_source_pointers(
 }
 
 fn parse_tool_binding(
-    value: Option<&crate::strict_json::CanonicalValue>,
+    value: Option<&strict_json::CanonicalValue>,
 ) -> Result<Option<ToolOutputArtifactBinding>, AppError> {
-    use crate::strict_json::CanonicalValue;
+    use strict_json::CanonicalValue;
 
     match value {
         Some(CanonicalValue::Null) => Ok(None),
@@ -2219,7 +2208,7 @@ mod tests {
             paths::transcript_file(&record.project_id, &record.session_id, &record.record_id);
         let transcript_body = fs::read_to_string(&transcript_path).unwrap();
         assert!(!transcript_body.ends_with('\n'));
-        crate::strict_json::parse_canonical_object(
+        strict_json::parse_canonical_object(
             &transcript_body,
             TRANSCRIPT_V2_KEYS,
             "test TranscriptRecord v2",

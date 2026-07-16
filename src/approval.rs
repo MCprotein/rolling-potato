@@ -5,8 +5,8 @@ use std::path::PathBuf;
 #[cfg(test)]
 use std::time::SystemTime;
 
-use crate::app::AppError;
-use crate::{ledger, paths};
+use crate::foundation::error::AppError;
+use crate::{adapters::filesystem::layout as paths, ledger};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ApprovalRequest {

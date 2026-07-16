@@ -7,9 +7,9 @@ use std::time::SystemTime;
 
 use sha2::{Digest, Sha256};
 
-use crate::app::AppError;
+use crate::adapters::filesystem::{layout as paths, lease};
+use crate::foundation::error::AppError;
 use crate::ledger;
-use crate::paths;
 use crate::policy::{self, Decision, PathMode};
 use crate::runtime::{
     exact_tui_outcome, OneShotSecret, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext,
@@ -3739,14 +3739,13 @@ fn restore_from_rollback(record: &ProposalRecord, rollback_path: &Path) -> Rollb
 }
 
 struct ApprovalLock {
-    _lease: crate::lease::RecoverableLease,
+    _lease: lease::RecoverableLease,
 }
 
 impl ApprovalLock {
     fn acquire(proposal_id: &str) -> Result<Self, AppError> {
         let path = paths::project_patch_proposals_dir().join(format!("{proposal_id}.approve.lock"));
-        crate::lease::RecoverableLease::acquire(path, "patch approve")
-            .map(|lease| Self { _lease: lease })
+        lease::RecoverableLease::acquire(path, "patch approve").map(|lease| Self { _lease: lease })
     }
 }
 

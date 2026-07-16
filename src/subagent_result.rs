@@ -1,8 +1,9 @@
-use crate::app::AppError;
 use crate::context::ContextPack;
-use crate::strict_json::{CanonicalObject, CanonicalValue};
+use crate::foundation::error::AppError;
+use crate::foundation::serialization as strict_json;
+use crate::foundation::serialization::{CanonicalObject, CanonicalValue};
 use crate::subagent::{SubagentRecordV1, SubagentRole};
-use crate::{ledger, paths, state, strict_json};
+use crate::{adapters::filesystem::layout as paths, ledger, state};
 use std::collections::BTreeSet;
 use std::fs;
 

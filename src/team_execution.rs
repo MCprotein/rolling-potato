@@ -1,5 +1,8 @@
-use crate::app::AppError;
-use crate::{backend, lease, ledger, observability, paths, resource, subagent, team_state};
+use crate::foundation::error::AppError;
+use crate::{
+    adapters::filesystem::layout as paths, adapters::filesystem::lease, backend, ledger,
+    observability, resource, subagent, team_state,
+};
 use std::collections::BTreeMap;
 
 type TeamRunner = fn(&str, u32, u32, &str) -> Result<subagent::WorkerGeneration, AppError>;
@@ -691,7 +694,8 @@ fn detail_token<'a>(details: &'a str, key: &str) -> Option<&'a str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{paths, state};
+    use crate::adapters::filesystem::layout as paths;
+    use crate::state;
     use std::fs;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::{AtomicUsize, Ordering};

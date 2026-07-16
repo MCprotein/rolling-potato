@@ -47,10 +47,6 @@ pub trait TerminalIo {
     }
 }
 
-pub fn attached() -> bool {
-    io::stdin().is_terminal() && io::stdout().is_terminal()
-}
-
 pub fn validate_native_fault_configuration() -> Result<(), TerminalFault> {
     validate_test_fault_configuration()
 }

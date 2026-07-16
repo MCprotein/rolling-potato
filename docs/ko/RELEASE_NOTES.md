@@ -1,5 +1,29 @@
 # 릴리즈 노트
 
+## 미출시 v0.37.2 - Foundation과 Platform 경계
+
+이 patch는 동작과 synchronous runtime을 유지하면서 운영 소유권 이동을 시작합니다.
+완료된 v0.37.2 legacy module path는 compatibility facade로 남기지 않고 제거합니다.
+
+### 포함한 것
+
+- Application error 경계, SHA-256 primitive, 기존 strict/canonical JSON 구현을 private
+  `foundation` 소유자로 이동
+- Path layout, cache report, configuration source discovery, recoverable filesystem lease,
+  Windows file identity replacement 지원을 `adapters::filesystem`로 이동
+- Terminal attachment detection과 native terminal I/O를 `adapters::terminal` 아래에서
+  분리하고 terminal-backed integration contract를 `platform` test target으로 통합
+- Release proof와 native build workflow가 안정된 새 owner path와 test target을 사용하도록 갱신
+- Migration ledger를 v0.37.2로 진행하고 예정된 slice 14개를 모두 complete로 전환하며,
+  현재 patch에 예정된 미완료 slice를 거부하는 gate 추가
+
+### 호환성 경계
+
+- CLI command, output, exit code, durable byte, recovery order, permission 동작, backend
+  동작, direct dependency는 변경하지 않습니다.
+- Runtime은 synchronous로 유지하며 async runtime, actor framework, public API,
+  persisted schema, 새 dependency를 추가하지 않습니다.
+
 ## 미출시 v0.37.1 - 아키텍처 기반
 
 이 patch는 v0.38.0 전에 완료할 동작 보존 코드 아키텍처 리팩터링을 시작합니다.

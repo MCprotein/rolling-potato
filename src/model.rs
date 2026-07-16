@@ -2,8 +2,10 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use crate::app::AppError;
-use crate::{checksum, ledger, observability, paths, state};
+use crate::foundation::error::AppError;
+use crate::foundation::integrity as checksum;
+use crate::foundation::serialization as strict_json;
+use crate::{adapters::filesystem::layout as paths, ledger, observability, state};
 
 const DOWNLOAD_BUFFER_BYTES: usize = 64 * 1024;
 const BYTES_PER_GIB: u64 = 1024 * 1024 * 1024;
@@ -2004,7 +2006,7 @@ fn read_registry_entries() -> Result<Vec<RegistryEntry>, AppError> {
 
 fn parse_registry_entry(text: &str) -> Result<RegistryEntry, AppError> {
     let context = "model registry entry";
-    let object = crate::strict_json::parse_object(
+    let object = strict_json::parse_object(
         text,
         &[
             "schemaVersion",
@@ -2024,27 +2026,23 @@ fn parse_registry_entry(text: &str) -> Result<RegistryEntry, AppError> {
         ],
         context,
     )?;
-    if crate::strict_json::number(&object, "schemaVersion", context)? != 1 {
+    if strict_json::number(&object, "schemaVersion", context)? != 1 {
         return Err(AppError::blocked("model registry schemaVersion 불일치"));
     }
     Ok(RegistryEntry {
-        id: crate::strict_json::string(&object, "id", context)?,
-        display_name: crate::strict_json::string(&object, "displayName", context)?,
-        status: crate::strict_json::string(&object, "status", context)?,
-        evidence_status: crate::strict_json::string(&object, "evidenceStatus", context)?,
-        promotion_evidence_path: crate::strict_json::string(
-            &object,
-            "promotionEvidencePath",
-            context,
-        )?,
-        backend_version: crate::strict_json::string(&object, "backendVersion", context)?,
-        benchmark_run_id: crate::strict_json::string(&object, "benchmarkRunId", context)?,
-        upstream_model: crate::strict_json::string(&object, "upstreamModel", context)?,
-        upstream_url: crate::strict_json::string(&object, "upstreamUrl", context)?,
-        artifact_path: crate::strict_json::string(&object, "artifactPath", context)?,
-        artifact_sha256: crate::strict_json::string(&object, "artifactSha256", context)?,
-        license_source: crate::strict_json::string(&object, "licenseSource", context)?,
-        license_checked_at: crate::strict_json::string(&object, "licenseCheckedAt", context)?,
+        id: strict_json::string(&object, "id", context)?,
+        display_name: strict_json::string(&object, "displayName", context)?,
+        status: strict_json::string(&object, "status", context)?,
+        evidence_status: strict_json::string(&object, "evidenceStatus", context)?,
+        promotion_evidence_path: strict_json::string(&object, "promotionEvidencePath", context)?,
+        backend_version: strict_json::string(&object, "backendVersion", context)?,
+        benchmark_run_id: strict_json::string(&object, "benchmarkRunId", context)?,
+        upstream_model: strict_json::string(&object, "upstreamModel", context)?,
+        upstream_url: strict_json::string(&object, "upstreamUrl", context)?,
+        artifact_path: strict_json::string(&object, "artifactPath", context)?,
+        artifact_sha256: strict_json::string(&object, "artifactSha256", context)?,
+        license_source: strict_json::string(&object, "licenseSource", context)?,
+        license_checked_at: strict_json::string(&object, "licenseCheckedAt", context)?,
     })
 }
 
@@ -2151,18 +2149,18 @@ fn read_default_selection() -> Result<DefaultSelection, AppError> {
 
 fn parse_default_selection(text: &str) -> Result<DefaultSelection, AppError> {
     let context = "default model selection";
-    let object = crate::strict_json::parse_object(
+    let object = strict_json::parse_object(
         text,
         &["schemaVersion", "modelId", "artifactSha256", "selectedAtMs"],
         context,
     )?;
-    if crate::strict_json::number(&object, "schemaVersion", context)? != 1 {
+    if strict_json::number(&object, "schemaVersion", context)? != 1 {
         return Err(AppError::blocked("default model schemaVersion 불일치"));
     }
     Ok(DefaultSelection {
-        model_id: crate::strict_json::string(&object, "modelId", context)?,
-        artifact_sha256: crate::strict_json::string(&object, "artifactSha256", context)?,
-        selected_at_ms: crate::strict_json::number(&object, "selectedAtMs", context)?,
+        model_id: strict_json::string(&object, "modelId", context)?,
+        artifact_sha256: strict_json::string(&object, "artifactSha256", context)?,
+        selected_at_ms: strict_json::number(&object, "selectedAtMs", context)?,
     })
 }
 

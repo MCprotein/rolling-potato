@@ -3,5 +3,6 @@
 //! This root is not a general utility bucket. A primitive belongs here only
 //! when its invariant is independent of a runtime capability.
 
-mod integrity;
-mod serialization;
+pub(crate) mod error;
+pub(crate) mod integrity;
+pub(crate) mod serialization;

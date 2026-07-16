@@ -1500,6 +1500,76 @@
       ]
     },
     {
+      "path": "src/adapters/filesystem/cache.rs",
+      "slices": [
+        {
+          "responsibility": "managed cache storage",
+          "target": "src/adapters/filesystem/cache.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/config.rs",
+      "slices": [
+        {
+          "responsibility": "configuration file and environment loading",
+          "target": "src/adapters/filesystem/config.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/layout.rs",
+      "slices": [
+        {
+          "responsibility": "application data and project path layout",
+          "target": "src/adapters/filesystem/layout.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/lease.rs",
+      "slices": [
+        {
+          "responsibility": "filesystem lease implementation",
+          "target": "src/adapters/filesystem/lease.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/lease.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/windows_replace.rs",
+      "slices": [
+        {
+          "responsibility": "Windows atomic file replacement",
+          "target": "src/adapters/filesystem/windows_replace.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/windows_replace.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/mod.rs",
       "slices": [
         {
@@ -1570,19 +1640,40 @@
       ]
     },
     {
+      "path": "src/adapters/terminal/capability.rs",
+      "slices": [
+        {
+          "responsibility": "terminal capability detection",
+          "target": "src/adapters/terminal/capability.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal IO",
+          "target": "src/adapters/terminal/native.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app.rs",
       "slices": [
         {
           "responsibility": "top-level command dispatch",
           "target": "src/composition/dispatch.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
-        },
-        {
-          "responsibility": "application error boundary",
-          "target": "src/foundation/error.rs",
-          "release": "0.37.2",
           "state": "planned",
           "evidence": []
         }
@@ -1658,30 +1749,6 @@
       ]
     },
     {
-      "path": "src/cache.rs",
-      "slices": [
-        {
-          "responsibility": "managed cache storage",
-          "target": "src/adapters/filesystem/cache.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
-      "path": "src/checksum.rs",
-      "slices": [
-        {
-          "responsibility": "typed checksum primitives",
-          "target": "src/foundation/integrity.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
       "path": "src/cli.rs",
       "slices": [
         {
@@ -1736,21 +1803,16 @@
       ]
     },
     {
-      "path": "src/config.rs",
+      "path": "src/composition/config.rs",
       "slices": [
         {
           "responsibility": "effective application configuration",
           "target": "src/composition/config.rs",
           "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
-        },
-        {
-          "responsibility": "configuration file and environment loading",
-          "target": "src/adapters/filesystem/config.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -1779,12 +1841,26 @@
       ]
     },
     {
+      "path": "src/foundation/error.rs",
+      "slices": [
+        {
+          "responsibility": "application error boundary",
+          "target": "src/foundation/error.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/foundation/integrity.rs",
       "slices": [
         {
-          "responsibility": "reserved architecture ownership",
+          "responsibility": "typed checksum primitives",
           "target": "src/foundation/integrity.rs",
-          "release": "0.37.1",
+          "release": "0.37.2",
           "state": "complete",
           "evidence": [
             "tests/architecture_contract.rs"
@@ -1810,9 +1886,9 @@
       "path": "src/foundation/serialization.rs",
       "slices": [
         {
-          "responsibility": "reserved architecture ownership",
+          "responsibility": "strict JSON parsing and canonical serialization",
           "target": "src/foundation/serialization.rs",
-          "release": "0.37.1",
+          "release": "0.37.2",
           "state": "complete",
           "evidence": [
             "tests/architecture_contract.rs"
@@ -1851,18 +1927,6 @@
           "responsibility": "Korean output invariant",
           "target": "src/runtime_core/reporting/korean_guard.rs",
           "release": "0.37.10",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
-      "path": "src/lease.rs",
-      "slices": [
-        {
-          "responsibility": "filesystem lease implementation",
-          "target": "src/adapters/filesystem/lease.rs",
-          "release": "0.37.2",
           "state": "planned",
           "evidence": []
         }
@@ -2012,18 +2076,6 @@
           "responsibility": "patch verification and recovery",
           "target": "src/runtime_core/patch/verification.rs",
           "release": "0.37.9",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
-      "path": "src/paths.rs",
-      "slices": [
-        {
-          "responsibility": "application data and project path layout",
-          "target": "src/adapters/filesystem/layout.rs",
-          "release": "0.37.2",
           "state": "planned",
           "evidence": []
         }
@@ -2270,18 +2322,6 @@
       ]
     },
     {
-      "path": "src/strict_json.rs",
-      "slices": [
-        {
-          "responsibility": "strict JSON parsing and canonical serialization",
-          "target": "src/foundation/serialization.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
       "path": "src/subagent.rs",
       "slices": [
         {
@@ -2396,25 +2436,6 @@
       ]
     },
     {
-      "path": "src/terminal.rs",
-      "slices": [
-        {
-          "responsibility": "terminal capability detection",
-          "target": "src/adapters/terminal/capability.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
-        },
-        {
-          "responsibility": "native terminal IO",
-          "target": "src/adapters/terminal/native.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
       "path": "src/test_support.rs",
       "slices": [
         {
@@ -2517,18 +2538,6 @@
       ]
     },
     {
-      "path": "src/windows_file.rs",
-      "slices": [
-        {
-          "responsibility": "Windows atomic file replacement",
-          "target": "src/adapters/filesystem/windows_replace.rs",
-          "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
       "path": "tests/architecture_contract.rs",
       "slices": [
         {
@@ -2555,14 +2564,30 @@
       ]
     },
     {
-      "path": "tests/interactive_tui.rs",
+      "path": "tests/platform.rs",
+      "slices": [
+        {
+          "responsibility": "platform integration test harness",
+          "target": "tests/platform.rs",
+          "release": "0.37.2",
+          "state": "complete",
+          "evidence": [
+            "tests/platform.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/platform/interactive_tui.rs",
       "slices": [
         {
           "responsibility": "terminal-backed TUI contract",
           "target": "tests/platform/interactive_tui.rs",
           "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/platform/interactive_tui.rs"
+          ]
         },
         {
           "responsibility": "TUI behavior contract",
@@ -2574,14 +2599,16 @@
       ]
     },
     {
-      "path": "tests/native_terminal.rs",
+      "path": "tests/platform/native_terminal.rs",
       "slices": [
         {
           "responsibility": "native terminal adapter contract",
           "target": "tests/platform/native_terminal.rs",
           "release": "0.37.2",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/platform/native_terminal.rs"
+          ]
         },
         {
           "responsibility": "CLI terminal behavior contract",
@@ -2679,7 +2706,7 @@
       ]
     }
   ],
-  "current_release": "0.37.1",
+  "current_release": "0.37.2",
   "train_completion": false,
   "logical_proofs": [
     {
@@ -3293,6 +3320,36 @@
       ]
     },
     {
+      "path": "src/adapters/filesystem/cache.rs",
+      "responsibilities": [
+        "managed cache storage"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/config.rs",
+      "responsibilities": [
+        "configuration file and environment loading"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/layout.rs",
+      "responsibilities": [
+        "application data and project path layout"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/lease.rs",
+      "responsibilities": [
+        "filesystem lease implementation"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/windows_replace.rs",
+      "responsibilities": [
+        "Windows atomic file replacement"
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -3323,10 +3380,21 @@
       ]
     },
     {
+      "path": "src/adapters/terminal/capability.rs",
+      "responsibilities": [
+        "terminal capability detection"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native.rs",
+      "responsibilities": [
+        "native terminal IO"
+      ]
+    },
+    {
       "path": "src/app.rs",
       "responsibilities": [
-        "top-level command dispatch",
-        "application error boundary"
+        "top-level command dispatch"
       ]
     },
     {
@@ -3357,18 +3425,6 @@
       ]
     },
     {
-      "path": "src/cache.rs",
-      "responsibilities": [
-        "managed cache storage"
-      ]
-    },
-    {
-      "path": "src/checksum.rs",
-      "responsibilities": [
-        "typed checksum primitives"
-      ]
-    },
-    {
       "path": "src/cli.rs",
       "responsibilities": [
         "CLI argument parsing",
@@ -3389,10 +3445,9 @@
       ]
     },
     {
-      "path": "src/config.rs",
+      "path": "src/composition/config.rs",
       "responsibilities": [
-        "effective application configuration",
-        "configuration file and environment loading"
+        "effective application configuration"
       ]
     },
     {
@@ -3408,9 +3463,15 @@
       ]
     },
     {
+      "path": "src/foundation/error.rs",
+      "responsibilities": [
+        "application error boundary"
+      ]
+    },
+    {
       "path": "src/foundation/integrity.rs",
       "responsibilities": [
-        "reserved architecture ownership"
+        "typed checksum primitives"
       ]
     },
     {
@@ -3422,7 +3483,7 @@
     {
       "path": "src/foundation/serialization.rs",
       "responsibilities": [
-        "reserved architecture ownership"
+        "strict JSON parsing and canonical serialization"
       ]
     },
     {
@@ -3441,12 +3502,6 @@
       "path": "src/korean_guard.rs",
       "responsibilities": [
         "Korean output invariant"
-      ]
-    },
-    {
-      "path": "src/lease.rs",
-      "responsibilities": [
-        "filesystem lease implementation"
       ]
     },
     {
@@ -3498,12 +3553,6 @@
         "patch approval credentials",
         "guarded patch apply and rollback",
         "patch verification and recovery"
-      ]
-    },
-    {
-      "path": "src/paths.rs",
-      "responsibilities": [
-        "application data and project path layout"
       ]
     },
     {
@@ -3607,12 +3656,6 @@
       ]
     },
     {
-      "path": "src/strict_json.rs",
-      "responsibilities": [
-        "strict JSON parsing and canonical serialization"
-      ]
-    },
-    {
       "path": "src/subagent.rs",
       "responsibilities": [
         "subagent lifecycle and dispatch"
@@ -3667,13 +3710,6 @@
       ]
     },
     {
-      "path": "src/terminal.rs",
-      "responsibilities": [
-        "terminal capability detection",
-        "native terminal IO"
-      ]
-    },
-    {
       "path": "src/test_support.rs",
       "responsibilities": [
         "owner-local and cross-crate test fixtures"
@@ -3710,12 +3746,6 @@
       ]
     },
     {
-      "path": "src/windows_file.rs",
-      "responsibilities": [
-        "Windows atomic file replacement"
-      ]
-    },
-    {
       "path": "tests/architecture_contract.rs",
       "responsibilities": [
         "architecture and migration contract"
@@ -3728,14 +3758,20 @@
       ]
     },
     {
-      "path": "tests/interactive_tui.rs",
+      "path": "tests/platform.rs",
+      "responsibilities": [
+        "platform integration test harness"
+      ]
+    },
+    {
+      "path": "tests/platform/interactive_tui.rs",
       "responsibilities": [
         "terminal-backed TUI contract",
         "TUI behavior contract"
       ]
     },
     {
-      "path": "tests/native_terminal.rs",
+      "path": "tests/platform/native_terminal.rs",
       "responsibilities": [
         "native terminal adapter contract",
         "CLI terminal behavior contract"

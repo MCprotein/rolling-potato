@@ -1,6 +1,6 @@
-use crate::app::AppError;
 use crate::cli::MonitorExportFormat;
-use crate::{model, observability, paths};
+use crate::foundation::error::AppError;
+use crate::{adapters::filesystem::layout as paths, model, observability};
 
 pub fn status_report() -> Result<String, AppError> {
     let store = observability::status()?;

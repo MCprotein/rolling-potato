@@ -1,19 +1,21 @@
 #![allow(dead_code)]
 
-mod app {
-    #[derive(Debug)]
-    pub struct AppError {
-        pub message: String,
-    }
+mod foundation {
+    pub(crate) mod error {
+        #[derive(Debug)]
+        pub(crate) struct AppError {
+            pub(crate) message: String,
+        }
 
-    impl AppError {
-        pub fn blocked(message: String) -> Self {
-            Self { message }
+        impl AppError {
+            pub(crate) fn blocked(message: String) -> Self {
+                Self { message }
+            }
         }
     }
 }
 
-#[path = "../src/strict_json.rs"]
+#[path = "../src/foundation/serialization.rs"]
 mod strict_json;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -168,6 +170,7 @@ fn target_is_exact(target: &str) -> bool {
 
 fn lifecycle_violation(
     state: &str,
+    scheduled_patch: u16,
     current_patch: u16,
     train_completion: bool,
     expiry_patch: Option<u16>,
@@ -177,6 +180,11 @@ fn lifecycle_violation(
     }
     if state == "exception" && expiry_patch.is_some_and(|expiry| expiry < current_patch) {
         return Some("exception expired before the current release");
+    }
+    if scheduled_patch <= current_patch
+        && matches!(state, "planned" | "migrating" | "compatibility-facade")
+    {
+        return Some("scheduled release has an unfinished migration slice");
     }
     None
 }
@@ -247,7 +255,7 @@ fn validate_slice(
         target_is_exact(target),
         "{context} target is ambiguous: {target}"
     );
-    release_patch(release, context);
+    let scheduled_patch = release_patch(release, context);
     assert!(
         [
             "planned",
@@ -307,8 +315,13 @@ fn validate_slice(
     } else {
         None
     };
-    if let Some(reason) = lifecycle_violation(state, current_patch, train_completion, expiry_patch)
-    {
+    if let Some(reason) = lifecycle_violation(
+        state,
+        scheduled_patch,
+        current_patch,
+        train_completion,
+        expiry_patch,
+    ) {
         panic!("{context} violates migration lifecycle: {reason}");
     }
 
@@ -399,17 +412,22 @@ fn migration_map_recursively_covers_every_governed_file_and_exact_slice() {
 #[test]
 fn completion_gate_rejects_expired_exceptions_and_incomplete_states() {
     assert_eq!(
-        lifecycle_violation("exception", 8, false, Some(7)),
+        lifecycle_violation("exception", 8, 8, false, Some(7)),
         Some("exception expired before the current release")
     );
-    assert_eq!(lifecycle_violation("exception", 8, false, Some(8)), None);
+    assert_eq!(lifecycle_violation("exception", 8, 8, false, Some(8)), None);
+    assert_eq!(
+        lifecycle_violation("planned", 2, 2, false, None),
+        Some("scheduled release has an unfinished migration slice")
+    );
+    assert_eq!(lifecycle_violation("planned", 3, 2, false, None), None);
     for state in ["planned", "migrating", "compatibility-facade", "exception"] {
         assert_eq!(
-            lifecycle_violation(state, 13, true, Some(13)),
+            lifecycle_violation(state, 13, 13, true, Some(13)),
             Some("train completion requires every slice to be complete")
         );
     }
-    assert_eq!(lifecycle_violation("complete", 13, true, None), None);
+    assert_eq!(lifecycle_violation("complete", 13, 13, true, None), None);
 }
 
 fn collect_rust_files(root: &str) -> BTreeSet<String> {
@@ -423,34 +441,11 @@ fn collect_rust_files(root: &str) -> BTreeSet<String> {
 }
 
 #[test]
-fn private_skeleton_is_compile_connected_and_documentation_only() {
+fn architecture_roots_are_compile_connected_and_private() {
     let main = fs::read_to_string("src/main.rs").expect("src/main.rs must be readable");
     for root in ARCHITECTURE_ROOTS {
         assert!(main.lines().any(|line| line == format!("mod {root};")));
         assert!(!main.lines().any(|line| line == format!("pub mod {root};")));
-
-        for path in collect_rust_files(&format!("src/{root}")) {
-            let source = fs::read_to_string(&path)
-                .unwrap_or_else(|err| panic!("cannot read skeleton {path}: {err}"));
-            for (line_index, line) in source.lines().enumerate() {
-                let line = line.trim();
-                let documentation = line.is_empty() || line.starts_with("//!");
-                let private_module = line
-                    .strip_prefix("mod ")
-                    .and_then(|value| value.strip_suffix(';'))
-                    .is_some_and(|name| {
-                        !name.is_empty()
-                            && name
-                                .bytes()
-                                .all(|byte| byte.is_ascii_lowercase() || byte == b'_')
-                    });
-                assert!(
-                    documentation || private_module,
-                    "{path}:{} contains production or public skeleton code: {line}",
-                    line_index + 1
-                );
-            }
-        }
     }
 
     let english = fs::read_to_string("docs/code-architecture.md").unwrap();
@@ -461,6 +456,141 @@ fn private_skeleton_is_compile_connected_and_documentation_only() {
     assert!(
         korean.contains("[architecture-migration-map.json](../architecture-migration-map.json)")
     );
+}
+
+#[test]
+fn v0372_foundation_owners_replace_legacy_modules() {
+    for target in [
+        "src/foundation/error.rs",
+        "src/foundation/integrity.rs",
+        "src/foundation/serialization.rs",
+    ] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing foundation owner: {target}"
+        );
+    }
+    for legacy in ["src/checksum.rs", "src/strict_json.rs"] {
+        assert!(
+            !Path::new(legacy).exists(),
+            "legacy foundation owner remains: {legacy}"
+        );
+    }
+
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    for legacy_module in ["checksum", "strict_json"] {
+        assert!(
+            !main
+                .lines()
+                .any(|line| line == format!("mod {legacy_module};")),
+            "legacy module remains compile-connected: {legacy_module}"
+        );
+    }
+
+    let foundation = fs::read_to_string("src/foundation/mod.rs").unwrap();
+    for owner in ["error", "integrity", "serialization"] {
+        assert!(
+            foundation
+                .lines()
+                .any(|line| line == format!("pub(crate) mod {owner};")),
+            "foundation owner is not crate-private: {owner}"
+        );
+    }
+
+    let app = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        !app.contains("pub struct AppError"),
+        "AppError is still owned by command dispatch"
+    );
+}
+
+#[test]
+fn v0372_filesystem_owners_replace_legacy_modules() {
+    for target in [
+        "src/adapters/filesystem/cache.rs",
+        "src/adapters/filesystem/config.rs",
+        "src/adapters/filesystem/layout.rs",
+        "src/adapters/filesystem/lease.rs",
+        "src/adapters/filesystem/windows_replace.rs",
+        "src/composition/config.rs",
+    ] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing filesystem owner: {target}"
+        );
+    }
+    for legacy in [
+        "src/cache.rs",
+        "src/config.rs",
+        "src/lease.rs",
+        "src/paths.rs",
+        "src/windows_file.rs",
+    ] {
+        assert!(
+            !Path::new(legacy).exists(),
+            "legacy filesystem owner remains: {legacy}"
+        );
+    }
+
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    for legacy_module in ["cache", "config", "lease", "paths", "windows_file"] {
+        assert!(
+            !main
+                .lines()
+                .any(|line| line == format!("mod {legacy_module};")),
+            "legacy module remains compile-connected: {legacy_module}"
+        );
+    }
+
+    let filesystem = fs::read_to_string("src/adapters/filesystem/mod.rs").unwrap();
+    for owner in ["cache", "config", "layout", "lease", "windows_replace"] {
+        let expected = format!("pub(crate) mod {owner};");
+        assert!(
+            filesystem.lines().any(|line| line == expected),
+            "filesystem owner is not crate-private: {owner}"
+        );
+    }
+}
+
+#[test]
+fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
+    for target in [
+        "src/adapters/terminal/capability.rs",
+        "src/adapters/terminal/native.rs",
+        "tests/platform.rs",
+        "tests/platform/interactive_tui.rs",
+        "tests/platform/native_terminal.rs",
+    ] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing terminal owner: {target}"
+        );
+    }
+    for legacy in [
+        "src/terminal.rs",
+        "tests/interactive_tui.rs",
+        "tests/native_terminal.rs",
+    ] {
+        assert!(
+            !Path::new(legacy).exists(),
+            "legacy terminal owner remains: {legacy}"
+        );
+    }
+
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(
+        !main.lines().any(|line| line == "mod terminal;"),
+        "legacy terminal module remains compile-connected"
+    );
+
+    let terminal = fs::read_to_string("src/adapters/terminal/mod.rs").unwrap();
+    for owner in ["capability", "native"] {
+        let expected = format!("pub(crate) mod {owner};");
+        assert!(
+            terminal.lines().any(|line| line == expected),
+            "terminal owner is not crate-private: {owner}"
+        );
+    }
 }
 
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {

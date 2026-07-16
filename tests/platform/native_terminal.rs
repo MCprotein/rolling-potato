@@ -1,13 +1,10 @@
-#[path = "support/native_terminal.rs"]
-mod native_terminal_support;
-
-use native_terminal_support::{tree_snapshot, NativeTerminalFixture};
+use crate::native_terminal_support::{self, tree_snapshot, NativeTerminalFixture};
 
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
-use native_terminal_support::NativePty;
+use crate::native_terminal_support::NativePty;
 
 #[cfg(windows)]
-use native_terminal_support::trace_stage;
+use crate::native_terminal_support::trace_stage;
 
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
 #[test]

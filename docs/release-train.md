@@ -57,7 +57,8 @@ complete.
 | `v0.36.0` | Real team lane dispatch/stage/reconciliation tests covering parallel and sequential modes, action-time ownership, failed lanes, resource pressure, verification, and stop gates |
 | `v0.37.0` | Codex local plugin capability execution tests through native adapters, with risky capabilities blocked until explicit approval and no marketplace/remote source path |
 | `v0.37.1` | Bilingual code-architecture contract, recursively complete file-and-slice migration ledger, private compile-connected skeleton, dependency contract test, and exact-head read-only candidate CI |
-| `v0.37.2`-`v0.37.13+` | Targeted behavior locks and migration evidence for each ledger slice, byte/order/recovery/security compatibility, one bounded review per stabilized patch, and zero compatibility facades before v0.38.0 |
+| `v0.37.2` | Private foundation/filesystem/terminal owners, no completed-slice compatibility facades, consolidated platform contracts, targeted owner tests, and exact-head candidate CI |
+| `v0.37.3`-`v0.37.13+` | Targeted behavior locks and migration evidence for each remaining ledger slice, byte/order/recovery/security compatibility, one bounded review per stabilized patch, and zero compatibility facades before v0.38.0 |
 | `v0.38.0` | Claude Code local plugin mapping/conformance tests, explicit unsupported-semantics reporting, and the same default-deny boundary |
 | `v0.39.0` | Measured end-to-end agent/subagent/team CPU, RSS, context, token, latency, and throughput evidence plus regression fixtures for confirmed failures |
 | `v0.40.0` | Current official package-format validation and clean install/upgrade/uninstall tests for each adopted Homebrew/Scoop/winget channel against GitHub Release checksums |

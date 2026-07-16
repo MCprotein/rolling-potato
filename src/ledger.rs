@@ -9,8 +9,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha256};
 
-use crate::app::AppError;
-use crate::paths;
+use crate::adapters::filesystem::{layout as paths, lease};
+use crate::foundation::error::AppError;
+use crate::foundation::serialization as strict_json;
 
 static EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -67,7 +68,7 @@ pub(crate) struct ReadOnlyLedgerTail {
 }
 
 pub(crate) struct LedgerWriterGuard {
-    _lease: crate::lease::RecoverableLease,
+    _lease: lease::RecoverableLease,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -92,7 +93,7 @@ pub(crate) struct EventSink<'guard> {
 
 impl LedgerWriterGuard {
     pub(crate) fn acquire() -> Result<Self, AppError> {
-        let lease = crate::lease::RecoverableLease::acquire_with_wait(
+        let lease = lease::RecoverableLease::acquire_with_wait(
             paths::runtime_ledger_writer_lock(),
             "runtime ledger writer",
             Duration::from_secs(5),
@@ -103,7 +104,7 @@ impl LedgerWriterGuard {
 
     #[cfg(test)]
     fn acquire_after_first_block(on_first_block: impl FnOnce()) -> Result<Self, AppError> {
-        let lease = crate::lease::RecoverableLease::acquire_with_wait_after_first_block(
+        let lease = lease::RecoverableLease::acquire_with_wait_after_first_block(
             paths::runtime_ledger_writer_lock(),
             "runtime ledger writer",
             Duration::from_secs(5),
@@ -750,7 +751,7 @@ fn preserve_corrupt_ledger_file(path: &Path) -> Result<Option<std::path::PathBuf
 }
 
 pub fn read_runtime_events() -> Result<Vec<ParsedLedgerEvent>, AppError> {
-    let _reader = crate::lease::RecoverableLease::acquire_with_wait(
+    let _reader = lease::RecoverableLease::acquire_with_wait(
         paths::runtime_ledger_writer_lock(),
         "runtime ledger reader",
         Duration::from_secs(5),
@@ -911,23 +912,19 @@ fn read_ledger_head_read_only(path: &Path) -> Result<LedgerBinding, AppError> {
     }
     let body = fs::read_to_string(path)
         .map_err(|err| AppError::blocked(format!("runtime ledger head 읽기 실패: {err}")))?;
-    let object = crate::strict_json::parse_canonical_object(
+    let object = strict_json::parse_canonical_object(
         body.trim_end_matches('\n'),
         &["schema_version", "event_count", "last_event_hash"],
         "runtime ledger read-only head",
     )?;
-    if crate::strict_json::canonical_u64(
-        &object,
-        "schema_version",
-        "runtime ledger read-only head",
-    )? != 1
+    if strict_json::canonical_u64(&object, "schema_version", "runtime ledger read-only head")? != 1
     {
         return Err(AppError::blocked("runtime ledger head schema 불일치"));
     }
     let event_count =
-        crate::strict_json::canonical_u64(&object, "event_count", "runtime ledger read-only head")?;
+        strict_json::canonical_u64(&object, "event_count", "runtime ledger read-only head")?;
     let event_hash = match object.get("last_event_hash") {
-        Some(crate::strict_json::CanonicalValue::String(value)) => value.clone(),
+        Some(strict_json::CanonicalValue::String(value)) => value.clone(),
         _ => return Err(AppError::blocked("runtime ledger head hash type 불일치")),
     };
     if event_hash != "root" && !is_sha256(&event_hash) {
@@ -1052,19 +1049,19 @@ fn parse_event_line_strict(line: &str) -> Result<ParsedLedgerEvent, AppError> {
         "previous_event_hash",
         "event_hash",
     ];
-    let object = crate::strict_json::parse_object(line, KEYS, "runtime ledger line")?;
-    let schema = crate::strict_json::number(&object, "schema_version", "runtime ledger line")?;
+    let object = strict_json::parse_object(line, KEYS, "runtime ledger line")?;
+    let schema = strict_json::number(&object, "schema_version", "runtime ledger line")?;
     if !matches!(schema, 1 | 2) {
         return Err(AppError::blocked("runtime ledger schema version 불일치"));
     }
     let (previous_event_hash, event_hash) = if schema == 2 {
         (
-            Some(crate::strict_json::string(
+            Some(strict_json::string(
                 &object,
                 "previous_event_hash",
                 "runtime ledger line",
             )?),
-            Some(crate::strict_json::string(
+            Some(strict_json::string(
                 &object,
                 "event_hash",
                 "runtime ledger line",
@@ -1077,13 +1074,13 @@ fn parse_event_line_strict(line: &str) -> Result<ParsedLedgerEvent, AppError> {
         (None, None)
     };
     Ok(ParsedLedgerEvent {
-        event_id: crate::strict_json::string(&object, "event_id", "runtime ledger line")?,
-        ts_ms: crate::strict_json::number_u128(&object, "ts_ms", "runtime ledger line")?,
-        event_type: crate::strict_json::string(&object, "event_type", "runtime ledger line")?,
-        project_id: crate::strict_json::string(&object, "project_id", "runtime ledger line")?,
-        session_id: crate::strict_json::string(&object, "session_id", "runtime ledger line")?,
-        summary: crate::strict_json::string(&object, "summary", "runtime ledger line")?,
-        details: crate::strict_json::string(&object, "details", "runtime ledger line")?,
+        event_id: strict_json::string(&object, "event_id", "runtime ledger line")?,
+        ts_ms: strict_json::number_u128(&object, "ts_ms", "runtime ledger line")?,
+        event_type: strict_json::string(&object, "event_type", "runtime ledger line")?,
+        project_id: strict_json::string(&object, "project_id", "runtime ledger line")?,
+        session_id: strict_json::string(&object, "session_id", "runtime ledger line")?,
+        summary: strict_json::string(&object, "summary", "runtime ledger line")?,
+        details: strict_json::string(&object, "details", "runtime ledger line")?,
         previous_event_hash,
         event_hash,
     })
@@ -1188,7 +1185,7 @@ fn validate_ledger_head(
     }
     let body = fs::read_to_string(&head_path)
         .map_err(|err| AppError::blocked(format!("ledger head 읽기 실패: {err}")))?;
-    let object = crate::strict_json::parse_object(
+    let object = strict_json::parse_object(
         &body,
         &["schema_version", "event_count", "last_event_hash"],
         "ledger head",
@@ -1200,9 +1197,9 @@ fn validate_ledger_head(
             "legacy"
         }
     });
-    let schema = crate::strict_json::number(&object, "schema_version", "ledger head")?;
-    let head_count = crate::strict_json::number(&object, "event_count", "ledger head")?;
-    let head_hash = crate::strict_json::string(&object, "last_event_hash", "ledger head")?;
+    let schema = strict_json::number(&object, "schema_version", "ledger head")?;
+    let head_count = strict_json::number(&object, "event_count", "ledger head")?;
+    let head_hash = strict_json::string(&object, "last_event_hash", "ledger head")?;
     if schema == 1 && head_count == count as u64 && head_hash == expected_hash {
         return Ok(());
     }

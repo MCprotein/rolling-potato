@@ -1,4 +1,4 @@
-use crate::paths;
+use super::layout as paths;
 
 pub fn status_summary() -> String {
     format!("app data root {}", paths::app_data_root().display())

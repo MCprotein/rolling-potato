@@ -2,8 +2,9 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::app::AppError;
-use crate::{backend, checksum, ledger, model, observability, paths};
+use crate::foundation::error::AppError;
+use crate::foundation::integrity as checksum;
+use crate::{adapters::filesystem::layout as paths, backend, ledger, model, observability};
 
 pub(crate) const ADOPTION_FIXTURE_ID: &str = "model-adoption-smoke-v1";
 pub(crate) const ADOPTION_DATASET_REF: &str = "local-model-adoption-smoke-v1";

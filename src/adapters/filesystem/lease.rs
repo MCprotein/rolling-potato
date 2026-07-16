@@ -3,7 +3,7 @@ use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::app::AppError;
+use crate::foundation::error::AppError;
 
 pub struct RecoverableLease {
     _file: File,
@@ -440,7 +440,7 @@ fn validate_open_lock_identity(path: &Path, file: &File, context: &str) -> Resul
 fn validate_open_lock_identity(path: &Path, file: &File, context: &str) -> Result<(), AppError> {
     let path_metadata = fs::symlink_metadata(path)
         .map_err(|err| AppError::blocked(format!("{context} lock 경로 재검증 실패: {err}")))?;
-    let same_file = crate::windows_file::path_refers_to_open_file(path, file)
+    let same_file = super::windows_replace::path_refers_to_open_file(path, file)
         .map_err(|err| AppError::blocked(format!("{context} lock handle 검증 실패: {err}")))?;
     if path_metadata.file_type().is_symlink() || !path_metadata.file_type().is_file() || !same_file
     {
@@ -626,7 +626,7 @@ mod tests {
         let mut owner = Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "lease::tests::kernel_lease_is_released_when_owner_process_is_killed",
+                "adapters::filesystem::lease::tests::kernel_lease_is_released_when_owner_process_is_killed",
                 "--nocapture",
             ])
             .env("RPOTATO_TEST_KERNEL_LEASE_HELPER", &path)

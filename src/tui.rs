@@ -1,9 +1,14 @@
-use crate::app::AppError;
+use crate::adapters::terminal::capability;
+#[cfg(test)]
+use crate::adapters::terminal::native::ScriptedTerminal;
+use crate::adapters::terminal::native::{
+    FrameWriteBoundary, NativeTerminal, TerminalFault, TerminalIo,
+};
+use crate::foundation::error::AppError;
 use crate::runtime::{
     self, OneShotSecret, TuiEffect, TuiIntent, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext,
     TuiReadBudget, TuiReadPage, TuiReadRequest,
 };
-use crate::terminal::{self, FrameWriteBoundary, NativeTerminal, TerminalFault, TerminalIo};
 
 const DEFAULT_WIDTH: usize = 92;
 const MIN_WIDTH: usize = 64;
@@ -29,7 +34,7 @@ struct InteractiveState {
 }
 
 pub fn run_auto() -> Result<(), AppError> {
-    if terminal::attached() {
+    if capability::attached() {
         let mut terminal = NativeTerminal::new();
         run_controller(&mut terminal)
     } else {
@@ -563,7 +568,8 @@ mod legacy_reports {
         runtime, AppError, TuiReadBudget, TuiReadPage, TuiReadRequest, DEFAULT_WIDTH, MAX_WIDTH,
         MIN_WIDTH,
     };
-    use crate::{evidence, ledger, model, observability, paths};
+    use crate::adapters::filesystem::layout as paths;
+    use crate::{evidence, ledger, model, observability};
 
     pub fn overview_report() -> Result<String, AppError> {
         let width = terminal_width();
@@ -1296,7 +1302,8 @@ pub use legacy_reports::{
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ledger, observability, patch, paths};
+    use crate::adapters::filesystem::layout as paths;
+    use crate::{ledger, observability, patch};
 
     #[test]
     fn one_shot_outcome_writes_secret_once_without_storing_it_in_notice() {
@@ -1307,7 +1314,7 @@ mod tests {
             OneShotSecret::new(secret.clone()).unwrap(),
         )
         .unwrap();
-        let mut terminal = crate::terminal::ScriptedTerminal::new([]);
+        let mut terminal = ScriptedTerminal::new([]);
 
         let notice = consume_outcome(&mut terminal, intent_id, outcome).unwrap();
 
@@ -1390,7 +1397,7 @@ mod tests {
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
         std::fs::create_dir_all(root.join("project")).unwrap();
         crate::state::initialize().unwrap();
-        let mut terminal = crate::terminal::ScriptedTerminal::new(["help", "quit"]);
+        let mut terminal = ScriptedTerminal::new(["help", "quit"]);
 
         run_controller(&mut terminal).unwrap();
 

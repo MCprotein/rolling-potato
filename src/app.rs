@@ -1,14 +1,17 @@
+use crate::adapters::filesystem::cache;
+use crate::adapters::filesystem::layout as paths;
+use crate::adapters::terminal::{capability, native};
 use crate::backend;
 use crate::benchmark;
-use crate::cache;
 use crate::cli::{
     BackendCommand, BenchmarkCommand, Command, EvidenceCommand, HooksCommand, IntentCommand,
     ModelCommand, MonitorCommand, OntologyCommand, PatchCommand, PluginCommand, PolicyCommand,
     PolicyPathMode, SessionCommand, SkillCommand, StateCommand, SubagentCommand, TeamCommand,
     TuiCommand, UninstallCommand,
 };
-use crate::config;
+use crate::composition::config;
 use crate::evidence;
+use crate::foundation::error::AppError;
 use crate::hooks;
 use crate::intent;
 use crate::model;
@@ -25,42 +28,12 @@ use crate::team;
 use crate::tui;
 use crate::uninstall;
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct AppError {
-    pub code: u8,
-    pub message: String,
-}
-
-impl AppError {
-    pub fn runtime(message: impl Into<String>) -> Self {
-        Self {
-            code: 1,
-            message: message.into(),
-        }
-    }
-
-    pub fn usage(message: impl Into<String>) -> Self {
-        Self {
-            code: 2,
-            message: message.into(),
-        }
-    }
-
-    pub fn blocked(message: impl Into<String>) -> Self {
-        Self {
-            code: 3,
-            message: message.into(),
-        }
-    }
-}
-
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
     let command = crate::cli::parse(args)?;
     if matches!(&command, Command::Tui(TuiCommand::Interactive))
-        || (matches!(&command, Command::Tui(TuiCommand::Auto)) && crate::terminal::attached())
+        || (matches!(&command, Command::Tui(TuiCommand::Auto)) && capability::attached())
     {
-        crate::terminal::validate_native_fault_configuration()
-            .map_err(crate::tui::terminal_fault_error)?;
+        native::validate_native_fault_configuration().map_err(crate::tui::terminal_fault_error)?;
     }
     // A source-install request on an unsupported platform is a strict
     // NotDispatched boundary: do not even discover or repair journals before
@@ -72,7 +45,7 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             &command,
             Command::Patch(PatchCommand::Approve { dry_run: false, .. })
         ) || matches!(&command, Command::Tui(TuiCommand::Interactive))
-            || (matches!(&command, Command::Tui(TuiCommand::Auto)) && crate::terminal::attached()));
+            || (matches!(&command, Command::Tui(TuiCommand::Auto)) && capability::attached()));
     if !unsupported_source_entry {
         crate::transition::recover_pending_source_bundles()?;
     }
@@ -225,16 +198,13 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
             Ok(())
         }
         Command::Tui(TuiCommand::Auto) => {
-            if cfg!(unix)
-                && crate::terminal::attached()
-                && !crate::paths::current_state_file().is_file()
-            {
+            if cfg!(unix) && capability::attached() && !paths::current_state_file().is_file() {
                 state::initialize()?;
             }
             tui::run_auto()
         }
         Command::Tui(TuiCommand::Interactive) => {
-            if cfg!(unix) && !crate::paths::current_state_file().is_file() {
+            if cfg!(unix) && !paths::current_state_file().is_file() {
                 state::initialize()?;
             }
             tui::run_interactive()

@@ -4,11 +4,14 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::app::AppError;
+#[cfg(windows)]
+use crate::adapters::filesystem::windows_replace;
+use crate::adapters::filesystem::{layout as paths, lease};
+use crate::foundation::error::AppError;
+use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, RuntimeIdentity};
 use crate::observability::SessionHistoryEntry;
 use crate::observability::{self, StoreStatus};
-use crate::paths;
 use sha2::{Digest, Sha256};
 
 const WORKFLOW_SCHEMA_VERSION: u64 = 4;
@@ -95,7 +98,7 @@ pub(crate) struct TuiStateSnapshot {
 
 pub(crate) struct WorkflowCheckpointGuard {
     workflow_id: String,
-    _lease: crate::lease::RecoverableLease,
+    _lease: lease::RecoverableLease,
 }
 
 #[derive(Debug, Clone)]
@@ -285,7 +288,7 @@ pub(crate) fn checkpoint_workflow_under_transition(
 impl WorkflowCheckpointGuard {
     pub(crate) fn acquire(workflow_id: &str) -> Result<Self, AppError> {
         validate_workflow_id(workflow_id)?;
-        let lease = crate::lease::RecoverableLease::acquire(
+        let lease = lease::RecoverableLease::acquire(
             paths::project_workflows_dir().join(format!("{workflow_id}.checkpoint.lock")),
             "workflow checkpoint",
         )?;
@@ -2881,13 +2884,13 @@ fn ensure_layout() -> Result<Vec<PathBuf>, AppError> {
 }
 
 fn parse_current_state(body: &str, context: &str) -> Result<CurrentStateSnapshot, AppError> {
-    let value = crate::strict_json::parse_value(body, context)?;
-    let crate::strict_json::Value::Object(root) = &value else {
+    let value = strict_json::parse_value(body, context)?;
+    let strict_json::Value::Object(root) = &value else {
         return Err(AppError::blocked(format!(
             "{context} 차단\n- 이유: root must be object"
         )));
     };
-    let schema = crate::strict_json::number(root, "schema_version", context)?;
+    let schema = strict_json::number(root, "schema_version", context)?;
     match schema {
         1 => parse_current_state_v1(body, value, context),
         2 => parse_current_state_v2(body, context),
@@ -3161,7 +3164,7 @@ fn validate_open_read_identity(
 ) -> Result<(), AppError> {
     let path_metadata = fs::symlink_metadata(path)
         .map_err(|err| AppError::blocked(format!("{label} 경로 재검증 실패: {err}")))?;
-    let same_file = crate::windows_file::path_refers_to_open_file(path, file)
+    let same_file = windows_replace::path_refers_to_open_file(path, file)
         .map_err(|err| AppError::blocked(format!("{label} handle 검증 실패: {err}")))?;
     if path_metadata.file_type().is_symlink() || !path_metadata.is_file() || !same_file {
         return Err(AppError::blocked(format!(
@@ -3269,7 +3272,7 @@ pub(crate) fn selection_observation_under_transition() -> Result<
 }
 
 fn promote_current_state_v1() -> Result<(), AppError> {
-    let _transition = crate::lease::RecoverableLease::acquire_with_wait(
+    let _transition = lease::RecoverableLease::acquire_with_wait(
         paths::current_state_transition_lock(),
         "current-state v1 promotion",
         Duration::from_secs(5),
@@ -3461,15 +3464,15 @@ fn preserve_stale_promotion_temp(path: &std::path::Path, bytes: &str) -> Result<
 
 fn parse_current_state_v1(
     body: &str,
-    value: crate::strict_json::Value,
+    value: strict_json::Value,
     context: &str,
 ) -> Result<CurrentStateSnapshot, AppError> {
-    let object = crate::strict_json::parse_object(body, CURRENT_STATE_V1_KEYS, context)?;
+    let object = strict_json::parse_object(body, CURRENT_STATE_V1_KEYS, context)?;
     require_exact_key_set(&object, CURRENT_STATE_V1_KEYS, context)?;
     validate_terminal_states(object.get("terminal_states"), context)?;
     let active_workflow = match object.get("active_workflow") {
-        Some(crate::strict_json::Value::Null) => None,
-        Some(crate::strict_json::Value::String(workflow_id)) => {
+        Some(strict_json::Value::Null) => None,
+        Some(strict_json::Value::String(workflow_id)) => {
             validate_current_id(workflow_id, "workflow_id", context)?;
             Some(CurrentWorkflowBinding {
                 workflow_id: workflow_id.clone(),
@@ -3479,17 +3482,17 @@ fn parse_current_state_v1(
         }
         _ => return Err(current_state_field_error(context, "active_workflow")),
     };
-    let project_id = crate::strict_json::string(&object, "project_id", context)?;
-    let session_id = crate::strict_json::string(&object, "session_id", context)?;
+    let project_id = strict_json::string(&object, "project_id", context)?;
+    let session_id = strict_json::string(&object, "session_id", context)?;
     validate_current_id(&project_id, "project_id", context)?;
     validate_current_id(&session_id, "session_id", context)?;
-    let canonical = crate::strict_json::render_compact(&value);
+    let canonical = strict_json::render_compact(&value);
     Ok(CurrentStateSnapshot {
         schema_version: 1,
         revision: 0,
         previous_artifact_hash: String::new(),
         project_id,
-        project_root: crate::strict_json::string(&object, "project_root", context)?,
+        project_root: strict_json::string(&object, "project_root", context)?,
         session_id,
         active_workflow,
         parent_session_id: optional_string(&object, "parent_session_id", context)?,
@@ -3503,31 +3506,28 @@ fn parse_current_state_v1(
 }
 
 fn parse_current_state_v2(body: &str, context: &str) -> Result<CurrentStateSnapshot, AppError> {
-    let canonical =
-        crate::strict_json::parse_canonical_object(body, CURRENT_STATE_V2_KEYS, context)?;
-    if crate::strict_json::canonical_u64(&canonical, "schema_version", context)? != 2 {
+    let canonical = strict_json::parse_canonical_object(body, CURRENT_STATE_V2_KEYS, context)?;
+    if strict_json::canonical_u64(&canonical, "schema_version", context)? != 2 {
         return Err(current_state_field_error(context, "schema_version"));
     }
-    let canonical_revision = crate::strict_json::canonical_u64(&canonical, "revision", context)?;
-    let object =
-        crate::strict_json::parse_object_exact_order(body, CURRENT_STATE_V2_KEYS, context)?;
-    let revision = crate::strict_json::number(&object, "revision", context)?;
+    let canonical_revision = strict_json::canonical_u64(&canonical, "revision", context)?;
+    let object = strict_json::parse_object_exact_order(body, CURRENT_STATE_V2_KEYS, context)?;
+    let revision = strict_json::number(&object, "revision", context)?;
     if revision == 0 || revision != canonical_revision {
         return Err(current_state_field_error(context, "revision"));
     }
-    let previous_artifact_hash =
-        crate::strict_json::string(&object, "previous_artifact_hash", context)?;
+    let previous_artifact_hash = strict_json::string(&object, "previous_artifact_hash", context)?;
     if previous_artifact_hash != "none" && !is_sha256(&previous_artifact_hash) {
         return Err(current_state_field_error(context, "previous_artifact_hash"));
     }
-    let project_id = crate::strict_json::string(&object, "project_id", context)?;
-    let session_id = crate::strict_json::string(&object, "session_id", context)?;
+    let project_id = strict_json::string(&object, "project_id", context)?;
+    let session_id = strict_json::string(&object, "session_id", context)?;
     validate_current_id(&project_id, "project_id", context)?;
     validate_current_id(&session_id, "session_id", context)?;
     let active_workflow = parse_current_workflow(object.get("active_workflow"), context)?;
     validate_terminal_states(object.get("terminal_states"), context)?;
     let ledger_binding = parse_current_ledger_binding(object.get("ledger_binding"), context)?;
-    let artifact_hash = crate::strict_json::string(&object, "artifact_hash", context)?;
+    let artifact_hash = strict_json::string(&object, "artifact_hash", context)?;
     if !is_sha256(&artifact_hash) {
         return Err(current_state_field_error(context, "artifact_hash"));
     }
@@ -3536,7 +3536,7 @@ fn parse_current_state_v2(body: &str, context: &str) -> Result<CurrentStateSnaps
         revision,
         previous_artifact_hash,
         project_id,
-        project_root: crate::strict_json::string(&object, "project_root", context)?,
+        project_root: strict_json::string(&object, "project_root", context)?,
         session_id,
         active_workflow,
         parent_session_id: optional_string(&object, "parent_session_id", context)?,
@@ -3612,18 +3612,18 @@ fn render_optional_string(value: Option<&str>) -> String {
 }
 
 fn parse_current_workflow(
-    value: Option<&crate::strict_json::Value>,
+    value: Option<&strict_json::Value>,
     context: &str,
 ) -> Result<Option<CurrentWorkflowBinding>, AppError> {
     match value {
-        Some(crate::strict_json::Value::Null) => Ok(None),
-        Some(crate::strict_json::Value::Object(object)) => {
+        Some(strict_json::Value::Null) => Ok(None),
+        Some(strict_json::Value::Object(object)) => {
             let expected = ["workflow_id", "revision", "artifact_hash"];
             require_exact_key_order(object, &expected, context)?;
-            let workflow_id = crate::strict_json::string(object, "workflow_id", context)?;
+            let workflow_id = strict_json::string(object, "workflow_id", context)?;
             validate_current_id(&workflow_id, "workflow_id", context)?;
-            let revision = crate::strict_json::number(object, "revision", context)?;
-            let artifact_hash = crate::strict_json::string(object, "artifact_hash", context)?;
+            let revision = strict_json::number(object, "revision", context)?;
+            let artifact_hash = strict_json::string(object, "artifact_hash", context)?;
             if revision == 0 || !is_sha256(&artifact_hash) {
                 return Err(current_state_field_error(context, "active_workflow"));
             }
@@ -3638,20 +3638,20 @@ fn parse_current_workflow(
 }
 
 fn parse_current_ledger_binding(
-    value: Option<&crate::strict_json::Value>,
+    value: Option<&strict_json::Value>,
     context: &str,
 ) -> Result<ledger::LedgerBinding, AppError> {
-    let Some(crate::strict_json::Value::Object(object)) = value else {
+    let Some(strict_json::Value::Object(object)) = value else {
         return Err(current_state_field_error(context, "ledger_binding"));
     };
     let expected = ["event_count", "event_id", "event_hash"];
     require_exact_key_order(object, &expected, context)?;
-    let event_count = crate::strict_json::number(object, "event_count", context)?;
+    let event_count = strict_json::number(object, "event_count", context)?;
     let event_id = optional_string(object, "event_id", context)?;
     if let Some(event_id) = event_id.as_deref() {
         validate_current_id(event_id, "event_id", context)?;
     }
-    let event_hash = crate::strict_json::string(object, "event_hash", context)?;
+    let event_hash = strict_json::string(object, "event_hash", context)?;
     if (event_count == 0 && (event_id.is_some() || event_hash != "root"))
         || (event_count > 0 && (event_id.is_none() || !is_sha256(&event_hash)))
     {
@@ -3665,28 +3665,28 @@ fn parse_current_ledger_binding(
 }
 
 fn optional_string(
-    object: &crate::strict_json::Object,
+    object: &strict_json::Object,
     key: &str,
     context: &str,
 ) -> Result<Option<String>, AppError> {
     match object.get(key) {
-        Some(crate::strict_json::Value::Null) => Ok(None),
-        Some(crate::strict_json::Value::String(value)) => Ok(Some(value.clone())),
+        Some(strict_json::Value::Null) => Ok(None),
+        Some(strict_json::Value::String(value)) => Ok(Some(value.clone())),
         _ => Err(current_state_field_error(context, key)),
     }
 }
 
 fn validate_terminal_states(
-    value: Option<&crate::strict_json::Value>,
+    value: Option<&strict_json::Value>,
     context: &str,
 ) -> Result<(), AppError> {
-    let Some(crate::strict_json::Value::Array(values)) = value else {
+    let Some(strict_json::Value::Array(values)) = value else {
         return Err(current_state_field_error(context, "terminal_states"));
     };
     let actual = values
         .iter()
         .map(|value| match value {
-            crate::strict_json::Value::String(value) => Some(value.as_str()),
+            strict_json::Value::String(value) => Some(value.as_str()),
             _ => None,
         })
         .collect::<Option<Vec<_>>>();
@@ -3698,7 +3698,7 @@ fn validate_terminal_states(
 }
 
 fn require_exact_key_set(
-    object: &crate::strict_json::Object,
+    object: &strict_json::Object,
     keys: &[&str],
     context: &str,
 ) -> Result<(), AppError> {
@@ -3712,7 +3712,7 @@ fn require_exact_key_set(
 }
 
 fn require_exact_key_order(
-    object: &crate::strict_json::Object,
+    object: &strict_json::Object,
     keys: &[&str],
     context: &str,
 ) -> Result<(), AppError> {
@@ -4176,14 +4176,14 @@ fn parse_workflow_pointer(path: &std::path::Path, body: &str) -> Result<Workflow
         "artifact_hash",
     ];
     let context = path.display().to_string();
-    let object = crate::strict_json::parse_object(body, KEYS, &context)
-        .map_err(|_| corrupt_workflow(path))?;
+    let object =
+        strict_json::parse_object(body, KEYS, &context).map_err(|_| corrupt_workflow(path))?;
     if object.len() != KEYS.len() || KEYS.iter().any(|key| !object.contains_key(key)) {
         return Err(corrupt_workflow(path));
     }
-    let schema_version = crate::strict_json::number(&object, "schema_version", &context)
+    let schema_version = strict_json::number(&object, "schema_version", &context)
         .map_err(|_| corrupt_workflow(path))?;
-    let artifact_version = crate::strict_json::string(&object, "artifact_version", &context)
+    let artifact_version = strict_json::string(&object, "artifact_version", &context)
         .map_err(|_| corrupt_workflow(path))?;
     let expected_artifact_version = match schema_version {
         LEGACY_WORKFLOW_SCHEMA_VERSION => "workflow-commit-v2",
@@ -4196,11 +4196,11 @@ fn parse_workflow_pointer(path: &std::path::Path, body: &str) -> Result<Workflow
     }
     Ok(WorkflowPointer {
         schema_version,
-        workflow_id: crate::strict_json::string(&object, "workflow_id", &context)
+        workflow_id: strict_json::string(&object, "workflow_id", &context)
             .map_err(|_| corrupt_workflow(path))?,
-        committed_revision: crate::strict_json::number(&object, "committed_revision", &context)
+        committed_revision: strict_json::number(&object, "committed_revision", &context)
             .map_err(|_| corrupt_workflow(path))?,
-        artifact_hash: crate::strict_json::string(&object, "artifact_hash", &context)
+        artifact_hash: strict_json::string(&object, "artifact_hash", &context)
             .map_err(|_| corrupt_workflow(path))?,
     })
 }
@@ -4498,9 +4498,9 @@ const WORKFLOW_V2_KEYS: &[&str] = &[
 
 fn workflow_snapshot_schema(path: &std::path::Path, body: &str) -> Result<u64, AppError> {
     let context = path.display().to_string();
-    let object = crate::strict_json::parse_object(body, WORKFLOW_V4_KEYS, &context)
+    let object = strict_json::parse_object(body, WORKFLOW_V4_KEYS, &context)
         .map_err(|_| corrupt_workflow(path))?;
-    let schema = crate::strict_json::number(&object, "schema_version", &context)
+    let schema = strict_json::number(&object, "schema_version", &context)
         .map_err(|_| corrupt_workflow(path))?;
     let (keys, artifact_version) = match schema {
         LEGACY_WORKFLOW_SCHEMA_VERSION => (WORKFLOW_V2_KEYS, "workflow-v2"),
@@ -4510,7 +4510,7 @@ fn workflow_snapshot_schema(path: &std::path::Path, body: &str) -> Result<u64, A
     };
     if object.len() != keys.len()
         || keys.iter().any(|key| !object.contains_key(key))
-        || crate::strict_json::string(&object, "artifact_version", &context)
+        || strict_json::string(&object, "artifact_version", &context)
             .map_err(|_| corrupt_workflow(path))?
             != artifact_version
     {
@@ -4528,14 +4528,13 @@ fn parse_workflow_snapshot(path: &std::path::Path, body: &str) -> Result<Workflo
         _ => return Err(corrupt_workflow(path)),
     };
     let context = path.display().to_string();
-    let object = crate::strict_json::parse_object(body, keys, &context)
-        .map_err(|_| corrupt_workflow(path))?;
-    let text = |key| {
-        crate::strict_json::string(&object, key, &context).map_err(|_| corrupt_workflow(path))
-    };
+    let object =
+        strict_json::parse_object(body, keys, &context).map_err(|_| corrupt_workflow(path))?;
+    let text =
+        |key| strict_json::string(&object, key, &context).map_err(|_| corrupt_workflow(path));
     let mut record = WorkflowRecord {
         workflow_id: text("workflow_id")?,
-        revision: crate::strict_json::number(&object, "revision", &context)
+        revision: strict_json::number(&object, "revision", &context)
             .map_err(|_| corrupt_workflow(path))?,
         previous_hash: text("previous_hash")?,
         artifact_hash: text("artifact_hash")?,
@@ -4828,7 +4827,7 @@ impl PreparedSourceDir {
                 "prepared source sibling parent binding 불일치",
             ));
         }
-        let root = crate::paths::project_root().canonicalize().map_err(|err| {
+        let root = paths::project_root().canonicalize().map_err(|err| {
             AppError::blocked(format!(
                 "prepared source project root canonicalize 실패: {err}"
             ))
@@ -5039,7 +5038,7 @@ impl PreparedRollbackDir {
         plan: &crate::transition::SourceInstallV1,
         create_missing: bool,
     ) -> Result<Option<Self>, AppError> {
-        let root = crate::paths::project_root().canonicalize().map_err(|err| {
+        let root = paths::project_root().canonicalize().map_err(|err| {
             AppError::blocked(format!(
                 "prepared rollback project root canonicalize 실패: {err}"
             ))
@@ -5914,8 +5913,8 @@ mod tests {
             identity.project_id, identity.project_root, identity.session_id
         );
         fs::write(paths::current_state_file(), &legacy).unwrap();
-        let legacy_value = crate::strict_json::parse_value(&legacy, "legacy").unwrap();
-        let legacy_hash = sha256_text(&crate::strict_json::render_compact(&legacy_value));
+        let legacy_value = strict_json::parse_value(&legacy, "legacy").unwrap();
+        let legacy_hash = sha256_text(&strict_json::render_compact(&legacy_value));
 
         let first = current_state_lease_view().unwrap();
         let first_body = fs::read_to_string(paths::current_state_file()).unwrap();
