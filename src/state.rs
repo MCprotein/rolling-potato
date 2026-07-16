@@ -12,6 +12,9 @@ use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, RuntimeIdentity};
 use crate::observability::SessionHistoryEntry;
 use crate::observability::{self, StoreStatus};
+use crate::runtime_core::workflow::domain::snapshot::{
+    CurrentStateLeaseView, CurrentStateSnapshot, CurrentWorkflowBinding, TuiStateSnapshot,
+};
 use crate::runtime_core::workflow::storage_compat::record::WorkflowPointer;
 pub use crate::runtime_core::workflow::storage_compat::record::WorkflowRecord;
 use crate::runtime_core::workflow::storage_compat::record::{
@@ -61,51 +64,8 @@ const CURRENT_STATE_V2_KEYS: &[&str] = &[
     "artifact_hash",
 ];
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct CurrentWorkflowBinding {
-    workflow_id: String,
-    revision: u64,
-    artifact_hash: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct CurrentStateSnapshot {
-    schema_version: u64,
-    revision: u64,
-    previous_artifact_hash: String,
-    project_id: String,
-    project_root: String,
-    session_id: String,
-    active_workflow: Option<CurrentWorkflowBinding>,
-    parent_session_id: Option<String>,
-    branch_from_event_id: Option<String>,
-    compaction_boundary: Option<String>,
-    resume_source: Option<String>,
-    ledger_binding: ledger::LedgerBinding,
-    artifact_hash: String,
-    legacy_canonical_hash: Option<String>,
-}
-
 thread_local! {
     static SUPPRESS_VALIDATION_GAP_WRITES: Cell<bool> = const { Cell::new(false) };
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct CurrentStateLeaseView {
-    pub revision: u64,
-    pub artifact_hash: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct TuiStateSnapshot {
-    pub identity: RuntimeIdentity,
-    pub current_revision: u64,
-    pub current_hash: String,
-    pub ledger_binding: ledger::LedgerBinding,
-    pub ledger_events: Vec<ledger::ParsedLedgerEvent>,
-    pub active_workflow: Option<WorkflowRecord>,
-    pub ledger_tail_truncated: bool,
-    pub current_ledger_binding_stale: bool,
 }
 
 pub(crate) struct WorkflowCheckpointGuard {

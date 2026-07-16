@@ -343,7 +343,7 @@ pub(crate) struct PreparedSourceBundle {
 
 pub(crate) struct PreparedBundleContext<'a> {
     pub identity: &'a crate::ledger::RuntimeIdentity,
-    pub lease: &'a crate::state::CurrentStateLeaseView,
+    pub lease: &'a crate::runtime_core::workflow::domain::snapshot::CurrentStateLeaseView,
     pub ledger_binding: crate::ledger::LedgerBinding,
 }
 
