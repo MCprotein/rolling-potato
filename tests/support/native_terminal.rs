@@ -673,6 +673,7 @@ mod windows {
 
     const EXTENDED_STARTUPINFO_PRESENT: Dword = 0x0008_0000;
     const CREATE_UNICODE_ENVIRONMENT: Dword = 0x0000_0400;
+    const STARTF_USESTDHANDLES: Dword = 0x0000_0100;
     const PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE: usize = 0x0002_0016;
     const WAIT_OBJECT_0: Dword = 0;
     const WAIT_TIMEOUT: Dword = 258;
@@ -1236,17 +1237,17 @@ mod windows {
         );
         let mut startup: StartupInfoExW = unsafe { std::mem::zeroed() };
         startup.startup.cb = std::mem::size_of::<StartupInfoExW>() as Dword;
+        // Cargo's redirected test host exposes inherited standard handles. Mark the
+        // deliberately zeroed fields as authoritative so only the ConPTY attribute
+        // supplies the child's console handles.
+        startup.startup.flags = STARTF_USESTDHANDLES;
         startup.attribute_list = attribute_list;
         let mut process: ProcessInformation = unsafe { std::mem::zeroed() };
-        let child_command = if arguments.is_empty() {
+        let command_text = if arguments.is_empty() {
             format!("\"{}\"", application.display())
         } else {
             format!("\"{}\" {arguments}", application.display())
         };
-        // GitHub's Windows runner launches the Rust test host without a native console.
-        // Make the platform shell the ConPTY root client, matching normal Windows use,
-        // and let the production binary inherit that console session from the shell.
-        let command_text = format!("cmd.exe /d /s /c \"{child_command}\"");
         let mut command = wide(OsStr::new(&command_text));
         let mut environment = explicit_environment_block(environment_overrides);
         let launched = unsafe {
