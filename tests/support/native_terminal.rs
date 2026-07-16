@@ -876,12 +876,6 @@ mod windows {
                 created >= 0,
                 "CreatePseudoConsole failed: HRESULT={created:#x}"
             );
-            // SAFETY: ownership of these server ends transferred to the pseudo console.
-            unsafe {
-                CloseHandle(console_input);
-                CloseHandle(console_output);
-            }
-
             let probe_binary = compile_mode_probe();
             let before_probe = launch_in_console(
                 console,
@@ -889,6 +883,12 @@ mod windows {
                 "",
                 &[("RPOTATO_PROBE_EXPECT_ECHO", "1")],
             );
+            // SAFETY: the first attached client has been created, so the host-side copies of
+            // the pipe ends supplied to CreatePseudoConsole are no longer needed.
+            unsafe {
+                CloseHandle(console_input);
+                CloseHandle(console_output);
+            }
             wait_for_success(before_probe, "before terminal mode probe");
             let mut output_bytes = Vec::new();
             drain_pipe(parent_output, &mut output_bytes);
@@ -972,7 +972,14 @@ mod windows {
 
     impl Drop for ReusableConsole {
         fn drop(&mut self) {
-            // SAFETY: the thread-local session owns each live drive handle and HPCON.
+            if !self.output.is_null() {
+                self.drain_available();
+                // SAFETY: closing the host output pipe before ClosePseudoConsole prevents
+                // older Windows versions from waiting indefinitely during teardown.
+                unsafe { CloseHandle(self.output) };
+                self.output = std::ptr::null_mut();
+            }
+            // SAFETY: the thread-local session owns each remaining live drive handle and HPCON.
             unsafe {
                 if !self.input.is_null() {
                     CloseHandle(self.input);
@@ -982,12 +989,6 @@ mod windows {
                     ClosePseudoConsole(self.console);
                     self.console = std::ptr::null_mut();
                 }
-            }
-            if !self.output.is_null() {
-                drain_pipe_to_eof(self.output, &mut self.output_bytes);
-                // SAFETY: capture owns the final pipe handle and closes it after EOF.
-                unsafe { CloseHandle(self.output) };
-                self.output = std::ptr::null_mut();
             }
             let _ = std::fs::remove_file(&self.probe_binary);
         }
@@ -1317,28 +1318,6 @@ mod windows {
                     output,
                     buffer.as_mut_ptr().cast::<c_void>(),
                     request,
-                    &mut read,
-                    std::ptr::null_mut(),
-                )
-            };
-            if ok == 0 || read == 0 {
-                break;
-            }
-            output_bytes.extend_from_slice(&buffer[..usize::try_from(read).unwrap()]);
-        }
-    }
-
-    fn drain_pipe_to_eof(output: Handle, output_bytes: &mut Vec<u8>) {
-        loop {
-            let mut buffer = [0_u8; 4096];
-            let mut read = 0;
-            // SAFETY: the pseudoconsole writer has been closed, so this bounded read
-            // drains remaining capture bytes and then observes pipe EOF.
-            let ok = unsafe {
-                ReadFile(
-                    output,
-                    buffer.as_mut_ptr().cast::<c_void>(),
-                    buffer.len() as Dword,
                     &mut read,
                     std::ptr::null_mut(),
                 )

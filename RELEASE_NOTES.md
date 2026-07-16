@@ -1,5 +1,29 @@
 # Release Notes
 
+## v0.34.2 - Windows ConPTY Release Recovery
+
+Release date: 2026-07-16
+
+This patch release supersedes the incomplete v0.34.1 binary publication. The v0.34.1
+source tag remains immutable, but its Windows native-terminal gate exposed two test-host
+lifecycle defects before the Windows archive could be built.
+
+### Fixed
+
+- Keeps the ConPTY-side pipe handles alive until the first attached client is created,
+  following the Windows pseudoconsole startup contract so the initial console-mode probe
+  receives valid standard handles.
+- Closes the host output pipe before `ClosePseudoConsole` during fixture cleanup, avoiding
+  the documented deadlock risk on Windows versions where pseudoconsole close waits.
+- Adds a manually dispatched Windows native-terminal workflow with separate five-minute
+  bounds for the entry/EOF lifecycle and full adapter tests.
+
+### Release Recovery
+
+- v0.34.0 and v0.34.1 remain immutable source history, but their partial binary assets are
+  not supported release sets.
+- v0.34.2 is the supported replacement and must publish the verified exact 11-asset set.
+
 ## v0.34.1 - Portable Release Recovery
 
 Release date: 2026-07-16
@@ -25,8 +49,8 @@ source-recovery path used Linux x86-specific `openat` flag values.
 
 - v0.34.0 remains available as immutable source history, but its partial binary assets
   are not the supported release set.
-- v0.34.1 is the supported replacement and must pass the full five-target pre-publication
-  workflow before its GitHub Release is published.
+- v0.34.1 remains immutable source history, but its partial binary assets are not a
+  supported release set. v0.34.2 supersedes it.
 
 ## v0.34.0 - Runtime-Owned Interactive TUI
 
