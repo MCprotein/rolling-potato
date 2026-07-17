@@ -1955,6 +1955,22 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/backend/tests.rs",
+      "slices": [
+        {
+          "responsibility": "inference backend integration regression tests",
+          "target": "src/app/inference_adapter/backend/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/llama_cpp/backend.rs",
       "slices": [
         {
@@ -5652,6 +5668,12 @@
       "path": "src/app/inference_adapter/backend.rs",
       "responsibilities": [
         "backend concrete integration adapter"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests.rs",
+      "responsibilities": [
+        "inference backend integration regression tests"
       ]
     },
     {

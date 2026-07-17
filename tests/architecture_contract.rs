@@ -655,6 +655,35 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             "legacy facade still owns moved definition: {facade} -> {moved_definition}"
         );
     }
+
+    let backend_adapter_path = "src/app/inference_adapter/backend.rs";
+    let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
+    assert!(Path::new(backend_tests_path).is_file());
+    let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
+    let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
+    assert!(
+        backend_adapter.contains("#[path = \"backend/tests.rs\"]"),
+        "inference backend adapter does not register its regression-test owner"
+    );
+    for responsibility in [
+        "fn release_manifest_has_source_backed_supported_artifacts(",
+        "fn generation_record_codec_preserves_exact_bytes_and_round_trips(",
+        "fn parallel_generation_cancel_reaches_secondary_and_keeps_state_until_last_release(",
+        "fn start_timeout_removes_record_and_keeps_logs(",
+    ] {
+        assert!(
+            backend_tests.contains(responsibility),
+            "inference backend regression owner is missing: {responsibility}"
+        );
+    }
+    assert!(
+        backend_adapter.lines().count() < 1_900,
+        "inference backend production adapter regrew beyond its test extraction boundary"
+    );
+    assert!(
+        backend_tests.lines().count() < 900,
+        "inference backend regression module regrew beyond its ownership boundary"
+    );
 }
 
 #[test]
