@@ -1644,12 +1644,29 @@
       "path": "src/adapters/sqlite/observability_projection.rs",
       "slices": [
         {
-          "responsibility": "SQLite observability projection facade and query orchestration",
+          "responsibility": "SQLite observability projection facade, export, and session query orchestration",
           "target": "src/adapters/sqlite/observability_projection.rs",
           "release": "0.37.7",
           "state": "complete",
           "evidence": [
             "src/adapters/sqlite/observability_projection.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics.rs",
+      "slices": [
+        {
+          "responsibility": "model summaries, performance baseline, and optimization analytics",
+          "target": "src/adapters/sqlite/observability_projection/analytics.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/analytics.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5526,7 +5543,13 @@
     {
       "path": "src/adapters/sqlite/observability_projection.rs",
       "responsibilities": [
-        "SQLite observability projection facade and query orchestration"
+        "SQLite observability projection facade, export, and session query orchestration"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics.rs",
+      "responsibilities": [
+        "model summaries, performance baseline, and optimization analytics"
       ]
     },
     {
