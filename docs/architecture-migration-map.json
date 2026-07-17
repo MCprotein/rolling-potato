@@ -4767,7 +4767,7 @@
       "path": "src/app/workflow_adapter/state/transaction.rs",
       "slices": [
         {
-          "responsibility": "verification and terminal state transaction coordination",
+          "responsibility": "verification state transaction coordination",
           "target": "src/app/workflow_adapter/state/transaction.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -4775,7 +4775,26 @@
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
             "src/app/workflow_adapter/state/transaction.rs",
             "src/app/workflow_adapter/state/transaction/approval.rs",
+            "src/app/workflow_adapter/state/transaction/terminal.rs",
             "src/patch.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction/terminal.rs",
+      "slices": [
+        {
+          "responsibility": "terminal state transaction preparation, commit, fault injection, and recovery adapter",
+          "target": "src/app/workflow_adapter/state/transaction/terminal.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/workflow_adapter/state/transaction/terminal.rs",
+            "src/patch/tests/terminal_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8030,7 +8049,13 @@
     {
       "path": "src/app/workflow_adapter/state/transaction.rs",
       "responsibilities": [
-        "verification and terminal state transaction coordination"
+        "verification state transaction coordination"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction/terminal.rs",
+      "responsibilities": [
+        "terminal state transaction preparation, commit, fault injection, and recovery adapter"
       ]
     },
     {
