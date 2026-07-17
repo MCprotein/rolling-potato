@@ -2557,6 +2557,23 @@
       ]
     },
     {
+      "path": "src/patch/tests/mod.rs",
+      "slices": [
+        {
+          "responsibility": "patch adapter transaction and recovery regression tests",
+          "target": "src/patch/tests/mod.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/patch.rs",
+            "src/patch/tests/mod.rs",
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/extensions_adapter/plugin.rs",
       "slices": [
         {
@@ -5297,6 +5314,12 @@
         "patch approval credentials",
         "guarded patch apply and rollback",
         "patch verification and recovery"
+      ]
+    },
+    {
+      "path": "src/patch/tests/mod.rs",
+      "responsibilities": [
+        "patch adapter transaction and recovery regression tests"
       ]
     },
     {

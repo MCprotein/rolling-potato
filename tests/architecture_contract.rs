@@ -1157,6 +1157,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
 
 #[test]
 fn v0379_patch_owners_hold_lifecycle_decisions() {
+    let patch_tests = "src/patch/tests/mod.rs";
     let owners = [
         "src/runtime_core/patch/approval.rs",
         "src/runtime_core/patch/application.rs",
@@ -1288,6 +1289,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
 
     let intent_facade = fs::read_to_string("src/intent.rs").unwrap();
     let patch_facade = fs::read_to_string("src/patch.rs").unwrap();
+    let patch_test_module = fs::read_to_string(patch_tests).unwrap();
     let patch_harness = fs::read_to_string("tests/patch_loop.rs").unwrap();
     let patch_contract = fs::read_to_string("tests/patch/lifecycle.rs").unwrap();
     assert!(
@@ -1295,8 +1297,16 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         "intent facade regrew beyond the v0.37.9 boundary"
     );
     assert!(
-        patch_facade.lines().count() <= 6_300,
+        patch_facade.lines().count() <= 4_000,
         "patch facade regrew beyond the v0.37.9 boundary"
+    );
+    assert!(patch_facade.contains("#[path = \"patch/tests/mod.rs\"]"));
+    assert!(!patch_facade.contains("mod tests {"));
+    assert!(
+        patch_test_module.lines().count() < 2_300
+            && patch_test_module
+                .contains("fn prepared_approval_t1_t10_faults_recover_exactly_once"),
+        "patch adapter regression tests are not isolated in their owned module"
     );
     assert!(
         patch_harness.lines().count() <= 5 && patch_harness.contains("patch/lifecycle.rs"),
