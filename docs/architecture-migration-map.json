@@ -1892,8 +1892,12 @@
           "responsibility": "benchmark command and cross-store orchestration compatibility facade",
           "target": "src/composition/inference.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "migrating",
+          "evidence": [
+            "src/composition/inference.rs",
+            "src/app/legacy_dispatch.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2028,6 +2032,22 @@
           "evidence": [
             "src/composition/dispatch.rs",
             "src/app.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/inference.rs",
+      "slices": [
+        {
+          "responsibility": "inference command orchestration and consumer-owned ports",
+          "target": "src/composition/inference.rs",
+          "release": "0.37.13",
+          "state": "migrating",
+          "evidence": [
+            "src/composition/inference.rs",
+            "src/app/legacy_dispatch.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4853,6 +4873,12 @@
       "path": "src/composition/dispatch.rs",
       "responsibilities": [
         "CLI parse, preflight, recovery, and dispatch ordering"
+      ]
+    },
+    {
+      "path": "src/composition/inference.rs",
+      "responsibilities": [
+        "inference command orchestration and consumer-owned ports"
       ]
     },
     {

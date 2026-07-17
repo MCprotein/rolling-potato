@@ -3,7 +3,7 @@ use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::{capability, native};
 use crate::backend;
 use crate::benchmark;
-use crate::composition::{config, dispatch, uninstall};
+use crate::composition::{config, dispatch, inference, uninstall};
 use crate::evidence;
 use crate::foundation::error::AppError;
 use crate::hooks;
@@ -20,8 +20,8 @@ use crate::state;
 use crate::subagent;
 use crate::surfaces::cli::{
     command::{
-        BackendCommand, BenchmarkCommand, Command, EvidenceCommand, HooksCommand, IntentCommand,
-        ModelCommand, MonitorCommand, OntologyCommand, PatchCommand, PluginCommand, PolicyCommand,
+        BackendCommand, Command, EvidenceCommand, HooksCommand, IntentCommand, ModelCommand,
+        MonitorCommand, OntologyCommand, PatchCommand, PluginCommand, PolicyCommand,
         PolicyPathMode, SessionCommand, SkillCommand, StateCommand, SubagentCommand, TeamCommand,
         TuiCommand, UninstallCommand,
     },
@@ -31,6 +31,39 @@ use crate::team;
 use crate::tui;
 
 pub(super) struct LegacyCommandDispatchPort;
+
+impl inference::BenchmarkCommandPort for LegacyCommandDispatchPort {
+    fn validate_report(&mut self, path: &str) -> Result<String, AppError> {
+        benchmark::validate_report(path)
+    }
+
+    fn record_report(&mut self, fixture: &str) -> Result<String, AppError> {
+        benchmark::record_report(fixture)
+    }
+
+    fn run_report(
+        &mut self,
+        fixture: &str,
+        prompt: &str,
+        max_tokens: Option<u32>,
+    ) -> Result<String, AppError> {
+        benchmark::run_report(fixture, prompt, max_tokens)
+    }
+
+    fn report_export(
+        &mut self,
+        format: crate::surfaces::cli::command::BenchmarkReportFormat,
+    ) -> Result<String, AppError> {
+        benchmark::report_export(format)
+    }
+}
+
+fn emit_inference_output(output: inference::CommandOutput) {
+    match output {
+        inference::CommandOutput::Line(report) => println!("{report}"),
+        inference::CommandOutput::Exact(report) => print!("{report}"),
+    }
+}
 
 impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
     fn terminal_attached(&mut self) -> bool {
@@ -415,24 +448,8 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 println!("{}", ontology::import_report(&path, dry_run)?);
                 Ok(())
             }
-            Command::Benchmark(BenchmarkCommand::Validate { path }) => {
-                println!("{}", benchmark::validate_report(&path)?);
-                Ok(())
-            }
-            Command::Benchmark(BenchmarkCommand::Record { fixture }) => {
-                println!("{}", benchmark::record_report(&fixture)?);
-                Ok(())
-            }
-            Command::Benchmark(BenchmarkCommand::Run {
-                fixture,
-                prompt,
-                max_tokens,
-            }) => {
-                println!("{}", benchmark::run_report(&fixture, &prompt, max_tokens)?);
-                Ok(())
-            }
-            Command::Benchmark(BenchmarkCommand::Report { format }) => {
-                print!("{}", benchmark::report_export(format)?);
+            Command::Benchmark(command) => {
+                emit_inference_output(inference::run_benchmark(command, self)?);
                 Ok(())
             }
             Command::Model(ModelCommand::List) => {

@@ -1973,6 +1973,35 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
 }
 
 #[test]
+fn v03713_composition_owns_benchmark_command_orchestration() {
+    let composition = fs::read_to_string("src/composition/inference.rs").unwrap();
+    for definition in [
+        "trait BenchmarkCommandPort",
+        "fn run_benchmark(",
+        "BenchmarkCommand::Validate",
+        "BenchmarkCommand::Record",
+        "BenchmarkCommand::Run",
+        "BenchmarkCommand::Report",
+        "CommandOutput::Exact",
+    ] {
+        assert!(
+            composition.contains(definition),
+            "inference composition owner is missing {definition}"
+        );
+    }
+    for forbidden in ["crate::benchmark", "crate::ledger", "crate::observability"] {
+        assert!(
+            !composition.contains(forbidden),
+            "inference composition bypasses its benchmark port: {forbidden}"
+        );
+    }
+
+    let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
+    assert!(adapter.contains("impl inference::BenchmarkCommandPort"));
+    assert!(adapter.contains("inference::run_benchmark(command, self)"));
+}
+
+#[test]
 fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
     for name in [
         "fake_sidecar.rs",
