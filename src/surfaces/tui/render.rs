@@ -1,5 +1,7 @@
 use super::runtime_bridge::TuiReadPage;
-use super::view_model::{EvidenceReportView, InteractiveState, SessionsReportView};
+use super::view_model::{
+    EvidenceReportView, InteractiveState, MonitorReportView, OverviewReportView, SessionsReportView,
+};
 
 const MAX_INTERACTIVE_WIDTH: usize = 120;
 
@@ -438,6 +440,229 @@ pub(crate) fn render_sessions_report(width: usize, view: &SessionsReportView) ->
         "rpotato tui transcript <session-id>",
     );
     push_kv(&mut lines, width, "state", &view.state_path);
+    push_footer(&mut lines, width);
+    lines.join("\n")
+}
+
+pub(crate) fn render_overview_report(width: usize, view: &OverviewReportView) -> String {
+    let mut lines = Vec::new();
+    push_header(&mut lines, width, "rpotato TUI beta - overview");
+    push_kv(&mut lines, width, "project", &view.project_root);
+    push_kv(&mut lines, width, "session", &view.session_id);
+    push_kv(&mut lines, width, "mode", "read-only dashboard");
+    push_rule(&mut lines, width);
+    push_section(&mut lines, width, "runtime");
+    push_kv(&mut lines, width, "observability", &view.store.path);
+    push_kv(
+        &mut lines,
+        width,
+        "ledger events",
+        &view.store.ledger_events.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "sessions",
+        &view.store.sessions.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "workflows",
+        &view.store.workflows.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "transcript records",
+        &view.store.transcript_records.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "transcript boundary",
+        "visible/normalized turns persisted; hidden response and raw source excluded",
+    );
+    if let Some(path) = &view.store.recovered_from {
+        push_kv(&mut lines, width, "recovered db", path);
+    }
+    push_rule(&mut lines, width);
+    push_section(&mut lines, width, "model/token summary");
+    if view.models.is_empty() {
+        push_kv(
+            &mut lines,
+            width,
+            "model runs",
+            &format!("none; candidates {}", view.candidate_summary),
+        );
+    } else {
+        for summary in view.models.iter().take(4) {
+            push_wrapped(
+                &mut lines,
+                width,
+                &format!(
+                    "{} | runs {} | tokens {} | avg latency {} | avg tps {}",
+                    summary.model_id,
+                    summary.runs,
+                    summary.total_tokens,
+                    latency_label(summary.avg_latency_ms),
+                    tps_label(summary.avg_tokens_per_second)
+                ),
+            );
+        }
+    }
+    push_rule(&mut lines, width);
+    push_section(&mut lines, width, "recent sessions");
+    if view.recent_sessions.is_empty() {
+        push_kv(&mut lines, width, "history", "none");
+    } else {
+        for session in view.recent_sessions.iter().take(3) {
+            push_wrapped(
+                &mut lines,
+                width,
+                &format!(
+                    "{} | events {} | last {}",
+                    short_id(&session.session_id),
+                    session.event_count,
+                    session
+                        .last_summary
+                        .as_deref()
+                        .unwrap_or("no summary recorded")
+                ),
+            );
+        }
+    }
+    push_rule(&mut lines, width);
+    push_kv(
+        &mut lines,
+        width,
+        "views",
+        "rpotato tui | rpotato tui monitor | rpotato tui sessions | rpotato tui transcript <session-id> | rpotato tui approvals | rpotato tui evidence",
+    );
+    push_footer(&mut lines, width);
+    lines.join("\n")
+}
+
+pub(crate) fn render_monitor_report(width: usize, view: &MonitorReportView) -> String {
+    let mut lines = Vec::new();
+    push_header(&mut lines, width, "rpotato TUI beta - monitor");
+    push_kv(&mut lines, width, "observability", &view.store.path);
+    push_kv(
+        &mut lines,
+        width,
+        "schema",
+        &format!("v{}", view.store.migration_version),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "model runs",
+        &view.store.model_runs.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "token records",
+        &view.store.token_records.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "transcript records",
+        &view.store.transcript_records.to_string(),
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "resource samples",
+        &view.store.resource_samples.to_string(),
+    );
+    push_rule(&mut lines, width);
+    push_section(&mut lines, width, "resource pressure");
+    if let Some(sample) = &view.resource {
+        push_wrapped(
+            &mut lines,
+            width,
+            &format!(
+                "pressure: {} | backend: {} | pid: {} | sample count: {} | recorded ms: {}",
+                sample.pressure_status,
+                sample.backend_id,
+                sample.pid,
+                sample.sample_count,
+                sample.recorded_at_ms
+            ),
+        );
+        push_wrapped(
+            &mut lines,
+            width,
+            &format!(
+                "cpu: {} | avg rss: {}",
+                percent_label(sample.process_cpu_percent),
+                bytes_label(sample.average_rss_bytes)
+            ),
+        );
+        push_wrapped(
+            &mut lines,
+            width,
+            &format!(
+                "peak rss: {} | disk: {}",
+                bytes_label(sample.peak_rss_bytes),
+                bytes_label(sample.disk_bytes)
+            ),
+        );
+        push_wrapped(
+            &mut lines,
+            width,
+            &format!("latest sample: {}", short_id(&sample.resource_sample_id)),
+        );
+    } else {
+        push_wrapped(
+            &mut lines,
+            width,
+            "No resource samples yet. Run backend start, backend status, or backend chat after a sidecar is running.",
+        );
+    }
+    push_rule(&mut lines, width);
+    push_section(&mut lines, width, "models");
+    if view.models.is_empty() {
+        push_wrapped(
+            &mut lines,
+            width,
+            &format!(
+                "No recorded model runs yet. Candidate state: {}",
+                view.candidate_summary
+            ),
+        );
+    } else {
+        push_wrapped(
+            &mut lines,
+            width,
+            "model | runs | prompt | completion | total | avg ms | tps",
+        );
+        for summary in &view.models {
+            push_wrapped(
+                &mut lines,
+                width,
+                &format!(
+                    "{} | {} | {} | {} | {} | {} | {}",
+                    summary.model_id,
+                    summary.runs,
+                    summary.prompt_tokens,
+                    summary.completion_tokens,
+                    summary.total_tokens,
+                    latency_label(summary.avg_latency_ms),
+                    tps_label(summary.avg_tokens_per_second)
+                ),
+            );
+        }
+    }
+    push_rule(&mut lines, width);
+    push_kv(
+        &mut lines,
+        width,
+        "actions",
+        "read-only; export/prune remain monitor CLI commands",
+    );
     push_footer(&mut lines, width);
     lines.join("\n")
 }

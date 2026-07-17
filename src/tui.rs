@@ -57,12 +57,14 @@ mod legacy_reports {
     use super::{runtime, AppError, TuiReadBudget, TuiReadRequest};
     use crate::adapters::filesystem::layout as paths;
     use crate::surfaces::tui::render::{
-        bytes_label, canonical_page_report, latency_label, percent_label, push_footer, push_header,
-        push_kv, push_rule, push_section, push_wrapped, render_evidence_report,
-        render_sessions_report, short_id, terminal_width, tps_label,
+        canonical_page_report, push_footer, push_header, push_kv, push_rule, push_section,
+        push_wrapped, render_evidence_report, render_monitor_report, render_overview_report,
+        render_sessions_report, short_id, terminal_width,
     };
     use crate::surfaces::tui::view_model::{
-        EvidenceReportView, SessionSummaryView, SessionsReportView,
+        EvidenceReportView, ModelMetricView, MonitorReportView, MonitorStoreView,
+        OverviewReportView, OverviewStoreView, ResourceSampleView, SessionSummaryView,
+        SessionsReportView,
     };
     use crate::{evidence, ledger, model, observability};
 
@@ -72,103 +74,24 @@ mod legacy_reports {
         let models = observability::model_summaries()?;
         let sessions = observability::session_history(5)?;
         let identity = ledger::validated_current_identity()?;
-
-        let mut lines = Vec::new();
-        push_header(&mut lines, width, "rpotato TUI beta - overview");
-        push_kv(&mut lines, width, "project", &identity.project_root);
-        push_kv(&mut lines, width, "session", &identity.session_id);
-        push_kv(&mut lines, width, "mode", "read-only dashboard");
-        push_rule(&mut lines, width);
-        push_section(&mut lines, width, "runtime");
-        push_kv(
-            &mut lines,
+        Ok(render_overview_report(
             width,
-            "observability",
-            &store.path.display().to_string(),
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "ledger events",
-            &store.ledger_events.to_string(),
-        );
-        push_kv(&mut lines, width, "sessions", &store.sessions.to_string());
-        push_kv(&mut lines, width, "workflows", &store.workflows.to_string());
-        push_kv(
-            &mut lines,
-            width,
-            "transcript records",
-            &store.transcript_records.to_string(),
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "transcript boundary",
-            "visible/normalized turns persisted; hidden response and raw source excluded",
-        );
-        if let Some(path) = store.recovered_from {
-            push_kv(
-                &mut lines,
-                width,
-                "recovered db",
-                &path.display().to_string(),
-            );
-        }
-        push_rule(&mut lines, width);
-        push_section(&mut lines, width, "model/token summary");
-        if models.is_empty() {
-            push_kv(
-                &mut lines,
-                width,
-                "model runs",
-                &format!("none; candidates {}", model::candidate_summary()),
-            );
-        } else {
-            for summary in models.iter().take(4) {
-                push_wrapped(
-                    &mut lines,
-                    width,
-                    &format!(
-                        "{} | runs {} | tokens {} | avg latency {} | avg tps {}",
-                        summary.model_id,
-                        summary.runs,
-                        summary.total_tokens,
-                        latency_label(summary.avg_latency_ms),
-                        tps_label(summary.avg_tokens_per_second)
-                    ),
-                );
-            }
-        }
-        push_rule(&mut lines, width);
-        push_section(&mut lines, width, "recent sessions");
-        if sessions.is_empty() {
-            push_kv(&mut lines, width, "history", "none");
-        } else {
-            for session in sessions.iter().take(3) {
-                push_wrapped(
-                    &mut lines,
-                    width,
-                    &format!(
-                        "{} | events {} | last {}",
-                        short_id(&session.session_id),
-                        session.event_count,
-                        session
-                            .last_summary
-                            .as_deref()
-                            .unwrap_or("no summary recorded")
-                    ),
-                );
-            }
-        }
-        push_rule(&mut lines, width);
-        push_kv(
-        &mut lines,
-        width,
-        "views",
-        "rpotato tui | rpotato tui monitor | rpotato tui sessions | rpotato tui transcript <session-id> | rpotato tui approvals | rpotato tui evidence",
-    );
-        push_footer(&mut lines, width);
-        Ok(lines.join("\n"))
+            &OverviewReportView {
+                project_root: identity.project_root,
+                session_id: identity.session_id,
+                store: OverviewStoreView {
+                    path: store.path.display().to_string(),
+                    recovered_from: store.recovered_from.map(|path| path.display().to_string()),
+                    ledger_events: store.ledger_events,
+                    sessions: store.sessions,
+                    workflows: store.workflows,
+                    transcript_records: store.transcript_records,
+                },
+                models: models.into_iter().map(model_metric_view).collect(),
+                candidate_summary: model::candidate_summary(),
+                recent_sessions: sessions.into_iter().map(session_summary_view).collect(),
+            },
+        ))
     }
 
     pub fn monitor_report() -> Result<String, AppError> {
@@ -176,133 +99,33 @@ mod legacy_reports {
         let store = observability::status()?;
         let models = observability::model_summaries()?;
         let resource = observability::latest_resource_sample()?;
-
-        let mut lines = Vec::new();
-        push_header(&mut lines, width, "rpotato TUI beta - monitor");
-        push_kv(
-            &mut lines,
+        Ok(render_monitor_report(
             width,
-            "observability",
-            &store.path.display().to_string(),
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "schema",
-            &format!("v{}", store.migration_version),
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "model runs",
-            &store.model_runs.to_string(),
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "token records",
-            &store.token_records.to_string(),
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "transcript records",
-            &store.transcript_records.to_string(),
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "resource samples",
-            &store.resource_samples.to_string(),
-        );
-        push_rule(&mut lines, width);
-        push_section(&mut lines, width, "resource pressure");
-        if let Some(sample) = resource {
-            push_wrapped(
-                &mut lines,
-                width,
-                &format!(
-                    "pressure: {} | backend: {} | pid: {} | sample count: {} | recorded ms: {}",
-                    sample.pressure_status,
-                    sample.backend_id,
-                    sample.pid,
-                    sample.sample_count,
-                    sample.recorded_at_ms
-                ),
-            );
-            push_wrapped(
-                &mut lines,
-                width,
-                &format!(
-                    "cpu: {} | avg rss: {}",
-                    percent_label(sample.process_cpu_percent),
-                    bytes_label(sample.average_rss_bytes)
-                ),
-            );
-            push_wrapped(
-                &mut lines,
-                width,
-                &format!(
-                    "peak rss: {} | disk: {}",
-                    bytes_label(sample.peak_rss_bytes),
-                    bytes_label(sample.disk_bytes)
-                ),
-            );
-            push_wrapped(
-                &mut lines,
-                width,
-                &format!("latest sample: {}", short_id(&sample.resource_sample_id)),
-            );
-        } else {
-            push_wrapped(
-            &mut lines,
-            width,
-            "No resource samples yet. Run backend start, backend status, or backend chat after a sidecar is running.",
-        );
-        }
-        push_rule(&mut lines, width);
-        push_section(&mut lines, width, "models");
-        if models.is_empty() {
-            push_wrapped(
-                &mut lines,
-                width,
-                &format!(
-                    "No recorded model runs yet. Candidate state: {}",
-                    model::candidate_summary()
-                ),
-            );
-        } else {
-            push_wrapped(
-                &mut lines,
-                width,
-                "model | runs | prompt | completion | total | avg ms | tps",
-            );
-            for summary in &models {
-                push_wrapped(
-                    &mut lines,
-                    width,
-                    &format!(
-                        "{} | {} | {} | {} | {} | {} | {}",
-                        summary.model_id,
-                        summary.runs,
-                        summary.prompt_tokens,
-                        summary.completion_tokens,
-                        summary.total_tokens,
-                        latency_label(summary.avg_latency_ms),
-                        tps_label(summary.avg_tokens_per_second)
-                    ),
-                );
-            }
-        }
-        push_rule(&mut lines, width);
-        push_kv(
-            &mut lines,
-            width,
-            "actions",
-            "read-only; export/prune remain monitor CLI commands",
-        );
-        push_footer(&mut lines, width);
-        Ok(lines.join("\n"))
+            &MonitorReportView {
+                store: MonitorStoreView {
+                    path: store.path.display().to_string(),
+                    migration_version: store.migration_version,
+                    model_runs: store.model_runs,
+                    token_records: store.token_records,
+                    transcript_records: store.transcript_records,
+                    resource_samples: store.resource_samples,
+                },
+                models: models.into_iter().map(model_metric_view).collect(),
+                resource: resource.map(|sample| ResourceSampleView {
+                    resource_sample_id: sample.resource_sample_id,
+                    backend_id: sample.backend_id,
+                    pid: sample.pid,
+                    process_cpu_percent: sample.process_cpu_percent,
+                    average_rss_bytes: sample.average_rss_bytes,
+                    peak_rss_bytes: sample.peak_rss_bytes,
+                    disk_bytes: sample.disk_bytes,
+                    sample_count: sample.sample_count,
+                    pressure_status: sample.pressure_status,
+                    recorded_at_ms: sample.recorded_at_ms,
+                }),
+                candidate_summary: model::candidate_summary(),
+            },
+        ))
     }
 
     pub fn sessions_report() -> Result<String, AppError> {
@@ -448,6 +271,28 @@ mod legacy_reports {
             budget: TuiReadBudget::bounded(120, 64 * 1024),
         })?;
         Ok(canonical_page_report(page))
+    }
+
+    fn model_metric_view(
+        summary: crate::runtime_core::observability::facade::ModelMetricSummary,
+    ) -> ModelMetricView {
+        ModelMetricView {
+            model_id: summary.model_id,
+            runs: summary.runs,
+            prompt_tokens: summary.prompt_tokens,
+            completion_tokens: summary.completion_tokens,
+            total_tokens: summary.total_tokens,
+            avg_latency_ms: summary.avg_latency_ms,
+            avg_tokens_per_second: summary.avg_tokens_per_second,
+        }
+    }
+
+    fn session_summary_view(session: observability::SessionHistoryEntry) -> SessionSummaryView {
+        SessionSummaryView {
+            session_id: session.session_id,
+            event_count: session.event_count,
+            last_summary: session.last_summary,
+        }
     }
 
     pub fn evidence_report() -> Result<String, AppError> {

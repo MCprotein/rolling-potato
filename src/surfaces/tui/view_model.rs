@@ -98,3 +98,60 @@ pub(crate) struct SessionsReportView {
     pub(crate) state_path: String,
     pub(crate) sessions: Vec<SessionSummaryView>,
 }
+
+pub(crate) struct ModelMetricView {
+    pub(crate) model_id: String,
+    pub(crate) runs: i64,
+    pub(crate) prompt_tokens: i64,
+    pub(crate) completion_tokens: i64,
+    pub(crate) total_tokens: i64,
+    pub(crate) avg_latency_ms: Option<f64>,
+    pub(crate) avg_tokens_per_second: Option<f64>,
+}
+
+pub(crate) struct OverviewStoreView {
+    pub(crate) path: String,
+    pub(crate) recovered_from: Option<String>,
+    pub(crate) ledger_events: i64,
+    pub(crate) sessions: i64,
+    pub(crate) workflows: i64,
+    pub(crate) transcript_records: i64,
+}
+
+pub(crate) struct OverviewReportView {
+    pub(crate) project_root: String,
+    pub(crate) session_id: String,
+    pub(crate) store: OverviewStoreView,
+    pub(crate) models: Vec<ModelMetricView>,
+    pub(crate) candidate_summary: String,
+    pub(crate) recent_sessions: Vec<SessionSummaryView>,
+}
+
+pub(crate) struct MonitorStoreView {
+    pub(crate) path: String,
+    pub(crate) migration_version: i64,
+    pub(crate) model_runs: i64,
+    pub(crate) token_records: i64,
+    pub(crate) transcript_records: i64,
+    pub(crate) resource_samples: i64,
+}
+
+pub(crate) struct ResourceSampleView {
+    pub(crate) resource_sample_id: String,
+    pub(crate) backend_id: String,
+    pub(crate) pid: u32,
+    pub(crate) process_cpu_percent: Option<f64>,
+    pub(crate) average_rss_bytes: Option<u64>,
+    pub(crate) peak_rss_bytes: Option<u64>,
+    pub(crate) disk_bytes: Option<u64>,
+    pub(crate) sample_count: u32,
+    pub(crate) pressure_status: String,
+    pub(crate) recorded_at_ms: u128,
+}
+
+pub(crate) struct MonitorReportView {
+    pub(crate) store: MonitorStoreView,
+    pub(crate) models: Vec<ModelMetricView>,
+    pub(crate) resource: Option<ResourceSampleView>,
+    pub(crate) candidate_summary: String,
+}
