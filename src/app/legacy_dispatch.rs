@@ -1,7 +1,6 @@
 use crate::adapters::filesystem::cache;
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::{capability, native};
-use crate::backend;
 use crate::composition::{config, dispatch, inference, uninstall};
 use crate::evidence;
 use crate::foundation::error::AppError;
@@ -27,7 +26,7 @@ use crate::surfaces::cli::{
 use crate::team;
 use crate::tui;
 
-use super::inference_adapter::{benchmark, model};
+use super::inference_adapter::{backend, benchmark, model};
 
 pub(super) struct LegacyCommandDispatchPort;
 

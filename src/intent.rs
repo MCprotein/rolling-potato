@@ -1,5 +1,5 @@
 use crate::adapters::filesystem::layout as paths;
-use crate::backend;
+use crate::app::inference_adapter::backend;
 use crate::context::{self, ContextPack, ResumeContext};
 use crate::foundation::error::AppError;
 use crate::runtime_core::patch::intent::{

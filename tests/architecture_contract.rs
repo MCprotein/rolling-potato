@@ -639,7 +639,10 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     }
 
     for (facade, moved_definition) in [
-        ("src/backend.rs", "struct BackendSidecarRecord"),
+        (
+            "src/app/inference_adapter/backend.rs",
+            "struct BackendSidecarRecord",
+        ),
         (
             "src/app/inference_adapter/benchmark.rs",
             "struct BenchmarkFixture",
@@ -2076,6 +2079,11 @@ fn v03713_composition_owns_backend_command_orchestration() {
     let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
     assert!(adapter.contains("impl inference::BackendCommandPort"));
     assert!(adapter.contains("inference::run_backend(command, self, &mut writer)"));
+
+    assert!(!Path::new("src/backend.rs").exists());
+    assert!(Path::new("src/app/inference_adapter/backend.rs").is_file());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod backend;"));
 }
 
 #[test]

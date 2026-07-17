@@ -22,7 +22,9 @@ use crate::runtime_core::inference::benchmark::ADOPTION_EXACT_RESPONSE;
 use crate::runtime_core::inference::benchmark::{
     self as benchmark_policy, BenchmarkScore, BenchmarkScoringPolicy,
 };
-use crate::{backend, ledger, observability};
+use crate::{ledger, observability};
+
+use super::backend;
 
 pub fn validate_report(path: &str) -> Result<String, AppError> {
     let fixture = benchmark_artifact::read_fixture(path)?;

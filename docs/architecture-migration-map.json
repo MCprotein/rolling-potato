@@ -1756,7 +1756,9 @@
           "state": "complete",
           "evidence": [
             "src/app/inference_adapter.rs",
+            "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/benchmark.rs",
+            "src/app/inference_adapter/model.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -1778,16 +1780,17 @@
       ]
     },
     {
-      "path": "src/backend.rs",
+      "path": "src/app/inference_adapter/backend.rs",
       "slices": [
         {
-          "responsibility": "backend command and cross-store orchestration compatibility facade",
-          "target": "src/composition/inference.rs",
+          "responsibility": "backend concrete integration adapter",
+          "target": "src/app/inference_adapter/backend.rs",
           "release": "0.37.13",
-          "state": "migrating",
+          "state": "complete",
           "evidence": [
             "src/composition/inference.rs",
             "src/app/legacy_dispatch.rs",
+            "src/app/inference_adapter/backend.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2065,10 +2068,13 @@
           "responsibility": "inference command orchestration and consumer-owned ports",
           "target": "src/composition/inference.rs",
           "release": "0.37.13",
-          "state": "migrating",
+          "state": "complete",
           "evidence": [
             "src/composition/inference.rs",
             "src/app/legacy_dispatch.rs",
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/benchmark.rs",
+            "src/app/inference_adapter/model.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4066,8 +4072,8 @@
       ]
     }
   ],
-  "current_release": "0.37.12",
-  "train_completion": false,
+  "current_release": "0.37.13",
+  "train_completion": true,
   "logical_proofs": [
     {
       "id": "architecture-contract",
@@ -4794,9 +4800,9 @@
       ]
     },
     {
-      "path": "src/backend.rs",
+      "path": "src/app/inference_adapter/backend.rs",
       "responsibilities": [
-        "backend command and cross-store orchestration compatibility facade"
+        "backend concrete integration adapter"
       ]
     },
     {
