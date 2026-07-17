@@ -1789,6 +1789,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "struct SessionSummaryView",
         "struct OverviewReportView",
         "struct MonitorReportView",
+        "struct TranscriptReportView",
         "fn set_view",
         "fn read_request",
     ] {
@@ -1850,6 +1851,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "fn render_sessions_report",
         "fn render_overview_report",
         "fn render_monitor_report",
+        "fn render_transcript_report",
     ] {
         assert!(
             render.contains(definition),

@@ -155,3 +155,30 @@ pub(crate) struct MonitorReportView {
     pub(crate) resource: Option<ResourceSampleView>,
     pub(crate) candidate_summary: String,
 }
+
+pub(crate) struct TranscriptSessionView {
+    pub(crate) project_root: String,
+    pub(crate) session_id: String,
+    pub(crate) started_at_ms: i64,
+    pub(crate) last_event_at_ms: Option<i64>,
+    pub(crate) event_count: i64,
+}
+
+pub(crate) struct TranscriptRecordView {
+    pub(crate) kind: String,
+    pub(crate) workflow_id: String,
+    pub(crate) content: String,
+}
+
+pub(crate) struct TimelineEventView {
+    pub(crate) event_id: String,
+    pub(crate) ts_ms: i64,
+    pub(crate) event_type: String,
+    pub(crate) summary: String,
+}
+
+pub(crate) struct TranscriptReportView {
+    pub(crate) session: TranscriptSessionView,
+    pub(crate) records: Vec<TranscriptRecordView>,
+    pub(crate) events: Vec<TimelineEventView>,
+}

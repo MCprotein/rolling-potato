@@ -3594,7 +3594,7 @@
           "responsibility": "TUI rendering",
           "target": "src/surfaces/tui/render.rs",
           "release": "0.37.13",
-          "state": "migrating",
+          "state": "complete",
           "evidence": [
             "src/surfaces/tui/render.rs",
             "src/tui.rs",
