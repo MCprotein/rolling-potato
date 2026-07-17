@@ -2030,7 +2030,7 @@
           "evidence": [
             "src/app/command_dispatch.rs",
             "src/app/command_dispatch/tui_commands.rs",
-            "src/tui.rs",
+            "src/app/tui_adapter.rs",
             "src/surfaces/cli/parser/tests/mod.rs",
             "tests/surfaces/interactive_tui.rs",
             "tests/architecture_contract.rs"
@@ -2644,7 +2644,7 @@
           "evidence": [
             "src/composition/tui_action.rs",
             "src/surfaces/tui/runtime_bridge.rs",
-            "src/tui.rs",
+            "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2661,7 +2661,7 @@
           "evidence": [
             "src/composition/tui_read.rs",
             "src/surfaces/tui/page.rs",
-            "src/tui.rs",
+            "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2812,7 +2812,7 @@
           "evidence": [
             "src/evidence.rs",
             "src/evidence/store.rs",
-            "src/tui.rs",
+            "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3566,7 +3566,7 @@
             "src/runtime_core/patch/verification.rs",
             "src/app/workflow_adapter/state/lifecycle.rs",
             "src/patch/resume.rs",
-            "src/tui.rs",
+            "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3584,7 +3584,7 @@
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
             "src/app/workflow_adapter/state/transaction.rs",
             "src/patch/terminal.rs",
-            "src/tui.rs",
+            "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3620,7 +3620,7 @@
             "src/runtime_core/patch/proposal.rs",
             "src/app/workflow_adapter/state.rs",
             "src/patch/workflow_contract.rs",
-            "src/tui.rs",
+            "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5506,8 +5506,8 @@
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/controller.rs",
-            "src/tui.rs",
-            "src/tui/tests.rs",
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5587,8 +5587,8 @@
           "evidence": [
             "src/surfaces/tui/render.rs",
             "src/surfaces/tui/report_render.rs",
-            "src/tui.rs",
-            "src/tui/report_composition.rs",
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/report_composition.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5604,7 +5604,7 @@
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/report_render.rs",
-            "src/tui.rs",
+            "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5635,8 +5635,8 @@
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/view_model.rs",
-            "src/tui.rs",
-            "src/tui/tests.rs",
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6165,7 +6165,7 @@
       ]
     },
     {
-      "path": "src/tui.rs",
+      "path": "src/app/tui_adapter.rs",
       "slices": [
         {
           "responsibility": "TUI controller and input",
@@ -6174,7 +6174,7 @@
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/controller.rs",
-            "src/tui.rs",
+            "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         },
@@ -6185,7 +6185,7 @@
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/view_model.rs",
-            "src/tui.rs",
+            "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         },
@@ -6197,44 +6197,44 @@
           "evidence": [
             "src/surfaces/tui/render.rs",
             "src/surfaces/tui/report_render.rs",
-            "src/tui.rs",
-            "src/tui/tests.rs",
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/tui/tests.rs",
+      "path": "src/app/tui_adapter/tests.rs",
       "slices": [
         {
           "responsibility": "TUI adapter, controller, rendering, and one-shot report regression tests",
-          "target": "src/tui/tests.rs",
+          "target": "src/app/tui_adapter/tests.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/tui.rs",
-            "src/tui/report_composition.rs",
-            "src/tui/tests.rs",
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/report_composition.rs",
+            "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/tui/report_composition.rs",
+      "path": "src/app/tui_adapter/report_composition.rs",
       "slices": [
         {
           "responsibility": "one-shot TUI query composition and report view-model assembly",
-          "target": "src/tui/report_composition.rs",
+          "target": "src/app/tui_adapter/report_composition.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/composition/tui_read.rs",
             "src/surfaces/tui/report_render.rs",
             "src/surfaces/tui/view_model.rs",
-            "src/tui.rs",
-            "src/tui/report_composition.rs",
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/report_composition.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8817,7 +8817,7 @@
       ]
     },
     {
-      "path": "src/tui.rs",
+      "path": "src/app/tui_adapter.rs",
       "responsibilities": [
         "TUI controller and input",
         "TUI view models",
@@ -8825,13 +8825,13 @@
       ]
     },
     {
-      "path": "src/tui/tests.rs",
+      "path": "src/app/tui_adapter/tests.rs",
       "responsibilities": [
         "TUI adapter, controller, rendering, and one-shot report regression tests"
       ]
     },
     {
-      "path": "src/tui/report_composition.rs",
+      "path": "src/app/tui_adapter/report_composition.rs",
       "responsibilities": [
         "one-shot TUI query composition and report view-model assembly"
       ]

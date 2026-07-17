@@ -170,7 +170,8 @@ fn session_resume_transaction_never_exposes_current_before_ledger() {
             session_new_report_for_intent(&format!("intent-session-new-before-{point}")).unwrap();
             let before_current = fs::read(paths::current_state_file()).unwrap();
             let intent_id = format!("intent-session-resume-crash-{point}");
-            let lease = crate::tui::canonical_selection_lease(&target.session_id).unwrap();
+            let lease =
+                crate::app::tui_adapter::canonical_selection_lease(&target.session_id).unwrap();
             std::env::set_var("RPOTATO_TEST_STATE_TRANSITION_FAULT", point);
 
             let error =

@@ -13,7 +13,6 @@ mod surfaces;
 #[cfg(test)]
 #[path = "../tests/support/runtime_fixture.rs"]
 mod test_support;
-mod tui;
 
 fn main() -> std::process::ExitCode {
     composition::startup::run(std::env::args().skip(1), app::run)

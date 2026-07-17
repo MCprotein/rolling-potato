@@ -84,7 +84,7 @@ fn ordinary_line_read_failure_has_a_distinct_non_secret_taxonomy() {
 
 #[test]
 fn live_controller_compile_time_boundary_uses_only_runtime_and_terminal_authority() {
-    let live = include_str!("../surfaces/tui/controller.rs");
+    let live = include_str!("../../surfaces/tui/controller.rs");
     for forbidden in [
         "use crate::runtime;",
         "crate::runtime::",
@@ -136,7 +136,7 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
     crate::app::workflow_adapter::state::initialize().unwrap();
     let mut terminal = ScriptedTerminal::new(["help", "quit"]);
 
-    run_controller(&mut terminal, &mut LegacyTuiRuntimePort).unwrap();
+    run_controller(&mut terminal, &mut TuiRuntimeAdapter).unwrap();
 
     std::env::remove_var("RPOTATO_PROJECT_ROOT");
     std::env::remove_var("RPOTATO_DATA_HOME");

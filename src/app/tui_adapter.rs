@@ -1,3 +1,5 @@
+//! TUI runtime adapters and application entrypoints.
+
 use crate::adapters::terminal::capability;
 use crate::adapters::terminal::native::NativeTerminal;
 use crate::app::workflow_adapter::transcript;
@@ -17,7 +19,7 @@ use crate::surfaces::tui::runtime_bridge::{
 pub fn run_auto() -> Result<(), AppError> {
     if capability::attached() {
         let mut terminal = NativeTerminal::new();
-        controller::run_controller(&mut terminal, &mut LegacyTuiRuntimePort)
+        controller::run_controller(&mut terminal, &mut TuiRuntimeAdapter)
     } else {
         println!("{}", overview_report()?);
         Ok(())
@@ -26,16 +28,16 @@ pub fn run_auto() -> Result<(), AppError> {
 
 pub fn run_interactive() -> Result<(), AppError> {
     let mut terminal = NativeTerminal::explicit_line_mode();
-    controller::run_controller(&mut terminal, &mut LegacyTuiRuntimePort)
+    controller::run_controller(&mut terminal, &mut TuiRuntimeAdapter)
 }
 
-struct LegacyTuiRuntimePort;
+struct TuiRuntimeAdapter;
 
-pub(crate) struct LegacyTuiReadPort;
+pub(crate) struct TuiReadAdapter;
 
-struct LegacyTuiActionPort;
+struct TuiActionAdapter;
 
-impl TuiActionPort for LegacyTuiActionPort {
+impl TuiActionPort for TuiActionAdapter {
     fn selection_observation(
         &mut self,
     ) -> Result<crate::surfaces::tui::runtime_bridge::SelectionObservation, AppError> {
@@ -158,7 +160,7 @@ fn classify_tui_mutation_failure(error: AppError) -> TuiMutationFailure {
     }
 }
 
-impl TuiReadPort for LegacyTuiReadPort {
+impl TuiReadPort for TuiReadAdapter {
     fn state_snapshot(
         &mut self,
         max_ledger_events: usize,
@@ -227,26 +229,26 @@ impl TuiReadPort for LegacyTuiReadPort {
 }
 
 pub(crate) fn canonical_read_page(request: TuiReadRequest) -> Result<TuiReadPage, AppError> {
-    tui_read::read_tui_page(&mut LegacyTuiReadPort, request)
+    tui_read::read_tui_page(&mut TuiReadAdapter, request)
 }
 
 pub(crate) fn canonical_selection_lease(
     selected_object_id: &str,
 ) -> Result<SelectionLease, AppError> {
-    tui_action::selection_lease(&mut LegacyTuiActionPort, selected_object_id)
+    tui_action::selection_lease(&mut TuiActionAdapter, selected_object_id)
 }
 
 pub(crate) fn canonical_gate_descriptor(
     workflow_id: &str,
 ) -> Result<(String, TuiGateKind), AppError> {
-    tui_action::gate_descriptor(&mut LegacyTuiActionPort, workflow_id)
+    tui_action::gate_descriptor(&mut TuiActionAdapter, workflow_id)
 }
 
 pub(crate) fn canonical_dispatch_intent(intent: TuiIntent) -> Result<TuiOutcome, AppError> {
-    tui_action::dispatch_intent(&mut LegacyTuiActionPort, intent)
+    tui_action::dispatch_intent(&mut TuiActionAdapter, intent)
 }
 
-impl TuiRuntimePort for LegacyTuiRuntimePort {
+impl TuiRuntimePort for TuiRuntimeAdapter {
     fn read_tui_page(&mut self, request: TuiReadRequest) -> Result<TuiReadPage, AppError> {
         canonical_read_page(request)
     }
@@ -281,5 +283,5 @@ pub use report_composition::{
 };
 
 #[cfg(test)]
-#[path = "tui/tests.rs"]
+#[path = "tui_adapter/tests.rs"]
 mod tests;

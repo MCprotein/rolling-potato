@@ -2,10 +2,10 @@
 
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::capability;
+use crate::app::tui_adapter as tui;
 use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
 use crate::surfaces::cli::command::TuiCommand;
-use crate::tui;
 
 pub(super) fn execute_tui(command: TuiCommand) -> Result<(), AppError> {
     match command {

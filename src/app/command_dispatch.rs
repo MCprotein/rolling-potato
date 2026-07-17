@@ -37,7 +37,8 @@ impl dispatch::CommandDispatchPort for CommandDispatchAdapter {
     }
 
     fn validate_native_terminal(&mut self) -> Result<(), AppError> {
-        native::validate_native_fault_configuration().map_err(crate::tui::terminal_fault_error)
+        native::validate_native_fault_configuration()
+            .map_err(crate::app::tui_adapter::terminal_fault_error)
     }
 
     fn recover_pending_source_bundles(&mut self) -> Result<(), AppError> {

@@ -1,7 +1,7 @@
 //! Application wiring boundary.
 //!
-//! Production startup and dependency construction stay in the legacy modules
-//! until their scheduled migration. This private root only reserves ownership.
+//! Startup, command dispatch, and inference orchestration live here while
+//! application adapters, domain behavior, and infrastructure stay with their owners.
 
 pub(crate) mod config;
 pub(crate) mod dispatch;

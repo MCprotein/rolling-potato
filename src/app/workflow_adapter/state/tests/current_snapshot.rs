@@ -324,7 +324,8 @@ fn tui_session_selection_revalidates_lease_under_lock_and_reuses_receipt() {
         let initial = ledger::validated_current_identity().unwrap();
         session_new_report().unwrap();
         let intent_id = "intent-session-select-exact-0001";
-        let lease = crate::tui::canonical_selection_lease(&initial.session_id).unwrap();
+        let lease =
+            crate::app::tui_adapter::canonical_selection_lease(&initial.session_id).unwrap();
 
         let first = session_resume_report_for_tui(&initial.session_id, intent_id, &lease)
             .unwrap()
@@ -357,7 +358,8 @@ fn tui_session_selection_revalidates_lease_under_lock_and_reuses_receipt() {
         assert_eq!(first_receipts, 1);
         assert_eq!(retry_receipts, 1);
 
-        let stale_lease = crate::tui::canonical_selection_lease(&initial.session_id).unwrap();
+        let stale_lease =
+            crate::app::tui_adapter::canonical_selection_lease(&initial.session_id).unwrap();
         record_event("test.selection.predecessor", "advance predecessor", "safe").unwrap();
         let before_stale_events = ledger::read_runtime_events().unwrap().len();
         assert!(session_resume_report_for_tui(

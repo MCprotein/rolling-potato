@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::*;
+use crate::app::tui_adapter::canonical_read_page as read_tui_page;
 use crate::app::workflow_adapter::transcript;
 use crate::surfaces::tui::outcome::{
     exact_tui_outcome, verification_credential_issued, TuiEffect, TuiNextAction, TuiOutcomeContext,
@@ -10,7 +11,6 @@ use crate::surfaces::tui::outcome::{
 use crate::surfaces::tui::runtime_bridge::{
     OneShotSecret, TuiFreshness, TuiReadBudget, TuiReadContinuation, TuiReadRequest,
 };
-use crate::tui::canonical_read_page as read_tui_page;
 
 fn snapshot_tree(root: &std::path::Path) -> BTreeMap<String, Vec<u8>> {
     fn visit(root: &std::path::Path, path: &std::path::Path, out: &mut BTreeMap<String, Vec<u8>>) {

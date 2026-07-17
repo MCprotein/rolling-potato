@@ -48,7 +48,7 @@ fn tui_workflow_resume_revalidates_lease_and_persists_exact_intent_receipt() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let root = patch_test_root("tui-resume-transaction");
     let (_target, workflow, _proposal) = create_pending_workflow(&root, "pwd");
-    let lease = crate::tui::canonical_selection_lease(&workflow.workflow_id).unwrap();
+    let lease = crate::app::tui_adapter::canonical_selection_lease(&workflow.workflow_id).unwrap();
     let intent_id = "intent-tui-resume-exact";
 
     resume_workflow_for_tui(&workflow.workflow_id, intent_id, &lease).unwrap();
@@ -77,7 +77,8 @@ fn tui_approval_rejects_current_lease_selected_for_a_different_object() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let root = patch_test_root("tui-approval-selected-object");
     let (target, workflow, proposal) = create_pending_workflow(&root, "pwd");
-    let wrong_lease = crate::tui::canonical_selection_lease("workflow-unrelated").unwrap();
+    let wrong_lease =
+        crate::app::tui_adapter::canonical_selection_lease("workflow-unrelated").unwrap();
     let before_events = ledger::read_runtime_events().unwrap();
     let before_workflow = state::load_workflow(&workflow.workflow_id).unwrap();
 
@@ -110,7 +111,8 @@ fn resume_entrypoints_block_tampered_and_oversized_pending_approval_proposals() 
     for case in ["tampered", "oversized"] {
         let root = patch_test_root(&format!("tui-resume-proposal-{case}"));
         let (_target, workflow, proposal) = create_pending_workflow(&root, "pwd");
-        let lease = crate::tui::canonical_selection_lease(&workflow.workflow_id).unwrap();
+        let lease =
+            crate::app::tui_adapter::canonical_selection_lease(&workflow.workflow_id).unwrap();
         let path =
             paths::project_patch_proposals_dir().join(format!("{}.txt", proposal.proposal_id));
         let original = fs::read_to_string(&path).unwrap();
@@ -156,7 +158,7 @@ fn tui_resume_revalidates_proposal_during_pending_verification_approval() {
     approve_report(&proposal.proposal_id, &proposal.approval_token, false, None).unwrap();
     let current = state::load_workflow(&workflow.workflow_id).unwrap();
     assert_eq!(current.phase, "pending-verification-approval");
-    let lease = crate::tui::canonical_selection_lease(&workflow.workflow_id).unwrap();
+    let lease = crate::app::tui_adapter::canonical_selection_lease(&workflow.workflow_id).unwrap();
     let path = paths::project_patch_proposals_dir().join(format!("{}.txt", proposal.proposal_id));
     let tampered = fs::read_to_string(&path).unwrap().replacen(
         &format!("workflow_id={}", workflow.workflow_id),

@@ -4462,10 +4462,22 @@ fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
 
 #[test]
 fn v03713_tui_bridge_owns_read_and_selection_dtos() {
-    let tui_adapter = "src/tui.rs";
-    let tui_tests = "src/tui/tests.rs";
+    let tui_adapter = "src/app/tui_adapter.rs";
+    let tui_tests = "src/app/tui_adapter/tests.rs";
+    assert!(Path::new(tui_adapter).is_file());
     assert!(Path::new(tui_tests).is_file());
+    assert!(!Path::new("src/tui.rs").exists());
+    assert!(!Path::new("src/tui").exists());
 
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod tui;"));
+    let app_root = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod tui_adapter;"),
+        "application root does not register the TUI adapter"
+    );
     let bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
     for definition in [
         "struct TuiReadBudget",
@@ -4619,20 +4631,21 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             "TUI view-model owner is missing {definition}"
         );
     }
-    let legacy_tui = fs::read_to_string(tui_adapter).unwrap();
+    let tui_composition = fs::read_to_string(tui_adapter).unwrap();
     let tui_test_source = fs::read_to_string(tui_tests).unwrap();
-    let report_composition = fs::read_to_string("src/tui/report_composition.rs").unwrap();
+    let report_composition =
+        fs::read_to_string("src/app/tui_adapter/report_composition.rs").unwrap();
     assert!(tui_test_source.contains("surfaces::tui::view_model"));
-    assert!(legacy_tui.contains("impl TuiActionPort for LegacyTuiActionPort"));
-    assert!(legacy_tui.contains("impl TuiReadPort for LegacyTuiReadPort"));
+    assert!(tui_composition.contains("impl TuiActionPort for TuiActionAdapter"));
+    assert!(tui_composition.contains("impl TuiReadPort for TuiReadAdapter"));
     assert!(
-        legacy_tui
+        tui_composition
             .lines()
             .any(|line| line == "mod report_composition;"),
         "TUI adapter does not register report composition owner"
     );
     assert!(
-        legacy_tui.contains("#[path = \"tui/tests.rs\"]"),
+        tui_composition.contains("#[path = \"tui_adapter/tests.rs\"]"),
         "TUI adapter does not register its regression-test owner"
     );
     for regression in [
@@ -4647,12 +4660,12 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             "TUI regression owner is missing: {regression}"
         );
         assert!(
-            !legacy_tui.contains(regression),
+            !tui_composition.contains(regression),
             "TUI adapter still owns regression test: {regression}"
         );
     }
-    assert!(!legacy_tui.contains("enum InteractiveView"));
-    assert!(!legacy_tui.contains("struct InteractiveState"));
+    assert!(!tui_composition.contains("enum InteractiveView"));
+    assert!(!tui_composition.contains("struct InteractiveState"));
     for responsibility in [
         "pub fn overview_report(",
         "pub fn monitor_report(",
@@ -4667,13 +4680,13 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             "TUI report composition owner is missing {responsibility}"
         );
         assert!(
-            !legacy_tui.contains(responsibility),
-            "legacy TUI adapter still owns report composition: {responsibility}"
+            !tui_composition.contains(responsibility),
+            "TUI adapter still owns report composition: {responsibility}"
         );
     }
     assert!(
-        legacy_tui.lines().count() < 350,
-        "legacy TUI adapter regrew beyond its ownership boundary"
+        tui_composition.lines().count() < 350,
+        "TUI adapter regrew beyond its ownership boundary"
     );
     assert!(
         tui_test_source.lines().count() < 550,
@@ -4699,7 +4712,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!controller.contains("use crate::runtime;"));
     assert!(!controller.contains("crate::runtime::"));
     assert!(!controller.contains("crate::adapters"));
-    assert!(legacy_tui.contains("impl TuiRuntimePort for LegacyTuiRuntimePort"));
+    assert!(tui_composition.contains("impl TuiRuntimePort for TuiRuntimeAdapter"));
 
     let terminal_port = fs::read_to_string("src/runtime_core/terminal.rs").unwrap();
     for definition in [
@@ -4732,8 +4745,8 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             "TUI interactive render owner is missing {definition}"
         );
         assert!(
-            !legacy_tui.contains(definition),
-            "legacy TUI still owns {definition}"
+            !tui_composition.contains(definition),
+            "TUI adapter still owns {definition}"
         );
     }
 
@@ -4752,8 +4765,8 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             "TUI report render owner is missing {definition}"
         );
         assert!(
-            !legacy_tui.contains(definition),
-            "legacy TUI still owns {definition}"
+            !tui_composition.contains(definition),
+            "TUI adapter still owns {definition}"
         );
     }
 }
