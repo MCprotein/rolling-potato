@@ -5539,7 +5539,7 @@
       "path": "src/app/workflow_adapter/transition/bundle_validation.rs",
       "slices": [
         {
-          "responsibility": "prepared bundle shape and member invariant validation adapter",
+          "responsibility": "prepared bundle identity, current binding, source nullability, and validation orchestration adapter",
           "target": "src/app/workflow_adapter/transition/bundle_validation.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -5547,6 +5547,7 @@
             "src/runtime_core/workflow/domain/transition.rs",
             "src/app/workflow_adapter/transition/bundle_validation.rs",
             "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/members.rs",
             "src/app/workflow_adapter/transition/tests/mod.rs",
             "tests/architecture_contract.rs"
           ]
@@ -5567,6 +5568,26 @@
             "src/app/workflow_adapter/transition/bundle_validation.rs",
             "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
             "src/app/workflow_adapter/transition/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation/members.rs",
+      "slices": [
+        {
+          "responsibility": "prepared production, workflow-transition, verification, and projection-lag member invariant validation",
+          "target": "src/app/workflow_adapter/transition/bundle_validation/members.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/bundle_validation.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/members.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
+            "src/app/workflow_adapter/state/tests/lifecycle.rs",
+            "src/patch/tests/verification_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8114,13 +8135,19 @@
     {
       "path": "src/app/workflow_adapter/transition/bundle_validation.rs",
       "responsibilities": [
-        "prepared bundle shape and member invariant validation adapter"
+        "prepared bundle identity, current binding, source nullability, and validation orchestration adapter"
       ]
     },
     {
       "path": "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
       "responsibilities": [
         "prepared semantic event cardinality, byte budget, ordinal, and hash-chain validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation/members.rs",
+      "responsibilities": [
+        "prepared production, workflow-transition, verification, and projection-lag member invariant validation"
       ]
     },
     {
