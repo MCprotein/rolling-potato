@@ -1,8 +1,8 @@
 //! Concrete skill adapters for plugin discovery and workflow persistence.
 
 use super::plugin;
+use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
-use crate::state;
 
 pub(crate) use crate::runtime_core::extensions::skill::*;
 

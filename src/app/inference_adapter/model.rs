@@ -9,6 +9,7 @@ use crate::adapters::filesystem::model_artifact::{
 };
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::ledger;
+use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 #[cfg(test)]
@@ -33,7 +34,6 @@ use crate::runtime_core::inference::model::promotion::{
 };
 #[cfg(test)]
 use crate::runtime_core::inference::model::promotion::{measured_ram_budget_gb, BYTES_PER_GIB};
-use crate::state;
 
 pub fn candidate_summary() -> String {
     let counts = ManifestCounts::from_candidates();

@@ -40,9 +40,9 @@ impl TuiActionPort for LegacyTuiActionPort {
         &mut self,
     ) -> Result<crate::surfaces::tui::runtime_bridge::SelectionObservation, AppError> {
         let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
-        let current = crate::state::current_state_lease_view()?;
-        let active_workflow = crate::state::active_workflow_id()?
-            .map(|workflow_id| crate::state::load_workflow(&workflow_id))
+        let current = crate::app::workflow_adapter::state::current_state_lease_view()?;
+        let active_workflow = crate::app::workflow_adapter::state::active_workflow_id()?
+            .map(|workflow_id| crate::app::workflow_adapter::state::load_workflow(&workflow_id))
             .transpose()?
             .map(
                 |workflow| crate::surfaces::tui::runtime_bridge::ObservedWorkflow {
@@ -65,7 +65,7 @@ impl TuiActionPort for LegacyTuiActionPort {
         workflow_id: &str,
     ) -> Result<crate::runtime_core::workflow::storage_compat::record::WorkflowRecord, AppError>
     {
-        crate::state::load_workflow(workflow_id)
+        crate::app::workflow_adapter::state::load_workflow(workflow_id)
     }
 
     fn approve_patch(
@@ -130,7 +130,9 @@ impl TuiActionPort for LegacyTuiActionPort {
         intent_id: &str,
         lease: &SelectionLease,
     ) -> Result<Option<String>, AppError> {
-        crate::state::session_resume_report_for_tui(session_id, intent_id, lease)
+        crate::app::workflow_adapter::state::session_resume_report_for_tui(
+            session_id, intent_id, lease,
+        )
     }
 }
 
@@ -161,7 +163,7 @@ impl TuiReadPort for LegacyTuiReadPort {
         &mut self,
         max_ledger_events: usize,
     ) -> Result<crate::runtime_core::workflow::domain::snapshot::TuiStateSnapshot, AppError> {
-        crate::state::tui_state_snapshot_read_only(max_ledger_events)
+        crate::app::workflow_adapter::state::tui_state_snapshot_read_only(max_ledger_events)
     }
 
     fn store_status(
@@ -212,7 +214,7 @@ impl TuiReadPort for LegacyTuiReadPort {
     }
 
     fn content_hash(&mut self, value: &str) -> String {
-        crate::state::sha256_text(value)
+        crate::app::workflow_adapter::state::sha256_text(value)
     }
 
     fn projection_status(&mut self, project_id: &str) -> ProjectionStatus {
@@ -627,7 +629,7 @@ mod tests {
         std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
         std::fs::create_dir_all(root.join("project")).unwrap();
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
         let mut terminal = ScriptedTerminal::new(["help", "quit"]);
 
         run_controller(&mut terminal, &mut LegacyTuiRuntimePort).unwrap();
@@ -821,11 +823,20 @@ mod tests {
         std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
 
-        let session = crate::state::session_new_report().unwrap();
+        let session = crate::app::workflow_adapter::state::session_new_report().unwrap();
         let session_id = report_value(&session, "session id").unwrap();
-        crate::state::record_event("test.first", "first transcript event", "details one").unwrap();
-        crate::state::record_event("test.second", "second transcript event", "details two")
-            .unwrap();
+        crate::app::workflow_adapter::state::record_event(
+            "test.first",
+            "first transcript event",
+            "details one",
+        )
+        .unwrap();
+        crate::app::workflow_adapter::state::record_event(
+            "test.second",
+            "second transcript event",
+            "details two",
+        )
+        .unwrap();
         let report = transcript_report(&session_id).unwrap();
 
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
@@ -846,7 +857,7 @@ mod tests {
         let root = test_root("rpotato-tui-approvals-empty-test");
         std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
 
         let report = approvals_report().unwrap();
 
@@ -867,7 +878,7 @@ mod tests {
         std::fs::write(project_root.join("src/lib.rs"), "pub const X: i32 = 1;\n").unwrap();
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
 
         let preview = patch::preview_report("src/lib.rs", "1", "2").unwrap();
         let proposal_id = report_value(&preview, "proposal id").unwrap();
@@ -895,7 +906,7 @@ mod tests {
         std::fs::create_dir_all(&project_root).unwrap();
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
 
         crate::app::observability_adapter::record_resource_sample(
             &crate::app::observability_adapter::ResourceSampleMetric {

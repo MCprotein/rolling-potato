@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::adapters::filesystem::{layout as paths, lease};
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::ledger::{self, ParsedLedgerEvent, RuntimeIdentity};
+use crate::app::workflow_adapter::state;
 use crate::context::SourcePointer;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
@@ -20,7 +21,6 @@ use crate::runtime_core::workflow::storage_compat::transcript::{
 pub use crate::runtime_core::workflow::storage_compat::transcript::{
     ToolOutputArtifactBinding, TranscriptRecord, TranscriptSourcePointer,
 };
-use crate::state;
 
 use super::transition;
 

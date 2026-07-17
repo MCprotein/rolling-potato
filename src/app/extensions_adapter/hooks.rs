@@ -1,8 +1,8 @@
 //! Concrete hook lifecycle adapters for state, ledger, and skill resolution.
 
 use super::skill;
+use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
-use crate::state;
 
 pub(crate) use crate::runtime_core::extensions::hook::{
     dispatch, list_report, status_label, validate_result_report, HookDispatch, HookInput,

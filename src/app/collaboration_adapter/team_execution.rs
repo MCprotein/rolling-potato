@@ -643,7 +643,7 @@ fn has_exact_event(
 mod tests {
     use super::*;
     use crate::adapters::filesystem::layout as paths;
-    use crate::state;
+    use crate::app::workflow_adapter::state;
     use std::fs;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::{AtomicUsize, Ordering};

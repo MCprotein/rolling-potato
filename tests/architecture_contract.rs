@@ -659,6 +659,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
 
 #[test]
 fn v0375_domain_views_replace_legacy_definitions() {
+    let state_adapter = "src/app/workflow_adapter/state.rs";
     let transcript_adapter = "src/app/workflow_adapter/transcript.rs";
     for target in [
         "src/runtime_core/workflow/domain/mod.rs",
@@ -681,8 +682,8 @@ fn v0375_domain_views_replace_legacy_definitions() {
     }
 
     for (facade, moved_definition) in [
-        ("src/state.rs", "struct CurrentStateSnapshot"),
-        ("src/state.rs", "struct CurrentStateLeaseView"),
+        (state_adapter, "struct CurrentStateSnapshot"),
+        (state_adapter, "struct CurrentStateLeaseView"),
         (transcript_adapter, "struct ToolOutputView"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
@@ -703,6 +704,23 @@ fn v0375_domain_views_replace_legacy_definitions() {
             "snapshot owner is missing domain rule: {rule}"
         );
     }
+
+    assert!(
+        !Path::new("src/state.rs").exists(),
+        "legacy workflow root was restored: src/state.rs"
+    );
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(
+        !main.lines().any(|line| line == "mod state;"),
+        "legacy workflow root remains registered: mod state;"
+    );
+    let adapter_mod = fs::read_to_string("src/app/workflow_adapter.rs").unwrap();
+    assert!(
+        adapter_mod
+            .lines()
+            .any(|line| line == "pub(crate) mod state;"),
+        "state adapter is not registered under workflow_adapter"
+    );
 
     let transcript = fs::read_to_string("src/runtime_core/workflow/domain/transcript.rs").unwrap();
     for rule in [
@@ -1976,7 +1994,11 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!runtime.contains("fn tui_gate_descriptor"));
     assert!(!runtime.contains("fn dispatch_tui_intent"));
 
-    for legacy_owner in ["src/patch.rs", "src/state.rs", "src/tui.rs"] {
+    for legacy_owner in [
+        "src/patch.rs",
+        "src/app/workflow_adapter/state.rs",
+        "src/tui.rs",
+    ] {
         let source = fs::read_to_string(legacy_owner).unwrap();
         for facade_type in [
             "crate::runtime::SelectionLease",

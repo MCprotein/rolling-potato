@@ -9,6 +9,7 @@ use crate::app::collaboration_adapter::team_state;
 use crate::app::extensions_adapter::hooks;
 use crate::app::extensions_adapter::plugin;
 use crate::app::extensions_adapter::skill;
+use crate::app::workflow_adapter::state;
 use crate::app::workflow_adapter::transition;
 use crate::composition::{config, dispatch, inference, uninstall};
 use crate::evidence;
@@ -17,7 +18,6 @@ use crate::intent;
 use crate::ontology;
 use crate::patch;
 use crate::runtime;
-use crate::state;
 use crate::surfaces::cli::{
     command::{
         Command, EvidenceCommand, HooksCommand, IntentCommand, MonitorCommand, OntologyCommand,

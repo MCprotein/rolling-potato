@@ -418,7 +418,7 @@ pub fn validated_current_identity() -> Result<RuntimeIdentity, AppError> {
     let contents = fs::read_to_string(&path)
         .map_err(|err| AppError::blocked(format!("current-state identity 읽기 실패: {err}")))?;
     let fresh = fresh_identity();
-    crate::state::validated_identity_from_current_state(&contents, &fresh)
+    crate::app::workflow_adapter::state::validated_identity_from_current_state(&contents, &fresh)
 }
 
 pub fn fresh_identity() -> RuntimeIdentity {
@@ -568,7 +568,10 @@ fn rebuild_operation_log_from_events(events: &[ParsedLedgerEvent]) -> Result<(),
     } else {
         format!("{body}\n")
     };
-    crate::state::atomic_replace_bytes(&paths::operation_log_file(), body.as_bytes())
+    crate::app::workflow_adapter::state::atomic_replace_bytes(
+        &paths::operation_log_file(),
+        body.as_bytes(),
+    )
 }
 
 fn rebuild_project_ledger_from_events(
@@ -592,7 +595,7 @@ fn rebuild_project_ledger_from_events(
             preserve_corrupt_ledger_file(&ledger_head_path(path))?;
         }
     }
-    crate::state::atomic_replace_bytes(path, body.as_bytes())?;
+    crate::app::workflow_adapter::state::atomic_replace_bytes(path, body.as_bytes())?;
     write_ledger_head(path, events.len(), last_hash.as_deref().unwrap_or("root"))
 }
 
@@ -960,7 +963,10 @@ fn write_ledger_head(path: &Path, count: usize, hash: &str) -> Result<(), AppErr
     let body = format!(
         "{{\"schema_version\":1,\"event_count\":{count},\"last_event_hash\":\"{hash}\"}}\n"
     );
-    crate::state::atomic_replace_bytes(&ledger_head_path(path), body.as_bytes())
+    crate::app::workflow_adapter::state::atomic_replace_bytes(
+        &ledger_head_path(path),
+        body.as_bytes(),
+    )
 }
 
 fn validate_ledger_head(
@@ -1029,7 +1035,7 @@ fn validate_ledger_head(
 }
 
 fn ledger_corrupt(path: &Path, line: usize, reason: &str) -> AppError {
-    let gap = crate::state::record_validation_gap(
+    let gap = crate::app::workflow_adapter::state::record_validation_gap(
         "corrupt-ledger",
         &format!("{}:{line}:{reason}", path.display()),
     );

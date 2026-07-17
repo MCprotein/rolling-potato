@@ -284,7 +284,7 @@ pub(crate) fn prepare_source_bundle(
     proposed: &[u8],
 ) -> Result<PreparedSourceBundle, AppError> {
     let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
-    let lease = crate::state::current_state_lease_view()?;
+    let lease = crate::app::workflow_adapter::state::current_state_lease_view()?;
     let ledger_binding = crate::app::workflow_adapter::ledger::validated_ledger_binding()?;
     prepare_source_bundle_with_context(
         intent_id,
@@ -1372,12 +1372,15 @@ fn recover_pending_bundles_under_guard(project_id: &str) -> Result<usize, AppErr
                 )));
                 #[cfg(unix)]
                 {
-                    crate::state::validate_current_state_recovery_cas(
+                    crate::app::workflow_adapter::state::validate_current_state_recovery_cas(
                         bundle.current_revision,
                         &bundle.current_artifact_hash,
                         None,
                     )?;
-                    crate::state::install_prepared_source_bundle(&bundle, &entry.path)?;
+                    crate::app::workflow_adapter::state::install_prepared_source_bundle(
+                        &bundle,
+                        &entry.path,
+                    )?;
                 }
             }
             "approve-patch" => {
@@ -1393,13 +1396,13 @@ fn recover_pending_bundles_under_guard(project_id: &str) -> Result<usize, AppErr
                 crate::patch::recover_prepared_verification_bundle(&bundle, &entry.path)?;
             }
             kind if is_terminal_action_intent_kind(kind) => {
-                crate::state::recover_project_current_state_prepared_terminal_action(
+                crate::app::workflow_adapter::state::recover_project_current_state_prepared_terminal_action(
                     &bundle,
                     &entry.path,
                 )?;
             }
             kind if is_state_transition_intent_kind(kind) => {
-                crate::state::recover_prepared_state_transition(&bundle)?;
+                crate::app::workflow_adapter::state::recover_prepared_state_transition(&bundle)?;
             }
             _ => return Err(AppError::blocked("transition recovery intent kind 불일치")),
         }
@@ -1960,13 +1963,13 @@ fn validate_state_transition_members(bundle: &PreparedSourceBundle) -> Result<()
         .additional_members
         .last()
         .ok_or_else(|| AppError::blocked("prepared state transition current 누락"))?;
-    crate::state::validate_prepared_state_current_member(bundle, current)?;
+    crate::app::workflow_adapter::state::validate_prepared_state_current_member(bundle, current)?;
     if checkpoint {
         let workflow_id = bundle
             .workflow_id
             .as_deref()
             .ok_or_else(|| AppError::blocked("prepared checkpoint workflow id 누락"))?;
-        let prepared = crate::state::decode_prepared_workflow_revision(
+        let prepared = crate::app::workflow_adapter::state::decode_prepared_workflow_revision(
             workflow_id,
             &bundle.additional_members[0],
             &bundle.additional_members[1],
@@ -1981,7 +1984,7 @@ fn validate_state_transition_members(bundle: &PreparedSourceBundle) -> Result<()
             event_id: Some(final_chain.event_id.clone()),
             event_hash: final_chain.event_hash.clone(),
         };
-        crate::state::decode_prepared_current_image(
+        crate::app::workflow_adapter::state::decode_prepared_current_image(
             current,
             &prepared.record,
             &final_binding,
@@ -2885,7 +2888,7 @@ pub(crate) fn prepare_source_install_v1(
             .collect(),
     };
     validate_source_install_v1(&plan)?;
-    crate::state::validate_source_install_initial_admission(&plan)?;
+    crate::app::workflow_adapter::state::validate_source_install_initial_admission(&plan)?;
     Ok(plan)
 }
 
@@ -3494,7 +3497,7 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
         std::env::set_var("RPOTATO_DATA_HOME", &data_home);
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
         let project_id = crate::app::workflow_adapter::ledger::validated_current_identity()
             .unwrap()
             .project_id;
@@ -3528,7 +3531,7 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
         std::env::set_var("RPOTATO_DATA_HOME", &data_home);
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
         let project_id = crate::app::workflow_adapter::ledger::validated_current_identity()
             .unwrap()
             .project_id;
@@ -3586,7 +3589,7 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
         std::env::set_var("RPOTATO_DATA_HOME", &data_home);
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
         let journal_root = paths::project_state_dir().join("transition-journal");
         for index in 0..=MAX_RECOVERY_PROJECT_ENTRIES {
             fs::create_dir_all(journal_root.join(format!("empty-project-{index}"))).unwrap();
@@ -3733,7 +3736,7 @@ mod tests {
         fs::write(&target, b"current source\n").unwrap();
         std::env::set_var("RPOTATO_PROJECT_ROOT", &root);
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
         let plan = prepare_source_install_v1(
             "intent-source-fixture",
             "proposal-fixture",
@@ -3796,7 +3799,7 @@ mod tests {
         fs::write(&target, b"current source\n").unwrap();
         std::env::set_var("RPOTATO_PROJECT_ROOT", &root);
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
         let plan = prepare_source_install_v1(
             "intent-rollback-admission",
             "proposal-rollback-admission",
@@ -3851,7 +3854,7 @@ mod tests {
         fs::write(&target, b"current source\n").unwrap();
         std::env::set_var("RPOTATO_PROJECT_ROOT", &root);
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
         let plan = prepare_source_install_v1(
             "intent-source-metadata",
             "proposal-metadata",
@@ -3902,7 +3905,7 @@ mod tests {
         fs::write(&target, &before).unwrap();
         std::env::set_var("RPOTATO_PROJECT_ROOT", &root);
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
         let plan = prepare_source_install_v1(
             "intent-aggregate-cap",
             "proposal-aggregate-cap",
@@ -3945,7 +3948,7 @@ mod tests {
         fs::write(&target, b"current source\n").unwrap();
         std::env::set_var("RPOTATO_PROJECT_ROOT", &root);
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
 
         let source = prepare_source_install_v1(
             "intent-event-chain",
@@ -4027,7 +4030,7 @@ mod tests {
         fs::write(&target, b"current source\n").unwrap();
         std::env::set_var("RPOTATO_PROJECT_ROOT", &root);
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-        crate::state::initialize().unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
         let source = prepare_source_install_v1(
             "intent-exact-eleven",
             "proposal-exact-eleven",

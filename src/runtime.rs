@@ -1,6 +1,7 @@
 use crate::adapters::filesystem::{cache, layout as paths};
 use crate::app::inference_adapter::{backend, model};
 use crate::app::workflow_adapter::ledger;
+use crate::app::workflow_adapter::state;
 #[cfg(test)]
 use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
@@ -11,7 +12,7 @@ use crate::surfaces::tui::outcome::TuiOutcomeCode;
 use crate::surfaces::tui::outcome::{
     exact_tui_outcome, verification_credential_issued, TuiOutcomeContext,
 };
-use crate::{context, intent, ontology, patch, state};
+use crate::{context, intent, ontology, patch};
 #[cfg(test)]
 use std::collections::BTreeMap;
 #[cfg(test)]

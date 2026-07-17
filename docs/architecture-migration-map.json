@@ -3362,35 +3362,18 @@
       ]
     },
     {
-      "path": "src/state.rs",
+      "path": "src/app/workflow_adapter/state.rs",
       "slices": [
         {
-          "responsibility": "byte-compatible workflow storage DTO and codec",
-          "target": "src/runtime_core/workflow/storage_compat/record.rs",
-          "release": "0.37.4",
+          "responsibility": "workflow state persistence and lifecycle orchestration adapter",
+          "target": "src/app/workflow_adapter/state.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/storage_compat/record.rs",
-            "tests/workflow/storage_compat.rs"
-          ]
-        },
-        {
-          "responsibility": "validated workflow and session views",
-          "target": "src/runtime_core/workflow/domain/snapshot.rs",
-          "release": "0.37.5",
-          "state": "complete",
-          "evidence": [
             "src/runtime_core/workflow/domain/snapshot.rs",
-            "tests/architecture_contract.rs"
-          ]
-        },
-        {
-          "responsibility": "workflow state recovery",
-          "target": "src/runtime_core/workflow/application/recovery.rs",
-          "release": "0.37.6",
-          "state": "complete",
-          "evidence": [
             "src/runtime_core/workflow/application/recovery.rs",
+            "src/app/workflow_adapter/state.rs",
             "tests/workflow/recovery.rs",
             "tests/architecture_contract.rs"
           ]
@@ -5409,11 +5392,9 @@
       ]
     },
     {
-      "path": "src/state.rs",
+      "path": "src/app/workflow_adapter/state.rs",
       "responsibilities": [
-        "byte-compatible workflow storage DTO and codec",
-        "validated workflow and session views",
-        "workflow state recovery"
+        "workflow state persistence and lifecycle orchestration adapter"
       ]
     },
     {

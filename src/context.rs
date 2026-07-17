@@ -508,7 +508,7 @@ fn relative_path(root: &Path, path: &Path) -> String {
 }
 
 fn content_fingerprint(contents: &str) -> String {
-    crate::state::sha256_text(contents)
+    crate::app::workflow_adapter::state::sha256_text(contents)
 }
 
 #[cfg(test)]
@@ -686,8 +686,9 @@ mod tests {
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
 
-        crate::state::initialize().unwrap();
-        let workflow = crate::state::create_workflow("resume context test").unwrap();
+        crate::app::workflow_adapter::state::initialize().unwrap();
+        let workflow =
+            crate::app::workflow_adapter::state::create_workflow("resume context test").unwrap();
         let pointer = SourcePointer {
             path: "src/main.rs".to_string(),
             stable_ref: "src/main.rs:1".to_string(),
@@ -710,7 +711,10 @@ mod tests {
             session_id: "session-other".to_string(),
             project_root: project_root.display().to_string(),
         };
-        let other_workflow = crate::state::WorkflowRecord::new(&other_identity, "other session");
+        let other_workflow = crate::app::workflow_adapter::state::WorkflowRecord::new(
+            &other_identity,
+            "other session",
+        );
         transcript::record_workflow_turn(
             &other_workflow,
             "user",

@@ -11,6 +11,7 @@ use crate::adapters::filesystem::{layout as paths, lease};
 use crate::app::extensions_adapter::{hooks, plugin, skill};
 use crate::app::policy_adapter::{self as policy, Decision, PathMode};
 use crate::app::workflow_adapter::ledger;
+use crate::app::workflow_adapter::state;
 use crate::app::workflow_adapter::transcript;
 use crate::app::workflow_adapter::transition;
 use crate::foundation::error::AppError;
@@ -26,7 +27,6 @@ use crate::runtime_core::patch::proposal::{
 use crate::runtime_core::patch::verification::{
     self as verification_domain, RecoveryAdmission, VerificationPlan, VerificationResult,
 };
-use crate::state;
 use crate::surfaces::tui::outcome::unsupported_source_platform_outcome;
 #[cfg(test)]
 use crate::surfaces::tui::outcome::TuiEffect;

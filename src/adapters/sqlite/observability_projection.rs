@@ -2518,15 +2518,15 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
-        crate::state::initialize().unwrap();
+        crate::test_support::initialize_runtime_state().unwrap();
 
-        crate::state::record_event(
+        crate::test_support::record_runtime_event(
             "verification.evidence.recorded",
             "evidence",
             "workflow_id=workflow-test evidence_id=evidence-test artifact_hash=abc passed=true source_hash=def",
         )
         .unwrap();
-        crate::state::record_event(
+        crate::test_support::record_runtime_event(
             "workflow.stop_gate.passed",
             "stop gate",
             "workflow_id=workflow-test proposal_id=proposal-test evidence_id=evidence-test applied_hash=def unresolved_approval=false",

@@ -13,6 +13,19 @@ static TEMP_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 pub static ENV_LOCK: TestEnvironmentLock = TestEnvironmentLock::new();
 
+pub fn initialize_runtime_state(
+) -> Result<crate::app::workflow_adapter::state::StateInit, crate::foundation::error::AppError> {
+    crate::app::workflow_adapter::state::initialize()
+}
+
+pub fn record_runtime_event(
+    event_type: &str,
+    summary: &str,
+    details: &str,
+) -> Result<String, crate::foundation::error::AppError> {
+    crate::app::workflow_adapter::state::record_event(event_type, summary, details)
+}
+
 pub struct TestEnvironmentLock {
     inner: Mutex<()>,
 }

@@ -6910,7 +6910,7 @@ mod tests {
             .split("\n#[cfg(test)]\nmod tests {")
             .next()
             .unwrap();
-        let patch_source = include_str!("patch.rs")
+        let patch_source = include_str!("../../patch.rs")
             .split("\n#[cfg(test)]\nmod tests {")
             .next()
             .unwrap();
@@ -6926,7 +6926,24 @@ mod tests {
         assert!(!patch_source.contains("state::install_current_image("));
         assert!(!patch_source.contains("paths::current_state_file()"));
 
+        fn collect_rust_files(directory: &std::path::Path, files: &mut Vec<PathBuf>) {
+            for entry in fs::read_dir(directory).unwrap() {
+                let entry = entry.unwrap();
+                let path = entry.path();
+                if entry.file_type().unwrap().is_dir() {
+                    collect_rust_files(&path, files);
+                } else if path.extension().and_then(|value| value.to_str()) == Some("rs") {
+                    files.push(path);
+                }
+            }
+        }
+
         let source_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let state_adapter = source_dir.join("app/workflow_adapter/state.rs");
+        let state_children = source_dir.join("app/workflow_adapter/state");
+        let recovery_owner = source_dir.join("runtime_core/workflow/application/recovery.rs");
+        let transaction_owner =
+            source_dir.join("runtime_core/workflow/application/transaction_coordinator.rs");
         let authority_primitives = [
             "install_current_image(",
             "write_workflow_snapshot_bytes(",
@@ -6934,12 +6951,9 @@ mod tests {
             ".install_snapshot(",
             ".install_pointer(",
         ];
-        for entry in fs::read_dir(&source_dir).unwrap() {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if path.extension().and_then(|value| value.to_str()) != Some("rs") {
-                continue;
-            }
+        let mut rust_files = Vec::new();
+        collect_rust_files(&source_dir, &mut rust_files);
+        for path in rust_files {
             let production = fs::read_to_string(&path)
                 .unwrap()
                 .split("\n#[cfg(test)]\nmod tests {")
@@ -6948,11 +6962,14 @@ mod tests {
                 .to_string();
             for primitive in authority_primitives {
                 if production.contains(primitive) {
-                    assert_eq!(
-                        path.file_name().and_then(|value| value.to_str()),
-                        Some("state.rs"),
-                        "authority primitive {primitive} escaped state.rs into {}",
-                        path.display()
+                    let is_state_owner = path == state_adapter || path.starts_with(&state_children);
+                    let is_application_port_call =
+                        matches!(primitive, ".install_snapshot(" | ".install_pointer(")
+                            && (path == recovery_owner || path == transaction_owner);
+                    assert!(
+                        is_state_owner || is_application_port_call,
+                        "authority primitive {primitive} escaped the state adapter into {}",
+                        path.display(),
                     );
                 }
             }

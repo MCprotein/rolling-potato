@@ -1,7 +1,9 @@
 //! Filesystem artifact adapter for verified subagent results.
 
 use super::subagent::{SubagentRecordV1, SubagentStatus};
+use crate::adapters::filesystem::layout as paths;
 use crate::app::workflow_adapter::ledger;
+use crate::app::workflow_adapter::state;
 use crate::context::ContextPack;
 use crate::foundation::error::AppError;
 #[cfg(test)]
@@ -14,7 +16,6 @@ use crate::runtime_core::collaboration::subagent_result::{
 pub(crate) use crate::runtime_core::collaboration::subagent_result::{
     SubagentResultV1, MAX_RESULT_BYTES,
 };
-use crate::{adapters::filesystem::layout as paths, state};
 use std::fs;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
