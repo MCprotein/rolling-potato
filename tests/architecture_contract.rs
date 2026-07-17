@@ -2132,18 +2132,21 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     let read_snapshot_path = "src/adapters/sqlite/observability_projection/read_snapshot.rs";
     let replay_path = "src/adapters/sqlite/observability_projection/replay.rs";
     let schema_path = "src/adapters/sqlite/observability_projection/schema.rs";
+    let sessions_path = "src/adapters/sqlite/observability_projection/sessions.rs";
     let sqlite_tests_path = "src/adapters/sqlite/observability_projection/tests.rs";
     assert!(Path::new(analytics_path).is_file());
     assert!(Path::new(metrics_path).is_file());
     assert!(Path::new(read_snapshot_path).is_file());
     assert!(Path::new(replay_path).is_file());
     assert!(Path::new(schema_path).is_file());
+    assert!(Path::new(sessions_path).is_file());
     assert!(Path::new(sqlite_tests_path).is_file());
     let analytics = fs::read_to_string(analytics_path).unwrap();
     let metrics = fs::read_to_string(metrics_path).unwrap();
     let read_snapshot = fs::read_to_string(read_snapshot_path).unwrap();
     let replay = fs::read_to_string(replay_path).unwrap();
     let schema = fs::read_to_string(schema_path).unwrap();
+    let sessions = fs::read_to_string(sessions_path).unwrap();
     let sqlite_tests = fs::read_to_string(sqlite_tests_path).unwrap();
     for rule in ["impl ObservabilityProjectionPort for SqliteObservabilityProjection"] {
         assert!(sqlite.contains(rule), "SQLite adapter is missing: {rule}");
@@ -2180,6 +2183,10 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     assert!(
         sqlite.lines().any(|line| line == "mod schema;"),
         "SQLite projection does not register the schema owner"
+    );
+    assert!(
+        sqlite.lines().any(|line| line == "mod sessions;"),
+        "SQLite projection does not register the session query owner"
     );
     for responsibility in ["pub(super) fn migrate(", "fn ensure_column("] {
         assert!(
@@ -2241,6 +2248,22 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         );
     }
     for responsibility in [
+        "pub fn session_history(",
+        "pub fn session_entry(",
+        "pub fn session_events(",
+        "fn query_session_history(",
+        "fn query_session_events(",
+    ] {
+        assert!(
+            !sqlite.contains(responsibility),
+            "session query responsibility escaped into projection facade: {responsibility}"
+        );
+        assert!(
+            sessions.contains(responsibility),
+            "SQLite session query owner is missing: {responsibility}"
+        );
+    }
+    for responsibility in [
         "pub(super) struct ReadOnlyProjection",
         "pub(super) fn open_read_only(",
         "pub(super) fn open_read_only_path(",
@@ -2273,9 +2296,10 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         );
     }
     assert!(
-        sqlite.lines().count() < 650,
-        "SQLite projection production module regrew beyond its analytics extraction boundary"
+        sqlite.lines().count() < 500,
+        "SQLite projection production module regrew beyond its session query extraction boundary"
     );
+    assert!(sessions.lines().count() < 175);
     assert!(
         analytics.lines().count() < 450,
         "SQLite analytics module regrew beyond its ownership boundary"

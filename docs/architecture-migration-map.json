@@ -1662,12 +1662,13 @@
       "path": "src/adapters/sqlite/observability_projection.rs",
       "slices": [
         {
-          "responsibility": "SQLite observability projection facade, export, and session query orchestration",
+          "responsibility": "SQLite observability projection facade, connection recovery, status, export, and prune orchestration",
           "target": "src/adapters/sqlite/observability_projection.rs",
           "release": "0.37.7",
           "state": "complete",
           "evidence": [
             "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/sessions.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -1753,6 +1754,24 @@
             "src/adapters/sqlite/observability_projection.rs",
             "src/adapters/sqlite/observability_projection/schema.rs",
             "src/adapters/sqlite/observability_projection/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/sessions.rs",
+      "slices": [
+        {
+          "responsibility": "session history, entry, and event read-model query mapping",
+          "target": "src/adapters/sqlite/observability_projection/sessions.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/sessions.rs",
+            "src/app/observability_adapter.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6977,7 +6996,7 @@
     {
       "path": "src/adapters/sqlite/observability_projection.rs",
       "responsibilities": [
-        "SQLite observability projection facade, export, and session query orchestration"
+        "SQLite observability projection facade, connection recovery, status, export, and prune orchestration"
       ]
     },
     {
@@ -7008,6 +7027,12 @@
       "path": "src/adapters/sqlite/observability_projection/schema.rs",
       "responsibilities": [
         "SQLite observability schema and migration ownership"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/sessions.rs",
+      "responsibilities": [
+        "session history, entry, and event read-model query mapping"
       ]
     },
     {
