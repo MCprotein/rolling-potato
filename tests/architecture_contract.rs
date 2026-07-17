@@ -2420,6 +2420,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
 #[test]
 fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_policy() {
     let subagent_adapter = "src/app/collaboration_adapter/subagent.rs";
+    let subagent_execution = "src/app/collaboration_adapter/subagent/execution.rs";
     let subagent_persistence = "src/app/collaboration_adapter/subagent/persistence.rs";
     let subagent_tests = "src/app/collaboration_adapter/subagent/tests.rs";
     let team_adapter = "src/app/collaboration_adapter/team.rs";
@@ -2531,11 +2532,17 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         }
     }
 
+    assert!(Path::new(subagent_execution).is_file());
     assert!(Path::new(subagent_persistence).is_file());
     assert!(Path::new(subagent_tests).is_file());
     let subagent_source = fs::read_to_string(subagent_adapter).unwrap();
+    let subagent_execution_source = fs::read_to_string(subagent_execution).unwrap();
     let subagent_persistence_source = fs::read_to_string(subagent_persistence).unwrap();
     let subagent_test_source = fs::read_to_string(subagent_tests).unwrap();
+    assert!(
+        subagent_source.lines().any(|line| line == "mod execution;"),
+        "subagent adapter does not register its execution owner"
+    );
     assert!(
         subagent_source
             .lines()
@@ -2555,6 +2562,28 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         assert!(
             subagent_test_source.contains(regression),
             "subagent regression owner is missing: {regression}"
+        );
+    }
+    for responsibility in [
+        "pub(crate) struct WorkerGeneration",
+        "pub(crate) struct PreparedTeamMember",
+        "pub(crate) struct CompletedTeamMember",
+        "pub(crate) fn terminalize_interrupted_team_members(",
+        "pub(crate) fn execute_admitted_team_member_with(",
+        "pub(crate) fn prepare_team_members(",
+        "pub(crate) fn execute_prepared_team_member_with(",
+        "fn execute_prepared_launch(",
+        "fn complete_generation(",
+        "fn merge_completed_result(",
+        "fn recover_completed_parent_merges(",
+    ] {
+        assert!(
+            subagent_execution_source.contains(responsibility),
+            "subagent execution owner is missing: {responsibility}"
+        );
+        assert!(
+            !subagent_source.contains(responsibility),
+            "subagent adapter still owns execution: {responsibility}"
         );
     }
     for responsibility in [
@@ -2650,7 +2679,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     }
 
     for (facade, maximum_lines) in [
-        (subagent_adapter, 1_050),
+        (subagent_adapter, 500),
         ("src/app/collaboration_adapter/subagent_result.rs", 800),
         (team_adapter, 1_400),
         (team_execution_adapter, 1_300),
@@ -2663,6 +2692,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
             "collaboration facade regrew beyond the v0.37.12 boundary: {facade}"
         );
     }
+    assert!(
+        subagent_execution_source.lines().count() < 600,
+        "subagent execution module regrew beyond its ownership boundary"
+    );
     assert!(
         subagent_persistence_source.lines().count() < 325,
         "subagent persistence module regrew beyond its ownership boundary"

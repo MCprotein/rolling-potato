@@ -4087,16 +4087,36 @@
       "path": "src/app/collaboration_adapter/subagent.rs",
       "slices": [
         {
-          "responsibility": "subagent admission, execution, and result merge adapter",
+          "responsibility": "subagent admission, status, and cancellation adapter",
           "target": "src/app/collaboration_adapter/subagent.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent.rs",
             "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent/execution.rs",
             "src/app/collaboration_adapter/subagent/persistence.rs",
             "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/collaboration/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/execution.rs",
+      "slices": [
+        {
+          "responsibility": "subagent worker execution, terminalization, result verification, and parent merge coordination",
+          "target": "src/app/collaboration_adapter/subagent/execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent/execution.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6595,7 +6615,13 @@
     {
       "path": "src/app/collaboration_adapter/subagent.rs",
       "responsibilities": [
-        "subagent admission, execution, and result merge adapter"
+        "subagent admission, status, and cancellation adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/execution.rs",
+      "responsibilities": [
+        "subagent worker execution, terminalization, result verification, and parent merge coordination"
       ]
     },
     {
