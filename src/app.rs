@@ -8,6 +8,7 @@ pub(crate) mod context_adapter;
 pub(crate) mod evidence_adapter;
 pub(crate) mod extensions_adapter;
 pub(crate) mod inference_adapter;
+pub(crate) mod intent_adapter;
 mod monitor_adapter;
 pub(crate) mod observability_adapter;
 pub(crate) mod ontology_adapter;

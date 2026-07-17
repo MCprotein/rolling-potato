@@ -1,3 +1,5 @@
+//! Intent classification and agent-loop application adapter.
+
 use crate::adapters::filesystem::layout as paths;
 use crate::app::context_adapter::{ContextPack, ResumeContext};
 use crate::app::extensions_adapter::{hooks, skill};
@@ -515,5 +517,5 @@ fn agent_loop_prompt(
 }
 
 #[cfg(test)]
-#[path = "intent/tests.rs"]
+#[path = "intent_adapter/tests.rs"]
 mod tests;

@@ -3,14 +3,15 @@
 use crate::adapters::filesystem::{cache, layout as paths};
 use crate::app::context_adapter as context;
 use crate::app::inference_adapter::{backend, model};
+use crate::app::intent_adapter as intent;
 use crate::app::ontology_adapter as ontology;
 use crate::app::workflow_adapter::ledger;
 use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
+use crate::patch;
 use crate::runtime_core::reporting::runtime_report::{self, DoctorReport, InitReport};
 use crate::runtime_core::workflow::application::runner::{self, RuntimeApplicationPort};
 use crate::surfaces::tui::outcome::TuiOutcomeCode;
-use crate::{intent, patch};
 
 struct RuntimeApplicationAdapter;
 

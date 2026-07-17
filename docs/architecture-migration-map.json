@@ -2909,54 +2909,54 @@
       ]
     },
     {
-      "path": "src/intent.rs",
+      "path": "src/app/intent_adapter.rs",
       "slices": [
         {
           "responsibility": "intent facade, model answer and evidence gates, and agent prompt composition",
-          "target": "src/intent.rs",
+          "target": "src/app/intent_adapter.rs",
           "release": "0.37.9",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/intent.rs",
-            "src/intent.rs",
-            "src/intent/execution.rs",
-            "src/intent/tests.rs",
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/execution.rs",
+            "src/app/intent_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/intent/execution.rs",
+      "path": "src/app/intent_adapter/execution.rs",
       "slices": [
         {
           "responsibility": "skill workflow execution, checkpoint sequencing, model action admission, and patch handoff",
-          "target": "src/intent/execution.rs",
+          "target": "src/app/intent_adapter/execution.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/intent.rs",
-            "src/intent.rs",
-            "src/intent/execution.rs",
-            "src/intent/tests.rs",
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/execution.rs",
+            "src/app/intent_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/intent/tests.rs",
+      "path": "src/app/intent_adapter/tests.rs",
       "slices": [
         {
           "responsibility": "intent classification, model-action parsing, answer gating, and skill-boundary regression tests",
-          "target": "src/intent/tests.rs",
+          "target": "src/app/intent_adapter/tests.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/intent.rs",
-            "src/intent.rs",
-            "src/intent/execution.rs",
-            "src/intent/tests.rs",
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/execution.rs",
+            "src/app/intent_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7674,19 +7674,19 @@
       ]
     },
     {
-      "path": "src/intent.rs",
+      "path": "src/app/intent_adapter.rs",
       "responsibilities": [
         "intent facade, model answer and evidence gates, and agent prompt composition"
       ]
     },
     {
-      "path": "src/intent/execution.rs",
+      "path": "src/app/intent_adapter/execution.rs",
       "responsibilities": [
         "skill workflow execution, checkpoint sequencing, model action admission, and patch handoff"
       ]
     },
     {
-      "path": "src/intent/tests.rs",
+      "path": "src/app/intent_adapter/tests.rs",
       "responsibilities": [
         "intent classification, model-action parsing, answer gating, and skill-boundary regression tests"
       ]

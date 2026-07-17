@@ -2587,8 +2587,22 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
 
 #[test]
 fn v0379_patch_owners_hold_lifecycle_decisions() {
-    let intent_execution_path = "src/intent/execution.rs";
-    let intent_tests_path = "src/intent/tests.rs";
+    let intent_execution_path = "src/app/intent_adapter/execution.rs";
+    let intent_tests_path = "src/app/intent_adapter/tests.rs";
+    assert!(Path::new("src/app/intent_adapter.rs").is_file());
+    assert!(Path::new(intent_execution_path).is_file());
+    assert!(Path::new(intent_tests_path).is_file());
+    assert!(!Path::new("src/intent.rs").exists());
+    assert!(!Path::new("src/intent").exists());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod intent;"));
+    let app_root = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod intent_adapter;"),
+        "application root does not register the intent adapter"
+    );
     let patch_test_modules = [
         "src/patch/tests/mod.rs",
         "src/patch/tests/approval_cases.rs",
@@ -2737,9 +2751,9 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     }
 
     for (facade, forbidden) in [
-        ("src/intent.rs", "struct IntentDecision"),
-        ("src/intent.rs", "fn plan_action_candidate"),
-        ("src/intent.rs", "fn parse_model_action"),
+        ("src/app/intent_adapter.rs", "struct IntentDecision"),
+        ("src/app/intent_adapter.rs", "fn plan_action_candidate"),
+        ("src/app/intent_adapter.rs", "fn parse_model_action"),
         ("src/patch.rs", "struct PatchPreview"),
         ("src/patch.rs", "struct ProposalRecord"),
         ("src/patch.rs", "struct ApplyResult"),
@@ -2760,7 +2774,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         );
     }
 
-    let intent_facade = fs::read_to_string("src/intent.rs").unwrap();
+    let intent_facade = fs::read_to_string("src/app/intent_adapter.rs").unwrap();
     let intent_execution = fs::read_to_string(intent_execution_path).unwrap();
     let intent_tests = fs::read_to_string(intent_tests_path).unwrap();
     let patch_facade = fs::read_to_string("src/patch.rs").unwrap();
@@ -2784,7 +2798,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let patch_harness = fs::read_to_string("tests/patch_loop.rs").unwrap();
     let patch_contract = fs::read_to_string("tests/patch/lifecycle.rs").unwrap();
     assert!(
-        intent_facade.contains("#[path = \"intent/tests.rs\"]"),
+        intent_facade.contains("#[path = \"intent_adapter/tests.rs\"]"),
         "intent facade does not register its regression-test owner"
     );
     assert!(

@@ -1,8 +1,8 @@
 //! CLI execution adapter for skill, hook, and plugin commands.
 
 use crate::app::extensions_adapter::{hooks, plugin, skill};
+use crate::app::intent_adapter as intent;
 use crate::foundation::error::AppError;
-use crate::intent;
 use crate::surfaces::cli::command::{HooksCommand, PluginCommand, SkillCommand};
 
 pub(super) fn execute_skill(command: SkillCommand) -> Result<(), AppError> {
