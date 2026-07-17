@@ -1129,14 +1129,17 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     }
 
     let sqlite = fs::read_to_string("src/adapters/sqlite/observability_projection.rs").unwrap();
+    let metrics_path = "src/adapters/sqlite/observability_projection/metrics.rs";
     let read_snapshot_path = "src/adapters/sqlite/observability_projection/read_snapshot.rs";
     let replay_path = "src/adapters/sqlite/observability_projection/replay.rs";
     let schema_path = "src/adapters/sqlite/observability_projection/schema.rs";
     let sqlite_tests_path = "src/adapters/sqlite/observability_projection/tests.rs";
+    assert!(Path::new(metrics_path).is_file());
     assert!(Path::new(read_snapshot_path).is_file());
     assert!(Path::new(replay_path).is_file());
     assert!(Path::new(schema_path).is_file());
     assert!(Path::new(sqlite_tests_path).is_file());
+    let metrics = fs::read_to_string(metrics_path).unwrap();
     let read_snapshot = fs::read_to_string(read_snapshot_path).unwrap();
     let replay = fs::read_to_string(replay_path).unwrap();
     let schema = fs::read_to_string(schema_path).unwrap();
@@ -1158,6 +1161,10 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         "SQLite projection adapter bypasses the consumer-owned projection port"
     );
     assert!(
+        sqlite.lines().any(|line| line == "mod metrics;"),
+        "SQLite projection does not register the metric owner"
+    );
+    assert!(
         sqlite.lines().any(|line| line == "mod read_snapshot;"),
         "SQLite projection does not register the read-only snapshot owner"
     );
@@ -1177,6 +1184,22 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         assert!(
             schema.contains(responsibility),
             "SQLite schema owner is missing: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) fn record_model_run(",
+        "pub(super) fn record_resource_sample(",
+        "pub(super) fn record_benchmark_run(",
+        "pub(super) fn benchmark_run_reports(",
+        "pub(super) fn latest_resource_sample(",
+    ] {
+        assert!(
+            !sqlite.contains(responsibility),
+            "metric responsibility escaped into projection facade: {responsibility}"
+        );
+        assert!(
+            metrics.contains(responsibility),
+            "SQLite metric owner is missing: {responsibility}"
         );
     }
     for responsibility in [
@@ -1228,8 +1251,12 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         );
     }
     assert!(
-        sqlite.lines().count() < 1_400,
-        "SQLite projection production module regrew beyond its replay extraction boundary"
+        sqlite.lines().count() < 1_050,
+        "SQLite projection production module regrew beyond its metric extraction boundary"
+    );
+    assert!(
+        metrics.lines().count() < 375,
+        "SQLite metric module regrew beyond its ownership boundary"
     );
     assert!(
         read_snapshot.lines().count() < 275,
