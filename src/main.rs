@@ -11,7 +11,6 @@ mod patch;
 mod runtime;
 mod runtime_core;
 mod state;
-mod subagent;
 mod surfaces;
 mod team;
 mod team_execution;

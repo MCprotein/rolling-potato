@@ -1,5 +1,6 @@
 //! Filesystem artifact adapter for verified subagent results.
 
+use super::subagent::{SubagentRecordV1, SubagentStatus};
 use crate::context::ContextPack;
 use crate::foundation::error::AppError;
 #[cfg(test)]
@@ -12,7 +13,6 @@ use crate::runtime_core::collaboration::subagent_result::{
 pub(crate) use crate::runtime_core::collaboration::subagent_result::{
     SubagentResultV1, MAX_RESULT_BYTES,
 };
-use crate::subagent::SubagentRecordV1;
 use crate::{adapters::filesystem::layout as paths, ledger, state};
 use std::fs;
 
@@ -108,7 +108,7 @@ pub fn verify_stored_artifacts(
 }
 
 pub fn verify_completed_artifacts(record: &SubagentRecordV1) -> Result<(), AppError> {
-    if record.status != crate::subagent::SubagentStatus::Completed
+    if record.status != SubagentStatus::Completed
         || !has_artifact_id(&record.result_artifact_id, "subagent-result-")
         || !has_artifact_id(&record.evidence_id, "evidence-subagent-")
     {
@@ -261,8 +261,8 @@ fn install_exact_artifact(path: &std::path::Path, body: &str, label: &str) -> Re
 
 #[cfg(test)]
 mod tests {
+    use super::super::subagent::validate_launch;
     use super::*;
-    use crate::subagent::validate_launch;
 
     fn strings(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).to_string()).collect()

@@ -1,6 +1,7 @@
 use crate::adapters::filesystem::cache;
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::{capability, native};
+use crate::app::collaboration_adapter::subagent;
 use crate::app::extensions_adapter::hooks;
 use crate::app::extensions_adapter::plugin;
 use crate::app::extensions_adapter::skill;
@@ -12,7 +13,6 @@ use crate::ontology;
 use crate::patch;
 use crate::runtime;
 use crate::state;
-use crate::subagent;
 use crate::surfaces::cli::{
     command::{
         Command, EvidenceCommand, HooksCommand, IntentCommand, MonitorCommand, OntologyCommand,

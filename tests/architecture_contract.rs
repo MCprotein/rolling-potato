@@ -1537,6 +1537,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
 
 #[test]
 fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_policy() {
+    let subagent_adapter = "src/app/collaboration_adapter/subagent.rs";
     let owners: &[(&str, &[&str])] = &[
         (
             "src/runtime_core/collaboration/subagent.rs",
@@ -1643,11 +1644,11 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     }
 
     for (facade, moved_definition) in [
-        ("src/subagent.rs", "pub enum SubagentRole"),
-        ("src/subagent.rs", "pub struct SubagentRecordV1"),
-        ("src/subagent.rs", "fn validate_record"),
-        ("src/subagent.rs", "fn render_record"),
-        ("src/subagent.rs", "fn normalize_paths"),
+        (subagent_adapter, "pub enum SubagentRole"),
+        (subagent_adapter, "pub struct SubagentRecordV1"),
+        (subagent_adapter, "fn validate_record"),
+        (subagent_adapter, "fn render_record"),
+        (subagent_adapter, "fn normalize_paths"),
         (
             "src/app/collaboration_adapter/subagent_result.rs",
             "const RESULT_KEYS",
@@ -1694,7 +1695,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     }
 
     for (facade, delegation) in [
-        ("src/subagent.rs", "collaboration::subagent::*"),
+        (subagent_adapter, "collaboration::subagent::*"),
         (
             "src/app/collaboration_adapter/subagent_result.rs",
             "result_policy::parse_result_shape",
@@ -1715,7 +1716,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     }
 
     for (facade, maximum_lines) in [
-        ("src/subagent.rs", 2_400),
+        (subagent_adapter, 2_400),
         ("src/app/collaboration_adapter/subagent_result.rs", 800),
         ("src/team.rs", 1_400),
         ("src/team_execution.rs", 1_300),
@@ -1728,6 +1729,23 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
             "collaboration facade regrew beyond the v0.37.12 boundary: {facade}"
         );
     }
+
+    assert!(
+        !Path::new("src/subagent.rs").exists(),
+        "legacy collaboration root was restored: src/subagent.rs"
+    );
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(
+        !main.lines().any(|line| line == "mod subagent;"),
+        "legacy collaboration root remains registered: mod subagent;"
+    );
+    let adapter_mod = fs::read_to_string("src/app/collaboration_adapter.rs").unwrap();
+    assert!(
+        adapter_mod
+            .lines()
+            .any(|line| line == "pub(crate) mod subagent;"),
+        "subagent adapter is not registered under collaboration_adapter"
+    );
 
     assert_eq!(
         fs::read_to_string("tests/subagent_lifecycle.rs")

@@ -1790,6 +1790,7 @@
           "state": "complete",
           "evidence": [
             "src/app/collaboration_adapter.rs",
+            "src/app/collaboration_adapter/subagent.rs",
             "src/app/collaboration_adapter/subagent_result.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2662,7 +2663,7 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent.rs",
-            "src/subagent.rs",
+            "src/app/collaboration_adapter/subagent.rs",
             "tests/subagent_lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3394,16 +3395,16 @@
       ]
     },
     {
-      "path": "src/subagent.rs",
+      "path": "src/app/collaboration_adapter/subagent.rs",
       "slices": [
         {
-          "responsibility": "subagent lifecycle and dispatch",
-          "target": "src/runtime_core/collaboration/subagent.rs",
-          "release": "0.37.12",
+          "responsibility": "subagent lifecycle persistence and dispatch adapter",
+          "target": "src/app/collaboration_adapter/subagent.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent.rs",
-            "src/subagent.rs",
+            "src/app/collaboration_adapter/subagent.rs",
             "tests/collaboration/subagent_lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
@@ -5433,9 +5434,9 @@
       ]
     },
     {
-      "path": "src/subagent.rs",
+      "path": "src/app/collaboration_adapter/subagent.rs",
       "responsibilities": [
-        "subagent lifecycle and dispatch"
+        "subagent lifecycle persistence and dispatch adapter"
       ]
     },
     {

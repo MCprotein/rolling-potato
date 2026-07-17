@@ -1,3 +1,4 @@
+use crate::app::collaboration_adapter::subagent;
 use crate::app::collaboration_adapter::subagent_result;
 use crate::app::observability_adapter as observability;
 use crate::foundation::error::AppError;
@@ -8,8 +9,7 @@ use crate::runtime_core::collaboration::team_reconciliation::{
     validate_reconciliation_stage, ReconciliationMemberBinding,
 };
 use crate::{
-    adapters::filesystem::layout as paths, adapters::filesystem::lease, ledger, state, subagent,
-    team_state,
+    adapters::filesystem::layout as paths, adapters::filesystem::lease, ledger, state, team_state,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
