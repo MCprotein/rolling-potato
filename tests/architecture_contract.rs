@@ -1538,6 +1538,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
 #[test]
 fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_policy() {
     let subagent_adapter = "src/app/collaboration_adapter/subagent.rs";
+    let team_adapter = "src/app/collaboration_adapter/team.rs";
     let team_execution_adapter = "src/app/collaboration_adapter/team_execution.rs";
     let team_reconciliation_adapter = "src/app/collaboration_adapter/team_reconciliation.rs";
     let team_state_adapter = "src/app/collaboration_adapter/team_state.rs";
@@ -1676,11 +1677,11 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
             "src/app/collaboration_adapter/subagent_result.rs",
             "fn validate_bounded_text",
         ),
-        ("src/team.rs", "struct ContinuationDecision"),
-        ("src/team.rs", "struct PolicyGate"),
-        ("src/team.rs", "fn policy_preflight"),
-        ("src/team.rs", "fn ownership_preflight"),
-        ("src/team.rs", "fn admission_summary"),
+        (team_adapter, "struct ContinuationDecision"),
+        (team_adapter, "struct PolicyGate"),
+        (team_adapter, "fn policy_preflight"),
+        (team_adapter, "fn ownership_preflight"),
+        (team_adapter, "fn admission_summary"),
         (team_execution_adapter, "fn pressure_from_status"),
         (team_execution_adapter, "fn record_matches_team"),
         (team_reconciliation_adapter, "fn validate_team_binding"),
@@ -1703,7 +1704,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
             "src/app/collaboration_adapter/subagent_result.rs",
             "result_policy::parse_result_shape",
         ),
-        ("src/team.rs", "collaboration::team"),
+        (team_adapter, "collaboration::team"),
         (team_execution_adapter, "validate_execution_binding"),
         (
             team_reconciliation_adapter,
@@ -1721,7 +1722,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     for (facade, maximum_lines) in [
         (subagent_adapter, 2_400),
         ("src/app/collaboration_adapter/subagent_result.rs", 800),
-        ("src/team.rs", 1_400),
+        (team_adapter, 1_400),
         (team_execution_adapter, 1_300),
         (team_reconciliation_adapter, 550),
         (team_state_adapter, 850),
@@ -1735,6 +1736,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
 
     for legacy in [
         "src/subagent.rs",
+        "src/team.rs",
         "src/team_execution.rs",
         "src/team_reconciliation.rs",
         "src/team_state.rs",
@@ -1747,6 +1749,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let main = fs::read_to_string("src/main.rs").unwrap();
     for legacy_mod in [
         "mod subagent;",
+        "mod team;",
         "mod team_execution;",
         "mod team_reconciliation;",
         "mod team_state;",
@@ -1760,6 +1763,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let adapter_mod = fs::read_to_string("src/app/collaboration_adapter.rs").unwrap();
     for child in [
         "subagent",
+        "team",
         "team_execution",
         "team_reconciliation",
         "team_state",

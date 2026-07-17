@@ -2,6 +2,7 @@ use crate::adapters::filesystem::cache;
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::{capability, native};
 use crate::app::collaboration_adapter::subagent;
+use crate::app::collaboration_adapter::team;
 use crate::app::collaboration_adapter::team_execution;
 use crate::app::collaboration_adapter::team_reconciliation;
 use crate::app::collaboration_adapter::team_state;
@@ -24,7 +25,6 @@ use crate::surfaces::cli::{
     },
     render,
 };
-use crate::team;
 use crate::tui;
 
 use super::inference_adapter::{backend, benchmark, model};

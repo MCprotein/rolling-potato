@@ -653,7 +653,7 @@ mod tests {
         let record = load_state("team-fixture").unwrap();
         let latest = latest_for_parent(&parent.workflow_id).unwrap().unwrap();
         let retry = plan_report("team.json").unwrap();
-        let status = crate::team::status_report().unwrap();
+        let status = super::super::team::status_report().unwrap();
         let planned_events = ledger::read_runtime_events()
             .unwrap()
             .into_iter()

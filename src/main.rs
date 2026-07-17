@@ -12,7 +12,6 @@ mod runtime;
 mod runtime_core;
 mod state;
 mod surfaces;
-mod team;
 #[cfg(test)]
 #[path = "../tests/support/runtime_fixture.rs"]
 mod test_support;

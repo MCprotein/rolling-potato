@@ -1792,6 +1792,7 @@
             "src/app/collaboration_adapter.rs",
             "src/app/collaboration_adapter/subagent.rs",
             "src/app/collaboration_adapter/subagent_result.rs",
+            "src/app/collaboration_adapter/team.rs",
             "src/app/collaboration_adapter/team_execution.rs",
             "src/app/collaboration_adapter/team_reconciliation.rs",
             "src/app/collaboration_adapter/team_state.rs",
@@ -2699,7 +2700,7 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team.rs",
-            "src/team.rs",
+            "src/app/collaboration_adapter/team.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3630,16 +3631,16 @@
       ]
     },
     {
-      "path": "src/team.rs",
+      "path": "src/app/collaboration_adapter/team.rs",
       "slices": [
         {
-          "responsibility": "team plan and lifecycle",
-          "target": "src/runtime_core/collaboration/team.rs",
-          "release": "0.37.12",
+          "responsibility": "team plan and lifecycle adapter",
+          "target": "src/app/collaboration_adapter/team.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team.rs",
-            "src/team.rs",
+            "src/app/collaboration_adapter/team.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5527,9 +5528,9 @@
       ]
     },
     {
-      "path": "src/team.rs",
+      "path": "src/app/collaboration_adapter/team.rs",
       "responsibilities": [
-        "team plan and lifecycle"
+        "team plan and lifecycle adapter"
       ]
     },
     {

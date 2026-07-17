@@ -910,8 +910,13 @@ mod tests {
             },
         )
         .unwrap();
-        let err =
-            crate::team::admission_report(2, &["README.md".to_string()], &[], &[]).unwrap_err();
+        let err = crate::app::collaboration_adapter::team::admission_report(
+            2,
+            &["README.md".to_string()],
+            &[],
+            &[],
+        )
+        .unwrap_err();
         let report = approvals_report().unwrap();
 
         std::env::remove_var("RPOTATO_PROJECT_ROOT");
