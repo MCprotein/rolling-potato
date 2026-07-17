@@ -1673,6 +1673,23 @@
       ]
     },
     {
+      "path": "src/adapters/sqlite/observability_projection/schema.rs",
+      "slices": [
+        {
+          "responsibility": "SQLite observability schema and migration ownership",
+          "target": "src/adapters/sqlite/observability_projection/schema.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/schema.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/sqlite/observability_projection/tests.rs",
       "slices": [
         {
@@ -5482,6 +5499,12 @@
       "path": "src/adapters/sqlite/observability_projection/read_snapshot.rs",
       "responsibilities": [
         "stable private read-only SQLite snapshot binding"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/schema.rs",
+      "responsibilities": [
+        "SQLite observability schema and migration ownership"
       ]
     },
     {

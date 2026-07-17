@@ -1130,18 +1130,24 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
 
     let sqlite = fs::read_to_string("src/adapters/sqlite/observability_projection.rs").unwrap();
     let read_snapshot_path = "src/adapters/sqlite/observability_projection/read_snapshot.rs";
+    let schema_path = "src/adapters/sqlite/observability_projection/schema.rs";
     let sqlite_tests_path = "src/adapters/sqlite/observability_projection/tests.rs";
     assert!(Path::new(read_snapshot_path).is_file());
+    assert!(Path::new(schema_path).is_file());
     assert!(Path::new(sqlite_tests_path).is_file());
     let read_snapshot = fs::read_to_string(read_snapshot_path).unwrap();
+    let schema = fs::read_to_string(schema_path).unwrap();
     let sqlite_tests = fs::read_to_string(sqlite_tests_path).unwrap();
     for rule in [
         "impl ObservabilityProjectionPort for SqliteObservabilityProjection",
         "fn replay_ledger_events",
-        "PRAGMA journal_mode = WAL",
     ] {
         assert!(sqlite.contains(rule), "SQLite adapter is missing: {rule}");
     }
+    assert!(
+        schema.contains("PRAGMA journal_mode = WAL"),
+        "SQLite schema owner is missing WAL migration policy"
+    );
     let sqlite_production = sqlite.split("#[cfg(test)]").next().unwrap_or(&sqlite);
     assert!(
         !sqlite_production.contains("crate::ledger"),
@@ -1151,6 +1157,20 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         sqlite.lines().any(|line| line == "mod read_snapshot;"),
         "SQLite projection does not register the read-only snapshot owner"
     );
+    assert!(
+        sqlite.lines().any(|line| line == "mod schema;"),
+        "SQLite projection does not register the schema owner"
+    );
+    for responsibility in ["pub(super) fn migrate(", "fn ensure_column("] {
+        assert!(
+            !sqlite.contains(responsibility),
+            "schema responsibility escaped into projection facade: {responsibility}"
+        );
+        assert!(
+            schema.contains(responsibility),
+            "SQLite schema owner is missing: {responsibility}"
+        );
+    }
     for responsibility in [
         "pub(super) struct ReadOnlyProjection",
         "pub(super) fn open_read_only(",
@@ -1184,12 +1204,16 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         );
     }
     assert!(
-        sqlite.lines().count() < 2_050,
-        "SQLite projection production module regrew beyond its snapshot extraction boundary"
+        sqlite.lines().count() < 1_700,
+        "SQLite projection production module regrew beyond its schema extraction boundary"
     );
     assert!(
         read_snapshot.lines().count() < 275,
         "SQLite read-only snapshot module regrew beyond its ownership boundary"
+    );
+    assert!(
+        schema.lines().count() < 400,
+        "SQLite schema module regrew beyond its ownership boundary"
     );
     assert!(
         sqlite_tests.lines().count() < 825,
