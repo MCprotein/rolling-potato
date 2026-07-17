@@ -3463,6 +3463,23 @@
       ]
     },
     {
+      "path": "src/app/workflow_adapter/state/transition_commit.rs",
+      "slices": [
+        {
+          "responsibility": "current-state transition commit and recovery adapter",
+          "target": "src/app/workflow_adapter/state/transition_commit.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transition_commit.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/workflow_adapter/state/workflow_revision.rs",
       "slices": [
         {
@@ -5630,6 +5647,12 @@
       "path": "src/app/workflow_adapter/state/transaction.rs",
       "responsibilities": [
         "approval, verification, and terminal state transaction adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transition_commit.rs",
+      "responsibilities": [
+        "current-state transition commit and recovery adapter"
       ]
     },
     {

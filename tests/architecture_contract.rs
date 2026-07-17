@@ -2315,6 +2315,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     let lifecycle_adapter = "src/app/workflow_adapter/state/lifecycle.rs";
     let source_install_adapter = "src/app/workflow_adapter/state/source_install.rs";
     let transaction_adapter = "src/app/workflow_adapter/state/transaction.rs";
+    let transition_commit_adapter = "src/app/workflow_adapter/state/transition_commit.rs";
     let workflow_revision_adapter = "src/app/workflow_adapter/state/workflow_revision.rs";
     let workflow_store_adapter = "src/app/workflow_adapter/state/workflow_store.rs";
     let state_test_modules = [
@@ -2331,6 +2332,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(Path::new(lifecycle_adapter).is_file());
     assert!(Path::new(source_install_adapter).is_file());
     assert!(Path::new(transaction_adapter).is_file());
+    assert!(Path::new(transition_commit_adapter).is_file());
     assert!(Path::new(workflow_revision_adapter).is_file());
     assert!(Path::new(workflow_store_adapter).is_file());
     for test_module in state_test_modules {
@@ -2343,6 +2345,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(state.lines().any(|line| line == "mod lifecycle;"));
     assert!(state.lines().any(|line| line == "mod source_install;"));
     assert!(state.lines().any(|line| line == "mod transaction;"));
+    assert!(state.lines().any(|line| line == "mod transition_commit;"));
     assert!(state.lines().any(|line| line == "mod workflow_revision;"));
     assert!(state.lines().any(|line| line == "mod workflow_store;"));
     assert!(state.contains("#[path = \"state/tests/mod.rs\"]"));
@@ -2353,6 +2356,9 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         "struct StateTransitionRecoveryPort",
         "struct StateTransitionTransactionAdapter",
         "fn validate_prepared_state_current_member(",
+        "struct StateReconcileTransactionPort",
+        "fn reconcile_invalid_current_under_guard(",
+        "fn decode_prepared_current_image(",
         "pub fn session_resume_report(",
         "pub fn reconcile_report(",
         "struct PreparedSourceDir",
@@ -2454,12 +2460,25 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         );
     }
 
-    assert!(state.lines().count() < 1_300);
+    let transition_commit = fs::read_to_string(transition_commit_adapter).unwrap();
+    for owned_responsibility in [
+        "struct StateReconcileTransactionPort",
+        "fn reconcile_invalid_current_under_guard(",
+        "fn decode_prepared_current_image(",
+    ] {
+        assert!(
+            transition_commit.contains(owned_responsibility),
+            "state transition commit adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+
+    assert!(state.lines().count() < 1_000);
     assert!(current_snapshot.lines().count() < 1_000);
     assert!(current_transition.lines().count() < 700);
     assert!(lifecycle.lines().count() < 700);
     assert!(source_install.lines().count() < 1_000);
     assert!(transaction.lines().count() < 700);
+    assert!(transition_commit.lines().count() < 450);
     assert!(workflow_revision.lines().count() < 500);
     assert!(workflow_store.lines().count() < 500);
     for test_module in state_test_modules {
