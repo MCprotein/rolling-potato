@@ -1745,10 +1745,13 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "enum TuiReadRequest",
         "struct TuiReadPage",
         "struct SelectionLease",
+        "struct SelectionObservation",
         "enum TuiFreshness",
         "enum TuiIntent",
         "struct OneShotSecret",
         "fn new_tui_intent_id",
+        "fn lease_matches_active_workflow",
+        "fn lease_matches_terminal_selection",
     ] {
         assert!(
             bridge.contains(definition),
@@ -1782,6 +1785,8 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!runtime.contains("pub(crate) fn exact_tui_outcome"));
     assert!(!runtime.contains("fn unsupported_source_platform_outcome"));
     assert!(!runtime.contains("fn new_tui_intent_id"));
+    assert!(!runtime.contains("fn tui_lease_matches_workflow_under_transition"));
+    assert!(!runtime.contains("fn tui_lease_matches_terminal_selection_under_transition"));
     assert!(!runtime.contains("fn validate_tui_id"));
 
     let view_model = fs::read_to_string("src/surfaces/tui/view_model.rs").unwrap();

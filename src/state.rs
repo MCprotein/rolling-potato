@@ -39,7 +39,10 @@ use crate::runtime_core::workflow::storage_compat::record::{
     payload_v2 as workflow_payload_v2, payload_v3 as workflow_payload_v3,
     render_v2 as render_workflow_v2, render_v3 as render_workflow_v3,
 };
-use crate::surfaces::tui::runtime_bridge::new_tui_intent_id;
+use crate::surfaces::tui::runtime_bridge::{
+    lease_matches_active_workflow, lease_matches_terminal_selection, new_tui_intent_id,
+    ObservedWorkflow, SelectionLease, SelectionObservation,
+};
 use sha2::{Digest, Sha256};
 
 const WORKFLOW_SCHEMA_VERSION: u64 = 4;
@@ -3348,14 +3351,7 @@ pub(crate) fn current_state_lease_view_under_transition() -> Result<CurrentState
     snapshot_domain::validate_current_lease(&snapshot, &current_ledger, active_workflow.as_ref())
 }
 
-pub(crate) fn selection_observation_under_transition() -> Result<
-    (
-        RuntimeIdentity,
-        CurrentStateLeaseView,
-        Option<WorkflowRecord>,
-    ),
-    AppError,
-> {
+pub(crate) fn selection_observation_under_transition() -> Result<SelectionObservation, AppError> {
     let identity = ledger::validated_current_identity()?;
     let lease = current_state_lease_view_under_transition()?;
     let body = fs::read_to_string(paths::current_state_file())
@@ -3367,7 +3363,41 @@ pub(crate) fn selection_observation_under_transition() -> Result<
         .as_ref()
         .map(|binding| load_workflow_under_transition(&binding.workflow_id))
         .transpose()?;
-    Ok((identity, lease, active))
+    Ok(SelectionObservation {
+        project_id: identity.project_id,
+        session_id: identity.session_id,
+        current_revision: lease.revision,
+        current_hash: lease.artifact_hash,
+        active_workflow: active.map(|workflow| ObservedWorkflow {
+            workflow_id: workflow.workflow_id,
+            revision: workflow.revision,
+            hash: workflow.artifact_hash,
+        }),
+    })
+}
+
+pub(crate) fn tui_lease_matches_workflow_under_transition(
+    lease: &SelectionLease,
+    workflow_id: &str,
+) -> Result<bool, AppError> {
+    let observation = selection_observation_under_transition()?;
+    Ok(lease_matches_active_workflow(
+        lease,
+        workflow_id,
+        &observation,
+    ))
+}
+
+pub(crate) fn tui_lease_matches_terminal_selection_under_transition(
+    lease: &SelectionLease,
+    workflow_id: &str,
+) -> Result<bool, AppError> {
+    let observation = selection_observation_under_transition()?;
+    Ok(lease_matches_terminal_selection(
+        lease,
+        workflow_id,
+        &observation,
+    ))
 }
 
 fn promote_current_state_v1() -> Result<(), AppError> {

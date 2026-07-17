@@ -421,7 +421,7 @@ fn approve_prepared_skill_transaction(
         crate::transition::CurrentStateIntent::ApprovePatch,
     )?;
     if let Some(lease) = expected_lease {
-        if !crate::runtime::tui_lease_matches_workflow_under_transition(
+        if !state::tui_lease_matches_workflow_under_transition(
             lease,
             &observed_workflow.workflow_id,
         )? {
@@ -1264,7 +1264,7 @@ fn approve_prepared_verification_transaction(
         crate::transition::CurrentStateIntent::ApproveVerification,
     )?;
     if let Some(lease) = expected_lease {
-        if !crate::runtime::tui_lease_matches_workflow_under_transition(
+        if !state::tui_lease_matches_workflow_under_transition(
             lease,
             &observed_workflow.workflow_id,
         )? {
@@ -2291,7 +2291,7 @@ pub(crate) fn resume_workflow_for_tui(
             "workflow resume intent receipt binding 충돌",
         ));
     }
-    if !crate::runtime::tui_lease_matches_workflow_under_transition(lease, workflow_id)? {
+    if !state::tui_lease_matches_workflow_under_transition(lease, workflow_id)? {
         return Err(stale_selection_error());
     }
     let workflow_guard = state::WorkflowCheckpointGuard::acquire(workflow_id)?;
@@ -2452,7 +2452,7 @@ fn cancel_workflow_transaction(
         crate::transition::CurrentStateIntent::Cancel,
     )?;
     if let Some(lease) = expected_lease {
-        if !crate::runtime::tui_lease_matches_workflow_under_transition(lease, workflow_id)? {
+        if !state::tui_lease_matches_workflow_under_transition(lease, workflow_id)? {
             return Err(stale_selection_error());
         }
     }
@@ -2554,10 +2554,7 @@ fn deny_pending_gate_transaction(
     }
     if workflow.is_terminal() {
         if let Some((gate_id, gate_kind, lease)) = expected {
-            if !crate::runtime::tui_lease_matches_terminal_selection_under_transition(
-                lease,
-                workflow_id,
-            )? {
+            if !state::tui_lease_matches_terminal_selection_under_transition(lease, workflow_id)? {
                 return Err(stale_selection_error());
             }
             validate_terminal_gate(&workflow, gate_id, gate_kind)?;
@@ -2573,7 +2570,7 @@ fn deny_pending_gate_transaction(
         );
     }
     if let Some((_, _, lease)) = expected {
-        if !crate::runtime::tui_lease_matches_workflow_under_transition(lease, workflow_id)? {
+        if !state::tui_lease_matches_workflow_under_transition(lease, workflow_id)? {
             return Err(stale_selection_error());
         }
     }

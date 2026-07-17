@@ -975,60 +975,6 @@ pub fn dispatch_tui_intent(intent: TuiIntent) -> Result<TuiOutcome, AppError> {
     }
 }
 
-pub(crate) fn tui_lease_matches_workflow_under_transition(
-    lease: &SelectionLease,
-    workflow_id: &str,
-) -> Result<bool, AppError> {
-    if lease.selected_object_id != workflow_id {
-        return Ok(false);
-    }
-    let (identity, current, active) = state::selection_observation_under_transition()?;
-    let Some(active) = active else {
-        return Ok(false);
-    };
-    if active.workflow_id != workflow_id {
-        return Ok(false);
-    }
-    let observed = SelectionLease {
-        project_id: identity.project_id,
-        session_id: identity.session_id.clone(),
-        selected_object_id: active.workflow_id.clone(),
-        current_revision: current.revision,
-        current_hash: current.artifact_hash,
-        active_session_id: identity.session_id,
-        active_workflow: Some(ObservedWorkflow {
-            workflow_id: active.workflow_id,
-            revision: active.revision,
-            hash: active.artifact_hash,
-        }),
-    };
-    Ok(&observed == lease)
-}
-
-pub(crate) fn tui_lease_matches_terminal_selection_under_transition(
-    lease: &SelectionLease,
-    workflow_id: &str,
-) -> Result<bool, AppError> {
-    if lease.selected_object_id != workflow_id {
-        return Ok(false);
-    }
-    let (identity, current, active) = state::selection_observation_under_transition()?;
-    let observed = SelectionLease {
-        project_id: identity.project_id,
-        session_id: identity.session_id.clone(),
-        selected_object_id: workflow_id.to_string(),
-        current_revision: current.revision,
-        current_hash: current.artifact_hash,
-        active_session_id: identity.session_id,
-        active_workflow: active.map(|workflow| ObservedWorkflow {
-            workflow_id: workflow.workflow_id,
-            revision: workflow.revision,
-            hash: workflow.artifact_hash,
-        }),
-    };
-    Ok(&observed == lease)
-}
-
 fn stale_selection_outcome(workflow_id: &str) -> Result<TuiOutcome, AppError> {
     exact_tui_outcome(
         TuiOutcomeCode::ResumeStaleSelection,
