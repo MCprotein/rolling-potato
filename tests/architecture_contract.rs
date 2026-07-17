@@ -657,14 +657,34 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     }
 
     let backend_adapter_path = "src/app/inference_adapter/backend.rs";
+    let backend_installation_path = "src/app/inference_adapter/backend/installation.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
+    assert!(Path::new(backend_installation_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
+    let backend_installation = fs::read_to_string(backend_installation_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
     assert!(
         backend_adapter.contains("#[path = \"backend/tests.rs\"]"),
         "inference backend adapter does not register its regression-test owner"
     );
+    assert!(
+        backend_adapter
+            .lines()
+            .any(|line| line == "mod installation;"),
+        "inference backend adapter does not register its installation owner"
+    );
+    for responsibility in [
+        "pub fn install_plan_report(",
+        "pub fn install_report(",
+        "pub fn verify_archive_report(",
+        "pub(super) fn install_backend_from_archive(",
+    ] {
+        assert!(
+            backend_installation.contains(responsibility),
+            "inference backend installation owner is missing: {responsibility}"
+        );
+    }
     for responsibility in [
         "fn release_manifest_has_source_backed_supported_artifacts(",
         "fn generation_record_codec_preserves_exact_bytes_and_round_trips(",
@@ -677,8 +697,12 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         );
     }
     assert!(
-        backend_adapter.lines().count() < 1_900,
-        "inference backend production adapter regrew beyond its test extraction boundary"
+        backend_adapter.lines().count() < 1_700,
+        "inference backend production adapter regrew beyond its installation extraction boundary"
+    );
+    assert!(
+        backend_installation.lines().count() < 225,
+        "inference backend installation module regrew beyond its ownership boundary"
     );
     assert!(
         backend_tests.lines().count() < 900,
