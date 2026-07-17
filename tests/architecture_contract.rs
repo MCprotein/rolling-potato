@@ -4864,6 +4864,8 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     let current_snapshot_adapter = "src/app/workflow_adapter/state/current_snapshot.rs";
     let current_snapshot_codec = "src/app/workflow_adapter/state/current_snapshot/codec.rs";
     let current_transition_adapter = "src/app/workflow_adapter/state/current_transition.rs";
+    let current_image_adapter =
+        "src/app/workflow_adapter/state/current_transition/current_image.rs";
     let lifecycle_adapter = "src/app/workflow_adapter/state/lifecycle.rs";
     let source_install_adapter = "src/app/workflow_adapter/state/source_install.rs";
     let source_install_directory = "src/app/workflow_adapter/state/source_install/directory.rs";
@@ -4886,6 +4888,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(Path::new(current_snapshot_adapter).is_file());
     assert!(Path::new(current_snapshot_codec).is_file());
     assert!(Path::new(current_transition_adapter).is_file());
+    assert!(Path::new(current_image_adapter).is_file());
     assert!(Path::new(lifecycle_adapter).is_file());
     assert!(Path::new(source_install_adapter).is_file());
     assert!(Path::new(source_install_directory).is_file());
@@ -4979,11 +4982,34 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     for owned_responsibility in [
         "struct StateTransitionRecoveryPort",
         "struct StateTransitionTransactionAdapter",
-        "fn validate_prepared_state_current_member(",
     ] {
         assert!(
             current_transition.contains(owned_responsibility),
             "current transition adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+    assert!(
+        current_transition
+            .lines()
+            .any(|line| line == "mod current_image;"),
+        "current transition adapter does not register its current-image owner"
+    );
+    let current_image = fs::read_to_string(current_image_adapter).unwrap();
+    for owned_responsibility in [
+        "pub(crate) fn prepare_current_image(",
+        "pub(crate) fn prepare_current_image_after(",
+        "pub(in super::super) fn prepare_state_transition_current_image(",
+        "pub(in super::super) fn state_transition_current_member(",
+        "pub(crate) fn validate_prepared_state_current_member(",
+        "pub(in super::super) fn validate_state_transition_current_cas(",
+    ] {
+        assert!(
+            current_image.contains(owned_responsibility),
+            "current-image adapter is missing responsibility: {owned_responsibility}"
+        );
+        assert!(
+            !current_transition.contains(owned_responsibility),
+            "current transition orchestration still owns current-image policy: {owned_responsibility}"
         );
     }
 
@@ -5117,7 +5143,8 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(state.lines().count() < 450);
     assert!(current_snapshot.lines().count() < 700);
     assert!(current_snapshot_codec.lines().count() < 450);
-    assert!(current_transition.lines().count() < 700);
+    assert!(current_transition.lines().count() < 400);
+    assert!(current_image.lines().count() < 325);
     assert!(lifecycle.lines().count() < 700);
     assert!(source_install.lines().count() < 375);
     assert!(source_install_directory.lines().count() < 375);

@@ -4639,7 +4639,7 @@
       "path": "src/app/workflow_adapter/state/current_transition.rs",
       "slices": [
         {
-          "responsibility": "current-state image and transition orchestration adapter",
+          "responsibility": "current-state transition recovery and transaction orchestration adapter",
           "target": "src/app/workflow_adapter/state/current_transition.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -4647,6 +4647,25 @@
             "src/runtime_core/workflow/application/recovery.rs",
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
             "src/app/workflow_adapter/state/current_transition.rs",
+            "src/app/workflow_adapter/state/current_transition/current_image.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_transition/current_image.rs",
+      "slices": [
+        {
+          "responsibility": "prepared current-state image construction, canonical member binding, decode, and exact CAS validation",
+          "target": "src/app/workflow_adapter/state/current_transition/current_image.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/current_transition.rs",
+            "src/app/workflow_adapter/state/current_transition/current_image.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+            "src/app/workflow_adapter/state/tests/lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7909,7 +7928,13 @@
     {
       "path": "src/app/workflow_adapter/state/current_transition.rs",
       "responsibilities": [
-        "current-state image and transition orchestration adapter"
+        "current-state transition recovery and transaction orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_transition/current_image.rs",
+      "responsibilities": [
+        "prepared current-state image construction, canonical member binding, decode, and exact CAS validation"
       ]
     },
     {
