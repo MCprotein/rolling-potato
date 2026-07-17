@@ -4979,13 +4979,31 @@
       "path": "src/app/collaboration_adapter/team_state.rs",
       "slices": [
         {
-          "responsibility": "persisted team state adapter",
+          "responsibility": "team state lifecycle and checkpoint orchestration adapter",
           "target": "src/app/collaboration_adapter/team_state.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_state.rs",
             "src/app/collaboration_adapter/team_state.rs",
+            "src/app/collaboration_adapter/team_state/persistence.rs",
+            "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_state/persistence.rs",
+      "slices": [
+        {
+          "responsibility": "team manifest, cancellation marker, current state, and snapshot persistence",
+          "target": "src/app/collaboration_adapter/team_state/persistence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_state.rs",
+            "src/app/collaboration_adapter/team_state/persistence.rs",
             "tests/collaboration/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -7464,7 +7482,13 @@
     {
       "path": "src/app/collaboration_adapter/team_state.rs",
       "responsibilities": [
-        "persisted team state adapter"
+        "team state lifecycle and checkpoint orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_state/persistence.rs",
+      "responsibilities": [
+        "team manifest, cancellation marker, current state, and snapshot persistence"
       ]
     },
     {

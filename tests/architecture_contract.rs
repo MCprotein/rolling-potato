@@ -3110,6 +3110,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let team_execution_tests = "src/app/collaboration_adapter/team_execution/tests.rs";
     let team_reconciliation_adapter = "src/app/collaboration_adapter/team_reconciliation.rs";
     let team_state_adapter = "src/app/collaboration_adapter/team_state.rs";
+    let team_state_persistence = "src/app/collaboration_adapter/team_state/persistence.rs";
     let owners: &[(&str, &[&str])] = &[
         (
             "src/runtime_core/collaboration/subagent.rs",
@@ -3220,6 +3221,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(Path::new(subagent_tests).is_file());
     assert!(Path::new(team_tests).is_file());
     assert!(Path::new(team_execution_tests).is_file());
+    assert!(Path::new(team_state_persistence).is_file());
     let subagent_source = fs::read_to_string(subagent_adapter).unwrap();
     let subagent_execution_source = fs::read_to_string(subagent_execution).unwrap();
     let subagent_persistence_source = fs::read_to_string(subagent_persistence).unwrap();
@@ -3228,6 +3230,8 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let team_test_source = fs::read_to_string(team_tests).unwrap();
     let team_execution_source = fs::read_to_string(team_execution_adapter).unwrap();
     let team_execution_test_source = fs::read_to_string(team_execution_tests).unwrap();
+    let team_state_source = fs::read_to_string(team_state_adapter).unwrap();
+    let team_state_persistence_source = fs::read_to_string(team_state_persistence).unwrap();
     assert!(
         subagent_source.lines().any(|line| line == "mod execution;"),
         "subagent adapter does not register its execution owner"
@@ -3251,6 +3255,29 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         assert!(
             subagent_test_source.contains(regression),
             "subagent regression owner is missing: {regression}"
+        );
+    }
+    assert!(
+        team_state_source
+            .lines()
+            .any(|line| line == "mod persistence;"),
+        "team state adapter does not register its persistence owner"
+    );
+    for responsibility in [
+        "pub(super) fn install_cancel_marker(",
+        "pub(super) fn parse_cancel_marker(",
+        "pub(super) fn install_manifest(",
+        "pub(super) fn load_state_unlocked(",
+        "pub(super) fn install_snapshot(",
+        "pub(super) fn verify_snapshot_chain(",
+    ] {
+        assert!(
+            team_state_persistence_source.contains(responsibility),
+            "team state persistence owner is missing: {responsibility}"
+        );
+        assert!(
+            !team_state_source.contains(responsibility),
+            "team state adapter still owns persistence: {responsibility}"
         );
     }
     for responsibility in [
@@ -3411,7 +3438,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         (team_adapter, 800),
         (team_execution_adapter, 700),
         (team_reconciliation_adapter, 550),
-        (team_state_adapter, 850),
+        (team_state_adapter, 650),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
@@ -3438,6 +3465,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(
         team_execution_test_source.lines().count() < 650,
         "team execution regression module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_state_persistence_source.lines().count() < 250,
+        "team state persistence module regrew beyond its ownership boundary"
     );
 
     for legacy in [
