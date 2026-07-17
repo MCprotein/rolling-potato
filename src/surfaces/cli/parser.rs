@@ -6,6 +6,7 @@ mod backend;
 mod collaboration;
 mod observability;
 mod patch;
+mod plugin;
 use backend::{parse_backend_chat, parse_backend_start};
 use collaboration::{
     parse_subagent_launch_args, parse_team_admit_args, parse_team_cancel_args,
@@ -17,6 +18,7 @@ use observability::{
     parse_monitor_prune, parse_ontology_context, parse_ontology_export, parse_ontology_import,
 };
 use patch::{parse_patch_approve, parse_patch_preview, parse_patch_verify};
+use plugin::parse_plugin_import;
 
 pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError> {
     let args: Vec<String> = args.into_iter().collect();
@@ -559,70 +561,6 @@ fn parse_positive_u32(value: &str, label: &str) -> Result<u32, AppError> {
         )));
     }
     Ok(parsed)
-}
-
-fn parse_plugin_import(args: &[String]) -> Result<PluginCommand, AppError> {
-    let mut source = None;
-    let mut path = None;
-    let mut dry_run = false;
-    let mut index = 0;
-
-    while index < args.len() {
-        match args[index].as_str() {
-            "--from" => {
-                let Some(value) = args.get(index + 1) else {
-                    return Err(AppError::usage(
-                        "plugin import에는 source runtime이 필요합니다. 예: --from codex",
-                    ));
-                };
-
-                let Some(parsed) = PluginSource::parse(value) else {
-                    return Err(AppError::usage(
-                        "plugin source는 codex 또는 claude-code만 허용합니다.",
-                    ));
-                };
-
-                source = Some(parsed);
-                index += 2;
-            }
-            "--dry-run" => {
-                dry_run = true;
-                index += 1;
-            }
-            value if value.starts_with('-') => {
-                return Err(AppError::usage(format!(
-                    "알 수 없는 plugin import 옵션입니다: {value}"
-                )));
-            }
-            value => {
-                if path.is_some() {
-                    return Err(AppError::usage(
-                        "plugin import local path는 하나만 지정할 수 있습니다.",
-                    ));
-                }
-                path = Some(value.to_string());
-                index += 1;
-            }
-        }
-    }
-
-    let Some(source) = source else {
-        return Err(AppError::usage(
-            "plugin import에는 --from codex 또는 --from claude-code가 필요합니다.",
-        ));
-    };
-
-    let Some(path) = path else {
-        return Err(AppError::usage(
-            "plugin import에는 local plugin directory path가 필요합니다.",
-        ));
-    };
-
-    Ok(PluginCommand::Import {
-        source,
-        path,
-        dry_run,
-    })
 }
 
 #[cfg(test)]

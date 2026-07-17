@@ -4027,6 +4027,23 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/plugin.rs",
+      "slices": [
+        {
+          "responsibility": "plugin import command option parsing",
+          "target": "src/surfaces/cli/parser/plugin.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/plugin.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/cli/parser/tests/mod.rs",
       "slices": [
         {
@@ -6316,6 +6333,12 @@
       "path": "src/surfaces/cli/parser/patch.rs",
       "responsibilities": [
         "patch preview, approve, and verify command option parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/plugin.rs",
+      "responsibilities": [
+        "plugin import command option parsing"
       ]
     },
     {
