@@ -3413,6 +3413,24 @@
       ]
     },
     {
+      "path": "src/app/workflow_adapter/state/workflow_store.rs",
+      "slices": [
+        {
+          "responsibility": "workflow snapshot, pointer, and recovery storage adapter",
+          "target": "src/app/workflow_adapter/state/workflow_store.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery.rs",
+            "src/runtime_core/workflow/storage_compat/record.rs",
+            "src/app/workflow_adapter/state/workflow_store.rs",
+            "tests/workflow/recovery.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/collaboration_adapter/subagent.rs",
       "slices": [
         {
@@ -5439,6 +5457,12 @@
       "path": "src/app/workflow_adapter/state/source_install.rs",
       "responsibilities": [
         "source installation filesystem transaction adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/workflow_store.rs",
+      "responsibilities": [
+        "workflow snapshot, pointer, and recovery storage adapter"
       ]
     },
     {
