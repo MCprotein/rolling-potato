@@ -3446,6 +3446,23 @@
       ]
     },
     {
+      "path": "src/app/workflow_adapter/state/workflow_revision.rs",
+      "slices": [
+        {
+          "responsibility": "workflow revision guard and prepared state DTO adapter",
+          "target": "src/app/workflow_adapter/state/workflow_revision.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/record.rs",
+            "src/app/workflow_adapter/state/workflow_revision.rs",
+            "src/app/workflow_adapter/state/workflow_store.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/workflow_adapter/state/workflow_store.rs",
       "slices": [
         {
@@ -5590,6 +5607,12 @@
       "path": "src/app/workflow_adapter/state/transaction.rs",
       "responsibilities": [
         "approval, verification, and terminal state transaction adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/workflow_revision.rs",
+      "responsibilities": [
+        "workflow revision guard and prepared state DTO adapter"
       ]
     },
     {
