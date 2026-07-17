@@ -1,4 +1,4 @@
-//! Compatibility facade for surface-neutral monitoring use cases.
+//! Concrete query-port wiring for surface-neutral monitoring use cases.
 
 use std::path::PathBuf;
 

@@ -907,7 +907,7 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
 
     for (facade_path, forbidden) in [
         ("src/observability.rs", "rusqlite"),
-        ("src/monitor.rs", "performance baseline\\n"),
+        ("src/app/monitor_adapter.rs", "performance baseline\\n"),
         ("src/ledger.rs", "rusqlite::Connection"),
     ] {
         let source = fs::read_to_string(facade_path).unwrap();
@@ -917,6 +917,11 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
             "legacy facade retains moved implementation: {facade_path} -> {forbidden}"
         );
     }
+    assert!(!Path::new("src/monitor.rs").exists());
+    let monitor_adapter = fs::read_to_string("src/app/monitor_adapter.rs").unwrap();
+    assert!(monitor_adapter.contains("impl MonitorQueryPort for LocalMonitorQueryPort"));
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod monitor;"));
 }
 
 #[test]

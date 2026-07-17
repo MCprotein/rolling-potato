@@ -6,7 +6,6 @@ use crate::evidence;
 use crate::foundation::error::AppError;
 use crate::hooks;
 use crate::intent;
-use crate::monitor;
 use crate::ontology;
 use crate::patch;
 use crate::plugin;
@@ -27,6 +26,7 @@ use crate::team;
 use crate::tui;
 
 use super::inference_adapter::{backend, benchmark, model};
+use super::monitor_adapter as monitor;
 
 pub(super) struct LegacyCommandDispatchPort;
 

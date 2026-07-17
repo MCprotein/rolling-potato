@@ -2414,15 +2414,16 @@
       ]
     },
     {
-      "path": "src/monitor.rs",
+      "path": "src/app/monitor_adapter.rs",
       "slices": [
         {
-          "responsibility": "runtime monitoring queries",
-          "target": "src/runtime_core/observability/monitor.rs",
+          "responsibility": "monitor concrete query-port wiring",
+          "target": "src/app/monitor_adapter.rs",
           "release": "0.37.7",
           "state": "complete",
           "evidence": [
             "src/runtime_core/observability/monitor.rs",
+            "src/app/monitor_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5029,9 +5030,9 @@
       ]
     },
     {
-      "path": "src/monitor.rs",
+      "path": "src/app/monitor_adapter.rs",
       "responsibilities": [
-        "runtime monitoring queries"
+        "monitor concrete query-port wiring"
       ]
     },
     {
