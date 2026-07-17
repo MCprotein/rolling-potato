@@ -1796,6 +1796,23 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(legacy_tui.contains("surfaces::tui::view_model"));
     assert!(!legacy_tui.contains("enum InteractiveView"));
     assert!(!legacy_tui.contains("struct InteractiveState"));
+
+    let render = fs::read_to_string("src/surfaces/tui/render.rs").unwrap();
+    for definition in [
+        "fn render_interactive_frame",
+        "fn render_notice_lines",
+        "fn sanitize_terminal_text",
+        "fn truncate_chars",
+    ] {
+        assert!(
+            render.contains(definition),
+            "TUI render owner is missing {definition}"
+        );
+        assert!(
+            !legacy_tui.contains(definition),
+            "legacy TUI still owns {definition}"
+        );
+    }
 }
 
 #[test]

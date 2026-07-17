@@ -3359,6 +3359,22 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/render.rs",
+      "slices": [
+        {
+          "responsibility": "interactive frame rendering and terminal text sanitation",
+          "target": "src/surfaces/tui/render.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/tui/runtime_bridge.rs",
       "slices": [
         {
@@ -3541,8 +3557,12 @@
           "responsibility": "TUI rendering",
           "target": "src/surfaces/tui/render.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "migrating",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -5191,6 +5211,12 @@
       "path": "src/surfaces/tui/outcome.rs",
       "responsibilities": [
         "TUI exact outcome contracts and validation"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render.rs",
+      "responsibilities": [
+        "interactive frame rendering and terminal text sanitation"
       ]
     },
     {
