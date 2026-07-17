@@ -19,6 +19,15 @@ import하는 문제가 Windows release preflight에서 드러났습니다.
 - Targeted workflow가 release compile surface를 다시 누락하지 못하도록 해당
   Windows preflight command를 release workflow contract에 고정
 
+### Targeted 검증
+
+- [실패한 v0.37.13 release run 29603744149](https://github.com/MCprotein/rolling-potato/actions/runs/29603744149)는
+  Windows `E0432` import 실패를 기록하고 release branch를 보존했으며 aggregate
+  checksum과 branch cleanup job을 실행하지 않았습니다.
+- [Windows targeted run 29604380487](https://github.com/MCprotein/rolling-potato/actions/runs/29604380487)는
+  Windows release preflight 4개 slice와 native terminal lifecycle을 통과했고,
+  macOS native job 두 개도 함께 통과했습니다.
+
 ### 호환성 경계
 
 - CLI 동작, durable byte, runtime ordering, dependency, 완료된 v0.37.x ownership

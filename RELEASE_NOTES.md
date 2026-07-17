@@ -20,6 +20,15 @@ binary after the architecture ownership migration.
   a narrower targeted workflow cannot silently omit the release compile
   surface again.
 
+### Targeted Verification
+
+- [Failed v0.37.13 release run 29603744149](https://github.com/MCprotein/rolling-potato/actions/runs/29603744149)
+  recorded the Windows `E0432` import failure, preserved the release branch, and
+  skipped aggregate checksum and branch-cleanup jobs.
+- [Windows targeted run 29604380487](https://github.com/MCprotein/rolling-potato/actions/runs/29604380487)
+  passed the four Windows release-preflight slices plus the native terminal
+  lifecycle, while both macOS native jobs also passed.
+
 ### Compatibility Boundary
 
 - CLI behavior, durable bytes, runtime ordering, dependencies, and the completed
