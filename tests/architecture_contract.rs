@@ -1023,10 +1023,12 @@ fn v0375_domain_views_replace_legacy_definitions() {
 #[test]
 fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let ledger_adapter = "src/app/workflow_adapter/ledger.rs";
+    let ledger_query = "src/app/workflow_adapter/ledger/query.rs";
     let ledger_tests = "src/app/workflow_adapter/ledger/tests.rs";
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
     for target in [
         ledger_adapter,
+        ledger_query,
         ledger_tests,
         transition_adapter,
         "src/runtime_core/workflow/application/mod.rs",
@@ -1128,7 +1130,27 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     );
 
     let ledger = fs::read_to_string(ledger_adapter).unwrap();
+    let ledger_queries = fs::read_to_string(ledger_query).unwrap();
     let ledger_regressions = fs::read_to_string(ledger_tests).unwrap();
+    assert!(
+        ledger.lines().any(|line| line == "mod query;"),
+        "ledger adapter does not register its query owner"
+    );
+    for responsibility in [
+        "pub fn event_detail_exists(",
+        "pub fn event_details_match(",
+        "pub fn workflow_checkpoint_exists(",
+        "pub fn workflow_checkpoints(",
+    ] {
+        assert!(
+            ledger_queries.contains(responsibility),
+            "ledger query owner is missing: {responsibility}"
+        );
+        assert!(
+            !ledger.contains(responsibility),
+            "ledger adapter still owns query behavior: {responsibility}"
+        );
+    }
     assert!(
         ledger.contains("#[path = \"ledger/tests.rs\"]"),
         "ledger adapter does not register its regression-test owner"
@@ -1149,8 +1171,12 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         );
     }
     assert!(
-        ledger.lines().count() < 1_200,
+        ledger.lines().count() < 1_125,
         "ledger adapter regrew beyond its test extraction boundary"
+    );
+    assert!(
+        ledger_queries.lines().count() < 125,
+        "ledger query module regrew beyond its ownership boundary"
     );
     assert!(
         ledger_regressions.lines().count() < 575,

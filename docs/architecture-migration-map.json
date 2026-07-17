@@ -2486,6 +2486,24 @@
             "src/runtime_core/policy/redaction.rs",
             "src/adapters/sqlite/ledger_projection.rs",
             "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/query.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/query.rs",
+      "slices": [
+        {
+          "responsibility": "read-only ledger event lookup and workflow checkpoint chain queries",
+          "target": "src/app/workflow_adapter/ledger/query.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/query.rs",
             "src/app/workflow_adapter/ledger/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -6110,6 +6128,12 @@
       "path": "src/app/workflow_adapter/ledger.rs",
       "responsibilities": [
         "ledger persistence and projection orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/query.rs",
+      "responsibilities": [
+        "read-only ledger event lookup and workflow checkpoint chain queries"
       ]
     },
     {
