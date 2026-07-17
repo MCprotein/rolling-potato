@@ -1807,6 +1807,7 @@
           "evidence": [
             "src/app/extensions_adapter.rs",
             "src/app/extensions_adapter/hooks.rs",
+            "src/app/extensions_adapter/plugin.rs",
             "src/app/extensions_adapter/skill.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2552,15 +2553,16 @@
       ]
     },
     {
-      "path": "src/plugin.rs",
+      "path": "src/app/extensions_adapter/plugin.rs",
       "slices": [
         {
-          "responsibility": "plugin import validation and capability facade",
-          "target": "src/runtime_core/extensions/plugin.rs",
-          "release": "0.37.11",
+          "responsibility": "plugin import validation and persistence adapter",
+          "target": "src/app/extensions_adapter/plugin.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5109,9 +5111,9 @@
       ]
     },
     {
-      "path": "src/plugin.rs",
+      "path": "src/app/extensions_adapter/plugin.rs",
       "responsibilities": [
-        "plugin import validation and capability facade"
+        "plugin import validation and persistence adapter"
       ]
     },
     {

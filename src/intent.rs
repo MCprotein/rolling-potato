@@ -1,5 +1,5 @@
 use crate::adapters::filesystem::layout as paths;
-use crate::app::extensions_adapter::{hooks, skill};
+use crate::app::extensions_adapter::{hooks, plugin, skill};
 use crate::app::inference_adapter::backend;
 use crate::context::{self, ContextPack, ResumeContext};
 use crate::foundation::error::AppError;
@@ -339,7 +339,7 @@ fn run_with_decision(
         let completed_imported = manifest
             .imported()
             .map(|imported| {
-                crate::plugin::revalidate_completed_codex_skill(
+                plugin::revalidate_completed_codex_skill(
                     &imported.id,
                     &imported.source_path,
                     &imported.source_sha256,

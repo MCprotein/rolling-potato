@@ -8,7 +8,6 @@ mod intent;
 mod ledger;
 mod ontology;
 mod patch;
-mod plugin;
 mod runtime;
 mod runtime_core;
 mod state;

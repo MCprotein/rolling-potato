@@ -8,7 +8,7 @@ use std::time::SystemTime;
 use sha2::{Digest, Sha256};
 
 use crate::adapters::filesystem::{layout as paths, lease};
-use crate::app::extensions_adapter::{hooks, skill};
+use crate::app::extensions_adapter::{hooks, plugin, skill};
 use crate::app::policy_adapter::{self as policy, Decision, PathMode};
 use crate::foundation::error::AppError;
 use crate::ledger;
@@ -1879,7 +1879,7 @@ fn validate_completed_plugin_workflow(
             workflow.workflow_id
         )));
     }
-    let imported = crate::plugin::revalidate_completed_codex_skill(
+    let imported = plugin::revalidate_completed_codex_skill(
         &workflow.active_skill_id,
         &workflow.source_path,
         &workflow.source_hash,

@@ -1,4 +1,4 @@
-use crate::app::extensions_adapter::skill;
+use super::skill;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::extensions::plugin::*;

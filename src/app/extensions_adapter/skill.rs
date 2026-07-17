@@ -1,5 +1,6 @@
 //! Concrete skill adapters for plugin discovery and workflow persistence.
 
+use super::plugin;
 use crate::foundation::error::AppError;
 use crate::state;
 
@@ -89,7 +90,7 @@ pub fn list_report() -> String {
             )
         })
         .collect::<Vec<_>>();
-    let imported = crate::plugin::enabled_codex_skill_rows();
+    let imported = plugin::enabled_codex_skill_rows();
     skills.extend(imported.iter().cloned());
 
     format!(
@@ -104,7 +105,7 @@ pub fn resolve_skill(id: &str) -> Result<Option<ResolvedSkillManifest>, AppError
     if let Some(manifest) = find_skill(id) {
         return Ok(Some(ResolvedSkillManifest::Builtin(manifest)));
     }
-    crate::plugin::resolve_imported_codex_skill(id)
+    plugin::resolve_imported_codex_skill(id)
         .map(|manifest| manifest.map(ResolvedSkillManifest::Imported))
 }
 
