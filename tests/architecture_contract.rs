@@ -899,6 +899,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_installation_path = "src/app/inference_adapter/backend/installation.rs";
     let backend_resource_sampling_path = "src/app/inference_adapter/backend/resource_sampling.rs";
     let backend_sidecar_path = "src/app/inference_adapter/backend/sidecar.rs";
+    let backend_sidecar_startup_path = "src/app/inference_adapter/backend/sidecar/startup.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
     let model_adapter_path = "src/app/inference_adapter/model.rs";
     let model_evidence_path = "src/app/inference_adapter/model/evidence.rs";
@@ -910,6 +911,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(Path::new(backend_installation_path).is_file());
     assert!(Path::new(backend_resource_sampling_path).is_file());
     assert!(Path::new(backend_sidecar_path).is_file());
+    assert!(Path::new(backend_sidecar_startup_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
     assert!(Path::new(model_evidence_path).is_file());
     assert!(Path::new(model_registry_path).is_file());
@@ -921,6 +923,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_installation = fs::read_to_string(backend_installation_path).unwrap();
     let backend_resource_sampling = fs::read_to_string(backend_resource_sampling_path).unwrap();
     let backend_sidecar = fs::read_to_string(backend_sidecar_path).unwrap();
+    let backend_sidecar_startup = fs::read_to_string(backend_sidecar_startup_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
     let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
     let model_evidence = fs::read_to_string(model_evidence_path).unwrap();
@@ -1024,6 +1027,10 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         backend_adapter.lines().any(|line| line == "mod sidecar;"),
         "inference backend adapter does not register its sidecar owner"
     );
+    assert!(
+        backend_sidecar.lines().any(|line| line == "mod startup;"),
+        "inference backend sidecar owner does not register its startup owner"
+    );
     for responsibility in [
         "pub fn chat_once(",
         "pub fn chat_once_bounded(",
@@ -1097,8 +1104,6 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "pub fn health_check_report(",
         "pub(super) fn terminate_with_fallback(",
         "pub(super) fn cancel_active_generation_before_stop(",
-        "pub(super) fn start_sidecar_with_timeout(",
-        "pub(super) fn trace_backend_start(",
     ] {
         assert!(
             backend_sidecar.contains(responsibility),
@@ -1107,6 +1112,21 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         assert!(
             !backend_adapter.contains(responsibility),
             "inference backend facade still owns sidecar lifecycle: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "fn start_sidecar_with_timeout(",
+        "fn trace_backend_start(",
+        "fn canonical_existing_file(",
+        "fn create_log_file(",
+    ] {
+        assert!(
+            backend_sidecar_startup.contains(responsibility),
+            "inference backend sidecar startup owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_sidecar.contains(responsibility),
+            "inference backend sidecar lifecycle still owns startup: {responsibility}"
         );
     }
     for responsibility in [
@@ -1160,8 +1180,12 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "inference backend resource-sampling module regrew beyond its ownership boundary"
     );
     assert!(
-        backend_sidecar.lines().count() < 650,
+        backend_sidecar.lines().count() < 375,
         "inference backend sidecar module regrew beyond its ownership boundary"
+    );
+    assert!(
+        backend_sidecar_startup.lines().count() < 300,
+        "inference backend sidecar startup module regrew beyond its ownership boundary"
     );
     assert!(
         backend_tests.lines().count() < 900,

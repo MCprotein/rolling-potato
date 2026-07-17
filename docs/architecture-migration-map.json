@@ -2062,13 +2062,31 @@
       "path": "src/app/inference_adapter/backend/sidecar.rs",
       "slices": [
         {
-          "responsibility": "backend sidecar discovery, lifecycle, health, process termination, and diagnostics",
+          "responsibility": "backend sidecar discovery, status, generation-aware stop, health, and diagnostics",
           "target": "src/app/inference_adapter/backend/sidecar.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/backend/sidecar.rs",
+            "src/app/inference_adapter/backend/sidecar/startup.rs",
+            "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/sidecar/startup.rs",
+      "slices": [
+        {
+          "responsibility": "backend sidecar process launch, health wait, log creation, and startup rollback",
+          "target": "src/app/inference_adapter/backend/sidecar/startup.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/sidecar.rs",
+            "src/app/inference_adapter/backend/sidecar/startup.rs",
             "src/app/inference_adapter/backend/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -6734,7 +6752,13 @@
     {
       "path": "src/app/inference_adapter/backend/sidecar.rs",
       "responsibilities": [
-        "backend sidecar discovery, lifecycle, health, process termination, and diagnostics"
+        "backend sidecar discovery, status, generation-aware stop, health, and diagnostics"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/sidecar/startup.rs",
+      "responsibilities": [
+        "backend sidecar process launch, health wait, log creation, and startup rollback"
       ]
     },
     {
