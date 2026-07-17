@@ -3395,12 +3395,29 @@
       "path": "src/surfaces/tui/render.rs",
       "slices": [
         {
-          "responsibility": "interactive and report rendering primitives",
+          "responsibility": "interactive rendering and report layout primitives",
           "target": "src/surfaces/tui/render.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/report_render.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render.rs",
+      "slices": [
+        {
+          "responsibility": "read-only TUI report rendering",
+          "target": "src/surfaces/tui/report_render.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/report_render.rs",
             "src/tui.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3597,6 +3614,7 @@
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/report_render.rs",
             "src/tui.rs",
             "tests/architecture_contract.rs"
           ]
@@ -5265,7 +5283,13 @@
     {
       "path": "src/surfaces/tui/render.rs",
       "responsibilities": [
-        "interactive and report rendering primitives"
+        "interactive rendering and report layout primitives"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render.rs",
+      "responsibilities": [
+        "read-only TUI report rendering"
       ]
     },
     {

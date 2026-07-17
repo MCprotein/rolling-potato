@@ -56,9 +56,10 @@ impl TuiRuntimePort for LegacyTuiRuntimePort {
 mod report_composition {
     use super::{runtime, AppError, TuiReadBudget, TuiReadRequest};
     use crate::adapters::filesystem::layout as paths;
-    use crate::surfaces::tui::render::{
+    use crate::surfaces::tui::render::terminal_width;
+    use crate::surfaces::tui::report_render::{
         canonical_page_report, render_evidence_report, render_monitor_report,
-        render_overview_report, render_sessions_report, render_transcript_report, terminal_width,
+        render_overview_report, render_sessions_report, render_transcript_report,
     };
     use crate::surfaces::tui::view_model::{
         EvidenceReportView, ModelMetricView, MonitorReportView, MonitorStoreView,

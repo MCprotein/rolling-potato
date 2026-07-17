@@ -1845,6 +1845,19 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "fn terminal_width",
         "fn push_wrapped",
         "fn bytes_label",
+    ] {
+        assert!(
+            render.contains(definition),
+            "TUI interactive render owner is missing {definition}"
+        );
+        assert!(
+            !legacy_tui.contains(definition),
+            "legacy TUI still owns {definition}"
+        );
+    }
+
+    let report_render = fs::read_to_string("src/surfaces/tui/report_render.rs").unwrap();
+    for definition in [
         "fn canonical_page_report",
         "fn authority_pair",
         "fn render_evidence_report",
@@ -1854,8 +1867,8 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "fn render_transcript_report",
     ] {
         assert!(
-            render.contains(definition),
-            "TUI render owner is missing {definition}"
+            report_render.contains(definition),
+            "TUI report render owner is missing {definition}"
         );
         assert!(
             !legacy_tui.contains(definition),
