@@ -1,3 +1,5 @@
+//! Project path and audit adapter for policy decisions.
+
 use std::path::{Path, PathBuf};
 
 use crate::foundation::error::AppError;

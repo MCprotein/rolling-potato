@@ -2533,15 +2533,16 @@
       ]
     },
     {
-      "path": "src/policy.rs",
+      "path": "src/app/policy_adapter.rs",
       "slices": [
         {
-          "responsibility": "tool and capability policy",
-          "target": "src/runtime_core/policy/decision.rs",
+          "responsibility": "project path policy and audit adapter",
+          "target": "src/app/policy_adapter.rs",
           "release": "0.37.8",
           "state": "complete",
           "evidence": [
             "src/runtime_core/policy/decision.rs",
+            "src/app/policy_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5067,9 +5068,9 @@
       ]
     },
     {
-      "path": "src/policy.rs",
+      "path": "src/app/policy_adapter.rs",
       "responsibilities": [
-        "tool and capability policy"
+        "project path policy and audit adapter"
       ]
     },
     {

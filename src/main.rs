@@ -10,7 +10,6 @@ mod ledger;
 mod ontology;
 mod patch;
 mod plugin;
-mod policy;
 mod runtime;
 mod runtime_core;
 mod skill;

@@ -1037,7 +1037,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         }
     }
 
-    let policy_facade = fs::read_to_string("src/policy.rs").unwrap();
+    let policy_facade = fs::read_to_string("src/app/policy_adapter.rs").unwrap();
     assert!(
         policy_facade.contains("impl PathPolicyPort for ProjectPathPolicy"),
         "filesystem path policy is not composed through the consumer-owned port"
@@ -1052,8 +1052,11 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         ("src/evidence.rs", "fn stale_policy_summary"),
         ("src/ontology.rs", "struct OntologyRecord"),
         ("src/ontology.rs", "fn select_context_records"),
-        ("src/policy.rs", "pub enum Decision"),
-        ("src/policy.rs", "fn validate_patch_verification_argv"),
+        ("src/app/policy_adapter.rs", "pub enum Decision"),
+        (
+            "src/app/policy_adapter.rs",
+            "fn validate_patch_verification_argv",
+        ),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
@@ -1067,6 +1070,9 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
     assert!(approval_adapter.contains("pub fn write_request"));
     let main = fs::read_to_string("src/main.rs").unwrap();
     assert!(!main.lines().any(|line| line == "mod approval;"));
+    assert!(!Path::new("src/policy.rs").exists());
+    assert!(policy_facade.contains("impl PathPolicyPort for ProjectPathPolicy"));
+    assert!(!main.lines().any(|line| line == "mod policy;"));
 }
 
 #[test]

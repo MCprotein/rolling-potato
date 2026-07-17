@@ -8,9 +8,9 @@ use std::time::SystemTime;
 use sha2::{Digest, Sha256};
 
 use crate::adapters::filesystem::{layout as paths, lease};
+use crate::app::policy_adapter::{self as policy, Decision, PathMode};
 use crate::foundation::error::AppError;
 use crate::ledger;
-use crate::policy::{self, Decision, PathMode};
 use crate::runtime_core::patch::application::{
     self as application_domain, ApplyAdmission, ApplyResult, RollbackAdmission, RollbackResult,
 };

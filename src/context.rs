@@ -5,9 +5,9 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use crate::adapters::filesystem::layout as paths;
+use crate::app::policy_adapter::{self as policy, Decision, PathMode};
 use crate::foundation::error::AppError;
 use crate::ontology;
-use crate::policy::{self, Decision, PathMode};
 pub use crate::runtime_core::knowledge::context::{
     enforce_shared_source_budget, ContextPack, ResumeContext, SourcePointer,
 };

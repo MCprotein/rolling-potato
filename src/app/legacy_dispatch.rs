@@ -9,7 +9,6 @@ use crate::intent;
 use crate::ontology;
 use crate::patch;
 use crate::plugin;
-use crate::policy;
 use crate::runtime;
 use crate::skill;
 use crate::state;
@@ -27,6 +26,7 @@ use crate::tui;
 
 use super::inference_adapter::{backend, benchmark, model};
 use super::monitor_adapter as monitor;
+use super::policy_adapter as policy;
 
 pub(super) struct LegacyCommandDispatchPort;
 
