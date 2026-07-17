@@ -3329,6 +3329,7 @@
           "evidence": [
             "src/runtime_core/collaboration/team.rs",
             "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4649,6 +4650,23 @@
           "evidence": [
             "src/runtime_core/collaboration/team.rs",
             "src/app/collaboration_adapter/team.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/tests.rs",
+      "slices": [
+        {
+          "responsibility": "team admission, ownership, dispatch, governor, and status regression tests",
+          "target": "src/app/collaboration_adapter/team/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team.rs",
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7053,6 +7071,12 @@
       "path": "src/app/collaboration_adapter/team.rs",
       "responsibilities": [
         "team plan and lifecycle adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/tests.rs",
+      "responsibilities": [
+        "team admission, ownership, dispatch, governor, and status regression tests"
       ]
     },
     {
