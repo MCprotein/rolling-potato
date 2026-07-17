@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::time::{Duration, Instant};
 
 use super::*;
 

@@ -1130,20 +1130,24 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
 
     let sqlite = fs::read_to_string("src/adapters/sqlite/observability_projection.rs").unwrap();
     let read_snapshot_path = "src/adapters/sqlite/observability_projection/read_snapshot.rs";
+    let replay_path = "src/adapters/sqlite/observability_projection/replay.rs";
     let schema_path = "src/adapters/sqlite/observability_projection/schema.rs";
     let sqlite_tests_path = "src/adapters/sqlite/observability_projection/tests.rs";
     assert!(Path::new(read_snapshot_path).is_file());
+    assert!(Path::new(replay_path).is_file());
     assert!(Path::new(schema_path).is_file());
     assert!(Path::new(sqlite_tests_path).is_file());
     let read_snapshot = fs::read_to_string(read_snapshot_path).unwrap();
+    let replay = fs::read_to_string(replay_path).unwrap();
     let schema = fs::read_to_string(schema_path).unwrap();
     let sqlite_tests = fs::read_to_string(sqlite_tests_path).unwrap();
-    for rule in [
-        "impl ObservabilityProjectionPort for SqliteObservabilityProjection",
-        "fn replay_ledger_events",
-    ] {
+    for rule in ["impl ObservabilityProjectionPort for SqliteObservabilityProjection"] {
         assert!(sqlite.contains(rule), "SQLite adapter is missing: {rule}");
     }
+    assert!(
+        replay.contains("pub(super) fn replay_ledger_events("),
+        "SQLite replay owner is missing canonical replay"
+    );
     assert!(
         schema.contains("PRAGMA journal_mode = WAL"),
         "SQLite schema owner is missing WAL migration policy"
@@ -1158,6 +1162,10 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         "SQLite projection does not register the read-only snapshot owner"
     );
     assert!(
+        sqlite.lines().any(|line| line == "mod replay;"),
+        "SQLite projection does not register the replay owner"
+    );
+    assert!(
         sqlite.lines().any(|line| line == "mod schema;"),
         "SQLite projection does not register the schema owner"
     );
@@ -1169,6 +1177,22 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         assert!(
             schema.contains(responsibility),
             "SQLite schema owner is missing: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) fn record_session(",
+        "pub(super) fn replay_ledger_events(",
+        "pub(super) fn project_sessions_from_events(",
+        "pub(super) fn insert_ledger_event(",
+        "pub(super) fn project_workflow_checkpoint(",
+    ] {
+        assert!(
+            !sqlite.contains(responsibility),
+            "replay responsibility escaped into projection facade: {responsibility}"
+        );
+        assert!(
+            replay.contains(responsibility),
+            "SQLite replay owner is missing: {responsibility}"
         );
     }
     for responsibility in [
@@ -1204,12 +1228,16 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         );
     }
     assert!(
-        sqlite.lines().count() < 1_700,
-        "SQLite projection production module regrew beyond its schema extraction boundary"
+        sqlite.lines().count() < 1_400,
+        "SQLite projection production module regrew beyond its replay extraction boundary"
     );
     assert!(
         read_snapshot.lines().count() < 275,
         "SQLite read-only snapshot module regrew beyond its ownership boundary"
+    );
+    assert!(
+        replay.lines().count() < 375,
+        "SQLite replay module regrew beyond its ownership boundary"
     );
     assert!(
         schema.lines().count() < 400,

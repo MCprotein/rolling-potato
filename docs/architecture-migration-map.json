@@ -1644,7 +1644,7 @@
       "path": "src/adapters/sqlite/observability_projection.rs",
       "slices": [
         {
-          "responsibility": "SQLite observability projection facade, replay, queries, and writes",
+          "responsibility": "SQLite observability projection facade, metrics, queries, and writes",
           "target": "src/adapters/sqlite/observability_projection.rs",
           "release": "0.37.7",
           "state": "complete",
@@ -1666,6 +1666,23 @@
           "evidence": [
             "src/adapters/sqlite/observability_projection.rs",
             "src/adapters/sqlite/observability_projection/read_snapshot.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/replay.rs",
+      "slices": [
+        {
+          "responsibility": "canonical ledger replay and event-to-row projection",
+          "target": "src/adapters/sqlite/observability_projection/replay.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/replay.rs",
             "src/adapters/sqlite/observability_projection/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -5492,13 +5509,19 @@
     {
       "path": "src/adapters/sqlite/observability_projection.rs",
       "responsibilities": [
-        "SQLite observability projection facade, replay, queries, and writes"
+        "SQLite observability projection facade, metrics, queries, and writes"
       ]
     },
     {
       "path": "src/adapters/sqlite/observability_projection/read_snapshot.rs",
       "responsibilities": [
         "stable private read-only SQLite snapshot binding"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/replay.rs",
+      "responsibilities": [
+        "canonical ledger replay and event-to-row projection"
       ]
     },
     {
