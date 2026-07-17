@@ -1,10 +1,10 @@
 use super::{canonical_read_page, AppError, TuiReadBudget, TuiReadRequest};
 use crate::adapters::filesystem::layout as paths;
+use crate::app::evidence_adapter as evidence;
 use crate::app::inference_adapter::model;
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::ledger;
 use crate::app::workflow_adapter::transcript;
-use crate::evidence;
 use crate::surfaces::tui::render::terminal_width;
 use crate::surfaces::tui::report_render::{
     canonical_page_report, render_evidence_report, render_monitor_report, render_overview_report,

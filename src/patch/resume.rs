@@ -92,7 +92,7 @@ pub fn preflight_resume_workflow(workflow_id: &str) -> Result<(), AppError> {
                 .join(format!("{}.txt", workflow.proposal_id));
             let record = load_proposal_record(&workflow.proposal_id, &proposal_path)?;
             validate_workflow_binding(&workflow, &record)?;
-            crate::evidence::validate_patch_stop_gate(&workflow)
+            crate::app::evidence_adapter::validate_patch_stop_gate(&workflow)
         }
         "complete" => {
             if workflow.workflow_kind == "plugin-capability" {
@@ -195,7 +195,7 @@ pub fn resume_workflow_report(workflow_id: &str) -> Result<String, AppError> {
             }))
         }
         "verified" => {
-            crate::evidence::evaluate_patch_stop_gate(&workflow)?;
+            crate::app::evidence_adapter::evaluate_patch_stop_gate(&workflow)?;
             let mut runtime = workflow_skill_runtime(&workflow)?;
             finalize_verified_skill(&mut workflow, runtime.as_mut())?;
             workflow.phase = "complete".to_string();
@@ -297,7 +297,7 @@ pub(crate) fn resume_workflow_for_tui(
             )?;
         }
         "verified" => {
-            crate::evidence::evaluate_patch_stop_gate(&workflow)?;
+            crate::app::evidence_adapter::evaluate_patch_stop_gate(&workflow)?;
             let mut runtime = workflow_skill_runtime(&workflow)?;
             finalize_verified_skill(&mut workflow, runtime.as_mut())?;
             workflow.phase = "complete".to_string();

@@ -1,3 +1,5 @@
+//! Verification evidence persistence and stop-gate application adapter.
+
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};

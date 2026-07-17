@@ -212,7 +212,7 @@ impl TuiReadPort for TuiReadAdapter {
         max_entries: usize,
         max_bytes: u64,
     ) -> Result<crate::runtime_core::knowledge::evidence::EvidenceStoreStatus, AppError> {
-        crate::evidence::store_status_bounded(max_entries, max_bytes)
+        crate::app::evidence_adapter::store_status_bounded(max_entries, max_bytes)
     }
 
     fn content_hash(&mut self, value: &str) -> String {

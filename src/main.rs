@@ -1,7 +1,6 @@
 mod adapters;
 mod app;
 mod composition;
-mod evidence;
 mod foundation;
 mod intent;
 mod ontology;

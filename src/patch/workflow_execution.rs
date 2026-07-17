@@ -162,7 +162,7 @@ pub(super) fn continue_approved_workflow(
             let actual_source_hash = current_source_hash(&record.relative_path)
                 .unwrap_or_else(|_| "unreadable".to_string());
             if let Some(current) = workflow.as_mut() {
-                let evidence = crate::evidence::record_patch_verification(
+                let evidence = crate::app::evidence_adapter::record_patch_verification(
                     current,
                     &verification.command,
                     false,
@@ -278,7 +278,7 @@ pub(super) fn continue_approved_workflow(
     }
 
     if let (Some(current), Some(verification)) = (workflow.as_mut(), verification.as_ref()) {
-        let evidence = crate::evidence::record_patch_verification(
+        let evidence = crate::app::evidence_adapter::record_patch_verification(
             current,
             &verification.command,
             true,
@@ -306,7 +306,7 @@ pub(super) fn continue_approved_workflow(
         }
         current.phase = "verified".to_string();
         *current = state::checkpoint_workflow(current.clone(), current.revision)?;
-        crate::evidence::evaluate_patch_stop_gate(current)?;
+        crate::app::evidence_adapter::evaluate_patch_stop_gate(current)?;
         finalize_verified_skill(current, skill_runtime.as_mut())?;
         current.phase = "complete".to_string();
         *current = state::checkpoint_workflow(current.clone(), current.revision)?;

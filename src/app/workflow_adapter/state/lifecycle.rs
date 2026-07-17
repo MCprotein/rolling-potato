@@ -62,7 +62,7 @@ pub fn status_report() -> Result<String, AppError> {
         store.workflows,
         store.transcript_records,
         active,
-        crate::evidence::stale_policy_summary(),
+        crate::app::evidence_adapter::stale_policy_summary(),
         recovered
     ))
 }

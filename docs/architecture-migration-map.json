@@ -1973,7 +1973,7 @@
           "evidence": [
             "src/app/command_dispatch.rs",
             "src/app/command_dispatch/knowledge_commands.rs",
-            "src/evidence.rs",
+            "src/app/evidence_adapter.rs",
             "src/ontology.rs",
             "src/surfaces/cli/parser/tests/mod.rs",
             "tests/architecture_contract.rs"
@@ -2775,7 +2775,7 @@
       ]
     },
     {
-      "path": "src/evidence.rs",
+      "path": "src/app/evidence_adapter.rs",
       "slices": [
         {
           "responsibility": "evidence validation and stop inputs",
@@ -2789,12 +2789,12 @@
         },
         {
           "responsibility": "verification evidence recording, stop-gate orchestration, and artifact pointer validation",
-          "target": "src/evidence.rs",
+          "target": "src/app/evidence_adapter.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/evidence.rs",
-            "src/evidence/store.rs",
+            "src/app/evidence_adapter.rs",
+            "src/app/evidence_adapter/store.rs",
             "src/runtime_core/knowledge/evidence.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2802,16 +2802,16 @@
       ]
     },
     {
-      "path": "src/evidence/store.rs",
+      "path": "src/app/evidence_adapter/store.rs",
       "slices": [
         {
           "responsibility": "bounded and recursive evidence store inspection with regular-file boundary enforcement",
-          "target": "src/evidence/store.rs",
+          "target": "src/app/evidence_adapter/store.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/evidence.rs",
-            "src/evidence/store.rs",
+            "src/app/evidence_adapter.rs",
+            "src/app/evidence_adapter/store.rs",
             "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
@@ -7625,14 +7625,14 @@
       ]
     },
     {
-      "path": "src/evidence.rs",
+      "path": "src/app/evidence_adapter.rs",
       "responsibilities": [
         "evidence validation and stop inputs",
         "verification evidence recording, stop-gate orchestration, and artifact pointer validation"
       ]
     },
     {
-      "path": "src/evidence/store.rs",
+      "path": "src/app/evidence_adapter/store.rs",
       "responsibilities": [
         "bounded and recursive evidence store inspection with regular-file boundary enforcement"
       ]

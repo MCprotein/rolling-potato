@@ -82,7 +82,7 @@ pub(in super::super) fn validate_completed_workflow(
         validate_failing_test_before(workflow, &runtime)?;
         runtime.validate_stop()?;
     }
-    crate::evidence::validate_patch_stop_gate(workflow)
+    crate::app::evidence_adapter::validate_patch_stop_gate(workflow)
 }
 
 pub(super) fn dispatch_workflow_skill_hook(

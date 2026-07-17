@@ -2546,8 +2546,8 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         ("src/app/approval_adapter.rs", "fn render_request_record"),
         ("src/app/context_adapter.rs", "pub struct ContextPack"),
         ("src/app/context_adapter.rs", "fn clamp_source_pack"),
-        ("src/evidence.rs", "struct StopGateInputs"),
-        ("src/evidence.rs", "fn stale_policy_summary"),
+        ("src/app/evidence_adapter.rs", "struct StopGateInputs"),
+        ("src/app/evidence_adapter.rs", "fn stale_policy_summary"),
         ("src/ontology.rs", "struct OntologyRecord"),
         ("src/ontology.rs", "fn select_context_records"),
         ("src/app/policy_adapter.rs", "pub enum Decision"),
@@ -5123,10 +5123,21 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
 
 #[test]
 fn v03713_evidence_adapter_separates_store_inspection() {
-    let evidence_adapter = "src/evidence.rs";
-    let evidence_store = "src/evidence/store.rs";
+    let evidence_adapter = "src/app/evidence_adapter.rs";
+    let evidence_store = "src/app/evidence_adapter/store.rs";
     assert!(Path::new(evidence_adapter).is_file());
     assert!(Path::new(evidence_store).is_file());
+    assert!(!Path::new("src/evidence.rs").exists());
+    assert!(!Path::new("src/evidence").exists());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod evidence;"));
+    let app_root = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod evidence_adapter;"),
+        "application root does not register the evidence adapter"
+    );
 
     let evidence = fs::read_to_string(evidence_adapter).unwrap();
     let store = fs::read_to_string(evidence_store).unwrap();
