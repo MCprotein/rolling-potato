@@ -1,4 +1,3 @@
-use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::{capability, native};
 use crate::app::workflow_adapter::state;
 use crate::app::workflow_adapter::transition;
@@ -9,19 +8,17 @@ use crate::patch;
 use crate::runtime;
 use crate::surfaces::cli::{
     command::{
-        Command, IntentCommand, PatchCommand, SessionCommand, StateCommand, TuiCommand,
-        UninstallCommand,
+        Command, IntentCommand, PatchCommand, SessionCommand, StateCommand, UninstallCommand,
     },
     render,
 };
-use crate::tui;
-
 mod collaboration_commands;
 mod extension_commands;
 mod inference_ports;
 mod knowledge_commands;
 mod observability_commands;
 mod policy_commands;
+mod tui_commands;
 
 use collaboration_commands::{execute_subagent, execute_team};
 use extension_commands::{execute_hooks, execute_plugin, execute_skill};
@@ -29,6 +26,7 @@ use inference_ports::emit_output as emit_inference_output;
 use knowledge_commands::{execute_evidence, execute_ontology};
 use observability_commands::{execute_cache_status, execute_monitor};
 use policy_commands::execute_policy;
+use tui_commands::execute_tui;
 
 pub(super) struct LegacyCommandDispatchPort;
 
@@ -101,42 +99,7 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
             }
             Command::Team(command) => execute_team(command),
             Command::Subagent(command) => execute_subagent(command),
-            Command::Tui(TuiCommand::Auto) => {
-                if cfg!(unix) && capability::attached() && !paths::current_state_file().is_file() {
-                    state::initialize()?;
-                }
-                tui::run_auto()
-            }
-            Command::Tui(TuiCommand::Interactive) => {
-                if cfg!(unix) && !paths::current_state_file().is_file() {
-                    state::initialize()?;
-                }
-                tui::run_interactive()
-            }
-            Command::Tui(TuiCommand::Monitor) => {
-                println!("{}", tui::monitor_report()?);
-                Ok(())
-            }
-            Command::Tui(TuiCommand::Sessions) => {
-                println!("{}", tui::sessions_report()?);
-                Ok(())
-            }
-            Command::Tui(TuiCommand::Transcript { session_id }) => {
-                println!("{}", tui::transcript_report(&session_id)?);
-                Ok(())
-            }
-            Command::Tui(TuiCommand::Approvals) => {
-                println!("{}", tui::approvals_report()?);
-                Ok(())
-            }
-            Command::Tui(TuiCommand::Diff { proposal_id }) => {
-                println!("{}", tui::diff_report(&proposal_id)?);
-                Ok(())
-            }
-            Command::Tui(TuiCommand::Evidence) => {
-                println!("{}", tui::evidence_report()?);
-                Ok(())
-            }
+            Command::Tui(command) => execute_tui(command),
             Command::Cancel => {
                 println!("{}", state::cancel_report()?);
                 Ok(())

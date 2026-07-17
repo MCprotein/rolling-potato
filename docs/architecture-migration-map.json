@@ -2020,6 +2020,25 @@
       ]
     },
     {
+      "path": "src/app/legacy_dispatch/tui_commands.rs",
+      "slices": [
+        {
+          "responsibility": "TUI entrypoint initialization and read-only report command integration",
+          "target": "src/app/legacy_dispatch/tui_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/legacy_dispatch.rs",
+            "src/app/legacy_dispatch/tui_commands.rs",
+            "src/tui.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/surfaces/interactive_tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter.rs",
       "slices": [
         {
@@ -7311,6 +7330,12 @@
       "path": "src/app/legacy_dispatch/policy_commands.rs",
       "responsibilities": [
         "fail-closed policy CLI command execution and path-mode mapping"
+      ]
+    },
+    {
+      "path": "src/app/legacy_dispatch/tui_commands.rs",
+      "responsibilities": [
+        "TUI entrypoint initialization and read-only report command integration"
       ]
     },
     {

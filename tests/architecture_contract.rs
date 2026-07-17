@@ -4798,6 +4798,7 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
         .lines()
         .any(|line| line == "mod observability_commands;"));
     assert!(adapter.lines().any(|line| line == "mod policy_commands;"));
+    assert!(adapter.lines().any(|line| line == "mod tui_commands;"));
     let collaboration_commands =
         fs::read_to_string("src/app/legacy_dispatch/collaboration_commands.rs").unwrap();
     for responsibility in [
@@ -4875,6 +4876,17 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
         assert!(!adapter.contains(responsibility));
     }
     assert!(adapter.contains("Command::Policy(command) => execute_policy(command)"));
+    let tui_commands = fs::read_to_string("src/app/legacy_dispatch/tui_commands.rs").unwrap();
+    for responsibility in [
+        "pub(super) fn execute_tui(",
+        "TuiCommand::Auto",
+        "TuiCommand::Interactive",
+        "fn print_report(",
+    ] {
+        assert!(tui_commands.contains(responsibility));
+        assert!(!adapter.contains(responsibility));
+    }
+    assert!(adapter.contains("Command::Tui(command) => execute_tui(command)"));
     let inference_ports = fs::read_to_string("src/app/legacy_dispatch/inference_ports.rs").unwrap();
     for responsibility in [
         "impl inference::BenchmarkCommandPort",
@@ -4885,13 +4897,14 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
         assert!(inference_ports.contains(responsibility));
         assert!(!adapter.contains(responsibility));
     }
-    assert!(adapter.lines().count() < 205);
+    assert!(adapter.lines().count() < 175);
     assert!(collaboration_commands.lines().count() < 100);
     assert!(extension_commands.lines().count() < 75);
     assert!(inference_ports.lines().count() < 200);
     assert!(knowledge_commands.lines().count() < 60);
     assert!(observability_commands.lines().count() < 50);
     assert!(policy_commands.lines().count() < 40);
+    assert!(tui_commands.lines().count() < 60);
 }
 
 #[test]
