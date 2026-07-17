@@ -81,7 +81,7 @@ Allowed directions are:
 
 ```text
 main -> app + composition + private roots
-app -> composition use cases + runtime_core + adapters + foundation
+app -> composition use cases + surfaces + runtime_core + adapters + foundation
 composition -> surfaces + runtime_core + adapters + foundation
 surfaces -> runtime_core use-case/query DTOs + foundation
 runtime_core application -> owning domain + consumer-owned ports

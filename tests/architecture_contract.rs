@@ -25,7 +25,8 @@ use std::path::Path;
 use strict_json::{Object, Value};
 
 const MAP_PATH: &str = "docs/architecture-migration-map.json";
-const ARCHITECTURE_ROOTS: [&str; 5] = [
+const ARCHITECTURE_ROOTS: [&str; 6] = [
+    "app",
     "composition",
     "surfaces",
     "runtime_core",
@@ -5725,6 +5726,11 @@ fn dependency_contract_rejects_forbidden_imports_and_new_parser_crates() {
         ARCHITECTURE_ROOTS.into_iter().map(str::to_owned).collect()
     );
     let required_edges = BTreeSet::from([
+        ("app".to_owned(), "composition".to_owned()),
+        ("app".to_owned(), "surfaces".to_owned()),
+        ("app".to_owned(), "runtime_core".to_owned()),
+        ("app".to_owned(), "adapters".to_owned()),
+        ("app".to_owned(), "foundation".to_owned()),
         ("composition".to_owned(), "surfaces".to_owned()),
         ("composition".to_owned(), "runtime_core".to_owned()),
         ("composition".to_owned(), "adapters".to_owned()),

@@ -52,6 +52,7 @@
   },
   "dependency_contract": {
     "roots": [
+      "app",
       "composition",
       "surfaces",
       "runtime_core",
@@ -59,6 +60,26 @@
       "foundation"
     ],
     "allowed_edges": [
+      {
+        "from": "app",
+        "to": "composition"
+      },
+      {
+        "from": "app",
+        "to": "surfaces"
+      },
+      {
+        "from": "app",
+        "to": "runtime_core"
+      },
+      {
+        "from": "app",
+        "to": "adapters"
+      },
+      {
+        "from": "app",
+        "to": "foundation"
+      },
       {
         "from": "composition",
         "to": "surfaces"

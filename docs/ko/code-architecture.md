@@ -77,7 +77,7 @@ production 소유권을 crate root로 되돌리지 않습니다.
 
 ```text
 main -> app + composition + private root
-app -> composition use case + runtime_core + adapter + foundation
+app -> composition use case + surfaces + runtime_core + adapter + foundation
 composition -> surfaces + runtime_core + adapter + foundation
 surfaces -> runtime_core use-case/query DTO + foundation
 runtime_core application -> owning domain + consumer-owned port

@@ -3,7 +3,8 @@ use crate::app::workflow_adapter::ledger;
 use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
 pub(crate) use crate::runtime_core::collaboration::subagent::*;
-use crate::{adapters::filesystem::layout as paths, adapters::filesystem::lease};
+use crate::adapters::filesystem::layout as paths;
+use crate::adapters::filesystem::lease;
 #[cfg(test)]
 use std::fs;
 
