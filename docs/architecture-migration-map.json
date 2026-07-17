@@ -2557,6 +2557,24 @@
       ]
     },
     {
+      "path": "src/patch/execution.rs",
+      "slices": [
+        {
+          "responsibility": "guarded patch apply, verification command, and rollback execution adapter",
+          "target": "src/patch/execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/application.rs",
+            "src/runtime_core/patch/verification.rs",
+            "src/patch/execution.rs",
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/patch/proposal_store.rs",
       "slices": [
         {
@@ -5332,6 +5350,12 @@
         "patch approval credentials",
         "guarded patch apply and rollback",
         "patch verification and recovery"
+      ]
+    },
+    {
+      "path": "src/patch/execution.rs",
+      "responsibilities": [
+        "guarded patch apply, verification command, and rollback execution adapter"
       ]
     },
     {

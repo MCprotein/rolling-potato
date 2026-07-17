@@ -1158,7 +1158,9 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
 #[test]
 fn v0379_patch_owners_hold_lifecycle_decisions() {
     let patch_tests = "src/patch/tests/mod.rs";
+    let execution_adapter = "src/patch/execution.rs";
     let proposal_store_adapter = "src/patch/proposal_store.rs";
+    assert!(Path::new(execution_adapter).is_file());
     assert!(Path::new(proposal_store_adapter).is_file());
     let owners = [
         "src/runtime_core/patch/approval.rs",
@@ -1291,6 +1293,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
 
     let intent_facade = fs::read_to_string("src/intent.rs").unwrap();
     let patch_facade = fs::read_to_string("src/patch.rs").unwrap();
+    let execution = fs::read_to_string(execution_adapter).unwrap();
     let proposal_store = fs::read_to_string(proposal_store_adapter).unwrap();
     let patch_test_module = fs::read_to_string(patch_tests).unwrap();
     let patch_harness = fs::read_to_string("tests/patch_loop.rs").unwrap();
@@ -1300,10 +1303,28 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         "intent facade regrew beyond the v0.37.9 boundary"
     );
     assert!(
-        patch_facade.lines().count() < 3_700,
+        patch_facade.lines().count() < 3_400,
         "patch facade regrew beyond the v0.37.9 boundary"
     );
-    assert!(patch_facade.lines().any(|line| line == "mod proposal_store;"));
+    assert!(patch_facade.lines().any(|line| line == "mod execution;"));
+    for escaped_responsibility in [
+        "fn apply_proposal(",
+        "fn run_verification(",
+        "fn restore_from_rollback(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "patch execution responsibility escaped into facade: {escaped_responsibility}"
+        );
+        assert!(
+            execution.contains(escaped_responsibility),
+            "patch execution adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(execution.lines().count() < 300);
+    assert!(patch_facade
+        .lines()
+        .any(|line| line == "mod proposal_store;"));
     for escaped_responsibility in [
         "fn read_proposal_contents_bounded(",
         "fn load_proposal_record(",
