@@ -4553,6 +4553,42 @@ fn v03713_benchmark_adapter_separates_regression_tests() {
 }
 
 #[test]
+fn v03713_workflow_record_separates_compatibility_codec() {
+    let record_path = "src/runtime_core/workflow/storage_compat/record.rs";
+    let codec_path = "src/runtime_core/workflow/storage_compat/record/codec.rs";
+    assert!(Path::new(record_path).is_file());
+    assert!(Path::new(codec_path).is_file());
+
+    let record = fs::read_to_string(record_path).unwrap();
+    let codec = fs::read_to_string(codec_path).unwrap();
+    assert!(record.contains("#[path = \"record/codec.rs\"]"));
+    assert!(record.contains("pub struct WorkflowRecord"));
+    assert!(record.contains("impl WorkflowRecord"));
+    for responsibility in [
+        "pub(crate) fn render_pointer(",
+        "pub(crate) fn parse_pointer(",
+        "pub(crate) fn snapshot_schema(",
+        "pub(crate) fn parse_snapshot(",
+        "pub(crate) fn payload(",
+        "pub(crate) fn render(",
+    ] {
+        assert!(
+            codec.contains(responsibility),
+            "workflow record codec is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !record.contains(responsibility),
+            "workflow record model still owns codec behavior: {responsibility}"
+        );
+    }
+    assert!(codec.contains("const WORKFLOW_V2_KEYS"));
+    assert!(codec.contains("const WORKFLOW_V3_KEYS"));
+    assert!(codec.contains("const WORKFLOW_V4_KEYS"));
+    assert!(record.lines().count() < 150);
+    assert!(codec.lines().count() < 600);
+}
+
+#[test]
 fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
     for name in [
         "fake_sidecar.rs",
