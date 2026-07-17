@@ -58,10 +58,12 @@ mod legacy_reports {
     use crate::adapters::filesystem::layout as paths;
     use crate::surfaces::tui::render::{
         bytes_label, canonical_page_report, latency_label, percent_label, push_footer, push_header,
-        push_kv, push_rule, push_section, push_wrapped, render_evidence_report, short_id,
-        terminal_width, tps_label,
+        push_kv, push_rule, push_section, push_wrapped, render_evidence_report,
+        render_sessions_report, short_id, terminal_width, tps_label,
     };
-    use crate::surfaces::tui::view_model::EvidenceReportView;
+    use crate::surfaces::tui::view_model::{
+        EvidenceReportView, SessionSummaryView, SessionsReportView,
+    };
     use crate::{evidence, ledger, model, observability};
 
     pub fn overview_report() -> Result<String, AppError> {
@@ -307,57 +309,22 @@ mod legacy_reports {
         let width = terminal_width();
         let identity = ledger::validated_current_identity()?;
         let sessions = observability::session_history(10)?;
-
-        let mut lines = Vec::new();
-        push_header(&mut lines, width, "rpotato TUI beta - sessions");
-        push_kv(&mut lines, width, "project", &identity.project_root);
-        push_kv(&mut lines, width, "current session", &identity.session_id);
-        push_rule(&mut lines, width);
-        if sessions.is_empty() {
-            push_wrapped(
-                &mut lines,
-                width,
-                "No session history yet. Start with `rpotato init` or `rpotato session new`.",
-            );
-        } else {
-            push_wrapped(&mut lines, width, "session id | events | last summary");
-            for session in &sessions {
-                push_wrapped(
-                    &mut lines,
-                    width,
-                    &format!(
-                        "{} | {} | {}",
-                        session.session_id,
-                        session.event_count,
-                        session
-                            .last_summary
-                            .as_deref()
-                            .unwrap_or("no summary recorded")
-                    ),
-                );
-            }
-        }
-        push_rule(&mut lines, width);
-        push_kv(
-            &mut lines,
+        Ok(render_sessions_report(
             width,
-            "resume",
-            "rpotato session resume <session-id>",
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "inspect",
-            "rpotato tui transcript <session-id>",
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "state",
-            &paths::current_state_file().display().to_string(),
-        );
-        push_footer(&mut lines, width);
-        Ok(lines.join("\n"))
+            &SessionsReportView {
+                project_root: identity.project_root,
+                current_session_id: identity.session_id,
+                state_path: paths::current_state_file().display().to_string(),
+                sessions: sessions
+                    .into_iter()
+                    .map(|session| SessionSummaryView {
+                        session_id: session.session_id,
+                        event_count: session.event_count,
+                        last_summary: session.last_summary,
+                    })
+                    .collect(),
+            },
+        ))
     }
 
     pub fn transcript_report(session_id: &str) -> Result<String, AppError> {

@@ -85,3 +85,16 @@ pub(crate) struct EvidenceReportView {
     pub(crate) stop_gate_results: i64,
     pub(crate) stale_policy: String,
 }
+
+pub(crate) struct SessionSummaryView {
+    pub(crate) session_id: String,
+    pub(crate) event_count: i64,
+    pub(crate) last_summary: Option<String>,
+}
+
+pub(crate) struct SessionsReportView {
+    pub(crate) project_root: String,
+    pub(crate) current_session_id: String,
+    pub(crate) state_path: String,
+    pub(crate) sessions: Vec<SessionSummaryView>,
+}

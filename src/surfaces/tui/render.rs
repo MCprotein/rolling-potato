@@ -1,5 +1,5 @@
 use super::runtime_bridge::TuiReadPage;
-use super::view_model::{EvidenceReportView, InteractiveState};
+use super::view_model::{EvidenceReportView, InteractiveState, SessionsReportView};
 
 const MAX_INTERACTIVE_WIDTH: usize = 120;
 
@@ -385,6 +385,59 @@ pub(crate) fn render_evidence_report(width: usize, view: &EvidenceReportView) ->
         "raw prompt/source",
         "disabled by default",
     );
+    push_footer(&mut lines, width);
+    lines.join("\n")
+}
+
+pub(crate) fn render_sessions_report(width: usize, view: &SessionsReportView) -> String {
+    let mut lines = Vec::new();
+    push_header(&mut lines, width, "rpotato TUI beta - sessions");
+    push_kv(&mut lines, width, "project", &view.project_root);
+    push_kv(
+        &mut lines,
+        width,
+        "current session",
+        &view.current_session_id,
+    );
+    push_rule(&mut lines, width);
+    if view.sessions.is_empty() {
+        push_wrapped(
+            &mut lines,
+            width,
+            "No session history yet. Start with `rpotato init` or `rpotato session new`.",
+        );
+    } else {
+        push_wrapped(&mut lines, width, "session id | events | last summary");
+        for session in &view.sessions {
+            push_wrapped(
+                &mut lines,
+                width,
+                &format!(
+                    "{} | {} | {}",
+                    session.session_id,
+                    session.event_count,
+                    session
+                        .last_summary
+                        .as_deref()
+                        .unwrap_or("no summary recorded")
+                ),
+            );
+        }
+    }
+    push_rule(&mut lines, width);
+    push_kv(
+        &mut lines,
+        width,
+        "resume",
+        "rpotato session resume <session-id>",
+    );
+    push_kv(
+        &mut lines,
+        width,
+        "inspect",
+        "rpotato tui transcript <session-id>",
+    );
+    push_kv(&mut lines, width, "state", &view.state_path);
     push_footer(&mut lines, width);
     lines.join("\n")
 }

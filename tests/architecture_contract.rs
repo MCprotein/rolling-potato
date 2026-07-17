@@ -1785,6 +1785,8 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "enum InteractiveView",
         "struct InteractiveState",
         "struct EvidenceReportView",
+        "struct SessionsReportView",
+        "struct SessionSummaryView",
         "fn set_view",
         "fn read_request",
     ] {
@@ -1843,6 +1845,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "fn canonical_page_report",
         "fn authority_pair",
         "fn render_evidence_report",
+        "fn render_sessions_report",
     ] {
         assert!(
             render.contains(definition),
