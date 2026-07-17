@@ -3473,7 +3473,7 @@
       "path": "src/patch/workflow_execution.rs",
       "slices": [
         {
-          "responsibility": "patch apply-verification continuation and skill lifecycle adapter",
+          "responsibility": "patch token rotation and apply-verification continuation orchestration",
           "target": "src/patch/workflow_execution.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -3483,6 +3483,26 @@
             "src/app/extensions_adapter/skill.rs",
             "src/patch/workflow_execution.rs",
             "src/patch/workflow_execution/plugin_completion.rs",
+            "src/patch/workflow_execution/skill_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/patch/workflow_execution/skill_lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "skill runtime phase validation, evidence binding, lifecycle hooks, and stop transitions",
+          "target": "src/patch/workflow_execution/skill_lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/extensions_adapter/skill.rs",
+            "src/patch/workflow_execution.rs",
+            "src/patch/workflow_execution/skill_lifecycle.rs",
+            "src/patch/tests/approval_cases.rs",
+            "tests/patch/lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7649,7 +7669,13 @@
     {
       "path": "src/patch/workflow_execution.rs",
       "responsibilities": [
-        "patch apply-verification continuation and skill lifecycle adapter"
+        "patch token rotation and apply-verification continuation orchestration"
+      ]
+    },
+    {
+      "path": "src/patch/workflow_execution/skill_lifecycle.rs",
+      "responsibilities": [
+        "skill runtime phase validation, evidence binding, lifecycle hooks, and stop transitions"
       ]
     },
     {

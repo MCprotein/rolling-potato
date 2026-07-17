@@ -2597,6 +2597,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let workflow_contract_adapter = "src/patch/workflow_contract.rs";
     let workflow_execution_adapter = "src/patch/workflow_execution.rs";
     let plugin_completion_adapter = "src/patch/workflow_execution/plugin_completion.rs";
+    let skill_lifecycle_adapter = "src/patch/workflow_execution/skill_lifecycle.rs";
     assert!(Path::new(approval_transaction_adapter).is_file());
     assert!(Path::new(approval_recovery_adapter).is_file());
     assert!(Path::new(execution_adapter).is_file());
@@ -2609,6 +2610,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     assert!(Path::new(workflow_contract_adapter).is_file());
     assert!(Path::new(workflow_execution_adapter).is_file());
     assert!(Path::new(plugin_completion_adapter).is_file());
+    assert!(Path::new(skill_lifecycle_adapter).is_file());
     assert!(Path::new(intent_execution_path).is_file());
     assert!(Path::new(intent_tests_path).is_file());
     for patch_test_module in patch_test_modules {
@@ -2992,10 +2994,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     assert!(patch_facade
         .lines()
         .any(|line| line == "mod workflow_execution;"));
-    for escaped_responsibility in [
-        "fn continue_approved_workflow(",
-        "fn dispatch_workflow_skill_hook(",
-    ] {
+    for escaped_responsibility in ["fn continue_approved_workflow("] {
         assert!(
             !patch_facade.contains(escaped_responsibility),
             "workflow execution responsibility escaped into patch facade: {escaped_responsibility}"
@@ -3006,6 +3005,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         );
     }
     let plugin_completion = fs::read_to_string(plugin_completion_adapter).unwrap();
+    let skill_lifecycle = fs::read_to_string(skill_lifecycle_adapter).unwrap();
     assert!(
         workflow_execution
             .lines()
@@ -3027,8 +3027,32 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
             "plugin completion adapter is missing responsibility: {escaped_responsibility}"
         );
     }
-    assert!(workflow_execution.lines().count() < 500);
+    assert!(
+        workflow_execution
+            .lines()
+            .any(|line| line == "mod skill_lifecycle;"),
+        "workflow execution adapter does not register its skill lifecycle owner"
+    );
+    for escaped_responsibility in [
+        "pub(in super::super) fn workflow_skill_runtime(",
+        "pub(super) fn validate_skill_phase_for_side_effect(",
+        "pub(in super::super) fn validate_failing_test_before(",
+        "pub(in super::super) fn validate_completed_workflow(",
+        "pub(super) fn dispatch_workflow_skill_hook(",
+        "pub(in super::super) fn finalize_verified_skill(",
+    ] {
+        assert!(
+            !workflow_execution.contains(escaped_responsibility),
+            "skill lifecycle responsibility escaped into workflow execution orchestration: {escaped_responsibility}"
+        );
+        assert!(
+            skill_lifecycle.contains(escaped_responsibility),
+            "skill lifecycle adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(workflow_execution.lines().count() < 375);
     assert!(plugin_completion.lines().count() < 175);
+    assert!(skill_lifecycle.lines().count() < 175);
     assert!(patch_facade.contains("#[path = \"patch/tests/mod.rs\"]"));
     assert!(!patch_facade.contains("mod tests {"));
     assert!(
