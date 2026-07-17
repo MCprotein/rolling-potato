@@ -2950,6 +2950,33 @@
             "src/runtime_core/knowledge/ontology.rs",
             "tests/architecture_contract.rs"
           ]
+        },
+        {
+          "responsibility": "ontology facade query, import, and source reread orchestration",
+          "target": "src/ontology.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/ontology.rs",
+            "src/ontology/seeding.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/ontology/seeding.rs",
+      "slices": [
+        {
+          "responsibility": "ontology layout, deterministic source discovery, and append-only seed persistence",
+          "target": "src/ontology/seeding.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/ontology/seeding.rs",
+            "src/ontology.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -6660,7 +6687,14 @@
     {
       "path": "src/ontology.rs",
       "responsibilities": [
-        "ontology graph and context projection"
+        "ontology graph and context projection",
+        "ontology facade query, import, and source reread orchestration"
+      ]
+    },
+    {
+      "path": "src/ontology/seeding.rs",
+      "responsibilities": [
+        "ontology layout, deterministic source discovery, and append-only seed persistence"
       ]
     },
     {
