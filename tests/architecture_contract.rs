@@ -1023,11 +1023,13 @@ fn v0375_domain_views_replace_legacy_definitions() {
 #[test]
 fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let ledger_adapter = "src/app/workflow_adapter/ledger.rs";
+    let ledger_derived = "src/app/workflow_adapter/ledger/derived.rs";
     let ledger_query = "src/app/workflow_adapter/ledger/query.rs";
     let ledger_tests = "src/app/workflow_adapter/ledger/tests.rs";
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
     for target in [
         ledger_adapter,
+        ledger_derived,
         ledger_query,
         ledger_tests,
         transition_adapter,
@@ -1130,8 +1132,29 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     );
 
     let ledger = fs::read_to_string(ledger_adapter).unwrap();
+    let ledger_derived_outputs = fs::read_to_string(ledger_derived).unwrap();
     let ledger_queries = fs::read_to_string(ledger_query).unwrap();
     let ledger_regressions = fs::read_to_string(ledger_tests).unwrap();
+    assert!(
+        ledger.lines().any(|line| line == "mod derived;"),
+        "ledger adapter does not register its derived-output owner"
+    );
+    for responsibility in [
+        "pub(super) fn converge_derived_outputs_unlocked(",
+        "pub(super) fn validate_derived_outputs_unlocked(",
+        "fn rebuild_operation_log_from_events(",
+        "fn rebuild_project_ledger_from_events(",
+        "pub(super) fn render_chained_ledger(",
+    ] {
+        assert!(
+            ledger_derived_outputs.contains(responsibility),
+            "ledger derived-output owner is missing: {responsibility}"
+        );
+        assert!(
+            !ledger.contains(responsibility),
+            "ledger adapter still owns derived-output behavior: {responsibility}"
+        );
+    }
     assert!(
         ledger.lines().any(|line| line == "mod query;"),
         "ledger adapter does not register its query owner"
@@ -1171,8 +1194,12 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         );
     }
     assert!(
-        ledger.lines().count() < 1_125,
+        ledger.lines().count() < 975,
         "ledger adapter regrew beyond its test extraction boundary"
+    );
+    assert!(
+        ledger_derived_outputs.lines().count() < 225,
+        "ledger derived-output module regrew beyond its ownership boundary"
     );
     assert!(
         ledger_queries.lines().count() < 125,

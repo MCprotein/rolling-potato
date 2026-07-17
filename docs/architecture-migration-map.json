@@ -2486,7 +2486,25 @@
             "src/runtime_core/policy/redaction.rs",
             "src/adapters/sqlite/ledger_projection.rs",
             "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/derived.rs",
             "src/app/workflow_adapter/ledger/query.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/derived.rs",
+      "slices": [
+        {
+          "responsibility": "project ledger, operation log, and SQLite sequence convergence from runtime authority",
+          "target": "src/app/workflow_adapter/ledger/derived.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/derived.rs",
             "src/app/workflow_adapter/ledger/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -6128,6 +6146,12 @@
       "path": "src/app/workflow_adapter/ledger.rs",
       "responsibilities": [
         "ledger persistence and projection orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/derived.rs",
+      "responsibilities": [
+        "project ledger, operation log, and SQLite sequence convergence from runtime authority"
       ]
     },
     {
