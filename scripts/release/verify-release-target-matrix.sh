@@ -55,16 +55,19 @@ grep -F "run: cargo test --locked -- --test-threads=1" "$workflow" >/dev/null \
   || fail "release test gate must run the complete locked test suite"
 grep -F "run: scripts/release/verify-durable-runtime-proofs.sh" "$workflow" >/dev/null \
   || fail "release workflow must invoke the stable durable runtime proof entrypoint"
-if grep -F "cargo test --locked --bin rpotato observability::tests::" "$workflow" >/dev/null; then
-  fail "release workflow must not depend on module-qualified durable proof names"
+durable_proofs="scripts/release/verify-durable-runtime-proofs.sh"
+if grep -E -- '--bin rpotato (observability|patch|runtime|ledger|state|transition)::tests::' "$durable_proofs" >/dev/null; then
+  fail "durable proof entrypoint contains a stale pre-refactor selector"
 fi
+grep -F "test result: ok. 1 passed;" "$durable_proofs" >/dev/null \
+  || fail "durable proof entrypoint must reject zero- and multiple-match selectors"
 grep -F "name: Test native Windows backend lifecycle" "$workflow" >/dev/null \
   || fail "native Windows backend lifecycle test step is missing"
 grep -F "if: matrix.target == 'x86_64-pc-windows-msvc'" "$workflow" >/dev/null \
   || fail "native lifecycle test must be scoped to the Windows target"
-grep -F 'cargo test --locked --target ${{ matrix.target }} --bin rpotato backend_stream::tests:: -- --test-threads=1' "$workflow" >/dev/null \
+grep -F 'cargo test --locked --target ${{ matrix.target }} --bin rpotato adapters::llama_cpp::stream::tests:: -- --test-threads=1' "$workflow" >/dev/null \
   || fail "native Windows streaming transport tests are missing"
-grep -F 'cargo test --locked --target ${{ matrix.target }} --bin rpotato generation_ -- --test-threads=1' "$workflow" >/dev/null \
+grep -F 'cargo test --locked --target ${{ matrix.target }} --bin rpotato app::inference_adapter::backend::tests:: -- --test-threads=1' "$workflow" >/dev/null \
   || fail "native Windows generation lifecycle tests are missing"
 grep -F 'cargo test --locked --target ${{ matrix.target }} --test inference backend_lifecycle::native_backend_cancel_and_stop_lifecycle -- --test-threads=1' "$workflow" >/dev/null \
   || fail "native Windows backend process lifecycle test is missing"

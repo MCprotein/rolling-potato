@@ -108,6 +108,7 @@
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
+            "scripts/release/test-release-workflow-contract.sh",
             "tests/architecture_contract.rs"
           ]
         }
@@ -1396,6 +1397,7 @@
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
+            "scripts/release/test-release-workflow-contract.sh",
             "tests/architecture_contract.rs"
           ]
         }
