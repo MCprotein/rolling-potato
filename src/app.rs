@@ -3,16 +3,16 @@ use crate::foundation::error::AppError;
 
 pub(crate) mod approval_adapter;
 pub(crate) mod collaboration_adapter;
+mod command_dispatch;
 pub(crate) mod extensions_adapter;
 pub(crate) mod inference_adapter;
-mod legacy_dispatch;
 mod monitor_adapter;
 pub(crate) mod observability_adapter;
 pub(crate) mod policy_adapter;
 pub(crate) mod workflow_adapter;
 
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
-    dispatch::run(args, &mut legacy_dispatch::LegacyCommandDispatchPort)
+    dispatch::run(args, &mut command_dispatch::CommandDispatchAdapter)
 }
 
 #[cfg(test)]

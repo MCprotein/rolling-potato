@@ -1,3 +1,5 @@
+//! Concrete CLI command dispatch adapter.
+
 use crate::adapters::terminal::{capability, native};
 use crate::app::workflow_adapter::state;
 use crate::app::workflow_adapter::transition;
@@ -27,9 +29,9 @@ use policy_commands::execute_policy;
 use tui_commands::execute_tui;
 use workflow_commands::{execute_patch, execute_session, execute_state};
 
-pub(super) struct LegacyCommandDispatchPort;
+pub(super) struct CommandDispatchAdapter;
 
-impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
+impl dispatch::CommandDispatchPort for CommandDispatchAdapter {
     fn terminal_attached(&mut self) -> bool {
         capability::attached()
     }

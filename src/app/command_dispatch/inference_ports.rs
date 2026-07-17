@@ -1,9 +1,9 @@
 //! Concrete inference command ports used by the CLI dispatch adapter.
 
-use super::{inference, AppError, LegacyCommandDispatchPort};
+use super::{inference, AppError, CommandDispatchAdapter};
 use crate::app::inference_adapter::{backend, benchmark, model};
 
-impl inference::BenchmarkCommandPort for LegacyCommandDispatchPort {
+impl inference::BenchmarkCommandPort for CommandDispatchAdapter {
     fn validate_report(&mut self, path: &str) -> Result<String, AppError> {
         benchmark::validate_report(path)
     }
@@ -29,7 +29,7 @@ impl inference::BenchmarkCommandPort for LegacyCommandDispatchPort {
     }
 }
 
-impl inference::BackendCommandPort for LegacyCommandDispatchPort {
+impl inference::BackendCommandPort for CommandDispatchAdapter {
     fn doctor_report(&mut self) -> String {
         backend::doctor_report()
     }
@@ -94,7 +94,7 @@ impl inference::BackendCommandPort for LegacyCommandDispatchPort {
     }
 }
 
-impl inference::ModelCommandPort for LegacyCommandDispatchPort {
+impl inference::ModelCommandPort for CommandDispatchAdapter {
     fn list_report(&mut self) -> String {
         model::list_report()
     }

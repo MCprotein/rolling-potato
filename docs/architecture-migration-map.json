@@ -1879,40 +1879,40 @@
           "evidence": [
             "src/composition/dispatch.rs",
             "src/app.rs",
-            "src/app/legacy_dispatch.rs",
+            "src/app/command_dispatch.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/app/legacy_dispatch.rs",
+      "path": "src/app/command_dispatch.rs",
       "slices": [
         {
           "responsibility": "CLI command execution adapter and command routing",
-          "target": "src/app/legacy_dispatch.rs",
+          "target": "src/app/command_dispatch.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/composition/dispatch.rs",
             "src/app.rs",
-            "src/app/legacy_dispatch.rs",
+            "src/app/command_dispatch.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/collaboration_commands.rs",
+      "path": "src/app/command_dispatch/collaboration_commands.rs",
       "slices": [
         {
           "responsibility": "team and subagent CLI command execution integration",
-          "target": "src/app/legacy_dispatch/collaboration_commands.rs",
+          "target": "src/app/command_dispatch/collaboration_commands.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/app/legacy_dispatch.rs",
-            "src/app/legacy_dispatch/collaboration_commands.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/collaboration_commands.rs",
             "src/app/collaboration_adapter/subagent.rs",
             "src/app/collaboration_adapter/team.rs",
             "src/app/collaboration_adapter/team_execution.rs",
@@ -1924,16 +1924,16 @@
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/extension_commands.rs",
+      "path": "src/app/command_dispatch/extension_commands.rs",
       "slices": [
         {
           "responsibility": "skill, hook, and plugin CLI command execution integration",
-          "target": "src/app/legacy_dispatch/extension_commands.rs",
+          "target": "src/app/command_dispatch/extension_commands.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/app/legacy_dispatch.rs",
-            "src/app/legacy_dispatch/extension_commands.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/extension_commands.rs",
             "src/app/extensions_adapter/hooks.rs",
             "src/app/extensions_adapter/plugin.rs",
             "src/app/extensions_adapter/skill.rs",
@@ -1943,17 +1943,17 @@
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/inference_ports.rs",
+      "path": "src/app/command_dispatch/inference_ports.rs",
       "slices": [
         {
           "responsibility": "concrete benchmark, backend, and model command port integration",
-          "target": "src/app/legacy_dispatch/inference_ports.rs",
+          "target": "src/app/command_dispatch/inference_ports.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/composition/inference.rs",
-            "src/app/legacy_dispatch.rs",
-            "src/app/legacy_dispatch/inference_ports.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/inference_ports.rs",
             "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/benchmark.rs",
             "src/app/inference_adapter/model.rs",
@@ -1963,16 +1963,16 @@
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/knowledge_commands.rs",
+      "path": "src/app/command_dispatch/knowledge_commands.rs",
       "slices": [
         {
           "responsibility": "evidence and ontology CLI command execution integration",
-          "target": "src/app/legacy_dispatch/knowledge_commands.rs",
+          "target": "src/app/command_dispatch/knowledge_commands.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/app/legacy_dispatch.rs",
-            "src/app/legacy_dispatch/knowledge_commands.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/knowledge_commands.rs",
             "src/evidence.rs",
             "src/ontology.rs",
             "src/surfaces/cli/parser/tests/mod.rs",
@@ -1982,16 +1982,16 @@
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/observability_commands.rs",
+      "path": "src/app/command_dispatch/observability_commands.rs",
       "slices": [
         {
           "responsibility": "cache and monitor CLI command execution integration",
-          "target": "src/app/legacy_dispatch/observability_commands.rs",
+          "target": "src/app/command_dispatch/observability_commands.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/app/legacy_dispatch.rs",
-            "src/app/legacy_dispatch/observability_commands.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/observability_commands.rs",
             "src/app/monitor_adapter.rs",
             "src/adapters/filesystem/cache.rs",
             "src/surfaces/cli/parser/tests/mod.rs",
@@ -2001,16 +2001,16 @@
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/policy_commands.rs",
+      "path": "src/app/command_dispatch/policy_commands.rs",
       "slices": [
         {
           "responsibility": "fail-closed policy CLI command execution and path-mode mapping",
-          "target": "src/app/legacy_dispatch/policy_commands.rs",
+          "target": "src/app/command_dispatch/policy_commands.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/app/legacy_dispatch.rs",
-            "src/app/legacy_dispatch/policy_commands.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/policy_commands.rs",
             "src/app/policy_adapter.rs",
             "src/runtime_core/policy/decision.rs",
             "src/surfaces/cli/parser/tests/mod.rs",
@@ -2020,16 +2020,16 @@
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/tui_commands.rs",
+      "path": "src/app/command_dispatch/tui_commands.rs",
       "slices": [
         {
           "responsibility": "TUI entrypoint initialization and read-only report command integration",
-          "target": "src/app/legacy_dispatch/tui_commands.rs",
+          "target": "src/app/command_dispatch/tui_commands.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/app/legacy_dispatch.rs",
-            "src/app/legacy_dispatch/tui_commands.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/tui_commands.rs",
             "src/tui.rs",
             "src/surfaces/cli/parser/tests/mod.rs",
             "tests/surfaces/interactive_tui.rs",
@@ -2039,16 +2039,16 @@
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/workflow_commands.rs",
+      "path": "src/app/command_dispatch/workflow_commands.rs",
       "slices": [
         {
           "responsibility": "workflow state, session, and patch CLI command execution integration",
-          "target": "src/app/legacy_dispatch/workflow_commands.rs",
+          "target": "src/app/command_dispatch/workflow_commands.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/app/legacy_dispatch.rs",
-            "src/app/legacy_dispatch/workflow_commands.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/workflow_commands.rs",
             "src/app/workflow_adapter/state.rs",
             "src/patch.rs",
             "src/runtime.rs",
@@ -2159,7 +2159,7 @@
           "state": "complete",
           "evidence": [
             "src/composition/inference.rs",
-            "src/app/legacy_dispatch.rs",
+            "src/app/command_dispatch.rs",
             "src/app/inference_adapter/backend.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2535,7 +2535,7 @@
           "state": "complete",
           "evidence": [
             "src/composition/inference.rs",
-            "src/app/legacy_dispatch.rs",
+            "src/app/command_dispatch.rs",
             "src/app/inference_adapter/benchmark.rs",
             "src/app/inference_adapter/benchmark/tests.rs",
             "tests/architecture_contract.rs"
@@ -2707,7 +2707,7 @@
           "state": "complete",
           "evidence": [
             "src/composition/inference.rs",
-            "src/app/legacy_dispatch.rs",
+            "src/app/command_dispatch.rs",
             "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/benchmark.rs",
             "src/app/inference_adapter/model.rs",
@@ -3118,7 +3118,7 @@
           "state": "complete",
           "evidence": [
             "src/composition/inference.rs",
-            "src/app/legacy_dispatch.rs",
+            "src/app/command_dispatch.rs",
             "src/app/inference_adapter/model.rs",
             "src/app/inference_adapter/model/evidence.rs",
             "src/app/inference_adapter/model/registry.rs",
@@ -7312,55 +7312,55 @@
       ]
     },
     {
-      "path": "src/app/legacy_dispatch.rs",
+      "path": "src/app/command_dispatch.rs",
       "responsibilities": [
         "CLI command execution adapter and command routing"
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/collaboration_commands.rs",
+      "path": "src/app/command_dispatch/collaboration_commands.rs",
       "responsibilities": [
         "team and subagent CLI command execution integration"
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/extension_commands.rs",
+      "path": "src/app/command_dispatch/extension_commands.rs",
       "responsibilities": [
         "skill, hook, and plugin CLI command execution integration"
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/inference_ports.rs",
+      "path": "src/app/command_dispatch/inference_ports.rs",
       "responsibilities": [
         "concrete benchmark, backend, and model command port integration"
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/knowledge_commands.rs",
+      "path": "src/app/command_dispatch/knowledge_commands.rs",
       "responsibilities": [
         "evidence and ontology CLI command execution integration"
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/observability_commands.rs",
+      "path": "src/app/command_dispatch/observability_commands.rs",
       "responsibilities": [
         "cache and monitor CLI command execution integration"
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/policy_commands.rs",
+      "path": "src/app/command_dispatch/policy_commands.rs",
       "responsibilities": [
         "fail-closed policy CLI command execution and path-mode mapping"
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/tui_commands.rs",
+      "path": "src/app/command_dispatch/tui_commands.rs",
       "responsibilities": [
         "TUI entrypoint initialization and read-only report command integration"
       ]
     },
     {
-      "path": "src/app/legacy_dispatch/workflow_commands.rs",
+      "path": "src/app/command_dispatch/workflow_commands.rs",
       "responsibilities": [
         "workflow state, session, and patch CLI command execution integration"
       ]

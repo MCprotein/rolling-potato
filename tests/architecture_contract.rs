@@ -4781,8 +4781,12 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
     assert!(!app.contains("recover_pending_source_bundles()?"));
     assert!(!app.contains("match command"));
 
-    let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
-    assert!(adapter.contains("impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort"));
+    let adapter = fs::read_to_string("src/app/command_dispatch.rs").unwrap();
+    assert!(!Path::new("src/app/legacy_dispatch.rs").exists());
+    assert!(!Path::new("src/app/legacy_dispatch").exists());
+    assert!(app.lines().any(|line| line == "mod command_dispatch;"));
+    assert!(!app.lines().any(|line| line == "mod legacy_dispatch;"));
+    assert!(adapter.contains("impl dispatch::CommandDispatchPort for CommandDispatchAdapter"));
     assert!(adapter.contains("match command"));
     assert!(adapter
         .lines()
@@ -4801,7 +4805,7 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
     assert!(adapter.lines().any(|line| line == "mod tui_commands;"));
     assert!(adapter.lines().any(|line| line == "mod workflow_commands;"));
     let collaboration_commands =
-        fs::read_to_string("src/app/legacy_dispatch/collaboration_commands.rs").unwrap();
+        fs::read_to_string("src/app/command_dispatch/collaboration_commands.rs").unwrap();
     for responsibility in [
         "pub(super) fn execute_team(",
         "pub(super) fn execute_subagent(",
@@ -4818,7 +4822,7 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
         assert!(adapter.contains(delegation));
     }
     let extension_commands =
-        fs::read_to_string("src/app/legacy_dispatch/extension_commands.rs").unwrap();
+        fs::read_to_string("src/app/command_dispatch/extension_commands.rs").unwrap();
     for responsibility in [
         "pub(super) fn execute_skill(",
         "pub(super) fn execute_hooks(",
@@ -4836,7 +4840,7 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
         assert!(adapter.contains(delegation));
     }
     let knowledge_commands =
-        fs::read_to_string("src/app/legacy_dispatch/knowledge_commands.rs").unwrap();
+        fs::read_to_string("src/app/command_dispatch/knowledge_commands.rs").unwrap();
     for responsibility in [
         "pub(super) fn execute_evidence(",
         "pub(super) fn execute_ontology(",
@@ -4852,7 +4856,7 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
         assert!(adapter.contains(delegation));
     }
     let observability_commands =
-        fs::read_to_string("src/app/legacy_dispatch/observability_commands.rs").unwrap();
+        fs::read_to_string("src/app/command_dispatch/observability_commands.rs").unwrap();
     for responsibility in [
         "pub(super) fn execute_cache_status(",
         "pub(super) fn execute_monitor(",
@@ -4867,7 +4871,8 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
     ] {
         assert!(adapter.contains(delegation));
     }
-    let policy_commands = fs::read_to_string("src/app/legacy_dispatch/policy_commands.rs").unwrap();
+    let policy_commands =
+        fs::read_to_string("src/app/command_dispatch/policy_commands.rs").unwrap();
     for responsibility in [
         "pub(super) fn execute_policy(",
         "PolicyCommand::CheckPath",
@@ -4877,7 +4882,7 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
         assert!(!adapter.contains(responsibility));
     }
     assert!(adapter.contains("Command::Policy(command) => execute_policy(command)"));
-    let tui_commands = fs::read_to_string("src/app/legacy_dispatch/tui_commands.rs").unwrap();
+    let tui_commands = fs::read_to_string("src/app/command_dispatch/tui_commands.rs").unwrap();
     for responsibility in [
         "pub(super) fn execute_tui(",
         "TuiCommand::Auto",
@@ -4889,7 +4894,7 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
     }
     assert!(adapter.contains("Command::Tui(command) => execute_tui(command)"));
     let workflow_commands =
-        fs::read_to_string("src/app/legacy_dispatch/workflow_commands.rs").unwrap();
+        fs::read_to_string("src/app/command_dispatch/workflow_commands.rs").unwrap();
     for responsibility in [
         "pub(super) fn execute_state(",
         "pub(super) fn execute_session(",
@@ -4906,7 +4911,8 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
     ] {
         assert!(adapter.contains(delegation));
     }
-    let inference_ports = fs::read_to_string("src/app/legacy_dispatch/inference_ports.rs").unwrap();
+    let inference_ports =
+        fs::read_to_string("src/app/command_dispatch/inference_ports.rs").unwrap();
     for responsibility in [
         "impl inference::BenchmarkCommandPort",
         "impl inference::BackendCommandPort",
@@ -4951,8 +4957,9 @@ fn v03713_composition_owns_benchmark_command_orchestration() {
         );
     }
 
-    let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
-    let inference_ports = fs::read_to_string("src/app/legacy_dispatch/inference_ports.rs").unwrap();
+    let adapter = fs::read_to_string("src/app/command_dispatch.rs").unwrap();
+    let inference_ports =
+        fs::read_to_string("src/app/command_dispatch/inference_ports.rs").unwrap();
     assert!(inference_ports.contains("impl inference::BenchmarkCommandPort"));
     assert!(adapter.contains("inference::run_benchmark(command, self)"));
 
@@ -4989,8 +4996,9 @@ fn v03713_composition_owns_model_command_orchestration() {
         );
     }
 
-    let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
-    let inference_ports = fs::read_to_string("src/app/legacy_dispatch/inference_ports.rs").unwrap();
+    let adapter = fs::read_to_string("src/app/command_dispatch.rs").unwrap();
+    let inference_ports =
+        fs::read_to_string("src/app/command_dispatch/inference_ports.rs").unwrap();
     assert!(inference_ports.contains("impl inference::ModelCommandPort"));
     assert!(adapter.contains("inference::run_model(command, self)"));
 
@@ -5027,8 +5035,9 @@ fn v03713_composition_owns_backend_command_orchestration() {
         );
     }
 
-    let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
-    let inference_ports = fs::read_to_string("src/app/legacy_dispatch/inference_ports.rs").unwrap();
+    let adapter = fs::read_to_string("src/app/command_dispatch.rs").unwrap();
+    let inference_ports =
+        fs::read_to_string("src/app/command_dispatch/inference_ports.rs").unwrap();
     assert!(inference_ports.contains("impl inference::BackendCommandPort"));
     assert!(adapter.contains("inference::run_backend(command, self, &mut writer)"));
 
