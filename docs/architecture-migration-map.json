@@ -1747,6 +1747,22 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "concrete inference adapter module wiring",
+          "target": "src/app/inference_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter.rs",
+            "src/app/inference_adapter/benchmark.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/approval.rs",
       "slices": [
         {
@@ -1886,16 +1902,17 @@
       ]
     },
     {
-      "path": "src/benchmark.rs",
+      "path": "src/app/inference_adapter/benchmark.rs",
       "slices": [
         {
-          "responsibility": "benchmark command and cross-store orchestration compatibility facade",
-          "target": "src/composition/inference.rs",
+          "responsibility": "benchmark concrete integration adapter",
+          "target": "src/app/inference_adapter/benchmark.rs",
           "release": "0.37.13",
-          "state": "migrating",
+          "state": "complete",
           "evidence": [
             "src/composition/inference.rs",
             "src/app/legacy_dispatch.rs",
+            "src/app/inference_adapter/benchmark.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4756,6 +4773,12 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter.rs",
+      "responsibilities": [
+        "concrete inference adapter module wiring"
+      ]
+    },
+    {
       "path": "src/approval.rs",
       "responsibilities": [
         "approval records and decisions"
@@ -4816,9 +4839,9 @@
       ]
     },
     {
-      "path": "src/benchmark.rs",
+      "path": "src/app/inference_adapter/benchmark.rs",
       "responsibilities": [
-        "benchmark command and cross-store orchestration compatibility facade"
+        "benchmark concrete integration adapter"
       ]
     },
     {

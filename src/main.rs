@@ -2,7 +2,6 @@ mod adapters;
 mod app;
 mod approval;
 mod backend;
-mod benchmark;
 mod composition;
 mod context;
 mod evidence;

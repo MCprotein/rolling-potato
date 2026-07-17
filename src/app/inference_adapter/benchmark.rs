@@ -637,7 +637,7 @@ mod tests {
         let fixture_path = fixture_dir.join("model-adoption-smoke-v1.json");
         fs::write(
             &fixture_path,
-            include_str!("../benchmarks/fixtures/model-adoption-smoke-v1.json"),
+            include_str!("../../../benchmarks/fixtures/model-adoption-smoke-v1.json"),
         )
         .unwrap();
         let prompt_dir = project_root.join("benchmarks/prompts");
@@ -645,7 +645,7 @@ mod tests {
         let prompt_path = prompt_dir.join("model-adoption-smoke-v1.txt");
         fs::write(
             &prompt_path,
-            include_str!("../benchmarks/prompts/model-adoption-smoke-v1.txt"),
+            include_str!("../../../benchmarks/prompts/model-adoption-smoke-v1.txt"),
         )
         .unwrap();
 
