@@ -3431,6 +3431,94 @@
       ]
     },
     {
+      "path": "src/app/workflow_adapter/state/tests/callgraph.rs",
+      "slices": [
+        {
+          "responsibility": "state writer authority regression tests",
+          "target": "src/app/workflow_adapter/state/tests/callgraph.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/tests/callgraph.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+      "slices": [
+        {
+          "responsibility": "current-state snapshot regression tests",
+          "target": "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/current_snapshot.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "workflow and session lifecycle regression tests",
+          "target": "src/app/workflow_adapter/state/tests/lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/tests/lifecycle.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/mod.rs",
+      "slices": [
+        {
+          "responsibility": "shared state adapter test fixtures",
+          "target": "src/app/workflow_adapter/state/tests/mod.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/tests/mod.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/source_install.rs",
+      "slices": [
+        {
+          "responsibility": "source installation recovery regression tests",
+          "target": "src/app/workflow_adapter/state/tests/source_install.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/source_install.rs",
+            "src/app/workflow_adapter/state/tests/source_install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/workflow_store.rs",
+      "slices": [
+        {
+          "responsibility": "workflow storage and recovery regression tests",
+          "target": "src/app/workflow_adapter/state/tests/workflow_store.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/workflow_store.rs",
+            "src/app/workflow_adapter/state/tests/workflow_store.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/collaboration_adapter/subagent.rs",
       "slices": [
         {
@@ -5463,6 +5551,42 @@
       "path": "src/app/workflow_adapter/state/workflow_store.rs",
       "responsibilities": [
         "workflow snapshot, pointer, and recovery storage adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/callgraph.rs",
+      "responsibilities": [
+        "state writer authority regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+      "responsibilities": [
+        "current-state snapshot regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/lifecycle.rs",
+      "responsibilities": [
+        "workflow and session lifecycle regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/mod.rs",
+      "responsibilities": [
+        "shared state adapter test fixtures"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/source_install.rs",
+      "responsibilities": [
+        "source installation recovery regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/workflow_store.rs",
+      "responsibilities": [
+        "workflow storage and recovery regression tests"
       ]
     },
     {
