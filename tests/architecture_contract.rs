@@ -3104,6 +3104,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let subagent_execution = "src/app/collaboration_adapter/subagent/execution.rs";
     let subagent_persistence = "src/app/collaboration_adapter/subagent/persistence.rs";
     let subagent_tests = "src/app/collaboration_adapter/subagent/tests.rs";
+    let subagent_record_codec = "src/runtime_core/collaboration/subagent/record_codec.rs";
     let team_adapter = "src/app/collaboration_adapter/team.rs";
     let team_tests = "src/app/collaboration_adapter/team/tests.rs";
     let team_execution_adapter = "src/app/collaboration_adapter/team_execution.rs";
@@ -3121,7 +3122,6 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
                 "fn validate_launch",
                 "fn normalize_relative_path",
                 "fn validate_record",
-                "fn render_record",
             ],
         ),
         (
@@ -3219,10 +3219,13 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(Path::new(subagent_execution).is_file());
     assert!(Path::new(subagent_persistence).is_file());
     assert!(Path::new(subagent_tests).is_file());
+    assert!(Path::new(subagent_record_codec).is_file());
     assert!(Path::new(team_tests).is_file());
     assert!(Path::new(team_execution_tests).is_file());
     assert!(Path::new(team_state_persistence).is_file());
     let subagent_source = fs::read_to_string(subagent_adapter).unwrap();
+    let subagent_domain = fs::read_to_string("src/runtime_core/collaboration/subagent.rs").unwrap();
+    let subagent_record_codec_source = fs::read_to_string(subagent_record_codec).unwrap();
     let subagent_execution_source = fs::read_to_string(subagent_execution).unwrap();
     let subagent_persistence_source = fs::read_to_string(subagent_persistence).unwrap();
     let subagent_test_source = fs::read_to_string(subagent_tests).unwrap();
@@ -3236,6 +3239,28 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         subagent_source.lines().any(|line| line == "mod execution;"),
         "subagent adapter does not register its execution owner"
     );
+    assert!(
+        subagent_domain
+            .lines()
+            .any(|line| line == "mod record_codec;"),
+        "subagent domain does not register its record codec owner"
+    );
+    for responsibility in [
+        "pub(crate) fn render_payload(",
+        "pub(crate) fn render_record(",
+        "pub(crate) fn parse_record(",
+        "fn canonical_string(",
+        "fn canonical_string_array(",
+    ] {
+        assert!(
+            subagent_record_codec_source.contains(responsibility),
+            "subagent record codec owner is missing: {responsibility}"
+        );
+        assert!(
+            !subagent_domain.contains(responsibility),
+            "subagent domain still owns record codec behavior: {responsibility}"
+        );
+    }
     assert!(
         subagent_source
             .lines()
@@ -3449,6 +3474,14 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(
         subagent_execution_source.lines().count() < 600,
         "subagent execution module regrew beyond its ownership boundary"
+    );
+    assert!(
+        subagent_domain.lines().count() < 625,
+        "subagent domain regrew beyond its ownership boundary"
+    );
+    assert!(
+        subagent_record_codec_source.lines().count() < 250,
+        "subagent record codec regrew beyond its ownership boundary"
     );
     assert!(
         subagent_persistence_source.lines().count() < 325,

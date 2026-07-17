@@ -3504,14 +3504,33 @@
       "path": "src/runtime_core/collaboration/subagent.rs",
       "slices": [
         {
-          "responsibility": "subagent role, tool, launch, and lifecycle policy",
+          "responsibility": "subagent role, tool, launch, lifecycle, and durable-record invariant policy",
           "target": "src/runtime_core/collaboration/subagent.rs",
           "release": "0.37.12",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent.rs",
+            "src/runtime_core/collaboration/subagent/record_codec.rs",
             "src/app/collaboration_adapter/subagent.rs",
             "tests/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/record_codec.rs",
+      "slices": [
+        {
+          "responsibility": "canonical durable subagent record parse, render, schema, and field-order codec",
+          "target": "src/runtime_core/collaboration/subagent/record_codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/runtime_core/collaboration/subagent/record_codec.rs",
+            "src/app/collaboration_adapter/subagent/persistence.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6978,7 +6997,13 @@
     {
       "path": "src/runtime_core/collaboration/subagent.rs",
       "responsibilities": [
-        "subagent role, tool, launch, and lifecycle policy"
+        "subagent role, tool, launch, lifecycle, and durable-record invariant policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/record_codec.rs",
+      "responsibilities": [
+        "canonical durable subagent record parse, render, schema, and field-order codec"
       ]
     },
     {
