@@ -17,10 +17,10 @@ use crate::runtime_core::inference::backend::BackendAdapter;
 use llama_backend::{LlamaCppAdapter, ENV_BACKEND_PATH, LLAMA_CPP_BACKEND_ID};
 
 use super::generation_state::{wait_for_generation_terminal, write_generation_cancel_marker};
-use super::{
-    display_optional_f64, display_optional_u32, display_optional_u64_unknown, model_id_from_path,
-    now_ms, record_backend_resource_sample, HEALTH_TIMEOUT_MS,
+use super::resource_sampling::{
+    display_optional_f64, display_optional_u64_unknown, record_backend_resource_sample,
 };
+use super::{display_optional_u32, model_id_from_path, now_ms, HEALTH_TIMEOUT_MS};
 
 const ENV_BACKEND_START_TRACE: &str = "RPOTATO_TEST_BACKEND_START_TRACE";
 const STARTUP_TIMEOUT_MS: u64 = 60_000;

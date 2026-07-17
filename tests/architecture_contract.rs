@@ -660,17 +660,20 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_chat_path = "src/app/inference_adapter/backend/chat.rs";
     let backend_generation_state_path = "src/app/inference_adapter/backend/generation_state.rs";
     let backend_installation_path = "src/app/inference_adapter/backend/installation.rs";
+    let backend_resource_sampling_path = "src/app/inference_adapter/backend/resource_sampling.rs";
     let backend_sidecar_path = "src/app/inference_adapter/backend/sidecar.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
     assert!(Path::new(backend_chat_path).is_file());
     assert!(Path::new(backend_generation_state_path).is_file());
     assert!(Path::new(backend_installation_path).is_file());
+    assert!(Path::new(backend_resource_sampling_path).is_file());
     assert!(Path::new(backend_sidecar_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
     let backend_chat = fs::read_to_string(backend_chat_path).unwrap();
     let backend_generation_state = fs::read_to_string(backend_generation_state_path).unwrap();
     let backend_installation = fs::read_to_string(backend_installation_path).unwrap();
+    let backend_resource_sampling = fs::read_to_string(backend_resource_sampling_path).unwrap();
     let backend_sidecar = fs::read_to_string(backend_sidecar_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
     assert!(
@@ -692,6 +695,12 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             .lines()
             .any(|line| line == "mod installation;"),
         "inference backend adapter does not register its installation owner"
+    );
+    assert!(
+        backend_adapter
+            .lines()
+            .any(|line| line == "mod resource_sampling;"),
+        "inference backend adapter does not register its resource-sampling owner"
     );
     assert!(
         backend_adapter.lines().any(|line| line == "mod sidecar;"),
@@ -749,6 +758,22 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         );
     }
     for responsibility in [
+        "pub(super) struct BackendResourceSampleReport",
+        "pub(super) fn display_optional_f64(",
+        "pub(super) fn display_optional_u64_unknown(",
+        "fn backend_resource_paths(",
+        "pub(super) fn record_backend_resource_sample(",
+    ] {
+        assert!(
+            backend_resource_sampling.contains(responsibility),
+            "inference backend resource-sampling owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_adapter.contains(responsibility),
+            "inference backend facade still owns resource sampling: {responsibility}"
+        );
+    }
+    for responsibility in [
         "pub fn doctor_report(",
         "pub fn start_report(",
         "pub fn status_report(",
@@ -780,8 +805,8 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         );
     }
     assert!(
-        backend_adapter.lines().count() < 225,
-        "inference backend production adapter regrew beyond its chat extraction boundary"
+        backend_adapter.lines().count() < 125,
+        "inference backend production adapter regrew beyond its resource-sampling extraction boundary"
     );
     assert!(
         backend_chat.lines().count() < 750,
@@ -794,6 +819,10 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(
         backend_installation.lines().count() < 225,
         "inference backend installation module regrew beyond its ownership boundary"
+    );
+    assert!(
+        backend_resource_sampling.lines().count() < 110,
+        "inference backend resource-sampling module regrew beyond its ownership boundary"
     );
     assert!(
         backend_sidecar.lines().count() < 650,

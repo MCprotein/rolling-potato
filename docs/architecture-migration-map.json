@@ -1941,7 +1941,7 @@
       "path": "src/app/inference_adapter/backend.rs",
       "slices": [
         {
-          "responsibility": "backend resource sampling and module facade",
+          "responsibility": "backend module facade and shared report primitives",
           "target": "src/app/inference_adapter/backend.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -2000,6 +2000,24 @@
             "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/backend/installation.rs",
             "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/resource_sampling.rs",
+      "slices": [
+        {
+          "responsibility": "backend process resource sampling, metric projection, and pressure reporting",
+          "target": "src/app/inference_adapter/backend/resource_sampling.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/backend/resource_sampling.rs",
+            "src/app/inference_adapter/backend/chat.rs",
+            "src/app/inference_adapter/backend/sidecar.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5735,7 +5753,7 @@
     {
       "path": "src/app/inference_adapter/backend.rs",
       "responsibilities": [
-        "backend resource sampling and module facade"
+        "backend module facade and shared report primitives"
       ]
     },
     {
@@ -5754,6 +5772,12 @@
       "path": "src/app/inference_adapter/backend/installation.rs",
       "responsibilities": [
         "backend install planning, archive verification, and payload installation"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/resource_sampling.rs",
+      "responsibilities": [
+        "backend process resource sampling, metric projection, and pressure reporting"
       ]
     },
     {

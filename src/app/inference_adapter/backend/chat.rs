@@ -26,11 +26,12 @@ use super::generation_state::{
     wait_for_generation_group_release, wait_for_generation_terminal,
     write_generation_cancel_marker, write_generation_terminal_record, ActiveGenerationGuard,
 };
+use super::resource_sampling::{
+    display_optional_f64, display_optional_u64_unknown, record_backend_resource_sample,
+};
 use super::sidecar::trace_backend_start;
 use super::{
-    display_optional_f64, display_optional_u128, display_optional_u32,
-    display_optional_u64_unknown, model_id_from_path, now_ms, record_backend_resource_sample,
-    HEALTH_TIMEOUT_MS,
+    display_optional_u128, display_optional_u32, model_id_from_path, now_ms, HEALTH_TIMEOUT_MS,
 };
 
 const CHAT_TIMEOUT_MS: u64 = 30_000;
