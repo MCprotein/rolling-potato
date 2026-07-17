@@ -1839,6 +1839,8 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "fn terminal_width",
         "fn push_wrapped",
         "fn bytes_label",
+        "fn canonical_page_report",
+        "fn authority_pair",
     ] {
         assert!(
             render.contains(definition),
