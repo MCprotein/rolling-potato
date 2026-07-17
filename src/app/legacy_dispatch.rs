@@ -1,11 +1,6 @@
 use crate::adapters::filesystem::cache;
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::{capability, native};
-use crate::app::collaboration_adapter::subagent;
-use crate::app::collaboration_adapter::team;
-use crate::app::collaboration_adapter::team_execution;
-use crate::app::collaboration_adapter::team_reconciliation;
-use crate::app::collaboration_adapter::team_state;
 use crate::app::extensions_adapter::hooks;
 use crate::app::extensions_adapter::plugin;
 use crate::app::extensions_adapter::skill;
@@ -22,7 +17,7 @@ use crate::surfaces::cli::{
     command::{
         Command, EvidenceCommand, HooksCommand, IntentCommand, MonitorCommand, OntologyCommand,
         PatchCommand, PluginCommand, PolicyCommand, PolicyPathMode, SessionCommand, SkillCommand,
-        StateCommand, SubagentCommand, TeamCommand, TuiCommand, UninstallCommand,
+        StateCommand, TuiCommand, UninstallCommand,
     },
     render,
 };
@@ -31,8 +26,10 @@ use crate::tui;
 use super::monitor_adapter as monitor;
 use super::policy_adapter as policy;
 
+mod collaboration_commands;
 mod inference_ports;
 
+use collaboration_commands::{execute_subagent, execute_team};
 use inference_ports::emit_output as emit_inference_output;
 
 pub(super) struct LegacyCommandDispatchPort;
@@ -104,98 +101,8 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 println!("{}", runtime::session_resume_report(&id)?);
                 Ok(())
             }
-            Command::Team(TeamCommand::Status) => {
-                println!("{}", team::status_report()?);
-                Ok(())
-            }
-            Command::Team(TeamCommand::Plan { manifest_path }) => {
-                println!("{}", team_state::plan_report(&manifest_path)?);
-                Ok(())
-            }
-            Command::Team(TeamCommand::Execute { team_id }) => {
-                println!("{}", team_execution::execute_report(&team_id)?);
-                Ok(())
-            }
-            Command::Team(TeamCommand::Reconcile { team_id }) => {
-                println!("{}", team_reconciliation::reconcile_report(&team_id)?);
-                Ok(())
-            }
-            Command::Team(TeamCommand::Cancel { team_id }) => {
-                println!("{}", team_state::cancel_report(&team_id)?);
-                Ok(())
-            }
-            Command::Team(TeamCommand::Admit {
-                lanes,
-                write_paths,
-                owned_write_paths,
-                commands,
-            }) => {
-                println!(
-                    "{}",
-                    team::admission_report(lanes, &write_paths, &owned_write_paths, &commands)?
-                );
-                Ok(())
-            }
-            Command::Team(TeamCommand::Dispatch {
-                lanes,
-                owned_write_paths,
-                failed_lane,
-                failure_reason,
-            }) => {
-                println!(
-                    "{}",
-                    team::dispatch_report(
-                        lanes,
-                        &owned_write_paths,
-                        failed_lane,
-                        failure_reason.as_deref()
-                    )?
-                );
-                Ok(())
-            }
-            Command::Team(TeamCommand::Governor {
-                lanes,
-                context_tokens,
-                context_limit,
-                model_tier,
-            }) => {
-                println!(
-                    "{}",
-                    team::governor_report(lanes, context_tokens, context_limit, model_tier)?
-                );
-                Ok(())
-            }
-            Command::Subagent(SubagentCommand::Launch {
-                role,
-                task,
-                tools,
-                read_paths,
-                write_paths,
-                timeout_ms,
-                max_tokens,
-            }) => {
-                println!(
-                    "{}",
-                    subagent::launch_report(
-                        &role,
-                        &task,
-                        &tools,
-                        &read_paths,
-                        &write_paths,
-                        timeout_ms,
-                        max_tokens,
-                    )?
-                );
-                Ok(())
-            }
-            Command::Subagent(SubagentCommand::Status { id }) => {
-                println!("{}", subagent::status_report(id.as_deref())?);
-                Ok(())
-            }
-            Command::Subagent(SubagentCommand::Cancel { id }) => {
-                println!("{}", subagent::cancel_report(&id)?);
-                Ok(())
-            }
+            Command::Team(command) => execute_team(command),
+            Command::Subagent(command) => execute_subagent(command),
             Command::Tui(TuiCommand::Auto) => {
                 if cfg!(unix) && capability::attached() && !paths::current_state_file().is_file() {
                     state::initialize()?;

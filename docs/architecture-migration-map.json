@@ -1903,6 +1903,27 @@
       ]
     },
     {
+      "path": "src/app/legacy_dispatch/collaboration_commands.rs",
+      "slices": [
+        {
+          "responsibility": "team and subagent CLI command execution integration",
+          "target": "src/app/legacy_dispatch/collaboration_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/legacy_dispatch.rs",
+            "src/app/legacy_dispatch/collaboration_commands.rs",
+            "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_reconciliation.rs",
+            "src/app/collaboration_adapter/team_state.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/legacy_dispatch/inference_ports.rs",
       "slices": [
         {
@@ -7178,6 +7199,12 @@
       "path": "src/app/legacy_dispatch.rs",
       "responsibilities": [
         "CLI command execution adapter and command routing"
+      ]
+    },
+    {
+      "path": "src/app/legacy_dispatch/collaboration_commands.rs",
+      "responsibilities": [
+        "team and subagent CLI command execution integration"
       ]
     },
     {

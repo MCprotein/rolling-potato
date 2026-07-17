@@ -4784,7 +4784,27 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
     let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
     assert!(adapter.contains("impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort"));
     assert!(adapter.contains("match command"));
+    assert!(adapter
+        .lines()
+        .any(|line| line == "mod collaboration_commands;"));
     assert!(adapter.lines().any(|line| line == "mod inference_ports;"));
+    let collaboration_commands =
+        fs::read_to_string("src/app/legacy_dispatch/collaboration_commands.rs").unwrap();
+    for responsibility in [
+        "pub(super) fn execute_team(",
+        "pub(super) fn execute_subagent(",
+        "TeamCommand::Dispatch",
+        "SubagentCommand::Launch",
+    ] {
+        assert!(collaboration_commands.contains(responsibility));
+        assert!(!adapter.contains(responsibility));
+    }
+    for delegation in [
+        "Command::Team(command) => execute_team(command)",
+        "Command::Subagent(command) => execute_subagent(command)",
+    ] {
+        assert!(adapter.contains(delegation));
+    }
     let inference_ports = fs::read_to_string("src/app/legacy_dispatch/inference_ports.rs").unwrap();
     for responsibility in [
         "impl inference::BenchmarkCommandPort",
@@ -4795,7 +4815,8 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
         assert!(inference_ports.contains(responsibility));
         assert!(!adapter.contains(responsibility));
     }
-    assert!(adapter.lines().count() < 450);
+    assert!(adapter.lines().count() < 350);
+    assert!(collaboration_commands.lines().count() < 100);
     assert!(inference_ports.lines().count() < 200);
 }
 
