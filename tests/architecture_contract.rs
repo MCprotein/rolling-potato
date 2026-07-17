@@ -2312,6 +2312,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     let state_adapter = "src/app/workflow_adapter/state.rs";
     let current_snapshot_adapter = "src/app/workflow_adapter/state/current_snapshot.rs";
     let source_install_adapter = "src/app/workflow_adapter/state/source_install.rs";
+    let transaction_adapter = "src/app/workflow_adapter/state/transaction.rs";
     let workflow_store_adapter = "src/app/workflow_adapter/state/workflow_store.rs";
     let state_test_modules = [
         "src/app/workflow_adapter/state/tests/mod.rs",
@@ -2324,6 +2325,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(Path::new(state_adapter).is_file());
     assert!(Path::new(current_snapshot_adapter).is_file());
     assert!(Path::new(source_install_adapter).is_file());
+    assert!(Path::new(transaction_adapter).is_file());
     assert!(Path::new(workflow_store_adapter).is_file());
     for test_module in state_test_modules {
         assert!(Path::new(test_module).is_file());
@@ -2332,6 +2334,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     let state = fs::read_to_string(state_adapter).unwrap();
     assert!(state.lines().any(|line| line == "mod current_snapshot;"));
     assert!(state.lines().any(|line| line == "mod source_install;"));
+    assert!(state.lines().any(|line| line == "mod transaction;"));
     assert!(state.lines().any(|line| line == "mod workflow_store;"));
     assert!(state.contains("#[path = \"state/tests/mod.rs\"]"));
     assert!(!state.contains("mod tests {"));
@@ -2340,6 +2343,8 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         "fn promote_current_state_v1(",
         "struct PreparedSourceDir",
         "fn recover_source_replace",
+        "struct StateApprovalTransactionPort",
+        "struct StateVerificationTransactionPort",
         "struct StateWorkflowRecoveryPort",
         "fn validate_workflow_chain(",
     ] {
@@ -2385,9 +2390,22 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         );
     }
 
-    assert!(state.lines().count() < 3_500);
+    let transaction = fs::read_to_string(transaction_adapter).unwrap();
+    for owned_responsibility in [
+        "struct StateApprovalTransactionPort",
+        "struct StateVerificationTransactionPort",
+        "struct StateTerminalActionTransactionPort",
+    ] {
+        assert!(
+            transaction.contains(owned_responsibility),
+            "state transaction adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+
+    assert!(state.lines().count() < 2_900);
     assert!(current_snapshot.lines().count() < 1_000);
     assert!(source_install.lines().count() < 1_000);
+    assert!(transaction.lines().count() < 700);
     assert!(workflow_store.lines().count() < 500);
     for test_module in state_test_modules {
         let tests = fs::read_to_string(test_module).unwrap();

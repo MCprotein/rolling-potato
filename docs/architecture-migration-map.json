@@ -3413,6 +3413,23 @@
       ]
     },
     {
+      "path": "src/app/workflow_adapter/state/transaction.rs",
+      "slices": [
+        {
+          "responsibility": "approval, verification, and terminal state transaction adapter",
+          "target": "src/app/workflow_adapter/state/transaction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/patch.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/workflow_adapter/state/workflow_store.rs",
       "slices": [
         {
@@ -5545,6 +5562,12 @@
       "path": "src/app/workflow_adapter/state/source_install.rs",
       "responsibilities": [
         "source installation filesystem transaction adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction.rs",
+      "responsibilities": [
+        "approval, verification, and terminal state transaction adapter"
       ]
     },
     {
