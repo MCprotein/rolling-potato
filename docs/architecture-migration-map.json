@@ -2483,6 +2483,7 @@
           "evidence": [
             "src/runtime_core/workflow/storage_compat/ledger.rs",
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/runtime_core/policy/redaction.rs",
             "src/adapters/sqlite/ledger_projection.rs",
             "src/app/workflow_adapter/ledger.rs",
             "src/app/workflow_adapter/ledger/tests.rs",
@@ -3572,6 +3573,23 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/policy/decision.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/redaction.rs",
+      "slices": [
+        {
+          "responsibility": "sensitive-value detection and deterministic text redaction policy",
+          "target": "src/runtime_core/policy/redaction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/policy/redaction.rs",
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6484,6 +6502,12 @@
       "path": "src/runtime_core/policy/decision.rs",
       "responsibilities": [
         "tool and capability policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/redaction.rs",
+      "responsibilities": [
+        "sensitive-value detection and deterministic text redaction policy"
       ]
     },
     {

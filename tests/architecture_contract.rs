@@ -1149,7 +1149,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         );
     }
     assert!(
-        ledger.lines().count() < 1_300,
+        ledger.lines().count() < 1_200,
         "ledger adapter regrew beyond its test extraction boundary"
     );
     assert!(
@@ -1668,6 +1668,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         "src/runtime_core/knowledge/ontology.rs",
         "src/runtime_core/policy/approval.rs",
         "src/runtime_core/policy/decision.rs",
+        "src/runtime_core/policy/redaction.rs",
     ];
     for target in owners {
         assert!(
@@ -1691,7 +1692,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         ),
         (
             "src/runtime_core/policy/mod.rs",
-            ["approval", "decision"].as_slice(),
+            ["approval", "decision", "redaction"].as_slice(),
         ),
     ] {
         let source = fs::read_to_string(module).unwrap();
@@ -1753,6 +1754,10 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
             ]
             .as_slice(),
         ),
+        (
+            "src/runtime_core/policy/redaction.rs",
+            ["fn contains_sensitive_text", "fn redact_text"].as_slice(),
+        ),
     ] {
         let source = fs::read_to_string(owner).unwrap();
         for rule in rules {
@@ -1774,6 +1779,20 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         policy_facade.contains("impl PathPolicyPort for ProjectPathPolicy"),
         "filesystem path policy is not composed through the consumer-owned port"
     );
+
+    let ledger_facade = fs::read_to_string("src/app/workflow_adapter/ledger.rs").unwrap();
+    assert!(
+        ledger_facade.contains(
+            "pub use crate::runtime_core::policy::redaction::{contains_sensitive_text, redact_text};"
+        ),
+        "ledger facade does not preserve the redaction API path"
+    );
+    for moved_rule in ["pub fn contains_sensitive_text", "pub fn redact_text"] {
+        assert!(
+            !ledger_facade.contains(moved_rule),
+            "ledger facade still owns policy redaction rule: {moved_rule}"
+        );
+    }
 
     for (facade, forbidden) in [
         ("src/app/approval_adapter.rs", "struct ApprovalRequest"),

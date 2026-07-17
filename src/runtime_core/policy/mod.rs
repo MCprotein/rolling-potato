@@ -2,3 +2,4 @@
 
 pub(crate) mod approval;
 pub(crate) mod decision;
+pub(crate) mod redaction;
