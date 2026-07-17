@@ -18,10 +18,9 @@ use crate::state;
 use crate::subagent;
 use crate::surfaces::cli::{
     command::{
-        BackendCommand, Command, EvidenceCommand, HooksCommand, IntentCommand, MonitorCommand,
-        OntologyCommand, PatchCommand, PluginCommand, PolicyCommand, PolicyPathMode,
-        SessionCommand, SkillCommand, StateCommand, SubagentCommand, TeamCommand, TuiCommand,
-        UninstallCommand,
+        Command, EvidenceCommand, HooksCommand, IntentCommand, MonitorCommand, OntologyCommand,
+        PatchCommand, PluginCommand, PolicyCommand, PolicyPathMode, SessionCommand, SkillCommand,
+        StateCommand, SubagentCommand, TeamCommand, TuiCommand, UninstallCommand,
     },
     render,
 };
@@ -55,6 +54,71 @@ impl inference::BenchmarkCommandPort for LegacyCommandDispatchPort {
         format: crate::surfaces::cli::command::BenchmarkReportFormat,
     ) -> Result<String, AppError> {
         benchmark::report_export(format)
+    }
+}
+
+impl inference::BackendCommandPort for LegacyCommandDispatchPort {
+    fn doctor_report(&mut self) -> String {
+        backend::doctor_report()
+    }
+
+    fn install_plan_report(&mut self) -> String {
+        backend::install_plan_report()
+    }
+
+    fn install_report(&mut self) -> Result<String, AppError> {
+        backend::install_report()
+    }
+
+    fn default_model_path(&mut self) -> Result<String, AppError> {
+        Ok(model::default_artifact_path()?.display().to_string())
+    }
+
+    fn start_report(
+        &mut self,
+        model_path: &str,
+        ctx_size: Option<u32>,
+    ) -> Result<String, AppError> {
+        backend::start_report(model_path, ctx_size)
+    }
+
+    fn status_report(&mut self) -> Result<String, AppError> {
+        backend::status_report()
+    }
+
+    fn stop_report(&mut self) -> Result<String, AppError> {
+        backend::stop_report()
+    }
+
+    fn cancel_generation_report(&mut self) -> Result<String, AppError> {
+        backend::cancel_generation_report()
+    }
+
+    fn verify_archive_report(&mut self, path: &str, sha256: &str) -> Result<String, AppError> {
+        backend::verify_archive_report(path, sha256)
+    }
+
+    fn health_check_report(&mut self) -> String {
+        backend::health_check_report()
+    }
+
+    fn chat_report(
+        &mut self,
+        prompt: &str,
+        max_tokens: Option<u32>,
+        timeout_ms: Option<u32>,
+    ) -> Result<String, AppError> {
+        backend::chat_report(prompt, max_tokens, timeout_ms)
+    }
+
+    fn chat_stream_report(
+        &mut self,
+        prompt: &str,
+        max_tokens: Option<u32>,
+        timeout_ms: Option<u32>,
+        writer: &mut impl std::io::Write,
+    ) -> Result<String, AppError> {
+        backend::chat_stream_report(prompt, max_tokens, timeout_ms, writer)
     }
 }
 
@@ -387,65 +451,12 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 println!("{}", patch::rotate_workflow_token_report(&proposal_id)?);
                 Ok(())
             }
-            Command::Backend(BackendCommand::Doctor) => {
-                println!("{}", backend::doctor_report());
-                Ok(())
-            }
-            Command::Backend(BackendCommand::InstallPlan) => {
-                println!("{}", backend::install_plan_report());
-                Ok(())
-            }
-            Command::Backend(BackendCommand::Install) => {
-                println!("{}", backend::install_report()?);
-                Ok(())
-            }
-            Command::Backend(BackendCommand::Start {
-                model_path,
-                ctx_size,
-            }) => {
-                let model_path = match model_path {
-                    Some(path) => path,
-                    None => model::default_artifact_path()?.display().to_string(),
-                };
-                println!("{}", backend::start_report(&model_path, ctx_size)?);
-                Ok(())
-            }
-            Command::Backend(BackendCommand::Status) => {
-                println!("{}", backend::status_report()?);
-                Ok(())
-            }
-            Command::Backend(BackendCommand::Stop) => {
-                println!("{}", backend::stop_report()?);
-                Ok(())
-            }
-            Command::Backend(BackendCommand::Cancel) => {
-                println!("{}", backend::cancel_generation_report()?);
-                Ok(())
-            }
-            Command::Backend(BackendCommand::VerifyArchive { path, sha256 }) => {
-                println!("{}", backend::verify_archive_report(&path, &sha256)?);
-                Ok(())
-            }
-            Command::Backend(BackendCommand::HealthCheck) => {
-                println!("{}", backend::health_check_report());
-                Ok(())
-            }
-            Command::Backend(BackendCommand::Chat {
-                prompt,
-                max_tokens,
-                stream,
-                timeout_ms,
-            }) => {
-                if stream {
-                    let stdout = std::io::stdout();
-                    let mut writer = stdout.lock();
-                    let report =
-                        backend::chat_stream_report(&prompt, max_tokens, timeout_ms, &mut writer)?;
-                    drop(writer);
-                    println!("{report}");
-                } else {
-                    println!("{}", backend::chat_report(&prompt, max_tokens, timeout_ms)?);
-                }
+            Command::Backend(command) => {
+                let stdout = std::io::stdout();
+                let mut writer = stdout.lock();
+                let output = inference::run_backend(command, self, &mut writer)?;
+                drop(writer);
+                emit_inference_output(output);
                 Ok(())
             }
             Command::CacheStatus => {

@@ -1,5 +1,9 @@
+use std::io::Write;
+
 use crate::foundation::error::AppError;
-use crate::surfaces::cli::command::{BenchmarkCommand, BenchmarkReportFormat, ModelCommand};
+use crate::surfaces::cli::command::{
+    BackendCommand, BenchmarkCommand, BenchmarkReportFormat, ModelCommand,
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum CommandOutput {
@@ -18,6 +22,33 @@ pub(crate) trait BenchmarkCommandPort {
         max_tokens: Option<u32>,
     ) -> Result<String, AppError>;
     fn report_export(&mut self, format: BenchmarkReportFormat) -> Result<String, AppError>;
+}
+
+pub(crate) trait BackendCommandPort {
+    fn doctor_report(&mut self) -> String;
+    fn install_plan_report(&mut self) -> String;
+    fn install_report(&mut self) -> Result<String, AppError>;
+    fn default_model_path(&mut self) -> Result<String, AppError>;
+    fn start_report(&mut self, model_path: &str, ctx_size: Option<u32>)
+        -> Result<String, AppError>;
+    fn status_report(&mut self) -> Result<String, AppError>;
+    fn stop_report(&mut self) -> Result<String, AppError>;
+    fn cancel_generation_report(&mut self) -> Result<String, AppError>;
+    fn verify_archive_report(&mut self, path: &str, sha256: &str) -> Result<String, AppError>;
+    fn health_check_report(&mut self) -> String;
+    fn chat_report(
+        &mut self,
+        prompt: &str,
+        max_tokens: Option<u32>,
+        timeout_ms: Option<u32>,
+    ) -> Result<String, AppError>;
+    fn chat_stream_report(
+        &mut self,
+        prompt: &str,
+        max_tokens: Option<u32>,
+        timeout_ms: Option<u32>,
+        writer: &mut impl Write,
+    ) -> Result<String, AppError>;
 }
 
 pub(crate) trait ModelCommandPort {
@@ -55,6 +86,48 @@ pub(crate) fn run_benchmark(
             .map(CommandOutput::Line),
         BenchmarkCommand::Report { format } => port.report_export(format).map(CommandOutput::Exact),
     }
+}
+
+pub(crate) fn run_backend(
+    command: BackendCommand,
+    port: &mut impl BackendCommandPort,
+    writer: &mut impl Write,
+) -> Result<CommandOutput, AppError> {
+    let report = match command {
+        BackendCommand::Doctor => port.doctor_report(),
+        BackendCommand::InstallPlan => port.install_plan_report(),
+        BackendCommand::Install => port.install_report()?,
+        BackendCommand::Start {
+            model_path,
+            ctx_size,
+        } => {
+            let model_path = match model_path {
+                Some(path) => path,
+                None => port.default_model_path()?,
+            };
+            port.start_report(&model_path, ctx_size)?
+        }
+        BackendCommand::Status => port.status_report()?,
+        BackendCommand::Stop => port.stop_report()?,
+        BackendCommand::Cancel => port.cancel_generation_report()?,
+        BackendCommand::VerifyArchive { path, sha256 } => {
+            port.verify_archive_report(&path, &sha256)?
+        }
+        BackendCommand::HealthCheck => port.health_check_report(),
+        BackendCommand::Chat {
+            prompt,
+            max_tokens,
+            stream,
+            timeout_ms,
+        } => {
+            if stream {
+                port.chat_stream_report(&prompt, max_tokens, timeout_ms, writer)?
+            } else {
+                port.chat_report(&prompt, max_tokens, timeout_ms)?
+            }
+        }
+    };
+    Ok(CommandOutput::Line(report))
 }
 
 pub(crate) fn run_model(
@@ -125,6 +198,85 @@ mod tests {
         fn report_export(&mut self, format: BenchmarkReportFormat) -> Result<String, AppError> {
             self.calls.push(Call::Report(format));
             Ok("export".to_owned())
+        }
+    }
+
+    #[derive(Default)]
+    struct RecordingBackendPort {
+        calls: Vec<String>,
+    }
+
+    impl BackendCommandPort for RecordingBackendPort {
+        fn doctor_report(&mut self) -> String {
+            unreachable!()
+        }
+
+        fn install_plan_report(&mut self) -> String {
+            unreachable!()
+        }
+
+        fn install_report(&mut self) -> Result<String, AppError> {
+            unreachable!()
+        }
+
+        fn default_model_path(&mut self) -> Result<String, AppError> {
+            self.calls.push("default-model".to_owned());
+            Ok("default.gguf".to_owned())
+        }
+
+        fn start_report(
+            &mut self,
+            model_path: &str,
+            ctx_size: Option<u32>,
+        ) -> Result<String, AppError> {
+            self.calls.push(format!("start:{model_path}:{ctx_size:?}"));
+            Ok("started".to_owned())
+        }
+
+        fn status_report(&mut self) -> Result<String, AppError> {
+            unreachable!()
+        }
+
+        fn stop_report(&mut self) -> Result<String, AppError> {
+            unreachable!()
+        }
+
+        fn cancel_generation_report(&mut self) -> Result<String, AppError> {
+            unreachable!()
+        }
+
+        fn verify_archive_report(
+            &mut self,
+            _path: &str,
+            _sha256: &str,
+        ) -> Result<String, AppError> {
+            unreachable!()
+        }
+
+        fn health_check_report(&mut self) -> String {
+            unreachable!()
+        }
+
+        fn chat_report(
+            &mut self,
+            _prompt: &str,
+            _max_tokens: Option<u32>,
+            _timeout_ms: Option<u32>,
+        ) -> Result<String, AppError> {
+            unreachable!()
+        }
+
+        fn chat_stream_report(
+            &mut self,
+            prompt: &str,
+            max_tokens: Option<u32>,
+            timeout_ms: Option<u32>,
+            writer: &mut impl Write,
+        ) -> Result<String, AppError> {
+            self.calls
+                .push(format!("stream:{prompt}:{max_tokens:?}:{timeout_ms:?}"));
+            writer.write_all(b"delta").unwrap();
+            Ok("streamed".to_owned())
         }
     }
 
@@ -236,6 +388,51 @@ mod tests {
 
         assert_eq!(output, CommandOutput::Exact("export".to_owned()));
         assert_eq!(port.calls, [Call::Report(BenchmarkReportFormat::Jsonl)]);
+    }
+
+    #[test]
+    fn backend_start_resolves_default_model_before_start() {
+        let mut port = RecordingBackendPort::default();
+        let mut writer = Vec::new();
+
+        let output = run_backend(
+            BackendCommand::Start {
+                model_path: None,
+                ctx_size: Some(4096),
+            },
+            &mut port,
+            &mut writer,
+        )
+        .unwrap();
+
+        assert_eq!(output, CommandOutput::Line("started".to_owned()));
+        assert_eq!(
+            port.calls,
+            ["default-model", "start:default.gguf:Some(4096)"]
+        );
+        assert!(writer.is_empty());
+    }
+
+    #[test]
+    fn backend_stream_writes_deltas_before_returning_summary() {
+        let mut port = RecordingBackendPort::default();
+        let mut writer = Vec::new();
+
+        let output = run_backend(
+            BackendCommand::Chat {
+                prompt: "hello".to_owned(),
+                max_tokens: Some(16),
+                stream: true,
+                timeout_ms: Some(500),
+            },
+            &mut port,
+            &mut writer,
+        )
+        .unwrap();
+
+        assert_eq!(writer, b"delta");
+        assert_eq!(output, CommandOutput::Line("streamed".to_owned()));
+        assert_eq!(port.calls, ["stream:hello:Some(16):Some(500)"]);
     }
 
     #[test]

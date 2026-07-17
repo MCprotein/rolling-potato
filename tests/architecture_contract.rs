@@ -2047,6 +2047,38 @@ fn v03713_composition_owns_model_command_orchestration() {
 }
 
 #[test]
+fn v03713_composition_owns_backend_command_orchestration() {
+    let composition = fs::read_to_string("src/composition/inference.rs").unwrap();
+    for definition in [
+        "trait BackendCommandPort",
+        "fn run_backend(",
+        "BackendCommand::Doctor",
+        "BackendCommand::Install",
+        "BackendCommand::Start",
+        "port.default_model_path()",
+        "BackendCommand::VerifyArchive",
+        "BackendCommand::Chat",
+        "port.chat_stream_report",
+        "port.chat_report",
+    ] {
+        assert!(
+            composition.contains(definition),
+            "inference composition owner is missing {definition}"
+        );
+    }
+    for forbidden in ["crate::backend", "crate::model", "crate::ledger"] {
+        assert!(
+            !composition.contains(forbidden),
+            "inference composition bypasses its backend port: {forbidden}"
+        );
+    }
+
+    let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
+    assert!(adapter.contains("impl inference::BackendCommandPort"));
+    assert!(adapter.contains("inference::run_backend(command, self, &mut writer)"));
+}
+
+#[test]
 fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
     for name in [
         "fake_sidecar.rs",
