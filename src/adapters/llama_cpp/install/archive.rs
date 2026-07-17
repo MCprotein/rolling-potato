@@ -1,4 +1,11 @@
-use super::*;
+use std::fs::{self, File};
+use std::io::{Read, Write};
+use std::path::Path;
+
+use crate::foundation::error::AppError;
+use crate::foundation::integrity as checksum;
+
+use super::{ArchiveDownloadStatus, BackendReleaseArtifact};
 
 pub(crate) fn download_archive(
     artifact: &BackendReleaseArtifact,
@@ -160,4 +167,13 @@ fn copy_reader_with_limit<R: Read, W: Write>(
         .flush()
         .map_err(|err| AppError::runtime(format!("backend archive flush 실패: {err}")))?;
     Ok(copied_bytes)
+}
+
+fn remove_file_if_exists(path: &Path) -> Result<(), AppError> {
+    if path.exists() {
+        fs::remove_file(path).map_err(|err| {
+            AppError::runtime(format!("file 삭제 실패: {} ({err})", path.display()))
+        })?;
+    }
+    Ok(())
 }

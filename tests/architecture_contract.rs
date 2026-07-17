@@ -668,7 +668,9 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
 
     let install_adapter = fs::read_to_string("src/adapters/llama_cpp/install.rs").unwrap();
     let install_archive = fs::read_to_string("src/adapters/llama_cpp/install/archive.rs").unwrap();
+    let install_payload = fs::read_to_string("src/adapters/llama_cpp/install/payload.rs").unwrap();
     assert!(install_adapter.lines().any(|line| line == "mod archive;"));
+    assert!(install_adapter.lines().any(|line| line == "mod payload;"));
     let install_orchestration = install_adapter
         .split("#[cfg(test)]")
         .next()
@@ -687,8 +689,28 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             "llama.cpp install orchestration still owns archive transfer: {responsibility}"
         );
     }
-    assert!(install_adapter.lines().count() < 800);
-    assert!(install_archive.lines().count() < 250);
+    for responsibility in [
+        "pub(crate) fn prepare_install(",
+        "pub(crate) fn cleanup_staging(",
+        "fn extract_archive(",
+        "fn find_extracted_binary(",
+        "fn collect_binary_matches(",
+        "fn place_managed_payload(",
+        "fn copy_release_tree(",
+        "pub(crate) fn set_executable_bit(",
+    ] {
+        assert!(
+            install_payload.contains(responsibility),
+            "llama.cpp install payload owner is missing: {responsibility}"
+        );
+        assert!(
+            !install_orchestration.contains(responsibility),
+            "llama.cpp install manifest/record adapter still owns payload placement: {responsibility}"
+        );
+    }
+    assert!(install_adapter.lines().count() < 425);
+    assert!(install_archive.lines().count() < 200);
+    assert!(install_payload.lines().count() < 375);
 
     let stream_adapter = fs::read_to_string("src/adapters/llama_cpp/stream.rs").unwrap();
     let stream_protocol = fs::read_to_string("src/adapters/llama_cpp/stream/protocol.rs").unwrap();
