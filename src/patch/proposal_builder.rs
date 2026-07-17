@@ -158,7 +158,10 @@ pub(super) fn write_proposal_record(preview: &PatchPreview) -> Result<(), AppErr
         return Err(AppError::blocked(format!("patch proposal 저장 차단\n- 이유: immutable proposal artifact가 이미 존재합니다.\n- path: {}", preview.proposal_path.display())));
     }
     let body = proposal_domain::render_record(preview);
-    state::atomic_replace_bytes(&preview.proposal_path, body.as_bytes())
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
+        &preview.proposal_path,
+        body.as_bytes(),
+    )
 }
 
 pub(super) fn issue_approval_token() -> Result<String, AppError> {

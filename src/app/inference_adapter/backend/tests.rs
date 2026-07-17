@@ -456,7 +456,7 @@ fn generation_start_does_not_delete_foreign_cancel_marker() {
     env::set_var("RPOTATO_DATA_HOME", root.join("data"));
     env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
     fs::create_dir_all(paths::state_dir()).unwrap();
-    state::atomic_replace_bytes(
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
         &backend_state::generation_cancel_path(),
         b"generation_id=another-generation\n",
     )

@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::adapters::filesystem::atomic_write::atomic_replace_bytes;
+
 pub(super) fn read_valid_current_for_transition() -> Result<Option<CurrentStateSnapshot>, AppError>
 {
     let path = paths::current_state_file();

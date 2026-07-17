@@ -1,4 +1,10 @@
 use super::*;
+use std::fs::{File, OpenOptions};
+use std::io::Read;
+
+use crate::adapters::filesystem::atomic_write::{replace_file, sync_parent};
+#[cfg(windows)]
+use crate::adapters::filesystem::windows_replace;
 
 pub(super) fn parse_current_state(
     body: &str,

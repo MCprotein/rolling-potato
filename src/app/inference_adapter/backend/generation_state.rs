@@ -124,7 +124,7 @@ pub(super) fn write_backend_generation_record(
 ) -> Result<(), AppError> {
     let path = backend_state::generation_record_path();
     let contents = render_generation_record(record);
-    state::atomic_replace_bytes(&path, contents.as_bytes())
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(&path, contents.as_bytes())
 }
 
 pub(super) fn generation_cancel_requested(generation_id: &str) -> Result<bool, AppError> {
@@ -147,7 +147,10 @@ pub(super) fn write_generation_cancel_marker(generation_id: &str) -> Result<(), 
         now_ms(),
         std::process::id()
     );
-    state::atomic_replace_bytes(&backend_state::generation_cancel_path(), marker.as_bytes())
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
+        &backend_state::generation_cancel_path(),
+        marker.as_bytes(),
+    )
 }
 
 pub(super) fn write_generation_terminal_record(
@@ -165,7 +168,7 @@ pub(super) fn write_generation_terminal_record(
         "generation_id={}\noutcome={}\nlifecycle_event={}\nrecorded_at_ms={}\n",
         record.generation_id, record.outcome, record.lifecycle_event, record.recorded_at_ms
     );
-    state::atomic_replace_bytes(
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
         &backend_state::generation_terminal_path(generation_id),
         contents.as_bytes(),
     )

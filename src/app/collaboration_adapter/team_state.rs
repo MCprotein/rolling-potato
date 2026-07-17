@@ -202,7 +202,10 @@ pub fn checkpoint_state(
     validate_state(&next, true)?;
     let body = render_state(&next);
     install_snapshot(&next, &body)?;
-    state::atomic_replace_bytes(&current_path, body.as_bytes())?;
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
+        &current_path,
+        body.as_bytes(),
+    )?;
     let installed = load_state_unlocked(&next.team_id)?;
     if installed != next {
         return Err(AppError::blocked("team canonical state install 검증 실패"));
@@ -397,7 +400,7 @@ fn install_cancel_marker(record: &TeamStateV1) -> Result<(), AppError> {
         ledger::json_string(&record.parent_workflow_id),
         now_ms()?,
     );
-    state::atomic_replace_bytes(&path, body.as_bytes())?;
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(&path, body.as_bytes())?;
     let installed = state::read_regular_file_bounded(
         &path,
         MAX_CANCEL_MARKER_BYTES,
@@ -462,7 +465,10 @@ fn install_manifest(manifest: &TeamManifestV1) -> Result<(), AppError> {
         }
         return Ok(());
     }
-    state::atomic_replace_bytes(&path, manifest.canonical_body.as_bytes())?;
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
+        &path,
+        manifest.canonical_body.as_bytes(),
+    )?;
     let installed = state::read_regular_file_bounded(&path, MAX_MANIFEST_BYTES, "team manifest")?;
     if installed != manifest.canonical_body
         || state::sha256_text(&installed) != manifest.artifact_hash
@@ -493,7 +499,7 @@ fn install_snapshot(record: &TeamStateV1, body: &str) -> Result<(), AppError> {
         }
         return Ok(());
     }
-    state::atomic_replace_bytes(&path, body.as_bytes())
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(&path, body.as_bytes())
 }
 
 fn verify_snapshot_chain(record: &TeamStateV1, current_body: &str) -> Result<(), AppError> {

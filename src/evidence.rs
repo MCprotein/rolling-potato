@@ -71,7 +71,7 @@ pub fn record_patch_verification(
             return Err(AppError::blocked("verification evidence 충돌\n- 이유: deterministic evidence id에 다른 artifact가 존재합니다."));
         }
     } else {
-        state::atomic_replace_bytes(&path, body.as_bytes())?;
+        crate::adapters::filesystem::atomic_write::atomic_replace_bytes(&path, body.as_bytes())?;
     }
     evidence_fault("after-artifact")?;
     let runtime_line = format!(

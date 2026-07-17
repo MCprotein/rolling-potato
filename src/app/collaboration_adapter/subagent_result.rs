@@ -258,7 +258,7 @@ fn install_exact_artifact(path: &std::path::Path, body: &str, label: &str) -> Re
         }
         return Ok(());
     }
-    state::atomic_replace_bytes(path, body.as_bytes())
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(path, body.as_bytes())
 }
 
 #[cfg(test)]

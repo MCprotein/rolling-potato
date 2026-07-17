@@ -99,7 +99,7 @@ fn rebuild_operation_log_from_events(events: &[ParsedLedgerEvent]) -> Result<(),
     } else {
         format!("{body}\n")
     };
-    crate::app::workflow_adapter::state::atomic_replace_bytes(
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
         &paths::operation_log_file(),
         body.as_bytes(),
     )
@@ -126,7 +126,7 @@ fn rebuild_project_ledger_from_events(
             preserve_corrupt_ledger_file(&ledger_head_path(path))?;
         }
     }
-    crate::app::workflow_adapter::state::atomic_replace_bytes(path, body.as_bytes())?;
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(path, body.as_bytes())?;
     write_ledger_head(path, events.len(), last_hash.as_deref().unwrap_or("root"))
 }
 

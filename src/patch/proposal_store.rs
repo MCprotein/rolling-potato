@@ -234,7 +234,10 @@ fn parse_proposal_record_contents(
     )? {
         RecordParse::Canonical(record) => Ok(*record),
         RecordParse::LegacyMigration { scrubbed } => {
-            state::atomic_replace_bytes(proposal_path, scrubbed.as_bytes())?;
+            crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
+                proposal_path,
+                scrubbed.as_bytes(),
+            )?;
             Err(AppError::blocked(
                 "legacy proposal migration 완료\n- plaintext token을 hash-only로 atomic scrub했습니다.\n- 동작: 기존 binding은 폐기하고 canonical workflow preview를 다시 생성하세요.",
             ))

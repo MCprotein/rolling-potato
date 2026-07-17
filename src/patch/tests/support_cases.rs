@@ -74,7 +74,11 @@ fn rollback_preserves_concurrent_user_edit() {
     .unwrap();
     fs::write(&target, &record.proposed_content).unwrap();
     let rollback_path = rollback_path_for_record(&record).unwrap();
-    state::atomic_replace_bytes(&rollback_path, b"pub const X: i32 = 1;\n").unwrap();
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
+        &rollback_path,
+        b"pub const X: i32 = 1;\n",
+    )
+    .unwrap();
     fs::write(&target, "pub const X: i32 = 99;\n").unwrap();
 
     let result = restore_from_rollback(&record, &rollback_path);

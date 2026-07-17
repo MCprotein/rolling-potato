@@ -152,7 +152,11 @@ pub fn record_workflow_turn_with_streams(
             };
             validate_tool_binding_for_record(&record)?;
             record.artifact_hash = state::sha256_text(&record.artifact_payload());
-            transcript_codec::install_record(&path, &record, state::atomic_replace_bytes)?;
+            transcript_codec::install_record(
+                &path,
+                &record,
+                crate::adapters::filesystem::atomic_write::atomic_replace_bytes,
+            )?;
             record
         }
     };

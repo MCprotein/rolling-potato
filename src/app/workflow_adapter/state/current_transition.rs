@@ -1,4 +1,7 @@
 use super::*;
+use std::fs::OpenOptions;
+
+use crate::adapters::filesystem::atomic_write::{atomic_replace_bytes, sync_parent};
 
 pub(crate) fn prepare_current_image(
     workflow: &WorkflowRecord,

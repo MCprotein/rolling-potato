@@ -230,7 +230,11 @@ fn transcript_v2_tool_binding_strict_round_trip() {
     )
     .unwrap();
     let legacy_bytes = legacy.to_json();
-    state::atomic_replace_bytes(&legacy_path, legacy_bytes.as_bytes()).unwrap();
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
+        &legacy_path,
+        legacy_bytes.as_bytes(),
+    )
+    .unwrap();
     let retried =
         record_workflow_turn(&workflow, "tool", legacy_causal, "legacy result", &[]).unwrap();
     assert_eq!(retried.schema_version, TRANSCRIPT_SCHEMA_V1);

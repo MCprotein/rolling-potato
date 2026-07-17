@@ -332,7 +332,7 @@ pub(super) fn write_ledger_head(path: &Path, count: usize, hash: &str) -> Result
     let body = format!(
         "{{\"schema_version\":1,\"event_count\":{count},\"last_event_hash\":\"{hash}\"}}\n"
     );
-    crate::app::workflow_adapter::state::atomic_replace_bytes(
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
         &ledger_head_path(path),
         body.as_bytes(),
     )

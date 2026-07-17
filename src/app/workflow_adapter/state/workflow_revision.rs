@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::adapters::filesystem::atomic_write::atomic_replace_bytes;
+
 pub(crate) struct WorkflowCheckpointGuard {
     workflow_id: String,
     _lease: lease::RecoverableLease,

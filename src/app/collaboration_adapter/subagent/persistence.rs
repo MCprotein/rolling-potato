@@ -118,7 +118,10 @@ pub fn checkpoint_record(
     validate_record(&next, true)?;
     let body = render_record(&next);
     install_snapshot(&next, &body)?;
-    state::atomic_replace_bytes(&current_path, body.as_bytes())?;
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
+        &current_path,
+        body.as_bytes(),
+    )?;
     let installed = load_record_unlocked(&next.subagent_id)?;
     if installed != next {
         return Err(AppError::blocked(
@@ -262,7 +265,7 @@ fn install_snapshot(record: &SubagentRecordV1, body: &str) -> Result<(), AppErro
         }
         return Ok(());
     }
-    state::atomic_replace_bytes(&path, body.as_bytes())
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(&path, body.as_bytes())
 }
 
 fn verify_snapshot_chain(record: &SubagentRecordV1, current_body: &str) -> Result<(), AppError> {

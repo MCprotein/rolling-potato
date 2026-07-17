@@ -1,5 +1,45 @@
 use super::*;
 
+use crate::adapters::filesystem::atomic_write::atomic_replace_bytes;
+
+#[test]
+fn atomic_replace_creates_parent_and_replaces_existing_bytes() {
+    let root = workflow_test_root("atomic-replace");
+    let target = root.join("nested/artifact.json");
+
+    atomic_replace_bytes(&target, b"first").unwrap();
+    assert_eq!(fs::read(&target).unwrap(), b"first");
+
+    atomic_replace_bytes(&target, b"second").unwrap();
+    assert_eq!(fs::read(&target).unwrap(), b"second");
+    assert_eq!(
+        fs::read_dir(target.parent().unwrap()).unwrap().count(),
+        1,
+        "atomic replacement must not leave temporary files behind"
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[cfg(unix)]
+#[test]
+fn atomic_replace_preserves_existing_permissions() {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+    let root = workflow_test_root("atomic-permissions");
+    fs::create_dir_all(&root).unwrap();
+    let target = root.join("artifact.json");
+    fs::write(&target, b"first").unwrap();
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o640)).unwrap();
+
+    atomic_replace_bytes(&target, b"second").unwrap();
+
+    assert_eq!(fs::read(&target).unwrap(), b"second");
+    assert_eq!(fs::metadata(&target).unwrap().mode() & 0o777, 0o640);
+
+    let _ = fs::remove_dir_all(root);
+}
+
 #[cfg(windows)]
 #[test]
 fn atomic_replace_supports_long_new_and_existing_windows_targets() {

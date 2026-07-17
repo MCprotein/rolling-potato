@@ -233,7 +233,7 @@ pub(crate) fn install_prepared_no_stream_tool_turn(
         let installed_bytes = transcript_codec::install_record(
             &prepared.transcript_path,
             &prepared.record,
-            state::atomic_replace_bytes,
+            crate::adapters::filesystem::atomic_write::atomic_replace_bytes,
         )?;
         let record = load_record_path(&prepared.transcript_path)?;
         if installed_bytes != prepared.transcript_bytes
@@ -338,7 +338,7 @@ fn install_exact_artifact(path: &Path, bytes: &str) -> Result<(), AppError> {
         }
         return Err(AppError::blocked("prepared artifact immutable conflict"));
     }
-    state::atomic_replace_bytes(path, bytes.as_bytes())
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(path, bytes.as_bytes())
 }
 
 pub(crate) fn tool_output_view_from_canonical_record(
@@ -507,7 +507,7 @@ pub(super) fn record_tool_output_artifact(
             "SanitizedToolOutputArtifact canonical byte limit 초과",
         ));
     }
-    state::atomic_replace_bytes(&path, body.as_bytes())?;
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(&path, body.as_bytes())?;
     Ok(artifact.binding())
 }
 

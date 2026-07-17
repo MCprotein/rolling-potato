@@ -51,7 +51,10 @@ pub fn set_default_report(id: &str) -> Result<String, AppError> {
         selected_at_ms: now_ms_u64(),
     };
     let body = render_default_selection(&selection);
-    state::atomic_replace_bytes(&model_artifact::paths().default_file, body.as_bytes())?;
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
+        &model_artifact::paths().default_file,
+        body.as_bytes(),
+    )?;
     let event_id = state::record_event(
         "model.default.selected",
         "기본 모델 선택 완료",

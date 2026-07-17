@@ -1,5 +1,8 @@
 use super::*;
 
+#[cfg(unix)]
+use std::fs::File;
+
 #[cfg(not(unix))]
 pub(crate) fn install_prepared_source_bundle(
     _bundle: &transition::PreparedSourceBundle,

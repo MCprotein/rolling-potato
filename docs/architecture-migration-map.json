@@ -2836,6 +2836,22 @@
       ]
     },
     {
+      "path": "src/adapters/filesystem/atomic_write.rs",
+      "slices": [
+        {
+          "responsibility": "durable atomic file replacement and parent synchronization",
+          "target": "src/adapters/filesystem/atomic_write.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/atomic_write.rs",
+            "src/app/workflow_adapter/state/tests/workflow_store.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/filesystem/backend_state.rs",
       "slices": [
         {
@@ -6570,6 +6586,12 @@
       "path": "src/adapters/filesystem/uninstall.rs",
       "responsibilities": [
         "managed uninstall path discovery"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/atomic_write.rs",
+      "responsibilities": [
+        "durable atomic file replacement and parent synchronization"
       ]
     },
     {

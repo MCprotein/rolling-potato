@@ -507,6 +507,7 @@ fn v0372_foundation_owners_replace_legacy_modules() {
 #[test]
 fn v0372_filesystem_owners_replace_legacy_modules() {
     for target in [
+        "src/adapters/filesystem/atomic_write.rs",
         "src/adapters/filesystem/cache.rs",
         "src/adapters/filesystem/config.rs",
         "src/adapters/filesystem/layout.rs",
@@ -543,7 +544,14 @@ fn v0372_filesystem_owners_replace_legacy_modules() {
     }
 
     let filesystem = fs::read_to_string("src/adapters/filesystem/mod.rs").unwrap();
-    for owner in ["cache", "config", "layout", "lease", "windows_replace"] {
+    for owner in [
+        "atomic_write",
+        "cache",
+        "config",
+        "layout",
+        "lease",
+        "windows_replace",
+    ] {
         let expected = format!("pub(crate) mod {owner};");
         assert!(
             filesystem.lines().any(|line| line == expected),
@@ -4023,6 +4031,7 @@ fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
 
 #[test]
 fn v03713_state_adapter_separates_persistence_responsibilities() {
+    let atomic_write_adapter = "src/adapters/filesystem/atomic_write.rs";
     let state_adapter = "src/app/workflow_adapter/state.rs";
     let current_snapshot_adapter = "src/app/workflow_adapter/state/current_snapshot.rs";
     let current_transition_adapter = "src/app/workflow_adapter/state/current_transition.rs";
@@ -4040,6 +4049,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         "src/app/workflow_adapter/state/tests/source_install.rs",
         "src/app/workflow_adapter/state/tests/workflow_store.rs",
     ];
+    assert!(Path::new(atomic_write_adapter).is_file());
     assert!(Path::new(state_adapter).is_file());
     assert!(Path::new(current_snapshot_adapter).is_file());
     assert!(Path::new(current_transition_adapter).is_file());
@@ -4083,10 +4093,23 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         "fn build_prepared_workflow_revision(",
         "struct StateWorkflowRecoveryPort",
         "fn validate_workflow_chain(",
+        "pub(crate) fn atomic_replace_bytes(",
     ] {
         assert!(
             !state.contains(escaped_responsibility),
             "state child responsibility escaped into parent adapter: {escaped_responsibility}"
+        );
+    }
+
+    let atomic_write = fs::read_to_string(atomic_write_adapter).unwrap();
+    for owned_responsibility in [
+        "pub(crate) fn atomic_replace_bytes(",
+        "pub(crate) fn replace_file(",
+        "pub(crate) fn sync_parent(",
+    ] {
+        assert!(
+            atomic_write.contains(owned_responsibility),
+            "atomic write adapter is missing responsibility: {owned_responsibility}"
         );
     }
 

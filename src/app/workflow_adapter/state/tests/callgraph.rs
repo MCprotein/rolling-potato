@@ -2,6 +2,18 @@ use super::*;
 
 #[test]
 fn state_writer_callgraph_is_closed_and_serialized_by_project_transition() {
+    fn collect_rust_files(directory: &std::path::Path, files: &mut Vec<PathBuf>) {
+        for entry in fs::read_dir(directory).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if entry.file_type().unwrap().is_dir() {
+                collect_rust_files(&path, files);
+            } else if path.extension().and_then(|value| value.to_str()) == Some("rs") {
+                files.push(path);
+            }
+        }
+    }
+
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let root = std::env::temp_dir().join(format!(
         "rpotato-current-writer-transition-{}-{}",
@@ -40,10 +52,23 @@ fn state_writer_callgraph_is_closed_and_serialized_by_project_transition() {
         .split("\n#[cfg(test)]\nmod tests {")
         .next()
         .unwrap();
-    let patch_source = include_str!("../../../../patch.rs")
-        .split("\n#[cfg(test)]\nmod tests {")
-        .next()
-        .unwrap();
+    let source_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut patch_files = vec![source_dir.join("patch.rs")];
+    collect_rust_files(&source_dir.join("patch"), &mut patch_files);
+    let patch_tests = source_dir.join("patch/tests");
+    patch_files.retain(|path| !path.starts_with(&patch_tests));
+    let patch_source = patch_files
+        .into_iter()
+        .map(|path| {
+            fs::read_to_string(path)
+                .unwrap()
+                .split("\n#[cfg(test)]\nmod tests {")
+                .next()
+                .unwrap()
+                .to_string()
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(!source.contains("pub fn write_current_state("));
     assert!(!source.contains("pub(crate) fn write_current_state("));
     assert!(!source.contains("pub fn write_current_state_for_session("));
@@ -56,19 +81,6 @@ fn state_writer_callgraph_is_closed_and_serialized_by_project_transition() {
     assert!(!patch_source.contains("state::install_current_image("));
     assert!(!patch_source.contains("paths::current_state_file()"));
 
-    fn collect_rust_files(directory: &std::path::Path, files: &mut Vec<PathBuf>) {
-        for entry in fs::read_dir(directory).unwrap() {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if entry.file_type().unwrap().is_dir() {
-                collect_rust_files(&path, files);
-            } else if path.extension().and_then(|value| value.to_str()) == Some("rs") {
-                files.push(path);
-            }
-        }
-    }
-
-    let source_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
     let state_adapter = source_dir.join("app/workflow_adapter/state.rs");
     let state_children = source_dir.join("app/workflow_adapter/state");
     let recovery_owner = source_dir.join("runtime_core/workflow/application/recovery.rs");

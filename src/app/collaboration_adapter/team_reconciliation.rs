@@ -407,7 +407,7 @@ fn install_reconciliation(team_id: &str, body: &str) -> Result<(), AppError> {
         }
         return Ok(());
     }
-    state::atomic_replace_bytes(&path, body.as_bytes())
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(&path, body.as_bytes())
 }
 
 fn append_event_once(
