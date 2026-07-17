@@ -1,5 +1,42 @@
 # Release Notes
 
+## v0.37.14 - Windows Release Recovery
+
+Release date: 2026-07-18
+
+This patch supersedes the incomplete v0.37.13 binary publication. The
+v0.37.13 source tag remains immutable, but its Windows release preflight found
+that two Unix-only source-install functions were imported into the Windows test
+binary after the architecture ownership migration.
+
+### Fixed
+
+- Gates the source-recovery test import on both `test` and `unix`.
+- Gates the Unix-only initial source-install admission re-export on `unix`,
+  while preserving the existing unsupported-platform behavior on Windows.
+- Expands the manually dispatched Windows targeted workflow to compile and run
+  the same four backend lifecycle slices used by the release job.
+- Locks those Windows preflight commands into the release workflow contract so
+  a narrower targeted workflow cannot silently omit the release compile
+  surface again.
+
+### Targeted Verification
+
+- [Failed v0.37.13 release run 29603744149](https://github.com/MCprotein/rolling-potato/actions/runs/29603744149)
+  recorded the Windows `E0432` import failure, preserved the release branch, and
+  skipped aggregate checksum and branch-cleanup jobs.
+- [Windows targeted run 29604380487](https://github.com/MCprotein/rolling-potato/actions/runs/29604380487)
+  passed the four Windows release-preflight slices plus the native terminal
+  lifecycle, while both macOS native jobs also passed.
+
+### Compatibility Boundary
+
+- CLI behavior, durable bytes, runtime ordering, dependencies, and the completed
+  v0.37.x ownership migration remain unchanged.
+- v0.37.13 remains immutable source history, but its eight non-Windows assets
+  are not a supported release set. v0.37.14 is the supported replacement and
+  must publish the verified exact 11-asset set.
+
 ## v0.37.13 - Complete Architecture Ownership Migration
 
 Release date: 2026-07-18

@@ -1,5 +1,41 @@
 # 릴리즈 노트
 
+## v0.37.14 - Windows 릴리즈 복구
+
+릴리즈 날짜: 2026-07-18
+
+이 patch는 완결되지 못한 v0.37.13 binary publication을 대체합니다.
+v0.37.13 source tag는 immutable하게 유지하지만, architecture ownership
+migration 이후 Unix 전용 source-install 함수 두 개를 Windows test binary가
+import하는 문제가 Windows release preflight에서 드러났습니다.
+
+### 수정한 것
+
+- Source-recovery test import를 `test`와 `unix` 조건에 함께 제한
+- Unix 전용 initial source-install admission re-export를 `unix`로 제한하면서
+  Windows의 기존 unsupported-platform 동작은 유지
+- 수동 실행 Windows targeted workflow가 release job과 같은 backend lifecycle
+  4개 slice를 compile하고 실행하도록 확장
+- Targeted workflow가 release compile surface를 다시 누락하지 못하도록 해당
+  Windows preflight command를 release workflow contract에 고정
+
+### Targeted 검증
+
+- [실패한 v0.37.13 release run 29603744149](https://github.com/MCprotein/rolling-potato/actions/runs/29603744149)는
+  Windows `E0432` import 실패를 기록하고 release branch를 보존했으며 aggregate
+  checksum과 branch cleanup job을 실행하지 않았습니다.
+- [Windows targeted run 29604380487](https://github.com/MCprotein/rolling-potato/actions/runs/29604380487)는
+  Windows release preflight 4개 slice와 native terminal lifecycle을 통과했고,
+  macOS native job 두 개도 함께 통과했습니다.
+
+### 호환성 경계
+
+- CLI 동작, durable byte, runtime ordering, dependency, 완료된 v0.37.x ownership
+  migration은 변경하지 않음
+- v0.37.13은 immutable source history로 유지하지만 8개 non-Windows asset은
+  지원 release set이 아닙니다. v0.37.14를 지원 replacement로 삼고 검증된 exact
+  11-asset set을 게시합니다.
+
 ## v0.37.13 - 전체 Architecture Ownership Migration
 
 릴리즈 날짜: 2026-07-18

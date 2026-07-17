@@ -7,6 +7,7 @@ fail() {
 }
 
 release_workflow=".github/workflows/release-binaries.yml"
+windows_targeted_workflow=".github/workflows/windows-native-targeted.yml"
 policy_workflow=".github/workflows/release-policy.yml"
 candidate_workflow=".github/workflows/refactor-candidate.yml"
 checkout_pin='actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0'
@@ -18,6 +19,21 @@ job_block() {
     active && $0 ~ /^  [A-Za-z0-9_-]+:$/ && $0 != "  " job ":" { exit }
     active { print }
   ' "$release_workflow"
+}
+
+step_block() {
+  local workflow="$1"
+  local step="$2"
+  awk -v step="$step" '
+    $0 == "      - name: " step { active = 1 }
+    active && $0 ~ /^      - name: / && $0 != "      - name: " step { exit }
+    active { print }
+  ' "$workflow"
+}
+
+windows_preflight_commands() {
+  sed -n 's/^[[:space:]]*\(cargo test --locked --target .*\)$/\1/p' \
+    | sed 's/\${{ matrix.target }}/x86_64-pc-windows-msvc/g'
 }
 
 require_line() {
@@ -49,6 +65,18 @@ require_line "$candidate_body" '            exit 1'
 require_line "$candidate_body" '        run: cargo test --locked -- --test-threads=1'
 require_line "$candidate_body" '        run: cargo clippy --locked --all-targets --all-features -- -D warnings'
 require_line "$candidate_body" '        run: cargo build --locked --release'
+release_windows_preflight="$(
+  step_block "$release_workflow" "Test native Windows backend lifecycle" \
+    | windows_preflight_commands
+)"
+targeted_windows_preflight="$(
+  step_block "$windows_targeted_workflow" "Test backend lifecycle" \
+    | windows_preflight_commands
+)"
+[ "$(printf '%s\n' "$release_windows_preflight" | awk 'NF { count++ } END { print count + 0 }')" -eq 4 ] \
+  || fail "release Windows preflight must contain exactly four cargo test commands"
+[ "$targeted_windows_preflight" = "$release_windows_preflight" ] \
+  || fail "targeted Windows preflight must exactly match the release workflow"
 require_line "$policy_body" 'RPOTATO_RELEASE_BASE_REF: ${{ github.event_name == '\''pull_request'\'' && format('\''origin/{0}'\'', github.base_ref) || '\'''\'' }}'
 require_line "$policy_body" 'RPOTATO_REQUIRE_RELEASE_BRANCH: ${{ github.event_name == '\''pull_request'\'' && '\''auto'\'' || '\''0'\'' }}'
 require_line "$policy_body" 'RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS: ${{ github.ref_type == '\''tag'\'' && '\''1'\'' || '\''0'\'' }}'
