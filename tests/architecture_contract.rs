@@ -1962,9 +1962,14 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
     }
 
     let app = fs::read_to_string("src/app.rs").unwrap();
-    assert!(app.contains("impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort"));
+    assert!(app.contains("dispatch::run(args"));
     assert!(!app.contains("parser::parse(args)"));
     assert!(!app.contains("recover_pending_source_bundles()?"));
+    assert!(!app.contains("match command"));
+
+    let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
+    assert!(adapter.contains("impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort"));
+    assert!(adapter.contains("match command"));
 }
 
 #[test]

@@ -1719,10 +1719,28 @@
           "responsibility": "top-level command dispatch",
           "target": "src/composition/dispatch.rs",
           "release": "0.37.13",
-          "state": "migrating",
+          "state": "complete",
           "evidence": [
             "src/composition/dispatch.rs",
             "src/app.rs",
+            "src/app/legacy_dispatch.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/legacy_dispatch.rs",
+      "slices": [
+        {
+          "responsibility": "legacy CLI command handler adapter",
+          "target": "src/app/legacy_dispatch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/dispatch.rs",
+            "src/app.rs",
+            "src/app/legacy_dispatch.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4709,6 +4727,12 @@
       "path": "src/app.rs",
       "responsibilities": [
         "top-level command dispatch"
+      ]
+    },
+    {
+      "path": "src/app/legacy_dispatch.rs",
+      "responsibilities": [
+        "legacy CLI command handler adapter"
       ]
     },
     {
