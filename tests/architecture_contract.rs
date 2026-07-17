@@ -1538,6 +1538,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
 #[test]
 fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_policy() {
     let subagent_adapter = "src/app/collaboration_adapter/subagent.rs";
+    let team_execution_adapter = "src/app/collaboration_adapter/team_execution.rs";
     let team_state_adapter = "src/app/collaboration_adapter/team_state.rs";
     let owners: &[(&str, &[&str])] = &[
         (
@@ -1679,8 +1680,8 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         ("src/team.rs", "fn policy_preflight"),
         ("src/team.rs", "fn ownership_preflight"),
         ("src/team.rs", "fn admission_summary"),
-        ("src/team_execution.rs", "fn pressure_from_status"),
-        ("src/team_execution.rs", "fn record_matches_team"),
+        (team_execution_adapter, "fn pressure_from_status"),
+        (team_execution_adapter, "fn record_matches_team"),
         ("src/team_reconciliation.rs", "fn validate_team_binding"),
         ("src/team_reconciliation.rs", "fn validate_member_record"),
         (team_state_adapter, "pub enum TeamStage"),
@@ -1702,7 +1703,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
             "result_policy::parse_result_shape",
         ),
         ("src/team.rs", "collaboration::team"),
-        ("src/team_execution.rs", "validate_execution_binding"),
+        (team_execution_adapter, "validate_execution_binding"),
         (
             "src/team_reconciliation.rs",
             "validate_reconciliation_binding",
@@ -1720,7 +1721,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         (subagent_adapter, 2_400),
         ("src/app/collaboration_adapter/subagent_result.rs", 800),
         ("src/team.rs", 1_400),
-        ("src/team_execution.rs", 1_300),
+        (team_execution_adapter, 1_300),
         ("src/team_reconciliation.rs", 550),
         (team_state_adapter, 850),
     ] {
@@ -1731,21 +1732,30 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         );
     }
 
-    for legacy in ["src/subagent.rs", "src/team_state.rs"] {
+    for legacy in [
+        "src/subagent.rs",
+        "src/team_execution.rs",
+        "src/team_state.rs",
+    ] {
         assert!(
             !Path::new(legacy).exists(),
             "legacy collaboration root was restored: {legacy}"
         );
     }
     let main = fs::read_to_string("src/main.rs").unwrap();
-    for legacy_mod in ["mod subagent;", "mod team_state;", "pub mod team_state;"] {
+    for legacy_mod in [
+        "mod subagent;",
+        "mod team_execution;",
+        "mod team_state;",
+        "pub mod team_state;",
+    ] {
         assert!(
             !main.lines().any(|line| line == legacy_mod),
             "legacy collaboration root remains registered: {legacy_mod}"
         );
     }
     let adapter_mod = fs::read_to_string("src/app/collaboration_adapter.rs").unwrap();
-    for child in ["subagent", "team_state"] {
+    for child in ["subagent", "team_execution", "team_state"] {
         let expected = format!("pub(crate) mod {child};");
         assert!(
             adapter_mod.lines().any(|line| line == expected),

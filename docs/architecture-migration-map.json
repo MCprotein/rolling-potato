@@ -1792,6 +1792,7 @@
             "src/app/collaboration_adapter.rs",
             "src/app/collaboration_adapter/subagent.rs",
             "src/app/collaboration_adapter/subagent_result.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
             "src/app/collaboration_adapter/team_state.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2713,7 +2714,7 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_execution.rs",
-            "src/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
             "tests/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3644,16 +3645,16 @@
       ]
     },
     {
-      "path": "src/team_execution.rs",
+      "path": "src/app/collaboration_adapter/team_execution.rs",
       "slices": [
         {
-          "responsibility": "team lane execution",
-          "target": "src/runtime_core/collaboration/team_execution.rs",
-          "release": "0.37.12",
+          "responsibility": "team lane execution adapter",
+          "target": "src/app/collaboration_adapter/team_execution.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_execution.rs",
-            "src/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
             "tests/collaboration/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -5531,9 +5532,9 @@
       ]
     },
     {
-      "path": "src/team_execution.rs",
+      "path": "src/app/collaboration_adapter/team_execution.rs",
       "responsibilities": [
-        "team lane execution"
+        "team lane execution adapter"
       ]
     },
     {

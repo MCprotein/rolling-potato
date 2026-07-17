@@ -13,7 +13,6 @@ mod runtime_core;
 mod state;
 mod surfaces;
 mod team;
-mod team_execution;
 mod team_reconciliation;
 #[cfg(test)]
 #[path = "../tests/support/runtime_fixture.rs"]
