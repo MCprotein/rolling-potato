@@ -3750,6 +3750,10 @@ fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
 
 #[test]
 fn v03713_tui_bridge_owns_read_and_selection_dtos() {
+    let tui_adapter = "src/tui.rs";
+    let tui_tests = "src/tui/tests.rs";
+    assert!(Path::new(tui_tests).is_file());
+
     let bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
     for definition in [
         "struct TuiReadBudget",
@@ -3804,7 +3808,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     for legacy_owner in [
         "src/patch.rs",
         "src/app/workflow_adapter/state.rs",
-        "src/tui.rs",
+        tui_adapter,
     ] {
         let source = fs::read_to_string(legacy_owner).unwrap();
         for facade_type in [
@@ -3878,9 +3882,10 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             "TUI view-model owner is missing {definition}"
         );
     }
-    let legacy_tui = fs::read_to_string("src/tui.rs").unwrap();
+    let legacy_tui = fs::read_to_string(tui_adapter).unwrap();
+    let tui_test_source = fs::read_to_string(tui_tests).unwrap();
     let report_composition = fs::read_to_string("src/tui/report_composition.rs").unwrap();
-    assert!(legacy_tui.contains("surfaces::tui::view_model"));
+    assert!(tui_test_source.contains("surfaces::tui::view_model"));
     assert!(legacy_tui.contains("impl TuiActionPort for LegacyTuiActionPort"));
     assert!(legacy_tui.contains("impl TuiReadPort for LegacyTuiReadPort"));
     assert!(
@@ -3889,6 +3894,26 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             .any(|line| line == "mod report_composition;"),
         "TUI adapter does not register report composition owner"
     );
+    assert!(
+        legacy_tui.contains("#[path = \"tui/tests.rs\"]"),
+        "TUI adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn interactive_view_change_resets_page_and_updates_notice(",
+        "fn one_shot_outcome_writes_secret_once_without_storing_it_in_notice(",
+        "fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection(",
+        "fn approvals_renders_team_admission_request(",
+        "fn evidence_renders_stop_gate_status_without_mutating(",
+    ] {
+        assert!(
+            tui_test_source.contains(regression),
+            "TUI regression owner is missing: {regression}"
+        );
+        assert!(
+            !legacy_tui.contains(regression),
+            "TUI adapter still owns regression test: {regression}"
+        );
+    }
     assert!(!legacy_tui.contains("enum InteractiveView"));
     assert!(!legacy_tui.contains("struct InteractiveState"));
     for responsibility in [
@@ -3910,8 +3935,12 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         );
     }
     assert!(
-        legacy_tui.lines().count() < 850,
+        legacy_tui.lines().count() < 350,
         "legacy TUI adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        tui_test_source.lines().count() < 550,
+        "TUI regression module regrew beyond its ownership boundary"
     );
     assert!(
         report_composition.lines().count() < 250,

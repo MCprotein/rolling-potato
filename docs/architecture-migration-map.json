@@ -4774,6 +4774,7 @@
           "evidence": [
             "src/surfaces/tui/controller.rs",
             "src/tui.rs",
+            "src/tui/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4884,6 +4885,7 @@
           "evidence": [
             "src/surfaces/tui/view_model.rs",
             "src/tui.rs",
+            "src/tui/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5253,6 +5255,24 @@
             "src/surfaces/tui/render.rs",
             "src/surfaces/tui/report_render.rs",
             "src/tui.rs",
+            "src/tui/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/tui/tests.rs",
+      "slices": [
+        {
+          "responsibility": "TUI adapter, controller, rendering, and one-shot report regression tests",
+          "target": "src/tui/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/tui.rs",
+            "src/tui/report_composition.rs",
+            "src/tui/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7569,6 +7589,12 @@
         "TUI controller and input",
         "TUI view models",
         "TUI rendering"
+      ]
+    },
+    {
+      "path": "src/tui/tests.rs",
+      "responsibilities": [
+        "TUI adapter, controller, rendering, and one-shot report regression tests"
       ]
     },
     {
