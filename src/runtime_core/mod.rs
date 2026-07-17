@@ -11,4 +11,5 @@ pub(crate) mod observability;
 pub(crate) mod patch;
 pub(crate) mod policy;
 pub(crate) mod reporting;
+pub(crate) mod terminal;
 pub(crate) mod workflow;

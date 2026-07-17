@@ -2967,6 +2967,23 @@
       ]
     },
     {
+      "path": "src/runtime_core/terminal.rs",
+      "slices": [
+        {
+          "responsibility": "terminal port, fault, and write-boundary contracts",
+          "target": "src/runtime_core/terminal.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/terminal.rs",
+            "src/adapters/terminal/native.rs",
+            "src/surfaces/tui/controller.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/workflow/mod.rs",
       "slices": [
         {
@@ -3330,6 +3347,22 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/controller.rs",
+      "slices": [
+        {
+          "responsibility": "interactive command loop and runtime port",
+          "target": "src/surfaces/tui/controller.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/tui/mod.rs",
       "slices": [
         {
@@ -3539,8 +3572,12 @@
           "responsibility": "TUI controller and input",
           "target": "src/surfaces/tui/controller.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "TUI view models",
@@ -5062,6 +5099,12 @@
       ]
     },
     {
+      "path": "src/runtime_core/terminal.rs",
+      "responsibilities": [
+        "terminal port, fault, and write-boundary contracts"
+      ]
+    },
+    {
       "path": "src/runtime_core/workflow/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -5199,6 +5242,12 @@
       "path": "src/surfaces/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller.rs",
+      "responsibilities": [
+        "interactive command loop and runtime port"
       ]
     },
     {

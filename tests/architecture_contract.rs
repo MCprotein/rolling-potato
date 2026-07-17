@@ -1797,6 +1797,39 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!legacy_tui.contains("enum InteractiveView"));
     assert!(!legacy_tui.contains("struct InteractiveState"));
 
+    let controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
+    for definition in [
+        "trait TuiRuntimePort",
+        "fn run_controller",
+        "fn terminal_fault_error",
+        "fn consume_outcome",
+    ] {
+        assert!(
+            controller.contains(definition),
+            "TUI controller owner is missing {definition}"
+        );
+    }
+    assert!(!controller.contains("use crate::runtime;"));
+    assert!(!controller.contains("crate::runtime::"));
+    assert!(!controller.contains("crate::adapters"));
+    assert!(legacy_tui.contains("impl TuiRuntimePort for LegacyTuiRuntimePort"));
+
+    let terminal_port = fs::read_to_string("src/runtime_core/terminal.rs").unwrap();
+    for definition in [
+        "enum TerminalFault",
+        "enum FrameWriteBoundary",
+        "trait TerminalIo",
+    ] {
+        assert!(
+            terminal_port.contains(definition),
+            "terminal contract owner is missing {definition}"
+        );
+    }
+    let native_terminal = fs::read_to_string("src/adapters/terminal/native.rs").unwrap();
+    assert!(native_terminal.contains("runtime_core::terminal"));
+    assert!(!native_terminal.contains("pub enum TerminalFault"));
+    assert!(!native_terminal.contains("pub trait TerminalIo"));
+
     let render = fs::read_to_string("src/surfaces/tui/render.rs").unwrap();
     for definition in [
         "fn render_interactive_frame",

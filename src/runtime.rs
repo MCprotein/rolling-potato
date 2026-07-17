@@ -3,8 +3,8 @@ use crate::foundation::error::AppError;
 use crate::runtime_core::reporting::runtime_report::{self, DoctorReport, InitReport};
 use crate::runtime_core::workflow::application::runner::{self, RuntimeApplicationPort};
 pub(crate) use crate::surfaces::tui::outcome::{
-    exact_tui_outcome, validate_tui_id, verification_credential_issued, TuiEffect, TuiOutcome,
-    TuiOutcomeCode, TuiOutcomeContext,
+    exact_tui_outcome, validate_tui_id, verification_credential_issued, TuiOutcome, TuiOutcomeCode,
+    TuiOutcomeContext,
 };
 pub(crate) use crate::surfaces::tui::runtime_bridge::{
     ObservedWorkflow, OneShotSecret, SelectionLease, TuiFreshness, TuiGateKind, TuiIntent,
@@ -1204,7 +1204,7 @@ pub fn doctor_report() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::surfaces::tui::outcome::{TuiNextAction, TuiOutcomeStatus};
+    use crate::surfaces::tui::outcome::{TuiEffect, TuiNextAction, TuiOutcomeStatus};
 
     fn snapshot_tree(root: &std::path::Path) -> BTreeMap<String, Vec<u8>> {
         fn visit(
