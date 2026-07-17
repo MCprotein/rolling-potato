@@ -1,3 +1,5 @@
+//! Filesystem artifact adapter for verified subagent results.
+
 use crate::context::ContextPack;
 use crate::foundation::error::AppError;
 #[cfg(test)]

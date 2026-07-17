@@ -757,23 +757,26 @@ fn complete_generation(
         )?;
         return Err(AppError::blocked("subagent backend metadata binding 오류"));
     }
-    let stored =
-        match crate::subagent_result::parse_and_store(&running, &context, &generation.response) {
-            Ok(stored) => stored,
-            Err(error) => {
-                terminalize_locked(
-                    &current,
-                    SubagentStatus::Blocked,
-                    "invalid-result",
-                    "team.subagent.blocked",
-                )?;
-                return Err(AppError::blocked(format!(
-                    "subagent result 검증 차단\n- subagent id: {}\n- reason: {}",
-                    running.subagent_id, error.message
-                )));
-            }
-        };
-    crate::subagent_result::verify_stored_artifacts(&running, &stored)?;
+    let stored = match crate::app::collaboration_adapter::subagent_result::parse_and_store(
+        &running,
+        &context,
+        &generation.response,
+    ) {
+        Ok(stored) => stored,
+        Err(error) => {
+            terminalize_locked(
+                &current,
+                SubagentStatus::Blocked,
+                "invalid-result",
+                "team.subagent.blocked",
+            )?;
+            return Err(AppError::blocked(format!(
+                "subagent result 검증 차단\n- subagent id: {}\n- reason: {}",
+                running.subagent_id, error.message
+            )));
+        }
+    };
+    crate::app::collaboration_adapter::subagent_result::verify_stored_artifacts(&running, &stored)?;
     let mut completed = current.clone();
     completed.backend_event_id = generation.backend_event_id;
     completed.effective_max_tokens = generation.effective_max_tokens;
@@ -869,7 +872,7 @@ fn classify_backend_error(error: &AppError) -> (SubagentStatus, &'static str, &'
 }
 
 fn merge_completed_result(completed: &SubagentRecordV1) -> Result<(), AppError> {
-    crate::subagent_result::verify_completed_artifacts(completed)?;
+    crate::app::collaboration_adapter::subagent_result::verify_completed_artifacts(completed)?;
     let parent = state::load_workflow(&completed.parent_workflow_id)?;
     if parent.project_id != completed.project_id || parent.session_id != completed.session_id {
         return Err(AppError::blocked(
@@ -1724,8 +1727,14 @@ mod tests {
         let admitted = admit_launch(launch("explore")).unwrap();
         let (running, context) = prepare_running(&admitted).unwrap();
         let body = completed_result(&running, &context);
-        let stored = crate::subagent_result::parse_and_store(&running, &context, &body).unwrap();
-        crate::subagent_result::verify_stored_artifacts(&running, &stored).unwrap();
+        let stored = crate::app::collaboration_adapter::subagent_result::parse_and_store(
+            &running, &context, &body,
+        )
+        .unwrap();
+        crate::app::collaboration_adapter::subagent_result::verify_stored_artifacts(
+            &running, &stored,
+        )
+        .unwrap();
 
         let mut completed = running.clone();
         completed.backend_event_id = "backend-event-interrupted".to_string();

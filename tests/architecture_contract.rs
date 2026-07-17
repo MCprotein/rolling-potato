@@ -1616,12 +1616,30 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         ("src/subagent.rs", "fn validate_record"),
         ("src/subagent.rs", "fn render_record"),
         ("src/subagent.rs", "fn normalize_paths"),
-        ("src/subagent_result.rs", "const RESULT_KEYS"),
-        ("src/subagent_result.rs", "const EVIDENCE_V2_KEYS"),
-        ("src/subagent_result.rs", "fn validate_patch"),
-        ("src/subagent_result.rs", "fn verify_evidence_artifact"),
-        ("src/subagent_result.rs", "fn render_evidence_payload_v2"),
-        ("src/subagent_result.rs", "fn validate_bounded_text"),
+        (
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "const RESULT_KEYS",
+        ),
+        (
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "const EVIDENCE_V2_KEYS",
+        ),
+        (
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "fn validate_patch",
+        ),
+        (
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "fn verify_evidence_artifact",
+        ),
+        (
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "fn render_evidence_payload_v2",
+        ),
+        (
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "fn validate_bounded_text",
+        ),
         ("src/team.rs", "struct ContinuationDecision"),
         ("src/team.rs", "struct PolicyGate"),
         ("src/team.rs", "fn policy_preflight"),
@@ -1646,7 +1664,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     for (facade, delegation) in [
         ("src/subagent.rs", "collaboration::subagent::*"),
         (
-            "src/subagent_result.rs",
+            "src/app/collaboration_adapter/subagent_result.rs",
             "result_policy::parse_result_shape",
         ),
         ("src/team.rs", "collaboration::team"),
@@ -1666,7 +1684,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
 
     for (facade, maximum_lines) in [
         ("src/subagent.rs", 2_400),
-        ("src/subagent_result.rs", 800),
+        ("src/app/collaboration_adapter/subagent_result.rs", 800),
         ("src/team.rs", 1_400),
         ("src/team_execution.rs", 1_300),
         ("src/team_reconciliation.rs", 550),
@@ -1689,6 +1707,11 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         fs::read_to_string("tests/team_runtime.rs").unwrap().trim(),
         "include!(\"collaboration/team_runtime.rs\");"
     );
+    assert!(!Path::new("src/subagent_result.rs").exists());
+    assert!(Path::new("src/app/collaboration_adapter.rs").is_file());
+    assert!(Path::new("src/app/collaboration_adapter/subagent_result.rs").is_file());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod subagent_result;"));
 }
 
 #[test]

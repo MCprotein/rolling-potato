@@ -336,7 +336,10 @@ fn recover_or_admit_execution(
         let completed = records
             .into_iter()
             .map(|(launch, record)| {
-                let result = crate::subagent_result::load_completed_result(&record)?;
+                let result =
+                    crate::app::collaboration_adapter::subagent_result::load_completed_result(
+                        &record,
+                    )?;
                 Ok(subagent::CompletedTeamMember {
                     lane: launch.lane,
                     member_id: launch.member_id,
@@ -454,7 +457,7 @@ fn enforce_action_ownership(
         .ok_or_else(|| AppError::blocked("team completed member manifest binding 누락"))?;
     let record = &completed.record;
     validate_completed_member_binding(member, record)?;
-    let result = crate::subagent_result::load_completed_result(record)?;
+    let result = crate::app::collaboration_adapter::subagent_result::load_completed_result(record)?;
     let Some(patch) = result.patch_proposal else {
         return Ok(None);
     };

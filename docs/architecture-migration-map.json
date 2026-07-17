@@ -1781,6 +1781,22 @@
       ]
     },
     {
+      "path": "src/app/collaboration_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "concrete collaboration adapter module wiring",
+          "target": "src/app/collaboration_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter.rs",
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend.rs",
       "slices": [
         {
@@ -2643,7 +2659,7 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent_result.rs",
-            "src/subagent_result.rs",
+            "src/app/collaboration_adapter/subagent_result.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3374,16 +3390,16 @@
       ]
     },
     {
-      "path": "src/subagent_result.rs",
+      "path": "src/app/collaboration_adapter/subagent_result.rs",
       "slices": [
         {
-          "responsibility": "subagent result validation and merge",
-          "target": "src/runtime_core/collaboration/subagent_result.rs",
+          "responsibility": "subagent result and evidence artifact adapter",
+          "target": "src/app/collaboration_adapter/subagent_result.rs",
           "release": "0.37.12",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent_result.rs",
-            "src/subagent_result.rs",
+            "src/app/collaboration_adapter/subagent_result.rs",
             "tests/collaboration/subagent_lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
@@ -4790,6 +4806,12 @@
       ]
     },
     {
+      "path": "src/app/collaboration_adapter.rs",
+      "responsibilities": [
+        "concrete collaboration adapter module wiring"
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend.rs",
       "responsibilities": [
         "backend concrete integration adapter"
@@ -5390,9 +5412,9 @@
       ]
     },
     {
-      "path": "src/subagent_result.rs",
+      "path": "src/app/collaboration_adapter/subagent_result.rs",
       "responsibilities": [
-        "subagent result validation and merge"
+        "subagent result and evidence artifact adapter"
       ]
     },
     {

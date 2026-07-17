@@ -15,7 +15,6 @@ mod runtime_core;
 mod skill;
 mod state;
 mod subagent;
-mod subagent_result;
 mod surfaces;
 mod team;
 mod team_execution;
