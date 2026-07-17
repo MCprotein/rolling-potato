@@ -275,6 +275,7 @@ impl TuiRuntimePort for LegacyTuiRuntimePort {
 mod report_composition {
     use super::{canonical_read_page, AppError, TuiReadBudget, TuiReadRequest};
     use crate::adapters::filesystem::layout as paths;
+    use crate::app::inference_adapter::model;
     use crate::surfaces::tui::render::terminal_width;
     use crate::surfaces::tui::report_render::{
         canonical_page_report, render_evidence_report, render_monitor_report,
@@ -286,7 +287,7 @@ mod report_composition {
         SessionsReportView, TimelineEventView, TranscriptRecordView, TranscriptReportView,
         TranscriptSessionView,
     };
-    use crate::{evidence, ledger, model, observability};
+    use crate::{evidence, ledger, observability};
 
     pub fn overview_report() -> Result<String, AppError> {
         let width = terminal_width();

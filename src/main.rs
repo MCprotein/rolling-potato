@@ -10,7 +10,6 @@ mod hooks;
 mod intent;
 mod korean_guard;
 mod ledger;
-mod model;
 mod monitor;
 mod observability;
 mod ontology;

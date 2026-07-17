@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use crate::app::inference_adapter::model;
 use crate::foundation::error::AppError;
 use crate::runtime_core::observability::facade::{
     ModelMetricSummary, OptimizationPolicy, PerformanceBaseline, PrunePreview,
@@ -9,7 +10,7 @@ use crate::runtime_core::observability::facade::{
 };
 use crate::runtime_core::observability::monitor::{self as monitor_core, MonitorQueryPort};
 use crate::surfaces::cli::command::MonitorExportFormat;
-use crate::{adapters::filesystem::layout as paths, model, observability};
+use crate::{adapters::filesystem::layout as paths, observability};
 
 struct LocalMonitorQueryPort;
 

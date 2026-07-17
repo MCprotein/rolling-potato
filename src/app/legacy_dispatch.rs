@@ -7,7 +7,6 @@ use crate::evidence;
 use crate::foundation::error::AppError;
 use crate::hooks;
 use crate::intent;
-use crate::model;
 use crate::monitor;
 use crate::ontology;
 use crate::patch;
@@ -29,7 +28,7 @@ use crate::surfaces::cli::{
 use crate::team;
 use crate::tui;
 
-use super::inference_adapter::benchmark;
+use super::inference_adapter::{benchmark, model};
 
 pub(super) struct LegacyCommandDispatchPort;
 

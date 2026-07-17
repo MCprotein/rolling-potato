@@ -2289,16 +2289,17 @@
       ]
     },
     {
-      "path": "src/model.rs",
+      "path": "src/app/inference_adapter/model.rs",
       "slices": [
         {
-          "responsibility": "model command and cross-store orchestration compatibility facade",
-          "target": "src/composition/inference.rs",
+          "responsibility": "model concrete integration adapter",
+          "target": "src/app/inference_adapter/model.rs",
           "release": "0.37.13",
-          "state": "migrating",
+          "state": "complete",
           "evidence": [
             "src/composition/inference.rs",
             "src/app/legacy_dispatch.rs",
+            "src/app/inference_adapter/model.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4985,9 +4986,9 @@
       ]
     },
     {
-      "path": "src/model.rs",
+      "path": "src/app/inference_adapter/model.rs",
       "responsibilities": [
-        "model command and cross-store orchestration compatibility facade"
+        "model concrete integration adapter"
       ]
     },
     {

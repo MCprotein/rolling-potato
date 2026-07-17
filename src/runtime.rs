@@ -1,4 +1,5 @@
 use crate::adapters::filesystem::{cache, layout as paths};
+use crate::app::inference_adapter::model;
 use crate::foundation::error::AppError;
 use crate::runtime_core::reporting::runtime_report::{self, DoctorReport, InitReport};
 use crate::runtime_core::workflow::application::runner::{self, RuntimeApplicationPort};
@@ -9,7 +10,7 @@ use crate::surfaces::tui::outcome::{
 };
 #[cfg(test)]
 use crate::transcript;
-use crate::{backend, context, intent, ledger, model, ontology, patch, state};
+use crate::{backend, context, intent, ledger, ontology, patch, state};
 #[cfg(test)]
 use std::collections::BTreeMap;
 #[cfg(test)]

@@ -1,7 +1,7 @@
 use crate::composition::dispatch;
 use crate::foundation::error::AppError;
 
-mod inference_adapter;
+pub(crate) mod inference_adapter;
 mod legacy_dispatch;
 
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {

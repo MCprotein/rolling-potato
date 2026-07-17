@@ -644,7 +644,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             "src/app/inference_adapter/benchmark.rs",
             "struct BenchmarkFixture",
         ),
-        ("src/model.rs", "const CANDIDATES"),
+        ("src/app/inference_adapter/model.rs", "const CANDIDATES"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
@@ -2039,6 +2039,11 @@ fn v03713_composition_owns_model_command_orchestration() {
     let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
     assert!(adapter.contains("impl inference::ModelCommandPort"));
     assert!(adapter.contains("inference::run_model(command, self)"));
+
+    assert!(!Path::new("src/model.rs").exists());
+    assert!(Path::new("src/app/inference_adapter/model.rs").is_file());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod model;"));
 }
 
 #[test]
