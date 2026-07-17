@@ -2383,7 +2383,19 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
 
 #[test]
 fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
-    assert!(Path::new("src/ontology/seeding.rs").is_file());
+    assert!(Path::new("src/app/ontology_adapter.rs").is_file());
+    assert!(Path::new("src/app/ontology_adapter/seeding.rs").is_file());
+    assert!(!Path::new("src/ontology.rs").exists());
+    assert!(!Path::new("src/ontology").exists());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod ontology;"));
+    let app_root = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod ontology_adapter;"),
+        "application root does not register the ontology adapter"
+    );
     let owners = [
         "src/runtime_core/knowledge/context.rs",
         "src/runtime_core/knowledge/evidence.rs",
@@ -2502,8 +2514,8 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         "filesystem path policy is not composed through the consumer-owned port"
     );
 
-    let ontology_facade = fs::read_to_string("src/ontology.rs").unwrap();
-    let ontology_seeding = fs::read_to_string("src/ontology/seeding.rs").unwrap();
+    let ontology_facade = fs::read_to_string("src/app/ontology_adapter.rs").unwrap();
+    let ontology_seeding = fs::read_to_string("src/app/ontology_adapter/seeding.rs").unwrap();
     assert!(ontology_facade.lines().any(|line| line == "mod seeding;"));
     let ontology_orchestration = ontology_facade
         .split("#[cfg(test)]")
@@ -2548,8 +2560,8 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         ("src/app/context_adapter.rs", "fn clamp_source_pack"),
         ("src/app/evidence_adapter.rs", "struct StopGateInputs"),
         ("src/app/evidence_adapter.rs", "fn stale_policy_summary"),
-        ("src/ontology.rs", "struct OntologyRecord"),
-        ("src/ontology.rs", "fn select_context_records"),
+        ("src/app/ontology_adapter.rs", "struct OntologyRecord"),
+        ("src/app/ontology_adapter.rs", "fn select_context_records"),
         ("src/app/policy_adapter.rs", "pub enum Decision"),
         (
             "src/app/policy_adapter.rs",

@@ -1,3 +1,5 @@
+//! Ontology persistence, seeding, and reporting application adapter.
+
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Component, Path, PathBuf};

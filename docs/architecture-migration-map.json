@@ -1974,7 +1974,7 @@
             "src/app/command_dispatch.rs",
             "src/app/command_dispatch/knowledge_commands.rs",
             "src/app/evidence_adapter.rs",
-            "src/ontology.rs",
+            "src/app/ontology_adapter.rs",
             "src/surfaces/cli/parser/tests/mod.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3361,7 +3361,7 @@
       ]
     },
     {
-      "path": "src/ontology.rs",
+      "path": "src/app/ontology_adapter.rs",
       "slices": [
         {
           "responsibility": "ontology graph and context projection",
@@ -3375,28 +3375,28 @@
         },
         {
           "responsibility": "ontology facade query, import, and source reread orchestration",
-          "target": "src/ontology.rs",
+          "target": "src/app/ontology_adapter.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/ontology.rs",
-            "src/ontology/seeding.rs",
+            "src/app/ontology_adapter.rs",
+            "src/app/ontology_adapter/seeding.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/ontology/seeding.rs",
+      "path": "src/app/ontology_adapter/seeding.rs",
       "slices": [
         {
           "responsibility": "ontology layout, deterministic source discovery, and append-only seed persistence",
-          "target": "src/ontology/seeding.rs",
+          "target": "src/app/ontology_adapter/seeding.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/ontology/seeding.rs",
-            "src/ontology.rs",
+            "src/app/ontology_adapter/seeding.rs",
+            "src/app/ontology_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7827,14 +7827,14 @@
       ]
     },
     {
-      "path": "src/ontology.rs",
+      "path": "src/app/ontology_adapter.rs",
       "responsibilities": [
         "ontology graph and context projection",
         "ontology facade query, import, and source reread orchestration"
       ]
     },
     {
-      "path": "src/ontology/seeding.rs",
+      "path": "src/app/ontology_adapter/seeding.rs",
       "responsibilities": [
         "ontology layout, deterministic source discovery, and append-only seed persistence"
       ]

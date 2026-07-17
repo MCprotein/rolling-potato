@@ -5,10 +5,10 @@ use std::fs;
 use std::io::Read;
 
 use crate::adapters::filesystem::layout as paths;
+use crate::app::ontology_adapter as ontology;
 use crate::app::policy_adapter::{self as policy, Decision, PathMode};
 use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
-use crate::ontology;
 pub use crate::runtime_core::knowledge::context::{
     enforce_shared_source_budget, ContextPack, ResumeContext, SourcePointer,
 };

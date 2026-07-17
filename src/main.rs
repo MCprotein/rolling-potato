@@ -3,7 +3,6 @@ mod app;
 mod composition;
 mod foundation;
 mod intent;
-mod ontology;
 mod patch;
 mod runtime_core;
 mod surfaces;

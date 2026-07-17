@@ -1,8 +1,8 @@
 //! CLI execution adapter for evidence and ontology commands.
 
 use crate::app::evidence_adapter as evidence;
+use crate::app::ontology_adapter as ontology;
 use crate::foundation::error::AppError;
-use crate::ontology;
 use crate::surfaces::cli::command::{EvidenceCommand, OntologyCommand};
 
 pub(super) fn execute_evidence(command: EvidenceCommand) -> Result<(), AppError> {
