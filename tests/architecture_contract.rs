@@ -1025,12 +1025,14 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let ledger_adapter = "src/app/workflow_adapter/ledger.rs";
     let ledger_derived = "src/app/workflow_adapter/ledger/derived.rs";
     let ledger_query = "src/app/workflow_adapter/ledger/query.rs";
+    let ledger_storage = "src/app/workflow_adapter/ledger/storage.rs";
     let ledger_tests = "src/app/workflow_adapter/ledger/tests.rs";
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
     for target in [
         ledger_adapter,
         ledger_derived,
         ledger_query,
+        ledger_storage,
         ledger_tests,
         transition_adapter,
         "src/runtime_core/workflow/application/mod.rs",
@@ -1134,6 +1136,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let ledger = fs::read_to_string(ledger_adapter).unwrap();
     let ledger_derived_outputs = fs::read_to_string(ledger_derived).unwrap();
     let ledger_queries = fs::read_to_string(ledger_query).unwrap();
+    let ledger_persistence = fs::read_to_string(ledger_storage).unwrap();
     let ledger_regressions = fs::read_to_string(ledger_tests).unwrap();
     assert!(
         ledger.lines().any(|line| line == "mod derived;"),
@@ -1175,6 +1178,28 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         );
     }
     assert!(
+        ledger.lines().any(|line| line == "mod storage;"),
+        "ledger adapter does not register its storage owner"
+    );
+    for responsibility in [
+        "pub fn read_runtime_events(",
+        "pub(crate) fn read_runtime_tail_read_only(",
+        "pub(super) fn read_runtime_events_unlocked(",
+        "pub(super) fn validate_ledger_contents(",
+        "pub(super) fn append_chained_event(",
+        "pub(super) fn write_ledger_head(",
+        "fn validate_ledger_head(",
+    ] {
+        assert!(
+            ledger_persistence.contains(responsibility),
+            "ledger storage owner is missing: {responsibility}"
+        );
+        assert!(
+            !ledger.contains(responsibility),
+            "ledger adapter still owns storage behavior: {responsibility}"
+        );
+    }
+    assert!(
         ledger.contains("#[path = \"ledger/tests.rs\"]"),
         "ledger adapter does not register its regression-test owner"
     );
@@ -1194,7 +1219,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         );
     }
     assert!(
-        ledger.lines().count() < 975,
+        ledger.lines().count() < 575,
         "ledger adapter regrew beyond its test extraction boundary"
     );
     assert!(
@@ -1204,6 +1229,10 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     assert!(
         ledger_queries.lines().count() < 125,
         "ledger query module regrew beyond its ownership boundary"
+    );
+    assert!(
+        ledger_persistence.lines().count() < 475,
+        "ledger storage module regrew beyond its ownership boundary"
     );
     assert!(
         ledger_regressions.lines().count() < 575,

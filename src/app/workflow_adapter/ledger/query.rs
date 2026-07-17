@@ -1,7 +1,8 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::workflow::storage_compat::ledger::WorkflowCheckpoint;
 
-use super::{is_sha256, read_runtime_events};
+use super::read_runtime_events;
+use super::storage::is_sha256;
 
 pub fn event_detail_exists(event_type: &str, field: &str, value: &str) -> Result<bool, AppError> {
     Ok(read_runtime_events()?.iter().any(|event| {

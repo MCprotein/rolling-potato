@@ -2488,6 +2488,7 @@
             "src/app/workflow_adapter/ledger.rs",
             "src/app/workflow_adapter/ledger/derived.rs",
             "src/app/workflow_adapter/ledger/query.rs",
+            "src/app/workflow_adapter/ledger/storage.rs",
             "src/app/workflow_adapter/ledger/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2522,6 +2523,24 @@
           "evidence": [
             "src/app/workflow_adapter/ledger.rs",
             "src/app/workflow_adapter/ledger/query.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage.rs",
+      "slices": [
+        {
+          "responsibility": "runtime ledger bounded reads, canonical append, chain validation, and durable head repair",
+          "target": "src/app/workflow_adapter/ledger/storage.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/ledger.rs",
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/storage.rs",
             "src/app/workflow_adapter/ledger/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -6158,6 +6177,12 @@
       "path": "src/app/workflow_adapter/ledger/query.rs",
       "responsibilities": [
         "read-only ledger event lookup and workflow checkpoint chain queries"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage.rs",
+      "responsibilities": [
+        "runtime ledger bounded reads, canonical append, chain validation, and durable head repair"
       ]
     },
     {

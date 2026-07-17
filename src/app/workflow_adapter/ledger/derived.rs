@@ -7,7 +7,8 @@ use crate::runtime_core::workflow::storage_compat::ledger::{
     event_chain_payload, sha256_bytes, LedgerEvent, ParsedLedgerEvent,
 };
 
-use super::{ledger_head_path, now_nanos, validate_ledger_contents, write_ledger_head};
+use super::now_nanos;
+use super::storage::{ledger_head_path, validate_ledger_contents, write_ledger_head};
 
 pub(super) fn converge_derived_outputs_unlocked(
     events: &[ParsedLedgerEvent],
