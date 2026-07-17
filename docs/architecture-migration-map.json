@@ -1941,7 +1941,7 @@
       "path": "src/app/inference_adapter/backend.rs",
       "slices": [
         {
-          "responsibility": "backend lifecycle and chat integration facade",
+          "responsibility": "backend chat and resource integration facade",
           "target": "src/app/inference_adapter/backend.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -1982,6 +1982,23 @@
           "evidence": [
             "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/backend/installation.rs",
+            "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/sidecar.rs",
+      "slices": [
+        {
+          "responsibility": "backend sidecar discovery, lifecycle, health, process termination, and diagnostics",
+          "target": "src/app/inference_adapter/backend/sidecar.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/backend/sidecar.rs",
             "src/app/inference_adapter/backend/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -5701,7 +5718,7 @@
     {
       "path": "src/app/inference_adapter/backend.rs",
       "responsibilities": [
-        "backend lifecycle and chat integration facade"
+        "backend chat and resource integration facade"
       ]
     },
     {
@@ -5714,6 +5731,12 @@
       "path": "src/app/inference_adapter/backend/installation.rs",
       "responsibilities": [
         "backend install planning, archive verification, and payload installation"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/sidecar.rs",
+      "responsibilities": [
+        "backend sidecar discovery, lifecycle, health, process termination, and diagnostics"
       ]
     },
     {

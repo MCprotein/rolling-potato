@@ -659,13 +659,16 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_adapter_path = "src/app/inference_adapter/backend.rs";
     let backend_generation_state_path = "src/app/inference_adapter/backend/generation_state.rs";
     let backend_installation_path = "src/app/inference_adapter/backend/installation.rs";
+    let backend_sidecar_path = "src/app/inference_adapter/backend/sidecar.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
     assert!(Path::new(backend_generation_state_path).is_file());
     assert!(Path::new(backend_installation_path).is_file());
+    assert!(Path::new(backend_sidecar_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
     let backend_generation_state = fs::read_to_string(backend_generation_state_path).unwrap();
     let backend_installation = fs::read_to_string(backend_installation_path).unwrap();
+    let backend_sidecar = fs::read_to_string(backend_sidecar_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
     assert!(
         backend_adapter.contains("#[path = \"backend/tests.rs\"]"),
@@ -682,6 +685,10 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             .lines()
             .any(|line| line == "mod installation;"),
         "inference backend adapter does not register its installation owner"
+    );
+    assert!(
+        backend_adapter.lines().any(|line| line == "mod sidecar;"),
+        "inference backend adapter does not register its sidecar owner"
     );
     for responsibility in [
         "pub(super) struct ActiveGenerationGuard",
@@ -714,6 +721,26 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         );
     }
     for responsibility in [
+        "pub fn doctor_report(",
+        "pub fn start_report(",
+        "pub fn status_report(",
+        "pub fn stop_report(",
+        "pub fn health_check_report(",
+        "pub(super) fn terminate_with_fallback(",
+        "pub(super) fn cancel_active_generation_before_stop(",
+        "pub(super) fn start_sidecar_with_timeout(",
+        "pub(super) fn trace_backend_start(",
+    ] {
+        assert!(
+            backend_sidecar.contains(responsibility),
+            "inference backend sidecar owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_adapter.contains(responsibility),
+            "inference backend facade still owns sidecar lifecycle: {responsibility}"
+        );
+    }
+    for responsibility in [
         "fn release_manifest_has_source_backed_supported_artifacts(",
         "fn generation_record_codec_preserves_exact_bytes_and_round_trips(",
         "fn parallel_generation_cancel_reaches_secondary_and_keeps_state_until_last_release(",
@@ -725,8 +752,8 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         );
     }
     assert!(
-        backend_adapter.lines().count() < 1_500,
-        "inference backend production adapter regrew beyond its generation-state extraction boundary"
+        backend_adapter.lines().count() < 900,
+        "inference backend production adapter regrew beyond its sidecar extraction boundary"
     );
     assert!(
         backend_generation_state.lines().count() < 250,
@@ -735,6 +762,10 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(
         backend_installation.lines().count() < 225,
         "inference backend installation module regrew beyond its ownership boundary"
+    );
+    assert!(
+        backend_sidecar.lines().count() < 650,
+        "inference backend sidecar module regrew beyond its ownership boundary"
     );
     assert!(
         backend_tests.lines().count() < 900,
