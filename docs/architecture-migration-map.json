@@ -4767,14 +4767,34 @@
       "path": "src/app/workflow_adapter/state/transaction.rs",
       "slices": [
         {
-          "responsibility": "approval, verification, and terminal state transaction adapter",
+          "responsibility": "verification and terminal state transaction coordination",
           "target": "src/app/workflow_adapter/state/transaction.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
             "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/workflow_adapter/state/transaction/approval.rs",
             "src/patch.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction/approval.rs",
+      "slices": [
+        {
+          "responsibility": "approval transaction commit, recovery, projection barrier, and persistence port",
+          "target": "src/app/workflow_adapter/state/transaction/approval.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/projection_barrier.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/workflow_adapter/state/transaction/approval.rs",
+            "src/patch/approval_transaction.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8010,7 +8030,13 @@
     {
       "path": "src/app/workflow_adapter/state/transaction.rs",
       "responsibilities": [
-        "approval, verification, and terminal state transaction adapter"
+        "verification and terminal state transaction coordination"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction/approval.rs",
+      "responsibilities": [
+        "approval transaction commit, recovery, projection barrier, and persistence port"
       ]
     },
     {

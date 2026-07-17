@@ -4918,6 +4918,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     let source_install_directory = "src/app/workflow_adapter/state/source_install/directory.rs";
     let source_install_fd_ops = "src/app/workflow_adapter/state/source_install/fd_ops.rs";
     let transaction_adapter = "src/app/workflow_adapter/state/transaction.rs";
+    let approval_transaction_adapter = "src/app/workflow_adapter/state/transaction/approval.rs";
     let transition_commit_adapter = "src/app/workflow_adapter/state/transition_commit.rs";
     let workflow_access_adapter = "src/app/workflow_adapter/state/workflow_access.rs";
     let workflow_revision_adapter = "src/app/workflow_adapter/state/workflow_revision.rs";
@@ -4941,6 +4942,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(Path::new(source_install_directory).is_file());
     assert!(Path::new(source_install_fd_ops).is_file());
     assert!(Path::new(transaction_adapter).is_file());
+    assert!(Path::new(approval_transaction_adapter).is_file());
     assert!(Path::new(transition_commit_adapter).is_file());
     assert!(Path::new(workflow_access_adapter).is_file());
     assert!(Path::new(workflow_revision_adapter).is_file());
@@ -5164,14 +5166,34 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     }
 
     let transaction = fs::read_to_string(transaction_adapter).unwrap();
+    let approval_transaction = fs::read_to_string(approval_transaction_adapter).unwrap();
+    assert!(
+        transaction.lines().any(|line| line == "mod approval;"),
+        "state transaction adapter does not register its approval owner"
+    );
     for owned_responsibility in [
-        "struct StateApprovalTransactionPort",
         "struct StateVerificationTransactionPort",
         "struct StateTerminalActionTransactionPort",
     ] {
         assert!(
             transaction.contains(owned_responsibility),
             "state transaction adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+    for owned_responsibility in [
+        "pub(crate) struct PreparedApprovalTransition",
+        "pub(crate) fn transition_project_current_state_prepared_approval(",
+        "pub(crate) fn recover_project_current_state_prepared_approval(",
+        "struct ApprovalProjectionRecoveryPort",
+        "struct StateApprovalTransactionPort",
+    ] {
+        assert!(
+            approval_transaction.contains(owned_responsibility),
+            "approval transaction adapter is missing responsibility: {owned_responsibility}"
+        );
+        assert!(
+            !transaction.contains(owned_responsibility),
+            "state transaction adapter still owns approval behavior: {owned_responsibility}"
         );
     }
 
@@ -5196,7 +5218,8 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(source_install.lines().count() < 375);
     assert!(source_install_directory.lines().count() < 375);
     assert!(source_install_fd_ops.lines().count() < 175);
-    assert!(transaction.lines().count() < 700);
+    assert!(transaction.lines().count() < 450);
+    assert!(approval_transaction.lines().count() < 250);
     assert!(transition_commit.lines().count() < 450);
     assert!(workflow_access.lines().count() < 400);
     assert!(workflow_revision.lines().count() < 500);
