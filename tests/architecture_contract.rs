@@ -2595,6 +2595,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let plugin = "src/runtime_core/extensions/plugin.rs";
     let hooks_adapter = "src/app/extensions_adapter/hooks.rs";
     let plugin_adapter = "src/app/extensions_adapter/plugin.rs";
+    let plugin_registry = "src/app/extensions_adapter/plugin/registry.rs";
     let plugin_scanner = "src/app/extensions_adapter/plugin/scanner.rs";
     let plugin_tests = "src/app/extensions_adapter/plugin/tests.rs";
     let skill_adapter = "src/app/extensions_adapter/skill.rs";
@@ -2695,6 +2696,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     for target in [
         hooks_adapter,
         plugin_adapter,
+        plugin_registry,
         plugin_scanner,
         plugin_tests,
         skill_adapter,
@@ -2753,6 +2755,29 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         plugin_adapter.lines().any(|line| line == "mod scanner;"),
         "plugin adapter does not register its scanner owner"
     );
+    assert!(
+        plugin_adapter.lines().any(|line| line == "mod registry;"),
+        "plugin adapter does not register its registry owner"
+    );
+    let plugin_registry = fs::read_to_string(plugin_registry).unwrap();
+    for responsibility in [
+        "pub(super) struct PluginSnapshot",
+        "pub(super) fn persist_plugin(",
+        "pub(super) fn verify_imported_snapshot(",
+        "pub(super) fn read_plugins(",
+        "pub(super) fn read_plugin(",
+        "pub(super) fn write_plugin_manifest(",
+        "pub(super) fn write_validation_report(",
+    ] {
+        assert!(
+            plugin_registry.contains(responsibility),
+            "plugin registry owner is missing: {responsibility}"
+        );
+        assert!(
+            !plugin_adapter.contains(responsibility),
+            "plugin adapter still owns registry behavior: {responsibility}"
+        );
+    }
     for responsibility in [
         "pub(super) struct DirectoryScan",
         "pub(super) fn scan_directory(",
@@ -2798,8 +2823,12 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         "skill adapter regrew beyond the v0.37.13 boundary"
     );
     assert!(
-        plugin_adapter.lines().count() < 975,
+        plugin_adapter.lines().count() < 700,
         "plugin adapter regrew beyond the v0.37.13 boundary"
+    );
+    assert!(
+        plugin_registry.lines().count() < 350,
+        "plugin registry module regrew beyond its ownership boundary"
     );
     assert!(
         plugin_scanner.lines().count() < 450,

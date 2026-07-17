@@ -3171,13 +3171,33 @@
       "path": "src/app/extensions_adapter/plugin.rs",
       "slices": [
         {
-          "responsibility": "plugin import validation and persistence adapter",
+          "responsibility": "plugin import validation and reporting adapter",
           "target": "src/app/extensions_adapter/plugin.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/extensions/plugin.rs",
             "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/registry.rs",
+            "src/app/extensions_adapter/plugin/scanner.rs",
+            "src/app/extensions_adapter/plugin/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/registry.rs",
+      "slices": [
+        {
+          "responsibility": "plugin normalized snapshot persistence, registry lookup, and imported source integrity verification",
+          "target": "src/app/extensions_adapter/plugin/registry.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/registry.rs",
             "src/app/extensions_adapter/plugin/scanner.rs",
             "src/app/extensions_adapter/plugin/tests.rs",
             "tests/architecture_contract.rs"
@@ -3196,6 +3216,7 @@
           "evidence": [
             "src/runtime_core/extensions/plugin.rs",
             "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/registry.rs",
             "src/app/extensions_adapter/plugin/scanner.rs",
             "src/app/extensions_adapter/plugin/tests.rs",
             "tests/architecture_contract.rs"
@@ -3214,6 +3235,7 @@
           "evidence": [
             "src/runtime_core/extensions/plugin.rs",
             "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/registry.rs",
             "src/app/extensions_adapter/plugin/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -6548,7 +6570,13 @@
     {
       "path": "src/app/extensions_adapter/plugin.rs",
       "responsibilities": [
-        "plugin import validation and persistence adapter"
+        "plugin import validation and reporting adapter"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/registry.rs",
+      "responsibilities": [
+        "plugin normalized snapshot persistence, registry lookup, and imported source integrity verification"
       ]
     },
     {
