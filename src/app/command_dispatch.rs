@@ -1,12 +1,12 @@
 //! Concrete CLI command dispatch adapter.
 
 use crate::adapters::terminal::{capability, native};
+use crate::app::runtime_adapter as runtime;
 use crate::app::workflow_adapter::state;
 use crate::app::workflow_adapter::transition;
 use crate::composition::{config, dispatch, inference, uninstall};
 use crate::foundation::error::AppError;
 use crate::intent;
-use crate::runtime;
 use crate::surfaces::cli::{
     command::{Command, IntentCommand, UninstallCommand},
     render,

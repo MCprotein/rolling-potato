@@ -7,7 +7,6 @@ mod foundation;
 mod intent;
 mod ontology;
 mod patch;
-mod runtime;
 mod runtime_core;
 mod surfaces;
 #[cfg(test)]

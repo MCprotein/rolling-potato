@@ -3223,14 +3223,25 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
     let main = fs::read_to_string("src/main.rs").unwrap();
     assert!(!main.lines().any(|line| line == "mod korean_guard;"));
 
-    let runtime_facade_path = "src/runtime.rs";
-    let runtime_tests_path = "src/runtime/tests.rs";
+    let runtime_facade_path = "src/app/runtime_adapter.rs";
+    let runtime_tests_path = "src/app/runtime_adapter/tests.rs";
+    assert!(Path::new(runtime_facade_path).is_file());
     assert!(Path::new(runtime_tests_path).is_file());
+    assert!(!Path::new("src/runtime.rs").exists());
+    assert!(!Path::new("src/runtime").exists());
+    assert!(!main.lines().any(|line| line == "mod runtime;"));
+    let app_root = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod runtime_adapter;"),
+        "application root does not register the runtime adapter"
+    );
     let runtime_facade = fs::read_to_string(runtime_facade_path).unwrap();
     let runtime_tests = fs::read_to_string(runtime_tests_path).unwrap();
     let production = &runtime_facade;
     assert!(
-        runtime_facade.contains("#[path = \"runtime/tests.rs\"]"),
+        runtime_facade.contains("#[path = \"runtime_adapter/tests.rs\"]"),
         "runtime facade does not register its regression-test owner"
     );
     for forbidden in [
@@ -3245,7 +3256,7 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
         );
     }
     for delegation in [
-        "impl RuntimeApplicationPort for LegacyRuntimeApplicationPort",
+        "impl RuntimeApplicationPort for RuntimeApplicationAdapter",
         "runner::workflow_resume_report",
         "runner::session_resume_report",
         "runner::patch_approve_to_stdout",
@@ -4537,7 +4548,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(outcome.lines().count() < 250);
     assert!(outcome_oracle.lines().count() < 425);
 
-    let runtime = fs::read_to_string("src/runtime.rs").unwrap();
+    let runtime = fs::read_to_string("src/app/runtime_adapter.rs").unwrap();
     assert!(!runtime.contains("pub struct TuiReadBudget"));
     assert!(!runtime.contains("pub struct SelectionLease"));
     assert!(!runtime.contains("pub enum TuiIntent"));

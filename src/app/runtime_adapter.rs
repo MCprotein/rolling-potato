@@ -1,3 +1,5 @@
+//! Runtime application adapters and top-level operational reports.
+
 use crate::adapters::filesystem::{cache, layout as paths};
 use crate::app::inference_adapter::{backend, model};
 use crate::app::workflow_adapter::ledger;
@@ -8,9 +10,9 @@ use crate::runtime_core::workflow::application::runner::{self, RuntimeApplicatio
 use crate::surfaces::tui::outcome::TuiOutcomeCode;
 use crate::{context, intent, ontology, patch};
 
-struct LegacyRuntimeApplicationPort;
+struct RuntimeApplicationAdapter;
 
-impl RuntimeApplicationPort for LegacyRuntimeApplicationPort {
+impl RuntimeApplicationPort for RuntimeApplicationAdapter {
     fn run_agent(&mut self, request: &str) -> Result<String, AppError> {
         intent::run_report(request)
     }
@@ -55,15 +57,15 @@ impl RuntimeApplicationPort for LegacyRuntimeApplicationPort {
 }
 
 pub fn agent_run_report(request: &str) -> Result<String, AppError> {
-    runner::agent_run_report(&mut LegacyRuntimeApplicationPort, request)
+    runner::agent_run_report(&mut RuntimeApplicationAdapter, request)
 }
 
 pub fn workflow_resume_report() -> Result<String, AppError> {
-    runner::workflow_resume_report(&mut LegacyRuntimeApplicationPort)
+    runner::workflow_resume_report(&mut RuntimeApplicationAdapter)
 }
 
 pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
-    runner::session_resume_report(&mut LegacyRuntimeApplicationPort, session_id)
+    runner::session_resume_report(&mut RuntimeApplicationAdapter, session_id)
 }
 
 pub fn patch_approve_to_stdout(
@@ -73,7 +75,7 @@ pub fn patch_approve_to_stdout(
     verify_command: Option<&str>,
 ) -> Result<(), AppError> {
     runner::patch_approve_to_stdout(
-        &mut LegacyRuntimeApplicationPort,
+        &mut RuntimeApplicationAdapter,
         proposal_id,
         token,
         dry_run,
@@ -82,7 +84,7 @@ pub fn patch_approve_to_stdout(
 }
 
 pub fn patch_verify_report(proposal_id: &str, token: &str) -> Result<String, AppError> {
-    runner::patch_verify_report(&mut LegacyRuntimeApplicationPort, proposal_id, token)
+    runner::patch_verify_report(&mut RuntimeApplicationAdapter, proposal_id, token)
 }
 
 pub fn init_report() -> Result<String, AppError> {
@@ -140,5 +142,5 @@ pub fn doctor_report() -> String {
 }
 
 #[cfg(test)]
-#[path = "runtime/tests.rs"]
+#[path = "runtime_adapter/tests.rs"]
 mod tests;

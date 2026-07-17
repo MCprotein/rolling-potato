@@ -2051,7 +2051,7 @@
             "src/app/command_dispatch/workflow_commands.rs",
             "src/app/workflow_adapter/state.rs",
             "src/patch.rs",
-            "src/runtime.rs",
+            "src/app/runtime_adapter.rs",
             "src/surfaces/cli/parser/tests/mod.rs",
             "tests/patch/lifecycle.rs",
             "tests/architecture_contract.rs"
@@ -3950,7 +3950,7 @@
       ]
     },
     {
-      "path": "src/runtime.rs",
+      "path": "src/app/runtime_adapter.rs",
       "slices": [
         {
           "responsibility": "workflow execution orchestration",
@@ -3982,24 +3982,24 @@
             "src/composition/tui_read.rs",
             "src/surfaces/tui/runtime_bridge.rs",
             "src/surfaces/tui/page.rs",
-            "src/runtime.rs",
-            "src/runtime/tests.rs",
+            "src/app/runtime_adapter.rs",
+            "src/app/runtime_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/runtime/tests.rs",
+      "path": "src/app/runtime_adapter/tests.rs",
       "slices": [
         {
           "responsibility": "runtime orchestration, canonical TUI read, outcome, and report regression tests",
-          "target": "src/runtime/tests.rs",
+          "target": "src/app/runtime_adapter/tests.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/runtime.rs",
-            "src/runtime/tests.rs",
+            "src/app/runtime_adapter.rs",
+            "src/app/runtime_adapter/tests.rs",
             "src/runtime_core/workflow/application/runner.rs",
             "src/runtime_core/reporting/runtime_report.rs",
             "tests/architecture_contract.rs"
@@ -5570,7 +5570,7 @@
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/page.rs",
-            "src/runtime.rs",
+            "src/app/runtime_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8017,7 +8017,7 @@
       ]
     },
     {
-      "path": "src/runtime.rs",
+      "path": "src/app/runtime_adapter.rs",
       "responsibilities": [
         "workflow execution orchestration",
         "surface-neutral runtime reports",
@@ -8025,7 +8025,7 @@
       ]
     },
     {
-      "path": "src/runtime/tests.rs",
+      "path": "src/app/runtime_adapter/tests.rs",
       "responsibilities": [
         "runtime orchestration, canonical TUI read, outcome, and report regression tests"
       ]

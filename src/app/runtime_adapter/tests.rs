@@ -892,7 +892,7 @@ fn source_install_unsupported_platform_result_is_exact() {
 
 #[test]
 fn tui_outcome_public_dto_and_exact_fixtures_share_field_order() {
-    let source = include_str!("../surfaces/tui/outcome.rs");
+    let source = include_str!("../../surfaces/tui/outcome.rs");
     let start = source.find("pub(crate) struct TuiOutcome {").unwrap();
     let end = source[start..].find("\n}").unwrap() + start;
     let definition = &source[start..end];
@@ -916,7 +916,7 @@ fn tui_outcome_public_dto_and_exact_fixtures_share_field_order() {
 
 #[test]
 fn one_shot_secret_plaintext_accessor_consumes_value() {
-    assert!(include_str!("../surfaces/tui/runtime_bridge.rs")
+    assert!(include_str!("../../surfaces/tui/runtime_bridge.rs")
         .contains("fn expose<R>(self, use_plaintext: impl FnOnce(&str) -> R) -> R"));
     let secret = OneShotSecret::new("secret-value".to_string()).unwrap();
     assert_eq!(secret.expose(str::to_string), "secret-value");
@@ -949,8 +949,8 @@ fn immediate_credential_outcome_is_separate_from_the_27_exact_rows() {
 
 #[test]
 fn docs_recovery_outcome_oracles_are_bilingual_and_exact() {
-    let english = include_str!("../../docs/tui.md");
-    let korean = include_str!("../../docs/ko/tui.md");
+    let english = include_str!("../../../docs/tui.md");
+    let korean = include_str!("../../../docs/ko/tui.md");
     let contract = |document: &str| {
         document
             .split_once("<!-- TUI-READ-CONTRACT:START -->\n")
