@@ -1808,7 +1808,25 @@
           "release": "0.37.2",
           "state": "complete",
           "evidence": [
-            "src/adapters/terminal/native.rs"
+            "src/adapters/terminal/native.rs",
+            "src/adapters/terminal/native/platform.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/platform.rs",
+      "slices": [
+        {
+          "responsibility": "POSIX and Windows terminal dimensions, secret input, and echo restoration",
+          "target": "src/adapters/terminal/native/platform.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native.rs",
+            "src/adapters/terminal/native/platform.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -6627,6 +6645,12 @@
       "path": "src/adapters/terminal/native.rs",
       "responsibilities": [
         "native terminal IO"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/platform.rs",
+      "responsibilities": [
+        "POSIX and Windows terminal dimensions, secret input, and echo restoration"
       ]
     },
     {

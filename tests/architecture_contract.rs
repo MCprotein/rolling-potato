@@ -592,6 +592,7 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
     for target in [
         "src/adapters/terminal/capability.rs",
         "src/adapters/terminal/native.rs",
+        "src/adapters/terminal/native/platform.rs",
         "tests/surfaces.rs",
         "tests/surfaces/interactive_tui.rs",
         "tests/surfaces/native_terminal.rs",
@@ -626,6 +627,32 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
             "terminal owner is not crate-private: {owner}"
         );
     }
+
+    let native = fs::read_to_string("src/adapters/terminal/native.rs").unwrap();
+    let platform = fs::read_to_string("src/adapters/terminal/native/platform.rs").unwrap();
+    assert!(
+        native.lines().any(|line| line == "mod platform;"),
+        "native terminal adapter does not register its platform owner"
+    );
+    for responsibility in [
+        "unsafe extern \"C\"",
+        "unsafe extern \"system\"",
+        "fn restore_echo_before_signal_exit(",
+        "fn restore_echo_before_console_exit(",
+        "pub fn dimensions(",
+        "pub fn read_secret(",
+    ] {
+        assert!(
+            platform.contains(responsibility),
+            "native terminal platform owner is missing: {responsibility}"
+        );
+        assert!(
+            !native.contains(responsibility),
+            "native terminal facade still owns platform behavior: {responsibility}"
+        );
+    }
+    assert!(native.lines().count() < 300);
+    assert!(platform.lines().count() < 475);
 }
 
 #[test]
