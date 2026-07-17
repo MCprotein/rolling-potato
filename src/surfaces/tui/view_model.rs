@@ -72,3 +72,16 @@ impl InteractiveState {
         }
     }
 }
+
+pub(crate) struct EvidenceReportView {
+    pub(crate) project_root: String,
+    pub(crate) session_id: String,
+    pub(crate) runtime_evidence_file: String,
+    pub(crate) runtime_evidence_records: usize,
+    pub(crate) project_evidence_dir: String,
+    pub(crate) project_artifacts: usize,
+    pub(crate) observability_path: String,
+    pub(crate) evidence_records: i64,
+    pub(crate) stop_gate_results: i64,
+    pub(crate) stale_policy: String,
+}

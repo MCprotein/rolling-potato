@@ -58,8 +58,10 @@ mod legacy_reports {
     use crate::adapters::filesystem::layout as paths;
     use crate::surfaces::tui::render::{
         bytes_label, canonical_page_report, latency_label, percent_label, push_footer, push_header,
-        push_kv, push_rule, push_section, push_wrapped, short_id, terminal_width, tps_label,
+        push_kv, push_rule, push_section, push_wrapped, render_evidence_report, short_id,
+        terminal_width, tps_label,
     };
+    use crate::surfaces::tui::view_model::EvidenceReportView;
     use crate::{evidence, ledger, model, observability};
 
     pub fn overview_report() -> Result<String, AppError> {
@@ -486,80 +488,21 @@ mod legacy_reports {
         let identity = ledger::validated_current_identity()?;
         let store = observability::status()?;
         let evidence = evidence::store_status()?;
-
-        let mut lines = Vec::new();
-        push_header(&mut lines, width, "rpotato TUI beta - evidence");
-        push_kv(&mut lines, width, "project", &identity.project_root);
-        push_kv(&mut lines, width, "session", &identity.session_id);
-        push_kv(&mut lines, width, "mode", "read-only evidence status");
-        push_rule(&mut lines, width);
-        push_section(&mut lines, width, "stores");
-        push_kv(
-            &mut lines,
+        Ok(render_evidence_report(
             width,
-            "runtime evidence",
-            &evidence.runtime_evidence_file.display().to_string(),
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "runtime records",
-            &evidence.runtime_evidence_records.to_string(),
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "project evidence",
-            &evidence.project_evidence_dir.display().to_string(),
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "project artifacts",
-            &evidence.project_artifacts.to_string(),
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "observability",
-            &store.path.display().to_string(),
-        );
-        push_rule(&mut lines, width);
-        push_section(&mut lines, width, "stop gate boundary");
-        push_kv(
-            &mut lines,
-            width,
-            "recorded evidence",
-            &store.evidence_records.to_string(),
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "stop gate results",
-            &store.stop_gate_results.to_string(),
-        );
-        push_kv(&mut lines, width, "stale policy", evidence.stale_policy);
-        push_kv(
-            &mut lines,
-            width,
-            "terminal gate",
-            "not implemented; this view does not pass or fail workflows",
-        );
-        push_rule(&mut lines, width);
-        push_kv(
-            &mut lines,
-            width,
-            "validate",
-            "rpotato evidence validate <artifact-pointer>",
-        );
-        push_kv(
-            &mut lines,
-            width,
-            "raw prompt/source",
-            "disabled by default",
-        );
-        push_footer(&mut lines, width);
-        Ok(lines.join("\n"))
+            &EvidenceReportView {
+                project_root: identity.project_root,
+                session_id: identity.session_id,
+                runtime_evidence_file: evidence.runtime_evidence_file.display().to_string(),
+                runtime_evidence_records: evidence.runtime_evidence_records,
+                project_evidence_dir: evidence.project_evidence_dir.display().to_string(),
+                project_artifacts: evidence.project_artifacts,
+                observability_path: store.path.display().to_string(),
+                evidence_records: store.evidence_records,
+                stop_gate_results: store.stop_gate_results,
+                stale_policy: evidence.stale_policy.to_string(),
+            },
+        ))
     }
 }
 

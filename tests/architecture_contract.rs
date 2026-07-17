@@ -1784,6 +1784,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     for definition in [
         "enum InteractiveView",
         "struct InteractiveState",
+        "struct EvidenceReportView",
         "fn set_view",
         "fn read_request",
     ] {
@@ -1841,6 +1842,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "fn bytes_label",
         "fn canonical_page_report",
         "fn authority_pair",
+        "fn render_evidence_report",
     ] {
         assert!(
             render.contains(definition),
