@@ -1159,8 +1159,10 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
 fn v0379_patch_owners_hold_lifecycle_decisions() {
     let patch_tests = "src/patch/tests/mod.rs";
     let execution_adapter = "src/patch/execution.rs";
+    let guard_adapter = "src/patch/guard.rs";
     let proposal_store_adapter = "src/patch/proposal_store.rs";
     assert!(Path::new(execution_adapter).is_file());
+    assert!(Path::new(guard_adapter).is_file());
     assert!(Path::new(proposal_store_adapter).is_file());
     let owners = [
         "src/runtime_core/patch/approval.rs",
@@ -1294,6 +1296,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let intent_facade = fs::read_to_string("src/intent.rs").unwrap();
     let patch_facade = fs::read_to_string("src/patch.rs").unwrap();
     let execution = fs::read_to_string(execution_adapter).unwrap();
+    let guard = fs::read_to_string(guard_adapter).unwrap();
     let proposal_store = fs::read_to_string(proposal_store_adapter).unwrap();
     let patch_test_module = fs::read_to_string(patch_tests).unwrap();
     let patch_harness = fs::read_to_string("tests/patch_loop.rs").unwrap();
@@ -1303,7 +1306,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         "intent facade regrew beyond the v0.37.9 boundary"
     );
     assert!(
-        patch_facade.lines().count() < 3_400,
+        patch_facade.lines().count() < 3_200,
         "patch facade regrew beyond the v0.37.9 boundary"
     );
     assert!(patch_facade.lines().any(|line| line == "mod execution;"));
@@ -1322,6 +1325,22 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         );
     }
     assert!(execution.lines().count() < 300);
+    assert!(patch_facade.lines().any(|line| line == "mod guard;"));
+    for escaped_responsibility in [
+        "struct ApprovalLock",
+        "fn approval_transaction_fault(",
+        "fn restore_bytes(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "patch guard responsibility escaped into facade: {escaped_responsibility}"
+        );
+        assert!(
+            guard.contains(escaped_responsibility),
+            "patch guard adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(guard.lines().count() < 250);
     assert!(patch_facade
         .lines()
         .any(|line| line == "mod proposal_store;"));

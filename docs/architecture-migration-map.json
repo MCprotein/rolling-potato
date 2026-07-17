@@ -2575,6 +2575,24 @@
       ]
     },
     {
+      "path": "src/patch/guard.rs",
+      "slices": [
+        {
+          "responsibility": "patch approval lease, fault injection, and rollback recovery support",
+          "target": "src/patch/guard.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/runtime_core/patch/application.rs",
+            "src/patch/guard.rs",
+            "src/patch/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/patch/proposal_store.rs",
       "slices": [
         {
@@ -5356,6 +5374,12 @@
       "path": "src/patch/execution.rs",
       "responsibilities": [
         "guarded patch apply, verification command, and rollback execution adapter"
+      ]
+    },
+    {
+      "path": "src/patch/guard.rs",
+      "responsibilities": [
+        "patch approval lease, fault injection, and rollback recovery support"
       ]
     },
     {
