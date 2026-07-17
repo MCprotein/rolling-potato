@@ -1,11 +1,17 @@
 # 릴리즈 노트
 
-## 미출시 v0.37.13 - Surface, Composition, Legacy 제거
+## v0.37.13 - 전체 Architecture Ownership Migration
+
+릴리즈 날짜: 2026-07-18
 
 이 patch는 동작을 보존하는 v0.37.x 소유권 마이그레이션을 완료합니다. 남은
 최상위 compatibility facade를 제거하고 CLI/TUI 및 application integration에
 명시적인 private owner를 부여하며, binary entrypoint는 사용자 노출 동작과 durable
 contract를 바꾸지 않는 얇은 delegate로 남깁니다.
+
+아래 v0.37.1-v0.37.12 row는 별도 발행하지 않은 구현 milestone입니다. 이들의
+정확한 최종 tree를 하나의 v0.37.13 artifact로 통합하며, 해당 milestone의 별도
+binary나 tag가 있었다고 주장하지 않습니다.
 
 ### 포함한 것
 
@@ -19,6 +25,17 @@ contract를 바꾸지 않는 얇은 delegate로 남깁니다.
 - Migration ledger의 모든 책임을 complete로 전환하고 planned/exception/
   compatibility-facade 0건 completion gate를 활성화
 
+### 검증 계약
+
+- 범위를 제한한 독립 review 한 번에서 stale durable-proof selector, 의도하지
+  않은 public library target, 누락된 application dependency gate 등 High 3건을
+  발견했고 두 번째 review 없이 targeted 회귀 테스트로 모두 닫았습니다.
+- 최종 feature candidate는 serialized locked test suite, warning을 거부하는
+  clippy, release build, release-policy check, architecture contract,
+  exact-head candidate assertion을 통과했습니다.
+- Release proof selection은 이제 정확히 한 test만 match해야 하며 durable
+  selector 29개는 모두 현재 private module path를 가리킵니다.
+
 ### 호환성 경계
 
 - CLI command, argument, 출력, exit code는 변경하지 않음
@@ -26,9 +43,9 @@ contract를 바꾸지 않는 얇은 delegate로 남깁니다.
   ordering은 변경하지 않음
 - Runtime execution, recovery, approval, default-deny policy, backend 동작,
   dependency, synchronous operation은 변경하지 않음
-- Release publication과 exact-candidate 전체 CI는 아직 대기 중
+- Model weight와 외부 plugin package는 번들하지 않음
 
-## 미출시 v0.37.12 - Collaboration 경계
+## v0.37.13 구현 Milestone: v0.37.12 Collaboration 경계
 
 이 patch는 CLI 동작, durable byte, recovery semantic, 실행 순서, evidence merge와
 stop gate를 바꾸지 않고 subagent와 team의 side-effect-free 규칙을 private runtime
@@ -53,7 +70,7 @@ owner로 이동합니다.
 - CLI 출력과 exit code, canonical manifest/state/result/artifact, worker recovery와
   cancellation, dependency, synchronous execution은 변경하지 않음
 
-## 미출시 v0.37.11 - Extension 경계
+## v0.37.13 구현 Milestone: v0.37.11 Extension 경계
 
 이 patch는 CLI 동작, plugin normalized manifest byte, hook ordering, skill state와
 default-deny 실행 정책을 바꾸지 않고 extension의 순수 규칙을 private runtime
@@ -77,7 +94,7 @@ owner로 이동합니다.
 - CLI 출력과 exit code, persisted manifest/workflow byte, hook/skill/plugin 실행 순서,
   dependency와 synchronous execution은 변경하지 않습니다.
 
-## 미출시 v0.37.10 - Runtime과 Reporting 경계
+## v0.37.13 구현 Milestone: v0.37.10 Runtime과 Reporting 경계
 
 이 patch는 CLI command, 출력 byte와 field 순서, exit code, synchronous 실행을
 바꾸지 않고 workflow runtime 호출 순서와 report/Korean output 규칙을 private
@@ -103,7 +120,7 @@ application/reporting owner로 이동합니다.
 - CLI 동작과 출력, report field/order, patch guard 조건, recovery preflight 순서,
   dependency, synchronous execution은 변경하지 않습니다.
 
-## 미출시 v0.37.9 - Patch Workflow 경계
+## v0.37.13 구현 Milestone: v0.37.9 Patch Workflow 경계
 
 이 patch는 CLI 출력, approval secret 전달, source/journal 설치 순서를 바꾸지 않고
 intent, proposal, approval credential, apply/rollback, verification/recovery 판단을
@@ -131,7 +148,7 @@ private patch owner로 이동합니다.
 - CLI 동작과 exit code, proposal/approval byte와 hash, event/journal 순서, rollback,
   fail-closed 동작, dependency, synchronous execution은 변경하지 않습니다.
 
-## 미출시 v0.37.8 - Knowledge와 Policy 경계
+## v0.37.13 구현 Milestone: v0.37.8 Knowledge와 Policy 경계
 
 이 patch는 filesystem, ledger, transcript, CLI 동작을 바꾸지 않고 bounded
 context, evidence stop gate, typed ontology graph, approval record, tool/path policy의
@@ -162,7 +179,7 @@ context, evidence stop gate, typed ontology graph, approval record, tool/path po
   순서, recovery 및 fail-closed 동작, dependency, synchronous execution은
   변경하지 않습니다.
 
-## 미출시 v0.37.7 - Projection과 Observability
+## v0.37.13 구현 Milestone: v0.37.7 Projection과 Observability
 
 이 patch는 surface-neutral observability record, projection/query port, monitor
 report use case, projection-lag recovery admission을 private runtime owner로
@@ -191,7 +208,7 @@ report use case, projection-lag recovery admission을 private runtime owner로
   synchronization 동작, dependency, synchronous execution은 변경하지 않습니다.
   SQLite는 계속 재생성 가능하며 두 번째 source of truth가 아닙니다.
 
-## 미출시 v0.37.6 - Workflow Transaction과 Recovery
+## v0.37.13 구현 Milestone: v0.37.6 Workflow Transaction과 Recovery
 
 이 patch는 command, durable byte, event identity/order, crash 동작, synchronous
 runtime을 바꾸지 않고 workflow transition, cross-store transaction 순서, recovery
@@ -218,7 +235,7 @@ policy를 private workflow domain/application owner로 이동합니다.
 - CLI 동작과 exit code, canonical schema/byte/hash, event/state 순서, recovery와
   fail-closed 동작, dependency, synchronous execution은 변경하지 않습니다.
 
-## 미출시 v0.37.5 - Validated Domain View
+## v0.37.13 구현 Milestone: v0.37.5 Validated Domain View
 
 이 patch는 command, durable byte, ledger 순서, filesystem/lock/recovery 동작을
 유지하면서 workflow/session/snapshot과 transcript-session validation을 private
@@ -241,7 +258,7 @@ workflow domain owner로 이동합니다.
 - CLI 동작, durable schema/byte, canonical event identity/order, recovery/projection
   순서, dependency, synchronous runtime은 변경하지 않습니다.
 
-## 미출시 v0.37.4 - Workflow Storage Compatibility
+## v0.37.13 구현 Milestone: v0.37.4 Workflow Storage Compatibility
 
 이 patch는 기존 command, storage schema, append 순서, recovery 동작, synchronous
 runtime을 유지하면서 durable workflow, ledger, transcript byte의 canonical
@@ -267,7 +284,7 @@ compatibility owner를 하나로 확립합니다.
 - CLI output과 exit code, durable schema와 byte, event identity와 순서, recovery와
   projection 순서, security policy, dependency, synchronous runtime은 변경하지 않습니다.
 
-## 미출시 v0.37.3 - Inference 경계
+## v0.37.13 구현 Milestone: v0.37.3 Inference 경계
 
 이 patch는 synchronous runtime과 기존 command 동작을 유지하면서 inference rule과
 durable record codec을 llama.cpp, process, filesystem 구현에서 분리합니다.
@@ -290,7 +307,7 @@ durable record codec을 llama.cpp, process, filesystem 구현에서 분리합니
 - CLI output, exit code, durable record byte, event order, install/promotion gate,
   timeout/cancellation, manifest, dependency, synchronous runtime은 변경하지 않습니다.
 
-## 미출시 v0.37.2 - Foundation과 Platform 경계
+## v0.37.13 구현 Milestone: v0.37.2 Foundation과 Platform 경계
 
 이 patch는 동작과 synchronous runtime을 유지하면서 운영 소유권 이동을 시작합니다.
 완료된 v0.37.2 legacy module path는 compatibility facade로 남기지 않고 제거합니다.
@@ -314,7 +331,7 @@ durable record codec을 llama.cpp, process, filesystem 구현에서 분리합니
 - Runtime은 synchronous로 유지하며 async runtime, actor framework, public API,
   persisted schema, 새 dependency를 추가하지 않습니다.
 
-## 미출시 v0.37.1 - 아키텍처 기반
+## v0.37.13 구현 Milestone: v0.37.1 아키텍처 기반
 
 이 patch는 v0.38.0 전에 완료할 동작 보존 코드 아키텍처 리팩터링을 시작합니다.
 운영 로직을 옮기지 않고 소유권과 강제 계약을 먼저 정의합니다.
