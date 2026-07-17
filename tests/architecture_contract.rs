@@ -3596,6 +3596,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let subagent_tests = "src/app/collaboration_adapter/subagent/tests.rs";
     let subagent_launch = "src/runtime_core/collaboration/subagent/launch.rs";
     let subagent_record_codec = "src/runtime_core/collaboration/subagent/record_codec.rs";
+    let subagent_result_evidence = "src/runtime_core/collaboration/subagent_result/evidence.rs";
     let team_adapter = "src/app/collaboration_adapter/team.rs";
     let team_admission = "src/app/collaboration_adapter/team/admission.rs";
     let team_tests = "src/app/collaboration_adapter/team/tests.rs";
@@ -3625,8 +3626,6 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
                 "fn parse_result_shape",
                 "fn validate_patch_policy",
                 "fn validate_context_binding",
-                "fn verify_evidence_artifact",
-                "fn render_evidence_payload_v2",
                 "fn validate_bounded_text",
             ],
         ),
@@ -3715,6 +3714,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(Path::new(subagent_tests).is_file());
     assert!(Path::new(subagent_launch).is_file());
     assert!(Path::new(subagent_record_codec).is_file());
+    assert!(Path::new(subagent_result_evidence).is_file());
     assert!(Path::new(team_admission).is_file());
     assert!(Path::new(team_tests).is_file());
     assert!(Path::new(team_execution_admission).is_file());
@@ -3727,6 +3727,9 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let subagent_domain = fs::read_to_string("src/runtime_core/collaboration/subagent.rs").unwrap();
     let subagent_launch_source = fs::read_to_string(subagent_launch).unwrap();
     let subagent_record_codec_source = fs::read_to_string(subagent_record_codec).unwrap();
+    let subagent_result_source =
+        fs::read_to_string("src/runtime_core/collaboration/subagent_result.rs").unwrap();
+    let subagent_result_evidence_source = fs::read_to_string(subagent_result_evidence).unwrap();
     let subagent_execution_source = fs::read_to_string(subagent_execution).unwrap();
     let subagent_persistence_source = fs::read_to_string(subagent_persistence).unwrap();
     let subagent_test_source = fs::read_to_string(subagent_tests).unwrap();
@@ -3784,6 +3787,29 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         assert!(
             !subagent_domain.contains(responsibility),
             "subagent domain still owns record codec behavior: {responsibility}"
+        );
+    }
+    assert!(
+        subagent_result_source
+            .lines()
+            .any(|line| line == "mod evidence;"),
+        "subagent result domain does not register its evidence policy owner"
+    );
+    for responsibility in [
+        "const EVIDENCE_V2_KEYS",
+        "pub(crate) fn evidence_source_bindings(",
+        "pub(crate) fn verify_evidence_artifact(",
+        "pub(crate) fn render_evidence_payload_v2(",
+        "pub(crate) fn evidence_id(",
+        "pub(crate) fn installable_evidence_body(",
+    ] {
+        assert!(
+            subagent_result_evidence_source.contains(responsibility),
+            "subagent evidence policy owner is missing: {responsibility}"
+        );
+        assert!(
+            !subagent_result_source.contains(responsibility),
+            "subagent result domain still owns evidence policy: {responsibility}"
         );
     }
     assert!(
@@ -4107,6 +4133,14 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(
         subagent_record_codec_source.lines().count() < 250,
         "subagent record codec regrew beyond its ownership boundary"
+    );
+    assert!(
+        subagent_result_source.lines().count() < 350,
+        "subagent result policy regrew beyond its ownership boundary"
+    );
+    assert!(
+        subagent_result_evidence_source.lines().count() < 300,
+        "subagent evidence policy regrew beyond its ownership boundary"
     );
     assert!(
         subagent_persistence_source.lines().count() < 325,

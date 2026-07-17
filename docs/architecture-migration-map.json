@@ -3936,6 +3936,24 @@
       ]
     },
     {
+      "path": "src/runtime_core/collaboration/subagent_result/evidence.rs",
+      "slices": [
+        {
+          "responsibility": "canonical subagent evidence artifact codec, source binding, and hash verification policy",
+          "target": "src/runtime_core/collaboration/subagent_result/evidence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent_result.rs",
+            "src/runtime_core/collaboration/subagent_result/evidence.rs",
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/collaboration/team.rs",
       "slices": [
         {
@@ -7835,6 +7853,12 @@
       "path": "src/runtime_core/collaboration/subagent_result.rs",
       "responsibilities": [
         "canonical subagent result shape and patch proposal policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent_result/evidence.rs",
+      "responsibilities": [
+        "canonical subagent evidence artifact codec, source binding, and hash verification policy"
       ]
     },
     {
