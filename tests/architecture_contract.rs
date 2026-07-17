@@ -2353,12 +2353,35 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     }
 
     let parser_path = "src/surfaces/cli/parser.rs";
+    let collaboration_parser_path = "src/surfaces/cli/parser/collaboration.rs";
     let parser_tests_path = "src/surfaces/cli/parser/tests/mod.rs";
+    assert!(Path::new(collaboration_parser_path).is_file());
     assert!(Path::new(parser_tests_path).is_file());
     let parser = fs::read_to_string(parser_path).unwrap();
+    let collaboration_parser = fs::read_to_string(collaboration_parser_path).unwrap();
     let parser_tests = fs::read_to_string(parser_tests_path).unwrap();
     assert!(parser.contains("pub fn parse"));
     assert!(parser.contains("surfaces::cli::command::*"));
+    assert!(
+        parser.lines().any(|line| line == "mod collaboration;"),
+        "CLI parser does not register the collaboration command-family owner"
+    );
+    for responsibility in [
+        "pub(super) fn parse_team_plan_args(",
+        "pub(super) fn parse_team_admit_args(",
+        "pub(super) fn parse_team_dispatch_args(",
+        "pub(super) fn parse_team_governor_args(",
+        "pub(super) fn parse_subagent_launch_args(",
+    ] {
+        assert!(
+            !parser.contains(responsibility),
+            "collaboration parser responsibility escaped into CLI facade: {responsibility}"
+        );
+        assert!(
+            collaboration_parser.contains(responsibility),
+            "collaboration parser is missing responsibility: {responsibility}"
+        );
+    }
     assert!(parser.contains("#[path = \"parser/tests/mod.rs\"]"));
     for responsibility in [
         "fn parses_subagent_launch_status_and_cancel(",
@@ -2373,8 +2396,12 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         );
     }
     assert!(
-        parser.lines().count() < 1_700,
+        parser.lines().count() < 1_200,
         "CLI parser production module regrew beyond its test extraction boundary"
+    );
+    assert!(
+        collaboration_parser.lines().count() < 550,
+        "collaboration parser regrew beyond its ownership boundary"
     );
     assert!(
         parser_tests.lines().count() < 1_500,

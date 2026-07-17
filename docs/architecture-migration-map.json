@@ -3947,12 +3947,29 @@
       "path": "src/surfaces/cli/parser.rs",
       "slices": [
         {
-          "responsibility": "CLI argument parsing",
+          "responsibility": "CLI top-level dispatch and command-family routing",
           "target": "src/surfaces/cli/parser.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/surfaces/cli/parser.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration.rs",
+      "slices": [
+        {
+          "responsibility": "team and subagent command option parsing",
+          "target": "src/surfaces/cli/parser/collaboration.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/collaboration.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6223,7 +6240,13 @@
     {
       "path": "src/surfaces/cli/parser.rs",
       "responsibilities": [
-        "CLI argument parsing"
+        "CLI top-level dispatch and command-family routing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration.rs",
+      "responsibilities": [
+        "team and subagent command option parsing"
       ]
     },
     {
