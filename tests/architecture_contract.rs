@@ -616,6 +616,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "src/adapters/llama_cpp/stream.rs",
         "src/adapters/llama_cpp/stream/protocol.rs",
         "src/adapters/process/backend.rs",
+        "src/adapters/process/resource.rs",
     ] {
         assert!(
             Path::new(target).is_file(),
@@ -662,6 +663,46 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(
         stream_protocol.lines().count() < 450,
         "llama.cpp stream protocol module regrew beyond its ownership boundary"
+    );
+
+    let process_mod = fs::read_to_string("src/adapters/process/mod.rs").unwrap();
+    let resource_policy = fs::read_to_string("src/runtime_core/inference/resource.rs").unwrap();
+    let resource_sampler = fs::read_to_string("src/adapters/process/resource.rs").unwrap();
+    assert!(
+        process_mod
+            .lines()
+            .any(|line| line == "pub(crate) mod resource;"),
+        "process adapter does not register resource sampler"
+    );
+    for responsibility in [
+        "pub(crate) struct ProcessResourceSnapshot",
+        "pub(crate) fn sample_process(",
+        "fn process_cpu_and_rss(",
+        "fn bounded_command_output(",
+        "fn path_disk_bytes(",
+    ] {
+        assert!(
+            resource_sampler.contains(responsibility),
+            "process resource sampler is missing: {responsibility}"
+        );
+        assert!(
+            !resource_policy.contains(responsibility),
+            "resource policy still owns concrete sampling: {responsibility}"
+        );
+    }
+    for forbidden in ["std::fs", "std::path", "std::process", "std::thread"] {
+        assert!(
+            !resource_policy.contains(forbidden),
+            "resource policy has concrete adapter dependency: {forbidden}"
+        );
+    }
+    assert!(
+        resource_policy.lines().count() < 800,
+        "resource policy regrew beyond its ownership boundary"
+    );
+    assert!(
+        resource_sampler.lines().count() < 300,
+        "process resource sampler regrew beyond its ownership boundary"
     );
 
     let main = fs::read_to_string("src/main.rs").unwrap();

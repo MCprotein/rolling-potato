@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::adapters::process::resource as process_resource;
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::{ledger, state};
 use crate::foundation::error::AppError;
@@ -43,7 +44,7 @@ pub(super) fn record_backend_resource_sample(
     record: &BackendSidecarRecord,
     reason: &str,
 ) -> Result<BackendResourceSampleReport, AppError> {
-    let snapshot = resource::sample_process(record.pid, &backend_resource_paths(record));
+    let snapshot = process_resource::sample_process(record.pid, &backend_resource_paths(record));
     let recorded_at_ms = now_ms();
     let sample_nonce = format!(
         "{}-{}",

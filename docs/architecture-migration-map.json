@@ -2099,6 +2099,23 @@
       ]
     },
     {
+      "path": "src/adapters/process/resource.rs",
+      "slices": [
+        {
+          "responsibility": "bounded OS process CPU and memory sampling plus recursive artifact disk measurement",
+          "target": "src/adapters/process/resource.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/resource.rs",
+            "src/adapters/process/resource.rs",
+            "src/app/inference_adapter/backend/resource_sampling.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/inference/backend.rs",
       "slices": [
         {
@@ -3300,12 +3317,14 @@
       "path": "src/runtime_core/inference/resource.rs",
       "slices": [
         {
-          "responsibility": "resource sampling and governance",
+          "responsibility": "resource pressure classification and chat, context, model, optimization, and lane governor policy",
           "target": "src/runtime_core/inference/resource.rs",
           "release": "0.37.3",
           "state": "complete",
           "evidence": [
             "src/runtime_core/inference/resource.rs",
+            "src/adapters/process/resource.rs",
+            "src/app/inference_adapter/backend/resource_sampling.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6242,6 +6261,12 @@
       ]
     },
     {
+      "path": "src/adapters/process/resource.rs",
+      "responsibilities": [
+        "bounded OS process CPU and memory sampling plus recursive artifact disk measurement"
+      ]
+    },
+    {
       "path": "src/runtime_core/inference/backend.rs",
       "responsibilities": [
         "inference backend contracts"
@@ -6670,7 +6695,7 @@
     {
       "path": "src/runtime_core/inference/resource.rs",
       "responsibilities": [
-        "resource sampling and governance"
+        "resource pressure classification and chat, context, model, optimization, and lane governor policy"
       ]
     },
     {
