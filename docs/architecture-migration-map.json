@@ -1982,6 +1982,25 @@
       ]
     },
     {
+      "path": "src/app/legacy_dispatch/observability_commands.rs",
+      "slices": [
+        {
+          "responsibility": "cache and monitor CLI command execution integration",
+          "target": "src/app/legacy_dispatch/observability_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/legacy_dispatch.rs",
+            "src/app/legacy_dispatch/observability_commands.rs",
+            "src/app/monitor_adapter.rs",
+            "src/adapters/filesystem/cache.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter.rs",
       "slices": [
         {
@@ -7261,6 +7280,12 @@
       "path": "src/app/legacy_dispatch/knowledge_commands.rs",
       "responsibilities": [
         "evidence and ontology CLI command execution integration"
+      ]
+    },
+    {
+      "path": "src/app/legacy_dispatch/observability_commands.rs",
+      "responsibilities": [
+        "cache and monitor CLI command execution integration"
       ]
     },
     {

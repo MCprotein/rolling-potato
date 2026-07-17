@@ -1,4 +1,3 @@
-use crate::adapters::filesystem::cache;
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::{capability, native};
 use crate::app::workflow_adapter::state;
@@ -10,25 +9,26 @@ use crate::patch;
 use crate::runtime;
 use crate::surfaces::cli::{
     command::{
-        Command, IntentCommand, MonitorCommand, PatchCommand, PolicyCommand, PolicyPathMode,
-        SessionCommand, StateCommand, TuiCommand, UninstallCommand,
+        Command, IntentCommand, PatchCommand, PolicyCommand, PolicyPathMode, SessionCommand,
+        StateCommand, TuiCommand, UninstallCommand,
     },
     render,
 };
 use crate::tui;
 
-use super::monitor_adapter as monitor;
 use super::policy_adapter as policy;
 
 mod collaboration_commands;
 mod extension_commands;
 mod inference_ports;
 mod knowledge_commands;
+mod observability_commands;
 
 use collaboration_commands::{execute_subagent, execute_team};
 use extension_commands::{execute_hooks, execute_plugin, execute_skill};
 use inference_ports::emit_output as emit_inference_output;
 use knowledge_commands::{execute_evidence, execute_ontology};
+use observability_commands::{execute_cache_status, execute_monitor};
 
 pub(super) struct LegacyCommandDispatchPort;
 
@@ -193,37 +193,8 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 emit_inference_output(output);
                 Ok(())
             }
-            Command::CacheStatus => {
-                println!("{}", cache::status_report());
-                Ok(())
-            }
-            Command::Monitor(MonitorCommand::Status) => {
-                println!("{}", monitor::status_report()?);
-                Ok(())
-            }
-            Command::Monitor(MonitorCommand::Models) => {
-                println!("{}", monitor::models_report()?);
-                Ok(())
-            }
-            Command::Monitor(MonitorCommand::Baseline) => {
-                println!("{}", monitor::baseline_report()?);
-                Ok(())
-            }
-            Command::Monitor(MonitorCommand::Optimize) => {
-                println!("{}", monitor::optimize_report()?);
-                Ok(())
-            }
-            Command::Monitor(MonitorCommand::Export { format }) => {
-                print!("{}", monitor::export_report(format)?);
-                Ok(())
-            }
-            Command::Monitor(MonitorCommand::Prune {
-                before_days,
-                dry_run,
-            }) => {
-                println!("{}", monitor::prune_report(before_days, dry_run)?);
-                Ok(())
-            }
+            Command::CacheStatus => execute_cache_status(),
+            Command::Monitor(command) => execute_monitor(command),
             Command::Ontology(command) => execute_ontology(command),
             Command::Benchmark(command) => {
                 emit_inference_output(inference::run_benchmark(command, self)?);
