@@ -1,3 +1,5 @@
+//! Filesystem adapter for approval request records.
+
 use std::fs;
 #[cfg(test)]
 use std::path::Path;

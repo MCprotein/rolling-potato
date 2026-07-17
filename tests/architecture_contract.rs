@@ -1044,8 +1044,8 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
     );
 
     for (facade, forbidden) in [
-        ("src/approval.rs", "struct ApprovalRequest"),
-        ("src/approval.rs", "fn render_request_record"),
+        ("src/app/approval_adapter.rs", "struct ApprovalRequest"),
+        ("src/app/approval_adapter.rs", "fn render_request_record"),
         ("src/context.rs", "pub struct ContextPack"),
         ("src/context.rs", "fn clamp_source_pack"),
         ("src/evidence.rs", "struct StopGateInputs"),
@@ -1062,6 +1062,11 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
             "legacy facade retains moved knowledge/policy rule: {facade} -> {forbidden}"
         );
     }
+    assert!(!Path::new("src/approval.rs").exists());
+    let approval_adapter = fs::read_to_string("src/app/approval_adapter.rs").unwrap();
+    assert!(approval_adapter.contains("pub fn write_request"));
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod approval;"));
 }
 
 #[test]

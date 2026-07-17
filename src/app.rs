@@ -1,6 +1,7 @@
 use crate::composition::dispatch;
 use crate::foundation::error::AppError;
 
+pub(crate) mod approval_adapter;
 pub(crate) mod inference_adapter;
 mod legacy_dispatch;
 mod monitor_adapter;

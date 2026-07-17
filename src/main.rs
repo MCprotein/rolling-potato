@@ -1,6 +1,5 @@
 mod adapters;
 mod app;
-mod approval;
 mod composition;
 mod context;
 mod evidence;

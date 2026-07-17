@@ -1765,15 +1765,16 @@
       ]
     },
     {
-      "path": "src/approval.rs",
+      "path": "src/app/approval_adapter.rs",
       "slices": [
         {
-          "responsibility": "approval records and decisions",
-          "target": "src/runtime_core/policy/approval.rs",
+          "responsibility": "approval request filesystem adapter",
+          "target": "src/app/approval_adapter.rs",
           "release": "0.37.8",
           "state": "complete",
           "evidence": [
             "src/runtime_core/policy/approval.rs",
+            "src/app/approval_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4782,9 +4783,9 @@
       ]
     },
     {
-      "path": "src/approval.rs",
+      "path": "src/app/approval_adapter.rs",
       "responsibilities": [
-        "approval records and decisions"
+        "approval request filesystem adapter"
       ]
     },
     {
