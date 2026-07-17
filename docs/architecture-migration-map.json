@@ -2701,6 +2701,24 @@
       ]
     },
     {
+      "path": "src/patch/workflow_execution.rs",
+      "slices": [
+        {
+          "responsibility": "patch apply-verification continuation and skill-plugin completion adapter",
+          "target": "src/patch/workflow_execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/application.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/skill.rs",
+            "src/patch/workflow_execution.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/patch/tests/mod.rs",
       "slices": [
         {
@@ -5506,6 +5524,12 @@
       "path": "src/patch/workflow_contract.rs",
       "responsibilities": [
         "patch workflow binding, selection, and terminal report contract adapter"
+      ]
+    },
+    {
+      "path": "src/patch/workflow_execution.rs",
+      "responsibilities": [
+        "patch apply-verification continuation and skill-plugin completion adapter"
       ]
     },
     {
