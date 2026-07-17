@@ -1615,6 +1615,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let bundle_validation_adapter = "src/app/workflow_adapter/transition/bundle_validation.rs";
     let journal_adapter = "src/app/workflow_adapter/transition/journal.rs";
     let journal_codec_adapter = "src/app/workflow_adapter/transition/journal/codec.rs";
+    let journal_recovery_io_adapter = "src/app/workflow_adapter/transition/journal/recovery_io.rs";
     let source_install_adapter = "src/app/workflow_adapter/transition/source_install.rs";
     let transition_tests = "src/app/workflow_adapter/transition/tests/mod.rs";
     for target in [
@@ -1624,6 +1625,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         bundle_validation_adapter,
         journal_adapter,
         journal_codec_adapter,
+        journal_recovery_io_adapter,
         source_install_adapter,
         transition_tests,
     ] {
@@ -1639,6 +1641,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let bundle_validation = fs::read_to_string(bundle_validation_adapter).unwrap();
     let journal = fs::read_to_string(journal_adapter).unwrap();
     let journal_codec = fs::read_to_string(journal_codec_adapter).unwrap();
+    let journal_recovery_io = fs::read_to_string(journal_recovery_io_adapter).unwrap();
     let source_install = fs::read_to_string(source_install_adapter).unwrap();
     let tests = fs::read_to_string(transition_tests).unwrap();
     assert!(
@@ -1712,6 +1715,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         "transition adapter does not register the journal owner"
     );
     assert!(journal.lines().any(|line| line == "mod codec;"));
+    assert!(journal.lines().any(|line| line == "mod recovery_io;"));
     for responsibility in [
         "pub(crate) struct TransitionGuard",
         "pub(crate) fn commit_prepared_source_bundle(",
@@ -1738,6 +1742,22 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         assert!(
             !journal.contains(responsibility),
             "transition journal orchestration still owns codec behavior: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) fn bounded_regular_entries(",
+        "fn read_regular_utf8_bounded(",
+        "fn validate_open_regular_file_identity(",
+        "fn recovery_work_may_exist(",
+        "fn directory_has_entry_or_is_suspicious(",
+    ] {
+        assert!(
+            journal_recovery_io.contains(responsibility),
+            "transition recovery I/O adapter is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !journal.contains(responsibility),
+            "transition journal orchestration still owns recovery I/O: {responsibility}"
         );
     }
     assert!(
@@ -1799,12 +1819,16 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         "bundle-validation adapter regrew beyond its ownership boundary"
     );
     assert!(
-        journal.lines().count() < 800,
+        journal.lines().count() < 550,
         "transition journal adapter regrew beyond its ownership boundary"
     );
     assert!(
         journal_codec.lines().count() < 250,
         "transition journal codec regrew beyond its ownership boundary"
+    );
+    assert!(
+        journal_recovery_io.lines().count() < 225,
+        "transition recovery I/O adapter regrew beyond its ownership boundary"
     );
     assert!(
         source_install.lines().count() < 500,

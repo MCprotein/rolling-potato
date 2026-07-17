@@ -5416,6 +5416,7 @@
             "src/runtime_core/workflow/application/recovery.rs",
             "src/runtime_core/workflow/application/projection_barrier.rs",
             "src/app/workflow_adapter/transition/journal.rs",
+            "src/app/workflow_adapter/transition/journal/recovery_io.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5431,6 +5432,23 @@
           "state": "complete",
           "evidence": [
             "src/app/workflow_adapter/transition/journal/codec.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/recovery_io.rs",
+      "slices": [
+        {
+          "responsibility": "bounded transition recovery discovery and regular-file identity I/O",
+          "target": "src/app/workflow_adapter/transition/journal/recovery_io.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/journal.rs",
+            "src/app/workflow_adapter/transition/journal/recovery_io.rs",
             "src/app/workflow_adapter/transition/tests/mod.rs",
             "tests/architecture_contract.rs"
           ]
@@ -7893,6 +7911,12 @@
       "path": "src/app/workflow_adapter/transition/journal/codec.rs",
       "responsibilities": [
         "canonical prepared transition journal codec"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/recovery_io.rs",
+      "responsibilities": [
+        "bounded transition recovery discovery and regular-file identity I/O"
       ]
     },
     {
