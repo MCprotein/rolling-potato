@@ -1,13 +1,14 @@
 use crate::adapters::terminal::capability;
 use crate::adapters::terminal::native::NativeTerminal;
+use crate::composition::tui_read::{self, TuiReadPort};
 use crate::foundation::error::AppError;
-use crate::runtime::{
-    self, SelectionLease, TuiGateKind, TuiIntent, TuiOutcome, TuiReadBudget, TuiReadPage,
-    TuiReadRequest,
-};
+use crate::runtime::{self, SelectionLease, TuiGateKind, TuiIntent, TuiOutcome};
 pub(crate) use crate::surfaces::tui::controller::terminal_fault_error;
 use crate::surfaces::tui::controller::{self, TuiRuntimePort};
-use crate::surfaces::tui::runtime_bridge::new_tui_intent_id;
+use crate::surfaces::tui::page::ProjectionStatus;
+use crate::surfaces::tui::runtime_bridge::{
+    new_tui_intent_id, TuiReadBudget, TuiReadPage, TuiReadRequest,
+};
 
 pub fn run_auto() -> Result<(), AppError> {
     if capability::attached() {
@@ -26,9 +27,85 @@ pub fn run_interactive() -> Result<(), AppError> {
 
 struct LegacyTuiRuntimePort;
 
+pub(crate) struct LegacyTuiReadPort;
+
+impl TuiReadPort for LegacyTuiReadPort {
+    fn state_snapshot(
+        &mut self,
+        max_ledger_events: usize,
+    ) -> Result<crate::runtime_core::workflow::domain::snapshot::TuiStateSnapshot, AppError> {
+        crate::state::tui_state_snapshot_read_only(max_ledger_events)
+    }
+
+    fn store_status(
+        &mut self,
+    ) -> Result<crate::runtime_core::observability::facade::StoreStatus, AppError> {
+        crate::observability::status_read_only()
+    }
+
+    fn monitor_snapshot(
+        &mut self,
+        limit: usize,
+    ) -> Result<crate::runtime_core::observability::facade::MonitorProjectionSnapshot, AppError>
+    {
+        crate::observability::monitor_snapshot_read_only(limit)
+    }
+
+    fn transcript_record(
+        &mut self,
+        event: &crate::runtime_core::workflow::storage_compat::ledger::ParsedLedgerEvent,
+    ) -> Result<crate::runtime_core::workflow::storage_compat::transcript::TranscriptRecord, AppError>
+    {
+        crate::transcript::record_from_event(event)
+    }
+
+    fn tool_output_view(
+        &mut self,
+        record: &crate::runtime_core::workflow::storage_compat::transcript::TranscriptRecord,
+        artifact_id: &str,
+    ) -> Result<crate::runtime_core::workflow::domain::transcript::ToolOutputView, AppError> {
+        crate::transcript::tool_output_view_from_canonical_record(record, artifact_id)
+    }
+
+    fn proposal_detail(
+        &mut self,
+        workflow: &crate::runtime_core::workflow::storage_compat::record::WorkflowRecord,
+        proposal_id: &str,
+        max_bytes: usize,
+    ) -> Result<crate::runtime_core::patch::proposal::PatchProposalDetail, AppError> {
+        crate::patch::proposal_detail_for_workflow_bounded(workflow, proposal_id, max_bytes)
+    }
+
+    fn evidence_status(
+        &mut self,
+        max_entries: usize,
+        max_bytes: u64,
+    ) -> Result<crate::runtime_core::knowledge::evidence::EvidenceStoreStatus, AppError> {
+        crate::evidence::store_status_bounded(max_entries, max_bytes)
+    }
+
+    fn content_hash(&mut self, value: &str) -> String {
+        crate::state::sha256_text(value)
+    }
+
+    fn projection_status(&mut self, project_id: &str) -> ProjectionStatus {
+        match crate::transition::projection_lag_status_read_only(project_id) {
+            crate::transition::ProjectionLagReadStatus::Clear => ProjectionStatus::Clear,
+            crate::transition::ProjectionLagReadStatus::Lagging => ProjectionStatus::Lagging,
+            crate::transition::ProjectionLagReadStatus::Unavailable => {
+                ProjectionStatus::Unavailable
+            }
+        }
+    }
+}
+
+pub(crate) fn canonical_read_page(request: TuiReadRequest) -> Result<TuiReadPage, AppError> {
+    tui_read::read_tui_page(&mut LegacyTuiReadPort, request)
+}
+
 impl TuiRuntimePort for LegacyTuiRuntimePort {
     fn read_tui_page(&mut self, request: TuiReadRequest) -> Result<TuiReadPage, AppError> {
-        runtime::read_tui_page(request)
+        canonical_read_page(request)
     }
 
     fn new_tui_intent_id(&mut self) -> String {
@@ -55,7 +132,7 @@ impl TuiRuntimePort for LegacyTuiRuntimePort {
 }
 
 mod report_composition {
-    use super::{runtime, AppError, TuiReadBudget, TuiReadRequest};
+    use super::{canonical_read_page, AppError, TuiReadBudget, TuiReadRequest};
     use crate::adapters::filesystem::layout as paths;
     use crate::surfaces::tui::render::terminal_width;
     use crate::surfaces::tui::report_render::{
@@ -195,7 +272,7 @@ mod report_composition {
     }
 
     pub fn approvals_report() -> Result<String, AppError> {
-        let page = runtime::read_tui_page(TuiReadRequest::Approvals {
+        let page = canonical_read_page(TuiReadRequest::Approvals {
             page: 0,
             budget: TuiReadBudget::bounded(40, 64 * 1024),
         })?;
@@ -203,7 +280,7 @@ mod report_composition {
     }
 
     pub fn diff_report(proposal_id: &str) -> Result<String, AppError> {
-        let page = runtime::read_tui_page(TuiReadRequest::Diff {
+        let page = canonical_read_page(TuiReadRequest::Diff {
             proposal_id: proposal_id.to_string(),
             page: 0,
             budget: TuiReadBudget::bounded(120, 64 * 1024),
@@ -268,7 +345,7 @@ mod tests {
     use crate::adapters::terminal::native::{ScriptedTerminal, TerminalFault};
     use crate::surfaces::tui::controller::{consume_outcome, run_controller};
     use crate::surfaces::tui::render::{render_interactive_frame, sanitize_terminal_text};
-    use crate::surfaces::tui::runtime_bridge::OneShotSecret;
+    use crate::surfaces::tui::runtime_bridge::{OneShotSecret, TuiFreshness, TuiReadContinuation};
     use crate::surfaces::tui::view_model::{InteractiveState, InteractiveView};
     use crate::{ledger, observability, patch};
 
@@ -380,8 +457,8 @@ mod tests {
             .unwrap()
             .0;
 
-        assert!(composition.contains("runtime::read_tui_page(TuiReadRequest::Approvals"));
-        assert!(composition.contains("runtime::read_tui_page(TuiReadRequest::Diff"));
+        assert!(composition.contains("canonical_read_page(TuiReadRequest::Approvals"));
+        assert!(composition.contains("canonical_read_page(TuiReadRequest::Diff"));
         assert!(!composition.contains("proposal_summaries("));
         assert!(!composition.contains("request_summaries("));
         assert!(!composition.contains("proposal_detail("));
@@ -448,8 +525,8 @@ mod tests {
             page: 0,
             has_previous: false,
             has_next: false,
-            freshness: runtime::TuiFreshness::Fresh,
-            continuation: runtime::TuiReadContinuation::Complete,
+            freshness: TuiFreshness::Fresh,
+            continuation: TuiReadContinuation::Complete,
             authority: crate::surfaces::tui::runtime_bridge::TuiReadAuthority::default(),
         };
 

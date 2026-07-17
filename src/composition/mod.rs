@@ -5,4 +5,5 @@
 
 pub(crate) mod config;
 pub(crate) mod startup;
+pub(crate) mod tui_read;
 pub(crate) mod uninstall;

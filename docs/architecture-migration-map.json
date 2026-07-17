@@ -1948,6 +1948,23 @@
       ]
     },
     {
+      "path": "src/composition/tui_read.rs",
+      "slices": [
+        {
+          "responsibility": "canonical TUI read orchestration",
+          "target": "src/composition/tui_read.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_read.rs",
+            "src/surfaces/tui/page.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/composition/config.rs",
       "slices": [
         {
@@ -2478,6 +2495,7 @@
           "release": "0.37.13",
           "state": "migrating",
           "evidence": [
+            "src/composition/tui_read.rs",
             "src/surfaces/tui/runtime_bridge.rs",
             "src/surfaces/tui/page.rs",
             "src/runtime.rs",
@@ -4749,6 +4767,12 @@
       "path": "src/composition/startup.rs",
       "responsibilities": [
         "application composition bootstrap"
+      ]
+    },
+    {
+      "path": "src/composition/tui_read.rs",
+      "responsibilities": [
+        "canonical TUI read orchestration"
       ]
     },
     {

@@ -1789,6 +1789,12 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!runtime.contains("fn tui_lease_matches_terminal_selection_under_transition"));
     assert!(!runtime.contains("fn validate_tui_id"));
 
+    let tui_read = fs::read_to_string("src/composition/tui_read.rs").unwrap();
+    assert!(tui_read.contains("fn read_tui_page"));
+    assert!(tui_read.contains("trait TuiReadPort"));
+    assert!(tui_read.contains("port.state_snapshot"));
+    assert!(!runtime.contains("fn read_tui_page"));
+
     let page = fs::read_to_string("src/surfaces/tui/page.rs").unwrap();
     for definition in [
         "fn bounded_budget_for",
@@ -1831,6 +1837,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     }
     let legacy_tui = fs::read_to_string("src/tui.rs").unwrap();
     assert!(legacy_tui.contains("surfaces::tui::view_model"));
+    assert!(legacy_tui.contains("impl TuiReadPort for LegacyTuiReadPort"));
     assert!(!legacy_tui.contains("enum InteractiveView"));
     assert!(!legacy_tui.contains("struct InteractiveState"));
 
