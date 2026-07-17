@@ -657,11 +657,14 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     }
 
     let backend_adapter_path = "src/app/inference_adapter/backend.rs";
+    let backend_generation_state_path = "src/app/inference_adapter/backend/generation_state.rs";
     let backend_installation_path = "src/app/inference_adapter/backend/installation.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
+    assert!(Path::new(backend_generation_state_path).is_file());
     assert!(Path::new(backend_installation_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
+    let backend_generation_state = fs::read_to_string(backend_generation_state_path).unwrap();
     let backend_installation = fs::read_to_string(backend_installation_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
     assert!(
@@ -671,9 +674,34 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(
         backend_adapter
             .lines()
+            .any(|line| line == "mod generation_state;"),
+        "inference backend adapter does not register its generation-state owner"
+    );
+    assert!(
+        backend_adapter
+            .lines()
             .any(|line| line == "mod installation;"),
         "inference backend adapter does not register its installation owner"
     );
+    for responsibility in [
+        "pub(super) struct ActiveGenerationGuard",
+        "pub(super) fn begin_active_generation(",
+        "pub(super) fn write_backend_generation_record(",
+        "pub(super) fn generation_cancel_requested(",
+        "pub(super) fn write_generation_cancel_marker(",
+        "pub(super) fn write_generation_terminal_record(",
+        "pub(super) fn wait_for_generation_terminal(",
+        "pub(super) fn release_generation_admission(",
+    ] {
+        assert!(
+            backend_generation_state.contains(responsibility),
+            "inference backend generation-state owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_adapter.contains(responsibility),
+            "inference backend facade still owns generation state: {responsibility}"
+        );
+    }
     for responsibility in [
         "pub fn install_plan_report(",
         "pub fn install_report(",
@@ -697,8 +725,12 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         );
     }
     assert!(
-        backend_adapter.lines().count() < 1_700,
-        "inference backend production adapter regrew beyond its installation extraction boundary"
+        backend_adapter.lines().count() < 1_500,
+        "inference backend production adapter regrew beyond its generation-state extraction boundary"
+    );
+    assert!(
+        backend_generation_state.lines().count() < 250,
+        "inference backend generation-state module regrew beyond its ownership boundary"
     );
     assert!(
         backend_installation.lines().count() < 225,

@@ -1941,7 +1941,7 @@
       "path": "src/app/inference_adapter/backend.rs",
       "slices": [
         {
-          "responsibility": "backend lifecycle, chat, and generation integration facade",
+          "responsibility": "backend lifecycle and chat integration facade",
           "target": "src/app/inference_adapter/backend.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -1949,6 +1949,23 @@
             "src/composition/inference.rs",
             "src/app/legacy_dispatch.rs",
             "src/app/inference_adapter/backend.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/generation_state.rs",
+      "slices": [
+        {
+          "responsibility": "backend generation admission, cancellation, and terminal state coordination",
+          "target": "src/app/inference_adapter/backend/generation_state.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/backend/generation_state.rs",
+            "src/app/inference_adapter/backend/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5684,7 +5701,13 @@
     {
       "path": "src/app/inference_adapter/backend.rs",
       "responsibilities": [
-        "backend lifecycle, chat, and generation integration facade"
+        "backend lifecycle and chat integration facade"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/generation_state.rs",
+      "responsibilities": [
+        "backend generation admission, cancellation, and terminal state coordination"
       ]
     },
     {
