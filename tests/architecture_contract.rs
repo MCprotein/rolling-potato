@@ -868,9 +868,15 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
 #[test]
 fn v03713_transition_adapter_delegates_source_install_contract() {
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
+    let bundle_preparation_adapter = "src/app/workflow_adapter/transition/bundle_preparation.rs";
     let source_install_adapter = "src/app/workflow_adapter/transition/source_install.rs";
     let transition_tests = "src/app/workflow_adapter/transition/tests/mod.rs";
-    for target in [transition_adapter, source_install_adapter, transition_tests] {
+    for target in [
+        transition_adapter,
+        bundle_preparation_adapter,
+        source_install_adapter,
+        transition_tests,
+    ] {
         assert!(
             Path::new(target).is_file(),
             "missing transition adapter owner: {target}"
@@ -878,8 +884,31 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     }
 
     let transition = fs::read_to_string(transition_adapter).unwrap();
+    let bundle_preparation = fs::read_to_string(bundle_preparation_adapter).unwrap();
     let source_install = fs::read_to_string(source_install_adapter).unwrap();
     let tests = fs::read_to_string(transition_tests).unwrap();
+    assert!(
+        transition
+            .lines()
+            .any(|line| line == "mod bundle_preparation;"),
+        "transition adapter does not register the bundle-preparation owner"
+    );
+    for responsibility in [
+        "pub(crate) fn prepare_state_transition_bundle(",
+        "pub(crate) fn prepare_source_bundle_with_context(",
+        "pub(crate) fn prepare_projection_lag_member(",
+        "pub(crate) fn install_projection_lag(",
+        "pub(crate) fn bind_planned_events(",
+    ] {
+        assert!(
+            !transition.contains(responsibility),
+            "bundle-preparation responsibility escaped into transition facade: {responsibility}"
+        );
+        assert!(
+            bundle_preparation.contains(responsibility),
+            "bundle-preparation adapter is missing responsibility: {responsibility}"
+        );
+    }
     assert!(
         transition.lines().any(|line| line == "mod source_install;"),
         "transition adapter does not register the source-install owner"
@@ -923,8 +952,12 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         );
     }
     assert!(
-        transition.lines().count() < 3_100,
-        "transition adapter regrew beyond the source-install extraction boundary"
+        transition.lines().count() < 2_650,
+        "transition adapter regrew beyond its extracted ownership boundary"
+    );
+    assert!(
+        bundle_preparation.lines().count() < 500,
+        "bundle-preparation adapter regrew beyond its ownership boundary"
     );
     assert!(
         source_install.lines().count() < 500,
