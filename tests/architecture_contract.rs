@@ -4920,6 +4920,8 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     let transaction_adapter = "src/app/workflow_adapter/state/transaction.rs";
     let approval_transaction_adapter = "src/app/workflow_adapter/state/transaction/approval.rs";
     let terminal_transaction_adapter = "src/app/workflow_adapter/state/transaction/terminal.rs";
+    let verification_transaction_adapter =
+        "src/app/workflow_adapter/state/transaction/verification.rs";
     let transition_commit_adapter = "src/app/workflow_adapter/state/transition_commit.rs";
     let workflow_access_adapter = "src/app/workflow_adapter/state/workflow_access.rs";
     let workflow_revision_adapter = "src/app/workflow_adapter/state/workflow_revision.rs";
@@ -4945,6 +4947,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(Path::new(transaction_adapter).is_file());
     assert!(Path::new(approval_transaction_adapter).is_file());
     assert!(Path::new(terminal_transaction_adapter).is_file());
+    assert!(Path::new(verification_transaction_adapter).is_file());
     assert!(Path::new(transition_commit_adapter).is_file());
     assert!(Path::new(workflow_access_adapter).is_file());
     assert!(Path::new(workflow_revision_adapter).is_file());
@@ -5170,6 +5173,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     let transaction = fs::read_to_string(transaction_adapter).unwrap();
     let approval_transaction = fs::read_to_string(approval_transaction_adapter).unwrap();
     let terminal_transaction = fs::read_to_string(terminal_transaction_adapter).unwrap();
+    let verification_transaction = fs::read_to_string(verification_transaction_adapter).unwrap();
     assert!(
         transaction.lines().any(|line| line == "mod approval;"),
         "state transaction adapter does not register its approval owner"
@@ -5178,12 +5182,10 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         transaction.lines().any(|line| line == "mod terminal;"),
         "state transaction adapter does not register its terminal owner"
     );
-    for owned_responsibility in ["struct StateVerificationTransactionPort"] {
-        assert!(
-            transaction.contains(owned_responsibility),
-            "state transaction adapter is missing responsibility: {owned_responsibility}"
-        );
-    }
+    assert!(
+        transaction.lines().any(|line| line == "mod verification;"),
+        "state transaction adapter does not register its verification owner"
+    );
     for owned_responsibility in [
         "pub(crate) struct PreparedApprovalTransition",
         "pub(crate) fn transition_project_current_state_prepared_approval(",
@@ -5216,6 +5218,21 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
             "state transaction adapter still owns terminal behavior: {owned_responsibility}"
         );
     }
+    for owned_responsibility in [
+        "pub(crate) struct PreparedVerificationTransition",
+        "pub(crate) fn transition_project_current_state_prepared_verification(",
+        "pub(crate) fn recover_project_current_state_prepared_verification(",
+        "struct StateVerificationTransactionPort",
+    ] {
+        assert!(
+            verification_transaction.contains(owned_responsibility),
+            "verification transaction adapter is missing responsibility: {owned_responsibility}"
+        );
+        assert!(
+            !transaction.contains(owned_responsibility),
+            "state transaction facade still owns verification behavior: {owned_responsibility}"
+        );
+    }
 
     let transition_commit = fs::read_to_string(transition_commit_adapter).unwrap();
     for owned_responsibility in [
@@ -5238,9 +5255,10 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(source_install.lines().count() < 375);
     assert!(source_install_directory.lines().count() < 375);
     assert!(source_install_fd_ops.lines().count() < 175);
-    assert!(transaction.lines().count() < 150);
+    assert!(transaction.lines().count() < 30);
     assert!(approval_transaction.lines().count() < 250);
     assert!(terminal_transaction.lines().count() < 325);
+    assert!(verification_transaction.lines().count() < 150);
     assert!(transition_commit.lines().count() < 450);
     assert!(workflow_access.lines().count() < 400);
     assert!(workflow_revision.lines().count() < 500);

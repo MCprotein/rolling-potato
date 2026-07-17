@@ -4767,7 +4767,7 @@
       "path": "src/app/workflow_adapter/state/transaction.rs",
       "slices": [
         {
-          "responsibility": "verification state transaction coordination",
+          "responsibility": "state transaction module facade and public(crate) re-exports",
           "target": "src/app/workflow_adapter/state/transaction.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -4776,7 +4776,26 @@
             "src/app/workflow_adapter/state/transaction.rs",
             "src/app/workflow_adapter/state/transaction/approval.rs",
             "src/app/workflow_adapter/state/transaction/terminal.rs",
+            "src/app/workflow_adapter/state/transaction/verification.rs",
             "src/patch.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction/verification.rs",
+      "slices": [
+        {
+          "responsibility": "verification state transaction commit, recovery, and persistence port",
+          "target": "src/app/workflow_adapter/state/transaction/verification.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/workflow_adapter/state/transaction/verification.rs",
+            "src/patch/tests/verification_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8049,7 +8068,13 @@
     {
       "path": "src/app/workflow_adapter/state/transaction.rs",
       "responsibilities": [
-        "verification state transaction coordination"
+        "state transaction module facade and public(crate) re-exports"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction/verification.rs",
+      "responsibilities": [
+        "verification state transaction commit, recovery, and persistence port"
       ]
     },
     {
