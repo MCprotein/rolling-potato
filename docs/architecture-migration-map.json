@@ -3550,7 +3550,7 @@
       "path": "src/app/extensions_adapter/plugin.rs",
       "slices": [
         {
-          "responsibility": "plugin source import normalization, lifecycle reporting, and registry command orchestration adapter",
+          "responsibility": "plugin lifecycle reporting and registry command orchestration adapter",
           "target": "src/app/extensions_adapter/plugin.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -3560,6 +3560,7 @@
             "src/app/extensions_adapter/plugin/execution.rs",
             "src/app/extensions_adapter/plugin/registry.rs",
             "src/app/extensions_adapter/plugin/scanner.rs",
+            "src/app/extensions_adapter/plugin/source_import.rs",
             "src/app/extensions_adapter/plugin/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3580,6 +3581,26 @@
             "src/app/extensions_adapter/plugin/execution.rs",
             "src/app/extensions_adapter/plugin/registry.rs",
             "src/app/extensions_adapter/plugin/scanner.rs",
+            "src/app/extensions_adapter/plugin/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/source_import.rs",
+      "slices": [
+        {
+          "responsibility": "local plugin source validation, snapshot inspection, and normalized manifest assembly",
+          "target": "src/app/extensions_adapter/plugin/source_import.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/registry.rs",
+            "src/app/extensions_adapter/plugin/scanner.rs",
+            "src/app/extensions_adapter/plugin/source_import.rs",
             "src/app/extensions_adapter/plugin/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -7447,13 +7468,19 @@
     {
       "path": "src/app/extensions_adapter/plugin.rs",
       "responsibilities": [
-        "plugin source import normalization, lifecycle reporting, and registry command orchestration adapter"
+        "plugin lifecycle reporting and registry command orchestration adapter"
       ]
     },
     {
       "path": "src/app/extensions_adapter/plugin/execution.rs",
       "responsibilities": [
         "imported Codex skill snapshot, frontmatter, capability, and execution metadata revalidation"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/source_import.rs",
+      "responsibilities": [
+        "local plugin source validation, snapshot inspection, and normalized manifest assembly"
       ]
     },
     {
