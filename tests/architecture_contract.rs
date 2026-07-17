@@ -869,7 +869,8 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
 fn v03713_transition_adapter_delegates_source_install_contract() {
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
     let source_install_adapter = "src/app/workflow_adapter/transition/source_install.rs";
-    for target in [transition_adapter, source_install_adapter] {
+    let transition_tests = "src/app/workflow_adapter/transition/tests/mod.rs";
+    for target in [transition_adapter, source_install_adapter, transition_tests] {
         assert!(
             Path::new(target).is_file(),
             "missing transition adapter owner: {target}"
@@ -878,6 +879,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
 
     let transition = fs::read_to_string(transition_adapter).unwrap();
     let source_install = fs::read_to_string(source_install_adapter).unwrap();
+    let tests = fs::read_to_string(transition_tests).unwrap();
     assert!(
         transition.lines().any(|line| line == "mod source_install;"),
         "transition adapter does not register the source-install owner"
@@ -907,12 +909,30 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         );
     }
     assert!(
-        transition.lines().count() < 3_800,
+        transition.contains("#[path = \"transition/tests/mod.rs\"]"),
+        "transition adapter does not register its regression test owner"
+    );
+    for responsibility in [
+        "fn recovery_enforces_file_and_directory_read_bounds_before_parsing(",
+        "fn source_install_v1_round_trips_exact_order_and_bindings(",
+        "fn prepared_bundle_strictly_binds_semantic_event_chain_plan(",
+    ] {
+        assert!(
+            tests.contains(responsibility),
+            "transition regression tests are missing responsibility: {responsibility}"
+        );
+    }
+    assert!(
+        transition.lines().count() < 3_100,
         "transition adapter regrew beyond the source-install extraction boundary"
     );
     assert!(
         source_install.lines().count() < 500,
         "source-install adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        tests.lines().count() < 750,
+        "transition regression tests regrew beyond their ownership boundary"
     );
 }
 

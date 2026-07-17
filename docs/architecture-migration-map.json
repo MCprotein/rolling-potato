@@ -4233,6 +4233,23 @@
       ]
     },
     {
+      "path": "src/app/workflow_adapter/transition/tests/mod.rs",
+      "slices": [
+        {
+          "responsibility": "transition journal, source-install, and bundle codec regression tests",
+          "target": "src/app/workflow_adapter/transition/tests/mod.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition.rs",
+            "src/app/workflow_adapter/transition/source_install.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/tui.rs",
       "slices": [
         {
@@ -6224,6 +6241,12 @@
       "path": "src/app/workflow_adapter/transition/source_install.rs",
       "responsibilities": [
         "source installation preparation, validation, and codec adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/tests/mod.rs",
+      "responsibilities": [
+        "transition journal, source-install, and bundle codec regression tests"
       ]
     },
     {
