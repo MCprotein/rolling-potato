@@ -983,7 +983,7 @@ mod tests {
 
         let report = execute_with("team-execution", fake_preflight, counting_runner).unwrap();
         let reconciliation =
-            crate::team_reconciliation::reconcile_report("team-execution").unwrap();
+            super::team_reconciliation::reconcile_report("team-execution").unwrap();
         let events = ledger::read_runtime_events().unwrap();
 
         assert!(report.contains("completed members: 2"));
@@ -1148,11 +1148,11 @@ mod tests {
         record_sample("normal");
         execute_with("team-execution", fake_preflight, fake_runner).unwrap();
 
-        let report = crate::team_reconciliation::reconcile_report("team-execution").unwrap();
+        let report = super::team_reconciliation::reconcile_report("team-execution").unwrap();
         let completed = team_state::load_state("team-execution").unwrap();
         let merged_parent = state::load_workflow(&parent.workflow_id).unwrap();
         let first_hash = merged_parent.artifact_hash.clone();
-        let retry = crate::team_reconciliation::reconcile_report("team-execution").unwrap();
+        let retry = super::team_reconciliation::reconcile_report("team-execution").unwrap();
         let retried_parent = state::load_workflow(&parent.workflow_id).unwrap();
         let events = ledger::read_runtime_events().unwrap();
 
@@ -1194,7 +1194,7 @@ mod tests {
         record_sample("normal");
         execute_with("team-execution", fake_preflight, validation_gap_runner).unwrap();
 
-        let error = crate::team_reconciliation::reconcile_report("team-execution").unwrap_err();
+        let error = super::team_reconciliation::reconcile_report("team-execution").unwrap_err();
         let blocked = team_state::load_state("team-execution").unwrap();
         let unchanged_parent = state::load_workflow(&parent.workflow_id).unwrap();
 
@@ -1220,7 +1220,7 @@ mod tests {
         )
         .unwrap();
 
-        let error = crate::team_reconciliation::reconcile_report("team-execution").unwrap_err();
+        let error = super::team_reconciliation::reconcile_report("team-execution").unwrap_err();
         let blocked = team_state::load_state("team-execution").unwrap();
         let unchanged_parent = state::load_workflow(&parent.workflow_id).unwrap();
 

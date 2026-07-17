@@ -1793,6 +1793,7 @@
             "src/app/collaboration_adapter/subagent.rs",
             "src/app/collaboration_adapter/subagent_result.rs",
             "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_reconciliation.rs",
             "src/app/collaboration_adapter/team_state.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2731,7 +2732,7 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_reconciliation.rs",
-            "src/team_reconciliation.rs",
+            "src/app/collaboration_adapter/team_reconciliation.rs",
             "tests/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3662,16 +3663,16 @@
       ]
     },
     {
-      "path": "src/team_reconciliation.rs",
+      "path": "src/app/collaboration_adapter/team_reconciliation.rs",
       "slices": [
         {
-          "responsibility": "team evidence reconciliation",
-          "target": "src/runtime_core/collaboration/team_reconciliation.rs",
-          "release": "0.37.12",
+          "responsibility": "team evidence reconciliation adapter",
+          "target": "src/app/collaboration_adapter/team_reconciliation.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_reconciliation.rs",
-            "src/team_reconciliation.rs",
+            "src/app/collaboration_adapter/team_reconciliation.rs",
             "tests/collaboration/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -5538,9 +5539,9 @@
       ]
     },
     {
-      "path": "src/team_reconciliation.rs",
+      "path": "src/app/collaboration_adapter/team_reconciliation.rs",
       "responsibilities": [
-        "team evidence reconciliation"
+        "team evidence reconciliation adapter"
       ]
     },
     {
