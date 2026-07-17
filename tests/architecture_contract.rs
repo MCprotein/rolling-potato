@@ -1158,6 +1158,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
 #[test]
 fn v0379_patch_owners_hold_lifecycle_decisions() {
     let patch_tests = "src/patch/tests/mod.rs";
+    let approval_transaction_adapter = "src/patch/approval_transaction.rs";
     let execution_adapter = "src/patch/execution.rs";
     let guard_adapter = "src/patch/guard.rs";
     let proposal_builder_adapter = "src/patch/proposal_builder.rs";
@@ -1167,6 +1168,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let verification_adapter = "src/patch/verification.rs";
     let workflow_contract_adapter = "src/patch/workflow_contract.rs";
     let workflow_execution_adapter = "src/patch/workflow_execution.rs";
+    assert!(Path::new(approval_transaction_adapter).is_file());
     assert!(Path::new(execution_adapter).is_file());
     assert!(Path::new(guard_adapter).is_file());
     assert!(Path::new(proposal_builder_adapter).is_file());
@@ -1307,6 +1309,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
 
     let intent_facade = fs::read_to_string("src/intent.rs").unwrap();
     let patch_facade = fs::read_to_string("src/patch.rs").unwrap();
+    let approval_transaction = fs::read_to_string(approval_transaction_adapter).unwrap();
     let execution = fs::read_to_string(execution_adapter).unwrap();
     let guard = fs::read_to_string(guard_adapter).unwrap();
     let proposal_builder = fs::read_to_string(proposal_builder_adapter).unwrap();
@@ -1324,9 +1327,27 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         "intent facade regrew beyond the v0.37.9 boundary"
     );
     assert!(
-        patch_facade.lines().count() < 1_300,
+        patch_facade.lines().count() < 500,
         "patch facade regrew beyond the v0.37.9 boundary"
     );
+    assert!(patch_facade
+        .lines()
+        .any(|line| line == "mod approval_transaction;"));
+    for escaped_responsibility in [
+        "fn approve_prepared_skill_transaction(",
+        "fn recover_prepared_approval_bundle(",
+        "fn validate_prepared_approval_semantics(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "approval transaction responsibility escaped into patch facade: {escaped_responsibility}"
+        );
+        assert!(
+            approval_transaction.contains(escaped_responsibility),
+            "approval transaction adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(approval_transaction.lines().count() < 900);
     assert!(patch_facade.lines().any(|line| line == "mod execution;"));
     for escaped_responsibility in [
         "fn apply_proposal(",

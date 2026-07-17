@@ -2557,6 +2557,24 @@
       ]
     },
     {
+      "path": "src/patch/approval_transaction.rs",
+      "slices": [
+        {
+          "responsibility": "prepared patch approval and recovery transaction adapter",
+          "target": "src/patch/approval_transaction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/workflow_adapter/transition.rs",
+            "src/patch/approval_transaction.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/patch/execution.rs",
       "slices": [
         {
@@ -5476,6 +5494,12 @@
         "patch approval credentials",
         "guarded patch apply and rollback",
         "patch verification and recovery"
+      ]
+    },
+    {
+      "path": "src/patch/approval_transaction.rs",
+      "responsibilities": [
+        "prepared patch approval and recovery transaction adapter"
       ]
     },
     {
