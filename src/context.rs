@@ -705,7 +705,7 @@ mod tests {
             )
             .unwrap();
         }
-        let other_identity = crate::ledger::RuntimeIdentity {
+        let other_identity = crate::app::workflow_adapter::ledger::RuntimeIdentity {
             project_id: workflow.project_id.clone(),
             session_id: "session-other".to_string(),
             project_root: project_root.display().to_string(),

@@ -5,7 +5,6 @@ mod context;
 mod evidence;
 mod foundation;
 mod intent;
-mod ledger;
 mod ontology;
 mod patch;
 mod runtime;

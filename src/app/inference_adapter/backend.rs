@@ -13,6 +13,7 @@ use crate::adapters::llama_cpp::install as llama_install;
 use crate::adapters::llama_cpp::stream as backend_stream;
 use crate::adapters::process::backend as backend_process;
 use crate::app::observability_adapter as observability;
+use crate::app::workflow_adapter::ledger;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::inference::backend::admission::{GenerationAdmission, GenerationRelease};
@@ -32,7 +33,7 @@ use crate::runtime_core::inference::{
     stream::{StreamOutcome, StreamTermination},
 };
 use crate::runtime_core::reporting::korean_guard;
-use crate::{ledger, state};
+use crate::state;
 use llama_backend::{LlamaCppAdapter, ENV_BACKEND_PATH, LLAMA_CPP_BACKEND_ID};
 #[cfg(test)]
 use llama_backend::{DEFAULT_HOST, DEFAULT_PORT, ENV_BACKEND_PORT};

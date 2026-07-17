@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn runtime_state_round_trips_through_workflow_fields() {
-        let identity = crate::ledger::fresh_identity();
+        let identity = crate::app::workflow_adapter::ledger::fresh_identity();
         let mut workflow = state::WorkflowRecord::new(&identity, "request");
         let mut runtime = SkillRuntimeState::new("small-patch", "explicit").unwrap();
         runtime.transition(SkillState::ContextReady).unwrap();

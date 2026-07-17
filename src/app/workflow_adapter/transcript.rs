@@ -5,10 +5,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::adapters::filesystem::{layout as paths, lease};
 use crate::app::observability_adapter as observability;
+use crate::app::workflow_adapter::ledger::{self, ParsedLedgerEvent, RuntimeIdentity};
 use crate::context::SourcePointer;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
-use crate::ledger::{self, ParsedLedgerEvent, RuntimeIdentity};
 use crate::runtime_core::workflow::domain::transcript as transcript_domain;
 pub use crate::runtime_core::workflow::domain::transcript::ToolOutputView;
 #[cfg(test)]
@@ -79,7 +79,7 @@ pub(crate) struct PreparedTranscriptTurn {
     pub transcript_stored_path: String,
     pub transcript_bytes: String,
     pub record: TranscriptRecord,
-    pub event: crate::ledger::LedgerEvent,
+    pub event: crate::app::workflow_adapter::ledger::LedgerEvent,
 }
 
 pub(crate) fn prepare_no_stream_tool_turn(
@@ -252,7 +252,7 @@ pub(crate) fn install_prepared_no_stream_tool_turn(
 pub(crate) fn decode_prepared_no_stream_tool_turn(
     tool_member: &crate::transition::PreparedMember,
     transcript_member: &crate::transition::PreparedMember,
-    event: &crate::ledger::LedgerEvent,
+    event: &crate::app::workflow_adapter::ledger::LedgerEvent,
 ) -> Result<PreparedTranscriptTurn, AppError> {
     use crate::transition::PreparedMemberKind;
 
@@ -390,7 +390,7 @@ pub fn record_workflow_turn_with_streams(
             workflow.project_id, workflow.session_id, workflow.workflow_id, kind, causal_id
         ))[..24]
     );
-    let ledger_guard = crate::ledger::LedgerWriterGuard::acquire()?;
+    let ledger_guard = crate::app::workflow_adapter::ledger::LedgerWriterGuard::acquire()?;
     let path =
         validated_transcript_path(&workflow.project_id, &workflow.session_id, &record_id, true)?;
     let pointers = source_pointers
@@ -795,7 +795,7 @@ fn validate_sanitized_streams(
 
 fn ensure_ledger_event_under_guard(
     record: &TranscriptRecord,
-    guard: &crate::ledger::LedgerWriterGuard,
+    guard: &crate::app::workflow_adapter::ledger::LedgerWriterGuard,
 ) -> Result<(), AppError> {
     if record.schema_version == TRANSCRIPT_SCHEMA_V1 {
         let existing = guard
@@ -820,7 +820,7 @@ fn ensure_ledger_event_under_guard(
             )));
         }
         if let Some((index, existing)) = existing.first() {
-            let event = crate::ledger::LedgerEvent {
+            let event = crate::app::workflow_adapter::ledger::LedgerEvent {
                 event_id: existing.event_id.clone(),
                 ts_ms: existing.ts_ms,
                 event_type: existing.event_type.clone(),
@@ -912,7 +912,7 @@ fn ensure_ledger_event_under_guard(
 
 fn transcript_ledger_event(
     record: &TranscriptRecord,
-) -> Result<crate::ledger::LedgerEvent, AppError> {
+) -> Result<crate::app::workflow_adapter::ledger::LedgerEvent, AppError> {
     validate_tool_binding_shape_for_record(record)?;
     let identity = RuntimeIdentity {
         project_id: record.project_id.clone(),
@@ -977,7 +977,7 @@ fn transcript_ledger_event(
         &record.artifact_hash,
     ]
     .join("\0");
-    Ok(crate::ledger::LedgerEvent {
+    Ok(crate::app::workflow_adapter::ledger::LedgerEvent {
         event_id: format!("event-transcript-{}", state::sha256_text(&digest_input)),
         ts_ms: record.recorded_at_ms,
         event_type: "transcript.recorded".to_string(),

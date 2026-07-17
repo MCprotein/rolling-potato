@@ -3,6 +3,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use crate::adapters::filesystem::layout as paths;
+use crate::app::workflow_adapter::ledger;
 use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
@@ -12,7 +13,7 @@ pub use crate::runtime_core::knowledge::evidence::{
 use crate::runtime_core::knowledge::evidence::{
     validate_artifact_pointer_syntax, validate_stop_inputs, StopGateInputs,
 };
-use crate::{ledger, state};
+use crate::state;
 
 pub fn record_patch_verification(
     workflow: &state::WorkflowRecord,

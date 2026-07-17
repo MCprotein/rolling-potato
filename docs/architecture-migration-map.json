@@ -1829,6 +1829,7 @@
           "state": "complete",
           "evidence": [
             "src/app/workflow_adapter.rs",
+            "src/app/workflow_adapter/ledger.rs",
             "src/app/workflow_adapter/transcript.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2269,36 +2270,18 @@
       ]
     },
     {
-      "path": "src/ledger.rs",
+      "path": "src/app/workflow_adapter/ledger.rs",
       "slices": [
         {
-          "responsibility": "canonical event append and hashing",
-          "target": "src/runtime_core/workflow/storage_compat/ledger.rs",
-          "release": "0.37.4",
+          "responsibility": "ledger persistence and projection orchestration adapter",
+          "target": "src/app/workflow_adapter/ledger.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/storage_compat/ledger.rs",
-            "tests/workflow/storage_compat.rs"
-          ]
-        },
-        {
-          "responsibility": "cross-store transaction coordination",
-          "target": "src/runtime_core/workflow/application/transaction_coordinator.rs",
-          "release": "0.37.6",
-          "state": "complete",
-          "evidence": [
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
-            "tests/workflow/recovery.rs",
-            "tests/architecture_contract.rs"
-          ]
-        },
-        {
-          "responsibility": "ledger observability projection",
-          "target": "src/adapters/sqlite/ledger_projection.rs",
-          "release": "0.37.7",
-          "state": "complete",
-          "evidence": [
             "src/adapters/sqlite/ledger_projection.rs",
+            "src/app/workflow_adapter/ledger.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5023,11 +5006,9 @@
       ]
     },
     {
-      "path": "src/ledger.rs",
+      "path": "src/app/workflow_adapter/ledger.rs",
       "responsibilities": [
-        "canonical event append and hashing",
-        "cross-store transaction coordination",
-        "ledger observability projection"
+        "ledger persistence and projection orchestration adapter"
       ]
     },
     {

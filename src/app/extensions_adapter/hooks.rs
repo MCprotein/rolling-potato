@@ -45,12 +45,18 @@ pub(crate) fn dispatch_native_lifecycle_for_skill(
 pub(crate) fn prepare_native_lifecycle_event(
     input: HookInput<'_>,
     tool: Option<&str>,
-    identity: &crate::ledger::RuntimeIdentity,
-) -> Result<(HookDispatch, crate::ledger::LedgerEvent), AppError> {
+    identity: &crate::app::workflow_adapter::ledger::RuntimeIdentity,
+) -> Result<
+    (
+        HookDispatch,
+        crate::app::workflow_adapter::ledger::LedgerEvent,
+    ),
+    AppError,
+> {
     let rules = native_lifecycle_rules(input, tool);
     let mut result = dispatch(input, &rules);
     validate_dispatch_result(input, &result)?;
-    let event = crate::ledger::new_event_for(
+    let event = crate::app::workflow_adapter::ledger::new_event_for(
         identity,
         "hook.dispatched",
         &format!("{} lifecycle hook 처리", input.hook),
@@ -63,8 +69,8 @@ pub(crate) fn prepare_native_lifecycle_event(
 pub(crate) fn validate_prepared_native_lifecycle_event(
     input: HookInput<'_>,
     tool: Option<&str>,
-    identity: &crate::ledger::RuntimeIdentity,
-    event: &crate::ledger::LedgerEvent,
+    identity: &crate::app::workflow_adapter::ledger::RuntimeIdentity,
+    event: &crate::app::workflow_adapter::ledger::LedgerEvent,
 ) -> Result<(), AppError> {
     let rules = native_lifecycle_rules(input, tool);
     let result = dispatch(input, &rules);

@@ -238,11 +238,11 @@ impl TransitionGuard {
 pub(crate) fn prepare_state_transition_bundle(
     intent_id: &str,
     intent: CurrentStateIntent,
-    identity: &crate::ledger::RuntimeIdentity,
+    identity: &crate::app::workflow_adapter::ledger::RuntimeIdentity,
     workflow_id: Option<&str>,
     current_revision: u64,
     current_artifact_hash: &str,
-    ledger_binding: crate::ledger::LedgerBinding,
+    ledger_binding: crate::app::workflow_adapter::ledger::LedgerBinding,
 ) -> Result<PreparedSourceBundle, AppError> {
     validate_ascii_id(intent_id, "intent")?;
     validate_ascii_id(&identity.project_id, "project")?;
@@ -283,9 +283,9 @@ pub(crate) fn prepare_source_bundle(
     before: &[u8],
     proposed: &[u8],
 ) -> Result<PreparedSourceBundle, AppError> {
-    let identity = crate::ledger::validated_current_identity()?;
+    let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
     let lease = crate::state::current_state_lease_view()?;
-    let ledger_binding = crate::ledger::validated_ledger_binding()?;
+    let ledger_binding = crate::app::workflow_adapter::ledger::validated_ledger_binding()?;
     prepare_source_bundle_with_context(
         intent_id,
         workflow_id,
@@ -472,7 +472,7 @@ pub(crate) fn bind_additional_members(
 
 pub(crate) fn prepare_projection_lag_member(
     intent_id: &str,
-    planned: &[crate::ledger::PlannedEvent],
+    planned: &[crate::app::workflow_adapter::ledger::PlannedEvent],
 ) -> Result<PreparedMember, AppError> {
     validate_ascii_id(intent_id, "intent")?;
     if planned.len() != 10 {
@@ -483,13 +483,18 @@ pub(crate) fn prepare_projection_lag_member(
     let final_event = &planned[9];
     let required_event_ids = planned
         .iter()
-        .map(|entry| format!("\"{}\"", crate::ledger::json_string(&entry.event.event_id)))
+        .map(|entry| {
+            format!(
+                "\"{}\"",
+                crate::app::workflow_adapter::ledger::json_string(&entry.event.event_id)
+            )
+        })
         .collect::<Vec<_>>()
         .join(",");
     let bytes_utf8 = format!(
         "{{\"schema_version\":1,\"intent_id\":\"{}\",\"event_id\":\"{}\",\"event_ordinal\":{},\"event_hash\":\"{}\",\"required_outputs\":[\"project-session-ledger\",\"global-operation-log\",\"sqlite\"],\"required_event_ids\":[{}]}}",
-        crate::ledger::json_string(intent_id),
-        crate::ledger::json_string(&final_event.event.event_id),
+        crate::app::workflow_adapter::ledger::json_string(intent_id),
+        crate::app::workflow_adapter::ledger::json_string(&final_event.event.event_id),
         final_event.ordinal,
         final_event.event_hash,
         required_event_ids,
@@ -696,25 +701,27 @@ fn restore_removed_file(path: &Path, bytes: &[u8], label: &str) -> Result<(), Ap
 
 pub(crate) fn planned_events(
     bundle: &PreparedSourceBundle,
-) -> Result<Vec<crate::ledger::PlannedEvent>, AppError> {
+) -> Result<Vec<crate::app::workflow_adapter::ledger::PlannedEvent>, AppError> {
     validate_prepared_source_bundle(bundle)?;
     Ok(bundle
         .semantic_events
         .iter()
         .cloned()
         .zip(bundle.event_chain_plan.iter())
-        .map(|(event, chain)| crate::ledger::PlannedEvent {
-            event,
-            ordinal: chain.ordinal,
-            previous_event_hash: chain.previous_event_hash.clone(),
-            event_hash: chain.event_hash.clone(),
-        })
+        .map(
+            |(event, chain)| crate::app::workflow_adapter::ledger::PlannedEvent {
+                event,
+                ordinal: chain.ordinal,
+                previous_event_hash: chain.previous_event_hash.clone(),
+                event_hash: chain.event_hash.clone(),
+            },
+        )
         .collect())
 }
 
 pub(crate) fn bind_planned_events(
     bundle: &mut PreparedSourceBundle,
-    planned: &[crate::ledger::PlannedEvent],
+    planned: &[crate::app::workflow_adapter::ledger::PlannedEvent],
 ) -> Result<(), AppError> {
     bundle.semantic_events = planned.iter().map(|entry| entry.event.clone()).collect();
     bundle.event_chain_plan = planned
@@ -748,10 +755,10 @@ pub(crate) fn render_prepared_source_bundle(
         .unwrap_or_else(|| "null".to_string());
     let body = format!(
         "{{\"schema_version\":1,\"intent_id\":\"{}\",\"intent_kind\":\"{}\",\"project_id\":\"{}\",\"session_id\":\"{}\",\"workflow_id\":{},\"prepared_at_ms\":{},\"before_binding\":{{\"current_revision\":{},\"current_artifact_hash\":\"{}\",\"ledger_count\":{},\"ledger_event_id\":{},\"ledger_hash\":\"{}\"}},\"members\":{},\"semantic_events\":{},\"event_chain_plan\":{},\"source_install_v1\":{},\"projection_lag_v1\":{}}}",
-        crate::ledger::json_string(&bundle.intent_id),
+        crate::app::workflow_adapter::ledger::json_string(&bundle.intent_id),
         bundle.intent_kind,
-        crate::ledger::json_string(&bundle.project_id),
-        crate::ledger::json_string(&bundle.session_id),
+        crate::app::workflow_adapter::ledger::json_string(&bundle.project_id),
+        crate::app::workflow_adapter::ledger::json_string(&bundle.session_id),
         render_optional_string(bundle.workflow_id.as_deref()),
         bundle.prepared_at_ms,
         bundle.current_revision,
@@ -848,7 +855,7 @@ pub(crate) fn parse_prepared_source_bundle(body: &str) -> Result<PreparedSourceB
             "prepared source bundle",
         )?,
         current_artifact_hash: required_string(before_binding, "current_artifact_hash")?,
-        ledger_binding: crate::ledger::LedgerBinding {
+        ledger_binding: crate::app::workflow_adapter::ledger::LedgerBinding {
             event_count: strict_json::canonical_u64(
                 before_binding,
                 "ledger_count",
@@ -1057,9 +1064,9 @@ pub(crate) fn recover_pending_source_bundles() -> Result<usize, AppError> {
         return Ok(0);
     }
     let identity = if paths::current_state_file().exists() {
-        crate::ledger::validated_current_identity()?
+        crate::app::workflow_adapter::ledger::validated_current_identity()?
     } else {
-        crate::ledger::fresh_identity()
+        crate::app::workflow_adapter::ledger::fresh_identity()
     };
     let _guard = TransitionGuard::acquire(&identity.project_id)?;
     recover_pending_bundles_under_guard(&identity.project_id)
@@ -1623,7 +1630,8 @@ fn validate_event_chain(bundle: &PreparedSourceBundle) -> Result<(), AppError> {
                     .map_err(|_| AppError::blocked("prepared event ordinal overflow"))?,
             )
             .ok_or_else(|| AppError::blocked("prepared event ordinal overflow"))?;
-        let expected_hash = crate::ledger::planned_event_hash(event, &previous);
+        let expected_hash =
+            crate::app::workflow_adapter::ledger::planned_event_hash(event, &previous);
         if chain.event_id != event.event_id
             || chain.ordinal != expected_ordinal
             || chain.previous_event_hash != previous
@@ -1968,7 +1976,7 @@ fn validate_state_transition_members(bundle: &PreparedSourceBundle) -> Result<()
             .event_chain_plan
             .last()
             .ok_or_else(|| AppError::blocked("prepared checkpoint final chain 누락"))?;
-        let final_binding = crate::ledger::LedgerBinding {
+        let final_binding = crate::app::workflow_adapter::ledger::LedgerBinding {
             event_count: final_chain.ordinal,
             event_id: Some(final_chain.event_id.clone()),
             event_hash: final_chain.event_hash.clone(),
@@ -2215,7 +2223,7 @@ fn render_source_members(bundle: &PreparedSourceBundle) -> Result<String, AppErr
         format!(
             "{{\"member_kind\":\"{}\",\"path\":\"{}\",\"schema_version\":null,\"owner\":{},\"binding\":{},\"prepared_at_ms\":{},\"bytes_utf8\":{},\"byte_length\":{},\"sha256\":\"{}\",\"expected_type\":\"{}\",\"expected_identity\":{},\"permissions\":{{\"readonly\":false,\"mode\":{}}},\"ownership\":{}}}",
             kind,
-            crate::ledger::json_string(path),
+            crate::app::workflow_adapter::ledger::json_string(path),
             common_owner(owner),
             binding(artifact_id),
             bundle.prepared_at_ms,
@@ -2278,7 +2286,7 @@ fn render_additional_member(bundle: &PreparedSourceBundle, member: &PreparedMemb
     format!(
         "{{\"member_kind\":\"{}\",\"path\":\"{}\",\"schema_version\":{},\"owner\":{{\"project_id\":\"{}\",\"session_id\":\"{}\",\"workflow_id\":{},\"intent_id\":\"{}\"}},\"binding\":{{\"artifact_id\":{},\"causal_id\":{},\"source_key\":{},\"event_id\":{}}},\"prepared_at_ms\":{},\"bytes_utf8\":\"{}\",\"byte_length\":{},\"sha256\":\"{}\",\"expected_type\":\"{}\",\"expected_identity\":{},\"permissions\":{{\"readonly\":{},\"mode\":{}}},\"ownership\":{}}}",
         member.kind.as_str(),
-        crate::ledger::json_string(&member.path),
+        crate::app::workflow_adapter::ledger::json_string(&member.path),
         member.schema_version,
         bundle.project_id,
         bundle.session_id,
@@ -2289,7 +2297,7 @@ fn render_additional_member(bundle: &PreparedSourceBundle, member: &PreparedMemb
         render_optional_string(binding.source_key.as_deref()),
         render_optional_string(binding.event_id.as_deref()),
         bundle.prepared_at_ms,
-        crate::ledger::json_string(&member.bytes_utf8),
+        crate::app::workflow_adapter::ledger::json_string(&member.bytes_utf8),
         byte_length,
         hash,
         member.expected_type,
@@ -2412,7 +2420,7 @@ struct PreparedMemberParseContext<'a> {
     workflow_id: Option<&'a str>,
     intent_id: &'a str,
     intent_kind: &'a str,
-    semantic_events: &'a [crate::ledger::LedgerEvent],
+    semantic_events: &'a [crate::app::workflow_adapter::ledger::LedgerEvent],
 }
 
 fn parse_additional_members(
@@ -2496,7 +2504,7 @@ fn parse_additional_member(
     })
 }
 
-fn render_semantic_events(events: &[crate::ledger::LedgerEvent]) -> String {
+fn render_semantic_events(events: &[crate::app::workflow_adapter::ledger::LedgerEvent]) -> String {
     let rows = events
         .iter()
         .map(render_semantic_event)
@@ -2505,22 +2513,22 @@ fn render_semantic_events(events: &[crate::ledger::LedgerEvent]) -> String {
     format!("[{rows}]")
 }
 
-fn render_semantic_event(event: &crate::ledger::LedgerEvent) -> String {
+fn render_semantic_event(event: &crate::app::workflow_adapter::ledger::LedgerEvent) -> String {
     format!(
         "{{\"schema_version\":1,\"event_id\":\"{}\",\"ts_ms\":{},\"event_type\":\"{}\",\"project_id\":\"{}\",\"session_id\":\"{}\",\"summary\":\"{}\",\"details\":\"{}\"}}",
-        crate::ledger::json_string(&event.event_id),
+        crate::app::workflow_adapter::ledger::json_string(&event.event_id),
         event.ts_ms,
-        crate::ledger::json_string(&event.event_type),
-        crate::ledger::json_string(&event.project_id),
-        crate::ledger::json_string(&event.session_id),
-        crate::ledger::json_string(&event.summary),
-        crate::ledger::json_string(&event.details),
+        crate::app::workflow_adapter::ledger::json_string(&event.event_type),
+        crate::app::workflow_adapter::ledger::json_string(&event.project_id),
+        crate::app::workflow_adapter::ledger::json_string(&event.session_id),
+        crate::app::workflow_adapter::ledger::json_string(&event.summary),
+        crate::app::workflow_adapter::ledger::json_string(&event.details),
     )
 }
 
 fn parse_semantic_events(
     object: &CanonicalObject,
-) -> Result<Vec<crate::ledger::LedgerEvent>, AppError> {
+) -> Result<Vec<crate::app::workflow_adapter::ledger::LedgerEvent>, AppError> {
     let Some(CanonicalValue::Array(values)) = object.get("semantic_events") else {
         return Err(AppError::blocked("prepared semantic_events type 불일치"));
     };
@@ -2534,7 +2542,7 @@ fn parse_semantic_events(
             if strict_json::canonical_u64(event, "schema_version", "semantic event")? != 1 {
                 return Err(AppError::blocked("prepared semantic event schema 불일치"));
             }
-            Ok(crate::ledger::LedgerEvent {
+            Ok(crate::app::workflow_adapter::ledger::LedgerEvent {
                 event_id: required_string(event, "event_id")?,
                 ts_ms: strict_json::canonical_u128(event, "ts_ms", "semantic event")?,
                 event_type: required_string(event, "event_type")?,
@@ -2553,7 +2561,7 @@ fn render_event_chain_plan(plan: &[PreparedEventChain]) -> String {
         .map(|entry| {
             format!(
                 "{{\"event_id\":\"{}\",\"ordinal\":{},\"previous_event_hash\":\"{}\",\"event_hash\":\"{}\"}}",
-                crate::ledger::json_string(&entry.event_id),
+                crate::app::workflow_adapter::ledger::json_string(&entry.event_id),
                 entry.ordinal,
                 entry.previous_event_hash,
                 entry.event_hash,
@@ -2608,7 +2616,7 @@ fn parse_projection_lag_reference(object: &CanonicalObject) -> Result<Option<u64
 fn derive_workflow_role_rank(
     event_id: Option<&str>,
     intent_kind: &str,
-    semantic_events: &[crate::ledger::LedgerEvent],
+    semantic_events: &[crate::app::workflow_adapter::ledger::LedgerEvent],
 ) -> Result<u8, AppError> {
     match intent_kind {
         "approve-patch" if semantic_events.len() == 10 => match event_id {
@@ -2671,7 +2679,12 @@ fn required_u128(object: &CanonicalObject, key: &str) -> Result<u128, AppError> 
 
 fn render_optional_string(value: Option<&str>) -> String {
     value
-        .map(|value| format!("\"{}\"", crate::ledger::json_string(value)))
+        .map(|value| {
+            format!(
+                "\"{}\"",
+                crate::app::workflow_adapter::ledger::json_string(value)
+            )
+        })
         .unwrap_or_else(|| "null".to_string())
 }
 
@@ -3005,13 +3018,18 @@ pub(crate) fn render_source_install_v1(plan: &SourceInstallV1) -> Result<String,
     let operations = plan
         .operations
         .iter()
-        .map(|operation| format!("\"{}\"", crate::ledger::json_string(operation)))
+        .map(|operation| {
+            format!(
+                "\"{}\"",
+                crate::app::workflow_adapter::ledger::json_string(operation)
+            )
+        })
         .collect::<Vec<_>>()
         .join(",");
     let body = format!(
         "{{\"schema_version\":{},\"source_key\":\"{}\",\"target\":{},\"before_blob\":{},\"proposed_blob\":{},\"rollback_final\":{},\"install_temp\":{},\"guard_path\":{},\"before_sha256\":\"{}\",\"before_byte_length\":{},\"proposed_sha256\":\"{}\",\"proposed_byte_length\":{},\"permissions\":{},\"ownership\":{},\"platform\":\"{}\",\"unix_metadata\":{},\"operations\":[{}]}}",
         plan.schema_version,
-        crate::ledger::json_string(&plan.source_key),
+        crate::app::workflow_adapter::ledger::json_string(&plan.source_key),
         render_path(&plan.target),
         render_blob(&plan.before_blob),
         render_blob(&plan.proposed_blob),
@@ -3225,14 +3243,14 @@ fn checked_len(bytes: &[u8], label: &str) -> Result<u64, AppError> {
 fn render_path(path: &PreparedPath) -> String {
     format!(
         "{{\"namespace\":\"{}\",\"path\":\"{}\",\"parent\":\"{}\",\"basename\":\"{}\",\"expected_type\":\"{}\",\"expected_identity\":{}}}",
-        crate::ledger::json_string(&path.namespace),
-        crate::ledger::json_string(&path.path),
-        crate::ledger::json_string(&path.parent),
-        crate::ledger::json_string(&path.basename),
-        crate::ledger::json_string(&path.expected_type),
+        crate::app::workflow_adapter::ledger::json_string(&path.namespace),
+        crate::app::workflow_adapter::ledger::json_string(&path.path),
+        crate::app::workflow_adapter::ledger::json_string(&path.parent),
+        crate::app::workflow_adapter::ledger::json_string(&path.basename),
+        crate::app::workflow_adapter::ledger::json_string(&path.expected_type),
         path.expected_identity
             .as_ref()
-            .map(|value| format!("\"{}\"", crate::ledger::json_string(value)))
+            .map(|value| format!("\"{}\"", crate::app::workflow_adapter::ledger::json_string(value)))
             .unwrap_or_else(|| "null".to_string())
     )
 }
@@ -3240,8 +3258,8 @@ fn render_path(path: &PreparedPath) -> String {
 fn render_blob(blob: &PreparedBlob) -> String {
     format!(
         "{{\"blob_id\":\"{}\",\"member_path\":\"{}\",\"sha256\":\"{}\",\"byte_length\":{}}}",
-        crate::ledger::json_string(&blob.blob_id),
-        crate::ledger::json_string(&blob.member_path),
+        crate::app::workflow_adapter::ledger::json_string(&blob.blob_id),
+        crate::app::workflow_adapter::ledger::json_string(&blob.member_path),
         blob.sha256,
         blob.byte_length
     )
@@ -3257,8 +3275,8 @@ fn render_permissions(value: &SourcePermissions) -> String {
 fn render_ownership(value: &SourceOwnership) -> String {
     format!(
         "{{\"before_owner\":\"{}\",\"install_owner\":\"{}\"}}",
-        crate::ledger::json_string(&value.before_owner),
-        crate::ledger::json_string(&value.install_owner)
+        crate::app::workflow_adapter::ledger::json_string(&value.before_owner),
+        crate::app::workflow_adapter::ledger::json_string(&value.install_owner)
     )
 }
 
@@ -3477,7 +3495,7 @@ mod tests {
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
         std::env::set_var("RPOTATO_DATA_HOME", &data_home);
         crate::state::initialize().unwrap();
-        let project_id = crate::ledger::validated_current_identity()
+        let project_id = crate::app::workflow_adapter::ledger::validated_current_identity()
             .unwrap()
             .project_id;
         let transition_guard = TransitionGuard::acquire(&project_id).unwrap();
@@ -3511,7 +3529,7 @@ mod tests {
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
         std::env::set_var("RPOTATO_DATA_HOME", &data_home);
         crate::state::initialize().unwrap();
-        let project_id = crate::ledger::validated_current_identity()
+        let project_id = crate::app::workflow_adapter::ledger::validated_current_identity()
             .unwrap()
             .project_id;
         let transition_guard = TransitionGuard::acquire(&project_id).unwrap();
@@ -3602,8 +3620,8 @@ mod tests {
     #[test]
     fn projection_lag_member_full_bytes_golden_is_independent() {
         let planned = (0_u64..10)
-            .map(|index| crate::ledger::PlannedEvent {
-                event: crate::ledger::LedgerEvent {
+            .map(|index| crate::app::workflow_adapter::ledger::PlannedEvent {
+                event: crate::app::workflow_adapter::ledger::LedgerEvent {
                     event_id: format!("event-{index}"),
                     ts_ms: u128::from(index),
                     event_type: "approval.event".to_string(),
@@ -3804,7 +3822,7 @@ mod tests {
             .message
             .contains("rollback path가 journal commit 전에 이미 존재"));
         assert!(!paths::project_transition_journal_file(
-            &crate::ledger::fresh_identity().project_id,
+            &crate::app::workflow_adapter::ledger::fresh_identity().project_id,
             "intent-rollback-admission"
         )
         .exists());
@@ -3945,22 +3963,22 @@ mod tests {
             b"proposed source\n",
         )
         .unwrap();
-        let identity = crate::ledger::validated_current_identity().unwrap();
+        let identity = crate::app::workflow_adapter::ledger::validated_current_identity().unwrap();
         let events = [
-            crate::ledger::new_event_for(
+            crate::app::workflow_adapter::ledger::new_event_for(
                 &identity,
                 "approval.prepared",
                 "승인 준비",
                 "intent_id=intent-event-chain workflow_id=workflow-event-chain",
             ),
-            crate::ledger::new_event_for(
+            crate::app::workflow_adapter::ledger::new_event_for(
                 &identity,
                 "source.installed",
                 "소스 설치",
                 "intent_id=intent-event-chain workflow_id=workflow-event-chain",
             ),
         ];
-        let writer = crate::ledger::LedgerWriterGuard::acquire().unwrap();
+        let writer = crate::app::workflow_adapter::ledger::LedgerWriterGuard::acquire().unwrap();
         let planned = writer.plan_events(&events).unwrap();
         bind_planned_events(&mut bundle, &planned).unwrap();
 
@@ -4026,10 +4044,10 @@ mod tests {
             b"proposed source\n",
         )
         .unwrap();
-        let identity = crate::ledger::validated_current_identity().unwrap();
+        let identity = crate::app::workflow_adapter::ledger::validated_current_identity().unwrap();
         let events = (0..10)
             .map(|index| {
-                crate::ledger::new_event_for(
+                crate::app::workflow_adapter::ledger::new_event_for(
                     &identity,
                     &format!("approval.event.{index}"),
                     &format!("approval event {index}"),
@@ -4037,7 +4055,7 @@ mod tests {
                 )
             })
             .collect::<Vec<_>>();
-        let writer = crate::ledger::LedgerWriterGuard::acquire().unwrap();
+        let writer = crate::app::workflow_adapter::ledger::LedgerWriterGuard::acquire().unwrap();
         let planned = writer.plan_events(&events).unwrap();
         bind_planned_events(&mut bundle, &planned).unwrap();
         let member = |kind,

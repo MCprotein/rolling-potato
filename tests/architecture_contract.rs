@@ -736,6 +736,7 @@ fn v0375_domain_views_replace_legacy_definitions() {
 
 #[test]
 fn v0376_workflow_application_owns_transaction_and_recovery_order() {
+    let ledger_adapter = "src/app/workflow_adapter/ledger.rs";
     for target in [
         "src/runtime_core/workflow/application/mod.rs",
         "src/runtime_core/workflow/application/recovery.rs",
@@ -793,7 +794,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     }
 
     for (facade, moved_definition) in [
-        ("src/ledger.rs", "struct PlannedEvent"),
+        (ledger_adapter, "struct PlannedEvent"),
         ("src/transition.rs", "enum CurrentStateIntent"),
         ("src/transition.rs", "struct PreparedSourceBundle"),
     ] {
@@ -803,6 +804,23 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
             "legacy facade still owns moved workflow definition: {facade} -> {moved_definition}"
         );
     }
+
+    assert!(
+        !Path::new("src/ledger.rs").exists(),
+        "legacy workflow root was restored: src/ledger.rs"
+    );
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(
+        !main.lines().any(|line| line == "mod ledger;"),
+        "legacy workflow root remains registered: mod ledger;"
+    );
+    let adapter_mod = fs::read_to_string("src/app/workflow_adapter.rs").unwrap();
+    assert!(
+        adapter_mod
+            .lines()
+            .any(|line| line == "pub(crate) mod ledger;"),
+        "ledger adapter is not registered under workflow_adapter"
+    );
 
     let patch_loop = fs::read_to_string("tests/patch_loop.rs").unwrap();
     let patch_lifecycle = fs::read_to_string("tests/patch/lifecycle.rs").unwrap();
@@ -935,7 +953,7 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     for (facade_path, forbidden) in [
         ("src/app/observability_adapter.rs", "rusqlite"),
         ("src/app/monitor_adapter.rs", "performance baseline\\n"),
-        ("src/ledger.rs", "rusqlite::Connection"),
+        ("src/app/workflow_adapter/ledger.rs", "rusqlite::Connection"),
     ] {
         let source = fs::read_to_string(facade_path).unwrap();
         let production = source.split("#[cfg(test)]").next().unwrap_or(&source);

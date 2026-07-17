@@ -8,10 +8,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::adapters::filesystem::windows_replace;
 use crate::adapters::filesystem::{layout as paths, lease};
 use crate::app::observability_adapter::{self as observability, SessionHistoryEntry, StoreStatus};
+use crate::app::workflow_adapter::ledger::{self, RuntimeIdentity};
 use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
-use crate::ledger::{self, RuntimeIdentity};
 use crate::runtime_core::workflow::application::projection_barrier::{
     self as projection_barrier, ProjectionBarrierRecoveryPort,
 };

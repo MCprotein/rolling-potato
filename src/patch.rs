@@ -10,9 +10,9 @@ use sha2::{Digest, Sha256};
 use crate::adapters::filesystem::{layout as paths, lease};
 use crate::app::extensions_adapter::{hooks, plugin, skill};
 use crate::app::policy_adapter::{self as policy, Decision, PathMode};
+use crate::app::workflow_adapter::ledger;
 use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
-use crate::ledger;
 use crate::runtime_core::patch::application::{
     self as application_domain, ApplyAdmission, ApplyResult, RollbackAdmission, RollbackResult,
 };

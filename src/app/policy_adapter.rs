@@ -2,6 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::app::workflow_adapter::ledger;
 use crate::foundation::error::AppError;
 #[cfg(test)]
 use crate::runtime_core::policy::decision::parse_patch_verification;
@@ -9,7 +10,7 @@ use crate::runtime_core::policy::decision::{self, PathPolicyPort};
 pub use crate::runtime_core::policy::decision::{
     classify_command, schema_report, Decision, PathMode, PolicyDecision,
 };
-use crate::{adapters::filesystem::layout as paths, ledger, state};
+use crate::{adapters::filesystem::layout as paths, state};
 
 struct ProjectPathPolicy;
 

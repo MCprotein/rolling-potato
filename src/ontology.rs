@@ -4,6 +4,7 @@ use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::app::workflow_adapter::ledger;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::knowledge::ontology::{
@@ -15,7 +16,7 @@ use crate::runtime_core::knowledge::ontology::{
 pub use crate::runtime_core::knowledge::ontology::{
     OntologyExportFormat, OntologySeedOutcome, RuntimeContextSelection, RuntimeSourceRead,
 };
-use crate::{adapters::filesystem::layout as paths, ledger, state};
+use crate::{adapters::filesystem::layout as paths, state};
 
 const MAX_SEEDED_FILES: usize = 256;
 const MAX_INDEXED_FILE_BYTES: u64 = 1024 * 1024;

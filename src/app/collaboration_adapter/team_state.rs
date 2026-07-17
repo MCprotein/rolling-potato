@@ -1,5 +1,6 @@
 use crate::app::collaboration_adapter::subagent;
 use crate::app::observability_adapter as observability;
+use crate::app::workflow_adapter::ledger;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 use crate::runtime_core::collaboration::team_state::{
@@ -10,7 +11,7 @@ use crate::runtime_core::collaboration::team_state::{
 pub(crate) use crate::runtime_core::collaboration::team_state::{
     parse_manifest, TeamManifestV1, TeamStage, TeamStateV1,
 };
-use crate::{adapters::filesystem::layout as paths, adapters::filesystem::lease, ledger, state};
+use crate::{adapters::filesystem::layout as paths, adapters::filesystem::lease, state};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 

@@ -38,7 +38,7 @@ impl TuiActionPort for LegacyTuiActionPort {
     fn selection_observation(
         &mut self,
     ) -> Result<crate::surfaces::tui::runtime_bridge::SelectionObservation, AppError> {
-        let identity = crate::ledger::validated_current_identity()?;
+        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
         let current = crate::state::current_state_lease_view()?;
         let active_workflow = crate::state::active_workflow_id()?
             .map(|workflow_id| crate::state::load_workflow(&workflow_id))
@@ -278,7 +278,9 @@ mod report_composition {
     use crate::adapters::filesystem::layout as paths;
     use crate::app::inference_adapter::model;
     use crate::app::observability_adapter as observability;
+    use crate::app::workflow_adapter::ledger;
     use crate::app::workflow_adapter::transcript;
+    use crate::evidence;
     use crate::surfaces::tui::render::terminal_width;
     use crate::surfaces::tui::report_render::{
         canonical_page_report, render_evidence_report, render_monitor_report,
@@ -290,7 +292,6 @@ mod report_composition {
         SessionsReportView, TimelineEventView, TranscriptRecordView, TranscriptReportView,
         TranscriptSessionView,
     };
-    use crate::{evidence, ledger};
 
     pub fn overview_report() -> Result<String, AppError> {
         let width = terminal_width();
@@ -489,12 +490,13 @@ mod tests {
     use crate::adapters::filesystem::layout as paths;
     use crate::adapters::terminal::native::{ScriptedTerminal, TerminalFault};
     use crate::app::observability_adapter as observability;
+    use crate::app::workflow_adapter::ledger;
+    use crate::patch;
     use crate::surfaces::tui::controller::{consume_outcome, run_controller};
     use crate::surfaces::tui::outcome::verification_credential_issued;
     use crate::surfaces::tui::render::{render_interactive_frame, sanitize_terminal_text};
     use crate::surfaces::tui::runtime_bridge::{OneShotSecret, TuiFreshness, TuiReadContinuation};
     use crate::surfaces::tui::view_model::{InteractiveState, InteractiveView};
-    use crate::{ledger, patch};
 
     #[test]
     fn interactive_view_change_resets_page_and_updates_notice() {

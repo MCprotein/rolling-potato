@@ -2263,7 +2263,7 @@ mod tests {
 
     impl CanonicalLedgerReadPort for TestCanonicalLedgerReader {
         fn read_events(&self) -> Result<Vec<ParsedLedgerEvent>, AppError> {
-            crate::ledger::read_runtime_events()
+            crate::app::workflow_adapter::ledger::read_runtime_events()
         }
     }
 
@@ -2284,7 +2284,7 @@ mod tests {
     }
 
     fn current_identity() -> RuntimeIdentity {
-        crate::ledger::validated_current_identity().unwrap()
+        crate::app::workflow_adapter::ledger::validated_current_identity().unwrap()
     }
 
     fn projected_status() -> StoreStatus {
@@ -2658,7 +2658,7 @@ mod tests {
         fs::create_dir_all(&project_root).unwrap();
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
-        let identity = crate::ledger::validated_current_identity().unwrap();
+        let identity = crate::app::workflow_adapter::ledger::validated_current_identity().unwrap();
 
         record_test_resource_sample(&ResourceSampleMetric {
             resource_sample_id: "resource-sample-test".to_string(),

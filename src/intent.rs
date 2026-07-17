@@ -56,7 +56,7 @@ fn run_with_decision(
         return crate::patch::resume_workflow_report(&workflow_id);
     }
     backend::preflight_chat_ready()?;
-    let identity = crate::ledger::validated_current_identity()?;
+    let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
     let mut resume_context = context::rebuild_resume_context(&identity.session_id, None)?;
     let mut workflow = state::create_workflow(request)?;
     let invocation = if decision.invocation == "explicit-skill" {
@@ -586,7 +586,7 @@ fn run_with_decision(
         workflow.workflow_id,
         workflow.revision,
         proposal.proposal_id,
-        crate::ledger::redact_text(&proposal.verification_command),
+        crate::app::workflow_adapter::ledger::redact_text(&proposal.verification_command),
         proposal.proposal_id,
         proposal.approval_token,
         proposal.diff

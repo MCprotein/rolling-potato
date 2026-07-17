@@ -1,9 +1,9 @@
 //! Concrete wiring for surface-neutral observability projection ports.
 
 use crate::adapters::sqlite::observability_projection::SqliteObservabilityProjection;
+use crate::app::workflow_adapter::ledger;
 use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
-use crate::ledger;
 use crate::runtime_core::observability::facade::{
     CanonicalLedgerReadPort, CanonicalTranscriptReadPort, ObservabilityProjectionPort,
 };
