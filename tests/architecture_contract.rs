@@ -4784,6 +4784,19 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
     let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
     assert!(adapter.contains("impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort"));
     assert!(adapter.contains("match command"));
+    assert!(adapter.lines().any(|line| line == "mod inference_ports;"));
+    let inference_ports = fs::read_to_string("src/app/legacy_dispatch/inference_ports.rs").unwrap();
+    for responsibility in [
+        "impl inference::BenchmarkCommandPort",
+        "impl inference::BackendCommandPort",
+        "impl inference::ModelCommandPort",
+        "pub(super) fn emit_output(",
+    ] {
+        assert!(inference_ports.contains(responsibility));
+        assert!(!adapter.contains(responsibility));
+    }
+    assert!(adapter.lines().count() < 450);
+    assert!(inference_ports.lines().count() < 200);
 }
 
 #[test]
@@ -4811,7 +4824,8 @@ fn v03713_composition_owns_benchmark_command_orchestration() {
     }
 
     let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
-    assert!(adapter.contains("impl inference::BenchmarkCommandPort"));
+    let inference_ports = fs::read_to_string("src/app/legacy_dispatch/inference_ports.rs").unwrap();
+    assert!(inference_ports.contains("impl inference::BenchmarkCommandPort"));
     assert!(adapter.contains("inference::run_benchmark(command, self)"));
 
     assert!(!Path::new("src/benchmark.rs").exists());
@@ -4848,7 +4862,8 @@ fn v03713_composition_owns_model_command_orchestration() {
     }
 
     let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
-    assert!(adapter.contains("impl inference::ModelCommandPort"));
+    let inference_ports = fs::read_to_string("src/app/legacy_dispatch/inference_ports.rs").unwrap();
+    assert!(inference_ports.contains("impl inference::ModelCommandPort"));
     assert!(adapter.contains("inference::run_model(command, self)"));
 
     assert!(!Path::new("src/model.rs").exists());
@@ -4885,7 +4900,8 @@ fn v03713_composition_owns_backend_command_orchestration() {
     }
 
     let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
-    assert!(adapter.contains("impl inference::BackendCommandPort"));
+    let inference_ports = fs::read_to_string("src/app/legacy_dispatch/inference_ports.rs").unwrap();
+    assert!(inference_ports.contains("impl inference::BackendCommandPort"));
     assert!(adapter.contains("inference::run_backend(command, self, &mut writer)"));
 
     assert!(!Path::new("src/backend.rs").exists());
