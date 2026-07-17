@@ -1162,10 +1162,12 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let guard_adapter = "src/patch/guard.rs";
     let proposal_builder_adapter = "src/patch/proposal_builder.rs";
     let proposal_store_adapter = "src/patch/proposal_store.rs";
+    let workflow_contract_adapter = "src/patch/workflow_contract.rs";
     assert!(Path::new(execution_adapter).is_file());
     assert!(Path::new(guard_adapter).is_file());
     assert!(Path::new(proposal_builder_adapter).is_file());
     assert!(Path::new(proposal_store_adapter).is_file());
+    assert!(Path::new(workflow_contract_adapter).is_file());
     let owners = [
         "src/runtime_core/patch/approval.rs",
         "src/runtime_core/patch/application.rs",
@@ -1301,6 +1303,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let guard = fs::read_to_string(guard_adapter).unwrap();
     let proposal_builder = fs::read_to_string(proposal_builder_adapter).unwrap();
     let proposal_store = fs::read_to_string(proposal_store_adapter).unwrap();
+    let workflow_contract = fs::read_to_string(workflow_contract_adapter).unwrap();
     let patch_test_module = fs::read_to_string(patch_tests).unwrap();
     let patch_harness = fs::read_to_string("tests/patch_loop.rs").unwrap();
     let patch_contract = fs::read_to_string("tests/patch/lifecycle.rs").unwrap();
@@ -1309,7 +1312,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         "intent facade regrew beyond the v0.37.9 boundary"
     );
     assert!(
-        patch_facade.lines().count() < 3_000,
+        patch_facade.lines().count() < 2_900,
         "patch facade regrew beyond the v0.37.9 boundary"
     );
     assert!(patch_facade.lines().any(|line| line == "mod execution;"));
@@ -1380,6 +1383,24 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         );
     }
     assert!(proposal_store.lines().count() < 350);
+    assert!(patch_facade
+        .lines()
+        .any(|line| line == "mod workflow_contract;"));
+    for escaped_responsibility in [
+        "fn stale_selection_error(",
+        "fn validate_workflow_binding(",
+        "fn success_report(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "workflow contract responsibility escaped into patch facade: {escaped_responsibility}"
+        );
+        assert!(
+            workflow_contract.contains(escaped_responsibility),
+            "workflow contract adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(workflow_contract.lines().count() < 150);
     assert!(patch_facade.contains("#[path = \"patch/tests/mod.rs\"]"));
     assert!(!patch_facade.contains("mod tests {"));
     assert!(

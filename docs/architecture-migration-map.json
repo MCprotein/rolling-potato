@@ -2629,6 +2629,24 @@
       ]
     },
     {
+      "path": "src/patch/workflow_contract.rs",
+      "slices": [
+        {
+          "responsibility": "patch workflow binding, selection, and terminal report contract adapter",
+          "target": "src/patch/workflow_contract.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/proposal.rs",
+            "src/app/workflow_adapter/state.rs",
+            "src/patch/workflow_contract.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/patch/tests/mod.rs",
       "slices": [
         {
@@ -5410,6 +5428,12 @@
       "path": "src/patch/proposal_store.rs",
       "responsibilities": [
         "patch proposal persistence, credential, and rollback lookup adapter"
+      ]
+    },
+    {
+      "path": "src/patch/workflow_contract.rs",
+      "responsibilities": [
+        "patch workflow binding, selection, and terminal report contract adapter"
       ]
     },
     {
