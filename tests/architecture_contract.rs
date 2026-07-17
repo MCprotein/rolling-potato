@@ -651,6 +651,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "src/adapters/llama_cpp/install/archive.rs",
         "src/adapters/llama_cpp/stream.rs",
         "src/adapters/llama_cpp/stream/protocol.rs",
+        "src/adapters/llama_cpp/stream/tests.rs",
         "src/adapters/process/backend.rs",
         "src/adapters/process/resource.rs",
     ] {
@@ -714,6 +715,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
 
     let stream_adapter = fs::read_to_string("src/adapters/llama_cpp/stream.rs").unwrap();
     let stream_protocol = fs::read_to_string("src/adapters/llama_cpp/stream/protocol.rs").unwrap();
+    let stream_tests = fs::read_to_string("src/adapters/llama_cpp/stream/tests.rs").unwrap();
     assert!(
         stream_adapter.lines().any(|line| line == "mod protocol;"),
         "llama.cpp stream adapter does not register its protocol owner"
@@ -739,12 +741,36 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         );
     }
     assert!(
-        stream_adapter.lines().count() < 750,
+        stream_adapter.contains("#[path = \"stream/tests.rs\"]"),
+        "llama.cpp stream adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn decodes_split_chunked_http_body(",
+        "fn rejects_many_valid_events_over_total_completion_limit(",
+        "fn streams_chunked_sse_over_tcp(",
+        "fn cancellation_interrupts_a_stalled_request_upload(",
+        "fn total_timeout_closes_stalled_stream(",
+    ] {
+        assert!(
+            stream_tests.contains(regression),
+            "llama.cpp stream regression owner is missing: {regression}"
+        );
+        assert!(
+            !stream_adapter.contains(regression),
+            "llama.cpp stream adapter still owns regression test: {regression}"
+        );
+    }
+    assert!(
+        stream_adapter.lines().count() < 225,
         "llama.cpp stream adapter regrew beyond its ownership boundary"
     );
     assert!(
         stream_protocol.lines().count() < 450,
         "llama.cpp stream protocol module regrew beyond its ownership boundary"
+    );
+    assert!(
+        stream_tests.lines().count() < 550,
+        "llama.cpp stream regression module regrew beyond its ownership boundary"
     );
 
     let process_mod = fs::read_to_string("src/adapters/process/mod.rs").unwrap();

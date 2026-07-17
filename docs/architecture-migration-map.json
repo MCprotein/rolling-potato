@@ -2219,6 +2219,7 @@
           "evidence": [
             "src/adapters/llama_cpp/stream.rs",
             "src/adapters/llama_cpp/stream/protocol.rs",
+            "src/adapters/llama_cpp/stream/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2235,6 +2236,23 @@
           "evidence": [
             "src/adapters/llama_cpp/stream.rs",
             "src/adapters/llama_cpp/stream/protocol.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/tests.rs",
+      "slices": [
+        {
+          "responsibility": "stream transport, bounded protocol, cancellation, timeout, and reasoning-filter regression tests",
+          "target": "src/adapters/llama_cpp/stream/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/stream.rs",
+            "src/adapters/llama_cpp/stream/protocol.rs",
+            "src/adapters/llama_cpp/stream/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6694,6 +6712,12 @@
       "path": "src/adapters/llama_cpp/stream/protocol.rs",
       "responsibilities": [
         "bounded HTTP chunked decoding, SSE event decoding, and reasoning-trace filtering"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/tests.rs",
+      "responsibilities": [
+        "stream transport, bounded protocol, cancellation, timeout, and reasoning-filter regression tests"
       ]
     },
     {
