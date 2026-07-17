@@ -2596,6 +2596,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let verification_adapter = "src/patch/verification.rs";
     let workflow_contract_adapter = "src/patch/workflow_contract.rs";
     let workflow_execution_adapter = "src/patch/workflow_execution.rs";
+    let plugin_completion_adapter = "src/patch/workflow_execution/plugin_completion.rs";
     assert!(Path::new(approval_transaction_adapter).is_file());
     assert!(Path::new(approval_recovery_adapter).is_file());
     assert!(Path::new(execution_adapter).is_file());
@@ -2607,6 +2608,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     assert!(Path::new(verification_adapter).is_file());
     assert!(Path::new(workflow_contract_adapter).is_file());
     assert!(Path::new(workflow_execution_adapter).is_file());
+    assert!(Path::new(plugin_completion_adapter).is_file());
     assert!(Path::new(intent_execution_path).is_file());
     assert!(Path::new(intent_tests_path).is_file());
     for patch_test_module in patch_test_modules {
@@ -2992,7 +2994,6 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         .any(|line| line == "mod workflow_execution;"));
     for escaped_responsibility in [
         "fn continue_approved_workflow(",
-        "fn validate_completed_plugin_workflow(",
         "fn dispatch_workflow_skill_hook(",
     ] {
         assert!(
@@ -3004,7 +3005,30 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
             "workflow execution adapter is missing responsibility: {escaped_responsibility}"
         );
     }
-    assert!(workflow_execution.lines().count() < 650);
+    let plugin_completion = fs::read_to_string(plugin_completion_adapter).unwrap();
+    assert!(
+        workflow_execution
+            .lines()
+            .any(|line| line == "mod plugin_completion;"),
+        "workflow execution adapter does not register its plugin completion owner"
+    );
+    for escaped_responsibility in [
+        "pub(in super::super) fn validate_completed_plugin_workflow(",
+        "pub(in super::super) fn ensure_plugin_completion_event(",
+        "pub(in super::super) fn ensure_plugin_completion_event_under_transition(",
+        "pub(in super::super) fn plugin_completion_recovery_report(",
+    ] {
+        assert!(
+            !workflow_execution.contains(escaped_responsibility),
+            "plugin completion responsibility escaped into workflow execution orchestration: {escaped_responsibility}"
+        );
+        assert!(
+            plugin_completion.contains(escaped_responsibility),
+            "plugin completion adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(workflow_execution.lines().count() < 500);
+    assert!(plugin_completion.lines().count() < 175);
     assert!(patch_facade.contains("#[path = \"patch/tests/mod.rs\"]"));
     assert!(!patch_facade.contains("mod tests {"));
     assert!(

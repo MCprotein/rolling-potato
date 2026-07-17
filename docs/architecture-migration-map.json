@@ -3473,7 +3473,7 @@
       "path": "src/patch/workflow_execution.rs",
       "slices": [
         {
-          "responsibility": "patch apply-verification continuation and skill-plugin completion adapter",
+          "responsibility": "patch apply-verification continuation and skill lifecycle adapter",
           "target": "src/patch/workflow_execution.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -3482,6 +3482,26 @@
             "src/app/extensions_adapter/plugin.rs",
             "src/app/extensions_adapter/skill.rs",
             "src/patch/workflow_execution.rs",
+            "src/patch/workflow_execution/plugin_completion.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/patch/workflow_execution/plugin_completion.rs",
+      "slices": [
+        {
+          "responsibility": "read-only plugin workflow completion validation, event convergence, and recovery reporting",
+          "target": "src/patch/workflow_execution/plugin_completion.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/skill.rs",
+            "src/patch/workflow_execution.rs",
+            "src/patch/workflow_execution/plugin_completion.rs",
+            "tests/patch/lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7629,7 +7649,13 @@
     {
       "path": "src/patch/workflow_execution.rs",
       "responsibilities": [
-        "patch apply-verification continuation and skill-plugin completion adapter"
+        "patch apply-verification continuation and skill lifecycle adapter"
+      ]
+    },
+    {
+      "path": "src/patch/workflow_execution/plugin_completion.rs",
+      "responsibilities": [
+        "read-only plugin workflow completion validation, event convergence, and recovery reporting"
       ]
     },
     {
