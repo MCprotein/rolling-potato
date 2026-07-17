@@ -52,6 +52,7 @@
   },
   "dependency_contract": {
     "roots": [
+      "app",
       "composition",
       "surfaces",
       "runtime_core",
@@ -59,6 +60,26 @@
       "foundation"
     ],
     "allowed_edges": [
+      {
+        "from": "app",
+        "to": "composition"
+      },
+      {
+        "from": "app",
+        "to": "surfaces"
+      },
+      {
+        "from": "app",
+        "to": "runtime_core"
+      },
+      {
+        "from": "app",
+        "to": "adapters"
+      },
+      {
+        "from": "app",
+        "to": "foundation"
+      },
       {
         "from": "composition",
         "to": "surfaces"
@@ -108,6 +129,7 @@
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
+            "scripts/release/test-release-workflow-contract.sh",
             "tests/architecture_contract.rs"
           ]
         }
@@ -1396,6 +1418,7 @@
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
+            "scripts/release/test-release-workflow-contract.sh",
             "tests/architecture_contract.rs"
           ]
         }
@@ -1545,12 +1568,30 @@
       "path": "src/adapters/filesystem/lease.rs",
       "slices": [
         {
-          "responsibility": "filesystem lease implementation",
+          "responsibility": "recoverable filesystem lease acquisition, waiting, and owner lifecycle",
           "target": "src/adapters/filesystem/lease.rs",
           "release": "0.37.2",
           "state": "complete",
           "evidence": [
-            "src/adapters/filesystem/lease.rs"
+            "src/adapters/filesystem/lease.rs",
+            "src/adapters/filesystem/lease/identity.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/lease/identity.rs",
+      "slices": [
+        {
+          "responsibility": "lease owner namespace discovery, stale claim cleanup, and path-handle identity validation",
+          "target": "src/adapters/filesystem/lease/identity.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/lease.rs",
+            "src/adapters/filesystem/lease/identity.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -1644,12 +1685,132 @@
       "path": "src/adapters/sqlite/observability_projection.rs",
       "slices": [
         {
-          "responsibility": "SQLite observability projection",
+          "responsibility": "SQLite observability projection facade, connection recovery, status, export, and prune orchestration",
           "target": "src/adapters/sqlite/observability_projection.rs",
           "release": "0.37.7",
           "state": "complete",
           "evidence": [
             "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/sessions.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics.rs",
+      "slices": [
+        {
+          "responsibility": "model summaries, performance baseline, and optimization analytics",
+          "target": "src/adapters/sqlite/observability_projection/analytics.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/analytics.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/metrics.rs",
+      "slices": [
+        {
+          "responsibility": "model, resource, and benchmark metric persistence and reporting",
+          "target": "src/adapters/sqlite/observability_projection/metrics.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/metrics.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/read_snapshot.rs",
+      "slices": [
+        {
+          "responsibility": "stable private read-only SQLite snapshot binding",
+          "target": "src/adapters/sqlite/observability_projection/read_snapshot.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/read_snapshot.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/replay.rs",
+      "slices": [
+        {
+          "responsibility": "canonical ledger replay and event-to-row projection",
+          "target": "src/adapters/sqlite/observability_projection/replay.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/replay.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/schema.rs",
+      "slices": [
+        {
+          "responsibility": "SQLite observability schema and migration ownership",
+          "target": "src/adapters/sqlite/observability_projection/schema.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/schema.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/sessions.rs",
+      "slices": [
+        {
+          "responsibility": "session history, entry, and event read-model query mapping",
+          "target": "src/adapters/sqlite/observability_projection/sessions.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/sessions.rs",
+            "src/app/observability_adapter.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/tests.rs",
+      "slices": [
+        {
+          "responsibility": "SQLite observability projection regression tests",
+          "target": "src/adapters/sqlite/observability_projection/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -1707,7 +1868,25 @@
           "release": "0.37.2",
           "state": "complete",
           "evidence": [
-            "src/adapters/terminal/native.rs"
+            "src/adapters/terminal/native.rs",
+            "src/adapters/terminal/native/platform.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/platform.rs",
+      "slices": [
+        {
+          "responsibility": "POSIX and Windows terminal dimensions, secret input, and echo restoration",
+          "target": "src/adapters/terminal/native/platform.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native.rs",
+            "src/adapters/terminal/native/platform.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -1719,35 +1898,451 @@
           "responsibility": "top-level command dispatch",
           "target": "src/composition/dispatch.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
-      "path": "src/approval.rs",
-      "slices": [
-        {
-          "responsibility": "approval records and decisions",
-          "target": "src/runtime_core/policy/approval.rs",
-          "release": "0.37.8",
           "state": "complete",
           "evidence": [
-            "src/runtime_core/policy/approval.rs",
+            "src/composition/dispatch.rs",
+            "src/app.rs",
+            "src/app/command_dispatch.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/backend.rs",
+      "path": "src/app/command_dispatch.rs",
       "slices": [
         {
-          "responsibility": "backend command and cross-store orchestration compatibility facade",
-          "target": "src/composition/inference.rs",
+          "responsibility": "CLI command execution adapter and command routing",
+          "target": "src/app/command_dispatch.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/composition/dispatch.rs",
+            "src/app.rs",
+            "src/app/command_dispatch.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/collaboration_commands.rs",
+      "slices": [
+        {
+          "responsibility": "team and subagent CLI command execution integration",
+          "target": "src/app/command_dispatch/collaboration_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/collaboration_commands.rs",
+            "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_reconciliation.rs",
+            "src/app/collaboration_adapter/team_state.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/extension_commands.rs",
+      "slices": [
+        {
+          "responsibility": "skill, hook, and plugin CLI command execution integration",
+          "target": "src/app/command_dispatch/extension_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/extension_commands.rs",
+            "src/app/extensions_adapter/hooks.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/skill.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/inference_ports.rs",
+      "slices": [
+        {
+          "responsibility": "concrete benchmark, backend, and model command port integration",
+          "target": "src/app/command_dispatch/inference_ports.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/inference.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/inference_ports.rs",
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/benchmark.rs",
+            "src/app/inference_adapter/model.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/knowledge_commands.rs",
+      "slices": [
+        {
+          "responsibility": "evidence and ontology CLI command execution integration",
+          "target": "src/app/command_dispatch/knowledge_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/knowledge_commands.rs",
+            "src/app/evidence_adapter.rs",
+            "src/app/ontology_adapter.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/observability_commands.rs",
+      "slices": [
+        {
+          "responsibility": "cache and monitor CLI command execution integration",
+          "target": "src/app/command_dispatch/observability_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/observability_commands.rs",
+            "src/app/monitor_adapter.rs",
+            "src/adapters/filesystem/cache.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/policy_commands.rs",
+      "slices": [
+        {
+          "responsibility": "fail-closed policy CLI command execution and path-mode mapping",
+          "target": "src/app/command_dispatch/policy_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/policy_commands.rs",
+            "src/app/policy_adapter.rs",
+            "src/runtime_core/policy/decision.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/tui_commands.rs",
+      "slices": [
+        {
+          "responsibility": "TUI entrypoint initialization and read-only report command integration",
+          "target": "src/app/command_dispatch/tui_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/tui_commands.rs",
+            "src/app/tui_adapter.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/surfaces/interactive_tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/workflow_commands.rs",
+      "slices": [
+        {
+          "responsibility": "workflow state, session, and patch CLI command execution integration",
+          "target": "src/app/command_dispatch/workflow_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/workflow_commands.rs",
+            "src/app/workflow_adapter/state.rs",
+            "src/app/patch_adapter.rs",
+            "src/app/runtime_adapter.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "concrete inference adapter module wiring",
+          "target": "src/app/inference_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter.rs",
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/benchmark.rs",
+            "src/app/inference_adapter/model.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/approval_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "approval request filesystem adapter",
+          "target": "src/app/approval_adapter.rs",
+          "release": "0.37.8",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/policy/approval.rs",
+            "src/app/approval_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "concrete collaboration adapter module wiring",
+          "target": "src/app/collaboration_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter.rs",
+            "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_reconciliation.rs",
+            "src/app/collaboration_adapter/team_state.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "concrete extension adapter module wiring",
+          "target": "src/app/extensions_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/extensions_adapter.rs",
+            "src/app/extensions_adapter/hooks.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/skill.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "concrete workflow adapter module wiring",
+          "target": "src/app/workflow_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter.rs",
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/transcript.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend.rs",
+      "slices": [
+        {
+          "responsibility": "backend module facade and shared report primitives",
+          "target": "src/app/inference_adapter/backend.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/inference.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/inference_adapter/backend.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat.rs",
+      "slices": [
+        {
+          "responsibility": "backend chat admission, streaming execution, and completion coordination",
+          "target": "src/app/inference_adapter/backend/chat.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/backend/chat.rs",
+            "src/app/inference_adapter/backend/chat/interruption.rs",
+            "src/app/inference_adapter/backend/chat/report.rs",
+            "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/interruption.rs",
+      "slices": [
+        {
+          "responsibility": "backend chat timeout, cancellation, and interrupted-generation evidence",
+          "target": "src/app/inference_adapter/backend/chat/interruption.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/chat.rs",
+            "src/app/inference_adapter/backend/chat/interruption.rs",
+            "src/app/inference_adapter/backend/generation_state.rs",
+            "src/app/inference_adapter/backend/tests.rs",
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/report.rs",
+      "slices": [
+        {
+          "responsibility": "backend chat batch and streaming report presentation",
+          "target": "src/app/inference_adapter/backend/chat/report.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/chat.rs",
+            "src/app/inference_adapter/backend/chat/report.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/generation_state.rs",
+      "slices": [
+        {
+          "responsibility": "backend generation admission, cancellation, and terminal state coordination",
+          "target": "src/app/inference_adapter/backend/generation_state.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/backend/generation_state.rs",
+            "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/installation.rs",
+      "slices": [
+        {
+          "responsibility": "backend install planning, archive verification, and payload installation",
+          "target": "src/app/inference_adapter/backend/installation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/backend/installation.rs",
+            "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/resource_sampling.rs",
+      "slices": [
+        {
+          "responsibility": "backend process resource sampling, metric projection, and pressure reporting",
+          "target": "src/app/inference_adapter/backend/resource_sampling.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/backend/resource_sampling.rs",
+            "src/app/inference_adapter/backend/chat.rs",
+            "src/app/inference_adapter/backend/sidecar.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/sidecar.rs",
+      "slices": [
+        {
+          "responsibility": "backend sidecar discovery, status, generation-aware stop, health, and diagnostics",
+          "target": "src/app/inference_adapter/backend/sidecar.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/backend/sidecar.rs",
+            "src/app/inference_adapter/backend/sidecar/startup.rs",
+            "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/sidecar/startup.rs",
+      "slices": [
+        {
+          "responsibility": "backend sidecar process launch, health wait, log creation, and startup rollback",
+          "target": "src/app/inference_adapter/backend/sidecar/startup.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/sidecar.rs",
+            "src/app/inference_adapter/backend/sidecar/startup.rs",
+            "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests.rs",
+      "slices": [
+        {
+          "responsibility": "inference backend integration regression tests",
+          "target": "src/app/inference_adapter/backend/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -1769,12 +2364,49 @@
       "path": "src/adapters/llama_cpp/install.rs",
       "slices": [
         {
-          "responsibility": "llama.cpp release manifest, download, and installation",
+          "responsibility": "llama.cpp release manifest, platform selection, archive paths, and install records",
           "target": "src/adapters/llama_cpp/install.rs",
           "release": "0.37.3",
           "state": "complete",
           "evidence": [
-            "src/adapters/llama_cpp/install.rs"
+            "src/adapters/llama_cpp/install.rs",
+            "src/adapters/llama_cpp/install/archive.rs",
+            "src/adapters/llama_cpp/install/payload.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/install/archive.rs",
+      "slices": [
+        {
+          "responsibility": "bounded backend archive download and integrity verification",
+          "target": "src/adapters/llama_cpp/install/archive.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/install/archive.rs",
+            "src/adapters/llama_cpp/install.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/install/payload.rs",
+      "slices": [
+        {
+          "responsibility": "backend archive extraction, binary discovery, managed release-tree placement, and executable permissions",
+          "target": "src/adapters/llama_cpp/install/payload.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/install.rs",
+            "src/adapters/llama_cpp/install/payload.rs",
+            "src/app/inference_adapter/backend/installation.rs",
+            "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -1789,6 +2421,23 @@
           "state": "complete",
           "evidence": [
             "src/adapters/process/backend.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/process/resource.rs",
+      "slices": [
+        {
+          "responsibility": "bounded OS process CPU and memory sampling plus recursive artifact disk measurement",
+          "target": "src/adapters/process/resource.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/resource.rs",
+            "src/adapters/process/resource.rs",
+            "src/app/inference_adapter/backend/resource_sampling.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -1853,25 +2502,85 @@
       "path": "src/adapters/llama_cpp/stream.rs",
       "slices": [
         {
-          "responsibility": "llama.cpp streaming transport",
+          "responsibility": "llama.cpp streaming TCP transport, cancellation, and timeout orchestration",
           "target": "src/adapters/llama_cpp/stream.rs",
           "release": "0.37.3",
           "state": "complete",
           "evidence": [
-            "src/adapters/llama_cpp/stream.rs"
+            "src/adapters/llama_cpp/stream.rs",
+            "src/adapters/llama_cpp/stream/protocol.rs",
+            "src/adapters/llama_cpp/stream/tests.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/benchmark.rs",
+      "path": "src/adapters/llama_cpp/stream/protocol.rs",
       "slices": [
         {
-          "responsibility": "benchmark command and cross-store orchestration compatibility facade",
-          "target": "src/composition/inference.rs",
+          "responsibility": "bounded HTTP chunked decoding, SSE event decoding, and reasoning-trace filtering",
+          "target": "src/adapters/llama_cpp/stream/protocol.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/stream.rs",
+            "src/adapters/llama_cpp/stream/protocol.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/tests.rs",
+      "slices": [
+        {
+          "responsibility": "stream transport, bounded protocol, cancellation, timeout, and reasoning-filter regression tests",
+          "target": "src/adapters/llama_cpp/stream/tests.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/stream.rs",
+            "src/adapters/llama_cpp/stream/protocol.rs",
+            "src/adapters/llama_cpp/stream/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/benchmark.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark concrete integration adapter",
+          "target": "src/app/inference_adapter/benchmark.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/inference.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/inference_adapter/benchmark.rs",
+            "src/app/inference_adapter/benchmark/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/benchmark/tests.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark validation, recording, executable scoring, parser rejection, and canonical adoption regression tests",
+          "target": "src/app/inference_adapter/benchmark/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/benchmark.rs",
+            "src/app/inference_adapter/benchmark/tests.rs",
+            "src/runtime_core/inference/benchmark.rs",
+            "src/adapters/filesystem/benchmark_artifact.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -1918,32 +2627,6 @@
       ]
     },
     {
-      "path": "src/cli.rs",
-      "slices": [
-        {
-          "responsibility": "CLI argument parsing",
-          "target": "src/surfaces/cli/parser.rs",
-          "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
-        },
-        {
-          "responsibility": "CLI command DTOs",
-          "target": "src/surfaces/cli/command.rs",
-          "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
-        },
-        {
-          "responsibility": "CLI presentation",
-          "target": "src/surfaces/cli/render.rs",
-          "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
-        }
-      ]
-    },
-    {
       "path": "src/composition/mod.rs",
       "slices": [
         {
@@ -1961,11 +2644,47 @@
       "path": "src/composition/startup.rs",
       "slices": [
         {
-          "responsibility": "reserved architecture ownership",
+          "responsibility": "application composition bootstrap",
           "target": "src/composition/startup.rs",
-          "release": "0.37.1",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
+            "src/composition/startup.rs",
+            "src/main.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/tui_action.rs",
+      "slices": [
+        {
+          "responsibility": "TUI mutation orchestration and typed failure mapping",
+          "target": "src/composition/tui_action.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_action.rs",
+            "src/surfaces/tui/runtime_bridge.rs",
+            "src/app/tui_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/tui_read.rs",
+      "slices": [
+        {
+          "responsibility": "canonical TUI read orchestration",
+          "target": "src/composition/tui_read.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_read.rs",
+            "src/surfaces/tui/page.rs",
+            "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -1986,7 +2705,57 @@
       ]
     },
     {
-      "path": "src/context.rs",
+      "path": "src/composition/dispatch.rs",
+      "slices": [
+        {
+          "responsibility": "CLI parse, preflight, recovery, and dispatch ordering",
+          "target": "src/composition/dispatch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/dispatch.rs",
+            "src/app.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/inference.rs",
+      "slices": [
+        {
+          "responsibility": "inference command orchestration and consumer-owned ports",
+          "target": "src/composition/inference.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/inference.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/benchmark.rs",
+            "src/app/inference_adapter/model.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/uninstall.rs",
+      "slices": [
+        {
+          "responsibility": "uninstall plan orchestration",
+          "target": "src/composition/uninstall.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/uninstall.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/context_adapter.rs",
       "slices": [
         {
           "responsibility": "bounded source context",
@@ -1997,11 +2766,39 @@
             "src/runtime_core/knowledge/context.rs",
             "tests/architecture_contract.rs"
           ]
+        },
+        {
+          "responsibility": "context pack orchestration, declared source verification, and resume reconstruction",
+          "target": "src/app/context_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/context_adapter.rs",
+            "src/app/context_adapter/discovery.rs",
+            "src/runtime_core/knowledge/context.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
     {
-      "path": "src/evidence.rs",
+      "path": "src/app/context_adapter/discovery.rs",
+      "slices": [
+        {
+          "responsibility": "bounded filesystem context discovery, filtering, ranking, and source fingerprinting",
+          "target": "src/app/context_adapter/discovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/context_adapter.rs",
+            "src/app/context_adapter/discovery.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/evidence_adapter.rs",
       "slices": [
         {
           "responsibility": "evidence validation and stop inputs",
@@ -2010,6 +2807,35 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/knowledge/evidence.rs",
+            "tests/architecture_contract.rs"
+          ]
+        },
+        {
+          "responsibility": "verification evidence recording, stop-gate orchestration, and artifact pointer validation",
+          "target": "src/app/evidence_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/evidence_adapter.rs",
+            "src/app/evidence_adapter/store.rs",
+            "src/runtime_core/knowledge/evidence.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/evidence_adapter/store.rs",
+      "slices": [
+        {
+          "responsibility": "bounded and recursive evidence store inspection with regular-file boundary enforcement",
+          "target": "src/app/evidence_adapter/store.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/evidence_adapter.rs",
+            "src/app/evidence_adapter/store.rs",
+            "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2066,87 +2892,204 @@
           "release": "0.37.2",
           "state": "complete",
           "evidence": [
+            "src/foundation/serialization.rs",
+            "src/foundation/serialization/parser.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/hooks.rs",
+      "path": "src/foundation/serialization/parser.rs",
       "slices": [
         {
-          "responsibility": "hook lifecycle and ordering",
-          "target": "src/runtime_core/extensions/hook.rs",
-          "release": "0.37.11",
+          "responsibility": "bounded recursive strict JSON parsing for objects, arrays, strings, numbers, literals, and Unicode escapes",
+          "target": "src/foundation/serialization/parser.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/foundation/serialization.rs",
+            "src/foundation/serialization/parser.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/hooks.rs",
+      "slices": [
+        {
+          "responsibility": "hook lifecycle state and ledger adapter",
+          "target": "src/app/extensions_adapter/hooks.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/extensions/hook.rs",
+            "src/app/extensions_adapter/hooks.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/intent.rs",
+      "path": "src/app/intent_adapter.rs",
       "slices": [
         {
-          "responsibility": "intent classification and action planning",
-          "target": "src/runtime_core/patch/intent.rs",
+          "responsibility": "intent facade, model answer and evidence gates, and agent prompt composition",
+          "target": "src/app/intent_adapter.rs",
           "release": "0.37.9",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/intent.rs",
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/execution.rs",
+            "src/app/intent_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/korean_guard.rs",
+      "path": "src/app/intent_adapter/execution.rs",
       "slices": [
         {
-          "responsibility": "Korean output invariant",
-          "target": "src/runtime_core/reporting/korean_guard.rs",
-          "release": "0.37.10",
+          "responsibility": "skill workflow execution, checkpoint sequencing, model action admission, and patch handoff",
+          "target": "src/app/intent_adapter/execution.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/runtime_core/reporting/korean_guard.rs",
+            "src/runtime_core/patch/intent.rs",
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/execution.rs",
+            "src/app/intent_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/ledger.rs",
+      "path": "src/app/intent_adapter/tests.rs",
       "slices": [
         {
-          "responsibility": "canonical event append and hashing",
-          "target": "src/runtime_core/workflow/storage_compat/ledger.rs",
-          "release": "0.37.4",
+          "responsibility": "intent classification, model-action parsing, answer gating, and skill-boundary regression tests",
+          "target": "src/app/intent_adapter/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/intent.rs",
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/execution.rs",
+            "src/app/intent_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger.rs",
+      "slices": [
+        {
+          "responsibility": "ledger persistence and projection orchestration adapter",
+          "target": "src/app/workflow_adapter/ledger.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/storage_compat/ledger.rs",
-            "tests/workflow/storage_compat.rs"
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/runtime_core/policy/redaction.rs",
+            "src/adapters/sqlite/ledger_projection.rs",
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/derived.rs",
+            "src/app/workflow_adapter/ledger/query.rs",
+            "src/app/workflow_adapter/ledger/storage.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "src/app/workflow_adapter/ledger/writer.rs",
+            "tests/architecture_contract.rs"
           ]
-        },
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/derived.rs",
+      "slices": [
         {
-          "responsibility": "cross-store transaction coordination",
-          "target": "src/runtime_core/workflow/application/transaction_coordinator.rs",
-          "release": "0.37.6",
+          "responsibility": "project ledger, operation log, and SQLite sequence convergence from runtime authority",
+          "target": "src/app/workflow_adapter/ledger/derived.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/derived.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/query.rs",
+      "slices": [
+        {
+          "responsibility": "read-only ledger event lookup and workflow checkpoint chain queries",
+          "target": "src/app/workflow_adapter/ledger/query.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/query.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage.rs",
+      "slices": [
+        {
+          "responsibility": "runtime ledger bounded reads, canonical append, chain validation, and durable head repair",
+          "target": "src/app/workflow_adapter/ledger/storage.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/ledger.rs",
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/storage.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/tests.rs",
+      "slices": [
+        {
+          "responsibility": "ledger chain, lock, recovery, and derived projection regression tests",
+          "target": "src/app/workflow_adapter/ledger/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/writer.rs",
+      "slices": [
+        {
+          "responsibility": "single-lease event planning, canonical append, EventSink ordering, and convergence coordination",
+          "target": "src/app/workflow_adapter/ledger/writer.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
-            "tests/workflow/recovery.rs",
-            "tests/architecture_contract.rs"
-          ]
-        },
-        {
-          "responsibility": "ledger observability projection",
-          "target": "src/adapters/sqlite/ledger_projection.rs",
-          "release": "0.37.7",
-          "state": "complete",
-          "evidence": [
-            "src/adapters/sqlite/ledger_projection.rs",
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/writer.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2156,39 +3099,95 @@
       "path": "src/main.rs",
       "slices": [
         {
-          "responsibility": "private architecture root registration",
-          "target": "src/composition/mod.rs",
-          "release": "0.37.1",
-          "state": "complete",
-          "evidence": [
-            "tests/architecture_contract.rs"
-          ]
-        },
-        {
-          "responsibility": "binary entrypoint",
+          "responsibility": "private architecture root registration, application composition bootstrap, and binary entrypoint",
           "target": "src/main.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
-        },
-        {
-          "responsibility": "application composition bootstrap",
-          "target": "src/composition/startup.rs",
-          "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/main.rs",
+            "src/composition/startup.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
     {
-      "path": "src/model.rs",
+      "path": "src/app/inference_adapter/model.rs",
       "slices": [
         {
-          "responsibility": "model command and cross-store orchestration compatibility facade",
-          "target": "src/composition/inference.rs",
+          "responsibility": "model evaluation, promotion, verification, cleanup, and report integration adapter",
+          "target": "src/app/inference_adapter/model.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/composition/inference.rs",
+            "src/app/command_dispatch.rs",
+            "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/evidence.rs",
+            "src/app/inference_adapter/model/registry.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/evidence.rs",
+      "slices": [
+        {
+          "responsibility": "host-local benchmark, promotion, and backend smoke evidence collection and persistence",
+          "target": "src/app/inference_adapter/model/evidence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/model_artifact.rs",
+            "src/app/observability_adapter.rs",
+            "src/app/workflow_adapter/ledger.rs",
+            "src/runtime_core/inference/model/promotion.rs",
+            "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/evidence.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/registry.rs",
+      "slices": [
+        {
+          "responsibility": "model local registry installation, manifest and promotion rebinding, and default selection",
+          "target": "src/app/inference_adapter/model/registry.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/model_artifact.rs",
+            "src/runtime_core/inference/model/codec.rs",
+            "src/runtime_core/inference/model/promotion.rs",
+            "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/registry.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/tests.rs",
+      "slices": [
+        {
+          "responsibility": "model manifest, evaluation, promotion, registry, and cleanup regression tests",
+          "target": "src/app/inference_adapter/model/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/registry.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "src/runtime_core/inference/model/manifest.rs",
+            "src/runtime_core/inference/model/promotion.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2263,6 +3262,37 @@
       ]
     },
     {
+      "path": "src/adapters/filesystem/uninstall.rs",
+      "slices": [
+        {
+          "responsibility": "managed uninstall path discovery",
+          "target": "src/adapters/filesystem/uninstall.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/uninstall.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/atomic_write.rs",
+      "slices": [
+        {
+          "responsibility": "durable atomic file replacement and parent synchronization",
+          "target": "src/adapters/filesystem/atomic_write.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/atomic_write.rs",
+            "src/app/workflow_adapter/state/tests/workflow_store.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/filesystem/backend_state.rs",
       "slices": [
         {
@@ -2291,30 +3321,32 @@
       ]
     },
     {
-      "path": "src/monitor.rs",
+      "path": "src/app/monitor_adapter.rs",
       "slices": [
         {
-          "responsibility": "runtime monitoring queries",
-          "target": "src/runtime_core/observability/monitor.rs",
+          "responsibility": "monitor concrete query-port wiring",
+          "target": "src/app/monitor_adapter.rs",
           "release": "0.37.7",
           "state": "complete",
           "evidence": [
             "src/runtime_core/observability/monitor.rs",
+            "src/app/monitor_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/observability.rs",
+      "path": "src/app/observability_adapter.rs",
       "slices": [
         {
-          "responsibility": "observability events and queries",
-          "target": "src/runtime_core/observability/facade.rs",
+          "responsibility": "surface-neutral observability port wiring",
+          "target": "src/app/observability_adapter.rs",
           "release": "0.37.7",
           "state": "complete",
           "evidence": [
             "src/runtime_core/observability/facade.rs",
+            "src/app/observability_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         },
@@ -2325,13 +3357,14 @@
           "state": "complete",
           "evidence": [
             "src/adapters/sqlite/observability_projection.rs",
+            "src/app/observability_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/ontology.rs",
+      "path": "src/app/ontology_adapter.rs",
       "slices": [
         {
           "responsibility": "ontology graph and context projection",
@@ -2342,11 +3375,38 @@
             "src/runtime_core/knowledge/ontology.rs",
             "tests/architecture_contract.rs"
           ]
+        },
+        {
+          "responsibility": "ontology facade query, import, and source reread orchestration",
+          "target": "src/app/ontology_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/ontology_adapter.rs",
+            "src/app/ontology_adapter/seeding.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
     {
-      "path": "src/patch.rs",
+      "path": "src/app/ontology_adapter/seeding.rs",
+      "slices": [
+        {
+          "responsibility": "ontology layout, deterministic source discovery, and append-only seed persistence",
+          "target": "src/app/ontology_adapter/seeding.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/ontology_adapter/seeding.rs",
+            "src/app/ontology_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter.rs",
       "slices": [
         {
           "responsibility": "patch proposal and preview",
@@ -2391,30 +3451,468 @@
       ]
     },
     {
-      "path": "src/plugin.rs",
+      "path": "src/app/patch_adapter/approval_transaction.rs",
       "slices": [
         {
-          "responsibility": "plugin import validation and capability facade",
-          "target": "src/runtime_core/extensions/plugin.rs",
-          "release": "0.37.11",
+          "responsibility": "prepared patch approval transaction orchestration adapter",
+          "target": "src/app/patch_adapter/approval_transaction.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/runtime_core/extensions/plugin.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/workflow_adapter/transition.rs",
+            "src/app/patch_adapter/approval_transaction.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/policy.rs",
+      "path": "src/app/patch_adapter/approval_transaction/recovery.rs",
       "slices": [
         {
-          "responsibility": "tool and capability policy",
-          "target": "src/runtime_core/policy/decision.rs",
+          "responsibility": "prepared patch approval and verification crash recovery adapter",
+          "target": "src/app/patch_adapter/approval_transaction/recovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/approval_transaction/recovery.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
+            "src/app/patch_adapter/tests/verification_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/execution.rs",
+      "slices": [
+        {
+          "responsibility": "guarded patch apply, verification command, and rollback execution adapter",
+          "target": "src/app/patch_adapter/execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/application.rs",
+            "src/runtime_core/patch/verification.rs",
+            "src/app/patch_adapter/execution.rs",
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/guard.rs",
+      "slices": [
+        {
+          "responsibility": "patch approval lease, fault injection, and rollback recovery support",
+          "target": "src/app/patch_adapter/guard.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/runtime_core/patch/application.rs",
+            "src/app/patch_adapter/guard.rs",
+            "src/app/patch_adapter/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/proposal_builder.rs",
+      "slices": [
+        {
+          "responsibility": "patch preview materialization, target path, and approval token adapter",
+          "target": "src/app/patch_adapter/proposal_builder.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/approval.rs",
+            "src/runtime_core/patch/proposal.rs",
+            "src/app/policy_adapter.rs",
+            "src/app/patch_adapter/proposal_builder.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/proposal_store.rs",
+      "slices": [
+        {
+          "responsibility": "patch proposal persistence, credential, and rollback lookup adapter",
+          "target": "src/app/patch_adapter/proposal_store.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/approval.rs",
+            "src/runtime_core/patch/application.rs",
+            "src/runtime_core/patch/proposal.rs",
+            "src/app/patch_adapter/proposal_store.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/resume.rs",
+      "slices": [
+        {
+          "responsibility": "patch proposal listing and workflow resume adapter",
+          "target": "src/app/patch_adapter/resume.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/verification.rs",
+            "src/app/workflow_adapter/state/lifecycle.rs",
+            "src/app/patch_adapter/resume.rs",
+            "src/app/tui_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/terminal.rs",
+      "slices": [
+        {
+          "responsibility": "patch workflow cancellation, gate denial, and terminal rollback adapter",
+          "target": "src/app/patch_adapter/terminal.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/patch_adapter/terminal.rs",
+            "src/app/tui_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/verification.rs",
+      "slices": [
+        {
+          "responsibility": "patch verification approval and prepared transaction adapter",
+          "target": "src/app/patch_adapter/verification.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/verification.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/patch_adapter/verification.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/workflow_contract.rs",
+      "slices": [
+        {
+          "responsibility": "patch workflow binding, selection, and terminal report contract adapter",
+          "target": "src/app/patch_adapter/workflow_contract.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/proposal.rs",
+            "src/app/workflow_adapter/state.rs",
+            "src/app/patch_adapter/workflow_contract.rs",
+            "src/app/tui_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/workflow_execution.rs",
+      "slices": [
+        {
+          "responsibility": "patch token rotation and apply-verification continuation orchestration",
+          "target": "src/app/patch_adapter/workflow_execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/application.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/skill.rs",
+            "src/app/patch_adapter/workflow_execution.rs",
+            "src/app/patch_adapter/workflow_execution/plugin_completion.rs",
+            "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "skill runtime phase validation, evidence binding, lifecycle hooks, and stop transitions",
+          "target": "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/extensions_adapter/skill.rs",
+            "src/app/patch_adapter/workflow_execution.rs",
+            "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/workflow_execution/plugin_completion.rs",
+      "slices": [
+        {
+          "responsibility": "read-only plugin workflow completion validation, event convergence, and recovery reporting",
+          "target": "src/app/patch_adapter/workflow_execution/plugin_completion.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/skill.rs",
+            "src/app/patch_adapter/workflow_execution.rs",
+            "src/app/patch_adapter/workflow_execution/plugin_completion.rs",
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/tests/mod.rs",
+      "slices": [
+        {
+          "responsibility": "shared patch adapter test fixtures",
+          "target": "src/app/patch_adapter/tests/mod.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter.rs",
+            "src/app/patch_adapter/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/tests/approval_cases.rs",
+      "slices": [
+        {
+          "responsibility": "patch approval transaction regression tests",
+          "target": "src/app/patch_adapter/tests/approval_cases.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/approval_transaction.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/tests/recovery_cases.rs",
+      "slices": [
+        {
+          "responsibility": "patch source and projection recovery regression tests",
+          "target": "src/app/patch_adapter/tests/recovery_cases.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/approval_transaction.rs",
+            "src/app/patch_adapter/tests/recovery_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/tests/support_cases.rs",
+      "slices": [
+        {
+          "responsibility": "patch lock, rollback, and preview regression tests",
+          "target": "src/app/patch_adapter/tests/support_cases.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/execution.rs",
+            "src/app/patch_adapter/guard.rs",
+            "src/app/patch_adapter/tests/support_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/tests/terminal_cases.rs",
+      "slices": [
+        {
+          "responsibility": "patch terminal and resume regression tests",
+          "target": "src/app/patch_adapter/tests/terminal_cases.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/resume.rs",
+            "src/app/patch_adapter/terminal.rs",
+            "src/app/patch_adapter/tests/terminal_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/tests/verification_cases.rs",
+      "slices": [
+        {
+          "responsibility": "patch verification and credential regression tests",
+          "target": "src/app/patch_adapter/tests/verification_cases.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/verification.rs",
+            "src/app/patch_adapter/tests/verification_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin.rs",
+      "slices": [
+        {
+          "responsibility": "plugin lifecycle reporting and registry command orchestration adapter",
+          "target": "src/app/extensions_adapter/plugin.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/execution.rs",
+            "src/app/extensions_adapter/plugin/registry.rs",
+            "src/app/extensions_adapter/plugin/scanner.rs",
+            "src/app/extensions_adapter/plugin/source_import.rs",
+            "src/app/extensions_adapter/plugin/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/execution.rs",
+      "slices": [
+        {
+          "responsibility": "imported Codex skill snapshot, frontmatter, capability, and execution metadata revalidation",
+          "target": "src/app/extensions_adapter/plugin/execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/execution.rs",
+            "src/app/extensions_adapter/plugin/registry.rs",
+            "src/app/extensions_adapter/plugin/scanner.rs",
+            "src/app/extensions_adapter/plugin/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/source_import.rs",
+      "slices": [
+        {
+          "responsibility": "local plugin source validation, snapshot inspection, and normalized manifest assembly",
+          "target": "src/app/extensions_adapter/plugin/source_import.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/registry.rs",
+            "src/app/extensions_adapter/plugin/scanner.rs",
+            "src/app/extensions_adapter/plugin/source_import.rs",
+            "src/app/extensions_adapter/plugin/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/registry.rs",
+      "slices": [
+        {
+          "responsibility": "plugin normalized snapshot persistence, registry lookup, and imported source integrity verification",
+          "target": "src/app/extensions_adapter/plugin/registry.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/registry.rs",
+            "src/app/extensions_adapter/plugin/scanner.rs",
+            "src/app/extensions_adapter/plugin/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/scanner.rs",
+      "slices": [
+        {
+          "responsibility": "plugin directory traversal, capability scanning, snapshot hashing, and recursive copy boundaries",
+          "target": "src/app/extensions_adapter/plugin/scanner.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/registry.rs",
+            "src/app/extensions_adapter/plugin/scanner.rs",
+            "src/app/extensions_adapter/plugin/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/tests.rs",
+      "slices": [
+        {
+          "responsibility": "plugin import, capability admission, source drift, and persistence regression tests",
+          "target": "src/app/extensions_adapter/plugin/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/registry.rs",
+            "src/app/extensions_adapter/plugin/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/policy_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "project path policy and audit adapter",
+          "target": "src/app/policy_adapter.rs",
           "release": "0.37.8",
           "state": "complete",
           "evidence": [
             "src/runtime_core/policy/decision.rs",
+            "src/app/policy_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2424,19 +3922,38 @@
       "path": "src/runtime_core/inference/resource.rs",
       "slices": [
         {
-          "responsibility": "resource sampling and governance",
+          "responsibility": "resource pressure classification and chat, context, model, optimization, and lane governor policy",
           "target": "src/runtime_core/inference/resource.rs",
           "release": "0.37.3",
           "state": "complete",
           "evidence": [
             "src/runtime_core/inference/resource.rs",
+            "src/runtime_core/inference/resource/tests.rs",
+            "src/adapters/process/resource.rs",
+            "src/app/inference_adapter/backend/resource_sampling.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/runtime.rs",
+      "path": "src/runtime_core/inference/resource/tests.rs",
+      "slices": [
+        {
+          "responsibility": "resource pressure and governor policy regression tests",
+          "target": "src/runtime_core/inference/resource/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/resource.rs",
+            "src/runtime_core/inference/resource/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter.rs",
       "slices": [
         {
           "responsibility": "workflow execution orchestration",
@@ -2460,10 +3977,36 @@
         },
         {
           "responsibility": "TUI runtime bridge",
-          "target": "src/surfaces/tui/runtime_bridge.rs",
+          "target": "src/composition/tui_action.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_action.rs",
+            "src/composition/tui_read.rs",
+            "src/surfaces/tui/runtime_bridge.rs",
+            "src/surfaces/tui/page.rs",
+            "src/app/runtime_adapter.rs",
+            "src/app/runtime_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter/tests.rs",
+      "slices": [
+        {
+          "responsibility": "runtime orchestration, canonical TUI read, outcome, and report regression tests",
+          "target": "src/app/runtime_adapter/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/runtime_adapter.rs",
+            "src/app/runtime_adapter/tests.rs",
+            "src/runtime_core/workflow/application/runner.rs",
+            "src/runtime_core/reporting/runtime_report.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -2485,14 +4028,52 @@
       "path": "src/runtime_core/collaboration/subagent.rs",
       "slices": [
         {
-          "responsibility": "subagent role, tool, launch, and lifecycle policy",
+          "responsibility": "subagent role, tool, lifecycle transition, and durable-record invariant policy",
           "target": "src/runtime_core/collaboration/subagent.rs",
           "release": "0.37.12",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent.rs",
-            "src/subagent.rs",
+            "src/runtime_core/collaboration/subagent/launch.rs",
+            "src/runtime_core/collaboration/subagent/record_codec.rs",
+            "src/app/collaboration_adapter/subagent.rs",
             "tests/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/launch.rs",
+      "slices": [
+        {
+          "responsibility": "subagent launch role-tool-path admission and budget normalization policy",
+          "target": "src/runtime_core/collaboration/subagent/launch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/runtime_core/collaboration/subagent/launch.rs",
+            "src/runtime_core/collaboration/team_state.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/record_codec.rs",
+      "slices": [
+        {
+          "responsibility": "canonical durable subagent record parse, render, schema, and field-order codec",
+          "target": "src/runtime_core/collaboration/subagent/record_codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/runtime_core/collaboration/subagent/record_codec.rs",
+            "src/app/collaboration_adapter/subagent/persistence.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2508,7 +4089,25 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent_result.rs",
-            "src/subagent_result.rs",
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent_result/evidence.rs",
+      "slices": [
+        {
+          "responsibility": "canonical subagent evidence artifact codec, source binding, and hash verification policy",
+          "target": "src/runtime_core/collaboration/subagent_result/evidence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent_result.rs",
+            "src/runtime_core/collaboration/subagent_result/evidence.rs",
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2524,7 +4123,8 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team.rs",
-            "src/team.rs",
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2540,7 +4140,7 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_execution.rs",
-            "src/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
             "tests/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2557,7 +4157,7 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_reconciliation.rs",
-            "src/team_reconciliation.rs",
+            "src/app/collaboration_adapter/team_reconciliation.rs",
             "tests/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2574,7 +4174,7 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_state.rs",
-            "src/team_state.rs",
+            "src/app/collaboration_adapter/team_state.rs",
             "tests/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2905,6 +4505,23 @@
       ]
     },
     {
+      "path": "src/runtime_core/policy/redaction.rs",
+      "slices": [
+        {
+          "responsibility": "sensitive-value detection and deterministic text redaction policy",
+          "target": "src/runtime_core/policy/redaction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/policy/redaction.rs",
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/reporting/mod.rs",
       "slices": [
         {
@@ -2943,6 +4560,23 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/reporting/runtime_report.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/terminal.rs",
+      "slices": [
+        {
+          "responsibility": "terminal port, fault, and write-boundary contracts",
+          "target": "src/runtime_core/terminal.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/terminal.rs",
+            "src/adapters/terminal/native.rs",
+            "src/surfaces/tui/controller.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3032,6 +4666,24 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+            "tests/workflow/recovery.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+      "slices": [
+        {
+          "responsibility": "cross-store transaction ordering and recovery sequence regression tests",
+          "target": "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
             "tests/workflow/recovery.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3129,12 +4781,32 @@
       "path": "src/runtime_core/workflow/storage_compat/record.rs",
       "slices": [
         {
-          "responsibility": "byte-compatible workflow storage DTO and codec",
+          "responsibility": "workflow storage record model and lifecycle predicates",
           "target": "src/runtime_core/workflow/storage_compat/record.rs",
           "release": "0.37.4",
           "state": "complete",
           "evidence": [
-            "tests/workflow/storage_compat.rs"
+            "src/runtime_core/workflow/storage_compat/record.rs",
+            "src/runtime_core/workflow/storage_compat/record/codec.rs",
+            "tests/workflow/storage_compat.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record/codec.rs",
+      "slices": [
+        {
+          "responsibility": "byte-compatible workflow pointer and snapshot codecs for schema v2 through v4",
+          "target": "src/runtime_core/workflow/storage_compat/record/codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/record.rs",
+            "src/runtime_core/workflow/storage_compat/record/codec.rs",
+            "tests/workflow/storage_compat.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -3154,50 +4826,35 @@
       ]
     },
     {
-      "path": "src/skill.rs",
+      "path": "src/app/extensions_adapter/skill.rs",
       "slices": [
         {
-          "responsibility": "skill manifest lifecycle and execution facade",
-          "target": "src/runtime_core/extensions/skill.rs",
-          "release": "0.37.11",
+          "responsibility": "skill resolution and workflow persistence adapter",
+          "target": "src/app/extensions_adapter/skill.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/extensions/skill.rs",
+            "src/app/extensions_adapter/skill.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/state.rs",
+      "path": "src/app/workflow_adapter/state.rs",
       "slices": [
         {
-          "responsibility": "byte-compatible workflow storage DTO and codec",
-          "target": "src/runtime_core/workflow/storage_compat/record.rs",
-          "release": "0.37.4",
+          "responsibility": "workflow state adapter facade and shared persistence primitives",
+          "target": "src/app/workflow_adapter/state.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/storage_compat/record.rs",
-            "tests/workflow/storage_compat.rs"
-          ]
-        },
-        {
-          "responsibility": "validated workflow and session views",
-          "target": "src/runtime_core/workflow/domain/snapshot.rs",
-          "release": "0.37.5",
-          "state": "complete",
-          "evidence": [
             "src/runtime_core/workflow/domain/snapshot.rs",
-            "tests/architecture_contract.rs"
-          ]
-        },
-        {
-          "responsibility": "workflow state recovery",
-          "target": "src/runtime_core/workflow/application/recovery.rs",
-          "release": "0.37.6",
-          "state": "complete",
-          "evidence": [
             "src/runtime_core/workflow/application/recovery.rs",
+            "src/app/workflow_adapter/state.rs",
+            "src/app/workflow_adapter/state/workflow_access.rs",
             "tests/workflow/recovery.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3205,16 +4862,392 @@
       ]
     },
     {
-      "path": "src/subagent.rs",
+      "path": "src/app/workflow_adapter/state/workflow_access.rs",
       "slices": [
         {
-          "responsibility": "subagent lifecycle and dispatch",
-          "target": "src/runtime_core/collaboration/subagent.rs",
-          "release": "0.37.12",
+          "responsibility": "workflow loading, active pointer discovery, recovery, cleanup, and event binding",
+          "target": "src/app/workflow_adapter/state/workflow_access.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state.rs",
+            "src/app/workflow_adapter/state/workflow_access.rs",
+            "src/app/workflow_adapter/state/tests/lifecycle.rs",
+            "src/app/workflow_adapter/state/tests/workflow_store.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot.rs",
+      "slices": [
+        {
+          "responsibility": "bounded current-state reads, promotion, and compatibility orchestration",
+          "target": "src/app/workflow_adapter/state/current_snapshot.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/snapshot.rs",
+            "src/app/workflow_adapter/state/current_snapshot.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot/codec.rs",
+      "slices": [
+        {
+          "responsibility": "current-state canonical codec and schema validation",
+          "target": "src/app/workflow_adapter/state/current_snapshot/codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/current_snapshot/codec.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_transition.rs",
+      "slices": [
+        {
+          "responsibility": "current-state transition recovery and transaction orchestration adapter",
+          "target": "src/app/workflow_adapter/state/current_transition.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/current_transition.rs",
+            "src/app/workflow_adapter/state/current_transition/current_image.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_transition/current_image.rs",
+      "slices": [
+        {
+          "responsibility": "prepared current-state image construction, canonical member binding, decode, and exact CAS validation",
+          "target": "src/app/workflow_adapter/state/current_transition/current_image.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/current_transition.rs",
+            "src/app/workflow_adapter/state/current_transition/current_image.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+            "src/app/workflow_adapter/state/tests/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "state, session, and workflow lifecycle command adapter",
+          "target": "src/app/workflow_adapter/state/lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/lifecycle.rs",
+            "src/app/workflow_adapter/state/tests/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/source_install.rs",
+      "slices": [
+        {
+          "responsibility": "source installation transaction, staged write, rollback copy, and recovery orchestration adapter",
+          "target": "src/app/workflow_adapter/state/source_install.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/source_install.rs",
+            "src/app/workflow_adapter/state/source_install/directory.rs",
+            "src/app/workflow_adapter/state/source_install/fd_ops.rs",
+            "src/app/workflow_adapter/transition.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/source_install/directory.rs",
+      "slices": [
+        {
+          "responsibility": "prepared source and rollback directory capabilities with inode, metadata, and hash validation",
+          "target": "src/app/workflow_adapter/state/source_install/directory.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/source_install.rs",
+            "src/app/workflow_adapter/state/source_install/directory.rs",
+            "src/app/workflow_adapter/state/source_install/fd_ops.rs",
+            "src/app/workflow_adapter/state/tests/source_install.rs",
+            "src/app/patch_adapter/tests/terminal_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/source_install/fd_ops.rs",
+      "slices": [
+        {
+          "responsibility": "Unix fd-relative source installation filesystem operations and open flags",
+          "target": "src/app/workflow_adapter/state/source_install/fd_ops.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/source_install.rs",
+            "src/app/workflow_adapter/state/source_install/directory.rs",
+            "src/app/workflow_adapter/state/source_install/fd_ops.rs",
+            "src/app/workflow_adapter/state/tests/source_install.rs",
+            "src/app/patch_adapter/tests/terminal_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction.rs",
+      "slices": [
+        {
+          "responsibility": "state transaction module facade and public(crate) re-exports",
+          "target": "src/app/workflow_adapter/state/transaction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/workflow_adapter/state/transaction/approval.rs",
+            "src/app/workflow_adapter/state/transaction/terminal.rs",
+            "src/app/workflow_adapter/state/transaction/verification.rs",
+            "src/app/patch_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction/verification.rs",
+      "slices": [
+        {
+          "responsibility": "verification state transaction commit, recovery, and persistence port",
+          "target": "src/app/workflow_adapter/state/transaction/verification.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/workflow_adapter/state/transaction/verification.rs",
+            "src/app/patch_adapter/tests/verification_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction/terminal.rs",
+      "slices": [
+        {
+          "responsibility": "terminal state transaction preparation, commit, fault injection, and recovery adapter",
+          "target": "src/app/workflow_adapter/state/transaction/terminal.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/workflow_adapter/state/transaction/terminal.rs",
+            "src/app/patch_adapter/tests/terminal_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction/approval.rs",
+      "slices": [
+        {
+          "responsibility": "approval transaction commit, recovery, projection barrier, and persistence port",
+          "target": "src/app/workflow_adapter/state/transaction/approval.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/projection_barrier.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/workflow_adapter/state/transaction/approval.rs",
+            "src/app/patch_adapter/approval_transaction.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transition_commit.rs",
+      "slices": [
+        {
+          "responsibility": "current-state transition commit and recovery adapter",
+          "target": "src/app/workflow_adapter/state/transition_commit.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transition_commit.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/workflow_revision.rs",
+      "slices": [
+        {
+          "responsibility": "workflow revision guard and prepared state DTO adapter",
+          "target": "src/app/workflow_adapter/state/workflow_revision.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/record.rs",
+            "src/app/workflow_adapter/state/workflow_revision.rs",
+            "src/app/workflow_adapter/state/workflow_store.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/workflow_store.rs",
+      "slices": [
+        {
+          "responsibility": "workflow snapshot, pointer, and recovery storage adapter",
+          "target": "src/app/workflow_adapter/state/workflow_store.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery.rs",
+            "src/runtime_core/workflow/storage_compat/record.rs",
+            "src/app/workflow_adapter/state/workflow_store.rs",
+            "tests/workflow/recovery.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/callgraph.rs",
+      "slices": [
+        {
+          "responsibility": "state writer authority regression tests",
+          "target": "src/app/workflow_adapter/state/tests/callgraph.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/tests/callgraph.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+      "slices": [
+        {
+          "responsibility": "current-state snapshot regression tests",
+          "target": "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/current_snapshot.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "workflow and session lifecycle regression tests",
+          "target": "src/app/workflow_adapter/state/tests/lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/tests/lifecycle.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/mod.rs",
+      "slices": [
+        {
+          "responsibility": "shared state adapter test fixtures",
+          "target": "src/app/workflow_adapter/state/tests/mod.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/tests/mod.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/source_install.rs",
+      "slices": [
+        {
+          "responsibility": "source installation recovery regression tests",
+          "target": "src/app/workflow_adapter/state/tests/source_install.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/source_install.rs",
+            "src/app/workflow_adapter/state/tests/source_install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/workflow_store.rs",
+      "slices": [
+        {
+          "responsibility": "workflow storage and recovery regression tests",
+          "target": "src/app/workflow_adapter/state/tests/workflow_store.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/workflow_store.rs",
+            "src/app/workflow_adapter/state/tests/workflow_store.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent.rs",
+      "slices": [
+        {
+          "responsibility": "subagent admission, status, and cancellation adapter",
+          "target": "src/app/collaboration_adapter/subagent.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent.rs",
-            "src/subagent.rs",
+            "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent/execution.rs",
+            "src/app/collaboration_adapter/subagent/persistence.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/collaboration/subagent_lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3222,17 +5255,85 @@
       ]
     },
     {
-      "path": "src/subagent_result.rs",
+      "path": "src/app/collaboration_adapter/subagent/execution.rs",
       "slices": [
         {
-          "responsibility": "subagent result validation and merge",
-          "target": "src/runtime_core/collaboration/subagent_result.rs",
+          "responsibility": "subagent worker execution, terminalization, result verification, and parent merge coordination",
+          "target": "src/app/collaboration_adapter/subagent/execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent/execution.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/persistence.rs",
+      "slices": [
+        {
+          "responsibility": "subagent canonical record persistence, revision checkpointing, and snapshot-chain validation",
+          "target": "src/app/collaboration_adapter/subagent/persistence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent/persistence.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/tests.rs",
+      "slices": [
+        {
+          "responsibility": "subagent adapter lifecycle and dispatch regression tests",
+          "target": "src/app/collaboration_adapter/subagent/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent_result.rs",
+      "slices": [
+        {
+          "responsibility": "subagent result and evidence artifact adapter",
+          "target": "src/app/collaboration_adapter/subagent_result.rs",
           "release": "0.37.12",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent_result.rs",
-            "src/subagent_result.rs",
+            "src/app/collaboration_adapter/subagent_result.rs",
             "tests/collaboration/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/command.rs",
+      "slices": [
+        {
+          "responsibility": "CLI command DTOs",
+          "target": "src/surfaces/cli/command.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3253,6 +5354,138 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser.rs",
+      "slices": [
+        {
+          "responsibility": "CLI top-level dispatch and command-family routing",
+          "target": "src/surfaces/cli/parser.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/backend.rs",
+      "slices": [
+        {
+          "responsibility": "backend start and chat command option parsing",
+          "target": "src/surfaces/cli/parser/backend.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/backend.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration.rs",
+      "slices": [
+        {
+          "responsibility": "team and subagent command option parsing",
+          "target": "src/surfaces/cli/parser/collaboration.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/collaboration.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/observability.rs",
+      "slices": [
+        {
+          "responsibility": "monitor, ontology, and benchmark command option parsing",
+          "target": "src/surfaces/cli/parser/observability.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/observability.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/patch.rs",
+      "slices": [
+        {
+          "responsibility": "patch preview, approve, and verify command option parsing",
+          "target": "src/surfaces/cli/parser/patch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/patch.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/plugin.rs",
+      "slices": [
+        {
+          "responsibility": "plugin import command option parsing",
+          "target": "src/surfaces/cli/parser/plugin.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/plugin.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/mod.rs",
+      "slices": [
+        {
+          "responsibility": "CLI command-family argument parser regression tests",
+          "target": "src/surfaces/cli/parser/tests/mod.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/render.rs",
+      "slices": [
+        {
+          "responsibility": "CLI presentation",
+          "target": "src/surfaces/cli/render.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/render.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/mod.rs",
       "slices": [
         {
@@ -3261,6 +5494,23 @@
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller.rs",
+      "slices": [
+        {
+          "responsibility": "interactive command loop and runtime port",
+          "target": "src/surfaces/tui/controller.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3281,32 +5531,186 @@
       ]
     },
     {
-      "path": "src/team.rs",
+      "path": "src/surfaces/tui/outcome.rs",
       "slices": [
         {
-          "responsibility": "team plan and lifecycle",
-          "target": "src/runtime_core/collaboration/team.rs",
-          "release": "0.37.12",
+          "responsibility": "TUI outcome DTOs, code catalog, special constructors, and identifier validation",
+          "target": "src/surfaces/tui/outcome.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/outcome.rs",
+            "src/surfaces/tui/outcome/oracle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/outcome/oracle.rs",
+      "slices": [
+        {
+          "responsibility": "exact TUI outcome mapping and trusted dynamic placeholder validation",
+          "target": "src/surfaces/tui/outcome/oracle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/outcome.rs",
+            "src/surfaces/tui/outcome/oracle.rs",
+            "tests/surfaces/interactive_tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/page.rs",
+      "slices": [
+        {
+          "responsibility": "bounded TUI page construction and authority projection",
+          "target": "src/surfaces/tui/page.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/page.rs",
+            "src/app/runtime_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render.rs",
+      "slices": [
+        {
+          "responsibility": "interactive rendering and report layout primitives",
+          "target": "src/surfaces/tui/render.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/report_render.rs",
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/report_composition.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render.rs",
+      "slices": [
+        {
+          "responsibility": "read-only TUI report rendering",
+          "target": "src/surfaces/tui/report_render.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/report_render.rs",
+            "src/app/tui_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/runtime_bridge.rs",
+      "slices": [
+        {
+          "responsibility": "TUI read, selection, and intent contracts with one-shot secret",
+          "target": "src/surfaces/tui/runtime_bridge.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/runtime_bridge.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/view_model.rs",
+      "slices": [
+        {
+          "responsibility": "TUI navigation state and read-request projection",
+          "target": "src/surfaces/tui/view_model.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/view_model.rs",
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team.rs",
+      "slices": [
+        {
+          "responsibility": "team status, admission, dispatch, and governor report orchestration adapter",
+          "target": "src/app/collaboration_adapter/team.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team.rs",
-            "src/team.rs",
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/admission.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/team_execution.rs",
+      "path": "src/app/collaboration_adapter/team/admission.rs",
       "slices": [
         {
-          "responsibility": "team lane execution",
-          "target": "src/runtime_core/collaboration/team_execution.rs",
-          "release": "0.37.12",
+          "responsibility": "team admission policy classification, ownership path normalization, and approval request persistence",
+          "target": "src/app/collaboration_adapter/team/admission.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team.rs",
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/admission.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/tests.rs",
+      "slices": [
+        {
+          "responsibility": "team admission, ownership, dispatch, governor, and status regression tests",
+          "target": "src/app/collaboration_adapter/team/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team.rs",
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution.rs",
+      "slices": [
+        {
+          "responsibility": "team lane execution orchestration, result aggregation, and worker scheduling adapter",
+          "target": "src/app/collaboration_adapter/team_execution.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_execution.rs",
-            "src/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution/admission.rs",
+            "src/app/collaboration_adapter/team_execution/events.rs",
+            "src/app/collaboration_adapter/team_execution/tests.rs",
             "tests/collaboration/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3314,16 +5718,70 @@
       ]
     },
     {
-      "path": "src/team_reconciliation.rs",
+      "path": "src/app/collaboration_adapter/team_execution/admission.rs",
       "slices": [
         {
-          "responsibility": "team evidence reconciliation",
-          "target": "src/runtime_core/collaboration/team_reconciliation.rs",
-          "release": "0.37.12",
+          "responsibility": "team worker admission receipt recovery, interrupted execution failure, and action-time ownership enforcement",
+          "target": "src/app/collaboration_adapter/team_execution/admission.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution/admission.rs",
+            "src/app/collaboration_adapter/team_execution/events.rs",
+            "src/app/collaboration_adapter/team_execution/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/events.rs",
+      "slices": [
+        {
+          "responsibility": "idempotent team execution admission, worker, ownership, and blocked event persistence",
+          "target": "src/app/collaboration_adapter/team_execution/events.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution/events.rs",
+            "src/app/collaboration_adapter/team_execution/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/tests.rs",
+      "slices": [
+        {
+          "responsibility": "team execution admission, retry, cancellation, ownership, and reconciliation regression tests",
+          "target": "src/app/collaboration_adapter/team_execution/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution/tests.rs",
+            "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_reconciliation.rs",
+      "slices": [
+        {
+          "responsibility": "team evidence reconciliation adapter",
+          "target": "src/app/collaboration_adapter/team_reconciliation.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_reconciliation.rs",
-            "src/team_reconciliation.rs",
+            "src/app/collaboration_adapter/team_reconciliation.rs",
             "tests/collaboration/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3331,16 +5789,19 @@
       ]
     },
     {
-      "path": "src/team_state.rs",
+      "path": "src/app/collaboration_adapter/team_state.rs",
       "slices": [
         {
-          "responsibility": "persisted team state",
-          "target": "src/runtime_core/collaboration/team_state.rs",
-          "release": "0.37.12",
+          "responsibility": "team state lifecycle and checkpoint orchestration adapter",
+          "target": "src/app/collaboration_adapter/team_state.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_state.rs",
-            "src/team_state.rs",
+            "src/app/collaboration_adapter/team_state.rs",
+            "src/app/collaboration_adapter/team_state/events.rs",
+            "src/app/collaboration_adapter/team_state/persistence.rs",
+            "src/app/collaboration_adapter/team_state/tests.rs",
             "tests/collaboration/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3348,119 +5809,437 @@
       ]
     },
     {
-      "path": "src/test_support.rs",
+      "path": "src/app/collaboration_adapter/team_state/events.rs",
       "slices": [
         {
-          "responsibility": "owner-local and cross-crate test fixtures",
-          "target": "tests/support/runtime_fixture.rs",
+          "responsibility": "idempotent team planned and stage-transition event persistence",
+          "target": "src/app/collaboration_adapter/team_state/events.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_state.rs",
+            "src/app/collaboration_adapter/team_state/events.rs",
+            "src/app/collaboration_adapter/team_state/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
     {
-      "path": "src/transcript.rs",
+      "path": "src/app/collaboration_adapter/team_state/persistence.rs",
       "slices": [
         {
-          "responsibility": "canonical transcript records",
-          "target": "src/runtime_core/workflow/storage_compat/transcript.rs",
-          "release": "0.37.4",
+          "responsibility": "team manifest, cancellation marker, current state, and snapshot persistence",
+          "target": "src/app/collaboration_adapter/team_state/persistence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_state.rs",
+            "src/app/collaboration_adapter/team_state/persistence.rs",
+            "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_state/tests.rs",
+      "slices": [
+        {
+          "responsibility": "team planning, state transition, cancellation, manifest ownership, and tamper regression tests",
+          "target": "src/app/collaboration_adapter/team_state/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_state.rs",
+            "src/app/collaboration_adapter/team_state.rs",
+            "src/app/collaboration_adapter/team_state/persistence.rs",
+            "src/app/collaboration_adapter/team_state/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript.rs",
+      "slices": [
+        {
+          "responsibility": "transcript append and ledger projection orchestration",
+          "target": "src/app/workflow_adapter/transcript.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/storage_compat/transcript.rs",
-            "tests/workflow/storage_compat.rs"
-          ]
-        },
-        {
-          "responsibility": "validated transcript session views",
-          "target": "src/runtime_core/workflow/domain/transcript.rs",
-          "release": "0.37.5",
-          "state": "complete",
-          "evidence": [
             "src/runtime_core/workflow/domain/transcript.rs",
-            "tests/architecture_contract.rs"
-          ]
-        },
-        {
-          "responsibility": "transcript projection",
-          "target": "src/adapters/sqlite/transcript_projection.rs",
-          "release": "0.37.7",
-          "state": "complete",
-          "evidence": [
             "src/adapters/sqlite/transcript_projection.rs",
+            "src/app/workflow_adapter/transcript.rs",
+            "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/tool_turn.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/transition.rs",
+      "path": "src/app/workflow_adapter/transcript/tool_turn.rs",
       "slices": [
         {
-          "responsibility": "legal workflow transitions",
-          "target": "src/runtime_core/workflow/domain/transition.rs",
-          "release": "0.37.6",
+          "responsibility": "prepared transcript tool turns, exact artifact installation, decode, and tool-output views",
+          "target": "src/app/workflow_adapter/transcript/tool_turn.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript.rs",
+            "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/tool_turn.rs",
+            "src/app/workflow_adapter/transcript/tool_turn/streams.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn/streams.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic tool stream sanitization, redaction, byte caps, artifact persistence, and replay validation",
+          "target": "src/app/workflow_adapter/transcript/tool_turn/streams.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript.rs",
+            "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/tool_turn.rs",
+            "src/app/workflow_adapter/transcript/tool_turn/streams.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/storage.rs",
+      "slices": [
+        {
+          "responsibility": "transcript and tool-output canonical decode, validation, and filesystem boundary enforcement",
+          "target": "src/app/workflow_adapter/transcript/storage.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/transcript.rs",
+            "src/app/workflow_adapter/transcript.rs",
+            "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tests.rs",
+      "slices": [
+        {
+          "responsibility": "transcript persistence, stream sanitization, and projection regression tests",
+          "target": "src/app/workflow_adapter/transcript/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition.rs",
+      "slices": [
+        {
+          "responsibility": "shared transition path, canonical JSON, hashing, and fsync primitives",
+          "target": "src/app/workflow_adapter/transition.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/domain/transition.rs",
-            "tests/architecture_contract.rs"
-          ]
-        },
-        {
-          "responsibility": "projection-lag and recovery gates",
-          "target": "src/runtime_core/workflow/application/projection_barrier.rs",
-          "release": "0.37.7",
-          "state": "complete",
-          "evidence": [
+            "src/runtime_core/workflow/application/recovery.rs",
             "src/runtime_core/workflow/application/projection_barrier.rs",
+            "src/app/workflow_adapter/transition.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/tui.rs",
+      "path": "src/app/workflow_adapter/transition/bundle_codec.rs",
+      "slices": [
+        {
+          "responsibility": "prepared member, semantic-event, and event-chain codec adapter",
+          "target": "src/app/workflow_adapter/transition/bundle_codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/bundle_codec.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_preparation.rs",
+      "slices": [
+        {
+          "responsibility": "prepared bundle construction, event binding, and projection-lag persistence adapter",
+          "target": "src/app/workflow_adapter/transition/bundle_preparation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/runtime_core/workflow/application/projection_barrier.rs",
+            "src/app/workflow_adapter/transition/bundle_preparation.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation.rs",
+      "slices": [
+        {
+          "responsibility": "prepared bundle identity, current binding, source nullability, and validation orchestration adapter",
+          "target": "src/app/workflow_adapter/transition/bundle_validation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/bundle_validation.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/members.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
+      "slices": [
+        {
+          "responsibility": "prepared semantic event cardinality, byte budget, ordinal, and hash-chain validation",
+          "target": "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/bundle_preparation.rs",
+            "src/app/workflow_adapter/transition/bundle_validation.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation/members.rs",
+      "slices": [
+        {
+          "responsibility": "prepared production approval and projection-lag member invariant validation",
+          "target": "src/app/workflow_adapter/transition/bundle_validation/members.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/bundle_validation.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/members.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs",
+      "slices": [
+        {
+          "responsibility": "prepared state-transition, checkpoint, verification, and terminal-action member invariant validation",
+          "target": "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/bundle_validation.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/members.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs",
+            "src/app/workflow_adapter/state/tests/lifecycle.rs",
+            "src/app/patch_adapter/tests/verification_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal.rs",
+      "slices": [
+        {
+          "responsibility": "transition journal commit, cleanup, and bounded recovery adapter",
+          "target": "src/app/workflow_adapter/transition/journal.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery.rs",
+            "src/runtime_core/workflow/application/projection_barrier.rs",
+            "src/app/workflow_adapter/transition/journal.rs",
+            "src/app/workflow_adapter/transition/journal/recovery_io.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/codec.rs",
+      "slices": [
+        {
+          "responsibility": "canonical prepared transition journal codec",
+          "target": "src/app/workflow_adapter/transition/journal/codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/journal/codec.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/recovery_io.rs",
+      "slices": [
+        {
+          "responsibility": "bounded transition recovery discovery and regular-file identity I/O",
+          "target": "src/app/workflow_adapter/transition/journal/recovery_io.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/journal.rs",
+            "src/app/workflow_adapter/transition/journal/recovery_io.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_install.rs",
+      "slices": [
+        {
+          "responsibility": "source installation preparation, validation, and codec adapter",
+          "target": "src/app/workflow_adapter/transition/source_install.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/state/source_install.rs",
+            "src/app/workflow_adapter/transition/source_install.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/tests/mod.rs",
+      "slices": [
+        {
+          "responsibility": "transition journal, source-install, and bundle codec regression tests",
+          "target": "src/app/workflow_adapter/transition/tests/mod.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition.rs",
+            "src/app/workflow_adapter/transition/source_install.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter.rs",
       "slices": [
         {
           "responsibility": "TUI controller and input",
           "target": "src/surfaces/tui/controller.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/app/tui_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "TUI view models",
           "target": "src/surfaces/tui/view_model.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/view_model.rs",
+            "src/app/tui_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "TUI rendering",
           "target": "src/surfaces/tui/render.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/report_render.rs",
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
     {
-      "path": "src/uninstall.rs",
+      "path": "src/app/tui_adapter/tests.rs",
       "slices": [
         {
-          "responsibility": "uninstall orchestration",
-          "target": "src/composition/uninstall.rs",
+          "responsibility": "TUI adapter, controller, rendering, and one-shot report regression tests",
+          "target": "src/app/tui_adapter/tests.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
-        },
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/report_composition.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/report_composition.rs",
+      "slices": [
         {
-          "responsibility": "managed path deletion",
-          "target": "src/adapters/filesystem/uninstall.rs",
+          "responsibility": "one-shot TUI query composition and report view-model assembly",
+          "target": "src/app/tui_adapter/report_composition.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_read.rs",
+            "src/surfaces/tui/report_render.rs",
+            "src/surfaces/tui/view_model.rs",
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/report_composition.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3507,58 +6286,47 @@
       ]
     },
     {
-      "path": "tests/platform.rs",
+      "path": "tests/surfaces.rs",
       "slices": [
         {
-          "responsibility": "platform integration test harness",
-          "target": "tests/platform.rs",
-          "release": "0.37.2",
+          "responsibility": "surface integration test harness",
+          "target": "tests/surfaces.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "tests/platform.rs"
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "tests/platform/interactive_tui.rs",
+      "path": "tests/surfaces/interactive_tui.rs",
       "slices": [
         {
-          "responsibility": "terminal-backed TUI contract",
-          "target": "tests/platform/interactive_tui.rs",
-          "release": "0.37.2",
-          "state": "complete",
-          "evidence": [
-            "tests/platform/interactive_tui.rs"
-          ]
-        },
-        {
-          "responsibility": "TUI behavior contract",
+          "responsibility": "terminal-backed TUI behavior contract",
           "target": "tests/surfaces/interactive_tui.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/surfaces/interactive_tui.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
     {
-      "path": "tests/platform/native_terminal.rs",
+      "path": "tests/surfaces/native_terminal.rs",
       "slices": [
         {
-          "responsibility": "native terminal adapter contract",
-          "target": "tests/platform/native_terminal.rs",
-          "release": "0.37.2",
-          "state": "complete",
-          "evidence": [
-            "tests/platform/native_terminal.rs"
-          ]
-        },
-        {
-          "responsibility": "CLI terminal behavior contract",
+          "responsibility": "native terminal CLI behavior contract",
           "target": "tests/surfaces/native_terminal.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/surfaces/native_terminal.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3693,38 +6461,62 @@
       ]
     },
     {
-      "path": "tests/support/fake_sidecar.rs",
+      "path": "tests/support/platform/fake_sidecar.rs",
       "slices": [
         {
           "responsibility": "cross-crate integration fixture",
           "target": "tests/support/platform/fake_sidecar.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/fake_sidecar.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
     {
-      "path": "tests/support/native_terminal.rs",
+      "path": "tests/support/platform/native_terminal.rs",
       "slices": [
         {
           "responsibility": "cross-crate integration fixture",
           "target": "tests/support/platform/native_terminal.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
     {
-      "path": "tests/support/native_terminal_probe.rs",
+      "path": "tests/support/platform/native_terminal_probe.rs",
       "slices": [
         {
           "responsibility": "cross-crate integration fixture",
           "target": "tests/support/platform/native_terminal_probe.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal_probe.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/support/runtime_fixture.rs",
+      "slices": [
+        {
+          "responsibility": "owner-local unit-test environment fixture",
+          "target": "tests/support/runtime_fixture.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/support/runtime_fixture.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -3759,8 +6551,8 @@
       ]
     }
   ],
-  "current_release": "0.37.12",
-  "train_completion": false,
+  "current_release": "0.37.13",
+  "train_completion": true,
   "logical_proofs": [
     {
       "id": "architecture-contract",
@@ -4393,7 +7185,13 @@
     {
       "path": "src/adapters/filesystem/lease.rs",
       "responsibilities": [
-        "filesystem lease implementation"
+        "recoverable filesystem lease acquisition, waiting, and owner lifecycle"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/lease/identity.rs",
+      "responsibilities": [
+        "lease owner namespace discovery, stale claim cleanup, and path-handle identity validation"
       ]
     },
     {
@@ -4435,7 +7233,49 @@
     {
       "path": "src/adapters/sqlite/observability_projection.rs",
       "responsibilities": [
-        "SQLite observability projection"
+        "SQLite observability projection facade, connection recovery, status, export, and prune orchestration"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics.rs",
+      "responsibilities": [
+        "model summaries, performance baseline, and optimization analytics"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/metrics.rs",
+      "responsibilities": [
+        "model, resource, and benchmark metric persistence and reporting"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/read_snapshot.rs",
+      "responsibilities": [
+        "stable private read-only SQLite snapshot binding"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/replay.rs",
+      "responsibilities": [
+        "canonical ledger replay and event-to-row projection"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/schema.rs",
+      "responsibilities": [
+        "SQLite observability schema and migration ownership"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/sessions.rs",
+      "responsibilities": [
+        "session history, entry, and event read-model query mapping"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/tests.rs",
+      "responsibilities": [
+        "SQLite observability projection regression tests"
       ]
     },
     {
@@ -4463,21 +7303,159 @@
       ]
     },
     {
+      "path": "src/adapters/terminal/native/platform.rs",
+      "responsibilities": [
+        "POSIX and Windows terminal dimensions, secret input, and echo restoration"
+      ]
+    },
+    {
       "path": "src/app.rs",
       "responsibilities": [
         "top-level command dispatch"
       ]
     },
     {
-      "path": "src/approval.rs",
+      "path": "src/app/command_dispatch.rs",
       "responsibilities": [
-        "approval records and decisions"
+        "CLI command execution adapter and command routing"
       ]
     },
     {
-      "path": "src/backend.rs",
+      "path": "src/app/command_dispatch/collaboration_commands.rs",
       "responsibilities": [
-        "backend command and cross-store orchestration compatibility facade"
+        "team and subagent CLI command execution integration"
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/extension_commands.rs",
+      "responsibilities": [
+        "skill, hook, and plugin CLI command execution integration"
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/inference_ports.rs",
+      "responsibilities": [
+        "concrete benchmark, backend, and model command port integration"
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/knowledge_commands.rs",
+      "responsibilities": [
+        "evidence and ontology CLI command execution integration"
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/observability_commands.rs",
+      "responsibilities": [
+        "cache and monitor CLI command execution integration"
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/policy_commands.rs",
+      "responsibilities": [
+        "fail-closed policy CLI command execution and path-mode mapping"
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/tui_commands.rs",
+      "responsibilities": [
+        "TUI entrypoint initialization and read-only report command integration"
+      ]
+    },
+    {
+      "path": "src/app/command_dispatch/workflow_commands.rs",
+      "responsibilities": [
+        "workflow state, session, and patch CLI command execution integration"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter.rs",
+      "responsibilities": [
+        "concrete inference adapter module wiring"
+      ]
+    },
+    {
+      "path": "src/app/approval_adapter.rs",
+      "responsibilities": [
+        "approval request filesystem adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter.rs",
+      "responsibilities": [
+        "concrete collaboration adapter module wiring"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter.rs",
+      "responsibilities": [
+        "concrete extension adapter module wiring"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter.rs",
+      "responsibilities": [
+        "concrete workflow adapter module wiring"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend.rs",
+      "responsibilities": [
+        "backend module facade and shared report primitives"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat.rs",
+      "responsibilities": [
+        "backend chat admission, streaming execution, and completion coordination"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/interruption.rs",
+      "responsibilities": [
+        "backend chat timeout, cancellation, and interrupted-generation evidence"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/report.rs",
+      "responsibilities": [
+        "backend chat batch and streaming report presentation"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/generation_state.rs",
+      "responsibilities": [
+        "backend generation admission, cancellation, and terminal state coordination"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/installation.rs",
+      "responsibilities": [
+        "backend install planning, archive verification, and payload installation"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/resource_sampling.rs",
+      "responsibilities": [
+        "backend process resource sampling, metric projection, and pressure reporting"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/sidecar.rs",
+      "responsibilities": [
+        "backend sidecar discovery, status, generation-aware stop, health, and diagnostics"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/sidecar/startup.rs",
+      "responsibilities": [
+        "backend sidecar process launch, health wait, log creation, and startup rollback"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/tests.rs",
+      "responsibilities": [
+        "inference backend integration regression tests"
       ]
     },
     {
@@ -4489,13 +7467,31 @@
     {
       "path": "src/adapters/llama_cpp/install.rs",
       "responsibilities": [
-        "llama.cpp release manifest, download, and installation"
+        "llama.cpp release manifest, platform selection, archive paths, and install records"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/install/archive.rs",
+      "responsibilities": [
+        "bounded backend archive download and integrity verification"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/install/payload.rs",
+      "responsibilities": [
+        "backend archive extraction, binary discovery, managed release-tree placement, and executable permissions"
       ]
     },
     {
       "path": "src/adapters/process/backend.rs",
       "responsibilities": [
         "backend process lifecycle and command identity inspection"
+      ]
+    },
+    {
+      "path": "src/adapters/process/resource.rs",
+      "responsibilities": [
+        "bounded OS process CPU and memory sampling plus recursive artifact disk measurement"
       ]
     },
     {
@@ -4525,13 +7521,31 @@
     {
       "path": "src/adapters/llama_cpp/stream.rs",
       "responsibilities": [
-        "llama.cpp streaming transport"
+        "llama.cpp streaming TCP transport, cancellation, and timeout orchestration"
       ]
     },
     {
-      "path": "src/benchmark.rs",
+      "path": "src/adapters/llama_cpp/stream/protocol.rs",
       "responsibilities": [
-        "benchmark command and cross-store orchestration compatibility facade"
+        "bounded HTTP chunked decoding, SSE event decoding, and reasoning-trace filtering"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/tests.rs",
+      "responsibilities": [
+        "stream transport, bounded protocol, cancellation, timeout, and reasoning-filter regression tests"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/benchmark.rs",
+      "responsibilities": [
+        "benchmark concrete integration adapter"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/benchmark/tests.rs",
+      "responsibilities": [
+        "benchmark validation, recording, executable scoring, parser rejection, and canonical adoption regression tests"
       ]
     },
     {
@@ -4553,14 +7567,6 @@
       ]
     },
     {
-      "path": "src/cli.rs",
-      "responsibilities": [
-        "CLI argument parsing",
-        "CLI command DTOs",
-        "CLI presentation"
-      ]
-    },
-    {
       "path": "src/composition/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -4569,7 +7575,19 @@
     {
       "path": "src/composition/startup.rs",
       "responsibilities": [
-        "reserved architecture ownership"
+        "application composition bootstrap"
+      ]
+    },
+    {
+      "path": "src/composition/tui_action.rs",
+      "responsibilities": [
+        "TUI mutation orchestration and typed failure mapping"
+      ]
+    },
+    {
+      "path": "src/composition/tui_read.rs",
+      "responsibilities": [
+        "canonical TUI read orchestration"
       ]
     },
     {
@@ -4579,15 +7597,47 @@
       ]
     },
     {
-      "path": "src/context.rs",
+      "path": "src/composition/dispatch.rs",
       "responsibilities": [
-        "bounded source context"
+        "CLI parse, preflight, recovery, and dispatch ordering"
       ]
     },
     {
-      "path": "src/evidence.rs",
+      "path": "src/composition/inference.rs",
       "responsibilities": [
-        "evidence validation and stop inputs"
+        "inference command orchestration and consumer-owned ports"
+      ]
+    },
+    {
+      "path": "src/composition/uninstall.rs",
+      "responsibilities": [
+        "uninstall plan orchestration"
+      ]
+    },
+    {
+      "path": "src/app/context_adapter.rs",
+      "responsibilities": [
+        "bounded source context",
+        "context pack orchestration, declared source verification, and resume reconstruction"
+      ]
+    },
+    {
+      "path": "src/app/context_adapter/discovery.rs",
+      "responsibilities": [
+        "bounded filesystem context discovery, filtering, ranking, and source fingerprinting"
+      ]
+    },
+    {
+      "path": "src/app/evidence_adapter.rs",
+      "responsibilities": [
+        "evidence validation and stop inputs",
+        "verification evidence recording, stop-gate orchestration, and artifact pointer validation"
+      ]
+    },
+    {
+      "path": "src/app/evidence_adapter/store.rs",
+      "responsibilities": [
+        "bounded and recursive evidence store inspection with regular-file boundary enforcement"
       ]
     },
     {
@@ -4615,43 +7665,99 @@
       ]
     },
     {
-      "path": "src/hooks.rs",
+      "path": "src/foundation/serialization/parser.rs",
       "responsibilities": [
-        "hook lifecycle and ordering"
+        "bounded recursive strict JSON parsing for objects, arrays, strings, numbers, literals, and Unicode escapes"
       ]
     },
     {
-      "path": "src/intent.rs",
+      "path": "src/app/extensions_adapter/hooks.rs",
       "responsibilities": [
-        "intent classification and action planning"
+        "hook lifecycle state and ledger adapter"
       ]
     },
     {
-      "path": "src/korean_guard.rs",
+      "path": "src/app/intent_adapter.rs",
       "responsibilities": [
-        "Korean output invariant"
+        "intent facade, model answer and evidence gates, and agent prompt composition"
       ]
     },
     {
-      "path": "src/ledger.rs",
+      "path": "src/app/intent_adapter/execution.rs",
       "responsibilities": [
-        "canonical event append and hashing",
-        "cross-store transaction coordination",
-        "ledger observability projection"
+        "skill workflow execution, checkpoint sequencing, model action admission, and patch handoff"
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/tests.rs",
+      "responsibilities": [
+        "intent classification, model-action parsing, answer gating, and skill-boundary regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger.rs",
+      "responsibilities": [
+        "ledger persistence and projection orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/derived.rs",
+      "responsibilities": [
+        "project ledger, operation log, and SQLite sequence convergence from runtime authority"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/query.rs",
+      "responsibilities": [
+        "read-only ledger event lookup and workflow checkpoint chain queries"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/storage.rs",
+      "responsibilities": [
+        "runtime ledger bounded reads, canonical append, chain validation, and durable head repair"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/tests.rs",
+      "responsibilities": [
+        "ledger chain, lock, recovery, and derived projection regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/writer.rs",
+      "responsibilities": [
+        "single-lease event planning, canonical append, EventSink ordering, and convergence coordination"
       ]
     },
     {
       "path": "src/main.rs",
       "responsibilities": [
-        "private architecture root registration",
-        "binary entrypoint",
-        "application composition bootstrap"
+        "private architecture root registration, application composition bootstrap, and binary entrypoint"
       ]
     },
     {
-      "path": "src/model.rs",
+      "path": "src/app/inference_adapter/model.rs",
       "responsibilities": [
-        "model command and cross-store orchestration compatibility facade"
+        "model evaluation, promotion, verification, cleanup, and report integration adapter"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/evidence.rs",
+      "responsibilities": [
+        "host-local benchmark, promotion, and backend smoke evidence collection and persistence"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/registry.rs",
+      "responsibilities": [
+        "model local registry installation, manifest and promotion rebinding, and default selection"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/tests.rs",
+      "responsibilities": [
+        "model manifest, evaluation, promotion, registry, and cleanup regression tests"
       ]
     },
     {
@@ -4685,6 +7791,18 @@
       ]
     },
     {
+      "path": "src/adapters/filesystem/uninstall.rs",
+      "responsibilities": [
+        "managed uninstall path discovery"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/atomic_write.rs",
+      "responsibilities": [
+        "durable atomic file replacement and parent synchronization"
+      ]
+    },
+    {
       "path": "src/adapters/filesystem/backend_state.rs",
       "responsibilities": [
         "backend sidecar and generation state persistence I/O"
@@ -4697,26 +7815,33 @@
       ]
     },
     {
-      "path": "src/monitor.rs",
+      "path": "src/app/monitor_adapter.rs",
       "responsibilities": [
-        "runtime monitoring queries"
+        "monitor concrete query-port wiring"
       ]
     },
     {
-      "path": "src/observability.rs",
+      "path": "src/app/observability_adapter.rs",
       "responsibilities": [
-        "observability events and queries",
+        "surface-neutral observability port wiring",
         "SQLite observability projection"
       ]
     },
     {
-      "path": "src/ontology.rs",
+      "path": "src/app/ontology_adapter.rs",
       "responsibilities": [
-        "ontology graph and context projection"
+        "ontology graph and context projection",
+        "ontology facade query, import, and source reread orchestration"
       ]
     },
     {
-      "path": "src/patch.rs",
+      "path": "src/app/ontology_adapter/seeding.rs",
+      "responsibilities": [
+        "ontology layout, deterministic source discovery, and append-only seed persistence"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter.rs",
       "responsibilities": [
         "patch proposal and preview",
         "patch approval credentials",
@@ -4725,29 +7850,185 @@
       ]
     },
     {
-      "path": "src/plugin.rs",
+      "path": "src/app/patch_adapter/approval_transaction.rs",
       "responsibilities": [
-        "plugin import validation and capability facade"
+        "prepared patch approval transaction orchestration adapter"
       ]
     },
     {
-      "path": "src/policy.rs",
+      "path": "src/app/patch_adapter/approval_transaction/recovery.rs",
       "responsibilities": [
-        "tool and capability policy"
+        "prepared patch approval and verification crash recovery adapter"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/execution.rs",
+      "responsibilities": [
+        "guarded patch apply, verification command, and rollback execution adapter"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/guard.rs",
+      "responsibilities": [
+        "patch approval lease, fault injection, and rollback recovery support"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/proposal_builder.rs",
+      "responsibilities": [
+        "patch preview materialization, target path, and approval token adapter"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/proposal_store.rs",
+      "responsibilities": [
+        "patch proposal persistence, credential, and rollback lookup adapter"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/resume.rs",
+      "responsibilities": [
+        "patch proposal listing and workflow resume adapter"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/terminal.rs",
+      "responsibilities": [
+        "patch workflow cancellation, gate denial, and terminal rollback adapter"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/verification.rs",
+      "responsibilities": [
+        "patch verification approval and prepared transaction adapter"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/workflow_contract.rs",
+      "responsibilities": [
+        "patch workflow binding, selection, and terminal report contract adapter"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/workflow_execution.rs",
+      "responsibilities": [
+        "patch token rotation and apply-verification continuation orchestration"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs",
+      "responsibilities": [
+        "skill runtime phase validation, evidence binding, lifecycle hooks, and stop transitions"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/workflow_execution/plugin_completion.rs",
+      "responsibilities": [
+        "read-only plugin workflow completion validation, event convergence, and recovery reporting"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/tests/mod.rs",
+      "responsibilities": [
+        "shared patch adapter test fixtures"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/tests/approval_cases.rs",
+      "responsibilities": [
+        "patch approval transaction regression tests"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/tests/recovery_cases.rs",
+      "responsibilities": [
+        "patch source and projection recovery regression tests"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/tests/support_cases.rs",
+      "responsibilities": [
+        "patch lock, rollback, and preview regression tests"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/tests/terminal_cases.rs",
+      "responsibilities": [
+        "patch terminal and resume regression tests"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/tests/verification_cases.rs",
+      "responsibilities": [
+        "patch verification and credential regression tests"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin.rs",
+      "responsibilities": [
+        "plugin lifecycle reporting and registry command orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/execution.rs",
+      "responsibilities": [
+        "imported Codex skill snapshot, frontmatter, capability, and execution metadata revalidation"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/source_import.rs",
+      "responsibilities": [
+        "local plugin source validation, snapshot inspection, and normalized manifest assembly"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/registry.rs",
+      "responsibilities": [
+        "plugin normalized snapshot persistence, registry lookup, and imported source integrity verification"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/scanner.rs",
+      "responsibilities": [
+        "plugin directory traversal, capability scanning, snapshot hashing, and recursive copy boundaries"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/tests.rs",
+      "responsibilities": [
+        "plugin import, capability admission, source drift, and persistence regression tests"
+      ]
+    },
+    {
+      "path": "src/app/policy_adapter.rs",
+      "responsibilities": [
+        "project path policy and audit adapter"
       ]
     },
     {
       "path": "src/runtime_core/inference/resource.rs",
       "responsibilities": [
-        "resource sampling and governance"
+        "resource pressure classification and chat, context, model, optimization, and lane governor policy"
       ]
     },
     {
-      "path": "src/runtime.rs",
+      "path": "src/runtime_core/inference/resource/tests.rs",
+      "responsibilities": [
+        "resource pressure and governor policy regression tests"
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter.rs",
       "responsibilities": [
         "workflow execution orchestration",
         "surface-neutral runtime reports",
         "TUI runtime bridge"
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter/tests.rs",
+      "responsibilities": [
+        "runtime orchestration, canonical TUI read, outcome, and report regression tests"
       ]
     },
     {
@@ -4759,13 +8040,31 @@
     {
       "path": "src/runtime_core/collaboration/subagent.rs",
       "responsibilities": [
-        "subagent role, tool, launch, and lifecycle policy"
+        "subagent role, tool, lifecycle transition, and durable-record invariant policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/launch.rs",
+      "responsibilities": [
+        "subagent launch role-tool-path admission and budget normalization policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/record_codec.rs",
+      "responsibilities": [
+        "canonical durable subagent record parse, render, schema, and field-order codec"
       ]
     },
     {
       "path": "src/runtime_core/collaboration/subagent_result.rs",
       "responsibilities": [
         "canonical subagent result shape and patch proposal policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent_result/evidence.rs",
+      "responsibilities": [
+        "canonical subagent evidence artifact codec, source binding, and hash verification policy"
       ]
     },
     {
@@ -4925,6 +8224,12 @@
       ]
     },
     {
+      "path": "src/runtime_core/policy/redaction.rs",
+      "responsibilities": [
+        "sensitive-value detection and deterministic text redaction policy"
+      ]
+    },
+    {
       "path": "src/runtime_core/reporting/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -4940,6 +8245,12 @@
       "path": "src/runtime_core/reporting/runtime_report.rs",
       "responsibilities": [
         "surface-neutral runtime reports"
+      ]
+    },
+    {
+      "path": "src/runtime_core/terminal.rs",
+      "responsibilities": [
+        "terminal port, fault, and write-boundary contracts"
       ]
     },
     {
@@ -4976,6 +8287,12 @@
       "path": "src/runtime_core/workflow/application/transaction_coordinator.rs",
       "responsibilities": [
         "cross-store transaction coordination"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+      "responsibilities": [
+        "cross-store transaction ordering and recovery sequence regression tests"
       ]
     },
     {
@@ -5017,7 +8334,13 @@
     {
       "path": "src/runtime_core/workflow/storage_compat/record.rs",
       "responsibilities": [
-        "byte-compatible workflow storage DTO and codec"
+        "workflow storage record model and lifecycle predicates"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record/codec.rs",
+      "responsibilities": [
+        "byte-compatible workflow pointer and snapshot codecs for schema v2 through v4"
       ]
     },
     {
@@ -5027,29 +8350,183 @@
       ]
     },
     {
-      "path": "src/skill.rs",
+      "path": "src/app/extensions_adapter/skill.rs",
       "responsibilities": [
-        "skill manifest lifecycle and execution facade"
+        "skill resolution and workflow persistence adapter"
       ]
     },
     {
-      "path": "src/state.rs",
+      "path": "src/app/workflow_adapter/state.rs",
       "responsibilities": [
-        "byte-compatible workflow storage DTO and codec",
-        "validated workflow and session views",
-        "workflow state recovery"
+        "workflow state adapter facade and shared persistence primitives"
       ]
     },
     {
-      "path": "src/subagent.rs",
+      "path": "src/app/workflow_adapter/state/workflow_access.rs",
       "responsibilities": [
-        "subagent lifecycle and dispatch"
+        "workflow loading, active pointer discovery, recovery, cleanup, and event binding"
       ]
     },
     {
-      "path": "src/subagent_result.rs",
+      "path": "src/app/workflow_adapter/state/current_snapshot.rs",
       "responsibilities": [
-        "subagent result validation and merge"
+        "bounded current-state reads, promotion, and compatibility orchestration"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot/codec.rs",
+      "responsibilities": [
+        "current-state canonical codec and schema validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_transition.rs",
+      "responsibilities": [
+        "current-state transition recovery and transaction orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_transition/current_image.rs",
+      "responsibilities": [
+        "prepared current-state image construction, canonical member binding, decode, and exact CAS validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/lifecycle.rs",
+      "responsibilities": [
+        "state, session, and workflow lifecycle command adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/source_install.rs",
+      "responsibilities": [
+        "source installation transaction, staged write, rollback copy, and recovery orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/source_install/directory.rs",
+      "responsibilities": [
+        "prepared source and rollback directory capabilities with inode, metadata, and hash validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/source_install/fd_ops.rs",
+      "responsibilities": [
+        "Unix fd-relative source installation filesystem operations and open flags"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction.rs",
+      "responsibilities": [
+        "state transaction module facade and public(crate) re-exports"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction/verification.rs",
+      "responsibilities": [
+        "verification state transaction commit, recovery, and persistence port"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction/terminal.rs",
+      "responsibilities": [
+        "terminal state transaction preparation, commit, fault injection, and recovery adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transaction/approval.rs",
+      "responsibilities": [
+        "approval transaction commit, recovery, projection barrier, and persistence port"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/transition_commit.rs",
+      "responsibilities": [
+        "current-state transition commit and recovery adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/workflow_revision.rs",
+      "responsibilities": [
+        "workflow revision guard and prepared state DTO adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/workflow_store.rs",
+      "responsibilities": [
+        "workflow snapshot, pointer, and recovery storage adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/callgraph.rs",
+      "responsibilities": [
+        "state writer authority regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+      "responsibilities": [
+        "current-state snapshot regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/lifecycle.rs",
+      "responsibilities": [
+        "workflow and session lifecycle regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/mod.rs",
+      "responsibilities": [
+        "shared state adapter test fixtures"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/source_install.rs",
+      "responsibilities": [
+        "source installation recovery regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/workflow_store.rs",
+      "responsibilities": [
+        "workflow storage and recovery regression tests"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent.rs",
+      "responsibilities": [
+        "subagent admission, status, and cancellation adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/execution.rs",
+      "responsibilities": [
+        "subagent worker execution, terminalization, result verification, and parent merge coordination"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/persistence.rs",
+      "responsibilities": [
+        "subagent canonical record persistence, revision checkpointing, and snapshot-chain validation"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/tests.rs",
+      "responsibilities": [
+        "subagent adapter lifecycle and dispatch regression tests"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent_result.rs",
+      "responsibilities": [
+        "subagent result and evidence artifact adapter"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/command.rs",
+      "responsibilities": [
+        "CLI command DTOs"
       ]
     },
     {
@@ -5059,9 +8536,63 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser.rs",
+      "responsibilities": [
+        "CLI top-level dispatch and command-family routing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/backend.rs",
+      "responsibilities": [
+        "backend start and chat command option parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration.rs",
+      "responsibilities": [
+        "team and subagent command option parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/observability.rs",
+      "responsibilities": [
+        "monitor, ontology, and benchmark command option parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/patch.rs",
+      "responsibilities": [
+        "patch preview, approve, and verify command option parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/plugin.rs",
+      "responsibilities": [
+        "plugin import command option parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/mod.rs",
+      "responsibilities": [
+        "CLI command-family argument parser regression tests"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/render.rs",
+      "responsibilities": [
+        "CLI presentation"
+      ]
+    },
+    {
       "path": "src/surfaces/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller.rs",
+      "responsibilities": [
+        "interactive command loop and runtime port"
       ]
     },
     {
@@ -5071,52 +8602,223 @@
       ]
     },
     {
-      "path": "src/team.rs",
+      "path": "src/surfaces/tui/outcome.rs",
       "responsibilities": [
-        "team plan and lifecycle"
+        "TUI outcome DTOs, code catalog, special constructors, and identifier validation"
       ]
     },
     {
-      "path": "src/team_execution.rs",
+      "path": "src/surfaces/tui/outcome/oracle.rs",
       "responsibilities": [
-        "team lane execution"
+        "exact TUI outcome mapping and trusted dynamic placeholder validation"
       ]
     },
     {
-      "path": "src/team_reconciliation.rs",
+      "path": "src/surfaces/tui/page.rs",
       "responsibilities": [
-        "team evidence reconciliation"
+        "bounded TUI page construction and authority projection"
       ]
     },
     {
-      "path": "src/team_state.rs",
+      "path": "src/surfaces/tui/render.rs",
       "responsibilities": [
-        "persisted team state"
+        "interactive rendering and report layout primitives"
       ]
     },
     {
-      "path": "src/test_support.rs",
+      "path": "src/surfaces/tui/report_render.rs",
       "responsibilities": [
-        "owner-local and cross-crate test fixtures"
+        "read-only TUI report rendering"
       ]
     },
     {
-      "path": "src/transcript.rs",
+      "path": "src/surfaces/tui/runtime_bridge.rs",
       "responsibilities": [
-        "canonical transcript records",
-        "validated transcript session views",
-        "transcript projection"
+        "TUI read, selection, and intent contracts with one-shot secret"
       ]
     },
     {
-      "path": "src/transition.rs",
+      "path": "src/surfaces/tui/view_model.rs",
       "responsibilities": [
-        "legal workflow transitions",
-        "projection-lag and recovery gates"
+        "TUI navigation state and read-request projection"
       ]
     },
     {
-      "path": "src/tui.rs",
+      "path": "src/app/collaboration_adapter/team.rs",
+      "responsibilities": [
+        "team status, admission, dispatch, and governor report orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/admission.rs",
+      "responsibilities": [
+        "team admission policy classification, ownership path normalization, and approval request persistence"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/tests.rs",
+      "responsibilities": [
+        "team admission, ownership, dispatch, governor, and status regression tests"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution.rs",
+      "responsibilities": [
+        "team lane execution orchestration, result aggregation, and worker scheduling adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/admission.rs",
+      "responsibilities": [
+        "team worker admission receipt recovery, interrupted execution failure, and action-time ownership enforcement"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/events.rs",
+      "responsibilities": [
+        "idempotent team execution admission, worker, ownership, and blocked event persistence"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/tests.rs",
+      "responsibilities": [
+        "team execution admission, retry, cancellation, ownership, and reconciliation regression tests"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_reconciliation.rs",
+      "responsibilities": [
+        "team evidence reconciliation adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_state.rs",
+      "responsibilities": [
+        "team state lifecycle and checkpoint orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_state/events.rs",
+      "responsibilities": [
+        "idempotent team planned and stage-transition event persistence"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_state/persistence.rs",
+      "responsibilities": [
+        "team manifest, cancellation marker, current state, and snapshot persistence"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_state/tests.rs",
+      "responsibilities": [
+        "team planning, state transition, cancellation, manifest ownership, and tamper regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript.rs",
+      "responsibilities": [
+        "transcript append and ledger projection orchestration"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn.rs",
+      "responsibilities": [
+        "prepared transcript tool turns, exact artifact installation, decode, and tool-output views"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn/streams.rs",
+      "responsibilities": [
+        "deterministic tool stream sanitization, redaction, byte caps, artifact persistence, and replay validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/storage.rs",
+      "responsibilities": [
+        "transcript and tool-output canonical decode, validation, and filesystem boundary enforcement"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tests.rs",
+      "responsibilities": [
+        "transcript persistence, stream sanitization, and projection regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition.rs",
+      "responsibilities": [
+        "shared transition path, canonical JSON, hashing, and fsync primitives"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_codec.rs",
+      "responsibilities": [
+        "prepared member, semantic-event, and event-chain codec adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_preparation.rs",
+      "responsibilities": [
+        "prepared bundle construction, event binding, and projection-lag persistence adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation.rs",
+      "responsibilities": [
+        "prepared bundle identity, current binding, source nullability, and validation orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
+      "responsibilities": [
+        "prepared semantic event cardinality, byte budget, ordinal, and hash-chain validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation/members.rs",
+      "responsibilities": [
+        "prepared production approval and projection-lag member invariant validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs",
+      "responsibilities": [
+        "prepared state-transition, checkpoint, verification, and terminal-action member invariant validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal.rs",
+      "responsibilities": [
+        "transition journal commit, cleanup, and bounded recovery adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/codec.rs",
+      "responsibilities": [
+        "canonical prepared transition journal codec"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/recovery_io.rs",
+      "responsibilities": [
+        "bounded transition recovery discovery and regular-file identity I/O"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_install.rs",
+      "responsibilities": [
+        "source installation preparation, validation, and codec adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/tests/mod.rs",
+      "responsibilities": [
+        "transition journal, source-install, and bundle codec regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter.rs",
       "responsibilities": [
         "TUI controller and input",
         "TUI view models",
@@ -5124,10 +8826,15 @@
       ]
     },
     {
-      "path": "src/uninstall.rs",
+      "path": "src/app/tui_adapter/tests.rs",
       "responsibilities": [
-        "uninstall orchestration",
-        "managed path deletion"
+        "TUI adapter, controller, rendering, and one-shot report regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/report_composition.rs",
+      "responsibilities": [
+        "one-shot TUI query composition and report view-model assembly"
       ]
     },
     {
@@ -5149,23 +8856,21 @@
       ]
     },
     {
-      "path": "tests/platform.rs",
+      "path": "tests/surfaces.rs",
       "responsibilities": [
-        "platform integration test harness"
+        "surface integration test harness"
       ]
     },
     {
-      "path": "tests/platform/interactive_tui.rs",
+      "path": "tests/surfaces/interactive_tui.rs",
       "responsibilities": [
-        "terminal-backed TUI contract",
-        "TUI behavior contract"
+        "terminal-backed TUI behavior contract"
       ]
     },
     {
-      "path": "tests/platform/native_terminal.rs",
+      "path": "tests/surfaces/native_terminal.rs",
       "responsibilities": [
-        "native terminal adapter contract",
-        "CLI terminal behavior contract"
+        "native terminal CLI behavior contract"
       ]
     },
     {
@@ -5214,21 +8919,27 @@
       ]
     },
     {
-      "path": "tests/support/fake_sidecar.rs",
+      "path": "tests/support/platform/fake_sidecar.rs",
       "responsibilities": [
         "cross-crate integration fixture"
       ]
     },
     {
-      "path": "tests/support/native_terminal.rs",
+      "path": "tests/support/platform/native_terminal.rs",
       "responsibilities": [
         "cross-crate integration fixture"
       ]
     },
     {
-      "path": "tests/support/native_terminal_probe.rs",
+      "path": "tests/support/platform/native_terminal_probe.rs",
       "responsibilities": [
         "cross-crate integration fixture"
+      ]
+    },
+    {
+      "path": "tests/support/runtime_fixture.rs",
+      "responsibilities": [
+        "owner-local unit-test environment fixture"
       ]
     },
     {

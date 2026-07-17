@@ -265,8 +265,41 @@ release_policy_scopes_release_branches_to_version_changes() {
   rm -rf "$fixture"
 }
 
+durable_proof_selector_requires_exact_single_test() {
+  local output
+  output="$(mktemp)"
+  # shellcheck source=scripts/release/verify-durable-runtime-proofs.sh
+  source scripts/release/verify-durable-runtime-proofs.sh
+
+  cargo() {
+    printf 'running 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored\n'
+  }
+  if run_proof zero-match --bin rpotato stale::selector >"$output" 2>&1; then
+    fail "zero-match durable proof unexpectedly succeeded"
+  fi
+  grep -F -- 'did not execute exactly one passing test' "$output" >/dev/null \
+    || fail "zero-match durable proof emitted the wrong failure"
+
+  cargo() {
+    printf 'running 2 tests\n\ntest result: ok. 2 passed; 0 failed; 0 ignored\n'
+  }
+  if run_proof multiple-match --bin rpotato broad::selector >"$output" 2>&1; then
+    fail "multiple-match durable proof unexpectedly succeeded"
+  fi
+
+  cargo() {
+    printf 'running 1 test\ntest exact::selector ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored\n'
+  }
+  run_proof exact-match --bin rpotato exact::selector >"$output" 2>&1 \
+    || fail "single-match durable proof was rejected"
+  grep -F -- 'release proof ok: exact-match' "$output" >/dev/null \
+    || fail "single-match durable proof did not report success"
+  rm -f "$output"
+}
+
 release_failure_diagnostic_is_exact_and_always_emitted
 release_policy_accepts_squash_merged_tree
 release_policy_scopes_release_branches_to_version_changes
+durable_proof_selector_requires_exact_single_test
 
 printf 'release workflow contract ok: cleanup-success-only preservation-failure-only\n'

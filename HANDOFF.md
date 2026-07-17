@@ -123,40 +123,20 @@ The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
 sequence and non-skippable release gates are defined in
 `docs/release-train.md`. The immediate sequence is:
 
-1. `v0.37.1`: the bilingual code-architecture contract, complete migration
-   ledger, private compile-connected skeleton, architecture tests, and
-   exact-head candidate CI are implemented and awaiting release.
-2. `v0.37.2`: private foundation, filesystem, configuration, and terminal
-   ownership is implemented without completed-slice compatibility facades and
-   is awaiting release.
-3. `v0.37.3`: inference domain rules, durable lifecycle/model/benchmark
-   codecs, and llama.cpp/process/filesystem adapters are implemented; the
-   private command/report facades are explicitly scheduled for final
-   composition cleanup and the patch is awaiting release.
-4. `v0.37.4`: canonical workflow snapshot/pointer codecs, ledger event
-   encoding/hash/append, transcript record encoding/validation/install, and
-   focused byte/order/hash/failure contracts are implemented and awaiting
-   release.
-5. `v0.37.5`: validated workflow/session/snapshot and transcript-session views,
-   including fail-closed identity/lease/checkpoint binding, ledger ordering,
-   duplicate rejection, and event/record/tool binding, are implemented and
-   awaiting release.
-6. `v0.37.6`: legal transition records, exact event progression, state and
-   workflow recovery, projection-lag recovery admission, and cross-store
-   state/checkpoint/reconcile/approval/verification/terminal ordering are
-   implemented under the private workflow application boundary and awaiting
-   release.
-7. `v0.37.7`: surface-neutral observability projection/query ports and monitor
-   reports, rebuildable SQLite observability/ledger/transcript adapters, and the
-   workflow application projection barrier are implemented and awaiting
-   release.
-8. `v0.37.8` through `v0.37.13+`: migrate every remaining ledger slice by
-   coherent domain and rollback boundary, preserving durable bytes, recovery
-   order, policy, CLI behavior, backend behavior, and release contracts. The
-   train ends only at complete ledger coverage with zero compatibility facades.
-9. `v0.38.0`: Claude Code local plugin execution conformance through the
+1. `v0.37.1` through `v0.37.13`: implementation is consolidated on the current
+   refactor branch. Every migration-ledger responsibility is complete, the
+   `src` root contains only the binary-owned `main.rs`, and targeted contracts pass.
+2. Complete feature delivery with one bounded independent review, a PR against
+   `main`, exact-candidate full CI, and squash merge. Do not duplicate the full
+   candidate gate locally.
+3. Publish pending v0.37.x releases only from matching `release/vX.Y.Z`
+   branches after version bump, release-policy verification, tag/assets/
+   checksums, and remote/local branch cleanup. The latest published release
+   remains `v0.37.0` until that evidence exists.
+4. Begin `v0.38.0` only after the v0.37.x release evidence is complete. Its
+   scope is Claude Code local plugin execution conformance through the
    established native adapter and default-deny permission boundary.
-10. `v0.39.0` onward: integrated performance hardening followed by distribution
+5. `v0.39.0` onward: integrated performance hardening followed by distribution
    and optional local monitoring surfaces.
 
 Package-manager distribution and an optional local HTML monitoring report come

@@ -1,5 +1,34 @@
 # Release Notes
 
+## Unreleased v0.37.13 - Surfaces, Composition, and Legacy Removal
+
+This patch completes the behavior-preserving v0.37.x ownership migration. It
+removes the remaining root compatibility facades, gives CLI/TUI and application
+integration explicit private owners, and leaves the binary entrypoint as a thin
+delegate without changing user-visible behavior or durable contracts.
+
+### Included
+
+- Splits CLI command families, dispatch, presentation, and TUI controller/view
+  ownership under `surfaces`, `composition`, and focused application adapters.
+- Moves concrete runtime, workflow, patch, inference, knowledge, policy,
+  extension, collaboration, observability, and TUI integration under `app`.
+- Keeps composition binary-private: `main.rs` privately registers the ownership
+  roots and delegates directly to startup composition without a library API.
+- Removes all production compatibility facades from the `src` root; only
+  `main.rs` remains there.
+- Marks every migration-ledger responsibility complete and enables the
+  zero-planned/zero-exception/zero-compatibility-facade completion gate.
+
+### Compatibility Boundary
+
+- CLI commands, arguments, output, and exit codes remain unchanged.
+- Durable workflow, ledger, transcript, evidence, ontology, team, and extension
+  bytes and ordering remain unchanged.
+- Runtime execution, recovery, approval, default-deny policy, backend behavior,
+  dependencies, and synchronous operation remain unchanged.
+- Release publication and exact-candidate full CI remain pending.
+
 ## Unreleased v0.37.12 - Collaboration Boundaries
 
 This patch moves side-effect-free subagent and team rules into private runtime

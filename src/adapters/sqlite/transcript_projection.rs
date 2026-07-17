@@ -3,6 +3,7 @@
 use rusqlite::{params, Connection};
 
 use crate::foundation::error::AppError;
+use crate::runtime_core::observability::facade::CanonicalTranscriptReadPort;
 
 pub(crate) struct TranscriptProjectionEvent<'a> {
     pub project_id: &'a str,
@@ -16,11 +17,12 @@ pub(crate) struct TranscriptProjectionEvent<'a> {
 pub(crate) fn project_event(
     connection: &Connection,
     event: TranscriptProjectionEvent<'_>,
+    transcript: &dyn CanonicalTranscriptReadPort,
 ) -> Result<(), AppError> {
     if event.event_type != "transcript.recorded" {
         return Ok(());
     }
-    let record = crate::transcript::record_from_binding(
+    let record = transcript.read_transcript_record(
         event.project_id,
         event.session_id,
         event.event_type,

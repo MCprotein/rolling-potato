@@ -25,7 +25,8 @@ use std::path::Path;
 use strict_json::{Object, Value};
 
 const MAP_PATH: &str = "docs/architecture-migration-map.json";
-const ARCHITECTURE_ROOTS: [&str; 5] = [
+const ARCHITECTURE_ROOTS: [&str; 6] = [
+    "app",
     "composition",
     "surfaces",
     "runtime_core",
@@ -443,6 +444,10 @@ fn collect_rust_files(root: &str) -> BTreeSet<String> {
 #[test]
 fn architecture_roots_are_compile_connected_and_private() {
     let main = fs::read_to_string("src/main.rs").expect("src/main.rs must be readable");
+    assert!(
+        !Path::new("src/lib.rs").exists(),
+        "binary-only package must not expose an unapproved library API"
+    );
     for root in ARCHITECTURE_ROOTS {
         assert!(main.lines().any(|line| line == format!("mod {root};")));
         assert!(!main.lines().any(|line| line == format!("pub mod {root};")));
@@ -464,6 +469,7 @@ fn v0372_foundation_owners_replace_legacy_modules() {
         "src/foundation/error.rs",
         "src/foundation/integrity.rs",
         "src/foundation/serialization.rs",
+        "src/foundation/serialization/parser.rs",
     ] {
         assert!(
             Path::new(target).is_file(),
@@ -497,6 +503,32 @@ fn v0372_foundation_owners_replace_legacy_modules() {
         );
     }
 
+    let serialization = fs::read_to_string("src/foundation/serialization.rs").unwrap();
+    let parser = fs::read_to_string("src/foundation/serialization/parser.rs").unwrap();
+    assert!(serialization.contains("#[path = \"serialization/parser.rs\"]"));
+    assert!(serialization.lines().any(|line| line == "mod parser;"));
+    for responsibility in [
+        "pub(super) fn parse_value(",
+        "struct Parser<'a>",
+        "fn value(",
+        "fn object(",
+        "fn array(",
+        "fn string_value(",
+        "fn number_value(",
+        "fn hex4(",
+    ] {
+        assert!(
+            parser.contains(responsibility),
+            "strict JSON parser owner is missing: {responsibility}"
+        );
+        assert!(
+            !serialization.contains(responsibility),
+            "serialization facade still owns parser implementation: {responsibility}"
+        );
+    }
+    assert!(serialization.lines().count() < 525);
+    assert!(parser.lines().count() < 300);
+
     let app = fs::read_to_string("src/app.rs").unwrap();
     assert!(
         !app.contains("pub struct AppError"),
@@ -507,10 +539,12 @@ fn v0372_foundation_owners_replace_legacy_modules() {
 #[test]
 fn v0372_filesystem_owners_replace_legacy_modules() {
     for target in [
+        "src/adapters/filesystem/atomic_write.rs",
         "src/adapters/filesystem/cache.rs",
         "src/adapters/filesystem/config.rs",
         "src/adapters/filesystem/layout.rs",
         "src/adapters/filesystem/lease.rs",
+        "src/adapters/filesystem/lease/identity.rs",
         "src/adapters/filesystem/windows_replace.rs",
         "src/composition/config.rs",
     ] {
@@ -543,13 +577,43 @@ fn v0372_filesystem_owners_replace_legacy_modules() {
     }
 
     let filesystem = fs::read_to_string("src/adapters/filesystem/mod.rs").unwrap();
-    for owner in ["cache", "config", "layout", "lease", "windows_replace"] {
+    for owner in [
+        "atomic_write",
+        "cache",
+        "config",
+        "layout",
+        "lease",
+        "windows_replace",
+    ] {
         let expected = format!("pub(crate) mod {owner};");
         assert!(
             filesystem.lines().any(|line| line == expected),
             "filesystem owner is not crate-private: {owner}"
         );
     }
+
+    let lease = fs::read_to_string("src/adapters/filesystem/lease.rs").unwrap();
+    let lease_identity = fs::read_to_string("src/adapters/filesystem/lease/identity.rs").unwrap();
+    assert!(lease.lines().any(|line| line == "mod identity;"));
+    for responsibility in [
+        "fn remove_stale_owner_claims(",
+        "fn open_owner_namespace_guard(",
+        "fn validate_open_owner_namespace_identity(",
+        "fn owner_claim_directory(",
+        "fn reject_non_regular_lock_path(",
+        "fn validate_open_lock_identity(",
+    ] {
+        assert!(
+            lease_identity.contains(responsibility),
+            "filesystem lease identity owner is missing: {responsibility}"
+        );
+        assert!(
+            !lease.contains(responsibility),
+            "filesystem lease orchestration still owns identity I/O: {responsibility}"
+        );
+    }
+    assert!(lease.lines().count() < 425);
+    assert!(lease_identity.lines().count() < 300);
 }
 
 #[test]
@@ -557,9 +621,10 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
     for target in [
         "src/adapters/terminal/capability.rs",
         "src/adapters/terminal/native.rs",
-        "tests/platform.rs",
-        "tests/platform/interactive_tui.rs",
-        "tests/platform/native_terminal.rs",
+        "src/adapters/terminal/native/platform.rs",
+        "tests/surfaces.rs",
+        "tests/surfaces/interactive_tui.rs",
+        "tests/surfaces/native_terminal.rs",
     ] {
         assert!(
             Path::new(target).is_file(),
@@ -591,6 +656,32 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
             "terminal owner is not crate-private: {owner}"
         );
     }
+
+    let native = fs::read_to_string("src/adapters/terminal/native.rs").unwrap();
+    let platform = fs::read_to_string("src/adapters/terminal/native/platform.rs").unwrap();
+    assert!(
+        native.lines().any(|line| line == "mod platform;"),
+        "native terminal adapter does not register its platform owner"
+    );
+    for responsibility in [
+        "unsafe extern \"C\"",
+        "unsafe extern \"system\"",
+        "fn restore_echo_before_signal_exit(",
+        "fn restore_echo_before_console_exit(",
+        "pub fn dimensions(",
+        "pub fn read_secret(",
+    ] {
+        assert!(
+            platform.contains(responsibility),
+            "native terminal platform owner is missing: {responsibility}"
+        );
+        assert!(
+            !native.contains(responsibility),
+            "native terminal facade still owns platform behavior: {responsibility}"
+        );
+    }
+    assert!(native.lines().count() < 300);
+    assert!(platform.lines().count() < 475);
 }
 
 #[test]
@@ -613,8 +704,12 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "src/adapters/filesystem/model_artifact.rs",
         "src/adapters/llama_cpp/backend.rs",
         "src/adapters/llama_cpp/install.rs",
+        "src/adapters/llama_cpp/install/archive.rs",
         "src/adapters/llama_cpp/stream.rs",
+        "src/adapters/llama_cpp/stream/protocol.rs",
+        "src/adapters/llama_cpp/stream/tests.rs",
         "src/adapters/process/backend.rs",
+        "src/adapters/process/resource.rs",
     ] {
         assert!(
             Path::new(target).is_file(),
@@ -628,6 +723,176 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         );
     }
 
+    let install_adapter = fs::read_to_string("src/adapters/llama_cpp/install.rs").unwrap();
+    let install_archive = fs::read_to_string("src/adapters/llama_cpp/install/archive.rs").unwrap();
+    let install_payload = fs::read_to_string("src/adapters/llama_cpp/install/payload.rs").unwrap();
+    assert!(install_adapter.lines().any(|line| line == "mod archive;"));
+    assert!(install_adapter.lines().any(|line| line == "mod payload;"));
+    let install_orchestration = install_adapter
+        .split("#[cfg(test)]")
+        .next()
+        .unwrap_or(&install_adapter);
+    for responsibility in [
+        "pub(crate) fn download_archive(",
+        "pub(crate) fn verify_archive_file(",
+        "fn copy_reader_with_limit<",
+    ] {
+        assert!(
+            install_archive.contains(responsibility),
+            "llama.cpp install archive owner is missing: {responsibility}"
+        );
+        assert!(
+            !install_orchestration.contains(responsibility),
+            "llama.cpp install orchestration still owns archive transfer: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(crate) fn prepare_install(",
+        "pub(crate) fn cleanup_staging(",
+        "fn extract_archive(",
+        "fn find_extracted_binary(",
+        "fn collect_binary_matches(",
+        "fn place_managed_payload(",
+        "fn copy_release_tree(",
+        "pub(crate) fn set_executable_bit(",
+    ] {
+        assert!(
+            install_payload.contains(responsibility),
+            "llama.cpp install payload owner is missing: {responsibility}"
+        );
+        assert!(
+            !install_orchestration.contains(responsibility),
+            "llama.cpp install manifest/record adapter still owns payload placement: {responsibility}"
+        );
+    }
+    assert!(install_adapter.lines().count() < 425);
+    assert!(install_archive.lines().count() < 200);
+    assert!(install_payload.lines().count() < 375);
+
+    let stream_adapter = fs::read_to_string("src/adapters/llama_cpp/stream.rs").unwrap();
+    let stream_protocol = fs::read_to_string("src/adapters/llama_cpp/stream/protocol.rs").unwrap();
+    let stream_tests = fs::read_to_string("src/adapters/llama_cpp/stream/tests.rs").unwrap();
+    assert!(
+        stream_adapter.lines().any(|line| line == "mod protocol;"),
+        "llama.cpp stream adapter does not register its protocol owner"
+    );
+    let stream_transport = stream_adapter
+        .split("#[cfg(test)]")
+        .next()
+        .unwrap_or(&stream_adapter);
+    for responsibility in [
+        "pub(super) struct HttpResponseDecoder",
+        "pub(super) struct ChatSseDecoder",
+        "pub(super) struct ReasoningTraceFilter",
+        "fn find_sse_event_end(",
+        "fn malformed_sse_event(",
+    ] {
+        assert!(
+            stream_protocol.contains(responsibility),
+            "llama.cpp stream protocol owner is missing: {responsibility}"
+        );
+        assert!(
+            !stream_transport.contains(responsibility),
+            "llama.cpp stream transport still owns protocol behavior: {responsibility}"
+        );
+    }
+    assert!(
+        stream_adapter.contains("#[path = \"stream/tests.rs\"]"),
+        "llama.cpp stream adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn decodes_split_chunked_http_body(",
+        "fn rejects_many_valid_events_over_total_completion_limit(",
+        "fn streams_chunked_sse_over_tcp(",
+        "fn cancellation_interrupts_a_stalled_request_upload(",
+        "fn total_timeout_closes_stalled_stream(",
+    ] {
+        assert!(
+            stream_tests.contains(regression),
+            "llama.cpp stream regression owner is missing: {regression}"
+        );
+        assert!(
+            !stream_adapter.contains(regression),
+            "llama.cpp stream adapter still owns regression test: {regression}"
+        );
+    }
+    assert!(
+        stream_adapter.lines().count() < 225,
+        "llama.cpp stream adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        stream_protocol.lines().count() < 450,
+        "llama.cpp stream protocol module regrew beyond its ownership boundary"
+    );
+    assert!(
+        stream_tests.lines().count() < 550,
+        "llama.cpp stream regression module regrew beyond its ownership boundary"
+    );
+
+    let process_mod = fs::read_to_string("src/adapters/process/mod.rs").unwrap();
+    let resource_policy = fs::read_to_string("src/runtime_core/inference/resource.rs").unwrap();
+    let resource_tests =
+        fs::read_to_string("src/runtime_core/inference/resource/tests.rs").unwrap();
+    let resource_sampler = fs::read_to_string("src/adapters/process/resource.rs").unwrap();
+    assert!(
+        process_mod
+            .lines()
+            .any(|line| line == "pub(crate) mod resource;"),
+        "process adapter does not register resource sampler"
+    );
+    for responsibility in [
+        "pub(crate) struct ProcessResourceSnapshot",
+        "pub(crate) fn sample_process(",
+        "fn process_cpu_and_rss(",
+        "fn bounded_command_output(",
+        "fn path_disk_bytes(",
+    ] {
+        assert!(
+            resource_sampler.contains(responsibility),
+            "process resource sampler is missing: {responsibility}"
+        );
+        assert!(
+            !resource_policy.contains(responsibility),
+            "resource policy still owns concrete sampling: {responsibility}"
+        );
+    }
+    for forbidden in ["std::fs", "std::path", "std::process", "std::thread"] {
+        assert!(
+            !resource_policy.contains(forbidden),
+            "resource policy has concrete adapter dependency: {forbidden}"
+        );
+    }
+    assert!(
+        resource_policy.contains("#[path = \"resource/tests.rs\"]"),
+        "resource policy does not register its regression test owner"
+    );
+    for regression in [
+        "fn classify_pressure_handles_unknown_normal_and_thresholds(",
+        "fn chat_governor_allows_clamps_and_blocks_by_pressure(",
+        "fn optimization_policy_uses_local_metrics_and_benchmark_evidence(",
+    ] {
+        assert!(
+            resource_tests.contains(regression),
+            "resource test owner is missing regression: {regression}"
+        );
+        assert!(
+            !resource_policy.contains(regression),
+            "resource policy still owns regression: {regression}"
+        );
+    }
+    assert!(
+        resource_policy.lines().count() < 600,
+        "resource policy regrew beyond its ownership boundary"
+    );
+    assert!(
+        resource_tests.lines().count() < 200,
+        "resource policy regression module regrew beyond its ownership boundary"
+    );
+    assert!(
+        resource_sampler.lines().count() < 300,
+        "process resource sampler regrew beyond its ownership boundary"
+    );
+
     let main = fs::read_to_string("src/main.rs").unwrap();
     for legacy_module in ["backend_stream", "resource"] {
         assert!(
@@ -639,9 +904,15 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     }
 
     for (facade, moved_definition) in [
-        ("src/backend.rs", "struct BackendSidecarRecord"),
-        ("src/benchmark.rs", "struct BenchmarkFixture"),
-        ("src/model.rs", "const CANDIDATES"),
+        (
+            "src/app/inference_adapter/backend.rs",
+            "struct BackendSidecarRecord",
+        ),
+        (
+            "src/app/inference_adapter/benchmark.rs",
+            "struct BenchmarkFixture",
+        ),
+        ("src/app/inference_adapter/model.rs", "const CANDIDATES"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
@@ -649,10 +920,354 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             "legacy facade still owns moved definition: {facade} -> {moved_definition}"
         );
     }
+
+    let backend_adapter_path = "src/app/inference_adapter/backend.rs";
+    let backend_chat_path = "src/app/inference_adapter/backend/chat.rs";
+    let backend_chat_interruption_path = "src/app/inference_adapter/backend/chat/interruption.rs";
+    let backend_chat_report_path = "src/app/inference_adapter/backend/chat/report.rs";
+    let backend_generation_state_path = "src/app/inference_adapter/backend/generation_state.rs";
+    let backend_installation_path = "src/app/inference_adapter/backend/installation.rs";
+    let backend_resource_sampling_path = "src/app/inference_adapter/backend/resource_sampling.rs";
+    let backend_sidecar_path = "src/app/inference_adapter/backend/sidecar.rs";
+    let backend_sidecar_startup_path = "src/app/inference_adapter/backend/sidecar/startup.rs";
+    let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
+    let model_adapter_path = "src/app/inference_adapter/model.rs";
+    let model_evidence_path = "src/app/inference_adapter/model/evidence.rs";
+    let model_registry_path = "src/app/inference_adapter/model/registry.rs";
+    let model_tests_path = "src/app/inference_adapter/model/tests.rs";
+    assert!(Path::new(backend_chat_path).is_file());
+    assert!(Path::new(backend_chat_interruption_path).is_file());
+    assert!(Path::new(backend_chat_report_path).is_file());
+    assert!(Path::new(backend_generation_state_path).is_file());
+    assert!(Path::new(backend_installation_path).is_file());
+    assert!(Path::new(backend_resource_sampling_path).is_file());
+    assert!(Path::new(backend_sidecar_path).is_file());
+    assert!(Path::new(backend_sidecar_startup_path).is_file());
+    assert!(Path::new(backend_tests_path).is_file());
+    assert!(Path::new(model_evidence_path).is_file());
+    assert!(Path::new(model_registry_path).is_file());
+    assert!(Path::new(model_tests_path).is_file());
+    let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
+    let backend_chat = fs::read_to_string(backend_chat_path).unwrap();
+    let backend_chat_interruption = fs::read_to_string(backend_chat_interruption_path).unwrap();
+    let backend_chat_report = fs::read_to_string(backend_chat_report_path).unwrap();
+    let backend_generation_state = fs::read_to_string(backend_generation_state_path).unwrap();
+    let backend_installation = fs::read_to_string(backend_installation_path).unwrap();
+    let backend_resource_sampling = fs::read_to_string(backend_resource_sampling_path).unwrap();
+    let backend_sidecar = fs::read_to_string(backend_sidecar_path).unwrap();
+    let backend_sidecar_startup = fs::read_to_string(backend_sidecar_startup_path).unwrap();
+    let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
+    let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
+    let model_evidence = fs::read_to_string(model_evidence_path).unwrap();
+    let model_registry = fs::read_to_string(model_registry_path).unwrap();
+    let model_tests = fs::read_to_string(model_tests_path).unwrap();
+    assert!(
+        backend_adapter.contains("#[path = \"backend/tests.rs\"]"),
+        "inference backend adapter does not register its regression-test owner"
+    );
+    assert!(
+        model_adapter.contains("#[path = \"model/tests.rs\"]"),
+        "model adapter does not register its regression-test owner"
+    );
+    assert!(
+        model_adapter.lines().any(|line| line == "mod evidence;"),
+        "model adapter does not register its local evidence owner"
+    );
+    for responsibility in [
+        "pub(super) fn local_benchmark_status(",
+        "pub(super) fn local_promotion_readiness(",
+        "pub(super) fn promotion_benchmark_run(",
+        "pub(super) fn promotion_benchmark_evidence(",
+        "pub(super) fn backend_smoke_evidence(",
+        "pub(super) fn persist_promotion_evidence(",
+        "pub(super) fn read_promotion_evidence_file(",
+    ] {
+        assert!(
+            model_evidence.contains(responsibility),
+            "model local evidence owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_adapter.contains(responsibility),
+            "model adapter still owns local evidence collection: {responsibility}"
+        );
+    }
+    assert!(
+        model_adapter.lines().any(|line| line == "mod registry;"),
+        "model adapter does not register its registry owner"
+    );
+    for responsibility in [
+        "pub fn registry_report(",
+        "pub fn default_report(",
+        "pub fn set_default_report(",
+        "pub fn default_artifact_path(",
+        "pub fn install_candidate(",
+        "fn validated_registry_entry(",
+        "pub(super) fn registry_entry_json(",
+    ] {
+        assert!(
+            model_registry.contains(responsibility),
+            "model registry owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_adapter.contains(responsibility),
+            "model adapter still owns registry behavior: {responsibility}"
+        );
+    }
+    assert!(
+        backend_adapter.lines().any(|line| line == "mod chat;"),
+        "inference backend adapter does not register its chat owner"
+    );
+    assert!(
+        backend_chat.lines().any(|line| line == "mod report;"),
+        "inference backend chat owner does not register its report owner"
+    );
+    assert!(
+        backend_chat.lines().any(|line| line == "mod interruption;"),
+        "inference backend chat owner does not register its interruption owner"
+    );
+    for responsibility in [
+        "pub fn chat_report(",
+        "pub fn chat_stream_report(",
+        "fn format_chat_run(",
+    ] {
+        assert!(
+            backend_chat_report.contains(responsibility),
+            "inference backend chat report owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_chat.contains(responsibility),
+            "inference backend chat execution still owns reporting: {responsibility}"
+        );
+    }
+    assert!(backend_chat_report
+        .contains("fn chat_report_format_preserves_diagnostics_and_response_boundary("));
+    assert!(
+        backend_adapter
+            .lines()
+            .any(|line| line == "mod generation_state;"),
+        "inference backend adapter does not register its generation-state owner"
+    );
+    assert!(
+        backend_adapter
+            .lines()
+            .any(|line| line == "mod installation;"),
+        "inference backend adapter does not register its installation owner"
+    );
+    assert!(
+        backend_adapter
+            .lines()
+            .any(|line| line == "mod resource_sampling;"),
+        "inference backend adapter does not register its resource-sampling owner"
+    );
+    assert!(
+        backend_adapter.lines().any(|line| line == "mod sidecar;"),
+        "inference backend adapter does not register its sidecar owner"
+    );
+    assert!(
+        backend_sidecar.lines().any(|line| line == "mod startup;"),
+        "inference backend sidecar owner does not register its startup owner"
+    );
+    for responsibility in [
+        "pub fn chat_once(",
+        "pub fn chat_once_bounded(",
+        "pub fn chat_once_bounded_with_cancel(",
+        "pub fn preflight_chat_ready(",
+        "fn ready_sidecar_record(",
+        "fn chat_once_with_options(",
+    ] {
+        assert!(
+            backend_chat.contains(responsibility),
+            "inference backend chat owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_adapter.contains(responsibility),
+            "inference backend facade still owns chat execution: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub fn cancel_generation_report(",
+        "pub(super) fn finish_interrupted_generation(",
+    ] {
+        assert!(
+            backend_chat_interruption.contains(responsibility),
+            "inference backend chat interruption owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_chat.contains(responsibility),
+            "inference backend chat execution still owns interruption behavior: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) struct ActiveGenerationGuard",
+        "pub(super) fn begin_active_generation(",
+        "pub(super) fn write_backend_generation_record(",
+        "pub(super) fn generation_cancel_requested(",
+        "pub(super) fn write_generation_cancel_marker(",
+        "pub(super) fn write_generation_terminal_record(",
+        "pub(super) fn wait_for_generation_terminal(",
+        "pub(super) fn release_generation_admission(",
+    ] {
+        assert!(
+            backend_generation_state.contains(responsibility),
+            "inference backend generation-state owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_adapter.contains(responsibility),
+            "inference backend facade still owns generation state: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub fn install_plan_report(",
+        "pub fn install_report(",
+        "pub fn verify_archive_report(",
+        "pub(super) fn install_backend_from_archive(",
+    ] {
+        assert!(
+            backend_installation.contains(responsibility),
+            "inference backend installation owner is missing: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) struct BackendResourceSampleReport",
+        "pub(super) fn display_optional_f64(",
+        "pub(super) fn display_optional_u64_unknown(",
+        "fn backend_resource_paths(",
+        "pub(super) fn record_backend_resource_sample(",
+    ] {
+        assert!(
+            backend_resource_sampling.contains(responsibility),
+            "inference backend resource-sampling owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_adapter.contains(responsibility),
+            "inference backend facade still owns resource sampling: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub fn doctor_report(",
+        "pub fn start_report(",
+        "pub fn status_report(",
+        "pub fn stop_report(",
+        "pub fn health_check_report(",
+        "pub(super) fn terminate_with_fallback(",
+        "pub(super) fn cancel_active_generation_before_stop(",
+    ] {
+        assert!(
+            backend_sidecar.contains(responsibility),
+            "inference backend sidecar owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_adapter.contains(responsibility),
+            "inference backend facade still owns sidecar lifecycle: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "fn start_sidecar_with_timeout(",
+        "fn trace_backend_start(",
+        "fn canonical_existing_file(",
+        "fn create_log_file(",
+    ] {
+        assert!(
+            backend_sidecar_startup.contains(responsibility),
+            "inference backend sidecar startup owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_sidecar.contains(responsibility),
+            "inference backend sidecar lifecycle still owns startup: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "fn release_manifest_has_source_backed_supported_artifacts(",
+        "fn generation_record_codec_preserves_exact_bytes_and_round_trips(",
+        "fn parallel_generation_cancel_reaches_secondary_and_keeps_state_until_last_release(",
+        "fn start_timeout_removes_record_and_keeps_logs(",
+    ] {
+        assert!(
+            backend_tests.contains(responsibility),
+            "inference backend regression owner is missing: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "fn manifest_validation_blocks_unverified_artifact_candidate(",
+        "fn promotion_evidence_validation_accepts_measured_local_benchmark(",
+        "fn registry_promotion_binding_rejects_backend_and_benchmark_drift(",
+        "fn cleanup_failed_dry_run_lists_app_managed_paths(",
+    ] {
+        assert!(
+            model_tests.contains(responsibility),
+            "model regression owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_adapter.contains(responsibility),
+            "model adapter still owns regression test: {responsibility}"
+        );
+    }
+    assert!(
+        backend_adapter.lines().count() < 125,
+        "inference backend production adapter regrew beyond its resource-sampling extraction boundary"
+    );
+    assert!(
+        backend_chat.lines().count() < 500,
+        "inference backend chat module regrew beyond its interruption extraction boundary"
+    );
+    assert!(
+        backend_chat_interruption.lines().count() < 225,
+        "inference backend chat interruption module regrew beyond its ownership boundary"
+    );
+    assert!(
+        backend_chat_report.lines().count() < 200,
+        "inference backend chat report module regrew beyond its ownership boundary"
+    );
+    assert!(
+        backend_generation_state.lines().count() < 250,
+        "inference backend generation-state module regrew beyond its ownership boundary"
+    );
+    assert!(
+        backend_installation.lines().count() < 225,
+        "inference backend installation module regrew beyond its ownership boundary"
+    );
+    assert!(
+        backend_resource_sampling.lines().count() < 110,
+        "inference backend resource-sampling module regrew beyond its ownership boundary"
+    );
+    assert!(
+        backend_sidecar.lines().count() < 375,
+        "inference backend sidecar module regrew beyond its ownership boundary"
+    );
+    assert!(
+        backend_sidecar_startup.lines().count() < 300,
+        "inference backend sidecar startup module regrew beyond its ownership boundary"
+    );
+    assert!(
+        backend_tests.lines().count() < 900,
+        "inference backend regression module regrew beyond its ownership boundary"
+    );
+    assert!(
+        model_adapter.lines().count() < 550,
+        "model adapter regrew beyond its local evidence extraction boundary"
+    );
+    assert!(
+        model_evidence.lines().count() < 250,
+        "model local evidence module regrew beyond its ownership boundary"
+    );
+    assert!(
+        model_registry.lines().count() < 350,
+        "model registry module regrew beyond its ownership boundary"
+    );
+    assert!(
+        model_tests.lines().count() < 550,
+        "model regression module regrew beyond its ownership boundary"
+    );
 }
 
 #[test]
 fn v0375_domain_views_replace_legacy_definitions() {
+    let state_adapter = "src/app/workflow_adapter/state.rs";
+    let transcript_adapter = "src/app/workflow_adapter/transcript.rs";
+    let transcript_storage = "src/app/workflow_adapter/transcript/storage.rs";
+    let transcript_tool_turn = "src/app/workflow_adapter/transcript/tool_turn.rs";
+    let transcript_streams = "src/app/workflow_adapter/transcript/tool_turn/streams.rs";
+    let transcript_tests = "src/app/workflow_adapter/transcript/tests.rs";
     for target in [
         "src/runtime_core/workflow/domain/mod.rs",
         "src/runtime_core/workflow/domain/snapshot.rs",
@@ -674,9 +1289,9 @@ fn v0375_domain_views_replace_legacy_definitions() {
     }
 
     for (facade, moved_definition) in [
-        ("src/state.rs", "struct CurrentStateSnapshot"),
-        ("src/state.rs", "struct CurrentStateLeaseView"),
-        ("src/transcript.rs", "struct ToolOutputView"),
+        (state_adapter, "struct CurrentStateSnapshot"),
+        (state_adapter, "struct CurrentStateLeaseView"),
+        (transcript_adapter, "struct ToolOutputView"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
@@ -697,6 +1312,23 @@ fn v0375_domain_views_replace_legacy_definitions() {
         );
     }
 
+    assert!(
+        !Path::new("src/state.rs").exists(),
+        "legacy workflow root was restored: src/state.rs"
+    );
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(
+        !main.lines().any(|line| line == "mod state;"),
+        "legacy workflow root remains registered: mod state;"
+    );
+    let adapter_mod = fs::read_to_string("src/app/workflow_adapter.rs").unwrap();
+    assert!(
+        adapter_mod
+            .lines()
+            .any(|line| line == "pub(crate) mod state;"),
+        "state adapter is not registered under workflow_adapter"
+    );
+
     let transcript = fs::read_to_string("src/runtime_core/workflow/domain/transcript.rs").unwrap();
     for rule in [
         "fn collect_session_records",
@@ -708,14 +1340,160 @@ fn v0375_domain_views_replace_legacy_definitions() {
             "transcript owner is missing domain rule: {rule}"
         );
     }
+
+    assert!(
+        !Path::new("src/transcript.rs").exists(),
+        "legacy workflow root was restored: src/transcript.rs"
+    );
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(
+        !main.lines().any(|line| line == "mod transcript;"),
+        "legacy workflow root remains registered: mod transcript;"
+    );
+    let adapter_mod = fs::read_to_string("src/app/workflow_adapter.rs").unwrap();
+    assert!(
+        adapter_mod
+            .lines()
+            .any(|line| line == "pub(crate) mod transcript;"),
+        "transcript adapter is not registered under workflow_adapter"
+    );
+    assert!(Path::new(transcript_storage).is_file());
+    assert!(Path::new(transcript_tool_turn).is_file());
+    assert!(Path::new(transcript_streams).is_file());
+    assert!(Path::new(transcript_tests).is_file());
+    let transcript_adapter_source = fs::read_to_string(transcript_adapter).unwrap();
+    let transcript_storage_source = fs::read_to_string(transcript_storage).unwrap();
+    let transcript_tool_turn_source = fs::read_to_string(transcript_tool_turn).unwrap();
+    let transcript_stream_source = fs::read_to_string(transcript_streams).unwrap();
+    let transcript_test_source = fs::read_to_string(transcript_tests).unwrap();
+    assert!(
+        transcript_adapter_source
+            .lines()
+            .any(|line| line == "mod storage;"),
+        "transcript adapter does not register its storage owner"
+    );
+    assert!(
+        transcript_adapter_source
+            .lines()
+            .any(|line| line == "mod tool_turn;"),
+        "transcript adapter does not register its tool-turn owner"
+    );
+    assert!(
+        transcript_adapter_source.contains("#[path = \"transcript/tests.rs\"]"),
+        "transcript adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn sanitized_stream_limits_use_utf8_bytes_at_each_boundary(",
+        "fn prepared_no_stream_turn_installs_exact_artifacts_without_ledger_side_effect(",
+        "fn transcript_v2_tool_binding_strict_round_trip(",
+        "fn transcript_record_is_idempotent_and_sqlite_rebuilds_from_canonical_artifacts(",
+    ] {
+        assert!(
+            transcript_test_source.contains(regression),
+            "transcript regression owner is missing: {regression}"
+        );
+    }
+    for responsibility in [
+        "pub(super) fn load_record_path(",
+        "pub(super) fn load_tool_output_artifact(",
+        "pub(super) fn parse_tool_output_artifact_body(",
+        "pub(super) fn validate_tool_binding_for_record(",
+        "pub(super) fn validate_expected_record(",
+        "pub(super) fn validated_tool_output_path(",
+        "pub(super) fn validated_transcript_path(",
+        "fn ensure_directory_boundary(",
+    ] {
+        assert!(
+            transcript_storage_source.contains(responsibility),
+            "transcript storage owner is missing: {responsibility}"
+        );
+        assert!(
+            !transcript_adapter_source.contains(responsibility),
+            "transcript adapter still owns storage validation: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(crate) struct PreparedTranscriptTurn",
+        "pub(crate) fn prepare_no_stream_tool_turn(",
+        "pub(crate) fn install_prepared_no_stream_tool_turn(",
+        "pub(crate) fn decode_prepared_no_stream_tool_turn(",
+        "pub(crate) fn tool_output_view_from_canonical_record(",
+    ] {
+        assert!(
+            transcript_tool_turn_source.contains(responsibility),
+            "transcript tool-turn owner is missing: {responsibility}"
+        );
+        assert!(
+            !transcript_adapter_source.contains(responsibility),
+            "transcript adapter still owns tool-turn behavior: {responsibility}"
+        );
+    }
+    assert!(
+        transcript_tool_turn_source
+            .lines()
+            .any(|line| line == "mod streams;"),
+        "transcript tool-turn owner does not register its stream policy owner"
+    );
+    for responsibility in [
+        "pub(in super::super) fn record_tool_output_artifact(",
+        "pub(in super::super) fn sanitize_tool_stream(",
+        "pub(in super::super) fn validate_requested_tool_streams(",
+        "pub(in super::super) struct SanitizedStream",
+    ] {
+        assert!(
+            transcript_stream_source.contains(responsibility),
+            "transcript stream owner is missing: {responsibility}"
+        );
+        assert!(
+            !transcript_tool_turn_source.contains(responsibility),
+            "transcript tool-turn owner still owns stream policy: {responsibility}"
+        );
+    }
+    assert!(
+        transcript_adapter_source.lines().count() < 450,
+        "transcript adapter regrew beyond its orchestration boundary"
+    );
+    assert!(
+        transcript_storage_source.lines().count() < 550,
+        "transcript storage module regrew beyond its ownership boundary"
+    );
+    assert!(
+        transcript_tool_turn_source.lines().count() < 450,
+        "transcript tool-turn module regrew beyond its ownership boundary"
+    );
+    assert!(
+        transcript_stream_source.lines().count() < 275,
+        "transcript stream module regrew beyond its ownership boundary"
+    );
+    assert!(
+        transcript_test_source.lines().count() < 425,
+        "transcript regression module regrew beyond its ownership boundary"
+    );
 }
 
 #[test]
 fn v0376_workflow_application_owns_transaction_and_recovery_order() {
+    let coordinator_tests =
+        "src/runtime_core/workflow/application/transaction_coordinator/tests.rs";
+    let ledger_adapter = "src/app/workflow_adapter/ledger.rs";
+    let ledger_derived = "src/app/workflow_adapter/ledger/derived.rs";
+    let ledger_query = "src/app/workflow_adapter/ledger/query.rs";
+    let ledger_storage = "src/app/workflow_adapter/ledger/storage.rs";
+    let ledger_tests = "src/app/workflow_adapter/ledger/tests.rs";
+    let ledger_writer = "src/app/workflow_adapter/ledger/writer.rs";
+    let transition_adapter = "src/app/workflow_adapter/transition.rs";
     for target in [
+        ledger_adapter,
+        ledger_derived,
+        ledger_query,
+        ledger_storage,
+        ledger_tests,
+        ledger_writer,
+        transition_adapter,
         "src/runtime_core/workflow/application/mod.rs",
         "src/runtime_core/workflow/application/recovery.rs",
         "src/runtime_core/workflow/application/transaction_coordinator.rs",
+        coordinator_tests,
         "src/runtime_core/workflow/domain/transition.rs",
         "tests/workflow/recovery.rs",
     ] {
@@ -744,6 +1522,11 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let coordinator =
         fs::read_to_string("src/runtime_core/workflow/application/transaction_coordinator.rs")
             .unwrap();
+    let coordinator_tests = fs::read_to_string(coordinator_tests).unwrap();
+    assert!(
+        coordinator.contains("#[path = \"transaction_coordinator/tests.rs\"]"),
+        "transaction coordinator does not register its regression-test owner"
+    );
     for rule in [
         "fn execute_approval_transaction",
         "fn execute_verification_transaction",
@@ -756,6 +1539,29 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
             "transaction coordinator is missing ordered use case: {rule}"
         );
     }
+    for regression in [
+        "fn accepts_only_the_next_bound_event(",
+        "fn approval_commit_order_is_application_owned(",
+        "fn verification_commit_and_recovery_share_one_order(",
+        "fn reconcile_preserves_backup_before_canonical_append(",
+    ] {
+        assert!(
+            coordinator_tests.contains(regression),
+            "transaction coordinator regression owner is missing: {regression}"
+        );
+        assert!(
+            !coordinator.contains(regression),
+            "transaction coordinator still owns inline regression: {regression}"
+        );
+    }
+    assert!(
+        coordinator.lines().count() < 500,
+        "transaction coordinator regrew beyond its ownership boundary"
+    );
+    assert!(
+        coordinator_tests.lines().count() < 550,
+        "transaction coordinator regression module regrew beyond its ownership boundary"
+    );
 
     let recovery = fs::read_to_string("src/runtime_core/workflow/application/recovery.rs").unwrap();
     for rule in [
@@ -769,9 +1575,9 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     }
 
     for (facade, moved_definition) in [
-        ("src/ledger.rs", "struct PlannedEvent"),
-        ("src/transition.rs", "enum CurrentStateIntent"),
-        ("src/transition.rs", "struct PreparedSourceBundle"),
+        (ledger_adapter, "struct PlannedEvent"),
+        (transition_adapter, "enum CurrentStateIntent"),
+        (transition_adapter, "struct PreparedSourceBundle"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
@@ -780,12 +1586,475 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         );
     }
 
+    assert!(
+        !Path::new("src/ledger.rs").exists(),
+        "legacy workflow root was restored: src/ledger.rs"
+    );
+    assert!(
+        !Path::new("src/transition.rs").exists(),
+        "legacy workflow root was restored: src/transition.rs"
+    );
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(
+        !main.lines().any(|line| line == "mod ledger;"),
+        "legacy workflow root remains registered: mod ledger;"
+    );
+    assert!(
+        !main.lines().any(|line| line == "mod transition;"),
+        "legacy workflow root remains registered: mod transition;"
+    );
+    let adapter_mod = fs::read_to_string("src/app/workflow_adapter.rs").unwrap();
+    assert!(
+        adapter_mod
+            .lines()
+            .any(|line| line == "pub(crate) mod ledger;"),
+        "ledger adapter is not registered under workflow_adapter"
+    );
+    assert!(
+        adapter_mod
+            .lines()
+            .any(|line| line == "pub(crate) mod transition;"),
+        "transition adapter is not registered under workflow_adapter"
+    );
+
+    let ledger = fs::read_to_string(ledger_adapter).unwrap();
+    let ledger_derived_outputs = fs::read_to_string(ledger_derived).unwrap();
+    let ledger_queries = fs::read_to_string(ledger_query).unwrap();
+    let ledger_persistence = fs::read_to_string(ledger_storage).unwrap();
+    let ledger_regressions = fs::read_to_string(ledger_tests).unwrap();
+    let ledger_writes = fs::read_to_string(ledger_writer).unwrap();
+    assert!(
+        ledger.lines().any(|line| line == "mod derived;"),
+        "ledger adapter does not register its derived-output owner"
+    );
+    for responsibility in [
+        "pub(super) fn converge_derived_outputs_unlocked(",
+        "pub(super) fn validate_derived_outputs_unlocked(",
+        "fn rebuild_operation_log_from_events(",
+        "fn rebuild_project_ledger_from_events(",
+        "pub(super) fn render_chained_ledger(",
+    ] {
+        assert!(
+            ledger_derived_outputs.contains(responsibility),
+            "ledger derived-output owner is missing: {responsibility}"
+        );
+        assert!(
+            !ledger.contains(responsibility),
+            "ledger adapter still owns derived-output behavior: {responsibility}"
+        );
+    }
+    assert!(
+        ledger.lines().any(|line| line == "mod query;"),
+        "ledger adapter does not register its query owner"
+    );
+    for responsibility in [
+        "pub fn event_detail_exists(",
+        "pub fn event_details_match(",
+        "pub fn workflow_checkpoint_exists(",
+        "pub fn workflow_checkpoints(",
+    ] {
+        assert!(
+            ledger_queries.contains(responsibility),
+            "ledger query owner is missing: {responsibility}"
+        );
+        assert!(
+            !ledger.contains(responsibility),
+            "ledger adapter still owns query behavior: {responsibility}"
+        );
+    }
+    assert!(
+        ledger.lines().any(|line| line == "mod storage;"),
+        "ledger adapter does not register its storage owner"
+    );
+    for responsibility in [
+        "pub fn read_runtime_events(",
+        "pub(crate) fn read_runtime_tail_read_only(",
+        "pub(super) fn read_runtime_events_unlocked(",
+        "pub(super) fn validate_ledger_contents(",
+        "pub(super) fn append_chained_event(",
+        "pub(super) fn write_ledger_head(",
+        "fn validate_ledger_head(",
+    ] {
+        assert!(
+            ledger_persistence.contains(responsibility),
+            "ledger storage owner is missing: {responsibility}"
+        );
+        assert!(
+            !ledger.contains(responsibility),
+            "ledger adapter still owns storage behavior: {responsibility}"
+        );
+    }
+    assert!(
+        ledger.lines().any(|line| line == "mod writer;"),
+        "ledger adapter does not register its writer owner"
+    );
+    for responsibility in [
+        "pub(crate) struct LedgerWriterGuard",
+        "pub(crate) struct EventSink<'guard>",
+        "pub(crate) fn acquire()",
+        "pub(crate) fn plan_events(",
+        "pub(crate) fn append_runtime_planned(",
+        "pub(crate) fn converge_prepared(",
+        "fn validate_prepared_runtime_suffix(",
+    ] {
+        assert!(
+            ledger_writes.contains(responsibility),
+            "ledger writer owner is missing: {responsibility}"
+        );
+        assert!(
+            !ledger.contains(responsibility),
+            "ledger adapter still owns writer behavior: {responsibility}"
+        );
+    }
+    assert!(
+        ledger.contains("#[path = \"ledger/tests.rs\"]"),
+        "ledger adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn physical_chain_reorder_and_truncation_fail_closed(",
+        "fn concurrent_writers_preserve_both_ledger_chains(",
+        "fn event_sink_single_acquisition_concurrency_matrix(",
+        "fn t10_rebuilds_all_derived_outputs_from_runtime_authority(",
+    ] {
+        assert!(
+            ledger_regressions.contains(regression),
+            "ledger regression owner is missing: {regression}"
+        );
+        assert!(
+            !ledger.contains(regression),
+            "ledger adapter still owns regression test: {regression}"
+        );
+    }
+    assert!(
+        ledger.lines().count() < 225,
+        "ledger adapter regrew beyond its test extraction boundary"
+    );
+    assert!(
+        ledger_derived_outputs.lines().count() < 225,
+        "ledger derived-output module regrew beyond its ownership boundary"
+    );
+    assert!(
+        ledger_queries.lines().count() < 125,
+        "ledger query module regrew beyond its ownership boundary"
+    );
+    assert!(
+        ledger_persistence.lines().count() < 475,
+        "ledger storage module regrew beyond its ownership boundary"
+    );
+    assert!(
+        ledger_writes.lines().count() < 425,
+        "ledger writer module regrew beyond its ownership boundary"
+    );
+    assert!(
+        ledger_regressions.lines().count() < 575,
+        "ledger regression module regrew beyond its ownership boundary"
+    );
+
     let patch_loop = fs::read_to_string("tests/patch_loop.rs").unwrap();
     let patch_lifecycle = fs::read_to_string("tests/patch/lifecycle.rs").unwrap();
     assert!(
         patch_loop.contains("#[path = \"patch/lifecycle.rs\"]")
             && patch_lifecycle.contains("#[path = \"../workflow/recovery.rs\"]"),
         "patch-loop recovery filters are not owned by tests/workflow/recovery.rs"
+    );
+}
+
+#[test]
+fn v03713_transition_adapter_delegates_source_install_contract() {
+    let transition_adapter = "src/app/workflow_adapter/transition.rs";
+    let bundle_codec_adapter = "src/app/workflow_adapter/transition/bundle_codec.rs";
+    let bundle_preparation_adapter = "src/app/workflow_adapter/transition/bundle_preparation.rs";
+    let bundle_validation_adapter = "src/app/workflow_adapter/transition/bundle_validation.rs";
+    let bundle_event_chain_adapter =
+        "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs";
+    let bundle_members_adapter = "src/app/workflow_adapter/transition/bundle_validation/members.rs";
+    let bundle_workflow_members_adapter =
+        "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs";
+    let journal_adapter = "src/app/workflow_adapter/transition/journal.rs";
+    let journal_codec_adapter = "src/app/workflow_adapter/transition/journal/codec.rs";
+    let journal_recovery_io_adapter = "src/app/workflow_adapter/transition/journal/recovery_io.rs";
+    let source_install_adapter = "src/app/workflow_adapter/transition/source_install.rs";
+    let transition_tests = "src/app/workflow_adapter/transition/tests/mod.rs";
+    for target in [
+        transition_adapter,
+        bundle_codec_adapter,
+        bundle_preparation_adapter,
+        bundle_validation_adapter,
+        bundle_event_chain_adapter,
+        bundle_members_adapter,
+        bundle_workflow_members_adapter,
+        journal_adapter,
+        journal_codec_adapter,
+        journal_recovery_io_adapter,
+        source_install_adapter,
+        transition_tests,
+    ] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing transition adapter owner: {target}"
+        );
+    }
+
+    let transition = fs::read_to_string(transition_adapter).unwrap();
+    let bundle_codec = fs::read_to_string(bundle_codec_adapter).unwrap();
+    let bundle_preparation = fs::read_to_string(bundle_preparation_adapter).unwrap();
+    let bundle_validation = fs::read_to_string(bundle_validation_adapter).unwrap();
+    let bundle_event_chain = fs::read_to_string(bundle_event_chain_adapter).unwrap();
+    let bundle_members = fs::read_to_string(bundle_members_adapter).unwrap();
+    let bundle_workflow_members = fs::read_to_string(bundle_workflow_members_adapter).unwrap();
+    let journal = fs::read_to_string(journal_adapter).unwrap();
+    let journal_codec = fs::read_to_string(journal_codec_adapter).unwrap();
+    let journal_recovery_io = fs::read_to_string(journal_recovery_io_adapter).unwrap();
+    let source_install = fs::read_to_string(source_install_adapter).unwrap();
+    let tests = fs::read_to_string(transition_tests).unwrap();
+    assert!(
+        transition.lines().any(|line| line == "mod bundle_codec;"),
+        "transition adapter does not register the bundle-codec owner"
+    );
+    for responsibility in [
+        "pub(super) fn render_source_members(",
+        "pub(super) fn parse_source_members(",
+        "pub(super) struct PreparedMemberParseContext",
+        "pub(super) fn parse_semantic_events(",
+        "pub(super) fn parse_event_chain_plan(",
+        "pub(super) fn prepared_member_order(",
+    ] {
+        assert!(
+            !transition.contains(responsibility),
+            "bundle-codec responsibility escaped into transition facade: {responsibility}"
+        );
+        assert!(
+            bundle_codec.contains(responsibility),
+            "bundle-codec adapter is missing responsibility: {responsibility}"
+        );
+    }
+    assert!(
+        transition
+            .lines()
+            .any(|line| line == "mod bundle_preparation;"),
+        "transition adapter does not register the bundle-preparation owner"
+    );
+    for responsibility in [
+        "pub(crate) fn prepare_state_transition_bundle(",
+        "pub(crate) fn prepare_source_bundle_with_context(",
+        "pub(crate) fn prepare_projection_lag_member(",
+        "pub(crate) fn install_projection_lag(",
+        "pub(crate) fn bind_planned_events(",
+    ] {
+        assert!(
+            !transition.contains(responsibility),
+            "bundle-preparation responsibility escaped into transition facade: {responsibility}"
+        );
+        assert!(
+            bundle_preparation.contains(responsibility),
+            "bundle-preparation adapter is missing responsibility: {responsibility}"
+        );
+    }
+    assert!(
+        transition
+            .lines()
+            .any(|line| line == "mod bundle_validation;"),
+        "transition adapter does not register the bundle-validation owner"
+    );
+    assert!(
+        bundle_validation.contains("pub(super) fn validate_prepared_source_bundle("),
+        "bundle-validation adapter is missing top-level bundle validation"
+    );
+    assert!(
+        bundle_validation.lines().any(|line| line == "mod members;"),
+        "bundle-validation adapter does not register its member validation owner"
+    );
+    for responsibility in [
+        "pub(super) fn validate_additional_members(",
+        "fn validate_projection_lag_member(",
+    ] {
+        assert!(
+            !transition.contains(responsibility),
+            "bundle-validation responsibility escaped into transition facade: {responsibility}"
+        );
+        assert!(
+            bundle_members.contains(responsibility),
+            "bundle member-validation adapter is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !bundle_validation.contains(responsibility),
+            "bundle-validation adapter still owns member validation: {responsibility}"
+        );
+    }
+    assert!(
+        bundle_members.lines().any(|line| line == "mod workflow;"),
+        "bundle member-validation adapter does not register its workflow member owner"
+    );
+    for responsibility in [
+        "pub(super) fn validate_state_transition_members(",
+        "pub(super) fn validate_verification_members(",
+    ] {
+        assert!(
+            bundle_workflow_members.contains(responsibility),
+            "workflow member-validation adapter is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !bundle_members.contains(responsibility),
+            "bundle member-validation adapter still owns workflow validation: {responsibility}"
+        );
+        assert!(
+            !transition.contains(responsibility) && !bundle_validation.contains(responsibility),
+            "workflow member validation escaped into an orchestration facade: {responsibility}"
+        );
+    }
+    assert!(
+        bundle_validation
+            .lines()
+            .any(|line| line == "mod event_chain;"),
+        "bundle-validation adapter does not register its event-chain owner"
+    );
+    assert!(
+        bundle_event_chain.contains("pub(in super::super) fn validate_event_chain("),
+        "bundle event-chain owner is missing validation responsibility"
+    );
+    assert!(
+        !bundle_validation.contains("fn validate_event_chain("),
+        "bundle-validation adapter still owns event-chain validation"
+    );
+    assert!(
+        transition.lines().any(|line| line == "mod journal;"),
+        "transition adapter does not register the journal owner"
+    );
+    assert!(journal.lines().any(|line| line == "mod codec;"));
+    assert!(journal.lines().any(|line| line == "mod recovery_io;"));
+    for responsibility in [
+        "pub(crate) struct TransitionGuard",
+        "pub(crate) fn commit_prepared_source_bundle(",
+        "pub(crate) fn recover_pending_source_bundles(",
+        "fn recover_pending_bundles_under_guard(",
+    ] {
+        assert!(
+            !transition.contains(responsibility),
+            "journal responsibility escaped into transition facade: {responsibility}"
+        );
+        assert!(
+            journal.contains(responsibility),
+            "transition journal adapter is missing responsibility: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(crate) fn render_prepared_source_bundle(",
+        "pub(crate) fn parse_prepared_source_bundle(",
+    ] {
+        assert!(
+            journal_codec.contains(responsibility),
+            "transition journal codec is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !journal.contains(responsibility),
+            "transition journal orchestration still owns codec behavior: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) fn bounded_regular_entries(",
+        "fn read_regular_utf8_bounded(",
+        "fn validate_open_regular_file_identity(",
+        "fn recovery_work_may_exist(",
+        "fn directory_has_entry_or_is_suspicious(",
+    ] {
+        assert!(
+            journal_recovery_io.contains(responsibility),
+            "transition recovery I/O adapter is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !journal.contains(responsibility),
+            "transition journal orchestration still owns recovery I/O: {responsibility}"
+        );
+    }
+    assert!(
+        transition.lines().any(|line| line == "mod source_install;"),
+        "transition adapter does not register the source-install owner"
+    );
+    assert!(
+        transition
+            .lines()
+            .any(|line| line == "pub(crate) use source_install::{"),
+        "transition adapter does not expose the source-install contract"
+    );
+    for responsibility in [
+        "pub(crate) fn prepare_source_install_v1(",
+        "pub(crate) fn validate_source_install_v1(",
+        "pub(crate) fn render_source_install_v1(",
+        "pub(crate) fn parse_source_install_v1(",
+        "pub(crate) fn source_identity_v1(",
+        "pub(crate) fn resolve_prepared_project_path(",
+        "pub(crate) fn source_install_rollback_path(",
+    ] {
+        assert!(
+            !transition.contains(responsibility),
+            "source-install responsibility escaped into transition facade: {responsibility}"
+        );
+        assert!(
+            source_install.contains(responsibility),
+            "source-install adapter is missing responsibility: {responsibility}"
+        );
+    }
+    assert!(
+        transition.contains("#[path = \"transition/tests/mod.rs\"]"),
+        "transition adapter does not register its regression test owner"
+    );
+    for responsibility in [
+        "fn recovery_enforces_file_and_directory_read_bounds_before_parsing(",
+        "fn source_install_v1_round_trips_exact_order_and_bindings(",
+        "fn prepared_bundle_strictly_binds_semantic_event_chain_plan(",
+    ] {
+        assert!(
+            tests.contains(responsibility),
+            "transition regression tests are missing responsibility: {responsibility}"
+        );
+    }
+    assert!(
+        transition.lines().count() < 625,
+        "transition adapter regrew beyond its extracted ownership boundary"
+    );
+    assert!(
+        bundle_codec.lines().count() < 550,
+        "bundle-codec adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        bundle_preparation.lines().count() < 500,
+        "bundle-preparation adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        bundle_validation.lines().count() < 125,
+        "bundle-validation adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        bundle_event_chain.lines().count() < 100,
+        "bundle event-chain adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        bundle_members.lines().count() < 275,
+        "bundle member-validation adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        bundle_workflow_members.lines().count() < 350,
+        "workflow member-validation adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        journal.lines().count() < 550,
+        "transition journal adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        journal_codec.lines().count() < 250,
+        "transition journal codec regrew beyond its ownership boundary"
+    );
+    assert!(
+        journal_recovery_io.lines().count() < 225,
+        "transition recovery I/O adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        source_install.lines().count() < 500,
+        "source-install adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        tests.lines().count() < 750,
+        "transition regression tests regrew beyond their ownership boundary"
     );
 }
 
@@ -830,6 +2099,11 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         facade.contains("trait CanonicalLedgerReadPort"),
         "observability facade does not own the canonical ledger read port"
     );
+    assert!(
+        facade.contains("trait CanonicalTranscriptReadPort")
+            && facade.contains("trait CanonicalProjectionReadPort"),
+        "observability facade does not own the canonical transcript projection port"
+    );
     for record in [
         "struct StoreStatus",
         "struct MonitorProjectionSnapshot",
@@ -858,23 +2132,214 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     }
 
     let sqlite = fs::read_to_string("src/adapters/sqlite/observability_projection.rs").unwrap();
-    for rule in [
-        "impl ObservabilityProjectionPort for SqliteObservabilityProjection",
-        "fn replay_ledger_events",
-        "PRAGMA journal_mode = WAL",
-    ] {
-        assert!(sqlite.contains(rule), "SQLite adapter is missing: {rule}");
-    }
+    let analytics_path = "src/adapters/sqlite/observability_projection/analytics.rs";
+    let metrics_path = "src/adapters/sqlite/observability_projection/metrics.rs";
+    let read_snapshot_path = "src/adapters/sqlite/observability_projection/read_snapshot.rs";
+    let replay_path = "src/adapters/sqlite/observability_projection/replay.rs";
+    let schema_path = "src/adapters/sqlite/observability_projection/schema.rs";
+    let sessions_path = "src/adapters/sqlite/observability_projection/sessions.rs";
+    let sqlite_tests_path = "src/adapters/sqlite/observability_projection/tests.rs";
+    assert!(Path::new(analytics_path).is_file());
+    assert!(Path::new(metrics_path).is_file());
+    assert!(Path::new(read_snapshot_path).is_file());
+    assert!(Path::new(replay_path).is_file());
+    assert!(Path::new(schema_path).is_file());
+    assert!(Path::new(sessions_path).is_file());
+    assert!(Path::new(sqlite_tests_path).is_file());
+    let analytics = fs::read_to_string(analytics_path).unwrap();
+    let metrics = fs::read_to_string(metrics_path).unwrap();
+    let read_snapshot = fs::read_to_string(read_snapshot_path).unwrap();
+    let replay = fs::read_to_string(replay_path).unwrap();
+    let schema = fs::read_to_string(schema_path).unwrap();
+    let sessions = fs::read_to_string(sessions_path).unwrap();
+    let sqlite_tests = fs::read_to_string(sqlite_tests_path).unwrap();
+    let projection_port_impl = "impl ObservabilityProjectionPort for SqliteObservabilityProjection";
+    assert!(
+        sqlite.contains(projection_port_impl),
+        "SQLite adapter is missing: {projection_port_impl}"
+    );
+    assert!(
+        replay.contains("pub(super) fn replay_ledger_events("),
+        "SQLite replay owner is missing canonical replay"
+    );
+    assert!(
+        schema.contains("PRAGMA journal_mode = WAL"),
+        "SQLite schema owner is missing WAL migration policy"
+    );
     let sqlite_production = sqlite.split("#[cfg(test)]").next().unwrap_or(&sqlite);
     assert!(
         !sqlite_production.contains("crate::ledger"),
         "SQLite projection adapter bypasses the consumer-owned projection port"
+    );
+    assert!(
+        sqlite.lines().any(|line| line == "mod analytics;"),
+        "SQLite projection does not register the analytics owner"
+    );
+    assert!(
+        sqlite.lines().any(|line| line == "mod metrics;"),
+        "SQLite projection does not register the metric owner"
+    );
+    assert!(
+        sqlite.lines().any(|line| line == "mod read_snapshot;"),
+        "SQLite projection does not register the read-only snapshot owner"
+    );
+    assert!(
+        sqlite.lines().any(|line| line == "mod replay;"),
+        "SQLite projection does not register the replay owner"
+    );
+    assert!(
+        sqlite.lines().any(|line| line == "mod schema;"),
+        "SQLite projection does not register the schema owner"
+    );
+    assert!(
+        sqlite.lines().any(|line| line == "mod sessions;"),
+        "SQLite projection does not register the session query owner"
+    );
+    for responsibility in ["pub(super) fn migrate(", "fn ensure_column("] {
+        assert!(
+            !sqlite.contains(responsibility),
+            "schema responsibility escaped into projection facade: {responsibility}"
+        );
+        assert!(
+            schema.contains(responsibility),
+            "SQLite schema owner is missing: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) fn model_summaries_from_connection(",
+        "pub(super) fn model_summaries(",
+        "pub(super) fn performance_baseline(",
+        "pub(super) fn optimization_policy(",
+        "fn query_baseline_model_rows(",
+        "fn benchmark_evidence_summary(",
+    ] {
+        assert!(
+            !sqlite.contains(responsibility),
+            "analytics responsibility escaped into projection facade: {responsibility}"
+        );
+        assert!(
+            analytics.contains(responsibility),
+            "SQLite analytics owner is missing: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) fn record_model_run(",
+        "pub(super) fn record_resource_sample(",
+        "pub(super) fn record_benchmark_run(",
+        "pub(super) fn benchmark_run_reports(",
+        "pub(super) fn latest_resource_sample(",
+    ] {
+        assert!(
+            !sqlite.contains(responsibility),
+            "metric responsibility escaped into projection facade: {responsibility}"
+        );
+        assert!(
+            metrics.contains(responsibility),
+            "SQLite metric owner is missing: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) fn record_session(",
+        "pub(super) fn replay_ledger_events(",
+        "pub(super) fn project_sessions_from_events(",
+        "pub(super) fn insert_ledger_event(",
+        "pub(super) fn project_workflow_checkpoint(",
+    ] {
+        assert!(
+            !sqlite.contains(responsibility),
+            "replay responsibility escaped into projection facade: {responsibility}"
+        );
+        assert!(
+            replay.contains(responsibility),
+            "SQLite replay owner is missing: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub fn session_history(",
+        "pub fn session_entry(",
+        "pub fn session_events(",
+        "fn query_session_history(",
+        "fn query_session_events(",
+    ] {
+        assert!(
+            !sqlite.contains(responsibility),
+            "session query responsibility escaped into projection facade: {responsibility}"
+        );
+        assert!(
+            sessions.contains(responsibility),
+            "SQLite session query owner is missing: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) struct ReadOnlyProjection",
+        "pub(super) fn open_read_only(",
+        "pub(super) fn open_read_only_path(",
+        "fn stable_projection_files(",
+        "fn read_regular_snapshot_file(",
+        "fn write_private_snapshot_file(",
+    ] {
+        assert!(
+            !sqlite.contains(responsibility),
+            "read-only snapshot responsibility escaped into projection facade: {responsibility}"
+        );
+        assert!(
+            read_snapshot.contains(responsibility),
+            "read-only snapshot owner is missing: {responsibility}"
+        );
+    }
+    assert!(
+        sqlite.contains("#[path = \"observability_projection/tests.rs\"]"),
+        "SQLite projection does not register its regression-test owner"
+    );
+    for responsibility in [
+        "fn corrupt_sqlite_is_preserved_before_canonical_ledger_failure(",
+        "fn sqlite_replay_faults_are_atomic_and_concurrent_readers_see_complete_rows(",
+        "fn performance_baseline_aggregates_local_metrics(",
+        "fn optimization_policy_reads_metrics_and_measured_benchmark_evidence(",
+    ] {
+        assert!(
+            sqlite_tests.contains(responsibility),
+            "SQLite projection regression owner is missing: {responsibility}"
+        );
+    }
+    assert!(
+        sqlite.lines().count() < 500,
+        "SQLite projection production module regrew beyond its session query extraction boundary"
+    );
+    assert!(sessions.lines().count() < 175);
+    assert!(
+        analytics.lines().count() < 450,
+        "SQLite analytics module regrew beyond its ownership boundary"
+    );
+    assert!(
+        metrics.lines().count() < 375,
+        "SQLite metric module regrew beyond its ownership boundary"
+    );
+    assert!(
+        read_snapshot.lines().count() < 275,
+        "SQLite read-only snapshot module regrew beyond its ownership boundary"
+    );
+    assert!(
+        replay.lines().count() < 375,
+        "SQLite replay module regrew beyond its ownership boundary"
+    );
+    assert!(
+        schema.lines().count() < 400,
+        "SQLite schema module regrew beyond its ownership boundary"
+    );
+    assert!(
+        sqlite_tests.lines().count() < 825,
+        "SQLite projection regression module regrew beyond its ownership boundary"
     );
 
     let transcript = fs::read_to_string("src/adapters/sqlite/transcript_projection.rs").unwrap();
     assert!(
         transcript.contains("INSERT OR REPLACE INTO transcript_records"),
         "transcript SQLite adapter does not own row installation"
+    );
+    assert!(
+        transcript.contains("CanonicalTranscriptReadPort") && !transcript.contains("crate::app"),
+        "transcript SQLite adapter does not use the inverted canonical read port"
     );
     let ledger = fs::read_to_string("src/adapters/sqlite/ledger_projection.rs").unwrap();
     assert!(
@@ -900,9 +2365,9 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     );
 
     for (facade_path, forbidden) in [
-        ("src/observability.rs", "rusqlite"),
-        ("src/monitor.rs", "performance baseline\\n"),
-        ("src/ledger.rs", "rusqlite::Connection"),
+        ("src/app/observability_adapter.rs", "rusqlite"),
+        ("src/app/monitor_adapter.rs", "performance baseline\\n"),
+        ("src/app/workflow_adapter/ledger.rs", "rusqlite::Connection"),
     ] {
         let source = fs::read_to_string(facade_path).unwrap();
         let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
@@ -911,16 +2376,40 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
             "legacy facade retains moved implementation: {facade_path} -> {forbidden}"
         );
     }
+    assert!(!Path::new("src/monitor.rs").exists());
+    let monitor_adapter = fs::read_to_string("src/app/monitor_adapter.rs").unwrap();
+    assert!(monitor_adapter.contains("impl MonitorQueryPort for LocalMonitorQueryPort"));
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod monitor;"));
+    assert!(!Path::new("src/observability.rs").exists());
+    let observability_adapter = fs::read_to_string("src/app/observability_adapter.rs").unwrap();
+    assert!(observability_adapter.contains("impl CanonicalLedgerReadPort"));
+    assert!(observability_adapter.contains("impl CanonicalTranscriptReadPort"));
+    assert!(!main.lines().any(|line| line == "mod observability;"));
 }
 
 #[test]
 fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
+    assert!(Path::new("src/app/ontology_adapter.rs").is_file());
+    assert!(Path::new("src/app/ontology_adapter/seeding.rs").is_file());
+    assert!(!Path::new("src/ontology.rs").exists());
+    assert!(!Path::new("src/ontology").exists());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod ontology;"));
+    let app_root = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod ontology_adapter;"),
+        "application root does not register the ontology adapter"
+    );
     let owners = [
         "src/runtime_core/knowledge/context.rs",
         "src/runtime_core/knowledge/evidence.rs",
         "src/runtime_core/knowledge/ontology.rs",
         "src/runtime_core/policy/approval.rs",
         "src/runtime_core/policy/decision.rs",
+        "src/runtime_core/policy/redaction.rs",
     ];
     for target in owners {
         assert!(
@@ -944,7 +2433,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         ),
         (
             "src/runtime_core/policy/mod.rs",
-            ["approval", "decision"].as_slice(),
+            ["approval", "decision", "redaction"].as_slice(),
         ),
     ] {
         let source = fs::read_to_string(module).unwrap();
@@ -1006,6 +2495,10 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
             ]
             .as_slice(),
         ),
+        (
+            "src/runtime_core/policy/redaction.rs",
+            ["fn contains_sensitive_text", "fn redact_text"].as_slice(),
+        ),
     ] {
         let source = fs::read_to_string(owner).unwrap();
         for rule in rules {
@@ -1022,23 +2515,65 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         }
     }
 
-    let policy_facade = fs::read_to_string("src/policy.rs").unwrap();
+    let policy_facade = fs::read_to_string("src/app/policy_adapter.rs").unwrap();
     assert!(
         policy_facade.contains("impl PathPolicyPort for ProjectPathPolicy"),
         "filesystem path policy is not composed through the consumer-owned port"
     );
 
+    let ontology_facade = fs::read_to_string("src/app/ontology_adapter.rs").unwrap();
+    let ontology_seeding = fs::read_to_string("src/app/ontology_adapter/seeding.rs").unwrap();
+    assert!(ontology_facade.lines().any(|line| line == "mod seeding;"));
+    let ontology_orchestration = ontology_facade
+        .split("#[cfg(test)]")
+        .next()
+        .unwrap_or(&ontology_facade);
+    for responsibility in [
+        "fn ensure_layout(",
+        "fn seed_candidates(",
+        "fn collect_indexable_files(",
+        "fn append_records(",
+    ] {
+        assert!(
+            ontology_seeding.contains(responsibility),
+            "ontology seeding owner is missing: {responsibility}"
+        );
+        assert!(
+            !ontology_orchestration.contains(responsibility),
+            "ontology facade still owns seeding persistence: {responsibility}"
+        );
+    }
+    assert!(ontology_facade.lines().count() < 650);
+    assert!(ontology_seeding.lines().count() < 350);
+
+    let ledger_facade = fs::read_to_string("src/app/workflow_adapter/ledger.rs").unwrap();
+    assert!(
+        ledger_facade.contains(
+            "pub use crate::runtime_core::policy::redaction::{contains_sensitive_text, redact_text};"
+        ),
+        "ledger facade does not preserve the redaction API path"
+    );
+    for moved_rule in ["pub fn contains_sensitive_text", "pub fn redact_text"] {
+        assert!(
+            !ledger_facade.contains(moved_rule),
+            "ledger facade still owns policy redaction rule: {moved_rule}"
+        );
+    }
+
     for (facade, forbidden) in [
-        ("src/approval.rs", "struct ApprovalRequest"),
-        ("src/approval.rs", "fn render_request_record"),
-        ("src/context.rs", "pub struct ContextPack"),
-        ("src/context.rs", "fn clamp_source_pack"),
-        ("src/evidence.rs", "struct StopGateInputs"),
-        ("src/evidence.rs", "fn stale_policy_summary"),
-        ("src/ontology.rs", "struct OntologyRecord"),
-        ("src/ontology.rs", "fn select_context_records"),
-        ("src/policy.rs", "pub enum Decision"),
-        ("src/policy.rs", "fn validate_patch_verification_argv"),
+        ("src/app/approval_adapter.rs", "struct ApprovalRequest"),
+        ("src/app/approval_adapter.rs", "fn render_request_record"),
+        ("src/app/context_adapter.rs", "pub struct ContextPack"),
+        ("src/app/context_adapter.rs", "fn clamp_source_pack"),
+        ("src/app/evidence_adapter.rs", "struct StopGateInputs"),
+        ("src/app/evidence_adapter.rs", "fn stale_policy_summary"),
+        ("src/app/ontology_adapter.rs", "struct OntologyRecord"),
+        ("src/app/ontology_adapter.rs", "fn select_context_records"),
+        ("src/app/policy_adapter.rs", "pub enum Decision"),
+        (
+            "src/app/policy_adapter.rs",
+            "fn validate_patch_verification_argv",
+        ),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
@@ -1047,10 +2582,86 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
             "legacy facade retains moved knowledge/policy rule: {facade} -> {forbidden}"
         );
     }
+    assert!(!Path::new("src/approval.rs").exists());
+    let approval_adapter = fs::read_to_string("src/app/approval_adapter.rs").unwrap();
+    assert!(approval_adapter.contains("pub fn write_request"));
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod approval;"));
+    assert!(!Path::new("src/policy.rs").exists());
+    assert!(policy_facade.contains("impl PathPolicyPort for ProjectPathPolicy"));
+    assert!(!main.lines().any(|line| line == "mod policy;"));
 }
 
 #[test]
 fn v0379_patch_owners_hold_lifecycle_decisions() {
+    let intent_execution_path = "src/app/intent_adapter/execution.rs";
+    let intent_tests_path = "src/app/intent_adapter/tests.rs";
+    assert!(Path::new("src/app/intent_adapter.rs").is_file());
+    assert!(Path::new(intent_execution_path).is_file());
+    assert!(Path::new(intent_tests_path).is_file());
+    assert!(!Path::new("src/intent.rs").exists());
+    assert!(!Path::new("src/intent").exists());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod intent;"));
+    let app_root = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod intent_adapter;"),
+        "application root does not register the intent adapter"
+    );
+    assert!(Path::new("src/app/patch_adapter.rs").is_file());
+    assert!(!Path::new("src/patch.rs").exists());
+    assert!(!Path::new("src/patch").exists());
+    assert!(!main.lines().any(|line| line == "mod patch;"));
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod patch_adapter;"),
+        "application root does not register the patch adapter"
+    );
+    let patch_test_modules = [
+        "src/app/patch_adapter/tests/mod.rs",
+        "src/app/patch_adapter/tests/approval_cases.rs",
+        "src/app/patch_adapter/tests/recovery_cases.rs",
+        "src/app/patch_adapter/tests/support_cases.rs",
+        "src/app/patch_adapter/tests/terminal_cases.rs",
+        "src/app/patch_adapter/tests/verification_cases.rs",
+    ];
+    let approval_transaction_adapter = "src/app/patch_adapter/approval_transaction.rs";
+    let approval_recovery_adapter = "src/app/patch_adapter/approval_transaction/recovery.rs";
+    let execution_adapter = "src/app/patch_adapter/execution.rs";
+    let guard_adapter = "src/app/patch_adapter/guard.rs";
+    let proposal_builder_adapter = "src/app/patch_adapter/proposal_builder.rs";
+    let proposal_store_adapter = "src/app/patch_adapter/proposal_store.rs";
+    let resume_adapter = "src/app/patch_adapter/resume.rs";
+    let terminal_adapter = "src/app/patch_adapter/terminal.rs";
+    let verification_adapter = "src/app/patch_adapter/verification.rs";
+    let workflow_contract_adapter = "src/app/patch_adapter/workflow_contract.rs";
+    let workflow_execution_adapter = "src/app/patch_adapter/workflow_execution.rs";
+    let plugin_completion_adapter = "src/app/patch_adapter/workflow_execution/plugin_completion.rs";
+    let skill_lifecycle_adapter = "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs";
+    assert!(Path::new(approval_transaction_adapter).is_file());
+    assert!(Path::new(approval_recovery_adapter).is_file());
+    assert!(Path::new(execution_adapter).is_file());
+    assert!(Path::new(guard_adapter).is_file());
+    assert!(Path::new(proposal_builder_adapter).is_file());
+    assert!(Path::new(proposal_store_adapter).is_file());
+    assert!(Path::new(resume_adapter).is_file());
+    assert!(Path::new(terminal_adapter).is_file());
+    assert!(Path::new(verification_adapter).is_file());
+    assert!(Path::new(workflow_contract_adapter).is_file());
+    assert!(Path::new(workflow_execution_adapter).is_file());
+    assert!(Path::new(plugin_completion_adapter).is_file());
+    assert!(Path::new(skill_lifecycle_adapter).is_file());
+    assert!(Path::new(intent_execution_path).is_file());
+    assert!(Path::new(intent_tests_path).is_file());
+    for patch_test_module in patch_test_modules {
+        assert!(
+            Path::new(patch_test_module).is_file(),
+            "missing patch regression test owner: {patch_test_module}"
+        );
+    }
     let owners = [
         "src/runtime_core/patch/approval.rs",
         "src/runtime_core/patch/application.rs",
@@ -1157,20 +2768,20 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     }
 
     for (facade, forbidden) in [
-        ("src/intent.rs", "struct IntentDecision"),
-        ("src/intent.rs", "fn plan_action_candidate"),
-        ("src/intent.rs", "fn parse_model_action"),
-        ("src/patch.rs", "struct PatchPreview"),
-        ("src/patch.rs", "struct ProposalRecord"),
-        ("src/patch.rs", "struct ApplyResult"),
-        ("src/patch.rs", "struct RollbackResult"),
-        ("src/patch.rs", "struct VerificationPlan"),
-        ("src/patch.rs", "struct VerificationResult"),
-        ("src/patch.rs", "fn render_unified_diff"),
-        ("src/patch.rs", "fn parse_proposal_header"),
-        ("src/patch.rs", "fn constant_time_eq"),
-        ("src/patch.rs", "fn is_test_verification"),
-        ("src/patch.rs", "fn output_excerpt"),
+        ("src/app/intent_adapter.rs", "struct IntentDecision"),
+        ("src/app/intent_adapter.rs", "fn plan_action_candidate"),
+        ("src/app/intent_adapter.rs", "fn parse_model_action"),
+        ("src/app/patch_adapter.rs", "struct PatchPreview"),
+        ("src/app/patch_adapter.rs", "struct ProposalRecord"),
+        ("src/app/patch_adapter.rs", "struct ApplyResult"),
+        ("src/app/patch_adapter.rs", "struct RollbackResult"),
+        ("src/app/patch_adapter.rs", "struct VerificationPlan"),
+        ("src/app/patch_adapter.rs", "struct VerificationResult"),
+        ("src/app/patch_adapter.rs", "fn render_unified_diff"),
+        ("src/app/patch_adapter.rs", "fn parse_proposal_header"),
+        ("src/app/patch_adapter.rs", "fn constant_time_eq"),
+        ("src/app/patch_adapter.rs", "fn is_test_verification"),
+        ("src/app/patch_adapter.rs", "fn output_excerpt"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
@@ -1180,18 +2791,363 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         );
     }
 
-    let intent_facade = fs::read_to_string("src/intent.rs").unwrap();
-    let patch_facade = fs::read_to_string("src/patch.rs").unwrap();
+    let intent_facade = fs::read_to_string("src/app/intent_adapter.rs").unwrap();
+    let intent_execution = fs::read_to_string(intent_execution_path).unwrap();
+    let intent_tests = fs::read_to_string(intent_tests_path).unwrap();
+    let patch_facade = fs::read_to_string("src/app/patch_adapter.rs").unwrap();
+    let approval_transaction = fs::read_to_string(approval_transaction_adapter).unwrap();
+    let approval_recovery = fs::read_to_string(approval_recovery_adapter).unwrap();
+    let execution = fs::read_to_string(execution_adapter).unwrap();
+    let guard = fs::read_to_string(guard_adapter).unwrap();
+    let proposal_builder = fs::read_to_string(proposal_builder_adapter).unwrap();
+    let proposal_store = fs::read_to_string(proposal_store_adapter).unwrap();
+    let resume = fs::read_to_string(resume_adapter).unwrap();
+    let terminal = fs::read_to_string(terminal_adapter).unwrap();
+    let verification = fs::read_to_string(verification_adapter).unwrap();
+    let workflow_contract = fs::read_to_string(workflow_contract_adapter).unwrap();
+    let workflow_execution = fs::read_to_string(workflow_execution_adapter).unwrap();
+    let patch_test_module = fs::read_to_string(patch_test_modules[0]).unwrap();
+    let patch_approval_tests = fs::read_to_string(patch_test_modules[1]).unwrap();
+    let patch_recovery_tests = fs::read_to_string(patch_test_modules[2]).unwrap();
+    let patch_support_tests = fs::read_to_string(patch_test_modules[3]).unwrap();
+    let patch_terminal_tests = fs::read_to_string(patch_test_modules[4]).unwrap();
+    let patch_verification_tests = fs::read_to_string(patch_test_modules[5]).unwrap();
     let patch_harness = fs::read_to_string("tests/patch_loop.rs").unwrap();
     let patch_contract = fs::read_to_string("tests/patch/lifecycle.rs").unwrap();
     assert!(
-        intent_facade.lines().count() <= 1_400,
+        intent_facade.contains("#[path = \"intent_adapter/tests.rs\"]"),
+        "intent facade does not register its regression-test owner"
+    );
+    assert!(
+        intent_facade.lines().any(|line| line == "mod execution;"),
+        "intent facade does not register its execution owner"
+    );
+    for responsibility in [
+        "pub(super) fn run_with_decision(",
+        "plugin.capability.admitted",
+        "action.candidate.prepared",
+        "invalid-or-hostile-model-action",
+    ] {
+        assert!(
+            intent_execution.contains(responsibility),
+            "intent execution owner is missing: {responsibility}"
+        );
+    }
+    assert!(
+        !intent_facade.contains("pub(super) fn run_with_decision("),
+        "intent facade still owns workflow execution"
+    );
+    for regression in [
+        "fn explicit_skill_has_priority(",
+        "fn model_action_parser_blocks_requested_side_effects(",
+        "fn model_answer_fails_closed_on_non_korean_natural_language(",
+        "fn review_outcomes_require_answer_bound_file_and_severity_evidence(",
+    ] {
+        assert!(
+            intent_tests.contains(regression),
+            "intent regression owner is missing: {regression}"
+        );
+        assert!(
+            !intent_facade.contains(regression),
+            "intent facade still owns regression test: {regression}"
+        );
+    }
+    assert!(
+        intent_facade.lines().count() < 600,
         "intent facade regrew beyond the v0.37.9 boundary"
     );
     assert!(
-        patch_facade.lines().count() <= 6_300,
+        intent_execution.lines().count() < 600,
+        "intent execution module regrew beyond its ownership boundary"
+    );
+    assert!(
+        intent_tests.lines().count() < 325,
+        "intent regression module regrew beyond its ownership boundary"
+    );
+    assert!(
+        patch_facade.lines().count() < 500,
         "patch facade regrew beyond the v0.37.9 boundary"
     );
+    assert!(patch_facade
+        .lines()
+        .any(|line| line == "mod approval_transaction;"));
+    assert!(approval_transaction
+        .lines()
+        .any(|line| line == "mod recovery;"));
+    let approval_responsibility = "fn approve_prepared_skill_transaction(";
+    assert!(
+        !patch_facade.contains(approval_responsibility),
+        "approval transaction responsibility escaped into patch facade: {approval_responsibility}"
+    );
+    assert!(
+        approval_transaction.contains(approval_responsibility),
+        "approval transaction adapter is missing responsibility: {approval_responsibility}"
+    );
+    for recovery_responsibility in [
+        "fn recover_prepared_approval_bundle(",
+        "fn recover_prepared_verification_bundle(",
+        "fn validate_prepared_approval_semantics(",
+    ] {
+        assert!(
+            approval_recovery.contains(recovery_responsibility),
+            "approval recovery adapter is missing responsibility: {recovery_responsibility}"
+        );
+        assert!(
+            !approval_transaction.contains(recovery_responsibility),
+            "approval transaction orchestration still owns recovery: {recovery_responsibility}"
+        );
+    }
+    assert!(approval_transaction.lines().count() < 550);
+    assert!(approval_recovery.lines().count() < 450);
+    assert!(patch_facade.lines().any(|line| line == "mod execution;"));
+    for escaped_responsibility in [
+        "fn apply_proposal(",
+        "fn run_verification(",
+        "fn restore_from_rollback(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "patch execution responsibility escaped into facade: {escaped_responsibility}"
+        );
+        assert!(
+            execution.contains(escaped_responsibility),
+            "patch execution adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(execution.lines().count() < 300);
+    assert!(patch_facade.lines().any(|line| line == "mod guard;"));
+    for escaped_responsibility in [
+        "struct ApprovalLock",
+        "fn approval_transaction_fault(",
+        "fn restore_bytes(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "patch guard responsibility escaped into facade: {escaped_responsibility}"
+        );
+        assert!(
+            guard.contains(escaped_responsibility),
+            "patch guard adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(guard.lines().count() < 250);
+    assert!(patch_facade
+        .lines()
+        .any(|line| line == "mod proposal_builder;"));
+    for escaped_responsibility in [
+        "fn build_preview(",
+        "struct TargetPath",
+        "fn fill_os_random(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "proposal builder responsibility escaped into patch facade: {escaped_responsibility}"
+        );
+        assert!(
+            proposal_builder.contains(escaped_responsibility),
+            "proposal builder adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(proposal_builder.lines().count() < 250);
+    assert!(patch_facade
+        .lines()
+        .any(|line| line == "mod proposal_store;"));
+    for escaped_responsibility in [
+        "fn read_proposal_contents_bounded(",
+        "fn load_proposal_record(",
+        "fn validate_token_hash(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "proposal store responsibility escaped into patch facade: {escaped_responsibility}"
+        );
+        assert!(
+            proposal_store.contains(escaped_responsibility),
+            "proposal store adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(proposal_store.lines().count() < 350);
+    assert!(patch_facade.lines().any(|line| line == "mod resume;"));
+    for escaped_responsibility in [
+        "fn proposal_summaries_bounded(",
+        "fn preflight_resume_workflow(",
+        "fn resume_workflow_for_tui(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "resume responsibility escaped into patch facade: {escaped_responsibility}"
+        );
+        assert!(
+            resume.contains(escaped_responsibility),
+            "resume adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(resume.lines().count() < 400);
+    assert!(patch_facade.lines().any(|line| line == "mod terminal;"));
+    for escaped_responsibility in [
+        "fn cancel_workflow_transaction(",
+        "fn deny_pending_gate_transaction(",
+        "fn prepare_terminal_rollback_source(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "terminal workflow responsibility escaped into patch facade: {escaped_responsibility}"
+        );
+        assert!(
+            terminal.contains(escaped_responsibility),
+            "terminal workflow adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(terminal.lines().count() < 500);
+    assert!(patch_facade.lines().any(|line| line == "mod verification;"));
+    for escaped_responsibility in [
+        "fn verify_report_for_intent(",
+        "fn approve_prepared_verification_transaction(",
+        "fn prepared_verification_members(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "verification responsibility escaped into patch facade: {escaped_responsibility}"
+        );
+        assert!(
+            verification.contains(escaped_responsibility),
+            "verification adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(verification.lines().count() < 300);
+    assert!(patch_facade
+        .lines()
+        .any(|line| line == "mod workflow_contract;"));
+    for escaped_responsibility in [
+        "fn stale_selection_error(",
+        "fn validate_workflow_binding(",
+        "fn success_report(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "workflow contract responsibility escaped into patch facade: {escaped_responsibility}"
+        );
+        assert!(
+            workflow_contract.contains(escaped_responsibility),
+            "workflow contract adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(workflow_contract.lines().count() < 150);
+    assert!(patch_facade
+        .lines()
+        .any(|line| line == "mod workflow_execution;"));
+    let workflow_execution_responsibility = "fn continue_approved_workflow(";
+    assert!(
+        !patch_facade.contains(workflow_execution_responsibility),
+        "workflow execution responsibility escaped into patch facade: {workflow_execution_responsibility}"
+    );
+    assert!(
+        workflow_execution.contains(workflow_execution_responsibility),
+        "workflow execution adapter is missing responsibility: {workflow_execution_responsibility}"
+    );
+    let plugin_completion = fs::read_to_string(plugin_completion_adapter).unwrap();
+    let skill_lifecycle = fs::read_to_string(skill_lifecycle_adapter).unwrap();
+    assert!(
+        workflow_execution
+            .lines()
+            .any(|line| line == "mod plugin_completion;"),
+        "workflow execution adapter does not register its plugin completion owner"
+    );
+    for escaped_responsibility in [
+        "pub(in super::super) fn validate_completed_plugin_workflow(",
+        "pub(in super::super) fn ensure_plugin_completion_event(",
+        "pub(in super::super) fn ensure_plugin_completion_event_under_transition(",
+        "pub(in super::super) fn plugin_completion_recovery_report(",
+    ] {
+        assert!(
+            !workflow_execution.contains(escaped_responsibility),
+            "plugin completion responsibility escaped into workflow execution orchestration: {escaped_responsibility}"
+        );
+        assert!(
+            plugin_completion.contains(escaped_responsibility),
+            "plugin completion adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(
+        workflow_execution
+            .lines()
+            .any(|line| line == "mod skill_lifecycle;"),
+        "workflow execution adapter does not register its skill lifecycle owner"
+    );
+    for escaped_responsibility in [
+        "pub(in super::super) fn workflow_skill_runtime(",
+        "pub(super) fn validate_skill_phase_for_side_effect(",
+        "pub(in super::super) fn validate_failing_test_before(",
+        "pub(in super::super) fn validate_completed_workflow(",
+        "pub(super) fn dispatch_workflow_skill_hook(",
+        "pub(in super::super) fn finalize_verified_skill(",
+    ] {
+        assert!(
+            !workflow_execution.contains(escaped_responsibility),
+            "skill lifecycle responsibility escaped into workflow execution orchestration: {escaped_responsibility}"
+        );
+        assert!(
+            skill_lifecycle.contains(escaped_responsibility),
+            "skill lifecycle adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(workflow_execution.lines().count() < 375);
+    assert!(plugin_completion.lines().count() < 175);
+    assert!(skill_lifecycle.lines().count() < 175);
+    assert!(patch_facade.contains("#[path = \"patch_adapter/tests/mod.rs\"]"));
+    assert!(!patch_facade.contains("mod tests {"));
+    assert!(
+        patch_test_module.lines().count() < 150,
+        "shared patch test fixtures regrew beyond their boundary"
+    );
+    for module in [
+        "mod approval_cases;",
+        "mod recovery_cases;",
+        "mod support_cases;",
+        "mod terminal_cases;",
+        "mod verification_cases;",
+    ] {
+        assert!(
+            patch_test_module.lines().any(|line| line == module),
+            "shared patch test module is missing child ownership: {module}"
+        );
+    }
+    for (owner, source, marker) in [
+        (
+            patch_test_modules[1],
+            &patch_approval_tests,
+            "fn prepared_skill_approval_commits_exact_e0_e9_and_single_current_revision",
+        ),
+        (
+            patch_test_modules[2],
+            &patch_recovery_tests,
+            "fn prepared_bundle_member_tamper_blocks_recovery_before_effects",
+        ),
+        (
+            patch_test_modules[3],
+            &patch_support_tests,
+            "fn rollback_tamper_and_replace_failure_are_reported_truthfully",
+        ),
+        (
+            patch_test_modules[4],
+            &patch_terminal_tests,
+            "fn terminal_denial_crash_matrix_recovers_one_exact_commit",
+        ),
+        (
+            patch_test_modules[5],
+            &patch_verification_tests,
+            "fn verification_runs_only_after_separate_approval",
+        ),
+    ] {
+        assert!(
+            source.lines().count() < 700,
+            "patch regression test owner regrew beyond its boundary: {owner}"
+        );
+        assert!(
+            source.contains(marker),
+            "patch regression test owner is missing responsibility: {owner} -> {marker}"
+        );
+    }
     assert!(
         patch_harness.lines().count() <= 5 && patch_harness.contains("patch/lifecycle.rs"),
         "patch integration harness is not a thin compatibility entrypoint"
@@ -1304,18 +3260,31 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
         }
     }
 
-    let guard_facade = fs::read_to_string("src/korean_guard.rs").unwrap();
-    assert!(
-        guard_facade.lines().count() <= 8
-            && guard_facade.contains("runtime_core::reporting::korean_guard"),
-        "Korean guard compatibility facade retained implementation"
-    );
+    assert!(!Path::new("src/korean_guard.rs").exists());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod korean_guard;"));
 
-    let runtime_facade = fs::read_to_string("src/runtime.rs").unwrap();
-    let production = runtime_facade
-        .split("#[cfg(test)]")
-        .next()
-        .unwrap_or(&runtime_facade);
+    let runtime_facade_path = "src/app/runtime_adapter.rs";
+    let runtime_tests_path = "src/app/runtime_adapter/tests.rs";
+    assert!(Path::new(runtime_facade_path).is_file());
+    assert!(Path::new(runtime_tests_path).is_file());
+    assert!(!Path::new("src/runtime.rs").exists());
+    assert!(!Path::new("src/runtime").exists());
+    assert!(!main.lines().any(|line| line == "mod runtime;"));
+    let app_root = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod runtime_adapter;"),
+        "application root does not register the runtime adapter"
+    );
+    let runtime_facade = fs::read_to_string(runtime_facade_path).unwrap();
+    let runtime_tests = fs::read_to_string(runtime_tests_path).unwrap();
+    let production = &runtime_facade;
+    assert!(
+        runtime_facade.contains("#[path = \"runtime_adapter/tests.rs\"]"),
+        "runtime facade does not register its regression-test owner"
+    );
     for forbidden in [
         "fn guard_patch_terminal_report",
         "fn release_smoke_summary",
@@ -1328,7 +3297,7 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
         );
     }
     for delegation in [
-        "impl RuntimeApplicationPort for LegacyRuntimeApplicationPort",
+        "impl RuntimeApplicationPort for RuntimeApplicationAdapter",
         "runner::workflow_resume_report",
         "runner::session_resume_report",
         "runner::patch_approve_to_stdout",
@@ -1341,9 +3310,28 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
             "legacy runtime facade is missing owner delegation: {delegation}"
         );
     }
+    for regression in [
+        "fn tui_read_facade_is_bounded_fresh_and_non_mutating_with_tool_output(",
+        "fn tui_read_facade_all_views_are_canonical_bounded_fresh_and_non_mutating(",
+        "fn runtime_tui_outcome_oracle_all_families_exact_utf8(",
+        "fn doctor_report_includes_release_smoke_fields(",
+    ] {
+        assert!(
+            runtime_tests.contains(regression),
+            "runtime regression owner is missing: {regression}"
+        );
+        assert!(
+            !runtime_facade.contains(regression),
+            "runtime facade still owns regression test: {regression}"
+        );
+    }
     assert!(
-        runtime_facade.lines().count() <= 3_100,
+        runtime_facade.lines().count() < 200,
         "runtime facade regrew beyond the v0.37.10 boundary"
+    );
+    assert!(
+        runtime_tests.lines().count() < 1_100,
+        "runtime regression module regrew beyond its ownership boundary"
     );
 }
 
@@ -1352,6 +3340,14 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let hook = "src/runtime_core/extensions/hook.rs";
     let skill = "src/runtime_core/extensions/skill.rs";
     let plugin = "src/runtime_core/extensions/plugin.rs";
+    let hooks_adapter = "src/app/extensions_adapter/hooks.rs";
+    let plugin_adapter = "src/app/extensions_adapter/plugin.rs";
+    let plugin_execution = "src/app/extensions_adapter/plugin/execution.rs";
+    let plugin_registry = "src/app/extensions_adapter/plugin/registry.rs";
+    let plugin_scanner = "src/app/extensions_adapter/plugin/scanner.rs";
+    let plugin_source_import = "src/app/extensions_adapter/plugin/source_import.rs";
+    let plugin_tests = "src/app/extensions_adapter/plugin/tests.rs";
+    let skill_adapter = "src/app/extensions_adapter/skill.rs";
     for target in [hook, skill, plugin] {
         assert!(
             Path::new(target).is_file(),
@@ -1446,42 +3442,225 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         }
     }
 
-    for (facade, moved_definition) in [
-        ("src/hooks.rs", "enum HookStatus"),
-        ("src/hooks.rs", "fn resolve_conflict"),
-        ("src/skill.rs", "struct SkillManifest"),
-        ("src/skill.rs", "fn validate_transition"),
-        ("src/plugin.rs", "struct PluginCapability"),
-        ("src/plugin.rs", "fn parse_codex_skill"),
-        ("src/plugin.rs", "fn apply_manifest_risk_markers"),
+    for target in [
+        hooks_adapter,
+        plugin_adapter,
+        plugin_execution,
+        plugin_registry,
+        plugin_scanner,
+        plugin_source_import,
+        plugin_tests,
+        skill_adapter,
     ] {
-        let source = fs::read_to_string(facade).unwrap();
-        let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
         assert!(
-            !production.contains(moved_definition),
-            "legacy extension facade retains moved rule: {facade} -> {moved_definition}"
+            Path::new(target).is_file(),
+            "missing v0.37.13 extension adapter: {target}"
+        );
+    }
+    let adapter_mod = fs::read_to_string("src/app/extensions_adapter.rs").unwrap();
+    for child in ["hooks", "plugin", "skill"] {
+        let expected = format!("pub(crate) mod {child};");
+        assert!(
+            adapter_mod.lines().any(|line| line == expected),
+            "extension adapter child is not crate-private: {child}"
         );
     }
 
-    let hooks_facade = fs::read_to_string("src/hooks.rs").unwrap();
-    let skill_facade = fs::read_to_string("src/skill.rs").unwrap();
-    let plugin_facade = fs::read_to_string("src/plugin.rs").unwrap();
+    for (adapter, moved_definition) in [
+        (hooks_adapter, "enum HookStatus"),
+        (hooks_adapter, "fn resolve_conflict"),
+        (skill_adapter, "struct SkillManifest"),
+        (skill_adapter, "fn validate_transition"),
+        (plugin_adapter, "struct PluginCapability"),
+        (plugin_adapter, "fn parse_codex_skill"),
+        (plugin_adapter, "fn apply_manifest_risk_markers"),
+    ] {
+        let source = fs::read_to_string(adapter).unwrap();
+        let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
+        assert!(
+            !production.contains(moved_definition),
+            "extension adapter retains moved rule: {adapter} -> {moved_definition}"
+        );
+    }
+
+    for legacy in ["src/hooks.rs", "src/plugin.rs", "src/skill.rs"] {
+        assert!(
+            !Path::new(legacy).exists(),
+            "legacy extension root was restored: {legacy}"
+        );
+    }
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    for legacy_mod in ["mod hooks;", "mod plugin;", "mod skill;"] {
+        assert!(
+            !main.lines().any(|line| line == legacy_mod),
+            "legacy extension root remains registered: {legacy_mod}"
+        );
+    }
+
+    let hooks_adapter = fs::read_to_string(hooks_adapter).unwrap();
+    let skill_adapter = fs::read_to_string(skill_adapter).unwrap();
+    let plugin_adapter = fs::read_to_string(plugin_adapter).unwrap();
+    let plugin_execution = fs::read_to_string(plugin_execution).unwrap();
+    let plugin_scanner = fs::read_to_string(plugin_scanner).unwrap();
+    let plugin_source_import = fs::read_to_string(plugin_source_import).unwrap();
+    let plugin_tests = fs::read_to_string(plugin_tests).unwrap();
     assert!(
-        hooks_facade.lines().count() <= 300,
-        "hooks facade regrew beyond the v0.37.11 boundary"
+        plugin_adapter.lines().any(|line| line == "mod execution;"),
+        "plugin adapter does not register its execution validation owner"
+    );
+    for responsibility in [
+        "pub fn resolve_imported_codex_skill(",
+        "fn resolve_imported_codex_skill_inner(",
+        "pub fn revalidate_completed_codex_skill(",
+        "fn verify_execution_metadata(",
+    ] {
+        assert!(
+            plugin_execution.contains(responsibility),
+            "plugin execution owner is missing: {responsibility}"
+        );
+        assert!(
+            !plugin_adapter.contains(responsibility),
+            "plugin adapter still owns execution validation: {responsibility}"
+        );
+    }
+    assert!(
+        plugin_adapter
+            .lines()
+            .any(|line| line == "mod source_import;"),
+        "plugin adapter does not register its source import owner"
+    );
+    for responsibility in [
+        "pub(super) struct SourcePlugin",
+        "pub(super) fn inspect_source_plugin(",
+        "pub(super) fn normalize_plugin(",
+    ] {
+        assert!(
+            plugin_source_import.contains(responsibility),
+            "plugin source import owner is missing: {responsibility}"
+        );
+        assert!(
+            !plugin_adapter.contains(responsibility),
+            "plugin adapter still owns source import normalization: {responsibility}"
+        );
+    }
+    assert!(
+        plugin_adapter.lines().any(|line| line == "mod scanner;"),
+        "plugin adapter does not register its scanner owner"
     );
     assert!(
-        skill_facade.lines().count() <= 250,
-        "skill facade regrew beyond the v0.37.11 boundary"
+        plugin_adapter.lines().any(|line| line == "mod registry;"),
+        "plugin adapter does not register its registry owner"
+    );
+    let plugin_registry = fs::read_to_string(plugin_registry).unwrap();
+    for responsibility in [
+        "pub(super) struct PluginSnapshot",
+        "pub(super) fn persist_plugin(",
+        "pub(super) fn verify_imported_snapshot(",
+        "pub(super) fn read_plugins(",
+        "pub(super) fn read_plugin(",
+        "pub(super) fn write_plugin_manifest(",
+        "pub(super) fn write_validation_report(",
+    ] {
+        assert!(
+            plugin_registry.contains(responsibility),
+            "plugin registry owner is missing: {responsibility}"
+        );
+        assert!(
+            !plugin_adapter.contains(responsibility),
+            "plugin adapter still owns registry behavior: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) struct DirectoryScan",
+        "pub(super) fn scan_directory(",
+        "pub(super) fn copy_dir_recursive(",
+        "fn classify_runtime_file(",
+        "pub(super) fn sha256_directory_snapshot(",
+        "fn collect_snapshot_entries(",
+    ] {
+        assert!(
+            plugin_scanner.contains(responsibility),
+            "plugin scanner owner is missing: {responsibility}"
+        );
+        assert!(
+            !plugin_adapter.contains(responsibility),
+            "plugin adapter still owns scanner behavior: {responsibility}"
+        );
+    }
+    assert!(
+        plugin_adapter.contains("#[path = \"plugin/tests.rs\"]"),
+        "plugin adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn codex_import_persists_manifest_and_registry(",
+        "fn validate_blocks_imported_source_drift(",
+        "fn tampered_normalized_capability_summary_cannot_admit_scripted_skill(",
+        "fn path_traversal_plugin_import_is_blocked(",
+    ] {
+        assert!(
+            plugin_tests.contains(regression),
+            "plugin regression owner is missing: {regression}"
+        );
+        assert!(
+            !plugin_adapter.contains(regression),
+            "plugin adapter still owns regression test: {regression}"
+        );
+    }
+    assert!(
+        hooks_adapter.lines().count() <= 300,
+        "hooks adapter regrew beyond the v0.37.13 boundary"
     );
     assert!(
-        plugin_facade.lines().count() <= 1_750,
-        "plugin facade regrew beyond the v0.37.11 boundary"
+        skill_adapter.lines().count() <= 250,
+        "skill adapter regrew beyond the v0.37.13 boundary"
+    );
+    assert!(
+        plugin_adapter.lines().count() < 375,
+        "plugin adapter regrew beyond the v0.37.13 boundary"
+    );
+    assert!(
+        plugin_execution.lines().count() < 250,
+        "plugin execution module regrew beyond its ownership boundary"
+    );
+    assert!(
+        plugin_source_import.lines().count() < 175,
+        "plugin source import module regrew beyond its ownership boundary"
+    );
+    assert!(
+        plugin_registry.lines().count() < 350,
+        "plugin registry module regrew beyond its ownership boundary"
+    );
+    assert!(
+        plugin_scanner.lines().count() < 450,
+        "plugin scanner module regrew beyond its ownership boundary"
+    );
+    assert!(
+        plugin_tests.lines().count() < 450,
+        "plugin regression module regrew beyond its ownership boundary"
     );
 }
 
 #[test]
 fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_policy() {
+    let subagent_adapter = "src/app/collaboration_adapter/subagent.rs";
+    let subagent_execution = "src/app/collaboration_adapter/subagent/execution.rs";
+    let subagent_persistence = "src/app/collaboration_adapter/subagent/persistence.rs";
+    let subagent_tests = "src/app/collaboration_adapter/subagent/tests.rs";
+    let subagent_launch = "src/runtime_core/collaboration/subagent/launch.rs";
+    let subagent_record_codec = "src/runtime_core/collaboration/subagent/record_codec.rs";
+    let subagent_result_evidence = "src/runtime_core/collaboration/subagent_result/evidence.rs";
+    let team_adapter = "src/app/collaboration_adapter/team.rs";
+    let team_admission = "src/app/collaboration_adapter/team/admission.rs";
+    let team_tests = "src/app/collaboration_adapter/team/tests.rs";
+    let team_execution_adapter = "src/app/collaboration_adapter/team_execution.rs";
+    let team_execution_admission = "src/app/collaboration_adapter/team_execution/admission.rs";
+    let team_execution_events = "src/app/collaboration_adapter/team_execution/events.rs";
+    let team_execution_tests = "src/app/collaboration_adapter/team_execution/tests.rs";
+    let team_reconciliation_adapter = "src/app/collaboration_adapter/team_reconciliation.rs";
+    let team_state_adapter = "src/app/collaboration_adapter/team_state.rs";
+    let team_state_events = "src/app/collaboration_adapter/team_state/events.rs";
+    let team_state_persistence = "src/app/collaboration_adapter/team_state/persistence.rs";
+    let team_state_tests = "src/app/collaboration_adapter/team_state/tests.rs";
     let owners: &[(&str, &[&str])] = &[
         (
             "src/runtime_core/collaboration/subagent.rs",
@@ -1489,10 +3668,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
                 "enum SubagentRole",
                 "enum SubagentStatus",
                 "struct SubagentRecordV1",
-                "fn validate_launch",
-                "fn normalize_relative_path",
                 "fn validate_record",
-                "fn render_record",
             ],
         ),
         (
@@ -1502,8 +3678,6 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
                 "fn parse_result_shape",
                 "fn validate_patch_policy",
                 "fn validate_context_binding",
-                "fn verify_evidence_artifact",
-                "fn render_evidence_payload_v2",
                 "fn validate_bounded_text",
             ],
         ),
@@ -1587,30 +3761,374 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         }
     }
 
+    assert!(Path::new(subagent_execution).is_file());
+    assert!(Path::new(subagent_persistence).is_file());
+    assert!(Path::new(subagent_tests).is_file());
+    assert!(Path::new(subagent_launch).is_file());
+    assert!(Path::new(subagent_record_codec).is_file());
+    assert!(Path::new(subagent_result_evidence).is_file());
+    assert!(Path::new(team_admission).is_file());
+    assert!(Path::new(team_tests).is_file());
+    assert!(Path::new(team_execution_admission).is_file());
+    assert!(Path::new(team_execution_events).is_file());
+    assert!(Path::new(team_execution_tests).is_file());
+    assert!(Path::new(team_state_events).is_file());
+    assert!(Path::new(team_state_persistence).is_file());
+    assert!(Path::new(team_state_tests).is_file());
+    let subagent_source = fs::read_to_string(subagent_adapter).unwrap();
+    let subagent_domain = fs::read_to_string("src/runtime_core/collaboration/subagent.rs").unwrap();
+    let subagent_launch_source = fs::read_to_string(subagent_launch).unwrap();
+    let subagent_record_codec_source = fs::read_to_string(subagent_record_codec).unwrap();
+    let subagent_result_source =
+        fs::read_to_string("src/runtime_core/collaboration/subagent_result.rs").unwrap();
+    let subagent_result_evidence_source = fs::read_to_string(subagent_result_evidence).unwrap();
+    let subagent_execution_source = fs::read_to_string(subagent_execution).unwrap();
+    let subagent_persistence_source = fs::read_to_string(subagent_persistence).unwrap();
+    let subagent_test_source = fs::read_to_string(subagent_tests).unwrap();
+    let team_source = fs::read_to_string(team_adapter).unwrap();
+    let team_admission_source = fs::read_to_string(team_admission).unwrap();
+    let team_test_source = fs::read_to_string(team_tests).unwrap();
+    let team_execution_source = fs::read_to_string(team_execution_adapter).unwrap();
+    let team_execution_admission_source = fs::read_to_string(team_execution_admission).unwrap();
+    let team_execution_events_source = fs::read_to_string(team_execution_events).unwrap();
+    let team_execution_test_source = fs::read_to_string(team_execution_tests).unwrap();
+    let team_state_source = fs::read_to_string(team_state_adapter).unwrap();
+    let team_state_event_source = fs::read_to_string(team_state_events).unwrap();
+    let team_state_persistence_source = fs::read_to_string(team_state_persistence).unwrap();
+    let team_state_test_source = fs::read_to_string(team_state_tests).unwrap();
+    assert!(
+        subagent_source.lines().any(|line| line == "mod execution;"),
+        "subagent adapter does not register its execution owner"
+    );
+    assert!(
+        subagent_domain.lines().any(|line| line == "mod launch;"),
+        "subagent domain does not register its launch policy owner"
+    );
+    for responsibility in [
+        "pub fn validate_launch(",
+        "pub(crate) fn normalize_tools(",
+        "pub(crate) fn normalize_paths(",
+        "pub(crate) fn normalize_relative_path(",
+    ] {
+        assert!(
+            subagent_launch_source.contains(responsibility),
+            "subagent launch policy owner is missing: {responsibility}"
+        );
+        assert!(
+            !subagent_domain.contains(responsibility),
+            "subagent record domain still owns launch policy: {responsibility}"
+        );
+    }
+    assert!(
+        subagent_domain
+            .lines()
+            .any(|line| line == "mod record_codec;"),
+        "subagent domain does not register its record codec owner"
+    );
+    for responsibility in [
+        "pub(crate) fn render_payload(",
+        "pub(crate) fn render_record(",
+        "pub(crate) fn parse_record(",
+        "fn canonical_string(",
+        "fn canonical_string_array(",
+    ] {
+        assert!(
+            subagent_record_codec_source.contains(responsibility),
+            "subagent record codec owner is missing: {responsibility}"
+        );
+        assert!(
+            !subagent_domain.contains(responsibility),
+            "subagent domain still owns record codec behavior: {responsibility}"
+        );
+    }
+    assert!(
+        subagent_result_source
+            .lines()
+            .any(|line| line == "mod evidence;"),
+        "subagent result domain does not register its evidence policy owner"
+    );
+    for responsibility in [
+        "const EVIDENCE_V2_KEYS",
+        "pub(crate) fn evidence_source_bindings(",
+        "pub(crate) fn verify_evidence_artifact(",
+        "pub(crate) fn render_evidence_payload_v2(",
+        "pub(crate) fn evidence_id(",
+        "pub(crate) fn installable_evidence_body(",
+    ] {
+        assert!(
+            subagent_result_evidence_source.contains(responsibility),
+            "subagent evidence policy owner is missing: {responsibility}"
+        );
+        assert!(
+            !subagent_result_source.contains(responsibility),
+            "subagent result domain still owns evidence policy: {responsibility}"
+        );
+    }
+    assert!(
+        subagent_source
+            .lines()
+            .any(|line| line == "mod persistence;"),
+        "subagent adapter does not register its persistence owner"
+    );
+    assert!(
+        subagent_source.contains("#[path = \"subagent/tests.rs\"]"),
+        "subagent adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn launch_contract_enforces_role_tool_and_write_boundaries(",
+        "fn canonical_state_round_trips_and_preserves_hash_chain(",
+        "fn dispatch_completes_and_merges_evidence_once(",
+        "fn stale_running_child_recovers_as_failed_without_backend_replay(",
+    ] {
+        assert!(
+            subagent_test_source.contains(regression),
+            "subagent regression owner is missing: {regression}"
+        );
+    }
+    assert!(
+        team_state_source.lines().any(|line| line == "mod events;"),
+        "team state adapter does not register its event persistence owner"
+    );
+    for responsibility in [
+        "pub(super) fn append_planned_event_if_missing(",
+        "pub(super) fn append_stage_event_if_missing(",
+    ] {
+        assert!(
+            team_state_event_source.contains(responsibility),
+            "team state event owner is missing: {responsibility}"
+        );
+        assert!(
+            !team_state_source.contains(responsibility),
+            "team state adapter still owns event persistence: {responsibility}"
+        );
+    }
+    assert!(
+        team_state_source
+            .lines()
+            .any(|line| line == "mod persistence;"),
+        "team state adapter does not register its persistence owner"
+    );
+    for responsibility in [
+        "pub(super) fn install_cancel_marker(",
+        "pub(super) fn parse_cancel_marker(",
+        "pub(super) fn install_manifest(",
+        "pub(super) fn load_state_unlocked(",
+        "pub(super) fn install_snapshot(",
+        "pub(super) fn verify_snapshot_chain(",
+    ] {
+        assert!(
+            team_state_persistence_source.contains(responsibility),
+            "team state persistence owner is missing: {responsibility}"
+        );
+        assert!(
+            !team_state_source.contains(responsibility),
+            "team state adapter still owns persistence: {responsibility}"
+        );
+    }
+    assert!(
+        team_state_source.contains("#[path = \"team_state/tests.rs\"]"),
+        "team state adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn plan_persists_canonical_manifest_and_hash_chained_state(",
+        "fn stage_machine_allows_only_ordered_runtime_transitions(",
+        "fn cancellation_marker_is_durable_idempotent_and_hash_bound(",
+        "fn tampered_current_state_is_rejected_against_artifact_hash(",
+    ] {
+        assert!(
+            team_state_test_source.contains(regression),
+            "team state regression owner is missing: {regression}"
+        );
+        assert!(
+            !team_state_source.contains(regression),
+            "team state adapter still owns regression test: {regression}"
+        );
+    }
+    assert!(
+        team_source.lines().any(|line| line == "mod admission;"),
+        "team adapter does not register its admission preparation owner"
+    );
+    for responsibility in [
+        "pub(super) struct RecordedApprovalRequest",
+        "pub(super) fn classify_policy_inputs(",
+        "pub(super) fn normalize_ownership_claims(",
+        "fn normalize_ownership_path(",
+        "pub(super) fn record_approval_request(",
+    ] {
+        assert!(
+            team_admission_source.contains(responsibility),
+            "team admission owner is missing: {responsibility}"
+        );
+        assert!(
+            !team_source.contains(responsibility),
+            "team adapter still owns admission preparation: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(crate) struct WorkerGeneration",
+        "pub(crate) struct PreparedTeamMember",
+        "pub(crate) struct CompletedTeamMember",
+        "pub(crate) fn terminalize_interrupted_team_members(",
+        "pub(crate) fn execute_admitted_team_member_with(",
+        "pub(crate) fn prepare_team_members(",
+        "pub(crate) fn execute_prepared_team_member_with(",
+        "fn execute_prepared_launch(",
+        "fn complete_generation(",
+        "fn merge_completed_result(",
+        "fn recover_completed_parent_merges(",
+    ] {
+        assert!(
+            subagent_execution_source.contains(responsibility),
+            "subagent execution owner is missing: {responsibility}"
+        );
+        assert!(
+            !subagent_source.contains(responsibility),
+            "subagent adapter still owns execution: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "impl SubagentRecordV1",
+        "pub fn create_record(",
+        "pub fn checkpoint_record(",
+        "pub fn load_record(",
+        "pub(crate) fn records_for_parent(",
+        "fn load_record_unlocked(",
+        "fn install_snapshot(",
+        "fn verify_snapshot_chain(",
+    ] {
+        assert!(
+            subagent_persistence_source.contains(responsibility),
+            "subagent persistence owner is missing: {responsibility}"
+        );
+        assert!(
+            !subagent_source.contains(responsibility),
+            "subagent adapter still owns persistence: {responsibility}"
+        );
+    }
+    assert!(
+        team_source.contains("#[path = \"team/tests.rs\"]"),
+        "team adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn admission_allows_parallel_and_records_ledger_event(",
+        "fn admission_blocks_cross_lane_file_ownership_conflict(",
+        "fn dispatch_enforces_file_ownership_at_dispatch_time(",
+        "fn governor_blocks_critical_pressure_and_records_ledger_event(",
+    ] {
+        assert!(
+            team_test_source.contains(regression),
+            "team regression owner is missing: {regression}"
+        );
+        assert!(
+            !team_source.contains(regression),
+            "team adapter still owns regression test: {regression}"
+        );
+    }
+    assert!(
+        team_execution_source
+            .lines()
+            .any(|line| line == "mod admission;"),
+        "team execution adapter does not register its admission recovery owner"
+    );
+    for responsibility in [
+        "pub(super) fn recover_or_admit_execution(",
+        "pub(super) fn team_launches(",
+        "fn admitted_worker_bindings(",
+        "fn fail_interrupted_execution(",
+        "pub(super) fn enforce_action_ownership(",
+    ] {
+        assert!(
+            team_execution_admission_source.contains(responsibility),
+            "team execution admission owner is missing: {responsibility}"
+        );
+        assert!(
+            !team_execution_source.contains(responsibility),
+            "team execution adapter still owns admission recovery: {responsibility}"
+        );
+    }
+    assert!(
+        team_execution_source
+            .lines()
+            .any(|line| line == "mod events;"),
+        "team execution adapter does not register its event persistence owner"
+    );
+    for responsibility in [
+        "pub(super) fn append_execution_blocked(",
+        "pub(super) fn append_action_event(",
+        "pub(super) fn append_worker_event(",
+        "fn has_exact_event(",
+    ] {
+        assert!(
+            team_execution_events_source.contains(responsibility),
+            "team execution event owner is missing: {responsibility}"
+        );
+        assert!(
+            !team_execution_source.contains(responsibility),
+            "team execution adapter still owns event persistence: {responsibility}"
+        );
+    }
+    assert!(
+        team_execution_source.contains("#[path = \"team_execution/tests.rs\"]"),
+        "team execution adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn dispatch_retry_resumes_fully_admitted_workers_without_duplicate_admission(",
+        "fn cancel_cannot_cross_the_admission_operation_barrier(",
+        "fn worker_failure_collects_remaining_results_and_terminalizes_team(",
+        "fn source_change_after_worker_completion_blocks_before_parent_evidence_merge(",
+    ] {
+        assert!(
+            team_execution_test_source.contains(regression),
+            "team execution regression owner is missing: {regression}"
+        );
+        assert!(
+            !team_execution_source.contains(regression),
+            "team execution adapter still owns regression test: {regression}"
+        );
+    }
+
     for (facade, moved_definition) in [
-        ("src/subagent.rs", "pub enum SubagentRole"),
-        ("src/subagent.rs", "pub struct SubagentRecordV1"),
-        ("src/subagent.rs", "fn validate_record"),
-        ("src/subagent.rs", "fn render_record"),
-        ("src/subagent.rs", "fn normalize_paths"),
-        ("src/subagent_result.rs", "const RESULT_KEYS"),
-        ("src/subagent_result.rs", "const EVIDENCE_V2_KEYS"),
-        ("src/subagent_result.rs", "fn validate_patch"),
-        ("src/subagent_result.rs", "fn verify_evidence_artifact"),
-        ("src/subagent_result.rs", "fn render_evidence_payload_v2"),
-        ("src/subagent_result.rs", "fn validate_bounded_text"),
-        ("src/team.rs", "struct ContinuationDecision"),
-        ("src/team.rs", "struct PolicyGate"),
-        ("src/team.rs", "fn policy_preflight"),
-        ("src/team.rs", "fn ownership_preflight"),
-        ("src/team.rs", "fn admission_summary"),
-        ("src/team_execution.rs", "fn pressure_from_status"),
-        ("src/team_execution.rs", "fn record_matches_team"),
-        ("src/team_reconciliation.rs", "fn validate_team_binding"),
-        ("src/team_reconciliation.rs", "fn validate_member_record"),
-        ("src/team_state.rs", "pub enum TeamStage"),
-        ("src/team_state.rs", "fn parse_members"),
-        ("src/team_state.rs", "fn render_state"),
+        (subagent_adapter, "pub enum SubagentRole"),
+        (subagent_adapter, "pub struct SubagentRecordV1"),
+        (subagent_adapter, "fn validate_record"),
+        (subagent_adapter, "fn render_record"),
+        (subagent_adapter, "fn normalize_paths"),
+        (
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "const RESULT_KEYS",
+        ),
+        (
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "const EVIDENCE_V2_KEYS",
+        ),
+        (
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "fn validate_patch",
+        ),
+        (
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "fn verify_evidence_artifact",
+        ),
+        (
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "fn render_evidence_payload_v2",
+        ),
+        (
+            "src/app/collaboration_adapter/subagent_result.rs",
+            "fn validate_bounded_text",
+        ),
+        (team_adapter, "struct ContinuationDecision"),
+        (team_adapter, "struct PolicyGate"),
+        (team_adapter, "fn policy_preflight"),
+        (team_adapter, "fn ownership_preflight"),
+        (team_adapter, "fn admission_summary"),
+        (team_execution_adapter, "fn pressure_from_status"),
+        (team_execution_adapter, "fn record_matches_team"),
+        (team_reconciliation_adapter, "fn validate_team_binding"),
+        (team_reconciliation_adapter, "fn validate_member_record"),
+        (team_state_adapter, "pub enum TeamStage"),
+        (team_state_adapter, "fn parse_members"),
+        (team_state_adapter, "fn render_state"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
@@ -1621,18 +4139,18 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     }
 
     for (facade, delegation) in [
-        ("src/subagent.rs", "collaboration::subagent::*"),
+        (subagent_adapter, "collaboration::subagent::*"),
         (
-            "src/subagent_result.rs",
+            "src/app/collaboration_adapter/subagent_result.rs",
             "result_policy::parse_result_shape",
         ),
-        ("src/team.rs", "collaboration::team"),
-        ("src/team_execution.rs", "validate_execution_binding"),
+        (team_adapter, "collaboration::team"),
+        (team_execution_adapter, "validate_execution_binding"),
         (
-            "src/team_reconciliation.rs",
+            team_reconciliation_adapter,
             "validate_reconciliation_binding",
         ),
-        ("src/team_state.rs", "collaboration::team_state"),
+        (team_state_adapter, "collaboration::team_state"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
@@ -1642,17 +4160,119 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     }
 
     for (facade, maximum_lines) in [
-        ("src/subagent.rs", 2_400),
-        ("src/subagent_result.rs", 800),
-        ("src/team.rs", 1_400),
-        ("src/team_execution.rs", 1_300),
-        ("src/team_reconciliation.rs", 550),
-        ("src/team_state.rs", 850),
+        (subagent_adapter, 500),
+        ("src/app/collaboration_adapter/subagent_result.rs", 800),
+        (team_adapter, 600),
+        (team_execution_adapter, 325),
+        (team_reconciliation_adapter, 550),
+        (team_state_adapter, 400),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
             source.lines().count() <= maximum_lines,
             "collaboration facade regrew beyond the v0.37.12 boundary: {facade}"
+        );
+    }
+    assert!(
+        subagent_execution_source.lines().count() < 600,
+        "subagent execution module regrew beyond its ownership boundary"
+    );
+    assert!(
+        subagent_domain.lines().count() < 450,
+        "subagent domain regrew beyond its ownership boundary"
+    );
+    assert!(subagent_launch_source.lines().count() < 225);
+    assert!(
+        subagent_record_codec_source.lines().count() < 250,
+        "subagent record codec regrew beyond its ownership boundary"
+    );
+    assert!(
+        subagent_result_source.lines().count() < 350,
+        "subagent result policy regrew beyond its ownership boundary"
+    );
+    assert!(
+        subagent_result_evidence_source.lines().count() < 300,
+        "subagent evidence policy regrew beyond its ownership boundary"
+    );
+    assert!(
+        subagent_persistence_source.lines().count() < 325,
+        "subagent persistence module regrew beyond its ownership boundary"
+    );
+    assert!(
+        subagent_test_source.lines().count() < 675,
+        "subagent regression module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_test_source.lines().count() < 525,
+        "team regression module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_admission_source.lines().count() < 250,
+        "team admission module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_execution_admission_source.lines().count() < 300,
+        "team execution admission module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_execution_events_source.lines().count() < 125,
+        "team execution event module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_execution_test_source.lines().count() < 650,
+        "team execution regression module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_state_event_source.lines().count() < 100,
+        "team state event module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_state_persistence_source.lines().count() < 250,
+        "team state persistence module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_state_test_source.lines().count() < 225,
+        "team state regression module regrew beyond its ownership boundary"
+    );
+
+    for legacy in [
+        "src/subagent.rs",
+        "src/team.rs",
+        "src/team_execution.rs",
+        "src/team_reconciliation.rs",
+        "src/team_state.rs",
+    ] {
+        assert!(
+            !Path::new(legacy).exists(),
+            "legacy collaboration root was restored: {legacy}"
+        );
+    }
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    for legacy_mod in [
+        "mod subagent;",
+        "mod team;",
+        "mod team_execution;",
+        "mod team_reconciliation;",
+        "mod team_state;",
+        "pub mod team_state;",
+    ] {
+        assert!(
+            !main.lines().any(|line| line == legacy_mod),
+            "legacy collaboration root remains registered: {legacy_mod}"
+        );
+    }
+    let adapter_mod = fs::read_to_string("src/app/collaboration_adapter.rs").unwrap();
+    for child in [
+        "subagent",
+        "team",
+        "team_execution",
+        "team_reconciliation",
+        "team_state",
+    ] {
+        let expected = format!("pub(crate) mod {child};");
+        assert!(
+            adapter_mod.lines().any(|line| line == expected),
+            "collaboration adapter is not registered: {child}"
         );
     }
 
@@ -1666,6 +4286,1382 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         fs::read_to_string("tests/team_runtime.rs").unwrap().trim(),
         "include!(\"collaboration/team_runtime.rs\");"
     );
+    assert!(!Path::new("src/subagent_result.rs").exists());
+    assert!(Path::new("src/app/collaboration_adapter.rs").is_file());
+    assert!(Path::new("src/app/collaboration_adapter/subagent_result.rs").is_file());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod subagent_result;"));
+}
+
+#[test]
+fn v03713_cli_surface_owners_replace_legacy_module() {
+    let owner = fs::read_to_string("src/surfaces/cli/command.rs").unwrap();
+    for definition in [
+        "pub enum Command",
+        "pub enum TeamCommand",
+        "pub enum BackendCommand",
+        "pub enum PluginCommand",
+        "pub enum UninstallCommand",
+    ] {
+        assert!(
+            owner.contains(definition),
+            "CLI command owner is missing definition: {definition}"
+        );
+    }
+
+    let parser_path = "src/surfaces/cli/parser.rs";
+    let backend_parser_path = "src/surfaces/cli/parser/backend.rs";
+    let collaboration_parser_path = "src/surfaces/cli/parser/collaboration.rs";
+    let observability_parser_path = "src/surfaces/cli/parser/observability.rs";
+    let patch_parser_path = "src/surfaces/cli/parser/patch.rs";
+    let plugin_parser_path = "src/surfaces/cli/parser/plugin.rs";
+    let parser_tests_path = "src/surfaces/cli/parser/tests/mod.rs";
+    assert!(Path::new(backend_parser_path).is_file());
+    assert!(Path::new(collaboration_parser_path).is_file());
+    assert!(Path::new(observability_parser_path).is_file());
+    assert!(Path::new(patch_parser_path).is_file());
+    assert!(Path::new(plugin_parser_path).is_file());
+    assert!(Path::new(parser_tests_path).is_file());
+    let parser = fs::read_to_string(parser_path).unwrap();
+    let backend_parser = fs::read_to_string(backend_parser_path).unwrap();
+    let collaboration_parser = fs::read_to_string(collaboration_parser_path).unwrap();
+    let observability_parser = fs::read_to_string(observability_parser_path).unwrap();
+    let patch_parser = fs::read_to_string(patch_parser_path).unwrap();
+    let plugin_parser = fs::read_to_string(plugin_parser_path).unwrap();
+    let parser_tests = fs::read_to_string(parser_tests_path).unwrap();
+    assert!(parser.contains("pub fn parse"));
+    assert!(parser.contains("surfaces::cli::command::*"));
+    assert!(
+        parser.lines().any(|line| line == "mod backend;"),
+        "CLI parser does not register the backend command-family owner"
+    );
+    assert!(
+        parser.lines().any(|line| line == "mod collaboration;"),
+        "CLI parser does not register the collaboration command-family owner"
+    );
+    assert!(
+        parser.lines().any(|line| line == "mod observability;"),
+        "CLI parser does not register the observability command-family owner"
+    );
+    assert!(
+        parser.lines().any(|line| line == "mod patch;"),
+        "CLI parser does not register the patch command-family owner"
+    );
+    assert!(
+        parser.lines().any(|line| line == "mod plugin;"),
+        "CLI parser does not register the plugin command-family owner"
+    );
+    for responsibility in [
+        "pub(super) fn parse_backend_start(",
+        "pub(super) fn parse_backend_chat(",
+    ] {
+        assert!(
+            !parser.contains(responsibility),
+            "backend parser responsibility escaped into CLI facade: {responsibility}"
+        );
+        assert!(
+            backend_parser.contains(responsibility),
+            "backend parser is missing responsibility: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) fn parse_team_plan_args(",
+        "pub(super) fn parse_team_admit_args(",
+        "pub(super) fn parse_team_dispatch_args(",
+        "pub(super) fn parse_team_governor_args(",
+        "pub(super) fn parse_subagent_launch_args(",
+    ] {
+        assert!(
+            !parser.contains(responsibility),
+            "collaboration parser responsibility escaped into CLI facade: {responsibility}"
+        );
+        assert!(
+            collaboration_parser.contains(responsibility),
+            "collaboration parser is missing responsibility: {responsibility}"
+        );
+    }
+    let plugin_parser_responsibility = "pub(super) fn parse_plugin_import(";
+    assert!(
+        !parser.contains(plugin_parser_responsibility),
+        "plugin parser responsibility escaped into CLI facade: {plugin_parser_responsibility}"
+    );
+    assert!(
+        plugin_parser.contains(plugin_parser_responsibility),
+        "plugin parser is missing responsibility: {plugin_parser_responsibility}"
+    );
+    for responsibility in [
+        "pub(super) fn parse_patch_preview(",
+        "pub(super) fn parse_patch_approve(",
+        "pub(super) fn parse_patch_verify(",
+    ] {
+        assert!(
+            !parser.contains(responsibility),
+            "patch parser responsibility escaped into CLI facade: {responsibility}"
+        );
+        assert!(
+            patch_parser.contains(responsibility),
+            "patch parser is missing responsibility: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) fn parse_monitor_export(",
+        "pub(super) fn parse_monitor_prune(",
+        "pub(super) fn parse_ontology_context(",
+        "pub(super) fn parse_ontology_import(",
+        "pub(super) fn parse_benchmark_run(",
+        "pub(super) fn parse_benchmark_report(",
+    ] {
+        assert!(
+            !parser.contains(responsibility),
+            "observability parser responsibility escaped into CLI facade: {responsibility}"
+        );
+        assert!(
+            observability_parser.contains(responsibility),
+            "observability parser is missing responsibility: {responsibility}"
+        );
+    }
+    assert!(parser.contains("#[path = \"parser/tests/mod.rs\"]"));
+    for responsibility in [
+        "fn parses_subagent_launch_status_and_cancel(",
+        "fn parses_backend_chat(",
+        "fn parses_patch_approve_dry_run(",
+        "fn parses_team_governor(",
+        "fn parses_uninstall_dry_run_purge_cache(",
+    ] {
+        assert!(
+            parser_tests.contains(responsibility),
+            "CLI parser regression tests are missing responsibility: {responsibility}"
+        );
+    }
+    assert!(
+        parser.lines().count() < 590,
+        "CLI parser production module regrew beyond its command-family extraction boundary"
+    );
+    assert!(
+        backend_parser.lines().count() < 160,
+        "backend parser regrew beyond its ownership boundary"
+    );
+    assert!(
+        collaboration_parser.lines().count() < 550,
+        "collaboration parser regrew beyond its ownership boundary"
+    );
+    assert!(
+        observability_parser.lines().count() < 300,
+        "observability parser regrew beyond its ownership boundary"
+    );
+    assert!(
+        patch_parser.lines().count() < 170,
+        "patch parser regrew beyond its ownership boundary"
+    );
+    assert!(
+        plugin_parser.lines().count() < 80,
+        "plugin parser regrew beyond its ownership boundary"
+    );
+    assert!(
+        parser_tests.lines().count() < 1_500,
+        "CLI parser regression module regrew beyond its ownership boundary"
+    );
+
+    let render = fs::read_to_string("src/surfaces/cli/render.rs").unwrap();
+    assert!(render.contains("const HELP"));
+    assert!(!parser.contains("const HELP"));
+
+    assert!(
+        !Path::new("src/cli.rs").exists(),
+        "legacy CLI module remains after surface migration"
+    );
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod cli;"));
+}
+
+#[test]
+fn v03713_binary_entrypoint_delegates_process_outcome_to_startup() {
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(main.contains("composition::startup::run"));
+    assert!(!main.contains("pub fn run"));
+    assert!(!Path::new("src/lib.rs").exists());
+    assert!(!main.contains("eprintln!"));
+    assert!(!main.contains("match app::run"));
+
+    let startup = fs::read_to_string("src/composition/startup.rs").unwrap();
+    assert!(startup.contains("korean_guard::guard_or_failure"));
+    assert!(startup.contains("ExitCode::from(err.code)"));
+}
+
+#[test]
+fn v03713_uninstall_plan_uses_composition_and_filesystem_owners() {
+    let composition = fs::read_to_string("src/composition/uninstall.rs").unwrap();
+    assert!(composition.contains("uninstall::managed_paths"));
+    assert!(composition.contains("pub(crate) fn plan_report"));
+
+    let adapter = fs::read_to_string("src/adapters/filesystem/uninstall.rs").unwrap();
+    assert!(adapter.contains("struct ManagedUninstallPaths"));
+    assert!(adapter.contains("pub(crate) fn managed_paths"));
+
+    assert!(!Path::new("src/uninstall.rs").exists());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod uninstall;"));
+}
+
+#[test]
+fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
+    assert!(!Path::new("src/test_support.rs").exists());
+    assert!(Path::new("tests/support/runtime_fixture.rs").is_file());
+
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(main.contains("#[path = \"../tests/support/runtime_fixture.rs\"]"));
+    assert!(main.contains("mod test_support;"));
+}
+
+#[test]
+fn v03713_tui_bridge_owns_read_and_selection_dtos() {
+    let tui_adapter = "src/app/tui_adapter.rs";
+    let tui_tests = "src/app/tui_adapter/tests.rs";
+    assert!(Path::new(tui_adapter).is_file());
+    assert!(Path::new(tui_tests).is_file());
+    assert!(!Path::new("src/tui.rs").exists());
+    assert!(!Path::new("src/tui").exists());
+
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod tui;"));
+    let app_root = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod tui_adapter;"),
+        "application root does not register the TUI adapter"
+    );
+    let bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
+    for definition in [
+        "struct TuiReadBudget",
+        "enum TuiReadRequest",
+        "struct TuiReadPage",
+        "struct SelectionLease",
+        "struct SelectionObservation",
+        "enum TuiFreshness",
+        "enum TuiIntent",
+        "struct OneShotSecret",
+        "fn new_tui_intent_id",
+        "fn lease_matches_active_workflow",
+        "fn lease_matches_terminal_selection",
+    ] {
+        assert!(
+            bridge.contains(definition),
+            "TUI runtime bridge is missing {definition}"
+        );
+    }
+
+    let outcome_path = "src/surfaces/tui/outcome.rs";
+    let outcome_oracle_path = "src/surfaces/tui/outcome/oracle.rs";
+    assert!(Path::new(outcome_oracle_path).is_file());
+    let outcome = fs::read_to_string(outcome_path).unwrap();
+    let outcome_oracle = fs::read_to_string(outcome_oracle_path).unwrap();
+    assert!(
+        outcome.lines().any(|line| line == "mod oracle;"),
+        "TUI outcome owner does not register its exact oracle"
+    );
+    for definition in [
+        "enum TuiOutcomeCode",
+        "struct TuiOutcome",
+        "fn unsupported_source_platform_outcome",
+        "fn validate_tui_id",
+    ] {
+        assert!(
+            outcome.contains(definition),
+            "TUI outcome owner is missing {definition}"
+        );
+    }
+    for definition in [
+        "pub(crate) fn exact_tui_outcome(",
+        "fn required_outcome_id",
+        "fn required_outcome_phase",
+        "fn required_outcome_platform",
+        "fn corrupt_outcome_placeholder",
+    ] {
+        assert!(
+            outcome_oracle.contains(definition),
+            "TUI outcome oracle is missing {definition}"
+        );
+        assert!(
+            !outcome.contains(definition),
+            "TUI outcome DTO owner still owns exact oracle behavior: {definition}"
+        );
+    }
+    assert!(outcome.lines().count() < 250);
+    assert!(outcome_oracle.lines().count() < 425);
+
+    let runtime = fs::read_to_string("src/app/runtime_adapter.rs").unwrap();
+    assert!(!runtime.contains("pub struct TuiReadBudget"));
+    assert!(!runtime.contains("pub struct SelectionLease"));
+    assert!(!runtime.contains("pub enum TuiIntent"));
+    assert!(!runtime.contains("pub struct OneShotSecret"));
+    assert!(!runtime.contains("pub enum TuiOutcomeCode"));
+    assert!(!runtime.contains("pub struct TuiOutcome"));
+    assert!(!runtime.contains("pub(crate) fn exact_tui_outcome"));
+    assert!(!runtime.contains("fn unsupported_source_platform_outcome"));
+    assert!(!runtime.contains("fn new_tui_intent_id"));
+    assert!(!runtime.contains("fn tui_lease_matches_workflow_under_transition"));
+    assert!(!runtime.contains("fn tui_lease_matches_terminal_selection_under_transition"));
+    assert!(!runtime.contains("fn validate_tui_id"));
+    assert!(!runtime.contains("fn tui_selection_lease"));
+    assert!(!runtime.contains("fn tui_gate_descriptor"));
+    assert!(!runtime.contains("fn dispatch_tui_intent"));
+
+    for legacy_owner in [
+        "src/app/patch_adapter.rs",
+        "src/app/workflow_adapter/state.rs",
+        tui_adapter,
+    ] {
+        let source = fs::read_to_string(legacy_owner).unwrap();
+        for facade_type in [
+            "crate::runtime::SelectionLease",
+            "crate::runtime::TuiGateKind",
+        ] {
+            assert!(
+                !source.contains(facade_type),
+                "{legacy_owner} still imports TUI contract through {facade_type}"
+            );
+        }
+    }
+
+    let tui_read = fs::read_to_string("src/composition/tui_read.rs").unwrap();
+    assert!(tui_read.contains("fn read_tui_page"));
+    assert!(tui_read.contains("trait TuiReadPort"));
+    assert!(tui_read.contains("port.state_snapshot"));
+    assert!(!runtime.contains("fn read_tui_page"));
+
+    let tui_action = fs::read_to_string("src/composition/tui_action.rs").unwrap();
+    for definition in [
+        "trait TuiActionPort",
+        "enum TuiMutationFailure",
+        "fn selection_lease",
+        "fn gate_descriptor",
+        "fn dispatch_intent",
+    ] {
+        assert!(
+            tui_action.contains(definition),
+            "TUI action owner is missing {definition}"
+        );
+    }
+
+    let page = fs::read_to_string("src/surfaces/tui/page.rs").unwrap();
+    for definition in [
+        "fn bounded_budget_for",
+        "fn page_slice",
+        "fn paged_chars",
+        "fn paged_diff",
+        "fn page_has_next",
+        "fn page_continuation",
+        "fn state_page_authority",
+        "fn unavailable_page",
+        "fn build_page",
+    ] {
+        assert!(
+            page.contains(definition),
+            "TUI page owner is missing {definition}"
+        );
+        assert!(
+            !runtime.contains(definition),
+            "legacy runtime still owns {definition}"
+        );
+    }
+
+    let view_model = fs::read_to_string("src/surfaces/tui/view_model.rs").unwrap();
+    for definition in [
+        "enum InteractiveView",
+        "struct InteractiveState",
+        "struct EvidenceReportView",
+        "struct SessionsReportView",
+        "struct SessionSummaryView",
+        "struct OverviewReportView",
+        "struct MonitorReportView",
+        "struct TranscriptReportView",
+        "fn set_view",
+        "fn read_request",
+    ] {
+        assert!(
+            view_model.contains(definition),
+            "TUI view-model owner is missing {definition}"
+        );
+    }
+    let tui_composition = fs::read_to_string(tui_adapter).unwrap();
+    let tui_test_source = fs::read_to_string(tui_tests).unwrap();
+    let report_composition =
+        fs::read_to_string("src/app/tui_adapter/report_composition.rs").unwrap();
+    assert!(tui_test_source.contains("surfaces::tui::view_model"));
+    assert!(tui_composition.contains("impl TuiActionPort for TuiActionAdapter"));
+    assert!(tui_composition.contains("impl TuiReadPort for TuiReadAdapter"));
+    assert!(
+        tui_composition
+            .lines()
+            .any(|line| line == "mod report_composition;"),
+        "TUI adapter does not register report composition owner"
+    );
+    assert!(
+        tui_composition.contains("#[path = \"tui_adapter/tests.rs\"]"),
+        "TUI adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn interactive_view_change_resets_page_and_updates_notice(",
+        "fn one_shot_outcome_writes_secret_once_without_storing_it_in_notice(",
+        "fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection(",
+        "fn approvals_renders_team_admission_request(",
+        "fn evidence_renders_stop_gate_status_without_mutating(",
+    ] {
+        assert!(
+            tui_test_source.contains(regression),
+            "TUI regression owner is missing: {regression}"
+        );
+        assert!(
+            !tui_composition.contains(regression),
+            "TUI adapter still owns regression test: {regression}"
+        );
+    }
+    assert!(!tui_composition.contains("enum InteractiveView"));
+    assert!(!tui_composition.contains("struct InteractiveState"));
+    for responsibility in [
+        "pub fn overview_report(",
+        "pub fn monitor_report(",
+        "pub fn sessions_report(",
+        "pub fn transcript_report(",
+        "pub fn approvals_report(",
+        "pub fn diff_report(",
+        "pub fn evidence_report(",
+    ] {
+        assert!(
+            report_composition.contains(responsibility),
+            "TUI report composition owner is missing {responsibility}"
+        );
+        assert!(
+            !tui_composition.contains(responsibility),
+            "TUI adapter still owns report composition: {responsibility}"
+        );
+    }
+    assert!(
+        tui_composition.lines().count() < 350,
+        "TUI adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        tui_test_source.lines().count() < 550,
+        "TUI regression module regrew beyond its ownership boundary"
+    );
+    assert!(
+        report_composition.lines().count() < 250,
+        "TUI report composition module regrew beyond its ownership boundary"
+    );
+
+    let controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
+    for definition in [
+        "trait TuiRuntimePort",
+        "fn run_controller",
+        "fn terminal_fault_error",
+        "fn consume_outcome",
+    ] {
+        assert!(
+            controller.contains(definition),
+            "TUI controller owner is missing {definition}"
+        );
+    }
+    assert!(!controller.contains("use crate::runtime;"));
+    assert!(!controller.contains("crate::runtime::"));
+    assert!(!controller.contains("crate::adapters"));
+    assert!(tui_composition.contains("impl TuiRuntimePort for TuiRuntimeAdapter"));
+
+    let terminal_port = fs::read_to_string("src/runtime_core/terminal.rs").unwrap();
+    for definition in [
+        "enum TerminalFault",
+        "enum FrameWriteBoundary",
+        "trait TerminalIo",
+    ] {
+        assert!(
+            terminal_port.contains(definition),
+            "terminal contract owner is missing {definition}"
+        );
+    }
+    let native_terminal = fs::read_to_string("src/adapters/terminal/native.rs").unwrap();
+    assert!(native_terminal.contains("runtime_core::terminal"));
+    assert!(!native_terminal.contains("pub enum TerminalFault"));
+    assert!(!native_terminal.contains("pub trait TerminalIo"));
+
+    let render = fs::read_to_string("src/surfaces/tui/render.rs").unwrap();
+    for definition in [
+        "fn render_interactive_frame",
+        "fn render_notice_lines",
+        "fn sanitize_terminal_text",
+        "fn truncate_chars",
+        "fn terminal_width",
+        "fn push_wrapped",
+        "fn bytes_label",
+    ] {
+        assert!(
+            render.contains(definition),
+            "TUI interactive render owner is missing {definition}"
+        );
+        assert!(
+            !tui_composition.contains(definition),
+            "TUI adapter still owns {definition}"
+        );
+    }
+
+    let report_render = fs::read_to_string("src/surfaces/tui/report_render.rs").unwrap();
+    for definition in [
+        "fn canonical_page_report",
+        "fn authority_pair",
+        "fn render_evidence_report",
+        "fn render_sessions_report",
+        "fn render_overview_report",
+        "fn render_monitor_report",
+        "fn render_transcript_report",
+    ] {
+        assert!(
+            report_render.contains(definition),
+            "TUI report render owner is missing {definition}"
+        );
+        assert!(
+            !tui_composition.contains(definition),
+            "TUI adapter still owns {definition}"
+        );
+    }
+}
+
+#[test]
+fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
+    let composition = fs::read_to_string("src/composition/dispatch.rs").unwrap();
+    for definition in [
+        "trait CommandDispatchPort",
+        "fn run(",
+        "parser::parse(args)",
+        "port.validate_native_terminal()",
+        "port.recover_pending_source_bundles()",
+        "port.execute(command)",
+    ] {
+        assert!(
+            composition.contains(definition),
+            "CLI composition owner is missing {definition}"
+        );
+    }
+
+    let app = fs::read_to_string("src/app.rs").unwrap();
+    assert!(app.contains("dispatch::run(args"));
+    assert!(!app.contains("parser::parse(args)"));
+    assert!(!app.contains("recover_pending_source_bundles()?"));
+    assert!(!app.contains("match command"));
+
+    let adapter = fs::read_to_string("src/app/command_dispatch.rs").unwrap();
+    assert!(!Path::new("src/app/legacy_dispatch.rs").exists());
+    assert!(!Path::new("src/app/legacy_dispatch").exists());
+    assert!(app.lines().any(|line| line == "mod command_dispatch;"));
+    assert!(!app.lines().any(|line| line == "mod legacy_dispatch;"));
+    assert!(adapter.contains("impl dispatch::CommandDispatchPort for CommandDispatchAdapter"));
+    assert!(adapter.contains("match command"));
+    assert!(adapter
+        .lines()
+        .any(|line| line == "mod collaboration_commands;"));
+    assert!(adapter
+        .lines()
+        .any(|line| line == "mod extension_commands;"));
+    assert!(adapter.lines().any(|line| line == "mod inference_ports;"));
+    assert!(adapter
+        .lines()
+        .any(|line| line == "mod knowledge_commands;"));
+    assert!(adapter
+        .lines()
+        .any(|line| line == "mod observability_commands;"));
+    assert!(adapter.lines().any(|line| line == "mod policy_commands;"));
+    assert!(adapter.lines().any(|line| line == "mod tui_commands;"));
+    assert!(adapter.lines().any(|line| line == "mod workflow_commands;"));
+    let collaboration_commands =
+        fs::read_to_string("src/app/command_dispatch/collaboration_commands.rs").unwrap();
+    for responsibility in [
+        "pub(super) fn execute_team(",
+        "pub(super) fn execute_subagent(",
+        "TeamCommand::Dispatch",
+        "SubagentCommand::Launch",
+    ] {
+        assert!(collaboration_commands.contains(responsibility));
+        assert!(!adapter.contains(responsibility));
+    }
+    for delegation in [
+        "Command::Team(command) => execute_team(command)",
+        "Command::Subagent(command) => execute_subagent(command)",
+    ] {
+        assert!(adapter.contains(delegation));
+    }
+    let extension_commands =
+        fs::read_to_string("src/app/command_dispatch/extension_commands.rs").unwrap();
+    for responsibility in [
+        "pub(super) fn execute_skill(",
+        "pub(super) fn execute_hooks(",
+        "pub(super) fn execute_plugin(",
+        "PluginCommand::Import",
+    ] {
+        assert!(extension_commands.contains(responsibility));
+        assert!(!adapter.contains(responsibility));
+    }
+    for delegation in [
+        "Command::Skill(command) => execute_skill(command)",
+        "Command::Hooks(command) => execute_hooks(command)",
+        "Command::Plugin(command) => execute_plugin(command)",
+    ] {
+        assert!(adapter.contains(delegation));
+    }
+    let knowledge_commands =
+        fs::read_to_string("src/app/command_dispatch/knowledge_commands.rs").unwrap();
+    for responsibility in [
+        "pub(super) fn execute_evidence(",
+        "pub(super) fn execute_ontology(",
+        "OntologyCommand::Export",
+    ] {
+        assert!(knowledge_commands.contains(responsibility));
+        assert!(!adapter.contains(responsibility));
+    }
+    for delegation in [
+        "Command::Evidence(command) => execute_evidence(command)",
+        "Command::Ontology(command) => execute_ontology(command)",
+    ] {
+        assert!(adapter.contains(delegation));
+    }
+    let observability_commands =
+        fs::read_to_string("src/app/command_dispatch/observability_commands.rs").unwrap();
+    for responsibility in [
+        "pub(super) fn execute_cache_status(",
+        "pub(super) fn execute_monitor(",
+        "MonitorCommand::Export",
+    ] {
+        assert!(observability_commands.contains(responsibility));
+        assert!(!adapter.contains(responsibility));
+    }
+    for delegation in [
+        "Command::CacheStatus => execute_cache_status()",
+        "Command::Monitor(command) => execute_monitor(command)",
+    ] {
+        assert!(adapter.contains(delegation));
+    }
+    let policy_commands =
+        fs::read_to_string("src/app/command_dispatch/policy_commands.rs").unwrap();
+    for responsibility in [
+        "pub(super) fn execute_policy(",
+        "PolicyCommand::CheckPath",
+        "PolicyPathMode::Write",
+    ] {
+        assert!(policy_commands.contains(responsibility));
+        assert!(!adapter.contains(responsibility));
+    }
+    assert!(adapter.contains("Command::Policy(command) => execute_policy(command)"));
+    let tui_commands = fs::read_to_string("src/app/command_dispatch/tui_commands.rs").unwrap();
+    for responsibility in [
+        "pub(super) fn execute_tui(",
+        "TuiCommand::Auto",
+        "TuiCommand::Interactive",
+        "fn print_report(",
+    ] {
+        assert!(tui_commands.contains(responsibility));
+        assert!(!adapter.contains(responsibility));
+    }
+    assert!(adapter.contains("Command::Tui(command) => execute_tui(command)"));
+    let workflow_commands =
+        fs::read_to_string("src/app/command_dispatch/workflow_commands.rs").unwrap();
+    for responsibility in [
+        "pub(super) fn execute_state(",
+        "pub(super) fn execute_session(",
+        "pub(super) fn execute_patch(",
+        "PatchCommand::Approve",
+    ] {
+        assert!(workflow_commands.contains(responsibility));
+        assert!(!adapter.contains(responsibility));
+    }
+    for delegation in [
+        "Command::State(command) => execute_state(command)",
+        "Command::Session(command) => execute_session(command)",
+        "Command::Patch(command) => execute_patch(command)",
+    ] {
+        assert!(adapter.contains(delegation));
+    }
+    let inference_ports =
+        fs::read_to_string("src/app/command_dispatch/inference_ports.rs").unwrap();
+    for responsibility in [
+        "impl inference::BenchmarkCommandPort",
+        "impl inference::BackendCommandPort",
+        "impl inference::ModelCommandPort",
+        "pub(super) fn emit_output(",
+    ] {
+        assert!(inference_ports.contains(responsibility));
+        assert!(!adapter.contains(responsibility));
+    }
+    assert!(adapter.lines().count() < 130);
+    assert!(collaboration_commands.lines().count() < 100);
+    assert!(extension_commands.lines().count() < 75);
+    assert!(inference_ports.lines().count() < 200);
+    assert!(knowledge_commands.lines().count() < 60);
+    assert!(observability_commands.lines().count() < 50);
+    assert!(policy_commands.lines().count() < 40);
+    assert!(tui_commands.lines().count() < 60);
+    assert!(workflow_commands.lines().count() < 75);
+}
+
+#[test]
+fn v03713_composition_owns_benchmark_command_orchestration() {
+    let composition = fs::read_to_string("src/composition/inference.rs").unwrap();
+    for definition in [
+        "trait BenchmarkCommandPort",
+        "fn run_benchmark(",
+        "BenchmarkCommand::Validate",
+        "BenchmarkCommand::Record",
+        "BenchmarkCommand::Run",
+        "BenchmarkCommand::Report",
+        "CommandOutput::Exact",
+    ] {
+        assert!(
+            composition.contains(definition),
+            "inference composition owner is missing {definition}"
+        );
+    }
+    for forbidden in ["crate::benchmark", "crate::ledger", "crate::observability"] {
+        assert!(
+            !composition.contains(forbidden),
+            "inference composition bypasses its benchmark port: {forbidden}"
+        );
+    }
+
+    let adapter = fs::read_to_string("src/app/command_dispatch.rs").unwrap();
+    let inference_ports =
+        fs::read_to_string("src/app/command_dispatch/inference_ports.rs").unwrap();
+    assert!(inference_ports.contains("impl inference::BenchmarkCommandPort"));
+    assert!(adapter.contains("inference::run_benchmark(command, self)"));
+
+    assert!(!Path::new("src/benchmark.rs").exists());
+    assert!(Path::new("src/app/inference_adapter/benchmark.rs").is_file());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod benchmark;"));
+}
+
+#[test]
+fn v03713_composition_owns_model_command_orchestration() {
+    let composition = fs::read_to_string("src/composition/inference.rs").unwrap();
+    for definition in [
+        "trait ModelCommandPort",
+        "fn run_model(",
+        "ModelCommand::List",
+        "ModelCommand::Manifest",
+        "ModelCommand::Inspect",
+        "ModelCommand::SetDefault",
+        "ModelCommand::FetchCandidate",
+        "ModelCommand::Promote",
+        "ModelCommand::Install",
+        "CommandOutput::None",
+    ] {
+        assert!(
+            composition.contains(definition),
+            "inference composition owner is missing {definition}"
+        );
+    }
+    for forbidden in ["crate::model", "crate::ledger", "crate::observability"] {
+        assert!(
+            !composition.contains(forbidden),
+            "inference composition bypasses its model port: {forbidden}"
+        );
+    }
+
+    let adapter = fs::read_to_string("src/app/command_dispatch.rs").unwrap();
+    let inference_ports =
+        fs::read_to_string("src/app/command_dispatch/inference_ports.rs").unwrap();
+    assert!(inference_ports.contains("impl inference::ModelCommandPort"));
+    assert!(adapter.contains("inference::run_model(command, self)"));
+
+    assert!(!Path::new("src/model.rs").exists());
+    assert!(Path::new("src/app/inference_adapter/model.rs").is_file());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod model;"));
+}
+
+#[test]
+fn v03713_composition_owns_backend_command_orchestration() {
+    let composition = fs::read_to_string("src/composition/inference.rs").unwrap();
+    for definition in [
+        "trait BackendCommandPort",
+        "fn run_backend(",
+        "BackendCommand::Doctor",
+        "BackendCommand::Install",
+        "BackendCommand::Start",
+        "port.default_model_path()",
+        "BackendCommand::VerifyArchive",
+        "BackendCommand::Chat",
+        "port.chat_stream_report",
+        "port.chat_report",
+    ] {
+        assert!(
+            composition.contains(definition),
+            "inference composition owner is missing {definition}"
+        );
+    }
+    for forbidden in ["crate::backend", "crate::model", "crate::ledger"] {
+        assert!(
+            !composition.contains(forbidden),
+            "inference composition bypasses its backend port: {forbidden}"
+        );
+    }
+
+    let adapter = fs::read_to_string("src/app/command_dispatch.rs").unwrap();
+    let inference_ports =
+        fs::read_to_string("src/app/command_dispatch/inference_ports.rs").unwrap();
+    assert!(inference_ports.contains("impl inference::BackendCommandPort"));
+    assert!(adapter.contains("inference::run_backend(command, self, &mut writer)"));
+
+    assert!(!Path::new("src/backend.rs").exists());
+    assert!(Path::new("src/app/inference_adapter/backend.rs").is_file());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod backend;"));
+}
+
+#[test]
+fn v03713_context_adapter_separates_filesystem_discovery() {
+    let context_adapter = "src/app/context_adapter.rs";
+    let filesystem_discovery = "src/app/context_adapter/discovery.rs";
+    assert!(Path::new(context_adapter).is_file());
+    assert!(Path::new(filesystem_discovery).is_file());
+    assert!(!Path::new("src/context.rs").exists());
+    assert!(!Path::new("src/context").exists());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod context;"));
+    let app_root = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod context_adapter;"),
+        "application root does not register the context adapter"
+    );
+
+    let context = fs::read_to_string(context_adapter).unwrap();
+    let discovery = fs::read_to_string(filesystem_discovery).unwrap();
+    assert!(
+        context.lines().any(|line| line == "mod discovery;"),
+        "context adapter does not register its filesystem discovery owner"
+    );
+    for responsibility in [
+        "pub(super) fn build_filesystem_fallback(",
+        "pub(super) fn discover_candidate_files(",
+        "fn should_skip_dir(",
+        "fn is_context_file(",
+        "pub(super) fn request_terms(",
+        "pub(super) fn score_path(",
+        "pub(super) fn relative_path(",
+        "pub(super) fn content_fingerprint(",
+    ] {
+        assert!(
+            discovery.contains(responsibility),
+            "filesystem discovery owner is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !context.contains(responsibility),
+            "context orchestration still owns filesystem discovery: {responsibility}"
+        );
+    }
+    assert!(
+        context.contains("fn filesystem_discovery_skips_generated_dirs_and_ranks_request_matches(")
+    );
+    assert!(context.lines().count() < 600);
+    assert!(discovery.lines().count() < 250);
+}
+
+#[test]
+fn v03713_evidence_adapter_separates_store_inspection() {
+    let evidence_adapter = "src/app/evidence_adapter.rs";
+    let evidence_store = "src/app/evidence_adapter/store.rs";
+    assert!(Path::new(evidence_adapter).is_file());
+    assert!(Path::new(evidence_store).is_file());
+    assert!(!Path::new("src/evidence.rs").exists());
+    assert!(!Path::new("src/evidence").exists());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod evidence;"));
+    let app_root = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod evidence_adapter;"),
+        "application root does not register the evidence adapter"
+    );
+
+    let evidence = fs::read_to_string(evidence_adapter).unwrap();
+    let store = fs::read_to_string(evidence_store).unwrap();
+    assert!(
+        evidence.lines().any(|line| line == "mod store;"),
+        "evidence adapter does not register its store inspection owner"
+    );
+    for responsibility in [
+        "pub fn store_status(",
+        "pub(crate) fn store_status_bounded(",
+        "fn count_jsonl_records(",
+        "fn count_jsonl_records_bounded(",
+        "fn count_top_level_files_bounded(",
+        "fn count_files(",
+    ] {
+        assert!(
+            store.contains(responsibility),
+            "evidence store owner is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !evidence.contains(responsibility),
+            "evidence orchestration still owns store inspection: {responsibility}"
+        );
+    }
+    assert!(evidence
+        .contains("fn bounded_store_status_reports_scan_truncation_and_rejects_zero_budget("));
+    assert!(evidence.lines().count() < 600);
+    assert!(store.lines().count() < 200);
+}
+
+#[test]
+fn v03713_benchmark_adapter_separates_regression_tests() {
+    let adapter_path = "src/app/inference_adapter/benchmark.rs";
+    let tests_path = "src/app/inference_adapter/benchmark/tests.rs";
+    assert!(Path::new(adapter_path).is_file());
+    assert!(Path::new(tests_path).is_file());
+
+    let adapter = fs::read_to_string(adapter_path).unwrap();
+    let tests = fs::read_to_string(tests_path).unwrap();
+    assert!(
+        adapter.contains("#[path = \"benchmark/tests.rs\"]"),
+        "benchmark adapter does not register its regression test owner"
+    );
+    for regression in [
+        "fn validates_fixture_metadata(",
+        "fn executable_run_records_local_score_without_prompt_text(",
+        "fn rejects_raw_prompt_field(",
+        "fn canonical_model_adoption_fixture_is_valid(",
+    ] {
+        assert!(
+            tests.contains(regression),
+            "benchmark test owner is missing regression: {regression}"
+        );
+        assert!(
+            !adapter.contains(regression),
+            "benchmark production adapter still owns regression: {regression}"
+        );
+    }
+    assert!(adapter.lines().count() < 350);
+    assert!(tests.lines().count() < 450);
+}
+
+#[test]
+fn v03713_workflow_record_separates_compatibility_codec() {
+    let record_path = "src/runtime_core/workflow/storage_compat/record.rs";
+    let codec_path = "src/runtime_core/workflow/storage_compat/record/codec.rs";
+    assert!(Path::new(record_path).is_file());
+    assert!(Path::new(codec_path).is_file());
+
+    let record = fs::read_to_string(record_path).unwrap();
+    let codec = fs::read_to_string(codec_path).unwrap();
+    assert!(record.contains("#[path = \"record/codec.rs\"]"));
+    assert!(record.contains("pub struct WorkflowRecord"));
+    assert!(record.contains("impl WorkflowRecord"));
+    for responsibility in [
+        "pub(crate) fn render_pointer(",
+        "pub(crate) fn parse_pointer(",
+        "pub(crate) fn snapshot_schema(",
+        "pub(crate) fn parse_snapshot(",
+        "pub(crate) fn payload(",
+        "pub(crate) fn render(",
+    ] {
+        assert!(
+            codec.contains(responsibility),
+            "workflow record codec is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !record.contains(responsibility),
+            "workflow record model still owns codec behavior: {responsibility}"
+        );
+    }
+    assert!(codec.contains("const WORKFLOW_V2_KEYS"));
+    assert!(codec.contains("const WORKFLOW_V3_KEYS"));
+    assert!(codec.contains("const WORKFLOW_V4_KEYS"));
+    assert!(record.lines().count() < 150);
+    assert!(codec.lines().count() < 600);
+}
+
+#[test]
+fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
+    for name in [
+        "fake_sidecar.rs",
+        "native_terminal.rs",
+        "native_terminal_probe.rs",
+    ] {
+        assert!(!Path::new(&format!("tests/support/{name}")).exists());
+        assert!(Path::new(&format!("tests/support/platform/{name}")).is_file());
+    }
+
+    let harness = fs::read_to_string("tests/surfaces.rs").unwrap();
+    assert!(harness.contains("support/platform/native_terminal.rs"));
+    assert!(harness.contains("surfaces/interactive_tui.rs"));
+    assert!(harness.contains("surfaces/native_terminal.rs"));
+    assert!(!Path::new("tests/platform.rs").exists());
+    assert!(!Path::new("tests/platform").exists());
+}
+
+#[test]
+fn v03713_state_adapter_separates_persistence_responsibilities() {
+    let atomic_write_adapter = "src/adapters/filesystem/atomic_write.rs";
+    let state_adapter = "src/app/workflow_adapter/state.rs";
+    let current_snapshot_adapter = "src/app/workflow_adapter/state/current_snapshot.rs";
+    let current_snapshot_codec = "src/app/workflow_adapter/state/current_snapshot/codec.rs";
+    let current_transition_adapter = "src/app/workflow_adapter/state/current_transition.rs";
+    let current_image_adapter =
+        "src/app/workflow_adapter/state/current_transition/current_image.rs";
+    let lifecycle_adapter = "src/app/workflow_adapter/state/lifecycle.rs";
+    let source_install_adapter = "src/app/workflow_adapter/state/source_install.rs";
+    let source_install_directory = "src/app/workflow_adapter/state/source_install/directory.rs";
+    let source_install_fd_ops = "src/app/workflow_adapter/state/source_install/fd_ops.rs";
+    let transaction_adapter = "src/app/workflow_adapter/state/transaction.rs";
+    let approval_transaction_adapter = "src/app/workflow_adapter/state/transaction/approval.rs";
+    let terminal_transaction_adapter = "src/app/workflow_adapter/state/transaction/terminal.rs";
+    let verification_transaction_adapter =
+        "src/app/workflow_adapter/state/transaction/verification.rs";
+    let transition_commit_adapter = "src/app/workflow_adapter/state/transition_commit.rs";
+    let workflow_access_adapter = "src/app/workflow_adapter/state/workflow_access.rs";
+    let workflow_revision_adapter = "src/app/workflow_adapter/state/workflow_revision.rs";
+    let workflow_store_adapter = "src/app/workflow_adapter/state/workflow_store.rs";
+    let state_test_modules = [
+        "src/app/workflow_adapter/state/tests/mod.rs",
+        "src/app/workflow_adapter/state/tests/callgraph.rs",
+        "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+        "src/app/workflow_adapter/state/tests/lifecycle.rs",
+        "src/app/workflow_adapter/state/tests/source_install.rs",
+        "src/app/workflow_adapter/state/tests/workflow_store.rs",
+    ];
+    assert!(Path::new(atomic_write_adapter).is_file());
+    assert!(Path::new(state_adapter).is_file());
+    assert!(Path::new(current_snapshot_adapter).is_file());
+    assert!(Path::new(current_snapshot_codec).is_file());
+    assert!(Path::new(current_transition_adapter).is_file());
+    assert!(Path::new(current_image_adapter).is_file());
+    assert!(Path::new(lifecycle_adapter).is_file());
+    assert!(Path::new(source_install_adapter).is_file());
+    assert!(Path::new(source_install_directory).is_file());
+    assert!(Path::new(source_install_fd_ops).is_file());
+    assert!(Path::new(transaction_adapter).is_file());
+    assert!(Path::new(approval_transaction_adapter).is_file());
+    assert!(Path::new(terminal_transaction_adapter).is_file());
+    assert!(Path::new(verification_transaction_adapter).is_file());
+    assert!(Path::new(transition_commit_adapter).is_file());
+    assert!(Path::new(workflow_access_adapter).is_file());
+    assert!(Path::new(workflow_revision_adapter).is_file());
+    assert!(Path::new(workflow_store_adapter).is_file());
+    for test_module in state_test_modules {
+        assert!(Path::new(test_module).is_file());
+    }
+
+    let state = fs::read_to_string(state_adapter).unwrap();
+    assert!(state.lines().any(|line| line == "mod current_snapshot;"));
+    assert!(state.lines().any(|line| line == "mod current_transition;"));
+    assert!(state.lines().any(|line| line == "mod lifecycle;"));
+    assert!(state.lines().any(|line| line == "mod source_install;"));
+    assert!(state.lines().any(|line| line == "mod transaction;"));
+    assert!(state.lines().any(|line| line == "mod transition_commit;"));
+    assert!(state.lines().any(|line| line == "mod workflow_access;"));
+    assert!(state.lines().any(|line| line == "mod workflow_revision;"));
+    assert!(state.lines().any(|line| line == "mod workflow_store;"));
+    assert!(state.contains("#[path = \"state/tests/mod.rs\"]"));
+    assert!(!state.contains("mod tests {"));
+    for escaped_responsibility in [
+        "fn parse_current_state(",
+        "fn promote_current_state_v1(",
+        "struct StateTransitionRecoveryPort",
+        "struct StateTransitionTransactionAdapter",
+        "fn validate_prepared_state_current_member(",
+        "struct StateReconcileTransactionPort",
+        "fn reconcile_invalid_current_under_guard(",
+        "fn decode_prepared_current_image(",
+        "pub fn session_resume_report(",
+        "pub fn reconcile_report(",
+        "struct PreparedSourceDir",
+        "fn recover_source_replace",
+        "struct StateApprovalTransactionPort",
+        "struct StateVerificationTransactionPort",
+        "pub fn load_workflow(",
+        "pub fn active_workflow_id(",
+        "fn discover_active_workflow(",
+        "pub(crate) fn clear_terminal_workflow_pointer(",
+        "struct WorkflowCheckpointGuard",
+        "fn build_prepared_workflow_revision(",
+        "struct StateWorkflowRecoveryPort",
+        "fn validate_workflow_chain(",
+        "pub(crate) fn atomic_replace_bytes(",
+    ] {
+        assert!(
+            !state.contains(escaped_responsibility),
+            "state child responsibility escaped into parent adapter: {escaped_responsibility}"
+        );
+    }
+
+    let atomic_write = fs::read_to_string(atomic_write_adapter).unwrap();
+    for owned_responsibility in [
+        "pub(crate) fn atomic_replace_bytes(",
+        "pub(crate) fn replace_file(",
+        "pub(crate) fn sync_parent(",
+    ] {
+        assert!(
+            atomic_write.contains(owned_responsibility),
+            "atomic write adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+
+    let current_snapshot = fs::read_to_string(current_snapshot_adapter).unwrap();
+    assert!(current_snapshot.lines().any(|line| line == "mod codec;"));
+    assert!(current_snapshot.contains("fn promote_current_state_v1("));
+    for escaped_responsibility in ["fn parse_current_state(", "fn render_current_state_v2("] {
+        assert!(
+            !current_snapshot.contains(escaped_responsibility),
+            "current snapshot codec responsibility escaped into orchestration: {escaped_responsibility}"
+        );
+    }
+    let current_snapshot_codec = fs::read_to_string(current_snapshot_codec).unwrap();
+    for owned_responsibility in [
+        "fn parse_current_state(",
+        "fn parse_current_state_v2(",
+        "fn render_current_state_v2(",
+    ] {
+        assert!(
+            current_snapshot_codec.contains(owned_responsibility),
+            "current snapshot codec is missing responsibility: {owned_responsibility}"
+        );
+    }
+
+    let current_transition = fs::read_to_string(current_transition_adapter).unwrap();
+    for owned_responsibility in [
+        "struct StateTransitionRecoveryPort",
+        "struct StateTransitionTransactionAdapter",
+    ] {
+        assert!(
+            current_transition.contains(owned_responsibility),
+            "current transition adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+    assert!(
+        current_transition
+            .lines()
+            .any(|line| line == "mod current_image;"),
+        "current transition adapter does not register its current-image owner"
+    );
+    let current_image = fs::read_to_string(current_image_adapter).unwrap();
+    for owned_responsibility in [
+        "pub(crate) fn prepare_current_image(",
+        "pub(crate) fn prepare_current_image_after(",
+        "pub(in super::super) fn prepare_state_transition_current_image(",
+        "pub(in super::super) fn state_transition_current_member(",
+        "pub(crate) fn validate_prepared_state_current_member(",
+        "pub(in super::super) fn validate_state_transition_current_cas(",
+    ] {
+        assert!(
+            current_image.contains(owned_responsibility),
+            "current-image adapter is missing responsibility: {owned_responsibility}"
+        );
+        assert!(
+            !current_transition.contains(owned_responsibility),
+            "current transition orchestration still owns current-image policy: {owned_responsibility}"
+        );
+    }
+
+    let lifecycle = fs::read_to_string(lifecycle_adapter).unwrap();
+    for owned_responsibility in [
+        "pub fn initialize(",
+        "pub fn reconcile_report(",
+        "pub fn session_resume_report(",
+    ] {
+        assert!(
+            lifecycle.contains(owned_responsibility),
+            "state lifecycle adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+
+    let source_install = fs::read_to_string(source_install_adapter).unwrap();
+    let source_install_directory = fs::read_to_string(source_install_directory).unwrap();
+    let source_install_fd_ops = fs::read_to_string(source_install_fd_ops).unwrap();
+    assert!(
+        source_install.lines().any(|line| line == "mod directory;"),
+        "source installation adapter does not register its directory capability owner"
+    );
+    assert!(
+        source_install.lines().any(|line| line == "mod fd_ops;"),
+        "source installation adapter does not register its fd-relative I/O owner"
+    );
+    let source_install_responsibility = "fn recover_source_replace";
+    assert!(
+        source_install.contains(source_install_responsibility),
+        "source installation adapter is missing responsibility: {source_install_responsibility}"
+    );
+    for owned_responsibility in [
+        "pub(super) struct PreparedSourceDir",
+        "pub(super) struct PreparedRollbackDir",
+        "pub(super) fn validate_original(",
+        "pub(super) fn validate_installed(",
+        "pub(super) fn validate_original_pair(",
+        "pub(super) fn validate_installed_pair(",
+    ] {
+        assert!(
+            source_install_directory.contains(owned_responsibility),
+            "source directory capability owner is missing responsibility: {owned_responsibility}"
+        );
+        assert!(
+            !source_install.contains(owned_responsibility),
+            "source installation transaction adapter still owns directory capability: {owned_responsibility}"
+        );
+    }
+    for owned_responsibility in [
+        "pub(super) mod unix_open_flags",
+        "pub(super) fn openat_file(",
+        "pub(super) fn mkdirat_directory(",
+        "pub(super) fn dir_linkat(",
+        "pub(super) fn dir_unlinkat(",
+    ] {
+        assert!(
+            source_install_fd_ops.contains(owned_responsibility),
+            "source fd-relative I/O owner is missing responsibility: {owned_responsibility}"
+        );
+        assert!(
+            !source_install.contains(owned_responsibility),
+            "source installation transaction adapter still owns fd-relative I/O: {owned_responsibility}"
+        );
+    }
+
+    let workflow_store = fs::read_to_string(workflow_store_adapter).unwrap();
+    for owned_responsibility in [
+        "struct StateWorkflowRecoveryPort",
+        "fn validate_workflow_chain(",
+        "fn write_workflow_snapshot_bytes(",
+    ] {
+        assert!(
+            workflow_store.contains(owned_responsibility),
+            "workflow store adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+
+    let workflow_access = fs::read_to_string(workflow_access_adapter).unwrap();
+    for owned_responsibility in [
+        "pub fn load_workflow(",
+        "pub(crate) fn load_workflow_revision(",
+        "pub fn active_workflow_id(",
+        "pub(crate) fn clear_terminal_workflow_pointer(",
+        "pub(crate) fn record_tui_workflow_resume_receipt_under_transition(",
+        "pub(crate) fn record_workflow_event_under_transition(",
+        "pub(super) fn discover_active_workflow(",
+    ] {
+        assert!(
+            workflow_access.contains(owned_responsibility),
+            "workflow access adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+
+    let workflow_revision = fs::read_to_string(workflow_revision_adapter).unwrap();
+    for owned_responsibility in [
+        "struct WorkflowCheckpointGuard",
+        "fn build_prepared_workflow_revision(",
+        "fn decode_prepared_workflow_revision(",
+    ] {
+        assert!(
+            workflow_revision.contains(owned_responsibility),
+            "workflow revision adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+
+    let transaction = fs::read_to_string(transaction_adapter).unwrap();
+    let approval_transaction = fs::read_to_string(approval_transaction_adapter).unwrap();
+    let terminal_transaction = fs::read_to_string(terminal_transaction_adapter).unwrap();
+    let verification_transaction = fs::read_to_string(verification_transaction_adapter).unwrap();
+    assert!(
+        transaction.lines().any(|line| line == "mod approval;"),
+        "state transaction adapter does not register its approval owner"
+    );
+    assert!(
+        transaction.lines().any(|line| line == "mod terminal;"),
+        "state transaction adapter does not register its terminal owner"
+    );
+    assert!(
+        transaction.lines().any(|line| line == "mod verification;"),
+        "state transaction adapter does not register its verification owner"
+    );
+    for owned_responsibility in [
+        "pub(crate) struct PreparedApprovalTransition",
+        "pub(crate) fn transition_project_current_state_prepared_approval(",
+        "pub(crate) fn recover_project_current_state_prepared_approval(",
+        "struct ApprovalProjectionRecoveryPort",
+        "struct StateApprovalTransactionPort",
+    ] {
+        assert!(
+            approval_transaction.contains(owned_responsibility),
+            "approval transaction adapter is missing responsibility: {owned_responsibility}"
+        );
+        assert!(
+            !transaction.contains(owned_responsibility),
+            "state transaction adapter still owns approval behavior: {owned_responsibility}"
+        );
+    }
+    for owned_responsibility in [
+        "pub(crate) struct TerminalActionRequest",
+        "pub(crate) fn transition_project_current_state_prepared_terminal_action(",
+        "pub(crate) fn recover_project_current_state_prepared_terminal_action(",
+        "struct StateTerminalActionTransactionPort",
+        "fn terminal_action_fault(",
+    ] {
+        assert!(
+            terminal_transaction.contains(owned_responsibility),
+            "terminal transaction adapter is missing responsibility: {owned_responsibility}"
+        );
+        assert!(
+            !transaction.contains(owned_responsibility),
+            "state transaction adapter still owns terminal behavior: {owned_responsibility}"
+        );
+    }
+    for owned_responsibility in [
+        "pub(crate) struct PreparedVerificationTransition",
+        "pub(crate) fn transition_project_current_state_prepared_verification(",
+        "pub(crate) fn recover_project_current_state_prepared_verification(",
+        "struct StateVerificationTransactionPort",
+    ] {
+        assert!(
+            verification_transaction.contains(owned_responsibility),
+            "verification transaction adapter is missing responsibility: {owned_responsibility}"
+        );
+        assert!(
+            !transaction.contains(owned_responsibility),
+            "state transaction facade still owns verification behavior: {owned_responsibility}"
+        );
+    }
+
+    let transition_commit = fs::read_to_string(transition_commit_adapter).unwrap();
+    for owned_responsibility in [
+        "struct StateReconcileTransactionPort",
+        "fn reconcile_invalid_current_under_guard(",
+        "fn decode_prepared_current_image(",
+    ] {
+        assert!(
+            transition_commit.contains(owned_responsibility),
+            "state transition commit adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+
+    assert!(state.lines().count() < 450);
+    assert!(current_snapshot.lines().count() < 700);
+    assert!(current_snapshot_codec.lines().count() < 450);
+    assert!(current_transition.lines().count() < 400);
+    assert!(current_image.lines().count() < 325);
+    assert!(lifecycle.lines().count() < 700);
+    assert!(source_install.lines().count() < 375);
+    assert!(source_install_directory.lines().count() < 375);
+    assert!(source_install_fd_ops.lines().count() < 175);
+    assert!(transaction.lines().count() < 30);
+    assert!(approval_transaction.lines().count() < 250);
+    assert!(terminal_transaction.lines().count() < 325);
+    assert!(verification_transaction.lines().count() < 150);
+    assert!(transition_commit.lines().count() < 450);
+    assert!(workflow_access.lines().count() < 400);
+    assert!(workflow_revision.lines().count() < 500);
+    assert!(workflow_store.lines().count() < 500);
+    for test_module in state_test_modules {
+        let tests = fs::read_to_string(test_module).unwrap();
+        assert!(
+            tests.lines().count() < 700,
+            "oversized state test module: {test_module}"
+        );
+    }
 }
 
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
@@ -1726,6 +5722,11 @@ fn dependency_contract_rejects_forbidden_imports_and_new_parser_crates() {
         ARCHITECTURE_ROOTS.into_iter().map(str::to_owned).collect()
     );
     let required_edges = BTreeSet::from([
+        ("app".to_owned(), "composition".to_owned()),
+        ("app".to_owned(), "surfaces".to_owned()),
+        ("app".to_owned(), "runtime_core".to_owned()),
+        ("app".to_owned(), "adapters".to_owned()),
+        ("app".to_owned(), "foundation".to_owned()),
         ("composition".to_owned(), "surfaces".to_owned()),
         ("composition".to_owned(), "runtime_core".to_owned()),
         ("composition".to_owned(), "adapters".to_owned()),

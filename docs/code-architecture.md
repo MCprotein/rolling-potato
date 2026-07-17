@@ -33,8 +33,9 @@ behavior is introduced by the refactor without a separately approved change.
 
 ```text
 src/
-  main.rs
-  composition/                 wiring, startup/shutdown, command dispatch
+  main.rs                     private roots and thin binary entrypoint
+  app/                        concrete application adapters and integration
+  composition/                startup, dispatch, inference, uninstall wiring
   surfaces/
     cli/                       parse, command DTOs, presentation
     tui/                       controller, view model, rendering, input
@@ -58,57 +59,30 @@ src/
 ```
 
 Modules are private by default. A boundary becomes visible only to the narrowest
-consumer that needs it. The v0.37.1 tree was documentation-only and reserved
-ownership. Beginning with v0.37.2, production behavior moves only when its
-ledger slice, targeted tests, and legacy-path removal close together.
-The v0.37.3 inference boundary now owns backend/model/benchmark/resource rules,
-durable inference codecs, and llama.cpp/process/filesystem implementations in
-these private roots. The remaining top-level inference command/report modules
-are compatibility facades scheduled for final composition cleanup in v0.37.13.
-The v0.37.4 workflow storage-compatibility boundary now owns canonical workflow
-snapshots and pointers, ledger event encoding/hashing/append, and transcript
-record encoding/validation/install. Existing top-level modules retain path,
-locking, transaction, recovery, projection, and command orchestration scheduled
-for their later migration slices.
-The v0.37.5 workflow domain boundary now owns current-state and lease DTOs,
-session-resume authority checks, read-only snapshot/checkpoint binding, canonical
-transcript-session ordering and duplicate rejection, transcript event/record
-binding, and tool-output view DTOs. The top-level state and transcript modules
-remain compatibility facades for filesystem, lock, transaction, recovery,
-projection, and command orchestration assigned to later slices.
-The v0.37.6 workflow application boundary now owns legal transition records,
-exact event progression, state/checkpoint/reconcile/approval/verification/
-terminal transaction order, prepared workflow recovery, current-state recovery,
-and the projection-lag recovery barrier. Top-level state, ledger, and transition
-modules provide concrete filesystem, lock, event-sink, and cleanup operations;
-they no longer select the migrated commit or recovery sequence.
-The v0.37.7 observability boundary now owns surface-neutral projection records
-and ports plus monitor query/report use cases. SQLite adapters own rebuildable
-schema, replay, query, ledger-validation, and transcript-row operations, while
-the canonical ledger and transcript remain the only durable authorities. The
-top-level observability and monitor facades remain staged compatibility paths
-until the v0.37.13 composition cleanup.
-The v0.37.11 extension boundary owns deterministic hook policy, skill manifest
-and lifecycle policy, and plugin manifest/capability admission rules. The
-top-level hook, skill, and plugin facades retain only concrete ledger/state,
-workflow persistence, filesystem snapshot, and discovery integration until the
-v0.37.13 composition cleanup.
-The v0.37.12 collaboration boundary owns bounded subagent launch and result
-policy; team admission, continuation, stage, and execution decisions; canonical
-team manifest/state codecs; action ownership; and deterministic reconciliation
-rules and artifacts. Top-level subagent and team facades retain concrete
-backend, thread, lease, filesystem, recovery, ledger/projection, and workflow
-checkpoint integration until the v0.37.13 composition cleanup. The root
-`subagent_lifecycle` and `team_runtime` Cargo harnesses delegate to grouped
-integration bodies under `tests/collaboration`.
+consumer that needs it. The v0.37.1-v0.37.12 patches moved each ledger slice
+only when its targeted tests and legacy-path removal closed together. v0.37.13
+completed the root cleanup: the binary-owned `main.rs` privately registers the
+architecture roots and delegates directly to `composition::startup`; `app` owns
+concrete application orchestration and port-to-adapter integration; and
+`composition` owns startup, CLI dispatch, inference, TUI action/read, and
+uninstall wiring. Domain rules remain under `runtime_core`; user interfaces
+remain under `surfaces`; side effects remain under `adapters`; capability-free
+primitives remain under `foundation`.
+
+The `src` root contains only `main.rs`; all production owners live in named
+subdirectories and no compatibility facades remain. Root Cargo integration
+harnesses may delegate to grouped test bodies, including collaboration contracts
+under `tests/collaboration`; they do not restore production ownership at the
+crate root.
 
 ## Dependency direction
 
 Allowed directions are:
 
 ```text
-main -> composition
-composition -> surfaces + runtime_core facades + concrete adapters
+main -> app + composition + private roots
+app -> composition use cases + surfaces + runtime_core + adapters + foundation
+composition -> surfaces + runtime_core + adapters + foundation
 surfaces -> runtime_core use-case/query DTOs + foundation
 runtime_core application -> owning domain + consumer-owned ports
 runtime_core domain -> foundation

@@ -1,0 +1,395 @@
+use crate::foundation::error::AppError;
+use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalFault, TerminalIo};
+
+use super::outcome::{exact_tui_outcome, TuiEffect, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext};
+use super::render::render_interactive_frame;
+use super::runtime_bridge::{
+    OneShotSecret, SelectionLease, TuiGateKind, TuiIntent, TuiReadPage, TuiReadRequest,
+};
+use super::view_model::{InteractiveState, InteractiveView};
+
+pub(crate) trait TuiRuntimePort {
+    fn read_tui_page(&mut self, request: TuiReadRequest) -> Result<TuiReadPage, AppError>;
+    fn new_tui_intent_id(&mut self) -> String;
+    fn tui_selection_lease(&mut self, selected_object_id: &str)
+        -> Result<SelectionLease, AppError>;
+    fn tui_gate_descriptor(&mut self, workflow_id: &str)
+        -> Result<(String, TuiGateKind), AppError>;
+    fn dispatch_tui_intent(&mut self, intent: TuiIntent) -> Result<TuiOutcome, AppError>;
+}
+
+pub(crate) fn run_controller(
+    terminal: &mut impl TerminalIo,
+    runtime: &mut impl TuiRuntimePort,
+) -> Result<(), AppError> {
+    terminal
+        .validate_configuration()
+        .map_err(terminal_fault_error)?;
+    let mut state = InteractiveState::new();
+    let mut post_dispatch_intent: Option<String> = None;
+
+    loop {
+        let (width, height) = terminal.dimensions().map_err(terminal_fault_error)?;
+        let request = state.read_request(width, height);
+        let page = runtime.read_tui_page(request)?;
+        let frame = render_interactive_frame(&state, &page, width, height);
+        let boundary = if post_dispatch_intent.is_some() {
+            FrameWriteBoundary::PostDispatch
+        } else {
+            FrameWriteBoundary::Ordinary
+        };
+        if terminal.write_frame_at(&frame, boundary).is_err() {
+            return Err(match post_dispatch_intent.take() {
+                Some(intent_id) => post_dispatch_write_error(&intent_id),
+                None => pre_dispatch_write_error(&runtime.new_tui_intent_id()),
+            });
+        }
+        post_dispatch_intent = None;
+
+        let Some(line) = terminal.read_line().map_err(terminal_fault_error)? else {
+            return Ok(());
+        };
+        let words = line.split_whitespace().collect::<Vec<_>>();
+        match words.as_slice() {
+            [] | ["refresh"] => {
+                state.notice = "정본 상태를 새로고침했습니다.".to_string();
+            }
+            ["quit"] | ["exit"] => return Ok(()),
+            ["help"] => {
+                state.notice = "help | view overview|monitor|sessions|approvals|evidence|transcript <session>|tool-output <artifact>|diff <proposal> | next | prev | select <canonical-id> | select session <session-id> | approve <proposal> | approve verification <proposal> | deny | resume | cancel | quit".to_string();
+            }
+            ["test-secret"] if test_secret_probe_enabled() => {
+                let intent_id = runtime.new_tui_intent_id();
+                write_pre_dispatch_frame(
+                    terminal,
+                    &intent_id,
+                    "비밀 probe를 무반향으로 입력하세요.\n",
+                )?;
+                let Some(secret) = terminal.read_secret().map_err(terminal_fault_error)? else {
+                    state.notice = "비밀 입력 EOF: probe를 완료하지 않았습니다.".to_string();
+                    continue;
+                };
+                drop(OneShotSecret::new(secret)?);
+                let outcome = exact_tui_outcome(
+                    TuiOutcomeCode::SecretRefreshOnly,
+                    TuiOutcomeContext {
+                        intent_id: Some(&intent_id),
+                        ..TuiOutcomeContext::default()
+                    },
+                )?;
+                state.notice = outcome_notice(outcome);
+                post_dispatch_intent = Some(intent_id);
+            }
+            ["next"] if page.has_next => {
+                state.page = state.page.saturating_add(1);
+                state.notice = format!("{} 페이지", state.page + 1);
+            }
+            ["prev"] if page.has_previous => {
+                state.page = state.page.saturating_sub(1);
+                state.notice = format!("{} 페이지", state.page + 1);
+            }
+            ["next"] | ["prev"] => {
+                state.notice = "이동할 페이지가 없습니다.".to_string();
+            }
+            ["view", "overview"] => state.set_view(InteractiveView::Overview),
+            ["view", "monitor"] => state.set_view(InteractiveView::Monitor),
+            ["view", "sessions"] => state.set_view(InteractiveView::Sessions),
+            ["view", "approvals"] => state.set_view(InteractiveView::Approvals),
+            ["view", "evidence"] => state.set_view(InteractiveView::Evidence),
+            ["view", "transcript", session_id] => {
+                state.set_view(InteractiveView::Transcript((*session_id).to_string()))
+            }
+            ["view", "tool-output", artifact_id] => {
+                state.set_view(InteractiveView::ToolOutput((*artifact_id).to_string()))
+            }
+            ["view", "diff", proposal_id] => {
+                state.set_view(InteractiveView::Diff((*proposal_id).to_string()))
+            }
+            ["select", "session", session_id] => {
+                if !confirm(terminal, "세션 선택을 확인하려면 yes를 입력하세요.\n")?
+                {
+                    state.notice = "세션 선택 요청을 보내지 않았습니다.".to_string();
+                    continue;
+                }
+                let intent_id = runtime.new_tui_intent_id();
+                let lease = runtime.tui_selection_lease(session_id)?;
+                write_pre_dispatch_frame(
+                    terminal,
+                    &intent_id,
+                    "정본 세션 상태를 재검증했습니다.\n",
+                )?;
+                let outcome = runtime.dispatch_tui_intent(TuiIntent::SelectSession {
+                    intent_id: intent_id.clone(),
+                    session_id: (*session_id).to_string(),
+                    lease,
+                })?;
+                let was_dispatched = outcome_was_dispatched(outcome.effect);
+                state.notice = outcome_notice(outcome);
+                post_dispatch_intent = was_dispatched.then_some(intent_id);
+            }
+            ["select", selected_id] => {
+                state.selected_id = Some((*selected_id).to_string());
+                state.notice = format!("선택: {selected_id}");
+            }
+            ["approve", proposal_id] => {
+                let Some(workflow_id) = state.selected_id.clone() else {
+                    state.notice = "먼저 select <workflow-id>를 실행하세요.".to_string();
+                    continue;
+                };
+                if !cfg!(unix) {
+                    state.notice = outcome_notice(exact_tui_outcome(
+                        TuiOutcomeCode::SourceInstallUnsupportedPlatform,
+                        TuiOutcomeContext {
+                            platform: Some(std::env::consts::OS),
+                            ..TuiOutcomeContext::default()
+                        },
+                    )?);
+                    continue;
+                }
+                if !confirm(terminal, "패치 적용 승인을 확인하려면 yes를 입력하세요.\n")?
+                {
+                    state.notice = "승인을 보내지 않았습니다.".to_string();
+                    continue;
+                }
+                let intent_id = runtime.new_tui_intent_id();
+                let lease = runtime.tui_selection_lease(&workflow_id)?;
+                write_pre_dispatch_frame(terminal, &intent_id, "토큰을 무반향으로 입력하세요.\n")?;
+                let Some(secret) = terminal.read_secret().map_err(terminal_fault_error)? else {
+                    state.notice = "비밀 입력 EOF: 승인을 보내지 않았습니다.".to_string();
+                    continue;
+                };
+                let outcome = runtime.dispatch_tui_intent(TuiIntent::ApprovePatch {
+                    intent_id: intent_id.clone(),
+                    proposal_id: (*proposal_id).to_string(),
+                    lease,
+                    secret: OneShotSecret::new(secret)?,
+                })?;
+                let consumed = consume_outcome(terminal, &intent_id, outcome)?;
+                state.notice = consumed.notice;
+                post_dispatch_intent = consumed.was_dispatched.then_some(intent_id);
+            }
+            ["approve", "verification", proposal_id] => {
+                let Some(workflow_id) = state.selected_id.clone() else {
+                    state.notice = "먼저 select <workflow-id>를 실행하세요.".to_string();
+                    continue;
+                };
+                if !confirm(terminal, "검증 실행 승인을 확인하려면 yes를 입력하세요.\n")?
+                {
+                    state.notice = "검증 승인을 보내지 않았습니다.".to_string();
+                    continue;
+                }
+                let intent_id = runtime.new_tui_intent_id();
+                let lease = runtime.tui_selection_lease(&workflow_id)?;
+                write_pre_dispatch_frame(terminal, &intent_id, "토큰을 무반향으로 입력하세요.\n")?;
+                let Some(secret) = terminal.read_secret().map_err(terminal_fault_error)? else {
+                    state.notice = "비밀 입력 EOF: 검증 승인을 보내지 않았습니다.".to_string();
+                    continue;
+                };
+                let outcome = runtime.dispatch_tui_intent(TuiIntent::ApproveVerification {
+                    intent_id: intent_id.clone(),
+                    proposal_id: (*proposal_id).to_string(),
+                    lease,
+                    secret: OneShotSecret::new(secret)?,
+                })?;
+                let was_dispatched = outcome_was_dispatched(outcome.effect);
+                state.notice = outcome_notice(outcome);
+                post_dispatch_intent = was_dispatched.then_some(intent_id);
+            }
+            [action @ ("deny" | "resume" | "cancel")] => {
+                let Some(workflow_id) = state.selected_id.clone() else {
+                    state.notice = "먼저 select <workflow-id>를 실행하세요.".to_string();
+                    continue;
+                };
+                if !confirm(terminal, "상태 변경을 확인하려면 yes를 입력하세요.\n")?
+                {
+                    state.notice = "요청을 보내지 않았습니다.".to_string();
+                    continue;
+                }
+                let intent_id = runtime.new_tui_intent_id();
+                let gate = (*action == "deny")
+                    .then(|| runtime.tui_gate_descriptor(&workflow_id))
+                    .transpose()?;
+                let lease = runtime.tui_selection_lease(&workflow_id)?;
+                write_pre_dispatch_frame(terminal, &intent_id, "정본 상태를 재검증했습니다.\n")?;
+                let intent = match *action {
+                    "deny" => TuiIntent::DenyPendingGate {
+                        intent_id: intent_id.clone(),
+                        workflow_id,
+                        gate_id: gate.as_ref().expect("deny gate prepared").0.clone(),
+                        gate_kind: gate.expect("deny gate prepared").1,
+                        lease,
+                    },
+                    "resume" => TuiIntent::ResumeWorkflow {
+                        intent_id: intent_id.clone(),
+                        workflow_id,
+                        lease,
+                    },
+                    "cancel" => TuiIntent::CancelWorkflow {
+                        intent_id: intent_id.clone(),
+                        workflow_id,
+                        lease,
+                    },
+                    _ => unreachable!(),
+                };
+                let outcome = runtime.dispatch_tui_intent(intent)?;
+                let was_dispatched = outcome_was_dispatched(outcome.effect);
+                state.notice = outcome_notice(outcome);
+                post_dispatch_intent = was_dispatched.then_some(intent_id);
+            }
+            _ => {
+                state.notice = "알 수 없는 명령입니다. help로 지원 명령을 확인하세요.".to_string();
+            }
+        }
+    }
+}
+
+fn test_secret_probe_enabled() -> bool {
+    cfg!(debug_assertions)
+        && std::env::var_os("RPOTATO_TEST_TUI_SECRET_PROBE").as_deref()
+            == Some(std::ffi::OsStr::new("1"))
+}
+
+fn confirm(terminal: &mut impl TerminalIo, prompt: &str) -> Result<bool, AppError> {
+    terminal
+        .write_frame(prompt)
+        .map_err(|_| terminal_fault_error(TerminalFault::FrameWrite))?;
+    Ok(matches!(
+        terminal
+            .read_line()
+            .map_err(terminal_fault_error)?
+            .as_deref(),
+        Some("yes")
+    ))
+}
+
+fn write_pre_dispatch_frame(
+    terminal: &mut impl TerminalIo,
+    intent_id: &str,
+    prompt: &str,
+) -> Result<(), AppError> {
+    terminal
+        .write_frame_at(prompt, FrameWriteBoundary::PreDispatch)
+        .map_err(|_| pre_dispatch_write_error(intent_id))
+}
+
+pub(crate) fn terminal_fault_error(fault: TerminalFault) -> AppError {
+    if fault == TerminalFault::EchoRestore {
+        return AppError::blocked(
+            "터미널 echo 복원 실패\n- code: terminal.echo-restore.failed\n- 동작: 비밀 입력을 재시도하지 않고 TUI를 종료합니다.\n- 다음: 터미널에서 `stty echo`로 입력 echo를 복구한 뒤 새 세션을 시작하세요.",
+        );
+    }
+    let code = match fault {
+        #[cfg(debug_assertions)]
+        TerminalFault::InvalidFaultConfiguration => {
+            return AppError::blocked(
+                "터미널 장애 주입 구성 오류\n- kind: InvalidFaultConfiguration\n- effect: NotDispatched\n- retry: FixConfiguration\n- 동작: 터미널 상태를 변경하거나 런타임 요청을 보내지 않았습니다.\n- 다음: RPOTATO_TEST_TERMINAL_FAULT 값을 닫힌 지원 목록으로 고치세요.",
+            )
+        }
+        TerminalFault::SizeRead => TuiOutcomeCode::TerminalCapabilitySizeRead,
+        TerminalFault::ModeRead | TerminalFault::LineRead => {
+            TuiOutcomeCode::TerminalCapabilityModeRead
+        }
+        TerminalFault::NoEchoSet => TuiOutcomeCode::TerminalNoEchoSetFailed,
+        TerminalFault::SecretRead => TuiOutcomeCode::TerminalSecretReadFailed,
+        TerminalFault::EchoRestore => unreachable!("handled above"),
+        TerminalFault::FrameWrite => TuiOutcomeCode::TerminalFrameWritePreDispatch,
+    };
+    let context = if code == TuiOutcomeCode::TerminalFrameWritePreDispatch {
+        TuiOutcomeContext {
+            intent_id: Some("intent-terminal-frame-write"),
+            ..TuiOutcomeContext::default()
+        }
+    } else {
+        TuiOutcomeContext::default()
+    };
+    exact_outcome_error(code, context)
+}
+
+fn pre_dispatch_write_error(intent_id: &str) -> AppError {
+    exact_outcome_error(
+        TuiOutcomeCode::TerminalFrameWritePreDispatch,
+        TuiOutcomeContext {
+            intent_id: Some(intent_id),
+            ..TuiOutcomeContext::default()
+        },
+    )
+}
+
+fn post_dispatch_write_error(intent_id: &str) -> AppError {
+    exact_outcome_error(
+        TuiOutcomeCode::TerminalFrameWritePostDispatch,
+        TuiOutcomeContext {
+            intent_id: Some(intent_id),
+            ..TuiOutcomeContext::default()
+        },
+    )
+}
+
+fn exact_outcome_error(code: TuiOutcomeCode, context: TuiOutcomeContext<'_>) -> AppError {
+    match exact_tui_outcome(code, context) {
+        Ok(outcome) => AppError::blocked(outcome_notice(outcome)),
+        Err(error) => error,
+    }
+}
+
+fn outcome_notice(outcome: TuiOutcome) -> String {
+    let TuiOutcome {
+        status,
+        code,
+        effect,
+        safe_message,
+        freshness,
+        next_action,
+        one_shot_secret,
+    } = outcome;
+    debug_assert!(one_shot_secret.is_none());
+    let _typed_contract = (status, code, effect, freshness, next_action);
+    safe_message
+}
+
+pub(crate) fn consume_outcome(
+    terminal: &mut impl TerminalIo,
+    intent_id: &str,
+    outcome: TuiOutcome,
+) -> Result<ConsumedOutcome, AppError> {
+    let TuiOutcome {
+        status,
+        code,
+        effect,
+        safe_message,
+        freshness,
+        next_action,
+        one_shot_secret,
+    } = outcome;
+    let was_dispatched = outcome_was_dispatched(effect);
+    let _typed_contract = (status, code, freshness, next_action);
+    if let Some(secret) = one_shot_secret {
+        terminal
+            .write_frame_at(
+                "verification credential (one-time): ",
+                FrameWriteBoundary::PostDispatch,
+            )
+            .map_err(|_| post_dispatch_write_error(intent_id))?;
+        secret
+            .expose(|plaintext| {
+                terminal.write_frame_at(plaintext, FrameWriteBoundary::PostDispatch)
+            })
+            .map_err(|_| post_dispatch_write_error(intent_id))?;
+        terminal
+            .write_frame_at("\n", FrameWriteBoundary::PostDispatch)
+            .map_err(|_| post_dispatch_write_error(intent_id))?;
+    }
+    Ok(ConsumedOutcome {
+        notice: safe_message,
+        was_dispatched,
+    })
+}
+
+pub(crate) struct ConsumedOutcome {
+    pub(crate) notice: String,
+    pub(crate) was_dispatched: bool,
+}
+
+fn outcome_was_dispatched(effect: TuiEffect) -> bool {
+    !matches!(effect, TuiEffect::NotDispatched)
+}

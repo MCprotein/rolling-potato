@@ -1,5 +1,58 @@
 # 릴리즈 노트
 
+## 미출시 v0.37.13 - Surface, Composition, Legacy 제거
+
+이 patch는 동작을 보존하는 v0.37.x 소유권 마이그레이션을 완료합니다. 남은
+최상위 compatibility facade를 제거하고 CLI/TUI 및 application integration에
+명시적인 private owner를 부여하며, binary entrypoint는 사용자 노출 동작과 durable
+contract를 바꾸지 않는 얇은 delegate로 남깁니다.
+
+### 포함한 것
+
+- CLI command family, dispatch, presentation과 TUI controller/view 소유권을
+  `surfaces`, `composition`, focused application adapter로 분리
+- Concrete runtime, workflow, patch, inference, knowledge, policy, extension,
+  collaboration, observability, TUI integration을 `app` 아래로 이동
+- Composition을 binary-private으로 유지: `main.rs`가 ownership root를 private으로
+  등록하고 library API 없이 startup composition에 직접 위임
+- `src` 최상위 production compatibility facade를 모두 제거해 `main.rs`만 유지
+- Migration ledger의 모든 책임을 complete로 전환하고 planned/exception/
+  compatibility-facade 0건 completion gate를 활성화
+
+### 호환성 경계
+
+- CLI command, argument, 출력, exit code는 변경하지 않음
+- Durable workflow, ledger, transcript, evidence, ontology, team, extension byte와
+  ordering은 변경하지 않음
+- Runtime execution, recovery, approval, default-deny policy, backend 동작,
+  dependency, synchronous operation은 변경하지 않음
+- Release publication과 exact-candidate 전체 CI는 아직 대기 중
+
+## 미출시 v0.37.12 - Collaboration 경계
+
+이 patch는 CLI 동작, durable byte, recovery semantic, 실행 순서, evidence merge와
+stop gate를 바꾸지 않고 subagent와 team의 side-effect-free 규칙을 private runtime
+owner로 이동합니다.
+
+### 포함한 것
+
+- Subagent role/tool admission, bounded launch validation, canonical result shape,
+  patch proposal policy를 `runtime_core::collaboration`으로 이동
+- Team manifest/state DTO와 codec, stage transition, resource/continuation decision,
+  execution binding, action ownership을 collaboration owner로 이동
+- Reconciliation binding, stage/ownership gate, unique evidence validation,
+  deterministic reconciliation artifact rendering을 reconciliation owner로 이동
+- 기존 subagent/team CLI integration 본문을 `tests/collaboration` 아래에 묶고 root
+  Cargo test harness는 유지
+
+### 호환성 경계
+
+- Backend call, thread coordination, lease, filesystem install, snapshot recovery,
+  ledger/projection event, workflow evidence checkpoint는 v0.37.13 composition
+  cleanup 전까지 최상위 collaboration facade가 연결
+- CLI 출력과 exit code, canonical manifest/state/result/artifact, worker recovery와
+  cancellation, dependency, synchronous execution은 변경하지 않음
+
 ## 미출시 v0.37.11 - Extension 경계
 
 이 patch는 CLI 동작, plugin normalized manifest byte, hook ordering, skill state와
