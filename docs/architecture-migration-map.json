@@ -3374,6 +3374,22 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/view_model.rs",
+      "slices": [
+        {
+          "responsibility": "TUI navigation state and read-request projection",
+          "target": "src/surfaces/tui/view_model.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/view_model.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/team.rs",
       "slices": [
         {
@@ -3514,8 +3530,12 @@
           "responsibility": "TUI view models",
           "target": "src/surfaces/tui/view_model.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/view_model.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
         },
         {
           "responsibility": "TUI rendering",
@@ -5177,6 +5197,12 @@
       "path": "src/surfaces/tui/runtime_bridge.rs",
       "responsibilities": [
         "TUI read, selection, and intent contracts with one-shot secret"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/view_model.rs",
+      "responsibilities": [
+        "TUI navigation state and read-request projection"
       ]
     },
     {

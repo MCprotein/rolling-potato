@@ -1779,6 +1779,23 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!runtime.contains("pub struct TuiOutcome"));
     assert!(!runtime.contains("pub(crate) fn exact_tui_outcome"));
     assert!(!runtime.contains("fn validate_tui_id"));
+
+    let view_model = fs::read_to_string("src/surfaces/tui/view_model.rs").unwrap();
+    for definition in [
+        "enum InteractiveView",
+        "struct InteractiveState",
+        "fn set_view",
+        "fn read_request",
+    ] {
+        assert!(
+            view_model.contains(definition),
+            "TUI view-model owner is missing {definition}"
+        );
+    }
+    let legacy_tui = fs::read_to_string("src/tui.rs").unwrap();
+    assert!(legacy_tui.contains("surfaces::tui::view_model"));
+    assert!(!legacy_tui.contains("enum InteractiveView"));
+    assert!(!legacy_tui.contains("struct InteractiveState"));
 }
 
 #[test]

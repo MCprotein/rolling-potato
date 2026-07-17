@@ -2,3 +2,4 @@
 
 pub(crate) mod outcome;
 pub(crate) mod runtime_bridge;
+pub(crate) mod view_model;

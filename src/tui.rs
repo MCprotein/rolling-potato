@@ -9,29 +9,11 @@ use crate::runtime::{
     self, OneShotSecret, TuiEffect, TuiIntent, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext,
     TuiReadBudget, TuiReadPage, TuiReadRequest,
 };
+use crate::surfaces::tui::view_model::{InteractiveState, InteractiveView};
 
 const DEFAULT_WIDTH: usize = 92;
 const MIN_WIDTH: usize = 64;
 const MAX_WIDTH: usize = 120;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum InteractiveView {
-    Overview,
-    Monitor,
-    Sessions,
-    Transcript(String),
-    ToolOutput(String),
-    Approvals,
-    Diff(String),
-    Evidence,
-}
-
-struct InteractiveState {
-    view: InteractiveView,
-    page: u64,
-    selected_id: Option<String>,
-    notice: String,
-}
 
 pub fn run_auto() -> Result<(), AppError> {
     if capability::attached() {
@@ -52,12 +34,7 @@ fn run_controller(terminal: &mut impl TerminalIo) -> Result<(), AppError> {
     terminal
         .validate_configuration()
         .map_err(terminal_fault_error)?;
-    let mut state = InteractiveState {
-        view: InteractiveView::Overview,
-        page: 0,
-        selected_id: None,
-        notice: "help로 명령 목록을 확인하세요.".to_string(),
-    };
+    let mut state = InteractiveState::new();
     let mut post_dispatch_intent: Option<String> = None;
 
     loop {
@@ -275,51 +252,6 @@ fn test_secret_probe_enabled() -> bool {
     cfg!(debug_assertions)
         && std::env::var_os("RPOTATO_TEST_TUI_SECRET_PROBE").as_deref()
             == Some(std::ffi::OsStr::new("1"))
-}
-
-impl InteractiveState {
-    fn set_view(&mut self, view: InteractiveView) {
-        self.view = view;
-        self.page = 0;
-        self.notice = "화면을 변경했습니다.".to_string();
-    }
-
-    fn read_request(&self, width: u16, height: u16) -> TuiReadRequest {
-        let items = usize::from(height.saturating_sub(6)).max(1);
-        let chars = usize::from(width).saturating_mul(items).max(1);
-        let budget = TuiReadBudget::bounded(items, chars);
-        match &self.view {
-            InteractiveView::Overview => TuiReadRequest::Overview { budget },
-            InteractiveView::Monitor => TuiReadRequest::Monitor { budget },
-            InteractiveView::Sessions => TuiReadRequest::Sessions {
-                page: self.page,
-                budget,
-            },
-            InteractiveView::Transcript(session_id) => TuiReadRequest::Transcript {
-                session_id: session_id.clone(),
-                page: self.page,
-                budget,
-            },
-            InteractiveView::ToolOutput(artifact_id) => TuiReadRequest::ToolOutput {
-                artifact_id: artifact_id.clone(),
-                page: self.page,
-                budget,
-            },
-            InteractiveView::Approvals => TuiReadRequest::Approvals {
-                page: self.page,
-                budget,
-            },
-            InteractiveView::Diff(proposal_id) => TuiReadRequest::Diff {
-                proposal_id: proposal_id.clone(),
-                page: self.page,
-                budget,
-            },
-            InteractiveView::Evidence => TuiReadRequest::Evidence {
-                page: self.page,
-                budget,
-            },
-        }
-    }
 }
 
 fn render_interactive_frame(
@@ -1304,6 +1236,47 @@ mod tests {
     use super::*;
     use crate::adapters::filesystem::layout as paths;
     use crate::{ledger, observability, patch};
+
+    #[test]
+    fn interactive_view_change_resets_page_and_updates_notice() {
+        let mut state = InteractiveState {
+            view: InteractiveView::Sessions,
+            page: 4,
+            selected_id: Some("workflow-selected".to_string()),
+            notice: "old notice".to_string(),
+        };
+
+        state.set_view(InteractiveView::Transcript("session-next".to_string()));
+
+        assert_eq!(
+            state.view,
+            InteractiveView::Transcript("session-next".to_string())
+        );
+        assert_eq!(state.page, 0);
+        assert_eq!(state.selected_id.as_deref(), Some("workflow-selected"));
+        assert_eq!(state.notice, "화면을 변경했습니다.");
+    }
+
+    #[test]
+    fn interactive_view_builds_bounded_read_request_from_viewport() {
+        let state = InteractiveState {
+            view: InteractiveView::ToolOutput("artifact-one".to_string()),
+            page: 3,
+            selected_id: None,
+            notice: String::new(),
+        };
+
+        let request = state.read_request(10, 8);
+
+        assert_eq!(
+            request,
+            TuiReadRequest::ToolOutput {
+                artifact_id: "artifact-one".to_string(),
+                page: 3,
+                budget: TuiReadBudget::bounded(2, 20),
+            }
+        );
+    }
 
     #[test]
     fn one_shot_outcome_writes_secret_once_without_storing_it_in_notice() {
