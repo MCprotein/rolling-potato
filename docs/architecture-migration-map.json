@@ -4010,6 +4010,24 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+            "tests/workflow/recovery.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+      "slices": [
+        {
+          "responsibility": "cross-store transaction ordering and recovery sequence regression tests",
+          "target": "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
             "tests/workflow/recovery.rs",
             "tests/architecture_contract.rs"
           ]
@@ -6978,6 +6996,12 @@
       "path": "src/runtime_core/workflow/application/transaction_coordinator.rs",
       "responsibilities": [
         "cross-store transaction coordination"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/transaction_coordinator/tests.rs",
+      "responsibilities": [
+        "cross-store transaction ordering and recovery sequence regression tests"
       ]
     },
     {

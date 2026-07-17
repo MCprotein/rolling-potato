@@ -1160,6 +1160,8 @@ fn v0375_domain_views_replace_legacy_definitions() {
 
 #[test]
 fn v0376_workflow_application_owns_transaction_and_recovery_order() {
+    let coordinator_tests =
+        "src/runtime_core/workflow/application/transaction_coordinator/tests.rs";
     let ledger_adapter = "src/app/workflow_adapter/ledger.rs";
     let ledger_derived = "src/app/workflow_adapter/ledger/derived.rs";
     let ledger_query = "src/app/workflow_adapter/ledger/query.rs";
@@ -1178,6 +1180,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         "src/runtime_core/workflow/application/mod.rs",
         "src/runtime_core/workflow/application/recovery.rs",
         "src/runtime_core/workflow/application/transaction_coordinator.rs",
+        coordinator_tests,
         "src/runtime_core/workflow/domain/transition.rs",
         "tests/workflow/recovery.rs",
     ] {
@@ -1206,6 +1209,11 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let coordinator =
         fs::read_to_string("src/runtime_core/workflow/application/transaction_coordinator.rs")
             .unwrap();
+    let coordinator_tests = fs::read_to_string(coordinator_tests).unwrap();
+    assert!(
+        coordinator.contains("#[path = \"transaction_coordinator/tests.rs\"]"),
+        "transaction coordinator does not register its regression-test owner"
+    );
     for rule in [
         "fn execute_approval_transaction",
         "fn execute_verification_transaction",
@@ -1218,6 +1226,29 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
             "transaction coordinator is missing ordered use case: {rule}"
         );
     }
+    for regression in [
+        "fn accepts_only_the_next_bound_event(",
+        "fn approval_commit_order_is_application_owned(",
+        "fn verification_commit_and_recovery_share_one_order(",
+        "fn reconcile_preserves_backup_before_canonical_append(",
+    ] {
+        assert!(
+            coordinator_tests.contains(regression),
+            "transaction coordinator regression owner is missing: {regression}"
+        );
+        assert!(
+            !coordinator.contains(regression),
+            "transaction coordinator still owns inline regression: {regression}"
+        );
+    }
+    assert!(
+        coordinator.lines().count() < 500,
+        "transaction coordinator regrew beyond its ownership boundary"
+    );
+    assert!(
+        coordinator_tests.lines().count() < 550,
+        "transaction coordinator regression module regrew beyond its ownership boundary"
+    );
 
     let recovery = fs::read_to_string("src/runtime_core/workflow/application/recovery.rs").unwrap();
     for rule in [
