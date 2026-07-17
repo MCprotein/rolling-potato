@@ -21,6 +21,21 @@ job_block() {
   ' "$release_workflow"
 }
 
+step_block() {
+  local workflow="$1"
+  local step="$2"
+  awk -v step="$step" '
+    $0 == "      - name: " step { active = 1 }
+    active && $0 ~ /^      - name: / && $0 != "      - name: " step { exit }
+    active { print }
+  ' "$workflow"
+}
+
+windows_preflight_commands() {
+  sed -n 's/^[[:space:]]*\(cargo test --locked --target .*\)$/\1/p' \
+    | sed 's/\${{ matrix.target }}/x86_64-pc-windows-msvc/g'
+}
+
 require_line() {
   local body="$1"
   local line="$2"
@@ -29,7 +44,6 @@ require_line() {
 
 policy_body="$(cat "$policy_workflow")"
 candidate_body="$(cat "$candidate_workflow")"
-windows_targeted_body="$(cat "$windows_targeted_workflow")"
 candidate_permissions="$(awk '
   /^permissions:$/ { active = 1 }
   active && NR != 1 && /^[^[:space:]]/ && $0 != "permissions:" { exit }
@@ -51,10 +65,18 @@ require_line "$candidate_body" '            exit 1'
 require_line "$candidate_body" '        run: cargo test --locked -- --test-threads=1'
 require_line "$candidate_body" '        run: cargo clippy --locked --all-targets --all-features -- -D warnings'
 require_line "$candidate_body" '        run: cargo build --locked --release'
-require_line "$windows_targeted_body" '          cargo test --locked --target x86_64-pc-windows-msvc --bin rpotato adapters::filesystem::windows_replace::tests:: -- --test-threads=1'
-require_line "$windows_targeted_body" '          cargo test --locked --target x86_64-pc-windows-msvc --bin rpotato adapters::llama_cpp::stream::tests:: -- --test-threads=1'
-require_line "$windows_targeted_body" '          cargo test --locked --target x86_64-pc-windows-msvc --bin rpotato app::inference_adapter::backend::tests:: -- --test-threads=1'
-require_line "$windows_targeted_body" '          cargo test --locked --target x86_64-pc-windows-msvc --test inference backend_lifecycle::native_backend_cancel_and_stop_lifecycle -- --test-threads=1'
+release_windows_preflight="$(
+  step_block "$release_workflow" "Test native Windows backend lifecycle" \
+    | windows_preflight_commands
+)"
+targeted_windows_preflight="$(
+  step_block "$windows_targeted_workflow" "Test backend lifecycle" \
+    | windows_preflight_commands
+)"
+[ "$(printf '%s\n' "$release_windows_preflight" | awk 'NF { count++ } END { print count + 0 }')" -eq 4 ] \
+  || fail "release Windows preflight must contain exactly four cargo test commands"
+[ "$targeted_windows_preflight" = "$release_windows_preflight" ] \
+  || fail "targeted Windows preflight must exactly match the release workflow"
 require_line "$policy_body" 'RPOTATO_RELEASE_BASE_REF: ${{ github.event_name == '\''pull_request'\'' && format('\''origin/{0}'\'', github.base_ref) || '\'''\'' }}'
 require_line "$policy_body" 'RPOTATO_REQUIRE_RELEASE_BRANCH: ${{ github.event_name == '\''pull_request'\'' && '\''auto'\'' || '\''0'\'' }}'
 require_line "$policy_body" 'RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS: ${{ github.ref_type == '\''tag'\'' && '\''1'\'' || '\''0'\'' }}'
