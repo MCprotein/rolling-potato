@@ -5035,7 +5035,7 @@ mod tests {
         assert_eq!(verify_token_rejected.code, 3);
         assert!(verified.contains("검증: 통과"));
         assert!(
-            crate::korean_guard::validate(&verified),
+            crate::runtime_core::reporting::korean_guard::validate(&verified),
             "guard rejected report: {verified}"
         );
     }

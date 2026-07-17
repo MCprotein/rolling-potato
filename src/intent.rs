@@ -661,7 +661,7 @@ fn model_answer(response: &str) -> Result<String, AppError> {
             "run agent loop 차단\n- 이유: model의 읽기 전용 답변이 비어 있습니다.\n- 성공 보고: 생성하지 않음",
         ));
     }
-    if !crate::korean_guard::validate(visible) {
+    if !crate::runtime_core::reporting::korean_guard::validate(visible) {
         return Err(AppError::blocked(
             "run agent loop 차단\n- 이유: model의 읽기 전용 답변이 한국어 출력 기준을 통과하지 못했습니다.\n- 성공 보고: 생성하지 않음",
         ));
@@ -896,7 +896,9 @@ fn record_non_mutating_outcomes(
 
     for criterion in manifest.stop_criteria() {
         let satisfied = match *criterion {
-            "korean_report_passed" => crate::korean_guard::validate(answer),
+            "korean_report_passed" => {
+                crate::runtime_core::reporting::korean_guard::validate(answer)
+            }
             "claims_source_backed" => manifest
                 .evidence_requirements()
                 .iter()

@@ -7,7 +7,6 @@ mod evidence;
 mod foundation;
 mod hooks;
 mod intent;
-mod korean_guard;
 mod ledger;
 mod monitor;
 mod observability;

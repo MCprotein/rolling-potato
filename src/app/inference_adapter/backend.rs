@@ -30,7 +30,8 @@ use crate::runtime_core::inference::{
     resource,
     stream::{StreamOutcome, StreamTermination},
 };
-use crate::{korean_guard, ledger, observability, state};
+use crate::runtime_core::reporting::korean_guard;
+use crate::{ledger, observability, state};
 use llama_backend::{LlamaCppAdapter, ENV_BACKEND_PATH, LLAMA_CPP_BACKEND_ID};
 #[cfg(test)]
 use llama_backend::{DEFAULT_HOST, DEFAULT_PORT, ENV_BACKEND_PORT};

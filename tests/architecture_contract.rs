@@ -1310,16 +1310,13 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
         }
     }
 
-    let guard_facade = fs::read_to_string("src/korean_guard.rs").unwrap();
-    assert!(
-        guard_facade.lines().count() <= 8
-            && guard_facade.contains("runtime_core::reporting::korean_guard"),
-        "Korean guard compatibility facade retained implementation"
-    );
+    assert!(!Path::new("src/korean_guard.rs").exists());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod korean_guard;"));
 
     let runtime_facade = fs::read_to_string("src/runtime.rs").unwrap();
     let production = runtime_facade
-        .split("#[cfg(test)]")
+        .split("\n#[cfg(test)]\nmod tests")
         .next()
         .unwrap_or(&runtime_facade);
     for forbidden in [

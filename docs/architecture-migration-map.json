@@ -2212,21 +2212,6 @@
       ]
     },
     {
-      "path": "src/korean_guard.rs",
-      "slices": [
-        {
-          "responsibility": "Korean output invariant",
-          "target": "src/runtime_core/reporting/korean_guard.rs",
-          "release": "0.37.10",
-          "state": "complete",
-          "evidence": [
-            "src/runtime_core/reporting/korean_guard.rs",
-            "tests/architecture_contract.rs"
-          ]
-        }
-      ]
-    },
-    {
       "path": "src/ledger.rs",
       "slices": [
         {
@@ -4971,12 +4956,6 @@
       "path": "src/intent.rs",
       "responsibilities": [
         "intent classification and action planning"
-      ]
-    },
-    {
-      "path": "src/korean_guard.rs",
-      "responsibilities": [
-        "Korean output invariant"
       ]
     },
     {
