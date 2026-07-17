@@ -1,3 +1,5 @@
+use crate::adapters::filesystem::layout as paths;
+use crate::adapters::filesystem::lease;
 use crate::app::collaboration_adapter::subagent;
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::ledger;
@@ -10,8 +12,6 @@ use crate::runtime_core::collaboration::team_state::{
 pub(crate) use crate::runtime_core::collaboration::team_state::{
     parse_manifest, TeamManifestV1, TeamStage, TeamStateV1,
 };
-use crate::adapters::filesystem::layout as paths;
-use crate::adapters::filesystem::lease;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 

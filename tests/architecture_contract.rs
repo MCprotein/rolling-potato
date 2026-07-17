@@ -450,9 +450,7 @@ fn architecture_roots_are_compile_connected_and_private() {
     );
     for root in ARCHITECTURE_ROOTS {
         assert!(main.lines().any(|line| line == format!("mod {root};")));
-        assert!(!main
-            .lines()
-            .any(|line| line == format!("pub mod {root};")));
+        assert!(!main.lines().any(|line| line == format!("pub mod {root};")));
     }
 
     let english = fs::read_to_string("docs/code-architecture.md").unwrap();

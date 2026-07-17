@@ -1,3 +1,5 @@
+use crate::adapters::filesystem::layout as paths;
+use crate::adapters::filesystem::lease;
 use crate::app::collaboration_adapter::{subagent, subagent_result, team_state};
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::ledger;
@@ -9,8 +11,6 @@ use crate::runtime_core::collaboration::team_reconciliation::{
     validate_action_ownership, validate_member_record, validate_reconciliation_binding,
     validate_reconciliation_stage, ReconciliationMemberBinding,
 };
-use crate::adapters::filesystem::layout as paths;
-use crate::adapters::filesystem::lease;
 use std::collections::{BTreeMap, BTreeSet};
 
 const MAX_RECONCILIATION_BYTES: u64 = 65_536;
