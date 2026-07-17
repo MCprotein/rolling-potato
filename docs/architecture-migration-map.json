@@ -3073,14 +3073,32 @@
       ]
     },
     {
+      "path": "src/lib.rs",
+      "slices": [
+        {
+          "responsibility": "private architecture root registration and library composition facade",
+          "target": "src/lib.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/lib.rs",
+            "src/main.rs",
+            "src/composition/startup.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/main.rs",
       "slices": [
         {
-          "responsibility": "private architecture root registration",
-          "target": "src/composition/mod.rs",
-          "release": "0.37.1",
+          "responsibility": "private architecture root registration and application composition bootstrap",
+          "target": "src/lib.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
+            "src/lib.rs",
             "tests/architecture_contract.rs"
           ]
         },
@@ -3091,18 +3109,8 @@
           "state": "complete",
           "evidence": [
             "src/main.rs",
+            "src/lib.rs",
             "src/composition/startup.rs",
-            "tests/architecture_contract.rs"
-          ]
-        },
-        {
-          "responsibility": "application composition bootstrap",
-          "target": "src/composition/startup.rs",
-          "release": "0.37.13",
-          "state": "complete",
-          "evidence": [
-            "src/composition/startup.rs",
-            "src/main.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7728,11 +7736,16 @@
       ]
     },
     {
+      "path": "src/lib.rs",
+      "responsibilities": [
+        "private architecture root registration and library composition facade"
+      ]
+    },
+    {
       "path": "src/main.rs",
       "responsibilities": [
-        "private architecture root registration",
-        "binary entrypoint",
-        "application composition bootstrap"
+        "private architecture root registration and application composition bootstrap",
+        "binary entrypoint"
       ]
     },
     {
