@@ -4087,15 +4087,34 @@
       "path": "src/app/collaboration_adapter/subagent.rs",
       "slices": [
         {
-          "responsibility": "subagent lifecycle persistence and dispatch adapter",
+          "responsibility": "subagent admission, execution, and result merge adapter",
           "target": "src/app/collaboration_adapter/subagent.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent.rs",
             "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent/persistence.rs",
             "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/collaboration/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/persistence.rs",
+      "slices": [
+        {
+          "responsibility": "subagent canonical record persistence, revision checkpointing, and snapshot-chain validation",
+          "target": "src/app/collaboration_adapter/subagent/persistence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent/persistence.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6576,7 +6595,13 @@
     {
       "path": "src/app/collaboration_adapter/subagent.rs",
       "responsibilities": [
-        "subagent lifecycle persistence and dispatch adapter"
+        "subagent admission, execution, and result merge adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/persistence.rs",
+      "responsibilities": [
+        "subagent canonical record persistence, revision checkpointing, and snapshot-chain validation"
       ]
     },
     {
