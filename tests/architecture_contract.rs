@@ -3171,6 +3171,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let plugin = "src/runtime_core/extensions/plugin.rs";
     let hooks_adapter = "src/app/extensions_adapter/hooks.rs";
     let plugin_adapter = "src/app/extensions_adapter/plugin.rs";
+    let plugin_execution = "src/app/extensions_adapter/plugin/execution.rs";
     let plugin_registry = "src/app/extensions_adapter/plugin/registry.rs";
     let plugin_scanner = "src/app/extensions_adapter/plugin/scanner.rs";
     let plugin_tests = "src/app/extensions_adapter/plugin/tests.rs";
@@ -3272,6 +3273,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     for target in [
         hooks_adapter,
         plugin_adapter,
+        plugin_execution,
         plugin_registry,
         plugin_scanner,
         plugin_tests,
@@ -3325,8 +3327,28 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let hooks_adapter = fs::read_to_string(hooks_adapter).unwrap();
     let skill_adapter = fs::read_to_string(skill_adapter).unwrap();
     let plugin_adapter = fs::read_to_string(plugin_adapter).unwrap();
+    let plugin_execution = fs::read_to_string(plugin_execution).unwrap();
     let plugin_scanner = fs::read_to_string(plugin_scanner).unwrap();
     let plugin_tests = fs::read_to_string(plugin_tests).unwrap();
+    assert!(
+        plugin_adapter.lines().any(|line| line == "mod execution;"),
+        "plugin adapter does not register its execution validation owner"
+    );
+    for responsibility in [
+        "pub fn resolve_imported_codex_skill(",
+        "fn resolve_imported_codex_skill_inner(",
+        "pub fn revalidate_completed_codex_skill(",
+        "fn verify_execution_metadata(",
+    ] {
+        assert!(
+            plugin_execution.contains(responsibility),
+            "plugin execution owner is missing: {responsibility}"
+        );
+        assert!(
+            !plugin_adapter.contains(responsibility),
+            "plugin adapter still owns execution validation: {responsibility}"
+        );
+    }
     assert!(
         plugin_adapter.lines().any(|line| line == "mod scanner;"),
         "plugin adapter does not register its scanner owner"
@@ -3399,8 +3421,12 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         "skill adapter regrew beyond the v0.37.13 boundary"
     );
     assert!(
-        plugin_adapter.lines().count() < 700,
+        plugin_adapter.lines().count() < 500,
         "plugin adapter regrew beyond the v0.37.13 boundary"
+    );
+    assert!(
+        plugin_execution.lines().count() < 250,
+        "plugin execution module regrew beyond its ownership boundary"
     );
     assert!(
         plugin_registry.lines().count() < 350,

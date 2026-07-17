@@ -3550,13 +3550,34 @@
       "path": "src/app/extensions_adapter/plugin.rs",
       "slices": [
         {
-          "responsibility": "plugin import validation and reporting adapter",
+          "responsibility": "plugin source import normalization, lifecycle reporting, and registry command orchestration adapter",
           "target": "src/app/extensions_adapter/plugin.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/extensions/plugin.rs",
             "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/execution.rs",
+            "src/app/extensions_adapter/plugin/registry.rs",
+            "src/app/extensions_adapter/plugin/scanner.rs",
+            "src/app/extensions_adapter/plugin/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/execution.rs",
+      "slices": [
+        {
+          "responsibility": "imported Codex skill snapshot, frontmatter, capability, and execution metadata revalidation",
+          "target": "src/app/extensions_adapter/plugin/execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/execution.rs",
             "src/app/extensions_adapter/plugin/registry.rs",
             "src/app/extensions_adapter/plugin/scanner.rs",
             "src/app/extensions_adapter/plugin/tests.rs",
@@ -7426,7 +7447,13 @@
     {
       "path": "src/app/extensions_adapter/plugin.rs",
       "responsibilities": [
-        "plugin import validation and reporting adapter"
+        "plugin source import normalization, lifecycle reporting, and registry command orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/execution.rs",
+      "responsibilities": [
+        "imported Codex skill snapshot, frontmatter, capability, and execution metadata revalidation"
       ]
     },
     {
