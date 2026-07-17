@@ -1,3 +1,5 @@
+//! Context assembly adapter over ontology, transcript, and filesystem sources.
+
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::Read;

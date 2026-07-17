@@ -1,8 +1,8 @@
 use crate::adapters::filesystem::{layout as paths, lease};
+use crate::app::context_adapter::SourcePointer;
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::ledger::{self, ParsedLedgerEvent, RuntimeIdentity};
 use crate::app::workflow_adapter::state;
-use crate::context::SourcePointer;
 use crate::foundation::error::AppError;
 use crate::runtime_core::workflow::domain::transcript as transcript_domain;
 #[cfg(test)]

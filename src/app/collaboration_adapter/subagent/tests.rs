@@ -46,7 +46,10 @@ fn initialize_parent() -> state::WorkflowRecord {
     state::create_workflow("subagent parent fixture").unwrap()
 }
 
-fn completed_result(record: &SubagentRecordV1, context: &crate::context::ContextPack) -> String {
+fn completed_result(
+    record: &SubagentRecordV1,
+    context: &crate::app::context_adapter::ContextPack,
+) -> String {
     let evidence_ref = &context.source_pointers[0].stable_ref;
     format!(
         "{{\"schema_version\":1,\"subagent_id\":\"{}\",\"parent_workflow_id\":\"{}\",\"role\":\"{}\",\"status\":\"completed\",\"summary\":\"검증된 결과\",\"findings\":[\"선언된 파일을 확인했습니다.\"],\"patch_proposal\":null,\"evidence_refs\":[\"{}\"],\"validation_gaps\":[],\"suggested_next_action\":\"부모 작업을 계속합니다.\"}}",

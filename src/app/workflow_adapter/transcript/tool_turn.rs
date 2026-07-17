@@ -2,9 +2,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::adapters::filesystem::{layout as paths, lease};
+use crate::app::context_adapter::SourcePointer;
 use crate::app::workflow_adapter::ledger;
 use crate::app::workflow_adapter::state;
-use crate::context::SourcePointer;
 use crate::foundation::error::AppError;
 use crate::runtime_core::workflow::domain::transcript::ToolOutputView;
 use crate::runtime_core::workflow::storage_compat::transcript::{

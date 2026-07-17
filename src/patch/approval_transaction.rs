@@ -186,7 +186,7 @@ pub(super) fn approve_prepared_skill_transaction(
             record.proposed_sha256
         ),
     );
-    let source_pointer = crate::context::SourcePointer {
+    let source_pointer = crate::app::context_adapter::SourcePointer {
         path: source.relative_path.clone(),
         stable_ref: format!("{}:1", source.relative_path),
         chars: 0,

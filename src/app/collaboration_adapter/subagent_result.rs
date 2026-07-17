@@ -2,9 +2,9 @@
 
 use super::subagent::{SubagentRecordV1, SubagentStatus};
 use crate::adapters::filesystem::layout as paths;
+use crate::app::context_adapter::ContextPack;
 use crate::app::workflow_adapter::ledger;
 use crate::app::workflow_adapter::state;
-use crate::context::ContextPack;
 use crate::foundation::error::AppError;
 #[cfg(test)]
 use crate::runtime_core::collaboration::subagent_result::MAX_PATCH_TEXT_BYTES;
@@ -166,7 +166,7 @@ pub fn verify_completed_source_freshness(record: &SubagentRecordV1) -> Result<()
             "subagent completed evidence source fingerprint binding 누락",
         ));
     };
-    let current = crate::context::build_declared_context_pack(&record.read_paths)?;
+    let current = crate::app::context_adapter::build_declared_context_pack(&record.read_paths)?;
     for expected in expected_sources {
         let Some(actual) = current
             .source_pointers
@@ -306,7 +306,8 @@ mod tests {
             launch,
         )
         .unwrap();
-        let context = crate::context::build_declared_context_pack(&record.read_paths).unwrap();
+        let context =
+            crate::app::context_adapter::build_declared_context_pack(&record.read_paths).unwrap();
         (record, context)
     }
 

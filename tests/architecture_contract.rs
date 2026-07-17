@@ -2544,8 +2544,8 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
     for (facade, forbidden) in [
         ("src/app/approval_adapter.rs", "struct ApprovalRequest"),
         ("src/app/approval_adapter.rs", "fn render_request_record"),
-        ("src/context.rs", "pub struct ContextPack"),
-        ("src/context.rs", "fn clamp_source_pack"),
+        ("src/app/context_adapter.rs", "pub struct ContextPack"),
+        ("src/app/context_adapter.rs", "fn clamp_source_pack"),
         ("src/evidence.rs", "struct StopGateInputs"),
         ("src/evidence.rs", "fn stale_policy_summary"),
         ("src/ontology.rs", "struct OntologyRecord"),
@@ -5073,10 +5073,21 @@ fn v03713_composition_owns_backend_command_orchestration() {
 
 #[test]
 fn v03713_context_adapter_separates_filesystem_discovery() {
-    let context_adapter = "src/context.rs";
-    let filesystem_discovery = "src/context/discovery.rs";
+    let context_adapter = "src/app/context_adapter.rs";
+    let filesystem_discovery = "src/app/context_adapter/discovery.rs";
     assert!(Path::new(context_adapter).is_file());
     assert!(Path::new(filesystem_discovery).is_file());
+    assert!(!Path::new("src/context.rs").exists());
+    assert!(!Path::new("src/context").exists());
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(!main.lines().any(|line| line == "mod context;"));
+    let app_root = fs::read_to_string("src/app.rs").unwrap();
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod context_adapter;"),
+        "application root does not register the context adapter"
+    );
 
     let context = fs::read_to_string(context_adapter).unwrap();
     let discovery = fs::read_to_string(filesystem_discovery).unwrap();

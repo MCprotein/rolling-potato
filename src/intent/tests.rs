@@ -1,5 +1,5 @@
 use super::*;
-use crate::context::SourcePointer;
+use crate::app::context_adapter::SourcePointer;
 use crate::runtime_core::patch::intent::{parse_model_action, plan_action_candidate};
 use std::path::PathBuf;
 

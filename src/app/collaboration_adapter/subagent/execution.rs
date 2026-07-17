@@ -136,14 +136,14 @@ pub(crate) fn execute_prepared_team_member_with(
 #[derive(Debug)]
 pub(super) struct CompletedLaunch {
     pub(super) record: SubagentRecordV1,
-    pub(super) context: crate::context::ContextPack,
+    pub(super) context: crate::app::context_adapter::ContextPack,
     pub(super) summary: String,
 }
 
 struct PreparedLaunch {
     _execution_lease: lease::RecoverableLease,
     running: SubagentRecordV1,
-    context: crate::context::ContextPack,
+    context: crate::app::context_adapter::ContextPack,
     task: String,
 }
 
@@ -230,7 +230,7 @@ fn rollback_team_preparation(subagent_ids: &[String]) -> Result<(), AppError> {
 
 pub(super) fn prepare_running(
     admitted: &AdmittedLaunch,
-) -> Result<(SubagentRecordV1, crate::context::ContextPack), AppError> {
+) -> Result<(SubagentRecordV1, crate::app::context_adapter::ContextPack), AppError> {
     let record = &admitted.record;
     let _parent_lease = lease::RecoverableLease::acquire_with_wait(
         paths::project_subagent_parent_lock(&record.parent_workflow_id),
@@ -260,8 +260,10 @@ pub(super) fn prepare_running(
             "subagent dispatch 차단: admitted state binding 변경",
         ));
     }
-    let context =
-        crate::context::verify_declared_context_pack(&admitted.context, &current.read_paths)?;
+    let context = crate::app::context_adapter::verify_declared_context_pack(
+        &admitted.context,
+        &current.read_paths,
+    )?;
     let mut running = current.clone();
     running.transition_to(SubagentStatus::Running, None)?;
     let running = checkpoint_record(running, current.revision)?;
@@ -276,7 +278,7 @@ pub(super) fn prepare_running(
 
 fn complete_generation(
     running: SubagentRecordV1,
-    context: crate::context::ContextPack,
+    context: crate::app::context_adapter::ContextPack,
     generation: WorkerGeneration,
     merge_parent: bool,
 ) -> Result<CompletedLaunch, AppError> {
@@ -316,8 +318,10 @@ fn complete_generation(
             blocked.status.as_str()
         )));
     }
-    let context = match crate::context::verify_declared_context_pack(&context, &running.read_paths)
-    {
+    let context = match crate::app::context_adapter::verify_declared_context_pack(
+        &context,
+        &running.read_paths,
+    ) {
         Ok(context) => context,
         Err(error) => {
             terminalize_locked(
@@ -546,7 +550,7 @@ fn detail_token<'a>(details: &'a str, key: &str) -> Option<&'a str> {
 fn render_worker_prompt(
     record: &SubagentRecordV1,
     task: &str,
-    context: &crate::context::ContextPack,
+    context: &crate::app::context_adapter::ContextPack,
 ) -> String {
     format!(
         "You are one bounded {} subagent. Return exactly one canonical compact JSON object and no surrounding text.\n\

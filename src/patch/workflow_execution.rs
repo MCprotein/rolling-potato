@@ -255,7 +255,7 @@ pub(super) fn continue_approved_workflow(
     )?;
 
     if let Some(current) = workflow.as_ref() {
-        let updated_pointer = crate::context::SourcePointer {
+        let updated_pointer = crate::app::context_adapter::SourcePointer {
             path: apply.relative_path.clone(),
             stable_ref: format!("{}:1", apply.relative_path),
             chars: 0,

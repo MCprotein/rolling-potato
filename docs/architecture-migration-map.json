@@ -2732,7 +2732,7 @@
       ]
     },
     {
-      "path": "src/context.rs",
+      "path": "src/app/context_adapter.rs",
       "slices": [
         {
           "responsibility": "bounded source context",
@@ -2746,12 +2746,12 @@
         },
         {
           "responsibility": "context pack orchestration, declared source verification, and resume reconstruction",
-          "target": "src/context.rs",
+          "target": "src/app/context_adapter.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/context.rs",
-            "src/context/discovery.rs",
+            "src/app/context_adapter.rs",
+            "src/app/context_adapter/discovery.rs",
             "src/runtime_core/knowledge/context.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2759,16 +2759,16 @@
       ]
     },
     {
-      "path": "src/context/discovery.rs",
+      "path": "src/app/context_adapter/discovery.rs",
       "slices": [
         {
           "responsibility": "bounded filesystem context discovery, filtering, ranking, and source fingerprinting",
-          "target": "src/context/discovery.rs",
+          "target": "src/app/context_adapter/discovery.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/context.rs",
-            "src/context/discovery.rs",
+            "src/app/context_adapter.rs",
+            "src/app/context_adapter/discovery.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7612,14 +7612,14 @@
       ]
     },
     {
-      "path": "src/context.rs",
+      "path": "src/app/context_adapter.rs",
       "responsibilities": [
         "bounded source context",
         "context pack orchestration, declared source verification, and resume reconstruction"
       ]
     },
     {
-      "path": "src/context/discovery.rs",
+      "path": "src/app/context_adapter/discovery.rs",
       "responsibilities": [
         "bounded filesystem context discovery, filtering, ranking, and source fingerprinting"
       ]

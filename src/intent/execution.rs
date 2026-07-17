@@ -3,10 +3,10 @@ use super::{
     dispatch_skill_hook, fail_skill_workflow, is_non_mutating_action, model_transcript_content,
     plugin_completion_fault, record_non_mutating_outcomes, render_non_mutating_report,
 };
+use crate::app::context_adapter as context;
 use crate::app::extensions_adapter::{plugin, skill};
 use crate::app::inference_adapter::backend;
 use crate::app::workflow_adapter::{state, transcript};
-use crate::context;
 use crate::foundation::error::AppError;
 use crate::runtime_core::patch::intent::{
     display_bool, display_list, display_optional_u32, parse_model_action, plan_action_candidate,

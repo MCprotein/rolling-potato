@@ -1,7 +1,7 @@
 use crate::adapters::filesystem::layout as paths;
+use crate::app::context_adapter::{ContextPack, ResumeContext};
 use crate::app::extensions_adapter::{hooks, skill};
 use crate::app::workflow_adapter::state;
-use crate::context::{ContextPack, ResumeContext};
 use crate::foundation::error::AppError;
 use crate::runtime_core::patch::intent::{
     self as intent_domain, detect_constraints, display_bool, display_list, has_any,

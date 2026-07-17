@@ -25,7 +25,7 @@ pub use persistence::{checkpoint_record, create_record, load_record};
 #[derive(Debug)]
 pub(crate) struct AdmittedLaunch {
     record: SubagentRecordV1,
-    context: crate::context::ContextPack,
+    context: crate::app::context_adapter::ContextPack,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -128,7 +128,7 @@ pub(crate) fn admit_team_members(
             Some(member.timeout_ms),
             Some(member.max_tokens),
         )?;
-        let context = crate::context::build_declared_context_pack(&launch.read_paths)?;
+        let context = crate::app::context_adapter::build_declared_context_pack(&launch.read_paths)?;
         prepared.push((member, launch, context));
     }
 
@@ -250,7 +250,7 @@ pub(crate) fn resume_admitted_team_member(
             "team admitted recovery immutable launch binding 불일치",
         ));
     }
-    let context = crate::context::build_declared_context_pack(&record.read_paths)?;
+    let context = crate::app::context_adapter::build_declared_context_pack(&record.read_paths)?;
     Ok(AdmittedTeamMember {
         lane: member.lane,
         member_id: member.member_id,
@@ -376,7 +376,7 @@ fn admit_launch(launch: ValidatedLaunch) -> Result<AdmittedLaunch, AppError> {
             )));
         }
     }
-    let context = crate::context::build_declared_context_pack(&launch.read_paths)?;
+    let context = crate::app::context_adapter::build_declared_context_pack(&launch.read_paths)?;
     let requested = create_record(SubagentRecordV1::new(
         &parent.project_id,
         &parent.session_id,
