@@ -1129,8 +1129,11 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     }
 
     let sqlite = fs::read_to_string("src/adapters/sqlite/observability_projection.rs").unwrap();
+    let read_snapshot_path = "src/adapters/sqlite/observability_projection/read_snapshot.rs";
     let sqlite_tests_path = "src/adapters/sqlite/observability_projection/tests.rs";
+    assert!(Path::new(read_snapshot_path).is_file());
     assert!(Path::new(sqlite_tests_path).is_file());
+    let read_snapshot = fs::read_to_string(read_snapshot_path).unwrap();
     let sqlite_tests = fs::read_to_string(sqlite_tests_path).unwrap();
     for rule in [
         "impl ObservabilityProjectionPort for SqliteObservabilityProjection",
@@ -1144,6 +1147,27 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         !sqlite_production.contains("crate::ledger"),
         "SQLite projection adapter bypasses the consumer-owned projection port"
     );
+    assert!(
+        sqlite.lines().any(|line| line == "mod read_snapshot;"),
+        "SQLite projection does not register the read-only snapshot owner"
+    );
+    for responsibility in [
+        "pub(super) struct ReadOnlyProjection",
+        "pub(super) fn open_read_only(",
+        "pub(super) fn open_read_only_path(",
+        "fn stable_projection_files(",
+        "fn read_regular_snapshot_file(",
+        "fn write_private_snapshot_file(",
+    ] {
+        assert!(
+            !sqlite.contains(responsibility),
+            "read-only snapshot responsibility escaped into projection facade: {responsibility}"
+        );
+        assert!(
+            read_snapshot.contains(responsibility),
+            "read-only snapshot owner is missing: {responsibility}"
+        );
+    }
     assert!(
         sqlite.contains("#[path = \"observability_projection/tests.rs\"]"),
         "SQLite projection does not register its regression-test owner"
@@ -1160,8 +1184,12 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         );
     }
     assert!(
-        sqlite.lines().count() < 2_300,
-        "SQLite projection production module regrew beyond its test extraction boundary"
+        sqlite.lines().count() < 2_050,
+        "SQLite projection production module regrew beyond its snapshot extraction boundary"
+    );
+    assert!(
+        read_snapshot.lines().count() < 275,
+        "SQLite read-only snapshot module regrew beyond its ownership boundary"
     );
     assert!(
         sqlite_tests.lines().count() < 825,
