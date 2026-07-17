@@ -663,12 +663,15 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_resource_sampling_path = "src/app/inference_adapter/backend/resource_sampling.rs";
     let backend_sidecar_path = "src/app/inference_adapter/backend/sidecar.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
+    let model_adapter_path = "src/app/inference_adapter/model.rs";
+    let model_tests_path = "src/app/inference_adapter/model/tests.rs";
     assert!(Path::new(backend_chat_path).is_file());
     assert!(Path::new(backend_generation_state_path).is_file());
     assert!(Path::new(backend_installation_path).is_file());
     assert!(Path::new(backend_resource_sampling_path).is_file());
     assert!(Path::new(backend_sidecar_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
+    assert!(Path::new(model_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
     let backend_chat = fs::read_to_string(backend_chat_path).unwrap();
     let backend_generation_state = fs::read_to_string(backend_generation_state_path).unwrap();
@@ -676,9 +679,15 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_resource_sampling = fs::read_to_string(backend_resource_sampling_path).unwrap();
     let backend_sidecar = fs::read_to_string(backend_sidecar_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
+    let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
+    let model_tests = fs::read_to_string(model_tests_path).unwrap();
     assert!(
         backend_adapter.contains("#[path = \"backend/tests.rs\"]"),
         "inference backend adapter does not register its regression-test owner"
+    );
+    assert!(
+        model_adapter.contains("#[path = \"model/tests.rs\"]"),
+        "model adapter does not register its regression-test owner"
     );
     assert!(
         backend_adapter.lines().any(|line| line == "mod chat;"),
@@ -804,6 +813,21 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             "inference backend regression owner is missing: {responsibility}"
         );
     }
+    for responsibility in [
+        "fn manifest_validation_blocks_unverified_artifact_candidate(",
+        "fn promotion_evidence_validation_accepts_measured_local_benchmark(",
+        "fn registry_promotion_binding_rejects_backend_and_benchmark_drift(",
+        "fn cleanup_failed_dry_run_lists_app_managed_paths(",
+    ] {
+        assert!(
+            model_tests.contains(responsibility),
+            "model regression owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_adapter.contains(responsibility),
+            "model adapter still owns regression test: {responsibility}"
+        );
+    }
     assert!(
         backend_adapter.lines().count() < 125,
         "inference backend production adapter regrew beyond its resource-sampling extraction boundary"
@@ -831,6 +855,14 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(
         backend_tests.lines().count() < 900,
         "inference backend regression module regrew beyond its ownership boundary"
+    );
+    assert!(
+        model_adapter.lines().count() < 1_025,
+        "model adapter regrew beyond its test extraction boundary"
+    );
+    assert!(
+        model_tests.lines().count() < 550,
+        "model regression module regrew beyond its ownership boundary"
     );
 }
 

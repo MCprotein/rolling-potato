@@ -2630,6 +2630,25 @@
             "src/composition/inference.rs",
             "src/app/legacy_dispatch.rs",
             "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/tests.rs",
+      "slices": [
+        {
+          "responsibility": "model manifest, evaluation, promotion, registry, and cleanup regression tests",
+          "target": "src/app/inference_adapter/model/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "src/runtime_core/inference/model/manifest.rs",
+            "src/runtime_core/inference/model/promotion.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6247,6 +6266,12 @@
       "path": "src/app/inference_adapter/model.rs",
       "responsibilities": [
         "model concrete integration adapter"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/tests.rs",
+      "responsibilities": [
+        "model manifest, evaluation, promotion, registry, and cleanup regression tests"
       ]
     },
     {
