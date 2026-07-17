@@ -867,6 +867,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
 
     let backend_adapter_path = "src/app/inference_adapter/backend.rs";
     let backend_chat_path = "src/app/inference_adapter/backend/chat.rs";
+    let backend_chat_report_path = "src/app/inference_adapter/backend/chat/report.rs";
     let backend_generation_state_path = "src/app/inference_adapter/backend/generation_state.rs";
     let backend_installation_path = "src/app/inference_adapter/backend/installation.rs";
     let backend_resource_sampling_path = "src/app/inference_adapter/backend/resource_sampling.rs";
@@ -877,6 +878,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let model_registry_path = "src/app/inference_adapter/model/registry.rs";
     let model_tests_path = "src/app/inference_adapter/model/tests.rs";
     assert!(Path::new(backend_chat_path).is_file());
+    assert!(Path::new(backend_chat_report_path).is_file());
     assert!(Path::new(backend_generation_state_path).is_file());
     assert!(Path::new(backend_installation_path).is_file());
     assert!(Path::new(backend_resource_sampling_path).is_file());
@@ -887,6 +889,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(Path::new(model_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
     let backend_chat = fs::read_to_string(backend_chat_path).unwrap();
+    let backend_chat_report = fs::read_to_string(backend_chat_report_path).unwrap();
     let backend_generation_state = fs::read_to_string(backend_generation_state_path).unwrap();
     let backend_installation = fs::read_to_string(backend_installation_path).unwrap();
     let backend_resource_sampling = fs::read_to_string(backend_resource_sampling_path).unwrap();
@@ -953,6 +956,26 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "inference backend adapter does not register its chat owner"
     );
     assert!(
+        backend_chat.lines().any(|line| line == "mod report;"),
+        "inference backend chat owner does not register its report owner"
+    );
+    for responsibility in [
+        "pub fn chat_report(",
+        "pub fn chat_stream_report(",
+        "fn format_chat_run(",
+    ] {
+        assert!(
+            backend_chat_report.contains(responsibility),
+            "inference backend chat report owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_chat.contains(responsibility),
+            "inference backend chat execution still owns reporting: {responsibility}"
+        );
+    }
+    assert!(backend_chat_report
+        .contains("fn chat_report_format_preserves_diagnostics_and_response_boundary("));
+    assert!(
         backend_adapter
             .lines()
             .any(|line| line == "mod generation_state;"),
@@ -975,8 +998,6 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "inference backend adapter does not register its sidecar owner"
     );
     for responsibility in [
-        "pub fn chat_report(",
-        "pub fn chat_stream_report(",
         "pub fn chat_once(",
         "pub fn chat_once_bounded(",
         "pub fn chat_once_bounded_with_cancel(",
@@ -1092,8 +1113,12 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "inference backend production adapter regrew beyond its resource-sampling extraction boundary"
     );
     assert!(
-        backend_chat.lines().count() < 750,
+        backend_chat.lines().count() < 650,
         "inference backend chat module regrew beyond its ownership boundary"
+    );
+    assert!(
+        backend_chat_report.lines().count() < 200,
+        "inference backend chat report module regrew beyond its ownership boundary"
     );
     assert!(
         backend_generation_state.lines().count() < 250,

@@ -1958,14 +1958,31 @@
       "path": "src/app/inference_adapter/backend/chat.rs",
       "slices": [
         {
-          "responsibility": "backend chat execution, streaming, cancellation, and generation reporting",
+          "responsibility": "backend chat execution, cancellation, and generation lifecycle coordination",
           "target": "src/app/inference_adapter/backend/chat.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/backend/chat.rs",
+            "src/app/inference_adapter/backend/chat/report.rs",
             "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/report.rs",
+      "slices": [
+        {
+          "responsibility": "backend chat batch and streaming report presentation",
+          "target": "src/app/inference_adapter/backend/chat/report.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/chat.rs",
+            "src/app/inference_adapter/backend/chat/report.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6663,7 +6680,13 @@
     {
       "path": "src/app/inference_adapter/backend/chat.rs",
       "responsibilities": [
-        "backend chat execution, streaming, cancellation, and generation reporting"
+        "backend chat execution, cancellation, and generation lifecycle coordination"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/report.rs",
+      "responsibilities": [
+        "backend chat batch and streaming report presentation"
       ]
     },
     {
