@@ -1162,11 +1162,13 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let guard_adapter = "src/patch/guard.rs";
     let proposal_builder_adapter = "src/patch/proposal_builder.rs";
     let proposal_store_adapter = "src/patch/proposal_store.rs";
+    let terminal_adapter = "src/patch/terminal.rs";
     let workflow_contract_adapter = "src/patch/workflow_contract.rs";
     assert!(Path::new(execution_adapter).is_file());
     assert!(Path::new(guard_adapter).is_file());
     assert!(Path::new(proposal_builder_adapter).is_file());
     assert!(Path::new(proposal_store_adapter).is_file());
+    assert!(Path::new(terminal_adapter).is_file());
     assert!(Path::new(workflow_contract_adapter).is_file());
     let owners = [
         "src/runtime_core/patch/approval.rs",
@@ -1303,6 +1305,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let guard = fs::read_to_string(guard_adapter).unwrap();
     let proposal_builder = fs::read_to_string(proposal_builder_adapter).unwrap();
     let proposal_store = fs::read_to_string(proposal_store_adapter).unwrap();
+    let terminal = fs::read_to_string(terminal_adapter).unwrap();
     let workflow_contract = fs::read_to_string(workflow_contract_adapter).unwrap();
     let patch_test_module = fs::read_to_string(patch_tests).unwrap();
     let patch_harness = fs::read_to_string("tests/patch_loop.rs").unwrap();
@@ -1312,7 +1315,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         "intent facade regrew beyond the v0.37.9 boundary"
     );
     assert!(
-        patch_facade.lines().count() < 2_900,
+        patch_facade.lines().count() < 2_500,
         "patch facade regrew beyond the v0.37.9 boundary"
     );
     assert!(patch_facade.lines().any(|line| line == "mod execution;"));
@@ -1383,6 +1386,22 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         );
     }
     assert!(proposal_store.lines().count() < 350);
+    assert!(patch_facade.lines().any(|line| line == "mod terminal;"));
+    for escaped_responsibility in [
+        "fn cancel_workflow_transaction(",
+        "fn deny_pending_gate_transaction(",
+        "fn prepare_terminal_rollback_source(",
+    ] {
+        assert!(
+            !patch_facade.contains(escaped_responsibility),
+            "terminal workflow responsibility escaped into patch facade: {escaped_responsibility}"
+        );
+        assert!(
+            terminal.contains(escaped_responsibility),
+            "terminal workflow adapter is missing responsibility: {escaped_responsibility}"
+        );
+    }
+    assert!(terminal.lines().count() < 500);
     assert!(patch_facade
         .lines()
         .any(|line| line == "mod workflow_contract;"));

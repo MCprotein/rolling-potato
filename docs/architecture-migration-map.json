@@ -2629,6 +2629,24 @@
       ]
     },
     {
+      "path": "src/patch/terminal.rs",
+      "slices": [
+        {
+          "responsibility": "patch workflow cancellation, gate denial, and terminal rollback adapter",
+          "target": "src/patch/terminal.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/patch/terminal.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/patch/workflow_contract.rs",
       "slices": [
         {
@@ -5428,6 +5446,12 @@
       "path": "src/patch/proposal_store.rs",
       "responsibilities": [
         "patch proposal persistence, credential, and rollback lookup adapter"
+      ]
+    },
+    {
+      "path": "src/patch/terminal.rs",
+      "responsibilities": [
+        "patch workflow cancellation, gate denial, and terminal rollback adapter"
       ]
     },
     {
