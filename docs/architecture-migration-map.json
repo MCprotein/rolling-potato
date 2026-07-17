@@ -2544,6 +2544,24 @@
           "release": "0.37.2",
           "state": "complete",
           "evidence": [
+            "src/foundation/serialization.rs",
+            "src/foundation/serialization/parser.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/parser.rs",
+      "slices": [
+        {
+          "responsibility": "bounded recursive strict JSON parsing for objects, arrays, strings, numbers, literals, and Unicode escapes",
+          "target": "src/foundation/serialization/parser.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/foundation/serialization.rs",
+            "src/foundation/serialization/parser.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6771,6 +6789,12 @@
       "path": "src/foundation/serialization.rs",
       "responsibilities": [
         "strict JSON parsing and canonical serialization"
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/parser.rs",
+      "responsibilities": [
+        "bounded recursive strict JSON parsing for objects, arrays, strings, numbers, literals, and Unicode escapes"
       ]
     },
     {

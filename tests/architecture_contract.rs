@@ -464,6 +464,7 @@ fn v0372_foundation_owners_replace_legacy_modules() {
         "src/foundation/error.rs",
         "src/foundation/integrity.rs",
         "src/foundation/serialization.rs",
+        "src/foundation/serialization/parser.rs",
     ] {
         assert!(
             Path::new(target).is_file(),
@@ -496,6 +497,32 @@ fn v0372_foundation_owners_replace_legacy_modules() {
             "foundation owner is not crate-private: {owner}"
         );
     }
+
+    let serialization = fs::read_to_string("src/foundation/serialization.rs").unwrap();
+    let parser = fs::read_to_string("src/foundation/serialization/parser.rs").unwrap();
+    assert!(serialization.contains("#[path = \"serialization/parser.rs\"]"));
+    assert!(serialization.lines().any(|line| line == "mod parser;"));
+    for responsibility in [
+        "pub(super) fn parse_value(",
+        "struct Parser<'a>",
+        "fn value(",
+        "fn object(",
+        "fn array(",
+        "fn string_value(",
+        "fn number_value(",
+        "fn hex4(",
+    ] {
+        assert!(
+            parser.contains(responsibility),
+            "strict JSON parser owner is missing: {responsibility}"
+        );
+        assert!(
+            !serialization.contains(responsibility),
+            "serialization facade still owns parser implementation: {responsibility}"
+        );
+    }
+    assert!(serialization.lines().count() < 525);
+    assert!(parser.lines().count() < 300);
 
     let app = fs::read_to_string("src/app.rs").unwrap();
     assert!(
