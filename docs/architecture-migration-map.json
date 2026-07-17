@@ -1994,15 +1994,35 @@
       "path": "src/app/inference_adapter/backend/chat.rs",
       "slices": [
         {
-          "responsibility": "backend chat execution, cancellation, and generation lifecycle coordination",
+          "responsibility": "backend chat admission, streaming execution, and completion coordination",
           "target": "src/app/inference_adapter/backend/chat.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/backend/chat.rs",
+            "src/app/inference_adapter/backend/chat/interruption.rs",
             "src/app/inference_adapter/backend/chat/report.rs",
             "src/app/inference_adapter/backend/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/interruption.rs",
+      "slices": [
+        {
+          "responsibility": "backend chat timeout, cancellation, and interrupted-generation evidence",
+          "target": "src/app/inference_adapter/backend/chat/interruption.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/chat.rs",
+            "src/app/inference_adapter/backend/chat/interruption.rs",
+            "src/app/inference_adapter/backend/generation_state.rs",
+            "src/app/inference_adapter/backend/tests.rs",
+            "tests/patch/lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7001,7 +7021,13 @@
     {
       "path": "src/app/inference_adapter/backend/chat.rs",
       "responsibilities": [
-        "backend chat execution, cancellation, and generation lifecycle coordination"
+        "backend chat admission, streaming execution, and completion coordination"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/interruption.rs",
+      "responsibilities": [
+        "backend chat timeout, cancellation, and interrupted-generation evidence"
       ]
     },
     {
