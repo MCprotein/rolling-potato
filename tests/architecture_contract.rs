@@ -1716,6 +1716,8 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let bundle_event_chain_adapter =
         "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs";
     let bundle_members_adapter = "src/app/workflow_adapter/transition/bundle_validation/members.rs";
+    let bundle_workflow_members_adapter =
+        "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs";
     let journal_adapter = "src/app/workflow_adapter/transition/journal.rs";
     let journal_codec_adapter = "src/app/workflow_adapter/transition/journal/codec.rs";
     let journal_recovery_io_adapter = "src/app/workflow_adapter/transition/journal/recovery_io.rs";
@@ -1728,6 +1730,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         bundle_validation_adapter,
         bundle_event_chain_adapter,
         bundle_members_adapter,
+        bundle_workflow_members_adapter,
         journal_adapter,
         journal_codec_adapter,
         journal_recovery_io_adapter,
@@ -1746,6 +1749,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let bundle_validation = fs::read_to_string(bundle_validation_adapter).unwrap();
     let bundle_event_chain = fs::read_to_string(bundle_event_chain_adapter).unwrap();
     let bundle_members = fs::read_to_string(bundle_members_adapter).unwrap();
+    let bundle_workflow_members = fs::read_to_string(bundle_workflow_members_adapter).unwrap();
     let journal = fs::read_to_string(journal_adapter).unwrap();
     let journal_codec = fs::read_to_string(journal_codec_adapter).unwrap();
     let journal_recovery_io = fs::read_to_string(journal_recovery_io_adapter).unwrap();
@@ -1810,8 +1814,6 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     );
     for responsibility in [
         "pub(super) fn validate_additional_members(",
-        "fn validate_state_transition_members(",
-        "fn validate_verification_members(",
         "fn validate_projection_lag_member(",
     ] {
         assert!(
@@ -1825,6 +1827,27 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         assert!(
             !bundle_validation.contains(responsibility),
             "bundle-validation adapter still owns member validation: {responsibility}"
+        );
+    }
+    assert!(
+        bundle_members.lines().any(|line| line == "mod workflow;"),
+        "bundle member-validation adapter does not register its workflow member owner"
+    );
+    for responsibility in [
+        "pub(super) fn validate_state_transition_members(",
+        "pub(super) fn validate_verification_members(",
+    ] {
+        assert!(
+            bundle_workflow_members.contains(responsibility),
+            "workflow member-validation adapter is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !bundle_members.contains(responsibility),
+            "bundle member-validation adapter still owns workflow validation: {responsibility}"
+        );
+        assert!(
+            !transition.contains(responsibility) && !bundle_validation.contains(responsibility),
+            "workflow member validation escaped into an orchestration facade: {responsibility}"
         );
     }
     assert!(
@@ -1954,8 +1977,12 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         "bundle event-chain adapter regrew beyond its ownership boundary"
     );
     assert!(
-        bundle_members.lines().count() < 575,
+        bundle_members.lines().count() < 275,
         "bundle member-validation adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        bundle_workflow_members.lines().count() < 350,
+        "workflow member-validation adapter regrew beyond its ownership boundary"
     );
     assert!(
         journal.lines().count() < 550,

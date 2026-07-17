@@ -5548,6 +5548,7 @@
             "src/app/workflow_adapter/transition/bundle_validation.rs",
             "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
             "src/app/workflow_adapter/transition/bundle_validation/members.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs",
             "src/app/workflow_adapter/transition/tests/mod.rs",
             "tests/architecture_contract.rs"
           ]
@@ -5577,7 +5578,7 @@
       "path": "src/app/workflow_adapter/transition/bundle_validation/members.rs",
       "slices": [
         {
-          "responsibility": "prepared production, workflow-transition, verification, and projection-lag member invariant validation",
+          "responsibility": "prepared production approval and projection-lag member invariant validation",
           "target": "src/app/workflow_adapter/transition/bundle_validation/members.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -5586,6 +5587,24 @@
             "src/app/workflow_adapter/transition/bundle_validation.rs",
             "src/app/workflow_adapter/transition/bundle_validation/members.rs",
             "src/app/workflow_adapter/transition/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs",
+      "slices": [
+        {
+          "responsibility": "prepared state-transition, checkpoint, verification, and terminal-action member invariant validation",
+          "target": "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/bundle_validation.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/members.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs",
             "src/app/workflow_adapter/state/tests/lifecycle.rs",
             "src/patch/tests/verification_cases.rs",
             "tests/architecture_contract.rs"
@@ -8147,7 +8166,13 @@
     {
       "path": "src/app/workflow_adapter/transition/bundle_validation/members.rs",
       "responsibilities": [
-        "prepared production, workflow-transition, verification, and projection-lag member invariant validation"
+        "prepared production approval and projection-lag member invariant validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs",
+      "responsibilities": [
+        "prepared state-transition, checkpoint, verification, and terminal-action member invariant validation"
       ]
     },
     {
