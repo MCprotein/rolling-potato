@@ -53,9 +53,9 @@ fn state_writer_callgraph_is_closed_and_serialized_by_project_transition() {
         .next()
         .unwrap();
     let source_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
-    let mut patch_files = vec![source_dir.join("patch.rs")];
-    collect_rust_files(&source_dir.join("patch"), &mut patch_files);
-    let patch_tests = source_dir.join("patch/tests");
+    let mut patch_files = vec![source_dir.join("app/patch_adapter.rs")];
+    collect_rust_files(&source_dir.join("app/patch_adapter"), &mut patch_files);
+    let patch_tests = source_dir.join("app/patch_adapter/tests");
     patch_files.retain(|path| !path.starts_with(&patch_tests));
     let patch_source = patch_files
         .into_iter()
