@@ -2595,6 +2595,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let plugin = "src/runtime_core/extensions/plugin.rs";
     let hooks_adapter = "src/app/extensions_adapter/hooks.rs";
     let plugin_adapter = "src/app/extensions_adapter/plugin.rs";
+    let plugin_scanner = "src/app/extensions_adapter/plugin/scanner.rs";
     let plugin_tests = "src/app/extensions_adapter/plugin/tests.rs";
     let skill_adapter = "src/app/extensions_adapter/skill.rs";
     for target in [hook, skill, plugin] {
@@ -2691,7 +2692,13 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         }
     }
 
-    for target in [hooks_adapter, plugin_adapter, plugin_tests, skill_adapter] {
+    for target in [
+        hooks_adapter,
+        plugin_adapter,
+        plugin_scanner,
+        plugin_tests,
+        skill_adapter,
+    ] {
         assert!(
             Path::new(target).is_file(),
             "missing v0.37.13 extension adapter: {target}"
@@ -2740,7 +2747,29 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let hooks_adapter = fs::read_to_string(hooks_adapter).unwrap();
     let skill_adapter = fs::read_to_string(skill_adapter).unwrap();
     let plugin_adapter = fs::read_to_string(plugin_adapter).unwrap();
+    let plugin_scanner = fs::read_to_string(plugin_scanner).unwrap();
     let plugin_tests = fs::read_to_string(plugin_tests).unwrap();
+    assert!(
+        plugin_adapter.lines().any(|line| line == "mod scanner;"),
+        "plugin adapter does not register its scanner owner"
+    );
+    for responsibility in [
+        "pub(super) struct DirectoryScan",
+        "pub(super) fn scan_directory(",
+        "pub(super) fn copy_dir_recursive(",
+        "fn classify_runtime_file(",
+        "pub(super) fn sha256_directory_snapshot(",
+        "fn collect_snapshot_entries(",
+    ] {
+        assert!(
+            plugin_scanner.contains(responsibility),
+            "plugin scanner owner is missing: {responsibility}"
+        );
+        assert!(
+            !plugin_adapter.contains(responsibility),
+            "plugin adapter still owns scanner behavior: {responsibility}"
+        );
+    }
     assert!(
         plugin_adapter.contains("#[path = \"plugin/tests.rs\"]"),
         "plugin adapter does not register its regression-test owner"
@@ -2769,8 +2798,12 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         "skill adapter regrew beyond the v0.37.13 boundary"
     );
     assert!(
-        plugin_adapter.lines().count() < 1_350,
+        plugin_adapter.lines().count() < 975,
         "plugin adapter regrew beyond the v0.37.13 boundary"
+    );
+    assert!(
+        plugin_scanner.lines().count() < 450,
+        "plugin scanner module regrew beyond its ownership boundary"
     );
     assert!(
         plugin_tests.lines().count() < 450,
