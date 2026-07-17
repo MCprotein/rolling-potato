@@ -869,12 +869,14 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
 fn v03713_transition_adapter_delegates_source_install_contract() {
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
     let bundle_preparation_adapter = "src/app/workflow_adapter/transition/bundle_preparation.rs";
+    let bundle_validation_adapter = "src/app/workflow_adapter/transition/bundle_validation.rs";
     let journal_adapter = "src/app/workflow_adapter/transition/journal.rs";
     let source_install_adapter = "src/app/workflow_adapter/transition/source_install.rs";
     let transition_tests = "src/app/workflow_adapter/transition/tests/mod.rs";
     for target in [
         transition_adapter,
         bundle_preparation_adapter,
+        bundle_validation_adapter,
         journal_adapter,
         source_install_adapter,
         transition_tests,
@@ -887,6 +889,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
 
     let transition = fs::read_to_string(transition_adapter).unwrap();
     let bundle_preparation = fs::read_to_string(bundle_preparation_adapter).unwrap();
+    let bundle_validation = fs::read_to_string(bundle_validation_adapter).unwrap();
     let journal = fs::read_to_string(journal_adapter).unwrap();
     let source_install = fs::read_to_string(source_install_adapter).unwrap();
     let tests = fs::read_to_string(transition_tests).unwrap();
@@ -910,6 +913,29 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         assert!(
             bundle_preparation.contains(responsibility),
             "bundle-preparation adapter is missing responsibility: {responsibility}"
+        );
+    }
+    assert!(
+        transition
+            .lines()
+            .any(|line| line == "mod bundle_validation;"),
+        "transition adapter does not register the bundle-validation owner"
+    );
+    for responsibility in [
+        "pub(super) fn validate_prepared_source_bundle(",
+        "pub(super) fn validate_event_chain(",
+        "fn validate_additional_members(",
+        "fn validate_state_transition_members(",
+        "fn validate_verification_members(",
+        "fn validate_projection_lag_member(",
+    ] {
+        assert!(
+            !transition.contains(responsibility),
+            "bundle-validation responsibility escaped into transition facade: {responsibility}"
+        );
+        assert!(
+            bundle_validation.contains(responsibility),
+            "bundle-validation adapter is missing responsibility: {responsibility}"
         );
     }
     assert!(
@@ -976,12 +1002,16 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         );
     }
     assert!(
-        transition.lines().count() < 1_800,
+        transition.lines().count() < 1_125,
         "transition adapter regrew beyond its extracted ownership boundary"
     );
     assert!(
         bundle_preparation.lines().count() < 500,
         "bundle-preparation adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        bundle_validation.lines().count() < 725,
+        "bundle-validation adapter regrew beyond its ownership boundary"
     );
     assert!(
         journal.lines().count() < 900,

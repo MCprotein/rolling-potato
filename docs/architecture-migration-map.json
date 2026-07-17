@@ -4201,7 +4201,7 @@
       "path": "src/app/workflow_adapter/transition.rs",
       "slices": [
         {
-          "responsibility": "prepared bundle member codec and validation adapter",
+          "responsibility": "prepared bundle member codec and shared transition primitives",
           "target": "src/app/workflow_adapter/transition.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -4227,6 +4227,23 @@
             "src/runtime_core/workflow/domain/transition.rs",
             "src/runtime_core/workflow/application/projection_barrier.rs",
             "src/app/workflow_adapter/transition/bundle_preparation.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation.rs",
+      "slices": [
+        {
+          "responsibility": "prepared bundle, event-chain, and member invariant validation adapter",
+          "target": "src/app/workflow_adapter/transition/bundle_validation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/bundle_validation.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6268,13 +6285,19 @@
     {
       "path": "src/app/workflow_adapter/transition.rs",
       "responsibilities": [
-        "prepared bundle member codec and validation adapter"
+        "prepared bundle member codec and shared transition primitives"
       ]
     },
     {
       "path": "src/app/workflow_adapter/transition/bundle_preparation.rs",
       "responsibilities": [
         "prepared bundle construction, event binding, and projection-lag persistence adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation.rs",
+      "responsibilities": [
+        "prepared bundle, event-chain, and member invariant validation adapter"
       ]
     },
     {
