@@ -2569,6 +2569,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let plugin = "src/runtime_core/extensions/plugin.rs";
     let hooks_adapter = "src/app/extensions_adapter/hooks.rs";
     let plugin_adapter = "src/app/extensions_adapter/plugin.rs";
+    let plugin_tests = "src/app/extensions_adapter/plugin/tests.rs";
     let skill_adapter = "src/app/extensions_adapter/skill.rs";
     for target in [hook, skill, plugin] {
         assert!(
@@ -2664,7 +2665,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         }
     }
 
-    for target in [hooks_adapter, plugin_adapter, skill_adapter] {
+    for target in [hooks_adapter, plugin_adapter, plugin_tests, skill_adapter] {
         assert!(
             Path::new(target).is_file(),
             "missing v0.37.13 extension adapter: {target}"
@@ -2713,6 +2714,26 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let hooks_adapter = fs::read_to_string(hooks_adapter).unwrap();
     let skill_adapter = fs::read_to_string(skill_adapter).unwrap();
     let plugin_adapter = fs::read_to_string(plugin_adapter).unwrap();
+    let plugin_tests = fs::read_to_string(plugin_tests).unwrap();
+    assert!(
+        plugin_adapter.contains("#[path = \"plugin/tests.rs\"]"),
+        "plugin adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn codex_import_persists_manifest_and_registry(",
+        "fn validate_blocks_imported_source_drift(",
+        "fn tampered_normalized_capability_summary_cannot_admit_scripted_skill(",
+        "fn path_traversal_plugin_import_is_blocked(",
+    ] {
+        assert!(
+            plugin_tests.contains(regression),
+            "plugin regression owner is missing: {regression}"
+        );
+        assert!(
+            !plugin_adapter.contains(regression),
+            "plugin adapter still owns regression test: {regression}"
+        );
+    }
     assert!(
         hooks_adapter.lines().count() <= 300,
         "hooks adapter regrew beyond the v0.37.13 boundary"
@@ -2722,8 +2743,12 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         "skill adapter regrew beyond the v0.37.13 boundary"
     );
     assert!(
-        plugin_adapter.lines().count() <= 1_750,
+        plugin_adapter.lines().count() < 1_350,
         "plugin adapter regrew beyond the v0.37.13 boundary"
+    );
+    assert!(
+        plugin_tests.lines().count() < 450,
+        "plugin regression module regrew beyond its ownership boundary"
     );
 }
 

@@ -3159,6 +3159,24 @@
           "evidence": [
             "src/runtime_core/extensions/plugin.rs",
             "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/tests.rs",
+      "slices": [
+        {
+          "responsibility": "plugin import, capability admission, source drift, and persistence regression tests",
+          "target": "src/app/extensions_adapter/plugin/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6450,6 +6468,12 @@
       "path": "src/app/extensions_adapter/plugin.rs",
       "responsibilities": [
         "plugin import validation and persistence adapter"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/tests.rs",
+      "responsibilities": [
+        "plugin import, capability admission, source drift, and persistence regression tests"
       ]
     },
     {
