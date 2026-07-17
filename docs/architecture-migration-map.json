@@ -5121,7 +5121,7 @@
       "path": "src/app/workflow_adapter/transition/journal.rs",
       "slices": [
         {
-          "responsibility": "transition journal codec, commit, cleanup, and bounded recovery adapter",
+          "responsibility": "transition journal commit, cleanup, and bounded recovery adapter",
           "target": "src/app/workflow_adapter/transition/journal.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -5129,6 +5129,22 @@
             "src/runtime_core/workflow/application/recovery.rs",
             "src/runtime_core/workflow/application/projection_barrier.rs",
             "src/app/workflow_adapter/transition/journal.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/codec.rs",
+      "slices": [
+        {
+          "responsibility": "canonical prepared transition journal codec",
+          "target": "src/app/workflow_adapter/transition/journal/codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/journal/codec.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7479,7 +7495,13 @@
     {
       "path": "src/app/workflow_adapter/transition/journal.rs",
       "responsibilities": [
-        "transition journal codec, commit, cleanup, and bounded recovery adapter"
+        "transition journal commit, cleanup, and bounded recovery adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/codec.rs",
+      "responsibilities": [
+        "canonical prepared transition journal codec"
       ]
     },
     {

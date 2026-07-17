@@ -1486,6 +1486,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let bundle_preparation_adapter = "src/app/workflow_adapter/transition/bundle_preparation.rs";
     let bundle_validation_adapter = "src/app/workflow_adapter/transition/bundle_validation.rs";
     let journal_adapter = "src/app/workflow_adapter/transition/journal.rs";
+    let journal_codec_adapter = "src/app/workflow_adapter/transition/journal/codec.rs";
     let source_install_adapter = "src/app/workflow_adapter/transition/source_install.rs";
     let transition_tests = "src/app/workflow_adapter/transition/tests/mod.rs";
     for target in [
@@ -1494,6 +1495,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         bundle_preparation_adapter,
         bundle_validation_adapter,
         journal_adapter,
+        journal_codec_adapter,
         source_install_adapter,
         transition_tests,
     ] {
@@ -1508,6 +1510,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let bundle_preparation = fs::read_to_string(bundle_preparation_adapter).unwrap();
     let bundle_validation = fs::read_to_string(bundle_validation_adapter).unwrap();
     let journal = fs::read_to_string(journal_adapter).unwrap();
+    let journal_codec = fs::read_to_string(journal_codec_adapter).unwrap();
     let source_install = fs::read_to_string(source_install_adapter).unwrap();
     let tests = fs::read_to_string(transition_tests).unwrap();
     assert!(
@@ -1580,10 +1583,9 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         transition.lines().any(|line| line == "mod journal;"),
         "transition adapter does not register the journal owner"
     );
+    assert!(journal.lines().any(|line| line == "mod codec;"));
     for responsibility in [
         "pub(crate) struct TransitionGuard",
-        "pub(crate) fn render_prepared_source_bundle(",
-        "pub(crate) fn parse_prepared_source_bundle(",
         "pub(crate) fn commit_prepared_source_bundle(",
         "pub(crate) fn recover_pending_source_bundles(",
         "fn recover_pending_bundles_under_guard(",
@@ -1595,6 +1597,19 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         assert!(
             journal.contains(responsibility),
             "transition journal adapter is missing responsibility: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(crate) fn render_prepared_source_bundle(",
+        "pub(crate) fn parse_prepared_source_bundle(",
+    ] {
+        assert!(
+            journal_codec.contains(responsibility),
+            "transition journal codec is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !journal.contains(responsibility),
+            "transition journal orchestration still owns codec behavior: {responsibility}"
         );
     }
     assert!(
@@ -1656,8 +1671,12 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         "bundle-validation adapter regrew beyond its ownership boundary"
     );
     assert!(
-        journal.lines().count() < 900,
+        journal.lines().count() < 800,
         "transition journal adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        journal_codec.lines().count() < 250,
+        "transition journal codec regrew beyond its ownership boundary"
     );
     assert!(
         source_install.lines().count() < 500,
