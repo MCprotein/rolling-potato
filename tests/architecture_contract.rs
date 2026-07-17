@@ -4584,6 +4584,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     let source_install_fd_ops = "src/app/workflow_adapter/state/source_install/fd_ops.rs";
     let transaction_adapter = "src/app/workflow_adapter/state/transaction.rs";
     let transition_commit_adapter = "src/app/workflow_adapter/state/transition_commit.rs";
+    let workflow_access_adapter = "src/app/workflow_adapter/state/workflow_access.rs";
     let workflow_revision_adapter = "src/app/workflow_adapter/state/workflow_revision.rs";
     let workflow_store_adapter = "src/app/workflow_adapter/state/workflow_store.rs";
     let state_test_modules = [
@@ -4605,6 +4606,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(Path::new(source_install_fd_ops).is_file());
     assert!(Path::new(transaction_adapter).is_file());
     assert!(Path::new(transition_commit_adapter).is_file());
+    assert!(Path::new(workflow_access_adapter).is_file());
     assert!(Path::new(workflow_revision_adapter).is_file());
     assert!(Path::new(workflow_store_adapter).is_file());
     for test_module in state_test_modules {
@@ -4618,6 +4620,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(state.lines().any(|line| line == "mod source_install;"));
     assert!(state.lines().any(|line| line == "mod transaction;"));
     assert!(state.lines().any(|line| line == "mod transition_commit;"));
+    assert!(state.lines().any(|line| line == "mod workflow_access;"));
     assert!(state.lines().any(|line| line == "mod workflow_revision;"));
     assert!(state.lines().any(|line| line == "mod workflow_store;"));
     assert!(state.contains("#[path = \"state/tests/mod.rs\"]"));
@@ -4637,6 +4640,10 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         "fn recover_source_replace",
         "struct StateApprovalTransactionPort",
         "struct StateVerificationTransactionPort",
+        "pub fn load_workflow(",
+        "pub fn active_workflow_id(",
+        "fn discover_active_workflow(",
+        "pub(crate) fn clear_terminal_workflow_pointer(",
         "struct WorkflowCheckpointGuard",
         "fn build_prepared_workflow_revision(",
         "struct StateWorkflowRecoveryPort",
@@ -4769,6 +4776,22 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         );
     }
 
+    let workflow_access = fs::read_to_string(workflow_access_adapter).unwrap();
+    for owned_responsibility in [
+        "pub fn load_workflow(",
+        "pub(crate) fn load_workflow_revision(",
+        "pub fn active_workflow_id(",
+        "pub(crate) fn clear_terminal_workflow_pointer(",
+        "pub(crate) fn record_tui_workflow_resume_receipt_under_transition(",
+        "pub(crate) fn record_workflow_event_under_transition(",
+        "pub(super) fn discover_active_workflow(",
+    ] {
+        assert!(
+            workflow_access.contains(owned_responsibility),
+            "workflow access adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+
     let workflow_revision = fs::read_to_string(workflow_revision_adapter).unwrap();
     for owned_responsibility in [
         "struct WorkflowCheckpointGuard",
@@ -4805,7 +4828,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         );
     }
 
-    assert!(state.lines().count() < 1_000);
+    assert!(state.lines().count() < 450);
     assert!(current_snapshot.lines().count() < 700);
     assert!(current_snapshot_codec.lines().count() < 450);
     assert!(current_transition.lines().count() < 700);
@@ -4815,6 +4838,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(source_install_fd_ops.lines().count() < 175);
     assert!(transaction.lines().count() < 700);
     assert!(transition_commit.lines().count() < 450);
+    assert!(workflow_access.lines().count() < 400);
     assert!(workflow_revision.lines().count() < 500);
     assert!(workflow_store.lines().count() < 500);
     for test_module in state_test_modules {

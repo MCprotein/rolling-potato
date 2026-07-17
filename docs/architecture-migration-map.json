@@ -4489,7 +4489,7 @@
       "path": "src/app/workflow_adapter/state.rs",
       "slices": [
         {
-          "responsibility": "workflow state persistence and lifecycle orchestration adapter",
+          "responsibility": "workflow state adapter facade and shared persistence primitives",
           "target": "src/app/workflow_adapter/state.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -4498,7 +4498,26 @@
             "src/runtime_core/workflow/domain/snapshot.rs",
             "src/runtime_core/workflow/application/recovery.rs",
             "src/app/workflow_adapter/state.rs",
+            "src/app/workflow_adapter/state/workflow_access.rs",
             "tests/workflow/recovery.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/workflow_access.rs",
+      "slices": [
+        {
+          "responsibility": "workflow loading, active pointer discovery, recovery, cleanup, and event binding",
+          "target": "src/app/workflow_adapter/state/workflow_access.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state.rs",
+            "src/app/workflow_adapter/state/workflow_access.rs",
+            "src/app/workflow_adapter/state/tests/lifecycle.rs",
+            "src/app/workflow_adapter/state/tests/workflow_store.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7627,7 +7646,13 @@
     {
       "path": "src/app/workflow_adapter/state.rs",
       "responsibilities": [
-        "workflow state persistence and lifecycle orchestration adapter"
+        "workflow state adapter facade and shared persistence primitives"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/workflow_access.rs",
+      "responsibilities": [
+        "workflow loading, active pointer discovery, recovery, cleanup, and event binding"
       ]
     },
     {
