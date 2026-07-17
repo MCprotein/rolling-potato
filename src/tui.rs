@@ -1,8 +1,8 @@
 use crate::adapters::terminal::capability;
 use crate::adapters::terminal::native::NativeTerminal;
+use crate::composition::tui_action::{self, TuiActionPort, TuiMutationFailure};
 use crate::composition::tui_read::{self, TuiReadPort};
 use crate::foundation::error::AppError;
-use crate::runtime;
 pub(crate) use crate::surfaces::tui::controller::terminal_fault_error;
 use crate::surfaces::tui::controller::{self, TuiRuntimePort};
 use crate::surfaces::tui::outcome::TuiOutcome;
@@ -30,6 +30,129 @@ pub fn run_interactive() -> Result<(), AppError> {
 struct LegacyTuiRuntimePort;
 
 pub(crate) struct LegacyTuiReadPort;
+
+struct LegacyTuiActionPort;
+
+impl TuiActionPort for LegacyTuiActionPort {
+    fn selection_observation(
+        &mut self,
+    ) -> Result<crate::surfaces::tui::runtime_bridge::SelectionObservation, AppError> {
+        let identity = crate::ledger::validated_current_identity()?;
+        let current = crate::state::current_state_lease_view()?;
+        let active_workflow = crate::state::active_workflow_id()?
+            .map(|workflow_id| crate::state::load_workflow(&workflow_id))
+            .transpose()?
+            .map(
+                |workflow| crate::surfaces::tui::runtime_bridge::ObservedWorkflow {
+                    workflow_id: workflow.workflow_id,
+                    revision: workflow.revision,
+                    hash: workflow.artifact_hash,
+                },
+            );
+        Ok(crate::surfaces::tui::runtime_bridge::SelectionObservation {
+            project_id: identity.project_id,
+            session_id: identity.session_id,
+            current_revision: current.revision,
+            current_hash: current.artifact_hash,
+            active_workflow,
+        })
+    }
+
+    fn workflow(
+        &mut self,
+        workflow_id: &str,
+    ) -> Result<crate::runtime_core::workflow::storage_compat::record::WorkflowRecord, AppError>
+    {
+        crate::state::load_workflow(workflow_id)
+    }
+
+    fn approve_patch(
+        &mut self,
+        proposal_id: &str,
+        token: &str,
+        intent_id: &str,
+        lease: &SelectionLease,
+    ) -> Result<Option<crate::surfaces::tui::runtime_bridge::OneShotSecret>, TuiMutationFailure>
+    {
+        crate::patch::approve_for_tui(proposal_id, token, intent_id, lease)
+            .map_err(classify_tui_mutation_failure)
+    }
+
+    fn approve_verification(
+        &mut self,
+        proposal_id: &str,
+        token: &str,
+        intent_id: &str,
+        lease: &SelectionLease,
+    ) -> Result<(), TuiMutationFailure> {
+        crate::patch::verify_for_tui(proposal_id, token, intent_id, lease)
+            .map(|_| ())
+            .map_err(classify_tui_mutation_failure)
+    }
+
+    fn deny_pending_gate(
+        &mut self,
+        workflow_id: &str,
+        intent_id: &str,
+        gate_id: &str,
+        gate_kind: TuiGateKind,
+        lease: &SelectionLease,
+    ) -> Result<TuiOutcome, TuiMutationFailure> {
+        crate::patch::deny_pending_gate_for_tui(workflow_id, intent_id, gate_id, gate_kind, lease)
+            .map_err(classify_tui_mutation_failure)
+    }
+
+    fn resume_workflow(
+        &mut self,
+        workflow_id: &str,
+        intent_id: &str,
+        lease: &SelectionLease,
+    ) -> Result<(), TuiMutationFailure> {
+        crate::patch::resume_workflow_for_tui(workflow_id, intent_id, lease)
+            .map_err(classify_tui_mutation_failure)
+    }
+
+    fn cancel_workflow(
+        &mut self,
+        workflow_id: &str,
+        intent_id: &str,
+        lease: &SelectionLease,
+    ) -> Result<(), TuiMutationFailure> {
+        crate::patch::cancel_workflow_for_tui(workflow_id, intent_id, lease)
+            .map_err(classify_tui_mutation_failure)
+    }
+
+    fn resume_session(
+        &mut self,
+        session_id: &str,
+        intent_id: &str,
+        lease: &SelectionLease,
+    ) -> Result<Option<String>, AppError> {
+        crate::state::session_resume_report_for_tui(session_id, intent_id, lease)
+    }
+}
+
+fn classify_tui_mutation_failure(error: AppError) -> TuiMutationFailure {
+    if crate::patch::is_stale_selection_error(&error) {
+        return TuiMutationFailure::StaleSelection;
+    }
+    match error.message.as_str() {
+        "internal.resume-inconclusive-effect" => TuiMutationFailure::ResumeInconclusiveEffect,
+        "internal.resume-corrupt-state" => TuiMutationFailure::ResumeCorruptState,
+        "internal.cancel-no-active-workflow" => TuiMutationFailure::CancelNoActiveWorkflow,
+        message if message.starts_with("internal.cancel-terminal:") => {
+            TuiMutationFailure::CancelTerminal(
+                message
+                    .trim_start_matches("internal.cancel-terminal:")
+                    .to_string(),
+            )
+        }
+        message if message.starts_with("internal.rollback-conflict:") => {
+            TuiMutationFailure::RollbackConflict
+        }
+        _ => TuiMutationFailure::Other(error),
+    }
+}
 
 impl TuiReadPort for LegacyTuiReadPort {
     fn state_snapshot(
@@ -105,6 +228,22 @@ pub(crate) fn canonical_read_page(request: TuiReadRequest) -> Result<TuiReadPage
     tui_read::read_tui_page(&mut LegacyTuiReadPort, request)
 }
 
+pub(crate) fn canonical_selection_lease(
+    selected_object_id: &str,
+) -> Result<SelectionLease, AppError> {
+    tui_action::selection_lease(&mut LegacyTuiActionPort, selected_object_id)
+}
+
+pub(crate) fn canonical_gate_descriptor(
+    workflow_id: &str,
+) -> Result<(String, TuiGateKind), AppError> {
+    tui_action::gate_descriptor(&mut LegacyTuiActionPort, workflow_id)
+}
+
+pub(crate) fn canonical_dispatch_intent(intent: TuiIntent) -> Result<TuiOutcome, AppError> {
+    tui_action::dispatch_intent(&mut LegacyTuiActionPort, intent)
+}
+
 impl TuiRuntimePort for LegacyTuiRuntimePort {
     fn read_tui_page(&mut self, request: TuiReadRequest) -> Result<TuiReadPage, AppError> {
         canonical_read_page(request)
@@ -118,18 +257,18 @@ impl TuiRuntimePort for LegacyTuiRuntimePort {
         &mut self,
         selected_object_id: &str,
     ) -> Result<SelectionLease, AppError> {
-        runtime::tui_selection_lease(selected_object_id)
+        canonical_selection_lease(selected_object_id)
     }
 
     fn tui_gate_descriptor(
         &mut self,
         workflow_id: &str,
     ) -> Result<(String, TuiGateKind), AppError> {
-        runtime::tui_gate_descriptor(workflow_id)
+        canonical_gate_descriptor(workflow_id)
     }
 
     fn dispatch_tui_intent(&mut self, intent: TuiIntent) -> Result<TuiOutcome, AppError> {
-        runtime::dispatch_tui_intent(intent)
+        canonical_dispatch_intent(intent)
     }
 }
 

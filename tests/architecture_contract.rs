@@ -1774,8 +1774,6 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     }
 
     let runtime = fs::read_to_string("src/runtime.rs").unwrap();
-    assert!(runtime.contains("surfaces::tui::outcome"));
-    assert!(runtime.contains("surfaces::tui::runtime_bridge"));
     assert!(!runtime.contains("pub struct TuiReadBudget"));
     assert!(!runtime.contains("pub struct SelectionLease"));
     assert!(!runtime.contains("pub enum TuiIntent"));
@@ -1788,6 +1786,9 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!runtime.contains("fn tui_lease_matches_workflow_under_transition"));
     assert!(!runtime.contains("fn tui_lease_matches_terminal_selection_under_transition"));
     assert!(!runtime.contains("fn validate_tui_id"));
+    assert!(!runtime.contains("fn tui_selection_lease"));
+    assert!(!runtime.contains("fn tui_gate_descriptor"));
+    assert!(!runtime.contains("fn dispatch_tui_intent"));
 
     for legacy_owner in ["src/patch.rs", "src/state.rs", "src/tui.rs"] {
         let source = fs::read_to_string(legacy_owner).unwrap();
@@ -1807,6 +1808,20 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(tui_read.contains("trait TuiReadPort"));
     assert!(tui_read.contains("port.state_snapshot"));
     assert!(!runtime.contains("fn read_tui_page"));
+
+    let tui_action = fs::read_to_string("src/composition/tui_action.rs").unwrap();
+    for definition in [
+        "trait TuiActionPort",
+        "enum TuiMutationFailure",
+        "fn selection_lease",
+        "fn gate_descriptor",
+        "fn dispatch_intent",
+    ] {
+        assert!(
+            tui_action.contains(definition),
+            "TUI action owner is missing {definition}"
+        );
+    }
 
     let page = fs::read_to_string("src/surfaces/tui/page.rs").unwrap();
     for definition in [
@@ -1850,6 +1865,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     }
     let legacy_tui = fs::read_to_string("src/tui.rs").unwrap();
     assert!(legacy_tui.contains("surfaces::tui::view_model"));
+    assert!(legacy_tui.contains("impl TuiActionPort for LegacyTuiActionPort"));
     assert!(legacy_tui.contains("impl TuiReadPort for LegacyTuiReadPort"));
     assert!(!legacy_tui.contains("enum InteractiveView"));
     assert!(!legacy_tui.contains("struct InteractiveState"));

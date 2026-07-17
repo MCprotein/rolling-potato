@@ -1948,6 +1948,23 @@
       ]
     },
     {
+      "path": "src/composition/tui_action.rs",
+      "slices": [
+        {
+          "responsibility": "TUI mutation orchestration and typed failure mapping",
+          "target": "src/composition/tui_action.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_action.rs",
+            "src/surfaces/tui/runtime_bridge.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/composition/tui_read.rs",
       "slices": [
         {
@@ -2491,10 +2508,11 @@
         },
         {
           "responsibility": "TUI runtime bridge",
-          "target": "src/surfaces/tui/runtime_bridge.rs",
+          "target": "src/composition/tui_action.rs",
           "release": "0.37.13",
-          "state": "migrating",
+          "state": "complete",
           "evidence": [
+            "src/composition/tui_action.rs",
             "src/composition/tui_read.rs",
             "src/surfaces/tui/runtime_bridge.rs",
             "src/surfaces/tui/page.rs",
@@ -4767,6 +4785,12 @@
       "path": "src/composition/startup.rs",
       "responsibilities": [
         "application composition bootstrap"
+      ]
+    },
+    {
+      "path": "src/composition/tui_action.rs",
+      "responsibilities": [
+        "TUI mutation orchestration and typed failure mapping"
       ]
     },
     {

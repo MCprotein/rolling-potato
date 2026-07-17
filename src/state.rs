@@ -5702,7 +5702,7 @@ mod tests {
             let initial = ledger::validated_current_identity().unwrap();
             session_new_report().unwrap();
             let intent_id = "intent-session-select-exact-0001";
-            let lease = crate::runtime::tui_selection_lease(&initial.session_id).unwrap();
+            let lease = crate::tui::canonical_selection_lease(&initial.session_id).unwrap();
 
             let first = session_resume_report_for_tui(&initial.session_id, intent_id, &lease)
                 .unwrap()
@@ -5735,7 +5735,7 @@ mod tests {
             assert_eq!(first_receipts, 1);
             assert_eq!(retry_receipts, 1);
 
-            let stale_lease = crate::runtime::tui_selection_lease(&initial.session_id).unwrap();
+            let stale_lease = crate::tui::canonical_selection_lease(&initial.session_id).unwrap();
             record_event("test.selection.predecessor", "advance predecessor", "safe").unwrap();
             let before_stale_events = ledger::read_runtime_events().unwrap().len();
             assert!(session_resume_report_for_tui(
@@ -5925,7 +5925,7 @@ mod tests {
                     .unwrap();
                 let before_current = fs::read(paths::current_state_file()).unwrap();
                 let intent_id = format!("intent-session-resume-crash-{point}");
-                let lease = crate::runtime::tui_selection_lease(&target.session_id).unwrap();
+                let lease = crate::tui::canonical_selection_lease(&target.session_id).unwrap();
                 std::env::set_var("RPOTATO_TEST_STATE_TRANSITION_FAULT", point);
 
                 let error = session_resume_report_for_tui(&target.session_id, &intent_id, &lease)

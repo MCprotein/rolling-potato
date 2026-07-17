@@ -162,7 +162,7 @@ pub(crate) struct SelectionObservation {
 }
 
 impl SelectionObservation {
-    fn lease_for(&self, selected_object_id: &str) -> SelectionLease {
+    pub(crate) fn lease_for(&self, selected_object_id: &str) -> SelectionLease {
         SelectionLease {
             project_id: self.project_id.clone(),
             session_id: self.session_id.clone(),
