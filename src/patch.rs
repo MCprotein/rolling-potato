@@ -27,6 +27,7 @@ use crate::runtime_core::patch::verification::{
     self as verification_domain, RecoveryAdmission, VerificationPlan, VerificationResult,
 };
 use crate::state;
+use crate::surfaces::tui::outcome::unsupported_source_platform_outcome;
 #[cfg(test)]
 use crate::surfaces::tui::outcome::TuiEffect;
 #[cfg(test)]
@@ -327,7 +328,7 @@ fn ensure_source_install_platform_supported(
 ) -> Result<(), AppError> {
     if !is_unix && !dry_run {
         return Err(AppError::blocked(
-            crate::runtime::unsupported_source_platform_outcome(platform)?.safe_message,
+            unsupported_source_platform_outcome(platform)?.safe_message,
         ));
     }
     Ok(())

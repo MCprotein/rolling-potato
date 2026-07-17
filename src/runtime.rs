@@ -15,20 +15,7 @@ use crate::{
     transcript,
 };
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
-
-static TUI_INTENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
-
-pub fn unsupported_source_platform_outcome(platform: &str) -> Result<TuiOutcome, AppError> {
-    exact_tui_outcome(
-        TuiOutcomeCode::SourceInstallUnsupportedPlatform,
-        TuiOutcomeContext {
-            platform: Some(platform),
-            ..TuiOutcomeContext::default()
-        },
-    )
-}
 
 pub fn read_tui_page(request: TuiReadRequest) -> Result<TuiReadPage, AppError> {
     match request {
@@ -775,15 +762,6 @@ pub fn tui_selection_lease(selected_object_id: &str) -> Result<SelectionLease, A
     })
 }
 
-pub fn new_tui_intent_id() -> String {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let sequence = TUI_INTENT_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-    format!("intent-tui-{:x}-{:x}-{sequence:x}", std::process::id(), now)
-}
-
 pub fn tui_gate_descriptor(workflow_id: &str) -> Result<(String, TuiGateKind), AppError> {
     let workflow = state::load_workflow(workflow_id)?;
     let kind = match (workflow.phase.as_str(), workflow.failure_reason.as_str()) {
@@ -822,7 +800,9 @@ pub fn dispatch_tui_intent(intent: TuiIntent) -> Result<TuiOutcome, AppError> {
         } => {
             validate_tui_id(&intent_id, "intent")?;
             if !cfg!(unix) {
-                return unsupported_source_platform_outcome(std::env::consts::OS);
+                return crate::surfaces::tui::outcome::unsupported_source_platform_outcome(
+                    std::env::consts::OS,
+                );
             }
             let verification_token = match secret
                 .expose(|token| patch::approve_for_tui(&proposal_id, token, &intent_id, &lease))
@@ -2067,7 +2047,8 @@ mod tests {
 
     #[test]
     fn source_install_unsupported_platform_result_is_exact() {
-        let outcome = unsupported_source_platform_outcome("windows").unwrap();
+        let outcome =
+            crate::surfaces::tui::outcome::unsupported_source_platform_outcome("windows").unwrap();
 
         assert_eq!(outcome.status, TuiOutcomeStatus::Blocked);
         assert_eq!(

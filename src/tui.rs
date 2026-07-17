@@ -7,6 +7,7 @@ use crate::runtime::{
 };
 pub(crate) use crate::surfaces::tui::controller::terminal_fault_error;
 use crate::surfaces::tui::controller::{self, TuiRuntimePort};
+use crate::surfaces::tui::runtime_bridge::new_tui_intent_id;
 
 pub fn run_auto() -> Result<(), AppError> {
     if capability::attached() {
@@ -31,7 +32,7 @@ impl TuiRuntimePort for LegacyTuiRuntimePort {
     }
 
     fn new_tui_intent_id(&mut self) -> String {
-        runtime::new_tui_intent_id()
+        new_tui_intent_id()
     }
 
     fn tui_selection_lease(

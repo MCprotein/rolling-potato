@@ -39,6 +39,7 @@ use crate::runtime_core::workflow::storage_compat::record::{
     payload_v2 as workflow_payload_v2, payload_v3 as workflow_payload_v3,
     render_v2 as render_workflow_v2, render_v3 as render_workflow_v3,
 };
+use crate::surfaces::tui::runtime_bridge::new_tui_intent_id;
 use sha2::{Digest, Sha256};
 
 const WORKFLOW_SCHEMA_VERSION: u64 = 4;
@@ -2710,7 +2711,7 @@ pub fn session_list_report() -> Result<String, AppError> {
 }
 
 pub fn session_new_report() -> Result<String, AppError> {
-    session_new_report_for_intent(&crate::runtime::new_tui_intent_id())
+    session_new_report_for_intent(&new_tui_intent_id())
 }
 
 pub(crate) fn session_new_report_for_intent(intent_id: &str) -> Result<String, AppError> {

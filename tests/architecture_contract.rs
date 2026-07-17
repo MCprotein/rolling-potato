@@ -1748,6 +1748,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "enum TuiFreshness",
         "enum TuiIntent",
         "struct OneShotSecret",
+        "fn new_tui_intent_id",
     ] {
         assert!(
             bridge.contains(definition),
@@ -1760,6 +1761,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "enum TuiOutcomeCode",
         "struct TuiOutcome",
         "fn exact_tui_outcome",
+        "fn unsupported_source_platform_outcome",
         "fn validate_tui_id",
     ] {
         assert!(
@@ -1778,6 +1780,8 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!runtime.contains("pub enum TuiOutcomeCode"));
     assert!(!runtime.contains("pub struct TuiOutcome"));
     assert!(!runtime.contains("pub(crate) fn exact_tui_outcome"));
+    assert!(!runtime.contains("fn unsupported_source_platform_outcome"));
+    assert!(!runtime.contains("fn new_tui_intent_id"));
     assert!(!runtime.contains("fn validate_tui_id"));
 
     let view_model = fs::read_to_string("src/surfaces/tui/view_model.rs").unwrap();

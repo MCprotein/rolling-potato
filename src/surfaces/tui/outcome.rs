@@ -516,6 +516,16 @@ pub(crate) fn exact_tui_outcome(
     ))
 }
 
+pub(crate) fn unsupported_source_platform_outcome(platform: &str) -> Result<TuiOutcome, AppError> {
+    exact_tui_outcome(
+        TuiOutcomeCode::SourceInstallUnsupportedPlatform,
+        TuiOutcomeContext {
+            platform: Some(platform),
+            ..TuiOutcomeContext::default()
+        },
+    )
+}
+
 pub(crate) fn verification_credential_issued(
     intent_id: &str,
     credential: OneShotSecret,

@@ -1,7 +1,20 @@
 use crate::foundation::error::AppError;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) const TUI_MAX_ITEMS: usize = 120;
 pub(crate) const TUI_MAX_CHARS: usize = 65_536;
+
+static TUI_INTENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+pub(crate) fn new_tui_intent_id() -> String {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let sequence = TUI_INTENT_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    format!("intent-tui-{:x}-{:x}-{sequence:x}", std::process::id(), now)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TuiReadBudget {
