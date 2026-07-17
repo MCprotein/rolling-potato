@@ -1719,8 +1719,12 @@
           "responsibility": "top-level command dispatch",
           "target": "src/composition/dispatch.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "migrating",
+          "evidence": [
+            "src/composition/dispatch.rs",
+            "src/app.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -1990,6 +1994,22 @@
           "release": "0.37.2",
           "state": "complete",
           "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/dispatch.rs",
+      "slices": [
+        {
+          "responsibility": "CLI parse, preflight, recovery, and dispatch ordering",
+          "target": "src/composition/dispatch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/dispatch.rs",
+            "src/app.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4803,6 +4823,12 @@
       "path": "src/composition/config.rs",
       "responsibilities": [
         "effective application configuration"
+      ]
+    },
+    {
+      "path": "src/composition/dispatch.rs",
+      "responsibilities": [
+        "CLI parse, preflight, recovery, and dispatch ordering"
       ]
     },
     {

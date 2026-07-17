@@ -1945,6 +1945,29 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
 }
 
 #[test]
+fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
+    let composition = fs::read_to_string("src/composition/dispatch.rs").unwrap();
+    for definition in [
+        "trait CommandDispatchPort",
+        "fn run(",
+        "parser::parse(args)",
+        "port.validate_native_terminal()",
+        "port.recover_pending_source_bundles()",
+        "port.execute(command)",
+    ] {
+        assert!(
+            composition.contains(definition),
+            "CLI composition owner is missing {definition}"
+        );
+    }
+
+    let app = fs::read_to_string("src/app.rs").unwrap();
+    assert!(app.contains("impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort"));
+    assert!(!app.contains("parser::parse(args)"));
+    assert!(!app.contains("recover_pending_source_bundles()?"));
+}
+
+#[test]
 fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
     for name in [
         "fake_sidecar.rs",

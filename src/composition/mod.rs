@@ -4,6 +4,7 @@
 //! until their scheduled migration. This private root only reserves ownership.
 
 pub(crate) mod config;
+pub(crate) mod dispatch;
 pub(crate) mod startup;
 pub(crate) mod tui_action;
 pub(crate) mod tui_read;
