@@ -3959,6 +3959,23 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/backend.rs",
+      "slices": [
+        {
+          "responsibility": "backend start and chat command option parsing",
+          "target": "src/surfaces/cli/parser/backend.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/backend.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/cli/parser/collaboration.rs",
       "slices": [
         {
@@ -6258,6 +6275,12 @@
       "path": "src/surfaces/cli/parser.rs",
       "responsibilities": [
         "CLI top-level dispatch and command-family routing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/backend.rs",
+      "responsibilities": [
+        "backend start and chat command option parsing"
       ]
     },
     {

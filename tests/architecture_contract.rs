@@ -2353,18 +2353,25 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     }
 
     let parser_path = "src/surfaces/cli/parser.rs";
+    let backend_parser_path = "src/surfaces/cli/parser/backend.rs";
     let collaboration_parser_path = "src/surfaces/cli/parser/collaboration.rs";
     let observability_parser_path = "src/surfaces/cli/parser/observability.rs";
     let parser_tests_path = "src/surfaces/cli/parser/tests/mod.rs";
+    assert!(Path::new(backend_parser_path).is_file());
     assert!(Path::new(collaboration_parser_path).is_file());
     assert!(Path::new(observability_parser_path).is_file());
     assert!(Path::new(parser_tests_path).is_file());
     let parser = fs::read_to_string(parser_path).unwrap();
+    let backend_parser = fs::read_to_string(backend_parser_path).unwrap();
     let collaboration_parser = fs::read_to_string(collaboration_parser_path).unwrap();
     let observability_parser = fs::read_to_string(observability_parser_path).unwrap();
     let parser_tests = fs::read_to_string(parser_tests_path).unwrap();
     assert!(parser.contains("pub fn parse"));
     assert!(parser.contains("surfaces::cli::command::*"));
+    assert!(
+        parser.lines().any(|line| line == "mod backend;"),
+        "CLI parser does not register the backend command-family owner"
+    );
     assert!(
         parser.lines().any(|line| line == "mod collaboration;"),
         "CLI parser does not register the collaboration command-family owner"
@@ -2373,6 +2380,19 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         parser.lines().any(|line| line == "mod observability;"),
         "CLI parser does not register the observability command-family owner"
     );
+    for responsibility in [
+        "pub(super) fn parse_backend_start(",
+        "pub(super) fn parse_backend_chat(",
+    ] {
+        assert!(
+            !parser.contains(responsibility),
+            "backend parser responsibility escaped into CLI facade: {responsibility}"
+        );
+        assert!(
+            backend_parser.contains(responsibility),
+            "backend parser is missing responsibility: {responsibility}"
+        );
+    }
     for responsibility in [
         "pub(super) fn parse_team_plan_args(",
         "pub(super) fn parse_team_admit_args(",
@@ -2420,8 +2440,12 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         );
     }
     assert!(
-        parser.lines().count() < 950,
+        parser.lines().count() < 800,
         "CLI parser production module regrew beyond its command-family extraction boundary"
+    );
+    assert!(
+        backend_parser.lines().count() < 160,
+        "backend parser regrew beyond its ownership boundary"
     );
     assert!(
         collaboration_parser.lines().count() < 550,
