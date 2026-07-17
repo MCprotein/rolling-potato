@@ -17,7 +17,13 @@ jobs:
 
       - name: Test backend lifecycle
         timeout-minutes: 5
-        run: cargo test --locked --target x86_64-pc-windows-msvc --test inference backend_lifecycle::native_backend_cancel_and_stop_lifecycle -- --test-threads=1
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --locked --target x86_64-pc-windows-msvc --bin rpotato adapters::filesystem::windows_replace::tests:: -- --test-threads=1
+          cargo test --locked --target x86_64-pc-windows-msvc --bin rpotato adapters::llama_cpp::stream::tests:: -- --test-threads=1
+          cargo test --locked --target x86_64-pc-windows-msvc --bin rpotato app::inference_adapter::backend::tests:: -- --test-threads=1
+          cargo test --locked --target x86_64-pc-windows-msvc --test inference backend_lifecycle::native_backend_cancel_and_stop_lifecycle -- --test-threads=1
 
       - name: Test entry and EOF lifecycle
         timeout-minutes: 5

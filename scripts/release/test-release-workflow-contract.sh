@@ -7,6 +7,7 @@ fail() {
 }
 
 release_workflow=".github/workflows/release-binaries.yml"
+windows_targeted_workflow=".github/workflows/windows-native-targeted.yml"
 policy_workflow=".github/workflows/release-policy.yml"
 candidate_workflow=".github/workflows/refactor-candidate.yml"
 checkout_pin='actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0'
@@ -28,6 +29,7 @@ require_line() {
 
 policy_body="$(cat "$policy_workflow")"
 candidate_body="$(cat "$candidate_workflow")"
+windows_targeted_body="$(cat "$windows_targeted_workflow")"
 candidate_permissions="$(awk '
   /^permissions:$/ { active = 1 }
   active && NR != 1 && /^[^[:space:]]/ && $0 != "permissions:" { exit }
@@ -49,6 +51,10 @@ require_line "$candidate_body" '            exit 1'
 require_line "$candidate_body" '        run: cargo test --locked -- --test-threads=1'
 require_line "$candidate_body" '        run: cargo clippy --locked --all-targets --all-features -- -D warnings'
 require_line "$candidate_body" '        run: cargo build --locked --release'
+require_line "$windows_targeted_body" '          cargo test --locked --target x86_64-pc-windows-msvc --bin rpotato adapters::filesystem::windows_replace::tests:: -- --test-threads=1'
+require_line "$windows_targeted_body" '          cargo test --locked --target x86_64-pc-windows-msvc --bin rpotato adapters::llama_cpp::stream::tests:: -- --test-threads=1'
+require_line "$windows_targeted_body" '          cargo test --locked --target x86_64-pc-windows-msvc --bin rpotato app::inference_adapter::backend::tests:: -- --test-threads=1'
+require_line "$windows_targeted_body" '          cargo test --locked --target x86_64-pc-windows-msvc --test inference backend_lifecycle::native_backend_cancel_and_stop_lifecycle -- --test-threads=1'
 require_line "$policy_body" 'RPOTATO_RELEASE_BASE_REF: ${{ github.event_name == '\''pull_request'\'' && format('\''origin/{0}'\'', github.base_ref) || '\'''\'' }}'
 require_line "$policy_body" 'RPOTATO_REQUIRE_RELEASE_BRANCH: ${{ github.event_name == '\''pull_request'\'' && '\''auto'\'' || '\''0'\'' }}'
 require_line "$policy_body" 'RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS: ${{ github.ref_type == '\''tag'\'' && '\''1'\'' || '\''0'\'' }}'

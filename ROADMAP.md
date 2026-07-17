@@ -82,7 +82,8 @@ evidence.
 | v0.37.10 | Consolidated | Unpublished runtime-and-reporting implementation milestone included in the exact-tree v0.37.13 release |
 | v0.37.11 | Consolidated | Unpublished extension-boundary implementation milestone included in the exact-tree v0.37.13 release |
 | v0.37.12 | Consolidated | Unpublished collaboration-boundary implementation milestone included in the exact-tree v0.37.13 release |
-| v0.37.13 | Released | Complete behavior-preserving architecture ownership migration: private `app`/`composition`/`surfaces`/`runtime_core`/`adapters`/`foundation` roots, thin binary entrypoint, zero root compatibility facades, and complete migration ledger |
+| v0.37.13 | Superseded | Complete behavior-preserving architecture ownership migration source, but the Windows archive was not published because Unix-only source-install functions were imported into the Windows test binary |
+| v0.37.14 | Released | Windows release recovery: platform-gated source-install imports plus pre-tag Windows release-preflight coverage, retaining the complete v0.37.x architecture migration |
 | v0.38.0 | Planned | Claude Code plugin execution adapter: map supported local capabilities onto the established native adapter contract, report unsupported semantics, and preserve the same default-deny permission boundary |
 | v0.39.0 | Planned | Integrated performance hardening: benchmark completed agent/subagent/team workflows, optimize CPU/RSS/context/token usage from measured evidence, and promote regressions into reproducible fixtures without unsupported model claims |
 | v0.40.0 | Planned | Package-manager distribution: decide and implement maintainable Homebrew/Scoop/winget channels against signed or checksummed GitHub Release assets, with install/upgrade/uninstall validation |

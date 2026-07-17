@@ -274,12 +274,11 @@ use workflow_store::{
 };
 mod source_install;
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 use source_install::recover_source_replace;
-pub(crate) use source_install::{
-    install_prepared_source_bundle, validate_prepared_source_parent,
-    validate_source_install_initial_admission,
-};
+#[cfg(unix)]
+pub(crate) use source_install::validate_source_install_initial_admission;
+pub(crate) use source_install::{install_prepared_source_bundle, validate_prepared_source_parent};
 
 fn is_sha256(value: &str) -> bool {
     value.len() == 64
