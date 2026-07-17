@@ -4,12 +4,9 @@ use crate::app::workflow_adapter::transition;
 use crate::composition::{config, dispatch, inference, uninstall};
 use crate::foundation::error::AppError;
 use crate::intent;
-use crate::patch;
 use crate::runtime;
 use crate::surfaces::cli::{
-    command::{
-        Command, IntentCommand, PatchCommand, SessionCommand, StateCommand, UninstallCommand,
-    },
+    command::{Command, IntentCommand, UninstallCommand},
     render,
 };
 mod collaboration_commands;
@@ -19,6 +16,7 @@ mod knowledge_commands;
 mod observability_commands;
 mod policy_commands;
 mod tui_commands;
+mod workflow_commands;
 
 use collaboration_commands::{execute_subagent, execute_team};
 use extension_commands::{execute_hooks, execute_plugin, execute_skill};
@@ -27,6 +25,7 @@ use knowledge_commands::{execute_evidence, execute_ontology};
 use observability_commands::{execute_cache_status, execute_monitor};
 use policy_commands::execute_policy;
 use tui_commands::execute_tui;
+use workflow_commands::{execute_patch, execute_session, execute_state};
 
 pub(super) struct LegacyCommandDispatchPort;
 
@@ -73,30 +72,8 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 println!("{}", config::report());
                 Ok(())
             }
-            Command::State(StateCommand::Status) => {
-                println!("{}", state::status_report()?);
-                Ok(())
-            }
-            Command::State(StateCommand::Reconcile) => {
-                println!("{}", state::reconcile_report()?);
-                Ok(())
-            }
-            Command::State(StateCommand::Resume) => {
-                println!("{}", runtime::workflow_resume_report()?);
-                Ok(())
-            }
-            Command::Session(SessionCommand::List) => {
-                println!("{}", state::session_list_report()?);
-                Ok(())
-            }
-            Command::Session(SessionCommand::New) => {
-                println!("{}", state::session_new_report()?);
-                Ok(())
-            }
-            Command::Session(SessionCommand::Resume { id }) => {
-                println!("{}", runtime::session_resume_report(&id)?);
-                Ok(())
-            }
+            Command::State(command) => execute_state(command),
+            Command::Session(command) => execute_session(command),
             Command::Team(command) => execute_team(command),
             Command::Subagent(command) => execute_subagent(command),
             Command::Tui(command) => execute_tui(command),
@@ -108,27 +85,7 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
             Command::Skill(command) => execute_skill(command),
             Command::Policy(command) => execute_policy(command),
             Command::Hooks(command) => execute_hooks(command),
-            Command::Patch(PatchCommand::Preview {
-                path,
-                find,
-                replace,
-            }) => {
-                println!("{}", patch::preview_report(&path, &find, &replace)?);
-                Ok(())
-            }
-            Command::Patch(PatchCommand::Approve {
-                proposal_id,
-                token,
-                dry_run,
-            }) => runtime::patch_approve_to_stdout(&proposal_id, &token, dry_run, None),
-            Command::Patch(PatchCommand::Verify { proposal_id, token }) => {
-                println!("{}", runtime::patch_verify_report(&proposal_id, &token)?);
-                Ok(())
-            }
-            Command::Patch(PatchCommand::TokenRotate { proposal_id }) => {
-                println!("{}", patch::rotate_workflow_token_report(&proposal_id)?);
-                Ok(())
-            }
+            Command::Patch(command) => execute_patch(command),
             Command::Backend(command) => {
                 let stdout = std::io::stdout();
                 let mut writer = stdout.lock();
