@@ -1023,8 +1023,11 @@ fn v0375_domain_views_replace_legacy_definitions() {
 #[test]
 fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let ledger_adapter = "src/app/workflow_adapter/ledger.rs";
+    let ledger_tests = "src/app/workflow_adapter/ledger/tests.rs";
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
     for target in [
+        ledger_adapter,
+        ledger_tests,
         transition_adapter,
         "src/runtime_core/workflow/application/mod.rs",
         "src/runtime_core/workflow/application/recovery.rs",
@@ -1122,6 +1125,36 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
             .lines()
             .any(|line| line == "pub(crate) mod transition;"),
         "transition adapter is not registered under workflow_adapter"
+    );
+
+    let ledger = fs::read_to_string(ledger_adapter).unwrap();
+    let ledger_regressions = fs::read_to_string(ledger_tests).unwrap();
+    assert!(
+        ledger.contains("#[path = \"ledger/tests.rs\"]"),
+        "ledger adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn physical_chain_reorder_and_truncation_fail_closed(",
+        "fn concurrent_writers_preserve_both_ledger_chains(",
+        "fn event_sink_single_acquisition_concurrency_matrix(",
+        "fn t10_rebuilds_all_derived_outputs_from_runtime_authority(",
+    ] {
+        assert!(
+            ledger_regressions.contains(regression),
+            "ledger regression owner is missing: {regression}"
+        );
+        assert!(
+            !ledger.contains(regression),
+            "ledger adapter still owns regression test: {regression}"
+        );
+    }
+    assert!(
+        ledger.lines().count() < 1_300,
+        "ledger adapter regrew beyond its test extraction boundary"
+    );
+    assert!(
+        ledger_regressions.lines().count() < 575,
+        "ledger regression module regrew beyond its ownership boundary"
     );
 
     let patch_loop = fs::read_to_string("tests/patch_loop.rs").unwrap();

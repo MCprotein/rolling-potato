@@ -2485,6 +2485,23 @@
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
             "src/adapters/sqlite/ledger_projection.rs",
             "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/tests.rs",
+      "slices": [
+        {
+          "responsibility": "ledger chain, lock, recovery, and derived projection regression tests",
+          "target": "src/app/workflow_adapter/ledger/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6075,6 +6092,12 @@
       "path": "src/app/workflow_adapter/ledger.rs",
       "responsibilities": [
         "ledger persistence and projection orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/tests.rs",
+      "responsibilities": [
+        "ledger chain, lock, recovery, and derived projection regression tests"
       ]
     },
     {
