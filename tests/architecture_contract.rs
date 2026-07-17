@@ -2311,6 +2311,7 @@ fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
 fn v03713_state_adapter_separates_persistence_responsibilities() {
     let state_adapter = "src/app/workflow_adapter/state.rs";
     let current_snapshot_adapter = "src/app/workflow_adapter/state/current_snapshot.rs";
+    let current_transition_adapter = "src/app/workflow_adapter/state/current_transition.rs";
     let lifecycle_adapter = "src/app/workflow_adapter/state/lifecycle.rs";
     let source_install_adapter = "src/app/workflow_adapter/state/source_install.rs";
     let transaction_adapter = "src/app/workflow_adapter/state/transaction.rs";
@@ -2326,6 +2327,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     ];
     assert!(Path::new(state_adapter).is_file());
     assert!(Path::new(current_snapshot_adapter).is_file());
+    assert!(Path::new(current_transition_adapter).is_file());
     assert!(Path::new(lifecycle_adapter).is_file());
     assert!(Path::new(source_install_adapter).is_file());
     assert!(Path::new(transaction_adapter).is_file());
@@ -2337,6 +2339,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
 
     let state = fs::read_to_string(state_adapter).unwrap();
     assert!(state.lines().any(|line| line == "mod current_snapshot;"));
+    assert!(state.lines().any(|line| line == "mod current_transition;"));
     assert!(state.lines().any(|line| line == "mod lifecycle;"));
     assert!(state.lines().any(|line| line == "mod source_install;"));
     assert!(state.lines().any(|line| line == "mod transaction;"));
@@ -2347,6 +2350,9 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     for escaped_responsibility in [
         "fn parse_current_state(",
         "fn promote_current_state_v1(",
+        "struct StateTransitionRecoveryPort",
+        "struct StateTransitionTransactionAdapter",
+        "fn validate_prepared_state_current_member(",
         "pub fn session_resume_report(",
         "pub fn reconcile_report(",
         "struct PreparedSourceDir",
@@ -2373,6 +2379,18 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         assert!(
             current_snapshot.contains(owned_responsibility),
             "current snapshot adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+
+    let current_transition = fs::read_to_string(current_transition_adapter).unwrap();
+    for owned_responsibility in [
+        "struct StateTransitionRecoveryPort",
+        "struct StateTransitionTransactionAdapter",
+        "fn validate_prepared_state_current_member(",
+    ] {
+        assert!(
+            current_transition.contains(owned_responsibility),
+            "current transition adapter is missing responsibility: {owned_responsibility}"
         );
     }
 
@@ -2436,8 +2454,9 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         );
     }
 
-    assert!(state.lines().count() < 1_900);
+    assert!(state.lines().count() < 1_300);
     assert!(current_snapshot.lines().count() < 1_000);
+    assert!(current_transition.lines().count() < 700);
     assert!(lifecycle.lines().count() < 700);
     assert!(source_install.lines().count() < 1_000);
     assert!(transaction.lines().count() < 700);

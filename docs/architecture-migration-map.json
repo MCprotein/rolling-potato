@@ -3397,6 +3397,23 @@
       ]
     },
     {
+      "path": "src/app/workflow_adapter/state/current_transition.rs",
+      "slices": [
+        {
+          "responsibility": "current-state image and transition orchestration adapter",
+          "target": "src/app/workflow_adapter/state/current_transition.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/current_transition.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/workflow_adapter/state/lifecycle.rs",
       "slices": [
         {
@@ -5589,6 +5606,12 @@
       "path": "src/app/workflow_adapter/state/current_snapshot.rs",
       "responsibilities": [
         "current-state snapshot codec and compatibility adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_transition.rs",
+      "responsibilities": [
+        "current-state image and transition orchestration adapter"
       ]
     },
     {
