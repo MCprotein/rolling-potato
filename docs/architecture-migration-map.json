@@ -2479,13 +2479,32 @@
       "path": "src/intent.rs",
       "slices": [
         {
-          "responsibility": "intent classification and action planning",
-          "target": "src/runtime_core/patch/intent.rs",
+          "responsibility": "intent facade, model answer and evidence gates, and agent prompt composition",
+          "target": "src/intent.rs",
           "release": "0.37.9",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/intent.rs",
             "src/intent.rs",
+            "src/intent/execution.rs",
+            "src/intent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/intent/execution.rs",
+      "slices": [
+        {
+          "responsibility": "skill workflow execution, checkpoint sequencing, model action admission, and patch handoff",
+          "target": "src/intent/execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/intent.rs",
+            "src/intent.rs",
+            "src/intent/execution.rs",
             "src/intent/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2503,6 +2522,7 @@
           "evidence": [
             "src/runtime_core/patch/intent.rs",
             "src/intent.rs",
+            "src/intent/execution.rs",
             "src/intent/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -6354,7 +6374,13 @@
     {
       "path": "src/intent.rs",
       "responsibilities": [
-        "intent classification and action planning"
+        "intent facade, model answer and evidence gates, and agent prompt composition"
+      ]
+    },
+    {
+      "path": "src/intent/execution.rs",
+      "responsibilities": [
+        "skill workflow execution, checkpoint sequencing, model action admission, and patch handoff"
       ]
     },
     {
