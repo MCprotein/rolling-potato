@@ -2197,6 +2197,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         "src/patch/tests/verification_cases.rs",
     ];
     let approval_transaction_adapter = "src/patch/approval_transaction.rs";
+    let approval_recovery_adapter = "src/patch/approval_transaction/recovery.rs";
     let execution_adapter = "src/patch/execution.rs";
     let guard_adapter = "src/patch/guard.rs";
     let proposal_builder_adapter = "src/patch/proposal_builder.rs";
@@ -2207,6 +2208,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let workflow_contract_adapter = "src/patch/workflow_contract.rs";
     let workflow_execution_adapter = "src/patch/workflow_execution.rs";
     assert!(Path::new(approval_transaction_adapter).is_file());
+    assert!(Path::new(approval_recovery_adapter).is_file());
     assert!(Path::new(execution_adapter).is_file());
     assert!(Path::new(guard_adapter).is_file());
     assert!(Path::new(proposal_builder_adapter).is_file());
@@ -2358,6 +2360,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let intent_tests = fs::read_to_string(intent_tests_path).unwrap();
     let patch_facade = fs::read_to_string("src/patch.rs").unwrap();
     let approval_transaction = fs::read_to_string(approval_transaction_adapter).unwrap();
+    let approval_recovery = fs::read_to_string(approval_recovery_adapter).unwrap();
     let execution = fs::read_to_string(execution_adapter).unwrap();
     let guard = fs::read_to_string(guard_adapter).unwrap();
     let proposal_builder = fs::read_to_string(proposal_builder_adapter).unwrap();
@@ -2432,11 +2435,10 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     assert!(patch_facade
         .lines()
         .any(|line| line == "mod approval_transaction;"));
-    for escaped_responsibility in [
-        "fn approve_prepared_skill_transaction(",
-        "fn recover_prepared_approval_bundle(",
-        "fn validate_prepared_approval_semantics(",
-    ] {
+    assert!(approval_transaction
+        .lines()
+        .any(|line| line == "mod recovery;"));
+    for escaped_responsibility in ["fn approve_prepared_skill_transaction("] {
         assert!(
             !patch_facade.contains(escaped_responsibility),
             "approval transaction responsibility escaped into patch facade: {escaped_responsibility}"
@@ -2446,7 +2448,22 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
             "approval transaction adapter is missing responsibility: {escaped_responsibility}"
         );
     }
-    assert!(approval_transaction.lines().count() < 900);
+    for recovery_responsibility in [
+        "fn recover_prepared_approval_bundle(",
+        "fn recover_prepared_verification_bundle(",
+        "fn validate_prepared_approval_semantics(",
+    ] {
+        assert!(
+            approval_recovery.contains(recovery_responsibility),
+            "approval recovery adapter is missing responsibility: {recovery_responsibility}"
+        );
+        assert!(
+            !approval_transaction.contains(recovery_responsibility),
+            "approval transaction orchestration still owns recovery: {recovery_responsibility}"
+        );
+    }
+    assert!(approval_transaction.lines().count() < 550);
+    assert!(approval_recovery.lines().count() < 450);
     assert!(patch_facade.lines().any(|line| line == "mod execution;"));
     for escaped_responsibility in [
         "fn apply_proposal(",

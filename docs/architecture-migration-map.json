@@ -3029,7 +3029,7 @@
       "path": "src/patch/approval_transaction.rs",
       "slices": [
         {
-          "responsibility": "prepared patch approval and recovery transaction adapter",
+          "responsibility": "prepared patch approval transaction orchestration adapter",
           "target": "src/patch/approval_transaction.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -3038,6 +3038,23 @@
             "src/app/workflow_adapter/state/transaction.rs",
             "src/app/workflow_adapter/transition.rs",
             "src/patch/approval_transaction.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/patch/approval_transaction/recovery.rs",
+      "slices": [
+        {
+          "responsibility": "prepared patch approval and verification crash recovery adapter",
+          "target": "src/patch/approval_transaction/recovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/patch/approval_transaction/recovery.rs",
+            "src/patch/tests/approval_cases.rs",
+            "src/patch/tests/verification_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6725,7 +6742,13 @@
     {
       "path": "src/patch/approval_transaction.rs",
       "responsibilities": [
-        "prepared patch approval and recovery transaction adapter"
+        "prepared patch approval transaction orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/patch/approval_transaction/recovery.rs",
+      "responsibilities": [
+        "prepared patch approval and verification crash recovery adapter"
       ]
     },
     {
