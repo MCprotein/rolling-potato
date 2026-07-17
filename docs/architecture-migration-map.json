@@ -2557,6 +2557,24 @@
       ]
     },
     {
+      "path": "src/patch/proposal_store.rs",
+      "slices": [
+        {
+          "responsibility": "patch proposal persistence, credential, and rollback lookup adapter",
+          "target": "src/patch/proposal_store.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/approval.rs",
+            "src/runtime_core/patch/application.rs",
+            "src/runtime_core/patch/proposal.rs",
+            "src/patch/proposal_store.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/patch/tests/mod.rs",
       "slices": [
         {
@@ -5314,6 +5332,12 @@
         "patch approval credentials",
         "guarded patch apply and rollback",
         "patch verification and recovery"
+      ]
+    },
+    {
+      "path": "src/patch/proposal_store.rs",
+      "responsibilities": [
+        "patch proposal persistence, credential, and rollback lookup adapter"
       ]
     },
     {
