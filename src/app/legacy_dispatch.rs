@@ -9,6 +9,7 @@ use crate::app::collaboration_adapter::team_state;
 use crate::app::extensions_adapter::hooks;
 use crate::app::extensions_adapter::plugin;
 use crate::app::extensions_adapter::skill;
+use crate::app::workflow_adapter::transition;
 use crate::composition::{config, dispatch, inference, uninstall};
 use crate::evidence;
 use crate::foundation::error::AppError;
@@ -200,7 +201,7 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
     }
 
     fn recover_pending_source_bundles(&mut self) -> Result<(), AppError> {
-        crate::transition::recover_pending_source_bundles().map(|_| ())
+        transition::recover_pending_source_bundles().map(|_| ())
     }
 
     fn execute(&mut self, command: Command) -> Result<(), AppError> {

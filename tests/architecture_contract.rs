@@ -737,7 +737,9 @@ fn v0375_domain_views_replace_legacy_definitions() {
 #[test]
 fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let ledger_adapter = "src/app/workflow_adapter/ledger.rs";
+    let transition_adapter = "src/app/workflow_adapter/transition.rs";
     for target in [
+        transition_adapter,
         "src/runtime_core/workflow/application/mod.rs",
         "src/runtime_core/workflow/application/recovery.rs",
         "src/runtime_core/workflow/application/transaction_coordinator.rs",
@@ -795,8 +797,8 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
 
     for (facade, moved_definition) in [
         (ledger_adapter, "struct PlannedEvent"),
-        ("src/transition.rs", "enum CurrentStateIntent"),
-        ("src/transition.rs", "struct PreparedSourceBundle"),
+        (transition_adapter, "enum CurrentStateIntent"),
+        (transition_adapter, "struct PreparedSourceBundle"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
@@ -809,10 +811,18 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         !Path::new("src/ledger.rs").exists(),
         "legacy workflow root was restored: src/ledger.rs"
     );
+    assert!(
+        !Path::new("src/transition.rs").exists(),
+        "legacy workflow root was restored: src/transition.rs"
+    );
     let main = fs::read_to_string("src/main.rs").unwrap();
     assert!(
         !main.lines().any(|line| line == "mod ledger;"),
         "legacy workflow root remains registered: mod ledger;"
+    );
+    assert!(
+        !main.lines().any(|line| line == "mod transition;"),
+        "legacy workflow root remains registered: mod transition;"
     );
     let adapter_mod = fs::read_to_string("src/app/workflow_adapter.rs").unwrap();
     assert!(
@@ -820,6 +830,12 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
             .lines()
             .any(|line| line == "pub(crate) mod ledger;"),
         "ledger adapter is not registered under workflow_adapter"
+    );
+    assert!(
+        adapter_mod
+            .lines()
+            .any(|line| line == "pub(crate) mod transition;"),
+        "transition adapter is not registered under workflow_adapter"
     );
 
     let patch_loop = fs::read_to_string("tests/patch_loop.rs").unwrap();

@@ -12,6 +12,7 @@ use crate::app::extensions_adapter::{hooks, plugin, skill};
 use crate::app::policy_adapter::{self as policy, Decision, PathMode};
 use crate::app::workflow_adapter::ledger;
 use crate::app::workflow_adapter::transcript;
+use crate::app::workflow_adapter::transition;
 use crate::foundation::error::AppError;
 use crate::runtime_core::patch::application::{
     self as application_domain, ApplyAdmission, ApplyResult, RollbackAdmission, RollbackResult,
@@ -405,7 +406,7 @@ fn prepared_approval_receipt_exists(
 struct ApprovalSourcePreflight {
     relative_path: String,
     before: String,
-    source_install: crate::transition::SourceInstallV1,
+    source_install: transition::SourceInstallV1,
 }
 
 fn approve_prepared_skill_transaction(
@@ -419,9 +420,9 @@ fn approve_prepared_skill_transaction(
     let observed_ledger = ledger::validated_ledger_binding()?;
     let source = prepare_approval_source(&record, intent_id)?;
 
-    let transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let transition_guard = transition::TransitionGuard::acquire_for(
         &identity.project_id,
-        crate::transition::CurrentStateIntent::ApprovePatch,
+        transition::CurrentStateIntent::ApprovePatch,
     )?;
     if let Some(lease) = expected_lease {
         if !state::tui_lease_matches_workflow_under_transition(
@@ -583,23 +584,23 @@ fn approve_prepared_skill_transaction(
         event_hash: planned[9].event_hash.clone(),
     };
     let current_image = state::prepare_current_image(&r2.record, &final_binding)?;
-    let mut bundle = crate::transition::prepare_source_bundle_with_context(
+    let mut bundle = transition::prepare_source_bundle_with_context(
         intent_id,
         Some(&current.workflow_id),
         source.source_install,
         source.before.as_bytes(),
         record.proposed_content.as_bytes(),
-        crate::transition::PreparedBundleContext {
+        transition::PreparedBundleContext {
             identity: &identity,
             lease: &current_lease,
             ledger_binding,
         },
     )?;
-    crate::transition::bind_planned_events(&mut bundle, &planned)?;
-    let lag = crate::transition::prepare_projection_lag_member(intent_id, &planned)?;
+    transition::bind_planned_events(&mut bundle, &planned)?;
+    let lag = transition::prepare_projection_lag_member(intent_id, &planned)?;
     let members =
         prepared_approval_members(&r1, &r2, &transcript, &current_image, lag, &semantic_events);
-    crate::transition::bind_additional_members(&mut bundle, members)?;
+    transition::bind_additional_members(&mut bundle, members)?;
     state::transition_project_current_state_prepared_approval(state::PreparedApprovalTransition {
         transition_guard: Some(&transition_guard),
         workflow_guard: &workflow_guard,
@@ -612,7 +613,7 @@ fn approve_prepared_skill_transaction(
         current: &current_image,
         events: &semantic_events,
     })?;
-    let rollback_path = crate::transition::resolve_prepared_project_path(
+    let rollback_path = transition::resolve_prepared_project_path(
         &bundle
             .source_install
             .as_ref()
@@ -664,10 +665,10 @@ fn prepared_approval_members(
     r2: &state::PreparedWorkflowRevision,
     transcript: &transcript::PreparedTranscriptTurn,
     current: &state::PreparedCurrentImage,
-    lag: crate::transition::PreparedMember,
+    lag: transition::PreparedMember,
     events: &[ledger::LedgerEvent],
-) -> Vec<crate::transition::PreparedMember> {
-    use crate::transition::{PreparedMember, PreparedMemberBinding, PreparedMemberKind};
+) -> Vec<transition::PreparedMember> {
+    use transition::{PreparedMember, PreparedMemberBinding, PreparedMemberKind};
     let member = |kind,
                   path: String,
                   schema_version,
@@ -785,7 +786,7 @@ fn prepared_approval_members(
 }
 
 pub(crate) fn recover_prepared_approval_bundle(
-    bundle: &crate::transition::PreparedSourceBundle,
+    bundle: &transition::PreparedSourceBundle,
     journal: &Path,
 ) -> Result<(), AppError> {
     let expected_event_types = [
@@ -818,7 +819,7 @@ pub(crate) fn recover_prepared_approval_bundle(
         .ok_or_else(|| AppError::blocked("prepared approval recovery workflow 누락"))?;
     let events = &bundle.semantic_events;
     let members = &bundle.additional_members;
-    let planned = crate::transition::planned_events(bundle)?;
+    let planned = transition::planned_events(bundle)?;
     let r1 = state::decode_prepared_workflow_revision(
         workflow_id,
         &members[2],
@@ -923,7 +924,7 @@ pub(crate) fn recover_prepared_approval_bundle(
 }
 
 pub(crate) fn recover_prepared_verification_bundle(
-    bundle: &crate::transition::PreparedSourceBundle,
+    bundle: &transition::PreparedSourceBundle,
     journal: &Path,
 ) -> Result<(), AppError> {
     let expected_event_types = [
@@ -951,7 +952,7 @@ pub(crate) fn recover_prepared_verification_bundle(
         .ok_or_else(|| AppError::blocked("prepared verification recovery workflow 누락"))?;
     let events = &bundle.semantic_events;
     let members = &bundle.additional_members;
-    let planned = crate::transition::planned_events(bundle)?;
+    let planned = transition::planned_events(bundle)?;
     let revision = state::decode_prepared_workflow_revision(
         workflow_id,
         &members[0],
@@ -1064,7 +1065,7 @@ pub(crate) fn recover_prepared_verification_bundle(
 }
 
 fn validate_prepared_approval_semantics(
-    bundle: &crate::transition::PreparedSourceBundle,
+    bundle: &transition::PreparedSourceBundle,
     approved: &state::WorkflowRecord,
 ) -> Result<(), AppError> {
     let events = &bundle.semantic_events;
@@ -1173,7 +1174,7 @@ fn prepare_approval_source(
             "prepared patch source/proposal hash binding 불일치",
         ));
     }
-    let source_install = crate::transition::prepare_source_install_v1(
+    let source_install = transition::prepare_source_install_v1(
         intent_id,
         &record.proposal_id,
         &target.absolute_path,
@@ -1209,7 +1210,7 @@ fn verify_report_for_intent(
 ) -> Result<String, AppError> {
     validate_proposal_id(proposal_id)?;
     validate_outcome_id(intent_id, "intent")?;
-    crate::transition::recover_pending_source_bundles()?;
+    transition::recover_pending_source_bundles()?;
     let _approval_lock = ApprovalLock::acquire(proposal_id)?;
     let active = state::active_workflow_id()?;
     let proposal_path = paths::project_patch_proposals_dir().join(format!("{proposal_id}.txt"));
@@ -1259,9 +1260,9 @@ fn approve_prepared_verification_transaction(
     let observed_ledger = ledger::validated_ledger_binding()?;
     validate_applied_proposal(record)?;
 
-    let transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let transition_guard = transition::TransitionGuard::acquire_for(
         &identity.project_id,
-        crate::transition::CurrentStateIntent::ApproveVerification,
+        transition::CurrentStateIntent::ApproveVerification,
     )?;
     if let Some(lease) = expected_lease {
         if !state::tui_lease_matches_workflow_under_transition(
@@ -1352,18 +1353,18 @@ fn approve_prepared_verification_transaction(
     };
     let current_image =
         state::prepare_current_image_after(&r1.record, current.revision, &final_binding)?;
-    let mut bundle = crate::transition::prepare_workflow_bundle_with_context(
+    let mut bundle = transition::prepare_workflow_bundle_with_context(
         intent_id,
         "approve-verification",
         &current.workflow_id,
-        crate::transition::PreparedBundleContext {
+        transition::PreparedBundleContext {
             identity: &identity,
             lease: &current_lease,
             ledger_binding,
         },
     )?;
-    crate::transition::bind_planned_events(&mut bundle, &planned)?;
-    crate::transition::bind_additional_members(
+    transition::bind_planned_events(&mut bundle, &planned)?;
+    transition::bind_additional_members(
         &mut bundle,
         prepared_verification_members(&r1, &current_image, &semantic_events),
     )?;
@@ -1386,8 +1387,8 @@ fn prepared_verification_members(
     revision: &state::PreparedWorkflowRevision,
     current: &state::PreparedCurrentImage,
     events: &[ledger::LedgerEvent],
-) -> Vec<crate::transition::PreparedMember> {
-    use crate::transition::{PreparedMember, PreparedMemberBinding, PreparedMemberKind};
+) -> Vec<transition::PreparedMember> {
+    use transition::{PreparedMember, PreparedMemberBinding, PreparedMemberKind};
     let member = |kind,
                   path: String,
                   schema_version,
@@ -1965,7 +1966,7 @@ fn ensure_plugin_completion_event(
 }
 
 fn ensure_plugin_completion_event_under_transition(
-    transition_guard: &crate::transition::TransitionGuard,
+    transition_guard: &transition::TransitionGuard,
     workflow: &state::WorkflowRecord,
     imported: &skill::ImportedSkillManifest,
 ) -> Result<(), AppError> {
@@ -2276,9 +2277,9 @@ pub(crate) fn resume_workflow_for_tui(
     validate_outcome_id(workflow_id, "workflow")?;
     validate_outcome_id(intent_id, "intent")?;
     let (observed, _approval_lock) = load_workflow_under_approval_lock(workflow_id)?;
-    let transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let transition_guard = transition::TransitionGuard::acquire_for(
         &lease.project_id,
-        crate::transition::CurrentStateIntent::Resume,
+        transition::CurrentStateIntent::Resume,
     )?;
     if ledger::event_details_match(
         "workflow.resume.accepted",
@@ -2447,9 +2448,9 @@ fn cancel_workflow_transaction(
         )));
     }
     let identity = ledger::validated_current_identity()?;
-    let transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let transition_guard = transition::TransitionGuard::acquire_for(
         &identity.project_id,
-        crate::transition::CurrentStateIntent::Cancel,
+        transition::CurrentStateIntent::Cancel,
     )?;
     if let Some(lease) = expected_lease {
         if !state::tui_lease_matches_workflow_under_transition(lease, workflow_id)? {
@@ -2531,9 +2532,9 @@ fn deny_pending_gate_transaction(
         return deny_verification_accepted(intent_id, &observed.workflow_id);
     }
     let identity = ledger::validated_current_identity()?;
-    let transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let transition_guard = transition::TransitionGuard::acquire_for(
         &identity.project_id,
-        crate::transition::CurrentStateIntent::Cancel,
+        transition::CurrentStateIntent::Cancel,
     )?;
     let workflow_guard = state::WorkflowCheckpointGuard::acquire(workflow_id)?;
     let workflow = workflow_guard.load_current()?;
@@ -2751,7 +2752,7 @@ fn prepare_terminal_rollback_source(
             "internal.rollback-conflict:rollback-record-hash",
         ));
     }
-    let plan = crate::transition::prepare_source_install_v1(
+    let plan = transition::prepare_source_install_v1(
         intent_id,
         &record.proposal_id,
         &target.absolute_path,
@@ -3065,7 +3066,7 @@ fn proposal_status(proposal_id: &str) -> String {
 
 fn rollback_path_for_record(record: &ProposalRecord) -> Result<PathBuf, AppError> {
     let target = resolve_target_for("patch rollback path", &record.relative_path)?;
-    let legacy = crate::transition::source_install_rollback_path(
+    let legacy = transition::source_install_rollback_path(
         &format!("intent-source-{}", record.proposal_id),
         &record.proposal_id,
         &target.absolute_path,
@@ -3280,7 +3281,7 @@ fn apply_proposal(record: &ProposalRecord) -> Result<ApplyResult, AppError> {
         let body = fs::read_to_string(&pending_journal).map_err(|err| {
             AppError::blocked(format!("prepared source journal 읽기 실패: {err}"))
         })?;
-        let bundle = crate::transition::parse_prepared_source_bundle(&body)?;
+        let bundle = transition::parse_prepared_source_bundle(&body)?;
         let source_install = bundle
             .source_install
             .as_ref()
@@ -3294,13 +3295,13 @@ fn apply_proposal(record: &ProposalRecord) -> Result<ApplyResult, AppError> {
             ));
         }
         state::install_prepared_source_bundle(&bundle, &pending_journal)?;
-        crate::transition::remove_committed_source_bundle(&bundle, &pending_journal)?;
+        transition::remove_committed_source_bundle(&bundle, &pending_journal)?;
         current = fs::read_to_string(&target.absolute_path).map_err(|err| {
             AppError::blocked(format!("recovered source target 읽기 실패: {err}"))
         })?;
     }
     let current_sha256 = sha256_text(&current);
-    let rollback_path = crate::transition::source_install_rollback_path(
+    let rollback_path = transition::source_install_rollback_path(
         &source_intent_id,
         &record.proposal_id,
         &target.absolute_path,
@@ -3332,21 +3333,21 @@ fn apply_proposal(record: &ProposalRecord) -> Result<ApplyResult, AppError> {
         });
     }
 
-    let source_plan = crate::transition::prepare_source_install_v1(
+    let source_plan = transition::prepare_source_install_v1(
         &source_intent_id,
         &record.proposal_id,
         &target.absolute_path,
         current.as_bytes(),
         record.proposed_content.as_bytes(),
     )?;
-    let bundle = crate::transition::prepare_source_bundle(
+    let bundle = transition::prepare_source_bundle(
         &source_intent_id,
         (!record.workflow_id.is_empty()).then_some(record.workflow_id.as_str()),
         source_plan,
         current.as_bytes(),
         record.proposed_content.as_bytes(),
     )?;
-    let journal_path = crate::transition::commit_prepared_source_bundle(&bundle)?;
+    let journal_path = transition::commit_prepared_source_bundle(&bundle)?;
     if let Err(err) = state::install_prepared_source_bundle(&bundle, &journal_path) {
         return Err(AppError::blocked(format!(
             "patch approve 복구 필요\n- code: source-install.recovery-required\n- path: {}\n- error: {}\n- journal: {}\n- 동작: committed journal과 rollback/guard 증거를 보존했습니다.",
@@ -3355,7 +3356,7 @@ fn apply_proposal(record: &ProposalRecord) -> Result<ApplyResult, AppError> {
             journal_path.display()
         )));
     }
-    crate::transition::remove_committed_source_bundle(&bundle, &journal_path)?;
+    transition::remove_committed_source_bundle(&bundle, &journal_path)?;
 
     let applied = fs::read_to_string(&target.absolute_path).map_err(|err| {
         let rollback = restore_bytes(
@@ -3600,7 +3601,7 @@ fn restore_bytes(
             }
         }
     };
-    let plan = match crate::transition::prepare_source_install_v1(
+    let plan = match transition::prepare_source_install_v1(
         &format!("intent-rollback-{}", &expected_hash[..16]),
         "proposal-rollback",
         target,
@@ -3618,7 +3619,7 @@ fn restore_bytes(
             }
         }
     };
-    let bundle = match crate::transition::prepare_source_bundle(
+    let bundle = match transition::prepare_source_bundle(
         &format!("intent-rollback-{}", &expected_hash[..16]),
         None,
         plan,
@@ -3636,7 +3637,7 @@ fn restore_bytes(
             }
         }
     };
-    let journal_path = match crate::transition::commit_prepared_source_bundle(&bundle) {
+    let journal_path = match transition::commit_prepared_source_bundle(&bundle) {
         Ok(path) => path,
         Err(err) => {
             return RollbackResult {
@@ -3654,7 +3655,7 @@ fn restore_bytes(
             status: format!("restore-failed: {}", err.message),
         };
     }
-    if let Err(err) = crate::transition::remove_committed_source_bundle(&bundle, &journal_path) {
+    if let Err(err) = transition::remove_committed_source_bundle(&bundle, &journal_path) {
         return RollbackResult {
             restored: false,
             status: format!(
@@ -4202,7 +4203,7 @@ mod tests {
         assert!(r1_snapshot.contains("\"phase\": \"approved\""));
         assert!(paths::project_transition_journal_file(&workflow.project_id, intent_id).exists());
 
-        let repair_required = crate::transition::recover_pending_source_bundles().unwrap_err();
+        let repair_required = transition::recover_pending_source_bundles().unwrap_err();
         assert!(
             repair_required
                 .message
@@ -4210,10 +4211,7 @@ mod tests {
             "unexpected first recovery result: {}",
             repair_required.message
         );
-        assert_eq!(
-            crate::transition::recover_pending_source_bundles().unwrap(),
-            1
-        );
+        assert_eq!(transition::recover_pending_source_bundles().unwrap(), 1);
         let r2 = state::load_workflow(&workflow.workflow_id).unwrap();
         let current_after = state::current_state_lease_view().unwrap();
         let events_after = ledger::read_runtime_events().unwrap();
@@ -4234,10 +4232,7 @@ mod tests {
             "projection lag marker cleanup must leave no durable entries"
         );
 
-        assert_eq!(
-            crate::transition::recover_pending_source_bundles().unwrap(),
-            0
-        );
+        assert_eq!(transition::recover_pending_source_bundles().unwrap(), 0);
         assert_eq!(state::load_workflow(&workflow.workflow_id).unwrap(), r2);
         assert_eq!(state::current_state_lease_view().unwrap(), current_after);
         assert_eq!(ledger::read_runtime_events().unwrap(), events_after);
@@ -4343,12 +4338,12 @@ mod tests {
 
             if stage == "T10" {
                 assert_eq!(
-                    crate::transition::recover_pending_source_bundles().unwrap(),
+                    transition::recover_pending_source_bundles().unwrap(),
                     1,
                     "stage: {stage}"
                 );
             } else {
-                let interrupted = crate::transition::recover_pending_source_bundles().unwrap_err();
+                let interrupted = transition::recover_pending_source_bundles().unwrap_err();
                 assert!(
                     interrupted.message.contains("projection.repair-required"),
                     "stage: {stage}, error: {}",
@@ -4356,15 +4351,13 @@ mod tests {
                 );
                 let journal =
                     paths::project_transition_journal_file(&workflow.project_id, &intent_id);
-                let bundle = crate::transition::parse_prepared_source_bundle(
+                let bundle = transition::parse_prepared_source_bundle(
                     &fs::read_to_string(&journal).unwrap(),
                 )
                 .unwrap();
-                assert!(crate::transition::projection_lag_path(&bundle)
-                    .unwrap()
-                    .exists());
+                assert!(transition::projection_lag_path(&bundle).unwrap().exists());
                 assert_eq!(
-                    crate::transition::recover_pending_source_bundles().unwrap(),
+                    transition::recover_pending_source_bundles().unwrap(),
                     1,
                     "stage: {stage}"
                 );
@@ -4396,7 +4389,7 @@ mod tests {
                 !paths::project_transition_journal_file(&workflow.project_id, &intent_id).exists()
             );
             assert_eq!(
-                crate::transition::recover_pending_source_bundles().unwrap(),
+                transition::recover_pending_source_bundles().unwrap(),
                 0,
                 "stage: {stage}"
             );
@@ -4532,9 +4525,9 @@ mod tests {
 
         let journal = paths::project_transition_journal_file(&workflow.project_id, intent_id);
         let bundle =
-            crate::transition::parse_prepared_source_bundle(&fs::read_to_string(&journal).unwrap())
+            transition::parse_prepared_source_bundle(&fs::read_to_string(&journal).unwrap())
                 .unwrap();
-        let lag = crate::transition::projection_lag_path(&bundle).unwrap();
+        let lag = transition::projection_lag_path(&bundle).unwrap();
         assert!(error.message.contains("projection.lag-install-failed"));
         assert!(journal.exists());
         assert!(!lag.exists());
@@ -4542,14 +4535,11 @@ mod tests {
             fs::read_to_string(lag.with_extension("json.tmp")).unwrap(),
             bundle.additional_members.last().unwrap().bytes_utf8
         );
-        assert!(crate::transition::recover_pending_source_bundles()
+        assert!(transition::recover_pending_source_bundles()
             .unwrap_err()
             .message
             .contains("projection.repair-required"));
-        assert_eq!(
-            crate::transition::recover_pending_source_bundles().unwrap(),
-            1
-        );
+        assert_eq!(transition::recover_pending_source_bundles().unwrap(), 1);
         assert!(!journal.exists());
         assert!(!lag.exists());
         clear_patch_test_env(&root);
@@ -4573,27 +4563,21 @@ mod tests {
         std::env::remove_var("RPOTATO_TEST_APPROVAL_PROJECTION_FAULT");
         let journal = paths::project_transition_journal_file(&workflow.project_id, intent_id);
         let bundle =
-            crate::transition::parse_prepared_source_bundle(&fs::read_to_string(&journal).unwrap())
+            transition::parse_prepared_source_bundle(&fs::read_to_string(&journal).unwrap())
                 .unwrap();
-        let lag = crate::transition::projection_lag_path(&bundle).unwrap();
+        let lag = transition::projection_lag_path(&bundle).unwrap();
         assert!(lag.exists());
         std::env::set_var("RPOTATO_TEST_PROJECTION_LAG_FAULT", "journal-remove");
 
-        let interrupted = crate::transition::recover_pending_source_bundles().unwrap_err();
+        let interrupted = transition::recover_pending_source_bundles().unwrap_err();
         std::env::remove_var("RPOTATO_TEST_PROJECTION_LAG_FAULT");
 
         assert!(interrupted.message.contains("journal-remove"));
         assert!(journal.exists());
         assert!(!lag.exists());
-        assert_eq!(
-            crate::transition::recover_pending_source_bundles().unwrap(),
-            1
-        );
+        assert_eq!(transition::recover_pending_source_bundles().unwrap(), 1);
         assert!(!journal.exists());
-        assert_eq!(
-            crate::transition::recover_pending_source_bundles().unwrap(),
-            0
-        );
+        assert_eq!(transition::recover_pending_source_bundles().unwrap(), 0);
         clear_patch_test_env(&root);
     }
 
@@ -4626,10 +4610,7 @@ mod tests {
             let journal = paths::project_transition_journal_file(&workflow.project_id, &intent_id);
             assert!(error.message.contains(lag_fault), "case: {case}");
             assert!(journal.exists(), "case: {case}");
-            assert_eq!(
-                crate::transition::recover_pending_source_bundles().unwrap(),
-                1
-            );
+            assert_eq!(transition::recover_pending_source_bundles().unwrap(), 1);
             let retry = approve_report_for_intent(
                 &proposal.proposal_id,
                 &proposal.approval_token,
@@ -4675,7 +4656,7 @@ mod tests {
         assert!(error.message.contains("projection.repair-required"));
         let journal = paths::project_transition_journal_file(&workflow.project_id, intent_id);
         let bundle =
-            crate::transition::parse_prepared_source_bundle(&fs::read_to_string(&journal).unwrap())
+            transition::parse_prepared_source_bundle(&fs::read_to_string(&journal).unwrap())
                 .unwrap();
         let final_event_id = &bundle.semantic_events[9].event_id;
         let lag = paths::projection_lag_file(intent_id, final_event_id);
@@ -4689,7 +4670,7 @@ mod tests {
 
         fs::remove_file(&lag).unwrap();
         std::env::set_var("RPOTATO_TEST_APPROVAL_PROJECTION_FAULT", "converge");
-        let interrupted_repair = crate::transition::recover_pending_source_bundles().unwrap_err();
+        let interrupted_repair = transition::recover_pending_source_bundles().unwrap_err();
         std::env::remove_var("RPOTATO_TEST_APPROVAL_PROJECTION_FAULT");
         assert!(interrupted_repair
             .message
@@ -4706,10 +4687,7 @@ mod tests {
         );
         assert_eq!(ledger::read_runtime_events().unwrap(), events_before);
 
-        assert_eq!(
-            crate::transition::recover_pending_source_bundles().unwrap(),
-            1
-        );
+        assert_eq!(transition::recover_pending_source_bundles().unwrap(), 1);
         assert!(!journal.exists());
         assert!(!lag.exists());
         assert_eq!(
@@ -4724,7 +4702,7 @@ mod tests {
 
         fs::create_dir_all(lag.parent().unwrap()).unwrap();
         fs::write(&lag, lag_member.bytes_utf8.as_bytes()).unwrap();
-        let orphan = crate::transition::recover_pending_source_bundles().unwrap_err();
+        let orphan = transition::recover_pending_source_bundles().unwrap_err();
         assert!(orphan
             .message
             .contains("orphan 또는 ambiguous projection lag"));
@@ -4751,7 +4729,7 @@ mod tests {
         std::env::remove_var("RPOTATO_TEST_APPROVAL_PROJECTION_FAULT");
         let journal = paths::project_transition_journal_file(&workflow.project_id, intent_id);
         let body = fs::read_to_string(&journal).unwrap();
-        let bundle = crate::transition::parse_prepared_source_bundle(&body).unwrap();
+        let bundle = transition::parse_prepared_source_bundle(&body).unwrap();
         let lag_member = bundle.additional_members.last().unwrap();
         let event_id = lag_member.binding.event_id.as_deref().unwrap();
         let mutations = [
@@ -4772,7 +4750,7 @@ mod tests {
         for (index, mutation) in mutations.iter().enumerate() {
             assert_ne!(mutation, &body, "mutation {index} changed no bytes");
             assert!(
-                crate::transition::parse_prepared_source_bundle(mutation).is_err(),
+                transition::parse_prepared_source_bundle(mutation).is_err(),
                 "mutation {index}"
             );
         }
@@ -4797,9 +4775,9 @@ mod tests {
         std::env::remove_var("RPOTATO_TEST_APPROVAL_PROJECTION_FAULT");
         let journal = paths::project_transition_journal_file(&workflow.project_id, intent_id);
         let bundle =
-            crate::transition::parse_prepared_source_bundle(&fs::read_to_string(&journal).unwrap())
+            transition::parse_prepared_source_bundle(&fs::read_to_string(&journal).unwrap())
                 .unwrap();
-        let lag = crate::transition::projection_lag_path(&bundle).unwrap();
+        let lag = transition::projection_lag_path(&bundle).unwrap();
         let current_before = fs::read(paths::current_state_file()).unwrap();
         let workflow_before =
             fs::read(paths::project_workflow_file(&workflow.workflow_id)).unwrap();
@@ -4815,7 +4793,7 @@ mod tests {
         )
         .unwrap();
 
-        let error = crate::transition::recover_pending_source_bundles().unwrap_err();
+        let error = transition::recover_pending_source_bundles().unwrap_err();
 
         assert!(error.message.contains("projection lag"));
         assert_eq!(
@@ -4842,7 +4820,7 @@ mod tests {
         fs::create_dir_all(lag.parent().unwrap()).unwrap();
         fs::write(&lag, b"{}" as &[u8]).unwrap();
 
-        let error = crate::transition::recover_pending_source_bundles().unwrap_err();
+        let error = transition::recover_pending_source_bundles().unwrap_err();
 
         assert!(error
             .message
@@ -4930,7 +4908,7 @@ mod tests {
         std::env::remove_var("RPOTATO_TEST_APPROVAL_TRANSACTION_FAULT");
         let journal = paths::project_transition_journal_file(&workflow.project_id, intent_id);
         let mut bundle =
-            crate::transition::parse_prepared_source_bundle(&fs::read_to_string(&journal).unwrap())
+            transition::parse_prepared_source_bundle(&fs::read_to_string(&journal).unwrap())
                 .unwrap();
         bundle.additional_members[2].bytes_utf8 = bundle.additional_members[2].bytes_utf8.replacen(
             "\"phase\": \"approved\"",
@@ -4939,7 +4917,7 @@ mod tests {
         );
         fs::write(
             &journal,
-            crate::transition::render_prepared_source_bundle(&bundle).unwrap(),
+            transition::render_prepared_source_bundle(&bundle).unwrap(),
         )
         .unwrap();
         let source_before = fs::read_to_string(&target).unwrap();
@@ -4948,7 +4926,7 @@ mod tests {
         let current_before = fs::read(paths::current_state_file()).unwrap();
         let events_before = ledger::read_runtime_events().unwrap();
 
-        let error = crate::transition::recover_pending_source_bundles().unwrap_err();
+        let error = transition::recover_pending_source_bundles().unwrap_err();
 
         assert!(error.message.contains("workflow") || error.message.contains("corrupt"));
         assert!(journal.exists());
@@ -5110,7 +5088,7 @@ mod tests {
             );
 
             assert_eq!(
-                crate::transition::recover_pending_source_bundles().unwrap(),
+                transition::recover_pending_source_bundles().unwrap(),
                 1,
                 "stage: {stage}"
             );
@@ -5144,10 +5122,7 @@ mod tests {
             assert!(
                 !paths::project_transition_journal_file(&workflow.project_id, &intent_id).exists()
             );
-            assert_eq!(
-                crate::transition::recover_pending_source_bundles().unwrap(),
-                0
-            );
+            assert_eq!(transition::recover_pending_source_bundles().unwrap(), 0);
             assert_eq!(ledger::read_runtime_events().unwrap(), events);
             clear_patch_test_env(&root);
         }
@@ -5686,10 +5661,7 @@ mod tests {
             assert!(error.message.contains(point));
             std::env::remove_var("RPOTATO_TEST_TERMINAL_ACTION_FAULT");
 
-            assert_eq!(
-                crate::transition::recover_pending_source_bundles().unwrap(),
-                1
-            );
+            assert_eq!(transition::recover_pending_source_bundles().unwrap(), 1);
             let terminal = state::load_workflow(&workflow.workflow_id).unwrap();
             assert_eq!(terminal.phase, "cancelled", "point: {point}");
             assert_eq!(terminal.failure_reason, "user-denied-patch");
@@ -5708,10 +5680,7 @@ mod tests {
             );
             let after_events = ledger::read_runtime_events().unwrap();
             let after_current = fs::read(paths::current_state_file()).unwrap();
-            assert_eq!(
-                crate::transition::recover_pending_source_bundles().unwrap(),
-                0
-            );
+            assert_eq!(transition::recover_pending_source_bundles().unwrap(), 0);
             assert_eq!(ledger::read_runtime_events().unwrap(), after_events);
             assert_eq!(
                 fs::read(paths::current_state_file()).unwrap(),
@@ -5867,7 +5836,7 @@ mod tests {
                 approve_report(&proposal.proposal_id, &proposal.approval_token, false, None)
                     .unwrap_err();
             std::env::remove_var("RPOTATO_TEST_SOURCE_REPLACE_FAULT");
-            let repair_required = crate::transition::recover_pending_source_bundles().unwrap_err();
+            let repair_required = transition::recover_pending_source_bundles().unwrap_err();
             assert!(
                 repair_required
                     .message
@@ -5875,10 +5844,7 @@ mod tests {
                 "point: {point}, error: {}",
                 repair_required.message
             );
-            assert_eq!(
-                crate::transition::recover_pending_source_bundles().unwrap(),
-                1
-            );
+            assert_eq!(transition::recover_pending_source_bundles().unwrap(), 1);
             let source = fs::read_to_string(&target).unwrap();
             clear_patch_test_env(&root);
             assert!(matches!(error.code, 1 | 3), "point: {point}");
@@ -5907,7 +5873,7 @@ mod tests {
         fs::write(&outside_target, "outside sentinel\n").unwrap();
         symlink(&outside, target.parent().unwrap()).unwrap();
 
-        let error = crate::transition::recover_pending_source_bundles().unwrap_err();
+        let error = transition::recover_pending_source_bundles().unwrap_err();
 
         assert!(error.message.contains("parent traversal"));
         assert_eq!(
@@ -5953,7 +5919,7 @@ mod tests {
         fs::create_dir_all(rollback.parent().unwrap().parent().unwrap()).unwrap();
         symlink(&outside, rollback.parent().unwrap()).unwrap();
 
-        let error = crate::transition::recover_pending_source_bundles().unwrap_err();
+        let error = transition::recover_pending_source_bundles().unwrap_err();
 
         assert!(error.message.contains("rollback parent traversal"));
         assert_eq!(

@@ -10,6 +10,7 @@ use crate::adapters::filesystem::{layout as paths, lease};
 use crate::app::observability_adapter::{self as observability, SessionHistoryEntry, StoreStatus};
 use crate::app::workflow_adapter::ledger::{self, RuntimeIdentity};
 use crate::app::workflow_adapter::transcript;
+use crate::app::workflow_adapter::transition;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 use crate::runtime_core::workflow::application::projection_barrier::{
@@ -115,7 +116,7 @@ pub(crate) struct PreparedCurrentImage {
 }
 
 pub(crate) struct PreparedTerminalSource {
-    pub plan: crate::transition::SourceInstallV1,
+    pub plan: transition::SourceInstallV1,
     pub before: Vec<u8>,
     pub proposed: Vec<u8>,
 }
@@ -132,15 +133,15 @@ pub fn checkpoint_workflow(
     expected_revision: u64,
 ) -> Result<WorkflowRecord, AppError> {
     validate_workflow_id(&next.workflow_id)?;
-    let transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let transition_guard = transition::TransitionGuard::acquire_for(
         &next.project_id,
-        crate::transition::CurrentStateIntent::CheckpointWorkflow,
+        transition::CurrentStateIntent::CheckpointWorkflow,
     )?;
     checkpoint_workflow_under_transition(&transition_guard, next, expected_revision)
 }
 
 pub(crate) fn checkpoint_workflow_under_transition(
-    transition_guard: &crate::transition::TransitionGuard,
+    transition_guard: &transition::TransitionGuard,
     next: WorkflowRecord,
     expected_revision: u64,
 ) -> Result<WorkflowRecord, AppError> {
@@ -173,7 +174,7 @@ pub(crate) fn checkpoint_workflow_under_transition(
         transition_guard,
         StateTransitionRequest {
             intent_id: &intent_id,
-            intent: crate::transition::CurrentStateIntent::CheckpointWorkflow,
+            intent: transition::CurrentStateIntent::CheckpointWorkflow,
             identity: &identity,
             event: &prepared.event,
             resume_source: None,
@@ -401,11 +402,11 @@ fn build_prepared_workflow_revision(
 
 pub(crate) fn decode_prepared_workflow_revision(
     workflow_id: &str,
-    snapshot_member: &crate::transition::PreparedMember,
-    pointer_member: &crate::transition::PreparedMember,
+    snapshot_member: &transition::PreparedMember,
+    pointer_member: &transition::PreparedMember,
     event: &ledger::LedgerEvent,
 ) -> Result<PreparedWorkflowRevision, AppError> {
-    use crate::transition::PreparedMemberKind;
+    use transition::PreparedMemberKind;
 
     validate_workflow_id(workflow_id)?;
     if snapshot_member.kind != PreparedMemberKind::WorkflowSnapshot
@@ -631,12 +632,12 @@ fn state_transition_current_member(
     event_id: &str,
     causal_id: Option<String>,
     expected_type: &str,
-) -> crate::transition::PreparedMember {
-    crate::transition::PreparedMember {
-        kind: crate::transition::PreparedMemberKind::CurrentImage,
+) -> transition::PreparedMember {
+    transition::PreparedMember {
+        kind: transition::PreparedMemberKind::CurrentImage,
         path: prepared.stored_path.clone(),
         schema_version: 2,
-        binding: crate::transition::PreparedMemberBinding {
+        binding: transition::PreparedMemberBinding {
             artifact_id: Some(prepared.artifact_id.clone()),
             causal_id,
             source_key: None,
@@ -653,8 +654,8 @@ fn state_transition_current_member(
 }
 
 pub(crate) fn validate_prepared_state_current_member(
-    bundle: &crate::transition::PreparedSourceBundle,
-    member: &crate::transition::PreparedMember,
+    bundle: &transition::PreparedSourceBundle,
+    member: &transition::PreparedMember,
 ) -> Result<(), AppError> {
     let snapshot = parse_current_state(&member.bytes_utf8, "prepared state current member")?;
     let final_chain = bundle
@@ -681,7 +682,7 @@ pub(crate) fn validate_prepared_state_current_member(
         event_id: Some(final_chain.event_id.clone()),
         event_hash: final_chain.event_hash.clone(),
     };
-    if member.kind != crate::transition::PreparedMemberKind::CurrentImage
+    if member.kind != transition::PreparedMemberKind::CurrentImage
         || member.path != "state/current-state.json"
         || member.schema_version != 2
         || member.expected_type != expected_type
@@ -713,7 +714,7 @@ pub(crate) fn validate_prepared_state_current_member(
 }
 
 fn prepared_state_current_image(
-    bundle: &crate::transition::PreparedSourceBundle,
+    bundle: &transition::PreparedSourceBundle,
 ) -> Result<PreparedCurrentImage, AppError> {
     let member = bundle
         .additional_members
@@ -731,7 +732,7 @@ fn prepared_state_current_image(
 }
 
 fn validate_state_transition_current_cas(
-    bundle: &crate::transition::PreparedSourceBundle,
+    bundle: &transition::PreparedSourceBundle,
     completed_bytes: &str,
 ) -> Result<bool, AppError> {
     let path = paths::current_state_file();
@@ -773,9 +774,9 @@ fn validate_state_transition_current_cas(
 }
 
 pub(crate) fn recover_prepared_state_transition(
-    bundle: &crate::transition::PreparedSourceBundle,
+    bundle: &transition::PreparedSourceBundle,
 ) -> Result<(), AppError> {
-    let planned = crate::transition::planned_events(bundle)?;
+    let planned = transition::planned_events(bundle)?;
     let current_image = prepared_state_current_image(bundle)?;
     validate_state_transition_current_cas(bundle, &current_image.bytes)?;
     let workflow = if bundle.intent_kind == "checkpoint-workflow" {
@@ -812,7 +813,7 @@ pub(crate) fn recover_prepared_state_transition(
 }
 
 struct StateTransitionRecoveryPort<'a> {
-    bundle: &'a crate::transition::PreparedSourceBundle,
+    bundle: &'a transition::PreparedSourceBundle,
     current_image: &'a PreparedCurrentImage,
     workflow: Option<&'a (WorkflowCheckpointGuard, PreparedWorkflowRevision)>,
     writer: &'a ledger::LedgerWriterGuard,
@@ -874,7 +875,7 @@ impl PreparedStateRecoveryPort for StateTransitionRecoveryPort<'_> {
 }
 
 fn install_prepared_reconcile_backup(
-    bundle: &crate::transition::PreparedSourceBundle,
+    bundle: &transition::PreparedSourceBundle,
 ) -> Result<(), AppError> {
     if bundle.intent_kind != "reconcile"
         || bundle.current_revision != 0
@@ -922,7 +923,7 @@ fn install_prepared_reconcile_backup(
 
 struct StateTransitionRequest<'a> {
     intent_id: &'a str,
-    intent: crate::transition::CurrentStateIntent,
+    intent: transition::CurrentStateIntent,
     identity: &'a RuntimeIdentity,
     event: &'a ledger::LedgerEvent,
     resume_source: Option<&'a str>,
@@ -932,7 +933,7 @@ struct StateTransitionRequest<'a> {
 }
 
 fn transition_project_current_state_under_guard(
-    transition_guard: &crate::transition::TransitionGuard,
+    transition_guard: &transition::TransitionGuard,
     request: StateTransitionRequest<'_>,
 ) -> Result<PreparedCurrentImage, AppError> {
     let StateTransitionRequest {
@@ -964,7 +965,7 @@ fn transition_project_current_state_under_guard(
     let current_artifact_hash = previous
         .map(|snapshot| snapshot.artifact_hash.as_str())
         .unwrap_or("missing");
-    let mut bundle = crate::transition::prepare_state_transition_bundle(
+    let mut bundle = transition::prepare_state_transition_bundle(
         intent_id,
         intent,
         identity,
@@ -973,13 +974,13 @@ fn transition_project_current_state_under_guard(
         current_artifact_hash,
         before_ledger,
     )?;
-    crate::transition::bind_planned_events(&mut bundle, &planned)?;
+    transition::bind_planned_events(&mut bundle, &planned)?;
     let expected_type = if previous.is_some() { "file" } else { "absent" };
     let mut members = Vec::new();
     let causal_id = workflow.map(|(_, prepared)| prepared.snapshot_member_id.clone());
     if let Some((_, prepared)) = workflow {
         members.push(prepared_workflow_member(
-            crate::transition::PreparedMemberKind::WorkflowSnapshot,
+            transition::PreparedMemberKind::WorkflowSnapshot,
             prepared.snapshot_stored_path.clone(),
             prepared.snapshot_member_id.clone(),
             None,
@@ -988,7 +989,7 @@ fn transition_project_current_state_under_guard(
             "absent",
         ));
         members.push(prepared_workflow_member(
-            crate::transition::PreparedMemberKind::WorkflowPointer,
+            transition::PreparedMemberKind::WorkflowPointer,
             prepared.pointer_stored_path.clone(),
             prepared.pointer_member_id.clone(),
             Some(prepared.snapshot_member_id.clone()),
@@ -1003,9 +1004,9 @@ fn transition_project_current_state_under_guard(
         causal_id,
         expected_type,
     ));
-    crate::transition::bind_additional_members(&mut bundle, members)?;
+    transition::bind_additional_members(&mut bundle, members)?;
     let journal = transition_guard.commit(&bundle)?;
-    let checkpoint = intent == crate::transition::CurrentStateIntent::CheckpointWorkflow;
+    let checkpoint = intent == transition::CurrentStateIntent::CheckpointWorkflow;
     let mut port = StateTransitionTransactionAdapter {
         transition_guard,
         bundle: &bundle,
@@ -1020,8 +1021,8 @@ fn transition_project_current_state_under_guard(
 }
 
 struct StateTransitionTransactionAdapter<'a> {
-    transition_guard: &'a crate::transition::TransitionGuard,
-    bundle: &'a crate::transition::PreparedSourceBundle,
+    transition_guard: &'a transition::TransitionGuard,
+    bundle: &'a transition::PreparedSourceBundle,
     current: &'a PreparedCurrentImage,
     workflow: Option<(&'a WorkflowCheckpointGuard, &'a PreparedWorkflowRevision)>,
     event: &'a ledger::LedgerEvent,
@@ -1085,19 +1086,19 @@ impl StateTransitionTransactionPort for StateTransitionTransactionAdapter<'_> {
 }
 
 fn prepared_workflow_member(
-    kind: crate::transition::PreparedMemberKind,
+    kind: transition::PreparedMemberKind,
     path: String,
     artifact_id: String,
     causal_id: Option<String>,
     event_id: String,
     bytes_utf8: String,
     expected_type: &str,
-) -> crate::transition::PreparedMember {
-    crate::transition::PreparedMember {
+) -> transition::PreparedMember {
+    transition::PreparedMember {
         kind,
         path,
         schema_version: WORKFLOW_SCHEMA_VERSION,
-        binding: crate::transition::PreparedMemberBinding {
+        binding: transition::PreparedMemberBinding {
             artifact_id: Some(artifact_id),
             causal_id,
             source_key: None,
@@ -1126,7 +1127,7 @@ pub(crate) struct TerminalActionRequest<'a> {
 }
 
 pub(crate) fn transition_project_current_state_prepared_terminal_action(
-    transition_guard: &crate::transition::TransitionGuard,
+    transition_guard: &transition::TransitionGuard,
     workflow_guard: &WorkflowCheckpointGuard,
     request: TerminalActionRequest<'_>,
 ) -> Result<WorkflowRecord, AppError> {
@@ -1179,23 +1180,23 @@ pub(crate) fn transition_project_current_state_prepared_terminal_action(
             source.proposed.as_slice(),
         )
     });
-    let mut bundle = crate::transition::prepare_terminal_action_bundle_with_context(
+    let mut bundle = transition::prepare_terminal_action_bundle_with_context(
         intent_id,
         intent_kind,
         &before.workflow_id,
         source_context,
-        crate::transition::PreparedBundleContext {
+        transition::PreparedBundleContext {
             identity,
             lease: &current_lease,
             ledger_binding,
         },
     )?;
-    crate::transition::bind_planned_events(&mut bundle, &planned)?;
-    crate::transition::bind_additional_members(
+    transition::bind_planned_events(&mut bundle, &planned)?;
+    transition::bind_additional_members(
         &mut bundle,
         vec![
             prepared_workflow_member(
-                crate::transition::PreparedMemberKind::WorkflowSnapshot,
+                transition::PreparedMemberKind::WorkflowSnapshot,
                 revision.snapshot_stored_path.clone(),
                 revision.snapshot_member_id.clone(),
                 None,
@@ -1204,7 +1205,7 @@ pub(crate) fn transition_project_current_state_prepared_terminal_action(
                 "absent",
             ),
             prepared_workflow_member(
-                crate::transition::PreparedMemberKind::WorkflowPointer,
+                transition::PreparedMemberKind::WorkflowPointer,
                 revision.pointer_stored_path.clone(),
                 revision.pointer_member_id.clone(),
                 Some(revision.snapshot_member_id.clone()),
@@ -1239,9 +1240,9 @@ pub(crate) fn transition_project_current_state_prepared_terminal_action(
 }
 
 struct StateTerminalActionTransactionPort<'a> {
-    transition_guard: Option<&'a crate::transition::TransitionGuard>,
+    transition_guard: Option<&'a transition::TransitionGuard>,
     workflow_guard: &'a WorkflowCheckpointGuard,
-    bundle: &'a crate::transition::PreparedSourceBundle,
+    bundle: &'a transition::PreparedSourceBundle,
     revision: &'a PreparedWorkflowRevision,
     current: &'a PreparedCurrentImage,
     events: &'a [ledger::LedgerEvent],
@@ -1303,11 +1304,11 @@ impl TerminalActionTransactionPort for StateTerminalActionTransactionPort<'_> {
 }
 
 pub(crate) struct PreparedApprovalTransition<'a> {
-    pub transition_guard: Option<&'a crate::transition::TransitionGuard>,
+    pub transition_guard: Option<&'a transition::TransitionGuard>,
     pub workflow_guard: &'a WorkflowCheckpointGuard,
     pub writer: &'a ledger::LedgerWriterGuard,
     pub planned: &'a [ledger::PlannedEvent],
-    pub bundle: &'a crate::transition::PreparedSourceBundle,
+    pub bundle: &'a transition::PreparedSourceBundle,
     pub r1: &'a PreparedWorkflowRevision,
     pub r2: &'a PreparedWorkflowRevision,
     pub transcript: &'a transcript::PreparedTranscriptTurn,
@@ -1329,7 +1330,7 @@ pub(crate) fn recover_project_current_state_prepared_approval(
     prepared: PreparedApprovalTransition<'_>,
     journal: &std::path::Path,
 ) -> Result<(), AppError> {
-    let lag_path = crate::transition::projection_lag_path(prepared.bundle)?;
+    let lag_path = transition::projection_lag_path(prepared.bundle)?;
     let mut port = ApprovalProjectionRecoveryPort {
         prepared: Some(prepared),
         journal,
@@ -1370,7 +1371,7 @@ impl ProjectionBarrierRecoveryPort for ApprovalProjectionRecoveryPort<'_> {
 
     fn install_lag(&self) -> Result<PathBuf, AppError> {
         let prepared = self.prepared();
-        crate::transition::install_projection_lag(prepared.bundle).map_err(|error| {
+        transition::install_projection_lag(prepared.bundle).map_err(|error| {
             AppError::blocked(format!(
                 "projection lag install 실패\n- code: projection.lag-install-failed\n- intent: {}\n- error: {}",
                 prepared.bundle.intent_id, error.message,
@@ -1428,9 +1429,9 @@ fn execute_prepared_approval(
 }
 
 struct StateApprovalTransactionPort<'a> {
-    transition_guard: Option<&'a crate::transition::TransitionGuard>,
+    transition_guard: Option<&'a transition::TransitionGuard>,
     workflow_guard: &'a WorkflowCheckpointGuard,
-    bundle: &'a crate::transition::PreparedSourceBundle,
+    bundle: &'a transition::PreparedSourceBundle,
     r1: &'a PreparedWorkflowRevision,
     r2: &'a PreparedWorkflowRevision,
     transcript: &'a transcript::PreparedTranscriptTurn,
@@ -1497,7 +1498,7 @@ impl ApprovalTransactionPort for StateApprovalTransactionPort<'_> {
     }
 
     fn projection_repair_required(&mut self, convergence_error: AppError) -> AppError {
-        match crate::transition::install_projection_lag(self.bundle) {
+        match transition::install_projection_lag(self.bundle) {
             Ok(lag) => AppError::blocked(format!(
                 "projection repair 필요\n- code: projection.repair-required\n- intent: {}\n- lag: {}\n- error: {}",
                 self.bundle.intent_id,
@@ -1512,11 +1513,11 @@ impl ApprovalTransactionPort for StateApprovalTransactionPort<'_> {
     }
 
     fn remove_projection_lag(&mut self) -> Result<(), AppError> {
-        crate::transition::remove_projection_lag(self.bundle)
+        transition::remove_projection_lag(self.bundle)
     }
 
     fn validate_cleanup_authority(&mut self) -> Result<(), AppError> {
-        crate::transition::validate_committed_bundle_cleanup_authority(self.bundle, self.journal)
+        transition::validate_committed_bundle_cleanup_authority(self.bundle, self.journal)
     }
 
     fn remove_journal(&mut self) -> Result<(), AppError> {
@@ -1527,11 +1528,11 @@ impl ApprovalTransactionPort for StateApprovalTransactionPort<'_> {
 }
 
 pub(crate) struct PreparedVerificationTransition<'a> {
-    pub transition_guard: Option<&'a crate::transition::TransitionGuard>,
+    pub transition_guard: Option<&'a transition::TransitionGuard>,
     pub workflow_guard: &'a WorkflowCheckpointGuard,
     pub writer: &'a ledger::LedgerWriterGuard,
     pub planned: &'a [ledger::PlannedEvent],
-    pub bundle: &'a crate::transition::PreparedSourceBundle,
+    pub bundle: &'a transition::PreparedSourceBundle,
     pub revision: &'a PreparedWorkflowRevision,
     pub current: &'a PreparedCurrentImage,
     pub events: &'a [ledger::LedgerEvent],
@@ -1583,9 +1584,9 @@ fn execute_prepared_verification(
 }
 
 struct StateVerificationTransactionPort<'a> {
-    transition_guard: Option<&'a crate::transition::TransitionGuard>,
+    transition_guard: Option<&'a transition::TransitionGuard>,
     workflow_guard: &'a WorkflowCheckpointGuard,
-    bundle: &'a crate::transition::PreparedSourceBundle,
+    bundle: &'a transition::PreparedSourceBundle,
     revision: &'a PreparedWorkflowRevision,
     current: &'a PreparedCurrentImage,
     events: &'a [ledger::LedgerEvent],
@@ -1640,10 +1641,10 @@ impl VerificationTransactionPort for StateVerificationTransactionPort<'_> {
 }
 
 pub(crate) fn recover_project_current_state_prepared_terminal_action(
-    bundle: &crate::transition::PreparedSourceBundle,
+    bundle: &transition::PreparedSourceBundle,
     journal: &std::path::Path,
 ) -> Result<(), AppError> {
-    let planned = crate::transition::planned_events(bundle)?;
+    let planned = transition::planned_events(bundle)?;
     if planned.len() != 3 || bundle.additional_members.len() != 3 {
         return Err(AppError::blocked(
             "prepared terminal recovery exact shape 불일치",
@@ -1752,14 +1753,13 @@ fn internal_transition_intent_id(event: &ledger::LedgerEvent) -> String {
 
 fn commit_state_event(
     intent_id: &str,
-    intent: crate::transition::CurrentStateIntent,
+    intent: transition::CurrentStateIntent,
     identity: &RuntimeIdentity,
     event: &ledger::LedgerEvent,
     resume_source: Option<&str>,
     active_workflow_id: Option<&str>,
 ) -> Result<PreparedCurrentImage, AppError> {
-    let transition_guard =
-        crate::transition::TransitionGuard::acquire_for(&identity.project_id, intent)?;
+    let transition_guard = transition::TransitionGuard::acquire_for(&identity.project_id, intent)?;
     let previous = read_valid_current_for_transition()?;
     if previous
         .as_ref()
@@ -1769,7 +1769,7 @@ fn commit_state_event(
             "state transition current project binding 불일치",
         ));
     }
-    if intent == crate::transition::CurrentStateIntent::Bootstrap {
+    if intent == transition::CurrentStateIntent::Bootstrap {
         if let Some(snapshot) = previous.as_ref() {
             if snapshot.ledger_binding != ledger::validated_ledger_binding()? {
                 return Err(AppError::blocked(
@@ -1812,7 +1812,7 @@ fn commit_state_event(
 }
 
 fn reconcile_invalid_current_under_guard(
-    transition_guard: &crate::transition::TransitionGuard,
+    transition_guard: &transition::TransitionGuard,
     identity: &RuntimeIdentity,
     reason: &str,
     before_bytes: &str,
@@ -1845,22 +1845,22 @@ fn reconcile_invalid_current_under_guard(
         None,
     )?;
     let before_hash = sha256_bytes(before_bytes.as_bytes());
-    let mut bundle = crate::transition::prepare_state_transition_bundle(
+    let mut bundle = transition::prepare_state_transition_bundle(
         &intent_id,
-        crate::transition::CurrentStateIntent::Reconcile,
+        transition::CurrentStateIntent::Reconcile,
         identity,
         None,
         0,
         &before_hash,
         before_ledger,
     )?;
-    crate::transition::bind_planned_events(&mut bundle, &planned)?;
+    transition::bind_planned_events(&mut bundle, &planned)?;
     let backup_path = format!("state/current-state.json.{reason}.{intent_id}");
-    let backup = crate::transition::PreparedMember {
-        kind: crate::transition::PreparedMemberKind::ToolOutput,
+    let backup = transition::PreparedMember {
+        kind: transition::PreparedMemberKind::ToolOutput,
         path: backup_path,
         schema_version: 1,
-        binding: crate::transition::PreparedMemberBinding {
+        binding: transition::PreparedMemberBinding {
             artifact_id: Some(format!("state-backup-{before_hash}")),
             causal_id: None,
             source_key: None,
@@ -1875,7 +1875,7 @@ fn reconcile_invalid_current_under_guard(
         semantic_role_rank: 0,
     };
     let current = state_transition_current_member(&current_image, &event.event_id, None, "file");
-    crate::transition::bind_additional_members(&mut bundle, vec![backup, current])?;
+    transition::bind_additional_members(&mut bundle, vec![backup, current])?;
     let journal = transition_guard.commit(&bundle)?;
     let mut port = StateReconcileTransactionPort {
         transition_guard,
@@ -1900,8 +1900,8 @@ fn reconcile_invalid_current_under_guard(
 }
 
 struct StateReconcileTransactionPort<'a> {
-    transition_guard: &'a crate::transition::TransitionGuard,
-    bundle: &'a crate::transition::PreparedSourceBundle,
+    transition_guard: &'a transition::TransitionGuard,
+    bundle: &'a transition::PreparedSourceBundle,
     current: &'a PreparedCurrentImage,
     event: &'a ledger::LedgerEvent,
     journal: &'a std::path::Path,
@@ -2001,13 +2001,13 @@ pub(crate) fn validate_current_state_recovery_cas(
 }
 
 pub(crate) fn decode_prepared_current_image(
-    member: &crate::transition::PreparedMember,
+    member: &transition::PreparedMember,
     workflow: &WorkflowRecord,
     ledger_binding: &ledger::LedgerBinding,
     causal_id: &str,
     event_id: &str,
 ) -> Result<PreparedCurrentImage, AppError> {
-    use crate::transition::PreparedMemberKind;
+    use transition::PreparedMemberKind;
 
     if member.kind != PreparedMemberKind::CurrentImage
         || member.schema_version != 2
@@ -2052,13 +2052,13 @@ pub(crate) fn decode_prepared_current_image(
 }
 
 pub(crate) fn decode_prepared_terminal_current_image(
-    member: &crate::transition::PreparedMember,
+    member: &transition::PreparedMember,
     workflow: &WorkflowRecord,
     ledger_binding: &ledger::LedgerBinding,
     causal_id: &str,
     event_id: &str,
 ) -> Result<PreparedCurrentImage, AppError> {
-    use crate::transition::PreparedMemberKind;
+    use transition::PreparedMemberKind;
 
     if member.kind != PreparedMemberKind::CurrentImage
         || member.schema_version != 2
@@ -2097,9 +2097,9 @@ pub(crate) fn decode_prepared_terminal_current_image(
 
 pub fn load_workflow(workflow_id: &str) -> Result<WorkflowRecord, AppError> {
     let identity = ledger::validated_current_identity()?;
-    let _transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let _transition_guard = transition::TransitionGuard::acquire_for(
         &identity.project_id,
-        crate::transition::CurrentStateIntent::RecoverWorkflow,
+        transition::CurrentStateIntent::RecoverWorkflow,
     )?;
     load_workflow_under_transition(workflow_id)
 }
@@ -2114,9 +2114,9 @@ pub(crate) fn load_workflow_revision(
         ));
     }
     let identity = ledger::validated_current_identity()?;
-    let _transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let _transition_guard = transition::TransitionGuard::acquire_for(
         &identity.project_id,
-        crate::transition::CurrentStateIntent::RecoverWorkflow,
+        transition::CurrentStateIntent::RecoverWorkflow,
     )?;
     let latest = load_workflow_under_transition(workflow_id)?;
     if revision > latest.revision {
@@ -2166,15 +2166,15 @@ fn load_workflow_under_transition(workflow_id: &str) -> Result<WorkflowRecord, A
 
 pub fn active_workflow_id() -> Result<Option<String>, AppError> {
     let identity = ledger::validated_current_identity()?;
-    let transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let transition_guard = transition::TransitionGuard::acquire_for(
         &identity.project_id,
-        crate::transition::CurrentStateIntent::RepairWorkflowPointer,
+        transition::CurrentStateIntent::RepairWorkflowPointer,
     )?;
     active_workflow_id_under_transition(&transition_guard)
 }
 
 fn active_workflow_id_under_transition(
-    transition_guard: &crate::transition::TransitionGuard,
+    transition_guard: &transition::TransitionGuard,
 ) -> Result<Option<String>, AppError> {
     let discovered = discover_active_workflow()?;
     let path = paths::current_state_file();
@@ -2193,7 +2193,7 @@ fn active_workflow_id_under_transition(
                 transition_guard,
                 StateTransitionRequest {
                     intent_id: &intent_id,
-                    intent: crate::transition::CurrentStateIntent::RepairWorkflowPointer,
+                    intent: transition::CurrentStateIntent::RepairWorkflowPointer,
                     identity: &identity,
                     event: &event,
                     resume_source: Some("workflow-pointer-recovery"),
@@ -2237,7 +2237,7 @@ fn active_workflow_id_under_transition(
                 transition_guard,
                 StateTransitionRequest {
                     intent_id: &intent_id,
-                    intent: crate::transition::CurrentStateIntent::RepairWorkflowPointer,
+                    intent: transition::CurrentStateIntent::RepairWorkflowPointer,
                     identity: &identity,
                     event: &event,
                     resume_source: Some("workflow-pointer-recovery"),
@@ -2265,15 +2265,15 @@ fn active_workflow_id_under_transition(
 }
 
 pub(crate) fn clear_terminal_workflow_pointer(workflow: &WorkflowRecord) -> Result<(), AppError> {
-    let transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let transition_guard = transition::TransitionGuard::acquire_for(
         &workflow.project_id,
-        crate::transition::CurrentStateIntent::ClearTerminalWorkflow,
+        transition::CurrentStateIntent::ClearTerminalWorkflow,
     )?;
     clear_terminal_workflow_pointer_under_transition(&transition_guard, workflow)
 }
 
 pub(crate) fn clear_terminal_workflow_pointer_under_transition(
-    transition_guard: &crate::transition::TransitionGuard,
+    transition_guard: &transition::TransitionGuard,
     workflow: &WorkflowRecord,
 ) -> Result<(), AppError> {
     if !workflow.is_terminal() {
@@ -2310,7 +2310,7 @@ pub(crate) fn clear_terminal_workflow_pointer_under_transition(
         transition_guard,
         StateTransitionRequest {
             intent_id: &intent_id,
-            intent: crate::transition::CurrentStateIntent::ClearTerminalWorkflow,
+            intent: transition::CurrentStateIntent::ClearTerminalWorkflow,
             identity: &identity,
             event: &event,
             resume_source: Some("terminal-pointer-cleanup"),
@@ -2323,7 +2323,7 @@ pub(crate) fn clear_terminal_workflow_pointer_under_transition(
 }
 
 pub(crate) fn record_tui_workflow_resume_receipt_under_transition(
-    transition_guard: &crate::transition::TransitionGuard,
+    transition_guard: &transition::TransitionGuard,
     workflow: &WorkflowRecord,
     intent_id: &str,
     active_workflow: Option<&WorkflowRecord>,
@@ -2349,7 +2349,7 @@ pub(crate) fn record_tui_workflow_resume_receipt_under_transition(
         transition_guard,
         StateTransitionRequest {
             intent_id,
-            intent: crate::transition::CurrentStateIntent::Resume,
+            intent: transition::CurrentStateIntent::Resume,
             identity: &identity,
             event: &event,
             resume_source: Some("interactive-tui"),
@@ -2362,7 +2362,7 @@ pub(crate) fn record_tui_workflow_resume_receipt_under_transition(
 }
 
 pub(crate) fn record_workflow_event_under_transition(
-    transition_guard: &crate::transition::TransitionGuard,
+    transition_guard: &transition::TransitionGuard,
     workflow: &WorkflowRecord,
     event_type: &str,
     summary: &str,
@@ -2392,7 +2392,7 @@ pub(crate) fn record_workflow_event_under_transition(
         transition_guard,
         StateTransitionRequest {
             intent_id: &intent_id,
-            intent: crate::transition::CurrentStateIntent::RecordEvent,
+            intent: transition::CurrentStateIntent::RecordEvent,
             identity: &identity,
             event: &event,
             resume_source: Some("workflow-event-recovery"),
@@ -2487,7 +2487,7 @@ pub fn initialize() -> Result<StateInit, AppError> {
         let intent_id = internal_transition_intent_id(&event);
         commit_state_event(
             &intent_id,
-            crate::transition::CurrentStateIntent::Bootstrap,
+            transition::CurrentStateIntent::Bootstrap,
             &identity,
             &event,
             None,
@@ -2539,9 +2539,9 @@ pub fn reconcile_report() -> Result<String, AppError> {
         Ok(identity) => identity,
         Err(_) => ledger::fresh_identity(),
     };
-    let transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let transition_guard = transition::TransitionGuard::acquire_for(
         &identity.project_id,
-        crate::transition::CurrentStateIntent::Reconcile,
+        transition::CurrentStateIntent::Reconcile,
     )?;
     let status = current_state_status(&identity)?;
     let (outcome, event_id) = match status {
@@ -2560,7 +2560,7 @@ pub fn reconcile_report() -> Result<String, AppError> {
                 &transition_guard,
                 StateTransitionRequest {
                     intent_id: &intent_id,
-                    intent: crate::transition::CurrentStateIntent::Reconcile,
+                    intent: transition::CurrentStateIntent::Reconcile,
                     identity: &identity,
                     event: &event,
                     resume_source: Some("state-reconcile"),
@@ -2647,7 +2647,7 @@ pub fn resume_report() -> Result<String, AppError> {
     let intent_id = internal_transition_intent_id(&event);
     commit_state_event(
         &intent_id,
-        crate::transition::CurrentStateIntent::Resume,
+        transition::CurrentStateIntent::Resume,
         &identity,
         &event,
         None,
@@ -2676,7 +2676,7 @@ pub fn cancel_report() -> Result<String, AppError> {
     let intent_id = internal_transition_intent_id(&event);
     commit_state_event(
         &intent_id,
-        crate::transition::CurrentStateIntent::Cancel,
+        transition::CurrentStateIntent::Cancel,
         &identity,
         &event,
         None,
@@ -2729,9 +2729,9 @@ pub(crate) fn session_new_report_for_intent(intent_id: &str) -> Result<String, A
     let current_identity = ledger::validated_current_identity()?;
     let observed = read_valid_current_for_transition()?;
     ensure_runtime_evidence_file()?;
-    let transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let transition_guard = transition::TransitionGuard::acquire_for(
         &current_identity.project_id,
-        crate::transition::CurrentStateIntent::StartSession,
+        transition::CurrentStateIntent::StartSession,
     )?;
     if let Some(existing) = ledger::read_runtime_events()?.into_iter().find(|event| {
         event.event_type == "session.new"
@@ -2781,7 +2781,7 @@ pub(crate) fn session_new_report_for_intent(intent_id: &str) -> Result<String, A
         &transition_guard,
         StateTransitionRequest {
             intent_id,
-            intent: crate::transition::CurrentStateIntent::StartSession,
+            intent: transition::CurrentStateIntent::StartSession,
             identity: &identity,
             event: &event,
             resume_source: None,
@@ -2810,9 +2810,9 @@ fn session_new_success_report(session_id: &str, event_id: &str) -> String {
 pub fn session_resume_preflight(session_id: &str) -> Result<Option<String>, AppError> {
     ensure_layout()?;
     let identity = ledger::validated_current_identity()?;
-    let _transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let _transition_guard = transition::TransitionGuard::acquire_for(
         &identity.project_id,
-        crate::transition::CurrentStateIntent::SelectSession,
+        transition::CurrentStateIntent::SelectSession,
     )?;
     session_resume_preflight_under_transition(session_id, &identity)
 }
@@ -2864,9 +2864,9 @@ fn session_resume_report_with_precondition(
         Some(lease) => lease.project_id.clone(),
         None => ledger::validated_current_identity()?.project_id,
     };
-    let transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let transition_guard = transition::TransitionGuard::acquire_for(
         &project_id,
-        crate::transition::CurrentStateIntent::SelectSession,
+        transition::CurrentStateIntent::SelectSession,
     )?;
     let identity = ledger::validated_current_identity()?;
     if let Some(intent_id) = supplied_intent_id {
@@ -2916,7 +2916,7 @@ fn session_resume_report_with_precondition(
         &transition_guard,
         StateTransitionRequest {
             intent_id: &intent_id,
-            intent: crate::transition::CurrentStateIntent::SelectSession,
+            intent: transition::CurrentStateIntent::SelectSession,
             identity: &resumed,
             event: &event,
             resume_source: Some("session-history"),
@@ -3025,7 +3025,7 @@ pub fn record_event(event_type: &str, summary: &str, details: &str) -> Result<St
     let intent_id = internal_transition_intent_id(&event);
     commit_state_event(
         &intent_id,
-        crate::transition::CurrentStateIntent::RecordEvent,
+        transition::CurrentStateIntent::RecordEvent,
         &identity,
         &event,
         None,
@@ -3110,9 +3110,9 @@ pub(crate) fn validated_identity_from_current_state(
 
 pub(crate) fn current_state_lease_view() -> Result<CurrentStateLeaseView, AppError> {
     let identity = ledger::validated_current_identity()?;
-    let _transition_guard = crate::transition::TransitionGuard::acquire_for(
+    let _transition_guard = transition::TransitionGuard::acquire_for(
         &identity.project_id,
-        crate::transition::CurrentStateIntent::RecoverWorkflow,
+        transition::CurrentStateIntent::RecoverWorkflow,
     )?;
     current_state_lease_view_under_transition()
 }
@@ -4356,7 +4356,7 @@ pub(crate) fn atomic_replace_bytes(path: &std::path::Path, bytes: &[u8]) -> Resu
 
 #[cfg(not(unix))]
 pub(crate) fn install_prepared_source_bundle(
-    _bundle: &crate::transition::PreparedSourceBundle,
+    _bundle: &transition::PreparedSourceBundle,
     _journal_path: &std::path::Path,
 ) -> Result<(), AppError> {
     Err(AppError::blocked(format!(
@@ -4367,7 +4367,7 @@ pub(crate) fn install_prepared_source_bundle(
 
 #[cfg(unix)]
 pub(crate) fn install_prepared_source_bundle(
-    bundle: &crate::transition::PreparedSourceBundle,
+    bundle: &transition::PreparedSourceBundle,
     journal_path: &std::path::Path,
 ) -> Result<(), AppError> {
     let body = read_regular_file_bounded(
@@ -4375,7 +4375,7 @@ pub(crate) fn install_prepared_source_bundle(
         MAX_PREPARED_SOURCE_BUNDLE_BYTES,
         "prepared source journal",
     )?;
-    if crate::transition::parse_prepared_source_bundle(&body)? != *bundle {
+    if transition::parse_prepared_source_bundle(&body)? != *bundle {
         return Err(AppError::blocked(
             "prepared source journal/bundle binding 불일치",
         ));
@@ -4385,7 +4385,7 @@ pub(crate) fn install_prepared_source_bundle(
 
 #[cfg(unix)]
 pub(crate) fn validate_prepared_source_parent(
-    bundle: &crate::transition::PreparedSourceBundle,
+    bundle: &transition::PreparedSourceBundle,
 ) -> Result<(), AppError> {
     let plan = bundle
         .source_install
@@ -4397,7 +4397,7 @@ pub(crate) fn validate_prepared_source_parent(
 
 #[cfg(unix)]
 pub(crate) fn validate_source_install_initial_admission(
-    plan: &crate::transition::SourceInstallV1,
+    plan: &transition::SourceInstallV1,
 ) -> Result<(), AppError> {
     let Some(directory) = PreparedRollbackDir::open(plan, false)? else {
         return Ok(());
@@ -4412,7 +4412,7 @@ pub(crate) fn validate_source_install_initial_admission(
 
 #[cfg(not(unix))]
 pub(crate) fn validate_prepared_source_parent(
-    _bundle: &crate::transition::PreparedSourceBundle,
+    _bundle: &transition::PreparedSourceBundle,
 ) -> Result<(), AppError> {
     Err(AppError::blocked(format!(
         "source install 차단\n- code: source-install.unsupported-platform\n- platform: {}",
@@ -4430,7 +4430,7 @@ struct PreparedSourceDir {
 
 #[cfg(unix)]
 impl PreparedSourceDir {
-    fn open(plan: &crate::transition::SourceInstallV1) -> Result<Self, AppError> {
+    fn open(plan: &transition::SourceInstallV1) -> Result<Self, AppError> {
         use std::os::unix::fs::MetadataExt;
 
         if plan.target.parent != plan.install_temp.parent
@@ -4515,7 +4515,7 @@ impl PreparedSourceDir {
         }
         let bytes = read_open_file_bounded(
             &mut file,
-            crate::transition::MAX_SOURCE_BLOB_BYTES as u64,
+            transition::MAX_SOURCE_BLOB_BYTES as u64,
             "source stage reread",
         )?;
         Ok(Some(sha256_bytes(&bytes)))
@@ -4524,7 +4524,7 @@ impl PreparedSourceDir {
     fn validate_original(
         &self,
         name: &str,
-        plan: &crate::transition::SourceInstallV1,
+        plan: &transition::SourceInstallV1,
     ) -> Result<(), AppError> {
         use std::os::unix::fs::MetadataExt;
         let file = self
@@ -4537,11 +4537,8 @@ impl PreparedSourceDir {
             .metadata()
             .map_err(|err| AppError::blocked(format!("source original metadata 실패: {err}")))?;
         validate_source_metadata(&metadata, plan, false)?;
-        let identity = crate::transition::source_identity_v1(
-            metadata.dev(),
-            metadata.ino(),
-            &plan.before_sha256,
-        )?;
+        let identity =
+            transition::source_identity_v1(metadata.dev(), metadata.ino(), &plan.before_sha256)?;
         if plan.target.expected_identity.as_deref() != Some(identity.as_str()) {
             return Err(AppError::blocked(
                 "source original expected identity 불일치",
@@ -4553,7 +4550,7 @@ impl PreparedSourceDir {
     fn validate_installed(
         &self,
         name: &str,
-        plan: &crate::transition::SourceInstallV1,
+        plan: &transition::SourceInstallV1,
     ) -> Result<(), AppError> {
         if self.stage_hash(name)?.as_deref() != Some(plan.proposed_sha256.as_str()) {
             return Err(AppError::blocked("source stage hash/type 불일치"));
@@ -4567,10 +4564,7 @@ impl PreparedSourceDir {
         validate_source_metadata(&metadata, plan, true)
     }
 
-    fn validate_original_pair(
-        &self,
-        plan: &crate::transition::SourceInstallV1,
-    ) -> Result<(), AppError> {
+    fn validate_original_pair(&self, plan: &transition::SourceInstallV1) -> Result<(), AppError> {
         use std::os::unix::fs::MetadataExt;
         self.validate_original(&self.target, plan)?;
         self.validate_original(&self.guard, plan)?;
@@ -4592,10 +4586,7 @@ impl PreparedSourceDir {
         Ok(())
     }
 
-    fn validate_installed_pair(
-        &self,
-        plan: &crate::transition::SourceInstallV1,
-    ) -> Result<(), AppError> {
+    fn validate_installed_pair(&self, plan: &transition::SourceInstallV1) -> Result<(), AppError> {
         use std::os::unix::fs::MetadataExt;
         self.validate_installed(&self.target, plan)?;
         self.validate_installed(&self.temporary, plan)?;
@@ -4642,13 +4633,13 @@ struct PreparedRollbackDir {
 
 #[cfg(unix)]
 impl PreparedRollbackDir {
-    fn preflight(plan: &crate::transition::SourceInstallV1) -> Result<(), AppError> {
+    fn preflight(plan: &transition::SourceInstallV1) -> Result<(), AppError> {
         let _ = Self::open(plan, false)?;
         Ok(())
     }
 
     fn open(
-        plan: &crate::transition::SourceInstallV1,
+        plan: &transition::SourceInstallV1,
         create_missing: bool,
     ) -> Result<Option<Self>, AppError> {
         let root = paths::project_root().canonicalize().map_err(|err| {
@@ -4725,7 +4716,7 @@ impl PreparedRollbackDir {
         )
     }
 
-    fn validate(&self, plan: &crate::transition::SourceInstallV1) -> Result<(), AppError> {
+    fn validate(&self, plan: &transition::SourceInstallV1) -> Result<(), AppError> {
         let mut file = self
             .open_existing()?
             .ok_or_else(|| AppError::blocked("source rollback 누락"))?;
@@ -4898,7 +4889,7 @@ fn recover_source_replace(transaction_path: &std::path::Path) -> Result<(), AppE
         MAX_PREPARED_SOURCE_BUNDLE_BYTES,
         "source recovery transaction",
     )?;
-    let bundle = crate::transition::parse_prepared_source_bundle(&body)?;
+    let bundle = transition::parse_prepared_source_bundle(&body)?;
     let plan = bundle
         .source_install
         .as_ref()
@@ -5000,7 +4991,7 @@ fn recover_source_replace(transaction_path: &std::path::Path) -> Result<(), AppE
 
 #[cfg(unix)]
 fn install_prepared_temp(
-    plan: &crate::transition::SourceInstallV1,
+    plan: &transition::SourceInstallV1,
     proposed: &[u8],
     source_dir: &PreparedSourceDir,
 ) -> Result<(), AppError> {
@@ -5044,7 +5035,7 @@ fn install_prepared_temp(
 
 #[cfg(unix)]
 fn install_prepared_rollback(
-    plan: &crate::transition::SourceInstallV1,
+    plan: &transition::SourceInstallV1,
     source_dir: &PreparedSourceDir,
 ) -> Result<(), AppError> {
     let rollback_dir = PreparedRollbackDir::open(plan, true)?
@@ -5085,7 +5076,7 @@ fn install_prepared_rollback(
 #[cfg(unix)]
 fn validate_source_metadata(
     metadata: &fs::Metadata,
-    plan: &crate::transition::SourceInstallV1,
+    plan: &transition::SourceInstallV1,
     installed: bool,
 ) -> Result<(), AppError> {
     use std::os::unix::fs::MetadataExt;
@@ -5869,9 +5860,9 @@ mod tests {
 
         with_workflow_env("session-new-writer-race", |_| {
             let identity = ledger::validated_current_identity().unwrap();
-            let transition = crate::transition::TransitionGuard::acquire_for(
+            let transition = transition::TransitionGuard::acquire_for(
                 &identity.project_id,
-                crate::transition::CurrentStateIntent::RecordEvent,
+                transition::CurrentStateIntent::RecordEvent,
             )
             .unwrap();
             let first = std::thread::spawn(|| {
@@ -6022,7 +6013,7 @@ mod tests {
                 );
 
                 assert_eq!(
-                    crate::transition::recover_pending_source_bundles().unwrap(),
+                    transition::recover_pending_source_bundles().unwrap(),
                     1,
                     "point: {point}"
                 );
@@ -6037,10 +6028,7 @@ mod tests {
                         .count(),
                     1
                 );
-                assert_eq!(
-                    crate::transition::recover_pending_source_bundles().unwrap(),
-                    0
-                );
+                assert_eq!(transition::recover_pending_source_bundles().unwrap(), 0);
                 assert_eq!(current_state_lease_view().unwrap(), after_current);
                 assert_eq!(ledger::read_runtime_events().unwrap(), after_events);
             });
@@ -6273,9 +6261,9 @@ mod tests {
             terminal.failure_reason = "cancelled-before-side-effect".to_string();
             let terminal = checkpoint_workflow(terminal, first.revision).unwrap();
             let identity = ledger::validated_current_identity().unwrap();
-            let transition = crate::transition::TransitionGuard::acquire_for(
+            let transition = transition::TransitionGuard::acquire_for(
                 &identity.project_id,
-                crate::transition::CurrentStateIntent::RecordEvent,
+                transition::CurrentStateIntent::RecordEvent,
             )
             .unwrap();
             let cleanup = std::thread::spawn(move || clear_terminal_workflow_pointer(&terminal));
@@ -6779,7 +6767,7 @@ mod tests {
                 temporary.display(),
                 sha256_bytes(b"original"),
                 sha256_bytes(b"replacement"),
-                crate::transition::SOURCE_INSTALL_OPERATIONS.join(",")
+                transition::SOURCE_INSTALL_OPERATIONS.join(",")
             ),
         )
         .unwrap();
@@ -6816,7 +6804,7 @@ mod tests {
                 temporary.display(),
                 sha256_bytes(b"original"),
                 sha256_bytes(b"replacement"),
-                crate::transition::SOURCE_INSTALL_OPERATIONS.join(",")
+                transition::SOURCE_INSTALL_OPERATIONS.join(",")
             ),
         )
         .unwrap();
@@ -6833,7 +6821,7 @@ mod tests {
         let content_hash = "473b0fef5f0626d3fe806f10b931f085d511ba15b1117c53d5f2ec27d5b9452e";
         assert_eq!(sha256_bytes(b"current source\n"), content_hash);
         assert_eq!(
-            crate::transition::source_identity_v1(
+            transition::source_identity_v1(
                 0x0102_0304_0506_0708,
                 0x1112_1314_1516_1718,
                 content_hash,
@@ -6841,14 +6829,14 @@ mod tests {
             .unwrap(),
             "2b3452be6ffa18621fcd39e56162e5b46ef9428657dd6cdc9e02847e521420d0"
         );
-        assert!(crate::transition::source_identity_v1(
+        assert!(transition::source_identity_v1(
             0x0102_0304_0506_0708,
             0x1112_1314_1516_1718,
             &content_hash.to_ascii_uppercase()
         )
         .is_err());
         assert_ne!(
-            crate::transition::source_identity_v1(
+            transition::source_identity_v1(
                 0x0102_0304_0506_0709,
                 0x1112_1314_1516_1718,
                 content_hash,
@@ -6897,9 +6885,9 @@ mod tests {
         std::env::set_var("RPOTATO_DATA_HOME", &data);
         let initialized = initialize().unwrap();
         let before = current_state_lease_view().unwrap();
-        let transition = crate::transition::TransitionGuard::acquire_for(
+        let transition = transition::TransitionGuard::acquire_for(
             &initialized.identity.project_id,
-            crate::transition::CurrentStateIntent::RecordEvent,
+            transition::CurrentStateIntent::RecordEvent,
         )
         .unwrap();
         let (sender, receiver) = std::sync::mpsc::channel();

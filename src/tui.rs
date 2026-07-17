@@ -1,6 +1,7 @@
 use crate::adapters::terminal::capability;
 use crate::adapters::terminal::native::NativeTerminal;
 use crate::app::workflow_adapter::transcript;
+use crate::app::workflow_adapter::transition;
 use crate::composition::tui_action::{self, TuiActionPort, TuiMutationFailure};
 use crate::composition::tui_read::{self, TuiReadPort};
 use crate::foundation::error::AppError;
@@ -215,12 +216,10 @@ impl TuiReadPort for LegacyTuiReadPort {
     }
 
     fn projection_status(&mut self, project_id: &str) -> ProjectionStatus {
-        match crate::transition::projection_lag_status_read_only(project_id) {
-            crate::transition::ProjectionLagReadStatus::Clear => ProjectionStatus::Clear,
-            crate::transition::ProjectionLagReadStatus::Lagging => ProjectionStatus::Lagging,
-            crate::transition::ProjectionLagReadStatus::Unavailable => {
-                ProjectionStatus::Unavailable
-            }
+        match transition::projection_lag_status_read_only(project_id) {
+            transition::ProjectionLagReadStatus::Clear => ProjectionStatus::Clear,
+            transition::ProjectionLagReadStatus::Lagging => ProjectionStatus::Lagging,
+            transition::ProjectionLagReadStatus::Unavailable => ProjectionStatus::Unavailable,
         }
     }
 }

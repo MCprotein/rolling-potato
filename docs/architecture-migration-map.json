@@ -3715,25 +3715,18 @@
       ]
     },
     {
-      "path": "src/transition.rs",
+      "path": "src/app/workflow_adapter/transition.rs",
       "slices": [
         {
-          "responsibility": "legal workflow transitions",
-          "target": "src/runtime_core/workflow/domain/transition.rs",
-          "release": "0.37.6",
+          "responsibility": "transition journal and recovery orchestration adapter",
+          "target": "src/app/workflow_adapter/transition.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/domain/transition.rs",
-            "tests/architecture_contract.rs"
-          ]
-        },
-        {
-          "responsibility": "projection-lag and recovery gates",
-          "target": "src/runtime_core/workflow/application/projection_barrier.rs",
-          "release": "0.37.7",
-          "state": "complete",
-          "evidence": [
+            "src/runtime_core/workflow/application/recovery.rs",
             "src/runtime_core/workflow/application/projection_barrier.rs",
+            "src/app/workflow_adapter/transition.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5544,10 +5537,9 @@
       ]
     },
     {
-      "path": "src/transition.rs",
+      "path": "src/app/workflow_adapter/transition.rs",
       "responsibilities": [
-        "legal workflow transitions",
-        "projection-lag and recovery gates"
+        "transition journal and recovery orchestration adapter"
       ]
     },
     {

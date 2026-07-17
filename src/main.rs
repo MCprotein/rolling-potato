@@ -14,7 +14,6 @@ mod surfaces;
 #[cfg(test)]
 #[path = "../tests/support/runtime_fixture.rs"]
 mod test_support;
-mod transition;
 mod tui;
 
 fn main() -> std::process::ExitCode {

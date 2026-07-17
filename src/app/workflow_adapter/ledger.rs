@@ -25,6 +25,8 @@ pub use crate::runtime_core::workflow::storage_compat::ledger::{
     json_string, LedgerBinding, LedgerEvent, ParsedLedgerEvent, RuntimeIdentity, WorkflowCheckpoint,
 };
 
+use super::transition;
+
 static EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -237,11 +239,11 @@ impl LedgerWriterGuard {
 
     pub(crate) fn prepared_target_is_converged(
         &self,
-        bundle: &crate::transition::PreparedSourceBundle,
+        bundle: &transition::PreparedSourceBundle,
         journal: &Path,
     ) -> Result<bool, AppError> {
-        crate::transition::validate_committed_bundle_cleanup_authority(bundle, journal)?;
-        let planned = crate::transition::planned_events(bundle)?;
+        transition::validate_committed_bundle_cleanup_authority(bundle, journal)?;
+        let planned = transition::planned_events(bundle)?;
         let events = read_runtime_events_unlocked()?;
         let target_ordinal = planned
             .last()
@@ -315,12 +317,12 @@ impl EventSink<'_> {
 
     pub(crate) fn converge_prepared(
         &self,
-        bundle: &crate::transition::PreparedSourceBundle,
+        bundle: &transition::PreparedSourceBundle,
         journal: &Path,
     ) -> Result<(), AppError> {
         self.finish()?;
-        crate::transition::validate_committed_bundle_cleanup_authority(bundle, journal)?;
-        let prepared = crate::transition::planned_events(bundle)?;
+        transition::validate_committed_bundle_cleanup_authority(bundle, journal)?;
+        let prepared = transition::planned_events(bundle)?;
         let planned = self.coordinator.planned();
         if prepared.len() != planned.len()
             || prepared.iter().zip(planned).any(|(left, right)| {
@@ -339,7 +341,7 @@ impl EventSink<'_> {
         crate::app::observability_adapter::converge_from_events(&events)?;
         validate_prepared_runtime_suffix(&events, &prepared)?;
         validate_derived_outputs_unlocked(&events, &bundle.project_id)?;
-        crate::transition::validate_committed_bundle_cleanup_authority(bundle, journal)
+        transition::validate_committed_bundle_cleanup_authority(bundle, journal)
     }
 }
 

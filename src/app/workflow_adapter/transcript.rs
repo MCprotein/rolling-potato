@@ -22,6 +22,8 @@ pub use crate::runtime_core::workflow::storage_compat::transcript::{
 };
 use crate::state;
 
+use super::transition;
+
 const MAX_SANITIZED_STREAM_BYTES: usize = 64 * 1024;
 const MAX_TOOL_ARTIFACT_BYTES: usize = 256 * 1024;
 const UNAVAILABLE_STREAM: &str = "<unavailable>";
@@ -250,11 +252,11 @@ pub(crate) fn install_prepared_no_stream_tool_turn(
 }
 
 pub(crate) fn decode_prepared_no_stream_tool_turn(
-    tool_member: &crate::transition::PreparedMember,
-    transcript_member: &crate::transition::PreparedMember,
+    tool_member: &transition::PreparedMember,
+    transcript_member: &transition::PreparedMember,
     event: &crate::app::workflow_adapter::ledger::LedgerEvent,
 ) -> Result<PreparedTranscriptTurn, AppError> {
-    use crate::transition::PreparedMemberKind;
+    use transition::PreparedMemberKind;
 
     if tool_member.kind != PreparedMemberKind::ToolOutput
         || transcript_member.kind != PreparedMemberKind::TranscriptV2
