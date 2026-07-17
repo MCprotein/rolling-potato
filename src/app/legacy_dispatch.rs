@@ -9,26 +9,26 @@ use crate::patch;
 use crate::runtime;
 use crate::surfaces::cli::{
     command::{
-        Command, IntentCommand, PatchCommand, PolicyCommand, PolicyPathMode, SessionCommand,
-        StateCommand, TuiCommand, UninstallCommand,
+        Command, IntentCommand, PatchCommand, SessionCommand, StateCommand, TuiCommand,
+        UninstallCommand,
     },
     render,
 };
 use crate::tui;
-
-use super::policy_adapter as policy;
 
 mod collaboration_commands;
 mod extension_commands;
 mod inference_ports;
 mod knowledge_commands;
 mod observability_commands;
+mod policy_commands;
 
 use collaboration_commands::{execute_subagent, execute_team};
 use extension_commands::{execute_hooks, execute_plugin, execute_skill};
 use inference_ports::emit_output as emit_inference_output;
 use knowledge_commands::{execute_evidence, execute_ontology};
 use observability_commands::{execute_cache_status, execute_monitor};
+use policy_commands::execute_policy;
 
 pub(super) struct LegacyCommandDispatchPort;
 
@@ -143,26 +143,7 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
             }
             Command::Evidence(command) => execute_evidence(command),
             Command::Skill(command) => execute_skill(command),
-            Command::Policy(PolicyCommand::Schema) => {
-                println!("{}", policy::schema_report());
-                Ok(())
-            }
-            Command::Policy(PolicyCommand::CheckCommand { command }) => {
-                println!("{}", policy::check_command_report(&command)?);
-                Ok(())
-            }
-            Command::Policy(PolicyCommand::CheckPath { mode, path }) => {
-                let mode = match mode {
-                    PolicyPathMode::Read => policy::PathMode::Read,
-                    PolicyPathMode::Write => policy::PathMode::Write,
-                };
-                println!("{}", policy::check_path_report(mode, &path)?);
-                Ok(())
-            }
-            Command::Policy(PolicyCommand::Redact { text }) => {
-                println!("{}", policy::redact_report(&text));
-                Ok(())
-            }
+            Command::Policy(command) => execute_policy(command),
             Command::Hooks(command) => execute_hooks(command),
             Command::Patch(PatchCommand::Preview {
                 path,

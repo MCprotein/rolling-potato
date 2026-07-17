@@ -2001,6 +2001,25 @@
       ]
     },
     {
+      "path": "src/app/legacy_dispatch/policy_commands.rs",
+      "slices": [
+        {
+          "responsibility": "fail-closed policy CLI command execution and path-mode mapping",
+          "target": "src/app/legacy_dispatch/policy_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/legacy_dispatch.rs",
+            "src/app/legacy_dispatch/policy_commands.rs",
+            "src/app/policy_adapter.rs",
+            "src/runtime_core/policy/decision.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter.rs",
       "slices": [
         {
@@ -7286,6 +7305,12 @@
       "path": "src/app/legacy_dispatch/observability_commands.rs",
       "responsibilities": [
         "cache and monitor CLI command execution integration"
+      ]
+    },
+    {
+      "path": "src/app/legacy_dispatch/policy_commands.rs",
+      "responsibilities": [
+        "fail-closed policy CLI command execution and path-mode mapping"
       ]
     },
     {
