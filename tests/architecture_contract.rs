@@ -2470,11 +2470,16 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
     let main = fs::read_to_string("src/main.rs").unwrap();
     assert!(!main.lines().any(|line| line == "mod korean_guard;"));
 
-    let runtime_facade = fs::read_to_string("src/runtime.rs").unwrap();
-    let production = runtime_facade
-        .split("\n#[cfg(test)]\nmod tests")
-        .next()
-        .unwrap_or(&runtime_facade);
+    let runtime_facade_path = "src/runtime.rs";
+    let runtime_tests_path = "src/runtime/tests.rs";
+    assert!(Path::new(runtime_tests_path).is_file());
+    let runtime_facade = fs::read_to_string(runtime_facade_path).unwrap();
+    let runtime_tests = fs::read_to_string(runtime_tests_path).unwrap();
+    let production = &runtime_facade;
+    assert!(
+        runtime_facade.contains("#[path = \"runtime/tests.rs\"]"),
+        "runtime facade does not register its regression-test owner"
+    );
     for forbidden in [
         "fn guard_patch_terminal_report",
         "fn release_smoke_summary",
@@ -2500,9 +2505,28 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
             "legacy runtime facade is missing owner delegation: {delegation}"
         );
     }
+    for regression in [
+        "fn tui_read_facade_is_bounded_fresh_and_non_mutating_with_tool_output(",
+        "fn tui_read_facade_all_views_are_canonical_bounded_fresh_and_non_mutating(",
+        "fn runtime_tui_outcome_oracle_all_families_exact_utf8(",
+        "fn doctor_report_includes_release_smoke_fields(",
+    ] {
+        assert!(
+            runtime_tests.contains(regression),
+            "runtime regression owner is missing: {regression}"
+        );
+        assert!(
+            !runtime_facade.contains(regression),
+            "runtime facade still owns regression test: {regression}"
+        );
+    }
     assert!(
-        runtime_facade.lines().count() <= 3_100,
+        runtime_facade.lines().count() < 200,
         "runtime facade regrew beyond the v0.37.10 boundary"
+    );
+    assert!(
+        runtime_tests.lines().count() < 1_100,
+        "runtime regression module regrew beyond its ownership boundary"
     );
 }
 
