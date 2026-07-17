@@ -4218,6 +4218,45 @@ fn v03713_composition_owns_backend_command_orchestration() {
 }
 
 #[test]
+fn v03713_context_adapter_separates_filesystem_discovery() {
+    let context_adapter = "src/context.rs";
+    let filesystem_discovery = "src/context/discovery.rs";
+    assert!(Path::new(context_adapter).is_file());
+    assert!(Path::new(filesystem_discovery).is_file());
+
+    let context = fs::read_to_string(context_adapter).unwrap();
+    let discovery = fs::read_to_string(filesystem_discovery).unwrap();
+    assert!(
+        context.lines().any(|line| line == "mod discovery;"),
+        "context adapter does not register its filesystem discovery owner"
+    );
+    for responsibility in [
+        "pub(super) fn build_filesystem_fallback(",
+        "pub(super) fn discover_candidate_files(",
+        "fn should_skip_dir(",
+        "fn is_context_file(",
+        "pub(super) fn request_terms(",
+        "pub(super) fn score_path(",
+        "pub(super) fn relative_path(",
+        "pub(super) fn content_fingerprint(",
+    ] {
+        assert!(
+            discovery.contains(responsibility),
+            "filesystem discovery owner is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !context.contains(responsibility),
+            "context orchestration still owns filesystem discovery: {responsibility}"
+        );
+    }
+    assert!(
+        context.contains("fn filesystem_discovery_skips_generated_dirs_and_ranks_request_matches(")
+    );
+    assert!(context.lines().count() < 600);
+    assert!(discovery.lines().count() < 250);
+}
+
+#[test]
 fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
     for name in [
         "fake_sidecar.rs",
