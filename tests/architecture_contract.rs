@@ -1971,6 +1971,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
 
 #[test]
 fn v0379_patch_owners_hold_lifecycle_decisions() {
+    let intent_tests_path = "src/intent/tests.rs";
     let patch_test_modules = [
         "src/patch/tests/mod.rs",
         "src/patch/tests/approval_cases.rs",
@@ -1999,6 +2000,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     assert!(Path::new(verification_adapter).is_file());
     assert!(Path::new(workflow_contract_adapter).is_file());
     assert!(Path::new(workflow_execution_adapter).is_file());
+    assert!(Path::new(intent_tests_path).is_file());
     for patch_test_module in patch_test_modules {
         assert!(
             Path::new(patch_test_module).is_file(),
@@ -2135,6 +2137,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     }
 
     let intent_facade = fs::read_to_string("src/intent.rs").unwrap();
+    let intent_tests = fs::read_to_string(intent_tests_path).unwrap();
     let patch_facade = fs::read_to_string("src/patch.rs").unwrap();
     let approval_transaction = fs::read_to_string(approval_transaction_adapter).unwrap();
     let execution = fs::read_to_string(execution_adapter).unwrap();
@@ -2155,8 +2158,31 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let patch_harness = fs::read_to_string("tests/patch_loop.rs").unwrap();
     let patch_contract = fs::read_to_string("tests/patch/lifecycle.rs").unwrap();
     assert!(
-        intent_facade.lines().count() <= 1_400,
+        intent_facade.contains("#[path = \"intent/tests.rs\"]"),
+        "intent facade does not register its regression-test owner"
+    );
+    for regression in [
+        "fn explicit_skill_has_priority(",
+        "fn model_action_parser_blocks_requested_side_effects(",
+        "fn model_answer_fails_closed_on_non_korean_natural_language(",
+        "fn review_outcomes_require_answer_bound_file_and_severity_evidence(",
+    ] {
+        assert!(
+            intent_tests.contains(regression),
+            "intent regression owner is missing: {regression}"
+        );
+        assert!(
+            !intent_facade.contains(regression),
+            "intent facade still owns regression test: {regression}"
+        );
+    }
+    assert!(
+        intent_facade.lines().count() < 1_100,
         "intent facade regrew beyond the v0.37.9 boundary"
+    );
+    assert!(
+        intent_tests.lines().count() < 325,
+        "intent regression module regrew beyond its ownership boundary"
     );
     assert!(
         patch_facade.lines().count() < 500,

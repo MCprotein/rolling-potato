@@ -2467,6 +2467,25 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/intent.rs",
+            "src/intent.rs",
+            "src/intent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/intent/tests.rs",
+      "slices": [
+        {
+          "responsibility": "intent classification, model-action parsing, answer gating, and skill-boundary regression tests",
+          "target": "src/intent/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/intent.rs",
+            "src/intent.rs",
+            "src/intent/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6271,6 +6290,12 @@
       "path": "src/intent.rs",
       "responsibilities": [
         "intent classification and action planning"
+      ]
+    },
+    {
+      "path": "src/intent/tests.rs",
+      "responsibilities": [
+        "intent classification, model-action parsing, answer gating, and skill-boundary regression tests"
       ]
     },
     {
