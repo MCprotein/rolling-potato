@@ -1,5 +1,7 @@
 use crate::adapters::filesystem::{cache, layout as paths};
 use crate::app::inference_adapter::{backend, model};
+#[cfg(test)]
+use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
 use crate::runtime_core::reporting::runtime_report::{self, DoctorReport, InitReport};
 use crate::runtime_core::workflow::application::runner::{self, RuntimeApplicationPort};
@@ -8,8 +10,6 @@ use crate::surfaces::tui::outcome::TuiOutcomeCode;
 use crate::surfaces::tui::outcome::{
     exact_tui_outcome, verification_credential_issued, TuiOutcomeContext,
 };
-#[cfg(test)]
-use crate::transcript;
 use crate::{context, intent, ledger, ontology, patch, state};
 #[cfg(test)]
 use std::collections::BTreeMap;

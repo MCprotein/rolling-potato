@@ -7,19 +7,45 @@ use crate::runtime_core::inference::resource;
 use crate::runtime_core::workflow::storage_compat::ledger::{
     LedgerEvent, ParsedLedgerEvent, RuntimeIdentity,
 };
+use crate::runtime_core::workflow::storage_compat::transcript::TranscriptRecord;
 
 pub(crate) trait CanonicalLedgerReadPort {
     fn read_events(&self) -> Result<Vec<ParsedLedgerEvent>, AppError>;
+}
+
+pub(crate) trait CanonicalTranscriptReadPort {
+    fn read_transcript_record(
+        &self,
+        project_id: &str,
+        session_id: &str,
+        event_type: &str,
+        details: &str,
+    ) -> Result<TranscriptRecord, AppError> {
+        let _ = (project_id, session_id, event_type, details);
+        Err(AppError::blocked(
+            "canonical transcript read port is unavailable",
+        ))
+    }
+}
+
+pub(crate) trait CanonicalProjectionReadPort:
+    CanonicalLedgerReadPort + CanonicalTranscriptReadPort
+{
+}
+
+impl<T> CanonicalProjectionReadPort for T where
+    T: CanonicalLedgerReadPort + CanonicalTranscriptReadPort + ?Sized
+{
 }
 
 pub(crate) trait ObservabilityProjectionPort {
     fn initialize(
         &self,
         identity: &RuntimeIdentity,
-        ledger: &dyn CanonicalLedgerReadPort,
+        ledger: &dyn CanonicalProjectionReadPort,
     ) -> Result<StoreStatus, AppError>;
 
-    fn status(&self, ledger: &dyn CanonicalLedgerReadPort) -> Result<StoreStatus, AppError>;
+    fn status(&self, ledger: &dyn CanonicalProjectionReadPort) -> Result<StoreStatus, AppError>;
 
     fn status_read_only(&self) -> Result<StoreStatus, AppError>;
 
@@ -31,50 +57,58 @@ pub(crate) trait ObservabilityProjectionPort {
     fn project_event(
         &self,
         event: &LedgerEvent,
-        ledger: &dyn CanonicalLedgerReadPort,
+        ledger: &dyn CanonicalProjectionReadPort,
     ) -> Result<(), AppError>;
 
-    fn project_event_with_ordinal(&self, event: &LedgerEvent, ordinal: u64)
-        -> Result<(), AppError>;
+    fn project_event_with_ordinal(
+        &self,
+        event: &LedgerEvent,
+        ordinal: u64,
+        ledger: &dyn CanonicalProjectionReadPort,
+    ) -> Result<(), AppError>;
 
-    fn converge_from_events(&self, events: &[ParsedLedgerEvent]) -> Result<(), AppError>;
+    fn converge_from_events(
+        &self,
+        events: &[ParsedLedgerEvent],
+        ledger: &dyn CanonicalProjectionReadPort,
+    ) -> Result<(), AppError>;
 
     fn model_summaries(&self) -> Result<Vec<ModelMetricSummary>, AppError>;
 
     fn performance_baseline(
         &self,
-        ledger: &dyn CanonicalLedgerReadPort,
+        ledger: &dyn CanonicalProjectionReadPort,
     ) -> Result<PerformanceBaseline, AppError>;
 
     fn optimization_policy(
         &self,
-        ledger: &dyn CanonicalLedgerReadPort,
+        ledger: &dyn CanonicalProjectionReadPort,
     ) -> Result<OptimizationPolicy, AppError>;
 
     fn export_jsonl(&self) -> Result<String, AppError>;
 
-    fn export_csv(&self, ledger: &dyn CanonicalLedgerReadPort) -> Result<String, AppError>;
+    fn export_csv(&self, ledger: &dyn CanonicalProjectionReadPort) -> Result<String, AppError>;
 
     fn prune_preview(&self, before_days: u64) -> Result<PrunePreview, AppError>;
 
     fn session_history(
         &self,
         identity: &RuntimeIdentity,
-        ledger: &dyn CanonicalLedgerReadPort,
+        ledger: &dyn CanonicalProjectionReadPort,
         limit: usize,
     ) -> Result<Vec<SessionHistoryEntry>, AppError>;
 
     fn session_entry(
         &self,
         identity: &RuntimeIdentity,
-        ledger: &dyn CanonicalLedgerReadPort,
+        ledger: &dyn CanonicalProjectionReadPort,
         session_id: &str,
     ) -> Result<Option<SessionHistoryEntry>, AppError>;
 
     fn session_events(
         &self,
         identity: &RuntimeIdentity,
-        ledger: &dyn CanonicalLedgerReadPort,
+        ledger: &dyn CanonicalProjectionReadPort,
         session_id: &str,
         limit: usize,
     ) -> Result<Vec<SessionEventEntry>, AppError>;
@@ -82,27 +116,27 @@ pub(crate) trait ObservabilityProjectionPort {
     fn record_model_run(
         &self,
         identity: &RuntimeIdentity,
-        ledger: &dyn CanonicalLedgerReadPort,
+        ledger: &dyn CanonicalProjectionReadPort,
         metric: &ModelRunMetric,
     ) -> Result<(), AppError>;
 
     fn record_resource_sample(
         &self,
         identity: &RuntimeIdentity,
-        ledger: &dyn CanonicalLedgerReadPort,
+        ledger: &dyn CanonicalProjectionReadPort,
         metric: &ResourceSampleMetric,
     ) -> Result<(), AppError>;
 
     fn record_benchmark_run(
         &self,
         identity: &RuntimeIdentity,
-        ledger: &dyn CanonicalLedgerReadPort,
+        ledger: &dyn CanonicalProjectionReadPort,
         metric: &BenchmarkRunMetric,
     ) -> Result<(), AppError>;
 
     fn benchmark_run_reports(
         &self,
-        ledger: &dyn CanonicalLedgerReadPort,
+        ledger: &dyn CanonicalProjectionReadPort,
     ) -> Result<Vec<BenchmarkRunReport>, AppError>;
 
     fn latest_resource_sample(&self) -> Result<Option<ResourceSampleMetric>, AppError>;

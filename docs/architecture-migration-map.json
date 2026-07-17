@@ -1820,6 +1820,22 @@
       ]
     },
     {
+      "path": "src/app/workflow_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "concrete workflow adapter module wiring",
+          "target": "src/app/workflow_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter.rs",
+            "src/app/workflow_adapter/transcript.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend.rs",
       "slices": [
         {
@@ -3698,35 +3714,18 @@
       ]
     },
     {
-      "path": "src/transcript.rs",
+      "path": "src/app/workflow_adapter/transcript.rs",
       "slices": [
         {
-          "responsibility": "canonical transcript records",
-          "target": "src/runtime_core/workflow/storage_compat/transcript.rs",
-          "release": "0.37.4",
+          "responsibility": "transcript persistence and projection orchestration adapter",
+          "target": "src/app/workflow_adapter/transcript.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/storage_compat/transcript.rs",
-            "tests/workflow/storage_compat.rs"
-          ]
-        },
-        {
-          "responsibility": "validated transcript session views",
-          "target": "src/runtime_core/workflow/domain/transcript.rs",
-          "release": "0.37.5",
-          "state": "complete",
-          "evidence": [
             "src/runtime_core/workflow/domain/transcript.rs",
-            "tests/architecture_contract.rs"
-          ]
-        },
-        {
-          "responsibility": "transcript projection",
-          "target": "src/adapters/sqlite/transcript_projection.rs",
-          "release": "0.37.7",
-          "state": "complete",
-          "evidence": [
             "src/adapters/sqlite/transcript_projection.rs",
+            "src/app/workflow_adapter/transcript.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4844,6 +4843,12 @@
       ]
     },
     {
+      "path": "src/app/workflow_adapter.rs",
+      "responsibilities": [
+        "concrete workflow adapter module wiring"
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend.rs",
       "responsibilities": [
         "backend concrete integration adapter"
@@ -5552,11 +5557,9 @@
       ]
     },
     {
-      "path": "src/transcript.rs",
+      "path": "src/app/workflow_adapter/transcript.rs",
       "responsibilities": [
-        "canonical transcript records",
-        "validated transcript session views",
-        "transcript projection"
+        "transcript persistence and projection orchestration adapter"
       ]
     },
     {

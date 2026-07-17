@@ -659,6 +659,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
 
 #[test]
 fn v0375_domain_views_replace_legacy_definitions() {
+    let transcript_adapter = "src/app/workflow_adapter/transcript.rs";
     for target in [
         "src/runtime_core/workflow/domain/mod.rs",
         "src/runtime_core/workflow/domain/snapshot.rs",
@@ -682,7 +683,7 @@ fn v0375_domain_views_replace_legacy_definitions() {
     for (facade, moved_definition) in [
         ("src/state.rs", "struct CurrentStateSnapshot"),
         ("src/state.rs", "struct CurrentStateLeaseView"),
-        ("src/transcript.rs", "struct ToolOutputView"),
+        (transcript_adapter, "struct ToolOutputView"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
@@ -714,6 +715,23 @@ fn v0375_domain_views_replace_legacy_definitions() {
             "transcript owner is missing domain rule: {rule}"
         );
     }
+
+    assert!(
+        !Path::new("src/transcript.rs").exists(),
+        "legacy workflow root was restored: src/transcript.rs"
+    );
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(
+        !main.lines().any(|line| line == "mod transcript;"),
+        "legacy workflow root remains registered: mod transcript;"
+    );
+    let adapter_mod = fs::read_to_string("src/app/workflow_adapter.rs").unwrap();
+    assert!(
+        adapter_mod
+            .lines()
+            .any(|line| line == "pub(crate) mod transcript;"),
+        "transcript adapter is not registered under workflow_adapter"
+    );
 }
 
 #[test]
@@ -836,6 +854,11 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         facade.contains("trait CanonicalLedgerReadPort"),
         "observability facade does not own the canonical ledger read port"
     );
+    assert!(
+        facade.contains("trait CanonicalTranscriptReadPort")
+            && facade.contains("trait CanonicalProjectionReadPort"),
+        "observability facade does not own the canonical transcript projection port"
+    );
     for record in [
         "struct StoreStatus",
         "struct MonitorProjectionSnapshot",
@@ -882,6 +905,10 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         transcript.contains("INSERT OR REPLACE INTO transcript_records"),
         "transcript SQLite adapter does not own row installation"
     );
+    assert!(
+        transcript.contains("CanonicalTranscriptReadPort") && !transcript.contains("crate::app"),
+        "transcript SQLite adapter does not use the inverted canonical read port"
+    );
     let ledger = fs::read_to_string("src/adapters/sqlite/ledger_projection.rs").unwrap();
     assert!(
         ledger.contains("fn validate_event_sequence"),
@@ -925,6 +952,7 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     assert!(!Path::new("src/observability.rs").exists());
     let observability_adapter = fs::read_to_string("src/app/observability_adapter.rs").unwrap();
     assert!(observability_adapter.contains("impl CanonicalLedgerReadPort"));
+    assert!(observability_adapter.contains("impl CanonicalTranscriptReadPort"));
     assert!(!main.lines().any(|line| line == "mod observability;"));
 }
 

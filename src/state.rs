@@ -8,6 +8,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::adapters::filesystem::windows_replace;
 use crate::adapters::filesystem::{layout as paths, lease};
 use crate::app::observability_adapter::{self as observability, SessionHistoryEntry, StoreStatus};
+use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 use crate::ledger::{self, RuntimeIdentity};
@@ -1309,7 +1310,7 @@ pub(crate) struct PreparedApprovalTransition<'a> {
     pub bundle: &'a crate::transition::PreparedSourceBundle,
     pub r1: &'a PreparedWorkflowRevision,
     pub r2: &'a PreparedWorkflowRevision,
-    pub transcript: &'a crate::transcript::PreparedTranscriptTurn,
+    pub transcript: &'a transcript::PreparedTranscriptTurn,
     pub current: &'a PreparedCurrentImage,
     pub events: &'a [ledger::LedgerEvent],
 }
@@ -1432,7 +1433,7 @@ struct StateApprovalTransactionPort<'a> {
     bundle: &'a crate::transition::PreparedSourceBundle,
     r1: &'a PreparedWorkflowRevision,
     r2: &'a PreparedWorkflowRevision,
-    transcript: &'a crate::transcript::PreparedTranscriptTurn,
+    transcript: &'a transcript::PreparedTranscriptTurn,
     current: &'a PreparedCurrentImage,
     events: &'a [ledger::LedgerEvent],
     journal: &'a std::path::Path,
@@ -1475,7 +1476,7 @@ impl ApprovalTransactionPort for StateApprovalTransactionPort<'_> {
     }
 
     fn install_transcript(&mut self) -> Result<(), AppError> {
-        crate::transcript::install_prepared_no_stream_tool_turn(self.transcript)
+        transcript::install_prepared_no_stream_tool_turn(self.transcript)
     }
 
     fn install_current(&mut self) -> Result<(), AppError> {

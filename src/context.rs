@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use crate::adapters::filesystem::layout as paths;
 use crate::app::policy_adapter::{self as policy, Decision, PathMode};
+use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
 use crate::ontology;
 pub use crate::runtime_core::knowledge::context::{
@@ -205,7 +206,7 @@ pub fn rebuild_resume_context(
     session_id: &str,
     exclude_workflow_id: Option<&str>,
 ) -> Result<ResumeContext, AppError> {
-    let records = crate::transcript::records_for_session(session_id)?;
+    let records = transcript::records_for_session(session_id)?;
     let eligible = records
         .iter()
         .filter(|record| exclude_workflow_id != Some(record.workflow_id.as_str()))
@@ -695,7 +696,7 @@ mod tests {
             snippet: String::new(),
         };
         for index in 0..12 {
-            crate::transcript::record_workflow_turn(
+            transcript::record_workflow_turn(
                 &workflow,
                 if index % 2 == 0 { "user" } else { "model" },
                 &format!("turn-{index}"),
@@ -710,7 +711,7 @@ mod tests {
             project_root: project_root.display().to_string(),
         };
         let other_workflow = crate::state::WorkflowRecord::new(&other_identity, "other session");
-        crate::transcript::record_workflow_turn(
+        transcript::record_workflow_turn(
             &other_workflow,
             "user",
             "other-turn",

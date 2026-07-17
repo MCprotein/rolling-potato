@@ -3,6 +3,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use crate::adapters::filesystem::layout as paths;
+use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 pub use crate::runtime_core::knowledge::evidence::{
@@ -142,7 +143,7 @@ pub fn record_patch_verification(
             ),
         )?;
     }
-    crate::transcript::record_workflow_turn(
+    transcript::record_workflow_turn(
         workflow,
         "evidence",
         &evidence_id,

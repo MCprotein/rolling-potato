@@ -1,5 +1,6 @@
 use crate::adapters::terminal::capability;
 use crate::adapters::terminal::native::NativeTerminal;
+use crate::app::workflow_adapter::transcript;
 use crate::composition::tui_action::{self, TuiActionPort, TuiMutationFailure};
 use crate::composition::tui_read::{self, TuiReadPort};
 use crate::foundation::error::AppError;
@@ -181,7 +182,7 @@ impl TuiReadPort for LegacyTuiReadPort {
         event: &crate::runtime_core::workflow::storage_compat::ledger::ParsedLedgerEvent,
     ) -> Result<crate::runtime_core::workflow::storage_compat::transcript::TranscriptRecord, AppError>
     {
-        crate::transcript::record_from_event(event)
+        transcript::record_from_event(event)
     }
 
     fn tool_output_view(
@@ -189,7 +190,7 @@ impl TuiReadPort for LegacyTuiReadPort {
         record: &crate::runtime_core::workflow::storage_compat::transcript::TranscriptRecord,
         artifact_id: &str,
     ) -> Result<crate::runtime_core::workflow::domain::transcript::ToolOutputView, AppError> {
-        crate::transcript::tool_output_view_from_canonical_record(record, artifact_id)
+        transcript::tool_output_view_from_canonical_record(record, artifact_id)
     }
 
     fn proposal_detail(
@@ -277,6 +278,7 @@ mod report_composition {
     use crate::adapters::filesystem::layout as paths;
     use crate::app::inference_adapter::model;
     use crate::app::observability_adapter as observability;
+    use crate::app::workflow_adapter::transcript;
     use crate::surfaces::tui::render::terminal_width;
     use crate::surfaces::tui::report_render::{
         canonical_page_report, render_evidence_report, render_monitor_report,
@@ -381,7 +383,7 @@ mod report_composition {
             ))
         })?;
         let events = observability::session_events(session_id, 40)?;
-        let transcript = crate::transcript::records_for_session(session_id)?;
+        let transcript = transcript::records_for_session(session_id)?;
 
         Ok(render_transcript_report(
             width,

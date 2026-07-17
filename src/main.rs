@@ -15,7 +15,6 @@ mod surfaces;
 #[cfg(test)]
 #[path = "../tests/support/runtime_fixture.rs"]
 mod test_support;
-mod transcript;
 mod transition;
 mod tui;
 

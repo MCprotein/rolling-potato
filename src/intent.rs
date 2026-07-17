@@ -1,6 +1,7 @@
 use crate::adapters::filesystem::layout as paths;
 use crate::app::extensions_adapter::{hooks, plugin, skill};
 use crate::app::inference_adapter::backend;
+use crate::app::workflow_adapter::transcript;
 use crate::context::{self, ContextPack, ResumeContext};
 use crate::foundation::error::AppError;
 use crate::runtime_core::patch::intent::{
@@ -81,7 +82,7 @@ fn run_with_decision(
             ),
         )?;
         skill_runtime.record_evidence("plugin_capability_admission");
-        crate::transcript::record_workflow_turn(
+        transcript::record_workflow_turn(
             &workflow,
             "tool",
             &admission_event,
@@ -138,7 +139,7 @@ fn run_with_decision(
     skill_runtime.transition(skill::SkillState::ContextReady)?;
     skill_runtime.store_in_workflow(&mut workflow);
     workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
-    crate::transcript::record_workflow_turn(&workflow, "user", "request", request, &[])?;
+    transcript::record_workflow_turn(&workflow, "user", "request", request, &[])?;
     let intent_event_id = state::record_event(
         "intent.classified",
         "사용자 요청 intent 정규화",
@@ -161,7 +162,7 @@ fn run_with_decision(
             context_pack.pointer_summary()
         ),
     )?;
-    crate::transcript::record_workflow_turn(
+    transcript::record_workflow_turn(
         &workflow,
         "tool",
         &context_event_id,
@@ -251,7 +252,7 @@ fn run_with_decision(
             return Err(error);
         }
     };
-    crate::transcript::record_workflow_turn(
+    transcript::record_workflow_turn(
         &workflow,
         "model",
         &run.ledger_event,

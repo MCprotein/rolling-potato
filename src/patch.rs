@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 use crate::adapters::filesystem::{layout as paths, lease};
 use crate::app::extensions_adapter::{hooks, plugin, skill};
 use crate::app::policy_adapter::{self as policy, Decision, PathMode};
+use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
 use crate::ledger;
 use crate::runtime_core::patch::application::{
@@ -540,7 +541,7 @@ fn approve_prepared_skill_transaction(
         fingerprint: record.proposed_sha256.clone(),
         snippet: String::new(),
     };
-    let transcript = crate::transcript::prepare_no_stream_tool_turn(
+    let transcript = transcript::prepare_no_stream_tool_turn(
         &r1.record,
         &e7.event_id,
         &format!(
@@ -661,7 +662,7 @@ fn prepare_transaction_hook_event(
 fn prepared_approval_members(
     r1: &state::PreparedWorkflowRevision,
     r2: &state::PreparedWorkflowRevision,
-    transcript: &crate::transcript::PreparedTranscriptTurn,
+    transcript: &transcript::PreparedTranscriptTurn,
     current: &state::PreparedCurrentImage,
     lag: crate::transition::PreparedMember,
     events: &[ledger::LedgerEvent],
@@ -847,11 +848,8 @@ pub(crate) fn recover_prepared_approval_bundle(
         ));
     }
     validate_prepared_approval_semantics(bundle, &r1.record)?;
-    let transcript = crate::transcript::decode_prepared_no_stream_tool_turn(
-        &members[0],
-        &members[1],
-        &events[8],
-    )?;
+    let transcript =
+        transcript::decode_prepared_no_stream_tool_turn(&members[0], &members[1], &events[8])?;
     if transcript.record.causal_id != events[7].event_id
         || transcript.record.workflow_id != workflow_id
     {
@@ -1698,7 +1696,7 @@ fn continue_approved_workflow(
             fingerprint: apply.applied_sha256.clone(),
             snippet: String::new(),
         };
-        crate::transcript::record_workflow_turn(
+        transcript::record_workflow_turn(
             current,
             "tool",
             &event_id,

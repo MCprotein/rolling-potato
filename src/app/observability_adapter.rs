@@ -1,10 +1,11 @@
 //! Concrete wiring for surface-neutral observability projection ports.
 
 use crate::adapters::sqlite::observability_projection::SqliteObservabilityProjection;
+use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
 use crate::ledger;
 use crate::runtime_core::observability::facade::{
-    CanonicalLedgerReadPort, ObservabilityProjectionPort,
+    CanonicalLedgerReadPort, CanonicalTranscriptReadPort, ObservabilityProjectionPort,
 };
 use crate::runtime_core::workflow::storage_compat::ledger::{
     LedgerEvent, ParsedLedgerEvent, RuntimeIdentity,
@@ -23,6 +24,19 @@ struct CanonicalLedgerReader;
 impl CanonicalLedgerReadPort for CanonicalLedgerReader {
     fn read_events(&self) -> Result<Vec<ParsedLedgerEvent>, AppError> {
         ledger::read_runtime_events()
+    }
+}
+
+impl CanonicalTranscriptReadPort for CanonicalLedgerReader {
+    fn read_transcript_record(
+        &self,
+        project_id: &str,
+        session_id: &str,
+        event_type: &str,
+        details: &str,
+    ) -> Result<crate::runtime_core::workflow::storage_compat::transcript::TranscriptRecord, AppError>
+    {
+        transcript::record_from_binding(project_id, session_id, event_type, details)
     }
 }
 
@@ -52,11 +66,11 @@ pub(crate) fn project_event_with_ordinal(
     event: &LedgerEvent,
     ordinal: u64,
 ) -> Result<(), AppError> {
-    PROJECTION.project_event_with_ordinal(event, ordinal)
+    PROJECTION.project_event_with_ordinal(event, ordinal, &LEDGER)
 }
 
 pub(crate) fn converge_from_events(events: &[ParsedLedgerEvent]) -> Result<(), AppError> {
-    PROJECTION.converge_from_events(events)
+    PROJECTION.converge_from_events(events, &LEDGER)
 }
 
 pub fn model_summaries(

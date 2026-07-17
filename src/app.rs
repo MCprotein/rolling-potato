@@ -9,6 +9,7 @@ mod legacy_dispatch;
 mod monitor_adapter;
 pub(crate) mod observability_adapter;
 pub(crate) mod policy_adapter;
+pub(crate) mod workflow_adapter;
 
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
     dispatch::run(args, &mut legacy_dispatch::LegacyCommandDispatchPort)
