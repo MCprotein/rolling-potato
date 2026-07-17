@@ -1713,6 +1713,8 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let bundle_codec_adapter = "src/app/workflow_adapter/transition/bundle_codec.rs";
     let bundle_preparation_adapter = "src/app/workflow_adapter/transition/bundle_preparation.rs";
     let bundle_validation_adapter = "src/app/workflow_adapter/transition/bundle_validation.rs";
+    let bundle_event_chain_adapter =
+        "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs";
     let journal_adapter = "src/app/workflow_adapter/transition/journal.rs";
     let journal_codec_adapter = "src/app/workflow_adapter/transition/journal/codec.rs";
     let journal_recovery_io_adapter = "src/app/workflow_adapter/transition/journal/recovery_io.rs";
@@ -1723,6 +1725,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         bundle_codec_adapter,
         bundle_preparation_adapter,
         bundle_validation_adapter,
+        bundle_event_chain_adapter,
         journal_adapter,
         journal_codec_adapter,
         journal_recovery_io_adapter,
@@ -1739,6 +1742,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let bundle_codec = fs::read_to_string(bundle_codec_adapter).unwrap();
     let bundle_preparation = fs::read_to_string(bundle_preparation_adapter).unwrap();
     let bundle_validation = fs::read_to_string(bundle_validation_adapter).unwrap();
+    let bundle_event_chain = fs::read_to_string(bundle_event_chain_adapter).unwrap();
     let journal = fs::read_to_string(journal_adapter).unwrap();
     let journal_codec = fs::read_to_string(journal_codec_adapter).unwrap();
     let journal_recovery_io = fs::read_to_string(journal_recovery_io_adapter).unwrap();
@@ -1795,7 +1799,6 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     );
     for responsibility in [
         "pub(super) fn validate_prepared_source_bundle(",
-        "pub(super) fn validate_event_chain(",
         "fn validate_additional_members(",
         "fn validate_state_transition_members(",
         "fn validate_verification_members(",
@@ -1810,6 +1813,20 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
             "bundle-validation adapter is missing responsibility: {responsibility}"
         );
     }
+    assert!(
+        bundle_validation
+            .lines()
+            .any(|line| line == "mod event_chain;"),
+        "bundle-validation adapter does not register its event-chain owner"
+    );
+    assert!(
+        bundle_event_chain.contains("pub(in super::super) fn validate_event_chain("),
+        "bundle event-chain owner is missing validation responsibility"
+    );
+    assert!(
+        !bundle_validation.contains("fn validate_event_chain("),
+        "bundle-validation adapter still owns event-chain validation"
+    );
     assert!(
         transition.lines().any(|line| line == "mod journal;"),
         "transition adapter does not register the journal owner"
@@ -1915,8 +1932,12 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         "bundle-preparation adapter regrew beyond its ownership boundary"
     );
     assert!(
-        bundle_validation.lines().count() < 725,
+        bundle_validation.lines().count() < 650,
         "bundle-validation adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        bundle_event_chain.lines().count() < 100,
+        "bundle event-chain adapter regrew beyond its ownership boundary"
     );
     assert!(
         journal.lines().count() < 550,

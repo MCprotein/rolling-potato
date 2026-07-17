@@ -5539,13 +5539,33 @@
       "path": "src/app/workflow_adapter/transition/bundle_validation.rs",
       "slices": [
         {
-          "responsibility": "prepared bundle, event-chain, and member invariant validation adapter",
+          "responsibility": "prepared bundle shape and member invariant validation adapter",
           "target": "src/app/workflow_adapter/transition/bundle_validation.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/domain/transition.rs",
             "src/app/workflow_adapter/transition/bundle_validation.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
+      "slices": [
+        {
+          "responsibility": "prepared semantic event cardinality, byte budget, ordinal, and hash-chain validation",
+          "target": "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/bundle_preparation.rs",
+            "src/app/workflow_adapter/transition/bundle_validation.rs",
+            "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
             "src/app/workflow_adapter/transition/tests/mod.rs",
             "tests/architecture_contract.rs"
           ]
@@ -8094,7 +8114,13 @@
     {
       "path": "src/app/workflow_adapter/transition/bundle_validation.rs",
       "responsibilities": [
-        "prepared bundle, event-chain, and member invariant validation adapter"
+        "prepared bundle shape and member invariant validation adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs",
+      "responsibilities": [
+        "prepared semantic event cardinality, byte budget, ordinal, and hash-chain validation"
       ]
     },
     {
