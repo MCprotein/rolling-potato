@@ -1157,7 +1157,14 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
 
 #[test]
 fn v0379_patch_owners_hold_lifecycle_decisions() {
-    let patch_tests = "src/patch/tests/mod.rs";
+    let patch_test_modules = [
+        "src/patch/tests/mod.rs",
+        "src/patch/tests/approval_cases.rs",
+        "src/patch/tests/recovery_cases.rs",
+        "src/patch/tests/support_cases.rs",
+        "src/patch/tests/terminal_cases.rs",
+        "src/patch/tests/verification_cases.rs",
+    ];
     let approval_transaction_adapter = "src/patch/approval_transaction.rs";
     let execution_adapter = "src/patch/execution.rs";
     let guard_adapter = "src/patch/guard.rs";
@@ -1178,6 +1185,12 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     assert!(Path::new(verification_adapter).is_file());
     assert!(Path::new(workflow_contract_adapter).is_file());
     assert!(Path::new(workflow_execution_adapter).is_file());
+    for patch_test_module in patch_test_modules {
+        assert!(
+            Path::new(patch_test_module).is_file(),
+            "missing patch regression test owner: {patch_test_module}"
+        );
+    }
     let owners = [
         "src/runtime_core/patch/approval.rs",
         "src/runtime_core/patch/application.rs",
@@ -1319,7 +1332,12 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let verification = fs::read_to_string(verification_adapter).unwrap();
     let workflow_contract = fs::read_to_string(workflow_contract_adapter).unwrap();
     let workflow_execution = fs::read_to_string(workflow_execution_adapter).unwrap();
-    let patch_test_module = fs::read_to_string(patch_tests).unwrap();
+    let patch_test_module = fs::read_to_string(patch_test_modules[0]).unwrap();
+    let patch_approval_tests = fs::read_to_string(patch_test_modules[1]).unwrap();
+    let patch_recovery_tests = fs::read_to_string(patch_test_modules[2]).unwrap();
+    let patch_support_tests = fs::read_to_string(patch_test_modules[3]).unwrap();
+    let patch_terminal_tests = fs::read_to_string(patch_test_modules[4]).unwrap();
+    let patch_verification_tests = fs::read_to_string(patch_test_modules[5]).unwrap();
     let patch_harness = fs::read_to_string("tests/patch_loop.rs").unwrap();
     let patch_contract = fs::read_to_string("tests/patch/lifecycle.rs").unwrap();
     assert!(
@@ -1503,11 +1521,57 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     assert!(patch_facade.contains("#[path = \"patch/tests/mod.rs\"]"));
     assert!(!patch_facade.contains("mod tests {"));
     assert!(
-        patch_test_module.lines().count() < 2_300
-            && patch_test_module
-                .contains("fn prepared_approval_t1_t10_faults_recover_exactly_once"),
-        "patch adapter regression tests are not isolated in their owned module"
+        patch_test_module.lines().count() < 150,
+        "shared patch test fixtures regrew beyond their boundary"
     );
+    for module in [
+        "mod approval_cases;",
+        "mod recovery_cases;",
+        "mod support_cases;",
+        "mod terminal_cases;",
+        "mod verification_cases;",
+    ] {
+        assert!(
+            patch_test_module.lines().any(|line| line == module),
+            "shared patch test module is missing child ownership: {module}"
+        );
+    }
+    for (owner, source, marker) in [
+        (
+            patch_test_modules[1],
+            &patch_approval_tests,
+            "fn prepared_skill_approval_commits_exact_e0_e9_and_single_current_revision",
+        ),
+        (
+            patch_test_modules[2],
+            &patch_recovery_tests,
+            "fn prepared_bundle_member_tamper_blocks_recovery_before_effects",
+        ),
+        (
+            patch_test_modules[3],
+            &patch_support_tests,
+            "fn rollback_tamper_and_replace_failure_are_reported_truthfully",
+        ),
+        (
+            patch_test_modules[4],
+            &patch_terminal_tests,
+            "fn terminal_denial_crash_matrix_recovers_one_exact_commit",
+        ),
+        (
+            patch_test_modules[5],
+            &patch_verification_tests,
+            "fn verification_runs_only_after_separate_approval",
+        ),
+    ] {
+        assert!(
+            source.lines().count() < 700,
+            "patch regression test owner regrew beyond its boundary: {owner}"
+        );
+        assert!(
+            source.contains(marker),
+            "patch regression test owner is missing responsibility: {owner} -> {marker}"
+        );
+    }
     assert!(
         patch_harness.lines().count() <= 5 && patch_harness.contains("patch/lifecycle.rs"),
         "patch integration harness is not a thin compatibility entrypoint"

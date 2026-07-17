@@ -2740,14 +2740,95 @@
       "path": "src/patch/tests/mod.rs",
       "slices": [
         {
-          "responsibility": "patch adapter transaction and recovery regression tests",
+          "responsibility": "shared patch adapter test fixtures",
           "target": "src/patch/tests/mod.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/patch.rs",
             "src/patch/tests/mod.rs",
-            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/patch/tests/approval_cases.rs",
+      "slices": [
+        {
+          "responsibility": "patch approval transaction regression tests",
+          "target": "src/patch/tests/approval_cases.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/patch/approval_transaction.rs",
+            "src/patch/tests/approval_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/patch/tests/recovery_cases.rs",
+      "slices": [
+        {
+          "responsibility": "patch source and projection recovery regression tests",
+          "target": "src/patch/tests/recovery_cases.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/patch/approval_transaction.rs",
+            "src/patch/tests/recovery_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/patch/tests/support_cases.rs",
+      "slices": [
+        {
+          "responsibility": "patch lock, rollback, and preview regression tests",
+          "target": "src/patch/tests/support_cases.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/patch/execution.rs",
+            "src/patch/guard.rs",
+            "src/patch/tests/support_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/patch/tests/terminal_cases.rs",
+      "slices": [
+        {
+          "responsibility": "patch terminal and resume regression tests",
+          "target": "src/patch/tests/terminal_cases.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/patch/resume.rs",
+            "src/patch/terminal.rs",
+            "src/patch/tests/terminal_cases.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/patch/tests/verification_cases.rs",
+      "slices": [
+        {
+          "responsibility": "patch verification and credential regression tests",
+          "target": "src/patch/tests/verification_cases.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/patch/verification.rs",
+            "src/patch/tests/verification_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5559,7 +5640,37 @@
     {
       "path": "src/patch/tests/mod.rs",
       "responsibilities": [
-        "patch adapter transaction and recovery regression tests"
+        "shared patch adapter test fixtures"
+      ]
+    },
+    {
+      "path": "src/patch/tests/approval_cases.rs",
+      "responsibilities": [
+        "patch approval transaction regression tests"
+      ]
+    },
+    {
+      "path": "src/patch/tests/recovery_cases.rs",
+      "responsibilities": [
+        "patch source and projection recovery regression tests"
+      ]
+    },
+    {
+      "path": "src/patch/tests/support_cases.rs",
+      "responsibilities": [
+        "patch lock, rollback, and preview regression tests"
+      ]
+    },
+    {
+      "path": "src/patch/tests/terminal_cases.rs",
+      "responsibilities": [
+        "patch terminal and resume regression tests"
+      ]
+    },
+    {
+      "path": "src/patch/tests/verification_cases.rs",
+      "responsibilities": [
+        "patch verification and credential regression tests"
       ]
     },
     {
