@@ -2356,15 +2356,18 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     let backend_parser_path = "src/surfaces/cli/parser/backend.rs";
     let collaboration_parser_path = "src/surfaces/cli/parser/collaboration.rs";
     let observability_parser_path = "src/surfaces/cli/parser/observability.rs";
+    let patch_parser_path = "src/surfaces/cli/parser/patch.rs";
     let parser_tests_path = "src/surfaces/cli/parser/tests/mod.rs";
     assert!(Path::new(backend_parser_path).is_file());
     assert!(Path::new(collaboration_parser_path).is_file());
     assert!(Path::new(observability_parser_path).is_file());
+    assert!(Path::new(patch_parser_path).is_file());
     assert!(Path::new(parser_tests_path).is_file());
     let parser = fs::read_to_string(parser_path).unwrap();
     let backend_parser = fs::read_to_string(backend_parser_path).unwrap();
     let collaboration_parser = fs::read_to_string(collaboration_parser_path).unwrap();
     let observability_parser = fs::read_to_string(observability_parser_path).unwrap();
+    let patch_parser = fs::read_to_string(patch_parser_path).unwrap();
     let parser_tests = fs::read_to_string(parser_tests_path).unwrap();
     assert!(parser.contains("pub fn parse"));
     assert!(parser.contains("surfaces::cli::command::*"));
@@ -2379,6 +2382,10 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     assert!(
         parser.lines().any(|line| line == "mod observability;"),
         "CLI parser does not register the observability command-family owner"
+    );
+    assert!(
+        parser.lines().any(|line| line == "mod patch;"),
+        "CLI parser does not register the patch command-family owner"
     );
     for responsibility in [
         "pub(super) fn parse_backend_start(",
@@ -2407,6 +2414,20 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         assert!(
             collaboration_parser.contains(responsibility),
             "collaboration parser is missing responsibility: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) fn parse_patch_preview(",
+        "pub(super) fn parse_patch_approve(",
+        "pub(super) fn parse_patch_verify(",
+    ] {
+        assert!(
+            !parser.contains(responsibility),
+            "patch parser responsibility escaped into CLI facade: {responsibility}"
+        );
+        assert!(
+            patch_parser.contains(responsibility),
+            "patch parser is missing responsibility: {responsibility}"
         );
     }
     for responsibility in [
@@ -2440,7 +2461,7 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         );
     }
     assert!(
-        parser.lines().count() < 800,
+        parser.lines().count() < 650,
         "CLI parser production module regrew beyond its command-family extraction boundary"
     );
     assert!(
@@ -2454,6 +2475,10 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     assert!(
         observability_parser.lines().count() < 300,
         "observability parser regrew beyond its ownership boundary"
+    );
+    assert!(
+        patch_parser.lines().count() < 170,
+        "patch parser regrew beyond its ownership boundary"
     );
     assert!(
         parser_tests.lines().count() < 1_500,

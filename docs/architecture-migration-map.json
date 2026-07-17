@@ -4010,6 +4010,23 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/patch.rs",
+      "slices": [
+        {
+          "responsibility": "patch preview, approve, and verify command option parsing",
+          "target": "src/surfaces/cli/parser/patch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/patch.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/cli/parser/tests/mod.rs",
       "slices": [
         {
@@ -6293,6 +6310,12 @@
       "path": "src/surfaces/cli/parser/observability.rs",
       "responsibilities": [
         "monitor, ontology, and benchmark command option parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/patch.rs",
+      "responsibilities": [
+        "patch preview, approve, and verify command option parsing"
       ]
     },
     {
