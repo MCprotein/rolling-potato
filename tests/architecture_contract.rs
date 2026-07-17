@@ -1027,6 +1027,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let ledger_query = "src/app/workflow_adapter/ledger/query.rs";
     let ledger_storage = "src/app/workflow_adapter/ledger/storage.rs";
     let ledger_tests = "src/app/workflow_adapter/ledger/tests.rs";
+    let ledger_writer = "src/app/workflow_adapter/ledger/writer.rs";
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
     for target in [
         ledger_adapter,
@@ -1034,6 +1035,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         ledger_query,
         ledger_storage,
         ledger_tests,
+        ledger_writer,
         transition_adapter,
         "src/runtime_core/workflow/application/mod.rs",
         "src/runtime_core/workflow/application/recovery.rs",
@@ -1138,6 +1140,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let ledger_queries = fs::read_to_string(ledger_query).unwrap();
     let ledger_persistence = fs::read_to_string(ledger_storage).unwrap();
     let ledger_regressions = fs::read_to_string(ledger_tests).unwrap();
+    let ledger_writes = fs::read_to_string(ledger_writer).unwrap();
     assert!(
         ledger.lines().any(|line| line == "mod derived;"),
         "ledger adapter does not register its derived-output owner"
@@ -1200,6 +1203,28 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         );
     }
     assert!(
+        ledger.lines().any(|line| line == "mod writer;"),
+        "ledger adapter does not register its writer owner"
+    );
+    for responsibility in [
+        "pub(crate) struct LedgerWriterGuard",
+        "pub(crate) struct EventSink<'guard>",
+        "pub(crate) fn acquire()",
+        "pub(crate) fn plan_events(",
+        "pub(crate) fn append_runtime_planned(",
+        "pub(crate) fn converge_prepared(",
+        "fn validate_prepared_runtime_suffix(",
+    ] {
+        assert!(
+            ledger_writes.contains(responsibility),
+            "ledger writer owner is missing: {responsibility}"
+        );
+        assert!(
+            !ledger.contains(responsibility),
+            "ledger adapter still owns writer behavior: {responsibility}"
+        );
+    }
+    assert!(
         ledger.contains("#[path = \"ledger/tests.rs\"]"),
         "ledger adapter does not register its regression-test owner"
     );
@@ -1219,7 +1244,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
         );
     }
     assert!(
-        ledger.lines().count() < 575,
+        ledger.lines().count() < 225,
         "ledger adapter regrew beyond its test extraction boundary"
     );
     assert!(
@@ -1233,6 +1258,10 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     assert!(
         ledger_persistence.lines().count() < 475,
         "ledger storage module regrew beyond its ownership boundary"
+    );
+    assert!(
+        ledger_writes.lines().count() < 425,
+        "ledger writer module regrew beyond its ownership boundary"
     );
     assert!(
         ledger_regressions.lines().count() < 575,

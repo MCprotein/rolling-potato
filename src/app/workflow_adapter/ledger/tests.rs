@@ -1,4 +1,5 @@
 use super::*;
+use std::time::Duration;
 
 #[test]
 fn ledger_event_json_round_trip_for_projection_fields() {
@@ -373,7 +374,7 @@ fn event_sink_crash_recovery_never_nests_ledger_lease() {
     assert_eq!(events.len(), 2);
     assert_eq!(events[0].event_id, first.event_id);
     assert_eq!(events[1].event_id, second.event_id);
-    let source = include_str!("../ledger.rs")
+    let source = include_str!("writer.rs")
         .split("impl EventSink<'_> {")
         .nth(1)
         .unwrap()

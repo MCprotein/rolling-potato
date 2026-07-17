@@ -2490,6 +2490,7 @@
             "src/app/workflow_adapter/ledger/query.rs",
             "src/app/workflow_adapter/ledger/storage.rs",
             "src/app/workflow_adapter/ledger/tests.rs",
+            "src/app/workflow_adapter/ledger/writer.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2557,6 +2558,24 @@
           "state": "complete",
           "evidence": [
             "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/writer.rs",
+      "slices": [
+        {
+          "responsibility": "single-lease event planning, canonical append, EventSink ordering, and convergence coordination",
+          "target": "src/app/workflow_adapter/ledger/writer.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/writer.rs",
             "src/app/workflow_adapter/ledger/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -6189,6 +6208,12 @@
       "path": "src/app/workflow_adapter/ledger/tests.rs",
       "responsibilities": [
         "ledger chain, lock, recovery, and derived projection regression tests"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/writer.rs",
+      "responsibilities": [
+        "single-lease event planning, canonical append, EventSink ordering, and convergence coordination"
       ]
     },
     {
