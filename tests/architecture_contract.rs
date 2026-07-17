@@ -4034,6 +4034,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     let atomic_write_adapter = "src/adapters/filesystem/atomic_write.rs";
     let state_adapter = "src/app/workflow_adapter/state.rs";
     let current_snapshot_adapter = "src/app/workflow_adapter/state/current_snapshot.rs";
+    let current_snapshot_codec = "src/app/workflow_adapter/state/current_snapshot/codec.rs";
     let current_transition_adapter = "src/app/workflow_adapter/state/current_transition.rs";
     let lifecycle_adapter = "src/app/workflow_adapter/state/lifecycle.rs";
     let source_install_adapter = "src/app/workflow_adapter/state/source_install.rs";
@@ -4052,6 +4053,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(Path::new(atomic_write_adapter).is_file());
     assert!(Path::new(state_adapter).is_file());
     assert!(Path::new(current_snapshot_adapter).is_file());
+    assert!(Path::new(current_snapshot_codec).is_file());
     assert!(Path::new(current_transition_adapter).is_file());
     assert!(Path::new(lifecycle_adapter).is_file());
     assert!(Path::new(source_install_adapter).is_file());
@@ -4114,14 +4116,23 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     }
 
     let current_snapshot = fs::read_to_string(current_snapshot_adapter).unwrap();
+    assert!(current_snapshot.lines().any(|line| line == "mod codec;"));
+    assert!(current_snapshot.contains("fn promote_current_state_v1("));
+    for escaped_responsibility in ["fn parse_current_state(", "fn render_current_state_v2("] {
+        assert!(
+            !current_snapshot.contains(escaped_responsibility),
+            "current snapshot codec responsibility escaped into orchestration: {escaped_responsibility}"
+        );
+    }
+    let current_snapshot_codec = fs::read_to_string(current_snapshot_codec).unwrap();
     for owned_responsibility in [
         "fn parse_current_state(",
-        "fn promote_current_state_v1(",
+        "fn parse_current_state_v2(",
         "fn render_current_state_v2(",
     ] {
         assert!(
-            current_snapshot.contains(owned_responsibility),
-            "current snapshot adapter is missing responsibility: {owned_responsibility}"
+            current_snapshot_codec.contains(owned_responsibility),
+            "current snapshot codec is missing responsibility: {owned_responsibility}"
         );
     }
 
@@ -4210,7 +4221,8 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     }
 
     assert!(state.lines().count() < 1_000);
-    assert!(current_snapshot.lines().count() < 1_000);
+    assert!(current_snapshot.lines().count() < 700);
+    assert!(current_snapshot_codec.lines().count() < 450);
     assert!(current_transition.lines().count() < 700);
     assert!(lifecycle.lines().count() < 700);
     assert!(source_install.lines().count() < 1_000);

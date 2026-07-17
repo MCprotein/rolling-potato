@@ -4204,13 +4204,29 @@
       "path": "src/app/workflow_adapter/state/current_snapshot.rs",
       "slices": [
         {
-          "responsibility": "current-state snapshot codec and compatibility adapter",
+          "responsibility": "bounded current-state reads, promotion, and compatibility orchestration",
           "target": "src/app/workflow_adapter/state/current_snapshot.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/domain/snapshot.rs",
             "src/app/workflow_adapter/state/current_snapshot.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot/codec.rs",
+      "slices": [
+        {
+          "responsibility": "current-state canonical codec and schema validation",
+          "target": "src/app/workflow_adapter/state/current_snapshot/codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/current_snapshot/codec.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7089,7 +7105,13 @@
     {
       "path": "src/app/workflow_adapter/state/current_snapshot.rs",
       "responsibilities": [
-        "current-state snapshot codec and compatibility adapter"
+        "bounded current-state reads, promotion, and compatibility orchestration"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot/codec.rs",
+      "responsibilities": [
+        "current-state canonical codec and schema validation"
       ]
     },
     {
