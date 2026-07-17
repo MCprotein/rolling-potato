@@ -621,6 +621,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "src/adapters/filesystem/model_artifact.rs",
         "src/adapters/llama_cpp/backend.rs",
         "src/adapters/llama_cpp/install.rs",
+        "src/adapters/llama_cpp/install/archive.rs",
         "src/adapters/llama_cpp/stream.rs",
         "src/adapters/llama_cpp/stream/protocol.rs",
         "src/adapters/process/backend.rs",
@@ -637,6 +638,30 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             "legacy inference owner remains: {legacy}"
         );
     }
+
+    let install_adapter = fs::read_to_string("src/adapters/llama_cpp/install.rs").unwrap();
+    let install_archive = fs::read_to_string("src/adapters/llama_cpp/install/archive.rs").unwrap();
+    assert!(install_adapter.lines().any(|line| line == "mod archive;"));
+    let install_orchestration = install_adapter
+        .split("#[cfg(test)]")
+        .next()
+        .unwrap_or(&install_adapter);
+    for responsibility in [
+        "pub(crate) fn download_archive(",
+        "pub(crate) fn verify_archive_file(",
+        "fn copy_reader_with_limit<",
+    ] {
+        assert!(
+            install_archive.contains(responsibility),
+            "llama.cpp install archive owner is missing: {responsibility}"
+        );
+        assert!(
+            !install_orchestration.contains(responsibility),
+            "llama.cpp install orchestration still owns archive transfer: {responsibility}"
+        );
+    }
+    assert!(install_adapter.lines().count() < 800);
+    assert!(install_archive.lines().count() < 250);
 
     let stream_adapter = fs::read_to_string("src/adapters/llama_cpp/stream.rs").unwrap();
     let stream_protocol = fs::read_to_string("src/adapters/llama_cpp/stream/protocol.rs").unwrap();

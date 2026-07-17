@@ -2074,12 +2074,28 @@
       "path": "src/adapters/llama_cpp/install.rs",
       "slices": [
         {
-          "responsibility": "llama.cpp release manifest, download, and installation",
+          "responsibility": "llama.cpp release manifest, extraction, payload placement, and install records",
           "target": "src/adapters/llama_cpp/install.rs",
           "release": "0.37.3",
           "state": "complete",
           "evidence": [
             "src/adapters/llama_cpp/install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/install/archive.rs",
+      "slices": [
+        {
+          "responsibility": "bounded backend archive download and integrity verification",
+          "target": "src/adapters/llama_cpp/install/archive.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/install/archive.rs",
+            "src/adapters/llama_cpp/install.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -6323,7 +6339,13 @@
     {
       "path": "src/adapters/llama_cpp/install.rs",
       "responsibilities": [
-        "llama.cpp release manifest, download, and installation"
+        "llama.cpp release manifest, extraction, payload placement, and install records"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/install/archive.rs",
+      "responsibilities": [
+        "bounded backend archive download and integrity verification"
       ]
     },
     {
