@@ -839,6 +839,7 @@ fn v0375_domain_views_replace_legacy_definitions() {
     let state_adapter = "src/app/workflow_adapter/state.rs";
     let transcript_adapter = "src/app/workflow_adapter/transcript.rs";
     let transcript_storage = "src/app/workflow_adapter/transcript/storage.rs";
+    let transcript_tool_turn = "src/app/workflow_adapter/transcript/tool_turn.rs";
     let transcript_tests = "src/app/workflow_adapter/transcript/tests.rs";
     for target in [
         "src/runtime_core/workflow/domain/mod.rs",
@@ -930,15 +931,23 @@ fn v0375_domain_views_replace_legacy_definitions() {
         "transcript adapter is not registered under workflow_adapter"
     );
     assert!(Path::new(transcript_storage).is_file());
+    assert!(Path::new(transcript_tool_turn).is_file());
     assert!(Path::new(transcript_tests).is_file());
     let transcript_adapter_source = fs::read_to_string(transcript_adapter).unwrap();
     let transcript_storage_source = fs::read_to_string(transcript_storage).unwrap();
+    let transcript_tool_turn_source = fs::read_to_string(transcript_tool_turn).unwrap();
     let transcript_test_source = fs::read_to_string(transcript_tests).unwrap();
     assert!(
         transcript_adapter_source
             .lines()
             .any(|line| line == "mod storage;"),
         "transcript adapter does not register its storage owner"
+    );
+    assert!(
+        transcript_adapter_source
+            .lines()
+            .any(|line| line == "mod tool_turn;"),
+        "transcript adapter does not register its tool-turn owner"
     );
     assert!(
         transcript_adapter_source.contains("#[path = \"transcript/tests.rs\"]"),
@@ -974,13 +983,36 @@ fn v0375_domain_views_replace_legacy_definitions() {
             "transcript adapter still owns storage validation: {responsibility}"
         );
     }
+    for responsibility in [
+        "pub(crate) struct PreparedTranscriptTurn",
+        "pub(crate) fn prepare_no_stream_tool_turn(",
+        "pub(crate) fn install_prepared_no_stream_tool_turn(",
+        "pub(crate) fn decode_prepared_no_stream_tool_turn(",
+        "pub(crate) fn tool_output_view_from_canonical_record(",
+        "pub(super) fn record_tool_output_artifact(",
+        "pub(super) fn sanitize_tool_stream(",
+        "pub(super) fn validate_requested_tool_streams(",
+    ] {
+        assert!(
+            transcript_tool_turn_source.contains(responsibility),
+            "transcript tool-turn owner is missing: {responsibility}"
+        );
+        assert!(
+            !transcript_adapter_source.contains(responsibility),
+            "transcript adapter still owns tool-turn behavior: {responsibility}"
+        );
+    }
     assert!(
-        transcript_adapter_source.lines().count() < 1_050,
-        "transcript adapter regrew beyond its storage extraction boundary"
+        transcript_adapter_source.lines().count() < 450,
+        "transcript adapter regrew beyond its orchestration boundary"
     );
     assert!(
         transcript_storage_source.lines().count() < 550,
         "transcript storage module regrew beyond its ownership boundary"
+    );
+    assert!(
+        transcript_tool_turn_source.lines().count() < 650,
+        "transcript tool-turn module regrew beyond its ownership boundary"
     );
     assert!(
         transcript_test_source.lines().count() < 425,

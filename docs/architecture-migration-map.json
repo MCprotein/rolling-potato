@@ -4544,7 +4544,7 @@
       "path": "src/app/workflow_adapter/transcript.rs",
       "slices": [
         {
-          "responsibility": "transcript turn preparation, append, and ledger projection orchestration",
+          "responsibility": "transcript append and ledger projection orchestration",
           "target": "src/app/workflow_adapter/transcript.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -4554,6 +4554,25 @@
             "src/adapters/sqlite/transcript_projection.rs",
             "src/app/workflow_adapter/transcript.rs",
             "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/tool_turn.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn.rs",
+      "slices": [
+        {
+          "responsibility": "prepared transcript tool turns, sanitized output artifacts, and tool-output views",
+          "target": "src/app/workflow_adapter/transcript/tool_turn.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript.rs",
+            "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/tool_turn.rs",
             "src/app/workflow_adapter/transcript/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -6819,7 +6838,13 @@
     {
       "path": "src/app/workflow_adapter/transcript.rs",
       "responsibilities": [
-        "transcript turn preparation, append, and ledger projection orchestration"
+        "transcript append and ledger projection orchestration"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tool_turn.rs",
+      "responsibilities": [
+        "prepared transcript tool turns, sanitized output artifacts, and tool-output views"
       ]
     },
     {

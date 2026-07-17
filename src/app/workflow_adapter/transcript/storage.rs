@@ -12,7 +12,7 @@ use crate::runtime_core::workflow::storage_compat::transcript::{
     self as transcript_codec, TranscriptRecord, TranscriptSourcePointer,
 };
 
-use super::{
+use super::tool_turn::{
     SanitizedToolOutputArtifact, MAX_SANITIZED_STREAM_BYTES, MAX_TOOL_ARTIFACT_BYTES,
     TOOL_ARTIFACT_KEYS,
 };
