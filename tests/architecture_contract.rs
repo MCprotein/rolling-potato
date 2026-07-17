@@ -838,6 +838,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
 fn v0375_domain_views_replace_legacy_definitions() {
     let state_adapter = "src/app/workflow_adapter/state.rs";
     let transcript_adapter = "src/app/workflow_adapter/transcript.rs";
+    let transcript_tests = "src/app/workflow_adapter/transcript/tests.rs";
     for target in [
         "src/runtime_core/workflow/domain/mod.rs",
         "src/runtime_core/workflow/domain/snapshot.rs",
@@ -926,6 +927,32 @@ fn v0375_domain_views_replace_legacy_definitions() {
             .lines()
             .any(|line| line == "pub(crate) mod transcript;"),
         "transcript adapter is not registered under workflow_adapter"
+    );
+    assert!(Path::new(transcript_tests).is_file());
+    let transcript_adapter_source = fs::read_to_string(transcript_adapter).unwrap();
+    let transcript_test_source = fs::read_to_string(transcript_tests).unwrap();
+    assert!(
+        transcript_adapter_source.contains("#[path = \"transcript/tests.rs\"]"),
+        "transcript adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn sanitized_stream_limits_use_utf8_bytes_at_each_boundary(",
+        "fn prepared_no_stream_turn_installs_exact_artifacts_without_ledger_side_effect(",
+        "fn transcript_v2_tool_binding_strict_round_trip(",
+        "fn transcript_record_is_idempotent_and_sqlite_rebuilds_from_canonical_artifacts(",
+    ] {
+        assert!(
+            transcript_test_source.contains(regression),
+            "transcript regression owner is missing: {regression}"
+        );
+    }
+    assert!(
+        transcript_adapter_source.lines().count() < 1_500,
+        "transcript adapter regrew beyond its regression-test extraction boundary"
+    );
+    assert!(
+        transcript_test_source.lines().count() < 425,
+        "transcript regression module regrew beyond its ownership boundary"
     );
 }
 

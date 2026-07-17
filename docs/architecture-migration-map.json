@@ -4553,6 +4553,23 @@
             "src/runtime_core/workflow/domain/transcript.rs",
             "src/adapters/sqlite/transcript_projection.rs",
             "src/app/workflow_adapter/transcript.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tests.rs",
+      "slices": [
+        {
+          "responsibility": "transcript persistence, stream sanitization, and projection regression tests",
+          "target": "src/app/workflow_adapter/transcript/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6784,6 +6801,12 @@
       "path": "src/app/workflow_adapter/transcript.rs",
       "responsibilities": [
         "transcript persistence and projection orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/tests.rs",
+      "responsibilities": [
+        "transcript persistence, stream sanitization, and projection regression tests"
       ]
     },
     {
