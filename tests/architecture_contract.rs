@@ -4185,6 +4185,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     let current_transition_adapter = "src/app/workflow_adapter/state/current_transition.rs";
     let lifecycle_adapter = "src/app/workflow_adapter/state/lifecycle.rs";
     let source_install_adapter = "src/app/workflow_adapter/state/source_install.rs";
+    let source_install_fd_ops = "src/app/workflow_adapter/state/source_install/fd_ops.rs";
     let transaction_adapter = "src/app/workflow_adapter/state/transaction.rs";
     let transition_commit_adapter = "src/app/workflow_adapter/state/transition_commit.rs";
     let workflow_revision_adapter = "src/app/workflow_adapter/state/workflow_revision.rs";
@@ -4204,6 +4205,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(Path::new(current_transition_adapter).is_file());
     assert!(Path::new(lifecycle_adapter).is_file());
     assert!(Path::new(source_install_adapter).is_file());
+    assert!(Path::new(source_install_fd_ops).is_file());
     assert!(Path::new(transaction_adapter).is_file());
     assert!(Path::new(transition_commit_adapter).is_file());
     assert!(Path::new(workflow_revision_adapter).is_file());
@@ -4308,6 +4310,11 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     }
 
     let source_install = fs::read_to_string(source_install_adapter).unwrap();
+    let source_install_fd_ops = fs::read_to_string(source_install_fd_ops).unwrap();
+    assert!(
+        source_install.lines().any(|line| line == "mod fd_ops;"),
+        "source installation adapter does not register its fd-relative I/O owner"
+    );
     for owned_responsibility in [
         "struct PreparedSourceDir",
         "struct PreparedRollbackDir",
@@ -4316,6 +4323,22 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         assert!(
             source_install.contains(owned_responsibility),
             "source installation adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+    for owned_responsibility in [
+        "pub(super) mod unix_open_flags",
+        "pub(super) fn openat_file(",
+        "pub(super) fn mkdirat_directory(",
+        "pub(super) fn dir_linkat(",
+        "pub(super) fn dir_unlinkat(",
+    ] {
+        assert!(
+            source_install_fd_ops.contains(owned_responsibility),
+            "source fd-relative I/O owner is missing responsibility: {owned_responsibility}"
+        );
+        assert!(
+            !source_install.contains(owned_responsibility),
+            "source installation transaction adapter still owns fd-relative I/O: {owned_responsibility}"
         );
     }
 
@@ -4372,7 +4395,8 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(current_snapshot_codec.lines().count() < 450);
     assert!(current_transition.lines().count() < 700);
     assert!(lifecycle.lines().count() < 700);
-    assert!(source_install.lines().count() < 1_000);
+    assert!(source_install.lines().count() < 700);
+    assert!(source_install_fd_ops.lines().count() < 175);
     assert!(transaction.lines().count() < 700);
     assert!(transition_commit.lines().count() < 450);
     assert!(workflow_revision.lines().count() < 500);
