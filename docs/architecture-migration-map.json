@@ -1656,6 +1656,22 @@
       ]
     },
     {
+      "path": "src/adapters/sqlite/observability_projection/tests.rs",
+      "slices": [
+        {
+          "responsibility": "SQLite observability projection regression tests",
+          "target": "src/adapters/sqlite/observability_projection/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/sqlite/transcript_projection.rs",
       "slices": [
         {
@@ -5443,6 +5459,12 @@
       "path": "src/adapters/sqlite/observability_projection.rs",
       "responsibilities": [
         "SQLite observability projection"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/tests.rs",
+      "responsibilities": [
+        "SQLite observability projection regression tests"
       ]
     },
     {

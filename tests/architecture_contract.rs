@@ -1129,6 +1129,9 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     }
 
     let sqlite = fs::read_to_string("src/adapters/sqlite/observability_projection.rs").unwrap();
+    let sqlite_tests_path = "src/adapters/sqlite/observability_projection/tests.rs";
+    assert!(Path::new(sqlite_tests_path).is_file());
+    let sqlite_tests = fs::read_to_string(sqlite_tests_path).unwrap();
     for rule in [
         "impl ObservabilityProjectionPort for SqliteObservabilityProjection",
         "fn replay_ledger_events",
@@ -1140,6 +1143,29 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     assert!(
         !sqlite_production.contains("crate::ledger"),
         "SQLite projection adapter bypasses the consumer-owned projection port"
+    );
+    assert!(
+        sqlite.contains("#[path = \"observability_projection/tests.rs\"]"),
+        "SQLite projection does not register its regression-test owner"
+    );
+    for responsibility in [
+        "fn corrupt_sqlite_is_preserved_before_canonical_ledger_failure(",
+        "fn sqlite_replay_faults_are_atomic_and_concurrent_readers_see_complete_rows(",
+        "fn performance_baseline_aggregates_local_metrics(",
+        "fn optimization_policy_reads_metrics_and_measured_benchmark_evidence(",
+    ] {
+        assert!(
+            sqlite_tests.contains(responsibility),
+            "SQLite projection regression owner is missing: {responsibility}"
+        );
+    }
+    assert!(
+        sqlite.lines().count() < 2_300,
+        "SQLite projection production module regrew beyond its test extraction boundary"
+    );
+    assert!(
+        sqlite_tests.lines().count() < 825,
+        "SQLite projection regression module regrew beyond its ownership boundary"
     );
 
     let transcript = fs::read_to_string("src/adapters/sqlite/transcript_projection.rs").unwrap();
