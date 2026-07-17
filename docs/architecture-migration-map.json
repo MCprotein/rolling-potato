@@ -4665,6 +4665,25 @@
           "evidence": [
             "src/runtime_core/collaboration/team_execution.rs",
             "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution/tests.rs",
+            "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/tests.rs",
+      "slices": [
+        {
+          "responsibility": "team execution admission, retry, cancellation, ownership, and reconciliation regression tests",
+          "target": "src/app/collaboration_adapter/team_execution/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution/tests.rs",
             "tests/collaboration/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -7040,6 +7059,12 @@
       "path": "src/app/collaboration_adapter/team_execution.rs",
       "responsibilities": [
         "team lane execution adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/tests.rs",
+      "responsibilities": [
+        "team execution admission, retry, cancellation, ownership, and reconciliation regression tests"
       ]
     },
     {

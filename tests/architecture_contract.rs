@@ -2760,6 +2760,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let subagent_tests = "src/app/collaboration_adapter/subagent/tests.rs";
     let team_adapter = "src/app/collaboration_adapter/team.rs";
     let team_execution_adapter = "src/app/collaboration_adapter/team_execution.rs";
+    let team_execution_tests = "src/app/collaboration_adapter/team_execution/tests.rs";
     let team_reconciliation_adapter = "src/app/collaboration_adapter/team_reconciliation.rs";
     let team_state_adapter = "src/app/collaboration_adapter/team_state.rs";
     let owners: &[(&str, &[&str])] = &[
@@ -2870,10 +2871,13 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(Path::new(subagent_execution).is_file());
     assert!(Path::new(subagent_persistence).is_file());
     assert!(Path::new(subagent_tests).is_file());
+    assert!(Path::new(team_execution_tests).is_file());
     let subagent_source = fs::read_to_string(subagent_adapter).unwrap();
     let subagent_execution_source = fs::read_to_string(subagent_execution).unwrap();
     let subagent_persistence_source = fs::read_to_string(subagent_persistence).unwrap();
     let subagent_test_source = fs::read_to_string(subagent_tests).unwrap();
+    let team_execution_source = fs::read_to_string(team_execution_adapter).unwrap();
+    let team_execution_test_source = fs::read_to_string(team_execution_tests).unwrap();
     assert!(
         subagent_source.lines().any(|line| line == "mod execution;"),
         "subagent adapter does not register its execution owner"
@@ -2938,6 +2942,25 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         assert!(
             !subagent_source.contains(responsibility),
             "subagent adapter still owns persistence: {responsibility}"
+        );
+    }
+    assert!(
+        team_execution_source.contains("#[path = \"team_execution/tests.rs\"]"),
+        "team execution adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn dispatch_retry_resumes_fully_admitted_workers_without_duplicate_admission(",
+        "fn cancel_cannot_cross_the_admission_operation_barrier(",
+        "fn worker_failure_collects_remaining_results_and_terminalizes_team(",
+        "fn source_change_after_worker_completion_blocks_before_parent_evidence_merge(",
+    ] {
+        assert!(
+            team_execution_test_source.contains(regression),
+            "team execution regression owner is missing: {regression}"
+        );
+        assert!(
+            !team_execution_source.contains(regression),
+            "team execution adapter still owns regression test: {regression}"
         );
     }
 
@@ -3017,7 +3040,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         (subagent_adapter, 500),
         ("src/app/collaboration_adapter/subagent_result.rs", 800),
         (team_adapter, 1_400),
-        (team_execution_adapter, 1_300),
+        (team_execution_adapter, 700),
         (team_reconciliation_adapter, 550),
         (team_state_adapter, 850),
     ] {
@@ -3038,6 +3061,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(
         subagent_test_source.lines().count() < 675,
         "subagent regression module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_execution_test_source.lines().count() < 650,
+        "team execution regression module regrew beyond its ownership boundary"
     );
 
     for legacy in [
