@@ -741,6 +741,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_sidecar_path = "src/app/inference_adapter/backend/sidecar.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
     let model_adapter_path = "src/app/inference_adapter/model.rs";
+    let model_registry_path = "src/app/inference_adapter/model/registry.rs";
     let model_tests_path = "src/app/inference_adapter/model/tests.rs";
     assert!(Path::new(backend_chat_path).is_file());
     assert!(Path::new(backend_generation_state_path).is_file());
@@ -748,6 +749,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(Path::new(backend_resource_sampling_path).is_file());
     assert!(Path::new(backend_sidecar_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
+    assert!(Path::new(model_registry_path).is_file());
     assert!(Path::new(model_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
     let backend_chat = fs::read_to_string(backend_chat_path).unwrap();
@@ -757,6 +759,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_sidecar = fs::read_to_string(backend_sidecar_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
     let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
+    let model_registry = fs::read_to_string(model_registry_path).unwrap();
     let model_tests = fs::read_to_string(model_tests_path).unwrap();
     assert!(
         backend_adapter.contains("#[path = \"backend/tests.rs\"]"),
@@ -766,6 +769,28 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         model_adapter.contains("#[path = \"model/tests.rs\"]"),
         "model adapter does not register its regression-test owner"
     );
+    assert!(
+        model_adapter.lines().any(|line| line == "mod registry;"),
+        "model adapter does not register its registry owner"
+    );
+    for responsibility in [
+        "pub fn registry_report(",
+        "pub fn default_report(",
+        "pub fn set_default_report(",
+        "pub fn default_artifact_path(",
+        "pub fn install_candidate(",
+        "fn validated_registry_entry(",
+        "pub(super) fn registry_entry_json(",
+    ] {
+        assert!(
+            model_registry.contains(responsibility),
+            "model registry owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_adapter.contains(responsibility),
+            "model adapter still owns registry behavior: {responsibility}"
+        );
+    }
     assert!(
         backend_adapter.lines().any(|line| line == "mod chat;"),
         "inference backend adapter does not register its chat owner"
@@ -934,8 +959,12 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "inference backend regression module regrew beyond its ownership boundary"
     );
     assert!(
-        model_adapter.lines().count() < 1_025,
-        "model adapter regrew beyond its test extraction boundary"
+        model_adapter.lines().count() < 800,
+        "model adapter regrew beyond its registry extraction boundary"
+    );
+    assert!(
+        model_registry.lines().count() < 350,
+        "model registry module regrew beyond its ownership boundary"
     );
     assert!(
         model_tests.lines().count() < 550,

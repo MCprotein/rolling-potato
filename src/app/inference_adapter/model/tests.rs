@@ -2,9 +2,14 @@ use std::fs;
 
 use super::*;
 use crate::runtime_core::inference::benchmark as benchmark_policy;
-use crate::runtime_core::inference::model::codec::{parse_default_selection, parse_registry_entry};
-use crate::runtime_core::inference::model::manifest::LocalArtifactState;
-use crate::runtime_core::inference::model::promotion::{measured_ram_budget_gb, BYTES_PER_GIB};
+use crate::runtime_core::inference::model::codec::{
+    parse_default_selection, parse_registry_entry, render_default_selection,
+};
+use crate::runtime_core::inference::model::manifest::{DefaultSelection, LocalArtifactState};
+use crate::runtime_core::inference::model::promotion::{
+    measured_ram_budget_gb, validate_registry_manifest_binding,
+    validate_registry_promotion_binding, BYTES_PER_GIB,
+};
 
 #[test]
 fn candidate_summary_reports_verified_count() {

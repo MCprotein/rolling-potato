@@ -2696,7 +2696,7 @@
       "path": "src/app/inference_adapter/model.rs",
       "slices": [
         {
-          "responsibility": "model concrete integration adapter",
+          "responsibility": "model evaluation, promotion, verification, cleanup, and report integration adapter",
           "target": "src/app/inference_adapter/model.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -2704,6 +2704,27 @@
             "src/composition/inference.rs",
             "src/app/legacy_dispatch.rs",
             "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/registry.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/registry.rs",
+      "slices": [
+        {
+          "responsibility": "model local registry installation, manifest and promotion rebinding, and default selection",
+          "target": "src/app/inference_adapter/model/registry.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/model_artifact.rs",
+            "src/runtime_core/inference/model/codec.rs",
+            "src/runtime_core/inference/model/promotion.rs",
+            "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/registry.rs",
             "src/app/inference_adapter/model/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -2720,6 +2741,7 @@
           "state": "complete",
           "evidence": [
             "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/registry.rs",
             "src/app/inference_adapter/model/tests.rs",
             "src/runtime_core/inference/model/manifest.rs",
             "src/runtime_core/inference/model/promotion.rs",
@@ -6481,7 +6503,13 @@
     {
       "path": "src/app/inference_adapter/model.rs",
       "responsibilities": [
-        "model concrete integration adapter"
+        "model evaluation, promotion, verification, cleanup, and report integration adapter"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/registry.rs",
+      "responsibilities": [
+        "model local registry installation, manifest and promotion rebinding, and default selection"
       ]
     },
     {
