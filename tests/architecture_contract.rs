@@ -614,6 +614,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "src/adapters/llama_cpp/backend.rs",
         "src/adapters/llama_cpp/install.rs",
         "src/adapters/llama_cpp/stream.rs",
+        "src/adapters/llama_cpp/stream/protocol.rs",
         "src/adapters/process/backend.rs",
     ] {
         assert!(
@@ -627,6 +628,41 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             "legacy inference owner remains: {legacy}"
         );
     }
+
+    let stream_adapter = fs::read_to_string("src/adapters/llama_cpp/stream.rs").unwrap();
+    let stream_protocol = fs::read_to_string("src/adapters/llama_cpp/stream/protocol.rs").unwrap();
+    assert!(
+        stream_adapter.lines().any(|line| line == "mod protocol;"),
+        "llama.cpp stream adapter does not register its protocol owner"
+    );
+    let stream_transport = stream_adapter
+        .split("#[cfg(test)]")
+        .next()
+        .unwrap_or(&stream_adapter);
+    for responsibility in [
+        "pub(super) struct HttpResponseDecoder",
+        "pub(super) struct ChatSseDecoder",
+        "pub(super) struct ReasoningTraceFilter",
+        "fn find_sse_event_end(",
+        "fn malformed_sse_event(",
+    ] {
+        assert!(
+            stream_protocol.contains(responsibility),
+            "llama.cpp stream protocol owner is missing: {responsibility}"
+        );
+        assert!(
+            !stream_transport.contains(responsibility),
+            "llama.cpp stream transport still owns protocol behavior: {responsibility}"
+        );
+    }
+    assert!(
+        stream_adapter.lines().count() < 750,
+        "llama.cpp stream adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        stream_protocol.lines().count() < 450,
+        "llama.cpp stream protocol module regrew beyond its ownership boundary"
+    );
 
     let main = fs::read_to_string("src/main.rs").unwrap();
     for legacy_module in ["backend_stream", "resource"] {

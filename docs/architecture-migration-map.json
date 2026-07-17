@@ -2158,12 +2158,30 @@
       "path": "src/adapters/llama_cpp/stream.rs",
       "slices": [
         {
-          "responsibility": "llama.cpp streaming transport",
+          "responsibility": "llama.cpp streaming TCP transport, cancellation, and timeout orchestration",
           "target": "src/adapters/llama_cpp/stream.rs",
           "release": "0.37.3",
           "state": "complete",
           "evidence": [
-            "src/adapters/llama_cpp/stream.rs"
+            "src/adapters/llama_cpp/stream.rs",
+            "src/adapters/llama_cpp/stream/protocol.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/protocol.rs",
+      "slices": [
+        {
+          "responsibility": "bounded HTTP chunked decoding, SSE event decoding, and reasoning-trace filtering",
+          "target": "src/adapters/llama_cpp/stream/protocol.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/llama_cpp/stream.rs",
+            "src/adapters/llama_cpp/stream/protocol.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -6210,7 +6228,13 @@
     {
       "path": "src/adapters/llama_cpp/stream.rs",
       "responsibilities": [
-        "llama.cpp streaming transport"
+        "llama.cpp streaming TCP transport, cancellation, and timeout orchestration"
+      ]
+    },
+    {
+      "path": "src/adapters/llama_cpp/stream/protocol.rs",
+      "responsibilities": [
+        "bounded HTTP chunked decoding, SSE event decoding, and reasoning-trace filtering"
       ]
     },
     {
