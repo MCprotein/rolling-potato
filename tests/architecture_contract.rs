@@ -2420,6 +2420,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
 #[test]
 fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_policy() {
     let subagent_adapter = "src/app/collaboration_adapter/subagent.rs";
+    let subagent_tests = "src/app/collaboration_adapter/subagent/tests.rs";
     let team_adapter = "src/app/collaboration_adapter/team.rs";
     let team_execution_adapter = "src/app/collaboration_adapter/team_execution.rs";
     let team_reconciliation_adapter = "src/app/collaboration_adapter/team_reconciliation.rs";
@@ -2529,6 +2530,25 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         }
     }
 
+    assert!(Path::new(subagent_tests).is_file());
+    let subagent_source = fs::read_to_string(subagent_adapter).unwrap();
+    let subagent_test_source = fs::read_to_string(subagent_tests).unwrap();
+    assert!(
+        subagent_source.contains("#[path = \"subagent/tests.rs\"]"),
+        "subagent adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn launch_contract_enforces_role_tool_and_write_boundaries(",
+        "fn canonical_state_round_trips_and_preserves_hash_chain(",
+        "fn dispatch_completes_and_merges_evidence_once(",
+        "fn stale_running_child_recovers_as_failed_without_backend_replay(",
+    ] {
+        assert!(
+            subagent_test_source.contains(regression),
+            "subagent regression owner is missing: {regression}"
+        );
+    }
+
     for (facade, moved_definition) in [
         (subagent_adapter, "pub enum SubagentRole"),
         (subagent_adapter, "pub struct SubagentRecordV1"),
@@ -2602,7 +2622,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     }
 
     for (facade, maximum_lines) in [
-        (subagent_adapter, 2_400),
+        (subagent_adapter, 1_350),
         ("src/app/collaboration_adapter/subagent_result.rs", 800),
         (team_adapter, 1_400),
         (team_execution_adapter, 1_300),
@@ -2615,6 +2635,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
             "collaboration facade regrew beyond the v0.37.12 boundary: {facade}"
         );
     }
+    assert!(
+        subagent_test_source.lines().count() < 675,
+        "subagent regression module regrew beyond its ownership boundary"
+    );
 
     for legacy in [
         "src/subagent.rs",

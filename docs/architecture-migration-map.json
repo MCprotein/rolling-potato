@@ -4094,7 +4094,24 @@
           "evidence": [
             "src/runtime_core/collaboration/subagent.rs",
             "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/collaboration/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/tests.rs",
+      "slices": [
+        {
+          "responsibility": "subagent adapter lifecycle and dispatch regression tests",
+          "target": "src/app/collaboration_adapter/subagent/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6560,6 +6577,12 @@
       "path": "src/app/collaboration_adapter/subagent.rs",
       "responsibilities": [
         "subagent lifecycle persistence and dispatch adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/subagent/tests.rs",
+      "responsibilities": [
+        "subagent adapter lifecycle and dispatch regression tests"
       ]
     },
     {
