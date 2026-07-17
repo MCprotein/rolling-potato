@@ -2010,6 +2010,38 @@ fn v03713_composition_owns_benchmark_command_orchestration() {
 }
 
 #[test]
+fn v03713_composition_owns_model_command_orchestration() {
+    let composition = fs::read_to_string("src/composition/inference.rs").unwrap();
+    for definition in [
+        "trait ModelCommandPort",
+        "fn run_model(",
+        "ModelCommand::List",
+        "ModelCommand::Manifest",
+        "ModelCommand::Inspect",
+        "ModelCommand::SetDefault",
+        "ModelCommand::FetchCandidate",
+        "ModelCommand::Promote",
+        "ModelCommand::Install",
+        "CommandOutput::None",
+    ] {
+        assert!(
+            composition.contains(definition),
+            "inference composition owner is missing {definition}"
+        );
+    }
+    for forbidden in ["crate::model", "crate::ledger", "crate::observability"] {
+        assert!(
+            !composition.contains(forbidden),
+            "inference composition bypasses its model port: {forbidden}"
+        );
+    }
+
+    let adapter = fs::read_to_string("src/app/legacy_dispatch.rs").unwrap();
+    assert!(adapter.contains("impl inference::ModelCommandPort"));
+    assert!(adapter.contains("inference::run_model(command, self)"));
+}
+
+#[test]
 fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
     for name in [
         "fake_sidecar.rs",

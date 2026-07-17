@@ -2295,8 +2295,12 @@
           "responsibility": "model command and cross-store orchestration compatibility facade",
           "target": "src/composition/inference.rs",
           "release": "0.37.13",
-          "state": "planned",
-          "evidence": []
+          "state": "migrating",
+          "evidence": [
+            "src/composition/inference.rs",
+            "src/app/legacy_dispatch.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },

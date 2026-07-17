@@ -19,10 +19,10 @@ use crate::state;
 use crate::subagent;
 use crate::surfaces::cli::{
     command::{
-        BackendCommand, Command, EvidenceCommand, HooksCommand, IntentCommand, ModelCommand,
-        MonitorCommand, OntologyCommand, PatchCommand, PluginCommand, PolicyCommand,
-        PolicyPathMode, SessionCommand, SkillCommand, StateCommand, SubagentCommand, TeamCommand,
-        TuiCommand, UninstallCommand,
+        BackendCommand, Command, EvidenceCommand, HooksCommand, IntentCommand, MonitorCommand,
+        OntologyCommand, PatchCommand, PluginCommand, PolicyCommand, PolicyPathMode,
+        SessionCommand, SkillCommand, StateCommand, SubagentCommand, TeamCommand, TuiCommand,
+        UninstallCommand,
     },
     render,
 };
@@ -59,10 +59,69 @@ impl inference::BenchmarkCommandPort for LegacyCommandDispatchPort {
     }
 }
 
+impl inference::ModelCommandPort for LegacyCommandDispatchPort {
+    fn list_report(&mut self) -> String {
+        model::list_report()
+    }
+
+    fn manifest_report(&mut self) -> String {
+        model::manifest_report()
+    }
+
+    fn inspect_report(&mut self, id: &str) -> Result<String, AppError> {
+        model::inspect_report(id)
+    }
+
+    fn registry_report(&mut self) -> String {
+        model::registry_report()
+    }
+
+    fn default_report(&mut self) -> Result<String, AppError> {
+        model::default_report()
+    }
+
+    fn set_default_report(&mut self, id: &str) -> Result<String, AppError> {
+        model::set_default_report(id)
+    }
+
+    fn download_plan_report(&mut self, id: &str) -> Result<String, AppError> {
+        model::download_plan_report(id)
+    }
+
+    fn eval_plan_report(&mut self, id: &str) -> Result<String, AppError> {
+        model::eval_plan_report(id)
+    }
+
+    fn benchmark_plan_report(&mut self, id: &str) -> Result<String, AppError> {
+        model::benchmark_plan_report(id)
+    }
+
+    fn fetch_candidate_report(&mut self, id: &str) -> Result<String, AppError> {
+        model::fetch_candidate_for_evaluation_report(id)
+    }
+
+    fn verify_file_report(&mut self, path: &str, sha256: &str) -> Result<String, AppError> {
+        model::verify_file_report(path, sha256)
+    }
+
+    fn promote_candidate_report(&mut self, id: &str, evidence: &str) -> Result<String, AppError> {
+        model::promote_candidate_report(id, evidence)
+    }
+
+    fn cleanup_failed_report(&mut self, id: &str, dry_run: bool) -> Result<String, AppError> {
+        model::cleanup_failed_report(id, dry_run)
+    }
+
+    fn install_candidate(&mut self, id: &str) -> Result<(), AppError> {
+        model::install_candidate(id)
+    }
+}
+
 fn emit_inference_output(output: inference::CommandOutput) {
     match output {
         inference::CommandOutput::Line(report) => println!("{report}"),
         inference::CommandOutput::Exact(report) => print!("{report}"),
+        inference::CommandOutput::None => {}
     }
 }
 
@@ -453,59 +512,10 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 emit_inference_output(inference::run_benchmark(command, self)?);
                 Ok(())
             }
-            Command::Model(ModelCommand::List) => {
-                println!("{}", model::list_report());
+            Command::Model(command) => {
+                emit_inference_output(inference::run_model(command, self)?);
                 Ok(())
             }
-            Command::Model(ModelCommand::Manifest) => {
-                println!("{}", model::manifest_report());
-                Ok(())
-            }
-            Command::Model(ModelCommand::Inspect { id }) => {
-                println!("{}", model::inspect_report(&id)?);
-                Ok(())
-            }
-            Command::Model(ModelCommand::Registry) => {
-                println!("{}", model::registry_report());
-                Ok(())
-            }
-            Command::Model(ModelCommand::Default) => {
-                println!("{}", model::default_report()?);
-                Ok(())
-            }
-            Command::Model(ModelCommand::SetDefault { id }) => {
-                println!("{}", model::set_default_report(&id)?);
-                Ok(())
-            }
-            Command::Model(ModelCommand::DownloadPlan { id }) => {
-                println!("{}", model::download_plan_report(&id)?);
-                Ok(())
-            }
-            Command::Model(ModelCommand::EvalPlan { id }) => {
-                println!("{}", model::eval_plan_report(&id)?);
-                Ok(())
-            }
-            Command::Model(ModelCommand::BenchmarkPlan { id }) => {
-                println!("{}", model::benchmark_plan_report(&id)?);
-                Ok(())
-            }
-            Command::Model(ModelCommand::FetchCandidate { id }) => {
-                println!("{}", model::fetch_candidate_for_evaluation_report(&id)?);
-                Ok(())
-            }
-            Command::Model(ModelCommand::VerifyFile { path, sha256 }) => {
-                println!("{}", model::verify_file_report(&path, &sha256)?);
-                Ok(())
-            }
-            Command::Model(ModelCommand::Promote { id, evidence }) => {
-                println!("{}", model::promote_candidate_report(&id, &evidence)?);
-                Ok(())
-            }
-            Command::Model(ModelCommand::CleanupFailed { id, dry_run }) => {
-                println!("{}", model::cleanup_failed_report(&id, dry_run)?);
-                Ok(())
-            }
-            Command::Model(ModelCommand::Install { id }) => model::install_candidate(&id),
             Command::Plugin(PluginCommand::Import {
                 source,
                 path,
