@@ -3361,6 +3361,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let team_admission = "src/app/collaboration_adapter/team/admission.rs";
     let team_tests = "src/app/collaboration_adapter/team/tests.rs";
     let team_execution_adapter = "src/app/collaboration_adapter/team_execution.rs";
+    let team_execution_events = "src/app/collaboration_adapter/team_execution/events.rs";
     let team_execution_tests = "src/app/collaboration_adapter/team_execution/tests.rs";
     let team_reconciliation_adapter = "src/app/collaboration_adapter/team_reconciliation.rs";
     let team_state_adapter = "src/app/collaboration_adapter/team_state.rs";
@@ -3475,6 +3476,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(Path::new(subagent_record_codec).is_file());
     assert!(Path::new(team_admission).is_file());
     assert!(Path::new(team_tests).is_file());
+    assert!(Path::new(team_execution_events).is_file());
     assert!(Path::new(team_execution_tests).is_file());
     assert!(Path::new(team_state_persistence).is_file());
     let subagent_source = fs::read_to_string(subagent_adapter).unwrap();
@@ -3487,6 +3489,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let team_admission_source = fs::read_to_string(team_admission).unwrap();
     let team_test_source = fs::read_to_string(team_tests).unwrap();
     let team_execution_source = fs::read_to_string(team_execution_adapter).unwrap();
+    let team_execution_events_source = fs::read_to_string(team_execution_events).unwrap();
     let team_execution_test_source = fs::read_to_string(team_execution_tests).unwrap();
     let team_state_source = fs::read_to_string(team_state_adapter).unwrap();
     let team_state_persistence_source = fs::read_to_string(team_state_persistence).unwrap();
@@ -3641,6 +3644,27 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         );
     }
     assert!(
+        team_execution_source
+            .lines()
+            .any(|line| line == "mod events;"),
+        "team execution adapter does not register its event persistence owner"
+    );
+    for responsibility in [
+        "pub(super) fn append_execution_blocked(",
+        "pub(super) fn append_action_event(",
+        "pub(super) fn append_worker_event(",
+        "fn has_exact_event(",
+    ] {
+        assert!(
+            team_execution_events_source.contains(responsibility),
+            "team execution event owner is missing: {responsibility}"
+        );
+        assert!(
+            !team_execution_source.contains(responsibility),
+            "team execution adapter still owns event persistence: {responsibility}"
+        );
+    }
+    assert!(
         team_execution_source.contains("#[path = \"team_execution/tests.rs\"]"),
         "team execution adapter does not register its regression-test owner"
     );
@@ -3736,7 +3760,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         (subagent_adapter, 500),
         ("src/app/collaboration_adapter/subagent_result.rs", 800),
         (team_adapter, 600),
-        (team_execution_adapter, 700),
+        (team_execution_adapter, 575),
         (team_reconciliation_adapter, 550),
         (team_state_adapter, 650),
     ] {
@@ -3773,6 +3797,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(
         team_admission_source.lines().count() < 250,
         "team admission module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_execution_events_source.lines().count() < 125,
+        "team execution event module regrew beyond its ownership boundary"
     );
     assert!(
         team_execution_test_source.lines().count() < 650,

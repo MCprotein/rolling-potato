@@ -5288,15 +5288,33 @@
       "path": "src/app/collaboration_adapter/team_execution.rs",
       "slices": [
         {
-          "responsibility": "team lane execution adapter",
+          "responsibility": "team lane admission recovery, scheduling, ownership enforcement, and execution orchestration adapter",
           "target": "src/app/collaboration_adapter/team_execution.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_execution.rs",
             "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution/events.rs",
             "src/app/collaboration_adapter/team_execution/tests.rs",
             "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/events.rs",
+      "slices": [
+        {
+          "responsibility": "idempotent team execution admission, worker, ownership, and blocked event persistence",
+          "target": "src/app/collaboration_adapter/team_execution/events.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution/events.rs",
+            "src/app/collaboration_adapter/team_execution/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7972,7 +7990,13 @@
     {
       "path": "src/app/collaboration_adapter/team_execution.rs",
       "responsibilities": [
-        "team lane execution adapter"
+        "team lane admission recovery, scheduling, ownership enforcement, and execution orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/events.rs",
+      "responsibilities": [
+        "idempotent team execution admission, worker, ownership, and blocked event persistence"
       ]
     },
     {
