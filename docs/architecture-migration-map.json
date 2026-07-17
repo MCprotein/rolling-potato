@@ -5278,12 +5278,30 @@
       "path": "src/surfaces/tui/outcome.rs",
       "slices": [
         {
-          "responsibility": "TUI exact outcome contracts and validation",
+          "responsibility": "TUI outcome DTOs, code catalog, special constructors, and identifier validation",
           "target": "src/surfaces/tui/outcome.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/outcome.rs",
+            "src/surfaces/tui/outcome/oracle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/outcome/oracle.rs",
+      "slices": [
+        {
+          "responsibility": "exact TUI outcome mapping and trusted dynamic placeholder validation",
+          "target": "src/surfaces/tui/outcome/oracle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/outcome.rs",
+            "src/surfaces/tui/outcome/oracle.rs",
+            "tests/surfaces/interactive_tui.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8254,7 +8272,13 @@
     {
       "path": "src/surfaces/tui/outcome.rs",
       "responsibilities": [
-        "TUI exact outcome contracts and validation"
+        "TUI outcome DTOs, code catalog, special constructors, and identifier validation"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/outcome/oracle.rs",
+      "responsibilities": [
+        "exact TUI outcome mapping and trusted dynamic placeholder validation"
       ]
     },
     {

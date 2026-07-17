@@ -4359,11 +4359,18 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         );
     }
 
-    let outcome = fs::read_to_string("src/surfaces/tui/outcome.rs").unwrap();
+    let outcome_path = "src/surfaces/tui/outcome.rs";
+    let outcome_oracle_path = "src/surfaces/tui/outcome/oracle.rs";
+    assert!(Path::new(outcome_oracle_path).is_file());
+    let outcome = fs::read_to_string(outcome_path).unwrap();
+    let outcome_oracle = fs::read_to_string(outcome_oracle_path).unwrap();
+    assert!(
+        outcome.lines().any(|line| line == "mod oracle;"),
+        "TUI outcome owner does not register its exact oracle"
+    );
     for definition in [
         "enum TuiOutcomeCode",
         "struct TuiOutcome",
-        "fn exact_tui_outcome",
         "fn unsupported_source_platform_outcome",
         "fn validate_tui_id",
     ] {
@@ -4372,6 +4379,24 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             "TUI outcome owner is missing {definition}"
         );
     }
+    for definition in [
+        "pub(crate) fn exact_tui_outcome(",
+        "fn required_outcome_id",
+        "fn required_outcome_phase",
+        "fn required_outcome_platform",
+        "fn corrupt_outcome_placeholder",
+    ] {
+        assert!(
+            outcome_oracle.contains(definition),
+            "TUI outcome oracle is missing {definition}"
+        );
+        assert!(
+            !outcome.contains(definition),
+            "TUI outcome DTO owner still owns exact oracle behavior: {definition}"
+        );
+    }
+    assert!(outcome.lines().count() < 250);
+    assert!(outcome_oracle.lines().count() < 425);
 
     let runtime = fs::read_to_string("src/runtime.rs").unwrap();
     assert!(!runtime.contains("pub struct TuiReadBudget"));
