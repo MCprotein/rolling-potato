@@ -2629,6 +2629,24 @@
       ]
     },
     {
+      "path": "src/patch/resume.rs",
+      "slices": [
+        {
+          "responsibility": "patch proposal listing and workflow resume adapter",
+          "target": "src/patch/resume.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/verification.rs",
+            "src/app/workflow_adapter/state/lifecycle.rs",
+            "src/patch/resume.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/patch/terminal.rs",
       "slices": [
         {
@@ -5446,6 +5464,12 @@
       "path": "src/patch/proposal_store.rs",
       "responsibilities": [
         "patch proposal persistence, credential, and rollback lookup adapter"
+      ]
+    },
+    {
+      "path": "src/patch/resume.rs",
+      "responsibilities": [
+        "patch proposal listing and workflow resume adapter"
       ]
     },
     {
