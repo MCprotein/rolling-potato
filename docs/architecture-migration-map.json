@@ -3959,6 +3959,23 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/tests/mod.rs",
+      "slices": [
+        {
+          "responsibility": "CLI command-family argument parser regression tests",
+          "target": "src/surfaces/cli/parser/tests/mod.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/cli/render.rs",
       "slices": [
         {
@@ -6207,6 +6224,12 @@
       "path": "src/surfaces/cli/parser.rs",
       "responsibilities": [
         "CLI argument parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/mod.rs",
+      "responsibilities": [
+        "CLI command-family argument parser regression tests"
       ]
     },
     {

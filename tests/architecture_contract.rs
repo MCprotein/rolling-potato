@@ -2352,9 +2352,34 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         );
     }
 
-    let parser = fs::read_to_string("src/surfaces/cli/parser.rs").unwrap();
+    let parser_path = "src/surfaces/cli/parser.rs";
+    let parser_tests_path = "src/surfaces/cli/parser/tests/mod.rs";
+    assert!(Path::new(parser_tests_path).is_file());
+    let parser = fs::read_to_string(parser_path).unwrap();
+    let parser_tests = fs::read_to_string(parser_tests_path).unwrap();
     assert!(parser.contains("pub fn parse"));
     assert!(parser.contains("surfaces::cli::command::*"));
+    assert!(parser.contains("#[path = \"parser/tests/mod.rs\"]"));
+    for responsibility in [
+        "fn parses_subagent_launch_status_and_cancel(",
+        "fn parses_backend_chat(",
+        "fn parses_patch_approve_dry_run(",
+        "fn parses_team_governor(",
+        "fn parses_uninstall_dry_run_purge_cache(",
+    ] {
+        assert!(
+            parser_tests.contains(responsibility),
+            "CLI parser regression tests are missing responsibility: {responsibility}"
+        );
+    }
+    assert!(
+        parser.lines().count() < 1_700,
+        "CLI parser production module regrew beyond its test extraction boundary"
+    );
+    assert!(
+        parser_tests.lines().count() < 1_500,
+        "CLI parser regression module regrew beyond its ownership boundary"
+    );
 
     let render = fs::read_to_string("src/surfaces/cli/render.rs").unwrap();
     assert!(render.contains("const HELP"));
