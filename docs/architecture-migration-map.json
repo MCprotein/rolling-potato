@@ -2665,6 +2665,24 @@
       ]
     },
     {
+      "path": "src/patch/verification.rs",
+      "slices": [
+        {
+          "responsibility": "patch verification approval and prepared transaction adapter",
+          "target": "src/patch/verification.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/verification.rs",
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/patch/verification.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/patch/workflow_contract.rs",
       "slices": [
         {
@@ -5476,6 +5494,12 @@
       "path": "src/patch/terminal.rs",
       "responsibilities": [
         "patch workflow cancellation, gate denial, and terminal rollback adapter"
+      ]
+    },
+    {
+      "path": "src/patch/verification.rs",
+      "responsibilities": [
+        "patch verification approval and prepared transaction adapter"
       ]
     },
     {
