@@ -1,13 +1,18 @@
 use std::fs;
 
 use super::*;
+use crate::app::observability_adapter as observability;
 use crate::runtime_core::inference::benchmark as benchmark_policy;
 use crate::runtime_core::inference::model::codec::{
-    parse_default_selection, parse_registry_entry, render_default_selection,
+    parse_default_selection, parse_promotion_evidence, parse_registry_entry,
+    render_default_selection,
 };
-use crate::runtime_core::inference::model::manifest::{DefaultSelection, LocalArtifactState};
+use crate::runtime_core::inference::model::manifest::{
+    BackendSmokeEvidence, DefaultSelection, LocalArtifactState, ModelArtifactDescriptor,
+    PromotionEvidence,
+};
 use crate::runtime_core::inference::model::promotion::{
-    measured_ram_budget_gb, validate_registry_manifest_binding,
+    artifact_model_id, measured_ram_budget_gb, validate_registry_manifest_binding,
     validate_registry_promotion_binding, BYTES_PER_GIB,
 };
 

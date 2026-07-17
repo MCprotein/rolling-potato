@@ -774,6 +774,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_sidecar_path = "src/app/inference_adapter/backend/sidecar.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
     let model_adapter_path = "src/app/inference_adapter/model.rs";
+    let model_evidence_path = "src/app/inference_adapter/model/evidence.rs";
     let model_registry_path = "src/app/inference_adapter/model/registry.rs";
     let model_tests_path = "src/app/inference_adapter/model/tests.rs";
     assert!(Path::new(backend_chat_path).is_file());
@@ -782,6 +783,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(Path::new(backend_resource_sampling_path).is_file());
     assert!(Path::new(backend_sidecar_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
+    assert!(Path::new(model_evidence_path).is_file());
     assert!(Path::new(model_registry_path).is_file());
     assert!(Path::new(model_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
@@ -792,6 +794,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_sidecar = fs::read_to_string(backend_sidecar_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
     let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
+    let model_evidence = fs::read_to_string(model_evidence_path).unwrap();
     let model_registry = fs::read_to_string(model_registry_path).unwrap();
     let model_tests = fs::read_to_string(model_tests_path).unwrap();
     assert!(
@@ -802,6 +805,28 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         model_adapter.contains("#[path = \"model/tests.rs\"]"),
         "model adapter does not register its regression-test owner"
     );
+    assert!(
+        model_adapter.lines().any(|line| line == "mod evidence;"),
+        "model adapter does not register its local evidence owner"
+    );
+    for responsibility in [
+        "pub(super) fn local_benchmark_status(",
+        "pub(super) fn local_promotion_readiness(",
+        "pub(super) fn promotion_benchmark_run(",
+        "pub(super) fn promotion_benchmark_evidence(",
+        "pub(super) fn backend_smoke_evidence(",
+        "pub(super) fn persist_promotion_evidence(",
+        "pub(super) fn read_promotion_evidence_file(",
+    ] {
+        assert!(
+            model_evidence.contains(responsibility),
+            "model local evidence owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_adapter.contains(responsibility),
+            "model adapter still owns local evidence collection: {responsibility}"
+        );
+    }
     assert!(
         model_adapter.lines().any(|line| line == "mod registry;"),
         "model adapter does not register its registry owner"
@@ -992,8 +1017,12 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "inference backend regression module regrew beyond its ownership boundary"
     );
     assert!(
-        model_adapter.lines().count() < 800,
-        "model adapter regrew beyond its registry extraction boundary"
+        model_adapter.lines().count() < 550,
+        "model adapter regrew beyond its local evidence extraction boundary"
+    );
+    assert!(
+        model_evidence.lines().count() < 250,
+        "model local evidence module regrew beyond its ownership boundary"
     );
     assert!(
         model_registry.lines().count() < 350,

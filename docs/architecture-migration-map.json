@@ -2777,7 +2777,29 @@
             "src/composition/inference.rs",
             "src/app/legacy_dispatch.rs",
             "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/evidence.rs",
             "src/app/inference_adapter/model/registry.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/evidence.rs",
+      "slices": [
+        {
+          "responsibility": "host-local benchmark, promotion, and backend smoke evidence collection and persistence",
+          "target": "src/app/inference_adapter/model/evidence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/model_artifact.rs",
+            "src/app/observability_adapter.rs",
+            "src/app/workflow_adapter/ledger.rs",
+            "src/runtime_core/inference/model/promotion.rs",
+            "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/evidence.rs",
             "src/app/inference_adapter/model/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -6823,6 +6845,12 @@
       "path": "src/app/inference_adapter/model.rs",
       "responsibilities": [
         "model evaluation, promotion, verification, cleanup, and report integration adapter"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/evidence.rs",
+      "responsibilities": [
+        "host-local benchmark, promotion, and backend smoke evidence collection and persistence"
       ]
     },
     {
