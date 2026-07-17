@@ -2,6 +2,7 @@ use crate::adapters::filesystem::cache;
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::{capability, native};
 use crate::app::collaboration_adapter::subagent;
+use crate::app::collaboration_adapter::team_state;
 use crate::app::extensions_adapter::hooks;
 use crate::app::extensions_adapter::plugin;
 use crate::app::extensions_adapter::skill;
@@ -259,7 +260,7 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 Ok(())
             }
             Command::Team(TeamCommand::Plan { manifest_path }) => {
-                println!("{}", crate::team_state::plan_report(&manifest_path)?);
+                println!("{}", team_state::plan_report(&manifest_path)?);
                 Ok(())
             }
             Command::Team(TeamCommand::Execute { team_id }) => {
@@ -274,7 +275,7 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 Ok(())
             }
             Command::Team(TeamCommand::Cancel { team_id }) => {
-                println!("{}", crate::team_state::cancel_report(&team_id)?);
+                println!("{}", team_state::cancel_report(&team_id)?);
                 Ok(())
             }
             Command::Team(TeamCommand::Admit {

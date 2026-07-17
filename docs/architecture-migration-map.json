@@ -1792,6 +1792,7 @@
             "src/app/collaboration_adapter.rs",
             "src/app/collaboration_adapter/subagent.rs",
             "src/app/collaboration_adapter/subagent_result.rs",
+            "src/app/collaboration_adapter/team_state.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -2746,7 +2747,7 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_state.rs",
-            "src/team_state.rs",
+            "src/app/collaboration_adapter/team_state.rs",
             "tests/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3677,16 +3678,16 @@
       ]
     },
     {
-      "path": "src/team_state.rs",
+      "path": "src/app/collaboration_adapter/team_state.rs",
       "slices": [
         {
-          "responsibility": "persisted team state",
-          "target": "src/runtime_core/collaboration/team_state.rs",
-          "release": "0.37.12",
+          "responsibility": "persisted team state adapter",
+          "target": "src/app/collaboration_adapter/team_state.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_state.rs",
-            "src/team_state.rs",
+            "src/app/collaboration_adapter/team_state.rs",
             "tests/collaboration/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -5542,9 +5543,9 @@
       ]
     },
     {
-      "path": "src/team_state.rs",
+      "path": "src/app/collaboration_adapter/team_state.rs",
       "responsibilities": [
-        "persisted team state"
+        "persisted team state adapter"
       ]
     },
     {

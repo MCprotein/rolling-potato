@@ -1,4 +1,4 @@
-use crate::app::collaboration_adapter::subagent;
+use crate::app::collaboration_adapter::{subagent, team_state};
 use crate::app::inference_adapter::backend;
 use crate::app::observability_adapter as observability;
 use crate::foundation::error::AppError;
@@ -9,9 +9,7 @@ use crate::runtime_core::collaboration::team_execution::{
     ExecutionLaunchBinding, RuntimeIdentityBinding,
 };
 use crate::runtime_core::inference::resource;
-use crate::{
-    adapters::filesystem::layout as paths, adapters::filesystem::lease, ledger, team_state,
-};
+use crate::{adapters::filesystem::layout as paths, adapters::filesystem::lease, ledger};
 use std::collections::BTreeMap;
 
 type TeamRunner = fn(&str, u32, u32, &str) -> Result<subagent::WorkerGeneration, AppError>;

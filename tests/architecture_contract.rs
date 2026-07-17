@@ -1538,6 +1538,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
 #[test]
 fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_policy() {
     let subagent_adapter = "src/app/collaboration_adapter/subagent.rs";
+    let team_state_adapter = "src/app/collaboration_adapter/team_state.rs";
     let owners: &[(&str, &[&str])] = &[
         (
             "src/runtime_core/collaboration/subagent.rs",
@@ -1682,9 +1683,9 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         ("src/team_execution.rs", "fn record_matches_team"),
         ("src/team_reconciliation.rs", "fn validate_team_binding"),
         ("src/team_reconciliation.rs", "fn validate_member_record"),
-        ("src/team_state.rs", "pub enum TeamStage"),
-        ("src/team_state.rs", "fn parse_members"),
-        ("src/team_state.rs", "fn render_state"),
+        (team_state_adapter, "pub enum TeamStage"),
+        (team_state_adapter, "fn parse_members"),
+        (team_state_adapter, "fn render_state"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
@@ -1706,7 +1707,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
             "src/team_reconciliation.rs",
             "validate_reconciliation_binding",
         ),
-        ("src/team_state.rs", "collaboration::team_state"),
+        (team_state_adapter, "collaboration::team_state"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
@@ -1721,7 +1722,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         ("src/team.rs", 1_400),
         ("src/team_execution.rs", 1_300),
         ("src/team_reconciliation.rs", 550),
-        ("src/team_state.rs", 850),
+        (team_state_adapter, 850),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
@@ -1730,22 +1731,27 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         );
     }
 
-    assert!(
-        !Path::new("src/subagent.rs").exists(),
-        "legacy collaboration root was restored: src/subagent.rs"
-    );
+    for legacy in ["src/subagent.rs", "src/team_state.rs"] {
+        assert!(
+            !Path::new(legacy).exists(),
+            "legacy collaboration root was restored: {legacy}"
+        );
+    }
     let main = fs::read_to_string("src/main.rs").unwrap();
-    assert!(
-        !main.lines().any(|line| line == "mod subagent;"),
-        "legacy collaboration root remains registered: mod subagent;"
-    );
+    for legacy_mod in ["mod subagent;", "mod team_state;", "pub mod team_state;"] {
+        assert!(
+            !main.lines().any(|line| line == legacy_mod),
+            "legacy collaboration root remains registered: {legacy_mod}"
+        );
+    }
     let adapter_mod = fs::read_to_string("src/app/collaboration_adapter.rs").unwrap();
-    assert!(
-        adapter_mod
-            .lines()
-            .any(|line| line == "pub(crate) mod subagent;"),
-        "subagent adapter is not registered under collaboration_adapter"
-    );
+    for child in ["subagent", "team_state"] {
+        let expected = format!("pub(crate) mod {child};");
+        assert!(
+            adapter_mod.lines().any(|line| line == expected),
+            "collaboration adapter is not registered: {child}"
+        );
+    }
 
     assert_eq!(
         fs::read_to_string("tests/subagent_lifecycle.rs")

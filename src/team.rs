@@ -1,4 +1,5 @@
 use crate::app::approval_adapter as approval;
+use crate::app::collaboration_adapter::team_state;
 use crate::app::observability_adapter as observability;
 use crate::app::policy_adapter as policy;
 use crate::foundation::error::AppError;
@@ -10,7 +11,7 @@ use crate::runtime_core::collaboration::team::{
     OwnershipCheck, OwnershipClaim, OwnershipGate, PolicyCheck, PolicyGate,
 };
 use crate::runtime_core::inference::resource;
-use crate::{adapters::filesystem::layout as paths, ledger, state, team_state};
+use crate::{adapters::filesystem::layout as paths, ledger, state};
 use std::path::{Component, Path, PathBuf};
 
 pub fn status_report() -> Result<String, AppError> {
