@@ -2307,6 +2307,35 @@ fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
     assert!(!Path::new("tests/platform").exists());
 }
 
+#[test]
+fn v03713_state_adapter_separates_source_installation_transaction() {
+    let state_adapter = "src/app/workflow_adapter/state.rs";
+    let source_install_adapter = "src/app/workflow_adapter/state/source_install.rs";
+    assert!(Path::new(state_adapter).is_file());
+    assert!(Path::new(source_install_adapter).is_file());
+
+    let state = fs::read_to_string(state_adapter).unwrap();
+    assert!(state.lines().any(|line| line == "mod source_install;"));
+    for escaped_responsibility in ["struct PreparedSourceDir", "fn recover_source_replace"] {
+        assert!(
+            !state.contains(escaped_responsibility),
+            "source installation responsibility escaped child adapter: {escaped_responsibility}"
+        );
+    }
+
+    let source_install = fs::read_to_string(source_install_adapter).unwrap();
+    for owned_responsibility in [
+        "struct PreparedSourceDir",
+        "struct PreparedRollbackDir",
+        "fn recover_source_replace",
+    ] {
+        assert!(
+            source_install.contains(owned_responsibility),
+            "source installation adapter is missing responsibility: {owned_responsibility}"
+        );
+    }
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(
