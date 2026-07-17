@@ -16,6 +16,15 @@ Each version uses a separate Goal and completes only after its tag, GitHub
 Release, required assets, checksums, workflow gates, branch cleanup, and review
 evidence are verified. The next version starts with a new Goal.
 
+The unpublished `v0.37.1` through `v0.37.12` rows are implementation
+milestones, not separately shipped artifacts. The maintainer-approved
+whole-train squash merged their exact final tree as the `v0.37.13` candidate.
+Publication therefore uses one `v0.37.13` release branch and tag; creating
+multiple tags with the same completed implementation would misrepresent the
+artifact history. This consolidation is specific to the already-completed
+v0.37.x architecture train and does not weaken the one-version release cycle
+for later roadmap versions.
+
 ## Required Version Cycle
 
 Every version must complete this sequence:

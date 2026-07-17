@@ -1,11 +1,17 @@
 # Release Notes
 
-## Unreleased v0.37.13 - Surfaces, Composition, and Legacy Removal
+## v0.37.13 - Complete Architecture Ownership Migration
+
+Release date: 2026-07-18
 
 This patch completes the behavior-preserving v0.37.x ownership migration. It
 removes the remaining root compatibility facades, gives CLI/TUI and application
 integration explicit private owners, and leaves the binary entrypoint as a thin
 delegate without changing user-visible behavior or durable contracts.
+
+The unpublished v0.37.1-v0.37.12 rows below were implementation milestones.
+Their exact final tree is consolidated into this single v0.37.13 artifact; no
+separate binaries or tags are claimed for those milestones.
 
 ### Included
 
@@ -20,6 +26,18 @@ delegate without changing user-visible behavior or durable contracts.
 - Marks every migration-ledger responsibility complete and enables the
   zero-planned/zero-exception/zero-compatibility-facade completion gate.
 
+### Verification Contract
+
+- One bounded independent review found three high-severity issues: stale
+  durable-proof selectors, an unintended public library target, and an
+  incomplete application dependency gate. All three were closed with targeted
+  regression tests without a second review.
+- The final feature candidate passed the serialized locked test suite, clippy
+  with warnings denied, release build, release-policy check, architecture
+  contract, and exact-head candidate assertion.
+- Release proof selection now requires exactly one matching test, and all 29
+  durable selectors resolve to their current private module paths.
+
 ### Compatibility Boundary
 
 - CLI commands, arguments, output, and exit codes remain unchanged.
@@ -27,9 +45,9 @@ delegate without changing user-visible behavior or durable contracts.
   bytes and ordering remain unchanged.
 - Runtime execution, recovery, approval, default-deny policy, backend behavior,
   dependencies, and synchronous operation remain unchanged.
-- Release publication and exact-candidate full CI remain pending.
+- Model weights and external plugin packages are not bundled.
 
-## Unreleased v0.37.12 - Collaboration Boundaries
+## v0.37.13 Implementation Milestone: v0.37.12 Collaboration Boundaries
 
 This patch moves side-effect-free subagent and team rules into private runtime
 owners without changing CLI behavior, durable bytes, recovery semantics,
@@ -57,7 +75,7 @@ execution order, evidence merge, or stop gates.
   worker recovery and cancellation behavior, dependencies, and synchronous
   execution remain unchanged.
 
-## Unreleased v0.37.11 - Extension Boundaries
+## v0.37.13 Implementation Milestone: v0.37.11 Extension Boundaries
 
 This patch moves side-effect-free extension rules into private runtime owners
 without changing CLI behavior, normalized plugin manifest bytes, hook ordering,
@@ -82,7 +100,93 @@ skill state, or default-deny execution policy.
 - CLI output and exit codes, persisted manifest/workflow bytes, extension
   execution order, dependencies, and synchronous execution remain unchanged.
 
-## Unreleased v0.37.7 - Projections and Observability
+## v0.37.13 Implementation Milestone: v0.37.10 Runtime and Reporting Boundaries
+
+This patch moves workflow runtime call order and report/Korean-output rules into
+private application and reporting owners without changing CLI commands, output
+bytes or field order, exit codes, or synchronous execution.
+
+### Included
+
+- Moves agent run, workflow/session resume, and patch approve/verify call order
+  into `runtime_core::workflow::application::runner` over an explicit
+  `RuntimeApplicationPort`.
+- Moves typed workflow/session resume, init, and doctor inputs plus canonical
+  field/order rendering into `runtime_core::reporting::runtime_report`.
+- Moves all streaming and non-streaming Korean output invariants into
+  `runtime_core::reporting::korean_guard`.
+- Reduces the former runtime module to a facade that composes concrete state,
+  ledger, context, patch, backend, and TUI adapters around the new owners.
+
+### Compatibility Boundary
+
+- TUI read/intent/outcome bridges remained in the staged runtime facade until
+  the v0.37.13 surface/composition completion.
+- CLI behavior and output, report field order, patch guards, recovery preflight
+  order, dependencies, and synchronous execution remain unchanged.
+
+## v0.37.13 Implementation Milestone: v0.37.9 Patch Workflow Boundaries
+
+This patch moves intent, proposal, approval credential, apply/rollback, and
+verification/recovery decisions into private patch owners without changing CLI
+output, approval-secret transfer, or source/journal installation order.
+
+### Included
+
+- Moves deterministic intent classification, constraint detection,
+  side-effect-free action candidates, and fail-closed model-action parsing into
+  `runtime_core::patch::intent`.
+- Moves proposal DTOs, deterministic IDs/diffs, canonical record bytes, and
+  strict header/hex/hash parsing into `runtime_core::patch::proposal`.
+- Moves entropy-derived approval tokens, credential hashes, and constant-time
+  comparison into `runtime_core::patch::approval`.
+- Moves stale-source/apply admission, rollback hashes, already-restored state,
+  and concurrent-edit preservation decisions into
+  `runtime_core::patch::application`.
+- Moves policy-parsed verification plans, bounded results, test-plan decisions,
+  and no-auto-rerun recovery admission into
+  `runtime_core::patch::verification`.
+
+### Compatibility Boundary
+
+- The staged intent/patch facade retained backend, skill, filesystem, process,
+  ledger, and workflow-transaction composition until v0.37.13.
+- CLI behavior and exit codes, proposal/approval bytes and hashes,
+  event/journal order, rollback, fail-closed behavior, dependencies, and
+  synchronous execution remain unchanged.
+
+## v0.37.13 Implementation Milestone: v0.37.8 Knowledge and Policy Boundaries
+
+This patch moves bounded context, evidence stop-gate, typed ontology, approval,
+and tool/path policy decisions and DTOs into private runtime owners without
+changing filesystem, ledger, transcript, or CLI behavior.
+
+### Included
+
+- Moves context pack/source pointer/resume DTOs, shared file/character budgets,
+  deduplication, prompt rendering, and truncation into
+  `runtime_core::knowledge::context`.
+- Moves evidence DTOs, fail-closed artifact-pointer rules, and stop-input
+  validation binding phase, approval, workflow, proposal, action, evidence,
+  command, and source hashes into `runtime_core::knowledge::evidence`.
+- Moves typed ontology records/JSONL codecs, latest-current projection,
+  supersession, diagnostics, compact source-first context, and import
+  validation into `runtime_core::knowledge::ontology`.
+- Moves approval request DTOs, ID validation, and redaction-aware record
+  rendering into `runtime_core::policy::approval`.
+- Moves command parsing/classification, the patch-verification allowlist, path
+  policy DTOs, and `PathPolicyPort` into
+  `runtime_core::policy::decision`.
+
+### Compatibility Boundary
+
+- The staged context/evidence/ontology/approval/policy facades retained
+  filesystem, ledger, transcript, and report composition until v0.37.13.
+- CLI output and exit codes, durable JSONL/approval/evidence bytes and hashes,
+  ledger/event order, recovery and fail-closed behavior, dependencies, and
+  synchronous execution remain unchanged.
+
+## v0.37.13 Implementation Milestone: v0.37.7 Projections and Observability
 
 This patch moves surface-neutral observability records, projection/query ports,
 monitor report use cases, and projection-lag recovery admission into private
@@ -113,7 +217,7 @@ transcript-row installation now live in explicit adapter modules.
   execution remain unchanged. SQLite remains rebuildable and is never a second
   source of truth.
 
-## Unreleased v0.37.6 - Workflow Transactions and Recovery
+## v0.37.13 Implementation Milestone: v0.37.6 Workflow Transactions and Recovery
 
 This patch moves workflow transition, cross-store transaction ordering, and
 recovery policy into private workflow domain/application owners without
@@ -144,7 +248,7 @@ synchronous runtime.
   order, recovery and fail-closed behavior, dependencies, and synchronous
   execution remain unchanged.
 
-## Unreleased v0.37.5 - Validated Domain Views
+## v0.37.13 Implementation Milestone: v0.37.5 Validated Domain Views
 
 This patch moves workflow/session/snapshot and transcript-session validation
 into private workflow-domain owners while preserving commands, durable bytes,
@@ -175,7 +279,7 @@ runtime.
   identity/order, recovery and projection order, dependencies, and the
   synchronous runtime remain unchanged.
 
-## Unreleased v0.37.4 - Workflow Storage Compatibility
+## v0.37.13 Implementation Milestone: v0.37.4 Workflow Storage Compatibility
 
 This patch establishes one canonical compatibility owner for durable workflow,
 ledger, and transcript bytes while preserving existing commands, storage
@@ -207,7 +311,7 @@ schemas, append order, recovery behavior, and the synchronous runtime.
   order, recovery and projection order, security policy, dependencies, and the
   synchronous runtime remain unchanged.
 
-## Unreleased v0.37.3 - Inference Boundary
+## v0.37.13 Implementation Milestone: v0.37.3 Inference Boundary
 
 This patch separates inference rules and durable record codecs from llama.cpp,
 process, and filesystem implementations while preserving the synchronous
@@ -240,7 +344,7 @@ runtime and all existing command behavior.
   gates, timeout/cancellation behavior, model/backend manifests, dependencies,
   and the synchronous runtime remain unchanged.
 
-## Unreleased v0.37.2 - Foundation and Platform Seams
+## v0.37.13 Implementation Milestone: v0.37.2 Foundation and Platform Seams
 
 This patch begins production ownership migration while preserving behavior and
 the synchronous runtime. It removes the completed v0.37.2 legacy module paths
@@ -269,7 +373,7 @@ instead of leaving compatibility facades.
 - The runtime remains synchronous; no async runtime, actor framework, public
   API, persisted schema, or new dependency is introduced.
 
-## Unreleased v0.37.1 - Architecture Foundation
+## v0.37.13 Implementation Milestone: v0.37.1 Architecture Foundation
 
 This patch begins the behavior-preserving code-architecture refactor required
 before v0.38.0. It defines ownership and enforcement without moving production

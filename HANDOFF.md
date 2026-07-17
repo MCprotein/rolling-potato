@@ -7,7 +7,7 @@
 ```
 
 - Remote: `https://github.com/MCprotein/rolling-potato.git`
-- Latest release: `v0.37.0`
+- Latest release: `v0.37.13`
 - CLI: `rpotato`
 - Product: local-first coding-agent runtime for small local models
 
@@ -38,7 +38,7 @@ policy, explicit approval where required, evidence recording, and verification.
 
 ## Current Release State
 
-`v0.37.0` is the current complete release. GitHub Releases provides checksummed
+`v0.37.13` is the current complete release. GitHub Releases provides checksummed
 binaries for:
 
 - macOS Apple Silicon
@@ -123,20 +123,16 @@ The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
 sequence and non-skippable release gates are defined in
 `docs/release-train.md`. The immediate sequence is:
 
-1. `v0.37.1` through `v0.37.13`: implementation is consolidated on the current
-   refactor branch. Every migration-ledger responsibility is complete, the
-   `src` root contains only the binary-owned `main.rs`, and targeted contracts pass.
-2. Complete feature delivery with one bounded independent review, a PR against
-   `main`, exact-candidate full CI, and squash merge. Do not duplicate the full
-   candidate gate locally.
-3. Publish pending v0.37.x releases only from matching `release/vX.Y.Z`
-   branches after version bump, release-policy verification, tag/assets/
-   checksums, and remote/local branch cleanup. The latest published release
-   remains `v0.37.0` until that evidence exists.
-4. Begin `v0.38.0` only after the v0.37.x release evidence is complete. Its
+1. `v0.37.1` through `v0.37.12` were unpublished implementation milestones
+   consolidated into the exact-tree `v0.37.13` release. Every migration-ledger
+   responsibility is complete and the `src` root contains only binary-owned
+   `main.rs`.
+2. `v0.38.0` begins only after the v0.37.13 tag, exact 11-asset set,
+   checksums, packaged-binary smoke evidence, and release branch cleanup are
+   verified. Its
    scope is Claude Code local plugin execution conformance through the
    established native adapter and default-deny permission boundary.
-5. `v0.39.0` onward: integrated performance hardening followed by distribution
+3. `v0.39.0` onward: integrated performance hardening followed by distribution
    and optional local monitoring surfaces.
 
 Package-manager distribution and an optional local HTML monitoring report come

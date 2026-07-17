@@ -70,19 +70,19 @@ evidence.
 | v0.35.1 | Released | Hermetic release-contract fixture that clears ambient tag context while retaining the complete v0.35 bounded subagent implementation |
 | v0.36.0 | Released | Team execution: dispatch admitted lanes, advance team stages, enforce ownership at action time, reconcile results, handle failed lanes, and apply verification/stop gates before completion |
 | v0.37.0 | Released | Codex plugin execution adapter: execute supported locally imported capabilities through native policy/hook/skill boundaries while shell, MCP, background, remote, and write capabilities remain blocked until explicit approval |
-| v0.37.1 | Implemented | Architecture foundation: canonical bilingual code-architecture contract, complete migration ledger, private compile-connected module skeleton, architecture contract test, and exact-head candidate CI without production logic movement; release pending |
-| v0.37.2 | Implemented | Foundation and platform seams: filesystem, terminal, configuration, checksum, strict serialization, lease, cache, and Windows atomic replacement ownership; release pending |
-| v0.37.3 | Implemented | Inference boundary: backend, model, benchmark, resource, lifecycle, stream, and promotion rules separated from llama.cpp, process, and filesystem adapters; release pending |
-| v0.37.4 | Implemented | Canonical workflow storage compatibility: byte-identical workflow/ledger/transcript DTOs and codecs, isolated append/install ownership, and focused byte/order/hash/failure contracts; release pending |
-| v0.37.5 | Implemented | Validated workflow/session/snapshot and transcript-session views now own fail-closed binding, ordering, and duplicate-event rules around the unchanged storage compatibility boundary; release pending |
-| v0.37.6 | Implemented | Workflow application owners now select legal transition records, exact event progression, prepared workflow/current-state recovery, projection-lag recovery admission, and state/checkpoint/reconcile/approval/verification/terminal cross-store order; release pending |
-| v0.37.7 | Implemented | Observability boundary: runtime-owned projection/query/monitor ports and reports, isolated SQLite observability/ledger/transcript projections, and workflow-owned projection-lag recovery admission; release pending |
-| v0.37.8 | Implemented | Knowledge and policy boundaries: bounded context, evidence stop inputs, ontology projection, approval records, and fail-closed tool/path decisions; release pending |
-| v0.37.9 | Implemented | Patch boundary: deterministic intent/plans, canonical proposals, approval credentials, guarded apply/rollback, and bounded verification/recovery; release pending |
-| v0.37.10 | Implemented | Runtime and reporting boundaries: port-based workflow runner, typed surface-neutral reports, and Korean output invariants; release pending |
-| v0.37.11 | Implemented | Extension boundary: hook ordering/fail-closed decisions, skill manifest/state/policy, and plugin frontmatter/capability/default-deny ownership; release pending |
-| v0.37.12 | Implemented | Collaboration boundary: subagent launch/result policy, team admission and stage decisions, canonical persisted state, execution/action ownership, reconciliation artifacts, and grouped lifecycle integration contracts; release pending |
-| v0.37.13 | Implemented | Surface and composition completion: CLI/TUI ownership, startup and dispatch wiring, uninstall orchestration, application adapters under `app`, binary-owned private composition with a thin `main`, zero root compatibility facades, and complete migration ledger; release pending |
+| v0.37.1 | Consolidated | Unpublished architecture-foundation implementation milestone included in the exact-tree v0.37.13 release |
+| v0.37.2 | Consolidated | Unpublished foundation-and-platform implementation milestone included in the exact-tree v0.37.13 release |
+| v0.37.3 | Consolidated | Unpublished inference-boundary implementation milestone included in the exact-tree v0.37.13 release |
+| v0.37.4 | Consolidated | Unpublished workflow-storage-compatibility implementation milestone included in the exact-tree v0.37.13 release |
+| v0.37.5 | Consolidated | Unpublished validated-domain-view implementation milestone included in the exact-tree v0.37.13 release |
+| v0.37.6 | Consolidated | Unpublished workflow-transaction-and-recovery implementation milestone included in the exact-tree v0.37.13 release |
+| v0.37.7 | Consolidated | Unpublished observability-boundary implementation milestone included in the exact-tree v0.37.13 release |
+| v0.37.8 | Consolidated | Unpublished knowledge-and-policy implementation milestone included in the exact-tree v0.37.13 release |
+| v0.37.9 | Consolidated | Unpublished patch-boundary implementation milestone included in the exact-tree v0.37.13 release |
+| v0.37.10 | Consolidated | Unpublished runtime-and-reporting implementation milestone included in the exact-tree v0.37.13 release |
+| v0.37.11 | Consolidated | Unpublished extension-boundary implementation milestone included in the exact-tree v0.37.13 release |
+| v0.37.12 | Consolidated | Unpublished collaboration-boundary implementation milestone included in the exact-tree v0.37.13 release |
+| v0.37.13 | Released | Complete behavior-preserving architecture ownership migration: private `app`/`composition`/`surfaces`/`runtime_core`/`adapters`/`foundation` roots, thin binary entrypoint, zero root compatibility facades, and complete migration ledger |
 | v0.38.0 | Planned | Claude Code plugin execution adapter: map supported local capabilities onto the established native adapter contract, report unsupported semantics, and preserve the same default-deny permission boundary |
 | v0.39.0 | Planned | Integrated performance hardening: benchmark completed agent/subagent/team workflows, optimize CPU/RSS/context/token usage from measured evidence, and promote regressions into reproducible fixtures without unsupported model claims |
 | v0.40.0 | Planned | Package-manager distribution: decide and implement maintainable Homebrew/Scoop/winget channels against signed or checksummed GitHub Release assets, with install/upgrade/uninstall validation |
