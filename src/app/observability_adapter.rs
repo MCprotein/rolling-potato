@@ -1,4 +1,4 @@
-//! Compatibility facade for surface-neutral observability projection ports.
+//! Concrete wiring for surface-neutral observability projection ports.
 
 use crate::adapters::sqlite::observability_projection::SqliteObservabilityProjection;
 use crate::foundation::error::AppError;

@@ -8,7 +8,6 @@ mod foundation;
 mod hooks;
 mod intent;
 mod ledger;
-mod observability;
 mod ontology;
 mod patch;
 mod plugin;

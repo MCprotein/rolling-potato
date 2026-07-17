@@ -906,7 +906,7 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     );
 
     for (facade_path, forbidden) in [
-        ("src/observability.rs", "rusqlite"),
+        ("src/app/observability_adapter.rs", "rusqlite"),
         ("src/app/monitor_adapter.rs", "performance baseline\\n"),
         ("src/ledger.rs", "rusqlite::Connection"),
     ] {
@@ -922,6 +922,10 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     assert!(monitor_adapter.contains("impl MonitorQueryPort for LocalMonitorQueryPort"));
     let main = fs::read_to_string("src/main.rs").unwrap();
     assert!(!main.lines().any(|line| line == "mod monitor;"));
+    assert!(!Path::new("src/observability.rs").exists());
+    let observability_adapter = fs::read_to_string("src/app/observability_adapter.rs").unwrap();
+    assert!(observability_adapter.contains("impl CanonicalLedgerReadPort"));
+    assert!(!main.lines().any(|line| line == "mod observability;"));
 }
 
 #[test]

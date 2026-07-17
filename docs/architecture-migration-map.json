@@ -2430,15 +2430,16 @@
       ]
     },
     {
-      "path": "src/observability.rs",
+      "path": "src/app/observability_adapter.rs",
       "slices": [
         {
-          "responsibility": "observability events and queries",
-          "target": "src/runtime_core/observability/facade.rs",
+          "responsibility": "surface-neutral observability port wiring",
+          "target": "src/app/observability_adapter.rs",
           "release": "0.37.7",
           "state": "complete",
           "evidence": [
             "src/runtime_core/observability/facade.rs",
+            "src/app/observability_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         },
@@ -2449,6 +2450,7 @@
           "state": "complete",
           "evidence": [
             "src/adapters/sqlite/observability_projection.rs",
+            "src/app/observability_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5036,9 +5038,9 @@
       ]
     },
     {
-      "path": "src/observability.rs",
+      "path": "src/app/observability_adapter.rs",
       "responsibilities": [
-        "observability events and queries",
+        "surface-neutral observability port wiring",
         "SQLite observability projection"
       ]
     },

@@ -1,4 +1,5 @@
 use crate::app::inference_adapter::backend;
+use crate::app::observability_adapter as observability;
 use crate::foundation::error::AppError;
 use crate::runtime_core::collaboration::team::pressure_from_status;
 use crate::runtime_core::collaboration::team_execution::{
@@ -8,8 +9,8 @@ use crate::runtime_core::collaboration::team_execution::{
 };
 use crate::runtime_core::inference::resource;
 use crate::{
-    adapters::filesystem::layout as paths, adapters::filesystem::lease, ledger, observability,
-    subagent, team_state,
+    adapters::filesystem::layout as paths, adapters::filesystem::lease, ledger, subagent,
+    team_state,
 };
 use std::collections::BTreeMap;
 

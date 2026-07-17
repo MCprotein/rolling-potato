@@ -165,7 +165,7 @@ impl TuiReadPort for LegacyTuiReadPort {
     fn store_status(
         &mut self,
     ) -> Result<crate::runtime_core::observability::facade::StoreStatus, AppError> {
-        crate::observability::status_read_only()
+        crate::app::observability_adapter::status_read_only()
     }
 
     fn monitor_snapshot(
@@ -173,7 +173,7 @@ impl TuiReadPort for LegacyTuiReadPort {
         limit: usize,
     ) -> Result<crate::runtime_core::observability::facade::MonitorProjectionSnapshot, AppError>
     {
-        crate::observability::monitor_snapshot_read_only(limit)
+        crate::app::observability_adapter::monitor_snapshot_read_only(limit)
     }
 
     fn transcript_record(
@@ -276,6 +276,7 @@ mod report_composition {
     use super::{canonical_read_page, AppError, TuiReadBudget, TuiReadRequest};
     use crate::adapters::filesystem::layout as paths;
     use crate::app::inference_adapter::model;
+    use crate::app::observability_adapter as observability;
     use crate::surfaces::tui::render::terminal_width;
     use crate::surfaces::tui::report_render::{
         canonical_page_report, render_evidence_report, render_monitor_report,
@@ -287,7 +288,7 @@ mod report_composition {
         SessionsReportView, TimelineEventView, TranscriptRecordView, TranscriptReportView,
         TranscriptSessionView,
     };
-    use crate::{evidence, ledger, observability};
+    use crate::{evidence, ledger};
 
     pub fn overview_report() -> Result<String, AppError> {
         let width = terminal_width();
@@ -485,12 +486,13 @@ mod tests {
     use super::*;
     use crate::adapters::filesystem::layout as paths;
     use crate::adapters::terminal::native::{ScriptedTerminal, TerminalFault};
+    use crate::app::observability_adapter as observability;
     use crate::surfaces::tui::controller::{consume_outcome, run_controller};
     use crate::surfaces::tui::outcome::verification_credential_issued;
     use crate::surfaces::tui::render::{render_interactive_frame, sanitize_terminal_text};
     use crate::surfaces::tui::runtime_bridge::{OneShotSecret, TuiFreshness, TuiReadContinuation};
     use crate::surfaces::tui::view_model::{InteractiveState, InteractiveView};
-    use crate::{ledger, observability, patch};
+    use crate::{ledger, patch};
 
     #[test]
     fn interactive_view_change_resets_page_and_updates_notice() {
@@ -892,19 +894,21 @@ mod tests {
         std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
         crate::state::initialize().unwrap();
 
-        crate::observability::record_resource_sample(&crate::observability::ResourceSampleMetric {
-            resource_sample_id: "resource-sample-tui-approvals-team".to_string(),
-            session_id: "session-tui-approvals-team".to_string(),
-            backend_id: "llama.cpp".to_string(),
-            pid: 4242,
-            process_cpu_percent: Some(12.0),
-            average_rss_bytes: Some(512 * 1024 * 1024),
-            peak_rss_bytes: Some(512 * 1024 * 1024),
-            disk_bytes: Some(2048),
-            sample_count: 1,
-            pressure_status: "normal".to_string(),
-            recorded_at_ms: 1234,
-        })
+        crate::app::observability_adapter::record_resource_sample(
+            &crate::app::observability_adapter::ResourceSampleMetric {
+                resource_sample_id: "resource-sample-tui-approvals-team".to_string(),
+                session_id: "session-tui-approvals-team".to_string(),
+                backend_id: "llama.cpp".to_string(),
+                pid: 4242,
+                process_cpu_percent: Some(12.0),
+                average_rss_bytes: Some(512 * 1024 * 1024),
+                peak_rss_bytes: Some(512 * 1024 * 1024),
+                disk_bytes: Some(2048),
+                sample_count: 1,
+                pressure_status: "normal".to_string(),
+                recorded_at_ms: 1234,
+            },
+        )
         .unwrap();
         let err =
             crate::team::admission_report(2, &["README.md".to_string()], &[], &[]).unwrap_err();

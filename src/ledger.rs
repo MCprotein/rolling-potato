@@ -310,7 +310,7 @@ impl EventSink<'_> {
     pub(crate) fn converge_derived(&self, project_id: &str) -> Result<(), AppError> {
         self.guard.converge_derived(project_id)?;
         let events = self.guard.events()?;
-        crate::observability::converge_from_events(&events)
+        crate::app::observability_adapter::converge_from_events(&events)
     }
 
     pub(crate) fn converge_prepared(
@@ -336,7 +336,7 @@ impl EventSink<'_> {
         }
         self.guard.converge_derived(&bundle.project_id)?;
         let events = self.guard.events()?;
-        crate::observability::converge_from_events(&events)?;
+        crate::app::observability_adapter::converge_from_events(&events)?;
         validate_prepared_runtime_suffix(&events, &prepared)?;
         validate_derived_outputs_unlocked(&events, &bundle.project_id)?;
         crate::transition::validate_committed_bundle_cleanup_authority(bundle, journal)
@@ -1647,7 +1647,8 @@ mod tests {
         let second = new_event_for(&identity, "t10.second", "두 번째 이벤트", "safe=two");
         append_event(&first).unwrap();
         append_event(&second).unwrap();
-        crate::observability::converge_from_events(&read_runtime_events().unwrap()).unwrap();
+        crate::app::observability_adapter::converge_from_events(&read_runtime_events().unwrap())
+            .unwrap();
 
         let project_path = paths::project_session_ledger_file();
         {
@@ -1673,7 +1674,7 @@ mod tests {
         let writer = LedgerWriterGuard::acquire().unwrap();
         writer.converge_derived(&identity.project_id).unwrap();
         let runtime = writer.events().unwrap();
-        crate::observability::converge_from_events(&runtime).unwrap();
+        crate::app::observability_adapter::converge_from_events(&runtime).unwrap();
         drop(writer);
 
         let project_events = runtime
@@ -1755,7 +1756,7 @@ mod tests {
         );
         let writer = LedgerWriterGuard::acquire().unwrap();
         writer.converge_derived(&identity.project_id).unwrap();
-        crate::observability::converge_from_events(&writer.events().unwrap()).unwrap();
+        crate::app::observability_adapter::converge_from_events(&writer.events().unwrap()).unwrap();
         drop(writer);
         assert_eq!(
             before_restart,

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::adapters::filesystem::{layout as paths, lease};
+use crate::app::observability_adapter as observability;
 use crate::context::SourcePointer;
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
@@ -19,7 +20,7 @@ use crate::runtime_core::workflow::storage_compat::transcript::{
 pub use crate::runtime_core::workflow::storage_compat::transcript::{
     ToolOutputArtifactBinding, TranscriptRecord, TranscriptSourcePointer,
 };
-use crate::{observability, state};
+use crate::state;
 
 const MAX_SANITIZED_STREAM_BYTES: usize = 64 * 1024;
 const MAX_TOOL_ARTIFACT_BYTES: usize = 256 * 1024;
@@ -1741,7 +1742,9 @@ mod tests {
         assert_eq!(first, repeated);
         assert_eq!(records_for_session(&workflow.session_id).unwrap().len(), 2);
         assert_eq!(
-            crate::observability::status().unwrap().transcript_records,
+            crate::app::observability_adapter::status()
+                .unwrap()
+                .transcript_records,
             2
         );
         assert_projection_order(&[&first.record_id, &second.record_id]);
@@ -1807,7 +1810,9 @@ mod tests {
         let _ = fs::remove_file(db.with_extension("sqlite-wal"));
         let _ = fs::remove_file(db.with_extension("sqlite-shm"));
         assert_eq!(
-            crate::observability::status().unwrap().transcript_records,
+            crate::app::observability_adapter::status()
+                .unwrap()
+                .transcript_records,
             2
         );
         assert_projection_order(&[&first.record_id, &second.record_id]);

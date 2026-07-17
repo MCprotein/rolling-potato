@@ -6,7 +6,9 @@ use std::path::{Path, PathBuf};
 use crate::adapters::filesystem::benchmark_artifact;
 #[cfg(test)]
 use crate::adapters::filesystem::layout as paths;
+use crate::app::observability_adapter as observability;
 use crate::foundation::error::AppError;
+use crate::ledger;
 use crate::runtime_core::inference::backend::BackendChatRun;
 #[cfg(test)]
 use crate::runtime_core::inference::backend::BackendChatSampling;
@@ -22,7 +24,6 @@ use crate::runtime_core::inference::benchmark::ADOPTION_EXACT_RESPONSE;
 use crate::runtime_core::inference::benchmark::{
     self as benchmark_policy, BenchmarkScore, BenchmarkScoringPolicy,
 };
-use crate::{ledger, observability};
 
 use super::backend;
 

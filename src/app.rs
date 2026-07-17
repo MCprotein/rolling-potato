@@ -4,6 +4,7 @@ use crate::foundation::error::AppError;
 pub(crate) mod inference_adapter;
 mod legacy_dispatch;
 mod monitor_adapter;
+pub(crate) mod observability_adapter;
 
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {
     dispatch::run(args, &mut legacy_dispatch::LegacyCommandDispatchPort)
