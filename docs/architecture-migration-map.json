@@ -2270,6 +2270,25 @@
             "src/composition/inference.rs",
             "src/app/legacy_dispatch.rs",
             "src/app/inference_adapter/benchmark.rs",
+            "src/app/inference_adapter/benchmark/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/benchmark/tests.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark validation, recording, executable scoring, parser rejection, and canonical adoption regression tests",
+          "target": "src/app/inference_adapter/benchmark/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/benchmark.rs",
+            "src/app/inference_adapter/benchmark/tests.rs",
+            "src/runtime_core/inference/benchmark.rs",
+            "src/adapters/filesystem/benchmark_artifact.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6724,6 +6743,12 @@
       "path": "src/app/inference_adapter/benchmark.rs",
       "responsibilities": [
         "benchmark concrete integration adapter"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/benchmark/tests.rs",
+      "responsibilities": [
+        "benchmark validation, recording, executable scoring, parser rejection, and canonical adoption regression tests"
       ]
     },
     {
