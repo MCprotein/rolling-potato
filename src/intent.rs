@@ -1,4 +1,5 @@
 use crate::adapters::filesystem::layout as paths;
+use crate::app::extensions_adapter::{hooks, skill};
 use crate::app::inference_adapter::backend;
 use crate::context::{self, ContextPack, ResumeContext};
 use crate::foundation::error::AppError;
@@ -7,7 +8,6 @@ use crate::runtime_core::patch::intent::{
     has_any, model_action_body, parse_model_action, plan_action_candidate, ActionCandidate,
     IntentSkill, ParsedModelAction,
 };
-use crate::skill;
 use crate::state;
 
 pub use crate::runtime_core::patch::intent::IntentDecision;
@@ -742,8 +742,8 @@ fn dispatch_skill_hook(
     payload: &str,
     tool: Option<&str>,
 ) -> Result<(), AppError> {
-    crate::hooks::dispatch_native_lifecycle_for_skill(
-        crate::hooks::HookInput {
+    hooks::dispatch_native_lifecycle_for_skill(
+        hooks::HookInput {
             hook,
             workflow_id: Some(&workflow.workflow_id),
             active_skill_id: Some(&runtime.active_skill_id),

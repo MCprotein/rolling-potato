@@ -1,16 +1,16 @@
 use crate::adapters::filesystem::cache;
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::{capability, native};
+use crate::app::extensions_adapter::hooks;
+use crate::app::extensions_adapter::skill;
 use crate::composition::{config, dispatch, inference, uninstall};
 use crate::evidence;
 use crate::foundation::error::AppError;
-use crate::hooks;
 use crate::intent;
 use crate::ontology;
 use crate::patch;
 use crate::plugin;
 use crate::runtime;
-use crate::skill;
 use crate::state;
 use crate::subagent;
 use crate::surfaces::cli::{

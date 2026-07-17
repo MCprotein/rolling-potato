@@ -1,3 +1,4 @@
+use crate::app::extensions_adapter::skill;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::extensions::plugin::*;
@@ -49,14 +50,14 @@ struct DirectoryScan {
 
 pub fn resolve_imported_codex_skill(
     id: &str,
-) -> Result<Option<crate::skill::ImportedSkillManifest>, AppError> {
+) -> Result<Option<skill::ImportedSkillManifest>, AppError> {
     resolve_imported_codex_skill_inner(id, true)
 }
 
 fn resolve_imported_codex_skill_inner(
     id: &str,
     require_enabled: bool,
-) -> Result<Option<crate::skill::ImportedSkillManifest>, AppError> {
+) -> Result<Option<skill::ImportedSkillManifest>, AppError> {
     let Some(tail) = id.strip_prefix("imported.codex.") else {
         return Ok(None);
     };
@@ -156,7 +157,7 @@ fn resolve_imported_codex_skill_inner(
         )));
     }
     let source_sha256 = checksum::sha256_file(&path)?;
-    Ok(Some(crate::skill::ImportedSkillManifest {
+    Ok(Some(skill::ImportedSkillManifest {
         id: id.to_string(),
         display_name: parsed.name,
         description: parsed.description,
@@ -171,7 +172,7 @@ pub fn revalidate_completed_codex_skill(
     id: &str,
     expected_source_path: &str,
     expected_source_sha256: &str,
-) -> Result<crate::skill::ImportedSkillManifest, AppError> {
+) -> Result<skill::ImportedSkillManifest, AppError> {
     let manifest = resolve_imported_codex_skill_inner(id, false)?
         .ok_or_else(|| AppError::blocked("completed plugin skill manifest를 찾지 못했습니다."))?;
     if manifest.source_path != expected_source_path
@@ -1455,7 +1456,7 @@ mod tests {
         assert_eq!(skill.source_path, "skills/hello/SKILL.md");
         assert_eq!(skill.instructions, "요청을 한국어로 요약하세요.");
         assert_eq!(skill.source_sha256.len(), 64);
-        assert!(crate::skill::list_report().contains("imported.codex.safe-plugin.hello"));
+        assert!(skill::list_report().contains("imported.codex.safe-plugin.hello"));
 
         cleanup_codex_skill_test(root, data_root);
     }
@@ -1573,7 +1574,7 @@ mod tests {
         import_report(PluginSource::Codex, root.to_str().unwrap(), false).unwrap();
         set_enabled_report("imported.codex.my-plugin-v1-0", true).unwrap();
 
-        let report = crate::skill::list_report();
+        let report = skill::list_report();
         assert!(report.contains("imported.codex.my-plugin-v1-0.hello"));
         assert!(!report.contains("imported.codex.My Plugin_v1.0.hello"));
 

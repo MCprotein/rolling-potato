@@ -1797,6 +1797,23 @@
       ]
     },
     {
+      "path": "src/app/extensions_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "concrete extension adapter module wiring",
+          "target": "src/app/extensions_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/extensions_adapter.rs",
+            "src/app/extensions_adapter/hooks.rs",
+            "src/app/extensions_adapter/skill.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend.rs",
       "slices": [
         {
@@ -2199,15 +2216,16 @@
       ]
     },
     {
-      "path": "src/hooks.rs",
+      "path": "src/app/extensions_adapter/hooks.rs",
       "slices": [
         {
-          "responsibility": "hook lifecycle and ordering",
-          "target": "src/runtime_core/extensions/hook.rs",
-          "release": "0.37.11",
+          "responsibility": "hook lifecycle state and ledger adapter",
+          "target": "src/app/extensions_adapter/hooks.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/extensions/hook.rs",
+            "src/app/extensions_adapter/hooks.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3322,15 +3340,16 @@
       ]
     },
     {
-      "path": "src/skill.rs",
+      "path": "src/app/extensions_adapter/skill.rs",
       "slices": [
         {
-          "responsibility": "skill manifest lifecycle and execution facade",
-          "target": "src/runtime_core/extensions/skill.rs",
-          "release": "0.37.11",
+          "responsibility": "skill resolution and workflow persistence adapter",
+          "target": "src/app/extensions_adapter/skill.rs",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/extensions/skill.rs",
+            "src/app/extensions_adapter/skill.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4812,6 +4831,12 @@
       ]
     },
     {
+      "path": "src/app/extensions_adapter.rs",
+      "responsibilities": [
+        "concrete extension adapter module wiring"
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend.rs",
       "responsibilities": [
         "backend concrete integration adapter"
@@ -4974,9 +4999,9 @@
       ]
     },
     {
-      "path": "src/hooks.rs",
+      "path": "src/app/extensions_adapter/hooks.rs",
       "responsibilities": [
-        "hook lifecycle and ordering"
+        "hook lifecycle state and ledger adapter"
       ]
     },
     {
@@ -5392,9 +5417,9 @@
       ]
     },
     {
-      "path": "src/skill.rs",
+      "path": "src/app/extensions_adapter/skill.rs",
       "responsibilities": [
-        "skill manifest lifecycle and execution facade"
+        "skill resolution and workflow persistence adapter"
       ]
     },
     {

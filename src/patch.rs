@@ -8,6 +8,7 @@ use std::time::SystemTime;
 use sha2::{Digest, Sha256};
 
 use crate::adapters::filesystem::{layout as paths, lease};
+use crate::app::extensions_adapter::{hooks, skill};
 use crate::app::policy_adapter::{self as policy, Decision, PathMode};
 use crate::foundation::error::AppError;
 use crate::ledger;
@@ -442,7 +443,7 @@ fn approve_prepared_skill_transaction(
     })?;
     validate_skill_verification(&runtime.active_skill_id, &record.verification_command)?;
     validate_failing_test_before(&current, &runtime)?;
-    if runtime.state != crate::skill::SkillState::AwaitingApproval {
+    if runtime.state != skill::SkillState::AwaitingApproval {
         return Err(AppError::blocked(format!(
             "skill side effect 차단\n- workflow phase: {}\n- skill state: {}\n- expected skill state: awaiting-approval",
             current.phase,
@@ -519,7 +520,7 @@ fn approve_prepared_skill_transaction(
         &identity,
     )?;
     runtime.record_stop_criterion("patch_applied");
-    runtime.transition(crate::skill::SkillState::AwaitingVerification)?;
+    runtime.transition(skill::SkillState::AwaitingVerification)?;
     let e7 = ledger::new_event_for(
         &identity,
         "patch.applied",
@@ -634,16 +635,16 @@ fn approve_prepared_skill_transaction(
 
 fn prepare_transaction_hook_event(
     workflow: &state::WorkflowRecord,
-    runtime: &mut crate::skill::SkillRuntimeState,
+    runtime: &mut skill::SkillRuntimeState,
     hook: &str,
     tool: &str,
     identity: &ledger::RuntimeIdentity,
 ) -> Result<ledger::LedgerEvent, AppError> {
-    let mode = crate::skill::find_skill(&runtime.active_skill_id)
+    let mode = skill::find_skill(&runtime.active_skill_id)
         .map(|manifest| manifest.mode)
         .unwrap_or("unknown");
-    let (_, event) = crate::hooks::prepare_native_lifecycle_event(
-        crate::hooks::HookInput {
+    let (_, event) = hooks::prepare_native_lifecycle_event(
+        hooks::HookInput {
             hook,
             workflow_id: Some(&workflow.workflow_id),
             active_skill_id: Some(&runtime.active_skill_id),
@@ -993,7 +994,7 @@ pub(crate) fn recover_prepared_verification_bundle(
     let runtime = workflow_skill_runtime(&revision.record)?.ok_or_else(|| {
         AppError::blocked("prepared verification active built-in skill manifest 누락")
     })?;
-    if runtime.state != crate::skill::SkillState::AwaitingVerification {
+    if runtime.state != skill::SkillState::AwaitingVerification {
         return Err(AppError::blocked(
             "prepared verification skill state binding 불일치",
         ));
@@ -1110,7 +1111,7 @@ fn validate_prepared_approval_semantics(
             "prepared approval E0/E2/E7 source/workflow semantic binding 불일치",
         ));
     }
-    let manifest = crate::skill::find_skill(&approved.active_skill_id).ok_or_else(|| {
+    let manifest = skill::find_skill(&approved.active_skill_id).ok_or_else(|| {
         AppError::blocked("prepared approval active built-in skill manifest 누락")
     })?;
     for (index, hook, tool) in [
@@ -1119,8 +1120,8 @@ fn validate_prepared_approval_semantics(
         (5, "post_patch_apply", None),
         (6, "post_tool_result", Some("apply_patch")),
     ] {
-        crate::hooks::validate_prepared_native_lifecycle_event(
-            crate::hooks::HookInput {
+        hooks::validate_prepared_native_lifecycle_event(
+            hooks::HookInput {
                 hook,
                 workflow_id: Some(&approved.workflow_id),
                 active_skill_id: Some(&approved.active_skill_id),
@@ -1295,7 +1296,7 @@ fn approve_prepared_verification_transaction(
             "prepared verification은 registered built-in skill workflow가 필요합니다.",
         )
     })?;
-    if runtime.state != crate::skill::SkillState::AwaitingVerification {
+    if runtime.state != skill::SkillState::AwaitingVerification {
         return Err(AppError::blocked(format!(
             "verification side effect 차단\n- skill state: {}\n- expected skill state: awaiting-verification",
             runtime.state.label()
@@ -1503,7 +1504,7 @@ fn continue_approved_workflow(
     }
     let first_apply = skill_runtime
         .as_ref()
-        .is_some_and(|runtime| runtime.state == crate::skill::SkillState::AwaitingApproval);
+        .is_some_and(|runtime| runtime.state == skill::SkillState::AwaitingApproval);
     if first_apply {
         let current = workflow.as_ref().expect("skill workflow requires workflow");
         let runtime = skill_runtime.as_mut().expect("checked above");
@@ -1518,7 +1519,7 @@ fn continue_approved_workflow(
             Err(err) => {
                 if let Some(current) = workflow.as_mut() {
                     if let Some(runtime) = skill_runtime.as_mut() {
-                        let _ = runtime.transition(crate::skill::SkillState::Failed);
+                        let _ = runtime.transition(skill::SkillState::Failed);
                         runtime.store_in_workflow(current);
                     }
                     current.phase = "failed".to_string();
@@ -1552,7 +1553,7 @@ fn continue_approved_workflow(
         dispatch_workflow_skill_hook(current, runtime, "post_patch_apply", "apply_patch")?;
         dispatch_workflow_skill_hook(current, runtime, "post_tool_result", "apply_patch")?;
         runtime.record_stop_criterion("patch_applied");
-        runtime.transition(crate::skill::SkillState::AwaitingVerification)?;
+        runtime.transition(skill::SkillState::AwaitingVerification)?;
     }
     let verification = if let Some(plan) = verification_plan.as_ref() {
         if let Some(current) = workflow.as_mut() {
@@ -1609,7 +1610,7 @@ fn continue_approved_workflow(
                 current.evidence_id = evidence.evidence_id;
                 current.evidence_hash = evidence.artifact_hash;
                 if let Some(runtime) = skill_runtime.as_mut() {
-                    let _ = runtime.transition(crate::skill::SkillState::Failed);
+                    let _ = runtime.transition(skill::SkillState::Failed);
                     runtime.store_in_workflow(current);
                 }
                 current.phase = "failed".to_string();
@@ -1776,20 +1777,20 @@ fn continue_approved_workflow(
 
 fn workflow_skill_runtime(
     workflow: &state::WorkflowRecord,
-) -> Result<Option<crate::skill::SkillRuntimeState>, AppError> {
+) -> Result<Option<skill::SkillRuntimeState>, AppError> {
     if workflow.active_skill_id.is_empty() {
         return Ok(None);
     }
-    crate::skill::SkillRuntimeState::from_workflow(workflow).map(Some)
+    skill::SkillRuntimeState::from_workflow(workflow).map(Some)
 }
 
 fn validate_skill_phase_for_side_effect(
     workflow: &state::WorkflowRecord,
-    runtime: &crate::skill::SkillRuntimeState,
+    runtime: &skill::SkillRuntimeState,
 ) -> Result<(), AppError> {
     let expected = match workflow.phase.as_str() {
-        "approved" => crate::skill::SkillState::AwaitingApproval,
-        "verification-started" => crate::skill::SkillState::AwaitingVerification,
+        "approved" => skill::SkillState::AwaitingApproval,
+        "verification-started" => skill::SkillState::AwaitingVerification,
         _ => {
             return Err(AppError::blocked(format!(
                 "skill side effect 차단\n- workflow phase: {}\n- 이유: side effect를 허용하는 phase가 아닙니다.",
@@ -1810,7 +1811,7 @@ fn validate_skill_phase_for_side_effect(
 
 fn validate_failing_test_before(
     workflow: &state::WorkflowRecord,
-    runtime: &crate::skill::SkillRuntimeState,
+    runtime: &skill::SkillRuntimeState,
 ) -> Result<(), AppError> {
     if runtime.active_skill_id != "fix-test" {
         return Ok(());
@@ -1843,7 +1844,7 @@ fn validate_completed_workflow(workflow: &state::WorkflowRecord) -> Result<(), A
         ));
     }
     if let Some(runtime) = workflow_skill_runtime(workflow)? {
-        if runtime.state != crate::skill::SkillState::Complete {
+        if runtime.state != skill::SkillState::Complete {
             return Err(AppError::blocked(format!(
                 "workflow complete 검증 차단\n- skill: {}\n- skill state: {}",
                 runtime.active_skill_id,
@@ -1859,7 +1860,7 @@ fn validate_completed_workflow(workflow: &state::WorkflowRecord) -> Result<(), A
 
 fn validate_completed_plugin_workflow(
     workflow: &state::WorkflowRecord,
-) -> Result<crate::skill::ImportedSkillManifest, AppError> {
+) -> Result<skill::ImportedSkillManifest, AppError> {
     if workflow.phase != "complete" || workflow.workflow_kind != "plugin-capability" {
         return Err(AppError::blocked(
             "plugin workflow complete 검증 차단\n- 이유: complete plugin-capability workflow가 아닙니다.",
@@ -1883,9 +1884,9 @@ fn validate_completed_plugin_workflow(
         &workflow.source_path,
         &workflow.source_hash,
     )?;
-    let resolved = crate::skill::ResolvedSkillManifest::Imported(imported.clone());
-    let runtime = crate::skill::SkillRuntimeState::from_workflow_against(workflow, &resolved)?;
-    if runtime.state != crate::skill::SkillState::Complete {
+    let resolved = skill::ResolvedSkillManifest::Imported(imported.clone());
+    let runtime = skill::SkillRuntimeState::from_workflow_against(workflow, &resolved)?;
+    if runtime.state != skill::SkillState::Complete {
         return Err(AppError::blocked(format!(
             "plugin workflow complete 검증 차단\n- skill: {}\n- skill state: {}",
             runtime.active_skill_id,
@@ -1914,7 +1915,7 @@ fn validate_completed_plugin_workflow(
 
 fn plugin_completion_event_exists(
     workflow: &state::WorkflowRecord,
-    imported: &crate::skill::ImportedSkillManifest,
+    imported: &skill::ImportedSkillManifest,
 ) -> Result<bool, AppError> {
     ledger::event_details_match(
         "plugin.capability.completed",
@@ -1931,7 +1932,7 @@ fn plugin_completion_event_exists(
 
 fn plugin_completion_event_details(
     workflow: &state::WorkflowRecord,
-    imported: &crate::skill::ImportedSkillManifest,
+    imported: &skill::ImportedSkillManifest,
 ) -> String {
     format!(
         "workflow_id={} plugin_id={} skill_id={} source_path={} source_sha256={} side_effects=none",
@@ -1945,7 +1946,7 @@ fn plugin_completion_event_details(
 
 fn ensure_plugin_completion_event(
     workflow: &state::WorkflowRecord,
-    imported: &crate::skill::ImportedSkillManifest,
+    imported: &skill::ImportedSkillManifest,
 ) -> Result<(), AppError> {
     if plugin_completion_event_exists(workflow, imported)? {
         return Ok(());
@@ -1968,7 +1969,7 @@ fn ensure_plugin_completion_event(
 fn ensure_plugin_completion_event_under_transition(
     transition_guard: &crate::transition::TransitionGuard,
     workflow: &state::WorkflowRecord,
-    imported: &crate::skill::ImportedSkillManifest,
+    imported: &skill::ImportedSkillManifest,
 ) -> Result<(), AppError> {
     if plugin_completion_event_exists(workflow, imported)? {
         return Ok(());
@@ -2002,16 +2003,16 @@ fn plugin_completion_recovery_report(workflow: &state::WorkflowRecord) -> String
 
 fn dispatch_workflow_skill_hook(
     workflow: &state::WorkflowRecord,
-    runtime: &mut crate::skill::SkillRuntimeState,
+    runtime: &mut skill::SkillRuntimeState,
     hook: &str,
     tool: &str,
 ) -> Result<(), AppError> {
-    crate::hooks::dispatch_native_lifecycle(
-        crate::hooks::HookInput {
+    hooks::dispatch_native_lifecycle(
+        hooks::HookInput {
             hook,
             workflow_id: Some(&workflow.workflow_id),
             active_skill_id: Some(&runtime.active_skill_id),
-            mode: crate::skill::find_skill(&runtime.active_skill_id)
+            mode: skill::find_skill(&runtime.active_skill_id)
                 .map(|manifest| manifest.mode)
                 .unwrap_or("unknown"),
             payload: tool,
@@ -2023,7 +2024,7 @@ fn dispatch_workflow_skill_hook(
 
 fn finalize_verified_skill(
     workflow: &mut state::WorkflowRecord,
-    runtime: Option<&mut crate::skill::SkillRuntimeState>,
+    runtime: Option<&mut skill::SkillRuntimeState>,
 ) -> Result<(), AppError> {
     let Some(runtime) = runtime else {
         return Ok(());
@@ -2038,8 +2039,8 @@ fn finalize_verified_skill(
     dispatch_workflow_skill_hook(workflow, runtime, "stop_gate", "patch-stop")?;
     dispatch_workflow_skill_hook(workflow, runtime, "session_end", "complete")?;
     runtime.validate_stop()?;
-    runtime.transition(crate::skill::SkillState::StopPassed)?;
-    runtime.transition(crate::skill::SkillState::Complete)?;
+    runtime.transition(skill::SkillState::StopPassed)?;
+    runtime.transition(skill::SkillState::Complete)?;
     runtime.store_in_workflow(workflow);
     Ok(())
 }
@@ -2171,7 +2172,7 @@ pub fn resume_workflow_report(workflow_id: &str) -> Result<String, AppError> {
             workflow.failure_reason = format!("resume-incomplete-{}", workflow.phase);
             workflow.phase = "failed".to_string();
             if let Some(mut runtime) = workflow_skill_runtime(&workflow)? {
-                let _ = runtime.transition(crate::skill::SkillState::Failed);
+                let _ = runtime.transition(skill::SkillState::Failed);
                 runtime.store_in_workflow(&mut workflow);
             }
             workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
@@ -2474,7 +2475,7 @@ fn cancel_workflow_transaction(
     terminal.approval_state = "cancelled".to_string();
     terminal.verification_approval_state = "cancelled".to_string();
     if let Some(mut runtime) = workflow_skill_runtime(&terminal)? {
-        runtime.transition(crate::skill::SkillState::Cancelled)?;
+        runtime.transition(skill::SkillState::Cancelled)?;
         runtime.store_in_workflow(&mut terminal);
     }
     state::transition_project_current_state_prepared_terminal_action(
@@ -2574,7 +2575,7 @@ fn deny_pending_gate_transaction(
             terminal.approval_state = "denied".to_string();
             terminal.verification_approval_state = "not-issued".to_string();
             if let Some(mut skill_runtime) = workflow_skill_runtime(&terminal)? {
-                skill_runtime.transition(crate::skill::SkillState::Cancelled)?;
+                skill_runtime.transition(skill::SkillState::Cancelled)?;
                 skill_runtime.store_in_workflow(&mut terminal);
             }
             let committed = state::transition_project_current_state_prepared_terminal_action(
@@ -2621,7 +2622,7 @@ fn deny_pending_gate_transaction(
             terminal.approval_state = "applied-then-rolled-back".to_string();
             terminal.verification_approval_state = "denied".to_string();
             if let Some(mut skill_runtime) = workflow_skill_runtime(&terminal)? {
-                skill_runtime.transition(crate::skill::SkillState::Cancelled)?;
+                skill_runtime.transition(skill::SkillState::Cancelled)?;
                 skill_runtime.store_in_workflow(&mut terminal);
             }
             let committed = state::transition_project_current_state_prepared_terminal_action(
@@ -3939,11 +3940,11 @@ mod tests {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = patch_test_root("skill-phase-mismatch");
         let (target, mut workflow, proposal) = create_pending_workflow(&root, "pwd");
-        let mut runtime = crate::skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
+        let mut runtime = skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
         for state in [
-            crate::skill::SkillState::ContextReady,
-            crate::skill::SkillState::ModelRequested,
-            crate::skill::SkillState::ActionRecorded,
+            skill::SkillState::ContextReady,
+            skill::SkillState::ModelRequested,
+            skill::SkillState::ActionRecorded,
         ] {
             runtime.transition(state).unwrap();
         }
@@ -3968,14 +3969,14 @@ mod tests {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = patch_test_root("complete-skill-state");
         let (_target, mut workflow, _proposal) = create_pending_workflow(&root, "pwd");
-        let mut runtime = crate::skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
+        let mut runtime = skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
         for state in [
-            crate::skill::SkillState::ContextReady,
-            crate::skill::SkillState::ModelRequested,
-            crate::skill::SkillState::ActionRecorded,
-            crate::skill::SkillState::AwaitingApproval,
-            crate::skill::SkillState::AwaitingVerification,
-            crate::skill::SkillState::StopPassed,
+            skill::SkillState::ContextReady,
+            skill::SkillState::ModelRequested,
+            skill::SkillState::ActionRecorded,
+            skill::SkillState::AwaitingApproval,
+            skill::SkillState::AwaitingVerification,
+            skill::SkillState::StopPassed,
         ] {
             runtime.transition(state).unwrap();
         }
@@ -4087,12 +4088,12 @@ mod tests {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = patch_test_root("prepared-skill-approval");
         let (target, mut workflow, proposal) = create_pending_workflow(&root, "pwd");
-        let mut skill = crate::skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
+        let mut skill = skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
         for state in [
-            crate::skill::SkillState::ContextReady,
-            crate::skill::SkillState::ModelRequested,
-            crate::skill::SkillState::ActionRecorded,
-            crate::skill::SkillState::AwaitingApproval,
+            skill::SkillState::ContextReady,
+            skill::SkillState::ModelRequested,
+            skill::SkillState::ActionRecorded,
+            skill::SkillState::AwaitingApproval,
         ] {
             skill.transition(state).unwrap();
         }
@@ -4155,12 +4156,12 @@ mod tests {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = patch_test_root("prepared-pointer-crash");
         let (target, mut workflow, proposal) = create_pending_workflow(&root, "pwd");
-        let mut skill = crate::skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
+        let mut skill = skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
         for skill_state in [
-            crate::skill::SkillState::ContextReady,
-            crate::skill::SkillState::ModelRequested,
-            crate::skill::SkillState::ActionRecorded,
-            crate::skill::SkillState::AwaitingApproval,
+            skill::SkillState::ContextReady,
+            skill::SkillState::ModelRequested,
+            skill::SkillState::ActionRecorded,
+            skill::SkillState::AwaitingApproval,
         ] {
             skill.transition(skill_state).unwrap();
         }
@@ -4250,12 +4251,12 @@ mod tests {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = patch_test_root("prepared-same-intent-retry");
         let (_target, mut workflow, proposal) = create_pending_workflow(&root, "pwd");
-        let mut skill = crate::skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
+        let mut skill = skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
         for skill_state in [
-            crate::skill::SkillState::ContextReady,
-            crate::skill::SkillState::ModelRequested,
-            crate::skill::SkillState::ActionRecorded,
-            crate::skill::SkillState::AwaitingApproval,
+            skill::SkillState::ContextReady,
+            skill::SkillState::ModelRequested,
+            skill::SkillState::ActionRecorded,
+            skill::SkillState::AwaitingApproval,
         ] {
             skill.transition(skill_state).unwrap();
         }
@@ -4426,12 +4427,12 @@ mod tests {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = patch_test_root("prepared-second-intent-after-t1");
         let (_target, mut workflow, proposal) = create_pending_workflow(&root, "pwd");
-        let mut skill = crate::skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
+        let mut skill = skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
         for skill_state in [
-            crate::skill::SkillState::ContextReady,
-            crate::skill::SkillState::ModelRequested,
-            crate::skill::SkillState::ActionRecorded,
-            crate::skill::SkillState::AwaitingApproval,
+            skill::SkillState::ContextReady,
+            skill::SkillState::ModelRequested,
+            skill::SkillState::ActionRecorded,
+            skill::SkillState::AwaitingApproval,
         ] {
             skill.transition(skill_state).unwrap();
         }
@@ -4649,12 +4650,12 @@ mod tests {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = patch_test_root("prepared-projection-repair");
         let (_target, mut workflow, proposal) = create_pending_workflow(&root, "pwd");
-        let mut skill = crate::skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
+        let mut skill = skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
         for skill_state in [
-            crate::skill::SkillState::ContextReady,
-            crate::skill::SkillState::ModelRequested,
-            crate::skill::SkillState::ActionRecorded,
-            crate::skill::SkillState::AwaitingApproval,
+            skill::SkillState::ContextReady,
+            skill::SkillState::ModelRequested,
+            skill::SkillState::ActionRecorded,
+            skill::SkillState::AwaitingApproval,
         ] {
             skill.transition(skill_state).unwrap();
         }
@@ -4907,12 +4908,12 @@ mod tests {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = patch_test_root("prepared-member-tamper");
         let (target, mut workflow, proposal) = create_pending_workflow(&root, "pwd");
-        let mut skill = crate::skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
+        let mut skill = skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
         for skill_state in [
-            crate::skill::SkillState::ContextReady,
-            crate::skill::SkillState::ModelRequested,
-            crate::skill::SkillState::ActionRecorded,
-            crate::skill::SkillState::AwaitingApproval,
+            skill::SkillState::ContextReady,
+            skill::SkillState::ModelRequested,
+            skill::SkillState::ActionRecorded,
+            skill::SkillState::AwaitingApproval,
         ] {
             skill.transition(skill_state).unwrap();
         }
@@ -6176,12 +6177,12 @@ mod tests {
         workflow.verification_plan = proposal.verification_command.clone();
         workflow.approval_state = "pending".to_string();
         workflow.phase = "pending-approval".to_string();
-        let mut skill = crate::skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
+        let mut skill = skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
         for state in [
-            crate::skill::SkillState::ContextReady,
-            crate::skill::SkillState::ModelRequested,
-            crate::skill::SkillState::ActionRecorded,
-            crate::skill::SkillState::AwaitingApproval,
+            skill::SkillState::ContextReady,
+            skill::SkillState::ModelRequested,
+            skill::SkillState::ActionRecorded,
+            skill::SkillState::AwaitingApproval,
         ] {
             skill.transition(state).unwrap();
         }
@@ -6210,12 +6211,12 @@ mod tests {
         verification: &str,
     ) -> (PathBuf, state::WorkflowRecord, WorkflowProposal) {
         let (target, mut workflow, proposal) = create_pending_workflow(root, verification);
-        let mut skill = crate::skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
+        let mut skill = skill::SkillRuntimeState::new("small-patch", "explicit").unwrap();
         for skill_state in [
-            crate::skill::SkillState::ContextReady,
-            crate::skill::SkillState::ModelRequested,
-            crate::skill::SkillState::ActionRecorded,
-            crate::skill::SkillState::AwaitingApproval,
+            skill::SkillState::ContextReady,
+            skill::SkillState::ModelRequested,
+            skill::SkillState::ActionRecorded,
+            skill::SkillState::AwaitingApproval,
         ] {
             skill.transition(skill_state).unwrap();
         }

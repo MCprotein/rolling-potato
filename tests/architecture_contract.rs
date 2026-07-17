@@ -1375,6 +1375,8 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let hook = "src/runtime_core/extensions/hook.rs";
     let skill = "src/runtime_core/extensions/skill.rs";
     let plugin = "src/runtime_core/extensions/plugin.rs";
+    let hooks_adapter = "src/app/extensions_adapter/hooks.rs";
+    let skill_adapter = "src/app/extensions_adapter/skill.rs";
     for target in [hook, skill, plugin] {
         assert!(
             Path::new(target).is_file(),
@@ -1469,33 +1471,62 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         }
     }
 
-    for (facade, moved_definition) in [
-        ("src/hooks.rs", "enum HookStatus"),
-        ("src/hooks.rs", "fn resolve_conflict"),
-        ("src/skill.rs", "struct SkillManifest"),
-        ("src/skill.rs", "fn validate_transition"),
+    for target in [hooks_adapter, skill_adapter] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing v0.37.13 extension adapter: {target}"
+        );
+    }
+    let adapter_mod = fs::read_to_string("src/app/extensions_adapter.rs").unwrap();
+    for child in ["hooks", "skill"] {
+        let expected = format!("pub(crate) mod {child};");
+        assert!(
+            adapter_mod.lines().any(|line| line == expected),
+            "extension adapter child is not crate-private: {child}"
+        );
+    }
+
+    for (adapter, moved_definition) in [
+        (hooks_adapter, "enum HookStatus"),
+        (hooks_adapter, "fn resolve_conflict"),
+        (skill_adapter, "struct SkillManifest"),
+        (skill_adapter, "fn validate_transition"),
         ("src/plugin.rs", "struct PluginCapability"),
         ("src/plugin.rs", "fn parse_codex_skill"),
         ("src/plugin.rs", "fn apply_manifest_risk_markers"),
     ] {
-        let source = fs::read_to_string(facade).unwrap();
+        let source = fs::read_to_string(adapter).unwrap();
         let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
         assert!(
             !production.contains(moved_definition),
-            "legacy extension facade retains moved rule: {facade} -> {moved_definition}"
+            "extension adapter retains moved rule: {adapter} -> {moved_definition}"
         );
     }
 
-    let hooks_facade = fs::read_to_string("src/hooks.rs").unwrap();
-    let skill_facade = fs::read_to_string("src/skill.rs").unwrap();
+    for legacy in ["src/hooks.rs", "src/skill.rs"] {
+        assert!(
+            !Path::new(legacy).exists(),
+            "legacy extension root was restored: {legacy}"
+        );
+    }
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    for legacy_mod in ["mod hooks;", "mod skill;"] {
+        assert!(
+            !main.lines().any(|line| line == legacy_mod),
+            "legacy extension root remains registered: {legacy_mod}"
+        );
+    }
+
+    let hooks_adapter = fs::read_to_string(hooks_adapter).unwrap();
+    let skill_adapter = fs::read_to_string(skill_adapter).unwrap();
     let plugin_facade = fs::read_to_string("src/plugin.rs").unwrap();
     assert!(
-        hooks_facade.lines().count() <= 300,
-        "hooks facade regrew beyond the v0.37.11 boundary"
+        hooks_adapter.lines().count() <= 300,
+        "hooks adapter regrew beyond the v0.37.13 boundary"
     );
     assert!(
-        skill_facade.lines().count() <= 250,
-        "skill facade regrew beyond the v0.37.11 boundary"
+        skill_adapter.lines().count() <= 250,
+        "skill adapter regrew beyond the v0.37.13 boundary"
     );
     assert!(
         plugin_facade.lines().count() <= 1_750,

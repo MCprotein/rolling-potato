@@ -1,5 +1,6 @@
 //! Concrete hook lifecycle adapters for state, ledger, and skill resolution.
 
+use super::skill;
 use crate::foundation::error::AppError;
 use crate::state;
 
@@ -35,7 +36,7 @@ pub(crate) fn dispatch_native_lifecycle(
 pub(crate) fn dispatch_native_lifecycle_for_skill(
     input: HookInput<'_>,
     tool: Option<&str>,
-    skill: &crate::skill::ResolvedSkillManifest,
+    skill: &skill::ResolvedSkillManifest,
 ) -> Result<HookDispatch, AppError> {
     let rules = native_lifecycle_rules_for_skill(input, tool, skill);
     dispatch_and_record(input, &rules)
@@ -86,7 +87,7 @@ pub(crate) fn validate_prepared_native_lifecycle_event(
 fn native_lifecycle_rules(input: HookInput<'_>, tool: Option<&str>) -> Vec<HookRule> {
     let mut rules = vec![runtime_rule()];
     if let Some(skill_id) = input.active_skill_id {
-        let skill_rule = match crate::skill::resolve_skill(skill_id) {
+        let skill_rule = match skill::resolve_skill(skill_id) {
             Ok(Some(skill)) => resolved_skill_rule(input, tool, &skill),
             Ok(None) => HookRule::decision(
                 format!("skill.{skill_id}"),
@@ -110,7 +111,7 @@ fn native_lifecycle_rules(input: HookInput<'_>, tool: Option<&str>) -> Vec<HookR
 fn native_lifecycle_rules_for_skill(
     input: HookInput<'_>,
     tool: Option<&str>,
-    skill: &crate::skill::ResolvedSkillManifest,
+    skill: &skill::ResolvedSkillManifest,
 ) -> Vec<HookRule> {
     let mut rules = vec![runtime_rule()];
     if input.active_skill_id.is_some() {
@@ -123,7 +124,7 @@ fn native_lifecycle_rules_for_skill(
 fn resolved_skill_rule(
     input: HookInput<'_>,
     tool: Option<&str>,
-    skill: &crate::skill::ResolvedSkillManifest,
+    skill: &skill::ResolvedSkillManifest,
 ) -> HookRule {
     let skill_id = input.active_skill_id.expect("caller checks active skill");
     if skill_id != skill.id() {
@@ -136,7 +137,7 @@ fn resolved_skill_rule(
     }
 
     match tool {
-        Some(tool) => match crate::skill::enforce_resolved_tool(skill, tool) {
+        Some(tool) => match skill::enforce_resolved_tool(skill, tool) {
             Ok(()) => HookRule::decision(
                 format!("skill.{}", skill.id()),
                 HookLayer::Skill,
