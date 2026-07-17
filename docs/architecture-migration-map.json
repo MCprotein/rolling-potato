@@ -5428,9 +5428,27 @@
           "evidence": [
             "src/runtime_core/collaboration/team_state.rs",
             "src/app/collaboration_adapter/team_state.rs",
+            "src/app/collaboration_adapter/team_state/events.rs",
             "src/app/collaboration_adapter/team_state/persistence.rs",
             "src/app/collaboration_adapter/team_state/tests.rs",
             "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_state/events.rs",
+      "slices": [
+        {
+          "responsibility": "idempotent team planned and stage-transition event persistence",
+          "target": "src/app/collaboration_adapter/team_state/events.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_state.rs",
+            "src/app/collaboration_adapter/team_state/events.rs",
+            "src/app/collaboration_adapter/team_state/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8174,6 +8192,12 @@
       "path": "src/app/collaboration_adapter/team_state.rs",
       "responsibilities": [
         "team state lifecycle and checkpoint orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_state/events.rs",
+      "responsibilities": [
+        "idempotent team planned and stage-transition event persistence"
       ]
     },
     {

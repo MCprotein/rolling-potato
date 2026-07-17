@@ -3485,6 +3485,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let team_execution_tests = "src/app/collaboration_adapter/team_execution/tests.rs";
     let team_reconciliation_adapter = "src/app/collaboration_adapter/team_reconciliation.rs";
     let team_state_adapter = "src/app/collaboration_adapter/team_state.rs";
+    let team_state_events = "src/app/collaboration_adapter/team_state/events.rs";
     let team_state_persistence = "src/app/collaboration_adapter/team_state/persistence.rs";
     let team_state_tests = "src/app/collaboration_adapter/team_state/tests.rs";
     let owners: &[(&str, &[&str])] = &[
@@ -3600,6 +3601,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(Path::new(team_execution_admission).is_file());
     assert!(Path::new(team_execution_events).is_file());
     assert!(Path::new(team_execution_tests).is_file());
+    assert!(Path::new(team_state_events).is_file());
     assert!(Path::new(team_state_persistence).is_file());
     assert!(Path::new(team_state_tests).is_file());
     let subagent_source = fs::read_to_string(subagent_adapter).unwrap();
@@ -3616,6 +3618,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let team_execution_events_source = fs::read_to_string(team_execution_events).unwrap();
     let team_execution_test_source = fs::read_to_string(team_execution_tests).unwrap();
     let team_state_source = fs::read_to_string(team_state_adapter).unwrap();
+    let team_state_event_source = fs::read_to_string(team_state_events).unwrap();
     let team_state_persistence_source = fs::read_to_string(team_state_persistence).unwrap();
     let team_state_test_source = fs::read_to_string(team_state_tests).unwrap();
     assert!(
@@ -3663,6 +3666,23 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         assert!(
             subagent_test_source.contains(regression),
             "subagent regression owner is missing: {regression}"
+        );
+    }
+    assert!(
+        team_state_source.lines().any(|line| line == "mod events;"),
+        "team state adapter does not register its event persistence owner"
+    );
+    for responsibility in [
+        "pub(super) fn append_planned_event_if_missing(",
+        "pub(super) fn append_stage_event_if_missing(",
+    ] {
+        assert!(
+            team_state_event_source.contains(responsibility),
+            "team state event owner is missing: {responsibility}"
+        );
+        assert!(
+            !team_state_source.contains(responsibility),
+            "team state adapter still owns event persistence: {responsibility}"
         );
     }
     assert!(
@@ -3928,7 +3948,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         (team_adapter, 600),
         (team_execution_adapter, 325),
         (team_reconciliation_adapter, 550),
-        (team_state_adapter, 475),
+        (team_state_adapter, 400),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
@@ -3975,6 +3995,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(
         team_execution_test_source.lines().count() < 650,
         "team execution regression module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_state_event_source.lines().count() < 100,
+        "team state event module regrew beyond its ownership boundary"
     );
     assert!(
         team_state_persistence_source.lines().count() < 250,
