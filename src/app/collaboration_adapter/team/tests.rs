@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::approval_adapter as approval;
 use std::fs;
 
 #[test]

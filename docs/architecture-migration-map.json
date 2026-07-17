@@ -4954,13 +4954,32 @@
       "path": "src/app/collaboration_adapter/team.rs",
       "slices": [
         {
-          "responsibility": "team plan and lifecycle adapter",
+          "responsibility": "team status, admission, dispatch, and governor report orchestration adapter",
           "target": "src/app/collaboration_adapter/team.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team.rs",
             "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/admission.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/admission.rs",
+      "slices": [
+        {
+          "responsibility": "team admission policy classification, ownership path normalization, and approval request persistence",
+          "target": "src/app/collaboration_adapter/team/admission.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team.rs",
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/admission.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7549,7 +7568,13 @@
     {
       "path": "src/app/collaboration_adapter/team.rs",
       "responsibilities": [
-        "team plan and lifecycle adapter"
+        "team status, admission, dispatch, and governor report orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/admission.rs",
+      "responsibilities": [
+        "team admission policy classification, ownership path normalization, and approval request persistence"
       ]
     },
     {
