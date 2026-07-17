@@ -4201,7 +4201,7 @@
       "path": "src/app/workflow_adapter/transition.rs",
       "slices": [
         {
-          "responsibility": "transition journal and recovery orchestration adapter",
+          "responsibility": "transition journal, bundle codec, and recovery orchestration adapter",
           "target": "src/app/workflow_adapter/transition.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -4210,6 +4210,23 @@
             "src/runtime_core/workflow/application/recovery.rs",
             "src/runtime_core/workflow/application/projection_barrier.rs",
             "src/app/workflow_adapter/transition.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_install.rs",
+      "slices": [
+        {
+          "responsibility": "source installation preparation, validation, and codec adapter",
+          "target": "src/app/workflow_adapter/transition/source_install.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/state/source_install.rs",
+            "src/app/workflow_adapter/transition/source_install.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6200,7 +6217,13 @@
     {
       "path": "src/app/workflow_adapter/transition.rs",
       "responsibilities": [
-        "transition journal and recovery orchestration adapter"
+        "transition journal, bundle codec, and recovery orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_install.rs",
+      "responsibilities": [
+        "source installation preparation, validation, and codec adapter"
       ]
     },
     {

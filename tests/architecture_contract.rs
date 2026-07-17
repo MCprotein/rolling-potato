@@ -866,6 +866,57 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
 }
 
 #[test]
+fn v03713_transition_adapter_delegates_source_install_contract() {
+    let transition_adapter = "src/app/workflow_adapter/transition.rs";
+    let source_install_adapter = "src/app/workflow_adapter/transition/source_install.rs";
+    for target in [transition_adapter, source_install_adapter] {
+        assert!(
+            Path::new(target).is_file(),
+            "missing transition adapter owner: {target}"
+        );
+    }
+
+    let transition = fs::read_to_string(transition_adapter).unwrap();
+    let source_install = fs::read_to_string(source_install_adapter).unwrap();
+    assert!(
+        transition.lines().any(|line| line == "mod source_install;"),
+        "transition adapter does not register the source-install owner"
+    );
+    assert!(
+        transition
+            .lines()
+            .any(|line| line == "pub(crate) use source_install::{"),
+        "transition adapter does not expose the source-install contract"
+    );
+    for responsibility in [
+        "pub(crate) fn prepare_source_install_v1(",
+        "pub(crate) fn validate_source_install_v1(",
+        "pub(crate) fn render_source_install_v1(",
+        "pub(crate) fn parse_source_install_v1(",
+        "pub(crate) fn source_identity_v1(",
+        "pub(crate) fn resolve_prepared_project_path(",
+        "pub(crate) fn source_install_rollback_path(",
+    ] {
+        assert!(
+            !transition.contains(responsibility),
+            "source-install responsibility escaped into transition facade: {responsibility}"
+        );
+        assert!(
+            source_install.contains(responsibility),
+            "source-install adapter is missing responsibility: {responsibility}"
+        );
+    }
+    assert!(
+        transition.lines().count() < 3_800,
+        "transition adapter regrew beyond the source-install extraction boundary"
+    );
+    assert!(
+        source_install.lines().count() < 500,
+        "source-install adapter regrew beyond its ownership boundary"
+    );
+}
+
+#[test]
 fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     for target in [
         "src/adapters/sqlite/ledger_projection.rs",
