@@ -3868,15 +3868,34 @@
       "path": "src/runtime_core/collaboration/subagent.rs",
       "slices": [
         {
-          "responsibility": "subagent role, tool, launch, lifecycle, and durable-record invariant policy",
+          "responsibility": "subagent role, tool, lifecycle transition, and durable-record invariant policy",
           "target": "src/runtime_core/collaboration/subagent.rs",
           "release": "0.37.12",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/subagent.rs",
+            "src/runtime_core/collaboration/subagent/launch.rs",
             "src/runtime_core/collaboration/subagent/record_codec.rs",
             "src/app/collaboration_adapter/subagent.rs",
             "tests/subagent_lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/launch.rs",
+      "slices": [
+        {
+          "responsibility": "subagent launch role-tool-path admission and budget normalization policy",
+          "target": "src/runtime_core/collaboration/subagent/launch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/runtime_core/collaboration/subagent/launch.rs",
+            "src/runtime_core/collaboration/team_state.rs",
+            "src/app/collaboration_adapter/subagent/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7797,7 +7816,13 @@
     {
       "path": "src/runtime_core/collaboration/subagent.rs",
       "responsibilities": [
-        "subagent role, tool, launch, lifecycle, and durable-record invariant policy"
+        "subagent role, tool, lifecycle transition, and durable-record invariant policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/launch.rs",
+      "responsibilities": [
+        "subagent launch role-tool-path admission and budget normalization policy"
       ]
     },
     {

@@ -3594,6 +3594,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let subagent_execution = "src/app/collaboration_adapter/subagent/execution.rs";
     let subagent_persistence = "src/app/collaboration_adapter/subagent/persistence.rs";
     let subagent_tests = "src/app/collaboration_adapter/subagent/tests.rs";
+    let subagent_launch = "src/runtime_core/collaboration/subagent/launch.rs";
     let subagent_record_codec = "src/runtime_core/collaboration/subagent/record_codec.rs";
     let team_adapter = "src/app/collaboration_adapter/team.rs";
     let team_admission = "src/app/collaboration_adapter/team/admission.rs";
@@ -3614,8 +3615,6 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
                 "enum SubagentRole",
                 "enum SubagentStatus",
                 "struct SubagentRecordV1",
-                "fn validate_launch",
-                "fn normalize_relative_path",
                 "fn validate_record",
             ],
         ),
@@ -3714,6 +3713,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(Path::new(subagent_execution).is_file());
     assert!(Path::new(subagent_persistence).is_file());
     assert!(Path::new(subagent_tests).is_file());
+    assert!(Path::new(subagent_launch).is_file());
     assert!(Path::new(subagent_record_codec).is_file());
     assert!(Path::new(team_admission).is_file());
     assert!(Path::new(team_tests).is_file());
@@ -3725,6 +3725,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(Path::new(team_state_tests).is_file());
     let subagent_source = fs::read_to_string(subagent_adapter).unwrap();
     let subagent_domain = fs::read_to_string("src/runtime_core/collaboration/subagent.rs").unwrap();
+    let subagent_launch_source = fs::read_to_string(subagent_launch).unwrap();
     let subagent_record_codec_source = fs::read_to_string(subagent_record_codec).unwrap();
     let subagent_execution_source = fs::read_to_string(subagent_execution).unwrap();
     let subagent_persistence_source = fs::read_to_string(subagent_persistence).unwrap();
@@ -3744,6 +3745,25 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         subagent_source.lines().any(|line| line == "mod execution;"),
         "subagent adapter does not register its execution owner"
     );
+    assert!(
+        subagent_domain.lines().any(|line| line == "mod launch;"),
+        "subagent domain does not register its launch policy owner"
+    );
+    for responsibility in [
+        "pub fn validate_launch(",
+        "pub(crate) fn normalize_tools(",
+        "pub(crate) fn normalize_paths(",
+        "pub(crate) fn normalize_relative_path(",
+    ] {
+        assert!(
+            subagent_launch_source.contains(responsibility),
+            "subagent launch policy owner is missing: {responsibility}"
+        );
+        assert!(
+            !subagent_domain.contains(responsibility),
+            "subagent record domain still owns launch policy: {responsibility}"
+        );
+    }
     assert!(
         subagent_domain
             .lines()
@@ -4080,9 +4100,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         "subagent execution module regrew beyond its ownership boundary"
     );
     assert!(
-        subagent_domain.lines().count() < 625,
+        subagent_domain.lines().count() < 450,
         "subagent domain regrew beyond its ownership boundary"
     );
+    assert!(subagent_launch_source.lines().count() < 225);
     assert!(
         subagent_record_codec_source.lines().count() < 250,
         "subagent record codec regrew beyond its ownership boundary"
