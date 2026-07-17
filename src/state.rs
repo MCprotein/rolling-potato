@@ -2850,7 +2850,7 @@ pub fn session_resume_report(session_id: &str) -> Result<String, AppError> {
 pub(crate) fn session_resume_report_for_tui(
     session_id: &str,
     intent_id: &str,
-    lease: &crate::runtime::SelectionLease,
+    lease: &SelectionLease,
 ) -> Result<Option<String>, AppError> {
     session_resume_report_with_precondition(session_id, Some(intent_id), Some(lease))
 }
@@ -2858,7 +2858,7 @@ pub(crate) fn session_resume_report_for_tui(
 fn session_resume_report_with_precondition(
     session_id: &str,
     supplied_intent_id: Option<&str>,
-    lease: Option<&crate::runtime::SelectionLease>,
+    lease: Option<&SelectionLease>,
 ) -> Result<Option<String>, AppError> {
     let project_id = match lease {
         Some(lease) => lease.project_id.clone(),
@@ -2960,7 +2960,7 @@ fn existing_session_selection_receipt(
 
 fn selection_lease_matches_under_transition(
     session_id: &str,
-    lease: &crate::runtime::SelectionLease,
+    lease: &SelectionLease,
     identity: &RuntimeIdentity,
 ) -> Result<bool, AppError> {
     let Some(current) = read_valid_current_for_transition()? else {
@@ -2976,15 +2976,14 @@ fn selection_lease_matches_under_transition(
     {
         return Ok(false);
     }
-    let observed =
-        current
-            .active_workflow
-            .as_ref()
-            .map(|binding| crate::runtime::ObservedWorkflow {
-                workflow_id: binding.workflow_id.clone(),
-                revision: binding.revision,
-                hash: binding.artifact_hash.clone(),
-            });
+    let observed = current
+        .active_workflow
+        .as_ref()
+        .map(|binding| ObservedWorkflow {
+            workflow_id: binding.workflow_id.clone(),
+            revision: binding.revision,
+            hash: binding.artifact_hash.clone(),
+        });
     if observed != lease.active_workflow {
         return Ok(false);
     }

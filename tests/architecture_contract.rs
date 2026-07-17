@@ -1789,6 +1789,19 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!runtime.contains("fn tui_lease_matches_terminal_selection_under_transition"));
     assert!(!runtime.contains("fn validate_tui_id"));
 
+    for legacy_owner in ["src/patch.rs", "src/state.rs", "src/tui.rs"] {
+        let source = fs::read_to_string(legacy_owner).unwrap();
+        for facade_type in [
+            "crate::runtime::SelectionLease",
+            "crate::runtime::TuiGateKind",
+        ] {
+            assert!(
+                !source.contains(facade_type),
+                "{legacy_owner} still imports TUI contract through {facade_type}"
+            );
+        }
+    }
+
     let tui_read = fs::read_to_string("src/composition/tui_read.rs").unwrap();
     assert!(tui_read.contains("fn read_tui_page"));
     assert!(tui_read.contains("trait TuiReadPort"));

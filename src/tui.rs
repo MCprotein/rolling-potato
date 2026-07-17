@@ -2,12 +2,14 @@ use crate::adapters::terminal::capability;
 use crate::adapters::terminal::native::NativeTerminal;
 use crate::composition::tui_read::{self, TuiReadPort};
 use crate::foundation::error::AppError;
-use crate::runtime::{self, SelectionLease, TuiGateKind, TuiIntent, TuiOutcome};
+use crate::runtime;
 pub(crate) use crate::surfaces::tui::controller::terminal_fault_error;
 use crate::surfaces::tui::controller::{self, TuiRuntimePort};
+use crate::surfaces::tui::outcome::TuiOutcome;
 use crate::surfaces::tui::page::ProjectionStatus;
 use crate::surfaces::tui::runtime_bridge::{
-    new_tui_intent_id, TuiReadBudget, TuiReadPage, TuiReadRequest,
+    new_tui_intent_id, SelectionLease, TuiGateKind, TuiIntent, TuiReadBudget, TuiReadPage,
+    TuiReadRequest,
 };
 
 pub fn run_auto() -> Result<(), AppError> {
@@ -344,6 +346,7 @@ mod tests {
     use crate::adapters::filesystem::layout as paths;
     use crate::adapters::terminal::native::{ScriptedTerminal, TerminalFault};
     use crate::surfaces::tui::controller::{consume_outcome, run_controller};
+    use crate::surfaces::tui::outcome::verification_credential_issued;
     use crate::surfaces::tui::render::{render_interactive_frame, sanitize_terminal_text};
     use crate::surfaces::tui::runtime_bridge::{OneShotSecret, TuiFreshness, TuiReadContinuation};
     use crate::surfaces::tui::view_model::{InteractiveState, InteractiveView};
@@ -394,11 +397,9 @@ mod tests {
     fn one_shot_outcome_writes_secret_once_without_storing_it_in_notice() {
         let intent_id = "intent-one-shot-test";
         let secret = "ab".repeat(32);
-        let outcome = runtime::verification_credential_issued(
-            intent_id,
-            OneShotSecret::new(secret.clone()).unwrap(),
-        )
-        .unwrap();
+        let outcome =
+            verification_credential_issued(intent_id, OneShotSecret::new(secret.clone()).unwrap())
+                .unwrap();
         let mut terminal = ScriptedTerminal::new([]);
 
         let notice = consume_outcome(&mut terminal, intent_id, outcome).unwrap();

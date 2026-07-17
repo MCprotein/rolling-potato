@@ -11,9 +11,6 @@ use crate::adapters::filesystem::{layout as paths, lease};
 use crate::foundation::error::AppError;
 use crate::ledger;
 use crate::policy::{self, Decision, PathMode};
-use crate::runtime::{
-    exact_tui_outcome, OneShotSecret, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext,
-};
 use crate::runtime_core::patch::application::{
     self as application_domain, ApplyAdmission, ApplyResult, RollbackAdmission, RollbackResult,
 };
@@ -32,6 +29,10 @@ use crate::surfaces::tui::outcome::unsupported_source_platform_outcome;
 use crate::surfaces::tui::outcome::TuiEffect;
 #[cfg(test)]
 use crate::surfaces::tui::outcome::TuiOutcomeStatus;
+use crate::surfaces::tui::outcome::{
+    exact_tui_outcome, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext,
+};
+use crate::surfaces::tui::runtime_bridge::{OneShotSecret, SelectionLease, TuiGateKind};
 
 pub use crate::runtime_core::patch::proposal::{
     PatchProposalDetail, PatchProposalSummary, WorkflowProposal,
@@ -247,7 +248,7 @@ fn approve_dispatch_for_intent(
     dry_run: bool,
     verify_command: Option<&str>,
     intent_id: &str,
-    expected_lease: Option<&crate::runtime::SelectionLease>,
+    expected_lease: Option<&SelectionLease>,
 ) -> Result<ApprovalDispatch, AppError> {
     validate_proposal_id(proposal_id)?;
     validate_outcome_id(intent_id, "intent")?;
@@ -338,7 +339,7 @@ pub(crate) fn approve_for_tui(
     proposal_id: &str,
     token: &str,
     intent_id: &str,
-    lease: &crate::runtime::SelectionLease,
+    lease: &SelectionLease,
 ) -> Result<Option<OneShotSecret>, AppError> {
     let dispatch =
         approve_dispatch_for_intent(proposal_id, token, false, None, intent_id, Some(lease))?;
@@ -409,7 +410,7 @@ fn approve_prepared_skill_transaction(
     record: ProposalRecord,
     observed_workflow: state::WorkflowRecord,
     intent_id: &str,
-    expected_lease: Option<&crate::runtime::SelectionLease>,
+    expected_lease: Option<&SelectionLease>,
 ) -> Result<ApprovalDispatch, AppError> {
     let identity = ledger::validated_current_identity()?;
     let current_lease = state::current_state_lease_view()?;
@@ -1196,7 +1197,7 @@ pub(crate) fn verify_for_tui(
     proposal_id: &str,
     token: &str,
     intent_id: &str,
-    lease: &crate::runtime::SelectionLease,
+    lease: &SelectionLease,
 ) -> Result<String, AppError> {
     verify_report_for_intent(proposal_id, token, intent_id, Some(lease))
 }
@@ -1205,7 +1206,7 @@ fn verify_report_for_intent(
     proposal_id: &str,
     token: &str,
     intent_id: &str,
-    expected_lease: Option<&crate::runtime::SelectionLease>,
+    expected_lease: Option<&SelectionLease>,
 ) -> Result<String, AppError> {
     validate_proposal_id(proposal_id)?;
     validate_outcome_id(intent_id, "intent")?;
@@ -1252,7 +1253,7 @@ fn approve_prepared_verification_transaction(
     record: &ProposalRecord,
     observed_workflow: state::WorkflowRecord,
     intent_id: &str,
-    expected_lease: Option<&crate::runtime::SelectionLease>,
+    expected_lease: Option<&SelectionLease>,
 ) -> Result<state::WorkflowRecord, AppError> {
     let identity = ledger::validated_current_identity()?;
     let current_lease = state::current_state_lease_view()?;
@@ -2271,7 +2272,7 @@ pub fn resume_workflow_report(workflow_id: &str) -> Result<String, AppError> {
 pub(crate) fn resume_workflow_for_tui(
     workflow_id: &str,
     intent_id: &str,
-    lease: &crate::runtime::SelectionLease,
+    lease: &SelectionLease,
 ) -> Result<(), AppError> {
     validate_outcome_id(workflow_id, "workflow")?;
     validate_outcome_id(intent_id, "intent")?;
@@ -2422,7 +2423,7 @@ pub fn cancel_workflow_report(workflow_id: &str) -> Result<String, AppError> {
 pub(crate) fn cancel_workflow_for_tui(
     workflow_id: &str,
     intent_id: &str,
-    lease: &crate::runtime::SelectionLease,
+    lease: &SelectionLease,
 ) -> Result<(), AppError> {
     cancel_workflow_transaction(workflow_id, intent_id, Some(lease)).map(|_| ())
 }
@@ -2430,7 +2431,7 @@ pub(crate) fn cancel_workflow_for_tui(
 fn cancel_workflow_transaction(
     workflow_id: &str,
     intent_id: &str,
-    expected_lease: Option<&crate::runtime::SelectionLease>,
+    expected_lease: Option<&SelectionLease>,
 ) -> Result<state::WorkflowRecord, AppError> {
     validate_outcome_id(intent_id, "intent")?;
     let (observed, _approval_lock) = load_workflow_under_approval_lock(workflow_id)?;
@@ -2502,8 +2503,8 @@ pub(crate) fn deny_pending_gate_for_tui(
     workflow_id: &str,
     intent_id: &str,
     gate_id: &str,
-    gate_kind: crate::runtime::TuiGateKind,
-    lease: &crate::runtime::SelectionLease,
+    gate_kind: TuiGateKind,
+    lease: &SelectionLease,
 ) -> Result<TuiOutcome, AppError> {
     deny_pending_gate_transaction(workflow_id, intent_id, Some((gate_id, gate_kind, lease)))
 }
@@ -2511,11 +2512,7 @@ pub(crate) fn deny_pending_gate_for_tui(
 fn deny_pending_gate_transaction(
     workflow_id: &str,
     intent_id: &str,
-    expected: Option<(
-        &str,
-        crate::runtime::TuiGateKind,
-        &crate::runtime::SelectionLease,
-    )>,
+    expected: Option<(&str, TuiGateKind, &SelectionLease)>,
 ) -> Result<TuiOutcome, AppError> {
     validate_outcome_id(intent_id, "intent")?;
     let (observed, _approval_lock) = load_workflow_under_approval_lock(workflow_id)?;
@@ -2524,22 +2521,14 @@ fn deny_pending_gate_transaction(
         && observed.failure_reason == "user-denied-patch"
         && terminal_action_receipt_exists(intent_id, workflow_id, "patch.apply.denied")?
     {
-        validate_stored_terminal_gate(
-            &observed,
-            expected,
-            crate::runtime::TuiGateKind::PatchApply,
-        )?;
+        validate_stored_terminal_gate(&observed, expected, TuiGateKind::PatchApply)?;
         return deny_patch_accepted(intent_id, &observed.workflow_id);
     }
     if observed.phase == "cancelled"
         && observed.failure_reason == "user-denied-verification"
         && terminal_action_receipt_exists(intent_id, workflow_id, "patch.verification.denied")?
     {
-        validate_stored_terminal_gate(
-            &observed,
-            expected,
-            crate::runtime::TuiGateKind::VerificationCommand,
-        )?;
+        validate_stored_terminal_gate(&observed, expected, TuiGateKind::VerificationCommand)?;
         return deny_verification_accepted(intent_id, &observed.workflow_id);
     }
     let identity = ledger::validated_current_identity()?;
@@ -2780,30 +2769,28 @@ fn prepare_terminal_rollback_source(
 fn validate_terminal_gate(
     workflow: &state::WorkflowRecord,
     gate_id: &str,
-    gate_kind: crate::runtime::TuiGateKind,
+    gate_kind: TuiGateKind,
 ) -> Result<(), AppError> {
     validate_outcome_id(gate_id, "gate")?;
     let expected_kind = match (workflow.phase.as_str(), workflow.failure_reason.as_str()) {
-        ("cancelled", "user-denied-patch") => crate::runtime::TuiGateKind::PatchApply,
-        ("cancelled", "user-denied-verification") => {
-            crate::runtime::TuiGateKind::VerificationCommand
-        }
-        ("pending-approval" | "approved", _) => crate::runtime::TuiGateKind::PatchApply,
+        ("cancelled", "user-denied-patch") => TuiGateKind::PatchApply,
+        ("cancelled", "user-denied-verification") => TuiGateKind::VerificationCommand,
+        ("pending-approval" | "approved", _) => TuiGateKind::PatchApply,
         (
             "pending-verification-approval"
             | "verification-approved"
             | "verification-started"
             | "verified",
             _,
-        ) => crate::runtime::TuiGateKind::VerificationCommand,
+        ) => TuiGateKind::VerificationCommand,
         _ if matches!(
             workflow.approval_state.as_str(),
             "pending" | "pending-rotated"
         ) =>
         {
-            crate::runtime::TuiGateKind::PatchApply
+            TuiGateKind::PatchApply
         }
-        _ => crate::runtime::TuiGateKind::VerificationCommand,
+        _ => TuiGateKind::VerificationCommand,
     };
     if gate_id != workflow.proposal_id || gate_kind != expected_kind {
         return Err(stale_selection_error());
@@ -2813,12 +2800,8 @@ fn validate_terminal_gate(
 
 fn validate_stored_terminal_gate(
     workflow: &state::WorkflowRecord,
-    expected: Option<(
-        &str,
-        crate::runtime::TuiGateKind,
-        &crate::runtime::SelectionLease,
-    )>,
-    expected_kind: crate::runtime::TuiGateKind,
+    expected: Option<(&str, TuiGateKind, &SelectionLease)>,
+    expected_kind: TuiGateKind,
 ) -> Result<(), AppError> {
     if let Some((gate_id, gate_kind, lease)) = expected {
         if gate_id != workflow.proposal_id

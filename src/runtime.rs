@@ -2,12 +2,12 @@ use crate::adapters::filesystem::{cache, layout as paths};
 use crate::foundation::error::AppError;
 use crate::runtime_core::reporting::runtime_report::{self, DoctorReport, InitReport};
 use crate::runtime_core::workflow::application::runner::{self, RuntimeApplicationPort};
-pub(crate) use crate::surfaces::tui::outcome::{
+use crate::surfaces::tui::outcome::{
     exact_tui_outcome, validate_tui_id, verification_credential_issued, TuiOutcome, TuiOutcomeCode,
     TuiOutcomeContext,
 };
-pub(crate) use crate::surfaces::tui::runtime_bridge::{
-    ObservedWorkflow, OneShotSecret, SelectionLease, TuiGateKind, TuiIntent,
+use crate::surfaces::tui::runtime_bridge::{
+    ObservedWorkflow, SelectionLease, TuiGateKind, TuiIntent,
 };
 #[cfg(test)]
 use crate::transcript;
@@ -410,7 +410,7 @@ mod tests {
     use super::*;
     use crate::surfaces::tui::outcome::{TuiEffect, TuiNextAction, TuiOutcomeStatus};
     use crate::surfaces::tui::runtime_bridge::{
-        TuiFreshness, TuiReadBudget, TuiReadContinuation, TuiReadRequest,
+        OneShotSecret, TuiFreshness, TuiReadBudget, TuiReadContinuation, TuiReadRequest,
     };
     use crate::tui::canonical_read_page as read_tui_page;
 
