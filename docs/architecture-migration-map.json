@@ -5429,6 +5429,7 @@
             "src/runtime_core/collaboration/team_state.rs",
             "src/app/collaboration_adapter/team_state.rs",
             "src/app/collaboration_adapter/team_state/persistence.rs",
+            "src/app/collaboration_adapter/team_state/tests.rs",
             "tests/collaboration/team_runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -5447,6 +5448,24 @@
             "src/app/collaboration_adapter/team_state.rs",
             "src/app/collaboration_adapter/team_state/persistence.rs",
             "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_state/tests.rs",
+      "slices": [
+        {
+          "responsibility": "team planning, state transition, cancellation, manifest ownership, and tamper regression tests",
+          "target": "src/app/collaboration_adapter/team_state/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_state.rs",
+            "src/app/collaboration_adapter/team_state.rs",
+            "src/app/collaboration_adapter/team_state/persistence.rs",
+            "src/app/collaboration_adapter/team_state/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8161,6 +8180,12 @@
       "path": "src/app/collaboration_adapter/team_state/persistence.rs",
       "responsibilities": [
         "team manifest, cancellation marker, current state, and snapshot persistence"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_state/tests.rs",
+      "responsibilities": [
+        "team planning, state transition, cancellation, manifest ownership, and tamper regression tests"
       ]
     },
     {

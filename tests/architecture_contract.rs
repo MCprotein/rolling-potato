@@ -3486,6 +3486,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let team_reconciliation_adapter = "src/app/collaboration_adapter/team_reconciliation.rs";
     let team_state_adapter = "src/app/collaboration_adapter/team_state.rs";
     let team_state_persistence = "src/app/collaboration_adapter/team_state/persistence.rs";
+    let team_state_tests = "src/app/collaboration_adapter/team_state/tests.rs";
     let owners: &[(&str, &[&str])] = &[
         (
             "src/runtime_core/collaboration/subagent.rs",
@@ -3600,6 +3601,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(Path::new(team_execution_events).is_file());
     assert!(Path::new(team_execution_tests).is_file());
     assert!(Path::new(team_state_persistence).is_file());
+    assert!(Path::new(team_state_tests).is_file());
     let subagent_source = fs::read_to_string(subagent_adapter).unwrap();
     let subagent_domain = fs::read_to_string("src/runtime_core/collaboration/subagent.rs").unwrap();
     let subagent_record_codec_source = fs::read_to_string(subagent_record_codec).unwrap();
@@ -3615,6 +3617,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let team_execution_test_source = fs::read_to_string(team_execution_tests).unwrap();
     let team_state_source = fs::read_to_string(team_state_adapter).unwrap();
     let team_state_persistence_source = fs::read_to_string(team_state_persistence).unwrap();
+    let team_state_test_source = fs::read_to_string(team_state_tests).unwrap();
     assert!(
         subagent_source.lines().any(|line| line == "mod execution;"),
         "subagent adapter does not register its execution owner"
@@ -3683,6 +3686,25 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         assert!(
             !team_state_source.contains(responsibility),
             "team state adapter still owns persistence: {responsibility}"
+        );
+    }
+    assert!(
+        team_state_source.contains("#[path = \"team_state/tests.rs\"]"),
+        "team state adapter does not register its regression-test owner"
+    );
+    for regression in [
+        "fn plan_persists_canonical_manifest_and_hash_chained_state(",
+        "fn stage_machine_allows_only_ordered_runtime_transitions(",
+        "fn cancellation_marker_is_durable_idempotent_and_hash_bound(",
+        "fn tampered_current_state_is_rejected_against_artifact_hash(",
+    ] {
+        assert!(
+            team_state_test_source.contains(regression),
+            "team state regression owner is missing: {regression}"
+        );
+        assert!(
+            !team_state_source.contains(regression),
+            "team state adapter still owns regression test: {regression}"
         );
     }
     assert!(
@@ -3906,7 +3928,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         (team_adapter, 600),
         (team_execution_adapter, 325),
         (team_reconciliation_adapter, 550),
-        (team_state_adapter, 650),
+        (team_state_adapter, 475),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         assert!(
@@ -3957,6 +3979,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(
         team_state_persistence_source.lines().count() < 250,
         "team state persistence module regrew beyond its ownership boundary"
+    );
+    assert!(
+        team_state_test_source.lines().count() < 225,
+        "team state regression module regrew beyond its ownership boundary"
     );
 
     for legacy in [
