@@ -868,6 +868,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
 #[test]
 fn v03713_transition_adapter_delegates_source_install_contract() {
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
+    let bundle_codec_adapter = "src/app/workflow_adapter/transition/bundle_codec.rs";
     let bundle_preparation_adapter = "src/app/workflow_adapter/transition/bundle_preparation.rs";
     let bundle_validation_adapter = "src/app/workflow_adapter/transition/bundle_validation.rs";
     let journal_adapter = "src/app/workflow_adapter/transition/journal.rs";
@@ -875,6 +876,7 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let transition_tests = "src/app/workflow_adapter/transition/tests/mod.rs";
     for target in [
         transition_adapter,
+        bundle_codec_adapter,
         bundle_preparation_adapter,
         bundle_validation_adapter,
         journal_adapter,
@@ -888,11 +890,33 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     }
 
     let transition = fs::read_to_string(transition_adapter).unwrap();
+    let bundle_codec = fs::read_to_string(bundle_codec_adapter).unwrap();
     let bundle_preparation = fs::read_to_string(bundle_preparation_adapter).unwrap();
     let bundle_validation = fs::read_to_string(bundle_validation_adapter).unwrap();
     let journal = fs::read_to_string(journal_adapter).unwrap();
     let source_install = fs::read_to_string(source_install_adapter).unwrap();
     let tests = fs::read_to_string(transition_tests).unwrap();
+    assert!(
+        transition.lines().any(|line| line == "mod bundle_codec;"),
+        "transition adapter does not register the bundle-codec owner"
+    );
+    for responsibility in [
+        "pub(super) fn render_source_members(",
+        "pub(super) fn parse_source_members(",
+        "pub(super) struct PreparedMemberParseContext",
+        "pub(super) fn parse_semantic_events(",
+        "pub(super) fn parse_event_chain_plan(",
+        "pub(super) fn prepared_member_order(",
+    ] {
+        assert!(
+            !transition.contains(responsibility),
+            "bundle-codec responsibility escaped into transition facade: {responsibility}"
+        );
+        assert!(
+            bundle_codec.contains(responsibility),
+            "bundle-codec adapter is missing responsibility: {responsibility}"
+        );
+    }
     assert!(
         transition
             .lines()
@@ -1002,8 +1026,12 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         );
     }
     assert!(
-        transition.lines().count() < 1_125,
+        transition.lines().count() < 625,
         "transition adapter regrew beyond its extracted ownership boundary"
+    );
+    assert!(
+        bundle_codec.lines().count() < 550,
+        "bundle-codec adapter regrew beyond its ownership boundary"
     );
     assert!(
         bundle_preparation.lines().count() < 500,

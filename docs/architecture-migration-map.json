@@ -4201,7 +4201,7 @@
       "path": "src/app/workflow_adapter/transition.rs",
       "slices": [
         {
-          "responsibility": "prepared bundle member codec and shared transition primitives",
+          "responsibility": "shared transition path, canonical JSON, hashing, and fsync primitives",
           "target": "src/app/workflow_adapter/transition.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -4210,6 +4210,23 @@
             "src/runtime_core/workflow/application/recovery.rs",
             "src/runtime_core/workflow/application/projection_barrier.rs",
             "src/app/workflow_adapter/transition.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_codec.rs",
+      "slices": [
+        {
+          "responsibility": "prepared member, semantic-event, and event-chain codec adapter",
+          "target": "src/app/workflow_adapter/transition/bundle_codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/bundle_codec.rs",
+            "src/app/workflow_adapter/transition/tests/mod.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6285,7 +6302,13 @@
     {
       "path": "src/app/workflow_adapter/transition.rs",
       "responsibilities": [
-        "prepared bundle member codec and shared transition primitives"
+        "shared transition path, canonical JSON, hashing, and fsync primitives"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_codec.rs",
+      "responsibilities": [
+        "prepared member, semantic-event, and event-chain codec adapter"
       ]
     },
     {
