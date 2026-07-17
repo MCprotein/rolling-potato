@@ -416,10 +416,13 @@ pub(super) fn recover_pending_bundles_under_guard(project_id: &str) -> Result<us
                     std::env::consts::OS
                 )));
                 #[cfg(unix)]
-                crate::patch::recover_prepared_approval_bundle(&bundle, &entry.path)?;
+                crate::app::patch_adapter::recover_prepared_approval_bundle(&bundle, &entry.path)?;
             }
             "approve-verification" => {
-                crate::patch::recover_prepared_verification_bundle(&bundle, &entry.path)?;
+                crate::app::patch_adapter::recover_prepared_verification_bundle(
+                    &bundle,
+                    &entry.path,
+                )?;
             }
             kind if is_terminal_action_intent_kind(kind) => {
                 crate::app::workflow_adapter::state::recover_project_current_state_prepared_terminal_action(

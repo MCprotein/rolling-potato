@@ -1,9 +1,9 @@
 //! CLI execution adapter for workflow state, session, and patch commands.
 
+use crate::app::patch_adapter as patch;
 use crate::app::runtime_adapter as runtime;
 use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
-use crate::patch;
 use crate::surfaces::cli::command::{PatchCommand, SessionCommand, StateCommand};
 
 pub(super) fn execute_state(command: StateCommand) -> Result<(), AppError> {

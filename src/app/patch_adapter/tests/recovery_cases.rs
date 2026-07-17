@@ -15,7 +15,7 @@ fn source_install_unsupported_platform_blocks_before_all_effects() {
         .contains("source-install.unsupported-platform"));
     assert!(!root.exists());
     assert!(ensure_source_install_platform_supported(false, "windows", true).is_ok());
-    let source = include_str!("../../patch.rs");
+    let source = include_str!("../../patch_adapter.rs");
     let dispatch = source
         .split_once("fn approve_dispatch_for_intent(")
         .unwrap()

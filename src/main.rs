@@ -2,7 +2,6 @@ mod adapters;
 mod app;
 mod composition;
 mod foundation;
-mod patch;
 mod runtime_core;
 mod surfaces;
 #[cfg(test)]

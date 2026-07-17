@@ -2603,27 +2603,37 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
             .any(|line| line == "pub(crate) mod intent_adapter;"),
         "application root does not register the intent adapter"
     );
+    assert!(Path::new("src/app/patch_adapter.rs").is_file());
+    assert!(!Path::new("src/patch.rs").exists());
+    assert!(!Path::new("src/patch").exists());
+    assert!(!main.lines().any(|line| line == "mod patch;"));
+    assert!(
+        app_root
+            .lines()
+            .any(|line| line == "pub(crate) mod patch_adapter;"),
+        "application root does not register the patch adapter"
+    );
     let patch_test_modules = [
-        "src/patch/tests/mod.rs",
-        "src/patch/tests/approval_cases.rs",
-        "src/patch/tests/recovery_cases.rs",
-        "src/patch/tests/support_cases.rs",
-        "src/patch/tests/terminal_cases.rs",
-        "src/patch/tests/verification_cases.rs",
+        "src/app/patch_adapter/tests/mod.rs",
+        "src/app/patch_adapter/tests/approval_cases.rs",
+        "src/app/patch_adapter/tests/recovery_cases.rs",
+        "src/app/patch_adapter/tests/support_cases.rs",
+        "src/app/patch_adapter/tests/terminal_cases.rs",
+        "src/app/patch_adapter/tests/verification_cases.rs",
     ];
-    let approval_transaction_adapter = "src/patch/approval_transaction.rs";
-    let approval_recovery_adapter = "src/patch/approval_transaction/recovery.rs";
-    let execution_adapter = "src/patch/execution.rs";
-    let guard_adapter = "src/patch/guard.rs";
-    let proposal_builder_adapter = "src/patch/proposal_builder.rs";
-    let proposal_store_adapter = "src/patch/proposal_store.rs";
-    let resume_adapter = "src/patch/resume.rs";
-    let terminal_adapter = "src/patch/terminal.rs";
-    let verification_adapter = "src/patch/verification.rs";
-    let workflow_contract_adapter = "src/patch/workflow_contract.rs";
-    let workflow_execution_adapter = "src/patch/workflow_execution.rs";
-    let plugin_completion_adapter = "src/patch/workflow_execution/plugin_completion.rs";
-    let skill_lifecycle_adapter = "src/patch/workflow_execution/skill_lifecycle.rs";
+    let approval_transaction_adapter = "src/app/patch_adapter/approval_transaction.rs";
+    let approval_recovery_adapter = "src/app/patch_adapter/approval_transaction/recovery.rs";
+    let execution_adapter = "src/app/patch_adapter/execution.rs";
+    let guard_adapter = "src/app/patch_adapter/guard.rs";
+    let proposal_builder_adapter = "src/app/patch_adapter/proposal_builder.rs";
+    let proposal_store_adapter = "src/app/patch_adapter/proposal_store.rs";
+    let resume_adapter = "src/app/patch_adapter/resume.rs";
+    let terminal_adapter = "src/app/patch_adapter/terminal.rs";
+    let verification_adapter = "src/app/patch_adapter/verification.rs";
+    let workflow_contract_adapter = "src/app/patch_adapter/workflow_contract.rs";
+    let workflow_execution_adapter = "src/app/patch_adapter/workflow_execution.rs";
+    let plugin_completion_adapter = "src/app/patch_adapter/workflow_execution/plugin_completion.rs";
+    let skill_lifecycle_adapter = "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs";
     assert!(Path::new(approval_transaction_adapter).is_file());
     assert!(Path::new(approval_recovery_adapter).is_file());
     assert!(Path::new(execution_adapter).is_file());
@@ -2754,17 +2764,17 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         ("src/app/intent_adapter.rs", "struct IntentDecision"),
         ("src/app/intent_adapter.rs", "fn plan_action_candidate"),
         ("src/app/intent_adapter.rs", "fn parse_model_action"),
-        ("src/patch.rs", "struct PatchPreview"),
-        ("src/patch.rs", "struct ProposalRecord"),
-        ("src/patch.rs", "struct ApplyResult"),
-        ("src/patch.rs", "struct RollbackResult"),
-        ("src/patch.rs", "struct VerificationPlan"),
-        ("src/patch.rs", "struct VerificationResult"),
-        ("src/patch.rs", "fn render_unified_diff"),
-        ("src/patch.rs", "fn parse_proposal_header"),
-        ("src/patch.rs", "fn constant_time_eq"),
-        ("src/patch.rs", "fn is_test_verification"),
-        ("src/patch.rs", "fn output_excerpt"),
+        ("src/app/patch_adapter.rs", "struct PatchPreview"),
+        ("src/app/patch_adapter.rs", "struct ProposalRecord"),
+        ("src/app/patch_adapter.rs", "struct ApplyResult"),
+        ("src/app/patch_adapter.rs", "struct RollbackResult"),
+        ("src/app/patch_adapter.rs", "struct VerificationPlan"),
+        ("src/app/patch_adapter.rs", "struct VerificationResult"),
+        ("src/app/patch_adapter.rs", "fn render_unified_diff"),
+        ("src/app/patch_adapter.rs", "fn parse_proposal_header"),
+        ("src/app/patch_adapter.rs", "fn constant_time_eq"),
+        ("src/app/patch_adapter.rs", "fn is_test_verification"),
+        ("src/app/patch_adapter.rs", "fn output_excerpt"),
     ] {
         let source = fs::read_to_string(facade).unwrap();
         let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
@@ -2777,7 +2787,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let intent_facade = fs::read_to_string("src/app/intent_adapter.rs").unwrap();
     let intent_execution = fs::read_to_string(intent_execution_path).unwrap();
     let intent_tests = fs::read_to_string(intent_tests_path).unwrap();
-    let patch_facade = fs::read_to_string("src/patch.rs").unwrap();
+    let patch_facade = fs::read_to_string("src/app/patch_adapter.rs").unwrap();
     let approval_transaction = fs::read_to_string(approval_transaction_adapter).unwrap();
     let approval_recovery = fs::read_to_string(approval_recovery_adapter).unwrap();
     let execution = fs::read_to_string(execution_adapter).unwrap();
@@ -3079,7 +3089,7 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     assert!(workflow_execution.lines().count() < 375);
     assert!(plugin_completion.lines().count() < 175);
     assert!(skill_lifecycle.lines().count() < 175);
-    assert!(patch_facade.contains("#[path = \"patch/tests/mod.rs\"]"));
+    assert!(patch_facade.contains("#[path = \"patch_adapter/tests/mod.rs\"]"));
     assert!(!patch_facade.contains("mod tests {"));
     assert!(
         patch_test_module.lines().count() < 150,
@@ -4592,7 +4602,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!runtime.contains("fn dispatch_tui_intent"));
 
     for legacy_owner in [
-        "src/patch.rs",
+        "src/app/patch_adapter.rs",
         "src/app/workflow_adapter/state.rs",
         tui_adapter,
     ] {

@@ -69,7 +69,7 @@ struct StateVerificationTransactionPort<'a> {
 
 impl VerificationTransactionPort for StateVerificationTransactionPort<'_> {
     fn fault(&mut self, point: VerificationFault) -> Result<(), AppError> {
-        crate::patch::verification_approval_transaction_fault(point.as_str())
+        crate::app::patch_adapter::verification_approval_transaction_fault(point.as_str())
     }
 
     fn append_event(&mut self, index: usize) -> Result<(), AppError> {

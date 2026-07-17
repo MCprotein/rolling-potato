@@ -21,7 +21,7 @@ pub(super) fn run_with_decision(
     manifest: skill::ResolvedSkillManifest,
 ) -> Result<String, AppError> {
     if let Some(workflow_id) = state::active_workflow_id()? {
-        return crate::patch::resume_workflow_report(&workflow_id);
+        return crate::app::patch_adapter::resume_workflow_report(&workflow_id);
     }
     backend::preflight_chat_ready()?;
     let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
@@ -394,7 +394,7 @@ pub(super) fn run_with_decision(
     }
 
     if manifest.id() == "fix-test" {
-        if let Err(error) = crate::patch::validate_skill_verification(
+        if let Err(error) = crate::app::patch_adapter::validate_skill_verification(
             manifest.id(),
             &model_action.verification_command,
         ) {
@@ -421,8 +421,10 @@ pub(super) fn run_with_decision(
             "failing-test-before",
             None,
         )?;
-        let observed =
-            crate::patch::record_failing_test_before(&workflow, &model_action.verification_command);
+        let observed = crate::app::patch_adapter::record_failing_test_before(
+            &workflow,
+            &model_action.verification_command,
+        );
         dispatch_skill_hook(
             &manifest,
             &workflow,
@@ -459,7 +461,7 @@ pub(super) fn run_with_decision(
         "render_diff",
         Some("render_diff"),
     )?;
-    let proposal = match crate::patch::prepare_workflow_proposal(
+    let proposal = match crate::app::patch_adapter::prepare_workflow_proposal(
         &workflow.workflow_id,
         &workflow.action_id,
         &model_action.target_path,

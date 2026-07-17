@@ -2050,7 +2050,7 @@
             "src/app/command_dispatch.rs",
             "src/app/command_dispatch/workflow_commands.rs",
             "src/app/workflow_adapter/state.rs",
-            "src/patch.rs",
+            "src/app/patch_adapter.rs",
             "src/app/runtime_adapter.rs",
             "src/surfaces/cli/parser/tests/mod.rs",
             "tests/patch/lifecycle.rs",
@@ -3403,7 +3403,7 @@
       ]
     },
     {
-      "path": "src/patch.rs",
+      "path": "src/app/patch_adapter.rs",
       "slices": [
         {
           "responsibility": "patch proposal and preview",
@@ -3448,52 +3448,52 @@
       ]
     },
     {
-      "path": "src/patch/approval_transaction.rs",
+      "path": "src/app/patch_adapter/approval_transaction.rs",
       "slices": [
         {
           "responsibility": "prepared patch approval transaction orchestration adapter",
-          "target": "src/patch/approval_transaction.rs",
+          "target": "src/app/patch_adapter/approval_transaction.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
             "src/app/workflow_adapter/state/transaction.rs",
             "src/app/workflow_adapter/transition.rs",
-            "src/patch/approval_transaction.rs",
+            "src/app/patch_adapter/approval_transaction.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/patch/approval_transaction/recovery.rs",
+      "path": "src/app/patch_adapter/approval_transaction/recovery.rs",
       "slices": [
         {
           "responsibility": "prepared patch approval and verification crash recovery adapter",
-          "target": "src/patch/approval_transaction/recovery.rs",
+          "target": "src/app/patch_adapter/approval_transaction/recovery.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/patch/approval_transaction/recovery.rs",
-            "src/patch/tests/approval_cases.rs",
-            "src/patch/tests/verification_cases.rs",
+            "src/app/patch_adapter/approval_transaction/recovery.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
+            "src/app/patch_adapter/tests/verification_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/patch/execution.rs",
+      "path": "src/app/patch_adapter/execution.rs",
       "slices": [
         {
           "responsibility": "guarded patch apply, verification command, and rollback execution adapter",
-          "target": "src/patch/execution.rs",
+          "target": "src/app/patch_adapter/execution.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/application.rs",
             "src/runtime_core/patch/verification.rs",
-            "src/patch/execution.rs",
+            "src/app/patch_adapter/execution.rs",
             "tests/patch/lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3501,71 +3501,71 @@
       ]
     },
     {
-      "path": "src/patch/guard.rs",
+      "path": "src/app/patch_adapter/guard.rs",
       "slices": [
         {
           "responsibility": "patch approval lease, fault injection, and rollback recovery support",
-          "target": "src/patch/guard.rs",
+          "target": "src/app/patch_adapter/guard.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/workflow_adapter/state/transaction.rs",
             "src/runtime_core/patch/application.rs",
-            "src/patch/guard.rs",
-            "src/patch/tests/mod.rs",
+            "src/app/patch_adapter/guard.rs",
+            "src/app/patch_adapter/tests/mod.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/patch/proposal_builder.rs",
+      "path": "src/app/patch_adapter/proposal_builder.rs",
       "slices": [
         {
           "responsibility": "patch preview materialization, target path, and approval token adapter",
-          "target": "src/patch/proposal_builder.rs",
+          "target": "src/app/patch_adapter/proposal_builder.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/approval.rs",
             "src/runtime_core/patch/proposal.rs",
             "src/app/policy_adapter.rs",
-            "src/patch/proposal_builder.rs",
+            "src/app/patch_adapter/proposal_builder.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/patch/proposal_store.rs",
+      "path": "src/app/patch_adapter/proposal_store.rs",
       "slices": [
         {
           "responsibility": "patch proposal persistence, credential, and rollback lookup adapter",
-          "target": "src/patch/proposal_store.rs",
+          "target": "src/app/patch_adapter/proposal_store.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/approval.rs",
             "src/runtime_core/patch/application.rs",
             "src/runtime_core/patch/proposal.rs",
-            "src/patch/proposal_store.rs",
+            "src/app/patch_adapter/proposal_store.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/patch/resume.rs",
+      "path": "src/app/patch_adapter/resume.rs",
       "slices": [
         {
           "responsibility": "patch proposal listing and workflow resume adapter",
-          "target": "src/patch/resume.rs",
+          "target": "src/app/patch_adapter/resume.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/verification.rs",
             "src/app/workflow_adapter/state/lifecycle.rs",
-            "src/patch/resume.rs",
+            "src/app/patch_adapter/resume.rs",
             "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3573,17 +3573,17 @@
       ]
     },
     {
-      "path": "src/patch/terminal.rs",
+      "path": "src/app/patch_adapter/terminal.rs",
       "slices": [
         {
           "responsibility": "patch workflow cancellation, gate denial, and terminal rollback adapter",
-          "target": "src/patch/terminal.rs",
+          "target": "src/app/patch_adapter/terminal.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
             "src/app/workflow_adapter/state/transaction.rs",
-            "src/patch/terminal.rs",
+            "src/app/patch_adapter/terminal.rs",
             "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3591,35 +3591,35 @@
       ]
     },
     {
-      "path": "src/patch/verification.rs",
+      "path": "src/app/patch_adapter/verification.rs",
       "slices": [
         {
           "responsibility": "patch verification approval and prepared transaction adapter",
-          "target": "src/patch/verification.rs",
+          "target": "src/app/patch_adapter/verification.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/verification.rs",
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
             "src/app/workflow_adapter/state/transaction.rs",
-            "src/patch/verification.rs",
+            "src/app/patch_adapter/verification.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/patch/workflow_contract.rs",
+      "path": "src/app/patch_adapter/workflow_contract.rs",
       "slices": [
         {
           "responsibility": "patch workflow binding, selection, and terminal report contract adapter",
-          "target": "src/patch/workflow_contract.rs",
+          "target": "src/app/patch_adapter/workflow_contract.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/proposal.rs",
             "src/app/workflow_adapter/state.rs",
-            "src/patch/workflow_contract.rs",
+            "src/app/patch_adapter/workflow_contract.rs",
             "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3627,38 +3627,38 @@
       ]
     },
     {
-      "path": "src/patch/workflow_execution.rs",
+      "path": "src/app/patch_adapter/workflow_execution.rs",
       "slices": [
         {
           "responsibility": "patch token rotation and apply-verification continuation orchestration",
-          "target": "src/patch/workflow_execution.rs",
+          "target": "src/app/patch_adapter/workflow_execution.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/application.rs",
             "src/app/extensions_adapter/plugin.rs",
             "src/app/extensions_adapter/skill.rs",
-            "src/patch/workflow_execution.rs",
-            "src/patch/workflow_execution/plugin_completion.rs",
-            "src/patch/workflow_execution/skill_lifecycle.rs",
+            "src/app/patch_adapter/workflow_execution.rs",
+            "src/app/patch_adapter/workflow_execution/plugin_completion.rs",
+            "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/patch/workflow_execution/skill_lifecycle.rs",
+      "path": "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs",
       "slices": [
         {
           "responsibility": "skill runtime phase validation, evidence binding, lifecycle hooks, and stop transitions",
-          "target": "src/patch/workflow_execution/skill_lifecycle.rs",
+          "target": "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/extensions_adapter/skill.rs",
-            "src/patch/workflow_execution.rs",
-            "src/patch/workflow_execution/skill_lifecycle.rs",
-            "src/patch/tests/approval_cases.rs",
+            "src/app/patch_adapter/workflow_execution.rs",
+            "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
             "tests/patch/lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3666,18 +3666,18 @@
       ]
     },
     {
-      "path": "src/patch/workflow_execution/plugin_completion.rs",
+      "path": "src/app/patch_adapter/workflow_execution/plugin_completion.rs",
       "slices": [
         {
           "responsibility": "read-only plugin workflow completion validation, event convergence, and recovery reporting",
-          "target": "src/patch/workflow_execution/plugin_completion.rs",
+          "target": "src/app/patch_adapter/workflow_execution/plugin_completion.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/extensions_adapter/plugin.rs",
             "src/app/extensions_adapter/skill.rs",
-            "src/patch/workflow_execution.rs",
-            "src/patch/workflow_execution/plugin_completion.rs",
+            "src/app/patch_adapter/workflow_execution.rs",
+            "src/app/patch_adapter/workflow_execution/plugin_completion.rs",
             "tests/patch/lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3685,98 +3685,98 @@
       ]
     },
     {
-      "path": "src/patch/tests/mod.rs",
+      "path": "src/app/patch_adapter/tests/mod.rs",
       "slices": [
         {
           "responsibility": "shared patch adapter test fixtures",
-          "target": "src/patch/tests/mod.rs",
+          "target": "src/app/patch_adapter/tests/mod.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/patch.rs",
-            "src/patch/tests/mod.rs",
+            "src/app/patch_adapter.rs",
+            "src/app/patch_adapter/tests/mod.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/patch/tests/approval_cases.rs",
+      "path": "src/app/patch_adapter/tests/approval_cases.rs",
       "slices": [
         {
           "responsibility": "patch approval transaction regression tests",
-          "target": "src/patch/tests/approval_cases.rs",
+          "target": "src/app/patch_adapter/tests/approval_cases.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/patch/approval_transaction.rs",
-            "src/patch/tests/approval_cases.rs",
+            "src/app/patch_adapter/approval_transaction.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/patch/tests/recovery_cases.rs",
+      "path": "src/app/patch_adapter/tests/recovery_cases.rs",
       "slices": [
         {
           "responsibility": "patch source and projection recovery regression tests",
-          "target": "src/patch/tests/recovery_cases.rs",
+          "target": "src/app/patch_adapter/tests/recovery_cases.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/patch/approval_transaction.rs",
-            "src/patch/tests/recovery_cases.rs",
+            "src/app/patch_adapter/approval_transaction.rs",
+            "src/app/patch_adapter/tests/recovery_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/patch/tests/support_cases.rs",
+      "path": "src/app/patch_adapter/tests/support_cases.rs",
       "slices": [
         {
           "responsibility": "patch lock, rollback, and preview regression tests",
-          "target": "src/patch/tests/support_cases.rs",
+          "target": "src/app/patch_adapter/tests/support_cases.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/patch/execution.rs",
-            "src/patch/guard.rs",
-            "src/patch/tests/support_cases.rs",
+            "src/app/patch_adapter/execution.rs",
+            "src/app/patch_adapter/guard.rs",
+            "src/app/patch_adapter/tests/support_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/patch/tests/terminal_cases.rs",
+      "path": "src/app/patch_adapter/tests/terminal_cases.rs",
       "slices": [
         {
           "responsibility": "patch terminal and resume regression tests",
-          "target": "src/patch/tests/terminal_cases.rs",
+          "target": "src/app/patch_adapter/tests/terminal_cases.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/patch/resume.rs",
-            "src/patch/terminal.rs",
-            "src/patch/tests/terminal_cases.rs",
+            "src/app/patch_adapter/resume.rs",
+            "src/app/patch_adapter/terminal.rs",
+            "src/app/patch_adapter/tests/terminal_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
       ]
     },
     {
-      "path": "src/patch/tests/verification_cases.rs",
+      "path": "src/app/patch_adapter/tests/verification_cases.rs",
       "slices": [
         {
           "responsibility": "patch verification and credential regression tests",
-          "target": "src/patch/tests/verification_cases.rs",
+          "target": "src/app/patch_adapter/tests/verification_cases.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/patch/verification.rs",
-            "src/patch/tests/verification_cases.rs",
+            "src/app/patch_adapter/verification.rs",
+            "src/app/patch_adapter/tests/verification_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4991,7 +4991,7 @@
             "src/app/workflow_adapter/state/source_install/directory.rs",
             "src/app/workflow_adapter/state/source_install/fd_ops.rs",
             "src/app/workflow_adapter/state/tests/source_install.rs",
-            "src/patch/tests/terminal_cases.rs",
+            "src/app/patch_adapter/tests/terminal_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5010,7 +5010,7 @@
             "src/app/workflow_adapter/state/source_install/directory.rs",
             "src/app/workflow_adapter/state/source_install/fd_ops.rs",
             "src/app/workflow_adapter/state/tests/source_install.rs",
-            "src/patch/tests/terminal_cases.rs",
+            "src/app/patch_adapter/tests/terminal_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5030,7 +5030,7 @@
             "src/app/workflow_adapter/state/transaction/approval.rs",
             "src/app/workflow_adapter/state/transaction/terminal.rs",
             "src/app/workflow_adapter/state/transaction/verification.rs",
-            "src/patch.rs",
+            "src/app/patch_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5048,7 +5048,7 @@
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
             "src/app/workflow_adapter/state/transaction.rs",
             "src/app/workflow_adapter/state/transaction/verification.rs",
-            "src/patch/tests/verification_cases.rs",
+            "src/app/patch_adapter/tests/verification_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5066,7 +5066,7 @@
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
             "src/app/workflow_adapter/state/transaction.rs",
             "src/app/workflow_adapter/state/transaction/terminal.rs",
-            "src/patch/tests/terminal_cases.rs",
+            "src/app/patch_adapter/tests/terminal_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5085,7 +5085,7 @@
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
             "src/app/workflow_adapter/state/transaction.rs",
             "src/app/workflow_adapter/state/transaction/approval.rs",
-            "src/patch/approval_transaction.rs",
+            "src/app/patch_adapter/approval_transaction.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6073,7 +6073,7 @@
             "src/app/workflow_adapter/transition/bundle_validation/members.rs",
             "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs",
             "src/app/workflow_adapter/state/tests/lifecycle.rs",
-            "src/patch/tests/verification_cases.rs",
+            "src/app/patch_adapter/tests/verification_cases.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7840,7 +7840,7 @@
       ]
     },
     {
-      "path": "src/patch.rs",
+      "path": "src/app/patch_adapter.rs",
       "responsibilities": [
         "patch proposal and preview",
         "patch approval credentials",
@@ -7849,115 +7849,115 @@
       ]
     },
     {
-      "path": "src/patch/approval_transaction.rs",
+      "path": "src/app/patch_adapter/approval_transaction.rs",
       "responsibilities": [
         "prepared patch approval transaction orchestration adapter"
       ]
     },
     {
-      "path": "src/patch/approval_transaction/recovery.rs",
+      "path": "src/app/patch_adapter/approval_transaction/recovery.rs",
       "responsibilities": [
         "prepared patch approval and verification crash recovery adapter"
       ]
     },
     {
-      "path": "src/patch/execution.rs",
+      "path": "src/app/patch_adapter/execution.rs",
       "responsibilities": [
         "guarded patch apply, verification command, and rollback execution adapter"
       ]
     },
     {
-      "path": "src/patch/guard.rs",
+      "path": "src/app/patch_adapter/guard.rs",
       "responsibilities": [
         "patch approval lease, fault injection, and rollback recovery support"
       ]
     },
     {
-      "path": "src/patch/proposal_builder.rs",
+      "path": "src/app/patch_adapter/proposal_builder.rs",
       "responsibilities": [
         "patch preview materialization, target path, and approval token adapter"
       ]
     },
     {
-      "path": "src/patch/proposal_store.rs",
+      "path": "src/app/patch_adapter/proposal_store.rs",
       "responsibilities": [
         "patch proposal persistence, credential, and rollback lookup adapter"
       ]
     },
     {
-      "path": "src/patch/resume.rs",
+      "path": "src/app/patch_adapter/resume.rs",
       "responsibilities": [
         "patch proposal listing and workflow resume adapter"
       ]
     },
     {
-      "path": "src/patch/terminal.rs",
+      "path": "src/app/patch_adapter/terminal.rs",
       "responsibilities": [
         "patch workflow cancellation, gate denial, and terminal rollback adapter"
       ]
     },
     {
-      "path": "src/patch/verification.rs",
+      "path": "src/app/patch_adapter/verification.rs",
       "responsibilities": [
         "patch verification approval and prepared transaction adapter"
       ]
     },
     {
-      "path": "src/patch/workflow_contract.rs",
+      "path": "src/app/patch_adapter/workflow_contract.rs",
       "responsibilities": [
         "patch workflow binding, selection, and terminal report contract adapter"
       ]
     },
     {
-      "path": "src/patch/workflow_execution.rs",
+      "path": "src/app/patch_adapter/workflow_execution.rs",
       "responsibilities": [
         "patch token rotation and apply-verification continuation orchestration"
       ]
     },
     {
-      "path": "src/patch/workflow_execution/skill_lifecycle.rs",
+      "path": "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs",
       "responsibilities": [
         "skill runtime phase validation, evidence binding, lifecycle hooks, and stop transitions"
       ]
     },
     {
-      "path": "src/patch/workflow_execution/plugin_completion.rs",
+      "path": "src/app/patch_adapter/workflow_execution/plugin_completion.rs",
       "responsibilities": [
         "read-only plugin workflow completion validation, event convergence, and recovery reporting"
       ]
     },
     {
-      "path": "src/patch/tests/mod.rs",
+      "path": "src/app/patch_adapter/tests/mod.rs",
       "responsibilities": [
         "shared patch adapter test fixtures"
       ]
     },
     {
-      "path": "src/patch/tests/approval_cases.rs",
+      "path": "src/app/patch_adapter/tests/approval_cases.rs",
       "responsibilities": [
         "patch approval transaction regression tests"
       ]
     },
     {
-      "path": "src/patch/tests/recovery_cases.rs",
+      "path": "src/app/patch_adapter/tests/recovery_cases.rs",
       "responsibilities": [
         "patch source and projection recovery regression tests"
       ]
     },
     {
-      "path": "src/patch/tests/support_cases.rs",
+      "path": "src/app/patch_adapter/tests/support_cases.rs",
       "responsibilities": [
         "patch lock, rollback, and preview regression tests"
       ]
     },
     {
-      "path": "src/patch/tests/terminal_cases.rs",
+      "path": "src/app/patch_adapter/tests/terminal_cases.rs",
       "responsibilities": [
         "patch terminal and resume regression tests"
       ]
     },
     {
-      "path": "src/patch/tests/verification_cases.rs",
+      "path": "src/app/patch_adapter/tests/verification_cases.rs",
       "responsibilities": [
         "patch verification and credential regression tests"
       ]

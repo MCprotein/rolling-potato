@@ -12,6 +12,7 @@ pub(crate) mod intent_adapter;
 mod monitor_adapter;
 pub(crate) mod observability_adapter;
 pub(crate) mod ontology_adapter;
+pub(crate) mod patch_adapter;
 pub(crate) mod policy_adapter;
 pub(crate) mod runtime_adapter;
 pub(crate) mod tui_adapter;

@@ -140,7 +140,7 @@ struct StateApprovalTransactionPort<'a> {
 
 impl ApprovalTransactionPort for StateApprovalTransactionPort<'_> {
     fn fault(&mut self, point: ApprovalFault) -> Result<(), AppError> {
-        crate::patch::approval_transaction_fault(point.as_str())
+        crate::app::patch_adapter::approval_transaction_fault(point.as_str())
     }
 
     fn append_event(&mut self, index: usize) -> Result<(), AppError> {
@@ -190,7 +190,7 @@ impl ApprovalTransactionPort for StateApprovalTransactionPort<'_> {
     }
 
     fn converge(&mut self) -> Result<(), AppError> {
-        crate::patch::approval_projection_fault()
+        crate::app::patch_adapter::approval_projection_fault()
             .and_then(|_| self.sink.converge_prepared(self.bundle, self.journal))
     }
 

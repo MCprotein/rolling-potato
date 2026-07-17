@@ -1,3 +1,5 @@
+//! Patch lifecycle, approval, verification, and recovery application adapter.
+
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -438,5 +440,5 @@ fn read_decision_label(decision: Decision) -> &'static str {
 }
 
 #[cfg(test)]
-#[path = "patch/tests/mod.rs"]
+#[path = "patch_adapter/tests/mod.rs"]
 mod tests;

@@ -144,7 +144,7 @@ pub fn reconcile_report() -> Result<String, AppError> {
 pub fn resume_report() -> Result<String, AppError> {
     ensure_layout()?;
     if let Some(workflow_id) = active_workflow_id()? {
-        return crate::patch::resume_workflow_report(&workflow_id);
+        return crate::app::patch_adapter::resume_workflow_report(&workflow_id);
     }
     let identity = ledger::validated_current_identity()?;
     observability::initialize(&identity)?;
@@ -197,7 +197,7 @@ pub fn resume_report() -> Result<String, AppError> {
 pub fn cancel_report() -> Result<String, AppError> {
     ensure_layout()?;
     if let Some(workflow_id) = active_workflow_id()? {
-        return crate::patch::cancel_workflow_report(&workflow_id);
+        return crate::app::patch_adapter::cancel_workflow_report(&workflow_id);
     }
     let identity = ledger::validated_current_identity()?;
     observability::initialize(&identity)?;

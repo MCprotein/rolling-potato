@@ -78,7 +78,7 @@ impl TuiActionPort for TuiActionAdapter {
         lease: &SelectionLease,
     ) -> Result<Option<crate::surfaces::tui::runtime_bridge::OneShotSecret>, TuiMutationFailure>
     {
-        crate::patch::approve_for_tui(proposal_id, token, intent_id, lease)
+        crate::app::patch_adapter::approve_for_tui(proposal_id, token, intent_id, lease)
             .map_err(classify_tui_mutation_failure)
     }
 
@@ -89,7 +89,7 @@ impl TuiActionPort for TuiActionAdapter {
         intent_id: &str,
         lease: &SelectionLease,
     ) -> Result<(), TuiMutationFailure> {
-        crate::patch::verify_for_tui(proposal_id, token, intent_id, lease)
+        crate::app::patch_adapter::verify_for_tui(proposal_id, token, intent_id, lease)
             .map(|_| ())
             .map_err(classify_tui_mutation_failure)
     }
@@ -102,8 +102,14 @@ impl TuiActionPort for TuiActionAdapter {
         gate_kind: TuiGateKind,
         lease: &SelectionLease,
     ) -> Result<TuiOutcome, TuiMutationFailure> {
-        crate::patch::deny_pending_gate_for_tui(workflow_id, intent_id, gate_id, gate_kind, lease)
-            .map_err(classify_tui_mutation_failure)
+        crate::app::patch_adapter::deny_pending_gate_for_tui(
+            workflow_id,
+            intent_id,
+            gate_id,
+            gate_kind,
+            lease,
+        )
+        .map_err(classify_tui_mutation_failure)
     }
 
     fn resume_workflow(
@@ -112,7 +118,7 @@ impl TuiActionPort for TuiActionAdapter {
         intent_id: &str,
         lease: &SelectionLease,
     ) -> Result<(), TuiMutationFailure> {
-        crate::patch::resume_workflow_for_tui(workflow_id, intent_id, lease)
+        crate::app::patch_adapter::resume_workflow_for_tui(workflow_id, intent_id, lease)
             .map_err(classify_tui_mutation_failure)
     }
 
@@ -122,7 +128,7 @@ impl TuiActionPort for TuiActionAdapter {
         intent_id: &str,
         lease: &SelectionLease,
     ) -> Result<(), TuiMutationFailure> {
-        crate::patch::cancel_workflow_for_tui(workflow_id, intent_id, lease)
+        crate::app::patch_adapter::cancel_workflow_for_tui(workflow_id, intent_id, lease)
             .map_err(classify_tui_mutation_failure)
     }
 
@@ -139,7 +145,7 @@ impl TuiActionPort for TuiActionAdapter {
 }
 
 fn classify_tui_mutation_failure(error: AppError) -> TuiMutationFailure {
-    if crate::patch::is_stale_selection_error(&error) {
+    if crate::app::patch_adapter::is_stale_selection_error(&error) {
         return TuiMutationFailure::StaleSelection;
     }
     match error.message.as_str() {
@@ -204,7 +210,11 @@ impl TuiReadPort for TuiReadAdapter {
         proposal_id: &str,
         max_bytes: usize,
     ) -> Result<crate::runtime_core::patch::proposal::PatchProposalDetail, AppError> {
-        crate::patch::proposal_detail_for_workflow_bounded(workflow, proposal_id, max_bytes)
+        crate::app::patch_adapter::proposal_detail_for_workflow_bounded(
+            workflow,
+            proposal_id,
+            max_bytes,
+        )
     }
 
     fn evidence_status(
