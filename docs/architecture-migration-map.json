@@ -2593,6 +2593,24 @@
       ]
     },
     {
+      "path": "src/patch/proposal_builder.rs",
+      "slices": [
+        {
+          "responsibility": "patch preview materialization, target path, and approval token adapter",
+          "target": "src/patch/proposal_builder.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/approval.rs",
+            "src/runtime_core/patch/proposal.rs",
+            "src/app/policy_adapter.rs",
+            "src/patch/proposal_builder.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/patch/proposal_store.rs",
       "slices": [
         {
@@ -5380,6 +5398,12 @@
       "path": "src/patch/guard.rs",
       "responsibilities": [
         "patch approval lease, fault injection, and rollback recovery support"
+      ]
+    },
+    {
+      "path": "src/patch/proposal_builder.rs",
+      "responsibilities": [
+        "patch preview materialization, target path, and approval token adapter"
       ]
     },
     {
