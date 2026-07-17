@@ -3395,7 +3395,7 @@
       "path": "src/surfaces/tui/render.rs",
       "slices": [
         {
-          "responsibility": "interactive frame rendering and terminal text sanitation",
+          "responsibility": "interactive and report rendering primitives",
           "target": "src/surfaces/tui/render.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -5265,7 +5265,7 @@
     {
       "path": "src/surfaces/tui/render.rs",
       "responsibilities": [
-        "interactive frame rendering and terminal text sanitation"
+        "interactive and report rendering primitives"
       ]
     },
     {

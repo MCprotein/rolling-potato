@@ -1836,6 +1836,9 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "fn render_notice_lines",
         "fn sanitize_terminal_text",
         "fn truncate_chars",
+        "fn terminal_width",
+        "fn push_wrapped",
+        "fn bytes_label",
     ] {
         assert!(
             render.contains(definition),
