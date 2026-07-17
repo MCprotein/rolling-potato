@@ -3576,8 +3576,25 @@
           "state": "complete",
           "evidence": [
             "src/runtime_core/inference/resource.rs",
+            "src/runtime_core/inference/resource/tests.rs",
             "src/adapters/process/resource.rs",
             "src/app/inference_adapter/backend/resource_sampling.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/tests.rs",
+      "slices": [
+        {
+          "responsibility": "resource pressure and governor policy regression tests",
+          "target": "src/runtime_core/inference/resource/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/resource.rs",
+            "src/runtime_core/inference/resource/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7190,6 +7207,12 @@
       "path": "src/runtime_core/inference/resource.rs",
       "responsibilities": [
         "resource pressure classification and chat, context, model, optimization, and lane governor policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/tests.rs",
+      "responsibilities": [
+        "resource pressure and governor policy regression tests"
       ]
     },
     {

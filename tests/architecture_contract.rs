@@ -775,6 +775,8 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
 
     let process_mod = fs::read_to_string("src/adapters/process/mod.rs").unwrap();
     let resource_policy = fs::read_to_string("src/runtime_core/inference/resource.rs").unwrap();
+    let resource_tests =
+        fs::read_to_string("src/runtime_core/inference/resource/tests.rs").unwrap();
     let resource_sampler = fs::read_to_string("src/adapters/process/resource.rs").unwrap();
     assert!(
         process_mod
@@ -805,8 +807,30 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         );
     }
     assert!(
-        resource_policy.lines().count() < 800,
+        resource_policy.contains("#[path = \"resource/tests.rs\"]"),
+        "resource policy does not register its regression test owner"
+    );
+    for regression in [
+        "fn classify_pressure_handles_unknown_normal_and_thresholds(",
+        "fn chat_governor_allows_clamps_and_blocks_by_pressure(",
+        "fn optimization_policy_uses_local_metrics_and_benchmark_evidence(",
+    ] {
+        assert!(
+            resource_tests.contains(regression),
+            "resource test owner is missing regression: {regression}"
+        );
+        assert!(
+            !resource_policy.contains(regression),
+            "resource policy still owns regression: {regression}"
+        );
+    }
+    assert!(
+        resource_policy.lines().count() < 600,
         "resource policy regrew beyond its ownership boundary"
+    );
+    assert!(
+        resource_tests.lines().count() < 200,
+        "resource policy regression module regrew beyond its ownership boundary"
     );
     assert!(
         resource_sampler.lines().count() < 300,
