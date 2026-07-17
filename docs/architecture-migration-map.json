@@ -1941,7 +1941,7 @@
       "path": "src/app/inference_adapter/backend.rs",
       "slices": [
         {
-          "responsibility": "backend chat and resource integration facade",
+          "responsibility": "backend resource sampling and module facade",
           "target": "src/app/inference_adapter/backend.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -1949,6 +1949,23 @@
             "src/composition/inference.rs",
             "src/app/legacy_dispatch.rs",
             "src/app/inference_adapter/backend.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat.rs",
+      "slices": [
+        {
+          "responsibility": "backend chat execution, streaming, cancellation, and generation reporting",
+          "target": "src/app/inference_adapter/backend/chat.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/backend/chat.rs",
+            "src/app/inference_adapter/backend/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5718,7 +5735,13 @@
     {
       "path": "src/app/inference_adapter/backend.rs",
       "responsibilities": [
-        "backend chat and resource integration facade"
+        "backend resource sampling and module facade"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat.rs",
+      "responsibilities": [
+        "backend chat execution, streaming, cancellation, and generation reporting"
       ]
     },
     {
