@@ -4791,6 +4791,9 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
         .lines()
         .any(|line| line == "mod extension_commands;"));
     assert!(adapter.lines().any(|line| line == "mod inference_ports;"));
+    assert!(adapter
+        .lines()
+        .any(|line| line == "mod knowledge_commands;"));
     let collaboration_commands =
         fs::read_to_string("src/app/legacy_dispatch/collaboration_commands.rs").unwrap();
     for responsibility in [
@@ -4826,6 +4829,22 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
     ] {
         assert!(adapter.contains(delegation));
     }
+    let knowledge_commands =
+        fs::read_to_string("src/app/legacy_dispatch/knowledge_commands.rs").unwrap();
+    for responsibility in [
+        "pub(super) fn execute_evidence(",
+        "pub(super) fn execute_ontology(",
+        "OntologyCommand::Export",
+    ] {
+        assert!(knowledge_commands.contains(responsibility));
+        assert!(!adapter.contains(responsibility));
+    }
+    for delegation in [
+        "Command::Evidence(command) => execute_evidence(command)",
+        "Command::Ontology(command) => execute_ontology(command)",
+    ] {
+        assert!(adapter.contains(delegation));
+    }
     let inference_ports = fs::read_to_string("src/app/legacy_dispatch/inference_ports.rs").unwrap();
     for responsibility in [
         "impl inference::BenchmarkCommandPort",
@@ -4836,10 +4855,11 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
         assert!(inference_ports.contains(responsibility));
         assert!(!adapter.contains(responsibility));
     }
-    assert!(adapter.lines().count() < 300);
+    assert!(adapter.lines().count() < 260);
     assert!(collaboration_commands.lines().count() < 100);
     assert!(extension_commands.lines().count() < 75);
     assert!(inference_ports.lines().count() < 200);
+    assert!(knowledge_commands.lines().count() < 60);
 }
 
 #[test]

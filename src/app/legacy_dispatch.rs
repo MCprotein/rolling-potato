@@ -4,16 +4,14 @@ use crate::adapters::terminal::{capability, native};
 use crate::app::workflow_adapter::state;
 use crate::app::workflow_adapter::transition;
 use crate::composition::{config, dispatch, inference, uninstall};
-use crate::evidence;
 use crate::foundation::error::AppError;
 use crate::intent;
-use crate::ontology;
 use crate::patch;
 use crate::runtime;
 use crate::surfaces::cli::{
     command::{
-        Command, EvidenceCommand, IntentCommand, MonitorCommand, OntologyCommand, PatchCommand,
-        PolicyCommand, PolicyPathMode, SessionCommand, StateCommand, TuiCommand, UninstallCommand,
+        Command, IntentCommand, MonitorCommand, PatchCommand, PolicyCommand, PolicyPathMode,
+        SessionCommand, StateCommand, TuiCommand, UninstallCommand,
     },
     render,
 };
@@ -25,10 +23,12 @@ use super::policy_adapter as policy;
 mod collaboration_commands;
 mod extension_commands;
 mod inference_ports;
+mod knowledge_commands;
 
 use collaboration_commands::{execute_subagent, execute_team};
 use extension_commands::{execute_hooks, execute_plugin, execute_skill};
 use inference_ports::emit_output as emit_inference_output;
+use knowledge_commands::{execute_evidence, execute_ontology};
 
 pub(super) struct LegacyCommandDispatchPort;
 
@@ -141,10 +141,7 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 println!("{}", state::cancel_report()?);
                 Ok(())
             }
-            Command::Evidence(EvidenceCommand::Validate { pointer }) => {
-                println!("{}", evidence::validate_report(&pointer)?);
-                Ok(())
-            }
+            Command::Evidence(command) => execute_evidence(command),
             Command::Skill(command) => execute_skill(command),
             Command::Policy(PolicyCommand::Schema) => {
                 println!("{}", policy::schema_report());
@@ -227,34 +224,7 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 println!("{}", monitor::prune_report(before_days, dry_run)?);
                 Ok(())
             }
-            Command::Ontology(OntologyCommand::Status) => {
-                println!("{}", ontology::status_report()?);
-                Ok(())
-            }
-            Command::Ontology(OntologyCommand::Seed) => {
-                println!("{}", ontology::seed_report()?);
-                Ok(())
-            }
-            Command::Ontology(OntologyCommand::Inspect) => {
-                println!("{}", ontology::inspect_report()?);
-                Ok(())
-            }
-            Command::Ontology(OntologyCommand::Context { query }) => {
-                println!("{}", ontology::context_report(&query)?);
-                Ok(())
-            }
-            Command::Ontology(OntologyCommand::Reread { pointer }) => {
-                println!("{}", ontology::reread_report(&pointer)?);
-                Ok(())
-            }
-            Command::Ontology(OntologyCommand::Export { format }) => {
-                print!("{}", ontology::export_report(format)?);
-                Ok(())
-            }
-            Command::Ontology(OntologyCommand::Import { path, dry_run }) => {
-                println!("{}", ontology::import_report(&path, dry_run)?);
-                Ok(())
-            }
+            Command::Ontology(command) => execute_ontology(command),
             Command::Benchmark(command) => {
                 emit_inference_output(inference::run_benchmark(command, self)?);
                 Ok(())

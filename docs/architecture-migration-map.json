@@ -1963,6 +1963,25 @@
       ]
     },
     {
+      "path": "src/app/legacy_dispatch/knowledge_commands.rs",
+      "slices": [
+        {
+          "responsibility": "evidence and ontology CLI command execution integration",
+          "target": "src/app/legacy_dispatch/knowledge_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/legacy_dispatch.rs",
+            "src/app/legacy_dispatch/knowledge_commands.rs",
+            "src/evidence.rs",
+            "src/ontology.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter.rs",
       "slices": [
         {
@@ -7236,6 +7255,12 @@
       "path": "src/app/legacy_dispatch/inference_ports.rs",
       "responsibilities": [
         "concrete benchmark, backend, and model command port integration"
+      ]
+    },
+    {
+      "path": "src/app/legacy_dispatch/knowledge_commands.rs",
+      "responsibilities": [
+        "evidence and ontology CLI command execution integration"
       ]
     },
     {
