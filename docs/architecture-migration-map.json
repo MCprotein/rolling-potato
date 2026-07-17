@@ -1924,6 +1924,25 @@
       ]
     },
     {
+      "path": "src/app/legacy_dispatch/extension_commands.rs",
+      "slices": [
+        {
+          "responsibility": "skill, hook, and plugin CLI command execution integration",
+          "target": "src/app/legacy_dispatch/extension_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/legacy_dispatch.rs",
+            "src/app/legacy_dispatch/extension_commands.rs",
+            "src/app/extensions_adapter/hooks.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/skill.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/legacy_dispatch/inference_ports.rs",
       "slices": [
         {
@@ -7205,6 +7224,12 @@
       "path": "src/app/legacy_dispatch/collaboration_commands.rs",
       "responsibilities": [
         "team and subagent CLI command execution integration"
+      ]
+    },
+    {
+      "path": "src/app/legacy_dispatch/extension_commands.rs",
+      "responsibilities": [
+        "skill, hook, and plugin CLI command execution integration"
       ]
     },
     {

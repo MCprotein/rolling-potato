@@ -1,9 +1,6 @@
 use crate::adapters::filesystem::cache;
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::{capability, native};
-use crate::app::extensions_adapter::hooks;
-use crate::app::extensions_adapter::plugin;
-use crate::app::extensions_adapter::skill;
 use crate::app::workflow_adapter::state;
 use crate::app::workflow_adapter::transition;
 use crate::composition::{config, dispatch, inference, uninstall};
@@ -15,9 +12,8 @@ use crate::patch;
 use crate::runtime;
 use crate::surfaces::cli::{
     command::{
-        Command, EvidenceCommand, HooksCommand, IntentCommand, MonitorCommand, OntologyCommand,
-        PatchCommand, PluginCommand, PolicyCommand, PolicyPathMode, SessionCommand, SkillCommand,
-        StateCommand, TuiCommand, UninstallCommand,
+        Command, EvidenceCommand, IntentCommand, MonitorCommand, OntologyCommand, PatchCommand,
+        PolicyCommand, PolicyPathMode, SessionCommand, StateCommand, TuiCommand, UninstallCommand,
     },
     render,
 };
@@ -27,9 +23,11 @@ use super::monitor_adapter as monitor;
 use super::policy_adapter as policy;
 
 mod collaboration_commands;
+mod extension_commands;
 mod inference_ports;
 
 use collaboration_commands::{execute_subagent, execute_team};
+use extension_commands::{execute_hooks, execute_plugin, execute_skill};
 use inference_ports::emit_output as emit_inference_output;
 
 pub(super) struct LegacyCommandDispatchPort;
@@ -147,14 +145,7 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 println!("{}", evidence::validate_report(&pointer)?);
                 Ok(())
             }
-            Command::Skill(SkillCommand::List) => {
-                println!("{}", skill::list_report());
-                Ok(())
-            }
-            Command::Skill(SkillCommand::Run { id, request }) => {
-                println!("{}", intent::run_skill_report(&id, &request)?);
-                Ok(())
-            }
+            Command::Skill(command) => execute_skill(command),
             Command::Policy(PolicyCommand::Schema) => {
                 println!("{}", policy::schema_report());
                 Ok(())
@@ -175,14 +166,7 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 println!("{}", policy::redact_report(&text));
                 Ok(())
             }
-            Command::Hooks(HooksCommand::List) => {
-                println!("{}", hooks::list_report());
-                Ok(())
-            }
-            Command::Hooks(HooksCommand::ValidateResult { json }) => {
-                println!("{}", hooks::validate_result_report(&json)?);
-                Ok(())
-            }
+            Command::Hooks(command) => execute_hooks(command),
             Command::Patch(PatchCommand::Preview {
                 path,
                 find,
@@ -279,38 +263,7 @@ impl dispatch::CommandDispatchPort for LegacyCommandDispatchPort {
                 emit_inference_output(inference::run_model(command, self)?);
                 Ok(())
             }
-            Command::Plugin(PluginCommand::Import {
-                source,
-                path,
-                dry_run,
-            }) => {
-                println!("{}", plugin::import_report(source, &path, dry_run)?);
-                Ok(())
-            }
-            Command::Plugin(PluginCommand::List) => {
-                println!("{}", plugin::list_report());
-                Ok(())
-            }
-            Command::Plugin(PluginCommand::Inspect { id }) => {
-                println!("{}", plugin::inspect_report(&id)?);
-                Ok(())
-            }
-            Command::Plugin(PluginCommand::Validate { id }) => {
-                println!("{}", plugin::validate_report(&id)?);
-                Ok(())
-            }
-            Command::Plugin(PluginCommand::Enable { id }) => {
-                println!("{}", plugin::set_enabled_report(&id, true)?);
-                Ok(())
-            }
-            Command::Plugin(PluginCommand::Disable { id }) => {
-                println!("{}", plugin::set_enabled_report(&id, false)?);
-                Ok(())
-            }
-            Command::Plugin(PluginCommand::Remove { id, purge_data }) => {
-                println!("{}", plugin::remove_report(&id, purge_data)?);
-                Ok(())
-            }
+            Command::Plugin(command) => execute_plugin(command),
             Command::Uninstall(UninstallCommand::Plan {
                 purge_cache,
                 dry_run,
