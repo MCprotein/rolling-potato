@@ -3397,6 +3397,22 @@
       ]
     },
     {
+      "path": "src/app/workflow_adapter/state/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "state, session, and workflow lifecycle command adapter",
+          "target": "src/app/workflow_adapter/state/lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/lifecycle.rs",
+            "src/app/workflow_adapter/state/tests/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/workflow_adapter/state/source_install.rs",
       "slices": [
         {
@@ -5556,6 +5572,12 @@
       "path": "src/app/workflow_adapter/state/current_snapshot.rs",
       "responsibilities": [
         "current-state snapshot codec and compatibility adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/lifecycle.rs",
+      "responsibilities": [
+        "state, session, and workflow lifecycle command adapter"
       ]
     },
     {
