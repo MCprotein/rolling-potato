@@ -33,8 +33,7 @@ behavior is introduced by the refactor without a separately approved change.
 
 ```text
 src/
-  main.rs                     thin binary entrypoint
-  lib.rs                      private crate composition facade
+  main.rs                     private roots and thin binary entrypoint
   app/                        concrete application adapters and integration
   composition/                startup, dispatch, inference, uninstall wiring
   surfaces/
@@ -62,25 +61,26 @@ src/
 Modules are private by default. A boundary becomes visible only to the narrowest
 consumer that needs it. The v0.37.1-v0.37.12 patches moved each ledger slice
 only when its targeted tests and legacy-path removal closed together. v0.37.13
-completed the root cleanup: `main.rs` delegates to the private `lib.rs` facade,
-`app` owns concrete application orchestration and port-to-adapter integration,
-and `composition` owns startup, CLI dispatch, inference, TUI action/read, and
+completed the root cleanup: the binary-owned `main.rs` privately registers the
+architecture roots and delegates directly to `composition::startup`; `app` owns
+concrete application orchestration and port-to-adapter integration; and
+`composition` owns startup, CLI dispatch, inference, TUI action/read, and
 uninstall wiring. Domain rules remain under `runtime_core`; user interfaces
 remain under `surfaces`; side effects remain under `adapters`; capability-free
 primitives remain under `foundation`.
 
-The `src` root contains only `main.rs` and `lib.rs`. No production compatibility
-facades remain. Root Cargo integration harnesses may delegate to grouped test
-bodies, including collaboration contracts under `tests/collaboration`; they do
-not restore production ownership at the crate root.
+The `src` root contains only `main.rs`; all production owners live in named
+subdirectories and no compatibility facades remain. Root Cargo integration
+harnesses may delegate to grouped test bodies, including collaboration contracts
+under `tests/collaboration`; they do not restore production ownership at the
+crate root.
 
 ## Dependency direction
 
 Allowed directions are:
 
 ```text
-main -> private lib facade
-lib facade -> app + composition + private roots
+main -> app + composition + private roots
 app -> composition use cases + runtime_core + adapters + foundation
 composition -> surfaces + runtime_core + adapters + foundation
 surfaces -> runtime_core use-case/query DTOs + foundation

@@ -13,10 +13,10 @@ delegate without changing user-visible behavior or durable contracts.
   ownership under `surfaces`, `composition`, and focused application adapters.
 - Moves concrete runtime, workflow, patch, inference, knowledge, policy,
   extension, collaboration, observability, and TUI integration under `app`.
-- Adds a private library entry facade: `main.rs` delegates to `lib.rs`, which
-  connects startup composition to the application runner.
+- Keeps composition binary-private: `main.rs` privately registers the ownership
+  roots and delegates directly to startup composition without a library API.
 - Removes all production compatibility facades from the `src` root; only
-  `main.rs` and `lib.rs` remain there.
+  `main.rs` remains there.
 - Marks every migration-ledger responsibility complete and enables the
   zero-planned/zero-exception/zero-compatibility-facade completion gate.
 

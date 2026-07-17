@@ -125,7 +125,7 @@ sequence and non-skippable release gates are defined in
 
 1. `v0.37.1` through `v0.37.13`: implementation is consolidated on the current
    refactor branch. Every migration-ledger responsibility is complete, the
-   `src` root contains only `main.rs` and `lib.rs`, and targeted contracts pass.
+   `src` root contains only the binary-owned `main.rs`, and targeted contracts pass.
 2. Complete feature delivery with one bounded independent review, a PR against
    `main`, exact-candidate full CI, and squash merge. Do not duplicate the full
    candidate gate locally.

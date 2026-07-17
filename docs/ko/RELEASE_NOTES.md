@@ -13,10 +13,9 @@ contract를 바꾸지 않는 얇은 delegate로 남깁니다.
   `surfaces`, `composition`, focused application adapter로 분리
 - Concrete runtime, workflow, patch, inference, knowledge, policy, extension,
   collaboration, observability, TUI integration을 `app` 아래로 이동
-- Private library entry facade 추가: `main.rs`가 `lib.rs`에 위임하고 `lib.rs`는
-  startup composition과 application runner를 연결
-- `src` 최상위 production compatibility facade를 모두 제거해 `main.rs`와
-  `lib.rs`만 유지
+- Composition을 binary-private으로 유지: `main.rs`가 ownership root를 private으로
+  등록하고 library API 없이 startup composition에 직접 위임
+- `src` 최상위 production compatibility facade를 모두 제거해 `main.rs`만 유지
 - Migration ledger의 모든 책임을 complete로 전환하고 planned/exception/
   compatibility-facade 0건 completion gate를 활성화
 

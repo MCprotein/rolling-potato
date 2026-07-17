@@ -442,10 +442,14 @@ fn collect_rust_files(root: &str) -> BTreeSet<String> {
 
 #[test]
 fn architecture_roots_are_compile_connected_and_private() {
-    let library = fs::read_to_string("src/lib.rs").expect("src/lib.rs must be readable");
+    let main = fs::read_to_string("src/main.rs").expect("src/main.rs must be readable");
+    assert!(
+        !Path::new("src/lib.rs").exists(),
+        "binary-only package must not expose an unapproved library API"
+    );
     for root in ARCHITECTURE_ROOTS {
-        assert!(library.lines().any(|line| line == format!("mod {root};")));
-        assert!(!library
+        assert!(main.lines().any(|line| line == format!("mod {root};")));
+        assert!(!main
             .lines()
             .any(|line| line == format!("pub mod {root};")));
     }
@@ -4475,10 +4479,9 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
 #[test]
 fn v03713_binary_entrypoint_delegates_process_outcome_to_startup() {
     let main = fs::read_to_string("src/main.rs").unwrap();
-    let library = fs::read_to_string("src/lib.rs").unwrap();
-    assert!(main.contains("rpotato::run"));
-    assert!(!main.contains("mod composition;"));
-    assert!(library.contains("composition::startup::run"));
+    assert!(main.contains("composition::startup::run"));
+    assert!(!main.contains("pub fn run"));
+    assert!(!Path::new("src/lib.rs").exists());
     assert!(!main.contains("eprintln!"));
     assert!(!main.contains("match app::run"));
 
@@ -4507,9 +4510,9 @@ fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
     assert!(!Path::new("src/test_support.rs").exists());
     assert!(Path::new("tests/support/runtime_fixture.rs").is_file());
 
-    let library = fs::read_to_string("src/lib.rs").unwrap();
-    assert!(library.contains("#[path = \"../tests/support/runtime_fixture.rs\"]"));
-    assert!(library.contains("mod test_support;"));
+    let main = fs::read_to_string("src/main.rs").unwrap();
+    assert!(main.contains("#[path = \"../tests/support/runtime_fixture.rs\"]"));
+    assert!(main.contains("mod test_support;"));
 }
 
 #[test]
