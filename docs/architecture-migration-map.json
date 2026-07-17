@@ -1545,12 +1545,30 @@
       "path": "src/adapters/filesystem/lease.rs",
       "slices": [
         {
-          "responsibility": "filesystem lease implementation",
+          "responsibility": "recoverable filesystem lease acquisition, waiting, and owner lifecycle",
           "target": "src/adapters/filesystem/lease.rs",
           "release": "0.37.2",
           "state": "complete",
           "evidence": [
-            "src/adapters/filesystem/lease.rs"
+            "src/adapters/filesystem/lease.rs",
+            "src/adapters/filesystem/lease/identity.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/lease/identity.rs",
+      "slices": [
+        {
+          "responsibility": "lease owner namespace discovery, stale claim cleanup, and path-handle identity validation",
+          "target": "src/adapters/filesystem/lease/identity.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/lease.rs",
+            "src/adapters/filesystem/lease/identity.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -6599,7 +6617,13 @@
     {
       "path": "src/adapters/filesystem/lease.rs",
       "responsibilities": [
-        "filesystem lease implementation"
+        "recoverable filesystem lease acquisition, waiting, and owner lifecycle"
+      ]
+    },
+    {
+      "path": "src/adapters/filesystem/lease/identity.rs",
+      "responsibilities": [
+        "lease owner namespace discovery, stale claim cleanup, and path-handle identity validation"
       ]
     },
     {

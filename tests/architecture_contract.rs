@@ -539,6 +539,7 @@ fn v0372_filesystem_owners_replace_legacy_modules() {
         "src/adapters/filesystem/config.rs",
         "src/adapters/filesystem/layout.rs",
         "src/adapters/filesystem/lease.rs",
+        "src/adapters/filesystem/lease/identity.rs",
         "src/adapters/filesystem/windows_replace.rs",
         "src/composition/config.rs",
     ] {
@@ -585,6 +586,29 @@ fn v0372_filesystem_owners_replace_legacy_modules() {
             "filesystem owner is not crate-private: {owner}"
         );
     }
+
+    let lease = fs::read_to_string("src/adapters/filesystem/lease.rs").unwrap();
+    let lease_identity = fs::read_to_string("src/adapters/filesystem/lease/identity.rs").unwrap();
+    assert!(lease.lines().any(|line| line == "mod identity;"));
+    for responsibility in [
+        "fn remove_stale_owner_claims(",
+        "fn open_owner_namespace_guard(",
+        "fn validate_open_owner_namespace_identity(",
+        "fn owner_claim_directory(",
+        "fn reject_non_regular_lock_path(",
+        "fn validate_open_lock_identity(",
+    ] {
+        assert!(
+            lease_identity.contains(responsibility),
+            "filesystem lease identity owner is missing: {responsibility}"
+        );
+        assert!(
+            !lease.contains(responsibility),
+            "filesystem lease orchestration still owns identity I/O: {responsibility}"
+        );
+    }
+    assert!(lease.lines().count() < 425);
+    assert!(lease_identity.lines().count() < 300);
 }
 
 #[test]
