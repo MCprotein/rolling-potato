@@ -450,7 +450,7 @@ mod tests {
             has_next: false,
             freshness: runtime::TuiFreshness::Fresh,
             continuation: runtime::TuiReadContinuation::Complete,
-            authority: runtime::TuiReadAuthority::default(),
+            authority: crate::surfaces::tui::runtime_bridge::TuiReadAuthority::default(),
         };
 
         let frame = render_interactive_frame(&state, &page, 120, 40);

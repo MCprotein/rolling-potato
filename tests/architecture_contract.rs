@@ -1789,6 +1789,28 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!runtime.contains("fn tui_lease_matches_terminal_selection_under_transition"));
     assert!(!runtime.contains("fn validate_tui_id"));
 
+    let page = fs::read_to_string("src/surfaces/tui/page.rs").unwrap();
+    for definition in [
+        "fn bounded_budget_for",
+        "fn page_slice",
+        "fn paged_chars",
+        "fn paged_diff",
+        "fn page_has_next",
+        "fn page_continuation",
+        "fn state_page_authority",
+        "fn unavailable_page",
+        "fn build_page",
+    ] {
+        assert!(
+            page.contains(definition),
+            "TUI page owner is missing {definition}"
+        );
+        assert!(
+            !runtime.contains(definition),
+            "legacy runtime still owns {definition}"
+        );
+    }
+
     let view_model = fs::read_to_string("src/surfaces/tui/view_model.rs").unwrap();
     for definition in [
         "enum InteractiveView",

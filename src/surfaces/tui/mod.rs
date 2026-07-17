@@ -2,6 +2,7 @@
 
 pub(crate) mod controller;
 pub(crate) mod outcome;
+pub(crate) mod page;
 pub(crate) mod render;
 pub(crate) mod report_render;
 pub(crate) mod runtime_bridge;

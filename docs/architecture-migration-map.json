@@ -2479,6 +2479,7 @@
           "state": "migrating",
           "evidence": [
             "src/surfaces/tui/runtime_bridge.rs",
+            "src/surfaces/tui/page.rs",
             "src/runtime.rs",
             "tests/architecture_contract.rs"
           ]
@@ -3386,6 +3387,22 @@
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/outcome.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/page.rs",
+      "slices": [
+        {
+          "responsibility": "bounded TUI page construction and authority projection",
+          "target": "src/surfaces/tui/page.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/page.rs",
+            "src/runtime.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5278,6 +5295,12 @@
       "path": "src/surfaces/tui/outcome.rs",
       "responsibilities": [
         "TUI exact outcome contracts and validation"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/page.rs",
+      "responsibilities": [
+        "bounded TUI page construction and authority projection"
       ]
     },
     {
