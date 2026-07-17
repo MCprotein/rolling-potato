@@ -3652,11 +3652,44 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         );
     }
     let legacy_tui = fs::read_to_string("src/tui.rs").unwrap();
+    let report_composition = fs::read_to_string("src/tui/report_composition.rs").unwrap();
     assert!(legacy_tui.contains("surfaces::tui::view_model"));
     assert!(legacy_tui.contains("impl TuiActionPort for LegacyTuiActionPort"));
     assert!(legacy_tui.contains("impl TuiReadPort for LegacyTuiReadPort"));
+    assert!(
+        legacy_tui
+            .lines()
+            .any(|line| line == "mod report_composition;"),
+        "TUI adapter does not register report composition owner"
+    );
     assert!(!legacy_tui.contains("enum InteractiveView"));
     assert!(!legacy_tui.contains("struct InteractiveState"));
+    for responsibility in [
+        "pub fn overview_report(",
+        "pub fn monitor_report(",
+        "pub fn sessions_report(",
+        "pub fn transcript_report(",
+        "pub fn approvals_report(",
+        "pub fn diff_report(",
+        "pub fn evidence_report(",
+    ] {
+        assert!(
+            report_composition.contains(responsibility),
+            "TUI report composition owner is missing {responsibility}"
+        );
+        assert!(
+            !legacy_tui.contains(responsibility),
+            "legacy TUI adapter still owns report composition: {responsibility}"
+        );
+    }
+    assert!(
+        legacy_tui.lines().count() < 850,
+        "legacy TUI adapter regrew beyond its ownership boundary"
+    );
+    assert!(
+        report_composition.lines().count() < 250,
+        "TUI report composition module regrew beyond its ownership boundary"
+    );
 
     let controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
     for definition in [
