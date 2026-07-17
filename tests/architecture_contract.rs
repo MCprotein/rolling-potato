@@ -2308,18 +2308,38 @@ fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
 }
 
 #[test]
-fn v03713_state_adapter_separates_source_installation_transaction() {
+fn v03713_state_adapter_separates_persistence_responsibilities() {
     let state_adapter = "src/app/workflow_adapter/state.rs";
+    let current_snapshot_adapter = "src/app/workflow_adapter/state/current_snapshot.rs";
     let source_install_adapter = "src/app/workflow_adapter/state/source_install.rs";
     assert!(Path::new(state_adapter).is_file());
+    assert!(Path::new(current_snapshot_adapter).is_file());
     assert!(Path::new(source_install_adapter).is_file());
 
     let state = fs::read_to_string(state_adapter).unwrap();
+    assert!(state.lines().any(|line| line == "mod current_snapshot;"));
     assert!(state.lines().any(|line| line == "mod source_install;"));
-    for escaped_responsibility in ["struct PreparedSourceDir", "fn recover_source_replace"] {
+    for escaped_responsibility in [
+        "fn parse_current_state(",
+        "fn promote_current_state_v1(",
+        "struct PreparedSourceDir",
+        "fn recover_source_replace",
+    ] {
         assert!(
             !state.contains(escaped_responsibility),
-            "source installation responsibility escaped child adapter: {escaped_responsibility}"
+            "state child responsibility escaped into parent adapter: {escaped_responsibility}"
+        );
+    }
+
+    let current_snapshot = fs::read_to_string(current_snapshot_adapter).unwrap();
+    for owned_responsibility in [
+        "fn parse_current_state(",
+        "fn promote_current_state_v1(",
+        "fn render_current_state_v2(",
+    ] {
+        assert!(
+            current_snapshot.contains(owned_responsibility),
+            "current snapshot adapter is missing responsibility: {owned_responsibility}"
         );
     }
 
@@ -2334,6 +2354,10 @@ fn v03713_state_adapter_separates_source_installation_transaction() {
             "source installation adapter is missing responsibility: {owned_responsibility}"
         );
     }
+
+    assert!(state.lines().count() < 5_500);
+    assert!(current_snapshot.lines().count() < 1_000);
+    assert!(source_install.lines().count() < 1_000);
 }
 
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
