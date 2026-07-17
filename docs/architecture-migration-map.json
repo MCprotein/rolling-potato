@@ -4544,7 +4544,7 @@
       "path": "src/app/workflow_adapter/transcript.rs",
       "slices": [
         {
-          "responsibility": "transcript persistence and projection orchestration adapter",
+          "responsibility": "transcript turn preparation, append, and ledger projection orchestration",
           "target": "src/app/workflow_adapter/transcript.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -4553,6 +4553,25 @@
             "src/runtime_core/workflow/domain/transcript.rs",
             "src/adapters/sqlite/transcript_projection.rs",
             "src/app/workflow_adapter/transcript.rs",
+            "src/app/workflow_adapter/transcript/storage.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/storage.rs",
+      "slices": [
+        {
+          "responsibility": "transcript and tool-output canonical decode, validation, and filesystem boundary enforcement",
+          "target": "src/app/workflow_adapter/transcript/storage.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/transcript.rs",
+            "src/app/workflow_adapter/transcript.rs",
+            "src/app/workflow_adapter/transcript/storage.rs",
             "src/app/workflow_adapter/transcript/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -6800,7 +6819,13 @@
     {
       "path": "src/app/workflow_adapter/transcript.rs",
       "responsibilities": [
-        "transcript persistence and projection orchestration adapter"
+        "transcript turn preparation, append, and ledger projection orchestration"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/storage.rs",
+      "responsibilities": [
+        "transcript and tool-output canonical decode, validation, and filesystem boundary enforcement"
       ]
     },
     {

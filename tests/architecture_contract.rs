@@ -838,6 +838,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
 fn v0375_domain_views_replace_legacy_definitions() {
     let state_adapter = "src/app/workflow_adapter/state.rs";
     let transcript_adapter = "src/app/workflow_adapter/transcript.rs";
+    let transcript_storage = "src/app/workflow_adapter/transcript/storage.rs";
     let transcript_tests = "src/app/workflow_adapter/transcript/tests.rs";
     for target in [
         "src/runtime_core/workflow/domain/mod.rs",
@@ -928,9 +929,17 @@ fn v0375_domain_views_replace_legacy_definitions() {
             .any(|line| line == "pub(crate) mod transcript;"),
         "transcript adapter is not registered under workflow_adapter"
     );
+    assert!(Path::new(transcript_storage).is_file());
     assert!(Path::new(transcript_tests).is_file());
     let transcript_adapter_source = fs::read_to_string(transcript_adapter).unwrap();
+    let transcript_storage_source = fs::read_to_string(transcript_storage).unwrap();
     let transcript_test_source = fs::read_to_string(transcript_tests).unwrap();
+    assert!(
+        transcript_adapter_source
+            .lines()
+            .any(|line| line == "mod storage;"),
+        "transcript adapter does not register its storage owner"
+    );
     assert!(
         transcript_adapter_source.contains("#[path = \"transcript/tests.rs\"]"),
         "transcript adapter does not register its regression-test owner"
@@ -946,9 +955,32 @@ fn v0375_domain_views_replace_legacy_definitions() {
             "transcript regression owner is missing: {regression}"
         );
     }
+    for responsibility in [
+        "pub(super) fn load_record_path(",
+        "pub(super) fn load_tool_output_artifact(",
+        "pub(super) fn parse_tool_output_artifact_body(",
+        "pub(super) fn validate_tool_binding_for_record(",
+        "pub(super) fn validate_expected_record(",
+        "pub(super) fn validated_tool_output_path(",
+        "pub(super) fn validated_transcript_path(",
+        "fn ensure_directory_boundary(",
+    ] {
+        assert!(
+            transcript_storage_source.contains(responsibility),
+            "transcript storage owner is missing: {responsibility}"
+        );
+        assert!(
+            !transcript_adapter_source.contains(responsibility),
+            "transcript adapter still owns storage validation: {responsibility}"
+        );
+    }
     assert!(
-        transcript_adapter_source.lines().count() < 1_500,
-        "transcript adapter regrew beyond its regression-test extraction boundary"
+        transcript_adapter_source.lines().count() < 1_050,
+        "transcript adapter regrew beyond its storage extraction boundary"
+    );
+    assert!(
+        transcript_storage_source.lines().count() < 550,
+        "transcript storage module regrew beyond its ownership boundary"
     );
     assert!(
         transcript_test_source.lines().count() < 425,

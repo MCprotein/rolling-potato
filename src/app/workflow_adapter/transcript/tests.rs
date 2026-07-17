@@ -1,4 +1,5 @@
 use super::*;
+use crate::foundation::serialization as strict_json;
 
 #[test]
 fn sanitized_stream_limits_use_utf8_bytes_at_each_boundary() {
