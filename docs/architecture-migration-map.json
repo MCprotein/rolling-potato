@@ -2461,6 +2461,35 @@
             "src/runtime_core/knowledge/evidence.rs",
             "tests/architecture_contract.rs"
           ]
+        },
+        {
+          "responsibility": "verification evidence recording, stop-gate orchestration, and artifact pointer validation",
+          "target": "src/evidence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/evidence.rs",
+            "src/evidence/store.rs",
+            "src/runtime_core/knowledge/evidence.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/evidence/store.rs",
+      "slices": [
+        {
+          "responsibility": "bounded and recursive evidence store inspection with regular-file boundary enforcement",
+          "target": "src/evidence/store.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/evidence.rs",
+            "src/evidence/store.rs",
+            "src/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
         }
       ]
     },
@@ -6688,7 +6717,14 @@
     {
       "path": "src/evidence.rs",
       "responsibilities": [
-        "evidence validation and stop inputs"
+        "evidence validation and stop inputs",
+        "verification evidence recording, stop-gate orchestration, and artifact pointer validation"
+      ]
+    },
+    {
+      "path": "src/evidence/store.rs",
+      "responsibilities": [
+        "bounded and recursive evidence store inspection with regular-file boundary enforcement"
       ]
     },
     {

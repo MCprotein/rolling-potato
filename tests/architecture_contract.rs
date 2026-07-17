@@ -4257,6 +4257,42 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
 }
 
 #[test]
+fn v03713_evidence_adapter_separates_store_inspection() {
+    let evidence_adapter = "src/evidence.rs";
+    let evidence_store = "src/evidence/store.rs";
+    assert!(Path::new(evidence_adapter).is_file());
+    assert!(Path::new(evidence_store).is_file());
+
+    let evidence = fs::read_to_string(evidence_adapter).unwrap();
+    let store = fs::read_to_string(evidence_store).unwrap();
+    assert!(
+        evidence.lines().any(|line| line == "mod store;"),
+        "evidence adapter does not register its store inspection owner"
+    );
+    for responsibility in [
+        "pub fn store_status(",
+        "pub(crate) fn store_status_bounded(",
+        "fn count_jsonl_records(",
+        "fn count_jsonl_records_bounded(",
+        "fn count_top_level_files_bounded(",
+        "fn count_files(",
+    ] {
+        assert!(
+            store.contains(responsibility),
+            "evidence store owner is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !evidence.contains(responsibility),
+            "evidence orchestration still owns store inspection: {responsibility}"
+        );
+    }
+    assert!(evidence
+        .contains("fn bounded_store_status_reports_scan_truncation_and_rejects_zero_budget("));
+    assert!(evidence.lines().count() < 600);
+    assert!(store.lines().count() < 200);
+}
+
+#[test]
 fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
     for name in [
         "fake_sidecar.rs",
