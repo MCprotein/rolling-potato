@@ -2153,9 +2153,11 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     let schema = fs::read_to_string(schema_path).unwrap();
     let sessions = fs::read_to_string(sessions_path).unwrap();
     let sqlite_tests = fs::read_to_string(sqlite_tests_path).unwrap();
-    for rule in ["impl ObservabilityProjectionPort for SqliteObservabilityProjection"] {
-        assert!(sqlite.contains(rule), "SQLite adapter is missing: {rule}");
-    }
+    let projection_port_impl = "impl ObservabilityProjectionPort for SqliteObservabilityProjection";
+    assert!(
+        sqlite.contains(projection_port_impl),
+        "SQLite adapter is missing: {projection_port_impl}"
+    );
     assert!(
         replay.contains("pub(super) fn replay_ledger_events("),
         "SQLite replay owner is missing canonical replay"
@@ -2872,16 +2874,15 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     assert!(approval_transaction
         .lines()
         .any(|line| line == "mod recovery;"));
-    for escaped_responsibility in ["fn approve_prepared_skill_transaction("] {
-        assert!(
-            !patch_facade.contains(escaped_responsibility),
-            "approval transaction responsibility escaped into patch facade: {escaped_responsibility}"
-        );
-        assert!(
-            approval_transaction.contains(escaped_responsibility),
-            "approval transaction adapter is missing responsibility: {escaped_responsibility}"
-        );
-    }
+    let approval_responsibility = "fn approve_prepared_skill_transaction(";
+    assert!(
+        !patch_facade.contains(approval_responsibility),
+        "approval transaction responsibility escaped into patch facade: {approval_responsibility}"
+    );
+    assert!(
+        approval_transaction.contains(approval_responsibility),
+        "approval transaction adapter is missing responsibility: {approval_responsibility}"
+    );
     for recovery_responsibility in [
         "fn recover_prepared_approval_bundle(",
         "fn recover_prepared_verification_bundle(",
@@ -3035,16 +3036,15 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     assert!(patch_facade
         .lines()
         .any(|line| line == "mod workflow_execution;"));
-    for escaped_responsibility in ["fn continue_approved_workflow("] {
-        assert!(
-            !patch_facade.contains(escaped_responsibility),
-            "workflow execution responsibility escaped into patch facade: {escaped_responsibility}"
-        );
-        assert!(
-            workflow_execution.contains(escaped_responsibility),
-            "workflow execution adapter is missing responsibility: {escaped_responsibility}"
-        );
-    }
+    let workflow_execution_responsibility = "fn continue_approved_workflow(";
+    assert!(
+        !patch_facade.contains(workflow_execution_responsibility),
+        "workflow execution responsibility escaped into patch facade: {workflow_execution_responsibility}"
+    );
+    assert!(
+        workflow_execution.contains(workflow_execution_responsibility),
+        "workflow execution adapter is missing responsibility: {workflow_execution_responsibility}"
+    );
     let plugin_completion = fs::read_to_string(plugin_completion_adapter).unwrap();
     let skill_lifecycle = fs::read_to_string(skill_lifecycle_adapter).unwrap();
     assert!(
@@ -4380,16 +4380,15 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
             "collaboration parser is missing responsibility: {responsibility}"
         );
     }
-    for responsibility in ["pub(super) fn parse_plugin_import("] {
-        assert!(
-            !parser.contains(responsibility),
-            "plugin parser responsibility escaped into CLI facade: {responsibility}"
-        );
-        assert!(
-            plugin_parser.contains(responsibility),
-            "plugin parser is missing responsibility: {responsibility}"
-        );
-    }
+    let plugin_parser_responsibility = "pub(super) fn parse_plugin_import(";
+    assert!(
+        !parser.contains(plugin_parser_responsibility),
+        "plugin parser responsibility escaped into CLI facade: {plugin_parser_responsibility}"
+    );
+    assert!(
+        plugin_parser.contains(plugin_parser_responsibility),
+        "plugin parser is missing responsibility: {plugin_parser_responsibility}"
+    );
     for responsibility in [
         "pub(super) fn parse_patch_preview(",
         "pub(super) fn parse_patch_approve(",
@@ -5484,12 +5483,11 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         source_install.lines().any(|line| line == "mod fd_ops;"),
         "source installation adapter does not register its fd-relative I/O owner"
     );
-    for owned_responsibility in ["fn recover_source_replace"] {
-        assert!(
-            source_install.contains(owned_responsibility),
-            "source installation adapter is missing responsibility: {owned_responsibility}"
-        );
-    }
+    let source_install_responsibility = "fn recover_source_replace";
+    assert!(
+        source_install.contains(source_install_responsibility),
+        "source installation adapter is missing responsibility: {source_install_responsibility}"
+    );
     for owned_responsibility in [
         "pub(super) struct PreparedSourceDir",
         "pub(super) struct PreparedRollbackDir",
