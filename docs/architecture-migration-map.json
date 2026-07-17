@@ -5288,16 +5288,36 @@
       "path": "src/app/collaboration_adapter/team_execution.rs",
       "slices": [
         {
-          "responsibility": "team lane admission recovery, scheduling, ownership enforcement, and execution orchestration adapter",
+          "responsibility": "team lane execution orchestration, result aggregation, and worker scheduling adapter",
           "target": "src/app/collaboration_adapter/team_execution.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_execution.rs",
             "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution/admission.rs",
             "src/app/collaboration_adapter/team_execution/events.rs",
             "src/app/collaboration_adapter/team_execution/tests.rs",
             "tests/collaboration/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/admission.rs",
+      "slices": [
+        {
+          "responsibility": "team worker admission receipt recovery, interrupted execution failure, and action-time ownership enforcement",
+          "target": "src/app/collaboration_adapter/team_execution/admission.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution.rs",
+            "src/app/collaboration_adapter/team_execution/admission.rs",
+            "src/app/collaboration_adapter/team_execution/events.rs",
+            "src/app/collaboration_adapter/team_execution/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7990,7 +8010,13 @@
     {
       "path": "src/app/collaboration_adapter/team_execution.rs",
       "responsibilities": [
-        "team lane admission recovery, scheduling, ownership enforcement, and execution orchestration adapter"
+        "team lane execution orchestration, result aggregation, and worker scheduling adapter"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/admission.rs",
+      "responsibilities": [
+        "team worker admission receipt recovery, interrupted execution failure, and action-time ownership enforcement"
       ]
     },
     {
