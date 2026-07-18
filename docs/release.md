@@ -192,7 +192,7 @@ Current archive targets:
 - Linux ARM64
 - Windows x86_64
 
-Prepared package-manager targets:
+Historical v0.40.0 package-manager targets:
 
 - Homebrew: macOS arm64/x64 and Linux arm64/x64
 - Scoop: Windows x64
@@ -203,7 +203,14 @@ Prepared package-manager targets:
 Package-manager manifests are derived artifacts. The repository does not
 hand-maintain release URLs or checksums separately for each channel.
 
-The release workflow:
+Starting with v0.41.0, `release-binaries` stops after verifying the exact
+11-file GitHub Release asset set and deleting the verified merged release
+branch. It does not automatically invoke package-manager generation or
+lifecycle lanes. Package-manager and winget work is not a future release
+completion gate, and no external package repository is written by the binary
+release workflow.
+
+The historical v0.40.0 package-manager workflow:
 
 1. verifies the exact 11-file GitHub Release asset set;
 2. reads the five archive hashes from the verified aggregate checksum file;
@@ -217,9 +224,10 @@ The release workflow:
 6. uploads the current generated trees as a publication-candidate workflow
    artifact.
 
-The package-manager workflow does not add files to the GitHub Release. The
-existing five archives, five sidecar checksums, and one aggregate checksum
-remain the complete release-asset contract.
+The separately dispatched package-manager workflow does not add files to the
+GitHub Release or publish to external repositories. The existing five
+archives, five sidecar checksums, and one aggregate checksum remain the
+complete release-asset contract.
 
 ### Channel status
 
@@ -283,12 +291,13 @@ manifest formats, and install/upgrade/uninstall lifecycle on four Homebrew
 lanes plus isolated Scoop and winget lanes. It performs no Cargo build, release
 upload, tag creation, external publication, or branch cleanup.
 
-For a package-manager-only failure after publishing a stable tag, dispatch
-`mode=recovery` with only `current_tag`. Recovery derives the greatest
-ancestral stable predecessor, re-verifies both exact release asset sets, and
-reruns only manifest preparation and the six native lifecycle lanes. It never
-overwrites release assets or creates a new patch tag. The matching release
-branch is deleted only after all lanes pass; any failure preserves the branch.
+The retained `mode=recovery` path exists for explicitly authorized v0.40.0
+package-manager evidence recovery. It is not called by later binary releases.
+Recovery derives the greatest ancestral stable predecessor, re-verifies both
+exact release asset sets, and reruns only manifest preparation and the six
+historical native lifecycle lanes. It never overwrites release assets or
+creates a new patch tag. The matching release branch is deleted only after all
+lanes pass; any failure preserves the branch.
 
 ### Install and removal boundary
 
@@ -300,7 +309,7 @@ inspect that separate cleanup plan.
 
 ### Release evidence
 
-The release record must include:
+The v0.40.0 package-manager release record includes:
 
 - candidate commit SHA and exact-HEAD CI run;
 - exact 11-asset verification;
@@ -337,10 +346,6 @@ Before release:
 13. after publishing the GitHub Release, confirm the `release-binaries` workflow
     uploaded all target archives, matching `.sha256` files, and the aggregate
     `checksums.txt` file
-14. for v0.40.0 or later package-manager releases, record the successful pre-tag
-    qualification run
-15. confirm all six package-manager lifecycle lanes passed or explicitly record
-    each external channel as `Unpublished`
 
 Use [release-notes-template.md](release-notes-template.md) for new release note
 entries.

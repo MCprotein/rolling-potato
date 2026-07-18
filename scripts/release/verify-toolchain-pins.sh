@@ -57,8 +57,8 @@ reject_unapproved_action_refs "$release_workflow"
 reject_unapproved_action_refs "$package_manager_workflow"
 reject_unapproved_action_refs "$policy_workflow"
 reject_unapproved_action_refs "$candidate_workflow"
-expect_count "$release_workflow" "$checkout_pin" 5
-expect_count "$release_workflow" "$upload_pin" 3
+expect_count "$release_workflow" "$checkout_pin" 6
+expect_count "$release_workflow" "$upload_pin" 2
 expect_count "$release_workflow" "$download_pin" 1
 expect_count "$package_manager_workflow" "$checkout_pin" 3
 expect_count "$package_manager_workflow" "$upload_pin" 2

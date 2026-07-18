@@ -1,5 +1,40 @@
 # 릴리즈 노트
 
+## v0.41.0 - Local HTML Monitor Report
+
+릴리즈 날짜: 2026-07-19
+
+이 릴리즈는 기존 local monitoring export에 선택형 static HTML view를
+추가합니다. Server, external telemetry, 별도 monitoring source of truth는
+추가하지 않습니다.
+
+### 포함한 것
+
+- `rpotato monitor export --format html`이 완전한 self-contained HTML document
+  하나를 standard output에 기록합니다. Local file 생성은 사용자의 명시적 shell
+  redirection으로 남습니다.
+- Store summary, resource pressure, model metric, optimization policy를 기존
+  bounded SQLite/ledger monitor query로 읽습니다. Query 하나가 실패하면 전체
+  report를 숨기지 않고 해당 section만 unavailable로 표시합니다.
+- JavaScript, external asset, network request, local HTTP server 없이 semantic
+  responsive layout, light/dark color, restrictive content security policy를
+  제공합니다.
+- 모든 dynamic text를 render하기 전에 기존 credential redaction boundary를
+  적용하고 absolute local path token을 제거한 뒤 HTML escape합니다.
+- CLI parser, runtime port, partial availability, redaction, architecture
+  contract 회귀 테스트와 한/영 사용법·observability 문서를 추가했습니다.
+
+### 호환성 경계
+
+- 기존 JSONL/CSV monitor export, persisted schema, dependency, runtime policy,
+  exit semantic은 변경하지 않습니다.
+- Report는 특정 시점의 local snapshot입니다. 자동 refresh, browser 열기,
+  shell redirection 없는 file 생성, raw prompt/source text 노출을 수행하지
+  않습니다.
+- 5개 platform, 정확한 11-file GitHub Release asset contract는 변경하지
+  않습니다. Package-manager와 winget workflow는 v0.41.0 완료 경로가 아니며
+  binary release가 호출하지 않습니다.
+
 ## v0.40.0 - Package Manager 배포
 
 릴리즈 날짜: 2026-07-18
