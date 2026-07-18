@@ -28,6 +28,15 @@ generated="$root/generated"
 diff -ru "$expected" "$generated"
 printf 'package-manager fixture passed: exact-output\n'
 
+winget_fixture_root="$generated/winget/manifests/m/MCprotein/rpotato/0.40.0"
+grep -Fx '# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.12.0.schema.json' \
+  "$winget_fixture_root/MCprotein.rpotato.yaml" >/dev/null
+grep -Fx '# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json' \
+  "$winget_fixture_root/MCprotein.rpotato.locale.en-US.yaml" >/dev/null
+grep -Fx '# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json' \
+  "$winget_fixture_root/MCprotein.rpotato.installer.yaml" >/dev/null
+printf 'package-manager fixture passed: winget-schema-headers\n'
+
 second="$root/generated-second"
 "$generator" v0.40.0 "$checksum_fixture" "$second" >/dev/null
 diff -ru "$generated" "$second"
@@ -144,6 +153,16 @@ mv "$root/bad-installer" \
   "$bad_hash/winget/manifests/m/MCprotein/rpotato/0.40.0/MCprotein.rpotato.installer.yaml"
 expect_failure wrong-output-hash \
   "$verifier" v0.40.0 "$checksum_fixture" "$bad_hash"
+
+missing_schema_header="$root/missing-schema-header"
+cp -R "$generated" "$missing_schema_header"
+sed '1d' \
+  "$missing_schema_header/winget/manifests/m/MCprotein/rpotato/0.40.0/MCprotein.rpotato.yaml" \
+  >"$root/winget-version-without-schema-header"
+mv "$root/winget-version-without-schema-header" \
+  "$missing_schema_header/winget/manifests/m/MCprotein/rpotato/0.40.0/MCprotein.rpotato.yaml"
+expect_failure missing-winget-schema-header \
+  "$verifier" v0.40.0 "$checksum_fixture" "$missing_schema_header"
 
 unresolved="$root/unresolved"
 cp -R "$generated" "$unresolved"
