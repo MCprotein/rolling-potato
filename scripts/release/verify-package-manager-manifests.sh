@@ -90,12 +90,13 @@ base_url="https://github.com/MCprotein/rolling-potato/releases/download/$tag"
 formula_path="$output_root/$formula"
 grep -Fx 'class Rpotato < Formula' "$formula_path" >/dev/null \
   || fail "Homebrew formula class mismatch"
-grep -Fx '  desc "Local coding agents for potato PCs."' "$formula_path" >/dev/null \
+grep -Fx '  desc "Local coding agents for potato PCs"' "$formula_path" >/dev/null \
   || fail "Homebrew description mismatch"
 grep -Fx '  homepage "https://github.com/MCprotein/rolling-potato"' "$formula_path" >/dev/null \
   || fail "Homebrew homepage mismatch"
-grep -Fx "  version \"$version\"" "$formula_path" >/dev/null \
-  || fail "Homebrew version mismatch"
+if grep -Eq '^[[:space:]]+version[[:space:]]+"' "$formula_path"; then
+  fail "Homebrew formula must infer version from its archive URLs"
+fi
 grep -Fx '  license "Apache-2.0"' "$formula_path" >/dev/null \
   || fail "Homebrew license mismatch"
 grep -Fx '    bin.install "rpotato"' "$formula_path" >/dev/null \

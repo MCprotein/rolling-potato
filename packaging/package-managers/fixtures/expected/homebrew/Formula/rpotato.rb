@@ -1,7 +1,6 @@
 class Rpotato < Formula
-  desc "Local coding agents for potato PCs."
+  desc "Local coding agents for potato PCs"
   homepage "https://github.com/MCprotein/rolling-potato"
-  version "0.40.0"
   license "Apache-2.0"
 
   on_macos do

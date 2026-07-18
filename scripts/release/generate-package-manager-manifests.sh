@@ -122,6 +122,7 @@ metadata_value() {
 
 package_name="$(metadata_value PACKAGE_NAME)"
 description="$(metadata_value DESCRIPTION)"
+homebrew_description="${description%.}"
 homepage="$(metadata_value HOMEPAGE)"
 license="$(metadata_value LICENSE)"
 repository="$(metadata_value REPOSITORY)"
@@ -132,6 +133,8 @@ winget_id="$(metadata_value WINGET_ID)"
 winget_locale="$(metadata_value WINGET_LOCALE)"
 
 [ "$package_name" = "rpotato" ] || fail "unexpected package name: $package_name"
+[ -n "$homebrew_description" ] \
+  || fail "Homebrew description must not be empty"
 [ "$repository" = "MCprotein/rolling-potato" ] \
   || fail "unexpected repository: $repository"
 [ "$homebrew_formula" = "rpotato" ] \
@@ -200,6 +203,7 @@ base_url="https://github.com/${repository}/releases/download/${tag}"
 tokens=(
   "@@PACKAGE_NAME@@"
   "@@DESCRIPTION@@"
+  "@@HOMEBREW_DESCRIPTION@@"
   "@@HOMEPAGE@@"
   "@@LICENSE@@"
   "@@PUBLISHER@@"
@@ -220,6 +224,7 @@ tokens=(
 values=(
   "$package_name"
   "$description"
+  "$homebrew_description"
   "$homepage"
   "$license"
   "$publisher"
@@ -306,7 +311,8 @@ winget_locale_template="$templates/winget-locale.yaml.in"
 winget_installer_template="$templates/winget-installer.yaml.in"
 
 check_template "$formula_template" \
-  "@@DESCRIPTION@@=1" "@@HOMEPAGE@@=1" "@@VERSION@@=2" "@@LICENSE@@=1" \
+  "@@HOMEBREW_DESCRIPTION@@=1" "@@HOMEPAGE@@=1" \
+  "@@VERSION@@=1" "@@LICENSE@@=1" \
   "@@URL_MAC_ARM@@=1" "@@SHA_MAC_ARM@@=1" \
   "@@URL_MAC_X64@@=1" "@@SHA_MAC_X64@@=1" \
   "@@URL_LINUX_ARM@@=1" "@@SHA_LINUX_ARM@@=1" \

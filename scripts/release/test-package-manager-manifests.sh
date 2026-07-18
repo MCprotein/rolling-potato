@@ -28,6 +28,14 @@ generated="$root/generated"
 diff -ru "$expected" "$generated"
 printf 'package-manager fixture passed: exact-output\n'
 
+formula_fixture="$generated/homebrew/Formula/rpotato.rb"
+grep -Fx '  desc "Local coding agents for potato PCs"' "$formula_fixture" >/dev/null
+if grep -Eq '^[[:space:]]+version "' "$formula_fixture"; then
+  printf 'package-manager fixture error: Homebrew formula must infer version from URL\n' >&2
+  exit 1
+fi
+printf 'package-manager fixture passed: homebrew-audit-shape\n'
+
 winget_fixture_root="$generated/winget/manifests/m/MCprotein/rpotato/0.40.0"
 grep -Fx '# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.12.0.schema.json' \
   "$winget_fixture_root/MCprotein.rpotato.yaml" >/dev/null
@@ -132,10 +140,21 @@ expect_failure output-traversal \
 
 stale="$root/stale"
 cp -R "$generated" "$stale"
-sed 's/version "0.40.0"/version "0.41.0"/' \
+sed 's/package version: 0.40.0/package version: 0.41.0/' \
   "$stale/homebrew/Formula/rpotato.rb" >"$root/stale-formula"
 mv "$root/stale-formula" "$stale/homebrew/Formula/rpotato.rb"
 expect_failure stale-version "$verifier" v0.40.0 "$checksum_fixture" "$stale"
+
+redundant_version="$root/redundant-homebrew-version"
+cp -R "$generated" "$redundant_version"
+awk '
+  { print }
+  /^  homepage / { print "  version \"0.40.0\"" }
+' "$redundant_version/homebrew/Formula/rpotato.rb" >"$root/redundant-formula"
+mv "$root/redundant-formula" \
+  "$redundant_version/homebrew/Formula/rpotato.rb"
+expect_failure redundant-homebrew-version \
+  "$verifier" v0.40.0 "$checksum_fixture" "$redundant_version"
 
 bad_url="$root/bad-url"
 cp -R "$generated" "$bad_url"
