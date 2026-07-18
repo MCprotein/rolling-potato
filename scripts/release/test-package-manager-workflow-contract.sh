@@ -65,16 +65,20 @@ require_line "$workflow_body" '  workflow_call:'
 require_line "$workflow_body" '  workflow_dispatch:'
 require_line "$workflow_body" '          - qualification'
 require_line "$workflow_body" '          - recovery'
+require_line "$workflow_body" '          - all'
+require_line "$workflow_body" '          - windows'
 require_line "$workflow_body" '  contents: write'
 require_line "$workflow_body" '  cancel-in-progress: false'
 require_line "$workflow_body" '      CURRENT_TAG: ${{ inputs.current_tag }}'
 require_line "$workflow_body" '      REQUESTED_PREVIOUS_TAG: ${{ inputs.previous_tag }}'
+require_line "$workflow_body" '      LANES: ${{ inputs.lanes }}'
 
 require_line "$prepare" "uses: $checkout_pin"
 require_line "$prepare" "uses: $download_pin"
 require_line "$prepare" "uses: $upload_pin"
 require_line "$prepare" "scripts/release/validate-package-manager-workflow-inputs.sh"
 require_line "$prepare" 'scripts/release/resolve-previous-stable-tag.sh "$CURRENT_TAG"'
+require_line "$prepare" 'if [ "$LANES" = windows ] && [ "$MODE" != qualification ]; then'
 require_line "$prepare" 'for release_tag in "$CURRENT_TAG" "$previous_tag"; do'
 require_line "$prepare" '--json tagName,isDraft,isPrerelease,publishedAt'
 require_line "$prepare" 'scripts/release/verify-published-stable-release.sh "$release_tag"'
@@ -99,6 +103,7 @@ done
 [ "$(grep -c '^          - label:' <<<"$homebrew")" -eq 4 ] \
   || fail "Homebrew matrix must contain exactly four native lanes"
 require_line "$homebrew" 'uses: Homebrew/actions/setup-homebrew@df4b09108a1de9d6f995fe68f302b3f68bd6d2ef'
+require_line "$homebrew" "    if: inputs.lanes == 'all'"
 require_line "$homebrew" 'brew install rpotato/ci/rpotato'
 require_line "$homebrew" 'brew update'
 require_line "$homebrew" 'brew upgrade rpotato'
@@ -113,6 +118,10 @@ require_line "$scoop" 'Invoke-Scoop install $currentManifest --no-update-scoop'
 require_line "$scoop" "\$remoteUri = \"file:///\$(\$remote -replace '\\\\', '/')\""
 require_line "$scoop" 'Invoke-Scoop bucket add rpotato $remoteUri'
 require_line "$scoop" 'Invoke-Scoop install rpotato/rpotato --no-update-scoop'
+require_line "$scoop" '[System.IO.File]::Copy($currentManifest, $publishedManifest, $true)'
+require_line "$scoop" '$publishedVersion = (Get-Content $publishedManifest -Raw | ConvertFrom-Json).version'
+require_line "$scoop" 'if ($publishedVersion -ne $currentVersion) { throw "failed to publish current Scoop manifest" }'
+require_line "$scoop" 'if ($LASTEXITCODE -ne 0) { throw "failed to commit current Scoop manifest" }'
 require_line "$scoop" 'Invoke-Scoop update rpotato'
 require_line "$scoop" 'Invoke-Scoop uninstall rpotato'
 
@@ -122,17 +131,17 @@ require_line "$winget" 'WINGET_BUNDLE_SHA256: 0809fa9f52e395d6e7de692331dce847ac
 require_line "$winget" 'WINGET_DEPENDENCIES_SHA256: 3bbfcaa5cb011c48fac48d896d64a5c7c6898859a9f3d01555c8cd000f4e2962'
 require_line "$winget" 'Invoke-Winget settings --enable LocalManifestFiles'
 require_line "$winget" 'Invoke-Winget validate --manifest $currentManifest'
-require_line "$winget" 'Invoke-Winget install --manifest $currentManifest'
-require_line "$winget" 'Invoke-Winget upgrade --manifest $currentManifest'
-require_line "$winget" '$listed = (& winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-String)'
-require_line "$winget" '$preexisting = (& winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-String)'
-require_line "$winget" 'Invoke-Winget uninstall --manifest $currentManifest --accept-source-agreements --disable-interactivity'
-require_line "$winget" '& winget uninstall --manifest $currentManifest --accept-source-agreements --disable-interactivity | Out-Null'
-require_line "$winget" '& winget uninstall --manifest $previousManifest --accept-source-agreements --disable-interactivity | Out-Null'
+require_line "$winget" 'Invoke-Winget install --manifest $currentManifest --scope machine'
+require_line "$winget" 'Invoke-Winget upgrade --manifest $currentManifest --scope machine'
+require_line "$winget" '$listed = (& winget list --id MCprotein.rpotato --exact --scope machine --accept-source-agreements --disable-interactivity | Out-String)'
+require_line "$winget" '$preexisting = (& winget list --id MCprotein.rpotato --exact --scope machine --accept-source-agreements --disable-interactivity | Out-String)'
+require_line "$winget" 'Invoke-Winget uninstall --manifest $currentManifest --scope machine --accept-source-agreements --disable-interactivity'
+require_line "$winget" '& winget uninstall --manifest $currentManifest --scope machine --accept-source-agreements --disable-interactivity | Out-Null'
+require_line "$winget" '& winget uninstall --manifest $previousManifest --scope machine --accept-source-agreements --disable-interactivity | Out-Null'
 require_line "$winget" '& winget settings --disable LocalManifestFiles'
-[ "$(grep -Fc 'winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity' <<<"$winget")" -eq 2 ] \
+[ "$(grep -Fc 'winget list --id MCprotein.rpotato --exact --scope machine --accept-source-agreements --disable-interactivity' <<<"$winget")" -eq 2 ] \
   || fail "both winget list probes must accept source agreements"
-[ "$(grep -Fc 'Invoke-Winget uninstall --manifest $currentManifest --accept-source-agreements --disable-interactivity' <<<"$winget")" -eq 2 ] \
+[ "$(grep -Fc 'Invoke-Winget uninstall --manifest $currentManifest --scope machine --accept-source-agreements --disable-interactivity' <<<"$winget")" -eq 2 ] \
   || fail "both winget lifecycle uninstalls must use the local current manifest"
 
 if grep -E '(^|[[:space:]])cargo (test|check|build)|gh release upload|gh release create|git tag ' \
@@ -145,6 +154,8 @@ if grep -E 'MCprotein/(homebrew-rpotato|scoop-rpotato)|microsoft/winget-pkgs' \
 fi
 
 require_line "$cleanup" "always() && (inputs.mode == 'release' || inputs.mode == 'recovery') &&"
+require_line "$cleanup" "inputs.lanes == 'all' &&"
+require_line "$preserve" "inputs.lanes == 'all' &&"
 for need in package-manager-prepare homebrew-lifecycle scoop-lifecycle winget-lifecycle; do
   require_line "$cleanup" "      - $need"
   require_line "$preserve" "      - $need"
@@ -156,6 +167,7 @@ require_line "$cleanup" 'git ls-remote --exit-code --heads origin "release/$RELE
 require_line "$preserve" '      RELEASE_BRANCH: release/${{ inputs.current_tag }}'
 require_line "$preserve" 'scripts/release/report-release-failure.sh'
 require_line "$qualification_failure" "always() && inputs.mode == 'qualification' &&"
+require_line "$qualification_failure" "(inputs.lanes == 'all' && needs.homebrew-lifecycle.result != 'success') ||"
 require_line "$qualification_failure" "printf -- '- cleanup: \`forbidden\`\\n'"
 
 delete_count="$(

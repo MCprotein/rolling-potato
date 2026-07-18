@@ -19,6 +19,11 @@ on:
         required: false
         default: ""
         type: string
+      lanes:
+        description: "Lifecycle lanes to execute"
+        required: false
+        default: all
+        type: string
       current_assets_artifact:
         description: "Verified current exact-assets artifact for release mode"
         required: false
@@ -42,9 +47,17 @@ on:
         required: false
         default: ""
         type: string
+      lanes:
+        description: "All lanes for final qualification, or Windows-only diagnosis"
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - windows
 
 concurrency:
-  group: package-manager-${{ inputs.mode }}-${{ inputs.current_tag }}
+  group: package-manager-${{ inputs.mode }}-${{ inputs.current_tag }}-${{ inputs.lanes }}
   cancel-in-progress: false
 
 jobs:
@@ -55,6 +68,7 @@ jobs:
       previous_tag: ${{ steps.tags.outputs.previous_tag }}
     env:
       MODE: ${{ inputs.mode }}
+      LANES: ${{ inputs.lanes }}
       CURRENT_TAG: ${{ inputs.current_tag }}
       REQUESTED_PREVIOUS_TAG: ${{ inputs.previous_tag }}
       CURRENT_ASSETS_ARTIFACT: ${{ inputs.current_assets_artifact }}
@@ -73,6 +87,17 @@ jobs:
           set -euo pipefail
           scripts/release/validate-package-manager-workflow-inputs.sh \
             "$MODE" "$CURRENT_TAG" "$REQUESTED_PREVIOUS_TAG"
+          case "$LANES" in
+            all | windows) ;;
+            *)
+              echo "unsupported package-manager lanes: $LANES" >&2
+              exit 1
+              ;;
+          esac
+          if [ "$LANES" = windows ] && [ "$MODE" != qualification ]; then
+            echo "Windows-only lanes are restricted to qualification" >&2
+            exit 1
+          fi
           git fetch --force --tags origin
           resolved_previous="$(
             scripts/release/resolve-previous-stable-tag.sh "$CURRENT_TAG"
@@ -163,6 +188,7 @@ jobs:
 
   homebrew-lifecycle:
     name: Homebrew ${{ matrix.label }}
+    if: inputs.lanes == 'all'
     needs:
       - package-manager-prepare
     runs-on: ${{ matrix.runner }}
@@ -362,25 +388,33 @@ jobs:
           $remote = Join-Path $root "bucket.git"
           $remoteUri = "file:///$($remote -replace '\\', '/')"
           $seed = Join-Path $root "seed"
+          $publishedManifest = Join-Path $seed "bucket\rpotato.json"
           New-Item -ItemType Directory -Force -Path $root | Out-Null
           git init --bare --initial-branch=main $remote
           git init --initial-branch=main $seed
           git -C $seed config user.name package-manager-ci
           git -C $seed config user.email package-manager-ci@example.invalid
           New-Item -ItemType Directory -Force -Path (Join-Path $seed "bucket") | Out-Null
-          Copy-Item $previousManifest (Join-Path $seed "bucket\rpotato.json")
+          [System.IO.File]::Copy($previousManifest, $publishedManifest, $true)
           git -C $seed add bucket/rpotato.json
           git -C $seed commit -m "test: publish rpotato manifest"
+          if ($LASTEXITCODE -ne 0) { throw "failed to commit previous Scoop manifest" }
           git -C $seed remote add origin $remote
           git -C $seed push -u origin main
+          if ($LASTEXITCODE -ne 0) { throw "failed to push previous Scoop manifest" }
           Invoke-Scoop bucket add rpotato $remoteUri
           Invoke-Scoop install rpotato/rpotato --no-update-scoop
           Assert-DoctorVersion $previousVersion
-          Copy-Item $currentManifest (Join-Path $seed "bucket\rpotato.json") -Force
+          [System.IO.File]::Copy($currentManifest, $publishedManifest, $true)
+          $publishedVersion = (Get-Content $publishedManifest -Raw | ConvertFrom-Json).version
+          if ($publishedVersion -ne $currentVersion) { throw "failed to publish current Scoop manifest" }
           git -C $seed add bucket/rpotato.json
           git -C $seed commit -m "test: update rpotato manifest"
+          if ($LASTEXITCODE -ne 0) { throw "failed to commit current Scoop manifest" }
           git -C $seed push origin main
+          if ($LASTEXITCODE -ne 0) { throw "failed to push current Scoop manifest" }
           git -C "$env:SCOOP\buckets\rpotato" pull --ff-only
+          if ($LASTEXITCODE -ne 0) { throw "failed to update local Scoop bucket clone" }
           Invoke-Scoop update rpotato
           Assert-DoctorVersion $currentVersion
           Invoke-Scoop uninstall rpotato
@@ -458,7 +492,7 @@ jobs:
           }
 
           function Assert-Removed {
-            $listed = (& winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-String)
+            $listed = (& winget list --id MCprotein.rpotato --exact --scope machine --accept-source-agreements --disable-interactivity | Out-String)
             if ($LASTEXITCODE -eq 0 -and $listed -match "MCprotein\.rpotato") {
               throw "winget uninstall left package registration"
             }
@@ -467,7 +501,7 @@ jobs:
             }
           }
 
-          $preexisting = (& winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-String)
+          $preexisting = (& winget list --id MCprotein.rpotato --exact --scope machine --accept-source-agreements --disable-interactivity | Out-String)
           if ($LASTEXITCODE -eq 0 -and $preexisting -match "MCprotein\.rpotato") {
             throw "MCprotein.rpotato must not be preinstalled"
           }
@@ -477,21 +511,21 @@ jobs:
             Invoke-Winget validate --manifest $currentManifest
             Invoke-Winget validate --manifest $previousManifest
 
-            Invoke-Winget install --manifest $currentManifest --accept-package-agreements --accept-source-agreements --disable-interactivity
+            Invoke-Winget install --manifest $currentManifest --scope machine --accept-package-agreements --accept-source-agreements --disable-interactivity
             Assert-DoctorVersion $currentVersion
-            Invoke-Winget uninstall --manifest $currentManifest --accept-source-agreements --disable-interactivity
+            Invoke-Winget uninstall --manifest $currentManifest --scope machine --accept-source-agreements --disable-interactivity
             Assert-Removed
 
-            Invoke-Winget install --manifest $previousManifest --accept-package-agreements --accept-source-agreements --disable-interactivity
+            Invoke-Winget install --manifest $previousManifest --scope machine --accept-package-agreements --accept-source-agreements --disable-interactivity
             Assert-DoctorVersion $previousVersion
-            Invoke-Winget upgrade --manifest $currentManifest --accept-package-agreements --accept-source-agreements --disable-interactivity
+            Invoke-Winget upgrade --manifest $currentManifest --scope machine --accept-package-agreements --accept-source-agreements --disable-interactivity
             Assert-DoctorVersion $currentVersion
-            Invoke-Winget uninstall --manifest $currentManifest --accept-source-agreements --disable-interactivity
+            Invoke-Winget uninstall --manifest $currentManifest --scope machine --accept-source-agreements --disable-interactivity
             Assert-Removed
           }
           finally {
-            & winget uninstall --manifest $currentManifest --accept-source-agreements --disable-interactivity | Out-Null
-            & winget uninstall --manifest $previousManifest --accept-source-agreements --disable-interactivity | Out-Null
+            & winget uninstall --manifest $currentManifest --scope machine --accept-source-agreements --disable-interactivity | Out-Null
+            & winget uninstall --manifest $previousManifest --scope machine --accept-source-agreements --disable-interactivity | Out-Null
             & winget settings --disable LocalManifestFiles | Out-Null
           }
 
@@ -499,6 +533,7 @@ jobs:
     name: cleanup package-manager verified release branch
     if: >-
       always() && (inputs.mode == 'release' || inputs.mode == 'recovery') &&
+      inputs.lanes == 'all' &&
       needs.package-manager-prepare.result == 'success' &&
       needs.homebrew-lifecycle.result == 'success' &&
       needs.scoop-lifecycle.result == 'success' &&
@@ -537,6 +572,7 @@ jobs:
     name: preserve release branch after package-manager failure
     if: >-
       always() && (inputs.mode == 'release' || inputs.mode == 'recovery') &&
+      inputs.lanes == 'all' &&
       (needs.package-manager-prepare.result != 'success' ||
       needs.homebrew-lifecycle.result != 'success' ||
       needs.scoop-lifecycle.result != 'success' ||
@@ -580,7 +616,7 @@ jobs:
     if: >-
       always() && inputs.mode == 'qualification' &&
       (needs.package-manager-prepare.result != 'success' ||
-      needs.homebrew-lifecycle.result != 'success' ||
+      (inputs.lanes == 'all' && needs.homebrew-lifecycle.result != 'success') ||
       needs.scoop-lifecycle.result != 'success' ||
       needs.winget-lifecycle.result != 'success')
     runs-on: ubuntu-24.04
