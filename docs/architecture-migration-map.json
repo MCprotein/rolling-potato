@@ -136,6 +136,21 @@
       ]
     },
     {
+      "path": ".github/workflows/package-manager-distribution.yml",
+      "slices": [
+        {
+          "responsibility": "release and platform workflow contract",
+          "target": ".github/workflows/package-manager-distribution.yml",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "scripts/release/test-package-manager-workflow-contract.sh",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": ".github/workflows/release-binaries.yml",
       "slices": [
         {
@@ -1354,6 +1369,36 @@
       ]
     },
     {
+      "path": "scripts/release/generate-current-package-manager-manifests.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/generate-current-package-manager-manifests.sh",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "scripts/release/test-package-manager-manifests.sh",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/generate-package-manager-manifests.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/generate-package-manager-manifests.sh",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "scripts/release/test-package-manager-manifests.sh",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "scripts/release/report-release-failure.sh",
       "slices": [
         {
@@ -1362,6 +1407,51 @@
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/resolve-previous-stable-tag.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/resolve-previous-stable-tag.sh",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "scripts/release/test-package-manager-workflow-contract.sh",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/test-package-manager-manifests.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/test-package-manager-manifests.sh",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "scripts/release/test-package-manager-manifests.sh",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/test-package-manager-workflow-contract.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/test-package-manager-workflow-contract.sh",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "scripts/release/test-package-manager-workflow-contract.sh",
             "tests/architecture_contract.rs"
           ]
         }
@@ -1396,6 +1486,21 @@
       ]
     },
     {
+      "path": "scripts/release/validate-package-manager-workflow-inputs.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/validate-package-manager-workflow-inputs.sh",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "scripts/release/test-package-manager-workflow-contract.sh",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "scripts/release/verify-checksum-basenames.sh",
       "slices": [
         {
@@ -1419,6 +1524,51 @@
           "state": "complete",
           "evidence": [
             "scripts/release/test-release-workflow-contract.sh",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/verify-package-manager-manifests.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/verify-package-manager-manifests.sh",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "scripts/release/test-package-manager-manifests.sh",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/verify-package-manager-prerequisites.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/verify-package-manager-prerequisites.sh",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "scripts/release/test-package-manager-workflow-contract.sh",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release/verify-published-stable-release.sh",
+      "slices": [
+        {
+          "responsibility": "release verification contract",
+          "target": "scripts/release/verify-published-stable-release.sh",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "scripts/release/test-package-manager-workflow-contract.sh",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6623,6 +6773,12 @@
       ]
     },
     {
+      "path": ".github/workflows/package-manager-distribution.yml",
+      "responsibilities": [
+        "release and platform workflow contract"
+      ]
+    },
+    {
       "path": ".github/workflows/release-binaries.yml",
       "responsibilities": [
         "release and platform workflow contract"
@@ -7145,7 +7301,37 @@
       ]
     },
     {
+      "path": "scripts/release/generate-current-package-manager-manifests.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/generate-package-manager-manifests.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
       "path": "scripts/release/report-release-failure.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/resolve-previous-stable-tag.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/test-package-manager-manifests.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/test-package-manager-workflow-contract.sh",
       "responsibilities": [
         "release verification contract"
       ]
@@ -7163,6 +7349,12 @@
       ]
     },
     {
+      "path": "scripts/release/validate-package-manager-workflow-inputs.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
       "path": "scripts/release/verify-checksum-basenames.sh",
       "responsibilities": [
         "release verification contract"
@@ -7172,6 +7364,24 @@
       "path": "scripts/release/verify-durable-runtime-proofs.sh",
       "responsibilities": [
         "stable logical durable runtime proof entrypoint"
+      ]
+    },
+    {
+      "path": "scripts/release/verify-package-manager-manifests.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/verify-package-manager-prerequisites.sh",
+      "responsibilities": [
+        "release verification contract"
+      ]
+    },
+    {
+      "path": "scripts/release/verify-published-stable-release.sh",
+      "responsibilities": [
+        "release verification contract"
       ]
     },
     {

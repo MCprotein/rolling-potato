@@ -1,0 +1,13 @@
+PackageIdentifier: MCprotein.rpotato
+PackageVersion: 0.40.0
+InstallerType: zip
+NestedInstallerType: portable
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/MCprotein/rolling-potato/releases/download/v0.40.0/rpotato-v0.40.0-x86_64-pc-windows-msvc.zip
+    InstallerSha256: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+    NestedInstallerFiles:
+      - RelativeFilePath: rpotato.exe
+        PortableCommandAlias: rpotato
+ManifestType: installer
+ManifestVersion: 1.12.0

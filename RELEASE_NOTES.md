@@ -1,5 +1,48 @@
 # Release Notes
 
+## v0.40.0 - Package Manager Distribution (Unreleased)
+
+Publication status: repository candidate; external channels `Unpublished`
+
+This candidate adds a deterministic package-manager distribution contract
+without changing the existing binary or exact 11-asset GitHub Release
+contract.
+
+### Included
+
+- Generates exact Homebrew, Scoop, and winget manifest trees from a strict
+  stable tag, canonical package metadata, and the verified aggregate GitHub
+  Release checksum file.
+- Independently rejects stale versions, unexpected paths or assets, malformed
+  or duplicated hashes, unresolved template markers, and non-canonical URLs.
+- Adds four Homebrew native lifecycle lanes plus isolated Scoop and winget
+  Windows lanes for current clean install, previous-to-current upgrade,
+  `rpotato doctor` version proof, package-manager uninstall, and command
+  absence.
+- Adds a fixed v0.38.0 to v0.39.0 pre-tag qualification mode and a same-tag
+  recovery mode that derives the strict ancestral predecessor.
+- Keeps package-manager binary removal separate from the non-destructive
+  `rpotato uninstall --dry-run` application-data plan.
+
+### Current Evidence State
+
+- Manifest generation is `Generated`, and repository fixture/workflow contract
+  checks pass.
+- The v0.38.0 to v0.39.0 native qualification is pending, so the channels have
+  not reached `Validated`.
+- Homebrew tap: `Unpublished`.
+- Scoop bucket: `Unpublished`.
+- winget community manifest: `Unpublished`.
+- No external channel is considered complete until its public URL or upstream
+  review status is recorded.
+
+### Compatibility Boundary
+
+- Runtime behavior, persisted schemas, Cargo dependencies, archive contents,
+  and the exact 11-file release asset set are unchanged.
+- Package-manager files remain workflow artifacts until a separately authorized
+  external publication step.
+
 ## v0.39.0 - Integrated Workflow Performance Hardening
 
 Release date: 2026-07-18

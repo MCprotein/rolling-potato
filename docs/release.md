@@ -192,9 +192,127 @@ Current archive targets:
 - Linux ARM64
 - Windows x86_64
 
-Later targets:
+Prepared package-manager targets:
 
-- package-manager channels: Homebrew, Scoop, winget
+- Homebrew: macOS arm64/x64 and Linux arm64/x64
+- Scoop: Windows x64
+- winget: Windows x64 portable ZIP
+
+## Package Manager Distribution
+
+Package-manager manifests are derived artifacts. The repository does not
+hand-maintain release URLs or checksums separately for each channel.
+
+The release workflow:
+
+1. verifies the exact 11-file GitHub Release asset set;
+2. reads the five archive hashes from the verified aggregate checksum file;
+3. generates one Homebrew formula, one Scoop manifest, and the three-file
+   winget manifest set;
+4. independently verifies their exact paths, versions, URLs, archive names, and
+   hashes;
+5. validates clean install, previous-stable-to-current upgrade, the version
+   reported by `rpotato doctor`, package-manager uninstall, and command absence
+   on six native lanes;
+6. uploads the current generated trees as a publication-candidate workflow
+   artifact.
+
+The package-manager workflow does not add files to the GitHub Release. The
+existing five archives, five sidecar checksums, and one aggregate checksum
+remain the complete release-asset contract.
+
+### Channel status
+
+Use these states consistently:
+
+- `Generated`: deterministic manifests were produced from a verified aggregate
+  checksum.
+- `Validated`: the static verifier and all applicable native lifecycle lanes
+  passed.
+- `Published`: an authorized external write completed and its public URL or
+  upstream review status was recorded.
+- `Unpublished`: no live external channel is claimed, even if generated and
+  validated artifacts exist.
+
+As of 2026-07-18, the repository implementation is `Generated` and its static
+contract checks pass. Native qualification is still pending, so no channel has
+reached `Validated`; all three external channels remain `Unpublished`. Creating
+or updating the Homebrew tap, Scoop bucket, or winget community-manifest pull
+request is a separate maintainer-authorized operation.
+
+### Integrity and pinned prerequisites
+
+`rpotato-vX.Y.Z-checksums.txt`, accepted by
+`scripts/release/verify-release-assets.sh`, is the only source for hashes placed
+in package-manager manifests. All download URLs remain immutable versioned
+HTTPS URLs under the matching GitHub Release. Qualification, release, and
+recovery preparation also require both selected GitHub Releases to match their
+requested stable tags, be published, and be neither drafts nor prereleases.
+
+The native validation prerequisites recorded on 2026-07-18 are:
+
+- `Homebrew/actions/setup-homebrew` commit
+  `df4b09108a1de9d6f995fe68f302b3f68bd6d2ef`;
+- Scoop source and schema commit
+  `b588a06e41d920d2123ec70aee682bae14935939`;
+- winget client release `v1.29.280`, with the bundle and dependency archive
+  SHA-256 values enforced by
+  `scripts/release/verify-package-manager-prerequisites.sh`;
+- winget manifest schema `1.12.0`.
+
+Workflow logs record the actual manager/client versions used by each native
+lane. Unpinned remote bootstrap pipelines are forbidden.
+
+### Qualification and recovery
+
+Before the v0.40.0 tag, manually dispatch
+`package-manager-distribution` with:
+
+```text
+mode=qualification
+previous_tag=v0.38.0
+current_tag=v0.39.0
+```
+
+Qualification uses already published releases to prove the pinned setup,
+manifest formats, and install/upgrade/uninstall lifecycle on four Homebrew
+lanes plus isolated Scoop and winget lanes. It performs no Cargo build, release
+upload, tag creation, external publication, or branch cleanup.
+
+For a package-manager-only failure after publishing a stable tag, dispatch
+`mode=recovery` with only `current_tag`. Recovery derives the greatest
+ancestral stable predecessor, re-verifies both exact release asset sets, and
+reruns only manifest preparation and the six native lifecycle lanes. It never
+overwrites release assets or creates a new patch tag. The matching release
+branch is deleted only after all lanes pass; any failure preserves the branch.
+
+### Install and removal boundary
+
+Once an external channel is `Published`, the commands documented in the
+bilingual READMEs install, update, and remove the package-manager-owned binary.
+Package-manager removal does not remove `rpotato` application data, models, or
+cache. Run `rpotato uninstall --dry-run` before removing the executable to
+inspect that separate cleanup plan.
+
+### Release evidence
+
+The release record must include:
+
+- candidate commit SHA and exact-HEAD CI run;
+- exact 11-asset verification;
+- pre-tag v0.38.0 to v0.39.0 qualification run;
+- pinned prerequisites and observed manager/client versions;
+- resolved previous stable tag and ancestry decision;
+- generated publication artifact ID and hash;
+- clean-install and upgrade conclusions for all six native lanes;
+- normal deployment or same-tag recovery run;
+- Homebrew tap URL/commit/status;
+- Scoop bucket URL/commit/status;
+- winget pull-request/merge/package status;
+- release-branch cleanup result.
+
+Any external entry without confirmed evidence remains `Unpublished` or
+`Pending external review`; it must not be reported as complete.
 
 ## Release Checklist
 
@@ -215,6 +333,10 @@ Before release:
 13. after publishing the GitHub Release, confirm the `release-binaries` workflow
     uploaded all target archives, matching `.sha256` files, and the aggregate
     `checksums.txt` file
+14. for v0.40.0 or later package-manager releases, record the successful pre-tag
+    qualification run
+15. confirm all six package-manager lifecycle lanes passed or explicitly record
+    each external channel as `Unpublished`
 
 Use [release-notes-template.md](release-notes-template.md) for new release note
 entries.

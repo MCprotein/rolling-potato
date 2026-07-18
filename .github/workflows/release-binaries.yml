@@ -48,6 +48,12 @@ jobs:
       - name: Test release asset verifier
         run: bash scripts/release/test-verify-release-assets.sh
 
+      - name: Test package-manager manifests
+        run: bash scripts/release/test-package-manager-manifests.sh
+
+      - name: Verify package-manager prerequisites
+        run: scripts/release/verify-package-manager-prerequisites.sh
+
       - name: Test release workflow contract
         run: bash scripts/release/test-release-workflow-contract.sh
 
@@ -288,41 +294,24 @@ jobs:
             --dir dist/published
           scripts/release/verify-release-assets.sh "$RELEASE_TAG" dist/published
 
-  cleanup-release-branch:
-    name: cleanup verified release branch
-    if: >-
-      github.event_name == 'release' &&
-      needs.test.result == 'success' && needs.build.result == 'success' &&
-      needs.checksums.result == 'success' &&
-      needs.published-assets-verify.result == 'success'
-    runs-on: ubuntu-24.04
-    needs:
-      - test
-      - build
-      - checksums
-      - published-assets-verify
-    env:
-      RELEASE_TAG: ${{ github.event.release.tag_name }}
-      RPOTATO_RELEASE_TAG: ${{ github.event.release.tag_name }}
-      RPOTATO_RELEASE_BRANCH: release/${{ github.event.release.tag_name }}
-      RPOTATO_REQUIRE_TAG_ON_MAIN: 1
-      RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS: 1
-      RPOTATO_DELETE_RELEASE_BRANCH: 1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Upload verified current assets for package managers
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          fetch-depth: 0
+          name: rpotato-${{ env.RELEASE_TAG }}-published-assets
+          path: dist/published
+          if-no-files-found: error
 
-      - name: Delete release branch after asset verification
-        shell: bash
-        run: |
-          set -euo pipefail
-          scripts/release/verify-release-policy.sh
-          if git ls-remote --exit-code --heads origin "release/$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "release branch still exists after cleanup" >&2
-            exit 1
-          fi
+  package-manager-distribution:
+    name: verify package-manager distribution
+    if: github.event_name == 'release'
+    needs:
+      - published-assets-verify
+    uses: ./.github/workflows/package-manager-distribution.yml
+    with:
+      mode: release
+      current_tag: ${{ github.event.release.tag_name }}
+      current_assets_artifact: rpotato-${{ github.event.release.tag_name }}-published-assets
+    secrets: inherit
 
   release-failure-preserves-branch:
     name: preserve release branch after failed verification

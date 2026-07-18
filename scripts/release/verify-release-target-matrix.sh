@@ -7,9 +7,13 @@ fail() {
 }
 
 workflow=".github/workflows/release-binaries.yml"
+package_manager_workflow=".github/workflows/package-manager-distribution.yml"
 
 if [ ! -f "$workflow" ]; then
   fail "workflow file was not found: $workflow"
+fi
+if [ ! -f "$package_manager_workflow" ]; then
+  fail "workflow file was not found: $package_manager_workflow"
 fi
 
 expect_entry() {
@@ -103,10 +107,30 @@ if grep -F 'gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pat
 fi
 grep -F 'scripts/release/verify-release-assets.sh "$RELEASE_TAG" dist/published' "$workflow" >/dev/null \
   || fail "published assets must be downloaded and verified"
-grep -F 'name: cleanup verified release branch' "$workflow" >/dev/null \
-  || fail "release branch cleanup job is missing"
+grep -F 'name: verify package-manager distribution' "$workflow" >/dev/null \
+  || fail "release workflow must invoke package-manager distribution"
 grep -F '      - published-assets-verify' "$workflow" >/dev/null \
-  || fail "release branch cleanup must depend on published asset verification"
+  || fail "package-manager distribution must depend on published asset verification"
+grep -F 'name: cleanup package-manager verified release branch' "$package_manager_workflow" >/dev/null \
+  || fail "package-manager workflow cleanup job is missing"
+for runner in macos-26 macos-26-intel ubuntu-24.04-arm ubuntu-24.04; do
+  grep -F "            runner: $runner" "$package_manager_workflow" >/dev/null \
+    || fail "missing Homebrew lifecycle runner: $runner"
+done
+homebrew_lane_count="$(
+  awk '
+    /^  homebrew-lifecycle:$/ { active = 1 }
+    active && /^  [A-Za-z0-9_-]+:$/ && $0 != "  homebrew-lifecycle:" { exit }
+    active && /^          - label:/ { count++ }
+    END { print count + 0 }
+  ' "$package_manager_workflow"
+)"
+[ "$homebrew_lane_count" -eq 4 ] \
+  || fail "expected 4 Homebrew lifecycle lanes, found $homebrew_lane_count"
+grep -F '  scoop-lifecycle:' "$package_manager_workflow" >/dev/null \
+  || fail "Scoop lifecycle job is missing"
+grep -F '  winget-lifecycle:' "$package_manager_workflow" >/dev/null \
+  || fail "winget lifecycle job is missing"
 grep -F 'RPOTATO_DELETE_RELEASE_BRANCH: "0"' .github/workflows/release-policy.yml >/dev/null \
   || fail "release policy workflow must not delete the branch before asset verification"
 
@@ -127,4 +151,4 @@ if scripts/release/verify-checksum-basenames.sh "$bom_fixture" >/dev/null 2>&1; 
   fail "checksum guard must reject a UTF-8 BOM"
 fi
 
-printf 'release target matrix ok: %s\n' "$workflow"
+printf 'release target matrix ok: binaries=5 package-manager-lanes=6\n'

@@ -50,6 +50,49 @@ The first audience is:
 
 The current binary priority is macOS, Linux, and Windows through maintainer-led GitHub Release artifacts.
 
+## Package Installation
+
+The v0.40.0 repository candidate generates and statically verifies package
+definitions for Homebrew, Scoop, and winget from the checksums of the exact
+published GitHub Release assets. Native qualification is still pending, and the
+external Homebrew tap, Scoop bucket, and winget package are currently
+**unpublished**. Until a release note records a channel as `Published` with its
+external URL, use the direct GitHub Release archives.
+
+After each channel is published, its supported commands will be:
+
+### Homebrew (macOS arm64/x64 and Linux arm64/x64)
+
+```sh
+brew tap MCprotein/rpotato
+brew install rpotato
+brew update
+brew upgrade rpotato
+brew uninstall rpotato
+```
+
+### Scoop (Windows x64)
+
+```powershell
+scoop bucket add rpotato https://github.com/MCprotein/scoop-rpotato
+scoop install rpotato
+scoop update rpotato
+scoop uninstall rpotato
+```
+
+### winget (Windows x64)
+
+```powershell
+winget install --id MCprotein.rpotato --exact
+winget upgrade --id MCprotein.rpotato --exact
+winget uninstall --id MCprotein.rpotato --exact
+```
+
+Package-manager removal deletes the managed executable only. Before removing
+the executable, use `rpotato uninstall --dry-run` to inspect the separate
+application-data cleanup plan. See [docs/release.md](docs/release.md) for the
+checksum, qualification, recovery, and publication contracts.
+
 ## MVP Scope
 
 The first useful version should:

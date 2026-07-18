@@ -1,0 +1,34 @@
+class Rpotato < Formula
+  desc "@@DESCRIPTION@@"
+  homepage "@@HOMEPAGE@@"
+  version "@@VERSION@@"
+  license "@@LICENSE@@"
+
+  on_macos do
+    if Hardware::CPU.arm?
+      url "@@URL_MAC_ARM@@"
+      sha256 "@@SHA_MAC_ARM@@"
+    else
+      url "@@URL_MAC_X64@@"
+      sha256 "@@SHA_MAC_X64@@"
+    end
+  end
+
+  on_linux do
+    if Hardware::CPU.arm?
+      url "@@URL_LINUX_ARM@@"
+      sha256 "@@SHA_LINUX_ARM@@"
+    else
+      url "@@URL_LINUX_X64@@"
+      sha256 "@@SHA_LINUX_X64@@"
+    end
+  end
+
+  def install
+    bin.install "rpotato"
+  end
+
+  test do
+    assert_match "package version: @@VERSION@@", shell_output("#{bin}/rpotato doctor")
+  end
+end
