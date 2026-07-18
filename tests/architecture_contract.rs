@@ -4354,20 +4354,26 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     let observability_parser_path = "src/surfaces/cli/parser/observability.rs";
     let patch_parser_path = "src/surfaces/cli/parser/patch.rs";
     let plugin_parser_path = "src/surfaces/cli/parser/plugin.rs";
+    let uninstall_parser_path = "src/surfaces/cli/parser/uninstall.rs";
     let parser_tests_path = "src/surfaces/cli/parser/tests/mod.rs";
+    let uninstall_tests_path = "src/surfaces/cli/parser/tests/uninstall.rs";
     assert!(Path::new(backend_parser_path).is_file());
     assert!(Path::new(collaboration_parser_path).is_file());
     assert!(Path::new(observability_parser_path).is_file());
     assert!(Path::new(patch_parser_path).is_file());
     assert!(Path::new(plugin_parser_path).is_file());
+    assert!(Path::new(uninstall_parser_path).is_file());
     assert!(Path::new(parser_tests_path).is_file());
+    assert!(Path::new(uninstall_tests_path).is_file());
     let parser = fs::read_to_string(parser_path).unwrap();
     let backend_parser = fs::read_to_string(backend_parser_path).unwrap();
     let collaboration_parser = fs::read_to_string(collaboration_parser_path).unwrap();
     let observability_parser = fs::read_to_string(observability_parser_path).unwrap();
     let patch_parser = fs::read_to_string(patch_parser_path).unwrap();
     let plugin_parser = fs::read_to_string(plugin_parser_path).unwrap();
+    let uninstall_parser = fs::read_to_string(uninstall_parser_path).unwrap();
     let parser_tests = fs::read_to_string(parser_tests_path).unwrap();
+    let uninstall_tests = fs::read_to_string(uninstall_tests_path).unwrap();
     assert!(parser.contains("pub fn parse"));
     assert!(parser.contains("surfaces::cli::command::*"));
     assert!(
@@ -4389,6 +4395,10 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     assert!(
         parser.lines().any(|line| line == "mod plugin;"),
         "CLI parser does not register the plugin command-family owner"
+    );
+    assert!(
+        parser.lines().any(|line| line == "mod uninstall;"),
+        "CLI parser does not register the uninstall command-family owner"
     );
     for responsibility in [
         "pub(super) fn parse_backend_start(",
@@ -4428,6 +4438,15 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         plugin_parser.contains(plugin_parser_responsibility),
         "plugin parser is missing responsibility: {plugin_parser_responsibility}"
     );
+    let uninstall_parser_responsibility = "pub(super) fn parse_uninstall(";
+    assert!(
+        !parser.contains(uninstall_parser_responsibility),
+        "uninstall parser responsibility escaped into CLI facade: {uninstall_parser_responsibility}"
+    );
+    assert!(
+        uninstall_parser.contains(uninstall_parser_responsibility),
+        "uninstall parser is missing responsibility: {uninstall_parser_responsibility}"
+    );
     for responsibility in [
         "pub(super) fn parse_patch_preview(",
         "pub(super) fn parse_patch_approve(",
@@ -4465,13 +4484,14 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         "fn parses_backend_chat(",
         "fn parses_patch_approve_dry_run(",
         "fn parses_team_governor(",
-        "fn parses_uninstall_dry_run_purge_cache(",
     ] {
         assert!(
             parser_tests.contains(responsibility),
             "CLI parser regression tests are missing responsibility: {responsibility}"
         );
     }
+    assert!(uninstall_tests.contains("fn parses_uninstall_dry_run_purge_cache("));
+    assert!(uninstall_tests.contains("fn parses_guarded_clean_uninstall("));
     assert!(
         parser.lines().count() < 590,
         "CLI parser production module regrew beyond its command-family extraction boundary"
@@ -4556,11 +4576,17 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
     let parser = fs::read_to_string("src/surfaces/cli/parser.rs").unwrap();
     let install_parser = fs::read_to_string("src/surfaces/cli/parser/install.rs").unwrap();
     let install_tests = fs::read_to_string("src/surfaces/cli/parser/tests/install.rs").unwrap();
+    let uninstall_parser = fs::read_to_string("src/surfaces/cli/parser/uninstall.rs").unwrap();
+    let uninstall_tests = fs::read_to_string("src/surfaces/cli/parser/tests/uninstall.rs").unwrap();
     assert!(parser.lines().any(|line| line == "mod install;"));
     assert!(parser.contains("use install::parse_install;"));
     assert!(install_parser.contains("pub(super) fn parse_install("));
     assert!(install_tests.contains("fn parses_standard_and_guarded_clean_install("));
     assert!(install_tests.contains("fn clean_install_requires_exactly_one_safety_mode("));
+    assert!(parser.lines().any(|line| line == "mod uninstall;"));
+    assert!(parser.contains("use uninstall::parse_uninstall;"));
+    assert!(uninstall_parser.contains("pub(super) fn parse_uninstall("));
+    assert!(uninstall_tests.contains("fn parses_guarded_clean_uninstall("));
 
     let composition = fs::read_to_string("src/composition/install.rs").unwrap();
     assert!(composition.contains("pub(crate) fn install_report("));
