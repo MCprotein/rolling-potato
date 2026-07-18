@@ -6467,6 +6467,22 @@
       ]
     },
     {
+      "path": "tests/workflow_performance.rs",
+      "slices": [
+        {
+          "responsibility": "completed workflow performance budget contract",
+          "target": "tests/workflow_performance.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/workflow_performance.rs",
+            "scripts/performance/verify-v0.39-workflow-budgets.sh",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/subagent_lifecycle.rs",
       "slices": [
         {
@@ -8952,6 +8968,12 @@
       "path": "tests/workflow/storage_compat.rs",
       "responsibilities": [
         "workflow storage compatibility contract"
+      ]
+    },
+    {
+      "path": "tests/workflow_performance.rs",
+      "responsibilities": [
+        "completed workflow performance budget contract"
       ]
     },
     {
