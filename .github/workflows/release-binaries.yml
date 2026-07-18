@@ -48,12 +48,6 @@ jobs:
       - name: Test release asset verifier
         run: bash scripts/release/test-verify-release-assets.sh
 
-      - name: Test package-manager manifests
-        run: bash scripts/release/test-package-manager-manifests.sh
-
-      - name: Verify package-manager prerequisites
-        run: scripts/release/verify-package-manager-prerequisites.sh
-
       - name: Test release workflow contract
         run: bash scripts/release/test-release-workflow-contract.sh
 

@@ -118,12 +118,13 @@ evidence.
 | Version | Status | Scope |
 | --- | --- | --- |
 | v0.39.0 | Released | Integrated performance hardening: deterministic completed agent/subagent/team workflow budgets, zero canonical full-ledger rereads on normal event projection, smaller bounded-worker request envelopes, and exact-candidate regression gating without unsupported model claims |
-| v0.40.0 | Released | Package-manager distribution: exact-checksum Homebrew/Scoop manifests, strict format contracts, and clean-install/upgrade/uninstall lifecycles validated across the adopted native lanes; external channel publication remains separately evidenced |
+| v0.40.0 | Released | Historical package-manager experiment: manifest and lifecycle validation shipped in this version, then the unsupported external channels and repository automation were retired on 2026-07-19 |
 | v0.41.0 | Released | Optional local static HTML monitoring report: self-contained SQLite/ledger-backed export with responsive rendering, redaction, no external requests, and no second telemetry source of truth |
 
-## Channel Boundary
+## Distribution Boundary
 
-Winget is not an adopted roadmap or publication channel. The v0.40.0
-generator, fixtures, and validation evidence may remain as historical
-artifacts, but no future version completion gate includes an upstream winget
-submission or publication.
+GitHub Releases in this repository is the only supported download and
+distribution channel. Homebrew, Scoop, winget, and other package repositories
+are not roadmap targets or release gates. The v0.40.0 package-manager work is
+historical release evidence only; its generator, fixtures, and workflow were
+removed on 2026-07-19.

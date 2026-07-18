@@ -34,8 +34,8 @@ source of truth.
   a browser, create a file without shell redirection, or expose raw
   prompt/source text.
 - The exact five-platform, 11-file GitHub Release asset contract is unchanged.
-  Package-manager and winget workflows are not part of the v0.41.0 completion
-  path and are not invoked by the binary release.
+  GitHub Releases is now the only supported distribution channel; the
+  package-manager experiment and its automation have been retired.
 
 ## v0.40.0 - Package Manager Distribution
 
@@ -64,19 +64,17 @@ contract.
 - Keeps package-manager binary removal separate from the non-destructive
   `rpotato uninstall --dry-run` application-data plan.
 
-### Current Evidence State
+### Historical Evidence State
 
 - Manifest generation is `Generated`, and repository fixture/workflow contract
   checks pass.
 - The pre-tag v0.38.0-to-v0.39.0 qualification and the release-mode
   v0.39.0-to-v0.40.0 lifecycle both passed all four Homebrew lanes plus Scoop
   and winget on 2026-07-18, so the lifecycle contract is `Validated`.
-- Homebrew tap: `Published` at
-  [MCprotein/homebrew-rpotato](https://github.com/MCprotein/homebrew-rpotato),
-  commit `bf50499674dcbf46ce7e36260a8a6b3cf0c6b49e`.
-- Scoop bucket: `Published` at
-  [MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato),
-  commit `2e881e23456ae818d00ae63a1059bd870fc914de`.
+- The experimental Homebrew tap reached `Published` at commit
+  `bf50499674dcbf46ce7e36260a8a6b3cf0c6b49e`.
+- The experimental Scoop bucket reached `Published` at commit
+  `2e881e23456ae818d00ae63a1059bd870fc914de`.
 - winget community manifest: `Unpublished`. Generation and lifecycle
   validation passed, but no upstream submission is active.
 - No external channel is considered complete until its public URL or upstream
@@ -89,6 +87,9 @@ contract.
 - Published channel files byte-match the workflow artifact generated from the
   verified v0.40.0 asset set; the validated winget manifest remains
   unpublished.
+- This experiment was retired on 2026-07-19. Package-manager repositories and
+  manifests are no longer supported distribution channels; use GitHub Releases
+  only.
 
 ## v0.39.0 - Integrated Workflow Performance Hardening
 

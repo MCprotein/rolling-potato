@@ -65,43 +65,14 @@ not a thin wrapper that imitates them with a weaker model.
 
 ## Installation
 
-Official binaries are published through
+Official binaries are distributed only through
 [GitHub Releases](https://github.com/MCprotein/rolling-potato/releases).
-Homebrew and Scoop are published package channels. The generated winget
-manifest remains an unpublished, validated release artifact.
+Download the archive for your platform and verify it with the matching
+`.sha256` file or the aggregate checksum file. Homebrew, Scoop, winget, and
+other package-manager channels are not operated by this project.
 
-### Homebrew
-
-Supports macOS arm64/x64 and Linux arm64/x64.
-
-```sh
-brew tap MCprotein/rpotato
-brew install rpotato
-brew update
-brew upgrade rpotato
-brew uninstall rpotato
-```
-
-### Scoop
-
-Supports Windows x64.
-
-```powershell
-scoop bucket add rpotato https://github.com/MCprotein/scoop-rpotato
-scoop install rpotato/rpotato
-scoop update rpotato
-scoop uninstall rpotato
-```
-
-### winget
-
-No winget community package is published. Install, upgrade, and uninstall
-commands are intentionally not advertised.
-
-Package-manager removal deletes the managed executable only. Before removing
-it, use `rpotato uninstall --dry-run --purge-cache` to inspect the separate
-application-data cleanup plan. The checksum, qualification, recovery, and
-publication contracts are documented in [docs/release.md](docs/release.md).
+Supported release targets and checksum verification are documented in
+[docs/release.md](docs/release.md).
 
 ---
 

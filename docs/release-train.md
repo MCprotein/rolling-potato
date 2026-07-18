@@ -70,7 +70,7 @@ complete.
 | `v0.37.3`-`v0.37.13+` | Targeted behavior locks and migration evidence for each remaining ledger slice, byte/order/recovery/security compatibility, one bounded review per stabilized patch, and zero compatibility facades before v0.38.0 |
 | `v0.38.0` | Claude Code local plugin mapping/conformance tests, explicit unsupported-semantics reporting, and the same default-deny boundary |
 | `v0.39.0` | Measured end-to-end agent/subagent/team CPU, RSS, context, token, latency, and throughput evidence plus regression fixtures for confirmed failures |
-| `v0.40.0` | Current official package-format validation and clean install/upgrade/uninstall tests for the adopted Homebrew/Scoop channels against GitHub Release checksums |
+| `v0.40.0` | Historical package-manager manifest and lifecycle experiment, retired after the project adopted GitHub Releases as its only distribution channel |
 | `v0.41.0` | Local-only static HTML export tests proving SQLite/ledger parity, redaction, no external telemetry, no second source of truth, and usable desktop/mobile browser rendering |
 
 ## Non-Skippable Gates

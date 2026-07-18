@@ -374,7 +374,9 @@ rpotato cache clean --downloads
 - `--keep-cache`: `rpotato`가 관리하는 program/runtime asset과 launcher registration은 제거하되, downloaded model, partial download, manifest, log, project-local `.rpotato/` state는 유지한다.
 - `--purge-cache`: program/runtime asset과 app-level cache인 model, download, backend archive, manifest, log, generated index를 함께 제거한다.
 - `--purge-cache`도 source repository나 project file은 삭제하지 않는다. project-local cleanup은 `rpotato project clean --dry-run` 같은 별도 project-scoped command가 필요하다.
-- CLI가 package manager로 설치되었다면 `rpotato uninstall`은 app-owned data를 정리하고, package manager의 binary까지 삭제할 수 있다고 가장하지 말고 정확한 package-manager removal command를 출력해야 한다.
+- 지원 설치 경로는 GitHub Release archive 다운로드이므로 `rpotato uninstall`은
+  app-owned data를 정리하고 현재 실행 중인 binary까지 항상 삭제할 수 있다고
+  가장하지 말고 마지막 수동 executable 제거 명령을 출력해야 한다.
 - 현재 실행 중인 binary 삭제가 안전하지 않거나 불가능한 platform에서는 `rpotato uninstall`이 post-exit cleanup script를 쓰거나 마지막 manual command를 한국어로 출력해야 한다.
 - 모든 delete path는 실행 전 `--dry-run`, path listing, 한국어 confirmation text를 지원해야 한다.
 
@@ -439,15 +441,12 @@ CLI surface는 표시하고 묻습니다. runtime core는 판단하고 강제합
 초기 배포:
 
 - GitHub repository
-- binary용 GitHub Releases. v0.24.2 workflow는 macOS Apple Silicon, macOS Intel,
-  Windows x86_64 asset, per-asset `.sha256` file, aggregate checksums file을 만든다.
+- 유일한 binary 배포 channel인 GitHub Releases. 지원 target별 archive,
+  per-asset `.sha256` file, aggregate checksums file을 만든다.
 - repository 또는 release asset 안의 model manifest
 
-가능성이 높은 package channel:
-
-- macOS/Linux용 Homebrew
-- Windows용 Scoop 또는 winget
-- JavaScript ecosystem adoption이 중요할 때만 npm wrapper
+Homebrew, Scoop, winget, npm wrapper 등 외부 package 저장소는 배포 계획에서
+제외한다.
 
 구현 언어 후보:
 

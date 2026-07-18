@@ -65,41 +65,12 @@ CLI와 TUI는 사용자 화면입니다. 세션 상태, 도구 권한, 컨텍스
 ## 설치
 
 공식 바이너리는
-[GitHub Releases](https://github.com/MCprotein/rolling-potato/releases)에서
-배포합니다. Homebrew와 Scoop은 게시된 package channel입니다. 생성된 winget
-manifest는 검증된 release artifact로만 유지하며 게시하지 않습니다.
+[GitHub Releases](https://github.com/MCprotein/rolling-potato/releases)에서만
+배포합니다. 플랫폼에 맞는 archive를 내려받고 대응하는 `.sha256` file 또는
+aggregate checksum file로 검증하십시오. 이 프로젝트는 Homebrew, Scoop,
+winget을 비롯한 package-manager channel을 운영하지 않습니다.
 
-### Homebrew
-
-macOS arm64/x64와 Linux arm64/x64를 지원합니다.
-
-```sh
-brew tap MCprotein/rpotato
-brew install rpotato
-brew update
-brew upgrade rpotato
-brew uninstall rpotato
-```
-
-### Scoop
-
-Windows x64를 지원합니다.
-
-```powershell
-scoop bucket add rpotato https://github.com/MCprotein/scoop-rpotato
-scoop install rpotato/rpotato
-scoop update rpotato
-scoop uninstall rpotato
-```
-
-### winget
-
-게시된 winget community package는 없습니다. 설치·업그레이드·제거 명령도
-안내하지 않습니다.
-
-Package manager의 제거 명령은 관리 대상 실행 파일만 삭제합니다. 제거 전에
-`rpotato uninstall --dry-run --purge-cache`로 별도 application-data 정리
-계획을 확인하십시오. Checksum, qualification, recovery, publication 계약은
+지원 release target과 checksum 검증 방법은
 [docs/ko/release.md](docs/ko/release.md)에 정리되어 있습니다.
 
 ---

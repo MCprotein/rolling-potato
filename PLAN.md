@@ -386,7 +386,10 @@ Behavior:
 - `--keep-cache`: remove `rpotato`-managed program/runtime assets and launcher registrations, but keep downloaded models, partial downloads, manifests, logs, and project-local `.rpotato/` state.
 - `--purge-cache`: remove program/runtime assets plus app-level caches such as models, downloads, backend archives, manifests, logs, and generated indexes.
 - `--purge-cache` still does not delete source repositories or project files. Project-local cleanup requires a separate project-scoped command such as `rpotato project clean --dry-run`.
-- If the CLI was installed by a package manager, `rpotato uninstall` should clean app-owned data and print the exact package-manager removal command instead of pretending it can always remove the package manager's binary.
+- Because the supported install path is a downloaded GitHub Release archive,
+  `rpotato uninstall` should clean app-owned data and print the final manual
+  executable-removal command instead of pretending it can always delete the
+  currently running binary.
 - On platforms where deleting the currently running binary is unsafe or impossible, `rpotato uninstall` should write a small post-exit cleanup script or print the final manual command in Korean.
 - Every delete path must support `--dry-run`, path listing, and Korean confirmation text before execution.
 
@@ -451,16 +454,13 @@ This can be relaxed later with trust modes.
 Initial publishing:
 
 - GitHub repo
-- GitHub Releases for binaries, with v0.24.2 workflow assets for macOS Apple
-  Silicon, macOS Intel, and Windows x86_64 plus per-asset `.sha256` files and
-  an aggregate checksums file
+- GitHub Releases as the only binary distribution channel, with archives for
+  all supported targets plus per-asset `.sha256` files and an aggregate
+  checksums file
 - model manifest in repo or release asset
 
-Likely package channels:
-
-- Homebrew for macOS/Linux
-- Scoop or winget for Windows
-- npm wrapper only if JavaScript ecosystem adoption matters
+Homebrew, Scoop, winget, npm wrappers, and other external package repositories
+are intentionally outside the distribution plan.
 
 Implementation language candidates:
 

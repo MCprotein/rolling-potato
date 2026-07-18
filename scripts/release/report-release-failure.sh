@@ -11,9 +11,9 @@ upstream_results="$2"
 release_branch="$3"
 remote="${4:-origin}"
 
-[[ "$failure_cause" =~ ^(test|build|checksums|published-assets-verify|package-manager-prepare|homebrew-lifecycle|scoop-lifecycle|winget-lifecycle):(failure|cancelled|skipped|unknown)$ ]] \
+[[ "$failure_cause" =~ ^(test|build|checksums|published-assets-verify):(failure|cancelled|skipped|unknown)$ ]] \
   || { printf 'release failure reporter rejected cause: %s\n' "$failure_cause" >&2; exit 2; }
-[[ "$upstream_results" =~ ^(test=(success|failure|cancelled|skipped|unknown),build=(success|failure|cancelled|skipped|unknown),checksums=(success|failure|cancelled|skipped|unknown),published-assets-verify=(success|failure|cancelled|skipped|unknown)|prepare=(success|failure|cancelled|skipped|unknown),homebrew=(success|failure|cancelled|skipped|unknown),scoop=(success|failure|cancelled|skipped|unknown),winget=(success|failure|cancelled|skipped|unknown))$ ]] \
+[[ "$upstream_results" =~ ^test=(success|failure|cancelled|skipped|unknown),build=(success|failure|cancelled|skipped|unknown),checksums=(success|failure|cancelled|skipped|unknown),published-assets-verify=(success|failure|cancelled|skipped|unknown)$ ]] \
   || { printf 'release failure reporter rejected upstream results\n' >&2; exit 2; }
 
 if [[ ! "$release_branch" =~ ^release/v[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+)?$ ]]; then

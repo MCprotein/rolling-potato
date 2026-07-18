@@ -172,130 +172,24 @@ GitHub runner-images reference는 2026-07-13 확인 시 위 label을 GA image로
 - Linux ARM64
 - Windows x86_64
 
-과거 v0.40.0 package-manager target:
+## 배포 정책
 
-- Homebrew: macOS arm64/x64, Linux arm64/x64
-- Scoop: Windows x64
-- winget: Windows x64 portable ZIP
+이 프로젝트는
+[rolling-potato GitHub Releases](https://github.com/MCprotein/rolling-potato/releases)
+에서만 바이너리를 배포합니다. Release workflow는 지원 archive 5개, archive별
+checksum, aggregate checksum file을 게시하고 정확한 11-file asset set을 검증한
+뒤 release branch를 정리합니다.
 
-## Package Manager 배포
+Homebrew, Scoop, winget, apt, rpm, npm, container registry 등 외부 package
+channel은 프로젝트 배포 surface가 아닙니다. v0.40.0 package-manager 실험은 과거
+release note로만 남기고, manifest generator, fixture, validation workflow,
+외부 channel 운영은 2026-07-19에 중단했습니다. 이후 release는 다른 package
+저장소에 쓰거나 이를 공식 설치 경로로 안내해서는 안 됩니다.
 
-Package-manager manifest는 파생 artifact입니다. Channel마다 release URL과
-checksum을 별도로 수동 관리하지 않습니다.
-
-v0.41.0부터 `release-binaries`는 정확한 11-file GitHub Release asset set을
-검증하고 검증된 merged release branch를 삭제한 뒤 종료합니다.
-Package-manager 생성이나 lifecycle lane을 자동 호출하지 않습니다.
-Package-manager와 winget 작업은 이후 release 완료 gate가 아니며 binary release
-workflow는 외부 package 저장소에 쓰지 않습니다.
-
-과거 v0.40.0 package-manager workflow는 다음 순서로 실행했습니다.
-
-1. 정확한 11-file GitHub Release asset set을 검증합니다.
-2. 검증된 aggregate checksum file에서 archive 5개의 hash를 읽습니다.
-3. Homebrew formula 하나, Scoop manifest 하나, winget manifest 3개를 생성합니다.
-4. 별도 verifier가 정확한 path, version, URL, archive 이름, hash를 검증합니다.
-5. Native 6개 lane에서 clean install, previous-stable-to-current upgrade,
-   `rpotato doctor` version 출력, package-manager uninstall, command 부재를
-   검증합니다.
-6. 현재 version의 생성 결과를 publication-candidate workflow artifact로
-   upload합니다.
-
-별도로 실행하는 package-manager workflow는 GitHub Release에 파일을 추가하거나
-외부 저장소에 게시하지 않습니다. 기존 archive 5개, sidecar checksum 5개,
-aggregate checksum 1개가 계속 전체 release asset contract입니다.
-
-### Channel 상태
-
-다음 상태를 일관되게 사용합니다.
-
-- `Generated`: 검증된 aggregate checksum에서 deterministic manifest를 생성함
-- `Validated`: static verifier와 해당 native lifecycle lane이 모두 통과함
-- `Published`: 권한 있는 외부 쓰기를 완료하고 public URL 또는 upstream review
-  상태를 기록함
-- `Unpublished`: 생성·검증 artifact가 있어도 live 외부 channel이라고 주장하지 않음
-
-2026-07-18 기준 v0.40.0 release artifact는 `Generated` 상태이고 native 6개
-lifecycle lane에서 `Validated`에 도달했습니다. Homebrew tap은
-[MCprotein/homebrew-rpotato](https://github.com/MCprotein/homebrew-rpotato)
-commit `bf50499674dcbf46ce7e36260a8a6b3cf0c6b49e`로 `Published`, Scoop bucket은
-[MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato)
-commit `2e881e23456ae818d00ae63a1059bd870fc914de`로 `Published`입니다. winget
-manifest는 생성·검증됐지만 진행 중인 upstream 제출과 게시된 community package가
-없는 `Unpublished` 상태입니다.
-
-### 무결성과 고정 prerequisite
-
-`scripts/release/verify-release-assets.sh`가 통과한
-`rpotato-vX.Y.Z-checksums.txt`만 package-manager manifest hash의 출처로
-사용합니다. 모든 download URL은 대응되는 GitHub Release 아래의 immutable
-versioned HTTPS URL을 유지합니다. Qualification, release, recovery 준비 단계는
-선택한 GitHub Release 두 개가 요청한 stable tag와 일치하고 게시 완료됐으며
-draft나 prerelease가 아닌지도 검증합니다.
-
-2026-07-18 기록한 native validation prerequisite는 다음과 같습니다.
-
-- `Homebrew/actions/setup-homebrew` commit
-  `df4b09108a1de9d6f995fe68f302b3f68bd6d2ef`
-- Scoop source와 schema commit
-  `b588a06e41d920d2123ec70aee682bae14935939`
-- winget client release `v1.29.280` 및
-  `scripts/release/verify-package-manager-prerequisites.sh`가 강제하는 bundle과
-  dependency archive SHA-256
-- winget manifest schema `1.12.0`
-
-Workflow log는 각 native lane에서 실제 사용한 manager/client version을
-기록합니다. Pin 없는 remote bootstrap pipeline은 금지합니다.
-
-### Qualification과 recovery
-
-v0.40.0 tag 전 `package-manager-distribution`을 다음 input으로 수동
-실행합니다.
-
-```text
-mode=qualification
-previous_tag=v0.38.0
-current_tag=v0.39.0
-```
-
-Qualification은 이미 게시된 release로 pinned setup, manifest format,
-install/upgrade/uninstall lifecycle을 Homebrew 4개 lane과 격리된 Scoop, winget
-lane에서 검증합니다. Cargo build, release upload, tag 생성, 외부 publication,
-branch cleanup은 수행하지 않습니다.
-
-남겨 둔 `mode=recovery` 경로는 명시적으로 승인된 v0.40.0 package-manager
-evidence 복구용이며 이후 binary release가 호출하지 않습니다. Recovery는 가장
-큰 ancestral stable predecessor를 직접 구하고 두 exact release asset set을
-다시 검증한 뒤 과거 native 6개 lifecycle lane만 재실행합니다. Release asset을
-덮어쓰거나 새 patch tag를 만들지 않습니다. 모든 lane이 통과할 때만 matching
-release branch를 삭제하며 실패하면 branch를 보존합니다.
-
-### 설치와 제거 경계
-
-외부 channel이 `Published`가 된 뒤에는 영문·한국어 README의 명령으로 package
-manager 소유 binary를 설치, 갱신, 제거합니다. Package manager 제거는 `rpotato`
-application data, model, cache를 제거하지 않습니다. 실행 파일을 제거하기 전에
-`rpotato uninstall --dry-run`으로 별도 cleanup plan을 확인합니다.
-
-### Release evidence
-
-v0.40.0 package-manager release record에는 다음 항목이 있습니다.
-
-- candidate commit SHA와 exact-HEAD CI run
-- 정확한 11-asset 검증
-- tag 전 v0.38.0에서 v0.39.0으로 올리는 qualification run
-- 고정 prerequisite와 실제 manager/client version
-- 결정한 previous stable tag와 ancestry 판정
-- 생성한 publication artifact ID와 hash
-- native 6개 lane의 clean-install과 upgrade 결론
-- 일반 deployment 또는 same-tag recovery run
-- Homebrew tap URL/commit/status
-- Scoop bucket URL/commit/status
-- winget PR/merge/package status
-- release-branch cleanup 결과
-
-확정 evidence가 없는 외부 항목은 `Unpublished` 또는
-`Pending external review`로 남기며 완료로 보고하지 않습니다.
+설치와 업그레이드는 원하는 version의 archive를 GitHub Releases에서 내려받고
+대응하는 sidecar checksum 또는 `rpotato-vX.Y.Z-checksums.txt`로 검증합니다.
+Application data 정리는 내려받은 실행 파일 제거와 별개이며
+`rpotato uninstall --dry-run`으로 미리 확인합니다.
 
 ## 릴리즈 체크리스트
 
