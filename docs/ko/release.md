@@ -215,10 +215,8 @@ lifecycle lane에서 `Validated`에 도달했습니다. Homebrew tap은
 commit `bf50499674dcbf46ce7e36260a8a6b3cf0c6b49e`로 `Published`, Scoop bucket은
 [MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato)
 commit `2e881e23456ae818d00ae63a1059bd870fc914de`로 `Published`입니다. winget
-manifest는
-[microsoft/winget-pkgs#404237](https://github.com/microsoft/winget-pkgs/pull/404237)에서
-`Pending external review`이며 upstream merge 전에는 community package로
-게시된 것이 아닙니다.
+manifest는 생성·검증됐지만 진행 중인 upstream 제출과 게시된 community package가
+없는 `Unpublished` 상태입니다.
 
 ### 무결성과 고정 prerequisite
 

@@ -36,9 +36,8 @@ Release asset을 기준으로 게시합니다.
 - Scoop bucket:
   [MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato)
   commit `2e881e23456ae818d00ae63a1059bd870fc914de`로 `Published`
-- winget community manifest:
-  [microsoft/winget-pkgs#404237](https://github.com/microsoft/winget-pkgs/pull/404237)에서
-  `Pending external review`
+- winget community manifest: 생성과 lifecycle 검증은 통과했지만 진행 중인
+  upstream 제출이 없는 `Unpublished` 상태
 - Public URL 또는 upstream review 상태를 기록하기 전에는 어떤 외부 channel도
   완료로 보지 않음
 

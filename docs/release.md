@@ -240,10 +240,9 @@ across all six native lifecycle lanes. The Homebrew tap is `Published` at
 commit `bf50499674dcbf46ce7e36260a8a6b3cf0c6b49e`, and the Scoop bucket is
 `Published` at
 [MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato) commit
-`2e881e23456ae818d00ae63a1059bd870fc914de`. The winget manifest is
-`Pending external review` in
-[microsoft/winget-pkgs#404237](https://github.com/microsoft/winget-pkgs/pull/404237);
-it is not a published community package until upstream merges it.
+`2e881e23456ae818d00ae63a1059bd870fc914de`. The winget manifest is generated
+and validated, but it is `Unpublished`: no upstream submission is active and
+no community package is published.
 
 ### Integrity and pinned prerequisites
 

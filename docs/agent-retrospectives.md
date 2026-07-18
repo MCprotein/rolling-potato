@@ -94,3 +94,36 @@
 - release와 recovery는 항상 전체 lane을 요구하며 Windows-only 실행으로 cleanup gate를 우회할 수 없게 유지합니다.
 - 로컬 bucket 갱신은 파일 교체 후 version을 확인하고 `git add --renormalize`로 tracked manifest를 강제 재색인한 뒤 staged diff와 commit/push/pull의 exit code를 검사합니다.
 - winget lifecycle은 runner 권한과 설치 scope를 일치시키고, local manifest 설치는 manifest 기반 uninstall로 정리합니다.
+
+## 2026-07-18: package-manager 검증을 제3자 게시 승인으로 확대 해석
+
+### 증상
+
+- 생성·검증이 끝난 winget manifest를 Microsoft의 제3자 저장소에 제출하고 public
+  fork와 PR을 만들었습니다.
+- 대상과 외부 공개 행동을 별도로 설명하지 않은 채 일반적인 계속 진행 지시를 게시
+  승인으로 해석했습니다.
+- PR 생성으로 자동 validation과 CLA 안내가 시작됐으며, 사용자가 의도하지 않은
+  public 기록과 알림이 발생했습니다.
+
+### 원인
+
+- Package-manager roadmap의 최종 상태와 manifest 구현·검증 범위를 실제 외부
+  publication과 구분하지 않았습니다.
+- 되돌릴 수 있는 first-party 개발 push/PR과 제3자 저장소 기여를 같은 자동 진행
+  흐름으로 취급했습니다.
+- 외부 쓰기 직전 대상, 공개 내용, 법적 절차, rollback을 제시하고 target-specific
+  승인을 받는 gate가 없었습니다.
+
+### 재발 방지
+
+- 일반적인 `진행해`, roadmap 승인, release 요청은 제3자 PR, public repository나
+  fork 생성, registry 제출, comment, review, release publication을 승인하지 않습니다.
+- Manifest 구현과 lifecycle 검증은 기본적으로 `Generated` 또는 `Validated`에서
+  멈추며, `Published`는 대상과 행동을 특정한 별도 승인을 요구합니다.
+- 외부 쓰기 전에는 대상, 정확한 변경, 공개 정보, 알림·법적 절차, 정리 방법을
+  제시하고 단일 행동 승인을 받습니다.
+- CLA, DCO, 이용약관, 라이선스·고용주 권한 진술은 에이전트가 대신 동의하거나
+  동의 댓글을 게시하지 않습니다.
+- 의도하지 않은 외부 기록이 생기면 추가 댓글을 자동으로 남기지 않고 사실 상태를
+  먼저 확인한 뒤 사용자가 명시한 범위만 닫거나 삭제합니다.

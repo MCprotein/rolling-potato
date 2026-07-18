@@ -59,8 +59,8 @@ and uninstall lifecycles on all six native lanes.
 
 The [Homebrew tap](https://github.com/MCprotein/homebrew-rpotato) and
 [Scoop bucket](https://github.com/MCprotein/scoop-rpotato) are published.
-The [winget community submission](https://github.com/microsoft/winget-pkgs/pull/404237)
-is pending external review.
+The winget manifest is generated and validated, but no community submission is
+active and the channel is unpublished.
 
 ### Homebrew (macOS arm64/x64 and Linux arm64/x64)
 
@@ -83,13 +83,9 @@ scoop uninstall rpotato
 
 ### winget (Windows x64)
 
-These commands become available after the community submission is merged:
-
-```powershell
-winget install --id MCprotein.rpotato --exact
-winget upgrade --id MCprotein.rpotato --exact
-winget uninstall --id MCprotein.rpotato --exact
-```
+No winget community package is currently published. The generated manifest
+remains a validated release artifact only, so winget install, upgrade, and
+uninstall commands are not advertised.
 
 Package-manager removal deletes the managed executable only. Before removing
 the executable, use `rpotato uninstall --dry-run` to inspect the separate
