@@ -1,0 +1,262 @@
+# Current Capabilities
+
+This document is the readable status map for `rolling-potato v0.41.0`. It
+groups the runtime by responsibility instead of repeating one flat command
+list.
+
+[README](../README.md) · [Documentation index](README.md) ·
+[한국어](ko/current-capabilities.md)
+
+> This is a capability guide, not a substitute for `rpotato --help`. The
+> installed binary remains the source of truth for exact command syntax.
+
+## 1. Agent Loop and Context
+
+The runtime can normalize a request, select an intent/skill route, pack bounded
+repository context, call the backend, and parse the model result into a
+runtime-owned typed action. Model text is never executed directly.
+
+Representative entry points:
+
+```sh
+rpotato run "<request>"
+rpotato intent classify "<request>"
+rpotato intent routes
+rpotato skill list
+rpotato skill run <id> "<request>"
+```
+
+Current safeguards include one shared source budget for the active request and
+resumed context, source-pointer evidence, policy checks, lifecycle hooks, and
+a guarded Korean final report.
+
+See [runtime architecture](runtime-architecture.md),
+[command policy](command-policy.md), [hooks](hooks.md), and
+[skills](skills.md).
+
+## 2. Durable Sessions and Recovery
+
+Canonical append-only ledgers own session and workflow history. SQLite is a
+rebuildable projection, not resume authority. Durable transcripts keep
+validated user, visible-model, tool, and evidence records while excluding
+hidden reasoning and raw backend responses.
+
+Representative entry points:
+
+```sh
+rpotato state
+rpotato state reconcile
+rpotato state resume
+rpotato session list
+rpotato session history
+rpotato session new
+rpotato session resume <session-id>
+rpotato resume [<session-id>]
+rpotato continue [<session-id>]
+rpotato cancel
+```
+
+Recovery continues only a matching safe checkpoint. It does not automatically
+repeat an uncertain backend request or verification command.
+
+See [state lifecycle](state-lifecycle.md) and
+[observability](observability.md).
+
+## 3. Patch and Verification Workflow
+
+The standalone preview surface creates a diff-only proposal. A patch produced
+inside the agent workflow has separate apply and verification gates, source
+hash checks, one-time credentials, and rollback records.
+
+Representative entry points:
+
+```sh
+rpotato patch preview --path <path> --find <text> --replace <text>
+rpotato patch approve <proposal-id> --token <token> --dry-run
+rpotato patch approve <proposal-id> --token <token>
+rpotato patch verify <proposal-id> --token <token>
+rpotato patch token-rotate <proposal-id>
+rpotato evidence validate <artifact-pointer>
+```
+
+A standalone preview cannot be approved or applied. Verification runs only the
+pre-bound, policy-allowed command.
+
+See [command policy](command-policy.md) and
+[state lifecycle](state-lifecycle.md).
+
+## 4. Backend Lifecycle
+
+The managed `llama.cpp` path covers source-backed install planning, archive
+verification, staged installation, process lifecycle, health checks, chat,
+streaming, cancellation, and CPU/RSS/disk sampling.
+
+Representative entry points:
+
+```sh
+rpotato backend doctor
+rpotato backend install-plan
+rpotato backend install
+rpotato backend start [--model <path>] [--ctx-size <tokens>]
+rpotato backend status
+rpotato backend chat --prompt <text> [--stream]
+rpotato backend cancel
+rpotato backend stop
+```
+
+Sent model requests are not retried automatically. Raw prompt/response text is
+not stored in monitoring records.
+
+See [backend adapters](backend-adapters.md) and
+[runtime architecture](runtime-architecture.md).
+
+## 5. Models and Local Evidence
+
+Model commands expose source-backed candidates, manifest data, download plans,
+local registry state, and promotion/install evidence. Model weights are
+downloaded to managed storage and are never committed to the repository.
+
+Representative entry points:
+
+```sh
+rpotato model list
+rpotato model manifest
+rpotato model inspect <id>
+rpotato model download-plan <id>
+rpotato model fetch-candidate <id> --for-evaluation
+rpotato model eval-plan <id>
+rpotato model benchmark-plan <id>
+rpotato model promote <id> --evidence <file>
+rpotato model install <id>
+rpotato model default [<id>]
+```
+
+Qwen and Gemma are evaluation candidates. They are not defaults until artifact,
+license, backend, memory/mmproj, smoke, and measured local benchmark evidence
+passes the install gate.
+
+See [model source policy](model-source-policy.md),
+[model manifest](model-manifest.md), [model evaluation](model-eval.md), and
+[model licenses](model-licenses.md).
+
+## 6. Hooks, Skills, and Plugin Adapters
+
+Runtime-owned hooks and built-in skills execute inside the durable agent loop.
+Local Codex/Claude Code-style plugin directories can be imported, inspected,
+validated, enabled, disabled, and removed.
+
+Representative entry points:
+
+```sh
+rpotato hooks list
+rpotato hooks validate-result <json>
+rpotato plugin import --from codex <local-path> --dry-run
+rpotato plugin import --from claude-code <local-path> --dry-run
+rpotato plugin list
+rpotato plugin inspect <id>
+rpotato plugin validate <id>
+rpotato plugin enable <id>
+rpotato plugin disable <id>
+rpotato plugin remove <id> --keep-data
+```
+
+Imported instructions are untrusted prompt content. Enablement does not grant
+shell, background, remote, sensitive-setting, or file-write authority.
+Scripts, external hooks, MCP/app integrations, and remote plugin sources remain
+blocked or unsupported.
+
+See [plugin adapters](plugin-adapters.md), [hooks](hooks.md), and
+[skills](skills.md).
+
+## 7. Subagents and Teams
+
+The runtime can run one bounded sequential child under an active parent
+workflow. Team execution adds resource admission, declared lane ownership,
+policy preflight, deterministic reconciliation, failure handling, and stop
+gates.
+
+Representative entry points:
+
+```sh
+rpotato subagent launch --role <role> --task <text> --tool <tool> --read <path>
+rpotato subagent status [subagent-id]
+rpotato subagent cancel <subagent-id>
+rpotato team status
+rpotato team admit --lanes <count>
+rpotato team dispatch --lanes <count> --write-owner <lane:path>
+rpotato team governor --lanes <count> --context-tokens <tokens>
+```
+
+Workers cannot directly execute commands, apply patches, start nested workers,
+or bypass the parent approval boundary.
+
+See [subagents](subagents.md) and [team runtime](team-runtime.md).
+
+## 8. Monitoring and Benchmarks
+
+The local append-only ledger and SQLite projection provide token, latency,
+CPU, memory, disk, pressure, backend, model, session, benchmark, evidence, and
+team metrics.
+
+Representative entry points:
+
+```sh
+rpotato monitor status
+rpotato monitor models
+rpotato monitor baseline
+rpotato monitor optimize
+rpotato monitor export --format jsonl
+rpotato monitor export --format csv
+rpotato monitor export --format html > rpotato-monitor.html
+rpotato monitor prune --before 30d --dry-run
+rpotato benchmark validate <fixture.json>
+rpotato benchmark record --fixture <fixture.json>
+rpotato benchmark run --fixture <fixture.json> --prompt <artifact>
+rpotato benchmark report --format jsonl
+```
+
+The HTML export is a self-contained local file with no JavaScript, external
+assets, network requests, or second telemetry source of truth. Benchmark
+records marked `measured-locally` do not claim public benchmark parity.
+
+See [observability](observability.md) and [benchmarks](benchmarks.md).
+
+## 9. CLI and TUI Surfaces
+
+`rpotato tui` starts the interactive line controller in a terminal and keeps a
+read-only overview for non-terminal use. The TUI exposes monitoring, sessions,
+validated transcript/tool views, approvals, diffs, evidence, resume, and
+cancellation without editing canonical state directly.
+
+Representative entry points:
+
+```sh
+rpotato tui
+rpotato tui interactive
+rpotato tui monitor
+rpotato tui sessions
+rpotato tui transcript <session-id>
+rpotato tui approvals
+rpotato tui diff <proposal-id>
+rpotato tui evidence
+```
+
+See [TUI](tui.md), [CLI output style](cli-output-style.md), and
+[DESIGN.md](../DESIGN.md).
+
+## 10. Known Boundaries
+
+- General unrestricted tool orchestration is not implemented.
+- Only runtime-owned native hooks execute.
+- Interactive-TUI source installation succeeds only on supported Unix paths;
+  unsupported platform paths fail closed before mutation.
+- Team workers return bounded evidence and non-executing patch proposals; team
+  reconciliation does not apply worker-authored patches.
+- Plugin scripts, agents, external hooks, MCP/LSP, background processes,
+  remote connectors, and write grants do not receive execution authority.
+- `monitor prune` is dry-run only.
+- HTML monitoring is a local static export, not a server or remote dashboard.
+- No version after `v0.41.0` is currently defined.
+
+The version history and next-version rule are in
+[ROADMAP.md](../ROADMAP.md).
