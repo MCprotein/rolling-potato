@@ -21,7 +21,7 @@ pub(in super::super) fn validate_completed_plugin_workflow(
             workflow.workflow_id
         )));
     }
-    let imported = plugin::revalidate_completed_codex_skill(
+    let imported = plugin::revalidate_completed_imported_skill(
         &workflow.active_skill_id,
         &workflow.source_path,
         &workflow.source_hash,
@@ -102,7 +102,7 @@ pub(in super::super) fn ensure_plugin_completion_event(
     }
     state::record_event(
         "plugin.capability.completed",
-        "instruction-only Codex plugin skill 실행 완료",
+        "instruction-only imported plugin skill 실행 완료",
         &plugin_completion_event_details(workflow, imported),
     )?;
     Ok(())
@@ -127,7 +127,7 @@ pub(in super::super) fn ensure_plugin_completion_event_under_transition(
         transition_guard,
         workflow,
         "plugin.capability.completed",
-        "instruction-only Codex plugin skill 실행 완료",
+        "instruction-only imported plugin skill 실행 완료",
         &plugin_completion_event_details(workflow, imported),
     )?;
     Ok(())

@@ -144,7 +144,7 @@ fn enabled_instruction_only_codex_skill_resolves() {
     validate_report("imported.codex.safe-plugin").unwrap();
     set_enabled_report("imported.codex.safe-plugin", true).unwrap();
 
-    let skill = resolve_imported_codex_skill("imported.codex.safe-plugin.hello")
+    let skill = resolve_imported_skill("imported.codex.safe-plugin.hello")
         .unwrap()
         .unwrap();
     assert_eq!(skill.plugin_id, "imported.codex.safe-plugin");
@@ -170,7 +170,7 @@ fn disabled_codex_skill_cannot_resolve() {
     import_report(PluginSource::Codex, root.to_str().unwrap(), false).unwrap();
     validate_report("imported.codex.disabled-plugin").unwrap();
 
-    let error = resolve_imported_codex_skill("imported.codex.disabled-plugin.hello").unwrap_err();
+    let error = resolve_imported_skill("imported.codex.disabled-plugin.hello").unwrap_err();
     assert_eq!(error.code, 3);
     assert!(error.message.contains("status: validated"));
 
@@ -191,8 +191,7 @@ fn codex_skill_without_frontmatter_is_blocked() {
     import_report(PluginSource::Codex, root.to_str().unwrap(), false).unwrap();
     set_enabled_report("imported.codex.frontmatter-plugin", true).unwrap();
 
-    let error =
-        resolve_imported_codex_skill("imported.codex.frontmatter-plugin.hello").unwrap_err();
+    let error = resolve_imported_skill("imported.codex.frontmatter-plugin.hello").unwrap_err();
     assert_eq!(error.code, 3);
     assert!(error.message.contains("YAML frontmatter가 없습니다"));
 
@@ -214,7 +213,7 @@ fn codex_skill_with_script_is_blocked_by_default() {
     assert!(report.contains("skill-script"));
     set_enabled_report("imported.codex.script-plugin", true).unwrap();
 
-    let error = resolve_imported_codex_skill("imported.codex.script-plugin.hello").unwrap_err();
+    let error = resolve_imported_skill("imported.codex.script-plugin.hello").unwrap_err();
     assert_eq!(error.code, 3);
     assert!(error.message.contains("별도 승인이 필요한 실행 capability"));
 
@@ -243,7 +242,7 @@ fn tampered_normalized_capability_summary_cannot_admit_scripted_skill() {
     assert_ne!(tampered, manifest);
     fs::write(&manifest_path, tampered).unwrap();
 
-    let error = resolve_imported_codex_skill("imported.codex.tampered-plugin.hello").unwrap_err();
+    let error = resolve_imported_skill("imported.codex.tampered-plugin.hello").unwrap_err();
     assert_eq!(error.code, 3);
     assert!(error.message.contains("normalized capability metadata"));
     assert!(inspect_report("imported.codex.tampered-plugin")

@@ -3342,6 +3342,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let plugin = "src/runtime_core/extensions/plugin.rs";
     let hooks_adapter = "src/app/extensions_adapter/hooks.rs";
     let plugin_adapter = "src/app/extensions_adapter/plugin.rs";
+    let plugin_claude = "src/app/extensions_adapter/plugin/claude.rs";
     let plugin_execution = "src/app/extensions_adapter/plugin/execution.rs";
     let plugin_registry = "src/app/extensions_adapter/plugin/registry.rs";
     let plugin_scanner = "src/app/extensions_adapter/plugin/scanner.rs";
@@ -3445,6 +3446,7 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     for target in [
         hooks_adapter,
         plugin_adapter,
+        plugin_claude,
         plugin_execution,
         plugin_registry,
         plugin_scanner,
@@ -3509,9 +3511,9 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         "plugin adapter does not register its execution validation owner"
     );
     for responsibility in [
-        "pub fn resolve_imported_codex_skill(",
-        "fn resolve_imported_codex_skill_inner(",
-        "pub fn revalidate_completed_codex_skill(",
+        "pub fn resolve_imported_skill(",
+        "fn resolve_imported_skill_inner(",
+        "pub fn revalidate_completed_imported_skill(",
         "fn verify_execution_metadata(",
     ] {
         assert!(
@@ -3521,6 +3523,25 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         assert!(
             !plugin_adapter.contains(responsibility),
             "plugin adapter still owns execution validation: {responsibility}"
+        );
+    }
+    assert!(
+        plugin_adapter.lines().any(|line| line == "mod claude;"),
+        "plugin adapter does not register its Claude Code mapping owner"
+    );
+    let plugin_claude = fs::read_to_string(plugin_claude).unwrap();
+    for responsibility in [
+        "pub(super) fn classify_file(",
+        "pub(super) fn record_directory_semantics(",
+        "fn classify_instruction(",
+    ] {
+        assert!(
+            plugin_claude.contains(responsibility),
+            "Claude Code mapping owner is missing: {responsibility}"
+        );
+        assert!(
+            !plugin_scanner.contains(responsibility),
+            "plugin scanner still owns Claude Code mapping: {responsibility}"
         );
     }
     assert!(
@@ -3619,7 +3640,11 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         "plugin adapter regrew beyond the v0.37.13 boundary"
     );
     assert!(
-        plugin_execution.lines().count() < 250,
+        plugin_claude.lines().count() < 200,
+        "Claude Code mapping module regrew beyond its ownership boundary"
+    );
+    assert!(
+        plugin_execution.lines().count() < 325,
         "plugin execution module regrew beyond its ownership boundary"
     );
     assert!(

@@ -17,6 +17,12 @@ pub(crate) struct ParsedCodexSkill {
     pub(crate) instructions: String,
 }
 
+pub(crate) struct ParsedClaudeInstruction {
+    pub(crate) name: String,
+    pub(crate) description: String,
+    pub(crate) instructions: String,
+}
+
 pub(crate) fn parse_codex_skill(text: &str, path: &Path) -> Result<ParsedCodexSkill, AppError> {
     let normalized = text.replace("\r\n", "\n");
     let Some(rest) = normalized.strip_prefix("---\n") else {
@@ -63,6 +69,133 @@ pub(crate) fn parse_codex_skill(text: &str, path: &Path) -> Result<ParsedCodexSk
         description,
         instructions,
     })
+}
+
+pub(crate) fn parse_claude_instruction(
+    text: &str,
+    path: &Path,
+    invocation_name: &str,
+) -> Result<ParsedClaudeInstruction, AppError> {
+    validate_component_name(invocation_name, "skill")?;
+    if contains_claude_dynamic_shell(text) {
+        return Err(AppError::blocked(format!(
+            "plugin instruction 실행 차단\n- path: {}\n- 이유: Claude Code 동적 shell 삽입은 rpotato read-only adapter에서 지원하지 않습니다.",
+            path.display()
+        )));
+    }
+    let normalized = text.replace("\r\n", "\n");
+    let (frontmatter, body) = split_optional_frontmatter(&normalized, path)?;
+    let description = yaml_scalar_field(frontmatter, "description")
+        .or_else(|| first_markdown_paragraph(body))
+        .ok_or_else(|| {
+            AppError::blocked(format!(
+                "plugin instruction 실행 차단\n- path: {}\n- 이유: description 또는 instruction paragraph가 없습니다.",
+                path.display()
+            ))
+        })?;
+    let instructions = body.trim().to_string();
+    if instructions.is_empty() {
+        return Err(AppError::blocked(format!(
+            "plugin instruction 실행 차단\n- path: {}\n- 이유: instruction body가 비어 있습니다.",
+            path.display()
+        )));
+    }
+    Ok(ParsedClaudeInstruction {
+        name: invocation_name.to_string(),
+        description,
+        instructions,
+    })
+}
+
+pub(crate) fn contains_claude_dynamic_shell(text: &str) -> bool {
+    text.lines().any(|line| {
+        let trimmed = line.trim_start();
+        trimmed.starts_with("!`") || trimmed.starts_with("```!")
+    })
+}
+
+pub(crate) fn claude_instruction_unsupported(text: &str, relative_path: &str) -> Vec<String> {
+    let normalized = text.replace("\r\n", "\n");
+    let frontmatter = normalized
+        .strip_prefix("---\n")
+        .and_then(|rest| rest.split_once("\n---\n"))
+        .map(|(frontmatter, _)| frontmatter)
+        .unwrap_or_default();
+    let mut unsupported = Vec::new();
+    for field in [
+        "when_to_use",
+        "argument-hint",
+        "arguments",
+        "disable-model-invocation",
+        "user-invocable",
+        "allowed-tools",
+        "disallowed-tools",
+        "model",
+        "effort",
+        "context",
+        "agent",
+        "hooks",
+        "paths",
+        "shell",
+    ] {
+        if yaml_has_field(frontmatter, field) {
+            push_unique(
+                &mut unsupported,
+                &format!("claude-frontmatter:{relative_path}:{field}"),
+            );
+        }
+    }
+    if normalized.contains("$ARGUMENTS")
+        || normalized.contains("${CLAUDE_PLUGIN_ROOT}")
+        || normalized.contains("${CLAUDE_PLUGIN_DATA}")
+        || normalized.contains("${CLAUDE_PROJECT_DIR}")
+        || normalized.contains("${user_config.")
+    {
+        push_unique(
+            &mut unsupported,
+            &format!("claude-template-substitution:{relative_path}"),
+        );
+    }
+    unsupported
+}
+
+fn split_optional_frontmatter<'a>(
+    text: &'a str,
+    path: &Path,
+) -> Result<(&'a str, &'a str), AppError> {
+    let Some(rest) = text.strip_prefix("---\n") else {
+        return Ok(("", text));
+    };
+    rest.split_once("\n---\n").ok_or_else(|| {
+        AppError::blocked(format!(
+            "plugin instruction 실행 차단\n- path: {}\n- 이유: YAML frontmatter 종료 marker가 없습니다.",
+            path.display()
+        ))
+    })
+}
+
+fn yaml_scalar_field(frontmatter: &str, name: &str) -> Option<String> {
+    frontmatter
+        .lines()
+        .find_map(|line| line.split_once(':').filter(|(key, _)| key.trim() == name))
+        .map(|(_, value)| unquote_yaml_scalar(value.trim()))
+        .filter(|value| !value.is_empty() && value != "|" && value != ">")
+}
+
+fn yaml_has_field(frontmatter: &str, name: &str) -> bool {
+    frontmatter.lines().any(|line| {
+        line.split_once(':')
+            .is_some_and(|(key, _)| key.trim() == name)
+    })
+}
+
+fn first_markdown_paragraph(body: &str) -> Option<String> {
+    body.lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .map(|line| line.trim_start_matches('#').trim())
+        .filter(|line| !line.is_empty())
+        .map(|line| line.chars().take(240).collect())
 }
 
 pub(crate) fn unquote_yaml_scalar(value: &str) -> String {
@@ -310,6 +443,17 @@ pub(crate) fn push_capability(
     }
 }
 
+pub(crate) fn push_unsupported_capability(
+    capabilities: &mut Vec<PluginCapability>,
+    kind: &str,
+    path: &str,
+) {
+    let capability = PluginCapability::new(kind, path, "unsupported", "unsupported");
+    if !capabilities.iter().any(|existing| existing == &capability) {
+        capabilities.push(capability);
+    }
+}
+
 pub(crate) fn is_unsupported_plugin_asset(relative_path: &str) -> bool {
     let lower = relative_path.to_ascii_lowercase();
     lower.starts_with("marketplace/")
@@ -351,6 +495,41 @@ pub(crate) fn apply_manifest_risk_markers(
     {
         push_unique(required_permissions, "sensitive-config");
     }
+}
+
+pub(crate) fn apply_claude_manifest_semantics(
+    manifest_text: &str,
+    required_permissions: &mut Vec<String>,
+    unsupported: &mut Vec<String>,
+) {
+    for (field, label) in [
+        ("skills", "claude-manifest-custom-skills"),
+        ("commands", "claude-manifest-custom-commands"),
+        ("agents", "claude-manifest-custom-agents"),
+        ("hooks", "claude-manifest-hooks"),
+        ("mcpServers", "claude-manifest-mcp-servers"),
+        ("outputStyles", "claude-manifest-output-styles"),
+        ("lspServers", "claude-manifest-lsp-servers"),
+        ("userConfig", "claude-manifest-user-config"),
+        ("channels", "claude-manifest-channels"),
+        ("dependencies", "claude-manifest-dependencies"),
+        ("defaultEnabled", "claude-manifest-default-enablement"),
+        ("experimental", "claude-manifest-experimental-components"),
+    ] {
+        if json_has_field(manifest_text, field) {
+            push_unique(unsupported, label);
+        }
+    }
+    if json_has_field(manifest_text, "userConfig") {
+        push_unique(required_permissions, "runtime-settings");
+    }
+    if json_has_field(manifest_text, "channels") || json_has_field(manifest_text, "dependencies") {
+        push_unique(required_permissions, "remote-connector");
+    }
+}
+
+fn json_has_field(text: &str, field: &str) -> bool {
+    text.contains(&format!("\"{field}\""))
 }
 
 pub(crate) fn finalize_permissions(required_permissions: &mut Vec<String>) {

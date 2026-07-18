@@ -92,11 +92,11 @@ pub(super) fn normalize_plugin(
     let description = extract_json_string_field(&source_plugin.manifest_text, "description")
         .unwrap_or_else(|| "미기재".to_string());
     let id = format!("imported.{}.{}", source.label(), slug(&name));
-    let mut required_permissions = source_plugin.scan.required_permissions.clone();
-    apply_manifest_risk_markers(&source_plugin.manifest_text, &mut required_permissions);
-    finalize_permissions(&mut required_permissions);
+    let mut scan = source_plugin.scan.clone();
+    apply_source_manifest_metadata(source, &source_plugin.manifest_text, &mut scan);
+    let required_permissions = scan.required_permissions;
     let blocked_permissions = blocked_permissions(&required_permissions);
-    let mut capabilities = source_plugin.scan.capabilities.clone();
+    let mut capabilities = scan.capabilities;
     if capabilities.is_empty() {
         capabilities.push(PluginCapability::new(
             "manifest",
@@ -125,6 +125,23 @@ pub(super) fn normalize_plugin(
         capabilities,
         required_permissions,
         blocked_permissions,
-        unsupported: source_plugin.scan.unsupported.clone(),
+        unsupported: scan.unsupported,
     }
+}
+
+pub(super) fn apply_source_manifest_metadata(
+    source: PluginSource,
+    manifest_text: &str,
+    scan: &mut DirectoryScan,
+) {
+    apply_manifest_risk_markers(manifest_text, &mut scan.required_permissions);
+    if source == PluginSource::ClaudeCode {
+        apply_claude_manifest_semantics(
+            manifest_text,
+            &mut scan.required_permissions,
+            &mut scan.unsupported,
+        );
+    }
+    finalize_permissions(&mut scan.required_permissions);
+    finalize_unsupported(&mut scan.unsupported);
 }
