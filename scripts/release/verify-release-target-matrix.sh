@@ -107,10 +107,13 @@ if grep -F 'gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pat
 fi
 grep -F 'scripts/release/verify-release-assets.sh "$RELEASE_TAG" dist/published' "$workflow" >/dev/null \
   || fail "published assets must be downloaded and verified"
-grep -F 'name: verify package-manager distribution' "$workflow" >/dev/null \
-  || fail "release workflow must invoke package-manager distribution"
+if grep -F 'name: verify package-manager distribution' "$workflow" >/dev/null; then
+  fail "release workflow must not invoke package-manager distribution"
+fi
+grep -F 'name: cleanup verified release branch' "$workflow" >/dev/null \
+  || fail "verified binary release branch cleanup job is missing"
 grep -F '      - published-assets-verify' "$workflow" >/dev/null \
-  || fail "package-manager distribution must depend on published asset verification"
+  || fail "release branch cleanup must depend on published asset verification"
 grep -F 'name: cleanup package-manager verified release branch' "$package_manager_workflow" >/dev/null \
   || fail "package-manager workflow cleanup job is missing"
 for runner in macos-26 macos-26-intel ubuntu-24.04-arm ubuntu-24.04; do
@@ -151,4 +154,4 @@ if scripts/release/verify-checksum-basenames.sh "$bom_fixture" >/dev/null 2>&1; 
   fail "checksum guard must reject a UTF-8 BOM"
 fi
 
-printf 'release target matrix ok: binaries=5 package-manager-lanes=6\n'
+printf 'release target matrix ok: binaries=5 historical-package-manager-lanes=6\n'

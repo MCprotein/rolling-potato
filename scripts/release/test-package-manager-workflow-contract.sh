@@ -59,7 +59,7 @@ cleanup="$(job_block "$workflow" cleanup-release-branch)"
 preserve="$(job_block "$workflow" package-manager-failure-preserves-branch)"
 qualification_failure="$(job_block "$workflow" qualification-failure-summary)"
 release_published="$(job_block "$release_workflow" published-assets-verify)"
-release_package="$(job_block "$release_workflow" package-manager-distribution)"
+release_cleanup="$(job_block "$release_workflow" cleanup-release-branch)"
 
 require_line "$workflow_body" '  workflow_call:'
 require_line "$workflow_body" '  workflow_dispatch:'
@@ -175,22 +175,26 @@ require_line "$qualification_failure" "always() && inputs.mode == 'qualification
 require_line "$qualification_failure" "(inputs.lanes == 'all' && needs.homebrew-lifecycle.result != 'success') ||"
 require_line "$qualification_failure" "printf -- '- cleanup: \`forbidden\`\\n'"
 
-delete_count="$(
-  cat "$release_workflow" "$workflow" \
-    | awk '/RPOTATO_DELETE_RELEASE_BRANCH:/ && $0 !~ /"0"/ { count++ } END { print count + 0 }'
+release_delete_count="$(
+  awk '/RPOTATO_DELETE_RELEASE_BRANCH:/ && $0 !~ /"0"/ { count++ } END { print count + 0 }' \
+    "$release_workflow"
 )"
-[ "$delete_count" -eq 1 ] || fail "normal/recovery release path must have one cleanup owner"
-if grep -F 'RPOTATO_DELETE_RELEASE_BRANCH: 1' "$release_workflow" >/dev/null; then
-  fail "release binary workflow must not own branch cleanup"
+package_delete_count="$(
+  awk '/RPOTATO_DELETE_RELEASE_BRANCH:/ && $0 !~ /"0"/ { count++ } END { print count + 0 }' \
+    "$workflow"
+)"
+[ "$release_delete_count" -eq 1 ] \
+  || fail "binary release path must have one cleanup owner"
+[ "$package_delete_count" -eq 1 ] \
+  || fail "manual package-manager recovery path must have one cleanup owner"
+if grep -F 'uses: ./.github/workflows/package-manager-distribution.yml' \
+  "$release_workflow" >/dev/null; then
+  fail "binary release workflow must not invoke package-manager distribution"
 fi
 
-require_line "$release_published" 'name: rpotato-${{ env.RELEASE_TAG }}-published-assets'
-require_line "$release_published" 'path: dist/published'
-require_line "$release_package" '      - published-assets-verify'
-require_line "$release_package" 'uses: ./.github/workflows/package-manager-distribution.yml'
-require_line "$release_package" '      mode: release'
-require_line "$release_package" '      current_tag: ${{ github.event.release.tag_name }}'
-require_line "$release_package" '      current_assets_artifact: rpotato-${{ github.event.release.tag_name }}-published-assets'
+require_line "$release_published" 'scripts/release/verify-release-assets.sh "$RELEASE_TAG" dist/published'
+require_line "$release_cleanup" '      - published-assets-verify'
+require_line "$release_cleanup" '      RPOTATO_DELETE_RELEASE_BRANCH: 1'
 require_line "$(cat "$preflight")" 'bash scripts/release/test-package-manager-manifests.sh'
 require_line "$(cat "$preflight")" 'bash scripts/release/test-package-manager-workflow-contract.sh'
 
