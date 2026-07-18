@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.41.0` |
+| 현재 릴리즈 | `v0.42.0` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -70,7 +70,7 @@ CLI와 TUI는 사용자 화면입니다. 세션 상태, 도구 권한, 컨텍스
 aggregate checksum file로 검증하십시오. 이 프로젝트는 Homebrew, Scoop,
 winget을 비롯한 package-manager channel을 운영하지 않습니다.
 
-`v0.42.0` source부터는 압축을 푼 binary를 한 번 실행해 사용자 전용 CLI
+`v0.42.0`부터는 압축을 푼 binary를 한 번 실행해 사용자 전용 CLI
 directory에 설치하고 감지한 shell profile 또는 Windows 사용자 PATH를 자동
 등록할 수 있습니다.
 
@@ -150,7 +150,7 @@ rpotato tui
 
 ## 현재 기능
 
-`v0.41.0`은 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진 pre-1.0
+`v0.42.0`은 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진 pre-1.0
 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
@@ -208,15 +208,10 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-`v0.41.0`까지의 release train은 완료되었습니다. 최신 릴리즈는 기존 로컬
-SQLite/ledger data를 사용하는 선택 가능한 self-contained HTML monitoring
-report를 추가했습니다. 서버, 외부 telemetry, JavaScript, network request는
-추가하지 않았습니다.
-
-`v0.42.0`은 사용자 전용 self-install, 자동 PATH 등록, `init` 환경 보정,
-보호 장치를 갖춘 clean reinstall과 clean uninstall을 위한 구체적인 개발 중
-version입니다.
-[docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를 참고하십시오.
+`v0.42.0`까지의 release train은 완료되었습니다. 최신 릴리즈는 사용자 전용
+self-install, 자동 PATH 등록, `init` 환경 보정, 보호 장치를 갖춘 clean
+reinstall, 사용자 소유 file을 보존하는 대칭적인 clean uninstall을
+추가했습니다. [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를 참고하십시오.
 
 ---
 

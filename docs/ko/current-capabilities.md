@@ -1,8 +1,7 @@
 # 현재 기능
 
-이 문서는 `rolling-potato v0.41.0` release와 개발 중인 `v0.42.0` source의
-읽기 쉬운 상태 지도입니다. 하나의 긴 명령 목록을 반복하지 않고 런타임
-책임별로 기능을 묶었습니다.
+이 문서는 `rolling-potato v0.42.0` release의 읽기 쉬운 상태 지도입니다.
+하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
 [English](../current-capabilities.md)
@@ -10,7 +9,7 @@
 > 이 문서는 기능 안내서입니다. 정확한 명령 문법은 설치된 바이너리의
 > `rpotato --help`를 기준으로 확인하십시오.
 
-## 설치와 첫 실행 (`v0.42.0` source)
+## 설치와 첫 실행 (`v0.42.0`)
 
 GitHub Release archive에서 압축을 푼 binary는 사용자 전용 CLI directory에
 자기 자신을 설치·갱신하고 zsh, bash, fish 또는 Windows 사용자 PATH에 해당
