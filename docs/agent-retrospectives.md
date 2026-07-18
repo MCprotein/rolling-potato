@@ -127,3 +127,30 @@
   동의 댓글을 게시하지 않습니다.
 - 의도하지 않은 외부 기록이 생기면 추가 댓글을 자동으로 남기지 않고 사실 상태를
   먼저 확인한 뒤 사용자가 명시한 범위만 닫거나 삭제합니다.
+
+## 2026-07-19: package-manager 배포를 프로젝트 의도로 잘못 고정
+
+### 증상
+
+- 사용자가 GitHub Releases에서만 다운로드하도록 의도했지만 별도 Homebrew tap과
+  Scoop bucket을 프로젝트 배포 구조로 유지했습니다.
+- 메인 저장소의 문서, manifest generator, lifecycle workflow가 외부 저장소
+  운영을 전제로 연결돼 저장소와 유지보수 surface가 불필요하게 분산됐습니다.
+
+### 원인
+
+- v0.40.0의 package-manager 실험을 일시적 검증 결과가 아니라 장기 배포 정책으로
+  확대 해석했습니다.
+- 외부 package channel 채택 여부를 명시적인 제품 결정으로 확인하지 않고 일반적인
+  오픈소스 배포 관행을 기본값으로 적용했습니다.
+
+### 재발 방지
+
+- 공식 binary 배포와 다운로드의 정본은 `MCprotein/rolling-potato`의 GitHub
+  Releases 하나로 고정합니다.
+- Homebrew, Scoop, winget, registry, tap, bucket, 별도 package 저장소는 roadmap,
+  release gate, 문서의 설치 경로에 추가하지 않습니다.
+- 과거 package-manager 작업은 release history로만 구분하고 generator, fixture,
+  workflow를 활성 배포 surface로 복원하지 않습니다.
+- 배포 channel을 늘리는 변경은 기능 구현과 별개의 제품·외부 운영 결정으로 보고,
+  대상 channel과 저장소를 특정한 사용자 지시 없이는 진행하지 않습니다.

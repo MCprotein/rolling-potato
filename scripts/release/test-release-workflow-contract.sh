@@ -93,9 +93,6 @@ require_line "$candidate_preflight_body" 'scripts/release/verify-toolchain-pins.
 require_line "$candidate_preflight_body" 'cargo fmt --all -- --check'
 require_line "$candidate_preflight_body" 'cargo test --locked --test architecture_contract migration_map_recursively_covers_every_governed_file_and_exact_slice -- --exact --test-threads=1'
 require_line "$candidate_preflight_body" 'cargo clippy --locked --all-targets --all-features -- -D warnings'
-require_line "$candidate_preflight_body" 'bash scripts/release/test-package-manager-manifests.sh'
-require_line "$candidate_preflight_body" 'scripts/release/verify-package-manager-prerequisites.sh'
-require_line "$candidate_preflight_body" 'bash scripts/release/test-package-manager-workflow-contract.sh'
 require_line "$candidate_preflight_body" 'bash scripts/release/test-release-workflow-contract.sh'
 release_windows_preflight="$(
   step_block "$release_workflow" "Test native Windows backend lifecycle" \
@@ -378,7 +375,5 @@ release_failure_diagnostic_is_exact_and_always_emitted
 release_policy_accepts_squash_merged_tree
 release_policy_scopes_release_branches_to_version_changes
 durable_proof_selector_requires_exact_single_test
-
-bash scripts/release/test-package-manager-workflow-contract.sh
 
 printf 'release workflow contract ok: asset-verified-cleanup preservation-failure-only\n'

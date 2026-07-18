@@ -1,5 +1,0 @@
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  rpotato-v0.40.0-aarch64-apple-darwin.tar.gz
-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd  rpotato-v0.40.0-aarch64-unknown-linux-gnu.tar.gz
-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  rpotato-v0.40.0-x86_64-apple-darwin.tar.gz
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee  rpotato-v0.40.0-x86_64-pc-windows-msvc.zip
-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  rpotato-v0.40.0-x86_64-unknown-linux-gnu.tar.gz

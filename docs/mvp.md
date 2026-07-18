@@ -94,7 +94,7 @@ These are deferred, not rejected:
 - remote GPU server as the default
 - automatic destructive command execution
 - large automatic refactors
-- npm wrapper or Homebrew/Scoop packaging
+- GitHub Releases download and checksum verification
 - external plugin marketplace, registry, catalog, or mirror integration
 - remote URL plugin install
 - direct execution of external plugins

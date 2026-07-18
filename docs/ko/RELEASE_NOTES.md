@@ -32,8 +32,8 @@
   shell redirection 없는 file 생성, raw prompt/source text 노출을 수행하지
   않습니다.
 - 5개 platform, 정확한 11-file GitHub Release asset contract는 변경하지
-  않습니다. Package-manager와 winget workflow는 v0.41.0 완료 경로가 아니며
-  binary release가 호출하지 않습니다.
+  않습니다. GitHub Releases만 지원하는 배포 channel로 남기고 package-manager
+  실험과 관련 자동화는 중단했습니다.
 
 ## v0.40.0 - Package Manager 배포
 
@@ -59,18 +59,16 @@ Release asset을 기준으로 게시합니다.
 - Package-manager binary 제거와 non-destructive
   `rpotato uninstall --dry-run` application-data plan을 분리
 
-### 현재 Evidence 상태
+### 과거 Evidence 상태
 
 - Manifest는 `Generated` 상태이고 저장소 fixture/workflow contract check가 통과
 - Tag 전 v0.38.0→v0.39.0 qualification과 release mode v0.39.0→v0.40.0
   lifecycle이 Homebrew 4개 lane과 Scoop, winget에서 모두 통과해
   lifecycle contract가 `Validated`에 도달
-- Homebrew tap:
-  [MCprotein/homebrew-rpotato](https://github.com/MCprotein/homebrew-rpotato)
-  commit `bf50499674dcbf46ce7e36260a8a6b3cf0c6b49e`로 `Published`
-- Scoop bucket:
-  [MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato)
-  commit `2e881e23456ae818d00ae63a1059bd870fc914de`로 `Published`
+- 실험용 Homebrew tap은 commit
+  `bf50499674dcbf46ce7e36260a8a6b3cf0c6b49e`에서 `Published`에 도달
+- 실험용 Scoop bucket은 commit
+  `2e881e23456ae818d00ae63a1059bd870fc914de`에서 `Published`에 도달
 - winget community manifest: 생성과 lifecycle 검증은 통과했지만 진행 중인
   upstream 제출이 없는 `Unpublished` 상태
 - Public URL 또는 upstream review 상태를 기록하기 전에는 어떤 외부 channel도
@@ -82,6 +80,8 @@ Release asset을 기준으로 게시합니다.
   release asset set은 변경하지 않음
 - 게시된 channel file은 검증된 v0.40.0 asset set에서 생성한 workflow artifact와
   byte 단위로 일치하며, winget 제출의 최종 상태는 외부 upstream이 소유
+- 이 실험은 2026-07-19에 중단했습니다. Package-manager 저장소와 manifest는
+  더 이상 지원하는 배포 channel이 아니며 GitHub Releases만 사용합니다.
 
 ## v0.39.0 - 통합 Workflow 성능 최적화
 

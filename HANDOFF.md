@@ -50,10 +50,10 @@ binaries for:
 The release workflow runs the serialized Rust test gate, per-target build and
 smoke checks, packages each binary, publishes per-asset checksums, and produces
 an aggregate checksum file. It verifies the exact 11-file published asset set
-before deleting the merged release branch and does not automatically invoke
-package-manager or winget workflows. The active repository toolchain is pinned
-to Rust 1.97.0, current Node.js 24 GitHub Actions, current GA hosted runners,
-and managed `llama.cpp b9982`; model measurements made on older pinned backends
+before deleting the merged release branch. GitHub Releases is the only
+supported distribution channel. The active repository toolchain is pinned to
+Rust 1.97.0, current Node.js 24 GitHub Actions, current GA hosted runners, and
+managed `llama.cpp b9982`; model measurements made on older pinned backends
 remain historical evidence.
 
 ## Implemented Runtime Foundations
@@ -118,17 +118,19 @@ remain historical evidence.
   scripts, hooks, MCP/app integrations, shell/background, remote, and write
   capabilities receive no execution authority.
 - v0.41.0 implements HTML monitoring as a static local export; it does not add
-  a server or external telemetry. Package-manager publication remains
-  separately evidenced and is not a later release completion gate.
+  a server or external telemetry. Package-manager publication and external
+  package repositories are retired; users download binaries from GitHub
+  Releases only.
 
 ## Next Versions
 
 The version-only roadmap in `ROADMAP.md` is the source of truth. The
 `v0.29.0`-`v0.41.0` release train is complete: architecture ownership,
 Claude Code plugin execution, integrated workflow performance hardening,
-package-manager distribution, and the optional local HTML monitor export have
-shipped. No version after v0.41.0 is currently defined. Add the next concrete
-version row before beginning new roadmap work.
+the historical package-manager experiment, and the optional local HTML monitor
+export have shipped. The package-manager experiment was subsequently retired.
+No version after v0.41.0 is currently defined. Add the next concrete version
+row before beginning new roadmap work.
 
 ## Model Evidence Boundary
 

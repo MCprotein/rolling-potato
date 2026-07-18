@@ -192,140 +192,26 @@ Current archive targets:
 - Linux ARM64
 - Windows x86_64
 
-Historical v0.40.0 package-manager targets:
+## Distribution Policy
 
-- Homebrew: macOS arm64/x64 and Linux arm64/x64
-- Scoop: Windows x64
-- winget: Windows x64 portable ZIP
+The project distributes binaries only through the
+[rolling-potato GitHub Releases](https://github.com/MCprotein/rolling-potato/releases)
+page. The release workflow builds the five supported archives, publishes one
+checksum beside each archive, publishes the aggregate checksum file, and
+verifies the exact 11-file asset set before release-branch cleanup.
 
-## Package Manager Distribution
+Homebrew, Scoop, winget, apt, rpm, npm, container registries, and other external
+package channels are not project distribution surfaces. The v0.40.0
+package-manager experiment remains part of the historical release notes, but
+its manifest generators, fixtures, validation workflow, and external channels
+were retired on 2026-07-19. Future releases must not write to or advertise
+another package repository.
 
-Package-manager manifests are derived artifacts. The repository does not
-hand-maintain release URLs or checksums separately for each channel.
-
-Starting with v0.41.0, `release-binaries` stops after verifying the exact
-11-file GitHub Release asset set and deleting the verified merged release
-branch. It does not automatically invoke package-manager generation or
-lifecycle lanes. Package-manager and winget work is not a future release
-completion gate, and no external package repository is written by the binary
-release workflow.
-
-The historical v0.40.0 package-manager workflow:
-
-1. verifies the exact 11-file GitHub Release asset set;
-2. reads the five archive hashes from the verified aggregate checksum file;
-3. generates one Homebrew formula, one Scoop manifest, and the three-file
-   winget manifest set;
-4. independently verifies their exact paths, versions, URLs, archive names, and
-   hashes;
-5. validates clean install, previous-stable-to-current upgrade, the version
-   reported by `rpotato doctor`, package-manager uninstall, and command absence
-   on six native lanes;
-6. uploads the current generated trees as a publication-candidate workflow
-   artifact.
-
-The separately dispatched package-manager workflow does not add files to the
-GitHub Release or publish to external repositories. The existing five
-archives, five sidecar checksums, and one aggregate checksum remain the
-complete release-asset contract.
-
-### Channel status
-
-Use these states consistently:
-
-- `Generated`: deterministic manifests were produced from a verified aggregate
-  checksum.
-- `Validated`: the static verifier and all applicable native lifecycle lanes
-  passed.
-- `Published`: an authorized external write completed and its public URL or
-  upstream review status was recorded.
-- `Unpublished`: no live external channel is claimed, even if generated and
-  validated artifacts exist.
-
-As of 2026-07-18, the v0.40.0 release artifact is `Generated` and `Validated`
-across all six native lifecycle lanes. The Homebrew tap is `Published` at
-[MCprotein/homebrew-rpotato](https://github.com/MCprotein/homebrew-rpotato)
-commit `bf50499674dcbf46ce7e36260a8a6b3cf0c6b49e`, and the Scoop bucket is
-`Published` at
-[MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato) commit
-`2e881e23456ae818d00ae63a1059bd870fc914de`. The winget manifest is generated
-and validated, but it is `Unpublished`: no upstream submission is active and
-no community package is published.
-
-### Integrity and pinned prerequisites
-
-`rpotato-vX.Y.Z-checksums.txt`, accepted by
-`scripts/release/verify-release-assets.sh`, is the only source for hashes placed
-in package-manager manifests. All download URLs remain immutable versioned
-HTTPS URLs under the matching GitHub Release. Qualification, release, and
-recovery preparation also require both selected GitHub Releases to match their
-requested stable tags, be published, and be neither drafts nor prereleases.
-
-The native validation prerequisites recorded on 2026-07-18 are:
-
-- `Homebrew/actions/setup-homebrew` commit
-  `df4b09108a1de9d6f995fe68f302b3f68bd6d2ef`;
-- Scoop source and schema commit
-  `b588a06e41d920d2123ec70aee682bae14935939`;
-- winget client release `v1.29.280`, with the bundle and dependency archive
-  SHA-256 values enforced by
-  `scripts/release/verify-package-manager-prerequisites.sh`;
-- winget manifest schema `1.12.0`.
-
-Workflow logs record the actual manager/client versions used by each native
-lane. Unpinned remote bootstrap pipelines are forbidden.
-
-### Qualification and recovery
-
-Before the v0.40.0 tag, manually dispatch
-`package-manager-distribution` with:
-
-```text
-mode=qualification
-previous_tag=v0.38.0
-current_tag=v0.39.0
-```
-
-Qualification uses already published releases to prove the pinned setup,
-manifest formats, and install/upgrade/uninstall lifecycle on four Homebrew
-lanes plus isolated Scoop and winget lanes. It performs no Cargo build, release
-upload, tag creation, external publication, or branch cleanup.
-
-The retained `mode=recovery` path exists for explicitly authorized v0.40.0
-package-manager evidence recovery. It is not called by later binary releases.
-Recovery derives the greatest ancestral stable predecessor, re-verifies both
-exact release asset sets, and reruns only manifest preparation and the six
-historical native lifecycle lanes. It never overwrites release assets or
-creates a new patch tag. The matching release branch is deleted only after all
-lanes pass; any failure preserves the branch.
-
-### Install and removal boundary
-
-Once an external channel is `Published`, the commands documented in the
-bilingual READMEs install, update, and remove the package-manager-owned binary.
-Package-manager removal does not remove `rpotato` application data, models, or
-cache. Run `rpotato uninstall --dry-run` before removing the executable to
-inspect that separate cleanup plan.
-
-### Release evidence
-
-The v0.40.0 package-manager release record includes:
-
-- candidate commit SHA and exact-HEAD CI run;
-- exact 11-asset verification;
-- pre-tag v0.38.0 to v0.39.0 qualification run;
-- pinned prerequisites and observed manager/client versions;
-- resolved previous stable tag and ancestry decision;
-- generated publication artifact ID and hash;
-- clean-install and upgrade conclusions for all six native lanes;
-- normal deployment or same-tag recovery run;
-- Homebrew tap URL/commit/status;
-- Scoop bucket URL/commit/status;
-- winget pull-request/merge/package status;
-- release-branch cleanup result.
-
-Any external entry without confirmed evidence remains `Unpublished` or
-`Pending external review`; it must not be reported as complete.
+To install or upgrade, download the desired versioned archive from GitHub
+Releases and verify it against the matching sidecar checksum or
+`rpotato-vX.Y.Z-checksums.txt`. Application-data cleanup remains separate from
+removing the downloaded executable; inspect it with
+`rpotato uninstall --dry-run`.
 
 ## Release Checklist
 
