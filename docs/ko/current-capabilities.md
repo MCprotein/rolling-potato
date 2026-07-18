@@ -23,6 +23,8 @@ profile 또는 환경 등록 실패는 runtime state 초기화를 막지 않고 
 rpotato install
 rpotato install --clean --dry-run
 rpotato install --clean --yes
+rpotato uninstall --clean --dry-run
+rpotato uninstall --clean --yes
 rpotato init
 ```
 
@@ -33,6 +35,11 @@ Clean install은 전역 application-data root와 현재 project의 `.rpotato`만
 변경 상태를 표시합니다. Backend/generation 게시와 삭제는 하나의
 cross-process lease로 직렬화하며, process 생존 확인 오류도 삭제 차단으로
 처리합니다.
+
+Clean uninstall은 설치 binary, 소유한 PATH 등록, 전역 application data, 현재
+project의 `.rpotato`를 제거합니다. 압축을 푼 실행 원본과 source repository는
+사용자 소유 file로 보존합니다. Windows self-delete는 현재 process 종료 직후
+완료하도록 예약합니다.
 
 ## 1. 에이전트 루프와 컨텍스트
 
@@ -281,6 +288,7 @@ rpotato tui evidence
 - `monitor prune`은 dry-run만 지원합니다.
 - HTML monitoring은 local static export이며 server나 remote dashboard가
   아닙니다.
-- `v0.41.0` 이후 버전은 현재 정의되어 있지 않습니다.
+- `v0.42.0` 범위는 사용자 전용 설치, 환경 보정, clean reinstall, clean
+  uninstall이며 package-manager channel은 추가하지 않습니다.
 
 버전 기록과 다음 버전 규칙은 [로드맵](ROADMAP.md)에 있습니다.

@@ -36,6 +36,9 @@ Representative flow:
 - Model weights are not included in the `rpotato` install artifact.
 - `llama.cpp` backend is installed or verified as a managed sidecar without requiring global user installation.
 - `rpotato uninstall --keep-cache` and `rpotato uninstall --purge-cache` show planned paths before deletion.
+- `rpotato uninstall --clean --dry-run` is read-only, while `--clean --yes`
+  removes only the installed binary, owned PATH registration, global app data,
+  and current-project state after the runtime guard passes.
 - CLI surface does not bypass runtime-core policy decisions.
 
 ### Model Management

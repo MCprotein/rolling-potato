@@ -111,9 +111,16 @@ project root/
   .rpotato/      # project-local index/state/evidence, preserved unless explicitly cleaned
 ```
 
-`rpotato uninstall --keep-cache` removes only program/runtime assets managed by `rpotato`; models, downloads, manifests, logs, and project-local state remain.
+`rpotato uninstall --keep-cache` is a compatibility planning mode that lists
+program/runtime assets while preserving models, downloads, manifests, logs,
+and project-local state.
 
-`rpotato uninstall --purge-cache` removes app-level cache and models as well, but never deletes source repositories or project-local `.rpotato/` automatically. Every delete path must support `--dry-run` and show the paths before deletion.
+`rpotato uninstall --purge-cache` is a compatibility planning mode that also
+lists app-level cache and models. `rpotato uninstall --clean --yes` is the
+explicit full managed-removal path: it removes the installed binary, owned
+PATH registration, global app data, and current-project `.rpotato/`, but never
+the invocation source or source repository. Every delete path supports a
+read-only `--dry-run` first.
 
 ## Responsibility Boundaries
 

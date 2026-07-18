@@ -88,6 +88,8 @@ snapshot은 구현 이력이 필요할 때만 펼쳐 보십시오.
 - `rpotato plugin remove <id> --purge-data`
 - `rpotato uninstall --keep-cache`
 - `rpotato uninstall --purge-cache`
+- `rpotato uninstall --clean --dry-run`
+- `rpotato uninstall --clean --yes`
 
 `rpotato init`은 state layout, current-state, append-only ledger, runtime evidence JSONL, SQLite observability projection을 실제로 초기화합니다.
 

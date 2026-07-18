@@ -23,6 +23,8 @@ blocking runtime-state initialization.
 rpotato install
 rpotato install --clean --dry-run
 rpotato install --clean --yes
+rpotato uninstall --clean --dry-run
+rpotato uninstall --clean --yes
 rpotato init
 ```
 
@@ -33,6 +35,11 @@ managed backend or generation is active. Dry-run reports the exact binary and
 PATH-registration change as well as both deletion targets. Backend/generation
 publication and deletion are serialized by one cross-process lease, and
 process-liveness errors fail closed.
+
+Clean uninstall removes the installed binary, the owned PATH registration,
+global application data, and the current project's `.rpotato`. It preserves
+the extracted invocation binary and source repository as user-owned files.
+Windows self-deletion is scheduled for immediately after process exit.
 
 ## 1. Agent Loop and Context
 
@@ -280,7 +287,8 @@ See [TUI](tui.md), [CLI output style](cli-output-style.md), and
   remote connectors, and write grants do not receive execution authority.
 - `monitor prune` is dry-run only.
 - HTML monitoring is a local static export, not a server or remote dashboard.
-- No version after `v0.41.0` is currently defined.
+- `v0.42.0` is limited to user-local installation, environment repair, clean
+  reinstall, and clean uninstall; it does not add a package-manager channel.
 
 The version history and next-version rule are in
 [ROADMAP.md](../ROADMAP.md).

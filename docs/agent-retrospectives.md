@@ -2,6 +2,33 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-19: 병합 완료를 발행 완료로 잘못 전달
+
+### 증상
+
+- v0.42.0 설치 기능 PR이 `main`에 병합됐지만 version branch, tag, GitHub
+  Release asset 발행은 진행하지 않은 상태였습니다.
+- 설치·clean reinstall은 구현했지만 대칭적인 전체 clean uninstall이 빠진
+  상태를 release 준비 완료로 취급했습니다.
+
+### 원인
+
+- `구현 완료`, `PR 병합`, `릴리즈 발행`을 서로 다른 상태로 대조하지 않고
+  병합을 사용자 관점의 완료로 축약했습니다.
+- 설치 lifecycle을 검토할 때 setup/reset만 확인하고 PATH 해제, binary
+  self-delete, 관리형 상태 제거를 포함한 teardown 수용 기준을 확인하지
+  않았습니다.
+
+### 재발 방지
+
+- 완료 보고는 `구현`, `기능 PR`, `release PR`, `tag`, `GitHub Release`,
+  `asset smoke`, `branch cleanup` 상태를 분리해 사실인 항목만 표시합니다.
+- 사용자가 “발행”을 요청한 release 작업은 tag와 GitHub Release URL 및 asset
+  검증 전에는 발행 완료로 표현하지 않습니다.
+- 설치 기능의 수용 기준에는 install/upgrade/reset뿐 아니라 owned PATH 해제,
+  self-delete, managed-state 삭제, user-owned source 보존을 포함한 uninstall
+  대칭성을 함께 확인합니다.
+
 ## 2026-07-16: v0.34 릴리스 지연
 
 ### 증상
