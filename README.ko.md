@@ -57,8 +57,8 @@ lifecycle이 모두 통과했습니다.
 
 [Homebrew tap](https://github.com/MCprotein/homebrew-rpotato)과
 [Scoop bucket](https://github.com/MCprotein/scoop-rpotato)은 게시됐습니다.
-[winget community 제출](https://github.com/microsoft/winget-pkgs/pull/404237)은
-외부 검토 대기 중입니다.
+winget manifest는 생성·검증됐지만 현재 진행 중인 community 제출이 없으며
+channel은 `Unpublished` 상태입니다.
 
 ### Homebrew (macOS arm64/x64, Linux arm64/x64)
 
@@ -81,13 +81,9 @@ scoop uninstall rpotato
 
 ### winget (Windows x64)
 
-Community 제출이 merge된 뒤 다음 명령을 사용할 수 있습니다.
-
-```powershell
-winget install --id MCprotein.rpotato --exact
-winget upgrade --id MCprotein.rpotato --exact
-winget uninstall --id MCprotein.rpotato --exact
-```
+현재 게시된 winget community package는 없습니다. 생성한 manifest는 검증된
+release artifact로만 유지하므로 winget install, upgrade, uninstall 명령을
+안내하지 않습니다.
 
 Package manager의 제거 명령은 manager가 설치한 실행 파일만 삭제합니다. 실행
 파일을 제거하기 전에 `rpotato uninstall --dry-run`으로 별도 application-data

@@ -40,8 +40,8 @@ contract.
 - Scoop bucket: `Published` at
   [MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato),
   commit `2e881e23456ae818d00ae63a1059bd870fc914de`.
-- winget community manifest: `Pending external review` in
-  [microsoft/winget-pkgs#404237](https://github.com/microsoft/winget-pkgs/pull/404237).
+- winget community manifest: `Unpublished`. Generation and lifecycle
+  validation passed, but no upstream submission is active.
 - No external channel is considered complete until its public URL or upstream
   review status is recorded.
 
@@ -50,7 +50,8 @@ contract.
 - Runtime behavior, persisted schemas, Cargo dependencies, archive contents,
   and the exact 11-file release asset set are unchanged.
 - Published channel files byte-match the workflow artifact generated from the
-  verified v0.40.0 asset set; the winget submission remains externally owned.
+  verified v0.40.0 asset set; the validated winget manifest remains
+  unpublished.
 
 ## v0.39.0 - Integrated Workflow Performance Hardening
 
