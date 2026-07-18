@@ -67,6 +67,9 @@ jobs:
       - name: Build exact candidate
         run: cargo build --locked --release
 
+      - name: Verify workflow performance budgets
+        run: scripts/performance/verify-v0.39-workflow-budgets.sh
+
       - name: Enforce release branch and tag policy
         env:
           RPOTATO_RELEASE_BRANCH: ${{ github.head_ref }}

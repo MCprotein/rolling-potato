@@ -65,6 +65,7 @@ require_line "$candidate_body" '            exit 1'
 require_line "$candidate_body" '        run: cargo test --locked -- --test-threads=1'
 require_line "$candidate_body" '        run: cargo clippy --locked --all-targets --all-features -- -D warnings'
 require_line "$candidate_body" '        run: cargo build --locked --release'
+require_line "$candidate_body" '        run: scripts/performance/verify-v0.39-workflow-budgets.sh'
 release_windows_preflight="$(
   step_block "$release_workflow" "Test native Windows backend lifecycle" \
     | windows_preflight_commands
