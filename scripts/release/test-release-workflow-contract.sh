@@ -7,6 +7,7 @@ fail() {
 }
 
 release_workflow=".github/workflows/release-binaries.yml"
+package_manager_workflow=".github/workflows/package-manager-distribution.yml"
 windows_targeted_workflow=".github/workflows/windows-native-targeted.yml"
 policy_workflow=".github/workflows/release-policy.yml"
 candidate_workflow=".github/workflows/refactor-candidate.yml"
@@ -93,6 +94,9 @@ require_line "$candidate_preflight_body" 'scripts/release/verify-toolchain-pins.
 require_line "$candidate_preflight_body" 'cargo fmt --all -- --check'
 require_line "$candidate_preflight_body" 'cargo test --locked --test architecture_contract migration_map_recursively_covers_every_governed_file_and_exact_slice -- --exact --test-threads=1'
 require_line "$candidate_preflight_body" 'cargo clippy --locked --all-targets --all-features -- -D warnings'
+require_line "$candidate_preflight_body" 'bash scripts/release/test-package-manager-manifests.sh'
+require_line "$candidate_preflight_body" 'scripts/release/verify-package-manager-prerequisites.sh'
+require_line "$candidate_preflight_body" 'bash scripts/release/test-package-manager-workflow-contract.sh'
 require_line "$candidate_preflight_body" 'bash scripts/release/test-release-workflow-contract.sh'
 release_windows_preflight="$(
   step_block "$release_workflow" "Test native Windows backend lifecycle" \
@@ -116,7 +120,7 @@ if grep -En 'git push .*--delete|RPOTATO_DELETE_RELEASE_BRANCH: (1|"1")' "$polic
 fi
 
 published="$(job_block published-assets-verify)"
-cleanup="$(job_block cleanup-release-branch)"
+cleanup="$(job_block "$package_manager_workflow" cleanup-release-branch)"
 preserve="$(job_block release-failure-preserves-branch)"
 for body in "$published" "$cleanup" "$preserve"; do
   require_line "$body" "uses: $checkout_pin"
@@ -127,25 +131,31 @@ if grep -F -- '--pattern' <<<"$published" >/dev/null; then
   fail "published verification must download every release asset"
 fi
 
-delete_count="$(awk '/RPOTATO_DELETE_RELEASE_BRANCH:/ { count++ } END { print count + 0 }' "$release_workflow")"
-[ "$delete_count" -eq 1 ] || fail "release workflow must have exactly one delete owner"
-grep -x '      RPOTATO_DELETE_RELEASE_BRANCH: 1' "$release_workflow" >/dev/null \
-  || fail "delete owner must be the cleanup job-level env literal"
-if grep -En 'export[[:space:]]+RPOTATO_DELETE_RELEASE_BRANCH|^[[:space:]]{10,}RPOTATO_DELETE_RELEASE_BRANCH:|RPOTATO_DELETE_RELEASE_BRANCH:.*\$\{\{' "$release_workflow" >/dev/null; then
+delete_count="$(
+  cat "$release_workflow" "$package_manager_workflow" \
+    | awk '/RPOTATO_DELETE_RELEASE_BRANCH:/ { count++ } END { print count + 0 }'
+)"
+[ "$delete_count" -eq 1 ] || fail "release workflows must have exactly one delete owner"
+grep -x '      RPOTATO_DELETE_RELEASE_BRANCH: 1' "$package_manager_workflow" >/dev/null \
+  || fail "delete owner must be the package-manager cleanup job-level env literal"
+if grep -En 'export[[:space:]]+RPOTATO_DELETE_RELEASE_BRANCH|^[[:space:]]{10,}RPOTATO_DELETE_RELEASE_BRANCH:|RPOTATO_DELETE_RELEASE_BRANCH:.*\$\{\{' "$release_workflow" "$package_manager_workflow" >/dev/null; then
   fail "step-scoped, exported, or dynamic delete owner is forbidden"
 fi
 require_line "$cleanup" '      RPOTATO_DELETE_RELEASE_BRANCH: 1'
 
-for body in "$cleanup" "$preserve"; do
-  require_line "$body" '          fetch-depth: 0'
-  for need in test build checksums published-assets-verify; do
-    require_line "$body" "      - $need"
-  done
+require_line "$cleanup" '          fetch-depth: 0'
+for need in package-manager-prepare homebrew-lifecycle scoop-lifecycle winget-lifecycle; do
+  require_line "$cleanup" "      - $need"
 done
-require_line "$cleanup" "      github.event_name == 'release' &&"
-require_line "$cleanup" "      needs.test.result == 'success' && needs.build.result == 'success' &&"
-require_line "$cleanup" "      needs.checksums.result == 'success' &&"
-require_line "$cleanup" "      needs.published-assets-verify.result == 'success'"
+require_line "$preserve" '          fetch-depth: 0'
+for need in test build checksums published-assets-verify; do
+  require_line "$preserve" "      - $need"
+done
+require_line "$cleanup" "      always() && (inputs.mode == 'release' || inputs.mode == 'recovery') &&"
+require_line "$cleanup" "      needs.package-manager-prepare.result == 'success' &&"
+require_line "$cleanup" "      needs.homebrew-lifecycle.result == 'success' &&"
+require_line "$cleanup" "      needs.scoop-lifecycle.result == 'success' &&"
+require_line "$cleanup" "      needs.winget-lifecycle.result == 'success'"
 require_line "$preserve" "      always() && github.event_name == 'release' &&"
 require_line "$preserve" "      (needs.test.result != 'success' || needs.build.result != 'success' ||"
 require_line "$preserve" "      needs.checksums.result != 'success' ||"
@@ -371,4 +381,6 @@ release_policy_accepts_squash_merged_tree
 release_policy_scopes_release_branches_to_version_changes
 durable_proof_selector_requires_exact_single_test
 
-printf 'release workflow contract ok: cleanup-success-only preservation-failure-only\n'
+bash scripts/release/test-package-manager-workflow-contract.sh
+
+printf 'release workflow contract ok: package-manager-cleanup preservation-failure-only\n'

@@ -1,0 +1,596 @@
+name: package-manager-distribution
+
+permissions:
+  contents: write
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: "Internal release mode"
+        required: true
+        type: string
+      current_tag:
+        description: "Published current stable tag"
+        required: true
+        type: string
+      previous_tag:
+        description: "Qualification-only predecessor"
+        required: false
+        default: ""
+        type: string
+      current_assets_artifact:
+        description: "Verified current exact-assets artifact for release mode"
+        required: false
+        default: ""
+        type: string
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Qualification before a tag, or same-tag recovery"
+        required: true
+        type: choice
+        options:
+          - qualification
+          - recovery
+      current_tag:
+        description: "Published current stable tag"
+        required: true
+        type: string
+      previous_tag:
+        description: "Required only for qualification"
+        required: false
+        default: ""
+        type: string
+
+concurrency:
+  group: package-manager-${{ inputs.mode }}-${{ inputs.current_tag }}
+  cancel-in-progress: false
+
+jobs:
+  package-manager-prepare:
+    name: prepare verified package-manager manifests
+    runs-on: ubuntu-24.04
+    outputs:
+      previous_tag: ${{ steps.tags.outputs.previous_tag }}
+    env:
+      MODE: ${{ inputs.mode }}
+      CURRENT_TAG: ${{ inputs.current_tag }}
+      REQUESTED_PREVIOUS_TAG: ${{ inputs.previous_tag }}
+      CURRENT_ASSETS_ARTIFACT: ${{ inputs.current_assets_artifact }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate mode and resolve predecessor
+        id: tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/release/validate-package-manager-workflow-inputs.sh \
+            "$MODE" "$CURRENT_TAG" "$REQUESTED_PREVIOUS_TAG"
+          git fetch --force --tags origin
+          resolved_previous="$(
+            scripts/release/resolve-previous-stable-tag.sh "$CURRENT_TAG"
+          )"
+          if [ "$MODE" = qualification ] \
+            && [ "$resolved_previous" != "$REQUESTED_PREVIOUS_TAG" ]; then
+            echo "qualification predecessor is not the greatest ancestral stable tag" >&2
+            exit 1
+          fi
+          previous_tag="$resolved_previous"
+          gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+          gh release view "$previous_tag" --repo "$GITHUB_REPOSITORY" >/dev/null
+          printf 'previous_tag=%s\n' "$previous_tag" >> "$GITHUB_OUTPUT"
+          printf 'PREVIOUS_TAG=%s\n' "$previous_tag" >> "$GITHUB_ENV"
+          printf 'mode=%s current=%s previous=%s\n' \
+            "$MODE" "$CURRENT_TAG" "$previous_tag" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Download verified current release artifact
+        if: inputs.mode == 'release'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.current_assets_artifact }}
+          path: dist/assets/current
+
+      - name: Download current published assets for dispatch
+        if: inputs.mode != 'release'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/assets/current
+          gh release download "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" \
+            --dir dist/assets/current
+
+      - name: Download previous published assets once
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/assets/previous
+          gh release download "$PREVIOUS_TAG" --repo "$GITHUB_REPOSITORY" \
+            --dir dist/assets/previous
+
+      - name: Verify exact assets and generate both versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/release/verify-release-assets.sh \
+            "$CURRENT_TAG" dist/assets/current
+          scripts/release/verify-release-assets.sh \
+            "$PREVIOUS_TAG" dist/assets/previous
+          current_checksums="dist/assets/current/rpotato-${CURRENT_TAG}-checksums.txt"
+          previous_checksums="dist/assets/previous/rpotato-${PREVIOUS_TAG}-checksums.txt"
+          if [ "$MODE" = release ]; then
+            scripts/release/generate-current-package-manager-manifests.sh \
+              "$CURRENT_TAG" "$current_checksums" dist/manifests/current
+          else
+            scripts/release/generate-package-manager-manifests.sh \
+              "$CURRENT_TAG" "$current_checksums" dist/manifests/current
+            scripts/release/verify-package-manager-manifests.sh \
+              "$CURRENT_TAG" "$current_checksums" dist/manifests/current
+          fi
+          scripts/release/generate-package-manager-manifests.sh \
+            "$PREVIOUS_TAG" "$previous_checksums" dist/manifests/previous
+          scripts/release/verify-package-manager-manifests.sh \
+            "$PREVIOUS_TAG" "$previous_checksums" dist/manifests/previous
+          mkdir -p dist/publication dist/lifecycle
+          cp -R dist/manifests/current/. dist/publication/
+          cp -R dist/manifests/current dist/lifecycle/current
+          cp -R dist/manifests/previous dist/lifecycle/previous
+          printf 'CURRENT_TAG=%s\nPREVIOUS_TAG=%s\n' \
+            "$CURRENT_TAG" "$PREVIOUS_TAG" >dist/lifecycle/versions.env
+
+      - name: Upload current publication candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-manager-current-${{ inputs.current_tag }}
+          path: dist/publication
+          if-no-files-found: error
+
+      - name: Upload internal lifecycle manifests
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-manager-lifecycle-${{ inputs.current_tag }}
+          path: dist/lifecycle
+          if-no-files-found: error
+
+  homebrew-lifecycle:
+    name: Homebrew ${{ matrix.label }}
+    needs:
+      - package-manager-prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS arm64
+            runner: macos-26
+          - label: macOS x64
+            runner: macos-26-intel
+          - label: Linux arm64
+            runner: ubuntu-24.04-arm
+          - label: Linux x64
+            runner: ubuntu-24.04
+    env:
+      CURRENT_TAG: ${{ inputs.current_tag }}
+      PREVIOUS_TAG: ${{ needs.package-manager-prepare.outputs.previous_tag }}
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - name: Download lifecycle manifests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-manager-lifecycle-${{ inputs.current_tag }}
+          path: dist/lifecycle
+
+      - name: Set up pinned Homebrew
+        uses: Homebrew/actions/setup-homebrew@df4b09108a1de9d6f995fe68f302b3f68bd6d2ef # 2026-07-18
+        with:
+          core: false
+          cask: false
+
+      - name: Record Homebrew version
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew --version
+
+      - name: Test current clean install and previous upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_version="${CURRENT_TAG#v}"
+          previous_version="${PREVIOUS_TAG#v}"
+          current_formula="$GITHUB_WORKSPACE/dist/lifecycle/current/homebrew/Formula/rpotato.rb"
+          previous_formula="$GITHUB_WORKSPACE/dist/lifecycle/previous/homebrew/Formula/rpotato.rb"
+          root="$RUNNER_TEMP/rpotato-homebrew"
+          remote="$root/tap.git"
+          seed="$root/seed"
+
+          if brew list --formula rpotato >/dev/null 2>&1; then
+            echo "rpotato must not be preinstalled" >&2
+            exit 1
+          fi
+
+          reset_tap() {
+            brew untap rpotato/ci >/dev/null 2>&1 || true
+            rm -rf "$root"
+            mkdir -p "$root"
+          }
+
+          publish_formula() {
+            formula="$1"
+            rm -rf "$remote" "$seed"
+            git init --bare --initial-branch=main "$remote" >/dev/null
+            git init --initial-branch=main "$seed" >/dev/null
+            git -C "$seed" config user.name package-manager-ci
+            git -C "$seed" config user.email package-manager-ci@example.invalid
+            mkdir -p "$seed/Formula"
+            cp "$formula" "$seed/Formula/rpotato.rb"
+            git -C "$seed" add Formula/rpotato.rb
+            git -C "$seed" commit -m "test: publish rpotato formula" >/dev/null
+            git -C "$seed" remote add origin "$remote"
+            git -C "$seed" push -u origin main >/dev/null
+          }
+
+          assert_doctor_version() {
+            expected="$1"
+            command -v rpotato >/dev/null
+            rpotato doctor | grep -F "package version: $expected"
+          }
+
+          assert_removed() {
+            hash -r
+            if brew list --formula rpotato >/dev/null 2>&1 \
+              || command -v rpotato >/dev/null 2>&1; then
+              echo "Homebrew uninstall left rpotato manager state or command" >&2
+              exit 1
+            fi
+          }
+
+          reset_tap
+          publish_formula "$current_formula"
+          brew tap rpotato/ci "file://$remote"
+          brew install rpotato/ci/rpotato
+          assert_doctor_version "$current_version"
+          brew uninstall --force rpotato
+          assert_removed
+          brew untap rpotato/ci
+
+          reset_tap
+          publish_formula "$previous_formula"
+          brew tap rpotato/ci "file://$remote"
+          brew install rpotato/ci/rpotato
+          assert_doctor_version "$previous_version"
+          cp "$current_formula" "$seed/Formula/rpotato.rb"
+          git -C "$seed" add Formula/rpotato.rb
+          git -C "$seed" commit -m "test: update rpotato formula" >/dev/null
+          git -C "$seed" push origin main >/dev/null
+          brew update
+          brew upgrade rpotato
+          assert_doctor_version "$current_version"
+          brew uninstall --force rpotato
+          assert_removed
+          brew untap rpotato/ci
+
+  scoop-lifecycle:
+    name: Scoop Windows x64
+    needs:
+      - package-manager-prepare
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      CURRENT_TAG: ${{ inputs.current_tag }}
+      PREVIOUS_TAG: ${{ needs.package-manager-prepare.outputs.previous_tag }}
+      SCOOP_COMMIT: b588a06e41d920d2123ec70aee682bae14935939
+    steps:
+      - name: Download lifecycle manifests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-manager-lifecycle-${{ inputs.current_tag }}
+          path: dist/lifecycle
+
+      - name: Test current clean install and previous upgrade
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:SCOOP = Join-Path $env:RUNNER_TEMP "rpotato-scoop"
+          $scoopSource = Join-Path $env:SCOOP "apps\scoop\current"
+          git clone https://github.com/ScoopInstaller/Scoop.git $scoopSource
+          if ($LASTEXITCODE -ne 0) { throw "failed to clone Scoop" }
+          git -C "$env:SCOOP\apps\scoop\current" checkout --detach $env:SCOOP_COMMIT
+          if ($LASTEXITCODE -ne 0) { throw "failed to pin Scoop" }
+          $scoop = Join-Path $scoopSource "bin\scoop.ps1"
+          $schema = Join-Path $scoopSource "schema.json"
+          $currentManifest = Join-Path $env:GITHUB_WORKSPACE "dist\lifecycle\current\scoop\bucket\rpotato.json"
+          $previousManifest = Join-Path $env:GITHUB_WORKSPACE "dist\lifecycle\previous\scoop\bucket\rpotato.json"
+          $currentVersion = $env:CURRENT_TAG.TrimStart("v")
+          $previousVersion = $env:PREVIOUS_TAG.TrimStart("v")
+
+          function Invoke-Scoop {
+            param([Parameter(ValueFromRemainingArguments = $true)][String[]] $Arguments)
+            & $scoop @Arguments
+            if ($LASTEXITCODE -ne 0) {
+              throw "Scoop command failed: $($Arguments -join ' ')"
+            }
+          }
+
+          function Assert-DoctorVersion {
+            param([String] $Expected)
+            $shim = Join-Path $env:SCOOP "shims\rpotato.exe"
+            if (!(Test-Path $shim)) { throw "rpotato Scoop shim is missing" }
+            $doctor = (& $shim doctor | Out-String)
+            if ($LASTEXITCODE -ne 0 -or $doctor -notmatch "package version: $([Regex]::Escape($Expected))") {
+              throw "rpotato doctor did not report version $Expected"
+            }
+          }
+
+          function Assert-Removed {
+            if (Test-Path (Join-Path $env:SCOOP "apps\rpotato")) {
+              throw "Scoop uninstall left rpotato app state"
+            }
+            if (Test-Path (Join-Path $env:SCOOP "shims\rpotato.exe")) {
+              throw "Scoop uninstall left the rpotato shim"
+            }
+          }
+
+          Write-Host "Scoop commit: $(git -C $scoopSource rev-parse HEAD)"
+          foreach ($manifest in @($currentManifest, $previousManifest)) {
+            if (!(Get-Content $manifest -Raw | Test-Json -SchemaFile $schema)) {
+              throw "Scoop manifest failed the pinned schema: $manifest"
+            }
+          }
+          if (Test-Path (Join-Path $env:SCOOP "apps\rpotato")) {
+            throw "rpotato must not be preinstalled"
+          }
+
+          Invoke-Scoop install $currentManifest --no-update-scoop
+          Assert-DoctorVersion $currentVersion
+          Invoke-Scoop uninstall rpotato
+          Assert-Removed
+
+          $root = Join-Path $env:RUNNER_TEMP "rpotato-scoop-bucket"
+          $remote = Join-Path $root "bucket.git"
+          $seed = Join-Path $root "seed"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          git init --bare --initial-branch=main $remote
+          git init --initial-branch=main $seed
+          git -C $seed config user.name package-manager-ci
+          git -C $seed config user.email package-manager-ci@example.invalid
+          New-Item -ItemType Directory -Force -Path (Join-Path $seed "bucket") | Out-Null
+          Copy-Item $previousManifest (Join-Path $seed "bucket\rpotato.json")
+          git -C $seed add bucket/rpotato.json
+          git -C $seed commit -m "test: publish rpotato manifest"
+          git -C $seed remote add origin $remote
+          git -C $seed push -u origin main
+          Invoke-Scoop bucket add rpotato $remote
+          Invoke-Scoop install rpotato/rpotato --no-update-scoop
+          Assert-DoctorVersion $previousVersion
+          Copy-Item $currentManifest (Join-Path $seed "bucket\rpotato.json") -Force
+          git -C $seed add bucket/rpotato.json
+          git -C $seed commit -m "test: update rpotato manifest"
+          git -C $seed push origin main
+          git -C "$env:SCOOP\buckets\rpotato" pull --ff-only
+          Invoke-Scoop update rpotato
+          Assert-DoctorVersion $currentVersion
+          Invoke-Scoop uninstall rpotato
+          Assert-Removed
+
+  winget-lifecycle:
+    name: winget Windows x64
+    needs:
+      - package-manager-prepare
+    runs-on: windows-2025
+    timeout-minutes: 25
+    env:
+      CURRENT_TAG: ${{ inputs.current_tag }}
+      PREVIOUS_TAG: ${{ needs.package-manager-prepare.outputs.previous_tag }}
+      WINGET_VERSION: v1.29.280
+      WINGET_BUNDLE_SHA256: 0809fa9f52e395d6e7de692331dce847ac991952675116bb4d8aae2ddcc20946
+      WINGET_DEPENDENCIES_SHA256: 3bbfcaa5cb011c48fac48d896d64a5c7c6898859a9f3d01555c8cd000f4e2962
+    steps:
+      - name: Download lifecycle manifests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-manager-lifecycle-${{ inputs.current_tag }}
+          path: dist/lifecycle
+
+      - name: Install pinned winget client
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $root = Join-Path $env:RUNNER_TEMP "rpotato-winget"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          $bundle = Join-Path $root "Microsoft.DesktopAppInstaller.msixbundle"
+          $dependencies = Join-Path $root "DesktopAppInstaller_Dependencies.zip"
+          $base = "https://github.com/microsoft/winget-cli/releases/download/$env:WINGET_VERSION"
+          Invoke-WebRequest "$base/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -OutFile $bundle
+          Invoke-WebRequest "$base/DesktopAppInstaller_Dependencies.zip" -OutFile $dependencies
+          $bundleHash = (Get-FileHash -Algorithm SHA256 $bundle).Hash.ToLowerInvariant()
+          $dependenciesHash = (Get-FileHash -Algorithm SHA256 $dependencies).Hash.ToLowerInvariant()
+          if ($bundleHash -ne $env:WINGET_BUNDLE_SHA256) { throw "winget bundle hash mismatch" }
+          if ($dependenciesHash -ne $env:WINGET_DEPENDENCIES_SHA256) { throw "winget dependencies hash mismatch" }
+          $expanded = Join-Path $root "dependencies"
+          Expand-Archive $dependencies -DestinationPath $expanded
+          Get-ChildItem (Join-Path $expanded "x64") -Filter *.appx |
+            ForEach-Object { Add-AppxPackage -Path $_.FullName }
+          Add-AppxPackage -Path $bundle
+          $wingetVersion = (& winget --version | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or $wingetVersion -ne $env:WINGET_VERSION) {
+            throw "unexpected winget version: $wingetVersion"
+          }
+          Write-Host "winget client: $wingetVersion"
+
+      - name: Test current clean install and previous upgrade
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $currentManifest = Join-Path $env:GITHUB_WORKSPACE "dist\lifecycle\current\winget\manifests\m\MCprotein\rpotato\$($env:CURRENT_TAG.TrimStart('v'))"
+          $previousManifest = Join-Path $env:GITHUB_WORKSPACE "dist\lifecycle\previous\winget\manifests\m\MCprotein\rpotato\$($env:PREVIOUS_TAG.TrimStart('v'))"
+          $currentVersion = $env:CURRENT_TAG.TrimStart("v")
+          $previousVersion = $env:PREVIOUS_TAG.TrimStart("v")
+
+          function Invoke-Winget {
+            param([Parameter(ValueFromRemainingArguments = $true)][String[]] $Arguments)
+            & winget @Arguments
+            if ($LASTEXITCODE -ne 0) {
+              throw "winget command failed: $($Arguments -join ' ')"
+            }
+          }
+
+          function Assert-DoctorVersion {
+            param([String] $Expected)
+            $command = Get-Command rpotato.exe -ErrorAction Stop
+            $doctor = (& $command.Source doctor | Out-String)
+            if ($LASTEXITCODE -ne 0 -or $doctor -notmatch "package version: $([Regex]::Escape($Expected))") {
+              throw "rpotato doctor did not report version $Expected"
+            }
+          }
+
+          function Assert-Removed {
+            $listed = (& winget list --id MCprotein.rpotato --exact --disable-interactivity | Out-String)
+            if ($LASTEXITCODE -eq 0 -and $listed -match "MCprotein\.rpotato") {
+              throw "winget uninstall left package registration"
+            }
+            if (Get-Command rpotato.exe -ErrorAction SilentlyContinue) {
+              throw "winget uninstall left the rpotato command alias"
+            }
+          }
+
+          $preexisting = (& winget list --id MCprotein.rpotato --exact --disable-interactivity | Out-String)
+          if ($LASTEXITCODE -eq 0 -and $preexisting -match "MCprotein\.rpotato") {
+            throw "MCprotein.rpotato must not be preinstalled"
+          }
+
+          try {
+            Invoke-Winget settings --enable LocalManifestFiles
+            Invoke-Winget validate --manifest $currentManifest
+            Invoke-Winget validate --manifest $previousManifest
+
+            Invoke-Winget install --manifest $currentManifest --accept-package-agreements --accept-source-agreements --disable-interactivity
+            Assert-DoctorVersion $currentVersion
+            Invoke-Winget uninstall --id MCprotein.rpotato --exact --disable-interactivity
+            Assert-Removed
+
+            Invoke-Winget install --manifest $previousManifest --accept-package-agreements --accept-source-agreements --disable-interactivity
+            Assert-DoctorVersion $previousVersion
+            Invoke-Winget upgrade --manifest $currentManifest --accept-package-agreements --accept-source-agreements --disable-interactivity
+            Assert-DoctorVersion $currentVersion
+            Invoke-Winget uninstall --id MCprotein.rpotato --exact --disable-interactivity
+            Assert-Removed
+          }
+          finally {
+            & winget uninstall --id MCprotein.rpotato --exact --disable-interactivity | Out-Null
+            & winget settings --disable LocalManifestFiles | Out-Null
+          }
+
+  cleanup-release-branch:
+    name: cleanup package-manager verified release branch
+    if: >-
+      always() && (inputs.mode == 'release' || inputs.mode == 'recovery') &&
+      needs.package-manager-prepare.result == 'success' &&
+      needs.homebrew-lifecycle.result == 'success' &&
+      needs.scoop-lifecycle.result == 'success' &&
+      needs.winget-lifecycle.result == 'success'
+    runs-on: ubuntu-24.04
+    needs:
+      - package-manager-prepare
+      - homebrew-lifecycle
+      - scoop-lifecycle
+      - winget-lifecycle
+    env:
+      RELEASE_TAG: ${{ inputs.current_tag }}
+      RPOTATO_RELEASE_TAG: ${{ inputs.current_tag }}
+      RPOTATO_RELEASE_BRANCH: release/${{ inputs.current_tag }}
+      RPOTATO_REQUIRE_TAG_ON_MAIN: 1
+      RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS: 1
+      RPOTATO_DELETE_RELEASE_BRANCH: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Delete release branch after package-manager verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/release/verify-release-policy.sh
+          if git ls-remote --exit-code --heads origin "release/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "release branch still exists after cleanup" >&2
+            exit 1
+          fi
+
+  package-manager-failure-preserves-branch:
+    name: preserve release branch after package-manager failure
+    if: >-
+      always() && (inputs.mode == 'release' || inputs.mode == 'recovery') &&
+      (needs.package-manager-prepare.result != 'success' ||
+      needs.homebrew-lifecycle.result != 'success' ||
+      needs.scoop-lifecycle.result != 'success' ||
+      needs.winget-lifecycle.result != 'success')
+    runs-on: ubuntu-24.04
+    needs:
+      - package-manager-prepare
+      - homebrew-lifecycle
+      - scoop-lifecycle
+      - winget-lifecycle
+    env:
+      RELEASE_BRANCH: release/${{ inputs.current_tag }}
+      PREPARE_RESULT: ${{ needs.package-manager-prepare.result }}
+      HOMEBREW_RESULT: ${{ needs.homebrew-lifecycle.result }}
+      SCOOP_RESULT: ${{ needs.scoop-lifecycle.result }}
+      WINGET_RESULT: ${{ needs.winget-lifecycle.result }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Verify failed package-manager release preserved its branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          failure_cause="winget-lifecycle:$WINGET_RESULT"
+          if [ "$PREPARE_RESULT" != success ]; then
+            failure_cause="package-manager-prepare:$PREPARE_RESULT"
+          elif [ "$HOMEBREW_RESULT" != success ]; then
+            failure_cause="homebrew-lifecycle:$HOMEBREW_RESULT"
+          elif [ "$SCOOP_RESULT" != success ]; then
+            failure_cause="scoop-lifecycle:$SCOOP_RESULT"
+          fi
+          upstream_results="prepare=$PREPARE_RESULT,homebrew=$HOMEBREW_RESULT,scoop=$SCOOP_RESULT,winget=$WINGET_RESULT"
+          scripts/release/report-release-failure.sh \
+            "$failure_cause" "$upstream_results" "$RELEASE_BRANCH" origin
+
+  qualification-failure-summary:
+    name: report failed package-manager qualification
+    if: >-
+      always() && inputs.mode == 'qualification' &&
+      (needs.package-manager-prepare.result != 'success' ||
+      needs.homebrew-lifecycle.result != 'success' ||
+      needs.scoop-lifecycle.result != 'success' ||
+      needs.winget-lifecycle.result != 'success')
+    runs-on: ubuntu-24.04
+    needs:
+      - package-manager-prepare
+      - homebrew-lifecycle
+      - scoop-lifecycle
+      - winget-lifecycle
+    steps:
+      - name: Record qualification failure without cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            printf '## Package-manager qualification failed\n\n'
+            printf -- '- prepare: `%s`\n' '${{ needs.package-manager-prepare.result }}'
+            printf -- '- homebrew: `%s`\n' '${{ needs.homebrew-lifecycle.result }}'
+            printf -- '- scoop: `%s`\n' '${{ needs.scoop-lifecycle.result }}'
+            printf -- '- winget: `%s`\n' '${{ needs.winget-lifecycle.result }}'
+            printf -- '- cleanup: `forbidden`\n'
+          } >> "$GITHUB_STEP_SUMMARY"
