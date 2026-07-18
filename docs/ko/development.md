@@ -234,7 +234,7 @@ cargo run -- uninstall --dry-run --purge-cache
 - `skill`: built-in skill registry and invocation normalization
 - `hooks`: lifecycle hook registry and fail-closed result validation
 - `skills`: reusable runtime capabilities
-- `plugins`: local Codex/Claude Code plugin import, inspect, validate, enable/disable/remove
+- `plugins`: local Codex/Claude Code plugin import, inspect, validate, enable/disable/remove와 instruction-only skill/command 실행
 - `config`: local config paths and serialization
 - `model`: manifest, download, checksum, registry
 - `backend`: backend adapter trait and `llama.cpp` implementation
@@ -265,6 +265,8 @@ Plugin adapter 변경 시 추가로 확인합니다.
 - local directory import만 허용되는지
 - remote URL, marketplace, registry, catalog, mirror source가 거부되는지
 - shell, `bin/`, MCP, background, remote connector, file write capability가 기본 차단되는지
+- 지원하지 않는 Claude Code manifest/frontmatter/layout semantic이 명시적으로 보고되는지
+- canonical default-path Claude Code skill/command만 native read-only runtime에 진입하는지
 - import/enable/remove 이벤트가 ledger에 기록되는지
 
 ## 커밋과 푸시

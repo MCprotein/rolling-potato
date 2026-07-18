@@ -1,5 +1,55 @@
 # Release Notes
 
+## v0.38.0 - Claude Code Plugin Execution Adapter
+
+Release date: 2026-07-18
+
+This release maps safe local Claude Code plugin instructions onto the existing
+runtime-owned plugin capability contract. Foreign plugin content remains
+untrusted and cannot widen the read-only action, tool, evidence, or approval
+boundaries.
+
+### Included
+
+- Discovers canonical `skills/<name>/SKILL.md` and `commands/<name>.md` files
+  from locally imported Claude Code plugins.
+- Exposes enabled instructions under
+  `imported.claude-code.<plugin>.<skill-or-command>` and executes them through
+  the same native read-only workflow, ledger, hook, evidence, and stop gates as
+  imported Codex skills.
+- Revalidates the normalized source runtime, adapter policy, complete imported
+  snapshot, capability metadata, instruction file size, frontmatter, source
+  path, and source SHA-256 at admission and completion.
+- Preserves Claude Code's default skill-over-command precedence while refusing
+  to treat the default `commands/` directory as active when the source manifest
+  declares an unsupported custom `commands` path.
+- Reports unsupported Claude Code manifest, frontmatter, substitution, agent,
+  hook, MCP, LSP, monitor, `bin/`, settings, theme, output-style, root-skill,
+  and custom-layout semantics instead of silently treating them as mapped.
+
+### Default-Deny Boundary
+
+- Claude Code dynamic shell interpolation and skill scripts are
+  `blocked-by-default`.
+- `allowed-tools`, fork/agent/model selection, hooks, path activation, argument
+  substitution, and similar source-runtime semantics do not grant authority in
+  `rpotato`.
+- Plugin import and enablement still do not approve shell, MCP, background,
+  remote, sensitive-config, runtime-setting, or file-write execution.
+- Plugins imported with an older adapter version must be re-imported from a
+  trusted local directory.
+
+### Targeted Verification
+
+- Plugin adapter unit coverage exercises safe Claude skills and commands,
+  custom-command replacement behavior, dynamic shell denial, explicit
+  unsupported reporting, source drift, and normalized metadata tampering.
+- CLI lifecycle coverage executes a Claude command through the read-only
+  runtime and preserves the existing Codex execution and completion-recovery
+  contracts.
+- The extension ownership contract keeps Claude mapping, generic execution,
+  scanning, import normalization, and domain parsing in bounded owners.
+
 ## v0.37.14 - Windows Release Recovery
 
 Release date: 2026-07-18

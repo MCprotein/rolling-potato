@@ -160,7 +160,8 @@ rpotato plugin remove <id> --purge-data
 
 ## Current Implementation
 
-v0.37.0 implements the existing import/inspection surface plus the first Codex execution adapter:
+v0.38.0 implements the local import/inspection surface plus instruction-only
+execution adapters for Codex and Claude Code:
 
 - `rpotato plugin import --from codex <local-path> --dry-run`
 - `rpotato plugin import --from claude-code <local-path> --dry-run`
@@ -173,8 +174,9 @@ v0.37.0 implements the existing import/inspection surface plus the first Codex e
 - `rpotato plugin disable <id>`
 - `rpotato plugin remove <id> --keep-data`
 - `rpotato plugin remove <id> --purge-data`
-- `rpotato skill list` discovery for enabled, instruction-only Codex skills
+- `rpotato skill list` discovery for enabled, instruction-only Codex/Claude Code capabilities
 - `rpotato skill run imported.codex.<plugin>.<skill> "<request>"`
+- `rpotato skill run imported.claude-code.<plugin>.<skill-or-command> "<request>"`
 
 Import accepts only local directories and rejects remote URLs, marketplace, registry, catalog sources, `..` path traversal, and source symlinks.
 The normalized manifest schema is version 2 and records:
@@ -201,7 +203,9 @@ rpotato app data root/
 
 `validate` and `enable` re-check the imported `source/` directory against the stored manifest and snapshot hashes. If the imported source drifts, `rpotato` marks the plugin `blocked`, records a ledger event, and requires re-import from a trusted local directory.
 
-`enable` changes registry state; it does not grant general execution authority. The v0.37 adapter admits only a canonical `skills/<name>/SKILL.md` regular file up to 64 KiB when:
+`enable` changes registry state; it does not grant general execution authority.
+The Codex adapter admits only a canonical `skills/<name>/SKILL.md` regular file
+up to 64 KiB when:
 
 - its YAML frontmatter contains a `name` matching the directory and a non-empty `description`
 - its instruction body is non-empty
@@ -209,9 +213,31 @@ rpotato app data root/
 - the imported source snapshot still matches its recorded SHA-256
 - the same skill directory has no script or other permission-requiring capability
 
+The v0.38 Claude Code adapter admits canonical `skills/<name>/SKILL.md` and
+flat `commands/<name>.md` regular files up to 64 KiB. The path name is the
+invocation name, the instruction body must be non-empty, and a missing
+description falls back to the first Markdown paragraph. When a skill and
+command have the same name, the skill wins. If the source manifest declares a
+custom `commands` path, the default `commands/` directory is not admitted
+because that replacement semantic is not yet mapped.
+
 The imported instruction is untrusted prompt content. Execution is always read-only and goes through the native context, lifecycle-hook, typed-action, Korean-output, evidence, ledger, and stop-gate contracts. Admission and completion events bind the plugin ID, skill ID, source path, and source SHA-256. A model response cannot turn the imported skill into a patch or command path.
 
-Shell, skill scripts, `bin/`, MCP, app integrations, plugin hooks, LSP, monitor/background processes, runtime settings, remote connectors, sensitive config, and file-write capabilities remain listed in the permission report and blocked. v0.37 has no approval grant or execution surface for these risky capabilities; `plugin enable` is not such an approval. A later implementation must add an explicit capability-scoped approval lease and revalidation before any of them can execute.
+Claude Code dynamic shell interpolation is classified as `shell-command` and
+blocked. Source-runtime frontmatter such as `allowed-tools`, `context`, `agent`,
+`hooks`, `model`, `paths`, and argument or environment substitution is reported
+as unsupported and cannot widen the native read-only contract. Root
+`SKILL.md`, custom component paths, agents, hooks, MCP, LSP, monitors, `bin/`,
+settings, themes, output styles, channels, dependencies, and user configuration
+are also reported explicitly when they are not mapped.
+
+Shell, skill scripts, `bin/`, MCP, app integrations, plugin hooks, LSP,
+monitor/background processes, runtime settings, remote connectors, sensitive
+config, and file-write capabilities remain listed in the permission report and
+blocked. v0.38 has no approval grant or execution surface for these risky
+capabilities; `plugin enable` is not such an approval. A later implementation
+must add an explicit capability-scoped approval lease and revalidation before
+any of them can execute.
 
 `skill list` shows enabled candidates without mutating plugin state. `skill run` performs the authoritative source snapshot and frontmatter revalidation. Plugins imported under an older adapter or permission-policy version must be re-imported from a trusted local directory.
 
@@ -242,11 +268,11 @@ Dry-run output must include:
 | Codex skill | `rpotato` skill | Execute canonical instruction-only skills through the native read-only runtime after snapshot/frontmatter revalidation |
 | Codex MCP server | MCP adapter entry | Disabled until user enables and approves server command |
 | Codex app integration | Unsupported | Requires separate app connector contract |
-| Claude Code skill | `rpotato` skill | Import as namespaced skill with explicit tool/evidence requirements |
-| Claude Code command | `rpotato` skill | Import as prompt-backed skill if no direct shell bypass exists |
-| Claude Code agent | `rpotato` subagent role | Import only if tool/path/model fields map safely |
-| Claude Code hook | `rpotato` hook | Import only when event and hook type map to runtime hook contract |
-| Claude Code MCP server | MCP adapter entry | Disabled until user enables and approves server command |
+| Claude Code skill | `rpotato` skill | Execute canonical default-path instruction-only skills through the native read-only runtime |
+| Claude Code command | `rpotato` skill | Execute flat default-path prompt-backed commands only when no dynamic shell bypass exists |
+| Claude Code agent | `rpotato` subagent role | Explicitly unsupported until tool/path/model fields map safely |
+| Claude Code hook | `rpotato` hook | Explicitly unsupported and blocked until event and hook type map to the runtime hook contract |
+| Claude Code MCP server | MCP adapter entry | Reported and blocked; no execution surface exists |
 | Claude Code LSP server | Future code-intel adapter | Not MVP |
 | Claude Code monitor | Future observer capability | Not MVP; background process risk is high |
 | Claude Code `bin/` executable | Tool asset | Not on PATH by default; may be callable only through tool policy |
@@ -356,7 +382,7 @@ Adapter validation must cover:
 4. Codex MCP server import with explicit enable and approval.
 5. Claude Code local plugin import parser for `.claude-plugin/plugin.json`.
 6. Claude Code static inspect/validate report with no execution.
-7. Claude Code skill and command import.
+7. Claude Code skill and command import. **Implemented in v0.38.0 for canonical default paths.**
 8. Claude Code hook mapping for safe lifecycle events.
 9. Claude Code agent to `rpotato` subagent role mapping.
 10. LSP, monitor, `bin/`, settings, and theme/output import where safe.
