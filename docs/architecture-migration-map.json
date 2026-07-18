@@ -3807,6 +3807,42 @@
       ]
     },
     {
+      "path": "src/app/extensions_adapter/plugin/claude.rs",
+      "slices": [
+        {
+          "responsibility": "Claude Code manifest, capability, and unsupported-semantics scanning adapter",
+          "target": "src/app/extensions_adapter/plugin/claude.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/claude.rs",
+            "src/app/extensions_adapter/plugin/claude_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/claude_tests.rs",
+      "slices": [
+        {
+          "responsibility": "Claude Code plugin import and semantic boundary regression tests",
+          "target": "src/app/extensions_adapter/plugin/claude_tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/plugin.rs",
+            "src/app/extensions_adapter/plugin.rs",
+            "src/app/extensions_adapter/plugin/claude.rs",
+            "src/app/extensions_adapter/plugin/claude_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/extensions_adapter/plugin/execution.rs",
       "slices": [
         {
@@ -7967,6 +8003,18 @@
       "path": "src/app/extensions_adapter/plugin.rs",
       "responsibilities": [
         "plugin lifecycle reporting and registry command orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/claude.rs",
+      "responsibilities": [
+        "Claude Code manifest, capability, and unsupported-semantics scanning adapter"
+      ]
+    },
+    {
+      "path": "src/app/extensions_adapter/plugin/claude_tests.rs",
+      "responsibilities": [
+        "Claude Code plugin import and semantic boundary regression tests"
       ]
     },
     {
