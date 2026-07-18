@@ -108,10 +108,11 @@ pub(crate) fn parse_claude_instruction(
 }
 
 pub(crate) fn contains_claude_dynamic_shell(text: &str) -> bool {
-    text.lines().any(|line| {
-        let trimmed = line.trim_start();
-        trimmed.starts_with("!`") || trimmed.starts_with("```!")
-    })
+    text.as_bytes().windows(2).enumerate().any(|(index, pair)| {
+        pair == b"!`" && (index == 0 || text.as_bytes()[index - 1].is_ascii_whitespace())
+    }) || text
+        .lines()
+        .any(|line| line.trim_start().starts_with("```!"))
 }
 
 pub(crate) fn claude_instruction_unsupported(text: &str, relative_path: &str) -> Vec<String> {
@@ -149,7 +150,13 @@ pub(crate) fn claude_instruction_unsupported(text: &str, relative_path: &str) ->
         || normalized.contains("${CLAUDE_PLUGIN_ROOT}")
         || normalized.contains("${CLAUDE_PLUGIN_DATA}")
         || normalized.contains("${CLAUDE_PROJECT_DIR}")
+        || normalized.contains("${CLAUDE_SESSION_ID}")
+        || normalized.contains("${CLAUDE_EFFORT}")
+        || normalized.contains("${CLAUDE_SKILL_DIR}")
         || normalized.contains("${user_config.")
+        || contains_unescaped_positional_substitution(&normalized)
+        || (yaml_has_field(frontmatter, "arguments")
+            && contains_unescaped_named_substitution(&normalized))
     {
         push_unique(
             &mut unsupported,
@@ -157,6 +164,22 @@ pub(crate) fn claude_instruction_unsupported(text: &str, relative_path: &str) ->
         );
     }
     unsupported
+}
+
+fn contains_unescaped_positional_substitution(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    bytes.windows(2).enumerate().any(|(index, pair)| {
+        pair[0] == b'$' && pair[1].is_ascii_digit() && (index == 0 || bytes[index - 1] != b'\\')
+    })
+}
+
+fn contains_unescaped_named_substitution(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    bytes.windows(2).enumerate().any(|(index, pair)| {
+        pair[0] == b'$'
+            && (pair[1].is_ascii_alphabetic() || pair[1] == b'_')
+            && (index == 0 || bytes[index - 1] != b'\\')
+    })
 }
 
 fn split_optional_frontmatter<'a>(

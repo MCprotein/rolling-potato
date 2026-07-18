@@ -69,7 +69,7 @@ fn claude_dynamic_shell_instruction_is_blocked_by_default() {
     fs::create_dir_all(root.join("commands")).unwrap();
     fs::write(
         root.join("commands/status.md"),
-        "---\ndescription: git 상태를 확인한다.\n---\n!`git status --short`\n결과를 요약하세요.\n",
+        "---\ndescription: git 상태를 확인한다.\n---\n- 변경 내용: !`git diff`\n결과를 요약하세요.\n",
     )
     .unwrap();
 
@@ -83,6 +83,48 @@ fn claude_dynamic_shell_instruction_is_blocked_by_default() {
     let error = resolve_imported_skill("imported.claude-code.shell-plugin.status").unwrap_err();
     assert_eq!(error.code, 3);
     assert!(error.message.contains("canonical instruction-only"));
+
+    cleanup_claude_plugin(root, data_root);
+}
+
+#[test]
+fn claude_template_substitutions_are_reported_explicitly() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let (root, data_root) = prepare_claude_plugin("template-substitution", "template-plugin");
+    fs::create_dir_all(root.join("commands")).unwrap();
+    for (name, contents) in [
+        (
+            "positional",
+            "---\ndescription: 위치 인수를 확인한다.\n---\n대상: $0\n",
+        ),
+        (
+            "named",
+            "---\ndescription: 이름 인수를 확인한다.\narguments:\n  - name: issue\n---\n대상: $issue\n",
+        ),
+        (
+            "session",
+            "---\ndescription: 세션을 확인한다.\n---\n세션: ${CLAUDE_SESSION_ID}\n",
+        ),
+        (
+            "effort",
+            "---\ndescription: 노력 수준을 확인한다.\n---\n노력: ${CLAUDE_EFFORT}\n",
+        ),
+        (
+            "skill-dir",
+            "---\ndescription: 기준 경로를 확인한다.\n---\n기준 경로: ${CLAUDE_SKILL_DIR}\n",
+        ),
+    ] {
+        fs::write(root.join(format!("commands/{name}.md")), contents).unwrap();
+    }
+
+    let imported = import_report(PluginSource::ClaudeCode, root.to_str().unwrap(), false).unwrap();
+    assert!(imported.contains("claude-frontmatter:commands/named.md:arguments"));
+    for name in ["positional", "named", "session", "effort", "skill-dir"] {
+        assert!(
+            imported.contains(&format!("claude-template-substitution:commands/{name}.md")),
+            "missing template substitution report for {name}\n{imported}"
+        );
+    }
 
     cleanup_claude_plugin(root, data_root);
 }
