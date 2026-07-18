@@ -2,9 +2,9 @@
 
 ## Source Of Truth
 
-- Status: Draft
-- Last refreshed: 2026-06-29
-- Primary product surfaces: CLI, TUI, later optional local HTML report/dashboard
+- Status: Active
+- Last refreshed: 2026-07-19
+- Primary product surfaces: CLI, TUI, optional local static HTML report
 - Evidence reviewed:
   - `README.md`
   - `PLAN.md`
@@ -15,6 +15,8 @@
   - `docs/glossary.md`
   - `docs/benchmarks.md`
   - `PRIVACY.md`
+  - `src/runtime_core/observability/monitor.rs`
+  - `src/adapters/sqlite/observability_projection.rs`
 
 ## Brand
 
@@ -74,7 +76,7 @@
 - Core routes/screens:
   - CLI: `rpotato monitor status`, `rpotato monitor models`, `rpotato monitor session <id>`
   - TUI: monitor overview, model detail, session detail, failures, export/prune
-  - later optional: local HTML report generated from SQLite/export data
+  - optional local report: `rpotato monitor export --format html`
 - Content hierarchy:
   1. current run health: model, backend, active workflow, approval state
   2. token and latency summary
@@ -221,10 +223,10 @@
 - Compatibility constraints:
   - SSH/Linux-server use is a first-class context.
   - No browser requirement for core monitoring.
-  - Optional HTML should be generated or served locally from exported data, not required for baseline operation.
+  - Optional HTML is generated locally from existing monitor query data and is not required for baseline operation.
 - Test/screenshot expectations:
   - TUI smoke tests at 80x24 and wide terminal sizes.
-  - Canvas/browser screenshot tests are not relevant unless the later HTML report/dashboard is implemented.
+  - HTML tests cover semantic structure, escaping, privacy markers, and narrow-screen layout without adding a browser runtime dependency.
 
 ## Monitoring TUI Screen Contract
 
@@ -253,19 +255,26 @@ Rules:
 
 ## HTML Surface Position
 
-HTML can be useful later for richer charts, sharing benchmark reports, or reviewing historical runs.
+HTML is an optional offline snapshot for reviewing and sharing local monitoring summaries. It does not replace the CLI or TUI and does not introduce a server.
 
-Initial stance:
+Contract:
 
 - TUI is the primary monitoring surface for local/SSH/server contexts.
 - CLI monitor commands are the plain text fallback.
-- HTML is a later optional report/dashboard surface.
-- HTML must consume the same SQLite/export data and must not create a separate monitoring truth source.
+- `rpotato monitor export --format html` writes one complete HTML document to standard output so the user can redirect it to a file.
+- HTML consumes the existing bounded monitor query data backed by the SQLite projection and canonical ledger. It must not create a separate monitoring truth source.
+- The document is self-contained: no JavaScript, remote fonts, images, stylesheets, network requests, or local server.
+- A restrictive content security policy blocks scripts, connections, forms, embedding, and base URL changes. Inline CSS is the only executable browser-adjacent content allowed.
+- Every dynamic value is HTML-escaped. Raw prompt text, raw source text, credentials, and full local filesystem paths are never rendered.
+- The report identifies its local data sources without exposing paths and shows the latest available metric timestamp or an explicit stale/unavailable marker.
+- Semantic headings, landmarks, captions, and tables provide a readable document structure. Status meaning always has text and never depends on color alone.
+- The layout supports light and dark color schemes. At narrow widths, sections stack and wide tables scroll horizontally without clipping the document.
+- Empty, unavailable, redacted, and error states use short practical Korean copy and preserve the rest of the report.
+- Export generation is read-only and offline. Opening the resulting file is an explicit user action.
 
 ## Open Questions
 
 - [ ] Which Rust TUI framework should own the terminal layout?
 - [ ] Which SQLite crate should be used?
-- [ ] Should optional HTML be a static report export or a local-only web dashboard?
 - [ ] What is the default monitoring retention period?
 - [ ] What terminal width should be the hard minimum for interactive TUI?
