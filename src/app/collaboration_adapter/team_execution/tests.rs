@@ -176,7 +176,7 @@ fn prompt_value<'a>(prompt: &'a str, marker: &str) -> &'a str {
     prompt
         .split(marker)
         .nth(1)
-        .and_then(|value| value.split([',', '.']).next())
+        .and_then(|value| value.split([',', '.', ';']).next())
         .unwrap()
 }
 
