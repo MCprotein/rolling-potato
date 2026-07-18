@@ -106,9 +106,9 @@ pub(crate) fn render_report(snapshot: &HtmlReportSnapshot) -> String {
     html.push_str("<!doctype html>\n<html lang=\"ko\">\n<head>\n");
     html.push_str("<meta charset=\"utf-8\">\n");
     html.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n");
-    write!(
+    writeln!(
         html,
-        "<meta http-equiv=\"Content-Security-Policy\" content=\"{}\">\n",
+        "<meta http-equiv=\"Content-Security-Policy\" content=\"{}\">",
         CONTENT_SECURITY_POLICY
     )
     .expect("writing to String cannot fail");
@@ -280,7 +280,7 @@ fn render_performance(html: &mut String, data: &ReportData<OptimizationPolicy>) 
          <dt>reason</dt><dd>{}</dd>\
          <dt>next hint</dt><dd>{}</dd>\
          <dt>measured benchmark</dt><dd>{} runs · pass {} · fail {} · avg score {}</dd>\
-         <dt>latest benchmark</dt><dd>{} / {}</dd></dl></section>\n",
+         <dt>latest benchmark</dt><dd>{} / {}</dd></dl></section>",
         policy_class(decision.status.as_str()),
         safe_html_text(decision.status.as_str()),
         safe_html_text(&policy.latest_resource_pressure),
