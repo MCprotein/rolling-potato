@@ -68,6 +68,7 @@ rpotato
   rpotato monitor optimize
   rpotato monitor export --format jsonl
   rpotato monitor export --format csv
+  rpotato monitor export --format html
   rpotato monitor prune --before 30d --dry-run
   rpotato ontology status
   rpotato ontology seed

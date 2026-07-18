@@ -237,6 +237,7 @@ pub enum BackendCommand {
 pub enum MonitorExportFormat {
     Jsonl,
     Csv,
+    Html,
 }
 
 #[derive(Debug, PartialEq, Eq)]

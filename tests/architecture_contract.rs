@@ -2065,6 +2065,7 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         "src/adapters/sqlite/observability_projection.rs",
         "src/adapters/sqlite/transcript_projection.rs",
         "src/runtime_core/observability/facade.rs",
+        "src/runtime_core/observability/html.rs",
         "src/runtime_core/observability/monitor.rs",
         "src/runtime_core/workflow/application/projection_barrier.rs",
     ] {
@@ -2082,7 +2083,7 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         "runtime observability owner is not crate-private"
     );
     let observability_mod = fs::read_to_string("src/runtime_core/observability/mod.rs").unwrap();
-    for owner in ["facade", "monitor"] {
+    for owner in ["facade", "html", "monitor"] {
         let expected = format!("pub(crate) mod {owner};");
         assert!(
             observability_mod.lines().any(|line| line == expected),
@@ -2128,6 +2129,18 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         assert!(
             monitor.contains(rule),
             "monitor owner is missing use case: {rule}"
+        );
+    }
+    let html = fs::read_to_string("src/runtime_core/observability/html.rs").unwrap();
+    for rule in [
+        "struct HtmlReportSnapshot",
+        "fn render_report",
+        "Content-Security-Policy",
+        "fn escape_html",
+    ] {
+        assert!(
+            html.contains(rule),
+            "HTML monitor owner is missing contract: {rule}"
         );
     }
 

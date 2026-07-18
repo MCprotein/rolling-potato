@@ -1,14 +1,17 @@
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::foundation::error::AppError;
 use crate::runtime_core::observability::facade::{
     ModelMetricSummary, OptimizationPolicy, PerformanceBaseline, PrunePreview,
     ResourceSampleMetric, StoreStatus,
 };
+use crate::runtime_core::observability::html::{self, HtmlReportSnapshot, ReportData};
 
 pub(crate) enum MonitorExportFormat {
     Jsonl,
     Csv,
+    Html,
 }
 
 pub(crate) trait MonitorQueryPort {
@@ -236,7 +239,34 @@ pub(crate) fn export_report(
     match format {
         MonitorExportFormat::Jsonl => port.export_jsonl(),
         MonitorExportFormat::Csv => port.export_csv(),
+        MonitorExportFormat::Html => html_report(port),
     }
+}
+
+fn html_report(port: &impl MonitorQueryPort) -> Result<String, AppError> {
+    let optimization_policy = port.optimization_policy()?;
+    let store = optimization_policy.store.clone();
+    let latest_resource = match port.latest_resource_sample() {
+        Ok(value) => ReportData::Available(value),
+        Err(_) => ReportData::Unavailable,
+    };
+    let model_summaries = match port.model_summaries() {
+        Ok(value) => ReportData::Available(value),
+        Err(_) => ReportData::Unavailable,
+    };
+    let generated_at_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0);
+
+    Ok(html::render_report(&HtmlReportSnapshot {
+        generated_at_ms,
+        store,
+        latest_resource,
+        model_summaries,
+        model_candidate_summary: port.model_candidate_summary(),
+        optimization_policy,
+    }))
 }
 
 pub(crate) fn prune_report(
@@ -305,6 +335,11 @@ fn score_label(value: Option<f64>) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::runtime_core::inference::resource::{
+        ModelRouteHint, OptimizationPolicyDecision, OptimizationPolicyStatus,
+    };
+    use crate::runtime_core::observability::facade::BenchmarkEvidenceSummary;
+
     use super::*;
 
     struct FakePort;
@@ -365,7 +400,35 @@ mod tests {
         }
 
         fn optimization_policy(&self) -> Result<OptimizationPolicy, AppError> {
-            Err(AppError::blocked("unused fake optimization policy"))
+            Ok(OptimizationPolicy {
+                store: self.status()?,
+                model_runs: 5,
+                resource_samples: 7,
+                latest_resource_pressure: "normal".to_owned(),
+                context_clamp_count: 1,
+                context_tokens_dropped: 2,
+                p95_latency_ms: Some(30.0),
+                avg_tokens_per_second: Some(8.0),
+                peak_rss_bytes: Some(200),
+                benchmark_evidence: BenchmarkEvidenceSummary {
+                    measured_runs: 1,
+                    passed_runs: 1,
+                    failed_runs: 0,
+                    avg_score: Some(3.0),
+                    latest_benchmark_run_id: Some("benchmark-1".to_owned()),
+                    latest_model_id: Some("model-a".to_owned()),
+                    latest_benchmark_name: Some("smoke".to_owned()),
+                },
+                decision: OptimizationPolicyDecision {
+                    status: OptimizationPolicyStatus::Recommend,
+                    recommended_context_tokens: Some(2048),
+                    recommended_lanes: 2,
+                    fallback: "sequential",
+                    model_hint: ModelRouteHint::Keep,
+                    reason: "local evidence",
+                    hint: "keep measuring",
+                },
+            })
         }
 
         fn export_jsonl(&self) -> Result<String, AppError> {
@@ -409,6 +472,9 @@ mod tests {
             export_report(&FakePort, MonitorExportFormat::Csv).unwrap(),
             "csv"
         );
+        let html = export_report(&FakePort, MonitorExportFormat::Html).unwrap();
+        assert!(html.starts_with("<!doctype html>"));
+        assert!(html.contains("Content-Security-Policy"));
         let prune = prune_report(&FakePort, 30, true).unwrap();
         assert!(prune.contains("- mode: dry-run"));
         assert!(prune.contains("- cutoff_ms: 30"));

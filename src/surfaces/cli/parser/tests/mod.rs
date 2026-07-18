@@ -1431,6 +1431,24 @@ fn parses_monitor_export_jsonl() {
 }
 
 #[test]
+fn parses_monitor_export_html() {
+    let command = parse([
+        "monitor".to_string(),
+        "export".to_string(),
+        "--format".to_string(),
+        "html".to_string(),
+    ])
+    .unwrap();
+
+    assert_eq!(
+        command,
+        Command::Monitor(MonitorCommand::Export {
+            format: MonitorExportFormat::Html
+        })
+    );
+}
+
+#[test]
 fn parses_monitor_prune_dry_run() {
     let command = parse([
         "monitor".to_string(),
