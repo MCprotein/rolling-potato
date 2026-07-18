@@ -109,6 +109,8 @@ rpotato
   rpotato uninstall --keep-cache
   rpotato uninstall --purge-cache
   rpotato uninstall --dry-run --purge-cache
+  rpotato uninstall --clean --dry-run
+  rpotato uninstall --clean --yes
 
 patch workflow 규칙:
   run이 만든 proposal은 verification plan을 미리 binding합니다.
@@ -117,7 +119,7 @@ patch workflow 규칙:
   verification command는 proposal에 binding되며 CLI에서 바꿀 수 없습니다.
 
 현재 상태:
-  install은 사용자 전용 binary와 PATH를 멱등 등록하고, clean mode는 dry-run/명시적 확인 및 active runtime 차단을 요구합니다.
+  install은 사용자 전용 binary와 PATH를 멱등 등록하고, clean install/uninstall은 dry-run/명시적 확인 및 active runtime 차단을 요구합니다.
   backend install은 source-backed manifest와 SHA-256 검증을 거친 뒤 관리형 release payload를 배치합니다.
   backend start/status/stop/chat/cancel은 managed sidecar lifecycle, SSE chat streaming, generation 취소를 다룹니다.
   team status는 최신 resource sample 기준의 read-only admission preview와 sequential fallback 결정을 표시합니다.

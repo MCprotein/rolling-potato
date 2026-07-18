@@ -8,8 +8,20 @@ use std::path::{Path, PathBuf};
 use crate::adapters::filesystem::{atomic_write, layout};
 use crate::foundation::error::AppError;
 
+mod uninstall;
+pub(crate) use uninstall::{
+    binary_removal_plan, remove_installed_binary, remove_user_path, user_path_removal_plan,
+    validate_clean_uninstall_targets,
+};
+#[cfg(test)]
+use uninstall::{install_owner_file, render_profile_without_managed_block, BinaryRemovalResult};
+#[cfg(all(test, windows))]
+use uninstall::{windows_path_owner_file, windows_path_removal};
+
 const PROFILE_BEGIN: &str = "# >>> rpotato managed PATH >>>";
 const PROFILE_END: &str = "# <<< rpotato managed PATH <<<";
+#[cfg(windows)]
+const WINDOWS_PATH_OWNER_FILE: &str = ".rpotato-path-owned";
 
 #[derive(Debug, Clone)]
 pub(crate) struct InstallPaths {
@@ -26,6 +38,7 @@ pub(crate) struct InstallPaths {
 pub(crate) enum Change {
     Created,
     Updated,
+    Removed,
     Unchanged,
 }
 
@@ -34,6 +47,7 @@ impl Change {
         match self {
             Self::Created => "created",
             Self::Updated => "updated",
+            Self::Removed => "removed",
             Self::Unchanged => "unchanged",
         }
     }
@@ -99,6 +113,7 @@ pub(crate) fn binary_install_plan(paths: &InstallPaths) -> Result<Change, AppErr
 pub(crate) fn install_binary(paths: &InstallPaths) -> Result<Change, AppError> {
     let plan = binary_install_plan(paths)?;
     if plan == Change::Unchanged {
+        uninstall::record_install_ownership(paths)?;
         return Ok(Change::Unchanged);
     }
 
@@ -109,6 +124,7 @@ pub(crate) fn install_binary(paths: &InstallPaths) -> Result<Change, AppError> {
         ))
     })?;
     copy_executable_atomically(&paths.source_binary, &paths.installed_binary)?;
+    uninstall::record_install_ownership(paths)?;
     Ok(plan)
 }
 
@@ -407,8 +423,8 @@ fn resolve_profile_target(profile: &Path) -> Result<PathBuf, AppError> {
 }
 
 fn render_managed_profile(existing: &str, block: &str) -> Result<String, AppError> {
-    let begins = existing.match_indices(PROFILE_BEGIN).collect::<Vec<_>>();
-    let ends = existing.match_indices(PROFILE_END).collect::<Vec<_>>();
+    let begins = exact_line_ranges(existing, PROFILE_BEGIN);
+    let ends = exact_line_ranges(existing, PROFILE_END);
     match (begins.as_slice(), ends.as_slice()) {
         ([], []) => {
             let mut rendered = existing.to_string();
@@ -422,16 +438,12 @@ fn render_managed_profile(existing: &str, block: &str) -> Result<String, AppErro
             rendered.push('\n');
             Ok(rendered)
         }
-        ([(begin, _)], [(end, _)]) if begin < end => {
-            let suffix_start = existing[*end..]
-                .find('\n')
-                .map(|offset| end + offset + 1)
-                .unwrap_or(existing.len());
+        ([(begin, _)], [(end, suffix_start)]) if begin < end => {
             let mut rendered = String::new();
             rendered.push_str(&existing[..*begin]);
             rendered.push_str(block);
             rendered.push('\n');
-            rendered.push_str(&existing[suffix_start..]);
+            rendered.push_str(&existing[*suffix_start..]);
             Ok(rendered)
         }
         _ => Err(AppError::blocked(
@@ -440,15 +452,34 @@ fn render_managed_profile(existing: &str, block: &str) -> Result<String, AppErro
     }
 }
 
+fn exact_line_ranges(text: &str, marker: &str) -> Vec<(usize, usize)> {
+    let mut offset = 0;
+    text.split_inclusive('\n')
+        .filter_map(|line| {
+            let start = offset;
+            offset += line.len();
+            let without_newline = line.strip_suffix('\n').unwrap_or(line);
+            let content = without_newline
+                .strip_suffix('\r')
+                .unwrap_or(without_newline);
+            (content == marker).then_some((start, offset))
+        })
+        .collect()
+}
+
 #[cfg(windows)]
 fn ensure_windows_user_path(paths: &InstallPaths) -> Result<PathRegistration, AppError> {
-    windows_path_registration(paths, true, WindowsPathScope::User, 1).and_then(
+    let registration = windows_path_registration(paths, true, WindowsPathScope::User, 1).and_then(
         |mut registrations| {
             registrations
                 .pop()
                 .ok_or_else(|| AppError::runtime("Windows 사용자 PATH 등록 결과가 없습니다."))
         },
-    )
+    )?;
+    if registration.change != Change::Unchanged {
+        record_windows_path_ownership(paths)?;
+    }
+    Ok(registration)
 }
 
 #[cfg(windows)]
@@ -461,6 +492,14 @@ enum WindowsPathScope {
 
 #[cfg(windows)]
 impl WindowsPathScope {
+    fn is_user(self) -> bool {
+        match self {
+            Self::User => true,
+            #[cfg(test)]
+            Self::Process => false,
+        }
+    }
+
     fn powershell_name(self) -> &'static str {
         match self {
             Self::User => "User",
@@ -551,6 +590,45 @@ fn windows_path_registration(
             })
         })
         .collect()
+}
+
+#[cfg(windows)]
+fn windows_path_is_owned(paths: &InstallPaths) -> Result<bool, AppError> {
+    let marker = uninstall::windows_path_owner_file(paths);
+    match fs::symlink_metadata(&marker) {
+        Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => Ok(true),
+        Ok(_) => Err(AppError::blocked(format!(
+            "Windows PATH ownership marker 유형이 유효하지 않습니다: {}",
+            marker.display()
+        ))),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(err) => Err(AppError::runtime(format!(
+            "Windows PATH ownership marker 확인 실패: {} ({err})",
+            marker.display()
+        ))),
+    }
+}
+
+#[cfg(windows)]
+fn record_windows_path_ownership(paths: &InstallPaths) -> Result<(), AppError> {
+    let marker = uninstall::windows_path_owner_file(paths);
+    if windows_path_is_owned(paths)? {
+        return Ok(());
+    }
+    atomic_write::atomic_replace_bytes(&marker, b"rpotato-owned-user-path-v1\n")
+}
+
+#[cfg(windows)]
+fn remove_windows_path_ownership(paths: &InstallPaths) -> Result<(), AppError> {
+    let marker = uninstall::windows_path_owner_file(paths);
+    match fs::remove_file(&marker) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(AppError::runtime(format!(
+            "Windows PATH ownership marker 삭제 실패: {} ({err})",
+            marker.display()
+        ))),
+    }
 }
 
 fn remove_managed_path(path: &Path) -> Result<bool, AppError> {

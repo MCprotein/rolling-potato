@@ -295,6 +295,8 @@ pub enum PluginCommand {
 #[derive(Debug, PartialEq, Eq)]
 pub enum UninstallCommand {
     Plan { purge_cache: bool, dry_run: bool },
+    CleanDryRun,
+    CleanConfirmed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

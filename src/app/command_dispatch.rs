@@ -8,7 +8,7 @@ use crate::app::workflow_adapter::transition;
 use crate::composition::{config, dispatch, inference, install, uninstall};
 use crate::foundation::error::AppError;
 use crate::surfaces::cli::{
-    command::{Command, IntentCommand, UninstallCommand},
+    command::{Command, IntentCommand},
     render,
 };
 mod collaboration_commands;
@@ -114,11 +114,8 @@ impl dispatch::CommandDispatchPort for CommandDispatchAdapter {
                 Ok(())
             }
             Command::Plugin(command) => execute_plugin(command),
-            Command::Uninstall(UninstallCommand::Plan {
-                purge_cache,
-                dry_run,
-            }) => {
-                println!("{}", uninstall::plan_report(purge_cache, dry_run));
+            Command::Uninstall(command) => {
+                println!("{}", uninstall::uninstall_report(command)?);
                 Ok(())
             }
         }

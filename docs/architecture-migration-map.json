@@ -3315,13 +3315,29 @@
       "path": "src/adapters/system_install.rs",
       "slices": [
         {
-          "responsibility": "user-local executable placement, PATH registration, and bounded clean-state I/O",
+          "responsibility": "user-local executable placement, PATH registration, and bounded clean-state I/O coordination",
           "target": "src/adapters/system_install.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/adapters/system_install.rs",
             "src/composition/install.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/uninstall.rs",
+      "slices": [
+        {
+          "responsibility": "owned executable, PATH, and post-exit clean uninstall removal",
+          "target": "src/adapters/system_install/uninstall.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install/uninstall.rs",
+            "src/adapters/system_install/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8007,7 +8023,13 @@
     {
       "path": "src/adapters/system_install.rs",
       "responsibilities": [
-        "user-local executable placement, PATH registration, and bounded clean-state I/O"
+        "user-local executable placement, PATH registration, and bounded clean-state I/O coordination"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/uninstall.rs",
+      "responsibilities": [
+        "owned executable, PATH, and post-exit clean uninstall removal"
       ]
     },
     {
