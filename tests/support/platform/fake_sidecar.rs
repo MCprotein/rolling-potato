@@ -80,6 +80,12 @@ fn handle(mut stream: TcpStream) {
             let _ = marker.write_all(b"request\n");
         }
     }
+    if let Ok(path) = std::env::var("RPOTATO_FAKE_REQUEST_SIZE_MARKER") {
+        if let Ok(mut marker) = OpenOptions::new().create(true).append(true).open(path) {
+            let body_bytes = request.len().saturating_sub(header_end);
+            let _ = writeln!(marker, "{body_bytes}");
+        }
+    }
 
     if let Ok(path) = std::env::var("RPOTATO_FAKE_RESPONSE_FILE") {
         let content = match std::fs::read_to_string(&path) {

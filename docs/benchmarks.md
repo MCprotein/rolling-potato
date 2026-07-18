@@ -382,6 +382,25 @@ anecdotal results.
 Published benchmark parity remains gated by comparable artifact, backend,
 hardware, quantization, dataset, prompt, and scoring conditions.
 
+## v0.39.0 Workflow Performance Fixture
+
+`benchmarks/fixtures/workflow-performance-v1.json` defines deterministic local
+budgets for completed agent, subagent, and team CLI workflows. The fixture uses
+the repository fake sidecar, records only request byte counts, and obtains token
+totals from the normal SQLite monitoring projection. It does not store raw
+prompts or source and makes no real-model capability claim.
+
+Run the release-mode evaluator with:
+
+```bash
+scripts/performance/verify-v0.39-workflow-budgets.sh
+```
+
+Request bytes, total tokens, persisted runtime bytes, required completion
+markers, and fixture request counts are regression gates. Wall time, peak
+process CPU, and peak RSS are measured and reported but remain hardware-dependent
+evidence rather than fixed cross-machine thresholds.
+
 ## Observability Integration
 
 Benchmark runs should use the same metric schema as normal runtime monitoring.

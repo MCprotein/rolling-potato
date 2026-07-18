@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "fixture_id": "workflow-performance-v1",
+  "claim_state": "measured-locally",
+  "model_claim": "not-applicable-fake-sidecar",
+  "agent_request_count": 1,
+  "agent_total_tokens": 20,
+  "agent_max_request_bytes": 4096,
+  "agent_max_persisted_bytes": 393216,
+  "subagent_request_count": 2,
+  "subagent_total_tokens": 40,
+  "subagent_max_request_bytes": 6144,
+  "subagent_max_persisted_bytes": 458752,
+  "team_request_count": 3,
+  "team_total_tokens": 60,
+  "team_max_request_bytes": 8192,
+  "team_max_persisted_bytes": 524288,
+  "wall_time_policy": "report-only-hardware-dependent",
+  "cpu_policy": "report-only-hardware-dependent",
+  "rss_policy": "report-only-hardware-dependent",
+  "raw_prompt_source_stored": false
+}

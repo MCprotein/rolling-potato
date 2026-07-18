@@ -356,6 +356,25 @@ Runtime은 일회성 경험담이 아니라 측정된 결과로 model route와 t
 공개 benchmark parity는 artifact, backend, hardware, quantization, dataset,
 prompt, scoring 조건이 비교 가능할 때만 허용합니다.
 
+## v0.39.0 workflow 성능 fixture
+
+`benchmarks/fixtures/workflow-performance-v1.json`은 완료된 agent, subagent,
+team CLI workflow의 결정적 local 예산을 정의합니다. 이 fixture는 저장소의
+fake sidecar를 사용하고 request byte 수만 기록하며, token 합계는 일반 SQLite
+monitoring projection에서 읽습니다. raw prompt나 source를 저장하지 않고 실제
+모델 capability claim도 하지 않습니다.
+
+release-mode evaluator는 다음과 같이 실행합니다.
+
+```bash
+scripts/performance/verify-v0.39-workflow-budgets.sh
+```
+
+request byte, total token, 영속 runtime byte, 필수 완료 marker, fixture request
+수는 regression gate입니다. wall time, process peak CPU, peak RSS는 측정해
+보고하지만 hardware-dependent evidence이므로 고정 cross-machine threshold로
+사용하지 않습니다.
+
 ## observability 연동
 
 Benchmark run은 일반 runtime monitoring과 같은 metric schema를 사용해야 합니다.
