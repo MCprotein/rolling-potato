@@ -304,6 +304,7 @@ jobs:
           $env:SCOOP = Join-Path $env:RUNNER_TEMP "rpotato-scoop"
           $scoopSource = Join-Path $env:SCOOP "apps\scoop\current"
           New-Item -ItemType Directory -Force -Path (Join-Path $env:SCOOP "shims") | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $env:SCOOP "buckets") | Out-Null
           git clone https://github.com/ScoopInstaller/Scoop.git $scoopSource
           if ($LASTEXITCODE -ne 0) { throw "failed to clone Scoop" }
           git -C "$env:SCOOP\apps\scoop\current" checkout --detach $env:SCOOP_COMMIT
@@ -456,7 +457,7 @@ jobs:
           }
 
           function Assert-Removed {
-            $listed = (& winget list --id MCprotein.rpotato --exact --disable-interactivity | Out-String)
+            $listed = (& winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-String)
             if ($LASTEXITCODE -eq 0 -and $listed -match "MCprotein\.rpotato") {
               throw "winget uninstall left package registration"
             }
@@ -465,7 +466,7 @@ jobs:
             }
           }
 
-          $preexisting = (& winget list --id MCprotein.rpotato --exact --disable-interactivity | Out-String)
+          $preexisting = (& winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-String)
           if ($LASTEXITCODE -eq 0 -and $preexisting -match "MCprotein\.rpotato") {
             throw "MCprotein.rpotato must not be preinstalled"
           }
@@ -477,18 +478,18 @@ jobs:
 
             Invoke-Winget install --manifest $currentManifest --accept-package-agreements --accept-source-agreements --disable-interactivity
             Assert-DoctorVersion $currentVersion
-            Invoke-Winget uninstall --id MCprotein.rpotato --exact --disable-interactivity
+            Invoke-Winget uninstall --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity
             Assert-Removed
 
             Invoke-Winget install --manifest $previousManifest --accept-package-agreements --accept-source-agreements --disable-interactivity
             Assert-DoctorVersion $previousVersion
             Invoke-Winget upgrade --manifest $currentManifest --accept-package-agreements --accept-source-agreements --disable-interactivity
             Assert-DoctorVersion $currentVersion
-            Invoke-Winget uninstall --id MCprotein.rpotato --exact --disable-interactivity
+            Invoke-Winget uninstall --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity
             Assert-Removed
           }
           finally {
-            & winget uninstall --id MCprotein.rpotato --exact --disable-interactivity | Out-Null
+            & winget uninstall --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-Null
             & winget settings --disable LocalManifestFiles | Out-Null
           }
 

@@ -107,6 +107,7 @@ require_line "$homebrew" 'brew uninstall --force rpotato'
 require_line "$scoop" '    runs-on: windows-2025'
 require_line "$scoop" 'SCOOP_COMMIT: b588a06e41d920d2123ec70aee682bae14935939'
 require_line "$scoop" 'New-Item -ItemType Directory -Force -Path (Join-Path $env:SCOOP "shims") | Out-Null'
+require_line "$scoop" 'New-Item -ItemType Directory -Force -Path (Join-Path $env:SCOOP "buckets") | Out-Null'
 require_line "$scoop" 'Test-Json -SchemaFile $schema'
 require_line "$scoop" 'Invoke-Scoop install $currentManifest --no-update-scoop'
 require_line "$scoop" 'Invoke-Scoop install rpotato/rpotato --no-update-scoop'
@@ -121,8 +122,15 @@ require_line "$winget" 'Invoke-Winget settings --enable LocalManifestFiles'
 require_line "$winget" 'Invoke-Winget validate --manifest $currentManifest'
 require_line "$winget" 'Invoke-Winget install --manifest $currentManifest'
 require_line "$winget" 'Invoke-Winget upgrade --manifest $currentManifest'
-require_line "$winget" 'Invoke-Winget uninstall --id MCprotein.rpotato'
+require_line "$winget" '$listed = (& winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-String)'
+require_line "$winget" '$preexisting = (& winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-String)'
+require_line "$winget" 'Invoke-Winget uninstall --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity'
+require_line "$winget" '& winget uninstall --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-Null'
 require_line "$winget" '& winget settings --disable LocalManifestFiles'
+[ "$(grep -Fc 'winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity' <<<"$winget")" -eq 2 ] \
+  || fail "both winget list probes must accept source agreements"
+[ "$(grep -Fc 'Invoke-Winget uninstall --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity' <<<"$winget")" -eq 2 ] \
+  || fail "both winget lifecycle uninstalls must accept source agreements"
 
 if grep -E '(^|[[:space:]])cargo (test|check|build)|gh release upload|gh release create|git tag ' \
   "$workflow" >/dev/null; then
