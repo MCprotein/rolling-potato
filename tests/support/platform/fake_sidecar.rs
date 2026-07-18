@@ -75,9 +75,27 @@ fn handle(mut stream: TcpStream) {
         return;
     }
 
+    let request_body = &request[header_end..];
+    if let Ok(path) = std::env::var("RPOTATO_FAKE_REQUEST_REQUIRED_SENTINEL_FILE") {
+        if let Ok(required_sentinel) = std::fs::read_to_string(path) {
+            if !required_sentinel.is_empty()
+                && find_bytes(request_body, required_sentinel.as_bytes()).is_none()
+            {
+                eprintln!("fake sidecar request sentinel missing");
+                return;
+            }
+        }
+    }
+
     if let Ok(path) = std::env::var("RPOTATO_FAKE_REQUEST_MARKER") {
         if let Ok(mut marker) = OpenOptions::new().create(true).append(true).open(path) {
             let _ = marker.write_all(b"request\n");
+        }
+    }
+    if let Ok(path) = std::env::var("RPOTATO_FAKE_REQUEST_SIZE_MARKER") {
+        if let Ok(mut marker) = OpenOptions::new().create(true).append(true).open(path) {
+            let body_bytes = request.len().saturating_sub(header_end);
+            let _ = writeln!(marker, "{body_bytes}");
         }
     }
 
@@ -89,7 +107,7 @@ fn handle(mut stream: TcpStream) {
                 return;
             }
         };
-        let request_body = String::from_utf8_lossy(&request[header_end..]);
+        let request_body = String::from_utf8_lossy(request_body);
         let content = expand_fixture_template(content, &request_body);
         let body = format!(
             "data: {{\"choices\":[{{\"delta\":{{\"content\":{}}},\"finish_reason\":\"stop\"}}]}}\n\ndata: {{\"choices\":[],\"usage\":{{\"prompt_tokens\":10,\"completion_tokens\":10,\"total_tokens\":20}}}}\n\ndata: [DONE]\n\n",
@@ -176,9 +194,7 @@ fn token_after<'a>(input: &'a str, marker: &str) -> Option<&'a str> {
     let length = rest
         .bytes()
         .take_while(|byte| {
-            byte.is_ascii_lowercase()
-                || byte.is_ascii_digit()
-                || matches!(byte, b'-' | b'_' | b'.')
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_' | b'.')
         })
         .count();
     (length > 0).then(|| &rest[..length])

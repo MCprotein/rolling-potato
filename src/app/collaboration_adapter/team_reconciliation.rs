@@ -427,8 +427,8 @@ fn append_event_once(
         return Ok(());
     }
     let event = ledger::new_event_for(identity, event_type, summary, details);
-    ledger::append_event(&event)?;
-    observability::project_event(&event)
+    let appended = ledger::append_event(&event)?;
+    observability::project_event_with_ordinal(&event, appended.ordinal)
 }
 
 fn has_event(

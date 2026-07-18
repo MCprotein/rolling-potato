@@ -382,6 +382,35 @@ anecdotal results.
 Published benchmark parity remains gated by comparable artifact, backend,
 hardware, quantization, dataset, prompt, and scoring conditions.
 
+## v0.39.0 Workflow Performance Fixture
+
+`benchmarks/fixtures/workflow-performance-v1.json` defines deterministic local
+budgets for completed agent, subagent, and team CLI workflows. The fixture uses
+the repository fake sidecar, whose performance markers record only request
+counts and body byte sizes, and obtains token totals from the normal SQLite
+monitoring projection. A unique source-context sentinel must reach each
+declared-context subagent and team worker request but remain absent from project
+and app-state artifacts. Normal visible user transcript persistence remains
+part of the product contract. The fixture makes no real-model capability claim.
+
+Run the release-mode evaluator with:
+
+```bash
+scripts/performance/verify-v0.39-workflow-budgets.sh
+```
+
+Request bytes, total tokens, persisted runtime bytes, required completion
+markers, and fixture request counts are regression gates. Wall time, peak
+process CPU, and peak RSS are measured and reported but remain hardware-dependent
+evidence rather than fixed cross-machine thresholds.
+
+The v0.39.0 bounded-worker prompt cleanup reduced the measured aggregate request
+payload from 3,813 to 3,730 bytes for the subagent fixture and from 5,231 to
+5,065 bytes for the two-member team fixture on the same local fake-sidecar
+harness. Token usage remains fixed at 20 tokens per deterministic fake response;
+the byte reduction is context-envelope evidence, not a real-model token or
+quality claim.
+
 ## Observability Integration
 
 Benchmark runs should use the same metric schema as normal runtime monitoring.

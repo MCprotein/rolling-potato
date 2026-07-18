@@ -153,8 +153,8 @@ pub fn admission_report(
             decision.reason
         ),
     );
-    ledger::append_event(&event)?;
-    observability::project_event(&event)?;
+    let appended = ledger::append_event(&event)?;
+    observability::project_event_with_ordinal(&event, appended.ordinal)?;
     let approval_request = record_approval_request(
         &identity,
         &event,
@@ -293,8 +293,8 @@ pub fn dispatch_report(
             continuation.reason
         ),
     );
-    ledger::append_event(&event)?;
-    observability::project_event(&event)?;
+    let appended = ledger::append_event(&event)?;
+    observability::project_event_with_ordinal(&event, appended.ordinal)?;
 
     let report = format!(
         "team dispatch\n- status: {}\n- observability store: {}\n- session id: {}\n- requested parallel lanes: {}\n- admitted lanes: {}\n- lane admission: {}\n- dispatch blocked: {}\n- fallback: {}\n- ownership claims: {}\n- ownership status: {}\n- ownership blocked: {}\n- owned write paths: {}\n- ownership decisions:\n{}\n- failed lane: {}\n- failure reason: {}\n- continuation status: {}\n- continuation action: {}\n- continuation remaining lanes: {}\n- continuation reason: {}\n- continuation hint: {}\n- resource sample source: {}\n- resource sample id: {}\n- resource recorded ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- reason: {}\n- hint: {}\n- ledger event: {}\n- boundary: dispatch preflight only; records ownership and failed-worker continuation state, but does not start subagents, execute tools, merge files, or advance team stages.",
@@ -401,8 +401,8 @@ pub fn governor_report(
             context_decision.reason
         ),
     );
-    ledger::append_event(&event)?;
-    observability::project_event(&event)?;
+    let appended = ledger::append_event(&event)?;
+    observability::project_event_with_ordinal(&event, appended.ordinal)?;
 
     let report = format!(
         "team governor\n- status: {}\n- observability store: {}\n- session id: {}\n- requested parallel lanes: {}\n- admitted lanes: {}\n- lane admission: {}\n- dispatch blocked: {}\n- fallback: {}\n- requested context tokens: {}\n- context limit tokens: {}\n- effective context tokens: {}\n- context action: {}\n- model tier: {}\n- model route hint: {}\n- resource sample source: {}\n- resource sample id: {}\n- resource recorded ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- reason: {}\n- hint: {}\n- ledger event: {}\n- boundary: governor preflight only; records context/model admission hints and does not start workers, select real model artifacts, mutate team stages, or execute tools.",

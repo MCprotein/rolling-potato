@@ -54,12 +54,6 @@ pub(crate) trait ObservabilityProjectionPort {
         limit: usize,
     ) -> Result<MonitorProjectionSnapshot, AppError>;
 
-    fn project_event(
-        &self,
-        event: &LedgerEvent,
-        ledger: &dyn CanonicalProjectionReadPort,
-    ) -> Result<(), AppError>;
-
     fn project_event_with_ordinal(
         &self,
         event: &LedgerEvent,

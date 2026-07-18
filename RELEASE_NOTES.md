@@ -1,5 +1,53 @@
 # Release Notes
 
+## v0.39.0 - Integrated Workflow Performance Hardening
+
+Release date: 2026-07-18
+
+This release adds a deterministic performance contract for completed agent,
+subagent, and team workflows, then removes two measured sources of avoidable
+runtime work. The evidence comes from the repository fake sidecar and local
+runtime projections; it is not a real-model quality or public benchmark claim.
+
+### Included
+
+- Adds `workflow-performance-v1`, which executes completed agent, subagent, and
+  two-member team CLI paths and gates request counts and bytes, projected token
+  totals, persisted runtime bytes, and required completion markers.
+- Measures wall time, peak process CPU, and peak RSS for every fixture while
+  keeping those hardware-dependent values report-only.
+- Runs the release-mode evaluator on the exact PR candidate after the locked
+  test, clippy, and release-build gates.
+- Keeps performance markers limited to request counts and body byte sizes, and
+  proves that source-context bytes reaching declared-context workers are not
+  persisted in project or app-state artifacts. Normal visible user transcript
+  persistence is unchanged.
+
+### Measured Optimizations
+
+- Reuses the ordinal returned by each canonical ledger append at all 12
+  production SQLite projection call sites. This reduces canonical full-ledger
+  reads per projected append from one to zero in the deterministic regression
+  fixture.
+- Compacts the bounded subagent worker context while preserving its fixed
+  bindings, evidence-only result contract, patch restrictions, and safety
+  markers.
+- On the same fake-sidecar harness, aggregate request payload falls from 3,813
+  to 3,730 bytes for the subagent fixture and from 5,231 to 5,065 bytes for the
+  two-member team fixture.
+- Deterministic fake responses remain fixed at 20 projected tokens each.
+  Therefore the request-byte reduction is context-envelope evidence, not a
+  claim that a real model uses fewer tokens or produces better output.
+
+### Compatibility Boundary
+
+- Public CLI commands, flags, exit-code contracts, dependencies, synchronous
+  execution, and default-deny action boundaries are unchanged.
+- Ledger order remains canonical; SQLite remains a rebuildable derived
+  projection and recovery still rereads the canonical ledger when required.
+- The performance fixture is local and reproducible, but its wall, CPU, and RSS
+  observations are not cross-machine thresholds or public benchmark results.
+
 ## v0.38.0 - Claude Code Plugin Execution Adapter
 
 Release date: 2026-07-18

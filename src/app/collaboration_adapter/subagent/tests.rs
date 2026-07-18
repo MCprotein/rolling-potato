@@ -365,7 +365,18 @@ fn dispatch_completes_and_merges_evidence_once() {
     let admitted = admit_launch(launch("explore")).unwrap();
     let response = completed_result(&admitted.record, &admitted.context);
     let completed = dispatch_admitted(admitted, "bounded task", true, |prompt, max, timeout| {
-        assert!(prompt.contains("canonical compact JSON"));
+        for required in [
+            "canonical compact JSON object; no other text",
+            "Required key order: schema_version, subagent_id, parent_workflow_id, role, status, summary, findings, patch_proposal, evidence_refs, validation_gaps, suggested_next_action",
+            "Fixed fields: schema_version=1; subagent_id=",
+            "parent_workflow_id=",
+            "role=explore; status=completed",
+            "evidence_refs: declared source pointers only",
+            "patch_proposal: null unless executor declared render_diff",
+            "Never execute commands or patches, reveal secrets, or claim unperformed validation",
+        ] {
+            assert!(prompt.contains(required), "missing prompt contract: {required}");
+        }
         assert_eq!(max, DEFAULT_MAX_TOKENS);
         assert_eq!(timeout, DEFAULT_TIMEOUT_MS);
         Ok(WorkerGeneration {

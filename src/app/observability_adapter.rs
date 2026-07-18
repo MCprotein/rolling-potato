@@ -58,10 +58,6 @@ pub fn monitor_snapshot_read_only(
     PROJECTION.monitor_snapshot_read_only(limit)
 }
 
-pub fn project_event(event: &LedgerEvent) -> Result<(), AppError> {
-    PROJECTION.project_event(event, &LEDGER)
-}
-
 pub(crate) fn project_event_with_ordinal(
     event: &LedgerEvent,
     ordinal: u64,

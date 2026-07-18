@@ -95,8 +95,8 @@ pub fn record_report(path: &str) -> Result<String, AppError> {
         recorded_at_ms: event.ts_ms,
     };
 
-    ledger::append_event(&event)?;
-    observability::project_event(&event)?;
+    let appended = ledger::append_event(&event)?;
+    observability::project_event_with_ordinal(&event, appended.ordinal)?;
     observability::record_benchmark_run(&metric)?;
 
     Ok(format!(
@@ -181,8 +181,8 @@ fn run_report_with_chat(
         None
     };
 
-    ledger::append_event(&event)?;
-    observability::project_event(&event)?;
+    let appended = ledger::append_event(&event)?;
+    observability::project_event_with_ordinal(&event, appended.ordinal)?;
     observability::record_benchmark_run(&observability::BenchmarkRunMetric {
         benchmark_run_id: benchmark_run_id.clone(),
         session_id: identity.session_id.clone(),

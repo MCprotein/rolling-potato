@@ -36,7 +36,7 @@ pub use storage::read_runtime_events;
 pub(crate) use storage::read_runtime_tail_read_only;
 #[cfg(test)]
 use storage::{ledger_head_path, validate_ledger_contents, write_ledger_head};
-pub(crate) use writer::{EventSink, LedgerWriterGuard};
+pub(crate) use writer::{AppendedEvent, EventSink, LedgerWriterGuard};
 
 static EVENT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -121,9 +121,8 @@ pub fn new_event_for(
     }
 }
 
-pub fn append_event(event: &LedgerEvent) -> Result<(), AppError> {
-    LedgerWriterGuard::acquire()?.append_planned(event)?;
-    Ok(())
+pub(crate) fn append_event(event: &LedgerEvent) -> Result<AppendedEvent, AppError> {
+    LedgerWriterGuard::acquire()?.append_planned(event)
 }
 
 fn sanitize_event_type(value: &str) -> String {

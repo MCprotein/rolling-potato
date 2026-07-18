@@ -17,8 +17,8 @@ pub(super) fn append_execution_blocked(
             ledger::redact_text(reason),
         ),
     );
-    ledger::append_event(&event)?;
-    observability::project_event(&event)
+    let appended = ledger::append_event(&event)?;
+    observability::project_event_with_ordinal(&event, appended.ordinal)
 }
 
 pub(super) fn append_action_event(
@@ -50,8 +50,8 @@ pub(super) fn append_action_event(
         "team worker action ownership enforced",
         &details,
     );
-    ledger::append_event(&event)?;
-    observability::project_event(&event)
+    let appended = ledger::append_event(&event)?;
+    observability::project_event_with_ordinal(&event, appended.ordinal)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -75,8 +75,8 @@ pub(super) fn append_worker_event(
         return Ok(());
     }
     let event = ledger::new_event_for(identity, event_type, summary, &details);
-    ledger::append_event(&event)?;
-    observability::project_event(&event)
+    let appended = ledger::append_event(&event)?;
+    observability::project_event_with_ordinal(&event, appended.ordinal)
 }
 
 fn has_exact_event(

@@ -356,6 +356,35 @@ Runtime은 일회성 경험담이 아니라 측정된 결과로 model route와 t
 공개 benchmark parity는 artifact, backend, hardware, quantization, dataset,
 prompt, scoring 조건이 비교 가능할 때만 허용합니다.
 
+## v0.39.0 workflow 성능 fixture
+
+`benchmarks/fixtures/workflow-performance-v1.json`은 완료된 agent, subagent,
+team CLI workflow의 결정적 local 예산을 정의합니다. 이 fixture는 저장소의
+fake sidecar를 사용하며 performance marker에는 request 수와 body byte 크기만
+기록합니다. token 합계는 일반 SQLite monitoring projection에서 읽습니다. 고유
+source-context sentinel은 declared-context subagent와 team worker request에
+도달해야 하지만 project와 app state artifact에는 남으면 안 됩니다. 일반 visible
+user transcript 영속화는 기존 제품 contract로 유지합니다. 실제 모델 capability
+claim은 하지 않습니다.
+
+release-mode evaluator는 다음과 같이 실행합니다.
+
+```bash
+scripts/performance/verify-v0.39-workflow-budgets.sh
+```
+
+request byte, total token, 영속 runtime byte, 필수 완료 marker, fixture request
+수는 regression gate입니다. wall time, process peak CPU, peak RSS는 측정해
+보고하지만 hardware-dependent evidence이므로 고정 cross-machine threshold로
+사용하지 않습니다.
+
+v0.39.0 bounded-worker prompt 정리는 같은 local fake-sidecar harness에서
+subagent fixture의 aggregate request payload를 3,813 byte에서 3,730 byte로,
+2-member team fixture는 5,231 byte에서 5,065 byte로 줄였습니다. deterministic
+fake response의 token 사용량은 응답당 20 token으로 고정되어 있습니다. 따라서
+이 byte 감소는 context envelope 근거이며 실제 모델의 token 또는 품질 claim이
+아닙니다.
+
 ## observability 연동
 
 Benchmark run은 일반 runtime monitoring과 같은 metric schema를 사용해야 합니다.
