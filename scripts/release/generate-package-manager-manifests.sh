@@ -29,9 +29,31 @@ version="${tag#v}"
 case "/$output_root/" in
   */../* | */./*) fail "output path traversal is forbidden: $output_root" ;;
 esac
-if [ -L "$output_root" ]; then
-  fail "output root must not be a symlink: $output_root"
-fi
+
+reject_symlink_path_components() {
+  local path="$1"
+  local current=""
+  local component
+  local -a components
+  if [[ "$path" = /* ]]; then
+    current="/"
+  fi
+  IFS='/' read -r -a components <<<"$path"
+  for component in "${components[@]}"; do
+    [ -n "$component" ] || continue
+    if [ "$current" = "/" ]; then
+      current="/$component"
+    elif [ -n "$current" ]; then
+      current="$current/$component"
+    else
+      current="$component"
+    fi
+    [ ! -L "$current" ] \
+      || fail "output path component must not be a symlink: $current"
+  done
+}
+
+reject_symlink_path_components "$output_root"
 if [ -e "$output_root" ] && [ ! -d "$output_root" ]; then
   fail "output root must be a directory: $output_root"
 fi

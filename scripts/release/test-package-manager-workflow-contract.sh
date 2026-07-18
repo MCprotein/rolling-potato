@@ -10,13 +10,16 @@ workflow=".github/workflows/package-manager-distribution.yml"
 release_workflow=".github/workflows/release-binaries.yml"
 preflight="scripts/ci/verify-pr-candidate-preflight.sh"
 validator="scripts/release/validate-package-manager-workflow-inputs.sh"
+release_validator="scripts/release/verify-published-stable-release.sh"
 resolver="scripts/release/resolve-previous-stable-tag.sh"
 repo_root="$(pwd)"
 checkout_pin='actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0'
 upload_pin='actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1'
 download_pin='actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1'
 
-for file in "$workflow" "$release_workflow" "$preflight" "$validator" "$resolver"; do
+for file in \
+  "$workflow" "$release_workflow" "$preflight" "$validator" \
+  "$release_validator" "$resolver"; do
   [ -f "$file" ] || fail "required file is missing: $file"
 done
 
@@ -72,6 +75,9 @@ require_line "$prepare" "uses: $download_pin"
 require_line "$prepare" "uses: $upload_pin"
 require_line "$prepare" "scripts/release/validate-package-manager-workflow-inputs.sh"
 require_line "$prepare" 'scripts/release/resolve-previous-stable-tag.sh "$CURRENT_TAG"'
+require_line "$prepare" 'for release_tag in "$CURRENT_TAG" "$previous_tag"; do'
+require_line "$prepare" '--json tagName,isDraft,isPrerelease,publishedAt'
+require_line "$prepare" 'scripts/release/verify-published-stable-release.sh "$release_tag"'
 require_line "$prepare" "if: inputs.mode == 'release'"
 require_line "$prepare" "if: inputs.mode != 'release'"
 require_line "$prepare" 'gh release download "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY"'
@@ -133,6 +139,7 @@ for need in package-manager-prepare homebrew-lifecycle scoop-lifecycle winget-li
 done
 require_line "$cleanup" '      RPOTATO_RELEASE_BRANCH: release/${{ inputs.current_tag }}'
 require_line "$cleanup" '      RPOTATO_DELETE_RELEASE_BRANCH: 1'
+require_line "$cleanup" '          ref: ${{ inputs.current_tag }}'
 require_line "$cleanup" 'git ls-remote --exit-code --heads origin "release/$RELEASE_TAG"'
 require_line "$preserve" '      RELEASE_BRANCH: release/${{ inputs.current_tag }}'
 require_line "$preserve" 'scripts/release/report-release-failure.sh'
@@ -167,6 +174,29 @@ expect_failure release-predecessor "$validator" release v0.40.0 v0.39.0
 expect_failure recovery-predecessor "$validator" recovery v0.40.0 v0.39.0
 expect_failure qualification-missing "$validator" qualification v0.39.0 ""
 expect_failure qualification-reversed "$validator" qualification v0.38.0 v0.39.0
+
+run_release_fixture() {
+  local tag="$1"
+  local json="$2"
+  printf '%s\n' "$json" | "$release_validator" "$tag"
+}
+
+published_release='{"tagName":"v0.40.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-18T00:00:00Z"}'
+run_release_fixture v0.40.0 "$published_release" >/dev/null
+expect_failure published-release-draft \
+  run_release_fixture v0.40.0 \
+  '{"tagName":"v0.40.0","isDraft":true,"isPrerelease":false,"publishedAt":"2026-07-18T00:00:00Z"}'
+expect_failure published-release-prerelease \
+  run_release_fixture v0.40.0 \
+  '{"tagName":"v0.40.0","isDraft":false,"isPrerelease":true,"publishedAt":"2026-07-18T00:00:00Z"}'
+expect_failure published-release-wrong-tag \
+  run_release_fixture v0.40.0 \
+  '{"tagName":"v0.39.0","isDraft":false,"isPrerelease":false,"publishedAt":"2026-07-18T00:00:00Z"}'
+expect_failure published-release-missing-date \
+  run_release_fixture v0.40.0 \
+  '{"tagName":"v0.40.0","isDraft":false,"isPrerelease":false,"publishedAt":null}'
+expect_failure published-release-malformed-json \
+  run_release_fixture v0.40.0 '{"tagName":'
 
 resolver_fixture="$(mktemp -d)"
 trap 'rm -rf "$resolver_fixture"' EXIT

@@ -83,8 +83,11 @@ jobs:
             exit 1
           fi
           previous_tag="$resolved_previous"
-          gh release view "$CURRENT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
-          gh release view "$previous_tag" --repo "$GITHUB_REPOSITORY" >/dev/null
+          for release_tag in "$CURRENT_TAG" "$previous_tag"; do
+            gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" \
+              --json tagName,isDraft,isPrerelease,publishedAt \
+              | scripts/release/verify-published-stable-release.sh "$release_tag"
+          done
           printf 'previous_tag=%s\n' "$previous_tag" >> "$GITHUB_OUTPUT"
           printf 'PREVIOUS_TAG=%s\n' "$previous_tag" >> "$GITHUB_ENV"
           printf 'mode=%s current=%s previous=%s\n' \
@@ -514,6 +517,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          ref: ${{ inputs.current_tag }}
 
       - name: Delete release branch after package-manager verification
         shell: bash

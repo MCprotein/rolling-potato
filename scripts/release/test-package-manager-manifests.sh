@@ -9,7 +9,7 @@ verifier="$script_dir/verify-package-manager-manifests.sh"
 fixture_root="$repo_root/packaging/package-managers/fixtures"
 checksum_fixture="$fixture_root/checksums-v0.40.0.txt"
 expected="$fixture_root/expected"
-root="$(mktemp -d "${TMPDIR:-/tmp}/rpotato-package-manager-test.XXXXXX")"
+root="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/rpotato-package-manager-test.XXXXXX")" && pwd -P)"
 trap 'rm -rf "$root"' EXIT
 
 expect_failure() {
@@ -107,6 +107,11 @@ mkdir -p "$root/symlink-target"
 ln -s "$root/symlink-target" "$root/symlink-output"
 expect_failure symlink-output \
   "$generator" v0.40.0 "$checksum_fixture" "$root/symlink-output"
+
+mkdir -p "$root/symlink-parent-target"
+ln -s "$root/symlink-parent-target" "$root/symlink-parent"
+expect_failure symlink-output-ancestor \
+  "$generator" v0.40.0 "$checksum_fixture" "$root/symlink-parent/child"
 
 ln -s "$checksum_fixture" "$root/checksums-link.txt"
 expect_failure symlink-input \

@@ -245,7 +245,9 @@ request is a separate maintainer-authorized operation.
 `rpotato-vX.Y.Z-checksums.txt`, accepted by
 `scripts/release/verify-release-assets.sh`, is the only source for hashes placed
 in package-manager manifests. All download URLs remain immutable versioned
-HTTPS URLs under the matching GitHub Release.
+HTTPS URLs under the matching GitHub Release. Qualification, release, and
+recovery preparation also require both selected GitHub Releases to match their
+requested stable tags, be published, and be neither drafts nor prereleases.
 
 The native validation prerequisites recorded on 2026-07-18 are:
 
