@@ -109,10 +109,9 @@ pub fn revalidate_completed_imported_skill(
 fn parse_imported_skill_id(id: &str) -> Option<(PluginSource, &str, &str)> {
     let (source, tail) = if let Some(tail) = id.strip_prefix("imported.codex.") {
         (PluginSource::Codex, tail)
-    } else if let Some(tail) = id.strip_prefix("imported.claude-code.") {
-        (PluginSource::ClaudeCode, tail)
     } else {
-        return None;
+        let tail = id.strip_prefix("imported.claude-code.")?;
+        (PluginSource::ClaudeCode, tail)
     };
     let (plugin_name, skill_name) = tail.split_once('.')?;
     Some((source, plugin_name, skill_name))

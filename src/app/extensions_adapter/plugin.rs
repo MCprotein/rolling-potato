@@ -116,10 +116,7 @@ pub fn enabled_imported_skill_rows() -> Vec<String> {
     rows
 }
 
-fn imported_capability_name<'a>(
-    source: PluginSource,
-    capability: &'a PluginCapability,
-) -> Option<&'a str> {
+fn imported_capability_name(source: PluginSource, capability: &PluginCapability) -> Option<&str> {
     match (source, capability.kind.as_str()) {
         (PluginSource::Codex | PluginSource::ClaudeCode, "skill") => capability
             .path
