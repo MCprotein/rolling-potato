@@ -31,12 +31,17 @@ contract.
 
 - Manifest generation is `Generated`, and repository fixture/workflow contract
   checks pass.
-- The v0.38.0 to v0.39.0 native qualification passed all four Homebrew lanes
-  plus Scoop and winget on 2026-07-18, so the lifecycle contract is
-  `Validated`.
-- Homebrew tap: `Unpublished`.
-- Scoop bucket: `Unpublished`.
-- winget community manifest: `Unpublished`.
+- The pre-tag v0.38.0-to-v0.39.0 qualification and the release-mode
+  v0.39.0-to-v0.40.0 lifecycle both passed all four Homebrew lanes plus Scoop
+  and winget on 2026-07-18, so the lifecycle contract is `Validated`.
+- Homebrew tap: `Published` at
+  [MCprotein/homebrew-rpotato](https://github.com/MCprotein/homebrew-rpotato),
+  commit `ae73107e6622c7caebe0137662a0b2a24bfb41aa`.
+- Scoop bucket: `Published` at
+  [MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato),
+  commit `2e881e23456ae818d00ae63a1059bd870fc914de`.
+- winget community manifest: `Pending external review` in
+  [microsoft/winget-pkgs#404237](https://github.com/microsoft/winget-pkgs/pull/404237).
 - No external channel is considered complete until its public URL or upstream
   review status is recorded.
 
@@ -44,8 +49,8 @@ contract.
 
 - Runtime behavior, persisted schemas, Cargo dependencies, archive contents,
   and the exact 11-file release asset set are unchanged.
-- Package-manager files remain workflow artifacts until external publication
-  completes from the verified v0.40.0 asset set.
+- Published channel files byte-match the workflow artifact generated from the
+  verified v0.40.0 asset set; the winget submission remains externally owned.
 
 ## v0.39.0 - Integrated Workflow Performance Hardening
 

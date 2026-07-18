@@ -234,11 +234,16 @@ Use these states consistently:
 - `Unpublished`: no live external channel is claimed, even if generated and
   validated artifacts exist.
 
-As of 2026-07-18, the repository implementation is `Generated` and its static
-contract checks pass. Native qualification is still pending, so no channel has
-reached `Validated`; all three external channels remain `Unpublished`. Creating
-or updating the Homebrew tap, Scoop bucket, or winget community-manifest pull
-request is a separate maintainer-authorized operation.
+As of 2026-07-18, the v0.40.0 release artifact is `Generated` and `Validated`
+across all six native lifecycle lanes. The Homebrew tap is `Published` at
+[MCprotein/homebrew-rpotato](https://github.com/MCprotein/homebrew-rpotato)
+commit `ae73107e6622c7caebe0137662a0b2a24bfb41aa`, and the Scoop bucket is
+`Published` at
+[MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato) commit
+`2e881e23456ae818d00ae63a1059bd870fc914de`. The winget manifest is
+`Pending external review` in
+[microsoft/winget-pkgs#404237](https://github.com/microsoft/winget-pkgs/pull/404237);
+it is not a published community package until upstream merges it.
 
 ### Integrity and pinned prerequisites
 

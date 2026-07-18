@@ -209,11 +209,16 @@ asset contract입니다.
   상태를 기록함
 - `Unpublished`: 생성·검증 artifact가 있어도 live 외부 channel이라고 주장하지 않음
 
-2026-07-18 기준 저장소 구현은 `Generated` 상태이고 static contract check가
-통과했습니다. Native qualification은 아직 대기 중이므로 `Validated`에 도달한
-channel은 없으며, 외부 channel 3개는 모두 `Unpublished`입니다. Homebrew tap,
-Scoop bucket, winget community-manifest PR을 만들거나 갱신하는 작업은 maintainer가
-별도로 승인해야 하는 외부 작업입니다.
+2026-07-18 기준 v0.40.0 release artifact는 `Generated` 상태이고 native 6개
+lifecycle lane에서 `Validated`에 도달했습니다. Homebrew tap은
+[MCprotein/homebrew-rpotato](https://github.com/MCprotein/homebrew-rpotato)
+commit `ae73107e6622c7caebe0137662a0b2a24bfb41aa`로 `Published`, Scoop bucket은
+[MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato)
+commit `2e881e23456ae818d00ae63a1059bd870fc914de`로 `Published`입니다. winget
+manifest는
+[microsoft/winget-pkgs#404237](https://github.com/microsoft/winget-pkgs/pull/404237)에서
+`Pending external review`이며 upstream merge 전에는 community package로
+게시된 것이 아닙니다.
 
 ### 무결성과 고정 prerequisite
 

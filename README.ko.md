@@ -50,14 +50,15 @@
 
 ## Package 설치
 
-v0.40.0 저장소 후보는 정확히 검증된 GitHub Release asset의 checksum에서
-Homebrew, Scoop, winget package 정의를 생성하고 static 검증합니다. Native
-qualification은 아직 대기 중이며, 외부 Homebrew tap, Scoop bucket, winget
-package는 현재 **게시되지 않았습니다**. 릴리즈 노트가 외부 URL과 함께 해당
-channel을 `Published`로 기록하기 전에는 GitHub Release archive를 직접 사용해야
-합니다.
+v0.40.0 릴리즈는 정확히 검증된 GitHub Release asset의 checksum에서 Homebrew,
+Scoop, winget package 정의를 생성하고 검증합니다. Release workflow에서 native
+6개 lane의 clean install, v0.39.0에서 v0.40.0으로 올리는 upgrade, uninstall
+lifecycle이 모두 통과했습니다.
 
-각 channel을 게시한 뒤 지원할 명령은 다음과 같습니다.
+[Homebrew tap](https://github.com/MCprotein/homebrew-rpotato)과
+[Scoop bucket](https://github.com/MCprotein/scoop-rpotato)은 게시됐습니다.
+[winget community 제출](https://github.com/microsoft/winget-pkgs/pull/404237)은
+외부 검토 대기 중입니다.
 
 ### Homebrew (macOS arm64/x64, Linux arm64/x64)
 
@@ -73,12 +74,14 @@ brew uninstall rpotato
 
 ```powershell
 scoop bucket add rpotato https://github.com/MCprotein/scoop-rpotato
-scoop install rpotato
+scoop install rpotato/rpotato
 scoop update rpotato
 scoop uninstall rpotato
 ```
 
 ### winget (Windows x64)
+
+Community 제출이 merge된 뒤 다음 명령을 사용할 수 있습니다.
 
 ```powershell
 winget install --id MCprotein.rpotato --exact

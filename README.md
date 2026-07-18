@@ -52,14 +52,15 @@ The current binary priority is macOS, Linux, and Windows through maintainer-led 
 
 ## Package Installation
 
-The v0.40.0 repository candidate generates and statically verifies package
-definitions for Homebrew, Scoop, and winget from the checksums of the exact
-published GitHub Release assets. Native qualification is still pending, and the
-external Homebrew tap, Scoop bucket, and winget package are currently
-**unpublished**. Until a release note records a channel as `Published` with its
-external URL, use the direct GitHub Release archives.
+The v0.40.0 release generates and verifies package definitions for Homebrew,
+Scoop, and winget from the checksums of the exact published GitHub Release
+assets. The release workflow passed clean-install, v0.39.0-to-v0.40.0 upgrade,
+and uninstall lifecycles on all six native lanes.
 
-After each channel is published, its supported commands will be:
+The [Homebrew tap](https://github.com/MCprotein/homebrew-rpotato) and
+[Scoop bucket](https://github.com/MCprotein/scoop-rpotato) are published.
+The [winget community submission](https://github.com/microsoft/winget-pkgs/pull/404237)
+is pending external review.
 
 ### Homebrew (macOS arm64/x64 and Linux arm64/x64)
 
@@ -75,12 +76,14 @@ brew uninstall rpotato
 
 ```powershell
 scoop bucket add rpotato https://github.com/MCprotein/scoop-rpotato
-scoop install rpotato
+scoop install rpotato/rpotato
 scoop update rpotato
 scoop uninstall rpotato
 ```
 
 ### winget (Windows x64)
+
+These commands become available after the community submission is merged:
 
 ```powershell
 winget install --id MCprotein.rpotato --exact

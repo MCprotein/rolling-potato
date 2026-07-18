@@ -27,11 +27,18 @@ Release asset을 기준으로 게시합니다.
 ### 현재 Evidence 상태
 
 - Manifest는 `Generated` 상태이고 저장소 fixture/workflow contract check가 통과
-- v0.38.0에서 v0.39.0으로 올리는 native qualification이 Homebrew 4개 lane과
-  Scoop, winget에서 모두 통과해 lifecycle contract가 `Validated`에 도달
-- Homebrew tap: `Unpublished`
-- Scoop bucket: `Unpublished`
-- winget community manifest: `Unpublished`
+- Tag 전 v0.38.0→v0.39.0 qualification과 release mode v0.39.0→v0.40.0
+  lifecycle이 Homebrew 4개 lane과 Scoop, winget에서 모두 통과해
+  lifecycle contract가 `Validated`에 도달
+- Homebrew tap:
+  [MCprotein/homebrew-rpotato](https://github.com/MCprotein/homebrew-rpotato)
+  commit `ae73107e6622c7caebe0137662a0b2a24bfb41aa`로 `Published`
+- Scoop bucket:
+  [MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato)
+  commit `2e881e23456ae818d00ae63a1059bd870fc914de`로 `Published`
+- winget community manifest:
+  [microsoft/winget-pkgs#404237](https://github.com/microsoft/winget-pkgs/pull/404237)에서
+  `Pending external review`
 - Public URL 또는 upstream review 상태를 기록하기 전에는 어떤 외부 channel도
   완료로 보지 않음
 
@@ -39,8 +46,8 @@ Release asset을 기준으로 게시합니다.
 
 - Runtime 동작, persisted schema, Cargo dependency, archive 내용, 정확한 11-file
   release asset set은 변경하지 않음
-- Package-manager file은 검증된 v0.40.0 asset set에서 외부 publication을
-  완료하기 전까지 workflow artifact로 유지
+- 게시된 channel file은 검증된 v0.40.0 asset set에서 생성한 workflow artifact와
+  byte 단위로 일치하며, winget 제출의 최종 상태는 외부 upstream이 소유
 
 ## v0.39.0 - 통합 Workflow 성능 최적화
 
