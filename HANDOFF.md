@@ -7,7 +7,7 @@
 ```
 
 - Remote: `https://github.com/MCprotein/rolling-potato.git`
-- Latest release: `v0.37.13`
+- Latest release: `v0.41.0`
 - CLI: `rpotato`
 - Product: local-first coding-agent runtime for small local models
 
@@ -38,7 +38,7 @@ policy, explicit approval where required, evidence recording, and verification.
 
 ## Current Release State
 
-`v0.37.13` is the current complete release. GitHub Releases provides checksummed
+`v0.41.0` is the current complete release. GitHub Releases provides checksummed
 binaries for:
 
 - macOS Apple Silicon
@@ -49,9 +49,11 @@ binaries for:
 
 The release workflow runs the serialized Rust test gate, per-target build and
 smoke checks, packages each binary, publishes per-asset checksums, and produces
-an aggregate checksum file. The active repository toolchain is pinned to Rust
-1.97.0, current Node.js 24 GitHub Actions, current GA hosted runners, and
-managed `llama.cpp b9982`; model measurements made on older pinned backends
+an aggregate checksum file. It verifies the exact 11-file published asset set
+before deleting the merged release branch and does not automatically invoke
+package-manager or winget workflows. The active repository toolchain is pinned
+to Rust 1.97.0, current Node.js 24 GitHub Actions, current GA hosted runners,
+and managed `llama.cpp b9982`; model measurements made on older pinned backends
 remain historical evidence.
 
 ## Implemented Runtime Foundations
@@ -115,30 +117,18 @@ remain historical evidence.
   native read-only runtime after snapshot/frontmatter revalidation. Plugin
   scripts, hooks, MCP/app integrations, shell/background, remote, and write
   capabilities receive no execution authority.
-- The v0.41 branch implements HTML monitoring as a static local export; it
-  does not add a server or external telemetry. Package-manager publication
-  remains separately evidenced.
+- v0.41.0 implements HTML monitoring as a static local export; it does not add
+  a server or external telemetry. Package-manager publication remains
+  separately evidenced and is not a later release completion gate.
 
 ## Next Versions
 
-The version-only roadmap in `ROADMAP.md` is the source of truth. The immediate
-sequence and non-skippable release gates are defined in
-`docs/release-train.md`. The immediate sequence is:
-
-1. `v0.37.1` through `v0.37.12` were unpublished implementation milestones
-   consolidated into the exact-tree `v0.37.13` release. Every migration-ledger
-   responsibility is complete and the `src` root contains only binary-owned
-   `main.rs`.
-2. `v0.38.0` begins only after the v0.37.13 tag, exact 11-asset set,
-   checksums, packaged-binary smoke evidence, and release branch cleanup are
-   verified. Its
-   scope is Claude Code local plugin execution conformance through the
-   established native adapter and default-deny permission boundary.
-3. `v0.39.0` onward: integrated performance hardening followed by distribution
-   and optional local monitoring surfaces.
-
-Package-manager distribution shipped in v0.40. The v0.41 branch now implements
-the optional local HTML monitoring report as a static, self-contained export.
+The version-only roadmap in `ROADMAP.md` is the source of truth. The
+`v0.29.0`-`v0.41.0` release train is complete: architecture ownership,
+Claude Code plugin execution, integrated workflow performance hardening,
+package-manager distribution, and the optional local HTML monitor export have
+shipped. No version after v0.41.0 is currently defined. Add the next concrete
+version row before beginning new roadmap work.
 
 ## Model Evidence Boundary
 

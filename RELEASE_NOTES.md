@@ -1,5 +1,42 @@
 # Release Notes
 
+## v0.41.0 - Local HTML Monitor Report
+
+Release date: 2026-07-19
+
+This release adds an optional static HTML view to the existing local monitoring
+export. It does not add a server, external telemetry, or another monitoring
+source of truth.
+
+### Included
+
+- Adds `rpotato monitor export --format html`, which writes one complete,
+  self-contained HTML document to standard output for explicit redirection to a
+  local file.
+- Reuses the existing bounded SQLite/ledger monitor queries for store summary,
+  resource pressure, model metrics, and optimization policy. A failed query
+  renders only its section as unavailable instead of suppressing the complete
+  report.
+- Provides semantic responsive layout, light/dark color support, and a
+  restrictive content security policy without JavaScript, external assets,
+  network requests, or a local HTTP server.
+- Applies the existing credential redaction boundary, removes absolute local
+  path tokens, and HTML-escapes all dynamic text before rendering.
+- Adds CLI parser, runtime-port, partial-availability, redaction, and
+  architecture-contract regressions plus bilingual usage and observability
+  documentation.
+
+### Compatibility Boundary
+
+- Existing JSONL and CSV monitor exports, persisted schemas, dependencies,
+  runtime policy, and exit semantics are unchanged.
+- The report is a point-in-time local snapshot. It does not auto-refresh, open
+  a browser, create a file without shell redirection, or expose raw
+  prompt/source text.
+- The exact five-platform, 11-file GitHub Release asset contract is unchanged.
+  Package-manager and winget workflows are not part of the v0.41.0 completion
+  path and are not invoked by the binary release.
+
 ## v0.40.0 - Package Manager Distribution
 
 Release date: 2026-07-18
