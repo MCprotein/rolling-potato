@@ -1,10 +1,13 @@
 # Release Notes
 
-## v0.40.0 - Package Manager Distribution (Unreleased)
+## v0.40.0 - Package Manager Distribution
 
-Publication status: repository candidate; external channels `Unpublished`
+Release date: 2026-07-18
 
-This candidate adds a deterministic package-manager distribution contract
+Package-manager channel status at tag: `Unpublished`; publication follows
+verified v0.40.0 GitHub Release assets.
+
+This release adds a deterministic package-manager distribution contract
 without changing the existing binary or exact 11-asset GitHub Release
 contract.
 
@@ -28,8 +31,9 @@ contract.
 
 - Manifest generation is `Generated`, and repository fixture/workflow contract
   checks pass.
-- The v0.38.0 to v0.39.0 native qualification is pending, so the channels have
-  not reached `Validated`.
+- The v0.38.0 to v0.39.0 native qualification passed all four Homebrew lanes
+  plus Scoop and winget on 2026-07-18, so the lifecycle contract is
+  `Validated`.
 - Homebrew tap: `Unpublished`.
 - Scoop bucket: `Unpublished`.
 - winget community manifest: `Unpublished`.
@@ -40,8 +44,8 @@ contract.
 
 - Runtime behavior, persisted schemas, Cargo dependencies, archive contents,
   and the exact 11-file release asset set are unchanged.
-- Package-manager files remain workflow artifacts until a separately authorized
-  external publication step.
+- Package-manager files remain workflow artifacts until external publication
+  completes from the verified v0.40.0 asset set.
 
 ## v0.39.0 - Integrated Workflow Performance Hardening
 
