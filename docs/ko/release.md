@@ -172,9 +172,119 @@ GitHub runner-images reference는 2026-07-13 확인 시 위 label을 GA image로
 - Linux ARM64
 - Windows x86_64
 
-추후 목표:
+준비한 package-manager target:
 
-- package manager channel: Homebrew, Scoop, winget
+- Homebrew: macOS arm64/x64, Linux arm64/x64
+- Scoop: Windows x64
+- winget: Windows x64 portable ZIP
+
+## Package Manager 배포
+
+Package-manager manifest는 파생 artifact입니다. Channel마다 release URL과
+checksum을 별도로 수동 관리하지 않습니다.
+
+Release workflow는 다음 순서로 실행합니다.
+
+1. 정확한 11-file GitHub Release asset set을 검증합니다.
+2. 검증된 aggregate checksum file에서 archive 5개의 hash를 읽습니다.
+3. Homebrew formula 하나, Scoop manifest 하나, winget manifest 3개를 생성합니다.
+4. 별도 verifier가 정확한 path, version, URL, archive 이름, hash를 검증합니다.
+5. Native 6개 lane에서 clean install, previous-stable-to-current upgrade,
+   `rpotato doctor` version 출력, package-manager uninstall, command 부재를
+   검증합니다.
+6. 현재 version의 생성 결과를 publication-candidate workflow artifact로
+   upload합니다.
+
+Package-manager workflow는 GitHub Release에 파일을 추가하지 않습니다. 기존
+archive 5개, sidecar checksum 5개, aggregate checksum 1개가 계속 전체 release
+asset contract입니다.
+
+### Channel 상태
+
+다음 상태를 일관되게 사용합니다.
+
+- `Generated`: 검증된 aggregate checksum에서 deterministic manifest를 생성함
+- `Validated`: static verifier와 해당 native lifecycle lane이 모두 통과함
+- `Published`: 권한 있는 외부 쓰기를 완료하고 public URL 또는 upstream review
+  상태를 기록함
+- `Unpublished`: 생성·검증 artifact가 있어도 live 외부 channel이라고 주장하지 않음
+
+2026-07-18 기준 저장소 구현은 `Generated` 상태이고 static contract check가
+통과했습니다. Native qualification은 아직 대기 중이므로 `Validated`에 도달한
+channel은 없으며, 외부 channel 3개는 모두 `Unpublished`입니다. Homebrew tap,
+Scoop bucket, winget community-manifest PR을 만들거나 갱신하는 작업은 maintainer가
+별도로 승인해야 하는 외부 작업입니다.
+
+### 무결성과 고정 prerequisite
+
+`scripts/release/verify-release-assets.sh`가 통과한
+`rpotato-vX.Y.Z-checksums.txt`만 package-manager manifest hash의 출처로
+사용합니다. 모든 download URL은 대응되는 GitHub Release 아래의 immutable
+versioned HTTPS URL을 유지합니다.
+
+2026-07-18 기록한 native validation prerequisite는 다음과 같습니다.
+
+- `Homebrew/actions/setup-homebrew` commit
+  `df4b09108a1de9d6f995fe68f302b3f68bd6d2ef`
+- Scoop source와 schema commit
+  `b588a06e41d920d2123ec70aee682bae14935939`
+- winget client release `v1.29.280` 및
+  `scripts/release/verify-package-manager-prerequisites.sh`가 강제하는 bundle과
+  dependency archive SHA-256
+- winget manifest schema `1.12.0`
+
+Workflow log는 각 native lane에서 실제 사용한 manager/client version을
+기록합니다. Pin 없는 remote bootstrap pipeline은 금지합니다.
+
+### Qualification과 recovery
+
+v0.40.0 tag 전 `package-manager-distribution`을 다음 input으로 수동
+실행합니다.
+
+```text
+mode=qualification
+previous_tag=v0.38.0
+current_tag=v0.39.0
+```
+
+Qualification은 이미 게시된 release로 pinned setup, manifest format,
+install/upgrade/uninstall lifecycle을 Homebrew 4개 lane과 격리된 Scoop, winget
+lane에서 검증합니다. Cargo build, release upload, tag 생성, 외부 publication,
+branch cleanup은 수행하지 않습니다.
+
+Stable tag를 게시한 뒤 package-manager 단계만 실패했다면 `current_tag`만 넣고
+`mode=recovery`를 실행합니다. Recovery는 가장 큰 ancestral stable predecessor를
+직접 구하고, 두 exact release asset set을 다시 검증한 뒤 manifest 준비와 native
+6개 lifecycle lane만 재실행합니다. Release asset을 덮어쓰거나 새 patch tag를
+만들지 않습니다. 모든 lane이 통과할 때만 matching release branch를 삭제하며,
+실패하면 branch를 보존합니다.
+
+### 설치와 제거 경계
+
+외부 channel이 `Published`가 된 뒤에는 영문·한국어 README의 명령으로 package
+manager 소유 binary를 설치, 갱신, 제거합니다. Package manager 제거는 `rpotato`
+application data, model, cache를 제거하지 않습니다. 실행 파일을 제거하기 전에
+`rpotato uninstall --dry-run`으로 별도 cleanup plan을 확인합니다.
+
+### Release evidence
+
+Release record에는 다음 항목이 있어야 합니다.
+
+- candidate commit SHA와 exact-HEAD CI run
+- 정확한 11-asset 검증
+- tag 전 v0.38.0에서 v0.39.0으로 올리는 qualification run
+- 고정 prerequisite와 실제 manager/client version
+- 결정한 previous stable tag와 ancestry 판정
+- 생성한 publication artifact ID와 hash
+- native 6개 lane의 clean-install과 upgrade 결론
+- 일반 deployment 또는 same-tag recovery run
+- Homebrew tap URL/commit/status
+- Scoop bucket URL/commit/status
+- winget PR/merge/package status
+- release-branch cleanup 결과
+
+확정 evidence가 없는 외부 항목은 `Unpublished` 또는
+`Pending external review`로 남기며 완료로 보고하지 않습니다.
 
 ## 릴리즈 체크리스트
 
@@ -194,6 +304,9 @@ GitHub runner-images reference는 2026-07-13 확인 시 위 label을 GA image로
 12. binary checksum 생성
 13. GitHub Release publish 후 `release-binaries` workflow가 모든 target archive와
     대응 `.sha256` file, aggregate `checksums.txt` file을 upload했는지 확인
+14. v0.40.0 이후 package-manager release는 tag 전 qualification 성공 run 기록
+15. package-manager lifecycle 6개 lane이 모두 통과했는지 확인하거나 각 외부
+    channel을 `Unpublished`로 명시
 
 새 release note entry는 [release-notes-template.md](release-notes-template.md)를 사용합니다.
 

@@ -1,5 +1,44 @@
 # 릴리즈 노트
 
+## v0.40.0 - Package Manager 배포 (미출시)
+
+Publication 상태: 저장소 candidate, 외부 channel `Unpublished`
+
+이 candidate는 기존 binary와 정확한 11-asset GitHub Release contract를 바꾸지
+않고 deterministic package-manager 배포 계약을 추가합니다.
+
+### 포함한 것
+
+- Strict stable tag, canonical package metadata, 검증된 aggregate GitHub Release
+  checksum file에서 정확한 Homebrew, Scoop, winget manifest tree 생성
+- Stale version, 예상하지 않은 path/asset, 잘못되거나 중복된 hash, 해결되지 않은
+  template marker, non-canonical URL을 별도 verifier로 거부
+- Current clean install, previous-to-current upgrade, `rpotato doctor` version
+  증명, package-manager uninstall, command 부재를 검증하는 Homebrew native 4개
+  lane과 격리된 Scoop, winget Windows lane 추가
+- v0.38.0에서 v0.39.0으로 올리는 고정 pre-tag qualification mode와 strict
+  ancestral predecessor를 구하는 same-tag recovery mode 추가
+- Package-manager binary 제거와 non-destructive
+  `rpotato uninstall --dry-run` application-data plan을 분리
+
+### 현재 Evidence 상태
+
+- Manifest는 `Generated` 상태이고 저장소 fixture/workflow contract check가 통과
+- v0.38.0에서 v0.39.0으로 올리는 native qualification은 대기 중이므로 channel은
+  아직 `Validated`에 도달하지 않음
+- Homebrew tap: `Unpublished`
+- Scoop bucket: `Unpublished`
+- winget community manifest: `Unpublished`
+- Public URL 또는 upstream review 상태를 기록하기 전에는 어떤 외부 channel도
+  완료로 보지 않음
+
+### 호환성 경계
+
+- Runtime 동작, persisted schema, Cargo dependency, archive 내용, 정확한 11-file
+  release asset set은 변경하지 않음
+- Package-manager file은 별도 승인된 외부 publication 전까지 workflow
+  artifact로 유지
+
 ## v0.39.0 - 통합 Workflow 성능 최적화
 
 릴리즈 날짜: 2026-07-18

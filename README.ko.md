@@ -48,6 +48,49 @@
 
 현재 binary 지원 우선순위는 maintainer 주도 GitHub Release artifact 기준 macOS, Linux, Windows입니다.
 
+## Package 설치
+
+v0.40.0 저장소 후보는 정확히 검증된 GitHub Release asset의 checksum에서
+Homebrew, Scoop, winget package 정의를 생성하고 static 검증합니다. Native
+qualification은 아직 대기 중이며, 외부 Homebrew tap, Scoop bucket, winget
+package는 현재 **게시되지 않았습니다**. 릴리즈 노트가 외부 URL과 함께 해당
+channel을 `Published`로 기록하기 전에는 GitHub Release archive를 직접 사용해야
+합니다.
+
+각 channel을 게시한 뒤 지원할 명령은 다음과 같습니다.
+
+### Homebrew (macOS arm64/x64, Linux arm64/x64)
+
+```sh
+brew tap MCprotein/rpotato
+brew install rpotato
+brew update
+brew upgrade rpotato
+brew uninstall rpotato
+```
+
+### Scoop (Windows x64)
+
+```powershell
+scoop bucket add rpotato https://github.com/MCprotein/scoop-rpotato
+scoop install rpotato
+scoop update rpotato
+scoop uninstall rpotato
+```
+
+### winget (Windows x64)
+
+```powershell
+winget install --id MCprotein.rpotato --exact
+winget upgrade --id MCprotein.rpotato --exact
+winget uninstall --id MCprotein.rpotato --exact
+```
+
+Package manager의 제거 명령은 manager가 설치한 실행 파일만 삭제합니다. 실행
+파일을 제거하기 전에 `rpotato uninstall --dry-run`으로 별도 application-data
+정리 계획을 확인할 수 있습니다. Checksum, qualification, recovery, publication
+계약은 [docs/ko/release.md](docs/ko/release.md)를 따릅니다.
+
 ## MVP 범위
 
 첫 번째 유용한 버전은 다음을 만족해야 합니다.
