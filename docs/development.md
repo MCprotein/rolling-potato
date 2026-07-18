@@ -89,6 +89,8 @@ Representative command surfaces:
 - `rpotato plugin remove <id> --purge-data`
 - `rpotato uninstall --keep-cache`
 - `rpotato uninstall --purge-cache`
+- `rpotato uninstall --clean --dry-run`
+- `rpotato uninstall --clean --yes`
 
 `rpotato init` initializes state layout, current state, append-only ledger, runtime evidence JSONL, and SQLite observability projection.
 

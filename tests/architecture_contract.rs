@@ -4532,6 +4532,9 @@ fn v03713_uninstall_plan_uses_composition_and_filesystem_owners() {
     let composition = fs::read_to_string("src/composition/uninstall.rs").unwrap();
     assert!(composition.contains("uninstall::managed_paths"));
     assert!(composition.contains("pub(crate) fn plan_report"));
+    assert!(composition.contains("pub(crate) fn uninstall_report"));
+    assert!(composition.contains("runtime_mutation::acquire(\"clean uninstall\")"));
+    assert!(composition.contains("install::require_inactive_runtime(\"clean uninstall\")"));
 
     let adapter = fs::read_to_string("src/adapters/filesystem/uninstall.rs").unwrap();
     assert!(adapter.contains("struct ManagedUninstallPaths"));
@@ -4547,6 +4550,8 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
     let command = fs::read_to_string("src/surfaces/cli/command.rs").unwrap();
     assert!(command.contains("pub enum InstallCommand"));
     assert!(command.contains("Install(InstallCommand)"));
+    assert!(command.contains("CleanDryRun"));
+    assert!(command.contains("CleanConfirmed"));
 
     let parser = fs::read_to_string("src/surfaces/cli/parser.rs").unwrap();
     let install_parser = fs::read_to_string("src/surfaces/cli/parser/install.rs").unwrap();
@@ -4565,13 +4570,19 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
     assert!(composition.contains("runtime_mutation::acquire(\"clean install\")"));
 
     let adapter = fs::read_to_string("src/adapters/system_install.rs").unwrap();
+    let uninstall_adapter = fs::read_to_string("src/adapters/system_install/uninstall.rs").unwrap();
     let adapter_tests = fs::read_to_string("src/adapters/system_install/tests.rs").unwrap();
+    assert!(adapter.lines().any(|line| line == "mod uninstall;"));
     assert!(adapter.contains("pub(crate) fn install_binary("));
     assert!(adapter.contains("pub(crate) fn binary_install_plan("));
     assert!(adapter.contains("pub(crate) fn ensure_user_path("));
     assert!(adapter.contains("pub(crate) fn user_path_change_plan("));
     assert!(adapter.contains("pub(crate) fn validate_clean_targets("));
     assert!(adapter.contains("pub(crate) fn remove_clean_state("));
+    assert!(uninstall_adapter.contains("pub(crate) fn user_path_removal_plan("));
+    assert!(uninstall_adapter.contains("pub(crate) fn remove_user_path("));
+    assert!(uninstall_adapter.contains("pub(crate) fn binary_removal_plan("));
+    assert!(uninstall_adapter.contains("pub(crate) fn remove_installed_binary("));
     assert!(adapter.contains("#[path = \"system_install/tests.rs\"]"));
     assert!(adapter_tests.contains("fn clean_state_removes_only_managed_roots("));
     assert!(adapter_tests
@@ -4579,6 +4590,10 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
     assert!(adapter_tests.contains(
         "fn windows_powershell_path_update_is_idempotent_without_persisting_user_state("
     ));
+    assert!(
+        adapter_tests.contains("fn clean_uninstall_removes_binary_and_owned_profile_block_only(")
+    );
+    assert!(adapter_tests.contains("fn windows_powershell_path_removal_is_exact_and_idempotent("));
 
     let runtime_mutation =
         fs::read_to_string("src/adapters/filesystem/runtime_mutation.rs").unwrap();
@@ -4597,6 +4612,8 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
     let help = fs::read_to_string("src/surfaces/cli/render.rs").unwrap();
     assert!(help.contains("rpotato install --clean --dry-run"));
     assert!(help.contains("rpotato install --clean --yes"));
+    assert!(help.contains("rpotato uninstall --clean --dry-run"));
+    assert!(help.contains("rpotato uninstall --clean --yes"));
 
     let release = fs::read_to_string(".github/workflows/release-binaries.yml").unwrap();
     let targeted = fs::read_to_string(".github/workflows/windows-native-targeted.yml").unwrap();
@@ -4605,6 +4622,8 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
     }
     let smoke = fs::read_to_string("scripts/release/verify-release-binary-smoke.sh").unwrap();
     assert!(smoke.contains("install --clean --dry-run"));
+    let uninstall_smoke = fs::read_to_string("scripts/release/verify-uninstall-smoke.sh").unwrap();
+    assert!(uninstall_smoke.contains("uninstall --clean --dry-run"));
 }
 
 #[test]

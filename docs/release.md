@@ -223,6 +223,12 @@ generation is active, when liveness cannot be verified, or while runtime state
 is being published. It never treats package-manager repositories as an
 installation source.
 
+`rpotato uninstall --clean --dry-run` lists the installed binary, owned PATH
+registration, global application data, and current-project state without
+mutation. `rpotato uninstall --clean --yes` removes those managed targets under
+the same runtime guard. The extracted invocation binary and source repository
+remain user-owned; Windows self-deletion completes after process exit.
+
 ## Release Checklist
 
 Before release:

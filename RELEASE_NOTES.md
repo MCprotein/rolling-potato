@@ -1,5 +1,36 @@
 # Release Notes
 
+## v0.42.0 - User-local Install and Clean Uninstall
+
+Planned release date: 2026-07-19
+
+This release adds a symmetric lifecycle for installing a GitHub Release
+archive as a user-local CLI and safely removing the installation and all state
+managed by `rpotato`.
+
+### Included
+
+- Adds user-local binary placement and idempotent zsh/bash/fish or Windows user
+  PATH registration through `rpotato install`.
+- Repairs PATH registration through the installed binary's `rpotato init` and
+  prints activation guidance for the current terminal.
+- Adds `install --clean --dry-run|--yes` to reset global application data and
+  the current project's `.rpotato` before reinstalling.
+- Adds `uninstall --clean --dry-run|--yes` to remove the installed binary,
+  owned PATH registration, global application data, and current-project state.
+- Blocks destructive clean operations while a managed backend or generation is
+  active, when liveness cannot be checked, or while runtime state is published.
+- Completes Windows self-removal through a post-exit cleanup process.
+
+### Compatibility Boundary
+
+- The extracted invocation binary, source repositories, and user-owned backend
+  overrides are never removed automatically.
+- Existing `uninstall --keep-cache|--purge-cache` commands remain compatibility
+  planning modes.
+- This repository's GitHub Releases remain the only official binary
+  distribution channel; no package-manager repository is added.
+
 ## v0.41.0 - Local HTML Monitor Report
 
 Release date: 2026-07-19

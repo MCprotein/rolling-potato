@@ -1,5 +1,36 @@
 # 릴리즈 노트
 
+## v0.42.0 - User-local Install and Clean Uninstall
+
+예정 릴리즈 날짜: 2026-07-19
+
+이 릴리즈는 GitHub Release archive에서 실행한 binary를 사용자 전용 CLI로
+설치하고, 필요할 때 rpotato가 관리하는 설치와 상태를 안전하게 전부 지우는
+대칭적인 lifecycle을 추가합니다.
+
+### 포함한 것
+
+- `rpotato install`의 사용자 전용 binary 배치와 zsh/bash/fish 또는 Windows
+  사용자 PATH 멱등 등록
+- 설치된 binary로 실행한 `rpotato init`의 PATH 환경 보정과 현재 terminal용
+  활성화 안내
+- 전역 application data와 현재 project `.rpotato`를 초기화한 뒤 다시
+  설치하는 `install --clean --dry-run|--yes`
+- 설치 binary, rpotato 소유 PATH 등록, 전역 application data, 현재 project
+  `.rpotato`를 제거하는 `uninstall --clean --dry-run|--yes`
+- 관리형 backend/generation이 실행 중이거나 생존 확인을 할 수 없을 때
+  destructive clean operation을 차단하는 cross-process runtime guard
+- Windows에서 실행 중인 설치 binary를 process 종료 뒤 제거하는 post-exit
+  cleanup
+
+### 호환성 경계
+
+- 압축을 푼 실행 원본, source repository, 사용자 소유 backend override는
+  자동 삭제하지 않습니다.
+- 기존 `uninstall --keep-cache|--purge-cache`는 호환성 plan mode로 유지합니다.
+- 공식 binary 배포 channel은 이 저장소의 GitHub Releases 하나뿐이며
+  package-manager 저장소는 추가하지 않습니다.
+
 ## v0.41.0 - Local HTML Monitor Report
 
 릴리즈 날짜: 2026-07-19

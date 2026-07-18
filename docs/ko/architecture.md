@@ -110,9 +110,16 @@ project root/
   .rpotato/      # project-local index/state/evidence, 명시적 project cleanup 전에는 보존
 ```
 
-`rpotato uninstall --keep-cache`는 프로그램/관리형 runtime asset만 제거하고 모델, 다운로드, manifest, 로그, project-local state는 남깁니다.
+`rpotato uninstall --keep-cache`는 프로그램/관리형 runtime asset을 나열하고
+모델, 다운로드, manifest, 로그, project-local state를 보존하는 호환성 plan
+mode입니다.
 
-`rpotato uninstall --purge-cache`는 app-level cache와 모델까지 제거하지만 source repository나 project-local `.rpotato/`는 자동 삭제하지 않습니다. 모든 삭제 경로는 `--dry-run`으로 삭제 예정 path를 먼저 보여줘야 합니다.
+`rpotato uninstall --purge-cache`는 app-level cache와 모델까지 나열하는
+호환성 plan mode입니다. 실제 전체 관리형 삭제는 명시적인
+`rpotato uninstall --clean --yes`만 수행하며 설치 binary, 소유 PATH 등록,
+전역 app data, 현재 project `.rpotato/`를 제거하되 실행 원본과 source
+repository는 삭제하지 않습니다. 모든 삭제 경로는 read-only `--dry-run`으로
+먼저 확인할 수 있어야 합니다.
 
 ## 책임 경계
 

@@ -100,6 +100,20 @@ Its dry-run also reports whether the binary and PATH registration would be
 created, updated, or left unchanged. Runtime publication and deletion share a
 cross-process guard; an unavailable process-liveness check blocks deletion.
 
+To remove the program and all runtime-managed state, inspect the exact scope
+and then confirm it explicitly:
+
+```sh
+rpotato uninstall --clean --dry-run
+rpotato uninstall --clean --yes
+```
+
+Clean uninstall removes the installed binary, the PATH block owned by
+`rpotato`, global application data, and the current project's `.rpotato`.
+User-owned files such as the extracted source binary and source repositories
+are preserved. On Windows, self-removal of the installed binary completes
+immediately after the current process exits.
+
 Supported release targets and checksum verification are documented in
 [docs/release.md](docs/release.md).
 
@@ -203,7 +217,7 @@ or network requests.
 
 `v0.42.0` is now the concrete in-development version for user-local
 self-install, automatic PATH registration, `init` environment repair, and a
-guarded clean reinstall. See [ROADMAP.md](ROADMAP.md).
+guarded clean reinstall and clean uninstall. See [ROADMAP.md](ROADMAP.md).
 
 ---
 

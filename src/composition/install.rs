@@ -14,7 +14,7 @@ pub(crate) fn install_report(command: InstallCommand) -> Result<String, AppError
         InstallCommand::CleanConfirmed => {
             system_install::validate_clean_targets(&paths)?;
             let _runtime_transition = runtime_mutation::acquire("clean install")?;
-            require_inactive_runtime()?;
+            require_inactive_runtime("clean install")?;
             let binary_change = system_install::install_binary(&paths)?;
             let registration = system_install::ensure_user_path(&paths)?;
             let clean_result = system_install::remove_clean_state(&paths)?;
@@ -137,18 +137,19 @@ fn clean_dry_run_report(paths: &InstallPaths) -> Result<String, AppError> {
     ))
 }
 
-fn require_inactive_runtime() -> Result<(), AppError> {
-    require_inactive_runtime_with(backend_process::running_status)
+pub(crate) fn require_inactive_runtime(operation: &str) -> Result<(), AppError> {
+    require_inactive_runtime_with(operation, backend_process::running_status)
 }
 
 fn require_inactive_runtime_with(
+    operation: &str,
     mut running_status: impl FnMut(u32) -> Result<bool, AppError>,
 ) -> Result<(), AppError> {
     if let Some(record) = backend_state::read_sidecar_record()? {
         if running_status(record.pid)? {
             return Err(AppError::blocked(format!(
-                "clean install 차단\n- 이유: backend sidecar가 실행 중입니다.\n- pid: {}\n- 다음 단계: rpotato backend stop",
-                record.pid
+                "{operation} 차단\n- 이유: backend sidecar가 실행 중입니다.\n- pid: {}\n- 다음 단계: rpotato backend stop",
+                record.pid,
             )));
         }
     }
@@ -161,8 +162,8 @@ fn require_inactive_runtime_with(
     {
         if running_status(generation.client_pid)? {
             return Err(AppError::blocked(format!(
-                "clean install 차단\n- 이유: active generation이 있습니다.\n- client pid: {}\n- 다음 단계: rpotato backend cancel",
-                generation.client_pid
+                "{operation} 차단\n- 이유: active generation이 있습니다.\n- client pid: {}\n- 다음 단계: rpotato backend cancel",
+                generation.client_pid,
             )));
         }
     }
@@ -248,7 +249,7 @@ mod tests {
         })
         .unwrap();
 
-        let err = require_inactive_runtime().unwrap_err();
+        let err = require_inactive_runtime("clean install").unwrap_err();
 
         assert_eq!(err.code, 3);
         assert!(err.message.contains("backend sidecar"));
@@ -277,7 +278,7 @@ mod tests {
         })
         .unwrap();
 
-        let err = require_inactive_runtime_with(|_| {
+        let err = require_inactive_runtime_with("clean install", |_| {
             Err(AppError::runtime("process liveness probe unavailable"))
         })
         .unwrap_err();
