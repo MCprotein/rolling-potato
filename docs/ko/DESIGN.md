@@ -1,6 +1,8 @@
 # 디자인
 
-## 기준 문서
+## 1. 제품 기반
+
+### 기준 문서
 
 - 상태: 활성
 - 마지막 갱신: 2026-07-19
@@ -18,7 +20,7 @@
   - `src/runtime_core/observability/monitor.rs`
   - `src/adapters/sqlite/observability_projection.rs`
 
-## 브랜드
+### 브랜드
 
 - 성격: 작고 빠르며 실용적인 로컬 코딩 에이전트 runtime
 - 신뢰 신호: local-first 실행, 명시적 승인, 출처 기반 모델 claim, 보이는 evidence, 한국어 final report
@@ -28,7 +30,7 @@
   - TUI에서 카드가 중첩된 복잡한 레이아웃
   - SSH terminal에서 깨지는 색상 의존 UI
 
-## 제품 목표
+### 제품 목표
 
 - 목표:
   - Claude Code/Codex 대신 쓸 수 있는 local agent runtime 경험을 제공한다.
@@ -45,7 +47,7 @@
   - 긴 agent run 중 pending approval, active tool, subagent/team status, model metric이 한 화면에서 길을 잃지 않게 보인다.
   - benchmark 결과와 실제 run metric을 같은 용어로 이해할 수 있다.
 
-## Persona와 사용 목적
+### Persona와 사용 목적
 
 - 주요 persona:
   - 한국어 사용자
@@ -67,7 +69,9 @@
   - 오래 실행되는 coding agent session
   - 모델 benchmark 또는 artifact audit
 
-## 정보 구조
+## 2. 사용 경험 체계
+
+### 정보 구조
 
 - 주 navigation:
   - TUI 최상위 tab: Session, Monitor, Agents, Evidence, Logs, Settings
@@ -84,7 +88,7 @@
   4. subagent/team breakdown
   5. detail table과 log
 
-## 디자인 원칙
+### 디자인 원칙
 
 - SSH-first: 모든 중요한 monitoring 기능은 plain terminal에서 동작해야 한다.
 - Dense but calm: dashboard 장식 없이 운영 데이터를 밀도 있게 보여준다.
@@ -95,7 +99,7 @@
   - TUI는 HTML chart와 경쟁할 수 없으므로 compact table, sparkline, sorted list, drill-down panel을 사용한다.
   - HTML은 offline report에 더 적합할 수 있지만 유일한 monitoring surface가 되면 안 된다.
 
-## 시각 언어
+### 시각 언어
 
 - 색상:
   - 의미가 있는 경우에만 절제된 terminal color를 사용한다.
@@ -118,7 +122,9 @@
   - TUI에서는 bitmap imagery를 사용하지 않는다.
   - ASCII/Unicode symbol은 scan speed를 높이고 text fallback이 있을 때만 사용한다.
 
-## 구성 요소
+## 3. 인터페이스 계약
+
+### 구성 요소
 
 - 재사용할 기존 component:
   - 현재 scaffold의 CLI command output style
@@ -147,7 +153,7 @@
   - TUI는 presentation과 user decision을 소유한다.
   - `docs/observability.md`는 metric schema 방향을 소유한다.
 
-## 접근성
+### 접근성
 
 - 기준: readable contrast와 no color-only state를 가진 keyboard-first terminal accessibility
 - keyboard/focus behavior:
@@ -163,7 +169,7 @@
   - refresh interval은 설정 가능해야 한다.
   - 실패 시 화면을 flash하지 않는다.
 
-## 반응형 동작
+### 반응형 동작
 
 - 지원 breakpoint/device:
   - 최소 terminal target: 80x24
@@ -177,7 +183,7 @@
   - hover에 의존하지 않는다.
   - mouse support는 이후 선택 기능일 수 있지만 필수이면 안 된다.
 
-## 상호작용 상태
+### 상호작용 상태
 
 - loading:
   - data source, last update time, SQLite projection 또는 ledger replay 사용 여부를 보여준다.
@@ -192,7 +198,7 @@
 - offline/slow network:
   - monitoring은 local SQLite/ledger만으로 offline 동작해야 한다.
 
-## 문구 원칙
+### 문구 원칙
 
 - tone: 짧고 실무적인 한국어
 - 용어:
@@ -208,10 +214,14 @@
   - privacy-sensitive panel은 redacted data를 명시적으로 표시해야 한다.
   - monitoring screen 안에는 marketing copy를 넣지 않는다.
 
-## 구현 제약
+## 4. 구현 화면
+
+### 구현 제약
 
 - framework/styling system:
-  - Rust TUI framework는 아직 선택되지 않았다.
+  - 현재 interactive TUI는 std-only line controller다.
+  - 더 풍부한 full-screen TUI용 framework는 아직 선택하지 않았다.
+  - SQLite projection access는 `rusqlite`를 사용한다.
   - TUI는 DB를 직접 소유하지 않고 runtime core contract를 통해 runtime state를 소비해야 한다.
 - design-token constraint:
   - semantic color name만 사용한다: healthy, warning, failed, selected, muted.
@@ -228,7 +238,7 @@
   - TUI smoke test는 80x24와 wide terminal size에서 수행한다.
   - HTML test는 browser runtime dependency를 추가하지 않고 semantic structure, escaping, privacy marker, narrow-screen layout을 검사한다.
 
-## Monitoring TUI 화면 계약
+### Monitoring TUI 화면 계약
 
 최소 overview layout:
 
@@ -253,7 +263,7 @@
 - detail panel은 raw prompt/source를 기본으로 보여주면 안 된다.
 - export와 prune action은 먼저 dry-run summary를 보여줘야 한다.
 
-## HTML Surface 위치
+### HTML Surface 위치
 
 HTML은 local monitoring summary를 검토하고 공유하기 위한 선택형 offline snapshot이다. CLI나 TUI를 대체하지 않으며 server를 추가하지 않는다.
 
@@ -272,9 +282,7 @@ HTML은 local monitoring summary를 검토하고 공유하기 위한 선택형 o
 - empty, unavailable, redacted, error state는 짧고 실무적인 한국어 문구를 사용하며 report의 나머지 부분은 유지한다.
 - export 생성은 read-only/offline이다. 생성된 파일을 여는 것은 사용자의 명시적인 action이다.
 
-## 열린 질문
+## 5. 열린 질문
 
-- [ ] 어떤 Rust TUI framework가 terminal layout을 소유할 것인가?
-- [ ] 어떤 SQLite crate를 사용할 것인가?
+- [ ] 더 풍부한 full-screen TUI에 Rust framework를 도입할 것인가?
 - [ ] 기본 monitoring retention period는 얼마인가?
-- [ ] interactive TUI의 hard minimum terminal width는 얼마인가?
