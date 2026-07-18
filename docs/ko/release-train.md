@@ -70,7 +70,7 @@ release를 만듭니다. 실패 tag는 evidence를 기록한 경우에만 Supers
 | `v0.37.3`-`v0.37.13+` | 남은 각 ledger slice의 targeted behavior lock과 migration evidence, byte/order/recovery/security 호환성, 안정화된 patch별 bounded review 1회, v0.38.0 전 compatibility facade 0건 |
 | `v0.38.0` | Claude Code local plugin mapping/conformance test, unsupported semantic 명시적 보고, 동일한 default-deny boundary |
 | `v0.39.0` | 실제 agent/subagent/team CPU, RSS, context, token, latency, throughput 측정 evidence와 확인된 failure용 regression fixture |
-| `v0.40.0` | GitHub Release checksum을 기준으로 채택한 Homebrew/Scoop/winget channel의 최신 공식 package format 검증과 clean install/upgrade/uninstall test |
+| `v0.40.0` | GitHub Release checksum을 기준으로 채택한 Homebrew/Scoop channel의 최신 공식 package format 검증과 clean install/upgrade/uninstall test |
 | `v0.41.0` | SQLite/ledger parity, redaction, external telemetry 0건, 두 번째 source of truth 부재, desktop/mobile browser usability를 증명하는 local-only HTML export/server test |
 
 ## 건너뛸 수 없는 Gate
@@ -118,6 +118,8 @@ release를 만듭니다. 실패 tag는 evidence를 기록한 경우에만 Supers
   macOS Intel, Linux x86_64, Linux ARM64, Windows x86_64를 필수 target으로
   유지합니다.
 - Package manager 구현 시점에 최신 공식 specification을 확인합니다.
+- Winget은 채택한 roadmap 또는 publication channel이 아닙니다. 과거 v0.40.0
+  generator와 validation artifact는 upstream 제출을 승인하거나 요구하지 않습니다.
 - Model weight, local state, log, secret, `.omx/`, `.rpotato/`, build output은
   commit이나 release archive에 포함하지 않습니다.
 
