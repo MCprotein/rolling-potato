@@ -2136,6 +2136,7 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         "struct HtmlReportSnapshot",
         "fn render_report",
         "Content-Security-Policy",
+        "fn safe_html_text",
         "fn escape_html",
     ] {
         assert!(

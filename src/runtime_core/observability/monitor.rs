@@ -244,13 +244,19 @@ pub(crate) fn export_report(
 }
 
 fn html_report(port: &impl MonitorQueryPort) -> Result<String, AppError> {
-    let optimization_policy = port.optimization_policy()?;
-    let store = optimization_policy.store.clone();
+    let store = match port.status() {
+        Ok(value) => ReportData::Available(value),
+        Err(_) => ReportData::Unavailable,
+    };
     let latest_resource = match port.latest_resource_sample() {
         Ok(value) => ReportData::Available(value),
         Err(_) => ReportData::Unavailable,
     };
     let model_summaries = match port.model_summaries() {
+        Ok(value) => ReportData::Available(value),
+        Err(_) => ReportData::Unavailable,
+    };
+    let optimization_policy = match port.optimization_policy() {
         Ok(value) => ReportData::Available(value),
         Err(_) => ReportData::Unavailable,
     };
@@ -343,6 +349,7 @@ mod tests {
     use super::*;
 
     struct FakePort;
+    struct FailingReportPort;
 
     impl MonitorQueryPort for FakePort {
         fn status(&self) -> Result<StoreStatus, AppError> {
@@ -450,6 +457,52 @@ mod tests {
         }
     }
 
+    impl MonitorQueryPort for FailingReportPort {
+        fn status(&self) -> Result<StoreStatus, AppError> {
+            Err(AppError::runtime("status unavailable"))
+        }
+
+        fn latest_resource_sample(&self) -> Result<Option<ResourceSampleMetric>, AppError> {
+            Err(AppError::runtime("resource unavailable"))
+        }
+
+        fn runtime_ledger_path(&self) -> PathBuf {
+            PathBuf::new()
+        }
+
+        fn runtime_evidence_path(&self) -> PathBuf {
+            PathBuf::new()
+        }
+
+        fn model_summaries(&self) -> Result<Vec<ModelMetricSummary>, AppError> {
+            Err(AppError::runtime("models unavailable"))
+        }
+
+        fn model_candidate_summary(&self) -> String {
+            "candidate unavailable".to_owned()
+        }
+
+        fn performance_baseline(&self) -> Result<PerformanceBaseline, AppError> {
+            Err(AppError::runtime("baseline unavailable"))
+        }
+
+        fn optimization_policy(&self) -> Result<OptimizationPolicy, AppError> {
+            Err(AppError::runtime("policy unavailable"))
+        }
+
+        fn export_jsonl(&self) -> Result<String, AppError> {
+            Err(AppError::runtime("jsonl unavailable"))
+        }
+
+        fn export_csv(&self) -> Result<String, AppError> {
+            Err(AppError::runtime("csv unavailable"))
+        }
+
+        fn prune_preview(&self, _before_days: u64) -> Result<PrunePreview, AppError> {
+            Err(AppError::runtime("prune unavailable"))
+        }
+    }
+
     #[test]
     fn status_report_is_rendered_from_port_data() {
         let report = status_report(&FakePort).unwrap();
@@ -479,5 +532,17 @@ mod tests {
         assert!(prune.contains("- mode: dry-run"));
         assert!(prune.contains("- cutoff_ms: 30"));
         assert!(prune.contains("- resource sample rows: 4"));
+    }
+
+    #[test]
+    fn html_export_preserves_all_sections_when_queries_are_unavailable() {
+        let html = export_report(&FailingReportPort, MonitorExportFormat::Html).unwrap();
+
+        assert!(html.starts_with("<!doctype html>"));
+        assert!(html.contains("observability store 상태를 읽지 못했습니다"));
+        assert!(html.contains("resource metric을 읽지 못했습니다"));
+        assert!(html.contains("model metric을 읽지 못했습니다"));
+        assert!(html.contains("performance/optimization policy를 읽지 못했습니다"));
+        assert!(html.ends_with("</html>\n"));
     }
 }

@@ -5,6 +5,7 @@ use std::fmt::Write;
 use crate::runtime_core::observability::facade::{
     ModelMetricSummary, OptimizationPolicy, ResourceSampleMetric, StoreStatus,
 };
+use crate::runtime_core::policy::redaction;
 
 pub(crate) enum ReportData<T> {
     Available(T),
@@ -13,11 +14,11 @@ pub(crate) enum ReportData<T> {
 
 pub(crate) struct HtmlReportSnapshot {
     pub generated_at_ms: u128,
-    pub store: StoreStatus,
+    pub store: ReportData<StoreStatus>,
     pub latest_resource: ReportData<Option<ResourceSampleMetric>>,
     pub model_summaries: ReportData<Vec<ModelMetricSummary>>,
     pub model_candidate_summary: String,
-    pub optimization_policy: OptimizationPolicy,
+    pub optimization_policy: ReportData<OptimizationPolicy>,
 }
 
 const CONTENT_SECURITY_POLICY: &str = "default-src 'none'; style-src 'unsafe-inline'; \
@@ -100,7 +101,6 @@ footer { padding: 0 0 2rem; }
 "#;
 
 pub(crate) fn render_report(snapshot: &HtmlReportSnapshot) -> String {
-    let policy = &snapshot.optimization_policy;
     let mut html = String::with_capacity(12_000);
 
     html.push_str("<!doctype html>\n<html lang=\"ko\">\n<head>\n");
@@ -133,7 +133,7 @@ pub(crate) fn render_report(snapshot: &HtmlReportSnapshot) -> String {
         &snapshot.model_summaries,
         &snapshot.model_candidate_summary,
     );
-    render_performance(&mut html, policy);
+    render_performance(&mut html, &snapshot.optimization_policy);
     render_privacy(&mut html);
 
     write!(
@@ -145,22 +145,32 @@ pub(crate) fn render_report(snapshot: &HtmlReportSnapshot) -> String {
     html
 }
 
-fn render_store_summary(html: &mut String, store: &StoreStatus) {
-    write!(
-        html,
-        "<section aria-labelledby=\"summary-title\"><h2 id=\"summary-title\">현재 요약</h2>\
-         <div class=\"summary\">{}{}{}{}{}{}\
-         </div><p class=\"muted\">schema migration v{} · ledger events {}</p></section>\n",
-        metric("session", store.sessions),
-        metric("workflow", store.workflows),
-        metric("model run", store.model_runs),
-        metric("token record", store.token_records),
-        metric("resource sample", store.resource_samples),
-        metric("stop gate", store.stop_gate_results),
-        store.migration_version,
-        store.ledger_events
-    )
-    .expect("writing to String cannot fail");
+fn render_store_summary(html: &mut String, data: &ReportData<StoreStatus>) {
+    html.push_str(
+        "<section aria-labelledby=\"summary-title\"><h2 id=\"summary-title\">현재 요약</h2>",
+    );
+    match data {
+        ReportData::Available(store) => {
+            write!(
+                html,
+                "<div class=\"summary\">{}{}{}{}{}{}\
+                 </div><p class=\"muted\">schema migration v{} · ledger events {}</p>",
+                metric("session", store.sessions),
+                metric("workflow", store.workflows),
+                metric("model run", store.model_runs),
+                metric("token record", store.token_records),
+                metric("resource sample", store.resource_samples),
+                metric("stop gate", store.stop_gate_results),
+                store.migration_version,
+                store.ledger_events
+            )
+            .expect("writing to String cannot fail");
+        }
+        ReportData::Unavailable => {
+            html.push_str("<p class=\"empty\">observability store 상태를 읽지 못했습니다. 다른 section은 그대로 표시합니다.</p>");
+        }
+    }
+    html.push_str("</section>\n");
 }
 
 fn render_resource(html: &mut String, data: &ReportData<Option<ResourceSampleMetric>>) {
@@ -169,7 +179,7 @@ fn render_resource(html: &mut String, data: &ReportData<Option<ResourceSampleMet
     );
     match data {
         ReportData::Available(Some(sample)) => {
-            let pressure = escape_html(&sample.pressure_status);
+            let pressure = safe_html_text(&sample.pressure_status);
             write!(
                 html,
                 "<p class=\"status {}\">상태: {}</p><dl>\
@@ -213,7 +223,7 @@ fn render_models(
             write!(
                 html,
                 "<p class=\"empty\">기록된 model run이 없습니다. 현재 candidate: {}</p>",
-                escape_html(candidate_summary)
+                safe_html_text(candidate_summary)
             )
             .expect("writing to String cannot fail");
         }
@@ -228,7 +238,7 @@ fn render_models(
                     html,
                     "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>\
                      <td>{}</td><td>{}</td></tr>",
-                    escape_html(&row.model_id),
+                    safe_html_text(&row.model_id),
                     row.runs,
                     row.prompt_tokens,
                     row.completion_tokens,
@@ -247,13 +257,17 @@ fn render_models(
     html.push_str("</section>\n");
 }
 
-fn render_performance(html: &mut String, policy: &OptimizationPolicy) {
+fn render_performance(html: &mut String, data: &ReportData<OptimizationPolicy>) {
+    html.push_str("<section aria-labelledby=\"performance-title\"><h2 id=\"performance-title\">성능과 optimization policy</h2>");
+    let ReportData::Available(policy) = data else {
+        html.push_str("<p class=\"empty\">performance/optimization policy를 읽지 못했습니다. 다른 section은 그대로 표시합니다.</p></section>\n");
+        return;
+    };
     let decision = &policy.decision;
     let evidence = &policy.benchmark_evidence;
     write!(
         html,
-        "<section aria-labelledby=\"performance-title\"><h2 id=\"performance-title\">성능과 optimization policy</h2>\
-         <p class=\"status {}\">policy status: {}</p><dl>\
+        "<p class=\"status {}\">policy status: {}</p><dl>\
          <dt>latest pressure</dt><dd>{}</dd>\
          <dt>p95 latency</dt><dd>{}</dd>\
          <dt>average throughput</dt><dd>{}</dd>\
@@ -268,8 +282,8 @@ fn render_performance(html: &mut String, policy: &OptimizationPolicy) {
          <dt>measured benchmark</dt><dd>{} runs · pass {} · fail {} · avg score {}</dd>\
          <dt>latest benchmark</dt><dd>{} / {}</dd></dl></section>\n",
         policy_class(decision.status.as_str()),
-        escape_html(decision.status.as_str()),
-        escape_html(&policy.latest_resource_pressure),
+        safe_html_text(decision.status.as_str()),
+        safe_html_text(&policy.latest_resource_pressure),
         optional_f64(policy.p95_latency_ms, " ms"),
         optional_f64(policy.avg_tokens_per_second, " tok/s"),
         optional_u64(policy.peak_rss_bytes),
@@ -280,10 +294,10 @@ fn render_performance(html: &mut String, policy: &OptimizationPolicy) {
             .map(|value| value.to_string())
             .unwrap_or_else(|| "미기록".to_owned()),
         decision.recommended_lanes,
-        escape_html(decision.fallback),
-        escape_html(decision.model_hint.as_str()),
-        escape_html(decision.reason),
-        escape_html(decision.hint),
+        safe_html_text(decision.fallback),
+        safe_html_text(decision.model_hint.as_str()),
+        safe_html_text(decision.reason),
+        safe_html_text(decision.hint),
         evidence.measured_runs,
         evidence.passed_runs,
         evidence.failed_runs,
@@ -291,8 +305,8 @@ fn render_performance(html: &mut String, policy: &OptimizationPolicy) {
             .avg_score
             .map(|value| format!("{value:.2}/3"))
             .unwrap_or_else(|| "미기록".to_owned()),
-        escape_html(evidence.latest_model_id.as_deref().unwrap_or("미기록")),
-        escape_html(
+        safe_html_text(evidence.latest_model_id.as_deref().unwrap_or("미기록")),
+        safe_html_text(
             evidence
                 .latest_benchmark_name
                 .as_deref()
@@ -315,7 +329,7 @@ fn render_privacy(html: &mut String) {
 fn metric(label: &str, value: i64) -> String {
     format!(
         "<div class=\"metric\"><span>{}</span><strong>{value}</strong></div>",
-        escape_html(label)
+        safe_html_text(label)
     )
 }
 
@@ -350,6 +364,57 @@ fn policy_class(value: &str) -> &'static str {
     }
 }
 
+fn safe_html_text(value: &str) -> String {
+    let redacted = redaction::redact_text(value);
+    let path_redacted = redacted
+        .split_whitespace()
+        .map(|part| {
+            if contains_absolute_path(part) {
+                "[REDACTED_PATH]"
+            } else {
+                part
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    escape_html(&path_redacted)
+}
+
+fn contains_absolute_path(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    for index in 0..bytes.len() {
+        let boundary = index == 0
+            || matches!(
+                bytes[index - 1],
+                b'=' | b':' | b'(' | b'[' | b'{' | b'"' | b'\'' | b',' | b';'
+            );
+        if bytes[index] == b'/' && boundary {
+            return true;
+        }
+        if bytes[index] == b'~'
+            && boundary
+            && bytes.get(index + 1).is_some_and(|next| *next == b'/')
+        {
+            return true;
+        }
+        if bytes[index].is_ascii_alphabetic()
+            && bytes.get(index + 1).is_some_and(|next| *next == b':')
+            && bytes
+                .get(index + 2)
+                .is_some_and(|next| matches!(*next, b'/' | b'\\'))
+        {
+            return true;
+        }
+        if bytes[index] == b'\\'
+            && boundary
+            && bytes.get(index + 1).is_some_and(|next| *next == b'\\')
+        {
+            return true;
+        }
+    }
+    false
+}
+
 fn escape_html(value: &str) -> String {
     let mut escaped = String::with_capacity(value.len());
     for character in value.chars() {
@@ -379,17 +444,47 @@ mod tests {
     #[test]
     fn report_is_self_contained_responsive_and_escapes_dynamic_values() {
         let mut snapshot = snapshot();
-        snapshot.store.path = PathBuf::from("/secret/private/observability.sqlite");
-        snapshot.store.recovered_from = Some(PathBuf::from("/secret/private/recovered.sqlite"));
-        snapshot.model_summaries = ReportData::Available(vec![ModelMetricSummary {
-            model_id: "<script>alert('x')</script>&model".to_owned(),
-            runs: 1,
-            prompt_tokens: 2,
-            completion_tokens: 3,
-            total_tokens: 5,
-            avg_latency_ms: Some(6.0),
-            avg_tokens_per_second: Some(7.0),
-        }]);
+        snapshot.store = ReportData::Available(StoreStatus {
+            path: PathBuf::from("/secret/private/observability.sqlite"),
+            recovered_from: Some(PathBuf::from("/secret/private/recovered.sqlite")),
+            ..store()
+        });
+        snapshot.model_candidate_summary = "api_key=top-secret".to_owned();
+        snapshot.model_summaries = ReportData::Available(vec![
+            ModelMetricSummary {
+                model_id: "<script>alert('x')</script>&model".to_owned(),
+                runs: 1,
+                prompt_tokens: 2,
+                completion_tokens: 3,
+                total_tokens: 5,
+                avg_latency_ms: Some(6.0),
+                avg_tokens_per_second: Some(7.0),
+            },
+            ModelMetricSummary {
+                model_id: "ghp_1234567890abcdef".to_owned(),
+                runs: 1,
+                prompt_tokens: 2,
+                completion_tokens: 3,
+                total_tokens: 5,
+                avg_latency_ms: None,
+                avg_tokens_per_second: None,
+            },
+            ModelMetricSummary {
+                model_id: r"C:\Users\alice\private-model.gguf".to_owned(),
+                runs: 1,
+                prompt_tokens: 2,
+                completion_tokens: 3,
+                total_tokens: 5,
+                avg_latency_ms: None,
+                avg_tokens_per_second: None,
+            },
+        ]);
+        if let ReportData::Available(policy) = &mut snapshot.optimization_policy {
+            policy.benchmark_evidence.latest_model_id =
+                Some("/Users/alice/private-model.gguf".to_owned());
+            policy.benchmark_evidence.latest_benchmark_name =
+                Some("Authorization: Bearer abc123".to_owned());
+        }
 
         let report = render_report(&snapshot);
 
@@ -402,6 +497,13 @@ mod tests {
         assert!(!report.contains("https://"));
         assert!(!report.contains("http://"));
         assert!(!report.contains("/secret/private"));
+        assert!(!report.contains("/Users/alice"));
+        assert!(!report.contains(r"C:\Users\alice"));
+        assert!(!report.contains("ghp_1234567890abcdef"));
+        assert!(!report.contains("top-secret"));
+        assert!(!report.contains("abc123"));
+        assert!(report.contains("[REDACTED]"));
+        assert!(report.contains("[REDACTED_PATH]"));
         assert!(report.contains("<main>"));
         assert!(report.contains("<caption>"));
         assert!(report.contains("raw prompt/source</dt><dd>저장·표시 안 함"));
@@ -410,41 +512,31 @@ mod tests {
     #[test]
     fn empty_and_unavailable_states_preserve_the_document() {
         let mut snapshot = snapshot();
+        snapshot.store = ReportData::Unavailable;
         snapshot.latest_resource = ReportData::Unavailable;
         snapshot.model_summaries = ReportData::Available(Vec::new());
         snapshot.model_candidate_summary = "후보 <A>".to_owned();
+        snapshot.optimization_policy = ReportData::Unavailable;
 
         let report = render_report(&snapshot);
 
+        assert!(report.contains("observability store 상태를 읽지 못했습니다"));
         assert!(report.contains("resource metric을 읽지 못했습니다"));
         assert!(report.contains("기록된 model run이 없습니다"));
         assert!(report.contains("후보 &lt;A&gt;"));
+        assert!(report.contains("performance/optimization policy를 읽지 못했습니다"));
         assert!(report.ends_with("</html>\n"));
     }
 
     fn snapshot() -> HtmlReportSnapshot {
-        let store = StoreStatus {
-            path: PathBuf::from("/state/observability.sqlite"),
-            recovered_from: None,
-            migration_version: 6,
-            ledger_events: 11,
-            sessions: 2,
-            workflows: 3,
-            transcript_records: 4,
-            model_runs: 5,
-            token_records: 6,
-            resource_samples: 7,
-            benchmark_runs: 8,
-            evidence_records: 9,
-            stop_gate_results: 10,
-        };
+        let store = store();
         HtmlReportSnapshot {
             generated_at_ms: 123,
-            store: store.clone(),
+            store: ReportData::Available(store.clone()),
             latest_resource: ReportData::Available(None),
             model_summaries: ReportData::Available(Vec::new()),
             model_candidate_summary: "candidate-a".to_owned(),
-            optimization_policy: OptimizationPolicy {
+            optimization_policy: ReportData::Available(OptimizationPolicy {
                 store,
                 model_runs: 5,
                 resource_samples: 7,
@@ -472,7 +564,25 @@ mod tests {
                     reason: "local evidence",
                     hint: "keep measuring",
                 },
-            },
+            }),
+        }
+    }
+
+    fn store() -> StoreStatus {
+        StoreStatus {
+            path: PathBuf::from("/state/observability.sqlite"),
+            recovered_from: None,
+            migration_version: 6,
+            ledger_events: 11,
+            sessions: 2,
+            workflows: 3,
+            transcript_records: 4,
+            model_runs: 5,
+            token_records: 6,
+            resource_samples: 7,
+            benchmark_runs: 8,
+            evidence_records: 9,
+            stop_gate_results: 10,
         }
     }
 }
