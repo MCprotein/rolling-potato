@@ -115,7 +115,9 @@ remain historical evidence.
   native read-only runtime after snapshot/frontmatter revalidation. Plugin
   scripts, hooks, MCP/app integrations, shell/background, remote, and write
   capabilities receive no execution authority.
-- HTML monitoring and package-manager channels are intentionally later work.
+- The v0.41 branch implements HTML monitoring as a static local export; it
+  does not add a server or external telemetry. Package-manager publication
+  remains separately evidenced.
 
 ## Next Versions
 
@@ -135,8 +137,8 @@ sequence and non-skippable release gates are defined in
 3. `v0.39.0` onward: integrated performance hardening followed by distribution
    and optional local monitoring surfaces.
 
-Package-manager distribution and an optional local HTML monitoring report come
-after the runtime replacement path is operational.
+Package-manager distribution shipped in v0.40. The v0.41 branch now implements
+the optional local HTML monitoring report as a static, self-contained export.
 
 ## Model Evidence Boundary
 

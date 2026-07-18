@@ -82,6 +82,7 @@ pub fn export_report(format: MonitorExportFormat) -> Result<String, AppError> {
     let format = match format {
         MonitorExportFormat::Jsonl => monitor_core::MonitorExportFormat::Jsonl,
         MonitorExportFormat::Csv => monitor_core::MonitorExportFormat::Csv,
+        MonitorExportFormat::Html => monitor_core::MonitorExportFormat::Html,
     };
     monitor_core::export_report(&LocalMonitorQueryPort, format)
 }

@@ -4,7 +4,7 @@
 
 Monitoring is not external telemetry. It is a local-first runtime capability. The default is local storage, and user code or raw prompts are not sent outside the machine.
 
-Monitoring UX follows [DESIGN.md](../DESIGN.md) and [tui.md](tui.md). TUI is the primary monitoring surface for SSH/Linux-server use; HTML is a later optional local report/dashboard surface.
+Monitoring UX follows [DESIGN.md](../DESIGN.md) and [tui.md](tui.md). TUI is the primary monitoring surface for SSH/Linux-server use; HTML is an optional local static report export.
 
 ## Goals
 
@@ -83,7 +83,7 @@ Phase 2 currently implements the runtime store foundation.
 - `rpotato monitor status` and `rpotato monitor models` read SQLite projection.
 - `rpotato monitor baseline` aggregates local ledger/SQLite projection metrics into a read-only performance baseline report with p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, and model/backend/session grouping. It does not store raw prompt/source text and does not choose model artifacts.
 - `rpotato monitor optimize` reads the local performance baseline, latest resource sample, and `measured-locally` benchmark rows to recommend context budget, team lane count, fallback mode, and model route hint. It is read-only and does not select a real model artifact, promote model status, or claim public benchmark parity.
-- `rpotato monitor export --format jsonl|csv` renders runtime ledger/projection into human-readable exports.
+- `rpotato monitor export --format jsonl|csv|html` renders runtime ledger/projection into human-readable exports. HTML is one self-contained, responsive local snapshot with no script, external asset, network request, raw prompt/source text, credential, or full local path.
 - `rpotato monitor prune --before 30d --dry-run` calculates only deletion candidate counts.
 - `rpotato benchmark validate <fixture.json>` validates project-local fixture metadata for runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence records, abstention requirement, ontology view, context budget, backend/model artifact identifiers, sampling policy, and raw artifact retention policy.
 - `rpotato benchmark record --fixture <fixture.json>` records a metadata-only benchmark run in the append-only ledger and SQLite `benchmark_runs` projection with `claim_state=not-comparable`, no score, a reproducibility manifest, and a redacted local report.
@@ -250,6 +250,7 @@ rpotato continue
 rpotato continue <session-id>
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
+rpotato monitor export --format html > rpotato-monitor.html
 rpotato monitor prune --before 30d --dry-run
 ```
 
@@ -263,7 +264,7 @@ TUI views:
 - subagent/team metric summary
 - recent failures and validation gaps
 
-HTML is not the MVP primary surface. If added later, it should be a local-only report or dashboard reading SQLite/export data. HTML must not become a separate monitoring source of truth.
+HTML is an optional local static report, not the primary monitoring surface. `monitor export --format html` writes a complete document to standard output, so creating and opening a file remain explicit user actions. The report reads the existing bounded SQLite/ledger monitor data, uses a restrictive content security policy, contains inline CSS but no JavaScript or external assets, and makes no network requests. It does not expose raw prompt/source text, credentials, or full local filesystem paths and does not become a separate monitoring source of truth.
 
 ## Retention
 

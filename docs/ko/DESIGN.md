@@ -2,9 +2,9 @@
 
 ## 기준 문서
 
-- 상태: 초안
-- 마지막 갱신: 2026-06-29
-- 주요 제품 surface: CLI, TUI, 이후 선택 가능한 local HTML report/dashboard
+- 상태: 활성
+- 마지막 갱신: 2026-07-19
+- 주요 제품 surface: CLI, TUI, 선택 가능한 로컬 정적 HTML report
 - 검토한 근거:
   - `README.md`
   - `PLAN.md`
@@ -15,6 +15,8 @@
   - `docs/glossary.md`
   - `docs/benchmarks.md`
   - `PRIVACY.md`
+  - `src/runtime_core/observability/monitor.rs`
+  - `src/adapters/sqlite/observability_projection.rs`
 
 ## 브랜드
 
@@ -74,7 +76,7 @@
 - 핵심 route/screen:
   - CLI: `rpotato monitor status`, `rpotato monitor models`, `rpotato monitor session <id>`
   - TUI: monitor overview, model detail, session detail, failures, export/prune
-  - 이후 선택 기능: SQLite/export data에서 생성하는 local HTML report
+  - 선택 가능한 local report: `rpotato monitor export --format html`
 - 내용 우선순위:
   1. 현재 run health: model, backend, active workflow, approval state
   2. token과 latency summary
@@ -221,10 +223,10 @@
 - compatibility constraint:
   - SSH/Linux server 사용은 1급 context다.
   - core monitoring에 browser requirement가 없어야 한다.
-  - optional HTML은 exported data에서 local로 생성하거나 serve해야 하며 baseline operation에 필수이면 안 된다.
+  - optional HTML은 기존 monitor query data에서 local로 생성하며 baseline operation에 필수이면 안 된다.
 - test/screenshot expectation:
   - TUI smoke test는 80x24와 wide terminal size에서 수행한다.
-  - 이후 HTML report/dashboard가 구현되기 전까지 canvas/browser screenshot test는 관련 없다.
+  - HTML test는 browser runtime dependency를 추가하지 않고 semantic structure, escaping, privacy marker, narrow-screen layout을 검사한다.
 
 ## Monitoring TUI 화면 계약
 
@@ -253,19 +255,26 @@
 
 ## HTML Surface 위치
 
-HTML은 나중에 richer chart, benchmark report 공유, historical run review에 유용할 수 있습니다.
+HTML은 local monitoring summary를 검토하고 공유하기 위한 선택형 offline snapshot이다. CLI나 TUI를 대체하지 않으며 server를 추가하지 않는다.
 
-초기 입장:
+계약:
 
 - TUI가 local/SSH/server context의 primary monitoring surface다.
 - CLI monitor command는 plain text fallback이다.
-- HTML은 이후 선택 가능한 report/dashboard surface다.
-- HTML은 같은 SQLite/export data를 소비해야 하며 별도의 monitoring truth source를 만들면 안 된다.
+- `rpotato monitor export --format html`은 완전한 HTML document 하나를 standard output에 기록하며 사용자는 이를 파일로 redirect할 수 있다.
+- HTML은 SQLite projection과 canonical ledger가 제공하는 기존 bounded monitor query data를 사용한다. 별도의 monitoring truth source를 만들면 안 된다.
+- document는 self-contained다. JavaScript, remote font, image, stylesheet, network request, local server를 사용하지 않는다.
+- 제한적인 content security policy로 script, connection, form, embedding, base URL 변경을 차단한다. Inline CSS만 허용한다.
+- 모든 dynamic value는 HTML escape한다. raw prompt, raw source, credential, 전체 local filesystem path를 render하지 않는다.
+- report는 path를 노출하지 않고 local data source를 식별하며, 사용 가능한 최신 metric timestamp 또는 명시적인 stale/unavailable marker를 보여준다.
+- semantic heading, landmark, caption, table로 읽기 쉬운 document structure를 제공한다. Status 의미는 항상 text를 포함하고 color에만 의존하지 않는다.
+- light/dark color scheme를 지원한다. 좁은 화면에서는 section을 쌓고 넓은 table은 document를 자르지 않고 가로 scroll한다.
+- empty, unavailable, redacted, error state는 짧고 실무적인 한국어 문구를 사용하며 report의 나머지 부분은 유지한다.
+- export 생성은 read-only/offline이다. 생성된 파일을 여는 것은 사용자의 명시적인 action이다.
 
 ## 열린 질문
 
 - [ ] 어떤 Rust TUI framework가 terminal layout을 소유할 것인가?
 - [ ] 어떤 SQLite crate를 사용할 것인가?
-- [ ] optional HTML은 static report export인가, local-only web dashboard인가?
 - [ ] 기본 monitoring retention period는 얼마인가?
 - [ ] interactive TUI의 hard minimum terminal width는 얼마인가?

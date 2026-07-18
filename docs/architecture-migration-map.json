@@ -4543,6 +4543,21 @@
       ]
     },
     {
+      "path": "src/runtime_core/observability/html.rs",
+      "slices": [
+        {
+          "responsibility": "static local monitor HTML rendering",
+          "target": "src/runtime_core/observability/html.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/html.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/observability/monitor.rs",
       "slices": [
         {
@@ -8435,6 +8450,12 @@
       "path": "src/runtime_core/observability/facade.rs",
       "responsibilities": [
         "observability events and queries"
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/html.rs",
+      "responsibilities": [
+        "static local monitor HTML rendering"
       ]
     },
     {

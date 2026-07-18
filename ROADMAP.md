@@ -87,7 +87,7 @@ evidence.
 | v0.38.0 | Released | Claude Code plugin execution adapter: canonical local skills/commands run through the native read-only contract, unsupported semantics are explicit, and dynamic shell plus risky capabilities remain default-deny |
 | v0.39.0 | Released | Integrated performance hardening: deterministic completed agent/subagent/team workflow budgets, zero canonical full-ledger rereads on normal event projection, smaller bounded-worker request envelopes, and exact-candidate regression gating without unsupported model claims |
 | v0.40.0 | Released | Package-manager distribution: exact-checksum Homebrew/Scoop manifests, strict format contracts, and clean-install/upgrade/uninstall lifecycles validated across the adopted native lanes; external channel publication remains separately evidenced |
-| v0.41.0 | Planned | Optional local HTML monitoring report: export or serve a local-only SQLite/ledger-backed dashboard with redaction and no second telemetry source of truth |
+| v0.41.0 | In Progress | Optional local static HTML monitoring report: self-contained SQLite/ledger-backed export with responsive rendering, redaction, no external requests, and no second telemetry source of truth |
 
 Winget is not an adopted roadmap or publication channel. The v0.40.0
 generator, fixtures, and validation evidence may remain as historical

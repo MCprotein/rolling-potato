@@ -6,16 +6,17 @@ pub(super) fn parse_monitor_export(args: &[String]) -> Result<MonitorCommand, Ap
             let format = match format.as_str() {
                 "jsonl" => MonitorExportFormat::Jsonl,
                 "csv" => MonitorExportFormat::Csv,
+                "html" => MonitorExportFormat::Html,
                 _ => {
                     return Err(AppError::usage(
-                        "monitor export format은 jsonl 또는 csv만 허용합니다.",
+                        "monitor export format은 jsonl, csv 또는 html만 허용합니다.",
                     ));
                 }
             };
             Ok(MonitorCommand::Export { format })
         }
         _ => Err(AppError::usage(
-            "monitor export에는 --format jsonl 또는 --format csv가 필요합니다.",
+            "monitor export에는 --format jsonl, --format csv 또는 --format html이 필요합니다.",
         )),
     }
 }

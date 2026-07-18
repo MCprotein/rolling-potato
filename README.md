@@ -171,6 +171,7 @@ rpotato monitor baseline
 rpotato monitor optimize
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
+rpotato monitor export --format html > rpotato-monitor.html
 rpotato monitor prune --before 30d --dry-run
 rpotato benchmark validate benchmarks/fixtures/sample.json
 rpotato benchmark record --fixture benchmarks/fixtures/sample.json
@@ -297,6 +298,7 @@ Implemented command surfaces:
 - `rpotato monitor optimize`
 - `rpotato monitor export --format jsonl`
 - `rpotato monitor export --format csv`
+- `rpotato monitor export --format html > rpotato-monitor.html`
 - `rpotato monitor prune --before 30d --dry-run`
 - `rpotato ontology status`
 - `rpotato ontology seed`
@@ -356,7 +358,7 @@ Implemented command surfaces:
 
 `patch preview` reads a project-local text file, renders a unified diff for a single explicit find/replace proposal, and writes a project-local record under `.rpotato/patch-proposals/`. This standalone surface is diff-only and cannot be approved, applied, or verified. Only a workflow proposal created by `run` can pass `patch approve`. `patch approve <proposal-id> --token <token> --dry-run` validates the patch-application gate without modifying the target file. Without `--dry-run`, `patch approve` applies the workflow proposal only when every binding and the current source SHA-256 remain valid, then emits a separate one-time verification credential without running the command. `patch verify <proposal-id> --token <token>` approves and runs only the pre-bound, policy-allowed argv verification plan. Verification failure attempts rollback and is never reported as success. `patch token-rotate` rotates the credential for the gate currently awaiting approval; neither credential is stored in plaintext or redisplayed after its initial delivery.
 
-`monitor baseline` aggregates local ledger/SQLite projection metrics into a read-only performance baseline report with p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, and model/backend/session grouping. It does not store raw prompt/source text and does not choose model artifacts. `monitor optimize` reads those local metrics plus `measured-locally` benchmark rows and recommends a context budget, team lane count, fallback mode, and model route hint without selecting a real model artifact or claiming public benchmark parity. `monitor export` emits the runtime ledger as JSONL or CSV. `monitor prune` is currently dry-run only.
+`monitor baseline` aggregates local ledger/SQLite projection metrics into a read-only performance baseline report with p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, and model/backend/session grouping. It does not store raw prompt/source text and does not choose model artifacts. `monitor optimize` reads those local metrics plus `measured-locally` benchmark rows and recommends a context budget, team lane count, fallback mode, and model route hint without selecting a real model artifact or claiming public benchmark parity. `monitor export` emits the runtime ledger as JSONL or CSV. The `html` format emits one responsive, self-contained local report to standard output; it uses the existing SQLite/ledger monitor data, contains no JavaScript or external assets, makes no network requests, and omits raw prompt/source text, credentials, and full local paths. Redirect it to a file and open that file explicitly. `monitor prune` is currently dry-run only.
 
 `ontology status`, `ontology seed`, and `ontology inspect` manage the project-local `.rpotato/ontology/graph.jsonl` typed graph store and `.rpotato/ontology/schema.json` contract. Layer A seed records deterministic facts such as indexed files, package manifests, entrypoints, and generated-exclusion rules with source pointers and SHA-256 hashes. `ontology context --query <text>` renders a compact source-pointer-first context view for small-model prompts. `ontology reread <source-pointer>` reopens the authoritative project file and reports the current file hash before any edit decision. `ontology export --format json|jsonl` emits inspection views only; JSON/YAML/RDF/OWL-style exports are not more authoritative than the runtime store. `ontology import --file <path> --dry-run` validates import candidates and blocks confirmed Layer B semantic claims that lack source pointers and source hashes.
 
