@@ -32,7 +32,7 @@ Release asset을 기준으로 게시합니다.
   lifecycle contract가 `Validated`에 도달
 - Homebrew tap:
   [MCprotein/homebrew-rpotato](https://github.com/MCprotein/homebrew-rpotato)
-  commit `ae73107e6622c7caebe0137662a0b2a24bfb41aa`로 `Published`
+  commit `bf50499674dcbf46ce7e36260a8a6b3cf0c6b49e`로 `Published`
 - Scoop bucket:
   [MCprotein/scoop-rpotato](https://github.com/MCprotein/scoop-rpotato)
   commit `2e881e23456ae818d00ae63a1059bd870fc914de`로 `Published`
