@@ -56,6 +56,6 @@ expect_count "$release_workflow" "$checkout_pin" 6
 expect_count "$release_workflow" "$upload_pin" 2
 expect_count "$release_workflow" "$download_pin" 1
 expect_count "$policy_workflow" "$checkout_pin" 1
-expect_count "$candidate_workflow" "$checkout_pin" 1
+expect_count "$candidate_workflow" "$checkout_pin" 2
 
 printf 'toolchain pins ok: rust=%s actions=node24 runners=ga\n' "$rust_version"

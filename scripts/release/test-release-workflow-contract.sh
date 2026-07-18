@@ -89,6 +89,7 @@ require_line "$candidate_windows" '          if [ "$actual_sha" != "$CANDIDATE_S
 require_line "$candidate_windows" '        run: rustup target add x86_64-pc-windows-msvc'
 require_line "$candidate_windows" '        run: cargo check --locked --target x86_64-pc-windows-msvc --all-targets --all-features'
 [ -x "$candidate_preflight" ] || fail "candidate preflight must be executable"
+require_line "$candidate_preflight_body" 'scripts/release/verify-toolchain-pins.sh'
 require_line "$candidate_preflight_body" 'cargo fmt --all -- --check'
 require_line "$candidate_preflight_body" 'cargo test --locked --test architecture_contract migration_map_recursively_covers_every_governed_file_and_exact_slice -- --exact --test-threads=1'
 require_line "$candidate_preflight_body" 'cargo clippy --locked --all-targets --all-features -- -D warnings'
