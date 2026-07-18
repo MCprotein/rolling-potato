@@ -1,5 +1,48 @@
 # 릴리즈 노트
 
+## v0.39.0 - 통합 Workflow 성능 최적화
+
+릴리즈 날짜: 2026-07-18
+
+이 릴리즈는 완료된 agent, subagent, team workflow에 결정적 성능 contract를
+추가하고, 측정으로 확인한 불필요한 runtime 작업 두 곳을 제거합니다. 근거는
+저장소 fake sidecar와 local runtime projection에서 얻었으며 실제 모델 품질이나
+공개 benchmark 성능 claim이 아닙니다.
+
+### 포함한 것
+
+- 완료된 agent, subagent, 2-member team CLI 경로를 실행하고 request 수와 byte,
+  projection token 합계, 영속 runtime byte, 필수 completion marker를 gate하는
+  `workflow-performance-v1` 추가
+- 각 fixture의 wall time, process peak CPU, peak RSS를 측정하되 hardware-dependent
+  값은 report-only로 유지
+- Locked test, clippy, release build 뒤 exact PR candidate에서 release-mode
+  evaluator 실행
+- Raw prompt나 source text를 저장하지 않고 request 크기만 기록
+
+### 측정한 최적화
+
+- Canonical ledger append가 반환한 ordinal을 production SQLite projection call
+  site 12곳에서 재사용합니다. 결정적 regression fixture에서 projected append당
+  canonical full-ledger read를 1회에서 0회로 줄였습니다.
+- Fixed binding, evidence-only result contract, patch restriction, safety marker를
+  보존하면서 bounded subagent worker context를 압축했습니다.
+- 같은 fake-sidecar harness에서 aggregate request payload는 subagent fixture
+  3,813 byte에서 3,730 byte, 2-member team fixture 5,231 byte에서 5,065 byte로
+  감소했습니다.
+- Deterministic fake response는 각각 projection token 20개로 고정되어 있습니다.
+  따라서 request byte 감소는 context-envelope 근거이며 실제 모델 token 사용량이나
+  출력 품질 향상 claim이 아닙니다.
+
+### 호환성 경계
+
+- Public CLI command, flag, exit-code contract, dependency, synchronous execution,
+  default-deny action boundary는 변경하지 않음
+- Ledger order는 계속 canonical이며 SQLite는 재생성 가능한 derived projection으로
+  유지하고, recovery가 필요하면 canonical ledger를 다시 읽음
+- 성능 fixture는 local에서 재현 가능하지만 wall, CPU, RSS 관측값은 cross-machine
+  threshold나 public benchmark 결과가 아님
+
 ## v0.38.0 - Claude Code Plugin 실행 Adapter
 
 릴리즈 날짜: 2026-07-18
