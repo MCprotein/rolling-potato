@@ -15,6 +15,18 @@ monitoring, ontology-backed context, plugins, hooks, subagents, teams, and TUI
 surfaces. Public model claims and benchmark claims must stay within recorded
 evidence.
 
+## Status Legend
+
+- `Released`: the version completed its release contract.
+- `Superseded`: a later patch or recovery release replaced an incomplete or
+  defective publication.
+- `Consolidated`: an internal milestone shipped as part of a later exact-tree
+  release instead of as a separate public release.
+
+## Release History
+
+### Runtime foundation (`v0.1.0`-`v0.8.0`)
+
 | Version | Status | Scope |
 | --- | --- | --- |
 | v0.1.0 | Released | Developer preview: CLI scaffold, source-only release, initial runtime contract notes |
@@ -25,6 +37,11 @@ evidence.
 | v0.6.0 | Released | TUI approval and diff views |
 | v0.7.0 | Released | TUI session transcript view |
 | v0.8.0 | Released | TUI evidence and stop-gate view |
+
+### Observability and team foundation (`v0.9.0`-`v0.22.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
 | v0.9.0 | Released | Backend resource sampling: sidecar CPU/RSS/memory/disk sampling, local ledger/SQLite recording, CLI status fields |
 | v0.10.0 | Released | TUI resource monitor: CPU, memory, latency, token throughput, resource-pressure status |
 | v0.11.0 | Released | Backend chat resource governor: backend health/resource thresholds, critical-pressure block, degraded-pressure max-token clamp, CLI/ledger reporting |
@@ -40,6 +57,11 @@ evidence.
 | v0.20.1 | Released | Benchmark evidence status: real Qwen executable smoke measurement documented; `model eval-plan` surfaces latest local measured benchmark row |
 | v0.21.0 | Released | Benchmark-driven optimization policy: `monitor optimize` recommends context budget, lane count, fallback, and model route from measured local metrics and benchmark evidence |
 | v0.22.0 | Released | Dispatcher hardening: `team dispatch` enforces dispatch-time file ownership, records failed-worker continuation, and surfaces latest team runtime status |
+
+### Distribution, models, and ontology (`v0.23.0`-`v0.30.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
 | v0.23.0 | Released | Official binary download foundation: GitHub Release binary workflow for macOS Apple Silicon and Windows x86_64, release asset checksums, and `rpotato doctor` binary smoke |
 | v0.23.1 | Released | Windows binary link fix: `rusqlite` uses bundled Windows SQLite linkage so release assets do not depend on runner-provided `sqlite3.lib` |
 | v0.24.0 | Released | Cross-platform release hardening: macOS Intel artifact, aggregate checksum publication, Windows keep-cache/purge-cache uninstall smoke, release notes template |
@@ -57,6 +79,11 @@ evidence.
 | v0.29.0 | Superseded | Durable single-agent runtime correction shipped, but the Windows `.sha256` CRLF ending made the aggregate checksum fail Unix `shasum -c` validation |
 | v0.29.1 | Released | Cross-platform aggregate checksum fix: explicit ASCII/LF Windows checksum output plus LF/CRLF regression guards, retaining the v0.29.0 runtime correction |
 | v0.30.0 | Released | Verified model adoption: Qwen/Gemma pinned-artifact local evaluation, canonical chat/benchmark/RAM/mmproj provenance gate, managed registry install, fail-closed persistent default selection, and derived project-ledger recovery shipped without bundling weights |
+
+### Durable runtime and collaboration (`v0.31.0`-`v0.38.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
 | v0.31.0 | Superseded | Backend streaming and cancellation shipped, but the first release was incomplete because the Windows artifact failed during sidecar stop fallback |
 | v0.31.1 | Released | Windows sidecar stop fallback restored the complete five-platform artifact set while retaining v0.31.0 streaming and cancellation behavior |
 | v0.32.0 | Released | Durable conversation resume: canonical user/visible-model/tool/evidence transcripts, ledger-ordered rebuildable SQLite projection, one shared bounded source-context budget, preflight-before-mutation session selection, and idempotent `resume`/`continue` without uncertain side-effect replay |
@@ -85,9 +112,16 @@ evidence.
 | v0.37.13 | Superseded | Complete behavior-preserving architecture ownership migration source, but the Windows archive was not published because Unix-only source-install functions were imported into the Windows test binary |
 | v0.37.14 | Released | Windows release recovery: platform-gated source-install imports plus pre-tag Windows release-preflight coverage, retaining the complete v0.37.x architecture migration |
 | v0.38.0 | Released | Claude Code plugin execution adapter: canonical local skills/commands run through the native read-only contract, unsupported semantics are explicit, and dynamic shell plus risky capabilities remain default-deny |
+
+### Performance, distribution, and reporting (`v0.39.0`-`v0.41.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
 | v0.39.0 | Released | Integrated performance hardening: deterministic completed agent/subagent/team workflow budgets, zero canonical full-ledger rereads on normal event projection, smaller bounded-worker request envelopes, and exact-candidate regression gating without unsupported model claims |
 | v0.40.0 | Released | Package-manager distribution: exact-checksum Homebrew/Scoop manifests, strict format contracts, and clean-install/upgrade/uninstall lifecycles validated across the adopted native lanes; external channel publication remains separately evidenced |
 | v0.41.0 | Released | Optional local static HTML monitoring report: self-contained SQLite/ledger-backed export with responsive rendering, redaction, no external requests, and no second telemetry source of truth |
+
+## Channel Boundary
 
 Winget is not an adopted roadmap or publication channel. The v0.40.0
 generator, fixtures, and validation evidence may remain as historical

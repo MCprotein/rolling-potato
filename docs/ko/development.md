@@ -4,9 +4,14 @@
 
 ## 현재 상태
 
-현재 저장소는 제품 정의와 초기 Rust runtime/CLI scaffold 단계입니다.
+현재 저장소는 `v0.41.0`의 active pre-1.0 Rust runtime입니다. 읽기 쉬운 기능
+지도는 [현재 기능 안내](current-capabilities.md)에서 먼저 확인하고, 아래 상세
+snapshot은 구현 이력이 필요할 때만 펼쳐 보십시오.
 
-구현된 첫 경계:
+<details>
+<summary>v0.41 상세 구현 snapshot</summary>
+
+대표 command surface:
 
 - `rpotato doctor`
 - `rpotato backend doctor`
@@ -112,6 +117,8 @@ clippy` 변형만 허용합니다.
 
 Plugin source snapshot, persistent registry, inspect, validate, enable/disable/remove는 활성화되어 있습니다. Import는 실행 권한을 부여하지 않고 permission report와 ledger event만 남깁니다.
 
+</details>
+
 ## 기술 스택
 
 - 언어: Rust
@@ -120,7 +127,7 @@ Plugin source snapshot, persistent registry, inspect, validate, enable/disable/r
 - 필수 capability: hooks, skills, subagents, team runtime, TUI, local plugin adapter
 - Backend: managed `llama.cpp` sidecar
 - 모델 format: GGUF
-- 우선 지원 OS: macOS, Windows
+- 우선 지원 OS: macOS, Linux, Windows
 
 ## 개발 환경
 

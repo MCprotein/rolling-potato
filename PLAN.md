@@ -1,13 +1,15 @@
 # rolling-potato Plan
 
-## Name
+## 1. Product Definition
+
+### Name
 
 - Project name: `rolling-potato`
 - CLI command: `rpotato`
 - Tagline: `Local coding agents for potato PCs.`
 - Korean positioning: `똥컴에서도 굴러가는 로컬 코딩 에이전트`
 
-## Intent
+### Intent
 
 `rolling-potato` is a local-first coding agent runtime for small models. Its first user surface is the `rpotato` CLI.
 
@@ -19,7 +21,7 @@ Core thesis:
 
 Claude Code, Codex, and Gaja Code style tools expose a CLI-like agent experience, but the product is the runtime behind that surface. `rolling-potato` assumes the model is useful but fragile, so the runtime core must manage context, ontology, hooks, skills, subagents, team execution, actions, validation, retries, and user-facing language.
 
-## Target Users
+### Target Users
 
 - Korean-speaking users first
 - users who find cloud coding-agent subscriptions expensive
@@ -27,13 +29,14 @@ Claude Code, Codex, and Gaja Code style tools expose a CLI-like agent experience
 - users who want local/private execution
 - non-expert or semi-technical users who still need coding help
 
-Initial hardware target:
+Current hardware and release baseline:
 
-- 16 GB RAM laptop
-- macOS and Windows first
-- Linux later, maintainer-led or after governance policy changes
+- 16 GB RAM class laptops remain the product target; exact model fit still
+  requires local evidence.
+- Official release artifacts cover macOS arm64/x64, Linux arm64/x64, and
+  Windows x64.
 
-## Product Shape
+### Product Shape
 
 Primary surface:
 
@@ -123,7 +126,9 @@ The CLI should feel lightweight and direct. It is not the product boundary; it i
 
 Plugin adapter commands use local plugin directory paths only. `rpotato` does not integrate with external plugin marketplaces, registries, catalogs, or package mirrors.
 
-## Runtime Direction
+## 2. Runtime and Model Foundation
+
+### Runtime Direction
 
 Default runtime direction:
 
@@ -152,7 +157,7 @@ Excluded as default:
 - vLLM, because it is better as a server/GPU backend than a default low-end local runtime
 - Tauri/Electron, because the required interactive surface is terminal TUI before GUI
 
-## Managed Backend Distribution
+### Managed Backend Distribution
 
 Users should not have to install `llama.cpp` manually for the MVP path.
 
@@ -178,7 +183,7 @@ rpotato config set backend.llama_cpp.path /path/to/llama-server
 
 An overridden backend is user-owned. `rpotato uninstall` must not delete it.
 
-## Initial Model Direction
+### Initial Model Direction
 
 Priority evaluation candidate:
 
@@ -206,7 +211,7 @@ Not the default:
 
 - `Qwen3.5-9B`, because larger local models may increase pressure on context, verification, and runtime overhead. Exact viability is unverified and needs measurement.
 
-## Model And Runtime Download Flow
+### Model And Runtime Download Flow
 
 Model weights should not be bundled into the initial `rpotato` release artifact.
 
@@ -241,7 +246,7 @@ Model metadata should live in a manifest:
 
 This is a schema sketch. `null` and `TODO` values are placeholders, not product facts.
 
-## Small-Model Runtime Responsibilities
+### Small-Model Runtime Responsibilities
 
 The runtime should own:
 
@@ -269,7 +274,9 @@ The runtime should own:
 - command/test/log feedback
 - final Korean-only response validation
 
-## Storage Layout
+## 3. State, Evidence, and Local Data
+
+### Storage Layout
 
 The implementation should keep install-time assets, cache, and project state separate so uninstall behavior is predictable.
 
@@ -302,7 +309,7 @@ Platform paths are decided during Phase 1, but the boundary should stay stable:
 - `models/`, `downloads/`, `manifests/`, generated context indexes, SQLite monitoring store, and logs are cache/data assets.
 - project-local `.rpotato/` is user project state and must not be removed by global uninstall unless the user explicitly asks for project cleanup from that project.
 
-## Observability And Monitoring
+### Observability And Monitoring
 
 Model monitoring is a required runtime capability, not a later analytics add-on.
 
@@ -314,7 +321,7 @@ Default decision:
 - Persist local user turns plus visible/normalized model, tool, and evidence turns for resume. Do not persist the complete backend prompt, hidden/raw model response, raw source body, or credential-bearing command output.
 - Expose monitoring through `rpotato monitor ...`, `doctor`, benchmark reports, and TUI views.
 
-## Model Knowledge Base
+### Model Knowledge Base
 
 The LLM wiki is introduced as a model knowledge base: an evidence index over
 manifest records, benchmark results, observability metrics, and source-backed
@@ -359,7 +366,7 @@ and stores token/latency/resource summaries plus redacted reproducibility
 metadata. It does not store raw prompt/source text in SQLite and does not claim
 public benchmark parity.
 
-## Uninstall And Cache Policy
+### Uninstall And Cache Policy
 
 Uninstall must be exposed through the CLI surface and must show a dry-run summary before deleting anything.
 
@@ -383,7 +390,9 @@ Behavior:
 - On platforms where deleting the currently running binary is unsafe or impossible, `rpotato uninstall` should write a small post-exit cleanup script or print the final manual command in Korean.
 - Every delete path must support `--dry-run`, path listing, and Korean confirmation text before execution.
 
-## Agent Strategy
+## 4. Agent Behavior and Safety
+
+### Agent Strategy
 
 Default to sequential agents for small tasks. Support subagents and team execution for tasks that materially benefit from parallel or staged work.
 
@@ -410,7 +419,7 @@ Required advanced runtime capabilities:
 - team orchestration
 - TUI surface
 
-## Korean-Only Requirement
+### Korean-Only Requirement
 
 User-facing output must be Korean-only unless code or exact file contents are explicitly required.
 
@@ -422,7 +431,7 @@ Runtime guard:
 - fail closed with a Korean-only error if still invalid
 - keep code blocks separate from natural-language output
 
-## CLI Safety Model
+### CLI Safety Model
 
 The CLI surface displays and asks. The runtime core decides and enforces. Default behavior should be conservative:
 
@@ -435,7 +444,9 @@ The CLI surface displays and asks. The runtime core decides and enforces. Defaul
 
 This can be relaxed later with trust modes.
 
-## Publishing Direction
+## 5. Delivery and Open Decisions
+
+### Publishing Direction
 
 Initial publishing:
 
@@ -463,7 +474,7 @@ Current lean:
 - managed `llama.cpp` sidecar
 - adapter boundary for future backends
 
-## MVP Definition
+### MVP Definition
 
 The first useful version should:
 
@@ -488,90 +499,41 @@ Replacement-level beta should additionally:
 5. import Claude Code/Codex-style plugin packages only through adapter validation and runtime policy gates
 6. show approvals, diff, tool output, subagent/team status, plugin permission review, and evidence in the TUI
 
-## Open Questions
+### Resolved Decisions
 
-- Rust first, or TypeScript prototype first?
-- Does the source-recorded Qwen3.5-4B Q4_K_M artifact pass local `llama.cpp b9878` smoke, RAM-fit, mmproj-need, and benchmark checks?
-- Which `llama.cpp` release artifact and checksum source should be trusted per platform?
-- How should self-delete work on Windows package-manager installs?
-- Should image/screenshot understanding be MVP or later?
-- How strict should command approval be?
-- What hooks are enabled by default?
-- What skills ship first?
-- What subagent concurrency limit is safe on 16 GB RAM?
-- What team pipeline is required for replacement-level workflows?
-- Which Rust TUI framework should be used?
-- Which Rust SQLite crate should be used?
-- What is the default monitoring retention period?
-- Should `rpotato` support non-code general automation later?
-- What is the first benchmark suite for Korean/code/tool reliability?
+- The runtime core and CLI are implemented in Rust.
+- SQLite projection ownership uses `rusqlite`; canonical ledgers remain the
+  authority.
+- Managed backend artifacts are source-pinned to `llama.cpp b9982`.
+- Command approval, native hooks, built-in skills, bounded subagents, team
+  execution, and local plugin adapters have runtime-owned policy boundaries.
+- Plugin import is local-directory only. Remote marketplaces, registries, and
+  catalogs are outside the supported boundary.
+- Monitoring uses CLI/TUI surfaces plus an optional self-contained local HTML
+  export backed by the same SQLite/ledger data.
 
-## Current Documentation
+### Open Questions
 
-Core design docs:
+- Which source-backed candidate can become a supported default after exact
+  `b9982`, 16 GB RAM-fit, mmproj, quality, and benchmark evidence?
+- Should image or screenshot understanding enter a future version?
+- Should a richer TUI adopt a framework beyond the current std-only line
+  controller?
+- What should the default monitoring retention period be?
+- Which measured subagent/team lane and context budgets are safe on 16 GB
+  machines?
+- Should `rpotato` support non-code general automation in a future version?
 
-1. `README.md` positioning draft
-2. `DESIGN.md`
-3. `docs/architecture.md`
-4. `docs/model-eval.md`
-5. `docs/mvp.md`
-6. `docs/runtime-architecture.md`
-7. `docs/state-lifecycle.md`
-8. `docs/glossary.md`
-9. `docs/ontology-runtime.md`
-10. `docs/observability.md`
-11. `docs/hooks.md`
-12. `docs/skills.md`
-13. `docs/subagents.md`
-14. `docs/team-runtime.md`
-15. `docs/tui.md`
-16. `docs/plugin-adapters.md`
-17. `docs/cli-output-style.md`
+### Current Documentation
 
-Open-source operating docs:
+The chaptered [documentation index](docs/README.md) is the navigation source of
+truth. The [current-capabilities guide](docs/current-capabilities.md) maps
+implemented surfaces and known boundaries without duplicating them here.
 
-1. `LICENSE`
-2. `GOVERNANCE.md`
-3. `MAINTAINERS.md`
-4. `SECURITY.md`
-5. `PRIVACY.md`
-6. `ROADMAP.md`
-7. `docs/development.md`
-8. `docs/release.md`
+Project-local automation and contribution policy is recorded in
+[AGENTS.md](AGENTS.md). Model-related claims require explicit sources and must
+follow [docs/model-source-policy.md](docs/model-source-policy.md).
 
-Runtime policy and validation docs:
-
-1. `docs/model-manifest.md`
-2. `docs/model-knowledge-base.md`
-3. `docs/model-licenses.md`
-4. `docs/model-source-policy.md`
-5. `docs/state-lifecycle.md`
-6. `docs/backend-adapters.md`
-7. `docs/command-policy.md`
-8. `docs/korean-output-guard.md`
-9. `docs/threat-model.md`
-10. `docs/benchmarks.md`
-11. `docs/observability.md`
-12. `docs/hooks.md`
-13. `docs/skills.md`
-14. `docs/subagents.md`
-15. `docs/team-runtime.md`
-16. `docs/tui.md`
-17. `docs/plugin-adapters.md`
-
-Project-local automation and contribution policy is recorded in `AGENTS.md`: external code PRs are not accepted, safe verified units should be committed and pushed automatically, and commit messages use Conventional Commits in the form `type(scope): title`.
-
-Model-related claims require explicit sources. Model names, licenses, artifact URLs, checksums, RAM requirements, backend compatibility, multimodal support, and quality claims must follow `docs/model-source-policy.md`.
-
-Next implementation-oriented decisions:
-
-1. run local smoke and RAM-fit/mmproj-need checks for the source-recorded Qwen/Gemma GGUF artifact candidates
-2. implement resumable model download and byte-level SHA-256 verification before registry registration
-3. define the initial model manifest format on disk
-4. separate runtime core modules from the CLI surface
-5. define normalized plugin manifest and inspect/validate output before plugin execution
-6. implement Codex plugin local import before Claude Code plugin local import
-7. keep risky foreign plugin capabilities blocked until explicit per-capability approval
-8. reject plugin marketplace, remote registry, and remote catalog sources
-9. implement `rpotato doctor` before agent behavior
-10. build the first fixture benchmark for Korean/code/tool reliability
+No version after `v0.41.0` is defined. Add a concrete row to
+[ROADMAP.md](ROADMAP.md) before turning any open question into implementation
+work.

@@ -1,6 +1,8 @@
 # Design
 
-## Source Of Truth
+## 1. Product Foundation
+
+### Source Of Truth
 
 - Status: Active
 - Last refreshed: 2026-07-19
@@ -18,7 +20,7 @@
   - `src/runtime_core/observability/monitor.rs`
   - `src/adapters/sqlite/observability_projection.rs`
 
-## Brand
+### Brand
 
 - Personality: small, fast, pragmatic local coding-agent runtime
 - Trust signals: local-first execution, explicit approval, source-backed model claims, visible evidence, Korean final reporting
@@ -28,7 +30,7 @@
   - nested-card-heavy TUI layouts
   - color-dependent UI that breaks in SSH terminals
 
-## Product Goals
+### Product Goals
 
 - Goals:
   - Provide a local agent-runtime experience that can replace Claude Code/Codex for practical workflows.
@@ -45,7 +47,7 @@
   - During a long agent run, pending approvals, active tool, subagent/team status, and model metrics remain visible in one coherent flow.
   - Benchmark results and real-run metrics use the same vocabulary.
 
-## Personas And Jobs
+### Personas And Jobs
 
 - Primary personas:
   - Korean-speaking users
@@ -67,7 +69,9 @@
   - long-running coding-agent session
   - model benchmark or artifact audit
 
-## Information Architecture
+## 2. Experience System
+
+### Information Architecture
 
 - Primary navigation:
   - TUI top-level tabs: Session, Monitor, Agents, Evidence, Logs, Settings
@@ -84,7 +88,7 @@
   4. subagent/team breakdown
   5. detail tables and logs
 
-## Design Principles
+### Design Principles
 
 - SSH-first: every critical monitoring function must work in a plain terminal.
 - Dense but calm: show operational data without dashboard decoration.
@@ -95,7 +99,7 @@
   - TUI cannot compete with HTML charts, so it should use compact tables, sparklines, sorted lists, and drill-down panels.
   - HTML can be better for offline reports, but it must not become the only monitoring surface.
 
-## Visual Language
+### Visual Language
 
 - Color:
   - Use restrained terminal colors with semantic meaning only.
@@ -118,7 +122,9 @@
   - No bitmap imagery in TUI.
   - ASCII/Unicode symbols may be used only when they improve scan speed and have text fallback.
 
-## Components
+## 3. Interface Contract
+
+### Components
 
 - Existing components to reuse:
   - CLI command output style from current scaffold
@@ -147,7 +153,7 @@
   - TUI owns presentation and user decisions.
   - `docs/observability.md` owns metric schema direction.
 
-## Accessibility
+### Accessibility
 
 - Target standard: keyboard-first terminal accessibility with readable contrast and no color-only state.
 - Keyboard/focus behavior:
@@ -163,7 +169,7 @@
   - Refresh interval should be configurable.
   - Do not flash on failures.
 
-## Responsive Behavior
+### Responsive Behavior
 
 - Supported breakpoints/devices:
   - 80x24 minimum terminal target
@@ -177,7 +183,7 @@
   - No hover dependency.
   - Mouse support can be optional later, never required.
 
-## Interaction States
+### Interaction States
 
 - Loading:
   - Show data source, last update time, and whether SQLite projection or ledger replay is being read.
@@ -192,7 +198,7 @@
 - Offline/slow network:
   - Monitoring must work offline from local SQLite/ledger.
 
-## Content Voice
+### Content Voice
 
 - Tone: short, practical Korean for user-facing runtime/TUI copy
 - Terminology:
@@ -208,10 +214,14 @@
   - Privacy-sensitive panels should explicitly mark redacted data.
   - Do not use marketing copy inside monitoring screens.
 
-## Implementation Constraints
+## 4. Implementation Surfaces
+
+### Implementation Constraints
 
 - Framework/styling system:
-  - Rust TUI framework is not selected yet.
+  - The current interactive TUI is a std-only line controller.
+  - A framework for a richer full-screen TUI is not selected.
+  - SQLite projection access uses `rusqlite`.
   - TUI must consume runtime state through runtime core contracts, not direct DB ownership.
 - Design-token constraints:
   - Semantic color names only: healthy, warning, failed, selected, muted.
@@ -228,7 +238,7 @@
   - TUI smoke tests at 80x24 and wide terminal sizes.
   - HTML tests cover semantic structure, escaping, privacy markers, and narrow-screen layout without adding a browser runtime dependency.
 
-## Monitoring TUI Screen Contract
+### Monitoring TUI Screen Contract
 
 Minimum overview layout:
 
@@ -253,7 +263,7 @@ Rules:
 - Detail panels must never show raw prompt/source by default.
 - Export and prune actions must show dry-run summaries first.
 
-## HTML Surface Position
+### HTML Surface Position
 
 HTML is an optional offline snapshot for reviewing and sharing local monitoring summaries. It does not replace the CLI or TUI and does not introduce a server.
 
@@ -272,9 +282,7 @@ Contract:
 - Empty, unavailable, redacted, and error states use short practical Korean copy and preserve the rest of the report.
 - Export generation is read-only and offline. Opening the resulting file is an explicit user action.
 
-## Open Questions
+## 5. Open Questions
 
-- [ ] Which Rust TUI framework should own the terminal layout?
-- [ ] Which SQLite crate should be used?
+- [ ] Should a richer full-screen TUI adopt a Rust framework?
 - [ ] What is the default monitoring retention period?
-- [ ] What terminal width should be the hard minimum for interactive TUI?

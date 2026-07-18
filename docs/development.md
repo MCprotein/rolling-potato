@@ -4,9 +4,15 @@ This document defines the `rolling-potato` development environment and verificat
 
 ## Current State
 
-The repository is currently in product-definition and early Rust runtime/CLI scaffold stage.
+The repository is an active pre-1.0 Rust runtime at `v0.41.0`. Start with the
+[current-capabilities guide](current-capabilities.md) for the readable feature
+map and use the detailed snapshot below only when implementation history is
+needed.
 
-Implemented first boundaries:
+<details>
+<summary>Detailed v0.41 implementation snapshot</summary>
+
+Representative command surfaces:
 
 - `rpotato doctor`
 - `rpotato backend doctor`
@@ -112,6 +118,8 @@ old token. Verification plans are argv-only and limited to `pwd` plus current-cr
 
 Plugin source snapshot, persistent registry, inspect, validate, enable/disable/remove are enabled. Import grants no execution authority; it records only permission reports and ledger events.
 
+</details>
+
 ## Tech Stack
 
 - Language: Rust
@@ -120,7 +128,7 @@ Plugin source snapshot, persistent registry, inspect, validate, enable/disable/r
 - Required capabilities: hooks, skills, subagents, team runtime, TUI, local plugin adapter
 - Backend: managed `llama.cpp` sidecar
 - Model format: GGUF
-- Primary OS targets: macOS, Windows
+- Primary OS targets: macOS, Linux, Windows
 
 ## Development Environment
 
