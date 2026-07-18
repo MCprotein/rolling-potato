@@ -71,6 +71,35 @@ Download the archive for your platform and verify it with the matching
 `.sha256` file or the aggregate checksum file. Homebrew, Scoop, winget, and
 other package-manager channels are not operated by this project.
 
+Starting with the `v0.42.0` source, run the extracted binary once to place it
+in the user-local CLI directory and register that directory in the detected
+shell profile or Windows user PATH:
+
+```sh
+./rpotato install
+$HOME/.local/bin/rpotato init
+```
+
+On Windows, use `.\rpotato.exe install`, then run
+`& "$env:LOCALAPPDATA\Programs\rpotato\bin\rpotato.exe" init`. A new terminal
+picks up the persistent PATH automatically; both commands print the one-line
+activation command for the current terminal. `RPOTATO_*` variables remain
+optional overrides and are not forced globally.
+
+For a reset that removes the global application data and only the current
+project's `.rpotato` state, inspect and then explicitly confirm the clean
+install:
+
+```sh
+./rpotato install --clean --dry-run
+./rpotato install --clean --yes
+```
+
+Clean install is blocked while a managed backend or generation is active.
+Its dry-run also reports whether the binary and PATH registration would be
+created, updated, or left unchanged. Runtime publication and deletion share a
+cross-process guard; an unavailable process-liveness check blocks deletion.
+
 Supported release targets and checksum verification are documented in
 [docs/release.md](docs/release.md).
 
@@ -172,8 +201,9 @@ optional self-contained HTML monitoring report backed by the existing local
 SQLite/ledger data. It does not add a server, external telemetry, JavaScript,
 or network requests.
 
-No version after `v0.41.0` is currently defined. New roadmap work must first
-be assigned to a concrete version in [ROADMAP.md](ROADMAP.md).
+`v0.42.0` is now the concrete in-development version for user-local
+self-install, automatic PATH registration, `init` environment repair, and a
+guarded clean reinstall. See [ROADMAP.md](ROADMAP.md).
 
 ---
 

@@ -1,14 +1,38 @@
 # Current Capabilities
 
-This document is the readable status map for `rolling-potato v0.41.0`. It
-groups the runtime by responsibility instead of repeating one flat command
-list.
+This document is the readable status map for the `rolling-potato v0.41.0`
+release plus the in-development `v0.42.0` source. It groups the runtime by
+responsibility instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
 [한국어](ko/current-capabilities.md)
 
 > This is a capability guide, not a substitute for `rpotato --help`. The
 > installed binary remains the source of truth for exact command syntax.
+
+## Installation and First Run (`v0.42.0` source)
+
+The extracted GitHub Release binary can install or update itself in the
+user-local CLI directory and register that directory in zsh, bash, fish, or
+the Windows user PATH. Registration uses one owned block and is idempotent.
+`init` repairs the registration when invoked through the installed binary;
+shell-profile or environment-registration failures are reported without
+blocking runtime-state initialization.
+
+```sh
+rpotato install
+rpotato install --clean --dry-run
+rpotato install --clean --yes
+rpotato init
+```
+
+Standard install preserves config, models, backend assets, and project state.
+Clean install removes only the global application-data root and the current
+project's `.rpotato`, requires explicit confirmation, and is blocked while a
+managed backend or generation is active. Dry-run reports the exact binary and
+PATH-registration change as well as both deletion targets. Backend/generation
+publication and deletion are serialized by one cross-process lease, and
+process-liveness errors fail closed.
 
 ## 1. Agent Loop and Context
 
