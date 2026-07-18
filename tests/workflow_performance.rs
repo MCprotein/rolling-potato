@@ -11,12 +11,14 @@ const BUDGETS: &str = include_str!("../benchmarks/fixtures/workflow-performance-
 const PATCH_RESPONSE: &str = "MODEL ACTION: kind=patch-proposal; source_pointers=src/lib.rs:1; path=src/lib.rs; find_hex=31; replace_hex=32; verification=pwd; next_gate=diff-before-write; side_effects=none";
 const READ_ONLY_RESPONSE: &str = "src/lib.rs 구조를 확인했으며 파일 변경은 필요하지 않습니다.\nMODEL ACTION: kind=inspect-sources; source_pointers=src/lib.rs:1; next_gate=source-reread-before-claim; side_effects=none";
 const SUBAGENT_RESPONSE: &str = "{\"schema_version\":1,\"subagent_id\":\"{{SUBAGENT_ID}}\",\"parent_workflow_id\":\"{{PARENT_WORKFLOW_ID}}\",\"role\":\"explore\",\"status\":\"completed\",\"summary\":\"선언 범위 확인 완료\",\"findings\":[\"src/lib.rs 확인\"],\"patch_proposal\":null,\"evidence_refs\":[\"src/lib.rs:1\"],\"validation_gaps\":[],\"suggested_next_action\":\"부모가 결과를 검토\"}";
+const SOURCE_CONTEXT_SENTINEL: &str = "RPOTATO_PERF_RAW_SOURCE_SENTINEL_QXJMV";
 
 #[test]
 fn completed_agent_subagent_and_team_workflows_stay_within_budgets() {
     assert!(BUDGETS.contains("\"claim_state\": \"measured-locally\""));
     assert!(BUDGETS.contains("\"model_claim\": \"not-applicable-fake-sidecar\""));
-    assert!(BUDGETS.contains("\"raw_prompt_source_stored\": false"));
+    assert!(BUDGETS.contains("\"request_marker_stores_body\": false"));
+    assert!(BUDGETS.contains("\"raw_source_context_persisted\": false"));
     assert_projection_hotspot_closed();
 
     let agent = measure_agent();
@@ -28,7 +30,7 @@ fn completed_agent_subagent_and_team_workflows_stay_within_budgets() {
     assert_budget("team", &team);
 
     println!(
-        "RPOTATO_WORKFLOW_PERF {{\"fixture_id\":\"workflow-performance-v1\",\"claim_state\":\"measured-locally\",\"agent\":{},\"subagent\":{},\"team\":{},\"raw_prompt_source_stored\":false}}",
+        "RPOTATO_WORKFLOW_PERF {{\"fixture_id\":\"workflow-performance-v1\",\"claim_state\":\"measured-locally\",\"agent\":{},\"subagent\":{},\"team\":{},\"request_marker_stores_body\":false,\"raw_source_context_persisted\":false}}",
         agent.json(),
         subagent.json(),
         team.json(),
@@ -63,7 +65,7 @@ fn measure_agent() -> WorkflowMeasurement {
     fixture.start();
     fixture.write_response(READ_ONLY_RESPONSE);
 
-    let run = fixture.measured_command(&["run", "저장소 구조를 분석해줘"]);
+    let run = fixture.measured_command(&["run", "src/lib.rs 구조를 분석해줘"]);
     assert_success(&run.output, "completed agent run");
     let stdout = text(&run.output.stdout);
     assert!(stdout.starts_with("run 결과\n- 상태: 완료"), "{stdout}");
@@ -90,6 +92,7 @@ fn measure_subagent() -> WorkflowMeasurement {
     );
 
     fixture.write_response(SUBAGENT_RESPONSE);
+    fixture.require_source_context();
     let launch = fixture.measured_command(&[
         "subagent",
         "launch",
@@ -131,6 +134,7 @@ fn measure_team() -> WorkflowMeasurement {
     let plan = fixture.measured_command(&["team", "plan", "--manifest", "team.json"]);
     assert_success(&plan.output, "team plan");
     fixture.write_response(SUBAGENT_RESPONSE);
+    fixture.require_source_context();
     let execute = fixture.measured_command(&["team", "execute", "--team", "team-performance"]);
     assert_success(&execute.output, "team execute");
     assert!(
@@ -239,6 +243,7 @@ struct Fixture {
     response: PathBuf,
     requests: PathBuf,
     request_sizes: PathBuf,
+    required_sentinel: PathBuf,
     port: u16,
 }
 
@@ -255,7 +260,18 @@ impl Fixture {
         let project = root.join("project");
         let data = root.join("data");
         fs::create_dir_all(project.join("src")).unwrap();
-        fs::write(project.join("src/lib.rs"), "pub const VALUE: i32 = 1;\n").unwrap();
+        fs::write(
+            project.join("src/lib.rs"),
+            format!(
+                "pub const VALUE: i32 = 1;\n\
+                 //a\n\
+                 //b\n\
+                 //c\n\
+                 //d\n\
+                 //{SOURCE_CONTEXT_SENTINEL}\n"
+            ),
+        )
+        .unwrap();
         let backend = root.join("fake-sidecar");
         let source =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/platform/fake_sidecar.rs");
@@ -272,6 +288,8 @@ impl Fixture {
         let response = root.join("response.txt");
         let requests = root.join("requests.txt");
         let request_sizes = root.join("request-sizes.txt");
+        let required_sentinel = root.join("required-sentinel.txt");
+        fs::write(&required_sentinel, "").unwrap();
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         drop(listener);
@@ -284,6 +302,7 @@ impl Fixture {
             response,
             requests,
             request_sizes,
+            required_sentinel,
             port,
         }
     }
@@ -307,6 +326,10 @@ impl Fixture {
         fs::write(&self.response, response).unwrap();
     }
 
+    fn require_source_context(&self) {
+        fs::write(&self.required_sentinel, SOURCE_CONTEXT_SENTINEL).unwrap();
+    }
+
     fn command_builder(&self, args: &[&str]) -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_rpotato"));
         command
@@ -317,7 +340,11 @@ impl Fixture {
             .env("RPOTATO_BACKEND_PORT", self.port.to_string())
             .env("RPOTATO_FAKE_RESPONSE_FILE", &self.response)
             .env("RPOTATO_FAKE_REQUEST_MARKER", &self.requests)
-            .env("RPOTATO_FAKE_REQUEST_SIZE_MARKER", &self.request_sizes);
+            .env("RPOTATO_FAKE_REQUEST_SIZE_MARKER", &self.request_sizes)
+            .env(
+                "RPOTATO_FAKE_REQUEST_REQUIRED_SENTINEL_FILE",
+                &self.required_sentinel,
+            );
         command
     }
 
@@ -363,6 +390,14 @@ impl Fixture {
             .lines()
             .map(|line| line.parse::<u64>().unwrap())
             .collect::<Vec<_>>();
+        let request_markers = fs::read_to_string(&self.requests).unwrap();
+        let marker_lines = request_markers.lines().collect::<Vec<_>>();
+        assert_eq!(marker_lines.len(), sizes.len());
+        assert!(marker_lines.iter().all(|line| *line == "request"));
+        assert!(!request_markers.contains(SOURCE_CONTEXT_SENTINEL));
+        assert!(!request_sizes.contains(SOURCE_CONTEXT_SENTINEL));
+        assert_tree_omits(&self.project.join(".rpotato"), SOURCE_CONTEXT_SENTINEL);
+        assert_tree_omits(&self.data.join("state"), SOURCE_CONTEXT_SENTINEL);
         WorkflowMeasurement {
             name,
             command_count: commands.len(),
@@ -434,6 +469,29 @@ fn tree_bytes(root: &Path) -> u64 {
         .filter_map(Result::ok)
         .map(|entry| tree_bytes(&entry.path()))
         .sum()
+}
+
+fn assert_tree_omits(root: &Path, sentinel: &str) {
+    let Ok(metadata) = fs::symlink_metadata(root) else {
+        return;
+    };
+    if metadata.file_type().is_symlink() {
+        return;
+    }
+    if metadata.is_file() {
+        let bytes = fs::read(root).unwrap();
+        assert!(
+            !bytes
+                .windows(sentinel.len())
+                .any(|window| window == sentinel.as_bytes()),
+            "raw source context leaked into persisted artifact: {}",
+            root.display()
+        );
+        return;
+    }
+    for entry in fs::read_dir(root).unwrap().filter_map(Result::ok) {
+        assert_tree_omits(&entry.path(), sentinel);
+    }
 }
 
 fn max_f64(left: Option<f64>, right: Option<f64>) -> Option<f64> {

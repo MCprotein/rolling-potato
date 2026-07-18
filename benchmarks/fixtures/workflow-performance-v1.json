@@ -19,5 +19,6 @@
   "wall_time_policy": "report-only-hardware-dependent",
   "cpu_policy": "report-only-hardware-dependent",
   "rss_policy": "report-only-hardware-dependent",
-  "raw_prompt_source_stored": false
+  "request_marker_stores_body": false,
+  "raw_source_context_persisted": false
 }

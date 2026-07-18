@@ -18,7 +18,9 @@
   값은 report-only로 유지
 - Locked test, clippy, release build 뒤 exact PR candidate에서 release-mode
   evaluator 실행
-- Raw prompt나 source text를 저장하지 않고 request 크기만 기록
+- Performance marker는 request 수와 body byte 크기만 기록하고, declared-context
+  worker의 source-context byte가 project나 app-state artifact에 영속되지 않음을
+  검증. 일반 visible user transcript 영속화는 변경하지 않음
 
 ### 측정한 최적화
 

@@ -386,9 +386,12 @@ hardware, quantization, dataset, prompt, and scoring conditions.
 
 `benchmarks/fixtures/workflow-performance-v1.json` defines deterministic local
 budgets for completed agent, subagent, and team CLI workflows. The fixture uses
-the repository fake sidecar, records only request byte counts, and obtains token
-totals from the normal SQLite monitoring projection. It does not store raw
-prompts or source and makes no real-model capability claim.
+the repository fake sidecar, whose performance markers record only request
+counts and body byte sizes, and obtains token totals from the normal SQLite
+monitoring projection. A unique source-context sentinel must reach each
+declared-context subagent and team worker request but remain absent from project
+and app-state artifacts. Normal visible user transcript persistence remains
+part of the product contract. The fixture makes no real-model capability claim.
 
 Run the release-mode evaluator with:
 

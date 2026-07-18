@@ -360,9 +360,12 @@ prompt, scoring 조건이 비교 가능할 때만 허용합니다.
 
 `benchmarks/fixtures/workflow-performance-v1.json`은 완료된 agent, subagent,
 team CLI workflow의 결정적 local 예산을 정의합니다. 이 fixture는 저장소의
-fake sidecar를 사용하고 request byte 수만 기록하며, token 합계는 일반 SQLite
-monitoring projection에서 읽습니다. raw prompt나 source를 저장하지 않고 실제
-모델 capability claim도 하지 않습니다.
+fake sidecar를 사용하며 performance marker에는 request 수와 body byte 크기만
+기록합니다. token 합계는 일반 SQLite monitoring projection에서 읽습니다. 고유
+source-context sentinel은 declared-context subagent와 team worker request에
+도달해야 하지만 project와 app state artifact에는 남으면 안 됩니다. 일반 visible
+user transcript 영속화는 기존 제품 contract로 유지합니다. 실제 모델 capability
+claim은 하지 않습니다.
 
 release-mode evaluator는 다음과 같이 실행합니다.
 

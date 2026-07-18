@@ -18,7 +18,10 @@ runtime projections; it is not a real-model quality or public benchmark claim.
   keeping those hardware-dependent values report-only.
 - Runs the release-mode evaluator on the exact PR candidate after the locked
   test, clippy, and release-build gates.
-- Records request sizes without persisting raw prompts or source text.
+- Keeps performance markers limited to request counts and body byte sizes, and
+  proves that source-context bytes reaching declared-context workers are not
+  persisted in project or app-state artifacts. Normal visible user transcript
+  persistence is unchanged.
 
 ### Measured Optimizations
 
