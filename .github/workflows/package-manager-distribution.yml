@@ -360,6 +360,7 @@ jobs:
 
           $root = Join-Path $env:RUNNER_TEMP "rpotato-scoop-bucket"
           $remote = Join-Path $root "bucket.git"
+          $remoteUri = "file:///$($remote -replace '\\', '/')"
           $seed = Join-Path $root "seed"
           New-Item -ItemType Directory -Force -Path $root | Out-Null
           git init --bare --initial-branch=main $remote
@@ -372,7 +373,7 @@ jobs:
           git -C $seed commit -m "test: publish rpotato manifest"
           git -C $seed remote add origin $remote
           git -C $seed push -u origin main
-          Invoke-Scoop bucket add rpotato $remote
+          Invoke-Scoop bucket add rpotato $remoteUri
           Invoke-Scoop install rpotato/rpotato --no-update-scoop
           Assert-DoctorVersion $previousVersion
           Copy-Item $currentManifest (Join-Path $seed "bucket\rpotato.json") -Force
@@ -478,18 +479,19 @@ jobs:
 
             Invoke-Winget install --manifest $currentManifest --accept-package-agreements --accept-source-agreements --disable-interactivity
             Assert-DoctorVersion $currentVersion
-            Invoke-Winget uninstall --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity
+            Invoke-Winget uninstall --manifest $currentManifest --accept-source-agreements --disable-interactivity
             Assert-Removed
 
             Invoke-Winget install --manifest $previousManifest --accept-package-agreements --accept-source-agreements --disable-interactivity
             Assert-DoctorVersion $previousVersion
             Invoke-Winget upgrade --manifest $currentManifest --accept-package-agreements --accept-source-agreements --disable-interactivity
             Assert-DoctorVersion $currentVersion
-            Invoke-Winget uninstall --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity
+            Invoke-Winget uninstall --manifest $currentManifest --accept-source-agreements --disable-interactivity
             Assert-Removed
           }
           finally {
-            & winget uninstall --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-Null
+            & winget uninstall --manifest $currentManifest --accept-source-agreements --disable-interactivity | Out-Null
+            & winget uninstall --manifest $previousManifest --accept-source-agreements --disable-interactivity | Out-Null
             & winget settings --disable LocalManifestFiles | Out-Null
           }
 

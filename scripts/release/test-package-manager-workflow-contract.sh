@@ -110,6 +110,8 @@ require_line "$scoop" 'New-Item -ItemType Directory -Force -Path (Join-Path $env
 require_line "$scoop" 'New-Item -ItemType Directory -Force -Path (Join-Path $env:SCOOP "buckets") | Out-Null'
 require_line "$scoop" 'Test-Json -SchemaFile $schema'
 require_line "$scoop" 'Invoke-Scoop install $currentManifest --no-update-scoop'
+require_line "$scoop" "\$remoteUri = \"file:///\$(\$remote -replace '\\\\', '/')\""
+require_line "$scoop" 'Invoke-Scoop bucket add rpotato $remoteUri'
 require_line "$scoop" 'Invoke-Scoop install rpotato/rpotato --no-update-scoop'
 require_line "$scoop" 'Invoke-Scoop update rpotato'
 require_line "$scoop" 'Invoke-Scoop uninstall rpotato'
@@ -124,13 +126,14 @@ require_line "$winget" 'Invoke-Winget install --manifest $currentManifest'
 require_line "$winget" 'Invoke-Winget upgrade --manifest $currentManifest'
 require_line "$winget" '$listed = (& winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-String)'
 require_line "$winget" '$preexisting = (& winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-String)'
-require_line "$winget" 'Invoke-Winget uninstall --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity'
-require_line "$winget" '& winget uninstall --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity | Out-Null'
+require_line "$winget" 'Invoke-Winget uninstall --manifest $currentManifest --accept-source-agreements --disable-interactivity'
+require_line "$winget" '& winget uninstall --manifest $currentManifest --accept-source-agreements --disable-interactivity | Out-Null'
+require_line "$winget" '& winget uninstall --manifest $previousManifest --accept-source-agreements --disable-interactivity | Out-Null'
 require_line "$winget" '& winget settings --disable LocalManifestFiles'
 [ "$(grep -Fc 'winget list --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity' <<<"$winget")" -eq 2 ] \
   || fail "both winget list probes must accept source agreements"
-[ "$(grep -Fc 'Invoke-Winget uninstall --id MCprotein.rpotato --exact --accept-source-agreements --disable-interactivity' <<<"$winget")" -eq 2 ] \
-  || fail "both winget lifecycle uninstalls must accept source agreements"
+[ "$(grep -Fc 'Invoke-Winget uninstall --manifest $currentManifest --accept-source-agreements --disable-interactivity' <<<"$winget")" -eq 2 ] \
+  || fail "both winget lifecycle uninstalls must use the local current manifest"
 
 if grep -E '(^|[[:space:]])cargo (test|check|build)|gh release upload|gh release create|git tag ' \
   "$workflow" >/dev/null; then
