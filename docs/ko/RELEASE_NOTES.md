@@ -1,5 +1,52 @@
 # 릴리즈 노트
 
+## v0.38.0 - Claude Code Plugin 실행 Adapter
+
+릴리즈 날짜: 2026-07-18
+
+이 릴리즈는 안전한 local Claude Code plugin instruction을 기존 runtime-owned
+plugin capability contract에 mapping합니다. 외부 plugin content는 계속 신뢰하지
+않으며 read-only action, tool, evidence, approval boundary를 넓힐 수 없습니다.
+
+### 포함한 것
+
+- Local import한 Claude Code plugin의 canonical
+  `skills/<name>/SKILL.md`와 `commands/<name>.md` 탐색
+- Enable된 instruction을
+  `imported.claude-code.<plugin>.<skill-or-command>` namespace로 노출하고
+  imported Codex skill과 같은 native read-only workflow, ledger, hook,
+  evidence, stop gate로 실행
+- Admission과 completion 시 normalized source runtime, adapter policy, 전체
+  imported snapshot, capability metadata, instruction file size, frontmatter,
+  source path, source SHA-256 재검증
+- Claude Code의 기본 skill 우선/command 차선 규칙은 유지하되 source manifest가
+  아직 지원하지 않는 custom `commands` path를 선언하면 기본 `commands/`를
+  active하다고 잘못 처리하지 않음
+- Claude Code manifest, frontmatter, substitution, agent, hook, MCP, LSP,
+  monitor, `bin/`, settings, theme, output style, root skill, custom layout의
+  미지원 semantic을 조용히 mapping하지 않고 명시적으로 보고
+
+### Default-Deny 경계
+
+- Claude Code dynamic shell interpolation과 skill script는
+  `blocked-by-default`
+- `allowed-tools`, fork/agent/model 선택, hook, path activation, argument
+  substitution 등 source-runtime semantic은 `rpotato` 권한을 부여하지 않음
+- Plugin import와 enable은 계속 shell, MCP, background, remote,
+  sensitive-config, runtime-setting, file-write 실행 승인이 아님
+- 이전 adapter version으로 import한 plugin은 신뢰하는 local directory에서
+  다시 import해야 함
+
+### Targeted 검증
+
+- Plugin adapter unit test가 안전한 Claude skill/command, custom-command
+  replacement, dynamic shell 거부, unsupported 명시 보고, source drift,
+  normalized metadata 변조를 검증
+- CLI lifecycle test가 Claude command를 read-only runtime으로 실행하고 기존
+  Codex 실행/completion recovery contract를 보존
+- Extension ownership contract가 Claude mapping, generic execution, scanner,
+  import normalization, domain parsing을 bounded owner에 유지
+
 ## v0.37.14 - Windows 릴리즈 복구
 
 릴리즈 날짜: 2026-07-18

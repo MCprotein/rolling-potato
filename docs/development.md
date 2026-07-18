@@ -234,7 +234,7 @@ Current scaffold and planned module boundaries:
 - `skill`: built-in skill registry and invocation normalization
 - `hooks`: lifecycle hook registry and fail-closed result validation
 - `skills`: reusable runtime capabilities
-- `plugins`: local Codex/Claude Code plugin import, inspect, validate, enable/disable/remove
+- `plugins`: local Codex/Claude Code plugin import, inspect, validate, enable/disable/remove, and instruction-only skill/command execution
 - `config`: local config paths and serialization
 - `model`: manifest, download, checksum, registry
 - `backend`: backend adapter trait and `llama.cpp` implementation
@@ -265,6 +265,8 @@ For plugin adapter changes, additionally verify:
 - only local directory import is allowed
 - remote URL, marketplace, registry, catalog, and mirror sources are rejected
 - shell, `bin/`, MCP, background, remote connector, and file-write capabilities are blocked by default
+- unsupported Claude Code manifest/frontmatter/layout semantics are reported explicitly
+- only canonical default-path Claude Code skills/commands enter the native read-only runtime
 - import/enable/remove events are recorded in the ledger
 
 ## Commit And Push

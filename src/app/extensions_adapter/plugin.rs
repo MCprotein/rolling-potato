@@ -9,13 +9,14 @@ use crate::surfaces::cli::command::PluginSource;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+mod claude;
 mod execution;
 mod registry;
 mod scanner;
 mod source_import;
 
-pub use execution::{resolve_imported_codex_skill, revalidate_completed_codex_skill};
-use source_import::{inspect_source_plugin, normalize_plugin};
+pub use execution::{resolve_imported_skill, revalidate_completed_imported_skill};
+use source_import::{apply_source_manifest_metadata, inspect_source_plugin, normalize_plugin};
 
 #[cfg(test)]
 use registry::normalized_manifest_path;
@@ -27,7 +28,7 @@ use scanner::{scan_directory, sha256_directory_snapshot, DirectoryScan};
 
 const IMPORTED_SKILL_MAX_BYTES: u64 = 64 * 1024;
 const PLUGIN_MANIFEST_SCHEMA_VERSION: usize = 2;
-const PLUGIN_ADAPTER_VERSION: &str = "rpotato-plugin-adapter-v0.37.0";
+const PLUGIN_ADAPTER_VERSION: &str = "rpotato-plugin-adapter-v0.38.0";
 const PLUGIN_PERMISSION_POLICY: &str = "default-deny-external-capabilities-v2";
 
 pub fn list_report() -> String {
@@ -70,50 +71,83 @@ pub fn list_report() -> String {
     )
 }
 
-pub fn enabled_codex_skill_rows() -> Vec<String> {
+pub fn enabled_imported_skill_rows() -> Vec<String> {
     let Ok(plugins) = read_plugins() else {
         return Vec::new();
     };
     let mut rows = Vec::new();
     for plugin in plugins.into_iter().filter(|plugin| {
-        plugin.source == PluginSource::Codex
-            && plugin.status == "enabled"
+        plugin.status == "enabled"
             && plugin.adapter_version == PLUGIN_ADAPTER_VERSION
             && plugin.permission_policy == PLUGIN_PERMISSION_POLICY
     }) {
-        let Some(plugin_name) = plugin.id.strip_prefix("imported.codex.") else {
+        let prefix = format!("imported.{}.", plugin.source.label());
+        let Some(plugin_name) = plugin.id.strip_prefix(&prefix) else {
             continue;
         };
         for capability in plugin.capabilities.iter().filter(|capability| {
-            capability.kind == "skill"
+            matches!(capability.kind.as_str(), "skill" | "command")
                 && capability.status == "mapped"
                 && capability.required_permission == "none"
+                && !(capability.kind == "command"
+                    && plugin
+                        .unsupported
+                        .iter()
+                        .any(|value| value == "claude-manifest-custom-commands"))
         }) {
-            let Some(skill_name) = capability
-                .path
-                .strip_prefix("skills/")
-                .and_then(|path| path.strip_suffix("/SKILL.md"))
-            else {
+            let Some(skill_name) = imported_capability_name(plugin.source, capability) else {
                 continue;
             };
             if validate_component_name(skill_name, "skill").is_err()
-                || plugin.capabilities.iter().any(|candidate| {
-                    candidate.required_permission != "none"
-                        && Path::new(&candidate.path)
-                            .starts_with(Path::new(&format!("skills/{skill_name}")))
-                })
+                || capability_scope_requires_permission(&plugin, capability)
             {
                 continue;
             }
             rows.push(format!(
-                "- imported.codex.{}.{} | mode: read-only | 실행 시 snapshot/frontmatter 재검증",
-                plugin_name, skill_name
+                "- imported.{}.{}.{} | mode: read-only | 실행 시 snapshot/frontmatter 재검증",
+                plugin.source.label(),
+                plugin_name,
+                skill_name
             ));
         }
     }
     rows.sort();
     rows.dedup();
     rows
+}
+
+fn imported_capability_name(source: PluginSource, capability: &PluginCapability) -> Option<&str> {
+    match (source, capability.kind.as_str()) {
+        (PluginSource::Codex | PluginSource::ClaudeCode, "skill") => capability
+            .path
+            .strip_prefix("skills/")
+            .and_then(|path| path.strip_suffix("/SKILL.md"))
+            .filter(|name| !name.contains('/')),
+        (PluginSource::ClaudeCode, "command") => capability
+            .path
+            .strip_prefix("commands/")
+            .and_then(|path| path.strip_suffix(".md"))
+            .filter(|name| !name.contains('/')),
+        _ => None,
+    }
+}
+
+fn capability_scope_requires_permission(
+    plugin: &PluginSnapshot,
+    capability: &PluginCapability,
+) -> bool {
+    let scope = if capability.kind == "command" {
+        Path::new(&capability.path).to_path_buf()
+    } else {
+        Path::new(&capability.path)
+            .parent()
+            .unwrap_or_else(|| Path::new(&capability.path))
+            .to_path_buf()
+    };
+    plugin.capabilities.iter().any(|candidate| {
+        candidate.required_permission != "none"
+            && (candidate.path == capability.path || Path::new(&candidate.path).starts_with(&scope))
+    })
 }
 
 pub fn import_report(
@@ -322,3 +356,7 @@ fn fallback_directory_name(path: &Path) -> Option<String> {
 #[cfg(test)]
 #[path = "plugin/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "plugin/claude_tests.rs"]
+mod claude_tests;

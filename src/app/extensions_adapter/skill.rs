@@ -90,11 +90,11 @@ pub fn list_report() -> String {
             )
         })
         .collect::<Vec<_>>();
-    let imported = plugin::enabled_codex_skill_rows();
+    let imported = plugin::enabled_imported_skill_rows();
     skills.extend(imported.iter().cloned());
 
     format!(
-        "skill registry\n- native skills: {}\n- enabled imported Codex skills: {}\n- imported skill namespace: imported.codex.<plugin>.<skill>\n- 실행 경계: imported skill은 실행 시 source snapshot과 SKILL.md를 다시 검증하고 runtime policy/evidence gate를 통과해야 합니다.\n{}",
+        "skill registry\n- native skills: {}\n- enabled imported skills: {}\n- imported skill namespaces: imported.codex.<plugin>.<skill>, imported.claude-code.<plugin>.<skill-or-command>\n- 실행 경계: imported skill은 실행 시 source snapshot과 instruction frontmatter를 다시 검증하고 runtime policy/evidence gate를 통과해야 합니다.\n{}",
         BUILTIN_SKILLS.len(),
         imported.len(),
         skills.join("\n")
@@ -105,8 +105,7 @@ pub fn resolve_skill(id: &str) -> Result<Option<ResolvedSkillManifest>, AppError
     if let Some(manifest) = find_skill(id) {
         return Ok(Some(ResolvedSkillManifest::Builtin(manifest)));
     }
-    plugin::resolve_imported_codex_skill(id)
-        .map(|manifest| manifest.map(ResolvedSkillManifest::Imported))
+    plugin::resolve_imported_skill(id).map(|manifest| manifest.map(ResolvedSkillManifest::Imported))
 }
 
 fn split_labels(value: &str) -> Vec<String> {
@@ -133,6 +132,7 @@ mod tests {
     fn list_includes_import_namespace_rule() {
         let report = list_report();
         assert!(report.contains("imported.codex.<plugin>.<skill>"));
+        assert!(report.contains("imported.claude-code.<plugin>.<skill-or-command>"));
     }
 
     #[test]

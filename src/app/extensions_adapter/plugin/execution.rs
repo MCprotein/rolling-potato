@@ -1,92 +1,47 @@
 use super::*;
 
-pub fn resolve_imported_codex_skill(
-    id: &str,
-) -> Result<Option<skill::ImportedSkillManifest>, AppError> {
-    resolve_imported_codex_skill_inner(id, true)
+pub fn resolve_imported_skill(id: &str) -> Result<Option<skill::ImportedSkillManifest>, AppError> {
+    resolve_imported_skill_inner(id, true)
 }
 
-fn resolve_imported_codex_skill_inner(
+fn resolve_imported_skill_inner(
     id: &str,
     require_enabled: bool,
 ) -> Result<Option<skill::ImportedSkillManifest>, AppError> {
-    let Some(tail) = id.strip_prefix("imported.codex.") else {
-        return Ok(None);
-    };
-    let Some((plugin_name, skill_name)) = tail.split_once('.') else {
+    let Some((source, plugin_name, skill_name)) = parse_imported_skill_id(id) else {
         return Ok(None);
     };
     validate_component_name(plugin_name, "plugin")?;
     validate_component_name(skill_name, "skill")?;
-    let plugin_id = format!("imported.codex.{plugin_name}");
+    let plugin_id = format!("imported.{}.{plugin_name}", source.label());
     let mut plugin = read_plugin(&plugin_id)?;
-    if plugin.id != plugin_id {
-        return Err(AppError::blocked(format!(
-            "plugin skill 실행 차단\n- requested plugin: {}\n- stored plugin: {}\n- 이유: normalized manifest id binding이 다릅니다.",
-            plugin_id, plugin.id
-        )));
-    }
-    if plugin.source != PluginSource::Codex {
-        return Err(AppError::blocked(format!(
-            "plugin skill 실행 차단\n- skill: {id}\n- 이유: Codex plugin capability가 아닙니다."
-        )));
-    }
-    if require_enabled && plugin.status != "enabled" {
-        return Err(AppError::blocked(format!(
-            "plugin skill 실행 차단\n- plugin: {}\n- skill: {}\n- status: {}\n- 다음: plugin validate와 plugin enable을 먼저 실행하세요.",
-            plugin.id, id, plugin.status
-        )));
-    }
-    if plugin.adapter_version != PLUGIN_ADAPTER_VERSION
-        || plugin.permission_policy != PLUGIN_PERMISSION_POLICY
-    {
-        return Err(AppError::blocked(format!(
-            "plugin skill 실행 차단\n- plugin: {}\n- 이유: adapter 또는 permission policy가 현재 실행 계약과 다릅니다.\n- stored adapter: {}\n- current adapter: {}\n- 다음: 신뢰하는 local directory에서 plugin을 다시 import하세요.",
-            plugin.id, plugin.adapter_version, PLUGIN_ADAPTER_VERSION
-        )));
-    }
+    verify_registry_binding(&plugin, &plugin_id, id, source, require_enabled)?;
     let manifest_path = verify_imported_snapshot(&mut plugin)?;
     verify_execution_metadata(&mut plugin, &plugin_id, &manifest_path)?;
 
-    let relative_path = format!("skills/{skill_name}/SKILL.md");
-    let capability = plugin
-        .capabilities
-        .iter()
-        .find(|capability| {
-            capability.kind == "skill"
-                && capability.path == relative_path
-                && capability.status == "mapped"
-                && capability.required_permission == "none"
-        })
-        .ok_or_else(|| {
-            AppError::blocked(format!(
-                "plugin skill 실행 차단\n- plugin: {}\n- skill: {}\n- 이유: canonical instruction-only SKILL.md capability가 아닙니다.\n- expected path: {}",
-                plugin.id, id, relative_path
-            ))
-        })?;
-    let skill_dir = plugin_dir(&plugin.id)
-        .join("source")
-        .join("skills")
-        .join(skill_name);
-    if plugin.capabilities.iter().any(|candidate| {
-        candidate.required_permission != "none"
-            && Path::new(&candidate.path).starts_with(Path::new(&format!("skills/{skill_name}")))
-    }) {
+    let capability = resolve_instruction_capability(&plugin, skill_name).ok_or_else(|| {
+        AppError::blocked(format!(
+            "plugin skill 실행 차단\n- plugin: {}\n- skill: {}\n- 이유: canonical instruction-only skill/command capability가 아닙니다.",
+            plugin.id, id
+        ))
+    })?;
+    if capability_scope_requires_permission(&plugin, capability) {
         return Err(AppError::blocked(format!(
-            "plugin skill 실행 차단\n- plugin: {}\n- skill: {}\n- 이유: skill directory에 별도 승인이 필요한 실행 capability가 포함되어 있습니다.",
+            "plugin skill 실행 차단\n- plugin: {}\n- skill: {}\n- 이유: capability scope에 별도 승인이 필요한 실행 capability가 포함되어 있습니다.",
             plugin.id, id
         )));
     }
-    let path = skill_dir.join("SKILL.md");
+
+    let path = plugin_dir(&plugin.id).join("source").join(&capability.path);
     let metadata = fs::metadata(&path).map_err(|err| {
         AppError::usage(format!(
-            "plugin SKILL.md metadata를 읽지 못했습니다: {} ({err})",
+            "plugin instruction metadata를 읽지 못했습니다: {} ({err})",
             path.display()
         ))
     })?;
     if !metadata.is_file() || metadata.len() > IMPORTED_SKILL_MAX_BYTES {
         return Err(AppError::blocked(format!(
-            "plugin skill 실행 차단\n- skill: {}\n- path: {}\n- 이유: SKILL.md는 {} bytes 이하 regular file이어야 합니다.",
+            "plugin skill 실행 차단\n- skill: {}\n- path: {}\n- 이유: instruction은 {} bytes 이하 regular file이어야 합니다.",
             id,
             path.display(),
             IMPORTED_SKILL_MAX_BYTES
@@ -94,38 +49,47 @@ fn resolve_imported_codex_skill_inner(
     }
     let text = fs::read_to_string(&path).map_err(|err| {
         AppError::usage(format!(
-            "plugin SKILL.md를 읽지 못했습니다: {} ({err})",
+            "plugin instruction을 읽지 못했습니다: {} ({err})",
             path.display()
         ))
     })?;
-    let parsed = parse_codex_skill(&text, &path)?;
-    if parsed.name != skill_name {
-        return Err(AppError::blocked(format!(
-            "plugin skill 실행 차단\n- skill: {}\n- path: {}\n- 이유: frontmatter name({})과 directory name({})이 다릅니다.",
-            id,
-            path.display(),
-            parsed.name,
-            skill_name
-        )));
-    }
+    let (display_name, description, instructions) = match source {
+        PluginSource::Codex => {
+            let parsed = parse_codex_skill(&text, &path)?;
+            if parsed.name != skill_name {
+                return Err(AppError::blocked(format!(
+                    "plugin skill 실행 차단\n- skill: {}\n- path: {}\n- 이유: frontmatter name({})과 directory name({})이 다릅니다.",
+                    id,
+                    path.display(),
+                    parsed.name,
+                    skill_name
+                )));
+            }
+            (parsed.name, parsed.description, parsed.instructions)
+        }
+        PluginSource::ClaudeCode => {
+            let parsed = parse_claude_instruction(&text, &path, skill_name)?;
+            (parsed.name, parsed.description, parsed.instructions)
+        }
+    };
     let source_sha256 = checksum::sha256_file(&path)?;
     Ok(Some(skill::ImportedSkillManifest {
         id: id.to_string(),
-        display_name: parsed.name,
-        description: parsed.description,
-        instructions: parsed.instructions,
-        plugin_id: plugin.id,
+        display_name,
+        description,
+        instructions,
+        plugin_id: plugin.id.clone(),
         source_path: capability.path.clone(),
         source_sha256,
     }))
 }
 
-pub fn revalidate_completed_codex_skill(
+pub fn revalidate_completed_imported_skill(
     id: &str,
     expected_source_path: &str,
     expected_source_sha256: &str,
 ) -> Result<skill::ImportedSkillManifest, AppError> {
-    let manifest = resolve_imported_codex_skill_inner(id, false)?
+    let manifest = resolve_imported_skill_inner(id, false)?
         .ok_or_else(|| AppError::blocked("completed plugin skill manifest를 찾지 못했습니다."))?;
     if manifest.source_path != expected_source_path
         || manifest.source_sha256 != expected_source_sha256
@@ -140,6 +104,89 @@ pub fn revalidate_completed_codex_skill(
         )));
     }
     Ok(manifest)
+}
+
+fn parse_imported_skill_id(id: &str) -> Option<(PluginSource, &str, &str)> {
+    let (source, tail) = if let Some(tail) = id.strip_prefix("imported.codex.") {
+        (PluginSource::Codex, tail)
+    } else {
+        let tail = id.strip_prefix("imported.claude-code.")?;
+        (PluginSource::ClaudeCode, tail)
+    };
+    let (plugin_name, skill_name) = tail.split_once('.')?;
+    Some((source, plugin_name, skill_name))
+}
+
+fn verify_registry_binding(
+    plugin: &PluginSnapshot,
+    plugin_id: &str,
+    skill_id: &str,
+    source: PluginSource,
+    require_enabled: bool,
+) -> Result<(), AppError> {
+    if plugin.id != plugin_id || plugin.source != source {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- requested plugin: {plugin_id}\n- stored plugin: {}\n- 이유: normalized manifest source/id binding이 다릅니다.",
+            plugin.id
+        )));
+    }
+    if require_enabled && plugin.status != "enabled" {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- plugin: {}\n- skill: {}\n- status: {}\n- 다음: plugin validate와 plugin enable을 먼저 실행하세요.",
+            plugin.id, skill_id, plugin.status
+        )));
+    }
+    if plugin.adapter_version != PLUGIN_ADAPTER_VERSION
+        || plugin.permission_policy != PLUGIN_PERMISSION_POLICY
+    {
+        return Err(AppError::blocked(format!(
+            "plugin skill 실행 차단\n- plugin: {}\n- 이유: adapter 또는 permission policy가 현재 실행 계약과 다릅니다.\n- stored adapter: {}\n- current adapter: {}\n- 다음: 신뢰하는 local directory에서 plugin을 다시 import하세요.",
+            plugin.id, plugin.adapter_version, PLUGIN_ADAPTER_VERSION
+        )));
+    }
+    Ok(())
+}
+
+fn resolve_instruction_capability<'a>(
+    plugin: &'a PluginSnapshot,
+    name: &str,
+) -> Option<&'a PluginCapability> {
+    let candidates = match plugin.source {
+        PluginSource::Codex => vec![("skill", format!("skills/{name}/SKILL.md"))],
+        PluginSource::ClaudeCode => {
+            let mut candidates = vec![("skill", format!("skills/{name}/SKILL.md"))];
+            if !plugin
+                .unsupported
+                .iter()
+                .any(|value| value == "claude-manifest-custom-commands")
+            {
+                candidates.push(("command", format!("commands/{name}.md")));
+            }
+            candidates
+        }
+    };
+    candidates.into_iter().find_map(|(kind, path)| {
+        plugin.capabilities.iter().find(|capability| {
+            capability.kind == kind
+                && capability.path == path
+                && capability.status == "mapped"
+                && capability.required_permission == "none"
+        })
+    })
+}
+
+fn capability_scope_requires_permission(
+    plugin: &PluginSnapshot,
+    capability: &PluginCapability,
+) -> bool {
+    let scope = Path::new(&capability.path)
+        .parent()
+        .unwrap_or_else(|| Path::new(&capability.path));
+    plugin.capabilities.iter().any(|candidate| {
+        candidate.required_permission != "none"
+            && (candidate.path == capability.path
+                || (capability.kind == "skill" && Path::new(&candidate.path).starts_with(scope)))
+    })
 }
 
 fn verify_execution_metadata(
@@ -159,10 +206,9 @@ fn verify_execution_metadata(
             "plugin execution metadata 차단\n- plugin: {requested_id}\n- 이유: source manifest name이 없습니다."
         ))
     })?;
-    let expected_id = format!("imported.codex.{}", slug(&source_name));
-    let mut scan = scan_directory(&source_dir, PluginSource::Codex)?;
-    apply_manifest_risk_markers(&manifest_text, &mut scan.required_permissions);
-    finalize_permissions(&mut scan.required_permissions);
+    let expected_id = format!("imported.{}.{}", plugin.source.label(), slug(&source_name));
+    let mut scan = scan_directory(&source_dir, plugin.source)?;
+    apply_source_manifest_metadata(plugin.source, &manifest_text, &mut scan);
     let expected_blocked = blocked_permissions(&scan.required_permissions);
     let mut actual_capabilities = capability_summary(&plugin.capabilities);
     let mut scanned_capabilities = capability_summary(&scan.capabilities);

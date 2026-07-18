@@ -39,7 +39,7 @@ pub(super) fn run_with_decision(
         workflow.source_hash = imported.source_sha256.clone();
         let admission_event = state::record_event(
             "plugin.capability.admitted",
-            "instruction-only Codex plugin skill 실행 경계 승인",
+            "instruction-only imported plugin skill 실행 경계 승인",
             &format!(
                 "workflow_id={} plugin_id={} skill_id={} source_path={} source_sha256={} permission=none mode=read-only",
                 workflow.workflow_id,
@@ -308,7 +308,7 @@ pub(super) fn run_with_decision(
         let completed_imported = manifest
             .imported()
             .map(|imported| {
-                plugin::revalidate_completed_codex_skill(
+                plugin::revalidate_completed_imported_skill(
                     &imported.id,
                     &imported.source_path,
                     &imported.source_sha256,
@@ -338,7 +338,7 @@ pub(super) fn run_with_decision(
             plugin_completion_fault("before-event")?;
             state::record_event(
                 "plugin.capability.completed",
-                "instruction-only Codex plugin skill 실행 완료",
+                "instruction-only imported plugin skill 실행 완료",
                 &format!(
                     "workflow_id={} plugin_id={} skill_id={} source_path={} source_sha256={} side_effects=none",
                     workflow.workflow_id,

@@ -7,13 +7,13 @@ use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::extensions::plugin::{
     finalize_permissions, finalize_unsupported, is_unsupported_plugin_asset, push_capability,
-    push_unique, PluginCapability,
+    push_unique, push_unsupported_capability, PluginCapability,
 };
 use crate::surfaces::cli::command::PluginSource;
 
 const ENTRY_LIMIT: usize = 10_000;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(super) struct DirectoryScan {
     pub(super) files: usize,
     pub(super) directories: usize,
@@ -78,14 +78,20 @@ pub(super) fn scan_directory(root: &Path, source: PluginSource) -> Result<Direct
                 if file_name == "hooks" {
                     push_permission_and_capability(&mut scan, "hook", &relative_path, "hook");
                 }
-                if source == PluginSource::ClaudeCode && file_name == "commands" {
-                    push_capability(&mut scan.capabilities, "command", &relative_path, "none");
-                }
-                if file_name == "skills" {
+                if source == PluginSource::Codex && file_name == "skills" {
                     push_capability(&mut scan.capabilities, "skill", &relative_path, "none");
                 }
                 if file_name == "agents" {
-                    push_capability(&mut scan.capabilities, "subagent", &relative_path, "none");
+                    if source == PluginSource::ClaudeCode {
+                        push_unsupported_capability(
+                            &mut scan.capabilities,
+                            "subagent",
+                            &relative_path,
+                        );
+                        push_unique(&mut scan.unsupported, "claude-subagent-semantics");
+                    } else {
+                        push_capability(&mut scan.capabilities, "subagent", &relative_path, "none");
+                    }
                 }
                 if file_name == "lsp" {
                     push_permission_and_capability(
@@ -110,6 +116,9 @@ pub(super) fn scan_directory(root: &Path, source: PluginSource) -> Result<Direct
                         &relative_path,
                         "runtime-settings",
                     );
+                }
+                if source == PluginSource::ClaudeCode {
+                    super::claude::record_directory_semantics(&file_name, &mut scan);
                 }
                 scan.directories += 1;
                 stack.push(entry_path);
@@ -154,7 +163,7 @@ pub(super) fn scan_directory(root: &Path, source: PluginSource) -> Result<Direct
                         "sensitive-config",
                     );
                 }
-                classify_runtime_file(source, &relative_path, &mut scan);
+                classify_runtime_file(source, &entry_path, &relative_path, &mut scan)?;
                 if is_unsupported_plugin_asset(&relative_path) {
                     push_unique(
                         &mut scan.unsupported,
@@ -238,7 +247,12 @@ fn push_permission_and_capability(
     push_capability(&mut scan.capabilities, kind, path, required_permission);
 }
 
-fn classify_runtime_file(source: PluginSource, relative_path: &str, scan: &mut DirectoryScan) {
+fn classify_runtime_file(
+    source: PluginSource,
+    absolute_path: &Path,
+    relative_path: &str,
+    scan: &mut DirectoryScan,
+) -> Result<(), AppError> {
     let lower = relative_path.to_ascii_lowercase();
 
     if lower == ".codex-plugin/plugin.json" || lower == ".claude-plugin/plugin.json" {
@@ -253,12 +267,18 @@ fn classify_runtime_file(source: PluginSource, relative_path: &str, scan: &mut D
     }
     if lower.starts_with("hooks/") {
         push_permission_and_capability(scan, "hook", relative_path, "hook");
+        if source == PluginSource::ClaudeCode {
+            push_unique(&mut scan.unsupported, "claude-hook-semantics");
+        }
     }
     if lower.starts_with("apps/") || lower.starts_with("app-integrations/") {
         push_permission_and_capability(scan, "app-integration", relative_path, "remote-connector");
     }
     if lower == ".mcp.json" {
         push_permission_and_capability(scan, "mcp-server", relative_path, "mcp-server");
+        if source == PluginSource::ClaudeCode {
+            push_unique(&mut scan.unsupported, "claude-mcp-semantics");
+        }
     }
     if lower == ".app.json" {
         push_permission_and_capability(scan, "app-integration", relative_path, "remote-connector");
@@ -274,36 +294,10 @@ fn classify_runtime_file(source: PluginSource, relative_path: &str, scan: &mut D
             }
         }
         PluginSource::ClaudeCode => {
-            if lower.starts_with("skills/") && lower.ends_with(".md") {
-                push_capability(&mut scan.capabilities, "skill", relative_path, "none");
-            }
-            if lower.starts_with("commands/") {
-                push_capability(&mut scan.capabilities, "command", relative_path, "none");
-            }
-            if lower.starts_with("agents/") {
-                push_capability(&mut scan.capabilities, "subagent", relative_path, "none");
-            }
-            if lower.starts_with("lsp/") {
-                push_permission_and_capability(scan, "lsp-server", relative_path, "lsp-server");
-            }
-            if lower.starts_with("monitors/") || lower.starts_with("monitor/") {
-                push_permission_and_capability(
-                    scan,
-                    "monitor",
-                    relative_path,
-                    "background-process",
-                );
-            }
-            if lower.starts_with("settings/") {
-                push_permission_and_capability(
-                    scan,
-                    "runtime-settings",
-                    relative_path,
-                    "runtime-settings",
-                );
-            }
+            super::claude::classify_file(absolute_path, relative_path, scan)?;
         }
     }
+    Ok(())
 }
 
 fn relative_plugin_path(root: &Path, path: &Path) -> String {
