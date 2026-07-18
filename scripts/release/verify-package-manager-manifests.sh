@@ -141,6 +141,15 @@ jq -e \
 version_path="$output_root/$winget_version"
 locale_path="$output_root/$winget_locale"
 installer_path="$output_root/$winget_installer"
+grep -Fx '# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.12.0.schema.json' \
+  "$version_path" >/dev/null \
+  || fail "winget version schema header mismatch"
+grep -Fx '# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json' \
+  "$locale_path" >/dev/null \
+  || fail "winget defaultLocale schema header mismatch"
+grep -Fx '# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json' \
+  "$installer_path" >/dev/null \
+  || fail "winget installer schema header mismatch"
 for path in "$version_path" "$locale_path" "$installer_path"; do
   grep -Fx "PackageIdentifier: MCprotein.rpotato" "$path" >/dev/null \
     || fail "winget identifier mismatch: $path"

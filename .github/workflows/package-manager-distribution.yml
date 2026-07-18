@@ -303,6 +303,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           $env:SCOOP = Join-Path $env:RUNNER_TEMP "rpotato-scoop"
           $scoopSource = Join-Path $env:SCOOP "apps\scoop\current"
+          New-Item -ItemType Directory -Force -Path (Join-Path $env:SCOOP "shims") | Out-Null
           git clone https://github.com/ScoopInstaller/Scoop.git $scoopSource
           if ($LASTEXITCODE -ne 0) { throw "failed to clone Scoop" }
           git -C "$env:SCOOP\apps\scoop\current" checkout --detach $env:SCOOP_COMMIT

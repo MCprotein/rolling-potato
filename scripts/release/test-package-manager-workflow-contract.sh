@@ -106,6 +106,7 @@ require_line "$homebrew" 'brew uninstall --force rpotato'
 
 require_line "$scoop" '    runs-on: windows-2025'
 require_line "$scoop" 'SCOOP_COMMIT: b588a06e41d920d2123ec70aee682bae14935939'
+require_line "$scoop" 'New-Item -ItemType Directory -Force -Path (Join-Path $env:SCOOP "shims") | Out-Null'
 require_line "$scoop" 'Test-Json -SchemaFile $schema'
 require_line "$scoop" 'Invoke-Scoop install $currentManifest --no-update-scoop'
 require_line "$scoop" 'Invoke-Scoop install rpotato/rpotato --no-update-scoop'
