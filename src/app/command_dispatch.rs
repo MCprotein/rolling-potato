@@ -5,7 +5,7 @@ use crate::app::intent_adapter as intent;
 use crate::app::runtime_adapter as runtime;
 use crate::app::workflow_adapter::state;
 use crate::app::workflow_adapter::transition;
-use crate::composition::{config, dispatch, inference, uninstall};
+use crate::composition::{config, dispatch, inference, install, uninstall};
 use crate::foundation::error::AppError;
 use crate::surfaces::cli::{
     command::{Command, IntentCommand, UninstallCommand},
@@ -51,8 +51,13 @@ impl dispatch::CommandDispatchPort for CommandDispatchAdapter {
                 println!("{}", render::HELP);
                 Ok(())
             }
+            Command::Install(command) => {
+                println!("{}", install::install_report(command)?);
+                Ok(())
+            }
             Command::Init => {
-                println!("{}", runtime::init_report()?);
+                let environment = install::init_environment_report()?;
+                println!("{}\n\n{}", runtime::init_report()?, environment);
                 Ok(())
             }
             Command::Run { request } => {

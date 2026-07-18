@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crate::adapters::filesystem::backend_state;
+use crate::adapters::filesystem::{backend_state, runtime_mutation};
 use crate::adapters::process::backend as backend_process;
 use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
@@ -45,6 +45,7 @@ pub(super) fn begin_active_generation(
     let mut admission = GENERATION_ADMISSION_STATE
         .lock()
         .map_err(|_| AppError::runtime("backend generation admission lock poisoned"))?;
+    let runtime_transition = runtime_mutation::acquire("backend generation begin")?;
     backend_state::prune_generation_terminal_records(now_ms(), TERMINAL_RECORD_RETENTION_MS);
     let mut publish_primary = true;
     if let Some(active) = backend_state::read_generation_record()? {
@@ -116,6 +117,7 @@ pub(super) fn begin_active_generation(
             "backend generation admission id collision",
         ));
     }
+    drop(runtime_transition);
     Ok(record)
 }
 

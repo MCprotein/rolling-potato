@@ -188,8 +188,17 @@ release note로만 남기고, manifest generator, fixture, validation workflow,
 
 설치와 업그레이드는 원하는 version의 archive를 GitHub Releases에서 내려받고
 대응하는 sidecar checksum 또는 `rpotato-vX.Y.Z-checksums.txt`로 검증합니다.
-Application data 정리는 내려받은 실행 파일 제거와 별개이며
-`rpotato uninstall --dry-run`으로 미리 확인합니다.
+v0.42.0부터는 압축을 푼 실행 파일에서 `rpotato install`을 실행하고 설치된
+binary의 `rpotato init`을 실행합니다. Installer는 사용자 전용 binary
+directory와 감지한 zsh/bash/fish profile의 managed PATH block 또는 Windows
+사용자 PATH만 수정합니다. 새 terminal은 영구 PATH를 자동 상속하며 report는
+현재 terminal용 활성화 명령도 출력합니다.
+
+`rpotato install --clean --dry-run`은 binary/PATH 변경 상태, 전역
+application data와 현재 project의 `.rpotato` target을 정확히 보여 줍니다. 삭제는
+`rpotato install --clean --yes`가 필요하고 관리형 backend 또는 generation이
+실행 중이거나 생존 상태를 확인할 수 없거나 runtime state가 게시 중이면
+차단됩니다. Package-manager 저장소는 설치 source로 사용하지 않습니다.
 
 ## 릴리즈 체크리스트
 

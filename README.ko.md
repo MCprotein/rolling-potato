@@ -70,6 +70,34 @@ CLI와 TUI는 사용자 화면입니다. 세션 상태, 도구 권한, 컨텍스
 aggregate checksum file로 검증하십시오. 이 프로젝트는 Homebrew, Scoop,
 winget을 비롯한 package-manager channel을 운영하지 않습니다.
 
+`v0.42.0` source부터는 압축을 푼 binary를 한 번 실행해 사용자 전용 CLI
+directory에 설치하고 감지한 shell profile 또는 Windows 사용자 PATH를 자동
+등록할 수 있습니다.
+
+```sh
+./rpotato install
+$HOME/.local/bin/rpotato init
+```
+
+Windows에서는 `.\rpotato.exe install`을 실행한 뒤
+`& "$env:LOCALAPPDATA\Programs\rpotato\bin\rpotato.exe" init`을 실행합니다.
+영구 PATH는 새 terminal부터 자동 적용되며, 두 command 모두 현재
+terminal에서 바로 쓸 수 있는 한 줄 활성화 명령을 출력합니다.
+`RPOTATO_*` 환경 변수는 선택적 override이므로 전역 값을 강제하지 않습니다.
+
+전역 application data와 현재 project의 `.rpotato` state만 지우고 다시
+설치하려면 먼저 범위를 확인한 뒤 명시적으로 승인합니다.
+
+```sh
+./rpotato install --clean --dry-run
+./rpotato install --clean --yes
+```
+
+관리형 backend 또는 generation이 실행 중이면 clean install은 차단됩니다.
+dry-run은 binary와 PATH 등록이 생성·갱신·유지 중 무엇인지도 표시합니다.
+runtime 게시와 삭제는 cross-process guard를 공유하며, process 생존 확인을
+수행할 수 없는 경우에도 삭제를 차단합니다.
+
 지원 release target과 checksum 검증 방법은
 [docs/ko/release.md](docs/ko/release.md)에 정리되어 있습니다.
 
@@ -171,9 +199,9 @@ SQLite/ledger data를 사용하는 선택 가능한 self-contained HTML monitori
 report를 추가했습니다. 서버, 외부 telemetry, JavaScript, network request는
 추가하지 않았습니다.
 
-현재 `v0.41.0` 다음 버전은 정의되어 있지 않습니다. 새 roadmap 작업은
-[docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)에 구체적인 버전을 먼저 지정해야
-합니다.
+`v0.42.0`은 사용자 전용 self-install, 자동 PATH 등록, `init` 환경 보정,
+보호 장치를 갖춘 clean reinstall을 위한 구체적인 개발 중 version입니다.
+[docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를 참고하십시오.
 
 ---
 

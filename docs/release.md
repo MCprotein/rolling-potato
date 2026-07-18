@@ -209,9 +209,19 @@ another package repository.
 
 To install or upgrade, download the desired versioned archive from GitHub
 Releases and verify it against the matching sidecar checksum or
-`rpotato-vX.Y.Z-checksums.txt`. Application-data cleanup remains separate from
-removing the downloaded executable; inspect it with
-`rpotato uninstall --dry-run`.
+`rpotato-vX.Y.Z-checksums.txt`. From v0.42.0, run the extracted executable with
+`rpotato install`, then invoke the installed binary's `rpotato init`. The
+installer writes only the user-local binary directory and one managed PATH
+block in the detected zsh/bash/fish profile, or the Windows user PATH. New
+terminals inherit it automatically, and the report includes a current-terminal
+activation command.
+
+`rpotato install --clean --dry-run` shows the exact binary/PATH change and the
+global application-data and current-project `.rpotato` targets. Deletion requires
+`rpotato install --clean --yes` and is blocked while a managed backend or
+generation is active, when liveness cannot be verified, or while runtime state
+is being published. It never treats package-manager repositories as an
+installation source.
 
 ## Release Checklist
 

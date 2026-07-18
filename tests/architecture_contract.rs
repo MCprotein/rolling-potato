@@ -4543,6 +4543,71 @@ fn v03713_uninstall_plan_uses_composition_and_filesystem_owners() {
 }
 
 #[test]
+fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
+    let command = fs::read_to_string("src/surfaces/cli/command.rs").unwrap();
+    assert!(command.contains("pub enum InstallCommand"));
+    assert!(command.contains("Install(InstallCommand)"));
+
+    let parser = fs::read_to_string("src/surfaces/cli/parser.rs").unwrap();
+    let install_parser = fs::read_to_string("src/surfaces/cli/parser/install.rs").unwrap();
+    let install_tests = fs::read_to_string("src/surfaces/cli/parser/tests/install.rs").unwrap();
+    assert!(parser.lines().any(|line| line == "mod install;"));
+    assert!(parser.contains("use install::parse_install;"));
+    assert!(install_parser.contains("pub(super) fn parse_install("));
+    assert!(install_tests.contains("fn parses_standard_and_guarded_clean_install("));
+    assert!(install_tests.contains("fn clean_install_requires_exactly_one_safety_mode("));
+
+    let composition = fs::read_to_string("src/composition/install.rs").unwrap();
+    assert!(composition.contains("pub(crate) fn install_report("));
+    assert!(composition.contains("pub(crate) fn init_environment_report("));
+    assert!(composition.contains("require_inactive_runtime"));
+    assert!(composition.contains("backend_process::running_status"));
+    assert!(composition.contains("runtime_mutation::acquire(\"clean install\")"));
+
+    let adapter = fs::read_to_string("src/adapters/system_install.rs").unwrap();
+    let adapter_tests = fs::read_to_string("src/adapters/system_install/tests.rs").unwrap();
+    assert!(adapter.contains("pub(crate) fn install_binary("));
+    assert!(adapter.contains("pub(crate) fn binary_install_plan("));
+    assert!(adapter.contains("pub(crate) fn ensure_user_path("));
+    assert!(adapter.contains("pub(crate) fn user_path_change_plan("));
+    assert!(adapter.contains("pub(crate) fn validate_clean_targets("));
+    assert!(adapter.contains("pub(crate) fn remove_clean_state("));
+    assert!(adapter.contains("#[path = \"system_install/tests.rs\"]"));
+    assert!(adapter_tests.contains("fn clean_state_removes_only_managed_roots("));
+    assert!(adapter_tests
+        .contains("fn executable_install_creates_updates_and_preserves_managed_target("));
+    assert!(adapter_tests.contains(
+        "fn windows_powershell_path_update_is_idempotent_without_persisting_user_state("
+    ));
+
+    let runtime_mutation =
+        fs::read_to_string("src/adapters/filesystem/runtime_mutation.rs").unwrap();
+    let generation =
+        fs::read_to_string("src/app/inference_adapter/backend/generation_state.rs").unwrap();
+    let backend_start =
+        fs::read_to_string("src/app/inference_adapter/backend/sidecar/startup.rs").unwrap();
+    assert!(runtime_mutation.contains("pub(crate) fn acquire("));
+    assert!(generation.contains("runtime_mutation::acquire(\"backend generation begin\")"));
+    assert!(backend_start.contains("runtime_mutation::acquire(\"backend start\")"));
+
+    let dispatch = fs::read_to_string("src/app/command_dispatch.rs").unwrap();
+    assert!(dispatch.contains("Command::Install(command)"));
+    assert!(dispatch.contains("install::init_environment_report()?"));
+
+    let help = fs::read_to_string("src/surfaces/cli/render.rs").unwrap();
+    assert!(help.contains("rpotato install --clean --dry-run"));
+    assert!(help.contains("rpotato install --clean --yes"));
+
+    let release = fs::read_to_string(".github/workflows/release-binaries.yml").unwrap();
+    let targeted = fs::read_to_string(".github/workflows/windows-native-targeted.yml").unwrap();
+    for workflow in [release, targeted] {
+        assert!(workflow.contains("adapters::system_install::tests::"));
+    }
+    let smoke = fs::read_to_string("scripts/release/verify-release-binary-smoke.sh").unwrap();
+    assert!(smoke.contains("install --clean --dry-run"));
+}
+
+#[test]
 fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
     assert!(!Path::new("src/test_support.rs").exists());
     assert!(Path::new("tests/support/runtime_fixture.rs").is_file());

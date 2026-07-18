@@ -64,7 +64,21 @@ smoke_root="$(mktemp -d)"
 trap 'rm -rf "$smoke_root"' EXIT
 smoke_project="$smoke_root/project"
 smoke_data="$smoke_root/data"
-mkdir -p "$smoke_project"
+smoke_home="$smoke_root/home"
+smoke_local_app_data="$smoke_root/local-app-data"
+mkdir -p "$smoke_project" "$smoke_home" "$smoke_local_app_data"
+install_output="$(
+  HOME="$smoke_home" \
+  USERPROFILE="$smoke_home" \
+  LOCALAPPDATA="$smoke_local_app_data" \
+  RPOTATO_PROJECT_ROOT="$smoke_project" \
+  RPOTATO_DATA_HOME="$smoke_data" \
+  "$binary_path" install --clean --dry-run
+)"
+case "$install_output" in
+  *"rpotato install (clean dry-run)"*"rpotato install --clean --yes"*) ;;
+  *) fail "release build did not expose the guarded clean-install plan" ;;
+esac
 RPOTATO_PROJECT_ROOT="$smoke_project" \
   RPOTATO_DATA_HOME="$smoke_data" \
   "$binary_path" init >/dev/null

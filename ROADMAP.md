@@ -22,6 +22,8 @@ evidence.
   defective publication.
 - `Consolidated`: an internal milestone shipped as part of a later exact-tree
   release instead of as a separate public release.
+- `In development`: the concrete version is assigned and implementation is
+  underway, but no release artifact has been published.
 
 ## Release History
 
@@ -120,6 +122,12 @@ evidence.
 | v0.39.0 | Released | Integrated performance hardening: deterministic completed agent/subagent/team workflow budgets, zero canonical full-ledger rereads on normal event projection, smaller bounded-worker request envelopes, and exact-candidate regression gating without unsupported model claims |
 | v0.40.0 | Released | Historical package-manager experiment: manifest and lifecycle validation shipped in this version, then the unsupported external channels and repository automation were retired on 2026-07-19 |
 | v0.41.0 | Released | Optional local static HTML monitoring report: self-contained SQLite/ledger-backed export with responsive rendering, redaction, no external requests, and no second telemetry source of truth |
+
+### Installation and first-run UX (`v0.42.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
+| v0.42.0 | In development | GitHub Release archive self-install: user-local binary placement, idempotent zsh/bash/fish or Windows user PATH registration, `init` environment repair, and guarded clean reinstall with dry-run, explicit confirmation, and active-runtime deletion block |
 
 ## Distribution Boundary
 

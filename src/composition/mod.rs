@@ -6,6 +6,7 @@
 pub(crate) mod config;
 pub(crate) mod dispatch;
 pub(crate) mod inference;
+pub(crate) mod install;
 pub(crate) mod startup;
 pub(crate) mod tui_action;
 pub(crate) mod tui_read;

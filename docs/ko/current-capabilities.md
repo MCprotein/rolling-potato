@@ -1,13 +1,38 @@
 # 현재 기능
 
-이 문서는 `rolling-potato v0.41.0`의 읽기 쉬운 상태 지도입니다. 하나의 긴
-명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
+이 문서는 `rolling-potato v0.41.0` release와 개발 중인 `v0.42.0` source의
+읽기 쉬운 상태 지도입니다. 하나의 긴 명령 목록을 반복하지 않고 런타임
+책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
 [English](../current-capabilities.md)
 
 > 이 문서는 기능 안내서입니다. 정확한 명령 문법은 설치된 바이너리의
 > `rpotato --help`를 기준으로 확인하십시오.
+
+## 설치와 첫 실행 (`v0.42.0` source)
+
+GitHub Release archive에서 압축을 푼 binary는 사용자 전용 CLI directory에
+자기 자신을 설치·갱신하고 zsh, bash, fish 또는 Windows 사용자 PATH에 해당
+directory를 등록할 수 있습니다. 하나의 소유 block을 사용하므로 등록은
+멱등입니다. 설치된 binary로 `init`을 실행하면 등록을 보정하며, shell
+profile 또는 환경 등록 실패는 runtime state 초기화를 막지 않고 report로
+남깁니다.
+
+```sh
+rpotato install
+rpotato install --clean --dry-run
+rpotato install --clean --yes
+rpotato init
+```
+
+일반 install은 config, model, backend asset, project state를 보존합니다.
+Clean install은 전역 application-data root와 현재 project의 `.rpotato`만
+삭제하며 명시적 확인이 필요하고 관리형 backend 또는 generation이 실행
+중이면 차단됩니다. dry-run은 두 삭제 대상과 함께 binary·PATH 등록의 정확한
+변경 상태를 표시합니다. Backend/generation 게시와 삭제는 하나의
+cross-process lease로 직렬화하며, process 생존 확인 오류도 삭제 차단으로
+처리합니다.
 
 ## 1. 에이전트 루프와 컨텍스트
 

@@ -4,6 +4,7 @@ use crate::surfaces::cli::render::HELP;
 
 mod backend;
 mod collaboration;
+mod install;
 mod observability;
 mod patch;
 mod plugin;
@@ -13,6 +14,7 @@ use collaboration::{
     parse_team_dispatch_args, parse_team_execute_args, parse_team_governor_args,
     parse_team_plan_args, parse_team_reconcile_args,
 };
+use install::parse_install;
 use observability::{
     parse_benchmark_record, parse_benchmark_report, parse_benchmark_run, parse_monitor_export,
     parse_monitor_prune, parse_ontology_context, parse_ontology_export, parse_ontology_import,
@@ -26,6 +28,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
     match args.as_slice() {
         [] => Ok(Command::Help),
         [arg] if arg == "help" || arg == "--help" || arg == "-h" => Ok(Command::Help),
+        [group, rest @ ..] if group == "install" => {
+            parse_install(rest).map(Command::Install)
+        }
         [arg] if arg == "init" => Ok(Command::Init),
         [group, rest @ ..] if group == "run" => Ok(Command::Run {
             request: parse_request(rest, "run")?,

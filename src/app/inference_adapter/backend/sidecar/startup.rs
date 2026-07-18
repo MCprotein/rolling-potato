@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Instant;
 
+use crate::adapters::filesystem::runtime_mutation;
+
 use super::*;
 
 const ENV_BACKEND_START_TRACE: &str = "RPOTATO_TEST_BACKEND_START_TRACE";
@@ -14,6 +16,7 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
     ctx_size: Option<u32>,
     timeout: Duration,
 ) -> Result<String, AppError> {
+    let runtime_transition = runtime_mutation::acquire("backend start")?;
     let model_path = canonical_existing_file(model_path, "model")?;
     let discovery = llama_backend::discover();
     if !discovery.binary_exists || !discovery.binary_is_file {
@@ -131,8 +134,13 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
         stderr_log,
         started_at_ms: now_ms(),
     };
-    backend_state::write_sidecar_record(&record)?;
+    if let Err(err) = backend_state::write_sidecar_record(&record) {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(err);
+    }
     trace_backend_start("sidecar-record-written");
+    drop(runtime_transition);
 
     let started_at = Instant::now();
     loop {
