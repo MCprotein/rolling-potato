@@ -445,6 +445,26 @@ fn generation_record_codec_preserves_exact_bytes_and_round_trips() {
 }
 
 #[test]
+fn runtime_mutation_lease_excludes_backend_and_generation_publish() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let _clean_transition =
+        crate::adapters::filesystem::runtime_mutation::acquire("clean transition test").unwrap();
+
+    let generation_err =
+        begin_active_generation(&generation_test_sidecar(), 1_000, false).unwrap_err();
+    let backend_err =
+        start_sidecar_with_timeout("missing-model.gguf", Some(128), Duration::from_millis(1))
+            .unwrap_err();
+
+    assert_eq!(generation_err.code, 3);
+    assert!(generation_err
+        .message
+        .contains("backend generation begin lock"));
+    assert_eq!(backend_err.code, 3);
+    assert!(backend_err.message.contains("backend start lock"));
+}
+
+#[test]
 fn generation_start_does_not_delete_foreign_cancel_marker() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let root = env::temp_dir().join(format!(

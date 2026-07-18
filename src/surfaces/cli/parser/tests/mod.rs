@@ -1,5 +1,7 @@
 use super::*;
 
+mod install;
+
 #[test]
 fn parses_subagent_launch_status_and_cancel() {
     let command = parse([

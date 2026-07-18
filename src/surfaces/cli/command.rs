@@ -5,6 +5,7 @@ pub(crate) use crate::runtime_core::knowledge::ontology::OntologyExportFormat;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
     Help,
+    Install(InstallCommand),
     Init,
     Run { request: String },
     Intent(IntentCommand),
@@ -29,6 +30,13 @@ pub enum Command {
     Model(ModelCommand),
     Plugin(PluginCommand),
     Uninstall(UninstallCommand),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum InstallCommand {
+    Standard,
+    CleanDryRun,
+    CleanConfirmed,
 }
 
 #[derive(Debug, PartialEq, Eq)]

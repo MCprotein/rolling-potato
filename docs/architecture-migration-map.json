@@ -1597,6 +1597,24 @@
       ]
     },
     {
+      "path": "src/adapters/filesystem/runtime_mutation.rs",
+      "slices": [
+        {
+          "responsibility": "cross-process exclusion for runtime publication and destructive clean transitions",
+          "target": "src/adapters/filesystem/runtime_mutation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/runtime_mutation.rs",
+            "src/app/inference_adapter/backend/generation_state.rs",
+            "src/app/inference_adapter/backend/sidecar/startup.rs",
+            "src/composition/install.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/filesystem/windows_replace.rs",
       "slices": [
         {
@@ -2740,6 +2758,23 @@
       ]
     },
     {
+      "path": "src/composition/install.rs",
+      "slices": [
+        {
+          "responsibility": "user-local CLI install, clean reset, and init environment orchestration",
+          "target": "src/composition/install.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/install.rs",
+            "src/adapters/system_install.rs",
+            "src/app/command_dispatch.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/composition/uninstall.rs",
       "slices": [
         {
@@ -3271,6 +3306,38 @@
           "state": "complete",
           "evidence": [
             "src/adapters/filesystem/uninstall.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install.rs",
+      "slices": [
+        {
+          "responsibility": "user-local executable placement, PATH registration, and bounded clean-state I/O",
+          "target": "src/adapters/system_install.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install.rs",
+            "src/composition/install.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/tests.rs",
+      "slices": [
+        {
+          "responsibility": "user-local CLI install and clean-state adapter regressions",
+          "target": "src/adapters/system_install/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install.rs",
+            "src/adapters/system_install/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5454,6 +5521,24 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/install.rs",
+      "slices": [
+        {
+          "responsibility": "install and guarded clean-install option parsing",
+          "target": "src/surfaces/cli/parser/install.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/install.rs",
+            "src/surfaces/cli/parser/tests/install.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/cli/parser/observability.rs",
       "slices": [
         {
@@ -5516,6 +5601,22 @@
             "src/surfaces/cli/command.rs",
             "src/surfaces/cli/parser.rs",
             "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/install.rs",
+      "slices": [
+        {
+          "responsibility": "install command parser safety regressions",
+          "target": "src/surfaces/cli/parser/tests/install.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/install.rs",
+            "src/surfaces/cli/parser/tests/install.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7290,6 +7391,12 @@
       ]
     },
     {
+      "path": "src/adapters/filesystem/runtime_mutation.rs",
+      "responsibilities": [
+        "cross-process exclusion for runtime publication and destructive clean transitions"
+      ]
+    },
+    {
       "path": "src/adapters/filesystem/windows_replace.rs",
       "responsibilities": [
         "Windows atomic file replacement"
@@ -7704,6 +7811,12 @@
       ]
     },
     {
+      "path": "src/composition/install.rs",
+      "responsibilities": [
+        "user-local CLI install, clean reset, and init environment orchestration"
+      ]
+    },
+    {
       "path": "src/composition/uninstall.rs",
       "responsibilities": [
         "uninstall plan orchestration"
@@ -7889,6 +8002,18 @@
       "path": "src/adapters/filesystem/uninstall.rs",
       "responsibilities": [
         "managed uninstall path discovery"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install.rs",
+      "responsibilities": [
+        "user-local executable placement, PATH registration, and bounded clean-state I/O"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/tests.rs",
+      "responsibilities": [
+        "user-local CLI install and clean-state adapter regressions"
       ]
     },
     {
@@ -8667,6 +8792,12 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/install.rs",
+      "responsibilities": [
+        "install and guarded clean-install option parsing"
+      ]
+    },
+    {
       "path": "src/surfaces/cli/parser/observability.rs",
       "responsibilities": [
         "monitor, ontology, and benchmark command option parsing"
@@ -8688,6 +8819,12 @@
       "path": "src/surfaces/cli/parser/tests/mod.rs",
       "responsibilities": [
         "CLI command-family argument parser regression tests"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/install.rs",
+      "responsibilities": [
+        "install command parser safety regressions"
       ]
     },
     {

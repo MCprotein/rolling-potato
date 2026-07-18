@@ -102,8 +102,8 @@ targeted_windows_preflight="$(
   step_block "$windows_targeted_workflow" "Test backend lifecycle" \
     | windows_preflight_commands
 )"
-[ "$(printf '%s\n' "$release_windows_preflight" | awk 'NF { count++ } END { print count + 0 }')" -eq 4 ] \
-  || fail "release Windows preflight must contain exactly four cargo test commands"
+[ "$(printf '%s\n' "$release_windows_preflight" | awk 'NF { count++ } END { print count + 0 }')" -eq 5 ] \
+  || fail "release Windows preflight must contain exactly five cargo test commands"
 [ "$targeted_windows_preflight" = "$release_windows_preflight" ] \
   || fail "targeted Windows preflight must exactly match the release workflow"
 require_line "$policy_body" 'RPOTATO_RELEASE_BASE_REF: ${{ github.event_name == '\''pull_request'\'' && format('\''origin/{0}'\'', github.base_ref) || '\'''\'' }}'
