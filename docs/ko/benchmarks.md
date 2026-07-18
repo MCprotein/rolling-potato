@@ -375,6 +375,13 @@ request byte, total token, 영속 runtime byte, 필수 완료 marker, fixture re
 보고하지만 hardware-dependent evidence이므로 고정 cross-machine threshold로
 사용하지 않습니다.
 
+v0.39.0 bounded-worker prompt 정리는 같은 local fake-sidecar harness에서
+subagent fixture의 aggregate request payload를 3,813 byte에서 3,730 byte로,
+2-member team fixture는 5,231 byte에서 5,065 byte로 줄였습니다. deterministic
+fake response의 token 사용량은 응답당 20 token으로 고정되어 있습니다. 따라서
+이 byte 감소는 context envelope 근거이며 실제 모델의 token 또는 품질 claim이
+아닙니다.
+
 ## observability 연동
 
 Benchmark run은 일반 runtime monitoring과 같은 metric schema를 사용해야 합니다.

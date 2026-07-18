@@ -401,6 +401,13 @@ markers, and fixture request counts are regression gates. Wall time, peak
 process CPU, and peak RSS are measured and reported but remain hardware-dependent
 evidence rather than fixed cross-machine thresholds.
 
+The v0.39.0 bounded-worker prompt cleanup reduced the measured aggregate request
+payload from 3,813 to 3,730 bytes for the subagent fixture and from 5,231 to
+5,065 bytes for the two-member team fixture on the same local fake-sidecar
+harness. Token usage remains fixed at 20 tokens per deterministic fake response;
+the byte reduction is context-envelope evidence, not a real-model token or
+quality claim.
+
 ## Observability Integration
 
 Benchmark runs should use the same metric schema as normal runtime monitoring.

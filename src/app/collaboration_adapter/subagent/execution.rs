@@ -553,12 +553,12 @@ fn render_worker_prompt(
     context: &crate::app::context_adapter::ContextPack,
 ) -> String {
     format!(
-        "You are one bounded {} subagent. Return exactly one canonical compact JSON object and no surrounding text.\n\
+        "Bounded {} subagent. Return exactly one canonical compact JSON object; no other text.\n\
          Required key order: schema_version, subagent_id, parent_workflow_id, role, status, summary, findings, patch_proposal, evidence_refs, validation_gaps, suggested_next_action.\n\
-         Use schema_version=1, status=completed, subagent_id={}, parent_workflow_id={}, role={}.\n\
-         evidence_refs must contain only declared source pointers listed below. patch_proposal must be null unless the executor render_diff capability is declared.\n\
-         Never execute commands, apply patches, reveal secrets, or claim unperformed validation.\n\
-         Declared tools: {}\nDeclared write ownership: {}\nTask:\n{}\n\n{}",
+         Fixed fields: schema_version=1; subagent_id={}; parent_workflow_id={}; role={}; status=completed.\n\
+         evidence_refs: declared source pointers only. patch_proposal: null unless executor declared render_diff.\n\
+         Never execute commands or patches, reveal secrets, or claim unperformed validation.\n\
+         Tools: {}\nWrite ownership: {}\nTask:\n{}\n\n{}",
         record.role.as_str(),
         record.subagent_id,
         record.parent_workflow_id,
