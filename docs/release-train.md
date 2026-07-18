@@ -71,7 +71,7 @@ complete.
 | `v0.38.0` | Claude Code local plugin mapping/conformance tests, explicit unsupported-semantics reporting, and the same default-deny boundary |
 | `v0.39.0` | Measured end-to-end agent/subagent/team CPU, RSS, context, token, latency, and throughput evidence plus regression fixtures for confirmed failures |
 | `v0.40.0` | Current official package-format validation and clean install/upgrade/uninstall tests for the adopted Homebrew/Scoop channels against GitHub Release checksums |
-| `v0.41.0` | Local-only HTML export/server tests proving SQLite/ledger parity, redaction, no external telemetry, no second source of truth, and usable desktop/mobile browser rendering |
+| `v0.41.0` | Local-only static HTML export tests proving SQLite/ledger parity, redaction, no external telemetry, no second source of truth, and usable desktop/mobile browser rendering |
 
 ## Non-Skippable Gates
 

@@ -4,7 +4,7 @@
 
 Monitoring은 외부 telemetry가 아니라 local-first runtime capability입니다. 기본값은 로컬 저장이며, 사용자 코드나 prompt 원문을 외부로 보내지 않습니다.
 
-Monitoring UX의 기준은 [DESIGN.md](DESIGN.md)와 [tui.md](tui.md)를 따릅니다. TUI는 SSH/Linux server에서 쓰는 primary monitoring surface이고, HTML은 이후 선택 가능한 local report/dashboard surface입니다.
+Monitoring UX의 기준은 [DESIGN.md](DESIGN.md)와 [tui.md](tui.md)를 따릅니다. TUI는 SSH/Linux server에서 쓰는 primary monitoring surface이고, HTML은 선택 가능한 local static report export입니다.
 
 ## 목표
 
@@ -83,7 +83,7 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 - `rpotato monitor status`와 `rpotato monitor models`는 SQLite projection을 읽는다.
 - `rpotato monitor baseline`은 local ledger/SQLite projection metric을 읽어 p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, model/backend/session grouping을 보여주는 read-only performance baseline report를 출력한다. Raw prompt/source text는 저장하지 않으며 model artifact를 선택하지 않는다.
 - `rpotato monitor optimize`는 local performance baseline, 최신 resource sample, `measured-locally` benchmark row를 읽어 context budget, team lane count, fallback mode, model route hint를 추천한다. Read-only 기능이며 실제 model artifact를 선택하거나 model status를 승격하거나 public benchmark parity를 주장하지 않는다.
-- `rpotato monitor export --format jsonl|csv`는 runtime ledger/projection을 사람이 볼 수 있는 형태로 출력한다.
+- `rpotato monitor export --format jsonl|csv|html`은 runtime ledger/projection을 사람이 볼 수 있는 형태로 출력한다. HTML은 script, external asset, network request, raw prompt/source text, credential, 전체 local path가 없는 self-contained responsive local snapshot 하나다.
 - `rpotato monitor prune --before 30d --dry-run`은 삭제 후보 count만 계산한다.
 - `rpotato benchmark validate <fixture.json>`는 project-local fixture metadata를 검증한다. Runtime capability, model/runtime responsibility, expected route, policy decision, escalation target, required tool/source/evidence record, abstention requirement, ontology view, context budget, backend/model artifact identifier, sampling policy, raw artifact retention policy를 확인한다.
 - `rpotato benchmark record --fixture <fixture.json>`는 metadata-only benchmark run을 append-only ledger와 SQLite `benchmark_runs` projection에 기록한다. 기록은 `claim_state=not-comparable`, score 없음, reproducibility manifest, redacted local report만 포함한다.
@@ -250,6 +250,7 @@ rpotato continue
 rpotato continue <session-id>
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
+rpotato monitor export --format html > rpotato-monitor.html
 rpotato monitor prune --before 30d --dry-run
 ```
 
@@ -263,7 +264,7 @@ TUI는 다음 view를 가져야 합니다.
 - subagent/team metric summary
 - recent failures and validation gaps
 
-HTML은 MVP primary surface가 아닙니다. 이후 추가한다면 SQLite/export data를 읽는 local-only report 또는 dashboard로 둡니다. HTML이 별도 monitoring source of truth를 만들면 안 됩니다.
+HTML은 primary monitoring surface가 아닌 선택형 local static report다. `monitor export --format html`은 완전한 document를 standard output에 기록하므로 file 생성과 열기는 사용자의 명시적인 action으로 남는다. Report는 기존 bounded SQLite/ledger monitor data를 읽고 restrictive content security policy와 inline CSS를 사용하지만 JavaScript나 external asset이 없고 network request를 하지 않는다. Raw prompt/source text, credential, 전체 local filesystem path를 노출하지 않으며 별도 monitoring source of truth를 만들지 않는다.
 
 ## 보존 기간
 

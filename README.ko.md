@@ -170,6 +170,7 @@ rpotato monitor baseline
 rpotato monitor optimize
 rpotato monitor export --format jsonl
 rpotato monitor export --format csv
+rpotato monitor export --format html > rpotato-monitor.html
 rpotato monitor prune --before 30d --dry-run
 rpotato benchmark validate benchmarks/fixtures/sample.json
 rpotato benchmark record --fixture benchmarks/fixtures/sample.json
@@ -300,6 +301,7 @@ MVP의 기본 결정은 다음과 같습니다.
 - `rpotato monitor optimize`
 - `rpotato monitor export --format jsonl`
 - `rpotato monitor export --format csv`
+- `rpotato monitor export --format html > rpotato-monitor.html`
 - `rpotato monitor prune --before 30d --dry-run`
 - `rpotato ontology status`
 - `rpotato ontology seed`
@@ -360,7 +362,7 @@ MVP의 기본 결정은 다음과 같습니다.
 
 `patch preview`는 project-local text file을 읽고 명시적인 단일 find/replace proposal에 대한 unified diff를 렌더링하며, `.rpotato/patch-proposals/` 아래에 project-local record를 저장합니다. 이 standalone surface는 diff-only라 approve/apply/verify할 수 없습니다. `patch approve`는 `run`이 생성한 workflow proposal에만 사용할 수 있습니다. `patch approve <proposal-id> --token <token> --dry-run`은 target file을 수정하지 않고 patch 적용 gate를 검증합니다. `--dry-run` 없이 실행하면 workflow/proposal binding과 current source SHA-256이 모두 유효할 때만 workflow proposal을 적용하며 command는 실행하지 않고 별도의 일회성 verification credential을 발급합니다. `patch verify <proposal-id> --token <token>`은 pre-bound되고 policy가 허용한 argv verification plan만 별도로 승인해 실행합니다. Verification 실패는 rollback을 시도하며 성공으로 보고하지 않습니다. `patch token-rotate`는 현재 승인 대기 중인 gate의 credential을 교체합니다. 두 credential 모두 plaintext로 저장하거나 최초 전달 뒤 다시 표시하지 않습니다.
 
-`monitor baseline`은 local ledger/SQLite projection metric을 읽어 p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, model/backend/session grouping을 보여주는 read-only performance baseline report를 출력합니다. Raw prompt/source text는 저장하지 않으며 model artifact를 선택하지 않습니다. `monitor optimize`는 이 local metric과 `measured-locally` benchmark row만 읽어 context budget, team lane count, fallback mode, model route hint를 추천합니다. 실제 model artifact를 선택하거나 public benchmark parity를 주장하지 않습니다. `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
+`monitor baseline`은 local ledger/SQLite projection metric을 읽어 p50/p95 latency, average tokens/sec, context clamp count, peak RSS, pressure-state distribution, model/backend/session grouping을 보여주는 read-only performance baseline report를 출력합니다. Raw prompt/source text는 저장하지 않으며 model artifact를 선택하지 않습니다. `monitor optimize`는 이 local metric과 `measured-locally` benchmark row만 읽어 context budget, team lane count, fallback mode, model route hint를 추천합니다. 실제 model artifact를 선택하거나 public benchmark parity를 주장하지 않습니다. `monitor export`는 runtime ledger를 JSONL/CSV로 출력합니다. `html` format은 기존 SQLite/ledger monitor data로 responsive self-contained local report 하나를 standard output에 출력합니다. JavaScript와 external asset이 없고 network request를 하지 않으며 raw prompt/source text, credential, 전체 local path를 표시하지 않습니다. 파일로 redirect한 뒤 사용자가 명시적으로 엽니다. `monitor prune`은 현재 dry-run만 허용하며 실제 삭제는 수행하지 않습니다.
 
 `ontology status`, `ontology seed`, `ontology inspect`는 project-local `.rpotato/ontology/graph.jsonl` typed graph store와 `.rpotato/ontology/schema.json` contract를 다룹니다. Layer A seed는 indexed file, package manifest, entrypoint, generated-exclusion rule 같은 결정적 사실을 source pointer와 SHA-256 hash로 기록합니다. `ontology context --query <text>`는 작은 모델 prompt용 source-pointer-first compact context view를 렌더링합니다. `ontology reread <source-pointer>`는 edit decision 전에 authoritative project file을 다시 열고 현재 file hash를 보고합니다. `ontology export --format json|jsonl`은 inspection view만 내보내며, JSON/YAML/RDF/OWL류 export가 runtime store보다 더 authoritative하지 않습니다. `ontology import --file <path> --dry-run`은 import 후보를 검증하고 source pointer/hash 없는 confirmed Layer B semantic claim을 차단합니다.
 

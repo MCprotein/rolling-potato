@@ -53,6 +53,7 @@ Implemented first boundaries:
 - `rpotato monitor optimize`
 - `rpotato monitor export --format jsonl`
 - `rpotato monitor export --format csv`
+- `rpotato monitor export --format html > rpotato-monitor.html`
 - `rpotato monitor prune --before 30d --dry-run`
 - `rpotato benchmark validate <fixture.json>`
 - `rpotato benchmark record --fixture <fixture.json>`
@@ -197,6 +198,7 @@ cargo run -- team dispatch --lanes 2 --write-owner 1:src/team.rs --write-owner 2
 cargo run -- team dispatch --lanes 3 --write-owner 1:src/team.rs --write-owner 2:src/cli.rs --write-owner 3:src/app.rs --failed-lane 2 --failure "worker timed out"
 cargo run -- monitor export --format jsonl
 cargo run -- monitor export --format csv
+cargo run -- monitor export --format html > rpotato-monitor.html
 cargo run -- monitor prune --before 30d --dry-run
 cargo run -- benchmark validate benchmarks/fixtures/sample.json
 cargo run -- benchmark record --fixture benchmarks/fixtures/sample.json
