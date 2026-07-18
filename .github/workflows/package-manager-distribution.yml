@@ -408,7 +408,11 @@ jobs:
           [System.IO.File]::Copy($currentManifest, $publishedManifest, $true)
           $publishedVersion = (Get-Content $publishedManifest -Raw | ConvertFrom-Json).version
           if ($publishedVersion -ne $currentVersion) { throw "failed to publish current Scoop manifest" }
-          git -C $seed add bucket/rpotato.json
+          git -C $seed add --renormalize bucket/rpotato.json
+          if ($LASTEXITCODE -ne 0) { throw "failed to stage current Scoop manifest" }
+          git -C $seed diff --cached --quiet -- bucket/rpotato.json
+          if ($LASTEXITCODE -eq 0) { throw "current Scoop manifest did not create a staged change" }
+          if ($LASTEXITCODE -ne 1) { throw "failed to inspect staged current Scoop manifest" }
           git -C $seed commit -m "test: update rpotato manifest"
           if ($LASTEXITCODE -ne 0) { throw "failed to commit current Scoop manifest" }
           git -C $seed push origin main
