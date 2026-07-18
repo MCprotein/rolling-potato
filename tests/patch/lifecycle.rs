@@ -1,9 +1,11 @@
 #![cfg(unix)]
 
 use std::fs;
+use std::net::TcpListener;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Output, Stdio};
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -96,6 +98,7 @@ ThreadingHTTPServer((a.host,a.port),H).serve_forever()
         backend,
         response,
         calls,
+        port: AtomicU16::new(available_port()),
     }
 }
 
@@ -106,6 +109,7 @@ struct Fixture {
     backend: PathBuf,
     response: PathBuf,
     calls: PathBuf,
+    port: AtomicU16,
 }
 
 impl Fixture {
@@ -116,7 +120,10 @@ impl Fixture {
             .env("RPOTATO_PROJECT_ROOT", &self.project)
             .env("RPOTATO_DATA_HOME", &self.data)
             .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &self.backend)
-            .env("RPOTATO_BACKEND_PORT", port_for(&self.root).to_string());
+            .env(
+                "RPOTATO_BACKEND_PORT",
+                self.port.load(Ordering::Relaxed).to_string(),
+            );
         command
     }
 
@@ -128,15 +135,18 @@ impl Fixture {
 
     fn start(&self) {
         fs::write(self.root.join("model.gguf"), b"fake model").unwrap();
-        let output = self.command(&[
-            "backend",
-            "start",
-            "--model",
-            self.root.join("model.gguf").to_str().unwrap(),
-            "--ctx-size",
-            "1024",
-        ]);
-        if !output.status.success() {
+        for attempt in 0..3 {
+            let output = self.command(&[
+                "backend",
+                "start",
+                "--model",
+                self.root.join("model.gguf").to_str().unwrap(),
+                "--ctx-size",
+                "1024",
+            ]);
+            if output.status.success() {
+                return;
+            }
             let logs = fs::read_dir(self.data.join("logs"))
                 .into_iter()
                 .flatten()
@@ -144,8 +154,13 @@ impl Fixture {
                 .filter_map(|entry| fs::read_to_string(entry.path()).ok())
                 .collect::<Vec<_>>()
                 .join("\n");
+            if attempt < 2 && logs.contains("Address already in use") {
+                self.port.store(available_port(), Ordering::Relaxed);
+                continue;
+            }
             panic!("{}\n{logs}", String::from_utf8_lossy(&output.stderr));
         }
+        unreachable!("bounded backend start retry must return or panic");
     }
 
     fn stop(&self) {
@@ -301,11 +316,12 @@ fn tree_contains(root: &Path, needle: &[u8]) -> bool {
     false
 }
 
-fn port_for(path: &Path) -> u16 {
-    let hash = path.display().to_string().bytes().fold(0_u16, |acc, byte| {
-        acc.wrapping_mul(31).wrapping_add(byte as u16)
-    });
-    30000 + (hash % 20000)
+fn available_port() -> u16 {
+    TcpListener::bind(("127.0.0.1", 0))
+        .expect("ephemeral backend port allocation")
+        .local_addr()
+        .expect("ephemeral backend port address")
+        .port()
 }
 
 fn field(output: &str, key: &str) -> String {
@@ -332,6 +348,18 @@ fn verification_token(output: &str) -> String {
         output,
         "- verification command approval: rpotato patch verify ",
     )
+}
+
+#[test]
+fn fixture_retries_backend_start_after_ephemeral_port_collision() {
+    let fixture = fixture("backend-port-retry");
+    let occupied = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let occupied_port = occupied.local_addr().unwrap().port();
+    fixture.port.store(occupied_port, Ordering::Relaxed);
+
+    fixture.start();
+
+    assert_ne!(fixture.port.load(Ordering::Relaxed), occupied_port);
 }
 
 #[test]

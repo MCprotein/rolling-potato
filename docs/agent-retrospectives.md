@@ -154,3 +154,26 @@
   workflow를 활성 배포 surface로 복원하지 않습니다.
 - 배포 channel을 늘리는 변경은 기능 구현과 별개의 제품·외부 운영 결정으로 보고,
   대상 channel과 저장소를 특정한 사용자 지시 없이는 진행하지 않습니다.
+
+## 2026-07-19: candidate backend fixture의 계산 포트 충돌
+
+### 증상
+
+- 최종 candidate 전체 테스트에서 기능 변경과 무관한 `patch_loop` 한 건이
+  fake backend의 `Address already in use`로 실패했습니다.
+- fixture가 임시 경로 hash를 30,000~49,999 포트로 변환해, 이미 사용 중인
+  포트를 선택해도 복구하지 못했습니다.
+
+### 원인
+
+- 경로별로 달라 보이는 계산 포트를 OS가 할당한 가용 포트로 잘못 취급했습니다.
+- backend bind 직전 포트가 충돌할 수 있다는 fixture 복구 경로와 강제 충돌
+  회귀 테스트가 없었습니다.
+
+### 재발 방지
+
+- 네트워크 fixture는 고정·hash 포트 대신 OS ephemeral port를 사용합니다.
+- bind 시점 충돌은 해당 fixture 안에서만 새 ephemeral port로 제한 횟수만큼
+  복구하며, 전체 candidate workflow를 단순 rerun하지 않습니다.
+- 포트를 이미 점유한 상태에서 첫 backend start를 강제로 실패시키고 다음
+  ephemeral port로 복구되는 targeted 회귀 테스트를 유지합니다.
