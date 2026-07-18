@@ -24,8 +24,8 @@ pub(super) fn append_planned_event_if_missing(
             record.manifest_hash,
         ),
     );
-    ledger::append_event(&event)?;
-    observability::project_event(&event)
+    let appended = ledger::append_event(&event)?;
+    observability::project_event_with_ordinal(&event, appended.ordinal)
 }
 
 pub(super) fn append_stage_event_if_missing(
@@ -68,6 +68,6 @@ pub(super) fn append_stage_event_if_missing(
             record.execution_mode,
         ),
     );
-    ledger::append_event(&event)?;
-    observability::project_event(&event)
+    let appended = ledger::append_event(&event)?;
+    observability::project_event_with_ordinal(&event, appended.ordinal)
 }

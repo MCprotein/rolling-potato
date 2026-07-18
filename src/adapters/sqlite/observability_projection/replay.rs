@@ -193,7 +193,7 @@ pub(super) fn project_sessions_from_events(
 pub(super) fn insert_ledger_event(
     connection: &Connection,
     event: &LedgerEvent,
-    supplied_ordinal: Option<i64>,
+    event_ordinal: i64,
     ledger: &dyn CanonicalProjectionReadPort,
 ) -> Result<(), AppError> {
     connection
@@ -233,29 +233,10 @@ pub(super) fn insert_ledger_event(
             event_type: &event.event_type,
             details: &event.details,
             ledger_event_id: &event.event_id,
-            event_ordinal: match supplied_ordinal {
-                Some(ordinal) => ordinal,
-                None => canonical_event_ordinal(&event.event_id, ledger)?,
-            },
+            event_ordinal,
         },
         ledger,
     )
-}
-
-fn canonical_event_ordinal(
-    event_id: &str,
-    ledger: &dyn CanonicalProjectionReadPort,
-) -> Result<i64, AppError> {
-    ledger
-        .read_events()?
-        .iter()
-        .position(|event| event.event_id == event_id)
-        .map(|index| to_i64((index + 1) as u128))
-        .ok_or_else(|| {
-            AppError::blocked(format!(
-                "observability projection 차단\n- 이유: canonical ledger event ordinal을 찾지 못했습니다.\n- event id: {event_id}"
-            ))
-        })
 }
 
 fn project_patch_evidence_event(

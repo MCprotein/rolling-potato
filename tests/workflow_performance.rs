@@ -17,6 +17,7 @@ fn completed_agent_subagent_and_team_workflows_stay_within_budgets() {
     assert!(BUDGETS.contains("\"claim_state\": \"measured-locally\""));
     assert!(BUDGETS.contains("\"model_claim\": \"not-applicable-fake-sidecar\""));
     assert!(BUDGETS.contains("\"raw_prompt_source_stored\": false"));
+    assert_projection_hotspot_closed();
 
     let agent = measure_agent();
     let subagent = measure_subagent();
@@ -32,6 +33,29 @@ fn completed_agent_subagent_and_team_workflows_stay_within_budgets() {
         subagent.json(),
         team.json(),
     );
+}
+
+fn assert_projection_hotspot_closed() {
+    let sources = [
+        include_str!("../src/app/workflow_adapter/state/workflow_store.rs"),
+        include_str!("../src/app/inference_adapter/benchmark.rs"),
+        include_str!("../src/app/collaboration_adapter/team_execution/events.rs"),
+        include_str!("../src/app/collaboration_adapter/team.rs"),
+        include_str!("../src/app/collaboration_adapter/team_state/events.rs"),
+        include_str!("../src/app/collaboration_adapter/team_reconciliation.rs"),
+    ];
+    let supplied_ordinal_calls = sources
+        .iter()
+        .map(|source| {
+            assert!(!source.contains("observability::project_event(&event)"));
+            source
+                .matches("project_event_with_ordinal(&event, appended.ordinal)")
+                .count()
+        })
+        .sum::<usize>();
+
+    assert_eq!(budget("projection_full_ledger_reads_per_append"), 0);
+    assert_eq!(supplied_ordinal_calls, 12);
 }
 
 fn measure_agent() -> WorkflowMeasurement {

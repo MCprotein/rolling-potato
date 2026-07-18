@@ -186,8 +186,8 @@ impl WorkflowRecoveryPort for StateWorkflowRecoveryPort {
 #[cfg(test)]
 pub(super) fn append_workflow_checkpoint_event(record: &WorkflowRecord) -> Result<(), AppError> {
     let event = workflow_checkpoint_event(record, &workflow_identity(record));
-    ledger::append_event(&event)?;
-    observability::project_event(&event)
+    let appended = ledger::append_event(&event)?;
+    observability::project_event_with_ordinal(&event, appended.ordinal)
 }
 
 pub(super) fn validate_workflow_chain(

@@ -72,14 +72,6 @@ impl ObservabilityProjectionPort for SqliteObservabilityProjection {
         monitor_snapshot_read_only(limit)
     }
 
-    fn project_event(
-        &self,
-        event: &LedgerEvent,
-        ledger: &dyn CanonicalProjectionReadPort,
-    ) -> Result<(), AppError> {
-        project_event(event, ledger)
-    }
-
     fn project_event_with_ordinal(
         &self,
         event: &LedgerEvent,
@@ -224,14 +216,6 @@ pub fn monitor_snapshot_read_only(limit: usize) -> Result<MonitorProjectionSnaps
     })
 }
 
-pub fn project_event(
-    event: &LedgerEvent,
-    ledger: &dyn CanonicalProjectionReadPort,
-) -> Result<(), AppError> {
-    let (connection, _) = open_or_recover()?;
-    insert_ledger_event(&connection, event, None, ledger)
-}
-
 pub(crate) fn project_event_with_ordinal(
     event: &LedgerEvent,
     ordinal: u64,
@@ -240,7 +224,7 @@ pub(crate) fn project_event_with_ordinal(
     let ordinal = i64::try_from(ordinal)
         .map_err(|_| AppError::blocked("observability event ordinal 범위 초과"))?;
     let (connection, _) = open_or_recover()?;
-    insert_ledger_event(&connection, event, Some(ordinal), ledger)
+    insert_ledger_event(&connection, event, ordinal, ledger)
 }
 
 pub(crate) fn converge_from_events(

@@ -15,6 +15,7 @@
   "team_total_tokens": 60,
   "team_max_request_bytes": 8192,
   "team_max_persisted_bytes": 524288,
+  "projection_full_ledger_reads_per_append": 0,
   "wall_time_policy": "report-only-hardware-dependent",
   "cpu_policy": "report-only-hardware-dependent",
   "rss_policy": "report-only-hardware-dependent",

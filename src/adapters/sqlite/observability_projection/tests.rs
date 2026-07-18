@@ -16,6 +16,19 @@ impl CanonicalLedgerReadPort for TestCanonicalLedgerReader {
 
 impl CanonicalTranscriptReadPort for TestCanonicalLedgerReader {}
 
+struct CountingLedgerReader {
+    reads: Cell<u64>,
+}
+
+impl CanonicalLedgerReadPort for CountingLedgerReader {
+    fn read_events(&self) -> Result<Vec<ParsedLedgerEvent>, AppError> {
+        self.reads.set(self.reads.get() + 1);
+        Ok(Vec::new())
+    }
+}
+
+impl CanonicalTranscriptReadPort for CountingLedgerReader {}
+
 fn replay_test_event(index: u64) -> ParsedLedgerEvent {
     ParsedLedgerEvent {
         event_id: format!("event-replay-{index}"),
@@ -210,6 +223,26 @@ fn csv_cell_quotes_only_when_needed() {
     assert_eq!(csv_cell("plain"), "plain");
     assert_eq!(csv_cell("a,b"), "\"a,b\"");
     assert_eq!(csv_cell("a\"b"), "\"a\"\"b\"");
+}
+
+#[test]
+fn supplied_event_ordinal_avoids_a_canonical_ledger_rescan() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let identity = crate::app::workflow_adapter::ledger::fresh_identity();
+    let event = crate::app::workflow_adapter::ledger::new_event_for(
+        &identity,
+        "performance.ordinal",
+        "supplied ordinal projection",
+        "safe=true",
+    );
+    let ledger = CountingLedgerReader {
+        reads: Cell::new(0),
+    };
+
+    project_event_with_ordinal(&event, 1, &ledger).unwrap();
+
+    assert_eq!(ledger.reads.get(), 0);
+    assert_eq!(status_read_only().unwrap().ledger_events, 1);
 }
 
 #[test]
