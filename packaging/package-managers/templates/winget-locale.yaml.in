@@ -1,0 +1,10 @@
+PackageIdentifier: @@WINGET_ID@@
+PackageVersion: @@VERSION@@
+PackageLocale: @@WINGET_LOCALE@@
+Publisher: @@PUBLISHER@@
+PackageName: @@PACKAGE_NAME@@
+License: @@LICENSE@@
+ShortDescription: @@DESCRIPTION@@
+PackageUrl: @@HOMEPAGE@@
+ManifestType: defaultLocale
+ManifestVersion: 1.12.0

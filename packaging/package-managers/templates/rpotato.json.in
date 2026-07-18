@@ -1,0 +1,23 @@
+{
+  "version": "@@VERSION@@",
+  "description": "@@DESCRIPTION@@",
+  "homepage": "@@HOMEPAGE@@",
+  "license": "@@LICENSE@@",
+  "architecture": {
+    "64bit": {
+      "url": "@@URL_WINDOWS_X64@@",
+      "hash": "@@SHA_WINDOWS_X64@@"
+    }
+  },
+  "bin": "rpotato.exe",
+  "checkver": {
+    "github": "@@HOMEPAGE@@"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/MCprotein/rolling-potato/releases/download/v$version/rpotato-v$version-x86_64-pc-windows-msvc.zip"
+      }
+    }
+  }
+}
