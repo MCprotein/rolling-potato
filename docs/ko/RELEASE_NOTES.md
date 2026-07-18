@@ -1,10 +1,13 @@
 # 릴리즈 노트
 
-## v0.40.0 - Package Manager 배포 (미출시)
+## v0.40.0 - Package Manager 배포
 
-Publication 상태: 저장소 candidate, 외부 channel `Unpublished`
+릴리즈 날짜: 2026-07-18
 
-이 candidate는 기존 binary와 정확한 11-asset GitHub Release contract를 바꾸지
+Tag 시점 package-manager channel 상태: `Unpublished`. 검증된 v0.40.0 GitHub
+Release asset을 기준으로 게시합니다.
+
+이 릴리즈는 기존 binary와 정확한 11-asset GitHub Release contract를 바꾸지
 않고 deterministic package-manager 배포 계약을 추가합니다.
 
 ### 포함한 것
@@ -24,8 +27,8 @@ Publication 상태: 저장소 candidate, 외부 channel `Unpublished`
 ### 현재 Evidence 상태
 
 - Manifest는 `Generated` 상태이고 저장소 fixture/workflow contract check가 통과
-- v0.38.0에서 v0.39.0으로 올리는 native qualification은 대기 중이므로 channel은
-  아직 `Validated`에 도달하지 않음
+- v0.38.0에서 v0.39.0으로 올리는 native qualification이 Homebrew 4개 lane과
+  Scoop, winget에서 모두 통과해 lifecycle contract가 `Validated`에 도달
 - Homebrew tap: `Unpublished`
 - Scoop bucket: `Unpublished`
 - winget community manifest: `Unpublished`
@@ -36,8 +39,8 @@ Publication 상태: 저장소 candidate, 외부 channel `Unpublished`
 
 - Runtime 동작, persisted schema, Cargo dependency, archive 내용, 정확한 11-file
   release asset set은 변경하지 않음
-- Package-manager file은 별도 승인된 외부 publication 전까지 workflow
-  artifact로 유지
+- Package-manager file은 검증된 v0.40.0 asset set에서 외부 publication을
+  완료하기 전까지 workflow artifact로 유지
 
 ## v0.39.0 - 통합 Workflow 성능 최적화
 
