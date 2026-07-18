@@ -10,15 +10,23 @@ release_workflow=".github/workflows/release-binaries.yml"
 windows_targeted_workflow=".github/workflows/windows-native-targeted.yml"
 policy_workflow=".github/workflows/release-policy.yml"
 candidate_workflow=".github/workflows/refactor-candidate.yml"
+candidate_preflight="scripts/ci/verify-pr-candidate-preflight.sh"
 checkout_pin='actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0'
 
 job_block() {
-  local job="$1"
+  local workflow job
+  if [ "$#" -eq 1 ]; then
+    workflow="$release_workflow"
+    job="$1"
+  else
+    workflow="$1"
+    job="$2"
+  fi
   awk -v job="$job" '
     $0 == "  " job ":" { active = 1 }
     active && $0 ~ /^  [A-Za-z0-9_-]+:$/ && $0 != "  " job ":" { exit }
     active { print }
-  ' "$release_workflow"
+  ' "$workflow"
 }
 
 step_block() {
@@ -44,6 +52,8 @@ require_line() {
 
 policy_body="$(cat "$policy_workflow")"
 candidate_body="$(cat "$candidate_workflow")"
+candidate_preflight_body="$(cat "$candidate_preflight")"
+candidate_windows="$(job_block "$candidate_workflow" windows-compile)"
 candidate_permissions="$(awk '
   /^permissions:$/ { active = 1 }
   active && NR != 1 && /^[^[:space:]]/ && $0 != "permissions:" { exit }
@@ -51,7 +61,8 @@ candidate_permissions="$(awk '
 ' "$candidate_workflow")"
 [ "$candidate_permissions" = $'permissions:\n  contents: read' ] \
   || fail "candidate workflow permissions must be exactly contents: read"
-require_line "$candidate_body" "    if: contains(github.event.pull_request.labels.*.name, 'release-candidate')"
+require_line "$candidate_body" '      - ready_for_review'
+require_line "$candidate_body" "    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'release-candidate')"
 require_line "$candidate_body" '    outputs:'
 require_line "$candidate_body" '      candidate_sha: ${{ steps.candidate.outputs.candidate_sha }}'
 require_line "$candidate_body" '      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}'
@@ -66,6 +77,22 @@ require_line "$candidate_body" '        run: cargo test --locked -- --test-threa
 require_line "$candidate_body" '        run: cargo clippy --locked --all-targets --all-features -- -D warnings'
 require_line "$candidate_body" '        run: cargo build --locked --release'
 require_line "$candidate_body" '        run: scripts/performance/verify-v0.39-workflow-budgets.sh'
+require_line "$candidate_body" '  windows-compile:'
+require_line "$candidate_windows" "    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'release-candidate')"
+require_line "$candidate_windows" '    runs-on: windows-2025'
+require_line "$candidate_windows" '      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}'
+require_line "$candidate_windows" "        uses: $checkout_pin"
+require_line "$candidate_windows" '          persist-credentials: false'
+require_line "$candidate_windows" '          ref: ${{ github.event.pull_request.head.sha }}'
+require_line "$candidate_windows" '          actual_sha="$(git rev-parse HEAD)"'
+require_line "$candidate_windows" '          if [ "$actual_sha" != "$CANDIDATE_SHA" ]; then'
+require_line "$candidate_windows" '        run: rustup target add x86_64-pc-windows-msvc'
+require_line "$candidate_windows" '        run: cargo check --locked --target x86_64-pc-windows-msvc --all-targets --all-features'
+[ -x "$candidate_preflight" ] || fail "candidate preflight must be executable"
+require_line "$candidate_preflight_body" 'cargo fmt --all -- --check'
+require_line "$candidate_preflight_body" 'cargo test --locked --test architecture_contract migration_map_recursively_covers_every_governed_file_and_exact_slice -- --exact --test-threads=1'
+require_line "$candidate_preflight_body" 'cargo clippy --locked --all-targets --all-features -- -D warnings'
+require_line "$candidate_preflight_body" 'bash scripts/release/test-release-workflow-contract.sh'
 release_windows_preflight="$(
   step_block "$release_workflow" "Test native Windows backend lifecycle" \
     | windows_preflight_commands
@@ -201,10 +228,11 @@ release_failure_diagnostic_is_exact_and_always_emitted() {
 }
 
 release_policy_accepts_squash_merged_tree() {
-  local fixture remote seed output
+  local fixture remote seed pretag_output output
   fixture="$(mktemp -d)"
   remote="$fixture/remote.git"
   seed="$fixture/seed"
+  pretag_output="$fixture/pretag-output"
   output="$fixture/output"
   git init --bare --quiet "$remote"
   git init --initial-branch=main --quiet "$seed"
@@ -226,9 +254,20 @@ release_policy_accepts_squash_merged_tree() {
   git -C "$seed" checkout --quiet main
   git -C "$seed" merge --quiet --squash release/v0.34.0 >/dev/null 2>&1
   git -C "$seed" commit --quiet -m 'test: squash release tree'
-  git -C "$seed" tag v0.34.0
   git -C "$seed" push --quiet origin main
 
+  (
+    cd "$seed"
+    RPOTATO_RELEASE_BRANCH=main \
+      RPOTATO_RELEASE_TAG=v0.34.0 \
+      RPOTATO_REQUIRE_TAG_ON_MAIN=1 \
+      RPOTATO_REQUIRE_RELEASE_BRANCH_EXISTS=1 \
+      scripts/release/verify-release-policy.sh
+  ) >"$pretag_output"
+  grep -F -- 'release policy ok: version=0.34.0 branch=main tag=v0.34.0' \
+    "$pretag_output" >/dev/null || fail "pre-tag main HEAD fallback was rejected"
+
+  git -C "$seed" tag v0.34.0
   (
     cd "$seed"
     RPOTATO_RELEASE_BRANCH=main \
