@@ -14,7 +14,7 @@ mid-range machines. It is designed around a simple premise:
 
 | Project snapshot | |
 | --- | --- |
-| Current release | `v0.41.0` |
+| Current release | `v0.42.0` |
 | CLI | `rpotato` |
 | Runtime | Rust, managed `llama.cpp`, GGUF |
 | Primary surfaces | CLI and TUI |
@@ -71,7 +71,7 @@ Download the archive for your platform and verify it with the matching
 `.sha256` file or the aggregate checksum file. Homebrew, Scoop, winget, and
 other package-manager channels are not operated by this project.
 
-Starting with the `v0.42.0` source, run the extracted binary once to place it
+Starting with `v0.42.0`, run the extracted binary once to place it
 in the user-local CLI directory and register that directory in the detected
 shell profile or Windows user PATH:
 
@@ -152,7 +152,7 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-`v0.41.0` is an active pre-1.0 runtime, not only a product-definition
+`v0.42.0` is an active pre-1.0 runtime, not only a product-definition
 scaffold. Its implemented areas include:
 
 | Area | Current surface |
@@ -210,14 +210,10 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The release history through `v0.41.0` is complete. The latest release added an
-optional self-contained HTML monitoring report backed by the existing local
-SQLite/ledger data. It does not add a server, external telemetry, JavaScript,
-or network requests.
-
-`v0.42.0` is now the concrete in-development version for user-local
-self-install, automatic PATH registration, `init` environment repair, and a
-guarded clean reinstall and clean uninstall. See [ROADMAP.md](ROADMAP.md).
+The release history through `v0.42.0` is complete. The latest release adds
+user-local self-install, automatic PATH registration, `init` environment
+repair, guarded clean reinstall, and a symmetric clean uninstall that
+preserves user-owned files. See [ROADMAP.md](ROADMAP.md).
 
 ---
 

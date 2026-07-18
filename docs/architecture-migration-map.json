@@ -5555,6 +5555,24 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/uninstall.rs",
+      "slices": [
+        {
+          "responsibility": "uninstall planning and guarded clean-uninstall option parsing",
+          "target": "src/surfaces/cli/parser/uninstall.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/command.rs",
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/uninstall.rs",
+            "src/surfaces/cli/parser/tests/uninstall.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/cli/parser/observability.rs",
       "slices": [
         {
@@ -5633,6 +5651,22 @@
           "evidence": [
             "src/surfaces/cli/parser/install.rs",
             "src/surfaces/cli/parser/tests/install.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/uninstall.rs",
+      "slices": [
+        {
+          "responsibility": "uninstall command parser safety regressions",
+          "target": "src/surfaces/cli/parser/tests/uninstall.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/uninstall.rs",
+            "src/surfaces/cli/parser/tests/uninstall.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8820,6 +8854,12 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/uninstall.rs",
+      "responsibilities": [
+        "uninstall planning and guarded clean-uninstall option parsing"
+      ]
+    },
+    {
       "path": "src/surfaces/cli/parser/observability.rs",
       "responsibilities": [
         "monitor, ontology, and benchmark command option parsing"
@@ -8847,6 +8887,12 @@
       "path": "src/surfaces/cli/parser/tests/install.rs",
       "responsibilities": [
         "install command parser safety regressions"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/uninstall.rs",
+      "responsibilities": [
+        "uninstall command parser safety regressions"
       ]
     },
     {

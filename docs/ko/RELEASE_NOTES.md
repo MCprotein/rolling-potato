@@ -2,7 +2,7 @@
 
 ## v0.42.0 - User-local Install and Clean Uninstall
 
-예정 릴리즈 날짜: 2026-07-19
+릴리즈 날짜: 2026-07-19
 
 이 릴리즈는 GitHub Release archive에서 실행한 binary를 사용자 전용 CLI로
 설치하고, 필요할 때 rpotato가 관리하는 설치와 상태를 안전하게 전부 지우는

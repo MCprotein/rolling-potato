@@ -2,7 +2,7 @@
 
 ## v0.42.0 - User-local Install and Clean Uninstall
 
-Planned release date: 2026-07-19
+Release date: 2026-07-19
 
 This release adds a symmetric lifecycle for installing a GitHub Release
 archive as a user-local CLI and safely removing the installation and all state

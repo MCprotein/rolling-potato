@@ -127,7 +127,7 @@ evidence.
 
 | Version | Status | Scope |
 | --- | --- | --- |
-| v0.42.0 | In development | GitHub Release archive self-install and full managed uninstall: user-local binary placement/removal, idempotent zsh/bash/fish or Windows user PATH registration/removal, `init` environment repair, dry-run, explicit confirmation, and active-runtime deletion block |
+| v0.42.0 | Released | GitHub Release archive self-install and full managed uninstall: user-local binary placement/removal, idempotent zsh/bash/fish or Windows user PATH registration/removal, `init` environment repair, dry-run, explicit confirmation, and active-runtime deletion block |
 
 ## Distribution Boundary
 
