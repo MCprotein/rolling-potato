@@ -158,5 +158,8 @@ migrating, exception, compatibility facade가 release blocker가 됩니다. Targ
 
 안정화된 patch release에는 범위를 제한한 독립 review를 한 번만 실행합니다.
 전체 format, test, clippy, release build, release-policy 검증은 PR CI가 정확한
-candidate commit에 한 번 수행합니다. 플랫폼 packaging과 release asset smoke는
-tag 이후 배포 검증으로 유지합니다.
+candidate commit에 한 번 수행합니다. 개발 commit을 push하는 동안 PR은 draft로
+유지하고, bounded local preflight가 통과하고 `release-candidate` label을 붙인 뒤
+ready 상태가 되었을 때만 전체 candidate gate를 시작합니다. Merge 전에는 같은
+candidate의 정확한 Windows target compile도 통과해야 합니다. 플랫폼 packaging과
+release asset smoke는 tag 이후 배포 검증으로 유지합니다.

@@ -9,6 +9,7 @@ on:
       - main
     types:
       - labeled
+      - ready_for_review
       - reopened
       - synchronize
 
@@ -18,7 +19,7 @@ concurrency:
 
 jobs:
   candidate:
-    if: contains(github.event.pull_request.labels.*.name, 'release-candidate')
+    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'release-candidate')
     runs-on: ubuntu-24.04
     outputs:
       candidate_sha: ${{ steps.candidate.outputs.candidate_sha }}
@@ -80,3 +81,34 @@ jobs:
           RPOTATO_REQUIRE_TAG_ON_MAIN: "0"
           RPOTATO_DELETE_RELEASE_BRANCH: "0"
         run: scripts/release/verify-release-policy.sh
+
+  windows-compile:
+    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'release-candidate')
+    runs-on: windows-2025
+    timeout-minutes: 10
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$CANDIDATE_SHA" ]; then
+            printf 'candidate SHA mismatch: expected %s, got %s\n' "$CANDIDATE_SHA" "$actual_sha" >&2
+            exit 1
+          fi
+
+      - name: Install Rust target
+        run: rustup target add x86_64-pc-windows-msvc
+
+      - name: Check Windows candidate
+        run: cargo check --locked --target x86_64-pc-windows-msvc --all-targets --all-features

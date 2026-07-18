@@ -67,7 +67,8 @@ if [ -n "$tag" ]; then
   fi
 
   tag_commit="$(
-    git rev-parse "$tag^{commit}" 2>/dev/null || git rev-parse HEAD
+    git rev-parse --verify "$tag^{commit}" 2>/dev/null \
+      || git rev-parse --verify HEAD
   )"
 
   if [ "${RPOTATO_REQUIRE_TAG_ON_MAIN:-0}" = "1" ]; then

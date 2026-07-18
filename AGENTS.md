@@ -56,8 +56,10 @@ test(guard): cover Korean output leakage
 - 문서 변경: 링크, 오타, 미완성 마커 스캔을 수행한다.
 - 기능 개발 중에는 변경 모듈의 unit/targeted 테스트만 실행한다. 작은 수정마다 전체 테스트, 전체 release gate, 전체 리뷰를 반복하지 않는다.
 - 기능 범위가 안정되면 적합한 Reviewer 또는 Architect 한 명으로 독립 리뷰를 정확히 한 번 실행한다. 두 역할을 중복 실행하거나 수정 후 전체 리뷰를 다시 돌리지 않고, 발견된 결함은 targeted 회귀 테스트로 닫는다.
+- 개발 커밋을 계속 푸시하는 동안 PR은 draft로 유지한다. 최종 candidate가 준비되면 `scripts/ci/verify-pr-candidate-preflight.sh`를 한 번 실행하고, 통과한 HEAD에만 `release-candidate` label을 붙인 뒤 ready 상태로 전환한다. Draft PR에서는 전체 candidate CI를 실행하지 않는다.
 - 전체 `cargo test --locked`, 전체 clippy, release build와 release gate의 정본 검증은 PR CI가 최종 candidate `HEAD`에 대해 수행한다. 같은 `HEAD`에서 통과한 전체 검증을 로컬에서 중복 실행하지 않는다.
 - CI 실패를 수정할 때는 실패 범위의 targeted 검증만 로컬에서 실행하고 푸시한다. PR `HEAD`가 바뀌었으므로 CI가 새 커밋을 다시 검증하는 것은 허용한다.
+- CI 실패를 단순 재실행으로 닫지 않는다. 실패 원인이 기존 회고와 같은 유형이면 먼저 자동 guard의 누락을 보강하고, 새로운 유형이면 targeted 회귀 테스트 또는 preflight 계약과 회고 항목을 추가한 뒤 새 candidate를 만든다.
 - 태그 이후 플랫폼별 빌드, 패키징, checksum, release asset smoke 검증은 배포 검증으로 취급하며 개발 중 전체 테스트 반복과 구분한다.
 - CLI 동작 변경 후: 관련 `rpotato` 명령 smoke test를 수행한다.
 - 검증을 실행할 수 없으면 커밋 메시지나 최종 보고에 이유를 남긴다.
@@ -71,6 +73,7 @@ test(guard): cover Korean output leakage
 - 사용자에게 진행 중인 작업을 60초 넘게 무응답 상태로 두지 않는다. 긴 명령은 짧게 yield/poll하고, 완료된 증거와 다음 중단 조건을 간결하게 알린다.
 - 독립 리뷰는 변경 파일과 수용 기준으로 범위를 제한한 한 명의 Reviewer 또는 Architect가 한 번만 수행한다. 기본 한도는 15분 또는 80,000 tokens 중 먼저 도달하는 시점이며, 한도 이후에는 두 번째 전체 리뷰를 시작하지 않고 미확인 위험을 보고한다.
 - 최종 전체 검증을 시작할 때 candidate commit SHA를 기록한다. 같은 SHA에서 통과한 전체 test, clippy, build, release gate를 다시 실행하지 않는다.
+- Windows 조건부 import나 native adapter 경계를 변경한 candidate는 PR의 `windows-compile` job이 정확한 candidate SHA에서 통과하기 전에는 merge하거나 tag하지 않는다.
 - 플랫폼 CI 실패는 해당 플랫폼과 실패 테스트의 targeted workflow가 통과하기 전까지 새 patch tag로 우회하지 않는다. 복구 릴리스를 추측성으로 연속 발행하지 않는다.
 - `완료` 보고 전에 커밋/푸시, PR 상태, candidate SHA, 필수 검증, release asset, 원격·로컬 branch 정리 여부를 체크리스트로 한 번 대조한다. 하나라도 미확인이라면 완료로 표시하지 않는다.
 

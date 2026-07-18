@@ -167,5 +167,8 @@ lock missing behavior -> move one responsibility -> targeted verify -> commit ->
 
 The stabilized patch release receives one bounded independent review. Full
 format, test, clippy, release build, and release-policy verification runs once
-for the exact candidate commit in PR CI. Platform packaging and release-asset
-smoke remain tag-time deployment verification.
+for the exact candidate commit in PR CI. Development pushes remain on a draft
+PR; the full candidate gate starts only after the bounded local preflight passes,
+the `release-candidate` label is present, and the PR is ready for review. The
+candidate also compiles the exact Windows target before merge. Platform
+packaging and release-asset smoke remain tag-time deployment verification.
