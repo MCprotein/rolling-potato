@@ -1,7 +1,6 @@
 class Rpotato < Formula
-  desc "@@DESCRIPTION@@"
+  desc "@@HOMEBREW_DESCRIPTION@@"
   homepage "@@HOMEPAGE@@"
-  version "@@VERSION@@"
   license "@@LICENSE@@"
 
   on_macos do
