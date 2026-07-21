@@ -34,9 +34,7 @@ pub(crate) fn run_controller(
         .validate_configuration()
         .map_err(terminal_fault_error)?;
     let mut state = InteractiveState::new();
-    if let Some(notice) = runtime.startup_update_notice() {
-        state.notice = notice;
-    }
+    let mut startup_update_pending = true;
     let mut post_dispatch_intent: Option<String> = None;
 
     loop {
@@ -67,6 +65,14 @@ pub(crate) fn run_controller(
             });
         }
         post_dispatch_intent = None;
+
+        if startup_update_pending {
+            startup_update_pending = false;
+            if let Some(notice) = runtime.startup_update_notice() {
+                state.notice = notice;
+                continue;
+            }
+        }
 
         let Some(line) = terminal.read_line().map_err(terminal_fault_error)? else {
             return Ok(());

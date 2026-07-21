@@ -58,6 +58,10 @@ struct TuiActionAdapter;
 struct TuiSetupAdapter;
 
 impl TuiSetupPort for TuiSetupAdapter {
+    fn startup_update_notice(&mut self) -> Option<String> {
+        crate::composition::update::startup_notice()
+    }
+
     fn model_options(&mut self) -> Vec<crate::surfaces::tui::runtime_bridge::TuiModelOption> {
         crate::app::inference_adapter::model::setup_options()
     }

@@ -206,6 +206,11 @@ fn interactive_controller_notifies_and_applies_update_without_leaving_tui() {
     std::env::remove_var("RPOTATO_TEST_UPDATE_REPORT");
     let _ = std::fs::remove_dir_all(root);
     let rendered = terminal.frames.join("\n");
+    assert!(
+        !terminal.frames[0].contains("새 rpotato 버전이 있습니다"),
+        "the first frame must render before the network-backed update check"
+    );
+    assert!(terminal.frames[1].contains("새 rpotato 버전이 있습니다"));
     assert!(rendered.contains("새 rpotato 버전이 있습니다"));
     assert!(rendered.contains("/update 를 입력하면"));
     assert!(rendered.contains("SHA-256 검증"));
