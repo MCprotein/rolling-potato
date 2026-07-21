@@ -7,15 +7,18 @@ use crate::app::workflow_adapter::transition;
 use crate::composition::tui_action::{self, TuiActionPort, TuiMutationFailure};
 use crate::composition::tui_read::{self, TuiReadPort};
 use crate::foundation::error::AppError;
+use crate::surfaces::tui::controller;
 pub(crate) use crate::surfaces::tui::controller::terminal_fault_error;
-use crate::surfaces::tui::controller::{self, TuiRuntimePort};
 use crate::surfaces::tui::outcome::TuiOutcome;
 use crate::surfaces::tui::page::ProjectionStatus;
 use crate::surfaces::tui::runtime_bridge::{
-    new_tui_intent_id, SelectionLease, TuiBackendStatus, TuiGateKind, TuiIntent, TuiReadBudget,
-    TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
+    SelectionLease, TuiGateKind, TuiIntent, TuiReadBudget, TuiReadPage, TuiReadRequest,
 };
 use crate::surfaces::tui::setup::{self, PreparedTuiModel, TuiSetupPort};
+
+mod model_switch;
+use model_switch::{switch_prepared_model, LiveModelSwitch};
+mod runtime;
 
 pub fn run_auto() -> Result<(), AppError> {
     if capability::attached() {
@@ -54,114 +57,6 @@ struct TuiActionAdapter;
 
 struct TuiSetupAdapter;
 
-trait ModelSwitchPort {
-    fn stop_backend(&mut self) -> Result<String, AppError>;
-    fn start_backend(&mut self, model_path: &str, context_tokens: u32) -> Result<String, AppError>;
-    fn activate_model(&mut self, id: &str) -> Result<(), AppError>;
-    fn restore_default_selection(
-        &mut self,
-        snapshot: &crate::app::inference_adapter::model::DefaultSelectionSnapshot,
-    ) -> Result<(), AppError>;
-}
-
-struct LiveModelSwitch;
-
-impl ModelSwitchPort for LiveModelSwitch {
-    fn stop_backend(&mut self) -> Result<String, AppError> {
-        crate::app::inference_adapter::backend::stop_report()
-    }
-
-    fn start_backend(&mut self, model_path: &str, context_tokens: u32) -> Result<String, AppError> {
-        crate::app::inference_adapter::backend::start_report(model_path, Some(context_tokens))
-    }
-
-    fn activate_model(&mut self, id: &str) -> Result<(), AppError> {
-        crate::app::inference_adapter::model::activate_setup_model(id)
-    }
-
-    fn restore_default_selection(
-        &mut self,
-        snapshot: &crate::app::inference_adapter::model::DefaultSelectionSnapshot,
-    ) -> Result<(), AppError> {
-        crate::app::inference_adapter::model::restore_default_selection(snapshot)
-    }
-}
-
-fn switch_prepared_model(
-    port: &mut impl ModelSwitchPort,
-    model_id: &str,
-    model_path: &str,
-    previous_backend: &crate::app::inference_adapter::backend::BackendRuntimeSnapshot,
-    previous_default: &crate::app::inference_adapter::model::DefaultSelectionSnapshot,
-) -> Result<String, AppError> {
-    if previous_backend.status != "stopped" {
-        port.stop_backend()?;
-    }
-    let started = match port.start_backend(model_path, setup::DEFAULT_CONTEXT_TOKENS) {
-        Ok(report) => report,
-        Err(error) => {
-            return Err(model_switch_rollback_error(
-                port,
-                "새 backend 시작",
-                error,
-                previous_backend,
-                previous_default,
-            ));
-        }
-    };
-    if let Err(error) = port.activate_model(model_id) {
-        return Err(model_switch_rollback_error(
-            port,
-            "기본 모델 선택",
-            error,
-            previous_backend,
-            previous_default,
-        ));
-    }
-    Ok(started)
-}
-
-fn model_switch_rollback_error(
-    port: &mut impl ModelSwitchPort,
-    phase: &str,
-    error: AppError,
-    previous_backend: &crate::app::inference_adapter::backend::BackendRuntimeSnapshot,
-    previous_default: &crate::app::inference_adapter::model::DefaultSelectionSnapshot,
-) -> AppError {
-    let cleanup = port
-        .stop_backend()
-        .map(|_| "완료".to_string())
-        .unwrap_or_else(|cleanup| format!("실패: {}", cleanup.message));
-    let backend_restore = if previous_backend.status == "ready" {
-        previous_backend.model_path.as_ref().map_or_else(
-            || "실패: 이전 model path 누락".to_string(),
-            |path| {
-                port.start_backend(
-                    &path.display().to_string(),
-                    previous_backend
-                        .context_limit_tokens
-                        .unwrap_or(setup::DEFAULT_CONTEXT_TOKENS),
-                )
-                .map(|_| "완료".to_string())
-                .unwrap_or_else(|restore| format!("실패: {}", restore.message))
-            },
-        )
-    } else {
-        "이전 backend가 ready 상태가 아니어서 stopped 유지".to_string()
-    };
-    let default_restore = port
-        .restore_default_selection(previous_default)
-        .map(|_| "완료".to_string())
-        .unwrap_or_else(|restore| format!("실패: {}", restore.message));
-    AppError {
-        code: error.code,
-        message: format!(
-            "{phase} 실패: {}\n- 새 backend 정리: {cleanup}\n- 이전 backend 복구: {backend_restore}\n- 이전 기본 모델 복구: {default_restore}",
-            error.message
-        ),
-    }
-}
-
 impl TuiSetupPort for TuiSetupAdapter {
     fn model_options(&mut self) -> Vec<crate::surfaces::tui::runtime_bridge::TuiModelOption> {
         crate::app::inference_adapter::model::setup_options()
@@ -190,32 +85,6 @@ impl TuiSetupPort for TuiSetupAdapter {
             &default,
         )
     }
-}
-
-fn ensure_runtime_ready() -> Result<(), AppError> {
-    let snapshot = crate::app::inference_adapter::backend::runtime_snapshot()?;
-    if snapshot.status == "ready" {
-        return Ok(());
-    }
-    if snapshot.status == "stale" {
-        crate::app::inference_adapter::backend::stop_report()?;
-    }
-    let model_path =
-        crate::app::inference_adapter::model::default_artifact_path().map_err(|err| {
-            if err.message.contains("기본 모델이 선택되지 않았습니다") {
-                AppError::blocked(
-                    "모델이 선택되지 않았습니다. TUI에서 /model을 입력해 모델을 선택하세요.",
-                )
-            } else {
-                err
-            }
-        })?;
-    crate::app::inference_adapter::backend::ensure_installed_report()?;
-    crate::app::inference_adapter::backend::start_report(
-        &model_path.display().to_string(),
-        Some(setup::DEFAULT_CONTEXT_TOKENS),
-    )?;
-    Ok(())
 }
 
 impl TuiActionPort for TuiActionAdapter {
@@ -439,115 +308,6 @@ pub(crate) fn canonical_dispatch_intent(intent: TuiIntent) -> Result<TuiOutcome,
     tui_action::dispatch_intent(&mut TuiActionAdapter, intent)
 }
 
-impl TuiRuntimePort for TuiRuntimeAdapter {
-    fn read_tui_status(&mut self) -> Result<TuiStatusSnapshot, AppError> {
-        let backend = crate::app::inference_adapter::backend::runtime_snapshot()?;
-        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
-        let latest = crate::app::observability_adapter::latest_model_run_for_session_read_only(
-            &identity.session_id,
-        )
-        .ok()
-        .flatten();
-        let model = backend
-            .model_id
-            .clone()
-            .or_else(crate::app::inference_adapter::model::configured_model_id)
-            .or_else(|| latest.as_ref().map(|run| run.model_id.clone()))
-            .unwrap_or_else(|| "미선택".to_string());
-        let latest_matches_model = latest.as_ref().is_some_and(|run| run.model_id == model);
-        let context_tokens_used = latest
-            .as_ref()
-            .filter(|_| latest_matches_model)
-            .and_then(|run| run.context_tokens_used);
-        let context_limit_tokens = backend.context_limit_tokens.or_else(|| {
-            latest
-                .as_ref()
-                .filter(|_| latest_matches_model)
-                .and_then(|run| run.context_limit_tokens)
-        });
-        let backend = match backend.status {
-            "ready" => TuiBackendStatus::Ready,
-            "stale" => TuiBackendStatus::Stale,
-            "stopped" => TuiBackendStatus::Stopped,
-            _ => TuiBackendStatus::Unavailable,
-        };
-        Ok(TuiStatusSnapshot {
-            model,
-            context_tokens_used,
-            context_limit_tokens,
-            has_compaction_checkpoint:
-                crate::app::workflow_adapter::state::current_compaction_boundary(
-                    &identity.session_id,
-                )?
-                .is_some(),
-            backend,
-            session_id: identity.session_id,
-        })
-    }
-
-    fn compact_context(&mut self) -> Result<String, AppError> {
-        Ok(crate::app::context_adapter::compact_manually()?.report())
-    }
-
-    fn submit_request(&mut self, request: &str) -> Result<String, AppError> {
-        ensure_runtime_ready()?;
-        crate::app::runtime_adapter::agent_run_report(request)
-    }
-
-    fn model_options(&mut self) -> Vec<crate::surfaces::tui::runtime_bridge::TuiModelOption> {
-        crate::app::inference_adapter::model::setup_options()
-    }
-
-    fn setup_model(&mut self, id: &str) -> Result<String, AppError> {
-        crate::app::inference_adapter::backend::ensure_installed_report()?;
-        let prepared = crate::app::inference_adapter::model::prepare_setup_model(id)?;
-        let snapshot = crate::app::inference_adapter::backend::runtime_snapshot()?;
-        let default = crate::app::inference_adapter::model::snapshot_default_selection()?;
-        switch_prepared_model(
-            &mut LiveModelSwitch,
-            &prepared.id,
-            &prepared.artifact_path.display().to_string(),
-            &snapshot,
-            &default,
-        )?;
-        Ok(format!(
-            "모델 변경 완료\n- model: {}\n- context: {}\n- backend: ready",
-            prepared.id,
-            setup::DEFAULT_CONTEXT_TOKENS
-        ))
-    }
-
-    fn doctor_report(&mut self) -> String {
-        crate::app::runtime_adapter::doctor_report()
-    }
-
-    fn read_tui_page(&mut self, request: TuiReadRequest) -> Result<TuiReadPage, AppError> {
-        canonical_read_page(request)
-    }
-
-    fn new_tui_intent_id(&mut self) -> String {
-        new_tui_intent_id()
-    }
-
-    fn tui_selection_lease(
-        &mut self,
-        selected_object_id: &str,
-    ) -> Result<SelectionLease, AppError> {
-        canonical_selection_lease(selected_object_id)
-    }
-
-    fn tui_gate_descriptor(
-        &mut self,
-        workflow_id: &str,
-    ) -> Result<(String, TuiGateKind), AppError> {
-        canonical_gate_descriptor(workflow_id)
-    }
-
-    fn dispatch_tui_intent(&mut self, intent: TuiIntent) -> Result<TuiOutcome, AppError> {
-        canonical_dispatch_intent(intent)
-    }
-}
-
 mod report_composition;
 pub use report_composition::{
     approvals_report, diff_report, evidence_report, monitor_report, overview_report,
@@ -557,3 +317,7 @@ pub use report_composition::{
 #[cfg(test)]
 #[path = "tui_adapter/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tui_adapter/report_tests.rs"]
+mod report_tests;

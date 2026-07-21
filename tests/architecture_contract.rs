@@ -4677,8 +4677,14 @@ fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
 fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     let tui_adapter = "src/app/tui_adapter.rs";
     let tui_tests = "src/app/tui_adapter/tests.rs";
+    let tui_report_tests = "src/app/tui_adapter/report_tests.rs";
+    let tui_model_switch = "src/app/tui_adapter/model_switch.rs";
+    let tui_runtime = "src/app/tui_adapter/runtime.rs";
     assert!(Path::new(tui_adapter).is_file());
     assert!(Path::new(tui_tests).is_file());
+    assert!(Path::new(tui_report_tests).is_file());
+    assert!(Path::new(tui_model_switch).is_file());
+    assert!(Path::new(tui_runtime).is_file());
     assert!(!Path::new("src/tui.rs").exists());
     assert!(!Path::new("src/tui").exists());
 
@@ -4846,6 +4852,9 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     }
     let tui_composition = fs::read_to_string(tui_adapter).unwrap();
     let tui_test_source = fs::read_to_string(tui_tests).unwrap();
+    let tui_report_test_source = fs::read_to_string(tui_report_tests).unwrap();
+    let model_switch = fs::read_to_string(tui_model_switch).unwrap();
+    let interactive_runtime = fs::read_to_string(tui_runtime).unwrap();
     let report_composition =
         fs::read_to_string("src/app/tui_adapter/report_composition.rs").unwrap();
     assert!(tui_test_source.contains("surfaces::tui::view_model"));
@@ -4861,6 +4870,38 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         tui_composition.contains("#[path = \"tui_adapter/tests.rs\"]"),
         "TUI adapter does not register its regression-test owner"
     );
+    assert!(
+        tui_composition.contains("#[path = \"tui_adapter/report_tests.rs\"]"),
+        "TUI adapter does not register its report regression owner"
+    );
+    for (owner, responsibility) in [
+        (&model_switch, "pub(super) fn switch_prepared_model("),
+        (&model_switch, "fn rollback_error("),
+        (
+            &interactive_runtime,
+            "impl TuiRuntimePort for TuiRuntimeAdapter",
+        ),
+        (&interactive_runtime, "fn ensure_runtime_ready("),
+    ] {
+        assert!(
+            owner.contains(responsibility),
+            "TUI extracted owner is missing {responsibility}"
+        );
+        assert!(
+            !tui_composition.contains(responsibility),
+            "TUI adapter still owns extracted responsibility: {responsibility}"
+        );
+    }
+    for regression in [
+        "fn overview_renders_read_only_dashboard(",
+        "fn monitor_renders_resource_pressure_and_token_throughput(",
+        "fn transcript_renders_session_event_timeline(",
+    ] {
+        assert!(
+            tui_report_test_source.contains(regression),
+            "TUI report regression owner is missing: {regression}"
+        );
+    }
     for regression in [
         "fn interactive_view_change_resets_page_and_updates_notice(",
         "fn one_shot_outcome_writes_secret_once_without_storing_it_in_notice(",
@@ -4905,6 +4946,9 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         tui_test_source.lines().count() < 550,
         "TUI regression module regrew beyond its ownership boundary"
     );
+    assert!(tui_report_test_source.lines().count() < 300);
+    assert!(model_switch.lines().count() < 225);
+    assert!(interactive_runtime.lines().count() < 200);
     assert!(
         report_composition.lines().count() < 250,
         "TUI report composition module regrew beyond its ownership boundary"
@@ -4925,7 +4969,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!controller.contains("use crate::runtime;"));
     assert!(!controller.contains("crate::runtime::"));
     assert!(!controller.contains("crate::adapters"));
-    assert!(tui_composition.contains("impl TuiRuntimePort for TuiRuntimeAdapter"));
+    assert!(interactive_runtime.contains("impl TuiRuntimePort for TuiRuntimeAdapter"));
 
     let terminal_port = fs::read_to_string("src/runtime_core/terminal.rs").unwrap();
     for definition in [

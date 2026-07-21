@@ -6410,6 +6410,38 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/model_switch.rs",
+      "slices": [
+        {
+          "responsibility": "transactional TUI model switch and rollback coordination",
+          "target": "src/app/tui_adapter/model_switch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/model_switch.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime.rs",
+      "slices": [
+        {
+          "responsibility": "interactive TUI runtime composition and readiness",
+          "target": "src/app/tui_adapter/runtime.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/tests.rs",
       "slices": [
         {
@@ -6421,6 +6453,23 @@
             "src/app/tui_adapter.rs",
             "src/app/tui_adapter/report_composition.rs",
             "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/report_tests.rs",
+      "slices": [
+        {
+          "responsibility": "TUI report composition regression tests",
+          "target": "src/app/tui_adapter/report_tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/report_composition.rs",
+            "src/app/tui_adapter/report_tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -9243,9 +9292,27 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/model_switch.rs",
+      "responsibilities": [
+        "transactional TUI model switch and rollback coordination"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime.rs",
+      "responsibilities": [
+        "interactive TUI runtime composition and readiness"
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/tests.rs",
       "responsibilities": [
         "TUI adapter, controller, rendering, and one-shot report regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/report_tests.rs",
+      "responsibilities": [
+        "TUI report composition regression tests"
       ]
     },
     {

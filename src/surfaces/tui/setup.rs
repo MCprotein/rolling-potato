@@ -160,7 +160,39 @@ fn terminal_error(fault: TerminalFault) -> AppError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapters::terminal::native::ScriptedTerminal;
+
+    struct ScriptedTerminal {
+        lines: std::collections::VecDeque<String>,
+        frames: Vec<String>,
+    }
+
+    impl ScriptedTerminal {
+        fn new(lines: impl IntoIterator<Item = &'static str>) -> Self {
+            Self {
+                lines: lines.into_iter().map(str::to_string).collect(),
+                frames: Vec::new(),
+            }
+        }
+    }
+
+    impl TerminalIo for ScriptedTerminal {
+        fn dimensions(&mut self) -> Result<(u16, u16), TerminalFault> {
+            Ok((80, 24))
+        }
+
+        fn read_line(&mut self) -> Result<Option<String>, TerminalFault> {
+            Ok(self.lines.pop_front())
+        }
+
+        fn read_secret(&mut self) -> Result<Option<String>, TerminalFault> {
+            self.read_line()
+        }
+
+        fn write_frame(&mut self, frame: &str) -> Result<(), TerminalFault> {
+            self.frames.push(frame.to_string());
+            Ok(())
+        }
+    }
 
     struct SetupRuntime {
         calls: Vec<String>,
