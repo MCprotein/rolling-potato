@@ -27,6 +27,10 @@
   pointer가 다른 프로젝트를 가리키는 upgrade 상황을 포함합니다.
 - 응답 언어 검증은 모델 생성 결과에만 적용하고 CLI/system 오류는 원래 메시지와
   exit code를 보존합니다.
+- persistence root를 옮길 때는 accessor 호출뿐 아니라 crash-matrix가 backup directory를
+  직접 열어 검사하는 경로까지 검색하고, 해당 fault-injection 테스트를 targeted gate에
+  포함합니다. 이번 candidate CI는 이 오래된 backup 경로 assertion 때문에 한 번
+  실패했습니다.
 
 ## 2026-07-21: v0.43.0 binary gate가 candidate 변경을 따라가지 못함
 
