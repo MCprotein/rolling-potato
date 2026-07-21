@@ -210,6 +210,35 @@ fn executable_install_creates_updates_and_preserves_managed_target() {
 
 #[cfg(unix)]
 #[test]
+fn staged_update_replaces_only_the_managed_binary() {
+    let root = unique_temp("self-update");
+    let staged = root.join("cache/rpotato.ready");
+    let installed = root.join("home/.local/bin/rpotato");
+    fs::create_dir_all(staged.parent().unwrap()).unwrap();
+    fs::create_dir_all(installed.parent().unwrap()).unwrap();
+    fs::write(&staged, "version-two").unwrap();
+    fs::write(&installed, "version-one").unwrap();
+    let paths = InstallPaths {
+        source_binary: installed.clone(),
+        installed_binary: installed.clone(),
+        user_bin: installed.parent().unwrap().to_path_buf(),
+        user_home: root.join("home"),
+        app_data: root.join("data/rpotato"),
+        project_root: root.join("project"),
+        project_state: root.join("project/.rpotato"),
+    };
+
+    assert_eq!(
+        apply_staged_update(&paths, &staged).unwrap(),
+        BinaryUpdateResult::Applied
+    );
+    assert_eq!(fs::read_to_string(&installed).unwrap(), "version-two");
+    assert!(staged.is_file());
+    let _ = fs::remove_dir_all(root);
+}
+
+#[cfg(unix)]
+#[test]
 fn clean_uninstall_removes_binary_and_owned_profile_block_only() {
     let root = unique_temp("clean-uninstall");
     let source = root.join("download/rpotato");

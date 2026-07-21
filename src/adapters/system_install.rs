@@ -42,6 +42,13 @@ pub(crate) enum Change {
     Unchanged,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BinaryUpdateResult {
+    Applied,
+    #[cfg(windows)]
+    DeferredUntilExit,
+}
+
 impl Change {
     pub(crate) fn label(self) -> &'static str {
         match self {
@@ -126,6 +133,153 @@ pub(crate) fn install_binary(paths: &InstallPaths) -> Result<Change, AppError> {
     copy_executable_atomically(&paths.source_binary, &paths.installed_binary)?;
     uninstall::record_install_ownership(paths)?;
     Ok(plan)
+}
+
+pub(crate) fn update_installed_binary(
+    paths: &InstallPaths,
+    staged_binary: &Path,
+) -> Result<BinaryUpdateResult, AppError> {
+    validate_installed_update_target(paths)?;
+    apply_staged_update(paths, staged_binary)
+}
+
+pub(crate) fn validate_installed_update_target(paths: &InstallPaths) -> Result<(), AppError> {
+    if !current_invocation_is_installed(paths) {
+        return Err(AppError::blocked(format!(
+            "자동 업데이트는 rpotato가 관리하는 사용자 설치본에서만 적용할 수 있습니다.\n- 현재 실행 파일: {}\n- 관리 설치 경로: {}\n- 다음 단계: `rpotato install`",
+            paths.source_binary.display(),
+            paths.installed_binary.display()
+        )));
+    }
+    if !uninstall::install_is_owned(paths)? {
+        return Err(AppError::blocked(
+            "자동 업데이트 ownership marker가 없어 설치 파일을 교체하지 않았습니다. `rpotato install`로 관리 설치본을 복구하세요.",
+        ));
+    }
+    let installed = fs::symlink_metadata(&paths.installed_binary).map_err(|err| {
+        AppError::runtime(format!(
+            "설치된 rpotato binary 확인 실패: {} ({err})",
+            paths.installed_binary.display()
+        ))
+    })?;
+    if !installed.is_file() || installed.file_type().is_symlink() {
+        return Err(AppError::blocked(format!(
+            "설치된 rpotato target이 regular file이 아닙니다: {}",
+            paths.installed_binary.display()
+        )));
+    }
+    Ok(())
+}
+
+fn apply_staged_update(
+    paths: &InstallPaths,
+    staged_binary: &Path,
+) -> Result<BinaryUpdateResult, AppError> {
+    let metadata = fs::symlink_metadata(staged_binary).map_err(|err| {
+        AppError::runtime(format!(
+            "staged update binary 확인 실패: {} ({err})",
+            staged_binary.display()
+        ))
+    })?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err(AppError::blocked(format!(
+            "staged update binary가 regular file이 아닙니다: {}",
+            staged_binary.display()
+        )));
+    }
+    #[cfg(windows)]
+    {
+        schedule_windows_self_update(paths, staged_binary)?;
+        return Ok(BinaryUpdateResult::DeferredUntilExit);
+    }
+    #[cfg(not(windows))]
+    {
+        copy_executable_atomically(staged_binary, &paths.installed_binary)?;
+        Ok(BinaryUpdateResult::Applied)
+    }
+}
+
+#[cfg(windows)]
+fn schedule_windows_self_update(
+    paths: &InstallPaths,
+    staged_binary: &Path,
+) -> Result<(), AppError> {
+    use std::process::{Command, Stdio};
+
+    let script_path = env::temp_dir().join(format!(
+        "rpotato-self-update-{}-{}.ps1",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or_default()
+    ));
+    let script = r#"param(
+    [Parameter(Mandatory=$true)][int]$ParentPid,
+    [Parameter(Mandatory=$true)][string]$Source,
+    [Parameter(Mandatory=$true)][string]$Target,
+    [Parameter(Mandatory=$true)][string]$ScriptPath
+)
+for ($attempt = 0; $attempt -lt 300; $attempt++) {
+    if (-not (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue)) { break }
+    Start-Sleep -Milliseconds 100
+}
+if (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) { exit 1 }
+$backup = "$Target.rpotato-update-backup"
+Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+Move-Item -LiteralPath $Target -Destination $backup -Force
+try {
+    Move-Item -LiteralPath $Source -Destination $Target -Force
+    Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+} catch {
+    if (Test-Path -LiteralPath $backup) {
+        Move-Item -LiteralPath $backup -Destination $Target -Force
+    }
+    exit 1
+}
+Remove-Item -LiteralPath $ScriptPath -Force -ErrorAction SilentlyContinue
+"#;
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    let mut file = options.open(&script_path).map_err(|err| {
+        AppError::runtime(format!(
+            "Windows self-update script 생성 실패: {} ({err})",
+            script_path.display()
+        ))
+    })?;
+    file.write_all(script.as_bytes())
+        .and_then(|_| file.sync_all())
+        .map_err(|err| {
+            let _ = fs::remove_file(&script_path);
+            AppError::runtime(format!("Windows self-update script 기록 실패: {err}"))
+        })?;
+    drop(file);
+
+    let spawned = Command::new("powershell.exe")
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+        ])
+        .arg(&script_path)
+        .arg(std::process::id().to_string())
+        .arg(staged_binary)
+        .arg(&paths.installed_binary)
+        .arg(&script_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+    if let Err(err) = spawned {
+        let _ = fs::remove_file(&script_path);
+        return Err(AppError::runtime(format!(
+            "Windows post-exit self-update 시작 실패: {err}"
+        )));
+    }
+    Ok(())
 }
 
 pub(crate) fn ensure_user_path(paths: &InstallPaths) -> Result<PathRegistration, AppError> {

@@ -2,6 +2,7 @@ use super::*;
 
 mod install;
 mod uninstall;
+mod update;
 
 #[test]
 fn parses_subagent_launch_status_and_cancel() {

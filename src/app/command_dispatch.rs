@@ -5,10 +5,10 @@ use crate::app::intent_adapter as intent;
 use crate::app::runtime_adapter as runtime;
 use crate::app::workflow_adapter::state;
 use crate::app::workflow_adapter::transition;
-use crate::composition::{config, dispatch, inference, install, uninstall};
+use crate::composition::{config, dispatch, inference, install, uninstall, update};
 use crate::foundation::error::AppError;
 use crate::surfaces::cli::{
-    command::{Command, IntentCommand},
+    command::{Command, IntentCommand, UpdateCommand},
     render,
 };
 mod collaboration_commands;
@@ -56,6 +56,14 @@ impl dispatch::CommandDispatchPort for CommandDispatchAdapter {
             }
             Command::Install(command) => {
                 render::emit_report(&install::install_report(command)?);
+                Ok(())
+            }
+            Command::Update(command) => {
+                let report = match command {
+                    UpdateCommand::Check => update::check_report()?,
+                    UpdateCommand::Apply => update::update_report()?,
+                };
+                render::emit_report(&report);
                 Ok(())
             }
             Command::Init => {

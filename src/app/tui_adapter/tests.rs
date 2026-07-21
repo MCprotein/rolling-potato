@@ -138,6 +138,7 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
     let root = test_root("rpotato-interactive-controller-test");
     std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
     std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+    std::env::set_var("RPOTATO_TEST_SKIP_UPDATE_CHECK", "1");
     std::fs::create_dir_all(root.join("project")).unwrap();
     crate::app::workflow_adapter::state::initialize().unwrap();
     let mut terminal = ScriptedTerminal::new(["/model", "/help", "/compact", "/quit"]);
@@ -146,6 +147,7 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
 
     std::env::remove_var("RPOTATO_PROJECT_ROOT");
     std::env::remove_var("RPOTATO_DATA_HOME");
+    std::env::remove_var("RPOTATO_TEST_SKIP_UPDATE_CHECK");
     let _ = std::fs::remove_dir_all(root);
     assert!(terminal.frames.len() >= 2);
     assert!(terminal
@@ -176,6 +178,39 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
         .frames
         .iter()
         .any(|frame| frame.contains("context compact 결과")));
+}
+
+#[test]
+fn interactive_controller_notifies_and_applies_update_without_leaving_tui() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = test_root("rpotato-interactive-update-test");
+    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+    std::env::set_var(
+        "RPOTATO_TEST_LATEST_RELEASE_JSON",
+        r#"{"tag_name":"v9.0.0"}"#,
+    );
+    std::env::set_var(
+        "RPOTATO_TEST_UPDATE_REPORT",
+        "rpotato update\n- status: updated\n- installed: v9.0.0",
+    );
+    std::fs::create_dir_all(root.join("project")).unwrap();
+    crate::app::workflow_adapter::state::initialize().unwrap();
+    let mut terminal = ScriptedTerminal::new(["/update", "yes", "/quit"]);
+
+    run_controller(&mut terminal, &mut TuiRuntimeAdapter).unwrap();
+
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    std::env::remove_var("RPOTATO_TEST_LATEST_RELEASE_JSON");
+    std::env::remove_var("RPOTATO_TEST_UPDATE_REPORT");
+    let _ = std::fs::remove_dir_all(root);
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("새 rpotato 버전이 있습니다"));
+    assert!(rendered.contains("/update 를 입력하면"));
+    assert!(rendered.contains("SHA-256 검증"));
+    assert!(rendered.contains("status: updated"));
+    assert!(rendered.contains("installed: v9.0.0"));
 }
 
 #[test]

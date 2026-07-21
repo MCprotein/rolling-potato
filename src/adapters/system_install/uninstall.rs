@@ -178,7 +178,7 @@ pub(super) fn install_owner_file(paths: &InstallPaths) -> PathBuf {
     paths.user_bin.join(INSTALL_OWNER_FILE)
 }
 
-fn install_is_owned(paths: &InstallPaths) -> Result<bool, AppError> {
+pub(super) fn install_is_owned(paths: &InstallPaths) -> Result<bool, AppError> {
     let marker = install_owner_file(paths);
     match fs::symlink_metadata(&marker) {
         Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => Ok(true),

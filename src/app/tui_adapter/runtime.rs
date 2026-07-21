@@ -16,6 +16,14 @@ use super::{
 };
 
 impl TuiRuntimePort for TuiRuntimeAdapter {
+    fn startup_update_notice(&mut self) -> Option<String> {
+        crate::composition::update::startup_notice()
+    }
+
+    fn apply_update(&mut self) -> Result<String, AppError> {
+        crate::composition::update::update_report()
+    }
+
     fn read_tui_status(&mut self) -> Result<TuiStatusSnapshot, AppError> {
         let backend = crate::app::inference_adapter::backend::runtime_snapshot()?;
         let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
