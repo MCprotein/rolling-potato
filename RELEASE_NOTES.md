@@ -1,5 +1,31 @@
 # Release Notes
 
+## v0.45.1 - Legacy Ledger Read Compatibility
+
+Release date: 2026-07-22
+
+This patch restores bare `rpotato` startup for installations whose canonical
+runtime ledger contains a valid legacy v1 prefix followed by a hash-chained v2
+suffix.
+
+### Included
+
+- Accepts the valid mixed ledger shape produced by upgrades from schema v1 to
+  schema v2 in TUI read-only views.
+- Validates the complete legacy-prefix digest against the first chained event,
+  then validates the remaining physical hash chain and ledger head count.
+- Anchors byte-limited tail reads at the file genesis record and fails closed
+  when a legacy prefix would be hidden by the read budget.
+- Covers the reported 62-event legacy prefix plus 61-event chained suffix, as
+  well as tampering and truncated-prefix rejection.
+
+### Compatibility Boundary
+
+- Existing ledger files are read in place; this patch does not rewrite,
+  migrate, truncate, or delete user history.
+- Corrupt, divergent, or unverifiable ledger history remains rejected.
+- No public command or flag is changed.
+
 ## v0.45.0 - Project-Isolated TUI Startup
 
 Release date: 2026-07-22

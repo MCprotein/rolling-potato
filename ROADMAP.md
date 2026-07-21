@@ -136,12 +136,13 @@ evidence.
 | v0.43.0 | Superseded | Added the no-argument guided TUI and small-model context compaction, but release-binary smoke and Windows ConPTY fixture failures prevented the complete five-platform asset set from being published |
 | v0.43.1 | Released | Recovered the complete five-platform v0.43 behavior by aligning release smoke with the guided header, hardening ConPTY probe parsing, and moving both checks into final candidate CI |
 
-### Managed updates and project-safe startup (`v0.44.0`-`v0.45.0`)
+### Managed updates and project-safe startup (`v0.44.0`-`v0.45.1`)
 
 | Version | Status | Scope |
 | --- | --- | --- |
 | v0.44.0 | Released | Non-blocking cached startup notification for newer stable releases plus one-command, platform-exact, SHA-256-verified self-update of the managed user-local installation |
 | v0.45.0 | Released | Project-local TUI current-state isolation, guarded legacy pointer migration, canonical ledger ancestor validation, and exact startup error reporting across shared-install project switches |
+| v0.45.1 | Released | Restored TUI read-only compatibility for valid legacy-v1-to-chained-v2 runtime ledgers while preserving digest, chain, head-count, tamper, and bounded-read validation |
 
 ## Distribution Boundary
 

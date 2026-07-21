@@ -14,7 +14,7 @@ mid-range machines. It is designed around a simple premise:
 
 | Project snapshot | |
 | --- | --- |
-| Current release | `v0.45.0` |
+| Current release | `v0.45.1` |
 | CLI | `rpotato` |
 | Runtime | Rust, managed `llama.cpp`, GGUF |
 | Primary surfaces | CLI and TUI |
@@ -184,7 +184,7 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The `v0.45.0` release is an active pre-1.0 runtime, not only a
+The `v0.45.1` release is an active pre-1.0 runtime, not only a
 product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
@@ -242,9 +242,9 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The release history through `v0.45.0` is complete. The latest release isolates
-the TUI's selected session/workflow state per project, safely migrates matching
-legacy state, and preserves exact startup errors across project switches. See
+The release history through `v0.45.1` is complete. The latest patch restores
+TUI startup for valid ledgers containing a legacy v1 prefix followed by a
+hash-chained v2 suffix, without rewriting user history. See
 [ROADMAP.md](ROADMAP.md).
 
 ---
