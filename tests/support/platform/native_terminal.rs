@@ -9,6 +9,53 @@ static NATIVE_TERMINAL_LOCK: Mutex<()> = Mutex::new(());
 static SOURCE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 const FIXTURE_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 
+pub(crate) fn strip_terminal_controls(capture: &str) -> String {
+    let mut output = String::with_capacity(capture.len());
+    let mut characters = capture.chars().peekable();
+    while let Some(character) = characters.next() {
+        if character != '\u{001b}' {
+            if !character.is_control() || matches!(character, '\n' | '\r' | '\t') {
+                output.push(character);
+            }
+            continue;
+        }
+        match characters.next() {
+            Some('[') => {
+                for control in characters.by_ref() {
+                    if ('@'..='~').contains(&control) {
+                        break;
+                    }
+                }
+            }
+            Some(']') => {
+                while let Some(control) = characters.next() {
+                    if control == '\u{0007}' {
+                        break;
+                    }
+                    if control == '\u{001b}' && characters.next_if_eq(&'\\').is_some() {
+                        break;
+                    }
+                }
+            }
+            Some(_) | None => {}
+        }
+    }
+    output
+}
+
+pub(crate) fn mode_probe_values(output: &[u8]) -> Vec<String> {
+    let capture = strip_terminal_controls(&String::from_utf8_lossy(output));
+    capture
+        .lines()
+        .filter_map(|line| line.split_once("MODE ECHO=").map(|(_, value)| value))
+        .filter_map(|value| match value.trim_start().chars().next() {
+            Some('0') => Some("0".to_string()),
+            Some('1') => Some("1".to_string()),
+            _ => None,
+        })
+        .collect()
+}
+
 pub struct NativeTerminalFixture {
     _lock: std::sync::MutexGuard<'static, ()>,
     pub root: PathBuf,
@@ -1431,14 +1478,6 @@ mod windows {
         assert_ne!(unsafe { GetExitCodeProcess(process, &mut exit_code) }, 0);
         assert_eq!(exit_code, 0, "{context} failed");
         unsafe { CloseHandle(process) };
-    }
-
-    fn mode_probe_values(output: &[u8]) -> Vec<String> {
-        String::from_utf8_lossy(output)
-            .lines()
-            .filter_map(|line| line.trim().strip_prefix("MODE ECHO="))
-            .map(str::to_string)
-            .collect()
     }
 
     fn coord(columns: u16, rows: u16) -> Coord {

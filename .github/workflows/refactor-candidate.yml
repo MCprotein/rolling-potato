@@ -68,6 +68,13 @@ jobs:
       - name: Build exact candidate
         run: cargo build --locked --release
 
+      - name: Smoke exact candidate binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1)"
+          scripts/release/verify-release-binary-smoke.sh target/release/rpotato "$version"
+
       - name: Verify workflow performance budgets
         run: scripts/performance/verify-v0.39-workflow-budgets.sh
 
@@ -112,3 +119,10 @@ jobs:
 
       - name: Check Windows candidate
         run: cargo check --locked --target x86_64-pc-windows-msvc --all-targets --all-features
+
+      - name: Test native Windows terminal candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --locked --target x86_64-pc-windows-msvc --test surfaces native_terminal::entry_quit -- --exact --test-threads=1
+          cargo test --locked --target x86_64-pc-windows-msvc --test surfaces native_terminal::full_adapter -- --exact --test-threads=1

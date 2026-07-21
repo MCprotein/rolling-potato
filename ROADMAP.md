@@ -129,11 +129,12 @@ evidence.
 | --- | --- | --- |
 | v0.42.0 | Released | GitHub Release archive self-install and full managed uninstall: user-local binary placement/removal, idempotent zsh/bash/fish or Windows user PATH registration/removal, `init` environment repair, dry-run, explicit confirmation, and active-runtime deletion block |
 
-### Guided local chat and context continuity (`v0.43.0`)
+### Guided local chat and context continuity (`v0.43.0`-`v0.43.1`)
 
 | Version | Status | Scope |
 | --- | --- | --- |
-| v0.43.0 | In development | No-argument guided TUI with integrated first-run model/backend setup, compact default command surface and structured status output, plus small-model context compaction with a 75% automatic trigger, manual `/compact`, immutable incremental checkpoints, and deterministic fallback |
+| v0.43.0 | Superseded | Added the no-argument guided TUI and small-model context compaction, but release-binary smoke and Windows ConPTY fixture failures prevented the complete five-platform asset set from being published |
+| v0.43.1 | In development | Preserve v0.43.0 behavior while aligning release smoke with the guided header, hardening ConPTY probe parsing, and moving both checks into final candidate CI |
 
 ## Distribution Boundary
 

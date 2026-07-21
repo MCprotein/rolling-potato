@@ -2,6 +2,37 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-21: v0.43.0 binary gate가 candidate 변경을 따라가지 못함
+
+### 증상
+
+- 안내형 TUI header가 바뀌었지만 release-binary smoke는 이전 header를 계속 검사해
+  네 Unix 계열 release build가 binary 생성 후 smoke에서 중단됐습니다.
+- Windows release job은 ConPTY probe marker 앞의 control sequence와 prompt prefix를
+  처리하지 못해 native terminal test에서 중단됐습니다.
+- Candidate CI는 release binary를 build만 하고 smoke하지 않았으며 Windows job도
+  compile만 수행해 두 결함이 tag 이후에 드러났습니다.
+
+### 원인
+
+- 사용자 surface test와 packaged-binary smoke가 같은 header contract를 공유하지
+  않았고 final candidate에 실제 binary smoke가 없었습니다.
+- ConPTY probe parser가 marker가 line 처음에 온다고 가정했으며 terminal control
+  normalization이 별도 test helper에만 있었습니다.
+- Windows runtime test가 release workflow에만 있어 candidate의 exact SHA에서는
+  실행되지 않았습니다.
+
+### 재발 방지
+
+- Final candidate CI는 이미 build한 release binary로 guarded install과 interactive
+  smoke를 실행합니다.
+- Windows candidate job은 compile 뒤 `entry_quit`과 `full_adapter`를 실행해 tag 전에
+  native terminal lifecycle을 확인합니다.
+- ConPTY control normalization을 공유 helper로 유지하고 prefix/trailer를 포함한
+  platform-independent parser 회귀 테스트를 실행합니다.
+- 일부만 게시된 source tag는 변경하거나 같은 tag를 재실행하지 않습니다. 실패한
+  platform targeted gate를 새 candidate SHA에서 통과시킨 뒤에만 patch tag를 만듭니다.
+
 ## 2026-07-19: 병합 완료를 발행 완료로 잘못 전달
 
 ### 증상

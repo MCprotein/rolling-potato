@@ -1,7 +1,7 @@
 # Current Capabilities
 
 This document is the readable status map for the `rolling-potato v0.42.0`
-release plus the in-development `v0.43.0` source. It groups the runtime by
+release plus the in-development `v0.43.1` recovery source. It groups the runtime by
 responsibility instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·

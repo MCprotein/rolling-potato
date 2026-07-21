@@ -88,7 +88,7 @@ tui_output="$(printf 'quit\n' | \
   RPOTATO_TEST_TERMINAL_FAULT="invalid-release-smoke-value" \
   "$binary_path" tui interactive)"
 case "$tui_output" in
-  *"rpotato interactive | overview"*) ;;
+  *"rpotato | overview"*) ;;
   *) fail "release build did not ignore the debug-only terminal fault seam" ;;
 esac
 
