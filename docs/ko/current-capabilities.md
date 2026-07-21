@@ -1,7 +1,8 @@
 # 현재 기능
 
-이 문서는 `rolling-potato v0.42.0` release의 읽기 쉬운 상태 지도입니다.
-하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
+이 문서는 `rolling-potato v0.42.0` release와 개발 중인 `v0.43.0` source의
+읽기 쉬운 상태 지도입니다. 하나의 긴 명령 목록을 반복하지 않고 런타임
+책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
 [English](../current-capabilities.md)
@@ -58,7 +59,10 @@ rpotato skill run <id> "<request>"
 
 현재 보호 장치에는 active request와 resume context가 공유하는 source budget,
 source-pointer evidence, policy 검사, lifecycle hook, 한국어 최종 보고 guard가
-포함됩니다.
+포함됩니다. Context compaction은 측정 사용량 75%에서 자동으로 시작하거나 TUI
+`/compact`로 수동 실행하며, context limit의 40%를 목표로 최근 transcript record
+최대 4개를 보존합니다. 제한된 semantic rationale 호출 한 번을 실행할 수 없으면
+deterministic typed extraction만으로 계속합니다.
 
 [런타임 아키텍처](runtime-architecture.md), [명령 정책](command-policy.md),
 [훅](hooks.md), [스킬](skills.md)을 참고하십시오.
@@ -86,7 +90,10 @@ rpotato cancel
 ```
 
 복구는 일치하는 안전한 checkpoint만 계속합니다. 결과가 불확실한 backend
-request나 verification command를 자동으로 반복하지 않습니다.
+request나 verification command를 자동으로 반복하지 않습니다. Incremental
+compaction checkpoint는 project, session, 이전 checkpoint, transcript boundary에
+binding된 immutable hash chain입니다. Field는 신뢰하지 않는 resume hint이며
+canonical transcript, ledger, instruction, source artifact가 계속 정본입니다.
 
 [상태 수명주기](state-lifecycle.md)와 [관측성](observability.md)을
 참고하십시오.

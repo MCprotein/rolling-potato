@@ -4,9 +4,10 @@
 
 ## 현재 상태
 
-현재 저장소는 `v0.42.0`의 active pre-1.0 Rust runtime입니다. 읽기 쉬운 기능
-지도는 [현재 기능 안내](current-capabilities.md)에서 먼저 확인하고, 아래 상세
-snapshot은 구현 이력이 필요할 때만 펼쳐 보십시오.
+현재 저장소는 `v0.42.0` release와 개발 중인 `v0.43.0` source를 가진 active
+pre-1.0 Rust runtime입니다. 읽기 쉬운 기능 지도는
+[현재 기능 안내](current-capabilities.md)에서 먼저 확인하고, 아래 상세 snapshot은
+구현 이력이 필요할 때만 펼쳐 보십시오.
 
 <details>
 <summary>v0.41 상세 구현 snapshot</summary>

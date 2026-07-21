@@ -166,8 +166,8 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-`v0.42.0` is an active pre-1.0 runtime, not only a product-definition
-scaffold. Its implemented areas include:
+The `v0.42.0` release plus the in-development `v0.43.0` source form an active
+pre-1.0 runtime, not only a product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
 | --- | --- |
@@ -227,7 +227,9 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 The release history through `v0.42.0` is complete. The latest release adds
 user-local self-install, automatic PATH registration, `init` environment
 repair, guarded clean reinstall, and a symmetric clean uninstall that
-preserves user-owned files. See [ROADMAP.md](ROADMAP.md).
+preserves user-owned files. `v0.43.0` is in development with the guided default
+TUI and bounded small-model context compaction described above. See
+[ROADMAP.md](ROADMAP.md).
 
 ---
 

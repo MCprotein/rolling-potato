@@ -1,8 +1,8 @@
 # Current Capabilities
 
 This document is the readable status map for the `rolling-potato v0.42.0`
-release. It groups the runtime by responsibility instead of repeating one
-flat command list.
+release plus the in-development `v0.43.0` source. It groups the runtime by
+responsibility instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
 [한국어](ko/current-capabilities.md)
@@ -59,7 +59,11 @@ rpotato skill run <id> "<request>"
 
 Current safeguards include one shared source budget for the active request and
 resumed context, source-pointer evidence, policy checks, lifecycle hooks, and
-a guarded Korean final report.
+a guarded Korean final report. Context compaction starts automatically at 75%
+measured usage or manually through TUI `/compact`, targets 40% of the context
+limit, and retains up to four recent transcript records. Deterministic typed
+extraction remains available when the single bounded semantic rationale call
+cannot run.
 
 See [runtime architecture](runtime-architecture.md),
 [command policy](command-policy.md), [hooks](hooks.md), and
@@ -88,7 +92,11 @@ rpotato cancel
 ```
 
 Recovery continues only a matching safe checkpoint. It does not automatically
-repeat an uncertain backend request or verification command.
+repeat an uncertain backend request or verification command. Incremental
+compaction checkpoints are immutable and hash-chained to the project, session,
+previous checkpoint, and transcript boundary. Their fields are untrusted resume
+hints; canonical transcripts, ledgers, instructions, and source artifacts remain
+authoritative.
 
 See [state lifecycle](state-lifecycle.md) and
 [observability](observability.md).

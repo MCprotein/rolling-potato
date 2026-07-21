@@ -1,5 +1,40 @@
 # Release Notes
 
+## v0.43.0 - Guided Local Chat and Context Compaction
+
+Planned release date: 2026-07-21
+
+This release makes guided local chat the default product surface and adds
+bounded context compaction designed for small local models.
+
+### Included
+
+- Starts the primary TUI with bare `rpotato`; plain text is a coding request,
+  while granular compatibility and diagnostic commands remain under
+  `rpotato debug --help`.
+- Runs first-use model selection, verified artifact download, managed
+  `llama.cpp` installation or reuse, and backend start inside the TUI without
+  requiring a GGUF path.
+- Shows model, measured context usage, compaction status, backend state, and
+  session under the composer with structured, color-aware terminal output.
+- Adds automatic compaction at 75% measured context usage and manual
+  `/compact`, targeting 40% of the active model context limit while retaining
+  up to four recent transcript records.
+- Stores typed incremental checkpoints as immutable, hash-chained artifacts
+  bound to the exact project, session, and transcript boundary.
+- Performs deterministic pruning and typed extraction first, then permits one
+  bounded local-model rationale attempt with a non-blocking deterministic
+  fallback.
+
+### Compatibility Boundary
+
+- Canonical transcripts, ledgers, instructions, and source artifacts remain
+  authoritative; compacted checkpoint fields are explicitly untrusted history.
+- Compaction never rewrites or deletes the original transcript. An invalid
+  derived artifact falls back to the existing bounded recent-turn resume path.
+- The official binary distribution channel remains this repository's GitHub
+  Releases only. This preparation does not publish a tag or GitHub Release.
+
 ## v0.42.0 - User-local Install and Clean Uninstall
 
 Release date: 2026-07-19

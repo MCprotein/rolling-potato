@@ -129,6 +129,12 @@ evidence.
 | --- | --- | --- |
 | v0.42.0 | Released | GitHub Release archive self-install and full managed uninstall: user-local binary placement/removal, idempotent zsh/bash/fish or Windows user PATH registration/removal, `init` environment repair, dry-run, explicit confirmation, and active-runtime deletion block |
 
+### Guided local chat and context continuity (`v0.43.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
+| v0.43.0 | In development | No-argument guided TUI with integrated first-run model/backend setup, compact default command surface and structured status output, plus small-model context compaction with a 75% automatic trigger, manual `/compact`, immutable incremental checkpoints, and deterministic fallback |
+
 ## Distribution Boundary
 
 GitHub Releases in this repository is the only supported download and
