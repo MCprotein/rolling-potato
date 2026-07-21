@@ -6463,6 +6463,22 @@
       ]
     },
     {
+      "path": "src/app/context_adapter/compaction/artifact_store.rs",
+      "slices": [
+        {
+          "responsibility": "immutable compaction artifact storage and validated hash-chain loading",
+          "target": "src/app/context_adapter/compaction/artifact_store.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/context_adapter/compaction.rs",
+            "src/app/context_adapter/compaction/artifact_store.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/context_adapter/tests.rs",
       "slices": [
         {
@@ -9365,6 +9381,12 @@
       "path": "src/app/context_adapter/compaction.rs",
       "responsibilities": [
         "context compaction artifact orchestration and validated resume checkpoint loading"
+      ]
+    },
+    {
+      "path": "src/app/context_adapter/compaction/artifact_store.rs",
+      "responsibilities": [
+        "immutable compaction artifact storage and validated hash-chain loading"
       ]
     },
     {

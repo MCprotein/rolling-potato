@@ -5277,10 +5277,12 @@ fn v03713_composition_owns_backend_command_orchestration() {
 fn v03713_context_adapter_separates_filesystem_discovery() {
     let context_adapter = "src/app/context_adapter.rs";
     let context_compaction = "src/app/context_adapter/compaction.rs";
+    let compaction_artifact_store = "src/app/context_adapter/compaction/artifact_store.rs";
     let filesystem_discovery = "src/app/context_adapter/discovery.rs";
     let context_tests = "src/app/context_adapter/tests.rs";
     assert!(Path::new(context_adapter).is_file());
     assert!(Path::new(context_compaction).is_file());
+    assert!(Path::new(compaction_artifact_store).is_file());
     assert!(Path::new(filesystem_discovery).is_file());
     assert!(Path::new(context_tests).is_file());
     assert!(!Path::new("src/context.rs").exists());
@@ -5297,6 +5299,7 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
 
     let context = fs::read_to_string(context_adapter).unwrap();
     let compaction = fs::read_to_string(context_compaction).unwrap();
+    let artifact_store = fs::read_to_string(compaction_artifact_store).unwrap();
     let discovery = fs::read_to_string(filesystem_discovery).unwrap();
     let tests = fs::read_to_string(context_tests).unwrap();
     assert!(
@@ -5307,6 +5310,25 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
         context.lines().any(|line| line == "mod compaction;"),
         "context adapter does not register its compaction owner"
     );
+    assert!(
+        compaction.lines().any(|line| line == "mod artifact_store;"),
+        "context compaction does not register its artifact-store owner"
+    );
+    for responsibility in [
+        "pub(super) fn install_artifact(",
+        "pub(crate) fn load_current_artifact(",
+        "fn validate_artifact_chain(",
+        "fn load_artifact_pointer(",
+    ] {
+        assert!(
+            artifact_store.contains(responsibility),
+            "compaction artifact-store owner is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !compaction.contains(responsibility),
+            "compaction orchestration still owns artifact storage: {responsibility}"
+        );
+    }
     for responsibility in [
         "pub(super) fn build_filesystem_fallback(",
         "pub(super) fn discover_candidate_files(",
@@ -5331,6 +5353,7 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
     );
     assert!(context.lines().count() < 600);
     assert!(compaction.lines().count() < 550);
+    assert!(artifact_store.lines().count() < 350);
     assert!(discovery.lines().count() < 250);
 }
 
