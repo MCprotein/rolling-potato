@@ -2418,6 +2418,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         "application root does not register the ontology adapter"
     );
     let owners = [
+        "src/runtime_core/knowledge/compaction.rs",
         "src/runtime_core/knowledge/context.rs",
         "src/runtime_core/knowledge/evidence.rs",
         "src/runtime_core/knowledge/ontology.rs",
@@ -2443,7 +2444,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
     for (module, children) in [
         (
             "src/runtime_core/knowledge/mod.rs",
-            ["context", "evidence", "ontology"].as_slice(),
+            ["compaction", "context", "evidence", "ontology"].as_slice(),
         ),
         (
             "src/runtime_core/policy/mod.rs",
@@ -2461,6 +2462,16 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
     }
 
     for (owner, rules) in [
+        (
+            "src/runtime_core/knowledge/compaction.rs",
+            [
+                "struct CompactionPolicy",
+                "struct CompactionCheckpoint",
+                "fn estimate_tokens",
+                "fn bounded_summary_source",
+            ]
+            .as_slice(),
+        ),
         (
             "src/runtime_core/knowledge/context.rs",
             [
