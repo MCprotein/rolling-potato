@@ -1,7 +1,7 @@
 # Current Capabilities
 
 This document is the readable status map for the released
-`rolling-potato v0.44.0` runtime. It groups the runtime by responsibility
+`rolling-potato v0.45.0` runtime. It groups the runtime by responsibility
 instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
@@ -10,7 +10,7 @@ instead of repeating one flat command list.
 > This is a capability guide, not a substitute for `rpotato --help`. The
 > installed binary remains the source of truth for exact command syntax.
 
-## Installation, First Run, and Updates (`v0.42.0`-`v0.44.0`)
+## Installation, First Run, and Updates (`v0.42.0`-`v0.45.0`)
 
 The extracted GitHub Release binary can install or update itself in the
 user-local CLI directory and register that directory in zsh, bash, fish, or
@@ -51,6 +51,12 @@ installation, downloads only the current platform's exact release archive,
 verifies its matching SHA-256 sidecar, and stages only the exact binary entry.
 Unix replacement is atomic; Windows replacement is scheduled after process
 exit with rollback to the previous binary if the move fails.
+
+The selected session/workflow `current-state` pointer is isolated under each
+project's `.rpotato/state/` directory. A legacy installation-wide pointer is
+migrated only for the matching project, and returning-project synchronization
+requires the saved binding to be an ancestor of the canonical ledger. System
+startup errors preserve their original message and exit code.
 
 ## 1. Agent Loop and Context
 

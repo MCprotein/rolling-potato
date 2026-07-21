@@ -1,8 +1,40 @@
 # Release Notes
 
+## v0.45.0 - Project-Isolated TUI Startup
+
+Release date: 2026-07-22
+
+This release fixes bare `rpotato` startup when one installation is used from
+multiple project directories and preserves the real startup error when a
+system boundary rejects state.
+
+### Included
+
+- Stores the selected session/workflow `current-state` pointer and its
+  lock, temporary, and recovery backup files under each project's
+  `.rpotato/state/` directory.
+- Migrates a legacy installation-wide pointer only when its project binding
+  matches the current project; unrelated or unreadable legacy state does not
+  block first entry into another project.
+- Synchronizes a returning project's pointer only after proving its saved
+  ledger binding is an ancestor of the canonical append-only ledger.
+- Prints top-level CLI and TUI system errors with their original message and
+  exit code instead of passing them through the model-response language guard.
+- Covers shared-data-home project A→B→A entry, unrelated legacy state,
+  divergent ledger state, and a real no-argument PTY startup.
+
+### Compatibility Boundary
+
+- Models, backend assets, configuration, and the canonical runtime ledger
+  remain installation-wide. Only the selected project session/workflow pointer
+  moves to project-local state.
+- A matching legacy pointer is copied without deleting the old file, so the
+  migration does not remove rollback evidence.
+- No public command or flag is removed.
+
 ## v0.44.0 - Managed Self-Update
 
-Planned release date: 2026-07-21
+Release date: 2026-07-21
 
 This release adds a non-blocking new-version notice and a checksum-verified
 self-update path backed only by this repository's GitHub Releases.
