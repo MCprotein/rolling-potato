@@ -2,6 +2,30 @@ use super::*;
 
 use crate::adapters::filesystem::atomic_write::atomic_replace_bytes;
 
+pub(super) struct CompactionBoundaryCommit<'a> {
+    update: CompactionBoundaryUpdate<'a>,
+    expected: Option<Option<&'a str>>,
+}
+
+impl CompactionBoundaryCommit<'_> {
+    pub(super) fn preserve() -> Self {
+        Self {
+            update: CompactionBoundaryUpdate::Preserve,
+            expected: None,
+        }
+    }
+
+    pub(super) fn set<'a>(
+        boundary: &'a str,
+        expected: Option<&'a str>,
+    ) -> CompactionBoundaryCommit<'a> {
+        CompactionBoundaryCommit {
+            update: CompactionBoundaryUpdate::Set(boundary),
+            expected: Some(expected),
+        }
+    }
+}
+
 pub(super) fn read_valid_current_for_transition() -> Result<Option<CurrentStateSnapshot>, AppError>
 {
     let path = paths::current_state_file();
@@ -33,8 +57,7 @@ pub(super) fn commit_state_event(
     event: &ledger::LedgerEvent,
     resume_source: Option<&str>,
     active_workflow_id: Option<&str>,
-    compaction_boundary: CompactionBoundaryUpdate<'_>,
-    expected_compaction_boundary: Option<Option<&str>>,
+    compaction: CompactionBoundaryCommit<'_>,
 ) -> Result<PreparedCurrentImage, AppError> {
     let transition_guard = transition::TransitionGuard::acquire_for(&identity.project_id, intent)?;
     let previous = read_valid_current_for_transition()?;
@@ -46,7 +69,7 @@ pub(super) fn commit_state_event(
             "state transition current project binding 불일치",
         ));
     }
-    if let Some(expected) = expected_compaction_boundary {
+    if let Some(expected) = compaction.expected {
         let actual = previous
             .as_ref()
             .and_then(|snapshot| snapshot.compaction_boundary.as_deref());
@@ -93,7 +116,7 @@ pub(super) fn commit_state_event(
             resume_source,
             active_workflow: active_workflow.as_ref(),
             previous: previous.as_ref(),
-            compaction_boundary,
+            compaction_boundary: compaction.update,
             workflow: None,
         },
     )

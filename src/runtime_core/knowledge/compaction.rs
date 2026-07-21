@@ -369,14 +369,12 @@ fn bounded_chars_and_bytes_raw(
             text[..end].to_string()
         }
         TokenTruncation::Tail => {
-            let mut chars = 0usize;
             let mut bytes = 0usize;
             let mut start = text.len();
-            for (index, ch) in text.char_indices().rev() {
+            for (chars, (index, ch)) in text.char_indices().rev().enumerate() {
                 if chars == max_chars || bytes.saturating_add(ch.len_utf8()) > max_bytes {
                     break;
                 }
-                chars += 1;
                 bytes += ch.len_utf8();
                 start = index;
             }

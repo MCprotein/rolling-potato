@@ -111,6 +111,7 @@ mod transition_commit;
 use transition_commit::{
     commit_state_event, install_current_image, internal_transition_intent_id,
     read_valid_current_for_transition, reconcile_invalid_current_under_guard,
+    CompactionBoundaryCommit,
 };
 pub(crate) use transition_commit::{
     decode_prepared_current_image, decode_prepared_terminal_current_image,

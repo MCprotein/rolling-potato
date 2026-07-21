@@ -26,8 +26,7 @@ pub fn initialize() -> Result<StateInit, AppError> {
             &event,
             None,
             None,
-            CompactionBoundaryUpdate::Preserve,
-            None,
+            CompactionBoundaryCommit::preserve(),
         )?;
     }
 
@@ -189,8 +188,7 @@ pub fn resume_report() -> Result<String, AppError> {
         &event,
         None,
         None,
-        CompactionBoundaryUpdate::Preserve,
-        None,
+        CompactionBoundaryCommit::preserve(),
     )?;
 
     Ok(format!(
@@ -220,8 +218,7 @@ pub fn cancel_report() -> Result<String, AppError> {
         &event,
         None,
         None,
-        CompactionBoundaryUpdate::Preserve,
-        None,
+        CompactionBoundaryCommit::preserve(),
     )?;
 
     Ok(format!(
@@ -573,8 +570,7 @@ pub fn record_event(event_type: &str, summary: &str, details: &str) -> Result<St
         &event,
         None,
         active_workflow.as_deref(),
-        CompactionBoundaryUpdate::Preserve,
-        None,
+        CompactionBoundaryCommit::preserve(),
     )?;
     Ok(event_id)
 }
@@ -646,8 +642,7 @@ pub(crate) fn record_compaction_boundary(
         &event,
         Some("context-compaction"),
         active_workflow.as_deref(),
-        CompactionBoundaryUpdate::Set(artifact_path),
-        Some(expected_previous_artifact_path.as_deref()),
+        CompactionBoundaryCommit::set(artifact_path, expected_previous_artifact_path.as_deref()),
     )?;
     Ok(event_id)
 }
