@@ -179,8 +179,8 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-출시된 `v0.43.1` runtime과 개발 중인 `v0.44.0` source는 제품 정의만 있는
-scaffold가 아니라 실제 기능을 가진 pre-1.0 런타임입니다.
+`v0.44.0` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
+pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
 | --- | --- |
@@ -237,11 +237,9 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-`v0.43.1`까지의 release history는 완료되었습니다. 최신 릴리즈는 v0.43.0의
-불완전한 binary publication에서 안내형 기본 TUI와 bounded 소형 모델 context
-compaction의 complete 5-platform asset set을 복구했습니다. `v0.44.0`은 시작을
-막지 않는 새 버전 알림과 이 저장소 GitHub Releases 기반의 checksum-verified
-self-update를 추가하고 있습니다.
+`v0.44.0`까지의 release history는 완료되었습니다. 최신 릴리즈는 시작을 막지
+않는 새 버전 알림과 이 저장소 GitHub Releases 기반의 checksum-verified
+self-update를 추가합니다.
 [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를
 참고하십시오.
 

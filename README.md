@@ -184,9 +184,8 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The released `v0.43.1` runtime plus the in-development `v0.44.0` source form an
-active pre-1.0 runtime, not only a product-definition scaffold. Implemented
-areas include:
+The `v0.44.0` release is an active pre-1.0 runtime, not only a
+product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
 | --- | --- |
@@ -243,11 +242,9 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The release history through `v0.43.1` is complete. The latest release restores
-the complete five-platform publication of the guided default TUI and bounded
-small-model context compaction. `v0.44.0` is adding a non-blocking startup
-version notice and checksum-verified self-update from this repository's GitHub
-Releases. See
+The release history through `v0.44.0` is complete. The latest release adds a
+non-blocking startup version notice and checksum-verified self-update from this
+repository's GitHub Releases. See
 [ROADMAP.md](ROADMAP.md).
 
 ---

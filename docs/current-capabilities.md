@@ -1,8 +1,8 @@
 # Current Capabilities
 
 This document is the readable status map for the released
-`rolling-potato v0.43.1` runtime plus the in-development `v0.44.0` source. It groups the
-runtime by responsibility instead of repeating one flat command list.
+`rolling-potato v0.44.0` runtime. It groups the runtime by responsibility
+instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
 [한국어](ko/current-capabilities.md)

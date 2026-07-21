@@ -2,7 +2,7 @@
 
 ## v0.44.0 - 관리형 Self-Update
 
-예정 릴리즈 날짜: 2026-07-21
+릴리즈 날짜: 2026-07-22
 
 이 릴리즈는 이 저장소의 GitHub Releases만 사용하는 non-blocking 새 버전 알림과
 checksum-verified self-update 경로를 추가합니다.

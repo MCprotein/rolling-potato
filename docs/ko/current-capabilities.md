@@ -1,8 +1,7 @@
 # 현재 기능
 
-이 문서는 출시된 `rolling-potato v0.43.1` runtime과 개발 중인 `v0.44.0`
-source의 읽기 쉬운 상태 지도입니다. 하나의 긴 명령 목록을 반복하지 않고
-런타임 책임별로 기능을 묶었습니다.
+이 문서는 출시된 `rolling-potato v0.44.0` runtime의 읽기 쉬운 상태 지도입니다.
+하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
 [English](../current-capabilities.md)
