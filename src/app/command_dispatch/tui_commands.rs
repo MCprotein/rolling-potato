@@ -1,6 +1,5 @@
 //! CLI execution adapter for TUI entrypoints and reports.
 
-use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::capability;
 use crate::app::tui_adapter as tui;
 use crate::app::workflow_adapter::state;
@@ -10,7 +9,7 @@ use crate::surfaces::cli::command::TuiCommand;
 pub(super) fn execute_tui(command: TuiCommand) -> Result<(), AppError> {
     match command {
         TuiCommand::Auto => {
-            if capability::attached() && !paths::current_state_file().is_file() {
+            if capability::attached() && state::tui_entry_initialization_required()? {
                 state::initialize()?;
             }
             if capability::attached() && tui::setup_required() {
@@ -19,7 +18,7 @@ pub(super) fn execute_tui(command: TuiCommand) -> Result<(), AppError> {
             tui::run_auto()
         }
         TuiCommand::Interactive => {
-            if !paths::current_state_file().is_file() {
+            if state::tui_entry_initialization_required()? {
                 state::initialize()?;
             }
             if capability::attached() && tui::setup_required() {

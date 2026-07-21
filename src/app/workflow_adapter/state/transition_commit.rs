@@ -206,7 +206,7 @@ pub(super) fn reconcile_invalid_current_under_guard(
                 .file_name()
                 .map(|name| name.to_owned())
         })
-        .map(|name| paths::state_dir().join(name))
+        .map(|name| paths::current_state_dir().join(name))
         .ok_or_else(|| AppError::blocked("reconcile backup result path 불일치"))?;
     Ok((event, backup))
 }

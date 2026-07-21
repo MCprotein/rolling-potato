@@ -2,6 +2,32 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-22: v0.44.0 기본 TUI가 다른 프로젝트의 전역 상태에 차단됨
+
+### 증상
+
+- `rpotato`를 이전 초기화 디렉터리와 다른 프로젝트에서 실행하면 기본 TUI가 시작되지
+  않았습니다.
+- 실제 `current-state` 프로젝트 binding 오류가 응답 언어 검증기로 전달되어
+  “응답 언어 검증 실패”라는 무관한 메시지로 바뀌었습니다.
+
+### 원인
+
+- 선택된 session/workflow pointer를 프로젝트별로 저장하지 않고 app data의 전역
+  `current-state.json` 하나에 저장했습니다.
+- native TUI smoke가 동일 프로젝트의 재실행만 검사하고, 같은 data home을 공유하는
+  서로 다른 두 프로젝트의 순차 실행을 검사하지 않았습니다.
+- 모델 응답에만 적용해야 할 한국어 검증기를 최상위 `AppError` 출력에도 적용했습니다.
+
+### 재발 방지
+
+- `current-state` pointer와 해당 lock/temp/backup은 프로젝트의 `.rpotato/state/`에
+  격리하고, 기존 전역 pointer는 현재 프로젝트와 binding이 일치할 때만 보존 복사합니다.
+- 기본 TUI 회귀 테스트는 같은 data home에서 프로젝트 A→B→A 전환과 기존 전역
+  pointer가 다른 프로젝트를 가리키는 upgrade 상황을 포함합니다.
+- 응답 언어 검증은 모델 생성 결과에만 적용하고 CLI/system 오류는 원래 메시지와
+  exit code를 보존합니다.
+
 ## 2026-07-21: v0.43.0 binary gate가 candidate 변경을 따라가지 못함
 
 ### 증상

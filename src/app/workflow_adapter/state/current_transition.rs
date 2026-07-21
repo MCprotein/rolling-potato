@@ -132,7 +132,7 @@ pub(super) fn install_prepared_reconcile_backup(
         .and_then(|value| value.to_str())
         .ok_or_else(|| AppError::blocked("prepared reconcile backup basename 불일치"))?
         .to_string();
-    let path = paths::state_dir().join(basename);
+    let path = paths::current_state_dir().join(basename);
     if path.exists() {
         let existing = fs::read(&path).map_err(|err| {
             AppError::blocked(format!("prepared reconcile backup reread 실패: {err}"))
@@ -190,6 +190,13 @@ pub(super) fn transition_project_current_state_under_guard(
     } = request;
     let writer = ledger::LedgerWriterGuard::acquire()?;
     let before_ledger = writer.binding()?;
+    if let Some(previous) = previous {
+        snapshot_domain::validate_ledger_ancestor(
+            &previous.ledger_binding,
+            &before_ledger,
+            &writer.events()?,
+        )?;
+    }
     let planned = writer.plan_events(std::slice::from_ref(event))?;
     let final_binding = ledger::LedgerBinding {
         event_count: planned[0].ordinal,

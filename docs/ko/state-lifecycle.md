@@ -17,6 +17,12 @@ Runtime ledger, SQLite projection, ontology graph, model knowledge base, plugin 
 | plugin registry | imported plugin state와 normalized capability | execution approval |
 | evidence artifact | redacted verification/debug pointer | policy decision |
 
+`current-state` pointer와 해당 lock/temp/backup은 프로젝트별
+`<project>/.rpotato/state/`에 저장합니다. 모델, backend, runtime ledger처럼 설치 전체가
+공유하는 데이터와 달리 선택된 session/workflow pointer는 다른 작업 디렉터리의 pointer와
+충돌하거나 덮어쓰면 안 됩니다. 기존 app-data 전역 pointer는 현재 프로젝트 binding이
+일치할 때만 프로젝트 경로로 보존 복사합니다.
+
 ## 쓰기 순서
 
 State-changing operation은 다음 순서로 진행합니다.

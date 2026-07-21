@@ -39,6 +39,70 @@ pub(crate) fn current_state_lease_view() -> Result<CurrentStateLeaseView, AppErr
     current_state_lease_view_under_transition()
 }
 
+pub(crate) fn tui_entry_initialization_required() -> Result<bool, AppError> {
+    let path = paths::current_state_file();
+    if !path.exists() {
+        return Ok(true);
+    }
+    let body = read_regular_file_bounded(&path, 128 * 1024, "TUI current-state preflight")?;
+    let snapshot = parse_current_state(&body, "TUI current-state preflight")?;
+    if snapshot.schema_version != 2 {
+        return Ok(true);
+    }
+    snapshot_domain::validated_tui_identity(&snapshot, &ledger::fresh_identity())?;
+    Ok(snapshot.ledger_binding != ledger::validated_ledger_binding()?)
+}
+
+pub(super) fn migrate_matching_legacy_current_state() -> Result<(), AppError> {
+    let current = paths::current_state_file();
+    let legacy = paths::legacy_current_state_file();
+    if current.exists() || !legacy.exists() {
+        return Ok(());
+    }
+    let body = match read_regular_file_bounded(&legacy, 128 * 1024, "legacy current-state") {
+        Ok(body) => body,
+        Err(_) => return Ok(()),
+    };
+    let snapshot = match parse_current_state(&body, "legacy current-state migration") {
+        Ok(snapshot) => snapshot,
+        Err(_) => return Ok(()),
+    };
+    let fresh = ledger::fresh_identity();
+    if snapshot.project_id != fresh.project_id || snapshot.project_root != fresh.project_root {
+        return Ok(());
+    }
+    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(&current, body.as_bytes())
+}
+
+pub(super) fn synchronize_current_state_ledger(identity: &RuntimeIdentity) -> Result<(), AppError> {
+    let Some(snapshot) = read_valid_current_for_transition()? else {
+        return Ok(());
+    };
+    if snapshot.ledger_binding == ledger::validated_ledger_binding()? {
+        return Ok(());
+    }
+    let event = ledger::new_event_for(
+        identity,
+        "runtime.project.activated",
+        "현재 프로젝트 상태 활성화",
+        "다른 프로젝트 실행 뒤 canonical ledger binding 동기화",
+    );
+    let intent_id = internal_transition_intent_id(&event);
+    commit_state_event(
+        &intent_id,
+        transition::CurrentStateIntent::RecordEvent,
+        identity,
+        &event,
+        None,
+        snapshot
+            .active_workflow
+            .as_ref()
+            .map(|binding| binding.workflow_id.as_str()),
+        CompactionBoundaryCommit::preserve(),
+    )?;
+    Ok(())
+}
+
 pub(crate) fn tui_state_snapshot_read_only(
     max_ledger_events: usize,
 ) -> Result<TuiStateSnapshot, AppError> {

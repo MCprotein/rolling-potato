@@ -8,8 +8,9 @@ pub struct StateInit {
 }
 
 pub fn initialize() -> Result<StateInit, AppError> {
-    let identity = ledger::validated_current_identity()?;
     let created_paths = ensure_layout()?;
+    migrate_matching_legacy_current_state()?;
+    let identity = ledger::validated_current_identity()?;
     ensure_runtime_evidence_file()?;
     if !paths::current_state_file().exists() {
         let event = ledger::new_event_for(
@@ -28,6 +29,8 @@ pub fn initialize() -> Result<StateInit, AppError> {
             None,
             CompactionBoundaryCommit::preserve(),
         )?;
+    } else {
+        synchronize_current_state_ledger(&identity)?;
     }
 
     let store = observability::initialize(&identity)?;

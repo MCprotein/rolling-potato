@@ -16,7 +16,7 @@ fn stale_resume_context_blocks_before_workflow_or_ledger_mutation() {
         String::from_utf8_lossy(&first.stderr)
     );
 
-    let current_state_path = fixture.data.join("state/current-state.json");
+    let current_state_path = fixture.project.join(".rpotato/state/current-state.json");
     let ledger_path = fixture.data.join("state/runtime-ledger.jsonl");
     let workflows_path = fixture.project.join(".rpotato/workflows");
     let current_state_before = fs::read(&current_state_path).unwrap();
@@ -77,7 +77,7 @@ fn session_resume_validates_workflow_before_selecting_target_session() {
     let tampered =
         proposal_body.replacen(workflow_field, "workflow_id=workflow-binding-tampered", 1);
     fs::write(&proposal_path, tampered).unwrap();
-    let current_state_path = fixture.data.join("state/current-state.json");
+    let current_state_path = fixture.project.join(".rpotato/state/current-state.json");
     let ledger_path = fixture.data.join("state/runtime-ledger.jsonl");
     let state_before = fs::read(&current_state_path).unwrap();
     let ledger_before = fs::read(&ledger_path).unwrap();

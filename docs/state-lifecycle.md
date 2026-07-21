@@ -19,6 +19,13 @@ is to make replay, recovery, routing, and failure handling deterministic.
 | plugin registry | imported plugin state and normalized capabilities | execution approval |
 | evidence artifacts | redacted verification/debug pointers | policy decisions |
 
+The `current-state` pointer and its lock, temporary, and backup files live under
+the per-project `<project>/.rpotato/state/` directory. Unlike installation-wide
+data such as models, backends, and the runtime ledger, selected session/workflow
+pointers must not conflict with or replace pointers from another working
+directory. A legacy app-data pointer is preserved into the project path only
+when its project binding matches the current project.
+
 ## Write Ordering
 
 For state-changing operations:

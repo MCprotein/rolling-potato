@@ -35,6 +35,34 @@ fn entry_quit() {
     );
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos", windows))]
+#[test]
+fn entry_switches_projects_without_manual_state_reconcile() {
+    let fixture = NativeTerminalFixture::new("entry-project-switch");
+    let legacy_dir = fixture.data.join("state");
+    std::fs::create_dir_all(&legacy_dir).unwrap();
+    std::fs::rename(
+        fixture.project.join(".rpotato/state/current-state.json"),
+        legacy_dir.join("current-state.json"),
+    )
+    .unwrap();
+    let next_project = fixture.root.join("next-project");
+    std::fs::create_dir_all(&next_project).unwrap();
+    std::env::set_var("RPOTATO_PROJECT_ROOT", &next_project);
+
+    let mut terminal = NativePty::spawn(120, 40);
+    let first = terminal.wait_for("rpotato>");
+    assert!(first.contains("rpotato | overview"));
+    terminal.send("quit\n");
+    let output = terminal.finish();
+
+    assert!(!output.contains("응답 언어 검증에 실패했습니다"));
+    assert!(next_project
+        .join(".rpotato/state/current-state.json")
+        .is_file());
+    assert!(legacy_dir.join("current-state.json").is_file());
+}
+
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn secret_prompt_restores_echo_before_sigint_and_sigterm_exit() {
@@ -85,7 +113,8 @@ fn full_adapter() {
     );
     #[cfg(unix)]
     let before_current_revision = json_u64(
-        &std::fs::read_to_string(fixture.data.join("state/current-state.json")).unwrap(),
+        &std::fs::read_to_string(fixture.project.join(".rpotato/state/current-state.json"))
+            .unwrap(),
         "revision",
     );
     std::env::set_var("RPOTATO_TEST_TUI_SECRET_PROBE", "1");
@@ -298,7 +327,8 @@ fn full_adapter() {
     );
     #[cfg(unix)]
     let post_before_current_revision = json_u64(
-        &std::fs::read_to_string(fixture.data.join("state/current-state.json")).unwrap(),
+        &std::fs::read_to_string(fixture.project.join(".rpotato/state/current-state.json"))
+            .unwrap(),
         "revision",
     );
     #[cfg(windows)]
@@ -702,7 +732,8 @@ fn assert_unix_approval_oracle(
         json_u64(&pointer, "committed_revision"),
         before_workflow_revision + 2
     );
-    let current = std::fs::read_to_string(fixture.data.join("state/current-state.json")).unwrap();
+    let current =
+        std::fs::read_to_string(fixture.project.join(".rpotato/state/current-state.json")).unwrap();
     assert_eq!(json_u64(&current, "revision"), before_current_revision + 1);
     assert_eq!(
         json_u64(&current, "event_count"),
