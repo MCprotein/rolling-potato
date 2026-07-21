@@ -48,7 +48,7 @@ pub(crate) fn classify_update(
     latest_tag: &str,
     release_url: &str,
 ) -> Result<UpdateAvailability, AppError> {
-    let current = parse_version(current)?;
+    let (current, current_is_prerelease) = parse_current_version(current)?;
     let latest = parse_release_tag(latest_tag)?;
     match latest.cmp(&current) {
         Ordering::Greater => Ok(UpdateAvailability::Available(AvailableRelease {
@@ -56,6 +56,13 @@ pub(crate) fn classify_update(
             version: latest,
             release_url: release_url.to_string(),
         })),
+        Ordering::Equal if current_is_prerelease => {
+            Ok(UpdateAvailability::Available(AvailableRelease {
+                tag: latest_tag.to_string(),
+                version: latest,
+                release_url: release_url.to_string(),
+            }))
+        }
         Ordering::Equal | Ordering::Less => Ok(UpdateAvailability::Current { current, latest }),
     }
 }
@@ -175,6 +182,25 @@ fn parse_version(value: &str) -> Result<ReleaseVersion, AppError> {
     })
 }
 
+fn parse_current_version(value: &str) -> Result<(ReleaseVersion, bool), AppError> {
+    let without_build = value.split_once('+').map_or(value, |(base, _)| base);
+    let (core, prerelease) = without_build
+        .split_once('-')
+        .map_or((without_build, None), |(core, suffix)| (core, Some(suffix)));
+    if prerelease.is_some_and(|suffix| {
+        suffix.is_empty()
+            || suffix.split('.').any(|identifier| identifier.is_empty())
+            || !suffix
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'.')
+    }) {
+        return Err(AppError::blocked(format!(
+            "version prerelease 형식이 유효하지 않습니다: {value}"
+        )));
+    }
+    Ok((parse_version(core)?, prerelease.is_some()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -199,6 +225,25 @@ mod tests {
 
         assert!(parse_release_tag("0.44.0").is_err());
         assert!(parse_release_tag("v0.44.0-beta.1").is_err());
+
+        let stable_from_prerelease = classify_update(
+            "0.44.0-alpha.1",
+            "v0.44.0",
+            "https://github.com/MCprotein/rolling-potato/releases/tag/v0.44.0",
+        )
+        .unwrap();
+        assert!(matches!(
+            stable_from_prerelease,
+            UpdateAvailability::Available(_)
+        ));
+
+        let older_stable = classify_update(
+            "0.45.0-alpha.1",
+            "v0.44.0",
+            "https://github.com/MCprotein/rolling-potato/releases/tag/v0.44.0",
+        )
+        .unwrap();
+        assert!(matches!(older_stable, UpdateAvailability::Current { .. }));
     }
 
     #[test]
