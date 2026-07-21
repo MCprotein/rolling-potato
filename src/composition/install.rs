@@ -62,14 +62,23 @@ fn unavailable_environment_report(reason: &str) -> String {
 }
 
 fn execute_install(paths: &InstallPaths) -> Result<String, AppError> {
-    let binary_change = system_install::install_binary(paths)?;
-    let registration = system_install::ensure_user_path(paths)?;
-    Ok(install_result_report(
-        paths,
-        binary_change,
-        registration,
-        None,
-    ))
+    with_install_transition(|| {
+        let binary_change = system_install::install_binary(paths)?;
+        let registration = system_install::ensure_user_path(paths)?;
+        Ok(install_result_report(
+            paths,
+            binary_change,
+            registration,
+            None,
+        ))
+    })
+}
+
+fn with_install_transition<T>(
+    operation: impl FnOnce() -> Result<T, AppError>,
+) -> Result<T, AppError> {
+    let _runtime_transition = runtime_mutation::acquire("standard install")?;
+    operation()
 }
 
 fn install_result_report(
@@ -286,6 +295,33 @@ mod tests {
         assert_eq!(err.code, 1);
         assert!(err.message.contains("liveness probe unavailable"));
         assert!(backend_state::sidecar_record_path().is_file());
+    }
+
+    #[test]
+    fn standard_install_uses_the_shared_runtime_mutation_lock() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-standard-install-lock-{}",
+            std::process::id()
+        ));
+        std::env::set_var("RPOTATO_DATA_HOME", &root);
+        let held = runtime_mutation::acquire("standard install test").unwrap();
+        let mut entered = false;
+
+        let error = with_install_transition(|| {
+            entered = true;
+            Ok(())
+        })
+        .unwrap_err();
+
+        drop(held);
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        let _ = std::fs::remove_dir_all(root);
+        assert_eq!(error.code, 3);
+        assert!(
+            !entered,
+            "install mutation must not begin without the shared lease"
+        );
     }
 
     #[test]

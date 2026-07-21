@@ -120,6 +120,9 @@ jobs:
       - name: Check Windows candidate
         run: cargo check --locked --target x86_64-pc-windows-msvc --all-targets --all-features
 
+      - name: Test Windows install lifecycle
+        run: cargo test --locked --target x86_64-pc-windows-msvc --bin rpotato adapters::system_install::tests:: -- --test-threads=1
+
       - name: Test native Windows terminal candidate
         shell: bash
         run: |

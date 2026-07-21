@@ -20,6 +20,7 @@ use uninstall::{windows_path_owner_file, windows_path_removal};
 
 const PROFILE_BEGIN: &str = "# >>> rpotato managed PATH >>>";
 const PROFILE_END: &str = "# <<< rpotato managed PATH <<<";
+const PENDING_UPDATE_MARKER_FILE: &str = ".rpotato-update-pending";
 #[cfg(windows)]
 const WINDOWS_PATH_OWNER_FILE: &str = ".rpotato-path-owned";
 
@@ -118,6 +119,7 @@ pub(crate) fn binary_install_plan(paths: &InstallPaths) -> Result<Change, AppErr
 }
 
 pub(crate) fn install_binary(paths: &InstallPaths) -> Result<Change, AppError> {
+    ensure_no_pending_binary_mutation(paths)?;
     let plan = binary_install_plan(paths)?;
     if plan == Change::Unchanged {
         uninstall::record_install_ownership(paths)?;
@@ -139,8 +141,77 @@ pub(crate) fn update_installed_binary(
     paths: &InstallPaths,
     staged_binary: &Path,
 ) -> Result<BinaryUpdateResult, AppError> {
+    ensure_no_pending_binary_mutation(paths)?;
     validate_installed_update_target(paths)?;
     apply_staged_update(paths, staged_binary)
+}
+
+pub(crate) fn ensure_no_pending_binary_mutation(paths: &InstallPaths) -> Result<(), AppError> {
+    let marker = pending_update_marker_path(paths);
+    match fs::symlink_metadata(&marker) {
+        Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => {
+            Err(AppError::blocked(format!(
+                "pending update가 완료될 때까지 설치 binary를 변경할 수 없습니다.\n- marker: {}\n- 다음 단계: 실행 중인 rpotato를 종료한 뒤 다시 시도하세요.",
+                marker.display()
+            )))
+        }
+        Ok(_) => Err(AppError::blocked(format!(
+            "pending update marker 유형이 유효하지 않아 binary 변경을 차단했습니다: {}",
+            marker.display()
+        ))),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(AppError::runtime(format!(
+            "pending update marker 확인 실패: {} ({err})",
+            marker.display()
+        ))),
+    }
+}
+
+fn pending_update_marker_path(paths: &InstallPaths) -> PathBuf {
+    paths.user_bin.join(PENDING_UPDATE_MARKER_FILE)
+}
+
+#[cfg(any(windows, test))]
+fn reserve_windows_update_marker(
+    paths: &InstallPaths,
+    operation_id: &str,
+) -> Result<PathBuf, AppError> {
+    fs::create_dir_all(&paths.user_bin).map_err(|err| {
+        AppError::runtime(format!(
+            "Windows update marker directory 생성 실패: {} ({err})",
+            paths.user_bin.display()
+        ))
+    })?;
+    let marker = pending_update_marker_path(paths);
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    let mut file = match options.open(&marker) {
+        Ok(file) => file,
+        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+            return Err(AppError::blocked(format!(
+                "pending update가 이미 예약되어 있습니다.\n- marker: {}\n- 다음 단계: 실행 중인 rpotato를 종료한 뒤 다시 시도하세요.",
+                marker.display()
+            )));
+        }
+        Err(err) => {
+            return Err(AppError::runtime(format!(
+                "Windows update marker 생성 실패: {} ({err})",
+                marker.display()
+            )));
+        }
+    };
+    if let Err(err) = file
+        .write_all(format!("{operation_id}\n").as_bytes())
+        .and_then(|_| file.sync_all())
+    {
+        drop(file);
+        let _ = fs::remove_file(&marker);
+        return Err(AppError::runtime(format!(
+            "Windows update marker 기록 실패: {} ({err})",
+            marker.display()
+        )));
+    }
+    Ok(marker)
 }
 
 pub(crate) fn validate_installed_update_target(paths: &InstallPaths) -> Result<(), AppError> {
@@ -206,18 +277,46 @@ fn schedule_windows_self_update(
 ) -> Result<(), AppError> {
     use std::process::{Command, Stdio};
 
-    let script_path = env::temp_dir().join(format!(
-        "rpotato-self-update-{}-{}.ps1",
+    let operation_id = format!(
+        "{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|duration| duration.as_nanos())
             .unwrap_or_default()
-    ));
+    );
+    let script_path = env::temp_dir().join(format!("rpotato-self-update-{operation_id}.ps1"));
+    let staged_name = staged_binary
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| AppError::runtime("Windows staged update file name이 유효하지 않습니다."))?;
+    let pending_source =
+        staged_binary.with_file_name(format!("{staged_name}.pending-{operation_id}"));
+    let installed_name = paths
+        .installed_binary
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| {
+            AppError::runtime("Windows installed binary file name이 유효하지 않습니다.")
+        })?;
+    let backup_path = paths
+        .installed_binary
+        .with_file_name(format!("{installed_name}.update-backup-{operation_id}"));
+    let expected_target_sha = crate::foundation::integrity::sha256_file(&paths.installed_binary)?;
+    copy_executable_atomically(staged_binary, &pending_source)?;
+    let marker_path = match reserve_windows_update_marker(paths, &operation_id) {
+        Ok(marker) => marker,
+        Err(error) => {
+            let _ = fs::remove_file(&pending_source);
+            return Err(error);
+        }
+    };
     let script = WINDOWS_SELF_UPDATE_SCRIPT;
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     let mut file = options.open(&script_path).map_err(|err| {
+        let _ = fs::remove_file(&pending_source);
+        let _ = fs::remove_file(&marker_path);
         AppError::runtime(format!(
             "Windows self-update script 생성 실패: {} ({err})",
             script_path.display()
@@ -227,6 +326,8 @@ fn schedule_windows_self_update(
         .and_then(|_| file.sync_all())
         .map_err(|err| {
             let _ = fs::remove_file(&script_path);
+            let _ = fs::remove_file(&pending_source);
+            let _ = fs::remove_file(&marker_path);
             AppError::runtime(format!("Windows self-update script 기록 실패: {err}"))
         })?;
     drop(file);
@@ -242,15 +343,21 @@ fn schedule_windows_self_update(
         ])
         .arg(&script_path)
         .arg(std::process::id().to_string())
-        .arg(staged_binary)
+        .arg(&pending_source)
         .arg(&paths.installed_binary)
         .arg(&script_path)
+        .arg(&marker_path)
+        .arg(&expected_target_sha)
+        .arg(&backup_path)
+        .arg(&operation_id)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn();
     if let Err(err) = spawned {
         let _ = fs::remove_file(&script_path);
+        let _ = fs::remove_file(&pending_source);
+        let _ = fs::remove_file(&marker_path);
         return Err(AppError::runtime(format!(
             "Windows post-exit self-update 시작 실패: {err}"
         )));
@@ -263,25 +370,52 @@ const WINDOWS_SELF_UPDATE_SCRIPT: &str = r#"param(
     [Parameter(Mandatory=$true)][int]$ParentPid,
     [Parameter(Mandatory=$true)][string]$Source,
     [Parameter(Mandatory=$true)][string]$Target,
-    [Parameter(Mandatory=$true)][string]$ScriptPath
+    [Parameter(Mandatory=$true)][string]$ScriptPath,
+    [Parameter(Mandatory=$true)][string]$MarkerPath,
+    [Parameter(Mandatory=$true)][string]$ExpectedTargetSha,
+    [Parameter(Mandatory=$true)][string]$BackupPath,
+    [Parameter(Mandatory=$true)][string]$OperationId
 )
 $ErrorActionPreference = 'Stop'
 while (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) {
     Start-Sleep -Milliseconds 100
 }
-$backup = "$Target.rpotato-update-backup"
-Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
-Move-Item -LiteralPath $Target -Destination $backup -Force
+$exitCode = 0
+$targetMoved = $false
 try {
-    Move-Item -LiteralPath $Source -Destination $Target -Force
-    Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
-} catch {
-    if (Test-Path -LiteralPath $backup) {
-        Move-Item -LiteralPath $backup -Destination $Target -Force
+    if (-not (Test-Path -LiteralPath $Target -PathType Leaf)) {
+        throw 'installed target is missing'
     }
-    exit 1
+    $actualTargetSha = (Get-FileHash -LiteralPath $Target -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualTargetSha -ne $ExpectedTargetSha.ToLowerInvariant()) {
+        $exitCode = 3
+    } else {
+        Move-Item -LiteralPath $Target -Destination $BackupPath -Force
+        $targetMoved = $true
+        Move-Item -LiteralPath $Source -Destination $Target -Force
+        $targetMoved = $false
+        Remove-Item -LiteralPath $BackupPath -Force -ErrorAction SilentlyContinue
+    }
+} catch {
+    if ($targetMoved -and (Test-Path -LiteralPath $BackupPath)) {
+        Move-Item -LiteralPath $BackupPath -Destination $Target -Force
+        $targetMoved = $false
+    }
+    $exitCode = 1
+} finally {
+    Remove-Item -LiteralPath $Source -Force -ErrorAction SilentlyContinue
+    if ((Test-Path -LiteralPath $BackupPath) -and (Test-Path -LiteralPath $Target)) {
+        Remove-Item -LiteralPath $BackupPath -Force -ErrorAction SilentlyContinue
+    }
+    if (Test-Path -LiteralPath $MarkerPath -PathType Leaf) {
+        $markerOwner = (Get-Content -LiteralPath $MarkerPath -Raw).Trim()
+        if ($markerOwner -eq $OperationId) {
+            Remove-Item -LiteralPath $MarkerPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Remove-Item -LiteralPath $ScriptPath -Force -ErrorAction SilentlyContinue
 }
-Remove-Item -LiteralPath $ScriptPath -Force -ErrorAction SilentlyContinue
+exit $exitCode
 "#;
 
 pub(crate) fn ensure_user_path(paths: &InstallPaths) -> Result<PathRegistration, AppError> {

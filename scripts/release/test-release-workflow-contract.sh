@@ -89,6 +89,7 @@ require_line "$candidate_windows" '          actual_sha="$(git rev-parse HEAD)"'
 require_line "$candidate_windows" '          if [ "$actual_sha" != "$CANDIDATE_SHA" ]; then'
 require_line "$candidate_windows" '        run: rustup target add x86_64-pc-windows-msvc'
 require_line "$candidate_windows" '        run: cargo check --locked --target x86_64-pc-windows-msvc --all-targets --all-features'
+require_line "$candidate_windows" '        run: cargo test --locked --target x86_64-pc-windows-msvc --bin rpotato adapters::system_install::tests:: -- --test-threads=1'
 require_line "$candidate_windows" '          cargo test --locked --target x86_64-pc-windows-msvc --test surfaces native_terminal::entry_quit -- --exact --test-threads=1'
 require_line "$candidate_windows" '          cargo test --locked --target x86_64-pc-windows-msvc --test surfaces native_terminal::full_adapter -- --exact --test-threads=1'
 [ -x "$candidate_preflight" ] || fail "candidate preflight must be executable"

@@ -128,6 +128,7 @@ pub(crate) fn binary_removal_plan(paths: &InstallPaths) -> Result<Change, AppErr
 pub(crate) fn remove_installed_binary(
     paths: &InstallPaths,
 ) -> Result<BinaryRemovalResult, AppError> {
+    super::ensure_no_pending_binary_mutation(paths)?;
     let change = binary_removal_plan(paths)?;
     if change == Change::Unchanged {
         if install_is_owned(paths)? && !paths.installed_binary.exists() {

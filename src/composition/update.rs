@@ -57,6 +57,7 @@ pub(crate) fn update_report() -> Result<String, AppError> {
     };
     let paths = system_install::install_paths()?;
     let result = with_update_transition(|| {
+        system_install::ensure_no_pending_binary_mutation(&paths)?;
         system_install::validate_installed_update_target(&paths)?;
         let staged_binary = github_release::download_release_binary(&release)?;
         system_install::update_installed_binary(&paths, &staged_binary)
