@@ -17,6 +17,87 @@ fn current_state_summary_handles_missing_file_as_uninitialized() {
 }
 
 #[test]
+fn tui_read_only_tail_accepts_legacy_prefix_before_chained_suffix() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = workflow_test_root("tui-read-tail-legacy-prefix");
+    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+    fs::create_dir_all(paths::state_dir()).unwrap();
+    let identity = ledger::fresh_identity();
+    let path = paths::runtime_ledger_file();
+    let legacy_prefix = (0..62)
+        .map(|index| {
+            format!(
+                "{}\n",
+                ledger::new_event_for(
+                    &identity,
+                    "legacy.event",
+                    &format!("legacy {index}"),
+                    "safe"
+                )
+                .to_json_line()
+            )
+        })
+        .collect::<String>();
+    fs::write(&path, &legacy_prefix).unwrap();
+    let mut previous = format!(
+        "legacy:{}",
+        crate::runtime_core::workflow::storage_compat::ledger::sha256_bytes(
+            legacy_prefix.as_bytes()
+        )
+    );
+    for index in 0..61 {
+        previous = crate::runtime_core::workflow::storage_compat::ledger::append_canonical_event(
+            &path,
+            &ledger::new_event_for(
+                &identity,
+                "chained.event",
+                &format!("chained {index}"),
+                "safe",
+            ),
+            &previous,
+        )
+        .unwrap();
+    }
+    fs::write(
+        path.with_extension("jsonl.head"),
+        format!(
+            "{{\"schema_version\":1,\"event_count\":123,\"last_event_hash\":\"{previous}\"}}\n"
+        ),
+    )
+    .unwrap();
+
+    let tail = ledger::read_runtime_tail_read_only(80, 2 * 1024 * 1024).unwrap();
+    assert_eq!(tail.binding.event_count, 123);
+    assert_eq!(tail.events.len(), 80);
+    assert!(tail.truncated);
+    assert_eq!(
+        tail.events
+            .iter()
+            .filter(|event| event.event_hash.is_none())
+            .count(),
+        19
+    );
+
+    let original = fs::read_to_string(&path).unwrap();
+    fs::write(&path, original.replacen("legacy 0", "legacy x", 1)).unwrap();
+    let error = ledger::read_runtime_tail_read_only(80, 2 * 1024 * 1024).unwrap_err();
+    assert!(error.message.contains("adjacent hash chain 불일치"));
+
+    fs::write(&path, &original).unwrap();
+    let first_chained_offset = original.find("{\"schema_version\":2").unwrap();
+    let budget = u64::try_from(original.len() - (first_chained_offset - 5)).unwrap();
+    let error = ledger::read_runtime_tail_read_only(80, budget).unwrap_err();
+    assert!(error
+        .message
+        .contains("legacy prefix가 read-only byte budget 안에 없습니다"));
+
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn current_state_is_isolated_per_project_under_shared_data_home() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let root = workflow_test_root("current-state-project-isolation");

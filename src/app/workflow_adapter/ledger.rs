@@ -16,8 +16,7 @@ use crate::runtime_core::workflow::storage_compat::ledger::event_chain_payload;
 #[cfg(test)]
 pub use crate::runtime_core::workflow::storage_compat::ledger::parse_event_line;
 pub(crate) use crate::runtime_core::workflow::storage_compat::ledger::planned_event_hash;
-#[cfg(test)]
-use crate::runtime_core::workflow::storage_compat::ledger::sha256_bytes;
+use crate::runtime_core::workflow::storage_compat::ledger::{event_physical_hash, sha256_bytes};
 pub use crate::runtime_core::workflow::storage_compat::ledger::{
     json_string, LedgerBinding, LedgerEvent, ParsedLedgerEvent, RuntimeIdentity, WorkflowCheckpoint,
 };
@@ -45,6 +44,73 @@ pub(crate) struct ReadOnlyLedgerTail {
     pub binding: LedgerBinding,
     pub events: Vec<ParsedLedgerEvent>,
     pub truncated: bool,
+}
+
+fn validate_read_only_event_sequence(
+    lines: &[&str],
+    events: &[ParsedLedgerEvent],
+    starts_at_file_beginning: bool,
+    truncated_legacy_genesis: bool,
+) -> Result<(), AppError> {
+    if truncated_legacy_genesis {
+        return Err(AppError::blocked(
+            "runtime ledger legacy prefix가 read-only byte budget 안에 없습니다.",
+        ));
+    }
+    let mut legacy_prefix = String::new();
+    let mut previous_hash: Option<&str> = None;
+    for (line, event) in lines.iter().zip(events) {
+        match (
+            event.previous_event_hash.as_deref(),
+            event.event_hash.as_deref(),
+        ) {
+            (None, None) if previous_hash.is_none() => {
+                if !starts_at_file_beginning {
+                    return Err(AppError::blocked(
+                        "runtime ledger legacy prefix가 read-only byte budget 안에 없습니다.",
+                    ));
+                }
+                legacy_prefix.push_str(line);
+                legacy_prefix.push('\n');
+            }
+            (Some(previous), Some(hash)) => {
+                if hash != event_physical_hash(event, previous) {
+                    return Err(AppError::blocked(
+                        "runtime ledger read-only physical hash chain 불일치",
+                    ));
+                }
+                let predecessor_matches = if let Some(expected) = previous_hash {
+                    previous == expected
+                } else if starts_at_file_beginning {
+                    let expected = if legacy_prefix.is_empty() {
+                        "root".to_string()
+                    } else {
+                        format!("legacy:{}", sha256_bytes(legacy_prefix.as_bytes()))
+                    };
+                    previous == expected
+                } else {
+                    true
+                };
+                if !predecessor_matches {
+                    return Err(AppError::blocked(
+                        "runtime ledger read-only adjacent hash chain 불일치",
+                    ));
+                }
+                previous_hash = Some(hash);
+            }
+            (None, None) => {
+                return Err(AppError::blocked(
+                    "runtime ledger read-only legacy event가 chained suffix 뒤에 존재합니다.",
+                ));
+            }
+            _ => {
+                return Err(AppError::blocked(
+                    "runtime ledger read-only chain field 조합 불일치",
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 pub fn validated_ledger_binding() -> Result<LedgerBinding, AppError> {
