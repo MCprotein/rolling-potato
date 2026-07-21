@@ -134,7 +134,13 @@ evidence.
 | Version | Status | Scope |
 | --- | --- | --- |
 | v0.43.0 | Superseded | Added the no-argument guided TUI and small-model context compaction, but release-binary smoke and Windows ConPTY fixture failures prevented the complete five-platform asset set from being published |
-| v0.43.1 | In development | Preserve v0.43.0 behavior while aligning release smoke with the guided header, hardening ConPTY probe parsing, and moving both checks into final candidate CI |
+| v0.43.1 | Released | Recovered the complete five-platform v0.43 behavior by aligning release smoke with the guided header, hardening ConPTY probe parsing, and moving both checks into final candidate CI |
+
+### Managed updates (`v0.44.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
+| v0.44.0 | In development | Non-blocking cached startup notification for newer stable releases plus one-command, platform-exact, SHA-256-verified self-update of the managed user-local installation |
 
 ## Distribution Boundary
 

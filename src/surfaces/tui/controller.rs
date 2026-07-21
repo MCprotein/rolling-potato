@@ -9,6 +9,8 @@ use super::runtime_bridge::{
 use super::view_model::{InteractiveState, InteractiveView};
 
 pub(crate) trait TuiRuntimePort {
+    fn startup_update_notice(&mut self) -> Option<String>;
+    fn apply_update(&mut self) -> Result<String, AppError>;
     fn read_tui_page(&mut self, request: TuiReadRequest) -> Result<TuiReadPage, AppError>;
     fn read_tui_status(&mut self) -> Result<TuiStatusSnapshot, AppError>;
     fn model_options(&mut self) -> Vec<TuiModelOption>;
@@ -32,6 +34,7 @@ pub(crate) fn run_controller(
         .validate_configuration()
         .map_err(terminal_fault_error)?;
     let mut state = InteractiveState::new();
+    let mut startup_update_pending = true;
     let mut post_dispatch_intent: Option<String> = None;
 
     loop {
@@ -63,6 +66,14 @@ pub(crate) fn run_controller(
         }
         post_dispatch_intent = None;
 
+        if startup_update_pending {
+            startup_update_pending = false;
+            if let Some(notice) = runtime.startup_update_notice() {
+                state.notice = notice;
+                continue;
+            }
+        }
+
         let Some(line) = terminal.read_line().map_err(terminal_fault_error)? else {
             return Ok(());
         };
@@ -76,12 +87,28 @@ pub(crate) fn run_controller(
             }
             ["quit"] | ["exit"] | ["/quit"] => return Ok(()),
             ["help"] | ["/help"] => {
-                state.notice = "요청을 바로 입력하세요.\n- /model [id]: 모델 확인/변경\n- /compact: 현재 대화 컨텍스트 압축\n- /status: 상태 새로고침\n- /sessions: 세션 목록\n- /doctor: 환경 진단\n- /more, /back: 긴 응답 페이지 이동\n- /clear: 알림 지우기\n- /help: 도움말\n- /quit: 종료\n고급 호환 명령: rpotato debug --help".to_string();
+                state.notice = "요청을 바로 입력하세요.\n- /model [id]: 모델 확인/변경\n- /compact: 현재 대화 컨텍스트 압축\n- /update: 최신 버전 확인 및 업데이트\n- /status: 상태 새로고침\n- /sessions: 세션 목록\n- /doctor: 환경 진단\n- /more, /back: 긴 응답 페이지 이동\n- /clear: 알림 지우기\n- /help: 도움말\n- /quit: 종료\n고급 호환 명령: rpotato debug --help".to_string();
             }
             ["/more"] => state.next_notice_page(height),
             ["/back"] => state.previous_notice_page(),
             ["/compact"] => {
                 state.notice = match runtime.compact_context() {
+                    Ok(report) => report,
+                    Err(error) => error.message,
+                };
+            }
+            ["/update"] => {
+                if !confirm(
+                    terminal,
+                    "최신 stable release 확인과 검증된 binary 교체를 시작하려면 yes를 입력하세요.\n",
+                )? {
+                    state.notice = "업데이트를 취소했습니다.".to_string();
+                    continue;
+                }
+                terminal
+                    .write_frame("release 확인 → archive 다운로드 → SHA-256 검증 → 설치 중...\n")
+                    .map_err(|_| terminal_fault_error(TerminalFault::FrameWrite))?;
+                state.notice = match runtime.apply_update() {
                     Ok(report) => report,
                     Err(error) => error.message,
                 };

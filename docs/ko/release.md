@@ -194,6 +194,15 @@ directory와 감지한 zsh/bash/fish profile의 managed PATH block 또는 Window
 사용자 PATH만 수정합니다. 새 terminal은 영구 PATH를 자동 상속하며 report는
 현재 terminal용 활성화 명령도 출력합니다.
 
+v0.44.0부터 기존 관리형 설치본은 `rpotato update --check`, `rpotato update`
+또는 TUI 시작 알림 뒤의 `/update`로 최신 stable release를 확인하고 적용할 수
+있습니다. 시작 request는 짧은 timeout과 6시간 cache를 사용하며 실패해도 TUI를
+막지 않습니다. 적용 경로는 지원하는 5개 platform mapping만 허용하고 이 저장소의
+GitHub Releases 안에서 URL을 구성하며 대응 `.sha256` sidecar를 검증합니다.
+안전하지 않거나 중복된 archive path를 거부하고 rpotato가 소유한 관리형 설치본만
+교체합니다. Windows는 process 종료 뒤 최종 교체하며 이동이 성공할 때까지 rollback
+copy를 보존합니다.
+
 `rpotato install --clean --dry-run`은 binary/PATH 변경 상태, 전역
 application data와 현재 project의 `.rpotato` target을 정확히 보여 줍니다. 삭제는
 `rpotato install --clean --yes`가 필요하고 관리형 backend 또는 generation이
@@ -224,6 +233,10 @@ application data, 현재 project state를 변경 없이 보여 줍니다.
 12. binary checksum 생성
 13. GitHub Release publish 후 `release-binaries` workflow가 모든 target archive와
     대응 `.sha256` file, aggregate `checksums.txt` file을 upload했는지 확인
+
+`config/release-targets.tsv`가 Rust updater와 release asset 검증이 함께 사용하는
+정본 target 목록입니다. Release matrix guard는 workflow tuple 또는 asset set이
+이 목록과 달라지면 실패합니다.
 
 새 release note entry는 [release-notes-template.md](release-notes-template.md)를 사용합니다.
 

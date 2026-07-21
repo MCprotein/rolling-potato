@@ -295,3 +295,81 @@
   닫으며, 변경 뒤 해당 테스트와 전체 architecture suite를 차례로 확인합니다.
 - 전체 unit test는 PR CI의 정본 검증으로 남기되, 빠른 정적 architecture suite는
   candidate label 전 로컬 preflight에서 실행합니다.
+
+## 2026-07-21: startup update cache를 제품 상태 변경으로 오분류
+
+### 증상
+
+- 새 버전 startup 확인이 `cache/update-latest-v2`를 기록하면서 native terminal의
+  무변경 종료 계약이 Linux와 Windows candidate CI에서 실패했습니다.
+- 첫 assertion panic 뒤 공유 테스트 mutex가 poison되어 관련 테스트가 연쇄
+  실패했고, 실제 결함 범위보다 실패 수가 많아 보였습니다.
+
+### 원인
+
+- 기존 zero-delta 검사는 coordination lock만 예외로 두고, 새로 도입한 bounded
+  latest-release cache를 제품 상태와 구분하지 않았습니다.
+- startup 기능의 영속 상태 footprint를 추가하면서 기존 process-level 회귀 계약을
+  함께 갱신하지 않았습니다.
+
+### 재발 방지
+
+- 무인자 TUI 진입은 workflow·설정·설치 상태를 변경하지 않아야 하지만,
+  `cache/update-latest-v2`는 6시간 동안 중복 네트워크 확인을 줄이는 ephemeral
+  metadata로 명시적으로 분류합니다.
+- zero-delta 예외는 이 정확한 cache 파일과 coordination lock으로 제한하고 Unix와
+  Windows 경로 구분자를 모두 회귀 테스트합니다.
+- 새 startup side effect를 추가할 때는 native terminal의 entry/quit 계약을 targeted
+  검증하며, 새 cache 파일이나 update payload가 암묵적으로 예외가 되게 하지 않습니다.
+
+## 2026-07-21: Rust test selector가 candidate workflow YAML을 무효화
+
+### 증상
+
+- Windows lifecycle test를 한 줄 `run:` scalar로 추가한 뒤 candidate workflow가
+  job을 만들지 못하고 workflow load 단계에서 실패했습니다.
+- Rust selector의 끝 `tests::` 뒤 공백이 YAML의 `: ` mapping 구문으로 해석됐지만,
+  기존 preflight의 workflow contract는 필요한 문자열 존재만 확인해 이를 놓쳤습니다.
+
+### 원인
+
+- `::`로 끝날 수 있는 Rust test selector를 YAML plain scalar에 직접 넣었습니다.
+- Candidate workflow 계약에 plain-scalar colon-space 문법을 차단하는 guard가
+  없었습니다.
+
+### 재발 방지
+
+- Rust test selector가 들어가는 긴 workflow 명령은 `run: >-` 또는 `run: |` block
+  scalar로 작성합니다.
+- Release workflow contract는 candidate workflow의 `run: …: ` plain scalar를
+  fixture와 함께 거부하며, candidate preflight에서 이 계약을 실행합니다.
+- Job이 하나도 생성되지 않은 Actions 실패는 테스트 재실행 대신 workflow 문법부터
+  진단합니다.
+
+## 2026-07-21: Windows updater가 Get-FileHash cmdlet에 의존함
+
+### 증상
+
+- Windows deferred-update CAS 테스트가 같은 candidate SHA의 targeted workflow에서는
+  통과했지만 candidate workflow에서는 exit 1로 실패했습니다.
+- 추가한 helper 진단 출력에서 candidate runner의 `powershell.exe`가 `Get-FileHash`
+  cmdlet을 찾지 못한 사실을 확인했습니다.
+
+### 원인
+
+- self-update helper의 무결성 확인이 PowerShell 기본 module의 cmdlet 제공과 자동
+  로딩을 암묵적으로 가정했습니다.
+- 초기 테스트는 parent-process 대기와 CAS 검증까지 결합했고 helper stdout/stderr도
+  수집하지 않아 첫 실패에서 실제 원인이 가려졌습니다.
+- CAS 동작을 검증하는 테스트가 별도 관심사인 parent-process 종료 관찰에 결합되어
+  있었습니다.
+
+### 재발 방지
+
+- self-update helper의 SHA-256 계산은 module cmdlet 대신 PowerShell 5에서도 제공되는
+  core .NET `System.Security.Cryptography.SHA256` API를 사용합니다.
+- script 계약은 `Get-FileHash` 재도입을 거부하고 .NET SHA-256 사용을 고정합니다.
+- 실제 updater는 parent-process 종료 대기를 유지하되, CAS 테스트에는 명시적인 test
+  seam을 사용해 대기를 우회하며 helper stdout/stderr를 assertion에 포함합니다.
+- Windows 조건부 실행 테스트는 compile 성공과 구분해 exact-HEAD targeted native
+  workflow에서 확인한 뒤 새 candidate를 만듭니다.

@@ -8,6 +8,8 @@ rpotato — local coding agent
   rpotato init            첫 실행 설정 다시 열기
   rpotato doctor          환경 진단
   rpotato install         binary 설치 및 PATH 등록
+  rpotato update          최신 GitHub Release로 안전하게 업데이트
+  rpotato update --check  새 버전 확인만 수행
   rpotato uninstall --clean --yes
   rpotato --help
 
@@ -48,6 +50,8 @@ rpotato
   rpotato install
   rpotato install --clean --dry-run
   rpotato install --clean --yes
+  rpotato update
+  rpotato update --check
   rpotato init
   rpotato run \"<request>\"
   rpotato intent classify \"<request>\"

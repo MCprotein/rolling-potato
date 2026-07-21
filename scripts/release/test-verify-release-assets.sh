@@ -3,17 +3,15 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 verifier="$script_dir/verify-release-assets.sh"
+manifest="$script_dir/../../config/release-targets.tsv"
 tag="v0.34.0"
 root="$(mktemp -d "${TMPDIR:-/tmp}/rpotato-release-assets-test.XXXXXX")"
 trap 'rm -rf "$root"' EXIT
 
-archives=(
-  "rpotato-${tag}-aarch64-apple-darwin.tar.gz"
-  "rpotato-${tag}-x86_64-apple-darwin.tar.gz"
-  "rpotato-${tag}-x86_64-unknown-linux-gnu.tar.gz"
-  "rpotato-${tag}-aarch64-unknown-linux-gnu.tar.gz"
-  "rpotato-${tag}-x86_64-pc-windows-msvc.zip"
-)
+archives=()
+while IFS=$'\t' read -r _os _arch target _binary archive _runner; do
+  archives+=("rpotato-${tag}-${target}.${archive}")
+done < <(awk -F '\t' '!/^[[:space:]]*#/ && !/^[[:space:]]*$/ { print }' "$manifest")
 
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then

@@ -1,8 +1,7 @@
 # 현재 기능
 
-이 문서는 `rolling-potato v0.42.0` release와 개발 중인 `v0.43.1` 복구 source의
-읽기 쉬운 상태 지도입니다. 하나의 긴 명령 목록을 반복하지 않고 런타임
-책임별로 기능을 묶었습니다.
+이 문서는 출시된 `rolling-potato v0.44.0` runtime의 읽기 쉬운 상태 지도입니다.
+하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
 [English](../current-capabilities.md)
@@ -10,7 +9,7 @@
 > 이 문서는 기능 안내서입니다. 정확한 명령 문법은 설치된 바이너리의
 > `rpotato --help`를 기준으로 확인하십시오.
 
-## 설치와 첫 실행 (`v0.42.0`)
+## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.44.0`)
 
 GitHub Release archive에서 압축을 푼 binary는 사용자 전용 CLI directory에
 자기 자신을 설치·갱신하고 zsh, bash, fish 또는 Windows 사용자 PATH에 해당
@@ -26,6 +25,8 @@ rpotato install --clean --yes
 rpotato uninstall --clean --dry-run
 rpotato uninstall --clean --yes
 rpotato init
+rpotato update --check
+rpotato update
 ```
 
 일반 install은 config, model, backend asset, project state를 보존합니다.
@@ -40,6 +41,14 @@ Clean uninstall은 설치 binary, 소유한 PATH 등록, 전역 application data
 project의 `.rpotato`를 제거합니다. 압축을 푼 실행 원본과 source repository는
 사용자 소유 file로 보존합니다. Windows self-delete는 현재 process 종료 직후
 완료하도록 예약합니다.
+
+TUI 시작 시 6시간 cache와 짧은 request timeout으로 공식 최신 stable GitHub
+Release를 확인하며 offline 시작을 막지 않습니다. 새 버전은 `/update` 안내와
+함께 표시하고 `rpotato update --check`로도 명시적으로 확인할 수 있습니다.
+업데이트 적용은 rpotato가 소유한 관리형 설치본으로 제한하며, 현재 platform의
+정확한 release archive와 대응 SHA-256 sidecar를 검증하고 정확한 binary entry만
+staging합니다. Unix는 atomic replace를 사용하고 Windows는 process 종료 뒤 교체를
+예약하며 이동 실패 시 이전 binary로 rollback합니다.
 
 ## 1. 에이전트 루프와 컨텍스트
 

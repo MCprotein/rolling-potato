@@ -12,6 +12,7 @@ pub(crate) struct PreparedTuiModel {
 }
 
 pub(crate) trait TuiSetupPort {
+    fn startup_update_notice(&mut self) -> Option<String>;
     fn model_options(&mut self) -> Vec<TuiModelOption>;
     fn ensure_backend(&mut self) -> Result<String, AppError>;
     fn prepare_model(&mut self, id: &str) -> Result<PreparedTuiModel, AppError>;
@@ -32,6 +33,11 @@ pub(crate) fn run_setup(
     terminal
         .write_frame(&render_setup_screen(&options, terminal.supports_color()))
         .map_err(terminal_error)?;
+    if let Some(notice) = runtime.startup_update_notice() {
+        terminal
+            .write_frame(&format!("{notice}\n\n"))
+            .map_err(terminal_error)?;
+    }
 
     let selected = loop {
         terminal
@@ -196,9 +202,14 @@ mod tests {
 
     struct SetupRuntime {
         calls: Vec<String>,
+        startup_notice: Option<String>,
     }
 
     impl TuiSetupPort for SetupRuntime {
+        fn startup_update_notice(&mut self) -> Option<String> {
+            self.startup_notice.take()
+        }
+
         fn model_options(&mut self) -> Vec<TuiModelOption> {
             sample_options()
         }
@@ -225,7 +236,10 @@ mod tests {
     #[test]
     fn setup_lists_model_facts_and_runs_selected_pipeline() {
         let mut terminal = ScriptedTerminal::new(["2", "yes"]);
-        let mut runtime = SetupRuntime { calls: Vec::new() };
+        let mut runtime = SetupRuntime {
+            calls: Vec::new(),
+            startup_notice: None,
+        };
 
         run_setup(&mut terminal, &mut runtime).unwrap();
 
@@ -244,12 +258,31 @@ mod tests {
     #[test]
     fn setup_skip_has_no_install_side_effects() {
         let mut terminal = ScriptedTerminal::new(["skip"]);
-        let mut runtime = SetupRuntime { calls: Vec::new() };
+        let mut runtime = SetupRuntime {
+            calls: Vec::new(),
+            startup_notice: None,
+        };
 
         run_setup(&mut terminal, &mut runtime).unwrap();
 
         assert!(terminal.frames.concat().contains("건너뛰었습니다"));
         assert!(runtime.calls.is_empty());
+    }
+
+    #[test]
+    fn setup_renders_before_checking_and_shows_update_before_selection() {
+        let mut terminal = ScriptedTerminal::new(["skip"]);
+        let mut runtime = SetupRuntime {
+            calls: Vec::new(),
+            startup_notice: Some("새 rpotato 버전이 있습니다: v9.0.0".to_string()),
+        };
+
+        run_setup(&mut terminal, &mut runtime).unwrap();
+
+        assert!(terminal.frames[0].contains("rpotato 첫 실행 설정"));
+        assert!(!terminal.frames[0].contains("새 rpotato 버전"));
+        assert!(terminal.frames[1].contains("새 rpotato 버전이 있습니다"));
+        assert!(terminal.frames[2].contains("모델 번호 또는 id"));
     }
 
     fn sample_options() -> Vec<TuiModelOption> {

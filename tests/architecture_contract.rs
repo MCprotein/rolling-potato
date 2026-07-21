@@ -4743,8 +4743,11 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
     assert!(backend_start.contains("runtime_mutation::acquire(\"backend start\")"));
 
     let dispatch = fs::read_to_string("src/app/command_dispatch.rs").unwrap();
+    let lifecycle_dispatch =
+        fs::read_to_string("src/app/command_dispatch/lifecycle_commands.rs").unwrap();
     assert!(dispatch.contains("Command::Install(command)"));
-    assert!(dispatch.contains("install::init_environment_report()?"));
+    assert!(dispatch.contains("Command::Init => execute_init()"));
+    assert!(lifecycle_dispatch.contains("install::init_environment_report()?"));
 
     let help = fs::read_to_string("src/surfaces/cli/render.rs").unwrap();
     assert!(help.contains("rpotato install --clean --dry-run"));

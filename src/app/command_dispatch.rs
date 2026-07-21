@@ -5,7 +5,7 @@ use crate::app::intent_adapter as intent;
 use crate::app::runtime_adapter as runtime;
 use crate::app::workflow_adapter::state;
 use crate::app::workflow_adapter::transition;
-use crate::composition::{config, dispatch, inference, install, uninstall};
+use crate::composition::{config, dispatch, inference};
 use crate::foundation::error::AppError;
 use crate::surfaces::cli::{
     command::{Command, IntentCommand},
@@ -15,6 +15,7 @@ mod collaboration_commands;
 mod extension_commands;
 mod inference_ports;
 mod knowledge_commands;
+mod lifecycle_commands;
 mod observability_commands;
 mod policy_commands;
 mod tui_commands;
@@ -23,6 +24,7 @@ use collaboration_commands::{execute_subagent, execute_team};
 use extension_commands::{execute_hooks, execute_plugin, execute_skill};
 use inference_ports::emit_output as emit_inference_output;
 use knowledge_commands::{execute_evidence, execute_ontology};
+use lifecycle_commands::{execute_init, execute_install, execute_uninstall, execute_update};
 use observability_commands::{execute_cache_status, execute_monitor};
 use policy_commands::execute_policy;
 use tui_commands::execute_tui;
@@ -54,18 +56,9 @@ impl dispatch::CommandDispatchPort for CommandDispatchAdapter {
                 render::emit_report(render::ADVANCED_HELP);
                 Ok(())
             }
-            Command::Install(command) => {
-                render::emit_report(&install::install_report(command)?);
-                Ok(())
-            }
-            Command::Init => {
-                let environment = install::init_environment_report()?;
-                render::emit_report(&format!("{}\n\n{}", runtime::init_report()?, environment));
-                if capability::attached() {
-                    crate::app::tui_adapter::run_setup()?;
-                }
-                Ok(())
-            }
+            Command::Install(command) => execute_install(command),
+            Command::Update(command) => execute_update(command),
+            Command::Init => execute_init(),
             Command::Run { request } => {
                 render::emit_report(&runtime::agent_run_report(&request)?);
                 Ok(())
@@ -120,10 +113,7 @@ impl dispatch::CommandDispatchPort for CommandDispatchAdapter {
                 Ok(())
             }
             Command::Plugin(command) => execute_plugin(command),
-            Command::Uninstall(command) => {
-                render::emit_report(&uninstall::uninstall_report(command)?);
-                Ok(())
-            }
+            Command::Uninstall(command) => execute_uninstall(command),
         }
     }
 }

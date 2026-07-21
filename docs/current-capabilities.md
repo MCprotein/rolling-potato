@@ -1,8 +1,8 @@
 # Current Capabilities
 
-This document is the readable status map for the `rolling-potato v0.42.0`
-release plus the in-development `v0.43.1` recovery source. It groups the runtime by
-responsibility instead of repeating one flat command list.
+This document is the readable status map for the released
+`rolling-potato v0.44.0` runtime. It groups the runtime by responsibility
+instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
 [한국어](ko/current-capabilities.md)
@@ -10,7 +10,7 @@ responsibility instead of repeating one flat command list.
 > This is a capability guide, not a substitute for `rpotato --help`. The
 > installed binary remains the source of truth for exact command syntax.
 
-## Installation and First Run (`v0.42.0`)
+## Installation, First Run, and Updates (`v0.42.0`-`v0.44.0`)
 
 The extracted GitHub Release binary can install or update itself in the
 user-local CLI directory and register that directory in zsh, bash, fish, or
@@ -26,6 +26,8 @@ rpotato install --clean --yes
 rpotato uninstall --clean --dry-run
 rpotato uninstall --clean --yes
 rpotato init
+rpotato update --check
+rpotato update
 ```
 
 Standard install preserves config, models, backend assets, and project state.
@@ -40,6 +42,15 @@ Clean uninstall removes the installed binary, the owned PATH registration,
 global application data, and the current project's `.rpotato`. It preserves
 the extracted invocation binary and source repository as user-owned files.
 Windows self-deletion is scheduled for immediately after process exit.
+
+At TUI startup, a six-hour cache and short request timeout check the official
+latest stable GitHub Release without blocking offline startup. A newer version
+is shown as a notice with `/update`; `rpotato update --check` performs the same
+check explicitly. Applying an update is restricted to the owned managed
+installation, downloads only the current platform's exact release archive,
+verifies its matching SHA-256 sidecar, and stages only the exact binary entry.
+Unix replacement is atomic; Windows replacement is scheduled after process
+exit with rollback to the previous binary if the move fails.
 
 ## 1. Agent Loop and Context
 

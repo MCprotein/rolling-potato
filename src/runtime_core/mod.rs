@@ -12,4 +12,5 @@ pub(crate) mod patch;
 pub(crate) mod policy;
 pub(crate) mod reporting;
 pub(crate) mod terminal;
+pub(crate) mod update;
 pub(crate) mod workflow;

@@ -7,9 +7,14 @@ fail() {
 }
 
 workflow=".github/workflows/release-binaries.yml"
+manifest="config/release-targets.tsv"
+runtime_owner="src/runtime_core/update.rs"
 
 if [ ! -f "$workflow" ]; then
   fail "workflow file was not found: $workflow"
+fi
+if [ ! -f "$manifest" ]; then
+  fail "release target manifest was not found: $manifest"
 fi
 if [ -e ".github/workflows/package-manager-distribution.yml" ]; then
   fail "external package-manager workflow must not exist"
@@ -42,14 +47,33 @@ expect_entry() {
     ' "$workflow" || fail "missing matrix tuple: $os/$target/$binary/$archive"
 }
 
-expect_entry "macos-26" "aarch64-apple-darwin" "rpotato" "tar.gz"
-expect_entry "macos-26-intel" "x86_64-apple-darwin" "rpotato" "tar.gz"
-expect_entry "ubuntu-24.04" "x86_64-unknown-linux-gnu" "rpotato" "tar.gz"
-expect_entry "ubuntu-24.04-arm" "aarch64-unknown-linux-gnu" "rpotato" "tar.gz"
-expect_entry "windows-2025" "x86_64-pc-windows-msvc" "rpotato.exe" "zip"
+manifest_entries="$(awk -F '\t' '
+  /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+  NF != 6 { exit 2 }
+  { for (field = 1; field <= 6; field++) if ($field == "") exit 2; print }
+' "$manifest")" || fail "release target manifest must contain six non-empty tab-separated fields"
+[ -n "$manifest_entries" ] || fail "release target manifest is empty"
+duplicate_platform="$(printf '%s\n' "$manifest_entries" | awk -F '\t' '
+  { key = $1 "/" $2; if (seen[key]++) { print key; exit } }
+')"
+[ -z "$duplicate_platform" ] || fail "duplicate manifest platform: $duplicate_platform"
+duplicate_target="$(printf '%s\n' "$manifest_entries" | awk -F '\t' '
+  { if (seen[$3]++) { print $3; exit } }
+')"
+[ -z "$duplicate_target" ] || fail "duplicate manifest target: $duplicate_target"
+
+while IFS=$'\t' read -r os arch target binary archive runner; do
+  expect_entry "$runner" "$target" "$binary" "$archive"
+done <<<"$manifest_entries"
 
 matrix_count="$(awk '/^          - os: / { count++ } END { print count + 0 }' "$workflow")"
-[ "$matrix_count" -eq 5 ] || fail "expected 5 release matrix entries, found $matrix_count"
+manifest_count="$(printf '%s\n' "$manifest_entries" | awk 'NF { count++ } END { print count + 0 }')"
+[ "$matrix_count" -eq "$manifest_count" ] \
+  || fail "workflow matrix count $matrix_count does not match manifest count $manifest_count"
+grep -F 'include_str!("../../config/release-targets.tsv")' "$runtime_owner" >/dev/null \
+  || fail "Rust updater must compile the canonical release target manifest"
+grep -F 'config/release-targets.tsv' scripts/release/verify-release-assets.sh >/dev/null \
+  || fail "release asset verifier must use the canonical release target manifest"
 
 grep -F "name: release test gate" "$workflow" >/dev/null \
   || fail "release test gate job is missing"
@@ -136,4 +160,4 @@ if scripts/release/verify-checksum-basenames.sh "$bom_fixture" >/dev/null 2>&1; 
   fail "checksum guard must reject a UTF-8 BOM"
 fi
 
-printf 'release target matrix ok: github-release-binaries=5\n'
+printf 'release target matrix ok: github-release-binaries=%s\n' "$manifest_count"

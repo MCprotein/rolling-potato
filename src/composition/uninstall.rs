@@ -110,6 +110,7 @@ fn clean_dry_run_report(paths: &InstallPaths) -> Result<String, AppError> {
 fn execute_clean_uninstall(paths: &InstallPaths) -> Result<String, AppError> {
     system_install::validate_clean_uninstall_targets(paths)?;
     let _runtime_transition = runtime_mutation::acquire("clean uninstall")?;
+    system_install::ensure_no_pending_binary_mutation(paths)?;
     install::require_inactive_runtime("clean uninstall")?;
     execute_clean_uninstall_after_guard(paths)
 }

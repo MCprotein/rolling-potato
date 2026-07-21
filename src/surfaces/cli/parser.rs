@@ -40,6 +40,13 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, rest @ ..] if group == "install" => {
             parse_install(rest).map(Command::Install)
         }
+        [arg] if arg == "update" => Ok(Command::Update(UpdateCommand::Apply)),
+        [arg, flag] if arg == "update" && flag == "--check" => {
+            Ok(Command::Update(UpdateCommand::Check))
+        }
+        [arg, ..] if arg == "update" => Err(AppError::usage(
+            "update는 옵션 없이 적용하거나 `rpotato update --check`로 확인할 수 있습니다.",
+        )),
         [arg] if arg == "init" => Ok(Command::Init),
         [group, rest @ ..] if group == "run" => Ok(Command::Run {
             request: parse_request(rest, "run")?,

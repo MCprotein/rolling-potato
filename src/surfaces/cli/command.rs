@@ -7,6 +7,7 @@ pub enum Command {
     Help,
     AdvancedHelp,
     Install(InstallCommand),
+    Update(UpdateCommand),
     Init,
     Run { request: String },
     Intent(IntentCommand),
@@ -38,6 +39,12 @@ pub enum InstallCommand {
     Standard,
     CleanDryRun,
     CleanConfirmed,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum UpdateCommand {
+    Check,
+    Apply,
 }
 
 #[derive(Debug, PartialEq, Eq)]

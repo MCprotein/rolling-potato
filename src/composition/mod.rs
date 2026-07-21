@@ -11,3 +11,4 @@ pub(crate) mod startup;
 pub(crate) mod tui_action;
 pub(crate) mod tui_read;
 pub(crate) mod uninstall;
+pub(crate) mod update;

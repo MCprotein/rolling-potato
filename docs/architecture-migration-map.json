@@ -2055,6 +2055,25 @@
       ]
     },
     {
+      "path": "src/app/command_dispatch/lifecycle_commands.rs",
+      "slices": [
+        {
+          "responsibility": "install, init, update, and uninstall CLI command execution integration",
+          "target": "src/app/command_dispatch/lifecycle_commands.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/command_dispatch.rs",
+            "src/app/command_dispatch/lifecycle_commands.rs",
+            "src/composition/install.rs",
+            "src/composition/update.rs",
+            "src/composition/uninstall.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/command_dispatch/observability_commands.rs",
       "slices": [
         {
@@ -2838,6 +2857,23 @@
       ]
     },
     {
+      "path": "src/composition/update.rs",
+      "slices": [
+        {
+          "responsibility": "update availability and managed self-update orchestration",
+          "target": "src/composition/update.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/update.rs",
+            "src/adapters/github_release.rs",
+            "src/adapters/system_install.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/context_adapter.rs",
       "slices": [
         {
@@ -3388,6 +3424,22 @@
           "state": "complete",
           "evidence": [
             "src/adapters/filesystem/uninstall.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/github_release.rs",
+      "slices": [
+        {
+          "responsibility": "official release discovery, asset readiness, verified download, and archive extraction I/O",
+          "target": "src/adapters/github_release.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/github_release.rs",
+            "src/runtime_core/update.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4799,6 +4851,22 @@
       ]
     },
     {
+      "path": "src/runtime_core/update.rs",
+      "slices": [
+        {
+          "responsibility": "release version, platform asset, and checksum policy",
+          "target": "src/runtime_core/update.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/update.rs",
+            "src/adapters/github_release.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/workflow/mod.rs",
       "slices": [
         {
@@ -5739,6 +5807,22 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/tests/tui.rs",
+      "slices": [
+        {
+          "responsibility": "TUI entrypoint command parser regressions",
+          "target": "src/surfaces/cli/parser/tests/tui.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/tests/tui.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/cli/parser/tests/uninstall.rs",
       "slices": [
         {
@@ -5749,6 +5833,22 @@
           "evidence": [
             "src/surfaces/cli/parser/uninstall.rs",
             "src/surfaces/cli/parser/tests/uninstall.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/update.rs",
+      "slices": [
+        {
+          "responsibility": "update command parser regressions",
+          "target": "src/surfaces/cli/parser/tests/update.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/tests/update.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7839,6 +7939,12 @@
       ]
     },
     {
+      "path": "src/app/command_dispatch/lifecycle_commands.rs",
+      "responsibilities": [
+        "install, init, update, and uninstall CLI command execution integration"
+      ]
+    },
+    {
       "path": "src/app/command_dispatch/observability_commands.rs",
       "responsibilities": [
         "cache and monitor CLI command execution integration"
@@ -8121,6 +8227,12 @@
       ]
     },
     {
+      "path": "src/composition/update.rs",
+      "responsibilities": [
+        "update availability and managed self-update orchestration"
+      ]
+    },
+    {
       "path": "src/app/context_adapter.rs",
       "responsibilities": [
         "bounded source context",
@@ -8312,6 +8424,12 @@
       "path": "src/adapters/filesystem/uninstall.rs",
       "responsibilities": [
         "managed uninstall path discovery"
+      ]
+    },
+    {
+      "path": "src/adapters/github_release.rs",
+      "responsibilities": [
+        "official release discovery, asset readiness, verified download, and archive extraction I/O"
       ]
     },
     {
@@ -8808,6 +8926,12 @@
       ]
     },
     {
+      "path": "src/runtime_core/update.rs",
+      "responsibilities": [
+        "release version, platform asset, and checksum policy"
+      ]
+    },
+    {
       "path": "src/runtime_core/workflow/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -9150,9 +9274,21 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/tests/tui.rs",
+      "responsibilities": [
+        "TUI entrypoint command parser regressions"
+      ]
+    },
+    {
       "path": "src/surfaces/cli/parser/tests/uninstall.rs",
       "responsibilities": [
         "uninstall command parser safety regressions"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/update.rs",
+      "responsibilities": [
+        "update command parser regressions"
       ]
     },
     {

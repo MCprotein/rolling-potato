@@ -108,9 +108,12 @@ managed backend sidecar, and active canonical session; missing values and stale 
 state are displayed explicitly. `NO_COLOR`, `TERM=dumb`, redirected, and scripted
 execution use plain text without ANSI control sequences.
 
-Normal interactive commands are `/model`, `/compact`, `/status`, `/sessions`, `/doctor`,
-`/more`, `/back`, `/clear`, `/help`, and `/quit`. `/more` and `/back` page through a
-long response without discarding off-screen lines. `/compact` creates an incremental typed checkpoint and
+Normal interactive commands are `/model`, `/compact`, `/update`, `/status`, `/sessions`,
+`/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`. `/more` and `/back` page through a
+long response without discarding off-screen lines. `/update` confirms before downloading
+the exact current-platform GitHub Release asset and verifies its SHA-256 sidecar before
+replacing the managed installation. Startup checks use a short timeout and cache, and
+network failure does not block the TUI. `/compact` creates an incremental typed checkpoint and
 retains the four most recent transcript records. Automatic compaction uses the same path
 at 75% measured context usage for the active session. Model changes commit the new default
 only after backend startup succeeds and restore the previous ready backend on failure.

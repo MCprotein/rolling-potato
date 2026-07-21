@@ -1,8 +1,35 @@
 # Release Notes
 
-## v0.43.1 - Release Gate Recovery
+## v0.44.0 - Managed Self-Update
 
 Planned release date: 2026-07-21
+
+This release adds a non-blocking new-version notice and a checksum-verified
+self-update path backed only by this repository's GitHub Releases.
+
+### Included
+
+- Checks the latest stable release when the primary TUI starts, using a short
+  timeout and six-hour cache so offline startup continues normally.
+- Adds TUI `/update`, `rpotato update --check`, and `rpotato update`.
+- Maps the current OS and architecture to one of the five supported release
+  assets and downloads the exact matching archive and `.sha256` sidecar.
+- Extracts only the expected regular binary entry, rejects unsafe or duplicate
+  archive paths, and applies only to the owned user-local installation.
+- Replaces the Unix binary atomically and schedules Windows replacement after
+  process exit with rollback protection.
+
+### Compatibility Boundary
+
+- GitHub Releases in `MCprotein/rolling-potato` remains the only distribution
+  and update source. No package registry or secondary repository is added.
+- Network and GitHub API failures do not block TUI startup. Manual check and
+  apply commands report the failure explicitly without changing the binary.
+- Model data, backend assets, configuration, and project state are preserved.
+
+## v0.43.1 - Release Gate Recovery
+
+Release date: 2026-07-21
 
 This patch preserves the v0.43.0 guided TUI and context-compaction behavior
 while recovering its incomplete binary publication.
