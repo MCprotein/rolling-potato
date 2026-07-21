@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.45.0` |
+| 현재 릴리즈 | `v0.45.1` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -179,7 +179,7 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-`v0.45.0` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
+`v0.45.1` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
@@ -237,9 +237,9 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-`v0.45.0`까지의 release history는 완료되었습니다. 최신 릴리즈는 TUI의 선택된
-session/workflow 상태를 project별로 격리하고, binding이 일치하는 legacy state만
-안전하게 이전하며, project 전환 시 정확한 startup error를 보존합니다.
+`v0.45.1`까지의 release history는 완료되었습니다. 최신 patch는 사용자 history를
+재작성하지 않고 legacy v1 prefix와 hash-chained v2 suffix가 함께 있는 정상 ledger의
+TUI 시작을 복구합니다.
 [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를
 참고하십시오.
 

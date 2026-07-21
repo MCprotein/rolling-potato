@@ -1,5 +1,30 @@
 # 릴리즈 노트
 
+## v0.45.1 - Legacy Ledger 읽기 호환성
+
+릴리즈 날짜: 2026-07-22
+
+이 patch는 canonical runtime ledger에 정상적인 legacy schema v1 prefix와
+hash-chained schema v2 suffix가 함께 있는 기존 설치에서 인자 없는 `rpotato`
+시작이 차단되는 문제를 고칩니다.
+
+### 포함한 것
+
+- schema v1에서 v2로 업그레이드하며 생성된 정상적인 혼합 ledger를 TUI
+  read-only view에서 허용
+- 전체 legacy-prefix digest를 첫 chained event와 대조한 뒤 나머지 physical hash
+  chain과 ledger head count를 검증
+- byte 제한 tail read를 file genesis record에 고정하고, read budget 때문에 legacy
+  prefix가 숨겨질 때는 fail-closed
+- 제보된 legacy 62개와 chained 61개 조합 및 변조·잘린 prefix 거부를 회귀 테스트로 고정
+
+### 호환성 경계
+
+- 기존 ledger file을 제자리에서 읽으며 history를 rewrite, migrate, truncate,
+  delete하지 않습니다.
+- 손상되거나 분기되었거나 검증할 수 없는 ledger history는 계속 거부합니다.
+- Public command와 flag는 변경하지 않습니다.
+
 ## v0.45.0 - 프로젝트별 TUI 시작 상태 격리
 
 릴리즈 날짜: 2026-07-22
