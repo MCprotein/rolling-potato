@@ -1,6 +1,6 @@
 # 현재 기능
 
-이 문서는 `rolling-potato v0.42.0` release와 개발 중인 `v0.43.0` source의
+이 문서는 `rolling-potato v0.42.0` release와 개발 중인 `v0.43.1` 복구 source의
 읽기 쉬운 상태 지도입니다. 하나의 긴 명령 목록을 반복하지 않고 런타임
 책임별로 기능을 묶었습니다.
 

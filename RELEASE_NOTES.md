@@ -1,8 +1,30 @@
 # Release Notes
 
-## v0.43.0 - Guided Local Chat and Context Compaction
+## v0.43.1 - Release Gate Recovery
 
 Planned release date: 2026-07-21
+
+This patch preserves the v0.43.0 guided TUI and context-compaction behavior
+while recovering its incomplete binary publication.
+
+### Included
+
+- Aligns the packaged-binary smoke check with the guided interactive header.
+- Makes the Windows ConPTY echo-restoration probe tolerate terminal control
+  sequences and prompt prefixes without weakening the exact echo-mode check.
+- Runs the packaged release-binary smoke and native Windows terminal lifecycle
+  on the final PR candidate before a tag can be created.
+
+### Compatibility Boundary
+
+- Runtime feature behavior, persisted state, model policy, and public command
+  semantics are unchanged from v0.43.0.
+- The v0.43.0 source tag remains immutable, but its five-platform asset set was
+  not published. v0.43.1 is the intended supported replacement.
+
+## v0.43.0 - Guided Local Chat and Context Compaction
+
+Release date: 2026-07-21
 
 This release makes guided local chat the default product surface and adds
 bounded context compaction designed for small local models.
@@ -33,7 +55,8 @@ bounded context compaction designed for small local models.
 - Compaction never rewrites or deletes the original transcript. An invalid
   derived artifact falls back to the existing bounded recent-turn resume path.
 - The official binary distribution channel remains this repository's GitHub
-  Releases only. This preparation does not publish a tag or GitHub Release.
+  Releases only. The source tag was published, but its binary workflow failed
+  before uploading a complete asset set; v0.43.1 replaces this publication.
 
 ## v0.42.0 - User-local Install and Clean Uninstall
 

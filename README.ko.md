@@ -163,7 +163,7 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-`v0.42.0` 릴리즈와 개발 중인 `v0.43.0` source는 제품 정의만 있는 scaffold가
+`v0.42.0` 릴리즈와 개발 중인 `v0.43.1` 복구 source는 제품 정의만 있는 scaffold가
 아니라 실제 기능을 가진 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
@@ -224,8 +224,9 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 `v0.42.0`까지의 release train은 완료되었습니다. 최신 릴리즈는 사용자 전용
 self-install, 자동 PATH 등록, `init` 환경 보정, 보호 장치를 갖춘 clean
 reinstall, 사용자 소유 file을 보존하는 대칭적인 clean uninstall을
-추가했습니다. `v0.43.0`은 위에서 설명한 안내형 기본 TUI와 bounded 소형 모델
-context compaction을 개발 중입니다. [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를
+추가했습니다. `v0.43.1`은 v0.43.0의 불완전한 binary publication에서 위 안내형
+기본 TUI와 bounded 소형 모델 context compaction을 복구 중입니다.
+[docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를
 참고하십시오.
 
 ---

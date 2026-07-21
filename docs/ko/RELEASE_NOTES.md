@@ -1,8 +1,30 @@
 # 릴리즈 노트
 
-## v0.43.0 - 안내형 로컬 대화와 컨텍스트 압축
+## v0.43.1 - 릴리스 게이트 복구
 
 예정 릴리즈 날짜: 2026-07-21
+
+이 patch는 v0.43.0의 안내형 TUI와 context compaction 동작을 그대로 유지하면서
+완료되지 못한 binary publication을 복구합니다.
+
+### 포함한 것
+
+- Packaged binary smoke가 현재 안내형 interactive header를 검사하도록 맞춥니다.
+- Windows ConPTY echo 복원 probe가 exact echo mode 검증을 약화하지 않으면서
+  terminal control sequence와 prompt prefix를 처리합니다.
+- 새 tag 전에 최종 PR candidate에서 packaged release-binary smoke와 Windows
+  native terminal lifecycle을 실행합니다.
+
+### 호환성 경계
+
+- Runtime 기능 동작, persisted state, model policy, public command semantic은
+  v0.43.0과 같습니다.
+- v0.43.0 source tag는 immutable하게 유지하지만 5-platform asset set은 게시되지
+  않았습니다. v0.43.1이 지원 replacement가 됩니다.
+
+## v0.43.0 - 안내형 로컬 대화와 컨텍스트 압축
+
+릴리즈 날짜: 2026-07-21
 
 이 릴리즈는 안내형 로컬 대화를 기본 제품 surface로 만들고, 작은 로컬
 모델에 맞춘 bounded context compaction을 추가합니다.
@@ -36,7 +58,8 @@
 - Compaction은 원본 transcript를 다시 쓰거나 삭제하지 않습니다. 파생 artifact가
   유효하지 않으면 기존 bounded recent-turn resume 경로로 fallback합니다.
 - 공식 binary 배포 channel은 이 저장소의 GitHub Releases 하나뿐입니다. 이
-  준비 작업은 tag나 GitHub Release를 게시하지 않습니다.
+  source tag는 게시됐지만 binary workflow가 complete asset set 업로드 전에
+  실패했으며, v0.43.1이 이 publication을 대체합니다.
 
 ## v0.42.0 - User-local Install and Clean Uninstall
 
