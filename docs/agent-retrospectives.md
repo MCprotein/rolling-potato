@@ -295,3 +295,29 @@
   닫으며, 변경 뒤 해당 테스트와 전체 architecture suite를 차례로 확인합니다.
 - 전체 unit test는 PR CI의 정본 검증으로 남기되, 빠른 정적 architecture suite는
   candidate label 전 로컬 preflight에서 실행합니다.
+
+## 2026-07-21: startup update cache를 제품 상태 변경으로 오분류
+
+### 증상
+
+- 새 버전 startup 확인이 `cache/update-latest-v2`를 기록하면서 native terminal의
+  무변경 종료 계약이 Linux와 Windows candidate CI에서 실패했습니다.
+- 첫 assertion panic 뒤 공유 테스트 mutex가 poison되어 관련 테스트가 연쇄
+  실패했고, 실제 결함 범위보다 실패 수가 많아 보였습니다.
+
+### 원인
+
+- 기존 zero-delta 검사는 coordination lock만 예외로 두고, 새로 도입한 bounded
+  latest-release cache를 제품 상태와 구분하지 않았습니다.
+- startup 기능의 영속 상태 footprint를 추가하면서 기존 process-level 회귀 계약을
+  함께 갱신하지 않았습니다.
+
+### 재발 방지
+
+- 무인자 TUI 진입은 workflow·설정·설치 상태를 변경하지 않아야 하지만,
+  `cache/update-latest-v2`는 6시간 동안 중복 네트워크 확인을 줄이는 ephemeral
+  metadata로 명시적으로 분류합니다.
+- zero-delta 예외는 이 정확한 cache 파일과 coordination lock으로 제한하고 Unix와
+  Windows 경로 구분자를 모두 회귀 테스트합니다.
+- 새 startup side effect를 추가할 때는 native terminal의 entry/quit 계약을 targeted
+  검증하며, 새 cache 파일이나 update payload가 암묵적으로 예외가 되게 하지 않습니다.

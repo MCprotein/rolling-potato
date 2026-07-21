@@ -597,13 +597,27 @@ fn assert_tree_unchanged(
         .chain(after.keys())
         .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
-        .filter(|path| !path.ends_with(".lock") && before.get(*path) != after.get(*path))
+        .filter(|path| !is_ignorable_entry_metadata(path) && before.get(*path) != after.get(*path))
         .cloned()
         .collect::<Vec<_>>();
     assert!(
         changed.is_empty(),
-        "{context} must have zero product-state delta (coordination .lock metadata excluded); changed paths: {changed:?}"
+        "{context} must have zero product-state delta (coordination locks and the bounded latest-release cache excluded); changed paths: {changed:?}"
     );
+}
+
+fn is_ignorable_entry_metadata(path: &str) -> bool {
+    path.ends_with(".lock") || path.replace('\\', "/").ends_with("/cache/update-latest-v2")
+}
+
+#[test]
+fn zero_delta_entry_excludes_only_the_bounded_latest_release_cache() {
+    assert!(is_ignorable_entry_metadata("1/cache/update-latest-v2"));
+    assert!(is_ignorable_entry_metadata("1\\cache\\update-latest-v2"));
+    assert!(!is_ignorable_entry_metadata(
+        "1/cache/updates/v0.44.0/rpotato.ready"
+    ));
+    assert!(!is_ignorable_entry_metadata("1/state/current-state.json"));
 }
 
 fn runtime_ledger(fixture: &NativeTerminalFixture) -> String {
