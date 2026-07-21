@@ -332,6 +332,12 @@ fn windows_deferred_update_preserves_target_changed_after_schedule() {
     fs::write(&marker, "test-operation\n").unwrap();
     let expected = crate::foundation::integrity::sha256_file(&target).unwrap();
     fs::write(&target, "newer-install").unwrap();
+    let mut exited_parent = std::process::Command::new("cmd.exe")
+        .args(["/D", "/C", "exit", "0"])
+        .spawn()
+        .unwrap();
+    let exited_parent_pid = exited_parent.id();
+    assert!(exited_parent.wait().unwrap().success());
 
     let status = std::process::Command::new("powershell.exe")
         .args([
@@ -343,7 +349,7 @@ fn windows_deferred_update_preserves_target_changed_after_schedule() {
             "-File",
         ])
         .arg(&script)
-        .arg(i32::MAX.to_string())
+        .arg(exited_parent_pid.to_string())
         .arg(&source)
         .arg(&target)
         .arg(&script)
