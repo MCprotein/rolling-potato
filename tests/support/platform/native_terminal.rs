@@ -235,7 +235,8 @@ impl NativeTerminalFixture {
 
     #[cfg(windows)]
     pub fn current_session_id(&self) -> String {
-        let body = std::fs::read_to_string(self.data.join("state/current-state.json")).unwrap();
+        let body = std::fs::read_to_string(self.project.join(".rpotato/state/current-state.json"))
+            .unwrap();
         body.split("\"session_id\"")
             .nth(1)
             .and_then(|tail| tail.split_once(':').map(|(_, value)| value))

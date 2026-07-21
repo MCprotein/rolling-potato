@@ -96,16 +96,24 @@ pub fn state_dir() -> PathBuf {
     app_data_root().join("state")
 }
 
+pub fn current_state_dir() -> PathBuf {
+    project_state_dir().join("state")
+}
+
 pub fn current_state_file() -> PathBuf {
+    current_state_dir().join("current-state.json")
+}
+
+pub fn legacy_current_state_file() -> PathBuf {
     state_dir().join("current-state.json")
 }
 
 pub fn current_state_transition_lock() -> PathBuf {
-    state_dir().join("current-state.transition.lock")
+    current_state_dir().join("current-state.transition.lock")
 }
 
 pub fn current_state_v2_promotion_temp() -> PathBuf {
-    state_dir().join("current-state.json.v2-promote.tmp")
+    current_state_dir().join("current-state.json.v2-promote.tmp")
 }
 
 pub fn runtime_evidence_file() -> PathBuf {

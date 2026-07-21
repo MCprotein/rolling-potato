@@ -3,7 +3,10 @@
 use std::process::ExitCode;
 
 use crate::foundation::error::AppError;
-use crate::runtime_core::reporting::korean_guard;
+
+fn startup_error_message(error: &AppError) -> &str {
+    &error.message
+}
 
 pub(crate) fn run(
     args: impl IntoIterator<Item = String>,
@@ -12,7 +15,7 @@ pub(crate) fn run(
     match dispatch(args.into_iter().collect()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            eprintln!("{}", korean_guard::guard_or_failure(&err.message));
+            eprintln!("{}", startup_error_message(&err));
             ExitCode::from(err.code)
         }
     }
@@ -39,5 +42,15 @@ mod tests {
         });
 
         assert_eq!(code, ExitCode::from(2));
+    }
+
+    #[test]
+    fn preserves_system_error_instead_of_applying_response_language_guard() {
+        let error = AppError::blocked("TUI current-state project binding 불일치");
+
+        assert_eq!(
+            startup_error_message(&error),
+            "TUI current-state project binding 불일치"
+        );
     }
 }

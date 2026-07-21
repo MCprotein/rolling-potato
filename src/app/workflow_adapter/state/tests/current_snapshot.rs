@@ -17,6 +17,133 @@ fn current_state_summary_handles_missing_file_as_uninitialized() {
 }
 
 #[test]
+fn current_state_is_isolated_per_project_under_shared_data_home() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = workflow_test_root("current-state-project-isolation");
+    let data = root.join("data");
+    let project_a = root.join("project-a");
+    let project_b = root.join("project-b");
+    fs::create_dir_all(&project_a).unwrap();
+    fs::create_dir_all(&project_b).unwrap();
+    std::env::set_var("RPOTATO_DATA_HOME", &data);
+
+    std::env::set_var("RPOTATO_PROJECT_ROOT", &project_a);
+    let state_a = paths::current_state_file();
+    let identity_a = initialize().unwrap().identity;
+
+    std::env::set_var("RPOTATO_PROJECT_ROOT", &project_b);
+    let state_b = paths::current_state_file();
+    let identity_b = initialize().unwrap().identity;
+
+    std::env::set_var("RPOTATO_PROJECT_ROOT", &project_a);
+    let restored_a = initialize().unwrap().identity;
+    let restored_lease = current_state_lease_view().unwrap();
+
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    let _ = fs::remove_dir_all(root);
+
+    assert_ne!(state_a, state_b);
+    assert_eq!(identity_a, restored_a);
+    assert_ne!(identity_a.project_id, identity_b.project_id);
+    assert!(restored_lease.revision >= 2);
+}
+
+#[test]
+fn unrelated_legacy_current_state_does_not_block_project_initialization() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = workflow_test_root("unrelated-legacy-current-state");
+    let data = root.join("data");
+    let old_project = root.join("old-project");
+    let current_project = root.join("current-project");
+    fs::create_dir_all(data.join("state")).unwrap();
+    fs::create_dir_all(&old_project).unwrap();
+    fs::create_dir_all(&current_project).unwrap();
+    std::env::set_var("RPOTATO_DATA_HOME", &data);
+    std::env::set_var("RPOTATO_PROJECT_ROOT", &old_project);
+    let old_identity = ledger::fresh_identity();
+    let mut legacy = CurrentStateSnapshot {
+        schema_version: 2,
+        revision: 1,
+        previous_artifact_hash: "none".to_string(),
+        project_id: old_identity.project_id,
+        project_root: old_identity.project_root,
+        session_id: old_identity.session_id,
+        active_workflow: None,
+        parent_session_id: None,
+        branch_from_event_id: None,
+        compaction_boundary: None,
+        resume_source: None,
+        ledger_binding: ledger::LedgerBinding {
+            event_count: 0,
+            event_id: None,
+            event_hash: "root".to_string(),
+        },
+        artifact_hash: String::new(),
+        legacy_canonical_hash: None,
+    };
+    legacy.artifact_hash = sha256_text(&render_current_state_v2_payload(&legacy));
+    fs::write(
+        paths::legacy_current_state_file(),
+        render_current_state_v2(&legacy),
+    )
+    .unwrap();
+
+    std::env::set_var("RPOTATO_PROJECT_ROOT", &current_project);
+    let initialized = initialize().unwrap();
+    let current_path = paths::current_state_file();
+
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    let _ = fs::remove_dir_all(root);
+
+    assert_eq!(
+        initialized.identity.project_root,
+        current_project.display().to_string()
+    );
+    assert!(current_path.starts_with(current_project.join(".rpotato/state")));
+}
+
+#[test]
+fn divergent_project_current_state_is_not_silently_rebound() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = workflow_test_root("divergent-project-current-state");
+    let data = root.join("data");
+    let project = root.join("project");
+    fs::create_dir_all(&project).unwrap();
+    std::env::set_var("RPOTATO_DATA_HOME", &data);
+    std::env::set_var("RPOTATO_PROJECT_ROOT", &project);
+    initialize().unwrap();
+
+    let current_path = paths::current_state_file();
+    let mut snapshot = parse_current_state(
+        &fs::read_to_string(&current_path).unwrap(),
+        "divergent current-state fixture",
+    )
+    .unwrap();
+    snapshot.ledger_binding.event_hash = "0".repeat(64);
+    snapshot.artifact_hash = sha256_text(&render_current_state_v2_payload(&snapshot));
+    fs::write(&current_path, render_current_state_v2(&snapshot)).unwrap();
+    let current_before = fs::read(&current_path).unwrap();
+    let ledger_before = fs::read(paths::runtime_ledger_file()).unwrap();
+
+    let error = initialize().unwrap_err();
+
+    assert!(error
+        .message
+        .contains("current-state ledger ancestor id/hash binding 불일치"));
+    assert_eq!(fs::read(&current_path).unwrap(), current_before);
+    assert_eq!(
+        fs::read(paths::runtime_ledger_file()).unwrap(),
+        ledger_before
+    );
+
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn classifies_corrupt_current_state() {
     let identity = RuntimeIdentity {
         project_id: "project-a".to_string(),
@@ -227,7 +354,7 @@ fn corrupt_current_state_blocks_canonical_mutation() {
     fs::create_dir_all(&project).unwrap();
     std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
     std::env::set_var("RPOTATO_PROJECT_ROOT", &project);
-    fs::create_dir_all(paths::state_dir()).unwrap();
+    fs::create_dir_all(paths::current_state_dir()).unwrap();
     fs::write(paths::current_state_file(), b"not-json").unwrap();
 
     let event_error = record_event("test.mutation", "blocked", "safe").unwrap_err();

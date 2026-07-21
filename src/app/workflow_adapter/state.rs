@@ -173,6 +173,7 @@ fn ensure_layout() -> Result<Vec<PathBuf>, AppError> {
         paths::manifests_dir(),
         paths::logs_dir(),
         paths::state_dir(),
+        paths::current_state_dir(),
         paths::plugins_dir(),
         paths::imported_plugins_dir(),
         paths::plugin_data_dir(),
@@ -205,14 +206,15 @@ mod current_snapshot;
 use current_snapshot::{classify_current_state, parse_current_state_v2};
 pub(crate) use current_snapshot::{
     current_state_lease_view, current_state_lease_view_under_transition, read_regular_file_bounded,
-    tui_lease_matches_terminal_selection_under_transition,
+    tui_entry_initialization_required, tui_lease_matches_terminal_selection_under_transition,
     tui_lease_matches_workflow_under_transition, tui_state_snapshot_read_only,
     validated_identity_from_current_state,
 };
 use current_snapshot::{
-    current_state_status, parse_current_state, promote_current_state_v1,
-    read_current_state_summary, read_open_file_bounded, render_current_state_v2,
-    render_current_state_v2_payload, tui_detail_value, CurrentStateStatus,
+    current_state_status, migrate_matching_legacy_current_state, parse_current_state,
+    promote_current_state_v1, read_current_state_summary, read_open_file_bounded,
+    render_current_state_v2, render_current_state_v2_payload, synchronize_current_state_ledger,
+    tui_detail_value, CurrentStateStatus,
 };
 
 fn format_session_row(session: &SessionHistoryEntry) -> String {

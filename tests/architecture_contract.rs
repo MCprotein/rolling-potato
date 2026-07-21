@@ -4654,7 +4654,8 @@ fn v03713_binary_entrypoint_delegates_process_outcome_to_startup() {
     assert!(!main.contains("match app::run"));
 
     let startup = fs::read_to_string("src/composition/startup.rs").unwrap();
-    assert!(startup.contains("korean_guard::guard_or_failure"));
+    assert!(startup.contains("startup_error_message(&err)"));
+    assert!(!startup.contains("korean_guard::guard_or_failure"));
     assert!(startup.contains("ExitCode::from(err.code)"));
 }
 

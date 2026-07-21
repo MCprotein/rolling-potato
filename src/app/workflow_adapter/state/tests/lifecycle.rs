@@ -556,7 +556,7 @@ fn reconcile_writer_crash_matrix_preserves_evidence() {
             reconcile_report().unwrap();
             let current = fs::read(paths::current_state_file()).unwrap();
             let events = ledger::read_runtime_events().unwrap();
-            let backups = fs::read_dir(paths::state_dir())
+            let backups = fs::read_dir(paths::current_state_dir())
                 .unwrap()
                 .filter_map(Result::ok)
                 .filter(|entry| {
