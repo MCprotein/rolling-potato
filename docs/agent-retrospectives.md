@@ -2,6 +2,34 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-22: v0.45.0 TUI가 혼합 세대 ledger를 거부함
+
+### 증상
+
+- 과거 버전부터 사용한 data home에서 `rpotato`를 실행하면 기본 TUI가 시작되지 않고
+  `runtime ledger read-only view는 chained event만 허용합니다.` 오류가 출력됐습니다.
+- canonical ledger에는 정상적인 schema v1 legacy prefix 뒤에 schema v2 chained suffix가
+  있었으며 데이터 손상은 없었습니다.
+
+### 원인
+
+- canonical 전체 검증기는 legacy prefix와 chained suffix의 조합을 지원했지만 TUI의
+  bounded read-only reader는 반환 대상 event를 모두 chained event로 제한했습니다.
+- 기본 overview가 최근 80개를 요청할 때 chained suffix가 80개보다 짧으면 정상 legacy
+  event가 반환 범위에 들어와 시작을 차단했습니다.
+- upgrade용 native terminal fixture는 legacy current-state 이동만 검사하고 동일 data
+  home에 누적된 mixed-generation ledger를 재현하지 않았습니다.
+
+### 재발 방지
+
+- canonical writer/validator가 지원하는 ledger 세대 전환 규칙을 read-only reader도
+  동일하게 적용하고, 전체 prefix를 byte budget 안에서 확인할 수 있을 때 legacy digest와
+  첫 chained predecessor를 검증합니다.
+- 기본 TUI 회귀 테스트에는 반환 event budget보다 legacy prefix와 chained suffix의 합이
+  큰 혼합 ledger를 사용해 실제 업그레이드 tail 경계를 고정합니다.
+- 상태 형식 또는 persistence 호환성을 변경한 릴리스는 fresh fixture뿐 아니라 지원 중인
+  이전 schema의 누적 상태로 무인자 TUI 진입을 검증합니다.
+
 ## 2026-07-22: v0.44.0 기본 TUI가 다른 프로젝트의 전역 상태에 차단됨
 
 ### 증상

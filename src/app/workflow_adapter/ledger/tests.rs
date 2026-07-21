@@ -50,6 +50,83 @@ fn malformed_runtime_ledger_line_fails_closed() {
 }
 
 #[test]
+fn read_only_tail_accepts_legacy_prefix_before_chained_suffix() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = std::env::temp_dir().join(format!(
+        "rpotato-ledger-read-only-legacy-prefix-{}-{}",
+        std::process::id(),
+        now_nanos()
+    ));
+    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+    fs::create_dir_all(paths::state_dir()).unwrap();
+    let identity = fresh_identity();
+    let path = paths::runtime_ledger_file();
+    let mut legacy_prefix = String::new();
+    for index in 0..62 {
+        let event = new_event_for(
+            &identity,
+            "legacy.event",
+            &format!("legacy {index}"),
+            "safe",
+        );
+        legacy_prefix.push_str(&event.to_json_line());
+        legacy_prefix.push('\n');
+    }
+    fs::write(&path, legacy_prefix).unwrap();
+    for index in 0..61 {
+        let event = new_event_for(
+            &identity,
+            "chained.event",
+            &format!("chained {index}"),
+            "safe",
+        );
+        storage::append_chained_event(&path, &event).unwrap();
+    }
+
+    let tail = read_runtime_tail_read_only(80, 2 * 1024 * 1024).unwrap();
+
+    assert_eq!(tail.binding.event_count, 123);
+    assert_eq!(tail.events.len(), 80);
+    assert!(tail.truncated);
+    assert_eq!(
+        tail.events
+            .iter()
+            .filter(|event| event.event_hash.is_none())
+            .count(),
+        19
+    );
+    assert!(tail.events.last().unwrap().event_hash.is_some());
+
+    let original = fs::read_to_string(&path).unwrap();
+    let tampered = original.replacen("legacy 0", "legacy x", 1);
+    assert_ne!(tampered, original);
+    fs::write(&path, tampered).unwrap();
+    let error = read_runtime_tail_read_only(80, 2 * 1024 * 1024).unwrap_err();
+    assert!(error.message.contains("adjacent hash chain 불일치"));
+
+    fs::write(&path, &original).unwrap();
+    let incomplete_prefix_budget = u64::try_from(original.len() - 1).unwrap();
+    let error = read_runtime_tail_read_only(80, incomplete_prefix_budget).unwrap_err();
+    assert!(error
+        .message
+        .contains("legacy prefix가 read-only byte budget 안에 없습니다"));
+
+    let first_chained_offset = original.find("{\"schema_version\":2").unwrap();
+    let start_inside_last_legacy_record = first_chained_offset - 5;
+    let chained_only_tail_budget =
+        u64::try_from(original.len() - start_inside_last_legacy_record).unwrap();
+    let error = read_runtime_tail_read_only(80, chained_only_tail_budget).unwrap_err();
+    assert!(error
+        .message
+        .contains("legacy prefix가 read-only byte budget 안에 없습니다"));
+
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn workflow_checkpoint_previous_hash_chain_is_strict() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let root = std::env::temp_dir().join(format!("rpotato-ledger-chain-{}", std::process::id()));

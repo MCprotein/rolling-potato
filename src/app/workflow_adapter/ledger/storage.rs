@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 use std::time::Duration;
 
@@ -57,9 +57,12 @@ pub(crate) fn read_runtime_tail_read_only(
     file.seek(SeekFrom::Start(start))
         .map_err(|err| AppError::blocked(format!("runtime ledger tail seek 실패: {err}")))?;
     let mut bytes = Vec::new();
-    file.take(max_bytes)
+    (&mut file)
+        .take(max_bytes)
         .read_to_end(&mut bytes)
         .map_err(|err| AppError::blocked(format!("runtime ledger tail 읽기 실패: {err}")))?;
+    let truncated_legacy_genesis =
+        start > 0 && read_ledger_genesis_is_legacy(&mut file, max_bytes)?;
     let after = fs::metadata(&path)
         .map_err(|err| AppError::blocked(format!("runtime ledger reread metadata 실패: {err}")))?;
     let head_after = read_ledger_head_read_only(&head_path)?;
@@ -102,41 +105,37 @@ pub(crate) fn read_runtime_tail_read_only(
             truncated: false,
         });
     }
-    let take = lines.len().min(max_events);
+    let mut parsed_events = lines
+        .iter()
+        .map(|line| parse_event_line_strict(line))
+        .collect::<Result<Vec<_>, _>>()?;
+    validate_read_only_event_sequence(
+        &lines,
+        &parsed_events,
+        start == 0,
+        truncated_legacy_genesis,
+    )?;
+    let visible_event_count = u64::try_from(parsed_events.len())
+        .map_err(|_| AppError::blocked("runtime ledger read-only event count overflow"))?;
+    if (start == 0 && head_before.event_count != visible_event_count)
+        || (start > 0 && head_before.event_count < visible_event_count)
+    {
+        return Err(AppError::blocked(
+            "runtime ledger read-only tail/head event count 불일치",
+        ));
+    }
+    let take = parsed_events.len().min(max_events);
     if take == 0 {
         return Err(AppError::blocked(
             "runtime ledger canonical tail이 read-only budget 안에 없습니다.",
         ));
     }
-    let mut events = lines[lines.len() - take..]
-        .iter()
-        .map(|line| parse_event_line_strict(line))
-        .collect::<Result<Vec<_>, _>>()?;
-    for (index, event) in events.iter().enumerate() {
-        let previous = event.previous_event_hash.as_deref().ok_or_else(|| {
-            AppError::blocked("runtime ledger read-only view는 chained event만 허용합니다.")
-        })?;
-        let hash = event
-            .event_hash
-            .as_deref()
-            .ok_or_else(|| AppError::blocked("runtime ledger read-only event hash 누락"))?;
-        if hash != event_physical_hash(event, previous) {
-            return Err(AppError::blocked(
-                "runtime ledger read-only physical hash chain 불일치",
-            ));
-        }
-        if index > 0 && Some(previous) != events[index - 1].event_hash.as_deref() {
-            return Err(AppError::blocked(
-                "runtime ledger read-only adjacent hash chain 불일치",
-            ));
-        }
-    }
+    let mut events = parsed_events.split_off(parsed_events.len() - take);
     let last = events
         .last()
         .ok_or_else(|| AppError::blocked("runtime ledger read-only tail 누락"))?;
     if last.event_hash.as_deref() != Some(head_before.event_hash.as_str())
-        || u64::try_from(events.len()).ok().is_none()
-        || head_before.event_count < events.len() as u64
+        || head_before.event_count < visible_event_count
     {
         return Err(AppError::blocked(
             "runtime ledger read-only tail/head binding 불일치",
@@ -154,6 +153,104 @@ pub(crate) fn read_runtime_tail_read_only(
         events,
         truncated,
     })
+}
+
+fn validate_read_only_event_sequence(
+    lines: &[&str],
+    events: &[ParsedLedgerEvent],
+    starts_at_file_beginning: bool,
+    truncated_legacy_genesis: bool,
+) -> Result<(), AppError> {
+    if truncated_legacy_genesis {
+        return Err(AppError::blocked(
+            "runtime ledger legacy prefix가 read-only byte budget 안에 없습니다.",
+        ));
+    }
+    let mut legacy_prefix = String::new();
+    let mut previous_hash: Option<&str> = None;
+    for (line, event) in lines.iter().zip(events) {
+        match (
+            event.previous_event_hash.as_deref(),
+            event.event_hash.as_deref(),
+        ) {
+            (None, None) if previous_hash.is_none() => {
+                if !starts_at_file_beginning {
+                    return Err(AppError::blocked(
+                        "runtime ledger legacy prefix가 read-only byte budget 안에 없습니다.",
+                    ));
+                }
+                legacy_prefix.push_str(line);
+                legacy_prefix.push('\n');
+            }
+            (Some(previous), Some(hash)) => {
+                if hash != event_physical_hash(event, previous) {
+                    return Err(AppError::blocked(
+                        "runtime ledger read-only physical hash chain 불일치",
+                    ));
+                }
+                let predecessor_matches = if let Some(expected) = previous_hash {
+                    previous == expected
+                } else if starts_at_file_beginning {
+                    let expected = if legacy_prefix.is_empty() {
+                        "root".to_string()
+                    } else {
+                        format!("legacy:{}", sha256_bytes(legacy_prefix.as_bytes()))
+                    };
+                    previous == expected
+                } else {
+                    true
+                };
+                if !predecessor_matches {
+                    return Err(AppError::blocked(
+                        "runtime ledger read-only adjacent hash chain 불일치",
+                    ));
+                }
+                previous_hash = Some(hash);
+            }
+            (None, None) => {
+                return Err(AppError::blocked(
+                    "runtime ledger read-only legacy event가 chained suffix 뒤에 존재합니다.",
+                ));
+            }
+            _ => {
+                return Err(AppError::blocked(
+                    "runtime ledger read-only chain field 조합 불일치",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn read_ledger_genesis_is_legacy(file: &mut fs::File, max_bytes: u64) -> Result<bool, AppError> {
+    file.seek(SeekFrom::Start(0))
+        .map_err(|err| AppError::blocked(format!("runtime ledger genesis seek 실패: {err}")))?;
+    let mut line = Vec::new();
+    BufReader::new(file.take(max_bytes))
+        .read_until(b'\n', &mut line)
+        .map_err(|err| AppError::blocked(format!("runtime ledger genesis 읽기 실패: {err}")))?;
+    if !line.ends_with(b"\n") {
+        return Err(AppError::blocked(
+            "runtime ledger genesis record가 read-only byte budget을 초과했습니다.",
+        ));
+    }
+    line.pop();
+    let body = std::str::from_utf8(&line)
+        .map_err(|_| AppError::blocked("runtime ledger genesis UTF-8 불일치"))?;
+    let event = parse_event_line_strict(body)?;
+    match (
+        event.previous_event_hash.as_deref(),
+        event.event_hash.as_deref(),
+    ) {
+        (None, None) => Ok(true),
+        (Some("root"), Some(hash)) if hash == event_physical_hash(&event, "root") => Ok(false),
+        (Some(_), Some(_)) => Err(AppError::blocked(
+            "runtime ledger read-only genesis hash chain 불일치",
+        )),
+        _ => Err(AppError::blocked(
+            "runtime ledger read-only genesis chain field 조합 불일치",
+        )),
+    }
 }
 
 fn ensure_read_only_regular_file(path: &Path, label: &str) -> Result<(), AppError> {
