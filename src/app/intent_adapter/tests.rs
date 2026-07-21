@@ -245,6 +245,8 @@ fn imported_skill_instructions_are_bounded_by_runtime_contract() {
         transcript_turns_selected: 0,
         transcript_chars: 0,
         transcript: Vec::new(),
+        compacted_checkpoint: None,
+        compaction_boundary: None,
         sources: ContextPack {
             source_pointers: Vec::new(),
             files_considered: 0,

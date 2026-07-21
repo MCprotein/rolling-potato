@@ -1,5 +1,11 @@
 use super::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::app::workflow_adapter::state) enum CompactionBoundaryUpdate<'a> {
+    Preserve,
+    Set(&'a str),
+}
+
 pub(crate) fn prepare_current_image(
     workflow: &WorkflowRecord,
     ledger_binding: &ledger::LedgerBinding,
@@ -104,6 +110,7 @@ pub(in super::super) fn prepare_state_transition_current_image(
     active_workflow: Option<&WorkflowRecord>,
     final_binding: &ledger::LedgerBinding,
     previous: Option<&CurrentStateSnapshot>,
+    compaction_boundary: CompactionBoundaryUpdate<'_>,
 ) -> Result<PreparedCurrentImage, AppError> {
     let revision = previous.map_or(Ok(1), |snapshot| {
         snapshot
@@ -127,7 +134,12 @@ pub(in super::super) fn prepare_state_transition_current_image(
         }),
         parent_session_id: previous.and_then(|snapshot| snapshot.parent_session_id.clone()),
         branch_from_event_id: previous.and_then(|snapshot| snapshot.branch_from_event_id.clone()),
-        compaction_boundary: previous.and_then(|snapshot| snapshot.compaction_boundary.clone()),
+        compaction_boundary: match compaction_boundary {
+            CompactionBoundaryUpdate::Preserve => previous
+                .filter(|snapshot| snapshot.session_id == identity.session_id)
+                .and_then(|snapshot| snapshot.compaction_boundary.clone()),
+            CompactionBoundaryUpdate::Set(boundary) => Some(boundary.to_string()),
+        },
         resume_source: resume_source.map(str::to_string),
         ledger_binding: final_binding.clone(),
         artifact_hash: String::new(),

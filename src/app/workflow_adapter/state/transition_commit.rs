@@ -33,6 +33,7 @@ pub(super) fn commit_state_event(
     event: &ledger::LedgerEvent,
     resume_source: Option<&str>,
     active_workflow_id: Option<&str>,
+    compaction_boundary: CompactionBoundaryUpdate<'_>,
 ) -> Result<PreparedCurrentImage, AppError> {
     let transition_guard = transition::TransitionGuard::acquire_for(&identity.project_id, intent)?;
     let previous = read_valid_current_for_transition()?;
@@ -81,6 +82,7 @@ pub(super) fn commit_state_event(
             resume_source,
             active_workflow: active_workflow.as_ref(),
             previous: previous.as_ref(),
+            compaction_boundary,
             workflow: None,
         },
     )
@@ -118,6 +120,7 @@ pub(super) fn reconcile_invalid_current_under_guard(
         None,
         &final_binding,
         None,
+        CompactionBoundaryUpdate::Preserve,
     )?;
     let before_hash = sha256_bytes(before_bytes.as_bytes());
     let mut bundle = transition::prepare_state_transition_bundle(

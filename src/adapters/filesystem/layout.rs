@@ -140,6 +140,18 @@ pub fn transcript_file(project_id: &str, session_id: &str, record_id: &str) -> P
     transcript_session_dir(project_id, session_id).join(format!("{record_id}.json"))
 }
 
+pub fn compactions_dir() -> PathBuf {
+    state_dir().join("compactions")
+}
+
+pub fn compaction_session_dir(project_id: &str, session_id: &str) -> PathBuf {
+    compactions_dir().join(project_id).join(session_id)
+}
+
+pub fn compaction_file(project_id: &str, session_id: &str, artifact_id: &str) -> PathBuf {
+    compaction_session_dir(project_id, session_id).join(format!("{artifact_id}.json"))
+}
+
 pub fn tool_outputs_dir() -> PathBuf {
     state_dir().join("tool-output")
 }

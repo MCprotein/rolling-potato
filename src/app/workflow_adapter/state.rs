@@ -99,7 +99,7 @@ use current_transition::{
     install_prepared_reconcile_backup, prepare_state_transition_current_image,
     prepare_terminal_current_image_after, prepared_workflow_member,
     state_transition_current_member, transition_project_current_state_under_guard,
-    validate_state_transition_current_cas, StateTransitionRequest,
+    validate_state_transition_current_cas, CompactionBoundaryUpdate, StateTransitionRequest,
 };
 pub(crate) use current_transition::{
     prepare_current_image, prepare_current_image_after, recover_prepared_state_transition,
@@ -156,7 +156,8 @@ use lifecycle::session_new_report_for_intent;
 #[cfg(test)]
 pub(crate) use lifecycle::StateInit;
 pub(crate) use lifecycle::{
-    cancel_report, initialize, reconcile_report, record_event, resume_report, session_list_report,
+    cancel_report, current_compaction_boundary, initialize, reconcile_report,
+    record_compaction_boundary, record_event, resume_report, session_list_report,
     session_new_report, session_resume_preflight, session_resume_report,
     session_resume_report_for_tui, status_report, workflow_ownership_summary,
 };

@@ -2,6 +2,12 @@
 
 use std::collections::BTreeSet;
 
+mod artifact;
+pub(crate) use artifact::{
+    parse_artifact, render_artifact, render_artifact_payload, CompactionArtifact,
+    COMPACTION_SCHEMA_VERSION,
+};
+
 const AUTO_TRIGGER_PERCENT: usize = 75;
 const POST_COMPACT_TARGET_PERCENT: usize = 40;
 const RECENT_RECORD_LIMIT: usize = 4;
@@ -39,6 +45,8 @@ pub(crate) struct CompactionRecord {
 pub(crate) struct CompactionPlan {
     pub should_compact: bool,
     pub estimated_tokens_before: usize,
+    pub source_record_count: usize,
+    pub boundary_record_id: Option<String>,
     pub summary_source: Vec<CompactionRecord>,
     pub recent_records: Vec<CompactionRecord>,
     pub source_records_dropped: usize,
@@ -83,12 +91,17 @@ impl CompactionPolicy {
         }
     }
 
-    pub(crate) fn plan(
+    pub(crate) fn plan_with_observed_tokens(
         &self,
         mode: CompactionMode,
         records: &[CompactionRecord],
+        observed_context_tokens: Option<usize>,
     ) -> CompactionPlan {
-        let estimated_tokens_before = records.iter().map(record_token_cost).sum::<usize>();
+        let estimated_tokens_before = records
+            .iter()
+            .map(record_token_cost)
+            .sum::<usize>()
+            .max(observed_context_tokens.unwrap_or(0));
         let recent_start = records.len().saturating_sub(RECENT_RECORD_LIMIT);
         let recent_records =
             bounded_recent_records(&records[recent_start..], self.recent_tail_budget_tokens);
@@ -109,6 +122,8 @@ impl CompactionPolicy {
         CompactionPlan {
             should_compact,
             estimated_tokens_before,
+            source_record_count: source.len(),
+            boundary_record_id: source.last().map(|record| record.record_id.clone()),
             summary_source,
             recent_records,
             source_records_dropped,
@@ -118,8 +133,8 @@ impl CompactionPolicy {
 
 impl CompactionCheckpoint {
     pub(crate) fn normalize(&mut self) {
-        self.current_task = normalize_text(&self.current_task, 1_000);
-        self.rationale = normalize_text(&self.rationale, 2_000);
+        self.current_task = normalize_text(&self.current_task, 600);
+        self.rationale = normalize_text(&self.rationale, 800);
         for values in [
             &mut self.constraints,
             &mut self.decisions,
@@ -281,10 +296,10 @@ fn normalize_list(values: &mut Vec<String>) {
     let mut seen = BTreeSet::new();
     *values = std::mem::take(values)
         .into_iter()
-        .map(|value| normalize_text(&value, 500))
+        .map(|value| normalize_text(&value, 200))
         .filter(|value| !value.is_empty())
         .filter(|value| seen.insert(value.clone()))
-        .take(32)
+        .take(6)
         .collect();
 }
 
@@ -345,7 +360,7 @@ mod tests {
         ];
         records.extend((4..8).map(|index| record(index, "model", "recent".repeat(20))));
 
-        let plan = policy.plan(CompactionMode::Automatic, &records);
+        let plan = policy.plan_with_observed_tokens(CompactionMode::Automatic, &records, None);
 
         assert!(plan.should_compact);
         assert_eq!(plan.recent_records.len(), 4);
@@ -371,15 +386,39 @@ mod tests {
 
         assert!(
             !policy
-                .plan(CompactionMode::Automatic, &records)
+                .plan_with_observed_tokens(CompactionMode::Automatic, &records, None)
                 .should_compact
         );
-        assert!(policy.plan(CompactionMode::Manual, &records).should_compact);
+        assert!(
+            policy
+                .plan_with_observed_tokens(CompactionMode::Manual, &records, None)
+                .should_compact
+        );
+        let plan = policy.plan_with_observed_tokens(CompactionMode::Manual, &records, None);
+        assert_eq!(plan.source_record_count, 1);
+        assert_eq!(plan.boundary_record_id.as_deref(), Some("record-0"));
         assert!(
             !policy
-                .plan(CompactionMode::Manual, &records[..4])
+                .plan_with_observed_tokens(CompactionMode::Manual, &records[..4], None)
                 .should_compact
         );
+    }
+
+    #[test]
+    fn observed_compiled_context_can_trigger_when_transcript_estimate_is_smaller() {
+        let policy = CompactionPolicy::for_context_limit(4_096);
+        let records = (0..5)
+            .map(|index| record(index, "user", format!("turn {index}")))
+            .collect::<Vec<_>>();
+
+        let plan = policy.plan_with_observed_tokens(
+            CompactionMode::Automatic,
+            &records,
+            Some(policy.auto_trigger_tokens),
+        );
+
+        assert!(plan.should_compact);
+        assert_eq!(plan.estimated_tokens_before, policy.auto_trigger_tokens);
     }
 
     #[test]

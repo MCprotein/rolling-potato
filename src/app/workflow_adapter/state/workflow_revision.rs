@@ -95,6 +95,7 @@ pub(crate) fn checkpoint_workflow_under_transition(
             resume_source: None,
             active_workflow: Some(&prepared.record),
             previous: previous.as_ref(),
+            compaction_boundary: CompactionBoundaryUpdate::Preserve,
             workflow: Some((&workflow_guard, &prepared)),
         },
     )?;

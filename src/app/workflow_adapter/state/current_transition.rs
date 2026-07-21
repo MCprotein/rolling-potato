@@ -5,6 +5,7 @@ use crate::adapters::filesystem::atomic_write::{atomic_replace_bytes, sync_paren
 
 mod current_image;
 use current_image::prepared_state_current_image;
+pub(super) use current_image::CompactionBoundaryUpdate;
 pub(crate) use current_image::{
     prepare_current_image, prepare_current_image_after, validate_prepared_state_current_member,
 };
@@ -168,6 +169,7 @@ pub(super) struct StateTransitionRequest<'a> {
     pub(super) resume_source: Option<&'a str>,
     pub(super) active_workflow: Option<&'a WorkflowRecord>,
     pub(super) previous: Option<&'a CurrentStateSnapshot>,
+    pub(super) compaction_boundary: CompactionBoundaryUpdate<'a>,
     pub(super) workflow: Option<(&'a WorkflowCheckpointGuard, &'a PreparedWorkflowRevision)>,
 }
 
@@ -183,6 +185,7 @@ pub(super) fn transition_project_current_state_under_guard(
         resume_source,
         active_workflow,
         previous,
+        compaction_boundary,
         workflow,
     } = request;
     let writer = ledger::LedgerWriterGuard::acquire()?;
@@ -199,6 +202,7 @@ pub(super) fn transition_project_current_state_under_guard(
         active_workflow,
         &final_binding,
         previous,
+        compaction_boundary,
     )?;
     let current_revision = previous.map_or(0, |snapshot| snapshot.revision);
     let current_artifact_hash = previous

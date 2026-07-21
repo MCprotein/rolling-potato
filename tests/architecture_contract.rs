@@ -5276,9 +5276,13 @@ fn v03713_composition_owns_backend_command_orchestration() {
 #[test]
 fn v03713_context_adapter_separates_filesystem_discovery() {
     let context_adapter = "src/app/context_adapter.rs";
+    let context_compaction = "src/app/context_adapter/compaction.rs";
     let filesystem_discovery = "src/app/context_adapter/discovery.rs";
+    let context_tests = "src/app/context_adapter/tests.rs";
     assert!(Path::new(context_adapter).is_file());
+    assert!(Path::new(context_compaction).is_file());
     assert!(Path::new(filesystem_discovery).is_file());
+    assert!(Path::new(context_tests).is_file());
     assert!(!Path::new("src/context.rs").exists());
     assert!(!Path::new("src/context").exists());
     let main = fs::read_to_string("src/main.rs").unwrap();
@@ -5292,10 +5296,16 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
     );
 
     let context = fs::read_to_string(context_adapter).unwrap();
+    let compaction = fs::read_to_string(context_compaction).unwrap();
     let discovery = fs::read_to_string(filesystem_discovery).unwrap();
+    let tests = fs::read_to_string(context_tests).unwrap();
     assert!(
         context.lines().any(|line| line == "mod discovery;"),
         "context adapter does not register its filesystem discovery owner"
+    );
+    assert!(
+        context.lines().any(|line| line == "mod compaction;"),
+        "context adapter does not register its compaction owner"
     );
     for responsibility in [
         "pub(super) fn build_filesystem_fallback(",
@@ -5317,9 +5327,10 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
         );
     }
     assert!(
-        context.contains("fn filesystem_discovery_skips_generated_dirs_and_ranks_request_matches(")
+        tests.contains("fn filesystem_discovery_skips_generated_dirs_and_ranks_request_matches(")
     );
     assert!(context.lines().count() < 600);
+    assert!(compaction.lines().count() < 550);
     assert!(discovery.lines().count() < 250);
 }
 

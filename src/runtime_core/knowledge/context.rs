@@ -3,6 +3,8 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
+use super::compaction::CompactionCheckpoint;
+
 pub(crate) const MAX_CONTEXT_FILES: usize = 4;
 pub(crate) const MAX_CONTEXT_CHARS: usize = 3_200;
 pub(crate) const MAX_FILE_CHARS: usize = 1_000;
@@ -40,6 +42,8 @@ pub struct ResumeContext {
     pub transcript_turns_selected: usize,
     pub transcript_chars: usize,
     pub transcript: Vec<(String, String)>,
+    pub compacted_checkpoint: Option<CompactionCheckpoint>,
+    pub compaction_boundary: Option<String>,
     pub sources: ContextPack,
 }
 
@@ -138,13 +142,20 @@ impl ContextPack {
 
 impl ResumeContext {
     pub fn prompt_section(&self) -> String {
-        if self.transcript.is_empty() && self.sources.source_pointers.is_empty() {
+        if self.transcript.is_empty()
+            && self.compacted_checkpoint.is_none()
+            && self.sources.source_pointers.is_empty()
+        {
             return String::new();
         }
         let mut section = format!(
             "durable resumed session context (session={}):\n",
             self.session_id
         );
+        if let Some(checkpoint) = &self.compacted_checkpoint {
+            section.push('\n');
+            section.push_str(&checkpoint.prompt_section());
+        }
         for (kind, content) in &self.transcript {
             section.push_str(&format!("\n{kind} turn:\n{content}\n"));
         }
@@ -155,8 +166,11 @@ impl ResumeContext {
 
     pub fn summary(&self) -> String {
         format!(
-            "transcript turns={} chars={} source pointers={}",
-            self.transcript_turns_selected, self.transcript_chars, self.sources.files_read
+            "transcript turns={} chars={} compacted={} source pointers={}",
+            self.transcript_turns_selected,
+            self.transcript_chars,
+            self.compaction_boundary.as_deref().unwrap_or("none"),
+            self.sources.files_read
         )
     }
 }
