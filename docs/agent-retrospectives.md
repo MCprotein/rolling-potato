@@ -237,3 +237,28 @@
   `rpotato debug --help` 아래의 호환·진단 surface로 분리합니다.
 - Composer 바로 아래의 상태 line에 `model | context | backend | session` 순서를
   고정하고 attached ANSI/redirected plain-text 양쪽을 회귀 테스트합니다.
+
+## 2026-07-21: candidate preflight가 일부 architecture 계약만 실행
+
+### 증상
+
+- 로컬 candidate preflight는 통과했지만 PR CI의 architecture contract 42개 중
+  dependency·ownership·line-budget 관련 6개 테스트가 실패했습니다.
+- preflight가 migration map 단일 테스트만 실행해, 새 파일 누락 외의 정적 경계
+  회귀는 CI에 push한 뒤에야 드러났습니다.
+
+### 원인
+
+- 빠른 preflight를 만들면서 architecture suite 전체가 1초 미만인 정적 테스트라는
+  점을 확인하지 않고 가장 익숙한 migration map 검사만 대표로 선택했습니다.
+- 하나의 architecture test가 여러 line-budget을 순서대로 검사하므로 첫 assertion을
+  고친 뒤 같은 테스트에서 숨은 초과가 이어질 수 있다는 점도 반영하지 않았습니다.
+
+### 재발 방지
+
+- `verify-pr-candidate-preflight.sh`는 migration map 단일 필터 대신
+  `architecture_contract` 전체 suite를 실행합니다.
+- architecture CI 실패는 임계값을 올리지 않고 책임 추출 또는 실제 경계 복구로
+  닫으며, 변경 뒤 해당 테스트와 전체 architecture suite를 차례로 확인합니다.
+- 전체 unit test는 PR CI의 정본 검증으로 남기되, 빠른 정적 architecture suite는
+  candidate label 전 로컬 preflight에서 실행합니다.
