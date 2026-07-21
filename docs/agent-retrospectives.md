@@ -258,6 +258,8 @@
 
 - `verify-pr-candidate-preflight.sh`는 migration map 단일 필터 대신
   `architecture_contract` 전체 suite를 실행합니다.
+- release workflow contract도 이 전체-suite 명령을 고정해 preflight와 검증 계약이
+  서로 다른 명령을 요구하지 않게 합니다.
 - architecture CI 실패는 임계값을 올리지 않고 책임 추출 또는 실제 경계 복구로
   닫으며, 변경 뒤 해당 테스트와 전체 architecture suite를 차례로 확인합니다.
 - 전체 unit test는 PR CI의 정본 검증으로 남기되, 빠른 정적 architecture suite는
