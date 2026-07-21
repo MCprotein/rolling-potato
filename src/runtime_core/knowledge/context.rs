@@ -3,7 +3,10 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
-use super::compaction::CompactionCheckpoint;
+use super::compaction::{
+    estimate_tokens, truncate_head_to_tokens, truncate_tail_to_estimated_tokens,
+    CompactionCheckpoint,
+};
 
 pub(crate) const MAX_CONTEXT_FILES: usize = 4;
 pub(crate) const MAX_CONTEXT_CHARS: usize = 3_200;
@@ -44,6 +47,7 @@ pub struct ResumeContext {
     pub transcript: Vec<(String, String)>,
     pub compacted_checkpoint: Option<CompactionCheckpoint>,
     pub compaction_boundary: Option<String>,
+    pub compaction_target_tokens: Option<usize>,
     pub sources: ContextPack,
 }
 
@@ -148,17 +152,43 @@ impl ResumeContext {
         {
             return String::new();
         }
-        let mut section = format!(
+        let header = format!(
             "durable resumed session context (session={}):\n",
             self.session_id
         );
+        let Some(target_tokens) = self.compaction_target_tokens else {
+            return self.unbounded_prompt_section(header);
+        };
+        let mut section = truncate_head_to_tokens(&header, target_tokens);
+        let mut remaining = target_tokens.saturating_sub(estimate_tokens(&section));
+        if let Some(checkpoint) = &self.compacted_checkpoint {
+            let checkpoint_budget = remaining.saturating_mul(50) / 100;
+            let checkpoint = truncate_head_to_tokens(
+                &format!("\n{}", checkpoint.prompt_section()),
+                checkpoint_budget,
+            );
+            remaining = remaining.saturating_sub(estimate_tokens(&checkpoint));
+            section.push_str(&checkpoint);
+        }
+        let transcript_budget = remaining.saturating_mul(60) / 100;
+        let transcript = truncate_tail_to_estimated_tokens(
+            &render_transcript(&self.transcript),
+            transcript_budget,
+        );
+        remaining = remaining.saturating_sub(estimate_tokens(&transcript));
+        section.push_str(&transcript);
+        let sources =
+            truncate_head_to_tokens(&format!("\n{}", self.sources.prompt_section()), remaining);
+        section.push_str(&sources);
+        truncate_head_to_tokens(&section, target_tokens)
+    }
+
+    fn unbounded_prompt_section(&self, mut section: String) -> String {
         if let Some(checkpoint) = &self.compacted_checkpoint {
             section.push('\n');
             section.push_str(&checkpoint.prompt_section());
         }
-        for (kind, content) in &self.transcript {
-            section.push_str(&format!("\n{kind} turn:\n{content}\n"));
-        }
+        section.push_str(&render_transcript(&self.transcript));
         section.push('\n');
         section.push_str(&self.sources.prompt_section());
         section
@@ -173,6 +203,14 @@ impl ResumeContext {
             self.sources.files_read
         )
     }
+}
+
+fn render_transcript(transcript: &[(String, String)]) -> String {
+    let mut section = String::new();
+    for (kind, content) in transcript {
+        section.push_str(&format!("\n{kind} turn:\n{content}\n"));
+    }
+    section
 }
 
 pub(crate) fn truncate_chars(contents: &str, max_chars: usize) -> String {
@@ -208,4 +246,66 @@ pub(crate) fn truncate_tail_chars(contents: &str, max_chars: usize) -> String {
         .skip(count - tail_chars)
         .collect::<String>();
     format!("{MARKER}{tail}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compacted_resume_prompt_honors_one_total_budget_for_korean_content() {
+        let korean = "작은 모델이 이어서 수행해야 하는 긴 한국어 컨텍스트 ".repeat(200);
+        let checkpoint = CompactionCheckpoint {
+            current_task: korean.clone(),
+            constraints: (0..8)
+                .map(|index| format!("제약 {index} {korean}"))
+                .collect(),
+            decisions: (0..8)
+                .map(|index| format!("결정 {index} {korean}"))
+                .collect(),
+            remaining_work: (0..8)
+                .map(|index| format!("남은 작업 {index} {korean}"))
+                .collect(),
+            ..CompactionCheckpoint::default()
+        };
+        let source_pointers = (0..4)
+            .map(|index| SourcePointer {
+                path: format!("src/file-{index}.rs"),
+                stable_ref: format!("src/file-{index}.rs:1"),
+                chars: korean.chars().count(),
+                fingerprint: "a".repeat(64),
+                snippet: korean.clone(),
+            })
+            .collect::<Vec<_>>();
+        let resume = ResumeContext {
+            session_id: "session-budget".to_string(),
+            transcript_records_considered: 8,
+            transcript_turns_selected: 8,
+            transcript_chars: korean.chars().count() * 8,
+            transcript: (0..8)
+                .map(|index| ("user".to_string(), format!("turn-{index} {korean}")))
+                .collect(),
+            compacted_checkpoint: Some(checkpoint),
+            compaction_boundary: Some("record-boundary".to_string()),
+            compaction_target_tokens: Some(1_638),
+            sources: ContextPack {
+                project_root: PathBuf::from("/project"),
+                origin: "test".to_string(),
+                ontology_records_selected: 0,
+                ontology_stale_rejected: 0,
+                files_considered: 4,
+                files_read: 4,
+                chars_read: korean.chars().count() * 4,
+                dropped_files: 0,
+                source_pointers,
+            },
+        };
+
+        let prompt = resume.prompt_section();
+
+        assert!(estimate_tokens(&prompt) <= 1_638);
+        assert!(prompt.contains("derived compacted checkpoint"));
+        assert!(prompt.contains("[compacted]"));
+        assert!(prompt.contains("repository context"));
+    }
 }

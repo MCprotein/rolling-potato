@@ -135,7 +135,10 @@ pub(crate) trait ObservabilityProjectionPort {
 
     fn latest_resource_sample(&self) -> Result<Option<ResourceSampleMetric>, AppError>;
 
-    fn latest_model_run(&self) -> Result<Option<LatestModelRunSnapshot>, AppError>;
+    fn latest_model_run_for_session(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<LatestModelRunSnapshot>, AppError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

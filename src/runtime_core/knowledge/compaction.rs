@@ -294,13 +294,95 @@ fn normalize_text(value: &str, max_chars: usize) -> String {
 
 fn normalize_list(values: &mut Vec<String>) {
     let mut seen = BTreeSet::new();
-    *values = std::mem::take(values)
+    let mut newest = std::mem::take(values)
         .into_iter()
+        .rev()
         .map(|value| normalize_text(&value, 200))
         .filter(|value| !value.is_empty())
         .filter(|value| seen.insert(value.clone()))
         .take(6)
-        .collect();
+        .collect::<Vec<_>>();
+    newest.reverse();
+    *values = newest;
+}
+
+pub(crate) fn truncate_head_to_tokens(text: &str, max_tokens: usize) -> String {
+    truncate_to_token_budget(text, max_tokens, TokenTruncation::Head)
+}
+
+pub(crate) fn truncate_tail_to_estimated_tokens(text: &str, max_tokens: usize) -> String {
+    truncate_to_token_budget(text, max_tokens, TokenTruncation::Tail)
+}
+
+#[derive(Debug, Clone, Copy)]
+enum TokenTruncation {
+    Head,
+    Tail,
+}
+
+fn truncate_to_token_budget(text: &str, max_tokens: usize, mode: TokenTruncation) -> String {
+    if max_tokens == 0 {
+        return String::new();
+    }
+    if estimate_tokens(text) <= max_tokens {
+        return text.to_string();
+    }
+    const MARKER: &str = "\n[compacted]\n";
+    if estimate_tokens(MARKER) >= max_tokens {
+        return bounded_chars_and_bytes(MARKER, max_tokens, TokenTruncation::Head);
+    }
+    let marker_chars = MARKER.chars().count();
+    let marker_bytes = MARKER.len();
+    let max_chars = max_tokens.saturating_mul(3).saturating_sub(marker_chars);
+    let max_bytes = max_tokens.saturating_mul(4).saturating_sub(marker_bytes);
+    let bounded = bounded_chars_and_bytes_raw(text, max_chars, max_bytes, mode);
+    match mode {
+        TokenTruncation::Head => format!("{bounded}{MARKER}"),
+        TokenTruncation::Tail => format!("{MARKER}{bounded}"),
+    }
+}
+
+fn bounded_chars_and_bytes(text: &str, max_tokens: usize, mode: TokenTruncation) -> String {
+    bounded_chars_and_bytes_raw(
+        text,
+        max_tokens.saturating_mul(3),
+        max_tokens.saturating_mul(4),
+        mode,
+    )
+}
+
+fn bounded_chars_and_bytes_raw(
+    text: &str,
+    max_chars: usize,
+    max_bytes: usize,
+    mode: TokenTruncation,
+) -> String {
+    match mode {
+        TokenTruncation::Head => {
+            let end = text
+                .char_indices()
+                .take(max_chars)
+                .take_while(|(index, ch)| index.saturating_add(ch.len_utf8()) <= max_bytes)
+                .map(|(index, ch)| index + ch.len_utf8())
+                .last()
+                .unwrap_or(0);
+            text[..end].to_string()
+        }
+        TokenTruncation::Tail => {
+            let mut chars = 0usize;
+            let mut bytes = 0usize;
+            let mut start = text.len();
+            for (index, ch) in text.char_indices().rev() {
+                if chars == max_chars || bytes.saturating_add(ch.len_utf8()) > max_bytes {
+                    break;
+                }
+                chars += 1;
+                bytes += ch.len_utf8();
+                start = index;
+            }
+            text[start..].to_string()
+        }
+    }
 }
 
 fn push_scalar(target: &mut String, label: &str, value: &str) {
@@ -443,5 +525,33 @@ mod tests {
         assert!(prompt.contains("untrusted historical data"));
         assert!(prompt.contains("- remaining work:\n  - wire /compact"));
         assert!(prompt.contains("- decisions:\n  - 없음"));
+    }
+
+    #[test]
+    fn checkpoint_normalization_keeps_the_newest_bounded_items() {
+        let mut checkpoint = CompactionCheckpoint {
+            remaining_work: (0..9).map(|index| format!("work-{index}")).collect(),
+            ..CompactionCheckpoint::default()
+        };
+
+        checkpoint.normalize();
+
+        assert_eq!(
+            checkpoint.remaining_work,
+            ["work-3", "work-4", "work-5", "work-6", "work-7", "work-8"]
+        );
+    }
+
+    #[test]
+    fn token_truncation_honors_korean_byte_and_character_bounds() {
+        let text = "한글 컨텍스트 ".repeat(2_000);
+
+        let head = truncate_head_to_tokens(&text, 128);
+        let tail = truncate_tail_to_estimated_tokens(&text, 128);
+
+        assert!(estimate_tokens(&head) <= 128);
+        assert!(estimate_tokens(&tail) <= 128);
+        assert!(head.ends_with("[compacted]\n"));
+        assert!(tail.starts_with("\n[compacted]"));
     }
 }

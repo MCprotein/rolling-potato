@@ -247,6 +247,7 @@ fn imported_skill_instructions_are_bounded_by_runtime_contract() {
         transcript: Vec::new(),
         compacted_checkpoint: None,
         compaction_boundary: None,
+        compaction_target_tokens: None,
         sources: ContextPack {
             source_pointers: Vec::new(),
             files_considered: 0,

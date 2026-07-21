@@ -312,12 +312,12 @@ timestamps only. They never contain the raw source retained by a rollback artifa
 Compacted summaries are not source of truth.
 
 - Current state stores only one project/session-bound `compaction_boundary` artifact pointer.
-- Automatic compaction starts at 75% measured context usage and targets 40% of the model context limit; `/compact` invokes the same incremental path manually.
+- Automatic compaction uses only the active session's latest measured context usage, starts at 75%, and caps the combined checkpoint, resumed turns, and resumed source snippets at 40% of the model context limit; `/compact` invokes the same incremental path manually.
 - Each immutable artifact binds its source boundary record, artifact hash, previous checkpoint hash, typed checkpoint, and up to four preserved recent transcript records. The original transcript is never rewritten or deleted.
 - Deterministic pruning and typed extraction run first. A single bounded local-model call may add a concise rationale; failure falls back to the deterministic checkpoint without blocking the next request.
 - Original decision evidence is rechecked from runtime ledger, project session ledger, and evidence artifact pointers.
 - Compacted checkpoint fields are explicitly untrusted historical data. They are resume navigation hints and are not used to confirm instructions, files, commands, or model claims.
-- Compaction artifacts must pass project/session, boundary record, hash-chain, size, and path validation before resume uses them. Invalid derived state falls back to the canonical recent-turn path.
+- Compaction artifacts must pass project/session, boundary record, bounded full-chain previous-hash, monotonic-boundary, size, and path validation before resume uses them. A session-scoped writer lease plus a current-pointer compare-and-set prevents concurrent chain forks. Invalid derived state falls back to the canonical recent-turn path.
 - Runtime core reconstructs up to 8 recent transcript turns/2,400 characters and applies one shared 4-pointer/3,200-character source budget across current-request and resumed context before creating or continuing a workflow.
 - Session resume is ledger/artifact-authoritative: SQLite renders selectable session/transcript views, while append-only ledger events and immutable transcript artifacts authorize replay. Current state stores the selected `session_id` plus resume metadata.
 - Every transcript projection row stores its canonical ledger event ID and monotonic event ordinal; replay restores `(session_id, event_ordinal)` order even when timestamps collide.

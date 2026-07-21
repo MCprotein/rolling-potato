@@ -76,8 +76,9 @@ pub(super) fn model_summaries() -> Result<Vec<ModelMetricSummary>, AppError> {
         .map_err(sql_error("model metric 결과를 읽지 못했습니다"))
 }
 
-pub(super) fn latest_model_run_from_connection(
+pub(super) fn latest_model_run_for_session_from_connection(
     connection: &Connection,
+    session_id: &str,
 ) -> Result<Option<LatestModelRunSnapshot>, AppError> {
     let mut statement = connection
         .prepare(
@@ -89,13 +90,14 @@ pub(super) fn latest_model_run_from_connection(
                FROM model_runs
           LEFT JOIN token_usage
                  ON token_usage.model_run_id = model_runs.model_run_id
+             WHERE model_runs.session_id = ?1
               ORDER BY model_runs.started_at_ms DESC,
                        model_runs.model_run_id DESC
                  LIMIT 1",
         )
         .map_err(sql_error("latest model run query 준비 실패"))?;
     let mut rows = statement
-        .query([])
+        .query(params![session_id])
         .map_err(sql_error("latest model run query 실행 실패"))?;
     let Some(row) = rows
         .next()

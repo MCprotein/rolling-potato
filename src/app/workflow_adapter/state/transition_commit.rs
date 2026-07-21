@@ -34,6 +34,7 @@ pub(super) fn commit_state_event(
     resume_source: Option<&str>,
     active_workflow_id: Option<&str>,
     compaction_boundary: CompactionBoundaryUpdate<'_>,
+    expected_compaction_boundary: Option<Option<&str>>,
 ) -> Result<PreparedCurrentImage, AppError> {
     let transition_guard = transition::TransitionGuard::acquire_for(&identity.project_id, intent)?;
     let previous = read_valid_current_for_transition()?;
@@ -44,6 +45,16 @@ pub(super) fn commit_state_event(
         return Err(AppError::blocked(
             "state transition current project binding 불일치",
         ));
+    }
+    if let Some(expected) = expected_compaction_boundary {
+        let actual = previous
+            .as_ref()
+            .and_then(|snapshot| snapshot.compaction_boundary.as_deref());
+        if actual != expected {
+            return Err(AppError::blocked(
+                "compaction boundary compare-and-set precondition 불일치",
+            ));
+        }
     }
     if intent == transition::CurrentStateIntent::Bootstrap {
         if let Some(snapshot) = previous.as_ref() {

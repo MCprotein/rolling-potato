@@ -299,6 +299,12 @@ pub fn rebuild_resume_context(
         });
     }
 
+    let compaction_target_tokens = compacted
+        .as_ref()
+        .map(|(_, artifact)| usize::try_from(artifact.post_compact_target_tokens))
+        .transpose()
+        .map_err(|_| AppError::blocked("compaction target token count overflow"))?;
+
     Ok(ResumeContext {
         session_id: session_id.to_string(),
         transcript_records_considered: eligible.len(),
@@ -311,6 +317,7 @@ pub fn rebuild_resume_context(
         compaction_boundary: compacted
             .as_ref()
             .map(|(_, artifact)| artifact.boundary_record_id.clone()),
+        compaction_target_tokens,
         sources: ContextPack {
             project_root,
             origin: "durable-transcript-source-pointers".to_string(),

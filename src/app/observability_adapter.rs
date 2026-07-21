@@ -139,7 +139,8 @@ pub fn latest_resource_sample() -> Result<Option<ResourceSampleMetric>, AppError
     PROJECTION.latest_resource_sample()
 }
 
-pub fn latest_model_run_read_only(
+pub fn latest_model_run_for_session_read_only(
+    session_id: &str,
 ) -> Result<Option<crate::runtime_core::observability::facade::LatestModelRunSnapshot>, AppError> {
-    PROJECTION.latest_model_run()
+    PROJECTION.latest_model_run_for_session(session_id)
 }

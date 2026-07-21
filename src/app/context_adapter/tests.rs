@@ -173,6 +173,7 @@ fn current_and_resume_sources_share_one_budget_and_deduplicate() {
         transcript: Vec::new(),
         compacted_checkpoint: None,
         compaction_boundary: None,
+        compaction_target_tokens: None,
         sources: pack(vec![
             pointer("shared.rs", 1_000),
             pointer("older.rs", 1_000),

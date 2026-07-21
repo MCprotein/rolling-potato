@@ -13,6 +13,7 @@ const ARTIFACT_KEYS: &[&str] = &[
     "boundary_record_id",
     "previous_artifact_path",
     "previous_artifact_hash",
+    "post_compact_target_tokens",
     "source_record_count",
     "source_records_dropped",
     "recent_record_ids",
@@ -43,6 +44,7 @@ pub(crate) struct CompactionArtifact {
     pub boundary_record_id: String,
     pub previous_artifact_path: String,
     pub previous_artifact_hash: String,
+    pub post_compact_target_tokens: u64,
     pub source_record_count: u64,
     pub source_records_dropped: u64,
     pub recent_record_ids: Vec<String>,
@@ -54,13 +56,14 @@ pub(crate) struct CompactionArtifact {
 
 pub(crate) fn render_artifact_payload(artifact: &CompactionArtifact) -> String {
     format!(
-        "{{\"schema_version\":{COMPACTION_SCHEMA_VERSION},\"artifact_id\":\"{}\",\"project_id\":\"{}\",\"session_id\":\"{}\",\"boundary_record_id\":\"{}\",\"previous_artifact_path\":\"{}\",\"previous_artifact_hash\":\"{}\",\"source_record_count\":{},\"source_records_dropped\":{},\"recent_record_ids\":{},\"checkpoint\":{},\"summary_model_id\":\"{}\",\"created_at_ms\":{}}}",
+        "{{\"schema_version\":{COMPACTION_SCHEMA_VERSION},\"artifact_id\":\"{}\",\"project_id\":\"{}\",\"session_id\":\"{}\",\"boundary_record_id\":\"{}\",\"previous_artifact_path\":\"{}\",\"previous_artifact_hash\":\"{}\",\"post_compact_target_tokens\":{},\"source_record_count\":{},\"source_records_dropped\":{},\"recent_record_ids\":{},\"checkpoint\":{},\"summary_model_id\":\"{}\",\"created_at_ms\":{}}}",
         escape(&artifact.artifact_id),
         escape(&artifact.project_id),
         escape(&artifact.session_id),
         escape(&artifact.boundary_record_id),
         escape(&artifact.previous_artifact_path),
         escape(&artifact.previous_artifact_hash),
+        artifact.post_compact_target_tokens,
         artifact.source_record_count,
         artifact.source_records_dropped,
         render_string_array(&artifact.recent_record_ids),
@@ -95,6 +98,11 @@ pub(crate) fn parse_artifact(body: &str, context: &str) -> Result<CompactionArti
         boundary_record_id: canonical_string(&object, "boundary_record_id", context)?,
         previous_artifact_path: canonical_string(&object, "previous_artifact_path", context)?,
         previous_artifact_hash: canonical_string(&object, "previous_artifact_hash", context)?,
+        post_compact_target_tokens: strict_json::canonical_u64(
+            &object,
+            "post_compact_target_tokens",
+            context,
+        )?,
         source_record_count: strict_json::canonical_u64(&object, "source_record_count", context)?,
         source_records_dropped: strict_json::canonical_u64(
             &object,
@@ -137,6 +145,8 @@ fn validate_artifact(artifact: &CompactionArtifact, context: &str) -> Result<(),
         || !valid_id(&artifact.session_id)
         || !valid_id(&artifact.boundary_record_id)
         || !previous_pair_valid
+        || artifact.post_compact_target_tokens == 0
+        || artifact.post_compact_target_tokens > u64::from(u32::MAX)
         || artifact.source_record_count == 0
         || artifact.source_records_dropped > artifact.source_record_count
         || artifact.recent_record_ids.len() > 4
@@ -281,6 +291,7 @@ mod tests {
             boundary_record_id: "transcript-boundary".to_string(),
             previous_artifact_path: "none".to_string(),
             previous_artifact_hash: "none".to_string(),
+            post_compact_target_tokens: 1_638,
             source_record_count: 12,
             source_records_dropped: 1,
             recent_record_ids: vec!["transcript-recent".to_string()],

@@ -334,9 +334,11 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
     fn read_tui_status(&mut self) -> Result<TuiStatusSnapshot, AppError> {
         let backend = crate::app::inference_adapter::backend::runtime_snapshot()?;
         let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
-        let latest = crate::app::observability_adapter::latest_model_run_read_only()
-            .ok()
-            .flatten();
+        let latest = crate::app::observability_adapter::latest_model_run_for_session_read_only(
+            &identity.session_id,
+        )
+        .ok()
+        .flatten();
         let model = backend
             .model_id
             .clone()

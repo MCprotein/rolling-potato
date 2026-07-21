@@ -152,6 +152,10 @@ pub fn compaction_file(project_id: &str, session_id: &str, artifact_id: &str) ->
     compaction_session_dir(project_id, session_id).join(format!("{artifact_id}.json"))
 }
 
+pub fn compaction_session_lock(project_id: &str, session_id: &str) -> PathBuf {
+    compaction_session_dir(project_id, session_id).join("session.lock")
+}
+
 pub fn tool_outputs_dir() -> PathBuf {
     state_dir().join("tool-output")
 }

@@ -1,5 +1,6 @@
 //! Immutable compaction artifact persistence and validated resume loading.
 
+use std::collections::BTreeSet;
 #[cfg(test)]
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -20,6 +21,7 @@ use crate::runtime_core::workflow::storage_compat::transcript::TranscriptRecord;
 const MAX_COMPACTION_ARTIFACT_BYTES: u64 = 64 * 1024;
 const DEFAULT_CONTEXT_LIMIT_TOKENS: usize = 4_096;
 const COMPACTION_TIMEOUT_MS: u32 = 30_000;
+const MAX_COMPACTION_CHAIN_DEPTH: usize = 64;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CompactionOutcome {
@@ -54,7 +56,11 @@ impl CompactionOutcome {
 }
 
 pub(crate) fn compact_automatically() -> Result<CompactionOutcome, AppError> {
-    let Some(latest) = observability::latest_model_run_read_only().ok().flatten() else {
+    let identity = ledger::validated_current_identity()?;
+    let Some(latest) = observability::latest_model_run_for_session_read_only(&identity.session_id)
+        .ok()
+        .flatten()
+    else {
         return Ok(not_needed("측정된 context 사용량이 없습니다.", 0, 0));
     };
     let Some(observed) = latest.context_tokens_used.map(|value| value as usize) else {
@@ -68,7 +74,8 @@ pub(crate) fn compact_automatically() -> Result<CompactionOutcome, AppError> {
 }
 
 pub(crate) fn compact_manually() -> Result<CompactionOutcome, AppError> {
-    let limit = observability::latest_model_run_read_only()
+    let identity = ledger::validated_current_identity()?;
+    let limit = observability::latest_model_run_for_session_read_only(&identity.session_id)
         .ok()
         .flatten()
         .and_then(|run| run.context_limit_tokens)
@@ -83,9 +90,13 @@ fn compact_session(
     context_limit_tokens: usize,
 ) -> Result<CompactionOutcome, AppError> {
     let identity = ledger::validated_current_identity()?;
+    let _session_lease = lease::RecoverableLease::acquire(
+        paths::compaction_session_lock(&identity.project_id, &identity.session_id),
+        "session compaction",
+    )?;
     let records =
         crate::app::workflow_adapter::transcript::records_for_session(&identity.session_id)?;
-    let previous = load_current_artifact(&identity.session_id).ok().flatten();
+    let previous = load_current_artifact_from_records(&identity.session_id, &records)?;
     let previous_boundary = previous.as_ref().and_then(|artifact| {
         records
             .iter()
@@ -168,6 +179,8 @@ fn compact_session(
         boundary_record_id: boundary_record_id.clone(),
         previous_artifact_path,
         previous_artifact_hash,
+        post_compact_target_tokens: u64::try_from(policy.post_compact_target_tokens)
+            .map_err(|_| AppError::blocked("compaction target token count overflow"))?,
         source_record_count: u64::try_from(plan.source_record_count)
             .map_err(|_| AppError::blocked("compaction source record count overflow"))?,
         source_records_dropped: u64::try_from(plan.source_records_dropped)
@@ -188,6 +201,9 @@ fn compact_session(
         &artifact_path,
         &artifact.artifact_hash,
         &artifact.boundary_record_id,
+        previous
+            .as_ref()
+            .map(|(_, artifact)| relative_artifact_path(artifact)),
     )?;
     Ok(CompactionOutcome {
         compacted: true,
@@ -379,10 +395,63 @@ pub(crate) fn install_artifact(artifact: &CompactionArtifact) -> Result<String, 
 pub(crate) fn load_current_artifact(
     session_id: &str,
 ) -> Result<Option<CompactionArtifact>, AppError> {
+    let records = crate::app::workflow_adapter::transcript::records_for_session(session_id)?;
+    load_current_artifact_from_records(session_id, &records)
+}
+
+fn load_current_artifact_from_records(
+    session_id: &str,
+    records: &[TranscriptRecord],
+) -> Result<Option<CompactionArtifact>, AppError> {
     let Some(pointer) = state::current_compaction_boundary(session_id)? else {
         return Ok(None);
     };
-    load_artifact_pointer(&pointer, session_id).map(Some)
+    let head = load_artifact_pointer(&pointer, session_id)?;
+    validate_artifact_chain(&pointer, &head, session_id, records)?;
+    Ok(Some(head))
+}
+
+fn validate_artifact_chain(
+    head_pointer: &str,
+    head: &CompactionArtifact,
+    session_id: &str,
+    records: &[TranscriptRecord],
+) -> Result<(), AppError> {
+    let mut visited = BTreeSet::from([head_pointer.to_string()]);
+    let mut child = head.clone();
+    let mut child_boundary = boundary_index(records, &child.boundary_record_id)?;
+    for _ in 0..MAX_COMPACTION_CHAIN_DEPTH {
+        if child.previous_artifact_path == "none" {
+            return Ok(());
+        }
+        if !visited.insert(child.previous_artifact_path.clone()) {
+            return Err(AppError::blocked("compaction artifact chain cycle 감지"));
+        }
+        let previous = load_artifact_pointer(&child.previous_artifact_path, session_id)?;
+        if previous.artifact_hash != child.previous_artifact_hash {
+            return Err(AppError::blocked(
+                "compaction artifact chain previous hash 불일치",
+            ));
+        }
+        let previous_boundary = boundary_index(records, &previous.boundary_record_id)?;
+        if previous_boundary >= child_boundary {
+            return Err(AppError::blocked(
+                "compaction artifact chain boundary 순서 불일치",
+            ));
+        }
+        child = previous;
+        child_boundary = previous_boundary;
+    }
+    Err(AppError::blocked(
+        "compaction artifact chain depth 상한 초과",
+    ))
+}
+
+fn boundary_index(records: &[TranscriptRecord], record_id: &str) -> Result<usize, AppError> {
+    records
+        .iter()
+        .position(|record| record.record_id == record_id)
+        .ok_or_else(|| AppError::blocked("compaction artifact boundary transcript 누락"))
 }
 
 fn load_artifact_pointer(pointer: &str, session_id: &str) -> Result<CompactionArtifact, AppError> {
@@ -451,6 +520,7 @@ mod tests {
             boundary_record_id: "transcript-boundary".to_string(),
             previous_artifact_path: "none".to_string(),
             previous_artifact_hash: "none".to_string(),
+            post_compact_target_tokens: 1_638,
             source_record_count: 5,
             source_records_dropped: 0,
             recent_record_ids: vec!["transcript-recent".to_string()],
@@ -474,6 +544,129 @@ mod tests {
         let path = paths::app_data_root().join(&pointer);
         fs::write(&path, "corrupt").unwrap();
         assert!(install_artifact(&artifact).is_err());
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn current_artifact_load_validates_the_full_hash_chain_and_cas_pointer() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-compaction-chain-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+        std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+        fs::create_dir_all(root.join("project")).unwrap();
+        state::initialize().unwrap();
+        let workflow = state::create_workflow("compaction chain test").unwrap();
+        for index in 0..6 {
+            crate::app::workflow_adapter::transcript::record_workflow_turn(
+                &workflow,
+                if index % 2 == 0 { "user" } else { "model" },
+                &format!("turn-{index}"),
+                &format!("turn {index}"),
+                &[],
+            )
+            .unwrap();
+        }
+        let records =
+            crate::app::workflow_adapter::transcript::records_for_session(&workflow.session_id)
+                .unwrap();
+        let make_artifact = |artifact_id: &str,
+                             boundary_record_id: &str,
+                             previous_artifact_path: String,
+                             previous_artifact_hash: String,
+                             created_at_ms: u128| {
+            let mut artifact = CompactionArtifact {
+                schema_version: COMPACTION_SCHEMA_VERSION,
+                artifact_id: artifact_id.to_string(),
+                project_id: workflow.project_id.clone(),
+                session_id: workflow.session_id.clone(),
+                boundary_record_id: boundary_record_id.to_string(),
+                previous_artifact_path,
+                previous_artifact_hash,
+                post_compact_target_tokens: 1_638,
+                source_record_count: 1,
+                source_records_dropped: 0,
+                recent_record_ids: Vec::new(),
+                checkpoint: CompactionCheckpoint {
+                    current_task: "validate chain".to_string(),
+                    ..CompactionCheckpoint::default()
+                },
+                summary_model_id: "deterministic-fallback".to_string(),
+                created_at_ms,
+                artifact_hash: String::new(),
+            };
+            artifact.artifact_hash = sha256_text(&render_artifact_payload(&artifact));
+            artifact
+        };
+
+        let first = make_artifact(
+            "compaction-chain-first",
+            &records[0].record_id,
+            "none".to_string(),
+            "none".to_string(),
+            1,
+        );
+        let first_pointer = install_artifact(&first).unwrap();
+        state::record_compaction_boundary(
+            &first_pointer,
+            &first.artifact_hash,
+            &first.boundary_record_id,
+            None,
+        )
+        .unwrap();
+
+        let second = make_artifact(
+            "compaction-chain-second",
+            &records[1].record_id,
+            first_pointer.clone(),
+            first.artifact_hash.clone(),
+            2,
+        );
+        let second_pointer = install_artifact(&second).unwrap();
+        assert!(state::record_compaction_boundary(
+            &second_pointer,
+            &second.artifact_hash,
+            &second.boundary_record_id,
+            None,
+        )
+        .is_err());
+        state::record_compaction_boundary(
+            &second_pointer,
+            &second.artifact_hash,
+            &second.boundary_record_id,
+            Some(first_pointer.clone()),
+        )
+        .unwrap();
+        assert_eq!(
+            load_current_artifact(&workflow.session_id)
+                .unwrap()
+                .unwrap(),
+            second
+        );
+
+        let invalid = make_artifact(
+            "compaction-chain-invalid",
+            &records[2].record_id,
+            second_pointer.clone(),
+            "b".repeat(64),
+            3,
+        );
+        let invalid_pointer = install_artifact(&invalid).unwrap();
+        state::record_compaction_boundary(
+            &invalid_pointer,
+            &invalid.artifact_hash,
+            &invalid.boundary_record_id,
+            Some(second_pointer),
+        )
+        .unwrap();
+        let error = load_current_artifact(&workflow.session_id).unwrap_err();
+        assert!(error.message.contains("previous hash 불일치"));
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         std::env::remove_var("RPOTATO_PROJECT_ROOT");

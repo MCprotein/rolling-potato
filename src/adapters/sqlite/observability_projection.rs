@@ -30,7 +30,7 @@ mod replay;
 mod schema;
 mod sessions;
 use analytics::{
-    latest_model_run_from_connection, model_summaries, model_summaries_from_connection,
+    latest_model_run_for_session_from_connection, model_summaries, model_summaries_from_connection,
     optimization_policy, performance_baseline,
 };
 use metrics::{
@@ -187,8 +187,11 @@ impl ObservabilityProjectionPort for SqliteObservabilityProjection {
         latest_resource_sample()
     }
 
-    fn latest_model_run(&self) -> Result<Option<LatestModelRunSnapshot>, AppError> {
-        latest_model_run_read_only()
+    fn latest_model_run_for_session(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<LatestModelRunSnapshot>, AppError> {
+        latest_model_run_for_session_read_only(session_id)
     }
 }
 
@@ -222,9 +225,11 @@ pub fn monitor_snapshot_read_only(limit: usize) -> Result<MonitorProjectionSnaps
     })
 }
 
-pub fn latest_model_run_read_only() -> Result<Option<LatestModelRunSnapshot>, AppError> {
+pub fn latest_model_run_for_session_read_only(
+    session_id: &str,
+) -> Result<Option<LatestModelRunSnapshot>, AppError> {
     let connection = open_read_only()?;
-    latest_model_run_from_connection(&connection)
+    latest_model_run_for_session_from_connection(&connection, session_id)
 }
 
 pub(crate) fn project_event_with_ordinal(
