@@ -1,5 +1,35 @@
 # 릴리즈 노트
 
+## v0.45.0 - 프로젝트별 TUI 시작 상태 격리
+
+릴리즈 날짜: 2026-07-22
+
+이 릴리즈는 하나의 설치본을 여러 project directory에서 사용할 때 인자 없는
+`rpotato` 시작이 차단되는 문제를 고치고, system boundary가 상태를 거부하면
+실제 시작 오류를 그대로 표시합니다.
+
+### 포함한 것
+
+- 선택된 session/workflow의 `current-state` pointer와 lock, temporary, recovery
+  backup을 각 project의 `.rpotato/state/` directory에 저장
+- 기존 설치 전역 pointer의 project binding이 현재 project와 일치할 때만 이전하고,
+  관련 없거나 읽을 수 없는 legacy state는 다른 project의 최초 진입을 차단하지 않음
+- 돌아온 project의 저장된 ledger binding이 canonical append-only ledger의
+  ancestor임을 증명한 뒤에만 pointer를 최신 binding으로 동기화
+- 최상위 CLI/TUI system error를 model response용 언어 검증기에 전달하지 않고
+  원래 message와 exit code로 출력
+- 같은 data home을 쓰는 project A→B→A 진입, 관련 없는 legacy state, divergent
+  ledger state, 실제 인자 없는 PTY 시작을 회귀 테스트로 고정
+
+### 호환성 경계
+
+- Model, backend asset, config, canonical runtime ledger는 계속 설치 전역에서
+  공유합니다. 선택된 project session/workflow pointer만 project-local state로
+  이동합니다.
+- 일치하는 legacy pointer는 기존 file을 삭제하지 않고 복사해 rollback evidence를
+  제거하지 않습니다.
+- Public command와 flag는 제거하지 않습니다.
+
 ## v0.44.0 - 관리형 Self-Update
 
 릴리즈 날짜: 2026-07-22

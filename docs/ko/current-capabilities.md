@@ -1,6 +1,6 @@
 # 현재 기능
 
-이 문서는 출시된 `rolling-potato v0.44.0` runtime의 읽기 쉬운 상태 지도입니다.
+이 문서는 출시된 `rolling-potato v0.45.0` runtime의 읽기 쉬운 상태 지도입니다.
 하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
@@ -9,7 +9,7 @@
 > 이 문서는 기능 안내서입니다. 정확한 명령 문법은 설치된 바이너리의
 > `rpotato --help`를 기준으로 확인하십시오.
 
-## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.44.0`)
+## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.45.0`)
 
 GitHub Release archive에서 압축을 푼 binary는 사용자 전용 CLI directory에
 자기 자신을 설치·갱신하고 zsh, bash, fish 또는 Windows 사용자 PATH에 해당
@@ -49,6 +49,12 @@ Release를 확인하며 offline 시작을 막지 않습니다. 새 버전은 `/u
 정확한 release archive와 대응 SHA-256 sidecar를 검증하고 정확한 binary entry만
 staging합니다. Unix는 atomic replace를 사용하고 Windows는 process 종료 뒤 교체를
 예약하며 이동 실패 시 이전 binary로 rollback합니다.
+
+선택된 session/workflow의 `current-state` pointer는 각 project의
+`.rpotato/state/` directory에 격리합니다. 기존 설치 전역 pointer는 binding이
+일치하는 project에만 이전하며, 돌아온 project의 동기화는 저장된 binding이
+canonical ledger의 ancestor일 때만 허용합니다. System startup error는 원래
+message와 exit code를 보존합니다.
 
 ## 1. 에이전트 루프와 컨텍스트
 
