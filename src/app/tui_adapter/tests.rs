@@ -188,7 +188,7 @@ fn interactive_controller_notifies_and_applies_update_without_leaving_tui() {
     std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
     std::env::set_var(
         "RPOTATO_TEST_LATEST_RELEASE_JSON",
-        r#"{"tag_name":"v9.0.0"}"#,
+        r#"{"tag_name":"v9.0.0","assets":[{"name":"rpotato-v9.0.0-checksums.txt","state":"uploaded"}]}"#,
     );
     std::env::set_var(
         "RPOTATO_TEST_UPDATE_REPORT",

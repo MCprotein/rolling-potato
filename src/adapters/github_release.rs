@@ -112,7 +112,31 @@ fn parse_latest_release(body: &str) -> Result<LatestRelease, AppError> {
             "GitHub latest release 응답에 tag_name이 없습니다.",
         ));
     };
+    require_ready_release_assets(&object, tag)?;
     latest_release_from_tag(tag)
+}
+
+fn require_ready_release_assets(object: &serialization::Object, tag: &str) -> Result<(), AppError> {
+    parse_release_tag(tag)?;
+    let expected = format!("rpotato-{tag}-checksums.txt");
+    let Some(serialization::Value::Array(assets)) = object.get("assets") else {
+        return Err(AppError::blocked(
+            "GitHub latest release 응답에 assets 목록이 없습니다.",
+        ));
+    };
+    let ready = assets.iter().any(|asset| {
+        let serialization::Value::Object(asset) = asset else {
+            return false;
+        };
+        matches!(asset.get("name"), Some(serialization::Value::String(name)) if name == &expected)
+            && matches!(asset.get("state"), Some(serialization::Value::String(state)) if state == "uploaded")
+    });
+    if !ready {
+        return Err(AppError::blocked(format!(
+            "latest release asset 검증이 아직 완료되지 않았습니다: {expected}"
+        )));
+    }
+    Ok(())
 }
 
 fn latest_release_from_tag(tag: &str) -> Result<LatestRelease, AppError> {
@@ -124,7 +148,7 @@ fn latest_release_from_tag(tag: &str) -> Result<LatestRelease, AppError> {
 }
 
 fn latest_cache_path() -> PathBuf {
-    layout::cache_dir().join("update-latest-v1")
+    layout::cache_dir().join("update-latest-v2")
 }
 
 fn cache_is_fresh(path: &Path) -> bool {
@@ -412,7 +436,7 @@ mod tests {
     #[test]
     fn latest_release_uses_only_valid_stable_tag() {
         let release = parse_latest_release(
-            r#"{"tag_name":"v0.44.0","html_url":"https://evil.invalid/release"}"#,
+            r#"{"tag_name":"v0.44.0","html_url":"https://evil.invalid/release","assets":[{"name":"rpotato-v0.44.0-checksums.txt","state":"uploaded"}]}"#,
         )
         .unwrap();
         assert_eq!(release.tag, "v0.44.0");
@@ -420,8 +444,21 @@ mod tests {
             release.release_url,
             "https://github.com/MCprotein/rolling-potato/releases/tag/v0.44.0"
         );
-        assert!(parse_latest_release(r#"{"tag_name":"nightly"}"#).is_err());
+        assert!(parse_latest_release(r#"{"tag_name":"nightly","assets":[]}"#).is_err());
         assert!(parse_latest_release(r#"{"name":"v0.44.0"}"#).is_err());
+    }
+
+    #[test]
+    fn latest_release_is_hidden_until_verified_assets_are_uploaded() {
+        assert!(parse_latest_release(r#"{"tag_name":"v0.44.0","assets":[]}"#).is_err());
+        assert!(parse_latest_release(
+            r#"{"tag_name":"v0.44.0","assets":[{"name":"rpotato-v0.44.0-checksums.txt","state":"new"}]}"#
+        )
+        .is_err());
+        assert!(parse_latest_release(
+            r#"{"tag_name":"v0.44.0","assets":[{"name":"rpotato-v0.44.0-aarch64-apple-darwin.tar.gz","state":"uploaded"}]}"#
+        )
+        .is_err());
     }
 
     #[test]

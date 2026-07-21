@@ -237,6 +237,14 @@ fn staged_update_replaces_only_the_managed_binary() {
     let _ = fs::remove_dir_all(root);
 }
 
+#[test]
+fn windows_deferred_update_waits_for_exit_without_abandonment_deadline() {
+    assert!(WINDOWS_SELF_UPDATE_SCRIPT
+        .contains("while (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue)"));
+    assert!(!WINDOWS_SELF_UPDATE_SCRIPT.contains("6000"));
+    assert!(!WINDOWS_SELF_UPDATE_SCRIPT.contains("{ exit 1 }"));
+}
+
 #[cfg(unix)]
 #[test]
 fn clean_uninstall_removes_binary_and_owned_profile_block_only() {

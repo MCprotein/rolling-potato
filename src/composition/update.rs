@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use crate::adapters::filesystem::runtime_mutation;
 use crate::adapters::{github_release, system_install};
 use crate::foundation::error::AppError;
 use crate::runtime_core::update::{classify_update, UpdateAvailability};
@@ -55,9 +56,11 @@ pub(crate) fn update_report() -> Result<String, AppError> {
         ));
     };
     let paths = system_install::install_paths()?;
-    system_install::validate_installed_update_target(&paths)?;
-    let staged_binary = github_release::download_release_binary(&release)?;
-    let result = system_install::update_installed_binary(&paths, &staged_binary)?;
+    let result = with_update_transition(|| {
+        system_install::validate_installed_update_target(&paths)?;
+        let staged_binary = github_release::download_release_binary(&release)?;
+        system_install::update_installed_binary(&paths, &staged_binary)
+    })?;
     let (status, next_step) = match result {
         system_install::BinaryUpdateResult::Applied => (
             "updated",
@@ -74,6 +77,13 @@ pub(crate) fn update_report() -> Result<String, AppError> {
         available.tag,
         paths.installed_binary.display()
     ))
+}
+
+fn with_update_transition<T>(
+    operation: impl FnOnce() -> Result<T, AppError>,
+) -> Result<T, AppError> {
+    let _runtime_transition = runtime_mutation::acquire("self update")?;
+    operation()
 }
 
 #[cfg(test)]
@@ -96,5 +106,29 @@ mod tests {
         std::env::remove_var("RPOTATO_TEST_LATEST_RELEASE_JSON");
         let _ = std::fs::remove_dir_all(root);
         assert!(notice.is_none());
+    }
+
+    #[test]
+    fn self_update_uses_the_shared_runtime_mutation_lock() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-update-transition-lock-{}",
+            std::process::id()
+        ));
+        std::env::set_var("RPOTATO_DATA_HOME", &root);
+        let held = runtime_mutation::acquire("self update test").unwrap();
+        let mut entered = false;
+
+        let error = with_update_transition(|| {
+            entered = true;
+            Ok(())
+        })
+        .unwrap_err();
+
+        drop(held);
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        let _ = std::fs::remove_dir_all(root);
+        assert_eq!(error.code, 3);
+        assert!(!entered, "mutation must not begin without the shared lease");
     }
 }

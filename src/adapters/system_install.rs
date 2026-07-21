@@ -214,32 +214,7 @@ fn schedule_windows_self_update(
             .map(|duration| duration.as_nanos())
             .unwrap_or_default()
     ));
-    let script = r#"param(
-    [Parameter(Mandatory=$true)][int]$ParentPid,
-    [Parameter(Mandatory=$true)][string]$Source,
-    [Parameter(Mandatory=$true)][string]$Target,
-    [Parameter(Mandatory=$true)][string]$ScriptPath
-)
-$ErrorActionPreference = 'Stop'
-for ($attempt = 0; $attempt -lt 6000; $attempt++) {
-    if (-not (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue)) { break }
-    Start-Sleep -Milliseconds 100
-}
-if (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) { exit 1 }
-$backup = "$Target.rpotato-update-backup"
-Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
-Move-Item -LiteralPath $Target -Destination $backup -Force
-try {
-    Move-Item -LiteralPath $Source -Destination $Target -Force
-    Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
-} catch {
-    if (Test-Path -LiteralPath $backup) {
-        Move-Item -LiteralPath $backup -Destination $Target -Force
-    }
-    exit 1
-}
-Remove-Item -LiteralPath $ScriptPath -Force -ErrorAction SilentlyContinue
-"#;
+    let script = WINDOWS_SELF_UPDATE_SCRIPT;
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     let mut file = options.open(&script_path).map_err(|err| {
@@ -282,6 +257,32 @@ Remove-Item -LiteralPath $ScriptPath -Force -ErrorAction SilentlyContinue
     }
     Ok(())
 }
+
+#[cfg(any(windows, test))]
+const WINDOWS_SELF_UPDATE_SCRIPT: &str = r#"param(
+    [Parameter(Mandatory=$true)][int]$ParentPid,
+    [Parameter(Mandatory=$true)][string]$Source,
+    [Parameter(Mandatory=$true)][string]$Target,
+    [Parameter(Mandatory=$true)][string]$ScriptPath
+)
+$ErrorActionPreference = 'Stop'
+while (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) {
+    Start-Sleep -Milliseconds 100
+}
+$backup = "$Target.rpotato-update-backup"
+Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+Move-Item -LiteralPath $Target -Destination $backup -Force
+try {
+    Move-Item -LiteralPath $Source -Destination $Target -Force
+    Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+} catch {
+    if (Test-Path -LiteralPath $backup) {
+        Move-Item -LiteralPath $backup -Destination $Target -Force
+    }
+    exit 1
+}
+Remove-Item -LiteralPath $ScriptPath -Force -ErrorAction SilentlyContinue
+"#;
 
 pub(crate) fn ensure_user_path(paths: &InstallPaths) -> Result<PathRegistration, AppError> {
     #[cfg(unix)]
