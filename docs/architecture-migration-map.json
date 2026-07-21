@@ -6446,6 +6446,89 @@
       ]
     },
     {
+      "path": "src/app/context_adapter/compaction.rs",
+      "slices": [
+        {
+          "responsibility": "context compaction artifact orchestration and validated resume checkpoint loading",
+          "target": "src/app/context_adapter/compaction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/context_adapter/compaction.rs",
+            "src/runtime_core/knowledge/compaction.rs",
+            "src/runtime_core/knowledge/compaction/artifact.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/context_adapter/tests.rs",
+      "slices": [
+        {
+          "responsibility": "context adapter source, resume, and compaction regression tests",
+          "target": "src/app/context_adapter/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/context_adapter.rs",
+            "src/app/context_adapter/compaction.rs",
+            "src/app/context_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction.rs",
+      "slices": [
+        {
+          "responsibility": "bounded small-model context compaction policy and typed checkpoint",
+          "target": "src/runtime_core/knowledge/compaction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/compaction.rs",
+            "src/runtime_core/knowledge/compaction/artifact.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction/artifact.rs",
+      "slices": [
+        {
+          "responsibility": "canonical immutable compaction artifact codec and hash validation",
+          "target": "src/runtime_core/knowledge/compaction/artifact.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/compaction.rs",
+            "src/runtime_core/knowledge/compaction/artifact.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/setup.rs",
+      "slices": [
+        {
+          "responsibility": "guided first-run model selection and managed backend setup",
+          "target": "src/surfaces/tui/setup.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/setup.rs",
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/architecture_contract.rs",
       "slices": [
         {
@@ -9276,6 +9359,36 @@
       "path": "tests/collaboration/team_runtime.rs",
       "responsibilities": [
         "team runtime integration test body"
+      ]
+    },
+    {
+      "path": "src/app/context_adapter/compaction.rs",
+      "responsibilities": [
+        "context compaction artifact orchestration and validated resume checkpoint loading"
+      ]
+    },
+    {
+      "path": "src/app/context_adapter/tests.rs",
+      "responsibilities": [
+        "context adapter source, resume, and compaction regression tests"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction.rs",
+      "responsibilities": [
+        "bounded small-model context compaction policy and typed checkpoint"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction/artifact.rs",
+      "responsibilities": [
+        "canonical immutable compaction artifact codec and hash validation"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/setup.rs",
+      "responsibilities": [
+        "guided first-run model selection and managed backend setup"
       ]
     },
     {
