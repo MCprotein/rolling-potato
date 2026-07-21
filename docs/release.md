@@ -216,6 +216,16 @@ block in the detected zsh/bash/fish profile, or the Windows user PATH. New
 terminals inherit it automatically, and the report includes a current-terminal
 activation command.
 
+From v0.44.0, an existing managed installation can check and apply the latest
+stable release with `rpotato update --check` and `rpotato update`, or with
+`/update` after the startup notice in the TUI. The startup request has a short
+timeout and a six-hour cache; failure is silent and never blocks the TUI. The
+apply path accepts only the five supported platform mappings, constructs URLs
+inside this repository's GitHub Releases, verifies the matching `.sha256`
+sidecar, rejects unsafe or duplicate archive paths, and replaces only an owned
+managed installation. Windows performs the final replacement after process
+exit and keeps a rollback copy until the move succeeds.
+
 `rpotato install --clean --dry-run` shows the exact binary/PATH change and the
 global application-data and current-project `.rpotato` targets. Deletion requires
 `rpotato install --clean --yes` and is blocked while a managed backend or

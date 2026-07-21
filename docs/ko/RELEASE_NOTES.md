@@ -1,8 +1,34 @@
 # 릴리즈 노트
 
-## v0.43.1 - 릴리스 게이트 복구
+## v0.44.0 - 관리형 Self-Update
 
 예정 릴리즈 날짜: 2026-07-21
+
+이 릴리즈는 이 저장소의 GitHub Releases만 사용하는 non-blocking 새 버전 알림과
+checksum-verified self-update 경로를 추가합니다.
+
+### 포함한 것
+
+- 기본 TUI 시작 시 짧은 timeout과 6시간 cache로 최신 stable release를 확인하며
+  offline에서도 정상 시작
+- TUI `/update`, `rpotato update --check`, `rpotato update` 추가
+- 현재 OS·architecture를 지원하는 5개 release asset 중 하나에 정확히 mapping하고
+  대응 archive와 `.sha256` sidecar download
+- 예상한 regular binary entry만 추출하고 unsafe·duplicate archive path를 거부하며
+  rpotato가 소유한 사용자 전용 설치본에만 적용
+- Unix atomic replace와 rollback 보호를 포함한 Windows post-exit replace
+
+### 호환성 경계
+
+- `MCprotein/rolling-potato` GitHub Releases가 유일한 배포·업데이트 source입니다.
+  Package registry나 별도 저장소를 추가하지 않습니다.
+- Network와 GitHub API 실패는 TUI 시작을 막지 않습니다. 수동 check와 apply
+  command는 binary를 변경하지 않고 실패를 명시합니다.
+- Model data, backend asset, config, project state는 보존합니다.
+
+## v0.43.1 - 릴리스 게이트 복구
+
+릴리즈 날짜: 2026-07-21
 
 이 patch는 v0.43.0의 안내형 TUI와 context compaction 동작을 그대로 유지하면서
 완료되지 못한 binary publication을 복구합니다.

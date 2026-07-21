@@ -77,7 +77,8 @@ shell profile or Windows user PATH:
 
 ```sh
 ./rpotato install
-$HOME/.local/bin/rpotato init
+# Open a new terminal, then:
+rpotato init
 ```
 
 On Windows, use `.\rpotato.exe install`, then run
@@ -85,6 +86,21 @@ On Windows, use `.\rpotato.exe install`, then run
 picks up the persistent PATH automatically; both commands print the one-line
 activation command for the current terminal. `RPOTATO_*` variables remain
 optional overrides and are not forced globally.
+
+From `v0.44.0`, the TUI checks this repository's latest stable GitHub Release
+at startup. A short timeout and six-hour cache keep an offline or slow network
+from blocking startup. When a newer version exists, use `/update` in the TUI or
+the equivalent CLI commands:
+
+```sh
+rpotato update --check
+rpotato update
+```
+
+Self-update is limited to the managed user-local installation. It downloads
+only the exact archive for the current supported platform, verifies the
+matching `.sha256` sidecar, and then replaces the installed binary. On Windows,
+replacement completes after the current process exits.
 
 For a reset that removes the global application data and only the current
 project's `.rpotato` state, inspect and then explicitly confirm the clean
@@ -143,11 +159,12 @@ rpotato
 Running `rpotato` without arguments starts the primary TUI. Plain text entered
 there is treated as a coding request. The line below the composer shows the
 current model, context usage, compaction checkpoint, backend state, and session.
-Normal TUI operations use `/model`, `/compact`, `/status`, `/sessions`, `/doctor`,
-`/more`, `/back`, `/clear`, `/help`, and `/quit`. Long responses remain available
-through `/more` and `/back` instead of being discarded at the viewport boundary.
-Context compaction starts automatically at 75% usage; `/compact` creates a manual
-checkpoint while preserving the immutable transcript as the authority.
+Normal TUI operations use `/model`, `/compact`, `/update`, `/status`, `/sessions`,
+`/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`. Long responses remain
+available through `/more` and `/back` instead of being discarded at the viewport
+boundary. Context compaction starts automatically at 75% usage; `/compact`
+creates a manual checkpoint while preserving the immutable transcript as the
+authority.
 
 The smaller public CLI surface is:
 
@@ -167,8 +184,9 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The `v0.42.0` release plus the in-development `v0.43.1` recovery source form an active
-pre-1.0 runtime, not only a product-definition scaffold. Implemented areas include:
+The released `v0.43.1` runtime plus the in-development `v0.44.0` source form an
+active pre-1.0 runtime, not only a product-definition scaffold. Implemented
+areas include:
 
 | Area | Current surface |
 | --- | --- |
@@ -225,12 +243,11 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The release history through `v0.42.0` is complete. The latest release adds
-user-local self-install, automatic PATH registration, `init` environment
-repair, guarded clean reinstall, and a symmetric clean uninstall that
-preserves user-owned files. `v0.43.1` is recovering the guided default TUI and
-bounded small-model context compaction from the incomplete v0.43.0 binary
-publication. See
+The release history through `v0.43.1` is complete. The latest release restores
+the complete five-platform publication of the guided default TUI and bounded
+small-model context compaction. `v0.44.0` is adding a non-blocking startup
+version notice and checksum-verified self-update from this repository's GitHub
+Releases. See
 [ROADMAP.md](ROADMAP.md).
 
 ---
