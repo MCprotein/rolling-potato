@@ -10,6 +10,12 @@
 - 파일 경로, command, model id, plugin id는 원문을 유지한다.
 - 실패 이유는 한국어로 쓰되, error code와 원문 log line은 보존할 수 있다.
 - 다음 단계가 있으면 마지막 줄에 하나만 적는다.
+- attached terminal에서는 topic을 cyan, section heading을 blue, healthy/ready/completed
+  상태를 green, waiting/degraded를 yellow, failed/blocked/stale을 red로 표시할 수 있다.
+- 상태 text를 항상 함께 두므로 색상만으로 의미를 전달하지 않는다. Redirected output,
+  `NO_COLOR`, `TERM=dumb`는 byte-stable plain text를 유지한다.
+- `rpotato --help`는 일반 제품 surface만 보여준다. 세부 진단·호환 명령은
+  `rpotato debug --help` 아래에 둔다.
 
 ## 예시
 

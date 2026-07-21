@@ -37,7 +37,7 @@ pub(super) fn execute_team(command: TeamCommand) -> Result<(), AppError> {
             model_tier,
         } => team::governor_report(lanes, context_tokens, context_limit, model_tier)?,
     };
-    println!("{report}");
+    crate::surfaces::cli::render::emit_report(&report);
     Ok(())
 }
 
@@ -63,6 +63,6 @@ pub(super) fn execute_subagent(command: SubagentCommand) -> Result<(), AppError>
         SubagentCommand::Status { id } => subagent::status_report(id.as_deref())?,
         SubagentCommand::Cancel { id } => subagent::cancel_report(&id)?,
     };
-    println!("{report}");
+    crate::surfaces::cli::render::emit_report(&report);
     Ok(())
 }

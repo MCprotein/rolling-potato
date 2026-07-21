@@ -1,8 +1,10 @@
 # 터미널 UI Surface
 
-TUI는 Claude Code/Codex replacement experience에 필요한 필수 product surface입니다.
+TUI는 Claude Code/Codex replacement experience의 기본 product surface입니다.
 
-첫 구현은 CLI command에서 시작할 수 있지만, target runtime은 interactive work를 위한 terminal UI를 지원해야 합니다.
+사용자는 `rpotato`만 실행해 TUI에 진입합니다. `rpotato tui`와
+`rpotato tui interactive`는 기존 자동화와 테스트를 위한 호환 alias이며 기본 사용법이
+아닙니다. 일반 텍스트 입력은 shell command가 아니라 에이전트 코딩 요청입니다.
 
 TUI design source of truth는 [DESIGN.md](../../DESIGN.md)입니다. 특히 monitoring 화면은 SSH/Linux server에서도 쓸 수 있어야 하므로 browser나 GUI를 전제하지 않습니다.
 
@@ -52,8 +54,8 @@ runtime-owned line-oriented interactive controller로 올립니다.
   piped-input test도 지원합니다.
 - `view`, `next`, `prev`, `select <canonical-id>`는 canonical runtime state를
   이동합니다. `select session <session-id>`는 확인 후 runtime lease 경계에서 canonical
-  session 선택을 보냅니다. 알 수 없는 입력은 read-only help no-op이며 shell command로
-  취급하지 않습니다.
+  session 선택을 보냅니다. 예약된 TUI 명령과 일치하지 않는 입력은 agent 요청으로
+  전달하며 shell command로 직접 실행하지 않습니다.
 - `view tool-output <artifact-id>`는 ledger binding, owner/path/hash, 크기를 검증한
   sanitized tool artifact를 엽니다. Session/transcript page의 authority는 canonical
   ledger와 durable artifact이며 SQLite를 정본으로 사용하지 않습니다.
@@ -61,6 +63,50 @@ runtime-owned line-oriented interactive controller로 올립니다.
   선택된 workflow, fresh runtime selection lease, 명시적 `yes` 확인을 요구합니다.
   Credential은 terminal echo를 끈 상태에서 한 번만 읽고, SIGINT/SIGTERM 또는 Windows
   console 종료 시 process 종료 전에 캡처한 input mode를 복원합니다.
+
+현재 기본 진입 계약은 다음과 같습니다.
+
+- attached terminal에서 인자 없는 `rpotato`는 controller를 시작합니다.
+- redirect된 인자 없는 실행은 read-only overview를 출력하고 종료합니다.
+- TUI 예약 명령과 일치하지 않는 일반 텍스트는 agent runtime의 요청으로 전달합니다.
+- shell text처럼 보이는 입력도 직접 실행하지 않고 model/runtime policy 경계를 통과합니다.
+- 최초 실행의 backend/model 선택과 설치는 이 TUI 안에서 실행합니다. 기본 흐름에서는
+  `llama.cpp` executable이나 GGUF 경로를 직접 입력하지 않습니다.
+
+### 최초 실행
+
+기본 model이 설정되지 않았으면 `rpotato`와 attached `rpotato init`이 대화 전에 설정
+흐름을 엽니다.
+
+1. 출처 기반 후보의 model ID/version, quantization, download size, context limit,
+   RAM 상태, license, 근거 note를 보여줍니다.
+2. 목록 번호 또는 정확한 model ID를 받고 download를 명시적으로 확인합니다.
+3. 고정 버전 managed backend를 설치하거나 기존 설치를 재사용합니다.
+4. 선택 artifact를 내려받아 size와 SHA-256을 검증하고, 명시적인 사용자 선택으로
+   등록한 뒤 기본 context size로 시작합니다.
+
+측정하지 않은 RAM 적합성과 capability는 `미확정`으로 유지합니다. Setup은 source
+manifest를 benchmark evidence로 둔갑시키지 않습니다. `/model`은 같은 catalog를
+보여주며 `/model <id>`는 같은 managed path를 통해 model을 바꿉니다.
+
+### Composer 하단 상태 line
+
+ANSI attached terminal에서는 composer 바로 아래에 안정된 status line을 두고 cursor를
+input row로 되돌립니다.
+
+```text
+request> _
+model gemma-3n-E4B-it-Q4_K_M | ctx 812/4096 (19%) | backend ready | session 01J…
+```
+
+field 순서는 항상 `model | context | backend | session`입니다. 최신 model-run
+projection, managed backend sidecar, active canonical session에서 읽으며, 없는 값과
+stale backend 상태는 명확히 표시합니다. `NO_COLOR`, `TERM=dumb`, redirected/scripted 실행은 ANSI
+control sequence 없이 plain text를 사용합니다.
+
+일반 interactive 명령은 `/model`, `/status`, `/sessions`, `/doctor`, `/clear`, `/help`,
+`/quit`입니다. 세부 backend, registry, benchmark, policy, inspection 명령은
+`rpotato debug --help` 아래의 진단용 surface로 유지합니다.
 
 <!-- TUI-READ-CONTRACT:START -->
 8개 view(`overview`, `monitor`, `sessions`, `transcript`, `tool-output`, `approvals`,

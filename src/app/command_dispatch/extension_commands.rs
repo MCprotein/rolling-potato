@@ -10,7 +10,7 @@ pub(super) fn execute_skill(command: SkillCommand) -> Result<(), AppError> {
         SkillCommand::List => skill::list_report(),
         SkillCommand::Run { id, request } => intent::run_skill_report(&id, &request)?,
     };
-    println!("{report}");
+    crate::surfaces::cli::render::emit_report(&report);
     Ok(())
 }
 
@@ -19,7 +19,7 @@ pub(super) fn execute_hooks(command: HooksCommand) -> Result<(), AppError> {
         HooksCommand::List => hooks::list_report(),
         HooksCommand::ValidateResult { json } => hooks::validate_result_report(&json)?,
     };
-    println!("{report}");
+    crate::surfaces::cli::render::emit_report(&report);
     Ok(())
 }
 
@@ -37,6 +37,6 @@ pub(super) fn execute_plugin(command: PluginCommand) -> Result<(), AppError> {
         PluginCommand::Disable { id } => plugin::set_enabled_report(&id, false)?,
         PluginCommand::Remove { id, purge_data } => plugin::remove_report(&id, purge_data)?,
     };
-    println!("{report}");
+    crate::surfaces::cli::render::emit_report(&report);
     Ok(())
 }

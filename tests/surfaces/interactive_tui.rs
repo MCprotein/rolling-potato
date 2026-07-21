@@ -63,6 +63,17 @@ fn bare_tui_on_pipe_stays_one_shot() {
 }
 
 #[test]
+fn bare_rpotato_on_pipe_uses_the_default_tui_surface() {
+    let fixture = Fixture::new("bare-default");
+    let output = fixture.command(&[], b"");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("rpotato TUI beta - overview"));
+    assert!(!stdout.contains("사용법:"));
+}
+
+#[test]
 fn explicit_interactive_accepts_pipe_quit_and_eof() {
     for (name, input) in [("quit", b"quit\n".as_slice()), ("eof", b"".as_slice())] {
         let fixture = Fixture::new(name);
@@ -74,20 +85,21 @@ fn explicit_interactive_accepts_pipe_quit_and_eof() {
             String::from_utf8_lossy(&output.stderr)
         );
         let stdout = String::from_utf8(output.stdout).unwrap();
-        assert!(stdout.contains("rpotato interactive | overview"));
+        assert!(stdout.contains("rpotato | overview"));
         assert!(stdout.contains("rpotato>"));
         assert!(!stdout.contains('\u{001b}'));
     }
 }
 
 #[test]
-fn unknown_interactive_command_is_a_read_only_help_noop() {
+fn ordinary_text_is_treated_as_an_agent_request_and_never_as_a_shell_command() {
     let fixture = Fixture::new("unknown");
     let output = fixture.command(&["tui", "interactive"], b"arbitrary shell command\nquit\n");
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("알 수 없는 명령입니다"));
+    assert!(stdout.contains("TUI에서 /model을 입력해 모델을 선택하세요"));
+    assert!(!stdout.contains("알 수 없는 명령입니다"));
     assert!(!fixture.project.join("arbitrary").exists());
 }
 

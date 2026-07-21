@@ -138,3 +138,8 @@ pub fn benchmark_run_reports() -> Result<Vec<BenchmarkRunReport>, AppError> {
 pub fn latest_resource_sample() -> Result<Option<ResourceSampleMetric>, AppError> {
     PROJECTION.latest_resource_sample()
 }
+
+pub fn latest_model_run_read_only(
+) -> Result<Option<crate::runtime_core::observability::facade::LatestModelRunSnapshot>, AppError> {
+    PROJECTION.latest_model_run()
+}

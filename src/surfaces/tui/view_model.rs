@@ -25,7 +25,7 @@ impl InteractiveState {
             view: InteractiveView::Overview,
             page: 0,
             selected_id: None,
-            notice: "help로 명령 목록을 확인하세요.".to_string(),
+            notice: "코딩 요청을 입력하세요. help로 TUI 명령을 확인할 수 있습니다.".to_string(),
         }
     }
 

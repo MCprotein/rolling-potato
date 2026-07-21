@@ -1,7 +1,46 @@
+use std::io::IsTerminal;
+
 pub(crate) const HELP: &str = "\
+rpotato — local coding agent
+
+사용법:
+  rpotato                 기본 TUI 시작
+  rpotato init            첫 실행 설정 다시 열기
+  rpotato doctor          환경 진단
+  rpotato install         binary 설치 및 PATH 등록
+  rpotato uninstall --clean --yes
+  rpotato --help
+
+TUI 명령:
+  /model [id]             모델 확인 또는 변경
+  /status                 모델·컨텍스트·backend·세션 상태
+  /sessions               세션 목록
+  /doctor                 환경 진단
+  /help                   TUI 도움말
+  /quit                   종료
+
+자동화:
+  rpotato run \"<request>\"
+  rpotato resume [session-id]
+  rpotato continue [session-id]
+  rpotato cancel
+
+고급 진단·호환 명령:
+  rpotato debug --help
+
+일반 사용자는 backend 경로, GGUF 경로, model registry 명령을 직접 다룰 필요가 없습니다.";
+
+pub(crate) const ADVANCED_HELP: &str = "\
+rpotato debug — 고급 진단·자동화·호환 명령
+
+아래의 기존 직접 명령은 호환성을 위해 유지됩니다. rpotato debug <명령...>으로도
+같이 실행할 수 있습니다.
+
 rpotato
 
 사용법:
+  rpotato
+  rpotato --help
   rpotato doctor
   rpotato install
   rpotato install --clean --dry-run
@@ -57,7 +96,7 @@ rpotato
   rpotato backend doctor
   rpotato backend install-plan
   rpotato backend install
-  rpotato backend start --model <path> [--ctx-size <tokens>]
+  rpotato backend start [--model <path>] [--ctx-size <tokens>]
   rpotato backend status
   rpotato backend stop
   rpotato backend cancel
@@ -89,6 +128,7 @@ rpotato
   rpotato model manifest
   rpotato model inspect <id>
   rpotato model registry
+  rpotato model default [<id>]
   rpotato model download-plan <id>
   rpotato model eval-plan <id>
   rpotato model benchmark-plan <id>
@@ -134,3 +174,129 @@ patch workflow 규칙:
   monitor optimize는 측정된 local metric과 benchmark evidence만으로 context/lane/fallback/model route hint를 추천합니다.
   ontology store는 project-local typed graph JSONL을 canonical runtime store로 두고, source-pointer-first compact context view와 원문 reread rule을 제공합니다.
   모델 registry install은 source-backed manifest와 local promotion evidence가 검증되기 전까지 차단되며, 검증용 artifact fetch는 --for-evaluation을 요구합니다.";
+
+const RESET: &str = "\x1b[0m";
+const BOLD_CYAN: &str = "\x1b[1;36m";
+const BOLD_BLUE: &str = "\x1b[1;34m";
+const GREEN: &str = "\x1b[32m";
+const YELLOW: &str = "\x1b[33m";
+const RED: &str = "\x1b[31m";
+const DIM: &str = "\x1b[2m";
+
+pub(crate) fn emit_report(report: &str) {
+    println!("{}", style_report(report, color_enabled()));
+}
+
+fn color_enabled() -> bool {
+    std::io::stdout().is_terminal()
+        && std::env::var_os("NO_COLOR").is_none()
+        && std::env::var_os("TERM").as_deref() != Some(std::ffi::OsStr::new("dumb"))
+}
+
+pub(crate) fn style_report(report: &str, color: bool) -> String {
+    if !color {
+        return report.to_string();
+    }
+
+    let first_content = report.lines().position(|line| !line.trim().is_empty());
+    report
+        .lines()
+        .enumerate()
+        .map(|(index, line)| style_line(line, Some(index) == first_content))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn style_line(line: &str, first_content: bool) -> String {
+    if line.trim().is_empty() {
+        return String::new();
+    }
+    if first_content {
+        return format!("{BOLD_CYAN}{line}{RESET}");
+    }
+
+    let trimmed = line.trim();
+    if !line.starts_with(char::is_whitespace) && trimmed.ends_with(':') {
+        return format!("{BOLD_BLUE}{line}{RESET}");
+    }
+
+    let normalized = trimmed.to_ascii_lowercase();
+    let semantic = if contains_any(
+        &normalized,
+        &[
+            "failed", "failure", "error", "blocked", "stale", "실패", "차단", "오류",
+        ],
+    ) {
+        Some(RED)
+    } else if contains_any(
+        &normalized,
+        &["warning", "waiting", "degraded", "pending", "경고", "대기"],
+    ) {
+        Some(YELLOW)
+    } else if contains_any(
+        &normalized,
+        &[
+            "ready",
+            "running",
+            "completed",
+            "healthy",
+            "verified",
+            "passed",
+            "준비",
+            "실행 중",
+            "완료",
+            "정상",
+            "검증됨",
+        ],
+    ) {
+        Some(GREEN)
+    } else if normalized.starts_with("hint:")
+        || normalized.starts_with("next:")
+        || normalized.starts_with("참고:")
+    {
+        Some(DIM)
+    } else {
+        None
+    };
+
+    semantic
+        .map(|style| format!("{style}{line}{RESET}"))
+        .unwrap_or_else(|| line.to_string())
+}
+
+fn contains_any(value: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| value.contains(needle))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        style_report, ADVANCED_HELP, BOLD_BLUE, BOLD_CYAN, GREEN, HELP, RED, RESET, YELLOW,
+    };
+
+    #[test]
+    fn public_help_keeps_granular_commands_out_of_the_primary_surface() {
+        assert!(HELP.contains("rpotato                 기본 TUI 시작"));
+        assert!(HELP.contains("rpotato debug --help"));
+        assert!(!HELP.contains("rpotato backend start"));
+        assert!(ADVANCED_HELP.contains("rpotato backend start"));
+    }
+
+    #[test]
+    fn plain_report_is_byte_stable_when_color_is_disabled() {
+        let report = "rpotato doctor\n\n상태:\n- backend: ready\n";
+        assert_eq!(style_report(report, false), report);
+    }
+
+    #[test]
+    fn color_report_marks_structure_and_semantic_states() {
+        let report = "rpotato doctor\n\n상태:\n- backend: ready\n- gate: waiting\n- run: failed";
+        let styled = style_report(report, true);
+
+        assert!(styled.contains(&format!("{BOLD_CYAN}rpotato doctor{RESET}")));
+        assert!(styled.contains(&format!("{BOLD_BLUE}상태:{RESET}")));
+        assert!(styled.contains(&format!("{GREEN}- backend: ready{RESET}")));
+        assert!(styled.contains(&format!("{YELLOW}- gate: waiting{RESET}")));
+        assert!(styled.contains(&format!("{RED}- run: failed{RESET}")));
+    }
+}

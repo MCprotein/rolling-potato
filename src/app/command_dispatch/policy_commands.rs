@@ -17,6 +17,6 @@ pub(super) fn execute_policy(command: PolicyCommand) -> Result<(), AppError> {
         }
         PolicyCommand::Redact { text } => policy::redact_report(&text),
     };
-    println!("{report}");
+    crate::surfaces::cli::render::emit_report(&report);
     Ok(())
 }

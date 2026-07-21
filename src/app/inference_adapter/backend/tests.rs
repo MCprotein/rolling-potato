@@ -356,11 +356,15 @@ fn backend_status_reports_stopped_without_record() {
     env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
 
     let report = status_report().unwrap();
+    let snapshot = runtime_snapshot().unwrap();
 
     env::remove_var("RPOTATO_DATA_HOME");
     env::remove_var("RPOTATO_PROJECT_ROOT");
     fs::remove_dir_all(root).unwrap();
     assert!(report.contains("status: stopped"));
+    assert_eq!(snapshot.status, "stopped");
+    assert_eq!(snapshot.model_id, None);
+    assert_eq!(snapshot.context_limit_tokens, None);
 }
 
 #[test]

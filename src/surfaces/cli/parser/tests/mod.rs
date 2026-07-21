@@ -1215,6 +1215,33 @@ fn parses_top_level_continue_with_session_id() {
 }
 
 #[test]
+fn parses_no_arguments_as_default_tui() {
+    let command = parse(Vec::<String>::new()).unwrap();
+    assert_eq!(command, Command::Tui(TuiCommand::Auto));
+}
+
+#[test]
+fn parses_debug_help_as_advanced_help() {
+    assert_eq!(
+        parse(["debug".to_string(), "--help".to_string()]).unwrap(),
+        Command::AdvancedHelp
+    );
+}
+
+#[test]
+fn parses_existing_commands_beneath_debug_namespace() {
+    assert_eq!(
+        parse([
+            "debug".to_string(),
+            "backend".to_string(),
+            "status".to_string(),
+        ])
+        .unwrap(),
+        Command::Backend(BackendCommand::Status)
+    );
+}
+
+#[test]
 fn parses_tui_overview() {
     let command = parse(["tui".to_string()]).unwrap();
     assert_eq!(command, Command::Tui(TuiCommand::Auto));

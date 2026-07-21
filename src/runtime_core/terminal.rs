@@ -28,6 +28,14 @@ pub(crate) trait TerminalIo {
     fn read_secret(&mut self) -> Result<Option<String>, TerminalFault>;
     fn write_frame(&mut self, frame: &str) -> Result<(), TerminalFault>;
 
+    fn supports_ansi_layout(&self) -> bool {
+        false
+    }
+
+    fn supports_color(&self) -> bool {
+        false
+    }
+
     fn write_frame_at(
         &mut self,
         frame: &str,

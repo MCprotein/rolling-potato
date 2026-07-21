@@ -64,6 +64,50 @@ pub use sidecar::{
     doctor_report, doctor_summary, health_check_report, start_report, status_report, stop_report,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BackendRuntimeSnapshot {
+    pub(crate) status: &'static str,
+    pub(crate) model_id: Option<String>,
+    pub(crate) context_limit_tokens: Option<u32>,
+}
+
+pub(crate) fn runtime_snapshot() -> Result<BackendRuntimeSnapshot, AppError> {
+    let Some(record) = crate::adapters::filesystem::backend_state::read_sidecar_record()? else {
+        return Ok(BackendRuntimeSnapshot {
+            status: "stopped",
+            model_id: None,
+            context_limit_tokens: None,
+        });
+    };
+    let running = crate::adapters::process::backend::is_running(record.pid);
+    let healthy = running
+        && llama_backend::probe_health(
+            &record.host,
+            record.port,
+            std::time::Duration::from_millis(HEALTH_TIMEOUT_MS),
+        )
+        .status
+            == "healthy";
+    Ok(BackendRuntimeSnapshot {
+        status: if healthy { "ready" } else { "stale" },
+        model_id: Some(model_id_from_path(&record.model_path)),
+        context_limit_tokens: record.ctx_size,
+    })
+}
+
+pub(crate) fn ensure_installed_report() -> Result<String, AppError> {
+    let discovery = llama_backend::discover();
+    if discovery.binary_exists && discovery.binary_is_file && discovery.binary_executable {
+        return Ok(format!(
+            "backend 준비 완료\n- status: already-ready\n- backend: {}\n- binary: {}\n- source: {}",
+            discovery.adapter_id,
+            discovery.selected_path.display(),
+            discovery.selected_source
+        ));
+    }
+    install_report()
+}
+
 const HEALTH_TIMEOUT_MS: u64 = 500;
 const TERMINAL_RECORD_RETENTION_MS: u128 = 5 * 60 * 1_000;
 fn display_optional_u32(value: Option<u32>) -> String {

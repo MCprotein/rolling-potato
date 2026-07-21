@@ -134,6 +134,8 @@ pub(crate) trait ObservabilityProjectionPort {
     ) -> Result<Vec<BenchmarkRunReport>, AppError>;
 
     fn latest_resource_sample(&self) -> Result<Option<ResourceSampleMetric>, AppError>;
+
+    fn latest_model_run(&self) -> Result<Option<LatestModelRunSnapshot>, AppError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -162,6 +164,15 @@ pub struct ModelMetricSummary {
     pub total_tokens: i64,
     pub avg_latency_ms: Option<f64>,
     pub avg_tokens_per_second: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LatestModelRunSnapshot {
+    pub model_id: String,
+    pub context_limit_tokens: Option<u32>,
+    pub context_tokens_used: Option<u32>,
+    pub total_tokens: Option<u32>,
+    pub started_at_ms: u128,
 }
 
 #[derive(Debug, Clone, PartialEq)]

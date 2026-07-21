@@ -5,8 +5,8 @@
 ### Source Of Truth
 
 - Status: Active
-- Last refreshed: 2026-07-19
-- Primary product surfaces: CLI, TUI, optional local static HTML report
+- Last refreshed: 2026-07-21
+- Primary product surface: no-argument `rpotato` TUI; subcommand CLI for automation and diagnostics; optional local static HTML report
 - Evidence reviewed:
   - `README.md`
   - `PLAN.md`
@@ -33,6 +33,7 @@
 ### Product Goals
 
 - Goals:
+  - Make `rpotato` enter the coding-agent TUI directly, with first-run setup and conversation in one terminal flow.
   - Provide a local agent-runtime experience that can replace Claude Code/Codex for practical workflows.
   - Let users inspect session state and monitoring even on low-end laptops, Linux servers, and SSH sessions.
   - Make token, latency, memory, guard, tool, and stop-gate metrics scannable by model.
@@ -131,6 +132,8 @@
   - runtime status vocabulary from `docs/glossary.md`
   - observability metric groups from `docs/observability.md`
 - New/changed components:
+  - conversation composer with a persistent runtime status line directly below it
+  - first-run model picker and managed-backend setup flow
   - metric summary strip
   - model comparison table
   - session timeline
@@ -152,6 +155,16 @@
   - Runtime core owns data state.
   - TUI owns presentation and user decisions.
   - `docs/observability.md` owns metric schema direction.
+
+### Primary TUI Contract
+
+- Running attached `rpotato` with no arguments opens the conversation controller.
+- On first run, the same terminal flow lists source-backed model choices and shows model ID/version, quantization, download size, context limit, RAM status, license, and recommendation evidence before confirmation.
+- The managed backend is installed or reused automatically. The default path never asks the user for a `llama.cpp` executable or GGUF filesystem path.
+- The composer remains the focus point. Its immediately following status line always uses this order: `model | ctx used/limit (%) | backend | session`.
+- Model and context values come from the latest recorded model run; backend state comes from the managed sidecar; session uses the active canonical session identity. Missing values and stale backend state are labeled, never invented.
+- `/model`, `/status`, `/sessions`, `/doctor`, `/clear`, `/help`, and `/quit` cover normal in-TUI operations. Existing granular subcommands remain an advanced compatibility surface under `rpotato debug --help`.
+- Attached ANSI terminals may use semantic color and cursor positioning. Redirected output, `TERM=dumb`, and `NO_COLOR` remain plain, stable text.
 
 ### Accessibility
 
@@ -220,6 +233,7 @@
 
 - Framework/styling system:
   - The current interactive TUI is a std-only line controller.
+  - The attached-terminal frame uses bounded ANSI layout to keep the status line below the composer while returning the cursor to the input line; scripted and redirected execution use a plain-text fallback.
   - A framework for a richer full-screen TUI is not selected.
   - SQLite projection access uses `rusqlite`.
   - TUI must consume runtime state through runtime core contracts, not direct DB ownership.

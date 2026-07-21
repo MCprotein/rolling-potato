@@ -204,3 +204,36 @@
   복구하며, 전체 candidate workflow를 단순 rerun하지 않습니다.
 - 포트를 이미 점유한 상태에서 첫 backend start를 강제로 실패시키고 다음
   ephemeral port로 복구되는 targeted 회귀 테스트를 유지합니다.
+
+## 2026-07-21: 서브커맨드를 기본 제품 surface로 잘못 안내
+
+### 증상
+
+- 사용자가 `rpotato`만 실행해 Claude Code/Codex형 TUI에 진입하려 했지만 무인자
+  실행은 도움말을 출력했습니다.
+- 기존 TUI는 예약 명령과 일치하지 않는 일반 텍스트를 agent 요청이 아니라 알 수
+  없는 명령으로 처리했습니다.
+- 도움말과 사용자 문서가 `rpotato tui`, `backend start --model <path>` 같은 내부·고급
+  surface를 기본 사용 흐름처럼 노출했습니다.
+
+### 원인
+
+- 구현된 CLI help를 제품 진입 계약보다 우선해 해석했습니다.
+- Claude Code/Codex 대체 경험이라는 상위 목표가 무인자 entrypoint와 일반 텍스트
+  composer 회귀 테스트로 고정되지 않았습니다.
+- 모델 registry에 기본 모델 경로 해석이 구현돼 있었지만 도움말과 안내가 그 경로를
+  반영하지 않았습니다.
+
+### 재발 방지
+
+- attached terminal의 인자 없는 `rpotato`를 기본 TUI entrypoint로 회귀 테스트합니다.
+- TUI 예약 명령과 일치하지 않는 일반 텍스트는 runtime의 agent request로 전달하되
+  shell command로 직접 실행하지 않습니다.
+- `rpotato tui`는 호환 alias, `run`·`backend`·`model` subcommand는 자동화·진단용
+  surface로 문서화합니다.
+- 첫 실행 backend/model 선택과 설치는 TUI onboarding 안에 두고, GGUF 경로 직접
+  입력은 명시적인 고급 override로만 유지합니다.
+- 기본 help에는 일상 명령만 노출하고 세부 backend/model/registry 명령은
+  `rpotato debug --help` 아래의 호환·진단 surface로 분리합니다.
+- Composer 바로 아래의 상태 line에 `model | context | backend | session` 순서를
+  고정하고 attached ANSI/redirected plain-text 양쪽을 회귀 테스트합니다.

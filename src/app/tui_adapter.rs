@@ -12,16 +12,17 @@ use crate::surfaces::tui::controller::{self, TuiRuntimePort};
 use crate::surfaces::tui::outcome::TuiOutcome;
 use crate::surfaces::tui::page::ProjectionStatus;
 use crate::surfaces::tui::runtime_bridge::{
-    new_tui_intent_id, SelectionLease, TuiGateKind, TuiIntent, TuiReadBudget, TuiReadPage,
-    TuiReadRequest,
+    new_tui_intent_id, SelectionLease, TuiBackendStatus, TuiGateKind, TuiIntent, TuiReadBudget,
+    TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
 };
+use crate::surfaces::tui::setup::{self, PreparedTuiModel, TuiSetupPort};
 
 pub fn run_auto() -> Result<(), AppError> {
     if capability::attached() {
         let mut terminal = NativeTerminal::new();
         controller::run_controller(&mut terminal, &mut TuiRuntimeAdapter)
     } else {
-        println!("{}", overview_report()?);
+        crate::surfaces::cli::render::emit_report(&overview_report()?);
         Ok(())
     }
 }
@@ -31,11 +32,82 @@ pub fn run_interactive() -> Result<(), AppError> {
     controller::run_controller(&mut terminal, &mut TuiRuntimeAdapter)
 }
 
+pub fn run_setup() -> Result<(), AppError> {
+    let mut terminal = NativeTerminal::new();
+    setup::run_setup(&mut terminal, &mut TuiSetupAdapter)
+}
+
+pub fn setup_required() -> bool {
+    if cfg!(debug_assertions)
+        && std::env::var_os("RPOTATO_TEST_SKIP_SETUP").as_deref() == Some(std::ffi::OsStr::new("1"))
+    {
+        return false;
+    }
+    crate::app::inference_adapter::model::configured_model_id().is_none()
+}
+
 struct TuiRuntimeAdapter;
 
 pub(crate) struct TuiReadAdapter;
 
 struct TuiActionAdapter;
+
+struct TuiSetupAdapter;
+
+impl TuiSetupPort for TuiSetupAdapter {
+    fn model_options(&mut self) -> Vec<crate::surfaces::tui::runtime_bridge::TuiModelOption> {
+        crate::app::inference_adapter::model::setup_options()
+    }
+
+    fn ensure_backend(&mut self) -> Result<String, AppError> {
+        crate::app::inference_adapter::backend::ensure_installed_report()
+    }
+
+    fn prepare_model(&mut self, id: &str) -> Result<PreparedTuiModel, AppError> {
+        let prepared = crate::app::inference_adapter::model::prepare_setup_model(id)?;
+        Ok(PreparedTuiModel {
+            id: prepared.id,
+            artifact_path: prepared.artifact_path.display().to_string(),
+        })
+    }
+
+    fn start_model(&mut self, model: &PreparedTuiModel) -> Result<String, AppError> {
+        let snapshot = crate::app::inference_adapter::backend::runtime_snapshot()?;
+        if snapshot.status != "stopped" {
+            crate::app::inference_adapter::backend::stop_report()?;
+        }
+        crate::app::inference_adapter::backend::start_report(
+            &model.artifact_path,
+            Some(setup::DEFAULT_CONTEXT_TOKENS),
+        )
+    }
+}
+
+fn ensure_runtime_ready() -> Result<(), AppError> {
+    let snapshot = crate::app::inference_adapter::backend::runtime_snapshot()?;
+    if snapshot.status == "ready" {
+        return Ok(());
+    }
+    if snapshot.status == "stale" {
+        crate::app::inference_adapter::backend::stop_report()?;
+    }
+    let model_path =
+        crate::app::inference_adapter::model::default_artifact_path().map_err(|err| {
+            if err.message.contains("기본 모델이 선택되지 않았습니다") {
+                AppError::blocked(
+                    "모델이 선택되지 않았습니다. TUI에서 /model을 입력해 모델을 선택하세요.",
+                )
+            } else {
+                err
+            }
+        })?;
+    crate::app::inference_adapter::backend::ensure_installed_report()?;
+    crate::app::inference_adapter::backend::start_report(
+        &model_path.display().to_string(),
+        Some(setup::DEFAULT_CONTEXT_TOKENS),
+    )?;
+    Ok(())
+}
 
 impl TuiActionPort for TuiActionAdapter {
     fn selection_observation(
@@ -259,6 +331,75 @@ pub(crate) fn canonical_dispatch_intent(intent: TuiIntent) -> Result<TuiOutcome,
 }
 
 impl TuiRuntimePort for TuiRuntimeAdapter {
+    fn read_tui_status(&mut self) -> Result<TuiStatusSnapshot, AppError> {
+        let backend = crate::app::inference_adapter::backend::runtime_snapshot()?;
+        let latest = crate::app::observability_adapter::latest_model_run_read_only()
+            .ok()
+            .flatten();
+        let model = backend
+            .model_id
+            .clone()
+            .or_else(crate::app::inference_adapter::model::configured_model_id)
+            .or_else(|| latest.as_ref().map(|run| run.model_id.clone()))
+            .unwrap_or_else(|| "미선택".to_string());
+        let latest_matches_model = latest.as_ref().is_some_and(|run| run.model_id == model);
+        let context_tokens_used = latest
+            .as_ref()
+            .filter(|_| latest_matches_model)
+            .and_then(|run| run.context_tokens_used);
+        let context_limit_tokens = backend.context_limit_tokens.or_else(|| {
+            latest
+                .as_ref()
+                .filter(|_| latest_matches_model)
+                .and_then(|run| run.context_limit_tokens)
+        });
+        let backend = match backend.status {
+            "ready" => TuiBackendStatus::Ready,
+            "stale" => TuiBackendStatus::Stale,
+            "stopped" => TuiBackendStatus::Stopped,
+            _ => TuiBackendStatus::Unavailable,
+        };
+        Ok(TuiStatusSnapshot {
+            model,
+            context_tokens_used,
+            context_limit_tokens,
+            backend,
+            session_id: crate::app::workflow_adapter::ledger::validated_current_identity()?
+                .session_id,
+        })
+    }
+
+    fn submit_request(&mut self, request: &str) -> Result<String, AppError> {
+        ensure_runtime_ready()?;
+        crate::app::runtime_adapter::agent_run_report(request)
+    }
+
+    fn model_options(&mut self) -> Vec<crate::surfaces::tui::runtime_bridge::TuiModelOption> {
+        crate::app::inference_adapter::model::setup_options()
+    }
+
+    fn setup_model(&mut self, id: &str) -> Result<String, AppError> {
+        crate::app::inference_adapter::backend::ensure_installed_report()?;
+        let prepared = crate::app::inference_adapter::model::prepare_setup_model(id)?;
+        let snapshot = crate::app::inference_adapter::backend::runtime_snapshot()?;
+        if snapshot.status != "stopped" {
+            crate::app::inference_adapter::backend::stop_report()?;
+        }
+        crate::app::inference_adapter::backend::start_report(
+            &prepared.artifact_path.display().to_string(),
+            Some(setup::DEFAULT_CONTEXT_TOKENS),
+        )?;
+        Ok(format!(
+            "모델 변경 완료\n- model: {}\n- context: {}\n- backend: ready",
+            prepared.id,
+            setup::DEFAULT_CONTEXT_TOKENS
+        ))
+    }
+
+    fn doctor_report(&mut self) -> String {
+        crate::app::runtime_adapter::doctor_report()
+    }
+
     fn read_tui_page(&mut self, request: TuiReadRequest) -> Result<TuiReadPage, AppError> {
         canonical_read_page(request)
     }

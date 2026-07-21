@@ -121,28 +121,39 @@ Windows에서 설치된 binary가 자기 자신을 지우는 경우에는 현재
 
 의도한 로컬 설정 흐름은 다음과 같습니다.
 
-1. `rpotato init` 또는 `rpotato model install`을 실행합니다.
-2. 감지한 OS, 아키텍처, 메모리, 디스크 용량을 확인합니다.
-3. 런타임이 관리하는 `llama.cpp` sidecar를 설치하거나 검증합니다.
-4. 출처가 기록된 GGUF 모델 추천을 검토합니다.
-5. 다운로드를 명시적으로 승인합니다.
-6. artifact hash와 로컬 근거를 검증합니다.
-7. 로컬 gate를 통과한 후보만 승격하고 등록합니다.
-8. 추론 백엔드를 시작하거나 기존 프로세스를 재사용합니다.
+1. `rpotato`를 실행합니다.
+2. 최초 설정에 표시되는 model/version, quantization, download size, context,
+   RAM 상태, license, 출처 근거를 확인합니다.
+3. model을 선택하고 download를 승인합니다.
+4. `rpotato`가 managed `llama.cpp` backend를 설치하거나 재사용하고 artifact
+   size와 SHA-256을 검증한 뒤 model을 시작하도록 둡니다.
+5. 같은 TUI에서 코딩 요청을 입력합니다.
 
 모델 가중치는 `rpotato`에 포함하지 않습니다. 관리형 경로에서는 사용자가
 `llama.cpp`를 전역으로 설치할 필요가 없습니다.
 
-환경과 사용 가능한 기능부터 확인하려면 다음 명령으로 시작하십시오.
+다음 명령 하나로 시작합니다.
+
+```sh
+rpotato
+```
+
+인자가 없는 `rpotato`가 기본 TUI를 시작합니다. 일반 텍스트를 입력하면 코딩
+요청으로 처리합니다. Composer 아래 line에는 현재 model, context 사용량, backend
+상태, session이 표시됩니다. 일반 TUI 동작은 `/model`, `/status`, `/sessions`,
+`/doctor`, `/help`, `/quit`을 사용합니다.
+
+간소화한 public CLI surface는 다음과 같습니다.
 
 ```sh
 rpotato doctor
 rpotato init
-rpotato model list
-rpotato backend doctor
 rpotato run "이 저장소의 테스트 실패 원인을 찾아줘"
-rpotato tui
+rpotato debug --help
 ```
+
+`rpotato debug --help`는 세부 호환·진단 명령을 보여줍니다. 일반 설정에서는 backend
+executable이나 GGUF 경로가 필요하지 않습니다.
 
 상세 MVP 인수 기준은 [docs/ko/mvp.md](docs/ko/mvp.md)에 있습니다.
 
@@ -162,7 +173,7 @@ rpotato tui
 | 확장 | native hook/skill, local Codex/Claude Code plugin adapter |
 | 협업 | 제한된 subagent 하나와 runtime-owned team execution |
 | 모니터링 | CLI/TUI metric, SQLite projection, benchmark record, static HTML export |
-| 화면 | CLI, interactive/read-only TUI, self-contained local HTML report |
+| 화면 | 기본 대화 TUI, 자동화·진단 CLI, self-contained local HTML report |
 
 장별 기능 지도, 대표 명령, 아직 완성되지 않은 경계는
 [docs/ko/current-capabilities.md](docs/ko/current-capabilities.md)에

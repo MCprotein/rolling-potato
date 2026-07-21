@@ -50,6 +50,7 @@ impl NativeTerminalFixture {
         );
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project);
         std::env::set_var("RPOTATO_DATA_HOME", &data);
+        std::env::set_var("RPOTATO_TEST_SKIP_SETUP", "1");
         Self {
             _lock: lock,
             root,
@@ -339,6 +340,7 @@ impl Drop for NativeTerminalFixture {
         std::env::remove_var("RPOTATO_DATA_HOME");
         std::env::remove_var("RPOTATO_TEST_TERMINAL_FAULT");
         std::env::remove_var("RPOTATO_TEST_TUI_SECRET_PROBE");
+        std::env::remove_var("RPOTATO_TEST_SKIP_SETUP");
         let _ = std::fs::remove_dir_all(&self.root);
     }
 }
@@ -442,8 +444,7 @@ mod unix {
     impl NativePty {
         pub fn spawn(columns: u16, rows: u16) -> Self {
             let binary = CString::new(env!("CARGO_BIN_EXE_rpotato")).unwrap();
-            let tui = CString::new("tui").unwrap();
-            let argv = [binary.as_ptr(), tui.as_ptr(), std::ptr::null()];
+            let argv = [binary.as_ptr(), std::ptr::null()];
             let size = WinSize {
                 rows,
                 cols: columns,
@@ -1149,7 +1150,7 @@ mod windows {
                 let process = launch_in_console(
                     session_ref.console,
                     std::path::Path::new(env!("CARGO_BIN_EXE_rpotato")),
-                    "tui",
+                    "",
                     &[],
                 );
                 session_ref.release_creation_pipe_ends();

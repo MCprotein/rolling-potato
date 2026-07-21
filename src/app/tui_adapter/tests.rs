@@ -6,8 +6,11 @@ use crate::app::patch_adapter as patch;
 use crate::app::workflow_adapter::ledger;
 use crate::surfaces::tui::controller::{consume_outcome, run_controller};
 use crate::surfaces::tui::outcome::verification_credential_issued;
-use crate::surfaces::tui::render::{render_interactive_frame, sanitize_terminal_text};
+use crate::surfaces::tui::render::{
+    render_interactive_frame, render_interactive_frame_with_options, sanitize_terminal_text,
+};
 use crate::surfaces::tui::runtime_bridge::{OneShotSecret, TuiFreshness, TuiReadContinuation};
+use crate::surfaces::tui::runtime_bridge::{TuiBackendStatus, TuiStatusSnapshot};
 use crate::surfaces::tui::view_model::{InteractiveState, InteractiveView};
 
 #[test]
@@ -102,6 +105,7 @@ fn live_controller_compile_time_boundary_uses_only_runtime_and_terminal_authorit
     }
     assert!(live.contains("runtime.read_tui_page(request)"));
     assert!(live.contains("runtime.dispatch_tui_intent"));
+    assert!(live.contains("runtime.submit_request"));
     assert!(live.contains("trait TuiRuntimePort"));
 }
 
@@ -134,7 +138,7 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
     std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
     std::fs::create_dir_all(root.join("project")).unwrap();
     crate::app::workflow_adapter::state::initialize().unwrap();
-    let mut terminal = ScriptedTerminal::new(["help", "quit"]);
+    let mut terminal = ScriptedTerminal::new(["/model", "/help", "/quit"]);
 
     run_controller(&mut terminal, &mut TuiRuntimeAdapter).unwrap();
 
@@ -150,6 +154,18 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
         .frames
         .iter()
         .any(|frame| frame.contains("rpotato>")));
+    assert!(terminal
+        .frames
+        .iter()
+        .any(|frame| frame.contains("gemma-4-e4b")));
+    assert!(terminal
+        .frames
+        .iter()
+        .any(|frame| frame.contains("context 131k")));
+    assert!(terminal
+        .frames
+        .iter()
+        .any(|frame| frame.contains("16 GB 적합성은 미확정")));
 }
 
 #[test]
@@ -187,6 +203,100 @@ fn exact_outcome_notice_preserves_trusted_multiline_structure() {
         "notice: 결과 제목\n        - code: exact.test\n        - 동작: 상태를 변경하지 않았습니다.\n"
     ));
     assert!(!frame.contains("<lf>"));
+}
+
+#[test]
+fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
+    let state = InteractiveState::new();
+    let page = TuiReadPage {
+        title: "overview".to_string(),
+        lines: Vec::new(),
+        page: 0,
+        has_previous: false,
+        has_next: false,
+        freshness: TuiFreshness::Fresh,
+        continuation: TuiReadContinuation::Complete,
+        authority: crate::surfaces::tui::runtime_bridge::TuiReadAuthority::default(),
+    };
+    let status = TuiStatusSnapshot {
+        model: "gemma-4-e4b".to_string(),
+        context_tokens_used: Some(1024),
+        context_limit_tokens: Some(4096),
+        backend: TuiBackendStatus::Ready,
+        session_id: "session-long-identifier".to_string(),
+    };
+
+    let frame = render_interactive_frame_with_options(&state, &page, &status, 120, 40, true, true);
+
+    let prompt = frame.find("rpotato> ").unwrap();
+    let status_line = frame.find("model gemma-4-e4b").unwrap();
+    assert!(prompt < status_line);
+    assert!(frame.contains("ctx 1024/4096 (25%)"));
+    assert!(frame.contains("backend ready"));
+    assert!(frame.contains("\u{001b}[32m"));
+    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[9C"));
+}
+
+#[test]
+fn no_color_forces_a_plain_frame_without_layout_escape_sequences() {
+    let state = InteractiveState::new();
+    let page = TuiReadPage {
+        title: "overview".to_string(),
+        lines: vec!["body".to_string()],
+        page: 0,
+        has_previous: false,
+        has_next: false,
+        freshness: TuiFreshness::Fresh,
+        continuation: TuiReadContinuation::Complete,
+        authority: crate::surfaces::tui::runtime_bridge::TuiReadAuthority::default(),
+    };
+
+    let frame = render_interactive_frame_with_options(
+        &state,
+        &page,
+        &TuiStatusSnapshot::unavailable(),
+        80,
+        24,
+        true,
+        false,
+    );
+
+    assert!(!frame.contains('\u{001b}'));
+    assert!(frame.contains("backend unavailable"));
+}
+
+#[test]
+fn long_notice_keeps_composer_and_status_inside_the_terminal_row_budget() {
+    let mut state = InteractiveState::new();
+    state.notice = (0..20)
+        .map(|index| format!("notice line {index}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let page = TuiReadPage {
+        title: "overview".to_string(),
+        lines: (0..20).map(|index| format!("body {index}")).collect(),
+        page: 0,
+        has_previous: false,
+        has_next: false,
+        freshness: TuiFreshness::Fresh,
+        continuation: TuiReadContinuation::Complete,
+        authority: crate::surfaces::tui::runtime_bridge::TuiReadAuthority::default(),
+    };
+
+    let frame = render_interactive_frame_with_options(
+        &state,
+        &page,
+        &TuiStatusSnapshot::unavailable(),
+        80,
+        10,
+        true,
+        true,
+    );
+
+    assert!(frame.find("rpotato> ").unwrap() < frame.find("model 미선택").unwrap());
+    assert!(frame.matches('\n').count() < 10);
+    assert!(frame.contains("…"));
+    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[9C"));
 }
 
 #[test]
@@ -271,7 +381,7 @@ fn monitor_renders_resource_pressure_and_token_throughput() {
     .unwrap();
     observability::record_resource_sample(&observability::ResourceSampleMetric {
         resource_sample_id: "resource-sample-tui-resource".to_string(),
-        session_id: identity.session_id,
+        session_id: identity.session_id.clone(),
         backend_id: "llama.cpp".to_string(),
         pid: 12345,
         process_cpu_percent: Some(84.2),
@@ -284,6 +394,7 @@ fn monitor_renders_resource_pressure_and_token_throughput() {
     })
     .unwrap();
 
+    let status = TuiRuntimeAdapter.read_tui_status().unwrap();
     let report = monitor_report().unwrap();
 
     std::env::remove_var("RPOTATO_PROJECT_ROOT");
@@ -300,6 +411,10 @@ fn monitor_renders_resource_pressure_and_token_throughput() {
     assert!(report.contains("disk: 1.5 KiB"));
     assert!(report.contains("avg ms | tps"));
     assert!(report.contains("12.5 tok/s"));
+    assert_eq!(status.model, "qwen-test");
+    assert_eq!(status.context_tokens_used, Some(10));
+    assert_eq!(status.context_limit_tokens, Some(4096));
+    assert!(status.session_id.starts_with("session-"));
 }
 
 #[test]

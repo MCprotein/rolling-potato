@@ -5,8 +5,8 @@
 ### 기준 문서
 
 - 상태: 활성
-- 마지막 갱신: 2026-07-19
-- 주요 제품 surface: CLI, TUI, 선택 가능한 로컬 정적 HTML report
+- 마지막 갱신: 2026-07-21
+- 주요 제품 surface: 인자 없는 `rpotato` TUI; 자동화·진단용 subcommand CLI; 선택 가능한 로컬 정적 HTML report
 - 검토한 근거:
   - `README.md`
   - `PLAN.md`
@@ -33,6 +33,7 @@
 ### 제품 목표
 
 - 목표:
+  - `rpotato` 실행만으로 첫 설정과 대화가 이어지는 코딩 에이전트 TUI에 진입한다.
   - Claude Code/Codex 대신 쓸 수 있는 local agent runtime 경험을 제공한다.
   - 저사양 노트북과 Linux server/SSH 환경에서도 session 상태와 monitoring을 확인할 수 있게 한다.
   - 모델별 token, latency, memory, guard, tool, stop-gate metric을 빠르게 스캔하게 한다.
@@ -131,6 +132,8 @@
   - `docs/glossary.md`의 runtime status vocabulary
   - `docs/observability.md`의 observability metric group
 - 새로 만들거나 바꿀 component:
+  - 바로 아래에 고정 runtime status line이 있는 대화 composer
+  - 최초 실행 model picker와 managed-backend 설정 흐름
   - metric summary strip
   - model comparison table
   - session timeline
@@ -152,6 +155,16 @@
   - Runtime core는 data state를 소유한다.
   - TUI는 presentation과 user decision을 소유한다.
   - `docs/observability.md`는 metric schema 방향을 소유한다.
+
+### 기본 TUI 계약
+
+- terminal에 연결된 인자 없는 `rpotato`는 대화 controller를 연다.
+- 최초 실행에서는 같은 terminal 흐름 안에서 출처 기반 model 후보를 나열하고 확인 전에 model ID/version, quantization, download size, context limit, RAM 상태, license, 추천 근거를 보여준다.
+- managed backend는 자동으로 설치하거나 재사용한다. 기본 경로에서 사용자가 `llama.cpp` executable 또는 GGUF filesystem path를 입력하게 하지 않는다.
+- composer가 focus 중심이며, 바로 다음 status line은 항상 `model | ctx used/limit (%) | backend | session` 순서를 사용한다.
+- model과 context 값은 최신 기록된 model run, backend 상태는 managed sidecar, session은 active canonical session identity에서 읽는다. 없는 값과 stale backend 상태는 추측하지 않고 표시한다.
+- `/model`, `/status`, `/sessions`, `/doctor`, `/clear`, `/help`, `/quit`가 일반 TUI 동작을 담당한다. 기존 세부 subcommand는 `rpotato debug --help` 아래의 고급 호환 surface로 유지한다.
+- ANSI attached terminal에서는 semantic color와 cursor positioning을 쓸 수 있다. Redirect된 출력, `TERM=dumb`, `NO_COLOR`에서는 안정된 plain text를 유지한다.
 
 ### 접근성
 
@@ -220,6 +233,7 @@
 
 - framework/styling system:
   - 현재 interactive TUI는 std-only line controller다.
+  - attached-terminal frame은 bounded ANSI layout으로 status line을 composer 아래에 두고 cursor를 input line으로 되돌린다. Scripted/redirected 실행은 plain-text fallback을 사용한다.
   - 더 풍부한 full-screen TUI용 framework는 아직 선택하지 않았다.
   - SQLite projection access는 `rusqlite`를 사용한다.
   - TUI는 DB를 직접 소유하지 않고 runtime core contract를 통해 runtime state를 소비해야 한다.

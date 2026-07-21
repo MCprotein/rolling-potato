@@ -154,7 +154,9 @@ impl inference::ModelCommandPort for CommandDispatchAdapter {
 
 pub(super) fn emit_output(output: inference::CommandOutput) {
     match output {
-        inference::CommandOutput::Line(report) => println!("{report}"),
+        inference::CommandOutput::Line(report) => {
+            crate::surfaces::cli::render::emit_report(&report)
+        }
         inference::CommandOutput::Exact(report) => print!("{report}"),
         inference::CommandOutput::None => {}
     }

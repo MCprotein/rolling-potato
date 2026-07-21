@@ -80,6 +80,59 @@ pub(crate) struct TuiReadPage {
     pub(crate) authority: TuiReadAuthority,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TuiStatusSnapshot {
+    pub(crate) model: String,
+    pub(crate) context_tokens_used: Option<u32>,
+    pub(crate) context_limit_tokens: Option<u32>,
+    pub(crate) backend: TuiBackendStatus,
+    pub(crate) session_id: String,
+}
+
+impl TuiStatusSnapshot {
+    pub(crate) fn unavailable() -> Self {
+        Self {
+            model: "미선택".to_string(),
+            context_tokens_used: None,
+            context_limit_tokens: None,
+            backend: TuiBackendStatus::Unavailable,
+            session_id: "미초기화".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TuiBackendStatus {
+    Ready,
+    Stopped,
+    Stale,
+    Unavailable,
+}
+
+impl TuiBackendStatus {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::Stopped => "stopped",
+            Self::Stale => "stale",
+            Self::Unavailable => "unavailable",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TuiModelOption {
+    pub(crate) id: String,
+    pub(crate) display_name: String,
+    pub(crate) quantization: String,
+    pub(crate) download_bytes: u64,
+    pub(crate) context_length: Option<u32>,
+    pub(crate) ram: String,
+    pub(crate) license: String,
+    pub(crate) note: String,
+    pub(crate) recommended: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TuiReadContinuation {
     Complete,

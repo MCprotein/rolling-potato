@@ -10,9 +10,10 @@ use crate::foundation::error::AppError;
 use crate::runtime_core::inference::resource;
 use crate::runtime_core::observability::facade::{
     BenchmarkEvidenceSummary, BenchmarkRunMetric, BenchmarkRunReport, CanonicalProjectionReadPort,
-    ModelMetricSummary, ModelRunMetric, MonitorProjectionSnapshot, ObservabilityProjectionPort,
-    OptimizationPolicy, PerformanceBaseline, PerformanceGroupSummary, PressureStateSummary,
-    PrunePreview, ResourceSampleMetric, SessionEventEntry, SessionHistoryEntry, StoreStatus,
+    LatestModelRunSnapshot, ModelMetricSummary, ModelRunMetric, MonitorProjectionSnapshot,
+    ObservabilityProjectionPort, OptimizationPolicy, PerformanceBaseline, PerformanceGroupSummary,
+    PressureStateSummary, PrunePreview, ResourceSampleMetric, SessionEventEntry,
+    SessionHistoryEntry, StoreStatus,
 };
 #[cfg(test)]
 use crate::runtime_core::observability::facade::{
@@ -29,7 +30,8 @@ mod replay;
 mod schema;
 mod sessions;
 use analytics::{
-    model_summaries, model_summaries_from_connection, optimization_policy, performance_baseline,
+    latest_model_run_from_connection, model_summaries, model_summaries_from_connection,
+    optimization_policy, performance_baseline,
 };
 use metrics::{
     benchmark_run_reports, latest_resource_sample, record_benchmark_run, record_model_run,
@@ -184,6 +186,10 @@ impl ObservabilityProjectionPort for SqliteObservabilityProjection {
     fn latest_resource_sample(&self) -> Result<Option<ResourceSampleMetric>, AppError> {
         latest_resource_sample()
     }
+
+    fn latest_model_run(&self) -> Result<Option<LatestModelRunSnapshot>, AppError> {
+        latest_model_run_read_only()
+    }
 }
 
 pub fn initialize(
@@ -214,6 +220,11 @@ pub fn monitor_snapshot_read_only(limit: usize) -> Result<MonitorProjectionSnaps
         status: status_from_connection(&connection, None)?,
         model_summaries: model_summaries_from_connection(&connection, limit)?,
     })
+}
+
+pub fn latest_model_run_read_only() -> Result<Option<LatestModelRunSnapshot>, AppError> {
+    let connection = open_read_only()?;
+    latest_model_run_from_connection(&connection)
 }
 
 pub(crate) fn project_event_with_ordinal(

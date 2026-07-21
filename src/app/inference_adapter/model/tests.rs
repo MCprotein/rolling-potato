@@ -24,6 +24,30 @@ fn candidate_summary_reports_verified_count() {
 }
 
 #[test]
+fn first_run_options_expose_only_source_backed_facts_and_one_evidence_based_recommendation() {
+    let options = setup_options();
+
+    assert_eq!(options.len(), 2);
+    assert!(options.iter().all(|option| option.download_bytes > 0));
+    assert!(options.iter().all(|option| option.context_length.is_some()));
+    assert!(options.iter().all(|option| option.ram == "미확정"));
+    assert_eq!(
+        options
+            .iter()
+            .filter(|option| option.recommended)
+            .map(|option| option.id.as_str())
+            .collect::<Vec<_>>(),
+        ["gemma-4-e4b"]
+    );
+    assert!(options
+        .iter()
+        .find(|option| option.id == "gemma-4-e4b")
+        .unwrap()
+        .note
+        .contains("16 GB 적합성은 미확정"));
+}
+
+#[test]
 fn manifest_validation_blocks_unverified_artifact_candidate() {
     let candidate = find_candidate("qwen3.5-4b").unwrap();
     let validation = validate_install_ready(candidate);

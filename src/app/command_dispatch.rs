@@ -48,36 +48,43 @@ impl dispatch::CommandDispatchPort for CommandDispatchAdapter {
     fn execute(&mut self, command: Command) -> Result<(), AppError> {
         match command {
             Command::Help => {
-                println!("{}", render::HELP);
+                render::emit_report(render::HELP);
+                Ok(())
+            }
+            Command::AdvancedHelp => {
+                render::emit_report(render::ADVANCED_HELP);
                 Ok(())
             }
             Command::Install(command) => {
-                println!("{}", install::install_report(command)?);
+                render::emit_report(&install::install_report(command)?);
                 Ok(())
             }
             Command::Init => {
                 let environment = install::init_environment_report()?;
-                println!("{}\n\n{}", runtime::init_report()?, environment);
+                render::emit_report(&format!("{}\n\n{}", runtime::init_report()?, environment));
+                if capability::attached() {
+                    crate::app::tui_adapter::run_setup()?;
+                }
                 Ok(())
             }
             Command::Run { request } => {
-                println!("{}", runtime::agent_run_report(&request)?);
+                render::emit_report(&runtime::agent_run_report(&request)?);
                 Ok(())
             }
             Command::Intent(IntentCommand::Classify { request }) => {
-                println!("{}", intent::classify_report(&request)?);
+                render::emit_report(&intent::classify_report(&request)?);
                 Ok(())
             }
             Command::Intent(IntentCommand::Routes) => {
-                println!("{}", intent::routes_report());
+                render::emit_report(&intent::routes_report());
                 Ok(())
             }
             Command::Doctor => {
-                println!("{}", runtime::doctor_report());
+                render::emit_report(&runtime::doctor_report());
                 Ok(())
             }
             Command::Config => {
-                println!("{}", config::report());
+                render::emit_report(&config::report());
                 Ok(())
             }
             Command::State(command) => execute_state(command),
@@ -86,7 +93,7 @@ impl dispatch::CommandDispatchPort for CommandDispatchAdapter {
             Command::Subagent(command) => execute_subagent(command),
             Command::Tui(command) => execute_tui(command),
             Command::Cancel => {
-                println!("{}", state::cancel_report()?);
+                render::emit_report(&state::cancel_report()?);
                 Ok(())
             }
             Command::Evidence(command) => execute_evidence(command),
@@ -115,7 +122,7 @@ impl dispatch::CommandDispatchPort for CommandDispatchAdapter {
             }
             Command::Plugin(command) => execute_plugin(command),
             Command::Uninstall(command) => {
-                println!("{}", uninstall::uninstall_report(command)?);
+                render::emit_report(&uninstall::uninstall_report(command)?);
                 Ok(())
             }
         }
