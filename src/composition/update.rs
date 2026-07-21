@@ -75,3 +75,26 @@ pub(crate) fn update_report() -> Result<String, AppError> {
         paths.installed_binary.display()
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn startup_check_failure_never_blocks_the_tui() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-update-startup-failure-{}",
+            std::process::id()
+        ));
+        std::env::set_var("RPOTATO_DATA_HOME", &root);
+        std::env::set_var("RPOTATO_TEST_LATEST_RELEASE_JSON", "not-json");
+
+        let notice = startup_notice();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_TEST_LATEST_RELEASE_JSON");
+        let _ = std::fs::remove_dir_all(root);
+        assert!(notice.is_none());
+    }
+}

@@ -220,7 +220,8 @@ fn schedule_windows_self_update(
     [Parameter(Mandatory=$true)][string]$Target,
     [Parameter(Mandatory=$true)][string]$ScriptPath
 )
-for ($attempt = 0; $attempt -lt 300; $attempt++) {
+$ErrorActionPreference = 'Stop'
+for ($attempt = 0; $attempt -lt 6000; $attempt++) {
     if (-not (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue)) { break }
     Start-Sleep -Milliseconds 100
 }
