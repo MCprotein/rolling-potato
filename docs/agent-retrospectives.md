@@ -321,3 +321,27 @@
   Windows 경로 구분자를 모두 회귀 테스트합니다.
 - 새 startup side effect를 추가할 때는 native terminal의 entry/quit 계약을 targeted
   검증하며, 새 cache 파일이나 update payload가 암묵적으로 예외가 되게 하지 않습니다.
+
+## 2026-07-21: Rust test selector가 candidate workflow YAML을 무효화
+
+### 증상
+
+- Windows lifecycle test를 한 줄 `run:` scalar로 추가한 뒤 candidate workflow가
+  job을 만들지 못하고 workflow load 단계에서 실패했습니다.
+- Rust selector의 끝 `tests::` 뒤 공백이 YAML의 `: ` mapping 구문으로 해석됐지만,
+  기존 preflight의 workflow contract는 필요한 문자열 존재만 확인해 이를 놓쳤습니다.
+
+### 원인
+
+- `::`로 끝날 수 있는 Rust test selector를 YAML plain scalar에 직접 넣었습니다.
+- Candidate workflow 계약에 plain-scalar colon-space 문법을 차단하는 guard가
+  없었습니다.
+
+### 재발 방지
+
+- Rust test selector가 들어가는 긴 workflow 명령은 `run: >-` 또는 `run: |` block
+  scalar로 작성합니다.
+- Release workflow contract는 candidate workflow의 `run: …: ` plain scalar를
+  fixture와 함께 거부하며, candidate preflight에서 이 계약을 실행합니다.
+- Job이 하나도 생성되지 않은 Actions 실패는 테스트 재실행 대신 workflow 문법부터
+  진단합니다.
