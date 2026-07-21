@@ -142,8 +142,11 @@ rpotato
 
 Running `rpotato` without arguments starts the primary TUI. Plain text entered
 there is treated as a coding request. The line below the composer shows the
-current model, context usage, backend state, and session. Normal TUI operations
-use `/model`, `/status`, `/sessions`, `/doctor`, `/help`, and `/quit`.
+current model, context usage, compaction checkpoint, backend state, and session.
+Normal TUI operations use `/model`, `/compact`, `/status`, `/sessions`, `/doctor`,
+`/help`, and `/quit`.
+Context compaction starts automatically at 75% usage; `/compact` creates a manual
+checkpoint while preserving the immutable transcript as the authority.
 
 The smaller public CLI surface is:
 

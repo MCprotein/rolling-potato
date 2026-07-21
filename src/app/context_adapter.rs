@@ -20,7 +20,7 @@ use crate::runtime_core::knowledge::context::{
 mod compaction;
 mod discovery;
 
-pub(crate) use compaction::{compact_automatically, compact_manually, CompactionOutcome};
+pub(crate) use compaction::{compact_automatically, compact_manually};
 use discovery::{build_filesystem_fallback, content_fingerprint};
 
 pub fn build_context_pack(request: &str) -> Result<ContextPack, AppError> {

@@ -72,21 +72,29 @@ pub(crate) fn render_interactive_frame_with_options(
 }
 
 fn render_status_line(status: &TuiStatusSnapshot, width: usize) -> String {
-    let context = match (status.context_tokens_used, status.context_limit_tokens) {
+    let (context, percent) = match (status.context_tokens_used, status.context_limit_tokens) {
         (Some(used), Some(limit)) if limit > 0 => {
             let percent = used.saturating_mul(100) / limit;
-            format!("ctx {used}/{limit} ({percent}%)")
+            (format!("ctx {used}/{limit} ({percent}%)"), Some(percent))
         }
-        (Some(used), Some(_)) => format!("ctx {used}/—"),
-        (Some(used), None) => format!("ctx {used}/—"),
-        (None, Some(limit)) => format!("ctx —/{limit}"),
-        (None, None) => "ctx —".to_string(),
+        (Some(used), Some(_)) => (format!("ctx {used}/—"), None),
+        (Some(used), None) => (format!("ctx {used}/—"), None),
+        (None, Some(limit)) => (format!("ctx —/{limit}"), None),
+        (None, None) => ("ctx —".to_string(), None),
+    };
+    let compaction = if status.has_compaction_checkpoint {
+        "compact saved"
+    } else if percent.is_some_and(|value| value >= 75) {
+        "compact due"
+    } else {
+        "compact auto@75%"
     };
     truncate_chars(
         &format!(
-            "model {} | {} | backend {} | session {}",
+            "model {} | {} | {} | backend {} | session {}",
             sanitize_terminal_text(&status.model),
             context,
+            compaction,
             status.backend.as_str(),
             short_status_id(&sanitize_terminal_text(&status.session_id))
         ),

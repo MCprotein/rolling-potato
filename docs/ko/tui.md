@@ -96,17 +96,22 @@ input row로 되돌립니다.
 
 ```text
 request> _
-model gemma-3n-E4B-it-Q4_K_M | ctx 812/4096 (19%) | backend ready | session 01J…
+model gemma-3n-E4B-it-Q4_K_M | ctx 812/4096 (19%) | compact auto@75% | backend ready | session 01J…
 ```
 
-field 순서는 항상 `model | context | backend | session`입니다. 최신 model-run
-projection, managed backend sidecar, active canonical session에서 읽으며, 없는 값과
-stale backend 상태는 명확히 표시합니다. `NO_COLOR`, `TERM=dumb`, redirected/scripted 실행은 ANSI
-control sequence 없이 plain text를 사용합니다.
+field 순서는 항상 `model | context | compaction | backend | session`입니다.
+`compact auto@75%`는 아직 checkpoint가 없다는 뜻이고, `compact due`는 checkpoint가
+없는 session의 측정 사용량이 자동 압축 임계값에 도달했다는 뜻이며, `compact saved`는
+active session에 검증된 checkpoint가 있다는 뜻입니다. 최신 model-run projection, managed backend
+sidecar, active canonical session에서 읽으며, 없는 값과 stale backend 상태는 명확히
+표시합니다. `NO_COLOR`, `TERM=dumb`, redirected/scripted 실행은 ANSI control sequence
+없이 plain text를 사용합니다.
 
-일반 interactive 명령은 `/model`, `/status`, `/sessions`, `/doctor`, `/clear`, `/help`,
-`/quit`입니다. 세부 backend, registry, benchmark, policy, inspection 명령은
-`rpotato debug --help` 아래의 진단용 surface로 유지합니다.
+일반 interactive 명령은 `/model`, `/compact`, `/status`, `/sessions`, `/doctor`,
+`/clear`, `/help`, `/quit`입니다. `/compact`는 incremental typed checkpoint를 만들고
+가장 최근 transcript record 4개를 보존합니다. 자동 압축도 측정된 context 사용량
+75%에서 같은 경로를 사용합니다. 세부 backend, registry, benchmark, policy,
+inspection 명령은 `rpotato debug --help` 아래의 진단용 surface로 유지합니다.
 
 <!-- TUI-READ-CONTRACT:START -->
 8개 view(`overview`, `monitor`, `sessions`, `transcript`, `tool-output`, `approvals`,

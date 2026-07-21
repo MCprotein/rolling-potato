@@ -97,17 +97,22 @@ the cursor returns to the input row:
 
 ```text
 request> _
-model gemma-3n-E4B-it-Q4_K_M | ctx 812/4096 (19%) | backend ready | session 01J…
+model gemma-3n-E4B-it-Q4_K_M | ctx 812/4096 (19%) | compact auto@75% | backend ready | session 01J…
 ```
 
-The fields always stay in `model | context | backend | session` order. They come from
-the latest model-run projection, managed backend sidecar, and active canonical session;
-missing values and stale backend state are displayed explicitly. `NO_COLOR`, `TERM=dumb`, redirected,
-and scripted execution use plain text without ANSI control sequences.
+The fields always stay in `model | context | compaction | backend | session` order.
+`compact auto@75%` means no checkpoint exists yet, `compact due` means a session without
+a checkpoint reached the automatic threshold, and `compact saved` means the active
+session has a validated checkpoint. The fields come from the latest model-run projection,
+managed backend sidecar, and active canonical session; missing values and stale backend
+state are displayed explicitly. `NO_COLOR`, `TERM=dumb`, redirected, and scripted
+execution use plain text without ANSI control sequences.
 
-Normal interactive commands are `/model`, `/status`, `/sessions`, `/doctor`, `/clear`,
-`/help`, and `/quit`. Granular backend, registry, benchmark, policy, and inspection
-commands remain available for diagnostics under `rpotato debug --help`.
+Normal interactive commands are `/model`, `/compact`, `/status`, `/sessions`, `/doctor`,
+`/clear`, `/help`, and `/quit`. `/compact` creates an incremental typed checkpoint and
+retains the four most recent transcript records. Automatic compaction uses the same path
+at 75% measured context usage. Granular backend, registry, benchmark, policy, and
+inspection commands remain available for diagnostics under `rpotato debug --help`.
 
 <!-- TUI-READ-CONTRACT:START -->
 The eight views (`overview`, `monitor`, `sessions`, `transcript`, `tool-output`,

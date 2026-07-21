@@ -333,6 +333,7 @@ pub(crate) fn canonical_dispatch_intent(intent: TuiIntent) -> Result<TuiOutcome,
 impl TuiRuntimePort for TuiRuntimeAdapter {
     fn read_tui_status(&mut self) -> Result<TuiStatusSnapshot, AppError> {
         let backend = crate::app::inference_adapter::backend::runtime_snapshot()?;
+        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
         let latest = crate::app::observability_adapter::latest_model_run_read_only()
             .ok()
             .flatten();
@@ -363,10 +364,18 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             model,
             context_tokens_used,
             context_limit_tokens,
+            has_compaction_checkpoint:
+                crate::app::workflow_adapter::state::current_compaction_boundary(
+                    &identity.session_id,
+                )?
+                .is_some(),
             backend,
-            session_id: crate::app::workflow_adapter::ledger::validated_current_identity()?
-                .session_id,
+            session_id: identity.session_id,
         })
+    }
+
+    fn compact_context(&mut self) -> Result<String, AppError> {
+        Ok(crate::app::context_adapter::compact_manually()?.report())
     }
 
     fn submit_request(&mut self, request: &str) -> Result<String, AppError> {

@@ -110,7 +110,6 @@ Phase 2의 현재 구현은 runtime store foundation입니다.
 아직 구현하지 않은 부분:
 
 - managed backend sidecar의 continuous background CPU/memory/disk resource sampling
-- bounded recent-turn window를 넘는 transcript compaction/summarization
 - 실제 retention 삭제
 - cancellation과 timeout을 구분하는 별도 SQLite terminal-outcome enum
 - token stream 통계를 실시간으로 표시하는 TUI
@@ -311,10 +310,13 @@ SQLite projection은 status/TUI query를 위해 verification evidence와 stop-ga
 
 Compacted summary는 source of truth가 아닙니다.
 
-- current-state는 `compaction_boundary`와 `compacted_summary_path` pointer만 보존한다.
+- current-state는 project/session에 binding된 `compaction_boundary` artifact pointer 하나만 보존한다.
+- 자동 압축은 측정된 context 사용량 75%에서 시작하고 model context limit의 40%를 목표로 한다. `/compact`는 같은 incremental 경로를 수동으로 실행한다.
+- 각 immutable artifact는 source boundary record, artifact hash, 이전 checkpoint hash, typed checkpoint, 보존할 최근 transcript record 최대 4개를 binding한다. 원본 transcript는 다시 쓰거나 삭제하지 않는다.
+- Deterministic pruning과 typed extraction을 먼저 수행한다. 제한된 local-model 호출 한 번이 짧은 rationale을 보강할 수 있으며, 실패하면 다음 요청을 막지 않고 deterministic checkpoint로 fallback한다.
 - 원본 판단 근거는 runtime ledger, project session ledger, evidence artifact pointer를 다시 읽어 확인한다.
-- compacted summary는 resume bundle의 탐색 힌트로만 사용하고, 파일/명령/모델 claim을 확정하는 근거로 쓰지 않는다.
-- compacted summary artifact도 `evidence validate`와 같은 project boundary 검증을 통과해야 한다.
+- Compacted checkpoint field는 명시적으로 신뢰하지 않는 과거 데이터다. Resume 탐색 힌트로만 사용하고 instruction, 파일, 명령, model claim을 확정하는 근거로 쓰지 않는다.
+- Compaction artifact는 resume에 사용하기 전에 project/session, boundary record, hash chain, size, path 검증을 통과해야 한다. 파생 상태가 유효하지 않으면 canonical recent-turn 경로로 fallback한다.
 - Runtime core는 workflow를 만들거나 안전한 영속 phase를 계속하기 전에 최근 transcript turn 최대 8개·2,400자를 재구성하고 현재 요청과 resume context 전체에 source pointer 최대 4개·3,200자의 단일 공유 budget을 적용한다.
 - session resume 권위는 ledger/artifact에 있다. SQLite는 선택 가능한 session/transcript view를 표시하고 append-only ledger event와 immutable transcript artifact가 replay를 승인한다. current-state는 선택한 `session_id`와 resume metadata를 저장한다.
 - 각 transcript projection row는 canonical ledger event ID와 monotonic event ordinal을 저장하며 timestamp가 같아도 replay 후 `(session_id, event_ordinal)` 순서를 복원한다.

@@ -161,9 +161,9 @@
 - terminal에 연결된 인자 없는 `rpotato`는 대화 controller를 연다.
 - 최초 실행에서는 같은 terminal 흐름 안에서 출처 기반 model 후보를 나열하고 확인 전에 model ID/version, quantization, download size, context limit, RAM 상태, license, 추천 근거를 보여준다.
 - managed backend는 자동으로 설치하거나 재사용한다. 기본 경로에서 사용자가 `llama.cpp` executable 또는 GGUF filesystem path를 입력하게 하지 않는다.
-- composer가 focus 중심이며, 바로 다음 status line은 항상 `model | ctx used/limit (%) | backend | session` 순서를 사용한다.
+- composer가 focus 중심이며, 바로 다음 status line은 항상 `model | ctx used/limit (%) | compaction | backend | session` 순서를 사용한다.
 - model과 context 값은 최신 기록된 model run, backend 상태는 managed sidecar, session은 active canonical session identity에서 읽는다. 없는 값과 stale backend 상태는 추측하지 않고 표시한다.
-- `/model`, `/status`, `/sessions`, `/doctor`, `/clear`, `/help`, `/quit`가 일반 TUI 동작을 담당한다. 기존 세부 subcommand는 `rpotato debug --help` 아래의 고급 호환 surface로 유지한다.
+- `/model`, `/compact`, `/status`, `/sessions`, `/doctor`, `/clear`, `/help`, `/quit`가 일반 TUI 동작을 담당한다. 기존 세부 subcommand는 `rpotato debug --help` 아래의 고급 호환 surface로 유지한다.
 - ANSI attached terminal에서는 semantic color와 cursor positioning을 쓸 수 있다. Redirect된 출력, `TERM=dumb`, `NO_COLOR`에서는 안정된 plain text를 유지한다.
 
 ### 접근성

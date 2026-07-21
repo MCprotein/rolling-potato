@@ -14,6 +14,7 @@ pub(crate) trait TuiRuntimePort {
     fn model_options(&mut self) -> Vec<TuiModelOption>;
     fn setup_model(&mut self, id: &str) -> Result<String, AppError>;
     fn doctor_report(&mut self) -> String;
+    fn compact_context(&mut self) -> Result<String, AppError>;
     fn submit_request(&mut self, request: &str) -> Result<String, AppError>;
     fn new_tui_intent_id(&mut self) -> String;
     fn tui_selection_lease(&mut self, selected_object_id: &str)
@@ -72,7 +73,13 @@ pub(crate) fn run_controller(
             }
             ["quit"] | ["exit"] | ["/quit"] => return Ok(()),
             ["help"] | ["/help"] => {
-                state.notice = "요청을 바로 입력하세요.\n- /model [id]: 모델 확인/변경\n- /status: 상태 새로고침\n- /sessions: 세션 목록\n- /doctor: 환경 진단\n- /clear: 알림 지우기\n- /help: 도움말\n- /quit: 종료\n고급 호환 명령: rpotato debug --help".to_string();
+                state.notice = "요청을 바로 입력하세요.\n- /model [id]: 모델 확인/변경\n- /compact: 현재 대화 컨텍스트 압축\n- /status: 상태 새로고침\n- /sessions: 세션 목록\n- /doctor: 환경 진단\n- /clear: 알림 지우기\n- /help: 도움말\n- /quit: 종료\n고급 호환 명령: rpotato debug --help".to_string();
+            }
+            ["/compact"] => {
+                state.notice = match runtime.compact_context() {
+                    Ok(report) => report,
+                    Err(error) => error.message,
+                };
             }
             ["/status"] => {
                 state.notice = "모델·컨텍스트·backend·세션 상태를 새로고침했습니다.".to_string();

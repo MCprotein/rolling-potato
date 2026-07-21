@@ -138,7 +138,7 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
     std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
     std::fs::create_dir_all(root.join("project")).unwrap();
     crate::app::workflow_adapter::state::initialize().unwrap();
-    let mut terminal = ScriptedTerminal::new(["/model", "/help", "/quit"]);
+    let mut terminal = ScriptedTerminal::new(["/model", "/help", "/compact", "/quit"]);
 
     run_controller(&mut terminal, &mut TuiRuntimeAdapter).unwrap();
 
@@ -166,6 +166,14 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
         .frames
         .iter()
         .any(|frame| frame.contains("16 GB 적합성은 미확정")));
+    assert!(terminal
+        .frames
+        .iter()
+        .any(|frame| frame.contains("/compact: 현재 대화 컨텍스트 압축")));
+    assert!(terminal
+        .frames
+        .iter()
+        .any(|frame| frame.contains("context compact 결과")));
 }
 
 #[test]
@@ -218,10 +226,11 @@ fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
         continuation: TuiReadContinuation::Complete,
         authority: crate::surfaces::tui::runtime_bridge::TuiReadAuthority::default(),
     };
-    let status = TuiStatusSnapshot {
+    let mut status = TuiStatusSnapshot {
         model: "gemma-4-e4b".to_string(),
         context_tokens_used: Some(1024),
         context_limit_tokens: Some(4096),
+        has_compaction_checkpoint: false,
         backend: TuiBackendStatus::Ready,
         session_id: "session-long-identifier".to_string(),
     };
@@ -232,9 +241,19 @@ fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
     let status_line = frame.find("model gemma-4-e4b").unwrap();
     assert!(prompt < status_line);
     assert!(frame.contains("ctx 1024/4096 (25%)"));
+    assert!(frame.contains("compact auto@75%"));
     assert!(frame.contains("backend ready"));
     assert!(frame.contains("\u{001b}[32m"));
     assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[9C"));
+
+    status.has_compaction_checkpoint = true;
+    let saved = render_interactive_frame_with_options(&state, &page, &status, 120, 40, true, true);
+    assert!(saved.contains("compact saved"));
+
+    status.has_compaction_checkpoint = false;
+    status.context_tokens_used = Some(3072);
+    let due = render_interactive_frame_with_options(&state, &page, &status, 120, 40, true, true);
+    assert!(due.contains("compact due"));
 }
 
 #[test]
