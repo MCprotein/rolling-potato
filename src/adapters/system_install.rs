@@ -383,13 +383,27 @@ if (-not $SkipParentWait) {
         Start-Sleep -Milliseconds 100
     }
 }
+function Get-Sha256Hex {
+    param([Parameter(Mandatory=$true)][string]$Path)
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            return ([System.BitConverter]::ToString($sha256.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+        } finally {
+            $sha256.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+}
 $exitCode = 0
 $targetMoved = $false
 try {
     if (-not (Test-Path -LiteralPath $Target -PathType Leaf)) {
         throw 'installed target is missing'
     }
-    $actualTargetSha = (Get-FileHash -LiteralPath $Target -Algorithm SHA256).Hash.ToLowerInvariant()
+    $actualTargetSha = Get-Sha256Hex -Path $Target
     if ($actualTargetSha -ne $ExpectedTargetSha.ToLowerInvariant()) {
         $exitCode = 3
     } else {

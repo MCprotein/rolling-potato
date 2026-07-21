@@ -346,29 +346,30 @@
 - Job이 하나도 생성되지 않은 Actions 실패는 테스트 재실행 대신 workflow 문법부터
   진단합니다.
 
-## 2026-07-21: Windows CAS 테스트가 parent PID 수명에 결합됨
+## 2026-07-21: Windows updater가 Get-FileHash cmdlet에 의존함
 
 ### 증상
 
 - Windows deferred-update CAS 테스트가 같은 candidate SHA의 targeted workflow에서는
   통과했지만 candidate workflow에서는 exit 1로 실패했습니다.
-- 기대한 CAS mismatch exit 3 대신 parent PID 대기 fixture의 결과에 따라 테스트가
-  간헐적으로 달라졌습니다.
+- 추가한 helper 진단 출력에서 candidate runner의 `powershell.exe`가 `Get-FileHash`
+  cmdlet을 찾지 못한 사실을 확인했습니다.
 
 ### 원인
 
-- 처음에는 범위 밖 PID sentinel을 사용했고, 이후 실제 child process를 종료한 PID로
-  바꿨지만 OS process 관찰과 CAS 검증을 한 fixture 안에 둔 결합은 남았습니다.
-- 같은 SHA가 통과와 실패를 모두 보였으나 helper 오류 출력을 수집하지 않아 정확한
-  Windows 내부 실패 지점은 확정할 수 없었습니다.
+- self-update helper의 무결성 확인이 PowerShell 기본 module의 cmdlet 제공과 자동
+  로딩을 암묵적으로 가정했습니다.
+- 초기 테스트는 parent-process 대기와 CAS 검증까지 결합했고 helper stdout/stderr도
+  수집하지 않아 첫 실패에서 실제 원인이 가려졌습니다.
 - CAS 동작을 검증하는 테스트가 별도 관심사인 parent-process 종료 관찰에 결합되어
   있었습니다.
 
 ### 재발 방지
 
-- 실제 updater는 parent-process 종료 대기를 유지하되, CAS 테스트에는 명시적인
-  test seam을 사용해 대기를 우회하고 파일 교체 계약만 결정적으로 검증합니다.
-- parent 대기 계약은 script 구조 테스트로 고정하며 CAS 실행 테스트와 fixture를
-  공유하지 않습니다.
+- self-update helper의 SHA-256 계산은 module cmdlet 대신 PowerShell 5에서도 제공되는
+  core .NET `System.Security.Cryptography.SHA256` API를 사용합니다.
+- script 계약은 `Get-FileHash` 재도입을 거부하고 .NET SHA-256 사용을 고정합니다.
+- 실제 updater는 parent-process 종료 대기를 유지하되, CAS 테스트에는 명시적인 test
+  seam을 사용해 대기를 우회하며 helper stdout/stderr를 assertion에 포함합니다.
 - Windows 조건부 실행 테스트는 compile 성공과 구분해 exact-HEAD targeted native
   workflow에서 확인한 뒤 새 candidate를 만듭니다.

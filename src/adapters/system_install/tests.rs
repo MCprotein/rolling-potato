@@ -310,7 +310,8 @@ fn pending_update_blocks_every_binary_mutation_entry_point() {
 
 #[test]
 fn windows_deferred_update_script_uses_target_cas_and_operation_paths() {
-    assert!(WINDOWS_SELF_UPDATE_SCRIPT.contains("Get-FileHash"));
+    assert!(WINDOWS_SELF_UPDATE_SCRIPT.contains("[System.Security.Cryptography.SHA256]::Create()"));
+    assert!(!WINDOWS_SELF_UPDATE_SCRIPT.contains("Get-FileHash"));
     assert!(WINDOWS_SELF_UPDATE_SCRIPT.contains("$ExpectedTargetSha"));
     assert!(WINDOWS_SELF_UPDATE_SCRIPT.contains("$BackupPath"));
     assert!(WINDOWS_SELF_UPDATE_SCRIPT.contains("$MarkerPath"));
