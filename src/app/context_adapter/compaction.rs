@@ -91,7 +91,7 @@ fn compact_session(
             .iter()
             .position(|record| record.record_id == artifact.boundary_record_id)
     });
-    let previous = previous_boundary.and_then(|index| previous.map(|artifact| (index, artifact)));
+    let previous = previous_boundary.zip(previous);
     let candidate_records = previous
         .as_ref()
         .map_or(records.as_slice(), |(index, _)| &records[index + 1..]);

@@ -358,21 +358,6 @@ fn compact_tokens(tokens: u32) -> String {
     }
 }
 
-#[cfg(test)]
-mod usability_tests {
-    use super::model_setup_notice;
-    use crate::foundation::error::AppError;
-
-    #[test]
-    fn recoverable_model_setup_error_becomes_a_notice_instead_of_exiting() {
-        let notice = model_setup_notice(Err(AppError::runtime("download failed")));
-
-        assert!(notice.contains("모델 변경 실패"));
-        assert!(notice.contains("download failed"));
-        assert!(notice.contains("TUI는 계속 실행됩니다"));
-    }
-}
-
 fn test_secret_probe_enabled() -> bool {
     cfg!(debug_assertions)
         && std::env::var_os("RPOTATO_TEST_TUI_SECRET_PROBE").as_deref()
@@ -522,4 +507,19 @@ pub(crate) struct ConsumedOutcome {
 
 fn outcome_was_dispatched(effect: TuiEffect) -> bool {
     !matches!(effect, TuiEffect::NotDispatched)
+}
+
+#[cfg(test)]
+mod usability_tests {
+    use super::model_setup_notice;
+    use crate::foundation::error::AppError;
+
+    #[test]
+    fn recoverable_model_setup_error_becomes_a_notice_instead_of_exiting() {
+        let notice = model_setup_notice(Err(AppError::runtime("download failed")));
+
+        assert!(notice.contains("모델 변경 실패"));
+        assert!(notice.contains("download failed"));
+        assert!(notice.contains("TUI는 계속 실행됩니다"));
+    }
 }

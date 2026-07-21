@@ -217,7 +217,7 @@ pub fn rebuild_resume_context(
             .iter()
             .position(|record| record.record_id == artifact.boundary_record_id)
     });
-    let compacted = boundary_index.and_then(|index| compacted.map(|artifact| (index, artifact)));
+    let compacted = boundary_index.zip(compacted);
     let eligible_records = compacted
         .as_ref()
         .map_or(records.as_slice(), |(index, _)| &records[index + 1..]);
