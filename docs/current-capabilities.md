@@ -1,8 +1,8 @@
 # Current Capabilities
 
 This document is the readable status map for the `rolling-potato v0.42.0`
-release. It groups the runtime by responsibility instead of repeating one
-flat command list.
+release plus the in-development `v0.43.0` source. It groups the runtime by
+responsibility instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
 [한국어](ko/current-capabilities.md)
@@ -59,7 +59,11 @@ rpotato skill run <id> "<request>"
 
 Current safeguards include one shared source budget for the active request and
 resumed context, source-pointer evidence, policy checks, lifecycle hooks, and
-a guarded Korean final report.
+a guarded Korean final report. Context compaction starts automatically at 75%
+measured usage or manually through TUI `/compact`, targets 40% of the context
+limit, and retains up to four recent transcript records. Deterministic typed
+extraction remains available when the single bounded semantic rationale call
+cannot run.
 
 See [runtime architecture](runtime-architecture.md),
 [command policy](command-policy.md), [hooks](hooks.md), and
@@ -88,7 +92,11 @@ rpotato cancel
 ```
 
 Recovery continues only a matching safe checkpoint. It does not automatically
-repeat an uncertain backend request or verification command.
+repeat an uncertain backend request or verification command. Incremental
+compaction checkpoints are immutable and hash-chained to the project, session,
+previous checkpoint, and transcript boundary. Their fields are untrusted resume
+hints; canonical transcripts, ledgers, instructions, and source artifacts remain
+authoritative.
 
 See [state lifecycle](state-lifecycle.md) and
 [observability](observability.md).
@@ -122,17 +130,15 @@ The managed `llama.cpp` path covers source-backed install planning, archive
 verification, staged installation, process lifecycle, health checks, chat,
 streaming, cancellation, and CPU/RSS/disk sampling.
 
-Representative entry points:
+The TUI prepares this path automatically. Granular diagnostic entry points are
+available under the advanced namespace:
 
 ```sh
-rpotato backend doctor
-rpotato backend install-plan
-rpotato backend install
-rpotato backend start [--model <path>] [--ctx-size <tokens>]
-rpotato backend status
-rpotato backend chat --prompt <text> [--stream]
-rpotato backend cancel
-rpotato backend stop
+rpotato debug backend doctor
+rpotato debug backend install-plan
+rpotato debug backend status
+rpotato debug backend start [--model <path>] [--ctx-size <tokens>]
+rpotato debug backend stop
 ```
 
 Sent model requests are not retried automatically. Raw prompt/response text is
@@ -143,28 +149,28 @@ See [backend adapters](backend-adapters.md) and
 
 ## 5. Models and Local Evidence
 
-Model commands expose source-backed candidates, manifest data, download plans,
-local registry state, and promotion/install evidence. Model weights are
-downloaded to managed storage and are never committed to the repository.
+First-run setup and `/model` expose source-backed candidates and handle managed
+download, verification, selection, and backend start. They show model/version,
+quantization, download size, context limit, RAM status, license, and evidence
+without presenting unmeasured RAM/capability claims as verified. Model weights
+are downloaded to managed storage and are never committed to the repository.
 
-Representative entry points:
+Granular evaluation and promotion commands remain an advanced surface:
 
 ```sh
-rpotato model list
-rpotato model manifest
-rpotato model inspect <id>
-rpotato model download-plan <id>
-rpotato model fetch-candidate <id> --for-evaluation
-rpotato model eval-plan <id>
-rpotato model benchmark-plan <id>
-rpotato model promote <id> --evidence <file>
-rpotato model install <id>
-rpotato model default [<id>]
+rpotato debug model list
+rpotato debug model inspect <id>
+rpotato debug model fetch-candidate <id> --for-evaluation
+rpotato debug model benchmark-plan <id>
+rpotato debug model promote <id> --evidence <file>
+rpotato debug model install <id>
 ```
 
-Qwen and Gemma are evaluation candidates. They are not defaults until artifact,
-license, backend, memory/mmproj, smoke, and measured local benchmark evidence
-passes the install gate.
+An explicit first-run selection may become the host's runtime default after the
+pinned source, license, backend-compatibility source, artifact size, and SHA-256
+revalidate. Its registry evidence remains `source-backed-manifest`; universal RAM
+fit, capability, and benchmark claims remain unverified. The advanced
+`model install`/promotion workflow keeps its stricter local evidence gate.
 
 See [model source policy](model-source-policy.md),
 [model manifest](model-manifest.md), [model evaluation](model-eval.md), and
@@ -254,22 +260,23 @@ See [observability](observability.md) and [benchmarks](benchmarks.md).
 
 ## 9. CLI and TUI Surfaces
 
-`rpotato tui` starts the interactive line controller in a terminal and keeps a
-read-only overview for non-terminal use. The TUI exposes monitoring, sessions,
+No-argument `rpotato` starts the primary interactive line controller in a terminal and keeps a
+read-only overview for non-terminal use. First run selects a source-backed model,
+automatically prepares the managed backend, and starts the model without asking for
+a GGUF path. The TUI exposes monitoring, sessions,
 validated transcript/tool views, approvals, diffs, evidence, resume, and
-cancellation without editing canonical state directly.
+cancellation without editing canonical state directly, and submits plain text as
+agent requests. `rpotato tui` remains a compatibility alias.
 
-Representative entry points:
+The composer status line shows `model | context used/limit | backend | session`.
+Representative public entry points are:
 
 ```sh
-rpotato tui
-rpotato tui interactive
-rpotato tui monitor
-rpotato tui sessions
-rpotato tui transcript <session-id>
-rpotato tui approvals
-rpotato tui diff <proposal-id>
-rpotato tui evidence
+rpotato
+rpotato init
+rpotato doctor
+rpotato run "<request>"
+rpotato debug --help
 ```
 
 See [TUI](tui.md), [CLI output style](cli-output-style.md), and

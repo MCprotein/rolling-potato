@@ -15,6 +15,7 @@ use crate::runtime_core::inference::model::promotion::validate_promotion_evidenc
 
 mod evidence;
 mod registry;
+mod setup;
 
 use evidence::{
     backend_smoke_evidence, local_benchmark_status, local_promotion_readiness,
@@ -24,10 +25,15 @@ use evidence::{
 
 #[cfg(test)]
 use registry::registry_entry_json;
+pub(crate) use registry::{
+    configured_model_id, restore_default_selection, snapshot_default_selection,
+    DefaultSelectionSnapshot,
+};
 pub use registry::{
     default_artifact_path, default_report, install_candidate, registry_report, set_default_report,
 };
 use registry::{install_ready_for_report, registry_summary};
+pub(crate) use setup::{activate_setup_model, prepare_setup_model, setup_options};
 
 pub fn candidate_summary() -> String {
     let counts = ManifestCounts::from_candidates();

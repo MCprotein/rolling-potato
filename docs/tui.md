@@ -1,8 +1,10 @@
 # TUI Surface
 
-TUI is a required product surface for a Claude Code/Codex replacement experience.
+The TUI is the default product surface for a Claude Code/Codex replacement experience.
 
-The first implementation can start from CLI commands, but the target runtime must support a terminal UI for interactive work.
+Users enter it by running `rpotato` with no arguments. `rpotato tui` and
+`rpotato tui interactive` remain compatibility aliases for automation and tests,
+not the primary usage. Plain text is an agent coding request, never a shell command.
 
 The TUI design source of truth is [DESIGN.md](../DESIGN.md). Monitoring screens must also work on SSH/Linux servers, so they cannot assume a browser or GUI.
 
@@ -52,8 +54,8 @@ line-oriented interactive controller without adding a dependency:
   deterministic piped-input tests.
 - `view`, `next`, `prev`, and `select <canonical-id>` navigate canonical runtime
   state. `select session <session-id>` confirms and dispatches a canonical session
-  selection through the runtime lease boundary. Unknown input is a read-only help
-  no-op and is never treated as a shell command.
+  selection through the runtime lease boundary. Input that does not match a reserved
+  TUI command is submitted as an agent request and is never executed as a shell command.
 - `view tool-output <artifact-id>` opens a ledger-bound, owner/path/hash-validated,
   size-bounded sanitized tool artifact. Session and transcript pages use the canonical
   ledger and durable artifacts; SQLite is never their authority.
@@ -62,6 +64,58 @@ line-oriented interactive controller without adding a dependency:
   explicit `yes` confirmation. Credentials are read once with terminal echo disabled;
   SIGINT/SIGTERM and Windows console termination restore the captured input mode before
   process termination.
+
+The current default-entry contract is:
+
+- Attached no-argument `rpotato` starts the controller.
+- Redirected no-argument execution prints the read-only overview and exits.
+- Plain text that does not match a reserved TUI command is submitted to the agent runtime.
+- Shell-looking input is not executed directly and still crosses model/runtime policy boundaries.
+- First-run backend/model selection and installation run inside this TUI. The default
+  flow does not require a `llama.cpp` executable or GGUF path.
+
+### First Run
+
+When no default model is configured, `rpotato` and attached `rpotato init` open the
+setup flow before conversation:
+
+1. Show source-backed choices with model ID/version, quantization, download size,
+   context limit, RAM status, license, and evidence note.
+2. Accept a list number or exact model ID and request explicit download confirmation.
+3. Install or reuse the pinned managed backend.
+4. Download the selected artifact, verify size and SHA-256, register the explicit
+   user selection, and start it with the default context size.
+
+RAM suitability and unmeasured capability remain labeled `unverified`; setup does not
+turn a source manifest into benchmark evidence. `/model` lists the same catalog, and
+`/model <id>` switches models through the same managed path.
+
+### Composer Status Line
+
+On an attached ANSI terminal, the composer is followed by one stable status line and
+the cursor returns to the input row:
+
+```text
+request> _
+model gemma-3n-E4B-it-Q4_K_M | ctx 812/4096 (19%) | compact auto@75% | backend ready | session 01J…
+```
+
+The fields always stay in `model | context | compaction | backend | session` order.
+`compact auto@75%` means no checkpoint exists yet, `compact due` means a session without
+a checkpoint reached the automatic threshold, and `compact saved` means the active
+session has a validated checkpoint. The fields come from the latest model-run projection,
+managed backend sidecar, and active canonical session; missing values and stale backend
+state are displayed explicitly. `NO_COLOR`, `TERM=dumb`, redirected, and scripted
+execution use plain text without ANSI control sequences.
+
+Normal interactive commands are `/model`, `/compact`, `/status`, `/sessions`, `/doctor`,
+`/more`, `/back`, `/clear`, `/help`, and `/quit`. `/more` and `/back` page through a
+long response without discarding off-screen lines. `/compact` creates an incremental typed checkpoint and
+retains the four most recent transcript records. Automatic compaction uses the same path
+at 75% measured context usage for the active session. Model changes commit the new default
+only after backend startup succeeds and restore the previous ready backend on failure.
+Granular backend, registry, benchmark, policy, and
+inspection commands remain available for diagnostics under `rpotato debug --help`.
 
 <!-- TUI-READ-CONTRACT:START -->
 The eight views (`overview`, `monitor`, `sessions`, `transcript`, `tool-output`,

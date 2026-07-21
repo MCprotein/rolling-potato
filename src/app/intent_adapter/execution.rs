@@ -25,6 +25,9 @@ pub(super) fn run_with_decision(
     }
     backend::preflight_chat_ready()?;
     let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
+    // Compaction is derived-state maintenance. Any failure falls back to the
+    // existing bounded recent-turn resume path and must not block the user run.
+    let _auto_compaction = context::compact_automatically().ok();
     let mut resume_context = context::rebuild_resume_context(&identity.session_id, None)?;
     let mut workflow = state::create_workflow(request)?;
     let invocation = if decision.invocation == "explicit-skill" {

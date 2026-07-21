@@ -519,6 +519,6 @@ Project-local automation과 contribution policy는
 [AGENTS.md](../../AGENTS.md)에 기록합니다. 모델 관련 claim은 명시적 출처가
 필요하며 [모델 출처 정책](model-source-policy.md)을 따라야 합니다.
 
-`v0.42.0`은 사용자 전용 self-install, 환경 보정, clean reinstall, clean
-uninstall을 완료했습니다. 다음 열린 질문을 구현 작업으로 전환하기 전에
-[로드맵](ROADMAP.md)에 구체적인 다음 버전 행을 추가해야 합니다.
+`v0.43.0`은 안내형 기본 TUI와 bounded 소형 모델 context compaction을 개발하는
+구체적인 version입니다. 다른 열린 질문을 구현 작업으로 전환하기 전에
+[로드맵](ROADMAP.md)에 구체적인 다음 version 행을 추가해야 합니다.

@@ -42,6 +42,7 @@ mod chat;
 mod generation_state;
 mod installation;
 mod resource_sampling;
+mod runtime_snapshot;
 mod sidecar;
 pub use chat::{
     cancel_generation_report, chat_once, chat_once_bounded, chat_once_bounded_with_cancel,
@@ -56,6 +57,7 @@ use generation_state::{release_generation_admission, write_backend_generation_re
 #[cfg(test)]
 use installation::install_backend_from_archive;
 pub use installation::{install_plan_report, install_report, verify_archive_report};
+pub(crate) use runtime_snapshot::{runtime_snapshot, BackendRuntimeSnapshot};
 #[cfg(test)]
 use sidecar::{
     cancel_active_generation_before_stop, start_sidecar_with_timeout, terminate_with_fallback,
@@ -63,6 +65,19 @@ use sidecar::{
 pub use sidecar::{
     doctor_report, doctor_summary, health_check_report, start_report, status_report, stop_report,
 };
+
+pub(crate) fn ensure_installed_report() -> Result<String, AppError> {
+    let discovery = llama_backend::discover();
+    if discovery.binary_exists && discovery.binary_is_file && discovery.binary_executable {
+        return Ok(format!(
+            "backend 준비 완료\n- status: already-ready\n- backend: {}\n- binary: {}\n- source: {}",
+            discovery.adapter_id,
+            discovery.selected_path.display(),
+            discovery.selected_source
+        ));
+    }
+    install_report()
+}
 
 const HEALTH_TIMEOUT_MS: u64 = 500;
 const TERMINAL_RECORD_RETENTION_MS: u128 = 5 * 60 * 1_000;

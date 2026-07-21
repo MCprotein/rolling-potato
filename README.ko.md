@@ -121,28 +121,41 @@ Windows에서 설치된 binary가 자기 자신을 지우는 경우에는 현재
 
 의도한 로컬 설정 흐름은 다음과 같습니다.
 
-1. `rpotato init` 또는 `rpotato model install`을 실행합니다.
-2. 감지한 OS, 아키텍처, 메모리, 디스크 용량을 확인합니다.
-3. 런타임이 관리하는 `llama.cpp` sidecar를 설치하거나 검증합니다.
-4. 출처가 기록된 GGUF 모델 추천을 검토합니다.
-5. 다운로드를 명시적으로 승인합니다.
-6. artifact hash와 로컬 근거를 검증합니다.
-7. 로컬 gate를 통과한 후보만 승격하고 등록합니다.
-8. 추론 백엔드를 시작하거나 기존 프로세스를 재사용합니다.
+1. `rpotato`를 실행합니다.
+2. 최초 설정에 표시되는 model/version, quantization, download size, context,
+   RAM 상태, license, 출처 근거를 확인합니다.
+3. model을 선택하고 download를 승인합니다.
+4. `rpotato`가 managed `llama.cpp` backend를 설치하거나 재사용하고 artifact
+   size와 SHA-256을 검증한 뒤 model을 시작하도록 둡니다.
+5. 같은 TUI에서 코딩 요청을 입력합니다.
 
 모델 가중치는 `rpotato`에 포함하지 않습니다. 관리형 경로에서는 사용자가
 `llama.cpp`를 전역으로 설치할 필요가 없습니다.
 
-환경과 사용 가능한 기능부터 확인하려면 다음 명령으로 시작하십시오.
+다음 명령 하나로 시작합니다.
+
+```sh
+rpotato
+```
+
+인자가 없는 `rpotato`가 기본 TUI를 시작합니다. 일반 텍스트를 입력하면 코딩
+요청으로 처리합니다. Composer 아래 line에는 현재 model, context 사용량,
+compaction checkpoint, backend 상태, session이 표시됩니다. 일반 TUI 동작은
+`/model`, `/compact`, `/status`, `/sessions`, `/doctor`, `/help`, `/quit`을
+사용합니다. Context 사용량 75%에서 자동 압축하며 `/compact`는 immutable
+transcript를 정본으로 보존한 채 수동 checkpoint를 만듭니다.
+
+간소화한 public CLI surface는 다음과 같습니다.
 
 ```sh
 rpotato doctor
 rpotato init
-rpotato model list
-rpotato backend doctor
 rpotato run "이 저장소의 테스트 실패 원인을 찾아줘"
-rpotato tui
+rpotato debug --help
 ```
+
+`rpotato debug --help`는 세부 호환·진단 명령을 보여줍니다. 일반 설정에서는 backend
+executable이나 GGUF 경로가 필요하지 않습니다.
 
 상세 MVP 인수 기준은 [docs/ko/mvp.md](docs/ko/mvp.md)에 있습니다.
 
@@ -150,8 +163,8 @@ rpotato tui
 
 ## 현재 기능
 
-`v0.42.0`은 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진 pre-1.0
-런타임입니다.
+`v0.42.0` 릴리즈와 개발 중인 `v0.43.0` source는 제품 정의만 있는 scaffold가
+아니라 실제 기능을 가진 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
 | --- | --- |
@@ -162,7 +175,7 @@ rpotato tui
 | 확장 | native hook/skill, local Codex/Claude Code plugin adapter |
 | 협업 | 제한된 subagent 하나와 runtime-owned team execution |
 | 모니터링 | CLI/TUI metric, SQLite projection, benchmark record, static HTML export |
-| 화면 | CLI, interactive/read-only TUI, self-contained local HTML report |
+| 화면 | 기본 대화 TUI, 자동화·진단 CLI, self-contained local HTML report |
 
 장별 기능 지도, 대표 명령, 아직 완성되지 않은 경계는
 [docs/ko/current-capabilities.md](docs/ko/current-capabilities.md)에
@@ -211,7 +224,9 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 `v0.42.0`까지의 release train은 완료되었습니다. 최신 릴리즈는 사용자 전용
 self-install, 자동 PATH 등록, `init` 환경 보정, 보호 장치를 갖춘 clean
 reinstall, 사용자 소유 file을 보존하는 대칭적인 clean uninstall을
-추가했습니다. [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를 참고하십시오.
+추가했습니다. `v0.43.0`은 위에서 설명한 안내형 기본 TUI와 bounded 소형 모델
+context compaction을 개발 중입니다. [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를
+참고하십시오.
 
 ---
 

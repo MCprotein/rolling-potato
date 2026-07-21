@@ -6,21 +6,31 @@ use crate::foundation::error::AppError;
 use crate::surfaces::cli::command::MonitorCommand;
 
 pub(super) fn execute_cache_status() -> Result<(), AppError> {
-    println!("{}", cache::status_report());
+    crate::surfaces::cli::render::emit_report(&cache::status_report());
     Ok(())
 }
 
 pub(super) fn execute_monitor(command: MonitorCommand) -> Result<(), AppError> {
     match command {
-        MonitorCommand::Status => println!("{}", monitor::status_report()?),
-        MonitorCommand::Models => println!("{}", monitor::models_report()?),
-        MonitorCommand::Baseline => println!("{}", monitor::baseline_report()?),
-        MonitorCommand::Optimize => println!("{}", monitor::optimize_report()?),
+        MonitorCommand::Status => {
+            crate::surfaces::cli::render::emit_report(&monitor::status_report()?)
+        }
+        MonitorCommand::Models => {
+            crate::surfaces::cli::render::emit_report(&monitor::models_report()?)
+        }
+        MonitorCommand::Baseline => {
+            crate::surfaces::cli::render::emit_report(&monitor::baseline_report()?)
+        }
+        MonitorCommand::Optimize => {
+            crate::surfaces::cli::render::emit_report(&monitor::optimize_report()?)
+        }
         MonitorCommand::Export { format } => print!("{}", monitor::export_report(format)?),
         MonitorCommand::Prune {
             before_days,
             dry_run,
-        } => println!("{}", monitor::prune_report(before_days, dry_run)?),
+        } => {
+            crate::surfaces::cli::render::emit_report(&monitor::prune_report(before_days, dry_run)?)
+        }
     }
     Ok(())
 }

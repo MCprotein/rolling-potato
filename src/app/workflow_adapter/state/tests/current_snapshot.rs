@@ -2,8 +2,18 @@ use super::*;
 
 #[test]
 fn current_state_summary_handles_missing_file_as_uninitialized() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = workflow_test_root("current-state-summary-missing");
+    let _ = fs::remove_dir_all(&root);
+    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+
     let summary = read_current_state_summary().unwrap();
-    assert!(summary == "미초기화" || summary.contains("초기화됨"));
+
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    let _ = fs::remove_dir_all(root);
+    assert_eq!(summary, "미초기화");
 }
 
 #[test]

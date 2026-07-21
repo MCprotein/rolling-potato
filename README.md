@@ -123,28 +123,43 @@ Supported release targets and checksum verification are documented in
 
 The intended local setup flow is:
 
-1. Run `rpotato init` or `rpotato model install`.
-2. Inspect the detected OS, architecture, memory, and disk capacity.
-3. Install or verify the runtime-managed `llama.cpp` sidecar.
-4. Review a source-backed GGUF model recommendation.
-5. Approve the download explicitly.
-6. Verify the artifact hash and local evidence.
-7. Promote and register only a candidate that passes the local gate.
-8. Start or reuse the inference backend.
+1. Run `rpotato`.
+2. Review the model/version, quantization, download size, context, RAM status,
+   license, and source evidence shown by first-run setup.
+3. Select a model and approve its download.
+4. Let `rpotato` install or reuse its managed `llama.cpp` backend, verify the
+   artifact size and SHA-256, and start the model.
+5. Enter a coding request in the same TUI.
 
 Model weights are not bundled with `rpotato`. A global `llama.cpp`
 installation is not required on the managed path.
 
-Start by inspecting the environment and available surfaces:
+Start the product with:
+
+```sh
+rpotato
+```
+
+Running `rpotato` without arguments starts the primary TUI. Plain text entered
+there is treated as a coding request. The line below the composer shows the
+current model, context usage, compaction checkpoint, backend state, and session.
+Normal TUI operations use `/model`, `/compact`, `/status`, `/sessions`, `/doctor`,
+`/more`, `/back`, `/clear`, `/help`, and `/quit`. Long responses remain available
+through `/more` and `/back` instead of being discarded at the viewport boundary.
+Context compaction starts automatically at 75% usage; `/compact` creates a manual
+checkpoint while preserving the immutable transcript as the authority.
+
+The smaller public CLI surface is:
 
 ```sh
 rpotato doctor
 rpotato init
-rpotato model list
-rpotato backend doctor
 rpotato run "이 저장소의 테스트 실패 원인을 찾아줘"
-rpotato tui
+rpotato debug --help
 ```
+
+`rpotato debug --help` lists granular compatibility and diagnostic commands;
+normal setup does not require a backend executable or GGUF path.
 
 The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
@@ -152,8 +167,8 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-`v0.42.0` is an active pre-1.0 runtime, not only a product-definition
-scaffold. Its implemented areas include:
+The `v0.42.0` release plus the in-development `v0.43.0` source form an active
+pre-1.0 runtime, not only a product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
 | --- | --- |
@@ -164,7 +179,7 @@ scaffold. Its implemented areas include:
 | Extensions | Native hooks and skills; local Codex/Claude Code plugin adapters |
 | Collaboration | One bounded subagent and runtime-owned team execution |
 | Monitoring | CLI/TUI metrics, SQLite projection, benchmark records, static HTML export |
-| Interfaces | CLI, interactive/read-only TUI, self-contained local HTML report |
+| Interfaces | Primary conversation TUI, automation/diagnostic CLI, self-contained local HTML report |
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete
@@ -213,7 +228,9 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 The release history through `v0.42.0` is complete. The latest release adds
 user-local self-install, automatic PATH registration, `init` environment
 repair, guarded clean reinstall, and a symmetric clean uninstall that
-preserves user-owned files. See [ROADMAP.md](ROADMAP.md).
+preserves user-owned files. `v0.43.0` is in development with the guided default
+TUI and bounded small-model context compaction described above. See
+[ROADMAP.md](ROADMAP.md).
 
 ---
 

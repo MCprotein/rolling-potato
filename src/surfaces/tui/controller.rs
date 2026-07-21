@@ -2,14 +2,20 @@ use crate::foundation::error::AppError;
 use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalFault, TerminalIo};
 
 use super::outcome::{exact_tui_outcome, TuiEffect, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext};
-use super::render::render_interactive_frame;
 use super::runtime_bridge::{
-    OneShotSecret, SelectionLease, TuiGateKind, TuiIntent, TuiReadPage, TuiReadRequest,
+    OneShotSecret, SelectionLease, TuiGateKind, TuiIntent, TuiModelOption, TuiReadPage,
+    TuiReadRequest, TuiStatusSnapshot,
 };
 use super::view_model::{InteractiveState, InteractiveView};
 
 pub(crate) trait TuiRuntimePort {
     fn read_tui_page(&mut self, request: TuiReadRequest) -> Result<TuiReadPage, AppError>;
+    fn read_tui_status(&mut self) -> Result<TuiStatusSnapshot, AppError>;
+    fn model_options(&mut self) -> Vec<TuiModelOption>;
+    fn setup_model(&mut self, id: &str) -> Result<String, AppError>;
+    fn doctor_report(&mut self) -> String;
+    fn compact_context(&mut self) -> Result<String, AppError>;
+    fn submit_request(&mut self, request: &str) -> Result<String, AppError>;
     fn new_tui_intent_id(&mut self) -> String;
     fn tui_selection_lease(&mut self, selected_object_id: &str)
         -> Result<SelectionLease, AppError>;
@@ -32,7 +38,18 @@ pub(crate) fn run_controller(
         let (width, height) = terminal.dimensions().map_err(terminal_fault_error)?;
         let request = state.read_request(width, height);
         let page = runtime.read_tui_page(request)?;
-        let frame = render_interactive_frame(&state, &page, width, height);
+        let status = runtime
+            .read_tui_status()
+            .unwrap_or_else(|_| TuiStatusSnapshot::unavailable());
+        let frame = super::render::render_interactive_frame_with_options(
+            &state,
+            &page,
+            &status,
+            width,
+            height,
+            terminal.supports_ansi_layout(),
+            terminal.supports_color(),
+        );
         let boundary = if post_dispatch_intent.is_some() {
             FrameWriteBoundary::PostDispatch
         } else {
@@ -50,13 +67,64 @@ pub(crate) fn run_controller(
             return Ok(());
         };
         let words = line.split_whitespace().collect::<Vec<_>>();
+        if !matches!(words.as_slice(), ["/more"] | ["/back"]) {
+            state.reset_notice_page();
+        }
         match words.as_slice() {
             [] | ["refresh"] => {
                 state.notice = "정본 상태를 새로고침했습니다.".to_string();
             }
-            ["quit"] | ["exit"] => return Ok(()),
-            ["help"] => {
-                state.notice = "help | view overview|monitor|sessions|approvals|evidence|transcript <session>|tool-output <artifact>|diff <proposal> | next | prev | select <canonical-id> | select session <session-id> | approve <proposal> | approve verification <proposal> | deny | resume | cancel | quit".to_string();
+            ["quit"] | ["exit"] | ["/quit"] => return Ok(()),
+            ["help"] | ["/help"] => {
+                state.notice = "요청을 바로 입력하세요.\n- /model [id]: 모델 확인/변경\n- /compact: 현재 대화 컨텍스트 압축\n- /status: 상태 새로고침\n- /sessions: 세션 목록\n- /doctor: 환경 진단\n- /more, /back: 긴 응답 페이지 이동\n- /clear: 알림 지우기\n- /help: 도움말\n- /quit: 종료\n고급 호환 명령: rpotato debug --help".to_string();
+            }
+            ["/more"] => state.next_notice_page(height),
+            ["/back"] => state.previous_notice_page(),
+            ["/compact"] => {
+                state.notice = match runtime.compact_context() {
+                    Ok(report) => report,
+                    Err(error) => error.message,
+                };
+            }
+            ["/status"] => {
+                state.notice = "모델·컨텍스트·backend·세션 상태를 새로고침했습니다.".to_string();
+            }
+            ["/sessions"] => state.set_view(InteractiveView::Sessions),
+            ["/doctor"] => {
+                state.notice = runtime.doctor_report();
+            }
+            ["/clear"] => {
+                state.notice.clear();
+            }
+            ["/model"] => {
+                state.notice = model_options_notice(&runtime.model_options());
+            }
+            ["/model", id] => {
+                let options = runtime.model_options();
+                let Some(selected) = options.iter().find(|option| option.id == *id) else {
+                    state.notice = format!(
+                        "알 수 없는 model id입니다: {id}\n{}",
+                        model_options_notice(&options)
+                    );
+                    continue;
+                };
+                if !confirm(
+                    terminal,
+                    &format!(
+                        "{} ({}) 다운로드 및 적용을 확인하려면 yes를 입력하세요.\n",
+                        selected.display_name,
+                        bytes_label(selected.download_bytes)
+                    ),
+                )? {
+                    state.notice = "모델 변경을 취소했습니다.".to_string();
+                    continue;
+                }
+                terminal
+                    .write_frame(
+                        "backend 준비 → 모델 다운로드/SHA-256 검증 → 기본 모델 적용 중...\n",
+                    )
+                    .map_err(|_| terminal_fault_error(TerminalFault::FrameWrite))?;
+                state.notice = model_setup_notice(runtime.setup_model(id));
             }
             ["test-secret"] if test_secret_probe_enabled() => {
                 let intent_id = runtime.new_tui_intent_id();
@@ -236,10 +304,62 @@ pub(crate) fn run_controller(
                 state.notice = outcome_notice(outcome);
                 post_dispatch_intent = was_dispatched.then_some(intent_id);
             }
+            [command, ..] if command.starts_with('/') => {
+                state.notice = format!("알 수 없는 TUI 명령입니다: {command}\n/help로 확인하세요.");
+            }
             _ => {
-                state.notice = "알 수 없는 명령입니다. help로 지원 명령을 확인하세요.".to_string();
+                state.notice = match runtime.submit_request(line.trim()) {
+                    Ok(report) => report,
+                    Err(error) => error.message,
+                };
             }
         }
+    }
+}
+
+fn model_options_notice(options: &[TuiModelOption]) -> String {
+    let mut lines = vec!["사용 가능한 모델".to_string()];
+    for option in options {
+        let recommendation = if option.recommended { " | 권장" } else { "" };
+        lines.push(format!(
+            "- {} | {} | {} | context {} | RAM {} | {}{}\n  근거: {}",
+            option.id,
+            option.quantization,
+            bytes_label(option.download_bytes),
+            option
+                .context_length
+                .map(compact_tokens)
+                .unwrap_or_else(|| "미확정".to_string()),
+            option.ram,
+            option.license,
+            recommendation,
+            option.note,
+        ));
+    }
+    lines.push("변경: /model <id>".to_string());
+    lines.join("\n")
+}
+
+fn model_setup_notice(result: Result<String, AppError>) -> String {
+    match result {
+        Ok(report) => report,
+        Err(error) => format!(
+            "모델 변경 실패\n- 이유: {}\n- TUI는 계속 실행됩니다. /model로 다시 선택하세요.",
+            error.message
+        ),
+    }
+}
+
+fn bytes_label(bytes: u64) -> String {
+    const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
+    format!("{:.1} GiB", bytes as f64 / GIB)
+}
+
+fn compact_tokens(tokens: u32) -> String {
+    if tokens >= 1000 {
+        format!("{}k", tokens / 1000)
+    } else {
+        tokens.to_string()
     }
 }
 
@@ -392,4 +512,19 @@ pub(crate) struct ConsumedOutcome {
 
 fn outcome_was_dispatched(effect: TuiEffect) -> bool {
     !matches!(effect, TuiEffect::NotDispatched)
+}
+
+#[cfg(test)]
+mod usability_tests {
+    use super::model_setup_notice;
+    use crate::foundation::error::AppError;
+
+    #[test]
+    fn recoverable_model_setup_error_becomes_a_notice_instead_of_exiting() {
+        let notice = model_setup_notice(Err(AppError::runtime("download failed")));
+
+        assert!(notice.contains("모델 변경 실패"));
+        assert!(notice.contains("download failed"));
+        assert!(notice.contains("TUI는 계속 실행됩니다"));
+    }
 }

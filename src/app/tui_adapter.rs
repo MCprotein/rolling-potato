@@ -7,21 +7,25 @@ use crate::app::workflow_adapter::transition;
 use crate::composition::tui_action::{self, TuiActionPort, TuiMutationFailure};
 use crate::composition::tui_read::{self, TuiReadPort};
 use crate::foundation::error::AppError;
+use crate::surfaces::tui::controller;
 pub(crate) use crate::surfaces::tui::controller::terminal_fault_error;
-use crate::surfaces::tui::controller::{self, TuiRuntimePort};
 use crate::surfaces::tui::outcome::TuiOutcome;
 use crate::surfaces::tui::page::ProjectionStatus;
 use crate::surfaces::tui::runtime_bridge::{
-    new_tui_intent_id, SelectionLease, TuiGateKind, TuiIntent, TuiReadBudget, TuiReadPage,
-    TuiReadRequest,
+    SelectionLease, TuiGateKind, TuiIntent, TuiReadBudget, TuiReadPage, TuiReadRequest,
 };
+use crate::surfaces::tui::setup::{self, PreparedTuiModel, TuiSetupPort};
+
+mod model_switch;
+use model_switch::{switch_prepared_model, LiveModelSwitch};
+mod runtime;
 
 pub fn run_auto() -> Result<(), AppError> {
     if capability::attached() {
         let mut terminal = NativeTerminal::new();
         controller::run_controller(&mut terminal, &mut TuiRuntimeAdapter)
     } else {
-        println!("{}", overview_report()?);
+        crate::surfaces::cli::render::emit_report(&overview_report()?);
         Ok(())
     }
 }
@@ -31,11 +35,57 @@ pub fn run_interactive() -> Result<(), AppError> {
     controller::run_controller(&mut terminal, &mut TuiRuntimeAdapter)
 }
 
+pub fn run_setup() -> Result<(), AppError> {
+    let mut terminal = NativeTerminal::new();
+    setup::run_setup(&mut terminal, &mut TuiSetupAdapter)
+}
+
+pub fn setup_required() -> bool {
+    if cfg!(debug_assertions)
+        && std::env::var_os("RPOTATO_TEST_SKIP_SETUP").as_deref() == Some(std::ffi::OsStr::new("1"))
+    {
+        return false;
+    }
+    crate::app::inference_adapter::model::configured_model_id().is_none()
+}
+
 struct TuiRuntimeAdapter;
 
 pub(crate) struct TuiReadAdapter;
 
 struct TuiActionAdapter;
+
+struct TuiSetupAdapter;
+
+impl TuiSetupPort for TuiSetupAdapter {
+    fn model_options(&mut self) -> Vec<crate::surfaces::tui::runtime_bridge::TuiModelOption> {
+        crate::app::inference_adapter::model::setup_options()
+    }
+
+    fn ensure_backend(&mut self) -> Result<String, AppError> {
+        crate::app::inference_adapter::backend::ensure_installed_report()
+    }
+
+    fn prepare_model(&mut self, id: &str) -> Result<PreparedTuiModel, AppError> {
+        let prepared = crate::app::inference_adapter::model::prepare_setup_model(id)?;
+        Ok(PreparedTuiModel {
+            id: prepared.id,
+            artifact_path: prepared.artifact_path.display().to_string(),
+        })
+    }
+
+    fn start_model(&mut self, model: &PreparedTuiModel) -> Result<String, AppError> {
+        let snapshot = crate::app::inference_adapter::backend::runtime_snapshot()?;
+        let default = crate::app::inference_adapter::model::snapshot_default_selection()?;
+        switch_prepared_model(
+            &mut LiveModelSwitch,
+            &model.id,
+            &model.artifact_path,
+            &snapshot,
+            &default,
+        )
+    }
+}
 
 impl TuiActionPort for TuiActionAdapter {
     fn selection_observation(
@@ -258,34 +308,6 @@ pub(crate) fn canonical_dispatch_intent(intent: TuiIntent) -> Result<TuiOutcome,
     tui_action::dispatch_intent(&mut TuiActionAdapter, intent)
 }
 
-impl TuiRuntimePort for TuiRuntimeAdapter {
-    fn read_tui_page(&mut self, request: TuiReadRequest) -> Result<TuiReadPage, AppError> {
-        canonical_read_page(request)
-    }
-
-    fn new_tui_intent_id(&mut self) -> String {
-        new_tui_intent_id()
-    }
-
-    fn tui_selection_lease(
-        &mut self,
-        selected_object_id: &str,
-    ) -> Result<SelectionLease, AppError> {
-        canonical_selection_lease(selected_object_id)
-    }
-
-    fn tui_gate_descriptor(
-        &mut self,
-        workflow_id: &str,
-    ) -> Result<(String, TuiGateKind), AppError> {
-        canonical_gate_descriptor(workflow_id)
-    }
-
-    fn dispatch_tui_intent(&mut self, intent: TuiIntent) -> Result<TuiOutcome, AppError> {
-        canonical_dispatch_intent(intent)
-    }
-}
-
 mod report_composition;
 pub use report_composition::{
     approvals_report, diff_report, evidence_report, monitor_report, overview_report,
@@ -295,3 +317,7 @@ pub use report_composition::{
 #[cfg(test)]
 #[path = "tui_adapter/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tui_adapter/report_tests.rs"]
+mod report_tests;

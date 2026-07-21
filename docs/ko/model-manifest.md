@@ -160,7 +160,9 @@ Promotion evidence JSON schema:
 
 `model install`은 source-backed manifest entry가 정적으로 `verified`이거나 `models/evidence/<model-id>.promotion.json`이 local artifact, ledger, RAM/mmproj, benchmark evidence와 다시 일치할 때만 모델을 등록합니다. Registry entry는 `models/registry/<model-id>.json`에 기록합니다.
 
-`model default <id>`는 artifact와 promotion evidence가 재검증되는 registry 모델만 선택합니다. `model default`는 현재 선택을 보여줍니다. `backend start`에서 `--model`을 생략하면 지속 기본 모델을 재검증해 사용하며 실패 시 fail-closed합니다.
+Interactive 최초 설정은 사용자가 명시적으로 선택하는 별도 실행 lane입니다. 이 lane은 고정 source, artifact size와 SHA-256, 확인된 license, backend-compatibility source가 재검증될 때만 `source-backed-manifest` registry entry를 기록할 수 있습니다. 이 entry는 RAM 적합성, capability 품질, benchmark parity를 주장하지 않으며 더 엄격한 `model install` promotion gate를 충족한 것으로 보지 않습니다.
+
+`model default <id>`는 artifact와 evidence status가 재검증되는 registry 모델만 선택합니다. 허용되는 evidence는 현재 local promotion evidence 또는 위에서 제한한 정확한 `source-backed-manifest` setup 상태입니다. `model default`는 현재 선택을 보여줍니다. `backend start`에서 `--model`을 생략하면 지속 기본 모델을 재검증해 사용하며 실패 시 fail-closed합니다.
 
 ## v0.30.0 로컬 도입 기록
 

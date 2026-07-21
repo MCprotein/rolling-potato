@@ -160,7 +160,9 @@ Successful promotion writes normalized evidence to `models/evidence/<model-id>.p
 
 `model install` registers a model only when either the source-backed manifest entry is statically `verified` or `models/evidence/<model-id>.promotion.json` revalidates against local artifact, ledger, RAM/mmproj, and benchmark evidence. Registry entries are written to `models/registry/<model-id>.json`.
 
-`model default <id>` selects only a registered model whose artifact and promotion evidence still revalidate. `model default` shows the selection. `backend start` may omit `--model`; it then revalidates and resolves the persistent default or fails closed.
+Interactive first-run setup is a separate, explicitly user-selected execution lane. It may write a `source-backed-manifest` registry entry only after the pinned source, artifact size and SHA-256, confirmed license, and backend-compatibility source revalidate. Such an entry does not assert RAM fit, capability quality, or benchmark parity, and does not satisfy the stricter `model install` promotion gate.
+
+`model default <id>` selects a registered model whose artifact and evidence status still revalidate. Accepted evidence is either current local promotion evidence or the exact restricted `source-backed-manifest` setup state above. `model default` shows the selection. `backend start` may omit `--model`; it then revalidates and resolves the persistent default or fails closed.
 
 ## v0.30.0 Local Adoption Record
 

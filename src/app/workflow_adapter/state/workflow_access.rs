@@ -106,6 +106,7 @@ fn active_workflow_id_under_transition(
                     resume_source: Some("workflow-pointer-recovery"),
                     active_workflow: Some(&workflow),
                     previous: None,
+                    compaction_boundary: CompactionBoundaryUpdate::Preserve,
                     workflow: None,
                 },
             )?;
@@ -150,6 +151,7 @@ fn active_workflow_id_under_transition(
                     resume_source: Some("workflow-pointer-recovery"),
                     active_workflow: Some(&workflow),
                     previous: Some(&snapshot),
+                    compaction_boundary: CompactionBoundaryUpdate::Preserve,
                     workflow: None,
                 },
             )?;
@@ -223,6 +225,7 @@ pub(crate) fn clear_terminal_workflow_pointer_under_transition(
             resume_source: Some("terminal-pointer-cleanup"),
             active_workflow: None,
             previous: Some(&snapshot),
+            compaction_boundary: CompactionBoundaryUpdate::Preserve,
             workflow: None,
         },
     )
@@ -262,6 +265,7 @@ pub(crate) fn record_tui_workflow_resume_receipt_under_transition(
             resume_source: Some("interactive-tui"),
             active_workflow,
             previous: Some(&previous),
+            compaction_boundary: CompactionBoundaryUpdate::Preserve,
             workflow: None,
         },
     )?;
@@ -305,6 +309,7 @@ pub(crate) fn record_workflow_event_under_transition(
             resume_source: Some("workflow-event-recovery"),
             active_workflow: Some(workflow),
             previous: Some(&previous),
+            compaction_boundary: CompactionBoundaryUpdate::Preserve,
             workflow: None,
         },
     )?;

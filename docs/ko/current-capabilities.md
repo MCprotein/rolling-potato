@@ -1,7 +1,8 @@
 # 현재 기능
 
-이 문서는 `rolling-potato v0.42.0` release의 읽기 쉬운 상태 지도입니다.
-하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
+이 문서는 `rolling-potato v0.42.0` release와 개발 중인 `v0.43.0` source의
+읽기 쉬운 상태 지도입니다. 하나의 긴 명령 목록을 반복하지 않고 런타임
+책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
 [English](../current-capabilities.md)
@@ -58,7 +59,10 @@ rpotato skill run <id> "<request>"
 
 현재 보호 장치에는 active request와 resume context가 공유하는 source budget,
 source-pointer evidence, policy 검사, lifecycle hook, 한국어 최종 보고 guard가
-포함됩니다.
+포함됩니다. Context compaction은 측정 사용량 75%에서 자동으로 시작하거나 TUI
+`/compact`로 수동 실행하며, context limit의 40%를 목표로 최근 transcript record
+최대 4개를 보존합니다. 제한된 semantic rationale 호출 한 번을 실행할 수 없으면
+deterministic typed extraction만으로 계속합니다.
 
 [런타임 아키텍처](runtime-architecture.md), [명령 정책](command-policy.md),
 [훅](hooks.md), [스킬](skills.md)을 참고하십시오.
@@ -86,7 +90,10 @@ rpotato cancel
 ```
 
 복구는 일치하는 안전한 checkpoint만 계속합니다. 결과가 불확실한 backend
-request나 verification command를 자동으로 반복하지 않습니다.
+request나 verification command를 자동으로 반복하지 않습니다. Incremental
+compaction checkpoint는 project, session, 이전 checkpoint, transcript boundary에
+binding된 immutable hash chain입니다. Field는 신뢰하지 않는 resume hint이며
+canonical transcript, ledger, instruction, source artifact가 계속 정본입니다.
 
 [상태 수명주기](state-lifecycle.md)와 [관측성](observability.md)을
 참고하십시오.
@@ -120,17 +127,15 @@ policy가 허용한 command만 실행합니다.
 process lifecycle, health check, chat, streaming, cancellation, CPU/RSS/disk
 sampling을 제공합니다.
 
-대표 진입점:
+TUI가 이 경로를 자동으로 준비합니다. 세부 진단 entrypoint는 고급 namespace 아래에
+있습니다.
 
 ```sh
-rpotato backend doctor
-rpotato backend install-plan
-rpotato backend install
-rpotato backend start [--model <path>] [--ctx-size <tokens>]
-rpotato backend status
-rpotato backend chat --prompt <text> [--stream]
-rpotato backend cancel
-rpotato backend stop
+rpotato debug backend doctor
+rpotato debug backend install-plan
+rpotato debug backend status
+rpotato debug backend start [--model <path>] [--ctx-size <tokens>]
+rpotato debug backend stop
 ```
 
 전송된 model request는 자동 재시도하지 않습니다. Monitoring record에는 raw
@@ -141,28 +146,28 @@ prompt/response text를 저장하지 않습니다.
 
 ## 5. 모델과 로컬 근거
 
-Model command는 출처 기반 후보, manifest data, download plan, local registry,
-promotion/install evidence를 표시합니다. Model weight는 managed storage로
-다운로드하며 저장소에 commit하지 않습니다.
+최초 설정과 `/model`은 출처 기반 후보를 보여주고 managed download, 검증, 선택,
+backend start를 처리합니다. Model/version, quantization, download size, context limit,
+RAM 상태, license, evidence를 보여주되 측정하지 않은 RAM/capability를 verified로
+표시하지 않습니다. Model weight는 managed storage로 다운로드하며 저장소에
+commit하지 않습니다.
 
-대표 진입점:
+세부 평가와 promotion 명령은 고급 surface로 유지합니다.
 
 ```sh
-rpotato model list
-rpotato model manifest
-rpotato model inspect <id>
-rpotato model download-plan <id>
-rpotato model fetch-candidate <id> --for-evaluation
-rpotato model eval-plan <id>
-rpotato model benchmark-plan <id>
-rpotato model promote <id> --evidence <file>
-rpotato model install <id>
-rpotato model default [<id>]
+rpotato debug model list
+rpotato debug model inspect <id>
+rpotato debug model fetch-candidate <id> --for-evaluation
+rpotato debug model benchmark-plan <id>
+rpotato debug model promote <id> --evidence <file>
+rpotato debug model install <id>
 ```
 
-Qwen과 Gemma는 평가 후보입니다. Artifact, license, backend, memory/mmproj,
-smoke, measured local benchmark evidence가 install gate를 통과하기 전에는
-기본 모델이 아닙니다.
+최초 실행에서 명시적으로 선택한 model은 고정 source, license, backend compatibility
+source, artifact size, SHA-256이 재검증되면 해당 host의 runtime default가 될 수 있습니다.
+Registry evidence는 `source-backed-manifest`로 남으며 보편적 RAM 적합성, capability,
+benchmark claim은 미확정입니다. 고급 `model install`/promotion workflow는 더 엄격한
+local evidence gate를 유지합니다.
 
 [모델 출처 정책](model-source-policy.md), [모델 manifest](model-manifest.md),
 [모델 평가](model-eval.md), [모델 라이선스](model-licenses.md)를
@@ -253,22 +258,23 @@ benchmark record는 public benchmark parity를 주장하지 않습니다.
 
 ## 9. CLI와 TUI 화면
 
-`rpotato tui`는 terminal에서 interactive line controller를 시작하고
-non-terminal 환경에서는 read-only overview를 유지합니다. TUI는 canonical
+인자 없는 `rpotato`는 terminal에서 기본 interactive line controller를 시작하고
+non-terminal 환경에서는 read-only overview를 유지합니다. 최초 실행은 source-backed
+model을 선택하고 managed backend를 자동 준비해 GGUF path 입력 없이 model을 시작합니다.
+TUI는 canonical
 state를 직접 수정하지 않고 monitoring, session, 검증된 transcript/tool view,
-approval, diff, evidence, resume, cancel을 제공합니다.
+approval, diff, evidence, resume, cancel을 제공하며 일반 텍스트를 agent 요청으로
+전달합니다. `rpotato tui`는 호환 alias입니다.
 
-대표 진입점:
+Composer status line은 `model | context used/limit | backend | session`을 보여줍니다.
+대표 public 진입점은 다음과 같습니다.
 
 ```sh
-rpotato tui
-rpotato tui interactive
-rpotato tui monitor
-rpotato tui sessions
-rpotato tui transcript <session-id>
-rpotato tui approvals
-rpotato tui diff <proposal-id>
-rpotato tui evidence
+rpotato
+rpotato init
+rpotato doctor
+rpotato run "<request>"
+rpotato debug --help
 ```
 
 [TUI](tui.md), [CLI 출력 스타일](cli-output-style.md),

@@ -928,12 +928,16 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_generation_state_path = "src/app/inference_adapter/backend/generation_state.rs";
     let backend_installation_path = "src/app/inference_adapter/backend/installation.rs";
     let backend_resource_sampling_path = "src/app/inference_adapter/backend/resource_sampling.rs";
+    let backend_runtime_snapshot_path = "src/app/inference_adapter/backend/runtime_snapshot.rs";
     let backend_sidecar_path = "src/app/inference_adapter/backend/sidecar.rs";
     let backend_sidecar_startup_path = "src/app/inference_adapter/backend/sidecar/startup.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
     let model_adapter_path = "src/app/inference_adapter/model.rs";
     let model_evidence_path = "src/app/inference_adapter/model/evidence.rs";
     let model_registry_path = "src/app/inference_adapter/model/registry.rs";
+    let model_default_selection_path =
+        "src/app/inference_adapter/model/registry/default_selection.rs";
+    let model_setup_path = "src/app/inference_adapter/model/setup.rs";
     let model_tests_path = "src/app/inference_adapter/model/tests.rs";
     assert!(Path::new(backend_chat_path).is_file());
     assert!(Path::new(backend_chat_interruption_path).is_file());
@@ -941,11 +945,14 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(Path::new(backend_generation_state_path).is_file());
     assert!(Path::new(backend_installation_path).is_file());
     assert!(Path::new(backend_resource_sampling_path).is_file());
+    assert!(Path::new(backend_runtime_snapshot_path).is_file());
     assert!(Path::new(backend_sidecar_path).is_file());
     assert!(Path::new(backend_sidecar_startup_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
     assert!(Path::new(model_evidence_path).is_file());
     assert!(Path::new(model_registry_path).is_file());
+    assert!(Path::new(model_default_selection_path).is_file());
+    assert!(Path::new(model_setup_path).is_file());
     assert!(Path::new(model_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
     let backend_chat = fs::read_to_string(backend_chat_path).unwrap();
@@ -954,12 +961,15 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_generation_state = fs::read_to_string(backend_generation_state_path).unwrap();
     let backend_installation = fs::read_to_string(backend_installation_path).unwrap();
     let backend_resource_sampling = fs::read_to_string(backend_resource_sampling_path).unwrap();
+    let backend_runtime_snapshot = fs::read_to_string(backend_runtime_snapshot_path).unwrap();
     let backend_sidecar = fs::read_to_string(backend_sidecar_path).unwrap();
     let backend_sidecar_startup = fs::read_to_string(backend_sidecar_startup_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
     let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
     let model_evidence = fs::read_to_string(model_evidence_path).unwrap();
     let model_registry = fs::read_to_string(model_registry_path).unwrap();
+    let model_default_selection = fs::read_to_string(model_default_selection_path).unwrap();
+    let model_setup = fs::read_to_string(model_setup_path).unwrap();
     let model_tests = fs::read_to_string(model_tests_path).unwrap();
     assert!(
         backend_adapter.contains("#[path = \"backend/tests.rs\"]"),
@@ -995,6 +1005,45 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         model_adapter.lines().any(|line| line == "mod registry;"),
         "model adapter does not register its registry owner"
     );
+    assert!(
+        model_adapter.lines().any(|line| line == "mod setup;"),
+        "model adapter does not register its setup owner"
+    );
+    for responsibility in [
+        "pub(crate) struct PreparedSetupModel",
+        "pub(crate) fn setup_options(",
+        "pub(crate) fn prepare_setup_model(",
+        "pub(crate) fn activate_setup_model(",
+    ] {
+        assert!(
+            model_setup.contains(responsibility),
+            "model setup owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_adapter.contains(responsibility),
+            "model adapter still owns interactive setup: {responsibility}"
+        );
+    }
+    assert!(
+        model_registry
+            .lines()
+            .any(|line| line == "mod default_selection;"),
+        "model registry does not register its default-selection owner"
+    );
+    for responsibility in [
+        "pub(crate) struct DefaultSelectionSnapshot",
+        "pub(crate) fn snapshot_default_selection(",
+        "pub(crate) fn restore_default_selection(",
+    ] {
+        assert!(
+            model_default_selection.contains(responsibility),
+            "default-selection owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_registry.contains(responsibility),
+            "model registry still owns default-selection rollback: {responsibility}"
+        );
+    }
     for responsibility in [
         "pub fn registry_report(",
         "pub fn default_report(",
@@ -1059,6 +1108,25 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             .any(|line| line == "mod resource_sampling;"),
         "inference backend adapter does not register its resource-sampling owner"
     );
+    assert!(
+        backend_adapter
+            .lines()
+            .any(|line| line == "mod runtime_snapshot;"),
+        "inference backend adapter does not register its runtime-snapshot owner"
+    );
+    for responsibility in [
+        "pub(crate) struct BackendRuntimeSnapshot",
+        "pub(crate) fn runtime_snapshot(",
+    ] {
+        assert!(
+            backend_runtime_snapshot.contains(responsibility),
+            "backend runtime-snapshot owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_adapter.contains(responsibility),
+            "inference backend facade still owns runtime snapshot: {responsibility}"
+        );
+    }
     assert!(
         backend_adapter.lines().any(|line| line == "mod sidecar;"),
         "inference backend adapter does not register its sidecar owner"
@@ -1206,6 +1274,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         backend_adapter.lines().count() < 125,
         "inference backend production adapter regrew beyond its resource-sampling extraction boundary"
     );
+    assert!(backend_runtime_snapshot.lines().count() < 75);
     assert!(
         backend_chat.lines().count() < 500,
         "inference backend chat module regrew beyond its interruption extraction boundary"
@@ -1254,6 +1323,8 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         model_registry.lines().count() < 350,
         "model registry module regrew beyond its ownership boundary"
     );
+    assert!(model_default_selection.lines().count() < 75);
+    assert!(model_setup.lines().count() < 100);
     assert!(
         model_tests.lines().count() < 550,
         "model regression module regrew beyond its ownership boundary"
@@ -2147,6 +2218,10 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
 
     let sqlite = fs::read_to_string("src/adapters/sqlite/observability_projection.rs").unwrap();
     let analytics_path = "src/adapters/sqlite/observability_projection/analytics.rs";
+    let latest_model_run_path =
+        "src/adapters/sqlite/observability_projection/analytics/latest_model_run.rs";
+    let latest_model_run_tests_path =
+        "src/adapters/sqlite/observability_projection/analytics/latest_model_run/tests.rs";
     let metrics_path = "src/adapters/sqlite/observability_projection/metrics.rs";
     let read_snapshot_path = "src/adapters/sqlite/observability_projection/read_snapshot.rs";
     let replay_path = "src/adapters/sqlite/observability_projection/replay.rs";
@@ -2154,6 +2229,8 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     let sessions_path = "src/adapters/sqlite/observability_projection/sessions.rs";
     let sqlite_tests_path = "src/adapters/sqlite/observability_projection/tests.rs";
     assert!(Path::new(analytics_path).is_file());
+    assert!(Path::new(latest_model_run_path).is_file());
+    assert!(Path::new(latest_model_run_tests_path).is_file());
     assert!(Path::new(metrics_path).is_file());
     assert!(Path::new(read_snapshot_path).is_file());
     assert!(Path::new(replay_path).is_file());
@@ -2161,6 +2238,8 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     assert!(Path::new(sessions_path).is_file());
     assert!(Path::new(sqlite_tests_path).is_file());
     let analytics = fs::read_to_string(analytics_path).unwrap();
+    let latest_model_run = fs::read_to_string(latest_model_run_path).unwrap();
+    let latest_model_run_tests = fs::read_to_string(latest_model_run_tests_path).unwrap();
     let metrics = fs::read_to_string(metrics_path).unwrap();
     let read_snapshot = fs::read_to_string(read_snapshot_path).unwrap();
     let replay = fs::read_to_string(replay_path).unwrap();
@@ -2188,6 +2267,25 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     assert!(
         sqlite.lines().any(|line| line == "mod analytics;"),
         "SQLite projection does not register the analytics owner"
+    );
+    assert!(
+        analytics
+            .lines()
+            .any(|line| line == "mod latest_model_run;"),
+        "SQLite analytics does not register its latest-model-run owner"
+    );
+    assert!(
+        latest_model_run.contains(
+            "pub(in crate::adapters::sqlite::observability_projection) fn latest_model_run_for_session_from_connection("
+        ),
+        "latest-model-run query owner is missing its session-scoped query"
+    );
+    assert!(
+        !analytics.contains("pub(super) fn latest_model_run_for_session_from_connection("),
+        "SQLite analytics still owns the session-scoped latest-model-run query"
+    );
+    assert!(
+        latest_model_run_tests.contains("fn latest_model_run_is_scoped_to_the_requested_session(")
     );
     assert!(
         sqlite.lines().any(|line| line == "mod metrics;"),
@@ -2325,6 +2423,8 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         analytics.lines().count() < 450,
         "SQLite analytics module regrew beyond its ownership boundary"
     );
+    assert!(latest_model_run.lines().count() < 100);
+    assert!(latest_model_run_tests.lines().count() < 75);
     assert!(
         metrics.lines().count() < 375,
         "SQLite metric module regrew beyond its ownership boundary"
@@ -2418,6 +2518,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         "application root does not register the ontology adapter"
     );
     let owners = [
+        "src/runtime_core/knowledge/compaction.rs",
         "src/runtime_core/knowledge/context.rs",
         "src/runtime_core/knowledge/evidence.rs",
         "src/runtime_core/knowledge/ontology.rs",
@@ -2443,7 +2544,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
     for (module, children) in [
         (
             "src/runtime_core/knowledge/mod.rs",
-            ["context", "evidence", "ontology"].as_slice(),
+            ["compaction", "context", "evidence", "ontology"].as_slice(),
         ),
         (
             "src/runtime_core/policy/mod.rs",
@@ -2461,6 +2562,16 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
     }
 
     for (owner, rules) in [
+        (
+            "src/runtime_core/knowledge/compaction.rs",
+            [
+                "struct CompactionPolicy",
+                "struct CompactionCheckpoint",
+                "fn estimate_tokens",
+                "fn bounded_summary_source",
+            ]
+            .as_slice(),
+        ),
         (
             "src/runtime_core/knowledge/context.rs",
             [
@@ -4666,8 +4777,14 @@ fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
 fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     let tui_adapter = "src/app/tui_adapter.rs";
     let tui_tests = "src/app/tui_adapter/tests.rs";
+    let tui_report_tests = "src/app/tui_adapter/report_tests.rs";
+    let tui_model_switch = "src/app/tui_adapter/model_switch.rs";
+    let tui_runtime = "src/app/tui_adapter/runtime.rs";
     assert!(Path::new(tui_adapter).is_file());
     assert!(Path::new(tui_tests).is_file());
+    assert!(Path::new(tui_report_tests).is_file());
+    assert!(Path::new(tui_model_switch).is_file());
+    assert!(Path::new(tui_runtime).is_file());
     assert!(!Path::new("src/tui.rs").exists());
     assert!(!Path::new("src/tui").exists());
 
@@ -4835,6 +4952,9 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     }
     let tui_composition = fs::read_to_string(tui_adapter).unwrap();
     let tui_test_source = fs::read_to_string(tui_tests).unwrap();
+    let tui_report_test_source = fs::read_to_string(tui_report_tests).unwrap();
+    let model_switch = fs::read_to_string(tui_model_switch).unwrap();
+    let interactive_runtime = fs::read_to_string(tui_runtime).unwrap();
     let report_composition =
         fs::read_to_string("src/app/tui_adapter/report_composition.rs").unwrap();
     assert!(tui_test_source.contains("surfaces::tui::view_model"));
@@ -4850,6 +4970,38 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         tui_composition.contains("#[path = \"tui_adapter/tests.rs\"]"),
         "TUI adapter does not register its regression-test owner"
     );
+    assert!(
+        tui_composition.contains("#[path = \"tui_adapter/report_tests.rs\"]"),
+        "TUI adapter does not register its report regression owner"
+    );
+    for (owner, responsibility) in [
+        (&model_switch, "pub(super) fn switch_prepared_model("),
+        (&model_switch, "fn rollback_error("),
+        (
+            &interactive_runtime,
+            "impl TuiRuntimePort for TuiRuntimeAdapter",
+        ),
+        (&interactive_runtime, "fn ensure_runtime_ready("),
+    ] {
+        assert!(
+            owner.contains(responsibility),
+            "TUI extracted owner is missing {responsibility}"
+        );
+        assert!(
+            !tui_composition.contains(responsibility),
+            "TUI adapter still owns extracted responsibility: {responsibility}"
+        );
+    }
+    for regression in [
+        "fn overview_renders_read_only_dashboard(",
+        "fn monitor_renders_resource_pressure_and_token_throughput(",
+        "fn transcript_renders_session_event_timeline(",
+    ] {
+        assert!(
+            tui_report_test_source.contains(regression),
+            "TUI report regression owner is missing: {regression}"
+        );
+    }
     for regression in [
         "fn interactive_view_change_resets_page_and_updates_notice(",
         "fn one_shot_outcome_writes_secret_once_without_storing_it_in_notice(",
@@ -4894,6 +5046,9 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         tui_test_source.lines().count() < 550,
         "TUI regression module regrew beyond its ownership boundary"
     );
+    assert!(tui_report_test_source.lines().count() < 300);
+    assert!(model_switch.lines().count() < 225);
+    assert!(interactive_runtime.lines().count() < 200);
     assert!(
         report_composition.lines().count() < 250,
         "TUI report composition module regrew beyond its ownership boundary"
@@ -4914,7 +5069,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!controller.contains("use crate::runtime;"));
     assert!(!controller.contains("crate::runtime::"));
     assert!(!controller.contains("crate::adapters"));
-    assert!(tui_composition.contains("impl TuiRuntimePort for TuiRuntimeAdapter"));
+    assert!(interactive_runtime.contains("impl TuiRuntimePort for TuiRuntimeAdapter"));
 
     let terminal_port = fs::read_to_string("src/runtime_core/terminal.rs").unwrap();
     for definition in [
@@ -5265,9 +5420,15 @@ fn v03713_composition_owns_backend_command_orchestration() {
 #[test]
 fn v03713_context_adapter_separates_filesystem_discovery() {
     let context_adapter = "src/app/context_adapter.rs";
+    let context_compaction = "src/app/context_adapter/compaction.rs";
+    let compaction_artifact_store = "src/app/context_adapter/compaction/artifact_store.rs";
     let filesystem_discovery = "src/app/context_adapter/discovery.rs";
+    let context_tests = "src/app/context_adapter/tests.rs";
     assert!(Path::new(context_adapter).is_file());
+    assert!(Path::new(context_compaction).is_file());
+    assert!(Path::new(compaction_artifact_store).is_file());
     assert!(Path::new(filesystem_discovery).is_file());
+    assert!(Path::new(context_tests).is_file());
     assert!(!Path::new("src/context.rs").exists());
     assert!(!Path::new("src/context").exists());
     let main = fs::read_to_string("src/main.rs").unwrap();
@@ -5281,11 +5442,37 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
     );
 
     let context = fs::read_to_string(context_adapter).unwrap();
+    let compaction = fs::read_to_string(context_compaction).unwrap();
+    let artifact_store = fs::read_to_string(compaction_artifact_store).unwrap();
     let discovery = fs::read_to_string(filesystem_discovery).unwrap();
+    let tests = fs::read_to_string(context_tests).unwrap();
     assert!(
         context.lines().any(|line| line == "mod discovery;"),
         "context adapter does not register its filesystem discovery owner"
     );
+    assert!(
+        context.lines().any(|line| line == "mod compaction;"),
+        "context adapter does not register its compaction owner"
+    );
+    assert!(
+        compaction.lines().any(|line| line == "mod artifact_store;"),
+        "context compaction does not register its artifact-store owner"
+    );
+    for responsibility in [
+        "pub(super) fn install_artifact(",
+        "pub(crate) fn load_current_artifact(",
+        "fn validate_artifact_chain(",
+        "fn load_artifact_pointer(",
+    ] {
+        assert!(
+            artifact_store.contains(responsibility),
+            "compaction artifact-store owner is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !compaction.contains(responsibility),
+            "compaction orchestration still owns artifact storage: {responsibility}"
+        );
+    }
     for responsibility in [
         "pub(super) fn build_filesystem_fallback(",
         "pub(super) fn discover_candidate_files(",
@@ -5306,9 +5493,11 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
         );
     }
     assert!(
-        context.contains("fn filesystem_discovery_skips_generated_dirs_and_ranks_request_matches(")
+        tests.contains("fn filesystem_discovery_skips_generated_dirs_and_ranks_request_matches(")
     );
     assert!(context.lines().count() < 600);
+    assert!(compaction.lines().count() < 550);
+    assert!(artifact_store.lines().count() < 350);
     assert!(discovery.lines().count() < 250);
 }
 

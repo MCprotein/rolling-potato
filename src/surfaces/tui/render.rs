@@ -1,41 +1,165 @@
-use super::runtime_bridge::TuiReadPage;
-use super::view_model::InteractiveState;
+use super::runtime_bridge::{TuiBackendStatus, TuiReadPage, TuiStatusSnapshot};
+use super::view_model::{notice_rows_per_page, InteractiveState};
 
 const MAX_INTERACTIVE_WIDTH: usize = 120;
 
+#[cfg(test)]
 pub(crate) fn render_interactive_frame(
     state: &InteractiveState,
     page: &TuiReadPage,
     width: u16,
     height: u16,
 ) -> String {
+    render_interactive_frame_with_options(
+        state,
+        page,
+        &TuiStatusSnapshot::unavailable(),
+        width,
+        height,
+        false,
+        false,
+    )
+}
+
+pub(crate) fn render_interactive_frame_with_options(
+    state: &InteractiveState,
+    page: &TuiReadPage,
+    status: &TuiStatusSnapshot,
+    width: u16,
+    height: u16,
+    ansi_layout: bool,
+    color: bool,
+) -> String {
+    let ansi_layout = ansi_layout && color;
     let width = usize::from(width).clamp(20, MAX_INTERACTIVE_WIDTH);
-    let body_rows = usize::from(height).saturating_sub(5).max(1);
+    let content_rows = notice_rows_per_page(height);
+    let notice_lines = state.notice.split('\n').collect::<Vec<_>>();
+    let notice_page_count = notice_lines.len().div_ceil(content_rows).max(1);
+    let notice_page = state.notice_page.min(notice_page_count - 1);
+    let notice_offset = notice_page.saturating_mul(content_rows);
+    let notice_rows = notice_lines
+        .len()
+        .saturating_sub(notice_offset)
+        .min(content_rows);
+    let body_rows = content_rows.saturating_sub(notice_rows);
     let mut output = String::new();
-    output.push_str(&format!(
-        "rpotato interactive | {} | page {} | freshness {} | continuation {}\n",
+    if ansi_layout {
+        output.push_str("\u{001b}[2J\u{001b}[H");
+    }
+    let header = format!(
+        "rpotato | {} | page {} | freshness {} | continuation {}\n",
         sanitize_terminal_text(&page.title),
         page.page + 1,
         page.freshness.as_str(),
         page.continuation.as_str(),
-    ));
+    );
+    output.push_str(&paint(&header, "\u{001b}[1;36m", color));
     output.push_str(&"-".repeat(width));
     output.push('\n');
     for line in page.lines.iter().take(body_rows) {
         output.push_str(&truncate_chars(&sanitize_terminal_text(line), width));
         output.push('\n');
     }
-    render_notice_lines(&mut output, &state.notice, width);
-    output.push_str("rpotato> ");
+    render_notice_lines(
+        &mut output,
+        &notice_lines,
+        notice_offset,
+        notice_rows,
+        notice_page,
+        notice_page_count,
+        width,
+    );
+    output.push_str(&"-".repeat(width));
+    output.push('\n');
+    let status_line = render_status_line(status, width);
+    if ansi_layout {
+        output.push_str("rpotato> \n");
+        output.push_str(&paint_status_line(&status_line, status.backend, color));
+        output.push('\n');
+        output.push_str("\u{001b}[2A\r\u{001b}[9C");
+    } else {
+        output.push_str(&paint_status_line(&status_line, status.backend, color));
+        output.push('\n');
+        output.push_str("rpotato> ");
+    }
     output
 }
 
-fn render_notice_lines(output: &mut String, notice: &str, width: usize) {
-    for (index, line) in notice.split('\n').enumerate() {
+fn render_status_line(status: &TuiStatusSnapshot, width: usize) -> String {
+    let (context, percent) = match (status.context_tokens_used, status.context_limit_tokens) {
+        (Some(used), Some(limit)) if limit > 0 => {
+            let percent = used.saturating_mul(100) / limit;
+            (format!("ctx {used}/{limit} ({percent}%)"), Some(percent))
+        }
+        (Some(used), Some(_)) => (format!("ctx {used}/—"), None),
+        (Some(used), None) => (format!("ctx {used}/—"), None),
+        (None, Some(limit)) => (format!("ctx —/{limit}"), None),
+        (None, None) => ("ctx —".to_string(), None),
+    };
+    let compaction = if status.has_compaction_checkpoint {
+        "compact saved"
+    } else if percent.is_some_and(|value| value >= 75) {
+        "compact due"
+    } else {
+        "compact auto@75%"
+    };
+    truncate_chars(
+        &format!(
+            "model {} | {} | {} | backend {} | session {}",
+            sanitize_terminal_text(&status.model),
+            context,
+            compaction,
+            status.backend.as_str(),
+            short_status_id(&sanitize_terminal_text(&status.session_id))
+        ),
+        width,
+    )
+}
+
+fn paint_status_line(value: &str, backend: TuiBackendStatus, color: bool) -> String {
+    let code = match backend {
+        TuiBackendStatus::Ready => "\u{001b}[32m",
+        TuiBackendStatus::Stopped | TuiBackendStatus::Unavailable => "\u{001b}[2m",
+        TuiBackendStatus::Stale => "\u{001b}[31m",
+    };
+    paint(value, code, color)
+}
+
+fn paint(value: &str, code: &str, enabled: bool) -> String {
+    if enabled {
+        format!("{code}{value}\u{001b}[0m")
+    } else {
+        value.to_string()
+    }
+}
+
+fn short_status_id(value: &str) -> String {
+    if value.chars().count() <= 12 {
+        value.to_string()
+    } else {
+        format!("{}…", value.chars().take(11).collect::<String>())
+    }
+}
+
+fn render_notice_lines(
+    output: &mut String,
+    lines: &[&str],
+    offset: usize,
+    max_rows: usize,
+    page: usize,
+    page_count: usize,
+    width: usize,
+) {
+    for (index, line) in lines.iter().skip(offset).take(max_rows).enumerate() {
         let prefix = if index == 0 { "notice: " } else { "        " };
+        let line = if index + 1 == max_rows && page_count > 1 {
+            format!("{line} … [{}/{}; /more /back]", page + 1, page_count)
+        } else {
+            (*line).to_string()
+        };
         output.push_str(prefix);
         output.push_str(&truncate_chars(
-            &sanitize_terminal_text(line),
+            &sanitize_terminal_text(&line),
             width.saturating_sub(prefix.len()),
         ));
         output.push('\n');

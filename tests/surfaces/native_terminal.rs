@@ -16,14 +16,14 @@ fn entry_quit() {
 
     let mut terminal = NativePty::spawn(120, 40);
     let first = terminal.wait_for("rpotato>");
-    assert!(first.contains("rpotato interactive | overview"));
+    assert!(first.contains("rpotato | overview"));
     terminal.send("quit\n");
     let output = terminal.finish();
     assert!(!output.contains("terminal.capability"));
 
     let mut terminal = NativePty::spawn(120, 40);
     let second = terminal.wait_for("rpotato>");
-    assert!(second.contains("rpotato interactive | overview"));
+    assert!(second.contains("rpotato | overview"));
     terminal.send_eof();
     let output = terminal.finish();
     assert!(!output.contains("terminal.capability"));
@@ -156,11 +156,11 @@ fn full_adapter() {
     terminal.wait_for("rpotato>");
     terminal.resize(80, 24);
     terminal.send("help\n");
-    let help = terminal.wait_for("view overview|monitor");
-    assert!(help.contains("rpotato interactive | overview"));
+    let help = terminal.wait_for("/model [id]");
+    assert!(help.contains("rpotato | overview"));
     terminal.resize(40, 10);
     terminal.send("view sessions\n");
-    let sessions = terminal.wait_for("rpotato interactive | sessions");
+    let sessions = terminal.wait_for("rpotato | sessions");
     assert!(sessions.contains("freshness fresh"));
     terminal.resize(120, 40);
     terminal.send("test-secret\n");
@@ -417,7 +417,7 @@ fn full_adapter() {
     terminal.send("yes\n");
     terminal.wait_for("cancel.accepted");
     terminal.send("view monitor\n");
-    terminal.wait_for("rpotato interactive | monitor");
+    terminal.wait_for("rpotato | monitor");
     terminal.send("quit\n");
     let output = terminal.finish();
     std::env::remove_var("RPOTATO_TEST_TUI_SECRET_PROBE");

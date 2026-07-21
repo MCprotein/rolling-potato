@@ -28,8 +28,15 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
     let args: Vec<String> = args.into_iter().collect();
 
     match args.as_slice() {
-        [] => Ok(Command::Help),
+        [] => Ok(Command::Tui(TuiCommand::Auto)),
         [arg] if arg == "help" || arg == "--help" || arg == "-h" => Ok(Command::Help),
+        [arg] if arg == "debug" => Ok(Command::AdvancedHelp),
+        [group, arg]
+            if group == "debug" && (arg == "help" || arg == "--help" || arg == "-h") =>
+        {
+            Ok(Command::AdvancedHelp)
+        }
+        [group, rest @ ..] if group == "debug" => parse(rest.iter().cloned()),
         [group, rest @ ..] if group == "install" => {
             parse_install(rest).map(Command::Install)
         }

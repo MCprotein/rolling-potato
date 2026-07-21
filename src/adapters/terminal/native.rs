@@ -76,6 +76,15 @@ impl TerminalIo for NativeTerminal {
             .map_err(|_| TerminalFault::FrameWrite)
     }
 
+    fn supports_ansi_layout(&self) -> bool {
+        io::stdout().is_terminal()
+            && std::env::var_os("TERM").as_deref() != Some(std::ffi::OsStr::new("dumb"))
+    }
+
+    fn supports_color(&self) -> bool {
+        self.supports_ansi_layout() && std::env::var_os("NO_COLOR").is_none()
+    }
+
     fn write_frame_at(
         &mut self,
         frame: &str,

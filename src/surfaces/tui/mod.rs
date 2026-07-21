@@ -6,4 +6,5 @@ pub(crate) mod page;
 pub(crate) mod render;
 pub(crate) mod report_render;
 pub(crate) mod runtime_bridge;
+pub(crate) mod setup;
 pub(crate) mod view_model;

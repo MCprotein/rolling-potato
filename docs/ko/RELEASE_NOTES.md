@@ -1,5 +1,43 @@
 # 릴리즈 노트
 
+## v0.43.0 - 안내형 로컬 대화와 컨텍스트 압축
+
+예정 릴리즈 날짜: 2026-07-21
+
+이 릴리즈는 안내형 로컬 대화를 기본 제품 surface로 만들고, 작은 로컬
+모델에 맞춘 bounded context compaction을 추가합니다.
+
+### 포함한 것
+
+- 인자 없는 `rpotato`가 기본 TUI를 시작하고 일반 텍스트를 코딩 요청으로
+  처리합니다. 세부 호환·진단 명령은 `rpotato debug --help` 아래에 유지합니다.
+- 최초 model 선택, 검증된 artifact download, managed `llama.cpp` 설치 또는
+  재사용, backend start를 GGUF 경로 입력 없이 TUI 안에서 처리합니다.
+- Composer 아래에 model, 측정된 context 사용량, compaction 상태, backend 상태,
+  session을 구조화되고 color-aware한 terminal 출력으로 표시합니다.
+- 측정된 context 사용량 75%에서 자동 compaction을 실행하고 `/compact`를
+  제공합니다. Active model context limit의 40%를 목표로 최근 transcript record
+  최대 4개를 보존합니다.
+- 자동 trigger metric은 active session으로 제한하고, 40% 상한은 checkpoint,
+  resume turn, resume source snippet을 합친 실제 resume prompt 전체에 적용합니다.
+- Typed incremental checkpoint를 정확한 project, session, transcript boundary에
+  binding된 immutable hash-chain artifact로 저장합니다.
+- Resume 시 bounded full hash chain과 monotonic boundary를 검증하고 session writer
+  lease와 current-pointer CAS로 동시 compaction fork를 막습니다.
+- Deterministic pruning과 typed extraction을 먼저 수행한 뒤 local model rationale
+  시도는 한 번으로 제한하며, 실패해도 deterministic fallback으로 계속합니다.
+- 긴 TUI 응답은 `/more`, `/back`으로 모두 다시 볼 수 있으며 model start 실패 시
+  이전 기본 모델과 ready backend를 복구합니다.
+
+### 호환성 경계
+
+- Canonical transcript, ledger, instruction, source artifact가 계속 정본입니다.
+  Compacted checkpoint field는 명시적으로 신뢰하지 않는 과거 데이터입니다.
+- Compaction은 원본 transcript를 다시 쓰거나 삭제하지 않습니다. 파생 artifact가
+  유효하지 않으면 기존 bounded recent-turn resume 경로로 fallback합니다.
+- 공식 binary 배포 channel은 이 저장소의 GitHub Releases 하나뿐입니다. 이
+  준비 작업은 tag나 GitHub Release를 게시하지 않습니다.
+
 ## v0.42.0 - User-local Install and Clean Uninstall
 
 릴리즈 날짜: 2026-07-19

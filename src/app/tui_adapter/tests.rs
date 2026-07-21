@@ -1,13 +1,15 @@
 use super::*;
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::terminal::native::{ScriptedTerminal, TerminalFault};
-use crate::app::observability_adapter as observability;
-use crate::app::patch_adapter as patch;
-use crate::app::workflow_adapter::ledger;
 use crate::surfaces::tui::controller::{consume_outcome, run_controller};
 use crate::surfaces::tui::outcome::verification_credential_issued;
-use crate::surfaces::tui::render::{render_interactive_frame, sanitize_terminal_text};
-use crate::surfaces::tui::runtime_bridge::{OneShotSecret, TuiFreshness, TuiReadContinuation};
+use crate::surfaces::tui::render::{
+    render_interactive_frame, render_interactive_frame_with_options, sanitize_terminal_text,
+};
+use crate::surfaces::tui::runtime_bridge::{
+    OneShotSecret, TuiFreshness, TuiReadBudget, TuiReadContinuation,
+};
+use crate::surfaces::tui::runtime_bridge::{TuiBackendStatus, TuiStatusSnapshot};
 use crate::surfaces::tui::view_model::{InteractiveState, InteractiveView};
 
 #[test]
@@ -17,6 +19,7 @@ fn interactive_view_change_resets_page_and_updates_notice() {
         page: 4,
         selected_id: Some("workflow-selected".to_string()),
         notice: "old notice".to_string(),
+        notice_page: 3,
     };
 
     state.set_view(InteractiveView::Transcript("session-next".to_string()));
@@ -28,6 +31,7 @@ fn interactive_view_change_resets_page_and_updates_notice() {
     assert_eq!(state.page, 0);
     assert_eq!(state.selected_id.as_deref(), Some("workflow-selected"));
     assert_eq!(state.notice, "화면을 변경했습니다.");
+    assert_eq!(state.notice_page, 0);
 }
 
 #[test]
@@ -37,6 +41,7 @@ fn interactive_view_builds_bounded_read_request_from_viewport() {
         page: 3,
         selected_id: None,
         notice: String::new(),
+        notice_page: 0,
     };
 
     let request = state.read_request(10, 8);
@@ -102,6 +107,7 @@ fn live_controller_compile_time_boundary_uses_only_runtime_and_terminal_authorit
     }
     assert!(live.contains("runtime.read_tui_page(request)"));
     assert!(live.contains("runtime.dispatch_tui_intent"));
+    assert!(live.contains("runtime.submit_request"));
     assert!(live.contains("trait TuiRuntimePort"));
 }
 
@@ -134,7 +140,7 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
     std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
     std::fs::create_dir_all(root.join("project")).unwrap();
     crate::app::workflow_adapter::state::initialize().unwrap();
-    let mut terminal = ScriptedTerminal::new(["help", "quit"]);
+    let mut terminal = ScriptedTerminal::new(["/model", "/help", "/compact", "/quit"]);
 
     run_controller(&mut terminal, &mut TuiRuntimeAdapter).unwrap();
 
@@ -150,6 +156,26 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
         .frames
         .iter()
         .any(|frame| frame.contains("rpotato>")));
+    assert!(terminal
+        .frames
+        .iter()
+        .any(|frame| frame.contains("gemma-4-e4b")));
+    assert!(terminal
+        .frames
+        .iter()
+        .any(|frame| frame.contains("context 131k")));
+    assert!(terminal
+        .frames
+        .iter()
+        .any(|frame| frame.contains("16 GB 적합성은 미확정")));
+    assert!(terminal
+        .frames
+        .iter()
+        .any(|frame| frame.contains("/compact: 현재 대화 컨텍스트 압축")));
+    assert!(terminal
+        .frames
+        .iter()
+        .any(|frame| frame.contains("context compact 결과")));
 }
 
 #[test]
@@ -169,6 +195,7 @@ fn exact_outcome_notice_preserves_trusted_multiline_structure() {
         page: 0,
         selected_id: None,
         notice: "결과 제목\n- code: exact.test\n- 동작: 상태를 변경하지 않았습니다.".to_string(),
+        notice_page: 0,
     };
     let page = TuiReadPage {
         title: "overview".to_string(),
@@ -190,215 +217,138 @@ fn exact_outcome_notice_preserves_trusted_multiline_structure() {
 }
 
 #[test]
-fn overview_renders_read_only_dashboard() {
-    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
-    let root = std::env::temp_dir().join(format!("rpotato-tui-test-{}", std::process::id()));
-    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
-    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-    std::env::set_var("COLUMNS", "72");
-
-    let report = overview_report().unwrap();
-
-    std::env::remove_var("RPOTATO_PROJECT_ROOT");
-    std::env::remove_var("RPOTATO_DATA_HOME");
-    std::env::remove_var("COLUMNS");
-
-    assert!(report.contains("rpotato TUI beta - overview"));
-    assert!(report.contains("mode: read-only dashboard"));
-    assert!(report.contains("[runtime]"));
-    assert!(report.contains("beta boundary"));
-}
-
-#[test]
-fn monitor_renders_model_section() {
-    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
-    let root =
-        std::env::temp_dir().join(format!("rpotato-tui-monitor-test-{}", std::process::id()));
-    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
-    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-
-    let report = monitor_report().unwrap();
-
-    std::env::remove_var("RPOTATO_PROJECT_ROOT");
-    std::env::remove_var("RPOTATO_DATA_HOME");
-
-    assert!(report.contains("rpotato TUI beta - monitor"));
-    assert!(report.contains("[resource pressure]"));
-    assert!(report.contains("resource samples: 0"));
-    assert!(report.contains("No resource samples yet"));
-    assert!(report.contains("[models]"));
-    assert!(report.contains("No recorded model runs yet"));
-}
-
-#[test]
-fn monitor_renders_resource_pressure_and_token_throughput() {
-    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
-    let root = test_root("rpotato-tui-resource-monitor-test");
-    let project_root = root.join("project");
-    std::fs::create_dir_all(&project_root).unwrap();
-    std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
-    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-    std::env::set_var("COLUMNS", "64");
-    let identity = ledger::validated_current_identity().unwrap();
-
-    observability::record_model_run(&observability::ModelRunMetric {
-        model_run_id: "model-run-tui-resource".to_string(),
-        session_id: identity.session_id.clone(),
-        workflow_id: None,
-        model_id: "qwen-test".to_string(),
-        model_artifact_hash: None,
-        backend_id: Some("llama.cpp".to_string()),
-        backend_version: None,
-        quantization: None,
+fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
+    let state = InteractiveState::new();
+    let page = TuiReadPage {
+        title: "overview".to_string(),
+        lines: Vec::new(),
+        page: 0,
+        has_previous: false,
+        has_next: false,
+        freshness: TuiFreshness::Fresh,
+        continuation: TuiReadContinuation::Complete,
+        authority: crate::surfaces::tui::runtime_bridge::TuiReadAuthority::default(),
+    };
+    let mut status = TuiStatusSnapshot {
+        model: "gemma-4-e4b".to_string(),
+        context_tokens_used: Some(1024),
         context_limit_tokens: Some(4096),
-        started_at_ms: 1000,
-        first_token_latency_ms: Some(25.0),
-        total_latency_ms: Some(200.0),
-        prompt_eval_ms: None,
-        generation_eval_ms: None,
-        tokens_per_second: Some(12.5),
-        cancelled: false,
-        token_usage_complete: true,
-        prompt_tokens: 10,
-        completion_tokens: 20,
-        total_tokens: 30,
-        context_tokens_used: 10,
-        context_tokens_dropped: 0,
-        ontology_tokens: 0,
-        tool_summary_tokens: 0,
-        max_output_tokens: Some(64),
-    })
-    .unwrap();
-    observability::record_resource_sample(&observability::ResourceSampleMetric {
-        resource_sample_id: "resource-sample-tui-resource".to_string(),
-        session_id: identity.session_id,
-        backend_id: "llama.cpp".to_string(),
-        pid: 12345,
-        process_cpu_percent: Some(84.2),
-        average_rss_bytes: Some(256 * 1024 * 1024),
-        peak_rss_bytes: Some(512 * 1024 * 1024),
-        disk_bytes: Some(1536),
-        sample_count: 3,
-        pressure_status: "degraded".to_string(),
-        recorded_at_ms: 2000,
-    })
-    .unwrap();
+        has_compaction_checkpoint: false,
+        backend: TuiBackendStatus::Ready,
+        session_id: "session-long-identifier".to_string(),
+    };
 
-    let report = monitor_report().unwrap();
+    let frame = render_interactive_frame_with_options(&state, &page, &status, 120, 40, true, true);
 
-    std::env::remove_var("RPOTATO_PROJECT_ROOT");
-    std::env::remove_var("RPOTATO_DATA_HOME");
-    std::env::remove_var("COLUMNS");
-    let _ = std::fs::remove_dir_all(root);
+    let prompt = frame.find("rpotato> ").unwrap();
+    let status_line = frame.find("model gemma-4-e4b").unwrap();
+    assert!(prompt < status_line);
+    assert!(frame.contains("ctx 1024/4096 (25%)"));
+    assert!(frame.contains("compact auto@75%"));
+    assert!(frame.contains("backend ready"));
+    assert!(frame.contains("\u{001b}[32m"));
+    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[9C"));
 
-    assert!(report.contains("[resource pressure]"));
-    assert!(report.contains("resource samples: 1"));
-    assert!(report.contains("pressure: degraded"));
-    assert!(report.contains("cpu: 84.2%"));
-    assert!(report.contains("avg rss: 256.0 MiB"));
-    assert!(report.contains("peak rss: 512.0 MiB"));
-    assert!(report.contains("disk: 1.5 KiB"));
-    assert!(report.contains("avg ms | tps"));
-    assert!(report.contains("12.5 tok/s"));
+    status.has_compaction_checkpoint = true;
+    let saved = render_interactive_frame_with_options(&state, &page, &status, 120, 40, true, true);
+    assert!(saved.contains("compact saved"));
+
+    status.has_compaction_checkpoint = false;
+    status.context_tokens_used = Some(3072);
+    let due = render_interactive_frame_with_options(&state, &page, &status, 120, 40, true, true);
+    assert!(due.contains("compact due"));
 }
 
 #[test]
-fn sessions_renders_resume_hint() {
-    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
-    let root =
-        std::env::temp_dir().join(format!("rpotato-tui-sessions-test-{}", std::process::id()));
-    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
-    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+fn no_color_forces_a_plain_frame_without_layout_escape_sequences() {
+    let state = InteractiveState::new();
+    let page = TuiReadPage {
+        title: "overview".to_string(),
+        lines: vec!["body".to_string()],
+        page: 0,
+        has_previous: false,
+        has_next: false,
+        freshness: TuiFreshness::Fresh,
+        continuation: TuiReadContinuation::Complete,
+        authority: crate::surfaces::tui::runtime_bridge::TuiReadAuthority::default(),
+    };
 
-    let report = sessions_report().unwrap();
+    let frame = render_interactive_frame_with_options(
+        &state,
+        &page,
+        &TuiStatusSnapshot::unavailable(),
+        80,
+        24,
+        true,
+        false,
+    );
 
-    std::env::remove_var("RPOTATO_PROJECT_ROOT");
-    std::env::remove_var("RPOTATO_DATA_HOME");
-
-    assert!(report.contains("rpotato TUI beta - sessions"));
-    assert!(report.contains("resume: rpotato session resume <session-id>"));
+    assert!(!frame.contains('\u{001b}'));
+    assert!(frame.contains("backend unavailable"));
 }
 
 #[test]
-fn transcript_renders_session_event_timeline() {
-    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
-    let root = test_root("rpotato-tui-transcript-test");
-    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
-    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+fn long_notice_keeps_composer_and_status_inside_the_terminal_row_budget() {
+    let mut state = InteractiveState::new();
+    state.notice = (0..20)
+        .map(|index| format!("notice line {index}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let page = TuiReadPage {
+        title: "overview".to_string(),
+        lines: (0..20).map(|index| format!("body {index}")).collect(),
+        page: 0,
+        has_previous: false,
+        has_next: false,
+        freshness: TuiFreshness::Fresh,
+        continuation: TuiReadContinuation::Complete,
+        authority: crate::surfaces::tui::runtime_bridge::TuiReadAuthority::default(),
+    };
 
-    let session = crate::app::workflow_adapter::state::session_new_report().unwrap();
-    let session_id = report_value(&session, "session id").unwrap();
-    crate::app::workflow_adapter::state::record_event(
-        "test.first",
-        "first transcript event",
-        "details one",
-    )
-    .unwrap();
-    crate::app::workflow_adapter::state::record_event(
-        "test.second",
-        "second transcript event",
-        "details two",
-    )
-    .unwrap();
-    let report = transcript_report(&session_id).unwrap();
+    let frame = render_interactive_frame_with_options(
+        &state,
+        &page,
+        &TuiStatusSnapshot::unavailable(),
+        80,
+        10,
+        true,
+        true,
+    );
 
-    std::env::remove_var("RPOTATO_PROJECT_ROOT");
-    std::env::remove_var("RPOTATO_DATA_HOME");
-
-    assert!(report.contains("rpotato TUI beta - transcript"));
-    assert!(report.contains(&format!("session: {session_id}")));
-    assert!(report.contains("[timeline]"));
-    assert!(report.contains("test.first"));
-    assert!(report.contains("first transcript event"));
-    assert!(report.contains("test.second"));
-    assert!(report.contains("raw details: not shown"));
+    assert!(frame.find("rpotato> ").unwrap() < frame.find("model 미선택").unwrap());
+    assert!(frame.matches('\n').count() < 10);
+    assert!(frame.contains("…"));
+    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[9C"));
 }
 
 #[test]
-fn approvals_renders_empty_queue() {
-    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
-    let root = test_root("rpotato-tui-approvals-empty-test");
-    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
-    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-    crate::app::workflow_adapter::state::initialize().unwrap();
+fn long_notice_pages_preserve_later_response_lines() {
+    let mut state = InteractiveState::new();
+    state.notice = (0..20)
+        .map(|index| format!("response line {index}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    for _ in 0..6 {
+        state.next_notice_page(10);
+    }
+    let page = TuiReadPage {
+        title: "overview".to_string(),
+        lines: Vec::new(),
+        page: 0,
+        has_previous: false,
+        has_next: false,
+        freshness: TuiFreshness::Fresh,
+        continuation: TuiReadContinuation::Complete,
+        authority: crate::surfaces::tui::runtime_bridge::TuiReadAuthority::default(),
+    };
 
-    let report = approvals_report().unwrap();
+    let frame = render_interactive_frame(&state, &page, 80, 10);
 
-    std::env::remove_var("RPOTATO_PROJECT_ROOT");
-    std::env::remove_var("RPOTATO_DATA_HOME");
-
-    assert!(report.contains("rpotato TUI beta - approvals"));
-    assert!(report.contains("No canonical records are available."));
-    assert!(report.contains("continuation: complete"));
-}
-
-#[test]
-fn one_shot_views_do_not_admit_unbound_directory_only_proposals() {
-    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
-    let root = test_root("rpotato-tui-diff-test");
-    let project_root = root.join("project");
-    std::fs::create_dir_all(project_root.join("src")).unwrap();
-    std::fs::write(project_root.join("src/lib.rs"), "pub const X: i32 = 1;\n").unwrap();
-    std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
-    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
-    crate::app::workflow_adapter::state::initialize().unwrap();
-
-    let preview = patch::preview_report("src/lib.rs", "1", "2").unwrap();
-    let proposal_id = report_value(&preview, "proposal id").unwrap();
-    let approvals = approvals_report().unwrap();
-    let diff = diff_report(&proposal_id).unwrap();
-
-    std::env::remove_var("RPOTATO_PROJECT_ROOT");
-    std::env::remove_var("RPOTATO_DATA_HOME");
-
-    assert!(!approvals.contains(&proposal_id));
-    assert!(approvals.contains("No canonical records are available."));
-    assert!(diff.contains("rpotato TUI beta - diff"));
-    assert!(diff.contains("continuation: unavailable"));
-    assert!(diff.contains("active workflow canonical binding이 없습니다."));
-    assert!(!diff.contains("-pub const X: i32 = 1;"));
-    assert!(!diff.contains("+pub const X: i32 = 2;"));
-    assert!(!diff.contains("--token "));
+    assert!(frame.contains("response line 18"));
+    assert!(frame.contains("response line 19"));
+    assert!(!frame.contains("response line 0"));
+    state.previous_notice_page();
+    assert_eq!(state.notice_page, 5);
 }
 
 #[test]
@@ -485,11 +435,4 @@ fn test_root(name: &str) -> std::path::PathBuf {
         .unwrap()
         .as_nanos();
     std::env::temp_dir().join(format!("{name}-{}-{nanos}", std::process::id()))
-}
-
-fn report_value(report: &str, key: &str) -> Option<String> {
-    let prefix = format!("- {key}: ");
-    report
-        .lines()
-        .find_map(|line| line.strip_prefix(&prefix).map(|value| value.to_string()))
 }

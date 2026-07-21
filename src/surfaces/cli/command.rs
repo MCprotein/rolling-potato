@@ -5,6 +5,7 @@ pub(crate) use crate::runtime_core::knowledge::ontology::OntologyExportFormat;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
     Help,
+    AdvancedHelp,
     Install(InstallCommand),
     Init,
     Run { request: String },

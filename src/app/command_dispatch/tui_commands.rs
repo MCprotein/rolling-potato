@@ -10,14 +10,20 @@ use crate::surfaces::cli::command::TuiCommand;
 pub(super) fn execute_tui(command: TuiCommand) -> Result<(), AppError> {
     match command {
         TuiCommand::Auto => {
-            if cfg!(unix) && capability::attached() && !paths::current_state_file().is_file() {
+            if capability::attached() && !paths::current_state_file().is_file() {
                 state::initialize()?;
+            }
+            if capability::attached() && tui::setup_required() {
+                tui::run_setup()?;
             }
             tui::run_auto()
         }
         TuiCommand::Interactive => {
-            if cfg!(unix) && !paths::current_state_file().is_file() {
+            if !paths::current_state_file().is_file() {
                 state::initialize()?;
+            }
+            if capability::attached() && tui::setup_required() {
+                tui::run_setup()?;
             }
             tui::run_interactive()
         }
@@ -31,6 +37,6 @@ pub(super) fn execute_tui(command: TuiCommand) -> Result<(), AppError> {
 }
 
 fn print_report(report: Result<String, AppError>) -> Result<(), AppError> {
-    println!("{}", report?);
+    crate::surfaces::cli::render::emit_report(&report?);
     Ok(())
 }

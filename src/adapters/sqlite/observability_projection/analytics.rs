@@ -1,5 +1,8 @@
 use super::*;
 
+mod latest_model_run;
+pub(super) use latest_model_run::latest_model_run_for_session_from_connection;
+
 pub(super) fn model_summaries_from_connection(
     connection: &Connection,
     limit: usize,

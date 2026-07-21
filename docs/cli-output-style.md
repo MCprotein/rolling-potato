@@ -10,6 +10,13 @@
 - File paths, commands, model IDs, and plugin IDs preserve their original text.
 - Failure reasons are written in Korean, while error codes and original log lines may be preserved.
 - If there is a next step, show only one at the end.
+- Attached terminals may style the topic in cyan, section headings in blue,
+  healthy/ready/completed states in green, waiting/degraded states in yellow,
+  and failed/blocked/stale states in red.
+- Status text remains present, so color is never the only signal. Redirected output,
+  `NO_COLOR`, and `TERM=dumb` remain byte-stable plain text.
+- `rpotato --help` shows the normal product surface. Granular diagnostic and
+  compatibility commands live under `rpotato debug --help`.
 
 ## Example
 

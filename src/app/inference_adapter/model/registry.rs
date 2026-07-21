@@ -18,6 +18,11 @@ use crate::runtime_core::inference::model::promotion::{
     validate_registry_manifest_binding, validate_registry_promotion_binding,
 };
 
+mod default_selection;
+pub(crate) use default_selection::{
+    restore_default_selection, snapshot_default_selection, DefaultSelectionSnapshot,
+};
+
 pub fn registry_report() -> String {
     registry_summary()
 }
@@ -86,6 +91,35 @@ pub fn default_artifact_path() -> Result<PathBuf, AppError> {
         ));
     }
     Ok(PathBuf::from(entry.artifact_path))
+}
+
+pub(crate) fn configured_model_id() -> Option<String> {
+    read_default_selection()
+        .ok()
+        .map(|selection| selection.model_id)
+}
+
+pub(crate) fn prepare_user_selected_candidate(
+    candidate: &'static ModelManifestEntry,
+) -> Result<PathBuf, AppError> {
+    let artifact = source_backed_artifact(candidate)?;
+    let artifact_path = model_artifact_path(artifact);
+    let local = local_artifact_state(artifact, &artifact_path)?;
+    if !local.verified {
+        return Err(AppError::blocked(format!(
+            "선택한 모델 artifact 검증 실패\n- id: {}\n- 상태: {}\n- 이유: {}",
+            candidate.id, local.status, local.detail
+        )));
+    }
+    if candidate.license.status != "confirmed" || candidate.backend_compatibility.is_none() {
+        return Err(AppError::blocked(format!(
+            "선택한 모델의 source-backed license/backend 정보가 충분하지 않습니다: {}",
+            candidate.id
+        )));
+    }
+
+    persist_registry_entry(candidate, None)?;
+    Ok(artifact_path)
 }
 
 pub fn install_candidate(id: &str) -> Result<(), AppError> {
@@ -241,7 +275,9 @@ fn validated_registry_entry(id: &str) -> Result<RegistryEntry, AppError> {
             local_state.detail
         )));
     }
-    if candidate.status != CandidateStatus::Verified {
+    if candidate.status != CandidateStatus::Verified
+        && entry.evidence_status != "source-backed-manifest"
+    {
         let promotion = local_promotion_readiness(candidate)?;
         if !promotion.validation.ready {
             return Err(AppError::blocked(format!(
@@ -254,6 +290,14 @@ fn validated_registry_entry(id: &str) -> Result<RegistryEntry, AppError> {
             &promotion_evidence_path(id),
             promotion.evidence.as_ref(),
         )?;
+    }
+    if candidate.status != CandidateStatus::Verified
+        && entry.evidence_status == "source-backed-manifest"
+        && (candidate.license.status != "confirmed" || candidate.backend_compatibility.is_none())
+    {
+        return Err(AppError::blocked(
+            "사용자 선택 model의 source-backed license/backend 정보가 유효하지 않습니다.",
+        ));
     }
     Ok(entry)
 }

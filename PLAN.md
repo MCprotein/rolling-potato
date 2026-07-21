@@ -534,6 +534,7 @@ Project-local automation and contribution policy is recorded in
 [AGENTS.md](AGENTS.md). Model-related claims require explicit sources and must
 follow [docs/model-source-policy.md](docs/model-source-policy.md).
 
-No version after `v0.41.0` is defined. Add a concrete row to
-[ROADMAP.md](ROADMAP.md) before turning any open question into implementation
-work.
+`v0.43.0` is the concrete in-development version for the guided default TUI and
+bounded small-model context compaction. Add another concrete row to
+[ROADMAP.md](ROADMAP.md) before turning a different open question into
+implementation work.
