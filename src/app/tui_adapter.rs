@@ -54,6 +54,114 @@ struct TuiActionAdapter;
 
 struct TuiSetupAdapter;
 
+trait ModelSwitchPort {
+    fn stop_backend(&mut self) -> Result<String, AppError>;
+    fn start_backend(&mut self, model_path: &str, context_tokens: u32) -> Result<String, AppError>;
+    fn activate_model(&mut self, id: &str) -> Result<(), AppError>;
+    fn restore_default_selection(
+        &mut self,
+        snapshot: &crate::app::inference_adapter::model::DefaultSelectionSnapshot,
+    ) -> Result<(), AppError>;
+}
+
+struct LiveModelSwitch;
+
+impl ModelSwitchPort for LiveModelSwitch {
+    fn stop_backend(&mut self) -> Result<String, AppError> {
+        crate::app::inference_adapter::backend::stop_report()
+    }
+
+    fn start_backend(&mut self, model_path: &str, context_tokens: u32) -> Result<String, AppError> {
+        crate::app::inference_adapter::backend::start_report(model_path, Some(context_tokens))
+    }
+
+    fn activate_model(&mut self, id: &str) -> Result<(), AppError> {
+        crate::app::inference_adapter::model::activate_setup_model(id)
+    }
+
+    fn restore_default_selection(
+        &mut self,
+        snapshot: &crate::app::inference_adapter::model::DefaultSelectionSnapshot,
+    ) -> Result<(), AppError> {
+        crate::app::inference_adapter::model::restore_default_selection(snapshot)
+    }
+}
+
+fn switch_prepared_model(
+    port: &mut impl ModelSwitchPort,
+    model_id: &str,
+    model_path: &str,
+    previous_backend: &crate::app::inference_adapter::backend::BackendRuntimeSnapshot,
+    previous_default: &crate::app::inference_adapter::model::DefaultSelectionSnapshot,
+) -> Result<String, AppError> {
+    if previous_backend.status != "stopped" {
+        port.stop_backend()?;
+    }
+    let started = match port.start_backend(model_path, setup::DEFAULT_CONTEXT_TOKENS) {
+        Ok(report) => report,
+        Err(error) => {
+            return Err(model_switch_rollback_error(
+                port,
+                "새 backend 시작",
+                error,
+                previous_backend,
+                previous_default,
+            ));
+        }
+    };
+    if let Err(error) = port.activate_model(model_id) {
+        return Err(model_switch_rollback_error(
+            port,
+            "기본 모델 선택",
+            error,
+            previous_backend,
+            previous_default,
+        ));
+    }
+    Ok(started)
+}
+
+fn model_switch_rollback_error(
+    port: &mut impl ModelSwitchPort,
+    phase: &str,
+    error: AppError,
+    previous_backend: &crate::app::inference_adapter::backend::BackendRuntimeSnapshot,
+    previous_default: &crate::app::inference_adapter::model::DefaultSelectionSnapshot,
+) -> AppError {
+    let cleanup = port
+        .stop_backend()
+        .map(|_| "완료".to_string())
+        .unwrap_or_else(|cleanup| format!("실패: {}", cleanup.message));
+    let backend_restore = if previous_backend.status == "ready" {
+        previous_backend.model_path.as_ref().map_or_else(
+            || "실패: 이전 model path 누락".to_string(),
+            |path| {
+                port.start_backend(
+                    &path.display().to_string(),
+                    previous_backend
+                        .context_limit_tokens
+                        .unwrap_or(setup::DEFAULT_CONTEXT_TOKENS),
+                )
+                .map(|_| "완료".to_string())
+                .unwrap_or_else(|restore| format!("실패: {}", restore.message))
+            },
+        )
+    } else {
+        "이전 backend가 ready 상태가 아니어서 stopped 유지".to_string()
+    };
+    let default_restore = port
+        .restore_default_selection(previous_default)
+        .map(|_| "완료".to_string())
+        .unwrap_or_else(|restore| format!("실패: {}", restore.message));
+    AppError {
+        code: error.code,
+        message: format!(
+            "{phase} 실패: {}\n- 새 backend 정리: {cleanup}\n- 이전 backend 복구: {backend_restore}\n- 이전 기본 모델 복구: {default_restore}",
+            error.message
+        ),
+    }
+}
+
 impl TuiSetupPort for TuiSetupAdapter {
     fn model_options(&mut self) -> Vec<crate::surfaces::tui::runtime_bridge::TuiModelOption> {
         crate::app::inference_adapter::model::setup_options()
@@ -73,12 +181,13 @@ impl TuiSetupPort for TuiSetupAdapter {
 
     fn start_model(&mut self, model: &PreparedTuiModel) -> Result<String, AppError> {
         let snapshot = crate::app::inference_adapter::backend::runtime_snapshot()?;
-        if snapshot.status != "stopped" {
-            crate::app::inference_adapter::backend::stop_report()?;
-        }
-        crate::app::inference_adapter::backend::start_report(
+        let default = crate::app::inference_adapter::model::snapshot_default_selection()?;
+        switch_prepared_model(
+            &mut LiveModelSwitch,
+            &model.id,
             &model.artifact_path,
-            Some(setup::DEFAULT_CONTEXT_TOKENS),
+            &snapshot,
+            &default,
         )
     }
 }
@@ -393,12 +502,13 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         crate::app::inference_adapter::backend::ensure_installed_report()?;
         let prepared = crate::app::inference_adapter::model::prepare_setup_model(id)?;
         let snapshot = crate::app::inference_adapter::backend::runtime_snapshot()?;
-        if snapshot.status != "stopped" {
-            crate::app::inference_adapter::backend::stop_report()?;
-        }
-        crate::app::inference_adapter::backend::start_report(
+        let default = crate::app::inference_adapter::model::snapshot_default_selection()?;
+        switch_prepared_model(
+            &mut LiveModelSwitch,
+            &prepared.id,
             &prepared.artifact_path.display().to_string(),
-            Some(setup::DEFAULT_CONTEXT_TOKENS),
+            &snapshot,
+            &default,
         )?;
         Ok(format!(
             "모델 변경 완료\n- model: {}\n- context: {}\n- backend: ready",

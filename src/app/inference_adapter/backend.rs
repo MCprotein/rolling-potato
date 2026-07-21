@@ -68,6 +68,7 @@ pub use sidecar::{
 pub(crate) struct BackendRuntimeSnapshot {
     pub(crate) status: &'static str,
     pub(crate) model_id: Option<String>,
+    pub(crate) model_path: Option<std::path::PathBuf>,
     pub(crate) context_limit_tokens: Option<u32>,
 }
 
@@ -76,6 +77,7 @@ pub(crate) fn runtime_snapshot() -> Result<BackendRuntimeSnapshot, AppError> {
         return Ok(BackendRuntimeSnapshot {
             status: "stopped",
             model_id: None,
+            model_path: None,
             context_limit_tokens: None,
         });
     };
@@ -91,6 +93,7 @@ pub(crate) fn runtime_snapshot() -> Result<BackendRuntimeSnapshot, AppError> {
     Ok(BackendRuntimeSnapshot {
         status: if healthy { "ready" } else { "stale" },
         model_id: Some(model_id_from_path(&record.model_path)),
+        model_path: Some(record.model_path),
         context_limit_tokens: record.ctx_size,
     })
 }

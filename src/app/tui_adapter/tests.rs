@@ -13,6 +13,78 @@ use crate::surfaces::tui::runtime_bridge::{OneShotSecret, TuiFreshness, TuiReadC
 use crate::surfaces::tui::runtime_bridge::{TuiBackendStatus, TuiStatusSnapshot};
 use crate::surfaces::tui::view_model::{InteractiveState, InteractiveView};
 
+struct FailingModelSwitch {
+    calls: Vec<String>,
+}
+
+impl ModelSwitchPort for FailingModelSwitch {
+    fn stop_backend(&mut self) -> Result<String, AppError> {
+        self.calls.push("stop".to_string());
+        Ok("stopped".to_string())
+    }
+
+    fn start_backend(
+        &mut self,
+        model_path: &str,
+        _context_tokens: u32,
+    ) -> Result<String, AppError> {
+        self.calls.push(format!("start:{model_path}"));
+        if model_path == "/new.gguf" {
+            Err(AppError::runtime("injected start failure"))
+        } else {
+            Ok("ready".to_string())
+        }
+    }
+
+    fn activate_model(&mut self, id: &str) -> Result<(), AppError> {
+        self.calls.push(format!("activate:{id}"));
+        Ok(())
+    }
+
+    fn restore_default_selection(
+        &mut self,
+        _snapshot: &crate::app::inference_adapter::model::DefaultSelectionSnapshot,
+    ) -> Result<(), AppError> {
+        self.calls.push("restore-default".to_string());
+        Ok(())
+    }
+}
+
+#[test]
+fn failed_model_start_restores_the_previous_backend_before_returning() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = std::env::temp_dir().join(format!(
+        "rpotato-model-switch-rollback-test-{}",
+        std::process::id()
+    ));
+    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+    let default = crate::app::inference_adapter::model::snapshot_default_selection().unwrap();
+    let previous = crate::app::inference_adapter::backend::BackendRuntimeSnapshot {
+        status: "ready",
+        model_id: Some("old".to_string()),
+        model_path: Some(std::path::PathBuf::from("/old.gguf")),
+        context_limit_tokens: Some(8_192),
+    };
+    let mut switch = FailingModelSwitch { calls: Vec::new() };
+
+    let error =
+        switch_prepared_model(&mut switch, "new", "/new.gguf", &previous, &default).unwrap_err();
+
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    let _ = std::fs::remove_dir_all(root);
+    assert!(error.message.contains("이전 backend 복구: 완료"));
+    assert_eq!(
+        switch.calls,
+        [
+            "stop",
+            "start:/new.gguf",
+            "stop",
+            "start:/old.gguf",
+            "restore-default"
+        ]
+    );
+}
+
 #[test]
 fn interactive_view_change_resets_page_and_updates_notice() {
     let mut state = InteractiveState {
@@ -20,6 +92,7 @@ fn interactive_view_change_resets_page_and_updates_notice() {
         page: 4,
         selected_id: Some("workflow-selected".to_string()),
         notice: "old notice".to_string(),
+        notice_page: 3,
     };
 
     state.set_view(InteractiveView::Transcript("session-next".to_string()));
@@ -31,6 +104,7 @@ fn interactive_view_change_resets_page_and_updates_notice() {
     assert_eq!(state.page, 0);
     assert_eq!(state.selected_id.as_deref(), Some("workflow-selected"));
     assert_eq!(state.notice, "화면을 변경했습니다.");
+    assert_eq!(state.notice_page, 0);
 }
 
 #[test]
@@ -40,6 +114,7 @@ fn interactive_view_builds_bounded_read_request_from_viewport() {
         page: 3,
         selected_id: None,
         notice: String::new(),
+        notice_page: 0,
     };
 
     let request = state.read_request(10, 8);
@@ -193,6 +268,7 @@ fn exact_outcome_notice_preserves_trusted_multiline_structure() {
         page: 0,
         selected_id: None,
         notice: "결과 제목\n- code: exact.test\n- 동작: 상태를 변경하지 않았습니다.".to_string(),
+        notice_page: 0,
     };
     let page = TuiReadPage {
         title: "overview".to_string(),
@@ -319,6 +395,36 @@ fn long_notice_keeps_composer_and_status_inside_the_terminal_row_budget() {
 }
 
 #[test]
+fn long_notice_pages_preserve_later_response_lines() {
+    let mut state = InteractiveState::new();
+    state.notice = (0..20)
+        .map(|index| format!("response line {index}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    for _ in 0..6 {
+        state.next_notice_page(10);
+    }
+    let page = TuiReadPage {
+        title: "overview".to_string(),
+        lines: Vec::new(),
+        page: 0,
+        has_previous: false,
+        has_next: false,
+        freshness: TuiFreshness::Fresh,
+        continuation: TuiReadContinuation::Complete,
+        authority: crate::surfaces::tui::runtime_bridge::TuiReadAuthority::default(),
+    };
+
+    let frame = render_interactive_frame(&state, &page, 80, 10);
+
+    assert!(frame.contains("response line 18"));
+    assert!(frame.contains("response line 19"));
+    assert!(!frame.contains("response line 0"));
+    state.previous_notice_page();
+    assert_eq!(state.notice_page, 5);
+}
+
+#[test]
 fn overview_renders_read_only_dashboard() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let root = std::env::temp_dir().join(format!("rpotato-tui-test-{}", std::process::id()));
@@ -368,6 +474,7 @@ fn monitor_renders_resource_pressure_and_token_throughput() {
     std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
     std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
     std::env::set_var("COLUMNS", "64");
+    crate::app::workflow_adapter::state::initialize().unwrap();
     let identity = ledger::validated_current_identity().unwrap();
 
     observability::record_model_run(&observability::ModelRunMetric {

@@ -24,7 +24,10 @@ use evidence::{
 
 #[cfg(test)]
 use registry::registry_entry_json;
-pub(crate) use registry::{configured_model_id, register_user_selected_candidate};
+pub(crate) use registry::{
+    configured_model_id, prepare_user_selected_candidate, restore_default_selection,
+    snapshot_default_selection, DefaultSelectionSnapshot,
+};
 pub use registry::{
     default_artifact_path, default_report, install_candidate, registry_report, set_default_report,
 };
@@ -75,11 +78,15 @@ pub(crate) fn setup_options() -> Vec<crate::surfaces::tui::runtime_bridge::TuiMo
 pub(crate) fn prepare_setup_model(id: &str) -> Result<PreparedSetupModel, AppError> {
     let candidate = find_candidate(id)?;
     fetch_candidate_for_evaluation_report(id)?;
-    let artifact_path = register_user_selected_candidate(candidate)?;
+    let artifact_path = prepare_user_selected_candidate(candidate)?;
     Ok(PreparedSetupModel {
         id: id.to_string(),
         artifact_path,
     })
+}
+
+pub(crate) fn activate_setup_model(id: &str) -> Result<(), AppError> {
+    set_default_report(id).map(|_| ())
 }
 
 pub fn candidate_summary() -> String {

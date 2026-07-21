@@ -18,10 +18,16 @@
 - 측정된 context 사용량 75%에서 자동 compaction을 실행하고 `/compact`를
   제공합니다. Active model context limit의 40%를 목표로 최근 transcript record
   최대 4개를 보존합니다.
+- 자동 trigger metric은 active session으로 제한하고, 40% 상한은 checkpoint,
+  resume turn, resume source snippet을 합친 실제 resume prompt 전체에 적용합니다.
 - Typed incremental checkpoint를 정확한 project, session, transcript boundary에
   binding된 immutable hash-chain artifact로 저장합니다.
+- Resume 시 bounded full hash chain과 monotonic boundary를 검증하고 session writer
+  lease와 current-pointer CAS로 동시 compaction fork를 막습니다.
 - Deterministic pruning과 typed extraction을 먼저 수행한 뒤 local model rationale
   시도는 한 번으로 제한하며, 실패해도 deterministic fallback으로 계속합니다.
+- 긴 TUI 응답은 `/more`, `/back`으로 모두 다시 볼 수 있으며 model start 실패 시
+  이전 기본 모델과 ready backend를 복구합니다.
 
 ### 호환성 경계
 

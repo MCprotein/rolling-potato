@@ -109,9 +109,12 @@ state are displayed explicitly. `NO_COLOR`, `TERM=dumb`, redirected, and scripte
 execution use plain text without ANSI control sequences.
 
 Normal interactive commands are `/model`, `/compact`, `/status`, `/sessions`, `/doctor`,
-`/clear`, `/help`, and `/quit`. `/compact` creates an incremental typed checkpoint and
+`/more`, `/back`, `/clear`, `/help`, and `/quit`. `/more` and `/back` page through a
+long response without discarding off-screen lines. `/compact` creates an incremental typed checkpoint and
 retains the four most recent transcript records. Automatic compaction uses the same path
-at 75% measured context usage. Granular backend, registry, benchmark, policy, and
+at 75% measured context usage for the active session. Model changes commit the new default
+only after backend startup succeeds and restore the previous ready backend on failure.
+Granular backend, registry, benchmark, policy, and
 inspection commands remain available for diagnostics under `rpotato debug --help`.
 
 <!-- TUI-READ-CONTRACT:START -->

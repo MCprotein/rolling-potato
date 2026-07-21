@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::PathBuf;
 
 use super::local_promotion_readiness;
@@ -94,7 +95,43 @@ pub(crate) fn configured_model_id() -> Option<String> {
         .map(|selection| selection.model_id)
 }
 
-pub(crate) fn register_user_selected_candidate(
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DefaultSelectionSnapshot {
+    body: Option<Vec<u8>>,
+}
+
+pub(crate) fn snapshot_default_selection() -> Result<DefaultSelectionSnapshot, AppError> {
+    let path = model_artifact::paths().default_file;
+    if !path.exists() {
+        return Ok(DefaultSelectionSnapshot { body: None });
+    }
+    read_default_selection()?;
+    let body = fs::read(&path).map_err(|err| {
+        AppError::runtime(format!(
+            "기본 모델 선택 snapshot을 읽지 못했습니다: {} ({err})",
+            path.display()
+        ))
+    })?;
+    Ok(DefaultSelectionSnapshot { body: Some(body) })
+}
+
+pub(crate) fn restore_default_selection(
+    snapshot: &DefaultSelectionSnapshot,
+) -> Result<(), AppError> {
+    let path = model_artifact::paths().default_file;
+    match &snapshot.body {
+        Some(body) => crate::adapters::filesystem::atomic_write::atomic_replace_bytes(&path, body),
+        None if path.exists() => fs::remove_file(&path).map_err(|err| {
+            AppError::runtime(format!(
+                "실패한 모델 선택을 제거하지 못했습니다: {} ({err})",
+                path.display()
+            ))
+        }),
+        None => Ok(()),
+    }
+}
+
+pub(crate) fn prepare_user_selected_candidate(
     candidate: &'static ModelManifestEntry,
 ) -> Result<PathBuf, AppError> {
     let artifact = source_backed_artifact(candidate)?;
@@ -114,23 +151,6 @@ pub(crate) fn register_user_selected_candidate(
     }
 
     persist_registry_entry(candidate, None)?;
-    let selection = DefaultSelection {
-        model_id: candidate.id.to_string(),
-        artifact_sha256: artifact.sha256.to_string(),
-        selected_at_ms: now_ms_u64(),
-    };
-    crate::adapters::filesystem::atomic_write::atomic_replace_bytes(
-        &model_artifact::paths().default_file,
-        render_default_selection(&selection).as_bytes(),
-    )?;
-    state::record_event(
-        "model.user-selection.completed",
-        "사용자 선택 model 등록 완료",
-        &format!(
-            "model_id={} artifact_sha256={} evidence_status=source-backed-manifest capability_claim=unverified",
-            candidate.id, artifact.sha256
-        ),
-    )?;
     Ok(artifact_path)
 }
 

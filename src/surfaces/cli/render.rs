@@ -13,9 +13,12 @@ rpotato — local coding agent
 
 TUI 명령:
   /model [id]             모델 확인 또는 변경
+  /compact                현재 대화 컨텍스트 압축
   /status                 모델·컨텍스트·backend·세션 상태
   /sessions               세션 목록
   /doctor                 환경 진단
+  /more, /back            긴 응답 페이지 이동
+  /clear                  현재 응답 지우기
   /help                   TUI 도움말
   /quit                   종료
 

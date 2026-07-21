@@ -67,14 +67,19 @@ pub(crate) fn run_controller(
             return Ok(());
         };
         let words = line.split_whitespace().collect::<Vec<_>>();
+        if !matches!(words.as_slice(), ["/more"] | ["/back"]) {
+            state.reset_notice_page();
+        }
         match words.as_slice() {
             [] | ["refresh"] => {
                 state.notice = "정본 상태를 새로고침했습니다.".to_string();
             }
             ["quit"] | ["exit"] | ["/quit"] => return Ok(()),
             ["help"] | ["/help"] => {
-                state.notice = "요청을 바로 입력하세요.\n- /model [id]: 모델 확인/변경\n- /compact: 현재 대화 컨텍스트 압축\n- /status: 상태 새로고침\n- /sessions: 세션 목록\n- /doctor: 환경 진단\n- /clear: 알림 지우기\n- /help: 도움말\n- /quit: 종료\n고급 호환 명령: rpotato debug --help".to_string();
+                state.notice = "요청을 바로 입력하세요.\n- /model [id]: 모델 확인/변경\n- /compact: 현재 대화 컨텍스트 압축\n- /status: 상태 새로고침\n- /sessions: 세션 목록\n- /doctor: 환경 진단\n- /more, /back: 긴 응답 페이지 이동\n- /clear: 알림 지우기\n- /help: 도움말\n- /quit: 종료\n고급 호환 명령: rpotato debug --help".to_string();
             }
+            ["/more"] => state.next_notice_page(height),
+            ["/back"] => state.previous_notice_page(),
             ["/compact"] => {
                 state.notice = match runtime.compact_context() {
                     Ok(report) => report,

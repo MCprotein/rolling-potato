@@ -364,6 +364,7 @@ fn backend_status_reports_stopped_without_record() {
     assert!(report.contains("status: stopped"));
     assert_eq!(snapshot.status, "stopped");
     assert_eq!(snapshot.model_id, None);
+    assert_eq!(snapshot.model_path, None);
     assert_eq!(snapshot.context_limit_tokens, None);
 }
 

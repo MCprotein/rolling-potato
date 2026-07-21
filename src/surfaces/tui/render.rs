@@ -1,5 +1,5 @@
 use super::runtime_bridge::{TuiBackendStatus, TuiReadPage, TuiStatusSnapshot};
-use super::view_model::InteractiveState;
+use super::view_model::{notice_rows_per_page, InteractiveState};
 
 const MAX_INTERACTIVE_WIDTH: usize = 120;
 
@@ -32,9 +32,15 @@ pub(crate) fn render_interactive_frame_with_options(
 ) -> String {
     let ansi_layout = ansi_layout && color;
     let width = usize::from(width).clamp(20, MAX_INTERACTIVE_WIDTH);
-    let content_rows = usize::from(height).saturating_sub(7).max(1);
-    let notice_line_count = state.notice.split('\n').count();
-    let notice_rows = notice_line_count.min(content_rows);
+    let content_rows = notice_rows_per_page(height);
+    let notice_lines = state.notice.split('\n').collect::<Vec<_>>();
+    let notice_page_count = notice_lines.len().div_ceil(content_rows).max(1);
+    let notice_page = state.notice_page.min(notice_page_count - 1);
+    let notice_offset = notice_page.saturating_mul(content_rows);
+    let notice_rows = notice_lines
+        .len()
+        .saturating_sub(notice_offset)
+        .min(content_rows);
     let body_rows = content_rows.saturating_sub(notice_rows);
     let mut output = String::new();
     if ansi_layout {
@@ -54,7 +60,15 @@ pub(crate) fn render_interactive_frame_with_options(
         output.push_str(&truncate_chars(&sanitize_terminal_text(line), width));
         output.push('\n');
     }
-    render_notice_lines(&mut output, &state.notice, width, notice_rows);
+    render_notice_lines(
+        &mut output,
+        &notice_lines,
+        notice_offset,
+        notice_rows,
+        notice_page,
+        notice_page_count,
+        width,
+    );
     output.push_str(&"-".repeat(width));
     output.push('\n');
     let status_line = render_status_line(status, width);
@@ -127,12 +141,19 @@ fn short_status_id(value: &str) -> String {
     }
 }
 
-fn render_notice_lines(output: &mut String, notice: &str, width: usize, max_rows: usize) {
-    let lines = notice.split('\n').collect::<Vec<_>>();
-    for (index, line) in lines.iter().take(max_rows).enumerate() {
+fn render_notice_lines(
+    output: &mut String,
+    lines: &[&str],
+    offset: usize,
+    max_rows: usize,
+    page: usize,
+    page_count: usize,
+    width: usize,
+) {
+    for (index, line) in lines.iter().skip(offset).take(max_rows).enumerate() {
         let prefix = if index == 0 { "notice: " } else { "        " };
-        let line = if index + 1 == max_rows && lines.len() > max_rows {
-            format!("{line} …")
+        let line = if index + 1 == max_rows && page_count > 1 {
+            format!("{line} … [{}/{}; /more /back]", page + 1, page_count)
         } else {
             (*line).to_string()
         };

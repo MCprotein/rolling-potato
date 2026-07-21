@@ -17,6 +17,7 @@ pub(crate) struct InteractiveState {
     pub(crate) page: u64,
     pub(crate) selected_id: Option<String>,
     pub(crate) notice: String,
+    pub(crate) notice_page: usize,
 }
 
 impl InteractiveState {
@@ -26,13 +27,31 @@ impl InteractiveState {
             page: 0,
             selected_id: None,
             notice: "코딩 요청을 입력하세요. help로 TUI 명령을 확인할 수 있습니다.".to_string(),
+            notice_page: 0,
         }
     }
 
     pub(crate) fn set_view(&mut self, view: InteractiveView) {
         self.view = view;
         self.page = 0;
+        self.notice_page = 0;
         self.notice = "화면을 변경했습니다.".to_string();
+    }
+
+    pub(crate) fn reset_notice_page(&mut self) {
+        self.notice_page = 0;
+    }
+
+    pub(crate) fn next_notice_page(&mut self, height: u16) {
+        let rows = notice_rows_per_page(height);
+        let page_count = self.notice.lines().count().div_ceil(rows);
+        if self.notice_page + 1 < page_count {
+            self.notice_page += 1;
+        }
+    }
+
+    pub(crate) fn previous_notice_page(&mut self) {
+        self.notice_page = self.notice_page.saturating_sub(1);
     }
 
     pub(crate) fn read_request(&self, width: u16, height: u16) -> TuiReadRequest {
@@ -71,6 +90,10 @@ impl InteractiveState {
             },
         }
     }
+}
+
+pub(crate) fn notice_rows_per_page(height: u16) -> usize {
+    usize::from(height).saturating_sub(7).max(1)
 }
 
 pub(crate) struct EvidenceReportView {
