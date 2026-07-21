@@ -1733,6 +1733,38 @@
       ]
     },
     {
+      "path": "src/adapters/sqlite/observability_projection/analytics/latest_model_run.rs",
+      "slices": [
+        {
+          "responsibility": "session-scoped latest model-run projection query",
+          "target": "src/adapters/sqlite/observability_projection/analytics/latest_model_run.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/analytics.rs",
+            "src/adapters/sqlite/observability_projection/analytics/latest_model_run.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics/latest_model_run/tests.rs",
+      "slices": [
+        {
+          "responsibility": "session-scoped latest model-run query regression tests",
+          "target": "src/adapters/sqlite/observability_projection/analytics/latest_model_run/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/analytics/latest_model_run.rs",
+            "src/adapters/sqlite/observability_projection/analytics/latest_model_run/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/sqlite/observability_projection/metrics.rs",
       "slices": [
         {
@@ -2308,6 +2340,22 @@
             "src/app/inference_adapter/backend/resource_sampling.rs",
             "src/app/inference_adapter/backend/chat.rs",
             "src/app/inference_adapter/backend/sidecar.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/runtime_snapshot.rs",
+      "slices": [
+        {
+          "responsibility": "read-only backend runtime snapshot for interactive surfaces",
+          "target": "src/app/inference_adapter/backend/runtime_snapshot.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend.rs",
+            "src/app/inference_adapter/backend/runtime_snapshot.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3167,6 +3215,23 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/model/setup.rs",
+      "slices": [
+        {
+          "responsibility": "source-backed model choices and interactive setup preparation",
+          "target": "src/app/inference_adapter/model/setup.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/setup.rs",
+            "src/app/tui_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/model/evidence.rs",
       "slices": [
         {
@@ -3202,6 +3267,23 @@
             "src/app/inference_adapter/model.rs",
             "src/app/inference_adapter/model/registry.rs",
             "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/registry/default_selection.rs",
+      "slices": [
+        {
+          "responsibility": "exact default-model selection snapshot and rollback",
+          "target": "src/app/inference_adapter/model/registry/default_selection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model/registry.rs",
+            "src/app/inference_adapter/model/registry/default_selection.rs",
+            "src/app/tui_adapter/model_switch.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7643,6 +7725,18 @@
       ]
     },
     {
+      "path": "src/adapters/sqlite/observability_projection/analytics/latest_model_run.rs",
+      "responsibilities": [
+        "session-scoped latest model-run projection query"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/analytics/latest_model_run/tests.rs",
+      "responsibilities": [
+        "session-scoped latest model-run query regression tests"
+      ]
+    },
+    {
       "path": "src/adapters/sqlite/observability_projection/metrics.rs",
       "responsibilities": [
         "model, resource, and benchmark metric persistence and reporting"
@@ -7838,6 +7932,12 @@
       "path": "src/app/inference_adapter/backend/resource_sampling.rs",
       "responsibilities": [
         "backend process resource sampling, metric projection, and pressure reporting"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/runtime_snapshot.rs",
+      "responsibilities": [
+        "read-only backend runtime snapshot for interactive surfaces"
       ]
     },
     {
@@ -8149,6 +8249,12 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/model/setup.rs",
+      "responsibilities": [
+        "source-backed model choices and interactive setup preparation"
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/model/evidence.rs",
       "responsibilities": [
         "host-local benchmark, promotion, and backend smoke evidence collection and persistence"
@@ -8158,6 +8264,12 @@
       "path": "src/app/inference_adapter/model/registry.rs",
       "responsibilities": [
         "model local registry installation, manifest and promotion rebinding, and default selection"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/registry/default_selection.rs",
+      "responsibilities": [
+        "exact default-model selection snapshot and rollback"
       ]
     },
     {

@@ -42,6 +42,7 @@ mod chat;
 mod generation_state;
 mod installation;
 mod resource_sampling;
+mod runtime_snapshot;
 mod sidecar;
 pub use chat::{
     cancel_generation_report, chat_once, chat_once_bounded, chat_once_bounded_with_cancel,
@@ -56,6 +57,7 @@ use generation_state::{release_generation_admission, write_backend_generation_re
 #[cfg(test)]
 use installation::install_backend_from_archive;
 pub use installation::{install_plan_report, install_report, verify_archive_report};
+pub(crate) use runtime_snapshot::{runtime_snapshot, BackendRuntimeSnapshot};
 #[cfg(test)]
 use sidecar::{
     cancel_active_generation_before_stop, start_sidecar_with_timeout, terminate_with_fallback,
@@ -63,40 +65,6 @@ use sidecar::{
 pub use sidecar::{
     doctor_report, doctor_summary, health_check_report, start_report, status_report, stop_report,
 };
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct BackendRuntimeSnapshot {
-    pub(crate) status: &'static str,
-    pub(crate) model_id: Option<String>,
-    pub(crate) model_path: Option<std::path::PathBuf>,
-    pub(crate) context_limit_tokens: Option<u32>,
-}
-
-pub(crate) fn runtime_snapshot() -> Result<BackendRuntimeSnapshot, AppError> {
-    let Some(record) = crate::adapters::filesystem::backend_state::read_sidecar_record()? else {
-        return Ok(BackendRuntimeSnapshot {
-            status: "stopped",
-            model_id: None,
-            model_path: None,
-            context_limit_tokens: None,
-        });
-    };
-    let running = crate::adapters::process::backend::is_running(record.pid);
-    let healthy = running
-        && llama_backend::probe_health(
-            &record.host,
-            record.port,
-            std::time::Duration::from_millis(HEALTH_TIMEOUT_MS),
-        )
-        .status
-            == "healthy";
-    Ok(BackendRuntimeSnapshot {
-        status: if healthy { "ready" } else { "stale" },
-        model_id: Some(model_id_from_path(&record.model_path)),
-        model_path: Some(record.model_path),
-        context_limit_tokens: record.ctx_size,
-    })
-}
 
 pub(crate) fn ensure_installed_report() -> Result<String, AppError> {
     let discovery = llama_backend::discover();

@@ -928,12 +928,16 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_generation_state_path = "src/app/inference_adapter/backend/generation_state.rs";
     let backend_installation_path = "src/app/inference_adapter/backend/installation.rs";
     let backend_resource_sampling_path = "src/app/inference_adapter/backend/resource_sampling.rs";
+    let backend_runtime_snapshot_path = "src/app/inference_adapter/backend/runtime_snapshot.rs";
     let backend_sidecar_path = "src/app/inference_adapter/backend/sidecar.rs";
     let backend_sidecar_startup_path = "src/app/inference_adapter/backend/sidecar/startup.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
     let model_adapter_path = "src/app/inference_adapter/model.rs";
     let model_evidence_path = "src/app/inference_adapter/model/evidence.rs";
     let model_registry_path = "src/app/inference_adapter/model/registry.rs";
+    let model_default_selection_path =
+        "src/app/inference_adapter/model/registry/default_selection.rs";
+    let model_setup_path = "src/app/inference_adapter/model/setup.rs";
     let model_tests_path = "src/app/inference_adapter/model/tests.rs";
     assert!(Path::new(backend_chat_path).is_file());
     assert!(Path::new(backend_chat_interruption_path).is_file());
@@ -941,11 +945,14 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(Path::new(backend_generation_state_path).is_file());
     assert!(Path::new(backend_installation_path).is_file());
     assert!(Path::new(backend_resource_sampling_path).is_file());
+    assert!(Path::new(backend_runtime_snapshot_path).is_file());
     assert!(Path::new(backend_sidecar_path).is_file());
     assert!(Path::new(backend_sidecar_startup_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
     assert!(Path::new(model_evidence_path).is_file());
     assert!(Path::new(model_registry_path).is_file());
+    assert!(Path::new(model_default_selection_path).is_file());
+    assert!(Path::new(model_setup_path).is_file());
     assert!(Path::new(model_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
     let backend_chat = fs::read_to_string(backend_chat_path).unwrap();
@@ -954,12 +961,15 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_generation_state = fs::read_to_string(backend_generation_state_path).unwrap();
     let backend_installation = fs::read_to_string(backend_installation_path).unwrap();
     let backend_resource_sampling = fs::read_to_string(backend_resource_sampling_path).unwrap();
+    let backend_runtime_snapshot = fs::read_to_string(backend_runtime_snapshot_path).unwrap();
     let backend_sidecar = fs::read_to_string(backend_sidecar_path).unwrap();
     let backend_sidecar_startup = fs::read_to_string(backend_sidecar_startup_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
     let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
     let model_evidence = fs::read_to_string(model_evidence_path).unwrap();
     let model_registry = fs::read_to_string(model_registry_path).unwrap();
+    let model_default_selection = fs::read_to_string(model_default_selection_path).unwrap();
+    let model_setup = fs::read_to_string(model_setup_path).unwrap();
     let model_tests = fs::read_to_string(model_tests_path).unwrap();
     assert!(
         backend_adapter.contains("#[path = \"backend/tests.rs\"]"),
@@ -995,6 +1005,45 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         model_adapter.lines().any(|line| line == "mod registry;"),
         "model adapter does not register its registry owner"
     );
+    assert!(
+        model_adapter.lines().any(|line| line == "mod setup;"),
+        "model adapter does not register its setup owner"
+    );
+    for responsibility in [
+        "pub(crate) struct PreparedSetupModel",
+        "pub(crate) fn setup_options(",
+        "pub(crate) fn prepare_setup_model(",
+        "pub(crate) fn activate_setup_model(",
+    ] {
+        assert!(
+            model_setup.contains(responsibility),
+            "model setup owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_adapter.contains(responsibility),
+            "model adapter still owns interactive setup: {responsibility}"
+        );
+    }
+    assert!(
+        model_registry
+            .lines()
+            .any(|line| line == "mod default_selection;"),
+        "model registry does not register its default-selection owner"
+    );
+    for responsibility in [
+        "pub(crate) struct DefaultSelectionSnapshot",
+        "pub(crate) fn snapshot_default_selection(",
+        "pub(crate) fn restore_default_selection(",
+    ] {
+        assert!(
+            model_default_selection.contains(responsibility),
+            "default-selection owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_registry.contains(responsibility),
+            "model registry still owns default-selection rollback: {responsibility}"
+        );
+    }
     for responsibility in [
         "pub fn registry_report(",
         "pub fn default_report(",
@@ -1059,6 +1108,25 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             .any(|line| line == "mod resource_sampling;"),
         "inference backend adapter does not register its resource-sampling owner"
     );
+    assert!(
+        backend_adapter
+            .lines()
+            .any(|line| line == "mod runtime_snapshot;"),
+        "inference backend adapter does not register its runtime-snapshot owner"
+    );
+    for responsibility in [
+        "pub(crate) struct BackendRuntimeSnapshot",
+        "pub(crate) fn runtime_snapshot(",
+    ] {
+        assert!(
+            backend_runtime_snapshot.contains(responsibility),
+            "backend runtime-snapshot owner is missing: {responsibility}"
+        );
+        assert!(
+            !backend_adapter.contains(responsibility),
+            "inference backend facade still owns runtime snapshot: {responsibility}"
+        );
+    }
     assert!(
         backend_adapter.lines().any(|line| line == "mod sidecar;"),
         "inference backend adapter does not register its sidecar owner"
@@ -1206,6 +1274,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         backend_adapter.lines().count() < 125,
         "inference backend production adapter regrew beyond its resource-sampling extraction boundary"
     );
+    assert!(backend_runtime_snapshot.lines().count() < 75);
     assert!(
         backend_chat.lines().count() < 500,
         "inference backend chat module regrew beyond its interruption extraction boundary"
@@ -1254,6 +1323,8 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         model_registry.lines().count() < 350,
         "model registry module regrew beyond its ownership boundary"
     );
+    assert!(model_default_selection.lines().count() < 75);
+    assert!(model_setup.lines().count() < 100);
     assert!(
         model_tests.lines().count() < 550,
         "model regression module regrew beyond its ownership boundary"
@@ -2147,6 +2218,10 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
 
     let sqlite = fs::read_to_string("src/adapters/sqlite/observability_projection.rs").unwrap();
     let analytics_path = "src/adapters/sqlite/observability_projection/analytics.rs";
+    let latest_model_run_path =
+        "src/adapters/sqlite/observability_projection/analytics/latest_model_run.rs";
+    let latest_model_run_tests_path =
+        "src/adapters/sqlite/observability_projection/analytics/latest_model_run/tests.rs";
     let metrics_path = "src/adapters/sqlite/observability_projection/metrics.rs";
     let read_snapshot_path = "src/adapters/sqlite/observability_projection/read_snapshot.rs";
     let replay_path = "src/adapters/sqlite/observability_projection/replay.rs";
@@ -2154,6 +2229,8 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     let sessions_path = "src/adapters/sqlite/observability_projection/sessions.rs";
     let sqlite_tests_path = "src/adapters/sqlite/observability_projection/tests.rs";
     assert!(Path::new(analytics_path).is_file());
+    assert!(Path::new(latest_model_run_path).is_file());
+    assert!(Path::new(latest_model_run_tests_path).is_file());
     assert!(Path::new(metrics_path).is_file());
     assert!(Path::new(read_snapshot_path).is_file());
     assert!(Path::new(replay_path).is_file());
@@ -2161,6 +2238,8 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     assert!(Path::new(sessions_path).is_file());
     assert!(Path::new(sqlite_tests_path).is_file());
     let analytics = fs::read_to_string(analytics_path).unwrap();
+    let latest_model_run = fs::read_to_string(latest_model_run_path).unwrap();
+    let latest_model_run_tests = fs::read_to_string(latest_model_run_tests_path).unwrap();
     let metrics = fs::read_to_string(metrics_path).unwrap();
     let read_snapshot = fs::read_to_string(read_snapshot_path).unwrap();
     let replay = fs::read_to_string(replay_path).unwrap();
@@ -2188,6 +2267,25 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     assert!(
         sqlite.lines().any(|line| line == "mod analytics;"),
         "SQLite projection does not register the analytics owner"
+    );
+    assert!(
+        analytics
+            .lines()
+            .any(|line| line == "mod latest_model_run;"),
+        "SQLite analytics does not register its latest-model-run owner"
+    );
+    assert!(
+        latest_model_run.contains(
+            "pub(in crate::adapters::sqlite::observability_projection) fn latest_model_run_for_session_from_connection("
+        ),
+        "latest-model-run query owner is missing its session-scoped query"
+    );
+    assert!(
+        !analytics.contains("pub(super) fn latest_model_run_for_session_from_connection("),
+        "SQLite analytics still owns the session-scoped latest-model-run query"
+    );
+    assert!(
+        latest_model_run_tests.contains("fn latest_model_run_is_scoped_to_the_requested_session(")
     );
     assert!(
         sqlite.lines().any(|line| line == "mod metrics;"),
@@ -2325,6 +2423,8 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         analytics.lines().count() < 450,
         "SQLite analytics module regrew beyond its ownership boundary"
     );
+    assert!(latest_model_run.lines().count() < 100);
+    assert!(latest_model_run_tests.lines().count() < 75);
     assert!(
         metrics.lines().count() < 375,
         "SQLite metric module regrew beyond its ownership boundary"

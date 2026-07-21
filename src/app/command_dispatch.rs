@@ -19,7 +19,6 @@ mod observability_commands;
 mod policy_commands;
 mod tui_commands;
 mod workflow_commands;
-
 use collaboration_commands::{execute_subagent, execute_team};
 use extension_commands::{execute_hooks, execute_plugin, execute_skill};
 use inference_ports::emit_output as emit_inference_output;
