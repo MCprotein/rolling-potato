@@ -259,6 +259,10 @@ Before release:
     uploaded all target archives, matching `.sha256` files, and the aggregate
     `checksums.txt` file
 
+`config/release-targets.tsv` is the canonical target list used by the Rust
+updater and release-asset verification. The release matrix guard rejects a
+workflow tuple or asset set that diverges from it.
+
 Use [release-notes-template.md](release-notes-template.md) for new release note
 entries.
 

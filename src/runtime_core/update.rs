@@ -5,6 +5,8 @@ use std::cmp::Ordering;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity;
 
+const RELEASE_TARGET_MANIFEST: &str = include_str!("../../config/release-targets.tsv");
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ReleaseVersion {
     pub(crate) major: u64,
@@ -82,42 +84,10 @@ pub(crate) fn release_asset_plan(
     arch: &str,
 ) -> Result<ReleaseAssetPlan, AppError> {
     parse_release_tag(tag)?;
-    let (target, archive_kind, extension, binary_name) = match (os, arch) {
-        ("macos", "aarch64") => (
-            "aarch64-apple-darwin",
-            ReleaseArchiveKind::TarGz,
-            "tar.gz",
-            "rpotato",
-        ),
-        ("macos", "x86_64") => (
-            "x86_64-apple-darwin",
-            ReleaseArchiveKind::TarGz,
-            "tar.gz",
-            "rpotato",
-        ),
-        ("linux", "aarch64") => (
-            "aarch64-unknown-linux-gnu",
-            ReleaseArchiveKind::TarGz,
-            "tar.gz",
-            "rpotato",
-        ),
-        ("linux", "x86_64") => (
-            "x86_64-unknown-linux-gnu",
-            ReleaseArchiveKind::TarGz,
-            "tar.gz",
-            "rpotato",
-        ),
-        ("windows", "x86_64") => (
-            "x86_64-pc-windows-msvc",
-            ReleaseArchiveKind::Zip,
-            "zip",
-            "rpotato.exe",
-        ),
-        _ => {
-            return Err(AppError::blocked(format!(
-                "자동 업데이트를 지원하지 않는 platform입니다: {os}/{arch}"
-            )))
-        }
+    let Some((target, archive_kind, extension, binary_name)) = release_target(os, arch)? else {
+        return Err(AppError::blocked(format!(
+            "자동 업데이트를 지원하지 않는 platform입니다: {os}/{arch}"
+        )));
     };
     let base = format!("rpotato-{tag}-{target}");
     let archive_name = format!("{base}.{extension}");
@@ -128,6 +98,44 @@ pub(crate) fn release_asset_plan(
         binary_name: binary_name.to_string(),
         archive_kind,
     })
+}
+
+fn release_target(
+    os: &str,
+    arch: &str,
+) -> Result<Option<(&'static str, ReleaseArchiveKind, &'static str, &'static str)>, AppError> {
+    let mut selected = None;
+    for (index, line) in RELEASE_TARGET_MANIFEST.lines().enumerate() {
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let fields = line.split('\t').collect::<Vec<_>>();
+        if fields.len() != 6 || fields.iter().any(|field| field.is_empty()) {
+            return Err(AppError::runtime(format!(
+                "release target manifest 행이 유효하지 않습니다: line {}",
+                index + 1
+            )));
+        }
+        if fields[0] != os || fields[1] != arch {
+            continue;
+        }
+        let archive_kind = match fields[4] {
+            "tar.gz" => ReleaseArchiveKind::TarGz,
+            "zip" => ReleaseArchiveKind::Zip,
+            archive => {
+                return Err(AppError::runtime(format!(
+                    "release target archive 형식이 유효하지 않습니다: {archive}"
+                )))
+            }
+        };
+        if selected.is_some() {
+            return Err(AppError::runtime(format!(
+                "release target manifest에 중복 platform이 있습니다: {os}/{arch}"
+            )));
+        }
+        selected = Some((fields[2], archive_kind, fields[4], fields[3]));
+    }
+    Ok(selected)
 }
 
 pub(crate) fn parse_checksum_line(body: &str, expected_archive: &str) -> Result<String, AppError> {
@@ -248,16 +256,20 @@ mod tests {
 
     #[test]
     fn official_asset_plan_covers_exact_release_matrix() {
-        let cases = [
-            ("macos", "aarch64", "aarch64-apple-darwin", "tar.gz"),
-            ("macos", "x86_64", "x86_64-apple-darwin", "tar.gz"),
-            ("linux", "aarch64", "aarch64-unknown-linux-gnu", "tar.gz"),
-            ("linux", "x86_64", "x86_64-unknown-linux-gnu", "tar.gz"),
-            ("windows", "x86_64", "x86_64-pc-windows-msvc", "zip"),
-        ];
-        for (os, arch, target, extension) in cases {
+        let cases = RELEASE_TARGET_MANIFEST
+            .lines()
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .map(|line| {
+                let fields = line.split('\t').collect::<Vec<_>>();
+                assert_eq!(fields.len(), 6, "invalid release target row: {line}");
+                (fields[0], fields[1], fields[2], fields[3], fields[4])
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(cases.len(), 5);
+        for (os, arch, target, binary, extension) in cases {
             let plan = release_asset_plan("v0.44.0", os, arch).unwrap();
             assert_eq!(plan.target, target);
+            assert_eq!(plan.binary_name, binary);
             assert_eq!(
                 plan.archive_name,
                 format!("rpotato-v0.44.0-{target}.{extension}")

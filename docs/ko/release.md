@@ -234,6 +234,10 @@ application data, 현재 project state를 변경 없이 보여 줍니다.
 13. GitHub Release publish 후 `release-binaries` workflow가 모든 target archive와
     대응 `.sha256` file, aggregate `checksums.txt` file을 upload했는지 확인
 
+`config/release-targets.tsv`가 Rust updater와 release asset 검증이 함께 사용하는
+정본 target 목록입니다. Release matrix guard는 workflow tuple 또는 asset set이
+이 목록과 달라지면 실패합니다.
+
 새 release note entry는 [release-notes-template.md](release-notes-template.md)를 사용합니다.
 
 ## 모델 manifest 배포

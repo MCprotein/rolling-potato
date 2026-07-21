@@ -10,17 +10,23 @@ fail() {
 
 tag="$1"
 download_dir="$2"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+manifest="$script_dir/../../config/release-targets.tsv"
 [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]] \
   || fail "invalid release tag: $tag"
 [ -d "$download_dir" ] || fail "download directory is missing: $download_dir"
+[ -f "$manifest" ] || fail "release target manifest is missing: $manifest"
 
-archives=(
-  "rpotato-${tag}-aarch64-apple-darwin.tar.gz"
-  "rpotato-${tag}-x86_64-apple-darwin.tar.gz"
-  "rpotato-${tag}-x86_64-unknown-linux-gnu.tar.gz"
-  "rpotato-${tag}-aarch64-unknown-linux-gnu.tar.gz"
-  "rpotato-${tag}-x86_64-pc-windows-msvc.zip"
-)
+manifest_entries="$(awk -F '\t' '
+  /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+  NF != 6 { exit 2 }
+  { for (field = 1; field <= 6; field++) if ($field == "") exit 2; print }
+' "$manifest")" || fail "release target manifest is invalid"
+archives=()
+while IFS=$'\t' read -r _os _arch target _binary archive _runner; do
+  archives+=("rpotato-${tag}-${target}.${archive}")
+done <<<"$manifest_entries"
+[ "${#archives[@]}" -gt 0 ] || fail "release target manifest is empty"
 aggregate="rpotato-${tag}-checksums.txt"
 
 is_expected_name() {
@@ -60,8 +66,9 @@ reject_bom_or_crlf() {
 
 shopt -s nullglob
 entries=("$download_dir"/* "$download_dir"/.[!.]* "$download_dir"/..?*)
-[ "${#entries[@]}" -eq 11 ] \
-  || fail "expected exactly 11 release assets, found ${#entries[@]}"
+expected_asset_count="$(( ${#archives[@]} * 2 + 1 ))"
+[ "${#entries[@]}" -eq "$expected_asset_count" ] \
+  || fail "expected exactly $expected_asset_count release assets, found ${#entries[@]}"
 for path in "${entries[@]}"; do
   name="$(basename "$path")"
   is_expected_name "$name" || fail "unexpected release asset: $name"
@@ -103,8 +110,8 @@ aggregate_path="$download_dir/$aggregate"
 [ -f "$aggregate_path" ] && [ ! -L "$aggregate_path" ] \
   || fail "missing regular aggregate checksum file: $aggregate"
 reject_bom_or_crlf "$aggregate_path"
-[ "$(wc -l <"$aggregate_path" | tr -d ' ')" -eq 5 ] \
-  || fail "aggregate checksum file must contain exactly five lines"
+[ "$(wc -l <"$aggregate_path" | tr -d ' ')" -eq "${#archives[@]}" ] \
+  || fail "aggregate checksum file must contain exactly ${#archives[@]} lines"
 normalized_aggregate="$tmp_dir/normalized-checksums.txt"
 : >"$normalized_aggregate"
 while IFS= read -r aggregate_line; do
@@ -116,5 +123,5 @@ done <"$aggregate_path"
 cmp -s "$expected_aggregate" "$normalized_aggregate" \
   || fail "aggregate checksums are missing, duplicated, unsorted, or inconsistent"
 
-printf 'release assets ok: tag=%s directory=%s archives=5 sidecars=5 aggregate=1\n' \
-  "$tag" "$download_dir"
+printf 'release assets ok: tag=%s directory=%s archives=%s sidecars=%s aggregate=1\n' \
+  "$tag" "$download_dir" "${#archives[@]}" "${#archives[@]}"

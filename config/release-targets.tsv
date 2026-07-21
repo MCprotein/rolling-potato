@@ -1,0 +1,6 @@
+# os	arch	target	binary	archive	runner
+macos	aarch64	aarch64-apple-darwin	rpotato	tar.gz	macos-26
+macos	x86_64	x86_64-apple-darwin	rpotato	tar.gz	macos-26-intel
+linux	x86_64	x86_64-unknown-linux-gnu	rpotato	tar.gz	ubuntu-24.04
+linux	aarch64	aarch64-unknown-linux-gnu	rpotato	tar.gz	ubuntu-24.04-arm
+windows	x86_64	x86_64-pc-windows-msvc	rpotato.exe	zip	windows-2025
