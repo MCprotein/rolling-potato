@@ -374,11 +374,14 @@ const WINDOWS_SELF_UPDATE_SCRIPT: &str = r#"param(
     [Parameter(Mandatory=$true)][string]$MarkerPath,
     [Parameter(Mandatory=$true)][string]$ExpectedTargetSha,
     [Parameter(Mandatory=$true)][string]$BackupPath,
-    [Parameter(Mandatory=$true)][string]$OperationId
+    [Parameter(Mandatory=$true)][string]$OperationId,
+    [switch]$SkipParentWait
 )
 $ErrorActionPreference = 'Stop'
-while (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) {
-    Start-Sleep -Milliseconds 100
+if (-not $SkipParentWait) {
+    while (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) {
+        Start-Sleep -Milliseconds 100
+    }
 }
 $exitCode = 0
 $targetMoved = $false
@@ -401,6 +404,7 @@ try {
         Move-Item -LiteralPath $BackupPath -Destination $Target -Force
         $targetMoved = $false
     }
+    Write-Output ("self-update error: " + $_.Exception.Message)
     $exitCode = 1
 } finally {
     Remove-Item -LiteralPath $Source -Force -ErrorAction SilentlyContinue

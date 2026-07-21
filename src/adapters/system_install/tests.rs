@@ -239,6 +239,7 @@ fn staged_update_replaces_only_the_managed_binary() {
 
 #[test]
 fn windows_deferred_update_waits_for_exit_without_abandonment_deadline() {
+    assert!(WINDOWS_SELF_UPDATE_SCRIPT.contains("if (-not $SkipParentWait)"));
     assert!(WINDOWS_SELF_UPDATE_SCRIPT
         .contains("while (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue)"));
     assert!(!WINDOWS_SELF_UPDATE_SCRIPT.contains("6000"));
@@ -332,14 +333,8 @@ fn windows_deferred_update_preserves_target_changed_after_schedule() {
     fs::write(&marker, "test-operation\n").unwrap();
     let expected = crate::foundation::integrity::sha256_file(&target).unwrap();
     fs::write(&target, "newer-install").unwrap();
-    let mut exited_parent = std::process::Command::new("cmd.exe")
-        .args(["/D", "/C", "exit", "0"])
-        .spawn()
-        .unwrap();
-    let exited_parent_pid = exited_parent.id();
-    assert!(exited_parent.wait().unwrap().success());
 
-    let status = std::process::Command::new("powershell.exe")
+    let output = std::process::Command::new("powershell.exe")
         .args([
             "-NoLogo",
             "-NoProfile",
@@ -349,7 +344,7 @@ fn windows_deferred_update_preserves_target_changed_after_schedule() {
             "-File",
         ])
         .arg(&script)
-        .arg(exited_parent_pid.to_string())
+        .arg("0")
         .arg(&source)
         .arg(&target)
         .arg(&script)
@@ -357,10 +352,17 @@ fn windows_deferred_update_preserves_target_changed_after_schedule() {
         .arg(&expected)
         .arg(&backup)
         .arg("test-operation")
-        .status()
+        .arg("-SkipParentWait")
+        .output()
         .unwrap();
 
-    assert_eq!(status.code(), Some(3));
+    assert_eq!(
+        output.status.code(),
+        Some(3),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert_eq!(fs::read_to_string(&target).unwrap(), "newer-install");
     assert!(!source.exists());
     assert!(!marker.exists());

@@ -346,24 +346,29 @@
 - Job이 하나도 생성되지 않은 Actions 실패는 테스트 재실행 대신 workflow 문법부터
   진단합니다.
 
-## 2026-07-21: Windows 종료 PID fixture에 범위 밖 sentinel 사용
+## 2026-07-21: Windows CAS 테스트가 parent PID 수명에 결합됨
 
 ### 증상
 
-- Windows deferred-update CAS 테스트가 제품 교체 로직에 진입하기 전에 exit 1로
-  끝났고, 기대한 CAS mismatch exit 3을 확인하지 못했습니다.
-- Linux 전체 candidate 검증과 Windows compile은 통과했지만 Windows native test만
-  실패했습니다.
+- Windows deferred-update CAS 테스트가 같은 candidate SHA의 targeted workflow에서는
+  통과했지만 candidate workflow에서는 exit 1로 실패했습니다.
+- 기대한 CAS mismatch exit 3 대신 parent PID 대기 fixture의 결과에 따라 테스트가
+  간헐적으로 달라졌습니다.
 
 ### 원인
 
-- 종료된 parent process를 표현하려고 `i32::MAX`를 PID sentinel로 넘겼습니다.
-- PowerShell `Get-Process -Id`가 이 값을 정상적인 “존재하지 않는 PID”로 취급한다는
-  근거 없는 가정을 했습니다.
+- 처음에는 범위 밖 PID sentinel을 사용했고, 이후 실제 child process를 종료한 PID로
+  바꿨지만 OS process 관찰과 CAS 검증을 한 fixture 안에 둔 결합은 남았습니다.
+- 같은 SHA가 통과와 실패를 모두 보였으나 helper 오류 출력을 수집하지 않아 정확한
+  Windows 내부 실패 지점은 확정할 수 없었습니다.
+- CAS 동작을 검증하는 테스트가 별도 관심사인 parent-process 종료 관찰에 결합되어
+  있었습니다.
 
 ### 재발 방지
 
-- Process lifecycle fixture는 범위 밖·임의 PID sentinel 대신 실제 child process를
-  생성하고 종료한 뒤 그 PID를 사용합니다.
-- Windows 조건부 실행 테스트는 compile 성공과 구분해 targeted native workflow에서
-  확인하고, 실패한 selector만 수정한 뒤 새 candidate를 만듭니다.
+- 실제 updater는 parent-process 종료 대기를 유지하되, CAS 테스트에는 명시적인
+  test seam을 사용해 대기를 우회하고 파일 교체 계약만 결정적으로 검증합니다.
+- parent 대기 계약은 script 구조 테스트로 고정하며 CAS 실행 테스트와 fixture를
+  공유하지 않습니다.
+- Windows 조건부 실행 테스트는 compile 성공과 구분해 exact-HEAD targeted native
+  workflow에서 확인한 뒤 새 candidate를 만듭니다.
