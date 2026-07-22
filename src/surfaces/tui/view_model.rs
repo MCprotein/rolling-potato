@@ -73,9 +73,17 @@ impl InteractiveState {
         self.notice_page = 0;
     }
 
-    pub(crate) fn next_notice_page(&mut self, height: u16) {
+    pub(crate) fn next_notice_page(&mut self, height: u16, conversation_page_count: usize) {
+        if matches!(self.view, InteractiveView::Conversation) && self.notice.is_empty() {
+            if self.notice_page + 1 < conversation_page_count {
+                self.notice_page += 1;
+            }
+            return;
+        }
         let rows = match self.view {
-            InteractiveView::Conversation => conversation_rows_per_page(height),
+            InteractiveView::Conversation => {
+                conversation_rows_per_page(height, self.turns.is_empty())
+            }
             _ => notice_rows_per_page(height),
         };
         let page_count = self.notice.lines().count().div_ceil(rows);
@@ -131,8 +139,9 @@ pub(crate) fn notice_rows_per_page(height: u16) -> usize {
     usize::from(height).saturating_sub(7).max(1)
 }
 
-pub(crate) fn conversation_rows_per_page(height: u16) -> usize {
-    usize::from(height).saturating_sub(8).max(1)
+pub(crate) fn conversation_rows_per_page(height: u16, show_welcome: bool) -> usize {
+    let chrome_rows = if show_welcome { 8 } else { 6 };
+    usize::from(height).saturating_sub(chrome_rows).max(1)
 }
 
 pub(crate) struct EvidenceReportView {

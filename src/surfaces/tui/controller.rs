@@ -93,7 +93,11 @@ pub(crate) fn run_controller(
             ["help"] | ["/help"] => {
                 state.notice = "요청을 바로 입력하세요.\n- /chat: 대화 화면\n- /model [id]: 모델 확인/변경\n- /compact: 현재 대화 컨텍스트 압축\n- /update: 최신 버전 확인 및 업데이트\n- /status: 상태 새로고침\n- /sessions: 세션 목록\n- /doctor: 환경 진단\n- /more, /back: 긴 응답 페이지 이동\n- /clear: 현재 대화 지우기\n- /help: 도움말\n- /quit: 종료\n고급 호환 명령: rpotato debug --help".to_string();
             }
-            ["/more"] => state.next_notice_page(height),
+            ["/more"] => {
+                let conversation_pages =
+                    super::render::conversation_page_count(&state, width, height);
+                state.next_notice_page(height, conversation_pages);
+            }
             ["/back"] => state.previous_notice_page(),
             ["/compact"] => {
                 state.notice = match runtime.compact_context() {
@@ -343,6 +347,7 @@ pub(crate) fn run_controller(
             _ => {
                 state.view = InteractiveView::Conversation;
                 state.push_turn(ConversationRole::User, line.trim());
+                state.notice = "작업 중 · 모델이 요청을 처리하고 있습니다…".to_string();
                 write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
                 let response = match runtime.submit_request(line.trim()) {
                     Ok(report) => report,

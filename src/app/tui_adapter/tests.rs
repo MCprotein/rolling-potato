@@ -4,13 +4,14 @@ use crate::adapters::terminal::native::{ScriptedTerminal, TerminalFault};
 use crate::surfaces::tui::controller::{consume_outcome, run_controller};
 use crate::surfaces::tui::outcome::verification_credential_issued;
 use crate::surfaces::tui::render::{
-    render_interactive_frame, render_interactive_frame_with_options, sanitize_terminal_text,
+    conversation_page_count, display_cell_width, render_interactive_frame,
+    render_interactive_frame_with_options, sanitize_terminal_text,
 };
 use crate::surfaces::tui::runtime_bridge::{
     OneShotSecret, TuiFreshness, TuiReadBudget, TuiReadContinuation,
 };
 use crate::surfaces::tui::runtime_bridge::{TuiBackendStatus, TuiStatusSnapshot};
-use crate::surfaces::tui::view_model::{InteractiveState, InteractiveView};
+use crate::surfaces::tui::view_model::{ConversationRole, InteractiveState, InteractiveView};
 
 #[test]
 fn interactive_view_change_resets_page_and_updates_notice() {
@@ -286,8 +287,10 @@ fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
     assert!(frame.contains("ctx 1024/4096 (25%)"));
     assert!(frame.contains("compact auto@75%"));
     assert!(frame.contains("backend ready"));
-    assert!(frame.contains("\u{001b}[32m"));
-    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[2C"));
+    assert!(frame.contains("\u{001b}[36mmodel gemma-4-e4b"));
+    assert!(frame.contains("\u{001b}[32mbackend ready"));
+    assert!(frame.contains("╭─ 요청 "));
+    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[4C"));
 
     status.has_compaction_checkpoint = true;
     let saved = render_interactive_frame_with_options(&state, &page, &status, 120, 40, true, true);
@@ -358,7 +361,62 @@ fn long_notice_keeps_composer_and_status_inside_the_terminal_row_budget() {
     assert!(frame.find("› ").unwrap() < frame.find("model 미선택").unwrap());
     assert!(frame.matches('\n').count() < 10);
     assert!(frame.contains("…"));
-    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[2C"));
+    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[4C"));
+}
+
+#[test]
+fn conversation_wraps_long_korean_turns_without_losing_content() {
+    let mut state = InteractiveState::new();
+    state.push_turn(
+        ConversationRole::Assistant,
+        "한국어 응답이 좁은 터미널에서도 입력창을 밀어내지 않고 다음 줄에 계속 표시됩니다.",
+    );
+
+    let frame = render_interactive_frame(&state, &TuiReadPage::conversation_placeholder(), 20, 14);
+
+    assert!(frame.contains("한국어 응답이 좁은"));
+    assert!(frame.contains("다음 줄에 계속"));
+    assert!(frame.contains("니다."));
+    assert!(
+        frame.lines().all(|line| display_cell_width(line) <= 20),
+        "wrapped frame exceeded terminal cell width:\n{frame}"
+    );
+}
+
+#[test]
+fn long_conversation_pages_keep_every_response_line_reachable() {
+    let mut state = InteractiveState::new();
+    state.push_turn(
+        ConversationRole::Assistant,
+        (0..20)
+            .map(|index| format!("response line {index}"))
+            .collect::<Vec<_>>()
+            .join("\n"),
+    );
+    let page = TuiReadPage::conversation_placeholder();
+    let page_count = conversation_page_count(&state, 40, 10);
+    assert!(page_count > 1);
+
+    let latest = render_interactive_frame(&state, &page, 40, 10);
+    assert!(latest.contains("response line 19"));
+    assert!(!latest.contains("response line 0"));
+
+    let mut all_pages = latest;
+    for _ in 1..page_count {
+        state.next_notice_page(10, page_count);
+        all_pages.push_str(&render_interactive_frame(&state, &page, 40, 10));
+    }
+    for index in 0..20 {
+        assert!(
+            all_pages.contains(&format!("response line {index}")),
+            "conversation page lost response line {index}"
+        );
+    }
+    let oldest = render_interactive_frame(&state, &page, 40, 10);
+    assert!(oldest.contains("● response line 0"));
+    let oldest_page = state.notice_page;
+    state.previous_notice_page();
+    assert_eq!(state.notice_page, oldest_page - 1);
 }
 
 #[test]
@@ -369,7 +427,7 @@ fn long_notice_pages_preserve_later_response_lines() {
         .collect::<Vec<_>>()
         .join("\n");
     for _ in 0..20 {
-        state.next_notice_page(10);
+        state.next_notice_page(10, 1);
     }
     let page = TuiReadPage {
         title: "overview".to_string(),

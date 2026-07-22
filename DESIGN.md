@@ -114,8 +114,9 @@
   - Short Korean labels by default in user-facing TUI.
   - Avoid long English headings in user-facing TUI.
 - Spacing/layout rhythm:
-  - Dense rows, stable columns, no layout shift when values update.
-  - Fixed status bar and command bar.
+  - The empty conversation uses one compact four-row welcome frame; it is replaced by a one-row identity header after the first turn.
+  - Conversation turns use a consistent marker gutter and wrap by terminal display cells instead of discarding long text.
+  - The composer is a persistent bordered focus area with one status row beneath it; status updates must not move the input row.
 - Shape/radius/elevation:
   - Terminal borders are functional separators, not decorative cards.
   - Avoid nested boxes when spacing and headings are enough.
@@ -135,9 +136,9 @@
   - runtime status vocabulary from `docs/glossary.md`
   - observability metric groups from `docs/observability.md`
 - New/changed components:
-  - compact first-run/welcome block that disappears once conversation starts
+  - compact rounded-border welcome block that disappears once conversation starts
   - user and assistant turn presentation without diagnostic prefixes
-  - conversation composer with a persistent runtime status line directly below it
+  - bordered conversation composer with a persistent, semantically segmented runtime status line directly below it
   - first-run model picker and managed-backend setup flow
   - metric summary strip
   - model comparison table
@@ -170,6 +171,9 @@
 - On first run, the same terminal flow lists source-backed model choices and shows model ID/version, quantization, download size, context limit, RAM status, license, and recommendation evidence before confirmation.
 - The managed backend is installed or reused automatically. The default path never asks the user for a `llama.cpp` executable or GGUF filesystem path.
 - The composer remains the focus point. Its immediately following status line always uses this order: `model | ctx used/limit (%) | backend | session`.
+- The attached-terminal composer uses a single rounded border, a cyan focus marker, and no placeholder text under the live cursor. The no-color/redirected fallback remains a plain `›` prompt.
+- Status segments are colored independently: model/focus cyan, healthy green, due/degraded yellow, failed/stale red, and session/secondary labels muted. Never color the whole status row as one success state.
+- The context segment shows measured usage and percentage; compaction remains adjacent to it when space permits. Narrow terminals truncate later segments rather than wrapping the status bar.
 - Model and context values come from the latest recorded model run; backend state comes from the managed sidecar; session uses the active canonical session identity. Missing values and stale backend state are labeled, never invented.
 - `/model`, `/status`, `/sessions`, `/doctor`, `/clear`, `/help`, and `/quit` cover normal in-TUI operations. Existing granular subcommands remain an advanced compatibility surface under `rpotato debug --help`.
 - Attached ANSI terminals may use semantic color and cursor positioning. Redirected output, `TERM=dumb`, and `NO_COLOR` remain plain, stable text.

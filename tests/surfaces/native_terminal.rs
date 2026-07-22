@@ -15,13 +15,18 @@ fn entry_quit() {
     let before = tree_snapshot(&[&fixture.project, &fixture.data]);
 
     let mut terminal = NativePty::spawn(120, 40);
+    terminal.wait_for("session session-");
     let first = terminal.wait_for("›");
     assert!(first.contains("로컬 코딩 에이전트"));
+    assert!(first.contains("╭─ rpotato v"));
+    assert!(first.contains("│ model"));
+    assert!(first.contains("backend stopped"));
     terminal.send("quit\n");
     let output = terminal.finish();
     assert!(!output.contains("terminal.capability"));
 
     let mut terminal = NativePty::spawn(120, 40);
+    terminal.wait_for("session session-");
     let second = terminal.wait_for("›");
     assert!(second.contains("로컬 코딩 에이전트"));
     terminal.send_eof();
