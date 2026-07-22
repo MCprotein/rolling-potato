@@ -128,7 +128,8 @@ execution use plain text without ANSI control sequences.
 
 Normal interactive commands are `/model`, `/compact`, `/update`, `/status`, `/sessions`,
 `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`. `/more` and `/back` page through a
-long response without discarding off-screen lines. `/update` confirms before downloading
+long response without discarding off-screen lines. Typing `/` opens a live command palette
+before Enter, backed by the same command registry as `/help`. `/update` confirms before downloading
 the exact current-platform GitHub Release asset and verifies its SHA-256 sidecar before
 replacing the managed installation. Startup checks use a short timeout and cache, and
 network failure does not block the TUI. `/compact` creates an incremental typed checkpoint and

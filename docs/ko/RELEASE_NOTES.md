@@ -1,5 +1,32 @@
 # 릴리즈 노트
 
+## v0.46.1 - 기본 대화 신뢰성 복구
+
+릴리즈 날짜: 2026-07-22
+
+이 patch는 coding-agent에 기대하는 기본 대화 경로를 복구하고 interactive 명령을
+제출 전에 발견할 수 있도록 개선합니다.
+
+### 포함한 것
+
+- `/`를 입력하는 즉시 `/help`와 같은 command registry를 사용하는 live command
+  palette를 표시
+- 오래 남은 `failed`, `cancelled` workflow pointer를 멱등하게 정리해 새 turn을
+  시작하되, 완료된 workflow는 stop gate를 통과한 뒤에만 pointer를 정리
+- 지원하는 Gemma 4와 Qwen chat request에서 thinking mode를 꺼 소형 모델의 출력
+  budget을 사용자 응답에 사용
+- 인사와 일반 대화는 runtime-owned `answer-only` contract를 가진 비변경
+  `conversation` path로 처리하고, 한국어 변경 동사를 포함한 명시적 작업 요청은
+  patch routing을 유지
+- 승격 model의 실제 `rpotato run "안녕"` smoke와 지원 platform의 native terminal
+  contract를 검증
+
+### 호환성 경계
+
+- Public command와 flag를 제거하지 않습니다.
+- 완료 workflow의 stop-gate 검증은 fail-closed를 유지합니다.
+- 새 runtime dependency나 distribution channel을 추가하지 않습니다.
+
 ## v0.46.0 - 대화 TUI 개선
 
 릴리즈 날짜: 2026-07-22

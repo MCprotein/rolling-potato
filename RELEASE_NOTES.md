@@ -1,5 +1,33 @@
 # Release Notes
 
+## v0.46.1 - Reliable Default Conversation
+
+Release date: 2026-07-22
+
+This patch restores the expected coding-agent conversation path and makes the
+interactive command surface discoverable before submission.
+
+### Included
+
+- Opens a live command palette as soon as `/` is typed, using the same command
+  registry as `/help`.
+- Clears stale `failed` and `cancelled` workflow pointers idempotently so a new
+  turn can start, while completed workflows still pass the stop gate before
+  their pointer is cleared.
+- Disables thinking mode for supported Gemma 4 and Qwen chat requests to keep
+  the small-model output budget available for the user-facing answer.
+- Routes greetings and casual prompts through the non-mutating `conversation`
+  path with the runtime-owned `answer-only` contract, while explicit work
+  requests, including Korean change verbs, remain patch-routed.
+- Covers the promoted model with a real `rpotato run "안녕"` smoke and keeps the
+  native terminal contract verified across supported platforms.
+
+### Compatibility Boundary
+
+- No public command or flag is removed.
+- Completed-workflow stop-gate validation remains fail-closed.
+- No new runtime dependency or distribution channel is introduced.
+
 ## v0.46.0 - Conversation TUI Refinement
 
 Release date: 2026-07-22
