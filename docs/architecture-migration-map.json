@@ -6608,6 +6608,40 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/conversation.rs",
+      "slices": [
+        {
+          "responsibility": "non-mutating TUI conversation routing and report presentation",
+          "target": "src/app/tui_adapter/conversation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/conversation.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation_tests.rs",
+      "slices": [
+        {
+          "responsibility": "conversation-first TUI regression tests",
+          "target": "src/app/tui_adapter/conversation_tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/conversation.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/runtime.rs",
       "slices": [
         {
@@ -9543,6 +9577,18 @@
       "path": "src/app/tui_adapter/model_switch.rs",
       "responsibilities": [
         "transactional TUI model switch and rollback coordination"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation.rs",
+      "responsibilities": [
+        "non-mutating TUI conversation routing and report presentation"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation_tests.rs",
+      "responsibilities": [
+        "conversation-first TUI regression tests"
       ]
     },
     {
