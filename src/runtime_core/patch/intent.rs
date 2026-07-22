@@ -99,6 +99,8 @@ pub(crate) fn classify(
                 "고쳐",
                 "수정",
                 "변경",
+                "바꿔",
+                "바꾸",
                 "구현",
                 "리팩터",
                 "리팩토링",
@@ -599,7 +601,12 @@ mod tests {
 
     #[test]
     fn explicit_changes_and_read_only_search_keep_their_routes() {
-        for request in ["fix", "apply this patch", "이것 좀 해줘"] {
+        for request in [
+            "fix",
+            "apply this patch",
+            "이것 좀 해줘",
+            "상수 값을 안전한 값으로 바꿔줘",
+        ] {
             let decision = classify(request, |_| None).unwrap();
             assert_eq!(decision.skill_id, "small-patch", "request: {request}");
         }

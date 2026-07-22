@@ -572,7 +572,8 @@
 - Live smoke는 exit 0, 새 workflow, `conversation`, `answer-only`, 한국어 final answer를
   함께 확인하며 terminal fixture를 이 증거의 대체물로 사용하지 않습니다.
 - 일반 대화의 기본 action은 runtime-owned `answer-only`로 고정하고 명시적인 변경
-  signal이 있을 때만 patch workflow로 진입합니다.
+  signal이 있을 때만 patch workflow로 진입합니다. 한국어 변경 동사는 단위 분류
+  테스트뿐 아니라 실제 patch-loop 문장(`고쳐`, `수정`, `바꿔`)으로 회귀 검증합니다.
 - 지원 모델의 thinking control은 모델별 공식 근거와 실제 local response를 함께
   검증합니다.
 - Terminal workflow pointer 자동 정리는 stop gate가 없는 `failed/cancelled`에만
