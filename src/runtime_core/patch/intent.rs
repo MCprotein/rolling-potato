@@ -73,6 +73,42 @@ pub(crate) fn classify(
         has_any(&lower, &["test", "cargo test", "pytest"]) || has_any(trimmed, &["테스트"]);
     let has_failure_signal = has_any(&lower, &["failed", "failure", "panic", "error"])
         || has_any(trimmed, &["실패", "에러", "오류"]);
+    let has_change_signal = has_any(
+        &lower,
+        &[
+            "fix ",
+            "change ",
+            "update ",
+            "edit ",
+            "implement ",
+            "refactor ",
+            "add ",
+            "remove ",
+            "delete ",
+            "create ",
+            "write ",
+            "do it",
+            "proceed",
+        ],
+    ) || has_any(
+        trimmed,
+        &[
+            "고쳐",
+            "수정",
+            "변경",
+            "구현",
+            "리팩터",
+            "리팩토링",
+            "추가",
+            "제거",
+            "삭제",
+            "만들어",
+            "생성",
+            "작성",
+            "진행해",
+            "해라",
+        ],
+    );
     let (skill_id, mode) = if has_test_signal && has_failure_signal {
         signals.push("test-signal");
         ("fix-test", "execute")
@@ -94,9 +130,12 @@ pub(crate) fn classify(
     {
         signals.push("read-only");
         ("repo-map", "read-only")
-    } else {
-        signals.push("small-patch-default");
+    } else if has_change_signal {
+        signals.push("small-patch-request");
         ("small-patch", "execute")
+    } else {
+        signals.push("conversation-default");
+        ("conversation", "read-only")
     };
 
     if has_any(&lower, &["read-only", "no edit", "do not edit"])
@@ -190,6 +229,14 @@ pub(crate) fn plan_action_candidate(
     decision: &IntentDecision,
     context_pack: &ContextPack,
 ) -> ActionCandidate {
+    if decision.skill_id == "conversation" {
+        return ActionCandidate {
+            kind: "answer-only",
+            approval_required: false,
+            next_gate: "korean-output-guard",
+            allowed_side_effects: "none",
+        };
+    }
     let has_context = !context_pack.source_pointers.is_empty();
     if matches!(decision.mode, "read-only" | "review-only" | "plan-only") {
         return ActionCandidate {
@@ -236,6 +283,9 @@ pub(crate) fn parse_model_action(
     context_pack: &ContextPack,
 ) -> ParsedModelAction {
     let Some(fields) = parse_model_action_fields(response) else {
+        if runtime_candidate.kind == "answer-only" {
+            return fallback_model_action("runtime-owned-answer", runtime_candidate);
+        }
         return parse_model_action_text(response, runtime_candidate, context_pack).unwrap_or_else(
             || fallback_model_action("missing-model-action-line", runtime_candidate),
         );
@@ -484,6 +534,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
+    use crate::runtime_core::knowledge::context::SourcePointer;
 
     #[test]
     fn classification_and_planning_are_deterministic() {
@@ -513,6 +564,46 @@ mod tests {
         assert_eq!(action.kind, "patch-proposal");
         assert_eq!(action.requested_side_effects, "write-file");
         assert!(!action.executable_now);
+    }
+
+    #[test]
+    fn casual_conversation_defaults_to_non_mutating_answer() {
+        let decision = classify("안녕", |_| None).unwrap();
+        let mut context = empty_context();
+        context.source_pointers.push(SourcePointer {
+            path: "README.md".to_string(),
+            stable_ref: "README.md:1".to_string(),
+            chars: 8,
+            fingerprint: "a".repeat(64),
+            snippet: "# project".to_string(),
+        });
+        let candidate = plan_action_candidate(&decision, &context);
+
+        assert_eq!(decision.skill_id, "conversation");
+        assert_eq!(decision.mode, "read-only");
+        assert_eq!(candidate.kind, "answer-only");
+        assert!(!candidate.approval_required);
+    }
+
+    #[test]
+    fn plain_conversation_response_uses_runtime_owned_answer_action() {
+        let decision = classify("안녕", |_| None).unwrap();
+        let context = empty_context();
+        let candidate = plan_action_candidate(&decision, &context);
+
+        let action = parse_model_action("안녕하세요! 무엇을 도와드릴까요?", &candidate, &context);
+
+        assert_eq!(action.status, "runtime-owned-answer");
+        assert_eq!(action.kind, "answer-only");
+        assert_eq!(action.requested_side_effects, "none");
+
+        let hostile = parse_model_action(
+            "MODEL ACTION: kind=answer-only; side_effects=write-file",
+            &candidate,
+            &context,
+        );
+        assert_eq!(hostile.status, "blocked-side-effect-request");
+        assert_eq!(hostile.requested_side_effects, "write-file");
     }
 
     fn empty_context() -> ContextPack {
