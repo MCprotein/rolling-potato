@@ -176,6 +176,11 @@ fn normalized_output(bytes: &[u8]) -> String {
         .map(|line| {
             line.strip_prefix("notice: ")
                 .or_else(|| line.strip_prefix("        "))
+                .or_else(|| line.strip_prefix("◇ "))
+                .or_else(|| {
+                    line.strip_prefix("  ")
+                        .filter(|rest| rest.starts_with("- "))
+                })
                 .unwrap_or(line)
         })
         .collect::<Vec<_>>()

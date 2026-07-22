@@ -29,8 +29,10 @@ fn default_interactive_frame_is_conversation_first_and_hides_runtime_internals()
 
     let frame = render_interactive_frame(&state, &page, 120, 40);
 
-    assert!(frame.contains("rpotato"));
-    assert!(frame.contains("로컬 코딩 에이전트"));
+    assert!(frame.contains("╭─ rpotato v"));
+    assert!(frame.contains("│ model"));
+    assert!(frame.contains("│ project"));
+    assert!(frame.contains("╰─ /help 명령 · /model 변경"));
     assert!(frame.contains("› "));
     for hidden in [
         "freshness",
@@ -55,6 +57,8 @@ fn ordinary_input_renders_as_user_and_assistant_turns() {
     assert_eq!(runtime.page_reads, 0, "default chat must not read overview");
     assert!(terminal.frames[1].contains("› 안녕"));
     assert!(!terminal.frames[1].contains("● 안녕하세요."));
+    assert!(terminal.frames[1].contains("◇ 작업 중"));
+    assert!(!terminal.frames[1].contains("notice:"));
     assert!(rendered.contains("› 안녕"));
     assert!(rendered.contains("● 안녕하세요."));
     assert!(!rendered.contains("ledger: must stay hidden"));
@@ -72,7 +76,7 @@ fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() 
         "한국어 응답이 좁은 터미널에서도 입력창을 밀어내지 않습니다.",
     );
 
-    let frame = render_interactive_frame(&state, &TuiReadPage::conversation_placeholder(), 20, 12);
+    let frame = render_interactive_frame(&state, &TuiReadPage::conversation_placeholder(), 40, 12);
 
     if let Some(previous_root) = previous_root {
         std::env::set_var("RPOTATO_PROJECT_ROOT", previous_root);
@@ -83,7 +87,7 @@ fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() 
     assert!(frame.contains("<esc>"));
     assert!(!frame.contains("\n프로젝트"));
     assert!(
-        frame.lines().all(|line| display_cell_width(line) <= 20),
+        frame.lines().all(|line| display_cell_width(line) <= 40),
         "narrow frame exceeded terminal cell width:\n{frame}"
     );
     assert!(frame.ends_with("› "));

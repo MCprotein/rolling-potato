@@ -15,13 +15,18 @@ fn entry_quit() {
     let before = tree_snapshot(&[&fixture.project, &fixture.data]);
 
     let mut terminal = NativePty::spawn(120, 40);
+    terminal.wait_for("session session-");
     let first = terminal.wait_for("›");
     assert!(first.contains("로컬 코딩 에이전트"));
+    assert!(first.contains("╭─ rpotato v"));
+    assert!(first.contains("│ model"));
+    assert!(first.contains("backend stopped"));
     terminal.send("quit\n");
     let output = terminal.finish();
     assert!(!output.contains("terminal.capability"));
 
     let mut terminal = NativePty::spawn(120, 40);
+    terminal.wait_for("session session-");
     let second = terminal.wait_for("›");
     assert!(second.contains("로컬 코딩 에이전트"));
     terminal.send_eof();
@@ -585,6 +590,11 @@ fn normalized_terminal_capture(capture: &str) -> String {
         .map(|line| {
             line.strip_prefix("notice: ")
                 .or_else(|| line.strip_prefix("        "))
+                .or_else(|| line.strip_prefix("◇ "))
+                .or_else(|| {
+                    line.strip_prefix("  ")
+                        .filter(|rest| rest.starts_with("- "))
+                })
                 .unwrap_or(line)
         })
         .collect::<Vec<_>>()
@@ -593,7 +603,8 @@ fn normalized_terminal_capture(capture: &str) -> String {
 
 #[test]
 fn normalizes_windows_title_and_cursor_control_sequences() {
-    let capture = "\u{001b}[?25l결과\n- 다음: 완료.\u{001b}]0;C:\\rpotato.exe\u{0007}\u{001b}[?25h";
+    let capture =
+        "\u{001b}[?25l◇ 결과\n  - 다음: 완료.\u{001b}]0;C:\\rpotato.exe\u{0007}\u{001b}[?25h";
     assert_eq!(normalized_terminal_capture(capture), "결과\n- 다음: 완료.");
 }
 

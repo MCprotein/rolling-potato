@@ -97,15 +97,28 @@ turn a source manifest into benchmark evidence. `/model` lists the same catalog,
 
 ### Composer Status Line
 
-On an attached ANSI terminal, the composer is followed by one stable status line and
-the cursor returns to the input row:
+On an attached ANSI terminal, the empty conversation starts with one compact welcome
+frame. It collapses to a one-row identity header after the first turn. The bordered
+composer is followed by one stable, semantically colored status line and the cursor
+returns to the input row:
 
 ```text
-request> _
-model gemma-3n-E4B-it-Q4_K_M | ctx 812/4096 (19%) | compact auto@75% | backend ready | session 01J…
+╭─ rpotato vX.Y.Z · 로컬 코딩 에이전트 ──────────────────────────────╮
+│ model    gemma-4-E4B_q4_0-it                                      │
+│ project  ~/codes/rolling-potato                                   │
+╰─ /help 명령 · /model 변경 ────────────────────────────────────────╯
+
+╭─ 요청 ────────────────────────────────────────────────────────────╮
+│ › _                                                               │
+╰───────────────────────────────────────────────────────────────────╯
+model gemma-4-E4B_q4_0-it | ctx 812/4096 (19%) | compact auto@75% | backend ready | session 01J…
 ```
 
 The fields always stay in `model | context | compaction | backend | session` order.
+Each segment has its own semantic treatment instead of painting the complete status
+row green: model/focus is cyan, healthy is green, due/degraded is yellow,
+failed/stale is red, and secondary identity is muted. Long user and assistant turns
+wrap by terminal display cells so Korean and wide characters are not discarded.
 `compact auto@75%` means no checkpoint exists yet, `compact due` means a session without
 a checkpoint reached the automatic threshold, and `compact saved` means the active
 session has a validated checkpoint. The fields come from the latest model-run projection,

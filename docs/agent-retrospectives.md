@@ -418,6 +418,30 @@
 - Windows 조건부 terminal 변경은 추측성 rerun 대신 실패 캡처에서 실제 glyph 출력을
   확인하고 해당 platform test의 matcher를 targeted로 보강합니다.
 
+## 2026-07-22: bordered composer가 exact outcome 출력을 오염
+
+### 증상
+
+- Linux candidate에서 conversation notice의 새 시각적 들여쓰기가 exact outcome
+  계약에 포함되어 원문 비교가 실패했습니다.
+- Windows ConPTY에서는 composer status 줄과 뒤이은 terminal fault 첫 줄이 결합되어
+  `terminal.capability.mode-read` 결과가 오염됐습니다.
+
+### 원인
+
+- 새 composer가 status 줄을 개행으로 닫지 않은 채 cursor를 입력 줄로 되돌렸습니다.
+- Exact outcome capture 정규화가 기존 `notice:` 형식만 알고 새 `◇`와 continuation
+  gutter를 presentation metadata로 제거하지 못했습니다.
+
+### 재발 방지
+
+- ANSI composer는 status 줄을 개행으로 닫은 뒤 전체 composer 높이만큼 cursor를
+  복귀시켜 후속 stderr/outcome 출력의 줄 경계를 보존합니다.
+- Exact outcome 검증은 알려진 presentation prefix만 제거하고 정본 outcome 본문은
+  byte-exact하게 계속 비교합니다.
+- Default TUI 구조 변경 candidate는 전체 CI 전에 interactive recovery outcome과
+  native terminal adapter targeted 테스트를 함께 실행합니다.
+
 ## 2026-07-21: startup update cache를 제품 상태 변경으로 오분류
 
 ### 증상

@@ -5,6 +5,12 @@ use super::view_model::{
 };
 
 const MAX_INTERACTIVE_WIDTH: usize = 120;
+const BRAND_COLOR: &str = "\u{001b}[1;36m";
+const ACCENT_COLOR: &str = "\u{001b}[36m";
+const HEALTHY_COLOR: &str = "\u{001b}[32m";
+const WARNING_COLOR: &str = "\u{001b}[33m";
+const FAILED_COLOR: &str = "\u{001b}[31m";
+const MUTED_COLOR: &str = "\u{001b}[2m";
 
 #[cfg(test)]
 pub(crate) fn render_interactive_frame(
@@ -71,20 +77,14 @@ pub(crate) fn render_interactive_frame_with_options(
         &notice_lines,
         notice_offset,
         notice_rows,
-        notice_page,
-        notice_page_count,
+        (notice_page, notice_page_count),
         width,
+        NoticeStyle::Diagnostic,
     );
     output.push_str(&"-".repeat(width));
     output.push('\n');
-    let status_line = render_status_line(status, width);
-    render_composer(
-        &mut output,
-        &status_line,
-        status.backend,
-        ansi_layout,
-        color,
-    );
+    let status_line = render_status_line(status, width, color);
+    render_composer(&mut output, &status_line, width, ansi_layout, color);
     output
 }
 
@@ -101,39 +101,15 @@ fn render_conversation_frame(
         output.push_str("\u{001b}[2J\u{001b}[H");
     }
 
-    let brand = format!("rpotato v{}", env!("CARGO_PKG_VERSION"));
-    output.push_str(&paint(
-        &truncate_chars(&brand, width),
-        "\u{001b}[1;36m",
-        color,
-    ));
-    output.push('\n');
-    output.push_str(&truncate_chars(
-        &format!(
-            "project {}",
-            sanitize_terminal_text(&current_project_label())
-        ),
-        width,
-    ));
-    output.push('\n');
-    if state.turns.is_empty() {
-        output.push_str(&paint(
-            &truncate_chars("로컬 코딩 에이전트", width),
-            "\u{001b}[1m",
-            color,
-        ));
-        output.push('\n');
-        output.push_str(&truncate_chars(
-            "요청을 입력하세요. /help로 명령을 확인할 수 있습니다.",
-            width,
-        ));
-        output.push('\n');
+    let show_welcome = state.turns.is_empty();
+    if show_welcome {
+        render_welcome(&mut output, status, width, color);
     } else {
-        output.push('\n');
+        render_identity_header(&mut output, width, color);
         output.push('\n');
     }
 
-    let content_rows = conversation_rows_per_page(height);
+    let content_rows = conversation_rows_per_page(height, show_welcome);
     let notice_lines = state.notice.split('\n').collect::<Vec<_>>();
     let notice_page_count = notice_lines.len().div_ceil(content_rows).max(1);
     let notice_page = state.notice_page.min(notice_page_count - 1);
@@ -148,8 +124,21 @@ fn render_conversation_frame(
     };
     let turn_rows = content_rows.saturating_sub(notice_rows);
     let conversation = conversation_lines(state, width, color);
-    let visible_start = conversation.len().saturating_sub(turn_rows);
-    for line in conversation.iter().skip(visible_start) {
+    let (visible_start, visible_end) = if turn_rows == 0 {
+        (conversation.len(), conversation.len())
+    } else {
+        let page_count = conversation.len().div_ceil(turn_rows).max(1);
+        let page_from_end = if state.notice.is_empty() {
+            state.notice_page.min(page_count - 1)
+        } else {
+            0
+        };
+        let end = conversation
+            .len()
+            .saturating_sub(page_from_end.saturating_mul(turn_rows));
+        (end.saturating_sub(turn_rows), end)
+    };
+    for line in &conversation[visible_start..visible_end] {
         output.push_str(line);
         output.push('\n');
     }
@@ -158,48 +147,50 @@ fn render_conversation_frame(
         &notice_lines,
         notice_offset,
         notice_rows,
-        notice_page,
-        notice_page_count,
+        (notice_page, notice_page_count),
         width,
+        NoticeStyle::Conversation { color },
     );
     if ansi_layout {
-        let rendered_rows = conversation.len().saturating_sub(visible_start) + notice_rows;
+        let rendered_rows = visible_end.saturating_sub(visible_start) + notice_rows;
         for _ in rendered_rows..content_rows {
             output.push('\n');
         }
     }
 
-    output.push_str(&"─".repeat(width));
-    output.push('\n');
-    let status_line = render_status_line(status, width);
-    render_composer(
-        &mut output,
-        &status_line,
-        status.backend,
-        ansi_layout,
-        color,
-    );
+    let status_line = render_status_line(status, width, color);
+    render_composer(&mut output, &status_line, width, ansi_layout, color);
     output
+}
+
+pub(crate) fn conversation_page_count(state: &InteractiveState, width: u16, height: u16) -> usize {
+    let width = usize::from(width).clamp(20, MAX_INTERACTIVE_WIDTH);
+    let rows = conversation_rows_per_page(height, state.turns.is_empty());
+    conversation_lines(state, width, false)
+        .len()
+        .div_ceil(rows)
+        .max(1)
 }
 
 fn conversation_lines(state: &InteractiveState, width: usize, color_enabled: bool) -> Vec<String> {
     let mut lines = Vec::new();
     for turn in &state.turns {
         let (marker, color) = match turn.role {
-            ConversationRole::User => ("›", "\u{001b}[1;36m"),
+            ConversationRole::User => ("›", BRAND_COLOR),
             ConversationRole::Assistant => ("●", "\u{001b}[1;32m"),
         };
-        for (index, line) in turn.content.lines().enumerate() {
-            let prefix = if index == 0 {
-                format!("{marker} ")
-            } else {
-                "  ".to_string()
-            };
-            let body = truncate_chars(
-                &sanitize_terminal_text(line),
-                width.saturating_sub(display_cell_width(&prefix)),
-            );
-            lines.push(format!("{}{}", paint(&prefix, color, color_enabled), body));
+        let mut first_row = true;
+        for source_line in turn.content.split('\n') {
+            let body_width = width.saturating_sub(2).max(1);
+            for body in wrap_terminal_text(&sanitize_terminal_text(source_line), body_width) {
+                let prefix = if first_row {
+                    format!("{marker} ")
+                } else {
+                    "│ ".to_string()
+                };
+                lines.push(format!("{}{}", paint(&prefix, color, color_enabled), body));
+                first_row = false;
+            }
         }
         lines.push(String::new());
     }
@@ -209,20 +200,104 @@ fn conversation_lines(state: &InteractiveState, width: usize, color_enabled: boo
 fn render_composer(
     output: &mut String,
     status_line: &str,
-    backend: TuiBackendStatus,
+    width: usize,
     ansi_layout: bool,
     color: bool,
 ) {
     if ansi_layout {
-        output.push_str("› \n");
-        output.push_str(&paint_status_line(status_line, backend, color));
+        output.push_str(&paint(
+            &box_rule('╭', '╮', "─ 요청 ", width),
+            MUTED_COLOR,
+            color,
+        ));
         output.push('\n');
-        output.push_str("\u{001b}[2A\r\u{001b}[2C");
+        let inner_width = width.saturating_sub(2);
+        output.push_str(&paint("│ ", MUTED_COLOR, color));
+        output.push_str(&paint("› ", BRAND_COLOR, color));
+        output.push_str(&" ".repeat(inner_width.saturating_sub(3)));
+        output.push_str(&paint("│", MUTED_COLOR, color));
+        output.push('\n');
+        output.push_str(&paint(&box_rule('╰', '╯', "", width), MUTED_COLOR, color));
+        output.push('\n');
+        output.push_str(status_line);
+        output.push('\n');
+        output.push_str("\u{001b}[3A\r\u{001b}[4C");
     } else {
-        output.push_str(&paint_status_line(status_line, backend, color));
+        output.push_str(status_line);
         output.push('\n');
-        output.push_str("› ");
+        output.push_str(&paint("› ", BRAND_COLOR, color));
     }
+}
+
+fn render_welcome(output: &mut String, status: &TuiStatusSnapshot, width: usize, color: bool) {
+    let title = format!(
+        "─ rpotato v{} · 로컬 코딩 에이전트 ",
+        env!("CARGO_PKG_VERSION")
+    );
+    output.push_str(&paint(
+        &box_rule('╭', '╮', &title, width),
+        BRAND_COLOR,
+        color,
+    ));
+    output.push('\n');
+    output.push_str(&box_row(
+        &format!(" model    {}", sanitize_terminal_text(&status.model)),
+        width,
+    ));
+    output.push('\n');
+    output.push_str(&paint(
+        &box_row(
+            &format!(
+                " project  {}",
+                sanitize_terminal_text(&current_project_label())
+            ),
+            width,
+        ),
+        MUTED_COLOR,
+        color,
+    ));
+    output.push('\n');
+    output.push_str(&paint(
+        &box_rule('╰', '╯', "─ /help 명령 · /model 변경 ", width),
+        MUTED_COLOR,
+        color,
+    ));
+    output.push('\n');
+}
+
+fn render_identity_header(output: &mut String, width: usize, color: bool) {
+    let brand = format!("rpotato v{}", env!("CARGO_PKG_VERSION"));
+    let separator = "  ·  ";
+    let brand = truncate_chars(&brand, width);
+    output.push_str(&paint(&brand, BRAND_COLOR, color));
+    let used = display_cell_width(&brand);
+    if used + display_cell_width(separator) < width {
+        let remaining = width - used - display_cell_width(separator);
+        let project = truncate_chars(&sanitize_terminal_text(&current_project_label()), remaining);
+        output.push_str(&paint(separator, MUTED_COLOR, color));
+        output.push_str(&paint(&project, MUTED_COLOR, color));
+    }
+    output.push('\n');
+}
+
+fn box_rule(left: char, right: char, label: &str, width: usize) -> String {
+    if width <= 2 {
+        return left.to_string().repeat(width);
+    }
+    let inner_width = width - 2;
+    let label = truncate_chars(label, inner_width);
+    let fill = inner_width.saturating_sub(display_cell_width(&label));
+    format!("{left}{label}{}{right}", "─".repeat(fill))
+}
+
+fn box_row(content: &str, width: usize) -> String {
+    if width <= 2 {
+        return "│".repeat(width);
+    }
+    let inner_width = width - 2;
+    let content = truncate_chars(content, inner_width);
+    let padding = inner_width.saturating_sub(display_cell_width(&content));
+    format!("│{content}{}│", " ".repeat(padding))
 }
 
 fn current_project_label() -> String {
@@ -240,7 +315,7 @@ fn current_project_label() -> String {
     .unwrap_or(display)
 }
 
-fn render_status_line(status: &TuiStatusSnapshot, width: usize) -> String {
+fn render_status_line(status: &TuiStatusSnapshot, width: usize, color: bool) -> String {
     let (context, percent) = match (status.context_tokens_used, status.context_limit_tokens) {
         (Some(used), Some(limit)) if limit > 0 => {
             let percent = used.saturating_mul(100) / limit;
@@ -251,33 +326,70 @@ fn render_status_line(status: &TuiStatusSnapshot, width: usize) -> String {
         (None, Some(limit)) => (format!("ctx —/{limit}"), None),
         (None, None) => ("ctx —".to_string(), None),
     };
-    let compaction = if status.has_compaction_checkpoint {
-        "compact saved"
+    let (compaction, compaction_color) = if status.has_compaction_checkpoint {
+        ("compact saved", ACCENT_COLOR)
     } else if percent.is_some_and(|value| value >= 75) {
-        "compact due"
+        ("compact due", WARNING_COLOR)
     } else {
-        "compact auto@75%"
+        ("compact auto@75%", MUTED_COLOR)
     };
-    truncate_chars(
-        &format!(
-            "model {} | {} | {} | backend {} | session {}",
-            sanitize_terminal_text(&status.model),
-            context,
-            compaction,
-            status.backend.as_str(),
-            short_status_id(&sanitize_terminal_text(&status.session_id))
+    let context_color = match percent {
+        Some(value) if value >= 85 => FAILED_COLOR,
+        Some(value) if value >= 60 => WARNING_COLOR,
+        Some(_) => HEALTHY_COLOR,
+        None => MUTED_COLOR,
+    };
+    let backend_color = match status.backend {
+        TuiBackendStatus::Ready => HEALTHY_COLOR,
+        TuiBackendStatus::Stopped => WARNING_COLOR,
+        TuiBackendStatus::Stale => FAILED_COLOR,
+        TuiBackendStatus::Unavailable => MUTED_COLOR,
+    };
+    let model_width = if width >= 96 {
+        32
+    } else if width >= 60 {
+        20
+    } else {
+        12
+    };
+    let model = truncate_chars(&sanitize_terminal_text(&status.model), model_width);
+    let session = short_status_id(&sanitize_terminal_text(&status.session_id));
+    let segments = [
+        (format!("model {model}"), ACCENT_COLOR),
+        (context, context_color),
+        (compaction.to_string(), compaction_color),
+        (
+            format!("backend {}", status.backend.as_str()),
+            backend_color,
         ),
-        width,
-    )
+        (format!("session {session}"), MUTED_COLOR),
+    ];
+    render_status_segments(&segments, width, color)
 }
 
-fn paint_status_line(value: &str, backend: TuiBackendStatus, color: bool) -> String {
-    let code = match backend {
-        TuiBackendStatus::Ready => "\u{001b}[32m",
-        TuiBackendStatus::Stopped | TuiBackendStatus::Unavailable => "\u{001b}[2m",
-        TuiBackendStatus::Stale => "\u{001b}[31m",
-    };
-    paint(value, code, color)
+fn render_status_segments(segments: &[(String, &str)], width: usize, color: bool) -> String {
+    let separator = " | ";
+    let mut output = String::new();
+    let mut used = 0;
+    for (index, (segment, code)) in segments.iter().enumerate() {
+        let separator_width = usize::from(index > 0) * display_cell_width(separator);
+        if used + separator_width >= width {
+            break;
+        }
+        if index > 0 {
+            output.push_str(&paint(separator, MUTED_COLOR, color));
+            used += separator_width;
+        }
+        let remaining = width.saturating_sub(used);
+        let visible = truncate_chars(segment, remaining);
+        let visible_width = display_cell_width(&visible);
+        output.push_str(&paint(&visible, code, color));
+        used += visible_width;
+        if visible_width < display_cell_width(segment) {
+            break;
+        }
+    }
+    output
 }
 
 fn paint(value: &str, code: &str, enabled: bool) -> String {
@@ -296,29 +408,78 @@ fn short_status_id(value: &str) -> String {
     }
 }
 
+fn wrap_terminal_text(value: &str, width: usize) -> Vec<String> {
+    if value.is_empty() {
+        return vec![String::new()];
+    }
+    let width = width.max(1);
+    let mut lines = Vec::new();
+    let mut current = String::new();
+    let mut used = 0;
+    for ch in value.chars() {
+        let ch_width = terminal_cell_width(ch);
+        if !current.is_empty() && used + ch_width > width {
+            lines.push(current);
+            current = String::new();
+            used = 0;
+        }
+        current.push(ch);
+        used += ch_width;
+    }
+    if !current.is_empty() {
+        lines.push(current);
+    }
+    lines
+}
+
 fn render_notice_lines(
     output: &mut String,
     lines: &[&str],
     offset: usize,
     max_rows: usize,
-    page: usize,
-    page_count: usize,
+    pagination: (usize, usize),
     width: usize,
+    style: NoticeStyle,
 ) {
+    let (page, page_count) = pagination;
     for (index, line) in lines.iter().skip(offset).take(max_rows).enumerate() {
-        let prefix = if index == 0 { "notice: " } else { "        " };
+        let prefix = match style {
+            NoticeStyle::Diagnostic if index == 0 => "notice: ",
+            NoticeStyle::Diagnostic => "        ",
+            NoticeStyle::Conversation { .. } if index == 0 => "◇ ",
+            NoticeStyle::Conversation { .. } => "  ",
+        };
         let line = if index + 1 == max_rows && page_count > 1 {
-            format!("{line} … [{}/{}; /more /back]", page + 1, page_count)
+            let separator = match style {
+                NoticeStyle::Diagnostic => ";",
+                NoticeStyle::Conversation { .. } => " ·",
+            };
+            format!(
+                "{line} … [{}/{}{separator} /more /back]",
+                page + 1,
+                page_count
+            )
         } else {
             (*line).to_string()
         };
-        output.push_str(prefix);
+        match style {
+            NoticeStyle::Diagnostic => output.push_str(prefix),
+            NoticeStyle::Conversation { color } => {
+                output.push_str(&paint(prefix, ACCENT_COLOR, color));
+            }
+        }
         output.push_str(&truncate_chars(
             &sanitize_terminal_text(&line),
             width.saturating_sub(display_cell_width(prefix)),
         ));
         output.push('\n');
     }
+}
+
+#[derive(Clone, Copy)]
+enum NoticeStyle {
+    Diagnostic,
+    Conversation { color: bool },
 }
 
 pub(crate) fn sanitize_terminal_text(value: &str) -> String {
