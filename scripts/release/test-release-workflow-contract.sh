@@ -111,6 +111,12 @@ release_windows_preflight="$(
   step_block "$release_workflow" "Test native Windows backend lifecycle" \
     | windows_preflight_commands
 )"
+release_build="$(job_block "$release_workflow" build)"
+release_native_terminal="$(
+  step_block "$release_workflow" "Test native interactive terminal"
+)"
+require_line "$release_build" '    timeout-minutes: 15'
+require_line "$release_native_terminal" '        timeout-minutes: 5'
 targeted_windows_preflight="$(
   step_block "$windows_targeted_workflow" "Test backend lifecycle" \
     | windows_preflight_commands
