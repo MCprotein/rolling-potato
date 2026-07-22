@@ -354,6 +354,26 @@
 - 전체 unit test는 PR CI의 정본 검증으로 남기되, 빠른 정적 architecture suite는
   candidate label 전 로컬 preflight에서 실행합니다.
 
+## 2026-07-22: 대화형 기본 화면 변경 뒤 release smoke 계약 누락
+
+### 증상
+
+- candidate의 전체 test, lint, release build가 통과한 뒤 binary smoke만 실패했습니다.
+- release binary는 새 대화 화면을 정상 출력했지만 smoke가 이전 기본 화면의
+  `rpotato | overview` 문자열을 계속 요구했습니다.
+
+### 원인
+
+- 기본 CLI/TUI 화면 계약을 변경하면서 unit·PTY 테스트와 문서는 갱신했지만 release
+  binary smoke의 사용자 화면 matcher를 같은 변경 범위로 추적하지 않았습니다.
+
+### 재발 방지
+
+- 기본 CLI/TUI 진입 화면을 변경할 때는 unit, native PTY, release binary smoke의
+  사용자-visible marker를 같은 논리 단위에서 함께 갱신합니다.
+- debug seam 무시는 특정 과거 화면 하나로 간접 판정하지 않고 현재 기본 화면의 의미
+  marker와 debug fault 문구의 부재를 각각 확인합니다.
+
 ## 2026-07-22: Windows PTY readiness가 줄 끝 공백에 의존
 
 ### 증상
