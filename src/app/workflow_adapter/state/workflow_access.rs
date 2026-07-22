@@ -165,7 +165,8 @@ fn active_workflow_id_under_transition(
                     "workflow resume 차단\n- 이유: current pointer와 전체 artifact scan이 충돌합니다.",
                 ));
             }
-            Ok(Some(pointer))
+            clear_terminal_workflow_pointer_under_transition(transition_guard, &workflow)?;
+            Ok(None)
         }
         _ => Err(AppError::blocked(
             "workflow resume 차단\n- 이유: current pointer와 non-terminal artifact가 충돌합니다.\n- 동작: fail-closed; backend와 side effect를 실행하지 않습니다.",
