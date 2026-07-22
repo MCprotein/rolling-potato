@@ -4,6 +4,46 @@ use crate::runtime_core::patch::intent::{parse_model_action, plan_action_candida
 use std::path::PathBuf;
 
 #[test]
+fn terminal_skill_failure_clears_active_pointer_for_the_next_request() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = std::env::temp_dir().join(format!(
+        "rpotato-intent-terminal-failure-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let project = root.join("project");
+    std::fs::create_dir_all(&project).unwrap();
+    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+    std::env::set_var("RPOTATO_PROJECT_ROOT", &project);
+    state::initialize().unwrap();
+
+    let mut workflow = state::create_workflow("first request").unwrap();
+    let workflow_id = workflow.workflow_id.clone();
+    let mut runtime = skill::SkillRuntimeState::new("small-patch", "natural-language").unwrap();
+    let error = fail_skill_workflow(
+        &mut workflow,
+        &mut runtime,
+        "backend-call-failed",
+        AppError::runtime("backend unavailable"),
+    );
+
+    assert_eq!(error.message, "backend unavailable");
+    let failed = state::load_workflow(&workflow_id).unwrap();
+    assert_eq!(failed.phase, "failed");
+    assert_eq!(failed.failure_reason, "backend-call-failed");
+    assert_eq!(state::active_workflow_id().unwrap(), None);
+    let next = state::create_workflow("second request").unwrap();
+    assert_ne!(next.workflow_id, workflow_id);
+
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
 fn explicit_skill_has_priority() {
     let decision = classify("$fix-test 리뷰만 해줘").unwrap();
     assert_eq!(decision.invocation, "explicit-skill");

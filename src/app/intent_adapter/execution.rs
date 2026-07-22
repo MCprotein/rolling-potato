@@ -1,7 +1,7 @@
 use super::{
-    agent_loop_prompt, available_context_labels, checkpoint_failure_or_original,
-    dispatch_skill_hook, fail_skill_workflow, is_non_mutating_action, model_transcript_content,
-    plugin_completion_fault, record_non_mutating_outcomes, render_non_mutating_report,
+    agent_loop_prompt, available_context_labels, dispatch_skill_hook, fail_skill_workflow,
+    is_non_mutating_action, model_transcript_content, plugin_completion_fault,
+    record_non_mutating_outcomes, render_non_mutating_report,
 };
 use crate::app::context_adapter as context;
 use crate::app::extensions_adapter::{plugin, skill};
@@ -179,11 +179,12 @@ pub(super) fn run_with_decision(
     let run = match backend::chat_once(&agent_prompt, Some(RUN_MAX_TOKENS)) {
         Ok(run) => run,
         Err(err) => {
-            let _ = skill_runtime.transition(skill::SkillState::Failed);
-            skill_runtime.store_in_workflow(&mut workflow);
-            workflow.phase = "failed".to_string();
-            workflow.failure_reason = "backend-call-failed".to_string();
-            return Err(checkpoint_failure_or_original(workflow, err));
+            return Err(fail_skill_workflow(
+                &mut workflow,
+                &mut skill_runtime,
+                "backend-call-failed",
+                err,
+            ));
         }
     };
     dispatch_skill_hook(
@@ -385,15 +386,16 @@ pub(super) fn run_with_decision(
             .map(str::trim)
             .any(|pointer| pointer == expected_pointer);
     if !action_is_safe {
-        let _ = skill_runtime.transition(skill::SkillState::Failed);
-        skill_runtime.store_in_workflow(&mut workflow);
-        workflow.phase = "failed".to_string();
-        workflow.failure_reason = "invalid-or-hostile-model-action".to_string();
-        workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
-        return Err(AppError::blocked(format!(
+        let error = AppError::blocked(format!(
             "run agent loop 차단\n- workflow id: {}\n- 이유: model action은 non-executable record로 저장했지만 안전한 patch proposal 계약을 충족하지 못했습니다.\n- model side effect 실행: 없음",
             workflow.workflow_id
-        )));
+        ));
+        return Err(fail_skill_workflow(
+            &mut workflow,
+            &mut skill_runtime,
+            "invalid-or-hostile-model-action",
+            error,
+        ));
     }
 
     if manifest.id() == "fix-test" {
@@ -474,11 +476,12 @@ pub(super) fn run_with_decision(
     ) {
         Ok(proposal) => proposal,
         Err(err) => {
-            let _ = skill_runtime.transition(skill::SkillState::Failed);
-            skill_runtime.store_in_workflow(&mut workflow);
-            workflow.phase = "failed".to_string();
-            workflow.failure_reason = "proposal-preparation-failed".to_string();
-            return Err(checkpoint_failure_or_original(workflow, err));
+            return Err(fail_skill_workflow(
+                &mut workflow,
+                &mut skill_runtime,
+                "proposal-preparation-failed",
+                err,
+            ));
         }
     };
     dispatch_skill_hook(
