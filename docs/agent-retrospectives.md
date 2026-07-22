@@ -574,5 +574,9 @@
 - 일반 대화의 기본 action은 runtime-owned `answer-only`로 고정하고 명시적인 변경
   signal이 있을 때만 patch workflow로 진입합니다.
 - 지원 모델의 thinking control은 모델별 공식 근거와 실제 local response를 함께
-  검증하며, terminal workflow pointer는 다음 요청 전에 확정된 terminal state를
-  멱등 정리합니다.
+  검증합니다.
+- Terminal workflow pointer 자동 정리는 stop gate가 없는 `failed/cancelled`에만
+  적용합니다. `complete`는 성공 증거와 stop gate를 기존 resume 경로에서 다시
+  검증한 뒤 정리합니다.
+- Pointer 정리 로직을 변경할 때는 실패 workflow의 멱등 복구 테스트와 함께
+  `complete` workflow가 검증 전에 지워지지 않는 회귀 테스트를 실행합니다.
