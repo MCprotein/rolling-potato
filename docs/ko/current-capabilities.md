@@ -1,6 +1,6 @@
 # 현재 기능
 
-이 문서는 출시된 `rolling-potato v0.45.1` runtime의 읽기 쉬운 상태 지도입니다.
+이 문서는 출시된 `rolling-potato v0.46.0` runtime의 읽기 쉬운 상태 지도입니다.
 하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
@@ -9,7 +9,7 @@
 > 이 문서는 기능 안내서입니다. 정확한 명령 문법은 설치된 바이너리의
 > `rpotato --help`를 기준으로 확인하십시오.
 
-## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.45.1`)
+## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.46.0`)
 
 GitHub Release archive에서 압축을 푼 binary는 사용자 전용 CLI directory에
 자기 자신을 설치·갱신하고 zsh, bash, fish 또는 Windows 사용자 PATH에 해당
@@ -285,7 +285,11 @@ state를 직접 수정하지 않고 monitoring, session, 검증된 transcript/to
 approval, diff, evidence, resume, cancel을 제공하며 일반 텍스트를 agent 요청으로
 전달합니다. `rpotato tui`는 호환 alias입니다.
 
-Composer status line은 `model | context used/limit | backend | session`을 보여줍니다.
+첫 frame은 compact welcome을 사용하고 대화가 시작되면 한 줄 identity header로
+전환합니다. Focused bordered composer의 semantic status line은 `model | context
+used/limit | compaction | backend | session` 순서를 유지합니다. 한국어와 wide
+character turn은 terminal display cell 기준으로 줄바꿈하며 `/more`와 `/back`으로
+모든 긴 응답 line을 확인할 수 있습니다.
 대표 public 진입점은 다음과 같습니다.
 
 ```sh

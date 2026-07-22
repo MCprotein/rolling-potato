@@ -1,7 +1,7 @@
 # Current Capabilities
 
 This document is the readable status map for the released
-`rolling-potato v0.45.1` runtime. It groups the runtime by responsibility
+`rolling-potato v0.46.0` runtime. It groups the runtime by responsibility
 instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
@@ -10,7 +10,7 @@ instead of repeating one flat command list.
 > This is a capability guide, not a substitute for `rpotato --help`. The
 > installed binary remains the source of truth for exact command syntax.
 
-## Installation, First Run, and Updates (`v0.42.0`-`v0.45.1`)
+## Installation, First Run, and Updates (`v0.42.0`-`v0.46.0`)
 
 The extracted GitHub Release binary can install or update itself in the
 user-local CLI directory and register that directory in zsh, bash, fish, or
@@ -289,7 +289,11 @@ validated transcript/tool views, approvals, diffs, evidence, resume, and
 cancellation without editing canonical state directly, and submits plain text as
 agent requests. `rpotato tui` remains a compatibility alias.
 
-The composer status line shows `model | context used/limit | backend | session`.
+The first frame uses a compact welcome that collapses to a one-line identity
+header after the conversation starts. The focused bordered composer keeps a
+semantic status line in `model | context used/limit | compaction | backend |
+session` order. Korean and other wide-character turns wrap by terminal display
+cells, and `/more` plus `/back` keeps every long-response line reachable.
 Representative public entry points are:
 
 ```sh

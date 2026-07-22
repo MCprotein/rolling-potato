@@ -170,12 +170,12 @@
 - Detailed revisions, hashes, ledger counts, projection freshness, workflow fields, and monitor tables are available only through explicit status/diagnostic views.
 - On first run, the same terminal flow lists source-backed model choices and shows model ID/version, quantization, download size, context limit, RAM status, license, and recommendation evidence before confirmation.
 - The managed backend is installed or reused automatically. The default path never asks the user for a `llama.cpp` executable or GGUF filesystem path.
-- The composer remains the focus point. Its immediately following status line always uses this order: `model | ctx used/limit (%) | backend | session`.
+- The composer remains the focus point. Its immediately following status line always uses this order: `model | ctx used/limit (%) | compaction | backend | session`.
 - The attached-terminal composer uses a single rounded border, a cyan focus marker, and no placeholder text under the live cursor. The no-color/redirected fallback remains a plain `›` prompt.
 - Status segments are colored independently: model/focus cyan, healthy green, due/degraded yellow, failed/stale red, and session/secondary labels muted. Never color the whole status row as one success state.
 - The context segment shows measured usage and percentage; compaction remains adjacent to it when space permits. Narrow terminals truncate later segments rather than wrapping the status bar.
 - Model and context values come from the latest recorded model run; backend state comes from the managed sidecar; session uses the active canonical session identity. Missing values and stale backend state are labeled, never invented.
-- `/model`, `/status`, `/sessions`, `/doctor`, `/clear`, `/help`, and `/quit` cover normal in-TUI operations. Existing granular subcommands remain an advanced compatibility surface under `rpotato debug --help`.
+- `/model`, `/compact`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit` cover normal in-TUI operations. Existing granular subcommands remain an advanced compatibility surface under `rpotato debug --help`.
 - Attached ANSI terminals may use semantic color and cursor positioning. Redirected output, `TERM=dumb`, and `NO_COLOR` remain plain, stable text.
 
 ### Accessibility
