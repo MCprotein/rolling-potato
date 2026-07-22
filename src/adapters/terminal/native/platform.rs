@@ -1,6 +1,8 @@
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod imp {
-    use super::super::{read_stdin_line, zeroize_string, TerminalFault, TestTerminalFault};
+    use super::super::{
+        read_stdin_line, zeroize_string, TerminalFault, TerminalSuggestion, TestTerminalFault,
+    };
     use std::io::{self, Write};
     use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -8,6 +10,18 @@ mod imp {
     const STDOUT_FILENO: i32 = 1;
     const TCSANOW: i32 = 0;
     const ECHO: TcFlag = 0x0000_0008;
+    #[cfg(target_os = "linux")]
+    const ICANON: TcFlag = 0x0000_0002;
+    #[cfg(target_os = "macos")]
+    const ICANON: TcFlag = 0x0000_0100;
+    #[cfg(target_os = "linux")]
+    const VTIME: usize = 5;
+    #[cfg(target_os = "linux")]
+    const VMIN: usize = 6;
+    #[cfg(target_os = "macos")]
+    const VMIN: usize = 16;
+    #[cfg(target_os = "macos")]
+    const VTIME: usize = 17;
     const SIGINT: i32 = 2;
     const SIGTERM: i32 = 15;
     const SIG_ERR: usize = usize::MAX;
@@ -98,6 +112,38 @@ mod imp {
             return Err(TerminalFault::SizeRead);
         }
         Ok((size.cols, size.rows))
+    }
+
+    pub fn read_line_with_suggestions(
+        suggestions: &[TerminalSuggestion],
+    ) -> Result<Option<String>, TerminalFault> {
+        let mut original = std::mem::MaybeUninit::<Termios>::uninit();
+        // SAFETY: tcgetattr initializes the output on success.
+        if unsafe { tcgetattr(STDIN_FILENO, original.as_mut_ptr()) } != 0 {
+            return Err(TerminalFault::ModeRead);
+        }
+        // SAFETY: the preceding tcgetattr call succeeded.
+        let original = unsafe { original.assume_init() };
+        let _signal_restore = SignalEchoRestore::install(original)?;
+        let mut live = original;
+        live.c_lflag &= !(ECHO | ICANON);
+        live.c_cc[VMIN] = 1;
+        live.c_cc[VTIME] = 0;
+        // SAFETY: both termios pointers are valid for the duration of each call.
+        if unsafe { tcsetattr(STDIN_FILENO, TCSANOW, &live) } != 0 {
+            return Err(TerminalFault::NoEchoSet);
+        }
+
+        let mut restore = EchoRestore {
+            original,
+            restored: false,
+        };
+        let width = dimensions().map(|(columns, _)| usize::from(columns))?;
+        let value = super::super::live_input::read(suggestions, width);
+        if !restore.restore() {
+            return Err(TerminalFault::EchoRestore);
+        }
+        value
     }
 
     pub fn read_secret() -> Result<Option<String>, TerminalFault> {
@@ -225,7 +271,9 @@ mod imp {
 
 #[cfg(windows)]
 mod imp {
-    use super::super::{read_stdin_line, zeroize_string, TerminalFault, TestTerminalFault};
+    use super::super::{
+        read_stdin_line, zeroize_string, TerminalFault, TerminalSuggestion, TestTerminalFault,
+    };
     use std::ffi::c_void;
     use std::io::{self, Write};
     use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
@@ -234,6 +282,7 @@ mod imp {
     const STD_INPUT_HANDLE: u32 = -10i32 as u32;
     const STD_OUTPUT_HANDLE: u32 = -11i32 as u32;
     const ENABLE_ECHO_INPUT: u32 = 0x0004;
+    const ENABLE_LINE_INPUT: u32 = 0x0002;
     const CTRL_C_EVENT: u32 = 0;
     const CTRL_BREAK_EVENT: u32 = 1;
     const CTRL_CLOSE_EVENT: u32 = 2;
@@ -331,6 +380,36 @@ mod imp {
             return Err(TerminalFault::SizeRead);
         }
         Ok((cols, rows))
+    }
+
+    pub fn read_line_with_suggestions(
+        suggestions: &[TerminalSuggestion],
+    ) -> Result<Option<String>, TerminalFault> {
+        // SAFETY: GetStdHandle has no Rust-side preconditions.
+        let handle = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
+        let mut original = 0;
+        // SAFETY: original points to writable mode storage.
+        if unsafe { GetConsoleMode(handle, &mut original) } == 0 {
+            return Err(TerminalFault::ModeRead);
+        }
+        let _signal_restore = SignalEchoRestore::install(handle, original)?;
+        // SAFETY: handle and mode came from the console API.
+        if unsafe { SetConsoleMode(handle, original & !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT)) }
+            == 0
+        {
+            return Err(TerminalFault::NoEchoSet);
+        }
+        let mut restore = EchoRestore {
+            handle,
+            original,
+            restored: false,
+        };
+        let width = dimensions().map(|(columns, _)| usize::from(columns))?;
+        let value = super::super::live_input::read(suggestions, width);
+        if !restore.restore() {
+            return Err(TerminalFault::EchoRestore);
+        }
+        value
     }
 
     pub fn read_secret() -> Result<Option<String>, TerminalFault> {
@@ -439,7 +518,7 @@ mod imp {
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
 mod imp {
-    use super::super::TerminalFault;
+    use super::super::{TerminalFault, TerminalSuggestion};
 
     pub fn dimensions() -> Result<(u16, u16), TerminalFault> {
         Err(TerminalFault::SizeRead)
@@ -448,6 +527,12 @@ mod imp {
     pub fn read_secret() -> Result<Option<String>, TerminalFault> {
         Err(TerminalFault::ModeRead)
     }
+
+    pub fn read_line_with_suggestions(
+        _suggestions: &[TerminalSuggestion],
+    ) -> Result<Option<String>, TerminalFault> {
+        Err(TerminalFault::ModeRead)
+    }
 }
 
-pub(super) use imp::{dimensions, read_secret};
+pub(super) use imp::{dimensions, read_line_with_suggestions, read_secret};

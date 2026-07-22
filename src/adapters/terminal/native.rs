@@ -1,6 +1,8 @@
 use std::io::{self, IsTerminal, Write};
 
-pub(crate) use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalFault, TerminalIo};
+pub(crate) use crate::runtime_core::terminal::{
+    FrameWriteBoundary, TerminalFault, TerminalIo, TerminalSuggestion,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TestTerminalFault {
@@ -62,6 +64,17 @@ impl TerminalIo for NativeTerminal {
 
     fn read_line(&mut self) -> Result<Option<String>, TerminalFault> {
         read_stdin_line(TerminalFault::LineRead)
+    }
+
+    fn read_line_with_suggestions(
+        &mut self,
+        suggestions: &[TerminalSuggestion],
+    ) -> Result<Option<String>, TerminalFault> {
+        if io::stdin().is_terminal() && self.supports_ansi_layout() && self.supports_color() {
+            platform::read_line_with_suggestions(suggestions)
+        } else {
+            self.read_line()
+        }
     }
 
     fn read_secret(&mut self) -> Result<Option<String>, TerminalFault> {
@@ -185,6 +198,7 @@ fn zeroize_string(value: String) {
     std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
 }
 
+mod live_input;
 mod platform;
 #[cfg(test)]
 pub struct ScriptedTerminal {

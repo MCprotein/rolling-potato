@@ -1,5 +1,6 @@
 //! TUI controller, view-model, input, and rendering ownership.
 
+pub(crate) mod command_palette;
 pub(crate) mod controller;
 pub(crate) mod outcome;
 pub(crate) mod page;
