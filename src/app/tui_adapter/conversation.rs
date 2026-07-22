@@ -28,10 +28,27 @@ pub(super) fn is_conversational_request(request: &str) -> bool {
         .split(|ch: char| !ch.is_ascii_alphabetic())
         .any(|word| matches!(word, "hello" | "hi" | "hey" | "thanks"));
 
-    has_korean_signal
+    is_model_identity_request(trimmed)
+        || is_agent_identity_request(trimmed)
+        || has_korean_signal
         || has_english_word
         || lower.contains("thank you")
         || lower.contains("what can you do")
+}
+
+pub(super) fn local_reply(request: &str, model: Option<&str>) -> Option<String> {
+    if is_model_identity_request(request) {
+        return Some(
+            match model.map(str::trim).filter(|value| !value.is_empty()) {
+                Some(model) => format!("현재 사용 중인 모델은 {model}입니다."),
+                None => {
+                    "현재 선택된 모델이 없습니다. /model로 모델을 선택할 수 있습니다.".to_string()
+                }
+            },
+        );
+    }
+    is_agent_identity_request(request)
+        .then(|| "저는 로컬에서 실행되는 코딩 에이전트 rpotato입니다.".to_string())
 }
 
 pub(super) fn reply(request: &str) -> Result<String, AppError> {
@@ -76,7 +93,46 @@ pub(super) fn present_agent_report(report: &str) -> String {
         return visible.join("\n");
     }
 
+    if report.contains("backend-call-failed") {
+        return "모델 응답을 받지 못했습니다. 잠시 후 다시 시도하거나 /doctor로 backend 상태를 확인하세요."
+            .to_string();
+    }
+
     report.trim().to_string()
+}
+
+fn is_model_identity_request(request: &str) -> bool {
+    let lower = request.trim().to_ascii_lowercase();
+    if !lower.contains("모델") && !lower.contains("model") {
+        return false;
+    }
+    [
+        "무슨",
+        "어떤",
+        "뭐",
+        "이름",
+        "현재",
+        "사용 중",
+        "사용중",
+        "쓰고",
+    ]
+    .iter()
+    .any(|signal| lower.contains(signal))
+        || [
+            "what model",
+            "which model",
+            "model are you",
+            "current model",
+        ]
+        .iter()
+        .any(|signal| lower.contains(signal))
+}
+
+fn is_agent_identity_request(request: &str) -> bool {
+    let lower = request.trim().to_ascii_lowercase();
+    ["넌 누구", "너는 누구", "누구야", "정체가 뭐", "who are you"]
+        .iter()
+        .any(|signal| lower.contains(signal))
 }
 
 fn report_field<'a>(report: &'a str, field: &str) -> Option<&'a str> {
@@ -128,7 +184,15 @@ mod tests {
 
     #[test]
     fn greetings_and_basic_help_use_conversation_without_stealing_coding_tasks() {
-        for request in ["안녕", "안녕하세요!", "고마워", "뭐 할 수 있어?", "hello"] {
+        for request in [
+            "안녕",
+            "안녕하세요!",
+            "고마워",
+            "뭐 할 수 있어?",
+            "hello",
+            "넌 무슨모델이니",
+            "너는 누구야?",
+        ] {
             assert!(is_conversational_request(request), "{request}");
         }
         for request in [
@@ -141,6 +205,22 @@ mod tests {
         ] {
             assert!(!is_conversational_request(request), "{request}");
         }
+    }
+
+    #[test]
+    fn model_and_agent_identity_questions_return_local_facts_without_a_workflow() {
+        assert_eq!(
+            local_reply("넌 무슨모델이니", Some("gemma-test")),
+            Some("현재 사용 중인 모델은 gemma-test입니다.".to_string())
+        );
+        assert_eq!(
+            local_reply("너는 누구야?", Some("ignored")),
+            Some("저는 로컬에서 실행되는 코딩 에이전트 rpotato입니다.".to_string())
+        );
+        assert_eq!(
+            local_reply("이 모델 코드를 수정해줘", Some("gemma-test")),
+            None
+        );
     }
 
     #[test]
@@ -158,5 +238,12 @@ mod tests {
         assert!(proposal.contains("--- a/src/main.rs"));
         assert!(proposal.contains("select workflow-one → approve proposal-one"));
         assert!(!proposal.contains("resource governor"));
+
+        let failure = present_agent_report(
+            "패치 제안 실패\n- workflow id: workflow-secret\n- 이유: backend-call-failed\n- 성공 보고: 차단",
+        );
+        assert!(failure.starts_with("모델 응답을 받지 못했습니다."));
+        assert!(!failure.contains("workflow-secret"));
+        assert!(!failure.contains("backend-call-failed"));
     }
 }

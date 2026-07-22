@@ -354,6 +354,28 @@
 - 전체 unit test는 PR CI의 정본 검증으로 남기되, 빠른 정적 architecture suite는
   candidate label 전 로컬 preflight에서 실행합니다.
 
+## 2026-07-22: 대화 TUI 검증이 인사 한 문장에 편중
+
+### 증상
+
+- `안녕`은 정상 대화로 처리됐지만 `넌 무슨모델이니`는 일반 coding workflow로
+  오분류되어 `backend-call-failed` 내부 보고서가 대화 화면에 노출됐습니다.
+
+### 원인
+
+- conversation-first 수용 테스트를 greeting 한 종류에 집중하고, 사용자가 처음 묻는
+  정체성·현재 모델 질문을 핵심 대화 시나리오에 포함하지 않았습니다.
+- 현재 모델처럼 runtime이 이미 아는 사실도 생성 모델에 보내는 구조여서 불필요한
+  workflow 분류와 backend 실패 가능성을 만들었습니다.
+
+### 재발 방지
+
+- 기본 TUI 변경은 최소한 인사, 에이전트 정체성, 현재 모델, 실제 coding 요청을 서로
+  다른 경로로 검증합니다.
+- runtime이 확정적으로 보유한 모델·상태 사실은 workflow나 생성 호출 없이 로컬에서
+  답하고, 실패 보고서의 workflow id·내부 reason은 대화 화면에 그대로 노출하지
+  않습니다.
+
 ## 2026-07-22: 대화형 기본 화면 변경 뒤 release smoke 계약 누락
 
 ### 증상

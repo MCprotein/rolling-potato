@@ -74,6 +74,13 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
     }
 
     fn submit_request(&mut self, request: &str) -> Result<String, AppError> {
+        let active_model = crate::app::inference_adapter::backend::runtime_snapshot()
+            .ok()
+            .and_then(|snapshot| snapshot.model_id)
+            .or_else(crate::app::inference_adapter::model::configured_model_id);
+        if let Some(reply) = conversation::local_reply(request, active_model.as_deref()) {
+            return Ok(reply);
+        }
         ensure_runtime_ready()?;
         if conversation::is_conversational_request(request) {
             return conversation::reply(request);
