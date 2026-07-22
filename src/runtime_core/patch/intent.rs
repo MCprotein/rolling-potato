@@ -73,42 +73,49 @@ pub(crate) fn classify(
         has_any(&lower, &["test", "cargo test", "pytest"]) || has_any(trimmed, &["테스트"]);
     let has_failure_signal = has_any(&lower, &["failed", "failure", "panic", "error"])
         || has_any(trimmed, &["실패", "에러", "오류"]);
-    let has_change_signal = has_any(
+    let has_change_signal = has_ascii_word(
         &lower,
         &[
-            "fix ",
-            "change ",
-            "update ",
-            "edit ",
-            "implement ",
-            "refactor ",
-            "add ",
-            "remove ",
-            "delete ",
-            "create ",
-            "write ",
-            "do it",
+            "fix",
+            "change",
+            "update",
+            "edit",
+            "implement",
+            "refactor",
+            "add",
+            "remove",
+            "delete",
+            "create",
+            "write",
+            "apply",
+            "patch",
             "proceed",
+            "continue",
         ],
-    ) || has_any(
-        trimmed,
-        &[
-            "고쳐",
-            "수정",
-            "변경",
-            "구현",
-            "리팩터",
-            "리팩토링",
-            "추가",
-            "제거",
-            "삭제",
-            "만들어",
-            "생성",
-            "작성",
-            "진행해",
-            "해라",
-        ],
-    );
+    ) || has_any(&lower, &["do it"])
+        || has_any(
+            trimmed,
+            &[
+                "고쳐",
+                "수정",
+                "변경",
+                "구현",
+                "리팩터",
+                "리팩토링",
+                "추가",
+                "제거",
+                "삭제",
+                "만들어",
+                "생성",
+                "작성",
+                "진행해",
+                "계속해",
+                "마저 진행",
+                "이어서 진행",
+                "이것 좀 해줘",
+                "그거 해줘",
+            ],
+        );
     let (skill_id, mode) = if has_test_signal && has_failure_signal {
         signals.push("test-signal");
         ("fix-test", "execute")
@@ -126,7 +133,7 @@ pub(crate) fn classify(
         signals.push("explain-error");
         ("explain-error", "read-only")
     } else if has_any(&lower, &["map", "find", "search", "analyze"])
-        || has_any(trimmed, &["찾아", "분석", "구조", "어디"])
+        || has_any(trimmed, &["찾아", "검색", "분석", "구조", "어디"])
     {
         signals.push("read-only");
         ("repo-map", "read-only")
@@ -201,6 +208,11 @@ fn explicit_skill(request: &str) -> Option<&str> {
 
 pub(crate) fn has_any(text: &str, needles: &[&str]) -> bool {
     needles.iter().any(|needle| text.contains(needle))
+}
+
+fn has_ascii_word(text: &str, words: &[&str]) -> bool {
+    text.split(|character: char| !character.is_ascii_alphanumeric() && character != '_')
+        .any(|token| words.contains(&token))
 }
 
 pub(crate) fn display_list(values: &[&str]) -> String {
@@ -583,6 +595,18 @@ mod tests {
         assert_eq!(decision.mode, "read-only");
         assert_eq!(candidate.kind, "answer-only");
         assert!(!candidate.approval_required);
+    }
+
+    #[test]
+    fn explicit_changes_and_read_only_search_keep_their_routes() {
+        for request in ["fix", "apply this patch", "이것 좀 해줘"] {
+            let decision = classify(request, |_| None).unwrap();
+            assert_eq!(decision.skill_id, "small-patch", "request: {request}");
+        }
+
+        let search = classify("검색해라", |_| None).unwrap();
+        assert_eq!(search.skill_id, "repo-map");
+        assert_eq!(search.mode, "read-only");
     }
 
     #[test]
