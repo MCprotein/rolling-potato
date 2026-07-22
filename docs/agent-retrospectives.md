@@ -581,3 +581,6 @@
   검증한 뒤 정리합니다.
 - Pointer 정리 로직을 변경할 때는 실패 workflow의 멱등 복구 테스트와 함께
   `complete` workflow가 검증 전에 지워지지 않는 회귀 테스트를 실행합니다.
+- Patch/team 통합 fixture가 patch action을 기대하면 요청 문장에도 명시적인 변경
+  의도를 포함합니다. 단순 fixture 이름이나 영어 명사구를 숨은 변경 신호로
+  취급하지 않습니다.
