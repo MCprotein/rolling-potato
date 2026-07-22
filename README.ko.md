@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.45.1` |
+| 현재 릴리즈 | `v0.46.0` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -157,8 +157,9 @@ rpotato
 인자가 없는 `rpotato`가 기본 TUI를 시작합니다. 일반 텍스트를 입력하면 코딩
 요청으로 처리합니다. Composer 아래 line에는 현재 model, context 사용량,
 compaction checkpoint, backend 상태, session이 표시됩니다. 일반 TUI 동작은
-`/model`, `/compact`, `/update`, `/status`, `/sessions`, `/doctor`, `/help`,
-`/quit`을 사용합니다. Context 사용량 75%에서 자동 압축하며 `/compact`는
+`/model`, `/compact`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`,
+`/back`, `/clear`, `/help`, `/quit`을 사용합니다. 긴 응답은 viewport 밖의 line을
+버리지 않고 `/more`와 `/back`으로 이동합니다. Context 사용량 75%에서 자동 압축하며 `/compact`는
 immutable transcript를 정본으로 보존한 채 수동 checkpoint를 만듭니다.
 
 간소화한 public CLI surface는 다음과 같습니다.
@@ -179,7 +180,7 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-`v0.45.1` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
+`v0.46.0` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
@@ -237,9 +238,9 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-`v0.45.1`까지의 release history는 완료되었습니다. 최신 patch는 사용자 history를
-재작성하지 않고 legacy v1 prefix와 hash-chained v2 suffix가 함께 있는 정상 ledger의
-TUI 시작을 복구합니다.
+`v0.46.0`까지의 release history는 완료되었습니다. 최신 release는 compact welcome,
+bordered composer, 의미별 status segment, terminal-cell 줄바꿈, 긴 응답의 무손실
+page 이동으로 기본 TUI를 개선합니다.
 [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를
 참고하십시오.
 

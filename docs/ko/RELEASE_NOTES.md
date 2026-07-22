@@ -1,5 +1,34 @@
 # 릴리즈 노트
 
+## v0.46.0 - 대화 TUI 개선
+
+릴리즈 날짜: 2026-07-22
+
+이 릴리즈는 local-first runtime과 dependency-free terminal 구현을 유지하면서
+현대적인 coding-agent terminal의 compact information hierarchy를 기본 대화
+화면에 적용합니다.
+
+### 포함한 것
+
+- 첫 frame에는 compact welcome을 표시하고 대화가 시작되면 한 줄 identity
+  header로 전환
+- Rounded border composer에 focus를 유지하고 model, context, compaction,
+  backend, session segment를 의미에 따라 독립적으로 표시
+- 한국어와 wide character를 terminal display cell 기준으로 줄바꿈하여 viewport
+  경계에서 내용을 버리지 않음
+- 모든 긴 응답 line을 `/more`와 `/back`으로 확인하고 runtime 처리 중에는 즉시
+  진행 notice를 표시
+- Composer가 표시된 뒤의 terminal fault를 포함해 Unix pipe와 Windows ConPTY에서
+  exact multiline outcome 경계를 보존
+
+### 호환성 경계
+
+- Public command와 flag를 제거하지 않으며 세부 동작은 기존 진단 호환 surface에
+  유지합니다.
+- `NO_COLOR`, `TERM=dumb`, redirected output, scripted 실행은 안정된 plain-text
+  layout을 유지합니다.
+- 새 runtime dependency, package registry, distribution channel을 추가하지 않습니다.
+
 ## v0.45.1 - Legacy Ledger 읽기 호환성
 
 릴리즈 날짜: 2026-07-22

@@ -1,5 +1,35 @@
 # Release Notes
 
+## v0.46.0 - Conversation TUI Refinement
+
+Release date: 2026-07-22
+
+This release refines the primary conversation surface using the compact
+information hierarchy of modern coding-agent terminals while preserving the
+local-first runtime and dependency-free terminal implementation.
+
+### Included
+
+- Adds a compact first-frame welcome and one-line identity header after the
+  conversation starts.
+- Keeps a rounded bordered composer in focus and colors model, context,
+  compaction, backend, and session segments independently by meaning.
+- Wraps Korean and other wide-character text by terminal display cells instead
+  of discarding content at the viewport boundary.
+- Keeps every long-response line reachable through `/more` and `/back` and
+  shows an immediate in-progress notice while the runtime processes a request.
+- Preserves exact multiline outcomes across piped Unix output and Windows
+  ConPTY, including terminal fault paths after the composer is rendered.
+
+### Compatibility Boundary
+
+- No public command or flag is removed; granular operations remain under the
+  existing diagnostic compatibility surface.
+- `NO_COLOR`, `TERM=dumb`, redirected output, and scripted execution retain a
+  stable plain-text layout.
+- No new runtime dependency, package registry, or distribution channel is
+  introduced.
+
 ## v0.45.1 - Legacy Ledger Read Compatibility
 
 Release date: 2026-07-22

@@ -94,17 +94,29 @@ runtime-owned line-oriented interactive controller로 올립니다.
 manifest를 benchmark evidence로 둔갑시키지 않습니다. `/model`은 같은 catalog를
 보여주며 `/model <id>`는 같은 managed path를 통해 model을 바꿉니다.
 
-### Composer 하단 상태 line
+### Composer 상태 line
 
-ANSI attached terminal에서는 composer 바로 아래에 안정된 status line을 두고 cursor를
-input row로 되돌립니다.
+ANSI attached terminal의 빈 대화는 compact welcome frame으로 시작하고 첫 turn 뒤에는
+한 줄 identity header로 전환합니다. Bordered composer 아래에는 의미별 색상을 적용한
+안정된 status line을 두며 cursor는 input row로 되돌립니다.
 
 ```text
-request> _
-model gemma-3n-E4B-it-Q4_K_M | ctx 812/4096 (19%) | compact auto@75% | backend ready | session 01J…
+╭─ rpotato vX.Y.Z · 로컬 코딩 에이전트 ──────────────────────────────╮
+│ model    gemma-4-E4B_q4_0-it                                      │
+│ project  ~/codes/rolling-potato                                   │
+╰─ /help 명령 · /model 변경 ────────────────────────────────────────╯
+
+╭─ 요청 ────────────────────────────────────────────────────────────╮
+│ › _                                                               │
+╰───────────────────────────────────────────────────────────────────╯
+model gemma-4-E4B_q4_0-it | ctx 812/4096 (19%) | compact auto@75% | backend ready | session 01J…
 ```
 
-field 순서는 항상 `model | context | compaction | backend | session`입니다.
+Field 순서는 항상 `model | context | compaction | backend | session`입니다. 전체
+status row를 green으로 칠하지 않고 model/focus는 cyan, healthy는 green,
+due/degraded는 yellow, failed/stale은 red, secondary identity는 muted로 표시합니다.
+긴 user/assistant turn은 terminal display cell 기준으로 줄바꿈하므로 한국어와 wide
+character도 버리지 않습니다.
 `compact auto@75%`는 아직 checkpoint가 없다는 뜻이고, `compact due`는 checkpoint가
 없는 session의 측정 사용량이 자동 압축 임계값에 도달했다는 뜻이며, `compact saved`는
 active session에 검증된 checkpoint가 있다는 뜻입니다. 최신 model-run projection, managed backend

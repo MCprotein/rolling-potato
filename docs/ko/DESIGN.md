@@ -164,14 +164,18 @@
 ### 기본 TUI 계약
 
 - terminal에 연결된 인자 없는 `rpotato`는 대화 controller를 연다.
-- 최초 frame은 overview ledger page를 절대 render하지 않는다. 짧은 welcome, 현재 project label, composer, status line만 보여준다.
+- 최초 frame은 overview ledger page를 절대 render하지 않는다. Compact한 네 줄 welcome, 현재 project label, composer, status line만 보여주며 첫 turn 뒤에는 한 줄 identity header로 전환한다.
 - 일반 입력은 dispatch 전에 user turn으로 표시하고, 보이는 결과는 assistant turn으로 표시한다. 오류도 inline으로 유지하되 직접 원인과 복구 action을 말한다.
+- 대화 turn은 terminal display cell 기준으로 줄바꿈하고 긴 응답의 모든 line을 `/more`와 `/back`으로 확인할 수 있어야 한다.
 - 상세 revision, hash, ledger count, projection freshness, workflow field, monitor table은 명시적인 status/diagnostic view에서만 볼 수 있다.
 - 최초 실행에서는 같은 terminal 흐름 안에서 출처 기반 model 후보를 나열하고 확인 전에 model ID/version, quantization, download size, context limit, RAM 상태, license, 추천 근거를 보여준다.
 - managed backend는 자동으로 설치하거나 재사용한다. 기본 경로에서 사용자가 `llama.cpp` executable 또는 GGUF filesystem path를 입력하게 하지 않는다.
 - composer가 focus 중심이며, 바로 다음 status line은 항상 `model | ctx used/limit (%) | compaction | backend | session` 순서를 사용한다.
+- Attached terminal composer는 rounded border 하나, cyan focus marker, live cursor 아래 placeholder 없는 입력 공간을 사용한다. No-color와 redirected fallback은 plain `›` prompt를 유지한다.
+- Status segment는 model/focus cyan, healthy green, due/degraded yellow, failed/stale red, session/secondary muted처럼 의미별로 독립 표시하며 전체 status row를 하나의 success color로 칠하지 않는다.
+- Context segment는 측정 사용량과 비율을 표시하고 공간이 허용될 때 compaction을 바로 옆에 둔다. 좁은 terminal에서는 status bar를 줄바꿈하지 않고 뒤쪽 segment부터 truncate한다.
 - model과 context 값은 최신 기록된 model run, backend 상태는 managed sidecar, session은 active canonical session identity에서 읽는다. 없는 값과 stale backend 상태는 추측하지 않고 표시한다.
-- `/model`, `/compact`, `/status`, `/sessions`, `/doctor`, `/clear`, `/help`, `/quit`가 일반 TUI 동작을 담당한다. 기존 세부 subcommand는 `rpotato debug --help` 아래의 고급 호환 surface로 유지한다.
+- `/model`, `/compact`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, `/quit`가 일반 TUI 동작을 담당한다. 기존 세부 subcommand는 `rpotato debug --help` 아래의 고급 호환 surface로 유지한다.
 - ANSI attached terminal에서는 semantic color와 cursor positioning을 쓸 수 있다. Redirect된 출력, `TERM=dumb`, `NO_COLOR`에서는 안정된 plain text를 유지한다.
 
 ### 접근성
