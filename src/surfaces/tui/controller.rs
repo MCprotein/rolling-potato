@@ -78,7 +78,10 @@ pub(crate) fn run_controller(
             }
         }
 
-        let Some(line) = terminal.read_line().map_err(terminal_fault_error)? else {
+        let Some(line) = terminal
+            .read_line_with_suggestions(super::command_palette::commands())
+            .map_err(terminal_fault_error)?
+        else {
             return Ok(());
         };
         let words = line.split_whitespace().collect::<Vec<_>>();
@@ -91,7 +94,7 @@ pub(crate) fn run_controller(
             }
             ["quit"] | ["exit"] | ["/quit"] => return Ok(()),
             ["help"] | ["/help"] => {
-                state.notice = "요청을 바로 입력하세요.\n- /chat: 대화 화면\n- /model [id]: 모델 확인/변경\n- /compact: 현재 대화 컨텍스트 압축\n- /update: 최신 버전 확인 및 업데이트\n- /status: 상태 새로고침\n- /sessions: 세션 목록\n- /doctor: 환경 진단\n- /more, /back: 긴 응답 페이지 이동\n- /clear: 현재 대화 지우기\n- /help: 도움말\n- /quit: 종료\n고급 호환 명령: rpotato debug --help".to_string();
+                state.notice = super::command_palette::help_notice();
             }
             ["/more"] => {
                 let conversation_pages =

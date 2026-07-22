@@ -1,6 +1,8 @@
 use std::io::{self, IsTerminal, Write};
 
-pub(crate) use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalFault, TerminalIo};
+pub(crate) use crate::runtime_core::terminal::{
+    FrameWriteBoundary, TerminalFault, TerminalIo, TerminalSuggestion,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TestTerminalFault {
@@ -18,18 +20,21 @@ pub fn validate_native_fault_configuration() -> Result<(), TerminalFault> {
 
 pub struct NativeTerminal {
     allow_piped_dimensions: bool,
+    last_frame: String,
 }
 
 impl NativeTerminal {
     pub fn new() -> Self {
         Self {
             allow_piped_dimensions: false,
+            last_frame: String::new(),
         }
     }
 
     pub fn explicit_line_mode() -> Self {
         Self {
             allow_piped_dimensions: true,
+            last_frame: String::new(),
         }
     }
 }
@@ -64,6 +69,17 @@ impl TerminalIo for NativeTerminal {
         read_stdin_line(TerminalFault::LineRead)
     }
 
+    fn read_line_with_suggestions(
+        &mut self,
+        suggestions: &[TerminalSuggestion],
+    ) -> Result<Option<String>, TerminalFault> {
+        if io::stdin().is_terminal() && self.supports_ansi_layout() && self.supports_color() {
+            platform::read_line_with_suggestions(suggestions, &self.last_frame)
+        } else {
+            self.read_line()
+        }
+    }
+
     fn read_secret(&mut self) -> Result<Option<String>, TerminalFault> {
         platform::read_secret()
     }
@@ -73,7 +89,10 @@ impl TerminalIo for NativeTerminal {
         stdout
             .write_all(frame.as_bytes())
             .and_then(|()| stdout.flush())
-            .map_err(|_| TerminalFault::FrameWrite)
+            .map_err(|_| TerminalFault::FrameWrite)?;
+        self.last_frame.clear();
+        self.last_frame.push_str(frame);
+        Ok(())
     }
 
     fn supports_ansi_layout(&self) -> bool {
@@ -185,6 +204,7 @@ fn zeroize_string(value: String) {
     std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
 }
 
+mod live_input;
 mod platform;
 #[cfg(test)]
 pub struct ScriptedTerminal {

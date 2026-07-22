@@ -1926,6 +1926,22 @@
       ]
     },
     {
+      "path": "src/adapters/terminal/native/live_input.rs",
+      "slices": [
+        {
+          "responsibility": "live terminal line editing and slash suggestion rendering",
+          "target": "src/adapters/terminal/native/live_input.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/live_input.rs",
+            "tests/surfaces/native_terminal.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/terminal/native/platform.rs",
       "slices": [
         {
@@ -5884,6 +5900,22 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/command_palette.rs",
+      "slices": [
+        {
+          "responsibility": "TUI slash command registry and help presentation",
+          "target": "src/surfaces/tui/command_palette.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/command_palette.rs",
+            "src/surfaces/tui/controller.rs",
+            "tests/surfaces/native_terminal.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/tui/controller.rs",
       "slices": [
         {
@@ -7931,6 +7963,12 @@
       ]
     },
     {
+      "path": "src/adapters/terminal/native/live_input.rs",
+      "responsibilities": [
+        "live terminal line editing and slash suggestion rendering"
+      ]
+    },
+    {
       "path": "src/adapters/terminal/native/platform.rs",
       "responsibilities": [
         "POSIX and Windows terminal dimensions, secret input, and echo restoration"
@@ -9335,6 +9373,12 @@
       "path": "src/surfaces/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/command_palette.rs",
+      "responsibilities": [
+        "TUI slash command registry and help presentation"
       ]
     },
     {

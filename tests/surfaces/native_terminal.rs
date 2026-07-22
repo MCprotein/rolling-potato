@@ -40,6 +40,46 @@ fn entry_quit() {
     );
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn slash_opens_command_palette_before_enter() {
+    let fixture = NativeTerminalFixture::new("slash-command-palette");
+    assert!(fixture.project.is_dir());
+    let no_color = std::env::var_os("NO_COLOR");
+    std::env::remove_var("NO_COLOR");
+
+    let mut terminal = NativePty::spawn(120, 40);
+    terminal.wait_for("›");
+    terminal.send("/");
+    let palette = terminal.wait_for("/model [id]");
+    assert!(palette.contains("모델 확인 및 변경"));
+    assert!(palette.contains("/compact"));
+
+    terminal.send("model\n");
+    terminal.wait_for("사용 가능한 모델");
+    terminal.send("/없는명령\n");
+    terminal.wait_for("알 수 없는 TUI 명령입니다: /없는명령");
+    terminal.send("/helx\u{7f}p\n");
+    terminal.wait_for("고급 호환 명령: rpotato debug --help");
+    terminal.send("/");
+    terminal.wait_for("/compact");
+    terminal.send("\u{7f}");
+    terminal.send("\u{1a}");
+    terminal.send("\u{1b}[3~");
+    terminal.send("/quit\n");
+    let output = terminal.finish();
+    assert!(
+        output
+            .matches("고급 호환 명령: rpotato debug --help")
+            .count()
+            >= 2,
+        "palette dismissal must restore the overwritten conversation rows"
+    );
+    if let Some(value) = no_color {
+        std::env::set_var("NO_COLOR", value);
+    }
+}
+
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
 #[test]
 fn entry_switches_projects_without_manual_state_reconcile() {

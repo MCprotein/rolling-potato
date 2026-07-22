@@ -621,7 +621,9 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
     for target in [
         "src/adapters/terminal/capability.rs",
         "src/adapters/terminal/native.rs",
+        "src/adapters/terminal/native/live_input.rs",
         "src/adapters/terminal/native/platform.rs",
+        "src/surfaces/tui/command_palette.rs",
         "tests/surfaces.rs",
         "tests/surfaces/interactive_tui.rs",
         "tests/surfaces/native_terminal.rs",
@@ -663,6 +665,10 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
         native.lines().any(|line| line == "mod platform;"),
         "native terminal adapter does not register its platform owner"
     );
+    assert!(
+        native.lines().any(|line| line == "mod live_input;"),
+        "native terminal adapter does not register its live input owner"
+    );
     for responsibility in [
         "unsafe extern \"C\"",
         "unsafe extern \"system\"",
@@ -680,8 +686,25 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
             "native terminal facade still owns platform behavior: {responsibility}"
         );
     }
-    assert!(native.lines().count() < 300);
-    assert!(platform.lines().count() < 475);
+    assert!(native.lines().count() < 325);
+    assert!(platform.lines().count() < 550);
+    let live_input = fs::read_to_string("src/adapters/terminal/native/live_input.rs").unwrap();
+    for responsibility in [
+        "pub(super) fn read(",
+        "fn matching_suggestions<'a>(",
+        "fn redraw(",
+        "fn pop_last_utf8_char(",
+    ] {
+        assert!(
+            live_input.contains(responsibility),
+            "native live input owner is missing: {responsibility}"
+        );
+        assert!(
+            !native.contains(responsibility),
+            "native terminal facade owns live input behavior: {responsibility}"
+        );
+    }
+    assert!(live_input.lines().count() < 300);
 }
 
 #[test]
