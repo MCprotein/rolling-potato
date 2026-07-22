@@ -2,6 +2,31 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-22: release PTY gate가 게시 직후 live update API에 의존함
+
+### 증상
+
+- `v0.46.1` candidate의 전체 test와 Windows native terminal gate는 통과했지만,
+  Release 게시 직후 실행된 release test gate에서 Unix `entry_quit`가 10초 timeout됐습니다.
+- 첫 PTY test panic이 공유 mutex를 poison해 뒤의 native terminal test 네 개가 실제
+  실행 없이 연쇄 실패했고, 플랫폼 asset build는 시작되지 않았습니다.
+
+### 원인
+
+- Native terminal fixture가 setup만 생략하고 startup update check는 그대로 실행해,
+  첫 frame과 input read 사이에 실제 GitHub API 호출이 들어갔습니다.
+- 게시 직후 아직 aggregate checksum asset이 없는 release를 조회하는 외부 network
+  지연이 deterministic PTY input/exit 계약에 섞였습니다.
+
+### 재발 방지
+
+- Native terminal fixture는 `RPOTATO_TEST_SKIP_UPDATE_CHECK=1`을 소유하고 종료 시
+  제거하여 live release 상태와 network latency에 의존하지 않습니다.
+- Startup update 동작은 별도 adapter/unit 계약으로 검증하고, PTY input/exit 테스트는
+  terminal lifecycle만 검증합니다.
+- 공유 terminal mutex는 이전 test panic의 poison에서 guard를 회수해 후속 test가 실제
+  결과를 보고하도록 하며, 첫 실패를 다수의 가짜 연쇄 실패로 확대하지 않습니다.
+
 ## 2026-07-22: v0.45.0 TUI가 혼합 세대 ledger를 거부함
 
 ### 증상

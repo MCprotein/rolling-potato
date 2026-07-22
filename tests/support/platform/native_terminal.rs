@@ -72,7 +72,9 @@ pub struct PendingSourceApproval {
 
 impl NativeTerminalFixture {
     pub fn new(case_name: &str) -> Self {
-        let lock = NATIVE_TERMINAL_LOCK.lock().unwrap();
+        let lock = NATIVE_TERMINAL_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -98,6 +100,7 @@ impl NativeTerminalFixture {
         std::env::set_var("RPOTATO_PROJECT_ROOT", &project);
         std::env::set_var("RPOTATO_DATA_HOME", &data);
         std::env::set_var("RPOTATO_TEST_SKIP_SETUP", "1");
+        std::env::set_var("RPOTATO_TEST_SKIP_UPDATE_CHECK", "1");
         Self {
             _lock: lock,
             root,
@@ -389,6 +392,7 @@ impl Drop for NativeTerminalFixture {
         std::env::remove_var("RPOTATO_TEST_TERMINAL_FAULT");
         std::env::remove_var("RPOTATO_TEST_TUI_SECRET_PROBE");
         std::env::remove_var("RPOTATO_TEST_SKIP_SETUP");
+        std::env::remove_var("RPOTATO_TEST_SKIP_UPDATE_CHECK");
         let _ = std::fs::remove_dir_all(&self.root);
     }
 }
