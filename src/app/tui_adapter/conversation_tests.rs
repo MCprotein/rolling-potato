@@ -2,12 +2,12 @@ use super::*;
 use crate::adapters::terminal::native::ScriptedTerminal;
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::controller::{run_controller, TuiRuntimePort};
-use crate::surfaces::tui::render::render_interactive_frame;
+use crate::surfaces::tui::render::{display_cell_width, render_interactive_frame};
 use crate::surfaces::tui::runtime_bridge::{
     SelectionLease, TuiFreshness, TuiGateKind, TuiIntent, TuiModelOption, TuiReadContinuation,
     TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
 };
-use crate::surfaces::tui::view_model::InteractiveState;
+use crate::surfaces::tui::view_model::{ConversationRole, InteractiveState};
 
 #[test]
 fn default_interactive_frame_is_conversation_first_and_hides_runtime_internals() {
@@ -52,15 +52,47 @@ fn ordinary_input_renders_as_user_and_assistant_turns() {
 
     let rendered = terminal.frames.join("\n");
     assert_eq!(runtime.requests, ["안녕"]);
+    assert_eq!(runtime.page_reads, 0, "default chat must not read overview");
+    assert!(terminal.frames[1].contains("› 안녕"));
+    assert!(!terminal.frames[1].contains("● 안녕하세요."));
     assert!(rendered.contains("› 안녕"));
     assert!(rendered.contains("● 안녕하세요."));
     assert!(!rendered.contains("ledger: must stay hidden"));
     assert!(!rendered.contains("patch proposal"));
 }
 
+#[test]
+fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let previous_root = std::env::var_os("RPOTATO_PROJECT_ROOT");
+    std::env::set_var("RPOTATO_PROJECT_ROOT", "/\u{001b}[31m위험\n프로젝트");
+    let mut state = InteractiveState::new();
+    state.push_turn(
+        ConversationRole::Assistant,
+        "한국어 응답이 좁은 터미널에서도 입력창을 밀어내지 않습니다.",
+    );
+
+    let frame = render_interactive_frame(&state, &TuiReadPage::conversation_placeholder(), 20, 12);
+
+    if let Some(previous_root) = previous_root {
+        std::env::set_var("RPOTATO_PROJECT_ROOT", previous_root);
+    } else {
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    }
+    assert!(!frame.contains('\u{001b}'));
+    assert!(frame.contains("<esc>"));
+    assert!(!frame.contains("\n프로젝트"));
+    assert!(
+        frame.lines().all(|line| display_cell_width(line) <= 20),
+        "narrow frame exceeded terminal cell width:\n{frame}"
+    );
+    assert!(frame.ends_with("› "));
+}
+
 #[derive(Default)]
 struct ConversationRuntime {
     requests: Vec<String>,
+    page_reads: usize,
 }
 
 impl TuiRuntimePort for ConversationRuntime {
@@ -73,6 +105,7 @@ impl TuiRuntimePort for ConversationRuntime {
     }
 
     fn read_tui_page(&mut self, _request: TuiReadRequest) -> Result<TuiReadPage, AppError> {
+        self.page_reads += 1;
         Ok(TuiReadPage {
             title: "overview".to_string(),
             lines: vec!["ledger: must stay hidden".to_string()],

@@ -11,7 +11,7 @@ pub(super) fn is_conversational_request(request: &str) -> bool {
         return false;
     }
     let lower = trimmed.to_ascii_lowercase();
-    [
+    let has_korean_signal = [
         "안녕",
         "반가워",
         "반갑습니다",
@@ -21,15 +21,17 @@ pub(super) fn is_conversational_request(request: &str) -> bool {
         "무엇을 할 수 있어",
         "사용법",
         "도움말",
-        "hello",
-        "hi",
-        "hey",
-        "thanks",
-        "thank you",
-        "what can you do",
     ]
     .iter()
-    .any(|signal| lower.contains(signal))
+    .any(|signal| lower.contains(signal));
+    let has_english_word = lower
+        .split(|ch: char| !ch.is_ascii_alphabetic())
+        .any(|word| matches!(word, "hello" | "hi" | "hey" | "thanks"));
+
+    has_korean_signal
+        || has_english_word
+        || lower.contains("thank you")
+        || lower.contains("what can you do")
 }
 
 pub(super) fn reply(request: &str) -> Result<String, AppError> {
@@ -134,6 +136,8 @@ mod tests {
             "src/main.rs 수정해줘",
             "이 오류를 분석해줘",
             "테스트를 실행해줘",
+            "this crashes on startup",
+            "they need help with startup",
         ] {
             assert!(!is_conversational_request(request), "{request}");
         }

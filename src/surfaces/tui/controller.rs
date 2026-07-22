@@ -39,8 +39,12 @@ pub(crate) fn run_controller(
 
     loop {
         let (width, height) = terminal.dimensions().map_err(terminal_fault_error)?;
-        let request = state.read_request(width, height);
-        let page = runtime.read_tui_page(request)?;
+        let page = if matches!(state.view, InteractiveView::Conversation) {
+            TuiReadPage::conversation_placeholder()
+        } else {
+            let request = state.read_request(width, height);
+            runtime.read_tui_page(request)?
+        };
         let status = runtime
             .read_tui_status()
             .unwrap_or_else(|_| TuiStatusSnapshot::unavailable());
@@ -339,6 +343,7 @@ pub(crate) fn run_controller(
             _ => {
                 state.view = InteractiveView::Conversation;
                 state.push_turn(ConversationRole::User, line.trim());
+                write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
                 let response = match runtime.submit_request(line.trim()) {
                     Ok(report) => report,
                     Err(error) => format!("요청을 완료하지 못했습니다.\n{}", error.message),
@@ -422,6 +427,30 @@ fn write_pre_dispatch_frame(
     terminal
         .write_frame_at(prompt, FrameWriteBoundary::PreDispatch)
         .map_err(|_| pre_dispatch_write_error(intent_id))
+}
+
+fn write_pending_conversation_frame(
+    terminal: &mut impl TerminalIo,
+    runtime: &mut impl TuiRuntimePort,
+    state: &InteractiveState,
+    width: u16,
+    height: u16,
+) -> Result<(), AppError> {
+    let status = runtime
+        .read_tui_status()
+        .unwrap_or_else(|_| TuiStatusSnapshot::unavailable());
+    let frame = super::render::render_interactive_frame_with_options(
+        state,
+        &TuiReadPage::conversation_placeholder(),
+        &status,
+        width,
+        height,
+        terminal.supports_ansi_layout(),
+        terminal.supports_color(),
+    );
+    terminal
+        .write_frame_at(&frame, FrameWriteBoundary::Ordinary)
+        .map_err(|_| pre_dispatch_write_error(&runtime.new_tui_intent_id()))
 }
 
 pub(crate) fn terminal_fault_error(fault: TerminalFault) -> AppError {
