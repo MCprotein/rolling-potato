@@ -144,11 +144,12 @@ evidence.
 | v0.45.0 | Released | Project-local TUI current-state isolation, guarded legacy pointer migration, canonical ledger ancestor validation, and exact startup error reporting across shared-install project switches |
 | v0.45.1 | Released | Restored TUI read-only compatibility for valid legacy-v1-to-chained-v2 runtime ledgers while preserving digest, chain, head-count, tamper, and bounded-read validation |
 
-### Conversation interface refinement (`v0.46.0`)
+### Conversation interface refinement and reliability (`v0.46.0`-`v0.46.1`)
 
 | Version | Status | Scope |
 | --- | --- | --- |
 | v0.46.0 | Released | Refined the primary conversation TUI with a compact welcome, persistent bordered composer, semantic status segments, terminal-cell wrapping, lossless long-response paging, and exact cross-platform terminal outcome boundaries |
+| v0.46.1 | Released | Restored real default conversation with stale failed-run recovery, non-thinking small-model chat requests, explicit work routing, and a live slash-command palette before Enter |
 
 ## Distribution Boundary
 

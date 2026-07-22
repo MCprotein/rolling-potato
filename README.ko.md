@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.46.0` |
+| 현재 릴리즈 | `v0.46.1` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -180,7 +180,7 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-`v0.46.0` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
+`v0.46.1` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
@@ -238,9 +238,9 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-`v0.46.0`까지의 release history는 완료되었습니다. 최신 release는 compact welcome,
-bordered composer, 의미별 status segment, terminal-cell 줄바꿈, 긴 응답의 무손실
-page 이동으로 기본 TUI를 개선합니다.
+`v0.46.1`까지의 release history는 완료되었습니다. 최신 patch는 실제 기본 대화를
+복구하고, 오래 남은 실패 workflow를 정리하며, 소형 모델 응답 budget을 보존하고,
+Enter 전에 slash-command palette를 표시합니다.
 [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를
 참고하십시오.
 
