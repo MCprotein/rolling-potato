@@ -290,7 +290,7 @@ fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
     assert!(frame.contains("\u{001b}[36mmodel gemma-4-e4b"));
     assert!(frame.contains("\u{001b}[32mbackend ready"));
     assert!(frame.contains("╭─ 요청 "));
-    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[4C"));
+    assert!(frame.ends_with("\n\u{001b}[3A\r\u{001b}[4C"));
 
     status.has_compaction_checkpoint = true;
     let saved = render_interactive_frame_with_options(&state, &page, &status, 120, 40, true, true);
@@ -361,7 +361,7 @@ fn long_notice_keeps_composer_and_status_inside_the_terminal_row_budget() {
     assert!(frame.find("› ").unwrap() < frame.find("model 미선택").unwrap());
     assert!(frame.matches('\n').count() < 10);
     assert!(frame.contains("…"));
-    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[4C"));
+    assert!(frame.ends_with("\n\u{001b}[3A\r\u{001b}[4C"));
 }
 
 #[test]
@@ -442,7 +442,6 @@ fn long_notice_pages_preserve_later_response_lines() {
 
     let frame = render_interactive_frame(&state, &page, 80, 10);
 
-    assert!(frame.contains("response line 18"));
     assert!(frame.contains("response line 19"));
     assert!(!frame.contains("response line 0"));
     let last_page = state.notice_page;

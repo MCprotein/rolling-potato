@@ -140,7 +140,7 @@ pub(crate) fn notice_rows_per_page(height: u16) -> usize {
 }
 
 pub(crate) fn conversation_rows_per_page(height: u16, show_welcome: bool) -> usize {
-    let chrome_rows = if show_welcome { 8 } else { 6 };
+    let chrome_rows = if show_welcome { 9 } else { 7 };
     usize::from(height).saturating_sub(chrome_rows).max(1)
 }
 

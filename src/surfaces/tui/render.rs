@@ -220,7 +220,8 @@ fn render_composer(
         output.push_str(&paint(&box_rule('╰', '╯', "", width), MUTED_COLOR, color));
         output.push('\n');
         output.push_str(status_line);
-        output.push_str("\u{001b}[2A\r\u{001b}[4C");
+        output.push('\n');
+        output.push_str("\u{001b}[3A\r\u{001b}[4C");
     } else {
         output.push_str(status_line);
         output.push('\n');
