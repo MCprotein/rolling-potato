@@ -1,5 +1,27 @@
 # 릴리즈 노트
 
+## v0.46.2 - 결정적인 release terminal gate
+
+릴리즈 날짜: 2026-07-22
+
+이 복구 patch는 native terminal release gate에서 외부 network 의존성을 제거한 뒤
+v0.46.1의 대화 수정 사항을 다시 게시합니다.
+
+### 포함한 것
+
+- Native PTY input/exit test를 실제 GitHub latest release API와 분리하고 startup
+  update 동작은 별도 계약에서 계속 검증
+- 공유 terminal-test mutex의 poison에서 guard를 복구하여 한 assertion 실패가 이후
+  platform case의 오해하기 쉬운 연쇄 실패로 번지지 않도록 개선
+- 실제 기본 대화, 오래 남은 실패 workflow 복구, 소형 모델 non-thinking chat request,
+  live slash-command palette를 그대로 포함
+
+### 릴리즈 복구
+
+- `v0.46.1`은 platform build matrix 시작 전 release test gate timeout으로 binary
+  asset 없이 게시됐습니다.
+- `v0.46.2`가 이 대화 신뢰성 수정 사항을 완전한 binary로 처음 게시하는 릴리즈입니다.
+
 ## v0.46.1 - 기본 대화 신뢰성 복구
 
 릴리즈 날짜: 2026-07-22

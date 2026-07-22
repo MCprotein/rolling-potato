@@ -1,5 +1,28 @@
 # Release Notes
 
+## v0.46.2 - Deterministic Release Terminal Gate
+
+Release date: 2026-07-22
+
+This recovery patch republishes the v0.46.1 conversation fixes after removing
+an external-network dependency from the native terminal release gate.
+
+### Included
+
+- Keeps native PTY input and exit tests independent of the live GitHub latest
+  release API while startup update behavior remains covered separately.
+- Recovers a poisoned shared terminal-test mutex so one assertion failure does
+  not turn later platform cases into misleading cascade failures.
+- Carries forward reliable default conversation, stale failed-run recovery,
+  non-thinking small-model chat requests, and the live slash-command palette.
+
+### Release Recovery
+
+- `v0.46.1` was published without binary assets because its release test gate
+  timed out before the platform build matrix started.
+- `v0.46.2` is the first complete binary publication of these conversation
+  reliability fixes.
+
 ## v0.46.1 - Reliable Default Conversation
 
 Release date: 2026-07-22

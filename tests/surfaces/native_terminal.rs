@@ -12,6 +12,11 @@ fn entry_quit() {
     let fixture = NativeTerminalFixture::new("entry-quit");
     assert!(fixture.project.is_dir());
     assert!(fixture.data.is_dir());
+    assert_eq!(
+        std::env::var_os("RPOTATO_TEST_SKIP_UPDATE_CHECK").as_deref(),
+        Some(std::ffi::OsStr::new("1")),
+        "native terminal fixtures must not depend on the live release API"
+    );
     let before = tree_snapshot(&[&fixture.project, &fixture.data]);
 
     let mut terminal = NativePty::spawn(120, 40);
