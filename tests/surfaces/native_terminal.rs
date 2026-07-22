@@ -61,8 +61,20 @@ fn slash_opens_command_palette_before_enter() {
     terminal.wait_for("알 수 없는 TUI 명령입니다: /없는명령");
     terminal.send("/helx\u{7f}p\n");
     terminal.wait_for("고급 호환 명령: rpotato debug --help");
+    terminal.send("/");
+    terminal.wait_for("/compact");
+    terminal.send("\u{7f}");
+    terminal.send("\u{1a}");
+    terminal.send("\u{1b}[3~");
     terminal.send("/quit\n");
-    terminal.finish();
+    let output = terminal.finish();
+    assert!(
+        output
+            .matches("고급 호환 명령: rpotato debug --help")
+            .count()
+            >= 2,
+        "palette dismissal must restore the overwritten conversation rows"
+    );
     if let Some(value) = no_color {
         std::env::set_var("NO_COLOR", value);
     }

@@ -11,6 +11,10 @@ mod imp {
     const TCSANOW: i32 = 0;
     const ECHO: TcFlag = 0x0000_0008;
     #[cfg(target_os = "linux")]
+    const ISIG: TcFlag = 0x0000_0001;
+    #[cfg(target_os = "macos")]
+    const ISIG: TcFlag = 0x0000_0080;
+    #[cfg(target_os = "linux")]
     const ICANON: TcFlag = 0x0000_0002;
     #[cfg(target_os = "macos")]
     const ICANON: TcFlag = 0x0000_0100;
@@ -116,6 +120,7 @@ mod imp {
 
     pub fn read_line_with_suggestions(
         suggestions: &[TerminalSuggestion],
+        base_frame: &str,
     ) -> Result<Option<String>, TerminalFault> {
         let mut original = std::mem::MaybeUninit::<Termios>::uninit();
         // SAFETY: tcgetattr initializes the output on success.
@@ -126,7 +131,7 @@ mod imp {
         let original = unsafe { original.assume_init() };
         let _signal_restore = SignalEchoRestore::install(original)?;
         let mut live = original;
-        live.c_lflag &= !(ECHO | ICANON);
+        live.c_lflag &= !(ECHO | ICANON | ISIG);
         live.c_cc[VMIN] = 1;
         live.c_cc[VTIME] = 0;
         // SAFETY: both termios pointers are valid for the duration of each call.
@@ -139,7 +144,7 @@ mod imp {
             restored: false,
         };
         let width = dimensions().map(|(columns, _)| usize::from(columns))?;
-        let value = super::super::live_input::read(suggestions, width);
+        let value = super::super::live_input::read(suggestions, width, base_frame);
         if !restore.restore() {
             return Err(TerminalFault::EchoRestore);
         }
@@ -283,6 +288,7 @@ mod imp {
     const STD_OUTPUT_HANDLE: u32 = -11i32 as u32;
     const ENABLE_ECHO_INPUT: u32 = 0x0004;
     const ENABLE_LINE_INPUT: u32 = 0x0002;
+    const ENABLE_VIRTUAL_TERMINAL_INPUT: u32 = 0x0200;
     const CTRL_C_EVENT: u32 = 0;
     const CTRL_BREAK_EVENT: u32 = 1;
     const CTRL_CLOSE_EVENT: u32 = 2;
@@ -384,6 +390,7 @@ mod imp {
 
     pub fn read_line_with_suggestions(
         suggestions: &[TerminalSuggestion],
+        base_frame: &str,
     ) -> Result<Option<String>, TerminalFault> {
         // SAFETY: GetStdHandle has no Rust-side preconditions.
         let handle = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
@@ -394,9 +401,9 @@ mod imp {
         }
         let _signal_restore = SignalEchoRestore::install(handle, original)?;
         // SAFETY: handle and mode came from the console API.
-        if unsafe { SetConsoleMode(handle, original & !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT)) }
-            == 0
-        {
+        let live_mode =
+            (original & !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT)) | ENABLE_VIRTUAL_TERMINAL_INPUT;
+        if unsafe { SetConsoleMode(handle, live_mode) } == 0 {
             return Err(TerminalFault::NoEchoSet);
         }
         let mut restore = EchoRestore {
@@ -405,7 +412,7 @@ mod imp {
             restored: false,
         };
         let width = dimensions().map(|(columns, _)| usize::from(columns))?;
-        let value = super::super::live_input::read(suggestions, width);
+        let value = super::super::live_input::read(suggestions, width, base_frame);
         if !restore.restore() {
             return Err(TerminalFault::EchoRestore);
         }
@@ -530,6 +537,7 @@ mod imp {
 
     pub fn read_line_with_suggestions(
         _suggestions: &[TerminalSuggestion],
+        _base_frame: &str,
     ) -> Result<Option<String>, TerminalFault> {
         Err(TerminalFault::ModeRead)
     }

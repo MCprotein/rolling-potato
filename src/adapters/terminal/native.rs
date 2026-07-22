@@ -20,18 +20,21 @@ pub fn validate_native_fault_configuration() -> Result<(), TerminalFault> {
 
 pub struct NativeTerminal {
     allow_piped_dimensions: bool,
+    last_frame: String,
 }
 
 impl NativeTerminal {
     pub fn new() -> Self {
         Self {
             allow_piped_dimensions: false,
+            last_frame: String::new(),
         }
     }
 
     pub fn explicit_line_mode() -> Self {
         Self {
             allow_piped_dimensions: true,
+            last_frame: String::new(),
         }
     }
 }
@@ -71,7 +74,7 @@ impl TerminalIo for NativeTerminal {
         suggestions: &[TerminalSuggestion],
     ) -> Result<Option<String>, TerminalFault> {
         if io::stdin().is_terminal() && self.supports_ansi_layout() && self.supports_color() {
-            platform::read_line_with_suggestions(suggestions)
+            platform::read_line_with_suggestions(suggestions, &self.last_frame)
         } else {
             self.read_line()
         }
@@ -86,7 +89,10 @@ impl TerminalIo for NativeTerminal {
         stdout
             .write_all(frame.as_bytes())
             .and_then(|()| stdout.flush())
-            .map_err(|_| TerminalFault::FrameWrite)
+            .map_err(|_| TerminalFault::FrameWrite)?;
+        self.last_frame.clear();
+        self.last_frame.push_str(frame);
+        Ok(())
     }
 
     fn supports_ansi_layout(&self) -> bool {

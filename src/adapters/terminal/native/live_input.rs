@@ -5,43 +5,77 @@ use super::{TerminalFault, TerminalSuggestion};
 const MAX_INPUT_BYTES: usize = 8 * 1024;
 const MAX_PALETTE_ROWS: usize = 6;
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+enum EscapeState {
+    #[default]
+    None,
+    Escape,
+    Csi,
+    Ss3,
+}
+
 pub(super) fn read(
     suggestions: &[TerminalSuggestion],
     terminal_width: usize,
+    base_frame: &str,
 ) -> Result<Option<String>, TerminalFault> {
     let mut input = Vec::new();
-    let mut rendered_rows = 0;
-    let mut escape_bytes_to_skip = 0;
+    let mut escape_state = EscapeState::None;
     let mut stdin = io::stdin().lock();
-    redraw(&input, suggestions, terminal_width, &mut rendered_rows)?;
 
     loop {
         let mut byte = [0_u8; 1];
         let bytes = stdin.read(&mut byte).map_err(|_| TerminalFault::LineRead)?;
         if bytes == 0 || (byte[0] == 0x04 && input.is_empty()) {
-            clear_palette(rendered_rows)?;
+            redraw(&input, &[], terminal_width, base_frame)?;
             return Ok(None);
         }
-        if escape_bytes_to_skip > 0 {
-            escape_bytes_to_skip -= 1;
+        if consumes_escape_byte(&mut escape_state, byte[0]) {
             continue;
         }
         match byte[0] {
             b'\n' | b'\r' => {
-                clear_palette(rendered_rows)?;
+                redraw(&input, &[], terminal_width, base_frame)?;
                 return String::from_utf8(input)
                     .map(Some)
                     .map_err(|_| TerminalFault::LineRead);
             }
-            0x08 | 0x7f => pop_last_utf8_char(&mut input),
-            0x1b => {
-                escape_bytes_to_skip = 2;
-                continue;
+            0x03 => {
+                redraw(&input, &[], terminal_width, base_frame)?;
+                return Ok(None);
             }
+            0x08 | 0x7f => pop_last_utf8_char(&mut input),
             byte if !byte.is_ascii_control() && input.len() < MAX_INPUT_BYTES => input.push(byte),
             _ => continue,
         }
-        redraw(&input, suggestions, terminal_width, &mut rendered_rows)?;
+        redraw(&input, suggestions, terminal_width, base_frame)?;
+    }
+}
+
+fn consumes_escape_byte(state: &mut EscapeState, byte: u8) -> bool {
+    match (*state, byte) {
+        (EscapeState::None, 0x1b) | (EscapeState::Escape, 0x1b) => {
+            *state = EscapeState::Escape;
+            true
+        }
+        (EscapeState::Escape, b'[') => {
+            *state = EscapeState::Csi;
+            true
+        }
+        (EscapeState::Escape, b'O') => {
+            *state = EscapeState::Ss3;
+            true
+        }
+        (EscapeState::Escape, _) => {
+            *state = EscapeState::None;
+            false
+        }
+        (EscapeState::Csi, 0x40..=0x7e) | (EscapeState::Ss3, _) => {
+            *state = EscapeState::None;
+            true
+        }
+        (EscapeState::Csi, _) => true,
+        (EscapeState::None, _) => false,
     }
 }
 
@@ -81,11 +115,10 @@ fn redraw(
     input: &[u8],
     suggestions: &[TerminalSuggestion],
     terminal_width: usize,
-    rendered_rows: &mut usize,
+    base_frame: &str,
 ) -> Result<(), TerminalFault> {
     let input = std::str::from_utf8(input).unwrap_or("");
     let matches = matching_suggestions(input, suggestions);
-    let rows_to_clear = (*rendered_rows).max(matches.len());
     let input_width = terminal_width.saturating_sub(6).max(1);
     let visible_input = tail_by_cell_width(input, input_width);
     let cursor_column = 4 + display_cell_width(visible_input);
@@ -94,7 +127,7 @@ fn redraw(
         .map(|item| display_cell_width(item.command))
         .max()
         .unwrap_or(0);
-    let mut output = String::new();
+    let mut output = String::from(base_frame);
 
     output.push_str("\r\u{001b}[4C");
     output.push_str(visible_input);
@@ -103,46 +136,28 @@ fn redraw(
     output.push('\r');
     output.push_str(&format!("\u{001b}[{}C\u{001b}7", cursor_column));
 
-    for row in 0..rows_to_clear {
+    for (row, entry) in matches.iter().enumerate() {
         output.push_str("\u{001b}8");
         output.push_str(&format!(
             "\u{001b}[{}A\r\u{001b}[2K",
-            2 + rows_to_clear - row - 1
+            2 + matches.len() - row - 1
         ));
-        let first_match_row = rows_to_clear.saturating_sub(matches.len());
-        if row >= first_match_row {
-            let entry = matches[row - first_match_row];
-            let command_padding = command_width.saturating_sub(display_cell_width(entry.command));
-            let description = truncate_plain_text(
-                entry.description,
-                terminal_width.saturating_sub(2 + command_width + 2),
-            );
-            output.push_str(&format!(
-                "  \u{001b}[1;36m{}\u{001b}[0m{}  \u{001b}[2m{}\u{001b}[0m",
-                entry.command,
-                " ".repeat(command_padding),
-                description
-            ));
-        }
+        let command_padding = command_width.saturating_sub(display_cell_width(entry.command));
+        let description = truncate_plain_text(
+            entry.description,
+            terminal_width.saturating_sub(2 + command_width + 2),
+        );
+        output.push_str(&format!(
+            "  \u{001b}[1;36m{}\u{001b}[0m{}  \u{001b}[2m{}\u{001b}[0m",
+            entry.command,
+            " ".repeat(command_padding),
+            description
+        ));
     }
     output.push_str("\u{001b}8");
 
     write_stdout(&output)?;
-    *rendered_rows = matches.len();
     Ok(())
-}
-
-fn clear_palette(rows: usize) -> Result<(), TerminalFault> {
-    if rows == 0 {
-        return Ok(());
-    }
-    let mut output = String::from("\u{001b}7");
-    for distance in 2..(2 + rows) {
-        output.push_str("\u{001b}8");
-        output.push_str(&format!("\u{001b}[{distance}A\r\u{001b}[2K"));
-    }
-    output.push_str("\u{001b}8");
-    write_stdout(&output)
 }
 
 fn write_stdout(value: &str) -> Result<(), TerminalFault> {
@@ -265,5 +280,19 @@ mod tests {
         let mut input = "a한".as_bytes().to_vec();
         pop_last_utf8_char(&mut input);
         assert_eq!(String::from_utf8(input).unwrap(), "a");
+    }
+
+    #[test]
+    fn consumes_complete_escape_sequences_without_dropping_following_text() {
+        let mut state = EscapeState::None;
+        for byte in b"\x1b[3~" {
+            assert!(consumes_escape_byte(&mut state, *byte));
+        }
+        assert_eq!(state, EscapeState::None);
+        assert!(!consumes_escape_byte(&mut state, b'x'));
+
+        assert!(consumes_escape_byte(&mut state, 0x1b));
+        assert!(!consumes_escape_byte(&mut state, b'y'));
+        assert_eq!(state, EscapeState::None);
     }
 }

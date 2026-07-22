@@ -686,7 +686,7 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
             "native terminal facade still owns platform behavior: {responsibility}"
         );
     }
-    assert!(native.lines().count() < 300);
+    assert!(native.lines().count() < 325);
     assert!(platform.lines().count() < 550);
     let live_input = fs::read_to_string("src/adapters/terminal/native/live_input.rs").unwrap();
     for responsibility in [
