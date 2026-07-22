@@ -65,6 +65,7 @@ jobs:
     needs:
       - test
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -130,6 +131,7 @@ jobs:
           cargo test --locked --target ${{ matrix.target }} --test inference backend_lifecycle::native_backend_cancel_and_stop_lifecycle -- --test-threads=1
 
       - name: Test native interactive terminal
+        timeout-minutes: 5
         shell: bash
         run: |
           set -euo pipefail

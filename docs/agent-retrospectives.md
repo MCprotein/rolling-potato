@@ -609,3 +609,27 @@
 - Patch/team 통합 fixture가 patch action을 기대하면 요청 문장에도 명시적인 변경
   의도를 포함합니다. 단순 fixture 이름이나 영어 명사구를 숨은 변경 신호로
   취급하지 않습니다.
+
+## 2026-07-22: Release matrix의 macOS ARM native test가 무기한 실행됨
+
+### 증상
+
+- `v0.46.2` release matrix에서 macOS 26 ARM의 `entry_quit`는 통과했지만
+  `full_adapter`가 21분 넘게 종료되지 않았습니다.
+- 같은 SHA와 target의 exact test는 로컬 macOS ARM에서 19.47초에 통과했고,
+  실패 job만 새 runner에서 다시 실행했을 때도 정상 통과했습니다.
+
+### 원인
+
+- 첫 GitHub-hosted macOS ARM runner에서 test process가 정체됐습니다.
+- Release build job과 native terminal step에 timeout이 없어 테스트 내부의 개별
+  10초 대기 제한 밖에서 process가 멈추면 기본 Actions 한도까지 지속될 수 있었습니다.
+
+### 재발 방지
+
+- Release platform build job은 15분, native interactive terminal step은 5분으로
+  제한합니다.
+- Release workflow contract가 두 timeout을 고정해 guard가 조용히 제거되는 것을
+  차단합니다.
+- Native test 정체 시 성공한 platform job을 반복하지 않고 exact local test와
+  취소된 job log로 환경성 여부를 확인한 뒤 실패 job만 한 번 재실행합니다.
