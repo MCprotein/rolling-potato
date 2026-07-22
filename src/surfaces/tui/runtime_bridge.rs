@@ -80,6 +80,21 @@ pub(crate) struct TuiReadPage {
     pub(crate) authority: TuiReadAuthority,
 }
 
+impl TuiReadPage {
+    pub(crate) fn conversation_placeholder() -> Self {
+        Self {
+            title: "conversation".to_string(),
+            lines: Vec::new(),
+            page: 0,
+            has_previous: false,
+            has_next: false,
+            freshness: TuiFreshness::Unavailable,
+            continuation: TuiReadContinuation::Unavailable,
+            authority: TuiReadAuthority::default(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TuiStatusSnapshot {
     pub(crate) model: String,

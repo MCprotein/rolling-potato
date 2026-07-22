@@ -18,6 +18,7 @@ use crate::surfaces::tui::setup::{self, PreparedTuiModel, TuiSetupPort};
 
 mod model_switch;
 use model_switch::{switch_prepared_model, LiveModelSwitch};
+mod conversation;
 mod runtime;
 
 pub fn run_auto() -> Result<(), AppError> {
@@ -325,3 +326,7 @@ mod tests;
 #[cfg(test)]
 #[path = "tui_adapter/report_tests.rs"]
 mod report_tests;
+
+#[cfg(test)]
+#[path = "tui_adapter/conversation_tests.rs"]
+mod conversation_tests;

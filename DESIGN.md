@@ -5,7 +5,7 @@
 ### Source Of Truth
 
 - Status: Active
-- Last refreshed: 2026-07-21
+- Last refreshed: 2026-07-22
 - Primary product surface: no-argument `rpotato` TUI; subcommand CLI for automation and diagnostics; optional local static HTML report
 - Evidence reviewed:
   - `README.md`
@@ -19,6 +19,7 @@
   - `PRIVACY.md`
   - `src/runtime_core/observability/monitor.rs`
   - `src/adapters/sqlite/observability_projection.rs`
+  - user-provided Codex and Claude Code terminal references captured on 2026-07-22
 
 ### Brand
 
@@ -75,25 +76,27 @@
 ### Information Architecture
 
 - Primary navigation:
-  - TUI top-level tabs: Session, Monitor, Agents, Evidence, Logs, Settings
-  - keyboard-first navigation with single-key tab switching
-  - command palette for less frequent actions
+  - The default surface is one conversation transcript, not an operations dashboard.
+  - The composer remains visible at the bottom and accepts natural-language coding requests.
+  - Slash commands open model, status, session, doctor, and other secondary surfaces only when requested.
 - Core routes/screens:
+  - TUI default: compact welcome, transcript, composer, one runtime status line
+  - TUI secondary: model picker, status summary, session history, diagnostics, approvals, evidence
   - CLI: `rpotato monitor status`, `rpotato monitor models`, `rpotato monitor session <id>`
-  - TUI: monitor overview, model detail, session detail, failures, export/prune
   - optional local report: `rpotato monitor export --format html`
 - Content hierarchy:
-  1. current run health: model, backend, active workflow, approval state
-  2. token and latency summary
-  3. failure/gate status
-  4. subagent/team breakdown
-  5. detail tables and logs
+  1. current user and assistant turns
+  2. active task progress, approval, or actionable failure
+  3. composer
+  4. compact model/context/backend/session status
+  5. detailed metrics, hashes, ledger state, and logs only in explicit diagnostic views
 
 ### Design Principles
 
 - SSH-first: every critical monitoring function must work in a plain terminal.
-- Dense but calm: show operational data without dashboard decoration.
-- Progressive disclosure: overview first, then drill down on model/session/tool when requested.
+- Conversation first: the initial frame resembles a coding assistant, not a ledger viewer.
+- Calm by default: do not show hashes, revisions, ledger counts, projection state, or raw workflow fields before the user asks for diagnostics.
+- Progressive disclosure: transcript first, then drill down on model/session/tool/monitoring when requested.
 - Evidence over confidence theater: completion and health claims cite metric/evidence state.
 - Policy visibility: approval, privacy, redaction, and stop-gate status must be visible.
 - Tradeoffs:
@@ -132,6 +135,8 @@
   - runtime status vocabulary from `docs/glossary.md`
   - observability metric groups from `docs/observability.md`
 - New/changed components:
+  - compact first-run/welcome block that disappears once conversation starts
+  - user and assistant turn presentation without diagnostic prefixes
   - conversation composer with a persistent runtime status line directly below it
   - first-run model picker and managed-backend setup flow
   - metric summary strip
@@ -159,6 +164,9 @@
 ### Primary TUI Contract
 
 - Running attached `rpotato` with no arguments opens the conversation controller.
+- The first frame never renders the overview ledger page. It shows a compact welcome, the current project label, the composer, and the status line.
+- Ordinary input appears as a user turn before dispatch. The visible result appears as an assistant turn; errors remain inline and state the direct cause and recovery action.
+- Detailed revisions, hashes, ledger counts, projection freshness, workflow fields, and monitor tables are available only through explicit status/diagnostic views.
 - On first run, the same terminal flow lists source-backed model choices and shows model ID/version, quantization, download size, context limit, RAM status, license, and recommendation evidence before confirmation.
 - The managed backend is installed or reused automatically. The default path never asks the user for a `llama.cpp` executable or GGUF filesystem path.
 - The composer remains the focus point. Its immediately following status line always uses this order: `model | ctx used/limit (%) | backend | session`.
@@ -250,6 +258,9 @@
   - Optional HTML is generated locally from existing monitor query data and is not required for baseline operation.
 - Test/screenshot expectations:
   - TUI smoke tests at 80x24 and wide terminal sizes.
+  - The default-frame regression rejects raw ledger/hash/projection fields and proves composer/status ordering.
+  - A natural-language greeting regression proves that it is rendered as a conversation and never starts a patch proposal.
+  - Visual acceptance compares one 120x40 terminal capture against the 2026-07-22 Codex/Claude Code references; one bounded pass is sufficient unless the capture violates the contract.
   - HTML tests cover semantic structure, escaping, privacy markers, and narrow-screen layout without adding a browser runtime dependency.
 
 ### Monitoring TUI Screen Contract

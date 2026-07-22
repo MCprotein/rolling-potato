@@ -5,7 +5,7 @@
 ### 기준 문서
 
 - 상태: 활성
-- 마지막 갱신: 2026-07-21
+- 마지막 갱신: 2026-07-22
 - 주요 제품 surface: 인자 없는 `rpotato` TUI; 자동화·진단용 subcommand CLI; 선택 가능한 로컬 정적 HTML report
 - 검토한 근거:
   - `README.md`
@@ -19,6 +19,7 @@
   - `PRIVACY.md`
   - `src/runtime_core/observability/monitor.rs`
   - `src/adapters/sqlite/observability_projection.rs`
+  - 2026-07-22 사용자가 제공한 Codex·Claude Code 터미널 참조 화면
 
 ### 브랜드
 
@@ -75,25 +76,27 @@
 ### 정보 구조
 
 - 주 navigation:
-  - TUI 최상위 tab: Session, Monitor, Agents, Evidence, Logs, Settings
-  - single-key tab switching을 지원하는 keyboard-first navigation
-  - 덜 자주 쓰는 action을 위한 command palette
+  - 기본 surface는 운영 dashboard가 아니라 하나의 대화 transcript다.
+  - composer는 화면 하단에 유지되며 자연어 코딩 요청을 받는다.
+  - model, status, session, doctor 등 보조 화면은 사용자가 slash command로 요청할 때만 연다.
 - 핵심 route/screen:
+  - TUI 기본: 짧은 welcome, transcript, composer, runtime status line 하나
+  - TUI 보조: model picker, status summary, session history, diagnostics, approvals, evidence
   - CLI: `rpotato monitor status`, `rpotato monitor models`, `rpotato monitor session <id>`
-  - TUI: monitor overview, model detail, session detail, failures, export/prune
   - 선택 가능한 local report: `rpotato monitor export --format html`
 - 내용 우선순위:
-  1. 현재 run health: model, backend, active workflow, approval state
-  2. token과 latency summary
-  3. failure/gate status
-  4. subagent/team breakdown
-  5. detail table과 log
+  1. 현재 user·assistant turn
+  2. active task 진행 상태, 승인 또는 조치 가능한 실패
+  3. composer
+  4. 간결한 model/context/backend/session 상태
+  5. 상세 metric, hash, ledger 상태, log는 명시적인 진단 view에서만 표시
 
 ### 디자인 원칙
 
 - SSH-first: 모든 중요한 monitoring 기능은 plain terminal에서 동작해야 한다.
-- Dense but calm: dashboard 장식 없이 운영 데이터를 밀도 있게 보여준다.
-- Progressive disclosure: overview를 먼저 보여주고, 요청 시 model/session/tool detail로 drill down한다.
+- Conversation first: 최초 화면은 ledger viewer가 아니라 코딩 도우미처럼 보여야 한다.
+- Calm by default: 사용자가 진단을 요청하기 전에는 hash, revision, ledger count, projection 상태, raw workflow field를 보여주지 않는다.
+- Progressive disclosure: transcript를 먼저 보여주고, 요청 시 model/session/tool/monitoring detail로 drill down한다.
 - Evidence over confidence theater: 완료와 health claim은 metric/evidence state를 근거로 한다.
 - Policy visibility: approval, privacy, redaction, stop-gate 상태가 보여야 한다.
 - tradeoff:
@@ -132,6 +135,8 @@
   - `docs/glossary.md`의 runtime status vocabulary
   - `docs/observability.md`의 observability metric group
 - 새로 만들거나 바꿀 component:
+  - 대화가 시작되면 사라지는 compact first-run/welcome block
+  - 진단 prefix 없이 읽히는 user·assistant turn 표현
   - 바로 아래에 고정 runtime status line이 있는 대화 composer
   - 최초 실행 model picker와 managed-backend 설정 흐름
   - metric summary strip
@@ -159,6 +164,9 @@
 ### 기본 TUI 계약
 
 - terminal에 연결된 인자 없는 `rpotato`는 대화 controller를 연다.
+- 최초 frame은 overview ledger page를 절대 render하지 않는다. 짧은 welcome, 현재 project label, composer, status line만 보여준다.
+- 일반 입력은 dispatch 전에 user turn으로 표시하고, 보이는 결과는 assistant turn으로 표시한다. 오류도 inline으로 유지하되 직접 원인과 복구 action을 말한다.
+- 상세 revision, hash, ledger count, projection freshness, workflow field, monitor table은 명시적인 status/diagnostic view에서만 볼 수 있다.
 - 최초 실행에서는 같은 terminal 흐름 안에서 출처 기반 model 후보를 나열하고 확인 전에 model ID/version, quantization, download size, context limit, RAM 상태, license, 추천 근거를 보여준다.
 - managed backend는 자동으로 설치하거나 재사용한다. 기본 경로에서 사용자가 `llama.cpp` executable 또는 GGUF filesystem path를 입력하게 하지 않는다.
 - composer가 focus 중심이며, 바로 다음 status line은 항상 `model | ctx used/limit (%) | compaction | backend | session` 순서를 사용한다.
@@ -250,6 +258,9 @@
   - optional HTML은 기존 monitor query data에서 local로 생성하며 baseline operation에 필수이면 안 된다.
 - test/screenshot expectation:
   - TUI smoke test는 80x24와 wide terminal size에서 수행한다.
+  - 기본 frame 회귀 테스트는 raw ledger/hash/projection field가 없고 composer/status 순서가 고정됨을 증명한다.
+  - 자연어 인사 회귀 테스트는 대화로 표시되고 patch proposal을 시작하지 않음을 증명한다.
+  - 시각 인수 기준은 120x40 terminal capture 한 장을 2026-07-22 Codex·Claude Code 참조와 비교한다. 계약 위반이 없으면 한 번의 bounded pass로 종료한다.
   - HTML test는 browser runtime dependency를 추가하지 않고 semantic structure, escaping, privacy marker, narrow-screen layout을 검사한다.
 
 ### Monitoring TUI 화면 계약

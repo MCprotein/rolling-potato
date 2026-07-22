@@ -354,6 +354,48 @@
 - 전체 unit test는 PR CI의 정본 검증으로 남기되, 빠른 정적 architecture suite는
   candidate label 전 로컬 preflight에서 실행합니다.
 
+## 2026-07-22: 대화형 기본 화면 변경 뒤 release smoke 계약 누락
+
+### 증상
+
+- candidate의 전체 test, lint, release build가 통과한 뒤 binary smoke만 실패했습니다.
+- release binary는 새 대화 화면을 정상 출력했지만 smoke가 이전 기본 화면의
+  `rpotato | overview` 문자열을 계속 요구했습니다.
+
+### 원인
+
+- 기본 CLI/TUI 화면 계약을 변경하면서 unit·PTY 테스트와 문서는 갱신했지만 release
+  binary smoke의 사용자 화면 matcher를 같은 변경 범위로 추적하지 않았습니다.
+
+### 재발 방지
+
+- 기본 CLI/TUI 진입 화면을 변경할 때는 unit, native PTY, release binary smoke의
+  사용자-visible marker를 같은 논리 단위에서 함께 갱신합니다.
+- debug seam 무시는 특정 과거 화면 하나로 간접 판정하지 않고 현재 기본 화면의 의미
+  marker와 debug fault 문구의 부재를 각각 확인합니다.
+
+## 2026-07-22: Windows PTY readiness가 줄 끝 공백에 의존
+
+### 증상
+
+- Windows candidate의 native terminal 테스트가 화면과 composer를 모두 출력하고도
+  `› ` 문자열을 찾지 못해 timeout됐습니다.
+- ConPTY 캡처에는 프롬프트 glyph `›`가 있었지만 줄 끝 ASCII 공백은 보존되지
+  않았습니다.
+
+### 원인
+
+- PTY readiness marker를 보이는 glyph가 아니라 터미널 구현이 생략할 수 있는 trailing
+  whitespace까지 포함한 문자열로 고정했습니다.
+
+### 재발 방지
+
+- native terminal readiness는 줄 끝 공백, 색상 escape, cursor 위치처럼 terminal별로
+  정규화될 수 있는 바이트에 의존하지 않고 화면에 남는 glyph나 의미 있는 문구로
+  확인합니다.
+- Windows 조건부 terminal 변경은 추측성 rerun 대신 실패 캡처에서 실제 glyph 출력을
+  확인하고 해당 platform test의 matcher를 targeted로 보강합니다.
+
 ## 2026-07-21: startup update cache를 제품 상태 변경으로 오분류
 
 ### 증상

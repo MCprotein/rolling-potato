@@ -2,6 +2,7 @@ use super::runtime_bridge::{TuiReadBudget, TuiReadRequest};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum InteractiveView {
+    Conversation,
     Overview,
     Monitor,
     Sessions,
@@ -12,22 +13,36 @@ pub(crate) enum InteractiveView {
     Evidence,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ConversationRole {
+    User,
+    Assistant,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ConversationTurn {
+    pub(crate) role: ConversationRole,
+    pub(crate) content: String,
+}
+
 pub(crate) struct InteractiveState {
     pub(crate) view: InteractiveView,
     pub(crate) page: u64,
     pub(crate) selected_id: Option<String>,
     pub(crate) notice: String,
     pub(crate) notice_page: usize,
+    pub(crate) turns: Vec<ConversationTurn>,
 }
 
 impl InteractiveState {
     pub(crate) fn new() -> Self {
         Self {
-            view: InteractiveView::Overview,
+            view: InteractiveView::Conversation,
             page: 0,
             selected_id: None,
-            notice: "코딩 요청을 입력하세요. help로 TUI 명령을 확인할 수 있습니다.".to_string(),
+            notice: String::new(),
             notice_page: 0,
+            turns: Vec::new(),
         }
     }
 
@@ -38,12 +53,31 @@ impl InteractiveState {
         self.notice = "화면을 변경했습니다.".to_string();
     }
 
+    pub(crate) fn push_turn(&mut self, role: ConversationRole, content: impl Into<String>) {
+        let content = content.into();
+        if content.trim().is_empty() {
+            return;
+        }
+        self.turns.push(ConversationTurn { role, content });
+        self.notice.clear();
+        self.notice_page = 0;
+    }
+
+    pub(crate) fn clear_conversation(&mut self) {
+        self.turns.clear();
+        self.notice.clear();
+        self.notice_page = 0;
+    }
+
     pub(crate) fn reset_notice_page(&mut self) {
         self.notice_page = 0;
     }
 
     pub(crate) fn next_notice_page(&mut self, height: u16) {
-        let rows = notice_rows_per_page(height);
+        let rows = match self.view {
+            InteractiveView::Conversation => conversation_rows_per_page(height),
+            _ => notice_rows_per_page(height),
+        };
         let page_count = self.notice.lines().count().div_ceil(rows);
         if self.notice_page + 1 < page_count {
             self.notice_page += 1;
@@ -59,6 +93,7 @@ impl InteractiveState {
         let chars = usize::from(width).saturating_mul(items).max(1);
         let budget = TuiReadBudget::bounded(items, chars);
         match &self.view {
+            InteractiveView::Conversation => TuiReadRequest::Overview { budget },
             InteractiveView::Overview => TuiReadRequest::Overview { budget },
             InteractiveView::Monitor => TuiReadRequest::Monitor { budget },
             InteractiveView::Sessions => TuiReadRequest::Sessions {
@@ -94,6 +129,10 @@ impl InteractiveState {
 
 pub(crate) fn notice_rows_per_page(height: u16) -> usize {
     usize::from(height).saturating_sub(7).max(1)
+}
+
+pub(crate) fn conversation_rows_per_page(height: u16) -> usize {
+    usize::from(height).saturating_sub(8).max(1)
 }
 
 pub(crate) struct EvidenceReportView {

@@ -2,7 +2,10 @@
 
 TUI는 Claude Code/Codex replacement experience의 기본 product surface입니다.
 
-사용자는 `rpotato`만 실행해 TUI에 진입합니다. `rpotato tui`와
+사용자는 `rpotato`만 실행해 TUI에 진입합니다. 기본 frame은 짧은 welcome, 하단
+composer, status line 하나를 가진 대화 transcript입니다. Raw revision, hash, ledger
+counter, projection freshness, workflow record는 진단 정보이며 최초 화면을 채우지
+않습니다. `rpotato tui`와
 `rpotato tui interactive`는 기존 자동화와 테스트를 위한 호환 alias이며 기본 사용법이
 아닙니다. 일반 텍스트 입력은 shell command가 아니라 에이전트 코딩 요청입니다.
 
@@ -68,7 +71,9 @@ runtime-owned line-oriented interactive controller로 올립니다.
 
 - attached terminal에서 인자 없는 `rpotato`는 controller를 시작합니다.
 - redirect된 인자 없는 실행은 read-only overview를 출력하고 종료합니다.
-- TUI 예약 명령과 일치하지 않는 일반 텍스트는 agent runtime의 요청으로 전달합니다.
+- TUI 예약 명령과 일치하지 않는 일반 텍스트는 user turn으로 표시한 뒤 agent runtime에 전달합니다.
+- 인사와 대화형 입력은 비변경 conversation path를 사용하며 patch proposal을 만들지 않습니다.
+- 결과는 assistant turn으로 표시하고, 상세 runtime report는 명시적인 진단 view에 둡니다.
 - shell text처럼 보이는 입력도 직접 실행하지 않고 model/runtime policy 경계를 통과합니다.
 - 최초 실행의 backend/model 선택과 설치는 이 TUI 안에서 실행합니다. 기본 흐름에서는
   `llama.cpp` executable이나 GGUF 경로를 직접 입력하지 않습니다.

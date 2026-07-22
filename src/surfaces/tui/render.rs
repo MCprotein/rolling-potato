@@ -1,5 +1,8 @@
 use super::runtime_bridge::{TuiBackendStatus, TuiReadPage, TuiStatusSnapshot};
-use super::view_model::{notice_rows_per_page, InteractiveState};
+use super::view_model::{
+    conversation_rows_per_page, notice_rows_per_page, ConversationRole, InteractiveState,
+    InteractiveView,
+};
 
 const MAX_INTERACTIVE_WIDTH: usize = 120;
 
@@ -32,6 +35,9 @@ pub(crate) fn render_interactive_frame_with_options(
 ) -> String {
     let ansi_layout = ansi_layout && color;
     let width = usize::from(width).clamp(20, MAX_INTERACTIVE_WIDTH);
+    if matches!(state.view, InteractiveView::Conversation) {
+        return render_conversation_frame(state, status, width, height, ansi_layout, color);
+    }
     let content_rows = notice_rows_per_page(height);
     let notice_lines = state.notice.split('\n').collect::<Vec<_>>();
     let notice_page_count = notice_lines.len().div_ceil(content_rows).max(1);
@@ -72,17 +78,166 @@ pub(crate) fn render_interactive_frame_with_options(
     output.push_str(&"-".repeat(width));
     output.push('\n');
     let status_line = render_status_line(status, width);
-    if ansi_layout {
-        output.push_str("rpotato> \n");
-        output.push_str(&paint_status_line(&status_line, status.backend, color));
-        output.push('\n');
-        output.push_str("\u{001b}[2A\r\u{001b}[9C");
-    } else {
-        output.push_str(&paint_status_line(&status_line, status.backend, color));
-        output.push('\n');
-        output.push_str("rpotato> ");
-    }
+    render_composer(
+        &mut output,
+        &status_line,
+        status.backend,
+        ansi_layout,
+        color,
+    );
     output
+}
+
+fn render_conversation_frame(
+    state: &InteractiveState,
+    status: &TuiStatusSnapshot,
+    width: usize,
+    height: u16,
+    ansi_layout: bool,
+    color: bool,
+) -> String {
+    let mut output = String::new();
+    if ansi_layout {
+        output.push_str("\u{001b}[2J\u{001b}[H");
+    }
+
+    let brand = format!("rpotato v{}", env!("CARGO_PKG_VERSION"));
+    output.push_str(&paint(
+        &truncate_chars(&brand, width),
+        "\u{001b}[1;36m",
+        color,
+    ));
+    output.push('\n');
+    output.push_str(&truncate_chars(
+        &format!(
+            "project {}",
+            sanitize_terminal_text(&current_project_label())
+        ),
+        width,
+    ));
+    output.push('\n');
+    if state.turns.is_empty() {
+        output.push_str(&paint(
+            &truncate_chars("로컬 코딩 에이전트", width),
+            "\u{001b}[1m",
+            color,
+        ));
+        output.push('\n');
+        output.push_str(&truncate_chars(
+            "요청을 입력하세요. /help로 명령을 확인할 수 있습니다.",
+            width,
+        ));
+        output.push('\n');
+    } else {
+        output.push('\n');
+        output.push('\n');
+    }
+
+    let content_rows = conversation_rows_per_page(height);
+    let notice_lines = state.notice.split('\n').collect::<Vec<_>>();
+    let notice_page_count = notice_lines.len().div_ceil(content_rows).max(1);
+    let notice_page = state.notice_page.min(notice_page_count - 1);
+    let notice_offset = notice_page.saturating_mul(content_rows);
+    let notice_rows = if state.notice.is_empty() {
+        0
+    } else {
+        notice_lines
+            .len()
+            .saturating_sub(notice_offset)
+            .min(content_rows)
+    };
+    let turn_rows = content_rows.saturating_sub(notice_rows);
+    let conversation = conversation_lines(state, width, color);
+    let visible_start = conversation.len().saturating_sub(turn_rows);
+    for line in conversation.iter().skip(visible_start) {
+        output.push_str(line);
+        output.push('\n');
+    }
+    render_notice_lines(
+        &mut output,
+        &notice_lines,
+        notice_offset,
+        notice_rows,
+        notice_page,
+        notice_page_count,
+        width,
+    );
+    if ansi_layout {
+        let rendered_rows = conversation.len().saturating_sub(visible_start) + notice_rows;
+        for _ in rendered_rows..content_rows {
+            output.push('\n');
+        }
+    }
+
+    output.push_str(&"─".repeat(width));
+    output.push('\n');
+    let status_line = render_status_line(status, width);
+    render_composer(
+        &mut output,
+        &status_line,
+        status.backend,
+        ansi_layout,
+        color,
+    );
+    output
+}
+
+fn conversation_lines(state: &InteractiveState, width: usize, color_enabled: bool) -> Vec<String> {
+    let mut lines = Vec::new();
+    for turn in &state.turns {
+        let (marker, color) = match turn.role {
+            ConversationRole::User => ("›", "\u{001b}[1;36m"),
+            ConversationRole::Assistant => ("●", "\u{001b}[1;32m"),
+        };
+        for (index, line) in turn.content.lines().enumerate() {
+            let prefix = if index == 0 {
+                format!("{marker} ")
+            } else {
+                "  ".to_string()
+            };
+            let body = truncate_chars(
+                &sanitize_terminal_text(line),
+                width.saturating_sub(display_cell_width(&prefix)),
+            );
+            lines.push(format!("{}{}", paint(&prefix, color, color_enabled), body));
+        }
+        lines.push(String::new());
+    }
+    lines
+}
+
+fn render_composer(
+    output: &mut String,
+    status_line: &str,
+    backend: TuiBackendStatus,
+    ansi_layout: bool,
+    color: bool,
+) {
+    if ansi_layout {
+        output.push_str("› \n");
+        output.push_str(&paint_status_line(status_line, backend, color));
+        output.push('\n');
+        output.push_str("\u{001b}[2A\r\u{001b}[2C");
+    } else {
+        output.push_str(&paint_status_line(status_line, backend, color));
+        output.push('\n');
+        output.push_str("› ");
+    }
+}
+
+fn current_project_label() -> String {
+    let path = std::env::var_os("RPOTATO_PROJECT_ROOT")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::current_dir().ok())
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    let display = path.display().to_string();
+    let home = std::env::var("HOME").ok();
+    home.and_then(|home| {
+        display
+            .strip_prefix(&home)
+            .map(|suffix| format!("~{suffix}"))
+    })
+    .unwrap_or(display)
 }
 
 fn render_status_line(status: &TuiStatusSnapshot, width: usize) -> String {
@@ -160,7 +315,7 @@ fn render_notice_lines(
         output.push_str(prefix);
         output.push_str(&truncate_chars(
             &sanitize_terminal_text(&line),
-            width.saturating_sub(prefix.len()),
+            width.saturating_sub(display_cell_width(prefix)),
         ));
         output.push('\n');
     }
@@ -211,16 +366,68 @@ pub(crate) fn sanitize_terminal_text(value: &str) -> String {
 }
 
 fn truncate_chars(value: &str, width: usize) -> String {
-    let count = value.chars().count();
-    if count <= width {
+    if display_cell_width(value) <= width {
         return value.to_string();
     }
-    if width <= 1 {
-        return "…".chars().take(width).collect();
+    if width == 0 {
+        return String::new();
     }
-    let mut out = value.chars().take(width - 1).collect::<String>();
+
+    let available = width.saturating_sub(1);
+    let mut used = 0;
+    let mut out = String::new();
+    for ch in value.chars() {
+        let ch_width = terminal_cell_width(ch);
+        if used + ch_width > available {
+            break;
+        }
+        out.push(ch);
+        used += ch_width;
+    }
     out.push('…');
     out
+}
+
+pub(crate) fn display_cell_width(value: &str) -> usize {
+    value.chars().map(terminal_cell_width).sum()
+}
+
+fn terminal_cell_width(ch: char) -> usize {
+    let code = ch as u32;
+    if ch.is_control()
+        || ch == '\u{200d}'
+        || matches!(
+            code,
+            0x0300..=0x036f
+                | 0x1ab0..=0x1aff
+                | 0x1dc0..=0x1dff
+                | 0x20d0..=0x20ff
+                | 0xfe00..=0xfe0f
+                | 0xfe20..=0xfe2f
+                | 0xe0100..=0xe01ef
+        )
+    {
+        return 0;
+    }
+    if matches!(
+        code,
+        0x1100..=0x115f
+            | 0x2329..=0x232a
+            | 0x2e80..=0xa4cf
+            | 0xac00..=0xd7a3
+            | 0xf900..=0xfaff
+            | 0xfe10..=0xfe19
+            | 0xfe30..=0xfe6f
+            | 0xff00..=0xff60
+            | 0xffe0..=0xffe6
+            | 0x1f1e6..=0x1f1ff
+            | 0x1f300..=0x1faff
+            | 0x20000..=0x3fffd
+    ) {
+        2
+    } else {
+        1
+    }
 }
 
 const DEFAULT_REPORT_WIDTH: usize = 92;
