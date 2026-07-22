@@ -20,6 +20,7 @@ fn interactive_view_change_resets_page_and_updates_notice() {
         selected_id: Some("workflow-selected".to_string()),
         notice: "old notice".to_string(),
         notice_page: 3,
+        turns: Vec::new(),
     };
 
     state.set_view(InteractiveView::Transcript("session-next".to_string()));
@@ -42,6 +43,7 @@ fn interactive_view_builds_bounded_read_request_from_viewport() {
         selected_id: None,
         notice: String::new(),
         notice_page: 0,
+        turns: Vec::new(),
     };
 
     let request = state.read_request(10, 8);
@@ -154,10 +156,7 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
         .frames
         .iter()
         .all(|frame| !frame.contains('\u{001b}')));
-    assert!(terminal
-        .frames
-        .iter()
-        .any(|frame| frame.contains("rpotato>")));
+    assert!(terminal.frames.iter().any(|frame| frame.contains("›")));
     assert!(terminal
         .frames
         .iter()
@@ -236,6 +235,7 @@ fn exact_outcome_notice_preserves_trusted_multiline_structure() {
         selected_id: None,
         notice: "결과 제목\n- code: exact.test\n- 동작: 상태를 변경하지 않았습니다.".to_string(),
         notice_page: 0,
+        turns: Vec::new(),
     };
     let page = TuiReadPage {
         title: "overview".to_string(),
@@ -280,14 +280,14 @@ fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
 
     let frame = render_interactive_frame_with_options(&state, &page, &status, 120, 40, true, true);
 
-    let prompt = frame.find("rpotato> ").unwrap();
+    let prompt = frame.find("› ").unwrap();
     let status_line = frame.find("model gemma-4-e4b").unwrap();
     assert!(prompt < status_line);
     assert!(frame.contains("ctx 1024/4096 (25%)"));
     assert!(frame.contains("compact auto@75%"));
     assert!(frame.contains("backend ready"));
     assert!(frame.contains("\u{001b}[32m"));
-    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[9C"));
+    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[2C"));
 
     status.has_compaction_checkpoint = true;
     let saved = render_interactive_frame_with_options(&state, &page, &status, 120, 40, true, true);
@@ -355,10 +355,10 @@ fn long_notice_keeps_composer_and_status_inside_the_terminal_row_budget() {
         true,
     );
 
-    assert!(frame.find("rpotato> ").unwrap() < frame.find("model 미선택").unwrap());
+    assert!(frame.find("› ").unwrap() < frame.find("model 미선택").unwrap());
     assert!(frame.matches('\n').count() < 10);
     assert!(frame.contains("…"));
-    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[9C"));
+    assert!(frame.ends_with("\u{001b}[2A\r\u{001b}[2C"));
 }
 
 #[test]
@@ -368,7 +368,7 @@ fn long_notice_pages_preserve_later_response_lines() {
         .map(|index| format!("response line {index}"))
         .collect::<Vec<_>>()
         .join("\n");
-    for _ in 0..6 {
+    for _ in 0..20 {
         state.next_notice_page(10);
     }
     let page = TuiReadPage {
@@ -387,8 +387,9 @@ fn long_notice_pages_preserve_later_response_lines() {
     assert!(frame.contains("response line 18"));
     assert!(frame.contains("response line 19"));
     assert!(!frame.contains("response line 0"));
+    let last_page = state.notice_page;
     state.previous_notice_page();
-    assert_eq!(state.notice_page, 5);
+    assert_eq!(state.notice_page, last_page - 1);
 }
 
 #[test]

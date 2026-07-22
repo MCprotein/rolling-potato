@@ -15,15 +15,15 @@ fn entry_quit() {
     let before = tree_snapshot(&[&fixture.project, &fixture.data]);
 
     let mut terminal = NativePty::spawn(120, 40);
-    let first = terminal.wait_for("rpotato>");
-    assert!(first.contains("rpotato | overview"));
+    let first = terminal.wait_for("› ");
+    assert!(first.contains("로컬 코딩 에이전트"));
     terminal.send("quit\n");
     let output = terminal.finish();
     assert!(!output.contains("terminal.capability"));
 
     let mut terminal = NativePty::spawn(120, 40);
-    let second = terminal.wait_for("rpotato>");
-    assert!(second.contains("rpotato | overview"));
+    let second = terminal.wait_for("› ");
+    assert!(second.contains("로컬 코딩 에이전트"));
     terminal.send_eof();
     let output = terminal.finish();
     assert!(!output.contains("terminal.capability"));
@@ -51,8 +51,8 @@ fn entry_switches_projects_without_manual_state_reconcile() {
     std::env::set_var("RPOTATO_PROJECT_ROOT", &next_project);
 
     let mut terminal = NativePty::spawn(120, 40);
-    let first = terminal.wait_for("rpotato>");
-    assert!(first.contains("rpotato | overview"));
+    let first = terminal.wait_for("› ");
+    assert!(first.contains("로컬 코딩 에이전트"));
     terminal.send("quit\n");
     let output = terminal.finish();
 
@@ -72,7 +72,7 @@ fn secret_prompt_restores_echo_before_sigint_and_sigterm_exit() {
 
     for signal in [2, 15] {
         let mut terminal = NativePty::spawn(120, 40);
-        terminal.wait_for("rpotato>");
+        terminal.wait_for("› ");
         terminal.send("test-secret\n");
         terminal.wait_for("비밀 probe를 무반향으로 입력하세요.");
         terminal.send_signal(signal);
@@ -130,7 +130,7 @@ fn full_adapter() {
         std::env::set_var("RPOTATO_TEST_TERMINAL_FAULT", fault);
         let mut terminal = NativePty::spawn(120, 40);
         if requires_prompt {
-            terminal.wait_for("rpotato>");
+            terminal.wait_for("› ");
             terminal.send("test-secret\n");
         }
         terminal.wait_for(code);
@@ -150,7 +150,7 @@ fn full_adapter() {
     std::env::set_var("RPOTATO_TEST_TERMINAL_FAULT", "frame-write-before-dispatch");
     let frame_before_snapshot = tree_snapshot(&[&fixture.project, &fixture.data]);
     let mut terminal = NativePty::spawn(120, 40);
-    terminal.wait_for("rpotato>");
+    terminal.wait_for("› ");
     #[cfg(unix)]
     {
         terminal.send(&format!("select {}\n", pending.workflow_id));
@@ -182,11 +182,11 @@ fn full_adapter() {
     #[cfg(windows)]
     let before_snapshot = tree_snapshot(&[&fixture.project, &fixture.data]);
     let mut terminal = NativePty::spawn(120, 40);
-    terminal.wait_for("rpotato>");
+    terminal.wait_for("› ");
     terminal.resize(80, 24);
     terminal.send("help\n");
     let help = terminal.wait_for("/model [id]");
-    assert!(help.contains("rpotato | overview"));
+    assert!(help.contains("rpotato v"));
     terminal.resize(40, 10);
     terminal.send("view sessions\n");
     let sessions = terminal.wait_for("rpotato | sessions");
@@ -210,7 +210,7 @@ fn full_adapter() {
     }
     #[cfg(windows)]
     terminal.wait_for("source-install.unsupported-platform");
-    let output = terminal.wait_for("rpotato>");
+    let output = terminal.wait_for("› ");
 
     #[cfg(unix)]
     {
@@ -335,7 +335,7 @@ fn full_adapter() {
     let post_before_snapshot = tree_snapshot(&[&fixture.project, &fixture.data]);
     std::env::set_var("RPOTATO_TEST_TERMINAL_FAULT", "frame-write-after-dispatch");
     let mut terminal = NativePty::spawn(120, 40);
-    terminal.wait_for("rpotato>");
+    terminal.wait_for("› ");
     terminal.send(&format!("select {}\n", post.workflow_id));
     terminal.wait_for(&format!("선택: {}", post.workflow_id));
     terminal.send(&format!("approve {}\n", post.proposal_id));
@@ -400,7 +400,7 @@ fn full_adapter() {
 
     let post_fault_ledger = runtime_ledger(&fixture);
     let mut terminal = NativePty::spawn(120, 40);
-    terminal.wait_for("rpotato>");
+    terminal.wait_for("› ");
     assert_eq!(
         runtime_ledger(&fixture),
         post_fault_ledger,
@@ -457,7 +457,7 @@ fn full_adapter() {
     #[cfg(windows)]
     {
         let mut eof_terminal = NativePty::spawn(120, 40);
-        eof_terminal.wait_for("rpotato>");
+        eof_terminal.wait_for("› ");
         eof_terminal.send_eof();
         let eof_output = eof_terminal.finish();
         assert!(
@@ -469,7 +469,7 @@ fn full_adapter() {
 
 fn assert_clean_restart() {
     let mut terminal = NativePty::spawn(120, 40);
-    terminal.wait_for("rpotato>");
+    terminal.wait_for("› ");
     terminal.send("quit\n");
     terminal.finish();
 }
@@ -599,7 +599,7 @@ fn normalizes_windows_title_and_cursor_control_sequences() {
 
 #[test]
 fn conpty_mode_probe_parser_ignores_control_sequences_and_prompt_prefix() {
-    let capture = b"\x1b[?9001hrpotato> \x1b]0;C:\\rpotato.exe\x07MODE ECHO=1\x1b[?25h\r\n";
+    let capture = b"\x1b[?9001h\xe2\x80\xba \x1b]0;C:\\rpotato.exe\x07MODE ECHO=1\x1b[?25h\r\n";
     assert_eq!(native_terminal_support::mode_probe_values(capture), ["1"]);
 }
 

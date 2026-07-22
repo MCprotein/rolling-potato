@@ -12,7 +12,7 @@ use crate::surfaces::tui::setup;
 use super::model_switch::{switch_prepared_model, LiveModelSwitch};
 use super::{
     canonical_dispatch_intent, canonical_gate_descriptor, canonical_read_page,
-    canonical_selection_lease, TuiRuntimeAdapter,
+    canonical_selection_lease, conversation, TuiRuntimeAdapter,
 };
 
 impl TuiRuntimePort for TuiRuntimeAdapter {
@@ -75,7 +75,11 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
 
     fn submit_request(&mut self, request: &str) -> Result<String, AppError> {
         ensure_runtime_ready()?;
+        if conversation::is_conversational_request(request) {
+            return conversation::reply(request);
+        }
         crate::app::runtime_adapter::agent_run_report(request)
+            .map(|report| conversation::present_agent_report(&report))
     }
 
     fn model_options(&mut self) -> Vec<crate::surfaces::tui::runtime_bridge::TuiModelOption> {

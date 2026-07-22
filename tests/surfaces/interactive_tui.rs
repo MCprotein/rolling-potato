@@ -85,8 +85,8 @@ fn explicit_interactive_accepts_pipe_quit_and_eof() {
             String::from_utf8_lossy(&output.stderr)
         );
         let stdout = String::from_utf8(output.stdout).unwrap();
-        assert!(stdout.contains("rpotato | overview"));
-        assert!(stdout.contains("rpotato>"));
+        assert!(stdout.contains("로컬 코딩 에이전트"));
+        assert!(stdout.contains("›"));
         assert!(!stdout.contains('\u{001b}'));
     }
 }

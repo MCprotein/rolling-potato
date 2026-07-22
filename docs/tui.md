@@ -2,7 +2,10 @@
 
 The TUI is the default product surface for a Claude Code/Codex replacement experience.
 
-Users enter it by running `rpotato` with no arguments. `rpotato tui` and
+Users enter it by running `rpotato` with no arguments. The default frame is a
+conversation transcript with a compact welcome, bottom composer, and one status
+line. Raw revisions, hashes, ledger counters, projection freshness, and workflow
+records are diagnostic details and never fill the initial screen. `rpotato tui` and
 `rpotato tui interactive` remain compatibility aliases for automation and tests,
 not the primary usage. Plain text is an agent coding request, never a shell command.
 
@@ -69,7 +72,9 @@ The current default-entry contract is:
 
 - Attached no-argument `rpotato` starts the controller.
 - Redirected no-argument execution prints the read-only overview and exits.
-- Plain text that does not match a reserved TUI command is submitted to the agent runtime.
+- Plain text that does not match a reserved TUI command is rendered as a user turn and submitted to the agent runtime.
+- Greetings and conversational input use the non-mutating conversation path and never create a patch proposal.
+- Results render as assistant turns; detailed runtime reports stay behind explicit diagnostic views.
 - Shell-looking input is not executed directly and still crosses model/runtime policy boundaries.
 - First-run backend/model selection and installation run inside this TUI. The default
   flow does not require a `llama.cpp` executable or GGUF path.

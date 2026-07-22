@@ -6,7 +6,7 @@ use super::runtime_bridge::{
     OneShotSecret, SelectionLease, TuiGateKind, TuiIntent, TuiModelOption, TuiReadPage,
     TuiReadRequest, TuiStatusSnapshot,
 };
-use super::view_model::{InteractiveState, InteractiveView};
+use super::view_model::{ConversationRole, InteractiveState, InteractiveView};
 
 pub(crate) trait TuiRuntimePort {
     fn startup_update_notice(&mut self) -> Option<String>;
@@ -87,7 +87,7 @@ pub(crate) fn run_controller(
             }
             ["quit"] | ["exit"] | ["/quit"] => return Ok(()),
             ["help"] | ["/help"] => {
-                state.notice = "요청을 바로 입력하세요.\n- /model [id]: 모델 확인/변경\n- /compact: 현재 대화 컨텍스트 압축\n- /update: 최신 버전 확인 및 업데이트\n- /status: 상태 새로고침\n- /sessions: 세션 목록\n- /doctor: 환경 진단\n- /more, /back: 긴 응답 페이지 이동\n- /clear: 알림 지우기\n- /help: 도움말\n- /quit: 종료\n고급 호환 명령: rpotato debug --help".to_string();
+                state.notice = "요청을 바로 입력하세요.\n- /chat: 대화 화면\n- /model [id]: 모델 확인/변경\n- /compact: 현재 대화 컨텍스트 압축\n- /update: 최신 버전 확인 및 업데이트\n- /status: 상태 새로고침\n- /sessions: 세션 목록\n- /doctor: 환경 진단\n- /more, /back: 긴 응답 페이지 이동\n- /clear: 현재 대화 지우기\n- /help: 도움말\n- /quit: 종료\n고급 호환 명령: rpotato debug --help".to_string();
             }
             ["/more"] => state.next_notice_page(height),
             ["/back"] => state.previous_notice_page(),
@@ -116,12 +116,13 @@ pub(crate) fn run_controller(
             ["/status"] => {
                 state.notice = "모델·컨텍스트·backend·세션 상태를 새로고침했습니다.".to_string();
             }
+            ["/chat"] => state.set_view(InteractiveView::Conversation),
             ["/sessions"] => state.set_view(InteractiveView::Sessions),
             ["/doctor"] => {
                 state.notice = runtime.doctor_report();
             }
             ["/clear"] => {
-                state.notice.clear();
+                state.clear_conversation();
             }
             ["/model"] => {
                 state.notice = model_options_notice(&runtime.model_options());
@@ -187,6 +188,7 @@ pub(crate) fn run_controller(
                 state.notice = "이동할 페이지가 없습니다.".to_string();
             }
             ["view", "overview"] => state.set_view(InteractiveView::Overview),
+            ["view", "chat"] => state.set_view(InteractiveView::Conversation),
             ["view", "monitor"] => state.set_view(InteractiveView::Monitor),
             ["view", "sessions"] => state.set_view(InteractiveView::Sessions),
             ["view", "approvals"] => state.set_view(InteractiveView::Approvals),
@@ -335,10 +337,13 @@ pub(crate) fn run_controller(
                 state.notice = format!("알 수 없는 TUI 명령입니다: {command}\n/help로 확인하세요.");
             }
             _ => {
-                state.notice = match runtime.submit_request(line.trim()) {
+                state.view = InteractiveView::Conversation;
+                state.push_turn(ConversationRole::User, line.trim());
+                let response = match runtime.submit_request(line.trim()) {
                     Ok(report) => report,
-                    Err(error) => error.message,
+                    Err(error) => format!("요청을 완료하지 못했습니다.\n{}", error.message),
                 };
+                state.push_turn(ConversationRole::Assistant, response);
             }
         }
     }
