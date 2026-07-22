@@ -287,8 +287,6 @@ mod imp {
     const STD_INPUT_HANDLE: u32 = -10i32 as u32;
     const STD_OUTPUT_HANDLE: u32 = -11i32 as u32;
     const ENABLE_ECHO_INPUT: u32 = 0x0004;
-    const ENABLE_LINE_INPUT: u32 = 0x0002;
-    const ENABLE_VIRTUAL_TERMINAL_INPUT: u32 = 0x0200;
     const CTRL_C_EVENT: u32 = 0;
     const CTRL_BREAK_EVENT: u32 = 1;
     const CTRL_CLOSE_EVENT: u32 = 2;
@@ -389,34 +387,10 @@ mod imp {
     }
 
     pub fn read_line_with_suggestions(
-        suggestions: &[TerminalSuggestion],
-        base_frame: &str,
+        _suggestions: &[TerminalSuggestion],
+        _base_frame: &str,
     ) -> Result<Option<String>, TerminalFault> {
-        // SAFETY: GetStdHandle has no Rust-side preconditions.
-        let handle = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
-        let mut original = 0;
-        // SAFETY: original points to writable mode storage.
-        if unsafe { GetConsoleMode(handle, &mut original) } == 0 {
-            return Err(TerminalFault::ModeRead);
-        }
-        let _signal_restore = SignalEchoRestore::install(handle, original)?;
-        // SAFETY: handle and mode came from the console API.
-        let live_mode =
-            (original & !(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT)) | ENABLE_VIRTUAL_TERMINAL_INPUT;
-        if unsafe { SetConsoleMode(handle, live_mode) } == 0 {
-            return Err(TerminalFault::NoEchoSet);
-        }
-        let mut restore = EchoRestore {
-            handle,
-            original,
-            restored: false,
-        };
-        let width = dimensions().map(|(columns, _)| usize::from(columns))?;
-        let value = super::super::live_input::read(suggestions, width, base_frame);
-        if !restore.restore() {
-            return Err(TerminalFault::EchoRestore);
-        }
-        value
+        read_stdin_line(TerminalFault::LineRead)
     }
 
     pub fn read_secret() -> Result<Option<String>, TerminalFault> {

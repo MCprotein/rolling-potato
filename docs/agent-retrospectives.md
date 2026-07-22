@@ -519,3 +519,28 @@
   seam을 사용해 대기를 우회하며 helper stdout/stderr를 assertion에 포함합니다.
 - Windows 조건부 실행 테스트는 compile 성공과 구분해 exact-HEAD targeted native
   workflow에서 확인한 뒤 새 candidate를 만듭니다.
+
+## 2026-07-22: Windows ConPTY에 Unix식 byte 단위 line editor를 적용함
+
+### 증상
+
+- Windows candidate의 compile과 install lifecycle은 통과했지만 native terminal
+  `entry_quit`가 ConPTY child timeout으로 실패했습니다.
+- 일반 TUI 입력에서 console line mode를 끈 뒤 Rust stdin의 byte 단위 read가 입력을
+  완료하지 못해 `quit`가 controller까지 전달되지 않았습니다.
+
+### 원인
+
+- macOS/Linux PTY에서 검증한 raw byte line editor를 Windows console에도 같은 방식으로
+  적용할 수 있다고 가정했습니다.
+- Windows console의 `ReadConsoleW`/input record 경계와 UTF-16 입력 계약을 구현하지 않은
+  상태에서 `ENABLE_LINE_INPUT`만 제거했습니다.
+
+### 재발 방지
+
+- Windows는 전용 console event reader가 native ConPTY 테스트로 검증되기 전까지 기존
+  canonical line input을 유지합니다.
+- Unix live slash palette 테스트는 Unix로 범위를 명시하고, Windows terminal 변경은
+  exact candidate의 `entry_quit`와 `full_adapter`를 필수 회귀 계약으로 둡니다.
+- Windows 조건부 코드는 compile 성공만으로 완료하지 않고 native terminal job의 실제
+  입력·종료 결과를 확인합니다.

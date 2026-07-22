@@ -40,7 +40,7 @@ fn entry_quit() {
     );
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos", windows))]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn slash_opens_command_palette_before_enter() {
     let fixture = NativeTerminalFixture::new("slash-command-palette");
