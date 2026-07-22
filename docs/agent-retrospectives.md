@@ -544,3 +544,43 @@
   exact candidate의 `entry_quit`와 `full_adapter`를 필수 회귀 계약으로 둡니다.
 - Windows 조건부 코드는 compile 성공만으로 완료하지 않고 native terminal job의 실제
   입력·종료 결과를 확인합니다.
+
+## 2026-07-22: TUI fixture 통과를 실제 대화 성공으로 오인함
+
+### 증상
+
+- Native terminal fixture와 candidate CI는 통과했지만 설치된 기본 TUI에서 `안녕`도
+  `backend-call-failed` 또는 model-action 계약 실패로 끝났습니다.
+- 이전 실패 workflow가 active pointer에 남아 이후 입력이 같은 workflow 결과만
+  반복해서 표시했습니다.
+
+### 원인
+
+- Terminal fixture는 화면과 입력 계약만 검증했으며 promoted local model을 통과하는
+  전체 `request -> backend -> answer-only` 경로를 실행하지 않았습니다.
+- Gemma 4 request에는 공식 non-thinking option을 전달하지 않아 제한된 output token을
+  reasoning이 모두 소진했습니다.
+- 미분류 문장과 project context가 있는 일반 대화를 각각 `small-patch`와
+  `inspect-sources`로 승격하고, 부작용 없는 답변에도 model action metadata를
+  강제했습니다.
+
+### 재발 방지
+
+- 기본 대화 surface를 변경한 candidate는 promoted model과 backend가 준비된 개발
+  환경에서 `rpotato run "안녕"` live smoke를 한 번 실행합니다. 실행할 수 없으면
+  release 보고에 validation gap을 명시합니다.
+- Live smoke는 exit 0, 새 workflow, `conversation`, `answer-only`, 한국어 final answer를
+  함께 확인하며 terminal fixture를 이 증거의 대체물로 사용하지 않습니다.
+- 일반 대화의 기본 action은 runtime-owned `answer-only`로 고정하고 명시적인 변경
+  signal이 있을 때만 patch workflow로 진입합니다. 한국어 변경 동사는 단위 분류
+  테스트뿐 아니라 실제 patch-loop 문장(`고쳐`, `수정`, `바꿔`)으로 회귀 검증합니다.
+- 지원 모델의 thinking control은 모델별 공식 근거와 실제 local response를 함께
+  검증합니다.
+- Terminal workflow pointer 자동 정리는 stop gate가 없는 `failed/cancelled`에만
+  적용합니다. `complete`는 성공 증거와 stop gate를 기존 resume 경로에서 다시
+  검증한 뒤 정리합니다.
+- Pointer 정리 로직을 변경할 때는 실패 workflow의 멱등 복구 테스트와 함께
+  `complete` workflow가 검증 전에 지워지지 않는 회귀 테스트를 실행합니다.
+- Patch/team 통합 fixture가 patch action을 기대하면 요청 문장에도 명시적인 변경
+  의도를 포함합니다. 단순 fixture 이름이나 영어 명사구를 숨은 변경 신호로
+  취급하지 않습니다.

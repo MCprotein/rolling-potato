@@ -261,7 +261,10 @@ pub(super) fn run_with_decision(
     if is_non_mutating_action(&model_action.kind) {
         let pointers_are_valid = model_action.kind != "inspect-sources"
             || (!matches!(model_action.source_pointers.as_str(), "none" | "unverified"));
-        let action_is_safe = model_action.status == "parsed"
+        let action_status_is_safe = model_action.status == "parsed"
+            || (model_action.kind == "answer-only"
+                && model_action.status == "runtime-owned-answer");
+        let action_is_safe = action_status_is_safe
             && model_action.requested_side_effects == "none"
             && pointers_are_valid;
         if !action_is_safe {

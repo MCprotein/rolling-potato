@@ -217,11 +217,13 @@ pub(crate) fn chat_request_body(
         .file_stem()
         .and_then(|value| value.to_str())
         .unwrap_or("unknown-model");
-    let template_options = if model_id.to_ascii_lowercase().starts_with("qwen") {
-        ",\"chat_template_kwargs\":{\"enable_thinking\":false}"
-    } else {
-        ""
-    };
+    let normalized_model_id = model_id.to_ascii_lowercase();
+    let template_options =
+        if normalized_model_id.starts_with("qwen") || normalized_model_id.starts_with("gemma-4") {
+            ",\"chat_template_kwargs\":{\"enable_thinking\":false}"
+        } else {
+            ""
+        };
     let stream_options = if stream {
         ",\"stream\":true,\"stream_options\":{\"include_usage\":true}"
     } else {
@@ -500,7 +502,7 @@ mod tests {
     }
 
     #[test]
-    fn chat_request_omits_qwen_option_for_other_models() {
+    fn chat_request_disables_gemma_4_thinking() {
         let body = chat_request_body(
             Path::new("gemma-4-E4B_q4_0-it.gguf"),
             "감자",
@@ -512,7 +514,23 @@ mod tests {
             true,
         );
 
-        assert!(!body.contains("chat_template_kwargs"));
+        assert!(body.contains("\"chat_template_kwargs\":{\"enable_thinking\":false}"));
         assert!(body.contains("\"temperature\":0.1"));
+    }
+
+    #[test]
+    fn chat_request_omits_thinking_option_for_unrecognized_models() {
+        let body = chat_request_body(
+            Path::new("custom-model.gguf"),
+            "감자",
+            64,
+            &BackendChatSampling {
+                temperature: 0.1,
+                top_p: 0.8,
+            },
+            true,
+        );
+
+        assert!(!body.contains("chat_template_kwargs"));
     }
 }

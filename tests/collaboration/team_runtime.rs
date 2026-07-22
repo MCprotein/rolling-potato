@@ -23,7 +23,7 @@ fn cli_team_runtime_executes_reconciles_and_retries_without_duplicate_merge() {
     fixture.write_response(
         "MODEL ACTION: kind=patch-proposal; source_pointers=src/lib.rs:1; path=src/lib.rs; find_hex=31; replace_hex=32; verification=pwd; next_gate=diff-before-write; side_effects=none",
     );
-    let run = fixture.command(&["run", "team runtime smoke parent"]);
+    let run = fixture.command(&["run", "src/lib.rs 값을 변경해 team runtime parent를 만들어줘"]);
     assert_success(&run, "create parent workflow");
     let parent_id = line_value(&text(&run.stdout), "- workflow id: ").to_string();
 

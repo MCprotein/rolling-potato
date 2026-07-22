@@ -284,6 +284,17 @@ impl SkillRuntimeState {
 
 pub const BUILTIN_SKILLS: &[SkillManifest] = &[
     SkillManifest {
+        id: "conversation",
+        display_name: "Conversation",
+        description: "일반 대화와 질문에 부작용 없이 답한다.",
+        mode: "read-only",
+        required_hooks: READ_ONLY_HOOKS,
+        allowed_tools: &[],
+        context_requirements: &[],
+        evidence_requirements: &[],
+        stop_criteria: &["korean_report_passed"],
+    },
+    SkillManifest {
         id: "fix-test",
         display_name: "Fix Test",
         description: "실패한 테스트 하나를 좁은 범위에서 수정하고 검증한다.",

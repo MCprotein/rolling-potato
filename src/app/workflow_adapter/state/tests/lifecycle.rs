@@ -533,6 +533,26 @@ fn terminal_pointer_cleanup_crash_race_restart_is_idempotent() {
             assert!(error.message.contains("pointer conflict"));
         }
     });
+
+    with_workflow_env("stale-terminal-pointer", |_| {
+        let first = create_workflow("stale terminal pointer").unwrap();
+        let mut failed = first.clone();
+        failed.phase = "failed".to_string();
+        failed.failure_reason = "backend-call-failed".to_string();
+        checkpoint_workflow(failed, first.revision).unwrap();
+
+        assert_eq!(active_workflow_id().unwrap(), None);
+        let events = ledger::read_runtime_events().unwrap();
+        assert_eq!(active_workflow_id().unwrap(), None);
+        assert_eq!(ledger::read_runtime_events().unwrap(), events);
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| event.event_type == "workflow.pointer.cleared")
+                .count(),
+            1
+        );
+    });
 }
 
 #[test]

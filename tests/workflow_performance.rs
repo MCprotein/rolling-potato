@@ -123,7 +123,10 @@ fn measure_team() -> WorkflowMeasurement {
     fixture.start();
     fixture.write_response(PATCH_RESPONSE);
 
-    let parent = fixture.measured_command(&["run", "team runtime 성능 측정 parent"]);
+    let parent = fixture.measured_command(&[
+        "run",
+        "src/lib.rs 값을 변경해 team runtime 성능 측정 parent를 만들어줘",
+    ]);
     assert_success(&parent.output, "team parent run");
     let parent_id = line_value(&text(&parent.output.stdout), "- workflow id: ").to_string();
     let manifest = format!(

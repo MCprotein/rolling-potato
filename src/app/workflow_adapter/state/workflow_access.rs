@@ -165,6 +165,10 @@ fn active_workflow_id_under_transition(
                     "workflow resume 차단\n- 이유: current pointer와 전체 artifact scan이 충돌합니다.",
                 ));
             }
+            if matches!(workflow.phase.as_str(), "failed" | "cancelled") {
+                clear_terminal_workflow_pointer_under_transition(transition_guard, &workflow)?;
+                return Ok(None);
+            }
             Ok(Some(pointer))
         }
         _ => Err(AppError::blocked(
