@@ -2102,6 +2102,21 @@
       ]
     },
     {
+      "path": "src/adapters/terminal/native/live_input/paste.rs",
+      "slices": [
+        {
+          "responsibility": "bounded bracketed-paste capture and normalization",
+          "target": "src/adapters/terminal/native/live_input/paste.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/live_input/paste.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/terminal/native/live_input/render.rs",
       "slices": [
         {
@@ -8626,6 +8641,12 @@
       "path": "src/adapters/terminal/native/live_input/editor.rs",
       "responsibilities": [
         "UTF-8 terminal line editing and keyboard navigation"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/paste.rs",
+      "responsibilities": [
+        "bounded bracketed-paste capture and normalization"
       ]
     },
     {
