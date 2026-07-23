@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.47.0` |
+| 현재 릴리즈 | `v0.47.1` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -156,7 +156,7 @@ rpotato
 
 인자가 없는 `rpotato`가 기본 TUI를 시작합니다. 일반 텍스트로 범용 LLM 질문과
 코딩 에이전트 요청을 모두 처리합니다. 인터넷 검색을 명시하거나 최신 정보가
-필요한 질문은 제한된 읽기 전용 검색을 사용하고 출처 URL을 표시합니다. Composer
+필요한 질문은 제한된 읽기 전용 검색을 사용하고 runtime이 출처 link를 표시합니다. Composer
 아래 line에는 현재 model, context 사용량,
 compaction checkpoint, backend 상태, session이 표시됩니다. 일반 TUI 동작은
 `/model`, `/compact`, `/search`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`,
@@ -182,7 +182,7 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-`v0.47.0` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
+`v0.47.1` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
@@ -195,7 +195,7 @@ pre-1.0 런타임입니다.
 | 협업 | 제한된 subagent 하나와 runtime-owned team execution |
 | 모니터링 | CLI/TUI metric, SQLite projection, benchmark record, static HTML export |
 | 화면 | 기본 대화 TUI, 자동화·진단 CLI, self-contained local HTML report |
-| 범용 답변과 웹 | 일반 지식·계산 답변, 최신성 자동 routing, `/search`, 출처 URL을 표시하는 제한된 Exa MCP 검색 |
+| 범용 답변과 웹 | 일반 지식·계산 답변, 최신성 자동 routing, `/search`, runtime이 출처 link를 표시하는 제한된 Exa MCP 검색 |
 
 장별 기능 지도, 대표 명령, 아직 완성되지 않은 경계는
 [docs/ko/current-capabilities.md](docs/ko/current-capabilities.md)에
@@ -214,7 +214,8 @@ policy, 필요한 승인, evidence 기록, 검증을 통과해야 합니다.
 
 - 사용자에게 보이는 자연어 출력은 한국어이며 언어가 아닌 숫자와 수식은 그대로 허용합니다.
 - 코드 블록, 경로, 명령, 인용 로그는 필요하면 원문을 유지합니다.
-- 혼합 언어 최종 응답은 한 번만 재생성하고, 다시 실패하면 차단합니다.
+- 혼합 언어 최종 응답은 한국어 재작성 한 번 뒤 유효한 한국어 line을 안전하게
+  투영하고, 보존할 수 있는 응답이 없을 때만 차단합니다.
 - 가져온 plugin instruction은 runtime 권한을 넓힐 수 없습니다.
 - shell, background, remote connector, 민감한 설정, write capability는
   지원하는 policy 경로가 허용하기 전까지 차단합니다.
@@ -241,9 +242,9 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-게시된 `v0.47.0`까지의 release history는 완료되었습니다. 최신 release는 로컬
-coding-agent workflow를 유지하면서 범용 답변, 출처 URL을 표시하는 제한된 웹
-근거, 혼합 언어 재작성을 추가합니다.
+게시된 `v0.47.1`까지의 release history는 완료되었습니다. 최신 release는 로컬
+coding-agent workflow를 유지하면서 일반 설명, runtime이 표시하는 출처 link가
+있는 제한된 웹 근거, 혼합 언어 누출 방지를 안정화합니다.
 [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를
 참고하십시오.
 

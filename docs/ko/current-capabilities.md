@@ -1,6 +1,6 @@
 # 현재 기능
 
-이 문서는 출시된 `rolling-potato v0.47.0` runtime의 읽기 쉬운 상태 지도입니다.
+이 문서는 출시된 `rolling-potato v0.47.1` runtime의 읽기 쉬운 상태 지도입니다.
 하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
@@ -9,7 +9,7 @@
 > 이 문서는 기능 안내서입니다. 정확한 명령 문법은 설치된 바이너리의
 > `rpotato --help`를 기준으로 확인하십시오.
 
-## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.47.0`)
+## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.47.1`)
 
 GitHub Release archive에서 압축을 푼 binary는 사용자 전용 CLI directory에
 자기 자신을 설치·갱신하고 zsh, bash, fish 또는 Windows 사용자 PATH에 해당
@@ -83,12 +83,19 @@ source-pointer evidence, policy 검사, lifecycle hook, 한국어 최종 보고 
 최대 4개를 보존합니다. 제한된 semantic rationale 호출 한 번을 실행할 수 없으면
 deterministic typed extraction만으로 계속합니다.
 
+언어 guard는 한국어 문장과 함께 숫자, 수식, 코드, 경로, URL, 범위가 제한된 기술
+제목을 허용합니다. CJK 누출이나 이어지는 외국어 문장에는 사실을 보존하는 한국어
+재작성 한 번을 시도한 뒤 유효한 한국어 line을 안전하게 투영하고, 사용할 수 있는
+응답이 없을 때만 차단합니다.
+
 기본 TUI는 저장소 도구가 필요 없는 일반 지식, 계산, 설명, 글쓰기 질문을 위한
 가벼운 범용 답변 경로도 제공합니다. 인터넷 검색을 명시한 요청과 최신성이 필요한
 질문은 Exa hosted MCP endpoint의 제한된 읽기 전용 검색을 사용합니다. 현재 질문은
 해당 서비스로 전송되며, 반환 text는 신뢰하지 않는 context로만 취급하고 웹 문서의
-지시는 실행 권한을 얻지 못합니다. 답변에는 HTTPS 출처 URL을 표시합니다. 사용자가
-offline을 요청하면 이 경로를 사용하지 않습니다.
+지시는 실행 권한을 얻지 못합니다. 최대 4개 출처가 6 KiB 근거 budget을 공유하며,
+runtime이 model이 만든 citation과 출처 block을 제거한 뒤 검증된 HTTPS 출처 link를
+직접 표시합니다. 요약이나 언어 보정이 사용할 수 없어도 성공한 검색의 출처 link는
+유지합니다. 사용자가 offline을 요청하면 이 경로를 사용하지 않습니다.
 
 [런타임 아키텍처](runtime-architecture.md), [명령 정책](command-policy.md),
 [훅](hooks.md), [스킬](skills.md)을 참고하십시오.
