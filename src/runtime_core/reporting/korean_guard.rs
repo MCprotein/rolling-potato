@@ -91,11 +91,15 @@ impl StreamingGuard {
 }
 
 pub fn guard_or_failure(text: &str) -> String {
-    let projection = stricter_projection(text);
-    if projection != text && validate(&projection) {
+    if let Some(projection) = safe_projection(text).filter(|projection| projection != text) {
         return projection;
     }
     guard_with_regeneration(text, || stricter_projection(text))
+}
+
+pub(crate) fn safe_projection(text: &str) -> Option<String> {
+    let projection = stricter_projection(text);
+    (!projection.trim().is_empty() && validate(&projection)).then_some(projection)
 }
 
 pub fn guard_with_regeneration<F>(text: &str, regenerate: F) -> String
@@ -156,11 +160,7 @@ fn classify_outside_text(text: &str) -> OutsideTextClassification {
             let token_like = value
                 .chars()
                 .all(|character| !character.is_control() && !character.is_whitespace());
-            if !token_like
-                && value
-                    .split(is_hangul)
-                    .any(|segment| foreign_word_count(segment) >= 3)
-            {
+            if !token_like && has_excessive_foreign_prose(value) {
                 result.forbidden = true;
                 return result;
             }
@@ -170,10 +170,7 @@ fn classify_outside_text(text: &str) -> OutsideTextClassification {
         }
         result.has_hangul |= line.chars().any(is_hangul);
         let foreign_words = foreign_word_count(&line);
-        if line
-            .split(is_hangul)
-            .any(|segment| foreign_word_count(segment) >= 3)
-        {
+        if has_excessive_foreign_prose(&line) {
             result.forbidden = true;
             return result;
         }
@@ -183,6 +180,38 @@ fn classify_outside_text(text: &str) -> OutsideTextClassification {
             && line.chars().any(|ch| !ch.is_whitespace());
     }
     result
+}
+
+fn has_excessive_foreign_prose(text: &str) -> bool {
+    let longest_foreign_span = text
+        .split(is_hangul)
+        .map(foreign_word_count)
+        .max()
+        .unwrap_or_default();
+    if longest_foreign_span < 3 {
+        return false;
+    }
+    if longest_foreign_span <= 8 && is_release_title_context(text) {
+        return false;
+    }
+    true
+}
+
+fn is_release_title_context(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    let has_release_label = text.contains("릴리스")
+        || text.contains("버전")
+        || lower.contains("release")
+        || lower.contains("version");
+    let has_version = lower
+        .split(|character: char| character.is_whitespace() || character == '-')
+        .any(|token| {
+            token
+                .strip_prefix('v')
+                .and_then(|version| version.chars().next())
+                .is_some_and(|character| character.is_ascii_digit())
+        });
+    has_release_label && has_version
 }
 
 fn foreign_word_count(text: &str) -> usize {
@@ -402,6 +431,18 @@ mod tests {
         ));
     }
     #[test]
+    fn korean_web_answer_allows_an_english_release_title() {
+        assert!(validate(
+            "GitHub의 rpotato v0.47.0 General Answers and Web Grounding 릴리스가 최신입니다."
+        ));
+    }
+    #[test]
+    fn long_english_sentence_after_korean_remains_blocked() {
+        assert!(!validate(
+            "한국어 설명을 아주 길고 자세하게 먼저 제공합니다. This sentence contains a complete English explanation with several foreign words that should remain blocked."
+        ));
+    }
+    #[test]
     fn english_code_block_passes() {
         assert!(validate(
             "검증 결과입니다.\n```text\nEnglish output here\n```"
@@ -470,6 +511,14 @@ mod tests {
         assert_eq!(
             guard_or_failure("Summary\n작업이 완료되었습니다."),
             "작업이 완료되었습니다."
+        );
+    }
+
+    #[test]
+    fn safe_projection_keeps_valid_korean_and_drops_foreign_lines() {
+        assert_eq!(
+            safe_projection("정답은 15입니다.\n这是中文句子。"),
+            Some("정답은 15입니다.".to_string())
         );
     }
 

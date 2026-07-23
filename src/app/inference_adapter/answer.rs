@@ -48,6 +48,12 @@ pub(crate) fn repair_existing(response: &str) -> Result<String, AppError> {
     if korean_guard::validate(&repaired) {
         return Ok(repaired);
     }
+    if let Some(projected) = korean_guard::safe_projection(&repaired) {
+        return Ok(projected);
+    }
+    if let Some(projected) = korean_guard::safe_projection(&visible) {
+        return Ok(projected);
+    }
 
     Err(AppError::blocked(
         "모델 답변의 다른 언어 혼입을 한 번 다시 작성했지만 정리하지 못했습니다.",
