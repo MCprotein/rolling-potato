@@ -1,9 +1,15 @@
 //! Non-mutating conversation path for general questions that do not need agent tools.
 
 use crate::foundation::error::AppError;
-use crate::runtime_core::inference::backend::BackendChatInput;
+use crate::runtime_core::inference::backend::{BackendChatInput, ResponseLanguage};
 
 const CONVERSATION_MAX_TOKENS: u32 = 384;
+
+pub(super) enum RequestDecision {
+    Answer(String),
+    ContinueLocal,
+    WebTool(crate::app::web_search_adapter::WebToolRoute),
+}
 
 pub(super) fn is_conversational_request(request: &str) -> bool {
     let trimmed = request.trim();
@@ -25,27 +31,60 @@ pub(super) fn local_reply(request: &str, model: Option<&str>) -> Option<String> 
         .then(|| "저는 로컬에서 실행되는 범용 AI·코딩 에이전트 rpotato입니다.".to_string())
 }
 
-pub(super) fn reply_with_context(
+pub(super) fn decide_request(
     user_request: &str,
     local_context: &str,
-) -> Result<String, AppError> {
+    allow_direct_answer: bool,
+) -> Result<RequestDecision, AppError> {
+    let response_language = ResponseLanguage::from_user_request(user_request);
+    let language_instruction = language_instruction(response_language);
+    let web_enabled = !crate::app::web_search_adapter::web_disabled(user_request);
+    let web_instruction = if web_enabled {
+        "답변에 현재 웹 정보나 외부 공개 근거가 실제로 필요하면 추측하거나 검색이 필요하다고 말하지 말고, 답변 대신 아래 두 줄만 출력해 WebSearch·WebOpen·WebFind 중 하나를 요청하라. WEB INPUT에는 첨부 파일 내용, 인증정보, 개인정보를 복사하지 말고 사용자 질문에서 필요한 최소 공개 검색어 또는 URL만 넣어라.\nWEB TOOL: search|open|find\nWEB INPUT: 최소 검색어 또는 HTTPS URL"
+    } else {
+        "사용자가 이 요청에서 인터넷 사용을 금지했다. 웹 도구를 요청하지 말고 현재 로컬 지식과 문맥만 사용하며 최신성이 불확실하면 그 한계를 밝혀라."
+    };
+    let completion_instruction = if allow_direct_answer {
+        "웹 도구가 필요하지 않으면 사용자 질문에 바로 답하라."
+    } else {
+        "웹 도구가 필요하지 않으면 다른 설명 없이 `LOCAL TASK`만 출력하라."
+    };
     let prompt = format!(
-        "너는 rpotato라는 이름의 로컬 AI 에이전트다. 기반 모델의 개발사나 학습 출처를 자신의 정체성으로 소개하지 마라. 코딩뿐 아니라 일반 지식, 계산, 설명, 글쓰기 같은 범용 질문에도 직접 도움을 준다. 사용자가 요청한 내용에만 정확하고 자연스러운 한국어로 답하라. 기술 용어와 고유명사는 원문 표기를 허용하고, 숫자나 수식만으로 충분하면 그대로 답해도 된다. 모르는 최신 사실을 추측하지 말고 인터넷 검색이 필요하다고 알려라. 내부 추론, MODEL ACTION, 메타데이터는 출력하지 마라.\n\n사용자:\n{local_context}\n답변:"
+        "너는 rpotato라는 이름의 로컬 AI·코딩 에이전트다. 기반 모델의 개발사나 학습 출처를 자신의 정체성으로 소개하지 마라. {language_instruction} 기술 용어와 고유명사는 필요한 원문 표기를 유지한다. {web_instruction} {completion_instruction} 내부 추론, MODEL ACTION, 도구 설명, 메타데이터는 출력하지 마라.\n\n<USER_REQUEST>\n{user_request}\n</USER_REQUEST>\n\n<LOCAL_CONTEXT>\n{local_context}\n</LOCAL_CONTEXT>\n\n응답:"
     );
-    crate::app::inference_adapter::answer::generate_for_user(
+    let candidate = crate::app::inference_adapter::answer::generate_candidate_for_user(
         &prompt,
         user_request,
         CONVERSATION_MAX_TOKENS,
-    )
+    )?;
+    if web_enabled {
+        if let Some(tool) = crate::app::web_search_adapter::parse_agent_web_tool(&candidate.visible)
+        {
+            return Ok(RequestDecision::WebTool(tool));
+        }
+    }
+    if !allow_direct_answer {
+        return Ok(RequestDecision::ContinueLocal);
+    }
+    crate::app::inference_adapter::answer::finish_candidate(candidate).map(RequestDecision::Answer)
 }
 
 pub(super) fn reply_with_images(input: &BackendChatInput) -> Result<String, AppError> {
     let mut input = input.clone();
+    let language_instruction = language_instruction(input.response_language);
     input.text = format!(
-        "너는 rpotato라는 이름의 로컬 범용 AI·코딩 에이전트다. 첨부 이미지를 직접 살펴보고 사용자의 질문에 정확하고 자연스러운 한국어로 답하라. 이미지에서 확인할 수 없는 내용은 추측하지 마라. 내부 추론, MODEL ACTION, 메타데이터는 출력하지 마라.\n\n사용자: {}\n답변:",
+        "너는 rpotato라는 이름의 로컬 범용 AI·코딩 에이전트다. 첨부 이미지를 직접 살펴본다. {language_instruction} 이미지에서 확인할 수 없는 내용은 추측하지 마라. 내부 추론, MODEL ACTION, 메타데이터는 출력하지 마라.\n\n사용자: {}\n답변:",
         input.text
     );
     crate::app::inference_adapter::answer::generate_input(&input, CONVERSATION_MAX_TOKENS)
+}
+
+fn language_instruction(language: ResponseLanguage) -> &'static str {
+    if language.allows_non_korean() {
+        "사용자가 명시한 출력 언어로 정확하게 답하라."
+    } else {
+        "사용자가 요청한 내용에만 정확하고 자연스러운 한국어로 답하라."
+    }
 }
 
 pub(super) fn present_agent_report(report: &str) -> String {

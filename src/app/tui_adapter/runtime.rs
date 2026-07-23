@@ -73,10 +73,6 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         Ok(crate::app::context_adapter::compact_manually()?.report())
     }
 
-    fn should_search(&mut self, request: &str) -> bool {
-        crate::app::web_search_adapter::should_search(request)
-    }
-
     fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError> {
         let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
         super::attachment::capture(path, &identity.session_id)
@@ -98,20 +94,27 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             ensure_runtime_ready()?;
             return conversation::reply_with_images(&input);
         }
-        if let Some(result) = super::web_tools::dispatch(&mut self.opened_web_page, user_request) {
+        if let Some(result) =
+            super::web_tools::dispatch(&mut self.opened_web_page, user_request, local_context)
+        {
             return result;
         }
         if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref()) {
             return Ok(reply);
         }
         ensure_runtime_ready()?;
-        if let Some(search) =
-            crate::app::web_search_adapter::WebAnswerInput::routed(user_request, &input.text)
-        {
-            return crate::app::web_search_adapter::answer(search);
-        }
-        if conversation::is_conversational_request(user_request) {
-            return conversation::reply_with_context(user_request, local_context);
+        let conversational = conversation::is_conversational_request(user_request);
+        match conversation::decide_request(user_request, local_context, conversational)? {
+            conversation::RequestDecision::Answer(answer) => return Ok(answer),
+            conversation::RequestDecision::WebTool(tool) => {
+                return super::web_tools::execute(
+                    &mut self.opened_web_page,
+                    tool,
+                    user_request,
+                    local_context,
+                );
+            }
+            conversation::RequestDecision::ContinueLocal => {}
         }
         crate::app::runtime_adapter::agent_run_report(local_context)
             .map(|report| conversation::present_agent_report(&report))

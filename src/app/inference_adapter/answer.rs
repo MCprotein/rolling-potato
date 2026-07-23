@@ -11,14 +11,42 @@ const MAX_REPAIR_INPUT_CHARS: usize = 8 * 1024;
 const EMPTY_VISIBLE_ANSWER: &str =
     "model의 읽기 전용 답변이 비어 있습니다. 표시 가능한 답변을 생성하지 않았습니다.";
 
+pub(crate) struct GeneratedCandidate {
+    pub(crate) response_language: ResponseLanguage,
+    pub(crate) visible: String,
+}
+
 pub(crate) fn generate_for_user(
     prompt: &str,
     user_request: &str,
     max_tokens: u32,
 ) -> Result<String, AppError> {
+    finish_candidate(generate_candidate_for_user(
+        prompt,
+        user_request,
+        max_tokens,
+    )?)
+}
+
+pub(crate) fn generate_candidate_for_user(
+    prompt: &str,
+    user_request: &str,
+    max_tokens: u32,
+) -> Result<GeneratedCandidate, AppError> {
     let input = BackendChatInput::text_for_user(prompt, user_request);
     let run = backend::chat_once_with_input(&input, Some(max_tokens))?;
-    finish_generated(input.response_language, &run.response)
+    let visible = visible_text(&run.response);
+    if visible.is_empty() {
+        return Err(AppError::blocked(EMPTY_VISIBLE_ANSWER));
+    }
+    Ok(GeneratedCandidate {
+        response_language: input.response_language,
+        visible,
+    })
+}
+
+pub(crate) fn finish_candidate(candidate: GeneratedCandidate) -> Result<String, AppError> {
+    finish_generated(candidate.response_language, &candidate.visible)
 }
 
 pub(crate) fn generate_input(

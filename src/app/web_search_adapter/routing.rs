@@ -1,11 +1,17 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WebToolRoute {
+    Search { query: String },
     Open { url: String },
     Find { query: String },
 }
 
 pub(crate) fn route_tool_request(request: &str) -> Option<WebToolRoute> {
     let request = request.trim();
+    if let Some(query) = request.strip_prefix("/search ") {
+        return nonempty(query).map(|query| WebToolRoute::Search {
+            query: query.to_string(),
+        });
+    }
     if let Some(url) = request.strip_prefix("/open ") {
         return nonempty(url).map(|url| WebToolRoute::Open {
             url: url.to_string(),
@@ -36,101 +42,48 @@ pub(crate) fn route_tool_request(request: &str) -> Option<WebToolRoute> {
     })
 }
 
-pub(crate) fn should_search(request: &str) -> bool {
-    let request = request.trim();
-    if request.is_empty() {
-        return false;
+pub(crate) fn parse_agent_web_tool(response: &str) -> Option<WebToolRoute> {
+    const MAX_AGENT_TOOL_INPUT_CHARS: usize = 512;
+
+    let lines = response
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    let [tool_line, input_line] = lines.as_slice() else {
+        return None;
+    };
+    let tool = tool_line.strip_prefix("WEB TOOL:")?.trim();
+    let input = input_line.strip_prefix("WEB INPUT:")?.trim();
+    if input.is_empty()
+        || input.contains(['\r', '\n'])
+        || input.chars().count() > MAX_AGENT_TOOL_INPUT_CHARS
+    {
+        return None;
     }
+    match tool {
+        "search" => Some(WebToolRoute::Search {
+            query: input.to_string(),
+        }),
+        "open" => Some(WebToolRoute::Open {
+            url: input.to_string(),
+        }),
+        "find" => Some(WebToolRoute::Find {
+            query: input.to_string(),
+        }),
+        _ => None,
+    }
+}
+
+pub(crate) fn web_disabled(request: &str) -> bool {
+    let request = request.trim();
     let lower = request.to_ascii_lowercase();
-    if ["검색하지마", "검색하지 마", "오프라인", "인터넷 쓰지마"]
+    ["검색하지마", "검색하지 마", "오프라인", "인터넷 쓰지마"]
         .iter()
         .any(|signal| request.contains(signal))
         || ["do not browse", "don't browse", "offline"]
             .iter()
             .any(|signal| contains_ascii_phrase(&lower, signal))
-    {
-        return false;
-    }
-    let explicit_web = ["인터넷", "웹에서", "웹 검색", "온라인"]
-        .iter()
-        .any(|signal| request.contains(signal))
-        || [
-            "web search",
-            "search online",
-            "look up online",
-            "browse the web",
-        ]
-        .iter()
-        .any(|signal| contains_ascii_phrase(&lower, signal));
-    if explicit_web {
-        return true;
-    }
-    let local_scope = [
-        "저장소",
-        "프로젝트",
-        "코드",
-        "파일",
-        "디렉터리",
-        "경로",
-        "소스",
-    ]
-    .iter()
-    .any(|signal| request.contains(signal))
-        || ["repository", "repo", "codebase", "source file"]
-            .iter()
-            .any(|signal| contains_ascii_phrase(&lower, signal));
-    if local_scope {
-        return false;
-    }
-    if [
-        "검색해",
-        "찾아줘",
-        "찾아 줘",
-        "찾아봐",
-        "찾아 봐",
-        "알아봐",
-        "알아 봐",
-        "조회해",
-        "확인해줘",
-        "확인해 줘",
-    ]
-    .iter()
-    .any(|signal| request.contains(signal))
-    {
-        return true;
-    }
-    let dynamic_result = ["결과", "우승", "스코어", "순위", "당선"]
-        .iter()
-        .any(|signal| request.contains(signal))
-        && ["월드컵", "올림픽", "경기", "대회", "선거", "시상식", "리그"]
-            .iter()
-            .any(|signal| request.contains(signal));
-    if dynamic_result {
-        return true;
-    }
-    [
-        "최신",
-        "현재",
-        "오늘",
-        "지금",
-        "뉴스",
-        "날씨",
-        "주가",
-        "환율",
-        "가격",
-        "일정",
-        "출시",
-        "대통령",
-        "총리",
-        "대표이사",
-    ]
-    .iter()
-    .any(|signal| lower.contains(signal))
-        || [
-            "latest", "current", "today", "news", "weather", "price", "schedule", "ceo",
-        ]
-        .iter()
-        .any(|signal| contains_ascii_phrase(&lower, signal))
 }
 
 fn nonempty(value: &str) -> Option<&str> {

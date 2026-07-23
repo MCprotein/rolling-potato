@@ -73,10 +73,7 @@ fn search_command_routes_the_question_and_renders_the_answer() {
     run_controller(&mut terminal, &mut runtime).unwrap();
 
     let rendered = terminal.frames.join("\n");
-    assert_eq!(
-        runtime.requests,
-        ["인터넷에서 검색해줘: Rust 공식 웹사이트는?"]
-    );
+    assert_eq!(runtime.requests, ["/search Rust 공식 웹사이트는?"]);
     assert!(rendered.contains("› /search Rust 공식 웹사이트는?"));
     assert!(rendered.contains("검색 중 · 최신 웹 자료를 확인하고 있습니다…"));
     assert!(rendered.contains("● 안녕하세요."));
@@ -136,7 +133,7 @@ fn interactive_web_open_keeps_page_available_for_followup_find() {
 }
 
 #[test]
-fn natural_korean_search_variant_uses_the_search_progress_state() {
+fn natural_requests_use_agent_progress_until_the_model_selects_a_tool() {
     let request = "2026년 월드컵 결과 검색해서 알려줘";
     let mut terminal = ScriptedTerminal::new([request, "/quit"]);
     let mut runtime = ConversationRuntime::default();
@@ -144,7 +141,7 @@ fn natural_korean_search_variant_uses_the_search_progress_state() {
     run_controller(&mut terminal, &mut runtime).unwrap();
 
     assert_eq!(runtime.requests, [request]);
-    assert!(terminal.frames[1].contains("검색 중 · 최신 웹 자료를 확인하고 있습니다…"));
+    assert!(terminal.frames[1].contains("작업 중 · 에이전트가 요청을 처리하고 있습니다…"));
 }
 
 #[test]
@@ -264,10 +261,6 @@ impl TuiRuntimePort for ConversationRuntime {
 
     fn compact_context(&mut self) -> Result<String, AppError> {
         unreachable!()
-    }
-
-    fn should_search(&mut self, request: &str) -> bool {
-        request.contains("검색해서")
     }
 
     fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError> {
