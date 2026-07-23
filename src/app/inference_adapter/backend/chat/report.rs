@@ -84,12 +84,11 @@ pub fn chat_stream_report(
             if guard_failed {
                 return Ok(());
             }
-            match delta {
-                Some(delta) => match language_guard.push(delta) {
+            if let Some(delta) = delta {
+                match language_guard.push(delta) {
                     Ok(guarded) => guarded_output.push_str(&guarded),
                     Err(_) => guard_failed = true,
-                },
-                None => {}
+                }
             }
             Ok(())
         },

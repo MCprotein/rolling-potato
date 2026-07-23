@@ -332,7 +332,8 @@ mod tests {
             "session",
         )
         .unwrap();
-        let request = compose_request("이 코드를 설명해줘", &[attachment.clone()]).unwrap();
+        let request =
+            compose_request("이 코드를 설명해줘", std::slice::from_ref(&attachment)).unwrap();
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         assert!(Path::new(&attachment.stored_path).starts_with(root.join("data/attachments")));
