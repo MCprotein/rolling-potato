@@ -1,4 +1,4 @@
-use super::runtime_bridge::{TuiBackendStatus, TuiReadPage, TuiStatusSnapshot};
+use super::runtime_bridge::{TuiAttachment, TuiBackendStatus, TuiReadPage, TuiStatusSnapshot};
 use super::view_model::{
     conversation_rows_per_page, notice_rows_per_page, ConversationRole, InteractiveState,
     InteractiveView,
@@ -84,7 +84,14 @@ pub(crate) fn render_interactive_frame_with_options(
     output.push_str(&"-".repeat(width));
     output.push('\n');
     let status_line = render_status_line(status, width, color);
-    render_composer(&mut output, &status_line, width, ansi_layout, color);
+    render_composer(
+        &mut output,
+        &state.attachments,
+        &status_line,
+        width,
+        ansi_layout,
+        color,
+    );
     output
 }
 
@@ -109,7 +116,9 @@ fn render_conversation_frame(
         output.push('\n');
     }
 
-    let content_rows = conversation_rows_per_page(height, show_welcome);
+    let content_rows = conversation_rows_per_page(height, show_welcome)
+        .saturating_sub(usize::from(!state.attachments.is_empty()))
+        .max(1);
     let notice_lines = state.notice.split('\n').collect::<Vec<_>>();
     let notice_page_count = notice_lines.len().div_ceil(content_rows).max(1);
     let notice_page = state.notice_page.min(notice_page_count - 1);
@@ -159,7 +168,14 @@ fn render_conversation_frame(
     }
 
     let status_line = render_status_line(status, width, color);
-    render_composer(&mut output, &status_line, width, ansi_layout, color);
+    render_composer(
+        &mut output,
+        &state.attachments,
+        &status_line,
+        width,
+        ansi_layout,
+        color,
+    );
     output
 }
 
@@ -199,11 +215,31 @@ fn conversation_lines(state: &InteractiveState, width: usize, color_enabled: boo
 
 fn render_composer(
     output: &mut String,
+    attachments: &[TuiAttachment],
     status_line: &str,
     width: usize,
     ansi_layout: bool,
     color: bool,
 ) {
+    if !attachments.is_empty() {
+        let labels = attachments
+            .iter()
+            .map(|attachment| {
+                format!(
+                    "[{}: {}]",
+                    attachment.kind.label(),
+                    sanitize_terminal_text(&attachment.display_name)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        output.push_str(&paint(
+            &truncate_chars(&format!("첨부 {labels}"), width),
+            ACCENT_COLOR,
+            color,
+        ));
+        output.push('\n');
+    }
     if ansi_layout {
         output.push_str(&paint(
             &box_rule('╭', '╮', "─ 요청 ", width),

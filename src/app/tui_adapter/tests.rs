@@ -22,6 +22,7 @@ fn interactive_view_change_resets_page_and_updates_notice() {
         notice: "old notice".to_string(),
         notice_page: 3,
         turns: Vec::new(),
+        attachments: Vec::new(),
     };
 
     state.set_view(InteractiveView::Transcript("session-next".to_string()));
@@ -45,6 +46,7 @@ fn interactive_view_builds_bounded_read_request_from_viewport() {
         notice: String::new(),
         notice_page: 0,
         turns: Vec::new(),
+        attachments: Vec::new(),
     };
 
     let request = state.read_request(10, 8);
@@ -241,6 +243,7 @@ fn exact_outcome_notice_preserves_trusted_multiline_structure() {
         notice: "결과 제목\n- code: exact.test\n- 동작: 상태를 변경하지 않았습니다.".to_string(),
         notice_page: 0,
         turns: Vec::new(),
+        attachments: Vec::new(),
     };
     let page = TuiReadPage {
         title: "overview".to_string(),

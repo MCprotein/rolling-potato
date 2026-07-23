@@ -18,6 +18,7 @@ use crate::surfaces::tui::setup::{self, PreparedTuiModel, TuiSetupPort};
 
 mod model_switch;
 use model_switch::{switch_prepared_model, LiveModelSwitch};
+mod attachment;
 mod conversation;
 mod runtime;
 

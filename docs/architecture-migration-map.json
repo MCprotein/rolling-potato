@@ -6732,6 +6732,22 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/attachment.rs",
+      "slices": [
+        {
+          "responsibility": "bounded local attachment capture and request composition",
+          "target": "src/app/tui_adapter/attachment.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/attachment.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/conversation.rs",
       "slices": [
         {
@@ -9749,6 +9765,12 @@
       "path": "src/app/tui_adapter/model_switch.rs",
       "responsibilities": [
         "transactional TUI model switch and rollback coordination"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment.rs",
+      "responsibilities": [
+        "bounded local attachment capture and request composition"
       ]
     },
     {

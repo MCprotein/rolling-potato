@@ -14,6 +14,10 @@ const COMMANDS: &[TerminalSuggestion] = &[
         description: "인터넷 검색 후 출처와 함께 답변",
     },
     TerminalSuggestion {
+        command: "/attach <경로>",
+        description: "로컬 이미지·텍스트 파일 첨부",
+    },
+    TerminalSuggestion {
         command: "/update",
         description: "최신 버전 확인 및 업데이트",
     },

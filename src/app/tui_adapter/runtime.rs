@@ -4,8 +4,8 @@ use crate::foundation::error::AppError;
 use crate::surfaces::tui::controller::TuiRuntimePort;
 use crate::surfaces::tui::outcome::TuiOutcome;
 use crate::surfaces::tui::runtime_bridge::{
-    new_tui_intent_id, SelectionLease, TuiBackendStatus, TuiGateKind, TuiIntent, TuiReadPage,
-    TuiReadRequest, TuiStatusSnapshot,
+    new_tui_intent_id, SelectionLease, TuiAttachment, TuiBackendStatus, TuiGateKind, TuiIntent,
+    TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
 };
 use crate::surfaces::tui::setup;
 
@@ -73,22 +73,32 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         Ok(crate::app::context_adapter::compact_manually()?.report())
     }
 
-    fn submit_request(&mut self, request: &str) -> Result<String, AppError> {
+    fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError> {
+        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
+        super::attachment::capture(path, &identity.session_id)
+    }
+
+    fn submit_request(
+        &mut self,
+        request: &str,
+        attachments: &[TuiAttachment],
+    ) -> Result<String, AppError> {
+        let request = super::attachment::compose_request(request, attachments)?;
         let active_model = crate::app::inference_adapter::backend::runtime_snapshot()
             .ok()
             .and_then(|snapshot| snapshot.model_id)
             .or_else(crate::app::inference_adapter::model::configured_model_id);
-        if let Some(reply) = conversation::local_reply(request, active_model.as_deref()) {
+        if let Some(reply) = conversation::local_reply(&request, active_model.as_deref()) {
             return Ok(reply);
         }
         ensure_runtime_ready()?;
-        if crate::app::web_search_adapter::should_search(request) {
-            return crate::app::web_search_adapter::answer(request);
+        if crate::app::web_search_adapter::should_search(&request) {
+            return crate::app::web_search_adapter::answer(&request);
         }
-        if conversation::is_conversational_request(request) {
-            return conversation::reply(request);
+        if conversation::is_conversational_request(&request) {
+            return conversation::reply(&request);
         }
-        crate::app::runtime_adapter::agent_run_report(request)
+        crate::app::runtime_adapter::agent_run_report(&request)
             .map(|report| conversation::present_agent_report(&report))
     }
 

@@ -4,8 +4,8 @@ use crate::foundation::error::AppError;
 use crate::surfaces::tui::controller::{run_controller, TuiRuntimePort};
 use crate::surfaces::tui::render::{display_cell_width, render_interactive_frame};
 use crate::surfaces::tui::runtime_bridge::{
-    SelectionLease, TuiFreshness, TuiGateKind, TuiIntent, TuiModelOption, TuiReadContinuation,
-    TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
+    SelectionLease, TuiAttachment, TuiAttachmentKind, TuiFreshness, TuiGateKind, TuiIntent,
+    TuiModelOption, TuiReadContinuation, TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
 };
 use crate::surfaces::tui::view_model::{ConversationRole, InteractiveState};
 
@@ -104,6 +104,22 @@ fn model_command_uses_keyboard_choices_and_applies_the_selection() {
 }
 
 #[test]
+fn pasted_image_path_becomes_an_attachment_instead_of_an_unknown_command() {
+    let path = "/private/tmp/rpotato-screen.png";
+    let mut terminal = ScriptedTerminal::new([path, "이 이미지 봐줘", "/quit"]);
+    let mut runtime = ConversationRuntime::default();
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.captured_paths, [path]);
+    assert_eq!(runtime.requests, ["이 이미지 봐줘"]);
+    assert_eq!(runtime.submitted_attachment_counts, [1]);
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("[image:"));
+    assert!(!rendered.contains("알 수 없는 TUI 명령"));
+}
+
+#[test]
 fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let previous_root = std::env::var_os("RPOTATO_PROJECT_ROOT");
@@ -137,6 +153,8 @@ struct ConversationRuntime {
     page_reads: usize,
     model_options: Vec<TuiModelOption>,
     setup_models: Vec<String>,
+    captured_paths: Vec<String>,
+    submitted_attachment_counts: Vec<usize>,
 }
 
 impl TuiRuntimePort for ConversationRuntime {
@@ -183,8 +201,24 @@ impl TuiRuntimePort for ConversationRuntime {
         unreachable!()
     }
 
-    fn submit_request(&mut self, request: &str) -> Result<String, AppError> {
+    fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError> {
+        self.captured_paths.push(path.to_string());
+        Ok(TuiAttachment {
+            id: "attachment-test".to_string(),
+            display_name: path.to_string(),
+            stored_path: path.to_string(),
+            size_bytes: 1,
+            kind: TuiAttachmentKind::Image,
+        })
+    }
+
+    fn submit_request(
+        &mut self,
+        request: &str,
+        attachments: &[TuiAttachment],
+    ) -> Result<String, AppError> {
         self.requests.push(request.to_string());
+        self.submitted_attachment_counts.push(attachments.len());
         Ok("안녕하세요.".to_string())
     }
 

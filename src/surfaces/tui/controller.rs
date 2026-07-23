@@ -5,8 +5,8 @@ use crate::runtime_core::terminal::{
 
 use super::outcome::{exact_tui_outcome, TuiEffect, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext};
 use super::runtime_bridge::{
-    OneShotSecret, SelectionLease, TuiGateKind, TuiIntent, TuiModelOption, TuiReadPage,
-    TuiReadRequest, TuiStatusSnapshot,
+    OneShotSecret, SelectionLease, TuiAttachment, TuiGateKind, TuiIntent, TuiModelOption,
+    TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
 };
 use super::view_model::{ConversationRole, InteractiveState, InteractiveView};
 
@@ -19,7 +19,12 @@ pub(crate) trait TuiRuntimePort {
     fn setup_model(&mut self, id: &str) -> Result<String, AppError>;
     fn doctor_report(&mut self) -> String;
     fn compact_context(&mut self) -> Result<String, AppError>;
-    fn submit_request(&mut self, request: &str) -> Result<String, AppError>;
+    fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError>;
+    fn submit_request(
+        &mut self,
+        request: &str,
+        attachments: &[TuiAttachment],
+    ) -> Result<String, AppError>;
     fn new_tui_intent_id(&mut self) -> String;
     fn tui_selection_lease(&mut self, selected_object_id: &str)
         -> Result<SelectionLease, AppError>;
@@ -120,11 +125,18 @@ pub(crate) fn run_controller(
                 state.notice = "검색 중 · 최신 웹 자료를 확인하고 있습니다…".to_string();
                 write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
                 let request = format!("인터넷에서 검색해줘: {query}");
-                let response = match runtime.submit_request(&request) {
+                let response = match runtime.submit_request(&request, &[]) {
                     Ok(report) => report,
                     Err(error) => format!("웹 검색을 완료하지 못했습니다.\n{}", error.message),
                 };
                 state.push_turn(ConversationRole::Assistant, response);
+            }
+            ["/attach"] => {
+                state.notice = "사용법: /attach <로컬 파일 경로>".to_string();
+            }
+            ["/attach", path @ ..] => {
+                let path = path.join(" ");
+                state.notice = capture_attachment_notice(runtime, &mut state, &path);
             }
             ["/update"] => {
                 if !confirm(
@@ -359,18 +371,28 @@ pub(crate) fn run_controller(
                 state.notice = outcome_notice(outcome);
                 post_dispatch_intent = was_dispatched.then_some(intent_id);
             }
+            [command, ..]
+                if command.starts_with('/') && looks_like_attachment_path(line.trim()) =>
+            {
+                state.notice = capture_attachment_notice(runtime, &mut state, line.trim());
+            }
             [command, ..] if command.starts_with('/') => {
                 state.notice = format!("알 수 없는 TUI 명령입니다: {command}\n/help로 확인하세요.");
             }
             _ => {
+                if looks_like_attachment_path(line.trim()) {
+                    state.notice = capture_attachment_notice(runtime, &mut state, line.trim());
+                    continue;
+                }
                 state.view = InteractiveView::Conversation;
                 state.push_turn(ConversationRole::User, line.trim());
                 state.notice = "작업 중 · 모델이 요청을 처리하고 있습니다…".to_string();
                 write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
-                let response = match runtime.submit_request(line.trim()) {
+                let response = match runtime.submit_request(line.trim(), &state.attachments) {
                     Ok(report) => report,
                     Err(error) => format!("요청을 완료하지 못했습니다.\n{}", error.message),
                 };
+                state.clear_attachments();
                 state.push_turn(ConversationRole::Assistant, response);
             }
         }
@@ -400,6 +422,78 @@ fn model_options_notice(options: &[TuiModelOption]) -> String {
     }
     lines.push("변경: /model을 열어 ↑↓와 Enter로 선택하세요.".to_string());
     lines.join("\n")
+}
+
+fn capture_attachment_notice(
+    runtime: &mut impl TuiRuntimePort,
+    state: &mut InteractiveState,
+    path: &str,
+) -> String {
+    match runtime.capture_attachment(path) {
+        Ok(attachment) => {
+            let notice = format!(
+                "첨부됨 · {} · {} bytes\n다음 요청에 포함됩니다.",
+                attachment.display_name, attachment.size_bytes
+            );
+            state.add_attachment(attachment);
+            notice
+        }
+        Err(error) => error.message,
+    }
+}
+
+fn looks_like_attachment_path(value: &str) -> bool {
+    let value = value.trim().trim_matches(['"', '\'']);
+    let path_like = value.starts_with('/')
+        || value.starts_with("./")
+        || value.starts_with("../")
+        || value.starts_with("~/")
+        || value.starts_with("file://");
+    let extension = std::path::Path::new(value)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    path_like
+        && matches!(
+            extension.as_str(),
+            "png"
+                | "jpg"
+                | "jpeg"
+                | "gif"
+                | "webp"
+                | "rs"
+                | "toml"
+                | "md"
+                | "txt"
+                | "json"
+                | "yaml"
+                | "yml"
+                | "py"
+                | "js"
+                | "jsx"
+                | "ts"
+                | "tsx"
+                | "go"
+                | "java"
+                | "kt"
+                | "kts"
+                | "c"
+                | "cc"
+                | "cpp"
+                | "h"
+                | "hpp"
+                | "sh"
+                | "zsh"
+                | "fish"
+                | "html"
+                | "css"
+                | "scss"
+                | "sql"
+                | "xml"
+                | "csv"
+                | "log"
+        )
 }
 
 fn choose_model(
