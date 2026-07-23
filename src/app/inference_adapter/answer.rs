@@ -7,6 +7,8 @@ use crate::runtime_core::reporting::korean_guard;
 
 const REPAIR_MAX_TOKENS: u32 = 384;
 const MAX_REPAIR_INPUT_CHARS: usize = 8 * 1024;
+const EMPTY_VISIBLE_ANSWER: &str =
+    "model의 읽기 전용 답변이 비어 있습니다. 표시 가능한 답변을 생성하지 않았습니다.";
 
 pub(crate) fn generate(prompt: &str, max_tokens: u32) -> Result<String, AppError> {
     let run = backend::chat_once(prompt, Some(max_tokens))?;
@@ -19,7 +21,7 @@ pub(crate) fn generate(prompt: &str, max_tokens: u32) -> Result<String, AppError
 pub(crate) fn validate_existing(response: &str) -> Result<String, AppError> {
     let visible = visible_text(response);
     if visible.is_empty() {
-        return Err(AppError::blocked("model의 읽기 전용 답변이 비어 있습니다."));
+        return Err(AppError::blocked(EMPTY_VISIBLE_ANSWER));
     }
     if !korean_guard::validate(&visible) {
         return Err(AppError::blocked(
@@ -32,7 +34,7 @@ pub(crate) fn validate_existing(response: &str) -> Result<String, AppError> {
 pub(crate) fn repair_existing(response: &str) -> Result<String, AppError> {
     let visible = visible_text(response);
     if visible.is_empty() {
-        return Err(AppError::blocked("model의 읽기 전용 답변이 비어 있습니다."));
+        return Err(AppError::blocked(EMPTY_VISIBLE_ANSWER));
     }
     let bounded = visible
         .chars()
