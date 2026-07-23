@@ -3597,6 +3597,44 @@ fn v03713_storage_compatibility_is_a_pure_codec_boundary() {
 }
 
 #[test]
+fn v0471_tui_controller_support_responsibilities_are_split() {
+    let controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
+    for (module, owner, marker) in [
+        (
+            "attachments",
+            "src/surfaces/tui/controller/attachments.rs",
+            "fn looks_like_attachment_path",
+        ),
+        (
+            "model_selection",
+            "src/surfaces/tui/controller/model_selection.rs",
+            "fn choose_model",
+        ),
+        (
+            "terminal_flow",
+            "src/surfaces/tui/controller/terminal_flow.rs",
+            "fn terminal_fault_error",
+        ),
+    ] {
+        assert!(
+            controller
+                .lines()
+                .any(|line| line == format!("mod {module};")),
+            "TUI controller does not register support owner: {module}"
+        );
+        let source = fs::read_to_string(owner).unwrap();
+        assert!(
+            source.contains(marker),
+            "TUI controller support owner is missing responsibility: {owner} -> {marker}"
+        );
+    }
+    assert!(
+        controller.lines().count() < 500,
+        "TUI controller regrew beyond command-loop ownership"
+    );
+}
+
+#[test]
 fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let hook = "src/runtime_core/extensions/hook.rs";
     let skill = "src/runtime_core/extensions/skill.rs";
@@ -5195,20 +5233,29 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     );
 
     let controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
-    for definition in [
-        "trait TuiRuntimePort",
-        "fn run_controller",
-        "fn terminal_fault_error",
-        "fn consume_outcome",
-    ] {
+    for definition in ["trait TuiRuntimePort", "fn run_controller"] {
         assert!(
             controller.contains(definition),
             "TUI controller owner is missing {definition}"
         );
     }
+    let terminal_flow = fs::read_to_string("src/surfaces/tui/controller/terminal_flow.rs").unwrap();
+    for definition in ["fn terminal_fault_error", "fn consume_outcome"] {
+        assert!(
+            terminal_flow.contains(definition),
+            "TUI terminal-flow owner is missing {definition}"
+        );
+        assert!(
+            !controller.contains(&format!("pub(crate) {definition}")),
+            "TUI command loop still defines terminal-flow behavior: {definition}"
+        );
+    }
+    assert!(controller
+        .contains("pub(crate) use terminal_flow::{consume_outcome, terminal_fault_error};"));
     assert!(!controller.contains("use crate::runtime;"));
     assert!(!controller.contains("crate::runtime::"));
     assert!(!controller.contains("crate::adapters"));
+    assert!(!terminal_flow.contains("crate::adapters"));
     assert!(interactive_runtime.contains("impl TuiRuntimePort for TuiRuntimeAdapter"));
 
     let terminal_port = fs::read_to_string("src/runtime_core/terminal.rs").unwrap();

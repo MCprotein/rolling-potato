@@ -6203,7 +6203,61 @@
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/controller.rs",
+            "src/surfaces/tui/controller/attachments.rs",
+            "src/surfaces/tui/controller/model_selection.rs",
+            "src/surfaces/tui/controller/terminal_flow.rs",
             "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/attachments.rs",
+      "slices": [
+        {
+          "responsibility": "TUI attachment path detection and capture presentation",
+          "target": "src/surfaces/tui/controller/attachments.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/surfaces/tui/controller/attachments.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/model_selection.rs",
+      "slices": [
+        {
+          "responsibility": "TUI model picker, confirmation, and setup notices",
+          "target": "src/surfaces/tui/controller/model_selection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/surfaces/tui/controller/model_selection.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/terminal_flow.rs",
+      "slices": [
+        {
+          "responsibility": "TUI terminal prompts, frame boundaries, faults, and typed outcome consumption",
+          "target": "src/surfaces/tui/controller/terminal_flow.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/surfaces/tui/controller/terminal_flow.rs",
             "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -9781,6 +9835,24 @@
       "path": "src/surfaces/tui/controller.rs",
       "responsibilities": [
         "interactive command loop and runtime port"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/attachments.rs",
+      "responsibilities": [
+        "TUI attachment path detection and capture presentation"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/model_selection.rs",
+      "responsibilities": [
+        "TUI model picker, confirmation, and setup notices"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/terminal_flow.rs",
+      "responsibilities": [
+        "TUI terminal prompts, frame boundaries, faults, and typed outcome consumption"
       ]
     },
     {
