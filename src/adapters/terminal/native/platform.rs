@@ -132,8 +132,10 @@ mod imp {
         let _signal_restore = SignalEchoRestore::install(original)?;
         let mut live = original;
         live.c_lflag &= !(ECHO | ICANON | ISIG);
-        live.c_cc[VMIN] = 1;
-        live.c_cc[VTIME] = 0;
+        // A short inter-byte timeout lets the line editor distinguish a standalone Escape
+        // key from the prefix of CSI/SS3 navigation sequences.
+        live.c_cc[VMIN] = 0;
+        live.c_cc[VTIME] = 1;
         // SAFETY: both termios pointers are valid for the duration of each call.
         if unsafe { tcsetattr(STDIN_FILENO, TCSANOW, &live) } != 0 {
             return Err(TerminalFault::NoEchoSet);

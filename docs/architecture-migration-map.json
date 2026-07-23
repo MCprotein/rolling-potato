@@ -1944,13 +1944,43 @@
       "path": "src/adapters/terminal/native/live_input.rs",
       "slices": [
         {
-          "responsibility": "live terminal line editing and slash suggestion rendering",
+          "responsibility": "live terminal input event coordination",
           "target": "src/adapters/terminal/native/live_input.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/adapters/terminal/native/live_input.rs",
             "tests/surfaces/native_terminal.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/editor.rs",
+      "slices": [
+        {
+          "responsibility": "UTF-8 terminal line editing and keyboard navigation",
+          "target": "src/adapters/terminal/native/live_input/editor.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/live_input/editor.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/render.rs",
+      "slices": [
+        {
+          "responsibility": "live composer and command-palette rendering",
+          "target": "src/adapters/terminal/native/live_input/render.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/live_input/render.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8018,7 +8048,19 @@
     {
       "path": "src/adapters/terminal/native/live_input.rs",
       "responsibilities": [
-        "live terminal line editing and slash suggestion rendering"
+        "live terminal input event coordination"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/editor.rs",
+      "responsibilities": [
+        "UTF-8 terminal line editing and keyboard navigation"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/render.rs",
+      "responsibilities": [
+        "live composer and command-palette rendering"
       ]
     },
     {
