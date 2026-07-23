@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
 use crate::adapters::filesystem::model_artifact::{
-    self, fetch_evaluation_artifact, local_artifact_state, model_artifact_part_path,
-    model_artifact_path, promotion_evidence_path, vision_projector_artifact_path,
-    vision_projector_part_path,
+    self, fetch_evaluation_artifact, fetch_managed_projector_artifact, local_artifact_state,
+    model_artifact_part_path, model_artifact_path, promotion_evidence_path,
+    vision_projector_artifact_path, vision_projector_part_path,
 };
 use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
@@ -320,7 +320,7 @@ pub fn fetch_candidate_for_evaluation_report(id: &str) -> Result<String, AppErro
     let projector_status = source_backed_vision_projector(candidate).map(|projector| {
         let projector_path = vision_projector_artifact_path(candidate, projector);
         let projector_part_path = vision_projector_part_path(candidate, projector);
-        match fetch_evaluation_artifact(projector, &projector_path, &projector_part_path) {
+        match fetch_managed_projector_artifact(projector, &projector_path, &projector_part_path) {
             Ok(status) => format!(
                 "ready ({}, {}, sha256 {})",
                 status.label(),
