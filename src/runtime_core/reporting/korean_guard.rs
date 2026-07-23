@@ -183,12 +183,35 @@ fn classify_outside_text(text: &str) -> OutsideTextClassification {
 }
 
 fn has_excessive_foreign_prose(text: &str) -> bool {
-    let foreign_words = foreign_word_count(text);
-    let hangul_characters = text
-        .chars()
-        .filter(|character| is_hangul(*character))
-        .count();
-    foreign_words >= 3 && foreign_words > hangul_characters
+    let longest_foreign_span = text
+        .split(is_hangul)
+        .map(foreign_word_count)
+        .max()
+        .unwrap_or_default();
+    if longest_foreign_span < 3 {
+        return false;
+    }
+    if longest_foreign_span <= 8 && is_release_title_context(text) {
+        return false;
+    }
+    true
+}
+
+fn is_release_title_context(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    let has_release_label = text.contains("릴리스")
+        || text.contains("버전")
+        || lower.contains("release")
+        || lower.contains("version");
+    let has_version = lower
+        .split(|character: char| character.is_whitespace() || character == '-')
+        .any(|token| {
+            token
+                .strip_prefix('v')
+                .and_then(|version| version.chars().next())
+                .is_some_and(|character| character.is_ascii_digit())
+        });
+    has_release_label && has_version
 }
 
 fn foreign_word_count(text: &str) -> usize {
@@ -411,6 +434,12 @@ mod tests {
     fn korean_web_answer_allows_an_english_release_title() {
         assert!(validate(
             "GitHub의 rpotato v0.47.0 General Answers and Web Grounding 릴리스가 최신입니다."
+        ));
+    }
+    #[test]
+    fn long_english_sentence_after_korean_remains_blocked() {
+        assert!(!validate(
+            "한국어 설명을 아주 길고 자세하게 먼저 제공합니다. This sentence contains a complete English explanation with several foreign words that should remain blocked."
         ));
     }
     #[test]

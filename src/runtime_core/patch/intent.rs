@@ -79,6 +79,30 @@ pub(crate) fn classify(
         &lower,
         &["error:", "error[", "panicked at", "traceback", "exception:"],
     ) || has_any(trimmed, &["에러 로그:", "오류 출력:", "예외:"]);
+    let has_specific_failure_reference = has_any(
+        &lower,
+        &[
+            "this error",
+            "that error",
+            "the error above",
+            "error occurred",
+            "error message",
+            "failed because",
+        ],
+    ) || has_any(
+        trimmed,
+        &[
+            "이 오류",
+            "그 오류",
+            "위 오류",
+            "해당 오류",
+            "이 에러",
+            "그 에러",
+            "실패했",
+            "오류가 발생",
+            "에러가 발생",
+        ],
+    );
     let has_change_signal = has_ascii_word(
         &lower,
         &[
@@ -135,7 +159,7 @@ pub(crate) fn classify(
     {
         signals.push("plan-only");
         ("ontology-refresh", "plan-only")
-    } else if has_diagnostic_output || (has_failure_signal && has_explanation_signal) {
+    } else if has_diagnostic_output || (has_specific_failure_reference && has_explanation_signal) {
         signals.push("explain-error");
         ("explain-error", "read-only")
     } else if has_any(&lower, &["map", "find", "search", "analyze"])
@@ -610,6 +634,8 @@ mod tests {
             "왜 하늘은 파란가요?",
             "Rust ownership을 쉽게 설명해줘",
             "What is an error?",
+            "Explain error handling in Rust",
+            "Rust의 오류 처리를 설명해줘",
         ] {
             let decision = classify(request, |_| None).unwrap();
             assert_eq!(decision.skill_id, "conversation", "request: {request}");
