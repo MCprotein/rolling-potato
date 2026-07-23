@@ -1660,12 +1660,80 @@
       "path": "src/adapters/web_search.rs",
       "slices": [
         {
-          "responsibility": "bounded read-only web search transport and source extraction",
+          "responsibility": "direct web search facade and bounded orchestration",
           "target": "src/adapters/web_search.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/adapters/web_search.rs",
+            "src/adapters/web_search/evidence.rs",
+            "src/adapters/web_search/html.rs",
+            "src/adapters/web_search/policy.rs",
+            "src/adapters/web_search/transport.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/evidence.rs",
+      "slices": [
+        {
+          "responsibility": "small-model search evidence budgeting and source composition",
+          "target": "src/adapters/web_search/evidence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/adapters/web_search/evidence.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/html.rs",
+      "slices": [
+        {
+          "responsibility": "direct search HTML parsing and result-target normalization",
+          "target": "src/adapters/web_search/html.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/adapters/web_search/html.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/policy.rs",
+      "slices": [
+        {
+          "responsibility": "web query and HTTPS source validation policy",
+          "target": "src/adapters/web_search/policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/adapters/web_search/policy.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/transport.rs",
+      "slices": [
+        {
+          "responsibility": "credential-free HTTPS search document transport",
+          "target": "src/adapters/web_search/transport.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/adapters/web_search/transport.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7989,7 +8057,31 @@
     {
       "path": "src/adapters/web_search.rs",
       "responsibilities": [
-        "bounded read-only web search transport and source extraction"
+        "direct web search facade and bounded orchestration"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/evidence.rs",
+      "responsibilities": [
+        "small-model search evidence budgeting and source composition"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/html.rs",
+      "responsibilities": [
+        "direct search HTML parsing and result-target normalization"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/policy.rs",
+      "responsibilities": [
+        "web query and HTTPS source validation policy"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/transport.rs",
+      "responsibilities": [
+        "credential-free HTTPS search document transport"
       ]
     },
     {

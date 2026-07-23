@@ -85,10 +85,10 @@ Mitigations:
 
 - local backend default
 - no telemetry
-- web search sends only the current question to the fixed Brave Search REST
-  endpoint when the request is explicit or freshness-sensitive; the API key is
-  environment-only, HTTPS is mandatory, redirects are disabled, repository-scoped
-  requests stay local unless web use is explicit, and an offline/no-browse
+- web search sends only the current question to a fixed public HTML search endpoint
+  when the request is explicit or freshness-sensitive; no API credential is used,
+  HTTPS is mandatory, redirects are disabled, repository-scoped requests stay local
+  unless web use is explicit, and an offline/no-browse
   instruction disables it
 - bounded search highlights are untrusted text and never receive command, file, or
   permission authority

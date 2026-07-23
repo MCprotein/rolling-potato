@@ -1,5 +1,12 @@
 # 릴리즈 노트
 
+## 미출시 - API key 없는 직접 웹 검색
+
+- Brave Search REST와 credential 설정을 제거
+- MCP, provider SDK, 새 dependency 없이 공개 검색 HTML을 직접 요청·파싱
+- HTTPS-only, redirect 차단, 응답·query·source·context 상한과 untrusted context
+  경계 유지
+
 ## v0.47.1 - 안정적인 범용 답변과 검색
 
 릴리즈 날짜: 2026-07-23

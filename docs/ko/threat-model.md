@@ -85,10 +85,10 @@
 
 - local backend 기본값
 - telemetry 없음
-- 웹 검색은 명시적 요청이나 최신성이 필요한 경우에만 현재 질문을 고정된 Brave
-  Search REST endpoint로 HTTPS 전송합니다. `BRAVE_SEARCH_API_KEY`는 environment에서만
-  읽고 저장하거나 출력하지 않으며 redirect를 허용하지 않습니다. 저장소 범위 요청은
-  웹 사용을 명시하지 않으면 local에 남고, offline/no-browse 지시는 검색을
+- 웹 검색은 명시적 요청이나 최신성이 필요한 경우에만 현재 질문을 고정된 공개
+  HTML 검색 endpoint로 HTTPS 전송합니다. API credential을 사용하지 않고 redirect를
+  허용하지 않습니다. 저장소 범위 요청은 웹 사용을 명시하지 않으면 local에 남고,
+  offline/no-browse 지시는 검색을
   비활성화합니다.
 - 제한된 검색 highlight는 신뢰하지 않는 text이며 command, file, permission 권한을
   얻지 못합니다.

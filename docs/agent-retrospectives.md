@@ -741,3 +741,30 @@
 - Candidate 라벨을 적용하기 전에 remote branch ref와 `refs/pull/<N>/head`가 모두
   candidate SHA와 같은지 확인합니다. Pull ref가 뒤처졌다면 stale run을 취소하고
   새 branch push가 반영될 때까지 잘못된 SHA로 전체 검증을 시작하지 않습니다.
+
+## 2026-07-23: 직접 검색 구현 요청을 hosted REST 연결로 축소 해석
+
+### 증상
+
+- 별도 MCP server와 외부 dependency를 원하지 않는다는 요청을 Brave Search REST
+  API를 직접 호출하라는 의미로 잘못 해석했습니다.
+- API key가 없으면 `/search`가 동작하지 않아 설치 직후 사용할 수 있다는 제품
+  의도와 어긋났습니다.
+
+### 원인
+
+- "직접 구현"을 process/SDK 제거로만 해석하고 hosted 검색 provider와 credential
+  의존성까지 제거해야 한다는 경계를 확인하지 않았습니다.
+- 경쟁 도구의 공개 구현을 먼저 확인하지 않고 provider 선택부터 했습니다.
+
+### 재발 방지
+
+- 검색 tool의 "직접 구현"은 별도 승인이 없는 한 provider API, API key, MCP
+  process, provider SDK가 없는 repository-owned transport/parser/policy를 뜻합니다.
+- 경쟁 제품을 참고하라는 요청은 공개 source와 공식 문서로 실제 경계를 먼저
+  확인합니다. Hosted tool이나 MCP를 사용한다면 그 사실을 자체 구현으로 표현하지
+  않습니다.
+- 새 검색 transport는 HTML parser fixture의 실패 회귀 테스트, HTTPS/redirect/query/
+  response/source/context 상한, API key 없는 live smoke를 candidate 전에 검증합니다.
+- 기능 개발 중 PR은 draft와 label 없는 상태를 유지하고, targeted 검증이 끝난 최종
+  HEAD에서만 `release-candidate`를 적용합니다.

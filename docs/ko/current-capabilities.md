@@ -91,10 +91,10 @@ deterministic typed extraction만으로 계속합니다.
 
 기본 TUI는 저장소 도구가 필요 없는 일반 지식, 계산, 설명, 글쓰기 질문을 위한
 가벼운 범용 답변 경로도 제공합니다. 인터넷 검색을 명시한 요청과 최신성이 필요한
-질문은 Brave Search REST API를 직접 호출하는 제한된 읽기 전용 검색을 사용합니다.
-별도 MCP process나 provider SDK는 사용하지 않으며 `BRAVE_SEARCH_API_KEY`는
-environment에서만 읽고 저장하거나 출력하지 않습니다. 현재 질문은 HTTPS로 해당
-서비스에 전송되며 redirect는 허용하지 않습니다. 반환 text는 신뢰하지 않는
+질문은 공개 검색 HTML을 직접 요청·파싱하는 제한된 읽기 전용 검색을 사용합니다.
+API key, 별도 MCP process, provider SDK, background 검색 service를 사용하지
+않습니다. 현재 질문은 HTTPS로 고정된 검색 page에 전송되며 redirect는 허용하지
+않습니다. 반환 text는 신뢰하지 않는
 context로만 취급하고 웹 문서의 지시는 실행 권한을 얻지 못합니다. 최대 4개 출처가
 6 KiB 근거 budget을 공유합니다. `/doctor`는 key를 노출하지 않고 검색 설정을
 표시하며, 비용이 큰 ontology source-hash 감사는 명시적인 ontology 진단으로
@@ -342,8 +342,8 @@ rpotato debug --help
 - Team worker는 제한된 evidence와 non-executing patch proposal만 반환하고,
   team reconciliation은 worker-authored patch를 적용하지 않습니다.
 - Plugin script, agent, external hook, 임의 MCP/LSP connector, background process,
-  remote connector, write grant는 실행 권한을 얻지 못합니다. 직접 연결하는 Brave
-  검색 adapter는 제한된 신뢰하지 않는 text만 반환하며 tool이나 mutation을
+  remote connector, write grant는 실행 권한을 얻지 못합니다. 직접 HTML 검색
+  adapter는 제한된 신뢰하지 않는 text만 반환하며 tool이나 mutation을
   dispatch할 수 없습니다.
 - `monitor prune`은 dry-run만 지원합니다.
 - HTML monitoring은 local static export이며 server나 remote dashboard가

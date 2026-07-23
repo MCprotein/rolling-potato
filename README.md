@@ -160,10 +160,9 @@ rpotato
 Running `rpotato` without arguments starts the primary TUI. Plain text entered
 there supports both general LLM questions and coding-agent requests. Questions
 that explicitly request web search or depend on current information use a bounded
-read-only Brave Search REST request with runtime-rendered source links. Search
-requires `BRAVE_SEARCH_API_KEY`; the key stays in the environment and is never
-written to rpotato state or logs. `/doctor` reports whether search is ready,
-missing a key, or has conflicting aliases without printing the credential.
+read-only direct HTML search with runtime-rendered source links. It needs no API
+key, MCP process, or provider SDK. `/doctor` reports whether the direct search
+transport is ready.
 The line below the composer shows the current
 model, context usage, compaction checkpoint, backend state, and session.
 Normal TUI operations use `/model`, `/compact`, `/search`, `/attach`, `/update`,
@@ -216,7 +215,7 @@ product-definition scaffold. Implemented areas include:
 | Collaboration | One bounded subagent and runtime-owned team execution |
 | Monitoring | CLI/TUI metrics, SQLite projection, benchmark records, static HTML export |
 | Interfaces | Primary conversation TUI, keyboard pickers, local attachment badges, automation/diagnostic CLI, self-contained local HTML report |
-| General answers and web | General knowledge/calculation answers, natural Korean search routing, `/search`, bounded direct Brave Search results with runtime-rendered source links |
+| General answers and web | General knowledge/calculation answers, natural Korean search routing, `/search`, API-key-free direct HTML search with runtime-owned source links |
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete
