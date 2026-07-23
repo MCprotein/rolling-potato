@@ -5001,12 +5001,92 @@
       "path": "src/runtime_core/reporting/korean_guard.rs",
       "slices": [
         {
-          "responsibility": "Korean output invariant",
+          "responsibility": "Korean output policy facade",
           "target": "src/runtime_core/reporting/korean_guard.rs",
-          "release": "0.37.10",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/reporting/korean_guard.rs",
+            "src/runtime_core/reporting/korean_guard/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/classification.rs",
+      "slices": [
+        {
+          "responsibility": "Korean output classification policy",
+          "target": "src/runtime_core/reporting/korean_guard/classification.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/korean_guard/classification.rs",
+            "src/runtime_core/reporting/korean_guard/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/language.rs",
+      "slices": [
+        {
+          "responsibility": "user-requested response language detection",
+          "target": "src/runtime_core/reporting/korean_guard/language.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/korean_guard/language.rs",
+            "src/runtime_core/reporting/korean_guard/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/projection.rs",
+      "slices": [
+        {
+          "responsibility": "safe visible-answer projection",
+          "target": "src/runtime_core/reporting/korean_guard/projection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/korean_guard/projection.rs",
+            "src/runtime_core/reporting/korean_guard/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/streaming.rs",
+      "slices": [
+        {
+          "responsibility": "streaming output language state machine",
+          "target": "src/runtime_core/reporting/korean_guard/streaming.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/korean_guard/streaming.rs",
+            "src/runtime_core/reporting/korean_guard/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/tests.rs",
+      "slices": [
+        {
+          "responsibility": "Korean output guard regression tests",
+          "target": "src/runtime_core/reporting/korean_guard/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/korean_guard/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -9242,7 +9322,37 @@
     {
       "path": "src/runtime_core/reporting/korean_guard.rs",
       "responsibilities": [
-        "Korean output invariant"
+        "Korean output policy facade"
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/classification.rs",
+      "responsibilities": [
+        "Korean output classification policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/language.rs",
+      "responsibilities": [
+        "user-requested response language detection"
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/projection.rs",
+      "responsibilities": [
+        "safe visible-answer projection"
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/streaming.rs",
+      "responsibilities": [
+        "streaming output language state machine"
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/tests.rs",
+      "responsibilities": [
+        "Korean output guard regression tests"
       ]
     },
     {

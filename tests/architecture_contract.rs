@@ -3359,9 +3359,23 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
 #[test]
 fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
     let korean_guard = "src/runtime_core/reporting/korean_guard.rs";
+    let korean_classification = "src/runtime_core/reporting/korean_guard/classification.rs";
+    let korean_language = "src/runtime_core/reporting/korean_guard/language.rs";
+    let korean_projection = "src/runtime_core/reporting/korean_guard/projection.rs";
+    let korean_streaming = "src/runtime_core/reporting/korean_guard/streaming.rs";
+    let korean_tests = "src/runtime_core/reporting/korean_guard/tests.rs";
     let runtime_report = "src/runtime_core/reporting/runtime_report.rs";
     let runner = "src/runtime_core/workflow/application/runner.rs";
-    for target in [korean_guard, runtime_report, runner] {
+    for target in [
+        korean_guard,
+        korean_classification,
+        korean_language,
+        korean_projection,
+        korean_streaming,
+        korean_tests,
+        runtime_report,
+        runner,
+    ] {
         assert!(
             Path::new(target).is_file(),
             "missing v0.37.10 runtime owner: {target}"
@@ -3396,12 +3410,23 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
         (
             korean_guard,
             [
-                "struct StreamingGuard",
+                "pub use streaming::StreamingGuard",
                 "fn guard_or_failure",
                 "fn validate",
             ]
             .as_slice(),
         ),
+        (
+            korean_classification,
+            [
+                "struct OutsideTextClassification",
+                "fn classify_outside_text",
+            ]
+            .as_slice(),
+        ),
+        (korean_language, ["fn allows_non_korean"].as_slice()),
+        (korean_projection, ["fn stricter_projection"].as_slice()),
+        (korean_streaming, ["struct StreamingGuard"].as_slice()),
         (
             runtime_report,
             [
