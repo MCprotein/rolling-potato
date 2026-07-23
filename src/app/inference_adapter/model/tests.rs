@@ -126,7 +126,10 @@ fn evaluation_fetch_paths_stay_under_app_data() {
     assert!(projector_path.starts_with(data_root.join("models")));
     assert!(projector_path.ends_with("gemma-4-e4b--vision--gemma-4-E4B-it-mmproj.gguf"));
     assert!(projector_part_path.starts_with(data_root.join("downloads")));
-    assert!(projector_part_path.ends_with("gemma-4-e4b--vision--gemma-4-E4B-it-mmproj.gguf.part"));
+    assert!(projector_part_path.ends_with(format!(
+        "gemma-4-e4b--vision--gemma-4-E4B-it-mmproj.gguf--{}.part",
+        &projector.sha256[..12]
+    )));
 }
 
 #[test]

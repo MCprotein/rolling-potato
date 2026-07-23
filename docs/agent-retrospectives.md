@@ -802,3 +802,23 @@
 - Projector는 model/revision/size/SHA가 일치하는 cache hit를 재사용하고, missing,
   partial, corrupt, revision change일 때만 다시 준비합니다. 준비 실패는 기존
   default model과 ready backend를 변경하지 않습니다.
+
+## 2026-07-23: projector cache-key 변경과 기존 경로 계약 테스트 불일치
+
+### 증상
+
+- Projector partial을 SHA revision별로 분리했지만 기존 model adapter 테스트는
+  revision 없는 과거 파일명을 계속 기대해 candidate 전체 테스트에서 한 건이
+  실패했습니다.
+
+### 원인
+
+- 새 projector 전용 회귀 테스트와 setup 테스트만 실행하고, 같은 경로 helper를
+  직접 검증하는 기존 model adapter 테스트를 targeted 범위에 포함하지 않았습니다.
+
+### 재발 방지
+
+- Artifact 또는 cache key를 변경하면 새 동작 테스트뿐 아니라 해당 path helper를
+  직접 호출하는 기존 테스트를 `rg`로 찾아 함께 실행합니다.
+- Revision-aware 경로 계약은 고정 문자열을 중복하지 않고 manifest SHA prefix로
+  기대값을 계산해 manifest 갱신과 테스트가 어긋나지 않게 합니다.
