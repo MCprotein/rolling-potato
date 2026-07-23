@@ -6331,15 +6331,51 @@
       "path": "src/surfaces/tui/render.rs",
       "slices": [
         {
-          "responsibility": "interactive rendering and report layout primitives",
+          "responsibility": "interactive frame rendering and conversation layout",
           "target": "src/surfaces/tui/render.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/render/report_layout.rs",
+            "src/surfaces/tui/render/text.rs",
             "src/surfaces/tui/report_render.rs",
             "src/app/tui_adapter.rs",
             "src/app/tui_adapter/report_composition.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/report_layout.rs",
+      "slices": [
+        {
+          "responsibility": "read-only TUI report layout and metric label primitives",
+          "target": "src/surfaces/tui/render/report_layout.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/render/report_layout.rs",
+            "src/surfaces/tui/report_render.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/text.rs",
+      "slices": [
+        {
+          "responsibility": "terminal-safe text sanitization, wrapping, truncation, and display width",
+          "target": "src/surfaces/tui/render/text.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/render/text.rs",
+            "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -9882,7 +9918,19 @@
     {
       "path": "src/surfaces/tui/render.rs",
       "responsibilities": [
-        "interactive rendering and report layout primitives"
+        "interactive frame rendering and conversation layout"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/report_layout.rs",
+      "responsibilities": [
+        "read-only TUI report layout and metric label primitives"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/text.rs",
+      "responsibilities": [
+        "terminal-safe text sanitization, wrapping, truncation, and display width"
       ]
     },
     {

@@ -3635,6 +3635,37 @@ fn v0471_tui_controller_support_responsibilities_are_split() {
 }
 
 #[test]
+fn v0471_tui_render_text_and_report_layout_are_split() {
+    let render = fs::read_to_string("src/surfaces/tui/render.rs").unwrap();
+    for (module, owner, marker) in [
+        (
+            "report_layout",
+            "src/surfaces/tui/render/report_layout.rs",
+            "fn push_wrapped",
+        ),
+        (
+            "text",
+            "src/surfaces/tui/render/text.rs",
+            "fn sanitize_terminal_text",
+        ),
+    ] {
+        assert!(
+            render.lines().any(|line| line == format!("mod {module};")),
+            "TUI render does not register responsibility owner: {module}"
+        );
+        let source = fs::read_to_string(owner).unwrap();
+        assert!(
+            source.contains(marker),
+            "TUI render responsibility owner is missing: {owner} -> {marker}"
+        );
+    }
+    assert!(
+        render.lines().count() < 575,
+        "TUI render regrew beyond interactive-frame ownership"
+    );
+}
+
+#[test]
 fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let hook = "src/runtime_core/extensions/hook.rs";
     let skill = "src/runtime_core/extensions/skill.rs";
@@ -5275,18 +5306,36 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!native_terminal.contains("pub trait TerminalIo"));
 
     let render = fs::read_to_string("src/surfaces/tui/render.rs").unwrap();
-    for definition in [
-        "fn render_interactive_frame",
-        "fn render_notice_lines",
-        "fn sanitize_terminal_text",
-        "fn truncate_chars",
-        "fn terminal_width",
-        "fn push_wrapped",
-        "fn bytes_label",
-    ] {
+    for definition in ["fn render_interactive_frame", "fn render_notice_lines"] {
         assert!(
             render.contains(definition),
             "TUI interactive render owner is missing {definition}"
+        );
+        assert!(
+            !tui_composition.contains(definition),
+            "TUI adapter still owns {definition}"
+        );
+    }
+    let render_text = fs::read_to_string("src/surfaces/tui/render/text.rs").unwrap();
+    for definition in [
+        "fn sanitize_terminal_text",
+        "fn truncate_chars",
+        "fn display_cell_width",
+    ] {
+        assert!(
+            render_text.contains(definition),
+            "TUI terminal-text owner is missing {definition}"
+        );
+        assert!(
+            !tui_composition.contains(definition),
+            "TUI adapter still owns {definition}"
+        );
+    }
+    let report_layout = fs::read_to_string("src/surfaces/tui/render/report_layout.rs").unwrap();
+    for definition in ["fn terminal_width", "fn push_wrapped", "fn bytes_label"] {
+        assert!(
+            report_layout.contains(definition),
+            "TUI report-layout owner is missing {definition}"
         );
         assert!(
             !tui_composition.contains(definition),
