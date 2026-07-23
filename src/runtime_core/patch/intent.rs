@@ -73,6 +73,12 @@ pub(crate) fn classify(
         has_any(&lower, &["test", "cargo test", "pytest"]) || has_any(trimmed, &["테스트"]);
     let has_failure_signal = has_any(&lower, &["failed", "failure", "panic", "error"])
         || has_any(trimmed, &["실패", "에러", "오류"]);
+    let has_explanation_signal = has_any(&lower, &["explain", "why", "analyze"])
+        || has_any(trimmed, &["설명", "왜", "분석", "원인"]);
+    let has_diagnostic_output = has_any(
+        &lower,
+        &["error:", "error[", "panicked at", "traceback", "exception:"],
+    ) || has_any(trimmed, &["에러 로그:", "오류 출력:", "예외:"]);
     let has_change_signal = has_ascii_word(
         &lower,
         &[
@@ -129,9 +135,7 @@ pub(crate) fn classify(
     {
         signals.push("plan-only");
         ("ontology-refresh", "plan-only")
-    } else if has_any(&lower, &["explain", "why", "error"])
-        || has_any(trimmed, &["설명", "왜", "에러", "오류"])
-    {
+    } else if has_diagnostic_output || (has_failure_signal && has_explanation_signal) {
         signals.push("explain-error");
         ("explain-error", "read-only")
     } else if has_any(&lower, &["map", "find", "search", "analyze"])
@@ -597,6 +601,27 @@ mod tests {
         assert_eq!(decision.mode, "read-only");
         assert_eq!(candidate.kind, "answer-only");
         assert!(!candidate.approval_required);
+    }
+
+    #[test]
+    fn general_explanations_do_not_require_error_context() {
+        for request in [
+            "5 * 3은? 숫자만 답하지 말고 짧게 한국어로 설명해줘.",
+            "왜 하늘은 파란가요?",
+            "Rust ownership을 쉽게 설명해줘",
+            "What is an error?",
+        ] {
+            let decision = classify(request, |_| None).unwrap();
+            assert_eq!(decision.skill_id, "conversation", "request: {request}");
+        }
+
+        for request in [
+            "error: mismatched types\n왜 실패했는지 설명해줘",
+            "이 오류를 분석해줘",
+        ] {
+            let decision = classify(request, |_| None).unwrap();
+            assert_eq!(decision.skill_id, "explain-error", "request: {request}");
+        }
     }
 
     #[test]
