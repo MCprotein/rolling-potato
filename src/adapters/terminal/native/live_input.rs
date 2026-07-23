@@ -288,8 +288,16 @@ mod tests {
 
     #[test]
     fn decodes_terminal_navigation_shortcuts_and_bracketed_paste() {
+        assert_eq!(decode_escape(b"\x1bb"), Action::WordLeft);
+        assert_eq!(decode_escape(b"\x1bf"), Action::WordRight);
         assert_eq!(decode_escape(b"\x1b[1;3D"), Action::WordLeft);
+        assert_eq!(decode_escape(b"\x1b[1;3C"), Action::WordRight);
+        assert_eq!(decode_escape(b"\x1b[1;5D"), Action::WordLeft);
+        assert_eq!(decode_escape(b"\x1b[1;5C"), Action::WordRight);
+        assert_eq!(decode_escape(b"\x1b[1;9D"), Action::Home);
         assert_eq!(decode_escape(b"\x1b[1;9C"), Action::End);
+        assert_eq!(decode_escape(b"\x1b[H"), Action::Home);
+        assert_eq!(decode_escape(b"\x1b[F"), Action::End);
         assert_eq!(decode_escape(b"\x1b[200~"), Action::PasteStart);
         assert_eq!(
             normalize_paste("한글\n질문".as_bytes()).unwrap(),
