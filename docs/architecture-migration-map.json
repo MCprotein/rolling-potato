@@ -1060,6 +1060,20 @@
       ]
     },
     {
+      "path": "docs/ko/v0.48-web-research-browser-plan.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/v0.48-web-research-browser-plan.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "docs/korean-output-guard.md",
       "slices": [
         {
@@ -1345,6 +1359,20 @@
         {
           "responsibility": "refactor-governed documentation contract",
           "target": "docs/v0.29-correction-plan.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/v0.48-web-research-browser-plan.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/v0.48-web-research-browser-plan.md",
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
@@ -8130,6 +8158,12 @@
       ]
     },
     {
+      "path": "docs/ko/v0.48-web-research-browser-plan.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
       "path": "docs/korean-output-guard.md",
       "responsibilities": [
         "refactor-governed documentation contract"
@@ -8251,6 +8285,12 @@
     },
     {
       "path": "docs/v0.29-correction-plan.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/v0.48-web-research-browser-plan.md",
       "responsibilities": [
         "refactor-governed documentation contract"
       ]
