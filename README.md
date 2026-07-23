@@ -14,7 +14,7 @@ mid-range machines. It is designed around a simple premise:
 
 | Project snapshot | |
 | --- | --- |
-| Current release | `v0.46.2` |
+| Current release | `v0.47.0` |
 | CLI | `rpotato` |
 | Runtime | Rust, managed `llama.cpp`, GGUF |
 | Primary surfaces | CLI and TUI |
@@ -186,8 +186,8 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The current main candidate builds on the `v0.46.2` release as an active pre-1.0
-runtime, not only a product-definition scaffold. Implemented areas include:
+The `v0.47.0` release is an active pre-1.0 runtime, not only a
+product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
 | --- | --- |
@@ -245,10 +245,9 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The published release history through `v0.46.2` is complete. Current main adds
-general-purpose answers, bounded web grounding, and mixed-language repair. The latest release publishes
-the restored default conversation, stale failed-run recovery, small-model chat
-budget fix, and live slash-command palette behind a deterministic release gate. See
+The published release history through `v0.47.0` is complete. The latest release
+adds general-purpose answers, bounded web grounding with source URLs, and
+mixed-language repair while preserving the local coding-agent workflow. See
 [ROADMAP.md](ROADMAP.md).
 
 ---

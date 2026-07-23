@@ -152,6 +152,12 @@ evidence.
 | v0.46.1 | Superseded | Restored real default conversation behavior, but the release PTY gate timed out on a live update check before platform assets were built |
 | v0.46.2 | Released | Publishes the v0.46.1 conversation fixes with a deterministic network-isolated PTY gate and non-cascading terminal-test failure reporting |
 
+### General answers and web grounding (`v0.47.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
+| v0.47.0 | Released | General local-model answers and calculations, stable rpotato identity, mixed-language repair, automatic freshness routing, and bounded read-only `/search` with HTTPS source URLs |
+
 ## Distribution Boundary
 
 GitHub Releases in this repository is the only supported download and
