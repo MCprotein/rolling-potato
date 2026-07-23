@@ -1,6 +1,7 @@
 //! Local attachment capture and text-request composition for the interactive TUI.
 
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use crate::adapters::filesystem::layout as paths;
@@ -121,12 +122,7 @@ pub(super) fn compose_request(
     for attachment in attachments {
         match attachment.kind {
             TuiAttachmentKind::Text => {
-                let content = fs::read_to_string(&attachment.stored_path).map_err(|error| {
-                    AppError::blocked(format!(
-                        "텍스트 첨부를 읽지 못했습니다.\n- attachment: {}\n- 이유: {error}",
-                        attachment.display_name
-                    ))
-                })?;
+                let content = verified_text(attachment)?;
                 request.push_str(&format!(
                     "\n\n<attachment name=\"{}\">\n{}\n</attachment>",
                     safe_leaf(&attachment.display_name),
@@ -141,6 +137,50 @@ pub(super) fn compose_request(
         images,
         response_language,
     })
+}
+
+fn verified_text(attachment: &TuiAttachment) -> Result<String, AppError> {
+    let path = Path::new(&attachment.stored_path);
+    let metadata = fs::symlink_metadata(path).map_err(|error| {
+        AppError::blocked(format!(
+            "텍스트 첨부를 다시 확인하지 못했습니다.\n- attachment: {}\n- 이유: {error}",
+            attachment.display_name
+        ))
+    })?;
+    if metadata.file_type().is_symlink()
+        || !metadata.is_file()
+        || metadata.len() == 0
+        || metadata.len() > MAX_TEXT_BYTES
+        || metadata.len() != attachment.size_bytes
+    {
+        return Err(changed_attachment("텍스트", attachment));
+    }
+
+    let file = fs::File::open(path).map_err(|error| {
+        AppError::blocked(format!(
+            "텍스트 첨부를 읽지 못했습니다.\n- attachment: {}\n- 이유: {error}",
+            attachment.display_name
+        ))
+    })?;
+    let opened_metadata = file
+        .metadata()
+        .map_err(|error| AppError::runtime(format!("텍스트 첨부 metadata 읽기 실패: {error}")))?;
+    if !opened_metadata.is_file() || opened_metadata.len() != metadata.len() {
+        return Err(changed_attachment("텍스트", attachment));
+    }
+
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.take(MAX_TEXT_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| AppError::runtime(format!("텍스트 첨부 읽기 실패: {error}")))?;
+    if bytes.len() as u64 != attachment.size_bytes || bytes.len() as u64 > MAX_TEXT_BYTES {
+        return Err(changed_attachment("텍스트", attachment));
+    }
+    if !integrity::sha256_bytes(&bytes).eq_ignore_ascii_case(&attachment.id) {
+        return Err(changed_attachment("텍스트", attachment));
+    }
+    String::from_utf8(bytes)
+        .map_err(|_| AppError::blocked("텍스트 첨부는 유효한 UTF-8 파일이어야 합니다."))
 }
 
 fn verified_image(attachment: &TuiAttachment) -> Result<BackendChatImage, AppError> {
@@ -185,6 +225,13 @@ fn verified_image(attachment: &TuiAttachment) -> Result<BackendChatImage, AppErr
         sha256,
         bytes,
     })
+}
+
+fn changed_attachment(kind: &str, attachment: &TuiAttachment) -> AppError {
+    AppError::blocked(format!(
+        "{kind} 첨부가 캡처 이후 변경되었습니다: {}",
+        attachment.display_name
+    ))
 }
 
 fn normalized_source_path(value: &str) -> Result<PathBuf, AppError> {
@@ -364,6 +411,80 @@ mod tests {
         assert_eq!(request.images.len(), 1);
         assert_eq!(request.images[0].mime_type, "image/png");
         assert!(request.text.contains("이 이미지 봐줘"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn text_attachment_is_reverified_before_request_composition() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-tui-text-revalidation-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let source = root.join("note.txt");
+        fs::write(&source, "original").unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        let attachment = capture(&source.display().to_string(), "session").unwrap();
+        fs::write(&attachment.stored_path, "modified").unwrap();
+        let error = compose_request("설명해줘", &[attachment]).unwrap_err();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        assert!(error.message.contains("캡처 이후 변경"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn text_attachment_growth_is_bounded_before_request_composition() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root =
+            std::env::temp_dir().join(format!("rpotato-tui-text-growth-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let source = root.join("note.txt");
+        fs::write(&source, "small").unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        let attachment = capture(&source.display().to_string(), "session").unwrap();
+        fs::write(
+            &attachment.stored_path,
+            vec![b'a'; (MAX_TEXT_BYTES + 1) as usize],
+        )
+        .unwrap();
+        let error = compose_request("설명해줘", &[attachment]).unwrap_err();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        assert!(error.message.contains("캡처 이후 변경"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn text_attachment_symlink_replacement_is_rejected_before_use() {
+        use std::os::unix::fs::symlink;
+
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-tui-text-use-symlink-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let source = root.join("note.txt");
+        let outside = root.join("outside.txt");
+        fs::write(&source, "captured").unwrap();
+        fs::write(&outside, "outside!").unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        let attachment = capture(&source.display().to_string(), "session").unwrap();
+        fs::remove_file(&attachment.stored_path).unwrap();
+        symlink(&outside, &attachment.stored_path).unwrap();
+        let error = compose_request("설명해줘", &[attachment]).unwrap_err();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        assert!(error.message.contains("캡처 이후 변경"));
         let _ = fs::remove_dir_all(root);
     }
 
