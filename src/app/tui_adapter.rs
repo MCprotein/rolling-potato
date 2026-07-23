@@ -21,11 +21,12 @@ use model_switch::{switch_prepared_model, LiveModelSwitch};
 mod attachment;
 mod conversation;
 mod runtime;
+mod web_tools;
 
 pub fn run_auto() -> Result<(), AppError> {
     if capability::attached() {
         let mut terminal = NativeTerminal::new();
-        controller::run_controller(&mut terminal, &mut TuiRuntimeAdapter)
+        controller::run_controller(&mut terminal, &mut TuiRuntimeAdapter::default())
     } else {
         crate::surfaces::cli::render::emit_report(&overview_report()?);
         Ok(())
@@ -34,7 +35,7 @@ pub fn run_auto() -> Result<(), AppError> {
 
 pub fn run_interactive() -> Result<(), AppError> {
     let mut terminal = NativeTerminal::explicit_line_mode();
-    controller::run_controller(&mut terminal, &mut TuiRuntimeAdapter)
+    controller::run_controller(&mut terminal, &mut TuiRuntimeAdapter::default())
 }
 
 pub fn run_setup() -> Result<(), AppError> {
@@ -51,7 +52,10 @@ pub fn setup_required() -> bool {
     crate::app::inference_adapter::model::configured_model_id().is_none()
 }
 
-struct TuiRuntimeAdapter;
+#[derive(Default)]
+struct TuiRuntimeAdapter {
+    opened_web_page: Option<crate::adapters::web_search::WebPageEvidence>,
+}
 
 pub(crate) struct TuiReadAdapter;
 

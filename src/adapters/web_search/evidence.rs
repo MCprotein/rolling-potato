@@ -10,6 +10,23 @@ pub(crate) struct WebSearchEvidence {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WebPageEvidence {
+    pub(crate) requested_url: String,
+    pub(crate) final_url: String,
+    pub(crate) title: Option<String>,
+    pub(crate) content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum WebOpenResult {
+    Opened(WebPageEvidence),
+    Redirect {
+        from_url: String,
+        target_url: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct SearchResult {
     pub(super) title: String,
     pub(super) url: String,

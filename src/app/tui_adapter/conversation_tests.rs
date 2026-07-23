@@ -83,6 +83,59 @@ fn search_command_routes_the_question_and_renders_the_answer() {
 }
 
 #[test]
+fn web_open_and_find_commands_route_through_the_conversation_runtime() {
+    let mut terminal =
+        ScriptedTerminal::new(["/open https://example.com/docs", "/find ownership", "/quit"]);
+    let mut runtime = ConversationRuntime::default();
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(
+        runtime.requests,
+        ["/open https://example.com/docs", "/find ownership"]
+    );
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("페이지 여는 중"));
+    assert!(rendered.contains("페이지 찾는 중"));
+}
+
+#[test]
+fn interactive_web_open_keeps_page_available_for_followup_find() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = std::env::temp_dir().join(format!(
+        "rpotato-interactive-web-tools-test-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&root);
+    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+    std::env::set_var("RPOTATO_TEST_SKIP_UPDATE_CHECK", "1");
+    std::env::set_var(
+        "RPOTATO_TEST_WEB_OPEN_HTML",
+        "<html><title>Rust Guide</title><body>Ownership is a Rust feature.</body></html>",
+    );
+    std::fs::create_dir_all(root.join("project")).unwrap();
+    crate::app::workflow_adapter::state::initialize().unwrap();
+    let mut terminal = ScriptedTerminal::new([
+        "/open https://example.com/guide",
+        "/find ownership",
+        "/quit",
+    ]);
+
+    run_controller(&mut terminal, &mut TuiRuntimeAdapter::default()).unwrap();
+
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    std::env::remove_var("RPOTATO_TEST_SKIP_UPDATE_CHECK");
+    std::env::remove_var("RPOTATO_TEST_WEB_OPEN_HTML");
+    let _ = std::fs::remove_dir_all(root);
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("Rust Guide"));
+    assert!(rendered.contains("일치: 1개"));
+    assert!(rendered.contains("Ownership is a Rust feature."));
+}
+
+#[test]
 fn natural_korean_search_variant_uses_the_search_progress_state() {
     let request = "2026년 월드컵 결과 검색해서 알려줘";
     let mut terminal = ScriptedTerminal::new([request, "/quit"]);

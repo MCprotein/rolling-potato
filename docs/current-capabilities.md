@@ -325,8 +325,12 @@ escape sequences. `/attach <path>` and pasted image/text paths create local
 attachment badges. Text/code files are bounded and included in the next request;
 PNG/JPEG files are accepted only when a separately checksum-pinned model projector
 is installed and the sidecar is vision-ready. Projector failure preserves the
-text-ready model and current model selection. `/search <question>` forces the same read-only web-grounded answer path
-used by automatic freshness and natural Korean search routing.
+text-ready model and current model selection. `/search <question>` forces the same
+read-only web-grounded answer path used by automatic freshness and natural Korean
+search routing. `/open <URL>` normalizes a public HTTPS document into bounded
+read-only text, and `/find <text>` searches the last document opened in the current
+TUI. These are separate `WebSearch`, `WebOpen`, and `WebFind` operations under one
+repo-owned HTTPS and untrusted-context policy.
 Representative public entry points are:
 
 ```sh
@@ -350,8 +354,8 @@ See [TUI](tui.md), [CLI output style](cli-output-style.md), and
   reconciliation does not apply worker-authored patches.
 - Plugin scripts, agents, external hooks, arbitrary MCP/LSP connectors, background
   processes, remote connectors, and write grants do not receive execution authority.
-  The fixed direct HTML search exception returns bounded untrusted text only and
-  cannot dispatch tools or mutations.
+  The repo-owned web adapter returns bounded untrusted text only from search results
+  and explicitly opened public pages; it cannot dispatch tools or mutations.
 - `monitor prune` is dry-run only.
 - HTML monitoring is a local static export, not a server or remote dashboard.
 - `v0.42.0` is limited to user-local installation, environment repair, clean

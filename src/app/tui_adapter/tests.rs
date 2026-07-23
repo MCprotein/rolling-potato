@@ -148,7 +148,7 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
     crate::app::workflow_adapter::state::initialize().unwrap();
     let mut terminal = ScriptedTerminal::new(["/model", "", "/help", "/compact", "/quit"]);
 
-    run_controller(&mut terminal, &mut TuiRuntimeAdapter).unwrap();
+    run_controller(&mut terminal, &mut TuiRuntimeAdapter::default()).unwrap();
 
     std::env::remove_var("RPOTATO_PROJECT_ROOT");
     std::env::remove_var("RPOTATO_DATA_HOME");
@@ -204,7 +204,7 @@ fn interactive_controller_notifies_and_applies_update_without_leaving_tui() {
     crate::app::workflow_adapter::state::initialize().unwrap();
     let mut terminal = ScriptedTerminal::new(["/update", "yes", "/quit"]);
 
-    run_controller(&mut terminal, &mut TuiRuntimeAdapter).unwrap();
+    run_controller(&mut terminal, &mut TuiRuntimeAdapter::default()).unwrap();
 
     std::env::remove_var("RPOTATO_PROJECT_ROOT");
     std::env::remove_var("RPOTATO_DATA_HOME");

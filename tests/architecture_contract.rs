@@ -6389,3 +6389,73 @@ fn dependency_contract_rejects_forbidden_imports_and_new_parser_crates() {
         "v0.37.1 must not add a parser or architecture-test dependency"
     );
 }
+
+#[test]
+fn web_search_open_find_have_separate_bounded_owners() {
+    let adapter_facade = fs::read_to_string("src/adapters/web_search.rs").unwrap();
+    let app_facade = fs::read_to_string("src/app/web_search_adapter.rs").unwrap();
+    let tui_facade = fs::read_to_string("src/app/tui_adapter.rs").unwrap();
+    let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
+    let transport = fs::read_to_string("src/adapters/web_search/transport.rs").unwrap();
+
+    for path in [
+        "src/adapters/web_search/evidence.rs",
+        "src/adapters/web_search/find.rs",
+        "src/adapters/web_search/html.rs",
+        "src/adapters/web_search/page.rs",
+        "src/adapters/web_search/policy.rs",
+        "src/adapters/web_search/transport.rs",
+        "src/app/web_search_adapter/page_tools.rs",
+        "src/app/web_search_adapter/routing.rs",
+        "src/app/tui_adapter/web_tools.rs",
+    ] {
+        assert!(Path::new(path).is_file(), "missing web tool owner: {path}");
+    }
+    for module in ["evidence", "find", "html", "page", "policy", "transport"] {
+        assert!(
+            adapter_facade
+                .lines()
+                .any(|line| line == format!("mod {module};")),
+            "web adapter facade does not register {module}"
+        );
+    }
+    for module in ["page_tools", "routing"] {
+        assert!(
+            app_facade
+                .lines()
+                .any(|line| line == format!("mod {module};")),
+            "web application facade does not register {module}"
+        );
+    }
+    assert!(tui_facade.lines().any(|line| line == "mod web_tools;"));
+    assert!(tui_runtime.contains("super::web_tools::dispatch"));
+    assert!(transport.contains("ureq::Agent"));
+    for pure_owner in [
+        "src/adapters/web_search/find.rs",
+        "src/adapters/web_search/page.rs",
+        "src/adapters/web_search/evidence.rs",
+    ] {
+        assert!(
+            !fs::read_to_string(pure_owner)
+                .unwrap()
+                .contains("ureq::Agent"),
+            "{pure_owner} must stay transport-free"
+        );
+    }
+    assert!(app_facade.lines().count() < 400);
+    assert!(
+        fs::read_to_string("src/app/web_search_adapter/routing.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 225
+    );
+    assert!(
+        fs::read_to_string("src/app/web_search_adapter/page_tools.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 125
+    );
+    assert!(tui_runtime.lines().count() < 200);
+}

@@ -41,13 +41,17 @@ Allowed MVP network use:
 - user-approved model download
 - optional release update checks, if users can disable them
 - explicit or freshness-sensitive read-only web search; only the current question is
-  sent to the fixed Exa MCP endpoint
+  sent to the fixed public search HTML endpoint without an API credential
+- explicit `WebOpen`; the URL selected by the user is requested directly, and the
+  bounded normalized page remains in memory only for the current TUI so `WebFind`
+  can inspect it
 
 Disallowed default behavior:
 
 - automatic user-code upload
 - automatic conversation upload
 - attachment upload to the web-search provider
+- automatic upload of project files or attachments to a WebOpen target
 - command-output telemetry
 - automatic fallback to an external LLM API
 

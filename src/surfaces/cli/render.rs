@@ -17,6 +17,8 @@ TUI 명령:
   /model [id]             모델 확인 또는 변경
   /compact                현재 대화 컨텍스트 압축
   /search <질문>          인터넷 검색 후 출처와 함께 답변
+  /open <URL>             웹 페이지 열기·요약
+  /find <텍스트>          열린 웹 페이지 내부 찾기
   /update                 최신 버전 확인 및 업데이트
   /status                 모델·컨텍스트·backend·세션 상태
   /sessions               세션 목록
@@ -287,6 +289,8 @@ mod tests {
     fn public_help_keeps_granular_commands_out_of_the_primary_surface() {
         assert!(HELP.contains("rpotato                 기본 TUI 시작"));
         assert!(HELP.contains("/search <질문>"));
+        assert!(HELP.contains("/open <URL>"));
+        assert!(HELP.contains("/find <텍스트>"));
         assert!(HELP.contains("/update"));
         assert!(HELP.contains("rpotato debug --help"));
         assert!(!HELP.contains("rpotato backend start"));

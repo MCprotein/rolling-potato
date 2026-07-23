@@ -142,6 +142,38 @@ pub(crate) fn run_controller(
                 };
                 state.push_turn(ConversationRole::Assistant, response);
             }
+            ["/open"] => {
+                state.notice = "사용법: /open <HTTPS URL>".to_string();
+            }
+            ["/open", url @ ..] => {
+                let request = format!("/open {}", url.join(" "));
+                submit_web_tool_command(
+                    terminal,
+                    runtime,
+                    &mut state,
+                    width,
+                    height,
+                    &request,
+                    "페이지 여는 중 · 안전한 읽기 전용 연결을 확인하고 있습니다…",
+                    "웹 페이지를 열지 못했습니다.",
+                )?;
+            }
+            ["/find"] => {
+                state.notice = "사용법: /find <열린 페이지에서 찾을 텍스트>".to_string();
+            }
+            ["/find", query @ ..] => {
+                let request = format!("/find {}", query.join(" "));
+                submit_web_tool_command(
+                    terminal,
+                    runtime,
+                    &mut state,
+                    width,
+                    height,
+                    &request,
+                    "페이지 찾는 중 · 열린 문서의 텍스트를 확인하고 있습니다…",
+                    "페이지 내부 찾기를 완료하지 못했습니다.",
+                )?;
+            }
             ["/attach"] => {
                 state.notice = "사용법: /attach <로컬 파일 경로>".to_string();
             }
@@ -413,6 +445,29 @@ pub(crate) fn run_controller(
             }
         }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn submit_web_tool_command(
+    terminal: &mut impl TerminalIo,
+    runtime: &mut impl TuiRuntimePort,
+    state: &mut InteractiveState,
+    width: u16,
+    height: u16,
+    request: &str,
+    pending: &str,
+    error_heading: &str,
+) -> Result<(), AppError> {
+    state.view = InteractiveView::Conversation;
+    state.push_turn(ConversationRole::User, request);
+    state.notice = pending.to_string();
+    write_pending_conversation_frame(terminal, runtime, state, width, height)?;
+    let response = match runtime.submit_request(request, &[]) {
+        Ok(report) => report,
+        Err(error) => format!("{error_heading}\n{}", error.message),
+    };
+    state.push_turn(ConversationRole::Assistant, response);
+    Ok(())
 }
 
 fn test_secret_probe_enabled() -> bool {

@@ -87,11 +87,14 @@ Mitigations:
 - no telemetry
 - web search sends only the current question to a fixed public HTML search endpoint
   when the request is explicit or freshness-sensitive; no API credential is used,
-  HTTPS is mandatory, redirects are disabled, repository-scoped requests stay local
-  unless web use is explicit, and an offline/no-browse
-  instruction disables it
-- bounded search highlights are untrusted text and never receive command, file, or
-  permission authority
+  HTTPS is mandatory, repository-scoped requests stay local unless web use is
+  explicit, and an offline/no-browse instruction disables it
+- `WebOpen` upgrades HTTP input to HTTPS, rejects URL credentials, local/private/
+  link-local/reserved targets and DNS answers, follows only bounded same-host
+  redirects, and requires a new explicit open for a cross-host redirect
+- bounded search highlights and opened-page text are untrusted and never receive
+  command, file, or permission authority; opened content remains in current-TUI
+  memory for `WebFind` and is not a durable transcript source
 - pasted attachments must be regular non-symlink files with bounded size and an
   allowed type; they are copied into local app data and never sent to the web-search
   provider. PNG/JPEG bytes are signature- and hash-revalidated at dispatch, and

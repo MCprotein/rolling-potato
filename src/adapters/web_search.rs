@@ -3,23 +3,34 @@
 use crate::foundation::error::AppError;
 
 mod evidence;
+mod find;
 mod html;
+mod page;
 mod policy;
 mod transport;
 
-pub(crate) use evidence::WebSearchEvidence;
+pub(crate) use evidence::{WebOpenResult, WebPageEvidence, WebSearchEvidence};
+pub(crate) use find::find_in_page;
 use html::parse_search_document;
-use policy::validate_query;
-use transport::fetch_search_document;
+use page::parse_page_document;
+use policy::{
+    resolve_redirect_url, same_web_origin, validate_open_url, validate_public_resolution,
+    validate_query,
+};
+use transport::{fetch_page_response, fetch_search_document, PageResponse};
+
+const MAX_PAGE_REDIRECTS: usize = 10;
 
 #[cfg(test)]
 use evidence::{evidence_from_results, SearchResult, MAX_SEARCH_CONTEXT_CHARS};
 #[cfg(test)]
 use html::normalize_result_url;
 #[cfg(test)]
+use page::normalize_page_text;
+#[cfg(test)]
 use policy::{is_valid_https_source_url, MAX_QUERY_CHARS, MAX_QUERY_WORDS};
 #[cfg(test)]
-use transport::{direct_agent_config, map_search_error};
+use transport::{direct_agent_config, map_search_error, page_agent_config};
 
 pub(crate) fn search(query: &str) -> Result<WebSearchEvidence, AppError> {
     let query = validate_query(query)?;
@@ -33,8 +44,50 @@ pub(crate) fn search(query: &str) -> Result<WebSearchEvidence, AppError> {
     parse_search_document(&document)
 }
 
+pub(crate) fn open(url: &str) -> Result<WebOpenResult, AppError> {
+    let requested_url = validate_open_url(url)?;
+
+    #[cfg(debug_assertions)]
+    if let Some(fixture) = std::env::var_os("RPOTATO_TEST_WEB_OPEN_HTML") {
+        return parse_page_document(
+            &requested_url,
+            &requested_url,
+            &fixture.to_string_lossy(),
+            "text/html",
+        )
+        .map(WebOpenResult::Opened);
+    }
+
+    let mut current_url = requested_url.clone();
+    for redirect_count in 0..=MAX_PAGE_REDIRECTS {
+        validate_public_resolution(&current_url)?;
+        match fetch_page_response(&current_url)? {
+            PageResponse::Document { content_type, body } => {
+                return parse_page_document(&requested_url, &current_url, &body, &content_type)
+                    .map(WebOpenResult::Opened);
+            }
+            PageResponse::Redirect { location } => {
+                let target_url = resolve_redirect_url(&current_url, &location)?;
+                if !same_web_origin(&current_url, &target_url) {
+                    return Ok(WebOpenResult::Redirect {
+                        from_url: current_url,
+                        target_url,
+                    });
+                }
+                if redirect_count == MAX_PAGE_REDIRECTS {
+                    return Err(AppError::blocked(
+                        "WebOpen 동일 host redirect가 10회를 초과했습니다.",
+                    ));
+                }
+                current_url = target_url;
+            }
+        }
+    }
+    unreachable!("redirect loop returns at its bounded terminal state")
+}
+
 pub(crate) fn configuration_summary() -> String {
-    "사용 가능; API key 없는 직접 웹 검색".to_string()
+    "사용 가능; API key 없는 WebSearch·WebOpen·WebFind".to_string()
 }
 
 #[cfg(test)]
@@ -102,7 +155,7 @@ mod tests {
     fn direct_search_is_available_without_api_credentials() {
         assert_eq!(
             configuration_summary(),
-            "사용 가능; API key 없는 직접 웹 검색"
+            "사용 가능; API key 없는 WebSearch·WebOpen·WebFind"
         );
     }
 
@@ -188,5 +241,94 @@ mod tests {
             .sources
             .iter()
             .all(|source| source.starts_with("https://")));
+    }
+
+    #[test]
+    fn live_web_open_smoke_when_explicitly_enabled() {
+        if std::env::var("RPOTATO_RUN_LIVE_WEB_OPEN").as_deref() != Ok("1") {
+            return;
+        }
+
+        let result = open("https://example.com/").unwrap();
+        let WebOpenResult::Opened(page) = result else {
+            panic!("example.com must not cross-host redirect");
+        };
+
+        assert_eq!(page.final_url, "https://example.com/");
+        assert!(!page.content.trim().is_empty());
+    }
+
+    #[test]
+    fn web_open_upgrades_http_and_rejects_private_or_credentialed_targets() {
+        assert_eq!(
+            validate_open_url("http://example.com/docs").unwrap(),
+            "https://example.com/docs"
+        );
+        for url in [
+            "https://user:secret@example.com/",
+            "https://localhost/",
+            "https://127.0.0.1/",
+            "https://10.0.0.1/",
+            "https://[::1]/",
+            "file:///tmp/secret",
+        ] {
+            assert!(validate_open_url(url).is_err(), "url: {url}");
+        }
+    }
+
+    #[test]
+    fn web_open_only_auto_follows_same_host_redirects() {
+        let current = "https://docs.example.com/guide/start";
+        let same = resolve_redirect_url(current, "/guide/next").unwrap();
+        let www = resolve_redirect_url(current, "https://www.docs.example.com/guide").unwrap();
+        let cross = resolve_redirect_url(current, "https://accounts.example.net/login").unwrap();
+
+        assert!(same_web_origin(current, &same));
+        assert!(same_web_origin(current, &www));
+        assert!(!same_web_origin(current, &cross));
+        assert_eq!(same, "https://docs.example.com/guide/next");
+    }
+
+    #[test]
+    fn web_open_transport_never_auto_follows_redirects() {
+        let config = page_agent_config();
+
+        assert!(config.https_only());
+        assert_eq!(config.max_redirects(), 0);
+    }
+
+    #[test]
+    fn web_open_normalizes_readable_text_and_removes_active_content() {
+        let document = r#"
+            <html><head><title>Rust &amp; 안전</title>
+            <style>.secret { display:none }</style>
+            <script>alert("ignore")</script></head>
+            <body><nav>메뉴</nav><main><h1>시작</h1><p>Rust 문서입니다.</p></main></body></html>
+        "#;
+
+        let page = normalize_page_text("https://example.com/docs", document, "text/html").unwrap();
+
+        assert_eq!(page.title.as_deref(), Some("Rust & 안전"));
+        assert!(page.content.contains("시작"));
+        assert!(page.content.contains("Rust 문서입니다."));
+        assert!(!page.content.contains("alert"));
+        assert!(!page.content.contains("display:none"));
+    }
+
+    #[test]
+    fn web_find_is_literal_case_insensitive_and_bounded() {
+        let page = WebPageEvidence {
+            requested_url: "https://example.com/docs".to_string(),
+            final_url: "https://example.com/docs".to_string(),
+            title: Some("Guide".to_string()),
+            content: "Rust 첫 문단\n다른 줄\nRUST 두 번째 문단\nrust 세 번째 문단".to_string(),
+        };
+
+        let evidence = find_in_page(&page, "rust").unwrap();
+
+        assert_eq!(evidence.page_url, page.final_url);
+        assert_eq!(evidence.query, "rust");
+        assert_eq!(evidence.matches.len(), 3);
+        assert!(evidence.matches[0].contains("Rust 첫 문단"));
     }
 }

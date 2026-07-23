@@ -161,11 +161,14 @@ Running `rpotato` without arguments starts the primary TUI. Plain text entered
 there supports both general LLM questions and coding-agent requests. Questions
 that explicitly request web search or depend on current information use a bounded
 read-only direct HTML search with runtime-rendered source links. It needs no API
-key, MCP process, or provider SDK. `/doctor` reports whether the direct search
-transport is ready.
+key, MCP process, or provider SDK. `/open <URL>` opens a bounded public HTTPS
+document and `/find <text>` searches the last document opened in the current TUI.
+Only same-host redirects are followed automatically; a cross-host redirect is
+reported and requires a new explicit `/open`. `/doctor` reports whether the
+repo-owned web tools are ready.
 The line below the composer shows the current
 model, context usage, compaction checkpoint, backend state, and session.
-Normal TUI operations use `/model`, `/compact`, `/search`, `/attach`, `/update`,
+Normal TUI operations use `/model`, `/compact`, `/search`, `/open`, `/find`, `/attach`, `/update`,
 `/status`, `/sessions`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`.
 The slash palette and model picker support Up/Down, Enter, Esc, and numbered
 plain-terminal fallback. The composer supports standard Home/End and Ctrl bindings,
@@ -215,7 +218,7 @@ product-definition scaffold. Implemented areas include:
 | Collaboration | One bounded subagent and runtime-owned team execution |
 | Monitoring | CLI/TUI metrics, SQLite projection, benchmark records, static HTML export |
 | Interfaces | Primary conversation TUI, keyboard pickers, local attachment badges, automation/diagnostic CLI, self-contained local HTML report |
-| General answers and web | General knowledge/calculation answers, natural Korean search routing, `/search`, API-key-free direct HTML search with runtime-owned source links |
+| General answers and web | General knowledge/calculation answers, natural Korean search routing, API-key-free `WebSearch`, `WebOpen`, and `WebFind` with runtime-owned source links |
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete

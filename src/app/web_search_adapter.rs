@@ -3,6 +3,12 @@
 use crate::adapters::web_search;
 use crate::foundation::error::AppError;
 
+mod page_tools;
+mod routing;
+
+pub(crate) use page_tools::{find_in_page, open_page};
+pub(crate) use routing::{route_tool_request, should_search, WebToolRoute};
+
 const WEB_ANSWER_MAX_TOKENS: u32 = 512;
 const WEB_ANSWER_FALLBACK: &str =
     "웹 검색은 완료했지만 로컬 모델이 한국어 요약을 완성하지 못했습니다. 아래 검증 가능한 출처를 확인하세요.";
@@ -19,115 +25,6 @@ impl<'a> WebAnswerInput<'a> {
             local_context,
         })
     }
-}
-
-pub(crate) fn should_search(request: &str) -> bool {
-    let request = request.trim();
-    if request.is_empty() {
-        return false;
-    }
-    let lower = request.to_ascii_lowercase();
-    if ["검색하지마", "검색하지 마", "오프라인", "인터넷 쓰지마"]
-        .iter()
-        .any(|signal| request.contains(signal))
-        || ["do not browse", "don't browse", "offline"]
-            .iter()
-            .any(|signal| contains_ascii_phrase(&lower, signal))
-    {
-        return false;
-    }
-    let explicit_web = ["인터넷", "웹에서", "웹 검색", "온라인"]
-        .iter()
-        .any(|signal| request.contains(signal))
-        || [
-            "web search",
-            "search online",
-            "look up online",
-            "browse the web",
-        ]
-        .iter()
-        .any(|signal| contains_ascii_phrase(&lower, signal));
-    if explicit_web {
-        return true;
-    }
-    let local_scope = [
-        "저장소",
-        "프로젝트",
-        "코드",
-        "파일",
-        "디렉터리",
-        "경로",
-        "소스",
-    ]
-    .iter()
-    .any(|signal| request.contains(signal))
-        || ["repository", "repo", "codebase", "source file"]
-            .iter()
-            .any(|signal| contains_ascii_phrase(&lower, signal));
-    if local_scope {
-        return false;
-    }
-    if [
-        "검색해",
-        "찾아줘",
-        "찾아 줘",
-        "찾아봐",
-        "찾아 봐",
-        "알아봐",
-        "알아 봐",
-        "조회해",
-        "확인해줘",
-        "확인해 줘",
-    ]
-    .iter()
-    .any(|signal| request.contains(signal))
-    {
-        return true;
-    }
-    let dynamic_result = ["결과", "우승", "스코어", "순위", "당선"]
-        .iter()
-        .any(|signal| request.contains(signal))
-        && ["월드컵", "올림픽", "경기", "대회", "선거", "시상식", "리그"]
-            .iter()
-            .any(|signal| request.contains(signal));
-    if dynamic_result {
-        return true;
-    }
-    [
-        "최신",
-        "현재",
-        "오늘",
-        "지금",
-        "뉴스",
-        "날씨",
-        "주가",
-        "환율",
-        "가격",
-        "일정",
-        "출시",
-        "대통령",
-        "총리",
-        "대표이사",
-    ]
-    .iter()
-    .any(|signal| lower.contains(signal))
-        || [
-            "latest", "current", "today", "news", "weather", "price", "schedule", "ceo",
-        ]
-        .iter()
-        .any(|signal| contains_ascii_phrase(&lower, signal))
-}
-
-fn contains_ascii_phrase(text: &str, phrase: &str) -> bool {
-    let words = ascii_words(text);
-    let phrase = ascii_words(phrase);
-    !phrase.is_empty() && words.windows(phrase.len()).any(|window| window == phrase)
-}
-
-fn ascii_words(text: &str) -> Vec<&str> {
-    text.split(|character: char| !character.is_ascii_alphanumeric())
-        .filter(|word| !word.is_empty())
-        .collect()
 }
 
 pub(crate) fn answer(input: WebAnswerInput<'_>) -> Result<String, AppError> {
@@ -147,7 +44,7 @@ pub(crate) fn answer(input: WebAnswerInput<'_>) -> Result<String, AppError> {
     Ok(render_grounded_answer(generated, &evidence.sources))
 }
 
-fn web_answer_language_policy(query: &str) -> &'static str {
+pub(super) fn web_answer_language_policy(query: &str) -> &'static str {
     if crate::runtime_core::inference::backend::ResponseLanguage::from_user_request(query)
         .allows_non_korean()
     {
@@ -169,7 +66,7 @@ fn render_grounded_answer(answer: Option<String>, sources: &[String]) -> String 
     answer
 }
 
-fn sanitize_model_summary(answer: &str) -> String {
+pub(super) fn sanitize_model_summary(answer: &str) -> String {
     let mut lines = Vec::new();
     for line in answer.lines() {
         let trimmed = line.trim();
@@ -389,5 +286,56 @@ mod tests {
         assert!(body.contains("[1, 2]"));
         assert!(body.contains("a[1]"));
         assert_eq!(sources, "\n- https://example.com/releases/v1");
+    }
+
+    #[test]
+    fn routes_explicit_and_natural_web_open_requests() {
+        assert_eq!(
+            route_tool_request("/open https://example.com/docs"),
+            Some(WebToolRoute::Open {
+                url: "https://example.com/docs".to_string()
+            })
+        );
+        assert_eq!(
+            route_tool_request("https://example.com/docs 이 페이지 요약해줘"),
+            Some(WebToolRoute::Open {
+                url: "https://example.com/docs".to_string()
+            })
+        );
+        assert!(route_tool_request("최신 Rust 릴리스 검색해줘").is_none());
+    }
+
+    #[test]
+    fn routes_page_find_without_confusing_web_search() {
+        assert_eq!(
+            route_tool_request("이 페이지에서 ownership 찾아줘"),
+            Some(WebToolRoute::Find {
+                query: "ownership".to_string()
+            })
+        );
+        assert_eq!(
+            route_tool_request("find Safety in this page"),
+            Some(WebToolRoute::Find {
+                query: "Safety".to_string()
+            })
+        );
+        assert!(route_tool_request("웹에서 ownership 찾아줘").is_none());
+    }
+
+    #[test]
+    fn page_find_requires_an_open_page_and_renders_literal_matches() {
+        assert!(find_in_page(None, "Rust").is_err());
+        let page = web_search::WebPageEvidence {
+            requested_url: "https://example.com".to_string(),
+            final_url: "https://example.com/docs".to_string(),
+            title: Some("Guide".to_string()),
+            content: "Rust guide\nother".to_string(),
+        };
+
+        let report = find_in_page(Some(&page), "rust").unwrap();
+
+        assert!(report.contains("일치: 1개"));
+        assert!(report.contains("1. Rust guide"));
+        assert!(report.contains("https://example.com/docs"));
     }
 }

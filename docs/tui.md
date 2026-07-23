@@ -129,8 +129,8 @@ state are displayed explicitly. `NO_COLOR`, `TERM=dumb`, redirected, and scripte
 execution use plain text without ANSI control sequences.
 
 Normal interactive commands are `/model`, `/compact`, `/search <question>`,
-`/attach <path>`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`, `/back`,
-`/clear`, `/help`, and `/quit`. `/more` and `/back` page through a
+`/open <URL>`, `/find <text>`, `/attach <path>`, `/update`, `/status`, `/sessions`,
+`/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`. `/more` and `/back` page through a
 long response without discarding off-screen lines. Typing `/` opens a live command palette
 before Enter, backed by the same command registry as `/help`. Up/Down or
 `Ctrl+P`/`Ctrl+N` selects a row, Enter accepts it, and Esc closes the palette.
@@ -168,13 +168,20 @@ Plain questions use a lightweight general-answer path unless they contain a clea
 repository/action signal. Explicit search requests, freshness-sensitive questions,
 natural Korean forms such as `검색해서`/`찾아봐`, and `/search` retrieve bounded
 highlights by retrieving and parsing a public search HTML page directly, then append
-source URLs. The route needs no API key, MCP process, provider SDK, or background
-search service. HTTPS is mandatory and redirects are refused. Search results are
-untrusted prompt context only; they cannot invoke a command, edit a file, or widen
-runtime permissions. An offline/no-browse instruction disables automatic retrieval
-for that request.
-`/doctor` reports search as ready, missing its key, or alias-conflicted without
-printing the credential.
+source URLs. `/open` upgrades a user-supplied public HTTP URL to HTTPS and reads a
+bounded HTML, plain-text, or JSON document. `/find` performs a bounded literal,
+case-insensitive search over the normalized text of the most recently opened page
+in the current TUI. The route needs no API key, MCP process, provider SDK, or
+background search service. The transport never follows redirects by itself.
+`WebOpen` orchestration follows at most ten redirects only when scheme, port, and
+host remain equivalent (`www.` is treated as equivalent). A cross-host redirect is
+reported and requires a new explicit `/open`. URL credentials, localhost,
+private/link-local/reserved IPs, and DNS names resolving to them are rejected.
+Search results and opened pages are untrusted prompt context only; they cannot invoke
+a command, edit a file, or widen runtime permissions. An offline/no-browse
+instruction disables automatic retrieval for that request. `/doctor` reports
+`WebSearch`, `WebOpen`, and `WebFind` readiness without requiring or printing a
+credential.
 
 <!-- TUI-READ-CONTRACT:START -->
 The eight views (`overview`, `monitor`, `sessions`, `transcript`, `tool-output`,

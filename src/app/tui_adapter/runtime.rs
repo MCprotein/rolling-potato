@@ -1,18 +1,16 @@
 //! Interactive TUI runtime composition.
 
+use super::model_switch::{switch_prepared_model, LiveModelSwitch};
+use super::{
+    canonical_dispatch_intent, canonical_gate_descriptor, canonical_read_page,
+    canonical_selection_lease, conversation, TuiRuntimeAdapter,
+};
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::controller::TuiRuntimePort;
 use crate::surfaces::tui::outcome::TuiOutcome;
 use crate::surfaces::tui::runtime_bridge::{
     new_tui_intent_id, SelectionLease, TuiAttachment, TuiBackendStatus, TuiGateKind, TuiIntent,
     TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
-};
-use crate::surfaces::tui::setup;
-
-use super::model_switch::{switch_prepared_model, LiveModelSwitch};
-use super::{
-    canonical_dispatch_intent, canonical_gate_descriptor, canonical_read_page,
-    canonical_selection_lease, conversation, TuiRuntimeAdapter,
 };
 
 impl TuiRuntimePort for TuiRuntimeAdapter {
@@ -100,6 +98,9 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             ensure_runtime_ready()?;
             return conversation::reply_with_images(&input);
         }
+        if let Some(result) = super::web_tools::dispatch(&mut self.opened_web_page, user_request) {
+            return result;
+        }
         if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref()) {
             return Ok(reply);
         }
@@ -135,7 +136,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         Ok(format!(
             "모델 변경 완료\n- model: {}\n- context: {}\n- backend: ready",
             prepared.id,
-            setup::DEFAULT_CONTEXT_TOKENS
+            crate::surfaces::tui::setup::DEFAULT_CONTEXT_TOKENS
         ))
     }
 
@@ -191,7 +192,7 @@ fn ensure_runtime_ready() -> Result<(), AppError> {
     crate::app::inference_adapter::backend::ensure_installed_report()?;
     crate::app::inference_adapter::backend::start_report(
         &model_path.display().to_string(),
-        Some(setup::DEFAULT_CONTEXT_TOKENS),
+        Some(crate::surfaces::tui::setup::DEFAULT_CONTEXT_TOKENS),
     )?;
     Ok(())
 }

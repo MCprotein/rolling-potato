@@ -1660,14 +1660,16 @@
       "path": "src/adapters/web_search.rs",
       "slices": [
         {
-          "responsibility": "direct web search facade and bounded orchestration",
+          "responsibility": "direct WebSearch facade plus bounded WebOpen redirect and WebFind orchestration",
           "target": "src/adapters/web_search.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/adapters/web_search.rs",
             "src/adapters/web_search/evidence.rs",
+            "src/adapters/web_search/find.rs",
             "src/adapters/web_search/html.rs",
+            "src/adapters/web_search/page.rs",
             "src/adapters/web_search/policy.rs",
             "src/adapters/web_search/transport.rs",
             "tests/architecture_contract.rs"
@@ -1692,6 +1694,22 @@
       ]
     },
     {
+      "path": "src/adapters/web_search/find.rs",
+      "slices": [
+        {
+          "responsibility": "bounded literal search over normalized opened-page text",
+          "target": "src/adapters/web_search/find.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/adapters/web_search/find.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/web_search/html.rs",
       "slices": [
         {
@@ -1708,10 +1726,26 @@
       ]
     },
     {
+      "path": "src/adapters/web_search/page.rs",
+      "slices": [
+        {
+          "responsibility": "bounded HTML, plain-text, and JSON page normalization",
+          "target": "src/adapters/web_search/page.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/adapters/web_search/page.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/web_search/policy.rs",
       "slices": [
         {
-          "responsibility": "web query and HTTPS source validation policy",
+          "responsibility": "web query, HTTPS source, public target, DNS, and redirect-origin validation policy",
           "target": "src/adapters/web_search/policy.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -1727,7 +1761,7 @@
       "path": "src/adapters/web_search/transport.rs",
       "slices": [
         {
-          "responsibility": "credential-free HTTPS search document transport",
+          "responsibility": "credential-free bounded HTTPS search and no-auto-redirect page transport",
           "target": "src/adapters/web_search/transport.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -3232,13 +3266,47 @@
       "path": "src/app/web_search_adapter.rs",
       "slices": [
         {
-          "responsibility": "web-search routing, untrusted grounding context, and visible source composition",
+          "responsibility": "WebSearch, WebOpen, and WebFind application facade with untrusted grounding and visible sources",
           "target": "src/app/web_search_adapter.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/adapters/web_search.rs",
             "src/app/web_search_adapter.rs",
+            "src/app/web_search_adapter/page_tools.rs",
+            "src/app/web_search_adapter/routing.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_tools.rs",
+      "slices": [
+        {
+          "responsibility": "opened-page answer composition and visible WebFind results",
+          "target": "src/app/web_search_adapter/page_tools.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter.rs",
+            "src/app/web_search_adapter/page_tools.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic search, open, and in-page-find request routing",
+          "target": "src/app/web_search_adapter/routing.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter.rs",
+            "src/app/web_search_adapter/routing.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7125,6 +7193,24 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/web_tools.rs",
+      "slices": [
+        {
+          "responsibility": "current-TUI opened-page state and web tool dispatch",
+          "target": "src/app/tui_adapter/web_tools.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/runtime.rs",
+            "src/app/tui_adapter/web_tools.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/tests.rs",
       "slices": [
         {
@@ -8298,7 +8384,7 @@
     {
       "path": "src/adapters/web_search.rs",
       "responsibilities": [
-        "direct web search facade and bounded orchestration"
+        "direct WebSearch facade plus bounded WebOpen redirect and WebFind orchestration"
       ]
     },
     {
@@ -8308,21 +8394,33 @@
       ]
     },
     {
+      "path": "src/adapters/web_search/find.rs",
+      "responsibilities": [
+        "bounded literal search over normalized opened-page text"
+      ]
+    },
+    {
       "path": "src/adapters/web_search/html.rs",
       "responsibilities": [
         "direct search HTML parsing and result-target normalization"
       ]
     },
     {
+      "path": "src/adapters/web_search/page.rs",
+      "responsibilities": [
+        "bounded HTML, plain-text, and JSON page normalization"
+      ]
+    },
+    {
       "path": "src/adapters/web_search/policy.rs",
       "responsibilities": [
-        "web query and HTTPS source validation policy"
+        "web query, HTTPS source, public target, DNS, and redirect-origin validation policy"
       ]
     },
     {
       "path": "src/adapters/web_search/transport.rs",
       "responsibilities": [
-        "credential-free HTTPS search document transport"
+        "credential-free bounded HTTPS search and no-auto-redirect page transport"
       ]
     },
     {
@@ -8864,7 +8962,19 @@
     {
       "path": "src/app/web_search_adapter.rs",
       "responsibilities": [
-        "web-search routing, untrusted grounding context, and visible source composition"
+        "WebSearch, WebOpen, and WebFind application facade with untrusted grounding and visible sources"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_tools.rs",
+      "responsibilities": [
+        "opened-page answer composition and visible WebFind results"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing.rs",
+      "responsibilities": [
+        "deterministic search, open, and in-page-find request routing"
       ]
     },
     {
@@ -10230,6 +10340,12 @@
       "path": "src/app/tui_adapter/runtime.rs",
       "responsibilities": [
         "interactive TUI runtime composition and readiness"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/web_tools.rs",
+      "responsibilities": [
+        "current-TUI opened-page state and web tool dispatch"
       ]
     },
     {
