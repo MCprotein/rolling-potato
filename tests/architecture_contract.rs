@@ -972,6 +972,8 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let model_default_selection_path =
         "src/app/inference_adapter/model/registry/default_selection.rs";
     let model_setup_path = "src/app/inference_adapter/model/setup.rs";
+    let model_setup_catalog_path = "src/app/inference_adapter/model/setup/catalog.rs";
+    let model_setup_tests_path = "src/app/inference_adapter/model/setup/tests.rs";
     let model_tests_path = "src/app/inference_adapter/model/tests.rs";
     assert!(Path::new(backend_chat_path).is_file());
     assert!(Path::new(backend_chat_interruption_path).is_file());
@@ -988,6 +990,8 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(Path::new(model_registry_vision_path).is_file());
     assert!(Path::new(model_default_selection_path).is_file());
     assert!(Path::new(model_setup_path).is_file());
+    assert!(Path::new(model_setup_catalog_path).is_file());
+    assert!(Path::new(model_setup_tests_path).is_file());
     assert!(Path::new(model_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
     let backend_chat = fs::read_to_string(backend_chat_path).unwrap();
@@ -1007,6 +1011,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let model_registry_vision = fs::read_to_string(model_registry_vision_path).unwrap();
     let model_default_selection = fs::read_to_string(model_default_selection_path).unwrap();
     let model_setup = fs::read_to_string(model_setup_path).unwrap();
+    let model_setup_catalog = fs::read_to_string(model_setup_catalog_path).unwrap();
     let model_tests = fs::read_to_string(model_tests_path).unwrap();
     assert!(
         backend_adapter.contains("#[path = \"backend/tests.rs\"]"),
@@ -1064,6 +1069,9 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         model_adapter.lines().any(|line| line == "mod setup;"),
         "model adapter does not register its setup owner"
     );
+    assert!(model_setup.lines().any(|line| line == "mod catalog;"));
+    assert!(model_setup.lines().any(|line| line == "mod tests;"));
+    assert!(model_setup_catalog.contains("pub(super) fn setup_options("));
     for responsibility in [
         "pub(crate) struct PreparedSetupModel",
         "pub(crate) fn setup_options(",
@@ -5022,11 +5030,13 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     let tui_report_tests = "src/app/tui_adapter/report_tests.rs";
     let tui_model_switch = "src/app/tui_adapter/model_switch.rs";
     let tui_runtime = "src/app/tui_adapter/runtime.rs";
+    let tui_runtime_backend = "src/app/tui_adapter/runtime/backend.rs";
     assert!(Path::new(tui_adapter).is_file());
     assert!(Path::new(tui_tests).is_file());
     assert!(Path::new(tui_report_tests).is_file());
     assert!(Path::new(tui_model_switch).is_file());
     assert!(Path::new(tui_runtime).is_file());
+    assert!(Path::new(tui_runtime_backend).is_file());
     assert!(!Path::new("src/tui.rs").exists());
     assert!(!Path::new("src/tui").exists());
 
@@ -5040,6 +5050,13 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "application root does not register the TUI adapter"
     );
     let bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
+    let tui_runtime_source = fs::read_to_string(tui_runtime).unwrap();
+    let runtime_backend = fs::read_to_string(tui_runtime_backend).unwrap();
+    assert!(tui_runtime_source
+        .lines()
+        .any(|line| line == "mod backend;"));
+    assert!(!tui_runtime_source.contains("fn ensure_runtime_ready("));
+    assert!(runtime_backend.contains("pub(super) fn ensure_runtime_ready("));
     for definition in [
         "struct TuiReadBudget",
         "enum TuiReadRequest",
@@ -5098,22 +5115,22 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(outcome.lines().count() < 250);
     assert!(outcome_oracle.lines().count() < 425);
 
-    let runtime = fs::read_to_string("src/app/runtime_adapter.rs").unwrap();
-    assert!(!runtime.contains("pub struct TuiReadBudget"));
-    assert!(!runtime.contains("pub struct SelectionLease"));
-    assert!(!runtime.contains("pub enum TuiIntent"));
-    assert!(!runtime.contains("pub struct OneShotSecret"));
-    assert!(!runtime.contains("pub enum TuiOutcomeCode"));
-    assert!(!runtime.contains("pub struct TuiOutcome"));
-    assert!(!runtime.contains("pub(crate) fn exact_tui_outcome"));
-    assert!(!runtime.contains("fn unsupported_source_platform_outcome"));
-    assert!(!runtime.contains("fn new_tui_intent_id"));
-    assert!(!runtime.contains("fn tui_lease_matches_workflow_under_transition"));
-    assert!(!runtime.contains("fn tui_lease_matches_terminal_selection_under_transition"));
-    assert!(!runtime.contains("fn validate_tui_id"));
-    assert!(!runtime.contains("fn tui_selection_lease"));
-    assert!(!runtime.contains("fn tui_gate_descriptor"));
-    assert!(!runtime.contains("fn dispatch_tui_intent"));
+    let app_runtime = fs::read_to_string("src/app/runtime_adapter.rs").unwrap();
+    assert!(!app_runtime.contains("pub struct TuiReadBudget"));
+    assert!(!app_runtime.contains("pub struct SelectionLease"));
+    assert!(!app_runtime.contains("pub enum TuiIntent"));
+    assert!(!app_runtime.contains("pub struct OneShotSecret"));
+    assert!(!app_runtime.contains("pub enum TuiOutcomeCode"));
+    assert!(!app_runtime.contains("pub struct TuiOutcome"));
+    assert!(!app_runtime.contains("pub(crate) fn exact_tui_outcome"));
+    assert!(!app_runtime.contains("fn unsupported_source_platform_outcome"));
+    assert!(!app_runtime.contains("fn new_tui_intent_id"));
+    assert!(!app_runtime.contains("fn tui_lease_matches_workflow_under_transition"));
+    assert!(!app_runtime.contains("fn tui_lease_matches_terminal_selection_under_transition"));
+    assert!(!app_runtime.contains("fn validate_tui_id"));
+    assert!(!app_runtime.contains("fn tui_selection_lease"));
+    assert!(!app_runtime.contains("fn tui_gate_descriptor"));
+    assert!(!app_runtime.contains("fn dispatch_tui_intent"));
 
     for legacy_owner in [
         "src/app/patch_adapter.rs",
@@ -5136,7 +5153,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(tui_read.contains("fn read_tui_page"));
     assert!(tui_read.contains("trait TuiReadPort"));
     assert!(tui_read.contains("port.state_snapshot"));
-    assert!(!runtime.contains("fn read_tui_page"));
+    assert!(!app_runtime.contains("fn read_tui_page"));
 
     let tui_action = fs::read_to_string("src/composition/tui_action.rs").unwrap();
     for definition in [
@@ -5169,7 +5186,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             "TUI page owner is missing {definition}"
         );
         assert!(
-            !runtime.contains(definition),
+            !app_runtime.contains(definition),
             "legacy runtime still owns {definition}"
         );
     }
@@ -5223,7 +5240,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             &interactive_runtime,
             "impl TuiRuntimePort for TuiRuntimeAdapter",
         ),
-        (&interactive_runtime, "fn ensure_runtime_ready("),
+        (&runtime_backend, "fn ensure_runtime_ready("),
     ] {
         assert!(
             owner.contains(responsibility),

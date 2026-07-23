@@ -3546,7 +3546,7 @@
       "path": "src/app/inference_adapter/model/setup.rs",
       "slices": [
         {
-          "responsibility": "source-backed model choices and interactive setup preparation",
+          "responsibility": "interactive model preparation, activation, and context selection",
           "target": "src/app/inference_adapter/model/setup.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -3554,6 +3554,40 @@
             "src/app/inference_adapter/model.rs",
             "src/app/inference_adapter/model/setup.rs",
             "src/app/tui_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/setup/catalog.rs",
+      "slices": [
+        {
+          "responsibility": "source-backed interactive model option catalog rendering",
+          "target": "src/app/inference_adapter/model/setup/catalog.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model/setup.rs",
+            "src/app/inference_adapter/model/setup/catalog.rs",
+            "src/app/inference_adapter/model/setup/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/setup/tests.rs",
+      "slices": [
+        {
+          "responsibility": "interactive model setup and projector readiness regression tests",
+          "target": "src/app/inference_adapter/model/setup/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model/setup.rs",
+            "src/app/inference_adapter/model/setup/catalog.rs",
+            "src/app/inference_adapter/model/setup/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7208,13 +7242,30 @@
       "path": "src/app/tui_adapter/runtime.rs",
       "slices": [
         {
-          "responsibility": "interactive TUI runtime composition and readiness",
+          "responsibility": "interactive TUI runtime composition and request dispatch",
           "target": "src/app/tui_adapter/runtime.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/tui_adapter.rs",
             "src/app/tui_adapter/runtime.rs",
+            "src/app/tui_adapter/runtime/backend.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/backend.rs",
+      "slices": [
+        {
+          "responsibility": "interactive TUI backend readiness and lazy startup coordination",
+          "target": "src/app/tui_adapter/runtime/backend.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime.rs",
+            "src/app/tui_adapter/runtime/backend.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -9086,7 +9137,19 @@
     {
       "path": "src/app/inference_adapter/model/setup.rs",
       "responsibilities": [
-        "source-backed model choices and interactive setup preparation"
+        "interactive model preparation, activation, and context selection"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/setup/catalog.rs",
+      "responsibilities": [
+        "source-backed interactive model option catalog rendering"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/setup/tests.rs",
+      "responsibilities": [
+        "interactive model setup and projector readiness regression tests"
       ]
     },
     {
@@ -10379,7 +10442,13 @@
     {
       "path": "src/app/tui_adapter/runtime.rs",
       "responsibilities": [
-        "interactive TUI runtime composition and readiness"
+        "interactive TUI runtime composition and request dispatch"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/backend.rs",
+      "responsibilities": [
+        "interactive TUI backend readiness and lazy startup coordination"
       ]
     },
     {
