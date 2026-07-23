@@ -168,12 +168,20 @@ fn parse_search_response(body: &str) -> Result<WebSearchEvidence, AppError> {
     let Some(Value::Array(results)) = web.get("results") else {
         return Err(AppError::blocked("웹 검색 응답에 web.results가 없습니다."));
     };
-    let parsed = results
-        .iter()
-        .filter_map(parse_result)
-        .filter(|result| is_valid_https_source_url(&result.url))
-        .take(MAX_SOURCES)
-        .collect::<Vec<_>>();
+    let mut parsed = Vec::new();
+    for result in results.iter().filter_map(parse_result) {
+        if !is_valid_https_source_url(&result.url)
+            || parsed
+                .iter()
+                .any(|stored: &SearchResult| stored.url == result.url)
+        {
+            continue;
+        }
+        parsed.push(result);
+        if parsed.len() == MAX_SOURCES {
+            break;
+        }
+    }
     if parsed.is_empty() {
         return Err(AppError::blocked(
             "웹 검색 결과에 검증 가능한 HTTPS 출처가 없습니다.",
@@ -309,6 +317,21 @@ mod tests {
             "description":"중복 결과"
           },
           {
+            "title":"중복 2",
+            "url":"https://www.rust-lang.org/",
+            "description":"중복 결과"
+          },
+          {
+            "title":"중복 3",
+            "url":"https://www.rust-lang.org/",
+            "description":"중복 결과"
+          },
+          {
+            "title":"두 번째 고유 출처",
+            "url":"https://doc.rust-lang.org/",
+            "description":"중복 이후에도 포함되어야 함"
+          },
+          {
             "title":"위험",
             "url":"http://example.com/",
             "description":"HTTPS가 아님"
@@ -323,7 +346,10 @@ mod tests {
 
         assert!(evidence.context.contains("Rust 공식 사이트"));
         assert!(evidence.context.contains("추가 문맥 2"));
-        assert_eq!(evidence.sources, vec!["https://www.rust-lang.org/"]);
+        assert_eq!(
+            evidence.sources,
+            vec!["https://www.rust-lang.org/", "https://doc.rust-lang.org/"]
+        );
         assert!(!evidence.context.contains("HTTPS가 아님"));
     }
 

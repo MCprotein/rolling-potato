@@ -1,3 +1,6 @@
+use std::env;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::time::Duration;
 
 use crate::adapters::filesystem::{backend_state, layout as paths};
@@ -20,9 +23,21 @@ use super::{display_optional_u32, model_id_from_path, now_ms, HEALTH_TIMEOUT_MS}
 const STARTUP_TIMEOUT_MS: u64 = 60_000;
 const STOP_TIMEOUT_MS: u64 = 5_000;
 const STOP_CANCEL_WAIT_MS: u64 = 5_000;
+const ENV_BACKEND_START_TRACE: &str = "RPOTATO_TEST_BACKEND_START_TRACE";
 
 mod startup;
-pub(super) use startup::{start_sidecar_with_timeout, trace_backend_start};
+pub(super) use startup::start_sidecar_with_timeout;
+
+pub(super) fn trace_backend_start(message: &str) {
+    let Some(path) = env::var_os(ENV_BACKEND_START_TRACE) else {
+        return;
+    };
+    let Ok(mut trace) = OpenOptions::new().create(true).append(true).open(path) else {
+        return;
+    };
+    let _ = writeln!(trace, "{message}");
+    let _ = trace.flush();
+}
 
 pub fn doctor_summary() -> String {
     let discovery = llama_backend::discover();

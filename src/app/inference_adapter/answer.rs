@@ -2,7 +2,7 @@
 
 use crate::app::inference_adapter::backend;
 use crate::foundation::error::AppError;
-use crate::runtime_core::inference::backend::BackendChatInput;
+use crate::runtime_core::inference::backend::{BackendChatInput, ResponseLanguage};
 use crate::runtime_core::patch::intent::model_action_body;
 use crate::runtime_core::reporting::korean_guard;
 
@@ -11,9 +11,14 @@ const MAX_REPAIR_INPUT_CHARS: usize = 8 * 1024;
 const EMPTY_VISIBLE_ANSWER: &str =
     "model의 읽기 전용 답변이 비어 있습니다. 표시 가능한 답변을 생성하지 않았습니다.";
 
-pub(crate) fn generate(prompt: &str, max_tokens: u32) -> Result<String, AppError> {
-    let run = backend::chat_once(prompt, Some(max_tokens))?;
-    finish_generated(prompt, &run.response)
+pub(crate) fn generate_for_user(
+    prompt: &str,
+    user_request: &str,
+    max_tokens: u32,
+) -> Result<String, AppError> {
+    let input = BackendChatInput::text_for_user(prompt, user_request);
+    let run = backend::chat_once_with_input(&input, Some(max_tokens))?;
+    finish_generated(input.response_language, &run.response)
 }
 
 pub(crate) fn generate_input(
@@ -21,7 +26,7 @@ pub(crate) fn generate_input(
     max_tokens: u32,
 ) -> Result<String, AppError> {
     let run = backend::chat_once_with_input(input, Some(max_tokens))?;
-    finish_generated(&input.text, &run.response)
+    finish_generated(input.response_language, &run.response)
 }
 
 pub(crate) fn validate_existing(response: &str) -> Result<String, AppError> {
@@ -63,12 +68,15 @@ pub(crate) fn fallback_visible(response: &str) -> Result<String, AppError> {
     Ok(best_effort_visible(&visible, None))
 }
 
-fn finish_generated(prompt: &str, response: &str) -> Result<String, AppError> {
+fn finish_generated(
+    response_language: ResponseLanguage,
+    response: &str,
+) -> Result<String, AppError> {
     let visible = visible_text(response);
     if visible.is_empty() {
         return Err(AppError::blocked(EMPTY_VISIBLE_ANSWER));
     }
-    if korean_guard::allows_non_korean(prompt) || korean_guard::validate(&visible) {
+    if response_language.allows_non_korean() || korean_guard::validate(&visible) {
         return Ok(visible);
     }
     repair_existing(&visible)
@@ -137,7 +145,7 @@ mod tests {
     fn explicit_language_request_keeps_the_requested_language() {
         assert_eq!(
             finish_generated(
-                "이 문장을 영어로 번역해줘",
+                ResponseLanguage::UserRequestedOther,
                 "This is the requested English translation."
             )
             .unwrap(),

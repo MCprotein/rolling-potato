@@ -156,7 +156,10 @@ rpotato
 
 인자가 없는 `rpotato`가 기본 TUI를 시작합니다. 일반 텍스트로 범용 LLM 질문과
 코딩 에이전트 요청을 모두 처리합니다. 인터넷 검색을 명시하거나 최신 정보가
-필요한 질문은 제한된 읽기 전용 검색을 사용하고 runtime이 출처 link를 표시합니다. Composer
+필요한 질문은 별도 MCP process나 provider SDK 없이 Brave Search REST API를
+직접 호출하는 제한된 읽기 전용 검색을 사용하고 runtime이 출처 link를 표시합니다.
+검색에는 `BRAVE_SEARCH_API_KEY`가 필요하며 key는 rpotato 상태나 로그에 저장하지
+않습니다. `/doctor`는 credential 값을 출력하지 않고 검색 준비 상태만 보여줍니다. Composer
 아래 line에는 현재 model, context 사용량,
 compaction checkpoint, backend 상태, session이 표시됩니다. 일반 TUI 동작은
 `/model`, `/compact`, `/search`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`,
@@ -195,7 +198,7 @@ pre-1.0 런타임입니다.
 | 협업 | 제한된 subagent 하나와 runtime-owned team execution |
 | 모니터링 | CLI/TUI metric, SQLite projection, benchmark record, static HTML export |
 | 화면 | 기본 대화 TUI, 자동화·진단 CLI, self-contained local HTML report |
-| 범용 답변과 웹 | 일반 지식·계산 답변, 최신성 자동 routing, `/search`, runtime이 출처 link를 표시하는 제한된 Exa MCP 검색 |
+| 범용 답변과 웹 | 일반 지식·계산 답변, 최신성 자동 routing, `/search`, runtime이 출처 link를 표시하는 제한된 Brave Search 직접 호출 |
 
 장별 기능 지도, 대표 명령, 아직 완성되지 않은 경계는
 [docs/ko/current-capabilities.md](docs/ko/current-capabilities.md)에

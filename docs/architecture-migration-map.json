@@ -3417,6 +3417,24 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/model/registry/vision.rs",
+      "slices": [
+        {
+          "responsibility": "model-specific vision projector registry binding and local artifact verification",
+          "target": "src/app/inference_adapter/model/registry/vision.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/model_artifact.rs",
+            "src/runtime_core/inference/model/manifest.rs",
+            "src/app/inference_adapter/model/registry.rs",
+            "src/app/inference_adapter/model/registry/vision.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/model/registry/default_selection.rs",
       "slices": [
         {
@@ -8592,6 +8610,12 @@
       "path": "src/app/inference_adapter/model/registry.rs",
       "responsibilities": [
         "model local registry installation, manifest and promotion rebinding, and default selection"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/registry/vision.rs",
+      "responsibilities": [
+        "model-specific vision projector registry binding and local artifact verification"
       ]
     },
     {

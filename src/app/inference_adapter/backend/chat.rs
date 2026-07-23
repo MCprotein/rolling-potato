@@ -7,7 +7,6 @@ use crate::adapters::process::backend as backend_process;
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::{ledger, state};
 use crate::foundation::error::AppError;
-use crate::foundation::integrity;
 use crate::runtime_core::inference::backend::lifecycle::BackendSidecarRecord;
 use crate::runtime_core::inference::backend::{
     BackendChatInput, BackendChatRun, BackendChatSampling, MAX_CHAT_TIMEOUT_MS,
@@ -35,8 +34,6 @@ pub use report::{chat_report, chat_stream_report};
 
 const CHAT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_CHAT_MAX_TOKENS: u32 = 128;
-const MAX_CHAT_IMAGES: usize = 4;
-const MAX_CHAT_IMAGE_BYTES: usize = 20 * 1024 * 1024;
 const CHAT_SAMPLING: BackendChatSampling = BackendChatSampling {
     temperature: 0.1,
     top_p: 0.8,
@@ -144,7 +141,7 @@ fn chat_input_with_options(
     mut external_cancel_requested: impl FnMut() -> Result<bool, AppError>,
     mut on_delta: impl FnMut(Option<&str>) -> Result<(), AppError>,
 ) -> Result<BackendChatRun, AppError> {
-    validate_chat_input(input)?;
+    input.validate()?;
     let requested_max_tokens = max_tokens.unwrap_or(DEFAULT_CHAT_MAX_TOKENS);
     let record = ready_sidecar_record()?;
     if !input.images.is_empty() && record.mmproj_path.is_none() {
@@ -478,94 +475,4 @@ fn chat_input_with_options(
     };
     generation_guard.finish()?;
     Ok(run)
-}
-
-fn validate_chat_input(input: &BackendChatInput) -> Result<(), AppError> {
-    if input.text.trim().is_empty() && input.images.is_empty() {
-        return Err(AppError::usage(
-            "backend chat은 text 또는 image 입력이 필요합니다.",
-        ));
-    }
-    if input.images.len() > MAX_CHAT_IMAGES {
-        return Err(AppError::blocked(format!(
-            "이미지는 요청당 최대 {MAX_CHAT_IMAGES}개까지 사용할 수 있습니다."
-        )));
-    }
-    let total_bytes = input.images.iter().try_fold(0_usize, |total, image| {
-        total
-            .checked_add(image.bytes.len())
-            .ok_or_else(|| AppError::blocked("이미지 입력 크기를 안전하게 계산하지 못했습니다."))
-    })?;
-    if total_bytes > MAX_CHAT_IMAGE_BYTES {
-        return Err(AppError::blocked(format!(
-            "이미지 입력은 요청당 합계 {MAX_CHAT_IMAGE_BYTES} bytes를 넘을 수 없습니다."
-        )));
-    }
-    for image in &input.images {
-        let signature_matches = match image.mime_type.as_str() {
-            "image/png" => image.bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
-            "image/jpeg" => image.bytes.starts_with(b"\xff\xd8\xff"),
-            _ => false,
-        };
-        if !signature_matches {
-            return Err(AppError::blocked(format!(
-                "지원하지 않거나 signature가 일치하지 않는 이미지입니다: {}",
-                image.display_name
-            )));
-        }
-        if !integrity::is_valid_sha256(&image.sha256)
-            || !integrity::sha256_bytes(&image.bytes).eq_ignore_ascii_case(&image.sha256)
-        {
-            return Err(AppError::blocked(format!(
-                "이미지 SHA-256 검증에 실패했습니다: {}",
-                image.display_name
-            )));
-        }
-    }
-    Ok(())
-}
-
-#[cfg(test)]
-mod input_tests {
-    use super::*;
-    use crate::runtime_core::inference::backend::BackendChatImage;
-
-    fn png_input(bytes: Vec<u8>) -> BackendChatInput {
-        BackendChatInput {
-            text: "이미지를 설명해줘".to_string(),
-            images: vec![BackendChatImage {
-                display_name: "screen.png".to_string(),
-                mime_type: "image/png".to_string(),
-                sha256: integrity::sha256_bytes(&bytes),
-                bytes,
-            }],
-        }
-    }
-
-    #[test]
-    fn multimodal_input_requires_supported_signature_and_exact_hash() {
-        let valid = png_input(b"\x89PNG\r\n\x1a\npayload".to_vec());
-        assert!(validate_chat_input(&valid).is_ok());
-
-        let mut tampered = valid.clone();
-        tampered.images[0].bytes.push(1);
-        assert!(validate_chat_input(&tampered)
-            .unwrap_err()
-            .message
-            .contains("SHA-256"));
-
-        let unsupported = BackendChatInput {
-            text: "설명".to_string(),
-            images: vec![BackendChatImage {
-                display_name: "image.webp".to_string(),
-                mime_type: "image/webp".to_string(),
-                sha256: integrity::sha256_bytes(b"RIFFxxxxWEBP"),
-                bytes: b"RIFFxxxxWEBP".to_vec(),
-            }],
-        };
-        assert!(validate_chat_input(&unsupported)
-            .unwrap_err()
-            .message
-            .contains("지원하지"));
-    }
 }

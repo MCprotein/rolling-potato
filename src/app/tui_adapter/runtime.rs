@@ -89,8 +89,9 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         request: &str,
         attachments: &[TuiAttachment],
     ) -> Result<String, AppError> {
+        let user_request = request.trim();
         let input = super::attachment::compose_request(request, attachments)?;
-        let request = input.text.as_str();
+        let local_context = input.text.as_str();
         let active_model = crate::app::inference_adapter::backend::runtime_snapshot()
             .ok()
             .and_then(|snapshot| snapshot.model_id)
@@ -99,17 +100,19 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             ensure_runtime_ready()?;
             return conversation::reply_with_images(&input);
         }
-        if let Some(reply) = conversation::local_reply(&request, active_model.as_deref()) {
+        if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref()) {
             return Ok(reply);
         }
         ensure_runtime_ready()?;
-        if crate::app::web_search_adapter::should_search(&request) {
-            return crate::app::web_search_adapter::answer(&request);
+        if let Some(search) =
+            crate::app::web_search_adapter::WebAnswerInput::routed(user_request, &input.text)
+        {
+            return crate::app::web_search_adapter::answer(search);
         }
-        if conversation::is_conversational_request(&request) {
-            return conversation::reply(&request);
+        if conversation::is_conversational_request(user_request) {
+            return conversation::reply_with_context(user_request, local_context);
         }
-        crate::app::runtime_adapter::agent_run_report(&request)
+        crate::app::runtime_adapter::agent_run_report(local_context)
             .map(|report| conversation::present_agent_report(&report))
     }
 

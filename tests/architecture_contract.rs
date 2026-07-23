@@ -954,10 +954,12 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_runtime_snapshot_path = "src/app/inference_adapter/backend/runtime_snapshot.rs";
     let backend_sidecar_path = "src/app/inference_adapter/backend/sidecar.rs";
     let backend_sidecar_startup_path = "src/app/inference_adapter/backend/sidecar/startup.rs";
+    let backend_state_path = "src/adapters/filesystem/backend_state.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
     let model_adapter_path = "src/app/inference_adapter/model.rs";
     let model_evidence_path = "src/app/inference_adapter/model/evidence.rs";
     let model_registry_path = "src/app/inference_adapter/model/registry.rs";
+    let model_registry_vision_path = "src/app/inference_adapter/model/registry/vision.rs";
     let model_default_selection_path =
         "src/app/inference_adapter/model/registry/default_selection.rs";
     let model_setup_path = "src/app/inference_adapter/model/setup.rs";
@@ -974,6 +976,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(Path::new(backend_tests_path).is_file());
     assert!(Path::new(model_evidence_path).is_file());
     assert!(Path::new(model_registry_path).is_file());
+    assert!(Path::new(model_registry_vision_path).is_file());
     assert!(Path::new(model_default_selection_path).is_file());
     assert!(Path::new(model_setup_path).is_file());
     assert!(Path::new(model_tests_path).is_file());
@@ -987,10 +990,12 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_runtime_snapshot = fs::read_to_string(backend_runtime_snapshot_path).unwrap();
     let backend_sidecar = fs::read_to_string(backend_sidecar_path).unwrap();
     let backend_sidecar_startup = fs::read_to_string(backend_sidecar_startup_path).unwrap();
+    let backend_state = fs::read_to_string(backend_state_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
     let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
     let model_evidence = fs::read_to_string(model_evidence_path).unwrap();
     let model_registry = fs::read_to_string(model_registry_path).unwrap();
+    let model_registry_vision = fs::read_to_string(model_registry_vision_path).unwrap();
     let model_default_selection = fs::read_to_string(model_default_selection_path).unwrap();
     let model_setup = fs::read_to_string(model_setup_path).unwrap();
     let model_tests = fs::read_to_string(model_tests_path).unwrap();
@@ -1006,6 +1011,24 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         model_adapter.lines().any(|line| line == "mod evidence;"),
         "model adapter does not register its local evidence owner"
     );
+    assert!(
+        model_registry.lines().any(|line| line == "mod vision;"),
+        "model registry does not register its vision owner"
+    );
+    for responsibility in [
+        "pub(crate) struct VerifiedVisionProjector",
+        "pub(crate) fn verified_vision_projector(",
+        "pub(super) fn local_registry_vision(",
+    ] {
+        assert!(
+            model_registry_vision.contains(responsibility),
+            "model registry vision owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_registry.contains(responsibility),
+            "model registry facade still owns vision verification: {responsibility}"
+        );
+    }
     for responsibility in [
         "pub(super) fn local_benchmark_status(",
         "pub(super) fn local_promotion_readiness(",
@@ -1254,9 +1277,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     }
     for responsibility in [
         "fn start_sidecar_with_timeout(",
-        "fn trace_backend_start(",
         "fn canonical_existing_file(",
-        "fn create_log_file(",
     ] {
         assert!(
             backend_sidecar_startup.contains(responsibility),
@@ -1267,6 +1288,22 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             "inference backend sidecar lifecycle still owns startup: {responsibility}"
         );
     }
+    assert!(
+        backend_sidecar.contains("fn trace_backend_start("),
+        "inference backend sidecar lifecycle is missing startup tracing"
+    );
+    assert!(
+        !backend_sidecar_startup.contains("fn trace_backend_start("),
+        "inference backend startup orchestration still owns lifecycle tracing"
+    );
+    assert!(
+        backend_state.contains("fn create_log_file("),
+        "backend filesystem adapter is missing exclusive log creation"
+    );
+    assert!(
+        !backend_sidecar_startup.contains("fn create_log_file("),
+        "inference backend startup orchestration still owns log persistence"
+    );
     for responsibility in [
         "fn release_manifest_has_source_backed_supported_artifacts(",
         "fn generation_record_codec_preserves_exact_bytes_and_round_trips(",
@@ -1345,6 +1382,10 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(
         model_registry.lines().count() < 350,
         "model registry module regrew beyond its ownership boundary"
+    );
+    assert!(
+        model_registry_vision.lines().count() < 125,
+        "model registry vision module regrew beyond its ownership boundary"
     );
     assert!(model_default_selection.lines().count() < 75);
     assert!(model_setup.lines().count() < 100);

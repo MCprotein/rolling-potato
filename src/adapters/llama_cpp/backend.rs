@@ -12,7 +12,6 @@ use crate::foundation::serialization::escape_string_content;
 use crate::runtime_core::inference::backend::{
     BackendAdapter, BackendChatInput, BackendChatSampling,
 };
-use crate::runtime_core::reporting::korean_guard;
 
 pub(crate) const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 pub(crate) const DEFAULT_HOST: &str = "127.0.0.1";
@@ -218,7 +217,7 @@ pub(crate) fn chat_request_body(
 ) -> String {
     chat_request_body_for_input(
         model_path,
-        &BackendChatInput::text(prompt),
+        &BackendChatInput::text_for_user(prompt, prompt),
         max_tokens,
         sampling,
         stream,
@@ -232,7 +231,7 @@ pub(crate) fn chat_request_body_for_input(
     sampling: &BackendChatSampling,
     stream: bool,
 ) -> String {
-    let system_prompt = if korean_guard::allows_non_korean(&input.text) {
+    let system_prompt = if input.response_language.allows_non_korean() {
         "사용자가 명시적으로 요청한 출력 언어를 따릅니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다."
     } else {
         "기본 답변은 자연스러운 한국어로 작성하고, 코드·수식·URL·고유명사는 필요한 원문 표기를 유지합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다."
@@ -401,6 +400,31 @@ pub(crate) fn probe_version(discovery: &BackendDiscovery) -> BackendVersionProbe
         &discovery.selected_path,
         Duration::from_millis(VERSION_TIMEOUT_MS),
     )
+}
+
+pub(crate) fn sidecar_command(
+    binary_path: &Path,
+    model_path: &Path,
+    mmproj_path: Option<&Path>,
+    host: &str,
+    port: u16,
+    ctx_size: Option<u32>,
+) -> Command {
+    let mut command = Command::new(binary_path);
+    command
+        .arg("--model")
+        .arg(model_path)
+        .arg("--host")
+        .arg(host)
+        .arg("--port")
+        .arg(port.to_string());
+    if let Some(mmproj_path) = mmproj_path {
+        command.arg("--mmproj").arg(mmproj_path);
+    }
+    if let Some(ctx_size) = ctx_size {
+        command.arg("--ctx-size").arg(ctx_size.to_string());
+    }
+    command
 }
 
 fn run_version_command(path: &Path, timeout: Duration) -> BackendVersionProbe {
@@ -611,6 +635,8 @@ mod tests {
                 sha256: "a".repeat(64),
                 bytes: b"abc".to_vec(),
             }],
+            response_language:
+                crate::runtime_core::inference::backend::ResponseLanguage::KoreanDefault,
         };
 
         let body = chat_request_body_for_input(
@@ -654,5 +680,55 @@ mod tests {
 
         assert!(body.contains("명시적으로 요청한 출력 언어"));
         assert!(!body.contains("기본 답변은 자연스러운 한국어"));
+    }
+
+    #[test]
+    fn vision_ready_sidecar_enters_llama_server_with_mmproj() {
+        let command = sidecar_command(
+            Path::new("/bin/llama-server"),
+            Path::new("/models/model.gguf"),
+            Some(Path::new("/models/mmproj.gguf")),
+            "127.0.0.1",
+            17842,
+            Some(4096),
+        );
+        let args = command
+            .get_args()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            args,
+            [
+                "--model",
+                "/models/model.gguf",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "17842",
+                "--mmproj",
+                "/models/mmproj.gguf",
+                "--ctx-size",
+                "4096"
+            ]
+        );
+    }
+
+    #[test]
+    fn text_ready_sidecar_does_not_claim_mmproj() {
+        let command = sidecar_command(
+            Path::new("/bin/llama-server"),
+            Path::new("/models/model.gguf"),
+            None,
+            "127.0.0.1",
+            17842,
+            None,
+        );
+        let args = command
+            .get_args()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(!args.iter().any(|value| value == "--mmproj"));
     }
 }

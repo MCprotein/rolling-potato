@@ -1,6 +1,6 @@
-use std::fs::{self, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::adapters::filesystem::layout;
 use crate::foundation::error::AppError;
@@ -12,6 +12,14 @@ use crate::runtime_core::inference::backend::lifecycle::{
 
 pub(crate) fn sidecar_record_path() -> PathBuf {
     layout::state_dir().join("backend-llama.cpp-sidecar.txt")
+}
+
+pub(crate) fn create_log_file(path: &Path) -> Result<File, AppError> {
+    OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(path)
+        .map_err(|err| AppError::runtime(format!("log file 생성 실패: {} ({err})", path.display())))
 }
 
 pub(crate) fn write_sidecar_record(record: &BackendSidecarRecord) -> Result<(), AppError> {

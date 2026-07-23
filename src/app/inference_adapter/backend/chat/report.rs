@@ -33,8 +33,9 @@ pub fn chat_report(
     max_tokens: Option<u32>,
     timeout_ms: Option<u32>,
 ) -> Result<String, AppError> {
-    let run = chat_once_with_options(
-        prompt,
+    let input = BackendChatInput::text_for_user(prompt, prompt);
+    let run = chat_input_with_options(
+        &input,
         max_tokens,
         false,
         timeout_ms,
@@ -51,7 +52,8 @@ pub fn chat_stream_report(
     timeout_ms: Option<u32>,
     writer: &mut impl Write,
 ) -> Result<String, AppError> {
-    let direct_stream = korean_guard::allows_non_korean(prompt);
+    let input = BackendChatInput::text_for_user(prompt, prompt);
+    let direct_stream = input.response_language.allows_non_korean();
     let mut language_guard = korean_guard::StreamingGuard::default();
     let mut guarded_output = String::new();
     let mut guard_failed = false;
@@ -61,8 +63,8 @@ pub fn chat_stream_report(
     writer
         .flush()
         .map_err(|err| AppError::runtime(format!("streaming output flush 실패: {err}")))?;
-    let run = chat_once_with_options(
-        prompt,
+    let run = chat_input_with_options(
+        &input,
         max_tokens,
         true,
         timeout_ms,
@@ -165,43 +167,7 @@ mod report_tests {
 
     #[test]
     fn chat_report_format_preserves_diagnostics_and_response_boundary() {
-        let run = BackendChatRun {
-            backend_id: "llama.cpp".to_string(),
-            backend_version: "b-test".to_string(),
-            pid: 1234,
-            model_id: "model-test".to_string(),
-            model_path: std::path::PathBuf::from("/tmp/model-test.gguf"),
-            model_artifact_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-                .to_string(),
-            ctx_size: Some(4096),
-            prompt_chars: 12,
-            response_chars: 5,
-            requested_max_tokens: 32,
-            effective_max_tokens: 16,
-            sampling: CHAT_SAMPLING,
-            finish_reason: "stop".to_string(),
-            guard_status: "pass",
-            prompt_tokens: Some(4),
-            completion_tokens: Some(2),
-            total_tokens: Some(6),
-            elapsed_ms: 125,
-            first_token_latency_ms: Some(25),
-            streaming_display: false,
-            ledger_event: "chat-event".to_string(),
-            resource_governor_admission: "allow".to_string(),
-            resource_governor_token_action: "clamped".to_string(),
-            resource_governor_reason: "degraded resource pressure",
-            resource_governor_hint: "use a smaller request",
-            resource_governor_sample_event: "governor-event".to_string(),
-            resource_pressure: "degraded".to_string(),
-            resource_cpu_percent: Some(80.0),
-            resource_average_rss_bytes: Some(1024),
-            resource_peak_rss_bytes: Some(2048),
-            resource_disk_bytes: Some(4096),
-            resource_sample_event: "sample-event".to_string(),
-            response: "hello".to_string(),
-        };
-
+        let run = BackendChatRun::test_fixture();
         let full = format_chat_run(&run, true);
         assert!(full.contains("backend chat\n- status: completed"));
         assert!(full.contains("- effective max tokens: 16"));

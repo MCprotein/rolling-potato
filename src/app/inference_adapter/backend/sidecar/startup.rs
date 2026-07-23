@@ -1,15 +1,11 @@
-use std::env;
-use std::fs::{self, File, OpenOptions};
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::fs;
+use std::path::PathBuf;
+use std::process::Stdio;
 use std::time::Instant;
 
 use crate::adapters::filesystem::runtime_mutation;
 
 use super::*;
-
-const ENV_BACKEND_START_TRACE: &str = "RPOTATO_TEST_BACKEND_START_TRACE";
 
 pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
     model_path: &str,
@@ -100,11 +96,11 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
     let run_id = now_ms();
     let stdout_log = paths::logs_dir().join(format!("backend-llama.cpp-{run_id}-stdout.log"));
     let stderr_log = paths::logs_dir().join(format!("backend-llama.cpp-{run_id}-stderr.log"));
-    let stdout_file = create_log_file(&stdout_log)?;
-    let stderr_file = create_log_file(&stderr_log)?;
+    let stdout_file = backend_state::create_log_file(&stdout_log)?;
+    let stderr_file = backend_state::create_log_file(&stderr_log)?;
     trace_backend_start("logs-created");
 
-    let mut command = sidecar_command(
+    let mut command = llama_backend::sidecar_command(
         &binary_path,
         &model_path,
         vision_projector
@@ -285,97 +281,6 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
     }
 }
 
-fn sidecar_command(
-    binary_path: &Path,
-    model_path: &Path,
-    mmproj_path: Option<&Path>,
-    host: &str,
-    port: u16,
-    ctx_size: Option<u32>,
-) -> Command {
-    let mut command = Command::new(binary_path);
-    command
-        .arg("--model")
-        .arg(model_path)
-        .arg("--host")
-        .arg(host)
-        .arg("--port")
-        .arg(port.to_string());
-    if let Some(mmproj_path) = mmproj_path {
-        command.arg("--mmproj").arg(mmproj_path);
-    }
-    if let Some(ctx_size) = ctx_size {
-        command.arg("--ctx-size").arg(ctx_size.to_string());
-    }
-    command
-}
-
-#[cfg(test)]
-mod command_tests {
-    use super::*;
-
-    #[test]
-    fn vision_ready_sidecar_enters_llama_server_with_mmproj() {
-        let command = sidecar_command(
-            Path::new("/bin/llama-server"),
-            Path::new("/models/model.gguf"),
-            Some(Path::new("/models/mmproj.gguf")),
-            "127.0.0.1",
-            17842,
-            Some(4096),
-        );
-        let args = command
-            .get_args()
-            .map(|value| value.to_string_lossy().into_owned())
-            .collect::<Vec<_>>();
-
-        assert_eq!(
-            args,
-            [
-                "--model",
-                "/models/model.gguf",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                "17842",
-                "--mmproj",
-                "/models/mmproj.gguf",
-                "--ctx-size",
-                "4096"
-            ]
-        );
-    }
-
-    #[test]
-    fn text_ready_sidecar_does_not_claim_mmproj() {
-        let command = sidecar_command(
-            Path::new("/bin/llama-server"),
-            Path::new("/models/model.gguf"),
-            None,
-            "127.0.0.1",
-            17842,
-            None,
-        );
-        let args = command
-            .get_args()
-            .map(|value| value.to_string_lossy().into_owned())
-            .collect::<Vec<_>>();
-
-        assert!(!args.iter().any(|value| value == "--mmproj"));
-    }
-}
-
-pub(in crate::app::inference_adapter::backend) fn trace_backend_start(message: &str) {
-    let Some(path) = env::var_os(ENV_BACKEND_START_TRACE) else {
-        return;
-    };
-    let Ok(mut trace) = OpenOptions::new().create(true).append(true).open(path) else {
-        return;
-    };
-    let _ = writeln!(trace, "{message}");
-    let _ = trace.flush();
-}
-
 fn canonical_existing_file(path: &str, label: &str) -> Result<PathBuf, AppError> {
     let path = PathBuf::from(path);
     if !path.is_file() {
@@ -390,12 +295,4 @@ fn canonical_existing_file(path: &str, label: &str) -> Result<PathBuf, AppError>
             path.display()
         ))
     })
-}
-
-fn create_log_file(path: &Path) -> Result<File, AppError> {
-    OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(path)
-        .map_err(|err| AppError::runtime(format!("log file 생성 실패: {} ({err})", path.display())))
 }
