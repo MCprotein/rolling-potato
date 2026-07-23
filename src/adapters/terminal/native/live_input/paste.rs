@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn oversized_paste_still_consumes_the_end_marker() {
         let mut capture = PasteCapture::default();
-        for byte in std::iter::repeat(b'a').take(MAX_INPUT_BYTES + 128) {
+        for byte in std::iter::repeat_n(b'a', MAX_INPUT_BYTES + 128) {
             assert!(capture.push(byte).is_none());
         }
         let mut completed = None;
