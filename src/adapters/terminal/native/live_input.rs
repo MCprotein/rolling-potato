@@ -3,9 +3,11 @@ use std::io::{self, Read};
 use super::{TerminalFault, TerminalSuggestion};
 
 mod editor;
+mod picker;
 mod render;
 
 use editor::Editor;
+pub(super) use picker::choose;
 use render::BracketedPasteGuard;
 
 const MAX_INPUT_BYTES: usize = 8 * 1024;

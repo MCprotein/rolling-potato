@@ -1987,6 +1987,21 @@
       ]
     },
     {
+      "path": "src/adapters/terminal/native/live_input/picker.rs",
+      "slices": [
+        {
+          "responsibility": "keyboard-selectable terminal choice rendering",
+          "target": "src/adapters/terminal/native/live_input/picker.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/live_input/picker.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/terminal/native/platform.rs",
       "slices": [
         {
@@ -8061,6 +8076,12 @@
       "path": "src/adapters/terminal/native/live_input/render.rs",
       "responsibilities": [
         "live composer and command-palette rendering"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/picker.rs",
+      "responsibilities": [
+        "keyboard-selectable terminal choice rendering"
       ]
     },
     {

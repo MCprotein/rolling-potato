@@ -9,7 +9,7 @@ use crate::runtime_core::inference::model::manifest::{
 use crate::surfaces::tui::runtime_bridge::TuiModelOption;
 
 use super::fetch_candidate_for_evaluation_report;
-use super::registry::{prepare_user_selected_candidate, set_default_report};
+use super::registry::{configured_model_id, prepare_user_selected_candidate, set_default_report};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PreparedSetupModel {
@@ -18,6 +18,7 @@ pub(crate) struct PreparedSetupModel {
 }
 
 pub(crate) fn setup_options() -> Vec<TuiModelOption> {
+    let current = configured_model_id();
     CANDIDATES
         .iter()
         .filter(|candidate| source_backed_artifact(candidate).is_ok())
@@ -46,6 +47,7 @@ pub(crate) fn setup_options() -> Vec<TuiModelOption> {
             } else {
                 "실험적 선택; exact-response adoption gate 미통과".to_string()
             },
+            current: current.as_deref() == Some(candidate.id),
             recommended: candidate.id == "gemma-4-e4b",
         })
         .collect()

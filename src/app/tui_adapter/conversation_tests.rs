@@ -83,6 +83,27 @@ fn search_command_routes_the_question_and_renders_the_answer() {
 }
 
 #[test]
+fn model_command_uses_keyboard_choices_and_applies_the_selection() {
+    let mut terminal = ScriptedTerminal::new(["/model", "2", "1", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        model_options: vec![
+            model_option("small", "Small", true, false),
+            model_option("recommended", "Recommended", false, true),
+        ],
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.setup_models, ["recommended"]);
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("모델 선택"));
+    assert!(rendered.contains("Recommended"));
+    assert!(rendered.contains("모델 변경 확인"));
+    assert!(rendered.contains("모델 적용 완료: recommended"));
+}
+
+#[test]
 fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let previous_root = std::env::var_os("RPOTATO_PROJECT_ROOT");
@@ -114,6 +135,8 @@ fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() 
 struct ConversationRuntime {
     requests: Vec<String>,
     page_reads: usize,
+    model_options: Vec<TuiModelOption>,
+    setup_models: Vec<String>,
 }
 
 impl TuiRuntimePort for ConversationRuntime {
@@ -144,11 +167,12 @@ impl TuiRuntimePort for ConversationRuntime {
     }
 
     fn model_options(&mut self) -> Vec<TuiModelOption> {
-        Vec::new()
+        self.model_options.clone()
     }
 
-    fn setup_model(&mut self, _id: &str) -> Result<String, AppError> {
-        unreachable!()
+    fn setup_model(&mut self, id: &str) -> Result<String, AppError> {
+        self.setup_models.push(id.to_string());
+        Ok(format!("모델 적용 완료: {id}"))
     }
 
     fn doctor_report(&mut self) -> String {
@@ -184,5 +208,20 @@ impl TuiRuntimePort for ConversationRuntime {
 
     fn dispatch_tui_intent(&mut self, _intent: TuiIntent) -> Result<TuiOutcome, AppError> {
         unreachable!()
+    }
+}
+
+fn model_option(id: &str, display_name: &str, current: bool, recommended: bool) -> TuiModelOption {
+    TuiModelOption {
+        id: id.to_string(),
+        display_name: display_name.to_string(),
+        quantization: "Q4".to_string(),
+        download_bytes: 1024,
+        context_length: Some(4096),
+        ram: "4 GiB".to_string(),
+        license: "Apache-2.0".to_string(),
+        note: "test model".to_string(),
+        current,
+        recommended,
     }
 }

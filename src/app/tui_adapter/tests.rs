@@ -144,7 +144,7 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
     std::env::set_var("RPOTATO_TEST_SKIP_UPDATE_CHECK", "1");
     std::fs::create_dir_all(root.join("project")).unwrap();
     crate::app::workflow_adapter::state::initialize().unwrap();
-    let mut terminal = ScriptedTerminal::new(["/model", "/help", "/compact", "/quit"]);
+    let mut terminal = ScriptedTerminal::new(["/model", "", "/help", "/compact", "/quit"]);
 
     run_controller(&mut terminal, &mut TuiRuntimeAdapter).unwrap();
 
@@ -158,10 +158,14 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
         .iter()
         .all(|frame| !frame.contains('\u{001b}')));
     assert!(terminal.frames.iter().any(|frame| frame.contains("›")));
-    assert!(terminal
-        .frames
-        .iter()
-        .any(|frame| frame.contains("gemma-4-e4b")));
+    assert!(
+        terminal
+            .frames
+            .iter()
+            .any(|frame| frame.contains("gemma-4-e4b")),
+        "{:#?}",
+        terminal.frames
+    );
     assert!(terminal
         .frames
         .iter()

@@ -1,5 +1,5 @@
 use crate::foundation::error::AppError;
-use crate::runtime_core::terminal::{TerminalFault, TerminalIo};
+use crate::runtime_core::terminal::{TerminalChoice, TerminalFault, TerminalIo};
 
 use super::runtime_bridge::TuiModelOption;
 
@@ -39,39 +39,32 @@ pub(crate) fn run_setup(
             .map_err(terminal_error)?;
     }
 
-    let selected = loop {
+    let choices = model_choices(&options);
+    let Some(selected_id) = terminal
+        .choose("Select Model / 모델 선택", &choices)
+        .map_err(terminal_error)?
+    else {
         terminal
-            .write_frame("모델 번호 또는 id를 입력하세요 (skip: 나중에 설정): ")
+            .write_frame("초기 설정을 건너뛰었습니다. TUI에서 /model로 다시 시작할 수 있습니다.\n")
             .map_err(terminal_error)?;
-        let Some(input) = terminal.read_line().map_err(terminal_error)? else {
-            return Ok(());
-        };
-        let input = input.trim();
-        if matches!(input, "skip" | "q" | "quit") {
-            terminal
-                .write_frame(
-                    "초기 설정을 건너뛰었습니다. TUI에서 /model로 다시 시작할 수 있습니다.\n",
-                )
-                .map_err(terminal_error)?;
-            return Ok(());
-        }
-        if let Some(selected) = selected_option(&options, input) {
-            break selected;
-        }
-        terminal
-            .write_frame("알 수 없는 선택입니다. 표시된 번호 또는 model id를 입력하세요.\n")
-            .map_err(terminal_error)?;
+        return Ok(());
     };
-
-    terminal
-        .write_frame(&format!(
-            "\n선택: {}\n다운로드: {}\n라이선스: {}\n계속하려면 yes를 입력하세요: ",
-            selected.display_name,
-            bytes_label(selected.download_bytes),
-            selected.license
-        ))
-        .map_err(terminal_error)?;
-    if terminal.read_line().map_err(terminal_error)?.as_deref() != Some("yes") {
+    if selected_id == "skip" {
+        terminal
+            .write_frame("초기 설정을 건너뛰었습니다. TUI에서 /model로 다시 시작할 수 있습니다.\n")
+            .map_err(terminal_error)?;
+        return Ok(());
+    }
+    let selected = options
+        .iter()
+        .find(|option| option.id == selected_id)
+        .expect("terminal choice must originate from model options");
+    if terminal
+        .choose("설치 확인", &confirmation_choices(selected))
+        .map_err(terminal_error)?
+        .as_deref()
+        != Some("install")
+    {
         terminal
             .write_frame("설정을 취소했습니다. 다운로드하거나 backend를 변경하지 않았습니다.\n")
             .map_err(terminal_error)?;
@@ -123,13 +116,59 @@ pub(crate) fn render_setup_screen(options: &[TuiModelOption], color: bool) -> St
     output
 }
 
-fn selected_option<'a>(options: &'a [TuiModelOption], input: &str) -> Option<&'a TuiModelOption> {
-    input
-        .parse::<usize>()
-        .ok()
-        .and_then(|index| index.checked_sub(1))
-        .and_then(|index| options.get(index))
-        .or_else(|| options.iter().find(|option| option.id == input))
+fn model_choices(options: &[TuiModelOption]) -> Vec<TerminalChoice> {
+    let mut choices = options
+        .iter()
+        .map(|option| TerminalChoice {
+            value: option.id.clone(),
+            label: option.display_name.clone(),
+            description: format!(
+                "{} · download {} · context {} · RAM {} · {}",
+                option.quantization,
+                bytes_label(option.download_bytes),
+                option
+                    .context_length
+                    .map(compact_tokens)
+                    .unwrap_or_else(|| "미확정".to_string()),
+                option.ram,
+                option.license
+            ),
+            current: option.current,
+            recommended: option.recommended,
+        })
+        .collect::<Vec<_>>();
+    choices.push(TerminalChoice {
+        value: "skip".to_string(),
+        label: "나중에 설정".to_string(),
+        description: "다운로드하지 않고 TUI를 시작합니다.".to_string(),
+        current: false,
+        recommended: false,
+    });
+    choices
+}
+
+fn confirmation_choices(selected: &TuiModelOption) -> [TerminalChoice; 2] {
+    [
+        TerminalChoice {
+            value: "install".to_string(),
+            label: "설치하고 시작".to_string(),
+            description: format!(
+                "{} · {} · {}",
+                selected.display_name,
+                bytes_label(selected.download_bytes),
+                selected.license
+            ),
+            current: true,
+            recommended: true,
+        },
+        TerminalChoice {
+            value: "cancel".to_string(),
+            label: "취소".to_string(),
+            description: "다운로드하거나 backend를 변경하지 않습니다.".to_string(),
+            current: false,
+            recommended: false,
+        },
+    ]
 }
 
 fn write_stage(terminal: &mut impl TerminalIo, step: u8, label: &str) -> Result<(), AppError> {
@@ -235,7 +274,7 @@ mod tests {
 
     #[test]
     fn setup_lists_model_facts_and_runs_selected_pipeline() {
-        let mut terminal = ScriptedTerminal::new(["2", "yes"]);
+        let mut terminal = ScriptedTerminal::new(["2", "1"]);
         let mut runtime = SetupRuntime {
             calls: Vec::new(),
             startup_notice: None,
@@ -282,7 +321,7 @@ mod tests {
         assert!(terminal.frames[0].contains("rpotato 첫 실행 설정"));
         assert!(!terminal.frames[0].contains("새 rpotato 버전"));
         assert!(terminal.frames[1].contains("새 rpotato 버전이 있습니다"));
-        assert!(terminal.frames[2].contains("모델 번호 또는 id"));
+        assert!(terminal.frames[2].contains("Select Model / 모델 선택"));
     }
 
     fn sample_options() -> Vec<TuiModelOption> {
@@ -296,6 +335,7 @@ mod tests {
                 ram: "미확정".to_string(),
                 license: "Apache-2.0".to_string(),
                 note: "실험적".to_string(),
+                current: false,
                 recommended: false,
             },
             TuiModelOption {
@@ -307,6 +347,7 @@ mod tests {
                 ram: "미확정".to_string(),
                 license: "Apache-2.0".to_string(),
                 note: "local smoke".to_string(),
+                current: false,
                 recommended: true,
             },
         ]

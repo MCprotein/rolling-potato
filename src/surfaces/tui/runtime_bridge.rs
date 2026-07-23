@@ -147,6 +147,7 @@ pub(crate) struct TuiModelOption {
     pub(crate) ram: String,
     pub(crate) license: String,
     pub(crate) note: String,
+    pub(crate) current: bool,
     pub(crate) recommended: bool,
 }
 

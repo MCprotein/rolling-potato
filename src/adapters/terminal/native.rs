@@ -1,7 +1,8 @@
 use std::io::{self, IsTerminal, Write};
 
 pub(crate) use crate::runtime_core::terminal::{
-    FrameWriteBoundary, TerminalFault, TerminalIo, TerminalSuggestion,
+    render_plain_choices, resolve_choice, FrameWriteBoundary, TerminalChoice, TerminalFault,
+    TerminalIo, TerminalSuggestion,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,6 +83,20 @@ impl TerminalIo for NativeTerminal {
 
     fn read_secret(&mut self) -> Result<Option<String>, TerminalFault> {
         platform::read_secret()
+    }
+
+    fn choose(
+        &mut self,
+        title: &str,
+        choices: &[TerminalChoice],
+    ) -> Result<Option<String>, TerminalFault> {
+        if io::stdin().is_terminal() && self.supports_ansi_layout() && self.supports_color() {
+            platform::choose(title, choices)
+        } else {
+            self.write_frame(&render_plain_choices(title, choices))?;
+            self.read_line()
+                .map(|input| input.and_then(|input| resolve_choice(choices, &input)))
+        }
     }
 
     fn write_frame(&mut self, frame: &str) -> Result<(), TerminalFault> {
