@@ -492,6 +492,29 @@ mod tests {
     }
 
     #[test]
+    fn seed_excludes_agent_and_runtime_state_directories() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let project = with_temp_project("seed-excludes-runtime-state");
+        for directory in [".omx", ".omc", ".codex", ".agents"] {
+            let state_dir = project.join(directory);
+            fs::create_dir_all(&state_dir).unwrap();
+            fs::write(state_dir.join("runtime.md"), "ephemeral runtime state\n").unwrap();
+        }
+
+        ensure_seeded().unwrap();
+        let store = fs::read_to_string(paths::project_ontology_store_file()).unwrap();
+
+        clear_env();
+
+        for directory in [".omx", ".omc", ".codex", ".agents"] {
+            assert!(
+                !store.contains(directory),
+                "{directory} must not be indexed as project knowledge"
+            );
+        }
+    }
+
+    #[test]
     fn reread_rejects_parent_path_escape() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let _project = with_temp_project("reread-escape");

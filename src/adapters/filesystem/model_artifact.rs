@@ -2,7 +2,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use crate::adapters::filesystem::layout;
+use crate::adapters::filesystem::{atomic_write, layout};
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::inference::model::codec::{parse_default_selection, parse_registry_entry};
@@ -108,19 +108,8 @@ pub(crate) fn cleanup_failed_artifacts(
 }
 
 pub(crate) fn write_registry_entry(id: &str, contents: &str) -> Result<(), AppError> {
-    fs::create_dir_all(&paths().registry_dir).map_err(|err| {
-        AppError::runtime(format!(
-            "model registry directory를 만들지 못했습니다: {} ({err})",
-            paths().registry_dir.display()
-        ))
-    })?;
     let path = registry_path(id);
-    fs::write(&path, contents).map_err(|err| {
-        AppError::runtime(format!(
-            "model registry entry를 기록하지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })
+    atomic_write::atomic_replace_bytes(&path, contents.as_bytes())
 }
 
 pub(crate) fn read_registry_entries() -> Result<Vec<RegistryEntry>, AppError> {
@@ -162,19 +151,8 @@ pub(crate) fn read_registry_entries() -> Result<Vec<RegistryEntry>, AppError> {
 }
 
 pub(crate) fn write_promotion_evidence(id: &str, contents: &str) -> Result<(), AppError> {
-    fs::create_dir_all(&paths().evidence_dir).map_err(|err| {
-        AppError::runtime(format!(
-            "model evidence directory를 만들지 못했습니다: {} ({err})",
-            paths().evidence_dir.display()
-        ))
-    })?;
     let path = promotion_evidence_path(id);
-    fs::write(&path, contents).map_err(|err| {
-        AppError::runtime(format!(
-            "model promotion evidence를 기록하지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })
+    atomic_write::atomic_replace_bytes(&path, contents.as_bytes())
 }
 
 pub(crate) fn read_promotion_evidence(path: &Path) -> Result<String, AppError> {

@@ -189,7 +189,17 @@ fn should_skip_dir(relative: &str) -> bool {
     relative.split('/').any(|part| {
         matches!(
             part,
-            ".git" | ".rpotato" | "target" | "node_modules" | ".next" | "dist" | "build"
+            ".git"
+                | ".rpotato"
+                | ".omx"
+                | ".omc"
+                | ".codex"
+                | ".agents"
+                | "target"
+                | "node_modules"
+                | ".next"
+                | "dist"
+                | "build"
         )
     })
 }
