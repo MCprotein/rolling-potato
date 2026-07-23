@@ -108,7 +108,8 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         }
         ensure_runtime_ready()?;
         let conversational = conversation::is_conversational_request(user_request);
-        match conversation::decide_request(user_request, local_context, conversational)? {
+        let has_text_attachments = !attachments.is_empty();
+        match conversation::decide_request(user_request, conversational && !has_text_attachments)? {
             conversation::RequestDecision::Answer(answer) => return Ok(answer),
             conversation::RequestDecision::WebTool(tool) => {
                 return super::web_tools::execute(
@@ -119,6 +120,9 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
                 );
             }
             conversation::RequestDecision::ContinueLocal => {}
+        }
+        if conversational {
+            return conversation::reply_with_context(user_request, local_context);
         }
         crate::app::runtime_adapter::agent_run_report(local_context)
             .map(|report| conversation::present_agent_report(&report))
