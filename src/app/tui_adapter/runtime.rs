@@ -73,6 +73,10 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         Ok(crate::app::context_adapter::compact_manually()?.report())
     }
 
+    fn should_search(&mut self, request: &str) -> bool {
+        crate::app::web_search_adapter::should_search(request)
+    }
+
     fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError> {
         let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
         super::attachment::capture(path, &identity.session_id)

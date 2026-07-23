@@ -83,6 +83,18 @@ fn search_command_routes_the_question_and_renders_the_answer() {
 }
 
 #[test]
+fn natural_korean_search_variant_uses_the_search_progress_state() {
+    let request = "2026년 월드컵 결과 검색해서 알려줘";
+    let mut terminal = ScriptedTerminal::new([request, "/quit"]);
+    let mut runtime = ConversationRuntime::default();
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.requests, [request]);
+    assert!(terminal.frames[1].contains("검색 중 · 최신 웹 자료를 확인하고 있습니다…"));
+}
+
+#[test]
 fn model_command_uses_keyboard_choices_and_applies_the_selection() {
     let mut terminal = ScriptedTerminal::new(["/model", "2", "1", "/quit"]);
     let mut runtime = ConversationRuntime {
@@ -199,6 +211,10 @@ impl TuiRuntimePort for ConversationRuntime {
 
     fn compact_context(&mut self) -> Result<String, AppError> {
         unreachable!()
+    }
+
+    fn should_search(&mut self, request: &str) -> bool {
+        request.contains("검색해서")
     }
 
     fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError> {

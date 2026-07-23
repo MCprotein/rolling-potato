@@ -53,10 +53,30 @@ pub(crate) fn should_search(request: &str) -> bool {
     if local_scope {
         return false;
     }
-    if ["검색해줘", "검색해 줘"]
+    if [
+        "검색해",
+        "찾아줘",
+        "찾아 줘",
+        "찾아봐",
+        "찾아 봐",
+        "알아봐",
+        "알아 봐",
+        "조회해",
+        "확인해줘",
+        "확인해 줘",
+    ]
+    .iter()
+    .any(|signal| request.contains(signal))
+    {
+        return true;
+    }
+    let dynamic_result = ["결과", "우승", "스코어", "순위", "당선"]
         .iter()
         .any(|signal| request.contains(signal))
-    {
+        && ["월드컵", "올림픽", "경기", "대회", "선거", "시상식", "리그"]
+            .iter()
+            .any(|signal| request.contains(signal));
+    if dynamic_result {
         return true;
     }
     [
@@ -255,6 +275,9 @@ mod tests {
             "오늘 서울 날씨 알려줘",
             "현재 대한민국 대통령은 누구야?",
             "최신 llama.cpp 릴리스가 뭐야?",
+            "2026년 월드컵 결과 검색해서 알려줘",
+            "이번 월드컵 우승 국가는 어디야?",
+            "Rust 1.100 변경점을 찾아봐",
         ] {
             assert!(should_search(request), "request: {request}");
         }
@@ -265,6 +288,7 @@ mod tests {
             "오프라인으로 현재 파일만 설명해줘",
             "오프라인으로 오늘 날씨를 설명해줘",
             "인터넷 검색하지 마. 최신 릴리스는 내가 줄게",
+            "이 코드에서 symbol을 찾아봐",
             "What is concurrent programming?",
         ] {
             assert!(!should_search(request), "request: {request}");

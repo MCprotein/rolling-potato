@@ -19,6 +19,7 @@ pub(crate) trait TuiRuntimePort {
     fn setup_model(&mut self, id: &str) -> Result<String, AppError>;
     fn doctor_report(&mut self) -> String;
     fn compact_context(&mut self) -> Result<String, AppError>;
+    fn should_search(&mut self, request: &str) -> bool;
     fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError>;
     fn submit_request(
         &mut self,
@@ -384,9 +385,14 @@ pub(crate) fn run_controller(
                     state.notice = capture_attachment_notice(runtime, &mut state, line.trim());
                     continue;
                 }
+                let web_search = runtime.should_search(line.trim());
                 state.view = InteractiveView::Conversation;
                 state.push_turn(ConversationRole::User, line.trim());
-                state.notice = "작업 중 · 모델이 요청을 처리하고 있습니다…".to_string();
+                state.notice = if web_search {
+                    "검색 중 · 최신 웹 자료를 확인하고 있습니다…".to_string()
+                } else {
+                    "작업 중 · 모델이 요청을 처리하고 있습니다…".to_string()
+                };
                 write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
                 let response = match runtime.submit_request(line.trim(), &state.attachments) {
                     Ok(report) => report,
