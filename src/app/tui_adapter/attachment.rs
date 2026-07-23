@@ -55,16 +55,41 @@ pub(super) fn capture(path_input: &str, session_id: &str) -> Result<TuiAttachmen
         ))
     })?;
     let stored_path = capture_dir.join(format!("{}-{}", sha256, safe_leaf(&display_name)));
-    if !stored_path.exists() {
-        fs::copy(&source, &stored_path).map_err(|error| {
+    match fs::symlink_metadata(&stored_path) {
+        Ok(stored_metadata)
+            if stored_metadata.file_type().is_symlink() || !stored_metadata.is_file() =>
+        {
+            return Err(AppError::blocked(format!(
+                "첨부 저장 경로를 차단했습니다.\n- path: {}\n- 이유: 기존 대상은 일반 파일이어야 하며 symlink는 허용하지 않습니다.",
+                stored_path.display()
+            )));
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            fs::copy(&source, &stored_path).map_err(|error| {
+                AppError::runtime(format!(
+                    "첨부 파일을 app data에 캡처하지 못했습니다: {} ({error})",
+                    stored_path.display()
+                ))
+            })?;
+        }
+        Err(error) => {
+            return Err(AppError::runtime(format!(
+                "첨부 저장 경로를 확인하지 못했습니다: {} ({error})",
+                stored_path.display()
+            )));
+        }
+    }
+    if integrity::sha256_file(&stored_path)? != sha256 {
+        let stored_metadata = fs::symlink_metadata(&stored_path).map_err(|error| {
             AppError::runtime(format!(
-                "첨부 파일을 app data에 캡처하지 못했습니다: {} ({error})",
+                "첨부 저장 경로를 다시 확인하지 못했습니다: {} ({error})",
                 stored_path.display()
             ))
         })?;
-    }
-    if integrity::sha256_file(&stored_path)? != sha256 {
-        let _ = fs::remove_file(&stored_path);
+        if stored_metadata.is_file() {
+            let _ = fs::remove_file(&stored_path);
+        }
         return Err(AppError::blocked(
             "첨부 캡처 후 SHA-256 검증에 실패했습니다.",
         ));
@@ -280,6 +305,37 @@ mod tests {
         std::env::remove_var("RPOTATO_DATA_HOME");
         assert!(error.message.contains("text-only"));
         assert!(error.message.contains("모델에 보내지 않았습니다"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_a_preexisting_symlink_at_the_capture_target() {
+        use std::os::unix::fs::symlink;
+
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-tui-attachment-target-symlink-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("source")).unwrap();
+        let source = root.join("source").join("sample.rs");
+        fs::write(&source, "fn main() {}\n").unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        let capture_dir = root.join("data/attachments/session");
+        fs::create_dir_all(&capture_dir).unwrap();
+        let sha256 = integrity::sha256_file(&source).unwrap();
+        let outside = root.join("outside.rs");
+        fs::write(&outside, "do not replace\n").unwrap();
+        symlink(&outside, capture_dir.join(format!("{sha256}-sample.rs"))).unwrap();
+
+        let error = capture(&source.display().to_string(), "session").unwrap_err();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        assert!(error.message.contains("기존 대상은 일반 파일"));
+        assert_eq!(fs::read_to_string(&outside).unwrap(), "do not replace\n");
         let _ = fs::remove_dir_all(root);
     }
 }
