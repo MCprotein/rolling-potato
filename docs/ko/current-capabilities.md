@@ -317,9 +317,11 @@ Command/Meta 줄 이동을 처리합니다. `/attach <경로>`와 붙여넣은 i
 local 첨부 badge가 됩니다. 제한된 text/code 파일은 다음 요청에 포함하지만 현재
 PNG/JPEG 파일은 별도로 checksum이 고정된 model projector가 설치되고 sidecar가
 vision-ready일 때만 image inference로 전달합니다. Projector 준비 실패는 text-ready
-model과 현재 model 선택을 손상시키지 않습니다.
-`/search <질문>`은 최신성·자연스러운 한국어 검색 자동 routing과 같은 읽기 전용 웹
-근거 답변 경로를 명시적으로 실행합니다. `/open <URL>`은 공개 HTTPS 문서를 열어
+이전 ready backend와 현재 model 선택을 손상시키지 않으며 검증된 projector cache
+hit는 다시 다운로드하지 않습니다. Text 첨부는 선택 model의 manifest context
+limit으로도 제한합니다. Local model이 사용자 요청에서 `WebSearch`, `WebOpen`,
+`WebFind`를 선택하며 `/search <질문>`은 주 routing이 아니라 명시적 fallback입니다.
+`/open <URL>`은 공개 HTTPS 문서를 열어
 제한된 읽기 전용 text로 정규화하고, `/find <텍스트>`는 현재 TUI에서 마지막으로
 연 문서 안을 찾습니다. 이 세 동작은 각각 `WebSearch`, `WebOpen`, `WebFind`로
 분리되지만 동일한 repo-owned HTTPS·untrusted-context policy를 사용합니다.

@@ -325,9 +325,11 @@ escape sequences. `/attach <path>` and pasted image/text paths create local
 attachment badges. Text/code files are bounded and included in the next request;
 PNG/JPEG files are accepted only when a separately checksum-pinned model projector
 is installed and the sidecar is vision-ready. Projector failure preserves the
-text-ready model and current model selection. `/search <question>` forces the same
-read-only web-grounded answer path used by automatic freshness and natural Korean
-search routing. `/open <URL>` normalizes a public HTTPS document into bounded
+previous ready backend and current model selection, while verified projector cache
+hits are reused. Text attachments are additionally bounded by the selected model's
+manifest context limit. The local model chooses `WebSearch`, `WebOpen`, or
+`WebFind` from the user request; `/search <question>` is an explicit fallback, not
+the primary routing mechanism. `/open <URL>` normalizes a public HTTPS document into bounded
 read-only text, and `/find <text>` searches the last document opened in the current
 TUI. These are separate `WebSearch`, `WebOpen`, and `WebFind` operations under one
 repo-owned HTTPS and untrusted-context policy.

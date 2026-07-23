@@ -158,10 +158,12 @@ rpotato
 ```
 
 Running `rpotato` without arguments starts the primary TUI. Plain text entered
-there supports both general LLM questions and coding-agent requests. Questions
-that explicitly request web search or depend on current information use a bounded
-read-only direct HTML search with runtime-rendered source links. It needs no API
-key, MCP process, or provider SDK. `/open <URL>` opens a bounded public HTTPS
+there supports both general LLM questions and coding-agent requests. For each
+request, the local model decides whether current public evidence requires the
+bounded read-only `WebSearch`, `WebOpen`, or `WebFind` tool; this is not driven by
+a fixed keyword list. `/search <question>` remains an explicit fallback. Direct
+HTML search uses runtime-rendered source links and needs no API key, MCP process,
+or provider SDK. `/open <URL>` opens a bounded public HTTPS
 document and `/find <text>` searches the last document opened in the current TUI.
 Only same-host redirects are followed automatically; a cross-host redirect is
 reported and requires a new explicit `/open`. `/doctor` reports whether the
@@ -181,11 +183,13 @@ authority.
 
 Pasted local image/text paths are captured as attachment badges rather than parsed
 as slash commands. Bounded UTF-8 text/code attachments are included in the next
-request. PNG and JPEG attachments are available when the selected model has a
+request only while they fit the selected model's manifest context limit. PNG and
+JPEG attachments are available when the selected model has a
 verified vision projector. `rpotato` downloads that model-specific `mmproj`
 artifact with the main GGUF, verifies both files independently, and starts
-`llama-server` with `--mmproj`. A projector failure leaves the text model and
-current selection usable instead of corrupting the installation.
+`llama-server` with `--mmproj`. A verified cached projector is reused without
+downloading it again. A missing, corrupt, or failed projector leaves the previous
+model and backend selection unchanged, and a partial download remains resumable.
 
 The smaller public CLI surface is:
 
@@ -218,7 +222,7 @@ product-definition scaffold. Implemented areas include:
 | Collaboration | One bounded subagent and runtime-owned team execution |
 | Monitoring | CLI/TUI metrics, SQLite projection, benchmark records, static HTML export |
 | Interfaces | Primary conversation TUI, keyboard pickers, local attachment badges, automation/diagnostic CLI, self-contained local HTML report |
-| General answers and web | General knowledge/calculation answers, natural Korean search routing, API-key-free `WebSearch`, `WebOpen`, and `WebFind` with runtime-owned source links |
+| General answers and web | General knowledge/calculation answers, model-selected API-key-free `WebSearch`, `WebOpen`, and `WebFind`, explicit no-browse control, and runtime-owned source links |
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete

@@ -768,3 +768,37 @@
   response/source/context 상한, API key 없는 live smoke를 candidate 전에 검증합니다.
 - 기능 개발 중 PR은 draft와 label 없는 상태를 유지하고, targeted 검증이 끝난 최종
   HEAD에서만 `release-candidate`를 적용합니다.
+
+## 2026-07-23: 모델 capability와 agent 판단을 고정값·keyword routing으로 덮어씀
+
+### 증상
+
+- Manifest에 더 긴 context가 기록된 모델도 TUI에서 사실상 4096-token 기본값처럼
+  취급됐습니다.
+- 자연어 웹 요청을 고정 keyword 목록으로 분류해 `/search` 중심 UX가 되었고,
+  agent가 질문의 최신성·근거 필요성을 판단하는 경로가 아니었습니다.
+- Tool routing model에 local attachment 본문까지 전달하면 model-generated query를
+  통해 첨부 내용이 외부 검색 endpoint로 유출될 가능성이 있었습니다.
+- Model 전용 projector가 exact cache hit인 경우에도 다시 받을 수 있다는 인상을
+  주었고, 준비 실패 시 새 model 선택을 확정하지 않아야 하는 경계가 불명확했습니다.
+
+### 원인
+
+- 평가용 작은-context fixture와 제품 runtime의 model capability를 구분하지
+  않았습니다.
+- 검색 transport 구현과 agent의 tool-selection policy를 하나의 keyword router로
+  묶었습니다.
+- Local answer context와 외부 tool decision context를 같은 prompt로 구성했습니다.
+
+### 재발 방지
+
+- 제품 runtime은 source-backed manifest의 model context limit을 사용하고, 작은
+  context 값은 benchmark·회귀 fixture에만 명시합니다.
+- 자연어 요청의 `WebSearch`·`WebOpen`·`WebFind` 선택은 local model이 담당하고
+  `/search`는 명시적 fallback으로만 유지합니다. Offline/no-browse 지시는 runtime이
+  agent-selected retrieval을 차단합니다.
+- 외부 tool routing model에는 사용자 요청만 제공하며 local attachment 본문은
+  검색 이후 local 합성 단계에서만 사용합니다.
+- Projector는 model/revision/size/SHA가 일치하는 cache hit를 재사용하고, missing,
+  partial, corrupt, revision change일 때만 다시 준비합니다. 준비 실패는 기존
+  default model과 ready backend를 변경하지 않습니다.

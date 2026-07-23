@@ -85,10 +85,10 @@
 
 - local backend 기본값
 - telemetry 없음
-- 웹 검색은 명시적 요청이나 최신성이 필요한 경우에만 현재 질문을 고정된 공개
-  HTML 검색 endpoint로 HTTPS 전송합니다. API credential을 사용하지 않습니다.
-  저장소 범위 요청은 웹 사용을 명시하지 않으면 local에 남고, offline/no-browse
-  지시는 검색을 비활성화합니다.
+- Agent가 선택한 웹 검색은 local model이 사용자 요청만 보고 만든 제한된 query만
+  고정된 공개 HTML 검색 endpoint로 HTTPS 전송합니다. Routing model에는 local
+  attachment 본문을 전달하지 않고 API credential도 사용하지 않으며,
+  offline/no-browse 지시는 retrieval을 비활성화합니다.
 - `WebOpen`은 HTTP 입력을 HTTPS로 승격하고 URL credential, local/private/
   link-local/reserved target과 DNS 응답을 실제 direct 연결에 사용하는 resolver에서
   차단하며 proxy routing을 비활성화합니다. 제한된 동일 host redirect만 추적하고

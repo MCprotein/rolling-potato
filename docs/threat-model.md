@@ -85,10 +85,10 @@ Mitigations:
 
 - local backend default
 - no telemetry
-- web search sends only the current question to a fixed public HTML search endpoint
-  when the request is explicit or freshness-sensitive; no API credential is used,
-  HTTPS is mandatory, repository-scoped requests stay local unless web use is
-  explicit, and an offline/no-browse instruction disables it
+- agent-selected web search sends only a bounded query derived by the local model
+  from the user's request to a fixed public HTML search endpoint; the routing model
+  never receives local attachment contents, no API credential is used, HTTPS is
+  mandatory, and an offline/no-browse instruction disables retrieval
 - `WebOpen` upgrades HTTP input to HTTPS, rejects URL credentials, local/private/
   link-local/reserved targets and DNS answers in the resolver used by the direct
   connection, disables proxy routing, follows only bounded same-host redirects,

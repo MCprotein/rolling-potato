@@ -57,7 +57,9 @@ bytes as well as the main artifact; text readiness does not.
 
 Registry schema v2 records `visionStatus` and the verified projector path, hash,
 and size. A schema v1 registry is read as legacy text-only state and is never
-silently upgraded to a vision claim. Explicit model preparation writes v2.
+silently upgraded to a vision claim. Explicit model preparation writes v2. An
+exact size/SHA cache hit is reused; only a missing, partial, corrupt, or
+revision-changed projector is downloaded again.
 
 Sources checked on 2026-07-23:
 
