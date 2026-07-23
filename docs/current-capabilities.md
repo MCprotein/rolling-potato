@@ -1,7 +1,7 @@
 # Current Capabilities
 
 This document is the readable status map for the released
-`rolling-potato v0.47.0` runtime. It groups the runtime by responsibility
+`rolling-potato v0.47.1` runtime. It groups the runtime by responsibility
 instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
@@ -10,7 +10,7 @@ instead of repeating one flat command list.
 > This is a capability guide, not a substitute for `rpotato --help`. The
 > installed binary remains the source of truth for exact command syntax.
 
-## Installation, First Run, and Updates (`v0.42.0`-`v0.47.0`)
+## Installation, First Run, and Updates (`v0.42.0`-`v0.47.1`)
 
 The extracted GitHub Release binary can install or update itself in the
 user-local CLI directory and register that directory in zsh, bash, fish, or
@@ -86,13 +86,21 @@ limit, and retains up to four recent transcript records. Deterministic typed
 extraction remains available when the single bounded semantic rationale call
 cannot run.
 
+The language guard accepts Korean prose together with numbers, formulas, code,
+paths, URLs, and bounded technical titles. It attempts one fact-preserving
+Korean rewrite for CJK leakage or sustained foreign prose, then safely projects
+valid Korean lines before blocking an unusable response.
+
 The primary TUI also has a lightweight general-answer route for knowledge,
 calculation, explanation, and writing questions that do not need repository tools.
 Explicit web-search requests and time-sensitive questions use a bounded read-only
 search through Exa's hosted MCP endpoint. The current question is sent to that
 service, returned text is treated as untrusted context, no web instruction gains
-execution authority, and the answer displays the HTTPS source URLs. Requests that
-say to stay offline do not use this route.
+execution authority, and at most four sources share a 6 KiB evidence budget.
+The runtime removes model-made citations and source blocks, then displays the
+verified HTTPS source links itself. Successful retrieval still exposes those
+links if summarization or language repair is unusable. Requests that say to stay
+offline do not use this route.
 
 See [runtime architecture](runtime-architecture.md),
 [command policy](command-policy.md), [hooks](hooks.md), and

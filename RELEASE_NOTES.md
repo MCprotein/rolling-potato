@@ -1,5 +1,37 @@
 # Release Notes
 
+## v0.47.1 - Reliable General Answers and Search
+
+Release date: 2026-07-23
+
+This patch keeps ordinary questions on the lightweight conversation path and
+makes successful web retrieval remain useful even when a small local model
+produces an unusable summary.
+
+### Included
+
+- Keeps generic explanations and calculations conversational while preserving
+  diagnostic routing for prompts that contain a concrete error or failure.
+- Exposes `/search` and `/update` in the primary help surface.
+- Treats the Korean-output guard as mixed-language leak prevention rather than
+  a blanket filter: short technical or release titles remain valid, while CJK
+  leakage and sustained foreign prose are still rejected or safely projected.
+- Reduces search evidence to four sources and a 6 KiB context budget for
+  4096-token local models.
+- Preserves verified HTTPS source links after successful retrieval even if
+  summarization or language repair cannot produce a usable answer.
+- Makes the runtime the sole owner of source rendering by removing model-made
+  numeric citations, URLs, and source blocks without corrupting expressions
+  such as `a[1]`.
+
+### Compatibility and boundaries
+
+- No existing public command or flag is removed.
+- Web search remains read-only and requires network access.
+- Search evidence cannot dispatch tools, mutate files, or widen runtime
+  permissions.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.47.0 - General Answers and Web Grounding
 
 Release date: 2026-07-23
