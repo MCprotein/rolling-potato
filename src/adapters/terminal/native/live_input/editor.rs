@@ -163,6 +163,17 @@ fn is_word(ch: char) -> bool {
 }
 
 #[cfg(test)]
+fn pop_last_utf8_char(input: &mut Vec<u8>) {
+    let Some(last) = input.pop() else { return };
+    if last & 0b1100_0000 == 0b1000_0000 {
+        while matches!(input.last(), Some(byte) if byte & 0b1100_0000 == 0b1000_0000) {
+            input.pop();
+        }
+        input.pop();
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -206,7 +217,7 @@ mod tests {
     #[test]
     fn legacy_byte_helper_removes_a_complete_utf8_character() {
         let mut input = "a한".as_bytes().to_vec();
-        super::super::pop_last_utf8_char(&mut input);
+        pop_last_utf8_char(&mut input);
         assert_eq!(String::from_utf8(input).unwrap(), "a");
     }
 }

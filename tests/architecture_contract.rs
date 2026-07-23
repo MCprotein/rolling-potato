@@ -661,6 +661,8 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
 
     let native = fs::read_to_string("src/adapters/terminal/native.rs").unwrap();
     let platform = fs::read_to_string("src/adapters/terminal/native/platform.rs").unwrap();
+    let live_input_editor =
+        fs::read_to_string("src/adapters/terminal/native/live_input/editor.rs").unwrap();
     assert!(
         native.lines().any(|line| line == "mod platform;"),
         "native terminal adapter does not register its platform owner"
@@ -693,7 +695,6 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
         "pub(super) fn read(",
         "fn matching_suggestions<'a>(",
         "fn redraw(",
-        "fn pop_last_utf8_char(",
     ] {
         assert!(
             live_input.contains(responsibility),
@@ -704,6 +705,14 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
             "native terminal facade owns live input behavior: {responsibility}"
         );
     }
+    assert!(
+        live_input_editor.contains("fn pop_last_utf8_char("),
+        "native live input editor is missing its UTF-8 byte regression helper"
+    );
+    assert!(
+        !live_input.contains("fn pop_last_utf8_char("),
+        "native live input facade still owns editor-specific UTF-8 byte behavior"
+    );
     assert!(live_input.lines().count() < 300);
 }
 
