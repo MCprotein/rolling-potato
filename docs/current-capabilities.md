@@ -319,8 +319,9 @@ registry as `/help`. Up/Down, `Ctrl+P`/`Ctrl+N`, Enter, and Esc operate the pale
 Command/Meta line navigation are decoded when the terminal emits their standard
 escape sequences. `/attach <path>` and pasted image/text paths create local
 attachment badges. Text/code files are bounded and included in the next request;
-the current text-only model/backend contract rejects image inference before
-dispatch. `/search <question>` forces the same read-only web-grounded answer path
+PNG/JPEG files are accepted only when a separately checksum-pinned model projector
+is installed and the sidecar is vision-ready. Projector failure preserves the
+text-ready model and current model selection. `/search <question>` forces the same read-only web-grounded answer path
 used by automatic freshness and natural Korean search routing.
 Representative public entry points are:
 

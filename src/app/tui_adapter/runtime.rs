@@ -49,6 +49,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
                 .filter(|_| latest_matches_model)
                 .and_then(|run| run.context_limit_tokens)
         });
+        let vision_ready = backend.vision_ready;
         let backend = match backend.status {
             "ready" => TuiBackendStatus::Ready,
             "stale" => TuiBackendStatus::Stale,
@@ -65,6 +66,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
                 )?
                 .is_some(),
             backend,
+            vision_ready,
             session_id: identity.session_id,
         })
     }
@@ -87,11 +89,16 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         request: &str,
         attachments: &[TuiAttachment],
     ) -> Result<String, AppError> {
-        let request = super::attachment::compose_request(request, attachments)?;
+        let input = super::attachment::compose_request(request, attachments)?;
+        let request = input.text.as_str();
         let active_model = crate::app::inference_adapter::backend::runtime_snapshot()
             .ok()
             .and_then(|snapshot| snapshot.model_id)
             .or_else(crate::app::inference_adapter::model::configured_model_id);
+        if !input.images.is_empty() {
+            ensure_runtime_ready()?;
+            return conversation::reply_with_images(&input);
+        }
         if let Some(reply) = conversation::local_reply(&request, active_model.as_deref()) {
             return Ok(reply);
         }

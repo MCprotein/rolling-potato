@@ -11,6 +11,9 @@ pub(crate) struct BackendSidecarRecord {
     pub(crate) backend_release: String,
     pub(crate) binary_sha256: String,
     pub(crate) mmproj: String,
+    pub(crate) mmproj_path: Option<PathBuf>,
+    pub(crate) mmproj_sha256: Option<String>,
+    pub(crate) mmproj_size_bytes: Option<u64>,
     pub(crate) host: String,
     pub(crate) port: u16,
     pub(crate) ctx_size: Option<u32>,
@@ -62,7 +65,7 @@ pub(crate) fn parse_generation_record(contents: &str) -> Option<BackendGeneratio
 
 pub(crate) fn render_sidecar_record(record: &BackendSidecarRecord) -> String {
     format!(
-        "backend_id={}\npid={}\nbinary_path={}\nmodel_path={}\nmodel_sha256={}\nmodel_size_bytes={}\nbackend_release={}\nbinary_sha256={}\nmmproj={}\nhost={}\nport={}\nctx_size={}\nstdout_log={}\nstderr_log={}\nstarted_at_ms={}\n",
+        "backend_id={}\npid={}\nbinary_path={}\nmodel_path={}\nmodel_sha256={}\nmodel_size_bytes={}\nbackend_release={}\nbinary_sha256={}\nmmproj={}\nmmproj_path={}\nmmproj_sha256={}\nmmproj_size_bytes={}\nhost={}\nport={}\nctx_size={}\nstdout_log={}\nstderr_log={}\nstarted_at_ms={}\n",
         record.backend_id,
         record.pid,
         record.binary_path.display(),
@@ -72,6 +75,16 @@ pub(crate) fn render_sidecar_record(record: &BackendSidecarRecord) -> String {
         record.backend_release,
         record.binary_sha256,
         record.mmproj,
+        record
+            .mmproj_path
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_default(),
+        record.mmproj_sha256.as_deref().unwrap_or(""),
+        record
+            .mmproj_size_bytes
+            .map(|value| value.to_string())
+            .unwrap_or_default(),
         record.host,
         record.port,
         record
@@ -94,6 +107,9 @@ pub(crate) fn parse_sidecar_record(contents: &str) -> Option<BackendSidecarRecor
     let mut backend_release = None;
     let mut binary_sha256 = None;
     let mut mmproj = None;
+    let mut mmproj_path = None;
+    let mut mmproj_sha256 = None;
+    let mut mmproj_size_bytes = None;
     let mut host = None;
     let mut port = None;
     let mut ctx_size = None;
@@ -113,6 +129,19 @@ pub(crate) fn parse_sidecar_record(contents: &str) -> Option<BackendSidecarRecor
             "backend_release" => backend_release = Some(value.to_string()),
             "binary_sha256" => binary_sha256 = Some(value.to_string()),
             "mmproj" => mmproj = Some(value.to_string()),
+            "mmproj_path" => {
+                mmproj_path = Some((!value.is_empty()).then(|| PathBuf::from(value)));
+            }
+            "mmproj_sha256" => {
+                mmproj_sha256 = Some((!value.is_empty()).then(|| value.to_string()));
+            }
+            "mmproj_size_bytes" => {
+                mmproj_size_bytes = Some(if value.is_empty() {
+                    None
+                } else {
+                    Some(value.parse::<u64>().ok()?)
+                });
+            }
             "host" => host = Some(value.to_string()),
             "port" => port = value.parse::<u16>().ok(),
             "ctx_size" => {
@@ -143,6 +172,9 @@ pub(crate) fn parse_sidecar_record(contents: &str) -> Option<BackendSidecarRecor
         backend_release: backend_release.unwrap_or_else(|| "unknown".to_string()),
         binary_sha256: binary_sha256.unwrap_or_else(|| "unknown".to_string()),
         mmproj: mmproj.unwrap_or_else(|| "unknown".to_string()),
+        mmproj_path: mmproj_path.unwrap_or(None),
+        mmproj_sha256: mmproj_sha256.unwrap_or(None),
+        mmproj_size_bytes: mmproj_size_bytes.unwrap_or(None),
         host: host?,
         port: port?,
         ctx_size: ctx_size.unwrap_or(None),

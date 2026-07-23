@@ -177,8 +177,11 @@ authority.
 
 Pasted local image/text paths are captured as attachment badges rather than parsed
 as slash commands. Bounded UTF-8 text/code attachments are included in the next
-request. The currently verified models are text-only, so image attachments are
-validated locally but stopped before inference with a clear capability message.
+request. PNG and JPEG attachments are available when the selected model has a
+verified vision projector. `rpotato` downloads that model-specific `mmproj`
+artifact with the main GGUF, verifies both files independently, and starts
+`llama-server` with `--mmproj`. A projector failure leaves the text model and
+current selection usable instead of corrupting the installation.
 
 The smaller public CLI surface is:
 

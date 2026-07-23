@@ -77,6 +77,9 @@ fn generation_test_sidecar() -> BackendSidecarRecord {
         backend_release: LLAMA_CPP_RELEASE.release_tag.to_string(),
         binary_sha256: "b".repeat(64),
         mmproj: "not-required-text-only".to_string(),
+        mmproj_path: None,
+        mmproj_sha256: None,
+        mmproj_size_bytes: None,
         host: DEFAULT_HOST.to_string(),
         port: DEFAULT_PORT,
         ctx_size: Some(4096),
@@ -369,7 +372,7 @@ fn backend_status_reports_stopped_without_record() {
 }
 
 #[test]
-fn sidecar_record_round_trip_preserves_ctx_size() {
+fn sidecar_record_round_trip_preserves_ctx_size_and_vision_artifact() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let root = env::temp_dir().join(format!(
         "rpotato-backend-record-test-{}",
@@ -389,7 +392,10 @@ fn sidecar_record_round_trip_preserves_ctx_size() {
         model_size_bytes: 1024,
         backend_release: LLAMA_CPP_RELEASE.release_tag.to_string(),
         binary_sha256: "b".repeat(64),
-        mmproj: "not-required-text-only".to_string(),
+        mmproj: "required".to_string(),
+        mmproj_path: Some(root.join("mmproj.gguf")),
+        mmproj_sha256: Some("c".repeat(64)),
+        mmproj_size_bytes: Some(512),
         host: DEFAULT_HOST.to_string(),
         port: DEFAULT_PORT,
         ctx_size: Some(4096),
@@ -399,7 +405,7 @@ fn sidecar_record_round_trip_preserves_ctx_size() {
     };
     backend_state::write_sidecar_record(&record).unwrap();
     let expected = format!(
-        "backend_id={}\npid={}\nbinary_path={}\nmodel_path={}\nmodel_sha256={}\nmodel_size_bytes={}\nbackend_release={}\nbinary_sha256={}\nmmproj={}\nhost={}\nport={}\nctx_size={}\nstdout_log={}\nstderr_log={}\nstarted_at_ms={}\n",
+        "backend_id={}\npid={}\nbinary_path={}\nmodel_path={}\nmodel_sha256={}\nmodel_size_bytes={}\nbackend_release={}\nbinary_sha256={}\nmmproj={}\nmmproj_path={}\nmmproj_sha256={}\nmmproj_size_bytes={}\nhost={}\nport={}\nctx_size={}\nstdout_log={}\nstderr_log={}\nstarted_at_ms={}\n",
         record.backend_id,
         record.pid,
         record.binary_path.display(),
@@ -409,6 +415,9 @@ fn sidecar_record_round_trip_preserves_ctx_size() {
         record.backend_release,
         record.binary_sha256,
         record.mmproj,
+        record.mmproj_path.as_ref().unwrap().display(),
+        record.mmproj_sha256.as_ref().unwrap(),
+        record.mmproj_size_bytes.unwrap(),
         record.host,
         record.port,
         record.ctx_size.unwrap(),
@@ -427,6 +436,9 @@ fn sidecar_record_round_trip_preserves_ctx_size() {
     fs::remove_dir_all(root).unwrap();
 
     assert_eq!(restored.ctx_size, Some(4096));
+    assert_eq!(restored.mmproj_path, record.mmproj_path);
+    assert_eq!(restored.mmproj_sha256, record.mmproj_sha256);
+    assert_eq!(restored.mmproj_size_bytes, Some(512));
 }
 
 #[test]
@@ -496,6 +508,9 @@ fn generation_start_does_not_delete_foreign_cancel_marker() {
         backend_release: LLAMA_CPP_RELEASE.release_tag.to_string(),
         binary_sha256: "b".repeat(64),
         mmproj: "not-required-text-only".to_string(),
+        mmproj_path: None,
+        mmproj_sha256: None,
+        mmproj_size_bytes: None,
         host: DEFAULT_HOST.to_string(),
         port: DEFAULT_PORT,
         ctx_size: Some(4096),
@@ -750,6 +765,9 @@ fn stop_removes_stale_sidecar_record() {
         backend_release: LLAMA_CPP_RELEASE.release_tag.to_string(),
         binary_sha256: checksum::sha256_file(Path::new("/bin/sleep")).unwrap(),
         mmproj: "not-required-text-only".to_string(),
+        mmproj_path: None,
+        mmproj_sha256: None,
+        mmproj_size_bytes: None,
         host: DEFAULT_HOST.to_string(),
         port: 65534,
         ctx_size: Some(4096),

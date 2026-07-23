@@ -2,6 +2,7 @@
 
 use crate::app::inference_adapter::backend;
 use crate::foundation::error::AppError;
+use crate::runtime_core::inference::backend::BackendChatInput;
 use crate::runtime_core::patch::intent::model_action_body;
 use crate::runtime_core::reporting::korean_guard;
 
@@ -12,6 +13,17 @@ const EMPTY_VISIBLE_ANSWER: &str =
 
 pub(crate) fn generate(prompt: &str, max_tokens: u32) -> Result<String, AppError> {
     let run = backend::chat_once(prompt, Some(max_tokens))?;
+    match validate_existing(&run.response) {
+        Ok(answer) => Ok(answer),
+        Err(_) => repair_existing(&run.response),
+    }
+}
+
+pub(crate) fn generate_input(
+    input: &BackendChatInput,
+    max_tokens: u32,
+) -> Result<String, AppError> {
+    let run = backend::chat_once_with_input(input, Some(max_tokens))?;
     match validate_existing(&run.response) {
         Ok(answer) => Ok(answer),
         Err(_) => repair_existing(&run.response),

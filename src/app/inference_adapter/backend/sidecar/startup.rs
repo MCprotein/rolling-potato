@@ -37,10 +37,20 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
         if backend_process::is_running(record.pid) {
             let resource_sample = record_backend_resource_sample(&record, "start-existing")?;
             return Ok(format!(
-                "backend start\n- status: already-running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}",
+                "backend start\n- status: already-running\n- pid: {}\n- binary: {}\n- model: {}\n- vision: {}\n- mmproj: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}",
                 record.pid,
                 record.binary_path.display(),
                 record.model_path.display(),
+                if record.mmproj_path.is_some() {
+                    "ready"
+                } else {
+                    "unavailable (text-ready)"
+                },
+                record
+                    .mmproj_path
+                    .as_ref()
+                    .map(|path| path.display().to_string())
+                    .unwrap_or_else(|| "없음".to_string()),
                 record.host,
                 record.port,
                 display_optional_u32(record.ctx_size),
@@ -73,6 +83,8 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
         })?
         .len();
     let model_sha256 = checksum::sha256_file(&model_path)?;
+    let vision_projector =
+        crate::app::inference_adapter::model::verified_vision_projector(&model_path, &model_sha256);
     let binary_sha256 = checksum::sha256_file(&binary_path)?;
     let backend_release = if discovery.selected_source == "managed" {
         LLAMA_CPP_RELEASE.release_tag.to_string()
@@ -92,17 +104,16 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
     let stderr_file = create_log_file(&stderr_log)?;
     trace_backend_start("logs-created");
 
-    let mut command = Command::new(&binary_path);
-    command
-        .arg("--model")
-        .arg(&model_path)
-        .arg("--host")
-        .arg(discovery.host)
-        .arg("--port")
-        .arg(discovery.port.to_string());
-    if let Some(ctx_size) = ctx_size {
-        command.arg("--ctx-size").arg(ctx_size.to_string());
-    }
+    let mut command = sidecar_command(
+        &binary_path,
+        &model_path,
+        vision_projector
+            .as_ref()
+            .map(|projector| projector.path.as_path()),
+        discovery.host,
+        discovery.port,
+        ctx_size,
+    );
     backend_process::configure_child(&mut command);
     let mut child = command
         .stdin(Stdio::null())
@@ -126,7 +137,20 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
         model_size_bytes,
         backend_release,
         binary_sha256,
-        mmproj: "not-required-text-only".to_string(),
+        mmproj: if vision_projector.is_some() {
+            "required".to_string()
+        } else {
+            "not-required-text-only".to_string()
+        },
+        mmproj_path: vision_projector
+            .as_ref()
+            .map(|projector| projector.path.clone()),
+        mmproj_sha256: vision_projector
+            .as_ref()
+            .map(|projector| projector.sha256.clone()),
+        mmproj_size_bytes: vision_projector
+            .as_ref()
+            .map(|projector| projector.size_bytes),
         host: discovery.host.to_string(),
         port: discovery.port,
         ctx_size,
@@ -177,10 +201,20 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
             let resource_sample = record_backend_resource_sample(&record, "start")?;
             trace_backend_start("resource-sample-recorded");
             return Ok(format!(
-                "backend start\n- status: running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- startup ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
+                "backend start\n- status: running\n- pid: {}\n- binary: {}\n- model: {}\n- vision: {}\n- mmproj: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- startup ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
                 record.pid,
                 record.binary_path.display(),
                 record.model_path.display(),
+                if record.mmproj_path.is_some() {
+                    "ready"
+                } else {
+                    "unavailable (text-ready)"
+                },
+                record
+                    .mmproj_path
+                    .as_ref()
+                    .map(|path| path.display().to_string())
+                    .unwrap_or_else(|| "없음".to_string()),
                 record.host,
                 record.port,
                 display_optional_u32(record.ctx_size),
@@ -248,6 +282,86 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
         }
 
         std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn sidecar_command(
+    binary_path: &Path,
+    model_path: &Path,
+    mmproj_path: Option<&Path>,
+    host: &str,
+    port: u16,
+    ctx_size: Option<u32>,
+) -> Command {
+    let mut command = Command::new(binary_path);
+    command
+        .arg("--model")
+        .arg(model_path)
+        .arg("--host")
+        .arg(host)
+        .arg("--port")
+        .arg(port.to_string());
+    if let Some(mmproj_path) = mmproj_path {
+        command.arg("--mmproj").arg(mmproj_path);
+    }
+    if let Some(ctx_size) = ctx_size {
+        command.arg("--ctx-size").arg(ctx_size.to_string());
+    }
+    command
+}
+
+#[cfg(test)]
+mod command_tests {
+    use super::*;
+
+    #[test]
+    fn vision_ready_sidecar_enters_llama_server_with_mmproj() {
+        let command = sidecar_command(
+            Path::new("/bin/llama-server"),
+            Path::new("/models/model.gguf"),
+            Some(Path::new("/models/mmproj.gguf")),
+            "127.0.0.1",
+            17842,
+            Some(4096),
+        );
+        let args = command
+            .get_args()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            args,
+            [
+                "--model",
+                "/models/model.gguf",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "17842",
+                "--mmproj",
+                "/models/mmproj.gguf",
+                "--ctx-size",
+                "4096"
+            ]
+        );
+    }
+
+    #[test]
+    fn text_ready_sidecar_does_not_claim_mmproj() {
+        let command = sidecar_command(
+            Path::new("/bin/llama-server"),
+            Path::new("/models/model.gguf"),
+            None,
+            "127.0.0.1",
+            17842,
+            None,
+        );
+        let args = command
+            .get_args()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(!args.iter().any(|value| value == "--mmproj"));
     }
 }
 

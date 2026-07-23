@@ -113,13 +113,20 @@ fn evaluation_fetch_paths_stay_under_app_data() {
     let artifact = source_backed_artifact(candidate).unwrap();
     let final_path = model_artifact_path(artifact);
     let part_path = model_artifact_part_path(candidate);
+    let projector = source_backed_vision_projector(candidate).unwrap();
+    let projector_path = vision_projector_artifact_path(candidate, projector);
+    let projector_part_path = vision_projector_part_path(candidate, projector);
 
     std::env::remove_var("RPOTATO_DATA_HOME");
     std::env::remove_var("RPOTATO_PROJECT_ROOT");
 
     assert!(final_path.starts_with(data_root.join("models")));
     assert!(part_path.starts_with(data_root.join("downloads")));
-    assert!(part_path.ends_with("gemma-4-e4b.part"));
+    assert!(part_path.ends_with("gemma-4-e4b--model--gemma-4-E4B_q4_0-it.gguf.part"));
+    assert!(projector_path.starts_with(data_root.join("models")));
+    assert!(projector_path.ends_with("gemma-4-e4b--vision--gemma-4-E4B-it-mmproj.gguf"));
+    assert!(projector_part_path.starts_with(data_root.join("downloads")));
+    assert!(projector_part_path.ends_with("gemma-4-e4b--vision--gemma-4-E4B-it-mmproj.gguf.part"));
 }
 
 #[test]
@@ -341,6 +348,8 @@ fn registry_parser_accepts_pretty_json_entries() {
 
     assert_eq!(entry.id, "qwen3.5-4b");
     assert_eq!(entry.status, "installed");
+    assert_eq!(entry.vision_status, "unavailable");
+    assert!(entry.mmproj_path.is_none());
     assert!(entry.artifact_sha256.starts_with("00fe"));
     validate_registry_manifest_binding(&entry, candidate, artifact, &model_artifact_path(artifact))
         .unwrap();

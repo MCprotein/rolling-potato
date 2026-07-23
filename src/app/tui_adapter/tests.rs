@@ -283,6 +283,7 @@ fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
         context_limit_tokens: Some(4096),
         has_compaction_checkpoint: false,
         backend: TuiBackendStatus::Ready,
+        vision_ready: false,
         session_id: "session-long-identifier".to_string(),
     };
 

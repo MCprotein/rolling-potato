@@ -41,11 +41,19 @@ pub(crate) fn promotion_evidence_path(id: &str) -> PathBuf {
 
 pub(crate) fn failed_artifact_paths(candidate: &ModelManifestEntry) -> Vec<PathBuf> {
     let artifact_name = candidate.artifact_name.unwrap_or(candidate.id);
-    vec![
-        paths().partial(candidate.id),
+    let mut paths = vec![
+        paths().partial(&artifact_download_key(candidate.id, "model", artifact_name)),
         paths().failed_download(candidate.id),
         paths().failed_model(artifact_name),
-    ]
+        paths().partial(candidate.id),
+    ];
+    if let Some(projector) = candidate.vision_projector {
+        let projector_key = artifact_download_key(candidate.id, "vision", projector.file_name);
+        paths.push(self::paths().partial(&projector_key));
+        paths.push(self::paths().failed_download(&projector_key));
+        paths.push(self::paths().failed_model(&projector_key));
+    }
+    paths
 }
 
 pub(crate) fn sha256_for_file(path: &Path) -> Result<String, AppError> {
@@ -557,7 +565,56 @@ pub(crate) fn model_artifact_path(artifact: ModelArtifactDescriptor) -> PathBuf 
 }
 
 pub(crate) fn model_artifact_part_path(candidate: &ModelManifestEntry) -> PathBuf {
-    paths().partial(candidate.id)
+    paths().partial(&artifact_download_key(
+        candidate.id,
+        "model",
+        candidate.artifact_name.unwrap_or(candidate.id),
+    ))
+}
+
+pub(crate) fn vision_projector_artifact_path(
+    candidate: &ModelManifestEntry,
+    artifact: ModelArtifactDescriptor,
+) -> PathBuf {
+    paths().artifact(&artifact_download_key(
+        candidate.id,
+        "vision",
+        artifact.file_name,
+    ))
+}
+
+pub(crate) fn vision_projector_part_path(
+    candidate: &ModelManifestEntry,
+    artifact: ModelArtifactDescriptor,
+) -> PathBuf {
+    paths().partial(&artifact_download_key(
+        candidate.id,
+        "vision",
+        artifact.file_name,
+    ))
+}
+
+fn artifact_download_key(candidate_id: &str, kind: &str, file_name: &str) -> String {
+    format!(
+        "{}--{}--{}",
+        safe_artifact_key(candidate_id),
+        safe_artifact_key(kind),
+        safe_artifact_key(file_name)
+    )
+}
+
+fn safe_artifact_key(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .take(180)
+        .collect()
 }
 
 impl ModelArtifactFetchStatus {

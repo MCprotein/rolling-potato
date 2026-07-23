@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::model::manifest::{
-    find_candidate, source_backed_artifact, CANDIDATES,
+    find_candidate, source_backed_artifact, source_backed_vision_projector, CANDIDATES,
 };
 use crate::surfaces::tui::runtime_bridge::TuiModelOption;
 
@@ -26,7 +26,11 @@ pub(crate) fn setup_options() -> Vec<TuiModelOption> {
             id: candidate.id.to_string(),
             display_name: candidate.display_name.to_string(),
             quantization: candidate.quantization.unwrap_or("미확정").to_string(),
-            download_bytes: candidate.size_bytes.unwrap_or(0),
+            download_bytes: candidate.size_bytes.unwrap_or(0).saturating_add(
+                source_backed_vision_projector(candidate)
+                    .map(|artifact| artifact.size_bytes)
+                    .unwrap_or(0),
+            ),
             context_length: candidate.context_length,
             ram: candidate
                 .recommended_ram_gb
@@ -43,9 +47,11 @@ pub(crate) fn setup_options() -> Vec<TuiModelOption> {
                 candidate.license.status.to_string()
             },
             note: if candidate.id == "gemma-4-e4b" {
-                "로컬 adoption smoke 통과; 16 GB 적합성은 미확정".to_string()
+                "vision 지원(mmproj 자동 준비); 로컬 adoption smoke 통과; 16 GB 적합성은 미확정"
+                    .to_string()
             } else {
-                "실험적 선택; exact-response adoption gate 미통과".to_string()
+                "vision 지원(mmproj 자동 준비); 실험적 선택; exact-response adoption gate 미통과"
+                    .to_string()
             },
             current: current.as_deref() == Some(candidate.id),
             recommended: candidate.id == "gemma-4-e4b",

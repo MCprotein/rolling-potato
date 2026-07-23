@@ -7,9 +7,10 @@ use crate::adapters::process::backend as backend_process;
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::{ledger, state};
 use crate::foundation::error::AppError;
+use crate::foundation::integrity;
 use crate::runtime_core::inference::backend::lifecycle::BackendSidecarRecord;
 use crate::runtime_core::inference::backend::{
-    BackendChatRun, BackendChatSampling, MAX_CHAT_TIMEOUT_MS,
+    BackendChatInput, BackendChatRun, BackendChatSampling, MAX_CHAT_TIMEOUT_MS,
 };
 use crate::runtime_core::inference::model::manifest::quantization_for_artifact_hash;
 use crate::runtime_core::inference::{resource, stream::StreamTermination};
@@ -34,12 +35,21 @@ pub use report::{chat_report, chat_stream_report};
 
 const CHAT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_CHAT_MAX_TOKENS: u32 = 128;
+const MAX_CHAT_IMAGES: usize = 4;
+const MAX_CHAT_IMAGE_BYTES: usize = 20 * 1024 * 1024;
 const CHAT_SAMPLING: BackendChatSampling = BackendChatSampling {
     temperature: 0.1,
     top_p: 0.8,
 };
 pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun, AppError> {
     chat_once_with_options(prompt, max_tokens, false, None, || Ok(false), |_| Ok(()))
+}
+
+pub(crate) fn chat_once_with_input(
+    input: &BackendChatInput,
+    max_tokens: Option<u32>,
+) -> Result<BackendChatRun, AppError> {
+    chat_input_with_options(input, max_tokens, false, None, || Ok(false), |_| Ok(()))
 }
 
 pub fn chat_once_bounded(
@@ -115,13 +125,33 @@ fn chat_once_with_options(
     mut external_cancel_requested: impl FnMut() -> Result<bool, AppError>,
     mut on_delta: impl FnMut(Option<&str>) -> Result<(), AppError>,
 ) -> Result<BackendChatRun, AppError> {
-    if prompt.trim().is_empty() {
-        return Err(AppError::usage(
-            "backend chat은 비어 있지 않은 --prompt <text> 값이 필요합니다.",
-        ));
-    }
+    let input = BackendChatInput::text(prompt);
+    chat_input_with_options(
+        &input,
+        max_tokens,
+        streaming_display,
+        timeout_ms,
+        &mut external_cancel_requested,
+        &mut on_delta,
+    )
+}
+
+fn chat_input_with_options(
+    input: &BackendChatInput,
+    max_tokens: Option<u32>,
+    streaming_display: bool,
+    timeout_ms: Option<u32>,
+    mut external_cancel_requested: impl FnMut() -> Result<bool, AppError>,
+    mut on_delta: impl FnMut(Option<&str>) -> Result<(), AppError>,
+) -> Result<BackendChatRun, AppError> {
+    validate_chat_input(input)?;
     let requested_max_tokens = max_tokens.unwrap_or(DEFAULT_CHAT_MAX_TOKENS);
     let record = ready_sidecar_record()?;
+    if !input.images.is_empty() && record.mmproj_path.is_none() {
+        return Err(AppError::blocked(
+            "이미지 입력을 사용할 수 없습니다.\n- 이유: 현재 backend는 text-ready이지만 vision-ready가 아닙니다.\n- 다음: /model에서 vision(mmproj) 준비 상태를 확인한 뒤 모델을 다시 준비하세요.",
+        ));
+    }
 
     let governor_sample = record_backend_resource_sample(&record, "chat-governor")?;
     let governor = resource::chat_governor_decision(governor_sample.pressure, requested_max_tokens);
@@ -133,7 +163,7 @@ fn chat_once_with_options(
                 "pid={} backend={} prompt_chars={} requested_max_tokens={} pressure_status={} admission={} token_action={} reason={} sample_event={}",
                 record.pid,
                 record.backend_id,
-                prompt.chars().count(),
+                input.text.chars().count(),
                 requested_max_tokens,
                 governor.pressure.as_str(),
                 governor.admission.as_str(),
@@ -180,7 +210,7 @@ fn chat_once_with_options(
             generation.sidecar_pid,
             record.backend_id,
             model_id_from_path(&record.model_path),
-            prompt.chars().count(),
+            input.text.chars().count(),
             requested_max_tokens,
             effective_max_tokens,
             timeout_ms,
@@ -191,9 +221,9 @@ fn chat_once_with_options(
     let started_at_ms = now_ms();
     let started_at = Instant::now();
     let sampling = CHAT_SAMPLING;
-    let body = llama_backend::chat_request_body(
+    let body = llama_backend::chat_request_body_for_input(
         &record.model_path,
-        prompt,
+        input,
         effective_max_tokens,
         &sampling,
         true,
@@ -332,7 +362,7 @@ fn chat_once_with_options(
             sampling.ledger_label(),
             std::env::consts::OS,
             std::env::consts::ARCH,
-            prompt.chars().count(),
+            input.text.chars().count(),
             display_content.chars().count(),
             requested_max_tokens,
             effective_max_tokens,
@@ -419,7 +449,7 @@ fn chat_once_with_options(
         model_path: record.model_path,
         model_artifact_hash: record.model_sha256,
         ctx_size: record.ctx_size,
-        prompt_chars: prompt.chars().count(),
+        prompt_chars: input.text.chars().count(),
         response_chars: display_content.chars().count(),
         requested_max_tokens,
         effective_max_tokens,
@@ -448,4 +478,94 @@ fn chat_once_with_options(
     };
     generation_guard.finish()?;
     Ok(run)
+}
+
+fn validate_chat_input(input: &BackendChatInput) -> Result<(), AppError> {
+    if input.text.trim().is_empty() && input.images.is_empty() {
+        return Err(AppError::usage(
+            "backend chat은 text 또는 image 입력이 필요합니다.",
+        ));
+    }
+    if input.images.len() > MAX_CHAT_IMAGES {
+        return Err(AppError::blocked(format!(
+            "이미지는 요청당 최대 {MAX_CHAT_IMAGES}개까지 사용할 수 있습니다."
+        )));
+    }
+    let total_bytes = input.images.iter().try_fold(0_usize, |total, image| {
+        total
+            .checked_add(image.bytes.len())
+            .ok_or_else(|| AppError::blocked("이미지 입력 크기를 안전하게 계산하지 못했습니다."))
+    })?;
+    if total_bytes > MAX_CHAT_IMAGE_BYTES {
+        return Err(AppError::blocked(format!(
+            "이미지 입력은 요청당 합계 {MAX_CHAT_IMAGE_BYTES} bytes를 넘을 수 없습니다."
+        )));
+    }
+    for image in &input.images {
+        let signature_matches = match image.mime_type.as_str() {
+            "image/png" => image.bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
+            "image/jpeg" => image.bytes.starts_with(b"\xff\xd8\xff"),
+            _ => false,
+        };
+        if !signature_matches {
+            return Err(AppError::blocked(format!(
+                "지원하지 않거나 signature가 일치하지 않는 이미지입니다: {}",
+                image.display_name
+            )));
+        }
+        if !integrity::is_valid_sha256(&image.sha256)
+            || !integrity::sha256_bytes(&image.bytes).eq_ignore_ascii_case(&image.sha256)
+        {
+            return Err(AppError::blocked(format!(
+                "이미지 SHA-256 검증에 실패했습니다: {}",
+                image.display_name
+            )));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod input_tests {
+    use super::*;
+    use crate::runtime_core::inference::backend::BackendChatImage;
+
+    fn png_input(bytes: Vec<u8>) -> BackendChatInput {
+        BackendChatInput {
+            text: "이미지를 설명해줘".to_string(),
+            images: vec![BackendChatImage {
+                display_name: "screen.png".to_string(),
+                mime_type: "image/png".to_string(),
+                sha256: integrity::sha256_bytes(&bytes),
+                bytes,
+            }],
+        }
+    }
+
+    #[test]
+    fn multimodal_input_requires_supported_signature_and_exact_hash() {
+        let valid = png_input(b"\x89PNG\r\n\x1a\npayload".to_vec());
+        assert!(validate_chat_input(&valid).is_ok());
+
+        let mut tampered = valid.clone();
+        tampered.images[0].bytes.push(1);
+        assert!(validate_chat_input(&tampered)
+            .unwrap_err()
+            .message
+            .contains("SHA-256"));
+
+        let unsupported = BackendChatInput {
+            text: "설명".to_string(),
+            images: vec![BackendChatImage {
+                display_name: "image.webp".to_string(),
+                mime_type: "image/webp".to_string(),
+                sha256: integrity::sha256_bytes(b"RIFFxxxxWEBP"),
+                bytes: b"RIFFxxxxWEBP".to_vec(),
+            }],
+        };
+        assert!(validate_chat_input(&unsupported)
+            .unwrap_err()
+            .message
+            .contains("지원하지"));
+    }
 }

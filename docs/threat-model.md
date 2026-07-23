@@ -94,7 +94,8 @@ Mitigations:
   permission authority
 - pasted attachments must be regular non-symlink files with bounded size and an
   allowed type; they are copied into local app data and never sent to the web-search
-  provider. Unsupported image inference is blocked before model dispatch
+  provider. PNG/JPEG bytes are signature- and hash-revalidated at dispatch, and
+  image inference requires an exact verified model/projector pair
 - log redaction
 - only local user and visible/normalized model/tool/evidence turns are durable; complete backend prompts, hidden responses, and raw source bodies are excluded
 

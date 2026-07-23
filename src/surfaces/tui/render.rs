@@ -398,6 +398,18 @@ fn render_status_line(status: &TuiStatusSnapshot, width: usize, color: bool) -> 
             format!("backend {}", status.backend.as_str()),
             backend_color,
         ),
+        (
+            if status.vision_ready {
+                "vision ready".to_string()
+            } else {
+                "vision text-only".to_string()
+            },
+            if status.vision_ready {
+                HEALTHY_COLOR
+            } else {
+                MUTED_COLOR
+            },
+        ),
         (format!("session {session}"), MUTED_COLOR),
     ];
     render_status_segments(&segments, width, color)

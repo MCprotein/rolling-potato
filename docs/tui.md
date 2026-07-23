@@ -149,10 +149,20 @@ inspection commands remain available for diagnostics under `rpotato debug --help
 Bracketed paste is consumed atomically. Pasting an absolute image/text path or using
 `/attach <path>` captures a regular, non-symlink file into local app data and shows an
 attachment badge instead of treating a leading `/` as a command. UTF-8 text/code files
-up to 256 KiB are included in the next request. Images up to 20 MiB validate their file
-signature and SHA-256, but the current verified model set is text-only, so image
-inference is blocked before dispatch with a capability explanation until a vision
-artifact and `mmproj` are supported.
+up to 256 KiB are included in the next request. Up to four PNG/JPEG images with a
+combined limit of 20 MiB are revalidated by signature and SHA-256 at dispatch.
+Image inference is available only when the selected model's separately pinned
+`mmproj` bytes are verified and the managed `llama-server` sidecar is vision-ready.
+The status line and `/status` distinguish `vision ready` from `vision text-only`.
+If projector preparation fails, the verified text model and current selection remain
+usable and the image request receives an actionable capability message.
+
+`mmproj` is not another language model. It is the model-specific visual
+encoder/projector GGUF that maps image features into the embedding space expected by
+the paired language-model GGUF. A projector from another model or revision is not
+interchangeable. `rpotato` therefore pins its source revision, size, and SHA-256,
+stores it as a separate artifact, and passes it to `llama-server` through
+`--mmproj`.
 
 Plain questions use a lightweight general-answer path unless they contain a clear
 repository/action signal. Explicit search requests, freshness-sensitive questions,

@@ -102,6 +102,7 @@ pub(crate) struct TuiStatusSnapshot {
     pub(crate) context_limit_tokens: Option<u32>,
     pub(crate) has_compaction_checkpoint: bool,
     pub(crate) backend: TuiBackendStatus,
+    pub(crate) vision_ready: bool,
     pub(crate) session_id: String,
 }
 
@@ -113,6 +114,7 @@ impl TuiStatusSnapshot {
             context_limit_tokens: None,
             has_compaction_checkpoint: false,
             backend: TuiBackendStatus::Unavailable,
+            vision_ready: false,
             session_id: "미초기화".to_string(),
         }
     }

@@ -6,8 +6,12 @@ use crate::foundation::error::AppError;
 use sha2::{Digest, Sha256};
 
 pub fn sha256_text(value: &str) -> String {
+    sha256_bytes(value.as_bytes())
+}
+
+pub fn sha256_bytes(value: &[u8]) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(value.as_bytes());
+    hasher.update(value);
     bytes_to_hex(&hasher.finalize())
 }
 
@@ -83,6 +87,14 @@ mod tests {
     fn sha256_text_hashes_utf8_bytes() {
         assert_eq!(
             sha256_text("hello"),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+    }
+
+    #[test]
+    fn sha256_bytes_hashes_binary_input() {
+        assert_eq!(
+            sha256_bytes(b"hello"),
             "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
         );
     }

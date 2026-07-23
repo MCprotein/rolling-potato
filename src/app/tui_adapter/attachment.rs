@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use crate::adapters::filesystem::layout as paths;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity;
+use crate::runtime_core::inference::backend::{BackendChatImage, BackendChatInput};
 use crate::surfaces::tui::runtime_bridge::{TuiAttachment, TuiAttachmentKind};
 
 const MAX_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
@@ -106,35 +107,80 @@ pub(super) fn capture(path_input: &str, session_id: &str) -> Result<TuiAttachmen
 pub(super) fn compose_request(
     prompt: &str,
     attachments: &[TuiAttachment],
-) -> Result<String, AppError> {
+) -> Result<BackendChatInput, AppError> {
     if attachments.len() > MAX_ATTACHMENTS {
         return Err(AppError::blocked(format!(
             "첨부는 요청당 최대 {MAX_ATTACHMENTS}개까지 사용할 수 있습니다."
         )));
     }
-    if let Some(image) = attachments
-        .iter()
-        .find(|attachment| attachment.kind == TuiAttachmentKind::Image)
+    let mut request = prompt.trim().to_string();
+    let mut images = Vec::new();
+    for attachment in attachments {
+        match attachment.kind {
+            TuiAttachmentKind::Text => {
+                let content = fs::read_to_string(&attachment.stored_path).map_err(|error| {
+                    AppError::blocked(format!(
+                        "텍스트 첨부를 읽지 못했습니다.\n- attachment: {}\n- 이유: {error}",
+                        attachment.display_name
+                    ))
+                })?;
+                request.push_str(&format!(
+                    "\n\n<attachment name=\"{}\">\n{}\n</attachment>",
+                    safe_leaf(&attachment.display_name),
+                    content
+                ));
+            }
+            TuiAttachmentKind::Image => images.push(verified_image(attachment)?),
+        }
+    }
+    Ok(BackendChatInput {
+        text: request,
+        images,
+    })
+}
+
+fn verified_image(attachment: &TuiAttachment) -> Result<BackendChatImage, AppError> {
+    let path = Path::new(&attachment.stored_path);
+    let metadata = fs::symlink_metadata(path).map_err(|error| {
+        AppError::blocked(format!(
+            "이미지 첨부를 다시 확인하지 못했습니다.\n- attachment: {}\n- 이유: {error}",
+            attachment.display_name
+        ))
+    })?;
+    if metadata.file_type().is_symlink()
+        || !metadata.is_file()
+        || metadata.len() != attachment.size_bytes
     {
         return Err(AppError::blocked(format!(
-            "이미지 입력을 사용할 수 없습니다.\n- attachment: {}\n- 이유: 현재 검증된 모델/backend 구성은 text-only이며 mmproj가 없습니다.\n- 동작: 이미지를 모델에 보내지 않았습니다.\n- 다음: vision artifact와 mmproj가 검증된 모델 지원이 추가된 뒤 사용할 수 있습니다.",
-            image.display_name
+            "이미지 첨부가 캡처 이후 변경되었습니다: {}",
+            attachment.display_name
         )));
     }
-    let mut request = prompt.trim().to_string();
-    for attachment in attachments {
-        let content = fs::read_to_string(&attachment.stored_path).map_err(|error| {
-            AppError::blocked(format!(
-                "텍스트 첨부를 읽지 못했습니다.\n- attachment: {}\n- 이유: {error}",
-                attachment.display_name
-            ))
-        })?;
-        request.push_str(&format!(
-            "\n\n<attachment name=\"{}\">\n{}\n</attachment>",
-            attachment.display_name, content
-        ));
+    validate_content(path, TuiAttachmentKind::Image)?;
+    let bytes = fs::read(path)
+        .map_err(|error| AppError::runtime(format!("이미지 첨부 읽기 실패: {error}")))?;
+    let sha256 = integrity::sha256_bytes(&bytes);
+    if !sha256.eq_ignore_ascii_case(&attachment.id) {
+        return Err(AppError::blocked(format!(
+            "이미지 첨부가 캡처 이후 변경되었습니다: {}",
+            attachment.display_name
+        )));
     }
-    Ok(request)
+    let mime_type = if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        "image/png"
+    } else if bytes.starts_with(b"\xff\xd8\xff") {
+        "image/jpeg"
+    } else {
+        return Err(AppError::blocked(
+            "현재 backend wire format은 PNG와 JPEG 이미지만 지원합니다.",
+        ));
+    };
+    Ok(BackendChatImage {
+        display_name: attachment.display_name.clone(),
+        mime_type: mime_type.to_string(),
+        sha256,
+        bytes,
+    })
 }
 
 fn normalized_source_path(value: &str) -> Result<PathBuf, AppError> {
@@ -169,8 +215,13 @@ fn attachment_kind(path: &Path) -> Result<TuiAttachmentKind, AppError> {
         .and_then(|value| value.to_str())
         .unwrap_or_default()
         .to_ascii_lowercase();
-    if matches!(extension.as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp") {
+    if matches!(extension.as_str(), "png" | "jpg" | "jpeg") {
         return Ok(TuiAttachmentKind::Image);
+    }
+    if matches!(extension.as_str(), "gif" | "webp") {
+        return Err(AppError::usage(
+            "현재 이미지 첨부는 PNG와 JPEG 형식만 지원합니다.",
+        ));
     }
     if matches!(
         extension.as_str(),
@@ -222,12 +273,8 @@ fn validate_content(path: &Path, kind: TuiAttachmentKind) -> Result<(), AppError
             let bytes = fs::read(path).map_err(|error| {
                 AppError::runtime(format!("이미지 첨부를 읽지 못했습니다: {error}"))
             })?;
-            let valid = bytes.starts_with(b"\x89PNG\r\n\x1a\n")
-                || bytes.starts_with(b"\xff\xd8\xff")
-                || bytes.starts_with(b"GIF87a")
-                || bytes.starts_with(b"GIF89a")
-                || (bytes.starts_with(b"RIFF")
-                    && bytes.get(8..12).is_some_and(|value| value == b"WEBP"));
+            let valid =
+                bytes.starts_with(b"\x89PNG\r\n\x1a\n") || bytes.starts_with(b"\xff\xd8\xff");
             if valid {
                 Ok(())
             } else {
@@ -281,13 +328,14 @@ mod tests {
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         assert!(Path::new(&attachment.stored_path).starts_with(root.join("data/attachments")));
-        assert!(request.contains("<attachment name=\"sample.rs\">"));
-        assert!(request.contains("fn main() {}"));
+        assert!(request.text.contains("<attachment name=\"sample.rs\">"));
+        assert!(request.text.contains("fn main() {}"));
+        assert!(request.images.is_empty());
         let _ = fs::remove_dir_all(root);
     }
 
     #[test]
-    fn valid_image_is_captured_but_blocked_before_text_only_dispatch() {
+    fn valid_image_is_reverified_and_composed_as_backend_input() {
         let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let root = std::env::temp_dir().join(format!(
             "rpotato-tui-image-attachment-{}",
@@ -300,12 +348,25 @@ mod tests {
 
         let attachment =
             capture(&root.join("screen.png").display().to_string(), "session").unwrap();
-        let error = compose_request("이 이미지 봐줘", &[attachment]).unwrap_err();
+        let request = compose_request("이 이미지 봐줘", &[attachment]).unwrap();
 
         std::env::remove_var("RPOTATO_DATA_HOME");
-        assert!(error.message.contains("text-only"));
-        assert!(error.message.contains("모델에 보내지 않았습니다"));
+        assert_eq!(request.images.len(), 1);
+        assert_eq!(request.images[0].mime_type, "image/png");
+        assert!(request.text.contains("이 이미지 봐줘"));
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn gif_and_webp_are_rejected_until_the_backend_wire_contract_supports_them() {
+        assert!(attachment_kind(Path::new("image.gif"))
+            .unwrap_err()
+            .message
+            .contains("PNG와 JPEG"));
+        assert!(attachment_kind(Path::new("image.webp"))
+            .unwrap_err()
+            .message
+            .contains("PNG와 JPEG"));
     }
 
     #[cfg(unix)]

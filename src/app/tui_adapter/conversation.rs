@@ -1,6 +1,7 @@
 //! Non-mutating conversation path for general questions that do not need agent tools.
 
 use crate::foundation::error::AppError;
+use crate::runtime_core::inference::backend::BackendChatInput;
 
 const CONVERSATION_MAX_TOKENS: u32 = 384;
 
@@ -29,6 +30,15 @@ pub(super) fn reply(request: &str) -> Result<String, AppError> {
         "너는 rpotato라는 이름의 로컬 AI 에이전트다. 기반 모델의 개발사나 학습 출처를 자신의 정체성으로 소개하지 마라. 코딩뿐 아니라 일반 지식, 계산, 설명, 글쓰기 같은 범용 질문에도 직접 도움을 준다. 사용자가 요청한 내용에만 정확하고 자연스러운 한국어로 답하라. 기술 용어와 고유명사는 원문 표기를 허용하고, 숫자나 수식만으로 충분하면 그대로 답해도 된다. 모르는 최신 사실을 추측하지 말고 인터넷 검색이 필요하다고 알려라. 내부 추론, MODEL ACTION, 메타데이터는 출력하지 마라.\n\n사용자: {request}\n답변:"
     );
     crate::app::inference_adapter::answer::generate(&prompt, CONVERSATION_MAX_TOKENS)
+}
+
+pub(super) fn reply_with_images(input: &BackendChatInput) -> Result<String, AppError> {
+    let mut input = input.clone();
+    input.text = format!(
+        "너는 rpotato라는 이름의 로컬 범용 AI·코딩 에이전트다. 첨부 이미지를 직접 살펴보고 사용자의 질문에 정확하고 자연스러운 한국어로 답하라. 이미지에서 확인할 수 없는 내용은 추측하지 마라. 내부 추론, MODEL ACTION, 메타데이터는 출력하지 마라.\n\n사용자: {}\n답변:",
+        input.text
+    );
+    crate::app::inference_adapter::answer::generate_input(&input, CONVERSATION_MAX_TOKENS)
 }
 
 pub(super) fn present_agent_report(report: &str) -> String {

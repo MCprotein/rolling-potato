@@ -93,8 +93,9 @@
 - 제한된 검색 highlight는 신뢰하지 않는 text이며 command, file, permission 권한을
   얻지 못합니다.
 - 붙여넣은 첨부는 허용 형식과 크기 상한을 만족하는 regular non-symlink 파일만 local
-  app data에 복사하며 web-search provider로 보내지 않습니다. 지원하지 않는 image
-  inference는 model dispatch 전에 차단합니다.
+  app data에 복사하며 web-search provider로 보내지 않습니다. PNG/JPEG bytes는
+  dispatch 시 signature와 hash를 다시 검증하고, image inference에는 정확히 검증된
+  model/projector 조합이 필요합니다.
 - logs redaction
 - local user와 visible/normalized model/tool/evidence turn만 영속화하고 전체 backend prompt, hidden response, raw source body는 제외
 

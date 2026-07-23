@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use super::local_promotion_readiness;
 use crate::adapters::filesystem::model_artifact::{
     self, local_artifact_state, model_artifact_path, promotion_evidence_path,
-    read_default_selection, read_registry_entries, registry_path,
+    read_default_selection, read_registry_entries, registry_path, vision_projector_artifact_path,
 };
 use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
@@ -11,8 +11,9 @@ use crate::runtime_core::inference::model::codec::{
     render_default_selection, render_registry_entry,
 };
 use crate::runtime_core::inference::model::manifest::{
-    find_candidate, source_backed_artifact, validate_install_ready, CandidateStatus,
-    DefaultSelection, ModelManifestEntry, PromotionEvidence, RegistryEntry,
+    find_candidate, source_backed_artifact, source_backed_vision_projector, validate_install_ready,
+    CandidateStatus, DefaultSelection, ModelManifestEntry, PromotionEvidence, RegistryEntry,
+    RegistryVisionState,
 };
 use crate::runtime_core::inference::model::promotion::{
     validate_registry_manifest_binding, validate_registry_promotion_binding,
@@ -22,6 +23,13 @@ mod default_selection;
 pub(crate) use default_selection::{
     restore_default_selection, snapshot_default_selection, DefaultSelectionSnapshot,
 };
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct VerifiedVisionProjector {
+    pub(crate) path: PathBuf,
+    pub(crate) sha256: String,
+    pub(crate) size_bytes: u64,
+}
 
 pub fn registry_report() -> String {
     registry_summary()
@@ -37,11 +45,12 @@ pub fn default_report() -> Result<String, AppError> {
     }
 
     Ok(format!(
-        "기본 모델\n- id: {}\n- display name: {}\n- artifact: {}\n- sha256: {}\n- backend version: {}\n- benchmark run: {}\n- selected at ms: {}\n- 상태: registry, artifact, promotion evidence 재검증 완료",
+        "기본 모델\n- id: {}\n- display name: {}\n- artifact: {}\n- sha256: {}\n- vision: {}\n- backend version: {}\n- benchmark run: {}\n- selected at ms: {}\n- 상태: registry, artifact, promotion evidence 재검증 완료",
         entry.id,
         entry.display_name,
         entry.artifact_path,
         entry.artifact_sha256,
+        entry.vision_status,
         entry.backend_version,
         entry.benchmark_run_id,
         selection.selected_at_ms
@@ -73,10 +82,11 @@ pub fn set_default_report(id: &str) -> Result<String, AppError> {
     )?;
 
     Ok(format!(
-        "기본 모델 선택 완료\n- id: {}\n- artifact: {}\n- sha256: {}\n- selection: {}\n- ledger event: {}\n- 동작: backend start에서 --model을 생략하면 이 모델을 재검증한 뒤 사용합니다.",
+        "기본 모델 선택 완료\n- id: {}\n- artifact: {}\n- sha256: {}\n- vision: {}\n- selection: {}\n- ledger event: {}\n- 동작: backend start에서 --model을 생략하면 이 모델과 준비된 mmproj를 재검증한 뒤 사용합니다.",
         entry.id,
         entry.artifact_path,
         entry.artifact_sha256,
+        entry.vision_status,
         model_artifact::paths().default_file.display(),
         event_id
     ))
@@ -120,6 +130,43 @@ pub(crate) fn prepare_user_selected_candidate(
 
     persist_registry_entry(candidate, None)?;
     Ok(artifact_path)
+}
+
+pub(crate) fn verified_vision_projector(
+    model_path: &std::path::Path,
+    model_sha256: &str,
+) -> Option<VerifiedVisionProjector> {
+    let candidate = crate::runtime_core::inference::model::manifest::CANDIDATES
+        .iter()
+        .find(|candidate| candidate.sha256 == Some(model_sha256))?;
+    let artifact = source_backed_artifact(candidate).ok()?;
+    if model_artifact_path(artifact) != model_path {
+        return None;
+    }
+    let entry = read_registry_entries()
+        .ok()?
+        .into_iter()
+        .find(|entry| entry.id == candidate.id)?;
+    if entry.vision_status != "ready" {
+        return None;
+    }
+    let projector = source_backed_vision_projector(candidate)?;
+    let expected_path = vision_projector_artifact_path(candidate, projector);
+    if entry
+        .mmproj_path
+        .as_deref()
+        .is_none_or(|path| std::path::Path::new(path) != expected_path)
+        || entry.mmproj_sha256.as_deref() != Some(projector.sha256)
+        || entry.mmproj_size_bytes != Some(projector.size_bytes)
+    {
+        return None;
+    }
+    let local = local_artifact_state(projector, &expected_path).ok()?;
+    local.verified.then(|| VerifiedVisionProjector {
+        path: expected_path,
+        sha256: projector.sha256.to_string(),
+        size_bytes: projector.size_bytes,
+    })
 }
 
 pub fn install_candidate(id: &str) -> Result<(), AppError> {
@@ -221,7 +268,7 @@ pub(super) fn registry_summary() -> String {
                 .iter()
                 .map(|entry| {
                     format!(
-                        "- {}{} | status: {} | evidence: {} | sha256: {} | path: {}",
+                        "- {}{} | status: {} | vision: {} | evidence: {} | sha256: {} | path: {}",
                         entry.id,
                         if selected_id.as_deref() == Some(entry.id.as_str()) {
                             " | default"
@@ -229,6 +276,7 @@ pub(super) fn registry_summary() -> String {
                             ""
                         },
                         entry.status,
+                        entry.vision_status,
                         entry.evidence_status,
                         entry.artifact_sha256,
                         entry.artifact_path
@@ -314,7 +362,34 @@ pub(super) fn registry_entry_json(
         promotion,
         &artifact_path,
         evidence_path.as_deref(),
+        &local_registry_vision(candidate),
     )
+}
+
+fn local_registry_vision(candidate: &ModelManifestEntry) -> RegistryVisionState {
+    let Some(projector) = source_backed_vision_projector(candidate) else {
+        return RegistryVisionState {
+            status: "unavailable".to_string(),
+            mmproj_path: None,
+            mmproj_sha256: None,
+            mmproj_size_bytes: None,
+        };
+    };
+    let path = vision_projector_artifact_path(candidate, projector);
+    match local_artifact_state(projector, &path) {
+        Ok(state) if state.verified => RegistryVisionState {
+            status: "ready".to_string(),
+            mmproj_path: Some(path.display().to_string()),
+            mmproj_sha256: Some(projector.sha256.to_string()),
+            mmproj_size_bytes: Some(projector.size_bytes),
+        },
+        _ => RegistryVisionState {
+            status: "unavailable".to_string(),
+            mmproj_path: None,
+            mmproj_sha256: None,
+            mmproj_size_bytes: None,
+        },
+    }
 }
 
 fn now_ms_u64() -> u64 {

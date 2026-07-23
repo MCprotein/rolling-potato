@@ -9,7 +9,9 @@ use crate::adapters::filesystem::layout as paths;
 use crate::adapters::llama_cpp::install::{self, selected_release_artifact, LLAMA_CPP_RELEASE};
 use crate::foundation::integrity as checksum;
 use crate::foundation::serialization::escape_string_content;
-use crate::runtime_core::inference::backend::{BackendAdapter, BackendChatSampling};
+use crate::runtime_core::inference::backend::{
+    BackendAdapter, BackendChatInput, BackendChatSampling,
+};
 
 pub(crate) const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 pub(crate) const DEFAULT_HOST: &str = "127.0.0.1";
@@ -205,9 +207,26 @@ pub(crate) fn first_http_status_line(response: &[u8]) -> Option<String> {
     std::str::from_utf8(line).ok().map(str::to_string)
 }
 
+#[cfg(test)]
 pub(crate) fn chat_request_body(
     model_path: &Path,
     prompt: &str,
+    max_tokens: u32,
+    sampling: &BackendChatSampling,
+    stream: bool,
+) -> String {
+    chat_request_body_for_input(
+        model_path,
+        &BackendChatInput::text(prompt),
+        max_tokens,
+        sampling,
+        stream,
+    )
+}
+
+pub(crate) fn chat_request_body_for_input(
+    model_path: &Path,
+    input: &BackendChatInput,
     max_tokens: u32,
     sampling: &BackendChatSampling,
     stream: bool,
@@ -229,16 +248,58 @@ pub(crate) fn chat_request_body(
     } else {
         ""
     };
+    let user_content = if input.images.is_empty() {
+        format!("\"{}\"", escape_string_content(&input.text))
+    } else {
+        let mut parts = Vec::with_capacity(input.images.len() + 1);
+        if !input.text.trim().is_empty() {
+            parts.push(format!(
+                "{{\"type\":\"text\",\"text\":\"{}\"}}",
+                escape_string_content(&input.text)
+            ));
+        }
+        parts.extend(input.images.iter().map(|image| {
+            format!(
+                "{{\"type\":\"image_url\",\"image_url\":{{\"url\":\"data:{};base64,{}\"}}}}",
+                escape_string_content(&image.mime_type),
+                encode_base64(&image.bytes)
+            )
+        }));
+        format!("[{}]", parts.join(","))
+    };
     format!(
-        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}{}}}",
+        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":{}}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}{}}}",
         escape_string_content(system_prompt),
-        escape_string_content(prompt),
+        user_content,
         max_tokens,
         sampling.temperature,
         sampling.top_p,
         template_options,
         stream_options
     )
+}
+
+fn encode_base64(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let first = chunk[0];
+        let second = chunk.get(1).copied().unwrap_or(0);
+        let third = chunk.get(2).copied().unwrap_or(0);
+        encoded.push(ALPHABET[(first >> 2) as usize] as char);
+        encoded.push(ALPHABET[(((first & 0b11) << 4) | (second >> 4)) as usize] as char);
+        encoded.push(if chunk.len() > 1 {
+            ALPHABET[(((second & 0b1111) << 2) | (third >> 6)) as usize] as char
+        } else {
+            '='
+        });
+        encoded.push(if chunk.len() > 2 {
+            ALPHABET[(third & 0b11_1111) as usize] as char
+        } else {
+            '='
+        });
+    }
+    encoded
 }
 
 pub(crate) fn probe_version(discovery: &BackendDiscovery) -> BackendVersionProbe {
@@ -468,6 +529,7 @@ pub(crate) fn is_executable(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime_core::inference::backend::BackendChatImage;
 
     #[test]
     fn health_status_line_does_not_require_connection_eof() {
@@ -532,5 +594,43 @@ mod tests {
         );
 
         assert!(!body.contains("chat_template_kwargs"));
+    }
+
+    #[test]
+    fn multimodal_request_uses_openai_image_content_parts() {
+        let input = BackendChatInput {
+            text: "이 이미지의 오류를 설명해줘".to_string(),
+            images: vec![BackendChatImage {
+                display_name: "screen.png".to_string(),
+                mime_type: "image/png".to_string(),
+                sha256: "a".repeat(64),
+                bytes: b"abc".to_vec(),
+            }],
+        };
+
+        let body = chat_request_body_for_input(
+            Path::new("gemma-4-E4B_q4_0-it.gguf"),
+            &input,
+            64,
+            &BackendChatSampling {
+                temperature: 0.1,
+                top_p: 0.8,
+            },
+            true,
+        );
+
+        assert!(body.contains("\"type\":\"text\""));
+        assert!(body.contains("\"type\":\"image_url\""));
+        assert!(body.contains("data:image/png;base64,YWJj"));
+        assert!(!body.contains("screen.png"));
+    }
+
+    #[test]
+    fn base64_encoder_matches_rfc_4648_padding_vectors() {
+        assert_eq!(encode_base64(b""), "");
+        assert_eq!(encode_base64(b"f"), "Zg==");
+        assert_eq!(encode_base64(b"fo"), "Zm8=");
+        assert_eq!(encode_base64(b"foo"), "Zm9v");
+        assert_eq!(encode_base64(b"foobar"), "Zm9vYmFy");
     }
 }

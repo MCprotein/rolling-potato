@@ -5,6 +5,29 @@ pub(crate) mod lifecycle;
 
 pub(crate) const MAX_CHAT_TIMEOUT_MS: u32 = 300_000;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BackendChatImage {
+    pub(crate) display_name: String,
+    pub(crate) mime_type: String,
+    pub(crate) sha256: String,
+    pub(crate) bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BackendChatInput {
+    pub(crate) text: String,
+    pub(crate) images: Vec<BackendChatImage>,
+}
+
+impl BackendChatInput {
+    pub(crate) fn text(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            images: Vec::new(),
+        }
+    }
+}
+
 pub(crate) trait BackendAdapter {
     fn id(&self) -> &'static str;
     fn binary_name(&self) -> &'static str;

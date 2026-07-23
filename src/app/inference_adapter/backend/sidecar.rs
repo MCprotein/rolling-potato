@@ -129,12 +129,22 @@ pub fn status_report() -> Result<String, AppError> {
     };
 
     Ok(format!(
-        "backend status\n- status: {}\n- backend: {}\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- health: {}\n- health error: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}\n- sidecar record: {}",
+        "backend status\n- status: {}\n- backend: {}\n- pid: {}\n- binary: {}\n- model: {}\n- vision: {}\n- mmproj: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- health: {}\n- health error: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}\n- sidecar record: {}",
         status,
         record.backend_id,
         record.pid,
         record.binary_path.display(),
         record.model_path.display(),
+        if record.mmproj_path.is_some() {
+            "ready"
+        } else {
+            "unavailable (text-ready)"
+        },
+        record
+            .mmproj_path
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "없음".to_string()),
         record.host,
         record.port,
         display_optional_u32(record.ctx_size),
