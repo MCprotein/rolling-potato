@@ -738,3 +738,6 @@
   outcome block의 내용과 별도 ledger event delta를 검증합니다.
 - 선택형 명령의 native test는 과거의 텍스트 report가 아니라 현재 picker 제목,
   항목, 닫기 동작을 검증합니다.
+- Candidate 라벨을 적용하기 전에 remote branch ref와 `refs/pull/<N>/head`가 모두
+  candidate SHA와 같은지 확인합니다. Pull ref가 뒤처졌다면 stale run을 취소하고
+  새 branch push가 반영될 때까지 잘못된 SHA로 전체 검증을 시작하지 않습니다.
