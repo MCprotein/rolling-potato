@@ -10,6 +10,10 @@ const COMMANDS: &[TerminalSuggestion] = &[
         description: "현재 대화 컨텍스트 압축",
     },
     TerminalSuggestion {
+        command: "/search <질문>",
+        description: "인터넷 검색 후 출처와 함께 답변",
+    },
+    TerminalSuggestion {
         command: "/update",
         description: "최신 버전 확인 및 업데이트",
     },

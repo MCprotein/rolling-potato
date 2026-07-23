@@ -157,9 +157,11 @@ rpotato
 ```
 
 Running `rpotato` without arguments starts the primary TUI. Plain text entered
-there is treated as a coding request. The line below the composer shows the
+there supports both general LLM questions and coding-agent requests. Questions
+that explicitly request web search or depend on current information use a bounded
+read-only search and display source URLs. The line below the composer shows the
 current model, context usage, compaction checkpoint, backend state, and session.
-Normal TUI operations use `/model`, `/compact`, `/update`, `/status`, `/sessions`,
+Normal TUI operations use `/model`, `/compact`, `/search`, `/update`, `/status`, `/sessions`,
 `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`. Long responses remain
 available through `/more` and `/back` instead of being discarded at the viewport
 boundary. Context compaction starts automatically at 75% usage; `/compact`
@@ -184,8 +186,8 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The `v0.46.2` release is an active pre-1.0 runtime, not only a
-product-definition scaffold. Implemented areas include:
+The current main candidate builds on the `v0.46.2` release as an active pre-1.0
+runtime, not only a product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
 | --- | --- |
@@ -197,6 +199,7 @@ product-definition scaffold. Implemented areas include:
 | Collaboration | One bounded subagent and runtime-owned team execution |
 | Monitoring | CLI/TUI metrics, SQLite projection, benchmark records, static HTML export |
 | Interfaces | Primary conversation TUI, automation/diagnostic CLI, self-contained local HTML report |
+| General answers and web | General knowledge/calculation answers, automatic freshness routing, `/search`, bounded Exa MCP results with source URLs |
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete
@@ -213,7 +216,7 @@ approval where required, evidence recording, and verification.
 
 Key constraints:
 
-- user-facing natural-language output is Korean
+- user-facing natural-language output is Korean; language-neutral numbers and formulas remain valid
 - code blocks, paths, commands, and quoted logs remain unchanged when needed
 - mixed-language final output gets one regeneration attempt, then fails closed
 - imported plugin instructions cannot widen runtime permissions
@@ -242,7 +245,8 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The release history through `v0.46.2` is complete. The latest patch publishes
+The published release history through `v0.46.2` is complete. Current main adds
+general-purpose answers, bounded web grounding, and mixed-language repair. The latest release publishes
 the restored default conversation, stale failed-run recovery, small-model chat
 budget fix, and live slash-command palette behind a deterministic release gate. See
 [ROADMAP.md](ROADMAP.md).

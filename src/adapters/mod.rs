@@ -7,3 +7,4 @@ pub(crate) mod process;
 pub(crate) mod sqlite;
 pub(crate) mod system_install;
 pub(crate) mod terminal;
+pub(crate) mod web_search;

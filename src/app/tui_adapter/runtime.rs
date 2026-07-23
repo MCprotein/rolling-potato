@@ -82,6 +82,9 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             return Ok(reply);
         }
         ensure_runtime_ready()?;
+        if crate::app::web_search_adapter::should_search(request) {
+            return crate::app::web_search_adapter::answer(request);
+        }
         if conversation::is_conversational_request(request) {
             return conversation::reply(request);
         }

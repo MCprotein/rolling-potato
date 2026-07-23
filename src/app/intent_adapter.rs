@@ -7,7 +7,7 @@ use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
 use crate::runtime_core::patch::intent::{
     self as intent_domain, detect_constraints, display_bool, display_list, has_any,
-    model_action_body, ActionCandidate, IntentSkill, ParsedModelAction,
+    ActionCandidate, IntentSkill, ParsedModelAction,
 };
 
 pub use crate::runtime_core::patch::intent::IntentDecision;
@@ -103,42 +103,12 @@ fn model_transcript_content(
 }
 
 fn model_answer(response: &str) -> Result<String, AppError> {
-    let without_thinking = strip_thinking_sections(response);
-    let visible = without_thinking
-        .lines()
-        .filter(|line| model_action_body(line).is_none())
-        .collect::<Vec<_>>()
-        .join("\n");
-    let visible = visible.trim();
-    if visible.is_empty() {
-        return Err(AppError::blocked(
-            "run agent loop 차단\n- 이유: model의 읽기 전용 답변이 비어 있습니다.\n- 성공 보고: 생성하지 않음",
-        ));
-    }
-    if !crate::runtime_core::reporting::korean_guard::validate(visible) {
-        return Err(AppError::blocked(
-            "run agent loop 차단\n- 이유: model의 읽기 전용 답변이 한국어 출력 기준을 통과하지 못했습니다.\n- 성공 보고: 생성하지 않음",
-        ));
-    }
-    Ok(visible.to_string())
-}
-
-fn strip_thinking_sections(response: &str) -> String {
-    let mut remaining = response;
-    let mut visible = String::new();
-    loop {
-        let Some(start) = remaining.find("<think>") else {
-            visible.push_str(remaining);
-            break;
-        };
-        visible.push_str(&remaining[..start]);
-        let after_start = &remaining[start + "<think>".len()..];
-        let Some(end) = after_start.find("</think>") else {
-            break;
-        };
-        remaining = &after_start[end + "</think>".len()..];
-    }
-    visible
+    crate::app::inference_adapter::answer::validate_existing(response).map_err(|error| {
+        AppError::blocked(format!(
+            "run agent loop 차단\n- 이유: {}\n- 성공 보고: 생성하지 않음",
+            error.message
+        ))
+    })
 }
 
 fn checkpoint_failure_or_original(workflow: state::WorkflowRecord, original: AppError) -> AppError {

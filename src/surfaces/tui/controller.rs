@@ -108,6 +108,22 @@ pub(crate) fn run_controller(
                     Err(error) => error.message,
                 };
             }
+            ["/search"] => {
+                state.notice = "사용법: /search <인터넷에서 찾을 질문>".to_string();
+            }
+            ["/search", query @ ..] => {
+                let query = query.join(" ");
+                state.view = InteractiveView::Conversation;
+                state.push_turn(ConversationRole::User, line.trim());
+                state.notice = "검색 중 · 최신 웹 자료를 확인하고 있습니다…".to_string();
+                write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
+                let request = format!("인터넷에서 검색해줘: {query}");
+                let response = match runtime.submit_request(&request) {
+                    Ok(report) => report,
+                    Err(error) => format!("웹 검색을 완료하지 못했습니다.\n{}", error.message),
+                };
+                state.push_turn(ConversationRole::Assistant, response);
+            }
             ["/update"] => {
                 if !confirm(
                     terminal,

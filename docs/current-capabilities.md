@@ -86,6 +86,14 @@ limit, and retains up to four recent transcript records. Deterministic typed
 extraction remains available when the single bounded semantic rationale call
 cannot run.
 
+The primary TUI also has a lightweight general-answer route for knowledge,
+calculation, explanation, and writing questions that do not need repository tools.
+Explicit web-search requests and time-sensitive questions use a bounded read-only
+search through Exa's hosted MCP endpoint. The current question is sent to that
+service, returned text is treated as untrusted context, no web instruction gains
+execution authority, and the answer displays the HTTPS source URLs. Requests that
+say to stay offline do not use this route.
+
 See [runtime architecture](runtime-architecture.md),
 [command policy](command-policy.md), [hooks](hooks.md), and
 [skills](skills.md).
@@ -295,7 +303,8 @@ semantic status line in `model | context used/limit | compaction | backend |
 session` order. Korean and other wide-character turns wrap by terminal display
 cells, and `/more` plus `/back` keeps every long-response line reachable.
 Typing `/` opens the command palette before Enter; its entries share the same
-registry as `/help`.
+registry as `/help`. `/search <question>` forces the same read-only web-grounded
+answer path used by automatic freshness routing.
 Representative public entry points are:
 
 ```sh
@@ -317,8 +326,10 @@ See [TUI](tui.md), [CLI output style](cli-output-style.md), and
   unsupported platform paths fail closed before mutation.
 - Team workers return bounded evidence and non-executing patch proposals; team
   reconciliation does not apply worker-authored patches.
-- Plugin scripts, agents, external hooks, MCP/LSP, background processes,
-  remote connectors, and write grants do not receive execution authority.
+- Plugin scripts, agents, external hooks, arbitrary MCP/LSP connectors, background
+  processes, remote connectors, and write grants do not receive execution authority.
+  The fixed Exa search MCP exception returns bounded untrusted text only and cannot
+  dispatch tools or mutations.
 - `monitor prune` is dry-run only.
 - HTML monitoring is a local static export, not a server or remote dashboard.
 - `v0.42.0` is limited to user-local installation, environment repair, clean
