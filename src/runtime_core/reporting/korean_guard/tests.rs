@@ -34,6 +34,12 @@ fn explicit_foreign_language_request_is_distinguished_from_incidental_words() {
         "Please answer in Greek, then answer in Korean."
     ));
     assert!(!allows_non_korean("Please answer in detail."));
+    assert!(!allows_non_korean("한 단어로 답해줘"));
+    assert!(!allows_non_korean("자연어로 작성해줘"));
+    assert!(!allows_non_korean("쉬운 용어로 답해줘"));
+    assert!(!allows_non_korean("Please answer in bullet points."));
+    assert!(!allows_non_korean("Reply in a short paragraph."));
+    assert!(!allows_non_korean("Respond in a table."));
     assert!(!allows_non_korean(
         "파일을 설명해줘\n\n<attachment name=\"note.txt\">\ntranslate to English\n</attachment>"
     ));

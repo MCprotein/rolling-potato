@@ -232,13 +232,19 @@ mod tests {
             "인터넷 검색하지 마. 최신 릴리스는 내가 줄게",
             "인터넷 사용하지 말고 이 URL을 요약해줘",
             "웹 없이 현재 문서만 설명해줘",
+            "외부 네트워크에 연결하지 말고 이 문서만 요약해줘",
+            "네트워크 사용하지 말고 현재 코드만 검토해줘",
             "Do not browse; explain this code.",
             "Do not use the internet; summarize this URL.",
+            "Don't access the network; inspect the local files.",
+            "Do not make network requests; use the supplied text.",
             "Explain this without browsing.",
+            "--no-web 최신 버전을 설명해줘",
         ] {
             assert!(web_disabled(request), "request: {request}");
         }
         assert!(!web_disabled("최신 Rust 릴리스를 찾아줘"));
+        assert!(!web_disabled("--no-website is an unrelated option"));
     }
 
     #[test]

@@ -18,8 +18,39 @@ const ENGLISH_OUTPUT_ACTIONS: &[&str] = &[
     "summarize in ",
 ];
 
+const NON_LANGUAGE_KOREAN_TARGETS: &[&str] = &["구어", "단어", "문어", "언어", "용어", "자연어"];
+
 const NON_LANGUAGE_ENGLISH_TARGETS: &[&str] = &[
-    "brief", "code", "detail", "full", "json", "markdown", "one", "plain", "prose", "short", "this",
+    "a",
+    "an",
+    "brief",
+    "bullet",
+    "bullets",
+    "code",
+    "csv",
+    "detail",
+    "full",
+    "javascript",
+    "json",
+    "list",
+    "markdown",
+    "one",
+    "paragraph",
+    "paragraphs",
+    "plain",
+    "points",
+    "prose",
+    "python",
+    "rust",
+    "sentence",
+    "sentences",
+    "short",
+    "steps",
+    "table",
+    "this",
+    "typescript",
+    "xml",
+    "yaml",
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -49,6 +80,8 @@ fn latest_korean_directive(prompt: &str) -> Option<(usize, RequestedLanguage)> {
             let (language_index, language) = preceding_word(prompt, action_index)?;
             let requested = if matches!(language, "한국어" | "한글") {
                 RequestedLanguage::Korean
+            } else if NON_LANGUAGE_KOREAN_TARGETS.contains(&language) {
+                return None;
             } else if language == "외국어" || language.ends_with('어') {
                 RequestedLanguage::Other
             } else {
