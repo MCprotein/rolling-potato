@@ -1,6 +1,7 @@
 # Korean Output Guard
 
-User-facing final natural-language output must be Korean.
+User-facing final natural-language sentences must be Korean. Language-neutral
+answers such as numbers and formulas remain valid.
 
 ## Goal
 
@@ -29,10 +30,13 @@ Relaxed:
 
 1. Split the response by Markdown block.
 2. Exclude fenced code blocks from checks.
-3. Treat inline code, paths, and command tokens through an allowlist.
-4. Detect English, Chinese, or Japanese leakage in natural-language sentences.
-5. If leakage is detected, regenerate once with stricter Korean-only instruction.
-6. If it still fails, fail closed with a Korean error message.
+3. Accept language-neutral numbers, formulas, punctuation, inline code, paths,
+   and command tokens without requiring a Hangul character.
+4. Allow ordinary English technical terms inside an otherwise Korean sentence.
+5. Detect full English, Chinese, or Japanese sentence leakage.
+6. If leakage is detected, rewrite once in Korean while preserving facts, code,
+   numbers, and URLs.
+7. If it still fails, keep any safe Korean projection or fail with a Korean error.
 
 The v0.29.0 runtime implements this contract as the reusable
 `korean_guard` module. Patch-loop errors and deterministic terminal reports use
@@ -50,12 +54,14 @@ Allowed examples:
 - confirmed license identifier
 - `llama.cpp`
 - quoted original error log
+- `15`, `3.14`, or `x = 3`
+- ordinary technical terms inside Korean prose
 
 Not allowed:
 
 - whole explanation switching to English
 - unnecessary Chinese/Japanese sentences
-- final report headings such as "Summary" or "Next steps"
+- a full foreign-language paragraph inserted into a Korean answer
 
 ## Failure Message
 
@@ -74,6 +80,8 @@ Test fixtures:
 - pure Korean passes
 - English inside code block allowed
 - file path allowed
+- number/formula-only answer allowed
+- Korean sentence with ordinary technical terms allowed
 - English explanation blocked
 - Chinese sentence blocked
 - Japanese sentence blocked

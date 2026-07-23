@@ -179,7 +179,7 @@ fn model_answer_fails_closed_on_non_korean_natural_language() {
     .unwrap_err();
 
     assert_eq!(error.code, 3);
-    assert!(error.message.contains("한국어 출력 기준"));
+    assert!(error.message.contains("한국어 재작성이 필요"));
     assert!(!error.message.contains("English answer"));
 }
 
@@ -191,7 +191,9 @@ fn model_answer_fails_closed_when_only_action_contract_is_present() {
     .unwrap_err();
 
     assert_eq!(error.code, 3);
-    assert!(error.message.contains("답변이 비어 있습니다"));
+    assert!(error
+        .message
+        .contains("표시 가능한 답변을 생성하지 않았습니다"));
 }
 
 #[test]

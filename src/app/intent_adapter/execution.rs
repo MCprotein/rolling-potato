@@ -212,18 +212,25 @@ pub(super) fn run_with_decision(
         model_action.status,
         None,
     )?;
-    let model_transcript = match model_transcript_content(&run.response, &model_action) {
-        Ok(content) => content,
-        Err(error) => {
-            skill_runtime.transition(skill::SkillState::Failed)?;
-            skill_runtime.store_in_workflow(&mut workflow);
-            workflow.phase = "failed".to_string();
-            workflow.failure_reason = "model-answer-guard-failed".to_string();
-            workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
-            state::clear_terminal_workflow_pointer(&workflow)?;
-            return Err(error);
-        }
-    };
+    let model_transcript =
+        match model_transcript_content(&run.response, &model_action).or_else(|error| {
+            if is_non_mutating_action(&model_action.kind) {
+                crate::app::inference_adapter::answer::repair_existing(&run.response)
+            } else {
+                Err(error)
+            }
+        }) {
+            Ok(content) => content,
+            Err(error) => {
+                skill_runtime.transition(skill::SkillState::Failed)?;
+                skill_runtime.store_in_workflow(&mut workflow);
+                workflow.phase = "failed".to_string();
+                workflow.failure_reason = "model-answer-guard-failed".to_string();
+                workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
+                state::clear_terminal_workflow_pointer(&workflow)?;
+                return Err(error);
+            }
+        };
     transcript::record_workflow_turn(
         &workflow,
         "model",

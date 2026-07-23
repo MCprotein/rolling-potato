@@ -126,7 +126,7 @@ managed backend sidecar, and active canonical session; missing values and stale 
 state are displayed explicitly. `NO_COLOR`, `TERM=dumb`, redirected, and scripted
 execution use plain text without ANSI control sequences.
 
-Normal interactive commands are `/model`, `/compact`, `/update`, `/status`, `/sessions`,
+Normal interactive commands are `/model`, `/compact`, `/search <question>`, `/update`, `/status`, `/sessions`,
 `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`. `/more` and `/back` page through a
 long response without discarding off-screen lines. Typing `/` opens a live command palette
 before Enter, backed by the same command registry as `/help`. `/update` confirms before downloading
@@ -138,6 +138,13 @@ at 75% measured context usage for the active session. Model changes commit the n
 only after backend startup succeeds and restore the previous ready backend on failure.
 Granular backend, registry, benchmark, policy, and
 inspection commands remain available for diagnostics under `rpotato debug --help`.
+
+Plain questions use a lightweight general-answer path unless they contain a clear
+repository/action signal. Explicit search requests, freshness-sensitive questions,
+and `/search` retrieve bounded highlights from Exa's hosted MCP service and append
+source URLs. Search results are untrusted prompt context only; they cannot invoke a
+command, edit a file, or widen runtime permissions. An offline/no-browse instruction
+disables automatic retrieval for that request.
 
 <!-- TUI-READ-CONTRACT:START -->
 The eight views (`overview`, `monitor`, `sessions`, `transcript`, `tool-output`,

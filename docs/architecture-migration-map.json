@@ -1657,6 +1657,21 @@
       ]
     },
     {
+      "path": "src/adapters/web_search.rs",
+      "slices": [
+        {
+          "responsibility": "bounded read-only web search transport and source extraction",
+          "target": "src/adapters/web_search.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/process/mod.rs",
       "slices": [
         {
@@ -2180,6 +2195,22 @@
             "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/benchmark.rs",
             "src/app/inference_adapter/model.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/answer.rs",
+      "slices": [
+        {
+          "responsibility": "visible model answer cleanup, validation, and bounded Korean repair",
+          "target": "src/app/inference_adapter/answer.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/answer.rs",
+            "src/runtime_core/reporting/korean_guard.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3079,6 +3110,22 @@
             "src/app/intent_adapter.rs",
             "src/app/intent_adapter/execution.rs",
             "src/app/intent_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "web-search routing, untrusted grounding context, and visible source composition",
+          "target": "src/app/web_search_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/app/web_search_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7861,6 +7908,12 @@
       ]
     },
     {
+      "path": "src/adapters/web_search.rs",
+      "responsibilities": [
+        "bounded read-only web search transport and source extraction"
+      ]
+    },
+    {
       "path": "src/adapters/process/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -8044,6 +8097,12 @@
       "path": "src/app/inference_adapter.rs",
       "responsibilities": [
         "concrete inference adapter module wiring"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/answer.rs",
+      "responsibilities": [
+        "visible model answer cleanup, validation, and bounded Korean repair"
       ]
     },
     {
@@ -8370,6 +8429,12 @@
       "path": "src/app/intent_adapter.rs",
       "responsibilities": [
         "intent facade, model answer and evidence gates, and agent prompt composition"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter.rs",
+      "responsibilities": [
+        "web-search routing, untrusted grounding context, and visible source composition"
       ]
     },
     {

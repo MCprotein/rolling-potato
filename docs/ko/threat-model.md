@@ -85,7 +85,11 @@
 
 - local backend 기본값
 - telemetry 없음
-- remote adapter opt-in
+- 웹 검색은 명시적 요청이나 최신성이 필요한 경우에만 현재 질문을 고정된 Exa MCP
+  endpoint로 전송합니다. 저장소 범위 요청은 웹 사용을 명시하지 않으면 local에 남고,
+  offline/no-browse 지시는 검색을 비활성화합니다.
+- 제한된 검색 highlight는 신뢰하지 않는 text이며 command, file, permission 권한을
+  얻지 못합니다.
 - logs redaction
 - local user와 visible/normalized model/tool/evidence turn만 영속화하고 전체 backend prompt, hidden response, raw source body는 제외
 

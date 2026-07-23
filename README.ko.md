@@ -154,10 +154,12 @@ Windows에서 설치된 binary가 자기 자신을 지우는 경우에는 현재
 rpotato
 ```
 
-인자가 없는 `rpotato`가 기본 TUI를 시작합니다. 일반 텍스트를 입력하면 코딩
-요청으로 처리합니다. Composer 아래 line에는 현재 model, context 사용량,
+인자가 없는 `rpotato`가 기본 TUI를 시작합니다. 일반 텍스트로 범용 LLM 질문과
+코딩 에이전트 요청을 모두 처리합니다. 인터넷 검색을 명시하거나 최신 정보가
+필요한 질문은 제한된 읽기 전용 검색을 사용하고 출처 URL을 표시합니다. Composer
+아래 line에는 현재 model, context 사용량,
 compaction checkpoint, backend 상태, session이 표시됩니다. 일반 TUI 동작은
-`/model`, `/compact`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`,
+`/model`, `/compact`, `/search`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`,
 `/back`, `/clear`, `/help`, `/quit`을 사용합니다. 긴 응답은 viewport 밖의 line을
 버리지 않고 `/more`와 `/back`으로 이동합니다. Context 사용량 75%에서 자동 압축하며 `/compact`는
 immutable transcript를 정본으로 보존한 채 수동 checkpoint를 만듭니다.
@@ -180,8 +182,8 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-`v0.46.2` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
-pre-1.0 런타임입니다.
+현재 main candidate는 `v0.46.2` 릴리즈를 기반으로 하며 제품 정의만 있는
+scaffold가 아니라 실제 기능을 가진 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
 | --- | --- |
@@ -193,6 +195,7 @@ pre-1.0 런타임입니다.
 | 협업 | 제한된 subagent 하나와 runtime-owned team execution |
 | 모니터링 | CLI/TUI metric, SQLite projection, benchmark record, static HTML export |
 | 화면 | 기본 대화 TUI, 자동화·진단 CLI, self-contained local HTML report |
+| 범용 답변과 웹 | 일반 지식·계산 답변, 최신성 자동 routing, `/search`, 출처 URL을 표시하는 제한된 Exa MCP 검색 |
 
 장별 기능 지도, 대표 명령, 아직 완성되지 않은 경계는
 [docs/ko/current-capabilities.md](docs/ko/current-capabilities.md)에
@@ -209,7 +212,7 @@ policy, 필요한 승인, evidence 기록, 검증을 통과해야 합니다.
 
 주요 제약은 다음과 같습니다.
 
-- 사용자에게 보이는 자연어 출력은 한국어입니다.
+- 사용자에게 보이는 자연어 출력은 한국어이며 언어가 아닌 숫자와 수식은 그대로 허용합니다.
 - 코드 블록, 경로, 명령, 인용 로그는 필요하면 원문을 유지합니다.
 - 혼합 언어 최종 응답은 한 번만 재생성하고, 다시 실패하면 차단합니다.
 - 가져온 plugin instruction은 runtime 권한을 넓힐 수 없습니다.
@@ -238,7 +241,8 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-`v0.46.2`까지의 release history는 완료되었습니다. 최신 patch는 실제 기본 대화,
+게시된 `v0.46.2`까지의 release history는 완료되었습니다. 현재 main에는 범용 답변,
+제한된 웹 근거 검색, 혼합 언어 재작성이 추가되어 있습니다. 최신 release는 실제 기본 대화,
 오래 남은 실패 workflow 복구, 소형 모델 응답 budget 보존, live slash-command
 palette를 deterministic release gate와 함께 게시합니다.
 [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를

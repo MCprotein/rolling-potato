@@ -16,6 +16,7 @@ pub(crate) mod patch_adapter;
 pub(crate) mod policy_adapter;
 pub(crate) mod runtime_adapter;
 pub(crate) mod tui_adapter;
+pub(crate) mod web_search_adapter;
 pub(crate) mod workflow_adapter;
 
 pub fn run(args: impl IntoIterator<Item = String>) -> Result<(), AppError> {

@@ -29,6 +29,9 @@ impl StreamingGuard {
             output.push_str(&self.accept_unit(&unit)?);
         }
         if !self.saw_hangul {
+            if validate(&self.held) {
+                return Ok(std::mem::take(&mut self.held));
+            }
             self.held.clear();
             return Err(FAILURE);
         }
@@ -55,7 +58,7 @@ impl StreamingGuard {
             return Ok(self.emit_or_hold(unit));
         }
 
-        let line = classify_outside_text(unit, false);
+        let line = classify_outside_text(unit);
         if line.forbidden {
             self.pending.clear();
             self.held.clear();
@@ -109,6 +112,7 @@ where
 pub fn validate(text: &str) -> bool {
     let mut fenced = false;
     let mut saw_hangul = false;
+    let mut saw_language_neutral_content = false;
     for raw in text.lines() {
         let trimmed = raw.trim();
         if trimmed.starts_with("```") {
@@ -118,63 +122,72 @@ pub fn validate(text: &str) -> bool {
         if fenced {
             continue;
         }
-        if is_relaxed_technical_line(trimmed) {
-            continue;
-        }
-        let line = classify_outside_text(trimmed, true);
+        let line = classify_outside_text(trimmed);
         if line.forbidden {
             return false;
         }
         saw_hangul |= line.has_hangul;
+        saw_language_neutral_content |= line.language_neutral;
     }
-    saw_hangul
+    saw_hangul || saw_language_neutral_content
 }
 
 #[derive(Debug, Default)]
 struct OutsideTextClassification {
     forbidden: bool,
     has_hangul: bool,
+    language_neutral: bool,
 }
 
-fn classify_outside_text(
-    text: &str,
-    allow_runtime_technical_fields: bool,
-) -> OutsideTextClassification {
+fn classify_outside_text(text: &str) -> OutsideTextClassification {
     let mut result = OutsideTextClassification::default();
     for raw in text.lines() {
         let trimmed = raw.trim();
-        if allow_runtime_technical_fields && is_relaxed_technical_line(trimmed) {
-            continue;
-        }
         let line = strip_inline_code(trimmed);
         if line.chars().any(is_hiragana_katakana_or_han) {
             result.forbidden = true;
             return result;
         }
+        if is_safe_path_field(&line) {
+            result.language_neutral = true;
+            continue;
+        }
         result.has_hangul |= line.chars().any(is_hangul);
-        if !line.is_empty()
-            && line.chars().any(|ch| ch.is_ascii_alphabetic())
-            && line
-                .chars()
-                .all(|ch| ch.is_ascii() || ch.is_ascii_whitespace())
-            && line
-                .split(|ch: char| !ch.is_ascii_alphanumeric())
-                .filter(|word| !word.is_empty())
-                .any(|word| !allowed_ascii(word))
+        let foreign_words = foreign_word_count(&line);
+        if line
+            .split(is_hangul)
+            .any(|segment| foreign_word_count(segment) >= 3)
         {
             result.forbidden = true;
             return result;
         }
-        let words = line
-            .split(|ch: char| !ch.is_ascii_alphanumeric())
-            .filter(|word| word.len() > 1 && !allowed_ascii(word))
-            .count();
-        if words >= 4 {
-            result.forbidden = true;
-            return result;
-        }
+        result.language_neutral |= !line.is_empty()
+            && !result.has_hangul
+            && foreign_words == 0
+            && line.chars().any(|ch| !ch.is_whitespace());
     }
     result
+}
+
+fn foreign_word_count(text: &str) -> usize {
+    text.split(|ch: char| !ch.is_ascii_alphanumeric())
+        .filter(|word| {
+            word.len() > 1
+                && word
+                    .chars()
+                    .any(|character| character.is_ascii_alphabetic())
+                && !allowed_ascii(word)
+        })
+        .count()
+}
+
+fn is_safe_path_field(line: &str) -> bool {
+    line.strip_prefix("- path: ").is_some_and(|path| {
+        !path.is_empty()
+            && path
+                .chars()
+                .all(|character| !character.is_control() && !character.is_whitespace())
+    })
 }
 
 fn stricter_projection(text: &str) -> String {
@@ -183,41 +196,6 @@ fn stricter_projection(text: &str) -> String {
         .filter(|line| !line.chars().any(is_hiragana_katakana_or_han))
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-fn is_relaxed_technical_line(line: &str) -> bool {
-    let Some((label, _)) = line
-        .strip_prefix("- ")
-        .and_then(|line| line.split_once(":"))
-    else {
-        return false;
-    };
-    let label = label.to_ascii_lowercase();
-    [
-        "path",
-        "code",
-        "kind",
-        "effect",
-        "retry",
-        "intent",
-        " id",
-        "hash",
-        "sha",
-        "token",
-        "command",
-        "stdout",
-        "stderr",
-        "record",
-        "event",
-        "status",
-        "phase",
-        "pointer",
-        "revision",
-        "error",
-        "exit code",
-    ]
-    .iter()
-    .any(|marker| label == *marker || label.contains(marker))
 }
 
 fn strip_inline_code(line: &str) -> String {
@@ -322,6 +300,18 @@ mod tests {
         assert!(validate("작업이 안전하게 완료되었습니다."));
     }
     #[test]
+    fn numbers_and_math_answers_pass_without_forcing_hangul() {
+        for answer in ["15", "3.14", "x = 3", "42%"] {
+            assert!(validate(answer), "answer: {answer}");
+        }
+    }
+    #[test]
+    fn korean_with_ordinary_technical_terms_passes() {
+        assert!(validate(
+            "Rust ownership은 메모리 안전성을 위한 핵심 규칙이며 borrow checker는 별도 단계에서 검사합니다."
+        ));
+    }
+    #[test]
     fn english_code_block_passes() {
         assert!(validate(
             "검증 결과입니다.\n```text\nEnglish output here\n```"
@@ -334,6 +324,18 @@ mod tests {
     #[test]
     fn english_explanation_blocks() {
         assert!(!validate("This is a full English explanation."));
+    }
+    #[test]
+    fn korean_prefix_does_not_hide_an_english_sentence() {
+        assert!(!validate(
+            "답변: This is a complete English explanation with many words."
+        ));
+    }
+    #[test]
+    fn runtime_field_label_does_not_hide_an_english_sentence() {
+        assert!(!validate(
+            "한국어입니다.\n- status: This is an entirely English explanation."
+        ));
     }
     #[test]
     fn chinese_sentence_blocks() {
@@ -362,18 +364,18 @@ mod tests {
         );
     }
     #[test]
-    fn short_english_heading_is_blocked() {
-        assert!(!validate("Summary\n작업이 완료되었습니다."));
+    fn short_english_heading_does_not_hide_a_valid_korean_answer() {
+        assert!(validate("Summary\n작업이 완료되었습니다."));
     }
     #[test]
     fn empty_regeneration_is_not_accepted() {
         assert_eq!(guard_with_regeneration("Summary", String::new), FAILURE);
     }
     #[test]
-    fn runtime_projection_removes_forbidden_heading_once() {
+    fn runtime_projection_preserves_a_short_technical_heading() {
         assert_eq!(
             guard_or_failure("Summary\n작업이 완료되었습니다."),
-            "작업이 완료되었습니다."
+            "Summary\n작업이 완료되었습니다."
         );
     }
 
@@ -424,6 +426,17 @@ mod tests {
     }
 
     #[test]
+    fn streaming_guard_rejects_english_after_a_korean_prefix() {
+        let mut guard = StreamingGuard::default();
+
+        let error = guard
+            .push("답변: This is a complete English explanation with many words.")
+            .unwrap_err();
+
+        assert_eq!(error, FAILURE);
+    }
+
+    #[test]
     fn streaming_guard_emits_valid_sentences_and_guarded_code() {
         let mut guard = StreamingGuard::default();
         assert_eq!(guard.push("처리가 완료").unwrap(), "");
@@ -445,5 +458,12 @@ mod tests {
             "```text\nEnglish code\n```\n검증 결과입니다."
         );
         assert_eq!(guard.finish().unwrap(), "");
+    }
+
+    #[test]
+    fn streaming_guard_releases_a_numeric_answer_at_finish() {
+        let mut guard = StreamingGuard::default();
+        assert_eq!(guard.push("15").unwrap(), "");
+        assert_eq!(guard.finish().unwrap(), "15");
     }
 }

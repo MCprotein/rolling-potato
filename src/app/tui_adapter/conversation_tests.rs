@@ -66,6 +66,23 @@ fn ordinary_input_renders_as_user_and_assistant_turns() {
 }
 
 #[test]
+fn search_command_routes_the_question_and_renders_the_answer() {
+    let mut terminal = ScriptedTerminal::new(["/search Rust 공식 웹사이트는?", "/quit"]);
+    let mut runtime = ConversationRuntime::default();
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    let rendered = terminal.frames.join("\n");
+    assert_eq!(
+        runtime.requests,
+        ["인터넷에서 검색해줘: Rust 공식 웹사이트는?"]
+    );
+    assert!(rendered.contains("› /search Rust 공식 웹사이트는?"));
+    assert!(rendered.contains("검색 중 · 최신 웹 자료를 확인하고 있습니다…"));
+    assert!(rendered.contains("● 안녕하세요."));
+}
+
+#[test]
 fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let previous_root = std::env::var_os("RPOTATO_PROJECT_ROOT");

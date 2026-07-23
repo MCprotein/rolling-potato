@@ -1,39 +1,12 @@
-//! Narrow non-mutating conversation path for greetings and basic TUI questions.
+//! Non-mutating conversation path for general questions that do not need agent tools.
 
-use crate::app::inference_adapter::backend;
 use crate::foundation::error::AppError;
 
 const CONVERSATION_MAX_TOKENS: u32 = 384;
 
 pub(super) fn is_conversational_request(request: &str) -> bool {
     let trimmed = request.trim();
-    if trimmed.is_empty() || trimmed.chars().count() > 80 || has_agent_task_signal(trimmed) {
-        return false;
-    }
-    let lower = trimmed.to_ascii_lowercase();
-    let has_korean_signal = [
-        "안녕",
-        "반가워",
-        "반갑습니다",
-        "고마워",
-        "감사합니다",
-        "뭐 할 수 있어",
-        "무엇을 할 수 있어",
-        "사용법",
-        "도움말",
-    ]
-    .iter()
-    .any(|signal| lower.contains(signal));
-    let has_english_word = lower
-        .split(|ch: char| !ch.is_ascii_alphabetic())
-        .any(|word| matches!(word, "hello" | "hi" | "hey" | "thanks"));
-
-    is_model_identity_request(trimmed)
-        || is_agent_identity_request(trimmed)
-        || has_korean_signal
-        || has_english_word
-        || lower.contains("thank you")
-        || lower.contains("what can you do")
+    !trimmed.is_empty() && trimmed.chars().count() <= 2_000 && !has_agent_task_signal(trimmed)
 }
 
 pub(super) fn local_reply(request: &str, model: Option<&str>) -> Option<String> {
@@ -48,14 +21,14 @@ pub(super) fn local_reply(request: &str, model: Option<&str>) -> Option<String> 
         );
     }
     is_agent_identity_request(request)
-        .then(|| "저는 로컬에서 실행되는 코딩 에이전트 rpotato입니다.".to_string())
+        .then(|| "저는 로컬에서 실행되는 범용 AI·코딩 에이전트 rpotato입니다.".to_string())
 }
 
 pub(super) fn reply(request: &str) -> Result<String, AppError> {
     let prompt = format!(
-        "반드시 내부 추론 없이 첫 문장부터 짧고 자연스러운 한국어 최종 답변만 출력하세요. rpotato 로컬 코딩 에이전트로서 인사나 기본 사용 질문에만 답하세요. 사용자 입력: {request}"
+        "너는 rpotato라는 이름의 로컬 AI 에이전트다. 기반 모델의 개발사나 학습 출처를 자신의 정체성으로 소개하지 마라. 코딩뿐 아니라 일반 지식, 계산, 설명, 글쓰기 같은 범용 질문에도 직접 도움을 준다. 사용자가 요청한 내용에만 정확하고 자연스러운 한국어로 답하라. 기술 용어와 고유명사는 원문 표기를 허용하고, 숫자나 수식만으로 충분하면 그대로 답해도 된다. 모르는 최신 사실을 추측하지 말고 인터넷 검색이 필요하다고 알려라. 내부 추론, MODEL ACTION, 메타데이터는 출력하지 마라.\n\n사용자: {request}\n답변:"
     );
-    backend::chat_once(&prompt, Some(CONVERSATION_MAX_TOKENS)).map(|run| run.response)
+    crate::app::inference_adapter::answer::generate(&prompt, CONVERSATION_MAX_TOKENS)
 }
 
 pub(super) fn present_agent_report(report: &str) -> String {
@@ -130,9 +103,24 @@ fn is_model_identity_request(request: &str) -> bool {
 
 fn is_agent_identity_request(request: &str) -> bool {
     let lower = request.trim().to_ascii_lowercase();
-    ["넌 누구", "너는 누구", "누구야", "정체가 뭐", "who are you"]
-        .iter()
-        .any(|signal| lower.contains(signal))
+    let compact = lower
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect::<String>();
+    [
+        "넌누구",
+        "너는누구",
+        "누구야",
+        "정체가뭐",
+        "이름이뭐",
+        "이름이뭔",
+        "네이름",
+        "너이름",
+    ]
+    .iter()
+    .any(|signal| compact.contains(signal))
+        || lower.contains("who are you")
+        || lower.contains("what is your name")
 }
 
 fn report_field<'a>(report: &'a str, field: &str) -> Option<&'a str> {
@@ -146,36 +134,71 @@ fn report_field<'a>(report: &'a str, field: &str) -> Option<&'a str> {
 
 fn has_agent_task_signal(request: &str) -> bool {
     let lower = request.to_ascii_lowercase();
-    [
-        "fix",
-        "change",
-        "edit",
-        "implement",
-        "refactor",
-        "test",
-        "review",
-        "analyze",
-        "search",
-        "file",
-        "code",
+    let words = ascii_words(&lower);
+    let english_mutation = ["fix", "change", "edit", "implement", "refactor"]
+        .iter()
+        .any(|signal| words.contains(signal));
+    let english_failure = ["error", "crash", "crashes", "startup"]
+        .iter()
+        .any(|signal| words.contains(signal));
+    let english_local_scope = ["file", "code", "repo", "repository", "codebase", "project"]
+        .iter()
+        .any(|signal| words.contains(signal));
+    let english_action = is_english_action_request(&words);
+    let korean_action = [
+        "고쳐",
+        "수정",
+        "변경",
+        "구현",
+        "리팩터",
+        "테스트",
+        "리뷰",
+        "분석",
+        "찾아",
     ]
     .iter()
-    .any(|signal| lower.contains(signal))
-        || [
-            "고쳐",
-            "수정",
-            "변경",
-            "구현",
-            "리팩터",
-            "테스트",
-            "리뷰",
-            "분석",
-            "찾아",
-            "파일",
-            "코드",
-        ]
+    .any(|signal| request.contains(signal));
+    let korean_local_scope = [
+        "파일",
+        "코드",
+        "저장소",
+        "프로젝트",
+        "디렉터리",
+        "경로",
+        "소스",
+    ]
+    .iter()
+    .any(|signal| request.contains(signal));
+    let korean_local_action = ["알려", "보여", "열어", "확인", "구조", "내용", "어디"]
         .iter()
-        .any(|signal| request.contains(signal))
+        .any(|signal| request.contains(signal));
+
+    english_mutation
+        || english_failure
+        || (english_local_scope && english_action)
+        || korean_action
+        || (korean_local_scope && korean_local_action)
+}
+
+fn ascii_words(text: &str) -> Vec<&str> {
+    text.split(|character: char| !character.is_ascii_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .collect()
+}
+
+fn is_english_action_request(words: &[&str]) -> bool {
+    const ACTIONS: &[&str] = &[
+        "test", "review", "analyze", "search", "show", "open", "read", "find", "explain",
+    ];
+    words.first().is_some_and(|word| ACTIONS.contains(word))
+        || words
+            .windows(2)
+            .any(|window| window[0] == "please" && ACTIONS.contains(&window[1]))
+        || words.windows(3).any(|window| {
+            matches!(window[0], "can" | "could" | "would")
+                && window[1] == "you"
+                && ACTIONS.contains(&window[2])
+        })
 }
 
 #[cfg(test)]
@@ -183,7 +206,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn greetings_and_basic_help_use_conversation_without_stealing_coding_tasks() {
+    fn general_questions_use_conversation_without_stealing_agent_tasks() {
         for request in [
             "안녕",
             "안녕하세요!",
@@ -191,7 +214,13 @@ mod tests {
             "뭐 할 수 있어?",
             "hello",
             "넌 무슨모델이니",
-            "너는 누구야?",
+            "넌누구니?",
+            "대한민국의 수도는?",
+            "5 * 3은?",
+            "Rust ownership을 쉽게 설명해줘",
+            "What was the Manhattan Project?",
+            "What is a profile?",
+            "What is research?",
         ] {
             assert!(is_conversational_request(request), "{request}");
         }
@@ -200,6 +229,7 @@ mod tests {
             "src/main.rs 수정해줘",
             "이 오류를 분석해줘",
             "테스트를 실행해줘",
+            "이 저장소 구조를 알려줘",
             "this crashes on startup",
             "they need help with startup",
         ] {
@@ -214,8 +244,12 @@ mod tests {
             Some("현재 사용 중인 모델은 gemma-test입니다.".to_string())
         );
         assert_eq!(
-            local_reply("너는 누구야?", Some("ignored")),
-            Some("저는 로컬에서 실행되는 코딩 에이전트 rpotato입니다.".to_string())
+            local_reply("넌누구니?", Some("ignored")),
+            Some("저는 로컬에서 실행되는 범용 AI·코딩 에이전트 rpotato입니다.".to_string())
+        );
+        assert_eq!(
+            local_reply("이름이뭔데", Some("ignored")),
+            Some("저는 로컬에서 실행되는 범용 AI·코딩 에이전트 rpotato입니다.".to_string())
         );
         assert_eq!(
             local_reply("이 모델 코드를 수정해줘", Some("gemma-test")),

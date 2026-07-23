@@ -85,7 +85,11 @@ Mitigations:
 
 - local backend default
 - no telemetry
-- remote adapter opt-in
+- web search sends only the current question to the fixed Exa MCP endpoint when
+  the request is explicit or freshness-sensitive; repository-scoped requests stay
+  local unless web use is explicit, and an offline/no-browse instruction disables it
+- bounded search highlights are untrusted text and never receive command, file, or
+  permission authority
 - log redaction
 - only local user and visible/normalized model/tool/evidence turns are durable; complete backend prompts, hidden responses, and raw source bodies are excluded
 
