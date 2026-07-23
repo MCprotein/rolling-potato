@@ -186,7 +186,9 @@ fn classify_outside_text(text: &str) -> OutsideTextClassification {
 }
 
 fn foreign_word_count(text: &str) -> usize {
-    text.split(|ch: char| !ch.is_ascii_alphanumeric())
+    text.split_whitespace()
+        .filter(|token| !is_path_or_url_token(token))
+        .flat_map(|token| token.split(|ch: char| !ch.is_ascii_alphanumeric()))
         .filter(|word| {
             word.len() > 1
                 && word
@@ -195,6 +197,29 @@ fn foreign_word_count(text: &str) -> usize {
                 && !allowed_ascii(word)
         })
         .count()
+}
+
+fn is_path_or_url_token(token: &str) -> bool {
+    let token = token.trim_matches(|character: char| {
+        matches!(
+            character,
+            '(' | ')' | '[' | ']' | '{' | '}' | '<' | '>' | ',' | ';' | '"' | '\'' | '`'
+        )
+    });
+    if token.starts_with("https://") || token.starts_with("http://") {
+        return true;
+    }
+    let separator = if token.contains('/') {
+        '/'
+    } else if token.contains('\\') {
+        '\\'
+    } else {
+        return false;
+    };
+    token
+        .rsplit(separator)
+        .next()
+        .is_some_and(|name| name.contains('.') && name.len() > 2)
 }
 
 fn runtime_field_value(line: &str) -> Option<&str> {
@@ -386,6 +411,9 @@ mod tests {
     fn file_path_passes() {
         assert!(validate("파일 `src/main.rs`를 확인했습니다."));
         assert!(validate("패치가 완료되었습니다.\n- 적용 파일: src/lib.rs"));
+        assert!(validate(
+            "src/lib.rs를 읽기 전용으로 확인했으며 파일은 변경하지 않았습니다."
+        ));
     }
     #[test]
     fn english_explanation_blocks() {

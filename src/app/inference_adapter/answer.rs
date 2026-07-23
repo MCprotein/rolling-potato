@@ -19,9 +19,7 @@ pub(crate) fn generate(prompt: &str, max_tokens: u32) -> Result<String, AppError
 pub(crate) fn validate_existing(response: &str) -> Result<String, AppError> {
     let visible = visible_text(response);
     if visible.is_empty() {
-        return Err(AppError::blocked(
-            "모델이 표시 가능한 답변을 생성하지 않았습니다.",
-        ));
+        return Err(AppError::blocked("model의 읽기 전용 답변이 비어 있습니다."));
     }
     if !korean_guard::validate(&visible) {
         return Err(AppError::blocked(
@@ -34,9 +32,7 @@ pub(crate) fn validate_existing(response: &str) -> Result<String, AppError> {
 pub(crate) fn repair_existing(response: &str) -> Result<String, AppError> {
     let visible = visible_text(response);
     if visible.is_empty() {
-        return Err(AppError::blocked(
-            "모델이 표시 가능한 답변을 생성하지 않았습니다.",
-        ));
+        return Err(AppError::blocked("model의 읽기 전용 답변이 비어 있습니다."));
     }
     let bounded = visible
         .chars()
@@ -51,12 +47,6 @@ pub(crate) fn repair_existing(response: &str) -> Result<String, AppError> {
         return Ok(repaired);
     }
 
-    for candidate in [&repaired, &visible] {
-        let projected = korean_guard::guard_or_failure(candidate);
-        if korean_guard::validate(&projected) {
-            return Ok(projected);
-        }
-    }
     Err(AppError::blocked(
         "모델 답변의 다른 언어 혼입을 한 번 다시 작성했지만 정리하지 못했습니다.",
     ))
