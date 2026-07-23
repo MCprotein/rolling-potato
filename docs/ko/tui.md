@@ -152,10 +152,12 @@ dispatch 전에 capability 이유를 표시하고 차단합니다.
 
 명확한 저장소·action signal이 없는 일반 질문은 가벼운 범용 답변 경로를 사용합니다.
 명시적 검색 요청, 최신성이 필요한 질문, `검색해서`/`찾아봐` 같은 자연스러운 한국어
-표현, `/search`는 Exa hosted MCP service에서
-제한된 highlight를 가져와 출처 URL을 덧붙입니다. 검색 결과는 신뢰하지 않는 prompt
-context일 뿐 command 실행, 파일 수정, runtime 권한 확대를 할 수 없습니다. 해당
-요청에서 offline/no-browse를 지시하면 자동 retrieval을 사용하지 않습니다.
+표현, `/search`는 Brave Search REST API를 직접 호출해 제한된 snippet을 가져오고
+출처 URL을 덧붙입니다. 별도 MCP process나 provider SDK는 사용하지 않으며
+`BRAVE_SEARCH_API_KEY`는 environment에서만 읽습니다. HTTPS redirect는 허용하지
+않습니다. 검색 결과는 신뢰하지 않는 prompt context일 뿐 command 실행, 파일 수정,
+runtime 권한 확대를 할 수 없습니다. 해당 요청에서 offline/no-browse를 지시하면
+자동 retrieval을 사용하지 않습니다.
 
 <!-- TUI-READ-CONTRACT:START -->
 8개 view(`overview`, `monitor`, `sessions`, `transcript`, `tool-output`, `approvals`,

@@ -157,10 +157,11 @@ artifact and `mmproj` are supported.
 Plain questions use a lightweight general-answer path unless they contain a clear
 repository/action signal. Explicit search requests, freshness-sensitive questions,
 natural Korean forms such as `검색해서`/`찾아봐`, and `/search` retrieve bounded
-highlights from Exa's hosted MCP service and append
-source URLs. Search results are untrusted prompt context only; they cannot invoke a
-command, edit a file, or widen runtime permissions. An offline/no-browse instruction
-disables automatic retrieval for that request.
+highlights from Brave Search's direct REST API and append source URLs. The route
+requires `BRAVE_SEARCH_API_KEY`, uses no MCP process or provider SDK, and refuses
+redirects while carrying credentials. Search results are untrusted prompt context
+only; they cannot invoke a command, edit a file, or widen runtime permissions. An
+offline/no-browse instruction disables automatic retrieval for that request.
 
 <!-- TUI-READ-CONTRACT:START -->
 The eight views (`overview`, `monitor`, `sessions`, `transcript`, `tool-output`,

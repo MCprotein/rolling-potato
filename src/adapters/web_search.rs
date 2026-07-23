@@ -1,16 +1,18 @@
-//! Read-only web search through Exa's hosted Streamable HTTP MCP endpoint.
+//! Bounded read-only web search through Brave's direct REST API.
 
 use std::time::Duration;
 
 use crate::foundation::error::AppError;
-use crate::foundation::serialization::{self, Value};
+use crate::foundation::serialization::{self, Object, Value};
 
-const EXA_MCP_ENDPOINT: &str = "https://mcp.exa.ai/mcp";
-const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
-const MAX_MCP_RESPONSE_BYTES: u64 = 512 * 1024;
+const BRAVE_WEB_SEARCH_ENDPOINT: &str = "https://api.search.brave.com/res/v1/web/search";
+const MAX_SEARCH_RESPONSE_BYTES: u64 = 512 * 1024;
 const MAX_SEARCH_CONTEXT_CHARS: usize = 6 * 1024;
+const MAX_QUERY_CHARS: usize = 400;
+const MAX_QUERY_WORDS: usize = 50;
 const MAX_SOURCES: usize = 4;
 const MAX_SOURCE_URL_BYTES: usize = 2_048;
+const RESULT_COUNT: &str = "5";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct WebSearchEvidence {
@@ -18,188 +20,240 @@ pub(crate) struct WebSearchEvidence {
     pub(crate) sources: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SearchResult {
+    title: String,
+    url: String,
+    description: String,
+    extra_snippets: Vec<String>,
+}
+
 pub(crate) fn search(query: &str) -> Result<WebSearchEvidence, AppError> {
+    let query = validate_query(query)?;
+
+    #[cfg(debug_assertions)]
+    if let Some(fixture) = std::env::var_os("RPOTATO_TEST_WEB_SEARCH_JSON") {
+        return parse_search_response(&fixture.to_string_lossy());
+    }
+
+    let api_key = configured_api_key()?;
+    let config = brave_agent_config();
+    let agent = ureq::Agent::new_with_config(config);
+    let mut response = agent
+        .get(BRAVE_WEB_SEARCH_ENDPOINT)
+        .query("q", query)
+        .query("count", RESULT_COUNT)
+        .query("country", "KR")
+        .query("search_lang", "ko")
+        .query("ui_lang", "ko-KR")
+        .query("safesearch", "moderate")
+        .query("extra_snippets", "true")
+        .header("Accept", "application/json")
+        .header("X-Subscription-Token", &api_key)
+        .header("User-Agent", concat!("rpotato/", env!("CARGO_PKG_VERSION")))
+        .call()
+        .map_err(map_search_error)?;
+    if response.status().is_redirection() {
+        return Err(AppError::blocked(
+            "웹 검색 제공자가 redirect를 반환해 credential 보호를 위해 요청을 중단했습니다.",
+        ));
+    }
+    let body = response
+        .body_mut()
+        .with_config()
+        .limit(MAX_SEARCH_RESPONSE_BYTES)
+        .read_to_string()
+        .map_err(|_| AppError::runtime("웹 검색 응답을 제한된 크기로 읽지 못했습니다."))?;
+    parse_search_response(&body)
+}
+
+fn brave_agent_config() -> ureq::config::Config {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(30)))
+        .https_only(true)
+        .max_redirects(0)
+        .build()
+}
+
+fn validate_query(query: &str) -> Result<&str, AppError> {
     let query = query.trim();
     if query.is_empty() {
         return Err(AppError::usage("웹 검색어가 필요합니다."));
     }
-
-    #[cfg(debug_assertions)]
-    if let Some(fixture) = std::env::var_os("RPOTATO_TEST_WEB_SEARCH_SSE") {
-        return parse_tool_response(&fixture.to_string_lossy());
+    if query.chars().count() > MAX_QUERY_CHARS || query.split_whitespace().count() > MAX_QUERY_WORDS
+    {
+        return Err(AppError::usage(format!(
+            "웹 검색어는 최대 {MAX_QUERY_CHARS}자, {MAX_QUERY_WORDS}단어까지 허용합니다."
+        )));
     }
-
-    let config = ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(30)))
-        .https_only(true)
-        .build();
-    let agent = ureq::Agent::new_with_config(config);
-    let initialize = format!(
-        "{{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{{\"protocolVersion\":\"{MCP_PROTOCOL_VERSION}\",\"capabilities\":{{}},\"clientInfo\":{{\"name\":\"rpotato\",\"version\":\"{}\"}}}}}}",
-        env!("CARGO_PKG_VERSION")
-    );
-    let mut response = post_mcp(&agent, "initialize", None, None, &initialize)?;
-    let session_id = response
-        .headers()
-        .get("mcp-session-id")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_string)
-        .ok_or_else(|| AppError::runtime("웹 검색 MCP가 session id를 반환하지 않았습니다."))?;
-    read_bounded_body(&mut response, "웹 검색 MCP 초기화")?;
-
-    let initialized = "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}";
-    let mut response = post_mcp(
-        &agent,
-        "notifications/initialized",
-        None,
-        Some(&session_id),
-        initialized,
-    )?;
-    read_bounded_body(&mut response, "웹 검색 MCP 초기화 확인")?;
-
-    let escaped_query = serialization::escape_string_content(query);
-    let request = format!(
-        "{{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{{\"name\":\"web_search_exa\",\"arguments\":{{\"query\":\"{escaped_query}\",\"numResults\":5}}}}}}"
-    );
-    let mut response = post_mcp(
-        &agent,
-        "tools/call",
-        Some("web_search_exa"),
-        Some(&session_id),
-        &request,
-    )?;
-    let body = read_bounded_body(&mut response, "웹 검색 결과")?;
-    parse_tool_response(&body)
+    if query
+        .chars()
+        .any(|character| character.is_control() && !matches!(character, '\t' | '\n'))
+    {
+        return Err(AppError::usage(
+            "웹 검색어에는 제어 문자를 사용할 수 없습니다.",
+        ));
+    }
+    Ok(query)
 }
 
-fn post_mcp(
-    agent: &ureq::Agent,
-    method: &str,
-    name: Option<&str>,
-    session_id: Option<&str>,
-    body: &str,
-) -> Result<ureq::http::Response<ureq::Body>, AppError> {
-    let mut request = agent
-        .post(EXA_MCP_ENDPOINT)
-        .header("Content-Type", "application/json")
-        .header("Accept", "application/json, text/event-stream")
-        .header("MCP-Protocol-Version", MCP_PROTOCOL_VERSION)
-        .header("Mcp-Method", method)
-        .header("User-Agent", concat!("rpotato/", env!("CARGO_PKG_VERSION")));
-    if let Some(name) = name {
-        request = request.header("Mcp-Name", name);
-    }
-    if let Some(session_id) = session_id {
-        request = request.header("Mcp-Session-Id", session_id);
-    }
-    request
-        .send(body.as_bytes())
-        .map_err(|error| AppError::runtime(format!("웹 검색 연결 실패: {error}")))
+fn configured_api_key() -> Result<String, AppError> {
+    let primary = non_empty_env("BRAVE_SEARCH_API_KEY");
+    let alias = non_empty_env("BRAVE_API_KEY");
+    configured_api_key_from(primary.as_deref(), alias.as_deref())
 }
 
-fn read_bounded_body(
-    response: &mut ureq::http::Response<ureq::Body>,
-    context: &str,
-) -> Result<String, AppError> {
-    response
-        .body_mut()
-        .with_config()
-        .limit(MAX_MCP_RESPONSE_BYTES)
-        .read_to_string()
-        .map_err(|error| AppError::runtime(format!("{context} 읽기 실패: {error}")))
+fn non_empty_env(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
-fn parse_tool_response(body: &str) -> Result<WebSearchEvidence, AppError> {
-    let sse_payloads = body
-        .lines()
-        .filter_map(|line| line.strip_prefix("data:").map(str::trim))
-        .filter(|line| !line.is_empty())
-        .collect::<Vec<_>>();
-    let payload = sse_payloads
-        .iter()
-        .rev()
-        .find(|payload| {
-            matches!(
-                serialization::parse_value(payload, "Exa MCP SSE event"),
-                Ok(Value::Object(ref root))
-                    if root.contains_key("result") || root.contains_key("error")
-            )
-        })
-        .copied()
-        .unwrap_or_else(|| body.trim());
-    let Value::Object(root) = serialization::parse_value(payload, "Exa MCP tools/call")? else {
+fn configured_api_key_from(primary: Option<&str>, alias: Option<&str>) -> Result<String, AppError> {
+    match (primary, alias) {
+        (Some(primary), Some(alias)) if primary != alias => Err(AppError::usage(
+            "Brave Search API key 환경변수가 서로 다릅니다. BRAVE_SEARCH_API_KEY와 BRAVE_API_KEY 중 하나만 설정하거나 같은 값으로 맞추세요.",
+        )),
+        (Some(value), _) | (_, Some(value)) => Ok(value.to_string()),
+        (None, None) => Err(AppError::usage(
+            "웹 검색을 사용하려면 Brave Search API key가 필요합니다.\n- 권장: BRAVE_SEARCH_API_KEY 환경변수를 설정하세요.\n- key는 rpotato 설정 파일이나 로그에 저장되지 않습니다.",
+        )),
+    }
+}
+
+fn map_search_error(error: ureq::Error) -> AppError {
+    match error {
+        ureq::Error::StatusCode(401 | 403) => {
+            AppError::usage("Brave Search 인증에 실패했습니다. API key와 구독 상태를 확인하세요.")
+        }
+        ureq::Error::StatusCode(429) => {
+            AppError::runtime("Brave Search 요청 한도에 도달했습니다. 잠시 뒤 다시 시도하세요.")
+        }
+        ureq::Error::StatusCode(400..=499) => {
+            AppError::runtime("Brave Search가 요청을 거부했습니다.")
+        }
+        ureq::Error::StatusCode(500..=599) => {
+            AppError::runtime("Brave Search 서비스가 일시적으로 응답하지 않습니다.")
+        }
+        _ => AppError::runtime("웹 검색 제공자에 연결하지 못했습니다."),
+    }
+}
+
+fn parse_search_response(body: &str) -> Result<WebSearchEvidence, AppError> {
+    let Value::Object(root) = serialization::parse_value(body, "Brave Search 응답")? else {
         return Err(AppError::blocked(
             "웹 검색 응답 root 형식이 올바르지 않습니다.",
         ));
     };
-    if let Some(Value::Object(error)) = root.get("error") {
-        let message = match error.get("message") {
-            Some(Value::String(message)) => message.as_str(),
-            _ => "알 수 없는 MCP 오류",
-        };
-        return Err(AppError::runtime(format!("웹 검색 도구 오류: {message}")));
-    }
-    let Some(Value::Object(result)) = root.get("result") else {
-        return Err(AppError::blocked("웹 검색 응답에 result가 없습니다."));
+    let Some(Value::Object(web)) = root.get("web") else {
+        return Err(AppError::blocked("웹 검색 응답에 web 결과가 없습니다."));
     };
-    if matches!(result.get("isError"), Some(Value::Bool(true))) {
-        return Err(AppError::runtime(
-            "웹 검색 제공자가 요청을 처리하지 못했습니다.",
+    let Some(Value::Array(results)) = web.get("results") else {
+        return Err(AppError::blocked("웹 검색 응답에 web.results가 없습니다."));
+    };
+    let parsed = results
+        .iter()
+        .filter_map(parse_result)
+        .filter(|result| is_valid_https_source_url(&result.url))
+        .take(MAX_SOURCES)
+        .collect::<Vec<_>>();
+    if parsed.is_empty() {
+        return Err(AppError::blocked(
+            "웹 검색 결과에 검증 가능한 HTTPS 출처가 없습니다.",
         ));
     }
-    let Some(Value::Array(content)) = result.get("content") else {
-        return Err(AppError::blocked("웹 검색 응답에 content가 없습니다."));
+    evidence_from_results(&parsed)
+}
+
+fn parse_result(value: &Value) -> Option<SearchResult> {
+    let Value::Object(result) = value else {
+        return None;
     };
-    let text = content
-        .iter()
-        .filter_map(|item| match item {
-            Value::Object(item) => match (item.get("type"), item.get("text")) {
-                (Some(Value::String(kind)), Some(Value::String(text))) if kind == "text" => {
-                    Some(text.as_str())
-                }
+    let title = string_field(result, "title")?;
+    let url = string_field(result, "url")?;
+    let description = string_field(result, "description").unwrap_or_default();
+    let extra_snippets = match result.get("extra_snippets") {
+        Some(Value::Array(snippets)) => snippets
+            .iter()
+            .filter_map(|snippet| match snippet {
+                Value::String(snippet) => Some(snippet.clone()),
                 _ => None,
-            },
-            _ => None,
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    if text.trim().is_empty() {
-        return Err(AppError::blocked("웹 검색 결과가 비어 있습니다."));
+            })
+            .take(5)
+            .collect(),
+        _ => Vec::new(),
+    };
+    Some(SearchResult {
+        title,
+        url,
+        description,
+        extra_snippets,
+    })
+}
+
+fn string_field(object: &Object, key: &str) -> Option<String> {
+    match object.get(key) {
+        Some(Value::String(value)) if !value.trim().is_empty() => Some(value.trim().to_string()),
+        _ => None,
     }
-    let context = text
-        .chars()
-        .filter(|character| !character.is_control() || matches!(character, '\n' | '\t'))
-        .take(MAX_SEARCH_CONTEXT_CHARS)
-        .collect::<String>();
+}
+
+fn evidence_from_results(results: &[SearchResult]) -> Result<WebSearchEvidence, AppError> {
+    let mut context = String::new();
     let mut sources = Vec::new();
-    for url in context
-        .lines()
-        .filter_map(|line| line.trim().strip_prefix("URL: "))
-    {
-        let url = normalize_source_url(url);
-        if is_valid_https_source_url(&url) && !sources.iter().any(|stored| stored == &url) {
-            sources.push(url);
-            if sources.len() == MAX_SOURCES {
-                break;
-            }
+    for result in results {
+        if sources.iter().any(|stored| stored == &result.url) {
+            continue;
+        }
+        let mut section = format!(
+            "Title: {}\nURL: {}\nDescription: {}",
+            sanitize_context(&result.title),
+            result.url,
+            sanitize_context(&result.description)
+        );
+        for snippet in &result.extra_snippets {
+            section.push_str("\nSnippet: ");
+            section.push_str(&sanitize_context(snippet));
+        }
+        let separator = if context.is_empty() {
+            ""
+        } else {
+            "\n\n---\n\n"
+        };
+        let remaining = MAX_SEARCH_CONTEXT_CHARS.saturating_sub(context.chars().count());
+        if remaining <= separator.chars().count() {
+            break;
+        }
+        let bounded_section = section
+            .chars()
+            .take(remaining - separator.chars().count())
+            .collect::<String>();
+        if bounded_section.trim().is_empty() {
+            break;
+        }
+        context.push_str(separator);
+        context.push_str(&bounded_section);
+        sources.push(result.url.clone());
+        if context.chars().count() == MAX_SEARCH_CONTEXT_CHARS {
+            break;
         }
     }
     if sources.is_empty() {
         return Err(AppError::blocked(
-            "웹 검색 결과에 검증 가능한 HTTPS 출처가 없습니다.",
+            "웹 검색 결과가 작은 모델용 context 한도 안에 들어오지 않았습니다.",
         ));
     }
     Ok(WebSearchEvidence { context, sources })
 }
 
-fn normalize_source_url(url: &str) -> String {
-    let Some((scheme, remainder)) = url.split_once("://") else {
-        return url.to_string();
-    };
-    if !remainder.ends_with("//") {
-        return url.to_string();
-    }
-    format!("{scheme}://{}/", remainder.trim_end_matches('/'))
+fn sanitize_context(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| !character.is_control() || matches!(character, '\n' | '\t'))
+        .collect::<String>()
+        .trim()
+        .to_string()
 }
 
 fn is_valid_https_source_url(url: &str) -> bool {
@@ -223,81 +277,129 @@ fn is_valid_https_source_url(url: &str) -> bool {
 mod tests {
     use super::*;
 
+    const FIXTURE: &str = r#"{
+      "type":"search",
+      "web":{
+        "results":[
+          {
+            "title":"Rust 공식 사이트",
+            "url":"https://www.rust-lang.org/",
+            "description":"신뢰할 수 있는 설명",
+            "extra_snippets":["추가 문맥 1","추가 문맥 2"]
+          },
+          {
+            "title":"중복",
+            "url":"https://www.rust-lang.org/",
+            "description":"중복 결과"
+          },
+          {
+            "title":"위험",
+            "url":"http://example.com/",
+            "description":"HTTPS가 아님"
+          }
+        ]
+      }
+    }"#;
+
     #[test]
-    fn parses_bounded_text_and_https_sources_from_sse() {
-        let body = r#"event: message
-data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}
+    fn parses_brave_results_and_deduplicates_https_sources() {
+        let evidence = parse_search_response(FIXTURE).unwrap();
 
-event: message
-data: {"result":{"content":[{"type":"text","text":"Title: 공식 문서\nURL: https://example.com/docs\nHighlights:\n최신 정보입니다.\n\n---\n\nTitle: 중복\nURL: https://example.com/docs"}],"isError":false},"jsonrpc":"2.0","id":2}
-"#;
-
-        let evidence = parse_tool_response(body).unwrap();
-
-        assert!(evidence.context.contains("최신 정보입니다."));
-        assert_eq!(evidence.sources, vec!["https://example.com/docs"]);
+        assert!(evidence.context.contains("Rust 공식 사이트"));
+        assert!(evidence.context.contains("추가 문맥 2"));
+        assert_eq!(evidence.sources, vec!["https://www.rust-lang.org/"]);
+        assert!(!evidence.context.contains("HTTPS가 아님"));
     }
 
     #[test]
-    fn normalizes_duplicate_trailing_slashes_in_source_urls() {
-        let body = r#"data: {"result":{"content":[{"type":"text","text":"Title: Rust\nURL: https://rust-lang.org//"}],"isError":false},"jsonrpc":"2.0","id":2}"#;
-
-        let evidence = parse_tool_response(body).unwrap();
-
-        assert_eq!(evidence.sources, vec!["https://rust-lang.org/"]);
+    fn rejects_empty_oversized_and_control_character_queries() {
+        assert!(validate_query("").is_err());
+        assert!(validate_query(&"가".repeat(MAX_QUERY_CHARS + 1)).is_err());
+        assert!(validate_query(&vec!["word"; MAX_QUERY_WORDS + 1].join(" ")).is_err());
+        assert!(validate_query("safe\u{0}unsafe").is_err());
+        assert_eq!(validate_query(" Rust 검색 ").unwrap(), "Rust 검색");
     }
 
     #[test]
-    fn bounds_small_model_context_and_only_exposes_sources_inside_it() {
-        let text = format!(
-            "Title: 첫 결과\nURL: https://example.com/first\nHighlights:\n{}\nTitle: 잘린 결과\nURL: https://example.com/truncated",
-            "가".repeat(MAX_SEARCH_CONTEXT_CHARS)
-        );
-        let body = format!(
-            "data: {{\"result\":{{\"content\":[{{\"type\":\"text\",\"text\":\"{}\"}}],\"isError\":false}},\"jsonrpc\":\"2.0\",\"id\":2}}",
-            serialization::escape_string_content(&text)
-        );
+    fn missing_or_conflicting_api_key_is_actionable_without_values() {
+        let missing = configured_api_key_from(None, None).unwrap_err().message;
+        assert!(missing.contains("BRAVE_SEARCH_API_KEY"));
 
-        let evidence = parse_tool_response(&body).unwrap();
+        let conflict = configured_api_key_from(Some("secret-a"), Some("secret-b"))
+            .unwrap_err()
+            .message;
+        assert!(conflict.contains("서로 다릅니다"));
+        assert!(!conflict.contains("secret-a"));
+        assert!(!conflict.contains("secret-b"));
+        assert_eq!(
+            configured_api_key_from(Some("same"), Some("same")).unwrap(),
+            "same"
+        );
+    }
+
+    #[test]
+    fn credential_request_is_https_only_and_does_not_follow_redirects() {
+        let config = brave_agent_config();
+
+        assert!(config.https_only());
+        assert_eq!(config.max_redirects(), 0);
+    }
+
+    #[test]
+    fn maps_status_without_exposing_provider_response_or_key() {
+        for (status, expected) in [
+            (401, "인증"),
+            (403, "인증"),
+            (429, "한도"),
+            (400, "거부"),
+            (500, "일시적"),
+        ] {
+            let message = map_search_error(ureq::Error::StatusCode(status)).message;
+            assert!(message.contains(expected), "status={status}: {message}");
+            assert!(!message.contains("secret"));
+        }
+    }
+
+    #[test]
+    fn bounds_context_and_only_exposes_sources_inside_it() {
+        let long = SearchResult {
+            title: "첫 결과".to_string(),
+            url: "https://example.com/first".to_string(),
+            description: "가".repeat(MAX_SEARCH_CONTEXT_CHARS * 2),
+            extra_snippets: Vec::new(),
+        };
+        let truncated = SearchResult {
+            title: "잘린 결과".to_string(),
+            url: "https://example.com/truncated".to_string(),
+            description: "두 번째".to_string(),
+            extra_snippets: Vec::new(),
+        };
+
+        let evidence = evidence_from_results(&[long, truncated]).unwrap();
 
         assert!(evidence.context.chars().count() <= MAX_SEARCH_CONTEXT_CHARS);
         assert_eq!(evidence.sources, vec!["https://example.com/first"]);
     }
 
     #[test]
-    fn rejects_tool_errors_and_results_without_sources() {
-        let tool_error = r#"data: {"result":{"content":[],"isError":true},"jsonrpc":"2.0","id":2}"#;
-        assert!(parse_tool_response(tool_error).is_err());
-
-        let no_source = r#"data: {"result":{"content":[{"type":"text","text":"출처 없음"}]},"jsonrpc":"2.0","id":2}"#;
-        assert!(parse_tool_response(no_source).is_err());
-    }
-
-    #[test]
     fn rejects_malformed_or_deceptive_https_sources() {
-        let malformed = [
+        for url in [
             "https://",
             "https://user@example.com/docs",
             "https://example.com/a path",
             "https://example.com/\nforged",
-        ];
-        for url in malformed {
+            "http://example.com/docs",
+        ] {
             assert!(!is_valid_https_source_url(url), "url: {url}");
-        }
-        for url in &malformed[..3] {
-            let body = format!(
-                "data: {{\"result\":{{\"content\":[{{\"type\":\"text\",\"text\":\"Title: forged\\nURL: {}\"}}],\"isError\":false}},\"jsonrpc\":\"2.0\",\"id\":2}}",
-                serialization::escape_string_content(url)
-            );
-
-            assert!(parse_tool_response(&body).is_err(), "url: {url}");
         }
         assert!(is_valid_https_source_url("https://example.com/docs?q=rust"));
     }
 
     #[test]
-    fn live_web_search_smoke_when_explicitly_enabled() {
-        if std::env::var("RPOTATO_RUN_LIVE_WEB_SEARCH").as_deref() != Ok("1") {
+    fn live_web_search_smoke_when_explicitly_enabled_and_configured() {
+        if std::env::var("RPOTATO_RUN_LIVE_WEB_SEARCH").as_deref() != Ok("1")
+            || configured_api_key().is_err()
+        {
             return;
         }
 

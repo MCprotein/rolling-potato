@@ -90,12 +90,15 @@ deterministic typed extraction만으로 계속합니다.
 
 기본 TUI는 저장소 도구가 필요 없는 일반 지식, 계산, 설명, 글쓰기 질문을 위한
 가벼운 범용 답변 경로도 제공합니다. 인터넷 검색을 명시한 요청과 최신성이 필요한
-질문은 Exa hosted MCP endpoint의 제한된 읽기 전용 검색을 사용합니다. 현재 질문은
-해당 서비스로 전송되며, 반환 text는 신뢰하지 않는 context로만 취급하고 웹 문서의
-지시는 실행 권한을 얻지 못합니다. 최대 4개 출처가 6 KiB 근거 budget을 공유하며,
-runtime이 model이 만든 citation과 출처 block을 제거한 뒤 검증된 HTTPS 출처 link를
-직접 표시합니다. 요약이나 언어 보정이 사용할 수 없어도 성공한 검색의 출처 link는
-유지합니다. 사용자가 offline을 요청하면 이 경로를 사용하지 않습니다.
+질문은 Brave Search REST API를 직접 호출하는 제한된 읽기 전용 검색을 사용합니다.
+별도 MCP process나 provider SDK는 사용하지 않으며 `BRAVE_SEARCH_API_KEY`는
+environment에서만 읽고 저장하거나 출력하지 않습니다. 현재 질문은 HTTPS로 해당
+서비스에 전송되며 redirect는 허용하지 않습니다. 반환 text는 신뢰하지 않는
+context로만 취급하고 웹 문서의 지시는 실행 권한을 얻지 못합니다. 최대 4개 출처가
+6 KiB 근거 budget을 공유하며, runtime이 model이 만든 citation과 출처 block을 제거한
+뒤 검증된 HTTPS 출처 link를 직접 표시합니다. 요약이나 언어 보정이 사용할 수 없어도
+성공한 검색의 출처 link는 유지합니다. 사용자가 offline을 요청하면 이 경로를
+사용하지 않습니다.
 
 [런타임 아키텍처](runtime-architecture.md), [명령 정책](command-policy.md),
 [훅](hooks.md), [스킬](skills.md)을 참고하십시오.
@@ -334,8 +337,9 @@ rpotato debug --help
 - Team worker는 제한된 evidence와 non-executing patch proposal만 반환하고,
   team reconciliation은 worker-authored patch를 적용하지 않습니다.
 - Plugin script, agent, external hook, 임의 MCP/LSP connector, background process,
-  remote connector, write grant는 실행 권한을 얻지 못합니다. 고정된 Exa 검색 MCP
-  예외는 제한된 신뢰하지 않는 text만 반환하며 tool이나 mutation을 dispatch할 수 없습니다.
+  remote connector, write grant는 실행 권한을 얻지 못합니다. 직접 연결하는 Brave
+  검색 adapter는 제한된 신뢰하지 않는 text만 반환하며 tool이나 mutation을
+  dispatch할 수 없습니다.
 - `monitor prune`은 dry-run만 지원합니다.
 - HTML monitoring은 local static export이며 server나 remote dashboard가
   아닙니다.

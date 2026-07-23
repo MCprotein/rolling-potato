@@ -94,9 +94,12 @@ valid Korean lines before blocking an unusable response.
 The primary TUI also has a lightweight general-answer route for knowledge,
 calculation, explanation, and writing questions that do not need repository tools.
 Explicit web-search requests and time-sensitive questions use a bounded read-only
-search through Exa's hosted MCP endpoint. The current question is sent to that
-service, returned text is treated as untrusted context, no web instruction gains
-execution authority, and at most four sources share a 6 KiB evidence budget.
+request to Brave Search's direct REST endpoint when `BRAVE_SEARCH_API_KEY` is
+available. There is no MCP process, JSON-RPC session, or provider SDK. The current
+question is sent to that service, returned text is treated as untrusted context,
+no web instruction gains execution authority, and at most four sources share a
+6 KiB evidence budget. Credential-bearing requests are HTTPS-only and do not
+follow redirects; the key is not persisted or logged.
 The runtime removes model-made citations and source blocks, then displays the
 verified HTTPS source links itself. Successful retrieval still exposes those
 links if summarization or language repair is unusable. Requests that say to stay
@@ -342,8 +345,8 @@ See [TUI](tui.md), [CLI output style](cli-output-style.md), and
   reconciliation does not apply worker-authored patches.
 - Plugin scripts, agents, external hooks, arbitrary MCP/LSP connectors, background
   processes, remote connectors, and write grants do not receive execution authority.
-  The fixed Exa search MCP exception returns bounded untrusted text only and cannot
-  dispatch tools or mutations.
+  The fixed direct Brave Search exception returns bounded untrusted text only and
+  cannot dispatch tools or mutations.
 - `monitor prune` is dry-run only.
 - HTML monitoring is a local static export, not a server or remote dashboard.
 - `v0.42.0` is limited to user-local installation, environment repair, clean
