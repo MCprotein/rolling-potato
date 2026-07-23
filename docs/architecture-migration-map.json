@@ -3294,11 +3294,31 @@
             "src/runtime_core/policy/redaction.rs",
             "src/adapters/sqlite/ledger_projection.rs",
             "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/append.rs",
             "src/app/workflow_adapter/ledger/derived.rs",
             "src/app/workflow_adapter/ledger/query.rs",
             "src/app/workflow_adapter/ledger/storage.rs",
             "src/app/workflow_adapter/ledger/tests.rs",
             "src/app/workflow_adapter/ledger/writer.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/append.rs",
+      "slices": [
+        {
+          "responsibility": "durable runtime ledger JSONL append primitive",
+          "target": "src/app/workflow_adapter/ledger/append.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/ledger.rs",
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/append.rs",
+            "src/app/workflow_adapter/ledger/storage.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5325,7 +5345,7 @@
       "path": "src/runtime_core/workflow/storage_compat/ledger.rs",
       "slices": [
         {
-          "responsibility": "canonical event append and hashing",
+          "responsibility": "canonical event codec and hashing",
           "target": "src/runtime_core/workflow/storage_compat/ledger.rs",
           "release": "0.37.4",
           "state": "complete",
@@ -5373,7 +5393,7 @@
       "path": "src/runtime_core/workflow/storage_compat/transcript.rs",
       "slices": [
         {
-          "responsibility": "canonical transcript records",
+          "responsibility": "canonical transcript record codecs",
           "target": "src/runtime_core/workflow/storage_compat/transcript.rs",
           "release": "0.37.4",
           "state": "complete",
@@ -8725,6 +8745,12 @@
       ]
     },
     {
+      "path": "src/app/workflow_adapter/ledger/append.rs",
+      "responsibilities": [
+        "durable runtime ledger JSONL append primitive"
+      ]
+    },
+    {
       "path": "src/app/workflow_adapter/ledger/derived.rs",
       "responsibilities": [
         "project ledger, operation log, and SQLite sequence convergence from runtime authority"
@@ -9448,7 +9474,7 @@
     {
       "path": "src/runtime_core/workflow/storage_compat/ledger.rs",
       "responsibilities": [
-        "canonical event append and hashing"
+        "canonical event codec and hashing"
       ]
     },
     {
@@ -9466,7 +9492,7 @@
     {
       "path": "src/runtime_core/workflow/storage_compat/transcript.rs",
       "responsibilities": [
-        "canonical transcript records"
+        "canonical transcript record codecs"
       ]
     },
     {

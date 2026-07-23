@@ -1620,6 +1620,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let coordinator_tests =
         "src/runtime_core/workflow/application/transaction_coordinator/tests.rs";
     let ledger_adapter = "src/app/workflow_adapter/ledger.rs";
+    let ledger_append = "src/app/workflow_adapter/ledger/append.rs";
     let ledger_derived = "src/app/workflow_adapter/ledger/derived.rs";
     let ledger_query = "src/app/workflow_adapter/ledger/query.rs";
     let ledger_storage = "src/app/workflow_adapter/ledger/storage.rs";
@@ -1628,6 +1629,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
     for target in [
         ledger_adapter,
+        ledger_append,
         ledger_derived,
         ledger_query,
         ledger_storage,
@@ -1762,11 +1764,20 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     );
 
     let ledger = fs::read_to_string(ledger_adapter).unwrap();
+    let ledger_append = fs::read_to_string(ledger_append).unwrap();
     let ledger_derived_outputs = fs::read_to_string(ledger_derived).unwrap();
     let ledger_queries = fs::read_to_string(ledger_query).unwrap();
     let ledger_persistence = fs::read_to_string(ledger_storage).unwrap();
     let ledger_regressions = fs::read_to_string(ledger_tests).unwrap();
     let ledger_writes = fs::read_to_string(ledger_writer).unwrap();
+    assert!(
+        ledger.lines().any(|line| line == "mod append;"),
+        "ledger adapter does not register its append owner"
+    );
+    assert!(
+        ledger_append.contains("fn append_line") && ledger_append.contains("OpenOptions"),
+        "ledger append primitive is missing durable append ownership"
+    );
     assert!(
         ledger.lines().any(|line| line == "mod derived;"),
         "ledger adapter does not register its derived-output owner"
@@ -1884,6 +1895,10 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     assert!(
         ledger_persistence.lines().count() < 475,
         "ledger storage module regrew beyond its ownership boundary"
+    );
+    assert!(
+        ledger_append.lines().count() < 75,
+        "ledger append primitive regrew beyond its ownership boundary"
     );
     assert!(
         ledger_writes.lines().count() < 425,
@@ -3556,6 +3571,29 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
         runtime_tests.lines().count() < 1_100,
         "runtime regression module regrew beyond its ownership boundary"
     );
+}
+
+#[test]
+fn v03713_storage_compatibility_is_a_pure_codec_boundary() {
+    for owner in [
+        "src/runtime_core/workflow/storage_compat/ledger.rs",
+        "src/runtime_core/workflow/storage_compat/transcript.rs",
+    ] {
+        let source = fs::read_to_string(owner).unwrap();
+        for forbidden in [
+            "use std::fs",
+            "OpenOptions",
+            "std::io::Write",
+            ".exists()",
+            "fs::read",
+            "fs::create_dir",
+        ] {
+            assert!(
+                !source.contains(forbidden),
+                "storage compatibility codec owns filesystem behavior: {owner} -> {forbidden}"
+            );
+        }
+    }
 }
 
 #[test]

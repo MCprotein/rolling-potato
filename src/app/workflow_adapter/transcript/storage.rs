@@ -29,6 +29,25 @@ pub(super) fn load_record_path(path: &std::path::Path) -> Result<TranscriptRecor
     Ok(record)
 }
 
+pub(super) fn install_record(path: &Path, record: &TranscriptRecord) -> Result<String, AppError> {
+    let existing = match fs::read_to_string(path) {
+        Ok(body) => Some(body),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
+        Err(err) => {
+            return Err(AppError::blocked(format!(
+                "TranscriptRecord canonical reread 실패: {err}"
+            )))
+        }
+    };
+    let install = transcript_codec::canonical_install_bytes(record, existing.as_deref())?;
+    if let Some(bytes) = install {
+        crate::adapters::filesystem::atomic_write::atomic_replace_bytes(path, bytes.as_bytes())?;
+        Ok(bytes)
+    } else {
+        Ok(record.to_json())
+    }
+}
+
 pub(super) fn parse_transcript_record_body(body: &str) -> Result<TranscriptRecord, AppError> {
     transcript_codec::parse_record(body)
 }

@@ -1,8 +1,4 @@
-//! Canonical ledger DTOs, codecs, hashing, and append ownership.
-
-use std::fs::{self, OpenOptions};
-use std::io::Write;
-use std::path::Path;
+//! Canonical ledger DTOs, codecs, and hashing ownership.
 
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
@@ -117,11 +113,7 @@ pub(crate) fn event_chain_payload(event: &LedgerEvent, previous: &str) -> String
     )
 }
 
-pub(crate) fn append_canonical_event(
-    path: &Path,
-    event: &LedgerEvent,
-    previous: &str,
-) -> Result<String, AppError> {
+pub(crate) fn canonical_event_line(event: &LedgerEvent, previous: &str) -> (String, String) {
     let payload = event_chain_payload(event, previous);
     let event_hash = sha256_bytes(payload.as_bytes());
     let line = format!(
@@ -129,39 +121,7 @@ pub(crate) fn append_canonical_event(
         payload.trim_start_matches('{').trim_end_matches('}'),
         event_hash
     );
-    append_line(path, &line)?;
-    Ok(event_hash)
-}
-
-pub(crate) fn append_line(path: &Path, line: &str) -> Result<(), AppError> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|err| {
-            AppError::runtime(format!(
-                "디렉터리를 만들지 못했습니다: {} ({err})",
-                parent.display()
-            ))
-        })?;
-    }
-
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-        .map_err(|err| {
-            AppError::runtime(format!(
-                "파일을 열지 못했습니다: {} ({err})",
-                path.display()
-            ))
-        })?;
-
-    writeln!(file, "{line}").map_err(|err| {
-        AppError::runtime(format!(
-            "파일에 기록하지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })?;
-    file.sync_all()
-        .map_err(|err| AppError::runtime(format!("ledger sync 실패: {} ({err})", path.display())))
+    (line, event_hash)
 }
 
 pub(crate) fn sha256_bytes(bytes: &[u8]) -> String {

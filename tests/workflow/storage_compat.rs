@@ -1,5 +1,3 @@
-use std::cell::Cell;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -85,10 +83,7 @@ fn workflow_snapshot_and_pointer_bytes_round_trip_without_schema_drift() {
 }
 
 #[test]
-fn ledger_append_preserves_order_hash_chain_and_failure_boundary() {
-    let root = fixture_path("ledger");
-    fs::create_dir_all(&root).unwrap();
-    let path = root.join("runtime-ledger.jsonl");
+fn ledger_codec_preserves_order_and_hash_chain() {
     let first = ledger::LedgerEvent {
         event_id: "event-1".to_string(),
         ts_ms: 11,
@@ -108,17 +103,16 @@ fn ledger_append_preserves_order_hash_chain_and_failure_boundary() {
         details: "record_id=transcript-1".to_string(),
     };
 
-    let first_hash = ledger::append_canonical_event(&path, &first, "none").unwrap();
+    let (first_line, first_hash) = ledger::canonical_event_line(&first, "none");
     assert_eq!(first_hash, ledger::planned_event_hash(&first, "none"));
-    let second_hash = ledger::append_canonical_event(&path, &second, &first_hash).unwrap();
+    let (second_line, second_hash) = ledger::canonical_event_line(&second, &first_hash);
     assert_eq!(
         second_hash,
         ledger::planned_event_hash(&second, &first_hash)
     );
 
-    let lines = fs::read_to_string(&path).unwrap();
-    let parsed = lines
-        .lines()
+    let parsed = [first_line, second_line]
+        .iter()
         .map(|line| ledger::parse_event_line_strict(line).unwrap())
         .collect::<Vec<_>>();
     assert_eq!(
@@ -140,15 +134,6 @@ fn ledger_append_preserves_order_hash_chain_and_failure_boundary() {
         ledger::event_physical_hash(&parsed[1], &first_hash),
         second_hash
     );
-
-    let blocked_parent = root.join("blocked-parent");
-    fs::write(&blocked_parent, b"unchanged").unwrap();
-    let error =
-        ledger::append_canonical_event(&blocked_parent.join("ledger.jsonl"), &first, "none")
-            .unwrap_err();
-    assert_eq!(error.code, 1);
-    assert_eq!(fs::read(&blocked_parent).unwrap(), b"unchanged");
-    let _ = fs::remove_dir_all(root);
 }
 
 fn transcript_record(content: &str) -> transcript::TranscriptRecord {
@@ -177,9 +162,6 @@ fn transcript_record(content: &str) -> transcript::TranscriptRecord {
 
 #[test]
 fn transcript_install_is_byte_exact_idempotent_and_immutable() {
-    let root = fixture_path("transcript");
-    fs::create_dir_all(&root).unwrap();
-    let path = root.join("transcript.json");
     let record = transcript_record("canonical content");
     let expected = format!(
         "{{\"schema_version\":2,\"record_id\":\"transcript-storage\",\"project_id\":\"project-storage\",\"session_id\":\"session-storage\",\"workflow_id\":\"workflow-storage\",\"kind\":\"user\",\"causal_id\":\"request-storage\",\"content\":\"canonical content\",\"content_hash\":\"{}\",\"source_pointers\":[{{\"stable_ref\":\"src/lib.rs:1\",\"path\":\"src/lib.rs\",\"source_hash\":\"{}\"}}],\"recorded_at_ms\":21,\"tool_output_artifact\":null,\"artifact_hash\":\"{}\"}}",
@@ -190,27 +172,18 @@ fn transcript_install_is_byte_exact_idempotent_and_immutable() {
     assert_eq!(record.to_json(), expected);
     assert_eq!(transcript::parse_record(&expected).unwrap(), record);
 
-    let writes = Cell::new(0_u8);
-    let installed = transcript::install_record(&path, &record, |path, bytes| {
-        writes.set(writes.get() + 1);
-        fs::write(path, bytes).map_err(|err| AppError::runtime(err.to_string()))
-    })
-    .unwrap();
-    assert_eq!(installed, expected);
-    assert_eq!(writes.get(), 1);
-    assert_eq!(fs::read_to_string(&path).unwrap(), expected);
-
-    transcript::install_record(&path, &record, |_, _| {
-        writes.set(writes.get() + 1);
-        Ok(())
-    })
-    .unwrap();
-    assert_eq!(writes.get(), 1, "idempotent install must not rewrite");
+    assert_eq!(
+        transcript::canonical_install_bytes(&record, None).unwrap(),
+        Some(expected.clone())
+    );
+    assert_eq!(
+        transcript::canonical_install_bytes(&record, Some(&expected)).unwrap(),
+        None,
+        "idempotent install must not rewrite"
+    );
 
     let conflict = transcript_record("different canonical content");
-    let error = transcript::install_record(&path, &conflict, |_, _| Ok(())).unwrap_err();
+    let error = transcript::canonical_install_bytes(&conflict, Some(&expected)).unwrap_err();
     assert_eq!(error.code, 3);
     assert!(error.message.contains("immutable conflict"));
-    assert_eq!(fs::read_to_string(&path).unwrap(), expected);
-    let _ = fs::remove_dir_all(root);
 }
