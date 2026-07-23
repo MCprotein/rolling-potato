@@ -649,7 +649,9 @@ impl ModelArtifactFetchStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime_core::inference::model::manifest::find_candidate;
+    use crate::runtime_core::inference::model::manifest::{
+        find_candidate, source_backed_artifact, source_backed_vision_projector,
+    };
 
     const SHA_ZERO: &str = "0000000000000000000000000000000000000000000000000000000000000000";
     const SHA_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -688,5 +690,36 @@ mod tests {
         let second = vision_projector_part_path(candidate, projector(SHA_B));
 
         assert_ne!(first, second);
+    }
+
+    #[test]
+    fn evaluation_fetch_paths_stay_under_app_data() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let data_root =
+            std::env::temp_dir().join(format!("rpotato-fetch-path-test-{}", std::process::id()));
+        std::env::set_var("RPOTATO_DATA_HOME", &data_root);
+        std::env::set_var("RPOTATO_PROJECT_ROOT", data_root.join("project"));
+
+        let candidate = find_candidate("gemma-4-e4b").unwrap();
+        let artifact = source_backed_artifact(candidate).unwrap();
+        let projector = source_backed_vision_projector(candidate).unwrap();
+        let final_path = model_artifact_path(artifact);
+        let part_path = model_artifact_part_path(candidate);
+        let projector_path = vision_projector_artifact_path(candidate, projector);
+        let projector_part_path = vision_projector_part_path(candidate, projector);
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+
+        assert!(final_path.starts_with(data_root.join("models")));
+        assert!(part_path.starts_with(data_root.join("downloads")));
+        assert!(part_path.ends_with("gemma-4-e4b--model--gemma-4-E4B_q4_0-it.gguf.part"));
+        assert!(projector_path.starts_with(data_root.join("models")));
+        assert!(projector_path.ends_with("gemma-4-e4b--vision--gemma-4-E4B-it-mmproj.gguf"));
+        assert!(projector_part_path.starts_with(data_root.join("downloads")));
+        assert!(projector_part_path.ends_with(format!(
+            "gemma-4-e4b--vision--gemma-4-E4B-it-mmproj.gguf--{}.part",
+            &projector.sha256[..12]
+        )));
     }
 }
