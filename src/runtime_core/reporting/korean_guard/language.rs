@@ -18,47 +18,15 @@ const ENGLISH_OUTPUT_ACTIONS: &[&str] = &[
     "summarize in ",
 ];
 
-const FOREIGN_LANGUAGE_NAMES_KO: &[&str] = &[
-    "영어",
-    "일본어",
-    "중국어",
-    "프랑스어",
-    "독일어",
-    "스페인어",
-    "이탈리아어",
-    "포르투갈어",
-    "러시아어",
-    "아랍어",
-    "힌디어",
-    "베트남어",
-    "태국어",
-    "인도네시아어",
-    "네덜란드어",
-    "폴란드어",
-    "터키어",
-    "우크라이나어",
+const NON_LANGUAGE_ENGLISH_TARGETS: &[&str] = &[
+    "brief", "code", "detail", "full", "json", "markdown", "one", "plain", "prose", "short", "this",
 ];
 
-const FOREIGN_LANGUAGE_NAMES_EN: &[&str] = &[
-    "english",
-    "japanese",
-    "chinese",
-    "french",
-    "german",
-    "spanish",
-    "italian",
-    "portuguese",
-    "russian",
-    "arabic",
-    "hindi",
-    "vietnamese",
-    "thai",
-    "indonesian",
-    "dutch",
-    "polish",
-    "turkish",
-    "ukrainian",
-];
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RequestedLanguage {
+    Korean,
+    Other,
+}
 
 pub(super) fn allows_non_korean(prompt: &str) -> bool {
     let user_prompt = prompt
@@ -66,60 +34,84 @@ pub(super) fn allows_non_korean(prompt: &str) -> bool {
         .map(|(prompt, _)| prompt)
         .unwrap_or(prompt)
         .to_lowercase();
-    let foreign = latest_korean_directive(&user_prompt, FOREIGN_LANGUAGE_NAMES_KO)
+    latest_korean_directive(&user_prompt)
         .into_iter()
-        .chain(latest_english_directive(
-            &user_prompt,
-            FOREIGN_LANGUAGE_NAMES_EN,
-        ))
-        .chain(user_prompt.rfind("외국어로 번역"))
-        .max();
-    let korean = latest_korean_directive(&user_prompt, &["한국어", "한글"])
-        .into_iter()
-        .chain(latest_english_directive(&user_prompt, &["korean"]))
-        .max();
-    matches!((foreign, korean), (Some(_), None))
-        || matches!((foreign, korean), (Some(foreign), Some(korean)) if foreign > korean)
+        .chain(latest_english_directive(&user_prompt))
+        .max_by_key(|(index, _)| *index)
+        .is_some_and(|(_, language)| language == RequestedLanguage::Other)
 }
 
-fn latest_korean_directive(prompt: &str, languages: &[&str]) -> Option<usize> {
-    languages
+fn latest_korean_directive(prompt: &str) -> Option<(usize, RequestedLanguage)> {
+    KOREAN_OUTPUT_ACTIONS
         .iter()
-        .flat_map(|language| {
-            KOREAN_OUTPUT_ACTIONS
-                .iter()
-                .map(move |action| format!("{language}{action}"))
+        .flat_map(|action| prompt.match_indices(action))
+        .filter_map(|(action_index, _)| {
+            let (language_index, language) = preceding_word(prompt, action_index)?;
+            let requested = if matches!(language, "한국어" | "한글") {
+                RequestedLanguage::Korean
+            } else if language == "외국어" || language.ends_with('어') {
+                RequestedLanguage::Other
+            } else {
+                return None;
+            };
+            Some((language_index, requested))
         })
-        .filter_map(|pattern| prompt.rfind(&pattern))
-        .max()
+        .max_by_key(|(index, _)| *index)
 }
 
-fn latest_english_directive(prompt: &str, languages: &[&str]) -> Option<usize> {
+fn latest_english_directive(prompt: &str) -> Option<(usize, RequestedLanguage)> {
     let direct = ENGLISH_OUTPUT_ACTIONS
         .iter()
         .flat_map(|action| {
-            languages
-                .iter()
-                .map(move |language| format!("{action}{language}"))
+            prompt
+                .match_indices(action)
+                .map(move |match_| (match_, *action))
         })
-        .filter_map(|pattern| prompt.rfind(&pattern))
-        .max();
-    let translated = languages
-        .iter()
-        .filter_map(|language| latest_translation_target(prompt, language))
-        .max();
-    direct.into_iter().chain(translated).max()
+        .filter_map(|((action_index, _), action)| {
+            let target_index = action_index + action.len();
+            requested_english_target(prompt, target_index).map(|language| (target_index, language))
+        })
+        .max_by_key(|(index, _)| *index);
+    direct
+        .into_iter()
+        .chain(latest_translation_target(prompt))
+        .max_by_key(|(index, _)| *index)
 }
 
-fn latest_translation_target(prompt: &str, language: &str) -> Option<usize> {
-    let target = format!("to {language}");
+fn latest_translation_target(prompt: &str) -> Option<(usize, RequestedLanguage)> {
     prompt
-        .match_indices(&target)
-        .filter_map(|(target_index, _)| {
+        .match_indices(" to ")
+        .filter_map(|(separator_index, separator)| {
+            let target_index = separator_index + separator.len();
             prompt[..target_index]
                 .rfind("translate")
-                .filter(|translate_index| target_index.saturating_sub(*translate_index) <= 96)
-                .map(|_| target_index)
+                .filter(|translate_index| separator_index.saturating_sub(*translate_index) <= 96)?;
+            requested_english_target(prompt, target_index).map(|language| (target_index, language))
         })
-        .max()
+        .max_by_key(|(index, _)| *index)
+}
+
+fn requested_english_target(prompt: &str, start: usize) -> Option<RequestedLanguage> {
+    let target = prompt[start..]
+        .trim_start()
+        .split(|character: char| !character.is_ascii_alphabetic() && character != '-')
+        .next()?;
+    if target.is_empty() || NON_LANGUAGE_ENGLISH_TARGETS.contains(&target) {
+        return None;
+    }
+    Some(if target == "korean" {
+        RequestedLanguage::Korean
+    } else {
+        RequestedLanguage::Other
+    })
+}
+
+fn preceding_word(prompt: &str, end: usize) -> Option<(usize, &str)> {
+    let start = prompt[..end]
+        .char_indices()
+        .rev()
+        .take_while(|(_, character)| character.is_alphabetic() || ('가'..='힣').contains(character))
+        .last()
+        .map(|(index, _)| index)?;
+    Some((start, &prompt[start..end]))
 }

@@ -22,24 +22,7 @@ pub(crate) fn route_tool_request(request: &str) -> Option<WebToolRoute> {
             query: query.to_string(),
         });
     }
-    if let Some(query) =
-        korean_page_find_query(request).or_else(|| english_page_find_query(request))
-    {
-        return Some(WebToolRoute::Find { query });
-    }
-    let url = first_web_url(request)?;
-    let without_url = request.replace(url, "");
-    let lower = without_url.to_ascii_lowercase();
-    let open_signal = without_url.trim().is_empty()
-        || ["열어", "읽어", "요약", "내용", "확인"]
-            .iter()
-            .any(|signal| without_url.contains(signal))
-        || ["open", "read", "summarize", "fetch"]
-            .iter()
-            .any(|signal| contains_ascii_phrase(&lower, signal));
-    open_signal.then(|| WebToolRoute::Open {
-        url: url.to_string(),
-    })
+    None
 }
 
 pub(crate) fn parse_agent_web_tool(response: &str) -> Option<WebToolRoute> {
@@ -78,59 +61,39 @@ pub(crate) fn parse_agent_web_tool(response: &str) -> Option<WebToolRoute> {
 pub(crate) fn web_disabled(request: &str) -> bool {
     let request = request.trim();
     let lower = request.to_ascii_lowercase();
-    ["검색하지마", "검색하지 마", "오프라인", "인터넷 쓰지마"]
+    [
+        "검색하지마",
+        "검색하지 마",
+        "검색 금지",
+        "인터넷 쓰지마",
+        "인터넷 사용하지",
+        "인터넷 없이",
+        "웹 사용하지",
+        "웹 없이",
+        "외부 검색하지",
+        "오프라인",
+    ]
+    .iter()
+    .any(|signal| request.contains(signal))
+        || [
+            "do not browse",
+            "don't browse",
+            "do not search",
+            "don't search",
+            "do not use the internet",
+            "without browsing",
+            "without internet",
+            "no web",
+            "no browsing",
+            "offline",
+        ]
         .iter()
-        .any(|signal| request.contains(signal))
-        || ["do not browse", "don't browse", "offline"]
-            .iter()
-            .any(|signal| contains_ascii_phrase(&lower, signal))
+        .any(|signal| contains_ascii_phrase(&lower, signal))
 }
 
 fn nonempty(value: &str) -> Option<&str> {
     let value = value.trim();
     (!value.is_empty()).then_some(value)
-}
-
-fn first_web_url(request: &str) -> Option<&str> {
-    let start = request
-        .find("https://")
-        .or_else(|| request.find("http://"))?;
-    let candidate = request[start..]
-        .split_whitespace()
-        .next()?
-        .trim_end_matches(['.', ',', ';', '!', '?', ')', ']', '}', '>', '"', '\'']);
-    (!candidate.is_empty()).then_some(candidate)
-}
-
-fn korean_page_find_query(request: &str) -> Option<String> {
-    for marker in ["이 페이지에서", "현재 페이지에서", "페이지에서", "문서에서"]
-    {
-        let Some((_, tail)) = request.split_once(marker) else {
-            continue;
-        };
-        let tail = tail.trim();
-        let Some(end) = tail.find("찾").or_else(|| tail.find("검색")) else {
-            continue;
-        };
-        let query = tail[..end].trim().trim_matches(['"', '\'', '`']);
-        if !query.is_empty() {
-            return Some(query.to_string());
-        }
-    }
-    None
-}
-
-fn english_page_find_query(request: &str) -> Option<String> {
-    let lower = request.to_ascii_lowercase();
-    let tail = lower.strip_prefix("find ")?;
-    let end = tail
-        .find(" in this page")
-        .or_else(|| tail.find(" on this page"))
-        .or_else(|| tail.find(" in the page"))?;
-    let query = request[request.len() - tail.len()..][..end]
-        .trim()
-        .trim_matches(['"', '\'', '`']);
-    (!query.is_empty()).then(|| query.to_string())
 }
 
 fn contains_ascii_phrase(text: &str, phrase: &str) -> bool {

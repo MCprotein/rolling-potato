@@ -230,7 +230,11 @@ mod tests {
         for request in [
             "오프라인으로 현재 파일만 설명해줘",
             "인터넷 검색하지 마. 최신 릴리스는 내가 줄게",
+            "인터넷 사용하지 말고 이 URL을 요약해줘",
+            "웹 없이 현재 문서만 설명해줘",
             "Do not browse; explain this code.",
+            "Do not use the internet; summarize this URL.",
+            "Explain this without browsing.",
         ] {
             assert!(web_disabled(request), "request: {request}");
         }
@@ -305,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    fn routes_explicit_and_natural_web_open_requests() {
+    fn routes_only_explicit_pre_dispatch_web_requests() {
         assert_eq!(
             route_tool_request("/search Rust release"),
             Some(WebToolRoute::Search {
@@ -318,29 +322,20 @@ mod tests {
                 url: "https://example.com/docs".to_string()
             })
         );
-        assert_eq!(
-            route_tool_request("https://example.com/docs 이 페이지 요약해줘"),
-            Some(WebToolRoute::Open {
-                url: "https://example.com/docs".to_string()
-            })
-        );
+        assert!(route_tool_request("https://example.com/docs 이 페이지 요약해줘").is_none());
         assert!(route_tool_request("최신 Rust 릴리스 검색해줘").is_none());
     }
 
     #[test]
-    fn routes_page_find_without_confusing_web_search() {
+    fn routes_only_explicit_page_find_before_agent_decision() {
         assert_eq!(
-            route_tool_request("이 페이지에서 ownership 찾아줘"),
+            route_tool_request("/find ownership"),
             Some(WebToolRoute::Find {
                 query: "ownership".to_string()
             })
         );
-        assert_eq!(
-            route_tool_request("find Safety in this page"),
-            Some(WebToolRoute::Find {
-                query: "Safety".to_string()
-            })
-        );
+        assert!(route_tool_request("이 페이지에서 ownership 찾아줘").is_none());
+        assert!(route_tool_request("find Safety in this page").is_none());
         assert!(route_tool_request("웹에서 ownership 찾아줘").is_none());
     }
 
