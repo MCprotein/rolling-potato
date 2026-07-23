@@ -90,8 +90,9 @@
   저장소 범위 요청은 웹 사용을 명시하지 않으면 local에 남고, offline/no-browse
   지시는 검색을 비활성화합니다.
 - `WebOpen`은 HTTP 입력을 HTTPS로 승격하고 URL credential, local/private/
-  link-local/reserved target과 DNS 응답을 차단합니다. 제한된 동일 host redirect만
-  추적하고 다른 host redirect는 새로운 명시적 open을 요구합니다.
+  link-local/reserved target과 DNS 응답을 실제 direct 연결에 사용하는 resolver에서
+  차단하며 proxy routing을 비활성화합니다. 제한된 동일 host redirect만 추적하고
+  다른 host redirect는 새로운 명시적 open을 요구합니다.
 - 제한된 검색 highlight와 열린 페이지 text는 신뢰하지 않으며 command, file,
   permission 권한을 얻지 못합니다. 열린 content는 `WebFind`를 위해 현재 TUI
   memory에만 유지하고 durable transcript source로 저장하지 않습니다.

@@ -1,6 +1,10 @@
 use std::time::Duration;
 
 use crate::foundation::error::AppError;
+use ureq::unversioned::resolver::{DefaultResolver, ResolvedSocketAddrs, Resolver};
+use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
+
+use super::policy::socket_addresses_are_public;
 
 const DIRECT_SEARCH_ENDPOINT: &str = "https://html.duckduckgo.com/html/";
 const MAX_SEARCH_RESPONSE_BYTES: u64 = 512 * 1024;
@@ -43,7 +47,11 @@ pub(super) fn direct_agent_config() -> ureq::config::Config {
 }
 
 pub(super) fn fetch_page_response(url: &str) -> Result<PageResponse, AppError> {
-    let agent = ureq::Agent::new_with_config(page_agent_config());
+    let agent = ureq::Agent::with_parts(
+        page_agent_config(),
+        DefaultConnector::default(),
+        PublicWebResolver::default(),
+    );
     let mut response = agent
         .get(url)
         .header(
@@ -95,6 +103,7 @@ pub(super) fn page_agent_config() -> ureq::config::Config {
         .https_only(true)
         .http_status_as_error(false)
         .max_redirects(0)
+        .proxy(None)
         .build()
 }
 
@@ -113,8 +122,13 @@ pub(super) fn map_search_error(error: ureq::Error) -> AppError {
     }
 }
 
-fn map_page_error(_error: ureq::Error) -> AppError {
-    AppError::runtime("WebOpen 대상 페이지에 연결하지 못했습니다.")
+fn map_page_error(error: ureq::Error) -> AppError {
+    match error {
+        ureq::Error::HostNotFound => {
+            AppError::blocked("WebOpen 대상 host가 공개 IP로 해석되지 않아 연결을 차단했습니다.")
+        }
+        _ => AppError::runtime("WebOpen 대상 페이지에 연결하지 못했습니다."),
+    }
 }
 
 fn map_page_status(status: u16) -> AppError {
@@ -130,5 +144,26 @@ fn map_page_status(status: u16) -> AppError {
         _ => AppError::runtime(format!(
             "WebOpen 대상 페이지가 일시적으로 응답하지 않습니다: HTTP {status}"
         )),
+    }
+}
+
+#[derive(Debug, Default)]
+struct PublicWebResolver {
+    inner: DefaultResolver,
+}
+
+impl Resolver for PublicWebResolver {
+    fn resolve(
+        &self,
+        uri: &ureq::http::Uri,
+        config: &ureq::config::Config,
+        timeout: NextTimeout,
+    ) -> Result<ResolvedSocketAddrs, ureq::Error> {
+        let addresses = self.inner.resolve(uri, config, timeout)?;
+        if socket_addresses_are_public(&addresses) {
+            Ok(addresses)
+        } else {
+            Err(ureq::Error::HostNotFound)
+        }
     }
 }

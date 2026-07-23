@@ -1,4 +1,4 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, ToSocketAddrs};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use crate::foundation::error::AppError;
 
@@ -52,31 +52,6 @@ pub(super) fn validate_open_url(url: &str) -> Result<String, AppError> {
     let uri = validate_https_uri_shape(&normalized)?;
     validate_public_host(uri.authority().expect("validated authority").host())?;
     Ok(uri.to_string())
-}
-
-pub(super) fn validate_public_resolution(url: &str) -> Result<(), AppError> {
-    let uri = validate_https_uri_shape(url)?;
-    let authority = uri.authority().expect("validated authority");
-    let host = authority.host();
-    if parse_ip(host).is_some() {
-        return Ok(());
-    }
-    let port = authority.port_u16().unwrap_or(DEFAULT_HTTPS_PORT);
-    let addresses = (host, port)
-        .to_socket_addrs()
-        .map_err(|_| AppError::runtime("WebOpen 대상 host의 DNS를 확인하지 못했습니다."))?
-        .collect::<Vec<_>>();
-    if addresses.is_empty() {
-        return Err(AppError::runtime(
-            "WebOpen 대상 host가 공개 IP로 해석되지 않았습니다.",
-        ));
-    }
-    if addresses.iter().any(|address| !is_public_ip(address.ip())) {
-        return Err(AppError::blocked(
-            "WebOpen은 내부·로컬 네트워크로 해석되는 host를 열지 않습니다.",
-        ));
-    }
-    Ok(())
 }
 
 pub(super) fn resolve_redirect_url(current: &str, location: &str) -> Result<String, AppError> {
@@ -200,6 +175,10 @@ fn is_public_ip(ip: IpAddr) -> bool {
         IpAddr::V4(ip) => is_public_ipv4(ip),
         IpAddr::V6(ip) => is_public_ipv6(ip),
     }
+}
+
+pub(super) fn socket_addresses_are_public(addresses: &[SocketAddr]) -> bool {
+    !addresses.is_empty() && addresses.iter().all(|address| is_public_ip(address.ip()))
 }
 
 fn is_public_ipv4(ip: Ipv4Addr) -> bool {

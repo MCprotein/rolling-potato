@@ -27,10 +27,7 @@ pub(super) fn normalize_page_text(
         .trim()
         .to_ascii_lowercase();
     let (title, text) = match media_type.as_str() {
-        "text/html" | "application/xhtml+xml" | "" => {
-            let title = extract_title(document);
-            (title, html_to_text(document))
-        }
+        "text/html" | "application/xhtml+xml" | "" => scan_html(document),
         "text/plain" | "application/json" => (None, collapse_text(document)),
         _ => {
             return Err(AppError::blocked(format!(
@@ -55,100 +52,131 @@ pub(super) fn normalize_page_text(
     })
 }
 
-fn extract_title(document: &str) -> Option<String> {
-    let lower = document.to_ascii_lowercase();
-    let start = lower.find("<title")?;
-    let open_end = lower[start..].find('>')? + start + 1;
-    let close = lower[open_end..].find("</title>")? + open_end;
-    let title = collapse_text(&strip_tags(&document[open_end..close]));
-    (!title.is_empty()).then_some(title)
-}
-
-fn html_to_text(document: &str) -> String {
-    let without_active = remove_elements(document, &["script", "style", "noscript", "svg"]);
-    let with_breaks = add_structural_breaks(&without_active);
-    collapse_text(&strip_tags(&with_breaks))
-}
-
-fn remove_elements(document: &str, names: &[&str]) -> String {
-    let mut output = document.to_string();
-    for name in names {
-        loop {
-            let lower = output.to_ascii_lowercase();
-            let Some(start) = lower.find(&format!("<{name}")) else {
-                break;
-            };
-            let Some(open_end) = lower[start..].find('>').map(|offset| start + offset + 1) else {
-                output.truncate(start);
-                break;
-            };
-            let close_marker = format!("</{name}>");
-            let end = lower[open_end..]
-                .find(&close_marker)
-                .map_or(open_end, |offset| open_end + offset + close_marker.len());
-            output.replace_range(start..end, " ");
-        }
-    }
-    output
-}
-
-fn add_structural_breaks(document: &str) -> String {
-    let mut output = String::with_capacity(document.len());
+fn scan_html(document: &str) -> (Option<String>, String) {
+    let mut output = String::with_capacity(document.len().min(MAX_PAGE_CONTEXT_CHARS * 2));
+    let mut title = String::new();
     let mut cursor = 0;
+    let mut in_title = false;
+    let mut hidden = None::<(HiddenElement, usize)>;
     while let Some(start_offset) = document[cursor..].find('<') {
         let start = cursor + start_offset;
-        output.push_str(&document[cursor..start]);
+        if hidden.is_none() {
+            append_visible_text(&document[cursor..start], in_title, &mut output, &mut title);
+        }
         let Some(end_offset) = document[start..].find('>') else {
             break;
         };
         let end = start + end_offset + 1;
-        let tag = document[start + 1..end - 1]
-            .trim_start_matches('/')
-            .split_whitespace()
-            .next()
-            .unwrap_or_default()
-            .trim_end_matches('/')
-            .to_ascii_lowercase();
-        if matches!(
-            tag.as_str(),
-            "br" | "p"
-                | "div"
-                | "main"
-                | "article"
-                | "section"
-                | "header"
-                | "footer"
-                | "nav"
-                | "li"
-                | "tr"
-                | "h1"
-                | "h2"
-                | "h3"
-                | "h4"
-                | "h5"
-                | "h6"
-        ) {
-            output.push('\n');
+        if let Some(tag) = parse_tag(&document[start + 1..end - 1]) {
+            if let Some((hidden_element, depth)) = hidden.as_mut() {
+                if hidden_element.matches(tag.name) {
+                    if tag.closing {
+                        *depth -= 1;
+                        if *depth == 0 {
+                            hidden = None;
+                        }
+                    } else if !tag.self_closing {
+                        *depth += 1;
+                    }
+                }
+            } else if let Some(hidden_element) = HiddenElement::from_name(tag.name) {
+                if !tag.closing && !tag.self_closing {
+                    hidden = Some((hidden_element, 1));
+                }
+            } else {
+                if tag.name.eq_ignore_ascii_case("title") {
+                    in_title = !tag.closing;
+                }
+                if is_structural_tag(tag.name) {
+                    output.push('\n');
+                }
+            }
         }
-        output.push_str(&document[start..end]);
         cursor = end;
     }
-    output.push_str(&document[cursor..]);
-    output
+    if hidden.is_none() {
+        append_visible_text(&document[cursor..], in_title, &mut output, &mut title);
+    }
+    let title = collapse_text(&decode_html_entities(&title));
+    let text = collapse_text(&decode_html_entities(&output));
+    ((!title.is_empty()).then_some(title), text)
 }
 
-fn strip_tags(document: &str) -> String {
-    let mut output = String::with_capacity(document.len());
-    let mut inside_tag = false;
-    for character in document.chars() {
-        match character {
-            '<' => inside_tag = true,
-            '>' if inside_tag => inside_tag = false,
-            _ if !inside_tag => output.push(character),
-            _ => {}
+fn append_visible_text(value: &str, in_title: bool, output: &mut String, title: &mut String) {
+    output.push_str(value);
+    if in_title {
+        title.push_str(value);
+    }
+}
+
+#[derive(Clone, Copy)]
+struct HtmlTag<'a> {
+    name: &'a str,
+    closing: bool,
+    self_closing: bool,
+}
+
+fn parse_tag(value: &str) -> Option<HtmlTag<'_>> {
+    let value = value.trim();
+    if value.is_empty() || value.starts_with(['!', '?']) {
+        return None;
+    }
+    let closing = value.starts_with('/');
+    let value = value.strip_prefix('/').unwrap_or(value).trim_start();
+    let name_end = value
+        .find(|character: char| character.is_whitespace() || character == '/')
+        .unwrap_or(value.len());
+    let name = &value[..name_end];
+    if name.is_empty() {
+        return None;
+    }
+    Some(HtmlTag {
+        name,
+        closing,
+        self_closing: value.trim_end().ends_with('/'),
+    })
+}
+
+#[derive(Clone, Copy)]
+enum HiddenElement {
+    Script,
+    Style,
+    NoScript,
+    Svg,
+}
+
+impl HiddenElement {
+    fn from_name(name: &str) -> Option<Self> {
+        if name.eq_ignore_ascii_case("script") {
+            Some(Self::Script)
+        } else if name.eq_ignore_ascii_case("style") {
+            Some(Self::Style)
+        } else if name.eq_ignore_ascii_case("noscript") {
+            Some(Self::NoScript)
+        } else if name.eq_ignore_ascii_case("svg") {
+            Some(Self::Svg)
+        } else {
+            None
         }
     }
-    decode_html_entities(&output)
+
+    fn matches(self, name: &str) -> bool {
+        match self {
+            Self::Script => name.eq_ignore_ascii_case("script"),
+            Self::Style => name.eq_ignore_ascii_case("style"),
+            Self::NoScript => name.eq_ignore_ascii_case("noscript"),
+            Self::Svg => name.eq_ignore_ascii_case("svg"),
+        }
+    }
+}
+
+fn is_structural_tag(name: &str) -> bool {
+    [
+        "br", "p", "div", "main", "article", "section", "header", "footer", "nav", "li", "tr",
+        "h1", "h2", "h3", "h4", "h5", "h6",
+    ]
+    .iter()
+    .any(|candidate| name.eq_ignore_ascii_case(candidate))
 }
 
 fn collapse_text(value: &str) -> String {

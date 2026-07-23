@@ -13,10 +13,7 @@ pub(crate) use evidence::{WebOpenResult, WebPageEvidence, WebSearchEvidence};
 pub(crate) use find::find_in_page;
 use html::parse_search_document;
 use page::parse_page_document;
-use policy::{
-    resolve_redirect_url, same_web_origin, validate_open_url, validate_public_resolution,
-    validate_query,
-};
+use policy::{resolve_redirect_url, same_web_origin, validate_open_url, validate_query};
 use transport::{fetch_page_response, fetch_search_document, PageResponse};
 
 const MAX_PAGE_REDIRECTS: usize = 10;
@@ -28,7 +25,9 @@ use html::normalize_result_url;
 #[cfg(test)]
 use page::normalize_page_text;
 #[cfg(test)]
-use policy::{is_valid_https_source_url, MAX_QUERY_CHARS, MAX_QUERY_WORDS};
+use policy::{
+    is_valid_https_source_url, socket_addresses_are_public, MAX_QUERY_CHARS, MAX_QUERY_WORDS,
+};
 #[cfg(test)]
 use transport::{direct_agent_config, map_search_error, page_agent_config};
 
@@ -60,7 +59,6 @@ pub(crate) fn open(url: &str) -> Result<WebOpenResult, AppError> {
 
     let mut current_url = requested_url.clone();
     for redirect_count in 0..=MAX_PAGE_REDIRECTS {
-        validate_public_resolution(&current_url)?;
         match fetch_page_response(&current_url)? {
             PageResponse::Document { content_type, body } => {
                 return parse_page_document(&requested_url, &current_url, &body, &content_type)
@@ -295,6 +293,18 @@ mod tests {
 
         assert!(config.https_only());
         assert_eq!(config.max_redirects(), 0);
+        assert!(config.proxy().is_none());
+    }
+
+    #[test]
+    fn web_open_transport_rejects_any_private_dns_answer() {
+        use std::net::SocketAddr;
+
+        let public = "93.184.216.34:443".parse::<SocketAddr>().unwrap();
+        let private = "127.0.0.1:443".parse::<SocketAddr>().unwrap();
+
+        assert!(socket_addresses_are_public(&[public]));
+        assert!(!socket_addresses_are_public(&[public, private]));
     }
 
     #[test]
@@ -313,6 +323,19 @@ mod tests {
         assert!(page.content.contains("Rust 문서입니다."));
         assert!(!page.content.contains("alert"));
         assert!(!page.content.contains("display:none"));
+    }
+
+    #[test]
+    fn web_open_scans_many_hidden_elements_without_leaking_them() {
+        let mut document = String::from("<html><body>");
+        for _ in 0..4_000 {
+            document.push_str("<script>ignore me</script>");
+        }
+        document.push_str("<main>visible result</main></body></html>");
+
+        let page = normalize_page_text("https://example.com/docs", &document, "text/html").unwrap();
+
+        assert_eq!(page.content, "visible result");
     }
 
     #[test]

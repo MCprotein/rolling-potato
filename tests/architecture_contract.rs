@@ -6397,6 +6397,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let tui_facade = fs::read_to_string("src/app/tui_adapter.rs").unwrap();
     let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
     let transport = fs::read_to_string("src/adapters/web_search/transport.rs").unwrap();
+    let page_parser = fs::read_to_string("src/adapters/web_search/page.rs").unwrap();
 
     for path in [
         "src/adapters/web_search/evidence.rs",
@@ -6429,7 +6430,10 @@ fn web_search_open_find_have_separate_bounded_owners() {
     }
     assert!(tui_facade.lines().any(|line| line == "mod web_tools;"));
     assert!(tui_runtime.contains("super::web_tools::dispatch"));
-    assert!(transport.contains("ureq::Agent"));
+    assert!(transport.contains("ureq::Agent::with_parts"));
+    assert!(transport.contains("PublicWebResolver"));
+    assert!(page_parser.contains("scan_html"));
+    assert!(!page_parser.contains("replace_range"));
     for pure_owner in [
         "src/adapters/web_search/find.rs",
         "src/adapters/web_search/page.rs",
