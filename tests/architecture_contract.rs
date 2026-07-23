@@ -2928,13 +2928,15 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         ),
         (
             "src/runtime_core/patch/intent.rs",
-            [
-                "struct IntentDecision",
-                "fn classify",
-                "fn plan_action_candidate",
-                "fn parse_model_action",
-            ]
-            .as_slice(),
+            ["struct IntentDecision", "fn plan_action_candidate"].as_slice(),
+        ),
+        (
+            "src/runtime_core/patch/intent/classification.rs",
+            ["fn classify", "fn detect_constraints"].as_slice(),
+        ),
+        (
+            "src/runtime_core/patch/intent/model_action.rs",
+            ["fn parse_model_action", "fn fallback_model_action"].as_slice(),
         ),
         (
             "src/runtime_core/patch/proposal.rs",
@@ -3662,6 +3664,37 @@ fn v0471_tui_render_text_and_report_layout_are_split() {
     assert!(
         render.lines().count() < 575,
         "TUI render regrew beyond interactive-frame ownership"
+    );
+}
+
+#[test]
+fn v0471_patch_intent_classification_and_model_action_are_split() {
+    let intent = fs::read_to_string("src/runtime_core/patch/intent.rs").unwrap();
+    for (module, owner, marker) in [
+        (
+            "classification",
+            "src/runtime_core/patch/intent/classification.rs",
+            "fn classify",
+        ),
+        (
+            "model_action",
+            "src/runtime_core/patch/intent/model_action.rs",
+            "fn parse_model_action",
+        ),
+    ] {
+        assert!(
+            intent.lines().any(|line| line == format!("mod {module};")),
+            "patch intent does not register responsibility owner: {module}"
+        );
+        let source = fs::read_to_string(owner).unwrap();
+        assert!(
+            source.contains(marker),
+            "patch intent responsibility owner is missing: {owner} -> {marker}"
+        );
+    }
+    assert!(
+        intent.lines().count() < 300,
+        "patch intent facade regrew beyond contracts and action planning"
     );
 }
 

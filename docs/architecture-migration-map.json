@@ -4901,13 +4901,64 @@
       "path": "src/runtime_core/patch/intent.rs",
       "slices": [
         {
-          "responsibility": "intent classification and action planning",
+          "responsibility": "intent contracts and side-effect-free action planning",
           "target": "src/runtime_core/patch/intent.rs",
           "release": "0.37.9",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/intent.rs",
+            "src/runtime_core/patch/intent/classification.rs",
+            "src/runtime_core/patch/intent/model_action.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent/classification.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic request classification and constraint detection",
+          "target": "src/runtime_core/patch/intent/classification.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/intent.rs",
+            "src/runtime_core/patch/intent/classification.rs",
+            "src/runtime_core/patch/intent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent/model_action.rs",
+      "slices": [
+        {
+          "responsibility": "fail-closed model action parsing and normalization",
+          "target": "src/runtime_core/patch/intent/model_action.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/intent.rs",
+            "src/runtime_core/patch/intent/model_action.rs",
+            "src/runtime_core/patch/intent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent/tests.rs",
+      "slices": [
+        {
+          "responsibility": "intent classification, action planning, and fail-closed parsing regression tests",
+          "target": "src/runtime_core/patch/intent/tests.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/intent.rs",
+            "src/runtime_core/patch/intent/tests.rs"
           ]
         }
       ]
@@ -9390,7 +9441,25 @@
     {
       "path": "src/runtime_core/patch/intent.rs",
       "responsibilities": [
-        "intent classification and action planning"
+        "intent contracts and side-effect-free action planning"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent/classification.rs",
+      "responsibilities": [
+        "deterministic request classification and constraint detection"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent/model_action.rs",
+      "responsibilities": [
+        "fail-closed model action parsing and normalization"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent/tests.rs",
+      "responsibilities": [
+        "intent classification, action planning, and fail-closed parsing regression tests"
       ]
     },
     {
