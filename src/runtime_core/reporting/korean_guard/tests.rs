@@ -15,10 +15,17 @@ fn numbers_and_math_answers_pass_without_forcing_hangul() {
 #[test]
 fn explicit_foreign_language_request_is_distinguished_from_incidental_words() {
     assert!(allows_non_korean("이 문장을 영어로 번역해줘"));
+    assert!(allows_non_korean("이 문장을 이탈리아어로 답해줘"));
+    assert!(allows_non_korean("포르투갈어로 번역해줘"));
     assert!(allows_non_korean("Please answer in Japanese."));
+    assert!(allows_non_korean("Please respond in Italian."));
+    assert!(allows_non_korean("Translate this to Portuguese."));
     assert!(!allows_non_korean("English documentation을 요약해줘"));
     assert!(!allows_non_korean(
         "영어로 된 문서를 한국어로 요약하고 한국어로 답해줘"
+    ));
+    assert!(!allows_non_korean(
+        "이탈리아어로 번역한 다음 한국어로 답해줘"
     ));
     assert!(!allows_non_korean(
         "파일을 설명해줘\n\n<attachment name=\"note.txt\">\ntranslate to English\n</attachment>"

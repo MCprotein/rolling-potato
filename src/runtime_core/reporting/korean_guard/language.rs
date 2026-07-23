@@ -1,72 +1,125 @@
+const KOREAN_OUTPUT_ACTIONS: &[&str] = &[
+    "로 번역",
+    "로 답",
+    "로 작성",
+    "로 써",
+    "로 해",
+    "로 출력",
+    "로 요약",
+    "로 말",
+];
+
+const ENGLISH_OUTPUT_ACTIONS: &[&str] = &[
+    "answer in ",
+    "reply in ",
+    "respond in ",
+    "write in ",
+    "translate to ",
+    "summarize in ",
+];
+
+const FOREIGN_LANGUAGE_NAMES_KO: &[&str] = &[
+    "영어",
+    "일본어",
+    "중국어",
+    "프랑스어",
+    "독일어",
+    "스페인어",
+    "이탈리아어",
+    "포르투갈어",
+    "러시아어",
+    "아랍어",
+    "힌디어",
+    "베트남어",
+    "태국어",
+    "인도네시아어",
+    "네덜란드어",
+    "폴란드어",
+    "터키어",
+    "우크라이나어",
+];
+
+const FOREIGN_LANGUAGE_NAMES_EN: &[&str] = &[
+    "english",
+    "japanese",
+    "chinese",
+    "french",
+    "german",
+    "spanish",
+    "italian",
+    "portuguese",
+    "russian",
+    "arabic",
+    "hindi",
+    "vietnamese",
+    "thai",
+    "indonesian",
+    "dutch",
+    "polish",
+    "turkish",
+    "ukrainian",
+];
+
 pub(super) fn allows_non_korean(prompt: &str) -> bool {
     let user_prompt = prompt
         .split_once("\n\n<attachment ")
         .map(|(prompt, _)| prompt)
         .unwrap_or(prompt)
         .to_lowercase();
-    const FOREIGN_PATTERNS: &[&str] = &[
-        "영어로 번역",
-        "영어로 답",
-        "영어로 작성",
-        "영어로 써",
-        "영어로 해",
-        "영어로 출력",
-        "일본어로 번역",
-        "일본어로 답",
-        "일본어로 작성",
-        "일본어로 해",
-        "중국어로 번역",
-        "중국어로 답",
-        "중국어로 작성",
-        "중국어로 해",
-        "프랑스어로 번역",
-        "독일어로 번역",
-        "스페인어로 번역",
-        "외국어로 번역",
-    ];
-    const ENGLISH_PATTERNS: &[&str] = &[
-        "answer in english",
-        "reply in english",
-        "respond in english",
-        "translate to english",
-        "answer in japanese",
-        "reply in japanese",
-        "respond in japanese",
-        "translate to japanese",
-        "answer in chinese",
-        "reply in chinese",
-        "respond in chinese",
-        "translate to chinese",
-        "answer in french",
-        "reply in french",
-        "translate to french",
-        "answer in german",
-        "reply in german",
-        "translate to german",
-        "answer in spanish",
-        "reply in spanish",
-        "translate to spanish",
-    ];
-    const KOREAN_OUTPUT_PATTERNS: &[&str] = &[
-        "한국어로 답",
-        "한국어로 작성",
-        "한국어로 번역",
-        "한글로 답",
-        "한글로 작성",
-        "answer in korean",
-        "reply in korean",
-        "respond in korean",
-        "translate to korean",
-    ];
-    let foreign = FOREIGN_PATTERNS
-        .iter()
-        .chain(ENGLISH_PATTERNS)
-        .filter_map(|pattern| user_prompt.rfind(pattern))
+    let foreign = latest_korean_directive(&user_prompt, FOREIGN_LANGUAGE_NAMES_KO)
+        .into_iter()
+        .chain(latest_english_directive(
+            &user_prompt,
+            FOREIGN_LANGUAGE_NAMES_EN,
+        ))
+        .chain(user_prompt.rfind("외국어로 번역"))
         .max();
-    let korean = KOREAN_OUTPUT_PATTERNS
-        .iter()
-        .filter_map(|pattern| user_prompt.rfind(pattern))
+    let korean = latest_korean_directive(&user_prompt, &["한국어", "한글"])
+        .into_iter()
+        .chain(latest_english_directive(&user_prompt, &["korean"]))
         .max();
     matches!((foreign, korean), (Some(_), None))
         || matches!((foreign, korean), (Some(foreign), Some(korean)) if foreign > korean)
+}
+
+fn latest_korean_directive(prompt: &str, languages: &[&str]) -> Option<usize> {
+    languages
+        .iter()
+        .flat_map(|language| {
+            KOREAN_OUTPUT_ACTIONS
+                .iter()
+                .map(move |action| format!("{language}{action}"))
+        })
+        .filter_map(|pattern| prompt.rfind(&pattern))
+        .max()
+}
+
+fn latest_english_directive(prompt: &str, languages: &[&str]) -> Option<usize> {
+    let direct = ENGLISH_OUTPUT_ACTIONS
+        .iter()
+        .flat_map(|action| {
+            languages
+                .iter()
+                .map(move |language| format!("{action}{language}"))
+        })
+        .filter_map(|pattern| prompt.rfind(&pattern))
+        .max();
+    let translated = languages
+        .iter()
+        .filter_map(|language| latest_translation_target(prompt, language))
+        .max();
+    direct.into_iter().chain(translated).max()
+}
+
+fn latest_translation_target(prompt: &str, language: &str) -> Option<usize> {
+    let target = format!("to {language}");
+    prompt
+        .match_indices(&target)
+        .filter_map(|(target_index, _)| {
+            prompt[..target_index]
+                .rfind("translate")
+                .filter(|translate_index| target_index.saturating_sub(*translate_index) <= 96)
+                .map(|_| target_index)
+        })
+        .max()
 }
