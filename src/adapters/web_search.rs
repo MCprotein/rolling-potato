@@ -8,8 +8,8 @@ use crate::foundation::serialization::{self, Value};
 const EXA_MCP_ENDPOINT: &str = "https://mcp.exa.ai/mcp";
 const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
 const MAX_MCP_RESPONSE_BYTES: u64 = 512 * 1024;
-const MAX_SEARCH_CONTEXT_CHARS: usize = 14 * 1024;
-const MAX_SOURCES: usize = 6;
+const MAX_SEARCH_CONTEXT_CHARS: usize = 6 * 1024;
+const MAX_SOURCES: usize = 4;
 const MAX_SOURCE_URL_BYTES: usize = 2_048;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -172,7 +172,7 @@ fn parse_tool_response(body: &str) -> Result<WebSearchEvidence, AppError> {
         .take(MAX_SEARCH_CONTEXT_CHARS)
         .collect::<String>();
     let mut sources = Vec::new();
-    for url in text
+    for url in context
         .lines()
         .filter_map(|line| line.trim().strip_prefix("URL: "))
     {
@@ -245,6 +245,23 @@ data: {"result":{"content":[{"type":"text","text":"Title: 공식 문서\nURL: ht
         let evidence = parse_tool_response(body).unwrap();
 
         assert_eq!(evidence.sources, vec!["https://rust-lang.org/"]);
+    }
+
+    #[test]
+    fn bounds_small_model_context_and_only_exposes_sources_inside_it() {
+        let text = format!(
+            "Title: 첫 결과\nURL: https://example.com/first\nHighlights:\n{}\nTitle: 잘린 결과\nURL: https://example.com/truncated",
+            "가".repeat(MAX_SEARCH_CONTEXT_CHARS)
+        );
+        let body = format!(
+            "data: {{\"result\":{{\"content\":[{{\"type\":\"text\",\"text\":\"{}\"}}],\"isError\":false}},\"jsonrpc\":\"2.0\",\"id\":2}}",
+            serialization::escape_string_content(&text)
+        );
+
+        let evidence = parse_tool_response(&body).unwrap();
+
+        assert!(evidence.context.chars().count() <= MAX_SEARCH_CONTEXT_CHARS);
+        assert_eq!(evidence.sources, vec!["https://example.com/first"]);
     }
 
     #[test]
