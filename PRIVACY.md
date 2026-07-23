@@ -22,6 +22,7 @@ The following information may be stored in local config or logs:
 - error logs
 - per-model token usage and runtime metrics
 - backend health metrics
+- user-attached local file copies under the app-data attachment directory
 
 The following must not be stored by default:
 
@@ -39,11 +40,14 @@ Allowed MVP network use:
 - user-approved model manifest lookup
 - user-approved model download
 - optional release update checks, if users can disable them
+- explicit or freshness-sensitive read-only web search; only the current question is
+  sent to the fixed Exa MCP endpoint
 
 Disallowed default behavior:
 
 - automatic user-code upload
 - automatic conversation upload
+- attachment upload to the web-search provider
 - command-output telemetry
 - automatic fallback to an external LLM API
 

@@ -90,6 +90,9 @@ Mitigations:
   local unless web use is explicit, and an offline/no-browse instruction disables it
 - bounded search highlights are untrusted text and never receive command, file, or
   permission authority
+- pasted attachments must be regular non-symlink files with bounded size and an
+  allowed type; they are copied into local app data and never sent to the web-search
+  provider. Unsupported image inference is blocked before model dispatch
 - log redaction
 - only local user and visible/normalized model/tool/evidence turns are durable; complete backend prompts, hidden responses, and raw source bodies are excluded
 

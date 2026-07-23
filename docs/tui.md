@@ -86,14 +86,16 @@ setup flow before conversation:
 
 1. Show source-backed choices with model ID/version, quantization, download size,
    context limit, RAM status, license, and evidence note.
-2. Accept a list number or exact model ID and request explicit download confirmation.
+2. Select with Up/Down and Enter in the keyboard picker, then confirm the download
+   from a second selectable prompt. Number/ID input remains the plain-terminal fallback.
 3. Install or reuse the pinned managed backend.
 4. Download the selected artifact, verify size and SHA-256, register the explicit
    user selection, and start it with the default context size.
 
 RAM suitability and unmeasured capability remain labeled `unverified`; setup does not
-turn a source manifest into benchmark evidence. `/model` lists the same catalog, and
-`/model <id>` switches models through the same managed path.
+turn a source manifest into benchmark evidence. `/model` opens the same selectable
+catalog with current/recommended state, while `/model <id>` remains an
+automation-compatible shortcut.
 
 ### Composer Status Line
 
@@ -126,10 +128,15 @@ managed backend sidecar, and active canonical session; missing values and stale 
 state are displayed explicitly. `NO_COLOR`, `TERM=dumb`, redirected, and scripted
 execution use plain text without ANSI control sequences.
 
-Normal interactive commands are `/model`, `/compact`, `/search <question>`, `/update`, `/status`, `/sessions`,
-`/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`. `/more` and `/back` page through a
+Normal interactive commands are `/model`, `/compact`, `/search <question>`,
+`/attach <path>`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`, `/back`,
+`/clear`, `/help`, and `/quit`. `/more` and `/back` page through a
 long response without discarding off-screen lines. Typing `/` opens a live command palette
-before Enter, backed by the same command registry as `/help`. `/update` confirms before downloading
+before Enter, backed by the same command registry as `/help`. Up/Down or
+`Ctrl+P`/`Ctrl+N` selects a row, Enter accepts it, and Esc closes the palette.
+The composer supports Left/Right, Home/End, `Ctrl+A`/`Ctrl+E`, word movement with
+Option/Alt+Left/Right, and line movement with Command/Meta+Left/Right when the
+terminal sends those escape sequences. `/update` confirms before downloading
 the exact current-platform GitHub Release asset and verifies its SHA-256 sidecar before
 replacing the managed installation. Startup checks use a short timeout and cache, and
 network failure does not block the TUI. `/compact` creates an incremental typed checkpoint and
@@ -139,9 +146,18 @@ only after backend startup succeeds and restore the previous ready backend on fa
 Granular backend, registry, benchmark, policy, and
 inspection commands remain available for diagnostics under `rpotato debug --help`.
 
+Bracketed paste is consumed atomically. Pasting an absolute image/text path or using
+`/attach <path>` captures a regular, non-symlink file into local app data and shows an
+attachment badge instead of treating a leading `/` as a command. UTF-8 text/code files
+up to 256 KiB are included in the next request. Images up to 20 MiB validate their file
+signature and SHA-256, but the current verified model set is text-only, so image
+inference is blocked before dispatch with a capability explanation until a vision
+artifact and `mmproj` are supported.
+
 Plain questions use a lightweight general-answer path unless they contain a clear
 repository/action signal. Explicit search requests, freshness-sensitive questions,
-and `/search` retrieve bounded highlights from Exa's hosted MCP service and append
+natural Korean forms such as `검색해서`/`찾아봐`, and `/search` retrieve bounded
+highlights from Exa's hosted MCP service and append
 source URLs. Search results are untrusted prompt context only; they cannot invoke a
 command, edit a file, or widen runtime permissions. An offline/no-browse instruction
 disables automatic retrieval for that request.

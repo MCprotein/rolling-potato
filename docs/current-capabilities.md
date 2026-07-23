@@ -311,8 +311,14 @@ semantic status line in `model | context used/limit | compaction | backend |
 session` order. Korean and other wide-character turns wrap by terminal display
 cells, and `/more` plus `/back` keeps every long-response line reachable.
 Typing `/` opens the command palette before Enter; its entries share the same
-registry as `/help`. `/search <question>` forces the same read-only web-grounded
-answer path used by automatic freshness routing.
+registry as `/help`. Up/Down, `Ctrl+P`/`Ctrl+N`, Enter, and Esc operate the palette;
+`/model` uses the same keyboard picker. Option/Alt word navigation and
+Command/Meta line navigation are decoded when the terminal emits their standard
+escape sequences. `/attach <path>` and pasted image/text paths create local
+attachment badges. Text/code files are bounded and included in the next request;
+the current text-only model/backend contract rejects image inference before
+dispatch. `/search <question>` forces the same read-only web-grounded answer path
+used by automatic freshness and natural Korean search routing.
 Representative public entry points are:
 
 ```sh

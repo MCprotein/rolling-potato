@@ -142,7 +142,8 @@ The intended local setup flow is:
 1. Run `rpotato`.
 2. Review the model/version, quantization, download size, context, RAM status,
    license, and source evidence shown by first-run setup.
-3. Select a model and approve its download.
+3. Select a model with Up/Down and Enter, then approve its download from the
+   second selectable prompt.
 4. Let `rpotato` install or reuse its managed `llama.cpp` backend, verify the
    artifact size and SHA-256, and start the model.
 5. Enter a coding request in the same TUI.
@@ -161,12 +162,21 @@ there supports both general LLM questions and coding-agent requests. Questions
 that explicitly request web search or depend on current information use a bounded
 read-only search with runtime-rendered source links. The line below the composer shows the
 current model, context usage, compaction checkpoint, backend state, and session.
-Normal TUI operations use `/model`, `/compact`, `/search`, `/update`, `/status`, `/sessions`,
-`/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`. Long responses remain
+Normal TUI operations use `/model`, `/compact`, `/search`, `/attach`, `/update`,
+`/status`, `/sessions`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`.
+The slash palette and model picker support Up/Down, Enter, Esc, and numbered
+plain-terminal fallback. The composer supports standard Home/End and Ctrl bindings,
+Option/Alt word movement, and Command/Meta line movement when emitted by the terminal.
+Long responses remain
 available through `/more` and `/back` instead of being discarded at the viewport
 boundary. Context compaction starts automatically at 75% usage; `/compact`
 creates a manual checkpoint while preserving the immutable transcript as the
 authority.
+
+Pasted local image/text paths are captured as attachment badges rather than parsed
+as slash commands. Bounded UTF-8 text/code attachments are included in the next
+request. The currently verified models are text-only, so image attachments are
+validated locally but stopped before inference with a clear capability message.
 
 The smaller public CLI surface is:
 
@@ -198,8 +208,8 @@ product-definition scaffold. Implemented areas include:
 | Extensions | Native hooks and skills; local Codex/Claude Code plugin adapters |
 | Collaboration | One bounded subagent and runtime-owned team execution |
 | Monitoring | CLI/TUI metrics, SQLite projection, benchmark records, static HTML export |
-| Interfaces | Primary conversation TUI, automation/diagnostic CLI, self-contained local HTML report |
-| General answers and web | General knowledge/calculation answers, automatic freshness routing, `/search`, bounded Exa MCP results with runtime-rendered source links |
+| Interfaces | Primary conversation TUI, keyboard pickers, local attachment badges, automation/diagnostic CLI, self-contained local HTML report |
+| General answers and web | General knowledge/calculation answers, natural Korean search routing, `/search`, bounded Exa MCP results with runtime-rendered source links |
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete
