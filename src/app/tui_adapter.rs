@@ -81,6 +81,8 @@ impl TuiSetupPort for TuiSetupAdapter {
         Ok(PreparedTuiModel {
             id: prepared.id,
             artifact_path: prepared.artifact_path.display().to_string(),
+            context_tokens: prepared.context_tokens,
+            vision_ready: prepared.vision_ready,
         })
     }
 
@@ -91,6 +93,7 @@ impl TuiSetupPort for TuiSetupAdapter {
             &mut LiveModelSwitch,
             &model.id,
             &model.artifact_path,
+            model.context_tokens,
             &snapshot,
             &default,
         )

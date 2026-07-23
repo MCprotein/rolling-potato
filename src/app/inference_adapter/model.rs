@@ -35,7 +35,9 @@ pub use registry::{
     default_artifact_path, default_report, install_candidate, registry_report, set_default_report,
 };
 use registry::{install_ready_for_report, registry_summary};
-pub(crate) use setup::{activate_setup_model, prepare_setup_model, setup_options};
+pub(crate) use setup::{
+    activate_setup_model, configured_context_length, prepare_setup_model, setup_options,
+};
 
 pub fn candidate_summary() -> String {
     let counts = ManifestCounts::from_candidates();

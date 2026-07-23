@@ -3,12 +3,12 @@ use crate::runtime_core::terminal::{TerminalChoice, TerminalFault, TerminalIo};
 
 use super::runtime_bridge::TuiModelOption;
 
-pub(crate) const DEFAULT_CONTEXT_TOKENS: u32 = 4096;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PreparedTuiModel {
     pub(crate) id: String,
     pub(crate) artifact_path: String,
+    pub(crate) context_tokens: u32,
+    pub(crate) vision_ready: bool,
 }
 
 pub(crate) trait TuiSetupPort {
@@ -83,8 +83,14 @@ pub(crate) fn run_setup(
     runtime.start_model(&prepared)?;
     terminal
         .write_frame(&format!(
-            "\n설정 완료\n- model: {}\n- context: {} tokens\n- backend: ready\n- 다음: 코딩 요청을 입력하세요.\n",
-            prepared.id, DEFAULT_CONTEXT_TOKENS
+            "\n설정 완료\n- model: {}\n- context: {} tokens\n- vision: {}\n- backend: ready\n- 다음: 코딩 요청을 입력하세요.\n",
+            prepared.id,
+            prepared.context_tokens,
+            if prepared.vision_ready {
+                "ready"
+            } else {
+                "text-only"
+            }
         ))
         .map_err(terminal_error)
 }
@@ -263,6 +269,8 @@ mod tests {
             Ok(PreparedTuiModel {
                 id: id.to_string(),
                 artifact_path: "/tmp/model.gguf".to_string(),
+                context_tokens: 131_072,
+                vision_ready: true,
             })
         }
 
@@ -288,6 +296,8 @@ mod tests {
         assert!(output.contains("RAM 미확정"));
         assert!(output.contains("Apache-2.0"));
         assert!(output.contains("설정 완료"));
+        assert!(output.contains("context: 131072 tokens"));
+        assert!(output.contains("vision: ready"));
         assert_eq!(
             runtime.calls,
             ["backend", "model:gemma-4-e4b", "start:gemma-4-e4b"]

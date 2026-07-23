@@ -130,13 +130,19 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             &mut LiveModelSwitch,
             &prepared.id,
             &prepared.artifact_path.display().to_string(),
+            prepared.context_tokens,
             &snapshot,
             &default,
         )?;
         Ok(format!(
-            "모델 변경 완료\n- model: {}\n- context: {}\n- backend: ready",
+            "모델 변경 완료\n- model: {}\n- context: {}\n- vision: {}\n- backend: ready",
             prepared.id,
-            crate::surfaces::tui::setup::DEFAULT_CONTEXT_TOKENS
+            prepared.context_tokens,
+            if prepared.vision_ready {
+                "ready"
+            } else {
+                "text-only"
+            }
         ))
     }
 
@@ -190,9 +196,10 @@ fn ensure_runtime_ready() -> Result<(), AppError> {
             }
         })?;
     crate::app::inference_adapter::backend::ensure_installed_report()?;
+    let context_tokens = crate::app::inference_adapter::model::configured_context_length()?;
     crate::app::inference_adapter::backend::start_report(
         &model_path.display().to_string(),
-        Some(crate::surfaces::tui::setup::DEFAULT_CONTEXT_TOKENS),
+        Some(context_tokens),
     )?;
     Ok(())
 }
