@@ -142,6 +142,11 @@ mod tests {
     }
 
     #[test]
+    fn strict_execution_answer_still_rejects_a_foreign_sentence() {
+        assert!(validate_existing("This patch result is not Korean.").is_err());
+    }
+
+    #[test]
     fn explicit_language_request_keeps_the_requested_language() {
         assert_eq!(
             finish_generated(

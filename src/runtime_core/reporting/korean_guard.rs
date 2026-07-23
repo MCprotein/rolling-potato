@@ -359,26 +359,63 @@ fn runtime_field_value(line: &str) -> Option<&str> {
 fn stricter_projection(text: &str) -> String {
     let mut fenced = false;
     text.lines()
-        .filter(|line| {
+        .filter_map(|line| {
             let trimmed = line.trim();
             if trimmed.starts_with("```") {
                 fenced = !fenced;
-                return true;
+                return Some(line.to_string());
             }
             if fenced {
-                return true;
+                return Some(line.to_string());
             }
-            if trimmed.chars().any(is_hiragana_katakana_or_han) {
-                return false;
-            }
-            let visible = strip_inline_code(trimmed);
-            visible.chars().any(is_hangul)
-                || foreign_word_count(&visible) == 0
-                || runtime_field_value(&visible).is_some()
-                || is_safe_literal(&visible)
+            project_outside_line(line)
         })
-        .collect::<Vec<_>>()
+        .collect::<Vec<String>>()
         .join("\n")
+}
+
+fn project_outside_line(line: &str) -> Option<String> {
+    let visible = strip_inline_code(line.trim());
+    if projection_unit_is_safe(&visible) {
+        return Some(line.to_string());
+    }
+
+    let mut projection = String::new();
+    for unit in prose_units(line) {
+        let visible = strip_inline_code(unit.trim());
+        if projection_unit_is_safe(&visible) {
+            if !projection.is_empty() && unit.starts_with(char::is_whitespace) {
+                projection.push(' ');
+            }
+            projection.push_str(unit.trim());
+        }
+    }
+    (!projection.is_empty()).then_some(projection)
+}
+
+fn projection_unit_is_safe(visible: &str) -> bool {
+    let classification = classify_outside_text(visible);
+    !classification.forbidden
+        && (classification.has_hangul
+            || classification.language_neutral
+            || runtime_field_value(visible).is_some()
+            || is_safe_literal(visible))
+}
+
+fn prose_units(line: &str) -> Vec<&str> {
+    let mut units = Vec::new();
+    let mut start = 0;
+    for (index, character) in line.char_indices() {
+        if matches!(character, '.' | '!' | '?' | '。' | '！' | '？') {
+            let end = index + character.len_utf8();
+            units.push(&line[start..end]);
+            start = end;
+        }
+    }
+    if start < line.len() {
+        units.push(&line[start..]);
+    }
+    units
 }
 
 fn is_safe_literal(line: &str) -> bool {
@@ -605,6 +642,26 @@ mod tests {
             safe_projection("정답은 15입니다.\n这是中文句子。"),
             Some("정답은 15입니다.".to_string())
         );
+    }
+
+    #[test]
+    fn safe_projection_keeps_korean_and_drops_a_same_line_foreign_sentence() {
+        assert_eq!(
+            safe_projection("정상 한국어 문장입니다. Forbidden English sentence."),
+            Some("정상 한국어 문장입니다.".to_string())
+        );
+        assert_eq!(
+            safe_projection("Forbidden English sentence. 정상 한국어 문장입니다"),
+            Some("정상 한국어 문장입니다".to_string())
+        );
+    }
+
+    #[test]
+    fn safe_projection_preserves_urls_and_inline_code() {
+        let answer =
+            "문서는 https://example.com/v1.2/reference에 있고 `cargo test --locked`로 확인합니다.";
+
+        assert_eq!(safe_projection(answer), Some(answer.to_string()));
     }
 
     #[test]

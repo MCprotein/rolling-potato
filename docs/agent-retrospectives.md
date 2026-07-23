@@ -707,3 +707,29 @@
 - 본문 인용 번호는 모델이 만들지 않으며 출처 URL 목록은 런타임만 렌더링합니다.
 - 일반 답변·검색 변경 candidate는 실제 binary에서 계산 한 건, `/search` 한 건,
   primary `--help` 노출을 각각 한 번 smoke한 뒤에만 ready로 전환합니다.
+
+## 2026-07-23: 일반 답변 복구 정책과 Windows fixture 시간 계약이 어긋남
+
+### 증상
+
+- 일반 `backend chat --stream`이 비어 있지 않은 답변을 보존하도록 바뀌었지만,
+  patch-loop 통합 테스트 두 건은 여전히 모든 외국어 출력을 exit 3으로 차단하는
+  과거 계약을 기대했습니다.
+- Windows `full_adapter`는 저장소 seed와 context pack이 계속 진행 중이었지만,
+  fixture의 단일 명령 30초 제한에 걸려 종료됐습니다.
+
+### 원인
+
+- 일반 대화의 표시 정책과 patch/실행 결과의 strict 검증 정책을 같은 회귀 테스트로
+  취급했습니다.
+- GitHub Windows runner에서 실제로 관찰된 단계별 진행 시간보다 fixture 제한이
+  짧았고, 플랫폼별 시간 차이를 반영하지 않았습니다.
+
+### 재발 방지
+
+- 일반 대화는 빈 출력만 차단합니다. 외국어 혼입은 재작성과 안전 projection을 한 번
+  시도하되, 복구되지 않은 비어 있지 않은 원문도 숨기지 않습니다.
+- patch proposal·실행·검증 결과는 별도의 `validate_existing` 경계에서 계속
+  fail-closed로 유지하고 외국어 문장 거부 회귀 테스트를 둡니다.
+- Native fixture 명령 제한은 Unix 30초, Windows 60초로 유한하게 유지합니다.
+  timeout 로그에 ledger와 backend trace를 남겨 실제 무진행과 느린 진행을 구분합니다.

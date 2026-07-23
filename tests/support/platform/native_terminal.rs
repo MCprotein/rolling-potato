@@ -7,7 +7,10 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 static NATIVE_TERMINAL_LOCK: Mutex<()> = Mutex::new(());
 static SOURCE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+#[cfg(not(windows))]
 const FIXTURE_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
+#[cfg(windows)]
+const FIXTURE_COMMAND_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub(crate) fn strip_terminal_controls(capture: &str) -> String {
     let mut output = String::with_capacity(capture.len());

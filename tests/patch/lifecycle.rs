@@ -1471,7 +1471,7 @@ fn backend_generation_timeout_records_terminal_evidence_and_cleans_state() {
 }
 
 #[test]
-fn streaming_guard_blocks_forbidden_model_bytes_before_output_or_success_ledger() {
+fn streaming_guard_keeps_a_nonempty_fallback_visible_without_failed_ledger() {
     let fixture = fixture("backend-stream-language-guard");
     let forbidden = "This model response must never be emitted.";
     fs::write(&fixture.response, forbidden).unwrap();
@@ -1485,12 +1485,12 @@ fn streaming_guard_blocks_forbidden_model_bytes_before_output_or_success_ledger(
         "--stream",
     ]);
 
-    assert_eq!(chat.status.code(), Some(3));
-    assert!(!String::from_utf8_lossy(&chat.stdout).contains(forbidden));
+    assert!(chat.status.success());
+    assert!(String::from_utf8_lossy(&chat.stdout).contains(forbidden));
     assert!(!String::from_utf8_lossy(&chat.stderr).contains(forbidden));
     let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
-    assert!(ledger.contains("backend.generation.failed"));
-    assert!(!ledger.contains("backend.chat.completed"));
+    assert!(!ledger.contains("backend.generation.failed"));
+    assert!(ledger.contains("backend.chat.completed"));
     assert!(!ledger.contains(forbidden));
 }
 
@@ -1550,7 +1550,7 @@ fn upstream_http_reason_phrase_is_redacted_from_output_and_persistent_state() {
 }
 
 #[test]
-fn streaming_guard_emits_prior_korean_but_never_later_forbidden_unit() {
+fn streaming_guard_projects_mixed_output_without_hiding_the_answer() {
     let fixture = fixture("backend-stream-mixed-language-guard");
     fixture.start();
     let forbidden = "Forbidden English sentence.";
@@ -1563,14 +1563,14 @@ fn streaming_guard_emits_prior_korean_but_never_later_forbidden_unit() {
         "--stream",
     ]);
 
-    assert_eq!(chat.status.code(), Some(3));
+    assert!(chat.status.success());
     let stdout = String::from_utf8_lossy(&chat.stdout);
     assert!(stdout.contains("정상 한국어 문장입니다."));
     assert!(!stdout.contains(forbidden));
     assert!(!String::from_utf8_lossy(&chat.stderr).contains(forbidden));
     let ledger = fs::read_to_string(fixture.data.join("state/runtime-ledger.jsonl")).unwrap();
-    assert!(ledger.contains("backend.generation.failed"));
-    assert!(!ledger.contains("backend.chat.completed"));
+    assert!(!ledger.contains("backend.generation.failed"));
+    assert!(ledger.contains("backend.chat.completed"));
     assert!(!ledger.contains(forbidden));
 }
 
