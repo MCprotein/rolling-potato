@@ -182,6 +182,26 @@ fn pasted_image_path_becomes_an_attachment_instead_of_an_unknown_command() {
 }
 
 #[test]
+fn failed_request_keeps_attachments_until_a_successful_retry() {
+    let path = "/private/tmp/rpotato-retry.png";
+    let mut terminal =
+        ScriptedTerminal::new([path, "첫 요청", "재시도", "첨부 없는 요청", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        submit_failures_remaining: 1,
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.requests, ["첫 요청", "재시도", "첨부 없는 요청"]);
+    assert_eq!(runtime.submitted_attachment_counts, [1, 1, 0]);
+    assert!(terminal
+        .frames
+        .join("\n")
+        .contains("첨부는 재시도를 위해 유지했습니다."));
+}
+
+#[test]
 fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let previous_root = std::env::var_os("RPOTATO_PROJECT_ROOT");
@@ -217,6 +237,7 @@ struct ConversationRuntime {
     setup_models: Vec<String>,
     captured_paths: Vec<String>,
     submitted_attachment_counts: Vec<usize>,
+    submit_failures_remaining: usize,
 }
 
 impl TuiRuntimePort for ConversationRuntime {
@@ -281,6 +302,10 @@ impl TuiRuntimePort for ConversationRuntime {
     ) -> Result<String, AppError> {
         self.requests.push(request.to_string());
         self.submitted_attachment_counts.push(attachments.len());
+        if self.submit_failures_remaining > 0 {
+            self.submit_failures_remaining -= 1;
+            return Err(AppError::runtime("테스트 요청 실패"));
+        }
         Ok("안녕하세요.".to_string())
     }
 

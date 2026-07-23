@@ -429,10 +429,15 @@ pub(crate) fn run_controller(
                 state.notice = "작업 중 · 에이전트가 요청을 처리하고 있습니다…".to_string();
                 write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
                 let response = match runtime.submit_request(line.trim(), &state.attachments) {
-                    Ok(report) => report,
-                    Err(error) => format!("요청을 완료하지 못했습니다.\n{}", error.message),
+                    Ok(report) => {
+                        state.clear_attachments();
+                        report
+                    }
+                    Err(error) => format!(
+                        "요청을 완료하지 못했습니다.\n{}\n첨부는 재시도를 위해 유지했습니다.",
+                        error.message
+                    ),
                 };
-                state.clear_attachments();
                 state.push_turn(ConversationRole::Assistant, response);
             }
         }

@@ -1,8 +1,11 @@
 //! Local attachment capture and text-request composition for the interactive TUI.
 
-use std::fs;
+use std::fs::{self, File, OpenOptions};
 use std::io::Read;
 use std::path::{Path, PathBuf};
+
+#[cfg(unix)]
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 
 use crate::adapters::filesystem::layout as paths;
 use crate::foundation::error::AppError;
@@ -54,30 +57,19 @@ pub(super) fn capture(path_input: &str, session_id: &str) -> Result<TuiAttachmen
     let capture_dir = paths::app_data_root()
         .join("attachments")
         .join(safe_leaf(session_id));
-    fs::create_dir_all(&capture_dir).map_err(|error| {
-        AppError::runtime(format!(
-            "첨부 저장소를 만들지 못했습니다: {} ({error})",
-            capture_dir.display()
-        ))
-    })?;
+    create_private_capture_dir(&capture_dir)?;
     let stored_path = capture_dir.join(format!("{}-{}", sha256, safe_leaf(&display_name)));
     match fs::symlink_metadata(&stored_path) {
-        Ok(stored_metadata)
-            if stored_metadata.file_type().is_symlink() || !stored_metadata.is_file() =>
-        {
-            return Err(AppError::blocked(format!(
-                "첨부 저장 경로를 차단했습니다.\n- path: {}\n- 이유: 기존 대상은 일반 파일이어야 하며 symlink는 허용하지 않습니다.",
-                stored_path.display()
-            )));
-        }
         Ok(_) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            fs::copy(&source, &stored_path).map_err(|error| {
-                AppError::runtime(format!(
-                    "첨부 파일을 app data에 캡처하지 못했습니다: {} ({error})",
-                    stored_path.display()
-                ))
-            })?;
+            if let Err(error) = copy_attachment_once(&source, &stored_path) {
+                if error.kind() != std::io::ErrorKind::AlreadyExists {
+                    return Err(AppError::runtime(format!(
+                        "첨부 파일을 app data에 캡처하지 못했습니다: {} ({error})",
+                        stored_path.display()
+                    )));
+                }
+            }
         }
         Err(error) => {
             return Err(AppError::runtime(format!(
@@ -86,6 +78,7 @@ pub(super) fn capture(path_input: &str, session_id: &str) -> Result<TuiAttachmen
             )));
         }
     }
+    harden_stored_attachment(&stored_path)?;
     if integrity::sha256_file(&stored_path)? != sha256 {
         let stored_metadata = fs::symlink_metadata(&stored_path).map_err(|error| {
             AppError::runtime(format!(
@@ -107,6 +100,75 @@ pub(super) fn capture(path_input: &str, session_id: &str) -> Result<TuiAttachmen
         size_bytes: metadata.len(),
         kind,
     })
+}
+
+fn create_private_capture_dir(path: &Path) -> Result<(), AppError> {
+    fs::create_dir_all(path).map_err(|error| {
+        AppError::runtime(format!(
+            "첨부 저장소를 만들지 못했습니다: {} ({error})",
+            path.display()
+        ))
+    })?;
+    let metadata = fs::symlink_metadata(path).map_err(|error| {
+        AppError::runtime(format!(
+            "첨부 저장소를 확인하지 못했습니다: {} ({error})",
+            path.display()
+        ))
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(AppError::blocked(format!(
+            "첨부 저장소를 차단했습니다.\n- path: {}\n- 이유: 일반 디렉터리만 사용할 수 있으며 symlink는 허용하지 않습니다.",
+            path.display()
+        )));
+    }
+    #[cfg(unix)]
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(|error| {
+        AppError::runtime(format!(
+            "첨부 저장소 권한을 제한하지 못했습니다: {} ({error})",
+            path.display()
+        ))
+    })?;
+    Ok(())
+}
+
+fn copy_attachment_once(source: &Path, destination: &Path) -> std::io::Result<()> {
+    let mut reader = File::open(source)?;
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let mut writer = options.open(destination)?;
+    let result = std::io::copy(&mut reader, &mut writer)
+        .and_then(|_| writer.sync_all())
+        .map(|_| ());
+    drop(writer);
+    if result.is_err() {
+        let _ = fs::remove_file(destination);
+    }
+    result
+}
+
+fn harden_stored_attachment(path: &Path) -> Result<(), AppError> {
+    let metadata = fs::symlink_metadata(path).map_err(|error| {
+        AppError::runtime(format!(
+            "첨부 저장 경로를 다시 확인하지 못했습니다: {} ({error})",
+            path.display()
+        ))
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(AppError::blocked(format!(
+            "첨부 저장 경로를 차단했습니다.\n- path: {}\n- 이유: 기존 대상은 일반 파일이어야 하며 symlink는 허용하지 않습니다.",
+            path.display()
+        )));
+    }
+    #[cfg(unix)]
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).map_err(|error| {
+        AppError::runtime(format!(
+            "첨부 파일 권한을 제한하지 못했습니다: {} ({error})",
+            path.display()
+        ))
+    })?;
+    Ok(())
 }
 
 pub(super) fn compose_request(
@@ -458,6 +520,25 @@ mod tests {
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         assert!(Path::new(&attachment.stored_path).starts_with(root.join("data/attachments")));
+        #[cfg(unix)]
+        {
+            let file_mode = fs::metadata(&attachment.stored_path)
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777;
+            let directory_mode = fs::metadata(
+                Path::new(&attachment.stored_path)
+                    .parent()
+                    .expect("captured attachment has a parent"),
+            )
+            .unwrap()
+            .permissions()
+            .mode()
+                & 0o777;
+            assert_eq!(file_mode, 0o600);
+            assert_eq!(directory_mode, 0o700);
+        }
         assert!(request.text.contains("<attachment name=\"sample.rs\">"));
         assert!(request.text.contains("fn main() {}"));
         assert!(request.images.is_empty());
