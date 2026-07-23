@@ -643,6 +643,9 @@
   정체성처럼 답했습니다.
 - 인사 이외의 일반 지식 질문은 불필요한 repository workflow로 승격됐고, 최신 정보에
   필요한 웹 검색 surface가 없었습니다.
+- 첫 final candidate CI에서 구조화된 `proposal id`와 한국어 라벨의 파일 경로를
+  외국어 문장으로 오인했고, runtime report의 영문 heading 제거 계약도 달라져 기존
+  patch/report 회귀 테스트 3개가 실패했습니다.
 
 ### 원인
 
@@ -660,5 +663,9 @@
   명시적 웹 검색과 출처 표시를 실제 promoted model TUI smoke에 포함합니다.
 - 외국어 혼입은 사실·숫자·코드를 보존하는 한국어 재작성 한 번으로 복구하고,
   재작성 뒤에도 혼입되면 그때만 차단합니다.
+- Guard 규칙을 바꾸면 guard 단위 테스트뿐 아니라 구조화 patch 성공 보고,
+  runtime resume report, workflow runner의 byte-stable projection 회귀 테스트를 함께
+  targeted 검증합니다. 알려진 field도 라벨 전체를 건너뛰지 않고 공백 없는 식별자·경로
+  또는 값 내부의 외국어 연속 구간으로 구분합니다.
 - 웹 검색 완료 주장은 고정된 읽기 전용 endpoint의 실제 호출, HTTPS 출처 표시,
   오프라인 override를 함께 검증한 경우에만 사용합니다.

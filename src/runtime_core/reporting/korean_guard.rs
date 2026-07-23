@@ -91,6 +91,10 @@ impl StreamingGuard {
 }
 
 pub fn guard_or_failure(text: &str) -> String {
+    let projection = stricter_projection(text);
+    if projection != text && validate(&projection) {
+        return projection;
+    }
     guard_with_regeneration(text, || stricter_projection(text))
 }
 
@@ -148,7 +152,19 @@ fn classify_outside_text(text: &str) -> OutsideTextClassification {
             result.forbidden = true;
             return result;
         }
-        if is_safe_path_field(&line) {
+        if let Some(value) = runtime_field_value(&line) {
+            let token_like = value
+                .chars()
+                .all(|character| !character.is_control() && !character.is_whitespace());
+            if !token_like
+                && value
+                    .split(is_hangul)
+                    .any(|segment| foreign_word_count(segment) >= 3)
+            {
+                result.forbidden = true;
+                return result;
+            }
+            result.has_hangul |= value.chars().any(is_hangul);
             result.language_neutral = true;
             continue;
         }
@@ -181,21 +197,70 @@ fn foreign_word_count(text: &str) -> usize {
         .count()
 }
 
-fn is_safe_path_field(line: &str) -> bool {
-    line.strip_prefix("- path: ").is_some_and(|path| {
-        !path.is_empty()
-            && path
-                .chars()
-                .all(|character| !character.is_control() && !character.is_whitespace())
-    })
+fn runtime_field_value(line: &str) -> Option<&str> {
+    let (label, value) = line.strip_prefix("- ")?.split_once(": ")?;
+    let label = label.to_ascii_lowercase();
+    let known = [
+        "path",
+        "code",
+        "kind",
+        "effect",
+        "retry",
+        "intent",
+        "hash",
+        "sha",
+        "token",
+        "command",
+        "stdout",
+        "stderr",
+        "record",
+        "event",
+        "status",
+        "phase",
+        "pointer",
+        "revision",
+        "error",
+        "exit code",
+    ]
+    .iter()
+    .any(|marker| label == *marker || label.contains(marker));
+    (known || label.ends_with(" id") || label.contains("파일") || label.contains("경로"))
+        .then_some(value)
+        .filter(|value| !value.trim().is_empty())
 }
 
 fn stricter_projection(text: &str) -> String {
+    let mut fenced = false;
     text.lines()
-        .filter(|line| line.chars().any(is_hangul))
-        .filter(|line| !line.chars().any(is_hiragana_katakana_or_han))
+        .filter(|line| {
+            let trimmed = line.trim();
+            if trimmed.starts_with("```") {
+                fenced = !fenced;
+                return true;
+            }
+            if fenced {
+                return true;
+            }
+            if trimmed.chars().any(is_hiragana_katakana_or_han) {
+                return false;
+            }
+            let visible = strip_inline_code(trimmed);
+            visible.chars().any(is_hangul)
+                || foreign_word_count(&visible) == 0
+                || runtime_field_value(&visible).is_some()
+                || is_safe_literal(&visible)
+        })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn is_safe_literal(line: &str) -> bool {
+    !line.is_empty()
+        && !line.chars().any(|character| character.is_whitespace())
+        && (line.starts_with("https://")
+            || line.starts_with("http://")
+            || line.contains('/')
+            || line.contains('\\'))
 }
 
 fn strip_inline_code(line: &str) -> String {
@@ -320,6 +385,7 @@ mod tests {
     #[test]
     fn file_path_passes() {
         assert!(validate("파일 `src/main.rs`를 확인했습니다."));
+        assert!(validate("패치가 완료되었습니다.\n- 적용 파일: src/lib.rs"));
     }
     #[test]
     fn english_explanation_blocks() {
@@ -372,10 +438,10 @@ mod tests {
         assert_eq!(guard_with_regeneration("Summary", String::new), FAILURE);
     }
     #[test]
-    fn runtime_projection_preserves_a_short_technical_heading() {
+    fn runtime_projection_removes_a_short_foreign_heading() {
         assert_eq!(
             guard_or_failure("Summary\n작업이 완료되었습니다."),
-            "Summary\n작업이 완료되었습니다."
+            "작업이 완료되었습니다."
         );
     }
 
