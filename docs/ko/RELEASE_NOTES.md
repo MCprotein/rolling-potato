@@ -1,5 +1,37 @@
 # 릴리즈 노트
 
+## v0.47.0 - 범용 답변과 웹 근거
+
+릴리즈 날짜: 2026-07-23
+
+이 기능 릴리즈는 기본 TUI에서 coding-agent 작업뿐 아니라 일반적인 로컬 모델
+질문도 처리하고, 최신 정보가 필요한 요청에는 범위가 제한된 읽기 전용 웹 검색을
+제공합니다.
+
+### 포함한 것
+
+- 일반 지식, 계산, 정체성, 일상 대화를 repository workflow로 잘못 승격하지 않고
+  가벼운 답변 경로로 처리
+- 제품 정체성을 `rpotato`로 유지하고 기반 모델의 학습 주체가 일반 후속 질문에서
+  runtime 정체성을 대체하지 않도록 고정
+- 한국어 출력 guard를 혼합 언어 누출 방지로 해석하여 한국어 문장, 숫자, 수식,
+  코드, 경로, URL, 기술 용어는 허용하고 중국어·일본어 또는 이어지는 외국어
+  자연어는 사실을 보존하는 한국어 재작성 한 번 뒤에만 fail-closed 차단
+- `/search <질문>`과 최신성 자동 routing을 고정된 Exa MCP endpoint로 제공하고,
+  검색 결과를 범위가 제한된 신뢰하지 않는 읽기 전용 context로 취급해 번호가 붙은
+  HTTPS 출처 URL과 함께 표시
+- 단어 경계와 작업 의도를 함께 판정해 `Manhattan Project`, `profile`, `research`,
+  `concurrent` 같은 일반 표현이 무거운 agent 또는 최신성 workflow로 잘못 들어가지
+  않도록 개선
+
+### 호환성과 경계
+
+- 기존 public command와 flag를 제거하지 않습니다.
+- 웹 검색은 network가 필요하며 offline mode에서는 local 답변 경로를 유지합니다.
+- 검색 결과는 tool 실행, file 변경, runtime 권한 확대를 수행할 수 없습니다. 로컬
+  repository 질문은 자동으로 외부 웹 검색에 전달하지 않습니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
+
 ## v0.46.2 - 결정적인 release terminal gate
 
 릴리즈 날짜: 2026-07-22

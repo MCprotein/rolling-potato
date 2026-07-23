@@ -1,5 +1,41 @@
 # Release Notes
 
+## v0.47.0 - General Answers and Web Grounding
+
+Release date: 2026-07-23
+
+This feature release makes the primary TUI useful for ordinary local-model
+questions as well as coding-agent work, and adds a bounded read-only web search
+path for requests that need current information.
+
+### Included
+
+- Routes general knowledge, calculation, identity, and ordinary conversation
+  directly to the lightweight answer path instead of inventing a repository
+  workflow.
+- Keeps the product identity as `rpotato` and prevents the base model's training
+  identity from replacing the runtime identity in common follow-up questions.
+- Interprets the Korean-output guard as mixed-language leak prevention: Korean
+  prose, numbers, formulas, code, paths, URLs, and technical terms remain valid,
+  while Chinese, Japanese, or sustained foreign-language prose triggers one
+  fact-preserving Korean rewrite before fail-closed blocking.
+- Adds `/search <question>` and automatic freshness routing through a fixed Exa
+  MCP endpoint. Search responses are bounded, treated as untrusted read-only
+  context, and rendered with numbered HTTPS source URLs.
+- Uses word-boundary and action-aware routing so ordinary phrases such as
+  `Manhattan Project`, `profile`, `research`, and `concurrent` do not accidentally
+  enter heavy agent or freshness workflows.
+
+### Compatibility and boundaries
+
+- No existing public command or flag is removed.
+- Web search requires network access; offline mode keeps requests on the local
+  answer path.
+- Search results cannot dispatch tools, mutate files, or widen runtime
+  permissions. Local repository questions do not automatically leave the
+  machine for web grounding.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.46.2 - Deterministic Release Terminal Gate
 
 Release date: 2026-07-22

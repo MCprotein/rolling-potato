@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.46.2` |
+| 현재 릴리즈 | `v0.47.0` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -182,8 +182,8 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-현재 main candidate는 `v0.46.2` 릴리즈를 기반으로 하며 제품 정의만 있는
-scaffold가 아니라 실제 기능을 가진 pre-1.0 런타임입니다.
+`v0.47.0` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
+pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
 | --- | --- |
@@ -241,10 +241,9 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-게시된 `v0.46.2`까지의 release history는 완료되었습니다. 현재 main에는 범용 답변,
-제한된 웹 근거 검색, 혼합 언어 재작성이 추가되어 있습니다. 최신 release는 실제 기본 대화,
-오래 남은 실패 workflow 복구, 소형 모델 응답 budget 보존, live slash-command
-palette를 deterministic release gate와 함께 게시합니다.
+게시된 `v0.47.0`까지의 release history는 완료되었습니다. 최신 release는 로컬
+coding-agent workflow를 유지하면서 범용 답변, 출처 URL을 표시하는 제한된 웹
+근거, 혼합 언어 재작성을 추가합니다.
 [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를
 참고하십시오.
 
