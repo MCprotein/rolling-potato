@@ -1013,6 +1013,7 @@ fn doctor_report_field_order_is_stable() {
             "- runtime core",
             "- backend",
             "- model",
+            "- web search",
             "- ontology",
             "- cache",
         ]
@@ -1029,4 +1030,5 @@ fn doctor_report_includes_release_smoke_fields() {
     assert!(report.contains("release target arch:"));
     assert!(report.contains("release binary suffix:"));
     assert!(report.contains("release smoke: available"));
+    assert!(report.contains("web search:"));
 }

@@ -162,7 +162,9 @@ there supports both general LLM questions and coding-agent requests. Questions
 that explicitly request web search or depend on current information use a bounded
 read-only Brave Search REST request with runtime-rendered source links. Search
 requires `BRAVE_SEARCH_API_KEY`; the key stays in the environment and is never
-written to rpotato state or logs. The line below the composer shows the current
+written to rpotato state or logs. `/doctor` reports whether search is ready,
+missing a key, or has conflicting aliases without printing the credential.
+The line below the composer shows the current
 model, context usage, compaction checkpoint, backend state, and session.
 Normal TUI operations use `/model`, `/compact`, `/search`, `/attach`, `/update`,
 `/status`, `/sessions`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`.
@@ -231,10 +233,12 @@ approval where required, evidence recording, and verification.
 
 Key constraints:
 
-- user-facing natural-language output is Korean; language-neutral numbers and formulas remain valid
+- user-facing natural-language output defaults to Korean; an explicit request for another
+  language is respected, and language-neutral numbers and formulas remain valid
 - code blocks, paths, commands, and quoted logs remain unchanged when needed
 - mixed-language final output gets one Korean rewrite attempt, then preserves
-  valid Korean lines through safe projection or fails closed
+  valid Korean lines through safe projection and falls back to the non-empty visible
+  answer instead of hiding it; only empty/hidden output is blocked
 - imported plugin instructions cannot widen runtime permissions
 - shell, background, remote-connector, sensitive-setting, and write
   capabilities remain blocked unless a supported policy path allows them

@@ -40,12 +40,12 @@ pub(crate) use setup::{activate_setup_model, prepare_setup_model, setup_options}
 pub fn candidate_summary() -> String {
     let counts = ManifestCounts::from_candidates();
     format!(
-        "{}개 후보, verified {}개, 설치 가능 {}개, artifact 검증 필요",
+        "{}개 후보, static verified {}개, static 설치 가능 {}개, local artifact/promotion audit deferred",
         counts.total,
         counts.verified,
         CANDIDATES
             .iter()
-            .filter(|candidate| install_ready_for_report(candidate))
+            .filter(|candidate| validate_install_ready(candidate).ready)
             .count()
     )
 }

@@ -290,22 +290,25 @@ pub fn import_report(path: &str, dry_run: bool) -> Result<String, AppError> {
 }
 
 pub fn doctor_summary() -> String {
-    match status_summary() {
-        Ok(summary) => summary,
+    let path = paths::project_ontology_store_file();
+    if !path.exists() {
+        return format!(
+            "ontology store 미생성 ({}); rpotato init에서 준비",
+            path.display()
+        );
+    }
+    match load_projection() {
+        Ok(projection) => {
+            let diagnostics = diagnostics_from_projection(&projection, |_| false);
+            format!(
+                "ontology store {}, current {}, source hash audit deferred, sourceless confirmed Layer B {}",
+                path.display(),
+                diagnostics.current_records,
+                diagnostics.sourceless_confirmed_layer_b
+            )
+        }
         Err(err) => format!("ontology 진단 실패: {}", err.message),
     }
-}
-
-fn status_summary() -> Result<String, AppError> {
-    ensure_layout()?;
-    let diagnostics = diagnostics_from_projection(&load_projection()?, record_source_is_stale);
-    Ok(format!(
-        "ontology store {}, current {}, stale Layer A {}, sourceless confirmed Layer B {}",
-        paths::project_ontology_store_file().display(),
-        diagnostics.current_records,
-        diagnostics.stale_layer_a,
-        diagnostics.sourceless_confirmed_layer_b
-    ))
 }
 
 fn load_projection() -> Result<OntologyProjection, AppError> {

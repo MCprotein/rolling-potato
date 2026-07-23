@@ -85,8 +85,9 @@ deterministic typed extraction만으로 계속합니다.
 
 언어 guard는 한국어 문장과 함께 숫자, 수식, 코드, 경로, URL, 범위가 제한된 기술
 제목을 허용합니다. CJK 누출이나 이어지는 외국어 문장에는 사실을 보존하는 한국어
-재작성 한 번을 시도한 뒤 유효한 한국어 line을 안전하게 투영하고, 사용할 수 있는
-응답이 없을 때만 차단합니다.
+재작성 한 번을 시도한 뒤 유효한 한국어 line을 안전하게 투영합니다. 복구가 실패해도
+비어 있지 않은 visible 답변을 숨기지 않으며 empty/hidden output만 차단합니다.
+사용자가 다른 출력 언어를 명시하면 한국어 기본 복구 정책을 적용하지 않습니다.
 
 기본 TUI는 저장소 도구가 필요 없는 일반 지식, 계산, 설명, 글쓰기 질문을 위한
 가벼운 범용 답변 경로도 제공합니다. 인터넷 검색을 명시한 요청과 최신성이 필요한
@@ -95,7 +96,9 @@ deterministic typed extraction만으로 계속합니다.
 environment에서만 읽고 저장하거나 출력하지 않습니다. 현재 질문은 HTTPS로 해당
 서비스에 전송되며 redirect는 허용하지 않습니다. 반환 text는 신뢰하지 않는
 context로만 취급하고 웹 문서의 지시는 실행 권한을 얻지 못합니다. 최대 4개 출처가
-6 KiB 근거 budget을 공유하며, runtime이 model이 만든 citation과 출처 block을 제거한
+6 KiB 근거 budget을 공유합니다. `/doctor`는 key를 노출하지 않고 검색 설정을
+표시하며, 비용이 큰 ontology source-hash 감사는 명시적인 ontology 진단으로
+미룹니다. Runtime은 model이 만든 citation과 출처 block을 제거한
 뒤 검증된 HTTPS 출처 link를 직접 표시합니다. 요약이나 언어 보정이 사용할 수 없어도
 성공한 검색의 출처 link는 유지합니다. 사용자가 offline을 요청하면 이 경로를
 사용하지 않습니다.

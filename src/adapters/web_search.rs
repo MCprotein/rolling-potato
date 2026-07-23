@@ -67,6 +67,22 @@ pub(crate) fn search(query: &str) -> Result<WebSearchEvidence, AppError> {
     parse_search_response(&body)
 }
 
+pub(crate) fn configuration_summary() -> String {
+    let primary = non_empty_env("BRAVE_SEARCH_API_KEY");
+    let alias = non_empty_env("BRAVE_API_KEY");
+    configuration_summary_from(primary.as_deref(), alias.as_deref()).to_string()
+}
+
+fn configuration_summary_from(primary: Option<&str>, alias: Option<&str>) -> &'static str {
+    match (primary, alias) {
+        (Some(primary), Some(alias)) if primary != alias => {
+            "설정 충돌; BRAVE_SEARCH_API_KEY와 BRAVE_API_KEY를 같은 값으로 맞추거나 하나만 사용"
+        }
+        (Some(_), _) | (_, Some(_)) => "사용 가능; Brave direct REST, environment-only key",
+        (None, None) => "미설정; BRAVE_SEARCH_API_KEY 필요",
+    }
+}
+
 fn brave_agent_config() -> ureq::config::Config {
     ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(30)))
@@ -334,6 +350,21 @@ mod tests {
         assert_eq!(
             configured_api_key_from(Some("same"), Some("same")).unwrap(),
             "same"
+        );
+    }
+
+    #[test]
+    fn configuration_summary_reports_state_without_exposing_credentials() {
+        assert_eq!(
+            configuration_summary_from(Some("secret"), None),
+            "사용 가능; Brave direct REST, environment-only key"
+        );
+        let conflict = configuration_summary_from(Some("secret-a"), Some("secret-b"));
+        assert!(conflict.contains("설정 충돌"));
+        assert!(!conflict.contains("secret-a"));
+        assert_eq!(
+            configuration_summary_from(None, None),
+            "미설정; BRAVE_SEARCH_API_KEY 필요"
         );
     }
 

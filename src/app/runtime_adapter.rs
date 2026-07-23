@@ -139,6 +139,7 @@ pub fn doctor_report() -> String {
         tui_outcome_codes,
         backend,
         model: models,
+        web_search: crate::adapters::web_search::configuration_summary(),
         ontology,
         cache,
     })

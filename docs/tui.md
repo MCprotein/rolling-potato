@@ -172,6 +172,8 @@ requires `BRAVE_SEARCH_API_KEY`, uses no MCP process or provider SDK, and refuse
 redirects while carrying credentials. Search results are untrusted prompt context
 only; they cannot invoke a command, edit a file, or widen runtime permissions. An
 offline/no-browse instruction disables automatic retrieval for that request.
+`/doctor` reports search as ready, missing its key, or alias-conflicted without
+printing the credential.
 
 <!-- TUI-READ-CONTRACT:START -->
 The eight views (`overview`, `monitor`, `sessions`, `transcript`, `tool-output`,

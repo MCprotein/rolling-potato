@@ -12,6 +12,7 @@ use crate::foundation::serialization::escape_string_content;
 use crate::runtime_core::inference::backend::{
     BackendAdapter, BackendChatInput, BackendChatSampling,
 };
+use crate::runtime_core::reporting::korean_guard;
 
 pub(crate) const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 pub(crate) const DEFAULT_HOST: &str = "127.0.0.1";
@@ -231,7 +232,11 @@ pub(crate) fn chat_request_body_for_input(
     sampling: &BackendChatSampling,
     stream: bool,
 ) -> String {
-    let system_prompt = "사용자에게 보이는 최종 답변만 한국어로 작성합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다.";
+    let system_prompt = if korean_guard::allows_non_korean(&input.text) {
+        "사용자가 명시적으로 요청한 출력 언어를 따릅니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다."
+    } else {
+        "기본 답변은 자연스러운 한국어로 작성하고, 코드·수식·URL·고유명사는 필요한 원문 표기를 유지합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다."
+    };
     let model_id = model_path
         .file_stem()
         .and_then(|value| value.to_str())
@@ -632,5 +637,22 @@ mod tests {
         assert_eq!(encode_base64(b"fo"), "Zm8=");
         assert_eq!(encode_base64(b"foo"), "Zm9v");
         assert_eq!(encode_base64(b"foobar"), "Zm9vYmFy");
+    }
+
+    #[test]
+    fn request_system_policy_respects_an_explicit_output_language() {
+        let body = chat_request_body(
+            Path::new("model.gguf"),
+            "이 문장을 영어로 번역해줘",
+            32,
+            &BackendChatSampling {
+                temperature: 0.1,
+                top_p: 0.8,
+            },
+            false,
+        );
+
+        assert!(body.contains("명시적으로 요청한 출력 언어"));
+        assert!(!body.contains("기본 답변은 자연스러운 한국어"));
     }
 }

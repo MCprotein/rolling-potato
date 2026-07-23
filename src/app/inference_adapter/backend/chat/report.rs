@@ -51,7 +51,10 @@ pub fn chat_stream_report(
     timeout_ms: Option<u32>,
     writer: &mut impl Write,
 ) -> Result<String, AppError> {
+    let direct_stream = korean_guard::allows_non_korean(prompt);
     let mut language_guard = korean_guard::StreamingGuard::default();
+    let mut guarded_output = String::new();
+    let mut guard_failed = false;
     writer
         .write_all(b"backend chat\n- status: streaming\n- response:\n")
         .map_err(|err| AppError::runtime(format!("streaming output write 실패: {err}")))?;
@@ -65,20 +68,47 @@ pub fn chat_stream_report(
         timeout_ms,
         || Ok(false),
         |delta| {
-            let guarded = match delta {
-                Some(delta) => language_guard.push(delta),
-                None => language_guard.finish(),
-            }
-            .map_err(AppError::blocked)?;
-            if guarded.is_empty() {
+            if direct_stream {
+                if let Some(delta) = delta {
+                    writer
+                        .write_all(delta.as_bytes())
+                        .and_then(|_| writer.flush())
+                        .map_err(|err| {
+                            AppError::runtime(format!("streaming output write 실패: {err}"))
+                        })?;
+                }
                 return Ok(());
             }
-            writer
-                .write_all(guarded.as_bytes())
-                .and_then(|_| writer.flush())
-                .map_err(|err| AppError::runtime(format!("streaming output write 실패: {err}")))
+            if guard_failed {
+                return Ok(());
+            }
+            match delta {
+                Some(delta) => match language_guard.push(delta) {
+                    Ok(guarded) => guarded_output.push_str(&guarded),
+                    Err(_) => guard_failed = true,
+                },
+                None => {}
+            }
+            Ok(())
         },
     )?;
+    if !direct_stream {
+        if !guard_failed {
+            match language_guard.finish() {
+                Ok(guarded) => guarded_output.push_str(&guarded),
+                Err(_) => guard_failed = true,
+            }
+        }
+        let visible = if guard_failed {
+            crate::app::inference_adapter::answer::fallback_visible(&run.response)?
+        } else {
+            guarded_output
+        };
+        writer
+            .write_all(visible.as_bytes())
+            .and_then(|_| writer.flush())
+            .map_err(|err| AppError::runtime(format!("streaming output write 실패: {err}")))?;
+    }
     writer
         .write_all(b"\n")
         .map_err(|err| AppError::runtime(format!("streaming output write 실패: {err}")))?;

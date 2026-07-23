@@ -89,7 +89,9 @@ cannot run.
 The language guard accepts Korean prose together with numbers, formulas, code,
 paths, URLs, and bounded technical titles. It attempts one fact-preserving
 Korean rewrite for CJK leakage or sustained foreign prose, then safely projects
-valid Korean lines before blocking an unusable response.
+valid Korean lines. A failed repair falls back to the non-empty visible answer
+instead of hiding it; only empty/hidden output is blocked. An explicit request
+for another output language bypasses the Korean-default repair policy.
 
 The primary TUI also has a lightweight general-answer route for knowledge,
 calculation, explanation, and writing questions that do not need repository tools.
@@ -100,6 +102,8 @@ question is sent to that service, returned text is treated as untrusted context,
 no web instruction gains execution authority, and at most four sources share a
 6 KiB evidence budget. Credential-bearing requests are HTTPS-only and do not
 follow redirects; the key is not persisted or logged.
+`/doctor` reports search configuration without exposing the key and defers the
+expensive ontology source-hash audit to explicit ontology diagnostics.
 The runtime removes model-made citations and source blocks, then displays the
 verified HTTPS source links itself. Successful retrieval still exposes those
 links if summarization or language repair is unusable. Requests that say to stay
