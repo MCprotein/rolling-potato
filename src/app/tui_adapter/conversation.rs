@@ -17,6 +17,9 @@ pub(super) fn is_conversational_request(request: &str) -> bool {
 }
 
 pub(super) fn local_reply(request: &str, model: Option<&str>) -> Option<String> {
+    if ResponseLanguage::from_user_request(request).allows_non_korean() {
+        return None;
+    }
     if is_model_identity_request(request) {
         return Some(
             match model.map(str::trim).filter(|value| !value.is_empty()) {
@@ -309,6 +312,13 @@ mod tests {
         );
         assert_eq!(
             local_reply("이 모델 코드를 수정해줘", Some("gemma-test")),
+            None
+        );
+        assert_eq!(
+            local_reply(
+                "Please answer in English: which model are you using?",
+                Some("gemma-test")
+            ),
             None
         );
     }

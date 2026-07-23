@@ -84,12 +84,16 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         attachments: &[TuiAttachment],
     ) -> Result<String, AppError> {
         let user_request = request.trim();
-        let input = super::attachment::compose_request(request, attachments)?;
-        let local_context = input.text.as_str();
-        let active_model = crate::app::inference_adapter::backend::runtime_snapshot()
-            .ok()
+        let backend = crate::app::inference_adapter::backend::runtime_snapshot().ok();
+        let context_limit_tokens = backend
+            .as_ref()
+            .and_then(|snapshot| snapshot.context_limit_tokens)
+            .or_else(|| crate::app::inference_adapter::model::configured_context_length().ok());
+        let active_model = backend
             .and_then(|snapshot| snapshot.model_id)
             .or_else(crate::app::inference_adapter::model::configured_model_id);
+        let input = super::attachment::compose_request(request, attachments, context_limit_tokens)?;
+        let local_context = input.text.as_str();
         if !input.images.is_empty() {
             ensure_runtime_ready()?;
             return conversation::reply_with_images(&input);

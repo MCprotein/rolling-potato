@@ -15,6 +15,8 @@ use crate::surfaces::tui::runtime_bridge::{TuiAttachment, TuiAttachmentKind};
 const MAX_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
 const MAX_TEXT_BYTES: u64 = 256 * 1024;
 const MAX_ATTACHMENTS: usize = 8;
+const RESPONSE_RESERVE_TOKENS: usize = 512;
+const RUNTIME_PROMPT_RESERVE_TOKENS: usize = 512;
 
 pub(super) fn capture(path_input: &str, session_id: &str) -> Result<TuiAttachment, AppError> {
     let source = normalized_source_path(path_input)?;
@@ -110,6 +112,7 @@ pub(super) fn capture(path_input: &str, session_id: &str) -> Result<TuiAttachmen
 pub(super) fn compose_request(
     prompt: &str,
     attachments: &[TuiAttachment],
+    context_limit_tokens: Option<u32>,
 ) -> Result<BackendChatInput, AppError> {
     if attachments.len() > MAX_ATTACHMENTS {
         return Err(AppError::blocked(format!(
@@ -119,15 +122,24 @@ pub(super) fn compose_request(
     let response_language = ResponseLanguage::from_user_request(prompt);
     let mut request = prompt.trim().to_string();
     let mut images = Vec::new();
+    let text_budget = text_input_budget(attachments, context_limit_tokens)?;
+    ensure_text_budget(&request, text_budget, None, context_limit_tokens)?;
     for attachment in attachments {
         match attachment.kind {
             TuiAttachmentKind::Text => {
                 let content = verified_text(attachment)?;
-                request.push_str(&format!(
+                let rendered = format!(
                     "\n\n<attachment name=\"{}\">\n{}\n</attachment>",
                     safe_leaf(&attachment.display_name),
                     content
-                ));
+                );
+                ensure_text_budget(
+                    &format!("{request}{rendered}"),
+                    text_budget,
+                    Some(&attachment.display_name),
+                    context_limit_tokens,
+                )?;
+                request.push_str(&rendered);
             }
             TuiAttachmentKind::Image => images.push(verified_image(attachment)?),
         }
@@ -137,6 +149,52 @@ pub(super) fn compose_request(
         images,
         response_language,
     })
+}
+
+fn text_input_budget(
+    attachments: &[TuiAttachment],
+    context_limit_tokens: Option<u32>,
+) -> Result<Option<usize>, AppError> {
+    if !attachments
+        .iter()
+        .any(|attachment| attachment.kind == TuiAttachmentKind::Text)
+    {
+        return Ok(None);
+    }
+    let limit = context_limit_tokens.ok_or_else(|| {
+        AppError::blocked(
+            "텍스트 첨부를 사용하려면 선택한 모델의 context length를 먼저 확인해야 합니다.",
+        )
+    })? as usize;
+    let reserved = RESPONSE_RESERVE_TOKENS + RUNTIME_PROMPT_RESERVE_TOKENS;
+    if limit <= reserved {
+        return Err(AppError::blocked(format!(
+            "선택한 모델의 context length가 텍스트 첨부를 처리하기에 너무 작습니다.\n- context: {limit} tokens\n- 응답·런타임 예약: {reserved} tokens"
+        )));
+    }
+    Ok(Some(limit - reserved))
+}
+
+fn ensure_text_budget(
+    text: &str,
+    budget: Option<usize>,
+    attachment: Option<&str>,
+    context_limit_tokens: Option<u32>,
+) -> Result<(), AppError> {
+    let Some(budget) = budget else {
+        return Ok(());
+    };
+    let estimated = crate::runtime_core::knowledge::compaction::estimate_tokens(text);
+    if estimated <= budget {
+        return Ok(());
+    }
+    let subject = attachment
+        .map(|name| format!("텍스트 첨부 `{}`", safe_leaf(name)))
+        .unwrap_or_else(|| "사용자 요청".to_string());
+    Err(AppError::blocked(format!(
+        "{subject}을(를) 현재 모델 context에 안전하게 넣을 수 없습니다.\n- 예상 입력: {estimated} tokens\n- 입력 예산: {budget} tokens\n- 모델 context: {} tokens\n- 동작: 첨부를 나누거나 더 긴 context를 지원하는 모델을 선택하세요.",
+        context_limit_tokens.unwrap_or_default()
+    )))
 }
 
 fn verified_text(attachment: &TuiAttachment) -> Result<String, AppError> {
@@ -193,22 +251,34 @@ fn verified_image(attachment: &TuiAttachment) -> Result<BackendChatImage, AppErr
     })?;
     if metadata.file_type().is_symlink()
         || !metadata.is_file()
+        || metadata.len() == 0
+        || metadata.len() > MAX_IMAGE_BYTES
         || metadata.len() != attachment.size_bytes
     {
-        return Err(AppError::blocked(format!(
-            "이미지 첨부가 캡처 이후 변경되었습니다: {}",
-            attachment.display_name
-        )));
+        return Err(changed_attachment("이미지", attachment));
     }
-    validate_content(path, TuiAttachmentKind::Image)?;
-    let bytes = fs::read(path)
+    let file = fs::File::open(path).map_err(|error| {
+        AppError::blocked(format!(
+            "이미지 첨부를 읽지 못했습니다.\n- attachment: {}\n- 이유: {error}",
+            attachment.display_name
+        ))
+    })?;
+    let opened_metadata = file
+        .metadata()
+        .map_err(|error| AppError::runtime(format!("이미지 첨부 metadata 읽기 실패: {error}")))?;
+    if !opened_metadata.is_file() || opened_metadata.len() != metadata.len() {
+        return Err(changed_attachment("이미지", attachment));
+    }
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.take(MAX_IMAGE_BYTES + 1)
+        .read_to_end(&mut bytes)
         .map_err(|error| AppError::runtime(format!("이미지 첨부 읽기 실패: {error}")))?;
+    if bytes.len() as u64 != attachment.size_bytes || bytes.len() as u64 > MAX_IMAGE_BYTES {
+        return Err(changed_attachment("이미지", attachment));
+    }
     let sha256 = integrity::sha256_bytes(&bytes);
     if !sha256.eq_ignore_ascii_case(&attachment.id) {
-        return Err(AppError::blocked(format!(
-            "이미지 첨부가 캡처 이후 변경되었습니다: {}",
-            attachment.display_name
-        )));
+        return Err(changed_attachment("이미지", attachment));
     }
     let mime_type = if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
         "image/png"
@@ -379,8 +449,12 @@ mod tests {
             "session",
         )
         .unwrap();
-        let request =
-            compose_request("이 코드를 설명해줘", std::slice::from_ref(&attachment)).unwrap();
+        let request = compose_request(
+            "이 코드를 설명해줘",
+            std::slice::from_ref(&attachment),
+            Some(4_096),
+        )
+        .unwrap();
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         assert!(Path::new(&attachment.stored_path).starts_with(root.join("data/attachments")));
@@ -405,12 +479,102 @@ mod tests {
 
         let attachment =
             capture(&root.join("screen.png").display().to_string(), "session").unwrap();
-        let request = compose_request("이 이미지 봐줘", &[attachment]).unwrap();
+        let request = compose_request("이 이미지 봐줘", &[attachment], Some(4_096)).unwrap();
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         assert_eq!(request.images.len(), 1);
         assert_eq!(request.images[0].mime_type, "image/png");
         assert!(request.text.contains("이 이미지 봐줘"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn text_attachment_uses_the_selected_models_context_budget() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-tui-text-context-budget-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let source = root.join("large.txt");
+        fs::write(&source, "context ".repeat(2_000)).unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        let attachment = capture(&source.display().to_string(), "session").unwrap();
+        let too_small = compose_request("요약해줘", std::slice::from_ref(&attachment), Some(1_100))
+            .unwrap_err();
+        let accepted = compose_request("요약해줘", &[attachment], Some(131_072)).unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        assert!(too_small.message.contains("large.txt"));
+        assert!(too_small.message.contains("입력 예산: 76 tokens"));
+        assert!(accepted.text.contains("context context"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn text_attachment_requires_a_manifest_context_limit() {
+        let attachment = TuiAttachment {
+            id: "unused".to_string(),
+            display_name: "note.txt".to_string(),
+            stored_path: "unused".to_string(),
+            size_bytes: 1,
+            kind: TuiAttachmentKind::Text,
+        };
+
+        let error = compose_request("요약해줘", &[attachment], None).unwrap_err();
+
+        assert!(error.message.contains("context length를 먼저 확인"));
+    }
+
+    #[test]
+    fn changed_image_bytes_are_rejected_before_backend_use() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-tui-image-revalidation-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let source = root.join("screen.png");
+        fs::write(&source, b"\x89PNG\r\n\x1a\npayload").unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        let attachment = capture(&source.display().to_string(), "session").unwrap();
+        fs::write(&attachment.stored_path, b"\x89PNG\r\n\x1a\nchanged").unwrap();
+        let error = compose_request("이 이미지 봐줘", &[attachment], None).unwrap_err();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        assert!(error.message.contains("캡처 이후 변경"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn image_symlink_replacement_is_rejected_before_backend_use() {
+        use std::os::unix::fs::symlink;
+
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "rpotato-tui-image-use-symlink-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let source = root.join("screen.png");
+        let outside = root.join("outside.png");
+        fs::write(&source, b"\x89PNG\r\n\x1a\ncaptured").unwrap();
+        fs::write(&outside, b"\x89PNG\r\n\x1a\noutside!").unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+        let attachment = capture(&source.display().to_string(), "session").unwrap();
+        fs::remove_file(&attachment.stored_path).unwrap();
+        symlink(&outside, &attachment.stored_path).unwrap();
+        let error = compose_request("이 이미지 봐줘", &[attachment], None).unwrap_err();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        assert!(error.message.contains("캡처 이후 변경"));
         let _ = fs::remove_dir_all(root);
     }
 
@@ -429,7 +593,7 @@ mod tests {
 
         let attachment = capture(&source.display().to_string(), "session").unwrap();
         fs::write(&attachment.stored_path, "modified").unwrap();
-        let error = compose_request("설명해줘", &[attachment]).unwrap_err();
+        let error = compose_request("설명해줘", &[attachment], Some(4_096)).unwrap_err();
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         assert!(error.message.contains("캡처 이후 변경"));
@@ -453,7 +617,7 @@ mod tests {
             vec![b'a'; (MAX_TEXT_BYTES + 1) as usize],
         )
         .unwrap();
-        let error = compose_request("설명해줘", &[attachment]).unwrap_err();
+        let error = compose_request("설명해줘", &[attachment], Some(4_096)).unwrap_err();
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         assert!(error.message.contains("캡처 이후 변경"));
@@ -481,7 +645,7 @@ mod tests {
         let attachment = capture(&source.display().to_string(), "session").unwrap();
         fs::remove_file(&attachment.stored_path).unwrap();
         symlink(&outside, &attachment.stored_path).unwrap();
-        let error = compose_request("설명해줘", &[attachment]).unwrap_err();
+        let error = compose_request("설명해줘", &[attachment], Some(4_096)).unwrap_err();
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         assert!(error.message.contains("캡처 이후 변경"));
