@@ -667,6 +667,30 @@ mod unix {
             }
         }
 
+        pub fn mark(&self) -> usize {
+            self.output.len()
+        }
+
+        pub fn wait_for_after(&mut self, mark: usize, needle: &str) -> String {
+            assert!(
+                mark <= self.output.len(),
+                "PTY output mark is out of bounds"
+            );
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                self.drain_available();
+                let output = String::from_utf8_lossy(&self.output[mark..]);
+                if output.contains(needle) {
+                    return output.into_owned();
+                }
+                assert!(
+                    Instant::now() < deadline,
+                    "PTY output timeout after mark; wanted {needle:?}; got {output}"
+                );
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+
         pub fn finish(mut self) -> String {
             let status = self.wait_for_exit();
             self.waited = true;

@@ -733,3 +733,8 @@
   fail-closed로 유지하고 외국어 문장 거부 회귀 테스트를 둡니다.
 - Native fixture 명령 제한은 Unix 30초, Windows 60초로 유한하게 유지합니다.
   timeout 로그에 ledger와 backend trace를 남겨 실제 무진행과 느린 진행을 구분합니다.
+- Full-screen TUI의 PTY raw capture는 동일한 정본 대화를 여러 frame에 다시 그릴 수
+  있으므로 marker 개수를 실행 횟수로 해석하지 않습니다. 대신 나타난 모든 exact
+  outcome block의 내용과 별도 ledger event delta를 검증합니다.
+- 선택형 명령의 native test는 과거의 텍스트 report가 아니라 현재 picker 제목,
+  항목, 닫기 동작을 검증합니다.
