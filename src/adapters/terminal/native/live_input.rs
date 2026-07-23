@@ -14,6 +14,40 @@ const MAX_INPUT_BYTES: usize = 8 * 1024;
 const MAX_PALETTE_ROWS: usize = 6;
 const PASTE_END: &[u8] = b"\x1b[201~";
 
+#[derive(Debug, Default)]
+struct PasteCapture {
+    content: Vec<u8>,
+    possible_end: Vec<u8>,
+    overflowed: bool,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct CompletedPaste {
+    content: Vec<u8>,
+    overflowed: bool,
+}
+
+impl PasteCapture {
+    fn push(&mut self, byte: u8) -> Option<CompletedPaste> {
+        self.possible_end.push(byte);
+        while !PASTE_END.starts_with(&self.possible_end) {
+            let content_byte = self.possible_end.remove(0);
+            if self.content.len() < MAX_INPUT_BYTES {
+                self.content.push(content_byte);
+            } else {
+                self.overflowed = true;
+            }
+        }
+        if self.possible_end != PASTE_END {
+            return None;
+        }
+        Some(CompletedPaste {
+            content: std::mem::take(&mut self.content),
+            overflowed: self.overflowed,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Action {
     Left,
@@ -40,7 +74,7 @@ pub(super) fn read(
     let mut editor = Editor::default();
     let mut escape = Vec::new();
     let mut utf8 = Vec::new();
-    let mut paste = None::<Vec<u8>>;
+    let mut paste = None::<PasteCapture>;
     let mut stdin = io::stdin().lock();
     redraw(&editor, suggestions, terminal_width, base_frame)?;
 
@@ -48,7 +82,7 @@ pub(super) fn read(
         let mut byte = [0_u8; 1];
         let bytes = stdin.read(&mut byte).map_err(|_| TerminalFault::LineRead)?;
         if bytes == 0 {
-            if escape == [0x1b] {
+            if standalone_escape_timed_out(&escape) {
                 apply_action(&mut editor, Action::Escape, suggestions);
                 escape.clear();
                 redraw(&editor, suggestions, terminal_width, base_frame)?;
@@ -57,12 +91,8 @@ pub(super) fn read(
         }
         let byte = byte[0];
         if let Some(pasted) = paste.as_mut() {
-            if pasted.len() < MAX_INPUT_BYTES + PASTE_END.len() {
-                pasted.push(byte);
-            }
-            if pasted.ends_with(PASTE_END) {
-                pasted.truncate(pasted.len() - PASTE_END.len());
-                let normalized = normalize_paste(pasted)?;
+            if let Some(completed) = pasted.push(byte) {
+                let normalized = normalize_completed_paste(&completed)?;
                 if editor.text().len() + normalized.len() <= MAX_INPUT_BYTES {
                     editor.insert(&normalized);
                 }
@@ -77,7 +107,7 @@ pub(super) fn read(
                 let action = decode_escape(&escape);
                 escape.clear();
                 if action == Action::PasteStart {
-                    paste = Some(Vec::new());
+                    paste = Some(PasteCapture::default());
                 } else {
                     apply_action(&mut editor, action, suggestions);
                     redraw(&editor, suggestions, terminal_width, base_frame)?;
@@ -125,6 +155,10 @@ pub(super) fn read(
         }
         redraw(&editor, suggestions, terminal_width, base_frame)?;
     }
+}
+
+fn standalone_escape_timed_out(sequence: &[u8]) -> bool {
+    sequence == [0x1b]
 }
 
 fn apply_action(editor: &mut Editor, action: Action, suggestions: &[TerminalSuggestion]) {
@@ -200,6 +234,21 @@ fn normalize_paste(bytes: &[u8]) -> Result<String, TerminalFault> {
             }
         })
         .collect())
+}
+
+fn normalize_completed_paste(paste: &CompletedPaste) -> Result<String, TerminalFault> {
+    match normalize_paste(&paste.content) {
+        Ok(value) => Ok(value),
+        Err(TerminalFault::LineRead) if paste.overflowed => {
+            let error = std::str::from_utf8(&paste.content).unwrap_err();
+            if error.error_len().is_some() {
+                return Err(TerminalFault::LineRead);
+            }
+            let valid_up_to = error.valid_up_to();
+            normalize_paste(&paste.content[..valid_up_to])
+        }
+        Err(error) => Err(error),
+    }
 }
 
 fn matching_suggestions<'a>(
@@ -292,5 +341,44 @@ mod tests {
             normalize_paste("한글\n질문".as_bytes()).unwrap(),
             "한글 질문"
         );
+        assert!(standalone_escape_timed_out(b"\x1b"));
+        assert!(!standalone_escape_timed_out(b"\x1b["));
+    }
+
+    #[test]
+    fn oversized_bracketed_paste_still_consumes_the_end_marker() {
+        let mut capture = PasteCapture::default();
+        for byte in std::iter::repeat(b'a').take(MAX_INPUT_BYTES + 128) {
+            assert!(capture.push(byte).is_none());
+        }
+        let mut completed = None;
+        for byte in PASTE_END {
+            completed = capture.push(*byte).or(completed);
+        }
+
+        let completed = completed.expect("paste end marker must remain observable after overflow");
+        assert_eq!(completed.content.len(), MAX_INPUT_BYTES);
+        assert!(completed.overflowed);
+        assert_eq!(
+            normalize_completed_paste(&completed).unwrap().len(),
+            MAX_INPUT_BYTES
+        );
+    }
+
+    #[test]
+    fn truncated_multibyte_paste_keeps_only_complete_utf8() {
+        let mut capture = PasteCapture::default();
+        for byte in "가".repeat(MAX_INPUT_BYTES).bytes() {
+            assert!(capture.push(byte).is_none());
+        }
+        let mut completed = None;
+        for byte in PASTE_END {
+            completed = capture.push(*byte).or(completed);
+        }
+
+        let completed = completed.expect("paste must finish");
+        let normalized = normalize_completed_paste(&completed).unwrap();
+        assert!(completed.overflowed);
+        assert!(normalized.is_char_boundary(normalized.len()));
     }
 }
