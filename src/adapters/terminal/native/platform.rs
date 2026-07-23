@@ -288,7 +288,6 @@ mod imp {
         }
     }
 }
-
 #[cfg(windows)]
 mod imp {
     use super::super::{
@@ -547,3 +546,4 @@ mod imp {
 }
 
 pub(super) use imp::{choose, dimensions, read_line_with_suggestions, read_secret};
+pub(super) const LIVE_INPUT: bool = cfg!(any(target_os = "linux", target_os = "macos"));
