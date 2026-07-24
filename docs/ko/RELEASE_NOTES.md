@@ -1,5 +1,38 @@
 # 릴리즈 노트
 
+## v0.49.0 - 모델 기반 세션 연속성
+
+릴리즈 날짜: 2026-07-24
+
+이 기능 릴리즈는 재시작 후 완료된 대화를 복원하고, 고정 4,096-token 가정 대신
+선택한 모델을 기준으로 대화·agent·resume·compaction context 크기를 조정합니다.
+
+### 포함한 것
+
+- Coding·agent workflow를 포함한 모든 성공한 대화형 user/assistant exchange를
+  저장하면서 workflow transcript는 별도의 실행 감사 stream으로 유지
+- 완료된 dialogue pair만 복원하고 `/clear`를 고유한 causal reset boundary로
+  기록하여 감사 이력을 보존하면서 orphan turn이 다시 연결되지 않게 처리
+- 실행 중인 정확한 backend context window를 우선 사용하고, 없으면 검증된 선택
+  model manifest를 사용하며, context metadata 누락 시 임의의 4,096 fallback 대신
+  조치 가능한 오류 반환
+- 일반 대화, agent prompt, 재시작 resume context와 자동 compaction에 명시적인
+  model-window budget을 적용하면서 stable instruction과 현재 요청의 우선권 유지
+- 추론 전에 model path, context size와 vision projector drift를 비교하고 관측한
+  runtime이 검증된 설정과 다를 때만 managed backend 재시작
+- Compaction tail을 완료된 exchange 단위로 보존하고 in-memory prompt history를
+  제한하여 긴 session에서도 매 요청마다 transcript 전체를 다시 읽지 않게 개선
+
+### 호환성과 경계
+
+- 기존 public command와 flag를 계속 지원합니다.
+- Canonical transcript는 append-only이며 summary와 compaction artifact는 tool,
+  command 또는 파일 변경을 승인할 수 없는 파생 context입니다.
+- Dialogue recall은 deterministic하고 dependency-free이며 vector database,
+  hosted memory service 또는 추가 model 다운로드를 요구하지 않습니다.
+- 자동 Chromium page interaction은 이번 릴리즈에 포함하지 않습니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
+
 ## v0.48.1 - 안내형 TUI 확인 선택
 
 릴리즈 날짜: 2026-07-24
