@@ -39,6 +39,32 @@ pub(super) fn confirm(
         == Some("confirm"))
 }
 
+pub(super) fn confirm_workflow_action(
+    terminal: &mut impl TerminalIo,
+    action: &str,
+    workflow_id: &str,
+) -> Result<bool, AppError> {
+    let (title, label, description) = match action {
+        "deny" => (
+            "요청 거부 확인",
+            "요청 거부",
+            format!("workflow {workflow_id}의 대기 중인 요청을 거부"),
+        ),
+        "resume" => (
+            "작업 재개 확인",
+            "작업 재개",
+            format!("workflow {workflow_id}의 실행을 재개"),
+        ),
+        "cancel" => (
+            "작업 취소 확인",
+            "작업 취소",
+            format!("workflow {workflow_id}의 실행을 취소"),
+        ),
+        _ => unreachable!("controller admits only known workflow actions"),
+    };
+    confirm(terminal, title, label, description)
+}
+
 pub(super) fn write_pre_dispatch_frame(
     terminal: &mut impl TerminalIo,
     intent_id: &str,

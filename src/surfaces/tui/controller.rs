@@ -15,8 +15,9 @@ mod terminal_flow;
 use attachments::{capture_attachment_notice, looks_like_attachment_path};
 use model_selection::{apply_model_choice, choose_model, model_options_notice};
 use terminal_flow::{
-    confirm, outcome_notice, outcome_was_dispatched, post_dispatch_write_error,
-    pre_dispatch_write_error, write_pending_conversation_frame, write_pre_dispatch_frame,
+    confirm, confirm_workflow_action, outcome_notice, outcome_was_dispatched,
+    post_dispatch_write_error, pre_dispatch_write_error, write_pending_conversation_frame,
+    write_pre_dispatch_frame,
 };
 pub(crate) use terminal_flow::{consume_outcome, terminal_fault_error};
 
@@ -389,30 +390,7 @@ pub(crate) fn run_controller(
                     state.notice = "먼저 select <workflow-id>를 실행하세요.".to_string();
                     continue;
                 };
-                let (confirmation_title, action_label, action_description) = match *action {
-                    "deny" => (
-                        "요청 거부 확인",
-                        "요청 거부",
-                        format!("workflow {workflow_id}의 대기 중인 요청을 거부"),
-                    ),
-                    "resume" => (
-                        "작업 재개 확인",
-                        "작업 재개",
-                        format!("workflow {workflow_id}의 실행을 재개"),
-                    ),
-                    "cancel" => (
-                        "작업 취소 확인",
-                        "작업 취소",
-                        format!("workflow {workflow_id}의 실행을 취소"),
-                    ),
-                    _ => unreachable!(),
-                };
-                if !confirm(
-                    terminal,
-                    confirmation_title,
-                    action_label,
-                    action_description,
-                )? {
+                if !confirm_workflow_action(terminal, action, &workflow_id)? {
                     state.notice = "요청을 보내지 않았습니다.".to_string();
                     continue;
                 }
