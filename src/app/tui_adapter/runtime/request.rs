@@ -20,9 +20,17 @@ pub(super) fn execute(
                 .as_ref()
                 .and_then(|snapshot| snapshot.context_limit_tokens)
         });
-    let active_model = backend
-        .and_then(|snapshot| snapshot.model_id)
-        .or_else(crate::app::inference_adapter::model::configured_model_id);
+    let backend_vision_ready = backend
+        .as_ref()
+        .is_some_and(|snapshot| snapshot.vision_ready);
+    let configured_model = crate::app::inference_adapter::model::configured_model_id();
+    let active_model = configured_model.clone().or_else(|| {
+        backend
+            .as_ref()
+            .and_then(|snapshot| snapshot.model_id.clone())
+    });
+    let vision =
+        crate::app::inference_adapter::model::configured_vision_status(backend_vision_ready);
     let input = attachment::compose_request(request, attachments, context_limit_tokens)?;
     let local_context = input.text.as_str();
     if !input.images.is_empty() {
@@ -38,7 +46,7 @@ pub(super) fn execute(
     {
         return result;
     }
-    if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref()) {
+    if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref(), vision) {
         return Ok(reply);
     }
     ensure_runtime_ready(RuntimeRequirement::Text)?;

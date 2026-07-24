@@ -74,3 +74,46 @@ fn setup_options_expose_each_models_manifest_context_limit() {
         Some(131_072)
     );
 }
+
+#[test]
+fn setup_options_distinguish_local_model_cache_from_lazy_projector_download() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = std::env::temp_dir().join(format!(
+        "rpotato-setup-cache-state-test-{}",
+        std::process::id()
+    ));
+    let previous_data = std::env::var_os("RPOTATO_DATA_HOME");
+    let _ = std::fs::remove_dir_all(&root);
+    std::env::set_var("RPOTATO_DATA_HOME", &root);
+    let candidate = find_candidate("qwen3.5-4b").unwrap();
+    let artifact =
+        crate::runtime_core::inference::model::manifest::source_backed_artifact(candidate).unwrap();
+    let path = crate::adapters::filesystem::model_artifact::model_artifact_path(artifact);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::File::create(&path)
+        .unwrap()
+        .set_len(artifact.size_bytes)
+        .unwrap();
+
+    let option = setup_options()
+        .into_iter()
+        .find(|option| option.id == candidate.id)
+        .unwrap();
+
+    assert!(option.model_cached);
+    assert_eq!(
+        option.vision_projector_bytes,
+        candidate
+            .vision_projector
+            .map(|projector| projector.size_bytes)
+    );
+    assert!(!option.vision_projector_cached);
+    assert_eq!(option.download_bytes, artifact.size_bytes);
+    assert!(option.note.contains("첫 이미지"));
+    if let Some(previous) = previous_data {
+        std::env::set_var("RPOTATO_DATA_HOME", previous);
+    } else {
+        std::env::remove_var("RPOTATO_DATA_HOME");
+    }
+    let _ = std::fs::remove_dir_all(root);
+}

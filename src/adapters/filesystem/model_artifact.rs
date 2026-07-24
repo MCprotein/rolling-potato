@@ -69,6 +69,15 @@ pub(crate) fn sha256_for_file(path: &Path) -> Result<String, AppError> {
     checksum::sha256_file(path)
 }
 
+pub(crate) fn local_artifact_candidate_present(
+    artifact: ModelArtifactDescriptor,
+    path: &Path,
+) -> bool {
+    fs::symlink_metadata(path).is_ok_and(|metadata| {
+        metadata.file_type().is_file() && metadata.len() == artifact.size_bytes
+    })
+}
+
 pub(crate) fn cleanup_failed_artifacts(
     candidate: &ModelManifestEntry,
     dry_run: bool,

@@ -85,7 +85,8 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             .as_ref()
             .filter(|run| latest_matches_model && run.context_limit_tokens == context_limit_tokens)
             .and_then(|run| run.context_tokens_used);
-        let vision_ready = backend.vision_ready;
+        let vision =
+            crate::app::inference_adapter::model::configured_vision_status(backend.vision_ready);
         let backend = match backend.status {
             "ready" => TuiBackendStatus::Ready,
             "stale" => TuiBackendStatus::Stale,
@@ -102,7 +103,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
                 )?
                 .is_some(),
             backend,
-            vision_ready,
+            vision,
             session_id: identity.session_id,
         })
     }
@@ -149,14 +150,18 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             &default,
         )?;
         Ok(format!(
-            "모델 변경 완료\n- model: {}\n- context: {}\n- vision: {}\n- backend: ready",
+            "모델 변경 완료\n- model: {}\n- model artifact: {}\n- context: {}\n- vision: {}\n- backend: ready",
             prepared.id,
+            match prepared.artifact_fetch_status {
+                crate::runtime_core::inference::model::manifest::ModelArtifactFetchStatus::CacheHit =>
+                    "기존 cache 재사용",
+                crate::runtime_core::inference::model::manifest::ModelArtifactFetchStatus::Resumed =>
+                    "partial download 이어받기 완료",
+                crate::runtime_core::inference::model::manifest::ModelArtifactFetchStatus::Downloaded =>
+                    "download 및 SHA-256 검증 완료",
+            },
             prepared.context_tokens,
-            if prepared.vision_ready {
-                "ready"
-            } else {
-                "text-only"
-            }
+            prepared.vision.as_str(),
         ))
     }
 

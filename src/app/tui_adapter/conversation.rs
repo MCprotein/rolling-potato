@@ -2,7 +2,7 @@
 
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::{BackendChatInput, ResponseLanguage};
-use crate::surfaces::tui::runtime_bridge::TuiConversationTurn;
+use crate::surfaces::tui::runtime_bridge::{TuiConversationTurn, TuiVisionStatus};
 
 const CONVERSATION_MAX_TOKENS: u32 = 384;
 
@@ -17,9 +17,31 @@ pub(super) fn is_conversational_request(request: &str) -> bool {
     !trimmed.is_empty() && trimmed.chars().count() <= 2_000 && !has_agent_task_signal(trimmed)
 }
 
-pub(super) fn local_reply(request: &str, model: Option<&str>) -> Option<String> {
+pub(super) fn local_reply(
+    request: &str,
+    model: Option<&str>,
+    vision: TuiVisionStatus,
+) -> Option<String> {
     if ResponseLanguage::from_user_request(request).allows_non_korean() {
         return None;
+    }
+    if is_vision_status_request(request) {
+        let model = model.unwrap_or("현재 모델");
+        return Some(match vision {
+            TuiVisionStatus::Ready => format!(
+                "{model}의 이미지 입력이 준비되어 있습니다. 첨부한 이미지를 바로 분석할 수 있습니다."
+            ),
+            TuiVisionStatus::OnDemand => format!(
+                "{model}은 이미지 입력을 지원합니다. `vision on-demand`는 미지원이 아니라 projector를 아직 backend에 올리지 않았다는 뜻입니다. 이미지를 첨부하면 필요한 projector를 검증·준비하고 비전 backend로 자동 전환하며, 준비된 cache는 다음 요청부터 재사용합니다."
+            ),
+            TuiVisionStatus::Unsupported => format!(
+                "{model}에는 검증된 vision projector가 없어 이미지 입력을 지원하지 않습니다. rpotato 자체의 비전 기능이 꺼진 것은 아닙니다."
+            ),
+            TuiVisionStatus::Unavailable => {
+                "현재 모델의 비전 상태를 확인할 수 없습니다. /model에서 모델을 선택하세요."
+                    .to_string()
+            }
+        });
     }
     if is_model_identity_request(request) {
         return Some(
@@ -33,6 +55,37 @@ pub(super) fn local_reply(request: &str, model: Option<&str>) -> Option<String> 
     }
     is_agent_identity_request(request)
         .then(|| "저는 로컬에서 실행되는 범용 AI·코딩 에이전트 rpotato입니다.".to_string())
+}
+
+fn is_vision_status_request(request: &str) -> bool {
+    let lower = request.trim().to_ascii_lowercase();
+    let mentions_vision = [
+        "비전",
+        "이미지",
+        "멀티모달",
+        "vision",
+        "image",
+        "multimodal",
+    ]
+    .iter()
+    .any(|signal| lower.contains(signal));
+    let asks_status = [
+        "왜",
+        "지원",
+        "되",
+        "가능",
+        "상태",
+        "text-only",
+        "on-demand",
+        "ready",
+        "why",
+        "support",
+        "available",
+        "status",
+    ]
+    .iter()
+    .any(|signal| lower.contains(signal));
+    mentions_vision && asks_status
 }
 
 pub(super) fn decide_request(
@@ -353,28 +406,59 @@ mod tests {
     #[test]
     fn model_and_agent_identity_questions_return_local_facts_without_a_workflow() {
         assert_eq!(
-            local_reply("넌 무슨모델이니", Some("gemma-test")),
+            local_reply(
+                "넌 무슨모델이니",
+                Some("gemma-test"),
+                TuiVisionStatus::OnDemand
+            ),
             Some("현재 사용 중인 모델은 gemma-test입니다.".to_string())
         );
         assert_eq!(
-            local_reply("넌누구니?", Some("ignored")),
+            local_reply("넌누구니?", Some("ignored"), TuiVisionStatus::OnDemand),
             Some("저는 로컬에서 실행되는 범용 AI·코딩 에이전트 rpotato입니다.".to_string())
         );
         assert_eq!(
-            local_reply("이름이뭔데", Some("ignored")),
+            local_reply("이름이뭔데", Some("ignored"), TuiVisionStatus::OnDemand),
             Some("저는 로컬에서 실행되는 범용 AI·코딩 에이전트 rpotato입니다.".to_string())
         );
         assert_eq!(
-            local_reply("이 모델 코드를 수정해줘", Some("gemma-test")),
+            local_reply(
+                "이 모델 코드를 수정해줘",
+                Some("gemma-test"),
+                TuiVisionStatus::OnDemand
+            ),
             None
         );
         assert_eq!(
             local_reply(
                 "Please answer in English: which model are you using?",
-                Some("gemma-test")
+                Some("gemma-test"),
+                TuiVisionStatus::OnDemand
             ),
             None
         );
+    }
+
+    #[test]
+    fn vision_status_questions_use_runtime_facts_instead_of_model_guessing() {
+        let reply = local_reply(
+            "비전 왜 text-only임?",
+            Some("qwen3.5-4b"),
+            TuiVisionStatus::OnDemand,
+        )
+        .unwrap();
+
+        assert!(reply.contains("이미지 입력을 지원합니다"));
+        assert!(reply.contains("미지원이 아니라"));
+        assert!(reply.contains("projector"));
+        assert!(!reply.contains("비전 모드를 지원하지"));
+        assert!(local_reply(
+            "현재 모델은 비전 지원돼?",
+            Some("qwen3.5-4b"),
+            TuiVisionStatus::OnDemand,
+        )
+        .unwrap()
+        .contains("이미지 입력을 지원합니다"));
     }
 
     #[test]
