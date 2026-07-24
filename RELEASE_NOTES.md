@@ -1,5 +1,38 @@
 # Release Notes
 
+## v0.49.1 - Text-Safe Vision Upgrades
+
+Release date: 2026-07-25
+
+This patch keeps existing text-only installations usable after a model gains
+optional vision metadata and restores the selected model's manifest context
+window instead of retaining a stale 4,096-token backend.
+
+### Included
+
+- Treats vision projector state as an optional runtime capability, so a legacy
+  schema-v1 registry remains valid for startup and ordinary text conversation.
+- Reconciles text runtimes against the manifest model path and context length
+  while ignoring projector-only drift until an image is actually requested.
+- Downloads and verifies the projector on first image use, reuses an exact
+  cached artifact, and atomically upgrades the registry to schema v2 without
+  losing promotion or benchmark evidence.
+- Preserves the selected model, text-ready backend, default selection, and
+  registry bytes when projector preparation cannot complete.
+- Stops model setup and evaluation fetches from eagerly downloading a projector;
+  base-model installation no longer depends on optional multimodal artifacts.
+- Adds a candidate-preflight compatibility gate covering legacy registry
+  startup, manifest context, projector cache reuse, v2 migration, and
+  failure-state preservation.
+
+### Compatibility and boundaries
+
+- Existing public commands, model files, schema-v1 registries, and default
+  selections remain supported.
+- Projector download requires network access only when an image is first used;
+  ordinary text use remains offline-capable after the base model is installed.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.49.0 - Model-Aware Session Continuity
 
 Release date: 2026-07-24
