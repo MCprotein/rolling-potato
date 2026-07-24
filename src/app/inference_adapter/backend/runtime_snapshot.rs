@@ -16,7 +16,6 @@ pub(crate) struct BackendRuntimeSnapshot {
     pub(crate) model_path: Option<std::path::PathBuf>,
     pub(crate) context_limit_tokens: Option<u32>,
     pub(crate) vision_projector_path: Option<std::path::PathBuf>,
-    pub(crate) vision_ready: bool,
 }
 
 pub(crate) fn runtime_snapshot() -> Result<BackendRuntimeSnapshot, AppError> {
@@ -27,7 +26,6 @@ pub(crate) fn runtime_snapshot() -> Result<BackendRuntimeSnapshot, AppError> {
             model_path: None,
             context_limit_tokens: None,
             vision_projector_path: None,
-            vision_ready: false,
         });
     };
     let running = backend_process::is_running(record.pid);
@@ -44,7 +42,6 @@ pub(crate) fn runtime_snapshot() -> Result<BackendRuntimeSnapshot, AppError> {
         model_id: Some(model_id_from_path(&record.model_path)),
         model_path: Some(record.model_path),
         context_limit_tokens: record.ctx_size,
-        vision_ready: record.mmproj_path.is_some(),
         vision_projector_path: record.mmproj_path,
     })
 }

@@ -34,7 +34,8 @@ pub use registry::{
 use registry::{install_ready_for_report, registry_summary};
 pub(crate) use setup::{
     activate_setup_model, configured_context_length, configured_runtime_spec,
-    configured_vision_runtime_spec, prepare_setup_model, setup_options,
+    configured_vision_runtime, configured_vision_runtime_spec, prepare_setup_model, setup_options,
+    ConfiguredRuntimeSpec, ConfiguredVisionRuntime,
 };
 
 pub fn candidate_summary() -> String {
@@ -314,20 +315,7 @@ pub fn fetch_candidate_for_evaluation_report(id: &str) -> Result<String, AppErro
     let artifact = source_backed_artifact(candidate)?;
     let final_path = model_artifact_path(artifact);
     let part_path = model_artifact_part_path(candidate);
-    let fetch_status = fetch_evaluation_artifact(artifact, &final_path, &part_path)?;
-    let event_id = state::record_event(
-        "model.evaluation_artifact.fetched",
-        "검증용 model artifact fetch 완료",
-        &format!(
-            "model_id={} provider={} artifact={} sha256={} size_bytes={} status={} vision_status=deferred-until-image-use registry=not_registered",
-            candidate.id,
-            artifact.provider,
-            final_path.display(),
-            artifact.sha256,
-            artifact.size_bytes,
-            fetch_status.label()
-        ),
-    )?;
+    let (fetch_status, event_id) = fetch_candidate_for_evaluation(id)?;
 
     Ok(format!(
         "검증용 model artifact 준비 완료\n- id: {}\n- text status: {}\n- vision status: deferred-until-image-use\n- provider: {}\n- source: {}\n- terms: {}\n- file: {}\n- size bytes: {}\n- sha256: {}\n- partial path: {}\n- final path: {}\n- registry: not registered\n- ledger event: {}\n- 동작: projector는 이미지가 처음 입력될 때만 검증·준비하며 text artifact와 현재 선택을 차단하지 않습니다.\n- 다음 단계: TUI에서 이 모델을 선택하세요. 이미지 첨부 시 필요한 projector를 최초 1회 준비하고 이후 cache를 재사용합니다.",
@@ -343,6 +331,36 @@ pub fn fetch_candidate_for_evaluation_report(id: &str) -> Result<String, AppErro
         final_path.display(),
         event_id
     ))
+}
+
+pub(super) fn fetch_candidate_for_evaluation(
+    id: &str,
+) -> Result<
+    (
+        crate::runtime_core::inference::model::manifest::ModelArtifactFetchStatus,
+        String,
+    ),
+    AppError,
+> {
+    let candidate = find_candidate(id)?;
+    let artifact = source_backed_artifact(candidate)?;
+    let final_path = model_artifact_path(artifact);
+    let part_path = model_artifact_part_path(candidate);
+    let fetch_status = fetch_evaluation_artifact(artifact, &final_path, &part_path)?;
+    let event_id = state::record_event(
+        "model.evaluation_artifact.fetched",
+        "검증용 model artifact fetch 완료",
+        &format!(
+            "model_id={} provider={} artifact={} sha256={} size_bytes={} status={} vision_status=deferred-until-image-use registry=not_registered",
+            candidate.id,
+            artifact.provider,
+            final_path.display(),
+            artifact.sha256,
+            artifact.size_bytes,
+            fetch_status.label()
+        ),
+    )?;
+    Ok((fetch_status, event_id))
 }
 
 pub fn promote_candidate_report(id: &str, evidence_path: &str) -> Result<String, AppError> {

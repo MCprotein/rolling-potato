@@ -85,7 +85,7 @@ impl TuiSetupPort for TuiSetupAdapter {
             id: prepared.id,
             artifact_path: prepared.artifact_path.display().to_string(),
             context_tokens: prepared.context_tokens,
-            vision_ready: prepared.vision_ready,
+            vision: prepared.vision,
         })
     }
 

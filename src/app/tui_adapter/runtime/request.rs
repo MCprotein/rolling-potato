@@ -1,7 +1,7 @@
 //! Interactive request routing for the canonical TUI conversation.
 
 use super::super::{attachment, conversation, web_tools, TuiRuntimeAdapter};
-use super::backend::{ensure_runtime_ready, RuntimeRequirement};
+use super::backend::{ensure_runtime_ready, vision_status, RuntimeRequirement};
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::runtime_bridge::{TuiAttachment, TuiConversationTurn};
 
@@ -20,9 +20,13 @@ pub(super) fn execute(
                 .as_ref()
                 .and_then(|snapshot| snapshot.context_limit_tokens)
         });
-    let active_model = backend
-        .and_then(|snapshot| snapshot.model_id)
-        .or_else(crate::app::inference_adapter::model::configured_model_id);
+    let configured_model = crate::app::inference_adapter::model::configured_model_id();
+    let active_model = configured_model.clone().or_else(|| {
+        backend
+            .as_ref()
+            .and_then(|snapshot| snapshot.model_id.clone())
+    });
+    let vision = vision_status(backend.as_ref());
     let input = attachment::compose_request(request, attachments, context_limit_tokens)?;
     let local_context = input.text.as_str();
     if !input.images.is_empty() {
@@ -38,7 +42,7 @@ pub(super) fn execute(
     {
         return result;
     }
-    if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref()) {
+    if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref(), vision) {
         return Ok(reply);
     }
     ensure_runtime_ready(RuntimeRequirement::Text)?;

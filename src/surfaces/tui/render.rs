@@ -1,4 +1,6 @@
-use super::runtime_bridge::{TuiAttachment, TuiBackendStatus, TuiReadPage, TuiStatusSnapshot};
+use super::runtime_bridge::{
+    TuiAttachment, TuiBackendStatus, TuiReadPage, TuiStatusSnapshot, TuiVisionStatus,
+};
 use super::view_model::{
     conversation_rows_per_page, notice_rows_per_page, ConversationRole, InteractiveState,
     InteractiveView,
@@ -412,15 +414,11 @@ fn render_status_line(status: &TuiStatusSnapshot, width: usize, color: bool) -> 
             backend_color,
         ),
         (
-            if status.vision_ready {
-                "vision ready".to_string()
-            } else {
-                "vision text-only".to_string()
-            },
-            if status.vision_ready {
-                HEALTHY_COLOR
-            } else {
-                MUTED_COLOR
+            format!("vision {}", status.vision.as_str()),
+            match status.vision {
+                TuiVisionStatus::Ready => HEALTHY_COLOR,
+                TuiVisionStatus::OnDemand => ACCENT_COLOR,
+                TuiVisionStatus::Unsupported | TuiVisionStatus::Unavailable => MUTED_COLOR,
             },
         ),
         (format!("session {session}"), MUTED_COLOR),

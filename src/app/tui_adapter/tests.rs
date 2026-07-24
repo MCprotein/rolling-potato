@@ -287,7 +287,7 @@ fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
         context_limit_tokens: Some(4096),
         has_compaction_checkpoint: false,
         backend: TuiBackendStatus::Ready,
-        vision_ready: false,
+        vision: crate::surfaces::tui::runtime_bridge::TuiVisionStatus::OnDemand,
         session_id: "session-long-identifier".to_string(),
     };
 
@@ -299,6 +299,7 @@ fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
     assert!(frame.contains("ctx 1024/4096 (25%)"));
     assert!(frame.contains("compact auto@75%"));
     assert!(frame.contains("backend ready"));
+    assert!(frame.contains("vision on-demand") && !frame.contains("vision text-only"));
     assert!(frame.contains("\u{001b}[36mmodel gemma-4-e4b"));
     assert!(frame.contains("\u{001b}[32mbackend ready"));
     assert!(frame.contains("╭─ 요청 "));

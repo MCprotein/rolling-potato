@@ -38,10 +38,16 @@ fn model_upgrade_compatibility_legacy_registry_keeps_text_runtime_and_manifest_c
     .unwrap();
 
     let configured = configured_runtime_spec().unwrap();
+    let vision = configured_vision_runtime().unwrap();
 
     assert_eq!(configured.model_id, candidate.id);
     assert_eq!(configured.context_tokens, 131_072);
     assert!(configured.vision_projector_path.is_none());
+    assert_eq!(vision.runtime, configured);
+    assert!(
+        vision.projector_supported,
+        "legacy registry must preserve manifest-backed vision capability without claiming readiness"
+    );
     assert_eq!(
         std::fs::read_to_string(&registry_path).unwrap(),
         legacy_registry,
@@ -73,4 +79,47 @@ fn setup_options_expose_each_models_manifest_context_limit() {
             .and_then(|option| option.context_length),
         Some(131_072)
     );
+}
+
+#[test]
+fn setup_options_distinguish_local_model_cache_from_lazy_projector_download() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = std::env::temp_dir().join(format!(
+        "rpotato-setup-cache-state-test-{}",
+        std::process::id()
+    ));
+    let previous_data = std::env::var_os("RPOTATO_DATA_HOME");
+    let _ = std::fs::remove_dir_all(&root);
+    std::env::set_var("RPOTATO_DATA_HOME", &root);
+    let candidate = find_candidate("qwen3.5-4b").unwrap();
+    let artifact =
+        crate::runtime_core::inference::model::manifest::source_backed_artifact(candidate).unwrap();
+    let path = crate::adapters::filesystem::model_artifact::model_artifact_path(artifact);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::File::create(&path)
+        .unwrap()
+        .set_len(artifact.size_bytes)
+        .unwrap();
+
+    let option = setup_options()
+        .into_iter()
+        .find(|option| option.id == candidate.id)
+        .unwrap();
+
+    assert!(option.model_cached);
+    assert_eq!(
+        option.vision_projector_bytes,
+        candidate
+            .vision_projector
+            .map(|projector| projector.size_bytes)
+    );
+    assert!(!option.vision_projector_cached);
+    assert_eq!(option.download_bytes, artifact.size_bytes);
+    assert!(option.note.contains("첫 이미지"));
+    if let Some(previous) = previous_data {
+        std::env::set_var("RPOTATO_DATA_HOME", previous);
+    } else {
+        std::env::remove_var("RPOTATO_DATA_HOME");
+    }
+    let _ = std::fs::remove_dir_all(root);
 }

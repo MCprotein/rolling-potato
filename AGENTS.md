@@ -77,6 +77,8 @@ test(guard): cover Korean output leakage
 - CLI 동작 변경 후: 관련 `rpotato` 명령 smoke test를 수행한다.
 - persistence schema, model manifest capability 또는 필수 runtime artifact 계약을 변경할 때는 fresh fixture만으로 완료하지 않는다. 지원 중인 직전 schema의 실제 누적 상태로 기본 TUI 진입과 base capability를 검증하고 `scripts/ci/verify-model-upgrade-compatibility.sh`를 candidate preflight에서 통과시킨다.
 - text, vision, web처럼 capability가 단계적으로 추가되는 runtime에서는 새 optional capability의 artifact·credential·registry field 누락이 기존 base capability를 차단하면 안 된다. Base 경로와 capability 요청 경로를 별도로 테스트하고, optional artifact는 실제 사용 시 검증·준비·원자적 binding한다.
+- Optional capability는 지원 여부와 현재 runtime readiness를 하나의 boolean으로 축약하지 않는다. `지원하지만 지연 준비됨`을 포함한 사용자 상태를 실제 production 기본값으로 회귀 테스트한다.
+- 모델 선택·전환 변경은 fresh download와 cache hit 사용자 흐름을 모두 검증하며, language-model artifact와 lazy projector의 cache·download 상태를 분리해 표시한다.
 - 검증을 실행할 수 없으면 커밋 메시지나 최종 보고에 이유를 남긴다.
 
 ## 실행 시간과 반복 제한

@@ -15,7 +15,7 @@ use crate::surfaces::tui::runtime_bridge::{
     new_tui_intent_id, SelectionLease, TuiAttachment, TuiBackendStatus, TuiConversationTurn,
     TuiGateKind, TuiIntent, TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
 };
-use backend::reconcile_existing_runtime;
+use backend::{reconcile_existing_runtime, vision_status};
 
 impl TuiRuntimeAdapter {
     fn conversation_memory(
@@ -65,27 +65,28 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         )
         .ok()
         .flatten();
-        let model = backend
-            .model_id
+        let configured_model = crate::app::inference_adapter::model::configured_model_id();
+        let model = configured_model
             .clone()
-            .or_else(crate::app::inference_adapter::model::configured_model_id)
+            .or_else(|| backend.model_id.clone())
             .or_else(|| latest.as_ref().map(|run| run.model_id.clone()))
             .unwrap_or_else(|| "미선택".to_string());
         let latest_matches_model = latest.as_ref().is_some_and(|run| run.model_id == model);
-        let context_limit_tokens = backend
-            .context_limit_tokens
-            .or_else(|| crate::app::inference_adapter::model::configured_context_length().ok())
-            .or_else(|| {
-                latest
-                    .as_ref()
-                    .filter(|_| latest_matches_model)
-                    .and_then(|run| run.context_limit_tokens)
-            });
+        let context_limit_tokens =
+            crate::app::inference_adapter::model::configured_context_length()
+                .ok()
+                .or(backend.context_limit_tokens)
+                .or_else(|| {
+                    latest
+                        .as_ref()
+                        .filter(|_| latest_matches_model)
+                        .and_then(|run| run.context_limit_tokens)
+                });
         let context_tokens_used = latest
             .as_ref()
             .filter(|run| latest_matches_model && run.context_limit_tokens == context_limit_tokens)
             .and_then(|run| run.context_tokens_used);
-        let vision_ready = backend.vision_ready;
+        let vision = vision_status(Some(&backend));
         let backend = match backend.status {
             "ready" => TuiBackendStatus::Ready,
             "stale" => TuiBackendStatus::Stale,
@@ -102,7 +103,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
                 )?
                 .is_some(),
             backend,
-            vision_ready,
+            vision,
             session_id: identity.session_id,
         })
     }
@@ -149,14 +150,18 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             &default,
         )?;
         Ok(format!(
-            "모델 변경 완료\n- model: {}\n- context: {}\n- vision: {}\n- backend: ready",
+            "모델 변경 완료\n- model: {}\n- model artifact: {}\n- context: {}\n- vision: {}\n- backend: ready",
             prepared.id,
+            match prepared.artifact_fetch_status {
+                crate::runtime_core::inference::model::manifest::ModelArtifactFetchStatus::CacheHit =>
+                    "기존 cache 재사용",
+                crate::runtime_core::inference::model::manifest::ModelArtifactFetchStatus::Resumed =>
+                    "partial download 이어받기 완료",
+                crate::runtime_core::inference::model::manifest::ModelArtifactFetchStatus::Downloaded =>
+                    "download 및 SHA-256 검증 완료",
+            },
             prepared.context_tokens,
-            if prepared.vision_ready {
-                "ready"
-            } else {
-                "text-only"
-            }
+            prepared.vision.as_str(),
         ))
     }
 

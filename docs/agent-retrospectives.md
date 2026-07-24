@@ -2,6 +2,35 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-25: vision capability와 readiness를 boolean으로 합쳐 TUI가 거짓 안내함
+
+### 증상
+
+- Qwen과 Gemma 모두 source-backed projector가 선언되어 있는데 projector를 아직
+  적재하지 않은 text-ready backend가 `vision text-only`로 표시됐습니다.
+- 사용자가 비전 상태를 물으면 제품 사실을 조회하지 않고 local model이 “rpotato는
+  비전을 지원하지 않는다”고 추측해 답했습니다.
+- 캐시된 모델로 전환해도 선택·진행 화면은 항상 “다운로드하고 적용”과 “다운로드
+  중”으로 표시했습니다.
+
+### 원인
+
+- `vision_ready: bool` 하나가 모델의 capability와 현재 backend readiness를 동시에
+  표현해 `지원하지만 지연 준비됨` 상태를 표현할 수 없었습니다.
+- Setup mock은 production이 항상 `false`로 만들던 값을 `true`로 반환해 실제 기본
+  경로와 반대 상태를 검증했습니다.
+- Cache 재사용 테스트는 filesystem fetch 함수에만 있었고 `/model`의 선택→확인→진행
+  사용자 흐름과 표시 문구에는 연결되지 않았습니다.
+
+### 재발 방지
+
+- Optional capability는 `ready`, `on-demand`, `unsupported`, `unavailable`처럼
+  capability와 readiness를 보존하는 상태로 표현하며 boolean으로 축약하지 않습니다.
+- Runtime capability 질문은 model 생성에 맡기지 않고 manifest·registry·backend의
+  검증된 local fact로 답합니다.
+- 모델 선택 회귀는 fresh download와 cache hit를 모두 실제 production 기본 상태로
+  검증하고, 언어 모델과 lazy projector의 cache·download 용량을 분리해 표시합니다.
+
 ## 2026-07-24: v0.49.0 vision manifest가 기존 text-only 설치를 차단함
 
 ### 증상

@@ -69,6 +69,15 @@ pub(crate) fn sha256_for_file(path: &Path) -> Result<String, AppError> {
     checksum::sha256_file(path)
 }
 
+pub(crate) fn local_artifact_candidate_present(
+    artifact: ModelArtifactDescriptor,
+    path: &Path,
+) -> bool {
+    fs::symlink_metadata(path).is_ok_and(|metadata| {
+        metadata.file_type().is_file() && metadata.len() == artifact.size_bytes
+    })
+}
+
 pub(crate) fn cleanup_failed_artifacts(
     candidate: &ModelManifestEntry,
     dry_run: bool,
@@ -696,6 +705,31 @@ mod tests {
             projector("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 
         let status = fetch_managed_projector_artifact(artifact, &path, &part_path).unwrap();
+
+        assert_eq!(status, ModelArtifactFetchStatus::CacheHit);
+        assert_eq!(fs::read(&path).unwrap(), b"abc");
+        assert!(!part_path.exists());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn model_upgrade_compatibility_verified_model_cache_hit_never_redownloads() {
+        let root = std::env::temp_dir().join(format!("rpotato-model-cache-{}", std::process::id()));
+        let path = root.join("model.gguf");
+        let part_path = root.join("model.gguf.part");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(&path, b"abc").unwrap();
+        let artifact = ModelArtifactDescriptor {
+            provider: "test",
+            url: "https://example.invalid/model.gguf",
+            terms_url: "https://example.invalid/terms",
+            file_name: "model.gguf",
+            sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            size_bytes: 3,
+        };
+
+        let status = fetch_evaluation_artifact(artifact, &path, &part_path).unwrap();
 
         assert_eq!(status, ModelArtifactFetchStatus::CacheHit);
         assert_eq!(fs::read(&path).unwrap(), b"abc");

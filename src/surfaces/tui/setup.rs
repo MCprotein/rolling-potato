@@ -1,14 +1,14 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::terminal::{TerminalChoice, TerminalFault, TerminalIo};
 
-use super::runtime_bridge::TuiModelOption;
+use super::runtime_bridge::{TuiModelOption, TuiVisionStatus};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PreparedTuiModel {
     pub(crate) id: String,
     pub(crate) artifact_path: String,
     pub(crate) context_tokens: u32,
-    pub(crate) vision_ready: bool,
+    pub(crate) vision: TuiVisionStatus,
 }
 
 pub(crate) trait TuiSetupPort {
@@ -73,7 +73,15 @@ pub(crate) fn run_setup(
 
     write_stage(terminal, 1, "llama.cpp backend를 준비합니다")?;
     runtime.ensure_backend()?;
-    write_stage(terminal, 2, "모델을 다운로드하고 SHA-256을 검증합니다")?;
+    write_stage(
+        terminal,
+        2,
+        if selected.model_cached {
+            "기존 모델 cache를 SHA-256 검증합니다"
+        } else {
+            "모델을 다운로드하고 SHA-256을 검증합니다"
+        },
+    )?;
     let prepared = runtime.prepare_model(&selected.id)?;
     write_stage(
         terminal,
@@ -86,11 +94,7 @@ pub(crate) fn run_setup(
             "\n설정 완료\n- model: {}\n- context: {} tokens\n- vision: {}\n- backend: ready\n- 다음: 코딩 요청을 입력하세요.\n",
             prepared.id,
             prepared.context_tokens,
-            if prepared.vision_ready {
-                "ready"
-            } else {
-                "text-only"
-            }
+            prepared.vision.as_str(),
         ))
         .map_err(terminal_error)
 }
@@ -102,13 +106,13 @@ pub(crate) fn render_setup_screen(options: &[TuiModelOption], color: bool) -> St
     for (index, option) in options.iter().enumerate() {
         let recommendation = if option.recommended { " [권장]" } else { "" };
         output.push_str(&format!(
-            "{}. {}{}\n   id {} | {} | download {} | context {} | RAM {} | {}\n   {}\n",
+            "{}. {}{}\n   id {} | {} | {} | context {} | RAM {} | {}\n   {}\n",
             index + 1,
             option.display_name,
             recommendation,
             option.id,
             option.quantization,
-            bytes_label(option.download_bytes),
+            option.model_artifact_label(),
             option
                 .context_length
                 .map(compact_tokens)
@@ -129,9 +133,9 @@ fn model_choices(options: &[TuiModelOption]) -> Vec<TerminalChoice> {
             value: option.id.clone(),
             label: option.display_name.clone(),
             description: format!(
-                "{} · download {} · context {} · RAM {} · {}",
+                "{} · {} · context {} · RAM {} · {}",
                 option.quantization,
-                bytes_label(option.download_bytes),
+                option.model_artifact_label(),
                 option
                     .context_length
                     .map(compact_tokens)
@@ -164,11 +168,15 @@ fn confirmation_choices(selected: &TuiModelOption) -> [TerminalChoice; 2] {
         },
         TerminalChoice {
             value: "install".to_string(),
-            label: "설치하고 시작".to_string(),
+            label: if selected.model_cached {
+                "기존 모델로 시작".to_string()
+            } else {
+                "설치하고 시작".to_string()
+            },
             description: format!(
                 "{} · {} · {}",
                 selected.display_name,
-                bytes_label(selected.download_bytes),
+                selected.model_artifact_label(),
                 selected.license
             ),
             current: false,
@@ -181,11 +189,6 @@ fn write_stage(terminal: &mut impl TerminalIo, step: u8, label: &str) -> Result<
     terminal
         .write_frame(&format!("\n[{step}/3] {label}...\n"))
         .map_err(terminal_error)
-}
-
-fn bytes_label(bytes: u64) -> String {
-    const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
-    format!("{:.1} GiB", bytes as f64 / GIB)
 }
 
 fn compact_tokens(tokens: u32) -> String {
@@ -270,7 +273,7 @@ mod tests {
                 id: id.to_string(),
                 artifact_path: "/tmp/model.gguf".to_string(),
                 context_tokens: 131_072,
-                vision_ready: true,
+                vision: TuiVisionStatus::OnDemand,
             })
         }
 
@@ -297,11 +300,64 @@ mod tests {
         assert!(output.contains("Apache-2.0"));
         assert!(output.contains("설정 완료"));
         assert!(output.contains("context: 131072 tokens"));
-        assert!(output.contains("vision: ready"));
+        assert!(output.contains("vision: on-demand"));
         assert_eq!(
             runtime.calls,
             ["backend", "model:gemma-4-e4b", "start:gemma-4-e4b"]
         );
+    }
+
+    #[test]
+    fn setup_reuses_a_cached_model_without_claiming_a_new_download() {
+        struct CachedSetupRuntime {
+            calls: Vec<String>,
+            options: Vec<TuiModelOption>,
+        }
+
+        impl TuiSetupPort for CachedSetupRuntime {
+            fn startup_update_notice(&mut self) -> Option<String> {
+                None
+            }
+
+            fn model_options(&mut self) -> Vec<TuiModelOption> {
+                self.options.clone()
+            }
+
+            fn ensure_backend(&mut self) -> Result<String, AppError> {
+                self.calls.push("backend".to_string());
+                Ok("ready".to_string())
+            }
+
+            fn prepare_model(&mut self, id: &str) -> Result<PreparedTuiModel, AppError> {
+                self.calls.push(format!("model:{id}"));
+                Ok(PreparedTuiModel {
+                    id: id.to_string(),
+                    artifact_path: "/tmp/model.gguf".to_string(),
+                    context_tokens: 131_072,
+                    vision: TuiVisionStatus::OnDemand,
+                })
+            }
+
+            fn start_model(&mut self, model: &PreparedTuiModel) -> Result<String, AppError> {
+                self.calls.push(format!("start:{}", model.id));
+                Ok("running".to_string())
+            }
+        }
+
+        let mut options = sample_options();
+        options[1].model_cached = true;
+        let mut terminal = ScriptedTerminal::new(["2", "2"]);
+        let mut runtime = CachedSetupRuntime {
+            calls: Vec::new(),
+            options,
+        };
+
+        run_setup(&mut terminal, &mut runtime).unwrap();
+
+        let output = terminal.frames.concat();
+        assert!(output.contains("기존 모델로 시작"));
+        assert!(output.contains("기존 모델 cache를 SHA-256 검증"));
+        assert!(!output.contains("[2/3] 모델을 다운로드"));
     }
 
     #[test]
@@ -359,6 +415,9 @@ mod tests {
                 display_name: "Qwen 4B".to_string(),
                 quantization: "Q4_K_M".to_string(),
                 download_bytes: 2_740_937_888,
+                model_cached: false,
+                vision_projector_bytes: Some(672_423_616),
+                vision_projector_cached: false,
                 context_length: Some(262_144),
                 ram: "미확정".to_string(),
                 license: "Apache-2.0".to_string(),
@@ -371,6 +430,9 @@ mod tests {
                 display_name: "Gemma 4B".to_string(),
                 quantization: "QAT q4_0".to_string(),
                 download_bytes: 5_154_939_136,
+                model_cached: false,
+                vision_projector_bytes: Some(991_551_904),
+                vision_projector_cached: false,
                 context_length: Some(131_072),
                 ram: "미확정".to_string(),
                 license: "Apache-2.0".to_string(),

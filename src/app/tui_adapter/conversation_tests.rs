@@ -244,6 +244,27 @@ fn model_confirmation_defaults_to_cancel_without_applying_the_selection() {
 }
 
 #[test]
+fn cached_model_switch_is_labeled_as_reuse_instead_of_a_new_download() {
+    let mut cached = model_option("cached", "Cached", false, true);
+    cached.model_cached = true;
+    cached.vision_projector_cached = true;
+    let mut terminal = ScriptedTerminal::new(["/model", "2", "2", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        model_options: vec![model_option("current", "Current", true, false), cached],
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.setup_models, ["cached"]);
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("local cache"));
+    assert!(rendered.contains("기존 모델로 전환"));
+    assert!(rendered.contains("기존 모델 cache/SHA-256 검증"));
+    assert!(!rendered.contains("Cached · download"));
+}
+
+#[test]
 fn update_confirmation_defaults_to_cancel_without_calling_the_updater() {
     let mut terminal = ScriptedTerminal::new(["/update", "1", "/quit"]);
     let mut runtime = ConversationRuntime::default();
@@ -452,6 +473,9 @@ fn model_option(id: &str, display_name: &str, current: bool, recommended: bool) 
         display_name: display_name.to_string(),
         quantization: "Q4".to_string(),
         download_bytes: 1024,
+        model_cached: false,
+        vision_projector_bytes: Some(512),
+        vision_projector_cached: false,
         context_length: Some(4096),
         ram: "4 GiB".to_string(),
         license: "Apache-2.0".to_string(),

@@ -11,10 +11,10 @@ pub(super) fn model_options_notice(options: &[TuiModelOption]) -> String {
         let recommendation = if option.recommended { " | 권장" } else { "" };
         let current = if option.current { " | 현재" } else { "" };
         lines.push(format!(
-            "- {} | {} | {} | context {} | RAM {} | {}{}{}\n  근거: {}",
+            "- {} | {} | {} | context {} | RAM {} | {}{}{}\n  vision: {}\n  근거: {}",
             option.id,
             option.quantization,
-            bytes_label(option.download_bytes),
+            option.model_artifact_label(),
             option
                 .context_length
                 .map(compact_tokens)
@@ -23,6 +23,7 @@ pub(super) fn model_options_notice(options: &[TuiModelOption]) -> String {
             option.license,
             current,
             recommendation,
+            option.vision_artifact_label(),
             option.note,
         ));
     }
@@ -40,16 +41,17 @@ pub(super) fn choose_model(
             value: option.id.clone(),
             label: option.display_name.clone(),
             description: format!(
-                "id {} · {} · {} · context {} · RAM {} · {} · {}",
+                "id {} · {} · {} · context {} · RAM {} · {} · {} · {}",
                 option.id,
                 option.quantization,
-                bytes_label(option.download_bytes),
+                option.model_artifact_label(),
                 option
                     .context_length
                     .map(compact_tokens)
                     .unwrap_or_else(|| "미확정".to_string()),
                 option.ram,
                 option.license,
+                option.vision_artifact_label(),
                 option.note
             ),
             current: option.current,
@@ -82,11 +84,15 @@ pub(super) fn apply_model_choice(
         },
         TerminalChoice {
             value: "apply".to_string(),
-            label: "다운로드하고 적용".to_string(),
+            label: if selected.model_cached {
+                "기존 모델로 전환".to_string()
+            } else {
+                "다운로드하고 적용".to_string()
+            },
             description: format!(
                 "{} · {} · SHA-256 검증 후 기본 모델로 전환",
                 selected.display_name,
-                bytes_label(selected.download_bytes)
+                selected.model_artifact_label()
             ),
             current: false,
             recommended: true,
@@ -101,7 +107,11 @@ pub(super) fn apply_model_choice(
         return Ok("모델 변경을 취소했습니다.".to_string());
     }
     terminal
-        .write_frame("backend 준비 → 모델 다운로드/SHA-256 검증 → 기본 모델 적용 중...\n")
+        .write_frame(if selected.model_cached {
+            "backend 준비 → 기존 모델 cache/SHA-256 검증 → 기본 모델 적용 중...\n"
+        } else {
+            "backend 준비 → 모델 다운로드/SHA-256 검증 → 기본 모델 적용 중...\n"
+        })
         .map_err(|_| terminal_fault_error(TerminalFault::FrameWrite))?;
     Ok(model_setup_notice(runtime.setup_model(&selected.id)))
 }
@@ -114,11 +124,6 @@ fn model_setup_notice(result: Result<String, AppError>) -> String {
             error.message
         ),
     }
-}
-
-fn bytes_label(bytes: u64) -> String {
-    const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
-    format!("{:.1} GiB", bytes as f64 / GIB)
 }
 
 fn compact_tokens(tokens: u32) -> String {
