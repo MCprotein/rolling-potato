@@ -158,7 +158,10 @@ PNG/JPEG images with a combined limit of 20 MiB are revalidated from one bounded
 file read by size, signature, and SHA-256 at dispatch.
 Image inference is available only when the selected model's separately pinned
 `mmproj` bytes are verified and the managed `llama-server` sidecar is vision-ready.
-The status line and `/status` distinguish `vision ready` from `vision text-only`.
+The status line and `/status` distinguish `vision ready`, `vision on-demand`,
+`vision unsupported`, and unavailable state. `on-demand` means the selected
+model has a pinned projector that has not been loaded into the backend yet; it
+does not mean that vision is unsupported.
 If projector preparation fails, the verified text model and current selection remain
 usable and the image request receives an actionable capability message.
 
@@ -171,6 +174,11 @@ stores it as a separate artifact, and passes it to `llama-server` through
 artifact is missing, partial, corrupt, or the pinned model revision changes. A
 failed projector preparation does not silently switch the default model or ready
 backend.
+
+The model picker reports the language-model artifact and lazy projector
+separately. An existing model file is shown as `local cache` and verified before
+use, while a missing projector is shown as a one-time first-image download.
+Switching back to a cached model is never labeled as a new model download.
 
 Plain questions use a lightweight general-answer path unless they contain a clear
 repository/action signal. The local model sees the user request and decides whether

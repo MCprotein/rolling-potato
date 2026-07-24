@@ -152,9 +152,12 @@ local app data에 캡처해 첨부 badge로 표시합니다. UTF-8 text/code 파
 20 MiB까지 허용하며 dispatch 시 한 번의 bounded file read로 size, signature,
 SHA-256을 다시 검증합니다. 선택한 model의 별도 고정
 `mmproj` bytes가 검증되고 managed `llama-server` sidecar가 vision-ready일 때만
-image inference를 사용합니다. Status line과 `/status`는 `vision ready`와
-`vision text-only`를 구분합니다. Projector 준비가 실패해도 검증된 text model과
-현재 선택은 유지하며, image 요청에는 해결 방법이 있는 capability 안내를 표시합니다.
+image inference를 사용합니다. Status line과 `/status`는 `vision ready`,
+`vision on-demand`, `vision unsupported`, 상태 미확인을 구분합니다.
+`on-demand`는 선택한 model에 고정된 projector가 있지만 아직 backend에 적재하지
+않았다는 뜻이며 vision 미지원이 아닙니다. Projector 준비가 실패해도 검증된 text
+model과 현재 선택은 유지하며, image 요청에는 해결 방법이 있는 capability 안내를
+표시합니다.
 
 `mmproj`는 또 하나의 언어 모델이 아닙니다. Image feature를 짝이 맞는 language-model
 GGUF가 기대하는 embedding 공간으로 변환하는 model 전용 visual encoder/projector
@@ -164,6 +167,11 @@ GGUF입니다. 다른 model이나 revision의 projector와 호환된다고 가�
 다시 다운로드하지 않으며, artifact가 없거나 partial/corrupt이거나 고정 revision이
 바뀐 경우에만 다운로드합니다. Projector 준비 실패는 기본 model이나 ready backend를
 몰래 바꾸지 않습니다.
+
+모델 선택기는 언어 모델 artifact와 지연 준비되는 projector를 분리해 표시합니다.
+기존 모델 파일은 `local cache`로 표시하고 사용 전에 검증하며, projector가 없으면
+첫 이미지에서 한 번 받을 용량을 별도로 표시합니다. 캐시된 모델로 다시 전환할 때
+새 모델 다운로드라고 표시하지 않습니다.
 
 명확한 저장소·action signal이 없는 일반 질문은 가벼운 범용 답변 경로를 사용합니다.
 Local model이 사용자 요청을 보고 `WebSearch`, `WebOpen`, `WebFind`가 필요한지
