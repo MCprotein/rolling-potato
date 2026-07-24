@@ -1,5 +1,46 @@
 # Release Notes
 
+## v0.48.0 - Interactive TUI, Attachments, and Direct Web Tools
+
+Release date: 2026-07-24
+
+This feature release makes the primary TUI easier to operate, adds bounded
+local attachments and verified multimodal projector handling, and replaces
+hosted search integration with repository-owned read-only web tools.
+
+### Included
+
+- Adds keyboard-driven slash-command and model pickers, standard terminal
+  editing shortcuts, and reliable recovery after oversized bracketed paste.
+- Captures bounded text, code, PNG, and JPEG attachments into private app-data
+  storage; failed requests retain attachments for retry and successful requests
+  clear them.
+- Uses each selected model's manifest context limit for attachment budgeting and
+  keeps multimodal inference capability-gated behind an independently verified,
+  revisioned `mmproj` artifact.
+- Adds API-key-free `WebSearch`, `WebOpen`, and `WebFind` with model-selected
+  read-only routing, HTTPS and public-network enforcement, bounded evidence,
+  runtime-owned sources, and explicit no-web controls.
+- Respects explicit output-language requests while treating Korean validation
+  as mixed-language leak prevention rather than a reason to hide non-empty
+  answers or format-only requests.
+- Refreshes release metadata on every launch within a 1.5-second bound and uses
+  the local release cache only as an offline fallback, so an earlier cache entry
+  cannot hide a newly published update.
+- Splits TUI input, controller, rendering, reporting, storage, and model setup
+  responsibilities into smaller owned modules.
+
+### Compatibility and boundaries
+
+- Existing public commands and flags remain available.
+- Web tools require network access but no API key, MCP server, provider SDK, or
+  background search service.
+- Images require a model entry with a verified vision projector; unsupported
+  models continue to accept text-only requests.
+- Automated Chromium interaction is not included in this release. Its bounded
+  design remains planned for `v0.49.0`.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.47.1 - Reliable General Answers and Search
 
 Release date: 2026-07-23

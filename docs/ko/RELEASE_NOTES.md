@@ -1,11 +1,41 @@
 # 릴리즈 노트
 
-## 미출시 - API key 없는 직접 웹 검색
+## v0.48.0 - 대화형 TUI, 첨부와 직접 웹 도구
 
-- Brave Search REST와 credential 설정을 제거
-- MCP, provider SDK, 새 dependency 없이 공개 검색 HTML을 직접 요청·파싱
-- HTTPS-only, redirect 차단, 응답·query·source·context 상한과 untrusted context
-  경계 유지
+릴리즈 날짜: 2026-07-24
+
+이 기능 릴리즈는 기본 TUI의 조작성을 높이고, 범위가 제한된 로컬 첨부와 검증된
+멀티모달 projector 처리를 추가하며, hosted 검색 연동을 저장소가 소유하는 읽기
+전용 웹 도구로 교체합니다.
+
+### 포함한 것
+
+- keyboard 기반 slash-command·model picker, 표준 terminal 편집 단축키와 대용량
+  bracketed paste 이후 입력 복구
+- 크기가 제한된 text, code, PNG, JPEG를 private app-data 저장소에 캡처하고 요청
+  실패 시 재시도용 첨부 유지, 성공 시 제거
+- 선택한 모델 manifest의 context limit 전체를 첨부 budget에 사용하고, 별도로
+  검증한 revisioned `mmproj` artifact가 있을 때만 멀티모달 추론 활성화
+- API key 없는 `WebSearch`, `WebOpen`, `WebFind`, model 판단 기반 읽기 전용
+  routing, HTTPS·public network 제한, bounded evidence, runtime 소유 출처와
+  명시적 no-web 제어
+- 명시한 출력 언어는 존중하면서 한국어 검증은 비어 있지 않은 답변이나 형식
+  요청을 숨기지 않는 혼합 언어 누출 방지로 적용
+- 시작할 때마다 1.5초 범위 안에서 release 메타데이터를 새로 확인하고 network
+  실패 때만 local cache를 사용하여 이전 cache가 새 update 알림을 숨기지 않게 함
+- TUI input, controller, rendering, reporting, storage와 model setup 책임을 작은
+  owner module로 분리
+
+### 호환성과 경계
+
+- 기존 public command와 flag를 제거하지 않습니다.
+- 웹 도구는 network가 필요하지만 API key, MCP server, provider SDK, background
+  검색 service를 요구하지 않습니다.
+- 이미지는 검증된 vision projector가 있는 모델에서만 활성화하며 다른 모델은
+  text-only 요청을 계속 처리합니다.
+- 자동 Chromium interaction은 이번 릴리즈에 포함하지 않으며 제한된 설계는
+  `v0.49.0` 계획으로 유지합니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
 
 ## v0.47.1 - 안정적인 범용 답변과 검색
 

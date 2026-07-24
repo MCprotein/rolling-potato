@@ -4,7 +4,7 @@ This document defines the `rolling-potato` development environment and verificat
 
 ## Current State
 
-The repository is an active pre-1.0 Rust runtime with the `v0.47.1` release.
+The repository is an active pre-1.0 Rust runtime with the `v0.48.0` release.
 Start with the [current-capabilities guide](current-capabilities.md) for the
 readable feature map and use the detailed snapshot below only when
 implementation history is needed.

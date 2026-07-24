@@ -1,7 +1,7 @@
 # Current Capabilities
 
 This document is the readable status map for the released
-`rolling-potato v0.47.1` runtime. It groups the runtime by responsibility
+`rolling-potato v0.48.0` runtime. It groups the runtime by responsibility
 instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
@@ -10,7 +10,7 @@ instead of repeating one flat command list.
 > This is a capability guide, not a substitute for `rpotato --help`. The
 > installed binary remains the source of truth for exact command syntax.
 
-## Installation, First Run, and Updates (`v0.42.0`-`v0.47.1`)
+## Installation, First Run, and Updates (`v0.42.0`-`v0.48.0`)
 
 The extracted GitHub Release binary can install or update itself in the
 user-local CLI directory and register that directory in zsh, bash, fish, or
@@ -100,9 +100,9 @@ direct HTML search with no API key. There is no MCP process, JSON-RPC session,
 provider SDK, or background search service. The current question is sent to a fixed
 public search page, returned text is treated as untrusted context, no web instruction
 gains execution authority, and at most four sources share a
-6 KiB evidence budget. Credential-bearing requests are HTTPS-only and do not
-follow redirects; the key is not persisted or logged.
-`/doctor` reports search configuration without exposing the key and defers the
+6 KiB evidence budget. Requests are HTTPS-only, do not follow redirects, and
+accept no configured search credential.
+`/doctor` reports the provider-free search configuration and defers the
 expensive ontology source-hash audit to explicit ontology diagnostics.
 The runtime removes model-made citations and source blocks, then displays the
 verified HTTPS source links itself. Successful retrieval still exposes those

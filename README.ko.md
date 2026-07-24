@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.47.1` |
+| 현재 릴리즈 | `v0.48.0` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -188,7 +188,7 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-`v0.47.1` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
+`v0.48.0` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
@@ -248,9 +248,10 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-게시된 `v0.47.1`까지의 release history는 완료되었습니다. 최신 release는 로컬
-coding-agent workflow를 유지하면서 일반 설명, runtime이 표시하는 출처 link가
-있는 제한된 웹 근거, 혼합 언어 누출 방지를 안정화합니다.
+게시된 `v0.48.0`까지의 release history는 완료되었습니다. 최신 release는 로컬
+coding-agent workflow를 유지하면서 keyboard 기반 TUI 선택, private 로컬 첨부,
+검증된 vision projector와 API key 없는 `WebSearch`, `WebOpen`, `WebFind`를
+추가합니다.
 [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를
 참고하십시오.
 

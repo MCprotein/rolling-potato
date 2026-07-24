@@ -1060,11 +1060,11 @@
       ]
     },
     {
-      "path": "docs/ko/v0.48-web-research-browser-plan.md",
+      "path": "docs/ko/v0.49-web-research-browser-plan.md",
       "slices": [
         {
           "responsibility": "refactor-governed documentation contract",
-          "target": "docs/ko/v0.48-web-research-browser-plan.md",
+          "target": "docs/ko/v0.49-web-research-browser-plan.md",
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
@@ -1368,11 +1368,11 @@
       ]
     },
     {
-      "path": "docs/v0.48-web-research-browser-plan.md",
+      "path": "docs/v0.49-web-research-browser-plan.md",
       "slices": [
         {
           "responsibility": "refactor-governed documentation contract",
-          "target": "docs/v0.48-web-research-browser-plan.md",
+          "target": "docs/v0.49-web-research-browser-plan.md",
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
@@ -8224,7 +8224,7 @@
       ]
     },
     {
-      "path": "docs/ko/v0.48-web-research-browser-plan.md",
+      "path": "docs/ko/v0.49-web-research-browser-plan.md",
       "responsibilities": [
         "refactor-governed documentation contract"
       ]
@@ -8356,7 +8356,7 @@
       ]
     },
     {
-      "path": "docs/v0.48-web-research-browser-plan.md",
+      "path": "docs/v0.49-web-research-browser-plan.md",
       "responsibilities": [
         "refactor-governed documentation contract"
       ]

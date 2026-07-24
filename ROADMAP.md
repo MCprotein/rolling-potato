@@ -159,6 +159,18 @@ evidence.
 | v0.47.0 | Released | General local-model answers and calculations, stable rpotato identity, mixed-language repair, automatic freshness routing, and bounded read-only `/search` with HTTPS source URLs |
 | v0.47.1 | Released | Reliable generic explanation routing, discoverable search/update commands, bounded small-model evidence, mixed-language leak prevention, and runtime-owned source rendering |
 
+### Interactive local agent tools (`v0.48.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
+| v0.48.0 | Released | Keyboard-driven TUI choices and editing, private text/image attachments, manifest-sized context and verified vision projectors, API-key-free `WebSearch`/`WebOpen`/`WebFind`, explicit no-web control, and smaller runtime ownership boundaries |
+
+### Bounded web research and browser interaction (`v0.49.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
+| v0.49.0 | Planned | [Bounded web research and Chromium browser plan](docs/v0.49-web-research-browser-plan.md): Search→Open→Find evidence loops, verified source binding, multi-page TUI, and isolated installed-browser actions without API keys, MCP, or Node.js |
+
 ## Distribution Boundary
 
 GitHub Releases in this repository is the only supported download and
