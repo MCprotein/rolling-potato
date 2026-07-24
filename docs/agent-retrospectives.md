@@ -2,6 +2,34 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-24: release PR merge가 cleanup 전에 branch를 삭제함
+
+### 증상
+
+- `v0.48.1`의 release test, 5개 platform build, packaged smoke, 개별·통합 checksum과
+  published asset 검증은 모두 통과했지만 마지막 release branch cleanup job만
+  실패했습니다.
+- Cleanup policy는 검증할 `release/v0.48.1` remote branch가 이미 없다고 보고
+  종료했습니다.
+
+### 원인
+
+- Release PR을 squash merge하면서 일반 feature PR과 같은 `--delete-branch` option을
+  사용해 asset 검증이 끝나기 전에 remote release branch를 삭제했습니다.
+- Release workflow는 matching branch의 candidate가 tag commit에 merge됐거나
+  tree-equivalent인지 확인한 뒤 branch를 삭제하도록 설계되어 있어, 조기 삭제를
+  안전하지 않은 lifecycle 위반으로 차단했습니다.
+
+### 재발 방지
+
+- Release PR merge에는 `--delete-branch`를 사용하지 않고 `release-binaries` cleanup
+  job만 remote release branch를 삭제합니다.
+- 조기 삭제가 발생했다면 실패 job을 그대로 재실행하지 않습니다. Exact release
+  candidate SHA로 matching branch를 복원하고 tag/main/tree 관계를 다시 검증한 뒤
+  cleanup job만 재실행합니다.
+- 일반 feature PR의 branch 삭제와 release branch cleanup을 서로 다른 운영
+  lifecycle로 취급합니다.
+
 ## 2026-07-22: release PTY gate가 게시 직후 live update API에 의존함
 
 ### 증상

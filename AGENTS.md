@@ -12,6 +12,7 @@
 - 작업 branch는 PR로 `main`에 반영하고 기본 병합 방식은 squash merge로 한다.
 - 실제 출시 작업은 `release/vX.Y.Z` 또는 prerelease에 대응되는 `release/vX.Y.Z-alpha.N` 형태의 version branch에서만 진행한다.
 - 출시 branch는 `main`에서 만들고, release checklist 통과 후 `main`에 merge하고, matching tag를 만든 뒤 release workflow가 remote branch를 삭제하게 하고 local branch도 삭제한다.
+- Release PR을 merge할 때는 `--delete-branch`를 사용하지 않는다. 검증된 asset이 모두 게시된 뒤 `release-binaries` cleanup job만 remote release branch를 삭제한다.
 - 출시 전에는 `scripts/release/verify-release-policy.sh`를 실행해 branch/tag/version 정책을 확인한다.
 - 공식 binary 배포와 다운로드는 이 저장소의 GitHub Releases만 사용한다. Homebrew, Scoop, winget, package registry, 별도 tap/bucket 저장소를 생성·갱신·게시하거나 공식 설치 경로로 안내하지 않는다.
 - destructive command, credential 필요 작업, 외부 production 변경, 라이선스 변경처럼 되돌리기 어렵거나 권한이 필요한 작업은 아래 외부 쓰기 경계를 포함해 사용자 확인이 필요하다.
