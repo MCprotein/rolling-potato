@@ -20,6 +20,7 @@ mod model_switch;
 use model_switch::{switch_prepared_model, LiveModelSwitch};
 mod attachment;
 mod conversation;
+mod prompt_context;
 mod runtime;
 mod session_memory;
 mod web_tools;

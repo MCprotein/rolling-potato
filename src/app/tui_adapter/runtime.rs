@@ -192,7 +192,12 @@ impl TuiRuntimeAdapter {
         let local_context = input.text.as_str();
         if !input.images.is_empty() {
             ensure_runtime_ready()?;
-            return conversation::reply_with_images(&input, history).map(tui_execution);
+            return conversation::reply_with_images(
+                &input,
+                history,
+                required_context_limit(context_limit_tokens)?,
+            )
+            .map(tui_execution);
         }
         if let Some(result) =
             super::web_tools::dispatch(&mut self.opened_web_page, user_request, local_context)
@@ -208,6 +213,7 @@ impl TuiRuntimeAdapter {
         match conversation::decide_request(
             user_request,
             history,
+            required_context_limit(context_limit_tokens)?,
             conversational && !has_text_attachments,
         )? {
             conversation::RequestDecision::Answer(answer) => return Ok(tui_execution(answer)),
@@ -223,8 +229,13 @@ impl TuiRuntimeAdapter {
             conversation::RequestDecision::ContinueLocal => {}
         }
         if conversational {
-            return conversation::reply_with_context(user_request, local_context, history)
-                .map(tui_execution);
+            return conversation::reply_with_context(
+                user_request,
+                local_context,
+                history,
+                required_context_limit(context_limit_tokens)?,
+            )
+            .map(tui_execution);
         }
         crate::app::runtime_adapter::agent_run_report(local_context).map(|report| {
             RequestExecution {
@@ -240,4 +251,12 @@ fn tui_execution(response: String) -> RequestExecution {
         response,
         transcript_owner: TranscriptOwner::TuiConversation,
     }
+}
+
+fn required_context_limit(context_limit_tokens: Option<u32>) -> Result<u32, AppError> {
+    context_limit_tokens.filter(|value| *value > 0).ok_or_else(|| {
+        AppError::blocked(
+            "선택한 모델의 context length를 확인하지 못했습니다. /model에서 모델을 다시 선택하거나 /doctor로 backend 상태를 확인하세요.",
+        )
+    })
 }
