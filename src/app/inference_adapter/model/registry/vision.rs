@@ -5,8 +5,13 @@ use crate::adapters::filesystem::model_artifact::{
     vision_projector_artifact_path,
 };
 use crate::runtime_core::inference::model::manifest::{
-    source_backed_artifact, source_backed_vision_projector, ModelManifestEntry, RegistryVisionState,
+    source_backed_artifact, source_backed_vision_projector, ModelArtifactDescriptor,
+    ModelManifestEntry, RegistryVisionState,
 };
+
+mod preparation;
+
+pub(crate) use preparation::prepare_bound_vision_projector;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct VerifiedVisionProjector {
@@ -26,15 +31,34 @@ pub(crate) fn verified_vision_projector(
     if model_artifact_path(artifact) != model_path {
         return None;
     }
+    let projector = source_backed_vision_projector(candidate)?;
+    let expected_path = vision_projector_artifact_path(candidate, projector);
+    verified_vision_projector_binding(
+        candidate.id,
+        model_path,
+        model_sha256,
+        projector,
+        expected_path,
+    )
+}
+
+pub(super) fn verified_vision_projector_binding(
+    model_id: &str,
+    model_path: &Path,
+    model_sha256: &str,
+    projector: ModelArtifactDescriptor,
+    expected_path: PathBuf,
+) -> Option<VerifiedVisionProjector> {
     let entry = read_registry_entries()
         .ok()?
         .into_iter()
-        .find(|entry| entry.id == candidate.id)?;
-    if entry.vision_status != "ready" {
+        .find(|entry| entry.id == model_id)?;
+    if entry.vision_status != "ready"
+        || entry.artifact_sha256 != model_sha256
+        || Path::new(&entry.artifact_path) != model_path
+    {
         return None;
     }
-    let projector = source_backed_vision_projector(candidate)?;
-    let expected_path = vision_projector_artifact_path(candidate, projector);
     if entry
         .mmproj_path
         .as_deref()

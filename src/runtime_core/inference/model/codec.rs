@@ -60,6 +60,28 @@ pub(crate) fn render_registry_entry(
     )
 }
 
+pub(crate) fn render_registry_entry_snapshot(entry: &RegistryEntry) -> String {
+    format!(
+        "{{\n  \"schemaVersion\": 2,\n  \"id\": \"{}\",\n  \"displayName\": \"{}\",\n  \"status\": \"installed\",\n  \"evidenceStatus\": \"{}\",\n  \"promotionEvidencePath\": \"{}\",\n  \"backendVersion\": \"{}\",\n  \"benchmarkRunId\": \"{}\",\n  \"upstreamModel\": \"{}\",\n  \"upstreamUrl\": \"{}\",\n  \"artifactPath\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"visionStatus\": \"{}\",\n  \"mmprojPath\": \"{}\",\n  \"mmprojSha256\": \"{}\",\n  \"mmprojSizeBytes\": {},\n  \"licenseSource\": \"{}\",\n  \"licenseCheckedAt\": \"{}\"\n}}\n",
+        strict_json::escape_string_content(&entry.id),
+        strict_json::escape_string_content(&entry.display_name),
+        strict_json::escape_string_content(&entry.evidence_status),
+        strict_json::escape_string_content(&entry.promotion_evidence_path),
+        strict_json::escape_string_content(&entry.backend_version),
+        strict_json::escape_string_content(&entry.benchmark_run_id),
+        strict_json::escape_string_content(&entry.upstream_model),
+        strict_json::escape_string_content(&entry.upstream_url),
+        strict_json::escape_string_content(&entry.artifact_path),
+        strict_json::escape_string_content(&entry.artifact_sha256),
+        strict_json::escape_string_content(&entry.vision_status),
+        strict_json::escape_string_content(entry.mmproj_path.as_deref().unwrap_or("")),
+        strict_json::escape_string_content(entry.mmproj_sha256.as_deref().unwrap_or("")),
+        entry.mmproj_size_bytes.unwrap_or(0),
+        strict_json::escape_string_content(&entry.license_source),
+        strict_json::escape_string_content(&entry.license_checked_at)
+    )
+}
+
 pub(crate) fn render_promotion_evidence(
     candidate: &ModelManifestEntry,
     evidence: &PromotionEvidence,
@@ -348,6 +370,38 @@ mod tests {
 
         assert_eq!(entry.vision_status, "unavailable-legacy");
         assert!(entry.mmproj_path.is_none());
+        assert!(entry.mmproj_sha256.is_none());
+        assert!(entry.mmproj_size_bytes.is_none());
+    }
+
+    #[test]
+    fn model_upgrade_compatibility_v1_snapshot_migrates_without_losing_evidence() {
+        let text = r#"{
+  "schemaVersion": 1,
+  "id": "legacy",
+  "displayName": "Legacy",
+  "status": "installed",
+  "evidenceStatus": "verified-local-promotion",
+  "promotionEvidencePath": "/models/evidence.json",
+  "backendVersion": "b9878",
+  "benchmarkRunId": "benchmark-1",
+  "upstreamModel": "owner/model",
+  "upstreamUrl": "https://example.com/model",
+  "artifactPath": "/models/model.gguf",
+  "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "licenseSource": "https://example.com/license",
+  "licenseCheckedAt": "2026-07-23"
+}"#;
+        let mut entry = parse_registry_entry(text).unwrap();
+        entry.vision_status = "ready".to_string();
+        entry.mmproj_path = Some("/models/mmproj.gguf".to_string());
+        entry.mmproj_sha256 =
+            Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into());
+        entry.mmproj_size_bytes = Some(991);
+
+        let migrated = parse_registry_entry(&render_registry_entry_snapshot(&entry)).unwrap();
+
+        assert_eq!(migrated, entry);
     }
 
     #[test]

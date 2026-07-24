@@ -684,6 +684,26 @@ mod tests {
     }
 
     #[test]
+    fn model_upgrade_compatibility_verified_projector_cache_hit_never_redownloads() {
+        let root =
+            std::env::temp_dir().join(format!("rpotato-projector-cache-{}", std::process::id()));
+        let path = root.join("projector.gguf");
+        let part_path = root.join("projector.gguf.part");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(&path, b"abc").unwrap();
+        let artifact =
+            projector("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+
+        let status = fetch_managed_projector_artifact(artifact, &path, &part_path).unwrap();
+
+        assert_eq!(status, ModelArtifactFetchStatus::CacheHit);
+        assert_eq!(fs::read(&path).unwrap(), b"abc");
+        assert!(!part_path.exists());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn projector_partial_cache_is_scoped_to_the_expected_revision() {
         let candidate = find_candidate("gemma-4-e4b").unwrap();
         let first = vision_projector_part_path(candidate, projector(SHA_A));
