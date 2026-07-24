@@ -7,6 +7,15 @@ use crate::native_terminal_support::NativePty;
 use crate::native_terminal_support::trace_stage;
 
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
+fn confirm_picker(terminal: &mut NativePty, title: &str) {
+    terminal.wait_for(title);
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    terminal.send("2");
+    #[cfg(windows)]
+    terminal.send("2\n");
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos", windows))]
 #[test]
 fn entry_quit() {
     let fixture = NativeTerminalFixture::new("entry-quit");
@@ -88,6 +97,42 @@ fn slash_opens_command_palette_before_enter() {
     if let Some(value) = no_color {
         std::env::set_var("NO_COLOR", value);
     }
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn update_uses_a_live_confirmation_picker_without_free_form_yes_input() {
+    let fixture = NativeTerminalFixture::new("update-confirmation-picker");
+    assert!(fixture.project.is_dir());
+    std::env::set_var(
+        "RPOTATO_TEST_UPDATE_REPORT",
+        "rpotato update\n- status: updated\n- installed: v9.0.0",
+    );
+    let no_color = std::env::var_os("NO_COLOR");
+    std::env::remove_var("NO_COLOR");
+
+    let mut terminal = NativePty::spawn(120, 40);
+    terminal.wait_for("›");
+    terminal.send("/update\n");
+    let picker = terminal.wait_for("업데이트 확인");
+    assert!(picker.contains("1. 취소"));
+    assert!(picker.contains("2. 업데이트 시작"));
+    assert!(!picker.contains("yes를 입력"));
+    terminal.send("\n");
+    terminal.wait_for("업데이트를 취소했습니다.");
+    terminal.send("/update\n");
+    terminal.wait_for("업데이트 확인");
+    terminal.send("2");
+    terminal.wait_for("installed: v9.0.0");
+    terminal.send("/quit\n");
+    let output = terminal.finish();
+
+    std::env::remove_var("RPOTATO_TEST_UPDATE_REPORT");
+    if let Some(value) = no_color {
+        std::env::set_var("NO_COLOR", value);
+    }
+    assert!(output.contains("status: updated"));
+    assert!(!output.contains("yes를 입력"));
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
@@ -211,15 +256,13 @@ fn full_adapter() {
         terminal.send(&format!("select {}\n", pending.workflow_id));
         terminal.wait_for(&format!("선택: {}", pending.workflow_id));
         terminal.send(&format!("approve {}\n", pending.proposal_id));
-        terminal.wait_for("패치 적용 승인을 확인하려면 yes를 입력하세요.");
-        terminal.send("yes\n");
+        confirm_picker(&mut terminal, "패치 적용 확인");
     }
     #[cfg(windows)]
     {
         let session_id = fixture.current_session_id();
         terminal.send(&format!("select session {session_id}\n"));
-        terminal.wait_for("세션 선택을 확인하려면 yes를 입력하세요.");
-        terminal.send("yes\n");
+        confirm_picker(&mut terminal, "세션 선택 확인");
     }
     terminal.wait_for("terminal.frame-write.pre-dispatch");
     let output = terminal.finish_failure();
@@ -257,8 +300,7 @@ fn full_adapter() {
     terminal.send(&format!("approve {}\n", pending.proposal_id));
     #[cfg(unix)]
     {
-        terminal.wait_for("패치 적용 승인을 확인하려면 yes를 입력하세요.");
-        terminal.send("yes\n");
+        confirm_picker(&mut terminal, "패치 적용 확인");
         terminal.wait_for("토큰을 무반향으로 입력하세요.");
         terminal.send(&format!("{}\n", pending.approval_token));
         terminal.wait_for("verification.credential-issued");
@@ -287,8 +329,7 @@ fn full_adapter() {
         assert!(!tree_contains(&fixture.project, credential.as_bytes()));
         assert!(!tree_contains(&fixture.data, credential.as_bytes()));
         terminal.send("deny\n");
-        terminal.wait_for("상태 변경을 확인하려면 yes를 입력하세요.");
-        terminal.send("yes\n");
+        confirm_picker(&mut terminal, "요청 거부 확인");
         let denial_output = terminal.wait_for("다음: 롤백 영수증을 확인하세요.");
         native_terminal_denial_block_outcomes_exact(
             &denial_output,
@@ -305,8 +346,7 @@ fn full_adapter() {
         // context without inheriting a deliberately rolled-back graph/source mismatch.
         std::fs::write(&pending.source, "pub const VALUE: i32 = 2;\n").unwrap();
         terminal.send("deny\n");
-        terminal.wait_for("상태 변경을 확인하려면 yes를 입력하세요.");
-        terminal.send("yes\n");
+        confirm_picker(&mut terminal, "요청 거부 확인");
         let terminal_denial = terminal.wait_for("다음: 기존 종료 영수증을 확인하세요.");
         native_terminal_denial_block_outcomes_exact(
             &terminal_denial,
@@ -329,8 +369,7 @@ fn full_adapter() {
             "unsupported source approval",
         );
         terminal.send("deny\n");
-        terminal.wait_for("상태 변경을 확인하려면 yes를 입력하세요.");
-        terminal.send("yes\n");
+        confirm_picker(&mut terminal, "요청 거부 확인");
         let denial_output = terminal.wait_for("다음: 거부 영수증을 확인하세요.");
         native_terminal_denial_block_outcomes_exact(
             &denial_output,
@@ -339,8 +378,7 @@ fn full_adapter() {
             None,
         );
         terminal.send("deny\n");
-        terminal.wait_for("상태 변경을 확인하려면 yes를 입력하세요.");
-        terminal.send("yes\n");
+        confirm_picker(&mut terminal, "요청 거부 확인");
         let terminal_denial = terminal.wait_for("다음: 기존 종료 영수증을 확인하세요.");
         native_terminal_denial_block_outcomes_exact(
             &terminal_denial,
@@ -396,8 +434,7 @@ fn full_adapter() {
     terminal.send(&format!("approve {}\n", post.proposal_id));
     #[cfg(unix)]
     {
-        terminal.wait_for("패치 적용 승인을 확인하려면 yes를 입력하세요.");
-        terminal.send("yes\n");
+        confirm_picker(&mut terminal, "패치 적용 확인");
         terminal.wait_for("토큰을 무반향으로 입력하세요.");
         terminal.send(&format!("{}\n", post.approval_token));
         terminal.wait_for("terminal.frame-write.post-dispatch");
@@ -412,8 +449,7 @@ fn full_adapter() {
         );
         let session_id = fixture.current_session_id();
         terminal.send(&format!("select session {session_id}\n"));
-        terminal.wait_for("세션 선택을 확인하려면 yes를 입력하세요.");
-        terminal.send("yes\n");
+        confirm_picker(&mut terminal, "세션 선택 확인");
         terminal.wait_for("terminal.frame-write.post-dispatch");
     }
     let output = terminal.finish_failure();
@@ -464,8 +500,7 @@ fn full_adapter() {
     terminal.send(&format!("select {}\n", post.workflow_id));
     terminal.wait_for(&format!("선택: {}", post.workflow_id));
     terminal.send("deny\n");
-    terminal.wait_for("상태 변경을 확인하려면 yes를 입력하세요.");
-    terminal.send("yes\n");
+    confirm_picker(&mut terminal, "요청 거부 확인");
     #[cfg(unix)]
     {
         let denial_output = terminal.wait_for("다음: 롤백 영수증을 확인하세요.");
@@ -494,12 +529,10 @@ fn full_adapter() {
     terminal.send(&format!("select {}\n", resumable.workflow_id));
     terminal.wait_for(&format!("선택: {}", resumable.workflow_id));
     terminal.send("resume\n");
-    terminal.wait_for("상태 변경을 확인하려면 yes를 입력하세요.");
-    terminal.send("yes\n");
+    confirm_picker(&mut terminal, "작업 재개 확인");
     terminal.wait_for("resume.accepted");
     terminal.send("cancel\n");
-    terminal.wait_for("상태 변경을 확인하려면 yes를 입력하세요.");
-    terminal.send("yes\n");
+    confirm_picker(&mut terminal, "작업 취소 확인");
     terminal.wait_for("cancel.accepted");
     terminal.send("view monitor\n");
     terminal.wait_for("rpotato | monitor");

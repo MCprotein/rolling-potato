@@ -181,7 +181,9 @@ pub(crate) fn run_controller(
             ["/update"] => {
                 if !confirm(
                     terminal,
-                    "최신 stable release 확인과 검증된 binary 교체를 시작하려면 yes를 입력하세요.\n",
+                    "업데이트 확인",
+                    "업데이트 시작",
+                    "최신 stable release 확인 → archive 다운로드 → SHA-256 검증 → binary 교체",
                 )? {
                     state.notice = "업데이트를 취소했습니다.".to_string();
                     continue;
@@ -281,8 +283,12 @@ pub(crate) fn run_controller(
                 state.set_view(InteractiveView::Diff((*proposal_id).to_string()))
             }
             ["select", "session", session_id] => {
-                if !confirm(terminal, "세션 선택을 확인하려면 yes를 입력하세요.\n")?
-                {
+                if !confirm(
+                    terminal,
+                    "세션 선택 확인",
+                    "이 세션으로 전환",
+                    format!("session {session_id}을 정본 상태로 다시 확인한 뒤 선택"),
+                )? {
                     state.notice = "세션 선택 요청을 보내지 않았습니다.".to_string();
                     continue;
                 }
@@ -321,8 +327,12 @@ pub(crate) fn run_controller(
                     )?);
                     continue;
                 }
-                if !confirm(terminal, "패치 적용 승인을 확인하려면 yes를 입력하세요.\n")?
-                {
+                if !confirm(
+                    terminal,
+                    "패치 적용 확인",
+                    "패치 적용 승인",
+                    format!("proposal {proposal_id}을 검증한 뒤 선택한 workflow에 적용"),
+                )? {
                     state.notice = "승인을 보내지 않았습니다.".to_string();
                     continue;
                 }
@@ -348,8 +358,12 @@ pub(crate) fn run_controller(
                     state.notice = "먼저 select <workflow-id>를 실행하세요.".to_string();
                     continue;
                 };
-                if !confirm(terminal, "검증 실행 승인을 확인하려면 yes를 입력하세요.\n")?
-                {
+                if !confirm(
+                    terminal,
+                    "검증 실행 확인",
+                    "검증 실행 승인",
+                    format!("proposal {proposal_id}의 검증 단계를 실행"),
+                )? {
                     state.notice = "검증 승인을 보내지 않았습니다.".to_string();
                     continue;
                 }
@@ -375,8 +389,30 @@ pub(crate) fn run_controller(
                     state.notice = "먼저 select <workflow-id>를 실행하세요.".to_string();
                     continue;
                 };
-                if !confirm(terminal, "상태 변경을 확인하려면 yes를 입력하세요.\n")?
-                {
+                let (confirmation_title, action_label, action_description) = match *action {
+                    "deny" => (
+                        "요청 거부 확인",
+                        "요청 거부",
+                        format!("workflow {workflow_id}의 대기 중인 요청을 거부"),
+                    ),
+                    "resume" => (
+                        "작업 재개 확인",
+                        "작업 재개",
+                        format!("workflow {workflow_id}의 실행을 재개"),
+                    ),
+                    "cancel" => (
+                        "작업 취소 확인",
+                        "작업 취소",
+                        format!("workflow {workflow_id}의 실행을 취소"),
+                    ),
+                    _ => unreachable!(),
+                };
+                if !confirm(
+                    terminal,
+                    confirmation_title,
+                    action_label,
+                    action_description,
+                )? {
                     state.notice = "요청을 보내지 않았습니다.".to_string();
                     continue;
                 }

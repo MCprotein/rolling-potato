@@ -5,7 +5,7 @@
 ### Source Of Truth
 
 - Status: Active
-- Last refreshed: 2026-07-22
+- Last refreshed: 2026-07-24
 - Primary product surface: no-argument `rpotato` TUI; subcommand CLI for automation and diagnostics; optional local static HTML report
 - Evidence reviewed:
   - `README.md`
@@ -20,6 +20,7 @@
   - `src/runtime_core/observability/monitor.rs`
   - `src/adapters/sqlite/observability_projection.rs`
   - user-provided Codex and Claude Code terminal references captured on 2026-07-22
+  - user-provided rpotato v0.47.1 update and model interaction captures from 2026-07-24
 
 ### Brand
 
@@ -168,6 +169,7 @@
 
 - Running attached `rpotato` with no arguments opens the conversation controller.
 - The first frame never renders the overview ledger page. It shows a compact welcome, the current project label, the composer, and the status line.
+- The welcome frame and the first notice or conversation row are separated by one blank row. The `/help` footer must never visually merge with an update notice; terminals at 10 rows or less may collapse this decorative gap to preserve the composer.
 - Ordinary input appears as a user turn before dispatch. The visible result appears as an assistant turn; errors remain inline and state the direct cause and recovery action.
 - Detailed revisions, hashes, ledger counts, projection freshness, workflow fields, and monitor tables are available only through explicit status/diagnostic views.
 - On first run, the same terminal flow lists source-backed model choices and shows model ID/version, quantization, download size, context limit, RAM status, license, and recommendation evidence before confirmation.
@@ -180,6 +182,8 @@
 - `/model`, `/compact`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit` cover normal in-TUI operations. Existing granular subcommands remain an advanced compatibility surface under `rpotato debug --help`.
 - `/` opens a selectable command palette. Up/Down or `Ctrl+P`/`Ctrl+N` moves focus, `Enter` accepts, `Esc` closes, and typed text filters the visible rows.
 - `/model` opens a reusable picker instead of requiring the user to retype an internal ID. It shows current/install/recommendation state alongside verified model facts; `/model <id>` remains an automation-compatible shortcut.
+- Interactive confirmations use the same picker primitive with a safe cancel choice selected by default. The TUI never asks the user to type `yes`; plain or redirected terminals use the numbered choice fallback.
+- `/update` opens an `업데이트 / 취소` confirmation picker, and choosing either option must not leave confirmation text in the conversation composer.
 - The composer supports common terminal editing keys: Left/Right, Home/End, `Ctrl+A`/`Ctrl+E`, Option/Alt+Left/Right word movement, Command/Meta+Left/Right line movement when the terminal reports those sequences, and word/line deletion shortcuts.
 - Bracketed paste is handled atomically. An explicitly pasted existing image or text-file path is represented as an attachment badge and is never interpreted as a slash command merely because an absolute path begins with `/`.
 - Attachment intake validates file type, regular-file status, size, and bounded count. Ephemeral clipboard files are captured before dispatch. Unsupported model/backend capabilities are explained before inference rather than silently sending a filesystem path as text.
@@ -280,6 +284,7 @@
   - A natural-language greeting regression proves that it is rendered as a conversation and never starts a patch proposal.
   - Input regressions cover cursor movement, word/line movement and deletion, bracketed paste, palette selection, absolute-path classification, and UTF-8 display-cell behavior.
   - Picker regressions prove keyboard and numbered fallback selection without downloading or switching before confirmation.
+  - Confirmation regressions cover update, session selection, patch approval, verification approval, deny, resume, and cancel without any free-form `yes` prompt.
   - Web-search regressions cover Korean verb variants, freshness routing, explicit offline opt-out, source retention, and bounded provider failure.
   - Attachment regressions cover image paths with spaces, ephemeral clipboard paths, unsupported capability, size/count limits, and no-path-leak transcript rendering.
   - Visual acceptance compares one 120x40 terminal capture against the 2026-07-22 Codex/Claude Code references; one bounded pass is sufficient unless the capture violates the contract.

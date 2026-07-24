@@ -202,7 +202,7 @@ fn interactive_controller_notifies_and_applies_update_without_leaving_tui() {
     );
     std::fs::create_dir_all(root.join("project")).unwrap();
     crate::app::workflow_adapter::state::initialize().unwrap();
-    let mut terminal = ScriptedTerminal::new(["/update", "yes", "/quit"]);
+    let mut terminal = ScriptedTerminal::new(["/update", "2", "/quit"]);
 
     run_controller(&mut terminal, &mut TuiRuntimeAdapter::default()).unwrap();
 
@@ -219,6 +219,10 @@ fn interactive_controller_notifies_and_applies_update_without_leaving_tui() {
     assert!(terminal.frames[1].contains("새 rpotato 버전이 있습니다"));
     assert!(rendered.contains("새 rpotato 버전이 있습니다"));
     assert!(rendered.contains("/update 를 입력하면"));
+    assert!(rendered.contains("업데이트 확인"));
+    assert!(rendered.contains("1. 취소"));
+    assert!(rendered.contains("2. 업데이트 시작"));
+    assert!(!rendered.contains("yes를 입력"));
     assert!(rendered.contains("SHA-256 검증"));
     assert!(rendered.contains("status: updated"));
     assert!(rendered.contains("installed: v9.0.0"));

@@ -1,5 +1,7 @@
 use crate::foundation::error::AppError;
-use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalFault, TerminalIo};
+use crate::runtime_core::terminal::{
+    FrameWriteBoundary, TerminalChoice, TerminalFault, TerminalIo,
+};
 
 use super::super::outcome::{
     exact_tui_outcome, TuiEffect, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext,
@@ -8,17 +10,33 @@ use super::super::runtime_bridge::{TuiReadPage, TuiStatusSnapshot};
 use super::super::view_model::InteractiveState;
 use super::TuiRuntimePort;
 
-pub(super) fn confirm(terminal: &mut impl TerminalIo, prompt: &str) -> Result<bool, AppError> {
-    terminal
-        .write_frame(prompt)
-        .map_err(|_| terminal_fault_error(TerminalFault::FrameWrite))?;
-    Ok(matches!(
-        terminal
-            .read_line()
-            .map_err(terminal_fault_error)?
-            .as_deref(),
-        Some("yes")
-    ))
+pub(super) fn confirm(
+    terminal: &mut impl TerminalIo,
+    title: &str,
+    action_label: &str,
+    action_description: impl Into<String>,
+) -> Result<bool, AppError> {
+    let choices = [
+        TerminalChoice {
+            value: "cancel".to_string(),
+            label: "취소".to_string(),
+            description: "아무 변경도 하지 않고 대화로 돌아갑니다.".to_string(),
+            current: false,
+            recommended: false,
+        },
+        TerminalChoice {
+            value: "confirm".to_string(),
+            label: action_label.to_string(),
+            description: action_description.into(),
+            current: false,
+            recommended: true,
+        },
+    ];
+    Ok(terminal
+        .choose(title, &choices)
+        .map_err(terminal_fault_error)?
+        .as_deref()
+        == Some("confirm"))
 }
 
 pub(super) fn write_pre_dispatch_frame(

@@ -121,6 +121,9 @@ fn render_conversation_frame(
     let show_welcome = state.turns.is_empty();
     if show_welcome {
         render_welcome(&mut output, status, width, color);
+        if height > 10 {
+            output.push('\n');
+        }
     } else {
         render_identity_header(&mut output, width, color);
         output.push('\n');
