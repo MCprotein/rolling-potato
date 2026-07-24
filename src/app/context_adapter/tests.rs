@@ -167,8 +167,10 @@ fn current_and_resume_sources_share_one_budget_and_deduplicate() {
     ]);
     let mut resume = ResumeContext {
         session_id: "session-test".to_string(),
+        context_limit_tokens: 131_072,
         transcript_records_considered: 0,
         transcript_turns_selected: 0,
+        transcript_tokens: 0,
         transcript_chars: 0,
         transcript: Vec::new(),
         compacted_checkpoint: None,
@@ -215,7 +217,7 @@ fn resume_context_is_bounded_and_rejects_stale_source_pointer() {
         fingerprint: crate::foundation::integrity::sha256_file(&source_path).unwrap(),
         snippet: String::new(),
     };
-    for index in 0..12 {
+    for index in 0..20 {
         transcript::record_workflow_turn(
             &workflow,
             if index % 2 == 0 { "user" } else { "model" },
@@ -241,21 +243,25 @@ fn resume_context_is_bounded_and_rejects_stale_source_pointer() {
     )
     .unwrap();
 
-    let resumed = rebuild_resume_context(&workflow.session_id, None).unwrap();
+    let budget =
+        crate::runtime_core::knowledge::context::ResumeContextBudget::for_context_limit(131_072);
+    let resumed = rebuild_resume_context_for_limit(&workflow.session_id, None, 131_072).unwrap();
     assert!(resumed.transcript_turns_selected > 0);
-    assert!(resumed.transcript_turns_selected <= MAX_RESUME_TURNS);
-    assert!(resumed.transcript_chars <= MAX_RESUME_TRANSCRIPT_CHARS);
+    assert!(resumed.transcript_turns_selected <= budget.max_turns);
+    assert!(resumed.transcript_tokens <= budget.transcript_budget_tokens);
+    assert_eq!(resumed.context_limit_tokens, 131_072);
     assert_eq!(resumed.sources.files_read, 1);
     assert!(resumed.sources.chars_read <= MAX_CONTEXT_CHARS);
     assert!(!resumed.prompt_section().contains("OTHER_SESSION_SENTINEL"));
 
-    let compacted = compact_manually().unwrap();
+    let compacted = compaction::compact_manually_for_context_limit(131_072).unwrap();
     assert!(compacted.compacted);
     assert!(compacted.artifact_path.is_some());
-    let after_compaction = rebuild_resume_context(&workflow.session_id, None).unwrap();
+    let after_compaction =
+        rebuild_resume_context_for_limit(&workflow.session_id, None, 131_072).unwrap();
     assert!(after_compaction.compacted_checkpoint.is_some());
     assert!(after_compaction.compaction_boundary.is_some());
-    assert!(after_compaction.transcript_turns_selected <= 4);
+    assert!(after_compaction.transcript_turns_selected <= 16);
     assert!(after_compaction
         .prompt_section()
         .contains("untrusted historical data"));
@@ -269,7 +275,7 @@ fn resume_context_is_bounded_and_rejects_stale_source_pointer() {
     );
 
     fs::write(&source_path, "fn main() { println!(\"changed\"); }\n").unwrap();
-    let stale = rebuild_resume_context(&workflow.session_id, None).unwrap_err();
+    let stale = rebuild_resume_context_for_limit(&workflow.session_id, None, 131_072).unwrap_err();
     assert_eq!(stale.code, 3);
     assert!(stale.message.contains("source reread 차단"));
 

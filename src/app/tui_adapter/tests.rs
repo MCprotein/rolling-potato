@@ -183,7 +183,7 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
     assert!(terminal
         .frames
         .iter()
-        .any(|frame| frame.contains("context compact 결과")));
+        .any(|frame| frame.contains("기본 모델이 선택되지 않았습니다")));
 }
 
 #[test]

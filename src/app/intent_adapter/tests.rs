@@ -267,8 +267,10 @@ fn imported_skill_instructions_are_bounded_by_runtime_contract() {
     let pack = sample_context_pack();
     let resume = ResumeContext {
         session_id: "session-test".to_string(),
+        context_limit_tokens: 131_072,
         transcript_records_considered: 0,
         transcript_turns_selected: 0,
+        transcript_tokens: 0,
         transcript_chars: 0,
         transcript: Vec::new(),
         compacted_checkpoint: None,

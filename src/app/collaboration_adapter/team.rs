@@ -362,8 +362,10 @@ pub fn governor_report(
         .map(|sample| pressure_from_status(&sample.pressure_status))
         .unwrap_or(resource::ResourcePressure::Unknown);
     let lane_decision = resource::team_lane_decision(pressure, requested_lanes);
-    let context_limit_tokens =
-        context_limit_tokens.unwrap_or(resource::DEFAULT_CONTEXT_LIMIT_TOKENS);
+    let context_limit_tokens = match context_limit_tokens {
+        Some(limit) => limit,
+        None => crate::app::inference_adapter::model::configured_context_length()?,
+    };
     let context_decision = resource::context_model_governor_decision(
         pressure,
         requested_context_tokens,

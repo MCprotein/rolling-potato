@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::adapters::filesystem::{layout as paths, lease};
 use crate::app::inference_adapter::backend;
+use crate::app::inference_adapter::model;
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::{ledger, state};
 use crate::foundation::error::AppError;
@@ -20,7 +21,6 @@ use artifact_store::{
     install_artifact, load_current_artifact_from_records, relative_artifact_path,
 };
 
-const DEFAULT_CONTEXT_LIMIT_TOKENS: usize = 4_096;
 const COMPACTION_TIMEOUT_MS: u32 = 30_000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,31 +57,52 @@ impl CompactionOutcome {
 
 pub(crate) fn compact_automatically() -> Result<CompactionOutcome, AppError> {
     let identity = ledger::validated_current_identity()?;
+    let limit = configured_context_limit_tokens()?;
+    let target = CompactionPolicy::for_context_limit(limit).post_compact_target_tokens;
+    let configured_model_id = model::configured_model_id()
+        .ok_or_else(|| AppError::blocked("기본 모델이 선택되지 않았습니다."))?;
     let Some(latest) = observability::latest_model_run_for_session_read_only(&identity.session_id)
         .ok()
         .flatten()
     else {
-        return Ok(not_needed("측정된 context 사용량이 없습니다.", 0, 0));
+        return Ok(not_needed("측정된 context 사용량이 없습니다.", 0, target));
     };
     let Some(observed) = latest.context_tokens_used.map(|value| value as usize) else {
-        return Ok(not_needed("측정된 context token 사용량이 없습니다.", 0, 0));
+        return Ok(not_needed(
+            "측정된 context token 사용량이 없습니다.",
+            0,
+            target,
+        ));
     };
-    let limit = latest
-        .context_limit_tokens
-        .map(|value| value as usize)
-        .unwrap_or(DEFAULT_CONTEXT_LIMIT_TOKENS);
+    if latest.model_id != configured_model_id
+        || latest.context_limit_tokens.map(|value| value as usize) != Some(limit)
+    {
+        return Ok(not_needed(
+            "최신 측정값이 현재 선택 모델의 context window와 일치하지 않습니다.",
+            observed,
+            target,
+        ));
+    }
     compact_session(CompactionMode::Automatic, Some(observed), limit)
 }
 
 pub(crate) fn compact_manually() -> Result<CompactionOutcome, AppError> {
-    let identity = ledger::validated_current_identity()?;
-    let limit = observability::latest_model_run_for_session_read_only(&identity.session_id)
-        .ok()
-        .flatten()
-        .and_then(|run| run.context_limit_tokens)
-        .map(|value| value as usize)
-        .unwrap_or(DEFAULT_CONTEXT_LIMIT_TOKENS);
+    let limit = configured_context_limit_tokens()?;
     compact_session(CompactionMode::Manual, None, limit)
+}
+
+#[cfg(test)]
+pub(super) fn compact_manually_for_context_limit(
+    context_limit_tokens: usize,
+) -> Result<CompactionOutcome, AppError> {
+    compact_session(CompactionMode::Manual, None, context_limit_tokens)
+}
+
+fn configured_context_limit_tokens() -> Result<usize, AppError> {
+    model::configured_context_length().and_then(|value| {
+        usize::try_from(value)
+            .map_err(|_| AppError::blocked("configured context token count overflow"))
+    })
 }
 
 fn compact_session(

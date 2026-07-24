@@ -12,9 +12,39 @@ pub(crate) const MAX_CONTEXT_FILES: usize = 4;
 pub(crate) const MAX_CONTEXT_CHARS: usize = 3_200;
 pub(crate) const MAX_FILE_CHARS: usize = 1_000;
 pub(crate) const MAX_FILE_BYTES: u64 = 128 * 1024;
-pub(crate) const MAX_RESUME_TURNS: usize = 8;
-pub(crate) const MAX_RESUME_TRANSCRIPT_CHARS: usize = 2_400;
-pub(crate) const MAX_RESUME_TURN_CHARS: usize = 800;
+const MIN_RESUME_TRANSCRIPT_TOKENS: usize = 512;
+const MAX_RESUME_TRANSCRIPT_TOKENS: usize = 16_384;
+const MIN_RESUME_TURNS: usize = 8;
+const MAX_RESUME_TURNS: usize = 64;
+const MIN_RESUME_TURN_TOKENS: usize = 256;
+const MAX_RESUME_TURN_TOKENS: usize = 4_096;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ResumeContextBudget {
+    pub(crate) context_limit_tokens: usize,
+    pub(crate) transcript_budget_tokens: usize,
+    pub(crate) per_turn_budget_tokens: usize,
+    pub(crate) max_turns: usize,
+}
+
+impl ResumeContextBudget {
+    pub(crate) fn for_context_limit(context_limit_tokens: usize) -> Self {
+        let context_limit_tokens = context_limit_tokens.max(1);
+        let transcript_budget_tokens = (context_limit_tokens / 8)
+            .clamp(MIN_RESUME_TRANSCRIPT_TOKENS, MAX_RESUME_TRANSCRIPT_TOKENS)
+            .min(context_limit_tokens);
+        let per_turn_budget_tokens = (transcript_budget_tokens / 2)
+            .clamp(MIN_RESUME_TURN_TOKENS, MAX_RESUME_TURN_TOKENS)
+            .min(transcript_budget_tokens);
+        let max_turns = (context_limit_tokens / 2_048).clamp(MIN_RESUME_TURNS, MAX_RESUME_TURNS);
+        Self {
+            context_limit_tokens,
+            transcript_budget_tokens,
+            per_turn_budget_tokens,
+            max_turns,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContextPack {
@@ -41,8 +71,10 @@ pub struct SourcePointer {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResumeContext {
     pub session_id: String,
+    pub context_limit_tokens: usize,
     pub transcript_records_considered: usize,
     pub transcript_turns_selected: usize,
+    pub transcript_tokens: usize,
     pub transcript_chars: usize,
     pub transcript: Vec<(String, String)>,
     pub compacted_checkpoint: Option<CompactionCheckpoint>,
@@ -196,8 +228,10 @@ impl ResumeContext {
 
     pub fn summary(&self) -> String {
         format!(
-            "transcript turns={} chars={} compacted={} source pointers={}",
+            "context limit={} transcript turns={} tokens={} chars={} compacted={} source pointers={}",
+            self.context_limit_tokens,
             self.transcript_turns_selected,
+            self.transcript_tokens,
             self.transcript_chars,
             self.compaction_boundary.as_deref().unwrap_or("none"),
             self.sources.files_read
@@ -230,27 +264,23 @@ pub(crate) fn truncate_chars(contents: &str, max_chars: usize) -> String {
     format!("{prefix}{MARKER}")
 }
 
-pub(crate) fn truncate_tail_chars(contents: &str, max_chars: usize) -> String {
-    let count = contents.chars().count();
-    if count <= max_chars {
-        return contents.to_string();
-    }
-    const MARKER: &str = "[truncated]\n";
-    let marker_chars = MARKER.chars().count();
-    if max_chars <= marker_chars {
-        return MARKER.chars().take(max_chars).collect();
-    }
-    let tail_chars = max_chars - marker_chars;
-    let tail = contents
-        .chars()
-        .skip(count - tail_chars)
-        .collect::<String>();
-    format!("{MARKER}{tail}")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn resume_budget_scales_with_the_declared_model_window() {
+        let small = ResumeContextBudget::for_context_limit(4_096);
+        let large = ResumeContextBudget::for_context_limit(131_072);
+
+        assert_eq!(small.context_limit_tokens, 4_096);
+        assert_eq!(small.transcript_budget_tokens, 512);
+        assert_eq!(small.max_turns, 8);
+        assert_eq!(large.context_limit_tokens, 131_072);
+        assert_eq!(large.transcript_budget_tokens, 16_384);
+        assert_eq!(large.per_turn_budget_tokens, 4_096);
+        assert_eq!(large.max_turns, 64);
+    }
 
     #[test]
     fn compacted_resume_prompt_honors_one_total_budget_for_korean_content() {
@@ -279,8 +309,10 @@ mod tests {
             .collect::<Vec<_>>();
         let resume = ResumeContext {
             session_id: "session-budget".to_string(),
+            context_limit_tokens: 4_096,
             transcript_records_considered: 8,
             transcript_turns_selected: 8,
+            transcript_tokens: estimate_tokens(&korean) * 8,
             transcript_chars: korean.chars().count() * 8,
             transcript: (0..8)
                 .map(|index| ("user".to_string(), format!("turn-{index} {korean}")))

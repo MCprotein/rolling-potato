@@ -62,16 +62,19 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             .or_else(|| latest.as_ref().map(|run| run.model_id.clone()))
             .unwrap_or_else(|| "미선택".to_string());
         let latest_matches_model = latest.as_ref().is_some_and(|run| run.model_id == model);
+        let context_limit_tokens = backend
+            .context_limit_tokens
+            .or_else(|| crate::app::inference_adapter::model::configured_context_length().ok())
+            .or_else(|| {
+                latest
+                    .as_ref()
+                    .filter(|_| latest_matches_model)
+                    .and_then(|run| run.context_limit_tokens)
+            });
         let context_tokens_used = latest
             .as_ref()
-            .filter(|_| latest_matches_model)
+            .filter(|run| latest_matches_model && run.context_limit_tokens == context_limit_tokens)
             .and_then(|run| run.context_tokens_used);
-        let context_limit_tokens = backend.context_limit_tokens.or_else(|| {
-            latest
-                .as_ref()
-                .filter(|_| latest_matches_model)
-                .and_then(|run| run.context_limit_tokens)
-        });
         let vision_ready = backend.vision_ready;
         let backend = match backend.status {
             "ready" => TuiBackendStatus::Ready,
