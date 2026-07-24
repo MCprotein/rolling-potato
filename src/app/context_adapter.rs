@@ -9,12 +9,15 @@ use crate::app::ontology_adapter as ontology;
 use crate::app::policy_adapter::{self as policy, Decision, PathMode};
 use crate::app::workflow_adapter::transcript;
 use crate::foundation::error::AppError;
+use crate::runtime_core::knowledge::compaction::{
+    estimate_tokens, truncate_tail_to_estimated_tokens, CompactionPolicy,
+};
 pub use crate::runtime_core::knowledge::context::{
     enforce_shared_source_budget, ContextPack, ResumeContext, SourcePointer,
 };
 use crate::runtime_core::knowledge::context::{
-    truncate_chars, truncate_tail_chars, MAX_CONTEXT_CHARS, MAX_CONTEXT_FILES, MAX_FILE_BYTES,
-    MAX_FILE_CHARS, MAX_RESUME_TRANSCRIPT_CHARS, MAX_RESUME_TURNS, MAX_RESUME_TURN_CHARS,
+    truncate_chars, ResumeContextBudget, MAX_CONTEXT_CHARS, MAX_CONTEXT_FILES, MAX_FILE_BYTES,
+    MAX_FILE_CHARS,
 };
 
 mod compaction;
@@ -210,6 +213,18 @@ pub fn rebuild_resume_context(
     session_id: &str,
     exclude_workflow_id: Option<&str>,
 ) -> Result<ResumeContext, AppError> {
+    let context_limit_tokens =
+        crate::app::inference_adapter::context_window::effective_context_window()?.limit_tokens
+            as usize;
+    rebuild_resume_context_for_limit(session_id, exclude_workflow_id, context_limit_tokens)
+}
+
+pub(crate) fn rebuild_resume_context_for_limit(
+    session_id: &str,
+    exclude_workflow_id: Option<&str>,
+    context_limit_tokens: usize,
+) -> Result<ResumeContext, AppError> {
+    let budget = ResumeContextBudget::for_context_limit(context_limit_tokens);
     let records = transcript::records_for_session(session_id)?;
     let compacted = compaction::load_current_artifact(session_id).ok().flatten();
     let boundary_index = compacted.as_ref().and_then(|artifact| {
@@ -227,19 +242,27 @@ pub fn rebuild_resume_context(
         .collect::<Vec<_>>();
 
     let mut selected_reversed = Vec::new();
+    let mut transcript_tokens = 0usize;
     let mut transcript_chars = 0usize;
     for record in eligible.iter().rev() {
-        if selected_reversed.len() >= MAX_RESUME_TURNS
-            || transcript_chars >= MAX_RESUME_TRANSCRIPT_CHARS
+        if selected_reversed.len() >= budget.max_turns
+            || transcript_tokens >= budget.transcript_budget_tokens
         {
             break;
         }
-        let remaining = MAX_RESUME_TRANSCRIPT_CHARS.saturating_sub(transcript_chars);
-        let content = truncate_tail_chars(&record.content, remaining.min(MAX_RESUME_TURN_CHARS));
+        let remaining = budget
+            .transcript_budget_tokens
+            .saturating_sub(transcript_tokens);
+        let content = truncate_tail_to_estimated_tokens(
+            &record.content,
+            remaining.min(budget.per_turn_budget_tokens),
+        );
+        let tokens = estimate_tokens(&content);
         let chars = content.chars().count();
-        if chars == 0 {
+        if chars == 0 || tokens == 0 || tokens > remaining {
             continue;
         }
+        transcript_tokens += tokens;
         transcript_chars += chars;
         selected_reversed.push((record.kind.clone(), content));
     }
@@ -303,12 +326,20 @@ pub fn rebuild_resume_context(
         .as_ref()
         .map(|(_, artifact)| usize::try_from(artifact.post_compact_target_tokens))
         .transpose()
-        .map_err(|_| AppError::blocked("compaction target token count overflow"))?;
+        .map_err(|_| AppError::blocked("compaction target token count overflow"))?
+        .map(|stored_target| {
+            stored_target.min(
+                CompactionPolicy::for_context_limit(budget.context_limit_tokens)
+                    .post_compact_target_tokens,
+            )
+        });
 
     Ok(ResumeContext {
         session_id: session_id.to_string(),
+        context_limit_tokens: budget.context_limit_tokens,
         transcript_records_considered: eligible.len(),
         transcript_turns_selected: selected_reversed.len(),
+        transcript_tokens,
         transcript_chars,
         transcript: selected_reversed,
         compacted_checkpoint: compacted

@@ -1,4 +1,4 @@
-use super::CompactionCheckpoint;
+use super::{CompactionCheckpoint, MAX_RECENT_RECORDS};
 use crate::foundation::error::AppError;
 use crate::foundation::integrity::sha256_text;
 use crate::foundation::serialization as strict_json;
@@ -149,7 +149,7 @@ fn validate_artifact(artifact: &CompactionArtifact, context: &str) -> Result<(),
         || artifact.post_compact_target_tokens > u64::from(u32::MAX)
         || artifact.source_record_count == 0
         || artifact.source_records_dropped > artifact.source_record_count
-        || artifact.recent_record_ids.len() > 4
+        || artifact.recent_record_ids.len() > MAX_RECENT_RECORDS
         || artifact.recent_record_ids.iter().any(|id| !valid_id(id))
         || artifact.summary_model_id.trim().is_empty()
         || artifact.summary_model_id.len() > 256
@@ -328,5 +328,21 @@ mod tests {
         wrong_pointer.previous_artifact_hash = "a".repeat(64);
         wrong_pointer.artifact_hash = sha256_text(&render_artifact_payload(&wrong_pointer));
         assert!(parse_artifact(&render_artifact(&wrong_pointer), "wrong pointer").is_err());
+    }
+
+    #[test]
+    fn artifact_bounds_model_scaled_recent_record_ids() {
+        let mut bounded = artifact();
+        bounded.recent_record_ids = (0..MAX_RECENT_RECORDS)
+            .map(|index| format!("transcript-recent-{index}"))
+            .collect();
+        bounded.artifact_hash = sha256_text(&render_artifact_payload(&bounded));
+        assert!(parse_artifact(&render_artifact(&bounded), "bounded recent ids").is_ok());
+
+        bounded
+            .recent_record_ids
+            .push("transcript-recent-overflow".to_string());
+        bounded.artifact_hash = sha256_text(&render_artifact_payload(&bounded));
+        assert!(parse_artifact(&render_artifact(&bounded), "overflow recent ids").is_err());
     }
 }

@@ -10,9 +10,48 @@ use crate::native_terminal_support::trace_stage;
 fn confirm_picker(terminal: &mut NativePty, title: &str) {
     terminal.wait_for(title);
     #[cfg(any(target_os = "linux", target_os = "macos"))]
-    terminal.send("2");
+    if std::env::var_os("NO_COLOR").is_none()
+        && std::env::var_os("TERM").as_deref() != Some(std::ffi::OsStr::new("dumb"))
+    {
+        terminal.send("2");
+    } else {
+        terminal.send("2\n");
+    }
     #[cfg(windows)]
     terminal.send("2\n");
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+struct LiveTerminalEnvironment {
+    no_color: Option<std::ffi::OsString>,
+    term: Option<std::ffi::OsString>,
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+impl LiveTerminalEnvironment {
+    fn enable() -> Self {
+        let environment = Self {
+            no_color: std::env::var_os("NO_COLOR"),
+            term: std::env::var_os("TERM"),
+        };
+        std::env::remove_var("NO_COLOR");
+        std::env::set_var("TERM", "xterm-256color");
+        environment
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+impl Drop for LiveTerminalEnvironment {
+    fn drop(&mut self) {
+        match self.no_color.take() {
+            Some(value) => std::env::set_var("NO_COLOR", value),
+            None => std::env::remove_var("NO_COLOR"),
+        }
+        match self.term.take() {
+            Some(value) => std::env::set_var("TERM", value),
+            None => std::env::remove_var("TERM"),
+        }
+    }
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
@@ -59,8 +98,7 @@ fn entry_quit() {
 fn slash_opens_command_palette_before_enter() {
     let fixture = NativeTerminalFixture::new("slash-command-palette");
     assert!(fixture.project.is_dir());
-    let no_color = std::env::var_os("NO_COLOR");
-    std::env::remove_var("NO_COLOR");
+    let _live_terminal = LiveTerminalEnvironment::enable();
 
     let mut terminal = NativePty::spawn(120, 40);
     terminal.wait_for("›");
@@ -94,9 +132,6 @@ fn slash_opens_command_palette_before_enter() {
             >= 2,
         "palette dismissal must restore the overwritten conversation rows"
     );
-    if let Some(value) = no_color {
-        std::env::set_var("NO_COLOR", value);
-    }
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -108,8 +143,7 @@ fn update_uses_a_live_confirmation_picker_without_free_form_yes_input() {
         "RPOTATO_TEST_UPDATE_REPORT",
         "rpotato update\n- status: updated\n- installed: v9.0.0",
     );
-    let no_color = std::env::var_os("NO_COLOR");
-    std::env::remove_var("NO_COLOR");
+    let _live_terminal = LiveTerminalEnvironment::enable();
 
     let mut terminal = NativePty::spawn(120, 40);
     terminal.wait_for("›");
@@ -120,17 +154,15 @@ fn update_uses_a_live_confirmation_picker_without_free_form_yes_input() {
     assert!(!picker.contains("yes를 입력"));
     terminal.send("\n");
     terminal.wait_for("업데이트를 취소했습니다.");
+    let second_picker_mark = terminal.mark();
     terminal.send("/update\n");
-    terminal.wait_for("업데이트 확인");
+    terminal.wait_for_after(second_picker_mark, "업데이트 확인");
     terminal.send("2");
     terminal.wait_for("installed: v9.0.0");
     terminal.send("/quit\n");
     let output = terminal.finish();
 
     std::env::remove_var("RPOTATO_TEST_UPDATE_REPORT");
-    if let Some(value) = no_color {
-        std::env::set_var("NO_COLOR", value);
-    }
     assert!(output.contains("status: updated"));
     assert!(!output.contains("yes를 입력"));
 }

@@ -255,15 +255,15 @@ pub(super) fn validate_tool_artifact_owner(
 
 pub(super) fn validate_expected_record(
     existing: &TranscriptRecord,
-    workflow: &state::WorkflowRecord,
+    owner: &super::TranscriptOwner,
     kind: &str,
     causal_id: &str,
     content: &str,
     pointers: &[TranscriptSourcePointer],
 ) -> Result<(), AppError> {
-    if existing.project_id != workflow.project_id
-        || existing.session_id != workflow.session_id
-        || existing.workflow_id != workflow.workflow_id
+    if existing.project_id != owner.project_id
+        || existing.session_id != owner.session_id
+        || existing.workflow_id != owner.stream_id
         || existing.kind != kind
         || existing.causal_id != causal_id
         || existing.content != content

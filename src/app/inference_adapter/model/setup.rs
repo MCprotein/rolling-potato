@@ -15,8 +15,10 @@ use super::fetch_candidate_for_evaluation_report;
 use super::registry::{configured_model_id, prepare_user_selected_candidate, set_default_report};
 
 mod catalog;
+mod runtime_spec;
 #[cfg(test)]
 mod tests;
+pub(crate) use runtime_spec::configured_runtime_spec;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PreparedSetupModel {

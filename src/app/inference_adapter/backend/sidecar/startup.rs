@@ -7,6 +7,8 @@ use crate::adapters::filesystem::runtime_mutation;
 
 use super::*;
 
+mod existing;
+
 pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
     model_path: &str,
     ctx_size: Option<u32>,
@@ -29,38 +31,8 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
         )));
     }
 
-    if let Some(record) = backend_state::read_sidecar_record()? {
-        if backend_process::is_running(record.pid) {
-            let resource_sample = record_backend_resource_sample(&record, "start-existing")?;
-            return Ok(format!(
-                "backend start\n- status: already-running\n- pid: {}\n- binary: {}\n- model: {}\n- vision: {}\n- mmproj: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}",
-                record.pid,
-                record.binary_path.display(),
-                record.model_path.display(),
-                if record.mmproj_path.is_some() {
-                    "ready"
-                } else {
-                    "unavailable (text-ready)"
-                },
-                record
-                    .mmproj_path
-                    .as_ref()
-                    .map(|path| path.display().to_string())
-                    .unwrap_or_else(|| "없음".to_string()),
-                record.host,
-                record.port,
-                display_optional_u32(record.ctx_size),
-                resource_sample.metric.pressure_status,
-                display_optional_f64(resource_sample.metric.process_cpu_percent),
-                display_optional_u64_unknown(resource_sample.metric.average_rss_bytes),
-                display_optional_u64_unknown(resource_sample.metric.peak_rss_bytes),
-                display_optional_u64_unknown(resource_sample.metric.disk_bytes),
-                resource_sample.ledger_event,
-                record.stdout_log.display(),
-                record.stderr_log.display()
-            ));
-        }
-        backend_state::remove_sidecar_record()?;
+    if let Some(report) = existing::report(&model_path, ctx_size)? {
+        return Ok(report);
     }
 
     let binary_path = fs::canonicalize(&discovery.selected_path).map_err(|err| {

@@ -121,7 +121,7 @@ fn optimization_policy_uses_local_metrics_and_benchmark_evidence() {
     assert_eq!(healthy.status, OptimizationPolicyStatus::Recommend);
     assert_eq!(
         healthy.recommended_context_tokens,
-        Some(DEFAULT_CONTEXT_LIMIT_TOKENS)
+        Some(NORMAL_CONTEXT_BUDGET_TOKENS)
     );
     assert_eq!(healthy.recommended_lanes, DEFAULT_TEAM_REQUESTED_LANES);
     assert_eq!(healthy.model_hint, ModelRouteHint::Keep);

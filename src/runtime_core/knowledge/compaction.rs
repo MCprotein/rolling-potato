@@ -3,21 +3,25 @@
 use std::collections::BTreeSet;
 
 mod artifact;
+mod recent_tail;
 pub(crate) use artifact::{
     parse_artifact, render_artifact, render_artifact_payload, CompactionArtifact,
     COMPACTION_SCHEMA_VERSION,
 };
+use recent_tail::select_recent_tail;
 
 const AUTO_TRIGGER_PERCENT: usize = 75;
 const POST_COMPACT_TARGET_PERCENT: usize = 40;
-const RECENT_RECORD_LIMIT: usize = 4;
+const MIN_RECENT_EXCHANGES: usize = 2;
+const MAX_RECENT_EXCHANGES: usize = 8;
 const MIN_RECENT_TAIL_TOKENS: usize = 512;
-const MAX_RECENT_TAIL_TOKENS: usize = 2_048;
+const MAX_RECENT_TAIL_TOKENS: usize = 16_384;
 const MIN_SUMMARY_OUTPUT_TOKENS: usize = 192;
 const MAX_SUMMARY_OUTPUT_TOKENS: usize = 768;
 const MAX_SUMMARY_RECORD_TOKENS: usize = 1_200;
 const MAX_TOOL_SUMMARY_TOKENS: usize = 256;
 const RECORD_OVERHEAD_TOKENS: usize = 8;
+const MAX_RECENT_RECORDS: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CompactionMode {
@@ -31,6 +35,7 @@ pub(crate) struct CompactionPolicy {
     pub auto_trigger_tokens: usize,
     pub post_compact_target_tokens: usize,
     pub recent_tail_budget_tokens: usize,
+    pub recent_exchange_limit: usize,
     pub summary_output_budget_tokens: usize,
 }
 
@@ -75,6 +80,8 @@ impl CompactionPolicy {
         let recent_tail_budget_tokens = percent(context_limit_tokens, 25)
             .clamp(MIN_RECENT_TAIL_TOKENS, MAX_RECENT_TAIL_TOKENS)
             .min(post_compact_target_tokens);
+        let recent_exchange_limit =
+            (context_limit_tokens / 16_384).clamp(MIN_RECENT_EXCHANGES, MAX_RECENT_EXCHANGES);
         let summary_output_budget_tokens = percent(context_limit_tokens, 10)
             .clamp(MIN_SUMMARY_OUTPUT_TOKENS, MAX_SUMMARY_OUTPUT_TOKENS)
             .min(
@@ -87,6 +94,7 @@ impl CompactionPolicy {
             auto_trigger_tokens,
             post_compact_target_tokens,
             recent_tail_budget_tokens,
+            recent_exchange_limit,
             summary_output_budget_tokens,
         }
     }
@@ -102,10 +110,13 @@ impl CompactionPolicy {
             .map(record_token_cost)
             .sum::<usize>()
             .max(observed_context_tokens.unwrap_or(0));
-        let recent_start = records.len().saturating_sub(RECENT_RECORD_LIMIT);
-        let recent_records =
-            bounded_recent_records(&records[recent_start..], self.recent_tail_budget_tokens);
-        let source = &records[..recent_start];
+        let recent_tail = select_recent_tail(
+            records,
+            self.recent_tail_budget_tokens,
+            self.recent_exchange_limit,
+        );
+        let source = &records[..recent_tail.source_end];
+        let recent_records = recent_tail.records;
         let should_compact = !source.is_empty()
             && (mode == CompactionMode::Manual
                 || estimated_tokens_before >= self.auto_trigger_tokens);
@@ -176,34 +187,6 @@ pub(crate) fn estimate_tokens(text: &str) -> usize {
     chars.max(bytes).max(1)
 }
 
-fn bounded_recent_records(records: &[CompactionRecord], budget: usize) -> Vec<CompactionRecord> {
-    let mut selected = Vec::new();
-    let mut remaining = budget;
-    for (index, record) in records.iter().rev().enumerate() {
-        if remaining <= RECORD_OVERHEAD_TOKENS {
-            break;
-        }
-        if index > 0 && record_token_cost(record) > remaining {
-            break;
-        }
-        let content_budget = remaining
-            .saturating_sub(RECORD_OVERHEAD_TOKENS)
-            .saturating_sub(estimate_tokens(&record.kind));
-        let mut bounded = record.clone();
-        if record_token_cost(&bounded) > remaining {
-            bounded.content = truncate_tail_to_tokens(&bounded.content, content_budget);
-        }
-        let cost = record_token_cost(&bounded);
-        if bounded.content.is_empty() || cost > remaining {
-            continue;
-        }
-        remaining -= cost;
-        selected.push(bounded);
-    }
-    selected.reverse();
-    selected
-}
-
 fn bounded_summary_source(
     records: &[CompactionRecord],
     budget: usize,
@@ -243,21 +226,11 @@ fn record_token_cost(record: &CompactionRecord) -> usize {
     RECORD_OVERHEAD_TOKENS + estimate_tokens(&record.kind) + estimate_tokens(&record.content)
 }
 
-fn truncate_tail_to_tokens(text: &str, max_tokens: usize) -> String {
-    truncate_by_chars(text, max_tokens.saturating_mul(3), Truncation::Tail)
-}
-
 fn truncate_head_and_tail_to_tokens(text: &str, max_tokens: usize) -> String {
-    truncate_by_chars(text, max_tokens.saturating_mul(3), Truncation::HeadAndTail)
+    truncate_by_chars(text, max_tokens.saturating_mul(3))
 }
 
-#[derive(Debug, Clone, Copy)]
-enum Truncation {
-    Tail,
-    HeadAndTail,
-}
-
-fn truncate_by_chars(text: &str, max_chars: usize, mode: Truncation) -> String {
+fn truncate_by_chars(text: &str, max_chars: usize) -> String {
     let count = text.chars().count();
     if count <= max_chars {
         return text.to_string();
@@ -268,19 +241,11 @@ fn truncate_by_chars(text: &str, max_chars: usize, mode: Truncation) -> String {
         return MARKER.chars().take(max_chars).collect();
     }
     let available = max_chars - marker_chars;
-    match mode {
-        Truncation::Tail => {
-            let tail = text.chars().skip(count - available).collect::<String>();
-            format!("{MARKER}{tail}")
-        }
-        Truncation::HeadAndTail => {
-            let head_chars = available.div_ceil(2);
-            let tail_chars = available - head_chars;
-            let head = text.chars().take(head_chars).collect::<String>();
-            let tail = text.chars().skip(count - tail_chars).collect::<String>();
-            format!("{head}{MARKER}{tail}")
-        }
-    }
+    let head_chars = available.div_ceil(2);
+    let tail_chars = available - head_chars;
+    let head = text.chars().take(head_chars).collect::<String>();
+    let tail = text.chars().skip(count - tail_chars).collect::<String>();
+    format!("{head}{MARKER}{tail}")
 }
 
 fn percent(value: usize, percent: usize) -> usize {
@@ -419,7 +384,19 @@ mod tests {
         assert_eq!(policy.auto_trigger_tokens, 3_072);
         assert_eq!(policy.post_compact_target_tokens, 1_638);
         assert_eq!(policy.recent_tail_budget_tokens, 1_024);
+        assert_eq!(policy.recent_exchange_limit, 2);
         assert_eq!(policy.summary_output_budget_tokens, 409);
+    }
+
+    #[test]
+    fn large_model_policy_expands_recent_memory_without_changing_thresholds() {
+        let policy = CompactionPolicy::for_context_limit(131_072);
+
+        assert_eq!(policy.auto_trigger_tokens, 98_304);
+        assert_eq!(policy.post_compact_target_tokens, 52_428);
+        assert_eq!(policy.recent_tail_budget_tokens, 16_384);
+        assert_eq!(policy.recent_exchange_limit, 8);
+        assert_eq!(policy.summary_output_budget_tokens, 768);
     }
 
     #[test]
@@ -438,7 +415,12 @@ mod tests {
             record(2, "model", "x".repeat(2_000)),
             record(3, "tool", "secret-like tool output ".repeat(200)),
         ];
-        records.extend((4..8).map(|index| record(index, "model", "recent".repeat(20))));
+        records.extend([
+            record(4, "user", "recent question one".repeat(10)),
+            record(5, "model", "recent answer one".repeat(10)),
+            record(6, "user", "recent question two".repeat(10)),
+            record(7, "model", "recent answer two".repeat(10)),
+        ]);
 
         let plan = policy.plan_with_observed_tokens(CompactionMode::Automatic, &records, None);
 
@@ -475,11 +457,11 @@ mod tests {
                 .should_compact
         );
         let plan = policy.plan_with_observed_tokens(CompactionMode::Manual, &records, None);
-        assert_eq!(plan.source_record_count, 1);
-        assert_eq!(plan.boundary_record_id.as_deref(), Some("record-0"));
+        assert_eq!(plan.source_record_count, 3);
+        assert_eq!(plan.boundary_record_id.as_deref(), Some("record-2"));
         assert!(
             !policy
-                .plan_with_observed_tokens(CompactionMode::Manual, &records[..4], None)
+                .plan_with_observed_tokens(CompactionMode::Manual, &records[..2], None)
                 .should_compact
         );
     }

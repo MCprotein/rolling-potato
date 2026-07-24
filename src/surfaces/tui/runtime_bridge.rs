@@ -178,6 +178,18 @@ pub(crate) struct TuiAttachment {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TuiConversationRole {
+    User,
+    Assistant,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TuiConversationTurn {
+    pub(crate) role: TuiConversationRole,
+    pub(crate) content: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TuiReadContinuation {
     Complete,
     NextPage,

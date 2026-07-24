@@ -20,7 +20,9 @@ mod model_switch;
 use model_switch::{switch_prepared_model, LiveModelSwitch};
 mod attachment;
 mod conversation;
+mod prompt_context;
 mod runtime;
+mod session_memory;
 mod web_tools;
 
 pub fn run_auto() -> Result<(), AppError> {
@@ -55,6 +57,7 @@ pub fn setup_required() -> bool {
 #[derive(Default)]
 struct TuiRuntimeAdapter {
     opened_web_page: Option<crate::adapters::web_search::WebPageEvidence>,
+    conversation_memory: Option<session_memory::ConversationMemory>,
 }
 
 pub(crate) struct TuiReadAdapter;

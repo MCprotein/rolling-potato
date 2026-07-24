@@ -24,7 +24,6 @@ use evidence::{
     persist_promotion_evidence, promotion_benchmark_evidence, promotion_benchmark_run,
     read_promotion_evidence_file,
 };
-
 #[cfg(test)]
 use registry::registry_entry_json;
 pub(crate) use registry::{
@@ -36,7 +35,8 @@ pub use registry::{
 };
 use registry::{install_ready_for_report, registry_summary};
 pub(crate) use setup::{
-    activate_setup_model, configured_context_length, prepare_setup_model, setup_options,
+    activate_setup_model, configured_context_length, configured_runtime_spec, prepare_setup_model,
+    setup_options,
 };
 
 pub fn candidate_summary() -> String {

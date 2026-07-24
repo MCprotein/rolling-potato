@@ -5,7 +5,7 @@ const DEGRADED_RSS_BYTES: u64 = 8 * GIB_BYTES;
 const CRITICAL_RSS_BYTES: u64 = 12 * GIB_BYTES;
 pub const DEGRADED_CHAT_MAX_TOKENS: u32 = 128;
 pub const DEFAULT_TEAM_REQUESTED_LANES: u32 = 2;
-pub const DEFAULT_CONTEXT_LIMIT_TOKENS: u32 = 4096;
+pub const NORMAL_CONTEXT_BUDGET_TOKENS: u32 = 4096;
 pub const DEGRADED_CONTEXT_LIMIT_TOKENS: u32 = 2048;
 pub const SMALL_MODEL_CONTEXT_SOFT_LIMIT_TOKENS: u32 = 3072;
 pub const OPTIMIZATION_LOW_TOKENS_PER_SECOND: f64 = 5.0;
@@ -504,7 +504,7 @@ pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> Optimizat
     if input.failed_benchmark_runs > 0 {
         return OptimizationPolicyDecision {
             status: OptimizationPolicyStatus::Constrained,
-            recommended_context_tokens: Some(DEFAULT_CONTEXT_LIMIT_TOKENS),
+            recommended_context_tokens: Some(NORMAL_CONTEXT_BUDGET_TOKENS),
             recommended_lanes: 1,
             fallback: "review-before-parallel",
             model_hint: ModelRouteHint::Escalate,
@@ -557,7 +557,7 @@ pub fn optimization_policy_decision(input: OptimizationPolicyInput) -> Optimizat
 
     OptimizationPolicyDecision {
         status: OptimizationPolicyStatus::Recommend,
-        recommended_context_tokens: Some(DEFAULT_CONTEXT_LIMIT_TOKENS),
+        recommended_context_tokens: Some(NORMAL_CONTEXT_BUDGET_TOKENS),
         recommended_lanes: DEFAULT_TEAM_REQUESTED_LANES,
         fallback: "none",
         model_hint: ModelRouteHint::Keep,

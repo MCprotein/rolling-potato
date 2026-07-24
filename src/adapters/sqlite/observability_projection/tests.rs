@@ -795,7 +795,7 @@ fn optimization_policy_reads_metrics_and_measured_benchmark_evidence() {
     );
     assert_eq!(
         policy.decision.recommended_context_tokens,
-        Some(resource::DEFAULT_CONTEXT_LIMIT_TOKENS)
+        Some(resource::NORMAL_CONTEXT_BUDGET_TOKENS)
     );
     assert_eq!(
         policy.decision.recommended_lanes,

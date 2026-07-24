@@ -965,6 +965,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_sidecar_startup_path = "src/app/inference_adapter/backend/sidecar/startup.rs";
     let backend_state_path = "src/adapters/filesystem/backend_state.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
+    let context_window_path = "src/app/inference_adapter/context_window.rs";
     let model_adapter_path = "src/app/inference_adapter/model.rs";
     let model_evidence_path = "src/app/inference_adapter/model/evidence.rs";
     let model_registry_path = "src/app/inference_adapter/model/registry.rs";
@@ -973,6 +974,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "src/app/inference_adapter/model/registry/default_selection.rs";
     let model_setup_path = "src/app/inference_adapter/model/setup.rs";
     let model_setup_catalog_path = "src/app/inference_adapter/model/setup/catalog.rs";
+    let model_runtime_spec_path = "src/app/inference_adapter/model/setup/runtime_spec.rs";
     let model_setup_tests_path = "src/app/inference_adapter/model/setup/tests.rs";
     let model_tests_path = "src/app/inference_adapter/model/tests.rs";
     assert!(Path::new(backend_chat_path).is_file());
@@ -985,12 +987,14 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(Path::new(backend_sidecar_path).is_file());
     assert!(Path::new(backend_sidecar_startup_path).is_file());
     assert!(Path::new(backend_tests_path).is_file());
+    assert!(Path::new(context_window_path).is_file());
     assert!(Path::new(model_evidence_path).is_file());
     assert!(Path::new(model_registry_path).is_file());
     assert!(Path::new(model_registry_vision_path).is_file());
     assert!(Path::new(model_default_selection_path).is_file());
     assert!(Path::new(model_setup_path).is_file());
     assert!(Path::new(model_setup_catalog_path).is_file());
+    assert!(Path::new(model_runtime_spec_path).is_file());
     assert!(Path::new(model_setup_tests_path).is_file());
     assert!(Path::new(model_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
@@ -1005,6 +1009,8 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_sidecar_startup = fs::read_to_string(backend_sidecar_startup_path).unwrap();
     let backend_state = fs::read_to_string(backend_state_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
+    let inference_facade = fs::read_to_string("src/app/inference_adapter.rs").unwrap();
+    let context_window = fs::read_to_string(context_window_path).unwrap();
     let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
     let model_evidence = fs::read_to_string(model_evidence_path).unwrap();
     let model_registry = fs::read_to_string(model_registry_path).unwrap();
@@ -1012,6 +1018,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let model_default_selection = fs::read_to_string(model_default_selection_path).unwrap();
     let model_setup = fs::read_to_string(model_setup_path).unwrap();
     let model_setup_catalog = fs::read_to_string(model_setup_catalog_path).unwrap();
+    let model_runtime_spec = fs::read_to_string(model_runtime_spec_path).unwrap();
     let model_tests = fs::read_to_string(model_tests_path).unwrap();
     assert!(
         backend_adapter.contains("#[path = \"backend/tests.rs\"]"),
@@ -1021,6 +1028,23 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         model_adapter.contains("#[path = \"model/tests.rs\"]"),
         "model adapter does not register its regression-test owner"
     );
+    assert!(
+        inference_facade
+            .lines()
+            .any(|line| line == "pub(crate) mod context_window;"),
+        "inference adapter does not register its context-window owner"
+    );
+    for responsibility in [
+        "pub(crate) struct EffectiveContextWindow",
+        "pub(crate) fn effective_context_window(",
+        "fn active_ready_backend_owns_the_effective_context_window(",
+        "fn incomplete_or_inactive_runtime_uses_the_configured_manifest(",
+    ] {
+        assert!(
+            context_window.contains(responsibility),
+            "context-window owner is missing: {responsibility}"
+        );
+    }
     assert!(
         model_adapter.lines().any(|line| line == "mod evidence;"),
         "model adapter does not register its local evidence owner"
@@ -1070,6 +1094,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         "model adapter does not register its setup owner"
     );
     assert!(model_setup.lines().any(|line| line == "mod catalog;"));
+    assert!(model_setup.lines().any(|line| line == "mod runtime_spec;"));
     assert!(model_setup.lines().any(|line| line == "mod tests;"));
     assert!(model_setup_catalog.contains("pub(super) fn setup_options("));
     for responsibility in [
@@ -1085,6 +1110,19 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         assert!(
             !model_adapter.contains(responsibility),
             "model adapter still owns interactive setup: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(crate) struct ConfiguredRuntimeSpec",
+        "pub(crate) fn configured_runtime_spec(",
+    ] {
+        assert!(
+            model_runtime_spec.contains(responsibility),
+            "configured runtime specification owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_setup.contains(responsibility),
+            "interactive setup still owns configured runtime validation: {responsibility}"
         );
     }
     assert!(
@@ -1351,6 +1389,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         backend_adapter.lines().count() < 125,
         "inference backend production adapter regrew beyond its resource-sampling extraction boundary"
     );
+    assert!(context_window.lines().count() < 100);
     assert!(backend_runtime_snapshot.lines().count() < 75);
     assert!(
         backend_chat.lines().count() < 500,
@@ -1406,6 +1445,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     );
     assert!(model_default_selection.lines().count() < 75);
     assert!(model_setup.lines().count() < 100);
+    assert!(model_runtime_spec.lines().count() < 125);
     assert!(
         model_tests.lines().count() < 550,
         "model regression module regrew beyond its ownership boundary"
@@ -2640,7 +2680,15 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
     for (module, children) in [
         (
             "src/runtime_core/knowledge/mod.rs",
-            ["compaction", "context", "evidence", "ontology"].as_slice(),
+            [
+                "compaction",
+                "context",
+                "evidence",
+                "ontology",
+                "prompt",
+                "recall",
+            ]
+            .as_slice(),
         ),
         (
             "src/runtime_core/policy/mod.rs",
@@ -2673,8 +2721,9 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
             [
                 "struct ContextPack",
                 "struct ResumeContext",
+                "struct ResumeContextBudget",
                 "fn enforce_shared_source_budget",
-                "fn truncate_tail_chars",
+                "fn truncate_chars",
             ]
             .as_slice(),
         ),
@@ -6288,6 +6337,88 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     }
 }
 
+#[test]
+fn session_memory_review_fixes_keep_separate_bounded_owners() {
+    let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
+    let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
+    let session_memory = fs::read_to_string("src/app/tui_adapter/session_memory.rs").unwrap();
+    let session_tests = fs::read_to_string("src/app/tui_adapter/session_memory/tests.rs").unwrap();
+    let intent_tests = fs::read_to_string("src/app/intent_adapter/tests.rs").unwrap();
+    let prompt_budget_tests =
+        fs::read_to_string("src/app/intent_adapter/tests/prompt_budget.rs").unwrap();
+    let context = fs::read_to_string("src/runtime_core/knowledge/context.rs").unwrap();
+    let compaction = fs::read_to_string("src/runtime_core/knowledge/compaction.rs").unwrap();
+    let recent_tail =
+        fs::read_to_string("src/runtime_core/knowledge/compaction/recent_tail.rs").unwrap();
+
+    assert!(session_memory.contains("#[path = \"session_memory/tests.rs\"]"));
+    assert!(intent_tests.contains("#[path = \"tests/prompt_budget.rs\"]"));
+    assert!(compaction.lines().any(|line| line == "mod recent_tail;"));
+
+    for responsibility in [
+        "fn reset_is_a_unique_causal_head_for_repeated_questions(",
+        "fn reset_discards_an_orphan_user_before_a_later_model_record(",
+        "fn coding_exchange_is_canonical_and_prompt_history_is_bounded(",
+    ] {
+        assert!(
+            session_tests.contains(responsibility),
+            "session-memory regression owner is missing: {responsibility}"
+        );
+        assert!(
+            !session_memory.contains(responsibility),
+            "session-memory production owner contains regression test: {responsibility}"
+        );
+    }
+    assert!(tui_runtime.contains("super::session_memory::record_exchange("));
+    assert!(!tui_request.contains("TranscriptOwner"));
+
+    for responsibility in [
+        "fn imported_skill_instructions_are_bounded_by_runtime_contract(",
+        "fn agent_loop_prompt_bounds_resume_and_sources_to_the_active_runtime_window(",
+    ] {
+        assert!(
+            prompt_budget_tests.contains(responsibility),
+            "agent prompt regression owner is missing: {responsibility}"
+        );
+        assert!(
+            !intent_tests.contains(responsibility),
+            "intent regression facade contains prompt-budget test: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "struct AgentPromptBudget",
+        "struct AgentPromptParts",
+        "fn assemble_agent_prompt(",
+    ] {
+        assert!(
+            context.contains(responsibility),
+            "context owner is missing agent prompt policy: {responsibility}"
+        );
+    }
+
+    for responsibility in [
+        "fn select_recent_tail(",
+        "fn exchange_ranges(",
+        "fn bounded_single_exchange(",
+    ] {
+        assert!(
+            recent_tail.contains(responsibility),
+            "recent-tail owner is missing: {responsibility}"
+        );
+        assert!(
+            !compaction.contains(responsibility),
+            "compaction facade still owns recent-tail policy: {responsibility}"
+        );
+    }
+
+    assert!(session_memory.lines().count() < 225);
+    assert!(session_tests.lines().count() < 225);
+    assert!(intent_tests.lines().count() < 325);
+    assert!(prompt_budget_tests.lines().count() < 175);
+    assert!(compaction.lines().count() < 550);
+    assert!(recent_tail.lines().count() < 350);
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(
@@ -6413,6 +6544,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let app_facade = fs::read_to_string("src/app/web_search_adapter.rs").unwrap();
     let tui_facade = fs::read_to_string("src/app/tui_adapter.rs").unwrap();
     let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
+    let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
     let transport = fs::read_to_string("src/adapters/web_search/transport.rs").unwrap();
     let page_parser = fs::read_to_string("src/adapters/web_search/page.rs").unwrap();
 
@@ -6446,7 +6578,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
         );
     }
     assert!(tui_facade.lines().any(|line| line == "mod web_tools;"));
-    assert!(tui_runtime.contains("super::web_tools::dispatch"));
+    assert!(tui_request.contains("web_tools::dispatch"));
     assert!(transport.contains("ureq::Agent::with_parts"));
     assert!(transport.contains("PublicWebResolver"));
     assert!(page_parser.contains("scan_html"));
@@ -6479,4 +6611,5 @@ fn web_search_open_find_have_separate_bounded_owners() {
             < 125
     );
     assert!(tui_runtime.lines().count() < 200);
+    assert!(tui_request.lines().count() < 150);
 }
