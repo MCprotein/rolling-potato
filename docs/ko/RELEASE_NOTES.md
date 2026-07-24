@@ -1,5 +1,32 @@
 # 릴리즈 노트
 
+## v0.48.1 - 안내형 TUI 확인 선택
+
+릴리즈 날짜: 2026-07-24
+
+이 patch는 오류가 나기 쉬운 직접 입력 확인 prompt를 keyboard 선택창으로 교체하고,
+시작 안내와 update 알림 사이의 시각적 간격을 복구합니다.
+
+### 포함한 것
+
+- self-update, session 선택, patch 승인, verification 승인, 거부, 재개, 취소
+  흐름에 재사용 가능한 취소/진행 picker 적용
+- 안전한 취소 action을 기본 선택으로 유지하고, 확인 문자가 composer에 섞이지
+  않도록 화살표 또는 숫자 선택 지원
+- 기존 `/model` 선택 메뉴를 유지하고 model 설치 확인에도 같은 안전한 기본값과
+  interaction pattern 적용
+- 입력 영역 확보가 우선인 극도로 낮은 terminal을 제외하고 시작 안내와 startup
+  notice 사이에 분명한 간격 추가
+- 선택, 취소와 기본 action 동작을 unit, pipe mode와 native terminal 회귀
+  테스트로 검증
+
+### 호환성과 경계
+
+- 기존 public command와 flag를 제거하지 않습니다.
+- Runtime approval과 stop-gate semantic은 바뀌지 않으며 사용자 선택을 받는 TUI
+  방식만 변경합니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
+
 ## v0.48.0 - 대화형 TUI, 첨부와 직접 웹 도구
 
 릴리즈 날짜: 2026-07-24

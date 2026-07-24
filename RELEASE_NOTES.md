@@ -1,5 +1,32 @@
 # Release Notes
 
+## v0.48.1 - Guided TUI Confirmations
+
+Release date: 2026-07-24
+
+This patch replaces error-prone typed confirmation prompts with keyboard-driven
+choices and restores clear spacing between startup guidance and update notices.
+
+### Included
+
+- Uses reusable Cancel/Continue pickers for self-update, session selection,
+  patch approval, verification approval, deny, resume, and cancel flows.
+- Keeps the safe Cancel action selected by default and accepts arrow-key or
+  numeric selection without inserting confirmation text into the composer.
+- Keeps `/model` on its existing selection menu and makes model installation
+  confirmation follow the same safe default and interaction pattern.
+- Separates the welcome guidance from startup notices except on extremely short
+  terminals where preserving the input area takes priority.
+- Adds unit, pipe-mode, and native-terminal regression coverage for selection,
+  cancellation, and default-action behavior.
+
+### Compatibility and boundaries
+
+- No existing public command or flag is removed.
+- Runtime approval and stop-gate semantics are unchanged; this patch changes
+  only how the TUI captures the user's choice.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.48.0 - Interactive TUI, Attachments, and Direct Web Tools
 
 Release date: 2026-07-24
