@@ -2407,6 +2407,24 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/context_window.rs",
+      "slices": [
+        {
+          "responsibility": "active-runtime-first exact context window resolution",
+          "target": "src/app/inference_adapter/context_window.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/context_window.rs",
+            "src/app/context_adapter.rs",
+            "src/app/context_adapter/compaction.rs",
+            "src/app/collaboration_adapter/team.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/approval_adapter.rs",
       "slices": [
         {
@@ -7806,6 +7824,171 @@
           ]
         }
       ]
+    },
+    {
+      "path": "src/app/tui_adapter/prompt_context.rs",
+      "slices": [
+        {
+          "responsibility": "TUI dialogue-to-core prompt mapping and untrusted payload encoding",
+          "target": "src/app/tui_adapter/prompt_context.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/prompt_context.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory.rs",
+      "slices": [
+        {
+          "responsibility": "canonical TUI conversation restoration and append coordination",
+          "target": "src/app/tui_adapter/session_memory.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/session_memory.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/backend/reconciliation.rs",
+      "slices": [
+        {
+          "responsibility": "desired and observed backend runtime drift policy",
+          "target": "src/runtime_core/inference/backend/reconciliation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/backend/reconciliation.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/prompt.rs",
+      "slices": [
+        {
+          "responsibility": "model-window prompt budgets and deterministic layer assembly",
+          "target": "src/runtime_core/knowledge/prompt.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/prompt.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/recall.rs",
+      "slices": [
+        {
+          "responsibility": "dependency-free dialogue memory classification and recall policy",
+          "target": "src/runtime_core/knowledge/recall.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/recall.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/session-memory-context-plan.md",
+      "slices": [
+        {
+          "responsibility": "session memory and model-window context design contract",
+          "target": "docs/session-memory-context-plan.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/session-memory-context-plan.md",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/session-memory-context-plan.md",
+      "slices": [
+        {
+          "responsibility": "Korean session memory and model-window context design contract",
+          "target": "docs/ko/session-memory-context-plan.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/ko/session-memory-context-plan.md",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request.rs",
+      "slices": [
+        {
+          "responsibility": "interactive request routing and transcript ownership",
+          "target": "src/app/tui_adapter/runtime/request.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/sidecar/startup/existing.rs",
+      "slices": [
+        {
+          "responsibility": "already-running sidecar reconciliation and report composition",
+          "target": "src/app/inference_adapter/backend/sidecar/startup/existing.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/sidecar/startup/existing.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/owner.rs",
+      "slices": [
+        {
+          "responsibility": "transcript stream identity and session-scoped append entrypoint",
+          "target": "src/app/workflow_adapter/transcript/owner.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transcript/owner.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/setup/runtime_spec.rs",
+      "slices": [
+        {
+          "responsibility": "validated default-model runtime specification",
+          "target": "src/app/inference_adapter/model/setup/runtime_spec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model/setup/runtime_spec.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -8743,6 +8926,12 @@
       "path": "src/app/inference_adapter/answer.rs",
       "responsibilities": [
         "visible model answer cleanup, validation, and bounded Korean repair"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/context_window.rs",
+      "responsibilities": [
+        "active-runtime-first exact context window resolution"
       ]
     },
     {
@@ -10665,6 +10854,72 @@
       "path": "docs/ko/current-capabilities.md",
       "responsibilities": [
         "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/prompt_context.rs",
+      "responsibilities": [
+        "TUI dialogue-to-core prompt mapping and untrusted payload encoding"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory.rs",
+      "responsibilities": [
+        "canonical TUI conversation restoration and append coordination"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/backend/reconciliation.rs",
+      "responsibilities": [
+        "desired and observed backend runtime drift policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/prompt.rs",
+      "responsibilities": [
+        "model-window prompt budgets and deterministic layer assembly"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/recall.rs",
+      "responsibilities": [
+        "dependency-free dialogue memory classification and recall policy"
+      ]
+    },
+    {
+      "path": "docs/session-memory-context-plan.md",
+      "responsibilities": [
+        "session memory and model-window context design contract"
+      ]
+    },
+    {
+      "path": "docs/ko/session-memory-context-plan.md",
+      "responsibilities": [
+        "Korean session memory and model-window context design contract"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/request.rs",
+      "responsibilities": [
+        "interactive request routing and transcript ownership"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/sidecar/startup/existing.rs",
+      "responsibilities": [
+        "already-running sidecar reconciliation and report composition"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/owner.rs",
+      "responsibilities": [
+        "transcript stream identity and session-scoped append entrypoint"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/setup/runtime_spec.rs",
+      "responsibilities": [
+        "validated default-model runtime specification"
       ]
     }
   ]

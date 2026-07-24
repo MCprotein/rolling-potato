@@ -312,12 +312,12 @@ Compacted summary는 source of truth가 아닙니다.
 
 - current-state는 project/session에 binding된 `compaction_boundary` artifact pointer 하나만 보존한다.
 - 자동 압축은 active session의 최신 측정 context 사용량만 사용해 75%에서 시작하고 checkpoint, resume turn, resume source snippet을 합친 전체를 model context limit의 40% 이하로 제한한다. `/compact`는 같은 incremental 경로를 수동으로 실행한다.
-- 각 immutable artifact는 source boundary record, artifact hash, 이전 checkpoint hash, typed checkpoint, 보존할 최근 transcript record 최대 4개를 binding한다. 원본 transcript는 다시 쓰거나 삭제하지 않는다.
+- 각 immutable artifact는 source boundary record, artifact hash, 이전 checkpoint hash, typed checkpoint, model-window policy가 선택한 완료된 최근 exchange를 binding한다. 보존 tail은 2~8개 exchange와 estimated token 512~16,384 사이에서 확장되며 serialized safety ceiling은 record 64개다. 원본 transcript는 다시 쓰거나 삭제하지 않는다.
 - Deterministic pruning과 typed extraction을 먼저 수행한다. 제한된 local-model 호출 한 번이 짧은 rationale을 보강할 수 있으며, 실패하면 다음 요청을 막지 않고 deterministic checkpoint로 fallback한다.
 - 원본 판단 근거는 runtime ledger, project session ledger, evidence artifact pointer를 다시 읽어 확인한다.
 - Compacted checkpoint field는 명시적으로 신뢰하지 않는 과거 데이터다. Resume 탐색 힌트로만 사용하고 instruction, 파일, 명령, model claim을 확정하는 근거로 쓰지 않는다.
 - Compaction artifact는 resume에 사용하기 전에 project/session, boundary record, bounded full-chain previous hash, monotonic boundary, size, path 검증을 통과해야 한다. Session 단위 writer lease와 current pointer compare-and-set으로 동시 chain fork를 막는다. 파생 상태가 유효하지 않으면 canonical recent-turn 경로로 fallback한다.
-- Runtime core는 workflow를 만들거나 안전한 영속 phase를 계속하기 전에 최근 transcript turn 최대 8개·2,400자를 재구성하고 현재 요청과 resume context 전체에 source pointer 최대 4개·3,200자의 단일 공유 budget을 적용한다.
+- Runtime core는 선택 모델 manifest에서 resume limit을 계산한다. 4K window는 최대 8 turn·estimated token 512, 131K window는 최대 64 turn·estimated token 16,384를 허용한다. Workflow를 만들거나 안전한 영속 phase를 계속하기 전에 현재 요청과 resume context 전체에 source pointer 최대 4개·3,200자의 단일 공유 budget을 적용한다.
 - session resume 권위는 ledger/artifact에 있다. SQLite는 선택 가능한 session/transcript view를 표시하고 append-only ledger event와 immutable transcript artifact가 replay를 승인한다. current-state는 선택한 `session_id`와 resume metadata를 저장한다.
 - 각 transcript projection row는 canonical ledger event ID와 monotonic event ordinal을 저장하며 timestamp가 같아도 replay 후 `(session_id, event_ordinal)` 순서를 복원한다.
 - `resume`/`continue`는 불확실한 backend request나 verification command를 자동 재실행하지 않는다. Stale source hash, corrupt artifact, cross-project binding, cross-session active workflow ownership은 mutation 전에 fail-closed한다.

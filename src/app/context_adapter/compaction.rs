@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::adapters::filesystem::{layout as paths, lease};
 use crate::app::inference_adapter::backend;
-use crate::app::inference_adapter::model;
+use crate::app::inference_adapter::context_window;
 use crate::app::observability_adapter as observability;
 use crate::app::workflow_adapter::{ledger, state};
 use crate::foundation::error::AppError;
@@ -57,10 +57,10 @@ impl CompactionOutcome {
 
 pub(crate) fn compact_automatically() -> Result<CompactionOutcome, AppError> {
     let identity = ledger::validated_current_identity()?;
-    let limit = configured_context_limit_tokens()?;
+    let runtime = context_window::effective_context_window()?;
+    let limit = usize::try_from(runtime.limit_tokens)
+        .map_err(|_| AppError::blocked("effective context token count overflow"))?;
     let target = CompactionPolicy::for_context_limit(limit).post_compact_target_tokens;
-    let configured_model_id = model::configured_model_id()
-        .ok_or_else(|| AppError::blocked("기본 모델이 선택되지 않았습니다."))?;
     let Some(latest) = observability::latest_model_run_for_session_read_only(&identity.session_id)
         .ok()
         .flatten()
@@ -74,7 +74,7 @@ pub(crate) fn compact_automatically() -> Result<CompactionOutcome, AppError> {
             target,
         ));
     };
-    if latest.model_id != configured_model_id
+    if latest.model_id != runtime.model_id
         || latest.context_limit_tokens.map(|value| value as usize) != Some(limit)
     {
         return Ok(not_needed(
@@ -87,7 +87,7 @@ pub(crate) fn compact_automatically() -> Result<CompactionOutcome, AppError> {
 }
 
 pub(crate) fn compact_manually() -> Result<CompactionOutcome, AppError> {
-    let limit = configured_context_limit_tokens()?;
+    let limit = effective_context_limit_tokens()?;
     compact_session(CompactionMode::Manual, None, limit)
 }
 
@@ -98,10 +98,10 @@ pub(super) fn compact_manually_for_context_limit(
     compact_session(CompactionMode::Manual, None, context_limit_tokens)
 }
 
-fn configured_context_limit_tokens() -> Result<usize, AppError> {
-    model::configured_context_length().and_then(|value| {
-        usize::try_from(value)
-            .map_err(|_| AppError::blocked("configured context token count overflow"))
+fn effective_context_limit_tokens() -> Result<usize, AppError> {
+    context_window::effective_context_window().and_then(|window| {
+        usize::try_from(window.limit_tokens)
+            .map_err(|_| AppError::blocked("effective context token count overflow"))
     })
 }
 

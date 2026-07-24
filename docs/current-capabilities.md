@@ -82,9 +82,12 @@ Current safeguards include one shared source budget for the active request and
 resumed context, source-pointer evidence, policy checks, lifecycle hooks, and
 a guarded Korean final report. Context compaction starts automatically at 75%
 measured usage or manually through TUI `/compact`, targets 40% of the context
-limit, and retains up to four recent transcript records. Deterministic typed
-extraction remains available when the single bounded semantic rationale call
-cannot run.
+limit, and retains 2 to 8 complete recent exchanges within a model-derived token
+budget. The TUI restores complete canonical conversation pairs across restarts
+and assembles typed user-memory candidates, query recall, recent dialogue, and
+attachments under separate budgets derived from the selected model's manifest
+window. Deterministic typed extraction remains available when the single bounded
+semantic rationale call cannot run.
 
 The language guard accepts Korean prose together with numbers, formulas, code,
 paths, URLs, and bounded technical titles. It attempts one fact-preserving

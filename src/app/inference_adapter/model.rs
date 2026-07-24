@@ -24,7 +24,6 @@ use evidence::{
     persist_promotion_evidence, promotion_benchmark_evidence, promotion_benchmark_run,
     read_promotion_evidence_file,
 };
-
 #[cfg(test)]
 use registry::registry_entry_json;
 pub(crate) use registry::{

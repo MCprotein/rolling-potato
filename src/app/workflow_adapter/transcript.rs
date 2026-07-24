@@ -14,9 +14,11 @@ use crate::runtime_core::workflow::storage_compat::transcript::{
     MAX_TRANSCRIPT_CONTENT_BYTES, TRANSCRIPT_SCHEMA_V1, TRANSCRIPT_SCHEMA_V2,
 };
 
+mod owner;
 mod storage;
 mod tool_turn;
 
+pub(crate) use owner::{record_session_turn, TranscriptOwner};
 pub(crate) use tool_turn::{
     decode_prepared_no_stream_tool_turn, install_prepared_no_stream_tool_turn,
     prepare_no_stream_tool_turn, tool_output_view_from_canonical_record, PreparedTranscriptTurn,
@@ -32,23 +34,6 @@ use storage::{
     validate_tool_binding_shape_for_record, validated_transcript_path,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct TranscriptOwner {
-    pub(crate) project_id: String,
-    pub(crate) session_id: String,
-    pub(crate) stream_id: String,
-}
-
-impl TranscriptOwner {
-    fn for_workflow(workflow: &state::WorkflowRecord) -> Self {
-        Self {
-            project_id: workflow.project_id.clone(),
-            session_id: workflow.session_id.clone(),
-            stream_id: workflow.workflow_id.clone(),
-        }
-    }
-}
-
 pub fn record_workflow_turn(
     workflow: &state::WorkflowRecord,
     kind: &str,
@@ -58,25 +43,6 @@ pub fn record_workflow_turn(
 ) -> Result<TranscriptRecord, AppError> {
     record_workflow_turn_with_streams(
         workflow,
-        kind,
-        causal_id,
-        content,
-        source_pointers,
-        None,
-        None,
-    )
-}
-
-pub(crate) fn record_session_turn(
-    owner: &TranscriptOwner,
-    kind: &str,
-    causal_id: &str,
-    content: &str,
-    source_pointers: &[SourcePointer],
-) -> Result<TranscriptRecord, AppError> {
-    record_turn(
-        owner,
-        None,
         kind,
         causal_id,
         content,

@@ -79,9 +79,12 @@ rpotato skill run <id> "<request>"
 현재 보호 장치에는 active request와 resume context가 공유하는 source budget,
 source-pointer evidence, policy 검사, lifecycle hook, 한국어 최종 보고 guard가
 포함됩니다. Context compaction은 측정 사용량 75%에서 자동으로 시작하거나 TUI
-`/compact`로 수동 실행하며, context limit의 40%를 목표로 최근 transcript record
-최대 4개를 보존합니다. 제한된 semantic rationale 호출 한 번을 실행할 수 없으면
-deterministic typed extraction만으로 계속합니다.
+`/compact`로 수동 실행하며, context limit의 40%를 목표로 모델 기반 token budget
+안에서 완료된 최근 exchange 2~8개를 보존합니다. TUI는 재시작 뒤에도 완료된
+canonical conversation pair를 복원하고 선택 모델 manifest window에서 계산한 별도
+budget으로 typed user-memory 후보, query recall, 최근 대화, attachment를 조립합니다.
+제한된 semantic rationale 호출 한 번을 실행할 수 없으면 deterministic typed
+extraction만으로 계속합니다.
 
 언어 guard는 한국어 문장과 함께 숫자, 수식, 코드, 경로, URL, 범위가 제한된 기술
 제목을 허용합니다. CJK 누출이나 이어지는 외국어 문장에는 사실을 보존하는 한국어

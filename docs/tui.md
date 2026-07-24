@@ -141,8 +141,10 @@ terminal sends those escape sequences. `/update` confirms before downloading
 the exact current-platform GitHub Release asset and verifies its SHA-256 sidecar before
 replacing the managed installation. Startup checks use a short timeout and cache, and
 network failure does not block the TUI. `/compact` creates an incremental typed checkpoint and
-retains the four most recent transcript records. Automatic compaction uses the same path
-at 75% measured context usage for the active session. Model changes commit the new default
+retains complete recent exchanges within a model-window-derived budget. The retained
+window scales from 2 to 8 exchanges and is bounded by 512 to 16,384 estimated tokens.
+Automatic compaction uses the same path at 75% measured context usage for the active
+session. Model changes commit the new default
 only after backend startup succeeds and restore the previous ready backend on failure.
 Granular backend, registry, benchmark, policy, and
 inspection commands remain available for diagnostics under `rpotato debug --help`.
@@ -191,6 +193,15 @@ receives only the user's request, not local attachment contents; attachment text
 used only by the local answer synthesis after evidence retrieval. `/doctor` reports
 `WebSearch`, `WebOpen`, and `WebFind` readiness without requiring or printing a
 credential.
+
+Completed TUI user/assistant exchanges are stored as an append-only, session-scoped
+canonical conversation stream. Restarting `rpotato` restores only complete pairs.
+`/clear` records a reset boundary instead of deleting audit history. Prompt assembly
+keeps stable instructions first and the current user request last, with typed user-memory
+candidates, query-driven recall, recent complete exchanges, and attachments assigned
+separate budgets derived from the selected model's manifest context length. Historical
+dialogue and attachment payloads are explicitly encoded as untrusted data. No vector
+database or external memory service is required.
 
 <!-- TUI-READ-CONTRACT:START -->
 The eight views (`overview`, `monitor`, `sessions`, `transcript`, `tool-output`,

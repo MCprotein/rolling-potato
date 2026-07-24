@@ -34,6 +34,8 @@ English is the default repository documentation language.
   artifact layers
 - [State lifecycle](state-lifecycle.md) — canonical state, projection,
   recovery, and resume
+- [Session memory and context plan](session-memory-context-plan.md) — canonical
+  conversation ownership, model-window budgets, recall, and compaction
 - [Ontology runtime](ontology-runtime.md) — typed project knowledge and
   source-pointer rereads
 - [Observability](observability.md) — ledger, SQLite projection, metrics, and

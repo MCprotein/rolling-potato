@@ -214,7 +214,8 @@ pub fn rebuild_resume_context(
     exclude_workflow_id: Option<&str>,
 ) -> Result<ResumeContext, AppError> {
     let context_limit_tokens =
-        crate::app::inference_adapter::model::configured_context_length()? as usize;
+        crate::app::inference_adapter::context_window::effective_context_window()?.limit_tokens
+            as usize;
     rebuild_resume_context_for_limit(session_id, exclude_workflow_id, context_limit_tokens)
 }
 

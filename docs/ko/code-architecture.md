@@ -43,7 +43,8 @@ src/
     inference/                 backend, model, benchmark, resource policy
     extensions/                skill, hook, plugin lifecycle
     collaboration/             subagent, team lifecycle
-    knowledge/                 context, evidence, ontology
+    knowledge/                 context, 대화 recall, prompt budget,
+                               compaction, evidence, ontology
     observability/             event projection, query, monitoring
     policy/                    approval, fail-closed decision
     reporting/                 surface-neutral report DTO와 invariant

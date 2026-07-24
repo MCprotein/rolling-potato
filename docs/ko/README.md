@@ -31,6 +31,8 @@
   계층
 - [상태 수명주기](state-lifecycle.md) — canonical state, projection, recovery,
   resume
+- [세션 메모리와 context 계획](session-memory-context-plan.md) — canonical
+  conversation 소유권, model-window budget, recall, compaction
 - [온톨로지 런타임](ontology-runtime.md) — typed project knowledge와
   source-pointer reread
 - [관측성](observability.md) — ledger, SQLite projection, metric, retention
