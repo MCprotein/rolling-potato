@@ -3686,6 +3686,41 @@
       ]
     },
     {
+      "path": "src/app/inference_adapter/model/registry/vision/preparation.rs",
+      "slices": [
+        {
+          "responsibility": "lazy vision projector preparation and atomic legacy-registry binding",
+          "target": "src/app/inference_adapter/model/registry/vision/preparation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/model_artifact.rs",
+            "src/runtime_core/inference/model/codec.rs",
+            "src/app/inference_adapter/model/registry/vision.rs",
+            "src/app/inference_adapter/model/registry/vision/preparation.rs",
+            "src/app/inference_adapter/model/setup/runtime_spec.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/registry/vision/preparation/tests.rs",
+      "slices": [
+        {
+          "responsibility": "lazy projector preparation migration and failure-state regression tests",
+          "target": "src/app/inference_adapter/model/registry/vision/preparation/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model/registry/vision/preparation.rs",
+            "src/runtime_core/inference/model/codec.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/model/registry/default_selection.rs",
       "slices": [
         {
@@ -9427,6 +9462,18 @@
       "path": "src/app/inference_adapter/model/registry/vision.rs",
       "responsibilities": [
         "model-specific vision projector registry binding and local artifact verification"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/registry/vision/preparation.rs",
+      "responsibilities": [
+        "lazy vision projector preparation and atomic legacy-registry binding"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/registry/vision/preparation/tests.rs",
+      "responsibilities": [
+        "lazy projector preparation migration and failure-state regression tests"
       ]
     },
     {

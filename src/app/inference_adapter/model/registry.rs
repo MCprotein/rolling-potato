@@ -24,7 +24,7 @@ pub(crate) use default_selection::{
     restore_default_selection, snapshot_default_selection, DefaultSelectionSnapshot,
 };
 use vision::local_registry_vision;
-pub(crate) use vision::verified_vision_projector;
+pub(crate) use vision::{prepare_bound_vision_projector, verified_vision_projector};
 
 pub fn registry_report() -> String {
     registry_summary()

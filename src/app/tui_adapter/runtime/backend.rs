@@ -4,28 +4,40 @@ use std::fs;
 
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::reconciliation::{
-    runtime_drift, BackendRuntimeObservation, BackendRuntimeSpec,
+    runtime_drift, text_runtime_drift, BackendRuntimeDrift, BackendRuntimeObservation,
+    BackendRuntimeSpec,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum RuntimeRequirement {
+    Text,
+    Vision,
+}
 
 pub(super) fn reconcile_existing_runtime() -> Result<(), AppError> {
     let snapshot = crate::app::inference_adapter::backend::runtime_snapshot()?;
     if snapshot.status == "stopped" {
         return Ok(());
     }
-    ensure_runtime_ready()
+    ensure_runtime_ready(RuntimeRequirement::Text)
 }
 
-pub(super) fn ensure_runtime_ready() -> Result<(), AppError> {
-    let configured =
-        crate::app::inference_adapter::model::configured_runtime_spec().map_err(|error| {
-            if error.message.contains("기본 모델이 선택되지 않았습니다") {
-                AppError::blocked(
-                    "모델이 선택되지 않았습니다. TUI에서 /model을 입력해 모델을 선택하세요.",
-                )
-            } else {
-                error
-            }
-        })?;
+pub(super) fn ensure_runtime_ready(requirement: RuntimeRequirement) -> Result<(), AppError> {
+    let configured = match requirement {
+        RuntimeRequirement::Text => crate::app::inference_adapter::model::configured_runtime_spec(),
+        RuntimeRequirement::Vision => {
+            crate::app::inference_adapter::model::configured_vision_runtime_spec()
+        }
+    }
+    .map_err(|error| {
+        if error.message.contains("기본 모델이 선택되지 않았습니다") {
+            AppError::blocked(
+                "모델이 선택되지 않았습니다. TUI에서 /model을 입력해 모델을 선택하세요.",
+            )
+        } else {
+            error
+        }
+    })?;
     let desired = BackendRuntimeSpec {
         model_path: fs::canonicalize(&configured.model_path).map_err(|error| {
             AppError::blocked(format!(
@@ -38,7 +50,8 @@ pub(super) fn ensure_runtime_ready() -> Result<(), AppError> {
         vision_projector_path: configured.vision_projector_path.clone(),
     };
     let snapshot = crate::app::inference_adapter::backend::runtime_snapshot()?;
-    let drift = runtime_drift(
+    let drift = requirement_drift(
+        requirement,
         &desired,
         &BackendRuntimeObservation {
             ready: snapshot.status == "ready",
@@ -59,7 +72,8 @@ pub(super) fn ensure_runtime_ready() -> Result<(), AppError> {
         Some(desired.context_limit_tokens),
     )?;
     let restarted = crate::app::inference_adapter::backend::runtime_snapshot()?;
-    let remaining = runtime_drift(
+    let remaining = requirement_drift(
+        requirement,
         &desired,
         &BackendRuntimeObservation {
             ready: restarted.status == "ready",
@@ -74,5 +88,16 @@ pub(super) fn ensure_runtime_ready() -> Result<(), AppError> {
         Err(AppError::blocked(format!(
             "backend runtime reconciliation에 실패했습니다.\n- 시작 전 drift: {drift:?}\n- 시작 후 drift: {remaining:?}"
         )))
+    }
+}
+
+fn requirement_drift(
+    requirement: RuntimeRequirement,
+    desired: &BackendRuntimeSpec,
+    observed: &BackendRuntimeObservation,
+) -> Vec<BackendRuntimeDrift> {
+    match requirement {
+        RuntimeRequirement::Text => text_runtime_drift(desired, observed),
+        RuntimeRequirement::Vision => runtime_drift(desired, observed),
     }
 }
