@@ -5,6 +5,7 @@ use crate::foundation::integrity;
 
 pub(crate) mod admission;
 pub(crate) mod lifecycle;
+pub(crate) mod reconciliation;
 
 pub(crate) const MAX_CHAT_TIMEOUT_MS: u32 = 300_000;
 const MAX_CHAT_IMAGES: usize = 4;

@@ -23,6 +23,7 @@ pub(crate) use terminal_flow::{consume_outcome, terminal_fault_error};
 
 pub(crate) trait TuiRuntimePort {
     fn startup_update_notice(&mut self) -> Option<String>;
+    fn reconcile_existing_backend(&mut self) -> Result<(), AppError>;
     fn conversation_history(&mut self) -> Result<Vec<TuiConversationTurn>, AppError>;
     fn clear_conversation_history(&mut self) -> Result<(), AppError>;
     fn apply_update(&mut self) -> Result<String, AppError>;
@@ -55,6 +56,9 @@ pub(crate) fn run_controller(
         .map_err(terminal_fault_error)?;
     let mut state = InteractiveState::new();
     state.turns = runtime.conversation_history()?;
+    if let Err(error) = runtime.reconcile_existing_backend() {
+        state.notice = error.message;
+    }
     let mut startup_update_pending = true;
     let mut post_dispatch_intent: Option<String> = None;
 

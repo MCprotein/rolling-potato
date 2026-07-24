@@ -94,6 +94,7 @@ fn controller_hydrates_canonical_conversation_history_before_first_frame() {
 
     run_controller(&mut terminal, &mut runtime).unwrap();
 
+    assert_eq!(runtime.reconcile_backend_calls, 1);
     assert!(terminal.frames[0].contains("이전 질문"));
     assert!(terminal.frames[0].contains("이전 답변"));
 }
@@ -325,6 +326,7 @@ fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() 
 #[derive(Default)]
 struct ConversationRuntime {
     history: Vec<TuiConversationTurn>,
+    reconcile_backend_calls: usize,
     clear_history_calls: usize,
     requests: Vec<String>,
     page_reads: usize,
@@ -339,6 +341,11 @@ struct ConversationRuntime {
 impl TuiRuntimePort for ConversationRuntime {
     fn startup_update_notice(&mut self) -> Option<String> {
         None
+    }
+
+    fn reconcile_existing_backend(&mut self) -> Result<(), AppError> {
+        self.reconcile_backend_calls += 1;
+        Ok(())
     }
 
     fn conversation_history(&mut self) -> Result<Vec<TuiConversationTurn>, AppError> {

@@ -2,7 +2,6 @@
 
 use crate::app::inference_adapter::{backend, model};
 use crate::foundation::error::AppError;
-const LEGACY_CONTEXT_FALLBACK_TOKENS: u32 = 4_096;
 
 pub(super) trait ModelSwitchPort {
     fn stop_backend(&mut self) -> Result<String, AppError>;
@@ -84,19 +83,17 @@ fn rollback_error(
         .map(|_| "완료".to_string())
         .unwrap_or_else(|cleanup| format!("실패: {}", cleanup.message));
     let backend_restore = if previous_backend.status == "ready" {
-        previous_backend.model_path.as_ref().map_or_else(
-            || "실패: 이전 model path 누락".to_string(),
-            |path| {
-                port.start_backend(
-                    &path.display().to_string(),
-                    previous_backend
-                        .context_limit_tokens
-                        .unwrap_or(LEGACY_CONTEXT_FALLBACK_TOKENS),
-                )
+        match (
+            previous_backend.model_path.as_ref(),
+            previous_backend.context_limit_tokens,
+        ) {
+            (Some(path), Some(context_tokens)) => port
+                .start_backend(&path.display().to_string(), context_tokens)
                 .map(|_| "완료".to_string())
-                .unwrap_or_else(|restore| format!("실패: {}", restore.message))
-            },
-        )
+                .unwrap_or_else(|restore| format!("실패: {}", restore.message)),
+            (None, _) => "실패: 이전 model path 누락".to_string(),
+            (_, None) => "실패: 이전 context length 누락".to_string(),
+        }
     } else {
         "이전 backend가 ready 상태가 아니어서 stopped 유지".to_string()
     };
@@ -169,6 +166,7 @@ mod tests {
             model_id: Some("old".to_string()),
             model_path: Some(std::path::PathBuf::from("/old.gguf")),
             context_limit_tokens: Some(8_192),
+            vision_projector_path: None,
             vision_ready: false,
         };
         let mut switch = FailingModelSwitch { calls: Vec::new() };

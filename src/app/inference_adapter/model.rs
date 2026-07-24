@@ -36,7 +36,8 @@ pub use registry::{
 };
 use registry::{install_ready_for_report, registry_summary};
 pub(crate) use setup::{
-    activate_setup_model, configured_context_length, prepare_setup_model, setup_options,
+    activate_setup_model, configured_context_length, configured_runtime_spec, prepare_setup_model,
+    setup_options,
 };
 
 pub fn candidate_summary() -> String {

@@ -14,7 +14,7 @@ use crate::surfaces::tui::runtime_bridge::{
     new_tui_intent_id, SelectionLease, TuiAttachment, TuiBackendStatus, TuiConversationTurn,
     TuiGateKind, TuiIntent, TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
 };
-use backend::ensure_runtime_ready;
+use backend::{ensure_runtime_ready, reconcile_existing_runtime};
 
 struct RequestExecution {
     response: String,
@@ -29,6 +29,10 @@ enum TranscriptOwner {
 impl TuiRuntimePort for TuiRuntimeAdapter {
     fn startup_update_notice(&mut self) -> Option<String> {
         crate::composition::update::startup_notice()
+    }
+
+    fn reconcile_existing_backend(&mut self) -> Result<(), AppError> {
+        reconcile_existing_runtime()
     }
 
     fn conversation_history(&mut self) -> Result<Vec<TuiConversationTurn>, AppError> {
@@ -181,10 +185,14 @@ impl TuiRuntimeAdapter {
     ) -> Result<RequestExecution, AppError> {
         let user_request = request.trim();
         let backend = crate::app::inference_adapter::backend::runtime_snapshot().ok();
-        let context_limit_tokens = backend
-            .as_ref()
-            .and_then(|snapshot| snapshot.context_limit_tokens)
-            .or_else(|| crate::app::inference_adapter::model::configured_context_length().ok());
+        let context_limit_tokens =
+            crate::app::inference_adapter::model::configured_context_length()
+                .ok()
+                .or_else(|| {
+                    backend
+                        .as_ref()
+                        .and_then(|snapshot| snapshot.context_limit_tokens)
+                });
         let active_model = backend
             .and_then(|snapshot| snapshot.model_id)
             .or_else(crate::app::inference_adapter::model::configured_model_id);

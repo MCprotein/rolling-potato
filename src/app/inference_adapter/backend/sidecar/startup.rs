@@ -31,6 +31,39 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
 
     if let Some(record) = backend_state::read_sidecar_record()? {
         if backend_process::is_running(record.pid) {
+            let requested_model_sha256 = checksum::sha256_file(&model_path)?;
+            let requested_projector =
+                crate::app::inference_adapter::model::verified_vision_projector(
+                    &model_path,
+                    &requested_model_sha256,
+                );
+            let desired =
+                crate::runtime_core::inference::backend::reconciliation::BackendRuntimeSpec {
+                    model_path: model_path.clone(),
+                    context_limit_tokens: ctx_size.ok_or_else(|| {
+                        AppError::blocked(
+                            "실행 중인 backend와 비교하려면 요청 context length가 필요합니다.",
+                        )
+                    })?,
+                    vision_projector_path: requested_projector
+                        .as_ref()
+                        .map(|projector| projector.path.clone()),
+                };
+            let drift =
+                crate::runtime_core::inference::backend::reconciliation::runtime_drift(
+                    &desired,
+                    &crate::runtime_core::inference::backend::reconciliation::BackendRuntimeObservation {
+                        ready: true,
+                        model_path: Some(record.model_path.clone()),
+                        context_limit_tokens: record.ctx_size,
+                        vision_projector_path: record.mmproj_path.clone(),
+                    },
+                );
+            if !drift.is_empty() {
+                return Err(AppError::blocked(format!(
+                    "backend start 차단\n- 이유: 실행 중인 backend가 요청 spec과 다릅니다.\n- drift: {drift:?}\n- 동작: 기존 backend를 먼저 중지한 뒤 정확한 model·context·mmproj로 다시 시작하세요."
+                )));
+            }
             let resource_sample = record_backend_resource_sample(&record, "start-existing")?;
             return Ok(format!(
                 "backend start\n- status: already-running\n- pid: {}\n- binary: {}\n- model: {}\n- vision: {}\n- mmproj: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}",
