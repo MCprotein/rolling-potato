@@ -1,5 +1,43 @@
 # Release Notes
 
+## v0.49.0 - Model-Aware Session Continuity
+
+Release date: 2026-07-24
+
+This feature release restores completed conversations after restart and sizes
+dialogue, agent, resume, and compaction context from the selected model instead
+of a fixed 4,096-token assumption.
+
+### Included
+
+- Persists every successful interactive user/assistant exchange, including
+  coding and agent workflows, while keeping workflow transcripts as a separate
+  execution-audit stream.
+- Restores only complete dialogue pairs and records `/clear` as a unique causal
+  reset boundary, preserving audit history without reconnecting orphaned turns.
+- Uses the exact ready backend context window when available and otherwise the
+  validated selected-model manifest; missing context metadata now fails with an
+  actionable error instead of silently falling back to 4,096.
+- Applies explicit model-window budgets to normal conversation, agent prompts,
+  restart resume context, and automatic compaction while keeping stable
+  instructions and the current request authoritative.
+- Reconciles model path, context size, and vision projector drift before
+  inference, restarting the managed backend only when the observed runtime does
+  not match the validated configuration.
+- Keeps compaction tails as complete exchanges and bounds in-memory prompt
+  history so long sessions do not require a full transcript rescan on every
+  request.
+
+### Compatibility and boundaries
+
+- Existing public commands and flags remain available.
+- Canonical transcripts remain append-only; summaries and compaction artifacts
+  are derived context and cannot authorize tools, commands, or file changes.
+- Dialogue recall is deterministic and dependency-free; no vector database,
+  hosted memory service, or new model download is required.
+- Automated Chromium page interaction is not included in this release.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.48.1 - Guided TUI Confirmations
 
 Release date: 2026-07-24
