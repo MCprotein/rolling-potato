@@ -850,3 +850,28 @@
   직접 호출하는 기존 테스트를 `rg`로 찾아 함께 실행합니다.
 - Revision-aware 경로 계약은 고정 문자열을 중복하지 않고 manifest SHA prefix로
   기대값을 계산해 manifest 갱신과 테스트가 어긋나지 않게 합니다.
+
+## 2026-07-24: resume summary 확장과 기존 lifecycle 문자열 계약 불일치
+
+### 증상
+
+- Model별 context window를 resume summary에 추가한 뒤 targeted context test와
+  architecture contract는 통과했지만, PR 전체 test에서 durable resume lifecycle
+  한 건이 이전 `transcript turns=3` 인접 문자열을 계속 기대해 실패했습니다.
+- 실제 resume 동작은 `context limit=1024`, `transcript turns=3`, backend 재호출 없음,
+  source pointer 복원을 모두 보존했고 출력 계약만 확장된 상태였습니다.
+
+### 원인
+
+- Runtime report field를 추가하면서 해당 summary를 최종 사용자 출력으로 검증하는
+  기존 patch-loop lifecycle test를 변경 영향 범위에 포함하지 않았습니다.
+- 새 model-window 단위 테스트가 값 계산은 고정했지만, 그 값이 resume report에
+  합성되는 통합 문자열 계약까지 대신 검증한다고 잘못 판단했습니다.
+
+### 재발 방지
+
+- `ResumeContext::summary`의 field나 순서를 바꾸면 호출 지점을 `rg`로 찾고
+  `continue`·`resume` lifecycle의 exact targeted test를 candidate 전에 실행합니다.
+- Durable resume test는 context limit과 transcript turn 수를 함께 검증하고,
+  실패 시 실제 report를 assertion message로 남겨 기능 결함과 기대 문자열 불일치를
+  한 번에 구분합니다.

@@ -718,7 +718,10 @@ fn durable_transcript_rebuilds_after_db_loss_and_continue_is_idempotent() {
             String::from_utf8_lossy(&resumed.stderr)
         );
         let report = String::from_utf8(resumed.stdout).unwrap();
-        assert!(report.contains("reconstructed context: transcript turns=3"));
+        assert!(
+            report.contains("reconstructed context: context limit=1024 transcript turns=3"),
+            "{report}"
+        );
         assert!(report.contains("backend 호출: 없음"));
         assert_eq!(
             fs::read_to_string(&fixture.calls).unwrap().lines().count(),
