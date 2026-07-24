@@ -3,7 +3,7 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 use crate::adapters::filesystem::{atomic_write, layout};
 use crate::foundation::error::AppError;
@@ -17,7 +17,6 @@ const LATEST_RELEASE_API: &str =
     "https://api.github.com/repos/MCprotein/rolling-potato/releases/latest";
 const RELEASE_DOWNLOAD_ROOT: &str = "https://github.com/MCprotein/rolling-potato/releases/download";
 const RELEASE_PAGE_ROOT: &str = "https://github.com/MCprotein/rolling-potato/releases/tag";
-const CACHE_TTL: Duration = Duration::from_secs(6 * 60 * 60);
 const MAX_METADATA_BYTES: u64 = 64 * 1024;
 const MAX_CHECKSUM_BYTES: u64 = 4 * 1024;
 const MAX_ARCHIVE_BYTES: u64 = 128 * 1024 * 1024;
@@ -28,27 +27,25 @@ pub(crate) struct LatestRelease {
     pub(crate) release_url: String,
 }
 
-pub(crate) fn cached_latest_release(timeout: Duration) -> Result<LatestRelease, AppError> {
+pub(crate) fn latest_release_with_cache_fallback(
+    timeout: Duration,
+) -> Result<LatestRelease, AppError> {
     let cache_path = latest_cache_path();
-    if cache_is_fresh(&cache_path) {
-        if let Ok(release) = read_latest_cache(&cache_path) {
-            return Ok(release);
-        }
-    }
-
-    match fetch_latest_release(timeout) {
-        Ok(release) => {
-            atomic_write::atomic_replace_bytes(
-                &cache_path,
-                format!("{}\n", release.tag).as_bytes(),
-            )?;
-            Ok(release)
-        }
+    match refresh_latest_release(timeout) {
+        Ok(release) => Ok(release),
         Err(error) => read_latest_cache(&cache_path).or(Err(error)),
     }
 }
 
-pub(crate) fn fetch_latest_release(timeout: Duration) -> Result<LatestRelease, AppError> {
+pub(crate) fn refresh_latest_release(timeout: Duration) -> Result<LatestRelease, AppError> {
+    let release = fetch_latest_release(timeout)?;
+    let cache_path = latest_cache_path();
+    let _ =
+        atomic_write::atomic_replace_bytes(&cache_path, format!("{}\n", release.tag).as_bytes());
+    Ok(release)
+}
+
+fn fetch_latest_release(timeout: Duration) -> Result<LatestRelease, AppError> {
     #[cfg(debug_assertions)]
     if let Some(body) = std::env::var_os("RPOTATO_TEST_LATEST_RELEASE_JSON") {
         return parse_latest_release(&body.to_string_lossy());
@@ -149,15 +146,6 @@ fn latest_release_from_tag(tag: &str) -> Result<LatestRelease, AppError> {
 
 fn latest_cache_path() -> PathBuf {
     layout::cache_dir().join("update-latest-v2")
-}
-
-fn cache_is_fresh(path: &Path) -> bool {
-    let Ok(modified) = fs::metadata(path).and_then(|metadata| metadata.modified()) else {
-        return false;
-    };
-    SystemTime::now()
-        .duration_since(modified)
-        .is_ok_and(|age| age <= CACHE_TTL)
 }
 
 fn read_latest_cache(path: &Path) -> Result<LatestRelease, AppError> {
@@ -431,7 +419,7 @@ fn remove_file_if_exists(path: &Path) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::UNIX_EPOCH;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn latest_release_uses_only_valid_stable_tag() {
@@ -459,6 +447,46 @@ mod tests {
             r#"{"tag_name":"v0.44.0","assets":[{"name":"rpotato-v0.44.0-aarch64-apple-darwin.tar.gz","state":"uploaded"}]}"#
         )
         .is_err());
+    }
+
+    #[test]
+    fn startup_lookup_refreshes_an_existing_cache_before_returning_it() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = unique_temp("startup-refresh");
+        let cache_path = root.join("cache/update-latest-v2");
+        fs::create_dir_all(cache_path.parent().unwrap()).unwrap();
+        fs::write(&cache_path, "v0.47.1\n").unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", &root);
+        std::env::set_var(
+            "RPOTATO_TEST_LATEST_RELEASE_JSON",
+            r#"{"tag_name":"v0.48.0","assets":[{"name":"rpotato-v0.48.0-checksums.txt","state":"uploaded"}]}"#,
+        );
+
+        let release = latest_release_with_cache_fallback(Duration::from_millis(10)).unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_TEST_LATEST_RELEASE_JSON");
+        assert_eq!(release.tag, "v0.48.0");
+        assert_eq!(fs::read_to_string(&cache_path).unwrap(), "v0.48.0\n");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn startup_lookup_uses_cache_only_when_refresh_fails() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let root = unique_temp("startup-fallback");
+        let cache_path = root.join("cache/update-latest-v2");
+        fs::create_dir_all(cache_path.parent().unwrap()).unwrap();
+        fs::write(&cache_path, "v0.47.1\n").unwrap();
+        std::env::set_var("RPOTATO_DATA_HOME", &root);
+        std::env::set_var("RPOTATO_TEST_LATEST_RELEASE_JSON", "not-json");
+
+        let release = latest_release_with_cache_fallback(Duration::from_millis(10)).unwrap();
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_TEST_LATEST_RELEASE_JSON");
+        assert_eq!(release.tag, "v0.47.1");
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

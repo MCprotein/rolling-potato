@@ -17,7 +17,8 @@ pub(crate) fn startup_notice() -> Option<String> {
         return None;
     }
 
-    let release = github_release::cached_latest_release(Duration::from_millis(1500)).ok()?;
+    let release =
+        github_release::latest_release_with_cache_fallback(Duration::from_millis(1500)).ok()?;
     match classify_update(CURRENT_VERSION, &release.tag, &release.release_url).ok()? {
         UpdateAvailability::Available(available) => Some(format!(
             "새 rpotato 버전이 있습니다: {} → {}\n/update 를 입력하면 SHA-256 검증 후 바로 업데이트합니다.\n{}",
@@ -28,7 +29,7 @@ pub(crate) fn startup_notice() -> Option<String> {
 }
 
 pub(crate) fn check_report() -> Result<String, AppError> {
-    let release = github_release::fetch_latest_release(Duration::from_secs(10))?;
+    let release = github_release::refresh_latest_release(Duration::from_secs(10))?;
     Ok(match classify_update(CURRENT_VERSION, &release.tag, &release.release_url)? {
         UpdateAvailability::Available(available) => format!(
             "rpotato update check\n- status: available\n- current: {CURRENT_VERSION}\n- latest: {}\n- release: {}\n- 다음 단계: `rpotato update`",
@@ -47,7 +48,7 @@ pub(crate) fn update_report() -> Result<String, AppError> {
         return Ok(report.to_string_lossy().into_owned());
     }
 
-    let release = github_release::fetch_latest_release(Duration::from_secs(10))?;
+    let release = github_release::refresh_latest_release(Duration::from_secs(10))?;
     let UpdateAvailability::Available(available) =
         classify_update(CURRENT_VERSION, &release.tag, &release.release_url)?
     else {
