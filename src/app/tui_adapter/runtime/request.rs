@@ -1,7 +1,7 @@
 //! Interactive request routing for the canonical TUI conversation.
 
 use super::super::{attachment, conversation, web_tools, TuiRuntimeAdapter};
-use super::backend::ensure_runtime_ready;
+use super::backend::{ensure_runtime_ready, RuntimeRequirement};
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::runtime_bridge::{TuiAttachment, TuiConversationTurn};
 
@@ -26,7 +26,7 @@ pub(super) fn execute(
     let input = attachment::compose_request(request, attachments, context_limit_tokens)?;
     let local_context = input.text.as_str();
     if !input.images.is_empty() {
-        ensure_runtime_ready()?;
+        ensure_runtime_ready(RuntimeRequirement::Vision)?;
         return conversation::reply_with_images(
             &input,
             history,
@@ -41,7 +41,7 @@ pub(super) fn execute(
     if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref()) {
         return Ok(reply);
     }
-    ensure_runtime_ready()?;
+    ensure_runtime_ready(RuntimeRequirement::Text)?;
     let conversational = conversation::is_conversational_request(user_request);
     let has_text_attachments = !attachments.is_empty();
     match conversation::decide_request(

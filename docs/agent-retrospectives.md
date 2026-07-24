@@ -2,6 +2,34 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-24: v0.49.0 vision manifest가 기존 text-only 설치를 차단함
+
+### 증상
+
+- v0.48.1에서 정상 사용하던 `gemma-4-e4b` 기본 모델로 v0.49.0 TUI를 시작하면
+  `vision projector registry binding이 준비되지 않았습니다` 경고가 표시됐습니다.
+- 기존 backend는 `4096` context로 남았고 일반 모델 요청도 runtime readiness 단계에서
+  차단될 수 있었습니다.
+
+### 원인
+
+- Registry parser는 schema v1을 `unavailable-legacy` text-ready 상태로 정상 수용했지만,
+  configured runtime spec은 manifest에 projector가 선언됐다는 이유만으로
+  `visionStatus=ready`와 exact mmproj binding을 모든 요청에 요구했습니다.
+- Candidate 검증은 fresh schema v2와 projector 경로 중심이었고, 직전 릴리스에서 실제로
+  만들어진 schema v1 default selection·registry 조합을 재사용한 업그레이드 회귀가
+  없었습니다.
+
+### 재발 방지
+
+- Optional capability는 base capability의 시작·대화·context reconciliation을 차단하지
+  않으며 text와 vision runtime requirement를 분리합니다.
+- Vision projector는 이미지 요청에서만 검증·cache reuse·download recovery를 수행하고,
+  성공한 뒤 기존 registry evidence를 보존한 schema v2 binding을 원자적으로 기록합니다.
+- Model schema·manifest·runtime artifact 계약 변경은
+  `scripts/ci/verify-model-upgrade-compatibility.sh`의 legacy fixture, manifest context,
+  projector cache와 registry migration 회귀를 candidate preflight에서 통과해야 합니다.
+
 ## 2026-07-24: release PR merge가 cleanup 전에 branch를 삭제함
 
 ### 증상

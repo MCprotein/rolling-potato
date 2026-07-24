@@ -970,6 +970,10 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let model_evidence_path = "src/app/inference_adapter/model/evidence.rs";
     let model_registry_path = "src/app/inference_adapter/model/registry.rs";
     let model_registry_vision_path = "src/app/inference_adapter/model/registry/vision.rs";
+    let model_registry_vision_preparation_path =
+        "src/app/inference_adapter/model/registry/vision/preparation.rs";
+    let model_registry_vision_preparation_tests_path =
+        "src/app/inference_adapter/model/registry/vision/preparation/tests.rs";
     let model_default_selection_path =
         "src/app/inference_adapter/model/registry/default_selection.rs";
     let model_setup_path = "src/app/inference_adapter/model/setup.rs";
@@ -991,6 +995,8 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(Path::new(model_evidence_path).is_file());
     assert!(Path::new(model_registry_path).is_file());
     assert!(Path::new(model_registry_vision_path).is_file());
+    assert!(Path::new(model_registry_vision_preparation_path).is_file());
+    assert!(Path::new(model_registry_vision_preparation_tests_path).is_file());
     assert!(Path::new(model_default_selection_path).is_file());
     assert!(Path::new(model_setup_path).is_file());
     assert!(Path::new(model_setup_catalog_path).is_file());
@@ -1015,6 +1021,10 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let model_evidence = fs::read_to_string(model_evidence_path).unwrap();
     let model_registry = fs::read_to_string(model_registry_path).unwrap();
     let model_registry_vision = fs::read_to_string(model_registry_vision_path).unwrap();
+    let model_registry_vision_preparation =
+        fs::read_to_string(model_registry_vision_preparation_path).unwrap();
+    let model_registry_vision_preparation_tests =
+        fs::read_to_string(model_registry_vision_preparation_tests_path).unwrap();
     let model_default_selection = fs::read_to_string(model_default_selection_path).unwrap();
     let model_setup = fs::read_to_string(model_setup_path).unwrap();
     let model_setup_catalog = fs::read_to_string(model_setup_catalog_path).unwrap();
@@ -1053,6 +1063,12 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         model_registry.lines().any(|line| line == "mod vision;"),
         "model registry does not register its vision owner"
     );
+    assert!(
+        model_registry_vision
+            .lines()
+            .any(|line| line == "mod preparation;"),
+        "model registry vision owner does not register its lazy preparation owner"
+    );
     for responsibility in [
         "pub(crate) struct VerifiedVisionProjector",
         "pub(crate) fn verified_vision_projector(",
@@ -1065,6 +1081,33 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         assert!(
             !model_registry.contains(responsibility),
             "model registry facade still owns vision verification: {responsibility}"
+        );
+    }
+    assert!(
+        model_registry_vision_preparation.contains("pub(crate) fn prepare_bound_vision_projector("),
+        "model registry vision preparation owner is missing its projector preparation"
+    );
+    for forbidden in [
+        "fetch_managed_projector_artifact",
+        "require_declared_projector",
+        "vision_projector_artifact_path",
+    ] {
+        assert!(
+            !model_setup.contains(forbidden),
+            "base model setup must not own eager projector preparation: {forbidden}"
+        );
+    }
+    assert!(
+        !model_adapter.contains("fetch_managed_projector_artifact"),
+        "model evaluation fetch must not eagerly download an optional projector"
+    );
+    for regression in [
+        "model_upgrade_compatibility_image_use_migrates_v1_binding_and_preserves_state",
+        "model_upgrade_compatibility_preparation_failure_preserves_registry_default_and_backend",
+    ] {
+        assert!(
+            model_registry_vision_preparation_tests.contains(regression),
+            "projector preparation regression owner is missing: {regression}"
         );
     }
     for responsibility in [
@@ -1115,6 +1158,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     for responsibility in [
         "pub(crate) struct ConfiguredRuntimeSpec",
         "pub(crate) fn configured_runtime_spec(",
+        "pub(crate) fn configured_vision_runtime_spec(",
     ] {
         assert!(
             model_runtime_spec.contains(responsibility),
@@ -1442,6 +1486,14 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(
         model_registry_vision.lines().count() < 125,
         "model registry vision module regrew beyond its ownership boundary"
+    );
+    assert!(
+        model_registry_vision_preparation.lines().count() < 125,
+        "model registry vision preparation module regrew beyond its ownership boundary"
+    );
+    assert!(
+        model_registry_vision_preparation_tests.lines().count() < 225,
+        "model registry vision preparation tests regrew beyond their ownership boundary"
     );
     assert!(model_default_selection.lines().count() < 75);
     assert!(model_setup.lines().count() < 100);

@@ -45,6 +45,16 @@ pub(crate) fn runtime_drift(
     drift
 }
 
+pub(crate) fn text_runtime_drift(
+    desired: &BackendRuntimeSpec,
+    observed: &BackendRuntimeObservation,
+) -> Vec<BackendRuntimeDrift> {
+    runtime_drift(desired, observed)
+        .into_iter()
+        .filter(|drift| *drift != BackendRuntimeDrift::VisionProjector)
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -83,6 +93,32 @@ mod tests {
         };
         assert_eq!(
             runtime_drift(&desired, &missing_projector),
+            [BackendRuntimeDrift::VisionProjector]
+        );
+    }
+
+    #[test]
+    fn model_upgrade_compatibility_text_runtime_ignores_optional_projector_but_not_context() {
+        let desired = desired();
+        let stale_text_runtime = BackendRuntimeObservation {
+            ready: true,
+            model_path: Some(desired.model_path.clone()),
+            context_limit_tokens: Some(4_096),
+            vision_projector_path: None,
+        };
+
+        assert_eq!(
+            text_runtime_drift(&desired, &stale_text_runtime),
+            [BackendRuntimeDrift::Context]
+        );
+
+        let aligned_text_runtime = BackendRuntimeObservation {
+            context_limit_tokens: Some(131_072),
+            ..stale_text_runtime
+        };
+        assert!(text_runtime_drift(&desired, &aligned_text_runtime).is_empty());
+        assert_eq!(
+            runtime_drift(&desired, &aligned_text_runtime),
             [BackendRuntimeDrift::VisionProjector]
         );
     }

@@ -1,17 +1,15 @@
 use std::path::PathBuf;
 
 use crate::adapters::filesystem::model_artifact::{
-    self, fetch_evaluation_artifact, fetch_managed_projector_artifact, local_artifact_state,
-    model_artifact_part_path, model_artifact_path, promotion_evidence_path,
-    vision_projector_artifact_path, vision_projector_part_path,
+    self, fetch_evaluation_artifact, local_artifact_state, model_artifact_part_path,
+    model_artifact_path, promotion_evidence_path,
 };
 use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::inference::model::manifest::{
     find_candidate, source_backed_artifact, source_backed_artifact_blockers,
-    source_backed_vision_projector, validate_install_ready, ManifestCounts, CANDIDATES,
-    STATUS_SCHEMA,
+    validate_install_ready, ManifestCounts, CANDIDATES, STATUS_SCHEMA,
 };
 use crate::runtime_core::inference::model::promotion::validate_promotion_evidence;
 
@@ -27,16 +25,16 @@ use evidence::{
 #[cfg(test)]
 use registry::registry_entry_json;
 pub(crate) use registry::{
-    configured_model_id, restore_default_selection, snapshot_default_selection,
-    verified_vision_projector, DefaultSelectionSnapshot,
+    configured_model_id, prepare_bound_vision_projector, restore_default_selection,
+    snapshot_default_selection, verified_vision_projector, DefaultSelectionSnapshot,
 };
 pub use registry::{
     default_artifact_path, default_report, install_candidate, registry_report, set_default_report,
 };
 use registry::{install_ready_for_report, registry_summary};
 pub(crate) use setup::{
-    activate_setup_model, configured_context_length, configured_runtime_spec, prepare_setup_model,
-    setup_options,
+    activate_setup_model, configured_context_length, configured_runtime_spec,
+    configured_vision_runtime_spec, prepare_setup_model, setup_options,
 };
 
 pub fn candidate_summary() -> String {
@@ -317,42 +315,24 @@ pub fn fetch_candidate_for_evaluation_report(id: &str) -> Result<String, AppErro
     let final_path = model_artifact_path(artifact);
     let part_path = model_artifact_part_path(candidate);
     let fetch_status = fetch_evaluation_artifact(artifact, &final_path, &part_path)?;
-    let projector_status = source_backed_vision_projector(candidate).map(|projector| {
-        let projector_path = vision_projector_artifact_path(candidate, projector);
-        let projector_part_path = vision_projector_part_path(candidate, projector);
-        match fetch_managed_projector_artifact(projector, &projector_path, &projector_part_path) {
-            Ok(status) => format!(
-                "ready ({}, {}, sha256 {})",
-                status.label(),
-                projector_path.display(),
-                projector.sha256
-            ),
-            Err(error) => format!(
-                "unavailable (텍스트 모델은 유지됨; projector 준비 실패: {})",
-                error.message.replace('\n', " | ")
-            ),
-        }
-    });
     let event_id = state::record_event(
         "model.evaluation_artifact.fetched",
         "검증용 model artifact fetch 완료",
         &format!(
-            "model_id={} provider={} artifact={} sha256={} size_bytes={} status={} vision_status={} registry=not_registered",
+            "model_id={} provider={} artifact={} sha256={} size_bytes={} status={} vision_status=deferred-until-image-use registry=not_registered",
             candidate.id,
             artifact.provider,
             final_path.display(),
             artifact.sha256,
             artifact.size_bytes,
-            fetch_status.label(),
-            projector_status.as_deref().unwrap_or("not-declared")
+            fetch_status.label()
         ),
     )?;
 
     Ok(format!(
-        "검증용 model artifact 준비 완료\n- id: {}\n- text status: {}\n- vision status: {}\n- provider: {}\n- source: {}\n- terms: {}\n- file: {}\n- size bytes: {}\n- sha256: {}\n- partial path: {}\n- final path: {}\n- registry: not registered\n- ledger event: {}\n- 동작: mmproj 준비가 실패해도 검증된 text artifact와 현재 선택은 유지합니다.\n- 다음 단계: rpotato backend start --model {} --ctx-size 4096 으로 local smoke를 실행하고, benchmark/RAM-fit/mmproj evidence가 쌓인 뒤에만 verified 승격을 검토합니다.",
+        "검증용 model artifact 준비 완료\n- id: {}\n- text status: {}\n- vision status: deferred-until-image-use\n- provider: {}\n- source: {}\n- terms: {}\n- file: {}\n- size bytes: {}\n- sha256: {}\n- partial path: {}\n- final path: {}\n- registry: not registered\n- ledger event: {}\n- 동작: projector는 이미지가 처음 입력될 때만 검증·준비하며 text artifact와 현재 선택을 차단하지 않습니다.\n- 다음 단계: TUI에서 이 모델을 선택하세요. 이미지 첨부 시 필요한 projector를 최초 1회 준비하고 이후 cache를 재사용합니다.",
         candidate.id,
         fetch_status.label(),
-        projector_status.as_deref().unwrap_or("not-declared"),
         artifact.provider,
         artifact.url,
         artifact.terms_url,
@@ -361,8 +341,7 @@ pub fn fetch_candidate_for_evaluation_report(id: &str) -> Result<String, AppErro
         artifact.sha256,
         part_path.display(),
         final_path.display(),
-        event_id,
-        final_path.display()
+        event_id
     ))
 }
 
