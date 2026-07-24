@@ -1,6 +1,6 @@
 //! Validated default-model runtime specification.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::adapters::filesystem::model_artifact::{
     model_artifact_path, read_default_selection, read_registry_entries,
@@ -36,7 +36,7 @@ pub(crate) fn configured_runtime_spec() -> Result<ConfiguredRuntimeSpec, AppErro
     if entry.status != "installed"
         || entry.artifact_sha256 != selection.artifact_sha256
         || entry.artifact_sha256 != artifact.sha256
-        || PathBuf::from(&entry.artifact_path) != expected_model_path
+        || Path::new(&entry.artifact_path) != expected_model_path.as_path()
     {
         return Err(AppError::blocked(format!(
             "기본 모델의 selection·manifest·registry binding이 일치하지 않습니다: {}",
@@ -56,7 +56,7 @@ pub(crate) fn configured_runtime_spec() -> Result<ConfiguredRuntimeSpec, AppErro
         Some(projector) => {
             let expected = vision_projector_artifact_path(candidate, projector);
             if entry.vision_status != "ready"
-                || entry.mmproj_path.as_deref().map(PathBuf::from) != Some(expected.clone())
+                || entry.mmproj_path.as_deref().map(Path::new) != Some(expected.as_path())
                 || entry.mmproj_sha256.as_deref() != Some(projector.sha256)
                 || entry.mmproj_size_bytes != Some(projector.size_bytes)
             {

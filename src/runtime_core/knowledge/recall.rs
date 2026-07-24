@@ -164,10 +164,13 @@ fn bounded_pair(pair: &[DialogueTurn], budget_tokens: usize) -> Vec<DialogueTurn
             content: truncate_tail_to_estimated_tokens(&pair[1].content, assistant_budget),
         },
     ];
-    (!bounded.iter().any(|turn| turn.content.is_empty())
-        && pair_token_cost(&bounded) <= budget_tokens)
-        .then_some(bounded)
-        .unwrap_or_default()
+    if !bounded.iter().any(|turn| turn.content.is_empty())
+        && pair_token_cost(&bounded) <= budget_tokens
+    {
+        bounded
+    } else {
+        Vec::new()
+    }
 }
 
 fn pair_token_cost(pair: &[DialogueTurn]) -> usize {
