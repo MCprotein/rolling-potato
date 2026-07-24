@@ -74,6 +74,13 @@ pub(super) fn apply_model_choice(
     }
     let confirmation = [
         TerminalChoice {
+            value: "cancel".to_string(),
+            label: "취소".to_string(),
+            description: "현재 모델과 backend를 변경하지 않습니다.".to_string(),
+            current: false,
+            recommended: false,
+        },
+        TerminalChoice {
             value: "apply".to_string(),
             label: "다운로드하고 적용".to_string(),
             description: format!(
@@ -81,15 +88,8 @@ pub(super) fn apply_model_choice(
                 selected.display_name,
                 bytes_label(selected.download_bytes)
             ),
-            current: true,
-            recommended: true,
-        },
-        TerminalChoice {
-            value: "cancel".to_string(),
-            label: "취소".to_string(),
-            description: "현재 모델과 backend를 변경하지 않습니다.".to_string(),
             current: false,
-            recommended: false,
+            recommended: true,
         },
     ];
     if terminal

@@ -111,10 +111,7 @@ fn interactive_tui_recovery_outcome_matrix_exact() {
     let denial = run_interactive(
         &fixture.project,
         &fixture.data,
-        &format!(
-            "select {}\ndeny\nyes\ndeny\nyes\nquit\n",
-            denied.workflow_id
-        ),
+        &format!("select {}\ndeny\n2\ndeny\n2\nquit\n", denied.workflow_id),
     );
     assert!(denial.status.success());
     let denial = normalized_output(&denial.stdout);
@@ -131,7 +128,7 @@ fn interactive_tui_recovery_outcome_matrix_exact() {
         &fixture.project,
         &fixture.data,
         &format!(
-            "select {}\nresume\nyes\ncancel\nyes\ncancel\nyes\nquit\n",
+            "select {}\nresume\n2\ncancel\n2\ncancel\n2\nquit\n",
             resumed.workflow_id
         ),
     );

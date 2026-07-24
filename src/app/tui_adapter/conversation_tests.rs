@@ -34,6 +34,15 @@ fn default_interactive_frame_is_conversation_first_and_hides_runtime_internals()
     assert!(frame.contains("│ project"));
     assert!(frame.contains("╰─ /help 명령 · /model 변경"));
     assert!(frame.contains("› "));
+    let welcome_footer = frame
+        .lines()
+        .position(|line| line.contains("╰─ /help 명령 · /model 변경"))
+        .expect("welcome footer");
+    assert_eq!(
+        frame.lines().nth(welcome_footer + 1),
+        Some(""),
+        "welcome footer and first notice need one blank row"
+    );
     for hidden in [
         "freshness",
         "continuation",
@@ -146,7 +155,7 @@ fn natural_requests_use_agent_progress_until_the_model_selects_a_tool() {
 
 #[test]
 fn model_command_uses_keyboard_choices_and_applies_the_selection() {
-    let mut terminal = ScriptedTerminal::new(["/model", "2", "1", "/quit"]);
+    let mut terminal = ScriptedTerminal::new(["/model", "2", "2", "/quit"]);
     let mut runtime = ConversationRuntime {
         model_options: vec![
             model_option("small", "Small", true, false),
@@ -163,6 +172,43 @@ fn model_command_uses_keyboard_choices_and_applies_the_selection() {
     assert!(rendered.contains("Recommended"));
     assert!(rendered.contains("모델 변경 확인"));
     assert!(rendered.contains("모델 적용 완료: recommended"));
+}
+
+#[test]
+fn model_confirmation_defaults_to_cancel_without_applying_the_selection() {
+    let mut terminal = ScriptedTerminal::new(["/model", "2", "1", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        model_options: vec![
+            model_option("small", "Small", true, false),
+            model_option("recommended", "Recommended", false, true),
+        ],
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert!(runtime.setup_models.is_empty());
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("모델 변경 확인"));
+    assert!(rendered.contains("1. 취소"));
+    assert!(rendered.contains("2. 다운로드하고 적용"));
+    assert!(rendered.contains("모델 변경을 취소했습니다."));
+}
+
+#[test]
+fn update_confirmation_defaults_to_cancel_without_calling_the_updater() {
+    let mut terminal = ScriptedTerminal::new(["/update", "1", "/quit"]);
+    let mut runtime = ConversationRuntime::default();
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.update_calls, 0);
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("업데이트 확인"));
+    assert!(rendered.contains("1. 취소"));
+    assert!(rendered.contains("2. 업데이트 시작"));
+    assert!(rendered.contains("업데이트를 취소했습니다."));
+    assert!(!rendered.contains("yes를 입력"));
 }
 
 #[test]
@@ -233,6 +279,7 @@ fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() 
 struct ConversationRuntime {
     requests: Vec<String>,
     page_reads: usize,
+    update_calls: usize,
     model_options: Vec<TuiModelOption>,
     setup_models: Vec<String>,
     captured_paths: Vec<String>,
@@ -246,7 +293,8 @@ impl TuiRuntimePort for ConversationRuntime {
     }
 
     fn apply_update(&mut self) -> Result<String, AppError> {
-        unreachable!()
+        self.update_calls += 1;
+        Ok("업데이트 완료".to_string())
     }
 
     fn read_tui_page(&mut self, _request: TuiReadRequest) -> Result<TuiReadPage, AppError> {

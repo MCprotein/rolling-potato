@@ -15,8 +15,9 @@ mod terminal_flow;
 use attachments::{capture_attachment_notice, looks_like_attachment_path};
 use model_selection::{apply_model_choice, choose_model, model_options_notice};
 use terminal_flow::{
-    confirm, outcome_notice, outcome_was_dispatched, post_dispatch_write_error,
-    pre_dispatch_write_error, write_pending_conversation_frame, write_pre_dispatch_frame,
+    confirm, confirm_workflow_action, outcome_notice, outcome_was_dispatched,
+    post_dispatch_write_error, pre_dispatch_write_error, write_pending_conversation_frame,
+    write_pre_dispatch_frame,
 };
 pub(crate) use terminal_flow::{consume_outcome, terminal_fault_error};
 
@@ -181,7 +182,9 @@ pub(crate) fn run_controller(
             ["/update"] => {
                 if !confirm(
                     terminal,
-                    "최신 stable release 확인과 검증된 binary 교체를 시작하려면 yes를 입력하세요.\n",
+                    "업데이트 확인",
+                    "업데이트 시작",
+                    "최신 stable release 확인 → archive 다운로드 → SHA-256 검증 → binary 교체",
                 )? {
                     state.notice = "업데이트를 취소했습니다.".to_string();
                     continue;
@@ -281,8 +284,12 @@ pub(crate) fn run_controller(
                 state.set_view(InteractiveView::Diff((*proposal_id).to_string()))
             }
             ["select", "session", session_id] => {
-                if !confirm(terminal, "세션 선택을 확인하려면 yes를 입력하세요.\n")?
-                {
+                if !confirm(
+                    terminal,
+                    "세션 선택 확인",
+                    "이 세션으로 전환",
+                    format!("session {session_id}을 정본 상태로 다시 확인한 뒤 선택"),
+                )? {
                     state.notice = "세션 선택 요청을 보내지 않았습니다.".to_string();
                     continue;
                 }
@@ -321,8 +328,12 @@ pub(crate) fn run_controller(
                     )?);
                     continue;
                 }
-                if !confirm(terminal, "패치 적용 승인을 확인하려면 yes를 입력하세요.\n")?
-                {
+                if !confirm(
+                    terminal,
+                    "패치 적용 확인",
+                    "패치 적용 승인",
+                    format!("proposal {proposal_id}을 검증한 뒤 선택한 workflow에 적용"),
+                )? {
                     state.notice = "승인을 보내지 않았습니다.".to_string();
                     continue;
                 }
@@ -348,8 +359,12 @@ pub(crate) fn run_controller(
                     state.notice = "먼저 select <workflow-id>를 실행하세요.".to_string();
                     continue;
                 };
-                if !confirm(terminal, "검증 실행 승인을 확인하려면 yes를 입력하세요.\n")?
-                {
+                if !confirm(
+                    terminal,
+                    "검증 실행 확인",
+                    "검증 실행 승인",
+                    format!("proposal {proposal_id}의 검증 단계를 실행"),
+                )? {
                     state.notice = "검증 승인을 보내지 않았습니다.".to_string();
                     continue;
                 }
@@ -375,8 +390,7 @@ pub(crate) fn run_controller(
                     state.notice = "먼저 select <workflow-id>를 실행하세요.".to_string();
                     continue;
                 };
-                if !confirm(terminal, "상태 변경을 확인하려면 yes를 입력하세요.\n")?
-                {
+                if !confirm_workflow_action(terminal, action, &workflow_id)? {
                     state.notice = "요청을 보내지 않았습니다.".to_string();
                     continue;
                 }

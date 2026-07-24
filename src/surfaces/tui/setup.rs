@@ -156,6 +156,13 @@ fn model_choices(options: &[TuiModelOption]) -> Vec<TerminalChoice> {
 fn confirmation_choices(selected: &TuiModelOption) -> [TerminalChoice; 2] {
     [
         TerminalChoice {
+            value: "cancel".to_string(),
+            label: "취소".to_string(),
+            description: "다운로드하거나 backend를 변경하지 않습니다.".to_string(),
+            current: false,
+            recommended: false,
+        },
+        TerminalChoice {
             value: "install".to_string(),
             label: "설치하고 시작".to_string(),
             description: format!(
@@ -164,15 +171,8 @@ fn confirmation_choices(selected: &TuiModelOption) -> [TerminalChoice; 2] {
                 bytes_label(selected.download_bytes),
                 selected.license
             ),
-            current: true,
-            recommended: true,
-        },
-        TerminalChoice {
-            value: "cancel".to_string(),
-            label: "취소".to_string(),
-            description: "다운로드하거나 backend를 변경하지 않습니다.".to_string(),
             current: false,
-            recommended: false,
+            recommended: true,
         },
     ]
 }
@@ -282,7 +282,7 @@ mod tests {
 
     #[test]
     fn setup_lists_model_facts_and_runs_selected_pipeline() {
-        let mut terminal = ScriptedTerminal::new(["2", "1"]);
+        let mut terminal = ScriptedTerminal::new(["2", "2"]);
         let mut runtime = SetupRuntime {
             calls: Vec::new(),
             startup_notice: None,
@@ -302,6 +302,24 @@ mod tests {
             runtime.calls,
             ["backend", "model:gemma-4-e4b", "start:gemma-4-e4b"]
         );
+    }
+
+    #[test]
+    fn setup_confirmation_defaults_to_cancel_without_install_side_effects() {
+        let mut terminal = ScriptedTerminal::new(["2", "1"]);
+        let mut runtime = SetupRuntime {
+            calls: Vec::new(),
+            startup_notice: None,
+        };
+
+        run_setup(&mut terminal, &mut runtime).unwrap();
+
+        let output = terminal.frames.concat();
+        assert!(output.contains("설치 확인"));
+        assert!(output.contains("1. 취소"));
+        assert!(output.contains("2. 설치하고 시작"));
+        assert!(output.contains("설정을 취소했습니다"));
+        assert!(runtime.calls.is_empty());
     }
 
     #[test]
