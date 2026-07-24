@@ -75,6 +75,8 @@ test(guard): cover Korean output leakage
 - CI 실패를 단순 재실행으로 닫지 않는다. 실패 원인이 기존 회고와 같은 유형이면 먼저 자동 guard의 누락을 보강하고, 새로운 유형이면 targeted 회귀 테스트 또는 preflight 계약과 회고 항목을 추가한 뒤 새 candidate를 만든다.
 - 태그 이후 플랫폼별 빌드, 패키징, checksum, release asset smoke 검증은 배포 검증으로 취급하며 개발 중 전체 테스트 반복과 구분한다.
 - CLI 동작 변경 후: 관련 `rpotato` 명령 smoke test를 수행한다.
+- persistence schema, model manifest capability 또는 필수 runtime artifact 계약을 변경할 때는 fresh fixture만으로 완료하지 않는다. 지원 중인 직전 schema의 실제 누적 상태로 기본 TUI 진입과 base capability를 검증하고 `scripts/ci/verify-model-upgrade-compatibility.sh`를 candidate preflight에서 통과시킨다.
+- text, vision, web처럼 capability가 단계적으로 추가되는 runtime에서는 새 optional capability의 artifact·credential·registry field 누락이 기존 base capability를 차단하면 안 된다. Base 경로와 capability 요청 경로를 별도로 테스트하고, optional artifact는 실제 사용 시 검증·준비·원자적 binding한다.
 - 검증을 실행할 수 없으면 커밋 메시지나 최종 보고에 이유를 남긴다.
 
 ## 실행 시간과 반복 제한
