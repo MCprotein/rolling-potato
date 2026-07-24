@@ -4,8 +4,9 @@ use crate::foundation::error::AppError;
 use crate::surfaces::tui::controller::{run_controller, TuiRuntimePort};
 use crate::surfaces::tui::render::{display_cell_width, render_interactive_frame};
 use crate::surfaces::tui::runtime_bridge::{
-    SelectionLease, TuiAttachment, TuiAttachmentKind, TuiFreshness, TuiGateKind, TuiIntent,
-    TuiModelOption, TuiReadContinuation, TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
+    SelectionLease, TuiAttachment, TuiAttachmentKind, TuiConversationRole, TuiConversationTurn,
+    TuiFreshness, TuiGateKind, TuiIntent, TuiModelOption, TuiReadContinuation, TuiReadPage,
+    TuiReadRequest, TuiStatusSnapshot,
 };
 use crate::surfaces::tui::view_model::{ConversationRole, InteractiveState};
 
@@ -72,6 +73,52 @@ fn ordinary_input_renders_as_user_and_assistant_turns() {
     assert!(rendered.contains("● 안녕하세요."));
     assert!(!rendered.contains("ledger: must stay hidden"));
     assert!(!rendered.contains("patch proposal"));
+}
+
+#[test]
+fn controller_hydrates_canonical_conversation_history_before_first_frame() {
+    let mut terminal = ScriptedTerminal::new(["/quit"]);
+    let mut runtime = ConversationRuntime {
+        history: vec![
+            TuiConversationTurn {
+                role: TuiConversationRole::User,
+                content: "이전 질문".to_string(),
+            },
+            TuiConversationTurn {
+                role: TuiConversationRole::Assistant,
+                content: "이전 답변".to_string(),
+            },
+        ],
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert!(terminal.frames[0].contains("이전 질문"));
+    assert!(terminal.frames[0].contains("이전 답변"));
+}
+
+#[test]
+fn clear_command_clears_canonical_and_rendered_conversation() {
+    let mut terminal = ScriptedTerminal::new(["/clear", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        history: vec![
+            TuiConversationTurn {
+                role: TuiConversationRole::User,
+                content: "지울 질문".to_string(),
+            },
+            TuiConversationTurn {
+                role: TuiConversationRole::Assistant,
+                content: "지울 답변".to_string(),
+            },
+        ],
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.clear_history_calls, 1);
+    assert!(!terminal.frames.last().unwrap().contains("지울 답변"));
 }
 
 #[test]
@@ -277,6 +324,8 @@ fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() 
 
 #[derive(Default)]
 struct ConversationRuntime {
+    history: Vec<TuiConversationTurn>,
+    clear_history_calls: usize,
     requests: Vec<String>,
     page_reads: usize,
     update_calls: usize,
@@ -290,6 +339,16 @@ struct ConversationRuntime {
 impl TuiRuntimePort for ConversationRuntime {
     fn startup_update_notice(&mut self) -> Option<String> {
         None
+    }
+
+    fn conversation_history(&mut self) -> Result<Vec<TuiConversationTurn>, AppError> {
+        Ok(self.history.clone())
+    }
+
+    fn clear_conversation_history(&mut self) -> Result<(), AppError> {
+        self.clear_history_calls += 1;
+        self.history.clear();
+        Ok(())
     }
 
     fn apply_update(&mut self) -> Result<String, AppError> {

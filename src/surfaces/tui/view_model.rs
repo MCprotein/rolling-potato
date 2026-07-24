@@ -1,4 +1,7 @@
 use super::runtime_bridge::{TuiAttachment, TuiReadBudget, TuiReadRequest};
+pub(crate) use super::runtime_bridge::{
+    TuiConversationRole as ConversationRole, TuiConversationTurn as ConversationTurn,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum InteractiveView {
@@ -11,18 +14,6 @@ pub(crate) enum InteractiveView {
     Approvals,
     Diff(String),
     Evidence,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ConversationRole {
-    User,
-    Assistant,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ConversationTurn {
-    pub(crate) role: ConversationRole,
-    pub(crate) content: String,
 }
 
 pub(crate) struct InteractiveState {

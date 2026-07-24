@@ -3,8 +3,8 @@ use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalFault, TerminalI
 
 use super::outcome::{exact_tui_outcome, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext};
 use super::runtime_bridge::{
-    OneShotSecret, SelectionLease, TuiAttachment, TuiGateKind, TuiIntent, TuiModelOption,
-    TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
+    OneShotSecret, SelectionLease, TuiAttachment, TuiConversationTurn, TuiGateKind, TuiIntent,
+    TuiModelOption, TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
 };
 use super::view_model::{ConversationRole, InteractiveState, InteractiveView};
 
@@ -23,6 +23,8 @@ pub(crate) use terminal_flow::{consume_outcome, terminal_fault_error};
 
 pub(crate) trait TuiRuntimePort {
     fn startup_update_notice(&mut self) -> Option<String>;
+    fn conversation_history(&mut self) -> Result<Vec<TuiConversationTurn>, AppError>;
+    fn clear_conversation_history(&mut self) -> Result<(), AppError>;
     fn apply_update(&mut self) -> Result<String, AppError>;
     fn read_tui_page(&mut self, request: TuiReadRequest) -> Result<TuiReadPage, AppError>;
     fn read_tui_status(&mut self) -> Result<TuiStatusSnapshot, AppError>;
@@ -52,6 +54,7 @@ pub(crate) fn run_controller(
         .validate_configuration()
         .map_err(terminal_fault_error)?;
     let mut state = InteractiveState::new();
+    state.turns = runtime.conversation_history()?;
     let mut startup_update_pending = true;
     let mut post_dispatch_intent: Option<String> = None;
 
@@ -205,9 +208,10 @@ pub(crate) fn run_controller(
             ["/doctor"] => {
                 state.notice = runtime.doctor_report();
             }
-            ["/clear"] => {
-                state.clear_conversation();
-            }
+            ["/clear"] => match runtime.clear_conversation_history() {
+                Ok(()) => state.clear_conversation(),
+                Err(error) => state.notice = error.message,
+            },
             ["/model"] => {
                 let options = runtime.model_options();
                 if options.is_empty() {

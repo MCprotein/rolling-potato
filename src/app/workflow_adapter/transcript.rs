@@ -32,6 +32,23 @@ use storage::{
     validate_tool_binding_shape_for_record, validated_transcript_path,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TranscriptOwner {
+    pub(crate) project_id: String,
+    pub(crate) session_id: String,
+    pub(crate) stream_id: String,
+}
+
+impl TranscriptOwner {
+    fn for_workflow(workflow: &state::WorkflowRecord) -> Self {
+        Self {
+            project_id: workflow.project_id.clone(),
+            session_id: workflow.session_id.clone(),
+            stream_id: workflow.workflow_id.clone(),
+        }
+    }
+}
+
 pub fn record_workflow_turn(
     workflow: &state::WorkflowRecord,
     kind: &str,
@@ -50,6 +67,25 @@ pub fn record_workflow_turn(
     )
 }
 
+pub(crate) fn record_session_turn(
+    owner: &TranscriptOwner,
+    kind: &str,
+    causal_id: &str,
+    content: &str,
+    source_pointers: &[SourcePointer],
+) -> Result<TranscriptRecord, AppError> {
+    record_turn(
+        owner,
+        None,
+        kind,
+        causal_id,
+        content,
+        source_pointers,
+        None,
+        None,
+    )
+}
+
 pub fn record_workflow_turn_with_streams(
     workflow: &state::WorkflowRecord,
     kind: &str,
@@ -59,10 +95,33 @@ pub fn record_workflow_turn_with_streams(
     stdout: Option<&str>,
     stderr: Option<&str>,
 ) -> Result<TranscriptRecord, AppError> {
+    record_turn(
+        &TranscriptOwner::for_workflow(workflow),
+        Some(workflow),
+        kind,
+        causal_id,
+        content,
+        source_pointers,
+        stdout,
+        stderr,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn record_turn(
+    owner: &TranscriptOwner,
+    workflow: Option<&state::WorkflowRecord>,
+    kind: &str,
+    causal_id: &str,
+    content: &str,
+    source_pointers: &[SourcePointer],
+    stdout: Option<&str>,
+    stderr: Option<&str>,
+) -> Result<TranscriptRecord, AppError> {
     validate_kind(kind)?;
-    validate_id("project id", &workflow.project_id)?;
-    validate_id("workflow id", &workflow.workflow_id)?;
-    validate_id("session id", &workflow.session_id)?;
+    validate_id("project id", &owner.project_id)?;
+    validate_id("transcript stream id", &owner.stream_id)?;
+    validate_id("session id", &owner.session_id)?;
     validate_id("causal id", causal_id)?;
     if content.trim().is_empty() {
         return Err(AppError::blocked("transcript content가 비어 있습니다."));
@@ -77,12 +136,11 @@ pub fn record_workflow_turn_with_streams(
         "transcript-{}",
         &state::sha256_text(&format!(
             "{}\n{}\n{}\n{}\n{}",
-            workflow.project_id, workflow.session_id, workflow.workflow_id, kind, causal_id
+            owner.project_id, owner.session_id, owner.stream_id, kind, causal_id
         ))[..24]
     );
     let ledger_guard = crate::app::workflow_adapter::ledger::LedgerWriterGuard::acquire()?;
-    let path =
-        validated_transcript_path(&workflow.project_id, &workflow.session_id, &record_id, true)?;
+    let path = validated_transcript_path(&owner.project_id, &owner.session_id, &record_id, true)?;
     let pointers = source_pointers
         .iter()
         .map(|pointer| {
@@ -104,13 +162,16 @@ pub fn record_workflow_turn_with_streams(
             )?;
             load_record_path(&path)?
         };
-        validate_expected_record(&existing, workflow, kind, causal_id, content, &pointers)?;
+        validate_expected_record(&existing, owner, kind, causal_id, content, &pointers)?;
         validate_requested_tool_streams(&existing, stdout, stderr)?;
         ensure_ledger_event_under_guard(&existing, &ledger_guard)?;
         return Ok(existing);
     }
 
     let tool_output_artifact = if kind == "tool" {
+        let workflow = workflow.ok_or_else(|| {
+            AppError::blocked("session transcript에는 tool stream을 기록할 수 없습니다.")
+        })?;
         Some(record_tool_output_artifact(
             workflow, causal_id, stdout, stderr,
         )?)
@@ -130,16 +191,19 @@ pub fn record_workflow_turn_with_streams(
         )?;
         if path.exists() {
             let existing = load_record_path(&path)?;
-            validate_expected_record(&existing, workflow, kind, causal_id, content, &pointers)?;
+            validate_expected_record(&existing, owner, kind, causal_id, content, &pointers)?;
             validate_requested_tool_streams(&existing, stdout, stderr)?;
             existing
         } else {
             let mut record = TranscriptRecord {
                 schema_version: TRANSCRIPT_SCHEMA_V2,
                 record_id,
-                project_id: workflow.project_id.clone(),
-                session_id: workflow.session_id.clone(),
-                workflow_id: workflow.workflow_id.clone(),
+                project_id: owner.project_id.clone(),
+                session_id: owner.session_id.clone(),
+                // The v2 storage field is retained for wire compatibility. It
+                // identifies the transcript owner stream, which may be a
+                // workflow or a session-scoped conversation.
+                workflow_id: owner.stream_id.clone(),
                 kind: kind.to_string(),
                 causal_id: causal_id.to_string(),
                 content: content.to_string(),

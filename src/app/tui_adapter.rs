@@ -21,6 +21,7 @@ use model_switch::{switch_prepared_model, LiveModelSwitch};
 mod attachment;
 mod conversation;
 mod runtime;
+mod session_memory;
 mod web_tools;
 
 pub fn run_auto() -> Result<(), AppError> {
