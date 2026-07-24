@@ -38,10 +38,16 @@ fn model_upgrade_compatibility_legacy_registry_keeps_text_runtime_and_manifest_c
     .unwrap();
 
     let configured = configured_runtime_spec().unwrap();
+    let vision = configured_vision_runtime().unwrap();
 
     assert_eq!(configured.model_id, candidate.id);
     assert_eq!(configured.context_tokens, 131_072);
     assert!(configured.vision_projector_path.is_none());
+    assert_eq!(vision.runtime, configured);
+    assert!(
+        vision.projector_supported,
+        "legacy registry must preserve manifest-backed vision capability without claiming readiness"
+    );
     assert_eq!(
         std::fs::read_to_string(&registry_path).unwrap(),
         legacy_registry,

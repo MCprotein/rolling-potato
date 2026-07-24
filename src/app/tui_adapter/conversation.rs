@@ -25,7 +25,7 @@ pub(super) fn local_reply(
     if ResponseLanguage::from_user_request(request).allows_non_korean() {
         return None;
     }
-    if is_vision_status_request(request) {
+    if is_vision_status_request(request) && !has_agent_task_signal(request) {
         let model = model.unwrap_or("현재 모델");
         return Some(match vision {
             TuiVisionStatus::Ready => format!(
@@ -459,6 +459,22 @@ mod tests {
         )
         .unwrap()
         .contains("이미지 입력을 지원합니다"));
+    }
+
+    #[test]
+    fn vision_status_reply_does_not_intercept_agent_tasks() {
+        for request in [
+            "이미지 지원 코드를 수정해줘",
+            "비전 사용이 가능하도록 구현해줘",
+            "비전 버그를 분석해줘",
+            "이미지 입력 테스트를 실행해줘",
+        ] {
+            assert_eq!(
+                local_reply(request, Some("qwen3.5-4b"), TuiVisionStatus::OnDemand),
+                None,
+                "{request}"
+            );
+        }
     }
 
     #[test]

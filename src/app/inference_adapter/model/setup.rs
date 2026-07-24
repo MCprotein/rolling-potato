@@ -14,7 +14,10 @@ mod catalog;
 mod runtime_spec;
 #[cfg(test)]
 mod tests;
-pub(crate) use runtime_spec::{configured_runtime_spec, configured_vision_runtime_spec};
+pub(crate) use runtime_spec::{
+    configured_runtime_spec, configured_vision_runtime, configured_vision_runtime_spec,
+    ConfiguredRuntimeSpec, ConfiguredVisionRuntime,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PreparedSetupModel {
@@ -53,22 +56,6 @@ pub(crate) fn prepare_setup_model(id: &str) -> Result<PreparedSetupModel, AppErr
         },
         artifact_fetch_status,
     })
-}
-
-pub(crate) fn configured_vision_status(ready: bool) -> TuiVisionStatus {
-    if ready {
-        return TuiVisionStatus::Ready;
-    }
-    let Some(id) = configured_model_id() else {
-        return TuiVisionStatus::Unavailable;
-    };
-    match find_candidate(&id) {
-        Ok(candidate) if source_backed_vision_projector(candidate).is_some() => {
-            TuiVisionStatus::OnDemand
-        }
-        Ok(_) => TuiVisionStatus::Unsupported,
-        Err(_) => TuiVisionStatus::Unavailable,
-    }
 }
 
 pub(crate) fn activate_setup_model(id: &str) -> Result<(), AppError> {

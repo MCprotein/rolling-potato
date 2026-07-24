@@ -19,6 +19,12 @@ pub(crate) struct ConfiguredRuntimeSpec {
     pub(crate) vision_projector_path: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ConfiguredVisionRuntime {
+    pub(crate) runtime: ConfiguredRuntimeSpec,
+    pub(crate) projector_supported: bool,
+}
+
 pub(crate) fn configured_runtime_spec() -> Result<ConfiguredRuntimeSpec, AppError> {
     let selection = read_default_selection()?;
     let candidate = find_candidate(&selection.model_id)?;
@@ -89,4 +95,13 @@ pub(crate) fn configured_vision_runtime_spec() -> Result<ConfiguredRuntimeSpec, 
         crate::app::inference_adapter::model::prepare_bound_vision_projector(candidate)?;
     configured.vision_projector_path = Some(projector.path);
     Ok(configured)
+}
+
+pub(crate) fn configured_vision_runtime() -> Result<ConfiguredVisionRuntime, AppError> {
+    let runtime = configured_runtime_spec()?;
+    let candidate = find_candidate(&runtime.model_id)?;
+    Ok(ConfiguredVisionRuntime {
+        projector_supported: source_backed_vision_projector(candidate).is_some(),
+        runtime,
+    })
 }

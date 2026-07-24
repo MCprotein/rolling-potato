@@ -167,7 +167,6 @@ mod tests {
             model_path: Some(std::path::PathBuf::from("/old.gguf")),
             context_limit_tokens: Some(8_192),
             vision_projector_path: None,
-            vision_ready: false,
         };
         let mut switch = FailingModelSwitch { calls: Vec::new() };
 

@@ -713,6 +713,31 @@ mod tests {
     }
 
     #[test]
+    fn model_upgrade_compatibility_verified_model_cache_hit_never_redownloads() {
+        let root = std::env::temp_dir().join(format!("rpotato-model-cache-{}", std::process::id()));
+        let path = root.join("model.gguf");
+        let part_path = root.join("model.gguf.part");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(&path, b"abc").unwrap();
+        let artifact = ModelArtifactDescriptor {
+            provider: "test",
+            url: "https://example.invalid/model.gguf",
+            terms_url: "https://example.invalid/terms",
+            file_name: "model.gguf",
+            sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            size_bytes: 3,
+        };
+
+        let status = fetch_evaluation_artifact(artifact, &path, &part_path).unwrap();
+
+        assert_eq!(status, ModelArtifactFetchStatus::CacheHit);
+        assert_eq!(fs::read(&path).unwrap(), b"abc");
+        assert!(!part_path.exists());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn projector_partial_cache_is_scoped_to_the_expected_revision() {
         let candidate = find_candidate("gemma-4-e4b").unwrap();
         let first = vision_projector_part_path(candidate, projector(SHA_A));

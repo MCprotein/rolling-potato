@@ -57,7 +57,6 @@ mod tests {
             model_path: Some(PathBuf::from("/tmp/model.gguf")),
             context_limit_tokens: limit,
             vision_projector_path: None,
-            vision_ready: false,
         }
     }
 
