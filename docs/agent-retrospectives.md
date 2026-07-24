@@ -707,3 +707,118 @@
 - 본문 인용 번호는 모델이 만들지 않으며 출처 URL 목록은 런타임만 렌더링합니다.
 - 일반 답변·검색 변경 candidate는 실제 binary에서 계산 한 건, `/search` 한 건,
   primary `--help` 노출을 각각 한 번 smoke한 뒤에만 ready로 전환합니다.
+
+## 2026-07-23: 일반 답변 복구 정책과 Windows fixture 시간 계약이 어긋남
+
+### 증상
+
+- 일반 `backend chat --stream`이 비어 있지 않은 답변을 보존하도록 바뀌었지만,
+  patch-loop 통합 테스트 두 건은 여전히 모든 외국어 출력을 exit 3으로 차단하는
+  과거 계약을 기대했습니다.
+- Windows `full_adapter`는 저장소 seed와 context pack이 계속 진행 중이었지만,
+  fixture의 단일 명령 30초 제한에 걸려 종료됐습니다.
+
+### 원인
+
+- 일반 대화의 표시 정책과 patch/실행 결과의 strict 검증 정책을 같은 회귀 테스트로
+  취급했습니다.
+- GitHub Windows runner에서 실제로 관찰된 단계별 진행 시간보다 fixture 제한이
+  짧았고, 플랫폼별 시간 차이를 반영하지 않았습니다.
+
+### 재발 방지
+
+- 일반 대화는 빈 출력만 차단합니다. 외국어 혼입은 재작성과 안전 projection을 한 번
+  시도하되, 복구되지 않은 비어 있지 않은 원문도 숨기지 않습니다.
+- patch proposal·실행·검증 결과는 별도의 `validate_existing` 경계에서 계속
+  fail-closed로 유지하고 외국어 문장 거부 회귀 테스트를 둡니다.
+- Native fixture 명령 제한은 Unix 30초, Windows 60초로 유한하게 유지합니다.
+  timeout 로그에 ledger와 backend trace를 남겨 실제 무진행과 느린 진행을 구분합니다.
+- Full-screen TUI의 PTY raw capture는 동일한 정본 대화를 여러 frame에 다시 그릴 수
+  있으므로 marker 개수를 실행 횟수로 해석하지 않습니다. 대신 나타난 모든 exact
+  outcome block의 내용과 별도 ledger event delta를 검증합니다.
+- 선택형 명령의 native test는 과거의 텍스트 report가 아니라 현재 picker 제목,
+  항목, 닫기 동작을 검증합니다.
+- Candidate 라벨을 적용하기 전에 remote branch ref와 `refs/pull/<N>/head`가 모두
+  candidate SHA와 같은지 확인합니다. Pull ref가 뒤처졌다면 stale run을 취소하고
+  새 branch push가 반영될 때까지 잘못된 SHA로 전체 검증을 시작하지 않습니다.
+
+## 2026-07-23: 직접 검색 구현 요청을 hosted REST 연결로 축소 해석
+
+### 증상
+
+- 별도 MCP server와 외부 dependency를 원하지 않는다는 요청을 Brave Search REST
+  API를 직접 호출하라는 의미로 잘못 해석했습니다.
+- API key가 없으면 `/search`가 동작하지 않아 설치 직후 사용할 수 있다는 제품
+  의도와 어긋났습니다.
+
+### 원인
+
+- "직접 구현"을 process/SDK 제거로만 해석하고 hosted 검색 provider와 credential
+  의존성까지 제거해야 한다는 경계를 확인하지 않았습니다.
+- 경쟁 도구의 공개 구현을 먼저 확인하지 않고 provider 선택부터 했습니다.
+
+### 재발 방지
+
+- 검색 tool의 "직접 구현"은 별도 승인이 없는 한 provider API, API key, MCP
+  process, provider SDK가 없는 repository-owned transport/parser/policy를 뜻합니다.
+- 경쟁 제품을 참고하라는 요청은 공개 source와 공식 문서로 실제 경계를 먼저
+  확인합니다. Hosted tool이나 MCP를 사용한다면 그 사실을 자체 구현으로 표현하지
+  않습니다.
+- 새 검색 transport는 HTML parser fixture의 실패 회귀 테스트, HTTPS/redirect/query/
+  response/source/context 상한, API key 없는 live smoke를 candidate 전에 검증합니다.
+- 기능 개발 중 PR은 draft와 label 없는 상태를 유지하고, targeted 검증이 끝난 최종
+  HEAD에서만 `release-candidate`를 적용합니다.
+
+## 2026-07-23: 모델 capability와 agent 판단을 고정값·keyword routing으로 덮어씀
+
+### 증상
+
+- Manifest에 더 긴 context가 기록된 모델도 TUI에서 사실상 4096-token 기본값처럼
+  취급됐습니다.
+- 자연어 웹 요청을 고정 keyword 목록으로 분류해 `/search` 중심 UX가 되었고,
+  agent가 질문의 최신성·근거 필요성을 판단하는 경로가 아니었습니다.
+- Tool routing model에 local attachment 본문까지 전달하면 model-generated query를
+  통해 첨부 내용이 외부 검색 endpoint로 유출될 가능성이 있었습니다.
+- Model 전용 projector가 exact cache hit인 경우에도 다시 받을 수 있다는 인상을
+  주었고, 준비 실패 시 새 model 선택을 확정하지 않아야 하는 경계가 불명확했습니다.
+
+### 원인
+
+- 평가용 작은-context fixture와 제품 runtime의 model capability를 구분하지
+  않았습니다.
+- 검색 transport 구현과 agent의 tool-selection policy를 하나의 keyword router로
+  묶었습니다.
+- Local answer context와 외부 tool decision context를 같은 prompt로 구성했습니다.
+
+### 재발 방지
+
+- 제품 runtime은 source-backed manifest의 model context limit을 사용하고, 작은
+  context 값은 benchmark·회귀 fixture에만 명시합니다.
+- 자연어 요청의 `WebSearch`·`WebOpen`·`WebFind` 선택은 local model이 담당하고
+  `/search`는 명시적 fallback으로만 유지합니다. Offline/no-browse 지시는 runtime이
+  agent-selected retrieval을 차단합니다.
+- 외부 tool routing model에는 사용자 요청만 제공하며 local attachment 본문은
+  검색 이후 local 합성 단계에서만 사용합니다.
+- Projector는 model/revision/size/SHA가 일치하는 cache hit를 재사용하고, missing,
+  partial, corrupt, revision change일 때만 다시 준비합니다. 준비 실패는 기존
+  default model과 ready backend를 변경하지 않습니다.
+
+## 2026-07-23: projector cache-key 변경과 기존 경로 계약 테스트 불일치
+
+### 증상
+
+- Projector partial을 SHA revision별로 분리했지만 기존 model adapter 테스트는
+  revision 없는 과거 파일명을 계속 기대해 candidate 전체 테스트에서 한 건이
+  실패했습니다.
+
+### 원인
+
+- 새 projector 전용 회귀 테스트와 setup 테스트만 실행하고, 같은 경로 helper를
+  직접 검증하는 기존 model adapter 테스트를 targeted 범위에 포함하지 않았습니다.
+
+### 재발 방지
+
+- Artifact 또는 cache key를 변경하면 새 동작 테스트뿐 아니라 해당 path helper를
+  직접 호출하는 기존 테스트를 `rg`로 찾아 함께 실행합니다.
+- Revision-aware 경로 계약은 고정 문자열을 중복하지 않고 manifest SHA prefix로
+  기대값을 계산해 manifest 갱신과 테스트가 어긋나지 않게 합니다.

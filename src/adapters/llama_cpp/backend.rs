@@ -9,7 +9,9 @@ use crate::adapters::filesystem::layout as paths;
 use crate::adapters::llama_cpp::install::{self, selected_release_artifact, LLAMA_CPP_RELEASE};
 use crate::foundation::integrity as checksum;
 use crate::foundation::serialization::escape_string_content;
-use crate::runtime_core::inference::backend::{BackendAdapter, BackendChatSampling};
+use crate::runtime_core::inference::backend::{
+    BackendAdapter, BackendChatInput, BackendChatSampling,
+};
 
 pub(crate) const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
 pub(crate) const DEFAULT_HOST: &str = "127.0.0.1";
@@ -205,6 +207,7 @@ pub(crate) fn first_http_status_line(response: &[u8]) -> Option<String> {
     std::str::from_utf8(line).ok().map(str::to_string)
 }
 
+#[cfg(test)]
 pub(crate) fn chat_request_body(
     model_path: &Path,
     prompt: &str,
@@ -212,7 +215,27 @@ pub(crate) fn chat_request_body(
     sampling: &BackendChatSampling,
     stream: bool,
 ) -> String {
-    let system_prompt = "사용자에게 보이는 최종 답변만 한국어로 작성합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다.";
+    chat_request_body_for_input(
+        model_path,
+        &BackendChatInput::text_for_user(prompt, prompt),
+        max_tokens,
+        sampling,
+        stream,
+    )
+}
+
+pub(crate) fn chat_request_body_for_input(
+    model_path: &Path,
+    input: &BackendChatInput,
+    max_tokens: u32,
+    sampling: &BackendChatSampling,
+    stream: bool,
+) -> String {
+    let system_prompt = if input.response_language.allows_non_korean() {
+        "사용자가 명시적으로 요청한 출력 언어를 따릅니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다."
+    } else {
+        "기본 답변은 자연스러운 한국어로 작성하고, 코드·수식·URL·고유명사는 필요한 원문 표기를 유지합니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다."
+    };
     let model_id = model_path
         .file_stem()
         .and_then(|value| value.to_str())
@@ -229,16 +252,58 @@ pub(crate) fn chat_request_body(
     } else {
         ""
     };
+    let user_content = if input.images.is_empty() {
+        format!("\"{}\"", escape_string_content(&input.text))
+    } else {
+        let mut parts = Vec::with_capacity(input.images.len() + 1);
+        if !input.text.trim().is_empty() {
+            parts.push(format!(
+                "{{\"type\":\"text\",\"text\":\"{}\"}}",
+                escape_string_content(&input.text)
+            ));
+        }
+        parts.extend(input.images.iter().map(|image| {
+            format!(
+                "{{\"type\":\"image_url\",\"image_url\":{{\"url\":\"data:{};base64,{}\"}}}}",
+                escape_string_content(&image.mime_type),
+                encode_base64(&image.bytes)
+            )
+        }));
+        format!("[{}]", parts.join(","))
+    };
     format!(
-        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}{}}}",
+        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":{}}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}{}}}",
         escape_string_content(system_prompt),
-        escape_string_content(prompt),
+        user_content,
         max_tokens,
         sampling.temperature,
         sampling.top_p,
         template_options,
         stream_options
     )
+}
+
+fn encode_base64(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let first = chunk[0];
+        let second = chunk.get(1).copied().unwrap_or(0);
+        let third = chunk.get(2).copied().unwrap_or(0);
+        encoded.push(ALPHABET[(first >> 2) as usize] as char);
+        encoded.push(ALPHABET[(((first & 0b11) << 4) | (second >> 4)) as usize] as char);
+        encoded.push(if chunk.len() > 1 {
+            ALPHABET[(((second & 0b1111) << 2) | (third >> 6)) as usize] as char
+        } else {
+            '='
+        });
+        encoded.push(if chunk.len() > 2 {
+            ALPHABET[(third & 0b11_1111) as usize] as char
+        } else {
+            '='
+        });
+    }
+    encoded
 }
 
 pub(crate) fn probe_version(discovery: &BackendDiscovery) -> BackendVersionProbe {
@@ -335,6 +400,31 @@ pub(crate) fn probe_version(discovery: &BackendDiscovery) -> BackendVersionProbe
         &discovery.selected_path,
         Duration::from_millis(VERSION_TIMEOUT_MS),
     )
+}
+
+pub(crate) fn sidecar_command(
+    binary_path: &Path,
+    model_path: &Path,
+    mmproj_path: Option<&Path>,
+    host: &str,
+    port: u16,
+    ctx_size: Option<u32>,
+) -> Command {
+    let mut command = Command::new(binary_path);
+    command
+        .arg("--model")
+        .arg(model_path)
+        .arg("--host")
+        .arg(host)
+        .arg("--port")
+        .arg(port.to_string());
+    if let Some(mmproj_path) = mmproj_path {
+        command.arg("--mmproj").arg(mmproj_path);
+    }
+    if let Some(ctx_size) = ctx_size {
+        command.arg("--ctx-size").arg(ctx_size.to_string());
+    }
+    command
 }
 
 fn run_version_command(path: &Path, timeout: Duration) -> BackendVersionProbe {
@@ -468,6 +558,7 @@ pub(crate) fn is_executable(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime_core::inference::backend::BackendChatImage;
 
     #[test]
     fn health_status_line_does_not_require_connection_eof() {
@@ -532,5 +623,112 @@ mod tests {
         );
 
         assert!(!body.contains("chat_template_kwargs"));
+    }
+
+    #[test]
+    fn multimodal_request_uses_openai_image_content_parts() {
+        let input = BackendChatInput {
+            text: "이 이미지의 오류를 설명해줘".to_string(),
+            images: vec![BackendChatImage {
+                display_name: "screen.png".to_string(),
+                mime_type: "image/png".to_string(),
+                sha256: "a".repeat(64),
+                bytes: b"abc".to_vec(),
+            }],
+            response_language:
+                crate::runtime_core::inference::backend::ResponseLanguage::KoreanDefault,
+        };
+
+        let body = chat_request_body_for_input(
+            Path::new("gemma-4-E4B_q4_0-it.gguf"),
+            &input,
+            64,
+            &BackendChatSampling {
+                temperature: 0.1,
+                top_p: 0.8,
+            },
+            true,
+        );
+
+        assert!(body.contains("\"type\":\"text\""));
+        assert!(body.contains("\"type\":\"image_url\""));
+        assert!(body.contains("data:image/png;base64,YWJj"));
+        assert!(!body.contains("screen.png"));
+    }
+
+    #[test]
+    fn base64_encoder_matches_rfc_4648_padding_vectors() {
+        assert_eq!(encode_base64(b""), "");
+        assert_eq!(encode_base64(b"f"), "Zg==");
+        assert_eq!(encode_base64(b"fo"), "Zm8=");
+        assert_eq!(encode_base64(b"foo"), "Zm9v");
+        assert_eq!(encode_base64(b"foobar"), "Zm9vYmFy");
+    }
+
+    #[test]
+    fn request_system_policy_respects_an_explicit_output_language() {
+        let body = chat_request_body(
+            Path::new("model.gguf"),
+            "이 문장을 영어로 번역해줘",
+            32,
+            &BackendChatSampling {
+                temperature: 0.1,
+                top_p: 0.8,
+            },
+            false,
+        );
+
+        assert!(body.contains("명시적으로 요청한 출력 언어"));
+        assert!(!body.contains("기본 답변은 자연스러운 한국어"));
+    }
+
+    #[test]
+    fn vision_ready_sidecar_enters_llama_server_with_mmproj() {
+        let command = sidecar_command(
+            Path::new("/bin/llama-server"),
+            Path::new("/models/model.gguf"),
+            Some(Path::new("/models/mmproj.gguf")),
+            "127.0.0.1",
+            17842,
+            Some(4096),
+        );
+        let args = command
+            .get_args()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            args,
+            [
+                "--model",
+                "/models/model.gguf",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "17842",
+                "--mmproj",
+                "/models/mmproj.gguf",
+                "--ctx-size",
+                "4096"
+            ]
+        );
+    }
+
+    #[test]
+    fn text_ready_sidecar_does_not_claim_mmproj() {
+        let command = sidecar_command(
+            Path::new("/bin/llama-server"),
+            Path::new("/models/model.gguf"),
+            None,
+            "127.0.0.1",
+            17842,
+            None,
+        );
+        let args = command
+            .get_args()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(!args.iter().any(|value| value == "--mmproj"));
     }
 }

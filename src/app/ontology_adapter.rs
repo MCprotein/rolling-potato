@@ -290,22 +290,25 @@ pub fn import_report(path: &str, dry_run: bool) -> Result<String, AppError> {
 }
 
 pub fn doctor_summary() -> String {
-    match status_summary() {
-        Ok(summary) => summary,
+    let path = paths::project_ontology_store_file();
+    if !path.exists() {
+        return format!(
+            "ontology store 미생성 ({}); rpotato init에서 준비",
+            path.display()
+        );
+    }
+    match load_projection() {
+        Ok(projection) => {
+            let diagnostics = diagnostics_from_projection(&projection, |_| false);
+            format!(
+                "ontology store {}, current {}, source hash audit deferred, sourceless confirmed Layer B {}",
+                path.display(),
+                diagnostics.current_records,
+                diagnostics.sourceless_confirmed_layer_b
+            )
+        }
         Err(err) => format!("ontology 진단 실패: {}", err.message),
     }
-}
-
-fn status_summary() -> Result<String, AppError> {
-    ensure_layout()?;
-    let diagnostics = diagnostics_from_projection(&load_projection()?, record_source_is_stale);
-    Ok(format!(
-        "ontology store {}, current {}, stale Layer A {}, sourceless confirmed Layer B {}",
-        paths::project_ontology_store_file().display(),
-        diagnostics.current_records,
-        diagnostics.stale_layer_a,
-        diagnostics.sourceless_confirmed_layer_b
-    ))
 }
 
 fn load_projection() -> Result<OntologyProjection, AppError> {
@@ -486,6 +489,29 @@ mod tests {
         assert!(seed.store.exists());
         assert!(context.contains("source=src/main.rs:1"));
         assert!(status.contains("sourceless confirmed Layer B claims: 0"));
+    }
+
+    #[test]
+    fn seed_excludes_agent_and_runtime_state_directories() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let project = with_temp_project("seed-excludes-runtime-state");
+        for directory in [".omx", ".omc", ".codex", ".agents"] {
+            let state_dir = project.join(directory);
+            fs::create_dir_all(&state_dir).unwrap();
+            fs::write(state_dir.join("runtime.md"), "ephemeral runtime state\n").unwrap();
+        }
+
+        ensure_seeded().unwrap();
+        let store = fs::read_to_string(paths::project_ontology_store_file()).unwrap();
+
+        clear_env();
+
+        for directory in [".omx", ".omc", ".codex", ".agents"] {
+            assert!(
+                !store.contains(directory),
+                "{directory} must not be indexed as project knowledge"
+            );
+        }
     }
 
     #[test]

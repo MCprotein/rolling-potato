@@ -46,6 +46,7 @@ pub(crate) struct DoctorReport {
     pub tui_outcome_codes: Vec<String>,
     pub backend: String,
     pub model: String,
+    pub web_search: String,
     pub ontology: String,
     pub cache: String,
 }
@@ -116,7 +117,7 @@ pub(crate) fn render_doctor(report: DoctorReport) -> String {
     let tui_outcome_contract = report.tui_outcome_codes.join(",");
 
     format!(
-        "rpotato 진단\n- CLI: 사용 가능\n- package: {}\n- package version: {}\n- release target os: {}\n- release target arch: {}\n- release binary suffix: {}\n- release smoke: {}\n- TUI outcome contract: {} codes ({})\n- runtime core: durable workflow/report boundary 사용\n- backend: {}\n- model: {}\n- ontology: {}\n- cache: {}",
+        "rpotato 진단\n- CLI: 사용 가능\n- package: {}\n- package version: {}\n- release target os: {}\n- release target arch: {}\n- release binary suffix: {}\n- release smoke: {}\n- TUI outcome contract: {} codes ({})\n- runtime core: durable workflow/report boundary 사용\n- backend: {}\n- model: {}\n- web search: {}\n- ontology: {}\n- cache: {}",
         report.package,
         report.package_version,
         report.target_os,
@@ -127,6 +128,7 @@ pub(crate) fn render_doctor(report: DoctorReport) -> String {
         tui_outcome_contract,
         report.backend,
         report.model,
+        report.web_search,
         report.ontology,
         report.cache
     )
@@ -193,10 +195,11 @@ mod tests {
                 tui_outcome_codes: vec!["first".into(), "second".into()],
                 backend: "backend-ready".into(),
                 model: "model-ready".into(),
+                web_search: "search-ready".into(),
                 ontology: "ontology-ready".into(),
                 cache: "cache-ready".into(),
             }),
-            "rpotato 진단\n- CLI: 사용 가능\n- package: rpotato\n- package version: 0.37.0\n- release target os: linux\n- release target arch: x86_64\n- release binary suffix: \n- release smoke: available; doctor does not download models, install backends, start sidecars, or require network access\n- TUI outcome contract: 2 codes (first,second)\n- runtime core: durable workflow/report boundary 사용\n- backend: backend-ready\n- model: model-ready\n- ontology: ontology-ready\n- cache: cache-ready"
+            "rpotato 진단\n- CLI: 사용 가능\n- package: rpotato\n- package version: 0.37.0\n- release target os: linux\n- release target arch: x86_64\n- release binary suffix: \n- release smoke: available; doctor does not download models, install backends, start sidecars, or require network access\n- TUI outcome contract: 2 codes (first,second)\n- runtime core: durable workflow/report boundary 사용\n- backend: backend-ready\n- model: model-ready\n- web search: search-ready\n- ontology: ontology-ready\n- cache: cache-ready"
         );
     }
 }

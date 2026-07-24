@@ -44,6 +44,7 @@ mod installation;
 mod resource_sampling;
 mod runtime_snapshot;
 mod sidecar;
+pub(crate) use chat::chat_once_with_input;
 pub use chat::{
     cancel_generation_report, chat_once, chat_once_bounded, chat_once_bounded_with_cancel,
     chat_report, chat_stream_report, preflight_chat_ready,

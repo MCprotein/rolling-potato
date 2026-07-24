@@ -86,14 +86,17 @@ setup flow before conversation:
 
 1. Show source-backed choices with model ID/version, quantization, download size,
    context limit, RAM status, license, and evidence note.
-2. Accept a list number or exact model ID and request explicit download confirmation.
+2. Select with Up/Down and Enter in the keyboard picker, then confirm the download
+   from a second selectable prompt. Number/ID input remains the plain-terminal fallback.
 3. Install or reuse the pinned managed backend.
 4. Download the selected artifact, verify size and SHA-256, register the explicit
-   user selection, and start it with the default context size.
+   user selection, and start it with the candidate's source-recorded manifest
+   context limit.
 
 RAM suitability and unmeasured capability remain labeled `unverified`; setup does not
-turn a source manifest into benchmark evidence. `/model` lists the same catalog, and
-`/model <id>` switches models through the same managed path.
+turn a source manifest into benchmark evidence. `/model` opens the same selectable
+catalog with current/recommended state, while `/model <id>` remains an
+automation-compatible shortcut.
 
 ### Composer Status Line
 
@@ -111,7 +114,7 @@ returns to the input row:
 ╭─ 요청 ────────────────────────────────────────────────────────────╮
 │ › _                                                               │
 ╰───────────────────────────────────────────────────────────────────╯
-model gemma-4-E4B_q4_0-it | ctx 812/4096 (19%) | compact auto@75% | backend ready | session 01J…
+model gemma-4-E4B_q4_0-it | ctx 812/131072 (1%) | compact auto@75% | backend ready | session 01J…
 ```
 
 The fields always stay in `model | context | compaction | backend | session` order.
@@ -126,10 +129,15 @@ managed backend sidecar, and active canonical session; missing values and stale 
 state are displayed explicitly. `NO_COLOR`, `TERM=dumb`, redirected, and scripted
 execution use plain text without ANSI control sequences.
 
-Normal interactive commands are `/model`, `/compact`, `/search <question>`, `/update`, `/status`, `/sessions`,
+Normal interactive commands are `/model`, `/compact`, `/search <question>`,
+`/open <URL>`, `/find <text>`, `/attach <path>`, `/update`, `/status`, `/sessions`,
 `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`. `/more` and `/back` page through a
 long response without discarding off-screen lines. Typing `/` opens a live command palette
-before Enter, backed by the same command registry as `/help`. `/update` confirms before downloading
+before Enter, backed by the same command registry as `/help`. Up/Down or
+`Ctrl+P`/`Ctrl+N` selects a row, Enter accepts it, and Esc closes the palette.
+The composer supports Left/Right, Home/End, `Ctrl+A`/`Ctrl+E`, word movement with
+Option/Alt+Left/Right, and line movement with Command/Meta+Left/Right when the
+terminal sends those escape sequences. `/update` confirms before downloading
 the exact current-platform GitHub Release asset and verifies its SHA-256 sidecar before
 replacing the managed installation. Startup checks use a short timeout and cache, and
 network failure does not block the TUI. `/compact` creates an incremental typed checkpoint and
@@ -139,12 +147,50 @@ only after backend startup succeeds and restore the previous ready backend on fa
 Granular backend, registry, benchmark, policy, and
 inspection commands remain available for diagnostics under `rpotato debug --help`.
 
+Bracketed paste is consumed atomically. Pasting an absolute image/text path or using
+`/attach <path>` captures a regular, non-symlink file into local app data and shows an
+attachment badge instead of treating a leading `/` as a command. UTF-8 text/code files
+up to 256 KiB are included only while the composed request fits the selected
+model's manifest context limit after reserving response/runtime space. Up to four
+PNG/JPEG images with a combined limit of 20 MiB are revalidated from one bounded
+file read by size, signature, and SHA-256 at dispatch.
+Image inference is available only when the selected model's separately pinned
+`mmproj` bytes are verified and the managed `llama-server` sidecar is vision-ready.
+The status line and `/status` distinguish `vision ready` from `vision text-only`.
+If projector preparation fails, the verified text model and current selection remain
+usable and the image request receives an actionable capability message.
+
+`mmproj` is not another language model. It is the model-specific visual
+encoder/projector GGUF that maps image features into the embedding space expected by
+the paired language-model GGUF. A projector from another model or revision is not
+interchangeable. `rpotato` therefore pins its source revision, size, and SHA-256,
+stores it as a separate artifact, and passes it to `llama-server` through
+`--mmproj`. Exact verified cache hits are reused; download happens only when the
+artifact is missing, partial, corrupt, or the pinned model revision changes. A
+failed projector preparation does not silently switch the default model or ready
+backend.
+
 Plain questions use a lightweight general-answer path unless they contain a clear
-repository/action signal. Explicit search requests, freshness-sensitive questions,
-and `/search` retrieve bounded highlights from Exa's hosted MCP service and append
-source URLs. Search results are untrusted prompt context only; they cannot invoke a
-command, edit a file, or widen runtime permissions. An offline/no-browse instruction
-disables automatic retrieval for that request.
+repository/action signal. The local model sees the user request and decides whether
+to call `WebSearch`, `WebOpen`, or `WebFind`; fixed Korean/English keyword routing is
+not the authority. `/search` remains an explicit fallback. A model-selected search
+retrieves bounded highlights by parsing a public search HTML page directly, then
+appends source URLs. `/open` upgrades a user-supplied public HTTP URL to HTTPS and reads a
+bounded HTML, plain-text, or JSON document. `/find` performs a bounded literal,
+case-insensitive search over the normalized text of the most recently opened page
+in the current TUI. The route needs no API key, MCP process, provider SDK, or
+background search service. The transport never follows redirects by itself.
+`WebOpen` orchestration follows at most ten redirects only when scheme, port, and
+host remain equivalent (`www.` is treated as equivalent). A cross-host redirect is
+reported and requires a new explicit `/open`. URL credentials, localhost,
+private/link-local/reserved IPs, and DNS names resolving to them are rejected.
+Search results and opened pages are untrusted prompt context only; they cannot invoke
+a command, edit a file, or widen runtime permissions. An offline/no-browse
+instruction disables agent-selected retrieval for that request. The routing model
+receives only the user's request, not local attachment contents; attachment text is
+used only by the local answer synthesis after evidence retrieval. `/doctor` reports
+`WebSearch`, `WebOpen`, and `WebFind` readiness without requiring or printing a
+credential.
 
 <!-- TUI-READ-CONTRACT:START -->
 The eight views (`overview`, `monitor`, `sessions`, `transcript`, `tool-output`,

@@ -2,7 +2,7 @@
 
 use crate::app::inference_adapter::{backend, model};
 use crate::foundation::error::AppError;
-use crate::surfaces::tui::setup;
+const LEGACY_CONTEXT_FALLBACK_TOKENS: u32 = 4_096;
 
 pub(super) trait ModelSwitchPort {
     fn stop_backend(&mut self) -> Result<String, AppError>;
@@ -41,13 +41,14 @@ pub(super) fn switch_prepared_model(
     port: &mut impl ModelSwitchPort,
     model_id: &str,
     model_path: &str,
+    context_tokens: u32,
     previous_backend: &backend::BackendRuntimeSnapshot,
     previous_default: &model::DefaultSelectionSnapshot,
 ) -> Result<String, AppError> {
     if previous_backend.status != "stopped" {
         port.stop_backend()?;
     }
-    let started = match port.start_backend(model_path, setup::DEFAULT_CONTEXT_TOKENS) {
+    let started = match port.start_backend(model_path, context_tokens) {
         Ok(report) => report,
         Err(error) => {
             return Err(rollback_error(
@@ -90,7 +91,7 @@ fn rollback_error(
                     &path.display().to_string(),
                     previous_backend
                         .context_limit_tokens
-                        .unwrap_or(setup::DEFAULT_CONTEXT_TOKENS),
+                        .unwrap_or(LEGACY_CONTEXT_FALLBACK_TOKENS),
                 )
                 .map(|_| "완료".to_string())
                 .unwrap_or_else(|restore| format!("실패: {}", restore.message))
@@ -129,9 +130,10 @@ mod tests {
         fn start_backend(
             &mut self,
             model_path: &str,
-            _context_tokens: u32,
+            context_tokens: u32,
         ) -> Result<String, AppError> {
-            self.calls.push(format!("start:{model_path}"));
+            self.calls
+                .push(format!("start:{model_path}:{context_tokens}"));
             if model_path == "/new.gguf" {
                 Err(AppError::runtime("injected start failure"))
             } else {
@@ -167,11 +169,19 @@ mod tests {
             model_id: Some("old".to_string()),
             model_path: Some(std::path::PathBuf::from("/old.gguf")),
             context_limit_tokens: Some(8_192),
+            vision_ready: false,
         };
         let mut switch = FailingModelSwitch { calls: Vec::new() };
 
-        let error = switch_prepared_model(&mut switch, "new", "/new.gguf", &previous, &default)
-            .unwrap_err();
+        let error = switch_prepared_model(
+            &mut switch,
+            "new",
+            "/new.gguf",
+            131_072,
+            &previous,
+            &default,
+        )
+        .unwrap_err();
 
         std::env::remove_var("RPOTATO_DATA_HOME");
         let _ = std::fs::remove_dir_all(root);
@@ -180,9 +190,9 @@ mod tests {
             switch.calls,
             [
                 "stop",
-                "start:/new.gguf",
+                "start:/new.gguf:131072",
                 "stop",
-                "start:/old.gguf",
+                "start:/old.gguf:8192",
                 "restore-default"
             ]
         );

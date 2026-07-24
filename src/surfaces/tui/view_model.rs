@@ -1,4 +1,4 @@
-use super::runtime_bridge::{TuiReadBudget, TuiReadRequest};
+use super::runtime_bridge::{TuiAttachment, TuiReadBudget, TuiReadRequest};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum InteractiveView {
@@ -32,6 +32,7 @@ pub(crate) struct InteractiveState {
     pub(crate) notice: String,
     pub(crate) notice_page: usize,
     pub(crate) turns: Vec<ConversationTurn>,
+    pub(crate) attachments: Vec<TuiAttachment>,
 }
 
 impl InteractiveState {
@@ -43,6 +44,7 @@ impl InteractiveState {
             notice: String::new(),
             notice_page: 0,
             turns: Vec::new(),
+            attachments: Vec::new(),
         }
     }
 
@@ -65,8 +67,26 @@ impl InteractiveState {
 
     pub(crate) fn clear_conversation(&mut self) {
         self.turns.clear();
+        self.attachments.clear();
         self.notice.clear();
         self.notice_page = 0;
+    }
+
+    pub(crate) fn add_attachment(&mut self, attachment: TuiAttachment) {
+        if self
+            .attachments
+            .iter()
+            .any(|current| current.id == attachment.id)
+        {
+            return;
+        }
+        self.attachments.push(attachment);
+        self.notice.clear();
+        self.notice_page = 0;
+    }
+
+    pub(crate) fn clear_attachments(&mut self) {
+        self.attachments.clear();
     }
 
     pub(crate) fn reset_notice_page(&mut self) {

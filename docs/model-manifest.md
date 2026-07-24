@@ -44,14 +44,32 @@ These entries are candidate facts, not install-ready defaults. The Hugging Face 
 | `qwen3.5-4b` | `unsloth/Qwen3.5-4B-GGUF` | `Qwen3.5-4B-Q4_K_M.gguf` | `e87f176479d0855a907a41277aca2f8ee7a09523` | `Q4_K_M` | `2740937888` | `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4` | Static `unverified`; recorded host-local smoke/RAM/mmproj evidence exists, but exact-response equality failed and local promotion is invalid |
 | `gemma-4-e4b` | `google/gemma-4-E4B-it-qat-q4_0-gguf` | `gemma-4-E4B_q4_0-it.gguf` | `bb3b92e6f031fa438b409f898dd9f14f499a0cb0` | `QAT q4_0` | `5154939136` | `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d` | Static `unverified`; recorded host-local smoke/RAM/mmproj evidence passed and supports a revalidated local promotion/default selection |
 
-Sources checked on 2026-07-06:
+The main GGUF contains the language model. A model-specific `mmproj` contains the
+visual encoder/projector that maps image features into that language model's
+embedding space. The two artifacts are not interchangeable across models or
+revisions. Vision readiness therefore requires the independently pinned projector
+bytes as well as the main artifact; text readiness does not.
+
+| Model ID | Vision artifact | Revision | Size bytes | SHA-256 |
+| --- | --- | --- | ---: | --- |
+| `qwen3.5-4b` | `unsloth/Qwen3.5-4B-GGUF/mmproj-F16.gguf` | `e87f176479d0855a907a41277aca2f8ee7a09523` | `672423616` | `cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864` |
+| `gemma-4-e4b` | `google/gemma-4-E4B-it-qat-q4_0-gguf/gemma-4-E4B-it-mmproj.gguf` | `bb3b92e6f031fa438b409f898dd9f14f499a0cb0` | `991551904` | `c6398448d84a4836fdedf58f9775979e69ae0cc4dfdf4d697b5597693a555b12` |
+
+Registry schema v2 records `visionStatus` and the verified projector path, hash,
+and size. A schema v1 registry is read as legacy text-only state and is never
+silently upgraded to a vision claim. Explicit model preparation writes v2. An
+exact size/SHA cache hit is reused; only a missing, partial, corrupt, or
+revision-changed projector is downloaded again.
+
+Sources checked on 2026-07-23:
 
 - https://huggingface.co/api/models/Qwen/Qwen3.5-4B
 - https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF
-- https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/tree/main?recursive=1
+- https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/tree/e87f176479d0855a907a41277aca2f8ee7a09523?recursive=1
 - https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-unquantized
 - https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf
-- https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf/tree/main?recursive=1
+- https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf/tree/bb3b92e6f031fa438b409f898dd9f14f499a0cb0?recursive=1
+- https://github.com/ggml-org/llama.cpp/blob/master/docs/multimodal.md
 
 ## Schema Draft
 

@@ -1060,6 +1060,20 @@
       ]
     },
     {
+      "path": "docs/ko/v0.48-web-research-browser-plan.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/ko/v0.48-web-research-browser-plan.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "docs/korean-output-guard.md",
       "slices": [
         {
@@ -1345,6 +1359,20 @@
         {
           "responsibility": "refactor-governed documentation contract",
           "target": "docs/v0.29-correction-plan.md",
+          "release": "0.37.1",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/v0.48-web-research-browser-plan.md",
+      "slices": [
+        {
+          "responsibility": "refactor-governed documentation contract",
+          "target": "docs/v0.48-web-research-browser-plan.md",
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
@@ -1660,12 +1688,114 @@
       "path": "src/adapters/web_search.rs",
       "slices": [
         {
-          "responsibility": "bounded read-only web search transport and source extraction",
+          "responsibility": "direct WebSearch facade plus bounded WebOpen redirect and WebFind orchestration",
           "target": "src/adapters/web_search.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/adapters/web_search.rs",
+            "src/adapters/web_search/evidence.rs",
+            "src/adapters/web_search/find.rs",
+            "src/adapters/web_search/html.rs",
+            "src/adapters/web_search/page.rs",
+            "src/adapters/web_search/policy.rs",
+            "src/adapters/web_search/transport.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/evidence.rs",
+      "slices": [
+        {
+          "responsibility": "small-model search evidence budgeting and source composition",
+          "target": "src/adapters/web_search/evidence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/adapters/web_search/evidence.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/find.rs",
+      "slices": [
+        {
+          "responsibility": "bounded literal search over normalized opened-page text",
+          "target": "src/adapters/web_search/find.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/adapters/web_search/find.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/html.rs",
+      "slices": [
+        {
+          "responsibility": "direct search HTML parsing and result-target normalization",
+          "target": "src/adapters/web_search/html.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/adapters/web_search/html.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/page.rs",
+      "slices": [
+        {
+          "responsibility": "bounded HTML, plain-text, and JSON page normalization",
+          "target": "src/adapters/web_search/page.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/adapters/web_search/page.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/policy.rs",
+      "slices": [
+        {
+          "responsibility": "web query, HTTPS source, public target, DNS, and redirect-origin validation policy",
+          "target": "src/adapters/web_search/policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/adapters/web_search/policy.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/transport.rs",
+      "slices": [
+        {
+          "responsibility": "credential-free bounded HTTPS search and no-auto-redirect page transport",
+          "target": "src/adapters/web_search/transport.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search.rs",
+            "src/adapters/web_search/transport.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -1944,13 +2074,73 @@
       "path": "src/adapters/terminal/native/live_input.rs",
       "slices": [
         {
-          "responsibility": "live terminal line editing and slash suggestion rendering",
+          "responsibility": "live terminal input event coordination",
           "target": "src/adapters/terminal/native/live_input.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/adapters/terminal/native/live_input.rs",
             "tests/surfaces/native_terminal.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/editor.rs",
+      "slices": [
+        {
+          "responsibility": "UTF-8 terminal line editing and keyboard navigation",
+          "target": "src/adapters/terminal/native/live_input/editor.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/live_input/editor.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/paste.rs",
+      "slices": [
+        {
+          "responsibility": "bounded bracketed-paste capture and normalization",
+          "target": "src/adapters/terminal/native/live_input/paste.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/live_input/paste.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/render.rs",
+      "slices": [
+        {
+          "responsibility": "live composer and command-palette rendering",
+          "target": "src/adapters/terminal/native/live_input/render.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/live_input/render.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/picker.rs",
+      "slices": [
+        {
+          "responsibility": "keyboard-selectable terminal choice rendering",
+          "target": "src/adapters/terminal/native/live_input/picker.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/live_input/picker.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3119,13 +3309,47 @@
       "path": "src/app/web_search_adapter.rs",
       "slices": [
         {
-          "responsibility": "web-search routing, untrusted grounding context, and visible source composition",
+          "responsibility": "WebSearch, WebOpen, and WebFind application facade with untrusted grounding and visible sources",
           "target": "src/app/web_search_adapter.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/adapters/web_search.rs",
             "src/app/web_search_adapter.rs",
+            "src/app/web_search_adapter/page_tools.rs",
+            "src/app/web_search_adapter/routing.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_tools.rs",
+      "slices": [
+        {
+          "responsibility": "opened-page answer composition and visible WebFind results",
+          "target": "src/app/web_search_adapter/page_tools.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter.rs",
+            "src/app/web_search_adapter/page_tools.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic search, open, and in-page-find request routing",
+          "target": "src/app/web_search_adapter/routing.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter.rs",
+            "src/app/web_search_adapter/routing.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3181,11 +3405,31 @@
             "src/runtime_core/policy/redaction.rs",
             "src/adapters/sqlite/ledger_projection.rs",
             "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/append.rs",
             "src/app/workflow_adapter/ledger/derived.rs",
             "src/app/workflow_adapter/ledger/query.rs",
             "src/app/workflow_adapter/ledger/storage.rs",
             "src/app/workflow_adapter/ledger/tests.rs",
             "src/app/workflow_adapter/ledger/writer.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/append.rs",
+      "slices": [
+        {
+          "responsibility": "durable runtime ledger JSONL append primitive",
+          "target": "src/app/workflow_adapter/ledger/append.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/ledger.rs",
+            "src/app/workflow_adapter/ledger.rs",
+            "src/app/workflow_adapter/ledger/append.rs",
+            "src/app/workflow_adapter/ledger/storage.rs",
+            "src/app/workflow_adapter/ledger/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3317,7 +3561,7 @@
       "path": "src/app/inference_adapter/model/setup.rs",
       "slices": [
         {
-          "responsibility": "source-backed model choices and interactive setup preparation",
+          "responsibility": "interactive model preparation, activation, and context selection",
           "target": "src/app/inference_adapter/model/setup.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -3325,6 +3569,40 @@
             "src/app/inference_adapter/model.rs",
             "src/app/inference_adapter/model/setup.rs",
             "src/app/tui_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/setup/catalog.rs",
+      "slices": [
+        {
+          "responsibility": "source-backed interactive model option catalog rendering",
+          "target": "src/app/inference_adapter/model/setup/catalog.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model/setup.rs",
+            "src/app/inference_adapter/model/setup/catalog.rs",
+            "src/app/inference_adapter/model/setup/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/setup/tests.rs",
+      "slices": [
+        {
+          "responsibility": "interactive model setup and projector readiness regression tests",
+          "target": "src/app/inference_adapter/model/setup/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model/setup.rs",
+            "src/app/inference_adapter/model/setup/catalog.rs",
+            "src/app/inference_adapter/model/setup/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3366,6 +3644,24 @@
             "src/app/inference_adapter/model.rs",
             "src/app/inference_adapter/model/registry.rs",
             "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/registry/vision.rs",
+      "slices": [
+        {
+          "responsibility": "model-specific vision projector registry binding and local artifact verification",
+          "target": "src/app/inference_adapter/model/registry/vision.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/filesystem/model_artifact.rs",
+            "src/runtime_core/inference/model/manifest.rs",
+            "src/app/inference_adapter/model/registry.rs",
+            "src/app/inference_adapter/model/registry/vision.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -4750,13 +5046,64 @@
       "path": "src/runtime_core/patch/intent.rs",
       "slices": [
         {
-          "responsibility": "intent classification and action planning",
+          "responsibility": "intent contracts and side-effect-free action planning",
           "target": "src/runtime_core/patch/intent.rs",
           "release": "0.37.9",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/intent.rs",
+            "src/runtime_core/patch/intent/classification.rs",
+            "src/runtime_core/patch/intent/model_action.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent/classification.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic request classification and constraint detection",
+          "target": "src/runtime_core/patch/intent/classification.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/intent.rs",
+            "src/runtime_core/patch/intent/classification.rs",
+            "src/runtime_core/patch/intent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent/model_action.rs",
+      "slices": [
+        {
+          "responsibility": "fail-closed model action parsing and normalization",
+          "target": "src/runtime_core/patch/intent/model_action.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/intent.rs",
+            "src/runtime_core/patch/intent/model_action.rs",
+            "src/runtime_core/patch/intent/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent/tests.rs",
+      "slices": [
+        {
+          "responsibility": "intent classification, action planning, and fail-closed parsing regression tests",
+          "target": "src/runtime_core/patch/intent/tests.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/intent.rs",
+            "src/runtime_core/patch/intent/tests.rs"
           ]
         }
       ]
@@ -4870,12 +5217,92 @@
       "path": "src/runtime_core/reporting/korean_guard.rs",
       "slices": [
         {
-          "responsibility": "Korean output invariant",
+          "responsibility": "Korean output policy facade",
           "target": "src/runtime_core/reporting/korean_guard.rs",
-          "release": "0.37.10",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/reporting/korean_guard.rs",
+            "src/runtime_core/reporting/korean_guard/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/classification.rs",
+      "slices": [
+        {
+          "responsibility": "Korean output classification policy",
+          "target": "src/runtime_core/reporting/korean_guard/classification.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/korean_guard/classification.rs",
+            "src/runtime_core/reporting/korean_guard/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/language.rs",
+      "slices": [
+        {
+          "responsibility": "user-requested response language detection",
+          "target": "src/runtime_core/reporting/korean_guard/language.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/korean_guard/language.rs",
+            "src/runtime_core/reporting/korean_guard/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/projection.rs",
+      "slices": [
+        {
+          "responsibility": "safe visible-answer projection",
+          "target": "src/runtime_core/reporting/korean_guard/projection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/korean_guard/projection.rs",
+            "src/runtime_core/reporting/korean_guard/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/streaming.rs",
+      "slices": [
+        {
+          "responsibility": "streaming output language state machine",
+          "target": "src/runtime_core/reporting/korean_guard/streaming.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/korean_guard/streaming.rs",
+            "src/runtime_core/reporting/korean_guard/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/tests.rs",
+      "slices": [
+        {
+          "responsibility": "Korean output guard regression tests",
+          "target": "src/runtime_core/reporting/korean_guard/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/reporting/korean_guard/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -5114,7 +5541,7 @@
       "path": "src/runtime_core/workflow/storage_compat/ledger.rs",
       "slices": [
         {
-          "responsibility": "canonical event append and hashing",
+          "responsibility": "canonical event codec and hashing",
           "target": "src/runtime_core/workflow/storage_compat/ledger.rs",
           "release": "0.37.4",
           "state": "complete",
@@ -5162,7 +5589,7 @@
       "path": "src/runtime_core/workflow/storage_compat/transcript.rs",
       "slices": [
         {
-          "responsibility": "canonical transcript records",
+          "responsibility": "canonical transcript record codecs",
           "target": "src/runtime_core/workflow/storage_compat/transcript.rs",
           "release": "0.37.4",
           "state": "complete",
@@ -5972,7 +6399,61 @@
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/controller.rs",
+            "src/surfaces/tui/controller/attachments.rs",
+            "src/surfaces/tui/controller/model_selection.rs",
+            "src/surfaces/tui/controller/terminal_flow.rs",
             "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/attachments.rs",
+      "slices": [
+        {
+          "responsibility": "TUI attachment path detection and capture presentation",
+          "target": "src/surfaces/tui/controller/attachments.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/surfaces/tui/controller/attachments.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/model_selection.rs",
+      "slices": [
+        {
+          "responsibility": "TUI model picker, confirmation, and setup notices",
+          "target": "src/surfaces/tui/controller/model_selection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/surfaces/tui/controller/model_selection.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/terminal_flow.rs",
+      "slices": [
+        {
+          "responsibility": "TUI terminal prompts, frame boundaries, faults, and typed outcome consumption",
+          "target": "src/surfaces/tui/controller/terminal_flow.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/surfaces/tui/controller/terminal_flow.rs",
             "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -6046,15 +6527,51 @@
       "path": "src/surfaces/tui/render.rs",
       "slices": [
         {
-          "responsibility": "interactive rendering and report layout primitives",
+          "responsibility": "interactive frame rendering and conversation layout",
           "target": "src/surfaces/tui/render.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/render/report_layout.rs",
+            "src/surfaces/tui/render/text.rs",
             "src/surfaces/tui/report_render.rs",
             "src/app/tui_adapter.rs",
             "src/app/tui_adapter/report_composition.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/report_layout.rs",
+      "slices": [
+        {
+          "responsibility": "read-only TUI report layout and metric label primitives",
+          "target": "src/surfaces/tui/render/report_layout.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/render/report_layout.rs",
+            "src/surfaces/tui/report_render.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/text.rs",
+      "slices": [
+        {
+          "responsibility": "terminal-safe text sanitization, wrapping, truncation, and display width",
+          "target": "src/surfaces/tui/render/text.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/render/text.rs",
+            "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -6687,6 +7204,22 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/attachment.rs",
+      "slices": [
+        {
+          "responsibility": "bounded local attachment capture and request composition",
+          "target": "src/app/tui_adapter/attachment.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/attachment.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/conversation.rs",
       "slices": [
         {
@@ -6724,13 +7257,48 @@
       "path": "src/app/tui_adapter/runtime.rs",
       "slices": [
         {
-          "responsibility": "interactive TUI runtime composition and readiness",
+          "responsibility": "interactive TUI runtime composition and request dispatch",
           "target": "src/app/tui_adapter/runtime.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/tui_adapter.rs",
             "src/app/tui_adapter/runtime.rs",
+            "src/app/tui_adapter/runtime/backend.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/backend.rs",
+      "slices": [
+        {
+          "responsibility": "interactive TUI backend readiness and lazy startup coordination",
+          "target": "src/app/tui_adapter/runtime/backend.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime.rs",
+            "src/app/tui_adapter/runtime/backend.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/web_tools.rs",
+      "slices": [
+        {
+          "responsibility": "current-TUI opened-page state and web tool dispatch",
+          "target": "src/app/tui_adapter/web_tools.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter.rs",
+            "src/app/tui_adapter/runtime.rs",
+            "src/app/tui_adapter/web_tools.rs",
+            "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7656,6 +8224,12 @@
       ]
     },
     {
+      "path": "docs/ko/v0.48-web-research-browser-plan.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
       "path": "docs/korean-output-guard.md",
       "responsibilities": [
         "refactor-governed documentation contract"
@@ -7777,6 +8351,12 @@
     },
     {
       "path": "docs/v0.29-correction-plan.md",
+      "responsibilities": [
+        "refactor-governed documentation contract"
+      ]
+    },
+    {
+      "path": "docs/v0.48-web-research-browser-plan.md",
       "responsibilities": [
         "refactor-governed documentation contract"
       ]
@@ -7910,7 +8490,43 @@
     {
       "path": "src/adapters/web_search.rs",
       "responsibilities": [
-        "bounded read-only web search transport and source extraction"
+        "direct WebSearch facade plus bounded WebOpen redirect and WebFind orchestration"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/evidence.rs",
+      "responsibilities": [
+        "small-model search evidence budgeting and source composition"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/find.rs",
+      "responsibilities": [
+        "bounded literal search over normalized opened-page text"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/html.rs",
+      "responsibilities": [
+        "direct search HTML parsing and result-target normalization"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/page.rs",
+      "responsibilities": [
+        "bounded HTML, plain-text, and JSON page normalization"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/policy.rs",
+      "responsibilities": [
+        "web query, HTTPS source, public target, DNS, and redirect-origin validation policy"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/transport.rs",
+      "responsibilities": [
+        "credential-free bounded HTTPS search and no-auto-redirect page transport"
       ]
     },
     {
@@ -8018,7 +8634,31 @@
     {
       "path": "src/adapters/terminal/native/live_input.rs",
       "responsibilities": [
-        "live terminal line editing and slash suggestion rendering"
+        "live terminal input event coordination"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/editor.rs",
+      "responsibilities": [
+        "UTF-8 terminal line editing and keyboard navigation"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/paste.rs",
+      "responsibilities": [
+        "bounded bracketed-paste capture and normalization"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/render.rs",
+      "responsibilities": [
+        "live composer and command-palette rendering"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/picker.rs",
+      "responsibilities": [
+        "keyboard-selectable terminal choice rendering"
       ]
     },
     {
@@ -8434,7 +9074,19 @@
     {
       "path": "src/app/web_search_adapter.rs",
       "responsibilities": [
-        "web-search routing, untrusted grounding context, and visible source composition"
+        "WebSearch, WebOpen, and WebFind application facade with untrusted grounding and visible sources"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_tools.rs",
+      "responsibilities": [
+        "opened-page answer composition and visible WebFind results"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing.rs",
+      "responsibilities": [
+        "deterministic search, open, and in-page-find request routing"
       ]
     },
     {
@@ -8453,6 +9105,12 @@
       "path": "src/app/workflow_adapter/ledger.rs",
       "responsibilities": [
         "ledger persistence and projection orchestration adapter"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/ledger/append.rs",
+      "responsibilities": [
+        "durable runtime ledger JSONL append primitive"
       ]
     },
     {
@@ -8500,7 +9158,19 @@
     {
       "path": "src/app/inference_adapter/model/setup.rs",
       "responsibilities": [
-        "source-backed model choices and interactive setup preparation"
+        "interactive model preparation, activation, and context selection"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/setup/catalog.rs",
+      "responsibilities": [
+        "source-backed interactive model option catalog rendering"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/setup/tests.rs",
+      "responsibilities": [
+        "interactive model setup and projector readiness regression tests"
       ]
     },
     {
@@ -8513,6 +9183,12 @@
       "path": "src/app/inference_adapter/model/registry.rs",
       "responsibilities": [
         "model local registry installation, manifest and promotion rebinding, and default selection"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/registry/vision.rs",
+      "responsibilities": [
+        "model-specific vision projector registry binding and local artifact verification"
       ]
     },
     {
@@ -8999,7 +9675,25 @@
     {
       "path": "src/runtime_core/patch/intent.rs",
       "responsibilities": [
-        "intent classification and action planning"
+        "intent contracts and side-effect-free action planning"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent/classification.rs",
+      "responsibilities": [
+        "deterministic request classification and constraint detection"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent/model_action.rs",
+      "responsibilities": [
+        "fail-closed model action parsing and normalization"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/intent/tests.rs",
+      "responsibilities": [
+        "intent classification, action planning, and fail-closed parsing regression tests"
       ]
     },
     {
@@ -9047,7 +9741,37 @@
     {
       "path": "src/runtime_core/reporting/korean_guard.rs",
       "responsibilities": [
-        "Korean output invariant"
+        "Korean output policy facade"
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/classification.rs",
+      "responsibilities": [
+        "Korean output classification policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/language.rs",
+      "responsibilities": [
+        "user-requested response language detection"
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/projection.rs",
+      "responsibilities": [
+        "safe visible-answer projection"
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/streaming.rs",
+      "responsibilities": [
+        "streaming output language state machine"
+      ]
+    },
+    {
+      "path": "src/runtime_core/reporting/korean_guard/tests.rs",
+      "responsibilities": [
+        "Korean output guard regression tests"
       ]
     },
     {
@@ -9143,7 +9867,7 @@
     {
       "path": "src/runtime_core/workflow/storage_compat/ledger.rs",
       "responsibilities": [
-        "canonical event append and hashing"
+        "canonical event codec and hashing"
       ]
     },
     {
@@ -9161,7 +9885,7 @@
     {
       "path": "src/runtime_core/workflow/storage_compat/transcript.rs",
       "responsibilities": [
-        "canonical transcript records"
+        "canonical transcript record codecs"
       ]
     },
     {
@@ -9453,6 +10177,24 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/controller/attachments.rs",
+      "responsibilities": [
+        "TUI attachment path detection and capture presentation"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/model_selection.rs",
+      "responsibilities": [
+        "TUI model picker, confirmation, and setup notices"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/terminal_flow.rs",
+      "responsibilities": [
+        "TUI terminal prompts, frame boundaries, faults, and typed outcome consumption"
+      ]
+    },
+    {
       "path": "src/surfaces/tui/mod.rs",
       "responsibilities": [
         "reserved architecture ownership"
@@ -9479,7 +10221,19 @@
     {
       "path": "src/surfaces/tui/render.rs",
       "responsibilities": [
-        "interactive rendering and report layout primitives"
+        "interactive frame rendering and conversation layout"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/report_layout.rs",
+      "responsibilities": [
+        "read-only TUI report layout and metric label primitives"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/text.rs",
+      "responsibilities": [
+        "terminal-safe text sanitization, wrapping, truncation, and display width"
       ]
     },
     {
@@ -9689,6 +10443,12 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/attachment.rs",
+      "responsibilities": [
+        "bounded local attachment capture and request composition"
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/conversation.rs",
       "responsibilities": [
         "non-mutating TUI conversation routing and report presentation"
@@ -9703,7 +10463,19 @@
     {
       "path": "src/app/tui_adapter/runtime.rs",
       "responsibilities": [
-        "interactive TUI runtime composition and readiness"
+        "interactive TUI runtime composition and request dispatch"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/backend.rs",
+      "responsibilities": [
+        "interactive TUI backend readiness and lazy startup coordination"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/web_tools.rs",
+      "responsibilities": [
+        "current-TUI opened-page state and web tool dispatch"
       ]
     },
     {

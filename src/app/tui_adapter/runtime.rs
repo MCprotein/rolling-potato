@@ -1,19 +1,20 @@
 //! Interactive TUI runtime composition.
 
-use crate::foundation::error::AppError;
-use crate::surfaces::tui::controller::TuiRuntimePort;
-use crate::surfaces::tui::outcome::TuiOutcome;
-use crate::surfaces::tui::runtime_bridge::{
-    new_tui_intent_id, SelectionLease, TuiBackendStatus, TuiGateKind, TuiIntent, TuiReadPage,
-    TuiReadRequest, TuiStatusSnapshot,
-};
-use crate::surfaces::tui::setup;
+mod backend;
 
 use super::model_switch::{switch_prepared_model, LiveModelSwitch};
 use super::{
     canonical_dispatch_intent, canonical_gate_descriptor, canonical_read_page,
     canonical_selection_lease, conversation, TuiRuntimeAdapter,
 };
+use crate::foundation::error::AppError;
+use crate::surfaces::tui::controller::TuiRuntimePort;
+use crate::surfaces::tui::outcome::TuiOutcome;
+use crate::surfaces::tui::runtime_bridge::{
+    new_tui_intent_id, SelectionLease, TuiAttachment, TuiBackendStatus, TuiGateKind, TuiIntent,
+    TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
+};
+use backend::ensure_runtime_ready;
 
 impl TuiRuntimePort for TuiRuntimeAdapter {
     fn startup_update_notice(&mut self) -> Option<String> {
@@ -49,6 +50,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
                 .filter(|_| latest_matches_model)
                 .and_then(|run| run.context_limit_tokens)
         });
+        let vision_ready = backend.vision_ready;
         let backend = match backend.status {
             "ready" => TuiBackendStatus::Ready,
             "stale" => TuiBackendStatus::Stale,
@@ -65,6 +67,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
                 )?
                 .is_some(),
             backend,
+            vision_ready,
             session_id: identity.session_id,
         })
     }
@@ -73,22 +76,58 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         Ok(crate::app::context_adapter::compact_manually()?.report())
     }
 
-    fn submit_request(&mut self, request: &str) -> Result<String, AppError> {
-        let active_model = crate::app::inference_adapter::backend::runtime_snapshot()
-            .ok()
+    fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError> {
+        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
+        super::attachment::capture(path, &identity.session_id)
+    }
+
+    fn submit_request(
+        &mut self,
+        request: &str,
+        attachments: &[TuiAttachment],
+    ) -> Result<String, AppError> {
+        let user_request = request.trim();
+        let backend = crate::app::inference_adapter::backend::runtime_snapshot().ok();
+        let context_limit_tokens = backend
+            .as_ref()
+            .and_then(|snapshot| snapshot.context_limit_tokens)
+            .or_else(|| crate::app::inference_adapter::model::configured_context_length().ok());
+        let active_model = backend
             .and_then(|snapshot| snapshot.model_id)
             .or_else(crate::app::inference_adapter::model::configured_model_id);
-        if let Some(reply) = conversation::local_reply(request, active_model.as_deref()) {
+        let input = super::attachment::compose_request(request, attachments, context_limit_tokens)?;
+        let local_context = input.text.as_str();
+        if !input.images.is_empty() {
+            ensure_runtime_ready()?;
+            return conversation::reply_with_images(&input);
+        }
+        if let Some(result) =
+            super::web_tools::dispatch(&mut self.opened_web_page, user_request, local_context)
+        {
+            return result;
+        }
+        if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref()) {
             return Ok(reply);
         }
         ensure_runtime_ready()?;
-        if crate::app::web_search_adapter::should_search(request) {
-            return crate::app::web_search_adapter::answer(request);
+        let conversational = conversation::is_conversational_request(user_request);
+        let has_text_attachments = !attachments.is_empty();
+        match conversation::decide_request(user_request, conversational && !has_text_attachments)? {
+            conversation::RequestDecision::Answer(answer) => return Ok(answer),
+            conversation::RequestDecision::WebTool(tool) => {
+                return super::web_tools::execute(
+                    &mut self.opened_web_page,
+                    tool,
+                    user_request,
+                    local_context,
+                );
+            }
+            conversation::RequestDecision::ContinueLocal => {}
         }
-        if conversation::is_conversational_request(request) {
-            return conversation::reply(request);
+        if conversational {
+            return conversation::reply_with_context(user_request, local_context);
         }
-        crate::app::runtime_adapter::agent_run_report(request)
+        crate::app::runtime_adapter::agent_run_report(local_context)
             .map(|report| conversation::present_agent_report(&report))
     }
 
@@ -105,13 +144,19 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             &mut LiveModelSwitch,
             &prepared.id,
             &prepared.artifact_path.display().to_string(),
+            prepared.context_tokens,
             &snapshot,
             &default,
         )?;
         Ok(format!(
-            "모델 변경 완료\n- model: {}\n- context: {}\n- backend: ready",
+            "모델 변경 완료\n- model: {}\n- context: {}\n- vision: {}\n- backend: ready",
             prepared.id,
-            setup::DEFAULT_CONTEXT_TOKENS
+            prepared.context_tokens,
+            if prepared.vision_ready {
+                "ready"
+            } else {
+                "text-only"
+            }
         ))
     }
 
@@ -144,30 +189,4 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
     fn dispatch_tui_intent(&mut self, intent: TuiIntent) -> Result<TuiOutcome, AppError> {
         canonical_dispatch_intent(intent)
     }
-}
-
-fn ensure_runtime_ready() -> Result<(), AppError> {
-    let snapshot = crate::app::inference_adapter::backend::runtime_snapshot()?;
-    if snapshot.status == "ready" {
-        return Ok(());
-    }
-    if snapshot.status == "stale" {
-        crate::app::inference_adapter::backend::stop_report()?;
-    }
-    let model_path =
-        crate::app::inference_adapter::model::default_artifact_path().map_err(|err| {
-            if err.message.contains("기본 모델이 선택되지 않았습니다") {
-                AppError::blocked(
-                    "모델이 선택되지 않았습니다. TUI에서 /model을 입력해 모델을 선택하세요.",
-                )
-            } else {
-                err
-            }
-        })?;
-    crate::app::inference_adapter::backend::ensure_installed_report()?;
-    crate::app::inference_adapter::backend::start_report(
-        &model_path.display().to_string(),
-        Some(setup::DEFAULT_CONTEXT_TOKENS),
-    )?;
-    Ok(())
 }

@@ -85,11 +85,21 @@
 
 - local backend 기본값
 - telemetry 없음
-- 웹 검색은 명시적 요청이나 최신성이 필요한 경우에만 현재 질문을 고정된 Exa MCP
-  endpoint로 전송합니다. 저장소 범위 요청은 웹 사용을 명시하지 않으면 local에 남고,
-  offline/no-browse 지시는 검색을 비활성화합니다.
-- 제한된 검색 highlight는 신뢰하지 않는 text이며 command, file, permission 권한을
-  얻지 못합니다.
+- Agent가 선택한 웹 검색은 local model이 사용자 요청만 보고 만든 제한된 query만
+  고정된 공개 HTML 검색 endpoint로 HTTPS 전송합니다. Routing model에는 local
+  attachment 본문을 전달하지 않고 API credential도 사용하지 않으며,
+  offline/no-browse 지시는 retrieval을 비활성화합니다.
+- `WebOpen`은 HTTP 입력을 HTTPS로 승격하고 URL credential, local/private/
+  link-local/reserved target과 DNS 응답을 실제 direct 연결에 사용하는 resolver에서
+  차단하며 proxy routing을 비활성화합니다. 제한된 동일 host redirect만 추적하고
+  다른 host redirect는 새로운 명시적 open을 요구합니다.
+- 제한된 검색 highlight와 열린 페이지 text는 신뢰하지 않으며 command, file,
+  permission 권한을 얻지 못합니다. 열린 content는 `WebFind`를 위해 현재 TUI
+  memory에만 유지하고 durable transcript source로 저장하지 않습니다.
+- 붙여넣은 첨부는 허용 형식과 크기 상한을 만족하는 regular non-symlink 파일만 local
+  app data에 복사하며 web-search provider로 보내지 않습니다. PNG/JPEG bytes는
+  dispatch 시 signature와 hash를 다시 검증하고, image inference에는 정확히 검증된
+  model/projector 조합이 필요합니다.
 - logs redaction
 - local user와 visible/normalized model/tool/evidence turn만 영속화하고 전체 backend prompt, hidden response, raw source body는 제외
 

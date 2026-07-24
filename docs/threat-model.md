@@ -85,11 +85,21 @@ Mitigations:
 
 - local backend default
 - no telemetry
-- web search sends only the current question to the fixed Exa MCP endpoint when
-  the request is explicit or freshness-sensitive; repository-scoped requests stay
-  local unless web use is explicit, and an offline/no-browse instruction disables it
-- bounded search highlights are untrusted text and never receive command, file, or
-  permission authority
+- agent-selected web search sends only a bounded query derived by the local model
+  from the user's request to a fixed public HTML search endpoint; the routing model
+  never receives local attachment contents, no API credential is used, HTTPS is
+  mandatory, and an offline/no-browse instruction disables retrieval
+- `WebOpen` upgrades HTTP input to HTTPS, rejects URL credentials, local/private/
+  link-local/reserved targets and DNS answers in the resolver used by the direct
+  connection, disables proxy routing, follows only bounded same-host redirects,
+  and requires a new explicit open for a cross-host redirect
+- bounded search highlights and opened-page text are untrusted and never receive
+  command, file, or permission authority; opened content remains in current-TUI
+  memory for `WebFind` and is not a durable transcript source
+- pasted attachments must be regular non-symlink files with bounded size and an
+  allowed type; they are copied into local app data and never sent to the web-search
+  provider. PNG/JPEG bytes are signature- and hash-revalidated at dispatch, and
+  image inference requires an exact verified model/projector pair
 - log redaction
 - only local user and visible/normalized model/tool/evidence turns are durable; complete backend prompts, hidden responses, and raw source bodies are excluded
 

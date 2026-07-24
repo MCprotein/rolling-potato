@@ -35,6 +35,16 @@ pub(crate) struct BenchmarkClaim {
     pub(crate) reproducibility: &'static str,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ModelArtifactDescriptor {
+    pub(crate) provider: &'static str,
+    pub(crate) url: &'static str,
+    pub(crate) terms_url: &'static str,
+    pub(crate) file_name: &'static str,
+    pub(crate) sha256: &'static str,
+    pub(crate) size_bytes: u64,
+}
+
 #[derive(Debug)]
 pub(crate) struct ModelManifestEntry {
     pub(crate) id: &'static str,
@@ -53,6 +63,7 @@ pub(crate) struct ModelManifestEntry {
     pub(crate) quantization: Option<&'static str>,
     pub(crate) sha256: Option<&'static str>,
     pub(crate) size_bytes: Option<u64>,
+    pub(crate) vision_projector: Option<ModelArtifactDescriptor>,
     pub(crate) context_length: Option<u32>,
     pub(crate) recommended_ram_gb: Option<u32>,
     pub(crate) backend_compatibility: Option<SourceClaim>,
@@ -79,8 +90,20 @@ pub(crate) struct RegistryEntry {
     pub(crate) upstream_url: String,
     pub(crate) artifact_path: String,
     pub(crate) artifact_sha256: String,
+    pub(crate) vision_status: String,
+    pub(crate) mmproj_path: Option<String>,
+    pub(crate) mmproj_sha256: Option<String>,
+    pub(crate) mmproj_size_bytes: Option<u64>,
     pub(crate) license_source: String,
     pub(crate) license_checked_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RegistryVisionState {
+    pub(crate) status: String,
+    pub(crate) mmproj_path: Option<String>,
+    pub(crate) mmproj_sha256: Option<String>,
+    pub(crate) mmproj_size_bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,16 +118,6 @@ pub(crate) enum ModelArtifactFetchStatus {
     Downloaded,
     Resumed,
     CacheHit,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ModelArtifactDescriptor {
-    pub(crate) provider: &'static str,
-    pub(crate) url: &'static str,
-    pub(crate) terms_url: &'static str,
-    pub(crate) file_name: &'static str,
-    pub(crate) sha256: &'static str,
-    pub(crate) size_bytes: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -187,6 +200,14 @@ pub(crate) const CANDIDATES: &[ModelManifestEntry] = &[
         quantization: Some("Q4_K_M"),
         sha256: Some("00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"),
         size_bytes: Some(2_740_937_888),
+        vision_projector: Some(ModelArtifactDescriptor {
+            provider: "unsloth/Qwen3.5-4B-GGUF",
+            url: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/mmproj-F16.gguf",
+            terms_url: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF",
+            file_name: "mmproj-F16.gguf",
+            sha256: "cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864",
+            size_bytes: 672_423_616,
+        }),
         context_length: Some(262_144),
         recommended_ram_gb: None,
         backend_compatibility: Some(SourceClaim {
@@ -230,6 +251,14 @@ pub(crate) const CANDIDATES: &[ModelManifestEntry] = &[
         quantization: Some("QAT q4_0"),
         sha256: Some("e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d"),
         size_bytes: Some(5_154_939_136),
+        vision_projector: Some(ModelArtifactDescriptor {
+            provider: "google/gemma-4-E4B-it-qat-q4_0-gguf",
+            url: "https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/bb3b92e6f031fa438b409f898dd9f14f499a0cb0/gemma-4-E4B-it-mmproj.gguf",
+            terms_url: "https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf",
+            file_name: "gemma-4-E4B-it-mmproj.gguf",
+            sha256: "c6398448d84a4836fdedf58f9775979e69ae0cc4dfdf4d697b5597693a555b12",
+            size_bytes: 991_551_904,
+        }),
         context_length: Some(131_072),
         recommended_ram_gb: None,
         backend_compatibility: Some(SourceClaim {
@@ -273,6 +302,7 @@ pub(crate) const CANDIDATES: &[ModelManifestEntry] = &[
         quantization: None,
         sha256: None,
         size_bytes: None,
+        vision_projector: None,
         context_length: None,
         recommended_ram_gb: None,
         backend_compatibility: None,
@@ -416,6 +446,19 @@ pub(crate) fn source_backed_artifact(
         file_name: candidate.artifact_name.expect("validated artifact name"),
         sha256: candidate.sha256.expect("validated artifact sha256"),
         size_bytes: candidate.size_bytes.expect("validated artifact size"),
+    })
+}
+
+pub(crate) fn source_backed_vision_projector(
+    candidate: &ModelManifestEntry,
+) -> Option<ModelArtifactDescriptor> {
+    candidate.vision_projector.filter(|artifact| {
+        !artifact.provider.trim().is_empty()
+            && artifact.url.starts_with("https://")
+            && artifact.terms_url.starts_with("https://")
+            && !artifact.file_name.trim().is_empty()
+            && checksum::is_valid_sha256(artifact.sha256)
+            && artifact.size_bytes > 0
     })
 }
 

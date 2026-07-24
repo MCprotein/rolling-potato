@@ -19,9 +19,12 @@ use crate::runtime_core::inference::model::promotion::{
 };
 
 mod default_selection;
+mod vision;
 pub(crate) use default_selection::{
     restore_default_selection, snapshot_default_selection, DefaultSelectionSnapshot,
 };
+use vision::local_registry_vision;
+pub(crate) use vision::verified_vision_projector;
 
 pub fn registry_report() -> String {
     registry_summary()
@@ -37,11 +40,12 @@ pub fn default_report() -> Result<String, AppError> {
     }
 
     Ok(format!(
-        "기본 모델\n- id: {}\n- display name: {}\n- artifact: {}\n- sha256: {}\n- backend version: {}\n- benchmark run: {}\n- selected at ms: {}\n- 상태: registry, artifact, promotion evidence 재검증 완료",
+        "기본 모델\n- id: {}\n- display name: {}\n- artifact: {}\n- sha256: {}\n- vision: {}\n- backend version: {}\n- benchmark run: {}\n- selected at ms: {}\n- 상태: registry, artifact, promotion evidence 재검증 완료",
         entry.id,
         entry.display_name,
         entry.artifact_path,
         entry.artifact_sha256,
+        entry.vision_status,
         entry.backend_version,
         entry.benchmark_run_id,
         selection.selected_at_ms
@@ -73,10 +77,11 @@ pub fn set_default_report(id: &str) -> Result<String, AppError> {
     )?;
 
     Ok(format!(
-        "기본 모델 선택 완료\n- id: {}\n- artifact: {}\n- sha256: {}\n- selection: {}\n- ledger event: {}\n- 동작: backend start에서 --model을 생략하면 이 모델을 재검증한 뒤 사용합니다.",
+        "기본 모델 선택 완료\n- id: {}\n- artifact: {}\n- sha256: {}\n- vision: {}\n- selection: {}\n- ledger event: {}\n- 동작: backend start에서 --model을 생략하면 이 모델과 준비된 mmproj를 재검증한 뒤 사용합니다.",
         entry.id,
         entry.artifact_path,
         entry.artifact_sha256,
+        entry.vision_status,
         model_artifact::paths().default_file.display(),
         event_id
     ))
@@ -221,7 +226,7 @@ pub(super) fn registry_summary() -> String {
                 .iter()
                 .map(|entry| {
                     format!(
-                        "- {}{} | status: {} | evidence: {} | sha256: {} | path: {}",
+                        "- {}{} | status: {} | vision: {} | evidence: {} | sha256: {} | path: {}",
                         entry.id,
                         if selected_id.as_deref() == Some(entry.id.as_str()) {
                             " | default"
@@ -229,6 +234,7 @@ pub(super) fn registry_summary() -> String {
                             ""
                         },
                         entry.status,
+                        entry.vision_status,
                         entry.evidence_status,
                         entry.artifact_sha256,
                         entry.artifact_path
@@ -314,6 +320,7 @@ pub(super) fn registry_entry_json(
         promotion,
         &artifact_path,
         evidence_path.as_deref(),
+        &local_registry_vision(candidate),
     )
 }
 

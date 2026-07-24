@@ -10,8 +10,6 @@ use crate::foundation::error::AppError;
 pub use crate::runtime_core::policy::redaction::{contains_sensitive_text, redact_text};
 pub(crate) use crate::runtime_core::workflow::application::transaction_coordinator::PlannedEvent;
 #[cfg(test)]
-use crate::runtime_core::workflow::storage_compat::ledger::append_line;
-#[cfg(test)]
 use crate::runtime_core::workflow::storage_compat::ledger::event_chain_payload;
 #[cfg(test)]
 pub use crate::runtime_core::workflow::storage_compat::ledger::parse_event_line;
@@ -21,11 +19,14 @@ pub use crate::runtime_core::workflow::storage_compat::ledger::{
     json_string, LedgerBinding, LedgerEvent, ParsedLedgerEvent, RuntimeIdentity, WorkflowCheckpoint,
 };
 
+mod append;
 mod derived;
 mod query;
 mod storage;
 mod writer;
 
+#[cfg(test)]
+use append::append_line;
 #[cfg(test)]
 use derived::{render_chained_ledger, validate_derived_outputs_unlocked};
 pub use query::{

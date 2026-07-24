@@ -8,15 +8,16 @@ use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
 use crate::runtime_core::workflow::domain::transcript::ToolOutputView;
 use crate::runtime_core::workflow::storage_compat::transcript::{
-    self as transcript_codec, ToolOutputArtifactBinding, TranscriptRecord, TranscriptSourcePointer,
+    ToolOutputArtifactBinding, TranscriptRecord, TranscriptSourcePointer,
     MAX_TRANSCRIPT_CONTENT_BYTES, TRANSCRIPT_SCHEMA_V1, TRANSCRIPT_SCHEMA_V2,
 };
 
 use super::super::transition;
 use super::storage::{
-    load_record_path, load_tool_output_artifact, now_ms, parse_tool_output_artifact_body,
-    parse_transcript_record_body, tool_output_artifact_relative_path, validate_id,
-    validate_source_pointer, validate_tool_artifact_owner, validate_tool_binding_for_record,
+    install_record, load_record_path, load_tool_output_artifact, now_ms,
+    parse_tool_output_artifact_body, parse_transcript_record_body,
+    tool_output_artifact_relative_path, validate_id, validate_source_pointer,
+    validate_tool_artifact_owner, validate_tool_binding_for_record,
     validate_tool_binding_shape_for_record, validated_tool_output_path,
 };
 use super::transcript_ledger_event;
@@ -235,11 +236,7 @@ pub(crate) fn install_prepared_no_stream_tool_turn(
             prepared.transcript_path.with_extension("checkpoint.lock"),
             "transcript checkpoint",
         )?;
-        let installed_bytes = transcript_codec::install_record(
-            &prepared.transcript_path,
-            &prepared.record,
-            crate::adapters::filesystem::atomic_write::atomic_replace_bytes,
-        )?;
+        let installed_bytes = install_record(&prepared.transcript_path, &prepared.record)?;
         let record = load_record_path(&prepared.transcript_path)?;
         if installed_bytes != prepared.transcript_bytes
             || record != prepared.record

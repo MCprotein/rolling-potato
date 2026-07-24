@@ -1,3 +1,6 @@
+use std::env;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::time::Duration;
 
 use crate::adapters::filesystem::{backend_state, layout as paths};
@@ -20,9 +23,21 @@ use super::{display_optional_u32, model_id_from_path, now_ms, HEALTH_TIMEOUT_MS}
 const STARTUP_TIMEOUT_MS: u64 = 60_000;
 const STOP_TIMEOUT_MS: u64 = 5_000;
 const STOP_CANCEL_WAIT_MS: u64 = 5_000;
+const ENV_BACKEND_START_TRACE: &str = "RPOTATO_TEST_BACKEND_START_TRACE";
 
 mod startup;
-pub(super) use startup::{start_sidecar_with_timeout, trace_backend_start};
+pub(super) use startup::start_sidecar_with_timeout;
+
+pub(super) fn trace_backend_start(message: &str) {
+    let Some(path) = env::var_os(ENV_BACKEND_START_TRACE) else {
+        return;
+    };
+    let Ok(mut trace) = OpenOptions::new().create(true).append(true).open(path) else {
+        return;
+    };
+    let _ = writeln!(trace, "{message}");
+    let _ = trace.flush();
+}
 
 pub fn doctor_summary() -> String {
     let discovery = llama_backend::discover();
@@ -129,12 +144,22 @@ pub fn status_report() -> Result<String, AppError> {
     };
 
     Ok(format!(
-        "backend status\n- status: {}\n- backend: {}\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- health: {}\n- health error: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}\n- sidecar record: {}",
+        "backend status\n- status: {}\n- backend: {}\n- pid: {}\n- binary: {}\n- model: {}\n- vision: {}\n- mmproj: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- health: {}\n- health error: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}\n- sidecar record: {}",
         status,
         record.backend_id,
         record.pid,
         record.binary_path.display(),
         record.model_path.display(),
+        if record.mmproj_path.is_some() {
+            "ready"
+        } else {
+            "unavailable (text-ready)"
+        },
+        record
+            .mmproj_path
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "없음".to_string()),
         record.host,
         record.port,
         display_optional_u32(record.ctx_size),

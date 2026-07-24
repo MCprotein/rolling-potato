@@ -1,8 +1,18 @@
-use super::runtime_bridge::{TuiBackendStatus, TuiReadPage, TuiStatusSnapshot};
+use super::runtime_bridge::{TuiAttachment, TuiBackendStatus, TuiReadPage, TuiStatusSnapshot};
 use super::view_model::{
     conversation_rows_per_page, notice_rows_per_page, ConversationRole, InteractiveState,
     InteractiveView,
 };
+
+mod report_layout;
+mod text;
+
+pub(crate) use report_layout::{
+    bytes_label, latency_label, percent_label, push_footer, push_header, push_kv,
+    push_literal_block, push_rule, push_section, push_wrapped, short_id, terminal_width, tps_label,
+};
+pub(crate) use text::{display_cell_width, sanitize_terminal_text};
+use text::{truncate_chars, wrap_terminal_text};
 
 const MAX_INTERACTIVE_WIDTH: usize = 120;
 const BRAND_COLOR: &str = "\u{001b}[1;36m";
@@ -84,7 +94,14 @@ pub(crate) fn render_interactive_frame_with_options(
     output.push_str(&"-".repeat(width));
     output.push('\n');
     let status_line = render_status_line(status, width, color);
-    render_composer(&mut output, &status_line, width, ansi_layout, color);
+    render_composer(
+        &mut output,
+        &state.attachments,
+        &status_line,
+        width,
+        ansi_layout,
+        color,
+    );
     output
 }
 
@@ -109,7 +126,9 @@ fn render_conversation_frame(
         output.push('\n');
     }
 
-    let content_rows = conversation_rows_per_page(height, show_welcome);
+    let content_rows = conversation_rows_per_page(height, show_welcome)
+        .saturating_sub(usize::from(!state.attachments.is_empty()))
+        .max(1);
     let notice_lines = state.notice.split('\n').collect::<Vec<_>>();
     let notice_page_count = notice_lines.len().div_ceil(content_rows).max(1);
     let notice_page = state.notice_page.min(notice_page_count - 1);
@@ -159,7 +178,14 @@ fn render_conversation_frame(
     }
 
     let status_line = render_status_line(status, width, color);
-    render_composer(&mut output, &status_line, width, ansi_layout, color);
+    render_composer(
+        &mut output,
+        &state.attachments,
+        &status_line,
+        width,
+        ansi_layout,
+        color,
+    );
     output
 }
 
@@ -199,11 +225,31 @@ fn conversation_lines(state: &InteractiveState, width: usize, color_enabled: boo
 
 fn render_composer(
     output: &mut String,
+    attachments: &[TuiAttachment],
     status_line: &str,
     width: usize,
     ansi_layout: bool,
     color: bool,
 ) {
+    if !attachments.is_empty() {
+        let labels = attachments
+            .iter()
+            .map(|attachment| {
+                format!(
+                    "[{}: {}]",
+                    attachment.kind.label(),
+                    sanitize_terminal_text(&attachment.display_name)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        output.push_str(&paint(
+            &truncate_chars(&format!("첨부 {labels}"), width),
+            ACCENT_COLOR,
+            color,
+        ));
+        output.push('\n');
+    }
     if ansi_layout {
         output.push_str(&paint(
             &box_rule('╭', '╮', "─ 요청 ", width),
@@ -362,6 +408,18 @@ fn render_status_line(status: &TuiStatusSnapshot, width: usize, color: bool) -> 
             format!("backend {}", status.backend.as_str()),
             backend_color,
         ),
+        (
+            if status.vision_ready {
+                "vision ready".to_string()
+            } else {
+                "vision text-only".to_string()
+            },
+            if status.vision_ready {
+                HEALTHY_COLOR
+            } else {
+                MUTED_COLOR
+            },
+        ),
         (format!("session {session}"), MUTED_COLOR),
     ];
     render_status_segments(&segments, width, color)
@@ -406,30 +464,6 @@ fn short_status_id(value: &str) -> String {
     } else {
         format!("{}…", value.chars().take(11).collect::<String>())
     }
-}
-
-fn wrap_terminal_text(value: &str, width: usize) -> Vec<String> {
-    if value.is_empty() {
-        return vec![String::new()];
-    }
-    let width = width.max(1);
-    let mut lines = Vec::new();
-    let mut current = String::new();
-    let mut used = 0;
-    for ch in value.chars() {
-        let ch_width = terminal_cell_width(ch);
-        if !current.is_empty() && used + ch_width > width {
-            lines.push(current);
-            current = String::new();
-            used = 0;
-        }
-        current.push(ch);
-        used += ch_width;
-    }
-    if !current.is_empty() {
-        lines.push(current);
-    }
-    lines
 }
 
 fn render_notice_lines(
@@ -480,250 +514,4 @@ fn render_notice_lines(
 enum NoticeStyle {
     Diagnostic,
     Conversation { color: bool },
-}
-
-pub(crate) fn sanitize_terminal_text(value: &str) -> String {
-    let mut out = String::new();
-    let mut chars = value.chars().peekable();
-    while let Some(ch) = chars.next() {
-        if ch == '\u{001b}' {
-            match chars.peek().copied() {
-                Some('[') => {
-                    chars.next();
-                    for next in chars.by_ref() {
-                        if ('@'..='~').contains(&next) {
-                            break;
-                        }
-                    }
-                }
-                Some(']') => {
-                    chars.next();
-                    let mut escaped = false;
-                    for next in chars.by_ref() {
-                        if next == '\u{0007}' || (escaped && next == '\\') {
-                            break;
-                        }
-                        escaped = next == '\u{001b}';
-                    }
-                }
-                Some(_) => {
-                    chars.next();
-                }
-                None => {}
-            }
-            out.push_str("<esc>");
-        } else if ch.is_control() {
-            match ch {
-                '\n' => out.push_str("<lf>"),
-                '\r' => out.push_str("<cr>"),
-                '\t' => out.push_str("  "),
-                _ => out.push_str("<ctl>"),
-            }
-        } else {
-            out.push(ch);
-        }
-    }
-    out
-}
-
-fn truncate_chars(value: &str, width: usize) -> String {
-    if display_cell_width(value) <= width {
-        return value.to_string();
-    }
-    if width == 0 {
-        return String::new();
-    }
-
-    let available = width.saturating_sub(1);
-    let mut used = 0;
-    let mut out = String::new();
-    for ch in value.chars() {
-        let ch_width = terminal_cell_width(ch);
-        if used + ch_width > available {
-            break;
-        }
-        out.push(ch);
-        used += ch_width;
-    }
-    out.push('…');
-    out
-}
-
-pub(crate) fn display_cell_width(value: &str) -> usize {
-    value.chars().map(terminal_cell_width).sum()
-}
-
-fn terminal_cell_width(ch: char) -> usize {
-    let code = ch as u32;
-    if ch.is_control()
-        || ch == '\u{200d}'
-        || matches!(
-            code,
-            0x0300..=0x036f
-                | 0x1ab0..=0x1aff
-                | 0x1dc0..=0x1dff
-                | 0x20d0..=0x20ff
-                | 0xfe00..=0xfe0f
-                | 0xfe20..=0xfe2f
-                | 0xe0100..=0xe01ef
-        )
-    {
-        return 0;
-    }
-    if matches!(
-        code,
-        0x1100..=0x115f
-            | 0x2329..=0x232a
-            | 0x2e80..=0xa4cf
-            | 0xac00..=0xd7a3
-            | 0xf900..=0xfaff
-            | 0xfe10..=0xfe19
-            | 0xfe30..=0xfe6f
-            | 0xff00..=0xff60
-            | 0xffe0..=0xffe6
-            | 0x1f1e6..=0x1f1ff
-            | 0x1f300..=0x1faff
-            | 0x20000..=0x3fffd
-    ) {
-        2
-    } else {
-        1
-    }
-}
-
-const DEFAULT_REPORT_WIDTH: usize = 92;
-const MIN_REPORT_WIDTH: usize = 64;
-const MAX_REPORT_WIDTH: usize = 120;
-
-pub(crate) fn terminal_width() -> usize {
-    std::env::var("COLUMNS")
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(DEFAULT_REPORT_WIDTH)
-        .clamp(MIN_REPORT_WIDTH, MAX_REPORT_WIDTH)
-}
-
-pub(crate) fn push_header(lines: &mut Vec<String>, width: usize, title: &str) {
-    push_border(lines, width, '=');
-    push_center(lines, width, title);
-    push_border(lines, width, '=');
-}
-
-pub(crate) fn push_footer(lines: &mut Vec<String>, width: usize) {
-    push_border(lines, width, '=');
-    push_wrapped(
-    lines,
-    width,
-    "beta boundary: this TUI surface reads runtime state only and does not approve, apply, resume, cancel, or mutate workflows.",
-);
-}
-
-pub(crate) fn push_section(lines: &mut Vec<String>, width: usize, label: &str) {
-    push_wrapped(lines, width, &format!("[{label}]"));
-}
-
-pub(crate) fn push_rule(lines: &mut Vec<String>, width: usize) {
-    push_border(lines, width, '-');
-}
-
-pub(crate) fn push_border(lines: &mut Vec<String>, width: usize, ch: char) {
-    lines.push(ch.to_string().repeat(width));
-}
-
-pub(crate) fn push_center(lines: &mut Vec<String>, width: usize, value: &str) {
-    let value = truncate(value, width);
-    let padding = width.saturating_sub(value.len()) / 2;
-    lines.push(format!("{}{}", " ".repeat(padding), value));
-}
-
-pub(crate) fn push_kv(lines: &mut Vec<String>, width: usize, key: &str, value: &str) {
-    push_wrapped(lines, width, &format!("{key}: {value}"));
-}
-
-pub(crate) fn push_wrapped(lines: &mut Vec<String>, width: usize, value: &str) {
-    let mut current = String::new();
-    for word in value.split_whitespace() {
-        let next_len = if current.is_empty() {
-            word.len()
-        } else {
-            current.len() + 1 + word.len()
-        };
-        if next_len > width && !current.is_empty() {
-            lines.push(truncate(&current, width));
-            current.clear();
-        }
-        if !current.is_empty() {
-            current.push(' ');
-        }
-        current.push_str(word);
-    }
-    if current.is_empty() {
-        lines.push(String::new());
-    } else {
-        lines.push(truncate(&current, width));
-    }
-}
-
-pub(crate) fn push_literal_block(lines: &mut Vec<String>, width: usize, value: &str) {
-    for line in value.lines() {
-        lines.push(truncate(line, width));
-    }
-    if value.is_empty() {
-        lines.push(String::new());
-    }
-}
-
-pub(crate) fn truncate(value: &str, width: usize) -> String {
-    if value.chars().count() <= width {
-        return value.to_string();
-    }
-    if width <= 3 {
-        return ".".repeat(width);
-    }
-    let prefix = value.chars().take(width - 3).collect::<String>();
-    format!("{prefix}...")
-}
-
-pub(crate) fn latency_label(value: Option<f64>) -> String {
-    value
-        .map(|latency| format!("{latency:.1}ms"))
-        .unwrap_or_else(|| "not recorded".to_string())
-}
-
-pub(crate) fn tps_label(value: Option<f64>) -> String {
-    value
-        .map(|value| format!("{value:.1} tok/s"))
-        .unwrap_or_else(|| "not recorded".to_string())
-}
-
-pub(crate) fn percent_label(value: Option<f64>) -> String {
-    value
-        .map(|value| format!("{value:.1}%"))
-        .unwrap_or_else(|| "unknown".to_string())
-}
-
-pub(crate) fn bytes_label(value: Option<u64>) -> String {
-    let Some(value) = value else {
-        return "unknown".to_string();
-    };
-    const KIB: f64 = 1024.0;
-    const MIB: f64 = KIB * 1024.0;
-    const GIB: f64 = MIB * 1024.0;
-    let value = value as f64;
-    if value >= GIB {
-        format!("{:.1} GiB", value / GIB)
-    } else if value >= MIB {
-        format!("{:.1} MiB", value / MIB)
-    } else if value >= KIB {
-        format!("{:.1} KiB", value / KIB)
-    } else {
-        format!("{value:.0} B")
-    }
-}
-
-pub(crate) fn short_id(value: &str) -> String {
-    if value.len() <= 18 {
-        return value.to_string();
-    }
-    format!("{}...", &value[..18])
 }

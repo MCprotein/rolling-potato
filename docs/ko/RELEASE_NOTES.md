@@ -1,5 +1,12 @@
 # 릴리즈 노트
 
+## 미출시 - API key 없는 직접 웹 검색
+
+- Brave Search REST와 credential 설정을 제거
+- MCP, provider SDK, 새 dependency 없이 공개 검색 HTML을 직접 요청·파싱
+- HTTPS-only, redirect 차단, 응답·query·source·context 상한과 untrusted context
+  경계 유지
+
 ## v0.47.1 - 안정적인 범용 답변과 검색
 
 릴리즈 날짜: 2026-07-23
@@ -44,9 +51,9 @@
 - 한국어 출력 guard를 혼합 언어 누출 방지로 해석하여 한국어 문장, 숫자, 수식,
   코드, 경로, URL, 기술 용어는 허용하고 중국어·일본어 또는 이어지는 외국어
   자연어는 사실을 보존하는 한국어 재작성 한 번 뒤에만 fail-closed 차단
-- `/search <질문>`과 최신성 자동 routing을 고정된 Exa MCP endpoint로 제공하고,
-  검색 결과를 범위가 제한된 신뢰하지 않는 읽기 전용 context로 취급해 번호가 붙은
-  HTTPS 출처 URL과 함께 표시
+- `/search <질문>`과 최신성 자동 routing을 별도 MCP process 없이 Brave Search REST
+  API 직접 연결로 제공하고, 검색 결과를 범위가 제한된 신뢰하지 않는 읽기 전용
+  context로 취급해 번호가 붙은 HTTPS 출처 URL과 함께 표시
 - 단어 경계와 작업 의도를 함께 판정해 `Manhattan Project`, `profile`, `research`,
   `concurrent` 같은 일반 표현이 무거운 agent 또는 최신성 workflow로 잘못 들어가지
   않도록 개선

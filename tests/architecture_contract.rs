@@ -661,6 +661,8 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
 
     let native = fs::read_to_string("src/adapters/terminal/native.rs").unwrap();
     let platform = fs::read_to_string("src/adapters/terminal/native/platform.rs").unwrap();
+    let live_input_editor =
+        fs::read_to_string("src/adapters/terminal/native/live_input/editor.rs").unwrap();
     assert!(
         native.lines().any(|line| line == "mod platform;"),
         "native terminal adapter does not register its platform owner"
@@ -693,7 +695,6 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
         "pub(super) fn read(",
         "fn matching_suggestions<'a>(",
         "fn redraw(",
-        "fn pop_last_utf8_char(",
     ] {
         assert!(
             live_input.contains(responsibility),
@@ -704,6 +705,14 @@ fn v0372_terminal_and_platform_owners_replace_legacy_modules() {
             "native terminal facade owns live input behavior: {responsibility}"
         );
     }
+    assert!(
+        live_input_editor.contains("fn pop_last_utf8_char("),
+        "native live input editor is missing its UTF-8 byte regression helper"
+    );
+    assert!(
+        !live_input.contains("fn pop_last_utf8_char("),
+        "native live input facade still owns editor-specific UTF-8 byte behavior"
+    );
     assert!(live_input.lines().count() < 300);
 }
 
@@ -954,13 +963,17 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_runtime_snapshot_path = "src/app/inference_adapter/backend/runtime_snapshot.rs";
     let backend_sidecar_path = "src/app/inference_adapter/backend/sidecar.rs";
     let backend_sidecar_startup_path = "src/app/inference_adapter/backend/sidecar/startup.rs";
+    let backend_state_path = "src/adapters/filesystem/backend_state.rs";
     let backend_tests_path = "src/app/inference_adapter/backend/tests.rs";
     let model_adapter_path = "src/app/inference_adapter/model.rs";
     let model_evidence_path = "src/app/inference_adapter/model/evidence.rs";
     let model_registry_path = "src/app/inference_adapter/model/registry.rs";
+    let model_registry_vision_path = "src/app/inference_adapter/model/registry/vision.rs";
     let model_default_selection_path =
         "src/app/inference_adapter/model/registry/default_selection.rs";
     let model_setup_path = "src/app/inference_adapter/model/setup.rs";
+    let model_setup_catalog_path = "src/app/inference_adapter/model/setup/catalog.rs";
+    let model_setup_tests_path = "src/app/inference_adapter/model/setup/tests.rs";
     let model_tests_path = "src/app/inference_adapter/model/tests.rs";
     assert!(Path::new(backend_chat_path).is_file());
     assert!(Path::new(backend_chat_interruption_path).is_file());
@@ -974,8 +987,11 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(Path::new(backend_tests_path).is_file());
     assert!(Path::new(model_evidence_path).is_file());
     assert!(Path::new(model_registry_path).is_file());
+    assert!(Path::new(model_registry_vision_path).is_file());
     assert!(Path::new(model_default_selection_path).is_file());
     assert!(Path::new(model_setup_path).is_file());
+    assert!(Path::new(model_setup_catalog_path).is_file());
+    assert!(Path::new(model_setup_tests_path).is_file());
     assert!(Path::new(model_tests_path).is_file());
     let backend_adapter = fs::read_to_string(backend_adapter_path).unwrap();
     let backend_chat = fs::read_to_string(backend_chat_path).unwrap();
@@ -987,12 +1003,15 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let backend_runtime_snapshot = fs::read_to_string(backend_runtime_snapshot_path).unwrap();
     let backend_sidecar = fs::read_to_string(backend_sidecar_path).unwrap();
     let backend_sidecar_startup = fs::read_to_string(backend_sidecar_startup_path).unwrap();
+    let backend_state = fs::read_to_string(backend_state_path).unwrap();
     let backend_tests = fs::read_to_string(backend_tests_path).unwrap();
     let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
     let model_evidence = fs::read_to_string(model_evidence_path).unwrap();
     let model_registry = fs::read_to_string(model_registry_path).unwrap();
+    let model_registry_vision = fs::read_to_string(model_registry_vision_path).unwrap();
     let model_default_selection = fs::read_to_string(model_default_selection_path).unwrap();
     let model_setup = fs::read_to_string(model_setup_path).unwrap();
+    let model_setup_catalog = fs::read_to_string(model_setup_catalog_path).unwrap();
     let model_tests = fs::read_to_string(model_tests_path).unwrap();
     assert!(
         backend_adapter.contains("#[path = \"backend/tests.rs\"]"),
@@ -1006,6 +1025,24 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         model_adapter.lines().any(|line| line == "mod evidence;"),
         "model adapter does not register its local evidence owner"
     );
+    assert!(
+        model_registry.lines().any(|line| line == "mod vision;"),
+        "model registry does not register its vision owner"
+    );
+    for responsibility in [
+        "pub(crate) struct VerifiedVisionProjector",
+        "pub(crate) fn verified_vision_projector(",
+        "pub(super) fn local_registry_vision(",
+    ] {
+        assert!(
+            model_registry_vision.contains(responsibility),
+            "model registry vision owner is missing: {responsibility}"
+        );
+        assert!(
+            !model_registry.contains(responsibility),
+            "model registry facade still owns vision verification: {responsibility}"
+        );
+    }
     for responsibility in [
         "pub(super) fn local_benchmark_status(",
         "pub(super) fn local_promotion_readiness(",
@@ -1032,6 +1069,9 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
         model_adapter.lines().any(|line| line == "mod setup;"),
         "model adapter does not register its setup owner"
     );
+    assert!(model_setup.lines().any(|line| line == "mod catalog;"));
+    assert!(model_setup.lines().any(|line| line == "mod tests;"));
+    assert!(model_setup_catalog.contains("pub(super) fn setup_options("));
     for responsibility in [
         "pub(crate) struct PreparedSetupModel",
         "pub(crate) fn setup_options(",
@@ -1254,9 +1294,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     }
     for responsibility in [
         "fn start_sidecar_with_timeout(",
-        "fn trace_backend_start(",
         "fn canonical_existing_file(",
-        "fn create_log_file(",
     ] {
         assert!(
             backend_sidecar_startup.contains(responsibility),
@@ -1267,6 +1305,22 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             "inference backend sidecar lifecycle still owns startup: {responsibility}"
         );
     }
+    assert!(
+        backend_sidecar.contains("fn trace_backend_start("),
+        "inference backend sidecar lifecycle is missing startup tracing"
+    );
+    assert!(
+        !backend_sidecar_startup.contains("fn trace_backend_start("),
+        "inference backend startup orchestration still owns lifecycle tracing"
+    );
+    assert!(
+        backend_state.contains("fn create_log_file("),
+        "backend filesystem adapter is missing exclusive log creation"
+    );
+    assert!(
+        !backend_sidecar_startup.contains("fn create_log_file("),
+        "inference backend startup orchestration still owns log persistence"
+    );
     for responsibility in [
         "fn release_manifest_has_source_backed_supported_artifacts(",
         "fn generation_record_codec_preserves_exact_bytes_and_round_trips(",
@@ -1345,6 +1399,10 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert!(
         model_registry.lines().count() < 350,
         "model registry module regrew beyond its ownership boundary"
+    );
+    assert!(
+        model_registry_vision.lines().count() < 125,
+        "model registry vision module regrew beyond its ownership boundary"
     );
     assert!(model_default_selection.lines().count() < 75);
     assert!(model_setup.lines().count() < 100);
@@ -1570,6 +1628,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let coordinator_tests =
         "src/runtime_core/workflow/application/transaction_coordinator/tests.rs";
     let ledger_adapter = "src/app/workflow_adapter/ledger.rs";
+    let ledger_append = "src/app/workflow_adapter/ledger/append.rs";
     let ledger_derived = "src/app/workflow_adapter/ledger/derived.rs";
     let ledger_query = "src/app/workflow_adapter/ledger/query.rs";
     let ledger_storage = "src/app/workflow_adapter/ledger/storage.rs";
@@ -1578,6 +1637,7 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     let transition_adapter = "src/app/workflow_adapter/transition.rs";
     for target in [
         ledger_adapter,
+        ledger_append,
         ledger_derived,
         ledger_query,
         ledger_storage,
@@ -1712,11 +1772,20 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     );
 
     let ledger = fs::read_to_string(ledger_adapter).unwrap();
+    let ledger_append = fs::read_to_string(ledger_append).unwrap();
     let ledger_derived_outputs = fs::read_to_string(ledger_derived).unwrap();
     let ledger_queries = fs::read_to_string(ledger_query).unwrap();
     let ledger_persistence = fs::read_to_string(ledger_storage).unwrap();
     let ledger_regressions = fs::read_to_string(ledger_tests).unwrap();
     let ledger_writes = fs::read_to_string(ledger_writer).unwrap();
+    assert!(
+        ledger.lines().any(|line| line == "mod append;"),
+        "ledger adapter does not register its append owner"
+    );
+    assert!(
+        ledger_append.contains("fn append_line") && ledger_append.contains("OpenOptions"),
+        "ledger append primitive is missing durable append ownership"
+    );
     assert!(
         ledger.lines().any(|line| line == "mod derived;"),
         "ledger adapter does not register its derived-output owner"
@@ -1834,6 +1903,10 @@ fn v0376_workflow_application_owns_transaction_and_recovery_order() {
     assert!(
         ledger_persistence.lines().count() < 475,
         "ledger storage module regrew beyond its ownership boundary"
+    );
+    assert!(
+        ledger_append.lines().count() < 75,
+        "ledger append primitive regrew beyond its ownership boundary"
     );
     assert!(
         ledger_writes.lines().count() < 425,
@@ -2863,13 +2936,15 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         ),
         (
             "src/runtime_core/patch/intent.rs",
-            [
-                "struct IntentDecision",
-                "fn classify",
-                "fn plan_action_candidate",
-                "fn parse_model_action",
-            ]
-            .as_slice(),
+            ["struct IntentDecision", "fn plan_action_candidate"].as_slice(),
+        ),
+        (
+            "src/runtime_core/patch/intent/classification.rs",
+            ["fn classify", "fn detect_constraints"].as_slice(),
+        ),
+        (
+            "src/runtime_core/patch/intent/model_action.rs",
+            ["fn parse_model_action", "fn fallback_model_action"].as_slice(),
         ),
         (
             "src/runtime_core/patch/proposal.rs",
@@ -3309,9 +3384,23 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
 #[test]
 fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
     let korean_guard = "src/runtime_core/reporting/korean_guard.rs";
+    let korean_classification = "src/runtime_core/reporting/korean_guard/classification.rs";
+    let korean_language = "src/runtime_core/reporting/korean_guard/language.rs";
+    let korean_projection = "src/runtime_core/reporting/korean_guard/projection.rs";
+    let korean_streaming = "src/runtime_core/reporting/korean_guard/streaming.rs";
+    let korean_tests = "src/runtime_core/reporting/korean_guard/tests.rs";
     let runtime_report = "src/runtime_core/reporting/runtime_report.rs";
     let runner = "src/runtime_core/workflow/application/runner.rs";
-    for target in [korean_guard, runtime_report, runner] {
+    for target in [
+        korean_guard,
+        korean_classification,
+        korean_language,
+        korean_projection,
+        korean_streaming,
+        korean_tests,
+        runtime_report,
+        runner,
+    ] {
         assert!(
             Path::new(target).is_file(),
             "missing v0.37.10 runtime owner: {target}"
@@ -3346,12 +3435,23 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
         (
             korean_guard,
             [
-                "struct StreamingGuard",
+                "pub use streaming::StreamingGuard",
                 "fn guard_or_failure",
                 "fn validate",
             ]
             .as_slice(),
         ),
+        (
+            korean_classification,
+            [
+                "struct OutsideTextClassification",
+                "fn classify_outside_text",
+            ]
+            .as_slice(),
+        ),
+        (korean_language, ["fn allows_non_korean"].as_slice()),
+        (korean_projection, ["fn stricter_projection"].as_slice()),
+        (korean_streaming, ["struct StreamingGuard"].as_slice()),
         (
             runtime_report,
             [
@@ -3480,6 +3580,129 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
     assert!(
         runtime_tests.lines().count() < 1_100,
         "runtime regression module regrew beyond its ownership boundary"
+    );
+}
+
+#[test]
+fn v03713_storage_compatibility_is_a_pure_codec_boundary() {
+    for owner in [
+        "src/runtime_core/workflow/storage_compat/ledger.rs",
+        "src/runtime_core/workflow/storage_compat/transcript.rs",
+    ] {
+        let source = fs::read_to_string(owner).unwrap();
+        for forbidden in [
+            "use std::fs",
+            "OpenOptions",
+            "std::io::Write",
+            ".exists()",
+            "fs::read",
+            "fs::create_dir",
+        ] {
+            assert!(
+                !source.contains(forbidden),
+                "storage compatibility codec owns filesystem behavior: {owner} -> {forbidden}"
+            );
+        }
+    }
+}
+
+#[test]
+fn v0471_tui_controller_support_responsibilities_are_split() {
+    let controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
+    for (module, owner, marker) in [
+        (
+            "attachments",
+            "src/surfaces/tui/controller/attachments.rs",
+            "fn looks_like_attachment_path",
+        ),
+        (
+            "model_selection",
+            "src/surfaces/tui/controller/model_selection.rs",
+            "fn choose_model",
+        ),
+        (
+            "terminal_flow",
+            "src/surfaces/tui/controller/terminal_flow.rs",
+            "fn terminal_fault_error",
+        ),
+    ] {
+        assert!(
+            controller
+                .lines()
+                .any(|line| line == format!("mod {module};")),
+            "TUI controller does not register support owner: {module}"
+        );
+        let source = fs::read_to_string(owner).unwrap();
+        assert!(
+            source.contains(marker),
+            "TUI controller support owner is missing responsibility: {owner} -> {marker}"
+        );
+    }
+    assert!(
+        controller.lines().count() < 500,
+        "TUI controller regrew beyond command-loop ownership"
+    );
+}
+
+#[test]
+fn v0471_tui_render_text_and_report_layout_are_split() {
+    let render = fs::read_to_string("src/surfaces/tui/render.rs").unwrap();
+    for (module, owner, marker) in [
+        (
+            "report_layout",
+            "src/surfaces/tui/render/report_layout.rs",
+            "fn push_wrapped",
+        ),
+        (
+            "text",
+            "src/surfaces/tui/render/text.rs",
+            "fn sanitize_terminal_text",
+        ),
+    ] {
+        assert!(
+            render.lines().any(|line| line == format!("mod {module};")),
+            "TUI render does not register responsibility owner: {module}"
+        );
+        let source = fs::read_to_string(owner).unwrap();
+        assert!(
+            source.contains(marker),
+            "TUI render responsibility owner is missing: {owner} -> {marker}"
+        );
+    }
+    assert!(
+        render.lines().count() < 575,
+        "TUI render regrew beyond interactive-frame ownership"
+    );
+}
+
+#[test]
+fn v0471_patch_intent_classification_and_model_action_are_split() {
+    let intent = fs::read_to_string("src/runtime_core/patch/intent.rs").unwrap();
+    for (module, owner, marker) in [
+        (
+            "classification",
+            "src/runtime_core/patch/intent/classification.rs",
+            "fn classify",
+        ),
+        (
+            "model_action",
+            "src/runtime_core/patch/intent/model_action.rs",
+            "fn parse_model_action",
+        ),
+    ] {
+        assert!(
+            intent.lines().any(|line| line == format!("mod {module};")),
+            "patch intent does not register responsibility owner: {module}"
+        );
+        let source = fs::read_to_string(owner).unwrap();
+        assert!(
+            source.contains(marker),
+            "patch intent responsibility owner is missing: {owner} -> {marker}"
+        );
+    }
+    assert!(
+        intent.lines().count() < 300,
+        "patch intent facade regrew beyond contracts and action planning"
     );
 }
 
@@ -4807,11 +5030,13 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     let tui_report_tests = "src/app/tui_adapter/report_tests.rs";
     let tui_model_switch = "src/app/tui_adapter/model_switch.rs";
     let tui_runtime = "src/app/tui_adapter/runtime.rs";
+    let tui_runtime_backend = "src/app/tui_adapter/runtime/backend.rs";
     assert!(Path::new(tui_adapter).is_file());
     assert!(Path::new(tui_tests).is_file());
     assert!(Path::new(tui_report_tests).is_file());
     assert!(Path::new(tui_model_switch).is_file());
     assert!(Path::new(tui_runtime).is_file());
+    assert!(Path::new(tui_runtime_backend).is_file());
     assert!(!Path::new("src/tui.rs").exists());
     assert!(!Path::new("src/tui").exists());
 
@@ -4825,6 +5050,13 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "application root does not register the TUI adapter"
     );
     let bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
+    let tui_runtime_source = fs::read_to_string(tui_runtime).unwrap();
+    let runtime_backend = fs::read_to_string(tui_runtime_backend).unwrap();
+    assert!(tui_runtime_source
+        .lines()
+        .any(|line| line == "mod backend;"));
+    assert!(!tui_runtime_source.contains("fn ensure_runtime_ready("));
+    assert!(runtime_backend.contains("pub(super) fn ensure_runtime_ready("));
     for definition in [
         "struct TuiReadBudget",
         "enum TuiReadRequest",
@@ -4883,22 +5115,22 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(outcome.lines().count() < 250);
     assert!(outcome_oracle.lines().count() < 425);
 
-    let runtime = fs::read_to_string("src/app/runtime_adapter.rs").unwrap();
-    assert!(!runtime.contains("pub struct TuiReadBudget"));
-    assert!(!runtime.contains("pub struct SelectionLease"));
-    assert!(!runtime.contains("pub enum TuiIntent"));
-    assert!(!runtime.contains("pub struct OneShotSecret"));
-    assert!(!runtime.contains("pub enum TuiOutcomeCode"));
-    assert!(!runtime.contains("pub struct TuiOutcome"));
-    assert!(!runtime.contains("pub(crate) fn exact_tui_outcome"));
-    assert!(!runtime.contains("fn unsupported_source_platform_outcome"));
-    assert!(!runtime.contains("fn new_tui_intent_id"));
-    assert!(!runtime.contains("fn tui_lease_matches_workflow_under_transition"));
-    assert!(!runtime.contains("fn tui_lease_matches_terminal_selection_under_transition"));
-    assert!(!runtime.contains("fn validate_tui_id"));
-    assert!(!runtime.contains("fn tui_selection_lease"));
-    assert!(!runtime.contains("fn tui_gate_descriptor"));
-    assert!(!runtime.contains("fn dispatch_tui_intent"));
+    let app_runtime = fs::read_to_string("src/app/runtime_adapter.rs").unwrap();
+    assert!(!app_runtime.contains("pub struct TuiReadBudget"));
+    assert!(!app_runtime.contains("pub struct SelectionLease"));
+    assert!(!app_runtime.contains("pub enum TuiIntent"));
+    assert!(!app_runtime.contains("pub struct OneShotSecret"));
+    assert!(!app_runtime.contains("pub enum TuiOutcomeCode"));
+    assert!(!app_runtime.contains("pub struct TuiOutcome"));
+    assert!(!app_runtime.contains("pub(crate) fn exact_tui_outcome"));
+    assert!(!app_runtime.contains("fn unsupported_source_platform_outcome"));
+    assert!(!app_runtime.contains("fn new_tui_intent_id"));
+    assert!(!app_runtime.contains("fn tui_lease_matches_workflow_under_transition"));
+    assert!(!app_runtime.contains("fn tui_lease_matches_terminal_selection_under_transition"));
+    assert!(!app_runtime.contains("fn validate_tui_id"));
+    assert!(!app_runtime.contains("fn tui_selection_lease"));
+    assert!(!app_runtime.contains("fn tui_gate_descriptor"));
+    assert!(!app_runtime.contains("fn dispatch_tui_intent"));
 
     for legacy_owner in [
         "src/app/patch_adapter.rs",
@@ -4921,7 +5153,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(tui_read.contains("fn read_tui_page"));
     assert!(tui_read.contains("trait TuiReadPort"));
     assert!(tui_read.contains("port.state_snapshot"));
-    assert!(!runtime.contains("fn read_tui_page"));
+    assert!(!app_runtime.contains("fn read_tui_page"));
 
     let tui_action = fs::read_to_string("src/composition/tui_action.rs").unwrap();
     for definition in [
@@ -4954,7 +5186,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             "TUI page owner is missing {definition}"
         );
         assert!(
-            !runtime.contains(definition),
+            !app_runtime.contains(definition),
             "legacy runtime still owns {definition}"
         );
     }
@@ -5008,7 +5240,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             &interactive_runtime,
             "impl TuiRuntimePort for TuiRuntimeAdapter",
         ),
-        (&interactive_runtime, "fn ensure_runtime_ready("),
+        (&runtime_backend, "fn ensure_runtime_ready("),
     ] {
         assert!(
             owner.contains(responsibility),
@@ -5082,20 +5314,29 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     );
 
     let controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
-    for definition in [
-        "trait TuiRuntimePort",
-        "fn run_controller",
-        "fn terminal_fault_error",
-        "fn consume_outcome",
-    ] {
+    for definition in ["trait TuiRuntimePort", "fn run_controller"] {
         assert!(
             controller.contains(definition),
             "TUI controller owner is missing {definition}"
         );
     }
+    let terminal_flow = fs::read_to_string("src/surfaces/tui/controller/terminal_flow.rs").unwrap();
+    for definition in ["fn terminal_fault_error", "fn consume_outcome"] {
+        assert!(
+            terminal_flow.contains(definition),
+            "TUI terminal-flow owner is missing {definition}"
+        );
+        assert!(
+            !controller.contains(&format!("pub(crate) {definition}")),
+            "TUI command loop still defines terminal-flow behavior: {definition}"
+        );
+    }
+    assert!(controller
+        .contains("pub(crate) use terminal_flow::{consume_outcome, terminal_fault_error};"));
     assert!(!controller.contains("use crate::runtime;"));
     assert!(!controller.contains("crate::runtime::"));
     assert!(!controller.contains("crate::adapters"));
+    assert!(!terminal_flow.contains("crate::adapters"));
     assert!(interactive_runtime.contains("impl TuiRuntimePort for TuiRuntimeAdapter"));
 
     let terminal_port = fs::read_to_string("src/runtime_core/terminal.rs").unwrap();
@@ -5115,18 +5356,36 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!native_terminal.contains("pub trait TerminalIo"));
 
     let render = fs::read_to_string("src/surfaces/tui/render.rs").unwrap();
-    for definition in [
-        "fn render_interactive_frame",
-        "fn render_notice_lines",
-        "fn sanitize_terminal_text",
-        "fn truncate_chars",
-        "fn terminal_width",
-        "fn push_wrapped",
-        "fn bytes_label",
-    ] {
+    for definition in ["fn render_interactive_frame", "fn render_notice_lines"] {
         assert!(
             render.contains(definition),
             "TUI interactive render owner is missing {definition}"
+        );
+        assert!(
+            !tui_composition.contains(definition),
+            "TUI adapter still owns {definition}"
+        );
+    }
+    let render_text = fs::read_to_string("src/surfaces/tui/render/text.rs").unwrap();
+    for definition in [
+        "fn sanitize_terminal_text",
+        "fn truncate_chars",
+        "fn display_cell_width",
+    ] {
+        assert!(
+            render_text.contains(definition),
+            "TUI terminal-text owner is missing {definition}"
+        );
+        assert!(
+            !tui_composition.contains(definition),
+            "TUI adapter still owns {definition}"
+        );
+    }
+    let report_layout = fs::read_to_string("src/surfaces/tui/render/report_layout.rs").unwrap();
+    for definition in ["fn terminal_width", "fn push_wrapped", "fn bytes_label"] {
+        assert!(
+            report_layout.contains(definition),
+            "TUI report-layout owner is missing {definition}"
         );
         assert!(
             !tui_composition.contains(definition),
@@ -6146,4 +6405,78 @@ fn dependency_contract_rejects_forbidden_imports_and_new_parser_crates() {
         ]),
         "v0.37.1 must not add a parser or architecture-test dependency"
     );
+}
+
+#[test]
+fn web_search_open_find_have_separate_bounded_owners() {
+    let adapter_facade = fs::read_to_string("src/adapters/web_search.rs").unwrap();
+    let app_facade = fs::read_to_string("src/app/web_search_adapter.rs").unwrap();
+    let tui_facade = fs::read_to_string("src/app/tui_adapter.rs").unwrap();
+    let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
+    let transport = fs::read_to_string("src/adapters/web_search/transport.rs").unwrap();
+    let page_parser = fs::read_to_string("src/adapters/web_search/page.rs").unwrap();
+
+    for path in [
+        "src/adapters/web_search/evidence.rs",
+        "src/adapters/web_search/find.rs",
+        "src/adapters/web_search/html.rs",
+        "src/adapters/web_search/page.rs",
+        "src/adapters/web_search/policy.rs",
+        "src/adapters/web_search/transport.rs",
+        "src/app/web_search_adapter/page_tools.rs",
+        "src/app/web_search_adapter/routing.rs",
+        "src/app/tui_adapter/web_tools.rs",
+    ] {
+        assert!(Path::new(path).is_file(), "missing web tool owner: {path}");
+    }
+    for module in ["evidence", "find", "html", "page", "policy", "transport"] {
+        assert!(
+            adapter_facade
+                .lines()
+                .any(|line| line == format!("mod {module};")),
+            "web adapter facade does not register {module}"
+        );
+    }
+    for module in ["page_tools", "routing"] {
+        assert!(
+            app_facade
+                .lines()
+                .any(|line| line == format!("mod {module};")),
+            "web application facade does not register {module}"
+        );
+    }
+    assert!(tui_facade.lines().any(|line| line == "mod web_tools;"));
+    assert!(tui_runtime.contains("super::web_tools::dispatch"));
+    assert!(transport.contains("ureq::Agent::with_parts"));
+    assert!(transport.contains("PublicWebResolver"));
+    assert!(page_parser.contains("scan_html"));
+    assert!(!page_parser.contains("replace_range"));
+    for pure_owner in [
+        "src/adapters/web_search/find.rs",
+        "src/adapters/web_search/page.rs",
+        "src/adapters/web_search/evidence.rs",
+    ] {
+        assert!(
+            !fs::read_to_string(pure_owner)
+                .unwrap()
+                .contains("ureq::Agent"),
+            "{pure_owner} must stay transport-free"
+        );
+    }
+    assert!(app_facade.lines().count() < 400);
+    assert!(
+        fs::read_to_string("src/app/web_search_adapter/routing.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 225
+    );
+    assert!(
+        fs::read_to_string("src/app/web_search_adapter/page_tools.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 125
+    );
+    assert!(tui_runtime.lines().count() < 200);
 }

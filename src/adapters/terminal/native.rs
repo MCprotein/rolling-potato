@@ -1,9 +1,11 @@
 use std::io::{self, IsTerminal, Write};
 
+#[cfg(windows)]
+pub(crate) use crate::runtime_core::terminal::resolve_choice;
 pub(crate) use crate::runtime_core::terminal::{
-    FrameWriteBoundary, TerminalFault, TerminalIo, TerminalSuggestion,
+    read_plain_choice, read_plain_suggestion, FrameWriteBoundary, TerminalChoice, TerminalFault,
+    TerminalIo, TerminalSuggestion,
 };
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TestTerminalFault {
     SizeRead,
@@ -13,11 +15,9 @@ enum TestTerminalFault {
     FrameWriteBeforeDispatch,
     FrameWriteAfterDispatch,
 }
-
 pub fn validate_native_fault_configuration() -> Result<(), TerminalFault> {
     validate_test_fault_configuration()
 }
-
 pub struct NativeTerminal {
     allow_piped_dimensions: bool,
     last_frame: String,
@@ -36,6 +36,13 @@ impl NativeTerminal {
             allow_piped_dimensions: true,
             last_frame: String::new(),
         }
+    }
+
+    fn supports_live_input(&self) -> bool {
+        platform::LIVE_INPUT
+            && io::stdin().is_terminal()
+            && self.supports_ansi_layout()
+            && self.supports_color()
     }
 }
 
@@ -73,15 +80,27 @@ impl TerminalIo for NativeTerminal {
         &mut self,
         suggestions: &[TerminalSuggestion],
     ) -> Result<Option<String>, TerminalFault> {
-        if io::stdin().is_terminal() && self.supports_ansi_layout() && self.supports_color() {
+        if self.supports_live_input() {
             platform::read_line_with_suggestions(suggestions, &self.last_frame)
         } else {
-            self.read_line()
+            read_plain_suggestion(self, suggestions)
         }
     }
 
     fn read_secret(&mut self) -> Result<Option<String>, TerminalFault> {
         platform::read_secret()
+    }
+
+    fn choose(
+        &mut self,
+        title: &str,
+        choices: &[TerminalChoice],
+    ) -> Result<Option<String>, TerminalFault> {
+        if self.supports_live_input() {
+            platform::choose(title, choices)
+        } else {
+            read_plain_choice(self, title, choices)
+        }
     }
 
     fn write_frame(&mut self, frame: &str) -> Result<(), TerminalFault> {

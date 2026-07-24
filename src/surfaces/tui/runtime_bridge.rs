@@ -102,6 +102,7 @@ pub(crate) struct TuiStatusSnapshot {
     pub(crate) context_limit_tokens: Option<u32>,
     pub(crate) has_compaction_checkpoint: bool,
     pub(crate) backend: TuiBackendStatus,
+    pub(crate) vision_ready: bool,
     pub(crate) session_id: String,
 }
 
@@ -113,6 +114,7 @@ impl TuiStatusSnapshot {
             context_limit_tokens: None,
             has_compaction_checkpoint: false,
             backend: TuiBackendStatus::Unavailable,
+            vision_ready: false,
             session_id: "미초기화".to_string(),
         }
     }
@@ -147,7 +149,32 @@ pub(crate) struct TuiModelOption {
     pub(crate) ram: String,
     pub(crate) license: String,
     pub(crate) note: String,
+    pub(crate) current: bool,
     pub(crate) recommended: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TuiAttachmentKind {
+    Image,
+    Text,
+}
+
+impl TuiAttachmentKind {
+    pub(crate) const fn label(self) -> &'static str {
+        match self {
+            Self::Image => "image",
+            Self::Text => "file",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TuiAttachment {
+    pub(crate) id: String,
+    pub(crate) display_name: String,
+    pub(crate) stored_path: String,
+    pub(crate) size_bytes: u64,
+    pub(crate) kind: TuiAttachmentKind,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

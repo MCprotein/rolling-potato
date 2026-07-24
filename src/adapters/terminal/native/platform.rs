@@ -1,7 +1,8 @@
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod imp {
     use super::super::{
-        read_stdin_line, zeroize_string, TerminalFault, TerminalSuggestion, TestTerminalFault,
+        read_stdin_line, zeroize_string, TerminalChoice, TerminalFault, TerminalSuggestion,
+        TestTerminalFault,
     };
     use std::io::{self, Write};
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -122,8 +123,20 @@ mod imp {
         suggestions: &[TerminalSuggestion],
         base_frame: &str,
     ) -> Result<Option<String>, TerminalFault> {
+        with_live_mode(|width| super::super::live_input::read(suggestions, width, base_frame))
+    }
+
+    pub fn choose(
+        title: &str,
+        choices: &[TerminalChoice],
+    ) -> Result<Option<String>, TerminalFault> {
+        with_live_mode(|width| super::super::live_input::choose(title, choices, width))
+    }
+
+    fn with_live_mode<T>(
+        operation: impl FnOnce(usize) -> Result<T, TerminalFault>,
+    ) -> Result<T, TerminalFault> {
         let mut original = std::mem::MaybeUninit::<Termios>::uninit();
-        // SAFETY: tcgetattr initializes the output on success.
         if unsafe { tcgetattr(STDIN_FILENO, original.as_mut_ptr()) } != 0 {
             return Err(TerminalFault::ModeRead);
         }
@@ -132,8 +145,10 @@ mod imp {
         let _signal_restore = SignalEchoRestore::install(original)?;
         let mut live = original;
         live.c_lflag &= !(ECHO | ICANON | ISIG);
-        live.c_cc[VMIN] = 1;
-        live.c_cc[VTIME] = 0;
+        // A short inter-byte timeout lets the line editor distinguish a standalone Escape
+        // key from the prefix of CSI/SS3 navigation sequences.
+        live.c_cc[VMIN] = 0;
+        live.c_cc[VTIME] = 1;
         // SAFETY: both termios pointers are valid for the duration of each call.
         if unsafe { tcsetattr(STDIN_FILENO, TCSANOW, &live) } != 0 {
             return Err(TerminalFault::NoEchoSet);
@@ -144,7 +159,7 @@ mod imp {
             restored: false,
         };
         let width = dimensions().map(|(columns, _)| usize::from(columns))?;
-        let value = super::super::live_input::read(suggestions, width, base_frame);
+        let value = operation(width);
         if !restore.restore() {
             return Err(TerminalFault::EchoRestore);
         }
@@ -273,11 +288,11 @@ mod imp {
         }
     }
 }
-
 #[cfg(windows)]
 mod imp {
     use super::super::{
-        read_stdin_line, zeroize_string, TerminalFault, TerminalSuggestion, TestTerminalFault,
+        read_stdin_line, resolve_choice, zeroize_string, TerminalChoice, TerminalFault,
+        TerminalSuggestion, TestTerminalFault,
     };
     use std::ffi::c_void;
     use std::io::{self, Write};
@@ -356,7 +371,6 @@ mod imp {
 
     #[cfg(debug_assertions)]
     pub fn input_mode() -> Result<u32, TerminalFault> {
-        // SAFETY: GetStdHandle has no Rust-side preconditions.
         let handle = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
         let mut mode = 0;
         // SAFETY: mode points to writable storage and handle is the process stdin handle.
@@ -393,12 +407,19 @@ mod imp {
         read_stdin_line(TerminalFault::LineRead)
     }
 
+    pub fn choose(
+        _title: &str,
+        choices: &[TerminalChoice],
+    ) -> Result<Option<String>, TerminalFault> {
+        read_stdin_line(TerminalFault::LineRead)
+            .map(|input| input.and_then(|input| resolve_choice(choices, &input)))
+    }
+
     pub fn read_secret() -> Result<Option<String>, TerminalFault> {
         super::super::inject_test_fault(TestTerminalFault::ModeRead, TerminalFault::ModeRead)?;
         // SAFETY: GetStdHandle has no Rust-side preconditions.
         let handle = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
         let mut original = 0;
-        // SAFETY: original points to writable mode storage.
         if unsafe { GetConsoleMode(handle, &mut original) } == 0 {
             return Err(TerminalFault::ModeRead);
         }
@@ -499,7 +520,7 @@ mod imp {
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
 mod imp {
-    use super::super::{TerminalFault, TerminalSuggestion};
+    use super::super::{TerminalChoice, TerminalFault, TerminalSuggestion};
 
     pub fn dimensions() -> Result<(u16, u16), TerminalFault> {
         Err(TerminalFault::SizeRead)
@@ -515,6 +536,14 @@ mod imp {
     ) -> Result<Option<String>, TerminalFault> {
         Err(TerminalFault::ModeRead)
     }
+
+    pub fn choose(
+        _title: &str,
+        _choices: &[TerminalChoice],
+    ) -> Result<Option<String>, TerminalFault> {
+        Err(TerminalFault::ModeRead)
+    }
 }
 
-pub(super) use imp::{dimensions, read_line_with_suggestions, read_secret};
+pub(super) use imp::{choose, dimensions, read_line_with_suggestions, read_secret};
+pub(super) const LIVE_INPUT: bool = cfg!(any(target_os = "linux", target_os = "macos"));

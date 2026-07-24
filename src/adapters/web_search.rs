@@ -1,296 +1,227 @@
-//! Read-only web search through Exa's hosted Streamable HTTP MCP endpoint.
-
-use std::time::Duration;
+//! Bounded read-only web search implemented with direct public HTML retrieval.
 
 use crate::foundation::error::AppError;
-use crate::foundation::serialization::{self, Value};
 
-const EXA_MCP_ENDPOINT: &str = "https://mcp.exa.ai/mcp";
-const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
-const MAX_MCP_RESPONSE_BYTES: u64 = 512 * 1024;
-const MAX_SEARCH_CONTEXT_CHARS: usize = 6 * 1024;
-const MAX_SOURCES: usize = 4;
-const MAX_SOURCE_URL_BYTES: usize = 2_048;
+mod evidence;
+mod find;
+mod html;
+mod page;
+mod policy;
+mod transport;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct WebSearchEvidence {
-    pub(crate) context: String,
-    pub(crate) sources: Vec<String>,
-}
+pub(crate) use evidence::{WebOpenResult, WebPageEvidence, WebSearchEvidence};
+pub(crate) use find::find_in_page;
+use html::parse_search_document;
+use page::parse_page_document;
+use policy::{resolve_redirect_url, same_web_origin, validate_open_url, validate_query};
+use transport::{fetch_page_response, fetch_search_document, PageResponse};
+
+const MAX_PAGE_REDIRECTS: usize = 10;
+
+#[cfg(test)]
+use evidence::{evidence_from_results, SearchResult, MAX_SEARCH_CONTEXT_CHARS};
+#[cfg(test)]
+use html::normalize_result_url;
+#[cfg(test)]
+use page::normalize_page_text;
+#[cfg(test)]
+use policy::{
+    is_valid_https_source_url, socket_addresses_are_public, MAX_QUERY_CHARS, MAX_QUERY_WORDS,
+};
+#[cfg(test)]
+use transport::{direct_agent_config, map_search_error, page_agent_config};
 
 pub(crate) fn search(query: &str) -> Result<WebSearchEvidence, AppError> {
-    let query = query.trim();
-    if query.is_empty() {
-        return Err(AppError::usage("웹 검색어가 필요합니다."));
-    }
+    let query = validate_query(query)?;
 
     #[cfg(debug_assertions)]
-    if let Some(fixture) = std::env::var_os("RPOTATO_TEST_WEB_SEARCH_SSE") {
-        return parse_tool_response(&fixture.to_string_lossy());
+    if let Some(fixture) = std::env::var_os("RPOTATO_TEST_WEB_SEARCH_HTML") {
+        return parse_search_document(&fixture.to_string_lossy());
     }
 
-    let config = ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(30)))
-        .https_only(true)
-        .build();
-    let agent = ureq::Agent::new_with_config(config);
-    let initialize = format!(
-        "{{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{{\"protocolVersion\":\"{MCP_PROTOCOL_VERSION}\",\"capabilities\":{{}},\"clientInfo\":{{\"name\":\"rpotato\",\"version\":\"{}\"}}}}}}",
-        env!("CARGO_PKG_VERSION")
-    );
-    let mut response = post_mcp(&agent, "initialize", None, None, &initialize)?;
-    let session_id = response
-        .headers()
-        .get("mcp-session-id")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_string)
-        .ok_or_else(|| AppError::runtime("웹 검색 MCP가 session id를 반환하지 않았습니다."))?;
-    read_bounded_body(&mut response, "웹 검색 MCP 초기화")?;
-
-    let initialized = "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}";
-    let mut response = post_mcp(
-        &agent,
-        "notifications/initialized",
-        None,
-        Some(&session_id),
-        initialized,
-    )?;
-    read_bounded_body(&mut response, "웹 검색 MCP 초기화 확인")?;
-
-    let escaped_query = serialization::escape_string_content(query);
-    let request = format!(
-        "{{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{{\"name\":\"web_search_exa\",\"arguments\":{{\"query\":\"{escaped_query}\",\"numResults\":5}}}}}}"
-    );
-    let mut response = post_mcp(
-        &agent,
-        "tools/call",
-        Some("web_search_exa"),
-        Some(&session_id),
-        &request,
-    )?;
-    let body = read_bounded_body(&mut response, "웹 검색 결과")?;
-    parse_tool_response(&body)
+    let document = fetch_search_document(query)?;
+    parse_search_document(&document)
 }
 
-fn post_mcp(
-    agent: &ureq::Agent,
-    method: &str,
-    name: Option<&str>,
-    session_id: Option<&str>,
-    body: &str,
-) -> Result<ureq::http::Response<ureq::Body>, AppError> {
-    let mut request = agent
-        .post(EXA_MCP_ENDPOINT)
-        .header("Content-Type", "application/json")
-        .header("Accept", "application/json, text/event-stream")
-        .header("MCP-Protocol-Version", MCP_PROTOCOL_VERSION)
-        .header("Mcp-Method", method)
-        .header("User-Agent", concat!("rpotato/", env!("CARGO_PKG_VERSION")));
-    if let Some(name) = name {
-        request = request.header("Mcp-Name", name);
-    }
-    if let Some(session_id) = session_id {
-        request = request.header("Mcp-Session-Id", session_id);
-    }
-    request
-        .send(body.as_bytes())
-        .map_err(|error| AppError::runtime(format!("웹 검색 연결 실패: {error}")))
-}
+pub(crate) fn open(url: &str) -> Result<WebOpenResult, AppError> {
+    let requested_url = validate_open_url(url)?;
 
-fn read_bounded_body(
-    response: &mut ureq::http::Response<ureq::Body>,
-    context: &str,
-) -> Result<String, AppError> {
-    response
-        .body_mut()
-        .with_config()
-        .limit(MAX_MCP_RESPONSE_BYTES)
-        .read_to_string()
-        .map_err(|error| AppError::runtime(format!("{context} 읽기 실패: {error}")))
-}
+    #[cfg(debug_assertions)]
+    if let Some(fixture) = std::env::var_os("RPOTATO_TEST_WEB_OPEN_HTML") {
+        return parse_page_document(
+            &requested_url,
+            &requested_url,
+            &fixture.to_string_lossy(),
+            "text/html",
+        )
+        .map(WebOpenResult::Opened);
+    }
 
-fn parse_tool_response(body: &str) -> Result<WebSearchEvidence, AppError> {
-    let sse_payloads = body
-        .lines()
-        .filter_map(|line| line.strip_prefix("data:").map(str::trim))
-        .filter(|line| !line.is_empty())
-        .collect::<Vec<_>>();
-    let payload = sse_payloads
-        .iter()
-        .rev()
-        .find(|payload| {
-            matches!(
-                serialization::parse_value(payload, "Exa MCP SSE event"),
-                Ok(Value::Object(ref root))
-                    if root.contains_key("result") || root.contains_key("error")
-            )
-        })
-        .copied()
-        .unwrap_or_else(|| body.trim());
-    let Value::Object(root) = serialization::parse_value(payload, "Exa MCP tools/call")? else {
-        return Err(AppError::blocked(
-            "웹 검색 응답 root 형식이 올바르지 않습니다.",
-        ));
-    };
-    if let Some(Value::Object(error)) = root.get("error") {
-        let message = match error.get("message") {
-            Some(Value::String(message)) => message.as_str(),
-            _ => "알 수 없는 MCP 오류",
-        };
-        return Err(AppError::runtime(format!("웹 검색 도구 오류: {message}")));
-    }
-    let Some(Value::Object(result)) = root.get("result") else {
-        return Err(AppError::blocked("웹 검색 응답에 result가 없습니다."));
-    };
-    if matches!(result.get("isError"), Some(Value::Bool(true))) {
-        return Err(AppError::runtime(
-            "웹 검색 제공자가 요청을 처리하지 못했습니다.",
-        ));
-    }
-    let Some(Value::Array(content)) = result.get("content") else {
-        return Err(AppError::blocked("웹 검색 응답에 content가 없습니다."));
-    };
-    let text = content
-        .iter()
-        .filter_map(|item| match item {
-            Value::Object(item) => match (item.get("type"), item.get("text")) {
-                (Some(Value::String(kind)), Some(Value::String(text))) if kind == "text" => {
-                    Some(text.as_str())
+    let mut current_url = requested_url.clone();
+    for redirect_count in 0..=MAX_PAGE_REDIRECTS {
+        match fetch_page_response(&current_url)? {
+            PageResponse::Document { content_type, body } => {
+                return parse_page_document(&requested_url, &current_url, &body, &content_type)
+                    .map(WebOpenResult::Opened);
+            }
+            PageResponse::Redirect { location } => {
+                let target_url = resolve_redirect_url(&current_url, &location)?;
+                if !same_web_origin(&current_url, &target_url) {
+                    return Ok(WebOpenResult::Redirect {
+                        from_url: current_url,
+                        target_url,
+                    });
                 }
-                _ => None,
-            },
-            _ => None,
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    if text.trim().is_empty() {
-        return Err(AppError::blocked("웹 검색 결과가 비어 있습니다."));
-    }
-    let context = text
-        .chars()
-        .filter(|character| !character.is_control() || matches!(character, '\n' | '\t'))
-        .take(MAX_SEARCH_CONTEXT_CHARS)
-        .collect::<String>();
-    let mut sources = Vec::new();
-    for url in context
-        .lines()
-        .filter_map(|line| line.trim().strip_prefix("URL: "))
-    {
-        let url = normalize_source_url(url);
-        if is_valid_https_source_url(&url) && !sources.iter().any(|stored| stored == &url) {
-            sources.push(url);
-            if sources.len() == MAX_SOURCES {
-                break;
+                if redirect_count == MAX_PAGE_REDIRECTS {
+                    return Err(AppError::blocked(
+                        "WebOpen 동일 host redirect가 10회를 초과했습니다.",
+                    ));
+                }
+                current_url = target_url;
             }
         }
     }
-    if sources.is_empty() {
-        return Err(AppError::blocked(
-            "웹 검색 결과에 검증 가능한 HTTPS 출처가 없습니다.",
-        ));
-    }
-    Ok(WebSearchEvidence { context, sources })
+    unreachable!("redirect loop returns at its bounded terminal state")
 }
 
-fn normalize_source_url(url: &str) -> String {
-    let Some((scheme, remainder)) = url.split_once("://") else {
-        return url.to_string();
-    };
-    if !remainder.ends_with("//") {
-        return url.to_string();
-    }
-    format!("{scheme}://{}/", remainder.trim_end_matches('/'))
-}
-
-fn is_valid_https_source_url(url: &str) -> bool {
-    if url.len() > MAX_SOURCE_URL_BYTES
-        || url
-            .chars()
-            .any(|character| character.is_control() || character.is_whitespace())
-    {
-        return false;
-    }
-    let Ok(uri) = url.parse::<ureq::http::Uri>() else {
-        return false;
-    };
-    uri.scheme_str() == Some("https")
-        && uri.authority().is_some_and(|authority| {
-            !authority.host().is_empty() && !authority.as_str().contains('@')
-        })
+pub(crate) fn configuration_summary() -> String {
+    "사용 가능; API key 없는 WebSearch·WebOpen·WebFind".to_string()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    const FIXTURE: &str = r#"
+      <div class="result results_links web-result">
+        <h2 class="result__title">
+          <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.rust-lang.org%2F&amp;rut=ignored">
+            Rust <b>공식</b> 사이트
+          </a>
+        </h2>
+        <a class="result__snippet">신뢰할 수 있는 설명 &amp; 추가 문맥</a>
+      </div>
+      <div class="result results_links web-result">
+        <h2 class="result__title">
+          <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.rust-lang.org%2F&amp;rut=duplicate">
+            중복
+          </a>
+        </h2>
+        <a class="result__snippet">중복 결과</a>
+      </div>
+      <div class="result results_links web-result">
+        <h2 class="result__title">
+          <a class="result__a" href="https://doc.rust-lang.org/">
+            두 번째 고유 출처
+          </a>
+        </h2>
+        <a class="result__snippet">중복 이후에도 포함되어야 함</a>
+      </div>
+      <div class="result results_links web-result">
+        <h2 class="result__title">
+          <a class="result__a" href="//duckduckgo.com/l/?uddg=http%3A%2F%2Fexample.com%2F">
+            위험
+          </a>
+        </h2>
+        <a class="result__snippet">HTTPS가 아님</a>
+      </div>
+    "#;
+
     #[test]
-    fn parses_bounded_text_and_https_sources_from_sse() {
-        let body = r#"event: message
-data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}
+    fn parses_direct_search_html_and_deduplicates_https_sources() {
+        let evidence = parse_search_document(FIXTURE).unwrap();
 
-event: message
-data: {"result":{"content":[{"type":"text","text":"Title: 공식 문서\nURL: https://example.com/docs\nHighlights:\n최신 정보입니다.\n\n---\n\nTitle: 중복\nURL: https://example.com/docs"}],"isError":false},"jsonrpc":"2.0","id":2}
-"#;
-
-        let evidence = parse_tool_response(body).unwrap();
-
-        assert!(evidence.context.contains("최신 정보입니다."));
-        assert_eq!(evidence.sources, vec!["https://example.com/docs"]);
+        assert!(evidence.context.contains("Rust 공식 사이트"));
+        assert!(evidence.context.contains("설명 & 추가 문맥"));
+        assert_eq!(
+            evidence.sources,
+            vec!["https://www.rust-lang.org/", "https://doc.rust-lang.org/"]
+        );
+        assert!(!evidence.context.contains("HTTPS가 아님"));
     }
 
     #[test]
-    fn normalizes_duplicate_trailing_slashes_in_source_urls() {
-        let body = r#"data: {"result":{"content":[{"type":"text","text":"Title: Rust\nURL: https://rust-lang.org//"}],"isError":false},"jsonrpc":"2.0","id":2}"#;
-
-        let evidence = parse_tool_response(body).unwrap();
-
-        assert_eq!(evidence.sources, vec!["https://rust-lang.org/"]);
+    fn rejects_empty_oversized_and_control_character_queries() {
+        assert!(validate_query("").is_err());
+        assert!(validate_query(&"가".repeat(MAX_QUERY_CHARS + 1)).is_err());
+        assert!(validate_query(&vec!["word"; MAX_QUERY_WORDS + 1].join(" ")).is_err());
+        assert!(validate_query("safe\u{0}unsafe").is_err());
+        assert_eq!(validate_query(" Rust 검색 ").unwrap(), "Rust 검색");
     }
 
     #[test]
-    fn bounds_small_model_context_and_only_exposes_sources_inside_it() {
-        let text = format!(
-            "Title: 첫 결과\nURL: https://example.com/first\nHighlights:\n{}\nTitle: 잘린 결과\nURL: https://example.com/truncated",
-            "가".repeat(MAX_SEARCH_CONTEXT_CHARS)
+    fn direct_search_is_available_without_api_credentials() {
+        assert_eq!(
+            configuration_summary(),
+            "사용 가능; API key 없는 WebSearch·WebOpen·WebFind"
         );
-        let body = format!(
-            "data: {{\"result\":{{\"content\":[{{\"type\":\"text\",\"text\":\"{}\"}}],\"isError\":false}},\"jsonrpc\":\"2.0\",\"id\":2}}",
-            serialization::escape_string_content(&text)
-        );
+    }
 
-        let evidence = parse_tool_response(&body).unwrap();
+    #[test]
+    fn unwraps_only_valid_https_result_targets() {
+        assert_eq!(
+            normalize_result_url(
+                "//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fdocs%3Fq%3Drust&amp;rut=x"
+            )
+            .as_deref(),
+            Some("https://example.com/docs?q=rust")
+        );
+        assert_eq!(
+            normalize_result_url("https://example.com/direct").as_deref(),
+            Some("https://example.com/direct")
+        );
+        assert!(
+            normalize_result_url("//duckduckgo.com/l/?uddg=http%3A%2F%2Fexample.com%2F").is_none()
+        );
+        assert!(normalize_result_url("//duckduckgo.com/l/?rut=missing").is_none());
+    }
+
+    #[test]
+    fn direct_request_is_https_only_and_does_not_follow_redirects() {
+        let config = direct_agent_config();
+
+        assert!(config.https_only());
+        assert_eq!(config.max_redirects(), 0);
+    }
+
+    #[test]
+    fn maps_status_without_exposing_provider_response() {
+        for (status, expected) in [(429, "요청"), (400, "거부"), (500, "일시적")] {
+            let message = map_search_error(ureq::Error::StatusCode(status)).message;
+            assert!(message.contains(expected), "status={status}: {message}");
+            assert!(!message.contains("secret"));
+        }
+    }
+
+    #[test]
+    fn bounds_context_and_only_exposes_sources_inside_it() {
+        let long = SearchResult {
+            title: "첫 결과".to_string(),
+            url: "https://example.com/first".to_string(),
+            description: "가".repeat(MAX_SEARCH_CONTEXT_CHARS * 2),
+        };
+        let truncated = SearchResult {
+            title: "잘린 결과".to_string(),
+            url: "https://example.com/truncated".to_string(),
+            description: "두 번째".to_string(),
+        };
+
+        let evidence = evidence_from_results(&[long, truncated]).unwrap();
 
         assert!(evidence.context.chars().count() <= MAX_SEARCH_CONTEXT_CHARS);
         assert_eq!(evidence.sources, vec!["https://example.com/first"]);
     }
 
     #[test]
-    fn rejects_tool_errors_and_results_without_sources() {
-        let tool_error = r#"data: {"result":{"content":[],"isError":true},"jsonrpc":"2.0","id":2}"#;
-        assert!(parse_tool_response(tool_error).is_err());
-
-        let no_source = r#"data: {"result":{"content":[{"type":"text","text":"출처 없음"}]},"jsonrpc":"2.0","id":2}"#;
-        assert!(parse_tool_response(no_source).is_err());
-    }
-
-    #[test]
     fn rejects_malformed_or_deceptive_https_sources() {
-        let malformed = [
+        for url in [
             "https://",
             "https://user@example.com/docs",
             "https://example.com/a path",
             "https://example.com/\nforged",
-        ];
-        for url in malformed {
+            "http://example.com/docs",
+        ] {
             assert!(!is_valid_https_source_url(url), "url: {url}");
-        }
-        for url in &malformed[..3] {
-            let body = format!(
-                "data: {{\"result\":{{\"content\":[{{\"type\":\"text\",\"text\":\"Title: forged\\nURL: {}\"}}],\"isError\":false}},\"jsonrpc\":\"2.0\",\"id\":2}}",
-                serialization::escape_string_content(url)
-            );
-
-            assert!(parse_tool_response(&body).is_err(), "url: {url}");
         }
         assert!(is_valid_https_source_url("https://example.com/docs?q=rust"));
     }
@@ -308,5 +239,119 @@ data: {"result":{"content":[{"type":"text","text":"Title: 공식 문서\nURL: ht
             .sources
             .iter()
             .all(|source| source.starts_with("https://")));
+    }
+
+    #[test]
+    fn live_web_open_smoke_when_explicitly_enabled() {
+        if std::env::var("RPOTATO_RUN_LIVE_WEB_OPEN").as_deref() != Ok("1") {
+            return;
+        }
+
+        let result = open("https://example.com/").unwrap();
+        let WebOpenResult::Opened(page) = result else {
+            panic!("example.com must not cross-host redirect");
+        };
+
+        assert_eq!(page.final_url, "https://example.com/");
+        assert!(!page.content.trim().is_empty());
+    }
+
+    #[test]
+    fn web_open_upgrades_http_and_rejects_private_or_credentialed_targets() {
+        assert_eq!(
+            validate_open_url("http://example.com/docs").unwrap(),
+            "https://example.com/docs"
+        );
+        for url in [
+            "https://user:secret@example.com/",
+            "https://localhost/",
+            "https://127.0.0.1/",
+            "https://10.0.0.1/",
+            "https://[::1]/",
+            "file:///tmp/secret",
+        ] {
+            assert!(validate_open_url(url).is_err(), "url: {url}");
+        }
+    }
+
+    #[test]
+    fn web_open_only_auto_follows_same_host_redirects() {
+        let current = "https://docs.example.com/guide/start";
+        let same = resolve_redirect_url(current, "/guide/next").unwrap();
+        let www = resolve_redirect_url(current, "https://www.docs.example.com/guide").unwrap();
+        let cross = resolve_redirect_url(current, "https://accounts.example.net/login").unwrap();
+
+        assert!(same_web_origin(current, &same));
+        assert!(same_web_origin(current, &www));
+        assert!(!same_web_origin(current, &cross));
+        assert_eq!(same, "https://docs.example.com/guide/next");
+    }
+
+    #[test]
+    fn web_open_transport_never_auto_follows_redirects() {
+        let config = page_agent_config();
+
+        assert!(config.https_only());
+        assert_eq!(config.max_redirects(), 0);
+        assert!(config.proxy().is_none());
+    }
+
+    #[test]
+    fn web_open_transport_rejects_any_private_dns_answer() {
+        use std::net::SocketAddr;
+
+        let public = "93.184.216.34:443".parse::<SocketAddr>().unwrap();
+        let private = "127.0.0.1:443".parse::<SocketAddr>().unwrap();
+
+        assert!(socket_addresses_are_public(&[public]));
+        assert!(!socket_addresses_are_public(&[public, private]));
+    }
+
+    #[test]
+    fn web_open_normalizes_readable_text_and_removes_active_content() {
+        let document = r#"
+            <html><head><title>Rust &amp; 안전</title>
+            <style>.secret { display:none }</style>
+            <script>alert("ignore")</script></head>
+            <body><nav>메뉴</nav><main><h1>시작</h1><p>Rust 문서입니다.</p></main></body></html>
+        "#;
+
+        let page = normalize_page_text("https://example.com/docs", document, "text/html").unwrap();
+
+        assert_eq!(page.title.as_deref(), Some("Rust & 안전"));
+        assert!(page.content.contains("시작"));
+        assert!(page.content.contains("Rust 문서입니다."));
+        assert!(!page.content.contains("alert"));
+        assert!(!page.content.contains("display:none"));
+    }
+
+    #[test]
+    fn web_open_scans_many_hidden_elements_without_leaking_them() {
+        let mut document = String::from("<html><body>");
+        for _ in 0..4_000 {
+            document.push_str("<script>ignore me</script>");
+        }
+        document.push_str("<main>visible result</main></body></html>");
+
+        let page = normalize_page_text("https://example.com/docs", &document, "text/html").unwrap();
+
+        assert_eq!(page.content, "visible result");
+    }
+
+    #[test]
+    fn web_find_is_literal_case_insensitive_and_bounded() {
+        let page = WebPageEvidence {
+            requested_url: "https://example.com/docs".to_string(),
+            final_url: "https://example.com/docs".to_string(),
+            title: Some("Guide".to_string()),
+            content: "Rust 첫 문단\n다른 줄\nRUST 두 번째 문단\nrust 세 번째 문단".to_string(),
+        };
+
+        let evidence = find_in_page(&page, "rust").unwrap();
+
+        assert_eq!(evidence.page_url, page.final_url);
+        assert_eq!(evidence.query, "rust");
+        assert_eq!(evidence.matches.len(), 3);
+        assert!(evidence.matches[0].contains("Rust 첫 문단"));
     }
 }

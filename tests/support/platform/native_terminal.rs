@@ -7,7 +7,10 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 static NATIVE_TERMINAL_LOCK: Mutex<()> = Mutex::new(());
 static SOURCE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+#[cfg(not(windows))]
 const FIXTURE_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
+#[cfg(windows)]
+const FIXTURE_COMMAND_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub(crate) fn strip_terminal_controls(capture: &str) -> String {
     let mut output = String::with_capacity(capture.len());
@@ -659,6 +662,30 @@ mod unix {
                 assert!(
                     Instant::now() < deadline,
                     "PTY output timeout; wanted {needle:?}; got {output}"
+                );
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+
+        pub fn mark(&self) -> usize {
+            self.output.len()
+        }
+
+        pub fn wait_for_after(&mut self, mark: usize, needle: &str) -> String {
+            assert!(
+                mark <= self.output.len(),
+                "PTY output mark is out of bounds"
+            );
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                self.drain_available();
+                let output = String::from_utf8_lossy(&self.output[mark..]);
+                if output.contains(needle) {
+                    return output.into_owned();
+                }
+                assert!(
+                    Instant::now() < deadline,
+                    "PTY output timeout after mark; wanted {needle:?}; got {output}"
                 );
                 std::thread::sleep(Duration::from_millis(10));
             }

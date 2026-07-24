@@ -9,7 +9,7 @@ use crate::app::workflow_adapter::{ledger, state};
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::lifecycle::BackendSidecarRecord;
 use crate::runtime_core::inference::backend::{
-    BackendChatRun, BackendChatSampling, MAX_CHAT_TIMEOUT_MS,
+    BackendChatInput, BackendChatRun, BackendChatSampling, MAX_CHAT_TIMEOUT_MS,
 };
 use crate::runtime_core::inference::model::manifest::quantization_for_artifact_hash;
 use crate::runtime_core::inference::{resource, stream::StreamTermination};
@@ -40,6 +40,13 @@ const CHAT_SAMPLING: BackendChatSampling = BackendChatSampling {
 };
 pub fn chat_once(prompt: &str, max_tokens: Option<u32>) -> Result<BackendChatRun, AppError> {
     chat_once_with_options(prompt, max_tokens, false, None, || Ok(false), |_| Ok(()))
+}
+
+pub(crate) fn chat_once_with_input(
+    input: &BackendChatInput,
+    max_tokens: Option<u32>,
+) -> Result<BackendChatRun, AppError> {
+    chat_input_with_options(input, max_tokens, false, None, || Ok(false), |_| Ok(()))
 }
 
 pub fn chat_once_bounded(
@@ -115,13 +122,33 @@ fn chat_once_with_options(
     mut external_cancel_requested: impl FnMut() -> Result<bool, AppError>,
     mut on_delta: impl FnMut(Option<&str>) -> Result<(), AppError>,
 ) -> Result<BackendChatRun, AppError> {
-    if prompt.trim().is_empty() {
-        return Err(AppError::usage(
-            "backend chat은 비어 있지 않은 --prompt <text> 값이 필요합니다.",
-        ));
-    }
+    let input = BackendChatInput::text(prompt);
+    chat_input_with_options(
+        &input,
+        max_tokens,
+        streaming_display,
+        timeout_ms,
+        &mut external_cancel_requested,
+        &mut on_delta,
+    )
+}
+
+fn chat_input_with_options(
+    input: &BackendChatInput,
+    max_tokens: Option<u32>,
+    streaming_display: bool,
+    timeout_ms: Option<u32>,
+    mut external_cancel_requested: impl FnMut() -> Result<bool, AppError>,
+    mut on_delta: impl FnMut(Option<&str>) -> Result<(), AppError>,
+) -> Result<BackendChatRun, AppError> {
+    input.validate()?;
     let requested_max_tokens = max_tokens.unwrap_or(DEFAULT_CHAT_MAX_TOKENS);
     let record = ready_sidecar_record()?;
+    if !input.images.is_empty() && record.mmproj_path.is_none() {
+        return Err(AppError::blocked(
+            "이미지 입력을 사용할 수 없습니다.\n- 이유: 현재 backend는 text-ready이지만 vision-ready가 아닙니다.\n- 다음: /model에서 vision(mmproj) 준비 상태를 확인한 뒤 모델을 다시 준비하세요.",
+        ));
+    }
 
     let governor_sample = record_backend_resource_sample(&record, "chat-governor")?;
     let governor = resource::chat_governor_decision(governor_sample.pressure, requested_max_tokens);
@@ -133,7 +160,7 @@ fn chat_once_with_options(
                 "pid={} backend={} prompt_chars={} requested_max_tokens={} pressure_status={} admission={} token_action={} reason={} sample_event={}",
                 record.pid,
                 record.backend_id,
-                prompt.chars().count(),
+                input.text.chars().count(),
                 requested_max_tokens,
                 governor.pressure.as_str(),
                 governor.admission.as_str(),
@@ -180,7 +207,7 @@ fn chat_once_with_options(
             generation.sidecar_pid,
             record.backend_id,
             model_id_from_path(&record.model_path),
-            prompt.chars().count(),
+            input.text.chars().count(),
             requested_max_tokens,
             effective_max_tokens,
             timeout_ms,
@@ -191,9 +218,9 @@ fn chat_once_with_options(
     let started_at_ms = now_ms();
     let started_at = Instant::now();
     let sampling = CHAT_SAMPLING;
-    let body = llama_backend::chat_request_body(
+    let body = llama_backend::chat_request_body_for_input(
         &record.model_path,
-        prompt,
+        input,
         effective_max_tokens,
         &sampling,
         true,
@@ -332,7 +359,7 @@ fn chat_once_with_options(
             sampling.ledger_label(),
             std::env::consts::OS,
             std::env::consts::ARCH,
-            prompt.chars().count(),
+            input.text.chars().count(),
             display_content.chars().count(),
             requested_max_tokens,
             effective_max_tokens,
@@ -419,7 +446,7 @@ fn chat_once_with_options(
         model_path: record.model_path,
         model_artifact_hash: record.model_sha256,
         ctx_size: record.ctx_size,
-        prompt_chars: prompt.chars().count(),
+        prompt_chars: input.text.chars().count(),
         response_chars: display_content.chars().count(),
         requested_max_tokens,
         effective_max_tokens,

@@ -4,8 +4,8 @@ use crate::foundation::error::AppError;
 use crate::surfaces::tui::controller::{run_controller, TuiRuntimePort};
 use crate::surfaces::tui::render::{display_cell_width, render_interactive_frame};
 use crate::surfaces::tui::runtime_bridge::{
-    SelectionLease, TuiFreshness, TuiGateKind, TuiIntent, TuiModelOption, TuiReadContinuation,
-    TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
+    SelectionLease, TuiAttachment, TuiAttachmentKind, TuiFreshness, TuiGateKind, TuiIntent,
+    TuiModelOption, TuiReadContinuation, TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
 };
 use crate::surfaces::tui::view_model::{ConversationRole, InteractiveState};
 
@@ -73,13 +73,132 @@ fn search_command_routes_the_question_and_renders_the_answer() {
     run_controller(&mut terminal, &mut runtime).unwrap();
 
     let rendered = terminal.frames.join("\n");
-    assert_eq!(
-        runtime.requests,
-        ["인터넷에서 검색해줘: Rust 공식 웹사이트는?"]
-    );
+    assert_eq!(runtime.requests, ["/search Rust 공식 웹사이트는?"]);
     assert!(rendered.contains("› /search Rust 공식 웹사이트는?"));
     assert!(rendered.contains("검색 중 · 최신 웹 자료를 확인하고 있습니다…"));
     assert!(rendered.contains("● 안녕하세요."));
+}
+
+#[test]
+fn web_open_and_find_commands_route_through_the_conversation_runtime() {
+    let mut terminal =
+        ScriptedTerminal::new(["/open https://example.com/docs", "/find ownership", "/quit"]);
+    let mut runtime = ConversationRuntime::default();
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(
+        runtime.requests,
+        ["/open https://example.com/docs", "/find ownership"]
+    );
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("페이지 여는 중"));
+    assert!(rendered.contains("페이지 찾는 중"));
+}
+
+#[test]
+fn interactive_web_open_keeps_page_available_for_followup_find() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = std::env::temp_dir().join(format!(
+        "rpotato-interactive-web-tools-test-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&root);
+    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+    std::env::set_var("RPOTATO_TEST_SKIP_UPDATE_CHECK", "1");
+    std::env::set_var(
+        "RPOTATO_TEST_WEB_OPEN_HTML",
+        "<html><title>Rust Guide</title><body>Ownership is a Rust feature.</body></html>",
+    );
+    std::fs::create_dir_all(root.join("project")).unwrap();
+    crate::app::workflow_adapter::state::initialize().unwrap();
+    let mut terminal = ScriptedTerminal::new([
+        "/open https://example.com/guide",
+        "/find ownership",
+        "/quit",
+    ]);
+
+    run_controller(&mut terminal, &mut TuiRuntimeAdapter::default()).unwrap();
+
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    std::env::remove_var("RPOTATO_TEST_SKIP_UPDATE_CHECK");
+    std::env::remove_var("RPOTATO_TEST_WEB_OPEN_HTML");
+    let _ = std::fs::remove_dir_all(root);
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("Rust Guide"));
+    assert!(rendered.contains("일치: 1개"));
+    assert!(rendered.contains("Ownership is a Rust feature."));
+}
+
+#[test]
+fn natural_requests_use_agent_progress_until_the_model_selects_a_tool() {
+    let request = "2026년 월드컵 결과 검색해서 알려줘";
+    let mut terminal = ScriptedTerminal::new([request, "/quit"]);
+    let mut runtime = ConversationRuntime::default();
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.requests, [request]);
+    assert!(terminal.frames[1].contains("작업 중 · 에이전트가 요청을 처리하고 있습니다…"));
+}
+
+#[test]
+fn model_command_uses_keyboard_choices_and_applies_the_selection() {
+    let mut terminal = ScriptedTerminal::new(["/model", "2", "1", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        model_options: vec![
+            model_option("small", "Small", true, false),
+            model_option("recommended", "Recommended", false, true),
+        ],
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.setup_models, ["recommended"]);
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("모델 선택"));
+    assert!(rendered.contains("Recommended"));
+    assert!(rendered.contains("모델 변경 확인"));
+    assert!(rendered.contains("모델 적용 완료: recommended"));
+}
+
+#[test]
+fn pasted_image_path_becomes_an_attachment_instead_of_an_unknown_command() {
+    let path = "/private/tmp/rpotato-screen.png";
+    let mut terminal = ScriptedTerminal::new([path, "이 이미지 봐줘", "/quit"]);
+    let mut runtime = ConversationRuntime::default();
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.captured_paths, [path]);
+    assert_eq!(runtime.requests, ["이 이미지 봐줘"]);
+    assert_eq!(runtime.submitted_attachment_counts, [1]);
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("[image:"));
+    assert!(!rendered.contains("알 수 없는 TUI 명령"));
+}
+
+#[test]
+fn failed_request_keeps_attachments_until_a_successful_retry() {
+    let path = "/private/tmp/rpotato-retry.png";
+    let mut terminal =
+        ScriptedTerminal::new([path, "첫 요청", "재시도", "첨부 없는 요청", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        submit_failures_remaining: 1,
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.requests, ["첫 요청", "재시도", "첨부 없는 요청"]);
+    assert_eq!(runtime.submitted_attachment_counts, [1, 1, 0]);
+    assert!(terminal
+        .frames
+        .join("\n")
+        .contains("첨부는 재시도를 위해 유지했습니다."));
 }
 
 #[test]
@@ -114,6 +233,11 @@ fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() 
 struct ConversationRuntime {
     requests: Vec<String>,
     page_reads: usize,
+    model_options: Vec<TuiModelOption>,
+    setup_models: Vec<String>,
+    captured_paths: Vec<String>,
+    submitted_attachment_counts: Vec<usize>,
+    submit_failures_remaining: usize,
 }
 
 impl TuiRuntimePort for ConversationRuntime {
@@ -144,11 +268,12 @@ impl TuiRuntimePort for ConversationRuntime {
     }
 
     fn model_options(&mut self) -> Vec<TuiModelOption> {
-        Vec::new()
+        self.model_options.clone()
     }
 
-    fn setup_model(&mut self, _id: &str) -> Result<String, AppError> {
-        unreachable!()
+    fn setup_model(&mut self, id: &str) -> Result<String, AppError> {
+        self.setup_models.push(id.to_string());
+        Ok(format!("모델 적용 완료: {id}"))
     }
 
     fn doctor_report(&mut self) -> String {
@@ -159,8 +284,28 @@ impl TuiRuntimePort for ConversationRuntime {
         unreachable!()
     }
 
-    fn submit_request(&mut self, request: &str) -> Result<String, AppError> {
+    fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError> {
+        self.captured_paths.push(path.to_string());
+        Ok(TuiAttachment {
+            id: "attachment-test".to_string(),
+            display_name: path.to_string(),
+            stored_path: path.to_string(),
+            size_bytes: 1,
+            kind: TuiAttachmentKind::Image,
+        })
+    }
+
+    fn submit_request(
+        &mut self,
+        request: &str,
+        attachments: &[TuiAttachment],
+    ) -> Result<String, AppError> {
         self.requests.push(request.to_string());
+        self.submitted_attachment_counts.push(attachments.len());
+        if self.submit_failures_remaining > 0 {
+            self.submit_failures_remaining -= 1;
+            return Err(AppError::runtime("테스트 요청 실패"));
+        }
         Ok("안녕하세요.".to_string())
     }
 
@@ -184,5 +329,20 @@ impl TuiRuntimePort for ConversationRuntime {
 
     fn dispatch_tui_intent(&mut self, _intent: TuiIntent) -> Result<TuiOutcome, AppError> {
         unreachable!()
+    }
+}
+
+fn model_option(id: &str, display_name: &str, current: bool, recommended: bool) -> TuiModelOption {
+    TuiModelOption {
+        id: id.to_string(),
+        display_name: display_name.to_string(),
+        quantization: "Q4".to_string(),
+        download_bytes: 1024,
+        context_length: Some(4096),
+        ram: "4 GiB".to_string(),
+        license: "Apache-2.0".to_string(),
+        note: "test model".to_string(),
+        current,
+        recommended,
     }
 }

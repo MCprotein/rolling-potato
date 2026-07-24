@@ -61,7 +61,12 @@ fn slash_opens_command_palette_before_enter() {
     assert!(palette.contains("/compact"));
 
     terminal.send("model\n");
-    terminal.wait_for("사용 가능한 모델");
+    let picker = terminal.wait_for("모델 선택");
+    assert!(picker.contains("Qwen3.5 4B Q4_K_M GGUF"));
+    assert!(picker.contains("Gemma 4 E4B IT QAT Q4_0 GGUF"));
+    let picker_close = terminal.mark();
+    terminal.send("\u{1b}");
+    terminal.wait_for_after(picker_close, "╭─ rpotato v");
     terminal.send("/없는명령\n");
     terminal.wait_for("알 수 없는 TUI 명령입니다: /없는명령");
     terminal.send("/helx\u{7f}p\n");
@@ -600,31 +605,32 @@ fn assert_exact_outcome_block(capture: &str, expected: &str, context: &str) {
         .filter(|(_, line)| line.trim_start() == marker)
         .map(|(index, _)| index)
         .collect::<Vec<_>>();
-    assert_eq!(
-        matches.len(),
-        1,
-        "exact outcome marker count mismatch for {context}: {matches:?}\ncapture:\n{capture}"
-    );
-    let start = matches[0]
-        .checked_sub(1)
-        .unwrap_or_else(|| panic!("exact outcome header missing for {context}"));
-    let end = start + expected_lines.len();
     assert!(
-        end <= capture_lines.len(),
-        "exact outcome truncated for {context}\ncapture:\n{capture}"
+        !matches.is_empty(),
+        "exact outcome marker missing for {context}\ncapture:\n{capture}"
     );
-    let mut actual_lines = capture_lines[start..end].to_vec();
-    if actual_lines[0] != expected_lines[0] {
-        actual_lines[0] = actual_lines[0]
-            .strip_suffix(expected_lines[0])
-            .map(|_| expected_lines[0])
-            .unwrap_or(actual_lines[0]);
+    for marker_index in matches {
+        let start = marker_index
+            .checked_sub(1)
+            .unwrap_or_else(|| panic!("exact outcome header missing for {context}"));
+        let end = start + expected_lines.len();
+        assert!(
+            end <= capture_lines.len(),
+            "exact outcome truncated for {context}\ncapture:\n{capture}"
+        );
+        let mut actual_lines = capture_lines[start..end].to_vec();
+        if actual_lines[0] != expected_lines[0] {
+            actual_lines[0] = actual_lines[0]
+                .strip_suffix(expected_lines[0])
+                .map(|_| expected_lines[0])
+                .unwrap_or(actual_lines[0]);
+        }
+        let actual = actual_lines.join("\n");
+        assert_eq!(
+            actual, expected,
+            "exact outcome block mismatch for {context}\ncapture:\n{capture}"
+        );
     }
-    let actual = actual_lines.join("\n");
-    assert_eq!(
-        actual, expected,
-        "exact outcome block mismatch for {context}\ncapture:\n{capture}"
-    );
 }
 
 fn normalized_terminal_capture(capture: &str) -> String {

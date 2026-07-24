@@ -8,11 +8,10 @@ use crate::runtime_core::workflow::domain::transcript as transcript_domain;
 #[cfg(test)]
 use crate::runtime_core::workflow::storage_compat::transcript::TRANSCRIPT_V2_KEYS;
 use crate::runtime_core::workflow::storage_compat::transcript::{
-    self as transcript_codec, MAX_TRANSCRIPT_CONTENT_BYTES, TRANSCRIPT_SCHEMA_V1,
-    TRANSCRIPT_SCHEMA_V2,
+    TranscriptRecord, TranscriptSourcePointer,
 };
 use crate::runtime_core::workflow::storage_compat::transcript::{
-    TranscriptRecord, TranscriptSourcePointer,
+    MAX_TRANSCRIPT_CONTENT_BYTES, TRANSCRIPT_SCHEMA_V1, TRANSCRIPT_SCHEMA_V2,
 };
 
 mod storage;
@@ -27,7 +26,7 @@ use tool_turn::{record_tool_output_artifact, validate_requested_tool_streams};
 use tool_turn::{sanitize_tool_stream, MAX_SANITIZED_STREAM_BYTES};
 
 use storage::{
-    detail_from_pairs, load_record_path, now_ms, parse_event_details,
+    detail_from_pairs, install_record, load_record_path, now_ms, parse_event_details,
     validate_event_details_for_schema, validate_expected_record, validate_id, validate_kind,
     validate_source_pointer, validate_tool_binding_for_record,
     validate_tool_binding_shape_for_record, validated_transcript_path,
@@ -152,11 +151,7 @@ pub fn record_workflow_turn_with_streams(
             };
             validate_tool_binding_for_record(&record)?;
             record.artifact_hash = state::sha256_text(&record.artifact_payload());
-            transcript_codec::install_record(
-                &path,
-                &record,
-                crate::adapters::filesystem::atomic_write::atomic_replace_bytes,
-            )?;
+            install_record(&path, &record)?;
             record
         }
     };

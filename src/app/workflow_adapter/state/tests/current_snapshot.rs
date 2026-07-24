@@ -1,4 +1,5 @@
 use super::*;
+use std::io::Write;
 
 #[test]
 fn current_state_summary_handles_missing_file_as_uninitialized() {
@@ -47,17 +48,23 @@ fn tui_read_only_tail_accepts_legacy_prefix_before_chained_suffix() {
         )
     );
     for index in 0..61 {
-        previous = crate::runtime_core::workflow::storage_compat::ledger::append_canonical_event(
-            &path,
-            &ledger::new_event_for(
-                &identity,
-                "chained.event",
-                &format!("chained {index}"),
-                "safe",
-            ),
-            &previous,
-        )
-        .unwrap();
+        let (line, event_hash) =
+            crate::runtime_core::workflow::storage_compat::ledger::canonical_event_line(
+                &ledger::new_event_for(
+                    &identity,
+                    "chained.event",
+                    &format!("chained {index}"),
+                    "safe",
+                ),
+                &previous,
+            );
+        fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap()
+            .write_all(format!("{line}\n").as_bytes())
+            .unwrap();
+        previous = event_hash;
     }
     fs::write(
         path.with_extension("jsonl.head"),

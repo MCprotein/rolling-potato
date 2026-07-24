@@ -2,7 +2,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use crate::adapters::filesystem::layout;
+use crate::adapters::filesystem::{atomic_write, layout};
 use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::runtime_core::inference::model::codec::{parse_default_selection, parse_registry_entry};
@@ -41,11 +41,22 @@ pub(crate) fn promotion_evidence_path(id: &str) -> PathBuf {
 
 pub(crate) fn failed_artifact_paths(candidate: &ModelManifestEntry) -> Vec<PathBuf> {
     let artifact_name = candidate.artifact_name.unwrap_or(candidate.id);
-    vec![
-        paths().partial(candidate.id),
+    let mut paths = vec![
+        paths().partial(&artifact_download_key(candidate.id, "model", artifact_name)),
         paths().failed_download(candidate.id),
         paths().failed_model(artifact_name),
-    ]
+        paths().partial(candidate.id),
+    ];
+    if let Some(projector) = candidate.vision_projector {
+        let projector_key = projector_download_key(candidate, projector);
+        let legacy_key = artifact_download_key(candidate.id, "vision", projector.file_name);
+        for key in [projector_key, legacy_key] {
+            paths.push(self::paths().partial(&key));
+            paths.push(self::paths().failed_download(&key));
+            paths.push(self::paths().failed_model(&key));
+        }
+    }
+    paths
 }
 
 pub(crate) fn sha256_for_file(path: &Path) -> Result<String, AppError> {
@@ -100,19 +111,8 @@ pub(crate) fn cleanup_failed_artifacts(
 }
 
 pub(crate) fn write_registry_entry(id: &str, contents: &str) -> Result<(), AppError> {
-    fs::create_dir_all(&paths().registry_dir).map_err(|err| {
-        AppError::runtime(format!(
-            "model registry directory를 만들지 못했습니다: {} ({err})",
-            paths().registry_dir.display()
-        ))
-    })?;
     let path = registry_path(id);
-    fs::write(&path, contents).map_err(|err| {
-        AppError::runtime(format!(
-            "model registry entry를 기록하지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })
+    atomic_write::atomic_replace_bytes(&path, contents.as_bytes())
 }
 
 pub(crate) fn read_registry_entries() -> Result<Vec<RegistryEntry>, AppError> {
@@ -154,19 +154,8 @@ pub(crate) fn read_registry_entries() -> Result<Vec<RegistryEntry>, AppError> {
 }
 
 pub(crate) fn write_promotion_evidence(id: &str, contents: &str) -> Result<(), AppError> {
-    fs::create_dir_all(&paths().evidence_dir).map_err(|err| {
-        AppError::runtime(format!(
-            "model evidence directory를 만들지 못했습니다: {} ({err})",
-            paths().evidence_dir.display()
-        ))
-    })?;
     let path = promotion_evidence_path(id);
-    fs::write(&path, contents).map_err(|err| {
-        AppError::runtime(format!(
-            "model promotion evidence를 기록하지 못했습니다: {} ({err})",
-            path.display()
-        ))
-    })
+    atomic_write::atomic_replace_bytes(&path, contents.as_bytes())
 }
 
 pub(crate) fn read_promotion_evidence(path: &Path) -> Result<String, AppError> {
@@ -317,6 +306,36 @@ pub(crate) fn fetch_evaluation_artifact(
     } else {
         Ok(ModelArtifactFetchStatus::Downloaded)
     }
+}
+
+pub(crate) fn fetch_managed_projector_artifact(
+    artifact: ModelArtifactDescriptor,
+    final_path: &Path,
+    part_path: &Path,
+) -> Result<ModelArtifactFetchStatus, AppError> {
+    remove_invalid_managed_projector(artifact, final_path)?;
+    fetch_evaluation_artifact(artifact, final_path, part_path)
+}
+
+fn remove_invalid_managed_projector(
+    artifact: ModelArtifactDescriptor,
+    final_path: &Path,
+) -> Result<(), AppError> {
+    if final_path.exists() && !final_path.is_file() {
+        return Err(AppError::blocked(format!(
+            "vision projector final path가 file이 아닙니다: {}",
+            final_path.display()
+        )));
+    }
+    if final_path.is_file() && !model_artifact_matches(artifact, final_path)? {
+        fs::remove_file(final_path).map_err(|err| {
+            AppError::runtime(format!(
+                "손상되었거나 revision이 바뀐 app-managed vision projector를 교체하지 못했습니다: {} ({err})",
+                final_path.display()
+            ))
+        })?;
+    }
+    Ok(())
 }
 
 fn partial_artifact_size(
@@ -557,7 +576,64 @@ pub(crate) fn model_artifact_path(artifact: ModelArtifactDescriptor) -> PathBuf 
 }
 
 pub(crate) fn model_artifact_part_path(candidate: &ModelManifestEntry) -> PathBuf {
-    paths().partial(candidate.id)
+    paths().partial(&artifact_download_key(
+        candidate.id,
+        "model",
+        candidate.artifact_name.unwrap_or(candidate.id),
+    ))
+}
+
+pub(crate) fn vision_projector_artifact_path(
+    candidate: &ModelManifestEntry,
+    artifact: ModelArtifactDescriptor,
+) -> PathBuf {
+    paths().artifact(&artifact_download_key(
+        candidate.id,
+        "vision",
+        artifact.file_name,
+    ))
+}
+
+pub(crate) fn vision_projector_part_path(
+    candidate: &ModelManifestEntry,
+    artifact: ModelArtifactDescriptor,
+) -> PathBuf {
+    paths().partial(&projector_download_key(candidate, artifact))
+}
+
+fn projector_download_key(
+    candidate: &ModelManifestEntry,
+    artifact: ModelArtifactDescriptor,
+) -> String {
+    let revision = artifact.sha256.get(..12).unwrap_or(artifact.sha256);
+    artifact_download_key(
+        candidate.id,
+        "vision",
+        &format!("{}--{revision}", artifact.file_name),
+    )
+}
+
+fn artifact_download_key(candidate_id: &str, kind: &str, file_name: &str) -> String {
+    format!(
+        "{}--{}--{}",
+        safe_artifact_key(candidate_id),
+        safe_artifact_key(kind),
+        safe_artifact_key(file_name)
+    )
+}
+
+fn safe_artifact_key(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .take(180)
+        .collect()
 }
 
 impl ModelArtifactFetchStatus {
@@ -567,5 +643,83 @@ impl ModelArtifactFetchStatus {
             ModelArtifactFetchStatus::Resumed => "resumed",
             ModelArtifactFetchStatus::CacheHit => "cache-hit",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime_core::inference::model::manifest::{
+        find_candidate, source_backed_artifact, source_backed_vision_projector,
+    };
+
+    const SHA_ZERO: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+    const SHA_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const SHA_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    fn projector(sha256: &'static str) -> ModelArtifactDescriptor {
+        ModelArtifactDescriptor {
+            provider: "test",
+            url: "https://example.com/projector.gguf",
+            terms_url: "https://example.com/terms",
+            file_name: "projector.gguf",
+            sha256,
+            size_bytes: 3,
+        }
+    }
+
+    #[test]
+    fn managed_projector_removes_a_corrupt_cached_file_before_recovery() {
+        let root =
+            std::env::temp_dir().join(format!("rpotato-projector-recovery-{}", std::process::id()));
+        let path = root.join("projector.gguf");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(&path, b"bad").unwrap();
+
+        remove_invalid_managed_projector(projector(SHA_ZERO), &path).unwrap();
+
+        assert!(!path.exists());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn projector_partial_cache_is_scoped_to_the_expected_revision() {
+        let candidate = find_candidate("gemma-4-e4b").unwrap();
+        let first = vision_projector_part_path(candidate, projector(SHA_A));
+        let second = vision_projector_part_path(candidate, projector(SHA_B));
+
+        assert_ne!(first, second);
+    }
+
+    #[test]
+    fn evaluation_fetch_paths_stay_under_app_data() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let data_root =
+            std::env::temp_dir().join(format!("rpotato-fetch-path-test-{}", std::process::id()));
+        std::env::set_var("RPOTATO_DATA_HOME", &data_root);
+        std::env::set_var("RPOTATO_PROJECT_ROOT", data_root.join("project"));
+
+        let candidate = find_candidate("gemma-4-e4b").unwrap();
+        let artifact = source_backed_artifact(candidate).unwrap();
+        let projector = source_backed_vision_projector(candidate).unwrap();
+        let final_path = model_artifact_path(artifact);
+        let part_path = model_artifact_part_path(candidate);
+        let projector_path = vision_projector_artifact_path(candidate, projector);
+        let projector_part_path = vision_projector_part_path(candidate, projector);
+
+        std::env::remove_var("RPOTATO_DATA_HOME");
+        std::env::remove_var("RPOTATO_PROJECT_ROOT");
+
+        assert!(final_path.starts_with(data_root.join("models")));
+        assert!(part_path.starts_with(data_root.join("downloads")));
+        assert!(part_path.ends_with("gemma-4-e4b--model--gemma-4-E4B_q4_0-it.gguf.part"));
+        assert!(projector_path.starts_with(data_root.join("models")));
+        assert!(projector_path.ends_with("gemma-4-e4b--vision--gemma-4-E4B-it-mmproj.gguf"));
+        assert!(projector_part_path.starts_with(data_root.join("downloads")));
+        assert!(projector_part_path.ends_with(format!(
+            "gemma-4-e4b--vision--gemma-4-E4B-it-mmproj.gguf--{}.part",
+            &projector.sha256[..12]
+        )));
     }
 }

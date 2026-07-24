@@ -7,10 +7,11 @@ use crate::adapters::filesystem::{layout as paths, lease};
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
 use crate::runtime_core::workflow::storage_compat::ledger::{
-    append_canonical_event, event_physical_hash, parse_event_line_strict, sha256_bytes,
+    canonical_event_line, event_physical_hash, parse_event_line_strict, sha256_bytes,
     LedgerBinding, LedgerEvent, ParsedLedgerEvent,
 };
 
+use super::append::append_line;
 use super::{validate_read_only_event_sequence, ReadOnlyLedgerTail};
 
 pub fn read_runtime_events() -> Result<Vec<ParsedLedgerEvent>, AppError> {
@@ -345,7 +346,8 @@ pub(super) fn append_chained_event(path: &Path, event: &LedgerEvent) -> Result<(
                 format!("legacy:{}", sha256_bytes(contents.as_bytes()))
             }
         });
-    let event_hash = append_canonical_event(path, event, &previous)?;
+    let (line, event_hash) = canonical_event_line(event, &previous);
+    append_line(path, &line)?;
     write_ledger_head(path, existing.len() + 1, &event_hash)
 }
 

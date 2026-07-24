@@ -156,11 +156,17 @@ rpotato
 
 인자가 없는 `rpotato`가 기본 TUI를 시작합니다. 일반 텍스트로 범용 LLM 질문과
 코딩 에이전트 요청을 모두 처리합니다. 인터넷 검색을 명시하거나 최신 정보가
-필요한 질문은 제한된 읽기 전용 검색을 사용하고 runtime이 출처 link를 표시합니다. Composer
+필요한 질문은 API key, MCP process, provider SDK 없이 공개 검색 HTML을 직접
+요청·파싱하는 제한된 읽기 전용 검색을 사용하고 runtime이 출처 link를 표시합니다.
+`/open <URL>`은 공개 HTTPS 문서를 제한된 크기로 열고, `/find <텍스트>`는 현재
+TUI에서 마지막으로 연 문서 안을 검색합니다. 동일 host redirect만 자동 추적하고
+다른 host 이동은 대상 URL을 표시한 뒤 명시적인 다음 `/open`을 요구합니다.
+`/doctor`는 별도 credential 없이 웹 도구 준비 상태를 보여줍니다. Composer
 아래 line에는 현재 model, context 사용량,
 compaction checkpoint, backend 상태, session이 표시됩니다. 일반 TUI 동작은
-`/model`, `/compact`, `/search`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`,
-`/back`, `/clear`, `/help`, `/quit`을 사용합니다. 긴 응답은 viewport 밖의 line을
+`/model`, `/compact`, `/search`, `/open`, `/find`, `/attach`, `/update`, `/status`,
+`/sessions`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, `/quit`을 사용합니다.
+긴 응답은 viewport 밖의 line을
 버리지 않고 `/more`와 `/back`으로 이동합니다. Context 사용량 75%에서 자동 압축하며 `/compact`는
 immutable transcript를 정본으로 보존한 채 수동 checkpoint를 만듭니다.
 
@@ -195,7 +201,7 @@ pre-1.0 런타임입니다.
 | 협업 | 제한된 subagent 하나와 runtime-owned team execution |
 | 모니터링 | CLI/TUI metric, SQLite projection, benchmark record, static HTML export |
 | 화면 | 기본 대화 TUI, 자동화·진단 CLI, self-contained local HTML report |
-| 범용 답변과 웹 | 일반 지식·계산 답변, 최신성 자동 routing, `/search`, runtime이 출처 link를 표시하는 제한된 Exa MCP 검색 |
+| 범용 답변과 웹 | 일반 지식·계산 답변, 최신성 자동 routing, API key 없는 `WebSearch`·`WebOpen`·`WebFind`, runtime 소유 출처 link |
 
 장별 기능 지도, 대표 명령, 아직 완성되지 않은 경계는
 [docs/ko/current-capabilities.md](docs/ko/current-capabilities.md)에

@@ -22,6 +22,7 @@ fn interactive_view_change_resets_page_and_updates_notice() {
         notice: "old notice".to_string(),
         notice_page: 3,
         turns: Vec::new(),
+        attachments: Vec::new(),
     };
 
     state.set_view(InteractiveView::Transcript("session-next".to_string()));
@@ -45,6 +46,7 @@ fn interactive_view_builds_bounded_read_request_from_viewport() {
         notice: String::new(),
         notice_page: 0,
         turns: Vec::new(),
+        attachments: Vec::new(),
     };
 
     let request = state.read_request(10, 8);
@@ -144,9 +146,9 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
     std::env::set_var("RPOTATO_TEST_SKIP_UPDATE_CHECK", "1");
     std::fs::create_dir_all(root.join("project")).unwrap();
     crate::app::workflow_adapter::state::initialize().unwrap();
-    let mut terminal = ScriptedTerminal::new(["/model", "/help", "/compact", "/quit"]);
+    let mut terminal = ScriptedTerminal::new(["/model", "", "/help", "/compact", "/quit"]);
 
-    run_controller(&mut terminal, &mut TuiRuntimeAdapter).unwrap();
+    run_controller(&mut terminal, &mut TuiRuntimeAdapter::default()).unwrap();
 
     std::env::remove_var("RPOTATO_PROJECT_ROOT");
     std::env::remove_var("RPOTATO_DATA_HOME");
@@ -158,10 +160,14 @@ fn interactive_controller_exits_cleanly_and_never_emits_terminal_injection() {
         .iter()
         .all(|frame| !frame.contains('\u{001b}')));
     assert!(terminal.frames.iter().any(|frame| frame.contains("›")));
-    assert!(terminal
-        .frames
-        .iter()
-        .any(|frame| frame.contains("gemma-4-e4b")));
+    assert!(
+        terminal
+            .frames
+            .iter()
+            .any(|frame| frame.contains("gemma-4-e4b")),
+        "{:#?}",
+        terminal.frames
+    );
     assert!(terminal
         .frames
         .iter()
@@ -198,7 +204,7 @@ fn interactive_controller_notifies_and_applies_update_without_leaving_tui() {
     crate::app::workflow_adapter::state::initialize().unwrap();
     let mut terminal = ScriptedTerminal::new(["/update", "yes", "/quit"]);
 
-    run_controller(&mut terminal, &mut TuiRuntimeAdapter).unwrap();
+    run_controller(&mut terminal, &mut TuiRuntimeAdapter::default()).unwrap();
 
     std::env::remove_var("RPOTATO_PROJECT_ROOT");
     std::env::remove_var("RPOTATO_DATA_HOME");
@@ -237,6 +243,7 @@ fn exact_outcome_notice_preserves_trusted_multiline_structure() {
         notice: "결과 제목\n- code: exact.test\n- 동작: 상태를 변경하지 않았습니다.".to_string(),
         notice_page: 0,
         turns: Vec::new(),
+        attachments: Vec::new(),
     };
     let page = TuiReadPage {
         title: "overview".to_string(),
@@ -276,6 +283,7 @@ fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
         context_limit_tokens: Some(4096),
         has_compaction_checkpoint: false,
         backend: TuiBackendStatus::Ready,
+        vision_ready: false,
         session_id: "session-long-identifier".to_string(),
     };
 

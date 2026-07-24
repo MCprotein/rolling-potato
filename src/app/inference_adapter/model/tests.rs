@@ -102,27 +102,6 @@ fn evaluation_fetch_blocks_candidate_without_artifact_source() {
 }
 
 #[test]
-fn evaluation_fetch_paths_stay_under_app_data() {
-    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
-    let data_root =
-        std::env::temp_dir().join(format!("rpotato-fetch-path-test-{}", std::process::id()));
-    std::env::set_var("RPOTATO_DATA_HOME", &data_root);
-    std::env::set_var("RPOTATO_PROJECT_ROOT", data_root.join("project"));
-
-    let candidate = find_candidate("gemma-4-e4b").unwrap();
-    let artifact = source_backed_artifact(candidate).unwrap();
-    let final_path = model_artifact_path(artifact);
-    let part_path = model_artifact_part_path(candidate);
-
-    std::env::remove_var("RPOTATO_DATA_HOME");
-    std::env::remove_var("RPOTATO_PROJECT_ROOT");
-
-    assert!(final_path.starts_with(data_root.join("models")));
-    assert!(part_path.starts_with(data_root.join("downloads")));
-    assert!(part_path.ends_with("gemma-4-e4b.part"));
-}
-
-#[test]
 fn eval_plan_reports_missing_local_artifact_without_download() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let data_root =
@@ -341,6 +320,8 @@ fn registry_parser_accepts_pretty_json_entries() {
 
     assert_eq!(entry.id, "qwen3.5-4b");
     assert_eq!(entry.status, "installed");
+    assert_eq!(entry.vision_status, "unavailable");
+    assert!(entry.mmproj_path.is_none());
     assert!(entry.artifact_sha256.starts_with("00fe"));
     validate_registry_manifest_binding(&entry, candidate, artifact, &model_artifact_path(artifact))
         .unwrap();

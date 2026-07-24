@@ -4,7 +4,9 @@ use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
 use crate::foundation::serialization as strict_json;
 
-use super::manifest::{DefaultSelection, ModelManifestEntry, PromotionEvidence, RegistryEntry};
+use super::manifest::{
+    DefaultSelection, ModelManifestEntry, PromotionEvidence, RegistryEntry, RegistryVisionState,
+};
 use super::promotion::PromotionBenchmarkEvidence;
 
 pub(crate) fn render_default_selection(selection: &DefaultSelection) -> String {
@@ -21,6 +23,7 @@ pub(crate) fn render_registry_entry(
     promotion: Option<&PromotionEvidence>,
     artifact_path: &Path,
     promotion_evidence_path: Option<&Path>,
+    vision: &RegistryVisionState,
 ) -> String {
     let evidence_status = if promotion.is_some() {
         "verified-local-promotion"
@@ -37,7 +40,7 @@ pub(crate) fn render_registry_entry(
         .map(|evidence| evidence.benchmark_run_id.as_str())
         .unwrap_or("");
     format!(
-        "{{\n  \"schemaVersion\": 1,\n  \"id\": \"{}\",\n  \"displayName\": \"{}\",\n  \"status\": \"installed\",\n  \"evidenceStatus\": \"{}\",\n  \"promotionEvidencePath\": \"{}\",\n  \"backendVersion\": \"{}\",\n  \"benchmarkRunId\": \"{}\",\n  \"upstreamModel\": \"{}\",\n  \"upstreamUrl\": \"{}\",\n  \"artifactPath\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"licenseSource\": \"{}\",\n  \"licenseCheckedAt\": \"{}\"\n}}\n",
+        "{{\n  \"schemaVersion\": 2,\n  \"id\": \"{}\",\n  \"displayName\": \"{}\",\n  \"status\": \"installed\",\n  \"evidenceStatus\": \"{}\",\n  \"promotionEvidencePath\": \"{}\",\n  \"backendVersion\": \"{}\",\n  \"benchmarkRunId\": \"{}\",\n  \"upstreamModel\": \"{}\",\n  \"upstreamUrl\": \"{}\",\n  \"artifactPath\": \"{}\",\n  \"artifactSha256\": \"{}\",\n  \"visionStatus\": \"{}\",\n  \"mmprojPath\": \"{}\",\n  \"mmprojSha256\": \"{}\",\n  \"mmprojSizeBytes\": {},\n  \"licenseSource\": \"{}\",\n  \"licenseCheckedAt\": \"{}\"\n}}\n",
         strict_json::escape_string_content(candidate.id),
         strict_json::escape_string_content(candidate.display_name),
         strict_json::escape_string_content(evidence_status),
@@ -48,6 +51,10 @@ pub(crate) fn render_registry_entry(
         strict_json::escape_string_content(candidate.upstream_url),
         strict_json::escape_string_content(&artifact_path.display().to_string()),
         strict_json::escape_string_content(candidate.sha256.unwrap_or("")),
+        strict_json::escape_string_content(&vision.status),
+        strict_json::escape_string_content(vision.mmproj_path.as_deref().unwrap_or("")),
+        strict_json::escape_string_content(vision.mmproj_sha256.as_deref().unwrap_or("")),
+        vision.mmproj_size_bytes.unwrap_or(0),
         strict_json::escape_string_content(candidate.license.source),
         strict_json::escape_string_content(candidate.license.checked_at)
     )
@@ -106,14 +113,29 @@ pub(crate) fn parse_registry_entry(text: &str) -> Result<RegistryEntry, AppError
             "upstreamUrl",
             "artifactPath",
             "artifactSha256",
+            "visionStatus",
+            "mmprojPath",
+            "mmprojSha256",
+            "mmprojSizeBytes",
             "licenseSource",
             "licenseCheckedAt",
         ],
         context,
     )?;
-    if strict_json::number(&object, "schemaVersion", context)? != 1 {
+    let schema_version = strict_json::number(&object, "schemaVersion", context)?;
+    if !matches!(schema_version, 1 | 2) {
         return Err(AppError::blocked("model registry schemaVersion 불일치"));
     }
+    let vision = if schema_version == 1 {
+        RegistryVisionState {
+            status: "unavailable-legacy".to_string(),
+            mmproj_path: None,
+            mmproj_sha256: None,
+            mmproj_size_bytes: None,
+        }
+    } else {
+        parse_registry_vision(&object, context)?
+    };
     Ok(RegistryEntry {
         id: strict_json::string(&object, "id", context)?,
         display_name: strict_json::string(&object, "displayName", context)?,
@@ -126,9 +148,54 @@ pub(crate) fn parse_registry_entry(text: &str) -> Result<RegistryEntry, AppError
         upstream_url: strict_json::string(&object, "upstreamUrl", context)?,
         artifact_path: strict_json::string(&object, "artifactPath", context)?,
         artifact_sha256: strict_json::string(&object, "artifactSha256", context)?,
+        vision_status: vision.status,
+        mmproj_path: vision.mmproj_path,
+        mmproj_sha256: vision.mmproj_sha256,
+        mmproj_size_bytes: vision.mmproj_size_bytes,
         license_source: strict_json::string(&object, "licenseSource", context)?,
         license_checked_at: strict_json::string(&object, "licenseCheckedAt", context)?,
     })
+}
+
+fn parse_registry_vision(
+    object: &strict_json::Object,
+    context: &str,
+) -> Result<RegistryVisionState, AppError> {
+    let status = strict_json::string(object, "visionStatus", context)?;
+    let path = strict_json::string(object, "mmprojPath", context)?;
+    let sha256 = strict_json::string(object, "mmprojSha256", context)?;
+    let size_bytes = strict_json::number(object, "mmprojSizeBytes", context)?;
+    match status.as_str() {
+        "ready" => {
+            if path.trim().is_empty() || !checksum::is_valid_sha256(&sha256) || size_bytes == 0 {
+                return Err(AppError::blocked(
+                    "vision-ready model registry에는 유효한 mmproj path, SHA-256, size가 필요합니다.",
+                ));
+            }
+            Ok(RegistryVisionState {
+                status,
+                mmproj_path: Some(path),
+                mmproj_sha256: Some(sha256),
+                mmproj_size_bytes: Some(size_bytes),
+            })
+        }
+        "unavailable" => {
+            if !path.is_empty() || !sha256.is_empty() || size_bytes != 0 {
+                return Err(AppError::blocked(
+                    "vision unavailable model registry에는 mmproj artifact를 기록할 수 없습니다.",
+                ));
+            }
+            Ok(RegistryVisionState {
+                status,
+                mmproj_path: None,
+                mmproj_sha256: None,
+                mmproj_size_bytes: None,
+            })
+        }
+        _ => Err(AppError::blocked(
+            "model registry visionStatus는 ready 또는 unavailable이어야 합니다.",
+        )),
+    }
 }
 
 pub(crate) fn parse_default_selection(text: &str) -> Result<DefaultSelection, AppError> {
@@ -257,6 +324,57 @@ fn json_value_after_key<'a>(text: &'a str, key: &str) -> Option<&'a str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn registry_v1_remains_text_ready_without_claiming_vision() {
+        let text = r#"{
+  "schemaVersion": 1,
+  "id": "legacy",
+  "displayName": "Legacy",
+  "status": "installed",
+  "evidenceStatus": "source-backed-manifest",
+  "promotionEvidencePath": "",
+  "backendVersion": "",
+  "benchmarkRunId": "",
+  "upstreamModel": "owner/model",
+  "upstreamUrl": "https://example.com/model",
+  "artifactPath": "/models/model.gguf",
+  "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "licenseSource": "https://example.com/license",
+  "licenseCheckedAt": "2026-07-23"
+}"#;
+
+        let entry = parse_registry_entry(text).unwrap();
+
+        assert_eq!(entry.vision_status, "unavailable-legacy");
+        assert!(entry.mmproj_path.is_none());
+    }
+
+    #[test]
+    fn registry_v2_rejects_unbound_vision_ready_claims() {
+        let text = r#"{
+  "schemaVersion": 2,
+  "id": "vision",
+  "displayName": "Vision",
+  "status": "installed",
+  "evidenceStatus": "source-backed-manifest",
+  "promotionEvidencePath": "",
+  "backendVersion": "",
+  "benchmarkRunId": "",
+  "upstreamModel": "owner/model",
+  "upstreamUrl": "https://example.com/model",
+  "artifactPath": "/models/model.gguf",
+  "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "visionStatus": "ready",
+  "mmprojPath": "",
+  "mmprojSha256": "",
+  "mmprojSizeBytes": 0,
+  "licenseSource": "https://example.com/license",
+  "licenseCheckedAt": "2026-07-23"
+}"#;
+
+        assert!(parse_registry_entry(text).is_err());
+    }
 
     #[test]
     fn promotion_evidence_renderer_preserves_exact_bytes() {

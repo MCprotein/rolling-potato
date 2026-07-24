@@ -100,7 +100,7 @@ fn monitor_renders_resource_pressure_and_token_throughput() {
     })
     .unwrap();
 
-    let status = TuiRuntimeAdapter.read_tui_status().unwrap();
+    let status = TuiRuntimeAdapter::default().read_tui_status().unwrap();
     let report = monitor_report().unwrap();
 
     std::env::remove_var("RPOTATO_PROJECT_ROOT");

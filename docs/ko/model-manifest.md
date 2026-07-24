@@ -44,14 +44,32 @@
 | `qwen3.5-4b` | `unsloth/Qwen3.5-4B-GGUF` | `Qwen3.5-4B-Q4_K_M.gguf` | `e87f176479d0855a907a41277aca2f8ee7a09523` | `Q4_K_M` | `2740937888` | `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4` | Static `unverified`; 기록된 host-local smoke/RAM/mmproj evidence는 있지만 exact-response equality를 실패해 local promotion은 무효 |
 | `gemma-4-e4b` | `google/gemma-4-E4B-it-qat-q4_0-gguf` | `gemma-4-E4B_q4_0-it.gguf` | `bb3b92e6f031fa438b409f898dd9f14f499a0cb0` | `QAT q4_0` | `5154939136` | `e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d` | Static `unverified`; 기록된 host-local smoke/RAM/mmproj evidence가 통과해 재검증되는 local promotion/default selection을 지원 |
 
-2026-07-06 확인 source:
+Main GGUF는 언어 모델을 포함합니다. Model 전용 `mmproj`는 image feature를 해당
+언어 모델의 embedding 공간으로 변환하는 visual encoder/projector입니다. 다른
+model이나 revision 사이에서 두 artifact가 호환된다고 가정할 수 없습니다.
+따라서 vision-ready 상태에는 main artifact뿐 아니라 별도로 고정·검증한 projector
+bytes가 필요하고, text-ready 상태에는 projector를 요구하지 않습니다.
+
+| Model ID | Vision artifact | Revision | Size bytes | SHA-256 |
+| --- | --- | --- | ---: | --- |
+| `qwen3.5-4b` | `unsloth/Qwen3.5-4B-GGUF/mmproj-F16.gguf` | `e87f176479d0855a907a41277aca2f8ee7a09523` | `672423616` | `cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864` |
+| `gemma-4-e4b` | `google/gemma-4-E4B-it-qat-q4_0-gguf/gemma-4-E4B-it-mmproj.gguf` | `bb3b92e6f031fa438b409f898dd9f14f499a0cb0` | `991551904` | `c6398448d84a4836fdedf58f9775979e69ae0cc4dfdf4d697b5597693a555b12` |
+
+Registry schema v2는 `visionStatus`와 검증된 projector path, hash, size를
+기록합니다. Schema v1 registry는 legacy text-only 상태로 읽으며 vision claim으로
+자동 승격하지 않습니다. 명시적 model 준비를 수행할 때만 v2를 기록합니다. 정확한
+size/SHA cache hit는 재사용하며, projector가 없거나 partial/corrupt이거나 revision이
+바뀐 경우에만 다시 다운로드합니다.
+
+2026-07-23 확인 source:
 
 - https://huggingface.co/api/models/Qwen/Qwen3.5-4B
 - https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF
-- https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/tree/main?recursive=1
+- https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/tree/e87f176479d0855a907a41277aca2f8ee7a09523?recursive=1
 - https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-unquantized
 - https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf
-- https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf/tree/main?recursive=1
+- https://huggingface.co/api/models/google/gemma-4-E4B-it-qat-q4_0-gguf/tree/bb3b92e6f031fa438b409f898dd9f14f499a0cb0?recursive=1
+- https://github.com/ggml-org/llama.cpp/blob/master/docs/multimodal.md
 
 ## schema 초안
 

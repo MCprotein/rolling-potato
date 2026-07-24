@@ -1,15 +1,11 @@
-use std::env;
-use std::fs::{self, File, OpenOptions};
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::fs;
+use std::path::PathBuf;
+use std::process::Stdio;
 use std::time::Instant;
 
 use crate::adapters::filesystem::runtime_mutation;
 
 use super::*;
-
-const ENV_BACKEND_START_TRACE: &str = "RPOTATO_TEST_BACKEND_START_TRACE";
 
 pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
     model_path: &str,
@@ -37,10 +33,20 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
         if backend_process::is_running(record.pid) {
             let resource_sample = record_backend_resource_sample(&record, "start-existing")?;
             return Ok(format!(
-                "backend start\n- status: already-running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}",
+                "backend start\n- status: already-running\n- pid: {}\n- binary: {}\n- model: {}\n- vision: {}\n- mmproj: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}",
                 record.pid,
                 record.binary_path.display(),
                 record.model_path.display(),
+                if record.mmproj_path.is_some() {
+                    "ready"
+                } else {
+                    "unavailable (text-ready)"
+                },
+                record
+                    .mmproj_path
+                    .as_ref()
+                    .map(|path| path.display().to_string())
+                    .unwrap_or_else(|| "없음".to_string()),
                 record.host,
                 record.port,
                 display_optional_u32(record.ctx_size),
@@ -73,6 +79,8 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
         })?
         .len();
     let model_sha256 = checksum::sha256_file(&model_path)?;
+    let vision_projector =
+        crate::app::inference_adapter::model::verified_vision_projector(&model_path, &model_sha256);
     let binary_sha256 = checksum::sha256_file(&binary_path)?;
     let backend_release = if discovery.selected_source == "managed" {
         LLAMA_CPP_RELEASE.release_tag.to_string()
@@ -88,21 +96,20 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
     let run_id = now_ms();
     let stdout_log = paths::logs_dir().join(format!("backend-llama.cpp-{run_id}-stdout.log"));
     let stderr_log = paths::logs_dir().join(format!("backend-llama.cpp-{run_id}-stderr.log"));
-    let stdout_file = create_log_file(&stdout_log)?;
-    let stderr_file = create_log_file(&stderr_log)?;
+    let stdout_file = backend_state::create_log_file(&stdout_log)?;
+    let stderr_file = backend_state::create_log_file(&stderr_log)?;
     trace_backend_start("logs-created");
 
-    let mut command = Command::new(&binary_path);
-    command
-        .arg("--model")
-        .arg(&model_path)
-        .arg("--host")
-        .arg(discovery.host)
-        .arg("--port")
-        .arg(discovery.port.to_string());
-    if let Some(ctx_size) = ctx_size {
-        command.arg("--ctx-size").arg(ctx_size.to_string());
-    }
+    let mut command = llama_backend::sidecar_command(
+        &binary_path,
+        &model_path,
+        vision_projector
+            .as_ref()
+            .map(|projector| projector.path.as_path()),
+        discovery.host,
+        discovery.port,
+        ctx_size,
+    );
     backend_process::configure_child(&mut command);
     let mut child = command
         .stdin(Stdio::null())
@@ -126,7 +133,20 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
         model_size_bytes,
         backend_release,
         binary_sha256,
-        mmproj: "not-required-text-only".to_string(),
+        mmproj: if vision_projector.is_some() {
+            "required".to_string()
+        } else {
+            "not-required-text-only".to_string()
+        },
+        mmproj_path: vision_projector
+            .as_ref()
+            .map(|projector| projector.path.clone()),
+        mmproj_sha256: vision_projector
+            .as_ref()
+            .map(|projector| projector.sha256.clone()),
+        mmproj_size_bytes: vision_projector
+            .as_ref()
+            .map(|projector| projector.size_bytes),
         host: discovery.host.to_string(),
         port: discovery.port,
         ctx_size,
@@ -177,10 +197,20 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
             let resource_sample = record_backend_resource_sample(&record, "start")?;
             trace_backend_start("resource-sample-recorded");
             return Ok(format!(
-                "backend start\n- status: running\n- pid: {}\n- binary: {}\n- model: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- startup ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
+                "backend start\n- status: running\n- pid: {}\n- binary: {}\n- model: {}\n- vision: {}\n- mmproj: {}\n- host: {}\n- port: {}\n- ctx size: {}\n- startup ms: {}\n- resource pressure: {}\n- resource cpu percent: {}\n- resource average rss bytes: {}\n- resource peak rss bytes: {}\n- resource disk bytes: {}\n- resource sample event: {}\n- stdout log: {}\n- stderr log: {}\n- ledger event: {}",
                 record.pid,
                 record.binary_path.display(),
                 record.model_path.display(),
+                if record.mmproj_path.is_some() {
+                    "ready"
+                } else {
+                    "unavailable (text-ready)"
+                },
+                record
+                    .mmproj_path
+                    .as_ref()
+                    .map(|path| path.display().to_string())
+                    .unwrap_or_else(|| "없음".to_string()),
                 record.host,
                 record.port,
                 display_optional_u32(record.ctx_size),
@@ -251,17 +281,6 @@ pub(in crate::app::inference_adapter::backend) fn start_sidecar_with_timeout(
     }
 }
 
-pub(in crate::app::inference_adapter::backend) fn trace_backend_start(message: &str) {
-    let Some(path) = env::var_os(ENV_BACKEND_START_TRACE) else {
-        return;
-    };
-    let Ok(mut trace) = OpenOptions::new().create(true).append(true).open(path) else {
-        return;
-    };
-    let _ = writeln!(trace, "{message}");
-    let _ = trace.flush();
-}
-
 fn canonical_existing_file(path: &str, label: &str) -> Result<PathBuf, AppError> {
     let path = PathBuf::from(path);
     if !path.is_file() {
@@ -276,12 +295,4 @@ fn canonical_existing_file(path: &str, label: &str) -> Result<PathBuf, AppError>
             path.display()
         ))
     })
-}
-
-fn create_log_file(path: &Path) -> Result<File, AppError> {
-    OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(path)
-        .map_err(|err| AppError::runtime(format!("log file 생성 실패: {} ({err})", path.display())))
 }

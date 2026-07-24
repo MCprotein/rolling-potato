@@ -142,7 +142,8 @@ The intended local setup flow is:
 1. Run `rpotato`.
 2. Review the model/version, quantization, download size, context, RAM status,
    license, and source evidence shown by first-run setup.
-3. Select a model and approve its download.
+3. Select a model with Up/Down and Enter, then approve its download from the
+   second selectable prompt.
 4. Let `rpotato` install or reuse its managed `llama.cpp` backend, verify the
    artifact size and SHA-256, and start the model.
 5. Enter a coding request in the same TUI.
@@ -157,16 +158,38 @@ rpotato
 ```
 
 Running `rpotato` without arguments starts the primary TUI. Plain text entered
-there supports both general LLM questions and coding-agent requests. Questions
-that explicitly request web search or depend on current information use a bounded
-read-only search with runtime-rendered source links. The line below the composer shows the
-current model, context usage, compaction checkpoint, backend state, and session.
-Normal TUI operations use `/model`, `/compact`, `/search`, `/update`, `/status`, `/sessions`,
-`/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`. Long responses remain
+there supports both general LLM questions and coding-agent requests. For each
+request, the local model decides whether current public evidence requires the
+bounded read-only `WebSearch`, `WebOpen`, or `WebFind` tool; this is not driven by
+a fixed keyword list. `/search <question>` remains an explicit fallback. Direct
+HTML search uses runtime-rendered source links and needs no API key, MCP process,
+or provider SDK. `/open <URL>` opens a bounded public HTTPS
+document and `/find <text>` searches the last document opened in the current TUI.
+Only same-host redirects are followed automatically; a cross-host redirect is
+reported and requires a new explicit `/open`. `/doctor` reports whether the
+repo-owned web tools are ready.
+The line below the composer shows the current
+model, context usage, compaction checkpoint, backend state, and session.
+Normal TUI operations use `/model`, `/compact`, `/search`, `/open`, `/find`, `/attach`, `/update`,
+`/status`, `/sessions`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`.
+The slash palette and model picker support Up/Down, Enter, Esc, and numbered
+plain-terminal fallback. The composer supports standard Home/End and Ctrl bindings,
+Option/Alt word movement, and Command/Meta line movement when emitted by the terminal.
+Long responses remain
 available through `/more` and `/back` instead of being discarded at the viewport
 boundary. Context compaction starts automatically at 75% usage; `/compact`
 creates a manual checkpoint while preserving the immutable transcript as the
 authority.
+
+Pasted local image/text paths are captured as attachment badges rather than parsed
+as slash commands. Bounded UTF-8 text/code attachments are included in the next
+request only while they fit the selected model's manifest context limit. PNG and
+JPEG attachments are available when the selected model has a
+verified vision projector. `rpotato` downloads that model-specific `mmproj`
+artifact with the main GGUF, verifies both files independently, and starts
+`llama-server` with `--mmproj`. A verified cached projector is reused without
+downloading it again. A missing, corrupt, or failed projector leaves the previous
+model and backend selection unchanged, and a partial download remains resumable.
 
 The smaller public CLI surface is:
 
@@ -198,8 +221,8 @@ product-definition scaffold. Implemented areas include:
 | Extensions | Native hooks and skills; local Codex/Claude Code plugin adapters |
 | Collaboration | One bounded subagent and runtime-owned team execution |
 | Monitoring | CLI/TUI metrics, SQLite projection, benchmark records, static HTML export |
-| Interfaces | Primary conversation TUI, automation/diagnostic CLI, self-contained local HTML report |
-| General answers and web | General knowledge/calculation answers, automatic freshness routing, `/search`, bounded Exa MCP results with runtime-rendered source links |
+| Interfaces | Primary conversation TUI, keyboard pickers, local attachment badges, automation/diagnostic CLI, self-contained local HTML report |
+| General answers and web | General knowledge/calculation answers, model-selected API-key-free `WebSearch`, `WebOpen`, and `WebFind`, explicit no-browse control, and runtime-owned source links |
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete
@@ -216,10 +239,12 @@ approval where required, evidence recording, and verification.
 
 Key constraints:
 
-- user-facing natural-language output is Korean; language-neutral numbers and formulas remain valid
+- user-facing natural-language output defaults to Korean; an explicit request for another
+  language is respected, and language-neutral numbers and formulas remain valid
 - code blocks, paths, commands, and quoted logs remain unchanged when needed
 - mixed-language final output gets one Korean rewrite attempt, then preserves
-  valid Korean lines through safe projection or fails closed
+  valid Korean lines through safe projection and falls back to the non-empty visible
+  answer instead of hiding it; only empty/hidden output is blocked
 - imported plugin instructions cannot widen runtime permissions
 - shell, background, remote-connector, sensitive-setting, and write
   capabilities remain blocked unless a supported policy path allows them

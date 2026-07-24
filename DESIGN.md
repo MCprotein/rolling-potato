@@ -139,7 +139,9 @@
   - compact rounded-border welcome block that disappears once conversation starts
   - user and assistant turn presentation without diagnostic prefixes
   - bordered conversation composer with a persistent, semantically segmented runtime status line directly below it
-  - first-run model picker and managed-backend setup flow
+  - reusable keyboard-selectable command/model/session picker and managed-backend setup flow
+  - textual attachment badges for pasted or explicitly attached local files
+  - inline web-search progress, offline failure, and verified-source states
   - metric summary strip
   - model comparison table
   - session timeline
@@ -176,6 +178,12 @@
 - The context segment shows measured usage and percentage; compaction remains adjacent to it when space permits. Narrow terminals truncate later segments rather than wrapping the status bar.
 - Model and context values come from the latest recorded model run; backend state comes from the managed sidecar; session uses the active canonical session identity. Missing values and stale backend state are labeled, never invented.
 - `/model`, `/compact`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit` cover normal in-TUI operations. Existing granular subcommands remain an advanced compatibility surface under `rpotato debug --help`.
+- `/` opens a selectable command palette. Up/Down or `Ctrl+P`/`Ctrl+N` moves focus, `Enter` accepts, `Esc` closes, and typed text filters the visible rows.
+- `/model` opens a reusable picker instead of requiring the user to retype an internal ID. It shows current/install/recommendation state alongside verified model facts; `/model <id>` remains an automation-compatible shortcut.
+- The composer supports common terminal editing keys: Left/Right, Home/End, `Ctrl+A`/`Ctrl+E`, Option/Alt+Left/Right word movement, Command/Meta+Left/Right line movement when the terminal reports those sequences, and word/line deletion shortcuts.
+- Bracketed paste is handled atomically. An explicitly pasted existing image or text-file path is represented as an attachment badge and is never interpreted as a slash command merely because an absolute path begins with `/`.
+- Attachment intake validates file type, regular-file status, size, and bounded count. Ephemeral clipboard files are captured before dispatch. Unsupported model/backend capabilities are explained before inference rather than silently sending a filesystem path as text.
+- Explicit search wording and freshness-sensitive questions use the read-only web-search adapter unless the user requests offline/no-browse behavior. The transcript distinguishes searching, grounded answers, provider/network failure, and local-model summarization failure; runtime-verified source URLs are always retained.
 - Attached ANSI terminals may use semantic color and cursor positioning. Redirected output, `TERM=dumb`, and `NO_COLOR` remain plain, stable text.
 
 ### Accessibility
@@ -185,6 +193,8 @@
   - Every action reachable without mouse.
   - Focus must be visible in monochrome terminals.
   - Destructive actions require explicit confirmation.
+  - Selection overlays always expose Up/Down, Enter, and Esc equivalents and preserve a plain numbered-input fallback for redirected or limited terminals.
+  - Terminal-specific Option/Alt and Command/Meta escape sequences degrade to standard Ctrl/Home/End bindings without blocking text entry.
 - Contrast/readability:
   - Avoid low-contrast dim text for critical values.
   - Preserve readability in light and dark terminal themes.
@@ -216,6 +226,8 @@
   - Explain that no model run has been recorded yet and show the next command.
 - Error:
   - Show Korean cause, affected data source, and safe recovery command.
+  - Search failures keep the conversation usable and distinguish offline/network/provider/model-summary causes.
+  - Unsupported attachments remain visible with a direct capability explanation and are not dispatched.
 - Success:
   - Show verified metric timestamp and health status.
 - Disabled:
@@ -260,10 +272,16 @@
   - SSH/Linux-server use is a first-class context.
   - No browser requirement for core monitoring.
   - Optional HTML is generated locally from existing monitor query data and is not required for baseline operation.
+  - Keyboard decoding supports common CSI/SS3 sequences on macOS and Linux while preserving plain line input on Windows and redirected streams.
+  - Multimodal requests require verified runtime capability and a matching projector/backend configuration; model names alone never imply image support.
 - Test/screenshot expectations:
   - TUI smoke tests at 80x24 and wide terminal sizes.
   - The default-frame regression rejects raw ledger/hash/projection fields and proves composer/status ordering.
   - A natural-language greeting regression proves that it is rendered as a conversation and never starts a patch proposal.
+  - Input regressions cover cursor movement, word/line movement and deletion, bracketed paste, palette selection, absolute-path classification, and UTF-8 display-cell behavior.
+  - Picker regressions prove keyboard and numbered fallback selection without downloading or switching before confirmation.
+  - Web-search regressions cover Korean verb variants, freshness routing, explicit offline opt-out, source retention, and bounded provider failure.
+  - Attachment regressions cover image paths with spaces, ephemeral clipboard paths, unsupported capability, size/count limits, and no-path-leak transcript rendering.
   - Visual acceptance compares one 120x40 terminal capture against the 2026-07-22 Codex/Claude Code references; one bounded pass is sufficient unless the capture violates the contract.
   - HTML tests cover semantic structure, escaping, privacy markers, and narrow-screen layout without adding a browser runtime dependency.
 
