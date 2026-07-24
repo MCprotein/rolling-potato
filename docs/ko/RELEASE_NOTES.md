@@ -1,5 +1,36 @@
 # 릴리즈 노트
 
+## v0.49.1 - 텍스트 안전 비전 업그레이드
+
+릴리즈 날짜: 2026-07-25
+
+이 patch는 모델에 optional vision metadata가 추가된 뒤에도 기존 text-only 설치를
+계속 사용할 수 있게 하고, 오래 남은 4,096-token backend 대신 선택한 모델 manifest의
+context window를 복구합니다.
+
+### 포함한 것
+
+- Vision projector 상태를 optional runtime capability로 취급하여 schema v1 legacy
+  registry에서도 기본 TUI 시작과 일반 text 대화를 계속 허용
+- Text runtime은 manifest model path와 context length를 기준으로 조정하되 실제 이미지
+  요청 전까지 projector 전용 drift는 text 시작 조건에서 제외
+- 첫 이미지 사용 시 projector를 다운로드·검증하고 정확한 cache를 재사용하며, 기존
+  promotion·benchmark evidence를 잃지 않고 registry를 schema v2로 원자적 승격
+- Projector 준비가 실패해도 선택한 모델, text-ready backend, default selection과
+  registry bytes를 그대로 보존
+- Model setup과 evaluation fetch에서 projector 선다운로드를 제거하여 base model
+  설치가 optional multimodal artifact에 의존하지 않도록 변경
+- Legacy registry 시작, manifest context, projector cache 재사용, v2 migration과
+  실패 상태 보존을 candidate preflight 호환성 gate로 강제
+
+### 호환성과 경계
+
+- 기존 public command, model file, schema v1 registry와 default selection을 계속
+  지원합니다.
+- Projector network 다운로드는 이미지를 처음 사용할 때만 필요하며 base model 설치
+  이후 일반 text 사용은 offline에서도 가능합니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
+
 ## v0.49.0 - 모델 기반 세션 연속성
 
 릴리즈 날짜: 2026-07-24
