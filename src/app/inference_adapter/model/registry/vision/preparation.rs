@@ -49,7 +49,7 @@ fn prepare_bound_vision_projector_artifacts(
     path: &Path,
     part_path: &Path,
 ) -> Result<VerifiedVisionProjector, AppError> {
-    let model_state = local_artifact_state(artifact, &expected_model_path)?;
+    let model_state = local_artifact_state(artifact, expected_model_path)?;
     if !model_state.verified {
         return Err(AppError::blocked(format!(
             "이미지 기능 준비를 중단했습니다.\n- model: {}\n- 이유: 기존 model artifact 검증 실패 ({})\n- 동작: 기본 모델과 text-ready backend는 변경하지 않습니다.",
@@ -74,7 +74,7 @@ fn prepare_bound_vision_projector_artifacts(
             model_id
         )));
     }
-    fetch_managed_projector_artifact(projector, &path, &part_path).map_err(|error| AppError {
+    fetch_managed_projector_artifact(projector, path, part_path).map_err(|error| AppError {
         code: error.code,
         message: format!(
             "이미지 기능 준비에 실패했습니다.\n- model: {}\n- projector: {}\n- 이유: {}\n- 동작: 기본 모델과 text-ready backend는 그대로 유지하며 다음 이미지 요청에서 partial download를 이어받습니다.",
