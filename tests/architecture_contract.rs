@@ -6337,6 +6337,88 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     }
 }
 
+#[test]
+fn session_memory_review_fixes_keep_separate_bounded_owners() {
+    let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
+    let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
+    let session_memory = fs::read_to_string("src/app/tui_adapter/session_memory.rs").unwrap();
+    let session_tests = fs::read_to_string("src/app/tui_adapter/session_memory/tests.rs").unwrap();
+    let intent_tests = fs::read_to_string("src/app/intent_adapter/tests.rs").unwrap();
+    let prompt_budget_tests =
+        fs::read_to_string("src/app/intent_adapter/tests/prompt_budget.rs").unwrap();
+    let context = fs::read_to_string("src/runtime_core/knowledge/context.rs").unwrap();
+    let compaction = fs::read_to_string("src/runtime_core/knowledge/compaction.rs").unwrap();
+    let recent_tail =
+        fs::read_to_string("src/runtime_core/knowledge/compaction/recent_tail.rs").unwrap();
+
+    assert!(session_memory.contains("#[path = \"session_memory/tests.rs\"]"));
+    assert!(intent_tests.contains("#[path = \"tests/prompt_budget.rs\"]"));
+    assert!(compaction.lines().any(|line| line == "mod recent_tail;"));
+
+    for responsibility in [
+        "fn reset_is_a_unique_causal_head_for_repeated_questions(",
+        "fn reset_discards_an_orphan_user_before_a_later_model_record(",
+        "fn coding_exchange_is_canonical_and_prompt_history_is_bounded(",
+    ] {
+        assert!(
+            session_tests.contains(responsibility),
+            "session-memory regression owner is missing: {responsibility}"
+        );
+        assert!(
+            !session_memory.contains(responsibility),
+            "session-memory production owner contains regression test: {responsibility}"
+        );
+    }
+    assert!(tui_runtime.contains("super::session_memory::record_exchange("));
+    assert!(!tui_request.contains("TranscriptOwner"));
+
+    for responsibility in [
+        "fn imported_skill_instructions_are_bounded_by_runtime_contract(",
+        "fn agent_loop_prompt_bounds_resume_and_sources_to_the_active_runtime_window(",
+    ] {
+        assert!(
+            prompt_budget_tests.contains(responsibility),
+            "agent prompt regression owner is missing: {responsibility}"
+        );
+        assert!(
+            !intent_tests.contains(responsibility),
+            "intent regression facade contains prompt-budget test: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "struct AgentPromptBudget",
+        "struct AgentPromptParts",
+        "fn assemble_agent_prompt(",
+    ] {
+        assert!(
+            context.contains(responsibility),
+            "context owner is missing agent prompt policy: {responsibility}"
+        );
+    }
+
+    for responsibility in [
+        "fn select_recent_tail(",
+        "fn exchange_ranges(",
+        "fn bounded_single_exchange(",
+    ] {
+        assert!(
+            recent_tail.contains(responsibility),
+            "recent-tail owner is missing: {responsibility}"
+        );
+        assert!(
+            !compaction.contains(responsibility),
+            "compaction facade still owns recent-tail policy: {responsibility}"
+        );
+    }
+
+    assert!(session_memory.lines().count() < 225);
+    assert!(session_tests.lines().count() < 225);
+    assert!(intent_tests.lines().count() < 325);
+    assert!(prompt_budget_tests.lines().count() < 175);
+    assert!(compaction.lines().count() < 550);
+    assert!(recent_tail.lines().count() < 350);
+}
+
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
     let contract = field_object(root, "dependency_contract", "map");
     let roots = string_array(

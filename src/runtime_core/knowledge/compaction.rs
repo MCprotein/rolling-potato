@@ -3,10 +3,12 @@
 use std::collections::BTreeSet;
 
 mod artifact;
+mod recent_tail;
 pub(crate) use artifact::{
     parse_artifact, render_artifact, render_artifact_payload, CompactionArtifact,
     COMPACTION_SCHEMA_VERSION,
 };
+use recent_tail::select_recent_tail;
 
 const AUTO_TRIGGER_PERCENT: usize = 75;
 const POST_COMPACT_TARGET_PERCENT: usize = 40;
@@ -108,14 +110,13 @@ impl CompactionPolicy {
             .map(record_token_cost)
             .sum::<usize>()
             .max(observed_context_tokens.unwrap_or(0));
-        let recent_start = recent_record_start(
+        let recent_tail = select_recent_tail(
             records,
             self.recent_tail_budget_tokens,
             self.recent_exchange_limit,
         );
-        let recent_records =
-            bounded_recent_records(&records[recent_start..], self.recent_tail_budget_tokens);
-        let source = &records[..recent_start];
+        let source = &records[..recent_tail.source_end];
+        let recent_records = recent_tail.records;
         let should_compact = !source.is_empty()
             && (mode == CompactionMode::Manual
                 || estimated_tokens_before >= self.auto_trigger_tokens);
@@ -184,109 +185,6 @@ pub(crate) fn estimate_tokens(text: &str) -> usize {
     let chars = text.chars().count().div_ceil(3);
     let bytes = text.len().div_ceil(4);
     chars.max(bytes).max(1)
-}
-
-fn bounded_recent_records(records: &[CompactionRecord], budget: usize) -> Vec<CompactionRecord> {
-    if records.len() > MAX_RECENT_RECORDS {
-        let mut essential = Vec::with_capacity(MAX_RECENT_RECORDS);
-        essential.push(records[0].clone());
-        essential.extend_from_slice(&records[records.len() - (MAX_RECENT_RECORDS - 1)..]);
-        return bounded_recent_records(&essential, budget);
-    }
-    let full_cost = records.iter().map(record_token_cost).sum::<usize>();
-    if full_cost <= budget {
-        return records.to_vec();
-    }
-    let fixed_cost = records
-        .iter()
-        .map(|record| RECORD_OVERHEAD_TOKENS + estimate_tokens(&record.kind))
-        .sum::<usize>();
-    if fixed_cost >= budget {
-        let mut essential = Vec::new();
-        if let Some(first) = records.first() {
-            essential.push(first.clone());
-        }
-        if let Some(last) = records.last().filter(|last| {
-            essential
-                .first()
-                .is_none_or(|first| first.record_id != last.record_id)
-        }) {
-            essential.push(last.clone());
-        }
-        if essential.len() == records.len() {
-            let Some(last) = records.last() else {
-                return Vec::new();
-            };
-            let mut bounded = last.clone();
-            let content_budget = budget
-                .saturating_sub(RECORD_OVERHEAD_TOKENS)
-                .saturating_sub(estimate_tokens(&bounded.kind));
-            bounded.content = truncate_tail_to_estimated_tokens(&bounded.content, content_budget);
-            return (!bounded.content.is_empty() && record_token_cost(&bounded) <= budget)
-                .then_some(bounded)
-                .into_iter()
-                .collect();
-        }
-        return bounded_recent_records(&essential, budget);
-    }
-    let content_budget = budget - fixed_cost;
-    let per_record_budget = content_budget / records.len().max(1);
-    let mut bounded = records
-        .iter()
-        .map(|record| {
-            let mut bounded = record.clone();
-            bounded.content =
-                truncate_tail_to_estimated_tokens(&bounded.content, per_record_budget);
-            bounded
-        })
-        .filter(|record| !record.content.is_empty())
-        .collect::<Vec<_>>();
-    while bounded.iter().map(record_token_cost).sum::<usize>() > budget {
-        if bounded.len() <= 2 {
-            break;
-        }
-        bounded.remove(1);
-    }
-    bounded
-}
-
-fn recent_record_start(records: &[CompactionRecord], budget: usize, max_exchanges: usize) -> usize {
-    let user_starts = records
-        .iter()
-        .enumerate()
-        .filter(|(_, record)| record.kind == "user")
-        .map(|(index, _)| index)
-        .collect::<Vec<_>>();
-    if user_starts.is_empty() {
-        return records.len().saturating_sub(4);
-    }
-
-    let mut selected_start = records.len();
-    let mut selected_cost = 0usize;
-    let mut selected_exchanges = 0usize;
-    for (position, start) in user_starts.iter().copied().enumerate().rev() {
-        if selected_exchanges == max_exchanges {
-            break;
-        }
-        let end = user_starts
-            .get(position + 1)
-            .copied()
-            .unwrap_or(records.len());
-        let exchange_cost = records[start..end]
-            .iter()
-            .map(record_token_cost)
-            .sum::<usize>();
-        if selected_exchanges > 0 && selected_cost.saturating_add(exchange_cost) > budget {
-            break;
-        }
-        selected_start = start;
-        selected_cost = selected_cost.saturating_add(exchange_cost);
-        selected_exchanges += 1;
-        if selected_cost >= budget {
-            break;
-        }
-    }
-    selected_start
 }
 
 fn bounded_summary_source(
@@ -583,35 +481,6 @@ mod tests {
 
         assert!(plan.should_compact);
         assert_eq!(plan.estimated_tokens_before, policy.auto_trigger_tokens);
-    }
-
-    #[test]
-    fn oversized_latest_exchange_keeps_user_and_model_records_within_budget() {
-        let policy = CompactionPolicy::for_context_limit(4_096);
-        let records = vec![
-            record(0, "user", "older request"),
-            record(1, "model", "older response"),
-            record(2, "user", "최신 질문 ".repeat(4_000)),
-            record(3, "model", "최신 답변 ".repeat(4_000)),
-        ];
-
-        let plan = policy.plan_with_observed_tokens(CompactionMode::Manual, &records, None);
-
-        assert!(plan.should_compact);
-        assert_eq!(
-            plan.recent_records
-                .iter()
-                .map(|record| record.kind.as_str())
-                .collect::<Vec<_>>(),
-            ["user", "model"]
-        );
-        assert!(
-            plan.recent_records
-                .iter()
-                .map(record_token_cost)
-                .sum::<usize>()
-                <= policy.recent_tail_budget_tokens
-        );
     }
 
     #[test]

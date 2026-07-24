@@ -22,8 +22,12 @@ the current request authoritative, and preserve an auditable canonical history.
 ### Canonical Conversation Store
 
 The TUI conversation adapter owns append-only persistence of completed
-user/assistant pairs. It ignores incomplete tails during restore. `/clear`
-records a reset boundary rather than deleting audit history.
+user/assistant pairs for every successful interactive request, including coding
+and agent workflows. Workflow transcripts remain a separate execution-audit
+stream. The adapter ignores incomplete tails during restore, keeps a bounded
+in-memory prompt view instead of rescanning the full session on every request,
+and records `/clear` as a unique causal reset boundary rather than deleting
+audit history.
 
 ### Dialogue Recall Policy
 
@@ -46,7 +50,9 @@ response cue are always last.
 
 Historical dialogue and attachment payloads are encoded as untrusted data.
 They can provide context but cannot override stable instructions or the current
-request.
+request. Agent/workflow prompts use the same effective runtime context source
+and reserve output/runtime capacity before bounding resume and repository
+sections.
 
 ### Backend Reconciliation
 
@@ -58,8 +64,10 @@ comparison before a request is accepted.
 ### Resume And Compaction
 
 Canonical transcripts remain authoritative. Compaction produces a typed,
-incremental checkpoint plus a bounded tail of complete exchanges. Invalid or
-stale derived artifacts fall back to canonical recent history.
+incremental checkpoint plus a bounded tail of complete exchanges. Record and
+token ceilings remove whole older exchanges; an oversized newest exchange keeps
+its user/model boundary while tool detail is reduced. Invalid or stale derived
+artifacts fall back to canonical recent history.
 
 ## Model-Window Policy
 
@@ -98,12 +106,19 @@ small-model prompts noisy or expensive.
 
 - Restart restores completed pairs and excludes incomplete tails.
 - `/clear` hides earlier dialogue while preserving the audit stream.
+- Coding and agent workflow answers survive restart in the canonical
+  conversation while retaining their separate workflow audit records.
+- Repeated questions across multiple reset boundaries keep unique causal
+  records, and reset never pairs an earlier orphan user with a later model turn.
 - Typed memory and query recall preserve complete pairs and chronology.
 - Prompt assembly stays within the declared model input budget and ends with
   the current request.
+- Agent/workflow prompt assembly also stays within a 1,024-token active runtime
+  window with maximal resume and repository inputs.
 - 4K and 131K manifests produce different resume and compaction limits.
 - A ready backend with the wrong context or projector is restarted.
-- Compaction retains bounded dialogue pairs and validates its artifact ceiling.
+- Compaction retains complete bounded exchanges under token, record, and
+  artifact ceilings.
 - TUI, context, recall, compaction, backend reconciliation, and architecture
   contract tests pass for the candidate branch.
 

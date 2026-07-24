@@ -3,6 +3,8 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
+use crate::foundation::error::AppError;
+
 use super::compaction::{
     estimate_tokens, truncate_head_to_tokens, truncate_tail_to_estimated_tokens,
     CompactionCheckpoint,
@@ -18,6 +20,9 @@ const MIN_RESUME_TURNS: usize = 8;
 const MAX_RESUME_TURNS: usize = 64;
 const MIN_RESUME_TURN_TOKENS: usize = 256;
 const MAX_RESUME_TURN_TOKENS: usize = 4_096;
+const MIN_AGENT_RUNTIME_RESERVE_TOKENS: usize = 64;
+const MAX_AGENT_RUNTIME_RESERVE_TOKENS: usize = 2_048;
+const AGENT_SECTION_SEPARATOR_RESERVE_TOKENS: usize = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ResumeContextBudget {
@@ -43,6 +48,140 @@ impl ResumeContextBudget {
             per_turn_budget_tokens,
             max_turns,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AgentPromptBudget {
+    pub(crate) context_limit_tokens: usize,
+    pub(crate) output_reserve_tokens: usize,
+    pub(crate) runtime_reserve_tokens: usize,
+    pub(crate) input_limit_tokens: usize,
+}
+
+impl AgentPromptBudget {
+    pub(crate) fn for_context_limit(
+        context_limit_tokens: usize,
+        output_reserve_tokens: usize,
+    ) -> Result<Self, AppError> {
+        let runtime_reserve_tokens = (context_limit_tokens / 32).clamp(
+            MIN_AGENT_RUNTIME_RESERVE_TOKENS,
+            MAX_AGENT_RUNTIME_RESERVE_TOKENS,
+        );
+        let reserved = output_reserve_tokens.saturating_add(runtime_reserve_tokens);
+        if context_limit_tokens <= reserved {
+            return Err(AppError::blocked(format!(
+                "활성 runtime의 context length가 agent prompt를 조립하기에 너무 작습니다.\n- context: {context_limit_tokens} tokens\n- output reserve: {output_reserve_tokens} tokens\n- runtime reserve: {runtime_reserve_tokens} tokens"
+            )));
+        }
+        Ok(Self {
+            context_limit_tokens,
+            output_reserve_tokens,
+            runtime_reserve_tokens,
+            input_limit_tokens: context_limit_tokens - reserved,
+        })
+    }
+}
+
+pub(crate) struct AgentPromptParts<'a> {
+    pub(crate) instructions: &'a str,
+    pub(crate) resume_context: &'a str,
+    pub(crate) repository_context: &'a str,
+    pub(crate) current_request: &'a str,
+    pub(crate) response_cue: &'a str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AssembledAgentPrompt {
+    pub(crate) text: String,
+    pub(crate) estimated_tokens: usize,
+    pub(crate) input_limit_tokens: usize,
+}
+
+pub(crate) fn assemble_agent_prompt(
+    budget: AgentPromptBudget,
+    parts: AgentPromptParts<'_>,
+) -> Result<AssembledAgentPrompt, AppError> {
+    let current_request = format!(
+        "<CURRENT_USER_REQUEST>\n{}\n</CURRENT_USER_REQUEST>\n\n{}",
+        parts.current_request, parts.response_cue
+    );
+    let mandatory_tokens = estimate_tokens(parts.instructions)
+        .saturating_add(estimate_tokens(&current_request))
+        .saturating_add(AGENT_SECTION_SEPARATOR_RESERVE_TOKENS);
+    if mandatory_tokens > budget.input_limit_tokens {
+        return Err(AppError::blocked(format!(
+            "현재 agent 요청과 필수 instruction이 활성 runtime의 입력 예산을 초과했습니다.\n- input limit: {} tokens\n- mandatory input: {mandatory_tokens} tokens",
+            budget.input_limit_tokens
+        )));
+    }
+
+    let mut remaining = budget.input_limit_tokens - mandatory_tokens;
+    let resume_context = bounded_untrusted_section(
+        "RESUME_CONTEXT",
+        parts.resume_context,
+        remaining.saturating_mul(2) / 3,
+        ContextEdge::Tail,
+    );
+    remaining = remaining.saturating_sub(estimate_tokens(&resume_context));
+    let repository_context = bounded_untrusted_section(
+        "REPOSITORY_CONTEXT",
+        parts.repository_context,
+        remaining,
+        ContextEdge::Head,
+    );
+
+    let mut sections = vec![parts.instructions.trim().to_string()];
+    push_nonempty(&mut sections, resume_context);
+    push_nonempty(&mut sections, repository_context);
+    sections.push(current_request);
+    let text = sections.join("\n\n");
+    let estimated_tokens = estimate_tokens(&text);
+    if estimated_tokens > budget.input_limit_tokens {
+        return Err(AppError::blocked(format!(
+            "조립된 agent prompt가 활성 runtime의 입력 상한을 초과했습니다.\n- estimated: {estimated_tokens} tokens\n- input limit: {} tokens",
+            budget.input_limit_tokens
+        )));
+    }
+    Ok(AssembledAgentPrompt {
+        text,
+        estimated_tokens,
+        input_limit_tokens: budget.input_limit_tokens,
+    })
+}
+
+#[derive(Clone, Copy)]
+enum ContextEdge {
+    Head,
+    Tail,
+}
+
+fn bounded_untrusted_section(
+    label: &str,
+    content: &str,
+    budget_tokens: usize,
+    edge: ContextEdge,
+) -> String {
+    if content.trim().is_empty() || budget_tokens == 0 {
+        return String::new();
+    }
+    let opening = format!("<{label} trust=\"untrusted\">\n");
+    let closing = format!("\n</{label}>");
+    let wrapper_tokens = estimate_tokens(&opening).saturating_add(estimate_tokens(&closing));
+    if wrapper_tokens >= budget_tokens {
+        return String::new();
+    }
+    let content_budget = budget_tokens - wrapper_tokens;
+    let bounded = match edge {
+        ContextEdge::Head => truncate_head_to_tokens(content, content_budget),
+        ContextEdge::Tail => truncate_tail_to_estimated_tokens(content, content_budget),
+    };
+    format!("{opening}{bounded}{closing}")
+}
+
+fn push_nonempty(sections: &mut Vec<String>, value: String) {
+    if !value.trim().is_empty() {
+        sections.push(value);
     }
 }
 
@@ -339,5 +478,35 @@ mod tests {
         assert!(prompt.contains("derived compacted checkpoint"));
         assert!(prompt.contains("[compacted]"));
         assert!(prompt.contains("repository context"));
+    }
+
+    #[test]
+    fn agent_prompt_stays_inside_a_1024_token_runtime_window_with_max_context() {
+        let budget = AgentPromptBudget::for_context_limit(1_024, 256).unwrap();
+        let resume = "이전 대화와 작업 상태 ".repeat(4_000);
+        let repository = "저장소 소스 코드와 검증 근거 ".repeat(4_000);
+        let assembled = assemble_agent_prompt(
+            budget,
+            AgentPromptParts {
+                instructions: "필수 runtime 계약: 부작용을 실행하지 말고 한국어로 답합니다.",
+                resume_context: &resume,
+                repository_context: &repository,
+                current_request: "현재 실패 원인을 분석해줘",
+                response_cue: "짧고 근거 중심으로 답하고 action contract를 마지막에 기록합니다.",
+            },
+        )
+        .unwrap();
+
+        assert!(assembled.estimated_tokens <= assembled.input_limit_tokens);
+        assert!(assembled.text.contains("필수 runtime 계약"));
+        assert!(assembled
+            .text
+            .contains("<RESUME_CONTEXT trust=\"untrusted\">"));
+        assert!(assembled
+            .text
+            .contains("<REPOSITORY_CONTEXT trust=\"untrusted\">"));
+        assert!(assembled.text.ends_with(
+            "<CURRENT_USER_REQUEST>\n현재 실패 원인을 분석해줘\n</CURRENT_USER_REQUEST>\n\n짧고 근거 중심으로 답하고 action contract를 마지막에 기록합니다."
+        ));
     }
 }

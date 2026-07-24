@@ -57,6 +57,7 @@ pub fn setup_required() -> bool {
 #[derive(Default)]
 struct TuiRuntimeAdapter {
     opened_web_page: Option<crate::adapters::web_search::WebPageEvidence>,
+    conversation_memory: Option<session_memory::ConversationMemory>,
 }
 
 pub(crate) struct TuiReadAdapter;

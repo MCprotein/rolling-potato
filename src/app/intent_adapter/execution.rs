@@ -164,7 +164,7 @@ pub(super) fn run_with_decision(
         &context_pack,
         &action_candidate,
         &manifest,
-    );
+    )?;
     dispatch_skill_hook(
         &manifest,
         &workflow,

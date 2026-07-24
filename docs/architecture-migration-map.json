@@ -7934,7 +7934,7 @@
       "path": "src/app/tui_adapter/runtime/request.rs",
       "slices": [
         {
-          "responsibility": "interactive request routing and transcript ownership",
+          "responsibility": "interactive request routing and response composition",
           "target": "src/app/tui_adapter/runtime/request.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -7985,6 +7985,55 @@
           "state": "complete",
           "evidence": [
             "src/app/inference_adapter/model/setup/runtime_spec.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/tests/prompt_budget.rs",
+      "slices": [
+        {
+          "responsibility": "agent prompt runtime-window and imported-skill boundary regression tests",
+          "target": "src/app/intent_adapter/tests/prompt_budget.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/intent_adapter.rs",
+            "src/app/intent_adapter/tests/prompt_budget.rs",
+            "src/runtime_core/knowledge/context.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory/tests.rs",
+      "slices": [
+        {
+          "responsibility": "canonical conversation reset, restoration, and bounded-cache regression tests",
+          "target": "src/app/tui_adapter/session_memory/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/session_memory.rs",
+            "src/app/tui_adapter/session_memory/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction/recent_tail.rs",
+      "slices": [
+        {
+          "responsibility": "complete-exchange recent-tail selection and bounded oversized-exchange reduction",
+          "target": "src/runtime_core/knowledge/compaction/recent_tail.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/compaction.rs",
+            "src/runtime_core/knowledge/compaction/recent_tail.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -10901,7 +10950,7 @@
     {
       "path": "src/app/tui_adapter/runtime/request.rs",
       "responsibilities": [
-        "interactive request routing and transcript ownership"
+        "interactive request routing and response composition"
       ]
     },
     {
@@ -10920,6 +10969,24 @@
       "path": "src/app/inference_adapter/model/setup/runtime_spec.rs",
       "responsibilities": [
         "validated default-model runtime specification"
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/tests/prompt_budget.rs",
+      "responsibilities": [
+        "agent prompt runtime-window and imported-skill boundary regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory/tests.rs",
+      "responsibilities": [
+        "canonical conversation reset, restoration, and bounded-cache regression tests"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction/recent_tail.rs",
+      "responsibilities": [
+        "complete-exchange recent-tail selection and bounded oversized-exchange reduction"
       ]
     }
   ]

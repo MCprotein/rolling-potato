@@ -21,9 +21,12 @@ history를 함께 보존합니다.
 
 ### Canonical Conversation Store
 
-TUI conversation adapter는 완료된 user/assistant pair의 append-only 저장을
-소유합니다. 복원할 때 완료되지 않은 tail은 제외합니다. `/clear`는 감사 이력을
-삭제하지 않고 reset boundary를 기록합니다.
+TUI conversation adapter는 coding·agent workflow를 포함한 모든 성공한 대화형
+요청의 완료된 user/assistant pair를 append-only로 저장합니다. Workflow
+transcript는 별도의 실행 감사 stream으로 유지합니다. 복원할 때 완료되지 않은
+tail은 제외하고, 매 요청마다 session 전체를 다시 읽는 대신 제한된 in-memory
+prompt view를 유지합니다. `/clear`는 감사 이력을 삭제하지 않고 고유한 causal
+reset boundary를 기록합니다.
 
 ### Dialogue Recall Policy
 
@@ -45,6 +48,8 @@ attachment에 별도 상한을 적용합니다. 현재 사용자 요청과 respo
 
 과거 대화와 attachment payload는 신뢰하지 않는 data로 encoding합니다. Context
 정보는 제공할 수 있지만 stable instruction이나 현재 요청을 덮어쓸 수 없습니다.
+Agent/workflow prompt도 같은 effective runtime context를 사용하며 output/runtime
+reserve를 먼저 확보한 뒤 resume·repository section을 남은 예산에 맞춥니다.
 
 ### Backend Reconciliation
 
@@ -56,8 +61,10 @@ adapter는 desired/observed model path, context length, vision projector를
 ### Resume와 Compaction
 
 Canonical transcript가 계속 권위입니다. Compaction은 typed incremental
-checkpoint와 완료된 최근 exchange의 제한된 tail을 만듭니다. 파생 artifact가
-invalid 또는 stale이면 canonical recent history 경로로 fallback합니다.
+checkpoint와 완료된 최근 exchange의 제한된 tail을 만듭니다. Record·token
+상한에서는 오래된 exchange 전체를 제거하며, 최신 exchange 하나가 너무 크면
+user/model 경계를 보존하고 tool detail을 줄입니다. 파생 artifact가 invalid 또는
+stale이면 canonical recent history 경로로 fallback합니다.
 
 ## Model-Window 정책
 
@@ -94,11 +101,17 @@ invalid 또는 stale이면 canonical recent history 경로로 fallback합니다.
 
 - 재시작은 완료된 pair를 복원하고 완료되지 않은 tail을 제외합니다.
 - `/clear`는 audit stream을 보존하면서 이전 대화를 화면과 prompt에서 분리합니다.
+- Coding·agent workflow 답변은 별도 workflow 감사 기록을 유지하면서 canonical
+  conversation에도 남아 재시작 후 복원됩니다.
+- 여러 reset 사이에서 같은 질문을 반복해도 causal record가 고유하며, reset 전
+  orphan user와 이후 model turn을 잘못 결합하지 않습니다.
 - Typed memory와 query recall은 완료된 pair와 시간 순서를 보존합니다.
 - Prompt assembly는 선언된 model input budget 안에 있고 현재 요청으로 끝납니다.
+- Agent/workflow prompt도 최대 resume·repository 입력이 있을 때 1,024-token
+  active runtime window 안에 머뭅니다.
 - 4K와 131K manifest는 서로 다른 resume·compaction limit을 만듭니다.
 - Context 또는 projector가 다른 ready backend는 restart합니다.
-- Compaction은 제한된 dialogue pair를 보존하고 artifact ceiling을 검증합니다.
+- Compaction은 token·record·artifact ceiling 안에서 완료된 exchange를 보존합니다.
 - Candidate branch에서 TUI, context, recall, compaction, backend reconciliation,
   architecture contract test가 통과합니다.
 

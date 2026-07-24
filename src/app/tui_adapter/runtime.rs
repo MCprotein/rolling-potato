@@ -16,7 +16,24 @@ use crate::surfaces::tui::runtime_bridge::{
     TuiGateKind, TuiIntent, TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
 };
 use backend::reconcile_existing_runtime;
-use request::TranscriptOwner;
+
+impl TuiRuntimeAdapter {
+    fn conversation_memory(
+        &mut self,
+    ) -> Result<&mut super::session_memory::ConversationMemory, AppError> {
+        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
+        if !self
+            .conversation_memory
+            .as_ref()
+            .is_some_and(|memory| memory.belongs_to(&identity.session_id))
+        {
+            self.conversation_memory = Some(super::session_memory::load()?);
+        }
+        self.conversation_memory
+            .as_mut()
+            .ok_or_else(|| AppError::blocked("conversation memory 초기화 실패"))
+    }
+}
 
 impl TuiRuntimePort for TuiRuntimeAdapter {
     fn startup_update_notice(&mut self) -> Option<String> {
@@ -28,11 +45,12 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
     }
 
     fn conversation_history(&mut self) -> Result<Vec<TuiConversationTurn>, AppError> {
-        super::session_memory::load().map(|memory| memory.turns)
+        self.conversation_memory()
+            .map(|memory| memory.turns.clone())
     }
 
     fn clear_conversation_history(&mut self) -> Result<(), AppError> {
-        super::session_memory::clear()
+        super::session_memory::clear(self.conversation_memory()?)
     }
 
     fn apply_update(&mut self) -> Result<String, AppError> {
@@ -103,12 +121,14 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         request: &str,
         attachments: &[TuiAttachment],
     ) -> Result<String, AppError> {
-        let memory = super::session_memory::load()?;
-        let execution = request::execute(self, request, attachments, &memory.turns)?;
-        if matches!(execution.transcript_owner, TranscriptOwner::TuiConversation) {
-            super::session_memory::record_exchange(&memory, request.trim(), &execution.response)?;
-        }
-        Ok(execution.response)
+        let history = self.conversation_memory()?.prompt_history();
+        let response = request::execute(self, request, attachments, &history)?;
+        super::session_memory::record_exchange(
+            self.conversation_memory()?,
+            request.trim(),
+            &response,
+        )?;
+        Ok(response)
     }
 
     fn model_options(&mut self) -> Vec<crate::surfaces::tui::runtime_bridge::TuiModelOption> {

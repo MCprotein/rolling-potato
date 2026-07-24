@@ -1,26 +1,16 @@
-//! Interactive request routing and transcript ownership.
+//! Interactive request routing for the canonical TUI conversation.
 
 use super::super::{attachment, conversation, web_tools, TuiRuntimeAdapter};
 use super::backend::ensure_runtime_ready;
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::runtime_bridge::{TuiAttachment, TuiConversationTurn};
 
-pub(super) struct RequestExecution {
-    pub(super) response: String,
-    pub(super) transcript_owner: TranscriptOwner,
-}
-
-pub(super) enum TranscriptOwner {
-    TuiConversation,
-    Workflow,
-}
-
 pub(super) fn execute(
     adapter: &mut TuiRuntimeAdapter,
     request: &str,
     attachments: &[TuiAttachment],
     history: &[TuiConversationTurn],
-) -> Result<RequestExecution, AppError> {
+) -> Result<String, AppError> {
     let user_request = request.trim();
     let backend = crate::app::inference_adapter::backend::runtime_snapshot().ok();
     let context_limit_tokens = crate::app::inference_adapter::model::configured_context_length()
@@ -41,16 +31,15 @@ pub(super) fn execute(
             &input,
             history,
             required_context_limit(context_limit_tokens)?,
-        )
-        .map(tui_execution);
+        );
     }
     if let Some(result) =
         web_tools::dispatch(&mut adapter.opened_web_page, user_request, local_context)
     {
-        return result.map(tui_execution);
+        return result;
     }
     if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref()) {
-        return Ok(tui_execution(reply));
+        return Ok(reply);
     }
     ensure_runtime_ready()?;
     let conversational = conversation::is_conversational_request(user_request);
@@ -61,15 +50,14 @@ pub(super) fn execute(
         required_context_limit(context_limit_tokens)?,
         conversational && !has_text_attachments,
     )? {
-        conversation::RequestDecision::Answer(answer) => return Ok(tui_execution(answer)),
+        conversation::RequestDecision::Answer(answer) => return Ok(answer),
         conversation::RequestDecision::WebTool(tool) => {
             return web_tools::execute(
                 &mut adapter.opened_web_page,
                 tool,
                 user_request,
                 local_context,
-            )
-            .map(tui_execution);
+            );
         }
         conversation::RequestDecision::ContinueLocal => {}
     }
@@ -79,20 +67,10 @@ pub(super) fn execute(
             local_context,
             history,
             required_context_limit(context_limit_tokens)?,
-        )
-        .map(tui_execution);
+        );
     }
-    crate::app::runtime_adapter::agent_run_report(local_context).map(|report| RequestExecution {
-        response: conversation::present_agent_report(&report),
-        transcript_owner: TranscriptOwner::Workflow,
-    })
-}
-
-fn tui_execution(response: String) -> RequestExecution {
-    RequestExecution {
-        response,
-        transcript_owner: TranscriptOwner::TuiConversation,
-    }
+    crate::app::runtime_adapter::agent_run_report(local_context)
+        .map(|report| conversation::present_agent_report(&report))
 }
 
 fn required_context_limit(context_limit_tokens: Option<u32>) -> Result<u32, AppError> {
