@@ -1,5 +1,38 @@
 # Release Notes
 
+## v0.49.2 - Accurate Vision and Model Cache Status
+
+Release date: 2026-07-26
+
+This patch makes the primary TUI report multimodal capability separately from
+the currently loaded backend state and makes cached model switches visibly
+reuse existing artifacts instead of looking like repeated downloads.
+
+### Included
+
+- Replaces the ambiguous text-only flag with ready, on-demand, unsupported, and
+  unavailable states; Qwen and Gemma remain vision-capable before their
+  projectors are loaded.
+- Reports vision as ready only when the healthy backend exactly matches the
+  selected model, full manifest context window, and verified projector path.
+- Automatically prepares the projector on the first image request and reuses
+  the exact cached projector on later requests.
+- Separates base-model cache state from lazy projector state in model selection,
+  setup progress, and completion messages.
+- Keeps vision capability questions on a deterministic local-fact path without
+  intercepting requests to implement, debug, analyze, or test image support.
+- Adds production-shaped regression coverage for stopped, stale, mismatched,
+  ready, unsupported, and unselected vision states, plus verified model and
+  projector cache hits that do not start another download.
+
+### Compatibility and boundaries
+
+- Existing model files, registries, default selections, and public commands
+  remain supported.
+- A model switch can still spend time verifying a multi-gigabyte artifact's
+  SHA-256, but an exact cache hit does not download the model again.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.49.1 - Text-Safe Vision Upgrades
 
 Release date: 2026-07-25

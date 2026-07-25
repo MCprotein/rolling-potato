@@ -1,5 +1,35 @@
 # 릴리즈 노트
 
+## v0.49.2 - 정확한 비전·모델 cache 상태
+
+릴리즈 날짜: 2026-07-26
+
+이 patch는 기본 TUI에서 multimodal 지원 여부와 현재 backend load 상태를 분리해서
+표시하고, cache된 모델 전환이 반복 다운로드처럼 보이지 않도록 기존 artifact
+재사용 상태를 명확히 보여줍니다.
+
+### 포함한 것
+
+- 모호한 text-only flag를 ready, on-demand, unsupported, unavailable 상태로
+  교체하여 projector를 아직 load하지 않은 Qwen과 Gemma도 vision 지원 모델로 표시
+- Healthy backend가 선택한 model, manifest 전체 context window와 검증된 projector
+  path에 정확히 일치할 때만 vision ready로 표시
+- 첫 이미지 요청에서 projector를 자동 준비하고 이후 요청에서는 정확한 projector
+  cache를 재사용
+- Model 선택, setup 진행과 완료 메시지에서 base-model cache와 lazy projector
+  상태를 분리
+- Vision 상태 질문은 local manifest/runtime 사실로 답하면서 이미지 지원 구현,
+  debugging, 분석과 test 요청을 상태 안내가 가로채지 않도록 수정
+- stopped, stale, mismatch, ready, unsupported, unselected 상태와 model·projector
+  cache hit에서 새 다운로드를 시작하지 않는 production-shaped 회귀 테스트 추가
+
+### 호환성과 경계
+
+- 기존 model file, registry, default selection과 public command를 계속 지원합니다.
+- 모델 전환 중 수 GiB artifact의 SHA-256 재검증 시간은 들 수 있지만, 정확한 cache
+  hit에서는 모델을 다시 다운로드하지 않습니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
+
 ## v0.49.1 - 텍스트 안전 비전 업그레이드
 
 릴리즈 날짜: 2026-07-25
