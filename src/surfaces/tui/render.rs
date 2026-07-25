@@ -16,7 +16,7 @@ pub(crate) use report_layout::{
 pub(crate) use text::{display_cell_width, sanitize_terminal_text};
 use text::{truncate_chars, wrap_terminal_text};
 
-const MAX_INTERACTIVE_WIDTH: usize = 120;
+const MAX_READING_WIDTH: usize = 120;
 const BRAND_COLOR: &str = "\u{001b}[1;36m";
 const ACCENT_COLOR: &str = "\u{001b}[36m";
 const HEALTHY_COLOR: &str = "\u{001b}[32m";
@@ -52,9 +52,17 @@ pub(crate) fn render_interactive_frame_with_options(
     color: bool,
 ) -> String {
     let ansi_layout = ansi_layout && color;
-    let width = usize::from(width).clamp(20, MAX_INTERACTIVE_WIDTH);
+    let width = usize::from(width).max(20);
     if matches!(state.view, InteractiveView::Conversation) {
-        return render_conversation_frame(state, status, width, height, ansi_layout, color);
+        return render_conversation_frame(
+            state,
+            status,
+            width,
+            width.min(MAX_READING_WIDTH),
+            height,
+            ansi_layout,
+            color,
+        );
     }
     let content_rows = notice_rows_per_page(height);
     let notice_lines = state.notice.split('\n').collect::<Vec<_>>();
@@ -110,7 +118,8 @@ pub(crate) fn render_interactive_frame_with_options(
 fn render_conversation_frame(
     state: &InteractiveState,
     status: &TuiStatusSnapshot,
-    width: usize,
+    frame_width: usize,
+    reading_width: usize,
     height: u16,
     ansi_layout: bool,
     color: bool,
@@ -122,12 +131,12 @@ fn render_conversation_frame(
 
     let show_welcome = state.turns.is_empty();
     if show_welcome {
-        render_welcome(&mut output, status, width, color);
+        render_welcome(&mut output, status, frame_width, height > 10, color);
         if height > 10 {
             output.push('\n');
         }
     } else {
-        render_identity_header(&mut output, width, color);
+        render_identity_header(&mut output, frame_width, color);
         output.push('\n');
     }
 
@@ -147,7 +156,7 @@ fn render_conversation_frame(
             .min(content_rows)
     };
     let turn_rows = content_rows.saturating_sub(notice_rows);
-    let conversation = conversation_lines(state, width, color);
+    let conversation = conversation_lines(state, reading_width, color);
     let (visible_start, visible_end) = if turn_rows == 0 {
         (conversation.len(), conversation.len())
     } else {
@@ -172,7 +181,7 @@ fn render_conversation_frame(
         notice_offset,
         notice_rows,
         (notice_page, notice_page_count),
-        width,
+        reading_width,
         NoticeStyle::Conversation { color },
     );
     if ansi_layout {
@@ -182,12 +191,12 @@ fn render_conversation_frame(
         }
     }
 
-    let status_line = render_status_line(status, width, color);
+    let status_line = render_status_line(status, frame_width, color);
     render_composer(
         &mut output,
         &state.attachments,
         &status_line,
-        width,
+        frame_width,
         ansi_layout,
         color,
     );
@@ -195,7 +204,7 @@ fn render_conversation_frame(
 }
 
 pub(crate) fn conversation_page_count(state: &InteractiveState, width: u16, height: u16) -> usize {
-    let width = usize::from(width).clamp(20, MAX_INTERACTIVE_WIDTH);
+    let width = usize::from(width).clamp(20, MAX_READING_WIDTH);
     let rows = conversation_rows_per_page(height, state.turns.is_empty());
     conversation_lines(state, width, false)
         .len()
@@ -209,6 +218,7 @@ fn conversation_lines(state: &InteractiveState, width: usize, color_enabled: boo
         let (marker, color) = match turn.role {
             ConversationRole::User => ("›", BRAND_COLOR),
             ConversationRole::Assistant => ("●", "\u{001b}[1;32m"),
+            ConversationRole::Error => ("×", FAILED_COLOR),
         };
         let mut first_row = true;
         for source_line in turn.content.split('\n') {
@@ -280,7 +290,13 @@ fn render_composer(
     }
 }
 
-fn render_welcome(output: &mut String, status: &TuiStatusSnapshot, width: usize, color: bool) {
+fn render_welcome(
+    output: &mut String,
+    status: &TuiStatusSnapshot,
+    width: usize,
+    show_session_hint: bool,
+    color: bool,
+) {
     let title = format!(
         "─ rpotato v{} · 로컬 코딩 에이전트 ",
         env!("CARGO_PKG_VERSION")
@@ -308,8 +324,21 @@ fn render_welcome(output: &mut String, status: &TuiStatusSnapshot, width: usize,
         color,
     ));
     output.push('\n');
+    if show_session_hint {
+        output.push_str(&paint(
+            &box_row(" session  새 대화 · /resume으로 이전 대화 재개", width),
+            ACCENT_COLOR,
+            color,
+        ));
+        output.push('\n');
+    }
     output.push_str(&paint(
-        &box_rule('╰', '╯', "─ /help 명령 · /model 변경 ", width),
+        &box_rule(
+            '╰',
+            '╯',
+            "─ /help 명령 · /model 변경 · /new 새 대화 ",
+            width,
+        ),
         MUTED_COLOR,
         color,
     ));
@@ -409,10 +438,7 @@ fn render_status_line(status: &TuiStatusSnapshot, width: usize, color: bool) -> 
         (format!("model {model}"), ACCENT_COLOR),
         (context, context_color),
         (compaction.to_string(), compaction_color),
-        (
-            format!("backend {}", status.backend.as_str()),
-            backend_color,
-        ),
+        (format!("local {}", status.backend.as_str()), backend_color),
         (
             format!("vision {}", status.vision.as_str()),
             match status.vision {

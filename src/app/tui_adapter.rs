@@ -22,6 +22,7 @@ mod attachment;
 mod conversation;
 mod prompt_context;
 mod runtime;
+use runtime::TuiRuntimeAdapter;
 mod session_memory;
 mod web_tools;
 
@@ -52,12 +53,6 @@ pub fn setup_required() -> bool {
         return false;
     }
     crate::app::inference_adapter::model::configured_model_id().is_none()
-}
-
-#[derive(Default)]
-struct TuiRuntimeAdapter {
-    opened_web_page: Option<crate::adapters::web_search::WebPageEvidence>,
-    conversation_memory: Option<session_memory::ConversationMemory>,
 }
 
 pub(crate) struct TuiReadAdapter;

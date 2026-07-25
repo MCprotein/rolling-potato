@@ -179,6 +179,28 @@ pub(crate) fn validate_ledger_ancestor(
     Ok(())
 }
 
+pub(crate) fn validate_selection_ledger_suffix(
+    current: &LedgerBinding,
+    tail_binding: &LedgerBinding,
+    events: &[ParsedLedgerEvent],
+) -> Result<(), AppError> {
+    validate_ledger_ancestor(current, tail_binding, events)?;
+    let suffix_start = usize::try_from(current.event_count)
+        .map_err(|_| AppError::blocked("current-state ledger ordinal 범위 초과"))?;
+    if events
+        .get(suffix_start..)
+        .unwrap_or_default()
+        .iter()
+        .all(|event| event.event_type == "transcript.recorded")
+    {
+        Ok(())
+    } else {
+        Err(AppError::blocked(
+            "current-state lease 차단\n- code: selection.stale-ledger-binding\n- 동작: 대화 기록 외 상태 변경이 current-state 이후 발견되어 선택 권한을 만들지 않았습니다.",
+        ))
+    }
+}
+
 pub(crate) fn validate_read_only_pointer(
     binding: &CurrentWorkflowBinding,
     pointer: &WorkflowPointer,
@@ -326,6 +348,67 @@ mod tests {
         let workflow_error =
             validate_current_lease(&current, &current.ledger_binding, Some(&workflow)).unwrap_err();
         assert!(workflow_error.message.contains("stale-workflow-binding"));
+    }
+
+    #[test]
+    fn selection_lease_accepts_only_transcript_events_after_the_current_state() {
+        let transcript = ParsedLedgerEvent {
+            event_id: "event-2".to_string(),
+            ts_ms: 2,
+            event_type: "transcript.recorded".to_string(),
+            project_id: "project-1".to_string(),
+            session_id: "session-1".to_string(),
+            summary: "model transcript record persisted".to_string(),
+            details: "record_id=record-1".to_string(),
+            previous_event_hash: Some("ledger-hash-1".to_string()),
+            event_hash: Some("ledger-hash-2".to_string()),
+        };
+        let head = ledger_binding(2, Some("event-2"), "ledger-hash-2");
+        assert!(validate_selection_ledger_suffix(
+            &snapshot(None).ledger_binding,
+            &head,
+            &[transcript.clone()]
+        )
+        .is_err());
+        let ancestor = ParsedLedgerEvent {
+            event_id: "event-1".to_string(),
+            ts_ms: 1,
+            event_type: "session.new".to_string(),
+            project_id: "project-1".to_string(),
+            session_id: "session-1".to_string(),
+            summary: "session".to_string(),
+            details: String::new(),
+            previous_event_hash: Some("root".to_string()),
+            event_hash: Some("ledger-hash-1".to_string()),
+        };
+        assert!(validate_selection_ledger_suffix(
+            &snapshot(None).ledger_binding,
+            &head,
+            &[ancestor, transcript.clone()]
+        )
+        .is_ok());
+
+        let mut state_change = transcript;
+        state_change.event_type = "session.resume.selected".to_string();
+        assert!(validate_selection_ledger_suffix(
+            &snapshot(None).ledger_binding,
+            &head,
+            &[
+                ParsedLedgerEvent {
+                    event_id: "event-1".to_string(),
+                    ts_ms: 1,
+                    event_type: "session.new".to_string(),
+                    project_id: "project-1".to_string(),
+                    session_id: "session-1".to_string(),
+                    summary: "session".to_string(),
+                    details: String::new(),
+                    previous_event_hash: Some("root".to_string()),
+                    event_hash: Some("ledger-hash-1".to_string()),
+                },
+                state_change,
+            ]
+        )
+        .is_err());
     }
 
     #[test]

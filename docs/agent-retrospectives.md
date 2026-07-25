@@ -10,6 +10,8 @@
   새 코딩·일반 요청도 `ontology source reread 차단`으로 종료됐습니다.
 - 전체 unit·candidate 테스트는 통과했지만 실제 사용자 session에서는 기본 요청을
   계속할 수 없었습니다.
+- 대화 transcript가 ledger head를 전진시킨 뒤에는 안전한 current-state ancestor까지
+  stale로 오판해 별도 세션 `/resume` 선택도 차단됐습니다.
 
 ### 원인
 
@@ -19,6 +21,8 @@
   정상 계약으로 고정했습니다.
 - Fresh fixture 중심 E2E에는 `요청 성공 → 파일 변경 → 무관한 다음 요청` 장기
   session 시나리오가 없었습니다.
+- 세션 테스트는 controller mock과 빈 transcript 위주여서 실제 ledger suffix,
+  명시적 선택, 선택한 transcript 재수화를 한 흐름으로 검증하지 않았습니다.
 
 ### 재발 방지
 
@@ -28,6 +32,10 @@
   유지합니다. 두 정책을 같은 함수 호출 경로로 암묵적으로 합치지 않습니다.
 - 장기 session E2E는 파일 변경 뒤 무관한 다음 요청 성공과 backend 재호출을
   검증하며, 기존 테스트가 사용자 기대와 반대인 실패를 보호하지 않는지 확인합니다.
+- Current-state 선택 lease는 검증된 `transcript.recorded` suffix만 안전한 ancestor로
+  허용합니다. 세션·워크플로 상태 변경 suffix는 계속 fail-closed로 차단합니다.
+- 기본 TUI는 저장된 대화를 자동 복원하지 않습니다. `/resume` 선택 후 해당 세션만
+  복원하는 실제 runtime·PTY 회귀를 함께 유지합니다.
 
 ## 2026-07-25: vision capability와 readiness를 boolean으로 합쳐 TUI가 거짓 안내함
 

@@ -2,11 +2,13 @@ use super::*;
 use crate::adapters::terminal::native::ScriptedTerminal;
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::controller::{run_controller, TuiRuntimePort};
-use crate::surfaces::tui::render::{display_cell_width, render_interactive_frame};
+use crate::surfaces::tui::render::{
+    display_cell_width, render_interactive_frame, render_interactive_frame_with_options,
+};
 use crate::surfaces::tui::runtime_bridge::{
     SelectionLease, TuiAttachment, TuiAttachmentKind, TuiConversationRole, TuiConversationTurn,
     TuiFreshness, TuiGateKind, TuiIntent, TuiModelOption, TuiReadContinuation, TuiReadPage,
-    TuiReadRequest, TuiStatusSnapshot,
+    TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot,
 };
 use crate::surfaces::tui::view_model::{ConversationRole, InteractiveState};
 
@@ -76,7 +78,28 @@ fn ordinary_input_renders_as_user_and_assistant_turns() {
 }
 
 #[test]
-fn controller_hydrates_canonical_conversation_history_before_first_frame() {
+fn ansi_conversation_distinguishes_failures_from_assistant_answers() {
+    let mut state = InteractiveState::new();
+    state.push_turn(ConversationRole::Assistant, "정상 답변");
+    state.push_turn(ConversationRole::Error, "복구 가능한 오류");
+
+    let frame = render_interactive_frame_with_options(
+        &state,
+        &TuiReadPage::conversation_placeholder(),
+        &TuiStatusSnapshot::unavailable(),
+        120,
+        40,
+        true,
+        true,
+    );
+
+    assert!(frame.contains("\u{001b}[1;32m● \u{001b}[0m정상 답변"));
+    assert!(frame.contains("\u{001b}[31m× \u{001b}[0m복구 가능한 오류"));
+    assert!(!frame.contains("\u{001b}[1;32m× "));
+}
+
+#[test]
+fn controller_starts_fresh_until_a_session_is_explicitly_resumed() {
     let mut terminal = ScriptedTerminal::new(["/quit"]);
     let mut runtime = ConversationRuntime {
         history: vec![
@@ -95,8 +118,59 @@ fn controller_hydrates_canonical_conversation_history_before_first_frame() {
     run_controller(&mut terminal, &mut runtime).unwrap();
 
     assert_eq!(runtime.reconcile_backend_calls, 1);
-    assert!(terminal.frames[0].contains("이전 질문"));
-    assert!(terminal.frames[0].contains("이전 답변"));
+    assert!(!terminal.frames[0].contains("이전 질문"));
+    assert!(!terminal.frames[0].contains("이전 답변"));
+    assert!(terminal.frames[0].contains("새 대화"));
+}
+
+#[test]
+fn resume_command_uses_a_picker_and_rehydrates_only_the_selected_session() {
+    let mut terminal = ScriptedTerminal::new(["/resume", "2", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        history: vec![
+            TuiConversationTurn {
+                role: TuiConversationRole::User,
+                content: "선택한 세션 질문".to_string(),
+            },
+            TuiConversationTurn {
+                role: TuiConversationRole::Assistant,
+                content: "선택한 세션 답변".to_string(),
+            },
+        ],
+        session_options: vec![
+            session_option("session-current", "현재 세션", true),
+            session_option("session-older", "계산기 작업", false),
+        ],
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.resumed_sessions, ["session-older"]);
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("세션 재개"));
+    assert!(rendered.contains("계산기 작업"));
+    assert!(rendered.contains("선택한 세션 질문"));
+    assert!(rendered.contains("선택한 세션 답변"));
+}
+
+#[test]
+fn new_command_starts_an_empty_session_instead_of_clearing_old_history() {
+    let mut terminal = ScriptedTerminal::new(["/new", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        history: vec![TuiConversationTurn {
+            role: TuiConversationRole::Assistant,
+            content: "이전 세션 답변".to_string(),
+        }],
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.new_session_calls, 1);
+    assert_eq!(runtime.clear_history_calls, 0);
+    assert!(!terminal.frames.last().unwrap().contains("이전 세션 답변"));
+    assert!(terminal.frames.last().unwrap().contains("새 세션"));
 }
 
 #[test]
@@ -317,6 +391,51 @@ fn failed_request_keeps_attachments_until_a_successful_retry() {
 }
 
 #[test]
+fn failed_request_is_rendered_as_an_error_instead_of_a_green_assistant_turn() {
+    let mut terminal = ScriptedTerminal::new(["실패 요청", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        submit_failures_remaining: 1,
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("× 요청을 완료하지 못했습니다."));
+    assert!(!rendered.contains("● 요청을 완료하지 못했습니다."));
+}
+
+#[test]
+fn wide_terminal_uses_the_full_viewport_for_chrome_and_a_bounded_reading_column() {
+    let mut state = InteractiveState::new();
+    state.push_turn(
+        ConversationRole::Assistant,
+        "긴 답변은 읽기 좋은 폭으로 유지하지만 입력창은 터미널 전체를 사용합니다.",
+    );
+
+    let frame = render_interactive_frame_with_options(
+        &state,
+        &TuiReadPage::conversation_placeholder(),
+        &TuiStatusSnapshot::unavailable(),
+        160,
+        40,
+        true,
+        true,
+    );
+    let visible = strip_ansi(&frame);
+    let composer = visible
+        .lines()
+        .find(|line| line.contains("─ 요청 "))
+        .expect("composer top rule");
+    assert_eq!(display_cell_width(composer), 160);
+    let transcript = visible.split("╭─ 요청").next().expect("transcript");
+    assert!(transcript
+        .lines()
+        .filter(|line| line.starts_with("● ") || line.starts_with("│ "))
+        .all(|line| display_cell_width(line) <= 120));
+}
+
+#[test]
 fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let previous_root = std::env::var_os("RPOTATO_PROJECT_ROOT");
@@ -357,6 +476,9 @@ struct ConversationRuntime {
     captured_paths: Vec<String>,
     submitted_attachment_counts: Vec<usize>,
     submit_failures_remaining: usize,
+    session_options: Vec<TuiSessionOption>,
+    resumed_sessions: Vec<String>,
+    new_session_calls: usize,
 }
 
 impl TuiRuntimePort for ConversationRuntime {
@@ -367,10 +489,6 @@ impl TuiRuntimePort for ConversationRuntime {
     fn reconcile_existing_backend(&mut self) -> Result<(), AppError> {
         self.reconcile_backend_calls += 1;
         Ok(())
-    }
-
-    fn conversation_history(&mut self) -> Result<Vec<TuiConversationTurn>, AppError> {
-        Ok(self.history.clone())
     }
 
     fn clear_conversation_history(&mut self) -> Result<(), AppError> {
@@ -404,6 +522,29 @@ impl TuiRuntimePort for ConversationRuntime {
 
     fn model_options(&mut self) -> Vec<TuiModelOption> {
         self.model_options.clone()
+    }
+
+    fn session_options(&mut self) -> Result<Vec<TuiSessionOption>, AppError> {
+        Ok(self.session_options.clone())
+    }
+
+    fn start_new_session(&mut self) -> Result<TuiSessionTransition, AppError> {
+        self.new_session_calls += 1;
+        self.history.clear();
+        Ok(TuiSessionTransition {
+            session_id: "session-new".to_string(),
+            notice: "새 세션을 시작했습니다.".to_string(),
+            turns: Vec::new(),
+        })
+    }
+
+    fn resume_session(&mut self, session_id: &str) -> Result<TuiSessionTransition, AppError> {
+        self.resumed_sessions.push(session_id.to_string());
+        Ok(TuiSessionTransition {
+            session_id: session_id.to_string(),
+            notice: "세션을 재개했습니다.".to_string(),
+            turns: self.history.clone(),
+        })
     }
 
     fn setup_model(&mut self, id: &str) -> Result<String, AppError> {
@@ -483,4 +624,32 @@ fn model_option(id: &str, display_name: &str, current: bool, recommended: bool) 
         current,
         recommended,
     }
+}
+
+fn session_option(session_id: &str, preview: &str, current: bool) -> TuiSessionOption {
+    TuiSessionOption {
+        session_id: session_id.to_string(),
+        preview: preview.to_string(),
+        current,
+    }
+}
+
+fn strip_ansi(value: &str) -> String {
+    let mut output = String::new();
+    let mut chars = value.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '\u{001b}' {
+            output.push(ch);
+            continue;
+        }
+        if chars.next_if_eq(&'[').is_none() {
+            continue;
+        }
+        for next in chars.by_ref() {
+            if ('@'..='~').contains(&next) {
+                break;
+            }
+        }
+    }
+    output
 }

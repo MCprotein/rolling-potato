@@ -31,11 +31,19 @@ const COMMANDS: &[TerminalSuggestion] = &[
     },
     TerminalSuggestion {
         command: "/status",
-        description: "모델·backend·세션 상태 새로고침",
+        description: "모델·로컬 실행·세션 상태 새로고침",
     },
     TerminalSuggestion {
         command: "/sessions",
         description: "세션 목록 열기",
+    },
+    TerminalSuggestion {
+        command: "/resume",
+        description: "이전 세션 선택 및 재개",
+    },
+    TerminalSuggestion {
+        command: "/new",
+        description: "새 세션 시작",
     },
     TerminalSuggestion {
         command: "/doctor",

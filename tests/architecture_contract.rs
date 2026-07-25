@@ -3722,6 +3722,11 @@ fn v0471_tui_controller_support_responsibilities_are_split() {
             "fn choose_model",
         ),
         (
+            "session_selection",
+            "src/surfaces/tui/controller/session_selection.rs",
+            "fn resume_session",
+        ),
+        (
             "terminal_flow",
             "src/surfaces/tui/controller/terminal_flow.rs",
             "fn terminal_fault_error",

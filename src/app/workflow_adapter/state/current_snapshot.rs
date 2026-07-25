@@ -324,16 +324,26 @@ pub(crate) fn current_state_lease_view_under_transition() -> Result<CurrentState
         promote_current_state_v1()?;
         return current_state_lease_view_under_transition();
     }
-    let current_ledger = ledger::validated_ledger_binding()?;
+    let ledger_guard = ledger::LedgerWriterGuard::acquire()?;
+    let events = ledger_guard.events()?;
+    let current_ledger = ledger_guard.binding()?;
     if snapshot.ledger_binding != current_ledger {
-        return snapshot_domain::validate_current_lease(&snapshot, &current_ledger, None);
+        snapshot_domain::validate_selection_ledger_suffix(
+            &snapshot.ledger_binding,
+            &current_ledger,
+            &events,
+        )?;
     }
     let active_workflow = snapshot
         .active_workflow
         .as_ref()
         .map(|binding| load_workflow_under_transition(&binding.workflow_id))
         .transpose()?;
-    snapshot_domain::validate_current_lease(&snapshot, &current_ledger, active_workflow.as_ref())
+    snapshot_domain::validate_current_lease(
+        &snapshot,
+        &snapshot.ledger_binding,
+        active_workflow.as_ref(),
+    )
 }
 
 fn selection_observation_under_transition() -> Result<SelectionObservation, AppError> {

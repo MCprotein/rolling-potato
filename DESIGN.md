@@ -169,17 +169,19 @@
 
 - Running attached `rpotato` with no arguments opens the conversation controller.
 - The first frame never renders the overview ledger page. It shows a compact welcome, the current project label, the composer, and the status line.
+- Every launch starts with an empty conversation surface. Stored dialogue is restored only after the user opens `/resume` and chooses a session; `/new` creates another durable session without deleting prior history.
 - The welcome frame and the first notice or conversation row are separated by one blank row. The `/help` footer must never visually merge with an update notice; terminals at 10 rows or less may collapse this decorative gap to preserve the composer.
-- Ordinary input appears as a user turn before dispatch. The visible result appears as an assistant turn; errors remain inline and state the direct cause and recovery action.
+- Ordinary input appears as a user turn before dispatch. The visible result appears as an assistant turn. Errors are a distinct red `×` turn, never a green assistant reply, and are excluded from later model memory.
 - Detailed revisions, hashes, ledger counts, projection freshness, workflow fields, and monitor tables are available only through explicit status/diagnostic views.
 - On first run, the same terminal flow lists source-backed model choices and shows model ID/version, quantization, download size, context limit, RAM status, license, and recommendation evidence before confirmation.
 - The managed backend is installed or reused automatically. The default path never asks the user for a `llama.cpp` executable or GGUF filesystem path.
-- The composer remains the focus point. Its immediately following status line always uses this order: `model | ctx used/limit (%) | compaction | backend | session`.
+- The composer remains the focus point. Its immediately following status line always uses this order: `model | ctx used/limit (%) | compaction | local | vision | session`.
+- On wide terminals the welcome, composer, and status chrome use the complete viewport while transcript and notice text keep a 120-cell reading column. Narrow terminals remain single-column and never overflow.
 - The attached-terminal composer uses a single rounded border, a cyan focus marker, and no placeholder text under the live cursor. The no-color/redirected fallback remains a plain `›` prompt.
 - Status segments are colored independently: model/focus cyan, healthy green, due/degraded yellow, failed/stale red, and session/secondary labels muted. Never color the whole status row as one success state.
 - The context segment shows measured usage and percentage; compaction remains adjacent to it when space permits. Narrow terminals truncate later segments rather than wrapping the status bar.
 - Model and context values come from the latest recorded model run; backend state comes from the managed sidecar; session uses the active canonical session identity. Missing values and stale backend state are labeled, never invented.
-- `/model`, `/compact`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit` cover normal in-TUI operations. Existing granular subcommands remain an advanced compatibility surface under `rpotato debug --help`.
+- `/model`, `/compact`, `/update`, `/status`, `/sessions`, `/resume`, `/new`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit` cover normal in-TUI operations. Existing granular subcommands remain an advanced compatibility surface under `rpotato debug --help`.
 - `/` opens a selectable command palette. Up/Down or `Ctrl+P`/`Ctrl+N` moves focus, `Enter` accepts, `Esc` closes, and typed text filters the visible rows.
 - `/model` opens a reusable picker instead of requiring the user to retype an internal ID. It shows current/install/recommendation state alongside verified model facts; `/model <id>` remains an automation-compatible shortcut.
 - Interactive confirmations use the same picker primitive with a safe cancel choice selected by default. The TUI never asks the user to type `yes`; plain or redirected terminals use the numbered choice fallback.
