@@ -324,9 +324,10 @@ pub(crate) fn current_state_lease_view_under_transition() -> Result<CurrentState
         promote_current_state_v1()?;
         return current_state_lease_view_under_transition();
     }
-    let ledger_guard = ledger::LedgerWriterGuard::acquire()?;
-    let events = ledger_guard.events()?;
-    let current_ledger = ledger_guard.binding()?;
+    let (events, current_ledger) = {
+        let ledger_guard = ledger::LedgerWriterGuard::acquire()?;
+        (ledger_guard.events()?, ledger_guard.binding()?)
+    };
     if snapshot.ledger_binding != current_ledger {
         snapshot_domain::validate_selection_ledger_suffix(
             &snapshot.ledger_binding,

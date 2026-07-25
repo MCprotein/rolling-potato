@@ -1000,3 +1000,31 @@
   유지합니다.
 - 변경과 삭제를 각각 실제 두 요청 lifecycle로 검증하고, fresh `/compact`가 기존
   session id를 유지하지 않는 회귀 테스트를 둡니다.
+
+## 2026-07-26: session resume 분리 뒤 ledger lock과 Windows fault probe 계약이 남음
+
+### 증상
+
+- Selection lease가 transcript-only ledger suffix를 허용하도록 바꾼 뒤 active
+  workflow를 읽는 경로에서 ledger writer guard를 잡은 채 같은 ledger를 다시 읽어
+  self-block했고, 전체 unit test에서 후속 40건이 연쇄 실패했습니다.
+- Windows native-terminal test는 이제 local conversation transition인 session
+  resume를 workflow dispatch fault probe로 계속 사용해 존재하지 않는
+  `세션 선택 확인` picker를 기다렸습니다.
+
+### 원인
+
+- Ledger events와 binding의 일관된 snapshot만 필요했지만 guard의 수명을 active
+  workflow validation까지 넓혔습니다.
+- Session resume와 workflow resume를 제품 코드에서는 분리했지만 플랫폼별 fault
+  fixture의 dispatch 의미까지 함께 갱신하지 않았습니다.
+
+### 재발 방지
+
+- Ledger·filesystem lease는 필요한 snapshot을 만든 직후 scope에서 해제하고,
+  다른 adapter나 workflow loader를 호출하는 동안 보유하지 않습니다.
+- Candidate preflight는 active workflow가 있는 current-state lease가 ledger guard를
+  해제한 뒤 다시 읽을 수 있는 exact 회귀 테스트를 실행합니다.
+- Workflow pre/post-dispatch fault test는 실제 `TuiIntent` workflow action만
+  사용합니다. Session resume 확인 picker를 dispatch probe로 재도입하면 architecture
+  contract가 차단합니다.

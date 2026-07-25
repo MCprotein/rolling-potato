@@ -6407,6 +6407,7 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
     let compaction = fs::read_to_string("src/runtime_core/knowledge/compaction.rs").unwrap();
     let recent_tail =
         fs::read_to_string("src/runtime_core/knowledge/compaction/recent_tail.rs").unwrap();
+    let native_terminal = fs::read_to_string("tests/surfaces/native_terminal.rs").unwrap();
 
     assert!(session_memory.contains("#[path = \"session_memory/tests.rs\"]"));
     assert!(intent_tests.contains("#[path = \"tests/prompt_budget.rs\"]"));
@@ -6428,6 +6429,10 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
     }
     assert!(tui_runtime.contains("super::session_memory::record_exchange("));
     assert!(!tui_request.contains("TranscriptOwner"));
+    assert!(
+        !native_terminal.contains("confirm_picker(&mut terminal, \"세션 선택 확인\")"),
+        "session resume는 workflow dispatch fault probe로 재사용하면 안 됩니다."
+    );
 
     for responsibility in [
         "fn imported_skill_instructions_are_bounded_by_runtime_contract(",
