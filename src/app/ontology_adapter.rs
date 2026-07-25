@@ -185,7 +185,8 @@ pub fn reread_runtime_source(
     pointer: &str,
     expected_hash: &str,
 ) -> Result<RuntimeSourceRead, AppError> {
-    reread_runtime_source_if_current(pointer, expected_hash)?.ok_or_else(|| {
+    let source = resolve_source_pointer(pointer)?;
+    reread_resolved_source_if_current(pointer, expected_hash, source, false)?.ok_or_else(|| {
         AppError::blocked(format!(
             "ontology source reread 차단\n- source pointer: {pointer}\n- 이유: graph source hash와 현재 원문 hash가 다릅니다.\n- 동작: ontology seed를 갱신한 뒤 다시 시도하세요."
         ))
@@ -196,19 +197,35 @@ pub fn reread_historical_source(
     pointer: &str,
     expected_hash: &str,
 ) -> Result<Option<RuntimeSourceRead>, AppError> {
-    reread_runtime_source_if_current(pointer, expected_hash)
+    let Some(source) = resolve_historical_source_pointer(pointer)? else {
+        return Ok(None);
+    };
+    reread_resolved_source_if_current(pointer, expected_hash, source, true)
 }
 
-fn reread_runtime_source_if_current(
+fn reread_resolved_source_if_current(
     pointer: &str,
     expected_hash: &str,
+    source: SourcePointer,
+    missing_is_stale: bool,
 ) -> Result<Option<RuntimeSourceRead>, AppError> {
-    let source = resolve_source_pointer(pointer)?;
-    let current_hash = checksum::sha256_file(&source.path)?;
+    let bytes = match fs::read(&source.path) {
+        Ok(bytes) => bytes,
+        Err(err) if missing_is_stale && err.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(None)
+        }
+        Err(err) => {
+            return Err(AppError::runtime(format!(
+                "ontology source 원문을 읽지 못했습니다: {} ({err})",
+                source.path.display()
+            )))
+        }
+    };
+    let current_hash = checksum::sha256_bytes(&bytes);
     if current_hash != expected_hash {
         return Ok(None);
     }
-    let contents = fs::read_to_string(&source.path).map_err(|err| {
+    let contents = String::from_utf8(bytes).map_err(|err| {
         AppError::runtime(format!(
             "ontology source 원문을 읽지 못했습니다: {} ({err})",
             source.path.display()
@@ -360,6 +377,21 @@ struct SourcePointer {
 }
 
 fn resolve_source_pointer(pointer: &str) -> Result<SourcePointer, AppError> {
+    resolve_source_pointer_with_missing_policy(pointer, false)?.ok_or_else(|| {
+        AppError::usage(format!(
+            "project file이 존재하지 않거나 파일이 아닙니다: {pointer}"
+        ))
+    })
+}
+
+fn resolve_historical_source_pointer(pointer: &str) -> Result<Option<SourcePointer>, AppError> {
+    resolve_source_pointer_with_missing_policy(pointer, true)
+}
+
+fn resolve_source_pointer_with_missing_policy(
+    pointer: &str,
+    allow_missing: bool,
+) -> Result<Option<SourcePointer>, AppError> {
     if pointer.trim().is_empty() || pointer == SOURCE_POINTER_NONE {
         return Err(AppError::usage(
             "source pointer가 필요합니다. 예: src/main.rs:1",
@@ -384,11 +416,25 @@ fn resolve_source_pointer(pointer: &str) -> Result<SourcePointer, AppError> {
         ));
     }
 
-    let path = resolve_project_relative_file(relative)?;
-    Ok(SourcePointer { path, line })
+    let path = resolve_project_relative_file_if_present(relative)?;
+    match path {
+        Some(path) => Ok(Some(SourcePointer { path, line })),
+        None if allow_missing => Ok(None),
+        None => Err(AppError::usage(format!(
+            "project file이 존재하지 않거나 파일이 아닙니다: {relative}"
+        ))),
+    }
 }
 
 fn resolve_project_relative_file(relative: &str) -> Result<PathBuf, AppError> {
+    resolve_project_relative_file_if_present(relative)?.ok_or_else(|| {
+        AppError::usage(format!(
+            "project file이 존재하지 않거나 파일이 아닙니다: {relative}"
+        ))
+    })
+}
+
+fn resolve_project_relative_file_if_present(relative: &str) -> Result<Option<PathBuf>, AppError> {
     if relative.trim().is_empty() {
         return Err(AppError::usage("project-relative path가 필요합니다."));
     }
@@ -412,18 +458,16 @@ fn resolve_project_relative_file(relative: &str) -> Result<PathBuf, AppError> {
 
     let root = canonical_project_root()?;
     let candidate = root.join(relative_path);
-    if !candidate.exists() {
-        return Err(AppError::usage(format!(
-            "project file이 존재하지 않습니다: {}",
-            candidate.display()
-        )));
-    }
-    let canonical = fs::canonicalize(&candidate).map_err(|err| {
-        AppError::runtime(format!(
-            "project file을 canonicalize하지 못했습니다: {} ({err})",
-            candidate.display()
-        ))
-    })?;
+    let canonical = match fs::canonicalize(&candidate) {
+        Ok(canonical) => canonical,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => {
+            return Err(AppError::runtime(format!(
+                "project file을 canonicalize하지 못했습니다: {} ({err})",
+                candidate.display()
+            )))
+        }
+    };
     if !canonical.starts_with(&root) {
         return Err(AppError::blocked(format!(
             "project boundary를 벗어난 path입니다: {}",
@@ -431,12 +475,9 @@ fn resolve_project_relative_file(relative: &str) -> Result<PathBuf, AppError> {
         )));
     }
     if !canonical.is_file() {
-        return Err(AppError::usage(format!(
-            "project file path가 파일이 아닙니다: {}",
-            canonical.display()
-        )));
+        return Ok(None);
     }
-    Ok(canonical)
+    Ok(Some(canonical))
 }
 
 fn canonical_project_root() -> Result<PathBuf, AppError> {
@@ -585,6 +626,22 @@ mod tests {
 
         assert_eq!(err.code, 3);
         assert!(err.message.contains("graph source hash"));
+    }
+
+    #[test]
+    fn historical_reread_drops_a_missing_source_but_strict_reread_rejects_it() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let project = with_temp_project("missing-historical-source");
+        let source = project.join("src/main.rs");
+        let hash = checksum::sha256_file(&source).unwrap();
+        fs::remove_file(&source).unwrap();
+
+        let historical = reread_historical_source("src/main.rs:1", &hash);
+        let strict = reread_runtime_source("src/main.rs:1", &hash);
+        clear_env();
+
+        assert_eq!(historical.unwrap(), None);
+        assert!(strict.is_err());
     }
 
     #[test]

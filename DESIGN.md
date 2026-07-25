@@ -170,6 +170,7 @@
 - Running attached `rpotato` with no arguments opens the conversation controller.
 - The first frame never renders the overview ledger page. It shows a compact welcome, the current project label, the composer, and the status line.
 - Every launch starts with an empty conversation surface. Stored dialogue is restored only after the user opens `/resume` and chooses a session; `/new` creates another durable session without deleting prior history.
+- Any action that reads or mutates conversation context, including `/compact`, commits the pending fresh session first and never targets the previous durable session implicitly.
 - The welcome frame and the first notice or conversation row are separated by one blank row. The `/help` footer must never visually merge with an update notice; terminals at 10 rows or less may collapse this decorative gap to preserve the composer.
 - Ordinary input appears as a user turn before dispatch. The visible result appears as an assistant turn. Errors are a distinct red `×` turn, never a green assistant reply, and are excluded from later model memory.
 - Detailed revisions, hashes, ledger counts, projection freshness, workflow fields, and monitor tables are available only through explicit status/diagnostic views.

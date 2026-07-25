@@ -1,6 +1,38 @@
 use super::*;
 
 #[test]
+fn fresh_session_compaction_never_targets_the_previous_session() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = test_root("rpotato-tui-fresh-compaction-boundary-test");
+    let project = root.join("project");
+    std::fs::create_dir_all(&project).unwrap();
+    std::env::set_var("RPOTATO_PROJECT_ROOT", &project);
+    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+    crate::app::workflow_adapter::state::initialize().unwrap();
+
+    let previous = crate::app::workflow_adapter::ledger::validated_current_identity().unwrap();
+    let mut memory = crate::app::tui_adapter::session_memory::load().unwrap();
+    crate::app::tui_adapter::session_memory::record_exchange(
+        &mut memory,
+        "이전 세션 질문",
+        "이전 세션 답변",
+    )
+    .unwrap();
+
+    let mut runtime = TuiRuntimeAdapter::default();
+    let _ = runtime.compact_context();
+    let current = crate::app::workflow_adapter::ledger::validated_current_identity().unwrap();
+
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    let _ = std::fs::remove_dir_all(root);
+    assert_ne!(
+        current.session_id, previous.session_id,
+        "fresh 화면의 /compact가 이전 durable session을 대상으로 삼았습니다."
+    );
+}
+
+#[test]
 fn explicit_session_resume_restores_only_the_selected_conversation() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let root = test_root("rpotato-tui-explicit-session-resume-test");

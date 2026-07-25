@@ -171,6 +171,7 @@
 - 상세 revision, hash, ledger count, projection freshness, workflow field, monitor table은 명시적인 status/diagnostic view에서만 볼 수 있다.
 - 최초 실행에서는 같은 terminal 흐름 안에서 출처 기반 model 후보를 나열하고 확인 전에 model ID/version, quantization, download size, context limit, RAM 상태, license, 추천 근거를 보여준다.
 - managed backend는 자동으로 설치하거나 재사용한다. 기본 경로에서 사용자가 `llama.cpp` executable 또는 GGUF filesystem path를 입력하게 하지 않는다.
+- 새 대화 상태에서 context를 읽거나 변경하는 `/compact` 같은 동작은 먼저 pending fresh session을 확정하며 이전 durable session을 암묵적으로 대상으로 삼지 않는다.
 - composer가 focus 중심이며, 바로 다음 status line은 항상 `model | ctx used/limit (%) | compaction | local | vision | session` 순서를 사용한다.
 - 넓은 terminal에서는 welcome·composer·status chrome이 viewport 전체 폭을 사용하고 transcript와 notice 본문은 120-cell reading column을 유지한다. 좁은 terminal은 overflow 없는 단일 column을 유지한다.
 - Attached terminal composer는 rounded border 하나, cyan focus marker, live cursor 아래 placeholder 없는 입력 공간을 사용한다. No-color와 redirected fallback은 plain `›` prompt를 유지한다.

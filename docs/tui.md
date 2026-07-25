@@ -146,7 +146,9 @@ network failure does not block the TUI. `/compact` creates an incremental typed 
 retains complete recent exchanges within a model-window-derived budget. The retained
 window scales from 2 to 8 exchanges and is bounded by 512 to 16,384 estimated tokens.
 Automatic compaction uses the same path at 75% measured context usage for the active
-session. Model changes commit the new default
+session. If `/compact` is the first action while the status says `session new`, the TUI
+first commits a new durable session and targets only that session; it never compacts the
+previous session implicitly. Model changes commit the new default
 only after backend startup succeeds and restore the previous ready backend on failure.
 Granular backend, registry, benchmark, policy, and
 inspection commands remain available for diagnostics under `rpotato debug --help`.

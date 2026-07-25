@@ -47,6 +47,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
     }
 
     fn compact_context(&mut self) -> Result<String, AppError> {
+        self.ensure_fresh_session()?;
         Ok(crate::app::context_adapter::compact_manually()?.report())
     }
 

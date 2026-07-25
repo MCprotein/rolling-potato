@@ -41,6 +41,48 @@ fn stale_historical_source_does_not_block_unrelated_next_request() {
 }
 
 #[test]
+fn deleted_historical_source_does_not_block_unrelated_next_request() {
+    let fixture = fixture("deleted-resume-source");
+    fs::write(
+        &fixture.response,
+        "src/lib.rs를 읽기 전용으로 확인했습니다.\nMODEL ACTION: kind=inspect-sources; source_pointers=src/lib.rs:1; next_gate=source-reread-before-claim; side_effects=none",
+    )
+    .unwrap();
+    fixture.start();
+    let first = fixture.command(&["run", "저장소 구조를 분석해줘"]);
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+
+    fs::remove_file(fixture.project.join("src/lib.rs")).unwrap();
+    fs::write(
+        &fixture.response,
+        "5 곱하기 3은 15입니다.\nMODEL ACTION: kind=answer-only; source_pointers=none; next_gate=korean-output-guard; side_effects=none",
+    )
+    .unwrap();
+
+    let continued = fixture.command(&["run", "5 곱하기 3은?"]);
+    assert!(
+        continued.status.success(),
+        "{}",
+        String::from_utf8_lossy(&continued.stderr)
+    );
+    let continued_out = String::from_utf8(continued.stdout).unwrap();
+    assert!(continued_out.contains("- context files read: 0"));
+    assert!(continued_out.lines().any(|line| {
+        line.strip_prefix("- ontology stale rejected: ")
+            .is_some_and(|count| count != "0")
+    }));
+    assert!(!String::from_utf8_lossy(&continued.stderr).contains("source reread 차단"));
+    assert_eq!(
+        fs::read_to_string(&fixture.calls).unwrap().lines().count(),
+        2
+    );
+}
+
+#[test]
 fn session_resume_validates_workflow_before_selecting_target_session() {
     let fixture = fixture("session-resume-preflight");
     fixture.start();

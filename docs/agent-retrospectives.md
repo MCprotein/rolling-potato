@@ -967,3 +967,33 @@
 - Durable resume test는 context limit과 transcript turn 수를 함께 검증하고,
   실패 시 실제 report를 assertion message로 남겨 기능 결함과 기대 문자열 불일치를
   한 번에 구분합니다.
+
+## 2026-07-26: fresh TUI와 best-effort history 경계를 일부 명령·삭제 상태가 우회함
+
+### 증상
+
+- 화면은 `session new`였지만 첫 입력이 `/compact`이면 이전 durable session의
+  transcript를 대상으로 압축을 시도할 수 있었습니다.
+- 과거 source가 수정된 경우는 무관한 다음 요청에서 제외됐지만, 같은 source가
+  삭제되면 current ontology와 historical reread 경로가 요청 전체를 차단했습니다.
+
+### 원인
+
+- 새 세션을 lazy 생성하는 경계를 요청·첨부에만 적용하고 context mutation 명령에는
+  적용하지 않았습니다.
+- Best-effort source 정책을 hash mismatch 한 상태로만 모델링해 `NotFound`와
+  non-file 상태를 별도 stale 상태로 분류하지 않았습니다.
+- Stale ontology를 filesystem scan으로 우회하지 않는 보안 규칙을 요청 전체 실패로
+  구현해, source 없는 일반 답변까지 불필요하게 막았습니다.
+
+### 재발 방지
+
+- Fresh TUI에서 현재 session을 읽거나 변경하는 모든 명령은 먼저 새 session을
+  확정하며, 이전 session을 암묵적으로 대상으로 삼지 않습니다.
+- Historical source는 변경·삭제·non-file을 `dropped`로 처리하되 malformed pointer,
+  project boundary 위반, permission·기타 I/O 오류는 계속 fail-closed로 유지합니다.
+- Stale ontology는 filesystem fallback으로 우회하지 않고 빈 source context로
+  격리합니다. Patch·명시적 reread 경계의 current source 검증은 계속 strict하게
+  유지합니다.
+- 변경과 삭제를 각각 실제 두 요청 lifecycle로 검증하고, fresh `/compact`가 기존
+  session id를 유지하지 않는 회귀 테스트를 둡니다.

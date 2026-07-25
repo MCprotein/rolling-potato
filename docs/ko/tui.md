@@ -142,7 +142,9 @@ platform의 정확한 GitHub Release asset을 내려받고 대응 SHA-256 sideca
 network 실패는 TUI를 막지 않습니다. `/compact`는 incremental typed checkpoint를 만들고
 모델 window에서 계산한 budget 안에 완료된 최근 exchange를 보존합니다. 보존 범위는
 2~8개 exchange, estimated token 512~16,384 사이에서 확장됩니다. 자동 압축도 측정된
-context 사용량 75%에서 active session의 같은 경로를 사용합니다. Model 변경은 새 backend start가
+context 사용량 75%에서 active session의 같은 경로를 사용합니다. 화면이 `session new`인
+상태에서 `/compact`를 먼저 실행해도 새 durable session을 확정한 뒤 그 세션만 대상으로
+삼으며, 이전 session을 암묵적으로 압축하지 않습니다. Model 변경은 새 backend start가
 성공한 뒤에만 기본값을 확정하고, 실패하면 이전 ready backend를 복구합니다. 세부 backend, registry, benchmark, policy,
 inspection 명령은 `rpotato debug --help` 아래의 진단용 surface로 유지합니다.
 
