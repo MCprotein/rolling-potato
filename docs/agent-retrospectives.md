@@ -2,6 +2,33 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-26: 과거 source hash 변경이 무관한 새 요청을 차단함
+
+### 증상
+
+- 장기 TUI session에서 과거 대화가 참조한 파일이 변경된 뒤, 해당 파일과 무관한
+  새 코딩·일반 요청도 `ontology source reread 차단`으로 종료됐습니다.
+- 전체 unit·candidate 테스트는 통과했지만 실제 사용자 session에서는 기본 요청을
+  계속할 수 없었습니다.
+
+### 원인
+
+- 일반 대화 history와 명시적인 workflow/session resume이 같은 strict source
+  reread 정책을 사용했습니다.
+- Unit과 integration 테스트가 stale 과거 pointer로 새 요청 전체를 차단하는 동작을
+  정상 계약으로 고정했습니다.
+- Fresh fixture 중심 E2E에는 `요청 성공 → 파일 변경 → 무관한 다음 요청` 장기
+  session 시나리오가 없었습니다.
+
+### 재발 방지
+
+- 일반 대화 history는 best-effort context hint로 취급하고 stale source pointer만
+  제외합니다. Transcript 대화와 현재 요청의 최신 repository context는 유지합니다.
+- 명시적인 `resume`/`continue`, patch 적용, 현재 source claim은 strict hash 검증을
+  유지합니다. 두 정책을 같은 함수 호출 경로로 암묵적으로 합치지 않습니다.
+- 장기 session E2E는 파일 변경 뒤 무관한 다음 요청 성공과 backend 재호출을
+  검증하며, 기존 테스트가 사용자 기대와 반대인 실패를 보호하지 않는지 확인합니다.
+
 ## 2026-07-25: vision capability와 readiness를 boolean으로 합쳐 TUI가 거짓 안내함
 
 ### 증상

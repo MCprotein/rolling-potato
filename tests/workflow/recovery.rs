@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn stale_resume_context_blocks_before_workflow_or_ledger_mutation() {
+fn stale_historical_source_does_not_block_unrelated_next_request() {
     let fixture = fixture("resume-preflight-no-mutation");
     fs::write(
         &fixture.response,
@@ -16,30 +16,27 @@ fn stale_resume_context_blocks_before_workflow_or_ledger_mutation() {
         String::from_utf8_lossy(&first.stderr)
     );
 
-    let current_state_path = fixture.project.join(".rpotato/state/current-state.json");
-    let ledger_path = fixture.data.join("state/runtime-ledger.jsonl");
-    let workflows_path = fixture.project.join(".rpotato/workflows");
-    let current_state_before = fs::read(&current_state_path).unwrap();
-    let ledger_before = fs::read(&ledger_path).unwrap();
-    let workflows_before = fs::read_dir(&workflows_path).unwrap().count();
     fs::write(
         fixture.project.join("src/lib.rs"),
         "pub const VALUE: i32 = 99;\n",
     )
     .unwrap();
+    fs::write(
+        &fixture.response,
+        "5 곱하기 3은 15입니다.\nMODEL ACTION: kind=answer-only; source_pointers=none; next_gate=korean-output-guard; side_effects=none",
+    )
+    .unwrap();
 
-    let blocked = fixture.command(&["run", "변경된 저장소 구조를 분석해줘"]);
-    assert_eq!(blocked.status.code(), Some(3));
-    assert!(String::from_utf8_lossy(&blocked.stderr).contains("source reread 차단"));
-    assert_eq!(fs::read(&current_state_path).unwrap(), current_state_before);
-    assert_eq!(fs::read(&ledger_path).unwrap(), ledger_before);
-    assert_eq!(
-        fs::read_dir(&workflows_path).unwrap().count(),
-        workflows_before
+    let continued = fixture.command(&["run", "5 곱하기 3은?"]);
+    assert!(
+        continued.status.success(),
+        "{}",
+        String::from_utf8_lossy(&continued.stderr)
     );
+    assert!(!String::from_utf8_lossy(&continued.stderr).contains("source reread 차단"));
     assert_eq!(
         fs::read_to_string(&fixture.calls).unwrap().lines().count(),
-        1
+        2
     );
 }
 

@@ -185,12 +185,28 @@ pub fn reread_runtime_source(
     pointer: &str,
     expected_hash: &str,
 ) -> Result<RuntimeSourceRead, AppError> {
+    reread_runtime_source_if_current(pointer, expected_hash)?.ok_or_else(|| {
+        AppError::blocked(format!(
+            "ontology source reread 차단\n- source pointer: {pointer}\n- 이유: graph source hash와 현재 원문 hash가 다릅니다.\n- 동작: ontology seed를 갱신한 뒤 다시 시도하세요."
+        ))
+    })
+}
+
+pub fn reread_historical_source(
+    pointer: &str,
+    expected_hash: &str,
+) -> Result<Option<RuntimeSourceRead>, AppError> {
+    reread_runtime_source_if_current(pointer, expected_hash)
+}
+
+fn reread_runtime_source_if_current(
+    pointer: &str,
+    expected_hash: &str,
+) -> Result<Option<RuntimeSourceRead>, AppError> {
     let source = resolve_source_pointer(pointer)?;
     let current_hash = checksum::sha256_file(&source.path)?;
     if current_hash != expected_hash {
-        return Err(AppError::blocked(format!(
-            "ontology source reread 차단\n- source pointer: {pointer}\n- 이유: graph source hash와 현재 원문 hash가 다릅니다.\n- 동작: ontology seed를 갱신한 뒤 다시 시도하세요."
-        )));
+        return Ok(None);
     }
     let contents = fs::read_to_string(&source.path).map_err(|err| {
         AppError::runtime(format!(
@@ -201,12 +217,12 @@ pub fn reread_runtime_source(
     let root = canonical_project_root()?;
     let relative_path = relative_to_root(&source.path, &root)
         .ok_or_else(|| AppError::blocked("ontology source가 project boundary를 벗어났습니다."))?;
-    Ok(RuntimeSourceRead {
+    Ok(Some(RuntimeSourceRead {
         relative_path,
         stable_ref: pointer.to_string(),
         source_hash: current_hash,
         contents,
-    })
+    }))
 }
 
 pub fn reread_report(pointer: &str) -> Result<String, AppError> {

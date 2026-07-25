@@ -216,13 +216,66 @@ pub fn rebuild_resume_context(
     let context_limit_tokens =
         crate::app::inference_adapter::context_window::effective_context_window()?.limit_tokens
             as usize;
-    rebuild_resume_context_for_limit(session_id, exclude_workflow_id, context_limit_tokens)
+    rebuild_session_context_for_limit(
+        session_id,
+        exclude_workflow_id,
+        context_limit_tokens,
+        HistoricalSourcePolicy::Strict,
+    )
 }
 
+pub fn build_active_conversation_context(
+    session_id: &str,
+    exclude_workflow_id: Option<&str>,
+) -> Result<ResumeContext, AppError> {
+    let context_limit_tokens =
+        crate::app::inference_adapter::context_window::effective_context_window()?.limit_tokens
+            as usize;
+    build_active_conversation_context_for_limit(
+        session_id,
+        exclude_workflow_id,
+        context_limit_tokens,
+    )
+}
+
+#[cfg(test)]
 pub(crate) fn rebuild_resume_context_for_limit(
     session_id: &str,
     exclude_workflow_id: Option<&str>,
     context_limit_tokens: usize,
+) -> Result<ResumeContext, AppError> {
+    rebuild_session_context_for_limit(
+        session_id,
+        exclude_workflow_id,
+        context_limit_tokens,
+        HistoricalSourcePolicy::Strict,
+    )
+}
+
+pub(crate) fn build_active_conversation_context_for_limit(
+    session_id: &str,
+    exclude_workflow_id: Option<&str>,
+    context_limit_tokens: usize,
+) -> Result<ResumeContext, AppError> {
+    rebuild_session_context_for_limit(
+        session_id,
+        exclude_workflow_id,
+        context_limit_tokens,
+        HistoricalSourcePolicy::BestEffort,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum HistoricalSourcePolicy {
+    Strict,
+    BestEffort,
+}
+
+fn rebuild_session_context_for_limit(
+    session_id: &str,
+    exclude_workflow_id: Option<&str>,
+    context_limit_tokens: usize,
+    source_policy: HistoricalSourcePolicy,
 ) -> Result<ResumeContext, AppError> {
     let budget = ResumeContextBudget::for_context_limit(context_limit_tokens);
     let records = transcript::records_for_session(session_id)?;
@@ -299,7 +352,18 @@ pub(crate) fn rebuild_resume_context_for_limit(
         if chars_read >= MAX_CONTEXT_CHARS {
             break;
         }
-        let source = ontology::reread_runtime_source(&pointer.stable_ref, &pointer.source_hash)?;
+        let source = match source_policy {
+            HistoricalSourcePolicy::Strict => Some(ontology::reread_runtime_source(
+                &pointer.stable_ref,
+                &pointer.source_hash,
+            )?),
+            HistoricalSourcePolicy::BestEffort => {
+                ontology::reread_historical_source(&pointer.stable_ref, &pointer.source_hash)?
+            }
+        };
+        let Some(source) = source else {
+            continue;
+        };
         if source.relative_path != pointer.path {
             return Err(AppError::blocked(format!(
                 "resume source pointer binding 불일치\n- pointer: {}",
