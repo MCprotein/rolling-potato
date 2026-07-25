@@ -4019,6 +4019,22 @@
       ]
     },
     {
+      "path": "src/app/ontology_adapter/source_reader.rs",
+      "slices": [
+        {
+          "responsibility": "strict current-source and best-effort historical-source resolution",
+          "target": "src/app/ontology_adapter/source_reader.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/ontology_adapter.rs",
+            "src/app/ontology_adapter/source_reader.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/ontology_adapter/seeding.rs",
       "slices": [
         {
@@ -6497,6 +6513,23 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/controller/session_selection.rs",
+      "slices": [
+        {
+          "responsibility": "TUI session picker and atomic conversation transition presentation",
+          "target": "src/surfaces/tui/controller/session_selection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/surfaces/tui/controller/session_selection.rs",
+            "src/app/tui_adapter/runtime/session_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/tui/controller/terminal_flow.rs",
       "slices": [
         {
@@ -7318,6 +7351,56 @@
             "src/app/tui_adapter.rs",
             "src/app/tui_adapter/runtime.rs",
             "src/app/tui_adapter/runtime/backend.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/session_tests.rs",
+      "slices": [
+        {
+          "responsibility": "durable TUI session boundary regression tests",
+          "target": "src/app/tui_adapter/runtime/session_tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime.rs",
+            "src/app/tui_adapter/runtime/session_tests.rs",
+            "tests/surfaces/native_terminal.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/state.rs",
+      "slices": [
+        {
+          "responsibility": "interactive TUI runtime session and conversation state ownership",
+          "target": "src/app/tui_adapter/runtime/state.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime.rs",
+            "src/app/tui_adapter/runtime/state.rs",
+            "src/app/tui_adapter/runtime/session_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/status.rs",
+      "slices": [
+        {
+          "responsibility": "interactive TUI status projection",
+          "target": "src/app/tui_adapter/runtime/status.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime.rs",
+            "src/app/tui_adapter/runtime/status.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -9587,6 +9670,12 @@
       ]
     },
     {
+      "path": "src/app/ontology_adapter/source_reader.rs",
+      "responsibilities": [
+        "strict current-source and best-effort historical-source resolution"
+      ]
+    },
+    {
       "path": "src/app/ontology_adapter/seeding.rs",
       "responsibilities": [
         "ontology layout, deterministic source discovery, and append-only seed persistence"
@@ -10474,6 +10563,12 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/controller/session_selection.rs",
+      "responsibilities": [
+        "TUI session picker and atomic conversation transition presentation"
+      ]
+    },
+    {
       "path": "src/surfaces/tui/controller/terminal_flow.rs",
       "responsibilities": [
         "TUI terminal prompts, frame boundaries, faults, and typed outcome consumption"
@@ -10749,6 +10844,24 @@
       "path": "src/app/tui_adapter/runtime.rs",
       "responsibilities": [
         "interactive TUI runtime composition and request dispatch"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/session_tests.rs",
+      "responsibilities": [
+        "durable TUI session boundary regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/state.rs",
+      "responsibilities": [
+        "interactive TUI runtime session and conversation state ownership"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/status.rs",
+      "responsibilities": [
+        "interactive TUI status projection"
       ]
     },
     {

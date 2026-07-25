@@ -1,8 +1,10 @@
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::path::{Path, PathBuf};
 
 use super::*;
+use crate::foundation::integrity as checksum;
 
 const MAX_SEEDED_FILES: usize = 256;
 const MAX_INDEXED_FILE_BYTES: u64 = 1024 * 1024;
