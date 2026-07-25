@@ -367,7 +367,7 @@ mod tests {
         assert!(validate_selection_ledger_suffix(
             &snapshot(None).ledger_binding,
             &head,
-            &[transcript.clone()]
+            std::slice::from_ref(&transcript)
         )
         .is_err());
         let ancestor = ParsedLedgerEvent {
