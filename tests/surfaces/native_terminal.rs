@@ -29,7 +29,11 @@ fn submit_visible_command(terminal: &mut NativePty, command: &str) {
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     {
         let mark = terminal.mark();
-        terminal.send(command);
+        if uses_live_terminal_controls() {
+            terminal.send(&format!("\u{1b}[200~{command}\u{1b}[201~"));
+        } else {
+            terminal.send(command);
+        }
         terminal.wait_for_after(mark, command);
         terminal.send("\r");
     }

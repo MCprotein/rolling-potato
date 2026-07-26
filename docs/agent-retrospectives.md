@@ -22,6 +22,9 @@
 - 새 composer까지 기다린 뒤에도 보이는 명령과 LF를 한 번의 PTY write로 보냈습니다.
   macOS runner에서는 명령 문자열은 모두 렌더링됐지만 마지막 LF가 Enter로 처리되지
   않았습니다. 실제 키보드 Enter가 보내는 CR과 테스트 입력 계약이 달랐습니다.
+- 긴 approve 식별자를 키보드 입력처럼 한 byte씩 처리하게 해 매 byte마다 full-screen
+  redraw가 발생했습니다. 느린 runner에서는 제한 시간 동안 명령 일부만 소비했으며,
+  실제 사용자의 긴 문자열 붙여넣기와 다른 부하를 만들었습니다.
 
 ### 재발 방지
 
@@ -31,6 +34,9 @@
 - 보이는 대화형 명령은 문자열이 composer에 완전히 렌더링된 것을 확인한 다음,
   실제 키보드와 같은 CR을 별도 write로 보내 제출합니다. 명령과 LF를 한 번에
   보내는 방식으로 full-screen TUI readiness를 추측하지 않습니다.
+- Live terminal의 긴 명령 입력은 bracketed-paste로 한 번에 전달하고 paste 결과가
+  렌더링된 뒤 CR을 보냅니다. 단순 line 모드는 기존 입력 경로를 유지해 두 모드를
+  각각 검증합니다.
 - Runner 지연을 가리기 위해 timeout만 늘리지 않고, 다음 입력을 받을 수 있는 의미
   readiness marker를 순서 계약으로 검증합니다.
 
