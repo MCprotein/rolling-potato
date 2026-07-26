@@ -21,10 +21,23 @@ fn confirm_picker(terminal: &mut NativePty, title: &str) {
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
+fn submit_visible_command(terminal: &mut NativePty, command: &str) {
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    {
+        let mark = terminal.mark();
+        terminal.send(command);
+        terminal.wait_for_after(mark, command);
+        terminal.send("\r");
+    }
+    #[cfg(windows)]
+    terminal.send(&format!("{command}\n"));
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos", windows))]
 fn select_workflow(terminal: &mut NativePty, workflow_id: &str) {
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     let mark = terminal.mark();
-    terminal.send(&format!("select {workflow_id}\n"));
+    submit_visible_command(terminal, &format!("select {workflow_id}"));
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     terminal.wait_for_ordered_after(mark, &format!("선택: {workflow_id}"), "›");
     #[cfg(windows)]
@@ -344,13 +357,13 @@ fn full_adapter() {
     #[cfg(unix)]
     {
         select_workflow(&mut terminal, &pending.workflow_id);
-        terminal.send(&format!("approve {}\n", pending.proposal_id));
+        submit_visible_command(&mut terminal, &format!("approve {}", pending.proposal_id));
         confirm_picker(&mut terminal, "패치 적용 확인");
     }
     #[cfg(windows)]
     {
         select_workflow(&mut terminal, &pending.workflow_id);
-        terminal.send("deny\n");
+        submit_visible_command(&mut terminal, "deny");
         confirm_picker(&mut terminal, "요청 거부 확인");
     }
     terminal.wait_for("terminal.frame-write.pre-dispatch");
@@ -385,7 +398,7 @@ fn full_adapter() {
     terminal.send(&format!("{secret}\n"));
     terminal.wait_for("secret.refresh-only");
     select_workflow(&mut terminal, &pending.workflow_id);
-    terminal.send(&format!("approve {}\n", pending.proposal_id));
+    submit_visible_command(&mut terminal, &format!("approve {}", pending.proposal_id));
     #[cfg(unix)]
     {
         confirm_picker(&mut terminal, "패치 적용 확인");
@@ -416,7 +429,7 @@ fn full_adapter() {
             .expect("one-time verification credential must be rendered once");
         assert!(!tree_contains(&fixture.project, credential.as_bytes()));
         assert!(!tree_contains(&fixture.data, credential.as_bytes()));
-        terminal.send("deny\n");
+        submit_visible_command(&mut terminal, "deny");
         confirm_picker(&mut terminal, "요청 거부 확인");
         let denial_output = terminal.wait_for("다음: 롤백 영수증을 확인하세요.");
         native_terminal_denial_block_outcomes_exact(
@@ -433,7 +446,7 @@ fn full_adapter() {
         // ontology-bound source so a later, independent canonical workflow can rebuild
         // context without inheriting a deliberately rolled-back graph/source mismatch.
         std::fs::write(&pending.source, "pub const VALUE: i32 = 2;\n").unwrap();
-        terminal.send("deny\n");
+        submit_visible_command(&mut terminal, "deny");
         confirm_picker(&mut terminal, "요청 거부 확인");
         let terminal_denial = terminal.wait_for("다음: 기존 종료 영수증을 확인하세요.");
         native_terminal_denial_block_outcomes_exact(
@@ -456,7 +469,7 @@ fn full_adapter() {
             &tree_snapshot(&[&fixture.project, &fixture.data]),
             "unsupported source approval",
         );
-        terminal.send("deny\n");
+        submit_visible_command(&mut terminal, "deny");
         confirm_picker(&mut terminal, "요청 거부 확인");
         let denial_output = terminal.wait_for("다음: 거부 영수증을 확인하세요.");
         native_terminal_denial_block_outcomes_exact(
@@ -465,7 +478,7 @@ fn full_adapter() {
             &pending.workflow_id,
             None,
         );
-        terminal.send("deny\n");
+        submit_visible_command(&mut terminal, "deny");
         confirm_picker(&mut terminal, "요청 거부 확인");
         let terminal_denial = terminal.wait_for("다음: 기존 종료 영수증을 확인하세요.");
         native_terminal_denial_block_outcomes_exact(
@@ -518,7 +531,7 @@ fn full_adapter() {
     let mut terminal = NativePty::spawn(120, 40);
     terminal.wait_for("›");
     select_workflow(&mut terminal, &post.workflow_id);
-    terminal.send(&format!("approve {}\n", post.proposal_id));
+    submit_visible_command(&mut terminal, &format!("approve {}", post.proposal_id));
     #[cfg(unix)]
     {
         confirm_picker(&mut terminal, "패치 적용 확인");
@@ -534,7 +547,7 @@ fn full_adapter() {
             &tree_snapshot(&[&fixture.project, &fixture.data]),
             "unsupported source action before post-dispatch boundary",
         );
-        terminal.send("deny\n");
+        submit_visible_command(&mut terminal, "deny");
         confirm_picker(&mut terminal, "요청 거부 확인");
         terminal.wait_for("terminal.frame-write.post-dispatch");
     }
@@ -584,7 +597,7 @@ fn full_adapter() {
         "restart must not redispatch the committed intent"
     );
     select_workflow(&mut terminal, &post.workflow_id);
-    terminal.send("deny\n");
+    submit_visible_command(&mut terminal, "deny");
     confirm_picker(&mut terminal, "요청 거부 확인");
     #[cfg(unix)]
     {
@@ -612,15 +625,15 @@ fn full_adapter() {
 
     let resumable = fixture.prepare_source_approval();
     select_workflow(&mut terminal, &resumable.workflow_id);
-    terminal.send("resume\n");
+    submit_visible_command(&mut terminal, "resume");
     confirm_picker(&mut terminal, "작업 재개 확인");
     terminal.wait_for("resume.accepted");
-    terminal.send("cancel\n");
+    submit_visible_command(&mut terminal, "cancel");
     confirm_picker(&mut terminal, "작업 취소 확인");
     terminal.wait_for("cancel.accepted");
-    terminal.send("view monitor\n");
+    submit_visible_command(&mut terminal, "view monitor");
     terminal.wait_for("rpotato | monitor");
-    terminal.send("quit\n");
+    submit_visible_command(&mut terminal, "quit");
     let output = terminal.finish();
     std::env::remove_var("RPOTATO_TEST_TUI_SECRET_PROBE");
     assert!(output.contains("resume.accepted"));
