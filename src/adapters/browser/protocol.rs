@@ -53,6 +53,7 @@ impl CdpEndpoint {
         &self.path
     }
 
+    #[cfg(test)]
     pub(super) fn display_url(&self) -> String {
         format!("ws://127.0.0.1:{}{}", self.port, self.path)
     }
@@ -75,12 +76,11 @@ pub(super) enum CdpMethod {
     TargetAttachToTarget,
     PageEnable,
     PageNavigate,
-    PageStopLoading,
+    PageGetNavigationHistory,
     PageCaptureScreenshot,
     AccessibilityEnable,
     AccessibilityGetFullAxTree,
     DomEnable,
-    DomDescribeNode,
     DomGetBoxModel,
     DomFocus,
     InputInsertText,
@@ -96,12 +96,11 @@ impl CdpMethod {
             Self::TargetAttachToTarget => "Target.attachToTarget",
             Self::PageEnable => "Page.enable",
             Self::PageNavigate => "Page.navigate",
-            Self::PageStopLoading => "Page.stopLoading",
+            Self::PageGetNavigationHistory => "Page.getNavigationHistory",
             Self::PageCaptureScreenshot => "Page.captureScreenshot",
             Self::AccessibilityEnable => "Accessibility.enable",
             Self::AccessibilityGetFullAxTree => "Accessibility.getFullAXTree",
             Self::DomEnable => "DOM.enable",
-            Self::DomDescribeNode => "DOM.describeNode",
             Self::DomGetBoxModel => "DOM.getBoxModel",
             Self::DomFocus => "DOM.focus",
             Self::InputInsertText => "Input.insertText",

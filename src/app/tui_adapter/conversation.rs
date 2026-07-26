@@ -8,6 +8,7 @@ const CONVERSATION_MAX_TOKENS: u32 = 384;
 
 pub(super) enum RequestDecision {
     Answer(String),
+    BrowserTool(crate::app::browser_adapter::BrowserSearchRequest),
     ContinueLocal,
     WebTool(crate::app::web_search_adapter::WebToolRoute),
 }
@@ -97,8 +98,15 @@ pub(super) fn decide_request(
     let response_language = ResponseLanguage::from_user_request(user_request);
     let language_instruction = language_instruction(response_language);
     let web_enabled = !crate::app::web_search_adapter::web_disabled(user_request);
+    if web_enabled {
+        if let Some(tool) =
+            crate::app::browser_adapter::deterministic_browser_fallback(user_request)
+        {
+            return Ok(RequestDecision::BrowserTool(tool));
+        }
+    }
     let web_instruction = if web_enabled {
-        "답변에 현재 웹 정보나 외부 공개 근거가 실제로 필요하면 추측하거나 검색이 필요하다고 말하지 말고, 답변 대신 아래 두 줄만 출력해 WebSearch·WebOpen·WebFind 중 하나를 요청하라. WEB INPUT에는 첨부 파일 내용, 인증정보, 개인정보를 복사하지 말고 사용자 질문에서 필요한 최소 공개 검색어 또는 URL만 넣어라.\nWEB TOOL: search|open|find\nWEB INPUT: 최소 검색어 또는 HTTPS URL"
+        "답변에 현재 웹 정보나 외부 공개 근거가 실제로 필요하면 추측하거나 검색이 필요하다고 말하지 말고, 답변 대신 아래 두 줄만 출력해 WebSearch·WebOpen·WebFind 중 하나를 요청하라. WEB INPUT에는 첨부 파일 내용, 인증정보, 개인정보를 복사하지 말고 사용자 질문에서 필요한 최소 공개 검색어 또는 URL만 넣어라.\nWEB TOOL: search|open|find\nWEB INPUT: 최소 검색어 또는 HTTPS URL\n사용자가 공개 웹사이트를 직접 열어 익명 검색창에 text를 입력하라고 명시한 경우에만 아래 세 줄을 출력하라. 로그인, 결제, 게시, upload, download 또는 개인정보 입력에는 사용하지 마라.\nBROWSER TOOL: search-form\nBROWSER URL: 공개 HTTPS URL\nBROWSER INPUT: 검색창에 입력할 최소 text"
     } else {
         "사용자가 이 요청에서 인터넷 사용을 금지했다. 웹 도구를 요청하지 말고 현재 로컬 지식과 문맥만 사용하며 최신성이 불확실하면 그 한계를 밝혀라."
     };
@@ -125,6 +133,11 @@ pub(super) fn decide_request(
         CONVERSATION_MAX_TOKENS,
     )?;
     if web_enabled {
+        if let Some(tool) =
+            crate::app::browser_adapter::parse_agent_browser_tool(&candidate.visible)
+        {
+            return Ok(RequestDecision::BrowserTool(tool));
+        }
         if let Some(tool) = crate::app::web_search_adapter::parse_agent_web_tool(&candidate.visible)
         {
             return Ok(RequestDecision::WebTool(tool));

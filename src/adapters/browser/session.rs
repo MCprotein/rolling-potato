@@ -1,4 +1,5 @@
 use std::fs;
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -18,6 +19,7 @@ static PROFILE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct BrowserSessionOptions {
     pub(crate) headless: bool,
+    pub(crate) proxy_addr: Option<SocketAddr>,
     pub(crate) startup_timeout: Duration,
 }
 
@@ -25,6 +27,7 @@ impl Default for BrowserSessionOptions {
     fn default() -> Self {
         Self {
             headless: true,
+            proxy_addr: None,
             startup_timeout: Duration::from_secs(10),
         }
     }
@@ -55,7 +58,12 @@ impl BrowserSession {
             ));
         }
         let profile_dir = create_profile_dir(temp_root)?;
-        let mut command = browser_command(executable, &profile_dir, options.headless);
+        let mut command = browser_command(
+            executable,
+            &profile_dir,
+            options.headless,
+            options.proxy_addr,
+        );
         configure_process_group(&mut command);
         let mut child = match command.spawn() {
             Ok(child) => child,
@@ -86,14 +94,17 @@ impl BrowserSession {
         &self.endpoint
     }
 
+    #[cfg(test)]
     pub(crate) fn process_id(&self) -> Option<u32> {
         self.child.as_ref().map(Child::id)
     }
 
+    #[cfg(test)]
     pub(crate) fn profile_dir(&self) -> Option<&Path> {
         self.profile_dir.as_deref()
     }
 
+    #[cfg(test)]
     pub(crate) fn close(mut self) {
         self.cleanup();
     }
@@ -114,7 +125,12 @@ impl Drop for BrowserSession {
     }
 }
 
-fn browser_command(executable: &BrowserExecutable, profile_dir: &Path, headless: bool) -> Command {
+fn browser_command(
+    executable: &BrowserExecutable,
+    profile_dir: &Path,
+    headless: bool,
+    proxy_addr: Option<SocketAddr>,
+) -> Command {
     let mut command = Command::new(&executable.path);
     command
         .arg(format!("--user-data-dir={}", profile_dir.display()))
@@ -128,11 +144,48 @@ fn browser_command(executable: &BrowserExecutable, profile_dir: &Path, headless:
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
+    if let Some(proxy_addr) = proxy_addr {
+        command
+            .arg(format!("--proxy-server=http://{proxy_addr}"))
+            .arg("--proxy-bypass-list=<-loopback>")
+            .arg("--disable-quic");
+    }
     if headless {
         command.arg("--headless=new").arg("--disable-gpu");
     }
     command.arg("about:blank");
     command
+}
+
+#[cfg(test)]
+mod command_tests {
+    use super::*;
+
+    #[test]
+    fn browser_command_forces_all_page_traffic_through_the_public_proxy() {
+        let executable = BrowserExecutable {
+            kind: super::super::discovery::BrowserKind::Chromium,
+            path: PathBuf::from("/test/chromium"),
+        };
+        let proxy_addr = "127.0.0.1:43123".parse().unwrap();
+        let command = browser_command(
+            &executable,
+            Path::new("/tmp/private-profile"),
+            true,
+            Some(proxy_addr),
+        );
+        let arguments = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(arguments.contains(&"--proxy-server=http://127.0.0.1:43123".to_string()));
+        assert!(arguments.contains(&"--proxy-bypass-list=<-loopback>".to_string()));
+        assert!(arguments.contains(&"--disable-quic".to_string()));
+        assert!(!arguments
+            .iter()
+            .any(|argument| argument.contains("direct://")));
+    }
 }
 
 #[cfg(unix)]

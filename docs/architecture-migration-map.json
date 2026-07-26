@@ -8467,6 +8467,84 @@
           ]
         }
       ]
+    },
+    {
+      "path": "src/adapters/browser/proxy.rs",
+      "slices": [
+        {
+          "responsibility": "loopback HTTPS CONNECT proxy with public-address pinning and bounded tunnel ownership",
+          "target": "src/adapters/browser/proxy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/proxy.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "restricted browser research application facade and TUI progress contract",
+          "target": "src/app/browser_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/browser_adapter.rs",
+            "src/app/browser_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter/routing.rs",
+      "slices": [
+        {
+          "responsibility": "agent browser-tool parsing and explicit search-form fallback routing",
+          "target": "src/app/browser_adapter/routing.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/browser_adapter/routing.rs",
+            "src/app/browser_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter/search_form.rs",
+      "slices": [
+        {
+          "responsibility": "generic selector-free public search-form browser orchestration",
+          "target": "src/app/browser_adapter/search_form.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/browser_adapter/search_form.rs",
+            "src/app/browser_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter/tests.rs",
+      "slices": [
+        {
+          "responsibility": "browser routing, cleanup, redirect, and fake-page search-form regression tests",
+          "target": "src/app/browser_adapter/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/browser_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -11578,6 +11656,36 @@
       "path": "src/runtime_core/browser/tests.rs",
       "responsibilities": [
         "browser interaction policy, budget, and opaque-handle regression tests"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/proxy.rs",
+      "responsibilities": [
+        "loopback HTTPS CONNECT proxy with public-address pinning and bounded tunnel ownership"
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter.rs",
+      "responsibilities": [
+        "restricted browser research application facade and TUI progress contract"
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter/routing.rs",
+      "responsibilities": [
+        "agent browser-tool parsing and explicit search-form fallback routing"
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter/search_form.rs",
+      "responsibilities": [
+        "generic selector-free public search-form browser orchestration"
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter/tests.rs",
+      "responsibilities": [
+        "browser routing, cleanup, redirect, and fake-page search-form regression tests"
       ]
     }
   ]

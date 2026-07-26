@@ -73,6 +73,7 @@ pub(crate) enum AdmittedBrowserAction {
     Extract {
         max_chars: usize,
     },
+    CurrentUrl,
     Screenshot,
     Close,
 }
@@ -229,6 +230,7 @@ impl BrowserInteractionSession {
                 self.extracted_chars += max_chars;
                 AdmittedBrowserAction::Extract { max_chars }
             }
+            BrowserAction::CurrentUrl => AdmittedBrowserAction::CurrentUrl,
             BrowserAction::Screenshot => AdmittedBrowserAction::Screenshot,
             BrowserAction::Close => {
                 self.closed = true;

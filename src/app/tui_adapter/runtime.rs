@@ -58,6 +58,10 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         super::attachment::capture(path, &identity.session_id)
     }
 
+    fn request_progress_hint(&mut self, request: &str) -> Option<String> {
+        crate::app::browser_adapter::progress_notice(request)
+    }
+
     fn submit_request(
         &mut self,
         request: &str,

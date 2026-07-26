@@ -43,6 +43,9 @@ pub(crate) trait TuiRuntimePort {
     fn doctor_report(&mut self) -> String;
     fn compact_context(&mut self) -> Result<String, AppError>;
     fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError>;
+    fn request_progress_hint(&mut self, _request: &str) -> Option<String> {
+        None
+    }
     fn submit_request(
         &mut self,
         request: &str,
@@ -440,7 +443,11 @@ pub(crate) fn run_controller(
                 }
                 state.view = InteractiveView::Conversation;
                 state.push_turn(ConversationRole::User, line.trim());
-                state.notice = "작업 중 · 에이전트가 요청을 처리하고 있습니다…".to_string();
+                state.notice = runtime
+                    .request_progress_hint(line.trim())
+                    .unwrap_or_else(|| {
+                        "작업 중 · 에이전트가 요청을 처리하고 있습니다…".to_string()
+                    });
                 write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
                 match runtime.submit_request(line.trim(), &state.attachments) {
                     Ok(report) => {

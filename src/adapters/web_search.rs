@@ -1,6 +1,7 @@
 //! Bounded read-only web search implemented with direct public HTML retrieval.
 
 use crate::foundation::error::AppError;
+use std::net::{SocketAddr, ToSocketAddrs};
 
 mod evidence;
 mod find;
@@ -14,7 +15,9 @@ pub(crate) use evidence::{WebOpenResult, WebPageEvidence, WebSearchEvidence, Web
 pub(crate) use find::find_in_page;
 use html::{parse_html_search_results, parse_lite_search_results};
 use page::parse_page_document;
-use policy::{resolve_redirect_url, same_web_origin, validate_open_url, validate_query};
+use policy::{
+    resolve_redirect_url, same_web_origin, validate_open_url, validate_public_host, validate_query,
+};
 use transport::{fetch_page_response, fetch_search_document, PageResponse, SearchEndpoint};
 
 const MAX_PAGE_REDIRECTS: usize = 10;
@@ -162,7 +165,43 @@ pub(crate) fn validate_browser_navigation_url(url: &str) -> Result<String, AppEr
             "격리 브라우저 navigation은 public HTTPS URL만 허용합니다.",
         ));
     }
-    validate_open_url(url)
+    let url = validate_open_url(url)?;
+    let uri = url
+        .parse::<ureq::http::Uri>()
+        .map_err(|_| AppError::usage("격리 브라우저 URL 형식이 올바르지 않습니다."))?;
+    if uri
+        .authority()
+        .and_then(|authority| authority.port_u16())
+        .is_some_and(|port| port != 443)
+    {
+        return Err(AppError::blocked(
+            "격리 브라우저 navigation은 HTTPS 기본 port 443만 허용합니다.",
+        ));
+    }
+    Ok(url)
+}
+
+pub(crate) fn resolve_public_browser_target(
+    host: &str,
+    port: u16,
+) -> Result<Vec<SocketAddr>, AppError> {
+    if port != 443 {
+        return Err(AppError::blocked(
+            "격리 브라우저 proxy는 HTTPS 443 연결만 허용합니다.",
+        ));
+    }
+    validate_public_host(host)?;
+    let addresses = (host, port)
+        .to_socket_addrs()
+        .map_err(|_| AppError::blocked("브라우저 대상 host를 공개 IP로 해석하지 못했습니다."))?
+        .take(16)
+        .collect::<Vec<_>>();
+    if !policy::socket_addresses_are_public(&addresses) {
+        return Err(AppError::blocked(
+            "브라우저 대상 host가 local 또는 private IP를 포함해 연결을 차단했습니다.",
+        ));
+    }
+    Ok(addresses)
 }
 
 #[cfg(test)]
@@ -178,6 +217,26 @@ mod tests {
     const MARKDOWN_FIXTURE: &str = include_str!("../../tests/fixtures/web_search/page.md");
     const RSS_FIXTURE: &str = include_str!("../../tests/fixtures/web_search/feed-rss.xml");
     const ATOM_FIXTURE: &str = include_str!("../../tests/fixtures/web_search/feed-atom.xml");
+
+    #[test]
+    fn browser_navigation_accepts_only_public_https_on_default_port() {
+        assert_eq!(
+            validate_browser_navigation_url("https://www.google.com/search?q=rust").unwrap(),
+            "https://www.google.com/search?q=rust"
+        );
+        for blocked in [
+            "http://www.google.com/",
+            "https://localhost/",
+            "https://127.0.0.1/",
+            "https://www.google.com:8443/",
+            "https://user:secret@www.google.com/",
+        ] {
+            assert!(
+                validate_browser_navigation_url(blocked).is_err(),
+                "{blocked}"
+            );
+        }
+    }
 
     #[test]
     fn parses_direct_search_html_and_deduplicates_https_sources() {

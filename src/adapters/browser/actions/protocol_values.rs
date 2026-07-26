@@ -1,6 +1,37 @@
 use crate::foundation::error::AppError;
 use crate::foundation::serialization::Value;
 
+pub(super) fn current_history_url(result: &Value) -> Result<String, AppError> {
+    let Value::Object(result) = result else {
+        return Err(AppError::runtime(
+            "Page.getNavigationHistory result가 object가 아닙니다.",
+        ));
+    };
+    let current_index = result
+        .get("currentIndex")
+        .and_then(json_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .ok_or_else(|| {
+            AppError::runtime("Page.getNavigationHistory currentIndex가 올바르지 않습니다.")
+        })?;
+    let Some(Value::Array(entries)) = result.get("entries") else {
+        return Err(AppError::runtime(
+            "Page.getNavigationHistory entries가 올바르지 않습니다.",
+        ));
+    };
+    let Some(Value::Object(entry)) = entries.get(current_index) else {
+        return Err(AppError::runtime(
+            "Page.getNavigationHistory current entry가 없습니다.",
+        ));
+    };
+    let Some(Value::String(url)) = entry.get("url") else {
+        return Err(AppError::runtime(
+            "Page.getNavigationHistory current URL이 없습니다.",
+        ));
+    };
+    Ok(url.clone())
+}
+
 pub(super) fn box_center(result: &Value) -> Result<(String, String), AppError> {
     let Value::Object(result) = result else {
         return Err(AppError::runtime(
@@ -76,6 +107,13 @@ fn json_number(value: &Value) -> Option<f64> {
         Value::Decimal(value) => value.parse().ok(),
         _ => None,
     }
+}
+
+fn json_u64(value: &Value) -> Option<u64> {
+    let Value::Number(value) = value else {
+        return None;
+    };
+    u64::try_from(*value).ok()
 }
 
 pub(super) fn json_string(value: &str) -> String {

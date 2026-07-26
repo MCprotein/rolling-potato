@@ -6,12 +6,14 @@ pub(crate) use interaction::{
     AdmittedBrowserAction, BrowserInteractionSession, ObservedTargetSeed,
 };
 
+#[cfg(test)]
 const MAX_HANDLE_BYTES: usize = 96;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ElementHandle(String);
 
 impl ElementHandle {
+    #[cfg(test)]
     pub(crate) fn parse(value: &str) -> Option<Self> {
         (!value.is_empty()
             && value.len() <= MAX_HANDLE_BYTES
@@ -21,6 +23,7 @@ impl ElementHandle {
         .then(|| Self(value.to_string()))
     }
 
+    #[cfg(test)]
     pub(crate) fn as_str(&self) -> &str {
         &self.0
     }
@@ -64,11 +67,13 @@ pub(crate) enum BrowserActionResult {
     KeyPressed,
     Scrolled,
     Extracted { text: String },
+    CurrentUrl { url: String },
     Screenshot { png_base64: String },
     Closed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)] // Closed browser-tool key contract; the search-form coordinator uses Enter.
 pub(crate) enum BrowserKey {
     Enter,
     Escape,
@@ -81,12 +86,14 @@ pub(crate) enum BrowserKey {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)] // Closed browser-tool scroll contract; B3 search-form does not scroll.
 pub(crate) enum ScrollDirection {
     Up,
     Down,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)] // Adapter supports the closed action contract beyond the B3 search-form flow.
 pub(crate) enum BrowserAction {
     Navigate {
         url: String,
@@ -109,6 +116,7 @@ pub(crate) enum BrowserAction {
     Extract {
         max_chars: usize,
     },
+    CurrentUrl,
     Screenshot,
     Close,
 }

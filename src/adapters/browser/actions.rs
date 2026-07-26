@@ -10,6 +10,7 @@ use crate::runtime_core::browser::{
 
 use super::discovery::discover_installed_browser;
 use super::protocol::{CdpCommand, CdpMethod, CdpResponse, RestrictedCdpClient};
+use super::proxy::PublicHttpsProxy;
 use super::session::{BrowserSession, BrowserSessionOptions};
 
 mod accessibility;
@@ -21,25 +22,34 @@ use protocol_values::{box_center, json_string, object_string, object_string_valu
 const PROTOCOL_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_SCREENSHOT_BASE64_BYTES: usize = 8 * 1024 * 1024;
 
-pub(super) struct RestrictedBrowser {
-    session: BrowserSession,
+pub(crate) struct RestrictedBrowser {
     driver: BrowserActionDriver<CdpActionTransport>,
+    session: BrowserSession,
+    _proxy: PublicHttpsProxy,
     started_at: Instant,
 }
 
 impl RestrictedBrowser {
-    pub(super) fn launch(options: BrowserSessionOptions) -> Result<Self, AppError> {
+    pub(crate) fn launch(options: BrowserSessionOptions) -> Result<Self, AppError> {
+        let proxy = PublicHttpsProxy::start()?;
         let executable = discover_installed_browser()?;
-        let session = BrowserSession::launch(&executable, options)?;
+        let session = BrowserSession::launch(
+            &executable,
+            BrowserSessionOptions {
+                proxy_addr: Some(proxy.address()),
+                ..options
+            },
+        )?;
         let transport = CdpActionTransport::connect(&session, PROTOCOL_TIMEOUT)?;
         Ok(Self {
-            session,
             driver: BrowserActionDriver::new(transport),
+            session,
+            _proxy: proxy,
             started_at: Instant::now(),
         })
     }
 
-    pub(super) fn execute(
+    pub(crate) fn execute(
         &mut self,
         action: BrowserAction,
     ) -> Result<BrowserActionResult, AppError> {
@@ -265,6 +275,14 @@ impl<T: BrowserActionPort> BrowserActionDriver<T> {
                 Ok(BrowserActionResult::Extracted {
                     text: extract_accessibility_text(&tree, max_chars)?,
                 })
+            }
+            AdmittedBrowserAction::CurrentUrl => {
+                let result = self
+                    .transport
+                    .call(CdpMethod::PageGetNavigationHistory, "{}".to_string())?;
+                let url = protocol_values::current_history_url(&result)?;
+                let url = validate_browser_navigation_url(&url)?;
+                Ok(BrowserActionResult::CurrentUrl { url })
             }
             AdmittedBrowserAction::Screenshot => {
                 let result = self.transport.call(

@@ -174,7 +174,7 @@ fn validate_https_uri_shape(url: &str) -> Result<ureq::http::Uri, AppError> {
     Ok(uri)
 }
 
-fn validate_public_host(host: &str) -> Result<(), AppError> {
+pub(super) fn validate_public_host(host: &str) -> Result<(), AppError> {
     if let Some(ip) = parse_ip(host) {
         return is_public_ip(ip)
             .then_some(())

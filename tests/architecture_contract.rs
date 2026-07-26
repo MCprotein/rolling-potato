@@ -6714,15 +6714,29 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     let discovery = fs::read_to_string("src/adapters/browser/discovery.rs").unwrap();
     let session = fs::read_to_string("src/adapters/browser/session.rs").unwrap();
     let protocol = fs::read_to_string("src/adapters/browser/protocol.rs").unwrap();
+    let proxy = fs::read_to_string("src/adapters/browser/proxy.rs").unwrap();
     let websocket = fs::read_to_string("src/adapters/browser/websocket.rs").unwrap();
     let tests = fs::read_to_string("src/adapters/browser/tests.rs").unwrap();
     let browser_policy = fs::read_to_string("src/runtime_core/browser.rs").unwrap();
     let interaction = fs::read_to_string("src/runtime_core/browser/interaction.rs").unwrap();
     let interaction_tests = fs::read_to_string("src/runtime_core/browser/tests.rs").unwrap();
+    let browser_app = fs::read_to_string("src/app/browser_adapter.rs").unwrap();
+    let browser_routing = fs::read_to_string("src/app/browser_adapter/routing.rs").unwrap();
+    let browser_search_form = fs::read_to_string("src/app/browser_adapter/search_form.rs").unwrap();
+    let browser_app_tests = fs::read_to_string("src/app/browser_adapter/tests.rs").unwrap();
+    let conversation = fs::read_to_string("src/app/tui_adapter/conversation.rs").unwrap();
+    let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
 
     assert!(adapters.contains("pub(crate) mod browser;"));
     assert!(runtime.contains("pub(crate) mod browser;"));
-    for owner in ["actions", "discovery", "protocol", "session", "websocket"] {
+    for owner in [
+        "actions",
+        "discovery",
+        "protocol",
+        "proxy",
+        "session",
+        "websocket",
+    ] {
         assert!(
             facade.lines().any(|line| line == format!("mod {owner};")),
             "browser adapter facade does not register {owner}"
@@ -6735,9 +6749,14 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
         "src/adapters/browser/actions/tests.rs",
         "src/adapters/browser/discovery.rs",
         "src/adapters/browser/protocol.rs",
+        "src/adapters/browser/proxy.rs",
         "src/adapters/browser/session.rs",
         "src/adapters/browser/tests.rs",
         "src/adapters/browser/websocket.rs",
+        "src/app/browser_adapter.rs",
+        "src/app/browser_adapter/routing.rs",
+        "src/app/browser_adapter/search_form.rs",
+        "src/app/browser_adapter/tests.rs",
         "src/runtime_core/browser.rs",
         "src/runtime_core/browser/interaction.rs",
         "src/runtime_core/browser/tests.rs",
@@ -6750,7 +6769,15 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(discovery.contains("google-chrome-stable"));
     assert!(session.contains("--remote-debugging-port=0"));
     assert!(session.contains("--user-data-dir="));
+    assert!(session.contains("--proxy-server=http://"));
+    assert!(session.contains("--proxy-bypass-list=<-loopback>"));
+    assert!(session.contains("--disable-quic"));
+    assert!(session.contains("browser_command_forces_all_page_traffic_through_the_public_proxy"));
     assert!(session.contains("terminate_child_tree"));
+    assert!(proxy.contains("resolve_public_browser_target"));
+    assert!(proxy.contains("CONNECT"));
+    assert!(proxy.contains("MAX_ACTIVE_TUNNELS"));
+    assert!(!proxy.contains("direct://"));
     assert!(protocol.contains("/devtools/browser/"));
     assert!(protocol.contains("enum CdpMethod"));
     assert!(!protocol.contains("Runtime.evaluate"));
@@ -6776,6 +6803,17 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(tests.contains("isolated_browser_session_cleans_up_process_group_and_profile"));
     assert!(tests.contains("scopes_target_commands_to_an_attached_session"));
     assert!(tests.contains("oversized_protocol_frame_is_rejected_before_allocating_its_payload"));
+    assert!(browser_app.contains("mod routing;"));
+    assert!(browser_app.contains("mod search_form;"));
+    assert!(browser_routing.contains("BROWSER TOOL:"));
+    assert!(browser_search_form.contains("BrowserControl"));
+    assert!(!browser_search_form.contains("querySelector"));
+    assert!(!browser_search_form.contains("Runtime.evaluate"));
+    assert!(browser_app_tests.contains("generic_search_form_e2e_uses_opaque_handles"));
+    assert!(browser_app_tests.contains("private_redirect_result_is_rejected"));
+    assert!(conversation.contains("RequestDecision::BrowserTool"));
+    assert!(conversation.contains("deterministic_browser_fallback"));
+    assert!(tui_request.contains("RequestDecision::BrowserTool"));
 
     assert!(facade.lines().count() < 25);
     assert!(actions.lines().count() < 350);
@@ -6785,8 +6823,13 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(discovery.lines().count() < 300);
     assert!(session.lines().count() < 350);
     assert!(protocol.lines().count() < 275);
+    assert!(proxy.lines().count() < 375);
     assert!(websocket.lines().count() < 425);
     assert!(tests.lines().count() < 375);
+    assert!(browser_app.lines().count() < 75);
+    assert!(browser_routing.lines().count() < 225);
+    assert!(browser_search_form.lines().count() < 250);
+    assert!(browser_app_tests.lines().count() < 275);
     assert!(browser_policy.lines().count() < 225);
     assert!(interaction.lines().count() < 350);
     assert!(interaction_tests.lines().count() < 225);

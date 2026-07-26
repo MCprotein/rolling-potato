@@ -78,6 +78,37 @@ fn ordinary_input_renders_as_user_and_assistant_turns() {
 }
 
 #[test]
+fn browser_request_renders_structured_progress_before_synchronous_execution() {
+    let mut terminal = ScriptedTerminal::new(["네이버를 열고 검색창에 월드컵을 입력해", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        progress_hint: Some(
+            "브라우저 조사 · 공개 검색 페이지 여는 중\n페이지 열기 ● → 검색창 확인 ○ → 검색어 입력 ○ → 결과 읽기 ○"
+                .to_string(),
+        ),
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert!(terminal.frames[1].contains("브라우저 조사"));
+    assert!(terminal.frames[1].contains("페이지 열기 ●"));
+    assert!(terminal.frames[1].contains("결과 읽기 ○"));
+}
+
+#[test]
+fn explicit_browser_request_uses_small_model_fallback_before_inference() {
+    let decision =
+        conversation::decide_request("네이버를 열고 검색창에 월드컵을 입력해", &[], 4096, true)
+            .unwrap();
+
+    let conversation::RequestDecision::BrowserTool(request) = decision else {
+        panic!("explicit browser request did not route to BrowserTool");
+    };
+    assert_eq!(request.url, "https://www.naver.com/");
+    assert_eq!(request.query, "월드컵");
+}
+
+#[test]
 fn ansi_conversation_distinguishes_failures_from_assistant_answers() {
     let mut state = InteractiveState::new();
     state.push_turn(ConversationRole::Assistant, "정상 답변");
@@ -551,6 +582,7 @@ struct ConversationRuntime {
     new_session_calls: usize,
     web_source_options: Vec<TuiWebSourceOption>,
     selected_web_sources: Vec<String>,
+    progress_hint: Option<String>,
 }
 
 impl TuiRuntimePort for ConversationRuntime {
@@ -650,6 +682,10 @@ impl TuiRuntimePort for ConversationRuntime {
             size_bytes: 1,
             kind: TuiAttachmentKind::Image,
         })
+    }
+
+    fn request_progress_hint(&mut self, _request: &str) -> Option<String> {
+        self.progress_hint.clone()
     }
 
     fn submit_request(

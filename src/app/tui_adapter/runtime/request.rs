@@ -62,6 +62,9 @@ pub(super) fn execute(
         conversational && !has_text_attachments,
     )? {
         conversation::RequestDecision::Answer(answer) => return Ok(answer),
+        conversation::RequestDecision::BrowserTool(tool) => {
+            return crate::app::browser_adapter::search_form(tool);
+        }
         conversation::RequestDecision::WebTool(tool) => {
             return web_tools::execute(
                 &mut web_research,

@@ -69,6 +69,15 @@ impl BrowserActionPort for FakePort {
             CdpMethod::DomGetBoxModel => Ok(value(
                 r#"{"model":{"content":[10,20,110,20,110,60,10,60]}}"#,
             )),
+            CdpMethod::PageGetNavigationHistory => Ok(value(
+                r#"{
+                    "currentIndex":1,
+                    "entries":[
+                        {"id":1,"url":"https://www.google.com/"},
+                        {"id":2,"url":"https://www.google.com/search?q=rust"}
+                    ]
+                }"#,
+            )),
             CdpMethod::PageCaptureScreenshot => Ok(value(r#"{"data":"iVBORw0KGgo="}"#)),
             _ => Ok(value("{}")),
         }
@@ -147,6 +156,14 @@ fn observes_types_presses_extracts_and_expires_handles() {
         extracted,
         BrowserActionResult::Extracted {
             text: "월드컵 검색 결과".to_string()
+        }
+    );
+    assert_eq!(
+        driver
+            .execute(BrowserAction::CurrentUrl, Duration::ZERO)
+            .unwrap(),
+        BrowserActionResult::CurrentUrl {
+            url: "https://www.google.com/search?q=rust".to_string()
         }
     );
 }

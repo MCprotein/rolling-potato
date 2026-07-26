@@ -219,6 +219,7 @@ fn isolated_browser_session_cleans_up_process_group_and_profile() {
         BrowserSessionOptions {
             headless: true,
             startup_timeout: Duration::from_secs(2),
+            ..BrowserSessionOptions::default()
         },
         &root,
     )
@@ -253,6 +254,7 @@ fn failed_browser_startup_removes_the_temporary_profile() {
         BrowserSessionOptions {
             headless: true,
             startup_timeout: Duration::from_millis(250),
+            ..BrowserSessionOptions::default()
         },
         &root,
     )
