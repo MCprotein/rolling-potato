@@ -1,6 +1,6 @@
 use crate::foundation::error::AppError;
 
-use super::evidence::WebPageEvidence;
+use super::evidence::{stable_source_id, WebPageEvidence};
 
 const MAX_PAGE_CONTEXT_CHARS: usize = 24_000;
 
@@ -45,6 +45,7 @@ pub(super) fn normalize_page_text(
         ));
     }
     Ok(WebPageEvidence {
+        source_id: stable_source_id(url),
         requested_url: url.to_string(),
         final_url: url.to_string(),
         title,

@@ -2,6 +2,7 @@
 
 use crate::adapters::web_search;
 use crate::foundation::error::AppError;
+use std::time::Duration;
 
 mod page_tools;
 mod research;
@@ -37,7 +38,8 @@ pub(crate) fn answer(
     input: WebAnswerInput<'_>,
     research: &mut WebResearchSession,
 ) -> Result<String, AppError> {
-    let evidence = web_search::search(input.query)?;
+    let allow_lite_fallback = research.reserve_optional_network_request(Duration::ZERO);
+    let evidence = web_search::search(input.query, allow_lite_fallback)?;
     let evidence_context = research
         .take_evidence(&evidence.context)
         .map_err(|terminal| terminal.into_error())?;
@@ -66,14 +68,20 @@ pub(super) fn web_answer_language_policy(query: &str) -> &'static str {
     }
 }
 
-fn render_grounded_answer(answer: Option<String>, sources: &[String]) -> String {
+fn render_grounded_answer(
+    answer: Option<String>,
+    sources: &[web_search::WebSourceEvidence],
+) -> String {
     let mut answer = answer
         .map(|answer| sanitize_model_summary(&answer))
         .filter(|answer| !answer.is_empty())
         .unwrap_or_else(|| WEB_ANSWER_FALLBACK.to_string());
     answer.push_str("\n\n출처");
     for source in sources {
-        answer.push_str(&format!("\n- {source}"));
+        answer.push_str(&format!(
+            "\n- [{}] {} — {}",
+            source.source_id, source.title, source.url
+        ));
     }
     answer
 }
@@ -259,10 +267,19 @@ mod tests {
 
     #[test]
     fn grounded_answer_keeps_sources_when_the_local_summary_is_unusable() {
-        let answer = render_grounded_answer(None, &["https://example.com/releases/v1".to_string()]);
+        let answer = render_grounded_answer(
+            None,
+            &[web_search::WebSourceEvidence {
+                source_id: "source-release".to_string(),
+                url: "https://example.com/releases/v1".to_string(),
+                title: "Release notes".to_string(),
+            }],
+        );
 
         assert!(answer.contains("웹 검색은 완료"));
-        assert!(answer.contains("- https://example.com/releases/v1"));
+        assert!(
+            answer.contains("- [source-release] Release notes — https://example.com/releases/v1")
+        );
         assert!(!answer.contains("웹 검색을 완료하지 못했습니다"));
     }
 
@@ -312,7 +329,11 @@ mod tests {
                 "최신 릴리스는 v1입니다 [1](https://unverified.example). 배열 [1, 2]와 a[1]은 유지합니다.\n\n출처\n[1]: https://unverified.example"
                     .to_string(),
             ),
-            &["https://example.com/releases/v1".to_string()],
+            &[web_search::WebSourceEvidence {
+                source_id: "source-release".to_string(),
+                url: "https://example.com/releases/v1".to_string(),
+                title: "Release notes".to_string(),
+            }],
         );
         let (body, sources) = answer.split_once("\n\n출처").unwrap();
 
@@ -321,7 +342,10 @@ mod tests {
         assert!(!body.contains("unverified.example"));
         assert!(body.contains("[1, 2]"));
         assert!(body.contains("a[1]"));
-        assert_eq!(sources, "\n- https://example.com/releases/v1");
+        assert_eq!(
+            sources,
+            "\n- [source-release] Release notes — https://example.com/releases/v1"
+        );
     }
 
     #[test]
@@ -359,6 +383,7 @@ mod tests {
     fn page_find_requires_an_open_page_and_renders_literal_matches() {
         assert!(find_in_page(None, "Rust").is_err());
         let page = web_search::WebPageEvidence {
+            source_id: "source-test".to_string(),
             requested_url: "https://example.com".to_string(),
             final_url: "https://example.com/docs".to_string(),
             title: Some("Guide".to_string()),

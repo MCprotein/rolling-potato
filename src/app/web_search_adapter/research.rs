@@ -257,6 +257,17 @@ impl WebResearchSession {
         Ok(bounded)
     }
 
+    pub(crate) fn reserve_optional_network_request(&mut self, elapsed: Duration) -> bool {
+        if self.terminal.is_some()
+            || elapsed >= self.budget.max_elapsed
+            || self.network_requests >= self.budget.max_network_requests
+        {
+            return false;
+        }
+        self.network_requests += 1;
+        true
+    }
+
     pub(crate) fn record_opened_document(&mut self, url: &str) {
         let url = url.trim();
         if !url.is_empty() {
@@ -631,6 +642,22 @@ mod tests {
                 WebResearchLimit::NetworkRequests
             ))
         );
+    }
+
+    #[test]
+    fn optional_search_fallback_reservation_stays_within_the_network_budget() {
+        let budget = WebResearchBudget {
+            max_network_requests: 2,
+            ..WebResearchBudget::default()
+        };
+        let mut research = WebResearchSession::new(budget);
+
+        assert!(matches!(
+            research.admit(search("primary"), None, Duration::ZERO),
+            WebResearchAdmission::Execute(_)
+        ));
+        assert!(research.reserve_optional_network_request(Duration::ZERO));
+        assert!(!research.reserve_optional_network_request(Duration::ZERO));
     }
 
     #[test]

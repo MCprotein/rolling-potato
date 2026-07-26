@@ -44,7 +44,10 @@ pub(crate) fn open_page(
             .map(|answer| sanitize_model_summary(&answer))
             .filter(|answer| !answer.is_empty());
             let body = generated.unwrap_or_else(|| page_fallback(&page));
-            let report = format!("{body}\n\n출처\n- {}", page.final_url);
+            let report = format!(
+                "{body}\n\n출처\n- [{}] {}",
+                page.source_id, page.final_url
+            );
             Ok(WebOpenAnswer {
                 page: Some(page),
                 report,
