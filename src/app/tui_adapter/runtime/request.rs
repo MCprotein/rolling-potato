@@ -42,7 +42,7 @@ pub(super) fn execute(
     }
     if let Some(result) = web_tools::dispatch(
         &mut web_research,
-        &mut adapter.opened_web_page,
+        &mut adapter.web_pages,
         user_request,
         local_context,
         web_started.elapsed(),
@@ -65,7 +65,7 @@ pub(super) fn execute(
         conversation::RequestDecision::WebTool(tool) => {
             return web_tools::execute(
                 &mut web_research,
-                &mut adapter.opened_web_page,
+                &mut adapter.web_pages,
                 tool,
                 user_request,
                 local_context,

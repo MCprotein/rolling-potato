@@ -1,7 +1,7 @@
 use crate::foundation::error::AppError;
 
 pub(in crate::app::tui_adapter) struct TuiRuntimeAdapter {
-    pub(super) opened_web_page: Option<crate::adapters::web_search::WebPageEvidence>,
+    pub(super) web_pages: crate::app::web_search_adapter::WebPageSession,
     pub(super) conversation_memory: Option<super::super::session_memory::ConversationMemory>,
     pub(super) fresh_session_pending: bool,
 }
@@ -9,7 +9,7 @@ pub(in crate::app::tui_adapter) struct TuiRuntimeAdapter {
 impl Default for TuiRuntimeAdapter {
     fn default() -> Self {
         Self {
-            opened_web_page: None,
+            web_pages: crate::app::web_search_adapter::WebPageSession::default(),
             conversation_memory: None,
             fresh_session_pending: true,
         }
@@ -28,6 +28,7 @@ impl TuiRuntimeAdapter {
         }
         crate::app::workflow_adapter::state::session_new_report()?;
         self.conversation_memory = None;
+        self.web_pages.clear();
         self.fresh_session_pending = false;
         Ok(())
     }

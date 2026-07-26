@@ -65,6 +65,15 @@ fn explicit_session_resume_restores_only_the_selected_conversation() {
     assert!(options
         .iter()
         .any(|option| option.session_id == first_session.session_id));
+    runtime
+        .web_pages
+        .record(crate::adapters::web_search::WebPageEvidence {
+            source_id: "source-session-page".to_string(),
+            requested_url: "https://example.com/previous".to_string(),
+            final_url: "https://example.com/previous".to_string(),
+            title: Some("Previous page".to_string()),
+            content: "must not cross session resume".to_string(),
+        });
 
     let transition = runtime.resume_session(&first_session.session_id).unwrap();
 
@@ -84,6 +93,7 @@ fn explicit_session_resume_restores_only_the_selected_conversation() {
         .turns
         .iter()
         .any(|turn| turn.content.contains("두 번째 세션")));
+    assert_eq!(runtime.web_pages.len(), 0);
 }
 
 fn test_root(name: &str) -> std::path::PathBuf {

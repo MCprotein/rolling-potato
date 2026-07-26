@@ -6617,6 +6617,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/adapters/web_search/page.rs",
         "src/adapters/web_search/policy.rs",
         "src/adapters/web_search/transport.rs",
+        "src/app/web_search_adapter/answer_binding.rs",
+        "src/app/web_search_adapter/page_session.rs",
         "src/app/web_search_adapter/page_tools.rs",
         "src/app/web_search_adapter/routing.rs",
         "src/app/tui_adapter/web_tools.rs",
@@ -6631,7 +6633,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
             "web adapter facade does not register {module}"
         );
     }
-    for module in ["page_tools", "routing"] {
+    for module in ["answer_binding", "page_session", "page_tools", "routing"] {
         assert!(
             app_facade
                 .lines()
@@ -6658,6 +6660,20 @@ fn web_search_open_find_have_separate_bounded_owners() {
         );
     }
     assert!(app_facade.lines().count() < 400);
+    assert!(
+        fs::read_to_string("src/app/web_search_adapter/answer_binding.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 300
+    );
+    assert!(
+        fs::read_to_string("src/app/web_search_adapter/page_session.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 150
+    );
     assert!(
         fs::read_to_string("src/app/web_search_adapter/routing.rs")
             .unwrap()

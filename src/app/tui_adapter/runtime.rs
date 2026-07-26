@@ -94,6 +94,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
     fn start_new_session(&mut self) -> Result<TuiSessionTransition, AppError> {
         crate::app::workflow_adapter::state::session_new_report()?;
         self.conversation_memory = None;
+        self.web_pages.clear();
         self.fresh_session_pending = false;
         let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
         Ok(TuiSessionTransition {
@@ -115,6 +116,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             return Err(AppError::blocked(outcome.safe_message));
         }
         self.conversation_memory = None;
+        self.web_pages.clear();
         self.fresh_session_pending = false;
         let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
         Ok(TuiSessionTransition {
