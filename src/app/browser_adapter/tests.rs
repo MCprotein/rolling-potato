@@ -300,14 +300,10 @@ impl BrowserControl for FakeBrowser {
                     self.result_observations_before_ready =
                         self.result_observations_before_ready.saturating_sub(1);
                 }
-                let initial_ready = if self.submitted {
-                    true
-                } else if self.initial_observations_before_ready == 0 {
-                    true
-                } else {
+                let initial_ready = self.submitted || self.initial_observations_before_ready == 0;
+                if !initial_ready {
                     self.initial_observations_before_ready -= 1;
-                    false
-                };
+                }
                 let elements = (self.has_search_field && initial_ready).then(|| ObservedElement {
                     handle: ElementHandle::parse("element-1-1").unwrap(),
                     role: ElementRole::SearchBox,

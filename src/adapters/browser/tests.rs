@@ -40,17 +40,17 @@ fn platform_discovery_contract_covers_macos_linux_and_windows() {
     );
     assert!(mac.iter().any(|candidate| {
         candidate.kind == BrowserKind::Chromium
-            && candidate.path == PathBuf::from("/custom/bin/chromium")
+            && candidate.path.as_path() == Path::new("/custom/bin/chromium")
     }));
 
     let linux = test_platform_candidates("linux", None, None, None, &path_entries);
     assert!(linux.iter().any(|candidate| {
         candidate.kind == BrowserKind::Chrome
-            && candidate.path == PathBuf::from("/custom/bin/google-chrome")
+            && candidate.path.as_path() == Path::new("/custom/bin/google-chrome")
     }));
     assert!(linux.iter().any(|candidate| {
         candidate.kind == BrowserKind::Edge
-            && candidate.path == PathBuf::from("/custom/bin/microsoft-edge")
+            && candidate.path.as_path() == Path::new("/custom/bin/microsoft-edge")
     }));
 
     let windows = test_platform_candidates(
@@ -67,7 +67,8 @@ fn platform_discovery_contract_covers_macos_linux_and_windows() {
                 .ends_with("Google/Chrome/Application/chrome.exe")
     }));
     assert!(windows.iter().any(|candidate| {
-        candidate.kind == BrowserKind::Edge && candidate.path == PathBuf::from("C:/bin/msedge.exe")
+        candidate.kind == BrowserKind::Edge
+            && candidate.path.as_path() == Path::new("C:/bin/msedge.exe")
     }));
 }
 

@@ -160,38 +160,6 @@ fn browser_command(
     command
 }
 
-#[cfg(test)]
-mod command_tests {
-    use super::*;
-
-    #[test]
-    fn browser_command_forces_all_page_traffic_through_the_public_proxy() {
-        let executable = BrowserExecutable {
-            kind: super::super::discovery::BrowserKind::Chromium,
-            path: PathBuf::from("/test/chromium"),
-        };
-        let proxy_addr = "127.0.0.1:43123".parse().unwrap();
-        let command = browser_command(
-            &executable,
-            Path::new("/tmp/private-profile"),
-            true,
-            Some(proxy_addr),
-        );
-        let arguments = command
-            .get_args()
-            .map(|argument| argument.to_string_lossy().into_owned())
-            .collect::<Vec<_>>();
-
-        assert!(arguments.contains(&"--proxy-server=http://127.0.0.1:43123".to_string()));
-        assert!(arguments.contains(&"--proxy-bypass-list=<-loopback>".to_string()));
-        assert!(arguments.contains(&"--disable-quic".to_string()));
-        assert!(arguments.contains(&DISABLE_NON_PROXIED_WEBRTC_UDP.to_string()));
-        assert!(!arguments
-            .iter()
-            .any(|argument| argument.contains("direct://")));
-    }
-}
-
 #[cfg(unix)]
 fn configure_process_group(command: &mut Command) {
     use std::os::unix::process::CommandExt;
@@ -346,4 +314,36 @@ pub(super) fn launch_test_session(
     temp_root: &Path,
 ) -> Result<BrowserSession, AppError> {
     BrowserSession::launch_under(executable, options, temp_root)
+}
+
+#[cfg(test)]
+mod command_tests {
+    use super::*;
+
+    #[test]
+    fn browser_command_forces_all_page_traffic_through_the_public_proxy() {
+        let executable = BrowserExecutable {
+            kind: super::super::discovery::BrowserKind::Chromium,
+            path: PathBuf::from("/test/chromium"),
+        };
+        let proxy_addr = "127.0.0.1:43123".parse().unwrap();
+        let command = browser_command(
+            &executable,
+            Path::new("/tmp/private-profile"),
+            true,
+            Some(proxy_addr),
+        );
+        let arguments = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(arguments.contains(&"--proxy-server=http://127.0.0.1:43123".to_string()));
+        assert!(arguments.contains(&"--proxy-bypass-list=<-loopback>".to_string()));
+        assert!(arguments.contains(&"--disable-quic".to_string()));
+        assert!(arguments.contains(&DISABLE_NON_PROXIED_WEBRTC_UDP.to_string()));
+        assert!(!arguments
+            .iter()
+            .any(|argument| argument.contains("direct://")));
+    }
 }
