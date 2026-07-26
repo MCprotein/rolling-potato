@@ -1,5 +1,33 @@
 # 릴리즈 노트
 
+## v0.49.4 - 신뢰할 수 있는 macOS terminal 릴리즈 검증
+
+릴리즈 날짜: 2026-07-26
+
+이 복구 patch는 native terminal 정리가 무제한 child process 대기 뒤에 실제 실패를
+숨기지 않게 하고, macOS의 exact terminal scenario를 PR candidate gate에서 먼저
+검증합니다. 명시적 session resume과 fresh start 동작은 유지하면서 불완전한
+v0.49.3 artifact set을 대체합니다.
+
+### 포함한 것
+
+- Unix PTY 정리를 `SIGTERM` 유예 후 `SIGKILL`로 제한하여 중지되거나 응답하지 않는
+  child가 test process를 무한히 붙잡지 못하게 함
+- PTY child를 실제로 suspend한 뒤 종료 시간 상한을 검증하는 exact regression test
+  추가
+- 모든 지원 platform에서 native-terminal stage trace를 출력하고 candidate와
+  release probe를 `--nocapture`로 실행해 실패 지점을 즉시 확인
+- 기존 Windows candidate 검증과 함께 exact macOS native-terminal candidate job을
+  merge와 tag 게시 전에 실행
+- 새 대화로 시작하고 `/resume`으로 durable history를 복원하며 stale historical
+  source pointer를 무관한 prompt에서 격리하는 v0.49.3 동작 유지
+
+### 호환성과 경계
+
+- 기존 public command, model file, registry와 durable conversation을 계속 지원합니다.
+- 기존 conversation은 `/resume`을 통해 복원할 수 있습니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
+
 ## v0.49.3 - 명시적 세션 resume과 신뢰할 수 있는 새 대화
 
 릴리즈 날짜: 2026-07-26
