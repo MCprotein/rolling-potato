@@ -129,6 +129,11 @@ pub(super) fn decide_request(
         {
             return Ok(RequestDecision::WebTool(tool));
         }
+        if let Some(tool) =
+            crate::app::web_search_adapter::deterministic_freshness_fallback(user_request)
+        {
+            return Ok(RequestDecision::WebTool(tool));
+        }
     }
     if !allow_direct_answer {
         return Ok(RequestDecision::ContinueLocal);

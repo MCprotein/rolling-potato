@@ -4,6 +4,7 @@ use super::super::{attachment, conversation, web_tools, TuiRuntimeAdapter};
 use super::backend::{ensure_runtime_ready, vision_status, RuntimeRequirement};
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::runtime_bridge::{TuiAttachment, TuiConversationTurn};
+use std::time::Instant;
 
 pub(super) fn execute(
     adapter: &mut TuiRuntimeAdapter,
@@ -11,6 +12,8 @@ pub(super) fn execute(
     attachments: &[TuiAttachment],
     history: &[TuiConversationTurn],
 ) -> Result<String, AppError> {
+    let web_started = Instant::now();
+    let mut web_research = crate::app::web_search_adapter::WebResearchSession::default();
     let user_request = request.trim();
     let backend = crate::app::inference_adapter::backend::runtime_snapshot().ok();
     let context_limit_tokens = crate::app::inference_adapter::model::configured_context_length()
@@ -37,9 +40,13 @@ pub(super) fn execute(
             required_context_limit(context_limit_tokens)?,
         );
     }
-    if let Some(result) =
-        web_tools::dispatch(&mut adapter.opened_web_page, user_request, local_context)
-    {
+    if let Some(result) = web_tools::dispatch(
+        &mut web_research,
+        &mut adapter.opened_web_page,
+        user_request,
+        local_context,
+        web_started.elapsed(),
+    ) {
         return result;
     }
     if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref(), vision) {
@@ -57,10 +64,12 @@ pub(super) fn execute(
         conversation::RequestDecision::Answer(answer) => return Ok(answer),
         conversation::RequestDecision::WebTool(tool) => {
             return web_tools::execute(
+                &mut web_research,
                 &mut adapter.opened_web_page,
                 tool,
                 user_request,
                 local_context,
+                web_started.elapsed(),
             );
         }
         conversation::RequestDecision::ContinueLocal => {}
