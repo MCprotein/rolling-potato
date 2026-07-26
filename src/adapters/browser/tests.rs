@@ -123,6 +123,42 @@ fn restricted_protocol_round_trip_masks_commands_and_matches_response_ids() {
 }
 
 #[test]
+fn restricted_protocol_scopes_target_commands_to_an_attached_session() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        accept_websocket(&mut stream);
+        let command = read_masked_text(&mut stream);
+        assert_eq!(
+            command,
+            "{\"id\":8,\"method\":\"Page.navigate\",\"params\":{\"url\":\"https://example.com/\"},\"sessionId\":\"session-1\"}"
+        );
+        write_server_text(
+            &mut stream,
+            "{\"id\":8,\"result\":{\"frameId\":\"frame-1\"}}",
+        );
+    });
+
+    let endpoint = test_endpoint(&format!("{port}\n/devtools/browser/test\n")).unwrap();
+    let mut client = RestrictedCdpClient::connect(&endpoint, Duration::from_secs(1)).unwrap();
+    let command = CdpCommand::new(
+        8,
+        CdpMethod::PageNavigate,
+        "{\"url\":\"https://example.com/\"}",
+    )
+    .unwrap()
+    .with_session_id("session-1")
+    .unwrap();
+    let response = client.send_command(&command).unwrap();
+    assert_eq!(
+        response.raw_json,
+        "{\"id\":8,\"result\":{\"frameId\":\"frame-1\"}}"
+    );
+    server.join().unwrap();
+}
+
+#[test]
 fn protocol_handshake_timeout_is_bounded() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();

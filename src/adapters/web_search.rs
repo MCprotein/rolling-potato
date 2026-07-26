@@ -152,6 +152,19 @@ pub(crate) fn configuration_summary() -> String {
     "사용 가능; API key 없는 WebSearch·WebOpen·WebFind".to_string()
 }
 
+pub(crate) fn validate_browser_navigation_url(url: &str) -> Result<String, AppError> {
+    let url = url.trim();
+    if !url
+        .get(..8)
+        .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https://"))
+    {
+        return Err(AppError::blocked(
+            "격리 브라우저 navigation은 public HTTPS URL만 허용합니다.",
+        ));
+    }
+    validate_open_url(url)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

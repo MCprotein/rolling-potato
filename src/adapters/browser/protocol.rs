@@ -116,6 +116,7 @@ pub(super) struct CdpCommand {
     id: u64,
     method: CdpMethod,
     params_json: String,
+    session_id: Option<String>,
 }
 
 impl CdpCommand {
@@ -145,15 +146,36 @@ impl CdpCommand {
             id,
             method,
             params_json,
+            session_id: None,
         })
     }
 
+    pub(super) fn with_session_id(mut self, session_id: &str) -> Result<Self, AppError> {
+        if session_id.is_empty()
+            || session_id.len() > 128
+            || !session_id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        {
+            return Err(AppError::blocked(
+                "CDP session identifier가 허용된 형식이 아닙니다.",
+            ));
+        }
+        self.session_id = Some(session_id.to_string());
+        Ok(self)
+    }
+
     fn render(&self) -> Result<String, AppError> {
+        let session = self
+            .session_id
+            .as_deref()
+            .map(|session_id| format!(",\"sessionId\":\"{session_id}\""))
+            .unwrap_or_default();
         let rendered = format!(
-            "{{\"id\":{},\"method\":\"{}\",\"params\":{}}}",
+            "{{\"id\":{},\"method\":\"{}\",\"params\":{}{session}}}",
             self.id,
             self.method.as_str(),
-            self.params_json
+            self.params_json,
         );
         if rendered.len() > MAX_COMMAND_BYTES {
             return Err(AppError::blocked("CDP command가 허용 크기를 초과했습니다."));

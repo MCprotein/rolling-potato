@@ -3,6 +3,8 @@
 //! Each child owns one cohesive runtime capability. Cross-capability access is
 //! admitted through the owning capability boundary, not through concrete files.
 
+#[allow(dead_code)] // B2 policy is connected to the TUI by the B3 delivery unit.
+pub(crate) mod browser;
 pub(crate) mod collaboration;
 pub(crate) mod extensions;
 pub(crate) mod inference;

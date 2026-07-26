@@ -8357,6 +8357,116 @@
           ]
         }
       ]
+    },
+    {
+      "path": "src/adapters/browser/actions.rs",
+      "slices": [
+        {
+          "responsibility": "restricted browser action execution and attached-target coordination",
+          "target": "src/adapters/browser/actions.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/actions.rs",
+            "src/adapters/browser/actions/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions/accessibility.rs",
+      "slices": [
+        {
+          "responsibility": "bounded accessibility-tree observation and sensitive-target classification",
+          "target": "src/adapters/browser/actions/accessibility.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/actions/accessibility.rs",
+            "src/adapters/browser/actions/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions/protocol_values.rs",
+      "slices": [
+        {
+          "responsibility": "typed bounded Chrome DevTools response value decoding",
+          "target": "src/adapters/browser/actions/protocol_values.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/actions/protocol_values.rs",
+            "src/adapters/browser/actions/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions/tests.rs",
+      "slices": [
+        {
+          "responsibility": "restricted browser action, stale-handle, and forbidden-target regression tests",
+          "target": "src/adapters/browser/actions/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/actions/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/browser.rs",
+      "slices": [
+        {
+          "responsibility": "surface-neutral restricted browser action and result contracts",
+          "target": "src/runtime_core/browser.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/browser.rs",
+            "src/runtime_core/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/browser/interaction.rs",
+      "slices": [
+        {
+          "responsibility": "opaque element handle admission, action budgets, and interaction policy",
+          "target": "src/runtime_core/browser/interaction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/browser/interaction.rs",
+            "src/runtime_core/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/browser/tests.rs",
+      "slices": [
+        {
+          "responsibility": "browser interaction policy, budget, and opaque-handle regression tests",
+          "target": "src/runtime_core/browser/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -11426,6 +11536,48 @@
       "path": "src/adapters/browser/websocket.rs",
       "responsibilities": [
         "loopback-only bounded RFC6455 transport for Chrome DevTools"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions.rs",
+      "responsibilities": [
+        "restricted browser action execution and attached-target coordination"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions/accessibility.rs",
+      "responsibilities": [
+        "bounded accessibility-tree observation and sensitive-target classification"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions/protocol_values.rs",
+      "responsibilities": [
+        "typed bounded Chrome DevTools response value decoding"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions/tests.rs",
+      "responsibilities": [
+        "restricted browser action, stale-handle, and forbidden-target regression tests"
+      ]
+    },
+    {
+      "path": "src/runtime_core/browser.rs",
+      "responsibilities": [
+        "surface-neutral restricted browser action and result contracts"
+      ]
+    },
+    {
+      "path": "src/runtime_core/browser/interaction.rs",
+      "responsibilities": [
+        "opaque element handle admission, action budgets, and interaction policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/browser/tests.rs",
+      "responsibilities": [
+        "browser interaction policy, budget, and opaque-handle regression tests"
       ]
     }
   ]

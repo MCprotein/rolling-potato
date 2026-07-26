@@ -6703,26 +6703,44 @@ fn web_search_open_find_have_separate_bounded_owners() {
 #[test]
 fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     let adapters = fs::read_to_string("src/adapters/mod.rs").unwrap();
+    let runtime = fs::read_to_string("src/runtime_core/mod.rs").unwrap();
     let facade = fs::read_to_string("src/adapters/browser.rs").unwrap();
+    let actions = fs::read_to_string("src/adapters/browser/actions.rs").unwrap();
+    let accessibility =
+        fs::read_to_string("src/adapters/browser/actions/accessibility.rs").unwrap();
+    let protocol_values =
+        fs::read_to_string("src/adapters/browser/actions/protocol_values.rs").unwrap();
+    let action_tests = fs::read_to_string("src/adapters/browser/actions/tests.rs").unwrap();
     let discovery = fs::read_to_string("src/adapters/browser/discovery.rs").unwrap();
     let session = fs::read_to_string("src/adapters/browser/session.rs").unwrap();
     let protocol = fs::read_to_string("src/adapters/browser/protocol.rs").unwrap();
     let websocket = fs::read_to_string("src/adapters/browser/websocket.rs").unwrap();
     let tests = fs::read_to_string("src/adapters/browser/tests.rs").unwrap();
+    let browser_policy = fs::read_to_string("src/runtime_core/browser.rs").unwrap();
+    let interaction = fs::read_to_string("src/runtime_core/browser/interaction.rs").unwrap();
+    let interaction_tests = fs::read_to_string("src/runtime_core/browser/tests.rs").unwrap();
 
     assert!(adapters.contains("pub(crate) mod browser;"));
-    for owner in ["discovery", "protocol", "session", "websocket"] {
+    assert!(runtime.contains("pub(crate) mod browser;"));
+    for owner in ["actions", "discovery", "protocol", "session", "websocket"] {
         assert!(
             facade.lines().any(|line| line == format!("mod {owner};")),
             "browser adapter facade does not register {owner}"
         );
     }
     for path in [
+        "src/adapters/browser/actions.rs",
+        "src/adapters/browser/actions/accessibility.rs",
+        "src/adapters/browser/actions/protocol_values.rs",
+        "src/adapters/browser/actions/tests.rs",
         "src/adapters/browser/discovery.rs",
         "src/adapters/browser/protocol.rs",
         "src/adapters/browser/session.rs",
         "src/adapters/browser/tests.rs",
         "src/adapters/browser/websocket.rs",
+        "src/runtime_core/browser.rs",
+        "src/runtime_core/browser/interaction.rs",
+        "src/runtime_core/browser/tests.rs",
     ] {
         assert!(Path::new(path).is_file(), "missing browser owner: {path}");
     }
@@ -6737,15 +6755,39 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(protocol.contains("enum CdpMethod"));
     assert!(!protocol.contains("Runtime.evaluate"));
     assert!(!protocol.contains("pub(crate) enum CdpMethod"));
+    assert!(actions.contains("BrowserInteractionSession"));
+    assert!(actions.contains("AccessibilityGetFullAxTree"));
+    assert!(actions.contains("DomGetBoxModel"));
+    for forbidden in ["Runtime.evaluate", "querySelector", "xpath", "XPath"] {
+        assert!(
+            !actions.contains(forbidden),
+            "browser action owner must not expose {forbidden}"
+        );
+    }
+    assert!(accessibility.contains("ObservedTargetSeed"));
+    assert!(protocol_values.contains("fn box_center"));
+    assert!(action_tests.contains("forbidden_targets_and_url_schemes_never_reach_the_protocol"));
+    assert!(browser_policy.contains("pub(crate) struct ElementHandle"));
+    assert!(interaction.contains("pub(crate) struct BrowserActionBudget"));
+    assert!(interaction.contains("max_interactions"));
+    assert!(interaction_tests.contains("observation_issues_opaque_handles"));
     assert!(websocket.contains("MAX_FRAME_BYTES"));
     assert!(websocket.contains("is_loopback()"));
     assert!(tests.contains("isolated_browser_session_cleans_up_process_group_and_profile"));
+    assert!(tests.contains("scopes_target_commands_to_an_attached_session"));
     assert!(tests.contains("oversized_protocol_frame_is_rejected_before_allocating_its_payload"));
 
     assert!(facade.lines().count() < 25);
+    assert!(actions.lines().count() < 350);
+    assert!(accessibility.lines().count() < 225);
+    assert!(protocol_values.lines().count() < 150);
+    assert!(action_tests.lines().count() < 300);
     assert!(discovery.lines().count() < 300);
     assert!(session.lines().count() < 350);
     assert!(protocol.lines().count() < 275);
     assert!(websocket.lines().count() < 425);
     assert!(tests.lines().count() < 375);
+    assert!(browser_policy.lines().count() < 225);
+    assert!(interaction.lines().count() < 350);
+    assert!(interaction_tests.lines().count() < 225);
 }
