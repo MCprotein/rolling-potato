@@ -5,13 +5,17 @@ use crate::native_terminal_support::NativePty;
 
 use crate::native_terminal_support::trace_stage;
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn uses_live_terminal_controls() -> bool {
+    std::env::var_os("NO_COLOR").is_none()
+        && std::env::var_os("TERM").as_deref() != Some(std::ffi::OsStr::new("dumb"))
+}
+
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
 fn confirm_picker(terminal: &mut NativePty, title: &str) {
     terminal.wait_for(title);
     #[cfg(any(target_os = "linux", target_os = "macos"))]
-    if std::env::var_os("NO_COLOR").is_none()
-        && std::env::var_os("TERM").as_deref() != Some(std::ffi::OsStr::new("dumb"))
-    {
+    if uses_live_terminal_controls() {
         terminal.send("2");
     } else {
         terminal.send("2\n");
@@ -39,7 +43,15 @@ fn select_workflow(terminal: &mut NativePty, workflow_id: &str) {
     let mark = terminal.mark();
     submit_visible_command(terminal, &format!("select {workflow_id}"));
     #[cfg(any(target_os = "linux", target_os = "macos"))]
-    terminal.wait_for_ordered_after(mark, &format!("선택: {workflow_id}"), "›");
+    terminal.wait_for_ordered_after(
+        mark,
+        &format!("선택: {workflow_id}"),
+        if uses_live_terminal_controls() {
+            "\u{1b}[?2004h"
+        } else {
+            "›"
+        },
+    );
     #[cfg(windows)]
     terminal.wait_for(&format!("선택: {workflow_id}"));
 }

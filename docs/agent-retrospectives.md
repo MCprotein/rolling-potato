@@ -16,6 +16,9 @@
 - PTY 테스트가 `선택: <workflow>` 알림을 다음 입력 준비 완료 신호로 사용했습니다.
   Full-screen redraw가 느린 runner에서는 선택 알림과 새 composer 준비 사이에 다음
   명령이 도착할 수 있었습니다.
+- Composer prompt 문자는 입력 모드가 활성화되기 전에 먼저 그려질 수 있었습니다.
+  화면에 `›`가 보이는 것만으로 event loop의 입력 준비를 판정해 다음 명령 전체가
+  사라지는 경우가 남았습니다.
 - 새 composer까지 기다린 뒤에도 보이는 명령과 LF를 한 번의 PTY write로 보냈습니다.
   macOS runner에서는 명령 문자열은 모두 렌더링됐지만 마지막 LF가 Enter로 처리되지
   않았습니다. 실제 키보드 Enter가 보내는 CR과 테스트 입력 계약이 달랐습니다.
@@ -23,7 +26,8 @@
 ### 재발 방지
 
 - 선택형 PTY 흐름은 선택 알림만 기다리지 않고, 동일 capture 구간에서
-  `선택 알림 → 새 composer prompt` 순서를 확인한 뒤 다음 명령을 보냅니다.
+  `선택 알림 → bracketed-paste 입력 모드 활성화` 순서를 확인한 뒤 다음 명령을
+  보냅니다. Prompt glyph는 화면 상태일 뿐 input-readiness marker로 사용하지 않습니다.
 - 보이는 대화형 명령은 문자열이 composer에 완전히 렌더링된 것을 확인한 다음,
   실제 키보드와 같은 CR을 별도 write로 보내 제출합니다. 명령과 LF를 한 번에
   보내는 방식으로 full-screen TUI readiness를 추측하지 않습니다.
