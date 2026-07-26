@@ -1060,20 +1060,6 @@
       ]
     },
     {
-      "path": "docs/ko/v0.49-web-research-browser-plan.md",
-      "slices": [
-        {
-          "responsibility": "refactor-governed documentation contract",
-          "target": "docs/ko/v0.49-web-research-browser-plan.md",
-          "release": "0.37.1",
-          "state": "complete",
-          "evidence": [
-            "tests/architecture_contract.rs"
-          ]
-        }
-      ]
-    },
-    {
       "path": "docs/korean-output-guard.md",
       "slices": [
         {
@@ -1359,20 +1345,6 @@
         {
           "responsibility": "refactor-governed documentation contract",
           "target": "docs/v0.29-correction-plan.md",
-          "release": "0.37.1",
-          "state": "complete",
-          "evidence": [
-            "tests/architecture_contract.rs"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "docs/v0.49-web-research-browser-plan.md",
-      "slices": [
-        {
-          "responsibility": "refactor-governed documentation contract",
-          "target": "docs/v0.49-web-research-browser-plan.md",
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
@@ -8156,6 +8128,142 @@
           ]
         }
       ]
+    },
+    {
+      "path": "docs/v0.50-web-research-browser-plan.md",
+      "slices": [
+        {
+          "responsibility": "v0.50 bounded web research and restricted browser delivery contract",
+          "target": "docs/v0.50-web-research-browser-plan.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/v0.50-web-research-browser-plan.md",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/v0.50-web-research-browser-plan.md",
+      "slices": [
+        {
+          "responsibility": "Korean v0.50 bounded web research and restricted browser delivery contract",
+          "target": "docs/ko/v0.50-web-research-browser-plan.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/ko/v0.50-web-research-browser-plan.md",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/web_sources.rs",
+      "slices": [
+        {
+          "responsibility": "interactive TUI web-source selection and opening coordination",
+          "target": "src/app/tui_adapter/runtime/web_sources.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/web_sources.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/answer_binding.rs",
+      "slices": [
+        {
+          "responsibility": "verified web-source citation and paragraph binding policy",
+          "target": "src/app/web_search_adapter/answer_binding.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/answer_binding.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_session.rs",
+      "slices": [
+        {
+          "responsibility": "bounded opened-page session and current-source ownership",
+          "target": "src/app/web_search_adapter/page_session.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/page_session.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_session/tests.rs",
+      "slices": [
+        {
+          "responsibility": "bounded page-session eviction and selection regression tests",
+          "target": "src/app/web_search_adapter/page_session/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/page_session.rs",
+            "src/app/web_search_adapter/page_session/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_tools/tests.rs",
+      "slices": [
+        {
+          "responsibility": "web page-tool redirect, find, and source regression tests",
+          "target": "src/app/web_search_adapter/page_tools/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/page_tools/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research.rs",
+      "slices": [
+        {
+          "responsibility": "bounded web research step and terminal-state orchestration",
+          "target": "src/app/web_search_adapter/research.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/research.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/source_selection.rs",
+      "slices": [
+        {
+          "responsibility": "terminal web-source picker and selected-source dispatch",
+          "target": "src/surfaces/tui/controller/source_selection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller/source_selection.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -8574,12 +8682,6 @@
       ]
     },
     {
-      "path": "docs/ko/v0.49-web-research-browser-plan.md",
-      "responsibilities": [
-        "refactor-governed documentation contract"
-      ]
-    },
-    {
       "path": "docs/korean-output-guard.md",
       "responsibilities": [
         "refactor-governed documentation contract"
@@ -8701,12 +8803,6 @@
     },
     {
       "path": "docs/v0.29-correction-plan.md",
-      "responsibilities": [
-        "refactor-governed documentation contract"
-      ]
-    },
-    {
-      "path": "docs/v0.49-web-research-browser-plan.md",
       "responsibilities": [
         "refactor-governed documentation contract"
       ]
@@ -11147,6 +11243,60 @@
       "path": "src/runtime_core/knowledge/compaction/recent_tail.rs",
       "responsibilities": [
         "complete-exchange recent-tail selection and bounded oversized-exchange reduction"
+      ]
+    },
+    {
+      "path": "docs/v0.50-web-research-browser-plan.md",
+      "responsibilities": [
+        "v0.50 bounded web research and restricted browser delivery contract"
+      ]
+    },
+    {
+      "path": "docs/ko/v0.50-web-research-browser-plan.md",
+      "responsibilities": [
+        "Korean v0.50 bounded web research and restricted browser delivery contract"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/web_sources.rs",
+      "responsibilities": [
+        "interactive TUI web-source selection and opening coordination"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/answer_binding.rs",
+      "responsibilities": [
+        "verified web-source citation and paragraph binding policy"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_session.rs",
+      "responsibilities": [
+        "bounded opened-page session and current-source ownership"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_session/tests.rs",
+      "responsibilities": [
+        "bounded page-session eviction and selection regression tests"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_tools/tests.rs",
+      "responsibilities": [
+        "web page-tool redirect, find, and source regression tests"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research.rs",
+      "responsibilities": [
+        "bounded web research step and terminal-state orchestration"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/source_selection.rs",
+      "responsibilities": [
+        "terminal web-source picker and selected-source dispatch"
       ]
     }
   ]
