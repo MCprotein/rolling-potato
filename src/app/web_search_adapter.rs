@@ -378,22 +378,4 @@ mod tests {
         assert!(route_tool_request("find Safety in this page").is_none());
         assert!(route_tool_request("웹에서 ownership 찾아줘").is_none());
     }
-
-    #[test]
-    fn page_find_requires_an_open_page_and_renders_literal_matches() {
-        assert!(find_in_page(None, "Rust").is_err());
-        let page = web_search::WebPageEvidence {
-            source_id: "source-test".to_string(),
-            requested_url: "https://example.com".to_string(),
-            final_url: "https://example.com/docs".to_string(),
-            title: Some("Guide".to_string()),
-            content: "Rust guide\nother".to_string(),
-        };
-
-        let report = find_in_page(Some(&page), "rust").unwrap();
-
-        assert!(report.contains("일치: 1개"));
-        assert!(report.contains("1. Rust guide"));
-        assert!(report.contains("https://example.com/docs"));
-    }
 }

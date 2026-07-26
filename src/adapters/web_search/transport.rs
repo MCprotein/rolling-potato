@@ -75,7 +75,7 @@ pub(super) fn fetch_page_response(url: &str) -> Result<PageResponse, AppError> {
         .get(url)
         .header(
             "Accept",
-            "text/html,application/xhtml+xml,text/plain,application/json;q=0.8",
+            "text/html,application/xhtml+xml,text/markdown,text/x-markdown,application/rss+xml,application/atom+xml,application/xml,text/xml,text/plain,application/json;q=0.8",
         )
         .header("User-Agent", concat!("rpotato/", env!("CARGO_PKG_VERSION")))
         .call()

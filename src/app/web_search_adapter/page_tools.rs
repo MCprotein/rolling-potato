@@ -65,7 +65,8 @@ pub(crate) fn find_in_page(
     })?;
     let evidence = web_search::find_in_page(page, query)?;
     let mut report = format!(
-        "페이지 내부 찾기\n- URL: {}\n- 검색어: {}\n- 일치: {}개",
+        "페이지 내부 찾기\n- 출처: [{}]\n- URL: {}\n- 검색어: {}\n- 일치: {}개",
+        evidence.source_id,
         evidence.page_url,
         evidence.query,
         evidence.matches.len()
@@ -75,7 +76,12 @@ pub(crate) fn find_in_page(
     } else {
         report.push_str("\n\n");
         for (index, matched) in evidence.matches.iter().enumerate() {
-            report.push_str(&format!("{}. {matched}\n", index + 1));
+            report.push_str(&format!(
+                "{}. 일치 줄 {}\n{}\n",
+                index + 1,
+                matched.line_number,
+                matched.context
+            ));
         }
         report.pop();
     }
@@ -91,3 +97,6 @@ fn page_fallback(page: &web_search::WebPageEvidence) -> String {
         .collect::<String>();
     format!("페이지를 열었습니다.\n- 제목: {title}\n\n{excerpt}")
 }
+
+#[cfg(test)]
+mod tests;

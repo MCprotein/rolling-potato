@@ -24,7 +24,7 @@ use evidence::{stable_source_id, SearchResult, MAX_SEARCH_CONTEXT_CHARS};
 #[cfg(test)]
 use html::normalize_result_url;
 #[cfg(test)]
-use page::normalize_page_text;
+use page::{normalize_page_text, MAX_PAGE_CONTEXT_CHARS};
 #[cfg(test)]
 use policy::{
     canonicalize_source_url, is_valid_https_source_url, socket_addresses_are_public,
@@ -160,6 +160,11 @@ mod tests {
     const LITE_FIXTURE: &str = include_str!("../../tests/fixtures/web_search/ddg-lite.html");
     const DRIFT_FIXTURE: &str = include_str!("../../tests/fixtures/web_search/ddg-drift.html");
     const ANTIBOT_FIXTURE: &str = include_str!("../../tests/fixtures/web_search/ddg-antibot.html");
+    const HOSTILE_PAGE_FIXTURE: &str =
+        include_str!("../../tests/fixtures/web_search/page-hostile.html");
+    const MARKDOWN_FIXTURE: &str = include_str!("../../tests/fixtures/web_search/page.md");
+    const RSS_FIXTURE: &str = include_str!("../../tests/fixtures/web_search/feed-rss.xml");
+    const ATOM_FIXTURE: &str = include_str!("../../tests/fixtures/web_search/feed-atom.xml");
 
     #[test]
     fn parses_direct_search_html_and_deduplicates_https_sources() {
@@ -430,20 +435,29 @@ mod tests {
 
     #[test]
     fn web_open_normalizes_readable_text_and_removes_active_content() {
-        let document = r#"
-            <html><head><title>Rust &amp; 안전</title>
-            <style>.secret { display:none }</style>
-            <script>alert("ignore")</script></head>
-            <body><nav>메뉴</nav><main><h1>시작</h1><p>Rust 문서입니다.</p></main></body></html>
-        "#;
+        let page = normalize_page_text(
+            "https://example.com/docs",
+            HOSTILE_PAGE_FIXTURE,
+            "text/html",
+        )
+        .unwrap();
 
-        let page = normalize_page_text("https://example.com/docs", document, "text/html").unwrap();
-
-        assert_eq!(page.title.as_deref(), Some("Rust & 안전"));
-        assert!(page.content.contains("시작"));
-        assert!(page.content.contains("Rust 문서입니다."));
-        assert!(!page.content.contains("alert"));
-        assert!(!page.content.contains("display:none"));
+        assert_eq!(page.title.as_deref(), Some("안전한 Rust 안내서"));
+        assert!(page.content.contains("Rust 설치"));
+        assert!(page.content.contains("checksum을 확인합니다."));
+        for excluded in [
+            "window.secret",
+            "display: none",
+            "사이트 머리말",
+            "홈 제품 가격",
+            "광고와 추천",
+            "숨겨진 프롬프트",
+            "템플릿 공격",
+            "저작권 개인정보",
+        ] {
+            assert!(!page.content.contains(excluded), "{excluded}");
+        }
+        assert_eq!(page.content.matches("checksum을 확인합니다.").count(), 1);
     }
 
     #[test]
@@ -472,8 +486,62 @@ mod tests {
         let evidence = find_in_page(&page, "rust").unwrap();
 
         assert_eq!(evidence.page_url, page.final_url);
+        assert_eq!(evidence.source_id, page.source_id);
         assert_eq!(evidence.query, "rust");
         assert_eq!(evidence.matches.len(), 3);
-        assert!(evidence.matches[0].contains("Rust 첫 문단"));
+        assert_eq!(evidence.matches[0].line_number, 1);
+        assert!(evidence.matches[0].context.contains("1: Rust 첫 문단"));
+        assert!(evidence.matches[0].context.contains("2: 다른 줄"));
+        assert!(evidence.matches[1].context.contains("4: rust 세 번째 문단"));
+    }
+
+    #[test]
+    fn web_open_reads_markdown_rss_and_atom_documents() {
+        let markdown = normalize_page_text(
+            "https://example.com/guide.md",
+            MARKDOWN_FIXTURE,
+            "text/markdown; charset=utf-8",
+        )
+        .unwrap();
+        assert_eq!(markdown.title.as_deref(), Some("rpotato 웹 연구"));
+        assert!(markdown.content.contains("신뢰할 수 없는 증거"));
+
+        let rss = normalize_page_text(
+            "https://example.com/feed.xml",
+            RSS_FIXTURE,
+            "application/rss+xml",
+        )
+        .unwrap();
+        assert_eq!(rss.title.as_deref(), Some("Rust 릴리스"));
+        assert!(rss.content.contains("Rust 1.90 발표"));
+        assert!(rss.content.contains("새 릴리스의 안정화 변경"));
+        assert!(!rss.content.contains("<p>"));
+
+        let atom = normalize_page_text(
+            "https://example.com/atom.xml",
+            ATOM_FIXTURE,
+            "application/atom+xml",
+        )
+        .unwrap();
+        assert_eq!(atom.title.as_deref(), Some("rpotato 소식"));
+        assert!(atom.content.contains("읽기 가능한 웹 증거"));
+        assert!(atom.content.contains("Atom 요약"));
+        assert!(normalize_page_text(
+            "https://example.com/data.xml",
+            "<root>not a feed</root>",
+            "application/xml"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn web_open_applies_one_context_budget_to_every_supported_format() {
+        for media_type in ["text/plain", "text/markdown", "application/json"] {
+            let document = "가".repeat(MAX_PAGE_CONTEXT_CHARS + 100);
+            let page =
+                normalize_page_text("https://example.com/large", &document, media_type).unwrap();
+
+            assert_eq!(page.content.chars().count(), MAX_PAGE_CONTEXT_CHARS);
+        }
     }
 }
