@@ -6,6 +6,7 @@ mod request;
 mod session_tests;
 mod state;
 mod status;
+mod web_sources;
 
 use super::model_switch::{switch_prepared_model, LiveModelSwitch};
 use super::{
@@ -17,7 +18,7 @@ use crate::surfaces::tui::controller::TuiRuntimePort;
 use crate::surfaces::tui::outcome::{TuiEffect, TuiOutcome};
 use crate::surfaces::tui::runtime_bridge::{
     new_tui_intent_id, SelectionLease, TuiAttachment, TuiGateKind, TuiIntent, TuiReadPage,
-    TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot,
+    TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot, TuiWebSourceOption,
 };
 use backend::reconcile_existing_runtime;
 pub(super) use state::TuiRuntimeAdapter;
@@ -89,6 +90,14 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
                 session_id: session.session_id,
             })
             .collect())
+    }
+
+    fn web_source_options(&mut self) -> Vec<TuiWebSourceOption> {
+        web_sources::options(&self.web_pages)
+    }
+
+    fn select_web_source(&mut self, source_id: &str) -> Result<String, AppError> {
+        web_sources::select(&mut self.web_pages, source_id)
     }
 
     fn start_new_session(&mut self) -> Result<TuiSessionTransition, AppError> {

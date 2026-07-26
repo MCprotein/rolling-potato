@@ -35,10 +35,15 @@ impl<'a> WebAnswerInput<'a> {
     }
 }
 
+pub(crate) struct WebSearchAnswer {
+    pub(crate) sources: Vec<web_search::WebSourceEvidence>,
+    pub(crate) report: String,
+}
+
 pub(crate) fn answer(
     input: WebAnswerInput<'_>,
     research: &mut WebResearchSession,
-) -> Result<String, AppError> {
+) -> Result<WebSearchAnswer, AppError> {
     let allow_lite_fallback = research.reserve_optional_network_request(Duration::ZERO);
     let evidence = web_search::search(input.query, allow_lite_fallback)?;
     let evidence_context = research
@@ -56,7 +61,11 @@ pub(crate) fn answer(
         research::WebResearchBudget::default().final_answer_tokens(),
     )
     .ok();
-    Ok(render_grounded_answer(generated, &evidence.sources))
+    let report = render_grounded_answer(generated, &evidence.sources);
+    Ok(WebSearchAnswer {
+        sources: evidence.sources,
+        report,
+    })
 }
 
 pub(super) fn web_answer_language_policy(query: &str) -> &'static str {

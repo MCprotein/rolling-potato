@@ -8,7 +8,7 @@ use crate::surfaces::tui::render::{
 use crate::surfaces::tui::runtime_bridge::{
     SelectionLease, TuiAttachment, TuiAttachmentKind, TuiConversationRole, TuiConversationTurn,
     TuiFreshness, TuiGateKind, TuiIntent, TuiModelOption, TuiReadContinuation, TuiReadPage,
-    TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot,
+    TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot, TuiWebSourceOption,
 };
 use crate::surfaces::tui::view_model::{ConversationRole, InteractiveState};
 
@@ -206,7 +206,8 @@ fn search_command_routes_the_question_and_renders_the_answer() {
     let rendered = terminal.frames.join("\n");
     assert_eq!(runtime.requests, ["/search Rust 공식 웹사이트는?"]);
     assert!(rendered.contains("› /search Rust 공식 웹사이트는?"));
-    assert!(rendered.contains("검색 중 · 최신 웹 자료를 확인하고 있습니다…"));
+    assert!(rendered.contains("웹 조사 · 검색 중"));
+    assert!(rendered.contains("검색 ● → 결과 평가 ○ → 문서 읽기 ○ → 증거 구성 ○ → 답변 ○"));
     assert!(rendered.contains("● 안녕하세요."));
 }
 
@@ -225,6 +226,26 @@ fn web_open_and_find_commands_route_through_the_conversation_runtime() {
     let rendered = terminal.frames.join("\n");
     assert!(rendered.contains("페이지 여는 중"));
     assert!(rendered.contains("페이지 찾는 중"));
+}
+
+#[test]
+fn sources_command_uses_a_picker_and_changes_the_current_document() {
+    let mut terminal = ScriptedTerminal::new(["/sources", "2", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        web_source_options: vec![
+            web_source_option("source-one", "첫 문서", "https://example.com/one", true),
+            web_source_option("source-two", "둘째 문서", "https://example.com/two", false),
+        ],
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.selected_web_sources, ["source-two"]);
+    assert!(terminal
+        .frames
+        .join("\n")
+        .contains("현재 웹 출처를 변경했습니다: source-two"));
 }
 
 #[test]
@@ -261,6 +282,53 @@ fn interactive_web_open_keeps_page_available_for_followup_find() {
     assert!(rendered.contains("Rust Guide"));
     assert!(rendered.contains("일치: 1개"));
     assert!(rendered.contains("Ownership is a Rust feature."));
+}
+
+#[test]
+fn search_results_enter_the_source_picker_and_open_for_followup_find() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = std::env::temp_dir().join(format!(
+        "rpotato-search-source-picker-test-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&root);
+    std::env::set_var("RPOTATO_PROJECT_ROOT", root.join("project"));
+    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+    std::env::set_var("RPOTATO_TEST_SKIP_UPDATE_CHECK", "1");
+    std::env::set_var(
+        "RPOTATO_TEST_WEB_SEARCH_HTML",
+        include_str!("../../../tests/fixtures/web_search/ddg-html.html"),
+    );
+    std::env::set_var(
+        "RPOTATO_TEST_WEB_OPEN_HTML",
+        "<html><title>Selected Source</title><main>Verified checksum evidence.</main></html>",
+    );
+    std::fs::create_dir_all(root.join("project")).unwrap();
+    crate::app::workflow_adapter::state::initialize().unwrap();
+    let mut terminal = ScriptedTerminal::new([
+        "/search Rust official release",
+        "/sources",
+        "1",
+        "/find checksum",
+        "/quit",
+    ]);
+
+    run_controller(&mut terminal, &mut TuiRuntimeAdapter::default()).unwrap();
+
+    for name in [
+        "RPOTATO_PROJECT_ROOT",
+        "RPOTATO_DATA_HOME",
+        "RPOTATO_TEST_SKIP_UPDATE_CHECK",
+        "RPOTATO_TEST_WEB_SEARCH_HTML",
+        "RPOTATO_TEST_WEB_OPEN_HTML",
+    ] {
+        std::env::remove_var(name);
+    }
+    let _ = std::fs::remove_dir_all(root);
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("Selected Source"));
+    assert!(rendered.contains("일치: 1개"));
+    assert!(rendered.contains("Verified checksum evidence."));
 }
 
 #[test]
@@ -445,6 +513,8 @@ fn conversation_frame_sanitizes_project_path_and_respects_terminal_cell_width() 
         ConversationRole::Assistant,
         "한국어 응답이 좁은 터미널에서도 입력창을 밀어내지 않습니다.",
     );
+    state.notice =
+        "웹 조사 · 검색 중\n검색 ● → 결과 평가 ○ → 문서 읽기 ○ → 증거 구성 ○ → 답변 ○".to_string();
 
     let frame = render_interactive_frame(&state, &TuiReadPage::conversation_placeholder(), 40, 12);
 
@@ -479,6 +549,8 @@ struct ConversationRuntime {
     session_options: Vec<TuiSessionOption>,
     resumed_sessions: Vec<String>,
     new_session_calls: usize,
+    web_source_options: Vec<TuiWebSourceOption>,
+    selected_web_sources: Vec<String>,
 }
 
 impl TuiRuntimePort for ConversationRuntime {
@@ -526,6 +598,15 @@ impl TuiRuntimePort for ConversationRuntime {
 
     fn session_options(&mut self) -> Result<Vec<TuiSessionOption>, AppError> {
         Ok(self.session_options.clone())
+    }
+
+    fn web_source_options(&mut self) -> Vec<TuiWebSourceOption> {
+        self.web_source_options.clone()
+    }
+
+    fn select_web_source(&mut self, source_id: &str) -> Result<String, AppError> {
+        self.selected_web_sources.push(source_id.to_string());
+        Ok(format!("현재 웹 출처를 변경했습니다: {source_id}"))
     }
 
     fn start_new_session(&mut self) -> Result<TuiSessionTransition, AppError> {
@@ -630,6 +711,16 @@ fn session_option(session_id: &str, preview: &str, current: bool) -> TuiSessionO
     TuiSessionOption {
         session_id: session_id.to_string(),
         preview: preview.to_string(),
+        current,
+    }
+}
+
+fn web_source_option(source_id: &str, title: &str, url: &str, current: bool) -> TuiWebSourceOption {
+    TuiWebSourceOption {
+        source_id: source_id.to_string(),
+        title: title.to_string(),
+        url: url.to_string(),
+        opened: current,
         current,
     }
 }

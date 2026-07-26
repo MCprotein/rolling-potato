@@ -96,6 +96,34 @@ fn explicit_session_resume_restores_only_the_selected_conversation() {
     assert_eq!(runtime.web_pages.len(), 0);
 }
 
+#[test]
+fn web_source_options_are_recent_first_and_select_the_find_target() {
+    let mut runtime = TuiRuntimeAdapter::default();
+    for (id, title) in [("source-one", "One"), ("source-two", "Two")] {
+        runtime
+            .web_pages
+            .record(crate::adapters::web_search::WebPageEvidence {
+                source_id: id.to_string(),
+                requested_url: format!("https://example.com/{id}"),
+                final_url: format!("https://example.com/{id}"),
+                title: Some(title.to_string()),
+                content: title.to_string(),
+            });
+    }
+
+    let options = runtime.web_source_options();
+    assert_eq!(
+        options
+            .iter()
+            .map(|option| option.source_id.as_str())
+            .collect::<Vec<_>>(),
+        ["source-two", "source-one"]
+    );
+    assert!(options[0].current);
+    assert!(runtime.select_web_source("source-one").is_ok());
+    assert_eq!(runtime.web_pages.current().unwrap().source_id, "source-one");
+}
+
 fn test_root(name: &str) -> std::path::PathBuf {
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

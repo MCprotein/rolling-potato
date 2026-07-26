@@ -6607,6 +6607,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let tui_facade = fs::read_to_string("src/app/tui_adapter.rs").unwrap();
     let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
     let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
+    let tui_controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
+    let tui_bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
     let transport = fs::read_to_string("src/adapters/web_search/transport.rs").unwrap();
     let page_parser = fs::read_to_string("src/adapters/web_search/page.rs").unwrap();
 
@@ -6621,7 +6623,9 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/web_search_adapter/page_session.rs",
         "src/app/web_search_adapter/page_tools.rs",
         "src/app/web_search_adapter/routing.rs",
+        "src/app/tui_adapter/runtime/web_sources.rs",
         "src/app/tui_adapter/web_tools.rs",
+        "src/surfaces/tui/controller/source_selection.rs",
     ] {
         assert!(Path::new(path).is_file(), "missing web tool owner: {path}");
     }
@@ -6642,6 +6646,10 @@ fn web_search_open_find_have_separate_bounded_owners() {
         );
     }
     assert!(tui_facade.lines().any(|line| line == "mod web_tools;"));
+    assert!(tui_runtime.lines().any(|line| line == "mod web_sources;"));
+    assert!(tui_controller.contains("mod source_selection;"));
+    assert!(tui_controller.contains("[\"/sources\"]"));
+    assert!(tui_bridge.contains("struct TuiWebSourceOption"));
     assert!(tui_request.contains("web_tools::dispatch"));
     assert!(transport.contains("ureq::Agent::with_parts"));
     assert!(transport.contains("PublicWebResolver"));
