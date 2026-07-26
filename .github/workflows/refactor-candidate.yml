@@ -129,5 +129,41 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo test --locked --target x86_64-pc-windows-msvc --test surfaces native_terminal::entry_quit -- --exact --test-threads=1
-          cargo test --locked --target x86_64-pc-windows-msvc --test surfaces native_terminal::full_adapter -- --exact --test-threads=1
+          cargo test --locked --target x86_64-pc-windows-msvc --test surfaces native_terminal::entry_quit -- --exact --test-threads=1 --nocapture
+          cargo test --locked --target x86_64-pc-windows-msvc --test surfaces native_terminal::full_adapter -- --exact --test-threads=1 --nocapture
+
+  macos-native-terminal:
+    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'release-candidate')
+    runs-on: macos-26
+    timeout-minutes: 10
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$CANDIDATE_SHA" ]; then
+            printf 'candidate SHA mismatch: expected %s, got %s\n' "$CANDIDATE_SHA" "$actual_sha" >&2
+            exit 1
+          fi
+
+      - name: Install Rust target
+        run: rustup target add aarch64-apple-darwin
+
+      - name: Test native macOS terminal candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --locked --target aarch64-apple-darwin --test surfaces native_terminal::entry_quit -- --exact --test-threads=1 --nocapture
+          cargo test --locked --target aarch64-apple-darwin --test surfaces native_terminal::pty_drop_escalates_when_child_cannot_handle_sigterm -- --exact --test-threads=1 --nocapture
+          cargo test --locked --target aarch64-apple-darwin --test surfaces native_terminal::full_adapter -- --exact --test-threads=1 --nocapture

@@ -3,7 +3,6 @@ use crate::native_terminal_support::{self, tree_snapshot, NativeTerminalFixture}
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
 use crate::native_terminal_support::NativePty;
 
-#[cfg(windows)]
 use crate::native_terminal_support::trace_stage;
 
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
@@ -252,16 +251,31 @@ fn secret_prompt_restores_echo_before_sigint_and_sigterm_exit() {
     }
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn pty_drop_escalates_when_child_cannot_handle_sigterm() {
+    let _fixture = NativeTerminalFixture::new("bounded-pty-drop");
+    let mut terminal = NativePty::spawn(120, 40);
+    terminal.wait_for("›");
+    terminal.force_drop_escalation_probe();
+
+    let started = std::time::Instant::now();
+    drop(terminal);
+
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(3),
+        "PTY drop exceeded its bounded termination budget: {:?}",
+        started.elapsed()
+    );
+}
+
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
 #[test]
 fn full_adapter() {
-    #[cfg(windows)]
     trace_stage("full_adapter start");
     let fixture = NativeTerminalFixture::new("full-adapter");
-    #[cfg(windows)]
     trace_stage("fixture initialized");
     let pending = fixture.prepare_source_approval();
-    #[cfg(windows)]
     trace_stage("source approval prepared");
     #[cfg(unix)]
     let before_ledger = runtime_ledger(&fixture);
