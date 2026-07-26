@@ -164,18 +164,21 @@
 ### 기본 TUI 계약
 
 - terminal에 연결된 인자 없는 `rpotato`는 대화 controller를 연다.
-- 최초 frame은 overview ledger page를 절대 render하지 않는다. Compact한 네 줄 welcome, 현재 project label, composer, status line만 보여주며 첫 turn 뒤에는 한 줄 identity header로 전환한다.
-- 일반 입력은 dispatch 전에 user turn으로 표시하고, 보이는 결과는 assistant turn으로 표시한다. 오류도 inline으로 유지하되 직접 원인과 복구 action을 말한다.
+- 최초 frame은 overview ledger page를 절대 render하지 않는다. Compact한 welcome, 현재 project label, 새 대화 안내, composer, status line만 보여주며 첫 turn 뒤에는 한 줄 identity header로 전환한다.
+- 매 실행은 빈 대화 surface로 시작한다. 저장된 대화는 사용자가 `/resume` 선택창에서 세션을 고른 뒤에만 복원하며, `/new`는 기존 기록을 지우지 않고 새 영속 세션을 만든다.
+- 일반 입력은 dispatch 전에 user turn으로 표시하고, 보이는 결과는 assistant turn으로 표시한다. 오류는 초록 assistant 답변이 아닌 별도의 빨간 `×` turn으로 표시하고 이후 model memory에서 제외한다.
 - 대화 turn은 terminal display cell 기준으로 줄바꿈하고 긴 응답의 모든 line을 `/more`와 `/back`으로 확인할 수 있어야 한다.
 - 상세 revision, hash, ledger count, projection freshness, workflow field, monitor table은 명시적인 status/diagnostic view에서만 볼 수 있다.
 - 최초 실행에서는 같은 terminal 흐름 안에서 출처 기반 model 후보를 나열하고 확인 전에 model ID/version, quantization, download size, context limit, RAM 상태, license, 추천 근거를 보여준다.
 - managed backend는 자동으로 설치하거나 재사용한다. 기본 경로에서 사용자가 `llama.cpp` executable 또는 GGUF filesystem path를 입력하게 하지 않는다.
-- composer가 focus 중심이며, 바로 다음 status line은 항상 `model | ctx used/limit (%) | compaction | backend | session` 순서를 사용한다.
+- 새 대화 상태에서 context를 읽거나 변경하는 `/compact` 같은 동작은 먼저 pending fresh session을 확정하며 이전 durable session을 암묵적으로 대상으로 삼지 않는다.
+- composer가 focus 중심이며, 바로 다음 status line은 항상 `model | ctx used/limit (%) | compaction | local | vision | session` 순서를 사용한다.
+- 넓은 terminal에서는 welcome·composer·status chrome이 viewport 전체 폭을 사용하고 transcript와 notice 본문은 120-cell reading column을 유지한다. 좁은 terminal은 overflow 없는 단일 column을 유지한다.
 - Attached terminal composer는 rounded border 하나, cyan focus marker, live cursor 아래 placeholder 없는 입력 공간을 사용한다. No-color와 redirected fallback은 plain `›` prompt를 유지한다.
 - Status segment는 model/focus cyan, healthy green, due/degraded yellow, failed/stale red, session/secondary muted처럼 의미별로 독립 표시하며 전체 status row를 하나의 success color로 칠하지 않는다.
 - Context segment는 측정 사용량과 비율을 표시하고 공간이 허용될 때 compaction을 바로 옆에 둔다. 좁은 terminal에서는 status bar를 줄바꿈하지 않고 뒤쪽 segment부터 truncate한다.
 - model과 context 값은 최신 기록된 model run, backend 상태는 managed sidecar, session은 active canonical session identity에서 읽는다. 없는 값과 stale backend 상태는 추측하지 않고 표시한다.
-- `/model`, `/compact`, `/update`, `/status`, `/sessions`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, `/quit`가 일반 TUI 동작을 담당한다. 기존 세부 subcommand는 `rpotato debug --help` 아래의 고급 호환 surface로 유지한다.
+- `/model`, `/compact`, `/update`, `/status`, `/sessions`, `/resume`, `/new`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, `/quit`가 일반 TUI 동작을 담당한다. 기존 세부 subcommand는 `rpotato debug --help` 아래의 고급 호환 surface로 유지한다.
 - ANSI attached terminal에서는 semantic color와 cursor positioning을 쓸 수 있다. Redirect된 출력, `TERM=dumb`, `NO_COLOR`에서는 안정된 plain text를 유지한다.
 
 ### 접근성
@@ -264,6 +267,8 @@
   - TUI smoke test는 80x24와 wide terminal size에서 수행한다.
   - 기본 frame 회귀 테스트는 raw ledger/hash/projection field가 없고 composer/status 순서가 고정됨을 증명한다.
   - 자연어 인사 회귀 테스트는 대화로 표시되고 patch proposal을 시작하지 않음을 증명한다.
+  - 장기 세션 회귀 테스트는 기본 진입이 저장된 대화를 자동 복원하지 않고 `/resume` 선택 뒤에만 해당 transcript를 복원함을 증명한다.
+  - 오류·welcome·대화·wide viewport는 marker, 색상 역할, spacing, reading width를 실행 가능한 render 계약으로 검증한다.
   - 시각 인수 기준은 120x40 terminal capture 한 장을 2026-07-22 Codex·Claude Code 참조와 비교한다. 계약 위반이 없으면 한 번의 bounded pass로 종료한다.
   - HTML test는 browser runtime dependency를 추가하지 않고 semantic structure, escaping, privacy marker, narrow-screen layout을 검사한다.
 

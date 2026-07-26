@@ -3,17 +3,19 @@ use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalFault, TerminalI
 
 use super::outcome::{exact_tui_outcome, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext};
 use super::runtime_bridge::{
-    OneShotSecret, SelectionLease, TuiAttachment, TuiConversationTurn, TuiGateKind, TuiIntent,
-    TuiModelOption, TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
+    OneShotSecret, SelectionLease, TuiAttachment, TuiGateKind, TuiIntent, TuiModelOption,
+    TuiReadPage, TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot,
 };
 use super::view_model::{ConversationRole, InteractiveState, InteractiveView};
 
 mod attachments;
 mod model_selection;
+mod session_selection;
 mod terminal_flow;
 
 use attachments::{capture_attachment_notice, looks_like_attachment_path};
 use model_selection::{apply_model_choice, choose_model, model_options_notice};
+use session_selection::{resume_selected_session, resume_session, start_new_session};
 use terminal_flow::{
     confirm, confirm_workflow_action, outcome_notice, outcome_was_dispatched,
     post_dispatch_write_error, pre_dispatch_write_error, write_pending_conversation_frame,
@@ -24,12 +26,14 @@ pub(crate) use terminal_flow::{consume_outcome, terminal_fault_error};
 pub(crate) trait TuiRuntimePort {
     fn startup_update_notice(&mut self) -> Option<String>;
     fn reconcile_existing_backend(&mut self) -> Result<(), AppError>;
-    fn conversation_history(&mut self) -> Result<Vec<TuiConversationTurn>, AppError>;
     fn clear_conversation_history(&mut self) -> Result<(), AppError>;
     fn apply_update(&mut self) -> Result<String, AppError>;
     fn read_tui_page(&mut self, request: TuiReadRequest) -> Result<TuiReadPage, AppError>;
     fn read_tui_status(&mut self) -> Result<TuiStatusSnapshot, AppError>;
     fn model_options(&mut self) -> Vec<TuiModelOption>;
+    fn session_options(&mut self) -> Result<Vec<TuiSessionOption>, AppError>;
+    fn start_new_session(&mut self) -> Result<TuiSessionTransition, AppError>;
+    fn resume_session(&mut self, session_id: &str) -> Result<TuiSessionTransition, AppError>;
     fn setup_model(&mut self, id: &str) -> Result<String, AppError>;
     fn doctor_report(&mut self) -> String;
     fn compact_context(&mut self) -> Result<String, AppError>;
@@ -55,7 +59,6 @@ pub(crate) fn run_controller(
         .validate_configuration()
         .map_err(terminal_fault_error)?;
     let mut state = InteractiveState::new();
-    state.turns = runtime.conversation_history()?;
     if let Err(error) = runtime.reconcile_existing_backend() {
         state.notice = error.message;
     }
@@ -141,11 +144,13 @@ pub(crate) fn run_controller(
                 state.push_turn(ConversationRole::User, line.trim());
                 state.notice = "검색 중 · 최신 웹 자료를 확인하고 있습니다…".to_string();
                 write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
-                let response = match runtime.submit_request(line.trim(), &[]) {
-                    Ok(report) => report,
-                    Err(error) => format!("웹 검색을 완료하지 못했습니다.\n{}", error.message),
-                };
-                state.push_turn(ConversationRole::Assistant, response);
+                match runtime.submit_request(line.trim(), &[]) {
+                    Ok(report) => state.push_turn(ConversationRole::Assistant, report),
+                    Err(error) => state.push_turn(
+                        ConversationRole::Error,
+                        format!("웹 검색을 완료하지 못했습니다.\n{}", error.message),
+                    ),
+                }
             }
             ["/open"] => {
                 state.notice = "사용법: /open <HTTPS URL>".to_string();
@@ -209,6 +214,8 @@ pub(crate) fn run_controller(
             }
             ["/chat"] => state.set_view(InteractiveView::Conversation),
             ["/sessions"] => state.set_view(InteractiveView::Sessions),
+            ["/new"] => start_new_session(runtime, &mut state),
+            ["/resume"] => resume_session(terminal, runtime, &mut state)?,
             ["/doctor"] => {
                 state.notice = runtime.doctor_report();
             }
@@ -292,30 +299,7 @@ pub(crate) fn run_controller(
                 state.set_view(InteractiveView::Diff((*proposal_id).to_string()))
             }
             ["select", "session", session_id] => {
-                if !confirm(
-                    terminal,
-                    "세션 선택 확인",
-                    "이 세션으로 전환",
-                    format!("session {session_id}을 정본 상태로 다시 확인한 뒤 선택"),
-                )? {
-                    state.notice = "세션 선택 요청을 보내지 않았습니다.".to_string();
-                    continue;
-                }
-                let intent_id = runtime.new_tui_intent_id();
-                let lease = runtime.tui_selection_lease(session_id)?;
-                write_pre_dispatch_frame(
-                    terminal,
-                    &intent_id,
-                    "정본 세션 상태를 재검증했습니다.\n",
-                )?;
-                let outcome = runtime.dispatch_tui_intent(TuiIntent::SelectSession {
-                    intent_id: intent_id.clone(),
-                    session_id: (*session_id).to_string(),
-                    lease,
-                })?;
-                let was_dispatched = outcome_was_dispatched(outcome.effect);
-                state.notice = outcome_notice(outcome);
-                post_dispatch_intent = was_dispatched.then_some(intent_id);
+                resume_selected_session(runtime, &mut state, session_id)
             }
             ["select", selected_id] => {
                 state.selected_id = Some((*selected_id).to_string());
@@ -450,17 +434,19 @@ pub(crate) fn run_controller(
                 state.push_turn(ConversationRole::User, line.trim());
                 state.notice = "작업 중 · 에이전트가 요청을 처리하고 있습니다…".to_string();
                 write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
-                let response = match runtime.submit_request(line.trim(), &state.attachments) {
+                match runtime.submit_request(line.trim(), &state.attachments) {
                     Ok(report) => {
                         state.clear_attachments();
-                        report
+                        state.push_turn(ConversationRole::Assistant, report);
                     }
-                    Err(error) => format!(
-                        "요청을 완료하지 못했습니다.\n{}\n첨부는 재시도를 위해 유지했습니다.",
-                        error.message
+                    Err(error) => state.push_turn(
+                        ConversationRole::Error,
+                        format!(
+                            "요청을 완료하지 못했습니다.\n{}\n첨부는 재시도를 위해 유지했습니다.",
+                            error.message
+                        ),
                     ),
-                };
-                state.push_turn(ConversationRole::Assistant, response);
+                }
             }
         }
     }
@@ -481,11 +467,13 @@ fn submit_web_tool_command(
     state.push_turn(ConversationRole::User, request);
     state.notice = pending.to_string();
     write_pending_conversation_frame(terminal, runtime, state, width, height)?;
-    let response = match runtime.submit_request(request, &[]) {
-        Ok(report) => report,
-        Err(error) => format!("{error_heading}\n{}", error.message),
-    };
-    state.push_turn(ConversationRole::Assistant, response);
+    match runtime.submit_request(request, &[]) {
+        Ok(report) => state.push_turn(ConversationRole::Assistant, report),
+        Err(error) => state.push_turn(
+            ConversationRole::Error,
+            format!("{error_heading}\n{}", error.message),
+        ),
+    }
     Ok(())
 }
 

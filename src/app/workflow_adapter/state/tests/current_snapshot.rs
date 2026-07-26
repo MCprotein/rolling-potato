@@ -261,6 +261,24 @@ fn classifies_stale_project_current_state() {
 }
 
 #[test]
+fn current_state_lease_releases_ledger_guard_before_loading_active_workflow() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    with_workflow_env("current-state-ledger-guard-scope", |_| {
+        let workflow = create_workflow("ledger guard scope").unwrap();
+
+        let lease = current_state_lease_view().unwrap();
+        let binding = ledger::validated_ledger_binding().unwrap();
+
+        assert_eq!(
+            workflow.session_id,
+            ledger::validated_current_identity().unwrap().session_id
+        );
+        assert!(lease.revision > 0);
+        assert!(binding.event_count > 0);
+    });
+}
+
+#[test]
 fn prepared_workflow_pair_and_single_current_image_are_deterministic() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     with_workflow_env("prepared-workflow-pair", |_| {

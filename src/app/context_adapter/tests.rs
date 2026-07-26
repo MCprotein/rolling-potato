@@ -193,7 +193,7 @@ fn current_and_resume_sources_share_one_budget_and_deduplicate() {
 }
 
 #[test]
-fn resume_context_is_bounded_and_rejects_stale_source_pointer() {
+fn active_conversation_context_is_bounded_and_drops_stale_source_pointer() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     let root = std::env::temp_dir().join(format!(
         "rpotato-resume-context-test-{}",
@@ -275,9 +275,17 @@ fn resume_context_is_bounded_and_rejects_stale_source_pointer() {
     );
 
     fs::write(&source_path, "fn main() { println!(\"changed\"); }\n").unwrap();
-    let stale = rebuild_resume_context_for_limit(&workflow.session_id, None, 131_072).unwrap_err();
-    assert_eq!(stale.code, 3);
-    assert!(stale.message.contains("source reread 차단"));
+    let continued =
+        build_active_conversation_context_for_limit(&workflow.session_id, None, 131_072).unwrap();
+    assert!(continued.transcript_turns_selected > 0);
+    assert_eq!(continued.sources.files_read, 0);
+    assert_eq!(continued.sources.dropped_files, 1);
+    assert!(!continued.prompt_section().contains("println!(\"changed\")"));
+
+    let explicit_resume =
+        rebuild_resume_context_for_limit(&workflow.session_id, None, 131_072).unwrap_err();
+    assert_eq!(explicit_resume.code, 3);
+    assert!(explicit_resume.message.contains("source reread 차단"));
 
     std::env::remove_var("RPOTATO_PROJECT_ROOT");
     std::env::remove_var("RPOTATO_DATA_HOME");

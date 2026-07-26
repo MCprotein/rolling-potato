@@ -2,27 +2,29 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::adapters::filesystem::layout as paths;
 use crate::app::workflow_adapter::ledger;
 use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
-use crate::foundation::integrity as checksum;
 use crate::runtime_core::knowledge::ontology::{
     diagnostics_from_projection, format_context_row, format_record_row, layer_a_record,
     parse_projection, record_revision_pointer, runtime_context_selection, schema_body,
     seeded_record_changed, select_context_records, validate_import_text, OntologyProjection,
-    OntologyRecord, SCHEMA_VERSION, SOURCE_POINTER_NONE,
+    OntologyRecord, SCHEMA_VERSION,
 };
 pub use crate::runtime_core::knowledge::ontology::{
-    OntologyExportFormat, OntologySeedOutcome, RuntimeContextSelection, RuntimeSourceRead,
+    OntologyExportFormat, OntologySeedOutcome, RuntimeContextSelection,
 };
 
 mod seeding;
+mod source_reader;
 
 use seeding::{append_records, ensure_layout, seed_candidates};
+pub use source_reader::{reread_historical_source, reread_report, reread_runtime_source};
+use source_reader::{resolve_project_relative_file, source_is_stale};
 
 pub fn ensure_seeded() -> Result<OntologySeedOutcome, AppError> {
     ensure_layout()?;
@@ -181,59 +183,6 @@ pub fn runtime_context(query: &str, limit: usize) -> Result<RuntimeContextSelect
     ))
 }
 
-pub fn reread_runtime_source(
-    pointer: &str,
-    expected_hash: &str,
-) -> Result<RuntimeSourceRead, AppError> {
-    let source = resolve_source_pointer(pointer)?;
-    let current_hash = checksum::sha256_file(&source.path)?;
-    if current_hash != expected_hash {
-        return Err(AppError::blocked(format!(
-            "ontology source reread 차단\n- source pointer: {pointer}\n- 이유: graph source hash와 현재 원문 hash가 다릅니다.\n- 동작: ontology seed를 갱신한 뒤 다시 시도하세요."
-        )));
-    }
-    let contents = fs::read_to_string(&source.path).map_err(|err| {
-        AppError::runtime(format!(
-            "ontology source 원문을 읽지 못했습니다: {} ({err})",
-            source.path.display()
-        ))
-    })?;
-    let root = canonical_project_root()?;
-    let relative_path = relative_to_root(&source.path, &root)
-        .ok_or_else(|| AppError::blocked("ontology source가 project boundary를 벗어났습니다."))?;
-    Ok(RuntimeSourceRead {
-        relative_path,
-        stable_ref: pointer.to_string(),
-        source_hash: current_hash,
-        contents,
-    })
-}
-
-pub fn reread_report(pointer: &str) -> Result<String, AppError> {
-    let source = resolve_source_pointer(pointer)?;
-    let contents = fs::read_to_string(&source.path).map_err(|err| {
-        AppError::runtime(format!(
-            "source pointer 원문을 읽지 못했습니다: {} ({err})",
-            source.path.display()
-        ))
-    })?;
-    let hash = checksum::sha256_file(&source.path)?;
-    let excerpt = contents
-        .lines()
-        .nth(source.line.saturating_sub(1))
-        .unwrap_or("");
-
-    Ok(format!(
-        "ontology reread 결과\n- source pointer: {}\n- file: {}\n- line: {}\n- current sha256: {}\n- excerpt:\n  {} | {}\n- rule: 이 원문이 authoritative source입니다. Ontology snippet만 근거로 patch하지 않습니다.",
-        pointer,
-        source.path.display(),
-        source.line,
-        hash,
-        source.line,
-        excerpt
-    ))
-}
-
 pub fn export_report(format: OntologyExportFormat) -> Result<String, AppError> {
     ensure_layout()?;
     match format {
@@ -329,98 +278,7 @@ fn load_projection() -> Result<OntologyProjection, AppError> {
 }
 
 fn record_source_is_stale(record: &OntologyRecord) -> bool {
-    let Ok(source) = resolve_source_pointer(&record.source_pointer) else {
-        return true;
-    };
-    checksum::sha256_file(&source.path)
-        .map(|current| current != record.source_hash)
-        .unwrap_or(true)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct SourcePointer {
-    path: PathBuf,
-    line: usize,
-}
-
-fn resolve_source_pointer(pointer: &str) -> Result<SourcePointer, AppError> {
-    if pointer.trim().is_empty() || pointer == SOURCE_POINTER_NONE {
-        return Err(AppError::usage(
-            "source pointer가 필요합니다. 예: src/main.rs:1",
-        ));
-    }
-    if pointer.contains("://") {
-        return Err(AppError::blocked(
-            "source pointer는 remote URL을 허용하지 않습니다.",
-        ));
-    }
-    let Some((relative, line)) = pointer.rsplit_once(':') else {
-        return Err(AppError::usage(
-            "source pointer는 <project-relative-path>:<line> 형식이어야 합니다.",
-        ));
-    };
-    let line = line
-        .parse::<usize>()
-        .map_err(|_| AppError::usage("source pointer line은 양의 정수여야 합니다."))?;
-    if line == 0 {
-        return Err(AppError::usage(
-            "source pointer line은 1 이상이어야 합니다.",
-        ));
-    }
-
-    let path = resolve_project_relative_file(relative)?;
-    Ok(SourcePointer { path, line })
-}
-
-fn resolve_project_relative_file(relative: &str) -> Result<PathBuf, AppError> {
-    if relative.trim().is_empty() {
-        return Err(AppError::usage("project-relative path가 필요합니다."));
-    }
-    if relative.contains("://") {
-        return Err(AppError::blocked("remote path는 허용하지 않습니다."));
-    }
-    let relative_path = Path::new(relative);
-    if relative_path.is_absolute() {
-        return Err(AppError::blocked(
-            "project-relative path만 허용합니다. absolute path는 거부됩니다.",
-        ));
-    }
-    if relative_path
-        .components()
-        .any(|component| matches!(component, Component::ParentDir))
-    {
-        return Err(AppError::blocked(
-            "project-relative path는 상위 경로(..)를 포함할 수 없습니다.",
-        ));
-    }
-
-    let root = canonical_project_root()?;
-    let candidate = root.join(relative_path);
-    if !candidate.exists() {
-        return Err(AppError::usage(format!(
-            "project file이 존재하지 않습니다: {}",
-            candidate.display()
-        )));
-    }
-    let canonical = fs::canonicalize(&candidate).map_err(|err| {
-        AppError::runtime(format!(
-            "project file을 canonicalize하지 못했습니다: {} ({err})",
-            candidate.display()
-        ))
-    })?;
-    if !canonical.starts_with(&root) {
-        return Err(AppError::blocked(format!(
-            "project boundary를 벗어난 path입니다: {}",
-            canonical.display()
-        )));
-    }
-    if !canonical.is_file() {
-        return Err(AppError::usage(format!(
-            "project file path가 파일이 아닙니다: {}",
-            canonical.display()
-        )));
-    }
-    Ok(canonical)
+    source_is_stale(&record.source_pointer, &record.source_hash)
 }
 
 fn canonical_project_root() -> Result<PathBuf, AppError> {
@@ -454,6 +312,7 @@ fn now_ms() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     fn with_temp_project(name: &str) -> PathBuf {
         let root =
@@ -569,6 +428,22 @@ mod tests {
 
         assert_eq!(err.code, 3);
         assert!(err.message.contains("graph source hash"));
+    }
+
+    #[test]
+    fn historical_reread_drops_a_missing_source_but_strict_reread_rejects_it() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+        let project = with_temp_project("missing-historical-source");
+        let source = project.join("src/main.rs");
+        let hash = crate::foundation::integrity::sha256_file(&source).unwrap();
+        fs::remove_file(&source).unwrap();
+
+        let historical = reread_historical_source("src/main.rs:1", &hash);
+        let strict = reread_runtime_source("src/main.rs:1", &hash);
+        clear_env();
+
+        assert_eq!(historical.unwrap(), None);
+        assert!(strict.is_err());
     }
 
     #[test]

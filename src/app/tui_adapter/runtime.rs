@@ -2,38 +2,25 @@
 
 mod backend;
 mod request;
+#[cfg(test)]
+mod session_tests;
+mod state;
+mod status;
 
 use super::model_switch::{switch_prepared_model, LiveModelSwitch};
 use super::{
     canonical_dispatch_intent, canonical_gate_descriptor, canonical_read_page,
-    canonical_selection_lease, TuiRuntimeAdapter,
+    canonical_selection_lease,
 };
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::controller::TuiRuntimePort;
-use crate::surfaces::tui::outcome::TuiOutcome;
+use crate::surfaces::tui::outcome::{TuiEffect, TuiOutcome};
 use crate::surfaces::tui::runtime_bridge::{
-    new_tui_intent_id, SelectionLease, TuiAttachment, TuiBackendStatus, TuiConversationTurn,
-    TuiGateKind, TuiIntent, TuiReadPage, TuiReadRequest, TuiStatusSnapshot,
+    new_tui_intent_id, SelectionLease, TuiAttachment, TuiGateKind, TuiIntent, TuiReadPage,
+    TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot,
 };
-use backend::{reconcile_existing_runtime, vision_status};
-
-impl TuiRuntimeAdapter {
-    fn conversation_memory(
-        &mut self,
-    ) -> Result<&mut super::session_memory::ConversationMemory, AppError> {
-        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
-        if !self
-            .conversation_memory
-            .as_ref()
-            .is_some_and(|memory| memory.belongs_to(&identity.session_id))
-        {
-            self.conversation_memory = Some(super::session_memory::load()?);
-        }
-        self.conversation_memory
-            .as_mut()
-            .ok_or_else(|| AppError::blocked("conversation memory 초기화 실패"))
-    }
-}
+use backend::reconcile_existing_runtime;
+pub(super) use state::TuiRuntimeAdapter;
 
 impl TuiRuntimePort for TuiRuntimeAdapter {
     fn startup_update_notice(&mut self) -> Option<String> {
@@ -44,12 +31,10 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         reconcile_existing_runtime()
     }
 
-    fn conversation_history(&mut self) -> Result<Vec<TuiConversationTurn>, AppError> {
-        self.conversation_memory()
-            .map(|memory| memory.turns.clone())
-    }
-
     fn clear_conversation_history(&mut self) -> Result<(), AppError> {
+        if self.fresh_session_pending {
+            return Ok(());
+        }
         super::session_memory::clear(self.conversation_memory()?)
     }
 
@@ -58,61 +43,16 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
     }
 
     fn read_tui_status(&mut self) -> Result<TuiStatusSnapshot, AppError> {
-        let backend = crate::app::inference_adapter::backend::runtime_snapshot()?;
-        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
-        let latest = crate::app::observability_adapter::latest_model_run_for_session_read_only(
-            &identity.session_id,
-        )
-        .ok()
-        .flatten();
-        let configured_model = crate::app::inference_adapter::model::configured_model_id();
-        let model = configured_model
-            .clone()
-            .or_else(|| backend.model_id.clone())
-            .or_else(|| latest.as_ref().map(|run| run.model_id.clone()))
-            .unwrap_or_else(|| "미선택".to_string());
-        let latest_matches_model = latest.as_ref().is_some_and(|run| run.model_id == model);
-        let context_limit_tokens =
-            crate::app::inference_adapter::model::configured_context_length()
-                .ok()
-                .or(backend.context_limit_tokens)
-                .or_else(|| {
-                    latest
-                        .as_ref()
-                        .filter(|_| latest_matches_model)
-                        .and_then(|run| run.context_limit_tokens)
-                });
-        let context_tokens_used = latest
-            .as_ref()
-            .filter(|run| latest_matches_model && run.context_limit_tokens == context_limit_tokens)
-            .and_then(|run| run.context_tokens_used);
-        let vision = vision_status(Some(&backend));
-        let backend = match backend.status {
-            "ready" => TuiBackendStatus::Ready,
-            "stale" => TuiBackendStatus::Stale,
-            "stopped" => TuiBackendStatus::Stopped,
-            _ => TuiBackendStatus::Unavailable,
-        };
-        Ok(TuiStatusSnapshot {
-            model,
-            context_tokens_used,
-            context_limit_tokens,
-            has_compaction_checkpoint:
-                crate::app::workflow_adapter::state::current_compaction_boundary(
-                    &identity.session_id,
-                )?
-                .is_some(),
-            backend,
-            vision,
-            session_id: identity.session_id,
-        })
+        status::read(self)
     }
 
     fn compact_context(&mut self) -> Result<String, AppError> {
+        self.ensure_fresh_session()?;
         Ok(crate::app::context_adapter::compact_manually()?.report())
     }
 
     fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError> {
+        self.ensure_fresh_session()?;
         let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
         super::attachment::capture(path, &identity.session_id)
     }
@@ -122,6 +62,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         request: &str,
         attachments: &[TuiAttachment],
     ) -> Result<String, AppError> {
+        self.ensure_fresh_session()?;
         let history = self.conversation_memory()?.prompt_history();
         let response = request::execute(self, request, attachments, &history)?;
         super::session_memory::record_exchange(
@@ -134,6 +75,53 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
 
     fn model_options(&mut self) -> Vec<crate::surfaces::tui::runtime_bridge::TuiModelOption> {
         crate::app::inference_adapter::model::setup_options()
+    }
+
+    fn session_options(&mut self) -> Result<Vec<TuiSessionOption>, AppError> {
+        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
+        Ok(crate::app::observability_adapter::session_history(20)?
+            .into_iter()
+            .map(|session| TuiSessionOption {
+                current: !self.fresh_session_pending && session.session_id == identity.session_id,
+                preview: session
+                    .last_summary
+                    .unwrap_or_else(|| "저장된 대화".to_string()),
+                session_id: session.session_id,
+            })
+            .collect())
+    }
+
+    fn start_new_session(&mut self) -> Result<TuiSessionTransition, AppError> {
+        crate::app::workflow_adapter::state::session_new_report()?;
+        self.conversation_memory = None;
+        self.fresh_session_pending = false;
+        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
+        Ok(TuiSessionTransition {
+            session_id: identity.session_id,
+            notice: "새 세션을 시작했습니다.".to_string(),
+            turns: self.conversation_memory()?.turns.clone(),
+        })
+    }
+
+    fn resume_session(&mut self, session_id: &str) -> Result<TuiSessionTransition, AppError> {
+        let intent_id = new_tui_intent_id();
+        let lease = canonical_selection_lease(session_id)?;
+        let outcome = canonical_dispatch_intent(TuiIntent::ResumeSession {
+            intent_id,
+            session_id: session_id.to_string(),
+            lease,
+        })?;
+        if outcome.effect != TuiEffect::Committed {
+            return Err(AppError::blocked(outcome.safe_message));
+        }
+        self.conversation_memory = None;
+        self.fresh_session_pending = false;
+        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
+        Ok(TuiSessionTransition {
+            session_id: identity.session_id,
+            notice: "선택한 세션을 재개했습니다.".to_string(),
+            turns: self.conversation_memory()?.turns.clone(),
+        })
     }
 
     fn setup_model(&mut self, id: &str) -> Result<String, AppError> {

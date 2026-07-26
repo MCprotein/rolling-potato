@@ -229,12 +229,27 @@ pub(crate) struct TuiAttachment {
 pub(crate) enum TuiConversationRole {
     User,
     Assistant,
+    Error,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TuiConversationTurn {
     pub(crate) role: TuiConversationRole,
     pub(crate) content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TuiSessionOption {
+    pub(crate) session_id: String,
+    pub(crate) preview: String,
+    pub(crate) current: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TuiSessionTransition {
+    pub(crate) session_id: String,
+    pub(crate) notice: String,
+    pub(crate) turns: Vec<TuiConversationTurn>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

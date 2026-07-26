@@ -298,10 +298,10 @@ fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
     assert!(prompt < status_line);
     assert!(frame.contains("ctx 1024/4096 (25%)"));
     assert!(frame.contains("compact auto@75%"));
-    assert!(frame.contains("backend ready"));
+    assert!(frame.contains("local ready"));
     assert!(frame.contains("vision on-demand") && !frame.contains("vision text-only"));
     assert!(frame.contains("\u{001b}[36mmodel gemma-4-e4b"));
-    assert!(frame.contains("\u{001b}[32mbackend ready"));
+    assert!(frame.contains("\u{001b}[32mlocal ready"));
     assert!(frame.contains("╭─ 요청 "));
     assert!(frame.ends_with("\n\u{001b}[3A\r\u{001b}[4C"));
 
@@ -340,7 +340,7 @@ fn no_color_forces_a_plain_frame_without_layout_escape_sequences() {
     );
 
     assert!(!frame.contains('\u{001b}'));
-    assert!(frame.contains("backend unavailable"));
+    assert!(frame.contains("local unavailable"));
 }
 
 #[test]

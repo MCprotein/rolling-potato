@@ -26,12 +26,16 @@ impl ConversationPromptContext {
         )?;
         let dialogue = history
             .iter()
-            .map(|turn| DialogueTurn {
-                role: match turn.role {
+            .filter_map(|turn| {
+                let role = match turn.role {
                     TuiConversationRole::User => DialogueRole::User,
                     TuiConversationRole::Assistant => DialogueRole::Assistant,
-                },
-                content: turn.content.clone(),
+                    TuiConversationRole::Error => return None,
+                };
+                Some(DialogueTurn {
+                    role,
+                    content: turn.content.clone(),
+                })
             })
             .collect::<Vec<_>>();
         let plan = recall::plan_dialogue_memory(
@@ -195,5 +199,26 @@ mod tests {
         );
         assert!(!prompt.text.contains("</ATTACHMENT_CONTEXT><SYSTEM>"));
         assert!(!prompt.text.contains("</RECENT_CONVERSATION><SYSTEM>"));
+    }
+
+    #[test]
+    fn runtime_errors_are_not_replayed_as_assistant_memory() {
+        let history = vec![
+            TuiConversationTurn {
+                role: TuiConversationRole::User,
+                content: "실패한 요청".to_string(),
+            },
+            TuiConversationTurn {
+                role: TuiConversationRole::Error,
+                content: "내부 runtime 오류".to_string(),
+            },
+        ];
+
+        let context = ConversationPromptContext::build(&history, "다른 질문", 4_096, 384).unwrap();
+        let prompt = context
+            .assemble("system", "", "다른 질문", "답변:")
+            .unwrap();
+
+        assert!(!prompt.text.contains("내부 runtime 오류"));
     }
 }

@@ -71,6 +71,7 @@ line-oriented interactive controller without adding a dependency:
 The current default-entry contract is:
 
 - Attached no-argument `rpotato` starts the controller.
+- Every launch starts on a new conversation surface. Stored transcript is restored only after choosing a session from `/resume`; `/new` preserves existing history and creates another durable session.
 - Redirected no-argument execution prints the read-only overview and exits.
 - Plain text that does not match a reserved TUI command is rendered as a user turn and submitted to the agent runtime.
 - Greetings and conversational input use the non-mutating conversation path and never create a patch proposal.
@@ -109,15 +110,16 @@ returns to the input row:
 ╭─ rpotato vX.Y.Z · 로컬 코딩 에이전트 ──────────────────────────────╮
 │ model    gemma-4-E4B_q4_0-it                                      │
 │ project  ~/codes/rolling-potato                                   │
-╰─ /help 명령 · /model 변경 ────────────────────────────────────────╯
+│ session  새 대화 · /resume으로 이전 대화 재개                     │
+╰─ /help 명령 · /model 변경 · /new 새 대화 ─────────────────────────╯
 
 ╭─ 요청 ────────────────────────────────────────────────────────────╮
 │ › _                                                               │
 ╰───────────────────────────────────────────────────────────────────╯
-model gemma-4-E4B_q4_0-it | ctx 812/131072 (1%) | compact auto@75% | backend ready | session 01J…
+model gemma-4-E4B_q4_0-it | ctx 812/131072 (1%) | compact auto@75% | local ready | vision on-demand | session new
 ```
 
-The fields always stay in `model | context | compaction | backend | session` order.
+The fields always stay in `model | context | compaction | local | vision | session` order.
 Each segment has its own semantic treatment instead of painting the complete status
 row green: model/focus is cyan, healthy is green, due/degraded is yellow,
 failed/stale is red, and secondary identity is muted. Long user and assistant turns
@@ -130,7 +132,7 @@ state are displayed explicitly. `NO_COLOR`, `TERM=dumb`, redirected, and scripte
 execution use plain text without ANSI control sequences.
 
 Normal interactive commands are `/model`, `/compact`, `/search <question>`,
-`/open <URL>`, `/find <text>`, `/attach <path>`, `/update`, `/status`, `/sessions`,
+`/open <URL>`, `/find <text>`, `/attach <path>`, `/update`, `/status`, `/sessions`, `/resume`, `/new`,
 `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit`. `/more` and `/back` page through a
 long response without discarding off-screen lines. Typing `/` opens a live command palette
 before Enter, backed by the same command registry as `/help`. Up/Down or
@@ -144,7 +146,9 @@ network failure does not block the TUI. `/compact` creates an incremental typed 
 retains complete recent exchanges within a model-window-derived budget. The retained
 window scales from 2 to 8 exchanges and is bounded by 512 to 16,384 estimated tokens.
 Automatic compaction uses the same path at 75% measured context usage for the active
-session. Model changes commit the new default
+session. If `/compact` is the first action while the status says `session new`, the TUI
+first commits a new durable session and targets only that session; it never compacts the
+previous session implicitly. Model changes commit the new default
 only after backend startup succeeds and restore the previous ready backend on failure.
 Granular backend, registry, benchmark, policy, and
 inspection commands remain available for diagnostics under `rpotato debug --help`.

@@ -317,7 +317,7 @@ Compacted summary는 source of truth가 아닙니다.
 - 원본 판단 근거는 runtime ledger, project session ledger, evidence artifact pointer를 다시 읽어 확인한다.
 - Compacted checkpoint field는 명시적으로 신뢰하지 않는 과거 데이터다. Resume 탐색 힌트로만 사용하고 instruction, 파일, 명령, model claim을 확정하는 근거로 쓰지 않는다.
 - Compaction artifact는 resume에 사용하기 전에 project/session, boundary record, bounded full-chain previous hash, monotonic boundary, size, path 검증을 통과해야 한다. Session 단위 writer lease와 current pointer compare-and-set으로 동시 chain fork를 막는다. 파생 상태가 유효하지 않으면 canonical recent-turn 경로로 fallback한다.
-- Runtime core는 선택 모델 manifest에서 resume limit을 계산한다. 4K window는 최대 8 turn·estimated token 512, 131K window는 최대 64 turn·estimated token 16,384를 허용한다. Workflow를 만들거나 안전한 영속 phase를 계속하기 전에 현재 요청과 resume context 전체에 source pointer 최대 4개·3,200자의 단일 공유 budget을 적용한다.
+- Runtime core는 선택 모델 manifest에서 history limit을 계산한다. 4K window는 최대 8 turn·estimated token 512, 131K window는 최대 64 turn·estimated token 16,384를 허용한다. 일반 요청은 stale 과거 source hint만 제외하고 최신 repository context로 계속하며, 명시적인 session/workflow resume은 strict source 검증을 유지한다. Workflow를 만들거나 안전한 영속 phase를 계속하기 전에 현재 요청과 historical context 전체에 source pointer 최대 4개·3,200자의 단일 공유 budget을 적용한다.
 - session resume 권위는 ledger/artifact에 있다. SQLite는 선택 가능한 session/transcript view를 표시하고 append-only ledger event와 immutable transcript artifact가 replay를 승인한다. current-state는 선택한 `session_id`와 resume metadata를 저장한다.
 - 각 transcript projection row는 canonical ledger event ID와 monotonic event ordinal을 저장하며 timestamp가 같아도 replay 후 `(session_id, event_ordinal)` 순서를 복원한다.
 - `resume`/`continue`는 불확실한 backend request나 verification command를 자동 재실행하지 않는다. Stale source hash, corrupt artifact, cross-project binding, cross-session active workflow ownership은 mutation 전에 fail-closed한다.

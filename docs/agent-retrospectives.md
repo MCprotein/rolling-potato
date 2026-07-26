@@ -2,6 +2,41 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-26: 과거 source hash 변경이 무관한 새 요청을 차단함
+
+### 증상
+
+- 장기 TUI session에서 과거 대화가 참조한 파일이 변경된 뒤, 해당 파일과 무관한
+  새 코딩·일반 요청도 `ontology source reread 차단`으로 종료됐습니다.
+- 전체 unit·candidate 테스트는 통과했지만 실제 사용자 session에서는 기본 요청을
+  계속할 수 없었습니다.
+- 대화 transcript가 ledger head를 전진시킨 뒤에는 안전한 current-state ancestor까지
+  stale로 오판해 별도 세션 `/resume` 선택도 차단됐습니다.
+
+### 원인
+
+- 일반 대화 history와 명시적인 workflow/session resume이 같은 strict source
+  reread 정책을 사용했습니다.
+- Unit과 integration 테스트가 stale 과거 pointer로 새 요청 전체를 차단하는 동작을
+  정상 계약으로 고정했습니다.
+- Fresh fixture 중심 E2E에는 `요청 성공 → 파일 변경 → 무관한 다음 요청` 장기
+  session 시나리오가 없었습니다.
+- 세션 테스트는 controller mock과 빈 transcript 위주여서 실제 ledger suffix,
+  명시적 선택, 선택한 transcript 재수화를 한 흐름으로 검증하지 않았습니다.
+
+### 재발 방지
+
+- 일반 대화 history는 best-effort context hint로 취급하고 stale source pointer만
+  제외합니다. Transcript 대화와 현재 요청의 최신 repository context는 유지합니다.
+- 명시적인 `resume`/`continue`, patch 적용, 현재 source claim은 strict hash 검증을
+  유지합니다. 두 정책을 같은 함수 호출 경로로 암묵적으로 합치지 않습니다.
+- 장기 session E2E는 파일 변경 뒤 무관한 다음 요청 성공과 backend 재호출을
+  검증하며, 기존 테스트가 사용자 기대와 반대인 실패를 보호하지 않는지 확인합니다.
+- Current-state 선택 lease는 검증된 `transcript.recorded` suffix만 안전한 ancestor로
+  허용합니다. 세션·워크플로 상태 변경 suffix는 계속 fail-closed로 차단합니다.
+- 기본 TUI는 저장된 대화를 자동 복원하지 않습니다. `/resume` 선택 후 해당 세션만
+  복원하는 실제 runtime·PTY 회귀를 함께 유지합니다.
+
 ## 2026-07-25: vision capability와 readiness를 boolean으로 합쳐 TUI가 거짓 안내함
 
 ### 증상
@@ -461,6 +496,9 @@
   서로 다른 명령을 요구하지 않게 합니다.
 - architecture CI 실패는 임계값을 올리지 않고 책임 추출 또는 실제 경계 복구로
   닫으며, 변경 뒤 해당 테스트와 전체 architecture suite를 차례로 확인합니다.
+- Governed source file을 새로 만들 때는 같은 논리 변경 안에서 migration map의
+  file slice와 responsibility inventory를 함께 추가하고, owner line budget도
+  targeted architecture test로 확인한 뒤 candidate를 생성합니다.
 - 전체 unit test는 PR CI의 정본 검증으로 남기되, 빠른 정적 architecture suite는
   candidate label 전 로컬 preflight에서 실행합니다.
 
@@ -932,3 +970,61 @@
 - Durable resume test는 context limit과 transcript turn 수를 함께 검증하고,
   실패 시 실제 report를 assertion message로 남겨 기능 결함과 기대 문자열 불일치를
   한 번에 구분합니다.
+
+## 2026-07-26: fresh TUI와 best-effort history 경계를 일부 명령·삭제 상태가 우회함
+
+### 증상
+
+- 화면은 `session new`였지만 첫 입력이 `/compact`이면 이전 durable session의
+  transcript를 대상으로 압축을 시도할 수 있었습니다.
+- 과거 source가 수정된 경우는 무관한 다음 요청에서 제외됐지만, 같은 source가
+  삭제되면 current ontology와 historical reread 경로가 요청 전체를 차단했습니다.
+
+### 원인
+
+- 새 세션을 lazy 생성하는 경계를 요청·첨부에만 적용하고 context mutation 명령에는
+  적용하지 않았습니다.
+- Best-effort source 정책을 hash mismatch 한 상태로만 모델링해 `NotFound`와
+  non-file 상태를 별도 stale 상태로 분류하지 않았습니다.
+- Stale ontology를 filesystem scan으로 우회하지 않는 보안 규칙을 요청 전체 실패로
+  구현해, source 없는 일반 답변까지 불필요하게 막았습니다.
+
+### 재발 방지
+
+- Fresh TUI에서 현재 session을 읽거나 변경하는 모든 명령은 먼저 새 session을
+  확정하며, 이전 session을 암묵적으로 대상으로 삼지 않습니다.
+- Historical source는 변경·삭제·non-file을 `dropped`로 처리하되 malformed pointer,
+  project boundary 위반, permission·기타 I/O 오류는 계속 fail-closed로 유지합니다.
+- Stale ontology는 filesystem fallback으로 우회하지 않고 빈 source context로
+  격리합니다. Patch·명시적 reread 경계의 current source 검증은 계속 strict하게
+  유지합니다.
+- 변경과 삭제를 각각 실제 두 요청 lifecycle로 검증하고, fresh `/compact`가 기존
+  session id를 유지하지 않는 회귀 테스트를 둡니다.
+
+## 2026-07-26: session resume 분리 뒤 ledger lock과 Windows fault probe 계약이 남음
+
+### 증상
+
+- Selection lease가 transcript-only ledger suffix를 허용하도록 바꾼 뒤 active
+  workflow를 읽는 경로에서 ledger writer guard를 잡은 채 같은 ledger를 다시 읽어
+  self-block했고, 전체 unit test에서 후속 40건이 연쇄 실패했습니다.
+- Windows native-terminal test는 이제 local conversation transition인 session
+  resume를 workflow dispatch fault probe로 계속 사용해 존재하지 않는
+  `세션 선택 확인` picker를 기다렸습니다.
+
+### 원인
+
+- Ledger events와 binding의 일관된 snapshot만 필요했지만 guard의 수명을 active
+  workflow validation까지 넓혔습니다.
+- Session resume와 workflow resume를 제품 코드에서는 분리했지만 플랫폼별 fault
+  fixture의 dispatch 의미까지 함께 갱신하지 않았습니다.
+
+### 재발 방지
+
+- Ledger·filesystem lease는 필요한 snapshot을 만든 직후 scope에서 해제하고,
+  다른 adapter나 workflow loader를 호출하는 동안 보유하지 않습니다.
+- Candidate preflight는 active workflow가 있는 current-state lease가 ledger guard를
+  해제한 뒤 다시 읽을 수 있는 exact 회귀 테스트를 실행합니다.
+- Workflow pre/post-dispatch fault test는 실제 `TuiIntent` workflow action만
+  사용합니다. Session resume 확인 picker를 dispatch probe로 재도입하면 architecture
+  contract가 차단합니다.

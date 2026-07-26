@@ -7,6 +7,7 @@ cd "$repo_root"
 scripts/release/verify-toolchain-pins.sh
 cargo fmt --all -- --check
 scripts/ci/verify-model-upgrade-compatibility.sh
+cargo test --locked --bin rpotato app::workflow_adapter::state::tests::current_snapshot::current_state_lease_releases_ledger_guard_before_loading_active_workflow -- --exact --test-threads=1
 cargo test --locked --test architecture_contract -- --test-threads=1
 cargo clippy --locked --all-targets --all-features -- -D warnings
 bash scripts/release/test-release-workflow-contract.sh

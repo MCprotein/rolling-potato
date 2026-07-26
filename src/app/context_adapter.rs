@@ -33,9 +33,22 @@ pub fn build_context_pack(request: &str) -> Result<ContextPack, AppError> {
         return build_filesystem_fallback(request);
     }
     if selection.selected.is_empty() && selection.stale_rejected > 0 {
-        return Err(AppError::blocked(
-            "ontology context 준비 차단\n- 이유: 선택된 source pointer가 모두 stale입니다.\n- 동작: stale graph를 filesystem scan으로 우회하지 않습니다.",
-        ));
+        return Ok(ContextPack {
+            project_root: fs::canonicalize(paths::project_root()).map_err(|err| {
+                AppError::runtime(format!(
+                    "project root를 해석하지 못했습니다: {} ({err})",
+                    paths::project_root().display()
+                ))
+            })?,
+            origin: "ontology-stale-dropped".to_string(),
+            ontology_records_selected: 0,
+            ontology_stale_rejected: selection.stale_rejected,
+            files_considered: selection.stale_rejected,
+            files_read: 0,
+            chars_read: 0,
+            dropped_files: selection.stale_rejected,
+            source_pointers: Vec::new(),
+        });
     }
 
     let project_root = fs::canonicalize(paths::project_root()).map_err(|err| {
@@ -216,13 +229,66 @@ pub fn rebuild_resume_context(
     let context_limit_tokens =
         crate::app::inference_adapter::context_window::effective_context_window()?.limit_tokens
             as usize;
-    rebuild_resume_context_for_limit(session_id, exclude_workflow_id, context_limit_tokens)
+    rebuild_session_context_for_limit(
+        session_id,
+        exclude_workflow_id,
+        context_limit_tokens,
+        HistoricalSourcePolicy::Strict,
+    )
 }
 
+pub fn build_active_conversation_context(
+    session_id: &str,
+    exclude_workflow_id: Option<&str>,
+) -> Result<ResumeContext, AppError> {
+    let context_limit_tokens =
+        crate::app::inference_adapter::context_window::effective_context_window()?.limit_tokens
+            as usize;
+    build_active_conversation_context_for_limit(
+        session_id,
+        exclude_workflow_id,
+        context_limit_tokens,
+    )
+}
+
+#[cfg(test)]
 pub(crate) fn rebuild_resume_context_for_limit(
     session_id: &str,
     exclude_workflow_id: Option<&str>,
     context_limit_tokens: usize,
+) -> Result<ResumeContext, AppError> {
+    rebuild_session_context_for_limit(
+        session_id,
+        exclude_workflow_id,
+        context_limit_tokens,
+        HistoricalSourcePolicy::Strict,
+    )
+}
+
+pub(crate) fn build_active_conversation_context_for_limit(
+    session_id: &str,
+    exclude_workflow_id: Option<&str>,
+    context_limit_tokens: usize,
+) -> Result<ResumeContext, AppError> {
+    rebuild_session_context_for_limit(
+        session_id,
+        exclude_workflow_id,
+        context_limit_tokens,
+        HistoricalSourcePolicy::BestEffort,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum HistoricalSourcePolicy {
+    Strict,
+    BestEffort,
+}
+
+fn rebuild_session_context_for_limit(
+    session_id: &str,
+    exclude_workflow_id: Option<&str>,
+    context_limit_tokens: usize,
+    source_policy: HistoricalSourcePolicy,
 ) -> Result<ResumeContext, AppError> {
     let budget = ResumeContextBudget::for_context_limit(context_limit_tokens);
     let records = transcript::records_for_session(session_id)?;
@@ -299,7 +365,18 @@ pub(crate) fn rebuild_resume_context_for_limit(
         if chars_read >= MAX_CONTEXT_CHARS {
             break;
         }
-        let source = ontology::reread_runtime_source(&pointer.stable_ref, &pointer.source_hash)?;
+        let source = match source_policy {
+            HistoricalSourcePolicy::Strict => Some(ontology::reread_runtime_source(
+                &pointer.stable_ref,
+                &pointer.source_hash,
+            )?),
+            HistoricalSourcePolicy::BestEffort => {
+                ontology::reread_historical_source(&pointer.stable_ref, &pointer.source_hash)?
+            }
+        };
+        let Some(source) = source else {
+            continue;
+        };
         if source.relative_path != pointer.path {
             return Err(AppError::blocked(format!(
                 "resume source pointer binding 불일치\n- pointer: {}",

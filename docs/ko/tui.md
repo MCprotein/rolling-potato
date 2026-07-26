@@ -70,6 +70,7 @@ runtime-owned line-oriented interactive controller로 올립니다.
 현재 기본 진입 계약은 다음과 같습니다.
 
 - attached terminal에서 인자 없는 `rpotato`는 controller를 시작합니다.
+- 매 실행은 새 대화 화면으로 시작합니다. 이전 transcript는 `/resume` 선택창에서 세션을 고른 뒤에만 복원하며, `/new`는 기존 기록을 보존한 채 새 세션을 만듭니다.
 - redirect된 인자 없는 실행은 read-only overview를 출력하고 종료합니다.
 - TUI 예약 명령과 일치하지 않는 일반 텍스트는 user turn으로 표시한 뒤 agent runtime에 전달합니다.
 - 인사와 대화형 입력은 비변경 conversation path를 사용하며 patch proposal을 만들지 않습니다.
@@ -106,15 +107,16 @@ ANSI attached terminal의 빈 대화는 compact welcome frame으로 시작하고
 ╭─ rpotato vX.Y.Z · 로컬 코딩 에이전트 ──────────────────────────────╮
 │ model    gemma-4-E4B_q4_0-it                                      │
 │ project  ~/codes/rolling-potato                                   │
-╰─ /help 명령 · /model 변경 ────────────────────────────────────────╯
+│ session  새 대화 · /resume으로 이전 대화 재개                     │
+╰─ /help 명령 · /model 변경 · /new 새 대화 ─────────────────────────╯
 
 ╭─ 요청 ────────────────────────────────────────────────────────────╮
 │ › _                                                               │
 ╰───────────────────────────────────────────────────────────────────╯
-model gemma-4-E4B_q4_0-it | ctx 812/131072 (1%) | compact auto@75% | backend ready | session 01J…
+model gemma-4-E4B_q4_0-it | ctx 812/131072 (1%) | compact auto@75% | local ready | vision on-demand | session new
 ```
 
-Field 순서는 항상 `model | context | compaction | backend | session`입니다. 전체
+Field 순서는 항상 `model | context | compaction | local | vision | session`입니다. 전체
 status row를 green으로 칠하지 않고 model/focus는 cyan, healthy는 green,
 due/degraded는 yellow, failed/stale은 red, secondary identity는 muted로 표시합니다.
 긴 user/assistant turn은 terminal display cell 기준으로 줄바꿈하므로 한국어와 wide
@@ -127,7 +129,7 @@ sidecar, active canonical session에서 읽으며, 없는 값과 stale backend �
 없이 plain text를 사용합니다.
 
 일반 interactive 명령은 `/model`, `/compact`, `/search <질문>`, `/open <URL>`,
-`/find <텍스트>`, `/attach <경로>`, `/update`, `/status`, `/sessions`, `/doctor`,
+`/find <텍스트>`, `/attach <경로>`, `/update`, `/status`, `/sessions`, `/resume`, `/new`, `/doctor`,
 `/more`, `/back`, `/clear`, `/help`, `/quit`입니다. `/more`와 `/back`은 화면 밖의
 긴 응답 line을 버리지 않고 page 단위로 이동합니다. `/`를 입력하면 Enter 전에 `/help`와
 같은 command registry를 사용하는 live command palette가 열립니다. ↑↓ 또는
@@ -140,7 +142,9 @@ platform의 정확한 GitHub Release asset을 내려받고 대응 SHA-256 sideca
 network 실패는 TUI를 막지 않습니다. `/compact`는 incremental typed checkpoint를 만들고
 모델 window에서 계산한 budget 안에 완료된 최근 exchange를 보존합니다. 보존 범위는
 2~8개 exchange, estimated token 512~16,384 사이에서 확장됩니다. 자동 압축도 측정된
-context 사용량 75%에서 active session의 같은 경로를 사용합니다. Model 변경은 새 backend start가
+context 사용량 75%에서 active session의 같은 경로를 사용합니다. 화면이 `session new`인
+상태에서 `/compact`를 먼저 실행해도 새 durable session을 확정한 뒤 그 세션만 대상으로
+삼으며, 이전 session을 암묵적으로 압축하지 않습니다. Model 변경은 새 backend start가
 성공한 뒤에만 기본값을 확정하고, 실패하면 이전 ready backend를 복구합니다. 세부 backend, registry, benchmark, policy,
 inspection 명령은 `rpotato debug --help` 아래의 진단용 surface로 유지합니다.
 

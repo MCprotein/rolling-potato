@@ -68,18 +68,18 @@ fn entry_quit() {
     let before = tree_snapshot(&[&fixture.project, &fixture.data]);
 
     let mut terminal = NativePty::spawn(120, 40);
-    terminal.wait_for("session session-");
+    terminal.wait_for("session new");
     let first = terminal.wait_for("›");
     assert!(first.contains("로컬 코딩 에이전트"));
     assert!(first.contains("╭─ rpotato v"));
     assert!(first.contains("│ model"));
-    assert!(first.contains("backend stopped"));
+    assert!(first.contains("local stopped"));
     terminal.send("quit\n");
     let output = terminal.finish();
     assert!(!output.contains("terminal.capability"));
 
     let mut terminal = NativePty::spawn(120, 40);
-    terminal.wait_for("session session-");
+    terminal.wait_for("session new");
     let second = terminal.wait_for("›");
     assert!(second.contains("로컬 코딩 에이전트"));
     terminal.send_eof();
@@ -91,6 +91,39 @@ fn entry_quit() {
         &tree_snapshot(&[&fixture.project, &fixture.data]),
         "quit and EOF zero-delta entry",
     );
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn sessions_start_fresh_and_resume_only_through_the_explicit_picker() {
+    let fixture = NativeTerminalFixture::new("explicit-session-resume");
+    assert!(fixture.project.is_dir());
+    let _live_terminal = LiveTerminalEnvironment::enable();
+
+    let mut terminal = NativePty::spawn(120, 40);
+    let initial = terminal.wait_for("session new");
+    assert!(initial.contains("새 대화"));
+    terminal.send("/new\n");
+    terminal.wait_for("새 세션을 시작했습니다.");
+    terminal.send("/quit\n");
+    terminal.finish();
+
+    let mut terminal = NativePty::spawn(120, 40);
+    let restarted = terminal.wait_for("session new");
+    assert!(
+        !restarted.contains("새 세션을 시작했습니다."),
+        "저장된 세션은 명시적으로 선택하기 전에 자동 복원되면 안 됩니다."
+    );
+    terminal.send("/resume\n");
+    let picker = terminal.wait_for("세션 재개");
+    assert!(
+        picker.contains("session-"),
+        "세션 선택 항목이 보이지 않습니다:\n{picker}"
+    );
+    terminal.send("1");
+    terminal.wait_for("선택한 세션을 재개했습니다.");
+    terminal.send("/quit\n");
+    terminal.finish();
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -292,9 +325,10 @@ fn full_adapter() {
     }
     #[cfg(windows)]
     {
-        let session_id = fixture.current_session_id();
-        terminal.send(&format!("select session {session_id}\n"));
-        confirm_picker(&mut terminal, "세션 선택 확인");
+        terminal.send(&format!("select {}\n", pending.workflow_id));
+        terminal.wait_for(&format!("선택: {}", pending.workflow_id));
+        terminal.send("deny\n");
+        confirm_picker(&mut terminal, "요청 거부 확인");
     }
     terminal.wait_for("terminal.frame-write.pre-dispatch");
     let output = terminal.finish_failure();
@@ -479,9 +513,8 @@ fn full_adapter() {
             &tree_snapshot(&[&fixture.project, &fixture.data]),
             "unsupported source action before post-dispatch boundary",
         );
-        let session_id = fixture.current_session_id();
-        terminal.send(&format!("select session {session_id}\n"));
-        confirm_picker(&mut terminal, "세션 선택 확인");
+        terminal.send("deny\n");
+        confirm_picker(&mut terminal, "요청 거부 확인");
         terminal.wait_for("terminal.frame-write.post-dispatch");
     }
     let output = terminal.finish_failure();
@@ -516,7 +549,7 @@ fn full_adapter() {
         );
         let ledger = runtime_ledger(&fixture);
         assert_eq!(
-            event_delta(&post_before_ledger, &ledger, "session.resume.selected"),
+            event_delta(&post_before_ledger, &ledger, "patch.apply.denied"),
             1
         );
     }
@@ -545,12 +578,12 @@ fn full_adapter() {
     }
     #[cfg(windows)]
     {
-        let denial_output = terminal.wait_for("다음: 거부 영수증을 확인하세요.");
+        let denial_output = terminal.wait_for("다음: 기존 종료 영수증을 확인하세요.");
         native_terminal_denial_block_outcomes_exact(
             &denial_output,
-            "deny.patch.accepted",
+            "deny.blocked.terminal-state",
             &post.workflow_id,
-            None,
+            Some("cancelled"),
         );
     }
 

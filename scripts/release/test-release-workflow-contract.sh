@@ -105,6 +105,7 @@ require_line "$candidate_windows" '          cargo test --locked --target x86_64
 require_line "$candidate_preflight_body" 'scripts/release/verify-toolchain-pins.sh'
 require_line "$candidate_preflight_body" 'cargo fmt --all -- --check'
 require_line "$candidate_preflight_body" 'scripts/ci/verify-model-upgrade-compatibility.sh'
+require_line "$candidate_preflight_body" 'cargo test --locked --bin rpotato app::workflow_adapter::state::tests::current_snapshot::current_state_lease_releases_ledger_guard_before_loading_active_workflow -- --exact --test-threads=1'
 require_line "$candidate_preflight_body" 'cargo test --locked --test architecture_contract -- --test-threads=1'
 require_line "$candidate_preflight_body" 'cargo clippy --locked --all-targets --all-features -- -D warnings'
 require_line "$candidate_preflight_body" 'bash scripts/release/test-release-workflow-contract.sh'
