@@ -1,5 +1,35 @@
 # Release Notes
 
+## v0.49.4 - Reliable macOS Terminal Release Verification
+
+Release date: 2026-07-26
+
+This recovery patch prevents native terminal cleanup from hiding failures behind
+an unbounded child-process wait and moves the exact macOS terminal scenario into
+the pull-request candidate gate. It supersedes the incomplete v0.49.3 artifact
+set while retaining its explicit session resume and fresh-start behavior.
+
+### Included
+
+- Bounds Unix PTY cleanup with a `SIGTERM` grace period followed by `SIGKILL`,
+  so a stopped or unresponsive child cannot hang the test process indefinitely.
+- Adds an exact regression test that suspends the PTY child and proves cleanup
+  returns within its termination budget.
+- Emits native-terminal stage traces on every supported platform and runs the
+  candidate and release probes with uncaptured output for actionable failures.
+- Adds an exact macOS native-terminal candidate job before merge and tag
+  publication, alongside the existing Windows candidate coverage.
+- Preserves the v0.49.3 changes that start a fresh conversation by default,
+  restore durable history through `/resume`, and isolate stale historical source
+  pointers from unrelated prompts.
+
+### Compatibility and boundaries
+
+- Existing public commands, model files, registries, and durable conversations
+  remain compatible.
+- Existing conversations remain available through `/resume`.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.49.3 - Explicit Session Resume and Reliable Fresh Starts
 
 Release date: 2026-07-26

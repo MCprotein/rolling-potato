@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::{fs::OpenOptions, io::Write};
 
 static NATIVE_TERMINAL_LOCK: Mutex<()> = Mutex::new(());
 static SOURCE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
@@ -11,6 +12,17 @@ static SOURCE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 const FIXTURE_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 #[cfg(windows)]
 const FIXTURE_COMMAND_TIMEOUT: Duration = Duration::from_secs(60);
+
+pub(crate) fn trace_stage(message: &str) {
+    eprintln!("[native-terminal] {message}");
+    let Some(path) = std::env::var_os("RPOTATO_NATIVE_TERMINAL_TRACE") else {
+        return;
+    };
+    let Ok(mut trace) = OpenOptions::new().create(true).append(true).open(path) else {
+        return;
+    };
+    let _ = writeln!(trace, "[native-terminal] {message}");
+}
 
 pub(crate) fn strip_terminal_controls(capture: &str) -> String {
     let mut output = String::with_capacity(capture.len());
@@ -155,8 +167,7 @@ impl NativeTerminalFixture {
         let port = native_port();
         let command = |args: &[&str]| {
             let label = args.join(" ");
-            #[cfg(windows)]
-            windows::trace_stage(&format!("run {label}"));
+            trace_stage(&format!("run {label}"));
             let output = run_bounded_command(
                 Command::new(env!("CARGO_BIN_EXE_rpotato"))
                     .args(args)
@@ -173,8 +184,7 @@ impl NativeTerminalFixture {
                 &label,
                 &self.data,
             );
-            #[cfg(windows)]
-            windows::trace_stage(&format!("finished {label}"));
+            trace_stage(&format!("finished {label}"));
             output
         };
         let start = command(&[
@@ -434,6 +444,12 @@ mod unix {
     const VEOF: usize = 4;
     #[cfg(target_os = "macos")]
     const VEOF: usize = 0;
+    #[cfg(target_os = "linux")]
+    const SIGSTOP: c_int = 19;
+    #[cfg(target_os = "macos")]
+    const SIGSTOP: c_int = 17;
+    const SIGKILL: c_int = 9;
+    const SIGTERM: c_int = 15;
     const WNOHANG: c_int = 1;
     const F_GETFL: c_int = 3;
     const F_SETFL: c_int = 4;
@@ -494,10 +510,12 @@ mod unix {
         original_mode: Termios,
         output: Vec<u8>,
         waited: bool,
+        termination_signal: c_int,
     }
 
     impl NativePty {
         pub fn spawn(columns: u16, rows: u16) -> Self {
+            trace_stage(&format!("spawn {columns}x{rows}"));
             let binary = CString::new(env!("CARGO_BIN_EXE_rpotato")).unwrap();
             let argv = [binary.as_ptr(), std::ptr::null()];
             let size = WinSize {
@@ -595,6 +613,7 @@ mod unix {
                 original_mode,
                 output: Vec::new(),
                 waited: false,
+                termination_signal: SIGTERM,
             }
         }
 
@@ -651,12 +670,18 @@ mod unix {
             );
         }
 
+        pub fn force_drop_escalation_probe(&mut self) {
+            self.termination_signal = SIGSTOP;
+        }
+
         pub fn wait_for(&mut self, needle: &str) -> String {
+            trace_stage(&format!("wait for {needle:?}"));
             let deadline = Instant::now() + Duration::from_secs(10);
             loop {
                 self.drain_available();
                 let output = String::from_utf8_lossy(&self.output);
                 if output.contains(needle) {
+                    trace_stage(&format!("found {needle:?}"));
                     return output.into_owned();
                 }
                 assert!(
@@ -676,11 +701,13 @@ mod unix {
                 mark <= self.output.len(),
                 "PTY output mark is out of bounds"
             );
+            trace_stage(&format!("wait after {mark} for {needle:?}"));
             let deadline = Instant::now() + Duration::from_secs(10);
             loop {
                 self.drain_available();
                 let output = String::from_utf8_lossy(&self.output[mark..]);
                 if output.contains(needle) {
+                    trace_stage(&format!("found after {mark}: {needle:?}"));
                     return output.into_owned();
                 }
                 assert!(
@@ -764,12 +791,14 @@ mod unix {
         }
 
         fn wait_for_exit(&mut self) -> c_int {
+            trace_stage("wait for child exit");
             let deadline = Instant::now() + Duration::from_secs(10);
             loop {
                 let mut status = -1;
                 // SAFETY: pid belongs to this fixture and status is writable.
                 let waited = unsafe { waitpid(self.pid, &mut status, WNOHANG) };
                 if waited == self.pid {
+                    trace_stage(&format!("child exited with status {status}"));
                     return status;
                 }
                 assert_eq!(
@@ -786,6 +815,45 @@ mod unix {
                 );
                 std::thread::sleep(Duration::from_millis(10));
             }
+        }
+
+        fn reap_until(&mut self, deadline: Instant) -> bool {
+            loop {
+                let mut status = 0;
+                // SAFETY: pid belongs to this fixture while waited is false.
+                let waited = unsafe { waitpid(self.pid, &mut status, WNOHANG) };
+                if waited == self.pid {
+                    self.waited = true;
+                    return true;
+                }
+                if waited < 0 {
+                    let error = std::io::Error::last_os_error();
+                    if error.kind() == std::io::ErrorKind::Interrupted {
+                        continue;
+                    }
+                    trace_stage(&format!("child reap completed with waitpid error: {error}"));
+                    self.waited = true;
+                    return true;
+                }
+                self.drain_available();
+                if Instant::now() >= deadline {
+                    return false;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+
+        fn terminate_and_reap_bounded(&mut self) {
+            trace_stage("terminate live PTY child");
+            // SAFETY: pid belongs to this live fixture.
+            let _ = unsafe { kill(self.pid, self.termination_signal) };
+            if self.reap_until(Instant::now() + Duration::from_millis(500)) {
+                return;
+            }
+            trace_stage("escalate live PTY child to SIGKILL");
+            // SAFETY: pid still belongs to this live fixture after the bounded wait.
+            let _ = unsafe { kill(self.pid, SIGKILL) };
+            let _ = self.reap_until(Instant::now() + Duration::from_millis(500));
         }
 
         fn drain_available(&mut self) {
@@ -811,11 +879,7 @@ mod unix {
     impl Drop for NativePty {
         fn drop(&mut self) {
             if !self.waited {
-                let mut status = 0;
-                // SAFETY: best-effort termination and reap of the owned child.
-                let _ = unsafe { kill(self.pid, 15) };
-                // SAFETY: pid still belongs to this fixture until it is reaped.
-                let _ = unsafe { waitpid(self.pid, &mut status, 0) };
+                self.terminate_and_reap_bounded();
             }
             // SAFETY: master is owned by this fixture and closed exactly once.
             let _ = unsafe { close(self.master) };
@@ -1000,20 +1064,6 @@ mod windows {
         output_start: usize,
         terminal_eof: bool,
         waited: bool,
-    }
-
-    pub fn trace_stage(message: &str) {
-        eprintln!("[native-terminal] {message}");
-        let Some(path) = std::env::var_os("RPOTATO_NATIVE_TERMINAL_TRACE") else {
-            return;
-        };
-        let mut trace = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)
-            .expect("native terminal trace file must open");
-        writeln!(trace, "[native-terminal] {message}")
-            .expect("native terminal trace line must flush");
     }
 
     impl ReusableConsole {
@@ -1528,4 +1578,4 @@ mod windows {
 }
 
 #[cfg(windows)]
-pub use windows::{trace_stage, NativePty};
+pub use windows::NativePty;

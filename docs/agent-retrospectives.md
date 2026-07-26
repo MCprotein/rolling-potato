@@ -2,6 +2,38 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-26: macOS release-only PTY timeout이 blocking Drop 뒤에 원인을 숨김
+
+### 증상
+
+- v0.49.3 release workflow에서 Linux와 Windows는 통과했지만 macOS ARM·Intel의
+  `native_terminal::full_adapter`가 모두 외부 5분 timeout으로 종료됐습니다.
+- Test process가 종료되지 않아 실제 assertion이나 마지막 진행 stage가 log에
+  남지 않았고, aggregate checksum과 최종 asset 검증도 실행되지 않았습니다.
+- PR candidate에는 macOS native-terminal exact job이 없어 tag 게시 전 같은
+  platform 경로를 검증하지 못했습니다.
+
+### 원인
+
+- Unix `NativePty::drop`이 `SIGTERM`을 보낸 뒤 blocking `waitpid`를 호출했습니다.
+  Child가 신호를 처리하지 못하는 상태이면 assertion unwind 중인 test process도
+  함께 무기한 대기했습니다.
+- Stage trace가 Windows 경로에만 있었고 release test가 stderr를 capture하여 macOS
+  실패 위치를 workflow timeout 전에 확인할 수 없었습니다.
+- 전체 test 통과를 platform-native PTY 동작까지 증명하는 것으로 잘못 간주해,
+  release에서 처음 실행하는 macOS exact scenario가 남았습니다.
+
+### 재발 방지
+
+- Unix PTY cleanup은 짧은 `SIGTERM` grace period 뒤 `SIGKILL`로 escalation하고,
+  child를 suspend한 exact test로 종료 시간 상한을 검증합니다.
+- Native-terminal candidate·release test는 모든 platform에서 stage trace를
+  `--nocapture`로 즉시 출력합니다.
+- macOS native-terminal exact job을 PR candidate gate에 두어 merge와 tag 전에
+  동일한 runner·target 경로를 통과해야 합니다.
+- Platform release 실패는 같은 workflow를 단순 재실행하지 않습니다. 원인 guard와
+  targeted candidate 검증을 추가한 recovery patch만 새 tag로 진행합니다.
+
 ## 2026-07-26: 과거 source hash 변경이 무관한 새 요청을 차단함
 
 ### 증상

@@ -54,6 +54,7 @@ policy_body="$(cat "$policy_workflow")"
 candidate_body="$(cat "$candidate_workflow")"
 candidate_preflight_body="$(cat "$candidate_preflight")"
 candidate_windows="$(job_block "$candidate_workflow" windows-compile)"
+candidate_macos="$(job_block "$candidate_workflow" macos-native-terminal)"
 unsafe_plain_run_fixture='        run: cargo test adapters::system_install::tests:: -- --test-threads=1'
 unsafe_plain_run_pattern='^[[:space:]]+run:[[:space:]]+[^|>].*:[[:space:]]'
 grep -Eq "$unsafe_plain_run_pattern" <<<"$unsafe_plain_run_fixture" \
@@ -88,6 +89,7 @@ require_line "$candidate_body" '        run: scripts/performance/verify-v0.39-wo
 require_line "$candidate_body" '  windows-compile:'
 require_line "$candidate_windows" "    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'release-candidate')"
 require_line "$candidate_windows" '    runs-on: windows-2025'
+require_line "$candidate_windows" '    timeout-minutes: 10'
 require_line "$candidate_windows" '      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}'
 require_line "$candidate_windows" "        uses: $checkout_pin"
 require_line "$candidate_windows" '          persist-credentials: false'
@@ -99,13 +101,28 @@ require_line "$candidate_windows" '        run: cargo check --locked --target x8
 require_line "$candidate_windows" '        run: >-'
 require_line "$candidate_windows" '          cargo test --locked --target x86_64-pc-windows-msvc --bin rpotato'
 require_line "$candidate_windows" '          adapters::system_install::tests:: -- --test-threads=1'
-require_line "$candidate_windows" '          cargo test --locked --target x86_64-pc-windows-msvc --test surfaces native_terminal::entry_quit -- --exact --test-threads=1'
-require_line "$candidate_windows" '          cargo test --locked --target x86_64-pc-windows-msvc --test surfaces native_terminal::full_adapter -- --exact --test-threads=1'
+require_line "$candidate_windows" '          cargo test --locked --target x86_64-pc-windows-msvc --test surfaces native_terminal::entry_quit -- --exact --test-threads=1 --nocapture'
+require_line "$candidate_windows" '          cargo test --locked --target x86_64-pc-windows-msvc --test surfaces native_terminal::full_adapter -- --exact --test-threads=1 --nocapture'
+require_line "$candidate_body" '  macos-native-terminal:'
+require_line "$candidate_macos" "    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'release-candidate')"
+require_line "$candidate_macos" '    runs-on: macos-26'
+require_line "$candidate_macos" '    timeout-minutes: 10'
+require_line "$candidate_macos" '      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}'
+require_line "$candidate_macos" "        uses: $checkout_pin"
+require_line "$candidate_macos" '          persist-credentials: false'
+require_line "$candidate_macos" '          ref: ${{ github.event.pull_request.head.sha }}'
+require_line "$candidate_macos" '          actual_sha="$(git rev-parse HEAD)"'
+require_line "$candidate_macos" '          if [ "$actual_sha" != "$CANDIDATE_SHA" ]; then'
+require_line "$candidate_macos" '        run: rustup target add aarch64-apple-darwin'
+require_line "$candidate_macos" '          cargo test --locked --target aarch64-apple-darwin --test surfaces native_terminal::entry_quit -- --exact --test-threads=1 --nocapture'
+require_line "$candidate_macos" '          cargo test --locked --target aarch64-apple-darwin --test surfaces native_terminal::pty_drop_escalates_when_child_cannot_handle_sigterm -- --exact --test-threads=1 --nocapture'
+require_line "$candidate_macos" '          cargo test --locked --target aarch64-apple-darwin --test surfaces native_terminal::full_adapter -- --exact --test-threads=1 --nocapture'
 [ -x "$candidate_preflight" ] || fail "candidate preflight must be executable"
 require_line "$candidate_preflight_body" 'scripts/release/verify-toolchain-pins.sh'
 require_line "$candidate_preflight_body" 'cargo fmt --all -- --check'
 require_line "$candidate_preflight_body" 'scripts/ci/verify-model-upgrade-compatibility.sh'
 require_line "$candidate_preflight_body" 'cargo test --locked --bin rpotato app::workflow_adapter::state::tests::current_snapshot::current_state_lease_releases_ledger_guard_before_loading_active_workflow -- --exact --test-threads=1'
+require_line "$candidate_preflight_body" 'cargo test --locked --test surfaces native_terminal::pty_drop_escalates_when_child_cannot_handle_sigterm -- --exact --test-threads=1'
 require_line "$candidate_preflight_body" 'cargo test --locked --test architecture_contract -- --test-threads=1'
 require_line "$candidate_preflight_body" 'cargo clippy --locked --all-targets --all-features -- -D warnings'
 require_line "$candidate_preflight_body" 'bash scripts/release/test-release-workflow-contract.sh'
@@ -119,6 +136,9 @@ release_native_terminal="$(
 )"
 require_line "$release_build" '    timeout-minutes: 15'
 require_line "$release_native_terminal" '        timeout-minutes: 5'
+require_line "$release_native_terminal" '          cargo test --locked --target ${{ matrix.target }} --test surfaces native_terminal::entry_quit -- --exact --test-threads=1 --nocapture'
+require_line "$release_native_terminal" '          cargo test --locked --target ${{ matrix.target }} --test surfaces native_terminal::pty_drop_escalates_when_child_cannot_handle_sigterm -- --exact --test-threads=1 --nocapture'
+require_line "$release_native_terminal" '          cargo test --locked --target ${{ matrix.target }} --test surfaces native_terminal::full_adapter -- --exact --test-threads=1 --nocapture'
 targeted_windows_preflight="$(
   step_block "$windows_targeted_workflow" "Test backend lifecycle" \
     | windows_preflight_commands
