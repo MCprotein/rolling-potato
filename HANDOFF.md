@@ -38,7 +38,7 @@ policy, explicit approval where required, evidence recording, and verification.
 
 ## Current Release State
 
-`v0.41.0` is the current complete release. GitHub Releases provides checksummed
+`v0.49.4` is the current complete release. GitHub Releases provides checksummed
 binaries for:
 
 - macOS Apple Silicon
@@ -124,13 +124,12 @@ remain historical evidence.
 
 ## Next Versions
 
-The version-only roadmap in `ROADMAP.md` is the source of truth. The
-`v0.29.0`-`v0.41.0` release train is complete: architecture ownership,
-Claude Code plugin execution, integrated workflow performance hardening,
-the historical package-manager experiment, and the optional local HTML monitor
-export have shipped. The package-manager experiment was subsequently retired.
-No version after v0.41.0 is currently defined. Add the next concrete version
-row before beginning new roadmap work.
+The version-only roadmap in `ROADMAP.md` is the source of truth. Releases through
+`v0.49.4` have shipped, including the completed architecture migration, guided
+TUI, managed self-update, general web grounding, multimodal attachments,
+model-aware context, and explicit durable-session resume. `v0.50.0` is the
+active concrete roadmap version for bounded multi-document web research and
+restricted interaction with an installed Chromium-family browser.
 
 ## Model Evidence Boundary
 
