@@ -718,6 +718,35 @@ mod unix {
             }
         }
 
+        pub fn wait_for_ordered_after(&mut self, mark: usize, first: &str, second: &str) -> String {
+            assert!(
+                mark <= self.output.len(),
+                "PTY output mark is out of bounds"
+            );
+            trace_stage(&format!(
+                "wait after {mark} for ordered {first:?} then {second:?}"
+            ));
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                self.drain_available();
+                let output = String::from_utf8_lossy(&self.output[mark..]);
+                let ordered = output.find(first).is_some_and(|first_index| {
+                    output[first_index + first.len()..].contains(second)
+                });
+                if ordered {
+                    trace_stage(&format!(
+                        "found after {mark}: ordered {first:?} then {second:?}"
+                    ));
+                    return output.into_owned();
+                }
+                assert!(
+                    Instant::now() < deadline,
+                    "PTY ordered output timeout after mark; wanted {first:?} then {second:?}; got {output}"
+                );
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+
         pub fn finish(mut self) -> String {
             let status = self.wait_for_exit();
             self.waited = true;

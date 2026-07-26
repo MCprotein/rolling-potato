@@ -2,6 +2,28 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-26: macOS PTY가 선택 알림 직후의 다음 명령을 잃음
+
+### 증상
+
+- PR candidate의 macOS `native_terminal::full_adapter`가 workflow 선택 알림은
+  확인했지만 바로 뒤에 보낸 approve 명령의 Enter를 처리하지 못해 picker 대기에서
+  timeout됐습니다.
+- 캡처에는 approve 문자열이 composer에 완성돼 있었지만 다음 화면 전환은 없었습니다.
+
+### 원인
+
+- PTY 테스트가 `선택: <workflow>` 알림을 다음 입력 준비 완료 신호로 사용했습니다.
+  Full-screen redraw가 느린 runner에서는 선택 알림과 새 composer 준비 사이에 다음
+  명령이 도착할 수 있었습니다.
+
+### 재발 방지
+
+- 선택형 PTY 흐름은 선택 알림만 기다리지 않고, 동일 capture 구간에서
+  `선택 알림 → 새 composer prompt` 순서를 확인한 뒤 다음 명령을 보냅니다.
+- Runner 지연을 가리기 위해 timeout만 늘리지 않고, 다음 입력을 받을 수 있는 의미
+  readiness marker를 순서 계약으로 검증합니다.
+
 ## 2026-07-26: macOS release-only PTY timeout이 blocking Drop 뒤에 원인을 숨김
 
 ### 증상

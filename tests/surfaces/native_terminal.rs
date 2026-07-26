@@ -20,6 +20,17 @@ fn confirm_picker(terminal: &mut NativePty, title: &str) {
     terminal.send("2\n");
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos", windows))]
+fn select_workflow(terminal: &mut NativePty, workflow_id: &str) {
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    let mark = terminal.mark();
+    terminal.send(&format!("select {workflow_id}\n"));
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    terminal.wait_for_ordered_after(mark, &format!("선택: {workflow_id}"), "›");
+    #[cfg(windows)]
+    terminal.wait_for(&format!("선택: {workflow_id}"));
+}
+
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 struct LiveTerminalEnvironment {
     no_color: Option<std::ffi::OsString>,
@@ -332,15 +343,13 @@ fn full_adapter() {
     terminal.wait_for("›");
     #[cfg(unix)]
     {
-        terminal.send(&format!("select {}\n", pending.workflow_id));
-        terminal.wait_for(&format!("선택: {}", pending.workflow_id));
+        select_workflow(&mut terminal, &pending.workflow_id);
         terminal.send(&format!("approve {}\n", pending.proposal_id));
         confirm_picker(&mut terminal, "패치 적용 확인");
     }
     #[cfg(windows)]
     {
-        terminal.send(&format!("select {}\n", pending.workflow_id));
-        terminal.wait_for(&format!("선택: {}", pending.workflow_id));
+        select_workflow(&mut terminal, &pending.workflow_id);
         terminal.send("deny\n");
         confirm_picker(&mut terminal, "요청 거부 확인");
     }
@@ -375,8 +384,7 @@ fn full_adapter() {
     let secret = "NATIVE_SECRET_MUST_NOT_ECHO_7341";
     terminal.send(&format!("{secret}\n"));
     terminal.wait_for("secret.refresh-only");
-    terminal.send(&format!("select {}\n", pending.workflow_id));
-    terminal.wait_for(&format!("선택: {}", pending.workflow_id));
+    select_workflow(&mut terminal, &pending.workflow_id);
     terminal.send(&format!("approve {}\n", pending.proposal_id));
     #[cfg(unix)]
     {
@@ -509,8 +517,7 @@ fn full_adapter() {
     std::env::set_var("RPOTATO_TEST_TERMINAL_FAULT", "frame-write-after-dispatch");
     let mut terminal = NativePty::spawn(120, 40);
     terminal.wait_for("›");
-    terminal.send(&format!("select {}\n", post.workflow_id));
-    terminal.wait_for(&format!("선택: {}", post.workflow_id));
+    select_workflow(&mut terminal, &post.workflow_id);
     terminal.send(&format!("approve {}\n", post.proposal_id));
     #[cfg(unix)]
     {
@@ -576,8 +583,7 @@ fn full_adapter() {
         post_fault_ledger,
         "restart must not redispatch the committed intent"
     );
-    terminal.send(&format!("select {}\n", post.workflow_id));
-    terminal.wait_for(&format!("선택: {}", post.workflow_id));
+    select_workflow(&mut terminal, &post.workflow_id);
     terminal.send("deny\n");
     confirm_picker(&mut terminal, "요청 거부 확인");
     #[cfg(unix)]
@@ -605,8 +611,7 @@ fn full_adapter() {
     std::fs::write(&post.source, "pub const VALUE: i32 = 2;\n").unwrap();
 
     let resumable = fixture.prepare_source_approval();
-    terminal.send(&format!("select {}\n", resumable.workflow_id));
-    terminal.wait_for(&format!("선택: {}", resumable.workflow_id));
+    select_workflow(&mut terminal, &resumable.workflow_id);
     terminal.send("resume\n");
     confirm_picker(&mut terminal, "작업 재개 확인");
     terminal.wait_for("resume.accepted");
