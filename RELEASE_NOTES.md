@@ -1,5 +1,37 @@
 # Release Notes
 
+## v0.49.3 - Explicit Session Resume and Reliable Fresh Starts
+
+Release date: 2026-07-26
+
+This patch makes a normal `rpotato` launch start a genuinely fresh conversation,
+moves durable history restoration behind an explicit `/resume` picker, and
+removes stale workflow state from ordinary general-purpose prompts.
+
+### Included
+
+- Starts the primary TUI with a new durable conversation instead of implicitly
+  hydrating the most recent transcript.
+- Adds an explicit `/resume` picker for restoring a selected conversation and
+  keeps `/new` as a separate fresh-session boundary.
+- Excludes failed requests and internal error reports from conversational prompt
+  memory.
+- Treats changed or deleted historical source pointers as best-effort context
+  while keeping explicit reread and patch requests strict.
+- Releases the runtime ledger guard before loading active workflow state,
+  preventing a same-process self-deadlock and its cascading timeout failures.
+- Updates native Windows terminal coverage to exercise real workflow fault
+  boundaries and adds exact regression checks to candidate preflight.
+- Separates session state, runtime status, source reread policy, and TUI
+  selection responsibilities into dedicated owners.
+
+### Compatibility and boundaries
+
+- Existing durable conversations remain available through `/resume`.
+- Existing public commands, model files, registries, and default selections
+  remain supported.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.49.2 - Accurate Vision and Model Cache Status
 
 Release date: 2026-07-26

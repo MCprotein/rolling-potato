@@ -1,5 +1,35 @@
 # 릴리즈 노트
 
+## v0.49.3 - 명시적 세션 resume과 신뢰할 수 있는 새 대화
+
+릴리즈 날짜: 2026-07-26
+
+이 patch는 일반 `rpotato` 실행이 실제로 새로운 대화에서 시작되게 하고, 저장된
+대화 복원은 명시적인 `/resume` 선택창으로 분리하며, 오래된 workflow 상태가 일반
+LLM 질문을 가로막지 않도록 수정합니다.
+
+### 포함한 것
+
+- 기본 TUI 시작 시 최근 transcript를 암묵적으로 불러오지 않고 새로운 durable
+  conversation을 생성
+- 선택한 대화만 복원하는 `/resume` 선택창을 추가하고 `/new`를 별도의 새 session
+  경계로 유지
+- 실패한 요청과 내부 오류 보고를 다음 대화 prompt memory에서 제외
+- 변경되거나 삭제된 과거 source pointer는 best-effort context로 처리하되 명시적인
+  reread와 patch 요청은 계속 엄격하게 검증
+- Active workflow state를 읽기 전에 runtime ledger guard를 해제하여 동일 process의
+  self-deadlock과 연쇄 timeout 실패 방지
+- Windows native terminal test가 실제 workflow fault 경계를 검증하도록 수정하고
+  exact regression test를 candidate preflight에 추가
+- Session state, runtime status, source reread policy와 TUI 선택 책임을 별도 owner로
+  분리
+
+### 호환성과 경계
+
+- 기존 durable conversation은 `/resume`을 통해 계속 복원할 수 있습니다.
+- 기존 public command, model file, registry와 default selection을 계속 지원합니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
+
 ## v0.49.2 - 정확한 비전·모델 cache 상태
 
 릴리즈 날짜: 2026-07-26
