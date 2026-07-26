@@ -8264,6 +8264,99 @@
           ]
         }
       ]
+    },
+    {
+      "path": "src/adapters/browser.rs",
+      "slices": [
+        {
+          "responsibility": "installed Chromium discovery and isolated CDP adapter facade",
+          "target": "src/adapters/browser.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/discovery.rs",
+      "slices": [
+        {
+          "responsibility": "cross-platform installed Chromium-family executable discovery",
+          "target": "src/adapters/browser/discovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/discovery.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/protocol.rs",
+      "slices": [
+        {
+          "responsibility": "closed-list bounded Chrome DevTools protocol client",
+          "target": "src/adapters/browser/protocol.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/protocol.rs",
+            "src/adapters/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/session.rs",
+      "slices": [
+        {
+          "responsibility": "isolated browser process, temporary profile, readiness, and cleanup ownership",
+          "target": "src/adapters/browser/session.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/session.rs",
+            "src/adapters/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/tests.rs",
+      "slices": [
+        {
+          "responsibility": "browser discovery, process cleanup, protocol, frame, and timeout regression tests",
+          "target": "src/adapters/browser/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/websocket.rs",
+      "slices": [
+        {
+          "responsibility": "loopback-only bounded RFC6455 transport for Chrome DevTools",
+          "target": "src/adapters/browser/websocket.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/websocket.rs",
+            "src/adapters/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -11297,6 +11390,42 @@
       "path": "src/surfaces/tui/controller/source_selection.rs",
       "responsibilities": [
         "terminal web-source picker and selected-source dispatch"
+      ]
+    },
+    {
+      "path": "src/adapters/browser.rs",
+      "responsibilities": [
+        "installed Chromium discovery and isolated CDP adapter facade"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/discovery.rs",
+      "responsibilities": [
+        "cross-platform installed Chromium-family executable discovery"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/protocol.rs",
+      "responsibilities": [
+        "closed-list bounded Chrome DevTools protocol client"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/session.rs",
+      "responsibilities": [
+        "isolated browser process, temporary profile, readiness, and cleanup ownership"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/tests.rs",
+      "responsibilities": [
+        "browser discovery, process cleanup, protocol, frame, and timeout regression tests"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/websocket.rs",
+      "responsibilities": [
+        "loopback-only bounded RFC6455 transport for Chrome DevTools"
       ]
     }
   ]

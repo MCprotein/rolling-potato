@@ -6699,3 +6699,53 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(tui_runtime.lines().count() < 200);
     assert!(tui_request.lines().count() < 150);
 }
+
+#[test]
+fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
+    let adapters = fs::read_to_string("src/adapters/mod.rs").unwrap();
+    let facade = fs::read_to_string("src/adapters/browser.rs").unwrap();
+    let discovery = fs::read_to_string("src/adapters/browser/discovery.rs").unwrap();
+    let session = fs::read_to_string("src/adapters/browser/session.rs").unwrap();
+    let protocol = fs::read_to_string("src/adapters/browser/protocol.rs").unwrap();
+    let websocket = fs::read_to_string("src/adapters/browser/websocket.rs").unwrap();
+    let tests = fs::read_to_string("src/adapters/browser/tests.rs").unwrap();
+
+    assert!(adapters.contains("pub(crate) mod browser;"));
+    for owner in ["discovery", "protocol", "session", "websocket"] {
+        assert!(
+            facade.lines().any(|line| line == format!("mod {owner};")),
+            "browser adapter facade does not register {owner}"
+        );
+    }
+    for path in [
+        "src/adapters/browser/discovery.rs",
+        "src/adapters/browser/protocol.rs",
+        "src/adapters/browser/session.rs",
+        "src/adapters/browser/tests.rs",
+        "src/adapters/browser/websocket.rs",
+    ] {
+        assert!(Path::new(path).is_file(), "missing browser owner: {path}");
+    }
+
+    assert!(discovery.contains("Google Chrome.app/Contents/MacOS/Google Chrome"));
+    assert!(discovery.contains("Google/Chrome/Application/chrome.exe"));
+    assert!(discovery.contains("google-chrome-stable"));
+    assert!(session.contains("--remote-debugging-port=0"));
+    assert!(session.contains("--user-data-dir="));
+    assert!(session.contains("terminate_child_tree"));
+    assert!(protocol.contains("/devtools/browser/"));
+    assert!(protocol.contains("enum CdpMethod"));
+    assert!(!protocol.contains("Runtime.evaluate"));
+    assert!(!protocol.contains("pub(crate) enum CdpMethod"));
+    assert!(websocket.contains("MAX_FRAME_BYTES"));
+    assert!(websocket.contains("is_loopback()"));
+    assert!(tests.contains("isolated_browser_session_cleans_up_process_group_and_profile"));
+    assert!(tests.contains("oversized_protocol_frame_is_rejected_before_allocating_its_payload"));
+
+    assert!(facade.lines().count() < 25);
+    assert!(discovery.lines().count() < 300);
+    assert!(session.lines().count() < 350);
+    assert!(protocol.lines().count() < 275);
+    assert!(websocket.lines().count() < 425);
+    assert!(tests.lines().count() < 375);
+}
