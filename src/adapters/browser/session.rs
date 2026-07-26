@@ -12,6 +12,8 @@ use super::discovery::BrowserExecutable;
 use super::protocol::CdpEndpoint;
 
 const ACTIVE_PORT_FILE: &str = "DevToolsActivePort";
+const DISABLE_NON_PROXIED_WEBRTC_UDP: &str =
+    "--force-webrtc-ip-handling-policy=disable_non_proxied_udp";
 const STARTUP_POLL_INTERVAL: Duration = Duration::from_millis(20);
 const TERMINATION_GRACE: Duration = Duration::from_secs(2);
 static PROFILE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
@@ -148,7 +150,8 @@ fn browser_command(
         command
             .arg(format!("--proxy-server=http://{proxy_addr}"))
             .arg("--proxy-bypass-list=<-loopback>")
-            .arg("--disable-quic");
+            .arg("--disable-quic")
+            .arg(DISABLE_NON_PROXIED_WEBRTC_UDP);
     }
     if headless {
         command.arg("--headless=new").arg("--disable-gpu");
@@ -182,6 +185,7 @@ mod command_tests {
         assert!(arguments.contains(&"--proxy-server=http://127.0.0.1:43123".to_string()));
         assert!(arguments.contains(&"--proxy-bypass-list=<-loopback>".to_string()));
         assert!(arguments.contains(&"--disable-quic".to_string()));
+        assert!(arguments.contains(&DISABLE_NON_PROXIED_WEBRTC_UDP.to_string()));
         assert!(!arguments
             .iter()
             .any(|argument| argument.contains("direct://")));

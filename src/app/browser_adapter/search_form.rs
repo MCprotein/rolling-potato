@@ -10,15 +10,32 @@ use crate::runtime_core::browser::{
 
 use super::BrowserSearchRequest;
 
-const RESULT_SETTLE_DELAY: Duration = Duration::from_millis(400);
+const INITIAL_READY_DELAY: Duration = Duration::from_millis(200);
+const RESULT_READY_DELAY: Duration = Duration::from_millis(400);
 const RESULT_EXTRACT_CHARS: usize = 4 * 1024;
+const INITIAL_ATTEMPTS: usize = 2;
 const RESULT_ATTEMPTS: usize = 2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ReadinessPhase {
+    InitialPage,
+    ResultPage,
+}
+
+impl ReadinessPhase {
+    fn delay(self) -> Duration {
+        match self {
+            Self::InitialPage => INITIAL_READY_DELAY,
+            Self::ResultPage => RESULT_READY_DELAY,
+        }
+    }
+}
 
 pub(super) trait BrowserControl {
     fn execute(&mut self, action: BrowserAction) -> Result<BrowserActionResult, AppError>;
 
-    fn settle_after_submit(&mut self) {
-        thread::sleep(RESULT_SETTLE_DELAY);
+    fn wait_for_readiness(&mut self, phase: ReadinessPhase) {
+        thread::sleep(phase.delay());
     }
 }
 
@@ -87,8 +104,7 @@ fn execute_sequence(
         "페이지 navigation",
         |result| matches!(result, BrowserActionResult::Navigated { .. }),
     )?;
-    let initial_observation = observation(browser.execute(BrowserAction::Observe)?)?;
-    let handle = search_field(&initial_observation)?;
+    let handle = wait_for_search_field(browser)?;
     expect(
         browser.execute(BrowserAction::Type {
             handle,
@@ -107,7 +123,7 @@ fn execute_sequence(
 
     let mut result = None;
     for _ in 0..RESULT_ATTEMPTS {
-        browser.settle_after_submit();
+        browser.wait_for_readiness(ReadinessPhase::ResultPage);
         observation(browser.execute(BrowserAction::Observe)?)?;
         let BrowserActionResult::Extracted { text } = browser.execute(BrowserAction::Extract {
             max_chars: RESULT_EXTRACT_CHARS,
@@ -145,6 +161,21 @@ fn execute_sequence(
     ))
 }
 
+fn wait_for_search_field(
+    browser: &mut impl BrowserControl,
+) -> Result<crate::runtime_core::browser::ElementHandle, AppError> {
+    for _ in 0..INITIAL_ATTEMPTS {
+        browser.wait_for_readiness(ReadinessPhase::InitialPage);
+        let observation = observation(browser.execute(BrowserAction::Observe)?)?;
+        if let Some(handle) = search_field(&observation) {
+            return Ok(handle);
+        }
+    }
+    Err(AppError::blocked(
+        "공개 페이지에서 안전하게 확인된 검색 field를 찾지 못해 입력하지 않았습니다.",
+    ))
+}
+
 fn observation(result: BrowserActionResult) -> Result<BrowserObservation, AppError> {
     let BrowserActionResult::Observation(observation) = result else {
         return Err(AppError::runtime(
@@ -156,7 +187,7 @@ fn observation(result: BrowserActionResult) -> Result<BrowserObservation, AppErr
 
 fn search_field(
     observation: &BrowserObservation,
-) -> Result<crate::runtime_core::browser::ElementHandle, AppError> {
+) -> Option<crate::runtime_core::browser::ElementHandle> {
     observation
         .elements
         .iter()
@@ -170,11 +201,6 @@ fn search_field(
             })
         })
         .map(|element| element.handle.clone())
-        .ok_or_else(|| {
-            AppError::blocked(
-                "공개 페이지에서 안전하게 확인된 검색 field를 찾지 못해 입력하지 않았습니다.",
-            )
-        })
 }
 
 fn expect(

@@ -53,6 +53,14 @@ pub(crate) fn parse_agent_web_tool(response: &str) -> Option<WebResearchStep> {
     }
 }
 
+pub(crate) fn parse_agent_web_tool_for_request(
+    response: &str,
+    current_request: &str,
+) -> Option<WebResearchStep> {
+    let step = parse_agent_web_tool(response)?;
+    literal_projection(step.input(), current_request).then_some(step)
+}
+
 pub(crate) fn web_disabled(request: &str) -> bool {
     let request = request.trim();
     let lower = request.to_ascii_lowercase();
@@ -111,6 +119,12 @@ fn has_no_web_directive(request: &str) -> bool {
 fn nonempty(value: &str) -> Option<&str> {
     let value = value.trim();
     (!value.is_empty()).then_some(value)
+}
+
+fn literal_projection(input: &str, current_request: &str) -> bool {
+    let input = input.trim().to_lowercase();
+    let current_request = current_request.trim().to_lowercase();
+    !input.is_empty() && current_request.contains(&input)
 }
 
 fn contains_ascii_phrase(text: &str, phrase: &str) -> bool {

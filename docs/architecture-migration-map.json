@@ -8251,6 +8251,21 @@
       ]
     },
     {
+      "path": "src/app/web_search_adapter/research_flow.rs",
+      "slices": [
+        {
+          "responsibility": "per-request search-open-find research orchestration and opened-document evidence priority",
+          "target": "src/app/web_search_adapter/research_flow.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/research_flow.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/tui/controller/source_selection.rs",
       "slices": [
         {
@@ -11572,6 +11587,12 @@
       "path": "src/app/web_search_adapter/research.rs",
       "responsibilities": [
         "bounded web research step and terminal-state orchestration"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research_flow.rs",
+      "responsibilities": [
+        "per-request search-open-find research orchestration and opened-document evidence priority"
       ]
     },
     {

@@ -40,11 +40,9 @@ pub(super) fn execute(
         WebToolRoute::Search { query } => web_search_adapter::answer(
             web_search_adapter::WebAnswerInput::new(&query, request, local_context),
             research,
-        )
-        .map(|answer| {
-            pages.record_discovered_sources(answer.sources);
-            answer.report
-        }),
+            pages,
+            elapsed,
+        ),
         WebToolRoute::Open { url } => {
             web_search_adapter::open_page(&url, request, research).map(|answer| {
                 if let Some(page) = answer.page {

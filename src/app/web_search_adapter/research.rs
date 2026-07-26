@@ -14,7 +14,7 @@ pub(crate) enum WebResearchStep {
 }
 
 impl WebResearchStep {
-    fn input(&self) -> &str {
+    pub(crate) fn input(&self) -> &str {
         match self {
             Self::Search { query } | Self::Find { query } => query,
             Self::Open { url } => url,

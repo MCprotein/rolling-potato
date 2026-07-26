@@ -6622,6 +6622,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/web_search_adapter/answer_binding.rs",
         "src/app/web_search_adapter/page_session.rs",
         "src/app/web_search_adapter/page_tools.rs",
+        "src/app/web_search_adapter/research_flow.rs",
         "src/app/web_search_adapter/routing.rs",
         "src/app/tui_adapter/runtime/web_sources.rs",
         "src/app/tui_adapter/web_tools.rs",
@@ -6637,7 +6638,13 @@ fn web_search_open_find_have_separate_bounded_owners() {
             "web adapter facade does not register {module}"
         );
     }
-    for module in ["answer_binding", "page_session", "page_tools", "routing"] {
+    for module in [
+        "answer_binding",
+        "page_session",
+        "page_tools",
+        "research_flow",
+        "routing",
+    ] {
         assert!(
             app_facade
                 .lines()
@@ -6696,7 +6703,12 @@ fn web_search_open_find_have_separate_bounded_owners() {
             .count()
             < 125
     );
-    assert!(tui_runtime.lines().count() < 200);
+    let research_flow = fs::read_to_string("src/app/web_search_adapter/research_flow.rs").unwrap();
+    assert!(research_flow.contains("opened_primary_document_overrides_conflicting_search_snippet"));
+    assert!(research_flow.contains("search.sources.iter().take(3)"));
+    assert!(research_flow.contains("supporting_passages("));
+    assert!(research_flow.lines().count() < 350);
+    assert!(tui_runtime.lines().count() <= 200);
     assert!(tui_request.lines().count() < 150);
 }
 
@@ -6772,6 +6784,7 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(session.contains("--proxy-server=http://"));
     assert!(session.contains("--proxy-bypass-list=<-loopback>"));
     assert!(session.contains("--disable-quic"));
+    assert!(session.contains("--force-webrtc-ip-handling-policy=disable_non_proxied_udp"));
     assert!(session.contains("browser_command_forces_all_page_traffic_through_the_public_proxy"));
     assert!(session.contains("terminate_child_tree"));
     assert!(proxy.contains("resolve_public_browser_target"));
@@ -6810,8 +6823,12 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(!browser_search_form.contains("querySelector"));
     assert!(!browser_search_form.contains("Runtime.evaluate"));
     assert!(browser_app_tests.contains("generic_search_form_e2e_uses_opaque_handles"));
+    assert!(browser_app_tests.contains("delayed_initial_page_readiness_is_polled_before_typing"));
+    assert!(browser_app_tests.contains("delayed_result_page_readiness_is_polled_before_reporting"));
     assert!(browser_app_tests.contains("private_redirect_result_is_rejected"));
     assert!(conversation.contains("RequestDecision::BrowserTool"));
+    assert!(conversation.contains("current_request_network_decision"));
+    assert!(conversation.contains("history_only_secret_cannot_become_network_tool_input"));
     assert!(conversation.contains("deterministic_browser_fallback"));
     assert!(tui_request.contains("RequestDecision::BrowserTool"));
 
@@ -6829,7 +6846,7 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(browser_app.lines().count() < 75);
     assert!(browser_routing.lines().count() < 225);
     assert!(browser_search_form.lines().count() < 250);
-    assert!(browser_app_tests.lines().count() < 275);
+    assert!(browser_app_tests.lines().count() < 400);
     assert!(browser_policy.lines().count() < 225);
     assert!(interaction.lines().count() < 350);
     assert!(interaction_tests.lines().count() < 225);

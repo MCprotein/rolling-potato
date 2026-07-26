@@ -85,10 +85,11 @@
 
 - local backend 기본값
 - telemetry 없음
-- Agent가 선택한 웹 검색은 local model이 사용자 요청만 보고 만든 제한된 query만
-  고정된 공개 HTML 검색 endpoint로 HTTPS 전송합니다. Routing model에는 local
-  attachment 본문을 전달하지 않고 API credential도 사용하지 않으며,
-  offline/no-browse 지시는 retrieval을 비활성화합니다.
+- Agent가 선택한 웹 검색은 현재 사용자 요청의 제한된 literal projection만
+  고정된 공개 HTML 검색 endpoint로 HTTPS 전송합니다. 대화 이력에만 있던 값은
+  거부하며 routing model에는 local attachment 본문을 전달하지 않고 API
+  credential도 사용하지 않습니다. Offline/no-browse 지시는 retrieval을
+  비활성화합니다.
 - `WebOpen`은 HTTP 입력을 HTTPS로 승격하고 URL credential, local/private/
   link-local/reserved target과 DNS 응답을 실제 direct 연결에 사용하는 resolver에서
   차단하며 proxy routing을 비활성화합니다. 제한된 동일 host redirect만 추적하고
@@ -116,7 +117,8 @@
   browser profile, cookie, password, login session을 불러오지 않습니다.
 - 모든 page traffic은 repo-owned loopback HTTPS CONNECT proxy를 반드시
   통과합니다. Port 443만 허용하고 DNS를 public address인지 확인한 뒤 해당
-  address를 연결에 고정하며 direct fallback을 두지 않습니다.
+  address를 연결에 고정합니다. QUIC과 non-proxied WebRTC UDP를 비활성화하고
+  direct fallback을 두지 않습니다.
 - runtime은 제한된 accessibility tree를 관찰하고 opaque handle로만 action을
   수행합니다. 사이트별 selector와 `Runtime.evaluate` JavaScript를 노출하지
   않습니다.

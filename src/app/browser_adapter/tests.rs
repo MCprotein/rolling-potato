@@ -3,7 +3,7 @@ use crate::runtime_core::browser::{
     ObservedElement,
 };
 
-use super::search_form::{execute_with, BrowserControl};
+use super::search_form::{execute_with, BrowserControl, ReadinessPhase};
 use super::*;
 
 #[test]
@@ -65,10 +65,11 @@ fn generic_search_form_e2e_uses_opaque_handles_and_always_closes() {
         browser.steps,
         [
             "navigate",
+            "wait-initial",
             "observe",
             "type",
             "press-enter",
-            "settle",
+            "wait-result",
             "observe",
             "extract",
             "current-url",
@@ -93,7 +94,85 @@ fn missing_search_field_fails_closed_and_still_cleans_up() {
     .unwrap_err();
 
     assert!(error.message.contains("검색 field"));
-    assert_eq!(browser.steps, ["navigate", "observe", "close"]);
+    assert_eq!(
+        browser.steps,
+        [
+            "navigate",
+            "wait-initial",
+            "observe",
+            "wait-initial",
+            "observe",
+            "close"
+        ]
+    );
+}
+
+#[test]
+fn delayed_initial_page_readiness_is_polled_before_typing() {
+    let mut browser = FakeBrowser::successful();
+    browser.initial_observations_before_ready = 1;
+
+    let report = execute_with(
+        &mut browser,
+        &BrowserSearchRequest {
+            url: "https://www.naver.com/".to_string(),
+            query: "월드컵".to_string(),
+        },
+    )
+    .unwrap();
+
+    assert!(report.contains("월드컵 검색 결과"));
+    assert_eq!(
+        browser.steps,
+        [
+            "navigate",
+            "wait-initial",
+            "observe",
+            "wait-initial",
+            "observe",
+            "type",
+            "press-enter",
+            "wait-result",
+            "observe",
+            "extract",
+            "current-url",
+            "close",
+        ]
+    );
+}
+
+#[test]
+fn delayed_result_page_readiness_is_polled_before_reporting() {
+    let mut browser = FakeBrowser::successful();
+    browser.result_observations_before_ready = 1;
+
+    let report = execute_with(
+        &mut browser,
+        &BrowserSearchRequest {
+            url: "https://www.naver.com/".to_string(),
+            query: "월드컵".to_string(),
+        },
+    )
+    .unwrap();
+
+    assert!(report.contains("월드컵 검색 결과"));
+    assert_eq!(
+        browser
+            .steps
+            .iter()
+            .filter(|step| **step == "wait-result")
+            .count(),
+        2
+    );
+    assert_eq!(
+        browser
+            .steps
+            .iter()
+            .filter(|step| **step == "extract")
+            .count(),
+        2
+    );
+    assert_eq!(browser.steps.last(), Some(&"close"));
 }
 
 #[test]
@@ -168,6 +247,10 @@ fn live_chromium_search_form_smoke_is_explicit_opt_in() {
 struct FakeBrowser {
     steps: Vec<&'static str>,
     has_search_field: bool,
+    initial_observations_before_ready: usize,
+    result_observations_before_ready: usize,
+    submitted: bool,
+    result_page_ready: bool,
     current_url: &'static str,
     extracted_text: &'static str,
 }
@@ -177,6 +260,10 @@ impl FakeBrowser {
         Self {
             steps: Vec::new(),
             has_search_field: true,
+            initial_observations_before_ready: 0,
+            result_observations_before_ready: 0,
+            submitted: false,
+            result_page_ready: true,
             current_url: "https://search.example.com/?q=worldcup",
             extracted_text: "월드컵 검색 결과",
         }
@@ -186,6 +273,10 @@ impl FakeBrowser {
         Self {
             steps: Vec::new(),
             has_search_field: false,
+            initial_observations_before_ready: 0,
+            result_observations_before_ready: 0,
+            submitted: false,
+            result_page_ready: true,
             current_url: "https://search.example.com/?q=worldcup",
             extracted_text: "월드컵 검색 결과",
         }
@@ -204,7 +295,20 @@ impl BrowserControl for FakeBrowser {
             }
             BrowserAction::Observe => {
                 self.steps.push("observe");
-                let elements = self.has_search_field.then(|| ObservedElement {
+                if self.submitted {
+                    self.result_page_ready = self.result_observations_before_ready == 0;
+                    self.result_observations_before_ready =
+                        self.result_observations_before_ready.saturating_sub(1);
+                }
+                let initial_ready = if self.submitted {
+                    true
+                } else if self.initial_observations_before_ready == 0 {
+                    true
+                } else {
+                    self.initial_observations_before_ready -= 1;
+                    false
+                };
+                let elements = (self.has_search_field && initial_ready).then(|| ObservedElement {
                     handle: ElementHandle::parse("element-1-1").unwrap(),
                     role: ElementRole::SearchBox,
                     name: "검색".to_string(),
@@ -224,6 +328,7 @@ impl BrowserControl for FakeBrowser {
             BrowserAction::Press {
                 key: BrowserKey::Enter,
             } => {
+                self.submitted = true;
                 self.steps.push("press-enter");
                 Ok(BrowserActionResult::KeyPressed)
             }
@@ -231,13 +336,21 @@ impl BrowserControl for FakeBrowser {
                 assert_eq!(max_chars, 4 * 1024);
                 self.steps.push("extract");
                 Ok(BrowserActionResult::Extracted {
-                    text: self.extracted_text.to_string(),
+                    text: if self.result_page_ready {
+                        self.extracted_text.to_string()
+                    } else {
+                        "검색 전 홈 화면".to_string()
+                    },
                 })
             }
             BrowserAction::CurrentUrl => {
                 self.steps.push("current-url");
                 Ok(BrowserActionResult::CurrentUrl {
-                    url: self.current_url.to_string(),
+                    url: if self.result_page_ready {
+                        self.current_url.to_string()
+                    } else {
+                        "https://www.naver.com/".to_string()
+                    },
                 })
             }
             BrowserAction::Close => {
@@ -248,7 +361,10 @@ impl BrowserControl for FakeBrowser {
         }
     }
 
-    fn settle_after_submit(&mut self) {
-        self.steps.push("settle");
+    fn wait_for_readiness(&mut self, phase: ReadinessPhase) {
+        self.steps.push(match phase {
+            ReadinessPhase::InitialPage => "wait-initial",
+            ReadinessPhase::ResultPage => "wait-result",
+        });
     }
 }

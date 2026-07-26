@@ -133,14 +133,8 @@ pub(super) fn decide_request(
         CONVERSATION_MAX_TOKENS,
     )?;
     if web_enabled {
-        if let Some(tool) =
-            crate::app::browser_adapter::parse_agent_browser_tool(&candidate.visible)
-        {
-            return Ok(RequestDecision::BrowserTool(tool));
-        }
-        if let Some(tool) = crate::app::web_search_adapter::parse_agent_web_tool(&candidate.visible)
-        {
-            return Ok(RequestDecision::WebTool(tool));
+        if let Some(decision) = current_request_network_decision(&candidate.visible, user_request) {
+            return Ok(decision);
         }
         if let Some(tool) =
             crate::app::web_search_adapter::deterministic_freshness_fallback(user_request)
@@ -152,6 +146,20 @@ pub(super) fn decide_request(
         return Ok(RequestDecision::ContinueLocal);
     }
     crate::app::inference_adapter::answer::finish_candidate(candidate).map(RequestDecision::Answer)
+}
+
+fn current_request_network_decision(
+    candidate: &str,
+    current_request: &str,
+) -> Option<RequestDecision> {
+    if let Some(tool) = crate::app::browser_adapter::parse_agent_browser_tool_for_request(
+        candidate,
+        current_request,
+    ) {
+        return Some(RequestDecision::BrowserTool(tool));
+    }
+    crate::app::web_search_adapter::parse_agent_web_tool_for_request(candidate, current_request)
+        .map(RequestDecision::WebTool)
 }
 
 pub(super) fn reply_with_context(
@@ -517,5 +525,33 @@ mod tests {
         assert!(failure.starts_with("모델 응답을 받지 못했습니다."));
         assert!(!failure.contains("workflow-secret"));
         assert!(!failure.contains("backend-call-failed"));
+    }
+
+    #[test]
+    fn history_only_secret_cannot_become_network_tool_input() {
+        let history_secret = "HISTORY-ONLY-SECRET-42";
+        let current_request = "2026년 월드컵 결과를 검색해서 알려줘";
+
+        assert!(current_request_network_decision(
+            &format!("WEB TOOL: search\nWEB INPUT: {history_secret}"),
+            current_request,
+        )
+        .is_none());
+        assert!(current_request_network_decision(
+            &format!(
+                "BROWSER TOOL: search-form\nBROWSER URL: https://example.com/\nBROWSER INPUT: {history_secret}"
+            ),
+            current_request,
+        )
+        .is_none());
+        assert!(matches!(
+            current_request_network_decision(
+                "WEB TOOL: search\nWEB INPUT: 2026년 월드컵 결과",
+                current_request,
+            ),
+            Some(RequestDecision::WebTool(
+                crate::app::web_search_adapter::WebToolRoute::Search { .. }
+            ))
+        ));
     }
 }

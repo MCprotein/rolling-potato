@@ -287,6 +287,13 @@ fn active_conversation_context_is_bounded_and_drops_stale_source_pointer() {
     assert_eq!(explicit_resume.code, 3);
     assert!(explicit_resume.message.contains("source reread 차단"));
 
+    fs::remove_file(&source_path).unwrap();
+    let continued_after_delete =
+        build_active_conversation_context_for_limit(&workflow.session_id, None, 131_072).unwrap();
+    assert!(continued_after_delete.transcript_turns_selected > 0);
+    assert_eq!(continued_after_delete.sources.files_read, 0);
+    assert_eq!(continued_after_delete.sources.dropped_files, 1);
+
     std::env::remove_var("RPOTATO_PROJECT_ROOT");
     std::env::remove_var("RPOTATO_DATA_HOME");
     let _ = fs::remove_dir_all(root);

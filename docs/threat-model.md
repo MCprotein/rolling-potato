@@ -85,10 +85,11 @@ Mitigations:
 
 - local backend default
 - no telemetry
-- agent-selected web search sends only a bounded query derived by the local model
-  from the user's request to a fixed public HTML search endpoint; the routing model
-  never receives local attachment contents, no API credential is used, HTTPS is
-  mandatory, and an offline/no-browse instruction disables retrieval
+- agent-selected web search sends only a bounded literal projection of the current
+  user request to a fixed public HTML search endpoint; values found only in
+  conversation history are rejected, the routing model never receives local
+  attachment contents, no API credential is used, HTTPS is mandatory, and an
+  offline/no-browse instruction disables retrieval
 - `WebOpen` upgrades HTTP input to HTTPS, rejects URL credentials, local/private/
   link-local/reserved targets and DNS answers in the resolver used by the direct
   connection, disables proxy routing, follows only bounded same-host redirects,
@@ -116,7 +117,8 @@ Mitigations:
   never loads the user's browser profile, cookies, passwords, or login session
 - all page traffic is forced through a repo-owned loopback HTTPS CONNECT proxy;
   only port 443 is accepted, DNS is resolved and checked for a public address,
-  that address is pinned for the connection, and no direct fallback exists
+  that address is pinned for the connection, QUIC is disabled, non-proxied WebRTC
+  UDP is disabled, and no direct fallback exists
 - the runtime observes a bounded accessibility tree and acts on opaque handles;
   site-specific selectors and `Runtime.evaluate` JavaScript are not exposed
 - the application coordinator types only the bounded search query, submits it,
