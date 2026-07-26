@@ -103,6 +103,32 @@
 - logs redaction
 - local user와 visible/normalized model/tool/evidence turn만 영속화하고 전체 backend prompt, hidden response, raw source body는 제외
 
+### 제한된 브라우저 오용
+
+공개 page가 SSRF, DNS rebinding, prompt injection, 인증된 side effect, 의도하지
+않은 file transfer, process/profile leak를 시도할 수 있습니다.
+
+완화:
+
+- model은 typed `search-form` operation만 요청할 수 있고 deterministic fallback은
+  명시적인 공개 검색 site 지시에만 적용합니다.
+- 매 실행은 새 임시 profile과 process group을 사용합니다. 통합 경로는 사용자의
+  browser profile, cookie, password, login session을 불러오지 않습니다.
+- 모든 page traffic은 repo-owned loopback HTTPS CONNECT proxy를 반드시
+  통과합니다. Port 443만 허용하고 DNS를 public address인지 확인한 뒤 해당
+  address를 연결에 고정하며 direct fallback을 두지 않습니다.
+- runtime은 제한된 accessibility tree를 관찰하고 opaque handle로만 action을
+  수행합니다. 사이트별 selector와 `Runtime.evaluate` JavaScript를 노출하지
+  않습니다.
+- application coordinator는 제한된 검색어만 입력·제출하고 검증한 공개 최종
+  URL과 제한된 text를 읽습니다. Login, 결제, 게시, upload, download,
+  개인정보, project content, attachment 제출 경로를 노출하지 않습니다.
+- navigation 시도, 읽기 시간, byte, element count를 제한하며 성공, timeout,
+  error에서 process group과 임시 profile을 정리합니다.
+- page content는 신뢰하지 않는 evidence이며 command, file, approval,
+  permission 권한을 넓힐 수 없습니다.
+- offline/no-browse를 명시하면 제한된 browser 경로를 비활성화합니다.
+
 ### 외부 Plugin supply chain
 
 Claude Code/Codex형 plugin이 shell command, MCP server, background process, remote connector, prompt mutation을 포함할 수 있습니다.

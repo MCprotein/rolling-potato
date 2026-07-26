@@ -45,6 +45,13 @@ Allowed MVP network use:
 - explicit `WebOpen`; the URL selected by the user is requested directly, and the
   bounded normalized page remains in memory only for the current TUI so `WebFind`
   can inspect it
+- explicit anonymous public search-form requests in the v0.50 source candidate;
+  only the bounded query is typed into a public HTTPS page opened in a new temporary
+  Chromium-family profile, and no attachment or project content is included
+- restricted browser traffic is forced through a repo-owned loopback HTTPS CONNECT
+  proxy that resolves and pins a public address, permits only port 443, and has no
+  direct-network fallback; the temporary profile and process are cleaned up after
+  the request
 
 Disallowed default behavior:
 
@@ -52,6 +59,10 @@ Disallowed default behavior:
 - automatic conversation upload
 - attachment upload to the web-search provider
 - automatic upload of project files or attachments to a WebOpen target
+- reuse of an existing browser profile, cookies, passwords, or authenticated session
+- browser login, payment, posting, upload, download, personal-data entry, or project
+  and attachment submission
+- background browser activity unrelated to the current request
 - command-output telemetry
 - automatic fallback to an external LLM API
 

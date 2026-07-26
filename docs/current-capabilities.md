@@ -1,7 +1,7 @@
 # Current Capabilities
 
 This document is the readable status map for the released
-`rolling-potato v0.48.0` runtime. It groups the runtime by responsibility
+`rolling-potato v0.49.4` runtime. It groups the runtime by responsibility
 instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
@@ -10,7 +10,7 @@ instead of repeating one flat command list.
 > This is a capability guide, not a substitute for `rpotato --help`. The
 > installed binary remains the source of truth for exact command syntax.
 
-## Installation, First Run, and Updates (`v0.42.0`-`v0.48.0`)
+## Installation, First Run, and Updates (`v0.42.0`-`v0.49.4`)
 
 The extracted GitHub Release binary can install or update itself in the
 user-local CLI directory and register that directory in zsh, bash, fish, or
@@ -336,6 +336,18 @@ the primary routing mechanism. `/open <URL>` normalizes a public HTTPS document 
 read-only text, and `/find <text>` searches the last document opened in the current
 TUI. These are separate `WebSearch`, `WebOpen`, and `WebFind` operations under one
 repo-owned HTTPS and untrusted-context policy.
+
+The v0.50 source candidate adds an agent-selected restricted browser search-form
+route for explicit requests to open a public search site and submit a query. It
+does not add a `/browser` command or general browser automation. The runtime uses
+a generic accessibility search field, an isolated temporary Chromium-family
+profile, and a public-HTTPS-only loopback CONNECT proxy that pins the resolved
+public address before connecting. The integrated route exposes no login,
+payment, posting, upload, download, personal-data, project-content, or attachment
+submission action. Browser absence leaves `WebSearch`, `WebOpen`, and `WebFind`
+available. See the
+[v0.50 web research and browser plan](v0.50-web-research-browser-plan.md).
+
 Representative public entry points are:
 
 ```sh
@@ -361,6 +373,10 @@ See [TUI](tui.md), [CLI output style](cli-output-style.md), and
   processes, remote connectors, and write grants do not receive execution authority.
   The repo-owned web adapter returns bounded untrusted text only from search results
   and explicitly opened public pages; it cannot dispatch tools or mutations.
+- The v0.50 restricted browser source candidate performs anonymous public
+  search-form research only. It does not reuse a user browser profile, solve
+  authentication or CAPTCHA challenges, run page-authored JavaScript as a tool,
+  or expose general click and form automation to the agent.
 - `monitor prune` is dry-run only.
 - HTML monitoring is a local static export, not a server or remote dashboard.
 - `v0.42.0` is limited to user-local installation, environment repair, clean

@@ -4,7 +4,7 @@
 
 ## 지원 범위
 
-현재는 정식 릴리즈 전 단계입니다.
+현재는 pre-1.0 단계입니다.
 
 - 지원 버전: `main` branch
 - 보안 수정은 우선 `main`에 반영합니다.
@@ -34,5 +34,17 @@ MVP 보안 경계:
 - 모델 다운로드는 명시 승인 필요
 - 모델 checksum 검증 실패 시 등록 금지
 - 로그에 credential 저장 금지
+- 검색 결과와 열린 page는 신뢰하지 않는 근거이며 command, file, approval,
+  permission 권한을 얻지 못함
+- 정적 웹 접근은 URL credential과 local/private/link-local/reserved target,
+  허용하지 않는 DNS target을 차단
+- v0.50 제한된 browser source candidate는 임시 profile을 시작하고 public
+  HTTPS 443 traffic을 address-pinned loopback CONNECT proxy로 강제하며 사용자
+  cookie, credential, 인증 session을 재사용하지 않음
+- 통합 browser 경로는 익명 search-form 제출만 노출하며 page selector나
+  JavaScript를 노출하지 않고 login, 결제, 게시, upload, download, 개인정보,
+  project content, attachment 제출을 수행하지 않음
+- offline/no-browse를 명시하면 정적·browser retrieval을 모두 비활성화
 
-자세한 위협 모델은 [threat-model.md](threat-model.md)를 따릅니다.
+자세한 위협 모델은 [threat-model.md](threat-model.md), network data 경계는
+[PRIVACY.md](PRIVACY.md)를 따릅니다.

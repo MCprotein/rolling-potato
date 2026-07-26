@@ -6834,3 +6834,47 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(interaction.lines().count() < 350);
     assert!(interaction_tests.lines().count() < 225);
 }
+
+#[test]
+fn web_browser_documentation_contract_is_wired_into_candidate_preflight() {
+    let preflight = fs::read_to_string("scripts/ci/verify-pr-candidate-preflight.sh").unwrap();
+    let docs_contract = fs::read_to_string("scripts/ci/verify-web-browser-docs.sh").unwrap();
+
+    assert!(preflight.contains("scripts/ci/verify-web-browser-docs.sh"));
+    for path in [
+        "README.md",
+        "README.ko.md",
+        "PRIVACY.md",
+        "docs/ko/PRIVACY.md",
+        "SECURITY.md",
+        "docs/ko/SECURITY.md",
+        "docs/threat-model.md",
+        "docs/ko/threat-model.md",
+        "docs/tui.md",
+        "docs/ko/tui.md",
+        "docs/current-capabilities.md",
+        "docs/ko/current-capabilities.md",
+        "docs/runtime-architecture.md",
+        "docs/ko/runtime-architecture.md",
+        "docs/v0.50-web-research-browser-plan.md",
+        "docs/ko/v0.50-web-research-browser-plan.md",
+    ] {
+        assert!(
+            docs_contract.contains(path),
+            "web/browser docs contract does not cover {path}"
+        );
+    }
+    for marker in [
+        "v0.49.4",
+        "Restricted Browser Abuse",
+        "제한된 브라우저 오용",
+        "loopback HTTPS CONNECT",
+        "Web Research and Restricted Browser",
+        "웹 연구와 제한된 브라우저",
+    ] {
+        assert!(
+            docs_contract.contains(marker),
+            "web/browser docs contract does not assert {marker}"
+        );
+    }
+}

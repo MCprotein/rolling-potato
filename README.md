@@ -14,7 +14,7 @@ mid-range machines. It is designed around a simple premise:
 
 | Project snapshot | |
 | --- | --- |
-| Current release | `v0.48.0` |
+| Current release | `v0.49.4` |
 | CLI | `rpotato` |
 | Runtime | Rust, managed `llama.cpp`, GGUF |
 | Primary surfaces | CLI and TUI |
@@ -168,6 +168,21 @@ document and `/find <text>` searches the last document opened in the current TUI
 Only same-host redirects are followed automatically; a cross-host redirect is
 reported and requires a new explicit `/open`. `/doctor` reports whether the
 repo-owned web tools are ready.
+
+The v0.50 source candidate also supports a restricted browser search-form route
+for explicit requests such as “open Naver and search for …”. There is no manual
+`/browser` command: the agent chooses the typed tool, with a narrow deterministic
+fallback for small models. The runtime discovers a generic accessibility search
+field instead of using site-specific selectors or page JavaScript, types only the
+bounded search query, submits it, and returns the verified public result URL and
+bounded page text. It starts an installed Chromium-family browser with a fresh
+temporary profile, never reuses existing cookies or logins, and forces public
+HTTPS port 443 traffic through a loopback CONNECT proxy that resolves and pins a
+public address before connecting. Login, payment, posting, upload, download,
+personal-data entry, and project or attachment submission are outside this route.
+An explicit offline/no-browse instruction disables both static and browser
+retrieval.
+
 The line below the composer shows the current
 model, context usage, compaction checkpoint, backend state, and session.
 Normal TUI operations use `/model`, `/compact`, `/search`, `/open`, `/find`, `/attach`, `/update`,
@@ -209,7 +224,7 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The `v0.48.0` release is an active pre-1.0 runtime, not only a
+The `v0.49.4` release is an active pre-1.0 runtime, not only a
 product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
@@ -223,6 +238,10 @@ product-definition scaffold. Implemented areas include:
 | Monitoring | CLI/TUI metrics, SQLite projection, benchmark records, static HTML export |
 | Interfaces | Primary conversation TUI, keyboard pickers, local attachment badges, automation/diagnostic CLI, self-contained local HTML report |
 | General answers and web | General knowledge/calculation answers, model-selected API-key-free `WebSearch`, `WebOpen`, and `WebFind`, explicit no-browse control, and runtime-owned source links |
+
+The current v0.50 source candidate adds agent-selected restricted browser
+search-form research without granting general browser automation. See the
+[v0.50 web research and browser plan](docs/v0.50-web-research-browser-plan.md).
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete
@@ -246,6 +265,9 @@ Key constraints:
   valid Korean lines through safe projection and falls back to the non-empty visible
   answer instead of hiding it; only empty/hidden output is blocked
 - imported plugin instructions cannot widen runtime permissions
+- web evidence and browser page content remain untrusted data; the restricted
+  browser route uses a temporary profile, public-HTTPS-only address-pinned proxy,
+  and an anonymous search-form action instead of an authenticated user session
 - shell, background, remote-connector, sensitive-setting, and write
   capabilities remain blocked unless a supported policy path allows them
 - uncertain backend requests or verification commands are not replayed
@@ -271,11 +293,11 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The published release history through `v0.48.0` is complete. The latest release
-adds keyboard-driven TUI choices, private local attachments, verified vision
-projectors, and API-key-free `WebSearch`, `WebOpen`, and `WebFind` while
-preserving the local coding-agent workflow. See
-[ROADMAP.md](ROADMAP.md).
+The published release history through `v0.49.4` is complete. The current source
+is preparing v0.50 bounded web research and restricted browser search-form
+support while preserving the local coding-agent workflow. See
+[ROADMAP.md](ROADMAP.md) and the
+[v0.50 delivery plan](docs/v0.50-web-research-browser-plan.md).
 
 ---
 
