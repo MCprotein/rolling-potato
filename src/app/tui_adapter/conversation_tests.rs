@@ -211,6 +211,56 @@ fn resume_command_uses_a_picker_and_rehydrates_only_the_selected_session() {
 }
 
 #[test]
+fn typed_scroll_event_pages_history_without_becoming_a_submitted_command() {
+    let mut terminal = ScriptedTerminal::new(["1"]);
+    terminal.input_events = [
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::Submit(
+            "/resume".to_string(),
+        )),
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::Submit(
+            "넌 누구야".to_string(),
+        )),
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::ScrollUp),
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::Submit(
+            "/quit".to_string(),
+        )),
+    ]
+    .into_iter()
+    .collect();
+    let history = (1..=24)
+        .flat_map(|index| {
+            [
+                TuiConversationTurn {
+                    role: TuiConversationRole::User,
+                    content: format!("기록 질문 {index}"),
+                },
+                TuiConversationTurn {
+                    role: TuiConversationRole::Assistant,
+                    content: format!("기록 답변 {index}"),
+                },
+            ]
+        })
+        .collect();
+    let mut runtime = ConversationRuntime {
+        history,
+        session_options: vec![session_option("session-history", "긴 대화", false)],
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.requests, ["넌 누구야"]);
+    assert!(
+        terminal
+            .frames
+            .last()
+            .expect("scrolled conversation frame")
+            .contains("↑ 이전 대화"),
+        "typed scroll event should render an older conversation page"
+    );
+}
+
+#[test]
 fn new_command_starts_an_empty_session_instead_of_clearing_old_history() {
     let mut terminal = ScriptedTerminal::new(["/new", "/quit"]);
     let mut runtime = ConversationRuntime {

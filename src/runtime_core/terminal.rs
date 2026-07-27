@@ -25,6 +25,14 @@ pub(crate) struct TerminalSuggestion {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum TerminalInputEvent {
+    Submit(String),
+    ScrollUp,
+    ScrollDown,
+    End,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TerminalChoice {
     pub(crate) value: String,
     pub(crate) label: String,
@@ -130,6 +138,13 @@ pub(crate) trait TerminalIo {
         suggestions: &[TerminalSuggestion],
     ) -> Result<Option<String>, TerminalFault> {
         read_plain_suggestion(self, suggestions)
+    }
+    fn read_input_with_suggestions(
+        &mut self,
+        suggestions: &[TerminalSuggestion],
+    ) -> Result<TerminalInputEvent, TerminalFault> {
+        self.read_line_with_suggestions(suggestions)
+            .map(|line| line.map_or(TerminalInputEvent::End, TerminalInputEvent::Submit))
     }
     fn read_secret(&mut self) -> Result<Option<String>, TerminalFault>;
     fn write_frame(&mut self, frame: &str) -> Result<(), TerminalFault>;

@@ -208,6 +208,33 @@ fn slash_opens_command_palette_before_enter() {
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
+fn page_scroll_preserves_the_live_composer_draft() {
+    let fixture = NativeTerminalFixture::new("scroll-preserves-draft");
+    assert!(fixture.project.is_dir());
+    let _live_terminal = LiveTerminalEnvironment::enable();
+
+    let mut terminal = NativePty::spawn(80, 12);
+    terminal.wait_for("›");
+    for index in 1..=8 {
+        let mark = terminal.mark();
+        submit_visible_command(&mut terminal, &format!("넌 누구야 {index}"));
+        terminal.wait_for_after(mark, "저는 로컬에서 실행되는");
+    }
+
+    terminal.send("/qu");
+    terminal.wait_for("/qu");
+    let scroll_mark = terminal.mark();
+    terminal.send("\u{1b}[5~");
+    terminal.wait_for_after(scroll_mark, "↑ 이전 대화");
+    terminal.wait_for_after(scroll_mark, "/qu");
+
+    terminal.send("it\r");
+    let output = terminal.finish();
+    assert!(!output.contains("알 수 없는 TUI 명령"));
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
 fn bracketed_clipboard_image_path_is_captured_before_slash_command_routing() {
     let fixture = NativeTerminalFixture::new("clipboard-image-path");
     let _live_terminal = LiveTerminalEnvironment::enable();

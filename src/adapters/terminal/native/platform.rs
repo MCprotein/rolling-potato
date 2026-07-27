@@ -119,11 +119,14 @@ mod imp {
         Ok((size.cols, size.rows))
     }
 
-    pub fn read_line_with_suggestions(
+    pub fn read_input_with_suggestions(
         suggestions: &[TerminalSuggestion],
         base_frame: &str,
-    ) -> Result<Option<String>, TerminalFault> {
-        with_live_mode(|width| super::super::live_input::read(suggestions, width, base_frame))
+        state: Option<super::super::live_input::State>,
+    ) -> Result<super::super::live_input::ReadOutcome, TerminalFault> {
+        with_live_mode(|width| {
+            super::super::live_input::read(suggestions, width, base_frame, state)
+        })
     }
 
     pub fn choose(
@@ -400,11 +403,18 @@ mod imp {
         Ok((cols, rows))
     }
 
-    pub fn read_line_with_suggestions(
+    pub fn read_input_with_suggestions(
         _suggestions: &[TerminalSuggestion],
         _base_frame: &str,
-    ) -> Result<Option<String>, TerminalFault> {
-        read_stdin_line(TerminalFault::LineRead)
+        _state: Option<super::super::live_input::State>,
+    ) -> Result<super::super::live_input::ReadOutcome, TerminalFault> {
+        read_stdin_line(TerminalFault::LineRead).map(|line| super::super::live_input::ReadOutcome {
+            event: line.map_or(
+                super::super::TerminalInputEvent::End,
+                super::super::TerminalInputEvent::Submit,
+            ),
+            state: None,
+        })
     }
 
     pub fn choose(
@@ -530,10 +540,11 @@ mod imp {
         Err(TerminalFault::ModeRead)
     }
 
-    pub fn read_line_with_suggestions(
+    pub fn read_input_with_suggestions(
         _suggestions: &[TerminalSuggestion],
         _base_frame: &str,
-    ) -> Result<Option<String>, TerminalFault> {
+        _state: Option<super::super::live_input::State>,
+    ) -> Result<super::super::live_input::ReadOutcome, TerminalFault> {
         Err(TerminalFault::ModeRead)
     }
 
@@ -545,5 +556,5 @@ mod imp {
     }
 }
 
-pub(super) use imp::{choose, dimensions, read_line_with_suggestions, read_secret};
+pub(super) use imp::{choose, dimensions, read_input_with_suggestions, read_secret};
 pub(super) const LIVE_INPUT: bool = cfg!(any(target_os = "linux", target_os = "macos"));

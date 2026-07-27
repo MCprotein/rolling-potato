@@ -1,5 +1,7 @@
 use crate::foundation::error::AppError;
-use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalFault, TerminalIo};
+use crate::runtime_core::terminal::{
+    FrameWriteBoundary, TerminalFault, TerminalInputEvent, TerminalIo,
+};
 
 use super::outcome::{exact_tui_outcome, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext};
 use super::runtime_bridge::{
@@ -126,11 +128,22 @@ pub(crate) fn run_controller(
             }
         }
 
-        let Some(line) = terminal
-            .read_line_with_suggestions(super::command_palette::commands())
+        let line = match terminal
+            .read_input_with_suggestions(super::command_palette::commands())
             .map_err(terminal_fault_error)?
-        else {
-            return Ok(());
+        {
+            TerminalInputEvent::Submit(line) => line,
+            TerminalInputEvent::ScrollUp => {
+                let conversation_pages =
+                    super::render::conversation_page_count(&state, width, height);
+                state.next_notice_page(height, conversation_pages);
+                continue;
+            }
+            TerminalInputEvent::ScrollDown => {
+                state.previous_notice_page();
+                continue;
+            }
+            TerminalInputEvent::End => return Ok(()),
         };
         let words = line.split_whitespace().collect::<Vec<_>>();
         if !matches!(words.as_slice(), ["/more"] | ["/back"]) {

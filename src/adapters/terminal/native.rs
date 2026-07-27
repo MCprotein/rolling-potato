@@ -4,7 +4,7 @@ use std::io::{self, IsTerminal, Write};
 pub(crate) use crate::runtime_core::terminal::resolve_choice;
 pub(crate) use crate::runtime_core::terminal::{
     read_plain_choice, read_plain_suggestion, FrameWriteBoundary, TerminalChoice, TerminalFault,
-    TerminalIo, TerminalSuggestion,
+    TerminalInputEvent, TerminalIo, TerminalSuggestion,
 };
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TestTerminalFault {
@@ -21,6 +21,7 @@ pub fn validate_native_fault_configuration() -> Result<(), TerminalFault> {
 pub struct NativeTerminal {
     allow_piped_dimensions: bool,
     last_frame: String,
+    live_input_state: Option<live_input::State>,
 }
 
 impl NativeTerminal {
@@ -28,6 +29,7 @@ impl NativeTerminal {
         Self {
             allow_piped_dimensions: false,
             last_frame: String::new(),
+            live_input_state: None,
         }
     }
 
@@ -35,6 +37,7 @@ impl NativeTerminal {
         Self {
             allow_piped_dimensions: true,
             last_frame: String::new(),
+            live_input_state: None,
         }
     }
 
@@ -76,14 +79,21 @@ impl TerminalIo for NativeTerminal {
         read_stdin_line(TerminalFault::LineRead)
     }
 
-    fn read_line_with_suggestions(
+    fn read_input_with_suggestions(
         &mut self,
         suggestions: &[TerminalSuggestion],
-    ) -> Result<Option<String>, TerminalFault> {
+    ) -> Result<TerminalInputEvent, TerminalFault> {
         if self.supports_live_input() {
-            platform::read_line_with_suggestions(suggestions, &self.last_frame)
+            let outcome = platform::read_input_with_suggestions(
+                suggestions,
+                &self.last_frame,
+                self.live_input_state.take(),
+            )?;
+            self.live_input_state = outcome.state;
+            Ok(outcome.event)
         } else {
             read_plain_suggestion(self, suggestions)
+                .map(|line| line.map_or(TerminalInputEvent::End, TerminalInputEvent::Submit))
         }
     }
 
@@ -233,6 +243,7 @@ pub struct ScriptedTerminal {
     pub frames: Vec<String>,
     pub frame_fault: Option<TerminalFault>,
     pub frame_fault_at: Option<(FrameWriteBoundary, TerminalFault)>,
+    pub input_events: std::collections::VecDeque<Result<TerminalInputEvent, TerminalFault>>,
 }
 
 #[cfg(test)]
@@ -249,6 +260,7 @@ impl ScriptedTerminal {
             frames: Vec::new(),
             frame_fault: None,
             frame_fault_at: None,
+            input_events: std::collections::VecDeque::new(),
         }
     }
 }
@@ -265,6 +277,16 @@ impl TerminalIo for ScriptedTerminal {
 
     fn read_secret(&mut self) -> Result<Option<String>, TerminalFault> {
         self.secrets.pop_front().unwrap_or(Ok(None))
+    }
+
+    fn read_input_with_suggestions(
+        &mut self,
+        _suggestions: &[TerminalSuggestion],
+    ) -> Result<TerminalInputEvent, TerminalFault> {
+        self.input_events.pop_front().unwrap_or_else(|| {
+            self.read_line()
+                .map(|line| line.map_or(TerminalInputEvent::End, TerminalInputEvent::Submit))
+        })
     }
 
     fn write_frame(&mut self, frame: &str) -> Result<(), TerminalFault> {

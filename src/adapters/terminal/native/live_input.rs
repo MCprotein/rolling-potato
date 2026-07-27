@@ -1,6 +1,6 @@
 use std::io::{self, Read};
 
-use super::{TerminalFault, TerminalSuggestion};
+use super::{TerminalFault, TerminalInputEvent, TerminalSuggestion};
 
 mod editor;
 mod paste;
@@ -14,6 +14,15 @@ use render::{BracketedPasteGuard, MouseTrackingGuard};
 
 const MAX_INPUT_BYTES: usize = 8 * 1024;
 const MAX_PALETTE_ROWS: usize = 6;
+
+pub(super) struct State {
+    editor: Editor,
+}
+
+pub(super) struct ReadOutcome {
+    pub(super) event: TerminalInputEvent,
+    pub(super) state: Option<State>,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Action {
@@ -38,10 +47,11 @@ pub(super) fn read(
     suggestions: &[TerminalSuggestion],
     terminal_width: usize,
     base_frame: &str,
-) -> Result<Option<String>, TerminalFault> {
+    state: Option<State>,
+) -> Result<ReadOutcome, TerminalFault> {
     let _paste_guard = BracketedPasteGuard::start()?;
     let _mouse_guard = MouseTrackingGuard::start()?;
-    let mut editor = Editor::default();
+    let mut editor = state.map(|state| state.editor).unwrap_or_default();
     let mut escape = Vec::new();
     let mut utf8 = Vec::new();
     let mut paste = None::<PasteCapture>;
@@ -78,10 +88,8 @@ pub(super) fn read(
                 escape.clear();
                 if action == Action::PasteStart {
                     paste = Some(PasteCapture::default());
-                } else if action == Action::ScrollUp && editor.text().is_empty() {
-                    return Ok(Some("/more".to_string()));
-                } else if action == Action::ScrollDown && editor.text().is_empty() {
-                    return Ok(Some("/back".to_string()));
+                } else if matches!(action, Action::ScrollUp | Action::ScrollDown) {
+                    return Ok(scroll_outcome(editor, action));
                 } else {
                     apply_action(&mut editor, action, suggestions);
                     redraw(&editor, suggestions, terminal_width, base_frame)?;
@@ -96,10 +104,23 @@ pub(super) fn read(
                     continue;
                 }
                 redraw(&editor, &[], terminal_width, base_frame)?;
-                return Ok(Some(editor.into_text()));
+                return Ok(ReadOutcome {
+                    event: TerminalInputEvent::Submit(editor.into_text()),
+                    state: None,
+                });
             }
-            0x03 => return Ok(None),
-            0x04 if editor.text().is_empty() => return Ok(None),
+            0x03 => {
+                return Ok(ReadOutcome {
+                    event: TerminalInputEvent::End,
+                    state: None,
+                })
+            }
+            0x04 if editor.text().is_empty() => {
+                return Ok(ReadOutcome {
+                    event: TerminalInputEvent::End,
+                    state: None,
+                })
+            }
             0x04 => editor.delete(),
             0x01 => editor.home(),
             0x02 => editor.left(),
@@ -128,6 +149,18 @@ pub(super) fn read(
             _ => continue,
         }
         redraw(&editor, suggestions, terminal_width, base_frame)?;
+    }
+}
+
+fn scroll_outcome(editor: Editor, action: Action) -> ReadOutcome {
+    let event = match action {
+        Action::ScrollUp => TerminalInputEvent::ScrollUp,
+        Action::ScrollDown => TerminalInputEvent::ScrollDown,
+        _ => unreachable!("scroll outcome requires a scroll action"),
+    };
+    ReadOutcome {
+        event,
+        state: Some(State { editor }),
     }
 }
 
@@ -292,5 +325,19 @@ mod tests {
         assert_eq!(decode_escape(b"\x1b[<65;10;5M"), Action::ScrollDown);
         assert_eq!(b"\x1b".as_slice(), &[0x1b]);
         assert_ne!(b"\x1b[".as_slice(), &[0x1b]);
+    }
+
+    #[test]
+    fn scroll_events_preserve_the_current_draft() {
+        let mut editor = Editor::default();
+        editor.insert("작성 중인 요청");
+
+        let outcome = scroll_outcome(editor, Action::ScrollUp);
+
+        assert_eq!(outcome.event, TerminalInputEvent::ScrollUp);
+        assert_eq!(
+            outcome.state.expect("preserved editor").editor.text(),
+            "작성 중인 요청"
+        );
     }
 }
