@@ -1,5 +1,41 @@
 # 릴리즈 노트
 
+## v0.50.0 - 제한된 웹 연구와 브라우저 검색
+
+릴리즈 날짜: 2026-07-27
+
+이 기능 릴리즈는 단발성 웹 조회를 상한이 명확하고 출처가 연결된 연구 흐름으로
+확장하고, 공개 사이트 검색을 명시적으로 요청했을 때만 사용하는 제한된 Chromium
+search-form 경로를 추가합니다. 모델 출력은 계속 신뢰하지 않으며 일반 browser
+자동화, 로그인 session, 임의 page action 권한을 주지 않습니다.
+
+### 포함한 것
+
+- Query 보정, 결과 순위, 본문 추출, RSS·Atom·Markdown 지원과 request·근거·시간
+  상한을 가진 Search→Open→Find 연구 loop
+- Runtime이 발급한 안정적인 source id, 존재하지 않거나 바꿔치기한 인용 제거,
+  충돌 근거 보존과 TUI multi-page source 탐색
+- DuckDuckGo HTML·lite parser fallback, canonical URL 중복 제거, anti-bot 감지와
+  명확한 bounded failure를 사용하는 API key 없는 직접 검색
+- 새 임시 profile, accessibility 기반 field 탐색, opaque element handle,
+  public HTTPS 전용 address-pinned loopback CONNECT proxy를 사용하는 격리된
+  installed-Chromium search-form 경로
+- Private·local target, 기존 browser profile, login, 결제, 게시, upload,
+  download, 개인정보 입력, project content 제출, 임의 selector·JavaScript와
+  제한 없는 click·form 자동화 차단
+- 지원 browser가 없어도 기존 WebSearch, WebOpen, WebFind, 일반 로컬 대화와
+  명시적 no-browse 동작 유지
+- Live composer 준비 뒤 긴 명령을 원자적으로 입력하도록 native-terminal
+  candidate 검증 강화
+
+### 호환성과 경계
+
+- 기존 public command, model file, registry, session과 로컬 대화는 계속
+  호환됩니다.
+- Browser 지원은 이미 설치된 Chromium 계열 browser를 사용하며 별도 browser를
+  내려받거나 bundle하지 않습니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
+
 ## v0.49.4 - 신뢰할 수 있는 macOS terminal 릴리즈 검증
 
 릴리즈 날짜: 2026-07-26

@@ -197,9 +197,9 @@ Routing model에는 사용자 요청만 전달하고 local attachment 본문은 
 첨부 text는 근거 retrieval 이후 local 답변 합성에만 사용합니다. `/doctor`는
 별도 credential 없이 `WebSearch`·`WebOpen`·`WebFind` 준비 상태를 표시합니다.
 
-### 제한된 브라우저 Search Form (v0.50 Source Candidate)
+### 제한된 브라우저 Search Form (v0.50.0)
 
-v0.50 source candidate는 사용자가 네이버나 Google을 열어 query를 검색하라고
+v0.50.0 릴리즈는 사용자가 네이버나 Google을 열어 query를 검색하라고
 명시할 때 제한된 browser tool을 선택할 수 있습니다. Slash palette에는
 `/browser`를 노출하지 않습니다. Browser research는 agent가 판단하며, 소형 모델
 routing을 위해 좁은 deterministic fallback만 둡니다. TUI는 runtime이 새 임시

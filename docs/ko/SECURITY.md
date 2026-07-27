@@ -38,7 +38,7 @@ MVP 보안 경계:
   permission 권한을 얻지 못함
 - 정적 웹 접근은 URL credential과 local/private/link-local/reserved target,
   허용하지 않는 DNS target을 차단
-- v0.50 제한된 browser source candidate는 임시 profile을 시작하고 public
+- v0.50.0 제한된 browser 경로는 임시 profile을 시작하고 public
   HTTPS 443 traffic을 address-pinned loopback CONNECT proxy로 강제하며 사용자
   cookie, credential, 인증 session을 재사용하지 않음
 - 통합 browser 경로는 익명 search-form 제출만 노출하며 page selector나

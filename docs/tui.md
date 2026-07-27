@@ -206,9 +206,9 @@ used only by the local answer synthesis after evidence retrieval. `/doctor` repo
 `WebSearch`, `WebOpen`, and `WebFind` readiness without requiring or printing a
 credential.
 
-### Restricted Browser Search Form (v0.50 Source Candidate)
+### Restricted Browser Search Form (v0.50.0)
 
-The v0.50 source candidate may choose a restricted browser tool when the user
+The v0.50.0 release may choose a restricted browser tool when the user
 explicitly asks to open Naver or Google and search for a query. The slash palette
 does not expose `/browser`; browser research is an agent decision with a narrow
 deterministic fallback for small-model routing. The TUI shows structured progress

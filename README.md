@@ -14,7 +14,7 @@ mid-range machines. It is designed around a simple premise:
 
 | Project snapshot | |
 | --- | --- |
-| Current release | `v0.49.4` |
+| Current release | `v0.50.0` |
 | CLI | `rpotato` |
 | Runtime | Rust, managed `llama.cpp`, GGUF |
 | Primary surfaces | CLI and TUI |
@@ -169,7 +169,7 @@ Only same-host redirects are followed automatically; a cross-host redirect is
 reported and requires a new explicit `/open`. `/doctor` reports whether the
 repo-owned web tools are ready.
 
-The v0.50 source candidate also supports a restricted browser search-form route
+The v0.50.0 release also supports a restricted browser search-form route
 for explicit requests such as “open Naver and search for …”. There is no manual
 `/browser` command: the agent chooses the typed tool, with a narrow deterministic
 fallback for small models. The runtime discovers a generic accessibility search
@@ -224,7 +224,7 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The `v0.49.4` release is an active pre-1.0 runtime, not only a
+The `v0.50.0` release is an active pre-1.0 runtime, not only a
 product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
@@ -239,8 +239,8 @@ product-definition scaffold. Implemented areas include:
 | Interfaces | Primary conversation TUI, keyboard pickers, local attachment badges, automation/diagnostic CLI, self-contained local HTML report |
 | General answers and web | General knowledge/calculation answers, model-selected API-key-free `WebSearch`, `WebOpen`, and `WebFind`, explicit no-browse control, and runtime-owned source links |
 
-The current v0.50 source candidate adds agent-selected restricted browser
-search-form research without granting general browser automation. See the
+The v0.50.0 release adds agent-selected restricted browser search-form research
+without granting general browser automation. See the
 [v0.50 web research and browser plan](docs/v0.50-web-research-browser-plan.md).
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
@@ -293,9 +293,9 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The published release history through `v0.49.4` is complete. The current source
-is preparing v0.50 bounded web research and restricted browser search-form
-support while preserving the local coding-agent workflow. See
+The published release history through `v0.50.0` includes bounded web research
+and restricted browser search-form support while preserving the local
+coding-agent workflow. See
 [ROADMAP.md](ROADMAP.md) and the
 [v0.50 delivery plan](docs/v0.50-web-research-browser-plan.md).
 

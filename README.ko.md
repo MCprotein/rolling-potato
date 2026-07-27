@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.49.4` |
+| 현재 릴리즈 | `v0.50.0` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -163,7 +163,7 @@ TUI에서 마지막으로 연 문서 안을 검색합니다. 동일 host redirec
 다른 host 이동은 대상 URL을 표시한 뒤 명시적인 다음 `/open`을 요구합니다.
 `/doctor`는 별도 credential 없이 웹 도구 준비 상태를 보여줍니다.
 
-v0.50 source candidate는 “네이버를 열고 …를 검색해” 같은 명시적 요청에
+v0.50.0 릴리즈는 “네이버를 열고 …를 검색해” 같은 명시적 요청에
 제한된 브라우저 search-form 경로도 제공합니다. 수동 `/browser` 명령은 없으며
 agent가 typed tool을 선택하고, 소형 모델을 위해 좁은 deterministic fallback만
 둡니다. Runtime은 사이트별 selector나 page JavaScript 대신 일반 accessibility
@@ -201,7 +201,7 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-`v0.49.4` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
+`v0.50.0` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
@@ -216,8 +216,8 @@ pre-1.0 런타임입니다.
 | 화면 | 기본 대화 TUI, 자동화·진단 CLI, self-contained local HTML report |
 | 범용 답변과 웹 | 일반 지식·계산 답변, 최신성 자동 routing, API key 없는 `WebSearch`·`WebOpen`·`WebFind`, runtime 소유 출처 link |
 
-현재 v0.50 source candidate는 일반 browser 자동화 권한을 주지 않고,
-agent가 선택하는 제한된 browser search-form research를 추가합니다.
+v0.50.0 릴리즈는 일반 browser 자동화 권한을 주지 않고, agent가 선택하는
+제한된 browser search-form research를 추가합니다.
 [v0.50 웹 연구·브라우저 계획](docs/ko/v0.50-web-research-browser-plan.md)을
 참고하십시오.
 
@@ -269,9 +269,8 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-게시된 `v0.49.4`까지의 release history는 완료되었습니다. 현재 source는 로컬
-coding-agent workflow를 유지하면서 v0.50의 제한된 웹 연구와 browser
-search-form 지원을 준비하고 있습니다.
+게시된 `v0.50.0`까지의 release history에는 로컬 coding-agent workflow를
+유지하는 제한된 웹 연구와 browser search-form 지원이 포함됩니다.
 [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)와
 [v0.50 구현 계획](docs/ko/v0.50-web-research-browser-plan.md)을 참고하십시오.
 

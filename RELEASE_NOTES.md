@@ -1,5 +1,44 @@
 # Release Notes
 
+## v0.50.0 - Bounded Web Research and Restricted Browser Search
+
+Release date: 2026-07-27
+
+This feature release turns one-shot web lookups into bounded, source-linked
+research and adds a narrowly scoped Chromium search-form route for explicit
+public-site search requests. It keeps model output untrusted and does not grant
+general browser automation, authenticated sessions, or arbitrary page actions.
+
+### Included
+
+- Adds a bounded Search→Open→Find research loop with query refinement, result
+  ranking, main-content extraction, RSS/Atom/Markdown support, and strict
+  request, evidence, and elapsed-time budgets.
+- Assigns stable runtime source identifiers, rejects invented or swapped
+  citations, preserves conflicting evidence, and exposes multi-page source
+  navigation through the TUI.
+- Hardens direct API-key-free discovery with complementary DuckDuckGo HTML and
+  lite parsing, canonical URL deduplication, anti-bot detection, and clear
+  bounded failure.
+- Adds an isolated installed-Chromium search-form route using a fresh temporary
+  profile, accessibility-based field discovery, opaque element handles, and a
+  public-HTTPS-only address-pinned loopback CONNECT proxy.
+- Blocks private and local targets, existing browser profiles, login, payment,
+  posting, upload, download, personal-data entry, project-content submission,
+  arbitrary selectors, JavaScript, and unrestricted click or form automation.
+- Keeps static WebSearch, WebOpen, WebFind, ordinary local conversation, and
+  explicit no-browse behavior available when a supported browser is absent.
+- Strengthens native-terminal candidate coverage so long visible commands are
+  submitted atomically only after the live composer is ready.
+
+### Compatibility and boundaries
+
+- Existing public commands, model files, registries, sessions, and local
+  conversations remain compatible.
+- Browser support uses an already installed Chromium-family browser and does not
+  download or bundle a separate browser.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.49.4 - Reliable macOS Terminal Release Verification
 
 Release date: 2026-07-26

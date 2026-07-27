@@ -177,7 +177,7 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 
 | Version | 상태 | 범위 |
 | --- | --- | --- |
-| v0.50.0 | In development | [제한된 웹 연구와 Chromium browser 계획](v0.50-web-research-browser-plan.md): API key·MCP·Node.js 없이 Search→Open→Find 근거 loop, 검증된 source 연결, multi-page TUI와 격리된 installed-browser action |
+| v0.50.0 | Released | [제한된 웹 연구와 Chromium browser 제공 기록](v0.50-web-research-browser-plan.md): API key·MCP·Node.js 없이 Search→Open→Find 근거 loop, 검증된 source 연결, multi-page TUI와 격리된 installed-browser action |
 
 ## 배포 경계
 
