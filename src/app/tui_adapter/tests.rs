@@ -89,7 +89,8 @@ fn ordinary_line_read_failure_has_a_distinct_non_secret_taxonomy() {
 
 #[test]
 fn live_controller_compile_time_boundary_uses_only_runtime_and_terminal_authority() {
-    let live = include_str!("../../surfaces/tui/controller.rs");
+    let controller = include_str!("../../surfaces/tui/controller.rs");
+    let request_submission = include_str!("../../surfaces/tui/controller/request_submission.rs");
     for forbidden in [
         "use crate::runtime;",
         "crate::runtime::",
@@ -100,15 +101,18 @@ fn live_controller_compile_time_boundary_uses_only_runtime_and_terminal_authorit
         "patch::",
         "state::",
     ] {
-        assert!(
-            !live.contains(forbidden),
-            "live boundary escaped via {forbidden}"
-        );
+        for live in [controller, request_submission] {
+            assert!(
+                !live.contains(forbidden),
+                "live boundary escaped via {forbidden}"
+            );
+        }
     }
-    assert!(live.contains("runtime.read_tui_page(request)"));
-    assert!(live.contains("runtime.dispatch_tui_intent"));
-    assert!(live.contains("runtime.submit_request"));
-    assert!(live.contains("trait TuiRuntimePort"));
+    assert!(controller.contains("mod request_submission;"));
+    assert!(controller.contains("runtime.read_tui_page(request)"));
+    assert!(controller.contains("runtime.dispatch_tui_intent"));
+    assert!(controller.contains("trait TuiRuntimePort"));
+    assert!(request_submission.contains("runtime.submit_request"));
 }
 
 #[test]
