@@ -44,7 +44,7 @@ MVP에서 허용되는 네트워크 사용:
   질문만 고정 공개 검색 HTML endpoint로 전송합니다.
 - 명시적 `WebOpen`. 사용자가 선택한 URL을 직접 요청하며 제한된 normalized
   page는 현재 TUI memory에만 남아 `WebFind`가 검색할 수 있습니다.
-- v0.50 source candidate의 명시적 익명 공개 search-form 요청. 새 임시
+- v0.50.0의 명시적 익명 공개 search-form 요청. 새 임시
   Chromium 계열 profile에서 공개 HTTPS page에 제한된 query만 입력하며
   attachment나 project content는 포함하지 않습니다.
 - 제한된 browser traffic은 repo-owned loopback HTTPS CONNECT proxy를 반드시

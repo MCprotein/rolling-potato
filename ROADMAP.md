@@ -179,7 +179,7 @@ evidence.
 
 | Version | Status | Scope |
 | --- | --- | --- |
-| v0.50.0 | In development | [Bounded web research and Chromium browser plan](docs/v0.50-web-research-browser-plan.md): Search→Open→Find evidence loops, verified source binding, multi-page TUI, and isolated installed-browser actions without API keys, MCP, or Node.js |
+| v0.50.0 | Released | [Bounded web research and Chromium browser delivery](docs/v0.50-web-research-browser-plan.md): Search→Open→Find evidence loops, verified source binding, multi-page TUI, and isolated installed-browser actions without API keys, MCP, or Node.js |
 
 ## Distribution Boundary
 
