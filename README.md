@@ -14,7 +14,7 @@ mid-range machines. It is designed around a simple premise:
 
 | Project snapshot | |
 | --- | --- |
-| Current release | `v0.50.0` |
+| Current release | `v0.50.1` |
 | CLI | `rpotato` |
 | Runtime | Rust, managed `llama.cpp`, GGUF |
 | Primary surfaces | CLI and TUI |
@@ -224,7 +224,7 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The `v0.50.0` release is an active pre-1.0 runtime, not only a
+The `v0.50.1` release is an active pre-1.0 runtime, not only a
 product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
@@ -293,9 +293,9 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The published release history through `v0.50.0` includes bounded web research
-and restricted browser search-form support while preserving the local
-coding-agent workflow. See
+The published release history through `v0.50.1` includes bounded web research,
+restricted browser search-form support, and the reliable interactive TUI patch
+while preserving the local coding-agent workflow. See
 [ROADMAP.md](ROADMAP.md) and the
 [v0.50 delivery plan](docs/v0.50-web-research-browser-plan.md).
 

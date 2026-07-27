@@ -1,5 +1,41 @@
 # Release Notes
 
+## v0.50.1 - Reliable Interactive Conversation TUI
+
+Release date: 2026-07-27
+
+This patch makes the primary conversation TUI reliably preserve user input,
+present model progress, render bounded Markdown, and keep private runtime
+protocols out of visible answers. It retains the v0.50.0 web research and
+restricted browser behavior without widening browser or tool authority.
+
+### Included
+
+- Normalizes pasted clipboard image paths into private attachment badges and
+  verifies the real native-terminal paste path.
+- Shows an active spinner, elapsed time, and a live context estimate while a
+  local-model request is running.
+- Reconciles context metrics across manifest model identifiers and GGUF artifact
+  names instead of displaying a stale or disconnected counter.
+- Accepts bounded small-model web-tool protocol variants while preventing
+  private `WEB TOOL` and `WEB INPUT` instructions from reaching the transcript.
+- Keeps short conversational follow-ups local unless the user or request
+  actually requires current public evidence.
+- Adds terminal-width-aware Markdown rendering, bounded code-fence headers, and
+  history scrolling that preserves an unfinished composer draft.
+- Distinguishes failures before and after request dispatch so a rendering error
+  cannot cause an uncertain model request to be submitted again.
+- Splits request submission, Markdown, status rendering, and terminal-platform
+  responsibilities into bounded owners with architecture regression guards.
+
+### Compatibility and boundaries
+
+- Existing models, projectors, registries, sessions, web tools, and public
+  commands remain compatible.
+- Scrolling never submits a hidden command, and private runtime protocol text is
+  never treated as a public assistant answer.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.50.0 - Bounded Web Research and Restricted Browser Search
 
 Release date: 2026-07-27

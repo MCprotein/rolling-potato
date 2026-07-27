@@ -175,11 +175,12 @@ evidence.
 | v0.49.3 | Superseded | Added explicit `/resume`, genuinely fresh default conversations, best-effort historical source context, and ledger-lock recovery, but the macOS release terminal gate left an incomplete artifact set |
 | v0.49.4 | Released | Recovered the complete five-platform artifact set with bounded Unix PTY cleanup, cross-platform stage traces, and an exact macOS native-terminal candidate gate |
 
-### Bounded web research and browser interaction (`v0.50.0`)
+### Bounded web research, browser interaction, and TUI reliability (`v0.50.x`)
 
 | Version | Status | Scope |
 | --- | --- | --- |
 | v0.50.0 | Released | [Bounded web research and Chromium browser delivery](docs/v0.50-web-research-browser-plan.md): Search→Open→Find evidence loops, verified source binding, multi-page TUI, and isolated installed-browser actions without API keys, MCP, or Node.js |
+| v0.50.1 | Released | Reliable interactive TUI patch: clipboard attachments, live progress and context estimates, private web-protocol containment, bounded Markdown, draft-preserving history scroll, and exact request-dispatch failure boundaries |
 
 ## Distribution Boundary
 

@@ -44,8 +44,16 @@ for path in "${required_files[@]}"; do
   require_file "$path"
 done
 
-require_marker README.md 'Current release | `v0.50.0`'
-require_marker README.ko.md '현재 릴리즈 | `v0.50.0`'
+package_version="$(
+  sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1
+)"
+if [[ -z "$package_version" ]]; then
+  printf 'missing package version in Cargo.toml\n' >&2
+  exit 1
+fi
+
+require_marker README.md "Current release | \`v${package_version}\`"
+require_marker README.ko.md "현재 릴리즈 | \`v${package_version}\`"
 require_marker README.md 'restricted browser search-form'
 require_marker README.ko.md '제한된 브라우저 search-form'
 require_marker PRIVACY.md 'loopback HTTPS CONNECT'
