@@ -1,5 +1,40 @@
 # 릴리즈 노트
 
+## v0.50.1 - 신뢰할 수 있는 대화형 TUI
+
+릴리즈 날짜: 2026-07-27
+
+이 patch는 기본 대화 TUI가 사용자 입력을 안전하게 보존하고 model 진행 상태와
+bounded Markdown을 표시하며, private runtime protocol을 사용자 답변에서
+격리하도록 보강합니다. Browser·tool 권한을 넓히지 않고 v0.50.0의 웹 연구와
+제한된 browser 동작을 그대로 유지합니다.
+
+### 포함한 것
+
+- Clipboard에서 붙여 넣은 image path를 private attachment badge로 정규화하고
+  실제 native-terminal paste 경로를 검증
+- Local model 요청 중 spinner, 경과 시간과 실시간 context 추정치를 표시
+- Manifest model id와 GGUF artifact 이름 사이의 context metric을 연결하여
+  오래되거나 끊긴 counter가 표시되지 않도록 수정
+- 소형 모델의 제한된 web-tool protocol 변형은 받아들이되 private `WEB TOOL`과
+  `WEB INPUT` 지시가 transcript에 노출되지 않도록 격리
+- 사용자 요청이나 최신 공개 근거가 실제로 필요하지 않은 짧은 후속 질문은
+  local conversation으로 유지
+- Terminal 너비 기반 Markdown, bounded code-fence header와 작성 중 draft를
+  보존하는 history scroll 추가
+- Request dispatch 전후 실패를 구분하여 rendering 실패 뒤 불확실한 model
+  요청을 다시 제출하지 않도록 보장
+- Request submission, Markdown, status rendering과 terminal platform 책임을
+  bounded owner로 분리하고 architecture regression guard 추가
+
+### 호환성과 경계
+
+- 기존 model, projector, registry, session, web tool과 public command는 계속
+  호환됩니다.
+- Scroll은 숨은 command를 제출하지 않으며 private runtime protocol text를
+  공개 assistant 답변으로 취급하지 않습니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
+
 ## v0.50.0 - 제한된 웹 연구와 브라우저 검색
 
 릴리즈 날짜: 2026-07-27
