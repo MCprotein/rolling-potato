@@ -6882,7 +6882,7 @@ fn web_browser_documentation_contract_is_wired_into_candidate_preflight() {
         );
     }
     for marker in [
-        "v0.49.4",
+        "v0.50.0",
         "Restricted Browser Abuse",
         "제한된 브라우저 오용",
         "loopback HTTPS CONNECT",
