@@ -6,16 +6,17 @@ const WEB_ANSWER_FALLBACK: &str =
     "웹 검색은 완료했지만 로컬 모델이 요약을 완성하지 못했습니다. 아래 검증 가능한 출처를 확인하세요.";
 
 pub(super) fn render_grounded_answer(
-    answer: Option<String>,
+    generated: Option<String>,
+    fallback: Option<String>,
     sources: &[WebSourceEvidence],
 ) -> String {
     let source_map = sources
         .iter()
         .map(|source| (source.source_id.as_str(), source))
         .collect::<BTreeMap<_, _>>();
-    let sanitized = answer
-        .map(|answer| sanitize_with_sources(&answer, &source_map))
-        .filter(|answer| !answer.is_empty())
+    let sanitized = generated
+        .and_then(|answer| sanitize_grounded_candidate(&answer, &source_map))
+        .or_else(|| fallback.and_then(|answer| sanitize_grounded_candidate(&answer, &source_map)))
         .unwrap_or_else(|| WEB_ANSWER_FALLBACK.to_string());
     attach_verified_sources(&sanitized, sources)
 }
@@ -50,6 +51,20 @@ fn sanitize_with_sources(answer: &str, sources: &BTreeMap<&str, &WebSourceEviden
         }
     }
     lines.join("\n").trim().to_string()
+}
+
+fn sanitize_grounded_candidate(
+    answer: &str,
+    sources: &BTreeMap<&str, &WebSourceEvidence>,
+) -> Option<String> {
+    let sanitized = sanitize_with_sources(answer, sources);
+    (!sanitized.is_empty() && contains_verified_citation(&sanitized, sources)).then_some(sanitized)
+}
+
+fn contains_verified_citation(answer: &str, sources: &BTreeMap<&str, &WebSourceEvidence>) -> bool {
+    sources
+        .keys()
+        .any(|source_id| answer.contains(&format!("[{source_id}]")))
 }
 
 fn attach_verified_sources(answer: &str, sources: &[WebSourceEvidence]) -> String {
@@ -215,6 +230,7 @@ mod tests {
                 "확인된 주장 [source-good](https://evil.example/swap). 가짜 [source-bad]. 숫자 [1], 배열 [1, 2], a[1]."
                     .to_string(),
             ),
+            None,
             &[source(
                 "source-good",
                 "Primary document",
@@ -235,6 +251,7 @@ mod tests {
     fn verified_sources_are_attached_to_the_paragraph_that_cites_them() {
         let answer = render_grounded_answer(
             Some("첫 주장 [source-one]\n\n둘째 주장은 불확실합니다 [source-two]".to_string()),
+            None,
             &[
                 source("source-one", "One", "https://example.com/one"),
                 source("source-two", "Two", "https://example.com/two"),
@@ -250,21 +267,37 @@ mod tests {
     }
 
     #[test]
-    fn unusable_or_uncited_answers_keep_a_runtime_owned_source_fallback() {
+    fn uncited_generated_answer_is_replaced_by_a_grounded_runtime_fallback() {
         let source = source(
             "source-release",
             "Release notes",
             "https://example.com/releases/v1",
         );
-        for answer in [
-            None,
+        let rendered = render_grounded_answer(
             Some("요약은 생성됐지만 marker가 없습니다.".to_string()),
-        ] {
-            let rendered = render_grounded_answer(answer, std::slice::from_ref(&source));
+            Some("열린 원문에서 확인한 내용입니다. [source-release]".to_string()),
+            std::slice::from_ref(&source),
+        );
 
-            assert!(rendered.contains("검증된 출처"));
-            assert!(rendered
-                .contains("- [source-release] Release notes — https://example.com/releases/v1"));
-        }
+        assert!(!rendered.contains("요약은 생성됐지만"));
+        assert!(rendered.contains("열린 원문에서 확인한 내용입니다. [source-release]"));
+        assert!(rendered
+            .contains("근거 · [source-release] Release notes — https://example.com/releases/v1"));
+    }
+
+    #[test]
+    fn missing_grounded_candidates_show_only_runtime_owned_sources() {
+        let source = source(
+            "source-release",
+            "Release notes",
+            "https://example.com/releases/v1",
+        );
+        let rendered = render_grounded_answer(None, None, std::slice::from_ref(&source));
+
+        assert!(rendered.contains("웹 검색은 완료했지만"));
+        assert!(rendered.contains("검증된 출처"));
+        assert!(
+            rendered.contains("- [source-release] Release notes — https://example.com/releases/v1")
+        );
     }
 }

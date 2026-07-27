@@ -1,4 +1,5 @@
 use super::research::WebResearchStep;
+use crate::foundation::error::AppError;
 
 pub(crate) fn route_tool_request(request: &str) -> Option<WebResearchStep> {
     let request = request.trim();
@@ -71,6 +72,20 @@ pub(crate) fn parse_agent_web_tool_for_request(
     }
     let step = parse_agent_web_tool(response)?;
     literal_projection(step.input(), current_request).then_some(step)
+}
+
+pub(crate) fn validate_public_web_step(step: WebResearchStep) -> Result<WebResearchStep, AppError> {
+    let candidate = match &step {
+        WebResearchStep::Search { query } => Some(query.as_str()),
+        WebResearchStep::Open { url } => Some(url.as_str()),
+        WebResearchStep::Find { .. } => None,
+    };
+    if candidate.is_some_and(contains_credential_like_value) {
+        return Err(AppError::blocked(
+            "검색어나 URL에 인증정보로 보이는 값이 있어 외부 요청을 차단했습니다. 비밀값을 제거한 공개 검색어로 다시 요청하세요.",
+        ));
+    }
+    Ok(step)
 }
 
 pub(crate) fn web_disabled(request: &str) -> bool {
@@ -174,6 +189,51 @@ fn literal_projection(input: &str, current_request: &str) -> bool {
     !input.is_empty() && current_request.contains(&input)
 }
 
+fn contains_credential_like_value(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    if ["authorization:", "bearer ", "basic "]
+        .iter()
+        .any(|signal| lower.contains(signal))
+    {
+        return true;
+    }
+    if [
+        "api_key",
+        "apikey",
+        "api-key",
+        "access_token",
+        "access-token",
+        "password",
+        "passwd",
+        "client_secret",
+        "client-secret",
+        "credential",
+    ]
+    .iter()
+    .any(|name| {
+        ["=", ":", "%3d"]
+            .iter()
+            .any(|separator| lower.contains(&format!("{name}{separator}")))
+    }) {
+        return true;
+    }
+    lower
+        .split(|character: char| {
+            character.is_whitespace()
+                || matches!(character, '"' | '\'' | '&' | '?' | ',' | ';' | '(' | ')')
+        })
+        .any(|token| {
+            let token = token.trim_matches(|character: char| {
+                !character.is_ascii_alphanumeric() && !matches!(character, '-' | '_')
+            });
+            (token.starts_with("sk-") && token.len() >= 12)
+                || (token.starts_with("ghp_") && token.len() >= 12)
+                || (token.starts_with("github_pat_") && token.len() >= 20)
+                || (token.starts_with("xoxb-") && token.len() >= 12)
+                || (token.starts_with("akia") && token.len() >= 16)
+        })
+}
+
 fn contains_ascii_phrase(text: &str, phrase: &str) -> bool {
     let words = ascii_words(text);
     let phrase = ascii_words(phrase);
@@ -184,4 +244,43 @@ fn ascii_words(text: &str) -> Vec<&str> {
     text.split(|character: char| !character.is_ascii_alphanumeric())
         .filter(|word| !word.is_empty())
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn external_web_steps_reject_credential_like_current_input() {
+        for step in [
+            WebResearchStep::Search {
+                query: "latest release api_key=SECRET-123".to_string(),
+            },
+            WebResearchStep::Search {
+                query: "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9".to_string(),
+            },
+            WebResearchStep::Search {
+                query: "search sk-1234567890abcdef".to_string(),
+            },
+            WebResearchStep::Open {
+                url: "https://example.com/?access_token=SECRET".to_string(),
+            },
+        ] {
+            let error = validate_public_web_step(step).unwrap_err();
+            assert!(error.message.contains("외부 요청을 차단"));
+            assert!(!error.message.contains("SECRET"));
+        }
+    }
+
+    #[test]
+    fn ordinary_public_search_terms_and_page_find_are_allowed() {
+        assert!(validate_public_web_step(WebResearchStep::Search {
+            query: "OAuth access token 보안 모범 사례".to_string(),
+        })
+        .is_ok());
+        assert!(validate_public_web_step(WebResearchStep::Find {
+            query: "password policy".to_string(),
+        })
+        .is_ok());
+    }
 }

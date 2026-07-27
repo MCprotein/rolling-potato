@@ -19,7 +19,9 @@ pub(crate) use research::{
 };
 #[cfg(test)]
 pub(crate) use routing::parse_agent_web_tool;
-pub(crate) use routing::{parse_agent_web_tool_for_request, route_tool_request, web_disabled};
+pub(crate) use routing::{
+    parse_agent_web_tool_for_request, route_tool_request, validate_public_web_step, web_disabled,
+};
 
 pub(crate) struct WebAnswerInput<'a> {
     pub(crate) query: &'a str,

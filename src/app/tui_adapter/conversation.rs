@@ -321,29 +321,36 @@ pub(super) fn present_agent_report(report: &str) -> String {
 
 fn is_model_identity_request(request: &str) -> bool {
     let lower = request.trim().to_ascii_lowercase();
-    if !lower.contains("모델") && !lower.contains("model") {
-        return false;
-    }
-    [
-        "무슨",
-        "어떤",
-        "뭐",
-        "이름",
-        "현재",
-        "사용 중",
-        "사용중",
-        "쓰고",
-    ]
-    .iter()
-    .any(|signal| lower.contains(signal))
-        || [
-            "what model",
-            "which model",
-            "model are you",
-            "current model",
-        ]
-        .iter()
-        .any(|signal| lower.contains(signal))
+    let compact = lower
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect::<String>();
+    let direct = compact.trim_matches(|character: char| {
+        character.is_ascii_punctuation() || matches!(character, '？' | '。' | '！' | '…' | '·')
+    });
+    matches!(
+        direct,
+        "넌무슨모델이야"
+            | "넌무슨모델이니"
+            | "너는무슨모델이야"
+            | "너는무슨모델이니"
+            | "무슨모델이야"
+            | "무슨모델이니"
+            | "어떤모델이야"
+            | "어떤모델이니"
+            | "현재모델이뭐야"
+            | "현재모델은뭐야"
+            | "지금모델이뭐야"
+            | "지금무슨모델써"
+            | "지금무슨모델쓰고있어"
+            | "사용중인모델이뭐야"
+            | "사용중인모델은뭐야"
+    ) || matches!(
+        lower.trim_matches(
+            |character: char| character.is_ascii_punctuation() || character.is_whitespace()
+        ),
+        "what model are you using" | "which model are you using" | "current model"
+    )
 }
 
 fn is_agent_identity_request(request: &str) -> bool {
@@ -540,6 +547,14 @@ mod tests {
         assert_eq!(
             local_reply(
                 "이 모델 코드를 수정해줘",
+                Some("gemma-test"),
+                TuiVisionStatus::OnDemand
+            ),
+            None
+        );
+        assert_eq!(
+            local_reply(
+                "내가 전에 어떤 모델을 좋아한다고 했지?",
                 Some("gemma-test"),
                 TuiVisionStatus::OnDemand
             ),

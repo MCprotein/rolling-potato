@@ -32,10 +32,9 @@ pub(crate) fn plan_dialogue_memory(
     recent_budget_tokens: usize,
 ) -> DialogueMemoryPlan {
     let pairs = completed_pairs(turns);
-    let recent_pair_count = pairs.len().min((recent_budget_tokens / 256).clamp(8, 64));
+    let recent_history = select_recent_pairs_within_budget(&pairs, recent_budget_tokens);
+    let recent_pair_count = recent_history.len() / 2;
     let recent_start = pairs.len().saturating_sub(recent_pair_count);
-    let recent_history =
-        select_recent_pairs_within_budget(&pairs[recent_start..], recent_budget_tokens);
 
     let older = &pairs[..recent_start];
     let typed_indices = older
@@ -288,8 +287,8 @@ mod tests {
         ));
         for index in 0..9 {
             turns.extend(pair(
-                &format!("최근 질문 {index}"),
-                &format!("최근 답변 {index}"),
+                &format!("최근 질문 {index} {}", "질문 문맥 ".repeat(24)),
+                &format!("최근 답변 {index} {}", "답변 문맥 ".repeat(24)),
             ));
         }
 
@@ -314,8 +313,8 @@ mod tests {
         turns.extend(pair("내 이름은 감자야", "기억할게."));
         for index in 0..9 {
             turns.extend(pair(
-                &format!("최근 질문 {index}"),
-                &format!("최근 답변 {index}"),
+                &format!("최근 질문 {index} {}", "질문 문맥 ".repeat(24)),
+                &format!("최근 답변 {index} {}", "답변 문맥 ".repeat(24)),
             ));
         }
 
@@ -347,13 +346,30 @@ mod tests {
     fn recent_exchange_count_expands_with_the_model_derived_budget() {
         let mut turns = Vec::new();
         for index in 0..20 {
-            turns.extend(pair(&format!("질문 {index}"), &format!("답변 {index}")));
+            turns.extend(pair(
+                &format!("질문 {index} {}", "추가 문맥 ".repeat(8)),
+                &format!("답변 {index} {}", "추가 설명 ".repeat(8)),
+            ));
         }
 
         let small = plan_dialogue_memory(&turns, "질문", 512, 512, 512);
         let large = plan_dialogue_memory(&turns, "질문", 512, 512, 8_192);
 
-        assert_eq!(small.recent_history.len(), 16);
+        assert!(small.recent_history.len() < large.recent_history.len());
         assert_eq!(large.recent_history.len(), 40);
+    }
+
+    #[test]
+    fn recent_recall_has_no_arbitrary_sixty_four_pair_cap() {
+        let mut turns = Vec::new();
+        for index in 0..80 {
+            turns.extend(pair(&format!("q{index}"), &format!("a{index}")));
+        }
+
+        let plan = plan_dialogue_memory(&turns, "그거 다시 설명해줘", 64, 64, 16_384);
+
+        assert_eq!(plan.recent_history.len(), 160);
+        assert_eq!(plan.recent_history.first().unwrap().content, "q0");
+        assert_eq!(plan.recent_history.last().unwrap().content, "a79");
     }
 }

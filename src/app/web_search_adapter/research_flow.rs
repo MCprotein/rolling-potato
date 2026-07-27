@@ -81,7 +81,7 @@ pub(super) fn answer(
     let prompt = research_prompt(&input, &search_context, &opened);
     let generated = generate_answer(&prompt, input.user_request);
     let fallback = fallback_answer(&opened);
-    Ok(render_grounded_answer(generated.or(fallback), &sources))
+    Ok(render_grounded_answer(generated, fallback, &sources))
 }
 
 fn supporting_passages(

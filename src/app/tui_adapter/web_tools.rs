@@ -13,6 +13,7 @@ pub(super) fn execute(
     conversation_context: &str,
     elapsed: Duration,
 ) -> Result<String, AppError> {
+    let route = web_search_adapter::validate_public_web_step(route)?;
     let current_document = pages.current_url();
     let route = match research.admit(route, current_document, elapsed) {
         WebResearchAdmission::Execute(route) => route,
