@@ -6485,6 +6485,23 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/controller/request_submission.rs",
+      "slices": [
+        {
+          "responsibility": "TUI request submission, live progress redraw, and transient context estimate presentation",
+          "target": "src/surfaces/tui/controller/request_submission.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/surfaces/tui/controller/request_submission.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/tui/controller/session_selection.rs",
       "slices": [
         {
@@ -6602,6 +6619,23 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/render/markdown.rs",
+      "slices": [
+        {
+          "responsibility": "terminal-safe assistant Markdown presentation",
+          "target": "src/surfaces/tui/render/markdown.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/render/markdown.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/tui/render/report_layout.rs",
       "slices": [
         {
@@ -6613,6 +6647,23 @@
             "src/surfaces/tui/render.rs",
             "src/surfaces/tui/render/report_layout.rs",
             "src/surfaces/tui/report_render.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/status.rs",
+      "slices": [
+        {
+          "responsibility": "compact TUI model, context, backend, vision, and session status presentation",
+          "target": "src/surfaces/tui/render/status.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/render.rs",
+            "src/surfaces/tui/render/status.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7323,6 +7374,23 @@
             "src/app/tui_adapter.rs",
             "src/app/tui_adapter/runtime.rs",
             "src/app/tui_adapter/runtime/backend.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/model_setup.rs",
+      "slices": [
+        {
+          "responsibility": "prepared TUI model activation and cache or download reporting",
+          "target": "src/app/tui_adapter/runtime/model_setup.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime.rs",
+            "src/app/tui_adapter/runtime/model_setup.rs",
+            "src/app/tui_adapter/model_switch.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -10955,6 +11023,12 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/controller/request_submission.rs",
+      "responsibilities": [
+        "TUI request submission, live progress redraw, and transient context estimate presentation"
+      ]
+    },
+    {
       "path": "src/surfaces/tui/controller/session_selection.rs",
       "responsibilities": [
         "TUI session picker and atomic conversation transition presentation"
@@ -10997,9 +11071,21 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/render/markdown.rs",
+      "responsibilities": [
+        "terminal-safe assistant Markdown presentation"
+      ]
+    },
+    {
       "path": "src/surfaces/tui/render/report_layout.rs",
       "responsibilities": [
         "read-only TUI report layout and metric label primitives"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/render/status.rs",
+      "responsibilities": [
+        "compact TUI model, context, backend, vision, and session status presentation"
       ]
     },
     {
@@ -11236,6 +11322,12 @@
       "path": "src/app/tui_adapter/runtime.rs",
       "responsibilities": [
         "interactive TUI runtime composition and request dispatch"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/model_setup.rs",
+      "responsibilities": [
+        "prepared TUI model activation and cache or download reporting"
       ]
     },
     {

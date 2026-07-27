@@ -28,18 +28,27 @@ pub(crate) fn parse_agent_web_tool(response: &str) -> Option<WebResearchStep> {
         .map(str::trim)
         .filter(|line| !line.is_empty())
         .collect::<Vec<_>>();
-    let [tool_line, input_line] = lines.as_slice() else {
+    if lines.is_empty() || lines.len() > 2 {
         return None;
-    };
-    let tool = tool_line.strip_prefix("WEB TOOL:")?.trim();
-    let input = input_line.strip_prefix("WEB INPUT:")?.trim();
+    }
+    let mut tool = None;
+    let mut input = None;
+    for line in lines {
+        let (label, value) = line.split_once(':')?;
+        match normalized_protocol_label(label).as_str() {
+            "webtool" if tool.is_none() => tool = nonempty(value),
+            "webinput" if input.is_none() => input = nonempty(value),
+            _ => return None,
+        }
+    }
+    let input = input?;
     if input.is_empty()
         || input.contains(['\r', '\n'])
         || input.chars().count() > MAX_AGENT_TOOL_INPUT_CHARS
     {
         return None;
     }
-    match tool {
+    match tool.unwrap_or("search").to_ascii_lowercase().as_str() {
         "search" => Some(WebResearchStep::Search {
             query: input.to_string(),
         }),
@@ -57,6 +66,9 @@ pub(crate) fn parse_agent_web_tool_for_request(
     response: &str,
     current_request: &str,
 ) -> Option<WebResearchStep> {
+    if conversational_progress_followup(current_request) {
+        return None;
+    }
     let step = parse_agent_web_tool(response)?;
     literal_projection(step.input(), current_request).then_some(step)
 }
@@ -119,6 +131,35 @@ fn has_no_web_directive(request: &str) -> bool {
 fn nonempty(value: &str) -> Option<&str> {
     let value = value.trim();
     (!value.is_empty()).then_some(value)
+}
+
+fn normalized_protocol_label(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+fn conversational_progress_followup(request: &str) -> bool {
+    let compact = request
+        .trim()
+        .to_ascii_lowercase()
+        .chars()
+        .filter(|character| !character.is_whitespace() && !character.is_ascii_punctuation())
+        .collect::<String>();
+    compact.is_empty()
+        || [
+            "뭔데",
+            "뭐야",
+            "하고있는거야",
+            "뭐하는중이야",
+            "검색중이야",
+            "되고있어",
+            "하는중",
+        ]
+        .iter()
+        .any(|followup| compact == *followup)
 }
 
 fn literal_projection(input: &str, current_request: &str) -> bool {

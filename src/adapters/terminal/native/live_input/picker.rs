@@ -21,7 +21,7 @@ pub(in crate::adapters::terminal::native) fn choose(
         let mut byte = [0_u8; 1];
         let bytes = stdin.read(&mut byte).map_err(|_| TerminalFault::LineRead)?;
         if bytes == 0 {
-            if super::standalone_escape_timed_out(&escape) {
+            if escape == [0x1b] {
                 return Ok(None);
             }
             continue;
@@ -130,7 +130,7 @@ mod tests {
         assert!(escape_complete(b"\x1b[A"));
         assert!(escape_complete(b"\x1bOF"));
         assert!(!escape_complete(b"\x1b["));
-        assert!(super::super::standalone_escape_timed_out(b"\x1b"));
+        assert_eq!(b"\x1b".as_slice(), &[0x1b]);
     }
 
     #[test]

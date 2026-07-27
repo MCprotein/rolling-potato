@@ -21,8 +21,7 @@ fn interactive_view_change_resets_page_and_updates_notice() {
         selected_id: Some("workflow-selected".to_string()),
         notice: "old notice".to_string(),
         notice_page: 3,
-        turns: Vec::new(),
-        attachments: Vec::new(),
+        ..InteractiveState::new()
     };
 
     state.set_view(InteractiveView::Transcript("session-next".to_string()));
@@ -42,11 +41,7 @@ fn interactive_view_builds_bounded_read_request_from_viewport() {
     let state = InteractiveState {
         view: InteractiveView::ToolOutput("artifact-one".to_string()),
         page: 3,
-        selected_id: None,
-        notice: String::new(),
-        notice_page: 0,
-        turns: Vec::new(),
-        attachments: Vec::new(),
+        ..InteractiveState::new()
     };
 
     let request = state.read_request(10, 8);
@@ -242,12 +237,8 @@ fn interactive_sanitizer_escapes_ansi_osc_and_control_bytes() {
 fn exact_outcome_notice_preserves_trusted_multiline_structure() {
     let state = InteractiveState {
         view: InteractiveView::Overview,
-        page: 0,
-        selected_id: None,
         notice: "결과 제목\n- code: exact.test\n- 동작: 상태를 변경하지 않았습니다.".to_string(),
-        notice_page: 0,
-        turns: Vec::new(),
-        attachments: Vec::new(),
+        ..InteractiveState::new()
     };
     let page = TuiReadPage {
         title: "overview".to_string(),
@@ -427,6 +418,8 @@ fn long_conversation_pages_keep_every_response_line_reachable() {
     }
     let oldest = render_interactive_frame(&state, &page, 40, 10);
     assert!(oldest.contains("● response line 0"));
+    assert!(oldest.contains("↑ 이전 대화"));
+    assert!(oldest.contains("PageDown/휠↓ 최신"));
     let oldest_page = state.notice_page;
     state.previous_notice_page();
     assert_eq!(state.notice_page, oldest_page - 1);

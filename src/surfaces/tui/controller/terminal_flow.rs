@@ -85,10 +85,24 @@ pub(super) fn write_pending_conversation_frame(
     let status = runtime
         .read_tui_status()
         .unwrap_or_else(|_| TuiStatusSnapshot::unavailable());
+    let intent_id = runtime.new_tui_intent_id();
+    write_pending_conversation_frame_with_status(
+        terminal, state, &status, width, height, &intent_id,
+    )
+}
+
+pub(super) fn write_pending_conversation_frame_with_status(
+    terminal: &mut impl TerminalIo,
+    state: &InteractiveState,
+    status: &TuiStatusSnapshot,
+    width: u16,
+    height: u16,
+    intent_id: &str,
+) -> Result<(), AppError> {
     let frame = super::super::render::render_interactive_frame_with_options(
         state,
         &TuiReadPage::conversation_placeholder(),
-        &status,
+        status,
         width,
         height,
         terminal.supports_ansi_layout(),
@@ -96,7 +110,7 @@ pub(super) fn write_pending_conversation_frame(
     );
     terminal
         .write_frame_at(&frame, FrameWriteBoundary::Ordinary)
-        .map_err(|_| pre_dispatch_write_error(&runtime.new_tui_intent_id()))
+        .map_err(|_| pre_dispatch_write_error(intent_id))
 }
 
 pub(crate) fn terminal_fault_error(fault: TerminalFault) -> AppError {

@@ -10,7 +10,7 @@ mod render;
 use editor::Editor;
 use paste::PasteCapture;
 pub(super) use picker::choose;
-use render::BracketedPasteGuard;
+use render::{BracketedPasteGuard, MouseTrackingGuard};
 
 const MAX_INPUT_BYTES: usize = 8 * 1024;
 const MAX_PALETTE_ROWS: usize = 6;
@@ -29,6 +29,8 @@ enum Action {
     DeleteWord,
     Escape,
     PasteStart,
+    ScrollUp,
+    ScrollDown,
     Ignore,
 }
 
@@ -38,6 +40,7 @@ pub(super) fn read(
     base_frame: &str,
 ) -> Result<Option<String>, TerminalFault> {
     let _paste_guard = BracketedPasteGuard::start()?;
+    let _mouse_guard = MouseTrackingGuard::start()?;
     let mut editor = Editor::default();
     let mut escape = Vec::new();
     let mut utf8 = Vec::new();
@@ -49,7 +52,7 @@ pub(super) fn read(
         let mut byte = [0_u8; 1];
         let bytes = stdin.read(&mut byte).map_err(|_| TerminalFault::LineRead)?;
         if bytes == 0 {
-            if standalone_escape_timed_out(&escape) {
+            if escape == [0x1b] {
                 apply_action(&mut editor, Action::Escape, suggestions);
                 escape.clear();
                 redraw(&editor, suggestions, terminal_width, base_frame)?;
@@ -75,6 +78,10 @@ pub(super) fn read(
                 escape.clear();
                 if action == Action::PasteStart {
                     paste = Some(PasteCapture::default());
+                } else if action == Action::ScrollUp && editor.text().is_empty() {
+                    return Ok(Some("/more".to_string()));
+                } else if action == Action::ScrollDown && editor.text().is_empty() {
+                    return Ok(Some("/back".to_string()));
                 } else {
                     apply_action(&mut editor, action, suggestions);
                     redraw(&editor, suggestions, terminal_width, base_frame)?;
@@ -124,10 +131,6 @@ pub(super) fn read(
     }
 }
 
-fn standalone_escape_timed_out(sequence: &[u8]) -> bool {
-    sequence == [0x1b]
-}
-
 fn apply_action(editor: &mut Editor, action: Action, suggestions: &[TerminalSuggestion]) {
     let count = visible_suggestions(editor, suggestions).len();
     match action {
@@ -142,7 +145,7 @@ fn apply_action(editor: &mut Editor, action: Action, suggestions: &[TerminalSugg
         Action::Delete => editor.delete(),
         Action::DeleteWord => editor.delete_word_back(),
         Action::Escape => editor.escape(),
-        Action::PasteStart | Action::Ignore => {}
+        Action::PasteStart | Action::ScrollUp | Action::ScrollDown | Action::Ignore => {}
     }
 }
 
@@ -172,6 +175,12 @@ fn escape_sequence_complete(sequence: &[u8]) -> bool {
 }
 
 fn decode_escape(sequence: &[u8]) -> Action {
+    if sequence.starts_with(b"\x1b[<64;") && sequence.ends_with(b"M") {
+        return Action::ScrollUp;
+    }
+    if sequence.starts_with(b"\x1b[<65;") && sequence.ends_with(b"M") {
+        return Action::ScrollDown;
+    }
     match sequence {
         b"\x1b[D" | b"\x1bOD" => Action::Left,
         b"\x1b[C" | b"\x1bOC" => Action::Right,
@@ -183,6 +192,8 @@ fn decode_escape(sequence: &[u8]) -> Action {
         b"\x1bf" | b"\x1b[1;3C" | b"\x1b[1;5C" => Action::WordRight,
         b"\x1b\x7f" | b"\x1b[3;3~" => Action::DeleteWord,
         b"\x1b[3~" => Action::Delete,
+        b"\x1b[5~" => Action::ScrollUp,
+        b"\x1b[6~" => Action::ScrollDown,
         b"\x1b[200~" => Action::PasteStart,
         b"\x1b" => Action::Escape,
         _ => Action::Ignore,
@@ -275,7 +286,11 @@ mod tests {
         assert_eq!(decode_escape(b"\x1b[H"), Action::Home);
         assert_eq!(decode_escape(b"\x1b[F"), Action::End);
         assert_eq!(decode_escape(b"\x1b[200~"), Action::PasteStart);
-        assert!(standalone_escape_timed_out(b"\x1b"));
-        assert!(!standalone_escape_timed_out(b"\x1b["));
+        assert_eq!(decode_escape(b"\x1b[5~"), Action::ScrollUp);
+        assert_eq!(decode_escape(b"\x1b[6~"), Action::ScrollDown);
+        assert_eq!(decode_escape(b"\x1b[<64;10;5M"), Action::ScrollUp);
+        assert_eq!(decode_escape(b"\x1b[<65;10;5M"), Action::ScrollDown);
+        assert_eq!(b"\x1b".as_slice(), &[0x1b]);
+        assert_ne!(b"\x1b[".as_slice(), &[0x1b]);
     }
 }

@@ -11,22 +11,27 @@ use super::view_model::{ConversationRole, InteractiveState, InteractiveView};
 
 mod attachments;
 mod model_selection;
+mod request_submission;
 mod session_selection;
 mod source_selection;
 mod terminal_flow;
 
-use attachments::{capture_attachment_notice, looks_like_attachment_path};
+use attachments::{
+    attachment_path_candidate, capture_attachment_notice, looks_like_attachment_path,
+};
 use model_selection::{apply_model_choice, choose_model, model_options_notice};
+use request_submission::{
+    submit_request_with_progress, submit_web_tool_command, test_secret_probe_enabled,
+};
 use session_selection::{resume_selected_session, resume_session, start_new_session};
 use source_selection::select_source;
 use terminal_flow::{
     confirm, confirm_workflow_action, outcome_notice, outcome_was_dispatched,
-    post_dispatch_write_error, pre_dispatch_write_error, write_pending_conversation_frame,
-    write_pre_dispatch_frame,
+    post_dispatch_write_error, pre_dispatch_write_error, write_pre_dispatch_frame,
 };
 pub(crate) use terminal_flow::{consume_outcome, terminal_fault_error};
 
-pub(crate) trait TuiRuntimePort {
+pub(crate) trait TuiRuntimePort: Send {
     fn startup_update_notice(&mut self) -> Option<String>;
     fn reconcile_existing_backend(&mut self) -> Result<(), AppError>;
     fn clear_conversation_history(&mut self) -> Result<(), AppError>;
@@ -44,6 +49,13 @@ pub(crate) trait TuiRuntimePort {
     fn compact_context(&mut self) -> Result<String, AppError>;
     fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError>;
     fn request_progress_hint(&mut self, _request: &str) -> Option<String> {
+        None
+    }
+    fn request_context_tokens_hint(
+        &mut self,
+        _request: &str,
+        _attachments: &[TuiAttachment],
+    ) -> Option<u32> {
         None
     }
     fn submit_request(
@@ -150,11 +162,18 @@ pub(crate) fn run_controller(
             ["/search", ..] => {
                 state.view = InteractiveView::Conversation;
                 state.push_turn(ConversationRole::User, line.trim());
-                state.notice =
-                    "웹 조사 · 검색 중\n검색 ● → 결과 평가 ○ → 문서 읽기 ○ → 증거 구성 ○ → 답변 ○"
-                        .to_string();
-                write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
-                match runtime.submit_request(line.trim(), &[]) {
+                let progress =
+                    "웹 조사 · 검색 중\n검색 ● → 결과 평가 ○ → 문서 읽기 ○ → 증거 구성 ○ → 답변 ○";
+                match submit_request_with_progress(
+                    terminal,
+                    runtime,
+                    &mut state,
+                    width,
+                    height,
+                    line.trim(),
+                    &[],
+                    progress,
+                )? {
                     Ok(report) => state.push_turn(ConversationRole::Assistant, report),
                     Err(error) => state.push_turn(
                         ConversationRole::Error,
@@ -431,25 +450,36 @@ pub(crate) fn run_controller(
             [command, ..]
                 if command.starts_with('/') && looks_like_attachment_path(line.trim()) =>
             {
-                state.notice = capture_attachment_notice(runtime, &mut state, line.trim());
+                let path = attachment_path_candidate(line.trim())
+                    .expect("attachment guard and normalization share one classifier");
+                state.notice = capture_attachment_notice(runtime, &mut state, &path);
             }
             [command, ..] if command.starts_with('/') => {
                 state.notice = format!("알 수 없는 TUI 명령입니다: {command}\n/help로 확인하세요.");
             }
             _ => {
                 if looks_like_attachment_path(line.trim()) {
-                    state.notice = capture_attachment_notice(runtime, &mut state, line.trim());
+                    let path = attachment_path_candidate(line.trim())
+                        .expect("attachment guard and normalization share one classifier");
+                    state.notice = capture_attachment_notice(runtime, &mut state, &path);
                     continue;
                 }
                 state.view = InteractiveView::Conversation;
                 state.push_turn(ConversationRole::User, line.trim());
-                state.notice = runtime
+                let progress = runtime
                     .request_progress_hint(line.trim())
-                    .unwrap_or_else(|| {
-                        "작업 중 · 에이전트가 요청을 처리하고 있습니다…".to_string()
-                    });
-                write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
-                match runtime.submit_request(line.trim(), &state.attachments) {
+                    .unwrap_or_else(|| "에이전트가 요청을 처리하고 있습니다…".to_string());
+                let attachments = state.attachments.clone();
+                match submit_request_with_progress(
+                    terminal,
+                    runtime,
+                    &mut state,
+                    width,
+                    height,
+                    line.trim(),
+                    &attachments,
+                    &progress,
+                )? {
                     Ok(report) => {
                         state.clear_attachments();
                         state.push_turn(ConversationRole::Assistant, report);
@@ -465,35 +495,4 @@ pub(crate) fn run_controller(
             }
         }
     }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn submit_web_tool_command(
-    terminal: &mut impl TerminalIo,
-    runtime: &mut impl TuiRuntimePort,
-    state: &mut InteractiveState,
-    width: u16,
-    height: u16,
-    request: &str,
-    pending: &str,
-    error_heading: &str,
-) -> Result<(), AppError> {
-    state.view = InteractiveView::Conversation;
-    state.push_turn(ConversationRole::User, request);
-    state.notice = pending.to_string();
-    write_pending_conversation_frame(terminal, runtime, state, width, height)?;
-    match runtime.submit_request(request, &[]) {
-        Ok(report) => state.push_turn(ConversationRole::Assistant, report),
-        Err(error) => state.push_turn(
-            ConversationRole::Error,
-            format!("{error_heading}\n{}", error.message),
-        ),
-    }
-    Ok(())
-}
-
-fn test_secret_probe_enabled() -> bool {
-    cfg!(debug_assertions)
-        && std::env::var_os("RPOTATO_TEST_TUI_SECRET_PROBE").as_deref()
-            == Some(std::ffi::OsStr::new("1"))
 }

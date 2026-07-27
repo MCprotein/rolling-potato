@@ -93,6 +93,28 @@ mod tests {
     }
 
     #[test]
+    fn tolerates_small_model_web_protocol_spacing_and_case_drift() {
+        assert_eq!(
+            parse_agent_web_tool("WEBTool: search\nWEBINPUT: 월드컵 우승 국가"),
+            Some(WebToolRoute::Search {
+                query: "월드컵 우승 국가".to_string()
+            })
+        );
+        assert_eq!(
+            parse_agent_web_tool("web tool : open\nweb input : https://example.com/docs"),
+            Some(WebToolRoute::Open {
+                url: "https://example.com/docs".to_string()
+            })
+        );
+        assert_eq!(
+            parse_agent_web_tool("WEB INPUT: 월드컵 우승 국가"),
+            Some(WebToolRoute::Search {
+                query: "월드컵 우승 국가".to_string()
+            })
+        );
+    }
+
+    #[test]
     fn automatic_web_use_respects_explicit_user_opt_out() {
         for request in [
             "오프라인으로 현재 파일만 설명해줘",
