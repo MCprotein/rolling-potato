@@ -95,7 +95,7 @@ pub(super) fn wrap_terminal_text(value: &str, width: usize) -> Vec<String> {
     lines
 }
 
-fn terminal_cell_width(ch: char) -> usize {
+pub(super) fn terminal_cell_width(ch: char) -> usize {
     let code = ch as u32;
     if ch.is_control()
         || ch == '\u{200d}'
