@@ -154,9 +154,10 @@ impl WebResearchSession {
 
     #[cfg(test)]
     pub(crate) fn with_evidence_limit(max_evidence_bytes: usize) -> Self {
-        let mut budget = WebResearchBudget::default();
-        budget.max_evidence_bytes = max_evidence_bytes;
-        Self::new(budget)
+        Self::new(WebResearchBudget {
+            max_evidence_bytes,
+            ..WebResearchBudget::default()
+        })
     }
 
     pub(crate) fn admit(
