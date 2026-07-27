@@ -69,7 +69,6 @@ pub(crate) enum WebResearchLimit {
     QueryRevisions,
     FindsPerDocument,
     NetworkRequests,
-    EvidenceBytes,
     Elapsed,
 }
 
@@ -96,7 +95,6 @@ impl WebResearchTerminal {
                     "현재 문서의 내부 찾기 횟수 상한에 도달했습니다."
                 }
                 WebResearchLimit::NetworkRequests => "외부 네트워크 요청 상한에 도달했습니다.",
-                WebResearchLimit::EvidenceBytes => "모델에 전달할 웹 근거 상한에 도달했습니다.",
                 WebResearchLimit::Elapsed => "웹 리서치 시간 상한에 도달했습니다.",
             },
         };
@@ -152,6 +150,13 @@ impl WebResearchSession {
             failed_inputs: BTreeMap::new(),
             terminal: None,
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_evidence_limit(max_evidence_bytes: usize) -> Self {
+        let mut budget = WebResearchBudget::default();
+        budget.max_evidence_bytes = max_evidence_bytes;
+        Self::new(budget)
     }
 
     pub(crate) fn admit(
@@ -233,18 +238,16 @@ impl WebResearchSession {
         WebResearchAdmission::Execute(step)
     }
 
-    pub(crate) fn take_evidence(&mut self, evidence: &str) -> Result<String, WebResearchTerminal> {
-        if let Some(terminal) = self.terminal {
-            return Err(terminal);
+    pub(crate) fn take_evidence(&mut self, evidence: &str) -> String {
+        if self.terminal.is_some() {
+            return String::new();
         }
         let remaining = self
             .budget
             .max_evidence_bytes
             .saturating_sub(self.evidence_bytes);
         if remaining == 0 && !evidence.is_empty() {
-            let terminal = WebResearchTerminal::BudgetReached(WebResearchLimit::EvidenceBytes);
-            self.terminal = Some(terminal);
-            return Err(terminal);
+            return String::new();
         }
         let end = evidence
             .char_indices()
@@ -252,9 +255,17 @@ impl WebResearchSession {
             .map(|(index, character)| index + character.len_utf8())
             .last()
             .unwrap_or(0);
+        if end == 0 && !evidence.is_empty() {
+            self.evidence_bytes = self.budget.max_evidence_bytes;
+            return String::new();
+        }
         let bounded = evidence[..end].to_string();
         self.evidence_bytes = self.evidence_bytes.saturating_add(bounded.len());
-        Ok(bounded)
+        bounded
+    }
+
+    pub(crate) fn has_evidence_capacity(&self) -> bool {
+        self.terminal.is_none() && self.evidence_bytes < self.budget.max_evidence_bytes
     }
 
     pub(crate) fn reserve_optional_network_request(&mut self, elapsed: Duration) -> bool {
@@ -530,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    fn terminal_state_is_sticky_after_elapsed_or_evidence_budget_exhaustion() {
+    fn elapsed_limit_is_sticky_but_evidence_exhaustion_is_a_soft_boundary() {
         let mut elapsed = WebResearchSession::default();
         assert_eq!(
             elapsed.admit(search("rust"), None, Duration::from_secs(45)),
@@ -546,25 +557,24 @@ mod tests {
         );
 
         let mut evidence = WebResearchSession::default();
-        let exact = evidence.take_evidence(&"a".repeat(8 * 1024)).unwrap();
+        let exact = evidence.take_evidence(&"a".repeat(8 * 1024));
         assert_eq!(exact.len(), 8 * 1024);
-        assert_eq!(
-            evidence.take_evidence("b"),
-            Err(WebResearchTerminal::BudgetReached(
-                WebResearchLimit::EvidenceBytes
-            ))
-        );
-        assert_eq!(
+        assert_eq!(evidence.take_evidence("b"), "");
+        assert!(!evidence.has_evidence_capacity());
+        assert!(matches!(
             evidence.admit(open("https://example.com"), None, Duration::ZERO),
-            WebResearchAdmission::Stop(WebResearchTerminal::BudgetReached(
-                WebResearchLimit::EvidenceBytes
-            ))
-        );
+            WebResearchAdmission::Execute(_)
+        ));
 
         let mut multibyte = WebResearchSession::default();
-        let bounded = multibyte.take_evidence(&"가".repeat(4_000)).unwrap();
+        let bounded = multibyte.take_evidence(&"가".repeat(4_000));
         assert!(bounded.len() <= 8 * 1024);
         assert!(bounded.is_char_boundary(bounded.len()));
+        assert!(multibyte.take_evidence("가").is_empty());
+        assert!(
+            !multibyte.has_evidence_capacity(),
+            "UTF-8 code point보다 작은 잔여 byte는 소진된 예산으로 처리해야 합니다."
+        );
     }
 
     #[test]

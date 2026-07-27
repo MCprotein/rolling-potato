@@ -8,6 +8,7 @@ use super::compaction::{estimate_tokens, truncate_tail_to_estimated_tokens};
 pub(crate) enum DialogueRole {
     User,
     Assistant,
+    Runtime,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,7 +82,11 @@ fn completed_pairs(turns: &[DialogueTurn]) -> Vec<&[DialogueTurn]> {
     turns
         .chunks_exact(2)
         .filter(|pair| {
-            pair[0].role == DialogueRole::User && pair[1].role == DialogueRole::Assistant
+            pair[0].role == DialogueRole::User
+                && matches!(
+                    pair[1].role,
+                    DialogueRole::Assistant | DialogueRole::Runtime
+                )
         })
         .collect()
 }
@@ -241,6 +246,25 @@ mod tests {
                 content: assistant.to_string(),
             },
         ]
+    }
+
+    #[test]
+    fn runtime_result_completes_a_dialogue_pair_without_becoming_user_memory() {
+        let turns = [
+            DialogueTurn {
+                role: DialogueRole::User,
+                content: "검색해줘".to_string(),
+            },
+            DialogueTurn {
+                role: DialogueRole::Runtime,
+                content: "웹 검색이 시간 상한에 도달했습니다.".to_string(),
+            },
+        ];
+
+        let plan = plan_dialogue_memory(&turns, "그게 무슨 뜻이야?", 64, 64, 64);
+
+        assert_eq!(plan.recent_history, turns);
+        assert!(plan.typed_user_memory.is_empty());
     }
 
     #[test]

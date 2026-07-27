@@ -10,6 +10,7 @@ use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationT
 const CONVERSATION_STREAM_ID: &str = "tui-conversation";
 const RESET_MARKER: &str = "tui conversation reset boundary";
 const MAX_PROMPT_HISTORY_TURNS: usize = 512;
+const MAX_RUNTIME_ERROR_CHARS: usize = 2_048;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ConversationMemory {
@@ -47,6 +48,40 @@ pub(super) fn record_exchange(
     user_request: &str,
     assistant_response: &str,
 ) -> Result<(), AppError> {
+    record_result(
+        memory,
+        user_request,
+        assistant_response,
+        "model",
+        TuiConversationRole::Assistant,
+    )
+}
+
+pub(super) fn record_failure(
+    memory: &mut ConversationMemory,
+    user_request: &str,
+    runtime_error: &str,
+) -> Result<(), AppError> {
+    let bounded_error = runtime_error
+        .chars()
+        .take(MAX_RUNTIME_ERROR_CHARS)
+        .collect::<String>();
+    record_result(
+        memory,
+        user_request,
+        &bounded_error,
+        "evidence",
+        TuiConversationRole::Error,
+    )
+}
+
+fn record_result(
+    memory: &mut ConversationMemory,
+    user_request: &str,
+    response: &str,
+    response_kind: &str,
+    response_role: TuiConversationRole,
+) -> Result<(), AppError> {
     let identity = ledger::validated_current_identity()?;
     if !memory.belongs_to(&identity.session_id) {
         return Err(AppError::blocked(
@@ -68,11 +103,11 @@ pub(super) fn record_exchange(
         &[],
     )?;
     memory.head_record_id = Some(user.record_id);
-    let model = transcript::record_session_turn(
+    let result = transcript::record_session_turn(
         &owner,
-        "model",
-        &format!("{exchange_id}-model"),
-        assistant_response,
+        response_kind,
+        &format!("{exchange_id}-{response_kind}"),
+        response,
         &[],
     )?;
     memory.turns.push(TuiConversationTurn {
@@ -80,10 +115,10 @@ pub(super) fn record_exchange(
         content: user_request.to_string(),
     });
     memory.turns.push(TuiConversationTurn {
-        role: TuiConversationRole::Assistant,
-        content: assistant_response.to_string(),
+        role: response_role,
+        content: response.to_string(),
     });
-    memory.head_record_id = Some(model.record_id);
+    memory.head_record_id = Some(result.record_id);
     Ok(())
 }
 
@@ -133,11 +168,15 @@ fn load_for_session(session_id: &str) -> Result<ConversationMemory, AppError> {
                 });
                 memory.head_record_id = Some(record.record_id);
             }
-            "model" => {
+            "model" | "evidence" => {
                 if let Some(user) = pending_user.take() {
                     memory.turns.push(user);
                     memory.turns.push(TuiConversationTurn {
-                        role: TuiConversationRole::Assistant,
+                        role: if record.kind == "evidence" {
+                            TuiConversationRole::Error
+                        } else {
+                            TuiConversationRole::Assistant
+                        },
                         content: record.content,
                     });
                 }

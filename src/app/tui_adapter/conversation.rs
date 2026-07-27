@@ -5,6 +5,7 @@ use crate::runtime_core::inference::backend::{BackendChatInput, ResponseLanguage
 use crate::surfaces::tui::runtime_bridge::{TuiConversationTurn, TuiVisionStatus};
 
 const CONVERSATION_MAX_TOKENS: u32 = 512;
+const WEB_ANSWER_MAX_TOKENS: u32 = 768;
 
 pub(super) enum RequestDecision {
     Answer(String),
@@ -133,6 +134,20 @@ pub(super) fn decide_request(
         CONVERSATION_MAX_TOKENS,
     )?;
     decide_generated_candidate(candidate, user_request, web_enabled, allow_direct_answer)
+}
+
+pub(super) fn render_web_conversation_context(
+    history: &[TuiConversationTurn],
+    user_request: &str,
+    context_limit_tokens: u32,
+) -> Result<String, AppError> {
+    super::prompt_context::ConversationPromptContext::build(
+        history,
+        user_request,
+        context_limit_tokens,
+        WEB_ANSWER_MAX_TOKENS,
+    )
+    .map(|context| context.render_memory())
 }
 
 fn decide_generated_candidate(
@@ -340,10 +355,9 @@ fn is_agent_identity_request(request: &str) -> bool {
     [
         "넌누구",
         "너는누구",
-        "누구야",
-        "정체가뭐",
-        "이름이뭐",
-        "이름이뭔",
+        "너누구",
+        "네정체",
+        "너정체",
         "네이름",
         "너이름",
     ]
@@ -481,10 +495,18 @@ mod tests {
             local_reply("넌누구니?", Some("ignored"), TuiVisionStatus::OnDemand),
             Some("저는 로컬에서 실행되는 범용 AI·코딩 에이전트 rpotato입니다.".to_string())
         );
-        assert_eq!(
-            local_reply("이름이뭔데", Some("ignored"), TuiVisionStatus::OnDemand),
-            Some("저는 로컬에서 실행되는 범용 AI·코딩 에이전트 rpotato입니다.".to_string())
-        );
+        for contextual_followup in ["내 이름이 뭐였지?", "이름이뭔데", "그 사람 누구야?"]
+        {
+            assert_eq!(
+                local_reply(
+                    contextual_followup,
+                    Some("ignored"),
+                    TuiVisionStatus::OnDemand
+                ),
+                None,
+                "{contextual_followup}는 대화 문맥을 모델에 전달해야 합니다."
+            );
+        }
         assert_eq!(
             local_reply(
                 "이 모델 코드를 수정해줘",

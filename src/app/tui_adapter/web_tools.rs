@@ -9,6 +9,7 @@ pub(super) fn dispatch(
     pages: &mut WebPageSession,
     request: &str,
     local_context: &str,
+    conversation_context: &str,
     elapsed: Duration,
 ) -> Option<Result<String, AppError>> {
     let route = web_search_adapter::route_tool_request(request)?;
@@ -18,6 +19,7 @@ pub(super) fn dispatch(
         route,
         request,
         local_context,
+        conversation_context,
         elapsed,
     ))
 }
@@ -28,6 +30,7 @@ pub(super) fn execute(
     route: WebToolRoute,
     request: &str,
     local_context: &str,
+    conversation_context: &str,
     elapsed: Duration,
 ) -> Result<String, AppError> {
     let current_document = pages.current_url();
@@ -38,7 +41,8 @@ pub(super) fn execute(
     let failed_route = route.clone();
     let result = match route {
         WebToolRoute::Search { query } => web_search_adapter::answer(
-            web_search_adapter::WebAnswerInput::new(&query, request, local_context),
+            web_search_adapter::WebAnswerInput::new(&query, request, local_context)
+                .with_conversation_context(conversation_context),
             research,
             pages,
             elapsed,

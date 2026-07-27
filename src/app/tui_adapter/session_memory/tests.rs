@@ -49,6 +49,33 @@ fn canonical_memory_restores_only_complete_pairs_and_honors_reset_boundaries() {
 }
 
 #[test]
+fn failed_request_is_restored_as_runtime_context_for_followup_questions() {
+    with_memory_fixture("failed-request-context", || {
+        let mut memory = load().unwrap();
+
+        record_failure(
+            &mut memory,
+            "espr 이 뭔지 검색해봐",
+            "모델에 전달할 웹 근거 상한에 도달했습니다.",
+        )
+        .unwrap();
+
+        let restored = load().unwrap();
+        assert_eq!(restored.turns.len(), 2);
+        assert_eq!(restored.turns[0].role, TuiConversationRole::User);
+        assert_eq!(restored.turns[0].content, "espr 이 뭔지 검색해봐");
+        assert_eq!(restored.turns[1].role, TuiConversationRole::Error);
+        assert!(restored.turns[1].content.contains("웹 근거 상한"));
+        assert_eq!(
+            conversation_records()
+                .last()
+                .map(|record| record.kind.as_str()),
+            Some("evidence")
+        );
+    });
+}
+
+#[test]
 fn reset_is_a_unique_causal_head_for_repeated_questions() {
     with_memory_fixture("reset-causal-head", || {
         let mut memory = load().unwrap();

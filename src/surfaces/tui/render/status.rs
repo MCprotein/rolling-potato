@@ -17,9 +17,14 @@ pub(super) fn render_status_line(
     let (context, percent) = match (used, status.context_limit_tokens) {
         (Some(used), Some(limit)) if limit > 0 => {
             let percent = used.saturating_mul(100) / limit;
+            let percent_label = if used > 0 && percent == 0 {
+                "<1%".to_string()
+            } else {
+                format!("{percent}%")
+            };
             (
                 format!(
-                    "ctx {}{used}/{limit} ({percent}%)",
+                    "ctx {}{used}/{limit} ({percent_label})",
                     if estimated { "~" } else { "" }
                 ),
                 Some(percent),

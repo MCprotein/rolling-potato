@@ -29,6 +29,7 @@ pub(super) fn select(pages: &mut WebPageSession, source_id: &str) -> Result<Stri
             WebToolRoute::Open { url: source.url },
             "선택한 웹 출처를 열고 요약해줘",
             "",
+            "",
             Duration::ZERO,
         );
     }

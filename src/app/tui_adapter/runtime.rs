@@ -77,13 +77,24 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
     ) -> Result<String, AppError> {
         self.ensure_fresh_session()?;
         let history = self.conversation_memory()?.prompt_history();
-        let response = request::execute(self, request, attachments, &history)?;
-        super::session_memory::record_exchange(
-            self.conversation_memory()?,
-            request.trim(),
-            &response,
-        )?;
-        Ok(response)
+        match request::execute(self, request, attachments, &history) {
+            Ok(response) => {
+                super::session_memory::record_exchange(
+                    self.conversation_memory()?,
+                    request.trim(),
+                    &response,
+                )?;
+                Ok(response)
+            }
+            Err(error) => {
+                super::session_memory::record_failure(
+                    self.conversation_memory()?,
+                    request.trim(),
+                    &error.message,
+                )?;
+                Err(error)
+            }
+        }
     }
 
     fn model_options(&mut self) -> Vec<crate::surfaces::tui::runtime_bridge::TuiModelOption> {

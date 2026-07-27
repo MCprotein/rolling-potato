@@ -25,6 +25,7 @@ pub(crate) struct WebAnswerInput<'a> {
     pub(crate) query: &'a str,
     pub(crate) user_request: &'a str,
     pub(crate) local_context: &'a str,
+    pub(crate) conversation_context: &'a str,
 }
 
 impl<'a> WebAnswerInput<'a> {
@@ -33,7 +34,13 @@ impl<'a> WebAnswerInput<'a> {
             query,
             user_request,
             local_context,
+            conversation_context: "",
         }
+    }
+
+    pub(crate) fn with_conversation_context(mut self, conversation_context: &'a str) -> Self {
+        self.conversation_context = conversation_context;
+        self
     }
 }
 

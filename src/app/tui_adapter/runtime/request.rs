@@ -42,6 +42,11 @@ fn execute_routed(
     let vision = vision_status(backend.as_ref());
     let input = attachment::compose_request(request, attachments, context_limit_tokens)?;
     let local_context = input.text.as_str();
+    let web_conversation_context = context_limit_tokens
+        .and_then(|limit| {
+            conversation::render_web_conversation_context(history, user_request, limit).ok()
+        })
+        .unwrap_or_default();
     if !input.images.is_empty() {
         ensure_runtime_ready(RuntimeRequirement::Vision)?;
         return conversation::reply_with_images(
@@ -55,6 +60,7 @@ fn execute_routed(
         &mut adapter.web_pages,
         user_request,
         local_context,
+        &web_conversation_context,
         web_started.elapsed(),
     ) {
         return result;
@@ -82,6 +88,7 @@ fn execute_routed(
                 tool,
                 user_request,
                 local_context,
+                &web_conversation_context,
                 web_started.elapsed(),
             );
         }
