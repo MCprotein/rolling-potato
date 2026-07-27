@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.48.0` |
+| 현재 릴리즈 | `v0.49.4` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -161,8 +161,21 @@ rpotato
 `/open <URL>`은 공개 HTTPS 문서를 제한된 크기로 열고, `/find <텍스트>`는 현재
 TUI에서 마지막으로 연 문서 안을 검색합니다. 동일 host redirect만 자동 추적하고
 다른 host 이동은 대상 URL을 표시한 뒤 명시적인 다음 `/open`을 요구합니다.
-`/doctor`는 별도 credential 없이 웹 도구 준비 상태를 보여줍니다. Composer
-아래 line에는 현재 model, context 사용량,
+`/doctor`는 별도 credential 없이 웹 도구 준비 상태를 보여줍니다.
+
+v0.50 source candidate는 “네이버를 열고 …를 검색해” 같은 명시적 요청에
+제한된 브라우저 search-form 경로도 제공합니다. 수동 `/browser` 명령은 없으며
+agent가 typed tool을 선택하고, 소형 모델을 위해 좁은 deterministic fallback만
+둡니다. Runtime은 사이트별 selector나 page JavaScript 대신 일반 accessibility
+search field를 찾고, 제한된 검색어만 입력·제출한 뒤 검증한 공개 결과 URL과
+제한된 page text를 반환합니다. 설치된 Chromium 계열 browser를 새 임시
+profile로 실행하므로 기존 cookie나 login을 재사용하지 않습니다. 모든 공개
+HTTPS 443 traffic은 loopback CONNECT proxy를 통과하고, runtime이 public IP를
+확인·고정한 뒤 연결합니다. Login, 결제, 게시, upload, download, 개인정보
+입력, project·attachment 전송은 이 경로의 범위 밖입니다. Offline/no-browse를
+명시하면 정적 검색과 브라우저 retrieval을 모두 사용하지 않습니다.
+
+Composer 아래 line에는 현재 model, context 사용량,
 compaction checkpoint, backend 상태, session이 표시됩니다. 일반 TUI 동작은
 `/model`, `/compact`, `/search`, `/open`, `/find`, `/attach`, `/update`, `/status`,
 `/sessions`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, `/quit`을 사용합니다.
@@ -188,7 +201,7 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-`v0.48.0` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
+`v0.49.4` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
@@ -202,6 +215,11 @@ pre-1.0 런타임입니다.
 | 모니터링 | CLI/TUI metric, SQLite projection, benchmark record, static HTML export |
 | 화면 | 기본 대화 TUI, 자동화·진단 CLI, self-contained local HTML report |
 | 범용 답변과 웹 | 일반 지식·계산 답변, 최신성 자동 routing, API key 없는 `WebSearch`·`WebOpen`·`WebFind`, runtime 소유 출처 link |
+
+현재 v0.50 source candidate는 일반 browser 자동화 권한을 주지 않고,
+agent가 선택하는 제한된 browser search-form research를 추가합니다.
+[v0.50 웹 연구·브라우저 계획](docs/ko/v0.50-web-research-browser-plan.md)을
+참고하십시오.
 
 장별 기능 지도, 대표 명령, 아직 완성되지 않은 경계는
 [docs/ko/current-capabilities.md](docs/ko/current-capabilities.md)에
@@ -223,6 +241,9 @@ policy, 필요한 승인, evidence 기록, 검증을 통과해야 합니다.
 - 혼합 언어 최종 응답은 한국어 재작성 한 번 뒤 유효한 한국어 line을 안전하게
   투영하고, 보존할 수 있는 응답이 없을 때만 차단합니다.
 - 가져온 plugin instruction은 runtime 권한을 넓힐 수 없습니다.
+- 웹 근거와 browser page content는 신뢰하지 않는 data입니다. 제한된 브라우저
+  경로는 인증된 사용자 session 대신 임시 profile, public HTTPS 전용 IP-pinning
+  proxy, 익명 search-form action만 사용합니다.
 - shell, background, remote connector, 민감한 설정, write capability는
   지원하는 policy 경로가 허용하기 전까지 차단합니다.
 - 복구할 때 결과가 불확실한 backend request나 verification command를
@@ -248,12 +269,11 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-게시된 `v0.48.0`까지의 release history는 완료되었습니다. 최신 release는 로컬
-coding-agent workflow를 유지하면서 keyboard 기반 TUI 선택, private 로컬 첨부,
-검증된 vision projector와 API key 없는 `WebSearch`, `WebOpen`, `WebFind`를
-추가합니다.
-[docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)를
-참고하십시오.
+게시된 `v0.49.4`까지의 release history는 완료되었습니다. 현재 source는 로컬
+coding-agent workflow를 유지하면서 v0.50의 제한된 웹 연구와 browser
+search-form 지원을 준비하고 있습니다.
+[docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)와
+[v0.50 구현 계획](docs/ko/v0.50-web-research-browser-plan.md)을 참고하십시오.
 
 ---
 

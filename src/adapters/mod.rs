@@ -1,5 +1,6 @@
 //! Volatile platform and infrastructure implementations.
 
+pub(crate) mod browser;
 pub(crate) mod filesystem;
 pub(crate) mod github_release;
 pub(crate) mod llama_cpp;

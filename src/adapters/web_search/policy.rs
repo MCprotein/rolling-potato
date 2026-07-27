@@ -54,6 +54,42 @@ pub(super) fn validate_open_url(url: &str) -> Result<String, AppError> {
     Ok(uri.to_string())
 }
 
+pub(super) fn canonicalize_source_url(url: &str) -> Option<String> {
+    if !is_valid_https_source_url(url) {
+        return None;
+    }
+    let normalized = validate_open_url(url).ok()?;
+    let uri = normalized.parse::<ureq::http::Uri>().ok()?;
+    let authority = uri.authority()?;
+    let host = normalize_www(authority.host());
+    let host = if host.contains(':') {
+        format!("[{host}]")
+    } else {
+        host
+    };
+    let authority = match authority.port_u16() {
+        Some(port) if port != DEFAULT_HTTPS_PORT => format!("{host}:{port}"),
+        _ => host,
+    };
+    let path = match uri.path().trim_end_matches('/') {
+        "" => "/",
+        path => path,
+    };
+    let mut canonical = format!("https://{authority}{path}");
+    let mut query = uri
+        .query()
+        .into_iter()
+        .flat_map(|query| query.split('&'))
+        .filter(|pair| !pair.is_empty() && !is_tracking_query_pair(pair))
+        .collect::<Vec<_>>();
+    query.sort_unstable();
+    if !query.is_empty() {
+        canonical.push('?');
+        canonical.push_str(&query.join("&"));
+    }
+    Some(canonical)
+}
+
 pub(super) fn resolve_redirect_url(current: &str, location: &str) -> Result<String, AppError> {
     let current_uri = validate_https_uri_shape(current)?;
     let location = location.trim();
@@ -138,7 +174,7 @@ fn validate_https_uri_shape(url: &str) -> Result<ureq::http::Uri, AppError> {
     Ok(uri)
 }
 
-fn validate_public_host(host: &str) -> Result<(), AppError> {
+pub(super) fn validate_public_host(host: &str) -> Result<(), AppError> {
     if let Some(ip) = parse_ip(host) {
         return is_public_ip(ip)
             .then_some(())
@@ -218,4 +254,16 @@ fn normalize_www(host: &str) -> String {
         .strip_prefix("www.")
         .unwrap_or(&normalized)
         .to_string()
+}
+
+fn is_tracking_query_pair(pair: &str) -> bool {
+    let key = pair
+        .split_once('=')
+        .map_or(pair, |(key, _)| key)
+        .to_ascii_lowercase();
+    key.starts_with("utm_")
+        || matches!(
+            key.as_str(),
+            "fbclid" | "gclid" | "dclid" | "mc_cid" | "mc_eid" | "_hsenc" | "_hsmi"
+        )
 }

@@ -104,6 +104,31 @@ Required adapter capabilities:
 
 Adapters do not know about project files, user approvals, patches, or command policy. Those boundaries remain in the runtime core.
 
+## Web Research and Restricted Browser
+
+External evidence is a separate adapter boundary from model inference:
+
+- `runtime_core::web_search` and `runtime_core::browser` define typed,
+  surface-neutral operations, budgets, URL policy, and opaque element handles
+- `adapters::web_search` owns direct public-HTTPS search, open, find, readable
+  extraction, DNS checks, and evidence normalization
+- `adapters::browser` owns installed-browser discovery, the isolated temporary
+  process/profile, DevTools protocol transport, accessibility observation, and
+  the public-address-pinning loopback CONNECT proxy
+- `app::web_navigation` and `app::browser_adapter` decide how agent tool
+  requests become bounded application use cases and how verified evidence is
+  returned to local answer synthesis
+- CLI/TUI surfaces render progress and results but do not choose network or
+  browser permissions
+
+The integrated v0.50 browser use case is intentionally narrower than the
+adapter's internal closed action vocabulary: it discovers a generic
+accessibility search field, types a bounded anonymous query, submits it, and
+reads a verified public result. It never loads an existing user profile and
+does not expose general selectors, page JavaScript, authentication, file
+transfer, or arbitrary form automation. Static web tools remain available
+without an installed browser.
+
 ## Plugin Adapter
 
 Plugin adapters are the compatibility boundary that converts foreign runtime plugin packages into `rpotato` capabilities.

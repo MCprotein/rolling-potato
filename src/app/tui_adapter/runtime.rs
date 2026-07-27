@@ -6,6 +6,7 @@ mod request;
 mod session_tests;
 mod state;
 mod status;
+mod web_sources;
 
 use super::model_switch::{switch_prepared_model, LiveModelSwitch};
 use super::{
@@ -17,7 +18,7 @@ use crate::surfaces::tui::controller::TuiRuntimePort;
 use crate::surfaces::tui::outcome::{TuiEffect, TuiOutcome};
 use crate::surfaces::tui::runtime_bridge::{
     new_tui_intent_id, SelectionLease, TuiAttachment, TuiGateKind, TuiIntent, TuiReadPage,
-    TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot,
+    TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot, TuiWebSourceOption,
 };
 use backend::reconcile_existing_runtime;
 pub(super) use state::TuiRuntimeAdapter;
@@ -57,6 +58,10 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         super::attachment::capture(path, &identity.session_id)
     }
 
+    fn request_progress_hint(&mut self, request: &str) -> Option<String> {
+        crate::app::browser_adapter::progress_notice(request)
+    }
+
     fn submit_request(
         &mut self,
         request: &str,
@@ -91,9 +96,18 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             .collect())
     }
 
+    fn web_source_options(&mut self) -> Vec<TuiWebSourceOption> {
+        web_sources::options(&self.web_pages)
+    }
+
+    fn select_web_source(&mut self, source_id: &str) -> Result<String, AppError> {
+        web_sources::select(&mut self.web_pages, source_id)
+    }
+
     fn start_new_session(&mut self) -> Result<TuiSessionTransition, AppError> {
         crate::app::workflow_adapter::state::session_new_report()?;
         self.conversation_memory = None;
+        self.web_pages.clear();
         self.fresh_session_pending = false;
         let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
         Ok(TuiSessionTransition {
@@ -115,6 +129,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
             return Err(AppError::blocked(outcome.safe_message));
         }
         self.conversation_memory = None;
+        self.web_pages.clear();
         self.fresh_session_pending = false;
         let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
         Ok(TuiSessionTransition {

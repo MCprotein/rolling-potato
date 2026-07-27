@@ -46,6 +46,7 @@
 - [서브에이전트](subagents.md)
 - [팀 런타임](team-runtime.md)
 - [TUI](tui.md)
+- [v0.50 웹 연구와 제한된 브라우저 계획](v0.50-web-research-browser-plan.md)
 - [플러그인 어댑터](plugin-adapters.md)
 - [한국어 출력 guard](korean-output-guard.md)
 

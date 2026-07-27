@@ -252,6 +252,15 @@ pub(crate) struct TuiSessionTransition {
     pub(crate) turns: Vec<TuiConversationTurn>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TuiWebSourceOption {
+    pub(crate) source_id: String,
+    pub(crate) title: String,
+    pub(crate) url: String,
+    pub(crate) opened: bool,
+    pub(crate) current: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TuiReadContinuation {
     Complete,

@@ -22,6 +22,7 @@
 - 오류 로그
 - 모델별 token 사용량과 runtime metric
 - backend health metric
+- app-data attachment directory에 저장하는 사용자 첨부 local file copy
 
 저장하면 안 되는 정보:
 
@@ -38,12 +39,28 @@ MVP에서 허용되는 네트워크 사용:
 
 - 사용자가 승인한 모델 manifest 조회
 - 사용자가 승인한 모델 다운로드
-- 릴리즈 업데이트 확인이 추가될 경우 사용자가 끌 수 있어야 함
+- 사용자가 끌 수 있는 선택적 릴리즈 업데이트 확인
+- 명시적이거나 최신성이 필요한 읽기 전용 웹 검색. API credential 없이 현재
+  질문만 고정 공개 검색 HTML endpoint로 전송합니다.
+- 명시적 `WebOpen`. 사용자가 선택한 URL을 직접 요청하며 제한된 normalized
+  page는 현재 TUI memory에만 남아 `WebFind`가 검색할 수 있습니다.
+- v0.50 source candidate의 명시적 익명 공개 search-form 요청. 새 임시
+  Chromium 계열 profile에서 공개 HTTPS page에 제한된 query만 입력하며
+  attachment나 project content는 포함하지 않습니다.
+- 제한된 browser traffic은 repo-owned loopback HTTPS CONNECT proxy를 반드시
+  통과합니다. Proxy는 public IP를 확인·고정하고 port 443만 허용하며 direct
+  network fallback이 없습니다. 요청 뒤에는 임시 profile과 process를 정리합니다.
 
 허용하지 않는 기본 동작:
 
 - 사용자 코드 자동 업로드
 - 대화 내용 자동 전송
+- attachment를 web-search provider로 upload
+- project file이나 attachment를 WebOpen target에 자동 upload
+- 기존 browser profile, cookie, password, 인증 session 재사용
+- browser login, 결제, 게시, upload, download, 개인정보 입력, project·attachment
+  제출
+- 현재 요청과 무관한 background browser activity
 - command output telemetry
 - 외부 LLM API 자동 fallback
 

@@ -1,16 +1,32 @@
+use std::collections::{BTreeMap, BTreeSet};
+
+use sha2::{Digest, Sha256};
+
 use crate::foundation::error::AppError;
 
+use super::policy::canonicalize_source_url;
+
 pub(super) const MAX_SEARCH_CONTEXT_CHARS: usize = 6 * 1024;
-pub(super) const MAX_SOURCES: usize = 4;
+pub(super) const MAX_SOURCES: usize = 8;
+const MAX_SOURCES_PER_DOMAIN: usize = 2;
+const SOURCE_ID_HEX_CHARS: usize = 16;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WebSourceEvidence {
+    pub(crate) source_id: String,
+    pub(crate) url: String,
+    pub(crate) title: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct WebSearchEvidence {
     pub(crate) context: String,
-    pub(crate) sources: Vec<String>,
+    pub(crate) sources: Vec<WebSourceEvidence>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct WebPageEvidence {
+    pub(crate) source_id: String,
     pub(crate) requested_url: String,
     pub(crate) final_url: String,
     pub(crate) title: Option<String>,
@@ -34,18 +50,19 @@ pub(super) struct SearchResult {
 }
 
 pub(super) fn evidence_from_results(
-    results: &[SearchResult],
+    query: &str,
+    results: Vec<SearchResult>,
 ) -> Result<WebSearchEvidence, AppError> {
+    let ranked = rank_and_deduplicate(query, results);
     let mut context = String::new();
     let mut sources = Vec::new();
-    for result in results {
-        if sources.iter().any(|stored| stored == &result.url) {
-            continue;
-        }
+    for result in ranked {
+        let source = source_evidence(&result);
         let section = format!(
-            "Title: {}\nURL: {}\nDescription: {}",
-            sanitize_context(&result.title),
-            result.url,
+            "Source ID: {}\nTitle: {}\nURL: {}\nDescription: {}",
+            source.source_id,
+            sanitize_context(&source.title),
+            source.url,
             sanitize_context(&result.description)
         );
         let separator = if context.is_empty() {
@@ -66,7 +83,7 @@ pub(super) fn evidence_from_results(
         }
         context.push_str(separator);
         context.push_str(&bounded_section);
-        sources.push(result.url.clone());
+        sources.push(source);
         if context.chars().count() == MAX_SEARCH_CONTEXT_CHARS {
             break;
         }
@@ -77,6 +94,129 @@ pub(super) fn evidence_from_results(
         ));
     }
     Ok(WebSearchEvidence { context, sources })
+}
+
+pub(super) fn stable_source_id(url: &str) -> String {
+    let canonical = canonicalize_source_url(url).unwrap_or_else(|| url.trim().to_string());
+    let digest = Sha256::digest(canonical.as_bytes());
+    let mut hex = String::with_capacity(SOURCE_ID_HEX_CHARS);
+    for byte in digest.iter().take(SOURCE_ID_HEX_CHARS / 2) {
+        hex.push_str(&format!("{byte:02x}"));
+    }
+    format!("source-{hex}")
+}
+
+fn source_evidence(result: &SearchResult) -> WebSourceEvidence {
+    WebSourceEvidence {
+        source_id: stable_source_id(&result.url),
+        url: result.url.clone(),
+        title: sanitize_context(&result.title),
+    }
+}
+
+fn rank_and_deduplicate(query: &str, results: Vec<SearchResult>) -> Vec<SearchResult> {
+    let terms = normalized_terms(query);
+    let mut seen_urls = BTreeSet::new();
+    let mut candidates = results
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, mut result)| {
+            let canonical = canonicalize_source_url(&result.url)?;
+            if !seen_urls.insert(canonical.clone()) {
+                return None;
+            }
+            result.url = canonical;
+            let score = relevance_score(&result, &terms);
+            Some((score, index, result))
+        })
+        .collect::<Vec<_>>();
+    candidates.sort_by(|left, right| right.0.cmp(&left.0).then_with(|| left.1.cmp(&right.1)));
+
+    let mut domain_counts = BTreeMap::<String, usize>::new();
+    let mut ranked = Vec::new();
+    for (_, _, result) in candidates {
+        let Some(domain) = source_domain(&result.url) else {
+            continue;
+        };
+        let count = domain_counts.entry(domain).or_default();
+        if *count >= MAX_SOURCES_PER_DOMAIN {
+            continue;
+        }
+        *count += 1;
+        ranked.push(result);
+        if ranked.len() == MAX_SOURCES {
+            break;
+        }
+    }
+    ranked
+}
+
+fn relevance_score(result: &SearchResult, terms: &[String]) -> u16 {
+    let title = result.title.to_lowercase();
+    let description = result.description.to_lowercase();
+    let url = result.url.to_ascii_lowercase();
+    let mut score = 0_u16;
+    for term in terms {
+        if title.contains(term) {
+            score = score.saturating_add(4);
+        }
+        if url.contains(term) {
+            score = score.saturating_add(2);
+        }
+        if description.contains(term) {
+            score = score.saturating_add(1);
+        }
+    }
+    if [
+        "official",
+        "공식",
+        "documentation",
+        "docs",
+        "release notes",
+        "릴리스 노트",
+    ]
+    .iter()
+    .any(|signal| title.contains(signal))
+    {
+        score = score.saturating_add(8);
+    }
+    if [
+        "/docs",
+        "/documentation",
+        "/releases",
+        "/release-notes",
+        "/news",
+    ]
+    .iter()
+    .any(|signal| url.contains(signal))
+    {
+        score = score.saturating_add(4);
+    }
+    if source_domain(&result.url).is_some_and(|domain| {
+        domain.ends_with(".gov")
+            || domain.ends_with(".edu")
+            || domain.starts_with("docs.")
+            || domain.starts_with("developer.")
+    }) {
+        score = score.saturating_add(4);
+    }
+    score
+}
+
+fn normalized_terms(query: &str) -> Vec<String> {
+    query
+        .to_lowercase()
+        .split(|character: char| !character.is_alphanumeric())
+        .filter(|term| term.chars().count() > 1)
+        .map(str::to_string)
+        .collect()
+}
+
+fn source_domain(url: &str) -> Option<String> {
+    url.parse::<ureq::http::Uri>()
+        .ok()?
+        .authority()
+        .map(|authority| authority.host().to_ascii_lowercase())
 }
 
 fn sanitize_context(value: &str) -> String {

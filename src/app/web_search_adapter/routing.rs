@@ -1,31 +1,26 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum WebToolRoute {
-    Search { query: String },
-    Open { url: String },
-    Find { query: String },
-}
+use super::research::WebResearchStep;
 
-pub(crate) fn route_tool_request(request: &str) -> Option<WebToolRoute> {
+pub(crate) fn route_tool_request(request: &str) -> Option<WebResearchStep> {
     let request = request.trim();
     if let Some(query) = request.strip_prefix("/search ") {
-        return nonempty(query).map(|query| WebToolRoute::Search {
+        return nonempty(query).map(|query| WebResearchStep::Search {
             query: query.to_string(),
         });
     }
     if let Some(url) = request.strip_prefix("/open ") {
-        return nonempty(url).map(|url| WebToolRoute::Open {
+        return nonempty(url).map(|url| WebResearchStep::Open {
             url: url.to_string(),
         });
     }
     if let Some(query) = request.strip_prefix("/find ") {
-        return nonempty(query).map(|query| WebToolRoute::Find {
+        return nonempty(query).map(|query| WebResearchStep::Find {
             query: query.to_string(),
         });
     }
     None
 }
 
-pub(crate) fn parse_agent_web_tool(response: &str) -> Option<WebToolRoute> {
+pub(crate) fn parse_agent_web_tool(response: &str) -> Option<WebResearchStep> {
     const MAX_AGENT_TOOL_INPUT_CHARS: usize = 512;
 
     let lines = response
@@ -45,17 +40,25 @@ pub(crate) fn parse_agent_web_tool(response: &str) -> Option<WebToolRoute> {
         return None;
     }
     match tool {
-        "search" => Some(WebToolRoute::Search {
+        "search" => Some(WebResearchStep::Search {
             query: input.to_string(),
         }),
-        "open" => Some(WebToolRoute::Open {
+        "open" => Some(WebResearchStep::Open {
             url: input.to_string(),
         }),
-        "find" => Some(WebToolRoute::Find {
+        "find" => Some(WebResearchStep::Find {
             query: input.to_string(),
         }),
         _ => None,
     }
+}
+
+pub(crate) fn parse_agent_web_tool_for_request(
+    response: &str,
+    current_request: &str,
+) -> Option<WebResearchStep> {
+    let step = parse_agent_web_tool(response)?;
+    literal_projection(step.input(), current_request).then_some(step)
 }
 
 pub(crate) fn web_disabled(request: &str) -> bool {
@@ -65,8 +68,10 @@ pub(crate) fn web_disabled(request: &str) -> bool {
         || [
             "검색하지마",
             "검색하지 마",
+            "검색하지 말",
             "검색 금지",
             "인터넷 쓰지마",
+            "인터넷 쓰지 말",
             "인터넷 사용하지",
             "인터넷 없이",
             "웹 사용하지",
@@ -114,6 +119,12 @@ fn has_no_web_directive(request: &str) -> bool {
 fn nonempty(value: &str) -> Option<&str> {
     let value = value.trim();
     (!value.is_empty()).then_some(value)
+}
+
+fn literal_projection(input: &str, current_request: &str) -> bool {
+    let input = input.trim().to_lowercase();
+    let current_request = current_request.trim().to_lowercase();
+    !input.is_empty() && current_request.contains(&input)
 }
 
 fn contains_ascii_phrase(text: &str, phrase: &str) -> bool {

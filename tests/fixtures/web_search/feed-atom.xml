@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>rpotato 소식</title>
+  <entry>
+    <title>읽기 가능한 웹 증거</title>
+    <summary>Atom 요약도 본문 증거로 정규화합니다.</summary>
+  </entry>
+</feed>

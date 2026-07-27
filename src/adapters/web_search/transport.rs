@@ -6,7 +6,8 @@ use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
 
 use super::policy::socket_addresses_are_public;
 
-const DIRECT_SEARCH_ENDPOINT: &str = "https://html.duckduckgo.com/html/";
+const HTML_SEARCH_ENDPOINT: &str = "https://html.duckduckgo.com/html/";
+const LITE_SEARCH_ENDPOINT: &str = "https://lite.duckduckgo.com/lite/";
 const MAX_SEARCH_RESPONSE_BYTES: u64 = 512 * 1024;
 const MAX_PAGE_RESPONSE_BYTES: u64 = 2 * 1024 * 1024;
 
@@ -15,10 +16,28 @@ pub(super) enum PageResponse {
     Redirect { location: String },
 }
 
-pub(super) fn fetch_search_document(query: &str) -> Result<String, AppError> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SearchEndpoint {
+    Html,
+    Lite,
+}
+
+impl SearchEndpoint {
+    fn url(self) -> &'static str {
+        match self {
+            Self::Html => HTML_SEARCH_ENDPOINT,
+            Self::Lite => LITE_SEARCH_ENDPOINT,
+        }
+    }
+}
+
+pub(super) fn fetch_search_document(
+    query: &str,
+    endpoint: SearchEndpoint,
+) -> Result<String, AppError> {
     let agent = ureq::Agent::new_with_config(direct_agent_config());
     let mut response = agent
-        .get(DIRECT_SEARCH_ENDPOINT)
+        .get(endpoint.url())
         .query("q", query)
         .query("kl", "kr-kr")
         .header("Accept", "text/html,application/xhtml+xml")
@@ -56,7 +75,7 @@ pub(super) fn fetch_page_response(url: &str) -> Result<PageResponse, AppError> {
         .get(url)
         .header(
             "Accept",
-            "text/html,application/xhtml+xml,text/plain,application/json;q=0.8",
+            "text/html,application/xhtml+xml,text/markdown,text/x-markdown,application/rss+xml,application/atom+xml,application/xml,text/xml,text/plain,application/json;q=0.8",
         )
         .header("User-Agent", concat!("rpotato/", env!("CARGO_PKG_VERSION")))
         .call()

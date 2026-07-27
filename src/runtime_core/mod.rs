@@ -3,6 +3,7 @@
 //! Each child owns one cohesive runtime capability. Cross-capability access is
 //! admitted through the owning capability boundary, not through concrete files.
 
+pub(crate) mod browser;
 pub(crate) mod collaboration;
 pub(crate) mod extensions;
 pub(crate) mod inference;

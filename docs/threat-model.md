@@ -85,10 +85,11 @@ Mitigations:
 
 - local backend default
 - no telemetry
-- agent-selected web search sends only a bounded query derived by the local model
-  from the user's request to a fixed public HTML search endpoint; the routing model
-  never receives local attachment contents, no API credential is used, HTTPS is
-  mandatory, and an offline/no-browse instruction disables retrieval
+- agent-selected web search sends only a bounded literal projection of the current
+  user request to a fixed public HTML search endpoint; values found only in
+  conversation history are rejected, the routing model never receives local
+  attachment contents, no API credential is used, HTTPS is mandatory, and an
+  offline/no-browse instruction disables retrieval
 - `WebOpen` upgrades HTTP input to HTTPS, rejects URL credentials, local/private/
   link-local/reserved targets and DNS answers in the resolver used by the direct
   connection, disables proxy routing, follows only bounded same-host redirects,
@@ -102,6 +103,34 @@ Mitigations:
   image inference requires an exact verified model/projector pair
 - log redaction
 - only local user and visible/normalized model/tool/evidence turns are durable; complete backend prompts, hidden responses, and raw source bodies are excluded
+
+### Restricted Browser Abuse
+
+A public page may attempt SSRF, DNS rebinding, prompt injection, authenticated
+side effects, unintended file transfer, or process/profile leakage.
+
+Mitigations:
+
+- the model may request only the typed `search-form` operation; a deterministic
+  fallback exists only for explicit public-search-site instructions
+- every run uses a new temporary profile and process group; the integrated route
+  never loads the user's browser profile, cookies, passwords, or login session
+- all page traffic is forced through a repo-owned loopback HTTPS CONNECT proxy;
+  only port 443 is accepted, DNS is resolved and checked for a public address,
+  that address is pinned for the connection, QUIC is disabled, non-proxied WebRTC
+  UDP is disabled, and no direct fallback exists
+- the runtime observes a bounded accessibility tree and acts on opaque handles;
+  site-specific selectors and `Runtime.evaluate` JavaScript are not exposed
+- the application coordinator types only the bounded search query, submits it,
+  and reads a verified public final URL plus bounded text; it exposes no login,
+  payment, posting, upload, download, personal-data, project-content, or
+  attachment-submission path
+- navigation attempts and reads have bounded attempts, time, bytes, and element
+  counts; process groups and temporary profiles are cleaned up on success,
+  timeout, and error
+- page content remains untrusted evidence and cannot widen command, file,
+  approval, or permission authority
+- an explicit offline/no-browse instruction disables the restricted browser path
 
 ### Foreign Plugin Supply Chain
 

@@ -1,6 +1,6 @@
 # 현재 기능
 
-이 문서는 출시된 `rolling-potato v0.48.0` runtime의 읽기 쉬운 상태 지도입니다.
+이 문서는 출시된 `rolling-potato v0.49.4` runtime의 읽기 쉬운 상태 지도입니다.
 하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
@@ -9,7 +9,7 @@
 > 이 문서는 기능 안내서입니다. 정확한 명령 문법은 설치된 바이너리의
 > `rpotato --help`를 기준으로 확인하십시오.
 
-## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.48.0`)
+## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.49.4`)
 
 GitHub Release archive에서 압축을 푼 binary는 사용자 전용 CLI directory에
 자기 자신을 설치·갱신하고 zsh, bash, fish 또는 Windows 사용자 PATH에 해당
@@ -328,6 +328,18 @@ limit으로도 제한합니다. Local model이 사용자 요청에서 `WebSearch
 제한된 읽기 전용 text로 정규화하고, `/find <텍스트>`는 현재 TUI에서 마지막으로
 연 문서 안을 찾습니다. 이 세 동작은 각각 `WebSearch`, `WebOpen`, `WebFind`로
 분리되지만 동일한 repo-owned HTTPS·untrusted-context policy를 사용합니다.
+
+v0.50 source candidate는 공개 검색 site를 열고 query를 제출하라는 명시적
+요청에 agent가 선택하는 제한된 browser search-form 경로를 추가합니다.
+`/browser` 명령이나 일반 browser 자동화를 추가하지 않습니다. Runtime은 일반
+accessibility search field, 격리된 임시 Chromium 계열 profile, 연결 전에
+public IP를 확인·고정하는 public HTTPS 전용 loopback CONNECT proxy를
+사용합니다. 통합 경로에는 login, 결제, 게시, upload, download, 개인정보,
+project content, attachment 제출 action이 없습니다. Browser가 없어도
+`WebSearch`, `WebOpen`, `WebFind`는 계속 사용할 수 있습니다.
+[v0.50 웹 연구·브라우저 계획](v0.50-web-research-browser-plan.md)을
+참고하십시오.
+
 대표 public 진입점은 다음과 같습니다.
 
 ```sh
@@ -353,6 +365,10 @@ rpotato debug --help
   remote connector, write grant는 실행 권한을 얻지 못합니다. Repo-owned 웹
   adapter는 검색 결과와 명시적으로 연 공개 문서에서 제한된 신뢰하지 않는 text만
   반환하며 tool이나 mutation을 dispatch할 수 없습니다.
+- v0.50 제한된 browser source candidate는 익명 공개 search-form 연구만
+  수행합니다. 사용자 browser profile을 재사용하거나 인증·CAPTCHA를 해결하거나,
+  page-authored JavaScript를 tool로 실행하거나, 일반 click·form 자동화를
+  agent에 노출하지 않습니다.
 - `monitor prune`은 dry-run만 지원합니다.
 - HTML monitoring은 local static export이며 server나 remote dashboard가
   아닙니다.

@@ -1,18 +1,52 @@
 use crate::foundation::error::AppError;
 
-use super::evidence::{evidence_from_results, SearchResult, WebSearchEvidence, MAX_SOURCES};
-use super::policy::is_valid_https_source_url;
+use super::evidence::SearchResult;
+use super::policy::canonicalize_source_url;
 
-const RESULT_LINK_CLASS: &str = "result__a";
-const RESULT_SNIPPET_CLASS: &str = "result__snippet";
+const HTML_RESULT_LINK_CLASS: &str = "result__a";
+const HTML_RESULT_SNIPPET_CLASS: &str = "result__snippet";
+const LITE_RESULT_LINK_CLASS: &str = "result-link";
+const LITE_RESULT_SNIPPET_CLASS: &str = "result-snippet";
+const MAX_PARSED_RESULTS: usize = 32;
 
-pub(super) fn parse_search_document(document: &str) -> Result<WebSearchEvidence, AppError> {
+pub(super) fn parse_html_search_results(document: &str) -> Result<Vec<SearchResult>, AppError> {
+    parse_results(document, HTML_RESULT_LINK_CLASS, HTML_RESULT_SNIPPET_CLASS)
+}
+
+pub(super) fn parse_lite_search_results(document: &str) -> Result<Vec<SearchResult>, AppError> {
+    parse_results(document, LITE_RESULT_LINK_CLASS, LITE_RESULT_SNIPPET_CLASS)
+}
+
+pub(super) fn normalize_result_url(raw: &str) -> Option<String> {
+    let decoded = decode_html_entities(raw);
+    if let Some(canonical) = canonicalize_source_url(&decoded) {
+        return Some(canonical);
+    }
+    let query = decoded
+        .strip_prefix("//duckduckgo.com/l/?")
+        .or_else(|| decoded.strip_prefix("https://duckduckgo.com/l/?"))
+        .or_else(|| decoded.strip_prefix("/l/?"))?;
+    let encoded = query
+        .split('&')
+        .find_map(|pair| pair.strip_prefix("uddg="))?;
+    let target = percent_decode(encoded)?;
+    canonicalize_source_url(&target)
+}
+
+fn parse_results(
+    document: &str,
+    link_class: &str,
+    snippet_class: &str,
+) -> Result<Vec<SearchResult>, AppError> {
+    reject_challenge_document(document)?;
     let mut results = Vec::new();
     let mut cursor = 0;
-    while let Some(class_offset) = document[cursor..].find(RESULT_LINK_CLASS) {
+    let mut markers = 0;
+    while let Some(class_offset) = document[cursor..].find(link_class) {
+        markers += 1;
         let class_index = cursor + class_offset;
         let Some(tag_start) = document[..class_index].rfind("<a") else {
-            cursor = class_index + RESULT_LINK_CLASS.len();
+            cursor = class_index + link_class.len();
             continue;
         };
         let Some(tag_end_offset) = document[class_index..].find('>') else {
@@ -31,20 +65,15 @@ pub(super) fn parse_search_document(document: &str) -> Result<WebSearchEvidence,
         let title = text_content(&document[tag_end + 1..title_end]);
         let next_cursor = title_end + "</a>".len();
         let next_result = document[next_cursor..]
-            .find(RESULT_LINK_CLASS)
+            .find(link_class)
             .map_or(document.len(), |offset| next_cursor + offset);
-        let description =
-            extract_class_text(&document[next_cursor..next_result], RESULT_SNIPPET_CLASS);
+        let description = extract_class_text(&document[next_cursor..next_result], snippet_class);
         cursor = next_cursor;
 
         let Some(url) = normalize_result_url(href) else {
             continue;
         };
-        if title.is_empty()
-            || results
-                .iter()
-                .any(|stored: &SearchResult| stored.url == url)
-        {
+        if title.is_empty() {
             continue;
         }
         results.push(SearchResult {
@@ -52,33 +81,40 @@ pub(super) fn parse_search_document(document: &str) -> Result<WebSearchEvidence,
             url,
             description,
         });
-        if results.len() == MAX_SOURCES {
+        if results.len() == MAX_PARSED_RESULTS {
             break;
         }
     }
 
     if results.is_empty() {
-        return Err(AppError::blocked(
-            "직접 웹 검색 결과에 검증 가능한 HTTPS 출처가 없습니다.",
-        ));
+        let reason = if markers == 0 {
+            "검색 결과 marker가 없습니다."
+        } else {
+            "검색 결과 marker는 있지만 parser contract를 만족하는 항목이 없습니다."
+        };
+        return Err(AppError::blocked(format!(
+            "직접 웹 검색 문서를 해석하지 못했습니다. {reason}"
+        )));
     }
-    evidence_from_results(&results)
+    Ok(results)
 }
 
-pub(super) fn normalize_result_url(raw: &str) -> Option<String> {
-    let decoded = decode_html_entities(raw);
-    if is_valid_https_source_url(&decoded) {
-        return Some(decoded);
+fn reject_challenge_document(document: &str) -> Result<(), AppError> {
+    let lower = document.to_ascii_lowercase();
+    if [
+        "anomaly-modal",
+        "challenge-form",
+        "bots use duckduckgo",
+        "unfortunately, bots",
+    ]
+    .iter()
+    .any(|signal| lower.contains(signal))
+    {
+        return Err(AppError::runtime(
+            "직접 웹 검색 endpoint가 자동 요청 확인 문서를 반환했습니다.",
+        ));
     }
-    let query = decoded
-        .strip_prefix("//duckduckgo.com/l/?")
-        .or_else(|| decoded.strip_prefix("https://duckduckgo.com/l/?"))
-        .or_else(|| decoded.strip_prefix("/l/?"))?;
-    let encoded = query
-        .split('&')
-        .find_map(|pair| pair.strip_prefix("uddg="))?;
-    let target = percent_decode(encoded)?;
-    is_valid_https_source_url(&target).then_some(target)
+    Ok(())
 }
 
 fn extract_class_text(fragment: &str, class_name: &str) -> String {

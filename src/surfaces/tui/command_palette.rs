@@ -22,6 +22,10 @@ const COMMANDS: &[TerminalSuggestion] = &[
         description: "열린 웹 페이지 내부 찾기",
     },
     TerminalSuggestion {
+        command: "/sources",
+        description: "열어둔 웹 출처 선택",
+    },
+    TerminalSuggestion {
         command: "/attach <경로>",
         description: "로컬 이미지·텍스트 파일 첨부",
     },

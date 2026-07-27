@@ -5,17 +5,20 @@ use super::outcome::{exact_tui_outcome, TuiOutcome, TuiOutcomeCode, TuiOutcomeCo
 use super::runtime_bridge::{
     OneShotSecret, SelectionLease, TuiAttachment, TuiGateKind, TuiIntent, TuiModelOption,
     TuiReadPage, TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot,
+    TuiWebSourceOption,
 };
 use super::view_model::{ConversationRole, InteractiveState, InteractiveView};
 
 mod attachments;
 mod model_selection;
 mod session_selection;
+mod source_selection;
 mod terminal_flow;
 
 use attachments::{capture_attachment_notice, looks_like_attachment_path};
 use model_selection::{apply_model_choice, choose_model, model_options_notice};
 use session_selection::{resume_selected_session, resume_session, start_new_session};
+use source_selection::select_source;
 use terminal_flow::{
     confirm, confirm_workflow_action, outcome_notice, outcome_was_dispatched,
     post_dispatch_write_error, pre_dispatch_write_error, write_pending_conversation_frame,
@@ -32,12 +35,17 @@ pub(crate) trait TuiRuntimePort {
     fn read_tui_status(&mut self) -> Result<TuiStatusSnapshot, AppError>;
     fn model_options(&mut self) -> Vec<TuiModelOption>;
     fn session_options(&mut self) -> Result<Vec<TuiSessionOption>, AppError>;
+    fn web_source_options(&mut self) -> Vec<TuiWebSourceOption>;
+    fn select_web_source(&mut self, source_id: &str) -> Result<String, AppError>;
     fn start_new_session(&mut self) -> Result<TuiSessionTransition, AppError>;
     fn resume_session(&mut self, session_id: &str) -> Result<TuiSessionTransition, AppError>;
     fn setup_model(&mut self, id: &str) -> Result<String, AppError>;
     fn doctor_report(&mut self) -> String;
     fn compact_context(&mut self) -> Result<String, AppError>;
     fn capture_attachment(&mut self, path: &str) -> Result<TuiAttachment, AppError>;
+    fn request_progress_hint(&mut self, _request: &str) -> Option<String> {
+        None
+    }
     fn submit_request(
         &mut self,
         request: &str,
@@ -142,7 +150,9 @@ pub(crate) fn run_controller(
             ["/search", ..] => {
                 state.view = InteractiveView::Conversation;
                 state.push_turn(ConversationRole::User, line.trim());
-                state.notice = "검색 중 · 최신 웹 자료를 확인하고 있습니다…".to_string();
+                state.notice =
+                    "웹 조사 · 검색 중\n검색 ● → 결과 평가 ○ → 문서 읽기 ○ → 증거 구성 ○ → 답변 ○"
+                        .to_string();
                 write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
                 match runtime.submit_request(line.trim(), &[]) {
                     Ok(report) => state.push_turn(ConversationRole::Assistant, report),
@@ -164,7 +174,7 @@ pub(crate) fn run_controller(
                     width,
                     height,
                     &request,
-                    "페이지 여는 중 · 안전한 읽기 전용 연결을 확인하고 있습니다…",
+                    "웹 조사 · 페이지 여는 중\n문서 읽기 ● → 증거 구성 ○ → 답변 ○",
                     "웹 페이지를 열지 못했습니다.",
                 )?;
             }
@@ -180,10 +190,11 @@ pub(crate) fn run_controller(
                     width,
                     height,
                     &request,
-                    "페이지 찾는 중 · 열린 문서의 텍스트를 확인하고 있습니다…",
+                    "웹 조사 · 페이지 찾는 중\n문서 읽기 ✓ → 본문 찾기 ● → 답변 ○",
                     "페이지 내부 찾기를 완료하지 못했습니다.",
                 )?;
             }
+            ["/sources"] => select_source(terminal, runtime, &mut state, width, height)?,
             ["/attach"] => {
                 state.notice = "사용법: /attach <로컬 파일 경로>".to_string();
             }
@@ -432,7 +443,11 @@ pub(crate) fn run_controller(
                 }
                 state.view = InteractiveView::Conversation;
                 state.push_turn(ConversationRole::User, line.trim());
-                state.notice = "작업 중 · 에이전트가 요청을 처리하고 있습니다…".to_string();
+                state.notice = runtime
+                    .request_progress_hint(line.trim())
+                    .unwrap_or_else(|| {
+                        "작업 중 · 에이전트가 요청을 처리하고 있습니다…".to_string()
+                    });
                 write_pending_conversation_frame(terminal, runtime, &state, width, height)?;
                 match runtime.submit_request(line.trim(), &state.attachments) {
                     Ok(report) => {

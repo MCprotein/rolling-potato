@@ -206,6 +206,26 @@ used only by the local answer synthesis after evidence retrieval. `/doctor` repo
 `WebSearch`, `WebOpen`, and `WebFind` readiness without requiring or printing a
 credential.
 
+### Restricted Browser Search Form (v0.50 Source Candidate)
+
+The v0.50 source candidate may choose a restricted browser tool when the user
+explicitly asks to open Naver or Google and search for a query. The slash palette
+does not expose `/browser`; browser research is an agent decision with a narrow
+deterministic fallback for small-model routing. The TUI shows structured progress
+while the runtime starts a fresh temporary Chromium-family profile, discovers a
+generic accessibility search field, types the bounded query, submits it, and
+returns the verified public result URL plus bounded page text.
+
+This is not a general browser controller. It does not reuse existing profiles,
+cookies, or authenticated sessions; expose site-specific selectors or page
+JavaScript; or perform login, payment, posting, upload, download, personal-data,
+project-content, or attachment submission. Public HTTPS port 443 traffic is
+forced through a loopback CONNECT proxy that resolves and pins a public address
+before connection and has no direct fallback. Explicit offline/no-browse requests
+disable this path. A missing supported browser produces an actionable message
+without disabling the static web tools. Deterministic fake pages cover the default
+tests; a live Chromium smoke test remains explicitly opt-in.
+
 Completed TUI user/assistant exchanges are stored as an append-only, session-scoped
 canonical conversation stream. Restarting `rpotato` restores only complete pairs.
 `/clear` records a reset boundary instead of deleting audit history. Prompt assembly

@@ -50,6 +50,7 @@ English is the default repository documentation language.
 - [Subagents](subagents.md)
 - [Team runtime](team-runtime.md)
 - [TUI](tui.md)
+- [v0.50 web research and restricted browser plan](v0.50-web-research-browser-plan.md)
 - [Plugin adapters](plugin-adapters.md)
 - [Korean output guard](korean-output-guard.md)
 

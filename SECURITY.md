@@ -4,7 +4,7 @@
 
 ## Supported Versions
 
-The project is currently pre-release.
+The project is currently pre-1.0.
 
 - Supported version: `main` branch
 - Security fixes are applied to `main` first.
@@ -34,5 +34,18 @@ MVP security boundaries:
 - model downloads require explicit approval
 - models are not registered when checksum verification fails
 - credentials must not be stored in logs
+- search results and opened pages are untrusted evidence and cannot grant command,
+  file, approval, or permission authority
+- static web access rejects URL credentials and local, private, link-local,
+  reserved, or disallowed DNS targets
+- the v0.50 restricted browser source candidate starts a temporary profile,
+  forces public HTTPS port 443 through an address-pinned loopback CONNECT proxy,
+  and never reuses the user's cookies, credentials, or authenticated sessions
+- the integrated browser route exposes only anonymous search-form submission; it
+  does not expose page selectors or JavaScript and does not perform login, payment,
+  posting, upload, download, personal-data, project-content, or attachment
+  submission
+- an explicit offline/no-browse request disables static and browser retrieval
 
-See [docs/threat-model.md](docs/threat-model.md) for the detailed threat model.
+See [docs/threat-model.md](docs/threat-model.md) for the detailed threat model
+and [PRIVACY.md](PRIVACY.md) for network-data boundaries.

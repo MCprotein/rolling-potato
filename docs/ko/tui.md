@@ -197,6 +197,26 @@ Routing model에는 사용자 요청만 전달하고 local attachment 본문은 
 첨부 text는 근거 retrieval 이후 local 답변 합성에만 사용합니다. `/doctor`는
 별도 credential 없이 `WebSearch`·`WebOpen`·`WebFind` 준비 상태를 표시합니다.
 
+### 제한된 브라우저 Search Form (v0.50 Source Candidate)
+
+v0.50 source candidate는 사용자가 네이버나 Google을 열어 query를 검색하라고
+명시할 때 제한된 browser tool을 선택할 수 있습니다. Slash palette에는
+`/browser`를 노출하지 않습니다. Browser research는 agent가 판단하며, 소형 모델
+routing을 위해 좁은 deterministic fallback만 둡니다. TUI는 runtime이 새 임시
+Chromium 계열 profile을 시작하고, 일반 accessibility search field를 찾아,
+제한된 query를 입력·제출하고, 검증한 공개 결과 URL과 제한된 page text를
+반환하는 동안 구조화된 progress를 표시합니다.
+
+이는 일반 browser controller가 아닙니다. 기존 profile, cookie, 인증 session을
+재사용하지 않으며 사이트별 selector나 page JavaScript를 노출하지 않습니다.
+Login, 결제, 게시, upload, download, 개인정보, project content, attachment
+제출도 수행하지 않습니다. 공개 HTTPS 443 traffic은 연결 전에 public IP를
+확인·고정하는 loopback CONNECT proxy를 반드시 통과하며 direct fallback이
+없습니다. Offline/no-browse를 명시하면 이 경로를 사용하지 않습니다. 지원
+browser가 없으면 정적 웹 도구는 유지한 채 해결 방법을 표시합니다. 기본
+test는 deterministic fake page를 사용하고 live Chromium smoke test는 명시적
+opt-in으로만 실행합니다.
+
 완료된 TUI user/assistant exchange는 session 단위 append-only canonical conversation
 stream에 저장합니다. `rpotato`를 다시 실행하면 완료된 pair만 복원합니다. `/clear`는
 감사 이력을 삭제하지 않고 reset boundary를 기록합니다. Prompt는 stable instruction을

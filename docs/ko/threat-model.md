@@ -85,10 +85,11 @@
 
 - local backend 기본값
 - telemetry 없음
-- Agent가 선택한 웹 검색은 local model이 사용자 요청만 보고 만든 제한된 query만
-  고정된 공개 HTML 검색 endpoint로 HTTPS 전송합니다. Routing model에는 local
-  attachment 본문을 전달하지 않고 API credential도 사용하지 않으며,
-  offline/no-browse 지시는 retrieval을 비활성화합니다.
+- Agent가 선택한 웹 검색은 현재 사용자 요청의 제한된 literal projection만
+  고정된 공개 HTML 검색 endpoint로 HTTPS 전송합니다. 대화 이력에만 있던 값은
+  거부하며 routing model에는 local attachment 본문을 전달하지 않고 API
+  credential도 사용하지 않습니다. Offline/no-browse 지시는 retrieval을
+  비활성화합니다.
 - `WebOpen`은 HTTP 입력을 HTTPS로 승격하고 URL credential, local/private/
   link-local/reserved target과 DNS 응답을 실제 direct 연결에 사용하는 resolver에서
   차단하며 proxy routing을 비활성화합니다. 제한된 동일 host redirect만 추적하고
@@ -102,6 +103,33 @@
   model/projector 조합이 필요합니다.
 - logs redaction
 - local user와 visible/normalized model/tool/evidence turn만 영속화하고 전체 backend prompt, hidden response, raw source body는 제외
+
+### 제한된 브라우저 오용
+
+공개 page가 SSRF, DNS rebinding, prompt injection, 인증된 side effect, 의도하지
+않은 file transfer, process/profile leak를 시도할 수 있습니다.
+
+완화:
+
+- model은 typed `search-form` operation만 요청할 수 있고 deterministic fallback은
+  명시적인 공개 검색 site 지시에만 적용합니다.
+- 매 실행은 새 임시 profile과 process group을 사용합니다. 통합 경로는 사용자의
+  browser profile, cookie, password, login session을 불러오지 않습니다.
+- 모든 page traffic은 repo-owned loopback HTTPS CONNECT proxy를 반드시
+  통과합니다. Port 443만 허용하고 DNS를 public address인지 확인한 뒤 해당
+  address를 연결에 고정합니다. QUIC과 non-proxied WebRTC UDP를 비활성화하고
+  direct fallback을 두지 않습니다.
+- runtime은 제한된 accessibility tree를 관찰하고 opaque handle로만 action을
+  수행합니다. 사이트별 selector와 `Runtime.evaluate` JavaScript를 노출하지
+  않습니다.
+- application coordinator는 제한된 검색어만 입력·제출하고 검증한 공개 최종
+  URL과 제한된 text를 읽습니다. Login, 결제, 게시, upload, download,
+  개인정보, project content, attachment 제출 경로를 노출하지 않습니다.
+- navigation 시도, 읽기 시간, byte, element count를 제한하며 성공, timeout,
+  error에서 process group과 임시 profile을 정리합니다.
+- page content는 신뢰하지 않는 evidence이며 command, file, approval,
+  permission 권한을 넓힐 수 없습니다.
+- offline/no-browse를 명시하면 제한된 browser 경로를 비활성화합니다.
 
 ### 외부 Plugin supply chain
 

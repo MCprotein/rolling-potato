@@ -1060,20 +1060,6 @@
       ]
     },
     {
-      "path": "docs/ko/v0.49-web-research-browser-plan.md",
-      "slices": [
-        {
-          "responsibility": "refactor-governed documentation contract",
-          "target": "docs/ko/v0.49-web-research-browser-plan.md",
-          "release": "0.37.1",
-          "state": "complete",
-          "evidence": [
-            "tests/architecture_contract.rs"
-          ]
-        }
-      ]
-    },
-    {
       "path": "docs/korean-output-guard.md",
       "slices": [
         {
@@ -1359,20 +1345,6 @@
         {
           "responsibility": "refactor-governed documentation contract",
           "target": "docs/v0.29-correction-plan.md",
-          "release": "0.37.1",
-          "state": "complete",
-          "evidence": [
-            "tests/architecture_contract.rs"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "docs/v0.49-web-research-browser-plan.md",
-      "slices": [
-        {
-          "responsibility": "refactor-governed documentation contract",
-          "target": "docs/v0.49-web-research-browser-plan.md",
           "release": "0.37.1",
           "state": "complete",
           "evidence": [
@@ -8156,6 +8128,438 @@
           ]
         }
       ]
+    },
+    {
+      "path": "docs/v0.50-web-research-browser-plan.md",
+      "slices": [
+        {
+          "responsibility": "v0.50 bounded web research and restricted browser delivery contract",
+          "target": "docs/v0.50-web-research-browser-plan.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/v0.50-web-research-browser-plan.md",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/v0.50-web-research-browser-plan.md",
+      "slices": [
+        {
+          "responsibility": "Korean v0.50 bounded web research and restricted browser delivery contract",
+          "target": "docs/ko/v0.50-web-research-browser-plan.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/ko/v0.50-web-research-browser-plan.md",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/web_sources.rs",
+      "slices": [
+        {
+          "responsibility": "interactive TUI web-source selection and opening coordination",
+          "target": "src/app/tui_adapter/runtime/web_sources.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/web_sources.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/answer_binding.rs",
+      "slices": [
+        {
+          "responsibility": "verified web-source citation and paragraph binding policy",
+          "target": "src/app/web_search_adapter/answer_binding.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/answer_binding.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_session.rs",
+      "slices": [
+        {
+          "responsibility": "bounded opened-page session and current-source ownership",
+          "target": "src/app/web_search_adapter/page_session.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/page_session.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_session/tests.rs",
+      "slices": [
+        {
+          "responsibility": "bounded page-session eviction and selection regression tests",
+          "target": "src/app/web_search_adapter/page_session/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/page_session.rs",
+            "src/app/web_search_adapter/page_session/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_tools/tests.rs",
+      "slices": [
+        {
+          "responsibility": "web page-tool redirect, find, and source regression tests",
+          "target": "src/app/web_search_adapter/page_tools/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/page_tools/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research.rs",
+      "slices": [
+        {
+          "responsibility": "bounded web research step and terminal-state orchestration",
+          "target": "src/app/web_search_adapter/research.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/research.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research_flow.rs",
+      "slices": [
+        {
+          "responsibility": "per-request search-open-find research orchestration and opened-document evidence priority",
+          "target": "src/app/web_search_adapter/research_flow.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/research_flow.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/source_selection.rs",
+      "slices": [
+        {
+          "responsibility": "terminal web-source picker and selected-source dispatch",
+          "target": "src/surfaces/tui/controller/source_selection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller/source_selection.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser.rs",
+      "slices": [
+        {
+          "responsibility": "installed Chromium discovery and isolated CDP adapter facade",
+          "target": "src/adapters/browser.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/discovery.rs",
+      "slices": [
+        {
+          "responsibility": "cross-platform installed Chromium-family executable discovery",
+          "target": "src/adapters/browser/discovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/discovery.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/protocol.rs",
+      "slices": [
+        {
+          "responsibility": "closed-list bounded Chrome DevTools protocol client",
+          "target": "src/adapters/browser/protocol.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/protocol.rs",
+            "src/adapters/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/session.rs",
+      "slices": [
+        {
+          "responsibility": "isolated browser process, temporary profile, readiness, and cleanup ownership",
+          "target": "src/adapters/browser/session.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/session.rs",
+            "src/adapters/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/tests.rs",
+      "slices": [
+        {
+          "responsibility": "browser discovery, process cleanup, protocol, frame, and timeout regression tests",
+          "target": "src/adapters/browser/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/websocket.rs",
+      "slices": [
+        {
+          "responsibility": "loopback-only bounded RFC6455 transport for Chrome DevTools",
+          "target": "src/adapters/browser/websocket.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/websocket.rs",
+            "src/adapters/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions.rs",
+      "slices": [
+        {
+          "responsibility": "restricted browser action execution and attached-target coordination",
+          "target": "src/adapters/browser/actions.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/actions.rs",
+            "src/adapters/browser/actions/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions/accessibility.rs",
+      "slices": [
+        {
+          "responsibility": "bounded accessibility-tree observation and sensitive-target classification",
+          "target": "src/adapters/browser/actions/accessibility.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/actions/accessibility.rs",
+            "src/adapters/browser/actions/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions/protocol_values.rs",
+      "slices": [
+        {
+          "responsibility": "typed bounded Chrome DevTools response value decoding",
+          "target": "src/adapters/browser/actions/protocol_values.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/actions/protocol_values.rs",
+            "src/adapters/browser/actions/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions/tests.rs",
+      "slices": [
+        {
+          "responsibility": "restricted browser action, stale-handle, and forbidden-target regression tests",
+          "target": "src/adapters/browser/actions/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/actions/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/browser.rs",
+      "slices": [
+        {
+          "responsibility": "surface-neutral restricted browser action and result contracts",
+          "target": "src/runtime_core/browser.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/browser.rs",
+            "src/runtime_core/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/browser/interaction.rs",
+      "slices": [
+        {
+          "responsibility": "opaque element handle admission, action budgets, and interaction policy",
+          "target": "src/runtime_core/browser/interaction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/browser/interaction.rs",
+            "src/runtime_core/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/browser/tests.rs",
+      "slices": [
+        {
+          "responsibility": "browser interaction policy, budget, and opaque-handle regression tests",
+          "target": "src/runtime_core/browser/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/browser/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/browser/proxy.rs",
+      "slices": [
+        {
+          "responsibility": "loopback HTTPS CONNECT proxy with public-address pinning and bounded tunnel ownership",
+          "target": "src/adapters/browser/proxy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/browser/proxy.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "restricted browser research application facade and TUI progress contract",
+          "target": "src/app/browser_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/browser_adapter.rs",
+            "src/app/browser_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter/routing.rs",
+      "slices": [
+        {
+          "responsibility": "agent browser-tool parsing and explicit search-form fallback routing",
+          "target": "src/app/browser_adapter/routing.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/browser_adapter/routing.rs",
+            "src/app/browser_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter/search_form.rs",
+      "slices": [
+        {
+          "responsibility": "generic selector-free public search-form browser orchestration",
+          "target": "src/app/browser_adapter/search_form.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/browser_adapter/search_form.rs",
+            "src/app/browser_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter/tests.rs",
+      "slices": [
+        {
+          "responsibility": "browser routing, cleanup, redirect, and fake-page search-form regression tests",
+          "target": "src/app/browser_adapter/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/browser_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -8574,12 +8978,6 @@
       ]
     },
     {
-      "path": "docs/ko/v0.49-web-research-browser-plan.md",
-      "responsibilities": [
-        "refactor-governed documentation contract"
-      ]
-    },
-    {
       "path": "docs/korean-output-guard.md",
       "responsibilities": [
         "refactor-governed documentation contract"
@@ -8701,12 +9099,6 @@
     },
     {
       "path": "docs/v0.29-correction-plan.md",
-      "responsibilities": [
-        "refactor-governed documentation contract"
-      ]
-    },
-    {
-      "path": "docs/v0.49-web-research-browser-plan.md",
       "responsibilities": [
         "refactor-governed documentation contract"
       ]
@@ -11147,6 +11539,174 @@
       "path": "src/runtime_core/knowledge/compaction/recent_tail.rs",
       "responsibilities": [
         "complete-exchange recent-tail selection and bounded oversized-exchange reduction"
+      ]
+    },
+    {
+      "path": "docs/v0.50-web-research-browser-plan.md",
+      "responsibilities": [
+        "v0.50 bounded web research and restricted browser delivery contract"
+      ]
+    },
+    {
+      "path": "docs/ko/v0.50-web-research-browser-plan.md",
+      "responsibilities": [
+        "Korean v0.50 bounded web research and restricted browser delivery contract"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/web_sources.rs",
+      "responsibilities": [
+        "interactive TUI web-source selection and opening coordination"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/answer_binding.rs",
+      "responsibilities": [
+        "verified web-source citation and paragraph binding policy"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_session.rs",
+      "responsibilities": [
+        "bounded opened-page session and current-source ownership"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_session/tests.rs",
+      "responsibilities": [
+        "bounded page-session eviction and selection regression tests"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_tools/tests.rs",
+      "responsibilities": [
+        "web page-tool redirect, find, and source regression tests"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research.rs",
+      "responsibilities": [
+        "bounded web research step and terminal-state orchestration"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research_flow.rs",
+      "responsibilities": [
+        "per-request search-open-find research orchestration and opened-document evidence priority"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/source_selection.rs",
+      "responsibilities": [
+        "terminal web-source picker and selected-source dispatch"
+      ]
+    },
+    {
+      "path": "src/adapters/browser.rs",
+      "responsibilities": [
+        "installed Chromium discovery and isolated CDP adapter facade"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/discovery.rs",
+      "responsibilities": [
+        "cross-platform installed Chromium-family executable discovery"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/protocol.rs",
+      "responsibilities": [
+        "closed-list bounded Chrome DevTools protocol client"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/session.rs",
+      "responsibilities": [
+        "isolated browser process, temporary profile, readiness, and cleanup ownership"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/tests.rs",
+      "responsibilities": [
+        "browser discovery, process cleanup, protocol, frame, and timeout regression tests"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/websocket.rs",
+      "responsibilities": [
+        "loopback-only bounded RFC6455 transport for Chrome DevTools"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions.rs",
+      "responsibilities": [
+        "restricted browser action execution and attached-target coordination"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions/accessibility.rs",
+      "responsibilities": [
+        "bounded accessibility-tree observation and sensitive-target classification"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions/protocol_values.rs",
+      "responsibilities": [
+        "typed bounded Chrome DevTools response value decoding"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/actions/tests.rs",
+      "responsibilities": [
+        "restricted browser action, stale-handle, and forbidden-target regression tests"
+      ]
+    },
+    {
+      "path": "src/runtime_core/browser.rs",
+      "responsibilities": [
+        "surface-neutral restricted browser action and result contracts"
+      ]
+    },
+    {
+      "path": "src/runtime_core/browser/interaction.rs",
+      "responsibilities": [
+        "opaque element handle admission, action budgets, and interaction policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/browser/tests.rs",
+      "responsibilities": [
+        "browser interaction policy, budget, and opaque-handle regression tests"
+      ]
+    },
+    {
+      "path": "src/adapters/browser/proxy.rs",
+      "responsibilities": [
+        "loopback HTTPS CONNECT proxy with public-address pinning and bounded tunnel ownership"
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter.rs",
+      "responsibilities": [
+        "restricted browser research application facade and TUI progress contract"
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter/routing.rs",
+      "responsibilities": [
+        "agent browser-tool parsing and explicit search-form fallback routing"
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter/search_form.rs",
+      "responsibilities": [
+        "generic selector-free public search-form browser orchestration"
+      ]
+    },
+    {
+      "path": "src/app/browser_adapter/tests.rs",
+      "responsibilities": [
+        "browser routing, cleanup, redirect, and fake-page search-form regression tests"
       ]
     }
   ]

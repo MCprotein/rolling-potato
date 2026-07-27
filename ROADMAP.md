@@ -165,11 +165,21 @@ evidence.
 | --- | --- | --- |
 | v0.48.0 | Released | Keyboard-driven TUI choices and editing, private text/image attachments, manifest-sized context and verified vision projectors, API-key-free `WebSearch`/`WebOpen`/`WebFind`, explicit no-web control, and smaller runtime ownership boundaries |
 
-### Bounded web research and browser interaction (`v0.49.0`)
+### Model-aware continuity and vision reliability (`v0.49.0`-`v0.49.4`)
 
 | Version | Status | Scope |
 | --- | --- | --- |
-| v0.49.0 | Planned | [Bounded web research and Chromium browser plan](docs/v0.49-web-research-browser-plan.md): Search→Open→Find evidence loops, verified source binding, multi-page TUI, and isolated installed-browser actions without API keys, MCP, or Node.js |
+| v0.49.0 | Released | Model-aware session continuity: append-only completed dialogue, deterministic recall, manifest-sized prompt/resume/compaction budgets, exact backend reconciliation, and no silent 4,096-token fallback |
+| v0.49.1 | Released | Text-safe vision upgrades: optional lazy projector preparation, schema-v1 compatibility, exact context reconciliation, cache reuse, and failure-state preservation |
+| v0.49.2 | Released | Accurate vision capability/readiness reporting and explicit base-model versus projector cache state across setup, selection, and TUI status |
+| v0.49.3 | Superseded | Added explicit `/resume`, genuinely fresh default conversations, best-effort historical source context, and ledger-lock recovery, but the macOS release terminal gate left an incomplete artifact set |
+| v0.49.4 | Released | Recovered the complete five-platform artifact set with bounded Unix PTY cleanup, cross-platform stage traces, and an exact macOS native-terminal candidate gate |
+
+### Bounded web research and browser interaction (`v0.50.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
+| v0.50.0 | In development | [Bounded web research and Chromium browser plan](docs/v0.50-web-research-browser-plan.md): Search→Open→Find evidence loops, verified source binding, multi-page TUI, and isolated installed-browser actions without API keys, MCP, or Node.js |
 
 ## Distribution Boundary
 

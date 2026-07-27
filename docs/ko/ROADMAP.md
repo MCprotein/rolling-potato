@@ -163,11 +163,21 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | --- | --- | --- |
 | v0.48.0 | Released | keyboard 기반 TUI 선택·편집, private text/image 첨부, manifest 크기 context와 검증된 vision projector, API key 없는 `WebSearch`·`WebOpen`·`WebFind`, 명시적 no-web 제어와 작은 runtime 책임 경계 |
 
-### 제한된 웹 연구와 browser interaction (`v0.49.0`)
+### 모델 인식 대화 연속성과 vision 신뢰성 (`v0.49.0`-`v0.49.4`)
 
 | Version | 상태 | 범위 |
 | --- | --- | --- |
-| v0.49.0 | Planned | [제한된 웹 연구와 Chromium browser 계획](v0.49-web-research-browser-plan.md): API key·MCP·Node.js 없이 Search→Open→Find 근거 loop, 검증된 source 연결, multi-page TUI와 격리된 installed-browser action |
+| v0.49.0 | Released | 완료된 대화의 append-only 저장, deterministic recall, manifest 크기 prompt·resume·compaction budget, exact backend reconciliation과 silent 4,096-token fallback 제거 |
+| v0.49.1 | Released | Text-safe vision upgrade: optional lazy projector 준비, schema-v1 호환성, exact context reconciliation, cache 재사용과 실패 상태 보존 |
+| v0.49.2 | Released | Setup·선택·TUI status에서 정확한 vision capability/readiness와 base model·projector cache 상태를 분리해 표시 |
+| v0.49.3 | Superseded | 명시적 `/resume`, 실제 fresh 기본 대화, best-effort historical source context와 ledger lock 복구를 추가했지만 macOS release terminal gate가 불완전한 artifact set을 남김 |
+| v0.49.4 | Released | 제한된 Unix PTY cleanup, cross-platform stage trace와 exact macOS native-terminal candidate gate로 완전한 5-platform artifact set 복구 |
+
+### 제한된 웹 연구와 browser interaction (`v0.50.0`)
+
+| Version | 상태 | 범위 |
+| --- | --- | --- |
+| v0.50.0 | In development | [제한된 웹 연구와 Chromium browser 계획](v0.50-web-research-browser-plan.md): API key·MCP·Node.js 없이 Search→Open→Find 근거 loop, 검증된 source 연결, multi-page TUI와 격리된 installed-browser action |
 
 ## 배포 경계
 

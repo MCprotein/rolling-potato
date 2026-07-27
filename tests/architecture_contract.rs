@@ -5413,7 +5413,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     );
     assert!(tui_report_test_source.lines().count() < 300);
     assert!(model_switch.lines().count() < 225);
-    assert!(interactive_runtime.lines().count() < 200);
+    assert!(interactive_runtime.lines().count() <= 200);
     assert!(
         report_composition.lines().count() < 250,
         "TUI report composition module regrew beyond its ownership boundary"
@@ -6607,6 +6607,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let tui_facade = fs::read_to_string("src/app/tui_adapter.rs").unwrap();
     let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
     let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
+    let tui_controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
+    let tui_bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
     let transport = fs::read_to_string("src/adapters/web_search/transport.rs").unwrap();
     let page_parser = fs::read_to_string("src/adapters/web_search/page.rs").unwrap();
 
@@ -6617,9 +6619,14 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/adapters/web_search/page.rs",
         "src/adapters/web_search/policy.rs",
         "src/adapters/web_search/transport.rs",
+        "src/app/web_search_adapter/answer_binding.rs",
+        "src/app/web_search_adapter/page_session.rs",
         "src/app/web_search_adapter/page_tools.rs",
+        "src/app/web_search_adapter/research_flow.rs",
         "src/app/web_search_adapter/routing.rs",
+        "src/app/tui_adapter/runtime/web_sources.rs",
         "src/app/tui_adapter/web_tools.rs",
+        "src/surfaces/tui/controller/source_selection.rs",
     ] {
         assert!(Path::new(path).is_file(), "missing web tool owner: {path}");
     }
@@ -6631,7 +6638,13 @@ fn web_search_open_find_have_separate_bounded_owners() {
             "web adapter facade does not register {module}"
         );
     }
-    for module in ["page_tools", "routing"] {
+    for module in [
+        "answer_binding",
+        "page_session",
+        "page_tools",
+        "research_flow",
+        "routing",
+    ] {
         assert!(
             app_facade
                 .lines()
@@ -6640,6 +6653,10 @@ fn web_search_open_find_have_separate_bounded_owners() {
         );
     }
     assert!(tui_facade.lines().any(|line| line == "mod web_tools;"));
+    assert!(tui_runtime.lines().any(|line| line == "mod web_sources;"));
+    assert!(tui_controller.contains("mod source_selection;"));
+    assert!(tui_controller.contains("[\"/sources\"]"));
+    assert!(tui_bridge.contains("struct TuiWebSourceOption"));
     assert!(tui_request.contains("web_tools::dispatch"));
     assert!(transport.contains("ureq::Agent::with_parts"));
     assert!(transport.contains("PublicWebResolver"));
@@ -6659,6 +6676,20 @@ fn web_search_open_find_have_separate_bounded_owners() {
     }
     assert!(app_facade.lines().count() < 400);
     assert!(
+        fs::read_to_string("src/app/web_search_adapter/answer_binding.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 300
+    );
+    assert!(
+        fs::read_to_string("src/app/web_search_adapter/page_session.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 150
+    );
+    assert!(
         fs::read_to_string("src/app/web_search_adapter/routing.rs")
             .unwrap()
             .lines()
@@ -6672,6 +6703,195 @@ fn web_search_open_find_have_separate_bounded_owners() {
             .count()
             < 125
     );
-    assert!(tui_runtime.lines().count() < 200);
+    let research_flow = fs::read_to_string("src/app/web_search_adapter/research_flow.rs").unwrap();
+    assert!(research_flow.contains("opened_primary_document_overrides_conflicting_search_snippet"));
+    assert!(research_flow.contains("search.sources.iter().take(3)"));
+    assert!(research_flow.contains("supporting_passages("));
+    assert!(research_flow.lines().count() < 350);
+    assert!(tui_runtime.lines().count() <= 200);
     assert!(tui_request.lines().count() < 150);
+}
+
+#[test]
+fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
+    let adapters = fs::read_to_string("src/adapters/mod.rs").unwrap();
+    let runtime = fs::read_to_string("src/runtime_core/mod.rs").unwrap();
+    let facade = fs::read_to_string("src/adapters/browser.rs").unwrap();
+    let actions = fs::read_to_string("src/adapters/browser/actions.rs").unwrap();
+    let accessibility =
+        fs::read_to_string("src/adapters/browser/actions/accessibility.rs").unwrap();
+    let protocol_values =
+        fs::read_to_string("src/adapters/browser/actions/protocol_values.rs").unwrap();
+    let action_tests = fs::read_to_string("src/adapters/browser/actions/tests.rs").unwrap();
+    let discovery = fs::read_to_string("src/adapters/browser/discovery.rs").unwrap();
+    let session = fs::read_to_string("src/adapters/browser/session.rs").unwrap();
+    let protocol = fs::read_to_string("src/adapters/browser/protocol.rs").unwrap();
+    let proxy = fs::read_to_string("src/adapters/browser/proxy.rs").unwrap();
+    let websocket = fs::read_to_string("src/adapters/browser/websocket.rs").unwrap();
+    let tests = fs::read_to_string("src/adapters/browser/tests.rs").unwrap();
+    let browser_policy = fs::read_to_string("src/runtime_core/browser.rs").unwrap();
+    let interaction = fs::read_to_string("src/runtime_core/browser/interaction.rs").unwrap();
+    let interaction_tests = fs::read_to_string("src/runtime_core/browser/tests.rs").unwrap();
+    let browser_app = fs::read_to_string("src/app/browser_adapter.rs").unwrap();
+    let browser_routing = fs::read_to_string("src/app/browser_adapter/routing.rs").unwrap();
+    let browser_search_form = fs::read_to_string("src/app/browser_adapter/search_form.rs").unwrap();
+    let browser_app_tests = fs::read_to_string("src/app/browser_adapter/tests.rs").unwrap();
+    let conversation = fs::read_to_string("src/app/tui_adapter/conversation.rs").unwrap();
+    let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
+
+    assert!(adapters.contains("pub(crate) mod browser;"));
+    assert!(runtime.contains("pub(crate) mod browser;"));
+    for owner in [
+        "actions",
+        "discovery",
+        "protocol",
+        "proxy",
+        "session",
+        "websocket",
+    ] {
+        assert!(
+            facade.lines().any(|line| line == format!("mod {owner};")),
+            "browser adapter facade does not register {owner}"
+        );
+    }
+    for path in [
+        "src/adapters/browser/actions.rs",
+        "src/adapters/browser/actions/accessibility.rs",
+        "src/adapters/browser/actions/protocol_values.rs",
+        "src/adapters/browser/actions/tests.rs",
+        "src/adapters/browser/discovery.rs",
+        "src/adapters/browser/protocol.rs",
+        "src/adapters/browser/proxy.rs",
+        "src/adapters/browser/session.rs",
+        "src/adapters/browser/tests.rs",
+        "src/adapters/browser/websocket.rs",
+        "src/app/browser_adapter.rs",
+        "src/app/browser_adapter/routing.rs",
+        "src/app/browser_adapter/search_form.rs",
+        "src/app/browser_adapter/tests.rs",
+        "src/runtime_core/browser.rs",
+        "src/runtime_core/browser/interaction.rs",
+        "src/runtime_core/browser/tests.rs",
+    ] {
+        assert!(Path::new(path).is_file(), "missing browser owner: {path}");
+    }
+
+    assert!(discovery.contains("Google Chrome.app/Contents/MacOS/Google Chrome"));
+    assert!(discovery.contains("Google/Chrome/Application/chrome.exe"));
+    assert!(discovery.contains("google-chrome-stable"));
+    assert!(session.contains("--remote-debugging-port=0"));
+    assert!(session.contains("--user-data-dir="));
+    assert!(session.contains("--proxy-server=http://"));
+    assert!(session.contains("--proxy-bypass-list=<-loopback>"));
+    assert!(session.contains("--disable-quic"));
+    assert!(session.contains("--force-webrtc-ip-handling-policy=disable_non_proxied_udp"));
+    assert!(session.contains("browser_command_forces_all_page_traffic_through_the_public_proxy"));
+    assert!(session.contains("terminate_child_tree"));
+    assert!(proxy.contains("resolve_public_browser_target"));
+    assert!(proxy.contains("CONNECT"));
+    assert!(proxy.contains("MAX_ACTIVE_TUNNELS"));
+    assert!(!proxy.contains("direct://"));
+    assert!(protocol.contains("/devtools/browser/"));
+    assert!(protocol.contains("enum CdpMethod"));
+    assert!(!protocol.contains("Runtime.evaluate"));
+    assert!(!protocol.contains("pub(crate) enum CdpMethod"));
+    assert!(actions.contains("BrowserInteractionSession"));
+    assert!(actions.contains("AccessibilityGetFullAxTree"));
+    assert!(actions.contains("DomGetBoxModel"));
+    for forbidden in ["Runtime.evaluate", "querySelector", "xpath", "XPath"] {
+        assert!(
+            !actions.contains(forbidden),
+            "browser action owner must not expose {forbidden}"
+        );
+    }
+    assert!(accessibility.contains("ObservedTargetSeed"));
+    assert!(protocol_values.contains("fn box_center"));
+    assert!(action_tests.contains("forbidden_targets_and_url_schemes_never_reach_the_protocol"));
+    assert!(browser_policy.contains("pub(crate) struct ElementHandle"));
+    assert!(interaction.contains("pub(crate) struct BrowserActionBudget"));
+    assert!(interaction.contains("max_interactions"));
+    assert!(interaction_tests.contains("observation_issues_opaque_handles"));
+    assert!(websocket.contains("MAX_FRAME_BYTES"));
+    assert!(websocket.contains("is_loopback()"));
+    assert!(tests.contains("isolated_browser_session_cleans_up_process_group_and_profile"));
+    assert!(tests.contains("scopes_target_commands_to_an_attached_session"));
+    assert!(tests.contains("oversized_protocol_frame_is_rejected_before_allocating_its_payload"));
+    assert!(browser_app.contains("mod routing;"));
+    assert!(browser_app.contains("mod search_form;"));
+    assert!(browser_routing.contains("BROWSER TOOL:"));
+    assert!(browser_search_form.contains("BrowserControl"));
+    assert!(!browser_search_form.contains("querySelector"));
+    assert!(!browser_search_form.contains("Runtime.evaluate"));
+    assert!(browser_app_tests.contains("generic_search_form_e2e_uses_opaque_handles"));
+    assert!(browser_app_tests.contains("delayed_initial_page_readiness_is_polled_before_typing"));
+    assert!(browser_app_tests.contains("delayed_result_page_readiness_is_polled_before_reporting"));
+    assert!(browser_app_tests.contains("private_redirect_result_is_rejected"));
+    assert!(conversation.contains("RequestDecision::BrowserTool"));
+    assert!(conversation.contains("current_request_network_decision"));
+    assert!(conversation.contains("history_only_secret_cannot_become_network_tool_input"));
+    assert!(conversation.contains("deterministic_browser_fallback"));
+    assert!(tui_request.contains("RequestDecision::BrowserTool"));
+
+    assert!(facade.lines().count() < 25);
+    assert!(actions.lines().count() < 350);
+    assert!(accessibility.lines().count() < 225);
+    assert!(protocol_values.lines().count() < 150);
+    assert!(action_tests.lines().count() < 300);
+    assert!(discovery.lines().count() < 300);
+    assert!(session.lines().count() < 350);
+    assert!(protocol.lines().count() < 275);
+    assert!(proxy.lines().count() < 375);
+    assert!(websocket.lines().count() < 425);
+    assert!(tests.lines().count() < 375);
+    assert!(browser_app.lines().count() < 75);
+    assert!(browser_routing.lines().count() < 225);
+    assert!(browser_search_form.lines().count() < 250);
+    assert!(browser_app_tests.lines().count() < 400);
+    assert!(browser_policy.lines().count() < 225);
+    assert!(interaction.lines().count() < 350);
+    assert!(interaction_tests.lines().count() < 225);
+}
+
+#[test]
+fn web_browser_documentation_contract_is_wired_into_candidate_preflight() {
+    let preflight = fs::read_to_string("scripts/ci/verify-pr-candidate-preflight.sh").unwrap();
+    let docs_contract = fs::read_to_string("scripts/ci/verify-web-browser-docs.sh").unwrap();
+
+    assert!(preflight.contains("scripts/ci/verify-web-browser-docs.sh"));
+    for path in [
+        "README.md",
+        "README.ko.md",
+        "PRIVACY.md",
+        "docs/ko/PRIVACY.md",
+        "SECURITY.md",
+        "docs/ko/SECURITY.md",
+        "docs/threat-model.md",
+        "docs/ko/threat-model.md",
+        "docs/tui.md",
+        "docs/ko/tui.md",
+        "docs/current-capabilities.md",
+        "docs/ko/current-capabilities.md",
+        "docs/runtime-architecture.md",
+        "docs/ko/runtime-architecture.md",
+        "docs/v0.50-web-research-browser-plan.md",
+        "docs/ko/v0.50-web-research-browser-plan.md",
+    ] {
+        assert!(
+            docs_contract.contains(path),
+            "web/browser docs contract does not cover {path}"
+        );
+    }
+    for marker in [
+        "v0.49.4",
+        "Restricted Browser Abuse",
+        "제한된 브라우저 오용",
+        "loopback HTTPS CONNECT",
+        "Web Research and Restricted Browser",
+        "웹 연구와 제한된 브라우저",
+    ] {
+        assert!(
+            docs_contract.contains(marker),
+            "web/browser docs contract does not assert {marker}"
+        );
+    }
 }

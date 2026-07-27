@@ -2,6 +2,7 @@ use crate::composition::dispatch;
 use crate::foundation::error::AppError;
 
 pub(crate) mod approval_adapter;
+pub(crate) mod browser_adapter;
 pub(crate) mod collaboration_adapter;
 mod command_dispatch;
 pub(crate) mod context_adapter;

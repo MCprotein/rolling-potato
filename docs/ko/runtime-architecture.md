@@ -104,6 +104,31 @@ Adapter가 제공해야 하는 기능:
 
 Adapter는 project file, user approval, patch, command policy를 모릅니다. 그 경계는 runtime core에 남깁니다.
 
+## 웹 연구와 제한된 브라우저
+
+외부 evidence는 model inference와 분리된 adapter 경계입니다.
+
+- `runtime_core::web_search`와 `runtime_core::browser`는 typed
+  surface-neutral operation, budget, URL policy, opaque element handle을
+  정의합니다.
+- `adapters::web_search`는 public HTTPS direct search, open, find, readable
+  extraction, DNS check, evidence normalization을 소유합니다.
+- `adapters::browser`는 설치 browser 발견, 격리된 임시 process/profile,
+  DevTools protocol transport, accessibility observation, public-address-pinning
+  loopback CONNECT proxy를 소유합니다.
+- `app::web_navigation`과 `app::browser_adapter`는 agent tool request를 제한된
+  application use case로 변환하고 검증한 evidence를 local answer synthesis에
+  반환하는 orchestration을 소유합니다.
+- CLI/TUI surface는 progress와 result만 표시하며 network나 browser permission을
+  선택하지 않습니다.
+
+통합된 v0.50 browser use case는 adapter 내부의 closed action vocabulary보다
+의도적으로 좁습니다. 일반 accessibility search field를 찾고, 제한된 익명
+query를 입력·제출하고, 검증한 공개 result를 읽습니다. 기존 사용자 profile을
+불러오지 않으며 일반 selector, page JavaScript, 인증, file transfer, 임의
+form 자동화를 노출하지 않습니다. 설치 browser가 없어도 정적 웹 도구는
+계속 사용할 수 있습니다.
+
 ## 플러그인 Adapter
 
 Plugin adapter는 외부 runtime의 plugin package를 `rpotato` capability로 변환하는 compatibility boundary입니다.
