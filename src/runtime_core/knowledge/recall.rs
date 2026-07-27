@@ -17,6 +17,12 @@ pub(crate) struct DialogueTurn {
     pub(crate) content: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DialogueTurnRef<'a> {
+    pub(crate) role: DialogueRole,
+    pub(crate) content: &'a str,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DialogueMemoryPlan {
     pub(crate) typed_user_memory: Vec<DialogueTurn>,
@@ -24,8 +30,32 @@ pub(crate) struct DialogueMemoryPlan {
     pub(crate) recent_history: Vec<DialogueTurn>,
 }
 
+#[cfg(test)]
 pub(crate) fn plan_dialogue_memory(
     turns: &[DialogueTurn],
+    query: &str,
+    typed_budget_tokens: usize,
+    recall_budget_tokens: usize,
+    recent_budget_tokens: usize,
+) -> DialogueMemoryPlan {
+    let borrowed = turns
+        .iter()
+        .map(|turn| DialogueTurnRef {
+            role: turn.role,
+            content: &turn.content,
+        })
+        .collect::<Vec<_>>();
+    plan_borrowed_dialogue_memory(
+        &borrowed,
+        query,
+        typed_budget_tokens,
+        recall_budget_tokens,
+        recent_budget_tokens,
+    )
+}
+
+pub(crate) fn plan_borrowed_dialogue_memory(
+    turns: &[DialogueTurnRef<'_>],
     query: &str,
     typed_budget_tokens: usize,
     recall_budget_tokens: usize,
@@ -79,7 +109,9 @@ pub(crate) fn plan_dialogue_memory(
     }
 }
 
-fn completed_pairs(turns: &[DialogueTurn]) -> Vec<&[DialogueTurn]> {
+fn completed_pairs<'turns, 'content>(
+    turns: &'turns [DialogueTurnRef<'content>],
+) -> Vec<&'turns [DialogueTurnRef<'content>]> {
     turns
         .chunks_exact(2)
         .filter(|pair| {
@@ -93,7 +125,7 @@ fn completed_pairs(turns: &[DialogueTurn]) -> Vec<&[DialogueTurn]> {
 }
 
 fn select_indexed_pairs_within_budget(
-    pairs: &[&[DialogueTurn]],
+    pairs: &[&[DialogueTurnRef<'_>]],
     ranked_indices: &[usize],
     budget_tokens: usize,
 ) -> PairSelection {
@@ -115,13 +147,13 @@ fn select_indexed_pairs_within_budget(
         .collect::<BTreeSet<_>>();
     let turns = selected
         .into_iter()
-        .flat_map(|(_, pair)| pair.iter().cloned())
+        .flat_map(|(_, pair)| pair.iter().map(owned_turn))
         .collect();
     PairSelection { turns, indices }
 }
 
 fn select_recent_pairs_within_budget(
-    pairs: &[&[DialogueTurn]],
+    pairs: &[&[DialogueTurnRef<'_>]],
     budget_tokens: usize,
 ) -> Vec<DialogueTurn> {
     let mut selected = Vec::new();
@@ -143,7 +175,7 @@ fn select_recent_pairs_within_budget(
     selected.reverse();
     selected
         .into_iter()
-        .flat_map(|pair| pair.iter().cloned())
+        .flat_map(|pair| pair.iter().map(owned_turn))
         .collect()
 }
 
@@ -152,7 +184,7 @@ struct PairSelection {
     indices: BTreeSet<usize>,
 }
 
-fn bounded_pair(pair: &[DialogueTurn], budget_tokens: usize) -> Vec<DialogueTurn> {
+fn bounded_pair(pair: &[DialogueTurnRef<'_>], budget_tokens: usize) -> Vec<DialogueTurn> {
     const TURN_OVERHEAD_TOKENS: usize = 8;
     let content_budget = budget_tokens.saturating_sub(TURN_OVERHEAD_TOKENS * 2);
     if pair.len() != 2 || content_budget < 2 {
@@ -171,7 +203,7 @@ fn bounded_pair(pair: &[DialogueTurn], budget_tokens: usize) -> Vec<DialogueTurn
         },
     ];
     if !bounded.iter().any(|turn| turn.content.is_empty())
-        && pair_token_cost(&bounded) <= budget_tokens
+        && owned_pair_token_cost(&bounded) <= budget_tokens
     {
         bounded
     } else {
@@ -179,10 +211,23 @@ fn bounded_pair(pair: &[DialogueTurn], budget_tokens: usize) -> Vec<DialogueTurn
     }
 }
 
-fn pair_token_cost(pair: &[DialogueTurn]) -> usize {
+fn pair_token_cost(pair: &[DialogueTurnRef<'_>]) -> usize {
     pair.iter()
         .map(|turn| estimate_tokens(&turn.content).saturating_add(8))
         .sum()
+}
+
+fn owned_pair_token_cost(pair: &[DialogueTurn]) -> usize {
+    pair.iter()
+        .map(|turn| estimate_tokens(&turn.content).saturating_add(8))
+        .sum()
+}
+
+fn owned_turn(turn: &DialogueTurnRef<'_>) -> DialogueTurn {
+    DialogueTurn {
+        role: turn.role,
+        content: turn.content.to_string(),
+    }
 }
 
 fn is_typed_user_memory(content: &str) -> bool {
@@ -339,7 +384,7 @@ mod tests {
         assert_eq!(plan.recent_history.len(), 2);
         assert_eq!(plan.recent_history[0].role, DialogueRole::User);
         assert_eq!(plan.recent_history[1].role, DialogueRole::Assistant);
-        assert!(pair_token_cost(&plan.recent_history) <= 64);
+        assert!(owned_pair_token_cost(&plan.recent_history) <= 64);
     }
 
     #[test]

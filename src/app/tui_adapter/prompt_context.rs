@@ -3,7 +3,7 @@
 use crate::foundation::error::AppError;
 use crate::foundation::serialization;
 use crate::runtime_core::knowledge::prompt::{self, AssembledPrompt, PromptBudget, PromptParts};
-use crate::runtime_core::knowledge::recall::{self, DialogueRole, DialogueTurn};
+use crate::runtime_core::knowledge::recall::{self, DialogueRole, DialogueTurn, DialogueTurnRef};
 use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
 
 pub(super) struct ConversationPromptContext {
@@ -32,13 +32,13 @@ impl ConversationPromptContext {
                     TuiConversationRole::Assistant => DialogueRole::Assistant,
                     TuiConversationRole::Error => DialogueRole::Runtime,
                 };
-                DialogueTurn {
+                DialogueTurnRef {
                     role,
-                    content: turn.content.clone(),
+                    content: &turn.content,
                 }
             })
             .collect::<Vec<_>>();
-        let plan = recall::plan_dialogue_memory(
+        let plan = recall::plan_borrowed_dialogue_memory(
             &dialogue,
             query,
             budget.typed_memory_target_tokens,

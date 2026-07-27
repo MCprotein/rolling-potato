@@ -11,13 +11,11 @@ pub(super) fn estimate_context_tokens(
     attachments: &[TuiAttachment],
 ) -> Option<u32> {
     let limit = crate::app::inference_adapter::model::configured_context_length().ok()?;
-    let history = if adapter.fresh_session_pending {
-        Vec::new()
-    } else {
-        adapter.conversation_memory().ok()?.prompt_history()
-    };
+    if adapter.fresh_session_pending {
+        return Some(estimate_retained_tokens(&[], request, attachments, limit));
+    }
     Some(estimate_retained_tokens(
-        &history,
+        adapter.conversation_memory().ok()?.turns(),
         request,
         attachments,
         limit,
@@ -72,8 +70,8 @@ pub(super) fn read(adapter: &mut TuiRuntimeAdapter) -> Result<TuiStatusSnapshot,
     } else {
         match context_limit_tokens {
             Some(limit) => {
-                let history = adapter.conversation_memory()?.prompt_history();
-                (!history.is_empty()).then(|| estimate_retained_tokens(&history, "", &[], limit))
+                let history = adapter.conversation_memory()?.turns();
+                (!history.is_empty()).then(|| estimate_retained_tokens(history, "", &[], limit))
             }
             None => None,
         }

@@ -145,7 +145,7 @@ fn reset_discards_an_orphan_user_before_a_later_model_record() {
 }
 
 #[test]
-fn coding_exchange_is_canonical_and_prompt_history_keeps_budgetable_pairs() {
+fn coding_exchange_is_canonical_and_history_is_borrowed_without_truncation() {
     with_memory_fixture("coding-and-budgetable", || {
         let mut memory = load().unwrap();
         record_exchange(
@@ -167,10 +167,11 @@ fn coding_exchange_is_canonical_and_prompt_history_keeps_budgetable_pairs() {
                 content: format!("turn-{index}"),
             })
             .collect();
-        let prompt = memory.prompt_history();
-        assert_eq!(prompt.len(), 600);
-        assert_eq!(prompt.first().unwrap().content, "turn-0");
-        assert_eq!(prompt.last().unwrap().content, "turn-599");
+        let history = memory.turns();
+        assert_eq!(history.len(), 600);
+        assert_eq!(history.first().unwrap().content, "turn-0");
+        assert_eq!(history.last().unwrap().content, "turn-599");
+        assert_eq!(history.as_ptr(), memory.turns.as_ptr());
     });
 }
 

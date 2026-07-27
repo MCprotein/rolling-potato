@@ -76,29 +76,42 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         attachments: &[TuiAttachment],
     ) -> Result<String, AppError> {
         self.ensure_fresh_session()?;
-        let (history, web_grounding) = {
-            let memory = self.conversation_memory()?;
-            (memory.prompt_history(), memory.web_grounding().to_vec())
-        };
-        match request::execute(self, request, attachments, &history, &web_grounding) {
+        self.conversation_memory()?;
+        let mut memory = self
+            .conversation_memory
+            .take()
+            .ok_or_else(|| AppError::blocked("conversation memory 초기화 실패"))?;
+        let execution = request::execute(
+            self,
+            request,
+            attachments,
+            memory.turns(),
+            memory.web_grounding(),
+        );
+        let result = match execution {
             Ok(execution) => {
-                super::session_memory::record_exchange(
-                    self.conversation_memory()?,
+                let recorded = super::session_memory::record_exchange(
+                    &mut memory,
                     request.trim(),
                     &execution.response,
                     &execution.web_grounding,
-                )?;
-                Ok(execution.response)
+                );
+                recorded.map(|()| execution.response)
             }
             Err(error) => {
-                super::session_memory::record_failure(
-                    self.conversation_memory()?,
+                let recorded = super::session_memory::record_failure(
+                    &mut memory,
                     request.trim(),
                     &error.message,
-                )?;
-                Err(error)
+                );
+                match recorded {
+                    Ok(()) => Err(error),
+                    Err(record_error) => Err(record_error),
+                }
             }
-        }
+        };
+        self.conversation_memory = Some(memory);
+        result
     }
 
     fn model_options(&mut self) -> Vec<crate::surfaces::tui::runtime_bridge::TuiModelOption> {

@@ -38,8 +38,8 @@ impl ConversationMemory {
         self.session_id == session_id
     }
 
-    pub(super) fn prompt_history(&self) -> Vec<TuiConversationTurn> {
-        self.turns.clone()
+    pub(super) fn turns(&self) -> &[TuiConversationTurn] {
+        &self.turns
     }
 
     pub(super) fn web_grounding(&self) -> &[WebGroundingEvidence] {
