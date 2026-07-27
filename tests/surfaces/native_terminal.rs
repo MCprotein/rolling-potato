@@ -208,6 +208,52 @@ fn slash_opens_command_palette_before_enter() {
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
+fn page_scroll_preserves_the_live_composer_draft() {
+    let fixture = NativeTerminalFixture::new("scroll-preserves-draft");
+    assert!(fixture.project.is_dir());
+    let _live_terminal = LiveTerminalEnvironment::enable();
+
+    let mut terminal = NativePty::spawn(80, 12);
+    terminal.wait_for("›");
+    for index in 1..=8 {
+        let mark = terminal.mark();
+        submit_visible_command(&mut terminal, &format!("넌 누구야 {index}"));
+        terminal.wait_for_after(mark, "저는 로컬에서 실행되는");
+    }
+
+    terminal.send("/qu");
+    terminal.wait_for("/qu");
+    let scroll_mark = terminal.mark();
+    terminal.send("\u{1b}[5~");
+    terminal.wait_for_after(scroll_mark, "↑ 이전 대화");
+    terminal.wait_for_after(scroll_mark, "/qu");
+
+    terminal.send("it\r");
+    let output = terminal.finish();
+    assert!(!output.contains("알 수 없는 TUI 명령"));
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn bracketed_clipboard_image_path_is_captured_before_slash_command_routing() {
+    let fixture = NativeTerminalFixture::new("clipboard-image-path");
+    let _live_terminal = LiveTerminalEnvironment::enable();
+    let image = fixture.root.join("clipboard-test.png");
+    std::fs::write(&image, b"\x89PNG\r\n\x1a\nfixture").unwrap();
+
+    let mut terminal = NativePty::spawn(120, 40);
+    terminal.wait_for("›");
+    let pasted = format!("{}\u{2060}", image.display());
+    terminal.send(&format!("\u{1b}[200~{pasted}\u{1b}[201~\r"));
+    let output = terminal.wait_for("첨부됨");
+    assert!(output.contains("clipboard-test.png"));
+    assert!(!output.contains("알 수 없는 TUI 명령"));
+    terminal.send("/quit\r");
+    terminal.finish();
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
 fn update_uses_a_live_confirmation_picker_without_free_form_yes_input() {
     let fixture = NativeTerminalFixture::new("update-confirmation-picker");
     assert!(fixture.project.is_dir());
@@ -220,15 +266,15 @@ fn update_uses_a_live_confirmation_picker_without_free_form_yes_input() {
     let mut terminal = NativePty::spawn(120, 40);
     terminal.wait_for("›");
     terminal.send("/update\n");
-    let picker = terminal.wait_for("업데이트 확인");
+    let picker = terminal.wait_for("2. 업데이트 시작");
+    assert!(picker.contains("업데이트 확인"));
     assert!(picker.contains("1. 취소"));
-    assert!(picker.contains("2. 업데이트 시작"));
     assert!(!picker.contains("yes를 입력"));
     terminal.send("\n");
     terminal.wait_for("업데이트를 취소했습니다.");
     let second_picker_mark = terminal.mark();
     terminal.send("/update\n");
-    terminal.wait_for_after(second_picker_mark, "업데이트 확인");
+    terminal.wait_for_after(second_picker_mark, "2. 업데이트 시작");
     terminal.send("2");
     terminal.wait_for("installed: v9.0.0");
     terminal.send("/quit\n");

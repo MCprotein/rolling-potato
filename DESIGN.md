@@ -5,7 +5,7 @@
 ### Source Of Truth
 
 - Status: Active
-- Last refreshed: 2026-07-24
+- Last refreshed: 2026-07-27
 - Primary product surface: no-argument `rpotato` TUI; subcommand CLI for automation and diagnostics; optional local static HTML report
 - Evidence reviewed:
   - `README.md`
@@ -21,6 +21,7 @@
   - `src/adapters/sqlite/observability_projection.rs`
   - user-provided Codex and Claude Code terminal references captured on 2026-07-22
   - user-provided rpotato v0.47.1 update and model interaction captures from 2026-07-24
+  - user-provided rpotato v0.50.0 attachment, web-tool, context, Markdown, and scrollback captures from 2026-07-27
 
 ### Brand
 
@@ -142,7 +143,9 @@
   - bordered conversation composer with a persistent, semantically segmented runtime status line directly below it
   - reusable keyboard-selectable command/model/session picker and managed-backend setup flow
   - textual attachment badges for pasted or explicitly attached local files
-  - inline web-search progress, offline failure, and verified-source states
+  - inline animated request progress, web-search progress, offline failure, and verified-source states
+  - bounded transcript viewport with keyboard and mouse-wheel scrollback
+  - terminal-safe Markdown presentation for headings, emphasis, lists, inline code, and fenced code
   - metric summary strip
   - model comparison table
   - session timeline
@@ -180,17 +183,20 @@
 - On wide terminals the welcome, composer, and status chrome use the complete viewport while transcript and notice text keep a 120-cell reading column. Narrow terminals remain single-column and never overflow.
 - The attached-terminal composer uses a single rounded border, a cyan focus marker, and no placeholder text under the live cursor. The no-color/redirected fallback remains a plain `›` prompt.
 - Status segments are colored independently: model/focus cyan, healthy green, due/degraded yellow, failed/stale red, and session/secondary labels muted. Never color the whole status row as one success state.
-- The context segment shows measured usage and percentage; compaction remains adjacent to it when space permits. Narrow terminals truncate later segments rather than wrapping the status bar.
-- Model and context values come from the latest recorded model run; backend state comes from the managed sidecar; session uses the active canonical session identity. Missing values and stale backend state are labeled, never invented.
+- The context segment shows a live bounded estimate while a request is being assembled or executed, then replaces it with measured prompt usage from the completed model run. Estimated values use a visible `~` marker; measured values never do. Compaction remains adjacent to context when space permits.
+- Model and context values resolve the configured manifest model ID and the backend artifact stem as aliases of the same selected model. Switching from manifest ID to artifact filename must not discard a valid token measurement. Backend state comes from the managed sidecar; session uses the active canonical session identity. Missing values and stale backend state are labeled, never invented.
 - `/model`, `/compact`, `/update`, `/status`, `/sessions`, `/resume`, `/new`, `/doctor`, `/more`, `/back`, `/clear`, `/help`, and `/quit` cover normal in-TUI operations. Existing granular subcommands remain an advanced compatibility surface under `rpotato debug --help`.
 - `/` opens a selectable command palette. Up/Down or `Ctrl+P`/`Ctrl+N` moves focus, `Enter` accepts, `Esc` closes, and typed text filters the visible rows.
 - `/model` opens a reusable picker instead of requiring the user to retype an internal ID. It shows current/install/recommendation state alongside verified model facts; `/model <id>` remains an automation-compatible shortcut.
 - Interactive confirmations use the same picker primitive with a safe cancel choice selected by default. The TUI never asks the user to type `yes`; plain or redirected terminals use the numbered choice fallback.
 - `/update` opens an `업데이트 / 취소` confirmation picker, and choosing either option must not leave confirmation text in the conversation composer.
 - The composer supports common terminal editing keys: Left/Right, Home/End, `Ctrl+A`/`Ctrl+E`, Option/Alt+Left/Right word movement, Command/Meta+Left/Right line movement when the terminal reports those sequences, and word/line deletion shortcuts.
-- Bracketed paste is handled atomically. An explicitly pasted existing image or text-file path is represented as an attachment badge and is never interpreted as a slash command merely because an absolute path begins with `/`.
+- Bracketed paste is handled atomically. An explicitly pasted existing image or text-file path is represented as an attachment badge and is never interpreted as a slash command merely because an absolute path begins with `/`. Clipboard-created paths tolerate terminal-added quotes, `file://`, escaped spaces, and invisible boundary characters before classification and capture.
 - Attachment intake validates file type, regular-file status, size, and bounded count. Ephemeral clipboard files are captured before dispatch. Unsupported model/backend capabilities are explained before inference rather than silently sending a filesystem path as text.
-- Explicit search wording and freshness-sensitive questions use the read-only web-search adapter unless the user requests offline/no-browse behavior. The transcript distinguishes searching, grounded answers, provider/network failure, and local-model summarization failure; runtime-verified source URLs are always retained.
+- Explicit search wording and freshness-sensitive questions use the read-only web-search adapter unless the user requests offline/no-browse behavior. Small-model tool requests tolerate harmless case and whitespace variations of the private `WEB TOOL`/`WEB INPUT` protocol, but protocol text is never shown as an assistant answer. Short conversational follow-ups such as “뭔데” or “하고 있는 거야?” never become search queries solely because the model echoed them in a tool-shaped response.
+- Assistant turns render a bounded Markdown subset instead of exposing presentation markers literally: headings, emphasis, lists, inline code, and fenced code are terminal-safe. Unknown Markdown remains readable plain text and embedded ANSI/control sequences are sanitized before styling.
+- Conversation history opens at the newest turn. `PageUp`/`PageDown` and mouse wheel move through bounded transcript pages, `/more` and `/back` remain keyboard/text fallbacks, and the viewport shows its current position without destroying composer input. Mouse hover/click interactions remain optional; wheel input is part of the keyboard-equivalent scroll contract.
+- A request that has not completed shows a non-flashing spinner, elapsed time, and phase text. The indicator refreshes independently of the blocking model call and disappears on success or error.
 - Attached ANSI terminals may use semantic color and cursor positioning. Redirected output, `TERM=dumb`, and `NO_COLOR` remain plain, stable text.
 
 ### Accessibility
@@ -228,7 +234,8 @@
 ### Interaction States
 
 - Loading:
-  - Show data source, last update time, and whether SQLite projection or ledger replay is being read.
+  - Conversation requests show a non-flashing spinner, elapsed time, and current phase without moving the composer.
+  - Monitoring reads show data source, last update time, and whether SQLite projection or ledger replay is being read.
 - Empty:
   - Explain that no model run has been recorded yet and show the next command.
 - Error:
@@ -285,11 +292,13 @@
   - TUI smoke tests at 80x24 and wide terminal sizes.
   - The default-frame regression rejects raw ledger/hash/projection fields and proves composer/status ordering.
   - A natural-language greeting regression proves that it is rendered as a conversation and never starts a patch proposal.
-  - Input regressions cover cursor movement, word/line movement and deletion, bracketed paste, palette selection, absolute-path classification, and UTF-8 display-cell behavior.
+  - Input regressions cover cursor movement, word/line movement and deletion, bracketed paste, palette selection, absolute-path classification (including invisible clipboard suffixes), PageUp/PageDown, mouse wheel, and UTF-8 display-cell behavior.
   - Picker regressions prove keyboard and numbered fallback selection without downloading or switching before confirmation.
   - Confirmation regressions cover update, session selection, patch approval, verification approval, deny, resume, and cancel without any free-form `yes` prompt.
-  - Web-search regressions cover Korean verb variants, freshness routing, explicit offline opt-out, source retention, and bounded provider failure.
-  - Attachment regressions cover image paths with spaces, ephemeral clipboard paths, unsupported capability, size/count limits, and no-path-leak transcript rendering.
+  - Web-search regressions cover Korean verb variants, freshness routing, tolerant small-model tool syntax, protocol non-disclosure, conversational follow-up rejection, explicit offline opt-out, source retention, and bounded provider failure.
+  - Attachment regressions cover image paths with spaces, ephemeral clipboard paths through a real PTY bracketed-paste sequence, invisible boundary characters, unsupported capability, size/count limits, and no-path-leak transcript rendering.
+  - Status regressions prove configured model IDs and artifact stems share token measurements, estimated usage is visibly marked during execution, and completed usage replaces the estimate.
+  - Rendering regressions prove Markdown markers are presented semantically without allowing model-supplied terminal escapes.
   - Visual acceptance compares one 120x40 terminal capture against the 2026-07-22 Codex/Claude Code references; one bounded pass is sufficient unless the capture violates the contract.
   - HTML tests cover semantic structure, escaping, privacy markers, and narrow-screen layout without adding a browser runtime dependency.
 

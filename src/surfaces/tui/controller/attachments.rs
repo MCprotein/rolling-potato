@@ -19,19 +19,31 @@ pub(super) fn capture_attachment_notice(
     }
 }
 
-pub(super) fn looks_like_attachment_path(value: &str) -> bool {
-    let value = value.trim().trim_matches(['"', '\'']);
+pub(super) fn attachment_path_candidate(value: &str) -> Option<String> {
+    let value = trim_clipboard_boundaries(value);
+    let value = value
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .or_else(|| {
+            value
+                .strip_prefix('\'')
+                .and_then(|value| value.strip_suffix('\''))
+        })
+        .unwrap_or(value);
+    let value = trim_clipboard_boundaries(value);
+    let decoded = value.replace("\\ ", " ");
+    let value = decoded.strip_prefix("file://").unwrap_or(&decoded);
+    let value = trim_clipboard_boundaries(value);
     let path_like = value.starts_with('/')
         || value.starts_with("./")
         || value.starts_with("../")
-        || value.starts_with("~/")
-        || value.starts_with("file://");
+        || value.starts_with("~/");
     let extension = std::path::Path::new(value)
         .extension()
         .and_then(|extension| extension.to_str())
         .unwrap_or_default()
         .to_ascii_lowercase();
-    path_like
+    (path_like
         && matches!(
             extension.as_str(),
             "png"
@@ -70,5 +82,45 @@ pub(super) fn looks_like_attachment_path(value: &str) -> bool {
                 | "xml"
                 | "csv"
                 | "log"
-        )
+        ))
+    .then(|| value.to_string())
+}
+
+pub(super) fn looks_like_attachment_path(value: &str) -> bool {
+    attachment_path_candidate(value).is_some()
+}
+
+fn trim_clipboard_boundaries(value: &str) -> &str {
+    value.trim_matches(|character: char| {
+        character.is_whitespace()
+            || matches!(
+                character,
+                '\u{200b}' | '\u{200c}' | '\u{200d}' | '\u{2060}' | '\u{feff}'
+            )
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clipboard_path_candidate_strips_invisible_boundary_characters() {
+        let path = "/var/folders/example/clipboard-image.png\u{2060}";
+
+        assert_eq!(
+            attachment_path_candidate(path).as_deref(),
+            Some("/var/folders/example/clipboard-image.png")
+        );
+    }
+
+    #[test]
+    fn clipboard_file_url_and_escaped_spaces_remain_attachable() {
+        let path = "file:///private/tmp/My\\ Screenshot.png";
+
+        assert_eq!(
+            attachment_path_candidate(path).as_deref(),
+            Some("/private/tmp/My Screenshot.png")
+        );
+    }
 }

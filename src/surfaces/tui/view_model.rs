@@ -24,6 +24,7 @@ pub(crate) struct InteractiveState {
     pub(crate) notice_page: usize,
     pub(crate) turns: Vec<ConversationTurn>,
     pub(crate) attachments: Vec<TuiAttachment>,
+    pub(crate) context_tokens_estimate: Option<u32>,
 }
 
 impl InteractiveState {
@@ -36,6 +37,7 @@ impl InteractiveState {
             notice_page: 0,
             turns: Vec::new(),
             attachments: Vec::new(),
+            context_tokens_estimate: None,
         }
     }
 
@@ -54,6 +56,7 @@ impl InteractiveState {
         self.turns.push(ConversationTurn { role, content });
         self.notice.clear();
         self.notice_page = 0;
+        self.context_tokens_estimate = None;
     }
 
     pub(crate) fn clear_conversation(&mut self) {

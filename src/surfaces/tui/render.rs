@@ -1,12 +1,12 @@
-use super::runtime_bridge::{
-    TuiAttachment, TuiBackendStatus, TuiReadPage, TuiStatusSnapshot, TuiVisionStatus,
-};
+use super::runtime_bridge::{TuiAttachment, TuiReadPage, TuiStatusSnapshot};
 use super::view_model::{
     conversation_rows_per_page, notice_rows_per_page, ConversationRole, InteractiveState,
     InteractiveView,
 };
 
+mod markdown;
 mod report_layout;
+mod status;
 mod text;
 
 pub(crate) use report_layout::{
@@ -103,7 +103,7 @@ pub(crate) fn render_interactive_frame_with_options(
     );
     output.push_str(&"-".repeat(width));
     output.push('\n');
-    let status_line = render_status_line(status, width, color);
+    let status_line = status::render_status_line(status, None, width, color);
     render_composer(
         &mut output,
         &state.attachments,
@@ -155,22 +155,36 @@ fn render_conversation_frame(
             .saturating_sub(notice_offset)
             .min(content_rows)
     };
-    let turn_rows = content_rows.saturating_sub(notice_rows);
     let conversation = conversation_lines(state, reading_width, color);
-    let (visible_start, visible_end) = if turn_rows == 0 {
-        (conversation.len(), conversation.len())
+    let show_scroll_position = state.notice.is_empty() && state.notice_page > 0;
+    let latest_rows = content_rows.saturating_sub(notice_rows).max(1);
+    let scrolled_rows = latest_rows.saturating_sub(1).max(1);
+    let (visible_start, visible_end) = if state.notice.is_empty() {
+        conversation_window(
+            conversation.len(),
+            latest_rows,
+            scrolled_rows,
+            state.notice_page,
+        )
     } else {
-        let page_count = conversation.len().div_ceil(turn_rows).max(1);
-        let page_from_end = if state.notice.is_empty() {
-            state.notice_page.min(page_count - 1)
-        } else {
-            0
-        };
-        let end = conversation
-            .len()
-            .saturating_sub(page_from_end.saturating_mul(turn_rows));
-        (end.saturating_sub(turn_rows), end)
+        let end = conversation.len();
+        (end.saturating_sub(latest_rows), end)
     };
+    if show_scroll_position {
+        let page_count =
+            conversation_page_count_for_rows(conversation.len(), latest_rows, scrolled_rows);
+        let page_from_end = state.notice_page.min(page_count - 1);
+        output.push_str(&paint(
+            &format!(
+                "↑ 이전 대화 · {}/{} · PageDown/휠↓ 최신",
+                page_from_end + 1,
+                page_count
+            ),
+            MUTED_COLOR,
+            color,
+        ));
+        output.push('\n');
+    }
     for line in &conversation[visible_start..visible_end] {
         output.push_str(line);
         output.push('\n');
@@ -185,13 +199,16 @@ fn render_conversation_frame(
         NoticeStyle::Conversation { color },
     );
     if ansi_layout {
-        let rendered_rows = visible_end.saturating_sub(visible_start) + notice_rows;
+        let rendered_rows = visible_end.saturating_sub(visible_start)
+            + notice_rows
+            + usize::from(show_scroll_position);
         for _ in rendered_rows..content_rows {
             output.push('\n');
         }
     }
 
-    let status_line = render_status_line(status, frame_width, color);
+    let status_line =
+        status::render_status_line(status, state.context_tokens_estimate, frame_width, color);
     render_composer(
         &mut output,
         &state.attachments,
@@ -205,11 +222,46 @@ fn render_conversation_frame(
 
 pub(crate) fn conversation_page_count(state: &InteractiveState, width: u16, height: u16) -> usize {
     let width = usize::from(width).clamp(20, MAX_READING_WIDTH);
-    let rows = conversation_rows_per_page(height, state.turns.is_empty());
-    conversation_lines(state, width, false)
-        .len()
-        .div_ceil(rows)
-        .max(1)
+    let latest_rows = conversation_rows_per_page(height, state.turns.is_empty())
+        .saturating_sub(usize::from(!state.attachments.is_empty()))
+        .max(1);
+    conversation_page_count_for_rows(
+        conversation_lines(state, width, false).len(),
+        latest_rows,
+        latest_rows.saturating_sub(1).max(1),
+    )
+}
+
+fn conversation_page_count_for_rows(
+    line_count: usize,
+    latest_rows: usize,
+    scrolled_rows: usize,
+) -> usize {
+    if line_count <= latest_rows {
+        1
+    } else {
+        1 + line_count
+            .saturating_sub(latest_rows)
+            .div_ceil(scrolled_rows.max(1))
+    }
+}
+
+fn conversation_window(
+    line_count: usize,
+    latest_rows: usize,
+    scrolled_rows: usize,
+    page_from_end: usize,
+) -> (usize, usize) {
+    let page_count =
+        conversation_page_count_for_rows(line_count, latest_rows, scrolled_rows).max(1);
+    let page_from_end = page_from_end.min(page_count - 1);
+    if page_from_end == 0 {
+        return (line_count.saturating_sub(latest_rows), line_count);
+    }
+    let end = line_count
+        .saturating_sub(latest_rows)
+        .saturating_sub((page_from_end - 1).saturating_mul(scrolled_rows));
+    (end.saturating_sub(scrolled_rows), end)
 }
 
 fn conversation_lines(state: &InteractiveState, width: usize, color_enabled: bool) -> Vec<String> {
@@ -221,9 +273,15 @@ fn conversation_lines(state: &InteractiveState, width: usize, color_enabled: boo
             ConversationRole::Error => ("×", FAILED_COLOR),
         };
         let mut first_row = true;
+        let mut markdown = markdown::MarkdownState::default();
         for source_line in turn.content.split('\n') {
             let body_width = width.saturating_sub(2).max(1);
-            for body in wrap_terminal_text(&sanitize_terminal_text(source_line), body_width) {
+            let bodies = if turn.role == ConversationRole::Assistant {
+                markdown.render_line(source_line, body_width, color_enabled)
+            } else {
+                wrap_terminal_text(&sanitize_terminal_text(source_line), body_width)
+            };
+            for body in bodies {
                 let prefix = if first_row {
                     format!("{marker} ")
                 } else {
@@ -395,101 +453,11 @@ fn current_project_label() -> String {
     .unwrap_or(display)
 }
 
-fn render_status_line(status: &TuiStatusSnapshot, width: usize, color: bool) -> String {
-    let (context, percent) = match (status.context_tokens_used, status.context_limit_tokens) {
-        (Some(used), Some(limit)) if limit > 0 => {
-            let percent = used.saturating_mul(100) / limit;
-            (format!("ctx {used}/{limit} ({percent}%)"), Some(percent))
-        }
-        (Some(used), Some(_)) => (format!("ctx {used}/—"), None),
-        (Some(used), None) => (format!("ctx {used}/—"), None),
-        (None, Some(limit)) => (format!("ctx —/{limit}"), None),
-        (None, None) => ("ctx —".to_string(), None),
-    };
-    let (compaction, compaction_color) = if status.has_compaction_checkpoint {
-        ("compact saved", ACCENT_COLOR)
-    } else if percent.is_some_and(|value| value >= 75) {
-        ("compact due", WARNING_COLOR)
-    } else {
-        ("compact auto@75%", MUTED_COLOR)
-    };
-    let context_color = match percent {
-        Some(value) if value >= 85 => FAILED_COLOR,
-        Some(value) if value >= 60 => WARNING_COLOR,
-        Some(_) => HEALTHY_COLOR,
-        None => MUTED_COLOR,
-    };
-    let backend_color = match status.backend {
-        TuiBackendStatus::Ready => HEALTHY_COLOR,
-        TuiBackendStatus::Stopped => WARNING_COLOR,
-        TuiBackendStatus::Stale => FAILED_COLOR,
-        TuiBackendStatus::Unavailable => MUTED_COLOR,
-    };
-    let model_width = if width >= 96 {
-        32
-    } else if width >= 60 {
-        20
-    } else {
-        12
-    };
-    let model = truncate_chars(&sanitize_terminal_text(&status.model), model_width);
-    let session = short_status_id(&sanitize_terminal_text(&status.session_id));
-    let segments = [
-        (format!("model {model}"), ACCENT_COLOR),
-        (context, context_color),
-        (compaction.to_string(), compaction_color),
-        (format!("local {}", status.backend.as_str()), backend_color),
-        (
-            format!("vision {}", status.vision.as_str()),
-            match status.vision {
-                TuiVisionStatus::Ready => HEALTHY_COLOR,
-                TuiVisionStatus::OnDemand => ACCENT_COLOR,
-                TuiVisionStatus::Unsupported | TuiVisionStatus::Unavailable => MUTED_COLOR,
-            },
-        ),
-        (format!("session {session}"), MUTED_COLOR),
-    ];
-    render_status_segments(&segments, width, color)
-}
-
-fn render_status_segments(segments: &[(String, &str)], width: usize, color: bool) -> String {
-    let separator = " | ";
-    let mut output = String::new();
-    let mut used = 0;
-    for (index, (segment, code)) in segments.iter().enumerate() {
-        let separator_width = usize::from(index > 0) * display_cell_width(separator);
-        if used + separator_width >= width {
-            break;
-        }
-        if index > 0 {
-            output.push_str(&paint(separator, MUTED_COLOR, color));
-            used += separator_width;
-        }
-        let remaining = width.saturating_sub(used);
-        let visible = truncate_chars(segment, remaining);
-        let visible_width = display_cell_width(&visible);
-        output.push_str(&paint(&visible, code, color));
-        used += visible_width;
-        if visible_width < display_cell_width(segment) {
-            break;
-        }
-    }
-    output
-}
-
 fn paint(value: &str, code: &str, enabled: bool) -> String {
     if enabled {
         format!("{code}{value}\u{001b}[0m")
     } else {
         value.to_string()
-    }
-}
-
-fn short_status_id(value: &str) -> String {
-    if value.chars().count() <= 12 {
-        value.to_string()
-    } else {
-        format!("{}…", value.chars().take(11).collect::<String>())
     }
 }
 

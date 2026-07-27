@@ -1,6 +1,6 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::terminal::{
-    FrameWriteBoundary, TerminalChoice, TerminalFault, TerminalIo,
+    FrameWriteBoundary, TerminalChoice, TerminalFault, TerminalInputEvent, TerminalIo,
 };
 
 use super::super::outcome::{
@@ -9,6 +9,36 @@ use super::super::outcome::{
 use super::super::runtime_bridge::{TuiReadPage, TuiStatusSnapshot};
 use super::super::view_model::InteractiveState;
 use super::TuiRuntimePort;
+
+pub(super) enum InputAction {
+    Command(String),
+    Redraw,
+    End,
+}
+
+pub(super) fn read_input_action(
+    terminal: &mut impl TerminalIo,
+    state: &mut InteractiveState,
+    width: u16,
+    height: u16,
+) -> Result<InputAction, AppError> {
+    match terminal
+        .read_input_with_suggestions(super::super::command_palette::commands())
+        .map_err(terminal_fault_error)?
+    {
+        TerminalInputEvent::Submit(line) => Ok(InputAction::Command(line)),
+        TerminalInputEvent::ScrollUp => {
+            let page_count = super::super::render::conversation_page_count(state, width, height);
+            state.next_notice_page(height, page_count);
+            Ok(InputAction::Redraw)
+        }
+        TerminalInputEvent::ScrollDown => {
+            state.previous_notice_page();
+            Ok(InputAction::Redraw)
+        }
+        TerminalInputEvent::End => Ok(InputAction::End),
+    }
+}
 
 pub(super) fn confirm(
     terminal: &mut impl TerminalIo,
@@ -85,18 +115,44 @@ pub(super) fn write_pending_conversation_frame(
     let status = runtime
         .read_tui_status()
         .unwrap_or_else(|_| TuiStatusSnapshot::unavailable());
+    let intent_id = runtime.new_tui_intent_id();
+    write_pending_conversation_frame_with_status(
+        terminal,
+        state,
+        &status,
+        width,
+        height,
+        &intent_id,
+        FrameWriteBoundary::PreDispatch,
+    )
+}
+
+pub(super) fn write_pending_conversation_frame_with_status(
+    terminal: &mut impl TerminalIo,
+    state: &InteractiveState,
+    status: &TuiStatusSnapshot,
+    width: u16,
+    height: u16,
+    intent_id: &str,
+    boundary: FrameWriteBoundary,
+) -> Result<(), AppError> {
     let frame = super::super::render::render_interactive_frame_with_options(
         state,
         &TuiReadPage::conversation_placeholder(),
-        &status,
+        status,
         width,
         height,
         terminal.supports_ansi_layout(),
         terminal.supports_color(),
     );
     terminal
-        .write_frame_at(&frame, FrameWriteBoundary::Ordinary)
-        .map_err(|_| pre_dispatch_write_error(&runtime.new_tui_intent_id()))
+        .write_frame_at(&frame, boundary)
+        .map_err(|_| match boundary {
+            FrameWriteBoundary::PostDispatch => post_dispatch_write_error(intent_id),
+            FrameWriteBoundary::Ordinary | FrameWriteBoundary::PreDispatch => {
+                pre_dispatch_write_error(intent_id)
+            }
+        })
 }
 
 pub(crate) fn terminal_fault_error(fault: TerminalFault) -> AppError {

@@ -4,7 +4,7 @@ use std::io::{self, IsTerminal, Write};
 pub(crate) use crate::runtime_core::terminal::resolve_choice;
 pub(crate) use crate::runtime_core::terminal::{
     read_plain_choice, read_plain_suggestion, FrameWriteBoundary, TerminalChoice, TerminalFault,
-    TerminalIo, TerminalSuggestion,
+    TerminalInputEvent, TerminalIo, TerminalSuggestion,
 };
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TestTerminalFault {
@@ -21,6 +21,7 @@ pub fn validate_native_fault_configuration() -> Result<(), TerminalFault> {
 pub struct NativeTerminal {
     allow_piped_dimensions: bool,
     last_frame: String,
+    live_input_state: Option<live_input::State>,
 }
 
 impl NativeTerminal {
@@ -28,6 +29,7 @@ impl NativeTerminal {
         Self {
             allow_piped_dimensions: false,
             last_frame: String::new(),
+            live_input_state: None,
         }
     }
 
@@ -35,6 +37,7 @@ impl NativeTerminal {
         Self {
             allow_piped_dimensions: true,
             last_frame: String::new(),
+            live_input_state: None,
         }
     }
 
@@ -76,14 +79,21 @@ impl TerminalIo for NativeTerminal {
         read_stdin_line(TerminalFault::LineRead)
     }
 
-    fn read_line_with_suggestions(
+    fn read_input_with_suggestions(
         &mut self,
         suggestions: &[TerminalSuggestion],
-    ) -> Result<Option<String>, TerminalFault> {
+    ) -> Result<TerminalInputEvent, TerminalFault> {
         if self.supports_live_input() {
-            platform::read_line_with_suggestions(suggestions, &self.last_frame)
+            let outcome = platform::read_input_with_suggestions(
+                suggestions,
+                &self.last_frame,
+                self.live_input_state.take(),
+            )?;
+            self.live_input_state = outcome.state;
+            Ok(outcome.event)
         } else {
             read_plain_suggestion(self, suggestions)
+                .map(|line| line.map_or(TerminalInputEvent::End, TerminalInputEvent::Submit))
         }
     }
 
@@ -226,68 +236,11 @@ fn zeroize_string(value: String) {
 mod live_input;
 mod platform;
 #[cfg(test)]
-pub struct ScriptedTerminal {
-    dimensions: std::collections::VecDeque<Result<(u16, u16), TerminalFault>>,
-    lines: std::collections::VecDeque<Result<Option<String>, TerminalFault>>,
-    secrets: std::collections::VecDeque<Result<Option<String>, TerminalFault>>,
-    pub frames: Vec<String>,
-    pub frame_fault: Option<TerminalFault>,
-}
-
-#[cfg(test)]
-impl ScriptedTerminal {
-    pub fn new(lines: impl IntoIterator<Item = &'static str>) -> Self {
-        Self {
-            dimensions: std::iter::repeat_n(Ok((80, 24)), 64).collect(),
-            lines: lines
-                .into_iter()
-                .map(|line| Ok(Some(line.to_string())))
-                .chain(std::iter::once(Ok(None)))
-                .collect(),
-            secrets: std::collections::VecDeque::new(),
-            frames: Vec::new(),
-            frame_fault: None,
-        }
-    }
-}
-
-#[cfg(test)]
-impl TerminalIo for ScriptedTerminal {
-    fn dimensions(&mut self) -> Result<(u16, u16), TerminalFault> {
-        self.dimensions.pop_front().unwrap_or(Ok((80, 24)))
-    }
-
-    fn read_line(&mut self) -> Result<Option<String>, TerminalFault> {
-        self.lines.pop_front().unwrap_or(Ok(None))
-    }
-
-    fn read_secret(&mut self) -> Result<Option<String>, TerminalFault> {
-        self.secrets.pop_front().unwrap_or(Ok(None))
-    }
-
-    fn write_frame(&mut self, frame: &str) -> Result<(), TerminalFault> {
-        if let Some(fault) = self.frame_fault.take() {
-            return Err(fault);
-        }
-        self.frames.push(frame.to_string());
-        Ok(())
-    }
-}
+pub use crate::test_support::ScriptedTerminal;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn scripted_terminal_handles_eof_and_records_frames() {
-        let mut terminal = ScriptedTerminal::new(["help", "quit"]);
-        assert_eq!(terminal.dimensions().unwrap(), (80, 24));
-        assert_eq!(terminal.read_line().unwrap().as_deref(), Some("help"));
-        terminal.write_frame("frame\n").unwrap();
-        assert_eq!(terminal.read_line().unwrap().as_deref(), Some("quit"));
-        assert_eq!(terminal.read_line().unwrap(), None);
-        assert_eq!(terminal.frames, ["frame\n"]);
-    }
 
     #[cfg(debug_assertions)]
     #[test]

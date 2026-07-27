@@ -1098,3 +1098,29 @@
 - Workflow pre/post-dispatch fault test는 실제 `TuiIntent` workflow action만
   사용합니다. Session resume 확인 picker를 dispatch probe로 재도입하면 architecture
   contract가 차단합니다.
+
+## 2026-07-27: controller 책임 추출 뒤 compile-time 경계 테스트가 이전 파일만 검사함
+
+### 증상
+
+- 요청 실행과 진행 표시를 `controller/request_submission.rs`로 추출한 뒤 targeted
+  기능 테스트와 candidate preflight는 통과했지만, PR 전체 test에서 기존
+  compile-time 경계 테스트가 `controller.rs` 안의 `runtime.submit_request` 문자열만
+  계속 기대해 실패했습니다.
+- 실제 runtime 호출 경계와 플랫폼별 native terminal 검증은 정상 동작했습니다.
+
+### 원인
+
+- 모듈 추출 시 production 호출 위치는 갱신했지만, `include_str!`로 구현 파일의
+  경계를 검사하는 테스트의 입력 파일 집합을 함께 갱신하지 않았습니다.
+- 새 모듈을 architecture inventory에는 등록했으나 unit test의 source-introspection
+  의존성을 변경 영향 범위에서 누락했습니다.
+
+### 재발 방지
+
+- 책임을 하위 모듈로 추출할 때는 대상 심볼을 `rg`로 검색해 production call site뿐
+  아니라 `include_str!`, source text assertion, architecture inventory를 함께
+  갱신합니다.
+- Compile-time 경계 테스트는 parent가 하위 모듈을 선언하는지와 실제 authority
+  호출이 하위 모듈에 존재하는지를 각각 검증하고, 금지된 직접 의존성은 두 파일
+  모두에서 검사합니다.

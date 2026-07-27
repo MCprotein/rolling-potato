@@ -1,7 +1,39 @@
 use super::backend::vision_status;
 use super::TuiRuntimeAdapter;
 use crate::foundation::error::AppError;
-use crate::surfaces::tui::runtime_bridge::{TuiBackendStatus, TuiStatusSnapshot};
+use crate::surfaces::tui::runtime_bridge::{
+    TuiAttachment, TuiAttachmentKind, TuiBackendStatus, TuiStatusSnapshot,
+};
+
+pub(super) fn estimate_context_tokens(
+    adapter: &mut TuiRuntimeAdapter,
+    request: &str,
+    attachments: &[TuiAttachment],
+) -> Option<u32> {
+    let mut estimated =
+        crate::runtime_core::knowledge::compaction::estimate_tokens(request).saturating_add(256);
+    if !adapter.fresh_session_pending {
+        let history = adapter.conversation_memory().ok()?.prompt_history();
+        estimated = history.iter().fold(estimated, |total, turn| {
+            total
+                .saturating_add(crate::runtime_core::knowledge::compaction::estimate_tokens(
+                    &turn.content,
+                ))
+                .saturating_add(8)
+        });
+    }
+    estimated = attachments.iter().fold(estimated, |total, attachment| {
+        let attachment_estimate = match attachment.kind {
+            TuiAttachmentKind::Text => {
+                usize::try_from(attachment.size_bytes / 3).unwrap_or(usize::MAX)
+            }
+            TuiAttachmentKind::Image => 256,
+        };
+        total.saturating_add(attachment_estimate)
+    });
+    let limit = crate::app::inference_adapter::model::configured_context_length().ok()?;
+    Some(u32::try_from(estimated).unwrap_or(u32::MAX).min(limit))
+}
 
 pub(super) fn read(adapter: &TuiRuntimeAdapter) -> Result<TuiStatusSnapshot, AppError> {
     let backend = crate::app::inference_adapter::backend::runtime_snapshot()?;
@@ -16,12 +48,23 @@ pub(super) fn read(adapter: &TuiRuntimeAdapter) -> Result<TuiStatusSnapshot, App
         })
         .flatten();
     let configured_model = crate::app::inference_adapter::model::configured_model_id();
+    let configured_runtime_model = crate::app::inference_adapter::model::configured_runtime_spec()
+        .ok()
+        .and_then(|runtime| {
+            runtime
+                .model_path
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .map(str::to_string)
+        });
     let model = configured_model
         .clone()
         .or_else(|| backend.model_id.clone())
         .or_else(|| latest.as_ref().map(|run| run.model_id.clone()))
         .unwrap_or_else(|| "미선택".to_string());
-    let latest_matches_model = latest.as_ref().is_some_and(|run| run.model_id == model);
+    let latest_matches_model = latest.as_ref().is_some_and(|run| {
+        same_active_model(&model, configured_runtime_model.as_deref(), &run.model_id)
+    });
     let context_limit_tokens = crate::app::inference_adapter::model::configured_context_length()
         .ok()
         .or(backend.context_limit_tokens)
@@ -59,4 +102,38 @@ pub(super) fn read(adapter: &TuiRuntimeAdapter) -> Result<TuiStatusSnapshot, App
             identity.session_id
         },
     })
+}
+
+fn same_active_model(
+    selected_model: &str,
+    runtime_artifact_model: Option<&str>,
+    observed_model: &str,
+) -> bool {
+    selected_model.eq_ignore_ascii_case(observed_model)
+        || runtime_artifact_model
+            .is_some_and(|runtime| runtime.eq_ignore_ascii_case(observed_model))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn configured_manifest_id_matches_its_backend_artifact_stem() {
+        assert!(same_active_model(
+            "gemma-4-e4b",
+            Some("gemma-4-E4B_q4_0-it"),
+            "gemma-4-E4B_q4_0-it"
+        ));
+        assert!(same_active_model(
+            "qwen3.5-4b",
+            Some("Qwen3.5-4B-Q4_K_M"),
+            "Qwen3.5-4B-Q4_K_M"
+        ));
+        assert!(!same_active_model(
+            "qwen3.5-4b",
+            Some("Qwen3.5-4B-Q4_K_M"),
+            "gemma-4-E4B_q4_0-it"
+        ));
+    }
 }

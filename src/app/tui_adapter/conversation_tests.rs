@@ -69,7 +69,7 @@ fn ordinary_input_renders_as_user_and_assistant_turns() {
     assert_eq!(runtime.page_reads, 0, "default chat must not read overview");
     assert!(terminal.frames[1].contains("› 안녕"));
     assert!(!terminal.frames[1].contains("● 안녕하세요."));
-    assert!(terminal.frames[1].contains("◇ 작업 중"));
+    assert!(terminal.frames[1].contains("◇ ⠋ 처리 중"));
     assert!(!terminal.frames[1].contains("notice:"));
     assert!(rendered.contains("› 안녕"));
     assert!(rendered.contains("● 안녕하세요."));
@@ -130,6 +130,31 @@ fn ansi_conversation_distinguishes_failures_from_assistant_answers() {
 }
 
 #[test]
+fn assistant_markdown_is_presented_without_literal_emphasis_markers() {
+    let mut state = InteractiveState::new();
+    state.push_turn(
+        ConversationRole::Assistant,
+        "## 비교\n* **Qwen**: `코딩`에 강함\n* **Gemma**: 대화에 강함",
+    );
+
+    let frame = render_interactive_frame_with_options(
+        &state,
+        &TuiReadPage::conversation_placeholder(),
+        &TuiStatusSnapshot::unavailable(),
+        120,
+        40,
+        true,
+        true,
+    );
+
+    assert!(frame.contains("비교"));
+    assert!(frame.contains("• "));
+    assert!(frame.contains("\u{001b}[1mQwen\u{001b}[22m"));
+    assert!(frame.contains("\u{001b}[36m코딩\u{001b}[0m"));
+    assert!(!strip_ansi(&frame).contains("**"));
+}
+
+#[test]
 fn controller_starts_fresh_until_a_session_is_explicitly_resumed() {
     let mut terminal = ScriptedTerminal::new(["/quit"]);
     let mut runtime = ConversationRuntime {
@@ -183,6 +208,56 @@ fn resume_command_uses_a_picker_and_rehydrates_only_the_selected_session() {
     assert!(rendered.contains("계산기 작업"));
     assert!(rendered.contains("선택한 세션 질문"));
     assert!(rendered.contains("선택한 세션 답변"));
+}
+
+#[test]
+fn typed_scroll_event_pages_history_without_becoming_a_submitted_command() {
+    let mut terminal = ScriptedTerminal::new(["1"]);
+    terminal.input_events = [
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::Submit(
+            "/resume".to_string(),
+        )),
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::Submit(
+            "넌 누구야".to_string(),
+        )),
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::ScrollUp),
+        Ok(crate::runtime_core::terminal::TerminalInputEvent::Submit(
+            "/quit".to_string(),
+        )),
+    ]
+    .into_iter()
+    .collect();
+    let history = (1..=24)
+        .flat_map(|index| {
+            [
+                TuiConversationTurn {
+                    role: TuiConversationRole::User,
+                    content: format!("기록 질문 {index}"),
+                },
+                TuiConversationTurn {
+                    role: TuiConversationRole::Assistant,
+                    content: format!("기록 답변 {index}"),
+                },
+            ]
+        })
+        .collect();
+    let mut runtime = ConversationRuntime {
+        history,
+        session_options: vec![session_option("session-history", "긴 대화", false)],
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    assert_eq!(runtime.requests, ["넌 누구야"]);
+    assert!(
+        terminal
+            .frames
+            .last()
+            .expect("scrolled conversation frame")
+            .contains("↑ 이전 대화"),
+        "typed scroll event should render an older conversation page"
+    );
 }
 
 #[test]
@@ -371,7 +446,52 @@ fn natural_requests_use_agent_progress_until_the_model_selects_a_tool() {
     run_controller(&mut terminal, &mut runtime).unwrap();
 
     assert_eq!(runtime.requests, [request]);
-    assert!(terminal.frames[1].contains("작업 중 · 에이전트가 요청을 처리하고 있습니다…"));
+    assert!(terminal.frames[1].contains("처리 중"));
+    assert!(terminal.frames[1].contains("에이전트가 요청을 처리하고 있습니다…"));
+}
+
+#[test]
+fn slow_requests_refresh_a_spinner_and_live_context_estimate() {
+    let mut terminal = ScriptedTerminal::new(["느린 요청", "/quit"]);
+    let mut runtime = ConversationRuntime {
+        submit_delay_ms: 280,
+        context_estimate: Some(321),
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    let rendered = terminal.frames.join("\n");
+    assert!(
+        terminal
+            .frames
+            .iter()
+            .filter(|frame| frame.contains("처리 중"))
+            .count()
+            >= 2
+    );
+    assert!(rendered.contains("ctx ~321/"));
+    assert!(rendered.contains("경과"));
+}
+
+#[test]
+fn progress_frame_failure_after_dispatch_never_invites_request_replay() {
+    let mut terminal = ScriptedTerminal::new(["느린 요청", "/quit"]);
+    terminal.frame_fault_at = Some((
+        crate::runtime_core::terminal::FrameWriteBoundary::PostDispatch,
+        crate::runtime_core::terminal::TerminalFault::FrameWrite,
+    ));
+    let mut runtime = ConversationRuntime {
+        submit_delay_ms: 280,
+        ..ConversationRuntime::default()
+    };
+
+    let error = run_controller(&mut terminal, &mut runtime).unwrap_err();
+
+    assert_eq!(runtime.requests, ["느린 요청"]);
+    assert!(error.message.contains("terminal.frame-write.post-dispatch"));
+    assert!(error.message.contains("요청을 다시 보내지 않습니다"));
+    assert!(!error.message.contains("런타임 요청을 보내지 않았습니다"));
 }
 
 #[test]
@@ -583,6 +703,8 @@ struct ConversationRuntime {
     web_source_options: Vec<TuiWebSourceOption>,
     selected_web_sources: Vec<String>,
     progress_hint: Option<String>,
+    submit_delay_ms: u64,
+    context_estimate: Option<u32>,
 }
 
 impl TuiRuntimePort for ConversationRuntime {
@@ -688,11 +810,22 @@ impl TuiRuntimePort for ConversationRuntime {
         self.progress_hint.clone()
     }
 
+    fn request_context_tokens_hint(
+        &mut self,
+        _request: &str,
+        _attachments: &[TuiAttachment],
+    ) -> Option<u32> {
+        self.context_estimate
+    }
+
     fn submit_request(
         &mut self,
         request: &str,
         attachments: &[TuiAttachment],
     ) -> Result<String, AppError> {
+        if self.submit_delay_ms > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(self.submit_delay_ms));
+        }
         self.requests.push(request.to_string());
         self.submitted_attachment_counts.push(attachments.len());
         if self.submit_failures_remaining > 0 {

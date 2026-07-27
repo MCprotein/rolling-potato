@@ -93,6 +93,28 @@ mod tests {
     }
 
     #[test]
+    fn tolerates_small_model_web_protocol_spacing_and_case_drift() {
+        assert_eq!(
+            parse_agent_web_tool("WEBTool: search\nWEBINPUT: 월드컵 우승 국가"),
+            Some(WebToolRoute::Search {
+                query: "월드컵 우승 국가".to_string()
+            })
+        );
+        assert_eq!(
+            parse_agent_web_tool("web tool : open\nweb input : https://example.com/docs"),
+            Some(WebToolRoute::Open {
+                url: "https://example.com/docs".to_string()
+            })
+        );
+        assert_eq!(
+            parse_agent_web_tool("WEB INPUT: 월드컵 우승 국가"),
+            Some(WebToolRoute::Search {
+                query: "월드컵 우승 국가".to_string()
+            })
+        );
+    }
+
+    #[test]
     fn automatic_web_use_respects_explicit_user_opt_out() {
         for request in [
             "오프라인으로 현재 파일만 설명해줘",
@@ -183,5 +205,28 @@ mod tests {
         assert!(route_tool_request("이 페이지에서 ownership 찾아줘").is_none());
         assert!(route_tool_request("find Safety in this page").is_none());
         assert!(route_tool_request("웹에서 ownership 찾아줘").is_none());
+    }
+
+    #[test]
+    fn short_conversational_followups_never_become_agent_web_queries() {
+        for request in ["왜?", "그래서?", "뭐임?", "뭐 하는 중이야?"] {
+            assert!(
+                parse_agent_web_tool_for_request(
+                    &format!("WEB TOOL: search\nWEB INPUT: {request}"),
+                    request,
+                )
+                .is_none(),
+                "{request}"
+            );
+        }
+        assert_eq!(
+            parse_agent_web_tool_for_request(
+                "WEB TOOL: search\nWEB INPUT: 최신 Rust",
+                "최신 Rust 검색해줘",
+            ),
+            Some(WebToolRoute::Search {
+                query: "최신 Rust".to_string()
+            })
+        );
     }
 }

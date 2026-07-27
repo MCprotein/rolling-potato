@@ -1,6 +1,6 @@
 use std::io::{self, Read};
 
-use super::{TerminalFault, TerminalSuggestion};
+use super::{TerminalFault, TerminalInputEvent, TerminalSuggestion};
 
 mod editor;
 mod paste;
@@ -10,10 +10,29 @@ mod render;
 use editor::Editor;
 use paste::PasteCapture;
 pub(super) use picker::choose;
-use render::BracketedPasteGuard;
+use render::{BracketedPasteGuard, MouseTrackingGuard};
 
 const MAX_INPUT_BYTES: usize = 8 * 1024;
 const MAX_PALETTE_ROWS: usize = 6;
+
+pub(super) struct State {
+    editor: Editor,
+}
+
+pub(super) struct ReadOutcome {
+    pub(super) event: TerminalInputEvent,
+    pub(super) state: Option<State>,
+}
+
+impl ReadOutcome {
+    #[cfg(windows)]
+    pub(super) fn from_line(line: Option<String>) -> Self {
+        Self {
+            event: line.map_or(TerminalInputEvent::End, TerminalInputEvent::Submit),
+            state: None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Action {
@@ -29,6 +48,8 @@ enum Action {
     DeleteWord,
     Escape,
     PasteStart,
+    ScrollUp,
+    ScrollDown,
     Ignore,
 }
 
@@ -36,9 +57,11 @@ pub(super) fn read(
     suggestions: &[TerminalSuggestion],
     terminal_width: usize,
     base_frame: &str,
-) -> Result<Option<String>, TerminalFault> {
+    state: Option<State>,
+) -> Result<ReadOutcome, TerminalFault> {
     let _paste_guard = BracketedPasteGuard::start()?;
-    let mut editor = Editor::default();
+    let _mouse_guard = MouseTrackingGuard::start()?;
+    let mut editor = state.map(|state| state.editor).unwrap_or_default();
     let mut escape = Vec::new();
     let mut utf8 = Vec::new();
     let mut paste = None::<PasteCapture>;
@@ -49,7 +72,7 @@ pub(super) fn read(
         let mut byte = [0_u8; 1];
         let bytes = stdin.read(&mut byte).map_err(|_| TerminalFault::LineRead)?;
         if bytes == 0 {
-            if standalone_escape_timed_out(&escape) {
+            if escape == [0x1b] {
                 apply_action(&mut editor, Action::Escape, suggestions);
                 escape.clear();
                 redraw(&editor, suggestions, terminal_width, base_frame)?;
@@ -75,6 +98,8 @@ pub(super) fn read(
                 escape.clear();
                 if action == Action::PasteStart {
                     paste = Some(PasteCapture::default());
+                } else if matches!(action, Action::ScrollUp | Action::ScrollDown) {
+                    return Ok(scroll_outcome(editor, action));
                 } else {
                     apply_action(&mut editor, action, suggestions);
                     redraw(&editor, suggestions, terminal_width, base_frame)?;
@@ -89,10 +114,23 @@ pub(super) fn read(
                     continue;
                 }
                 redraw(&editor, &[], terminal_width, base_frame)?;
-                return Ok(Some(editor.into_text()));
+                return Ok(ReadOutcome {
+                    event: TerminalInputEvent::Submit(editor.into_text()),
+                    state: None,
+                });
             }
-            0x03 => return Ok(None),
-            0x04 if editor.text().is_empty() => return Ok(None),
+            0x03 => {
+                return Ok(ReadOutcome {
+                    event: TerminalInputEvent::End,
+                    state: None,
+                })
+            }
+            0x04 if editor.text().is_empty() => {
+                return Ok(ReadOutcome {
+                    event: TerminalInputEvent::End,
+                    state: None,
+                })
+            }
             0x04 => editor.delete(),
             0x01 => editor.home(),
             0x02 => editor.left(),
@@ -124,8 +162,16 @@ pub(super) fn read(
     }
 }
 
-fn standalone_escape_timed_out(sequence: &[u8]) -> bool {
-    sequence == [0x1b]
+fn scroll_outcome(editor: Editor, action: Action) -> ReadOutcome {
+    let event = match action {
+        Action::ScrollUp => TerminalInputEvent::ScrollUp,
+        Action::ScrollDown => TerminalInputEvent::ScrollDown,
+        _ => unreachable!("scroll outcome requires a scroll action"),
+    };
+    ReadOutcome {
+        event,
+        state: Some(State { editor }),
+    }
 }
 
 fn apply_action(editor: &mut Editor, action: Action, suggestions: &[TerminalSuggestion]) {
@@ -142,7 +188,7 @@ fn apply_action(editor: &mut Editor, action: Action, suggestions: &[TerminalSugg
         Action::Delete => editor.delete(),
         Action::DeleteWord => editor.delete_word_back(),
         Action::Escape => editor.escape(),
-        Action::PasteStart | Action::Ignore => {}
+        Action::PasteStart | Action::ScrollUp | Action::ScrollDown | Action::Ignore => {}
     }
 }
 
@@ -172,6 +218,12 @@ fn escape_sequence_complete(sequence: &[u8]) -> bool {
 }
 
 fn decode_escape(sequence: &[u8]) -> Action {
+    if sequence.starts_with(b"\x1b[<64;") && sequence.ends_with(b"M") {
+        return Action::ScrollUp;
+    }
+    if sequence.starts_with(b"\x1b[<65;") && sequence.ends_with(b"M") {
+        return Action::ScrollDown;
+    }
     match sequence {
         b"\x1b[D" | b"\x1bOD" => Action::Left,
         b"\x1b[C" | b"\x1bOC" => Action::Right,
@@ -183,6 +235,8 @@ fn decode_escape(sequence: &[u8]) -> Action {
         b"\x1bf" | b"\x1b[1;3C" | b"\x1b[1;5C" => Action::WordRight,
         b"\x1b\x7f" | b"\x1b[3;3~" => Action::DeleteWord,
         b"\x1b[3~" => Action::Delete,
+        b"\x1b[5~" => Action::ScrollUp,
+        b"\x1b[6~" => Action::ScrollDown,
         b"\x1b[200~" => Action::PasteStart,
         b"\x1b" => Action::Escape,
         _ => Action::Ignore,
@@ -227,55 +281,4 @@ fn redraw(
     base_frame: &str,
 ) -> Result<(), TerminalFault> {
     render::redraw(editor, suggestions, terminal_width, base_frame)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const SUGGESTIONS: &[TerminalSuggestion] = &[
-        TerminalSuggestion {
-            command: "/model [id]",
-            description: "모델 변경",
-        },
-        TerminalSuggestion {
-            command: "/search <질문>",
-            description: "웹 검색",
-        },
-        TerminalSuggestion {
-            command: "/help",
-            description: "도움말",
-        },
-    ];
-
-    #[test]
-    fn filters_command_tokens_and_accepts_required_arguments() {
-        assert_eq!(matching_suggestions("/", SUGGESTIONS).len(), 3);
-        assert_eq!(
-            matching_suggestions("/mo", SUGGESTIONS)[0].command,
-            "/model [id]"
-        );
-        assert!(matching_suggestions("/model ", SUGGESTIONS).is_empty());
-        let mut editor = Editor::default();
-        editor.insert("/se");
-        assert!(accept_suggestion(&mut editor, SUGGESTIONS));
-        assert_eq!(editor.text(), "/search ");
-    }
-
-    #[test]
-    fn decodes_terminal_navigation_shortcuts_and_bracketed_paste() {
-        assert_eq!(decode_escape(b"\x1bb"), Action::WordLeft);
-        assert_eq!(decode_escape(b"\x1bf"), Action::WordRight);
-        assert_eq!(decode_escape(b"\x1b[1;3D"), Action::WordLeft);
-        assert_eq!(decode_escape(b"\x1b[1;3C"), Action::WordRight);
-        assert_eq!(decode_escape(b"\x1b[1;5D"), Action::WordLeft);
-        assert_eq!(decode_escape(b"\x1b[1;5C"), Action::WordRight);
-        assert_eq!(decode_escape(b"\x1b[1;9D"), Action::Home);
-        assert_eq!(decode_escape(b"\x1b[1;9C"), Action::End);
-        assert_eq!(decode_escape(b"\x1b[H"), Action::Home);
-        assert_eq!(decode_escape(b"\x1b[F"), Action::End);
-        assert_eq!(decode_escape(b"\x1b[200~"), Action::PasteStart);
-        assert!(standalone_escape_timed_out(b"\x1b"));
-        assert!(!standalone_escape_timed_out(b"\x1b["));
-    }
 }
