@@ -215,9 +215,9 @@ fn page_scroll_preserves_the_live_composer_draft() {
 
     let mut terminal = NativePty::spawn(80, 12);
     terminal.wait_for("›");
-    for index in 1..=8 {
+    for _ in 1..=8 {
         let mark = terminal.mark();
-        submit_visible_command(&mut terminal, &format!("넌 누구야 {index}"));
+        submit_visible_command(&mut terminal, "넌 누구야");
         terminal.wait_for_after(mark, "저는 로컬에서 실행되는");
     }
 
