@@ -12,6 +12,16 @@ pub(super) fn execute(
     attachments: &[TuiAttachment],
     history: &[TuiConversationTurn],
 ) -> Result<String, AppError> {
+    execute_routed(adapter, request, attachments, history)
+        .and_then(conversation::ensure_public_answer)
+}
+
+fn execute_routed(
+    adapter: &mut TuiRuntimeAdapter,
+    request: &str,
+    attachments: &[TuiAttachment],
+    history: &[TuiConversationTurn],
+) -> Result<String, AppError> {
     let web_started = Instant::now();
     let mut web_research = crate::app::web_search_adapter::WebResearchSession::default();
     let user_request = request.trim();

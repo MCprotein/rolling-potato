@@ -132,6 +132,15 @@ pub(super) fn decide_request(
         user_request,
         CONVERSATION_MAX_TOKENS,
     )?;
+    decide_generated_candidate(candidate, user_request, web_enabled, allow_direct_answer)
+}
+
+fn decide_generated_candidate(
+    candidate: crate::app::inference_adapter::answer::GeneratedCandidate,
+    user_request: &str,
+    web_enabled: bool,
+    allow_direct_answer: bool,
+) -> Result<RequestDecision, AppError> {
     if web_enabled {
         if let Some(decision) = current_request_network_decision(&candidate.visible, user_request) {
             return Ok(decision);
@@ -141,9 +150,9 @@ pub(super) fn decide_request(
         {
             return Ok(RequestDecision::WebTool(tool));
         }
-        if contains_private_tool_protocol(&candidate.visible) {
-            return Ok(RequestDecision::ContinueLocal);
-        }
+    }
+    if contains_private_tool_protocol(&candidate.visible) {
+        return Ok(RequestDecision::ContinueLocal);
     }
     if !allow_direct_answer {
         return Ok(RequestDecision::ContinueLocal);
@@ -180,6 +189,15 @@ fn contains_private_tool_protocol(candidate: &str) -> bool {
             "webtool" | "webinput" | "browsertool" | "browserurl" | "browserinput"
         )
     })
+}
+
+pub(super) fn ensure_public_answer(answer: String) -> Result<String, AppError> {
+    if contains_private_tool_protocol(&answer) {
+        return Err(AppError::blocked(
+            "모델이 내부 도구 요청을 반복해 안전한 최종 답변을 만들지 못했습니다. 요청을 다시 표현하거나 /doctor로 모델 상태를 확인하세요.",
+        ));
+    }
+    Ok(answer)
 }
 
 pub(super) fn reply_with_context(
@@ -601,5 +619,31 @@ mod tests {
         assert!(!contains_private_tool_protocol(
             "웹 검색 결과를 바탕으로 답변합니다."
         ));
+    }
+
+    #[test]
+    fn private_tool_protocol_never_becomes_an_offline_direct_answer() {
+        let candidate = crate::app::inference_adapter::answer::GeneratedCandidate {
+            response_language: ResponseLanguage::KoreanDefault,
+            visible: "WEB INPUT: 월드컵 우승 국가".to_string(),
+        };
+
+        assert!(matches!(
+            decide_generated_candidate(candidate, "인터넷 없이 알려줘", false, true).unwrap(),
+            RequestDecision::ContinueLocal
+        ));
+    }
+
+    #[test]
+    fn repeated_private_tool_protocol_is_rejected_at_the_presentation_boundary() {
+        let error = ensure_public_answer("WEBTool: search\nWEBINPUT: 월드컵 우승 국가".to_string())
+            .unwrap_err();
+
+        assert!(error.message.contains("내부 도구 요청을 반복"));
+        assert!(!error.message.contains("월드컵 우승 국가"));
+        assert_eq!(
+            ensure_public_answer("대한민국의 수도는 서울입니다.".to_string()).unwrap(),
+            "대한민국의 수도는 서울입니다."
+        );
     }
 }

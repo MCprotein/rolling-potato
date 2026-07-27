@@ -148,18 +148,24 @@ fn conversational_progress_followup(request: &str) -> bool {
         .chars()
         .filter(|character| !character.is_whitespace() && !character.is_ascii_punctuation())
         .collect::<String>();
-    compact.is_empty()
-        || [
-            "뭔데",
-            "뭐야",
-            "하고있는거야",
-            "뭐하는중이야",
-            "검색중이야",
-            "되고있어",
-            "하는중",
-        ]
+    if compact.is_empty() {
+        return true;
+    }
+    if compact.chars().count() > 16 || has_explicit_web_intent(&compact) {
+        return false;
+    }
+    ["왜", "뭐", "뭔", "무슨", "그래서", "어떻게", "어디까지"]
         .iter()
-        .any(|followup| compact == *followup)
+        .any(|prefix| compact.starts_with(prefix))
+        || ["하고있", "하는중", "검색중", "되고있", "진행중"]
+            .iter()
+            .any(|signal| compact.contains(signal))
+}
+
+fn has_explicit_web_intent(request: &str) -> bool {
+    ["검색", "찾아", "웹", "인터넷", "search", "browse", "web"]
+        .iter()
+        .any(|signal| request.contains(signal))
 }
 
 fn literal_projection(input: &str, current_request: &str) -> bool {

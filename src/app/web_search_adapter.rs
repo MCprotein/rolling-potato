@@ -206,4 +206,27 @@ mod tests {
         assert!(route_tool_request("find Safety in this page").is_none());
         assert!(route_tool_request("웹에서 ownership 찾아줘").is_none());
     }
+
+    #[test]
+    fn short_conversational_followups_never_become_agent_web_queries() {
+        for request in ["왜?", "그래서?", "뭐임?", "뭐 하는 중이야?"] {
+            assert!(
+                parse_agent_web_tool_for_request(
+                    &format!("WEB TOOL: search\nWEB INPUT: {request}"),
+                    request,
+                )
+                .is_none(),
+                "{request}"
+            );
+        }
+        assert_eq!(
+            parse_agent_web_tool_for_request(
+                "WEB TOOL: search\nWEB INPUT: 최신 Rust",
+                "최신 Rust 검색해줘",
+            ),
+            Some(WebToolRoute::Search {
+                query: "최신 Rust".to_string()
+            })
+        );
+    }
 }
