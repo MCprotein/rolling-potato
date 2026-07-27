@@ -236,100 +236,11 @@ fn zeroize_string(value: String) {
 mod live_input;
 mod platform;
 #[cfg(test)]
-pub struct ScriptedTerminal {
-    dimensions: std::collections::VecDeque<Result<(u16, u16), TerminalFault>>,
-    lines: std::collections::VecDeque<Result<Option<String>, TerminalFault>>,
-    secrets: std::collections::VecDeque<Result<Option<String>, TerminalFault>>,
-    pub frames: Vec<String>,
-    pub frame_fault: Option<TerminalFault>,
-    pub frame_fault_at: Option<(FrameWriteBoundary, TerminalFault)>,
-    pub input_events: std::collections::VecDeque<Result<TerminalInputEvent, TerminalFault>>,
-}
-
-#[cfg(test)]
-impl ScriptedTerminal {
-    pub fn new(lines: impl IntoIterator<Item = &'static str>) -> Self {
-        Self {
-            dimensions: std::iter::repeat_n(Ok((80, 24)), 64).collect(),
-            lines: lines
-                .into_iter()
-                .map(|line| Ok(Some(line.to_string())))
-                .chain(std::iter::once(Ok(None)))
-                .collect(),
-            secrets: std::collections::VecDeque::new(),
-            frames: Vec::new(),
-            frame_fault: None,
-            frame_fault_at: None,
-            input_events: std::collections::VecDeque::new(),
-        }
-    }
-}
-
-#[cfg(test)]
-impl TerminalIo for ScriptedTerminal {
-    fn dimensions(&mut self) -> Result<(u16, u16), TerminalFault> {
-        self.dimensions.pop_front().unwrap_or(Ok((80, 24)))
-    }
-
-    fn read_line(&mut self) -> Result<Option<String>, TerminalFault> {
-        self.lines.pop_front().unwrap_or(Ok(None))
-    }
-
-    fn read_secret(&mut self) -> Result<Option<String>, TerminalFault> {
-        self.secrets.pop_front().unwrap_or(Ok(None))
-    }
-
-    fn read_input_with_suggestions(
-        &mut self,
-        _suggestions: &[TerminalSuggestion],
-    ) -> Result<TerminalInputEvent, TerminalFault> {
-        self.input_events.pop_front().unwrap_or_else(|| {
-            self.read_line()
-                .map(|line| line.map_or(TerminalInputEvent::End, TerminalInputEvent::Submit))
-        })
-    }
-
-    fn write_frame(&mut self, frame: &str) -> Result<(), TerminalFault> {
-        if let Some(fault) = self.frame_fault.take() {
-            return Err(fault);
-        }
-        self.frames.push(frame.to_string());
-        Ok(())
-    }
-
-    fn write_frame_at(
-        &mut self,
-        frame: &str,
-        boundary: FrameWriteBoundary,
-    ) -> Result<(), TerminalFault> {
-        if self
-            .frame_fault_at
-            .is_some_and(|(expected, _)| expected == boundary)
-        {
-            return Err(self
-                .frame_fault_at
-                .take()
-                .expect("matching boundary fault")
-                .1);
-        }
-        self.write_frame(frame)
-    }
-}
+pub use crate::test_support::ScriptedTerminal;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn scripted_terminal_handles_eof_and_records_frames() {
-        let mut terminal = ScriptedTerminal::new(["help", "quit"]);
-        assert_eq!(terminal.dimensions().unwrap(), (80, 24));
-        assert_eq!(terminal.read_line().unwrap().as_deref(), Some("help"));
-        terminal.write_frame("frame\n").unwrap();
-        assert_eq!(terminal.read_line().unwrap().as_deref(), Some("quit"));
-        assert_eq!(terminal.read_line().unwrap(), None);
-        assert_eq!(terminal.frames, ["frame\n"]);
-    }
 
     #[cfg(debug_assertions)]
     #[test]

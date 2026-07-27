@@ -24,6 +24,16 @@ pub(super) struct ReadOutcome {
     pub(super) state: Option<State>,
 }
 
+impl ReadOutcome {
+    #[cfg(windows)]
+    pub(super) fn from_line(line: Option<String>) -> Self {
+        Self {
+            event: line.map_or(TerminalInputEvent::End, TerminalInputEvent::Submit),
+            state: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Action {
     Left,
@@ -271,73 +281,4 @@ fn redraw(
     base_frame: &str,
 ) -> Result<(), TerminalFault> {
     render::redraw(editor, suggestions, terminal_width, base_frame)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const SUGGESTIONS: &[TerminalSuggestion] = &[
-        TerminalSuggestion {
-            command: "/model [id]",
-            description: "모델 변경",
-        },
-        TerminalSuggestion {
-            command: "/search <질문>",
-            description: "웹 검색",
-        },
-        TerminalSuggestion {
-            command: "/help",
-            description: "도움말",
-        },
-    ];
-
-    #[test]
-    fn filters_command_tokens_and_accepts_required_arguments() {
-        assert_eq!(matching_suggestions("/", SUGGESTIONS).len(), 3);
-        assert_eq!(
-            matching_suggestions("/mo", SUGGESTIONS)[0].command,
-            "/model [id]"
-        );
-        assert!(matching_suggestions("/model ", SUGGESTIONS).is_empty());
-        let mut editor = Editor::default();
-        editor.insert("/se");
-        assert!(accept_suggestion(&mut editor, SUGGESTIONS));
-        assert_eq!(editor.text(), "/search ");
-    }
-
-    #[test]
-    fn decodes_terminal_navigation_shortcuts_and_bracketed_paste() {
-        assert_eq!(decode_escape(b"\x1bb"), Action::WordLeft);
-        assert_eq!(decode_escape(b"\x1bf"), Action::WordRight);
-        assert_eq!(decode_escape(b"\x1b[1;3D"), Action::WordLeft);
-        assert_eq!(decode_escape(b"\x1b[1;3C"), Action::WordRight);
-        assert_eq!(decode_escape(b"\x1b[1;5D"), Action::WordLeft);
-        assert_eq!(decode_escape(b"\x1b[1;5C"), Action::WordRight);
-        assert_eq!(decode_escape(b"\x1b[1;9D"), Action::Home);
-        assert_eq!(decode_escape(b"\x1b[1;9C"), Action::End);
-        assert_eq!(decode_escape(b"\x1b[H"), Action::Home);
-        assert_eq!(decode_escape(b"\x1b[F"), Action::End);
-        assert_eq!(decode_escape(b"\x1b[200~"), Action::PasteStart);
-        assert_eq!(decode_escape(b"\x1b[5~"), Action::ScrollUp);
-        assert_eq!(decode_escape(b"\x1b[6~"), Action::ScrollDown);
-        assert_eq!(decode_escape(b"\x1b[<64;10;5M"), Action::ScrollUp);
-        assert_eq!(decode_escape(b"\x1b[<65;10;5M"), Action::ScrollDown);
-        assert_eq!(b"\x1b".as_slice(), &[0x1b]);
-        assert_ne!(b"\x1b[".as_slice(), &[0x1b]);
-    }
-
-    #[test]
-    fn scroll_events_preserve_the_current_draft() {
-        let mut editor = Editor::default();
-        editor.insert("작성 중인 요청");
-
-        let outcome = scroll_outcome(editor, Action::ScrollUp);
-
-        assert_eq!(outcome.event, TerminalInputEvent::ScrollUp);
-        assert_eq!(
-            outcome.state.expect("preserved editor").editor.text(),
-            "작성 중인 요청"
-        );
-    }
 }

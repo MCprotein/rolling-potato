@@ -1,6 +1,6 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::terminal::{
-    FrameWriteBoundary, TerminalChoice, TerminalFault, TerminalIo,
+    FrameWriteBoundary, TerminalChoice, TerminalFault, TerminalInputEvent, TerminalIo,
 };
 
 use super::super::outcome::{
@@ -9,6 +9,36 @@ use super::super::outcome::{
 use super::super::runtime_bridge::{TuiReadPage, TuiStatusSnapshot};
 use super::super::view_model::InteractiveState;
 use super::TuiRuntimePort;
+
+pub(super) enum InputAction {
+    Command(String),
+    Redraw,
+    End,
+}
+
+pub(super) fn read_input_action(
+    terminal: &mut impl TerminalIo,
+    state: &mut InteractiveState,
+    width: u16,
+    height: u16,
+) -> Result<InputAction, AppError> {
+    match terminal
+        .read_input_with_suggestions(super::super::command_palette::commands())
+        .map_err(terminal_fault_error)?
+    {
+        TerminalInputEvent::Submit(line) => Ok(InputAction::Command(line)),
+        TerminalInputEvent::ScrollUp => {
+            let page_count = super::super::render::conversation_page_count(state, width, height);
+            state.next_notice_page(height, page_count);
+            Ok(InputAction::Redraw)
+        }
+        TerminalInputEvent::ScrollDown => {
+            state.previous_notice_page();
+            Ok(InputAction::Redraw)
+        }
+        TerminalInputEvent::End => Ok(InputAction::End),
+    }
+}
 
 pub(super) fn confirm(
     terminal: &mut impl TerminalIo,

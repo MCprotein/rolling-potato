@@ -1,7 +1,5 @@
 use crate::foundation::error::AppError;
-use crate::runtime_core::terminal::{
-    FrameWriteBoundary, TerminalFault, TerminalInputEvent, TerminalIo,
-};
+use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalFault, TerminalIo};
 
 use super::outcome::{exact_tui_outcome, TuiOutcome, TuiOutcomeCode, TuiOutcomeContext};
 use super::runtime_bridge::{
@@ -29,7 +27,8 @@ use session_selection::{resume_selected_session, resume_session, start_new_sessi
 use source_selection::select_source;
 use terminal_flow::{
     confirm, confirm_workflow_action, outcome_notice, outcome_was_dispatched,
-    post_dispatch_write_error, pre_dispatch_write_error, write_pre_dispatch_frame,
+    post_dispatch_write_error, pre_dispatch_write_error, read_input_action,
+    write_pre_dispatch_frame, InputAction,
 };
 pub(crate) use terminal_flow::{consume_outcome, terminal_fault_error};
 
@@ -128,22 +127,10 @@ pub(crate) fn run_controller(
             }
         }
 
-        let line = match terminal
-            .read_input_with_suggestions(super::command_palette::commands())
-            .map_err(terminal_fault_error)?
-        {
-            TerminalInputEvent::Submit(line) => line,
-            TerminalInputEvent::ScrollUp => {
-                let conversation_pages =
-                    super::render::conversation_page_count(&state, width, height);
-                state.next_notice_page(height, conversation_pages);
-                continue;
-            }
-            TerminalInputEvent::ScrollDown => {
-                state.previous_notice_page();
-                continue;
-            }
-            TerminalInputEvent::End => return Ok(()),
+        let line = match read_input_action(terminal, &mut state, width, height)? {
+            InputAction::Command(line) => line,
+            InputAction::Redraw => continue,
+            InputAction::End => return Ok(()),
         };
         let words = line.split_whitespace().collect::<Vec<_>>();
         if !matches!(words.as_slice(), ["/more"] | ["/back"]) {

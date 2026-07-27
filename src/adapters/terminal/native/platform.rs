@@ -118,7 +118,6 @@ mod imp {
         }
         Ok((size.cols, size.rows))
     }
-
     pub fn read_input_with_suggestions(
         suggestions: &[TerminalSuggestion],
         base_frame: &str,
@@ -128,7 +127,6 @@ mod imp {
             super::super::live_input::read(suggestions, width, base_frame, state)
         })
     }
-
     pub fn choose(
         title: &str,
         choices: &[TerminalChoice],
@@ -402,21 +400,14 @@ mod imp {
         }
         Ok((cols, rows))
     }
-
     pub fn read_input_with_suggestions(
         _suggestions: &[TerminalSuggestion],
         _base_frame: &str,
         _state: Option<super::super::live_input::State>,
     ) -> Result<super::super::live_input::ReadOutcome, TerminalFault> {
-        read_stdin_line(TerminalFault::LineRead).map(|line| super::super::live_input::ReadOutcome {
-            event: line.map_or(
-                super::super::TerminalInputEvent::End,
-                super::super::TerminalInputEvent::Submit,
-            ),
-            state: None,
-        })
+        read_stdin_line(TerminalFault::LineRead)
+            .map(super::super::live_input::ReadOutcome::from_line)
     }
-
     pub fn choose(
         _title: &str,
         choices: &[TerminalChoice],
@@ -535,11 +526,9 @@ mod imp {
     pub fn dimensions() -> Result<(u16, u16), TerminalFault> {
         Err(TerminalFault::SizeRead)
     }
-
     pub fn read_secret() -> Result<Option<String>, TerminalFault> {
         Err(TerminalFault::ModeRead)
     }
-
     pub fn read_input_with_suggestions(
         _suggestions: &[TerminalSuggestion],
         _base_frame: &str,
