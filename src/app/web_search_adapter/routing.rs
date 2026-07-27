@@ -88,6 +88,38 @@ pub(crate) fn validate_public_web_step(step: WebResearchStep) -> Result<WebResea
     Ok(step)
 }
 
+pub(crate) fn is_grounded_followup_request(request: &str) -> bool {
+    let lower = request.trim().to_ascii_lowercase();
+    [
+        "방금 검색",
+        "아까 검색",
+        "검색한 ",
+        "검색 결과",
+        "검색결과",
+        "그 출처",
+        "해당 출처",
+        "출처에서",
+        "방금 찾",
+        "아까 찾",
+        "웹에서 찾",
+        "방금 연 ",
+        "아까 연 ",
+    ]
+    .iter()
+    .any(|signal| request.contains(signal))
+        || [
+            "the search result",
+            "those search results",
+            "the source",
+            "those sources",
+            "you just search",
+            "you just searched",
+            "you found earlier",
+        ]
+        .iter()
+        .any(|signal| lower.contains(signal))
+}
+
 pub(crate) fn web_disabled(request: &str) -> bool {
     let request = request.trim();
     let lower = request.to_ascii_lowercase();
@@ -282,5 +314,20 @@ mod tests {
             query: "password policy".to_string(),
         })
         .is_ok());
+    }
+
+    #[test]
+    fn only_explicitly_referential_questions_use_prior_web_grounding() {
+        for request in [
+            "방금 검색한 ESPR의 정식 명칭은?",
+            "그 출처에서 핵심 목적을 다시 설명해줘",
+            "What did you just search?",
+        ] {
+            assert!(is_grounded_followup_request(request), "{request}");
+        }
+        for request in ["오늘 날씨 검색해줘", "내 이름이 뭐였지?", "Rust를 설명해줘"]
+        {
+            assert!(!is_grounded_followup_request(request), "{request}");
+        }
     }
 }

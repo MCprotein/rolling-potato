@@ -76,15 +76,19 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
         attachments: &[TuiAttachment],
     ) -> Result<String, AppError> {
         self.ensure_fresh_session()?;
-        let history = self.conversation_memory()?.prompt_history();
-        match request::execute(self, request, attachments, &history) {
-            Ok(response) => {
+        let (history, web_grounding) = {
+            let memory = self.conversation_memory()?;
+            (memory.prompt_history(), memory.web_grounding().to_vec())
+        };
+        match request::execute(self, request, attachments, &history, &web_grounding) {
+            Ok(execution) => {
                 super::session_memory::record_exchange(
                     self.conversation_memory()?,
                     request.trim(),
-                    &response,
+                    &execution.response,
+                    &execution.web_grounding,
                 )?;
-                Ok(response)
+                Ok(execution.response)
             }
             Err(error) => {
                 super::session_memory::record_failure(

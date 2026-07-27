@@ -31,7 +31,8 @@ pub(super) fn select(pages: &mut WebPageSession, source_id: &str) -> Result<Stri
             "",
             "",
             Duration::ZERO,
-        );
+        )
+        .map(|execution| execution.response);
     }
     pages.select(source_id);
     let page = pages

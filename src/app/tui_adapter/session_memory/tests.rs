@@ -38,7 +38,7 @@ fn canonical_memory_restores_only_complete_pairs_and_honors_reset_boundaries() {
         let mut memory = load().unwrap();
         assert!(memory.turns.is_empty());
 
-        record_exchange(&mut memory, "내 이름은 감자야", "알겠습니다.").unwrap();
+        record_exchange(&mut memory, "내 이름은 감자야", "알겠습니다.", &[]).unwrap();
         assert_eq!(memory.turns.len(), 2);
         assert_eq!(load().unwrap(), memory);
 
@@ -79,9 +79,9 @@ fn failed_request_is_restored_as_runtime_context_for_followup_questions() {
 fn reset_is_a_unique_causal_head_for_repeated_questions() {
     with_memory_fixture("reset-causal-head", || {
         let mut memory = load().unwrap();
-        record_exchange(&mut memory, "안녕", "첫 번째 답변").unwrap();
+        record_exchange(&mut memory, "안녕", "첫 번째 답변", &[]).unwrap();
         clear(&mut memory).unwrap();
-        record_exchange(&mut memory, "안녕", "두 번째 답변").unwrap();
+        record_exchange(&mut memory, "안녕", "두 번째 답변", &[]).unwrap();
         clear(&mut memory).unwrap();
         clear(&mut memory).unwrap();
 
@@ -98,7 +98,12 @@ fn reset_is_a_unique_causal_head_for_repeated_questions() {
         assert_eq!(
             records
                 .iter()
-                .filter(|record| record.content == RESET_MARKER)
+                .filter(|record| {
+                    matches!(
+                        parse_conversation_event(&record.content),
+                        Some(ConversationEvent::Reset)
+                    )
+                })
                 .count(),
             3
         );
@@ -147,6 +152,7 @@ fn coding_exchange_is_canonical_and_prompt_history_keeps_budgetable_pairs() {
             &mut memory,
             "src/lib.rs를 리팩토링해줘",
             "변경 제안을 준비했습니다.",
+            &[],
         )
         .unwrap();
         assert_eq!(load().unwrap().turns, memory.turns);
@@ -165,5 +171,81 @@ fn coding_exchange_is_canonical_and_prompt_history_keeps_budgetable_pairs() {
         assert_eq!(prompt.len(), 600);
         assert_eq!(prompt.first().unwrap().content, "turn-0");
         assert_eq!(prompt.last().unwrap().content, "turn-599");
+    });
+}
+
+#[test]
+fn web_grounding_is_bounded_and_restored_for_followups_after_resume() {
+    with_memory_fixture("web-grounding-resume", || {
+        let mut memory = load().unwrap();
+        let grounding = vec![WebGroundingEvidence {
+            source_id: "source-espr".to_string(),
+            title: "Ecodesign for Sustainable Products Regulation".to_string(),
+            url: "https://example.com/espr".to_string(),
+            excerpt:
+                "ESPR means Ecodesign for Sustainable Products Regulation and establishes a framework."
+                    .repeat(200),
+        }];
+
+        record_exchange(
+            &mut memory,
+            "ESPR이 뭔지 검색해줘",
+            "ESPR 설명 [source-espr]",
+            &grounding,
+        )
+        .unwrap();
+
+        let restored = load().unwrap();
+        assert_eq!(restored.web_grounding().len(), 1);
+        assert_eq!(restored.web_grounding()[0].source_id, "source-espr");
+        assert!(restored.web_grounding()[0]
+            .excerpt
+            .contains("Ecodesign for Sustainable Products Regulation"));
+        assert!(
+            restored.web_grounding()[0].excerpt.chars().count() <= MAX_WEB_GROUNDING_EXCERPT_CHARS
+        );
+        assert!(conversation_records().iter().any(|record| {
+            matches!(
+                parse_conversation_event(&record.content),
+                Some(ConversationEvent::WebGrounding(_))
+            )
+        }));
+    });
+}
+
+#[test]
+fn versioned_events_preserve_legacy_reset_and_runtime_error_compatibility() {
+    with_memory_fixture("versioned-event-compatibility", || {
+        let identity = ledger::validated_current_identity().unwrap();
+        let owner = transcript_owner(&identity);
+        transcript::record_session_turn(
+            &owner,
+            "user",
+            "legacy-user",
+            "legacy failed request",
+            &[],
+        )
+        .unwrap();
+        transcript::record_session_turn(
+            &owner,
+            "evidence",
+            "legacy-error",
+            "legacy runtime error",
+            &[],
+        )
+        .unwrap();
+
+        let mut memory = load().unwrap();
+        assert_eq!(memory.turns[1].role, TuiConversationRole::Error);
+        assert_eq!(memory.turns[1].content, "legacy runtime error");
+
+        clear(&mut memory).unwrap();
+        assert!(load().unwrap().turns.is_empty());
+        assert!(conversation_records().iter().any(|record| {
+            matches!(
+                parse_conversation_event(&record.content),
+                Some(ConversationEvent::Reset)
+            )
+        }));
     });
 }

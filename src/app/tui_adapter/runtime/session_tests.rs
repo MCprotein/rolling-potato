@@ -16,6 +16,7 @@ fn fresh_session_compaction_never_targets_the_previous_session() {
         &mut memory,
         "이전 세션 질문",
         "이전 세션 답변",
+        &[],
     )
     .unwrap();
 
@@ -46,8 +47,14 @@ fn explicit_session_resume_restores_only_the_selected_conversation() {
     let mut first_memory = crate::app::tui_adapter::session_memory::load().unwrap();
     crate::app::tui_adapter::session_memory::record_exchange(
         &mut first_memory,
-        "내 이름은 감자야",
-        "이 세션에서만 기억하겠습니다.",
+        "ESPR이 뭔지 검색해줘",
+        "ESPR 설명 [source-espr]",
+        &[crate::app::web_search_adapter::WebGroundingEvidence {
+            source_id: "source-espr".to_string(),
+            title: "Ecodesign for Sustainable Products Regulation".to_string(),
+            url: "https://example.com/espr".to_string(),
+            excerpt: "ESPR is the Ecodesign for Sustainable Products Regulation.".to_string(),
+        }],
     )
     .unwrap();
 
@@ -57,6 +64,7 @@ fn explicit_session_resume_restores_only_the_selected_conversation() {
         &mut second_memory,
         "두 번째 세션 질문",
         "두 번째 세션 답변",
+        &[],
     )
     .unwrap();
 
@@ -77,9 +85,6 @@ fn explicit_session_resume_restores_only_the_selected_conversation() {
 
     let transition = runtime.resume_session(&first_session.session_id).unwrap();
 
-    std::env::remove_var("RPOTATO_PROJECT_ROOT");
-    std::env::remove_var("RPOTATO_DATA_HOME");
-    let _ = std::fs::remove_dir_all(root);
     assert_eq!(transition.session_id, first_session.session_id);
     assert_eq!(
         transition
@@ -87,13 +92,20 @@ fn explicit_session_resume_restores_only_the_selected_conversation() {
             .iter()
             .map(|turn| turn.content.as_str())
             .collect::<Vec<_>>(),
-        ["내 이름은 감자야", "이 세션에서만 기억하겠습니다."]
+        ["ESPR이 뭔지 검색해줘", "ESPR 설명 [source-espr]"]
     );
     assert!(!transition
         .turns
         .iter()
         .any(|turn| turn.content.contains("두 번째 세션")));
     assert_eq!(runtime.web_pages.len(), 0);
+    assert_eq!(
+        runtime.conversation_memory().unwrap().web_grounding()[0].source_id,
+        "source-espr"
+    );
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]

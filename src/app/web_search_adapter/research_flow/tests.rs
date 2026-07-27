@@ -47,9 +47,11 @@ fn opened_primary_document_overrides_conflicting_search_snippet() {
     ] {
         std::env::remove_var(name);
     }
-    assert!(answer.contains("OFFICIAL-CORRECT"));
-    assert!(!answer.contains("SNIPPET-WRONG"));
-    assert!(answer.contains("https://example.com/release"));
+    assert!(answer.response.contains("OFFICIAL-CORRECT"));
+    assert!(!answer.response.contains("SNIPPET-WRONG"));
+    assert!(answer.response.contains("https://example.com/release"));
+    assert_eq!(answer.grounding.len(), 1);
+    assert!(answer.grounding[0].excerpt.contains("OFFICIAL-CORRECT"));
     assert_eq!(pages.len(), 1);
 }
 
@@ -113,9 +115,12 @@ fn long_korean_evidence_is_softly_truncated_and_still_returns_grounded_answer() 
     ] {
         std::env::remove_var(name);
     }
-    assert!(answer.contains("웹 검색은 완료했지만"), "{answer}");
-    assert!(answer.contains("https://example.com/espr-primary"));
-    assert!(!answer.contains("웹 근거 상한"));
+    assert!(
+        answer.response.contains("웹 검색은 완료했지만"),
+        "{answer:?}"
+    );
+    assert!(answer.response.contains("https://example.com/espr-primary"));
+    assert!(!answer.response.contains("웹 근거 상한"));
     assert!(!research.has_evidence_capacity());
 }
 
@@ -140,4 +145,28 @@ fn supporting_find_uses_a_bounded_query_term() {
         Some("release".to_string())
     );
     assert_eq!(longest_query_term("a 1"), None);
+}
+
+#[test]
+fn cached_grounding_answers_referential_followups_without_new_network_access() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    std::env::set_var("RPOTATO_TEST_WEB_RESEARCH_NO_MODEL", "1");
+    let grounding = vec![WebGroundingEvidence {
+        source_id: "source-espr".to_string(),
+        title: "Ecodesign for Sustainable Products Regulation".to_string(),
+        url: "https://example.com/espr".to_string(),
+        excerpt: "ESPR is the Ecodesign for Sustainable Products Regulation. It establishes a framework for sustainable product requirements.".to_string(),
+    }];
+
+    let answer = answer_from_grounding(
+        "방금 검색한 ESPR의 정식 영문명은?",
+        r#"{"role":"user","content":"ESPR 검색해줘"}"#,
+        &grounding,
+    )
+    .unwrap();
+
+    std::env::remove_var("RPOTATO_TEST_WEB_RESEARCH_NO_MODEL");
+    assert!(answer.contains("Ecodesign for Sustainable Products Regulation"));
+    assert!(answer.contains("[source-espr]"));
+    assert!(answer.contains("https://example.com/espr"));
 }
