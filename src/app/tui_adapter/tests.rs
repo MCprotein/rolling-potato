@@ -311,26 +311,6 @@ fn interactive_status_bar_uses_real_metric_labels_below_the_ansi_input_line() {
 }
 
 #[test]
-fn interactive_status_bar_does_not_render_nonzero_context_as_zero_percent() {
-    let state = InteractiveState::new();
-    let page = TuiReadPage::conversation_placeholder();
-    let status = TuiStatusSnapshot {
-        model: "qwen3.5-4b".to_string(),
-        context_tokens_used: Some(624),
-        context_limit_tokens: Some(262_144),
-        has_compaction_checkpoint: false,
-        backend: TuiBackendStatus::Ready,
-        vision: crate::surfaces::tui::runtime_bridge::TuiVisionStatus::OnDemand,
-        session_id: "session-test".to_string(),
-    };
-
-    let frame = render_interactive_frame_with_options(&state, &page, &status, 100, 30, true, false);
-
-    assert!(frame.contains("ctx 624/262144 (<1%)"));
-    assert!(!frame.contains("ctx 624/262144 (0%)"));
-}
-
-#[test]
 fn no_color_forces_a_plain_frame_without_layout_escape_sequences() {
     let state = InteractiveState::new();
     let page = TuiReadPage {

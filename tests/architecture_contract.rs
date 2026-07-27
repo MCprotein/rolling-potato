@@ -6416,7 +6416,7 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
     for responsibility in [
         "fn reset_is_a_unique_causal_head_for_repeated_questions(",
         "fn reset_discards_an_orphan_user_before_a_later_model_record(",
-        "fn coding_exchange_is_canonical_and_prompt_history_is_bounded(",
+        "fn coding_exchange_is_canonical_and_prompt_history_keeps_budgetable_pairs(",
     ] {
         assert!(
             session_tests.contains(responsibility),
@@ -6607,6 +6607,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let tui_facade = fs::read_to_string("src/app/tui_adapter.rs").unwrap();
     let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
     let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
+    let web_tools = fs::read_to_string("src/app/tui_adapter/web_tools.rs").unwrap();
     let tui_controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
     let tui_bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
     let transport = fs::read_to_string("src/adapters/web_search/transport.rs").unwrap();
@@ -6657,7 +6658,9 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(tui_controller.contains("mod source_selection;"));
     assert!(tui_controller.contains("[\"/sources\"]"));
     assert!(tui_bridge.contains("struct TuiWebSourceOption"));
-    assert!(tui_request.contains("web_tools::dispatch"));
+    assert!(tui_request.contains("web_search_adapter::route_tool_request"));
+    assert!(tui_request.contains("web_tools::execute"));
+    assert!(!web_tools.contains("route_tool_request"));
     assert!(transport.contains("ureq::Agent::with_parts"));
     assert!(transport.contains("PublicWebResolver"));
     assert!(page_parser.contains("scan_html"));
@@ -6704,10 +6707,15 @@ fn web_search_open_find_have_separate_bounded_owners() {
             < 125
     );
     let research_flow = fs::read_to_string("src/app/web_search_adapter/research_flow.rs").unwrap();
-    assert!(research_flow.contains("opened_primary_document_overrides_conflicting_search_snippet"));
+    let research_flow_tests =
+        fs::read_to_string("src/app/web_search_adapter/research_flow/tests.rs").unwrap();
+    assert!(research_flow.contains("#[path = \"research_flow/tests.rs\"]"));
+    assert!(research_flow_tests
+        .contains("opened_primary_document_overrides_conflicting_search_snippet"));
     assert!(research_flow.contains("search.sources.iter().take(3)"));
     assert!(research_flow.contains("supporting_passages("));
     assert!(research_flow.lines().count() < 350);
+    assert!(research_flow_tests.lines().count() < 225);
     assert!(tui_runtime.lines().count() <= 200);
     assert!(tui_request.lines().count() < 150);
 }

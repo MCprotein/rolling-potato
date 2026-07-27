@@ -115,3 +115,26 @@ fn short_status_id(value: &str) -> String {
         format!("{}…", value.chars().take(11).collect::<String>())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nonzero_context_below_one_percent_is_visible() {
+        let status = TuiStatusSnapshot {
+            model: "qwen3.5-4b".to_string(),
+            context_tokens_used: Some(624),
+            context_limit_tokens: Some(262_144),
+            has_compaction_checkpoint: false,
+            backend: TuiBackendStatus::Ready,
+            vision: TuiVisionStatus::OnDemand,
+            session_id: "session-test".to_string(),
+        };
+
+        let line = render_status_line(&status, None, 100, false);
+
+        assert!(line.contains("ctx 624/262144 (<1%)"));
+        assert!(!line.contains("ctx 624/262144 (0%)"));
+    }
+}

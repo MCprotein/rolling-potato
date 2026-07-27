@@ -8334,6 +8334,21 @@
       ]
     },
     {
+      "path": "src/app/web_search_adapter/research_flow/tests.rs",
+      "slices": [
+        {
+          "responsibility": "web research orchestration, evidence-budget, and conversation-grounding regression tests",
+          "target": "src/app/web_search_adapter/research_flow/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/research_flow/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/tui/controller/source_selection.rs",
       "slices": [
         {
@@ -11685,6 +11700,12 @@
       "path": "src/app/web_search_adapter/research_flow.rs",
       "responsibilities": [
         "per-request search-open-find research orchestration and opened-document evidence priority"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/research_flow/tests.rs",
+      "responsibilities": [
+        "web research orchestration, evidence-budget, and conversation-grounding regression tests"
       ]
     },
     {
