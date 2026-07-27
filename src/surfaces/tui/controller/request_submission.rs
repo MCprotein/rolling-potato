@@ -1,7 +1,7 @@
 //! Synchronous request submission with live terminal progress presentation.
 
 use crate::foundation::error::AppError;
-use crate::runtime_core::terminal::TerminalIo;
+use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalIo};
 
 use super::super::runtime_bridge::{TuiAttachment, TuiStatusSnapshot};
 use super::super::view_model::{ConversationRole, InteractiveState, InteractiveView};
@@ -62,7 +62,13 @@ pub(super) fn submit_request_with_progress(
     let started = std::time::Instant::now();
     state.notice = activity_notice(SPINNER[0], started.elapsed(), progress);
     write_pending_conversation_frame_with_status(
-        terminal, state, &status, width, height, &intent_id,
+        terminal,
+        state,
+        &status,
+        width,
+        height,
+        &intent_id,
+        FrameWriteBoundary::PreDispatch,
     )?;
 
     let mut frame_error = None;
@@ -78,7 +84,13 @@ pub(super) fn submit_request_with_progress(
                 activity_notice(SPINNER[tick % SPINNER.len()], started.elapsed(), progress);
             tick += 1;
             if let Err(error) = write_pending_conversation_frame_with_status(
-                terminal, state, &status, width, height, &intent_id,
+                terminal,
+                state,
+                &status,
+                width,
+                height,
+                &intent_id,
+                FrameWriteBoundary::PostDispatch,
             ) {
                 frame_error = Some(error);
             }

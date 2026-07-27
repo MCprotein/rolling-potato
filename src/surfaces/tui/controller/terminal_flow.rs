@@ -87,7 +87,13 @@ pub(super) fn write_pending_conversation_frame(
         .unwrap_or_else(|_| TuiStatusSnapshot::unavailable());
     let intent_id = runtime.new_tui_intent_id();
     write_pending_conversation_frame_with_status(
-        terminal, state, &status, width, height, &intent_id,
+        terminal,
+        state,
+        &status,
+        width,
+        height,
+        &intent_id,
+        FrameWriteBoundary::PreDispatch,
     )
 }
 
@@ -98,6 +104,7 @@ pub(super) fn write_pending_conversation_frame_with_status(
     width: u16,
     height: u16,
     intent_id: &str,
+    boundary: FrameWriteBoundary,
 ) -> Result<(), AppError> {
     let frame = super::super::render::render_interactive_frame_with_options(
         state,
@@ -109,8 +116,13 @@ pub(super) fn write_pending_conversation_frame_with_status(
         terminal.supports_color(),
     );
     terminal
-        .write_frame_at(&frame, FrameWriteBoundary::Ordinary)
-        .map_err(|_| pre_dispatch_write_error(intent_id))
+        .write_frame_at(&frame, boundary)
+        .map_err(|_| match boundary {
+            FrameWriteBoundary::PostDispatch => post_dispatch_write_error(intent_id),
+            FrameWriteBoundary::Ordinary | FrameWriteBoundary::PreDispatch => {
+                pre_dispatch_write_error(intent_id)
+            }
+        })
 }
 
 pub(crate) fn terminal_fault_error(fault: TerminalFault) -> AppError {

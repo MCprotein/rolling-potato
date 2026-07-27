@@ -425,6 +425,26 @@ fn slow_requests_refresh_a_spinner_and_live_context_estimate() {
 }
 
 #[test]
+fn progress_frame_failure_after_dispatch_never_invites_request_replay() {
+    let mut terminal = ScriptedTerminal::new(["느린 요청", "/quit"]);
+    terminal.frame_fault_at = Some((
+        crate::runtime_core::terminal::FrameWriteBoundary::PostDispatch,
+        crate::runtime_core::terminal::TerminalFault::FrameWrite,
+    ));
+    let mut runtime = ConversationRuntime {
+        submit_delay_ms: 280,
+        ..ConversationRuntime::default()
+    };
+
+    let error = run_controller(&mut terminal, &mut runtime).unwrap_err();
+
+    assert_eq!(runtime.requests, ["느린 요청"]);
+    assert!(error.message.contains("terminal.frame-write.post-dispatch"));
+    assert!(error.message.contains("요청을 다시 보내지 않습니다"));
+    assert!(!error.message.contains("런타임 요청을 보내지 않았습니다"));
+}
+
+#[test]
 fn model_command_uses_keyboard_choices_and_applies_the_selection() {
     let mut terminal = ScriptedTerminal::new(["/model", "2", "2", "/quit"]);
     let mut runtime = ConversationRuntime {

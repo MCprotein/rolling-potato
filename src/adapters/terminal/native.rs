@@ -232,6 +232,7 @@ pub struct ScriptedTerminal {
     secrets: std::collections::VecDeque<Result<Option<String>, TerminalFault>>,
     pub frames: Vec<String>,
     pub frame_fault: Option<TerminalFault>,
+    pub frame_fault_at: Option<(FrameWriteBoundary, TerminalFault)>,
 }
 
 #[cfg(test)]
@@ -247,6 +248,7 @@ impl ScriptedTerminal {
             secrets: std::collections::VecDeque::new(),
             frames: Vec::new(),
             frame_fault: None,
+            frame_fault_at: None,
         }
     }
 }
@@ -271,6 +273,24 @@ impl TerminalIo for ScriptedTerminal {
         }
         self.frames.push(frame.to_string());
         Ok(())
+    }
+
+    fn write_frame_at(
+        &mut self,
+        frame: &str,
+        boundary: FrameWriteBoundary,
+    ) -> Result<(), TerminalFault> {
+        if self
+            .frame_fault_at
+            .is_some_and(|(expected, _)| expected == boundary)
+        {
+            return Err(self
+                .frame_fault_at
+                .take()
+                .expect("matching boundary fault")
+                .1);
+        }
+        self.write_frame(frame)
     }
 }
 
