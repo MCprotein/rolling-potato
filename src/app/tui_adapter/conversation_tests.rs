@@ -180,6 +180,22 @@ fn controller_starts_fresh_until_a_session_is_explicitly_resumed() {
 }
 
 #[test]
+fn controller_surfaces_status_read_failures_instead_of_silently_zeroing_context() {
+    let mut terminal = ScriptedTerminal::new(["/quit"]);
+    let mut runtime = ConversationRuntime {
+        status_failure: Some("transcript 상태 복원 실패".to_string()),
+        ..ConversationRuntime::default()
+    };
+
+    run_controller(&mut terminal, &mut runtime).unwrap();
+
+    let rendered = terminal.frames.join("\n");
+    assert!(rendered.contains("상태 정보를 읽지 못했습니다."));
+    assert!(rendered.contains("transcript 상태 복원 실패"));
+    assert!(rendered.contains("/doctor"));
+}
+
+#[test]
 fn resume_command_uses_a_picker_and_rehydrates_only_the_selected_session() {
     let mut terminal = ScriptedTerminal::new(["/resume", "2", "/quit"]);
     let mut runtime = ConversationRuntime {
@@ -705,6 +721,7 @@ struct ConversationRuntime {
     progress_hint: Option<String>,
     submit_delay_ms: u64,
     context_estimate: Option<u32>,
+    status_failure: Option<String>,
 }
 
 impl TuiRuntimePort for ConversationRuntime {
@@ -743,6 +760,9 @@ impl TuiRuntimePort for ConversationRuntime {
     }
 
     fn read_tui_status(&mut self) -> Result<TuiStatusSnapshot, AppError> {
+        if let Some(message) = &self.status_failure {
+            return Err(AppError::runtime(message));
+        }
         Ok(TuiStatusSnapshot::unavailable())
     }
 

@@ -108,13 +108,11 @@ pub(super) fn write_pre_dispatch_frame(
 pub(super) fn write_pending_conversation_frame(
     terminal: &mut impl TerminalIo,
     runtime: &mut impl TuiRuntimePort,
-    state: &InteractiveState,
+    state: &mut InteractiveState,
     width: u16,
     height: u16,
 ) -> Result<(), AppError> {
-    let status = runtime
-        .read_tui_status()
-        .unwrap_or_else(|_| TuiStatusSnapshot::unavailable());
+    let status = super::read_status_or_notice(runtime, state);
     let intent_id = runtime.new_tui_intent_id();
     write_pending_conversation_frame_with_status(
         terminal,

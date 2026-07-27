@@ -72,6 +72,22 @@ pub(crate) trait TuiRuntimePort: Send {
     fn dispatch_tui_intent(&mut self, intent: TuiIntent) -> Result<TuiOutcome, AppError>;
 }
 
+fn read_status_or_notice(
+    runtime: &mut impl TuiRuntimePort,
+    state: &mut InteractiveState,
+) -> TuiStatusSnapshot {
+    match runtime.read_tui_status() {
+        Ok(status) => status,
+        Err(error) => {
+            state.notice = format!(
+                "상태 정보를 읽지 못했습니다.\n- 이유: {}\n/doctor로 runtime 상태를 확인하세요.",
+                error.message
+            );
+            TuiStatusSnapshot::unavailable()
+        }
+    }
+}
+
 pub(crate) fn run_controller(
     terminal: &mut impl TerminalIo,
     runtime: &mut impl TuiRuntimePort,
@@ -94,9 +110,7 @@ pub(crate) fn run_controller(
             let request = state.read_request(width, height);
             runtime.read_tui_page(request)?
         };
-        let status = runtime
-            .read_tui_status()
-            .unwrap_or_else(|_| TuiStatusSnapshot::unavailable());
+        let status = read_status_or_notice(runtime, &mut state);
         let frame = super::render::render_interactive_frame_with_options(
             &state,
             &page,
