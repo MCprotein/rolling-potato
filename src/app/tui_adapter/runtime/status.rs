@@ -70,12 +70,13 @@ pub(super) fn read(adapter: &mut TuiRuntimeAdapter) -> Result<TuiStatusSnapshot,
     let retained_context_tokens = if adapter.fresh_session_pending {
         None
     } else {
-        context_limit_tokens.and_then(|limit| {
-            adapter.conversation_memory().ok().and_then(|memory| {
-                let history = memory.prompt_history();
+        match context_limit_tokens {
+            Some(limit) => {
+                let history = adapter.conversation_memory()?.prompt_history();
                 (!history.is_empty()).then(|| estimate_retained_tokens(&history, "", &[], limit))
-            })
-        })
+            }
+            None => None,
+        }
     };
     let context_tokens_used = retained_context_tokens.or(latest_context_tokens);
     let vision = vision_status(Some(&backend));

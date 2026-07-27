@@ -9,7 +9,6 @@ use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationT
 
 const CONVERSATION_STREAM_ID: &str = "tui-conversation";
 const RESET_MARKER: &str = "tui conversation reset boundary";
-const MAX_PROMPT_HISTORY_TURNS: usize = 512;
 const MAX_RUNTIME_ERROR_CHARS: usize = 2_048;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,8 +32,7 @@ impl ConversationMemory {
     }
 
     pub(super) fn prompt_history(&self) -> Vec<TuiConversationTurn> {
-        let start = self.turns.len().saturating_sub(MAX_PROMPT_HISTORY_TURNS);
-        self.turns[start..].to_vec()
+        self.turns.clone()
     }
 }
 

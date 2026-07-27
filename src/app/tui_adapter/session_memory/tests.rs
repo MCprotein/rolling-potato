@@ -140,8 +140,8 @@ fn reset_discards_an_orphan_user_before_a_later_model_record() {
 }
 
 #[test]
-fn coding_exchange_is_canonical_and_prompt_history_is_bounded() {
-    with_memory_fixture("coding-and-bounded", || {
+fn coding_exchange_is_canonical_and_prompt_history_keeps_budgetable_pairs() {
+    with_memory_fixture("coding-and-budgetable", || {
         let mut memory = load().unwrap();
         record_exchange(
             &mut memory,
@@ -162,8 +162,8 @@ fn coding_exchange_is_canonical_and_prompt_history_is_bounded() {
             })
             .collect();
         let prompt = memory.prompt_history();
-        assert_eq!(prompt.len(), MAX_PROMPT_HISTORY_TURNS);
-        assert_eq!(prompt.first().unwrap().content, "turn-88");
+        assert_eq!(prompt.len(), 600);
+        assert_eq!(prompt.first().unwrap().content, "turn-0");
         assert_eq!(prompt.last().unwrap().content, "turn-599");
     });
 }

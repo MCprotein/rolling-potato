@@ -352,19 +352,34 @@ fn is_agent_identity_request(request: &str) -> bool {
         .chars()
         .filter(|character| !character.is_whitespace())
         .collect::<String>();
-    [
-        "넌누구",
-        "너는누구",
-        "너누구",
-        "네정체",
-        "너정체",
-        "네이름",
-        "너이름",
-    ]
-    .iter()
-    .any(|signal| compact.contains(signal))
-        || lower.contains("who are you")
-        || lower.contains("what is your name")
+    let direct = compact.trim_matches(|character: char| {
+        character.is_ascii_punctuation() || matches!(character, '？' | '。' | '！' | '…' | '·')
+    });
+    matches!(
+        direct,
+        "넌누구"
+            | "넌누구야"
+            | "넌누구니"
+            | "너는누구"
+            | "너는누구야"
+            | "너는누구니"
+            | "너누구"
+            | "너누구야"
+            | "너누구니"
+            | "네정체가뭐야"
+            | "너정체가뭐야"
+            | "네이름이뭐야"
+            | "네이름뭐야"
+            | "네이름이뭔데"
+            | "너이름이뭐야"
+            | "너이름뭐야"
+            | "너이름이뭔데"
+    ) || matches!(
+        lower.trim_matches(
+            |character: char| character.is_ascii_punctuation() || character.is_whitespace()
+        ),
+        "who are you" | "what is your name"
+    )
 }
 
 fn report_field<'a>(report: &'a str, field: &str) -> Option<&'a str> {
@@ -448,6 +463,7 @@ fn is_english_action_request(words: &[&str]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::surfaces::tui::runtime_bridge::TuiConversationRole;
 
     #[test]
     fn general_questions_use_conversation_without_stealing_agent_tasks() {
@@ -507,6 +523,20 @@ mod tests {
                 "{contextual_followup}는 대화 문맥을 모델에 전달해야 합니다."
             );
         }
+        for contextual_second_person in [
+            "너 이름 전에 감자라고 정했는데 기억해?",
+            "아까 네 이름이 뭐라고 했지?",
+        ] {
+            assert_eq!(
+                local_reply(
+                    contextual_second_person,
+                    Some("ignored"),
+                    TuiVisionStatus::OnDemand
+                ),
+                None,
+                "{contextual_second_person}는 직접 정체성 질문이 아닙니다."
+            );
+        }
         assert_eq!(
             local_reply(
                 "이 모델 코드를 수정해줘",
@@ -523,6 +553,27 @@ mod tests {
             ),
             None
         );
+    }
+
+    #[test]
+    fn web_conversation_context_rejects_an_invalid_model_window() {
+        let history = vec![
+            TuiConversationTurn {
+                role: TuiConversationRole::User,
+                content: "ESPR이 뭔지 검색해줘".to_string(),
+            },
+            TuiConversationTurn {
+                role: TuiConversationRole::Error,
+                content: "웹 검색 근거를 찾지 못했습니다.".to_string(),
+            },
+        ];
+
+        let error = render_web_conversation_context(&history, "방금 오류가 무슨 뜻이야?", 1_024)
+            .unwrap_err();
+
+        assert!(error
+            .message
+            .contains("context length가 prompt를 조립하기에 너무 작습니다"));
     }
 
     #[test]

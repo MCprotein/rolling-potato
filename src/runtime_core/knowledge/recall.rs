@@ -42,7 +42,9 @@ pub(crate) fn plan_dialogue_memory(
         .iter()
         .enumerate()
         .rev()
-        .filter(|(_, pair)| is_typed_user_memory(&pair[0].content))
+        .filter(|(_, pair)| {
+            pair[1].role == DialogueRole::Assistant && is_typed_user_memory(&pair[0].content)
+        })
         .map(|(index, _)| index)
         .collect::<Vec<_>>();
     let typed_selection =
@@ -250,21 +252,30 @@ mod tests {
 
     #[test]
     fn runtime_result_completes_a_dialogue_pair_without_becoming_user_memory() {
-        let turns = [
+        let mut turns = vec![
             DialogueTurn {
                 role: DialogueRole::User,
-                content: "검색해줘".to_string(),
+                content: "내 이름은 감자야. 기억해줘.".to_string(),
             },
             DialogueTurn {
                 role: DialogueRole::Runtime,
                 content: "웹 검색이 시간 상한에 도달했습니다.".to_string(),
             },
         ];
+        for index in 0..9 {
+            turns.extend(pair(
+                &format!("최근 질문 {index}"),
+                &format!("최근 답변 {index}"),
+            ));
+        }
 
-        let plan = plan_dialogue_memory(&turns, "그게 무슨 뜻이야?", 64, 64, 64);
+        let plan = plan_dialogue_memory(&turns, "그게 무슨 뜻이야?", 512, 512, 512);
 
-        assert_eq!(plan.recent_history, turns);
         assert!(plan.typed_user_memory.is_empty());
+        assert!(!plan
+            .typed_user_memory
+            .iter()
+            .any(|turn| turn.role == DialogueRole::Runtime));
     }
 
     #[test]

@@ -2,6 +2,7 @@
 
 use super::super::{attachment, conversation, web_tools, TuiRuntimeAdapter};
 use super::backend::{ensure_runtime_ready, vision_status, RuntimeRequirement};
+use crate::app::web_search_adapter::{self, WebToolRoute};
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::runtime_bridge::{TuiAttachment, TuiConversationTurn};
 use std::time::Instant;
@@ -42,11 +43,6 @@ fn execute_routed(
     let vision = vision_status(backend.as_ref());
     let input = attachment::compose_request(request, attachments, context_limit_tokens)?;
     let local_context = input.text.as_str();
-    let web_conversation_context = context_limit_tokens
-        .and_then(|limit| {
-            conversation::render_web_conversation_context(history, user_request, limit).ok()
-        })
-        .unwrap_or_default();
     if !input.images.is_empty() {
         ensure_runtime_ready(RuntimeRequirement::Vision)?;
         return conversation::reply_with_images(
@@ -55,15 +51,22 @@ fn execute_routed(
             required_context_limit(context_limit_tokens)?,
         );
     }
-    if let Some(result) = web_tools::dispatch(
-        &mut web_research,
-        &mut adapter.web_pages,
-        user_request,
-        local_context,
-        &web_conversation_context,
-        web_started.elapsed(),
-    ) {
-        return result;
+    if let Some(route) = web_search_adapter::route_tool_request(user_request) {
+        let web_conversation_context = match &route {
+            WebToolRoute::Search { .. } => {
+                web_conversation_context(history, user_request, context_limit_tokens)?
+            }
+            _ => String::new(),
+        };
+        return web_tools::execute(
+            &mut web_research,
+            &mut adapter.web_pages,
+            route,
+            user_request,
+            local_context,
+            &web_conversation_context,
+            web_started.elapsed(),
+        );
     }
     if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref(), vision) {
         return Ok(reply);
@@ -82,6 +85,8 @@ fn execute_routed(
             return crate::app::browser_adapter::search_form(tool);
         }
         conversation::RequestDecision::WebTool(tool) => {
+            let web_conversation_context =
+                web_conversation_context(history, user_request, context_limit_tokens)?;
             return web_tools::execute(
                 &mut web_research,
                 &mut adapter.web_pages,
@@ -104,6 +109,21 @@ fn execute_routed(
     }
     crate::app::runtime_adapter::agent_run_report(local_context)
         .map(|report| conversation::present_agent_report(&report))
+}
+
+fn web_conversation_context(
+    history: &[TuiConversationTurn],
+    user_request: &str,
+    context_limit_tokens: Option<u32>,
+) -> Result<String, AppError> {
+    if history.is_empty() {
+        return Ok(String::new());
+    }
+    conversation::render_web_conversation_context(
+        history,
+        user_request,
+        required_context_limit(context_limit_tokens)?,
+    )
 }
 
 fn required_context_limit(context_limit_tokens: Option<u32>) -> Result<u32, AppError> {

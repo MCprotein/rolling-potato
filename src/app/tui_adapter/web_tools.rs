@@ -4,26 +4,6 @@ use crate::app::web_search_adapter::{
 use crate::foundation::error::AppError;
 use std::time::Duration;
 
-pub(super) fn dispatch(
-    research: &mut WebResearchSession,
-    pages: &mut WebPageSession,
-    request: &str,
-    local_context: &str,
-    conversation_context: &str,
-    elapsed: Duration,
-) -> Option<Result<String, AppError>> {
-    let route = web_search_adapter::route_tool_request(request)?;
-    Some(execute(
-        research,
-        pages,
-        route,
-        request,
-        local_context,
-        conversation_context,
-        elapsed,
-    ))
-}
-
 pub(super) fn execute(
     research: &mut WebResearchSession,
     pages: &mut WebPageSession,
