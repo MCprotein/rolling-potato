@@ -1124,3 +1124,40 @@
 - Compile-time 경계 테스트는 parent가 하위 모듈을 선언하는지와 실제 authority
   호출이 하위 모듈에 존재하는지를 각각 검증하고, 금지된 직접 의존성은 두 파일
   모두에서 검사합니다.
+
+## 2026-07-27: 누적 대화량과 웹 근거 한도를 단일 호출·hard failure로 모델링함
+
+### 증상
+
+- TUI의 `ctx`가 여러 대화 뒤에도 마지막 model run의 prompt token 수에 머물러
+  실제 보존된 대화가 증가하는 모습을 표시하지 못했습니다.
+- 웹 근거가 8 KiB에 도달하면 이미 확보한 검색 결과와 원문까지 버리고 요청 전체를
+  실패시켰습니다. 실패한 사용자 요청과 runtime 오류도 transcript에 남지 않아
+  다음 질문이 오류의 맥락을 알 수 없었습니다.
+- `내 이름이 뭐였지?` 같은 문맥 의존 질문을 agent 정체성 질문으로 오분류해
+  정상적인 대화 회상을 고정 응답이 가렸습니다.
+
+### 원인
+
+- 상태 표시를 durable conversation이 아니라 observability의 최신 단일 model run에
+  결합했습니다.
+- Evidence byte budget을 수집 중단 경계가 아닌 research terminal state로 사용했고,
+  한국어처럼 UTF-8 byte 폭이 큰 자료와 여러 출처를 포함한 fixture가 없었습니다.
+- 성공한 user/model pair만 대화로 보존하고 runtime-owned 실패 결과를 버렸으며,
+  agent identity shortcut이 명시적 2인칭 표현 없이도 동작했습니다.
+
+### 재발 방지
+
+- Idle `ctx`는 현재 session의 보존된 완료 대화와 첨부를 기준으로 계산하고, 진행 중
+  예상치와 동일한 estimator를 사용합니다. 0보다 큰 사용량은 정수 반올림 때문에
+  `0%`로 표시하지 않습니다.
+- 웹 evidence budget 소진은 soft truncation으로 처리합니다. 새 근거 수집은 멈추되
+  이미 확보한 snippet·원문·검증 URL로 최종 답변 또는 출처 fallback을 만듭니다.
+  Supporting passage도 같은 byte budget을 통과시킵니다.
+- 실패한 user request와 bounded runtime error를 canonical transcript pair로 남겨
+  후속 prompt와 웹 최종 합성에 `runtime` 역할로 전달합니다.
+- Agent 정체성 shortcut은 `너·네·your`처럼 발화 대상을 명시한 질문에만 적용합니다.
+  문맥 의존 이름·대명사 질문은 conversation memory를 거치는 회귀 테스트와 실제
+  promoted model smoke로 검증합니다.
+- Candidate 전에는 긴 한국어 근거의 soft truncation, 실패 turn 복원, 누적 `ctx`
+  증가, 실제 검색 뒤 no-web 후속 답변을 각각 검증합니다.
