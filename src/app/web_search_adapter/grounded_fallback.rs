@@ -183,7 +183,7 @@ fn extract_passages(excerpt: &str) -> Vec<String> {
         .flat_map(|line| {
             let decoded = decode_display_entities(line.trim());
             decoded
-                .split_inclusive(|character| matches!(character, '.' | '!' | '?' | '。'))
+                .split_inclusive(['.', '!', '?', '。'])
                 .map(str::trim)
                 .filter(|passage| meaningful_chars(passage) >= 8)
                 .map(str::to_string)

@@ -72,7 +72,7 @@ pub(crate) fn plan_borrowed_dialogue_memory(
         .enumerate()
         .rev()
         .filter(|(_, pair)| {
-            pair[1].role == DialogueRole::Assistant && is_typed_user_memory(&pair[0].content)
+            pair[1].role == DialogueRole::Assistant && is_typed_user_memory(pair[0].content)
         })
         .map(|(index, _)| index)
         .collect::<Vec<_>>();
@@ -195,11 +195,11 @@ fn bounded_pair(pair: &[DialogueTurnRef<'_>], budget_tokens: usize) -> Vec<Dialo
     let bounded = vec![
         DialogueTurn {
             role: pair[0].role,
-            content: truncate_tail_to_estimated_tokens(&pair[0].content, user_budget),
+            content: truncate_tail_to_estimated_tokens(pair[0].content, user_budget),
         },
         DialogueTurn {
             role: pair[1].role,
-            content: truncate_tail_to_estimated_tokens(&pair[1].content, assistant_budget),
+            content: truncate_tail_to_estimated_tokens(pair[1].content, assistant_budget),
         },
     ];
     if !bounded.iter().any(|turn| turn.content.is_empty())
@@ -213,7 +213,7 @@ fn bounded_pair(pair: &[DialogueTurnRef<'_>], budget_tokens: usize) -> Vec<Dialo
 
 fn pair_token_cost(pair: &[DialogueTurnRef<'_>]) -> usize {
     pair.iter()
-        .map(|turn| estimate_tokens(&turn.content).saturating_add(8))
+        .map(|turn| estimate_tokens(turn.content).saturating_add(8))
         .sum()
 }
 
