@@ -59,15 +59,30 @@ pub(crate) fn parse_agent_web_tool(response: &str) -> Option<WebResearchStep> {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn parse_agent_web_tool_for_request(
     response: &str,
     current_request: &str,
+) -> Option<WebResearchStep> {
+    parse_agent_web_tool_for_user_context(response, current_request, &[])
+}
+
+pub(crate) fn parse_agent_web_tool_for_user_context(
+    response: &str,
+    current_request: &str,
+    prior_user_requests: &[&str],
 ) -> Option<WebResearchStep> {
     if conversational_progress_followup(current_request) {
         return None;
     }
     let step = parse_agent_web_tool(response)?;
-    literal_projection(step.input(), current_request).then_some(step)
+    match step {
+        WebResearchStep::Search { query } => {
+            super::query::contextualize_search_input(&query, current_request, prior_user_requests)
+                .map(|query| WebResearchStep::Search { query })
+        }
+        step => literal_projection(step.input(), current_request).then_some(step),
+    }
 }
 
 fn nonempty(value: &str) -> Option<&str> {

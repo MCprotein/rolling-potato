@@ -342,13 +342,23 @@ impl WebResearchSession {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn deterministic_freshness_fallback(request: &str) -> Option<WebResearchStep> {
+    deterministic_freshness_fallback_for_context(request, &[])
+}
+
+pub(crate) fn deterministic_freshness_fallback_for_context(
+    request: &str,
+    prior_user_requests: &[&str],
+) -> Option<WebResearchStep> {
     let request = request.trim();
     if request.is_empty() || super::routing::web_disabled(request) || !needs_fresh_web(request) {
         return None;
     }
+    let query = super::routing::contextualize_search_input(request, request, prior_user_requests)
+        .unwrap_or_else(|| request.to_string());
     let mut research = WebResearchSession::default();
-    match research.deterministic_fallback(request, &[], Duration::ZERO) {
+    match research.deterministic_fallback(&query, &[], Duration::ZERO) {
         WebResearchAdmission::Execute(step) => Some(step),
         WebResearchAdmission::Stop(_) => None,
     }
@@ -377,6 +387,7 @@ fn needs_fresh_web(request: &str) -> bool {
         "검색하여",
         "찾아줘",
         "찾아봐",
+        "찾아보",
         "웹에서",
         "인터넷에서",
         "최신",
@@ -617,7 +628,7 @@ mod tests {
     fn freshness_fallback_is_bounded_and_respects_web_opt_out() {
         assert_eq!(
             deterministic_freshness_fallback("최신 Rust 릴리스를 찾아줘"),
-            Some(search("최신 Rust 릴리스를 찾아줘"))
+            Some(search("최신 Rust 릴리스를"))
         );
         assert!(deterministic_freshness_fallback(
             "인터넷 검색하지 말고 최신 Rust 릴리스를 설명해줘"
@@ -630,6 +641,20 @@ mod tests {
             panic!("freshness query should route to search");
         };
         assert_eq!(query.chars().count(), MAX_TOOL_INPUT_CHARS);
+    }
+
+    #[test]
+    fn freshness_fallback_resolves_meta_search_from_recent_user_topic() {
+        let Some(WebResearchStep::Search { query }) = deterministic_freshness_fallback_for_context(
+            "검색해봐 끝낫어",
+            &["월드컵 우승국가가 어디야", "2026년은?"],
+        ) else {
+            panic!("contextual freshness request did not route to search");
+        };
+
+        assert!(query.contains("월드컵"));
+        assert!(query.contains("2026"));
+        assert!(!query.contains("검색해봐"));
     }
 
     #[test]

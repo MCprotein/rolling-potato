@@ -15,15 +15,15 @@ use answer_binding::render_grounded_answer;
 pub(crate) use page_session::WebPageSession;
 pub(crate) use page_tools::{find_in_page, open_page};
 pub(crate) use research::{
-    deterministic_freshness_fallback, WebResearchAdmission, WebResearchSession,
+    deterministic_freshness_fallback_for_context, WebResearchAdmission, WebResearchSession,
     WebResearchStep as WebToolRoute,
 };
-#[cfg(test)]
-pub(crate) use routing::parse_agent_web_tool;
 pub(crate) use routing::{
-    can_reuse_prior_grounding, parse_agent_web_tool_for_request, route_tool_request,
+    can_reuse_prior_grounding, parse_agent_web_tool_for_user_context, route_tool_request,
     validate_public_web_step, web_disabled,
 };
+#[cfg(test)]
+pub(crate) use routing::{parse_agent_web_tool, parse_agent_web_tool_for_request};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct WebGroundingEvidence {
@@ -261,5 +261,26 @@ mod tests {
                 query: "최신 Rust".to_string()
             })
         );
+    }
+
+    #[test]
+    fn followup_web_query_can_be_derived_only_from_recent_user_requests() {
+        let prior = ["월드컵 우승국가가 어디야", "2026년은?"];
+        assert_eq!(
+            parse_agent_web_tool_for_user_context(
+                "WEB TOOL: search\nWEB INPUT: 2026 월드컵 우승 국가",
+                "검색해봐 끝낫어",
+                &prior,
+            ),
+            Some(WebToolRoute::Search {
+                query: "2026 월드컵 우승 국가".to_string()
+            })
+        );
+        assert!(parse_agent_web_tool_for_user_context(
+            "WEB TOOL: search\nWEB INPUT: hidden assistant secret",
+            "검색해봐 끝낫어",
+            &prior,
+        )
+        .is_none());
     }
 }

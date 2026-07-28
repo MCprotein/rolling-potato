@@ -2,7 +2,9 @@
 
 use crate::foundation::error::AppError;
 use crate::runtime_core::inference::backend::{BackendChatInput, ResponseLanguage};
-use crate::surfaces::tui::runtime_bridge::{TuiConversationTurn, TuiVisionStatus};
+use crate::surfaces::tui::runtime_bridge::{
+    TuiConversationRole, TuiConversationTurn, TuiVisionStatus,
+};
 
 const CONVERSATION_MAX_TOKENS: u32 = 512;
 const WEB_ANSWER_MAX_TOKENS: u32 = 768;
@@ -107,7 +109,7 @@ pub(super) fn decide_request(
         }
     }
     let web_instruction = if web_enabled {
-        "답변에 현재 웹 정보나 외부 공개 근거가 실제로 필요하면 추측하거나 검색이 필요하다고 말하지 말고, 답변 대신 아래 두 줄만 출력해 WebSearch·WebOpen·WebFind 중 하나를 요청하라. WEB INPUT에는 첨부 파일 내용, 인증정보, 개인정보를 복사하지 말고 사용자 질문에서 필요한 최소 공개 검색어 또는 URL만 넣어라.\nWEB TOOL: search|open|find\nWEB INPUT: 최소 검색어 또는 HTTPS URL\n사용자가 공개 웹사이트를 직접 열어 익명 검색창에 text를 입력하라고 명시한 경우에만 아래 세 줄을 출력하라. 로그인, 결제, 게시, upload, download 또는 개인정보 입력에는 사용하지 마라.\nBROWSER TOOL: search-form\nBROWSER URL: 공개 HTTPS URL\nBROWSER INPUT: 검색창에 입력할 최소 text"
+        "답변에 현재 웹 정보나 외부 공개 근거가 실제로 필요하면 추측하거나 검색이 필요하다고 말하지 말고, 답변 대신 아래 두 줄만 출력해 WebSearch·WebOpen·WebFind 중 하나를 요청하라. 후속 질문이면 최근 사용자 발화의 주제를 포함한 자립형 검색어로 바꾸되 모델 답변이나 첨부 내용은 검색어에 넣지 마라. WEB INPUT에는 인증정보, 개인정보를 복사하지 말고 사용자 질문에서 필요한 최소 공개 검색어 또는 URL만 넣어라.\nWEB TOOL: search|open|find\nWEB INPUT: 최소 검색어 또는 HTTPS URL\n사용자가 공개 웹사이트를 직접 열어 익명 검색창에 text를 입력하라고 명시한 경우에만 아래 세 줄을 출력하라. 로그인, 결제, 게시, upload, download 또는 개인정보 입력에는 사용하지 마라.\nBROWSER TOOL: search-form\nBROWSER URL: 공개 HTTPS URL\nBROWSER INPUT: 검색창에 입력할 최소 text"
     } else {
         "사용자가 이 요청에서 인터넷 사용을 금지했다. 웹 도구를 요청하지 말고 현재 로컬 지식과 문맥만 사용하며 최신성이 불확실하면 그 한계를 밝혀라."
     };
@@ -133,7 +135,14 @@ pub(super) fn decide_request(
         user_request,
         CONVERSATION_MAX_TOKENS,
     )?;
-    decide_generated_candidate(candidate, user_request, web_enabled, allow_direct_answer)
+    let prior_user_requests = recent_user_requests(history);
+    decide_generated_candidate(
+        candidate,
+        user_request,
+        &prior_user_requests,
+        web_enabled,
+        allow_direct_answer,
+    )
 }
 
 pub(super) fn render_web_conversation_context(
@@ -153,15 +162,21 @@ pub(super) fn render_web_conversation_context(
 fn decide_generated_candidate(
     candidate: crate::app::inference_adapter::answer::GeneratedCandidate,
     user_request: &str,
+    prior_user_requests: &[&str],
     web_enabled: bool,
     allow_direct_answer: bool,
 ) -> Result<RequestDecision, AppError> {
     if web_enabled {
-        if let Some(decision) = current_request_network_decision(&candidate.visible, user_request) {
+        if let Some(decision) =
+            current_request_network_decision(&candidate.visible, user_request, prior_user_requests)
+        {
             return Ok(decision);
         }
         if let Some(tool) =
-            crate::app::web_search_adapter::deterministic_freshness_fallback(user_request)
+            crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
+                user_request,
+                prior_user_requests,
+            )
         {
             return Ok(RequestDecision::WebTool(tool));
         }
@@ -178,6 +193,7 @@ fn decide_generated_candidate(
 fn current_request_network_decision(
     candidate: &str,
     current_request: &str,
+    prior_user_requests: &[&str],
 ) -> Option<RequestDecision> {
     if let Some(tool) = crate::app::browser_adapter::parse_agent_browser_tool_for_request(
         candidate,
@@ -185,8 +201,24 @@ fn current_request_network_decision(
     ) {
         return Some(RequestDecision::BrowserTool(tool));
     }
-    crate::app::web_search_adapter::parse_agent_web_tool_for_request(candidate, current_request)
-        .map(RequestDecision::WebTool)
+    crate::app::web_search_adapter::parse_agent_web_tool_for_user_context(
+        candidate,
+        current_request,
+        prior_user_requests,
+    )
+    .map(RequestDecision::WebTool)
+}
+
+fn recent_user_requests(history: &[TuiConversationTurn]) -> Vec<&str> {
+    let mut requests = history
+        .iter()
+        .rev()
+        .filter(|turn| turn.role == TuiConversationRole::User)
+        .map(|turn| turn.content.as_str())
+        .take(3)
+        .collect::<Vec<_>>();
+    requests.reverse();
+    requests
 }
 
 fn contains_private_tool_protocol(candidate: &str) -> bool {
@@ -411,19 +443,9 @@ fn has_agent_task_signal(request: &str) -> bool {
         .iter()
         .any(|signal| words.contains(signal));
     let english_action = is_english_action_request(&words);
-    let korean_action = [
-        "고쳐",
-        "수정",
-        "변경",
-        "구현",
-        "리팩터",
-        "테스트",
-        "리뷰",
-        "분석",
-        "찾아",
-    ]
-    .iter()
-    .any(|signal| request.contains(signal));
+    let korean_action = ["고쳐", "수정", "변경", "구현", "리팩터", "테스트", "리뷰"]
+        .iter()
+        .any(|signal| request.contains(signal));
     let korean_local_scope = [
         "파일",
         "코드",
@@ -435,14 +457,23 @@ fn has_agent_task_signal(request: &str) -> bool {
     ]
     .iter()
     .any(|signal| request.contains(signal));
-    let korean_local_action = ["알려", "보여", "열어", "확인", "구조", "내용", "어디"]
+    let korean_local_action = [
+        "알려", "보여", "열어", "확인", "구조", "내용", "어디", "분석", "찾아",
+    ]
+    .iter()
+    .any(|signal| request.contains(signal));
+    let korean_failure_analysis = ["오류", "에러", "실패", "크래시"]
         .iter()
-        .any(|signal| request.contains(signal));
+        .any(|signal| request.contains(signal))
+        && ["분석", "원인", "왜"]
+            .iter()
+            .any(|signal| request.contains(signal));
 
     english_mutation
         || english_failure
         || (english_local_scope && english_action)
         || korean_action
+        || korean_failure_analysis
         || (korean_local_scope && korean_local_action)
 }
 
@@ -488,6 +519,9 @@ mod tests {
             "What was the Manhattan Project?",
             "What is a profile?",
             "What is research?",
+            "월드컵 우승국가 찾아봐",
+            "아니 우승국가 찾아보라고",
+            "경제 전망을 분석해줘",
         ] {
             assert!(is_conversational_request(request), "{request}");
         }
@@ -497,6 +531,7 @@ mod tests {
             "이 오류를 분석해줘",
             "테스트를 실행해줘",
             "이 저장소 구조를 알려줘",
+            "이 저장소에서 함수를 찾아줘",
             "this crashes on startup",
             "they need help with startup",
         ] {
@@ -661,6 +696,7 @@ mod tests {
         assert!(current_request_network_decision(
             &format!("WEB TOOL: search\nWEB INPUT: {history_secret}"),
             current_request,
+            &[],
         )
         .is_none());
         assert!(current_request_network_decision(
@@ -668,12 +704,14 @@ mod tests {
                 "BROWSER TOOL: search-form\nBROWSER URL: https://example.com/\nBROWSER INPUT: {history_secret}"
             ),
             current_request,
+            &[],
         )
         .is_none());
         assert!(matches!(
             current_request_network_decision(
                 "WEB TOOL: search\nWEB INPUT: 2026년 월드컵 결과",
                 current_request,
+                &[],
             ),
             Some(RequestDecision::WebTool(
                 crate::app::web_search_adapter::WebToolRoute::Search { .. }
@@ -688,11 +726,49 @@ mod tests {
                 current_request_network_decision(
                     &format!("WEBTool: search\nWEBINPUT: {request}"),
                     request,
+                    &[],
                 )
                 .is_none(),
                 "{request}"
             );
         }
+    }
+
+    #[test]
+    fn world_cup_followup_keeps_user_context_and_never_routes_to_repo_map() {
+        let history = vec![
+            TuiConversationTurn {
+                role: TuiConversationRole::User,
+                content: "월드컵 우승국가가 어디야".to_string(),
+            },
+            TuiConversationTurn {
+                role: TuiConversationRole::Assistant,
+                content: "2022년 우승국은 아르헨티나입니다.".to_string(),
+            },
+            TuiConversationTurn {
+                role: TuiConversationRole::User,
+                content: "2026년은?".to_string(),
+            },
+            TuiConversationTurn {
+                role: TuiConversationRole::Assistant,
+                content: "검색이 필요합니다.".to_string(),
+            },
+        ];
+        let prior = recent_user_requests(&history);
+        let decision = current_request_network_decision(
+            "WEB TOOL: search\nWEB INPUT: 2026 월드컵 우승 국가",
+            "검색해봐 끝낫어",
+            &prior,
+        );
+
+        let Some(RequestDecision::WebTool(crate::app::web_search_adapter::WebToolRoute::Search {
+            query,
+        })) = decision
+        else {
+            panic!("contextual follow-up did not route to web search");
+        };
+        assert_eq!(query, "2026 월드컵 우승 국가");
+        assert!(is_conversational_request("아니 우승국가 찾아보라고"));
     }
 
     #[test]
@@ -717,7 +793,7 @@ mod tests {
         };
 
         assert!(matches!(
-            decide_generated_candidate(candidate, "인터넷 없이 알려줘", false, true).unwrap(),
+            decide_generated_candidate(candidate, "인터넷 없이 알려줘", &[], false, true).unwrap(),
             RequestDecision::ContinueLocal
         ));
     }
