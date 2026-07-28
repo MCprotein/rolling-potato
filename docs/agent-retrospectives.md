@@ -1208,3 +1208,29 @@
   제외합니다. 연도 같은 후속 한정자는 모델 query에서 누락돼도 보존합니다.
 - 대화형 검색 변경은 단일 문장 unit test에 더해 `주제 질문 → 시점 후속 질문 →
   검색 요청 → 사용자 정정`의 실제 turn sequence를 회귀 테스트로 고정합니다.
+
+## 2026-07-28: PR 상태 이벤트가 검증 중인 candidate run을 취소함
+
+### 증상
+
+- Draft PR에 `release-candidate` label을 붙인 뒤 ready로 전환하자, 먼저 시작한
+  candidate run이 뒤늦게 전달된 다른 PR action run에 의해 취소됐습니다.
+- 후속 run은 event snapshot의 draft·label 조건 때문에 skip되어 정확한 candidate
+  SHA에 대한 GitHub 검증이 남지 않았습니다.
+
+### 원인
+
+- Candidate workflow concurrency group이 PR 번호만 사용해 `labeled`,
+  `ready_for_review`, `synchronize`처럼 의미가 다른 action을 모두 같은 실행으로
+  취급했습니다.
+- Job 조건에서 skip될 event도 workflow concurrency에는 먼저 참여하므로, 실행할
+  작업이 없는 event가 정상 candidate run을 취소할 수 있었습니다.
+
+### 재발 방지
+
+- Candidate concurrency group에 `github.event.action`을 포함해 같은 action의
+  오래된 run만 취소하고, label·ready 전환처럼 다른 action끼리는 취소하지 않게
+  합니다.
+- Release workflow contract가 action-scoped concurrency와
+  `cancel-in-progress: true`를 함께 고정해, 빠른 재푸시 정리는 유지하면서 상태
+  전환 간 교차 취소는 다시 들어오지 못하게 합니다.

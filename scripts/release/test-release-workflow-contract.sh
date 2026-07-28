@@ -70,6 +70,8 @@ candidate_permissions="$(awk '
 [ "$candidate_permissions" = $'permissions:\n  contents: read' ] \
   || fail "candidate workflow permissions must be exactly contents: read"
 require_line "$candidate_body" '      - ready_for_review'
+require_line "$candidate_body" '  group: refactor-candidate-${{ github.event.pull_request.number }}-${{ github.event.action }}'
+require_line "$candidate_body" '  cancel-in-progress: true'
 require_line "$candidate_body" "    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'release-candidate')"
 require_line "$candidate_body" '    outputs:'
 require_line "$candidate_body" '      candidate_sha: ${{ steps.candidate.outputs.candidate_sha }}'
