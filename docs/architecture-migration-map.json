@@ -8014,6 +8014,40 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/session_memory/event_codec.rs",
+      "slices": [
+        {
+          "responsibility": "versioned TUI conversation event encoding and compatibility decoding",
+          "target": "src/app/tui_adapter/session_memory/event_codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/session_memory.rs",
+            "src/app/tui_adapter/session_memory/event_codec.rs",
+            "src/app/tui_adapter/session_memory/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory/restoration.rs",
+      "slices": [
+        {
+          "responsibility": "session-scoped conversation restoration and bounded web-grounding replay",
+          "target": "src/app/tui_adapter/session_memory/restoration.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/session_memory.rs",
+            "src/app/tui_adapter/session_memory/restoration.rs",
+            "src/app/tui_adapter/session_memory/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/inference/backend/reconciliation.rs",
       "slices": [
         {
@@ -8104,6 +8138,22 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/runtime/request/support.rs",
+      "slices": [
+        {
+          "responsibility": "interactive request result mapping and model-window context helpers",
+          "target": "src/app/tui_adapter/runtime/request/support.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/request.rs",
+            "src/app/tui_adapter/runtime/request/support.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend/sidecar/startup/existing.rs",
       "slices": [
         {
@@ -8182,6 +8232,24 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/session_memory/tests/restoration.rs",
+      "slices": [
+        {
+          "responsibility": "conversation restoration, error replay, and web-grounding persistence regression tests",
+          "target": "src/app/tui_adapter/session_memory/tests/restoration.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/session_memory.rs",
+            "src/app/tui_adapter/session_memory/event_codec.rs",
+            "src/app/tui_adapter/session_memory/restoration.rs",
+            "src/app/tui_adapter/session_memory/tests/restoration.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/knowledge/compaction/recent_tail.rs",
       "slices": [
         {
@@ -8252,6 +8320,39 @@
           "state": "complete",
           "evidence": [
             "src/app/web_search_adapter/answer_binding.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/answer_binding/tests.rs",
+      "slices": [
+        {
+          "responsibility": "verified web-source citation and paragraph binding regression tests",
+          "target": "src/app/web_search_adapter/answer_binding/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/answer_binding.rs",
+            "src/app/web_search_adapter/answer_binding/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/grounded_fallback.rs",
+      "slices": [
+        {
+          "responsibility": "query-aware concise grounded fallback composition for small models",
+          "target": "src/app/web_search_adapter/grounded_fallback.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/grounded_fallback.rs",
+            "src/app/web_search_adapter/research_flow.rs",
+            "src/app/web_search_adapter/research_flow/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -8343,6 +8444,57 @@
           "state": "complete",
           "evidence": [
             "src/app/web_search_adapter/research_flow/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/protocol.rs",
+      "slices": [
+        {
+          "responsibility": "bounded small-model web-tool protocol parsing and current-request projection",
+          "target": "src/app/web_search_adapter/routing/protocol.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing.rs",
+            "src/app/web_search_adapter/routing/protocol.rs",
+            "src/app/web_search_adapter/routing/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/tests.rs",
+      "slices": [
+        {
+          "responsibility": "web routing credential, follow-up, and grounding-reuse regression tests",
+          "target": "src/app/web_search_adapter/routing/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing.rs",
+            "src/app/web_search_adapter/routing/protocol.rs",
+            "src/app/web_search_adapter/routing/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/web_policy.rs",
+      "slices": [
+        {
+          "responsibility": "explicit offline and no-web request policy",
+          "target": "src/app/web_search_adapter/routing/web_policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing.rs",
+            "src/app/web_search_adapter/routing/web_policy.rs",
+            "src/app/web_search_adapter/routing/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -11577,6 +11729,18 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/session_memory/event_codec.rs",
+      "responsibilities": [
+        "versioned TUI conversation event encoding and compatibility decoding"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/session_memory/restoration.rs",
+      "responsibilities": [
+        "session-scoped conversation restoration and bounded web-grounding replay"
+      ]
+    },
+    {
       "path": "src/runtime_core/inference/backend/reconciliation.rs",
       "responsibilities": [
         "desired and observed backend runtime drift policy"
@@ -11613,6 +11777,12 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/runtime/request/support.rs",
+      "responsibilities": [
+        "interactive request result mapping and model-window context helpers"
+      ]
+    },
+    {
       "path": "src/app/inference_adapter/backend/sidecar/startup/existing.rs",
       "responsibilities": [
         "already-running sidecar reconciliation and report composition"
@@ -11643,6 +11813,12 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/session_memory/tests/restoration.rs",
+      "responsibilities": [
+        "conversation restoration, error replay, and web-grounding persistence regression tests"
+      ]
+    },
+    {
       "path": "src/runtime_core/knowledge/compaction/recent_tail.rs",
       "responsibilities": [
         "complete-exchange recent-tail selection and bounded oversized-exchange reduction"
@@ -11670,6 +11846,18 @@
       "path": "src/app/web_search_adapter/answer_binding.rs",
       "responsibilities": [
         "verified web-source citation and paragraph binding policy"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/answer_binding/tests.rs",
+      "responsibilities": [
+        "verified web-source citation and paragraph binding regression tests"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/grounded_fallback.rs",
+      "responsibilities": [
+        "query-aware concise grounded fallback composition for small models"
       ]
     },
     {
@@ -11706,6 +11894,24 @@
       "path": "src/app/web_search_adapter/research_flow/tests.rs",
       "responsibilities": [
         "web research orchestration, evidence-budget, and conversation-grounding regression tests"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/protocol.rs",
+      "responsibilities": [
+        "bounded small-model web-tool protocol parsing and current-request projection"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/tests.rs",
+      "responsibilities": [
+        "web routing credential, follow-up, and grounding-reuse regression tests"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/web_policy.rs",
+      "responsibilities": [
+        "explicit offline and no-web request policy"
       ]
     },
     {

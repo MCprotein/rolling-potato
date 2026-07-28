@@ -15,7 +15,7 @@ use super::{
 };
 use crate::foundation::error::AppError;
 use crate::surfaces::tui::controller::TuiRuntimePort;
-use crate::surfaces::tui::outcome::{TuiEffect, TuiOutcome};
+use crate::surfaces::tui::outcome::TuiOutcome;
 use crate::surfaces::tui::runtime_bridge::{
     new_tui_intent_id, SelectionLease, TuiAttachment, TuiGateKind, TuiIntent, TuiReadPage,
     TuiReadRequest, TuiSessionOption, TuiSessionTransition, TuiStatusSnapshot, TuiWebSourceOption,
@@ -119,17 +119,7 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
     }
 
     fn session_options(&mut self) -> Result<Vec<TuiSessionOption>, AppError> {
-        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
-        Ok(crate::app::observability_adapter::session_history(20)?
-            .into_iter()
-            .map(|session| TuiSessionOption {
-                current: !self.fresh_session_pending && session.session_id == identity.session_id,
-                preview: session
-                    .last_summary
-                    .unwrap_or_else(|| "저장된 대화".to_string()),
-                session_id: session.session_id,
-            })
-            .collect())
+        self.available_sessions()
     }
 
     fn web_source_options(&mut self) -> Vec<TuiWebSourceOption> {
@@ -141,38 +131,11 @@ impl TuiRuntimePort for TuiRuntimeAdapter {
     }
 
     fn start_new_session(&mut self) -> Result<TuiSessionTransition, AppError> {
-        crate::app::workflow_adapter::state::session_new_report()?;
-        self.conversation_memory = None;
-        self.web_pages.clear();
-        self.fresh_session_pending = false;
-        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
-        Ok(TuiSessionTransition {
-            session_id: identity.session_id,
-            notice: "새 세션을 시작했습니다.".to_string(),
-            turns: self.conversation_memory()?.turns.clone(),
-        })
+        self.start_session()
     }
 
     fn resume_session(&mut self, session_id: &str) -> Result<TuiSessionTransition, AppError> {
-        let intent_id = new_tui_intent_id();
-        let lease = canonical_selection_lease(session_id)?;
-        let outcome = canonical_dispatch_intent(TuiIntent::ResumeSession {
-            intent_id,
-            session_id: session_id.to_string(),
-            lease,
-        })?;
-        if outcome.effect != TuiEffect::Committed {
-            return Err(AppError::blocked(outcome.safe_message));
-        }
-        self.conversation_memory = None;
-        self.web_pages.clear();
-        self.fresh_session_pending = false;
-        let identity = crate::app::workflow_adapter::ledger::validated_current_identity()?;
-        Ok(TuiSessionTransition {
-            session_id: identity.session_id,
-            notice: "선택한 세션을 재개했습니다.".to_string(),
-            turns: self.conversation_memory()?.turns.clone(),
-        })
+        self.resume_selected_session(session_id)
     }
 
     fn setup_model(&mut self, id: &str) -> Result<String, AppError> {

@@ -27,7 +27,7 @@ use session_selection::{resume_selected_session, resume_session, start_new_sessi
 use source_selection::select_source;
 use terminal_flow::{
     confirm, confirm_workflow_action, outcome_notice, outcome_was_dispatched,
-    post_dispatch_write_error, pre_dispatch_write_error, read_input_action,
+    post_dispatch_write_error, pre_dispatch_write_error, read_input_action, read_status_or_notice,
     write_pre_dispatch_frame, InputAction,
 };
 pub(crate) use terminal_flow::{consume_outcome, terminal_fault_error};
@@ -70,22 +70,6 @@ pub(crate) trait TuiRuntimePort: Send {
     fn tui_gate_descriptor(&mut self, workflow_id: &str)
         -> Result<(String, TuiGateKind), AppError>;
     fn dispatch_tui_intent(&mut self, intent: TuiIntent) -> Result<TuiOutcome, AppError>;
-}
-
-fn read_status_or_notice(
-    runtime: &mut impl TuiRuntimePort,
-    state: &mut InteractiveState,
-) -> TuiStatusSnapshot {
-    match runtime.read_tui_status() {
-        Ok(status) => status,
-        Err(error) => {
-            state.notice = format!(
-                "상태 정보를 읽지 못했습니다.\n- 이유: {}\n/doctor로 runtime 상태를 확인하세요.",
-                error.message
-            );
-            TuiStatusSnapshot::unavailable()
-        }
-    }
 }
 
 pub(crate) fn run_controller(

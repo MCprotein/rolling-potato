@@ -40,6 +40,22 @@ pub(super) fn read_input_action(
     }
 }
 
+pub(super) fn read_status_or_notice(
+    runtime: &mut impl TuiRuntimePort,
+    state: &mut InteractiveState,
+) -> TuiStatusSnapshot {
+    match runtime.read_tui_status() {
+        Ok(status) => status,
+        Err(error) => {
+            state.notice = format!(
+                "상태 정보를 읽지 못했습니다.\n- 이유: {}\n/doctor로 runtime 상태를 확인하세요.",
+                error.message
+            );
+            TuiStatusSnapshot::unavailable()
+        }
+    }
+}
+
 pub(super) fn confirm(
     terminal: &mut impl TerminalIo,
     title: &str,
@@ -112,7 +128,7 @@ pub(super) fn write_pending_conversation_frame(
     width: u16,
     height: u16,
 ) -> Result<(), AppError> {
-    let status = super::read_status_or_notice(runtime, state);
+    let status = read_status_or_notice(runtime, state);
     let intent_id = runtime.new_tui_intent_id();
     write_pending_conversation_frame_with_status(
         terminal,

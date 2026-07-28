@@ -6,15 +6,17 @@
 use crate::app::web_search_adapter::WebGroundingEvidence;
 use crate::app::workflow_adapter::{ledger, state, transcript};
 use crate::foundation::error::AppError;
-use crate::foundation::serialization::{self as strict_json, CanonicalObject, CanonicalValue};
 use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
+
+mod event_codec;
+mod restoration;
+
+use event_codec::{render_reset_event, render_runtime_error_event, render_web_grounding_event};
+use restoration::{load_for_session, push_web_grounding};
 
 const CONVERSATION_STREAM_ID: &str = "tui-conversation";
 const RESET_MARKER: &str = "tui conversation reset boundary";
-const CONVERSATION_EVENT_SCHEMA_VERSION: u64 = 1;
 const MAX_RUNTIME_ERROR_CHARS: usize = 2_048;
-const MAX_WEB_GROUNDING_SOURCES: usize = 12;
-const MAX_WEB_GROUNDING_EXCERPT_CHARS: usize = 1_536;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ConversationMemory {
@@ -183,177 +185,6 @@ pub(super) fn clear(memory: &mut ConversationMemory) -> Result<(), AppError> {
     memory.web_grounding.clear();
     memory.head_record_id = Some(reset.record_id);
     Ok(())
-}
-
-fn load_for_session(session_id: &str) -> Result<ConversationMemory, AppError> {
-    let records = transcript::records_for_session(session_id)?;
-    let mut memory = ConversationMemory::empty(session_id);
-    let mut pending_user: Option<TuiConversationTurn> = None;
-
-    for record in records
-        .into_iter()
-        .filter(|record| record.workflow_id == CONVERSATION_STREAM_ID)
-    {
-        match record.kind.as_str() {
-            "user" => {
-                pending_user = Some(TuiConversationTurn {
-                    role: TuiConversationRole::User,
-                    content: record.content,
-                });
-                memory.head_record_id = Some(record.record_id);
-            }
-            "model" => {
-                if let Some(user) = pending_user.take() {
-                    memory.turns.push(user);
-                    memory.turns.push(TuiConversationTurn {
-                        role: TuiConversationRole::Assistant,
-                        content: record.content,
-                    });
-                }
-                memory.head_record_id = Some(record.record_id);
-            }
-            "evidence" => {
-                match parse_conversation_event(&record.content) {
-                    Some(ConversationEvent::Reset) => {
-                        memory.turns.clear();
-                        memory.web_grounding.clear();
-                        pending_user = None;
-                    }
-                    Some(ConversationEvent::RuntimeError(content)) => {
-                        if let Some(user) = pending_user.take() {
-                            memory.turns.push(user);
-                            memory.turns.push(TuiConversationTurn {
-                                role: TuiConversationRole::Error,
-                                content,
-                            });
-                        }
-                    }
-                    Some(ConversationEvent::WebGrounding(evidence)) => {
-                        push_web_grounding(&mut memory.web_grounding, evidence);
-                    }
-                    None if record.content == RESET_MARKER => {
-                        memory.turns.clear();
-                        memory.web_grounding.clear();
-                        pending_user = None;
-                    }
-                    None => {
-                        if let Some(user) = pending_user.take() {
-                            memory.turns.push(user);
-                            memory.turns.push(TuiConversationTurn {
-                                role: TuiConversationRole::Error,
-                                content: record.content,
-                            });
-                        }
-                    }
-                }
-                memory.head_record_id = Some(record.record_id);
-            }
-            _ => {}
-        }
-    }
-    Ok(memory)
-}
-
-enum ConversationEvent {
-    Reset,
-    RuntimeError(String),
-    WebGrounding(WebGroundingEvidence),
-}
-
-fn render_reset_event() -> String {
-    render_event(vec![string_entry("event_type", "reset")])
-}
-
-fn render_runtime_error_event(content: &str) -> String {
-    render_event(vec![
-        string_entry("event_type", "runtime_error"),
-        string_entry("content", content),
-    ])
-}
-
-fn render_web_grounding_event(evidence: &WebGroundingEvidence) -> String {
-    render_event(vec![
-        string_entry("event_type", "web_evidence"),
-        string_entry("source_id", &evidence.source_id),
-        string_entry("title", &evidence.title),
-        string_entry("url", &evidence.url),
-        string_entry(
-            "excerpt",
-            &evidence
-                .excerpt
-                .chars()
-                .take(MAX_WEB_GROUNDING_EXCERPT_CHARS)
-                .collect::<String>(),
-        ),
-    ])
-}
-
-fn render_event(mut entries: Vec<(String, CanonicalValue)>) -> String {
-    entries.insert(
-        0,
-        (
-            "schema_version".to_string(),
-            CanonicalValue::Unsigned {
-                raw: CONVERSATION_EVENT_SCHEMA_VERSION.to_string(),
-            },
-        ),
-    );
-    strict_json::render_canonical_object(&CanonicalObject { entries })
-}
-
-fn string_entry(key: &str, value: &str) -> (String, CanonicalValue) {
-    (key.to_string(), CanonicalValue::String(value.to_string()))
-}
-
-fn parse_conversation_event(content: &str) -> Option<ConversationEvent> {
-    let object = strict_json::parse_object(
-        content,
-        &[
-            "schema_version",
-            "event_type",
-            "content",
-            "source_id",
-            "title",
-            "url",
-            "excerpt",
-        ],
-        "conversation event",
-    )
-    .ok()?;
-    if strict_json::number(&object, "schema_version", "conversation event").ok()?
-        != CONVERSATION_EVENT_SCHEMA_VERSION
-    {
-        return None;
-    }
-    match strict_json::string(&object, "event_type", "conversation event")
-        .ok()?
-        .as_str()
-    {
-        "reset" => Some(ConversationEvent::Reset),
-        "runtime_error" => Some(ConversationEvent::RuntimeError(
-            strict_json::string(&object, "content", "conversation event").ok()?,
-        )),
-        "web_evidence" => Some(ConversationEvent::WebGrounding(WebGroundingEvidence {
-            source_id: strict_json::string(&object, "source_id", "conversation event").ok()?,
-            title: strict_json::string(&object, "title", "conversation event").ok()?,
-            url: strict_json::string(&object, "url", "conversation event").ok()?,
-            excerpt: strict_json::string(&object, "excerpt", "conversation event").ok()?,
-        })),
-        _ => None,
-    }
-}
-
-fn push_web_grounding(grounding: &mut Vec<WebGroundingEvidence>, evidence: WebGroundingEvidence) {
-    if let Some(index) = grounding
-        .iter()
-        .position(|stored| stored.source_id == evidence.source_id)
-    {
-        grounding.remove(index);
-    }
-    grounding.push(evidence);
-    if grounding.len() > MAX_WEB_GROUNDING_SOURCES {
-        grounding.drain(..grounding.len() - MAX_WEB_GROUNDING_SOURCES);
-    }
 }
 
 fn transcript_owner(identity: &ledger::RuntimeIdentity) -> transcript::TranscriptOwner {
