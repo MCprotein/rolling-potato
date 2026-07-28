@@ -65,7 +65,7 @@ fn measure_agent() -> WorkflowMeasurement {
     fixture.start();
     fixture.write_response(READ_ONLY_RESPONSE);
 
-    let run = fixture.measured_command(&["run", "src/lib.rs 구조를 분석해줘"]);
+    let run = fixture.measured_command(&["run", "이 저장소의 src/lib.rs 구조를 분석해줘"]);
     assert_success(&run.output, "completed agent run");
     let stdout = text(&run.output.stdout);
     assert!(stdout.starts_with("run 결과\n- 상태: 완료"), "{stdout}");

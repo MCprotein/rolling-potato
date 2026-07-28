@@ -1235,13 +1235,16 @@
   `cancel-in-progress: true`를 함께 고정해, 빠른 재푸시 정리는 유지하면서 상태
   전환 간 교차 취소는 다시 들어오지 못하게 합니다.
 
-## 2026-07-28: 일반 분석과 저장소 분석의 분류 경계가 오래된 테스트 입력과 충돌함
+## 2026-07-28: 일반 분석과 저장소 분석의 분류 경계가 오래된 테스트 입력들과 충돌함
 
 ### 증상
 
 - 전체 candidate test에서 source inspection 계획 테스트가 `inspect-sources` 대신
   `answer-only`를 받아 실패했습니다.
-- 단독 실행에서도 동일하게 재현됐고, 나머지 961개 unit test와 Windows·macOS
+- 첫 fixture를 수정한 다음 candidate에서는 workflow performance E2E의
+  `src/lib.rs 구조를 분석해줘` 입력이 같은 이유로 `answer-only`가 되어, 읽기 전용
+  action 계약에서 차단됐습니다.
+- 두 실패 모두 단독 실행에서 재현됐고, 나머지 unit test와 Windows·macOS
   candidate 검증은 통과했습니다.
 
 ### 원인
@@ -1249,14 +1252,16 @@
 - 일반 질문의 `검색·찾아·분석` 동사를 저장소 탐색으로 오분류하지 않도록
   repository scope를 필수화했지만, 기존 source inspection 테스트는 `구조 분석해줘`
   라는 일반 문장으로 저장소 경로를 기대했습니다.
-- Candidate preflight가 이 분류·계획 경계를 직접 실행하지 않아 전체 CI 전까지
-  stale fixture를 발견하지 못했습니다.
+- Candidate preflight가 분류 unit 경계만 실행하고 실제 `rpotato run` 성능 E2E는
+  실행하지 않아 두 번째 stale fixture가 전체 CI 끝에서 발견됐습니다.
 
 ### 재발 방지
 
 - Source inspection 테스트는 `이 저장소 구조 분석해줘`처럼 repository scope를
   명시하고, 일반 `구조 분석해줘`는 conversation의 `answer-only`로 남는 별도 회귀
   테스트로 고정합니다.
+- Workflow performance E2E도 `이 저장소의 src/lib.rs 구조를 분석해줘`처럼 범위를
+  명시합니다.
 - Candidate preflight와 release workflow contract에 repository-scoped read-only
-  계획 테스트를 추가해, 분류기 변경 뒤 stale 계획 fixture가 전체 CI에서 처음
-  발견되지 않게 합니다.
+  계획 unit과 workflow performance E2E를 함께 추가해, 분류기 변경 뒤 stale
+  실행 fixture가 전체 CI에서 처음 발견되지 않게 합니다.
