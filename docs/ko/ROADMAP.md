@@ -186,6 +186,12 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | --- | --- | --- |
 | v0.51.0 | Released | Session 기반 context 사용량, 제한된 실패 request 회상, `/resume`을 넘는 web grounding 보존, topic-safe evidence 재사용, soft evidence truncation과 runtime-grounded fallback 답변 |
 
+### 소형 모델용 구조화 tool turn (`v0.52.0`)
+
+| Version | 상태 | 범위 |
+| --- | --- | --- |
+| v0.52.0 | Released | JSON schema 기반 `Answer`/`WebSearch`/`WebOpen`/`WebFind`/`ContinueLocal` 결정, 모든 web tool의 runtime-owned `ToolCall → Observation → Answer` 전이, 제한된 후속 query context, private data filtering과 일반 질문·저장소 분석의 명시적 routing |
+
 ## 배포 경계
 
 이 저장소의 GitHub Releases만 지원하는 download·배포 channel입니다.

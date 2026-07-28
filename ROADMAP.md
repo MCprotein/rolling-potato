@@ -188,6 +188,12 @@ evidence.
 | --- | --- | --- |
 | v0.51.0 | Released | Session-derived context usage, bounded failed-request recall, persisted web grounding across `/resume`, topic-safe evidence reuse, soft evidence truncation, and runtime-grounded fallback answers |
 
+### Structured small-model tool turns (`v0.52.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
+| v0.52.0 | Released | JSON-schema `Answer`/`WebSearch`/`WebOpen`/`WebFind`/`ContinueLocal` decisions, runtime-owned `ToolCall → Observation → Answer` transitions for every web tool, bounded follow-up query context, private-data filtering, and explicit general-question versus repository-analysis routing |
+
 ## Distribution Boundary
 
 GitHub Releases in this repository is the only supported download and

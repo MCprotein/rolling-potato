@@ -14,7 +14,7 @@
 
 | 프로젝트 요약 | |
 | --- | --- |
-| 현재 릴리즈 | `v0.51.0` |
+| 현재 릴리즈 | `v0.52.0` |
 | CLI | `rpotato` |
 | 런타임 | Rust, 관리형 `llama.cpp`, GGUF |
 | 주요 화면 | CLI와 TUI |
@@ -201,12 +201,12 @@ executable이나 GGUF 경로가 필요하지 않습니다.
 
 ## 현재 기능
 
-`v0.51.0` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
+`v0.52.0` 릴리즈는 제품 정의만 있는 scaffold가 아니라 실제 기능을 가진
 pre-1.0 런타임입니다.
 
 | 영역 | 현재 제공 기능 |
 | --- | --- |
-| 에이전트 루프 | 의도 routing, 제한된 context, typed model action, 한국어 최종 보고 |
+| 에이전트 루프 | 제한된 context, JSON schema turn 결정, runtime-owned tool observation, typed model action, 한국어 최종 보고 |
 | 영속 상태 | session, transcript, workflow, ledger, evidence, resume와 continue |
 | 패치 워크플로 | 미리보기, 적용 승인, 별도 검증 승인, rollback 기록 |
 | 백엔드와 모델 | 관리형 sidecar 수명주기, 출처 기반 후보, local 승격·설치 gate |
@@ -220,6 +220,9 @@ v0.50.0 릴리즈는 일반 browser 자동화 권한을 주지 않고, agent가 
 제한된 browser search-form research를 추가합니다.
 [v0.50 웹 연구·브라우저 계획](docs/ko/v0.50-web-research-browser-plan.md)을
 참고하십시오.
+v0.52.0 릴리즈는 소형 모델의 자유 형식 tool text를 노출하지 않고
+`WebSearch`·`WebOpen`·`WebFind`를 하나의 runtime-owned
+`ToolCall → Observation → Answer` 계약으로 실행합니다.
 
 장별 기능 지도, 대표 명령, 아직 완성되지 않은 경계는
 [docs/ko/current-capabilities.md](docs/ko/current-capabilities.md)에
@@ -269,10 +272,11 @@ Qwen과 Gemma 항목은 평가 후보이며 기본 모델로 가정하지 않습
 
 ## 프로젝트 상태
 
-게시된 `v0.51.0`까지의 release history에는 로컬 coding-agent workflow를
+게시된 `v0.52.0`까지의 release history에는 로컬 coding-agent workflow를
 유지하는 제한된 웹 연구, browser search-form 지원, 신뢰할 수 있는 대화형
 TUI와 후속 질문·resume session까지 이어지는 근거 기반 대화 연속성이
-포함됩니다.
+포함됩니다. Web tool은 schema로 제한된 turn 결정과 runtime-owned observation을
+사용합니다.
 [docs/ko/ROADMAP.md](docs/ko/ROADMAP.md)와
 [v0.50 구현 계획](docs/ko/v0.50-web-research-browser-plan.md)을 참고하십시오.
 
