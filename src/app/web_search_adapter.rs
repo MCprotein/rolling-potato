@@ -4,6 +4,7 @@ use crate::foundation::error::AppError;
 use std::time::Duration;
 
 mod answer_binding;
+mod grounded_fallback;
 mod page_session;
 mod page_tools;
 mod research;

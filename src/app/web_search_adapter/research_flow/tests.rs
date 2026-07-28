@@ -151,22 +151,38 @@ fn supporting_find_uses_a_bounded_query_term() {
 fn cached_grounding_answers_referential_followups_without_new_network_access() {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
     std::env::set_var("RPOTATO_TEST_WEB_RESEARCH_NO_MODEL", "1");
-    let grounding = vec![WebGroundingEvidence {
-        source_id: "source-espr".to_string(),
-        title: "Ecodesign for Sustainable Products Regulation".to_string(),
-        url: "https://example.com/espr".to_string(),
-        excerpt: "ESPR is the Ecodesign for Sustainable Products Regulation. It establishes a framework for sustainable product requirements.".to_string(),
-    }];
+    let grounding = vec![
+        WebGroundingEvidence {
+            source_id: "source-purpose".to_string(),
+            title: "EU 에코디자인 규정(ESPR)".to_string(),
+            url: "https://example.com/espr-purpose".to_string(),
+            excerpt: "제도 개요\n순환경제 전환 촉진과 지속가능 제품 설계를 위한 강제력 있는 법적 기반 마련\n적용 대상".to_string(),
+        },
+        WebGroundingEvidence {
+            source_id: "source-name".to_string(),
+            title: "EU 에코디자인 규정(Ecodesign for Sustainable Products Regulation, ESPR)".to_string(),
+            url: "https://example.com/espr-name".to_string(),
+            excerpt: "ESPR은 EU 역내 출시 제품의 지속가능성과 순환성을 제품 단계부터 관리하는 법적 틀입니다.".to_string(),
+        },
+    ];
 
     let answer = answer_from_grounding(
-        "방금 검색한 ESPR의 정식 영문명은?",
-        r#"{"role":"user","content":"ESPR 검색해줘"}"#,
+        "방금 검색한 ESPR의 정식 영문명과 핵심 목적을 한 문장으로 말해줘. 내 이름도 불러줘.",
+        r#"<RECENT_CONVERSATION>{"role":"user","content":"내 이름은 고구마야. 기억해줘."}{"role":"model","content":"고구마라는 이름을 기억했습니다."}</RECENT_CONVERSATION>"#,
         &grounding,
     )
     .unwrap();
 
     std::env::remove_var("RPOTATO_TEST_WEB_RESEARCH_NO_MODEL");
-    assert!(answer.contains("Ecodesign for Sustainable Products Regulation"));
-    assert!(answer.contains("[source-espr]"));
-    assert!(answer.contains("https://example.com/espr"));
+    assert!(
+        answer.contains("Ecodesign for Sustainable Products Regulation"),
+        "{answer}"
+    );
+    assert!(answer.contains("순환경제 전환 촉진"), "{answer}");
+    assert!(answer.contains("고구마님"), "{answer}");
+    assert!(answer.contains("[source-name]"));
+    assert!(answer.contains("[source-purpose]"));
+    assert!(answer.contains("https://example.com/espr-name"));
+    assert!(answer.contains("https://example.com/espr-purpose"));
+    assert!(!answer.contains("이전 검색에서 보존한 원문 내용입니다."));
 }
