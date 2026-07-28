@@ -1,5 +1,41 @@
 # Release Notes
 
+## v0.51.0 - Grounded Conversation Continuity
+
+Release date: 2026-07-28
+
+This minor release keeps conversational memory, context usage, and verified web
+evidence coherent across ordinary follow-ups and explicitly resumed sessions.
+It replaces several last-request shortcuts with session-derived state while
+keeping network access bounded and runtime-owned citations authoritative.
+
+### Included
+
+- Calculates the idle TUI context indicator from preserved session dialogue
+  instead of the latest isolated model run.
+- Retains failed requests and visible runtime errors as bounded conversational
+  context so a corrective follow-up does not lose the request that failed.
+- Carries bounded prior dialogue into final web synthesis and persists verified
+  grounding evidence for relevant follow-ups after `/resume`.
+- Reuses prior web grounding only for referential or topic-overlapping requests;
+  unrelated prompts remain local and cannot inherit stale evidence.
+- Softly truncates oversized web evidence instead of failing the complete
+  research request, while keeping runtime-issued source identifiers intact.
+- Replaces uncited or unusable model summaries with concise runtime-grounded
+  fallback answers and runtime-owned source links.
+- Prevents context-dependent identity questions from being misclassified as
+  questions about the agent itself.
+- Splits session restoration, web routing, grounded answer binding, and request
+  support into bounded owners protected by architecture regression tests.
+
+### Compatibility and boundaries
+
+- Existing models, projectors, registries, sessions, web tools, and public
+  commands remain compatible.
+- Restored web evidence remains bounded and is reused only when the new request
+  demonstrates a relevant relationship to it.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.50.1 - Reliable Interactive Conversation TUI
 
 Release date: 2026-07-27

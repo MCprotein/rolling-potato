@@ -1,5 +1,41 @@
 # 릴리즈 노트
 
+## v0.51.0 - 근거 기반 대화 연속성
+
+릴리즈 날짜: 2026-07-28
+
+이 minor 릴리즈는 일반 후속 질문과 명시적으로 resume한 session에서도 대화
+memory, context 사용량과 검증된 web evidence가 일관되게 이어지도록 보강합니다.
+마지막 request 하나에 의존하던 shortcut을 session 기반 상태로 교체하면서 network
+접근은 제한하고 runtime이 관리하는 citation 권위를 유지합니다.
+
+### 포함한 것
+
+- Idle TUI context 표시를 마지막 단일 model run이 아니라 보존된 session 대화에서
+  계산
+- 실패한 request와 사용자에게 표시된 runtime error를 제한된 대화 context로
+  유지하여 수정 요청에서 실패한 원문이 사라지지 않도록 보장
+- 제한된 이전 대화를 web 최종 합성에 전달하고 `/resume` 뒤에도 관련 후속 질문에
+  사용할 검증된 grounding evidence를 복원
+- 이전 web grounding은 지시적 표현이나 topic overlap이 있는 request에만
+  재사용하고 무관한 prompt에는 오래된 evidence를 전달하지 않음
+- 큰 web evidence는 전체 연구 request를 실패시키는 대신 제한에 맞춰
+  soft truncation하며 runtime source id를 그대로 보존
+- Citation이 없거나 사용할 수 없는 model summary를 간결한 runtime-grounded
+  fallback 답변과 runtime 소유 source link로 교체
+- 문맥에 의존하는 이름 질문을 agent 자체 정체성 질문으로 잘못 분류하지 않도록
+  수정
+- Session 복원, web routing, grounded answer binding과 request support를 bounded
+  owner로 분리하고 architecture regression test로 보호
+
+### 호환성과 경계
+
+- 기존 model, projector, registry, session, web tool과 public command는 계속
+  호환됩니다.
+- 복원한 web evidence는 제한된 크기로 유지하며 새 request와 관련성이 확인될
+  때만 재사용합니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
+
 ## v0.50.1 - 신뢰할 수 있는 대화형 TUI
 
 릴리즈 날짜: 2026-07-27

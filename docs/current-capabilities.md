@@ -1,7 +1,7 @@
 # Current Capabilities
 
 This document is the readable status map for the released
-`rolling-potato v0.50.1` runtime. It groups the runtime by responsibility
+`rolling-potato v0.51.0` runtime. It groups the runtime by responsibility
 instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
@@ -10,7 +10,7 @@ instead of repeating one flat command list.
 > This is a capability guide, not a substitute for `rpotato --help`. The
 > installed binary remains the source of truth for exact command syntax.
 
-## Installation, First Run, and Updates (`v0.42.0`-`v0.50.1`)
+## Installation, First Run, and Updates (`v0.42.0`-`v0.51.0`)
 
 The extracted GitHub Release binary can install or update itself in the
 user-local CLI directory and register that directory in zsh, bash, fish, or
@@ -89,6 +89,11 @@ attachments under separate budgets derived from the selected model's manifest
 window. Deterministic typed extraction remains available when the single bounded
 semantic rationale call cannot run.
 
+The idle context indicator is derived from the current session's preserved
+dialogue rather than one isolated model run. Failed requests and visible runtime
+errors remain available under bounded recall so corrective follow-ups retain
+their subject, and `/resume` restores the same bounded conversational state.
+
 The language guard accepts Korean prose together with numbers, formulas, code,
 paths, URLs, and bounded technical titles. It attempts one fact-preserving
 Korean rewrite for CJK leakage or sustained foreign prose, then safely projects
@@ -111,6 +116,12 @@ The runtime removes model-made citations and source blocks, then displays the
 verified HTTPS source links itself. Successful retrieval still exposes those
 links if summarization or language repair is unusable. Requests that say to stay
 offline do not use this route.
+
+Verified web grounding is persisted with the conversation and may be reused
+after `/resume` only for referential or topic-overlapping follow-ups. Oversized
+evidence is softly truncated to the evidence budget, and an uncited or unusable
+model summary is replaced by a concise runtime-grounded fallback with
+runtime-owned source links.
 
 See [runtime architecture](runtime-architecture.md),
 [command policy](command-policy.md), [hooks](hooks.md), and
