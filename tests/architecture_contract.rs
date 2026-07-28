@@ -6653,6 +6653,9 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/web_search_adapter/research_flow.rs",
         "src/app/web_search_adapter/routing/protocol.rs",
         "src/app/web_search_adapter/routing/query.rs",
+        "src/app/web_search_adapter/routing/query/context.rs",
+        "src/app/web_search_adapter/routing/query/sanitize.rs",
+        "src/app/web_search_adapter/routing/query/tests.rs",
         "src/app/web_search_adapter/routing.rs",
         "src/app/web_search_adapter/routing/tests.rs",
         "src/app/web_search_adapter/routing/web_policy.rs",
@@ -6706,11 +6709,17 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let routing_web_policy =
         fs::read_to_string("src/app/web_search_adapter/routing/web_policy.rs").unwrap();
     let routing_query = fs::read_to_string("src/app/web_search_adapter/routing/query.rs").unwrap();
+    let routing_query_context =
+        fs::read_to_string("src/app/web_search_adapter/routing/query/context.rs").unwrap();
+    let routing_query_sanitize =
+        fs::read_to_string("src/app/web_search_adapter/routing/query/sanitize.rs").unwrap();
     assert!(routing.lines().any(|line| line == "mod protocol;"));
     assert!(routing.lines().any(|line| line == "mod query;"));
     assert!(routing.lines().any(|line| line == "mod web_policy;"));
     assert!(routing_protocol.contains("fn parse_agent_web_tool_for_request("));
     assert!(routing_query.contains("fn contextualize_search_input("));
+    assert!(routing_query.lines().any(|line| line == "mod context;"));
+    assert!(routing_query.lines().any(|line| line == "mod sanitize;"));
     assert!(routing_web_policy.contains("fn web_disabled("));
     for pure_owner in [
         "src/adapters/web_search/find.rs",
@@ -6742,6 +6751,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(routing.lines().count() < 225);
     assert!(routing_protocol.lines().count() < 150);
     assert!(routing_query.lines().count() < 225);
+    assert!(routing_query_context.lines().count() < 100);
+    assert!(routing_query_sanitize.lines().count() < 150);
     assert!(routing_web_policy.lines().count() < 100);
     assert!(
         fs::read_to_string("src/app/web_search_adapter/page_tools.rs")

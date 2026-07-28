@@ -355,8 +355,7 @@ pub(crate) fn deterministic_freshness_fallback_for_context(
     if request.is_empty() || super::routing::web_disabled(request) || !needs_fresh_web(request) {
         return None;
     }
-    let query = super::routing::contextualize_search_input(request, request, prior_user_requests)
-        .unwrap_or_else(|| request.to_string());
+    let query = super::routing::contextualize_search_input(request, request, prior_user_requests)?;
     let mut research = WebResearchSession::default();
     match research.deterministic_fallback(&query, &[], Duration::ZERO) {
         WebResearchAdmission::Execute(step) => Some(step),
