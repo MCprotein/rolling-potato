@@ -87,9 +87,18 @@ fn explicit_changes_and_read_only_search_keep_their_routes() {
         assert_eq!(decision.skill_id, "small-patch", "request: {request}");
     }
 
-    let search = classify("검색해라", |_| None).unwrap();
-    assert_eq!(search.skill_id, "repo-map");
-    assert_eq!(search.mode, "read-only");
+    for request in [
+        "검색해라",
+        "월드컵 우승국가 찾아봐",
+        "아니 우승국가 찾아보라고",
+    ] {
+        let search = classify(request, |_| None).unwrap();
+        assert_eq!(search.skill_id, "conversation", "request: {request}");
+        assert_eq!(search.mode, "read-only");
+    }
+    let repository_search = classify("이 저장소에서 함수를 찾아줘", |_| None).unwrap();
+    assert_eq!(repository_search.skill_id, "repo-map");
+    assert_eq!(repository_search.mode, "read-only");
 }
 
 #[test]

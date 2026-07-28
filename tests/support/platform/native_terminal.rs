@@ -85,6 +85,50 @@ pub struct PendingSourceApproval {
     pub source: PathBuf,
 }
 
+pub struct PreparedConversationBackend {
+    project: PathBuf,
+    data: PathBuf,
+    request_bodies: PathBuf,
+    stopped: bool,
+}
+
+impl PreparedConversationBackend {
+    pub fn request_bodies(&self) -> Vec<String> {
+        std::fs::read_to_string(&self.request_bodies)
+            .unwrap_or_default()
+            .split("\n---RPOTATO-REQUEST---\n")
+            .map(str::trim)
+            .filter(|request| !request.is_empty())
+            .map(str::to_string)
+            .collect()
+    }
+
+    pub fn clear_request_bodies(&self) {
+        std::fs::write(&self.request_bodies, b"").unwrap();
+    }
+
+    fn stop(&mut self) {
+        if self.stopped {
+            return;
+        }
+        let _ = run_bounded_command(
+            Command::new(env!("CARGO_BIN_EXE_rpotato"))
+                .args(["backend", "stop"])
+                .env("RPOTATO_PROJECT_ROOT", &self.project)
+                .env("RPOTATO_DATA_HOME", &self.data),
+            "backend stop",
+            &self.data,
+        );
+        self.stopped = true;
+    }
+}
+
+impl Drop for PreparedConversationBackend {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
 impl NativeTerminalFixture {
     pub fn new(case_name: &str) -> Self {
         let lock = NATIVE_TERMINAL_LOCK
@@ -249,6 +293,123 @@ impl NativeTerminalFixture {
         }
     }
 
+    pub fn start_conversation_backend(&self) -> PreparedConversationBackend {
+        self.start_conversation_backend_with_responses(
+            r#"{"decision":"web_search","input":"Rust 최신 릴리스","answer":""}"#,
+            "열린 원문을 바탕으로 생성한 최종 답변입니다. [source-f6c1fc4a4a917c01]",
+        )
+    }
+
+    pub fn start_conversation_backend_with_responses(
+        &self,
+        structured_response_body: &str,
+        text_response_body: &str,
+    ) -> PreparedConversationBackend {
+        let backend = self.root.join(if cfg!(windows) {
+            "fake-conversation-sidecar.exe"
+        } else {
+            "fake-conversation-sidecar"
+        });
+        let fake_sidecar = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/support/platform/fake_sidecar.rs");
+        let compile = Command::new("rustc")
+            .arg("--edition=2021")
+            .arg(fake_sidecar)
+            .arg("-o")
+            .arg(&backend)
+            .output()
+            .unwrap();
+        assert!(
+            compile.status.success(),
+            "native conversation fixture fake sidecar compile failed: {}",
+            String::from_utf8_lossy(&compile.stderr)
+        );
+
+        const MODEL_ID: &str = "gemma-4-e4b";
+        const MODEL_FILE: &str = "gemma-4-E4B_q4_0-it.gguf";
+        const MODEL_SHA256: &str =
+            "e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d";
+        const MODEL_CONTEXT: &str = "131072";
+        let model = self.data.join("models").join(MODEL_FILE);
+        std::fs::create_dir_all(model.parent().unwrap()).unwrap();
+        std::fs::write(&model, b"fake conversation model").unwrap();
+        let registry = self.data.join("models/registry");
+        std::fs::create_dir_all(&registry).unwrap();
+        std::fs::write(
+            registry.join(format!("{MODEL_ID}.json")),
+            format!(
+                "{{\n  \"schemaVersion\": 1,\n  \"id\": \"{MODEL_ID}\",\n  \"displayName\": \"Gemma conversation fixture\",\n  \"status\": \"installed\",\n  \"evidenceStatus\": \"source-backed-manifest\",\n  \"promotionEvidencePath\": \"\",\n  \"backendVersion\": \"\",\n  \"benchmarkRunId\": \"\",\n  \"upstreamModel\": \"google/gemma-4-E4B-it-qat-q4_0-unquantized\",\n  \"upstreamUrl\": \"https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-unquantized\",\n  \"artifactPath\": \"{}\",\n  \"artifactSha256\": \"{MODEL_SHA256}\",\n  \"licenseSource\": \"https://ai.google.dev/gemma/apache_2\",\n  \"licenseCheckedAt\": \"2026-07-11\"\n}}\n",
+                model.display()
+            ),
+        )
+        .unwrap();
+        std::fs::write(
+            self.data.join("models/default.json"),
+            format!(
+                "{{\n  \"schemaVersion\": 1,\n  \"modelId\": \"{MODEL_ID}\",\n  \"artifactSha256\": \"{MODEL_SHA256}\",\n  \"selectedAtMs\": 1\n}}\n"
+            ),
+        )
+        .unwrap();
+        let structured_response = self.root.join("structured-response.txt");
+        std::fs::write(&structured_response, structured_response_body).unwrap();
+        let text_response = self.root.join("text-response.txt");
+        std::fs::write(&text_response, text_response_body).unwrap();
+        let request_bodies = self.root.join("conversation-request-bodies.txt");
+        let port = native_port();
+        let start = run_bounded_command(
+            Command::new(env!("CARGO_BIN_EXE_rpotato"))
+                .args([
+                    "backend",
+                    "start",
+                    "--model",
+                    model.to_str().unwrap(),
+                    "--ctx-size",
+                    MODEL_CONTEXT,
+                ])
+                .env("RPOTATO_PROJECT_ROOT", &self.project)
+                .env("RPOTATO_DATA_HOME", &self.data)
+                .env("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend)
+                .env("RPOTATO_BACKEND_PORT", port.to_string())
+                .env(
+                    "RPOTATO_FAKE_STRUCTURED_RESPONSE_FILE",
+                    &structured_response,
+                )
+                .env("RPOTATO_FAKE_TEXT_RESPONSE_FILE", &text_response)
+                .env("RPOTATO_FAKE_REQUEST_BODY_MARKER", &request_bodies)
+                .env(
+                    "RPOTATO_TEST_BACKEND_START_TRACE",
+                    self.data.join("logs/conversation-backend-start-trace.log"),
+                ),
+            "backend start conversation fixture",
+            &self.data,
+        );
+        assert!(
+            start.status.success(),
+            "native conversation fixture backend start failed\nstdout={}\nstderr={}\n{}",
+            String::from_utf8_lossy(&start.stdout),
+            String::from_utf8_lossy(&start.stderr),
+            backend_failure_diagnostics(&self.data),
+        );
+
+        std::env::set_var("RPOTATO_BACKEND_LLAMA_CPP_PATH", &backend);
+        std::env::set_var("RPOTATO_BACKEND_PORT", port.to_string());
+        std::env::set_var(
+            "RPOTATO_TEST_WEB_SEARCH_HTML",
+            include_str!("../../fixtures/web_search/ddg-html.html"),
+        );
+        std::env::set_var(
+            "RPOTATO_TEST_WEB_OPEN_HTML",
+            include_str!("../../fixtures/web_search/page-hostile.html"),
+        );
+
+        PreparedConversationBackend {
+            project: self.project.clone(),
+            data: self.data.clone(),
+            request_bodies,
+            stopped: false,
+        }
+    }
+
     #[cfg(windows)]
     pub fn current_session_id(&self) -> String {
         let body = std::fs::read_to_string(self.project.join(".rpotato/state/current-state.json"))
@@ -406,6 +567,10 @@ impl Drop for NativeTerminalFixture {
         std::env::remove_var("RPOTATO_TEST_TUI_SECRET_PROBE");
         std::env::remove_var("RPOTATO_TEST_SKIP_SETUP");
         std::env::remove_var("RPOTATO_TEST_SKIP_UPDATE_CHECK");
+        std::env::remove_var("RPOTATO_TEST_WEB_SEARCH_HTML");
+        std::env::remove_var("RPOTATO_TEST_WEB_OPEN_HTML");
+        std::env::remove_var("RPOTATO_BACKEND_LLAMA_CPP_PATH");
+        std::env::remove_var("RPOTATO_BACKEND_PORT");
         let _ = std::fs::remove_dir_all(&self.root);
     }
 }

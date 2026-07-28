@@ -98,8 +98,15 @@ fn handle(mut stream: TcpStream) {
             let _ = writeln!(marker, "{body_bytes}");
         }
     }
+    if let Ok(path) = std::env::var("RPOTATO_FAKE_REQUEST_BODY_MARKER") {
+        if let Ok(mut marker) = OpenOptions::new().create(true).append(true).open(path) {
+            let _ = marker.write_all(request_body);
+            let _ = marker.write_all(b"\n---RPOTATO-REQUEST---\n");
+        }
+    }
 
-    if let Ok(path) = std::env::var("RPOTATO_FAKE_RESPONSE_FILE") {
+    let response_path = response_fixture_path(request_body);
+    if let Some(path) = response_path {
         let content = match std::fs::read_to_string(&path) {
             Ok(content) => content,
             Err(error) => {
@@ -145,6 +152,18 @@ fn handle(mut stream: TcpStream) {
         }
         thread::sleep(Duration::from_millis(25));
     }
+}
+
+fn response_fixture_path(request_body: &[u8]) -> Option<String> {
+    let structured = find_bytes(request_body, b"\"response_format\"").is_some();
+    let selected = if structured {
+        "RPOTATO_FAKE_STRUCTURED_RESPONSE_FILE"
+    } else {
+        "RPOTATO_FAKE_TEXT_RESPONSE_FILE"
+    };
+    std::env::var(selected)
+        .ok()
+        .or_else(|| std::env::var("RPOTATO_FAKE_RESPONSE_FILE").ok())
 }
 
 fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {

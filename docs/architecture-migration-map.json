@@ -2755,6 +2755,22 @@
       ]
     },
     {
+      "path": "src/runtime_core/agent.rs",
+      "slices": [
+        {
+          "responsibility": "strict structured agent turn decision schema and parsing",
+          "target": "src/runtime_core/agent.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/agent.rs",
+            "src/app/tui_adapter/conversation.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/runtime_core/inference/backend.rs",
       "slices": [
         {
@@ -3317,13 +3333,44 @@
       "path": "src/app/web_search_adapter/page_tools.rs",
       "slices": [
         {
-          "responsibility": "opened-page answer composition and visible WebFind results",
+          "responsibility": "opened-page and in-page-find observation facade",
           "target": "src/app/web_search_adapter/page_tools.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/web_search_adapter.rs",
             "src/app/web_search_adapter/page_tools.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_tools/find.rs",
+      "slices": [
+        {
+          "responsibility": "in-page-find evidence observation and grounded fallback composition",
+          "target": "src/app/web_search_adapter/page_tools/find.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/page_tools/find.rs",
+            "src/app/web_search_adapter/page_tools/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_tools/open.rs",
+      "slices": [
+        {
+          "responsibility": "opened-page evidence observation and redirect terminal response composition",
+          "target": "src/app/web_search_adapter/page_tools/open.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/page_tools/open.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3340,6 +3387,70 @@
           "evidence": [
             "src/app/web_search_adapter.rs",
             "src/app/web_search_adapter/routing.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/query.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic conversation-aware search query contextualization facade",
+          "target": "src/app/web_search_adapter/routing/query.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing/query.rs",
+            "src/app/web_search_adapter/routing/query/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/query/context.rs",
+      "slices": [
+        {
+          "responsibility": "bounded conversation context selection for referential web queries",
+          "target": "src/app/web_search_adapter/routing/query/context.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing/query/context.rs",
+            "src/app/web_search_adapter/routing/query/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/query/sanitize.rs",
+      "slices": [
+        {
+          "responsibility": "secret-safe bounded search query normalization and relevance terms",
+          "target": "src/app/web_search_adapter/routing/query/sanitize.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing/query/sanitize.rs",
+            "src/app/web_search_adapter/routing/query/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/query/tests.rs",
+      "slices": [
+        {
+          "responsibility": "contextual search query projection and secret-isolation regression tests",
+          "target": "src/app/web_search_adapter/routing/query/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing/query.rs",
+            "src/app/web_search_adapter/routing/query/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -9855,6 +9966,12 @@
       ]
     },
     {
+      "path": "src/runtime_core/agent.rs",
+      "responsibilities": [
+        "strict structured agent turn decision schema and parsing"
+      ]
+    },
+    {
       "path": "src/runtime_core/inference/backend.rs",
       "responsibilities": [
         "inference backend contracts"
@@ -10063,13 +10180,49 @@
     {
       "path": "src/app/web_search_adapter/page_tools.rs",
       "responsibilities": [
-        "opened-page answer composition and visible WebFind results"
+        "opened-page and in-page-find observation facade"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_tools/find.rs",
+      "responsibilities": [
+        "in-page-find evidence observation and grounded fallback composition"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/page_tools/open.rs",
+      "responsibilities": [
+        "opened-page evidence observation and redirect terminal response composition"
       ]
     },
     {
       "path": "src/app/web_search_adapter/routing.rs",
       "responsibilities": [
         "deterministic search, open, and in-page-find request routing"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/query.rs",
+      "responsibilities": [
+        "deterministic conversation-aware search query contextualization facade"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/query/context.rs",
+      "responsibilities": [
+        "bounded conversation context selection for referential web queries"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/query/sanitize.rs",
+      "responsibilities": [
+        "secret-safe bounded search query normalization and relevance terms"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/query/tests.rs",
+      "responsibilities": [
+        "contextual search query projection and secret-isolation regression tests"
       ]
     },
     {

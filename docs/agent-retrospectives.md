@@ -1182,3 +1182,86 @@
   상태를 구성합니다. 행 수를 만들기 위한 임의 suffix로 의미를 바꾸지 않습니다.
 - 의미 분류 경계는 전용 unit test가 담당하고, scroll·draft 같은 화면 테스트는
   분류 결과가 안정적인 입력만 사용합니다.
+
+## 2026-07-28: 후속 웹 검색과 저장소 탐색을 동일한 동사로 분류함
+
+### 증상
+
+- `검색해봐`, `찾아보라고` 같은 일반 웹 후속 요청이 이전 대화 주제를 잃고 현재
+  문장 자체를 검색했습니다.
+- `찾아`라는 동사만으로 coding-agent 경로에 진입해, 월드컵 우승국을 묻는 일반
+  질문이 `repo-map`의 파일 근거 요구로 차단됐습니다.
+
+### 원인
+
+- 외부 검색 query를 현재 문장의 literal substring으로만 제한해, 모델이 최근 사용자
+  발화를 자립형 검색어로 투영할 수 없었습니다.
+- 의미 분류 테스트가 단일 문장 route만 검증하고, 실제 사용자 대화의 연속된
+  질문·정정·검색 요청을 재현하지 않았습니다.
+
+### 재발 방지
+
+- 일반적인 `검색·찾아·분석` 동사는 conversation에 남기고, 파일·코드·저장소처럼
+  명시적인 local scope가 함께 있을 때만 `repo-map`으로 분류합니다.
+- 후속 검색어는 현재 주제와 연결된 최근 사용자 발화 사슬만 사용해 자립형 query로
+  만들며, 무관한 과거 발화·모델 답변·첨부 내용은 외부 query provenance에서
+  제외합니다. 연도 같은 후속 한정자는 모델 query에서 누락돼도 보존합니다.
+- 대화형 검색 변경은 단일 문장 unit test에 더해 `주제 질문 → 시점 후속 질문 →
+  검색 요청 → 사용자 정정`의 실제 turn sequence를 회귀 테스트로 고정합니다.
+
+## 2026-07-28: PR 상태 이벤트가 검증 중인 candidate run을 취소함
+
+### 증상
+
+- Draft PR에 `release-candidate` label을 붙인 뒤 ready로 전환하자, 먼저 시작한
+  candidate run이 뒤늦게 전달된 다른 PR action run에 의해 취소됐습니다.
+- 후속 run은 event snapshot의 draft·label 조건 때문에 skip되어 정확한 candidate
+  SHA에 대한 GitHub 검증이 남지 않았습니다.
+
+### 원인
+
+- Candidate workflow concurrency group이 PR 번호만 사용해 `labeled`,
+  `ready_for_review`, `synchronize`처럼 의미가 다른 action을 모두 같은 실행으로
+  취급했습니다.
+- Job 조건에서 skip될 event도 workflow concurrency에는 먼저 참여하므로, 실행할
+  작업이 없는 event가 정상 candidate run을 취소할 수 있었습니다.
+
+### 재발 방지
+
+- Candidate concurrency group에 `github.event.action`을 포함해 같은 action의
+  오래된 run만 취소하고, label·ready 전환처럼 다른 action끼리는 취소하지 않게
+  합니다.
+- Release workflow contract가 action-scoped concurrency와
+  `cancel-in-progress: true`를 함께 고정해, 빠른 재푸시 정리는 유지하면서 상태
+  전환 간 교차 취소는 다시 들어오지 못하게 합니다.
+
+## 2026-07-28: 일반 분석과 저장소 분석의 분류 경계가 오래된 테스트 입력들과 충돌함
+
+### 증상
+
+- 전체 candidate test에서 source inspection 계획 테스트가 `inspect-sources` 대신
+  `answer-only`를 받아 실패했습니다.
+- 첫 fixture를 수정한 다음 candidate에서는 workflow performance E2E의
+  `src/lib.rs 구조를 분석해줘` 입력이 같은 이유로 `answer-only`가 되어, 읽기 전용
+  action 계약에서 차단됐습니다.
+- 두 실패 모두 단독 실행에서 재현됐고, 나머지 unit test와 Windows·macOS
+  candidate 검증은 통과했습니다.
+
+### 원인
+
+- 일반 질문의 `검색·찾아·분석` 동사를 저장소 탐색으로 오분류하지 않도록
+  repository scope를 필수화했지만, 기존 source inspection 테스트는 `구조 분석해줘`
+  라는 일반 문장으로 저장소 경로를 기대했습니다.
+- Candidate preflight가 분류 unit 경계만 실행하고 실제 `rpotato run` 성능 E2E는
+  실행하지 않아 두 번째 stale fixture가 전체 CI 끝에서 발견됐습니다.
+
+### 재발 방지
+
+- Source inspection 테스트는 `이 저장소 구조 분석해줘`처럼 repository scope를
+  명시하고, 일반 `구조 분석해줘`는 conversation의 `answer-only`로 남는 별도 회귀
+  테스트로 고정합니다.
+- Workflow performance E2E도 `이 저장소의 src/lib.rs 구조를 분석해줘`처럼 범위를
+  명시합니다.
+- Candidate preflight와 release workflow contract에 repository-scoped read-only
+  계획 unit과 workflow performance E2E를 함께 추가해, 분류기 변경 뒤 stale
+  실행 fixture가 전체 CI에서 처음 발견되지 않게 합니다.

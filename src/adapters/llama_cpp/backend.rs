@@ -10,7 +10,7 @@ use crate::adapters::llama_cpp::install::{self, selected_release_artifact, LLAMA
 use crate::foundation::integrity as checksum;
 use crate::foundation::serialization::escape_string_content;
 use crate::runtime_core::inference::backend::{
-    BackendAdapter, BackendChatInput, BackendChatSampling,
+    BackendAdapter, BackendChatInput, BackendChatSampling, BackendResponseFormat,
 };
 
 pub(crate) const LLAMA_CPP_BACKEND_ID: &str = "llama.cpp";
@@ -252,6 +252,12 @@ pub(crate) fn chat_request_body_for_input(
     } else {
         ""
     };
+    let response_format = match &input.response_format {
+        BackendResponseFormat::Text => String::new(),
+        BackendResponseFormat::JsonSchema { schema } => {
+            format!(",\"response_format\":{{\"type\":\"json_object\",\"schema\":{schema}}}")
+        }
+    };
     let user_content = if input.images.is_empty() {
         format!("\"{}\"", escape_string_content(&input.text))
     } else {
@@ -272,13 +278,14 @@ pub(crate) fn chat_request_body_for_input(
         format!("[{}]", parts.join(","))
     };
     format!(
-        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":{}}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}{}}}",
+        "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":{}}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}{}{}}}",
         escape_string_content(system_prompt),
         user_content,
         max_tokens,
         sampling.temperature,
         sampling.top_p,
         template_options,
+        response_format,
         stream_options
     )
 }
@@ -637,6 +644,7 @@ mod tests {
             }],
             response_language:
                 crate::runtime_core::inference::backend::ResponseLanguage::KoreanDefault,
+            response_format: BackendResponseFormat::Text,
         };
 
         let body = chat_request_body_for_input(
@@ -654,6 +662,29 @@ mod tests {
         assert!(body.contains("\"type\":\"image_url\""));
         assert!(body.contains("data:image/png;base64,YWJj"));
         assert!(!body.contains("screen.png"));
+    }
+
+    #[test]
+    fn structured_chat_request_constrains_the_model_to_the_runtime_schema() {
+        let input = BackendChatInput::text_for_user("도구를 선택해", "최신 Rust를 검색해줘")
+            .with_json_schema(
+                r#"{"type":"object","properties":{"decision":{"type":"string"}},"required":["decision"],"additionalProperties":false}"#,
+            );
+
+        let body = chat_request_body_for_input(
+            Path::new("qwen3.5-4b.gguf"),
+            &input,
+            64,
+            &BackendChatSampling {
+                temperature: 0.1,
+                top_p: 0.8,
+            },
+            true,
+        );
+
+        assert!(body.contains("\"response_format\":{\"type\":\"json_object\",\"schema\":{"));
+        assert!(body.contains("\"required\":[\"decision\"]"));
+        assert!(body.contains("\"stream\":true"));
     }
 
     #[test]

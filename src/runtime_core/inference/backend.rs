@@ -24,6 +24,13 @@ pub(crate) struct BackendChatInput {
     pub(crate) text: String,
     pub(crate) images: Vec<BackendChatImage>,
     pub(crate) response_language: ResponseLanguage,
+    pub(crate) response_format: BackendResponseFormat,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum BackendResponseFormat {
+    Text,
+    JsonSchema { schema: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,6 +59,7 @@ impl BackendChatInput {
             text: text.into(),
             images: Vec::new(),
             response_language: ResponseLanguage::KoreanDefault,
+            response_format: BackendResponseFormat::Text,
         }
     }
 
@@ -60,7 +68,15 @@ impl BackendChatInput {
             text: text.into(),
             images: Vec::new(),
             response_language: ResponseLanguage::from_user_request(user_request),
+            response_format: BackendResponseFormat::Text,
         }
+    }
+
+    pub(crate) fn with_json_schema(mut self, schema: impl Into<String>) -> Self {
+        self.response_format = BackendResponseFormat::JsonSchema {
+            schema: schema.into(),
+        };
+        self
     }
 
     pub(crate) fn validate(&self) -> Result<(), AppError> {
@@ -68,6 +84,23 @@ impl BackendChatInput {
             return Err(AppError::usage(
                 "backend chat은 text 또는 image 입력이 필요합니다.",
             ));
+        }
+        if let BackendResponseFormat::JsonSchema { schema } = &self.response_format {
+            const MAX_RESPONSE_SCHEMA_BYTES: usize = 16 * 1024;
+            if schema.is_empty() || schema.len() > MAX_RESPONSE_SCHEMA_BYTES {
+                return Err(AppError::blocked(format!(
+                    "backend JSON response schema는 1..={MAX_RESPONSE_SCHEMA_BYTES} bytes 범위여야 합니다."
+                )));
+            }
+            let parsed = crate::foundation::serialization::parse_value(
+                schema,
+                "backend JSON response schema",
+            )?;
+            if !matches!(parsed, crate::foundation::serialization::Value::Object(_)) {
+                return Err(AppError::blocked(
+                    "backend JSON response schema root는 object여야 합니다.",
+                ));
+            }
         }
         if self.images.len() > MAX_CHAT_IMAGES {
             return Err(AppError::blocked(format!(
@@ -224,6 +257,7 @@ mod tests {
                 bytes,
             }],
             response_language: ResponseLanguage::KoreanDefault,
+            response_format: BackendResponseFormat::Text,
         }
     }
 
@@ -245,11 +279,30 @@ mod tests {
                 bytes: b"RIFFxxxxWEBP".to_vec(),
             }],
             response_language: ResponseLanguage::KoreanDefault,
+            response_format: BackendResponseFormat::Text,
         };
         assert!(unsupported
             .validate()
             .unwrap_err()
             .message
             .contains("지원하지"));
+    }
+
+    #[test]
+    fn structured_output_requires_a_bounded_object_schema() {
+        assert!(BackendChatInput::text("도구를 선택해")
+            .with_json_schema(r#"{"type":"object","properties":{"decision":{"type":"string"}}}"#)
+            .validate()
+            .is_ok());
+
+        for schema in ["", "[]", "{not-json}"] {
+            assert!(
+                BackendChatInput::text("도구를 선택해")
+                    .with_json_schema(schema)
+                    .validate()
+                    .is_err(),
+                "{schema}"
+            );
+        }
     }
 }

@@ -70,6 +70,8 @@ candidate_permissions="$(awk '
 [ "$candidate_permissions" = $'permissions:\n  contents: read' ] \
   || fail "candidate workflow permissions must be exactly contents: read"
 require_line "$candidate_body" '      - ready_for_review'
+require_line "$candidate_body" '  group: refactor-candidate-${{ github.event.pull_request.number }}-${{ github.event.action }}'
+require_line "$candidate_body" '  cancel-in-progress: true'
 require_line "$candidate_body" "    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'release-candidate')"
 require_line "$candidate_body" '    outputs:'
 require_line "$candidate_body" '      candidate_sha: ${{ steps.candidate.outputs.candidate_sha }}'
@@ -122,6 +124,8 @@ require_line "$candidate_preflight_body" 'scripts/release/verify-toolchain-pins.
 require_line "$candidate_preflight_body" 'cargo fmt --all -- --check'
 require_line "$candidate_preflight_body" 'scripts/ci/verify-model-upgrade-compatibility.sh'
 require_line "$candidate_preflight_body" 'cargo test --locked --bin rpotato app::workflow_adapter::state::tests::current_snapshot::current_state_lease_releases_ledger_guard_before_loading_active_workflow -- --exact --test-threads=1'
+require_line "$candidate_preflight_body" 'cargo test --locked --bin rpotato app::intent_adapter::tests::read_only_mode_plans_source_inspection_without_approval -- --exact --test-threads=1'
+require_line "$candidate_preflight_body" 'cargo test --locked --test workflow_performance completed_agent_subagent_and_team_workflows_stay_within_budgets -- --exact --test-threads=1'
 require_line "$candidate_preflight_body" 'cargo test --locked --test surfaces native_terminal::pty_drop_escalates_when_child_cannot_handle_sigterm -- --exact --test-threads=1'
 require_line "$candidate_preflight_body" 'cargo test --locked --test architecture_contract -- --test-threads=1'
 require_line "$candidate_preflight_body" 'cargo clippy --locked --all-targets --all-features -- -D warnings'

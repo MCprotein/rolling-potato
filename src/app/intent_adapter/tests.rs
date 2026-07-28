@@ -78,7 +78,7 @@ fn execute_mode_plans_patch_proposal_without_side_effects() {
 
 #[test]
 fn read_only_mode_plans_source_inspection_without_approval() {
-    let decision = classify("구조 분석해줘").unwrap();
+    let decision = classify("이 저장소 구조 분석해줘").unwrap();
     let pack = sample_context_pack();
 
     let candidate = plan_action_candidate(&decision, &pack);
@@ -86,6 +86,15 @@ fn read_only_mode_plans_source_inspection_without_approval() {
     assert_eq!(candidate.kind, "inspect-sources");
     assert!(!candidate.approval_required);
     assert_eq!(candidate.next_gate, "source-reread-before-claim");
+}
+
+#[test]
+fn general_structure_question_does_not_claim_repository_inspection() {
+    let decision = classify("구조 분석해줘").unwrap();
+    let candidate = plan_action_candidate(&decision, &sample_context_pack());
+
+    assert_eq!(decision.skill_id, "conversation");
+    assert_eq!(candidate.kind, "answer-only");
 }
 
 #[test]

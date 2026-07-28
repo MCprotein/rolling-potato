@@ -3,11 +3,11 @@ use super::WebGroundingEvidence;
 use crate::foundation::error::AppError;
 
 mod protocol;
+mod query;
 mod web_policy;
 
-#[cfg(test)]
-pub(crate) use protocol::parse_agent_web_tool;
-pub(crate) use protocol::{parse_agent_web_tool_for_request, route_tool_request};
+pub(crate) use protocol::route_tool_request;
+pub(crate) use query::contextualize_search_input;
 pub(crate) use web_policy::web_disabled;
 
 pub(crate) fn validate_public_web_step(step: WebResearchStep) -> Result<WebResearchStep, AppError> {

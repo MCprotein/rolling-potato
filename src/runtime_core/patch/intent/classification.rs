@@ -111,6 +111,31 @@ pub(crate) fn classify(
                 "그거 해줘",
             ],
         );
+    let has_repo_scope = has_ascii_word(
+        &lower,
+        &[
+            "file",
+            "code",
+            "repo",
+            "repository",
+            "codebase",
+            "project",
+            "directory",
+            "path",
+            "source",
+        ],
+    ) || has_any(
+        trimmed,
+        &[
+            "파일",
+            "코드",
+            "저장소",
+            "프로젝트",
+            "디렉터리",
+            "경로",
+            "소스",
+        ],
+    );
     let (skill_id, mode) = if has_test_signal && has_failure_signal {
         signals.push("test-signal");
         ("fix-test", "execute")
@@ -125,8 +150,9 @@ pub(crate) fn classify(
     } else if has_diagnostic_output || (has_specific_failure_reference && has_explanation_signal) {
         signals.push("explain-error");
         ("explain-error", "read-only")
-    } else if has_any(&lower, &["map", "find", "search", "analyze"])
-        || has_any(trimmed, &["찾아", "검색", "분석", "구조", "어디"])
+    } else if has_repo_scope
+        && (has_any(&lower, &["map", "find", "search", "analyze"])
+            || has_any(trimmed, &["찾아", "검색", "분석", "구조", "어디"]))
     {
         signals.push("read-only");
         ("repo-map", "read-only")

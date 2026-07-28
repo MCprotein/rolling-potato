@@ -34,7 +34,24 @@ pub(crate) fn generate_candidate_for_user(
     max_tokens: u32,
 ) -> Result<GeneratedCandidate, AppError> {
     let input = BackendChatInput::text_for_user(prompt, user_request);
-    let run = backend::chat_once_with_input(&input, Some(max_tokens))?;
+    generate_candidate_with_input(&input, max_tokens)
+}
+
+pub(crate) fn generate_structured_candidate_for_user(
+    prompt: &str,
+    user_request: &str,
+    max_tokens: u32,
+    schema: &str,
+) -> Result<GeneratedCandidate, AppError> {
+    let input = BackendChatInput::text_for_user(prompt, user_request).with_json_schema(schema);
+    generate_candidate_with_input(&input, max_tokens)
+}
+
+fn generate_candidate_with_input(
+    input: &BackendChatInput,
+    max_tokens: u32,
+) -> Result<GeneratedCandidate, AppError> {
+    let run = backend::chat_once_with_input(input, Some(max_tokens))?;
     let visible = visible_text(&run.response);
     if visible.is_empty() {
         return Err(AppError::blocked(EMPTY_VISIBLE_ANSWER));

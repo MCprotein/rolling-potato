@@ -23,16 +23,17 @@ pub(super) fn select(pages: &mut WebPageSession, source_id: &str) -> Result<Stri
         .source(source_id)
         .ok_or_else(|| AppError::usage("선택한 웹 출처가 현재 세션에 없습니다."))?;
     if !source.opened {
-        return super::super::web_tools::execute(
+        let request = "선택한 웹 출처를 열고 요약해줘";
+        let observation = super::super::web_tools::observe(
             &mut WebResearchSession::default(),
             pages,
             WebToolRoute::Open { url: source.url },
-            "선택한 웹 출처를 열고 요약해줘",
+            request,
             "",
             "",
             Duration::ZERO,
-        )
-        .map(|execution| execution.response);
+        )?;
+        return Ok(super::super::web_tools::answer(observation, request).response);
     }
     pages.select(source_id);
     let page = pages

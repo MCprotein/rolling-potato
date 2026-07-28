@@ -14,7 +14,7 @@ on:
       - synchronize
 
 concurrency:
-  group: refactor-candidate-${{ github.event.pull_request.number }}
+  group: refactor-candidate-${{ github.event.pull_request.number }}-${{ github.event.action }}
   cancel-in-progress: true
 
 jobs:

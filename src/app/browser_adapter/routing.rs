@@ -8,39 +8,6 @@ pub(crate) struct BrowserSearchRequest {
     pub(crate) query: String,
 }
 
-pub(crate) fn parse_agent_browser_tool(response: &str) -> Option<BrowserSearchRequest> {
-    let lines = response
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .collect::<Vec<_>>();
-    let [tool_line, url_line, input_line] = lines.as_slice() else {
-        return None;
-    };
-    if tool_line.strip_prefix("BROWSER TOOL:")?.trim() != "search-form" {
-        return None;
-    }
-    let url = url_line.strip_prefix("BROWSER URL:")?.trim();
-    let query = input_line.strip_prefix("BROWSER INPUT:")?.trim();
-    bounded_request(url, query)
-}
-
-pub(crate) fn parse_agent_browser_tool_for_request(
-    response: &str,
-    current_request: &str,
-) -> Option<BrowserSearchRequest> {
-    let request = parse_agent_browser_tool(response)?;
-    let current_request = current_request.trim().to_lowercase();
-    let url = request.url.trim().to_lowercase();
-    let query = request.query.trim().to_lowercase();
-    (!current_request.is_empty()
-        && !url.is_empty()
-        && !query.is_empty()
-        && current_request.contains(&url)
-        && current_request.contains(&query))
-    .then_some(request)
-}
-
 pub(crate) fn deterministic_browser_fallback(request: &str) -> Option<BrowserSearchRequest> {
     if web_disabled(request) {
         return None;
