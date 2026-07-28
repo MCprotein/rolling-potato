@@ -182,6 +182,12 @@ evidence.
 | v0.50.0 | Released | [Bounded web research and Chromium browser delivery](docs/v0.50-web-research-browser-plan.md): Search→Open→Find evidence loops, verified source binding, multi-page TUI, and isolated installed-browser actions without API keys, MCP, or Node.js |
 | v0.50.1 | Released | Reliable interactive TUI patch: clipboard attachments, live progress and context estimates, private web-protocol containment, bounded Markdown, draft-preserving history scroll, and exact request-dispatch failure boundaries |
 
+### Grounded conversation continuity (`v0.51.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
+| v0.51.0 | Released | Session-derived context usage, bounded failed-request recall, persisted web grounding across `/resume`, topic-safe evidence reuse, soft evidence truncation, and runtime-grounded fallback answers |
+
 ## Distribution Boundary
 
 GitHub Releases in this repository is the only supported download and

@@ -1,6 +1,6 @@
 # 현재 기능
 
-이 문서는 출시된 `rolling-potato v0.50.1` runtime의 읽기 쉬운 상태 지도입니다.
+이 문서는 출시된 `rolling-potato v0.51.0` runtime의 읽기 쉬운 상태 지도입니다.
 하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
@@ -9,7 +9,7 @@
 > 이 문서는 기능 안내서입니다. 정확한 명령 문법은 설치된 바이너리의
 > `rpotato --help`를 기준으로 확인하십시오.
 
-## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.50.1`)
+## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.51.0`)
 
 GitHub Release archive에서 압축을 푼 binary는 사용자 전용 CLI directory에
 자기 자신을 설치·갱신하고 zsh, bash, fish 또는 Windows 사용자 PATH에 해당
@@ -86,6 +86,11 @@ budget으로 typed user-memory 후보, query recall, 최근 대화, attachment�
 제한된 semantic rationale 호출 한 번을 실행할 수 없으면 deterministic typed
 extraction만으로 계속합니다.
 
+Idle context 표시는 단일 model run이 아니라 현재 session에 보존된 대화에서
+계산합니다. 실패한 request와 사용자에게 표시된 runtime error도 제한된 recall
+안에서 유지하므로 수정 후속 질문이 원래 대상을 잃지 않으며, `/resume`은 같은
+제한된 대화 상태를 복원합니다.
+
 언어 guard는 한국어 문장과 함께 숫자, 수식, 코드, 경로, URL, 범위가 제한된 기술
 제목을 허용합니다. CJK 누출이나 이어지는 외국어 문장에는 사실을 보존하는 한국어
 재작성 한 번을 시도한 뒤 유효한 한국어 line을 안전하게 투영합니다. 복구가 실패해도
@@ -105,6 +110,11 @@ context로만 취급하고 웹 문서의 지시는 실행 권한을 얻지 못�
 뒤 검증된 HTTPS 출처 link를 직접 표시합니다. 요약이나 언어 보정이 사용할 수 없어도
 성공한 검색의 출처 link는 유지합니다. 사용자가 offline을 요청하면 이 경로를
 사용하지 않습니다.
+
+검증된 web grounding은 대화와 함께 보존되며 `/resume` 뒤에도 지시적 표현이나
+topic overlap이 있는 후속 질문에서만 재사용합니다. Evidence가 제한을 넘으면
+budget에 맞춰 soft truncation하며, citation이 없거나 사용할 수 없는 model
+summary는 runtime-grounded fallback과 runtime 소유 source link로 교체합니다.
 
 [런타임 아키텍처](runtime-architecture.md), [명령 정책](command-policy.md),
 [훅](hooks.md), [스킬](skills.md)을 참고하십시오.

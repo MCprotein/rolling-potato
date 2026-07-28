@@ -180,6 +180,12 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | v0.50.0 | Released | [제한된 웹 연구와 Chromium browser 제공 기록](v0.50-web-research-browser-plan.md): API key·MCP·Node.js 없이 Search→Open→Find 근거 loop, 검증된 source 연결, multi-page TUI와 격리된 installed-browser action |
 | v0.50.1 | Released | 신뢰할 수 있는 대화형 TUI patch: clipboard 첨부, 실시간 진행·context 추정, private web protocol 격리, bounded Markdown, draft 보존 history scroll과 정확한 request dispatch 실패 경계 |
 
+### 근거 기반 대화 연속성 (`v0.51.0`)
+
+| Version | 상태 | 범위 |
+| --- | --- | --- |
+| v0.51.0 | Released | Session 기반 context 사용량, 제한된 실패 request 회상, `/resume`을 넘는 web grounding 보존, topic-safe evidence 재사용, soft evidence truncation과 runtime-grounded fallback 답변 |
+
 ## 배포 경계
 
 이 저장소의 GitHub Releases만 지원하는 download·배포 channel입니다.
