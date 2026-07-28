@@ -162,7 +162,7 @@ fn cached_grounding_answers_referential_followups_without_new_network_access() {
             source_id: "source-name".to_string(),
             title: "EU 에코디자인 규정(Ecodesign for Sustainable Products Regulation, ESPR)".to_string(),
             url: "https://example.com/espr-name".to_string(),
-            excerpt: "ESPR은 EU 역내 출시 제품의 지속가능성과 순환성을 제품 단계부터 관리하는 법적 틀입니다.".to_string(),
+            excerpt: "2024년 7월 &ldquo;ESPR&rdquo;이 발효되었습니다. ESPR은 EU 역내 출시 제품의 지속가능성과 순환성을 제품 단계부터 관리하는 법적 틀입니다. EU는 제품 수명 연장과 재활용 원료 확대를 목표로 합니다.".to_string(),
         },
     ];
 
@@ -178,11 +178,14 @@ fn cached_grounding_answers_referential_followups_without_new_network_access() {
         answer.contains("Ecodesign for Sustainable Products Regulation"),
         "{answer}"
     );
-    assert!(answer.contains("순환경제 전환 촉진"), "{answer}");
+    assert!(
+        answer.contains("제품 수명 연장과 재활용 원료 확대를 목표"),
+        "{answer}"
+    );
     assert!(answer.contains("고구마님"), "{answer}");
     assert!(answer.contains("[source-name]"));
-    assert!(answer.contains("[source-purpose]"));
     assert!(answer.contains("https://example.com/espr-name"));
-    assert!(answer.contains("https://example.com/espr-purpose"));
     assert!(!answer.contains("이전 검색에서 보존한 원문 내용입니다."));
+    assert!(!answer.contains("&ldquo;"), "{answer}");
+    assert!(!answer.contains("2024년 7월"), "{answer}");
 }

@@ -13,15 +13,12 @@ pub(super) fn render(
     let passage = grounding
         .iter()
         .flat_map(|evidence| {
-            evidence
-                .excerpt
-                .lines()
-                .map(str::trim)
-                .filter(|line| meaningful_chars(line) >= 8)
-                .map(move |line| (evidence, line))
+            extract_passages(&evidence.excerpt)
+                .into_iter()
+                .map(move |passage| (evidence, passage))
         })
-        .max_by_key(|(_, line)| evidence_score(user_request, line, false));
-    let title_text = bounded_chars(title.title.trim());
+        .max_by_key(|(_, passage)| evidence_score(user_request, passage, false));
+    let title_text = bounded_chars(&decode_display_entities(title.title.trim()));
     let (passage_source, passage_text) = passage
         .map(|(evidence, text)| (evidence, bounded_chars(text.trim())))
         .unwrap_or((title, String::new()));
@@ -180,6 +177,39 @@ fn meaningful_chars(value: &str) -> usize {
         .count()
 }
 
+fn extract_passages(excerpt: &str) -> Vec<String> {
+    excerpt
+        .lines()
+        .flat_map(|line| {
+            let decoded = decode_display_entities(line.trim());
+            decoded
+                .split_inclusive(|character| matches!(character, '.' | '!' | '?' | '。'))
+                .map(str::trim)
+                .filter(|passage| meaningful_chars(passage) >= 8)
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+fn decode_display_entities(value: &str) -> String {
+    value
+        .replace("&ldquo;", "“")
+        .replace("&rdquo;", "”")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&nbsp;", " ")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+}
+
 fn bounded_chars(value: &str) -> String {
-    value.chars().take(PASSAGE_CHARS).collect()
+    let mut chars = value.chars();
+    let mut bounded = chars.by_ref().take(PASSAGE_CHARS).collect::<String>();
+    if chars.next().is_some() {
+        bounded.push('…');
+    }
+    bounded
 }
