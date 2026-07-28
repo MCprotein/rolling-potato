@@ -12,7 +12,7 @@ mod transport;
 
 use evidence::evidence_from_results;
 pub(crate) use evidence::{WebOpenResult, WebPageEvidence, WebSearchEvidence, WebSourceEvidence};
-pub(crate) use find::find_in_page;
+pub(crate) use find::{find_in_page, WebFindEvidence};
 use html::{parse_html_search_results, parse_lite_search_results};
 use page::parse_page_document;
 use policy::{

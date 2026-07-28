@@ -7,26 +7,6 @@ use super::search_form::{execute_with, BrowserControl, ReadinessPhase};
 use super::*;
 
 #[test]
-fn agent_browser_contract_accepts_only_a_bounded_search_form_request() {
-    assert_eq!(
-        parse_agent_browser_tool(
-            "BROWSER TOOL: search-form\nBROWSER URL: https://www.google.com/\nBROWSER INPUT: Rust 2026"
-        ),
-        Some(BrowserSearchRequest {
-            url: "https://www.google.com/".to_string(),
-            query: "Rust 2026".to_string(),
-        })
-    );
-    for invalid in [
-        "BROWSER TOOL: click\nBROWSER URL: https://example.com/\nBROWSER INPUT: submit",
-        "BROWSER TOOL: search-form\nBROWSER INPUT: missing URL",
-        "BROWSER TOOL: search-form\nBROWSER URL: https://example.com/\nBROWSER INPUT:",
-    ] {
-        assert!(parse_agent_browser_tool(invalid).is_none(), "{invalid}");
-    }
-}
-
-#[test]
 fn explicit_naver_and_google_requests_have_a_small_model_fallback() {
     assert_eq!(
         deterministic_browser_fallback("네이버를 열고 검색창에 월드컵을 입력해"),

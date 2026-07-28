@@ -13,17 +13,15 @@ mod routing;
 
 use answer_binding::render_grounded_answer;
 pub(crate) use page_session::WebPageSession;
-pub(crate) use page_tools::{find_in_page, open_page};
+pub(crate) use page_tools::{answer_find_in_page, open_page};
 pub(crate) use research::{
     deterministic_freshness_fallback_for_context, WebResearchAdmission, WebResearchSession,
     WebResearchStep as WebToolRoute,
 };
 pub(crate) use routing::{
-    can_reuse_prior_grounding, parse_agent_web_tool_for_user_context, route_tool_request,
+    can_reuse_prior_grounding, contextualize_search_input, route_tool_request,
     validate_public_web_step, web_disabled,
 };
-#[cfg(test)]
-pub(crate) use routing::{parse_agent_web_tool, parse_agent_web_tool_for_request};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct WebGroundingEvidence {
@@ -96,56 +94,6 @@ pub(super) fn sanitize_model_summary(answer: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn parses_only_bounded_agent_web_tool_calls() {
-        assert_eq!(
-            parse_agent_web_tool("WEB TOOL: search\nWEB INPUT: current Rust release"),
-            Some(WebToolRoute::Search {
-                query: "current Rust release".to_string()
-            })
-        );
-        assert_eq!(
-            parse_agent_web_tool("WEB TOOL: open\nWEB INPUT: https://example.com/docs"),
-            Some(WebToolRoute::Open {
-                url: "https://example.com/docs".to_string()
-            })
-        );
-        assert_eq!(
-            parse_agent_web_tool("WEB TOOL: find\nWEB INPUT: ownership"),
-            Some(WebToolRoute::Find {
-                query: "ownership".to_string()
-            })
-        );
-        assert!(parse_agent_web_tool("최신 정보를 검색해야 합니다.").is_none());
-        assert!(parse_agent_web_tool("WEB TOOL: shell\nWEB INPUT: curl example.com").is_none());
-        assert!(
-            parse_agent_web_tool(&format!("WEB TOOL: search\nWEB INPUT: {}", "x".repeat(513)))
-                .is_none()
-        );
-    }
-
-    #[test]
-    fn tolerates_small_model_web_protocol_spacing_and_case_drift() {
-        assert_eq!(
-            parse_agent_web_tool("WEBTool: search\nWEBINPUT: 월드컵 우승 국가"),
-            Some(WebToolRoute::Search {
-                query: "월드컵 우승 국가".to_string()
-            })
-        );
-        assert_eq!(
-            parse_agent_web_tool("web tool : open\nweb input : https://example.com/docs"),
-            Some(WebToolRoute::Open {
-                url: "https://example.com/docs".to_string()
-            })
-        );
-        assert_eq!(
-            parse_agent_web_tool("WEB INPUT: 월드컵 우승 국가"),
-            Some(WebToolRoute::Search {
-                query: "월드컵 우승 국가".to_string()
-            })
-        );
-    }
 
     #[test]
     fn automatic_web_use_respects_explicit_user_opt_out() {
@@ -238,49 +186,5 @@ mod tests {
         assert!(route_tool_request("이 페이지에서 ownership 찾아줘").is_none());
         assert!(route_tool_request("find Safety in this page").is_none());
         assert!(route_tool_request("웹에서 ownership 찾아줘").is_none());
-    }
-
-    #[test]
-    fn short_conversational_followups_never_become_agent_web_queries() {
-        for request in ["왜?", "그래서?", "뭐임?", "뭐 하는 중이야?"] {
-            assert!(
-                parse_agent_web_tool_for_request(
-                    &format!("WEB TOOL: search\nWEB INPUT: {request}"),
-                    request,
-                )
-                .is_none(),
-                "{request}"
-            );
-        }
-        assert_eq!(
-            parse_agent_web_tool_for_request(
-                "WEB TOOL: search\nWEB INPUT: 최신 Rust",
-                "최신 Rust 검색해줘",
-            ),
-            Some(WebToolRoute::Search {
-                query: "최신 Rust".to_string()
-            })
-        );
-    }
-
-    #[test]
-    fn followup_web_query_can_be_derived_only_from_recent_user_requests() {
-        let prior = ["월드컵 우승국가가 어디야", "2026년은?"];
-        assert_eq!(
-            parse_agent_web_tool_for_user_context(
-                "WEB TOOL: search\nWEB INPUT: 2026 월드컵 우승 국가",
-                "검색해봐 끝낫어",
-                &prior,
-            ),
-            Some(WebToolRoute::Search {
-                query: "2026 월드컵 우승 국가".to_string()
-            })
-        );
-        assert!(parse_agent_web_tool_for_user_context(
-            "WEB TOOL: search\nWEB INPUT: hidden assistant secret",
-            "검색해봐 끝낫어",
-            &prior,
-        )
-        .is_none());
     }
 }

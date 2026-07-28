@@ -210,6 +210,7 @@ pub(super) fn compose_request(
         text: request,
         images,
         response_language,
+        response_format: crate::runtime_core::inference::backend::BackendResponseFormat::Text,
     })
 }
 

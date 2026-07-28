@@ -6,9 +6,7 @@ mod protocol;
 mod query;
 mod web_policy;
 
-#[cfg(test)]
-pub(crate) use protocol::{parse_agent_web_tool, parse_agent_web_tool_for_request};
-pub(crate) use protocol::{parse_agent_web_tool_for_user_context, route_tool_request};
+pub(crate) use protocol::route_tool_request;
 pub(crate) use query::contextualize_search_input;
 pub(crate) use web_policy::web_disabled;
 

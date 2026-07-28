@@ -66,11 +66,27 @@ pub(super) fn execute(
                 }
             })
         }
-        WebToolRoute::Find { query } => web_search_adapter::find_in_page(pages.current(), &query)
-            .map(|response| WebToolExecution {
-                response,
-                grounding: Vec::new(),
-            }),
+        WebToolRoute::Find { query } => {
+            let grounding = pages
+                .current()
+                .map(|page| WebGroundingEvidence {
+                    source_id: page.source_id.clone(),
+                    title: page
+                        .title
+                        .clone()
+                        .unwrap_or_else(|| "제목 없음".to_string()),
+                    url: page.final_url.clone(),
+                    excerpt: page.content.chars().take(1_536).collect(),
+                })
+                .into_iter()
+                .collect();
+            web_search_adapter::answer_find_in_page(pages.current(), &query, request).map(
+                |response| WebToolExecution {
+                    response,
+                    grounding,
+                },
+            )
+        }
     };
     match result {
         Ok(execution) => {

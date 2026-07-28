@@ -14,9 +14,11 @@ pub(crate) fn contextualize_search_input(
     let proposed = clean_search_phrase(proposed_query);
     let current = clean_search_phrase(current_request);
     let needs_context = !is_self_contained(&current);
-    let context = needs_context
-        .then(|| relevant_context(prior_user_requests))
-        .unwrap_or_default();
+    let context = if needs_context {
+        relevant_context(prior_user_requests)
+    } else {
+        Vec::new()
+    };
     if needs_context && context.is_empty() {
         return None;
     }

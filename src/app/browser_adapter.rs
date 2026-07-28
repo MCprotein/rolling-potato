@@ -3,11 +3,7 @@
 mod routing;
 mod search_form;
 
-#[cfg(test)]
-pub(crate) use routing::parse_agent_browser_tool;
-pub(crate) use routing::{
-    deterministic_browser_fallback, parse_agent_browser_tool_for_request, BrowserSearchRequest,
-};
+pub(crate) use routing::{deterministic_browser_fallback, BrowserSearchRequest};
 
 pub(crate) fn progress_notice(request: &str) -> Option<String> {
     deterministic_browser_fallback(request).map(|_| {
