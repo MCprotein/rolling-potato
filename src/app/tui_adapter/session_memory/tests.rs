@@ -1,6 +1,10 @@
 use std::collections::BTreeSet;
 
+use super::event_codec::{parse_conversation_event, ConversationEvent};
 use super::*;
+
+#[path = "tests/restoration.rs"]
+mod restoration_tests;
 
 fn with_memory_fixture(test_name: &str, test: impl FnOnce()) {
     let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
@@ -33,28 +37,12 @@ fn conversation_records(
 }
 
 #[test]
-fn canonical_memory_restores_only_complete_pairs_and_honors_reset_boundaries() {
-    with_memory_fixture("complete-pairs", || {
-        let mut memory = load().unwrap();
-        assert!(memory.turns.is_empty());
-
-        record_exchange(&mut memory, "내 이름은 감자야", "알겠습니다.").unwrap();
-        assert_eq!(memory.turns.len(), 2);
-        assert_eq!(load().unwrap(), memory);
-
-        clear(&mut memory).unwrap();
-        assert!(memory.turns.is_empty());
-        assert!(load().unwrap().turns.is_empty());
-    });
-}
-
-#[test]
 fn reset_is_a_unique_causal_head_for_repeated_questions() {
     with_memory_fixture("reset-causal-head", || {
         let mut memory = load().unwrap();
-        record_exchange(&mut memory, "안녕", "첫 번째 답변").unwrap();
+        record_exchange(&mut memory, "안녕", "첫 번째 답변", &[]).unwrap();
         clear(&mut memory).unwrap();
-        record_exchange(&mut memory, "안녕", "두 번째 답변").unwrap();
+        record_exchange(&mut memory, "안녕", "두 번째 답변", &[]).unwrap();
         clear(&mut memory).unwrap();
         clear(&mut memory).unwrap();
 
@@ -71,7 +59,12 @@ fn reset_is_a_unique_causal_head_for_repeated_questions() {
         assert_eq!(
             records
                 .iter()
-                .filter(|record| record.content == RESET_MARKER)
+                .filter(|record| {
+                    matches!(
+                        parse_conversation_event(&record.content),
+                        Some(ConversationEvent::Reset)
+                    )
+                })
                 .count(),
             3
         );
@@ -113,13 +106,14 @@ fn reset_discards_an_orphan_user_before_a_later_model_record() {
 }
 
 #[test]
-fn coding_exchange_is_canonical_and_prompt_history_is_bounded() {
-    with_memory_fixture("coding-and-bounded", || {
+fn coding_exchange_is_canonical_and_prompt_history_keeps_budgetable_pairs() {
+    with_memory_fixture("coding-and-budgetable", || {
         let mut memory = load().unwrap();
         record_exchange(
             &mut memory,
             "src/lib.rs를 리팩토링해줘",
             "변경 제안을 준비했습니다.",
+            &[],
         )
         .unwrap();
         assert_eq!(load().unwrap().turns, memory.turns);
@@ -134,9 +128,10 @@ fn coding_exchange_is_canonical_and_prompt_history_is_bounded() {
                 content: format!("turn-{index}"),
             })
             .collect();
-        let prompt = memory.prompt_history();
-        assert_eq!(prompt.len(), MAX_PROMPT_HISTORY_TURNS);
-        assert_eq!(prompt.first().unwrap().content, "turn-88");
-        assert_eq!(prompt.last().unwrap().content, "turn-599");
+        let history = memory.turns();
+        assert_eq!(history.len(), 600);
+        assert_eq!(history.first().unwrap().content, "turn-0");
+        assert_eq!(history.last().unwrap().content, "turn-599");
+        assert_eq!(history.as_ptr(), memory.turns.as_ptr());
     });
 }

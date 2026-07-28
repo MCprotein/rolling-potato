@@ -8,12 +8,19 @@ use super::compaction::{estimate_tokens, truncate_tail_to_estimated_tokens};
 pub(crate) enum DialogueRole {
     User,
     Assistant,
+    Runtime,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DialogueTurn {
     pub(crate) role: DialogueRole,
     pub(crate) content: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DialogueTurnRef<'a> {
+    pub(crate) role: DialogueRole,
+    pub(crate) content: &'a str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,6 +30,7 @@ pub(crate) struct DialogueMemoryPlan {
     pub(crate) recent_history: Vec<DialogueTurn>,
 }
 
+#[cfg(test)]
 pub(crate) fn plan_dialogue_memory(
     turns: &[DialogueTurn],
     query: &str,
@@ -30,18 +38,42 @@ pub(crate) fn plan_dialogue_memory(
     recall_budget_tokens: usize,
     recent_budget_tokens: usize,
 ) -> DialogueMemoryPlan {
+    let borrowed = turns
+        .iter()
+        .map(|turn| DialogueTurnRef {
+            role: turn.role,
+            content: &turn.content,
+        })
+        .collect::<Vec<_>>();
+    plan_borrowed_dialogue_memory(
+        &borrowed,
+        query,
+        typed_budget_tokens,
+        recall_budget_tokens,
+        recent_budget_tokens,
+    )
+}
+
+pub(crate) fn plan_borrowed_dialogue_memory(
+    turns: &[DialogueTurnRef<'_>],
+    query: &str,
+    typed_budget_tokens: usize,
+    recall_budget_tokens: usize,
+    recent_budget_tokens: usize,
+) -> DialogueMemoryPlan {
     let pairs = completed_pairs(turns);
-    let recent_pair_count = pairs.len().min((recent_budget_tokens / 256).clamp(8, 64));
+    let recent_history = select_recent_pairs_within_budget(&pairs, recent_budget_tokens);
+    let recent_pair_count = recent_history.len() / 2;
     let recent_start = pairs.len().saturating_sub(recent_pair_count);
-    let recent_history =
-        select_recent_pairs_within_budget(&pairs[recent_start..], recent_budget_tokens);
 
     let older = &pairs[..recent_start];
     let typed_indices = older
         .iter()
         .enumerate()
         .rev()
-        .filter(|(_, pair)| is_typed_user_memory(&pair[0].content))
+        .filter(|(_, pair)| {
+            pair[1].role == DialogueRole::Assistant && is_typed_user_memory(pair[0].content)
+        })
         .map(|(index, _)| index)
         .collect::<Vec<_>>();
     let typed_selection =
@@ -77,17 +109,23 @@ pub(crate) fn plan_dialogue_memory(
     }
 }
 
-fn completed_pairs(turns: &[DialogueTurn]) -> Vec<&[DialogueTurn]> {
+fn completed_pairs<'turns, 'content>(
+    turns: &'turns [DialogueTurnRef<'content>],
+) -> Vec<&'turns [DialogueTurnRef<'content>]> {
     turns
         .chunks_exact(2)
         .filter(|pair| {
-            pair[0].role == DialogueRole::User && pair[1].role == DialogueRole::Assistant
+            pair[0].role == DialogueRole::User
+                && matches!(
+                    pair[1].role,
+                    DialogueRole::Assistant | DialogueRole::Runtime
+                )
         })
         .collect()
 }
 
 fn select_indexed_pairs_within_budget(
-    pairs: &[&[DialogueTurn]],
+    pairs: &[&[DialogueTurnRef<'_>]],
     ranked_indices: &[usize],
     budget_tokens: usize,
 ) -> PairSelection {
@@ -109,13 +147,13 @@ fn select_indexed_pairs_within_budget(
         .collect::<BTreeSet<_>>();
     let turns = selected
         .into_iter()
-        .flat_map(|(_, pair)| pair.iter().cloned())
+        .flat_map(|(_, pair)| pair.iter().map(owned_turn))
         .collect();
     PairSelection { turns, indices }
 }
 
 fn select_recent_pairs_within_budget(
-    pairs: &[&[DialogueTurn]],
+    pairs: &[&[DialogueTurnRef<'_>]],
     budget_tokens: usize,
 ) -> Vec<DialogueTurn> {
     let mut selected = Vec::new();
@@ -137,7 +175,7 @@ fn select_recent_pairs_within_budget(
     selected.reverse();
     selected
         .into_iter()
-        .flat_map(|pair| pair.iter().cloned())
+        .flat_map(|pair| pair.iter().map(owned_turn))
         .collect()
 }
 
@@ -146,7 +184,7 @@ struct PairSelection {
     indices: BTreeSet<usize>,
 }
 
-fn bounded_pair(pair: &[DialogueTurn], budget_tokens: usize) -> Vec<DialogueTurn> {
+fn bounded_pair(pair: &[DialogueTurnRef<'_>], budget_tokens: usize) -> Vec<DialogueTurn> {
     const TURN_OVERHEAD_TOKENS: usize = 8;
     let content_budget = budget_tokens.saturating_sub(TURN_OVERHEAD_TOKENS * 2);
     if pair.len() != 2 || content_budget < 2 {
@@ -157,15 +195,15 @@ fn bounded_pair(pair: &[DialogueTurn], budget_tokens: usize) -> Vec<DialogueTurn
     let bounded = vec![
         DialogueTurn {
             role: pair[0].role,
-            content: truncate_tail_to_estimated_tokens(&pair[0].content, user_budget),
+            content: truncate_tail_to_estimated_tokens(pair[0].content, user_budget),
         },
         DialogueTurn {
             role: pair[1].role,
-            content: truncate_tail_to_estimated_tokens(&pair[1].content, assistant_budget),
+            content: truncate_tail_to_estimated_tokens(pair[1].content, assistant_budget),
         },
     ];
     if !bounded.iter().any(|turn| turn.content.is_empty())
-        && pair_token_cost(&bounded) <= budget_tokens
+        && owned_pair_token_cost(&bounded) <= budget_tokens
     {
         bounded
     } else {
@@ -173,10 +211,23 @@ fn bounded_pair(pair: &[DialogueTurn], budget_tokens: usize) -> Vec<DialogueTurn
     }
 }
 
-fn pair_token_cost(pair: &[DialogueTurn]) -> usize {
+fn pair_token_cost(pair: &[DialogueTurnRef<'_>]) -> usize {
+    pair.iter()
+        .map(|turn| estimate_tokens(turn.content).saturating_add(8))
+        .sum()
+}
+
+fn owned_pair_token_cost(pair: &[DialogueTurn]) -> usize {
     pair.iter()
         .map(|turn| estimate_tokens(&turn.content).saturating_add(8))
         .sum()
+}
+
+fn owned_turn(turn: &DialogueTurnRef<'_>) -> DialogueTurn {
+    DialogueTurn {
+        role: turn.role,
+        content: turn.content.to_string(),
+    }
 }
 
 fn is_typed_user_memory(content: &str) -> bool {
@@ -244,6 +295,34 @@ mod tests {
     }
 
     #[test]
+    fn runtime_result_completes_a_dialogue_pair_without_becoming_user_memory() {
+        let mut turns = vec![
+            DialogueTurn {
+                role: DialogueRole::User,
+                content: "내 이름은 감자야. 기억해줘.".to_string(),
+            },
+            DialogueTurn {
+                role: DialogueRole::Runtime,
+                content: "웹 검색이 시간 상한에 도달했습니다.".to_string(),
+            },
+        ];
+        for index in 0..9 {
+            turns.extend(pair(
+                &format!("최근 질문 {index}"),
+                &format!("최근 답변 {index}"),
+            ));
+        }
+
+        let plan = plan_dialogue_memory(&turns, "그게 무슨 뜻이야?", 512, 512, 512);
+
+        assert!(plan.typed_user_memory.is_empty());
+        assert!(!plan
+            .typed_user_memory
+            .iter()
+            .any(|turn| turn.role == DialogueRole::Runtime));
+    }
+
+    #[test]
     fn typed_memory_and_query_recall_preserve_complete_pairs_and_chronology() {
         let mut turns = Vec::new();
         turns.extend(pair("내 이름은 감자야", "기억할게."));
@@ -253,8 +332,8 @@ mod tests {
         ));
         for index in 0..9 {
             turns.extend(pair(
-                &format!("최근 질문 {index}"),
-                &format!("최근 답변 {index}"),
+                &format!("최근 질문 {index} {}", "질문 문맥 ".repeat(24)),
+                &format!("최근 답변 {index} {}", "답변 문맥 ".repeat(24)),
             ));
         }
 
@@ -279,8 +358,8 @@ mod tests {
         turns.extend(pair("내 이름은 감자야", "기억할게."));
         for index in 0..9 {
             turns.extend(pair(
-                &format!("최근 질문 {index}"),
-                &format!("최근 답변 {index}"),
+                &format!("최근 질문 {index} {}", "질문 문맥 ".repeat(24)),
+                &format!("최근 답변 {index} {}", "답변 문맥 ".repeat(24)),
             ));
         }
 
@@ -305,20 +384,37 @@ mod tests {
         assert_eq!(plan.recent_history.len(), 2);
         assert_eq!(plan.recent_history[0].role, DialogueRole::User);
         assert_eq!(plan.recent_history[1].role, DialogueRole::Assistant);
-        assert!(pair_token_cost(&plan.recent_history) <= 64);
+        assert!(owned_pair_token_cost(&plan.recent_history) <= 64);
     }
 
     #[test]
     fn recent_exchange_count_expands_with_the_model_derived_budget() {
         let mut turns = Vec::new();
         for index in 0..20 {
-            turns.extend(pair(&format!("질문 {index}"), &format!("답변 {index}")));
+            turns.extend(pair(
+                &format!("질문 {index} {}", "추가 문맥 ".repeat(8)),
+                &format!("답변 {index} {}", "추가 설명 ".repeat(8)),
+            ));
         }
 
         let small = plan_dialogue_memory(&turns, "질문", 512, 512, 512);
         let large = plan_dialogue_memory(&turns, "질문", 512, 512, 8_192);
 
-        assert_eq!(small.recent_history.len(), 16);
+        assert!(small.recent_history.len() < large.recent_history.len());
         assert_eq!(large.recent_history.len(), 40);
+    }
+
+    #[test]
+    fn recent_recall_has_no_arbitrary_sixty_four_pair_cap() {
+        let mut turns = Vec::new();
+        for index in 0..80 {
+            turns.extend(pair(&format!("q{index}"), &format!("a{index}")));
+        }
+
+        let plan = plan_dialogue_memory(&turns, "그거 다시 설명해줘", 64, 64, 16_384);
+
+        assert_eq!(plan.recent_history.len(), 160);
+        assert_eq!(plan.recent_history.first().unwrap().content, "q0");
+        assert_eq!(plan.recent_history.last().unwrap().content, "a79");
     }
 }

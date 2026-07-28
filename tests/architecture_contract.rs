@@ -6399,7 +6399,13 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
     let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
     let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
     let session_memory = fs::read_to_string("src/app/tui_adapter/session_memory.rs").unwrap();
+    let session_event_codec =
+        fs::read_to_string("src/app/tui_adapter/session_memory/event_codec.rs").unwrap();
+    let session_restoration =
+        fs::read_to_string("src/app/tui_adapter/session_memory/restoration.rs").unwrap();
     let session_tests = fs::read_to_string("src/app/tui_adapter/session_memory/tests.rs").unwrap();
+    let session_restoration_tests =
+        fs::read_to_string("src/app/tui_adapter/session_memory/tests/restoration.rs").unwrap();
     let intent_tests = fs::read_to_string("src/app/intent_adapter/tests.rs").unwrap();
     let prompt_budget_tests =
         fs::read_to_string("src/app/intent_adapter/tests/prompt_budget.rs").unwrap();
@@ -6410,13 +6416,27 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
     let native_terminal = fs::read_to_string("tests/surfaces/native_terminal.rs").unwrap();
 
     assert!(session_memory.contains("#[path = \"session_memory/tests.rs\"]"));
+    assert!(session_memory
+        .lines()
+        .any(|line| line == "mod event_codec;"));
+    assert!(session_memory
+        .lines()
+        .any(|line| line == "mod restoration;"));
+    assert!(session_event_codec.contains("fn parse_conversation_event("));
+    assert!(session_restoration.contains("fn load_for_session("));
+    assert!(session_tests.contains("#[path = \"tests/restoration.rs\"]"));
+    assert!(session_tests
+        .lines()
+        .any(|line| line == "mod restoration_tests;"));
+    assert!(session_restoration_tests
+        .contains("fn web_grounding_is_bounded_and_restored_for_followups_after_resume("));
     assert!(intent_tests.contains("#[path = \"tests/prompt_budget.rs\"]"));
     assert!(compaction.lines().any(|line| line == "mod recent_tail;"));
 
     for responsibility in [
         "fn reset_is_a_unique_causal_head_for_repeated_questions(",
         "fn reset_discards_an_orphan_user_before_a_later_model_record(",
-        "fn coding_exchange_is_canonical_and_prompt_history_is_bounded(",
+        "fn coding_exchange_is_canonical_and_prompt_history_keeps_budgetable_pairs(",
     ] {
         assert!(
             session_tests.contains(responsibility),
@@ -6475,6 +6495,9 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
 
     assert!(session_memory.lines().count() < 225);
     assert!(session_tests.lines().count() < 225);
+    assert!(session_event_codec.lines().count() < 125);
+    assert!(session_restoration.lines().count() < 125);
+    assert!(session_restoration_tests.lines().count() < 175);
     assert!(intent_tests.lines().count() < 325);
     assert!(prompt_budget_tests.lines().count() < 175);
     assert!(compaction.lines().count() < 550);
@@ -6607,6 +6630,9 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let tui_facade = fs::read_to_string("src/app/tui_adapter.rs").unwrap();
     let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
     let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
+    let tui_request_support =
+        fs::read_to_string("src/app/tui_adapter/runtime/request/support.rs").unwrap();
+    let web_tools = fs::read_to_string("src/app/tui_adapter/web_tools.rs").unwrap();
     let tui_controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
     let tui_bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
     let transport = fs::read_to_string("src/adapters/web_search/transport.rs").unwrap();
@@ -6620,11 +6646,17 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/adapters/web_search/policy.rs",
         "src/adapters/web_search/transport.rs",
         "src/app/web_search_adapter/answer_binding.rs",
+        "src/app/web_search_adapter/answer_binding/tests.rs",
+        "src/app/web_search_adapter/grounded_fallback.rs",
         "src/app/web_search_adapter/page_session.rs",
         "src/app/web_search_adapter/page_tools.rs",
         "src/app/web_search_adapter/research_flow.rs",
+        "src/app/web_search_adapter/routing/protocol.rs",
         "src/app/web_search_adapter/routing.rs",
+        "src/app/web_search_adapter/routing/tests.rs",
+        "src/app/web_search_adapter/routing/web_policy.rs",
         "src/app/tui_adapter/runtime/web_sources.rs",
+        "src/app/tui_adapter/runtime/request/support.rs",
         "src/app/tui_adapter/web_tools.rs",
         "src/surfaces/tui/controller/source_selection.rs",
     ] {
@@ -6640,6 +6672,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
     }
     for module in [
         "answer_binding",
+        "grounded_fallback",
         "page_session",
         "page_tools",
         "research_flow",
@@ -6657,11 +6690,24 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(tui_controller.contains("mod source_selection;"));
     assert!(tui_controller.contains("[\"/sources\"]"));
     assert!(tui_bridge.contains("struct TuiWebSourceOption"));
-    assert!(tui_request.contains("web_tools::dispatch"));
+    assert!(tui_request.contains("web_search_adapter::route_tool_request"));
+    assert!(tui_request.contains("web_tools::execute"));
+    assert!(tui_request.lines().any(|line| line == "mod support;"));
+    assert!(tui_request_support.contains("fn required_context_limit("));
+    assert!(!web_tools.contains("route_tool_request"));
     assert!(transport.contains("ureq::Agent::with_parts"));
     assert!(transport.contains("PublicWebResolver"));
     assert!(page_parser.contains("scan_html"));
     assert!(!page_parser.contains("replace_range"));
+    let routing = fs::read_to_string("src/app/web_search_adapter/routing.rs").unwrap();
+    let routing_protocol =
+        fs::read_to_string("src/app/web_search_adapter/routing/protocol.rs").unwrap();
+    let routing_web_policy =
+        fs::read_to_string("src/app/web_search_adapter/routing/web_policy.rs").unwrap();
+    assert!(routing.lines().any(|line| line == "mod protocol;"));
+    assert!(routing.lines().any(|line| line == "mod web_policy;"));
+    assert!(routing_protocol.contains("fn parse_agent_web_tool_for_request("));
+    assert!(routing_web_policy.contains("fn web_disabled("));
     for pure_owner in [
         "src/adapters/web_search/find.rs",
         "src/adapters/web_search/page.rs",
@@ -6689,13 +6735,9 @@ fn web_search_open_find_have_separate_bounded_owners() {
             .count()
             < 150
     );
-    assert!(
-        fs::read_to_string("src/app/web_search_adapter/routing.rs")
-            .unwrap()
-            .lines()
-            .count()
-            < 225
-    );
+    assert!(routing.lines().count() < 225);
+    assert!(routing_protocol.lines().count() < 150);
+    assert!(routing_web_policy.lines().count() < 100);
     assert!(
         fs::read_to_string("src/app/web_search_adapter/page_tools.rs")
             .unwrap()
@@ -6704,12 +6746,18 @@ fn web_search_open_find_have_separate_bounded_owners() {
             < 125
     );
     let research_flow = fs::read_to_string("src/app/web_search_adapter/research_flow.rs").unwrap();
-    assert!(research_flow.contains("opened_primary_document_overrides_conflicting_search_snippet"));
+    let research_flow_tests =
+        fs::read_to_string("src/app/web_search_adapter/research_flow/tests.rs").unwrap();
+    assert!(research_flow.contains("#[path = \"research_flow/tests.rs\"]"));
+    assert!(research_flow_tests
+        .contains("opened_primary_document_overrides_conflicting_search_snippet"));
     assert!(research_flow.contains("search.sources.iter().take(3)"));
     assert!(research_flow.contains("supporting_passages("));
     assert!(research_flow.lines().count() < 350);
+    assert!(research_flow_tests.lines().count() < 225);
     assert!(tui_runtime.lines().count() <= 200);
     assert!(tui_request.lines().count() < 150);
+    assert!(tui_request_support.lines().count() < 75);
 }
 
 #[test]

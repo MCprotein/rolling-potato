@@ -17,9 +17,14 @@ pub(super) fn render_status_line(
     let (context, percent) = match (used, status.context_limit_tokens) {
         (Some(used), Some(limit)) if limit > 0 => {
             let percent = used.saturating_mul(100) / limit;
+            let percent_label = if used > 0 && percent == 0 {
+                "<1%".to_string()
+            } else {
+                format!("{percent}%")
+            };
             (
                 format!(
-                    "ctx {}{used}/{limit} ({percent}%)",
+                    "ctx {}{used}/{limit} ({percent_label})",
                     if estimated { "~" } else { "" }
                 ),
                 Some(percent),
@@ -108,5 +113,28 @@ fn short_status_id(value: &str) -> String {
         value.to_string()
     } else {
         format!("{}…", value.chars().take(11).collect::<String>())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nonzero_context_below_one_percent_is_visible() {
+        let status = TuiStatusSnapshot {
+            model: "qwen3.5-4b".to_string(),
+            context_tokens_used: Some(624),
+            context_limit_tokens: Some(262_144),
+            has_compaction_checkpoint: false,
+            backend: TuiBackendStatus::Ready,
+            vision: TuiVisionStatus::OnDemand,
+            session_id: "session-test".to_string(),
+        };
+
+        let line = render_status_line(&status, None, 100, false);
+
+        assert!(line.contains("ctx 624/262144 (<1%)"));
+        assert!(!line.contains("ctx 624/262144 (0%)"));
     }
 }

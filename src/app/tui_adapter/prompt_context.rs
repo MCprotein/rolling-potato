@@ -3,7 +3,7 @@
 use crate::foundation::error::AppError;
 use crate::foundation::serialization;
 use crate::runtime_core::knowledge::prompt::{self, AssembledPrompt, PromptBudget, PromptParts};
-use crate::runtime_core::knowledge::recall::{self, DialogueRole, DialogueTurn};
+use crate::runtime_core::knowledge::recall::{self, DialogueRole, DialogueTurn, DialogueTurnRef};
 use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
 
 pub(super) struct ConversationPromptContext {
@@ -26,19 +26,19 @@ impl ConversationPromptContext {
         )?;
         let dialogue = history
             .iter()
-            .filter_map(|turn| {
+            .map(|turn| {
                 let role = match turn.role {
                     TuiConversationRole::User => DialogueRole::User,
                     TuiConversationRole::Assistant => DialogueRole::Assistant,
-                    TuiConversationRole::Error => return None,
+                    TuiConversationRole::Error => DialogueRole::Runtime,
                 };
-                Some(DialogueTurn {
+                DialogueTurnRef {
                     role,
-                    content: turn.content.clone(),
-                })
+                    content: &turn.content,
+                }
             })
             .collect::<Vec<_>>();
-        let plan = recall::plan_dialogue_memory(
+        let plan = recall::plan_borrowed_dialogue_memory(
             &dialogue,
             query,
             budget.typed_memory_target_tokens,
@@ -63,6 +63,18 @@ impl ConversationPromptContext {
                 &plan.recent_history,
             ),
         })
+    }
+
+    pub(super) fn render_memory(&self) -> String {
+        [
+            self.typed_memory.as_str(),
+            self.recalled_history.as_str(),
+            self.recent_history.as_str(),
+        ]
+        .into_iter()
+        .filter(|section| !section.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n\n")
     }
 
     pub(super) fn assemble(
@@ -101,6 +113,7 @@ fn render_turns(label: &str, note: &str, turns: &[DialogueTurn]) -> String {
         let role = match turn.role {
             DialogueRole::User => "user",
             DialogueRole::Assistant => "assistant",
+            DialogueRole::Runtime => "runtime",
         };
         rendered.push_str(&format!(
             "{{\"role\":\"{role}\",\"content\":\"{}\"}}\n",
@@ -202,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn runtime_errors_are_not_replayed_as_assistant_memory() {
+    fn runtime_errors_are_replayed_as_typed_runtime_context() {
         let history = vec![
             TuiConversationTurn {
                 role: TuiConversationRole::User,
@@ -219,6 +232,7 @@ mod tests {
             .assemble("system", "", "다른 질문", "답변:")
             .unwrap();
 
-        assert!(!prompt.text.contains("내부 runtime 오류"));
+        assert!(prompt.text.contains("\"role\":\"runtime\""));
+        assert!(prompt.text.contains("내부 runtime 오류"));
     }
 }

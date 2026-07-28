@@ -27,7 +27,7 @@ use session_selection::{resume_selected_session, resume_session, start_new_sessi
 use source_selection::select_source;
 use terminal_flow::{
     confirm, confirm_workflow_action, outcome_notice, outcome_was_dispatched,
-    post_dispatch_write_error, pre_dispatch_write_error, read_input_action,
+    post_dispatch_write_error, pre_dispatch_write_error, read_input_action, read_status_or_notice,
     write_pre_dispatch_frame, InputAction,
 };
 pub(crate) use terminal_flow::{consume_outcome, terminal_fault_error};
@@ -94,9 +94,7 @@ pub(crate) fn run_controller(
             let request = state.read_request(width, height);
             runtime.read_tui_page(request)?
         };
-        let status = runtime
-            .read_tui_status()
-            .unwrap_or_else(|_| TuiStatusSnapshot::unavailable());
+        let status = read_status_or_notice(runtime, &mut state);
         let frame = super::render::render_interactive_frame_with_options(
             &state,
             &page,

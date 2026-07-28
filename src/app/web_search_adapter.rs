@@ -4,6 +4,7 @@ use crate::foundation::error::AppError;
 use std::time::Duration;
 
 mod answer_binding;
+mod grounded_fallback;
 mod page_session;
 mod page_tools;
 mod research;
@@ -19,12 +20,30 @@ pub(crate) use research::{
 };
 #[cfg(test)]
 pub(crate) use routing::parse_agent_web_tool;
-pub(crate) use routing::{parse_agent_web_tool_for_request, route_tool_request, web_disabled};
+pub(crate) use routing::{
+    can_reuse_prior_grounding, parse_agent_web_tool_for_request, route_tool_request,
+    validate_public_web_step, web_disabled,
+};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WebGroundingEvidence {
+    pub(crate) source_id: String,
+    pub(crate) title: String,
+    pub(crate) url: String,
+    pub(crate) excerpt: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WebAnswerResult {
+    pub(crate) response: String,
+    pub(crate) grounding: Vec<WebGroundingEvidence>,
+}
 
 pub(crate) struct WebAnswerInput<'a> {
     pub(crate) query: &'a str,
     pub(crate) user_request: &'a str,
     pub(crate) local_context: &'a str,
+    pub(crate) conversation_context: &'a str,
 }
 
 impl<'a> WebAnswerInput<'a> {
@@ -33,7 +52,13 @@ impl<'a> WebAnswerInput<'a> {
             query,
             user_request,
             local_context,
+            conversation_context: "",
         }
+    }
+
+    pub(crate) fn with_conversation_context(mut self, conversation_context: &'a str) -> Self {
+        self.conversation_context = conversation_context;
+        self
     }
 }
 
@@ -42,8 +67,16 @@ pub(crate) fn answer(
     research: &mut WebResearchSession,
     pages: &mut WebPageSession,
     elapsed: Duration,
-) -> Result<String, AppError> {
+) -> Result<WebAnswerResult, AppError> {
     research_flow::answer(input, research, pages, elapsed)
+}
+
+pub(crate) fn answer_from_grounding(
+    user_request: &str,
+    conversation_context: &str,
+    grounding: &[WebGroundingEvidence],
+) -> Result<String, AppError> {
+    research_flow::answer_from_grounding(user_request, conversation_context, grounding)
 }
 
 pub(super) fn web_answer_language_policy(query: &str) -> &'static str {

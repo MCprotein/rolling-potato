@@ -3,10 +3,10 @@
 use crate::foundation::error::AppError;
 use crate::runtime_core::terminal::{FrameWriteBoundary, TerminalIo};
 
-use super::super::runtime_bridge::{TuiAttachment, TuiStatusSnapshot};
+use super::super::runtime_bridge::TuiAttachment;
 use super::super::view_model::{ConversationRole, InteractiveState, InteractiveView};
 use super::terminal_flow::write_pending_conversation_frame_with_status;
-use super::TuiRuntimePort;
+use super::{read_status_or_notice, TuiRuntimePort};
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn submit_web_tool_command(
@@ -55,9 +55,7 @@ pub(super) fn submit_request_with_progress(
     const SPINNER: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
     state.context_tokens_estimate = runtime.request_context_tokens_hint(request, attachments);
-    let status = runtime
-        .read_tui_status()
-        .unwrap_or_else(|_| TuiStatusSnapshot::unavailable());
+    let status = read_status_or_notice(runtime, state);
     let intent_id = runtime.new_tui_intent_id();
     let started = std::time::Instant::now();
     state.notice = activity_notice(SPINNER[0], started.elapsed(), progress);

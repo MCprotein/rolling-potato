@@ -5,6 +5,7 @@ use crate::runtime_core::inference::backend::{BackendChatInput, ResponseLanguage
 use crate::surfaces::tui::runtime_bridge::{TuiConversationTurn, TuiVisionStatus};
 
 const CONVERSATION_MAX_TOKENS: u32 = 512;
+const WEB_ANSWER_MAX_TOKENS: u32 = 768;
 
 pub(super) enum RequestDecision {
     Answer(String),
@@ -133,6 +134,20 @@ pub(super) fn decide_request(
         CONVERSATION_MAX_TOKENS,
     )?;
     decide_generated_candidate(candidate, user_request, web_enabled, allow_direct_answer)
+}
+
+pub(super) fn render_web_conversation_context(
+    history: &[TuiConversationTurn],
+    user_request: &str,
+    context_limit_tokens: u32,
+) -> Result<String, AppError> {
+    super::prompt_context::ConversationPromptContext::build(
+        history,
+        user_request,
+        context_limit_tokens,
+        WEB_ANSWER_MAX_TOKENS,
+    )
+    .map(|context| context.render_memory())
 }
 
 fn decide_generated_candidate(
@@ -306,29 +321,36 @@ pub(super) fn present_agent_report(report: &str) -> String {
 
 fn is_model_identity_request(request: &str) -> bool {
     let lower = request.trim().to_ascii_lowercase();
-    if !lower.contains("모델") && !lower.contains("model") {
-        return false;
-    }
-    [
-        "무슨",
-        "어떤",
-        "뭐",
-        "이름",
-        "현재",
-        "사용 중",
-        "사용중",
-        "쓰고",
-    ]
-    .iter()
-    .any(|signal| lower.contains(signal))
-        || [
-            "what model",
-            "which model",
-            "model are you",
-            "current model",
-        ]
-        .iter()
-        .any(|signal| lower.contains(signal))
+    let compact = lower
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect::<String>();
+    let direct = compact.trim_matches(|character: char| {
+        character.is_ascii_punctuation() || matches!(character, '？' | '。' | '！' | '…' | '·')
+    });
+    matches!(
+        direct,
+        "넌무슨모델이야"
+            | "넌무슨모델이니"
+            | "너는무슨모델이야"
+            | "너는무슨모델이니"
+            | "무슨모델이야"
+            | "무슨모델이니"
+            | "어떤모델이야"
+            | "어떤모델이니"
+            | "현재모델이뭐야"
+            | "현재모델은뭐야"
+            | "지금모델이뭐야"
+            | "지금무슨모델써"
+            | "지금무슨모델쓰고있어"
+            | "사용중인모델이뭐야"
+            | "사용중인모델은뭐야"
+    ) || matches!(
+        lower.trim_matches(
+            |character: char| character.is_ascii_punctuation() || character.is_whitespace()
+        ),
+        "what model are you using" | "which model are you using" | "current model"
+    )
 }
 
 fn is_agent_identity_request(request: &str) -> bool {
@@ -337,20 +359,34 @@ fn is_agent_identity_request(request: &str) -> bool {
         .chars()
         .filter(|character| !character.is_whitespace())
         .collect::<String>();
-    [
-        "넌누구",
-        "너는누구",
-        "누구야",
-        "정체가뭐",
-        "이름이뭐",
-        "이름이뭔",
-        "네이름",
-        "너이름",
-    ]
-    .iter()
-    .any(|signal| compact.contains(signal))
-        || lower.contains("who are you")
-        || lower.contains("what is your name")
+    let direct = compact.trim_matches(|character: char| {
+        character.is_ascii_punctuation() || matches!(character, '？' | '。' | '！' | '…' | '·')
+    });
+    matches!(
+        direct,
+        "넌누구"
+            | "넌누구야"
+            | "넌누구니"
+            | "너는누구"
+            | "너는누구야"
+            | "너는누구니"
+            | "너누구"
+            | "너누구야"
+            | "너누구니"
+            | "네정체가뭐야"
+            | "너정체가뭐야"
+            | "네이름이뭐야"
+            | "네이름뭐야"
+            | "네이름이뭔데"
+            | "너이름이뭐야"
+            | "너이름뭐야"
+            | "너이름이뭔데"
+    ) || matches!(
+        lower.trim_matches(
+            |character: char| character.is_ascii_punctuation() || character.is_whitespace()
+        ),
+        "who are you" | "what is your name"
+    )
 }
 
 fn report_field<'a>(report: &'a str, field: &str) -> Option<&'a str> {
@@ -434,6 +470,7 @@ fn is_english_action_request(words: &[&str]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::surfaces::tui::runtime_bridge::TuiConversationRole;
 
     #[test]
     fn general_questions_use_conversation_without_stealing_agent_tasks() {
@@ -481,13 +518,43 @@ mod tests {
             local_reply("넌누구니?", Some("ignored"), TuiVisionStatus::OnDemand),
             Some("저는 로컬에서 실행되는 범용 AI·코딩 에이전트 rpotato입니다.".to_string())
         );
-        assert_eq!(
-            local_reply("이름이뭔데", Some("ignored"), TuiVisionStatus::OnDemand),
-            Some("저는 로컬에서 실행되는 범용 AI·코딩 에이전트 rpotato입니다.".to_string())
-        );
+        for contextual_followup in ["내 이름이 뭐였지?", "이름이뭔데", "그 사람 누구야?"]
+        {
+            assert_eq!(
+                local_reply(
+                    contextual_followup,
+                    Some("ignored"),
+                    TuiVisionStatus::OnDemand
+                ),
+                None,
+                "{contextual_followup}는 대화 문맥을 모델에 전달해야 합니다."
+            );
+        }
+        for contextual_second_person in [
+            "너 이름 전에 감자라고 정했는데 기억해?",
+            "아까 네 이름이 뭐라고 했지?",
+        ] {
+            assert_eq!(
+                local_reply(
+                    contextual_second_person,
+                    Some("ignored"),
+                    TuiVisionStatus::OnDemand
+                ),
+                None,
+                "{contextual_second_person}는 직접 정체성 질문이 아닙니다."
+            );
+        }
         assert_eq!(
             local_reply(
                 "이 모델 코드를 수정해줘",
+                Some("gemma-test"),
+                TuiVisionStatus::OnDemand
+            ),
+            None
+        );
+        assert_eq!(
+            local_reply(
+                "내가 전에 어떤 모델을 좋아한다고 했지?",
                 Some("gemma-test"),
                 TuiVisionStatus::OnDemand
             ),
@@ -501,6 +568,27 @@ mod tests {
             ),
             None
         );
+    }
+
+    #[test]
+    fn web_conversation_context_rejects_an_invalid_model_window() {
+        let history = vec![
+            TuiConversationTurn {
+                role: TuiConversationRole::User,
+                content: "ESPR이 뭔지 검색해줘".to_string(),
+            },
+            TuiConversationTurn {
+                role: TuiConversationRole::Error,
+                content: "웹 검색 근거를 찾지 못했습니다.".to_string(),
+            },
+        ];
+
+        let error = render_web_conversation_context(&history, "방금 오류가 무슨 뜻이야?", 1_024)
+            .unwrap_err();
+
+        assert!(error
+            .message
+            .contains("context length가 prompt를 조립하기에 너무 작습니다"));
     }
 
     #[test]

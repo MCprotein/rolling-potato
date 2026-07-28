@@ -6,16 +6,17 @@ const WEB_ANSWER_FALLBACK: &str =
     "웹 검색은 완료했지만 로컬 모델이 요약을 완성하지 못했습니다. 아래 검증 가능한 출처를 확인하세요.";
 
 pub(super) fn render_grounded_answer(
-    answer: Option<String>,
+    generated: Option<String>,
+    fallback: Option<String>,
     sources: &[WebSourceEvidence],
 ) -> String {
     let source_map = sources
         .iter()
         .map(|source| (source.source_id.as_str(), source))
         .collect::<BTreeMap<_, _>>();
-    let sanitized = answer
-        .map(|answer| sanitize_with_sources(&answer, &source_map))
-        .filter(|answer| !answer.is_empty())
+    let sanitized = generated
+        .and_then(|answer| sanitize_grounded_candidate(&answer, &source_map))
+        .or_else(|| fallback.and_then(|answer| sanitize_grounded_candidate(&answer, &source_map)))
         .unwrap_or_else(|| WEB_ANSWER_FALLBACK.to_string());
     attach_verified_sources(&sanitized, sources)
 }
@@ -50,6 +51,20 @@ fn sanitize_with_sources(answer: &str, sources: &BTreeMap<&str, &WebSourceEviden
         }
     }
     lines.join("\n").trim().to_string()
+}
+
+fn sanitize_grounded_candidate(
+    answer: &str,
+    sources: &BTreeMap<&str, &WebSourceEvidence>,
+) -> Option<String> {
+    let sanitized = sanitize_with_sources(answer, sources);
+    (!sanitized.is_empty() && contains_verified_citation(&sanitized, sources)).then_some(sanitized)
+}
+
+fn contains_verified_citation(answer: &str, sources: &BTreeMap<&str, &WebSourceEvidence>) -> bool {
+    sources
+        .keys()
+        .any(|source_id| answer.contains(&format!("[{source_id}]")))
 }
 
 fn attach_verified_sources(answer: &str, sources: &[WebSourceEvidence]) -> String {
@@ -197,74 +212,5 @@ fn strip_model_urls(text: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn source(id: &str, title: &str, url: &str) -> WebSourceEvidence {
-        WebSourceEvidence {
-            source_id: id.to_string(),
-            title: title.to_string(),
-            url: url.to_string(),
-        }
-    }
-
-    #[test]
-    fn invalid_citations_and_model_urls_cannot_replace_runtime_sources() {
-        let answer = render_grounded_answer(
-            Some(
-                "확인된 주장 [source-good](https://evil.example/swap). 가짜 [source-bad]. 숫자 [1], 배열 [1, 2], a[1]."
-                    .to_string(),
-            ),
-            &[source(
-                "source-good",
-                "Primary document",
-                "https://example.com/verified",
-            )],
-        );
-
-        assert!(answer.contains("[source-good]"));
-        assert!(answer.contains("https://example.com/verified"));
-        assert!(!answer.contains("source-bad"));
-        assert!(!answer.contains("evil.example"));
-        assert!(!answer.contains("숫자 [1]"));
-        assert!(answer.contains("[1, 2]"));
-        assert!(answer.contains("a[1]"));
-    }
-
-    #[test]
-    fn verified_sources_are_attached_to_the_paragraph_that_cites_them() {
-        let answer = render_grounded_answer(
-            Some("첫 주장 [source-one]\n\n둘째 주장은 불확실합니다 [source-two]".to_string()),
-            &[
-                source("source-one", "One", "https://example.com/one"),
-                source("source-two", "Two", "https://example.com/two"),
-            ],
-        );
-
-        assert!(answer
-            .contains("첫 주장 [source-one]\n근거 · [source-one] One — https://example.com/one"));
-        assert!(answer.contains(
-            "둘째 주장은 불확실합니다 [source-two]\n근거 · [source-two] Two — https://example.com/two"
-        ));
-        assert!(!answer.contains("\n\n검증된 출처"));
-    }
-
-    #[test]
-    fn unusable_or_uncited_answers_keep_a_runtime_owned_source_fallback() {
-        let source = source(
-            "source-release",
-            "Release notes",
-            "https://example.com/releases/v1",
-        );
-        for answer in [
-            None,
-            Some("요약은 생성됐지만 marker가 없습니다.".to_string()),
-        ] {
-            let rendered = render_grounded_answer(answer, std::slice::from_ref(&source));
-
-            assert!(rendered.contains("검증된 출처"));
-            assert!(rendered
-                .contains("- [source-release] Release notes — https://example.com/releases/v1"));
-        }
-    }
-}
+#[path = "answer_binding/tests.rs"]
+mod tests;
