@@ -21,7 +21,7 @@ pub(crate) use research::{
 #[cfg(test)]
 pub(crate) use routing::parse_agent_web_tool;
 pub(crate) use routing::{
-    is_grounded_followup_request, parse_agent_web_tool_for_request, route_tool_request,
+    can_reuse_prior_grounding, parse_agent_web_tool_for_request, route_tool_request,
     validate_public_web_step, web_disabled,
 };
 

@@ -1,4 +1,5 @@
 use super::research::WebResearchStep;
+use super::WebGroundingEvidence;
 use crate::foundation::error::AppError;
 
 pub(crate) fn route_tool_request(request: &str) -> Option<WebResearchStep> {
@@ -89,6 +90,18 @@ pub(crate) fn validate_public_web_step(step: WebResearchStep) -> Result<WebResea
 }
 
 pub(crate) fn is_grounded_followup_request(request: &str) -> bool {
+    has_explicit_prior_web_reference(request) || is_natural_regrounding_request(request)
+}
+
+pub(crate) fn can_reuse_prior_grounding(request: &str, grounding: &[WebGroundingEvidence]) -> bool {
+    if grounding.is_empty() || !is_grounded_followup_request(request) {
+        return false;
+    }
+    has_explicit_prior_web_reference(request)
+        || request_topic_overlaps_grounding(request, grounding)
+}
+
+fn has_explicit_prior_web_reference(request: &str) -> bool {
     let lower = request.trim().to_ascii_lowercase();
     [
         "방금 검색",
@@ -118,6 +131,65 @@ pub(crate) fn is_grounded_followup_request(request: &str) -> bool {
         ]
         .iter()
         .any(|signal| lower.contains(signal))
+}
+
+fn is_natural_regrounding_request(request: &str) -> bool {
+    let lower = request.to_ascii_lowercase();
+    let asks_again = ["다시", "재설명", "재답변", "again"]
+        .iter()
+        .any(|signal| lower.contains(signal));
+    let asks_for_evidence = ["근거", "출처", "evidence", "source"]
+        .iter()
+        .any(|signal| lower.contains(signal));
+    asks_again && asks_for_evidence
+}
+
+fn request_topic_overlaps_grounding(request: &str, grounding: &[WebGroundingEvidence]) -> bool {
+    let request = request.to_lowercase();
+    request
+        .split(|character: char| !character.is_alphanumeric())
+        .filter_map(normalized_topic_term)
+        .any(|term| {
+            grounding.iter().any(|evidence| {
+                evidence.title.to_lowercase().contains(term)
+                    || evidence.excerpt.to_lowercase().contains(term)
+            })
+        })
+}
+
+fn normalized_topic_term(term: &str) -> Option<&str> {
+    let term = term.trim();
+    if term.chars().count() < 3 {
+        return None;
+    }
+    let normalized = [
+        "에서", "으로", "라고", "이랑", "하고", "에게", "한테", "부터", "까지", "의", "은", "는",
+        "이", "가", "을", "를", "와", "과", "도", "에",
+    ]
+    .iter()
+    .find_map(|suffix| {
+        term.strip_suffix(suffix)
+            .filter(|value| value.chars().count() >= 3)
+    })
+    .unwrap_or(term);
+    (!matches!(
+        normalized,
+        "근거"
+            | "출처"
+            | "맞춰"
+            | "다시"
+            | "답해줘"
+            | "설명해줘"
+            | "정식"
+            | "영문명"
+            | "목적"
+            | "이름"
+            | "불러줘"
+            | "evidence"
+            | "source"
+            | "again"
+    ))
+    .then_some(normalized)
 }
 
 pub(crate) fn web_disabled(request: &str) -> bool {
@@ -321,6 +393,7 @@ mod tests {
         for request in [
             "방금 검색한 ESPR의 정식 명칭은?",
             "그 출처에서 핵심 목적을 다시 설명해줘",
+            "ESPR 정식 영문명과 목적을 근거에 맞춰 다시 답해줘",
             "What did you just search?",
         ] {
             assert!(is_grounded_followup_request(request), "{request}");
@@ -329,5 +402,28 @@ mod tests {
         {
             assert!(!is_grounded_followup_request(request), "{request}");
         }
+    }
+
+    #[test]
+    fn natural_regrounding_requires_topic_overlap_with_cached_evidence() {
+        let grounding = vec![WebGroundingEvidence {
+            source_id: "source-espr".to_string(),
+            title: "Ecodesign for Sustainable Products Regulation (ESPR)".to_string(),
+            url: "https://example.com/espr".to_string(),
+            excerpt: "ESPR은 지속가능한 제품을 위한 EU 규정입니다.".to_string(),
+        }];
+
+        assert!(can_reuse_prior_grounding(
+            "ESPR 정식 영문명과 목적을 근거에 맞춰 다시 답해줘",
+            &grounding
+        ));
+        assert!(!can_reuse_prior_grounding(
+            "Rust 소유권을 근거에 맞춰 다시 설명해줘",
+            &grounding
+        ));
+        assert!(can_reuse_prior_grounding(
+            "그 출처에서 목적을 다시 설명해줘",
+            &grounding
+        ));
     }
 }

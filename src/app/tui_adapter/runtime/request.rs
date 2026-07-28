@@ -86,8 +86,7 @@ fn execute_routed(
     let has_text_attachments = !attachments.is_empty();
     if conversational
         && !has_text_attachments
-        && web_search_adapter::is_grounded_followup_request(user_request)
-        && !web_grounding.is_empty()
+        && web_search_adapter::can_reuse_prior_grounding(user_request, web_grounding)
     {
         let conversation_context =
             web_conversation_context(history, user_request, context_limit_tokens)?;
