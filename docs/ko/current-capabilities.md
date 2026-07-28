@@ -1,6 +1,6 @@
 # 현재 기능
 
-이 문서는 출시된 `rolling-potato v0.51.0` runtime의 읽기 쉬운 상태 지도입니다.
+이 문서는 출시된 `rolling-potato v0.52.0` runtime의 읽기 쉬운 상태 지도입니다.
 하나의 긴 명령 목록을 반복하지 않고 런타임 책임별로 기능을 묶었습니다.
 
 [한국어 README](../../README.ko.md) · [문서 인덱스](README.md) ·
@@ -9,7 +9,7 @@
 > 이 문서는 기능 안내서입니다. 정확한 명령 문법은 설치된 바이너리의
 > `rpotato --help`를 기준으로 확인하십시오.
 
-## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.51.0`)
+## 설치, 첫 실행, 업데이트 (`v0.42.0`-`v0.52.0`)
 
 GitHub Release archive에서 압축을 푼 binary는 사용자 전용 CLI directory에
 자기 자신을 설치·갱신하고 zsh, bash, fish 또는 Windows 사용자 PATH에 해당
@@ -90,6 +90,12 @@ Idle context 표시는 단일 model run이 아니라 현재 session에 보존된
 계산합니다. 실패한 request와 사용자에게 표시된 runtime error도 제한된 recall
 안에서 유지하므로 수정 후속 질문이 원래 대상을 잃지 않으며, `/resume`은 같은
 제한된 대화 상태를 복원합니다.
+
+일반 대화 turn에서 모델은 visible answer, 제한된 web search/open/find 호출 또는
+local coding workflow 계속 중 하나를 JSON schema로 정확히 선택합니다. Runtime은
+web tool을 직접 실행하고 제한된 observation을 기록한 뒤, 별도 model turn으로 최종
+답변을 만듭니다. 후속 검색 context는 최근 user request에서만 만들며 model text,
+attachment, credential과 무관한 이전 topic은 query에 들어가지 않습니다.
 
 언어 guard는 한국어 문장과 함께 숫자, 수식, 코드, 경로, URL, 범위가 제한된 기술
 제목을 허용합니다. CJK 누출이나 이어지는 외국어 문장에는 사실을 보존하는 한국어

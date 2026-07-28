@@ -1,5 +1,41 @@
 # 릴리즈 노트
 
+## v0.52.0 - 소형 모델용 구조화 Tool Turn
+
+릴리즈 날짜: 2026-07-28
+
+이 minor 릴리즈는 소형 로컬 모델의 자유 형식 web-tool 지시를 schema로 제한된
+decision·observation loop로 교체합니다. Tool 요청부터 검증된 evidence와 최종
+visible answer까지의 전이는 model text가 아니라 runtime이 소유합니다.
+
+### 포함한 것
+
+- 일반 대화 model turn마다 `Answer`, `WebSearch`, `WebOpen`, `WebFind`,
+  `ContinueLocal` 중 하나의 제한된 JSON schema 결정을 요구
+- `WebSearch`·`WebOpen`·`WebFind`를 동일한
+  `ToolCall → Observation → Answer` lifecycle로 실행하고 raw tool report를 최종
+  model answer로 표시하지 않음
+- Runtime-owned bounded observation을 별도 model 호출에 전달한 뒤에만 최종 답변
+  생성
+- 최근 user request만 사용해 후속 search query를 만들고 model response,
+  attachment, credential, private value와 무관한 이전 topic을 제외
+- 잘못된 structured decision은 private protocol text로 표시하지 않고 안전한 local
+  continuation으로 처리
+- Request가 저장소, project, source, file 또는 code 범위를 명시하지 않으면 일반
+  분석 질문을 repository inspection으로 오분류하지 않음
+- Search, open, find, query sanitation과 runtime request support를 bounded owner로
+  분리하고 architecture·native-terminal test로 보호
+- 같은 candidate의 label·ready event가 서로 취소하지 않도록 하면서 같은 event의
+  새 commit supersession은 유지
+
+### 호환성과 경계
+
+- 기존 model, session, projector, web grounding, browser 제한과 public command는
+  계속 호환됩니다.
+- Web observation은 읽기 전용이며 제한된 신뢰하지 않는 evidence입니다. Browser,
+  shell, filesystem write, credential 또는 approval 권한을 얻지 못합니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
+
 ## v0.51.0 - 근거 기반 대화 연속성
 
 릴리즈 날짜: 2026-07-28

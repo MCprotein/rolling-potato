@@ -1,7 +1,7 @@
 # Current Capabilities
 
 This document is the readable status map for the released
-`rolling-potato v0.51.0` runtime. It groups the runtime by responsibility
+`rolling-potato v0.52.0` runtime. It groups the runtime by responsibility
 instead of repeating one flat command list.
 
 [README](../README.md) · [Documentation index](README.md) ·
@@ -10,7 +10,7 @@ instead of repeating one flat command list.
 > This is a capability guide, not a substitute for `rpotato --help`. The
 > installed binary remains the source of truth for exact command syntax.
 
-## Installation, First Run, and Updates (`v0.42.0`-`v0.51.0`)
+## Installation, First Run, and Updates (`v0.42.0`-`v0.52.0`)
 
 The extracted GitHub Release binary can install or update itself in the
 user-local CLI directory and register that directory in zsh, bash, fish, or
@@ -93,6 +93,13 @@ The idle context indicator is derived from the current session's preserved
 dialogue rather than one isolated model run. Failed requests and visible runtime
 errors remain available under bounded recall so corrective follow-ups retain
 their subject, and `/resume` restores the same bounded conversational state.
+
+For ordinary conversation turns, the model selects exactly one JSON-schema
+decision: a visible answer, a bounded web search/open/find call, or continuation
+into the local coding workflow. The runtime executes web tools itself, records a
+bounded observation, and makes the final answer a separate model turn.
+Follow-up search context is derived only from recent user requests; model text,
+attachments, credentials, and unrelated earlier topics cannot become a query.
 
 The language guard accepts Korean prose together with numbers, formulas, code,
 paths, URLs, and bounded technical titles. It attempts one fact-preserving

@@ -14,7 +14,7 @@ mid-range machines. It is designed around a simple premise:
 
 | Project snapshot | |
 | --- | --- |
-| Current release | `v0.51.0` |
+| Current release | `v0.52.0` |
 | CLI | `rpotato` |
 | Runtime | Rust, managed `llama.cpp`, GGUF |
 | Primary surfaces | CLI and TUI |
@@ -224,12 +224,12 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The `v0.51.0` release is an active pre-1.0 runtime, not only a
+The `v0.52.0` release is an active pre-1.0 runtime, not only a
 product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
 | --- | --- |
-| Agent loop | Intent routing, bounded context, typed model actions, guarded Korean reporting |
+| Agent loop | Bounded context, JSON-schema turn decisions, runtime-owned tool observations, typed model actions, and guarded Korean reporting |
 | Durable state | Sessions, transcripts, workflows, ledgers, evidence, resume and continue |
 | Patch workflow | Preview, explicit apply approval, separate verification approval, rollback records |
 | Backend and models | Managed sidecar lifecycle, source-backed candidates, local promotion/install gate |
@@ -242,6 +242,9 @@ product-definition scaffold. Implemented areas include:
 The v0.50.0 release adds agent-selected restricted browser search-form research
 without granting general browser automation. See the
 [v0.50 web research and browser plan](docs/v0.50-web-research-browser-plan.md).
+The v0.52.0 release makes `WebSearch`, `WebOpen`, and `WebFind` follow one
+runtime-owned `ToolCall → Observation → Answer` contract instead of exposing
+small-model free-form tool text.
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete
@@ -293,10 +296,11 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The published release history through `v0.51.0` includes bounded web research,
+The published release history through `v0.52.0` includes bounded web research,
 restricted browser search-form support, a reliable interactive TUI, and
-grounded conversation continuity across follow-ups and resumed sessions while
-preserving the local coding-agent workflow. See
+grounded conversation continuity across follow-ups and resumed sessions. Web
+tools now use schema-constrained turn decisions and runtime-owned observations
+while preserving the local coding-agent workflow. See
 [ROADMAP.md](ROADMAP.md) and the
 [v0.50 delivery plan](docs/v0.50-web-research-browser-plan.md).
 
