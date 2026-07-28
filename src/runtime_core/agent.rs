@@ -10,7 +10,7 @@ const MAX_TOOL_INPUT_CHARS: usize = 512;
 const MAX_ANSWER_CHARS: usize = 16 * 1024;
 const DECISION_CONTEXT: &str = "agent turn decision";
 
-pub(crate) const TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properties":{"decision":{"type":"string","enum":["answer","web_search","web_open","web_find","local_task"]},"input":{"type":"string","maxLength":512},"answer":{"type":"string","maxLength":16384}},"required":["decision","input","answer"],"additionalProperties":false}"#;
+pub(crate) const TURN_DECISION_JSON_SCHEMA: &str = r#"{"type":"object","properties":{"decision":{"type":"string","enum":["answer","web_search","web_open","web_find","local_task"]},"input":{"type":"string","maxLength":512},"answer":{"type":"string"}},"required":["decision","input","answer"],"additionalProperties":false}"#;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum AgentTurnDecision {
@@ -141,5 +141,13 @@ mod tests {
             "x".repeat(MAX_TOOL_INPUT_CHARS + 1)
         );
         assert!(parse_turn_decision(&oversized, true).is_err());
+
+        let oversized_answer = format!(
+            r#"{{"decision":"answer","input":"","answer":"{}"}}"#,
+            "x".repeat(MAX_ANSWER_CHARS + 1)
+        );
+        assert!(parse_turn_decision(&oversized_answer, true).is_err());
+        assert!(TURN_DECISION_JSON_SCHEMA.contains(r#""answer":{"type":"string"}"#));
+        assert!(!TURN_DECISION_JSON_SCHEMA.contains(r#""answer":{"type":"string","maxLength":"#));
     }
 }

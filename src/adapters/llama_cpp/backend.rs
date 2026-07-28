@@ -7,8 +7,9 @@ use std::time::{Duration, Instant};
 
 use crate::adapters::filesystem::layout as paths;
 use crate::adapters::llama_cpp::install::{self, selected_release_artifact, LLAMA_CPP_RELEASE};
+use crate::foundation::error::AppError;
 use crate::foundation::integrity as checksum;
-use crate::foundation::serialization::escape_string_content;
+use crate::foundation::serialization::{self, escape_string_content, Value};
 use crate::runtime_core::inference::backend::{
     BackendAdapter, BackendChatInput, BackendChatSampling, BackendResponseFormat,
 };
@@ -19,6 +20,17 @@ pub(crate) const DEFAULT_PORT: u16 = 17842;
 pub(crate) const ENV_BACKEND_PATH: &str = "RPOTATO_BACKEND_LLAMA_CPP_PATH";
 pub(crate) const ENV_BACKEND_PORT: &str = "RPOTATO_BACKEND_PORT";
 const VERSION_TIMEOUT_MS: u64 = 5_000;
+// The pinned managed llama.cpp grammar compiler accepts repetitions through
+// 1999 and rejects 2000 or greater before generation starts.
+const MAX_JSON_SCHEMA_REPETITION: u128 = 1_999;
+const JSON_SCHEMA_REPETITION_KEYS: [&str; 6] = [
+    "minLength",
+    "maxLength",
+    "minItems",
+    "maxItems",
+    "minProperties",
+    "maxProperties",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct LlamaCppAdapter;
@@ -222,6 +234,7 @@ pub(crate) fn chat_request_body(
         sampling,
         stream,
     )
+    .expect("plain text chat request must be serializable")
 }
 
 pub(crate) fn chat_request_body_for_input(
@@ -230,7 +243,8 @@ pub(crate) fn chat_request_body_for_input(
     max_tokens: u32,
     sampling: &BackendChatSampling,
     stream: bool,
-) -> String {
+) -> Result<String, AppError> {
+    validate_response_schema(input)?;
     let system_prompt = if input.response_language.allows_non_korean() {
         "사용자가 명시적으로 요청한 출력 언어를 따릅니다. reasoning trace, <think> 태그, 내부 추론은 출력하지 않습니다."
     } else {
@@ -277,7 +291,7 @@ pub(crate) fn chat_request_body_for_input(
         }));
         format!("[{}]", parts.join(","))
     };
-    format!(
+    Ok(format!(
         "{{\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":{}}}],\"max_tokens\":{},\"temperature\":{},\"top_p\":{}{}{}{}}}",
         escape_string_content(system_prompt),
         user_content,
@@ -287,7 +301,82 @@ pub(crate) fn chat_request_body_for_input(
         template_options,
         response_format,
         stream_options
-    )
+    ))
+}
+
+fn validate_response_schema(input: &BackendChatInput) -> Result<(), AppError> {
+    let BackendResponseFormat::JsonSchema { schema } = &input.response_format else {
+        return Ok(());
+    };
+    let schema = serialization::parse_value(schema, "llama.cpp JSON response schema")?;
+    validate_schema_repetitions(&schema)
+}
+
+fn validate_schema_repetitions(value: &Value) -> Result<(), AppError> {
+    let Value::Object(object) = value else {
+        return Ok(());
+    };
+
+    for key in JSON_SCHEMA_REPETITION_KEYS {
+        let Some(repetition) = object.get(key) else {
+            continue;
+        };
+        let Value::Number(repetition) = repetition else {
+            return Err(AppError::blocked(format!(
+                "llama.cpp JSON schema 차단\n- 이유: {key}는 음수가 아닌 정수여야 합니다."
+            )));
+        };
+        if *repetition > MAX_JSON_SCHEMA_REPETITION {
+            return Err(AppError::blocked(format!(
+                "llama.cpp JSON schema 차단\n- 이유: {key}={repetition}은 managed grammar 상한 {MAX_JSON_SCHEMA_REPETITION}을 초과합니다."
+            )));
+        }
+    }
+
+    for key in [
+        "additionalProperties",
+        "contains",
+        "contentSchema",
+        "else",
+        "if",
+        "items",
+        "not",
+        "propertyNames",
+        "then",
+        "unevaluatedItems",
+        "unevaluatedProperties",
+    ] {
+        if let Some(schema) = object.get(key) {
+            validate_schema_repetitions(schema)?;
+        }
+    }
+
+    for key in [
+        "$defs",
+        "definitions",
+        "dependentSchemas",
+        "patternProperties",
+        "properties",
+    ] {
+        if let Some(Value::Object(schemas)) = object.get(key) {
+            for schema_name in schemas.keys() {
+                let schema = schemas
+                    .get(schema_name)
+                    .expect("JSON object key iterator and lookup must agree");
+                validate_schema_repetitions(schema)?;
+            }
+        }
+    }
+
+    for key in ["allOf", "anyOf", "oneOf", "prefixItems"] {
+        if let Some(Value::Array(values)) = object.get(key) {
+            for nested in values {
+                validate_schema_repetitions(nested)?;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn encode_base64(bytes: &[u8]) -> String {
@@ -656,7 +745,8 @@ mod tests {
                 top_p: 0.8,
             },
             true,
-        );
+        )
+        .unwrap();
 
         assert!(body.contains("\"type\":\"text\""));
         assert!(body.contains("\"type\":\"image_url\""));
@@ -680,11 +770,93 @@ mod tests {
                 top_p: 0.8,
             },
             true,
-        );
+        )
+        .unwrap();
 
         assert!(body.contains("\"response_format\":{\"type\":\"json_object\",\"schema\":{"));
         assert!(body.contains("\"required\":[\"decision\"]"));
         assert!(body.contains("\"stream\":true"));
+    }
+
+    #[test]
+    fn production_turn_schema_stays_within_managed_grammar_limit() {
+        let input = BackendChatInput::text("도구를 선택해")
+            .with_json_schema(crate::runtime_core::agent::TURN_DECISION_JSON_SCHEMA);
+        let body = chat_request_body_for_input(
+            Path::new("qwen3.5-4b.gguf"),
+            &input,
+            512,
+            &BackendChatSampling {
+                temperature: 0.1,
+                top_p: 0.8,
+            },
+            true,
+        )
+        .unwrap();
+
+        assert!(body.contains(r#""answer":{"type":"string"}"#));
+        assert!(!body.contains(r#""answer":{"type":"string","maxLength":"#));
+    }
+
+    #[test]
+    fn rejects_schema_repetitions_that_managed_llama_cannot_compile() {
+        for key in JSON_SCHEMA_REPETITION_KEYS {
+            let accepted = BackendChatInput::text("도구를 선택해").with_json_schema(format!(
+                r#"{{"type":"object","properties":{{"value":{{"type":"string","{key}":1999}}}}}}"#
+            ));
+            chat_request_body_for_input(
+                Path::new("qwen3.5-4b.gguf"),
+                &accepted,
+                64,
+                &BackendChatSampling {
+                    temperature: 0.1,
+                    top_p: 0.8,
+                },
+                true,
+            )
+            .unwrap();
+
+            let rejected = BackendChatInput::text("도구를 선택해").with_json_schema(format!(
+                r#"{{"type":"object","properties":{{"value":{{"type":"string","{key}":2000}}}}}}"#
+            ));
+            let error = chat_request_body_for_input(
+                Path::new("qwen3.5-4b.gguf"),
+                &rejected,
+                64,
+                &BackendChatSampling {
+                    temperature: 0.1,
+                    top_p: 0.8,
+                },
+                true,
+            )
+            .unwrap_err();
+
+            assert!(error.message.contains(key), "{key}: {}", error.message);
+            assert!(error.message.contains("1999"), "{key}: {}", error.message);
+        }
+    }
+
+    #[test]
+    fn allows_schema_property_names_that_match_repetition_keywords() {
+        let input = BackendChatInput::text("속성을 채워")
+            .with_json_schema(
+                r#"{"type":"object","properties":{"maxLength":{"type":"string"},"nested":{"type":"object","properties":{"minItems":{"type":"integer"}}}}}"#,
+            );
+
+        let body = chat_request_body_for_input(
+            Path::new("qwen3.5-4b.gguf"),
+            &input,
+            64,
+            &BackendChatSampling {
+                temperature: 0.1,
+                top_p: 0.8,
+            },
+            true,
+        )
+        .unwrap();
+
+        assert!(body.contains(r#""maxLength":{"type":"string"}"#));
+        assert!(body.contains(r#""minItems":{"type":"integer"}"#));
     }
 
     #[test]

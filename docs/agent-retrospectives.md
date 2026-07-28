@@ -2,6 +2,40 @@
 
 이 문서는 반복 가능한 에이전트 운영 실패와 재발 방지 규칙을 기록합니다. 세션별 작업 일지가 아니라, 다음 작업에서도 적용할 수 있는 교훈만 유지합니다. 강제 규칙은 저장소 루트의 [`AGENTS.md`](../AGENTS.md)가 정본입니다.
 
+## 2026-07-28: Structured schema가 실제 llama.cpp grammar 한도를 넘김
+
+### 증상
+
+- v0.52.0 설치본에서 기본 TUI를 열고 `안녕`만 입력해도
+  `/v1/chat/completions`가 HTTP 400을 반환했습니다.
+- Backend health와 model loading은 정상이라 사용자는 요청이 왜 거절됐는지 status
+  code만 보고 구분할 수 없었습니다.
+
+### 원인
+
+- Structured turn의 `answer.maxLength`를 16384로 설정했습니다. Pinned managed
+  llama.cpp b9982는 이를 grammar의 `char{0,16384}`로 변환한 뒤 repetition이 sane
+  limit을 넘었다며 sampler 초기화 전에 요청을 거절했습니다.
+- 같은 backend를 대상으로 한 로컬 probe에서는 repetition 1999까지 HTTP 200,
+  2000부터 HTTP 400이 재현됐습니다.
+- Unit test는 request JSON에 `response_format`이 포함되는지만 확인했고 native TUI
+  E2E의 fake sidecar는 schema를 실제 grammar로 compile하지 않아 production
+  incompatibility를 정상 응답으로 통과시켰습니다.
+
+### 재발 방지
+
+- llama.cpp adapter가 JSON schema의 string·array·object repetition bound를
+  schema 위치를 구분해 재귀적으로 검증하고 managed grammar 상한을 넘는 요청은
+  generation lifecycle 시작과 network 전송 전에 차단합니다.
+- Production structured turn의 `answer`에는 grammar repetition을 만들지 않는
+  unbounded string schema를 사용하고, 애플리케이션 parser의 16 KiB answer bound는
+  별도로 유지합니다. 실제 managed backend에서 이 schema가 compile되고 visible
+  answer를 반환하는지 검증합니다.
+- llama.cpp request body, `response_format`, JSON schema 또는 chat template을
+  바꾸면 fake sidecar만으로 release candidate를 만들지 않습니다. Pinned managed
+  backend와 설치된 지원 model에서 기본 structured 대화가 visible answer까지
+  완료되는 user-journey smoke를 수행합니다.
+
 ## 2026-07-26: macOS PTY가 선택 알림 직후의 다음 명령을 잃음
 
 ### 증상

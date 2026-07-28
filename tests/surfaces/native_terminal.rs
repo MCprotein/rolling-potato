@@ -158,6 +158,8 @@ fn conversation_agent_executes_structured_web_turn_and_returns_grounded_answer()
     );
     assert!(requests[0].contains("\"response_format\""));
     assert!(requests[0].contains("\"web_search\""));
+    assert!(requests[0].contains(r#""answer":{"type":"string"}"#));
+    assert!(!requests[0].contains(r#""answer":{"type":"string","maxLength":"#));
     assert!(!requests[1].contains("\"response_format\""));
     assert!(requests[1].contains("OPENED_DOCUMENTS"));
     assert!(requests[1].contains("안전한 Rust 안내서"));
