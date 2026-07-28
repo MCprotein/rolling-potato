@@ -1,5 +1,6 @@
 //! Automatic read-only web grounding for time-sensitive or explicitly searched questions.
 
+use crate::adapters::web_search::WebSourceEvidence;
 use crate::foundation::error::AppError;
 use std::time::Duration;
 
@@ -13,7 +14,7 @@ mod routing;
 
 use answer_binding::render_grounded_answer;
 pub(crate) use page_session::WebPageSession;
-pub(crate) use page_tools::{answer_find_in_page, open_page};
+pub(crate) use page_tools::{observe_find_in_page, observe_open_page};
 pub(crate) use research::{
     deterministic_freshness_fallback_for_context, WebResearchAdmission, WebResearchSession,
     WebResearchStep as WebToolRoute,
@@ -35,6 +36,19 @@ pub(crate) struct WebGroundingEvidence {
 pub(crate) struct WebAnswerResult {
     pub(crate) response: String,
     pub(crate) grounding: Vec<WebGroundingEvidence>,
+}
+
+pub(crate) enum WebToolObservation {
+    Evidence(WebEvidenceObservation),
+    Terminal(WebAnswerResult),
+}
+
+pub(crate) struct WebEvidenceObservation {
+    pub(crate) prompt: String,
+    pub(crate) fallback: Option<String>,
+    pub(crate) sources: Vec<WebSourceEvidence>,
+    pub(crate) grounding: Vec<WebGroundingEvidence>,
+    pub(crate) max_tokens: u32,
 }
 
 pub(crate) struct WebAnswerInput<'a> {
@@ -60,13 +74,37 @@ impl<'a> WebAnswerInput<'a> {
     }
 }
 
-pub(crate) fn answer(
+pub(crate) fn observe_search(
     input: WebAnswerInput<'_>,
     research: &mut WebResearchSession,
     pages: &mut WebPageSession,
     elapsed: Duration,
-) -> Result<WebAnswerResult, AppError> {
-    research_flow::answer(input, research, pages, elapsed)
+) -> Result<WebEvidenceObservation, AppError> {
+    research_flow::observe(input, research, pages, elapsed)
+}
+
+pub(crate) fn answer_observation(
+    observation: WebToolObservation,
+    user_request: &str,
+) -> WebAnswerResult {
+    match observation {
+        WebToolObservation::Terminal(answer) => answer,
+        WebToolObservation::Evidence(observation) => {
+            let generated = generate_observation_answer(
+                &observation.prompt,
+                user_request,
+                observation.max_tokens,
+            );
+            WebAnswerResult {
+                response: render_grounded_answer(
+                    generated,
+                    observation.fallback,
+                    &observation.sources,
+                ),
+                grounding: observation.grounding,
+            }
+        }
+    }
 }
 
 pub(crate) fn answer_from_grounding(
@@ -87,8 +125,18 @@ pub(super) fn web_answer_language_policy(query: &str) -> &'static str {
     }
 }
 
-pub(super) fn sanitize_model_summary(answer: &str) -> String {
-    answer_binding::sanitize_model_summary(answer)
+fn generate_observation_answer(
+    prompt: &str,
+    user_request: &str,
+    max_tokens: u32,
+) -> Option<String> {
+    #[cfg(test)]
+    if std::env::var_os("RPOTATO_TEST_WEB_RESEARCH_NO_MODEL").is_some() {
+        return None;
+    }
+    crate::app::inference_adapter::answer::generate_for_user(prompt, user_request, max_tokens)
+        .ok()
+        .filter(|answer| !answer.trim().is_empty())
 }
 
 #[cfg(test)]

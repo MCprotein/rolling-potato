@@ -1,4 +1,6 @@
-use super::*;
+use crate::adapters::web_search;
+
+use super::find_in_page;
 
 #[test]
 fn page_find_requires_an_open_page_and_renders_context_with_source_id() {

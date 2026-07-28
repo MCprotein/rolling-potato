@@ -1,6 +1,6 @@
 use crate::app::web_search_adapter::{
     self, WebGroundingEvidence, WebPageSession, WebResearchAdmission, WebResearchSession,
-    WebToolRoute,
+    WebToolObservation, WebToolRoute,
 };
 use crate::foundation::error::AppError;
 use std::time::Duration;
@@ -10,7 +10,7 @@ pub(super) struct WebToolExecution {
     pub(super) grounding: Vec<WebGroundingEvidence>,
 }
 
-pub(super) fn execute(
+pub(super) fn observe(
     research: &mut WebResearchSession,
     pages: &mut WebPageSession,
     route: WebToolRoute,
@@ -18,7 +18,7 @@ pub(super) fn execute(
     local_context: &str,
     conversation_context: &str,
     elapsed: Duration,
-) -> Result<WebToolExecution, AppError> {
+) -> Result<WebToolObservation, AppError> {
     let route = web_search_adapter::validate_public_web_step(route)?;
     let current_document = pages.current_url();
     let route = match research.admit(route, current_document, elapsed) {
@@ -27,75 +27,43 @@ pub(super) fn execute(
     };
     let failed_route = route.clone();
     let result = match route {
-        WebToolRoute::Search { query } => {
-            let answer = web_search_adapter::answer(
-                web_search_adapter::WebAnswerInput::new(&query, request, local_context)
-                    .with_conversation_context(conversation_context),
-                research,
-                pages,
-                elapsed,
-            )?;
-            Ok(WebToolExecution {
-                response: answer.response,
-                grounding: answer.grounding,
-            })
-        }
+        WebToolRoute::Search { query } => web_search_adapter::observe_search(
+            web_search_adapter::WebAnswerInput::new(&query, request, local_context)
+                .with_conversation_context(conversation_context),
+            research,
+            pages,
+            elapsed,
+        )
+        .map(WebToolObservation::Evidence),
         WebToolRoute::Open { url } => {
-            web_search_adapter::open_page(&url, request, research).map(|answer| {
-                let grounding = answer
-                    .page
-                    .as_ref()
-                    .map(|page| WebGroundingEvidence {
-                        source_id: page.source_id.clone(),
-                        title: page
-                            .title
-                            .clone()
-                            .unwrap_or_else(|| "제목 없음".to_string()),
-                        url: page.final_url.clone(),
-                        excerpt: page.content.chars().take(1_536).collect(),
-                    })
-                    .into_iter()
-                    .collect();
-                if let Some(page) = answer.page {
+            web_search_adapter::observe_open_page(&url, request, research).map(|observed| {
+                if let Some(page) = observed.page {
                     research.record_opened_document(&page.final_url);
                     pages.record(page);
                 }
-                WebToolExecution {
-                    response: answer.report,
-                    grounding,
-                }
+                observed.observation
             })
         }
         WebToolRoute::Find { query } => {
-            let grounding = pages
-                .current()
-                .map(|page| WebGroundingEvidence {
-                    source_id: page.source_id.clone(),
-                    title: page
-                        .title
-                        .clone()
-                        .unwrap_or_else(|| "제목 없음".to_string()),
-                    url: page.final_url.clone(),
-                    excerpt: page.content.chars().take(1_536).collect(),
-                })
-                .into_iter()
-                .collect();
-            web_search_adapter::answer_find_in_page(pages.current(), &query, request).map(
-                |response| WebToolExecution {
-                    response,
-                    grounding,
-                },
-            )
+            web_search_adapter::observe_find_in_page(pages.current(), &query, request)
         }
     };
     match result {
-        Ok(execution) => {
+        Ok(observation) => {
             research.complete();
-            Ok(execution)
+            Ok(observation)
         }
         Err(error) => {
             research.record_failed_input(&failed_route);
             Err(error)
         }
+    }
+}
+
+pub(super) fn answer(observation: WebToolObservation, request: &str) -> WebToolExecution {
+    let answer = web_search_adapter::answer_observation(observation, request);
+    WebToolExecution {
+        response: answer.response,
+        grounding: answer.grounding,
     }
 }

@@ -1,6 +1,6 @@
 //! Interactive request routing for the canonical TUI conversation.
 
-use super::super::{attachment, conversation, web_tools, TuiRuntimeAdapter};
+use super::super::{attachment, conversation, TuiRuntimeAdapter};
 use super::backend::{ensure_runtime_ready, vision_status, RuntimeRequirement};
 use crate::app::web_search_adapter::{self, WebToolRoute};
 use crate::foundation::error::AppError;
@@ -9,7 +9,9 @@ use std::time::Instant;
 
 mod support;
 
-use support::{plain_execution, required_context_limit, web_conversation_context, web_execution};
+use support::{
+    execute_web_turn, plain_execution, required_context_limit, web_conversation_context,
+};
 
 pub(super) struct RequestExecution {
     pub(super) response: String,
@@ -71,7 +73,7 @@ fn execute_routed(
             }
             _ => String::new(),
         };
-        return web_tools::execute(
+        return execute_web_turn(
             &mut web_research,
             &mut adapter.web_pages,
             route,
@@ -79,8 +81,7 @@ fn execute_routed(
             local_context,
             &web_conversation_context,
             web_started.elapsed(),
-        )
-        .map(web_execution);
+        );
     }
     if let Some(reply) = conversation::local_reply(user_request, active_model.as_deref(), vision) {
         return Ok(plain_execution(reply));
@@ -114,7 +115,7 @@ fn execute_routed(
         conversation::RequestDecision::WebTool(tool) => {
             let web_conversation_context =
                 web_conversation_context(history, user_request, context_limit_tokens)?;
-            return web_tools::execute(
+            return execute_web_turn(
                 &mut web_research,
                 &mut adapter.web_pages,
                 tool,
@@ -122,8 +123,7 @@ fn execute_routed(
                 local_context,
                 &web_conversation_context,
                 web_started.elapsed(),
-            )
-            .map(web_execution);
+            );
         }
         conversation::RequestDecision::ContinueLocal => {}
     }

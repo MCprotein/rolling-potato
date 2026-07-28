@@ -6637,6 +6637,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
     let tui_bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
     let transport = fs::read_to_string("src/adapters/web_search/transport.rs").unwrap();
     let page_parser = fs::read_to_string("src/adapters/web_search/page.rs").unwrap();
+    let agent_turn = fs::read_to_string("src/runtime_core/agent.rs").unwrap();
 
     for path in [
         "src/adapters/web_search/evidence.rs",
@@ -6650,6 +6651,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/web_search_adapter/grounded_fallback.rs",
         "src/app/web_search_adapter/page_session.rs",
         "src/app/web_search_adapter/page_tools.rs",
+        "src/app/web_search_adapter/page_tools/find.rs",
+        "src/app/web_search_adapter/page_tools/open.rs",
         "src/app/web_search_adapter/research_flow.rs",
         "src/app/web_search_adapter/routing/protocol.rs",
         "src/app/web_search_adapter/routing/query.rs",
@@ -6662,6 +6665,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/tui_adapter/runtime/web_sources.rs",
         "src/app/tui_adapter/runtime/request/support.rs",
         "src/app/tui_adapter/web_tools.rs",
+        "src/runtime_core/agent.rs",
         "src/surfaces/tui/controller/source_selection.rs",
     ] {
         assert!(Path::new(path).is_file(), "missing web tool owner: {path}");
@@ -6695,10 +6699,16 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(tui_controller.contains("[\"/sources\"]"));
     assert!(tui_bridge.contains("struct TuiWebSourceOption"));
     assert!(tui_request.contains("web_search_adapter::route_tool_request"));
-    assert!(tui_request.contains("web_tools::execute"));
+    assert!(tui_request.contains("execute_web_turn("));
     assert!(tui_request.lines().any(|line| line == "mod support;"));
+    assert!(tui_request_support.contains("web_tools::observe"));
+    assert!(tui_request_support.contains("web_tools::answer"));
     assert!(tui_request_support.contains("fn required_context_limit("));
     assert!(!web_tools.contains("route_tool_request"));
+    assert!(agent_turn.contains("TURN_DECISION_JSON_SCHEMA"));
+    assert!(agent_turn.contains("enum AgentTurnDecision"));
+    assert!(agent_turn.contains("fn parse_turn_decision("));
+    assert!(!agent_turn.contains("WEB TOOL:"));
     assert!(transport.contains("ureq::Agent::with_parts"));
     assert!(transport.contains("PublicWebResolver"));
     assert!(page_parser.contains("scan_html"));
@@ -6716,7 +6726,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(routing.lines().any(|line| line == "mod protocol;"));
     assert!(routing.lines().any(|line| line == "mod query;"));
     assert!(routing.lines().any(|line| line == "mod web_policy;"));
-    assert!(routing_protocol.contains("fn parse_agent_web_tool_for_request("));
+    assert!(routing_protocol.contains("fn route_tool_request("));
+    assert!(!routing_protocol.contains("WEB TOOL:"));
     assert!(routing_query.contains("fn contextualize_search_input("));
     assert!(routing_query.lines().any(|line| line == "mod context;"));
     assert!(routing_query.lines().any(|line| line == "mod sanitize;"));
@@ -6756,6 +6767,20 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(routing_web_policy.lines().count() < 100);
     assert!(
         fs::read_to_string("src/app/web_search_adapter/page_tools.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 25
+    );
+    assert!(
+        fs::read_to_string("src/app/web_search_adapter/page_tools/find.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 125
+    );
+    assert!(
+        fs::read_to_string("src/app/web_search_adapter/page_tools/open.rs")
             .unwrap()
             .lines()
             .count()
@@ -6882,7 +6907,9 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(tests.contains("oversized_protocol_frame_is_rejected_before_allocating_its_payload"));
     assert!(browser_app.contains("mod routing;"));
     assert!(browser_app.contains("mod search_form;"));
-    assert!(browser_routing.contains("BROWSER TOOL:"));
+    assert!(browser_routing.contains("fn deterministic_browser_fallback("));
+    assert!(browser_routing.contains("BrowserSearchRequest"));
+    assert!(!browser_routing.contains("BROWSER TOOL:"));
     assert!(browser_search_form.contains("BrowserControl"));
     assert!(!browser_search_form.contains("querySelector"));
     assert!(!browser_search_form.contains("Runtime.evaluate"));
@@ -6891,7 +6918,8 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(browser_app_tests.contains("delayed_result_page_readiness_is_polled_before_reporting"));
     assert!(browser_app_tests.contains("private_redirect_result_is_rejected"));
     assert!(conversation.contains("RequestDecision::BrowserTool"));
-    assert!(conversation.contains("current_request_network_decision"));
+    assert!(conversation.contains("generate_structured_candidate_for_user"));
+    assert!(conversation.contains("TURN_DECISION_JSON_SCHEMA"));
     assert!(conversation.contains("history_only_secret_cannot_become_network_tool_input"));
     assert!(conversation.contains("deterministic_browser_fallback"));
     assert!(tui_request.contains("RequestDecision::BrowserTool"));

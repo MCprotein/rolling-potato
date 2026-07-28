@@ -21,10 +21,6 @@ pub(super) fn render_grounded_answer(
     attach_verified_sources(&sanitized, sources)
 }
 
-pub(super) fn sanitize_model_summary(answer: &str) -> String {
-    sanitize_with_sources(answer, &BTreeMap::new())
-}
-
 fn sanitize_with_sources(answer: &str, sources: &BTreeMap<&str, &WebSourceEvidence>) -> String {
     let mut lines = Vec::new();
     for line in answer.lines() {
