@@ -75,6 +75,11 @@ test(guard): cover Korean output leakage
 - CI 실패를 단순 재실행으로 닫지 않는다. 실패 원인이 기존 회고와 같은 유형이면 먼저 자동 guard의 누락을 보강하고, 새로운 유형이면 targeted 회귀 테스트 또는 preflight 계약과 회고 항목을 추가한 뒤 새 candidate를 만든다.
 - 태그 이후 플랫폼별 빌드, 패키징, checksum, release asset smoke 검증은 배포 검증으로 취급하며 개발 중 전체 테스트 반복과 구분한다.
 - CLI 동작 변경 후: 관련 `rpotato` 명령 smoke test를 수행한다.
+- llama.cpp request body, `response_format`, JSON schema 또는 chat template 계약을
+  변경한 뒤에는 fake sidecar만으로 완료하지 않는다. Pinned managed
+  `llama-server`와 설치된 지원 model로 structured 기본 대화 한 건을 실행해 HTTP
+  성공과 visible answer를 확인한다. 로컬 실행이 불가능하면 같은 pinned backend의
+  실제 grammar/request parser를 통과하는 candidate job을 먼저 추가한다.
 - persistence schema, model manifest capability 또는 필수 runtime artifact 계약을 변경할 때는 fresh fixture만으로 완료하지 않는다. 지원 중인 직전 schema의 실제 누적 상태로 기본 TUI 진입과 base capability를 검증하고 `scripts/ci/verify-model-upgrade-compatibility.sh`를 candidate preflight에서 통과시킨다.
 - text, vision, web처럼 capability가 단계적으로 추가되는 runtime에서는 새 optional capability의 artifact·credential·registry field 누락이 기존 base capability를 차단하면 안 된다. Base 경로와 capability 요청 경로를 별도로 테스트하고, optional artifact는 실제 사용 시 검증·준비·원자적 binding한다.
 - Optional capability는 지원 여부와 현재 runtime readiness를 하나의 boolean으로 축약하지 않는다. `지원하지만 지연 준비됨`을 포함한 사용자 상태를 실제 production 기본값으로 회귀 테스트한다.

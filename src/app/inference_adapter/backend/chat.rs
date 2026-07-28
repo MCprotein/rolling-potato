@@ -192,6 +192,14 @@ fn chat_input_with_options(
             "backend chat timeout은 1..={MAX_CHAT_TIMEOUT_MS} ms 범위여야 합니다."
         )));
     }
+    let sampling = CHAT_SAMPLING;
+    let body = llama_backend::chat_request_body_for_input(
+        &record.model_path,
+        input,
+        effective_max_tokens,
+        &sampling,
+        true,
+    )?;
     let generation = begin_active_generation(&record, timeout_ms, streaming_display)?;
     let generation_guard = ActiveGenerationGuard {
         generation_id: generation.generation_id.clone(),
@@ -217,14 +225,6 @@ fn chat_input_with_options(
     )?;
     let started_at_ms = now_ms();
     let started_at = Instant::now();
-    let sampling = CHAT_SAMPLING;
-    let body = llama_backend::chat_request_body_for_input(
-        &record.model_path,
-        input,
-        effective_max_tokens,
-        &sampling,
-        true,
-    );
     let stream_outcome = backend_stream::post_chat_stream(
         &record.host,
         record.port,
