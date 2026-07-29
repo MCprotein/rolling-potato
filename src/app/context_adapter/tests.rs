@@ -1,4 +1,10 @@
 use super::*;
+use crate::adapters::filesystem::layout as paths;
+use crate::app::workflow_adapter::transcript;
+use crate::runtime_core::knowledge::context::{
+    MAX_CONTEXT_CHARS, MAX_CONTEXT_FILES, MAX_FILE_BYTES,
+};
+use std::fs;
 use std::path::PathBuf;
 
 #[test]

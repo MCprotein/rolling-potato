@@ -3799,7 +3799,7 @@
           ]
         },
         {
-          "responsibility": "context pack orchestration, declared source verification, and resume reconstruction",
+          "responsibility": "context assembly facade and stable API re-exports",
           "target": "src/app/context_adapter.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -3808,6 +3808,54 @@
             "src/app/context_adapter/discovery.rs",
             "src/runtime_core/knowledge/context.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/context_adapter/declared_context.rs",
+      "slices": [
+        {
+          "responsibility": "declared-file context assembly, path policy enforcement, and dispatch-time binding verification",
+          "target": "src/app/context_adapter/declared_context.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/context_adapter/declared_context.rs",
+            "src/app/context_adapter/tests.rs",
+            "tests/architecture_contract/adapter_boundaries/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/context_adapter/ontology_context.rs",
+      "slices": [
+        {
+          "responsibility": "ontology-backed current-request context assembly and stale-record fallback",
+          "target": "src/app/context_adapter/ontology_context.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/context_adapter/ontology_context.rs",
+            "src/app/context_adapter/tests.rs",
+            "tests/architecture_contract/adapter_boundaries/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/context_adapter/resume_context.rs",
+      "slices": [
+        {
+          "responsibility": "durable transcript and historical-source context reconstruction",
+          "target": "src/app/context_adapter/resume_context.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/context_adapter/resume_context.rs",
+            "src/app/context_adapter/tests.rs",
+            "tests/architecture_contract/adapter_boundaries/application.rs"
           ]
         }
       ]
@@ -16966,7 +17014,25 @@
       "path": "src/app/context_adapter.rs",
       "responsibilities": [
         "bounded source context",
-        "context pack orchestration, declared source verification, and resume reconstruction"
+        "context assembly facade and stable API re-exports"
+      ]
+    },
+    {
+      "path": "src/app/context_adapter/declared_context.rs",
+      "responsibilities": [
+        "declared-file context assembly, path policy enforcement, and dispatch-time binding verification"
+      ]
+    },
+    {
+      "path": "src/app/context_adapter/ontology_context.rs",
+      "responsibilities": [
+        "ontology-backed current-request context assembly and stale-record fallback"
+      ]
+    },
+    {
+      "path": "src/app/context_adapter/resume_context.rs",
+      "responsibilities": [
+        "durable transcript and historical-source context reconstruction"
       ]
     },
     {

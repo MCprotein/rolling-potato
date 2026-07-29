@@ -3,12 +3,18 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
     let context_adapter = "src/app/context_adapter.rs";
     let context_compaction = "src/app/context_adapter/compaction.rs";
     let compaction_artifact_store = "src/app/context_adapter/compaction/artifact_store.rs";
+    let declared_context = "src/app/context_adapter/declared_context.rs";
     let filesystem_discovery = "src/app/context_adapter/discovery.rs";
+    let ontology_context = "src/app/context_adapter/ontology_context.rs";
+    let resume_context = "src/app/context_adapter/resume_context.rs";
     let context_tests = "src/app/context_adapter/tests.rs";
     assert!(Path::new(context_adapter).is_file());
     assert!(Path::new(context_compaction).is_file());
     assert!(Path::new(compaction_artifact_store).is_file());
+    assert!(Path::new(declared_context).is_file());
     assert!(Path::new(filesystem_discovery).is_file());
+    assert!(Path::new(ontology_context).is_file());
+    assert!(Path::new(resume_context).is_file());
     assert!(Path::new(context_tests).is_file());
     assert!(!Path::new("src/context.rs").exists());
     assert!(!Path::new("src/context").exists());
@@ -25,16 +31,24 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
     let context = fs::read_to_string(context_adapter).unwrap();
     let compaction = fs::read_to_string(context_compaction).unwrap();
     let artifact_store = fs::read_to_string(compaction_artifact_store).unwrap();
+    let declared = fs::read_to_string(declared_context).unwrap();
     let discovery = fs::read_to_string(filesystem_discovery).unwrap();
+    let ontology = fs::read_to_string(ontology_context).unwrap();
+    let resume = fs::read_to_string(resume_context).unwrap();
     let tests = fs::read_to_string(context_tests).unwrap();
-    assert!(
-        context.lines().any(|line| line == "mod discovery;"),
-        "context adapter does not register its filesystem discovery owner"
-    );
-    assert!(
-        context.lines().any(|line| line == "mod compaction;"),
-        "context adapter does not register its compaction owner"
-    );
+    for owner in [
+        "compaction",
+        "declared_context",
+        "discovery",
+        "ontology_context",
+        "resume_context",
+    ] {
+        let declaration = format!("mod {owner};");
+        assert!(
+            context.lines().any(|line| line == declaration),
+            "context adapter does not register owner: {owner}"
+        );
+    }
     assert!(
         compaction.lines().any(|line| line == "mod artifact_store;"),
         "context compaction does not register its artifact-store owner"
@@ -52,6 +66,26 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
         assert!(
             !compaction.contains(responsibility),
             "compaction orchestration still owns artifact storage: {responsibility}"
+        );
+    }
+    for (owner, responsibility) in [
+        (&ontology, "pub fn build_context_pack("),
+        (&declared, "pub fn build_declared_context_pack("),
+        (&declared, "pub fn verify_declared_context_pack("),
+        (&resume, "pub fn rebuild_resume_context("),
+        (&resume, "pub fn build_active_conversation_context("),
+        (
+            &resume,
+            "pub(crate) fn build_active_conversation_context_for_limit(",
+        ),
+    ] {
+        assert!(
+            owner.contains(responsibility),
+            "context use-case owner is missing: {responsibility}"
+        );
+        assert!(
+            !context.contains(responsibility),
+            "context facade still owns use case: {responsibility}"
         );
     }
     for responsibility in [
@@ -76,10 +110,13 @@ fn v03713_context_adapter_separates_filesystem_discovery() {
     assert!(
         tests.contains("fn filesystem_discovery_skips_generated_dirs_and_ranks_request_matches(")
     );
-    assert!(context.lines().count() < 600);
+    assert!(context.lines().count() < 50);
     assert!(compaction.lines().count() < 550);
     assert!(artifact_store.lines().count() < 350);
+    assert!(declared.lines().count() < 200);
     assert!(discovery.lines().count() < 250);
+    assert!(ontology.lines().count() < 125);
+    assert!(resume.lines().count() < 300);
 }
 
 #[test]
