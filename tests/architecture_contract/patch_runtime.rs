@@ -761,8 +761,21 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
 
     let runtime_facade_path = "src/app/runtime_adapter.rs";
     let runtime_tests_path = "src/app/runtime_adapter/tests.rs";
+    let runtime_test_children = [
+        "src/app/runtime_adapter/tests/support.rs",
+        "src/app/runtime_adapter/tests/read_views.rs",
+        "src/app/runtime_adapter/tests/outcome_matrix.rs",
+        "src/app/runtime_adapter/tests/outcome_contract.rs",
+        "src/app/runtime_adapter/tests/reports.rs",
+    ];
     assert!(Path::new(runtime_facade_path).is_file());
     assert!(Path::new(runtime_tests_path).is_file());
+    for path in runtime_test_children {
+        assert!(
+            Path::new(path).is_file(),
+            "runtime test owner is missing: {path}"
+        );
+    }
     assert!(!Path::new("src/runtime.rs").exists());
     assert!(!Path::new("src/runtime").exists());
     assert!(!main.lines().any(|line| line == "mod runtime;"));
@@ -775,11 +788,27 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
     );
     let runtime_facade = fs::read_to_string(runtime_facade_path).unwrap();
     let runtime_tests = fs::read_to_string(runtime_tests_path).unwrap();
+    let runtime_test_sources = runtime_test_children
+        .into_iter()
+        .map(|path| (path, fs::read_to_string(path).unwrap()))
+        .collect::<Vec<_>>();
     let production = &runtime_facade;
     assert!(
         runtime_facade.contains("#[path = \"runtime_adapter/tests.rs\"]"),
         "runtime facade does not register its regression-test owner"
     );
+    for include in [
+        "include!(\"tests/support.rs\");",
+        "include!(\"tests/read_views.rs\");",
+        "include!(\"tests/outcome_matrix.rs\");",
+        "include!(\"tests/outcome_contract.rs\");",
+        "include!(\"tests/reports.rs\");",
+    ] {
+        assert!(
+            runtime_tests.lines().any(|line| line == include),
+            "runtime regression facade does not register child owner: {include}"
+        );
+    }
     for forbidden in [
         "fn guard_patch_terminal_report",
         "fn release_smoke_summary",
@@ -812,7 +841,9 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
         "fn doctor_report_includes_release_smoke_fields(",
     ] {
         assert!(
-            runtime_tests.contains(regression),
+            runtime_test_sources
+                .iter()
+                .any(|(_, source)| source.contains(regression)),
             "runtime regression owner is missing: {regression}"
         );
         assert!(
@@ -825,7 +856,13 @@ fn v03710_runtime_and_reporting_owners_hold_dispatch_and_output_decisions() {
         "runtime facade regrew beyond the v0.37.10 boundary"
     );
     assert!(
-        runtime_tests.lines().count() < 1_100,
-        "runtime regression module regrew beyond its ownership boundary"
+        runtime_tests.lines().count() < 100,
+        "runtime regression facade regrew beyond its ownership boundary"
     );
+    for (path, source) in runtime_test_sources {
+        assert!(
+            source.lines().count() < 550,
+            "runtime regression child regrew beyond its ownership boundary: {path}"
+        );
+    }
 }

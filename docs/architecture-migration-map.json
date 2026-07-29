@@ -4975,16 +4975,101 @@
       "path": "src/app/runtime_adapter/tests.rs",
       "slices": [
         {
-          "responsibility": "runtime orchestration, canonical TUI read, outcome, and report regression tests",
+          "responsibility": "runtime regression facade and scenario owner registration",
           "target": "src/app/runtime_adapter/tests.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/runtime_adapter.rs",
             "src/app/runtime_adapter/tests.rs",
-            "src/runtime_core/workflow/application/runner.rs",
-            "src/runtime_core/reporting/runtime_report.rs",
-            "tests/architecture_contract.rs"
+            "src/app/runtime_adapter/tests/outcome_contract.rs",
+            "src/app/runtime_adapter/tests/outcome_matrix.rs",
+            "src/app/runtime_adapter/tests/read_views.rs",
+            "src/app/runtime_adapter/tests/reports.rs",
+            "src/app/runtime_adapter/tests/support.rs",
+            "tests/architecture_contract/patch_runtime.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter/tests/outcome_contract.rs",
+      "slices": [
+        {
+          "responsibility": "exact TUI outcome, public DTO, credential, and recovery documentation contracts",
+          "target": "src/app/runtime_adapter/tests/outcome_contract.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/runtime_adapter/tests.rs",
+            "src/app/runtime_adapter/tests/outcome_contract.rs",
+            "tests/architecture_contract/patch_runtime.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter/tests/outcome_matrix.rs",
+      "slices": [
+        {
+          "responsibility": "runtime denial outcome code totality and phase mapping regressions",
+          "target": "src/app/runtime_adapter/tests/outcome_matrix.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/runtime_adapter/tests.rs",
+            "src/app/runtime_adapter/tests/outcome_matrix.rs",
+            "tests/architecture_contract/patch_runtime.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter/tests/read_views.rs",
+      "slices": [
+        {
+          "responsibility": "canonical bounded fresh non-mutating TUI read-view regressions",
+          "target": "src/app/runtime_adapter/tests/read_views.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/runtime_adapter/tests.rs",
+            "src/app/runtime_adapter/tests/read_views.rs",
+            "src/app/runtime_adapter/tests/support.rs",
+            "tests/architecture_contract/patch_runtime.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter/tests/reports.rs",
+      "slices": [
+        {
+          "responsibility": "patch terminal guard and doctor report regression contracts",
+          "target": "src/app/runtime_adapter/tests/reports.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/runtime_adapter/tests.rs",
+            "src/app/runtime_adapter/tests/reports.rs",
+            "tests/architecture_contract/patch_runtime.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter/tests/support.rs",
+      "slices": [
+        {
+          "responsibility": "runtime regression filesystem snapshot fixture",
+          "target": "src/app/runtime_adapter/tests/support.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/runtime_adapter/tests.rs",
+            "src/app/runtime_adapter/tests/read_views.rs",
+            "src/app/runtime_adapter/tests/support.rs",
+            "tests/architecture_contract/patch_runtime.rs"
           ]
         }
       ]
@@ -12521,7 +12606,37 @@
     {
       "path": "src/app/runtime_adapter/tests.rs",
       "responsibilities": [
-        "runtime orchestration, canonical TUI read, outcome, and report regression tests"
+        "runtime regression facade and scenario owner registration"
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter/tests/outcome_contract.rs",
+      "responsibilities": [
+        "exact TUI outcome, public DTO, credential, and recovery documentation contracts"
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter/tests/outcome_matrix.rs",
+      "responsibilities": [
+        "runtime denial outcome code totality and phase mapping regressions"
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter/tests/read_views.rs",
+      "responsibilities": [
+        "canonical bounded fresh non-mutating TUI read-view regressions"
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter/tests/reports.rs",
+      "responsibilities": [
+        "patch terminal guard and doctor report regression contracts"
+      ]
+    },
+    {
+      "path": "src/app/runtime_adapter/tests/support.rs",
+      "responsibilities": [
+        "runtime regression filesystem snapshot fixture"
       ]
     },
     {
