@@ -42,9 +42,11 @@ fn assert_projection_hotspot_closed() {
         include_str!("../src/app/workflow_adapter/state/workflow_store.rs"),
         include_str!("../src/app/inference_adapter/benchmark.rs"),
         include_str!("../src/app/collaboration_adapter/team_execution/events.rs"),
-        include_str!("../src/app/collaboration_adapter/team.rs"),
+        include_str!("../src/app/collaboration_adapter/team/admission_report.rs"),
+        include_str!("../src/app/collaboration_adapter/team/dispatch.rs"),
+        include_str!("../src/app/collaboration_adapter/team/governor.rs"),
         include_str!("../src/app/collaboration_adapter/team_state/events.rs"),
-        include_str!("../src/app/collaboration_adapter/team_reconciliation.rs"),
+        include_str!("../src/app/collaboration_adapter/team_reconciliation/events.rs"),
     ];
     let supplied_ordinal_calls = sources
         .iter()
