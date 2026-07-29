@@ -16,6 +16,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let subagent_launch = "src/runtime_core/collaboration/subagent/launch.rs";
     let subagent_record_codec = "src/runtime_core/collaboration/subagent/record_codec.rs";
     let subagent_result_evidence = "src/runtime_core/collaboration/subagent_result/evidence.rs";
+    let team_state_domain = "src/runtime_core/collaboration/team_state.rs";
+    let team_state_manifest_codec = "src/runtime_core/collaboration/team_state/manifest_codec.rs";
+    let team_state_state_codec = "src/runtime_core/collaboration/team_state/state_codec.rs";
+    let team_state_validation = "src/runtime_core/collaboration/team_state/validation.rs";
     let team_adapter = "src/app/collaboration_adapter/team.rs";
     let team_admission = "src/app/collaboration_adapter/team/admission.rs";
     let team_admission_report = "src/app/collaboration_adapter/team/admission_report.rs";
@@ -90,10 +94,9 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
             "src/runtime_core/collaboration/team_state.rs",
             &[
                 "enum TeamStage",
+                "impl TeamStage",
+                "struct TeamStateV1",
                 "fn transition_to_at",
-                "fn parse_manifest",
-                "fn parse_state",
-                "fn render_state",
             ],
         ),
     ];
@@ -143,6 +146,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(Path::new(subagent_launch).is_file());
     assert!(Path::new(subagent_record_codec).is_file());
     assert!(Path::new(subagent_result_evidence).is_file());
+    assert!(Path::new(team_state_domain).is_file());
+    assert!(Path::new(team_state_manifest_codec).is_file());
+    assert!(Path::new(team_state_state_codec).is_file());
+    assert!(Path::new(team_state_validation).is_file());
     assert!(Path::new(team_admission).is_file());
     assert!(Path::new(team_admission_report).is_file());
     assert!(Path::new(team_dispatch).is_file());
@@ -163,6 +170,10 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let subagent_result_source =
         fs::read_to_string("src/runtime_core/collaboration/subagent_result.rs").unwrap();
     let subagent_result_evidence_source = fs::read_to_string(subagent_result_evidence).unwrap();
+    let team_state_domain_source = fs::read_to_string(team_state_domain).unwrap();
+    let team_state_manifest_codec_source = fs::read_to_string(team_state_manifest_codec).unwrap();
+    let team_state_state_codec_source = fs::read_to_string(team_state_state_codec).unwrap();
+    let team_state_validation_source = fs::read_to_string(team_state_validation).unwrap();
     let subagent_execution_source = fs::read_to_string(subagent_execution).unwrap();
     let subagent_execution_completion_source =
         fs::read_to_string(subagent_execution_completion).unwrap();
@@ -189,6 +200,63 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let team_state_event_source = fs::read_to_string(team_state_events).unwrap();
     let team_state_persistence_source = fs::read_to_string(team_state_persistence).unwrap();
     let team_state_test_source = fs::read_to_string(team_state_tests).unwrap();
+    for module in ["mod manifest_codec;", "mod state_codec;", "mod validation;"] {
+        assert!(
+            team_state_domain_source.lines().any(|line| line == module),
+            "team state domain does not register codec owner: {module}"
+        );
+    }
+    for (source, responsibility) in [
+        (
+            team_state_manifest_codec_source.as_str(),
+            "pub fn parse_manifest(",
+        ),
+        (
+            team_state_manifest_codec_source.as_str(),
+            "fn parse_members(",
+        ),
+        (
+            team_state_manifest_codec_source.as_str(),
+            "fn validate_member_set(",
+        ),
+        (
+            team_state_state_codec_source.as_str(),
+            "pub(crate) fn render_payload(",
+        ),
+        (
+            team_state_state_codec_source.as_str(),
+            "pub(crate) fn render_state(",
+        ),
+        (
+            team_state_state_codec_source.as_str(),
+            "pub(crate) fn parse_state(",
+        ),
+        (
+            team_state_state_codec_source.as_str(),
+            "pub(crate) fn validate_state(",
+        ),
+        (
+            team_state_state_codec_source.as_str(),
+            "pub(crate) fn immutable_binding_changed(",
+        ),
+        (
+            team_state_validation_source.as_str(),
+            "pub(crate) fn validate_id(",
+        ),
+        (
+            team_state_validation_source.as_str(),
+            "pub(crate) fn is_sha256(",
+        ),
+    ] {
+        assert!(
+            source.contains(responsibility),
+            "team state codec owner is missing: {responsibility}"
+        );
+        assert!(
+            !team_state_domain_source.contains(responsibility),
+            "team state DTO/stage domain still owns codec behavior: {responsibility}"
+        );
+    }
     assert!(
         subagent_source.lines().any(|line| line == "mod execution;"),
         "subagent adapter does not register its execution owner"
@@ -690,6 +758,29 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         subagent_domain.lines().count() < 450,
         "subagent domain regrew beyond its ownership boundary"
     );
+    for (source, maximum_lines, owner) in [
+        (team_state_domain_source.as_str(), 225, team_state_domain),
+        (
+            team_state_manifest_codec_source.as_str(),
+            250,
+            team_state_manifest_codec,
+        ),
+        (
+            team_state_state_codec_source.as_str(),
+            225,
+            team_state_state_codec,
+        ),
+        (
+            team_state_validation_source.as_str(),
+            50,
+            team_state_validation,
+        ),
+    ] {
+        assert!(
+            source.lines().count() < maximum_lines,
+            "team state domain module regrew beyond its ownership boundary: {owner}"
+        );
+    }
     assert!(subagent_launch_source.lines().count() < 225);
     assert!(
         subagent_record_codec_source.lines().count() < 250,

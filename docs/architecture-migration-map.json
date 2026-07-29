@@ -5147,14 +5147,69 @@
       "path": "src/runtime_core/collaboration/team_state.rs",
       "slices": [
         {
-          "responsibility": "team manifest/state codec, DTOs, invariants, and stage transition policy",
+          "responsibility": "team manifest/state DTOs and stage transition policy",
           "target": "src/runtime_core/collaboration/team_state.rs",
-          "release": "0.37.12",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team_state.rs",
+            "src/runtime_core/collaboration/team_state/manifest_codec.rs",
+            "src/runtime_core/collaboration/team_state/state_codec.rs",
+            "src/runtime_core/collaboration/team_state/validation.rs",
             "src/app/collaboration_adapter/team_state.rs",
             "tests/team_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_state/manifest_codec.rs",
+      "slices": [
+        {
+          "responsibility": "canonical team manifest parsing and cross-lane ownership validation",
+          "target": "src/runtime_core/collaboration/team_state/manifest_codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_state.rs",
+            "src/runtime_core/collaboration/team_state/manifest_codec.rs",
+            "src/app/collaboration_adapter/team_state/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_state/state_codec.rs",
+      "slices": [
+        {
+          "responsibility": "canonical team state codec, invariants, and immutable binding comparison",
+          "target": "src/runtime_core/collaboration/team_state/state_codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_state.rs",
+            "src/runtime_core/collaboration/team_state/state_codec.rs",
+            "src/app/collaboration_adapter/team_state/persistence.rs",
+            "src/app/collaboration_adapter/team_state/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_state/validation.rs",
+      "slices": [
+        {
+          "responsibility": "shared team identifier and SHA-256 value validation",
+          "target": "src/runtime_core/collaboration/team_state/validation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team_state.rs",
+            "src/runtime_core/collaboration/team_state/manifest_codec.rs",
+            "src/runtime_core/collaboration/team_state/state_codec.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -12331,7 +12386,25 @@
     {
       "path": "src/runtime_core/collaboration/team_state.rs",
       "responsibilities": [
-        "team manifest/state codec, DTOs, invariants, and stage transition policy"
+        "team manifest/state DTOs and stage transition policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_state/manifest_codec.rs",
+      "responsibilities": [
+        "canonical team manifest parsing and cross-lane ownership validation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_state/state_codec.rs",
+      "responsibilities": [
+        "canonical team state codec, invariants, and immutable binding comparison"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team_state/validation.rs",
+      "responsibilities": [
+        "shared team identifier and SHA-256 value validation"
       ]
     },
     {
