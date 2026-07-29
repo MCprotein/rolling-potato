@@ -2662,17 +2662,36 @@
       "path": "src/app/inference_adapter/backend/chat.rs",
       "slices": [
         {
-          "responsibility": "backend chat admission, streaming execution, and completion coordination",
+          "responsibility": "backend chat application facade and bounded entrypoints",
           "target": "src/app/inference_adapter/backend/chat.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/inference_adapter/backend.rs",
             "src/app/inference_adapter/backend/chat.rs",
+            "src/app/inference_adapter/backend/chat/execution.rs",
             "src/app/inference_adapter/backend/chat/interruption.rs",
+            "src/app/inference_adapter/backend/chat/readiness.rs",
             "src/app/inference_adapter/backend/chat/report.rs",
             "src/app/inference_adapter/backend/tests.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/execution.rs",
+      "slices": [
+        {
+          "responsibility": "backend chat request admission, SSE generation execution, and completion telemetry coordination",
+          "target": "src/app/inference_adapter/backend/chat/execution.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/chat/execution.rs",
+            "src/adapters/llama_cpp/stream/tests.rs",
+            "tests/inference/backend_lifecycle.rs",
+            "tests/architecture_contract/inference/application_backend.rs"
           ]
         }
       ]
@@ -2692,6 +2711,22 @@
             "src/app/inference_adapter/backend/tests.rs",
             "tests/patch/lifecycle.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/readiness.rs",
+      "slices": [
+        {
+          "responsibility": "backend sidecar record, process, and health readiness validation",
+          "target": "src/app/inference_adapter/backend/chat/readiness.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/backend/chat/readiness.rs",
+            "tests/inference/backend_lifecycle.rs",
+            "tests/architecture_contract/inference/application_backend.rs"
           ]
         }
       ]
@@ -12746,6 +12781,23 @@
           "state": "complete",
           "evidence": [
             "tests/architecture_contract/inference/application_backend.rs",
+            "tests/architecture_contract/inference/application_backend_chat.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/application_backend_chat.rs",
+      "slices": [
+        {
+          "responsibility": "backend chat facade, readiness, execution, interruption, and report ownership contracts",
+          "target": "tests/architecture_contract/inference/application_backend_chat.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/inference/application_backend_chat.rs",
+            "tests/architecture_contract/inference/application_backend.rs",
             "tests/architecture_contract/inference.rs"
           ]
         }
@@ -15493,13 +15545,25 @@
     {
       "path": "src/app/inference_adapter/backend/chat.rs",
       "responsibilities": [
-        "backend chat admission, streaming execution, and completion coordination"
+        "backend chat application facade and bounded entrypoints"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/execution.rs",
+      "responsibilities": [
+        "backend chat request admission, SSE generation execution, and completion telemetry coordination"
       ]
     },
     {
       "path": "src/app/inference_adapter/backend/chat/interruption.rs",
       "responsibilities": [
         "backend chat timeout, cancellation, and interrupted-generation evidence"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/backend/chat/readiness.rs",
+      "responsibilities": [
+        "backend sidecar record, process, and health readiness validation"
       ]
     },
     {
@@ -19144,6 +19208,12 @@
       "path": "tests/architecture_contract/inference/application_backend.rs",
       "responsibilities": [
         "inference application backend architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/application_backend_chat.rs",
+      "responsibilities": [
+        "backend chat facade, readiness, execution, interruption, and report ownership contracts"
       ]
     },
     {

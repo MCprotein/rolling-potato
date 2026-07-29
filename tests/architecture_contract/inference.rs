@@ -1,4 +1,6 @@
 use super::*;
+#[path = "inference/application_backend_chat.rs"]
+mod application_backend_chat;
 include!("inference/application_backend.rs");
 include!("inference/application_model.rs");
 include!("inference/model_codec.rs");
@@ -26,10 +28,7 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
             "inference architecture owner regrew beyond its boundary: {owner_path}"
         );
     }
-    assert!(
-        facade.lines().count() < 40,
-        "inference architecture facade regrew beyond orchestration"
-    );
+    assert!(facade.lines().count() < 40, "inference facade too large");
     assert_runtime_inference_owners();
     assert_application_backend_owners();
     assert_application_model_owners();
