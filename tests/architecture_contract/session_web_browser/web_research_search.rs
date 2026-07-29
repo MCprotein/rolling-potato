@@ -9,6 +9,8 @@ fn web_search_open_find_have_separate_bounded_owners() {
         fs::read_to_string("src/app/tui_adapter/runtime/request/support.rs").unwrap();
     let web_tools = fs::read_to_string("src/app/tui_adapter/web_tools.rs").unwrap();
     let tui_controller = fs::read_to_string("src/surfaces/tui/controller.rs").unwrap();
+    let tui_command_dispatch =
+        fs::read_to_string("src/surfaces/tui/controller/command_dispatch.rs").unwrap();
     let tui_bridge = fs::read_to_string("src/surfaces/tui/runtime_bridge.rs").unwrap();
     let transport = fs::read_to_string("src/adapters/web_search/transport.rs").unwrap();
     let page_parser = fs::read_to_string("src/adapters/web_search/page.rs").unwrap();
@@ -103,7 +105,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
     assert!(tui_facade.lines().any(|line| line == "mod web_tools;"));
     assert!(tui_runtime.lines().any(|line| line == "mod web_sources;"));
     assert!(tui_controller.contains("mod source_selection;"));
-    assert!(tui_controller.contains("[\"/sources\"]"));
+    assert!(tui_command_dispatch.contains("[\"/sources\"]"));
     assert!(tui_bridge.contains("struct TuiWebSourceOption"));
     assert!(tui_request.contains("web_search_adapter::route_tool_request"));
     assert!(tui_request.contains("execute_web_turn("));

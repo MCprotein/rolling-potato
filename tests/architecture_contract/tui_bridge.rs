@@ -370,8 +370,8 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
             "TUI command loop still defines terminal-flow behavior: {definition}"
         );
     }
-    assert!(controller
-        .contains("pub(crate) use terminal_flow::{consume_outcome, terminal_fault_error};"));
+    assert!(controller.contains("pub(crate) use terminal_flow::consume_outcome;"));
+    assert!(controller.contains("pub(crate) use terminal_flow::terminal_fault_error;"));
     assert!(!controller.contains("use crate::runtime;"));
     assert!(!controller.contains("crate::runtime::"));
     assert!(!controller.contains("crate::adapters"));

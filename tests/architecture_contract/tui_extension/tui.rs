@@ -31,6 +31,11 @@ fn v0471_tui_controller_support_responsibilities_are_split() {
             "fn looks_like_attachment_path",
         ),
         (
+            "command_dispatch",
+            "src/surfaces/tui/controller/command_dispatch.rs",
+            "fn dispatch_line",
+        ),
+        (
             "model_selection",
             "src/surfaces/tui/controller/model_selection.rs",
             "fn choose_model",
@@ -59,8 +64,14 @@ fn v0471_tui_controller_support_responsibilities_are_split() {
         );
     }
     assert!(
-        controller.lines().count() < 500,
-        "TUI controller regrew beyond command-loop ownership"
+        controller.lines().count() < 175,
+        "TUI controller regrew beyond frame-input-loop ownership"
+    );
+    let command_dispatch =
+        fs::read_to_string("src/surfaces/tui/controller/command_dispatch.rs").unwrap();
+    assert!(
+        command_dispatch.lines().count() < 500,
+        "TUI command dispatcher regrew beyond typed command-routing ownership"
     );
 }
 #[test]

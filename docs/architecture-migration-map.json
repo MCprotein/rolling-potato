@@ -8730,13 +8730,14 @@
       "path": "src/surfaces/tui/controller.rs",
       "slices": [
         {
-          "responsibility": "interactive command loop and runtime port",
+          "responsibility": "interactive frame-input loop, runtime port, and post-dispatch write boundary",
           "target": "src/surfaces/tui/controller.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/controller.rs",
             "src/surfaces/tui/controller/attachments.rs",
+            "src/surfaces/tui/controller/command_dispatch.rs",
             "src/surfaces/tui/controller/model_selection.rs",
             "src/surfaces/tui/controller/terminal_flow.rs",
             "src/app/tui_adapter.rs",
@@ -8757,6 +8758,24 @@
           "evidence": [
             "src/surfaces/tui/controller.rs",
             "src/surfaces/tui/controller/attachments.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/command_dispatch.rs",
+      "slices": [
+        {
+          "responsibility": "typed TUI command routing and loop-control decisions",
+          "target": "src/surfaces/tui/controller/command_dispatch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller.rs",
+            "src/surfaces/tui/controller/command_dispatch.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
             "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -17086,13 +17105,19 @@
     {
       "path": "src/surfaces/tui/controller.rs",
       "responsibilities": [
-        "interactive command loop and runtime port"
+        "interactive frame-input loop, runtime port, and post-dispatch write boundary"
       ]
     },
     {
       "path": "src/surfaces/tui/controller/attachments.rs",
       "responsibilities": [
         "TUI attachment path detection and capture presentation"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/command_dispatch.rs",
+      "responsibilities": [
+        "typed TUI command routing and loop-control decisions"
       ]
     },
     {
