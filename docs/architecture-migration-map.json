@@ -5840,6 +5840,33 @@
             "src/runtime_core/patch/verification.rs",
             "tests/architecture_contract.rs"
           ]
+        },
+        {
+          "responsibility": "stable patch application facade and public use-case re-exports",
+          "target": "src/app/patch_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/approval_dispatch.rs",
+      "slices": [
+        {
+          "responsibility": "patch approval dispatch, CLI credential rendering, and TUI approval entrypoint",
+          "target": "src/app/patch_adapter/approval_dispatch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/approval_dispatch.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
+            "src/app/patch_adapter/tests/recovery_cases.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
         }
       ]
     },
@@ -6000,6 +6027,23 @@
       ]
     },
     {
+      "path": "src/app/patch_adapter/proposal_api.rs",
+      "slices": [
+        {
+          "responsibility": "patch preview report and canonical workflow proposal use cases",
+          "target": "src/app/patch_adapter/proposal_api.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/proposal_api.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
+            "src/app/patch_adapter/tests/verification_cases.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/patch_adapter/proposal_builder.rs",
       "slices": [
         {
@@ -6054,6 +6098,23 @@
       ]
     },
     {
+      "path": "src/app/patch_adapter/shared.rs",
+      "slices": [
+        {
+          "responsibility": "patch adapter display labels and integrity helper values",
+          "target": "src/app/patch_adapter/shared.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/shared.rs",
+            "src/app/patch_adapter/tests/support_cases.rs",
+            "src/app/patch_adapter/tests/verification_cases.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/patch_adapter/terminal.rs",
       "slices": [
         {
@@ -6085,6 +6146,22 @@
             "src/app/workflow_adapter/state/transaction.rs",
             "src/app/patch_adapter/verification.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/verification_evidence.rs",
+      "slices": [
+        {
+          "responsibility": "skill verification admission and failing-test evidence recording",
+          "target": "src/app/patch_adapter/verification_evidence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/verification_evidence.rs",
+            "src/app/patch_adapter/tests/approval_cases.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
           ]
         }
       ]
@@ -17734,7 +17811,14 @@
         "patch proposal and preview",
         "patch approval credentials",
         "guarded patch apply and rollback",
-        "patch verification and recovery"
+        "patch verification and recovery",
+        "stable patch application facade and public use-case re-exports"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/approval_dispatch.rs",
+      "responsibilities": [
+        "patch approval dispatch, CLI credential rendering, and TUI approval entrypoint"
       ]
     },
     {
@@ -17792,6 +17876,12 @@
       ]
     },
     {
+      "path": "src/app/patch_adapter/proposal_api.rs",
+      "responsibilities": [
+        "patch preview report and canonical workflow proposal use cases"
+      ]
+    },
+    {
       "path": "src/app/patch_adapter/proposal_builder.rs",
       "responsibilities": [
         "patch preview materialization, target path, and approval token adapter"
@@ -17810,6 +17900,12 @@
       ]
     },
     {
+      "path": "src/app/patch_adapter/shared.rs",
+      "responsibilities": [
+        "patch adapter display labels and integrity helper values"
+      ]
+    },
+    {
       "path": "src/app/patch_adapter/terminal.rs",
       "responsibilities": [
         "patch workflow cancellation, gate denial, and terminal rollback adapter"
@@ -17819,6 +17915,12 @@
       "path": "src/app/patch_adapter/verification.rs",
       "responsibilities": [
         "patch verification approval and prepared transaction adapter"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/verification_evidence.rs",
+      "responsibilities": [
+        "skill verification admission and failing-test evidence recording"
       ]
     },
     {

@@ -8,6 +8,7 @@ fn assert_application_adapter_contracts() {
         "src/app/patch_adapter/tests/verification_cases.rs",
     ];
     let approval_transaction_adapter = "src/app/patch_adapter/approval_transaction.rs";
+    let approval_dispatch_adapter = "src/app/patch_adapter/approval_dispatch.rs";
     let approval_hook_event_adapter =
         "src/app/patch_adapter/approval_transaction/hook_event.rs";
     let approval_members_adapter = "src/app/patch_adapter/approval_transaction/members.rs";
@@ -19,15 +20,20 @@ fn assert_application_adapter_contracts() {
     let execution_adapter = "src/app/patch_adapter/execution.rs";
     let guard_adapter = "src/app/patch_adapter/guard.rs";
     let proposal_builder_adapter = "src/app/patch_adapter/proposal_builder.rs";
+    let proposal_api_adapter = "src/app/patch_adapter/proposal_api.rs";
     let proposal_store_adapter = "src/app/patch_adapter/proposal_store.rs";
     let resume_adapter = "src/app/patch_adapter/resume.rs";
+    let shared_adapter = "src/app/patch_adapter/shared.rs";
     let terminal_adapter = "src/app/patch_adapter/terminal.rs";
     let verification_adapter = "src/app/patch_adapter/verification.rs";
+    let verification_evidence_adapter =
+        "src/app/patch_adapter/verification_evidence.rs";
     let workflow_contract_adapter = "src/app/patch_adapter/workflow_contract.rs";
     let workflow_execution_adapter = "src/app/patch_adapter/workflow_execution.rs";
     let plugin_completion_adapter = "src/app/patch_adapter/workflow_execution/plugin_completion.rs";
     let skill_lifecycle_adapter = "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs";
     let patch_facade = fs::read_to_string("src/app/patch_adapter.rs").unwrap();
+    let approval_dispatch = fs::read_to_string(approval_dispatch_adapter).unwrap();
     let approval_transaction = fs::read_to_string(approval_transaction_adapter).unwrap();
     let approval_hook_event = fs::read_to_string(approval_hook_event_adapter).unwrap();
     let approval_members = fs::read_to_string(approval_members_adapter).unwrap();
@@ -38,10 +44,14 @@ fn assert_application_adapter_contracts() {
     let execution = fs::read_to_string(execution_adapter).unwrap();
     let guard = fs::read_to_string(guard_adapter).unwrap();
     let proposal_builder = fs::read_to_string(proposal_builder_adapter).unwrap();
+    let proposal_api = fs::read_to_string(proposal_api_adapter).unwrap();
     let proposal_store = fs::read_to_string(proposal_store_adapter).unwrap();
     let resume = fs::read_to_string(resume_adapter).unwrap();
+    let shared = fs::read_to_string(shared_adapter).unwrap();
     let terminal = fs::read_to_string(terminal_adapter).unwrap();
     let verification = fs::read_to_string(verification_adapter).unwrap();
+    let verification_evidence =
+        fs::read_to_string(verification_evidence_adapter).unwrap();
     let workflow_contract = fs::read_to_string(workflow_contract_adapter).unwrap();
     let workflow_execution = fs::read_to_string(workflow_execution_adapter).unwrap();
     let patch_test_module = fs::read_to_string(patch_test_modules[0]).unwrap();
@@ -65,9 +75,68 @@ fn assert_application_adapter_contracts() {
     let patch_workflow_journey_sources =
         patch_workflow_journey_owners.map(|owner| fs::read_to_string(owner).unwrap());
     assert!(
-        patch_facade.lines().count() < 500,
-        "patch facade regrew beyond the v0.37.9 boundary"
+        patch_facade.lines().count() < 150,
+        "patch facade regrew beyond registration and re-export ownership"
     );
+    for (module, owner, responsibilities) in [
+        (
+            "mod approval_dispatch;",
+            &approval_dispatch,
+            [
+                "fn approve_dispatch_for_intent(",
+                "pub fn approve_to_stdout(",
+            ]
+            .as_slice(),
+        ),
+        (
+            "mod proposal_api;",
+            &proposal_api,
+            ["pub fn preview_report(", "pub fn prepare_workflow_proposal("].as_slice(),
+        ),
+        (
+            "mod verification_evidence;",
+            &verification_evidence,
+            [
+                "pub fn validate_skill_verification(",
+                "pub fn record_failing_test_before(",
+            ]
+            .as_slice(),
+        ),
+    ] {
+        assert!(
+            patch_facade.lines().any(|line| line == module),
+            "patch facade does not register owner: {module}"
+        );
+        for responsibility in responsibilities {
+            assert!(
+                !patch_facade.contains(responsibility),
+                "patch facade still owns responsibility: {responsibility}"
+            );
+            assert!(
+                owner.contains(responsibility),
+                "patch owner is missing responsibility: {responsibility}"
+            );
+        }
+    }
+    assert!(patch_facade.lines().any(|line| line == "mod shared;"));
+    for responsibility in [
+        "fn display_none(",
+        "fn sha256_text(",
+        "fn read_decision_label(",
+    ] {
+        assert!(
+            !patch_facade.contains(responsibility),
+            "patch facade still owns shared value helper: {responsibility}"
+        );
+        assert!(
+            shared.contains(responsibility),
+            "patch shared owner is missing value helper: {responsibility}"
+        );
+    }
+    assert!(approval_dispatch.lines().count() < 225);
+    assert!(proposal_api.lines().count() < 100);
+    assert!(shared.lines().count() < 50);
+    assert!(verification_evidence.lines().count() < 75);
     assert!(patch_facade
         .lines()
         .any(|line| line == "mod approval_transaction;"));
