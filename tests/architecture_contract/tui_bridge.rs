@@ -317,18 +317,73 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     assert!(!app_runtime.contains("fn read_tui_page"));
 
     let tui_action = fs::read_to_string("src/composition/tui_action.rs").unwrap();
-    for definition in [
-        "trait TuiActionPort",
-        "enum TuiMutationFailure",
-        "fn selection_lease",
-        "fn gate_descriptor",
-        "fn dispatch_intent",
-    ] {
+    assert!(tui_action.lines().count() < 100);
+    assert!(tui_action.contains("fn dispatch_intent"));
+    for owner in ["outcome", "port", "selection", "session", "workflow"] {
         assert!(
-            tui_action.contains(definition),
-            "TUI action owner is missing {definition}"
+            tui_action
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "TUI action router does not register owner: {owner}"
         );
     }
+    assert!(tui_action.contains("#[path = \"tui_action/tests.rs\"]"));
+    for (path, line_budget, responsibilities) in [
+        (
+            "src/composition/tui_action/outcome.rs",
+            50,
+            &["fn stale_selection(", "fn unexpected_or_other("][..],
+        ),
+        (
+            "src/composition/tui_action/port.rs",
+            75,
+            &["enum TuiMutationFailure", "trait TuiActionPort"][..],
+        ),
+        (
+            "src/composition/tui_action/selection.rs",
+            60,
+            &["fn selection_lease(", "fn gate_descriptor("][..],
+        ),
+        (
+            "src/composition/tui_action/session.rs",
+            50,
+            &["fn resume("][..],
+        ),
+        (
+            "src/composition/tui_action/workflow.rs",
+            175,
+            &[
+                "fn approve_patch(",
+                "fn approve_verification(",
+                "fn deny_pending_gate(",
+                "fn cancel(",
+            ][..],
+        ),
+    ] {
+        let owner = fs::read_to_string(path).unwrap();
+        assert!(
+            owner.lines().count() < line_budget,
+            "TUI action owner {path} exceeded its {line_budget}-line budget"
+        );
+        for responsibility in responsibilities {
+            assert!(
+                owner.contains(responsibility),
+                "TUI action owner {path} is missing {responsibility}"
+            );
+            assert!(
+                !tui_action.contains(responsibility),
+                "TUI action router still owns {responsibility}"
+            );
+        }
+    }
+    assert!(
+        fs::read_to_string("src/composition/tui_action/tests.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 150,
+        "TUI action regression owner exceeded its line budget"
+    );
 
     let page = fs::read_to_string("src/surfaces/tui/page.rs").unwrap();
     for definition in [

@@ -3512,7 +3512,7 @@
       "path": "src/composition/tui_action.rs",
       "slices": [
         {
-          "responsibility": "TUI mutation orchestration and typed failure mapping",
+          "responsibility": "TUI action router and handler registration",
           "target": "src/composition/tui_action.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -3521,6 +3521,102 @@
             "src/surfaces/tui/runtime_bridge.rs",
             "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/tui_action/outcome.rs",
+      "slices": [
+        {
+          "responsibility": "TUI mutation failure and refresh outcome mapping",
+          "target": "src/composition/tui_action/outcome.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_action/outcome.rs",
+            "src/composition/tui_action/tests.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/tui_action/port.rs",
+      "slices": [
+        {
+          "responsibility": "TUI action port and typed mutation failure contract",
+          "target": "src/composition/tui_action/port.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_action/port.rs",
+            "src/app/tui_adapter.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/tui_action/selection.rs",
+      "slices": [
+        {
+          "responsibility": "TUI selection lease and approval gate lookup",
+          "target": "src/composition/tui_action/selection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_action/selection.rs",
+            "src/composition/tui_action/tests.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/tui_action/session.rs",
+      "slices": [
+        {
+          "responsibility": "TUI session selection and resume mutation handler",
+          "target": "src/composition/tui_action/session.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_action/session.rs",
+            "src/app/tui_adapter/runtime/state.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/tui_action/tests.rs",
+      "slices": [
+        {
+          "responsibility": "TUI action routing and failure mapping regression fixtures",
+          "target": "src/composition/tui_action/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_action/tests.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/tui_action/workflow.rs",
+      "slices": [
+        {
+          "responsibility": "TUI patch approval, workflow resume, denial, and cancellation handlers",
+          "target": "src/composition/tui_action/workflow.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_action/workflow.rs",
+            "src/composition/tui_action/tests.rs",
+            "src/app/tui_adapter.rs",
+            "tests/architecture_contract/tui_bridge.rs"
           ]
         }
       ]
@@ -16988,7 +17084,43 @@
     {
       "path": "src/composition/tui_action.rs",
       "responsibilities": [
-        "TUI mutation orchestration and typed failure mapping"
+        "TUI action router and handler registration"
+      ]
+    },
+    {
+      "path": "src/composition/tui_action/outcome.rs",
+      "responsibilities": [
+        "TUI mutation failure and refresh outcome mapping"
+      ]
+    },
+    {
+      "path": "src/composition/tui_action/port.rs",
+      "responsibilities": [
+        "TUI action port and typed mutation failure contract"
+      ]
+    },
+    {
+      "path": "src/composition/tui_action/selection.rs",
+      "responsibilities": [
+        "TUI selection lease and approval gate lookup"
+      ]
+    },
+    {
+      "path": "src/composition/tui_action/session.rs",
+      "responsibilities": [
+        "TUI session selection and resume mutation handler"
+      ]
+    },
+    {
+      "path": "src/composition/tui_action/tests.rs",
+      "responsibilities": [
+        "TUI action routing and failure mapping regression fixtures"
+      ]
+    },
+    {
+      "path": "src/composition/tui_action/workflow.rs",
+      "responsibilities": [
+        "TUI patch approval, workflow resume, denial, and cancellation handlers"
       ]
     },
     {
