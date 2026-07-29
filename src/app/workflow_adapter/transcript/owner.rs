@@ -29,7 +29,7 @@ pub(crate) fn record_session_turn(
     content: &str,
     source_pointers: &[SourcePointer],
 ) -> Result<TranscriptRecord, AppError> {
-    super::record_turn(
+    super::recording::record_turn(
         owner,
         None,
         kind,

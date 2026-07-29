@@ -4,6 +4,9 @@ use super::*;
 fn v0375_domain_views_replace_legacy_definitions() {
     let state_adapter = "src/app/workflow_adapter/state.rs";
     let transcript_adapter = "src/app/workflow_adapter/transcript.rs";
+    let transcript_ledger_projection = "src/app/workflow_adapter/transcript/ledger_projection.rs";
+    let transcript_read_model = "src/app/workflow_adapter/transcript/read_model.rs";
+    let transcript_recording = "src/app/workflow_adapter/transcript/recording.rs";
     let transcript_storage = "src/app/workflow_adapter/transcript/storage.rs";
     let transcript_storage_contract = "src/app/workflow_adapter/transcript/storage/contract.rs";
     let transcript_storage_paths = "src/app/workflow_adapter/transcript/storage/path_resolution.rs";
@@ -151,6 +154,9 @@ fn v0375_domain_views_replace_legacy_definitions() {
         "transcript adapter is not registered under workflow_adapter"
     );
     assert!(Path::new(transcript_storage).is_file());
+    assert!(Path::new(transcript_ledger_projection).is_file());
+    assert!(Path::new(transcript_read_model).is_file());
+    assert!(Path::new(transcript_recording).is_file());
     assert!(Path::new(transcript_storage_contract).is_file());
     assert!(Path::new(transcript_storage_paths).is_file());
     assert!(Path::new(transcript_storage_records).is_file());
@@ -159,6 +165,10 @@ fn v0375_domain_views_replace_legacy_definitions() {
     assert!(Path::new(transcript_streams).is_file());
     assert!(Path::new(transcript_tests).is_file());
     let transcript_adapter_source = fs::read_to_string(transcript_adapter).unwrap();
+    let transcript_ledger_projection_source =
+        fs::read_to_string(transcript_ledger_projection).unwrap();
+    let transcript_read_model_source = fs::read_to_string(transcript_read_model).unwrap();
+    let transcript_recording_source = fs::read_to_string(transcript_recording).unwrap();
     let transcript_storage_source = fs::read_to_string(transcript_storage).unwrap();
     let transcript_storage_contract_source =
         fs::read_to_string(transcript_storage_contract).unwrap();
@@ -180,6 +190,46 @@ fn v0375_domain_views_replace_legacy_definitions() {
             .any(|line| line == "mod tool_turn;"),
         "transcript adapter does not register its tool-turn owner"
     );
+    for owner in ["ledger_projection", "read_model", "recording"] {
+        assert!(
+            transcript_adapter_source
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "transcript adapter does not register its {owner} owner"
+        );
+    }
+    for (owner, responsibilities) in [
+        (
+            transcript_recording_source.as_str(),
+            &["pub fn record_workflow_turn(", "pub(super) fn record_turn("][..],
+        ),
+        (
+            transcript_read_model_source.as_str(),
+            &[
+                "pub fn records_for_session(",
+                "pub fn record_from_event(",
+                "pub fn record_from_binding(",
+            ][..],
+        ),
+        (
+            transcript_ledger_projection_source.as_str(),
+            &[
+                "pub(super) fn ensure_ledger_event_under_guard(",
+                "pub(super) fn transcript_ledger_event(",
+            ][..],
+        ),
+    ] {
+        for responsibility in responsibilities {
+            assert!(
+                owner.contains(responsibility),
+                "transcript responsibility owner is missing: {responsibility}"
+            );
+            assert!(
+                !transcript_adapter_source.contains(responsibility),
+                "transcript facade still owns: {responsibility}"
+            );
+        }
+    }
     assert!(
         transcript_adapter_source.contains("#[path = \"transcript/tests.rs\"]"),
         "transcript adapter does not register its regression-test owner"
@@ -294,10 +344,21 @@ fn v0375_domain_views_replace_legacy_definitions() {
             "transcript tool-turn owner still owns stream policy: {responsibility}"
         );
     }
-    assert!(
-        transcript_adapter_source.lines().count() < 450,
-        "transcript adapter regrew beyond its orchestration boundary"
-    );
+    for (owner, source, line_budget) in [
+        ("facade", &transcript_adapter_source, 60),
+        ("recording", &transcript_recording_source, 200),
+        ("read model", &transcript_read_model_source, 75),
+        (
+            "ledger projection",
+            &transcript_ledger_projection_source,
+            250,
+        ),
+    ] {
+        assert!(
+            source.lines().count() < line_budget,
+            "transcript {owner} exceeded its {line_budget}-line budget"
+        );
+    }
     for (owner, source, line_budget) in [
         ("facade", &transcript_storage_source, 30),
         ("contract", &transcript_storage_contract_source, 90),

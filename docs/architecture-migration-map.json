@@ -11063,19 +11063,64 @@
       "path": "src/app/workflow_adapter/transcript.rs",
       "slices": [
         {
-          "responsibility": "transcript append and ledger projection orchestration",
+          "responsibility": "transcript application owner facade and stable exports",
           "target": "src/app/workflow_adapter/transcript.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/runtime_core/workflow/storage_compat/transcript.rs",
-            "src/runtime_core/workflow/domain/transcript.rs",
-            "src/adapters/sqlite/transcript_projection.rs",
             "src/app/workflow_adapter/transcript.rs",
-            "src/app/workflow_adapter/transcript/storage.rs",
-            "src/app/workflow_adapter/transcript/tool_turn.rs",
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/ledger_projection.rs",
+      "slices": [
+        {
+          "responsibility": "transcript ledger-event construction, convergence, and observability projection",
+          "target": "src/app/workflow_adapter/transcript/ledger_projection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/transcript_projection.rs",
+            "src/app/workflow_adapter/transcript/ledger_projection.rs",
             "src/app/workflow_adapter/transcript/tests.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/read_model.rs",
+      "slices": [
+        {
+          "responsibility": "session transcript reconstruction from canonical ledger bindings",
+          "target": "src/app/workflow_adapter/transcript/read_model.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transcript.rs",
+            "src/app/workflow_adapter/transcript/read_model.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/recording.rs",
+      "slices": [
+        {
+          "responsibility": "workflow and session transcript append orchestration with idempotent storage",
+          "target": "src/app/workflow_adapter/transcript/recording.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/transcript.rs",
+            "src/app/workflow_adapter/transcript/recording.rs",
+            "src/app/workflow_adapter/transcript/tests.rs",
+            "tests/architecture_contract/domain_views.rs"
           ]
         }
       ]
@@ -19869,7 +19914,25 @@
     {
       "path": "src/app/workflow_adapter/transcript.rs",
       "responsibilities": [
-        "transcript append and ledger projection orchestration"
+        "transcript application owner facade and stable exports"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/ledger_projection.rs",
+      "responsibilities": [
+        "transcript ledger-event construction, convergence, and observability projection"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/read_model.rs",
+      "responsibilities": [
+        "session transcript reconstruction from canonical ledger bindings"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transcript/recording.rs",
+      "responsibilities": [
+        "workflow and session transcript append orchestration with idempotent storage"
       ]
     },
     {
