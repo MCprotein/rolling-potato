@@ -7696,14 +7696,18 @@
       "path": "src/runtime_core/knowledge/compaction.rs",
       "slices": [
         {
-          "responsibility": "bounded small-model context compaction policy and typed checkpoint",
+          "responsibility": "context compaction facade and domain contract exports",
           "target": "src/runtime_core/knowledge/compaction.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/knowledge/compaction.rs",
-            "src/runtime_core/knowledge/compaction/artifact.rs",
-            "tests/architecture_contract.rs"
+            "src/runtime_core/knowledge/compaction/checkpoint.rs",
+            "src/runtime_core/knowledge/compaction/policy.rs",
+            "src/runtime_core/knowledge/compaction/tests.rs",
+            "src/runtime_core/knowledge/compaction/token_budget.rs",
+            "src/runtime_core/knowledge/compaction/recent_tail.rs",
+            "tests/architecture_contract/session_web_browser.rs"
           ]
         }
       ]
@@ -9693,6 +9697,70 @@
             "src/surfaces/tui/render/notice.rs",
             "src/app/tui_adapter/conversation_tests.rs",
             "tests/architecture_contract/tui_extension.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction/checkpoint.rs",
+      "slices": [
+        {
+          "responsibility": "typed compaction checkpoint normalization and prompt presentation",
+          "target": "src/runtime_core/knowledge/compaction/checkpoint.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/compaction.rs",
+            "src/runtime_core/knowledge/compaction/checkpoint.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction/policy.rs",
+      "slices": [
+        {
+          "responsibility": "model-window-aware compaction planning and source bounding",
+          "target": "src/runtime_core/knowledge/compaction/policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/compaction.rs",
+            "src/runtime_core/knowledge/compaction/policy.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction/tests.rs",
+      "slices": [
+        {
+          "responsibility": "compaction policy, checkpoint, and token-budget regressions",
+          "target": "src/runtime_core/knowledge/compaction/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/compaction.rs",
+            "src/runtime_core/knowledge/compaction/tests.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction/token_budget.rs",
+      "slices": [
+        {
+          "responsibility": "conservative token estimation and UTF-8-safe truncation",
+          "target": "src/runtime_core/knowledge/compaction/token_budget.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/compaction.rs",
+            "src/runtime_core/knowledge/compaction/token_budget.rs",
+            "tests/architecture_contract/session_web_browser.rs"
           ]
         }
       ]
@@ -12632,7 +12700,7 @@
     {
       "path": "src/runtime_core/knowledge/compaction.rs",
       "responsibilities": [
-        "bounded small-model context compaction policy and typed checkpoint"
+        "context compaction facade and domain contract exports"
       ]
     },
     {
@@ -13275,6 +13343,30 @@
       "path": "src/surfaces/tui/render/notice.rs",
       "responsibilities": [
         "paginated diagnostic and conversation notice rendering"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction/checkpoint.rs",
+      "responsibilities": [
+        "typed compaction checkpoint normalization and prompt presentation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction/policy.rs",
+      "responsibilities": [
+        "model-window-aware compaction planning and source bounding"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction/tests.rs",
+      "responsibilities": [
+        "compaction policy, checkpoint, and token-budget regressions"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/compaction/token_budget.rs",
+      "responsibilities": [
+        "conservative token estimation and UTF-8-safe truncation"
       ]
     }
   ]

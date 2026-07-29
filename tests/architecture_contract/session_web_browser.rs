@@ -17,8 +17,16 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
         fs::read_to_string("src/app/intent_adapter/tests/prompt_budget.rs").unwrap();
     let context = fs::read_to_string("src/runtime_core/knowledge/context.rs").unwrap();
     let compaction = fs::read_to_string("src/runtime_core/knowledge/compaction.rs").unwrap();
+    let compaction_checkpoint =
+        fs::read_to_string("src/runtime_core/knowledge/compaction/checkpoint.rs").unwrap();
+    let compaction_policy =
+        fs::read_to_string("src/runtime_core/knowledge/compaction/policy.rs").unwrap();
     let recent_tail =
         fs::read_to_string("src/runtime_core/knowledge/compaction/recent_tail.rs").unwrap();
+    let compaction_tests =
+        fs::read_to_string("src/runtime_core/knowledge/compaction/tests.rs").unwrap();
+    let token_budget =
+        fs::read_to_string("src/runtime_core/knowledge/compaction/token_budget.rs").unwrap();
     let native_terminal = fs::read_to_string("tests/surfaces/native_terminal.rs").unwrap();
 
     assert!(session_memory.contains("#[path = \"session_memory/tests.rs\"]"));
@@ -37,7 +45,14 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
     assert!(session_restoration_tests
         .contains("fn web_grounding_is_bounded_and_restored_for_followups_after_resume("));
     assert!(intent_tests.contains("#[path = \"tests/prompt_budget.rs\"]"));
-    assert!(compaction.lines().any(|line| line == "mod recent_tail;"));
+    for owner in ["checkpoint", "policy", "recent_tail", "token_budget"] {
+        assert!(
+            compaction
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "compaction facade does not register {owner}"
+        );
+    }
 
     for responsibility in [
         "fn reset_is_a_unique_causal_head_for_repeated_questions(",
@@ -98,6 +113,31 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
             "compaction facade still owns recent-tail policy: {responsibility}"
         );
     }
+    for (owner, responsibilities) in [
+        (
+            compaction_checkpoint.as_str(),
+            ["struct CompactionCheckpoint", "fn prompt_section"].as_slice(),
+        ),
+        (
+            compaction_policy.as_str(),
+            ["struct CompactionPolicy", "fn plan_with_observed_tokens"].as_slice(),
+        ),
+        (
+            token_budget.as_str(),
+            ["fn estimate_tokens", "fn truncate_to_token_budget"].as_slice(),
+        ),
+    ] {
+        for responsibility in responsibilities {
+            assert!(
+                owner.contains(responsibility),
+                "compaction responsibility owner is missing {responsibility}"
+            );
+            assert!(
+                !compaction.contains(responsibility),
+                "compaction facade still owns {responsibility}"
+            );
+        }
+    }
 
     assert!(session_memory.lines().count() < 225);
     assert!(session_tests.lines().count() < 225);
@@ -106,8 +146,12 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
     assert!(session_restoration_tests.lines().count() < 175);
     assert!(intent_tests.lines().count() < 325);
     assert!(prompt_budget_tests.lines().count() < 175);
-    assert!(compaction.lines().count() < 550);
+    assert!(compaction.lines().count() < 50);
+    assert!(compaction_checkpoint.lines().count() < 125);
+    assert!(compaction_policy.lines().count() < 200);
     assert!(recent_tail.lines().count() < 350);
+    assert!(compaction_tests.lines().count() < 225);
+    assert!(token_budget.lines().count() < 150);
 }
 
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
