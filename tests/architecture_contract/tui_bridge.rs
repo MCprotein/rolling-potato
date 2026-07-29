@@ -1,6 +1,32 @@
 use super::*;
 
 #[test]
+fn tui_setup_separates_runtime_flow_from_terminal_fixtures() {
+    let setup = fs::read_to_string("src/surfaces/tui/setup.rs").unwrap();
+    let tests = fs::read_to_string("src/surfaces/tui/setup/tests.rs").unwrap();
+
+    assert!(setup.lines().count() < 250);
+    assert!(tests.lines().count() < 275);
+    assert!(setup.contains("#[path = \"setup/tests.rs\"]"));
+    assert!(setup.contains("fn run_setup("));
+    assert!(setup.contains("fn render_setup_screen("));
+    for fixture in [
+        "struct ScriptedTerminal",
+        "struct SetupRuntime",
+        "fn sample_options(",
+    ] {
+        assert!(
+            !setup.contains(fixture),
+            "TUI setup production owner still contains fixture: {fixture}"
+        );
+        assert!(
+            tests.contains(fixture),
+            "TUI setup regression owner is missing fixture: {fixture}"
+        );
+    }
+}
+
+#[test]
 fn runtime_bridge_facade_delegates_value_objects_to_bounded_owners() {
     let facade_path = "src/surfaces/tui/runtime_bridge.rs";
     let facade = fs::read_to_string(facade_path).unwrap();

@@ -12013,6 +12013,21 @@
       ]
     },
     {
+      "path": "src/surfaces/tui/setup/tests.rs",
+      "slices": [
+        {
+          "responsibility": "first-run setup terminal and runtime regression fixtures",
+          "target": "src/surfaces/tui/setup/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/setup/tests.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/architecture_contract.rs",
       "slices": [
         {
@@ -20256,6 +20271,12 @@
       "path": "src/surfaces/tui/setup.rs",
       "responsibilities": [
         "guided first-run model selection and managed backend setup"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/setup/tests.rs",
+      "responsibilities": [
+        "first-run setup terminal and runtime regression fixtures"
       ]
     },
     {
