@@ -6420,15 +6420,89 @@
       "path": "src/runtime_core/workflow/storage_compat/record/codec.rs",
       "slices": [
         {
-          "responsibility": "byte-compatible workflow pointer and snapshot codecs for schema v2 through v4",
+          "responsibility": "workflow storage compatibility codec facade",
           "target": "src/runtime_core/workflow/storage_compat/record/codec.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/storage_compat/record.rs",
             "src/runtime_core/workflow/storage_compat/record/codec.rs",
-            "tests/workflow/storage_compat.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/adapter_boundaries/platform_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record/codec/payload.rs",
+      "slices": [
+        {
+          "responsibility": "canonical workflow schema v2 through v4 hash payload encodings",
+          "target": "src/runtime_core/workflow/storage_compat/record/codec/payload.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/record/codec/payload.rs",
+            "tests/architecture_contract/adapter_boundaries/platform_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record/codec/pointer.rs",
+      "slices": [
+        {
+          "responsibility": "workflow pointer encoding, decoding, and compatibility DTO ownership",
+          "target": "src/runtime_core/workflow/storage_compat/record/codec/pointer.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/record/codec/pointer.rs",
+            "tests/architecture_contract/adapter_boundaries/platform_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record/codec/render.rs",
+      "slices": [
+        {
+          "responsibility": "workflow v4 snapshot JSON serialization and legacy test serializers",
+          "target": "src/runtime_core/workflow/storage_compat/record/codec/render.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/record/codec/render.rs",
+            "tests/architecture_contract/adapter_boundaries/platform_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record/codec/snapshot.rs",
+      "slices": [
+        {
+          "responsibility": "workflow snapshot schema validation, parsing, hash verification, and legacy normalization",
+          "target": "src/runtime_core/workflow/storage_compat/record/codec/snapshot.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/record/codec/snapshot.rs",
+            "tests/architecture_contract/adapter_boundaries/platform_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record/codec/versions.rs",
+      "slices": [
+        {
+          "responsibility": "supported workflow schema v2 through v4 versions and exact key sets",
+          "target": "src/runtime_core/workflow/storage_compat/record/codec/versions.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/record/codec/versions.rs",
+            "tests/architecture_contract/adapter_boundaries/platform_codec.rs"
           ]
         }
       ]
@@ -14842,7 +14916,37 @@
     {
       "path": "src/runtime_core/workflow/storage_compat/record/codec.rs",
       "responsibilities": [
-        "byte-compatible workflow pointer and snapshot codecs for schema v2 through v4"
+        "workflow storage compatibility codec facade"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record/codec/payload.rs",
+      "responsibilities": [
+        "canonical workflow schema v2 through v4 hash payload encodings"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record/codec/pointer.rs",
+      "responsibilities": [
+        "workflow pointer encoding, decoding, and compatibility DTO ownership"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record/codec/render.rs",
+      "responsibilities": [
+        "workflow v4 snapshot JSON serialization and legacy test serializers"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record/codec/snapshot.rs",
+      "responsibilities": [
+        "workflow snapshot schema validation, parsing, hash verification, and legacy normalization"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/record/codec/versions.rs",
+      "responsibilities": [
+        "supported workflow schema v2 through v4 versions and exact key sets"
       ]
     },
     {

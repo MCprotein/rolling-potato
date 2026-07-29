@@ -11,27 +11,75 @@ fn v03713_workflow_record_separates_compatibility_codec() {
     assert!(record.contains("pub struct WorkflowRecord"));
     assert!(record.contains("impl WorkflowRecord"));
     for responsibility in [
-        "pub(crate) fn render_pointer(",
-        "pub(crate) fn parse_pointer(",
-        "pub(crate) fn snapshot_schema(",
-        "pub(crate) fn parse_snapshot(",
-        "pub(crate) fn payload(",
-        "pub(crate) fn render(",
+        "render_pointer",
+        "parse_pointer",
+        "snapshot_schema",
+        "parse_snapshot",
+        "payload",
+        "render",
     ] {
         assert!(
             codec.contains(responsibility),
             "workflow record codec is missing responsibility: {responsibility}"
         );
         assert!(
-            !record.contains(responsibility),
+            !record.contains(&format!("fn {responsibility}")),
             "workflow record model still owns codec behavior: {responsibility}"
         );
     }
-    assert!(codec.contains("const WORKFLOW_V2_KEYS"));
-    assert!(codec.contains("const WORKFLOW_V3_KEYS"));
-    assert!(codec.contains("const WORKFLOW_V4_KEYS"));
+    for (owner, line_budget, responsibilities) in [
+        (
+            "versions",
+            150,
+            &[
+                "const WORKFLOW_V2_KEYS",
+                "const WORKFLOW_V3_KEYS",
+                "const WORKFLOW_V4_KEYS",
+            ][..],
+        ),
+        (
+            "pointer",
+            125,
+            &["fn render_pointer", "fn parse_pointer"][..],
+        ),
+        (
+            "snapshot",
+            225,
+            &["fn snapshot_schema", "fn parse_snapshot"][..],
+        ),
+        (
+            "payload",
+            175,
+            &["fn payload", "fn payload_v2", "fn payload_v3"][..],
+        ),
+        (
+            "render",
+            200,
+            &["fn render", "fn render_v2", "fn render_v3"][..],
+        ),
+    ] {
+        let relative = format!("codec/{owner}.rs");
+        assert!(
+            codec.contains(&relative),
+            "workflow record codec facade does not register {owner}"
+        );
+        let source = fs::read_to_string(format!(
+            "src/runtime_core/workflow/storage_compat/record/{relative}"
+        ))
+        .unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "workflow record codec owner {owner} exceeded its {line_budget}-line budget"
+        );
+        for responsibility in responsibilities {
+            assert!(
+                source.contains(responsibility),
+                "workflow record codec owner {owner} is missing: {responsibility}"
+            );
+        }
+    }
     assert!(record.lines().count() < 150);
-    assert!(codec.lines().count() < 600);
+    assert!(codec.lines().count() < 75);
 }
 
 #[test]

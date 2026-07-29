@@ -19,7 +19,7 @@ fn adapter_boundary_contracts_are_split_by_responsibility() {
         ),
         (
             "tests/architecture_contract/adapter_boundaries/platform_codec.rs",
-            175,
+            225,
         ),
         (
             "tests/architecture_contract/adapter_boundaries/state.rs",
