@@ -20,6 +20,10 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         "src/runtime_core/knowledge/ontology.rs",
         "src/runtime_core/policy/approval.rs",
         "src/runtime_core/policy/decision.rs",
+        "src/runtime_core/policy/decision/command.rs",
+        "src/runtime_core/policy/decision/path_policy.rs",
+        "src/runtime_core/policy/decision/schema.rs",
+        "src/runtime_core/policy/decision/types.rs",
         "src/runtime_core/policy/redaction.rs",
     ];
     for target in owners {
@@ -133,10 +137,36 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         (
             "src/runtime_core/policy/decision.rs",
             [
+                "mod command;",
+                "mod path_policy;",
+                "mod schema;",
+                "mod types;",
+            ]
+            .as_slice(),
+        ),
+        (
+            "src/runtime_core/policy/decision/command.rs",
+            [
+                "fn classify_command(",
+                "fn parse_patch_verification(",
+                "fn parse_exact_argv(",
+            ]
+            .as_slice(),
+        ),
+        (
+            "src/runtime_core/policy/decision/path_policy.rs",
+            ["fn classify_path(", "fn is_excluded_path("].as_slice(),
+        ),
+        (
+            "src/runtime_core/policy/decision/schema.rs",
+            ["fn schema_report("].as_slice(),
+        ),
+        (
+            "src/runtime_core/policy/decision/types.rs",
+            [
                 "enum Decision",
                 "trait PathPolicyPort",
-                "fn classify_command",
-                "fn classify_path",
+                "struct PolicyDecision",
             ]
             .as_slice(),
         ),
@@ -167,11 +197,16 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         ("src/runtime_core/knowledge/context/resume.rs", 100),
         ("src/runtime_core/knowledge/context/sources.rs", 150),
         ("src/runtime_core/knowledge/context/types.rs", 75),
+        ("src/runtime_core/policy/decision.rs", 30),
+        ("src/runtime_core/policy/decision/command.rs", 225),
+        ("src/runtime_core/policy/decision/path_policy.rs", 150),
+        ("src/runtime_core/policy/decision/schema.rs", 75),
+        ("src/runtime_core/policy/decision/types.rs", 125),
     ] {
         let source = fs::read_to_string(owner).unwrap();
         assert!(
             source.lines().count() < line_budget,
-            "context owner {owner} exceeded its {line_budget}-line budget"
+            "knowledge/policy owner {owner} exceeded its {line_budget}-line budget"
         );
     }
 

@@ -8068,13 +8068,77 @@
       "path": "src/runtime_core/policy/decision.rs",
       "slices": [
         {
-          "responsibility": "tool and capability policy",
+          "responsibility": "surface-neutral policy decision facade and owner exports",
           "target": "src/runtime_core/policy/decision.rs",
-          "release": "0.37.8",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/policy/decision.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/decision/command.rs",
+      "slices": [
+        {
+          "responsibility": "exact argv parsing and command policy classification",
+          "target": "src/runtime_core/policy/decision/command.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/policy/decision/command.rs",
+            "src/app/policy_adapter.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/decision/path_policy.rs",
+      "slices": [
+        {
+          "responsibility": "project path-boundary policy classification",
+          "target": "src/runtime_core/policy/decision/path_policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/policy/decision/path_policy.rs",
+            "src/app/policy_adapter.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/decision/schema.rs",
+      "slices": [
+        {
+          "responsibility": "human-readable policy schema reporting",
+          "target": "src/runtime_core/policy/decision/schema.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/policy/decision/schema.rs",
+            "src/app/policy_adapter.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/decision/types.rs",
+      "slices": [
+        {
+          "responsibility": "policy decision value objects and path-policy port contract",
+          "target": "src/runtime_core/policy/decision/types.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/policy/decision/types.rs",
+            "src/app/policy_adapter.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
           ]
         }
       ]
@@ -19176,7 +19240,31 @@
     {
       "path": "src/runtime_core/policy/decision.rs",
       "responsibilities": [
-        "tool and capability policy"
+        "surface-neutral policy decision facade and owner exports"
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/decision/command.rs",
+      "responsibilities": [
+        "exact argv parsing and command policy classification"
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/decision/path_policy.rs",
+      "responsibilities": [
+        "project path-boundary policy classification"
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/decision/schema.rs",
+      "responsibilities": [
+        "human-readable policy schema reporting"
+      ]
+    },
+    {
+      "path": "src/runtime_core/policy/decision/types.rs",
+      "responsibilities": [
+        "policy decision value objects and path-policy port contract"
       ]
     },
     {
