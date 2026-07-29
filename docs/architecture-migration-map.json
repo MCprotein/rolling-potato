@@ -14120,13 +14120,29 @@
       "path": "src/app/tui_adapter/conversation/local_facts.rs",
       "slices": [
         {
-          "responsibility": "local model, vision, and agent fact responses plus conversational request classification",
+          "responsibility": "local model, vision, and agent fact response orchestration",
           "target": "src/app/tui_adapter/conversation/local_facts.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/tui_adapter/conversation/local_facts.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/local_facts/model_query.rs",
+      "slices": [
+        {
+          "responsibility": "generic current-model identity query classification",
+          "target": "src/app/tui_adapter/conversation/local_facts/model_query.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/local_facts/model_query.rs",
+            "src/app/tui_adapter/conversation/tests/local_facts.rs",
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs"
           ]
         }
       ]
@@ -14611,11 +14627,27 @@
       "path": "tests/architecture_contract/adapter_boundaries/application.rs",
       "slices": [
         {
-          "responsibility": "context, evidence, and benchmark adapter architecture contracts",
+          "responsibility": "context and evidence adapter architecture contracts",
           "target": "tests/architecture_contract/adapter_boundaries/application.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
+            "tests/architecture_contract/adapter_boundaries/application.rs",
+            "tests/architecture_contract/adapter_boundaries.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries/application/benchmark.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark adapter regression ownership architecture contracts",
+          "target": "tests/architecture_contract/adapter_boundaries/application/benchmark.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/adapter_boundaries/application/benchmark.rs",
             "tests/architecture_contract/adapter_boundaries/application.rs",
             "tests/architecture_contract/adapter_boundaries.rs"
           ]
@@ -14889,11 +14921,27 @@
       "path": "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs",
       "slices": [
         {
-          "responsibility": "patch application adapter architecture contracts",
+          "responsibility": "patch application facade and workflow architecture contracts",
           "target": "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs",
+            "tests/architecture_contract/patch_runtime.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime/application_adapter_contracts/patch_regression_tests.rs",
+      "slices": [
+        {
+          "responsibility": "patch regression and integration test ownership architecture contracts",
+          "target": "tests/architecture_contract/patch_runtime/application_adapter_contracts/patch_regression_tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts/patch_regression_tests.rs",
             "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs",
             "tests/architecture_contract/patch_runtime.rs"
           ]
@@ -15009,11 +15057,27 @@
       "path": "tests/architecture_contract/tui_extension/extensions.rs",
       "slices": [
         {
-          "responsibility": "extension domain and adapter ownership architecture contracts",
+          "responsibility": "extension domain lifecycle and admission ownership architecture contracts",
           "target": "tests/architecture_contract/tui_extension/extensions.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
+            "tests/architecture_contract/tui_extension/extensions.rs",
+            "tests/architecture_contract/tui_extension.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/tui_extension/extensions/plugin_storage.rs",
+      "slices": [
+        {
+          "responsibility": "plugin registry, scanner, source import, and persistence ownership architecture contracts",
+          "target": "tests/architecture_contract/tui_extension/extensions/plugin_storage.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/tui_extension/extensions/plugin_storage.rs",
             "tests/architecture_contract/tui_extension/extensions.rs",
             "tests/architecture_contract/tui_extension.rs"
           ]
@@ -15039,7 +15103,7 @@
       "path": "tests/architecture_contract/workflow_transition/application.rs",
       "slices": [
         {
-          "responsibility": "workflow transaction and recovery architecture contracts",
+          "responsibility": "workflow application transaction wiring architecture contracts",
           "target": "tests/architecture_contract/workflow_transition/application.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -15051,14 +15115,46 @@
       ]
     },
     {
+      "path": "tests/architecture_contract/workflow_transition/application/transaction_recovery.rs",
+      "slices": [
+        {
+          "responsibility": "workflow transaction coordinator and recovery owner architecture contracts",
+          "target": "tests/architecture_contract/workflow_transition/application/transaction_recovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/workflow_transition/application/transaction_recovery.rs",
+            "tests/architecture_contract/workflow_transition/application.rs",
+            "tests/architecture_contract/workflow_transition.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/architecture_contract/workflow_transition/transition_adapter.rs",
       "slices": [
         {
-          "responsibility": "workflow transition and source installation architecture contracts",
+          "responsibility": "workflow transition facade and source installation architecture contracts",
           "target": "tests/architecture_contract/workflow_transition/transition_adapter.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs",
+            "tests/architecture_contract/workflow_transition.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/workflow_transition/transition_adapter/component_delegation.rs",
+      "slices": [
+        {
+          "responsibility": "workflow transition bundle and journal component delegation architecture contracts",
+          "target": "tests/architecture_contract/workflow_transition/transition_adapter/component_delegation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/workflow_transition/transition_adapter/component_delegation.rs",
             "tests/architecture_contract/workflow_transition/transition_adapter.rs",
             "tests/architecture_contract/workflow_transition.rs"
           ]
@@ -21668,7 +21764,13 @@
     {
       "path": "src/app/tui_adapter/conversation/local_facts.rs",
       "responsibilities": [
-        "local model, vision, and agent fact responses plus conversational request classification"
+        "local model, vision, and agent fact response orchestration"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/local_facts/model_query.rs",
+      "responsibilities": [
+        "generic current-model identity query classification"
       ]
     },
     {
@@ -21860,7 +21962,13 @@
     {
       "path": "tests/architecture_contract/adapter_boundaries/application.rs",
       "responsibilities": [
-        "context, evidence, and benchmark adapter architecture contracts"
+        "context and evidence adapter architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries/application/benchmark.rs",
+      "responsibilities": [
+        "benchmark adapter regression ownership architecture contracts"
       ]
     },
     {
@@ -21968,7 +22076,13 @@
     {
       "path": "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs",
       "responsibilities": [
-        "patch application adapter architecture contracts"
+        "patch application facade and workflow architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime/application_adapter_contracts/patch_regression_tests.rs",
+      "responsibilities": [
+        "patch regression and integration test ownership architecture contracts"
       ]
     },
     {
@@ -22016,7 +22130,13 @@
     {
       "path": "tests/architecture_contract/tui_extension/extensions.rs",
       "responsibilities": [
-        "extension domain and adapter ownership architecture contracts"
+        "extension domain lifecycle and admission ownership architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/tui_extension/extensions/plugin_storage.rs",
+      "responsibilities": [
+        "plugin registry, scanner, source import, and persistence ownership architecture contracts"
       ]
     },
     {
@@ -22028,13 +22148,25 @@
     {
       "path": "tests/architecture_contract/workflow_transition/application.rs",
       "responsibilities": [
-        "workflow transaction and recovery architecture contracts"
+        "workflow application transaction wiring architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/workflow_transition/application/transaction_recovery.rs",
+      "responsibilities": [
+        "workflow transaction coordinator and recovery owner architecture contracts"
       ]
     },
     {
       "path": "tests/architecture_contract/workflow_transition/transition_adapter.rs",
       "responsibilities": [
-        "workflow transition and source installation architecture contracts"
+        "workflow transition facade and source installation architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/workflow_transition/transition_adapter/component_delegation.rs",
+      "responsibilities": [
+        "workflow transition bundle and journal component delegation architecture contracts"
       ]
     },
     {
