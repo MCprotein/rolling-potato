@@ -11310,15 +11310,81 @@
       "path": "src/app/workflow_adapter/transition/bundle_preparation.rs",
       "slices": [
         {
-          "responsibility": "prepared bundle construction, event binding, and projection-lag persistence adapter",
+          "responsibility": "prepared transition bundle owner facade and re-exports",
           "target": "src/app/workflow_adapter/transition/bundle_preparation.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/runtime_core/workflow/domain/transition.rs",
-            "src/runtime_core/workflow/application/projection_barrier.rs",
             "src/app/workflow_adapter/transition/bundle_preparation.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_preparation/construction.rs",
+      "slices": [
+        {
+          "responsibility": "prepared source, workflow, state-transition, and terminal bundle construction",
+          "target": "src/app/workflow_adapter/transition/bundle_preparation/construction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/bundle_preparation/construction.rs",
+            "src/app/workflow_adapter/transition/tests/prepared_bundle.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_preparation/event_plan.rs",
+      "slices": [
+        {
+          "responsibility": "prepared semantic-event hash-chain plan binding and reconstruction",
+          "target": "src/app/workflow_adapter/transition/bundle_preparation/event_plan.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/bundle_preparation/event_plan.rs",
+            "src/app/workflow_adapter/transition/tests/prepared_bundle.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_preparation/members.rs",
+      "slices": [
+        {
+          "responsibility": "additional prepared-member ordering and projection-lag index binding",
+          "target": "src/app/workflow_adapter/transition/bundle_preparation/members.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/bundle_codec/semantic.rs",
+            "src/app/workflow_adapter/transition/bundle_preparation/members.rs",
+            "src/app/workflow_adapter/transition/tests/prepared_bundle.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_preparation/projection_lag.rs",
+      "slices": [
+        {
+          "responsibility": "projection-lag prepared member construction and durable file lifecycle",
+          "target": "src/app/workflow_adapter/transition/bundle_preparation/projection_lag.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/projection_barrier.rs",
+            "src/app/workflow_adapter/transition/bundle_preparation/projection_lag.rs",
+            "src/app/workflow_adapter/transition/tests/recovery_and_contracts.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
           ]
         }
       ]
@@ -19887,7 +19953,31 @@
     {
       "path": "src/app/workflow_adapter/transition/bundle_preparation.rs",
       "responsibilities": [
-        "prepared bundle construction, event binding, and projection-lag persistence adapter"
+        "prepared transition bundle owner facade and re-exports"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_preparation/construction.rs",
+      "responsibilities": [
+        "prepared source, workflow, state-transition, and terminal bundle construction"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_preparation/event_plan.rs",
+      "responsibilities": [
+        "prepared semantic-event hash-chain plan binding and reconstruction"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_preparation/members.rs",
+      "responsibilities": [
+        "additional prepared-member ordering and projection-lag index binding"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/bundle_preparation/projection_lag.rs",
+      "responsibilities": [
+        "projection-lag prepared member construction and durable file lifecycle"
       ]
     },
     {

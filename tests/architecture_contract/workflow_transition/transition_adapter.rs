@@ -8,6 +8,14 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let bundle_source_members_adapter =
         "src/app/workflow_adapter/transition/bundle_codec/source_members.rs";
     let bundle_preparation_adapter = "src/app/workflow_adapter/transition/bundle_preparation.rs";
+    let bundle_construction_adapter =
+        "src/app/workflow_adapter/transition/bundle_preparation/construction.rs";
+    let bundle_event_plan_adapter =
+        "src/app/workflow_adapter/transition/bundle_preparation/event_plan.rs";
+    let bundle_members_preparation_adapter =
+        "src/app/workflow_adapter/transition/bundle_preparation/members.rs";
+    let bundle_projection_lag_adapter =
+        "src/app/workflow_adapter/transition/bundle_preparation/projection_lag.rs";
     let bundle_validation_adapter = "src/app/workflow_adapter/transition/bundle_validation.rs";
     let bundle_event_chain_adapter =
         "src/app/workflow_adapter/transition/bundle_validation/event_chain.rs";
@@ -38,6 +46,10 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         bundle_semantic_adapter,
         bundle_source_members_adapter,
         bundle_preparation_adapter,
+        bundle_construction_adapter,
+        bundle_event_plan_adapter,
+        bundle_members_preparation_adapter,
+        bundle_projection_lag_adapter,
         bundle_validation_adapter,
         bundle_event_chain_adapter,
         bundle_members_adapter,
@@ -66,6 +78,11 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let bundle_semantic = fs::read_to_string(bundle_semantic_adapter).unwrap();
     let bundle_source_members = fs::read_to_string(bundle_source_members_adapter).unwrap();
     let bundle_preparation = fs::read_to_string(bundle_preparation_adapter).unwrap();
+    let bundle_construction = fs::read_to_string(bundle_construction_adapter).unwrap();
+    let bundle_event_plan = fs::read_to_string(bundle_event_plan_adapter).unwrap();
+    let bundle_members_preparation =
+        fs::read_to_string(bundle_members_preparation_adapter).unwrap();
+    let bundle_projection_lag = fs::read_to_string(bundle_projection_lag_adapter).unwrap();
     let bundle_validation = fs::read_to_string(bundle_validation_adapter).unwrap();
     let bundle_event_chain = fs::read_to_string(bundle_event_chain_adapter).unwrap();
     let bundle_members = fs::read_to_string(bundle_members_adapter).unwrap();
@@ -158,21 +175,59 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
             .any(|line| line == "mod bundle_preparation;"),
         "transition adapter does not register the bundle-preparation owner"
     );
-    for responsibility in [
-        "pub(crate) fn prepare_state_transition_bundle(",
-        "pub(crate) fn prepare_source_bundle_with_context(",
-        "pub(crate) fn prepare_projection_lag_member(",
-        "pub(crate) fn install_projection_lag(",
-        "pub(crate) fn bind_planned_events(",
+    for module in [
+        "mod construction;",
+        "mod event_plan;",
+        "mod members;",
+        "mod projection_lag;",
     ] {
         assert!(
-            !transition.contains(responsibility),
-            "bundle-preparation responsibility escaped into transition facade: {responsibility}"
+            bundle_preparation.lines().any(|line| line == module),
+            "bundle-preparation facade does not register {module}"
         );
-        assert!(
-            bundle_preparation.contains(responsibility),
-            "bundle-preparation adapter is missing responsibility: {responsibility}"
-        );
+    }
+    for (owner, responsibilities) in [
+        (
+            bundle_construction.as_str(),
+            &[
+                "pub(crate) fn prepare_state_transition_bundle(",
+                "pub(crate) fn prepare_source_bundle_with_context(",
+            ][..],
+        ),
+        (
+            bundle_event_plan.as_str(),
+            &[
+                "pub(crate) fn planned_events(",
+                "pub(crate) fn bind_planned_events(",
+            ][..],
+        ),
+        (
+            bundle_members_preparation.as_str(),
+            &["pub(crate) fn bind_additional_members("][..],
+        ),
+        (
+            bundle_projection_lag.as_str(),
+            &[
+                "pub(crate) fn prepare_projection_lag_member(",
+                "pub(crate) fn install_projection_lag(",
+                "pub(crate) fn remove_projection_lag(",
+            ][..],
+        ),
+    ] {
+        for responsibility in responsibilities {
+            assert!(
+                !transition.contains(responsibility),
+                "bundle-preparation responsibility escaped into transition facade: {responsibility}"
+            );
+            assert!(
+                !bundle_preparation.contains(responsibility),
+                "bundle-preparation facade still owns responsibility: {responsibility}"
+            );
+            assert!(
+                owner.contains(responsibility),
+                "bundle-preparation child is missing responsibility: {responsibility}"
+            );
+        }
     }
     assert!(
         transition
@@ -379,7 +434,23 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
             bundle_source_members.as_str(),
             275,
         ),
-        (bundle_preparation_adapter, bundle_preparation.as_str(), 500),
+        (bundle_preparation_adapter, bundle_preparation.as_str(), 30),
+        (
+            bundle_construction_adapter,
+            bundle_construction.as_str(),
+            250,
+        ),
+        (bundle_event_plan_adapter, bundle_event_plan.as_str(), 75),
+        (
+            bundle_members_preparation_adapter,
+            bundle_members_preparation.as_str(),
+            50,
+        ),
+        (
+            bundle_projection_lag_adapter,
+            bundle_projection_lag.as_str(),
+            225,
+        ),
         (bundle_validation_adapter, bundle_validation.as_str(), 125),
         (bundle_event_chain_adapter, bundle_event_chain.as_str(), 100),
         (bundle_members_adapter, bundle_members.as_str(), 275),
