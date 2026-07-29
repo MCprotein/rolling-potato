@@ -1,5 +1,7 @@
 use super::*;
 
+include!("cli_install/uninstall_adapter.rs");
+
 #[test]
 fn v03713_cli_surface_owners_replace_legacy_module() {
     let owner = fs::read_to_string("src/surfaces/cli/command.rs").unwrap();
@@ -371,7 +373,10 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
         fs::read_to_string("src/adapters/system_install/path_registration.rs").unwrap();
     let path_safety_adapter =
         fs::read_to_string("src/adapters/system_install/path_safety.rs").unwrap();
-    let uninstall_adapter = fs::read_to_string("src/adapters/system_install/uninstall.rs").unwrap();
+    let uninstall_ownership =
+        fs::read_to_string("src/adapters/system_install/uninstall/ownership.rs").unwrap();
+    let uninstall_path_registration =
+        fs::read_to_string("src/adapters/system_install/uninstall/path_registration.rs").unwrap();
     let adapter_tests = fs::read_to_string("src/adapters/system_install/tests.rs").unwrap();
     let profile_path_tests =
         fs::read_to_string("src/adapters/system_install/tests/profile_path.rs").unwrap();
@@ -400,10 +405,10 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
     assert!(clean_state_adapter.contains("pub(crate) fn validate_clean_targets("));
     assert!(clean_state_adapter.contains("pub(crate) fn remove_clean_state("));
     assert!(path_safety_adapter.contains("pub(super) fn equivalent_path("));
-    assert!(uninstall_adapter.contains("pub(crate) fn user_path_removal_plan("));
-    assert!(uninstall_adapter.contains("pub(crate) fn remove_user_path("));
-    assert!(uninstall_adapter.contains("pub(crate) fn binary_removal_plan("));
-    assert!(uninstall_adapter.contains("pub(crate) fn remove_installed_binary("));
+    assert!(uninstall_path_registration.contains("pub(crate) fn user_path_removal_plan("));
+    assert!(uninstall_path_registration.contains("pub(crate) fn remove_user_path("));
+    assert!(uninstall_ownership.contains("pub(crate) fn binary_removal_plan("));
+    assert!(uninstall_ownership.contains("pub(crate) fn remove_installed_binary("));
     assert!(adapter.contains("#[path = \"system_install/tests.rs\"]"));
     for owner in ["profile_path", "clean_state", "binary_update", "uninstall"] {
         assert!(

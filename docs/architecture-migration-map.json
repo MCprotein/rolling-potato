@@ -4765,14 +4765,65 @@
       "path": "src/adapters/system_install/uninstall.rs",
       "slices": [
         {
-          "responsibility": "owned executable, PATH, and post-exit clean uninstall removal",
+          "responsibility": "managed uninstall facade and stable binary or PATH removal API",
           "target": "src/adapters/system_install/uninstall.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/adapters/system_install/uninstall.rs",
+            "src/adapters/system_install/uninstall/ownership.rs",
+            "src/adapters/system_install/uninstall/path_registration.rs",
+            "src/adapters/system_install/uninstall/windows_cleanup.rs",
             "src/adapters/system_install/tests.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/cli_install/uninstall_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/uninstall/ownership.rs",
+      "slices": [
+        {
+          "responsibility": "managed executable ownership, target validation, and binary removal",
+          "target": "src/adapters/system_install/uninstall/ownership.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install/uninstall.rs",
+            "src/adapters/system_install/uninstall/ownership.rs",
+            "tests/architecture_contract/cli_install/uninstall_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/uninstall/path_registration.rs",
+      "slices": [
+        {
+          "responsibility": "Unix and Windows managed PATH removal planning and application",
+          "target": "src/adapters/system_install/uninstall/path_registration.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install/uninstall.rs",
+            "src/adapters/system_install/uninstall/path_registration.rs",
+            "tests/architecture_contract/cli_install/uninstall_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/uninstall/windows_cleanup.rs",
+      "slices": [
+        {
+          "responsibility": "Windows post-exit self-delete and empty install-directory cleanup",
+          "target": "src/adapters/system_install/uninstall/windows_cleanup.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install/uninstall.rs",
+            "src/adapters/system_install/uninstall/windows_cleanup.rs",
+            "tests/architecture_contract/cli_install/uninstall_adapter.rs"
           ]
         }
       ]
@@ -11222,6 +11273,22 @@
       ]
     },
     {
+      "path": "tests/architecture_contract/cli_install/uninstall_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "managed uninstall ownership, PATH, and Windows cleanup architecture contracts",
+          "target": "tests/architecture_contract/cli_install/uninstall_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/cli_install.rs",
+            "tests/architecture_contract/cli_install/uninstall_adapter.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/architecture_contract/collaboration.rs",
       "slices": [
         {
@@ -14989,7 +15056,25 @@
     {
       "path": "src/adapters/system_install/uninstall.rs",
       "responsibilities": [
-        "owned executable, PATH, and post-exit clean uninstall removal"
+        "managed uninstall facade and stable binary or PATH removal API"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/uninstall/ownership.rs",
+      "responsibilities": [
+        "managed executable ownership, target validation, and binary removal"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/uninstall/path_registration.rs",
+      "responsibilities": [
+        "Unix and Windows managed PATH removal planning and application"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/uninstall/windows_cleanup.rs",
+      "responsibilities": [
+        "Windows post-exit self-delete and empty install-directory cleanup"
       ]
     },
     {
@@ -17312,6 +17397,12 @@
       "path": "tests/architecture_contract/cli_install.rs",
       "responsibilities": [
         "CLI surface, binary startup, uninstall, and installation architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/cli_install/uninstall_adapter.rs",
+      "responsibilities": [
+        "managed uninstall ownership, PATH, and Windows cleanup architecture contracts"
       ]
     },
     {
