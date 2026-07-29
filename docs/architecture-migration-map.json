@@ -9471,6 +9471,86 @@
           ]
         }
       ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation_tests/attachment_layout.rs",
+      "slices": [
+        {
+          "responsibility": "conversation attachment retry, error presentation, and responsive layout journeys",
+          "target": "src/app/tui_adapter/conversation_tests/attachment_layout.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation_tests/attachment_layout.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation_tests/progress_model.rs",
+      "slices": [
+        {
+          "responsibility": "conversation progress, context estimate, model choice, cache reuse, and update picker journeys",
+          "target": "src/app/tui_adapter/conversation_tests/progress_model.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation_tests/progress_model.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation_tests/rendering.rs",
+      "slices": [
+        {
+          "responsibility": "conversation-first frame, turn, browser progress, error, and markdown rendering journeys",
+          "target": "src/app/tui_adapter/conversation_tests/rendering.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation_tests/rendering.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation_tests/session.rs",
+      "slices": [
+        {
+          "responsibility": "fresh session, explicit resume, typed scroll, new, and clear conversation journeys",
+          "target": "src/app/tui_adapter/conversation_tests/session.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation_tests/session.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation_tests/web.rs",
+      "slices": [
+        {
+          "responsibility": "conversation web search, open, find, and source picker journeys",
+          "target": "src/app/tui_adapter/conversation_tests/web.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation_tests/web.rs",
+            "src/app/tui_adapter/conversation_tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -12966,6 +13046,36 @@
       "path": "tests/surfaces/native_terminal/web.rs",
       "responsibilities": [
         "native terminal structured web search, open, and find journeys"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation_tests/attachment_layout.rs",
+      "responsibilities": [
+        "conversation attachment retry, error presentation, and responsive layout journeys"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation_tests/progress_model.rs",
+      "responsibilities": [
+        "conversation progress, context estimate, model choice, cache reuse, and update picker journeys"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation_tests/rendering.rs",
+      "responsibilities": [
+        "conversation-first frame, turn, browser progress, error, and markdown rendering journeys"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation_tests/session.rs",
+      "responsibilities": [
+        "fresh session, explicit resume, typed scroll, new, and clear conversation journeys"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation_tests/web.rs",
+      "responsibilities": [
+        "conversation web search, open, find, and source picker journeys"
       ]
     }
   ]

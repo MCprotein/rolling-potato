@@ -67,6 +67,32 @@ fn v0471_tui_controller_support_responsibilities_are_split() {
 }
 
 #[test]
+fn tui_conversation_journeys_have_bounded_feature_owners() {
+    let root = fs::read_to_string("src/app/tui_adapter/conversation_tests.rs").unwrap();
+    let owners = [
+        ("attachment_layout", 175),
+        ("progress_model", 175),
+        ("rendering", 175),
+        ("session", 200),
+        ("web", 175),
+    ];
+
+    assert!(root.lines().count() < 300);
+    for (owner, line_budget) in owners {
+        let relative = format!("conversation_tests/{owner}.rs");
+        assert!(
+            root.contains(&relative),
+            "conversation journey root does not register {owner}"
+        );
+        let source = fs::read_to_string(format!("src/app/tui_adapter/{relative}")).unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "conversation journey {owner} exceeded its {line_budget}-line budget"
+        );
+    }
+}
+
+#[test]
 fn v0471_tui_render_text_and_report_layout_are_split() {
     let render = fs::read_to_string("src/surfaces/tui/render.rs").unwrap();
     for (module, owner, marker) in [
