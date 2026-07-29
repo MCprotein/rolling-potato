@@ -4018,7 +4018,7 @@
       "path": "src/app/inference_adapter/model.rs",
       "slices": [
         {
-          "responsibility": "model evaluation, promotion, verification, cleanup, and report integration adapter",
+          "responsibility": "stable model application facade and registry/setup API integration",
           "target": "src/app/inference_adapter/model.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -4026,10 +4026,78 @@
             "src/composition/inference.rs",
             "src/app/command_dispatch.rs",
             "src/app/inference_adapter/model.rs",
+            "src/app/inference_adapter/model/artifact_maintenance.rs",
+            "src/app/inference_adapter/model/evaluation.rs",
             "src/app/inference_adapter/model/evidence.rs",
+            "src/app/inference_adapter/model/promotion.rs",
             "src/app/inference_adapter/model/registry.rs",
+            "src/app/inference_adapter/model/reports.rs",
             "src/app/inference_adapter/model/tests.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/inference/application_model.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/artifact_maintenance.rs",
+      "slices": [
+        {
+          "responsibility": "model artifact checksum verification and failed or partial artifact cleanup",
+          "target": "src/app/inference_adapter/model/artifact_maintenance.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model/artifact_maintenance.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract/inference/application_model.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/evaluation.rs",
+      "slices": [
+        {
+          "responsibility": "model evaluation planning and source-backed artifact fetch or cache orchestration",
+          "target": "src/app/inference_adapter/model/evaluation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model/evaluation.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract/inference/application_model.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/promotion.rs",
+      "slices": [
+        {
+          "responsibility": "host-local model promotion validation and evidence persistence orchestration",
+          "target": "src/app/inference_adapter/model/promotion.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model/promotion.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract/inference/application_model.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/reports.rs",
+      "slices": [
+        {
+          "responsibility": "source-backed model manifest, candidate, inspection, download, and benchmark report composition",
+          "target": "src/app/inference_adapter/model/reports.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/inference_adapter/model/reports.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract/inference/application_model.rs"
           ]
         }
       ]
@@ -14174,7 +14242,31 @@
     {
       "path": "src/app/inference_adapter/model.rs",
       "responsibilities": [
-        "model evaluation, promotion, verification, cleanup, and report integration adapter"
+        "stable model application facade and registry/setup API integration"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/artifact_maintenance.rs",
+      "responsibilities": [
+        "model artifact checksum verification and failed or partial artifact cleanup"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/evaluation.rs",
+      "responsibilities": [
+        "model evaluation planning and source-backed artifact fetch or cache orchestration"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/promotion.rs",
+      "responsibilities": [
+        "host-local model promotion validation and evidence persistence orchestration"
+      ]
+    },
+    {
+      "path": "src/app/inference_adapter/model/reports.rs",
+      "responsibilities": [
+        "source-backed model manifest, candidate, inspection, download, and benchmark report composition"
       ]
     },
     {

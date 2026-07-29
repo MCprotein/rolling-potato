@@ -1,5 +1,9 @@
 fn assert_application_model_owners() {
     let model_adapter_path = "src/app/inference_adapter/model.rs";
+    let model_reports_path = "src/app/inference_adapter/model/reports.rs";
+    let model_evaluation_path = "src/app/inference_adapter/model/evaluation.rs";
+    let model_promotion_path = "src/app/inference_adapter/model/promotion.rs";
+    let model_artifact_maintenance_path = "src/app/inference_adapter/model/artifact_maintenance.rs";
     let model_evidence_path = "src/app/inference_adapter/model/evidence.rs";
     let model_registry_path = "src/app/inference_adapter/model/registry.rs";
     let model_registry_vision_path = "src/app/inference_adapter/model/registry/vision.rs";
@@ -14,6 +18,10 @@ fn assert_application_model_owners() {
     let model_runtime_spec_path = "src/app/inference_adapter/model/setup/runtime_spec.rs";
     let model_setup_tests_path = "src/app/inference_adapter/model/setup/tests.rs";
     let model_tests_path = "src/app/inference_adapter/model/tests.rs";
+    assert!(Path::new(model_reports_path).is_file());
+    assert!(Path::new(model_evaluation_path).is_file());
+    assert!(Path::new(model_promotion_path).is_file());
+    assert!(Path::new(model_artifact_maintenance_path).is_file());
     assert!(Path::new(model_evidence_path).is_file());
     assert!(Path::new(model_registry_path).is_file());
     assert!(Path::new(model_registry_vision_path).is_file());
@@ -26,6 +34,10 @@ fn assert_application_model_owners() {
     assert!(Path::new(model_setup_tests_path).is_file());
     assert!(Path::new(model_tests_path).is_file());
     let model_adapter = fs::read_to_string(model_adapter_path).unwrap();
+    let model_reports = fs::read_to_string(model_reports_path).unwrap();
+    let model_evaluation = fs::read_to_string(model_evaluation_path).unwrap();
+    let model_promotion = fs::read_to_string(model_promotion_path).unwrap();
+    let model_artifact_maintenance = fs::read_to_string(model_artifact_maintenance_path).unwrap();
     let model_evidence = fs::read_to_string(model_evidence_path).unwrap();
     let model_registry = fs::read_to_string(model_registry_path).unwrap();
     let model_registry_vision = fs::read_to_string(model_registry_vision_path).unwrap();
@@ -46,6 +58,17 @@ fn assert_application_model_owners() {
         model_adapter.lines().any(|line| line == "mod evidence;"),
         "model adapter does not register its local evidence owner"
     );
+    for owner in [
+        "mod artifact_maintenance;",
+        "mod evaluation;",
+        "mod promotion;",
+        "mod reports;",
+    ] {
+        assert!(
+            model_adapter.lines().any(|line| line == owner),
+            "model adapter does not register owner: {owner}"
+        );
+    }
     assert!(
         model_registry.lines().any(|line| line == "mod vision;"),
         "model registry does not register its vision owner"
@@ -209,10 +232,43 @@ fn assert_application_model_owners() {
             "model adapter still owns regression test: {responsibility}"
         );
     }
+    for (owner, responsibility) in [
+        (&model_reports, "pub fn candidate_summary("),
+        (&model_reports, "pub fn list_report("),
+        (&model_reports, "pub fn manifest_report("),
+        (&model_reports, "pub fn inspect_report("),
+        (&model_reports, "pub fn download_plan_report("),
+        (&model_reports, "pub fn benchmark_plan_report("),
+        (&model_evaluation, "pub fn eval_plan_report("),
+        (
+            &model_evaluation,
+            "pub fn fetch_candidate_for_evaluation_report(",
+        ),
+        (
+            &model_evaluation,
+            "pub(crate) fn fetch_candidate_for_evaluation(",
+        ),
+        (&model_promotion, "pub fn promote_candidate_report("),
+        (&model_artifact_maintenance, "pub fn verify_file_report("),
+        (&model_artifact_maintenance, "pub fn cleanup_failed_report("),
+    ] {
+        assert!(
+            owner.contains(responsibility),
+            "model owner is missing responsibility: {responsibility}"
+        );
+        assert!(
+            !model_adapter.contains(responsibility),
+            "model facade still owns responsibility: {responsibility}"
+        );
+    }
     assert!(
-        model_adapter.lines().count() < 550,
-        "model adapter regrew beyond its local evidence extraction boundary"
+        model_adapter.lines().count() < 100,
+        "model adapter regrew beyond its facade boundary"
     );
+    assert!(model_reports.lines().count() < 350);
+    assert!(model_evaluation.lines().count() < 200);
+    assert!(model_promotion.lines().count() < 175);
+    assert!(model_artifact_maintenance.lines().count() < 125);
     assert!(
         model_evidence.lines().count() < 250,
         "model local evidence module regrew beyond its ownership boundary"
