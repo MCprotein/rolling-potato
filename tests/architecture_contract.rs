@@ -6842,6 +6842,14 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     let browser_search_form = fs::read_to_string("src/app/browser_adapter/search_form.rs").unwrap();
     let browser_app_tests = fs::read_to_string("src/app/browser_adapter/tests.rs").unwrap();
     let conversation = fs::read_to_string("src/app/tui_adapter/conversation.rs").unwrap();
+    let conversation_decision =
+        fs::read_to_string("src/app/tui_adapter/conversation/decision.rs").unwrap();
+    let conversation_local_facts =
+        fs::read_to_string("src/app/tui_adapter/conversation/local_facts.rs").unwrap();
+    let conversation_presentation =
+        fs::read_to_string("src/app/tui_adapter/conversation/presentation.rs").unwrap();
+    let conversation_reply =
+        fs::read_to_string("src/app/tui_adapter/conversation/reply.rs").unwrap();
     let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
 
     assert!(adapters.contains("pub(crate) mod browser;"));
@@ -6874,6 +6882,10 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
         "src/app/browser_adapter/routing.rs",
         "src/app/browser_adapter/search_form.rs",
         "src/app/browser_adapter/tests.rs",
+        "src/app/tui_adapter/conversation/decision.rs",
+        "src/app/tui_adapter/conversation/local_facts.rs",
+        "src/app/tui_adapter/conversation/presentation.rs",
+        "src/app/tui_adapter/conversation/reply.rs",
         "src/runtime_core/browser.rs",
         "src/runtime_core/browser/interaction.rs",
         "src/runtime_core/browser/tests.rs",
@@ -6933,11 +6945,19 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(browser_app_tests.contains("delayed_initial_page_readiness_is_polled_before_typing"));
     assert!(browser_app_tests.contains("delayed_result_page_readiness_is_polled_before_reporting"));
     assert!(browser_app_tests.contains("private_redirect_result_is_rejected"));
-    assert!(conversation.contains("RequestDecision::BrowserTool"));
-    assert!(conversation.contains("generate_structured_candidate_for_user"));
-    assert!(conversation.contains("TURN_DECISION_JSON_SCHEMA"));
+    for owner in ["decision", "local_facts", "presentation", "reply"] {
+        assert!(
+            conversation
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "conversation facade does not register {owner}"
+        );
+    }
     assert!(conversation.contains("history_only_secret_cannot_become_network_tool_input"));
-    assert!(conversation.contains("deterministic_browser_fallback"));
+    assert!(conversation_decision.contains("RequestDecision::BrowserTool"));
+    assert!(conversation_decision.contains("generate_structured_candidate_for_user"));
+    assert!(conversation_decision.contains("TURN_DECISION_JSON_SCHEMA"));
+    assert!(conversation_decision.contains("deterministic_browser_fallback"));
     assert!(tui_request.contains("RequestDecision::BrowserTool"));
 
     assert!(facade.lines().count() < 25);
@@ -6958,6 +6978,11 @@ fn restricted_browser_process_and_protocol_have_separate_bounded_owners() {
     assert!(browser_policy.lines().count() < 225);
     assert!(interaction.lines().count() < 350);
     assert!(interaction_tests.lines().count() < 225);
+    assert!(conversation.lines().count() < 500);
+    assert!(conversation_decision.lines().count() < 300);
+    assert!(conversation_local_facts.lines().count() < 300);
+    assert!(conversation_presentation.lines().count() < 125);
+    assert!(conversation_reply.lines().count() < 125);
 }
 
 #[test]
