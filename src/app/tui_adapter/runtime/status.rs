@@ -1,9 +1,7 @@
 use super::backend::vision_status;
 use super::TuiRuntimeAdapter;
 use crate::foundation::error::AppError;
-use crate::surfaces::tui::runtime_bridge::{
-    TuiAttachment, TuiAttachmentKind, TuiBackendStatus, TuiStatusSnapshot,
-};
+use crate::surfaces::tui::runtime_bridge::{TuiAttachment, TuiBackendStatus, TuiStatusSnapshot};
 
 pub(super) fn estimate_context_tokens(
     adapter: &mut TuiRuntimeAdapter,
@@ -11,15 +9,14 @@ pub(super) fn estimate_context_tokens(
     attachments: &[TuiAttachment],
 ) -> Option<u32> {
     let limit = crate::app::inference_adapter::model::configured_context_length().ok()?;
-    if adapter.fresh_session_pending {
-        return Some(estimate_retained_tokens(&[], request, attachments, limit));
-    }
-    Some(estimate_retained_tokens(
-        adapter.conversation_memory().ok()?.turns(),
-        request,
-        attachments,
-        limit,
-    ))
+    let input =
+        super::super::attachment::compose_request(request, attachments, Some(limit)).ok()?;
+    let history = if adapter.fresh_session_pending {
+        Vec::new()
+    } else {
+        adapter.conversation_memory().ok()?.turns().to_vec()
+    };
+    super::super::conversation::estimate_context_tokens(request, &input, &history, limit).ok()
 }
 
 pub(super) fn read(adapter: &mut TuiRuntimeAdapter) -> Result<TuiStatusSnapshot, AppError> {
@@ -70,13 +67,23 @@ pub(super) fn read(adapter: &mut TuiRuntimeAdapter) -> Result<TuiStatusSnapshot,
     } else {
         match context_limit_tokens {
             Some(limit) => {
-                let history = adapter.conversation_memory()?.turns();
-                (!history.is_empty()).then(|| estimate_retained_tokens(history, "", &[], limit))
+                let history = adapter.conversation_memory()?.turns().to_vec();
+                (!history.is_empty())
+                    .then(|| {
+                        let input =
+                            super::super::attachment::compose_request("", &[], Some(limit)).ok()?;
+                        super::super::conversation::estimate_context_tokens(
+                            "", &input, &history, limit,
+                        )
+                        .ok()
+                    })
+                    .flatten()
             }
             None => None,
         }
     };
-    let context_tokens_used = retained_context_tokens.or(latest_context_tokens);
+    let context_tokens_used =
+        resolve_context_tokens(latest_context_tokens, retained_context_tokens);
     let vision = vision_status(Some(&backend));
     let backend = match backend.status {
         "ready" => TuiBackendStatus::Ready,
@@ -103,31 +110,8 @@ pub(super) fn read(adapter: &mut TuiRuntimeAdapter) -> Result<TuiStatusSnapshot,
     })
 }
 
-fn estimate_retained_tokens(
-    history: &[crate::surfaces::tui::runtime_bridge::TuiConversationTurn],
-    request: &str,
-    attachments: &[TuiAttachment],
-    limit: u32,
-) -> u32 {
-    let mut estimated =
-        crate::runtime_core::knowledge::compaction::estimate_tokens(request).saturating_add(256);
-    estimated = history.iter().fold(estimated, |total, turn| {
-        total
-            .saturating_add(crate::runtime_core::knowledge::compaction::estimate_tokens(
-                &turn.content,
-            ))
-            .saturating_add(8)
-    });
-    estimated = attachments.iter().fold(estimated, |total, attachment| {
-        let attachment_estimate = match attachment.kind {
-            TuiAttachmentKind::Text => {
-                usize::try_from(attachment.size_bytes / 3).unwrap_or(usize::MAX)
-            }
-            TuiAttachmentKind::Image => 256,
-        };
-        total.saturating_add(attachment_estimate)
-    });
-    u32::try_from(estimated).unwrap_or(u32::MAX).min(limit)
+fn resolve_context_tokens(observed: Option<u32>, projected: Option<u32>) -> Option<u32> {
+    observed.or(projected)
 }
 
 fn same_active_model(
@@ -141,58 +125,4 @@ fn same_active_model(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn configured_manifest_id_matches_its_backend_artifact_stem() {
-        assert!(same_active_model(
-            "gemma-4-e4b",
-            Some("gemma-4-E4B_q4_0-it"),
-            "gemma-4-E4B_q4_0-it"
-        ));
-        assert!(same_active_model(
-            "qwen3.5-4b",
-            Some("Qwen3.5-4B-Q4_K_M"),
-            "Qwen3.5-4B-Q4_K_M"
-        ));
-        assert!(!same_active_model(
-            "qwen3.5-4b",
-            Some("Qwen3.5-4B-Q4_K_M"),
-            "gemma-4-E4B_q4_0-it"
-        ));
-    }
-
-    #[test]
-    fn retained_context_grows_for_success_and_runtime_error_turns() {
-        use crate::surfaces::tui::runtime_bridge::{TuiConversationRole, TuiConversationTurn};
-
-        let successful = vec![
-            TuiConversationTurn {
-                role: TuiConversationRole::User,
-                content: "첫 질문".to_string(),
-            },
-            TuiConversationTurn {
-                role: TuiConversationRole::Assistant,
-                content: "첫 답변".to_string(),
-            },
-        ];
-        let mut with_failure = successful.clone();
-        with_failure.extend([
-            TuiConversationTurn {
-                role: TuiConversationRole::User,
-                content: "검색해줘".to_string(),
-            },
-            TuiConversationTurn {
-                role: TuiConversationRole::Error,
-                content: "웹 검색 근거를 찾지 못했습니다.".to_string(),
-            },
-        ]);
-
-        let first = estimate_retained_tokens(&successful, "", &[], 262_144);
-        let second = estimate_retained_tokens(&with_failure, "", &[], 262_144);
-
-        assert!(first > 256);
-        assert!(second > first);
-    }
-}
+mod tests;

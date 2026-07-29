@@ -4,6 +4,9 @@ use super::*;
 fn session_memory_review_fixes_keep_separate_bounded_owners() {
     let tui_runtime = fs::read_to_string("src/app/tui_adapter/runtime.rs").unwrap();
     let tui_request = fs::read_to_string("src/app/tui_adapter/runtime/request.rs").unwrap();
+    let tui_status = fs::read_to_string("src/app/tui_adapter/runtime/status.rs").unwrap();
+    let tui_status_tests =
+        fs::read_to_string("src/app/tui_adapter/runtime/status/tests.rs").unwrap();
     let session_memory = fs::read_to_string("src/app/tui_adapter/session_memory.rs").unwrap();
     let session_event_codec =
         fs::read_to_string("src/app/tui_adapter/session_memory/event_codec.rs").unwrap();
@@ -70,6 +73,11 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
     }
     assert!(tui_runtime.contains("super::session_memory::record_exchange("));
     assert!(!tui_request.contains("TranscriptOwner"));
+    assert!(tui_status.contains("conversation::estimate_context_tokens("));
+    assert!(tui_status.contains("resolve_context_tokens(latest_context_tokens"));
+    assert!(!tui_status.contains("fn estimate_retained_tokens("));
+    assert!(tui_status.contains("mod tests;"));
+    assert!(tui_status_tests.contains("fn backend_observation_precedes_prompt_projection("));
     assert!(
         !native_terminal.contains("confirm_picker(&mut terminal, \"세션 선택 확인\")"),
         "session resume는 workflow dispatch fault probe로 재사용하면 안 됩니다."
@@ -152,6 +160,8 @@ fn session_memory_review_fixes_keep_separate_bounded_owners() {
     assert!(recent_tail.lines().count() < 350);
     assert!(compaction_tests.lines().count() < 225);
     assert!(token_budget.lines().count() < 150);
+    assert!(tui_status.lines().count() < 150);
+    assert!(tui_status_tests.lines().count() < 125);
 }
 
 fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, String)>) {

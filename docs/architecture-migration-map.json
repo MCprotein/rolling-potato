@@ -7556,6 +7556,22 @@
       ]
     },
     {
+      "path": "src/app/tui_adapter/runtime/status/tests.rs",
+      "slices": [
+        {
+          "responsibility": "interactive TUI status projection regression tests",
+          "target": "src/app/tui_adapter/runtime/status/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/runtime/status.rs",
+            "src/app/tui_adapter/runtime/status/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/tui_adapter/runtime/backend.rs",
       "slices": [
         {
@@ -12524,6 +12540,12 @@
       "path": "src/app/tui_adapter/runtime/status.rs",
       "responsibilities": [
         "interactive TUI status projection"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/runtime/status/tests.rs",
+      "responsibilities": [
+        "interactive TUI status projection regression tests"
       ]
     },
     {

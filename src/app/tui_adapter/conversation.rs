@@ -8,7 +8,9 @@ mod reply;
 pub(super) use decision::{decide_request, RequestDecision};
 pub(super) use local_facts::{is_conversational_request, local_reply};
 pub(super) use presentation::{ensure_public_answer, present_agent_report};
-pub(super) use reply::{render_web_conversation_context, reply_with_context, reply_with_images};
+pub(super) use reply::{
+    estimate_context_tokens, render_web_conversation_context, reply_with_context, reply_with_images,
+};
 
 #[cfg(test)]
 use decision::{
