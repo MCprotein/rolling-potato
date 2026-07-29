@@ -3482,15 +3482,66 @@
           ]
         },
         {
-          "responsibility": "verification evidence recording, stop-gate orchestration, and artifact pointer validation",
+          "responsibility": "evidence application facade and stable API re-exports",
           "target": "src/app/evidence_adapter.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/app/evidence_adapter.rs",
+            "src/runtime_core/knowledge/evidence.rs",
+            "tests/architecture_contract/adapter_boundaries/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/evidence_adapter/artifact_pointer.rs",
+      "slices": [
+        {
+          "responsibility": "project-bound artifact pointer validation and validation report composition",
+          "target": "src/app/evidence_adapter/artifact_pointer.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/evidence_adapter.rs",
+            "src/app/evidence_adapter/artifact_pointer.rs",
+            "src/runtime_core/knowledge/evidence.rs",
+            "tests/architecture_contract/adapter_boundaries/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/evidence_adapter/recording.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic verification evidence persistence across artifact, runtime ledger, and transcript",
+          "target": "src/app/evidence_adapter/recording.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/evidence_adapter.rs",
+            "src/app/evidence_adapter/recording.rs",
             "src/app/evidence_adapter/store.rs",
             "src/runtime_core/knowledge/evidence.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/adapter_boundaries/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/evidence_adapter/stop_gate.rs",
+      "slices": [
+        {
+          "responsibility": "patch stop-gate validation and failure event reporting",
+          "target": "src/app/evidence_adapter/stop_gate.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/evidence_adapter.rs",
+            "src/app/evidence_adapter/stop_gate.rs",
+            "src/runtime_core/knowledge/evidence.rs",
+            "tests/architecture_contract/adapter_boundaries/application.rs"
           ]
         }
       ]
@@ -3508,6 +3559,22 @@
             "src/app/evidence_adapter/store.rs",
             "src/app/tui_adapter.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/evidence_adapter/tests.rs",
+      "slices": [
+        {
+          "responsibility": "evidence adapter boundary, persistence, stop-gate, and idempotency regression tests",
+          "target": "src/app/evidence_adapter/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/evidence_adapter.rs",
+            "src/app/evidence_adapter/tests.rs",
+            "tests/architecture_contract/adapter_boundaries/application.rs"
           ]
         }
       ]
@@ -13865,13 +13932,37 @@
       "path": "src/app/evidence_adapter.rs",
       "responsibilities": [
         "evidence validation and stop inputs",
-        "verification evidence recording, stop-gate orchestration, and artifact pointer validation"
+        "evidence application facade and stable API re-exports"
+      ]
+    },
+    {
+      "path": "src/app/evidence_adapter/artifact_pointer.rs",
+      "responsibilities": [
+        "project-bound artifact pointer validation and validation report composition"
+      ]
+    },
+    {
+      "path": "src/app/evidence_adapter/recording.rs",
+      "responsibilities": [
+        "deterministic verification evidence persistence across artifact, runtime ledger, and transcript"
+      ]
+    },
+    {
+      "path": "src/app/evidence_adapter/stop_gate.rs",
+      "responsibilities": [
+        "patch stop-gate validation and failure event reporting"
       ]
     },
     {
       "path": "src/app/evidence_adapter/store.rs",
       "responsibilities": [
         "bounded and recursive evidence store inspection with regular-file boundary enforcement"
+      ]
+    },
+    {
+      "path": "src/app/evidence_adapter/tests.rs",
+      "responsibilities": [
+        "evidence adapter boundary, persistence, stop-gate, and idempotency regression tests"
       ]
     },
     {
