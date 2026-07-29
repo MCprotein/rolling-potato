@@ -117,6 +117,49 @@ fn model_and_agent_identity_questions_return_local_facts_without_a_workflow() {
 }
 
 #[test]
+fn model_identity_detection_uses_query_features_instead_of_known_product_names() {
+    for request in [
+        "너 지금 orion-7b-instruct 잖아",
+        "현재 구동 중인 기반 모델 명칭이 뭐야?",
+        "지금 어떤 추론 모델을 사용 중이야?",
+        "what model is running right now?",
+        "which model powers this session?",
+    ] {
+        assert_eq!(
+            local_reply(
+                request,
+                Some("unknown-family-test"),
+                TuiVisionStatus::OnDemand
+            ),
+            Some("현재 사용 중인 모델은 unknown-family-test입니다.".to_string()),
+            "{request}"
+        );
+    }
+}
+
+#[test]
+fn model_identity_detection_preserves_non_identity_intents() {
+    for request in [
+        "현재 모델 대신 뭘 추천해?",
+        "현재 모델과 다른 모델 성능 비교해줘",
+        "내가 전에 어떤 모델을 선호한다고 했지?",
+        "이 모델로 다음 작업 계속해",
+        "현재 모델 설정 코드를 수정해줘",
+        "Please answer in English: what model is running right now?",
+    ] {
+        assert_eq!(
+            local_reply(
+                request,
+                Some("unknown-family-test"),
+                TuiVisionStatus::OnDemand
+            ),
+            None,
+            "{request}는 현재 모델 사실 응답으로 가로채면 안 됩니다."
+        );
+    }
+}
+
+#[test]
 fn vision_status_questions_use_runtime_facts_instead_of_model_guessing() {
     let reply = local_reply(
         "비전 왜 text-only임?",
