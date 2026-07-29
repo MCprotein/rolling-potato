@@ -6214,16 +6214,83 @@
       "path": "src/app/patch_adapter/terminal.rs",
       "slices": [
         {
-          "responsibility": "patch workflow cancellation, gate denial, and terminal rollback adapter",
+          "responsibility": "patch terminal-action owner facade and stable exports",
           "target": "src/app/patch_adapter/terminal.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/patch_adapter/terminal.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/terminal/cancellation.rs",
+      "slices": [
+        {
+          "responsibility": "patch workflow cancellation transaction and user report",
+          "target": "src/app/patch_adapter/terminal/cancellation.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/application/transaction_coordinator.rs",
             "src/app/workflow_adapter/state/transaction.rs",
-            "src/app/patch_adapter/terminal.rs",
+            "src/app/patch_adapter/terminal/cancellation.rs",
+            "src/app/patch_adapter/tests/terminal_cases.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/terminal/denial.rs",
+      "slices": [
+        {
+          "responsibility": "pending patch and verification gate denial transactions and exact outcomes",
+          "target": "src/app/patch_adapter/terminal/denial.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/transaction_coordinator.rs",
+            "src/app/workflow_adapter/state/transaction.rs",
+            "src/app/patch_adapter/terminal/denial.rs",
+            "src/app/patch_adapter/tests/terminal_cases.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/terminal/gates.rs",
+      "slices": [
+        {
+          "responsibility": "terminal gate selection, denial phase outcome, and receipt validation",
+          "target": "src/app/patch_adapter/terminal/gates.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
             "src/app/tui_adapter.rs",
-            "tests/architecture_contract.rs"
+            "src/app/patch_adapter/terminal/gates.rs",
+            "src/app/patch_adapter/tests/terminal_cases.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/terminal/rollback.rs",
+      "slices": [
+        {
+          "responsibility": "terminal proposal binding and immutable rollback-source preparation",
+          "target": "src/app/patch_adapter/terminal/rollback.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/source_install.rs",
+            "src/app/patch_adapter/terminal/rollback.rs",
+            "src/app/patch_adapter/tests/terminal_cases.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
           ]
         }
       ]
@@ -18312,7 +18379,31 @@
     {
       "path": "src/app/patch_adapter/terminal.rs",
       "responsibilities": [
-        "patch workflow cancellation, gate denial, and terminal rollback adapter"
+        "patch terminal-action owner facade and stable exports"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/terminal/cancellation.rs",
+      "responsibilities": [
+        "patch workflow cancellation transaction and user report"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/terminal/denial.rs",
+      "responsibilities": [
+        "pending patch and verification gate denial transactions and exact outcomes"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/terminal/gates.rs",
+      "responsibilities": [
+        "terminal gate selection, denial phase outcome, and receipt validation"
+      ]
+    },
+    {
+      "path": "src/app/patch_adapter/terminal/rollback.rs",
+      "responsibilities": [
+        "terminal proposal binding and immutable rollback-source preparation"
       ]
     },
     {

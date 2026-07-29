@@ -25,6 +25,10 @@ fn assert_application_adapter_contracts() {
     let resume_adapter = "src/app/patch_adapter/resume.rs";
     let shared_adapter = "src/app/patch_adapter/shared.rs";
     let terminal_adapter = "src/app/patch_adapter/terminal.rs";
+    let terminal_cancellation_adapter = "src/app/patch_adapter/terminal/cancellation.rs";
+    let terminal_denial_adapter = "src/app/patch_adapter/terminal/denial.rs";
+    let terminal_gates_adapter = "src/app/patch_adapter/terminal/gates.rs";
+    let terminal_rollback_adapter = "src/app/patch_adapter/terminal/rollback.rs";
     let verification_adapter = "src/app/patch_adapter/verification.rs";
     let verification_evidence_adapter =
         "src/app/patch_adapter/verification_evidence.rs";
@@ -49,6 +53,10 @@ fn assert_application_adapter_contracts() {
     let resume = fs::read_to_string(resume_adapter).unwrap();
     let shared = fs::read_to_string(shared_adapter).unwrap();
     let terminal = fs::read_to_string(terminal_adapter).unwrap();
+    let terminal_cancellation = fs::read_to_string(terminal_cancellation_adapter).unwrap();
+    let terminal_denial = fs::read_to_string(terminal_denial_adapter).unwrap();
+    let terminal_gates = fs::read_to_string(terminal_gates_adapter).unwrap();
+    let terminal_rollback = fs::read_to_string(terminal_rollback_adapter).unwrap();
     let verification = fs::read_to_string(verification_adapter).unwrap();
     let verification_evidence =
         fs::read_to_string(verification_evidence_adapter).unwrap();
@@ -293,21 +301,72 @@ fn assert_application_adapter_contracts() {
     }
     assert!(resume.lines().count() < 400);
     assert!(patch_facade.lines().any(|line| line == "mod terminal;"));
-    for escaped_responsibility in [
-        "fn cancel_workflow_transaction(",
-        "fn deny_pending_gate_transaction(",
-        "fn prepare_terminal_rollback_source(",
-    ] {
+    for owner in ["cancellation", "denial", "gates", "rollback"] {
         assert!(
-            !patch_facade.contains(escaped_responsibility),
-            "terminal workflow responsibility escaped into patch facade: {escaped_responsibility}"
-        );
-        assert!(
-            terminal.contains(escaped_responsibility),
-            "terminal workflow adapter is missing responsibility: {escaped_responsibility}"
+            terminal
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "terminal facade does not register {owner}"
         );
     }
-    assert!(terminal.lines().count() < 500);
+    for (owner, responsibilities) in [
+        (
+            terminal_cancellation.as_str(),
+            &[
+                "pub fn cancel_workflow_report(",
+                "fn cancel_workflow_transaction(",
+            ][..],
+        ),
+        (
+            terminal_denial.as_str(),
+            &[
+                "pub(crate) fn deny_pending_gate_for_tui(",
+                "fn deny_pending_gate_transaction(",
+            ][..],
+        ),
+        (
+            terminal_gates.as_str(),
+            &[
+                "pub(crate) fn denial_phase_outcome_code(",
+                "pub(super) fn validate_terminal_gate(",
+            ][..],
+        ),
+        (
+            terminal_rollback.as_str(),
+            &["pub(super) fn prepare_terminal_rollback_source("][..],
+        ),
+    ] {
+        for responsibility in responsibilities {
+            assert!(
+                !patch_facade.contains(responsibility),
+                "terminal workflow responsibility escaped into patch facade: {responsibility}"
+            );
+            assert!(
+                !terminal.contains(responsibility),
+                "terminal facade still owns responsibility: {responsibility}"
+            );
+            assert!(
+                owner.contains(responsibility),
+                "terminal owner is missing responsibility: {responsibility}"
+            );
+        }
+    }
+    for (path, source, line_budget) in [
+        (terminal_adapter, terminal.as_str(), 25),
+        (
+            terminal_cancellation_adapter,
+            terminal_cancellation.as_str(),
+            125,
+        ),
+        (terminal_denial_adapter, terminal_denial.as_str(), 275),
+        (terminal_gates_adapter, terminal_gates.as_str(), 100),
+        (terminal_rollback_adapter, terminal_rollback.as_str(), 100),
+    ] {
+        assert!(
+            source.lines().count() < line_budget,
+            "terminal owner regrew beyond {line_budget} lines: {path}"
+        );
+    }
     assert!(patch_facade.lines().any(|line| line == "mod verification;"));
     for escaped_responsibility in [
         "fn verify_report_for_intent(",
