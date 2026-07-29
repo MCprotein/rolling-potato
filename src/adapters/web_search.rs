@@ -375,6 +375,46 @@ mod tests {
     }
 
     #[test]
+    fn ranking_prefers_authoritative_results_over_matching_user_generated_posts() {
+        let results = vec![
+            SearchResult {
+                title: "2026 월드컵 우승국 스페인 공식 결과".to_string(),
+                url: "https://blog.naver.com/example/prediction".to_string(),
+                description: "개인 블로그의 대회 전망과 예상 우승국".to_string(),
+            },
+            SearchResult {
+                title: "2026 FIFA World Cup winner and results".to_string(),
+                url: "https://fifawatch.com/world-cup-2026-winner".to_string(),
+                description: "World Cup result summary".to_string(),
+            },
+            SearchResult {
+                title: "2026 FIFA World Cup results and standings".to_string(),
+                url: "https://worldcupwiki.com/2026/results".to_string(),
+                description: "Tournament results and standings".to_string(),
+            },
+            SearchResult {
+                title: "Official 2026 FIFA World Cup result".to_string(),
+                url: "https://official.com/world-cup-result".to_string(),
+                description: "Unofficial result aggregator".to_string(),
+            },
+            SearchResult {
+                title: "FIFA World Cup 2026 results".to_string(),
+                url: "https://www.fifa.com/tournaments/mens/worldcup/canadamexicousa2026/results"
+                    .to_string(),
+                description: "Official tournament results and match centre".to_string(),
+            },
+        ];
+
+        let evidence =
+            evidence_from_results("2026 FIFA 월드컵 우승 공식 official result", results).unwrap();
+
+        assert_eq!(
+            evidence.sources[0].url,
+            "https://fifa.com/tournaments/mens/worldcup/canadamexicousa2026/results"
+        );
+    }
+
+    #[test]
     fn direct_request_is_https_only_and_does_not_follow_redirects() {
         let config = direct_agent_config();
 

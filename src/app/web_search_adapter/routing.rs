@@ -2,10 +2,14 @@ use super::research::WebResearchStep;
 use super::WebGroundingEvidence;
 use crate::foundation::error::AppError;
 
+mod grounding_policy;
 mod protocol;
 mod query;
 mod web_policy;
 
+pub(super) use grounding_policy::{
+    is_empirical_comparison_request, requires_external_grounding, strengthen_search_query,
+};
 pub(crate) use protocol::route_tool_request;
 pub(crate) use query::contextualize_search_input;
 pub(crate) use web_policy::web_disabled;

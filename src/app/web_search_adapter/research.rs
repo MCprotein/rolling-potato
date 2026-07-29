@@ -352,10 +352,14 @@ pub(crate) fn deterministic_freshness_fallback_for_context(
     prior_user_requests: &[&str],
 ) -> Option<WebResearchStep> {
     let request = request.trim();
-    if request.is_empty() || super::routing::web_disabled(request) || !needs_fresh_web(request) {
+    if request.is_empty()
+        || super::routing::web_disabled(request)
+        || !super::routing::requires_external_grounding(request)
+    {
         return None;
     }
     let query = super::routing::contextualize_search_input(request, request, prior_user_requests)?;
+    let query = super::routing::strengthen_search_query(&query, request);
     let mut research = WebResearchSession::default();
     match research.deterministic_fallback(&query, &[], Duration::ZERO) {
         WebResearchAdmission::Execute(step) => Some(step),
@@ -376,37 +380,6 @@ fn valid_step(step: &WebResearchStep) -> bool {
 
 fn bounded_input(input: &str) -> String {
     input.trim().chars().take(MAX_TOOL_INPUT_CHARS).collect()
-}
-
-fn needs_fresh_web(request: &str) -> bool {
-    let lower = request.to_ascii_lowercase();
-    [
-        "검색해",
-        "검색해서",
-        "검색하여",
-        "찾아줘",
-        "찾아봐",
-        "찾아보",
-        "웹에서",
-        "인터넷에서",
-        "최신",
-        "최근 뉴스",
-        "오늘 뉴스",
-        "실시간",
-    ]
-    .iter()
-    .any(|signal| request.contains(signal))
-        || [
-            "search for",
-            "look up",
-            "browse for",
-            "on the web",
-            "latest",
-            "breaking news",
-            "real-time",
-        ]
-        .iter()
-        .any(|signal| lower.contains(signal))
 }
 
 #[cfg(test)]
@@ -627,7 +600,7 @@ mod tests {
     fn freshness_fallback_is_bounded_and_respects_web_opt_out() {
         assert_eq!(
             deterministic_freshness_fallback("최신 Rust 릴리스를 찾아줘"),
-            Some(search("최신 Rust 릴리스를"))
+            Some(search("최신 Rust 릴리스를 공식 official"))
         );
         assert!(deterministic_freshness_fallback(
             "인터넷 검색하지 말고 최신 Rust 릴리스를 설명해줘"
@@ -640,6 +613,35 @@ mod tests {
             panic!("freshness query should route to search");
         };
         assert_eq!(query.chars().count(), MAX_TOOL_INPUT_CHARS);
+    }
+
+    #[test]
+    fn grounding_fallback_covers_volatile_results_and_empirical_comparisons() {
+        for request in [
+            "2026년 월드컵 우승국가 어디냐",
+            "gemma vs qwen 성능 비교해봐",
+            "현재 Rust stable 버전이 뭐야?",
+        ] {
+            let Some(WebResearchStep::Search { query }) = deterministic_freshness_fallback(request)
+            else {
+                panic!("required grounding request did not route to search: {request}");
+            };
+            assert!(
+                query.contains("공식") || query.contains("official"),
+                "{query}"
+            );
+        }
+
+        for request in [
+            "대한민국의 수도는?",
+            "현재 파일의 함수를 설명해줘",
+            "인터넷 없이 gemma vs qwen 성능 비교해봐",
+        ] {
+            assert!(
+                deterministic_freshness_fallback(request).is_none(),
+                "{request}"
+            );
+        }
     }
 
     #[test]

@@ -151,11 +151,12 @@ fn rank_and_deduplicate(query: &str, results: Vec<SearchResult>) -> Vec<SearchRe
     ranked
 }
 
-fn relevance_score(result: &SearchResult, terms: &[String]) -> u16 {
+fn relevance_score(result: &SearchResult, terms: &[String]) -> i16 {
     let title = result.title.to_lowercase();
     let description = result.description.to_lowercase();
     let url = result.url.to_ascii_lowercase();
-    let mut score = 0_u16;
+    let domain = source_domain(&result.url);
+    let mut score = 0_i16;
     for term in terms {
         if title.contains(term) {
             score = score.saturating_add(4);
@@ -192,7 +193,7 @@ fn relevance_score(result: &SearchResult, terms: &[String]) -> u16 {
     {
         score = score.saturating_add(4);
     }
-    if source_domain(&result.url).is_some_and(|domain| {
+    if domain.as_deref().is_some_and(|domain| {
         domain.ends_with(".gov")
             || domain.ends_with(".edu")
             || domain.starts_with("docs.")
@@ -200,7 +201,53 @@ fn relevance_score(result: &SearchResult, terms: &[String]) -> u16 {
     }) {
         score = score.saturating_add(4);
     }
+    if domain.as_deref().is_some_and(|domain| {
+        domain.split('.').any(|label| {
+            terms
+                .iter()
+                .any(|term| is_brand_domain_term(term) && label == term)
+        })
+    }) {
+        score = score.saturating_add(12);
+    }
+    if domain.as_deref().is_some_and(|domain| {
+        [
+            "blog.naver.com",
+            "tistory.com",
+            "medium.com",
+            "reddit.com",
+            "quora.com",
+        ]
+        .iter()
+        .any(|candidate| domain == *candidate || domain.ends_with(&format!(".{candidate}")))
+    }) {
+        score = score.saturating_sub(12);
+    }
+    if ["개인 블로그", "블로그", "예상", "전망", "prediction"]
+        .iter()
+        .any(|signal| title.contains(signal) || description.contains(signal))
+    {
+        score = score.saturating_sub(6);
+    }
     score
+}
+
+fn is_brand_domain_term(term: &str) -> bool {
+    term.len() >= 3
+        && term.is_ascii()
+        && term.chars().all(|character| character.is_alphanumeric())
+        && !matches!(
+            term,
+            "official"
+                | "result"
+                | "benchmark"
+                | "release"
+                | "version"
+                | "docs"
+                | "documentation"
+                | "world"
+                | "cup"
+        )
 }
 
 fn normalized_terms(query: &str) -> Vec<String> {

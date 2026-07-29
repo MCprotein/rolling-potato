@@ -109,6 +109,17 @@ pub(super) fn decide_request(
             return Ok(RequestDecision::BrowserTool(tool));
         }
     }
+    let prior_user_requests = recent_user_requests(history);
+    if web_enabled {
+        if let Some(tool) =
+            crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
+                user_request,
+                &prior_user_requests,
+            )
+        {
+            return Ok(RequestDecision::WebTool(tool));
+        }
+    }
     let web_instruction = if web_enabled {
         "응답은 runtime이 강제하는 JSON object이며 decision, input, answer 세 field를 모두 채운다. 최신 정보나 외부 공개 근거가 필요하면 decision을 web_search, web_open, web_find 중 하나로 선택하고 input에 최소 공개 검색어·HTTPS URL·페이지 내부 검색어만 기록하며 answer는 빈 문자열로 둔다. 후속 질문의 검색어는 최근 사용자 발화를 반영한 자립형 문구로 만들되 모델 답변·첨부 내용·인증정보·개인정보는 넣지 않는다. 웹 도구가 필요하지 않으면 decision은 answer로 하고 answer에 최종 답변을 기록하며 input은 빈 문자열로 둔다."
     } else {
@@ -137,7 +148,6 @@ pub(super) fn decide_request(
         CONVERSATION_MAX_TOKENS,
         crate::runtime_core::agent::TURN_DECISION_JSON_SCHEMA,
     )?;
-    let prior_user_requests = recent_user_requests(history);
     decide_generated_candidate(
         candidate,
         user_request,
@@ -168,6 +178,16 @@ fn decide_generated_candidate(
     web_enabled: bool,
     allow_direct_answer: bool,
 ) -> Result<RequestDecision, AppError> {
+    if web_enabled {
+        if let Some(tool) =
+            crate::app::web_search_adapter::deterministic_freshness_fallback_for_context(
+                user_request,
+                prior_user_requests,
+            )
+        {
+            return Ok(RequestDecision::WebTool(tool));
+        }
+    }
     match crate::runtime_core::agent::parse_turn_decision(&candidate.visible, allow_direct_answer) {
         Ok(crate::runtime_core::agent::AgentTurnDecision::Answer(answer)) => {
             return crate::app::inference_adapter::answer::finish_candidate(
@@ -429,29 +449,60 @@ fn is_model_identity_request(request: &str) -> bool {
     let direct = compact.trim_matches(|character: char| {
         character.is_ascii_punctuation() || matches!(character, '？' | '。' | '！' | '…' | '·')
     });
-    matches!(
-        direct,
-        "넌무슨모델이야"
-            | "넌무슨모델이니"
-            | "너는무슨모델이야"
-            | "너는무슨모델이니"
-            | "무슨모델이야"
-            | "무슨모델이니"
-            | "어떤모델이야"
-            | "어떤모델이니"
-            | "현재모델이뭐야"
-            | "현재모델은뭐야"
-            | "지금모델이뭐야"
-            | "지금무슨모델써"
-            | "지금무슨모델쓰고있어"
-            | "사용중인모델이뭐야"
-            | "사용중인모델은뭐야"
-    ) || matches!(
-        lower.trim_matches(
-            |character: char| character.is_ascii_punctuation() || character.is_whitespace()
-        ),
-        "what model are you using" | "which model are you using" | "current model"
-    )
+    let asks_another_model_task = [
+        "전에", "좋아", "기억", "말했", "선호", "내가", "추천", "설치", "선택", "비교", "성능",
+    ]
+    .iter()
+    .any(|signal| direct.contains(signal));
+    let asks_model = !asks_another_model_task
+        && direct.contains("모델")
+        && ([
+            "무슨모델",
+            "어떤모델",
+            "현재모델",
+            "지금모델",
+            "지금어떤모델",
+            "지금무슨모델",
+            "사용중인모델",
+        ]
+        .iter()
+        .any(|signal| direct.contains(signal))
+            || (direct.starts_with("모델") && direct.contains("쓰")));
+    let challenges_runtime_model = direct.starts_with("너지금")
+        && ["qwen", "gemma", "llama", "mistral", "phi", "deepseek"]
+            .iter()
+            .any(|family| direct.contains(family))
+        && ["잖아", "아니야", "맞지", "맞냐"]
+            .iter()
+            .any(|ending| direct.contains(ending));
+    asks_model
+        || challenges_runtime_model
+        || matches!(
+            direct,
+            "넌무슨모델이야"
+                | "넌무슨모델이니"
+                | "너는무슨모델이야"
+                | "너는무슨모델이니"
+                | "모델뭐야"
+                | "모델뭔데"
+                | "무슨모델이야"
+                | "무슨모델이니"
+                | "어떤모델이야"
+                | "어떤모델이니"
+                | "현재모델이뭐야"
+                | "현재모델은뭐야"
+                | "지금모델이뭐야"
+                | "지금무슨모델써"
+                | "지금무슨모델쓰고있어"
+                | "사용중인모델이뭐야"
+                | "사용중인모델은뭐야"
+        )
+        || matches!(
+            lower.trim_matches(
+                |character: char| character.is_ascii_punctuation() || character.is_whitespace()
+            ),
+            "what model are you using" | "which model are you using" | "current model"
+        )
 }
 
 fn is_agent_identity_request(request: &str) -> bool {
@@ -610,13 +661,26 @@ mod tests {
 
     #[test]
     fn model_and_agent_identity_questions_return_local_facts_without_a_workflow() {
+        for request in [
+            "넌 무슨모델이니",
+            "모델 뭐쓰냐",
+            "무슨 모델인지도 몰라?",
+            "너 지금 qwen 이잖아",
+            "지금 어떤 모델 쓰고 있어?",
+        ] {
+            assert_eq!(
+                local_reply(request, Some("gemma-test"), TuiVisionStatus::OnDemand),
+                Some("현재 사용 중인 모델은 gemma-test입니다.".to_string()),
+                "{request}"
+            );
+        }
         assert_eq!(
             local_reply(
-                "넌 무슨모델이니",
+                "모델 뭐 추천해?",
                 Some("gemma-test"),
                 TuiVisionStatus::OnDemand
             ),
-            Some("현재 사용 중인 모델은 gemma-test입니다.".to_string())
+            None
         );
         assert_eq!(
             local_reply("넌누구니?", Some("ignored"), TuiVisionStatus::OnDemand),
@@ -810,6 +874,46 @@ mod tests {
             decide_generated_candidate(answer_candidate, "대한민국의 수도는?", &[], true, true)
                 .unwrap(),
             RequestDecision::Answer("대한민국의 수도는 서울입니다.".to_string()),
+        );
+    }
+
+    #[test]
+    fn required_external_grounding_overrides_a_small_model_direct_answer() {
+        for request in [
+            "2026년 월드컵 우승국가 어디냐",
+            "gemma vs qwen 성능 비교해봐",
+            "현재 Rust stable 버전이 뭐야?",
+        ] {
+            let candidate = crate::app::inference_adapter::answer::GeneratedCandidate {
+                response_language: ResponseLanguage::KoreanDefault,
+                visible: r#"{"decision":"answer","input":"","answer":"근거 없는 답변"}"#
+                    .to_string(),
+            };
+            assert!(
+                matches!(
+                    decide_generated_candidate(candidate, request, &[], true, true).unwrap(),
+                    RequestDecision::WebTool(
+                        crate::app::web_search_adapter::WebToolRoute::Search { .. }
+                    )
+                ),
+                "{request}"
+            );
+        }
+
+        let offline_candidate = crate::app::inference_adapter::answer::GeneratedCandidate {
+            response_language: ResponseLanguage::KoreanDefault,
+            visible: r#"{"decision":"answer","input":"","answer":"오프라인 비교"}"#.to_string(),
+        };
+        assert_eq!(
+            decide_generated_candidate(
+                offline_candidate,
+                "인터넷 없이 gemma vs qwen 성능 비교해봐",
+                &[],
+                false,
+                true,
+            )
+            .unwrap(),
+            RequestDecision::Answer("오프라인 비교".to_string())
         );
     }
 
