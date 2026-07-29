@@ -28,7 +28,13 @@ fn v0372_foundation_owners_replace_legacy_modules() {
         "src/foundation/error.rs",
         "src/foundation/integrity.rs",
         "src/foundation/serialization.rs",
+        "src/foundation/serialization/canonical.rs",
+        "src/foundation/serialization/error.rs",
+        "src/foundation/serialization/object.rs",
         "src/foundation/serialization/parser.rs",
+        "src/foundation/serialization/render.rs",
+        "src/foundation/serialization/tests.rs",
+        "src/foundation/serialization/types.rs",
     ] {
         assert!(
             Path::new(target).is_file(),
@@ -63,30 +69,82 @@ fn v0372_foundation_owners_replace_legacy_modules() {
     }
 
     let serialization = fs::read_to_string("src/foundation/serialization.rs").unwrap();
+    let canonical = fs::read_to_string("src/foundation/serialization/canonical.rs").unwrap();
+    let error = fs::read_to_string("src/foundation/serialization/error.rs").unwrap();
+    let object = fs::read_to_string("src/foundation/serialization/object.rs").unwrap();
     let parser = fs::read_to_string("src/foundation/serialization/parser.rs").unwrap();
+    let render = fs::read_to_string("src/foundation/serialization/render.rs").unwrap();
+    let types = fs::read_to_string("src/foundation/serialization/types.rs").unwrap();
     assert!(serialization.contains("#[path = \"serialization/parser.rs\"]"));
-    assert!(serialization.lines().any(|line| line == "mod parser;"));
-    for responsibility in [
-        "pub(super) fn parse_value(",
-        "struct Parser<'a>",
-        "fn value(",
-        "fn object(",
-        "fn array(",
-        "fn string_value(",
-        "fn number_value(",
-        "fn hex4(",
-    ] {
+    for owner in ["canonical", "error", "object", "parser", "render", "types"] {
         assert!(
-            parser.contains(responsibility),
-            "strict JSON parser owner is missing: {responsibility}"
-        );
-        assert!(
-            !serialization.contains(responsibility),
-            "serialization facade still owns parser implementation: {responsibility}"
+            serialization
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "serialization facade does not register responsibility owner: {owner}"
         );
     }
-    assert!(serialization.lines().count() < 525);
-    assert!(parser.lines().count() < 300);
+    for (owner, responsibilities) in [
+        (
+            canonical.as_str(),
+            &["fn parse_canonical_object(", "fn render_canonical_object("][..],
+        ),
+        (error.as_str(), &["fn blocked("][..]),
+        (
+            object.as_str(),
+            &["fn parse_object(", "fn parse_object_exact_order("][..],
+        ),
+        (
+            parser.as_str(),
+            &[
+                "pub fn parse_value(",
+                "struct Parser<'a>",
+                "fn value(",
+                "fn object(",
+                "fn array(",
+                "fn string_value(",
+                "fn number_value(",
+                "fn hex4(",
+            ][..],
+        ),
+        (
+            render.as_str(),
+            &["fn render_compact(", "fn escape_string_content("][..],
+        ),
+        (
+            types.as_str(),
+            &[
+                "pub struct Object(",
+                "pub enum CanonicalValue",
+                "pub enum Value",
+            ][..],
+        ),
+    ] {
+        for responsibility in responsibilities {
+            assert!(
+                owner.contains(responsibility),
+                "strict JSON owner is missing: {responsibility}"
+            );
+            assert!(
+                !serialization.contains(responsibility),
+                "serialization facade still owns implementation: {responsibility}"
+            );
+        }
+    }
+    for (source, maximum_lines, owner) in [
+        (serialization.as_str(), 50, "serialization facade"),
+        (canonical.as_str(), 175, "canonical codec"),
+        (error.as_str(), 25, "serialization error"),
+        (object.as_str(), 100, "object access"),
+        (parser.as_str(), 300, "strict parser"),
+        (render.as_str(), 125, "compact renderer"),
+        (types.as_str(), 100, "serialization values"),
+    ] {
+        assert!(
+            source.lines().count() < maximum_lines,
+            "{owner} regrew beyond its responsibility boundary"
+        );
+    }
 
     let app = fs::read_to_string("src/app.rs").unwrap();
     assert!(

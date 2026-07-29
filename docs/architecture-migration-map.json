@@ -3805,13 +3805,66 @@
       "path": "src/foundation/serialization.rs",
       "slices": [
         {
-          "responsibility": "strict JSON parsing and canonical serialization",
+          "responsibility": "strict JSON facade and codec responsibility registration",
           "target": "src/foundation/serialization.rs",
           "release": "0.37.2",
           "state": "complete",
           "evidence": [
             "src/foundation/serialization.rs",
+            "src/foundation/serialization/canonical.rs",
+            "src/foundation/serialization/error.rs",
+            "src/foundation/serialization/object.rs",
             "src/foundation/serialization/parser.rs",
+            "src/foundation/serialization/render.rs",
+            "src/foundation/serialization/types.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/canonical.rs",
+      "slices": [
+        {
+          "responsibility": "canonical JSON conversion, validation, integer access, and rendering",
+          "target": "src/foundation/serialization/canonical.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/foundation/serialization/canonical.rs",
+            "src/foundation/serialization/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/error.rs",
+      "slices": [
+        {
+          "responsibility": "strict JSON validation error presentation",
+          "target": "src/foundation/serialization/error.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/foundation/serialization/error.rs",
+            "src/foundation/serialization/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/object.rs",
+      "slices": [
+        {
+          "responsibility": "strict object admission, key-order checks, and typed field access",
+          "target": "src/foundation/serialization/object.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/foundation/serialization/object.rs",
+            "src/foundation/serialization/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -3828,6 +3881,53 @@
           "evidence": [
             "src/foundation/serialization.rs",
             "src/foundation/serialization/parser.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/render.rs",
+      "slices": [
+        {
+          "responsibility": "compact JSON rendering and string escaping",
+          "target": "src/foundation/serialization/render.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/foundation/serialization/render.rs",
+            "src/foundation/serialization/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/tests.rs",
+      "slices": [
+        {
+          "responsibility": "strict and canonical JSON regression tests",
+          "target": "src/foundation/serialization/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/foundation/serialization/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/types.rs",
+      "slices": [
+        {
+          "responsibility": "ordered JSON and canonical JSON value types",
+          "target": "src/foundation/serialization/types.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/foundation/serialization/types.rs",
+            "src/foundation/serialization/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -15440,13 +15540,49 @@
     {
       "path": "src/foundation/serialization.rs",
       "responsibilities": [
-        "strict JSON parsing and canonical serialization"
+        "strict JSON facade and codec responsibility registration"
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/canonical.rs",
+      "responsibilities": [
+        "canonical JSON conversion, validation, integer access, and rendering"
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/error.rs",
+      "responsibilities": [
+        "strict JSON validation error presentation"
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/object.rs",
+      "responsibilities": [
+        "strict object admission, key-order checks, and typed field access"
       ]
     },
     {
       "path": "src/foundation/serialization/parser.rs",
       "responsibilities": [
         "bounded recursive strict JSON parsing for objects, arrays, strings, numbers, literals, and Unicode escapes"
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/render.rs",
+      "responsibilities": [
+        "compact JSON rendering and string escaping"
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/tests.rs",
+      "responsibilities": [
+        "strict and canonical JSON regression tests"
+      ]
+    },
+    {
+      "path": "src/foundation/serialization/types.rs",
+      "responsibilities": [
+        "ordered JSON and canonical JSON value types"
       ]
     },
     {
