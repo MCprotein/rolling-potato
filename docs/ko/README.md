@@ -27,6 +27,8 @@
 
 - [아키텍처](architecture.md) — 전체 제품·런타임 경계
 - [코드 아키텍처](code-architecture.md) — module ownership과 dependency 방향
+- [저장소 전면 리팩터링 계획](repository-refactor-plan.md) — 참조 구현 비교,
+  책임 분리 순서, 회귀 검증과 완료 조건
 - [런타임 아키텍처](runtime-architecture.md) — surface, core, adapter, artifact
   계층
 - [상태 수명주기](state-lifecycle.md) — canonical state, projection, recovery,
