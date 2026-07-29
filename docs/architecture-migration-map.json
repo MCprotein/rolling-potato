@@ -1880,7 +1880,7 @@
       "path": "src/adapters/sqlite/observability_projection.rs",
       "slices": [
         {
-          "responsibility": "SQLite observability projection facade, connection recovery, status, export, and prune orchestration",
+          "responsibility": "SQLite observability projection facade and public re-exports",
           "target": "src/adapters/sqlite/observability_projection.rs",
           "release": "0.37.7",
           "state": "complete",
@@ -1888,6 +1888,70 @@
             "src/adapters/sqlite/observability_projection.rs",
             "src/adapters/sqlite/observability_projection/sessions.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "SQLite projection initialization, replay convergence, and event projection lifecycle",
+          "target": "src/adapters/sqlite/observability_projection/lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/lifecycle.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/port.rs",
+      "slices": [
+        {
+          "responsibility": "ObservabilityProjectionPort implementation and operation delegation",
+          "target": "src/adapters/sqlite/observability_projection/port.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/port.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/queries.rs",
+      "slices": [
+        {
+          "responsibility": "read-only monitor queries, exports, and prune preview",
+          "target": "src/adapters/sqlite/observability_projection/queries.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/queries.rs",
+            "src/adapters/sqlite/observability_projection/tests.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/store.rs",
+      "slices": [
+        {
+          "responsibility": "SQLite connection recovery, store status, and scalar conversion utilities",
+          "target": "src/adapters/sqlite/observability_projection/store.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/sqlite/observability_projection/store.rs",
+            "src/adapters/sqlite/observability_projection/tests/recovery.rs",
+            "tests/architecture_contract/observability_policy/observability/sqlite.rs"
           ]
         }
       ]
@@ -7829,7 +7893,7 @@
       "path": "src/runtime_core/workflow/application/recovery.rs",
       "slices": [
         {
-          "responsibility": "workflow state recovery",
+          "responsibility": "workflow recovery facade and regression tests",
           "target": "src/runtime_core/workflow/application/recovery.rs",
           "release": "0.37.6",
           "state": "complete",
@@ -7837,6 +7901,70 @@
             "src/runtime_core/workflow/application/recovery.rs",
             "tests/workflow/recovery.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/recovery/contracts.rs",
+      "slices": [
+        {
+          "responsibility": "workflow transaction and prepared-state recovery ports and value objects",
+          "target": "src/runtime_core/workflow/application/recovery/contracts.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery/contracts.rs",
+            "src/runtime_core/workflow/application/recovery.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/recovery/projection.rs",
+      "slices": [
+        {
+          "responsibility": "ordered prepared-state projection recovery",
+          "target": "src/runtime_core/workflow/application/recovery/projection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery/projection.rs",
+            "src/runtime_core/workflow/application/recovery.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/recovery/transaction.rs",
+      "slices": [
+        {
+          "responsibility": "validated recovery transaction installation and cleanup orchestration",
+          "target": "src/runtime_core/workflow/application/recovery/transaction.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery/transaction.rs",
+            "src/runtime_core/workflow/application/recovery.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/recovery/validation.rs",
+      "slices": [
+        {
+          "responsibility": "pending workflow transaction evidence validation and recovery disposition",
+          "target": "src/runtime_core/workflow/application/recovery/validation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/application/recovery/validation.rs",
+            "src/runtime_core/workflow/application/recovery.rs",
+            "tests/architecture_contract/workflow_transition/application.rs"
           ]
         }
       ]
@@ -11271,7 +11399,7 @@
       "path": "src/app/tui_adapter/tests.rs",
       "slices": [
         {
-          "responsibility": "TUI adapter, controller, rendering, and one-shot report regression tests",
+          "responsibility": "TUI adapter regression-test facade and shared fixtures",
           "target": "src/app/tui_adapter/tests.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -11280,6 +11408,86 @@
             "src/app/tui_adapter/report_composition.rs",
             "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/tests/controller.rs",
+      "slices": [
+        {
+          "responsibility": "interactive TUI controller and update-flow regression tests",
+          "target": "src/app/tui_adapter/tests/controller.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/tests/controller.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/tests/outcome.rs",
+      "slices": [
+        {
+          "responsibility": "TUI outcome and terminal fault taxonomy regression tests",
+          "target": "src/app/tui_adapter/tests/outcome.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/tests/outcome.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/tests/render.rs",
+      "slices": [
+        {
+          "responsibility": "interactive TUI rendering, paging, wrapping, and status-bar regression tests",
+          "target": "src/app/tui_adapter/tests/render.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/tests/render.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/tests/reports.rs",
+      "slices": [
+        {
+          "responsibility": "TUI approvals and evidence report integration regression tests",
+          "target": "src/app/tui_adapter/tests/reports.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/tests/reports.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/tests/view_state.rs",
+      "slices": [
+        {
+          "responsibility": "interactive TUI view-state and bounded read-request regression tests",
+          "target": "src/app/tui_adapter/tests/view_state.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/tests/view_state.rs",
+            "src/app/tui_adapter/tests.rs",
+            "tests/architecture_contract/tui_bridge.rs"
           ]
         }
       ]
@@ -15901,7 +16109,31 @@
     {
       "path": "src/adapters/sqlite/observability_projection.rs",
       "responsibilities": [
-        "SQLite observability projection facade, connection recovery, status, export, and prune orchestration"
+        "SQLite observability projection facade and public re-exports"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/lifecycle.rs",
+      "responsibilities": [
+        "SQLite projection initialization, replay convergence, and event projection lifecycle"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/port.rs",
+      "responsibilities": [
+        "ObservabilityProjectionPort implementation and operation delegation"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/queries.rs",
+      "responsibilities": [
+        "read-only monitor queries, exports, and prune preview"
+      ]
+    },
+    {
+      "path": "src/adapters/sqlite/observability_projection/store.rs",
+      "responsibilities": [
+        "SQLite connection recovery, store status, and scalar conversion utilities"
       ]
     },
     {
@@ -18034,7 +18266,31 @@
     {
       "path": "src/runtime_core/workflow/application/recovery.rs",
       "responsibilities": [
-        "workflow state recovery"
+        "workflow recovery facade and regression tests"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/recovery/contracts.rs",
+      "responsibilities": [
+        "workflow transaction and prepared-state recovery ports and value objects"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/recovery/projection.rs",
+      "responsibilities": [
+        "ordered prepared-state projection recovery"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/recovery/transaction.rs",
+      "responsibilities": [
+        "validated recovery transaction installation and cleanup orchestration"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/application/recovery/validation.rs",
+      "responsibilities": [
+        "pending workflow transaction evidence validation and recovery disposition"
       ]
     },
     {
@@ -19254,7 +19510,37 @@
     {
       "path": "src/app/tui_adapter/tests.rs",
       "responsibilities": [
-        "TUI adapter, controller, rendering, and one-shot report regression tests"
+        "TUI adapter regression-test facade and shared fixtures"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/tests/controller.rs",
+      "responsibilities": [
+        "interactive TUI controller and update-flow regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/tests/outcome.rs",
+      "responsibilities": [
+        "TUI outcome and terminal fault taxonomy regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/tests/render.rs",
+      "responsibilities": [
+        "interactive TUI rendering, paging, wrapping, and status-bar regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/tests/reports.rs",
+      "responsibilities": [
+        "TUI approvals and evidence report integration regression tests"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/tests/view_state.rs",
+      "responsibilities": [
+        "interactive TUI view-state and bounded read-request regression tests"
       ]
     },
     {
