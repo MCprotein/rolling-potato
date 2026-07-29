@@ -6935,7 +6935,7 @@
       "path": "src/runtime_core/collaboration/subagent.rs",
       "slices": [
         {
-          "responsibility": "subagent role, tool, lifecycle transition, and durable-record invariant policy",
+          "responsibility": "subagent domain facade and public owner re-exports",
           "target": "src/runtime_core/collaboration/subagent.rs",
           "release": "0.37.12",
           "state": "complete",
@@ -6946,6 +6946,57 @@
             "src/app/collaboration_adapter/subagent.rs",
             "tests/subagent_lifecycle.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/record.rs",
+      "slices": [
+        {
+          "responsibility": "durable subagent record creation and lifecycle transitions",
+          "target": "src/runtime_core/collaboration/subagent/record.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/runtime_core/collaboration/subagent/record.rs",
+            "src/app/collaboration_adapter/subagent/tests/persistence.rs",
+            "tests/architecture_contract/collaboration/domain.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/record_validation.rs",
+      "slices": [
+        {
+          "responsibility": "durable subagent record invariants and immutable binding validation",
+          "target": "src/runtime_core/collaboration/subagent/record_validation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/runtime_core/collaboration/subagent/record_validation.rs",
+            "src/app/collaboration_adapter/subagent/tests/persistence.rs",
+            "tests/architecture_contract/collaboration/domain.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/types.rs",
+      "slices": [
+        {
+          "responsibility": "subagent roles, tools, lifecycle status, and durable data types",
+          "target": "src/runtime_core/collaboration/subagent/types.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/subagent.rs",
+            "src/runtime_core/collaboration/subagent/types.rs",
+            "src/app/collaboration_adapter/subagent/tests/contract.rs",
+            "tests/architecture_contract/collaboration/domain.rs"
           ]
         }
       ]
@@ -18705,7 +18756,25 @@
     {
       "path": "src/runtime_core/collaboration/subagent.rs",
       "responsibilities": [
-        "subagent role, tool, lifecycle transition, and durable-record invariant policy"
+        "subagent domain facade and public owner re-exports"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/record.rs",
+      "responsibilities": [
+        "durable subagent record creation and lifecycle transitions"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/record_validation.rs",
+      "responsibilities": [
+        "durable subagent record invariants and immutable binding validation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/subagent/types.rs",
+      "responsibilities": [
+        "subagent roles, tools, lifecycle status, and durable data types"
       ]
     },
     {

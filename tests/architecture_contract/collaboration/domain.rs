@@ -7,10 +7,10 @@ fn collaboration_domain_owns_policy_state_and_codecs() {
         (
             "src/runtime_core/collaboration/subagent.rs",
             &[
-                "enum SubagentRole",
-                "enum SubagentStatus",
-                "struct SubagentRecordV1",
-                "fn validate_record",
+                "mod record;",
+                "mod record_validation;",
+                "mod types;",
+                "pub use types",
             ],
         ),
         (
@@ -108,15 +108,27 @@ fn collaboration_domain_owns_policy_state_and_codecs() {
 fn assert_subagent_domain_modules() {
     let domain_path = "src/runtime_core/collaboration/subagent.rs";
     let launch_path = "src/runtime_core/collaboration/subagent/launch.rs";
+    let record_path = "src/runtime_core/collaboration/subagent/record.rs";
     let codec_path = "src/runtime_core/collaboration/subagent/record_codec.rs";
+    let validation_path = "src/runtime_core/collaboration/subagent/record_validation.rs";
+    let types_path = "src/runtime_core/collaboration/subagent/types.rs";
     let domain = source(domain_path);
     let launch = source(launch_path);
+    let record = source(record_path);
     let codec = source(codec_path);
+    let validation = source(validation_path);
+    let types = source(types_path);
 
-    assert_file(launch_path);
-    assert_file(codec_path);
-    assert_registered(&domain, "mod launch;", "subagent domain");
-    assert_registered(&domain, "mod record_codec;", "subagent domain");
+    for (path, module) in [
+        (launch_path, "mod launch;"),
+        (record_path, "mod record;"),
+        (codec_path, "mod record_codec;"),
+        (validation_path, "mod record_validation;"),
+        (types_path, "mod types;"),
+    ] {
+        assert_file(path);
+        assert_registered(&domain, module, "subagent domain");
+    }
     for responsibility in [
         "pub fn validate_launch(",
         "pub(crate) fn normalize_tools(",
@@ -134,9 +146,35 @@ fn assert_subagent_domain_modules() {
     ] {
         assert_moved(&codec, &domain, responsibility);
     }
-    assert_line_bound(&domain, 450, domain_path);
+    for responsibility in [
+        "pub(crate) fn create_record_at(",
+        "pub(crate) fn transition_to_at(",
+    ] {
+        assert_moved(&record, &domain, responsibility);
+    }
+    for responsibility in [
+        "pub(crate) fn validate_record(",
+        "pub(crate) fn immutable_binding_changed(",
+        "pub(crate) fn validate_subagent_id(",
+        "pub(crate) fn is_sha256(",
+    ] {
+        assert_moved(&validation, &domain, responsibility);
+    }
+    for responsibility in [
+        "pub enum SubagentRole",
+        "pub enum SubagentTool",
+        "pub enum SubagentStatus",
+        "pub struct ValidatedLaunch",
+        "pub struct SubagentRecordV1",
+    ] {
+        assert_moved(&types, &domain, responsibility);
+    }
+    assert_line_bound(&domain, 50, domain_path);
     assert_line_bound(&launch, 225, launch_path);
+    assert_line_bound(&record, 125, record_path);
     assert_line_bound(&codec, 250, codec_path);
+    assert_line_bound(&validation, 225, validation_path);
+    assert_line_bound(&types, 225, types_path);
 }
 
 fn assert_subagent_result_modules() {

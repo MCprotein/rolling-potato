@@ -4,10 +4,11 @@ use std::path::{Component, Path};
 use crate::foundation::error::AppError;
 use crate::foundation::integrity;
 
-use super::{
+use super::types::{
     SubagentRole, SubagentTool, ValidatedLaunch, DEFAULT_MAX_TOKENS, DEFAULT_TIMEOUT_MS,
-    MAX_CHAT_TIMEOUT_MS, MAX_DECLARED_PATHS, MAX_MAX_TOKENS, MAX_TASK_BYTES,
+    MAX_DECLARED_PATHS, MAX_MAX_TOKENS, MAX_TASK_BYTES,
 };
+use super::MAX_CHAT_TIMEOUT_MS;
 
 pub fn validate_launch(
     role: &str,
