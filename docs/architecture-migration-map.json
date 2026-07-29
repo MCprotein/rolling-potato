@@ -6088,13 +6088,96 @@
       "path": "src/runtime_core/observability/monitor.rs",
       "slices": [
         {
-          "responsibility": "runtime monitoring queries",
+          "responsibility": "surface-neutral monitor facade, query port, and stable report API",
           "target": "src/runtime_core/observability/monitor.rs",
-          "release": "0.37.7",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/observability/monitor.rs",
-            "tests/architecture_contract.rs"
+            "src/runtime_core/observability/monitor/format.rs",
+            "src/runtime_core/observability/monitor/metric.rs",
+            "src/runtime_core/observability/monitor/policy.rs",
+            "src/runtime_core/observability/monitor/report.rs",
+            "src/runtime_core/observability/monitor/tests.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/monitor/format.rs",
+      "slices": [
+        {
+          "responsibility": "shared monitor metric and policy value labels",
+          "target": "src/runtime_core/observability/monitor/format.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/monitor/format.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/monitor/metric.rs",
+      "slices": [
+        {
+          "responsibility": "runtime status, model metric, and performance baseline report rendering",
+          "target": "src/runtime_core/observability/monitor/metric.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/monitor/metric.rs",
+            "src/runtime_core/observability/monitor/tests.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/monitor/policy.rs",
+      "slices": [
+        {
+          "responsibility": "optimization and pruning policy report rendering",
+          "target": "src/runtime_core/observability/monitor/policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/monitor/policy.rs",
+            "src/runtime_core/observability/monitor/tests.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/monitor/report.rs",
+      "slices": [
+        {
+          "responsibility": "JSONL, CSV, and HTML monitor export orchestration",
+          "target": "src/runtime_core/observability/monitor/report.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/monitor/report.rs",
+            "src/runtime_core/observability/monitor/tests.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/monitor/tests.rs",
+      "slices": [
+        {
+          "responsibility": "monitor fake-port and multi-format report regression coverage",
+          "target": "src/runtime_core/observability/monitor/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/monitor/tests.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
           ]
         }
       ]
@@ -11135,6 +11218,21 @@
       ]
     },
     {
+      "path": "tests/architecture_contract/inference/model_manifest.rs",
+      "slices": [
+        {
+          "responsibility": "model manifest catalog, data contract, validation, and regression ownership contracts",
+          "target": "tests/architecture_contract/inference/model_manifest.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/inference/model_manifest.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/architecture_contract/inference/runtime_owners.rs",
       "slices": [
         {
@@ -15031,7 +15129,37 @@
     {
       "path": "src/runtime_core/observability/monitor.rs",
       "responsibilities": [
-        "runtime monitoring queries"
+        "surface-neutral monitor facade, query port, and stable report API"
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/monitor/format.rs",
+      "responsibilities": [
+        "shared monitor metric and policy value labels"
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/monitor/metric.rs",
+      "responsibilities": [
+        "runtime status, model metric, and performance baseline report rendering"
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/monitor/policy.rs",
+      "responsibilities": [
+        "optimization and pruning policy report rendering"
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/monitor/report.rs",
+      "responsibilities": [
+        "JSONL, CSV, and HTML monitor export orchestration"
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/monitor/tests.rs",
+      "responsibilities": [
+        "monitor fake-port and multi-format report regression coverage"
       ]
     },
     {
@@ -16879,6 +17007,12 @@
       "path": "tests/architecture_contract/inference/application_model.rs",
       "responsibilities": [
         "inference application model and selection architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/model_manifest.rs",
+      "responsibilities": [
+        "model manifest catalog, data contract, validation, and regression ownership contracts"
       ]
     },
     {

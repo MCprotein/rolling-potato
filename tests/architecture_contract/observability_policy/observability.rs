@@ -60,17 +60,63 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
     let monitor = fs::read_to_string("src/runtime_core/observability/monitor.rs").unwrap();
     for rule in [
         "trait MonitorQueryPort",
-        "fn status_report",
-        "fn models_report",
-        "fn baseline_report",
-        "fn optimize_report",
-        "fn prune_report",
+        "status_report",
+        "models_report",
+        "baseline_report",
+        "optimize_report",
+        "prune_report",
+        "export_report",
     ] {
         assert!(
             monitor.contains(rule),
             "monitor owner is missing use case: {rule}"
         );
     }
+    for (owner, line_budget, rules) in [
+        (
+            "format",
+            75,
+            &["fn display_optional_u64", "fn score_label"][..],
+        ),
+        (
+            "metric",
+            250,
+            &["fn status_report", "fn models_report", "fn baseline_report"][..],
+        ),
+        (
+            "policy",
+            175,
+            &["fn optimize_report", "fn prune_report"][..],
+        ),
+        ("report", 100, &["fn export_report", "fn html_report"][..]),
+        (
+            "tests",
+            250,
+            &[
+                "status_report_is_rendered_from_port_data",
+                "html_export_preserves_all_sections_when_queries_are_unavailable",
+            ][..],
+        ),
+    ] {
+        let relative = format!("monitor/{owner}.rs");
+        assert!(
+            monitor.contains(&relative),
+            "monitor facade does not register {owner}"
+        );
+        let source =
+            fs::read_to_string(format!("src/runtime_core/observability/{relative}")).unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "monitor owner {owner} exceeded its {line_budget}-line budget"
+        );
+        for rule in rules {
+            assert!(
+                source.contains(rule),
+                "monitor owner {owner} is missing contract: {rule}"
+            );
+        }
+    }
+    assert!(monitor.lines().count() < 100);
     let html = fs::read_to_string("src/runtime_core/observability/html.rs").unwrap();
     for rule in ["struct HtmlReportSnapshot", "fn render_report"] {
         assert!(
