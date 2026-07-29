@@ -74,6 +74,7 @@ fn marker_text_inside_user_lines_is_not_treated_as_an_owned_block() {
     assert_eq!(exact_line_ranges(&installed, PROFILE_END).len(), 1);
 }
 
+#[cfg(unix)]
 #[test]
 fn binary_and_profile_plans_are_exact_and_read_only() {
     let root = unique_temp("plans");

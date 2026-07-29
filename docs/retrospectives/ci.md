@@ -278,6 +278,32 @@ Candidate preflight, fixture, PTY 검증, architecture contract, workflow 실행
   호출이 하위 모듈에 존재하는지를 각각 검증하고, 금지된 직접 의존성은 두 파일
   모두에서 검사합니다.
 
+## 2026-07-29: 플랫폼 helper 이동 뒤 cfg 소유권이 어긋남
+
+### 증상
+
+- macOS targeted test와 candidate preflight는 통과했지만 Windows exact-target
+  `cargo check --all-targets --all-features`에서 중복 함수, 숨겨진 공통 codec,
+  접근할 수 없는 Windows helper, Unix 전용 테스트 호출이 함께 실패했습니다.
+
+### 원인
+
+- 책임을 하위 파일로 옮길 때 함수 본문만 이동하고 기존 함수·재수출·테스트에 붙은
+  `cfg` 조건이 호출자의 플랫폼 범위와 같은지 대조하지 않았습니다.
+- 기존 architecture contract는 파일 소유권과 line budget은 검사했지만 공통
+  serialization과 플랫폼별 helper의 cfg 대칭성은 고정하지 않았습니다.
+
+### 재발 방지
+
+- 플랫폼 조건부 심볼을 이동할 때 정의, 재수출, 모든 호출자, 관련 테스트의 `cfg`를
+  하나의 변경 단위로 검색·대조합니다.
+- 공통 codec은 지원 플랫폼 전체에서 컴파일되도록 유지하고, OS별 I/O helper만
+  명시적으로 분기합니다.
+- System-install과 transition architecture contract는 Windows helper 재수출,
+  Unix 전용 테스트, 공통 renderer, Windows no-op 경계의 cfg 계약을 고정합니다.
+- macOS에서 Windows C toolchain 부재로 cross-check가 Rust 소스까지 도달하지 못하면
+  이를 성공으로 간주하지 않고 Windows exact-target CI를 최종 증거로 사용합니다.
+
 ## 2026-07-27: PTY 화면 테스트가 production 의미 분류기와 다른 입력을 사용함
 
 ### 증상

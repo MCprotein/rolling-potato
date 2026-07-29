@@ -15,5 +15,5 @@ pub(super) use ownership::{install_owner_file, BinaryRemovalResult};
 #[cfg(test)]
 pub(super) use path_registration::render_profile_without_managed_block;
 pub(crate) use path_registration::{remove_user_path, user_path_removal_plan};
-#[cfg(all(test, windows))]
+#[cfg(windows)]
 pub(super) use path_registration::{windows_path_owner_file, windows_path_removal};

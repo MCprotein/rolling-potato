@@ -1,5 +1,6 @@
 use super::*;
 
+#[cfg(not(windows))]
 pub(super) fn sync_parent(path: &Path) -> Result<(), AppError> {
     let parent = path
         .parent()

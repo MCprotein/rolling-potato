@@ -138,6 +138,16 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     ] {
         assert_registered_owner(&transition, module, owner, responsibilities);
     }
+    assert!(
+        !canonical.contains("#[cfg(not(windows))]\npub(super) fn render_path("),
+        "canonical source-install paths must render on every supported platform"
+    );
+    assert!(source_support.contains(
+        "#[cfg(not(windows))]\npub(super) fn sync_parent(path: &Path) -> Result<(), AppError>"
+    ));
+    assert!(source_support.contains(
+        "#[cfg(windows)]\npub(super) fn sync_parent(_path: &Path) -> Result<(), AppError>"
+    ));
     include!("transition_adapter/component_delegation.rs");
     assert!(
         transition.lines().any(|line| line == "mod source_install;"),

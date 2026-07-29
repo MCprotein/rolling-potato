@@ -15,7 +15,6 @@ pub(super) fn render_optional_string(value: Option<&str>) -> String {
         .unwrap_or_else(|| "null".to_string())
 }
 
-#[cfg(not(windows))]
 pub(super) fn render_path(path: &PreparedPath) -> String {
     format!(
         "{{\"namespace\":\"{}\",\"path\":\"{}\",\"parent\":\"{}\",\"basename\":\"{}\",\"expected_type\":\"{}\",\"expected_identity\":{}}}",

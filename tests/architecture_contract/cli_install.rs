@@ -438,6 +438,7 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
         fs::read_to_string("src/adapters/system_install/path_registration.rs").unwrap();
     let path_safety_adapter =
         fs::read_to_string("src/adapters/system_install/path_safety.rs").unwrap();
+    let uninstall_adapter = fs::read_to_string("src/adapters/system_install/uninstall.rs").unwrap();
     let uninstall_ownership =
         fs::read_to_string("src/adapters/system_install/uninstall/ownership.rs").unwrap();
     let uninstall_path_registration =
@@ -493,6 +494,11 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
     assert!(
         profile_path_tests.contains("fn windows_powershell_path_removal_is_exact_and_idempotent(")
     );
+    assert!(uninstall_adapter.contains(
+        "#[cfg(windows)]\npub(super) use path_registration::{windows_path_owner_file, windows_path_removal};"
+    ));
+    assert!(profile_path_tests
+        .contains("#[cfg(unix)]\n#[test]\nfn binary_and_profile_plans_are_exact_and_read_only()"));
     assert!(adapter.lines().count() < 200);
     assert!(binary_adapter.lines().count() < 425);
     assert!(clean_state_adapter.lines().count() < 125);
