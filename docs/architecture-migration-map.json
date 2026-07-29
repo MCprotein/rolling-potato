@@ -5446,8 +5446,95 @@
           "state": "complete",
           "evidence": [
             "src/app/ontology_adapter.rs",
+            "src/app/ontology_adapter/exchange.rs",
+            "src/app/ontology_adapter/lifecycle.rs",
+            "src/app/ontology_adapter/project_paths.rs",
+            "src/app/ontology_adapter/projection.rs",
+            "src/app/ontology_adapter/reporting.rs",
             "src/app/ontology_adapter/seeding.rs",
-            "tests/architecture_contract.rs"
+            "src/app/ontology_adapter/source_reader.rs",
+            "src/app/ontology_adapter/tests.rs",
+            "tests/architecture_contract/observability_policy/ontology_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/ontology_adapter/exchange.rs",
+      "slices": [
+        {
+          "responsibility": "ontology import and export application boundary",
+          "target": "src/app/ontology_adapter/exchange.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/ontology_adapter/exchange.rs",
+            "src/app/ontology_adapter/tests.rs",
+            "tests/architecture_contract/observability_policy/ontology_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/ontology_adapter/lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "ontology seed lifecycle and append decision orchestration",
+          "target": "src/app/ontology_adapter/lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/ontology_adapter/lifecycle.rs",
+            "src/app/ontology_adapter/tests.rs",
+            "tests/architecture_contract/observability_policy/ontology_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/ontology_adapter/project_paths.rs",
+      "slices": [
+        {
+          "responsibility": "canonical ontology project path resolution",
+          "target": "src/app/ontology_adapter/project_paths.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/ontology_adapter/project_paths.rs",
+            "src/app/ontology_adapter/tests.rs",
+            "tests/architecture_contract/observability_policy/ontology_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/ontology_adapter/projection.rs",
+      "slices": [
+        {
+          "responsibility": "canonical ontology projection loading and runtime context selection",
+          "target": "src/app/ontology_adapter/projection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/ontology_adapter/projection.rs",
+            "src/app/ontology_adapter/tests.rs",
+            "tests/architecture_contract/observability_policy/ontology_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/ontology_adapter/reporting.rs",
+      "slices": [
+        {
+          "responsibility": "ontology status, inspect, context, seed, and doctor reporting",
+          "target": "src/app/ontology_adapter/reporting.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/ontology_adapter/reporting.rs",
+            "src/app/ontology_adapter/tests.rs",
+            "tests/architecture_contract/observability_policy/ontology_adapter.rs"
           ]
         }
       ]
@@ -5480,6 +5567,21 @@
             "src/app/ontology_adapter/seeding.rs",
             "src/app/ontology_adapter.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/ontology_adapter/tests.rs",
+      "slices": [
+        {
+          "responsibility": "ontology application adapter regression fixtures",
+          "target": "src/app/ontology_adapter/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/ontology_adapter/tests.rs",
+            "tests/architecture_contract/observability_policy/ontology_adapter.rs"
           ]
         }
       ]
@@ -12830,6 +12932,7 @@
           "state": "complete",
           "evidence": [
             "tests/architecture_contract/observability_policy.rs",
+            "tests/architecture_contract/observability_policy/ontology_adapter.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -13090,6 +13193,22 @@
           "evidence": [
             "tests/architecture_contract/observability_policy/knowledge_policy.rs",
             "tests/architecture_contract/observability_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/ontology_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "ontology application adapter owner and line-budget contracts",
+          "target": "tests/architecture_contract/observability_policy/ontology_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/observability_policy/ontology_adapter.rs",
+            "tests/architecture_contract/observability_policy.rs",
+            "src/app/ontology_adapter.rs"
           ]
         }
       ]
@@ -16771,6 +16890,36 @@
       ]
     },
     {
+      "path": "src/app/ontology_adapter/exchange.rs",
+      "responsibilities": [
+        "ontology import and export application boundary"
+      ]
+    },
+    {
+      "path": "src/app/ontology_adapter/lifecycle.rs",
+      "responsibilities": [
+        "ontology seed lifecycle and append decision orchestration"
+      ]
+    },
+    {
+      "path": "src/app/ontology_adapter/project_paths.rs",
+      "responsibilities": [
+        "canonical ontology project path resolution"
+      ]
+    },
+    {
+      "path": "src/app/ontology_adapter/projection.rs",
+      "responsibilities": [
+        "canonical ontology projection loading and runtime context selection"
+      ]
+    },
+    {
+      "path": "src/app/ontology_adapter/reporting.rs",
+      "responsibilities": [
+        "ontology status, inspect, context, seed, and doctor reporting"
+      ]
+    },
+    {
       "path": "src/app/ontology_adapter/source_reader.rs",
       "responsibilities": [
         "strict current-source and best-effort historical-source resolution"
@@ -16780,6 +16929,12 @@
       "path": "src/app/ontology_adapter/seeding.rs",
       "responsibilities": [
         "ontology layout, deterministic source discovery, and append-only seed persistence"
+      ]
+    },
+    {
+      "path": "src/app/ontology_adapter/tests.rs",
+      "responsibilities": [
+        "ontology application adapter regression fixtures"
       ]
     },
     {
@@ -19538,6 +19693,12 @@
       "path": "tests/architecture_contract/observability_policy/knowledge_policy.rs",
       "responsibilities": [
         "knowledge and policy ownership architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/ontology_adapter.rs",
+      "responsibilities": [
+        "ontology application adapter owner and line-budget contracts"
       ]
     },
     {

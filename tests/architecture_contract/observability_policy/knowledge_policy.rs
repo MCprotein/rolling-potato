@@ -181,31 +181,6 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         "filesystem path policy is not composed through the consumer-owned port"
     );
 
-    let ontology_facade = fs::read_to_string("src/app/ontology_adapter.rs").unwrap();
-    let ontology_seeding = fs::read_to_string("src/app/ontology_adapter/seeding.rs").unwrap();
-    assert!(ontology_facade.lines().any(|line| line == "mod seeding;"));
-    let ontology_orchestration = ontology_facade
-        .split("#[cfg(test)]")
-        .next()
-        .unwrap_or(&ontology_facade);
-    for responsibility in [
-        "fn ensure_layout(",
-        "fn seed_candidates(",
-        "fn collect_indexable_files(",
-        "fn append_records(",
-    ] {
-        assert!(
-            ontology_seeding.contains(responsibility),
-            "ontology seeding owner is missing: {responsibility}"
-        );
-        assert!(
-            !ontology_orchestration.contains(responsibility),
-            "ontology facade still owns seeding persistence: {responsibility}"
-        );
-    }
-    assert!(ontology_facade.lines().count() < 650);
-    assert!(ontology_seeding.lines().count() < 350);
-
     let ledger_facade = fs::read_to_string("src/app/workflow_adapter/ledger.rs").unwrap();
     assert!(
         ledger_facade.contains(
