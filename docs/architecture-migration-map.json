@@ -8906,6 +8906,411 @@
           ]
         }
       ]
+    },
+    {
+      "path": "docs/ko/repository-refactor-plan.md",
+      "slices": [
+        {
+          "responsibility": "Korean repository-wide maintainability and extensibility refactor plan",
+          "target": "docs/ko/repository-refactor-plan.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/ko/repository-refactor-plan.md",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/decision.rs",
+      "slices": [
+        {
+          "responsibility": "conversation turn decision and browser or web tool routing",
+          "target": "src/app/tui_adapter/conversation/decision.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/decision.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/local_facts.rs",
+      "slices": [
+        {
+          "responsibility": "local model, vision, and agent fact responses plus conversational request classification",
+          "target": "src/app/tui_adapter/conversation/local_facts.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/local_facts.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/presentation.rs",
+      "slices": [
+        {
+          "responsibility": "public conversation answer and agent report presentation",
+          "target": "src/app/tui_adapter/conversation/presentation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/presentation.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/reply.rs",
+      "slices": [
+        {
+          "responsibility": "text, image, and grounded conversation prompt assembly",
+          "target": "src/app/tui_adapter/conversation/reply.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/conversation/reply.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/answer_binding/presentation.rs",
+      "slices": [
+        {
+          "responsibility": "grounded answer presentation and source citation binding",
+          "target": "src/app/web_search_adapter/answer_binding/presentation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/answer_binding/presentation.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/answer_binding/sanitize.rs",
+      "slices": [
+        {
+          "responsibility": "grounded model answer sanitization and source marker normalization",
+          "target": "src/app/web_search_adapter/answer_binding/sanitize.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/answer_binding/sanitize.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/answer_contract.rs",
+      "slices": [
+        {
+          "responsibility": "structured grounded-answer schema validation and exact source binding",
+          "target": "src/app/web_search_adapter/answer_contract.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/answer_contract.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/grounding_policy.rs",
+      "slices": [
+        {
+          "responsibility": "generic web grounding feature and query-plan facade",
+          "target": "src/app/web_search_adapter/routing/grounding_policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing/grounding_policy.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/grounding_policy/features.rs",
+      "slices": [
+        {
+          "responsibility": "generic query and evidence lexical feature extraction",
+          "target": "src/app/web_search_adapter/routing/grounding_policy/features.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing/grounding_policy/features.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/grounding_policy/query_plan.rs",
+      "slices": [
+        {
+          "responsibility": "generic grounded-answer query feature plan",
+          "target": "src/app/web_search_adapter/routing/grounding_policy/query_plan.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing/grounding_policy/query_plan.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/grounding_policy/tests.rs",
+      "slices": [
+        {
+          "responsibility": "generic grounding feature and query-plan regression tests",
+          "target": "src/app/web_search_adapter/routing/grounding_policy/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing/grounding_policy/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/text.rs",
+      "slices": [
+        {
+          "responsibility": "shared bounded lexical normalization and tokenization helpers",
+          "target": "src/app/web_search_adapter/routing/text.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/web_search_adapter/routing/text.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/migration_map.rs",
+      "slices": [
+        {
+          "responsibility": "architecture migration map completeness and lifecycle contracts",
+          "target": "tests/architecture_contract/migration_map.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/migration_map.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/session_web_browser.rs",
+      "slices": [
+        {
+          "responsibility": "session memory, dependency, web research, browser, and documentation architecture contracts",
+          "target": "tests/architecture_contract/session_web_browser.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/session_web_browser.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries.rs",
+      "slices": [
+        {
+          "responsibility": "context, evidence, benchmark, workflow codec, platform fixture, and state adapter architecture contracts",
+          "target": "tests/architecture_contract/adapter_boundaries.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/adapter_boundaries.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/cli_install.rs",
+      "slices": [
+        {
+          "responsibility": "CLI surface, binary startup, uninstall, and installation architecture contracts",
+          "target": "tests/architecture_contract/cli_install.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/cli_install.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/collaboration.rs",
+      "slices": [
+        {
+          "responsibility": "collaboration lifecycle, execution, recovery, and reconciliation architecture contracts",
+          "target": "tests/architecture_contract/collaboration.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/collaboration.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/composition.rs",
+      "slices": [
+        {
+          "responsibility": "CLI, benchmark, model, and backend composition orchestration contracts",
+          "target": "tests/architecture_contract/composition.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/composition.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/domain_views.rs",
+      "slices": [
+        {
+          "responsibility": "domain view ownership and legacy boundary replacement contracts",
+          "target": "tests/architecture_contract/domain_views.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/domain_views.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/foundation.rs",
+      "slices": [
+        {
+          "responsibility": "architecture roots, foundation, filesystem, terminal, and platform ownership contracts",
+          "target": "tests/architecture_contract/foundation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/foundation.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference.rs",
+      "slices": [
+        {
+          "responsibility": "inference domain, runtime, adapter, protocol, and selection architecture contracts",
+          "target": "tests/architecture_contract/inference.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/inference.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy.rs",
+      "slices": [
+        {
+          "responsibility": "observability, projection, knowledge, and policy ownership contracts",
+          "target": "tests/architecture_contract/observability_policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/observability_policy.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime.rs",
+      "slices": [
+        {
+          "responsibility": "patch lifecycle, runtime dispatch, and reporting ownership contracts",
+          "target": "tests/architecture_contract/patch_runtime.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/patch_runtime.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/tui_bridge.rs",
+      "slices": [
+        {
+          "responsibility": "test fixture and TUI bridge DTO architecture contracts",
+          "target": "tests/architecture_contract/tui_bridge.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/tui_bridge.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/tui_extension.rs",
+      "slices": [
+        {
+          "responsibility": "storage compatibility, TUI responsibility, and extension ownership contracts",
+          "target": "tests/architecture_contract/tui_extension.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/tui_extension.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/workflow_transition.rs",
+      "slices": [
+        {
+          "responsibility": "workflow transaction, recovery, source transition, and installation adapter contracts",
+          "target": "tests/architecture_contract/workflow_transition.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/workflow_transition.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -12179,6 +12584,168 @@
       "path": "src/app/browser_adapter/tests.rs",
       "responsibilities": [
         "browser routing, cleanup, redirect, and fake-page search-form regression tests"
+      ]
+    },
+    {
+      "path": "docs/ko/repository-refactor-plan.md",
+      "responsibilities": [
+        "Korean repository-wide maintainability and extensibility refactor plan"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/decision.rs",
+      "responsibilities": [
+        "conversation turn decision and browser or web tool routing"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/local_facts.rs",
+      "responsibilities": [
+        "local model, vision, and agent fact responses plus conversational request classification"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/presentation.rs",
+      "responsibilities": [
+        "public conversation answer and agent report presentation"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/conversation/reply.rs",
+      "responsibilities": [
+        "text, image, and grounded conversation prompt assembly"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/answer_binding/presentation.rs",
+      "responsibilities": [
+        "grounded answer presentation and source citation binding"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/answer_binding/sanitize.rs",
+      "responsibilities": [
+        "grounded model answer sanitization and source marker normalization"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/answer_contract.rs",
+      "responsibilities": [
+        "structured grounded-answer schema validation and exact source binding"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/grounding_policy.rs",
+      "responsibilities": [
+        "generic web grounding feature and query-plan facade"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/grounding_policy/features.rs",
+      "responsibilities": [
+        "generic query and evidence lexical feature extraction"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/grounding_policy/query_plan.rs",
+      "responsibilities": [
+        "generic grounded-answer query feature plan"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/grounding_policy/tests.rs",
+      "responsibilities": [
+        "generic grounding feature and query-plan regression tests"
+      ]
+    },
+    {
+      "path": "src/app/web_search_adapter/routing/text.rs",
+      "responsibilities": [
+        "shared bounded lexical normalization and tokenization helpers"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/migration_map.rs",
+      "responsibilities": [
+        "architecture migration map completeness and lifecycle contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/session_web_browser.rs",
+      "responsibilities": [
+        "session memory, dependency, web research, browser, and documentation architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries.rs",
+      "responsibilities": [
+        "context, evidence, benchmark, workflow codec, platform fixture, and state adapter architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/cli_install.rs",
+      "responsibilities": [
+        "CLI surface, binary startup, uninstall, and installation architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/collaboration.rs",
+      "responsibilities": [
+        "collaboration lifecycle, execution, recovery, and reconciliation architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/composition.rs",
+      "responsibilities": [
+        "CLI, benchmark, model, and backend composition orchestration contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/domain_views.rs",
+      "responsibilities": [
+        "domain view ownership and legacy boundary replacement contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/foundation.rs",
+      "responsibilities": [
+        "architecture roots, foundation, filesystem, terminal, and platform ownership contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference.rs",
+      "responsibilities": [
+        "inference domain, runtime, adapter, protocol, and selection architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy.rs",
+      "responsibilities": [
+        "observability, projection, knowledge, and policy ownership contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime.rs",
+      "responsibilities": [
+        "patch lifecycle, runtime dispatch, and reporting ownership contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/tui_bridge.rs",
+      "responsibilities": [
+        "test fixture and TUI bridge DTO architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/tui_extension.rs",
+      "responsibilities": [
+        "storage compatibility, TUI responsibility, and extension ownership contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/workflow_transition.rs",
+      "responsibilities": [
+        "workflow transaction, recovery, source transition, and installation adapter contracts"
       ]
     }
   ]
