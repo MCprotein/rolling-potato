@@ -8132,13 +8132,77 @@
       "path": "src/runtime_core/workflow/domain/snapshot.rs",
       "slices": [
         {
-          "responsibility": "validated workflow and session views",
+          "responsibility": "workflow snapshot domain facade and regression tests",
           "target": "src/runtime_core/workflow/domain/snapshot.rs",
           "release": "0.37.5",
           "state": "complete",
           "evidence": [
             "src/runtime_core/workflow/domain/snapshot.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/snapshot/lease.rs",
+      "slices": [
+        {
+          "responsibility": "current-state identity and workflow lease validation",
+          "target": "src/runtime_core/workflow/domain/snapshot/lease.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/snapshot/lease.rs",
+            "src/runtime_core/workflow/domain/snapshot.rs",
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/snapshot/session.rs",
+      "slices": [
+        {
+          "responsibility": "session-resume canonical and projected authority validation",
+          "target": "src/runtime_core/workflow/domain/snapshot/session.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/snapshot/session.rs",
+            "src/runtime_core/workflow/domain/snapshot.rs",
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/snapshot/tui_read.rs",
+      "slices": [
+        {
+          "responsibility": "read-only TUI identity, ledger ancestry, pointer, and workflow validation",
+          "target": "src/runtime_core/workflow/domain/snapshot/tui_read.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/snapshot/tui_read.rs",
+            "src/runtime_core/workflow/domain/snapshot.rs",
+            "tests/architecture_contract/domain_views.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/snapshot/types.rs",
+      "slices": [
+        {
+          "responsibility": "current-state, workflow binding, lease, and TUI snapshot value objects",
+          "target": "src/runtime_core/workflow/domain/snapshot/types.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/snapshot/types.rs",
+            "src/runtime_core/workflow/domain/snapshot.rs",
+            "tests/architecture_contract/domain_views.rs"
           ]
         }
       ]
@@ -18452,7 +18516,31 @@
     {
       "path": "src/runtime_core/workflow/domain/snapshot.rs",
       "responsibilities": [
-        "validated workflow and session views"
+        "workflow snapshot domain facade and regression tests"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/snapshot/lease.rs",
+      "responsibilities": [
+        "current-state identity and workflow lease validation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/snapshot/session.rs",
+      "responsibilities": [
+        "session-resume canonical and projected authority validation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/snapshot/tui_read.rs",
+      "responsibilities": [
+        "read-only TUI identity, ledger ancestry, pointer, and workflow validation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/domain/snapshot/types.rs",
+      "responsibilities": [
+        "current-state, workflow binding, lease, and TUI snapshot value objects"
       ]
     },
     {

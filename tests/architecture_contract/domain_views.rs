@@ -16,6 +16,10 @@ fn v0375_domain_views_replace_legacy_definitions() {
     for target in [
         "src/runtime_core/workflow/domain/mod.rs",
         "src/runtime_core/workflow/domain/snapshot.rs",
+        "src/runtime_core/workflow/domain/snapshot/lease.rs",
+        "src/runtime_core/workflow/domain/snapshot/session.rs",
+        "src/runtime_core/workflow/domain/snapshot/tui_read.rs",
+        "src/runtime_core/workflow/domain/snapshot/types.rs",
         "src/runtime_core/workflow/domain/transcript.rs",
     ] {
         assert!(
@@ -46,16 +50,60 @@ fn v0375_domain_views_replace_legacy_definitions() {
     }
 
     let snapshot = fs::read_to_string("src/runtime_core/workflow/domain/snapshot.rs").unwrap();
-    for rule in [
-        "fn validate_session_resume_target",
-        "fn validate_current_lease",
-        "fn validate_read_only_workflow",
-    ] {
+    let snapshot_lease =
+        fs::read_to_string("src/runtime_core/workflow/domain/snapshot/lease.rs").unwrap();
+    let snapshot_session =
+        fs::read_to_string("src/runtime_core/workflow/domain/snapshot/session.rs").unwrap();
+    let snapshot_tui_read =
+        fs::read_to_string("src/runtime_core/workflow/domain/snapshot/tui_read.rs").unwrap();
+    let snapshot_types =
+        fs::read_to_string("src/runtime_core/workflow/domain/snapshot/types.rs").unwrap();
+    for owner in ["lease", "session", "tui_read", "types"] {
+        let declaration = format!("mod {owner};");
         assert!(
-            snapshot.contains(rule),
-            "snapshot owner is missing domain rule: {rule}"
+            snapshot.lines().any(|line| line == declaration),
+            "snapshot facade is missing child owner: {owner}"
         );
     }
+    for (owner, rule) in [
+        (&snapshot_session, "fn validate_session_resume_target"),
+        (&snapshot_lease, "fn validate_current_lease"),
+        (&snapshot_tui_read, "fn validate_read_only_workflow"),
+    ] {
+        assert!(
+            owner.contains(rule),
+            "snapshot owner is missing domain rule: {rule}"
+        );
+        assert!(
+            !snapshot.contains(rule),
+            "snapshot facade still owns domain rule: {rule}"
+        );
+    }
+    for value_object in [
+        "struct CurrentWorkflowBinding",
+        "struct CurrentStateSnapshot",
+        "struct CurrentStateLeaseView",
+        "struct TuiStateSnapshot",
+    ] {
+        assert!(
+            snapshot_types.contains(value_object),
+            "snapshot types owner is missing: {value_object}"
+        );
+        assert!(!snapshot.contains(value_object));
+    }
+    assert!(
+        snapshot
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap()
+            .lines()
+            .count()
+            < 40
+    );
+    assert!(snapshot_lease.lines().count() < 75);
+    assert!(snapshot_session.lines().count() < 75);
+    assert!(snapshot_tui_read.lines().count() < 175);
+    assert!(snapshot_types.lines().count() < 75);
 
     assert!(
         !Path::new("src/state.rs").exists(),
