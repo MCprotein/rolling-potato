@@ -1,5 +1,6 @@
 fn assert_application_adapter_contracts() {
     let intent_execution_path = "src/app/intent_adapter/execution.rs";
+    let intent_non_mutating_execution_path = "src/app/intent_adapter/execution/non_mutating.rs";
     let intent_tests_path = "src/app/intent_adapter/tests.rs";
     let patch_test_modules = [
         "src/app/patch_adapter/tests/mod.rs",
@@ -24,6 +25,8 @@ fn assert_application_adapter_contracts() {
     let skill_lifecycle_adapter = "src/app/patch_adapter/workflow_execution/skill_lifecycle.rs";
     let intent_facade = fs::read_to_string("src/app/intent_adapter.rs").unwrap();
     let intent_execution = fs::read_to_string(intent_execution_path).unwrap();
+    let intent_non_mutating_execution =
+        fs::read_to_string(intent_non_mutating_execution_path).unwrap();
     let intent_tests = fs::read_to_string(intent_tests_path).unwrap();
     let patch_facade = fs::read_to_string("src/app/patch_adapter.rs").unwrap();
     let approval_transaction = fs::read_to_string(approval_transaction_adapter).unwrap();
@@ -49,6 +52,14 @@ fn assert_application_adapter_contracts() {
     let patch_concurrency = fs::read_to_string("tests/patch/concurrency.rs").unwrap();
     let patch_safety = fs::read_to_string("tests/patch/patch_safety.rs").unwrap();
     let patch_workflow_journeys = fs::read_to_string("tests/patch/workflow_journeys.rs").unwrap();
+    let patch_workflow_journey_owners = [
+        "tests/patch/workflow_journeys/patch_lifecycle.rs",
+        "tests/patch/workflow_journeys/skill_lifecycle.rs",
+        "tests/patch/workflow_journeys/transcript_lifecycle.rs",
+        "tests/patch/workflow_journeys/imported_plugins.rs",
+    ];
+    let patch_workflow_journey_sources =
+        patch_workflow_journey_owners.map(|owner| fs::read_to_string(owner).unwrap());
     assert!(
         intent_facade.contains("#[path = \"intent_adapter/tests.rs\"]"),
         "intent facade does not register its regression-test owner"
@@ -59,13 +70,24 @@ fn assert_application_adapter_contracts() {
     );
     for responsibility in [
         "pub(super) fn run_with_decision(",
+        "mod non_mutating;",
         "plugin.capability.admitted",
         "action.candidate.prepared",
-        "invalid-or-hostile-model-action",
     ] {
         assert!(
             intent_execution.contains(responsibility),
             "intent execution owner is missing: {responsibility}"
+        );
+    }
+    for responsibility in [
+        "pub(super) fn complete(",
+        "invalid-or-hostile-model-action",
+        "plugin.capability.completed",
+        "render_non_mutating_report(",
+    ] {
+        assert!(
+            intent_non_mutating_execution.contains(responsibility),
+            "intent non-mutating execution owner is missing: {responsibility}"
         );
     }
     assert!(
@@ -92,8 +114,12 @@ fn assert_application_adapter_contracts() {
         "intent facade regrew beyond the v0.37.9 boundary"
     );
     assert!(
-        intent_execution.lines().count() < 600,
+        intent_execution.lines().count() < 500,
         "intent execution module regrew beyond its ownership boundary"
+    );
+    assert!(
+        intent_non_mutating_execution.lines().count() < 500,
+        "intent non-mutating execution module regrew beyond its ownership boundary"
     );
     assert!(
         intent_tests.lines().count() < 325,
@@ -427,12 +453,6 @@ fn assert_application_adapter_contracts() {
             "fn complete_resume_revalidates_deleted_evidence",
             300,
         ),
-        (
-            "tests/patch/workflow_journeys.rs",
-            &patch_workflow_journeys,
-            "fn happy_path_is_restart_safe_and_reports_korean",
-            825,
-        ),
     ] {
         assert!(
             source.contains(marker),
@@ -441,6 +461,32 @@ fn assert_application_adapter_contracts() {
         assert!(
             source.lines().count() < limit,
             "patch lifecycle owner regrew beyond its boundary: {owner}"
+        );
+    }
+    assert!(
+        patch_workflow_journeys.lines().count() < 10,
+        "patch workflow journey facade regrew beyond include registration"
+    );
+    for owner in patch_workflow_journey_owners {
+        assert!(
+            patch_workflow_journeys
+                .contains(&format!("include!(\"{}\")", &owner["tests/patch/".len()..])),
+            "patch workflow journey facade is missing owner: {owner}"
+        );
+    }
+    assert!(
+        patch_workflow_journey_sources
+            .iter()
+            .any(|source| source.contains("fn happy_path_is_restart_safe_and_reports_korean")),
+        "patch workflow journey owners are missing the happy-path responsibility"
+    );
+    for (owner, source) in patch_workflow_journey_owners
+        .iter()
+        .zip(patch_workflow_journey_sources.iter())
+    {
+        assert!(
+            source.lines().count() < 500,
+            "patch workflow journey owner regrew beyond its boundary: {owner}"
         );
     }
     assert!(

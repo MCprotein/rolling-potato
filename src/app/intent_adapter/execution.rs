@@ -15,6 +15,8 @@ use crate::runtime_core::patch::intent::{
 
 const RUN_MAX_TOKENS: u32 = 256;
 
+mod non_mutating;
+
 pub(super) fn run_with_decision(
     request: &str,
     decision: IntentDecision,
@@ -267,121 +269,17 @@ pub(super) fn run_with_decision(
     workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
 
     if is_non_mutating_action(&model_action.kind) {
-        let pointers_are_valid = model_action.kind != "inspect-sources"
-            || (!matches!(model_action.source_pointers.as_str(), "none" | "unverified"));
-        let action_status_is_safe = model_action.status == "parsed"
-            || (model_action.kind == "answer-only"
-                && model_action.status == "runtime-owned-answer");
-        let action_is_safe = action_status_is_safe
-            && model_action.requested_side_effects == "none"
-            && pointers_are_valid;
-        if !action_is_safe {
-            let _ = skill_runtime.transition(skill::SkillState::Failed);
-            skill_runtime.store_in_workflow(&mut workflow);
-            workflow.phase = "failed".to_string();
-            workflow.failure_reason = "invalid-or-hostile-model-action".to_string();
-            workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
-            state::clear_terminal_workflow_pointer(&workflow)?;
-            return Err(AppError::blocked(format!(
-                "run agent loop 차단\n- workflow id: {}\n- 이유: 읽기 전용 model action이 runtime 계약을 충족하지 못했습니다.\n- model side effect 실행: 없음",
-                workflow.workflow_id
-            )));
-        }
-
-        let answer = model_transcript;
-        record_non_mutating_outcomes(
-            &manifest,
-            &context_pack,
-            &model_action,
-            &answer,
-            &mut skill_runtime,
-        );
-        dispatch_skill_hook(
-            &manifest,
-            &workflow,
-            &mut skill_runtime,
-            "pre_final_report",
-            "non-mutating-report",
-            None,
-        )?;
-        dispatch_skill_hook(
-            &manifest,
-            &workflow,
-            &mut skill_runtime,
-            "stop_gate",
-            "non-mutating-stop",
-            None,
-        )?;
-        dispatch_skill_hook(
-            &manifest,
-            &workflow,
-            &mut skill_runtime,
-            "session_end",
-            "complete",
-            None,
-        )?;
-        let completed_imported = manifest
-            .imported()
-            .map(|imported| {
-                plugin::revalidate_completed_imported_skill(
-                    &imported.id,
-                    &imported.source_path,
-                    &imported.source_sha256,
-                )
-            })
-            .transpose()?;
-        if completed_imported.is_some() {
-            skill_runtime.record_stop_criterion("plugin_capability_completed");
-        }
-        if let Err(error) = skill_runtime.validate_stop_against(&manifest) {
-            return Err(fail_skill_workflow(
-                &mut workflow,
-                &mut skill_runtime,
-                "skill-stop-gate-failed",
-                error,
-            ));
-        }
-        skill_runtime.transition(skill::SkillState::StopPassed)?;
-        skill_runtime.transition(skill::SkillState::Complete)?;
-        skill_runtime.store_in_workflow(&mut workflow);
-        workflow.phase = "complete".to_string();
-        workflow.action_status = "complete".to_string();
-        workflow.approval_state = "not-required".to_string();
-        workflow.result_summary = "non-mutating action completed".to_string();
-        workflow = state::checkpoint_workflow(workflow.clone(), workflow.revision)?;
-        if let Some(imported) = completed_imported.as_ref() {
-            plugin_completion_fault("before-event")?;
-            state::record_event(
-                "plugin.capability.completed",
-                "instruction-only imported plugin skill 실행 완료",
-                &format!(
-                    "workflow_id={} plugin_id={} skill_id={} source_path={} source_sha256={} side_effects=none",
-                    workflow.workflow_id,
-                    imported.plugin_id,
-                    imported.id,
-                    imported.source_path,
-                    imported.source_sha256
-                ),
-            )?;
-            plugin_completion_fault("before-pointer-clear")?;
-        }
-        state::clear_terminal_workflow_pointer(&workflow)?;
-        let mut report = render_non_mutating_report(
+        return non_mutating::complete(
             request,
             &decision,
+            &manifest,
             &context_pack,
             &resume_context,
             &model_action,
-            &answer,
-            &workflow,
+            &model_transcript,
+            &mut workflow,
+            &mut skill_runtime,
         );
-        if let Some(imported) = manifest.imported() {
-            report.push_str(&format!(
-                "\n- plugin boundary: instruction-only/read-only\n- plugin source: {}@{}",
-                imported.source_path, imported.source_sha256
-            ));
-        }
-        return Ok(report);
     }
 
     let expected_pointer = format!("{}:1", model_action.target_path);

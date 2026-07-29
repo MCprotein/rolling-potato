@@ -9,11 +9,20 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let bundle_members_adapter = "src/app/workflow_adapter/transition/bundle_validation/members.rs";
     let bundle_workflow_members_adapter =
         "src/app/workflow_adapter/transition/bundle_validation/members/workflow.rs";
+    let canonical_adapter = "src/app/workflow_adapter/transition/canonical.rs";
+    let contracts_adapter = "src/app/workflow_adapter/transition/contracts.rs";
     let journal_adapter = "src/app/workflow_adapter/transition/journal.rs";
     let journal_codec_adapter = "src/app/workflow_adapter/transition/journal/codec.rs";
     let journal_recovery_io_adapter = "src/app/workflow_adapter/transition/journal/recovery_io.rs";
     let source_install_adapter = "src/app/workflow_adapter/transition/source_install.rs";
+    let source_support_adapter = "src/app/workflow_adapter/transition/source_support.rs";
     let transition_tests = "src/app/workflow_adapter/transition/tests/mod.rs";
+    let transition_recovery_tests =
+        "src/app/workflow_adapter/transition/tests/recovery_and_contracts.rs";
+    let transition_source_install_tests =
+        "src/app/workflow_adapter/transition/tests/source_install.rs";
+    let transition_prepared_bundle_tests =
+        "src/app/workflow_adapter/transition/tests/prepared_bundle.rs";
     for target in [
         transition_adapter,
         bundle_codec_adapter,
@@ -22,16 +31,19 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         bundle_event_chain_adapter,
         bundle_members_adapter,
         bundle_workflow_members_adapter,
+        canonical_adapter,
+        contracts_adapter,
         journal_adapter,
         journal_codec_adapter,
         journal_recovery_io_adapter,
         source_install_adapter,
+        source_support_adapter,
         transition_tests,
+        transition_recovery_tests,
+        transition_source_install_tests,
+        transition_prepared_bundle_tests,
     ] {
-        assert!(
-            Path::new(target).is_file(),
-            "missing transition adapter owner: {target}"
-        );
+        assert!(Path::new(target).is_file());
     }
 
     let transition = fs::read_to_string(transition_adapter).unwrap();
@@ -41,11 +53,37 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let bundle_event_chain = fs::read_to_string(bundle_event_chain_adapter).unwrap();
     let bundle_members = fs::read_to_string(bundle_members_adapter).unwrap();
     let bundle_workflow_members = fs::read_to_string(bundle_workflow_members_adapter).unwrap();
+    let canonical = fs::read_to_string(canonical_adapter).unwrap();
+    let contracts = fs::read_to_string(contracts_adapter).unwrap();
     let journal = fs::read_to_string(journal_adapter).unwrap();
     let journal_codec = fs::read_to_string(journal_codec_adapter).unwrap();
     let journal_recovery_io = fs::read_to_string(journal_recovery_io_adapter).unwrap();
     let source_install = fs::read_to_string(source_install_adapter).unwrap();
-    let tests = fs::read_to_string(transition_tests).unwrap();
+    let source_support = fs::read_to_string(source_support_adapter).unwrap();
+    let test_owner = fs::read_to_string(transition_tests).unwrap();
+    let recovery_tests = fs::read_to_string(transition_recovery_tests).unwrap();
+    let source_install_tests = fs::read_to_string(transition_source_install_tests).unwrap();
+    let prepared_bundle_tests = fs::read_to_string(transition_prepared_bundle_tests).unwrap();
+    let tests = format!("{recovery_tests}{source_install_tests}{prepared_bundle_tests}");
+    for (module, owner, responsibilities) in [
+        (
+            "mod canonical;",
+            canonical.as_str(),
+            &["fn required_object<'a>(", "fn render_path("][..],
+        ),
+        (
+            "mod contracts;",
+            contracts.as_str(),
+            &["fn enforce_byte_limit(", "const PREPARED_BUNDLE_KEYS"][..],
+        ),
+        (
+            "mod source_support;",
+            source_support.as_str(),
+            &["fn validate_stored_path(", "fn sha256_bytes("][..],
+        ),
+    ] {
+        assert_registered_owner(&transition, module, owner, responsibilities);
+    }
     assert!(
         transition.lines().any(|line| line == "mod bundle_codec;"),
         "transition adapter does not register the bundle-codec owner"
@@ -237,6 +275,16 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         transition.contains("#[path = \"transition/tests/mod.rs\"]"),
         "transition adapter does not register its regression test owner"
     );
+    for test_file in [
+        "recovery_and_contracts.rs",
+        "source_install.rs",
+        "prepared_bundle.rs",
+    ] {
+        assert!(
+            test_owner.contains(&format!("include!(\"{test_file}\");")),
+            "transition regression test owner does not include {test_file}"
+        );
+    }
     for responsibility in [
         "fn recovery_enforces_file_and_directory_read_bounds_before_parsing(",
         "fn source_install_v1_round_trips_exact_order_and_bindings(",
@@ -247,52 +295,49 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
             "transition regression tests are missing responsibility: {responsibility}"
         );
     }
-    assert!(
-        transition.lines().count() < 625,
-        "transition adapter regrew beyond its extracted ownership boundary"
-    );
-    assert!(
-        bundle_codec.lines().count() < 550,
-        "bundle-codec adapter regrew beyond its ownership boundary"
-    );
-    assert!(
-        bundle_preparation.lines().count() < 500,
-        "bundle-preparation adapter regrew beyond its ownership boundary"
-    );
-    assert!(
-        bundle_validation.lines().count() < 125,
-        "bundle-validation adapter regrew beyond its ownership boundary"
-    );
-    assert!(
-        bundle_event_chain.lines().count() < 100,
-        "bundle event-chain adapter regrew beyond its ownership boundary"
-    );
-    assert!(
-        bundle_members.lines().count() < 275,
-        "bundle member-validation adapter regrew beyond its ownership boundary"
-    );
-    assert!(
-        bundle_workflow_members.lines().count() < 350,
-        "workflow member-validation adapter regrew beyond its ownership boundary"
-    );
-    assert!(
-        journal.lines().count() < 550,
-        "transition journal adapter regrew beyond its ownership boundary"
-    );
-    assert!(
-        journal_codec.lines().count() < 250,
-        "transition journal codec regrew beyond its ownership boundary"
-    );
-    assert!(
-        journal_recovery_io.lines().count() < 225,
-        "transition recovery I/O adapter regrew beyond its ownership boundary"
-    );
-    assert!(
-        source_install.lines().count() < 500,
-        "source-install adapter regrew beyond its ownership boundary"
-    );
-    assert!(
-        tests.lines().count() < 750,
-        "transition regression tests regrew beyond their ownership boundary"
-    );
+    for (path, contents, maximum_lines) in [
+        (transition_adapter, transition.as_str(), 125),
+        (bundle_codec_adapter, bundle_codec.as_str(), 550),
+        (bundle_preparation_adapter, bundle_preparation.as_str(), 500),
+        (bundle_validation_adapter, bundle_validation.as_str(), 125),
+        (bundle_event_chain_adapter, bundle_event_chain.as_str(), 100),
+        (bundle_members_adapter, bundle_members.as_str(), 275),
+        (
+            bundle_workflow_members_adapter,
+            bundle_workflow_members.as_str(),
+            350,
+        ),
+        (canonical_adapter, canonical.as_str(), 500),
+        (contracts_adapter, contracts.as_str(), 500),
+        (journal_adapter, journal.as_str(), 550),
+        (journal_codec_adapter, journal_codec.as_str(), 250),
+        (
+            journal_recovery_io_adapter,
+            journal_recovery_io.as_str(),
+            225,
+        ),
+        (source_install_adapter, source_install.as_str(), 500),
+        (source_support_adapter, source_support.as_str(), 500),
+    ] {
+        assert!(
+            contents.lines().count() < maximum_lines,
+            "transition owner regrew beyond its boundary: {path}"
+        );
+    }
+    assert!(test_owner.lines().count() < 20);
+    for (path, contents) in [
+        (transition_recovery_tests, recovery_tests),
+        (transition_source_install_tests, source_install_tests),
+        (transition_prepared_bundle_tests, prepared_bundle_tests),
+    ] {
+        assert!(contents.lines().count() < 500, "{path}");
+    }
+}
+
+fn assert_registered_owner(facade: &str, module: &str, owner: &str, responsibilities: &[&str]) {
+    assert!(facade.lines().any(|line| line == module));
+    for responsibility in responsibilities {
+        assert!(owner.contains(responsibility));
+        assert!(!facade.contains(responsibility));
+    }
 }

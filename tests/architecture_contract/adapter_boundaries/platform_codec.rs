@@ -59,7 +59,7 @@ fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
         ("process", 150),
         ("trace", 50),
         ("unix", 600),
-        ("windows", 750),
+        ("windows", 50),
     ];
     for (owner, line_budget) in owners {
         let relative = format!("native_terminal/{owner}.rs");
@@ -74,6 +74,27 @@ fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
         );
     }
     assert!(native_terminal.lines().count() < 75);
+
+    let windows = fs::read_to_string("tests/support/platform/native_terminal/windows.rs").unwrap();
+    for (owner, line_budget) in [
+        ("ffi", 175),
+        ("session", 250),
+        ("pty", 225),
+        ("process", 200),
+    ] {
+        let relative = format!("windows/{owner}.rs");
+        assert!(
+            windows.contains(&relative),
+            "Windows terminal facade does not register {owner}"
+        );
+        let source =
+            fs::read_to_string(format!("tests/support/platform/native_terminal/{relative}"))
+                .unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "Windows terminal owner {owner} exceeded its {line_budget}-line budget"
+        );
+    }
 
     let surface = fs::read_to_string("tests/surfaces/native_terminal.rs").unwrap();
     let journey_owners = [

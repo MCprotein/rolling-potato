@@ -110,13 +110,7 @@ fn v0378_knowledge_and_policy_owners_hold_domain_rules() {
         ),
         (
             "src/runtime_core/knowledge/ontology.rs",
-            [
-                "struct OntologyRecord",
-                "fn parse_projection",
-                "fn runtime_context_selection",
-                "fn validate_import_text",
-            ]
-            .as_slice(),
+            ["struct OntologyRecord", "mod projection", "mod selection"].as_slice(),
         ),
         (
             "src/runtime_core/policy/approval.rs",

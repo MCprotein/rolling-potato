@@ -72,17 +72,48 @@ fn v0377_observability_ports_own_projection_and_monitoring_boundaries() {
         );
     }
     let html = fs::read_to_string("src/runtime_core/observability/html.rs").unwrap();
-    for rule in [
-        "struct HtmlReportSnapshot",
-        "fn render_report",
-        "Content-Security-Policy",
-        "fn safe_html_text",
-        "fn escape_html",
-    ] {
+    for rule in ["struct HtmlReportSnapshot", "fn render_report"] {
         assert!(
             html.contains(rule),
             "HTML monitor owner is missing contract: {rule}"
         );
+    }
+    assert!(html.lines().count() < 100);
+    for (owner, line_budget, rules) in [
+        (
+            "template",
+            175,
+            &["Content-Security-Policy", "fn render_document_start"][..],
+        ),
+        (
+            "sections",
+            250,
+            &["fn render_store_summary", "fn render_performance"][..],
+        ),
+        ("text", 125, &["fn safe_html_text", "fn escape_html"][..]),
+        (
+            "tests",
+            200,
+            &["report_is_self_contained", "empty_and_unavailable"][..],
+        ),
+    ] {
+        let relative = format!("html/{owner}.rs");
+        assert!(
+            html.contains(&relative),
+            "HTML monitor facade does not register {owner}"
+        );
+        let source =
+            fs::read_to_string(format!("src/runtime_core/observability/{relative}")).unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "HTML monitor owner {owner} exceeded its {line_budget}-line budget"
+        );
+        for rule in rules {
+            assert!(
+                source.contains(rule),
+                "HTML monitor owner {owner} is missing contract: {rule}"
+            );
+        }
     }
 
     let sqlite = fs::read_to_string("src/adapters/sqlite/observability_projection.rs").unwrap();

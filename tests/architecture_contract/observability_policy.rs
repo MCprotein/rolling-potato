@@ -2,6 +2,7 @@ use super::*;
 
 include!("observability_policy/observability.rs");
 include!("observability_policy/knowledge_policy.rs");
+include!("observability_policy/ontology.rs");
 
 #[test]
 fn observability_policy_contracts_are_split_by_responsibility() {
@@ -14,6 +15,10 @@ fn observability_policy_contracts_are_split_by_responsibility() {
         (
             "tests/architecture_contract/observability_policy/knowledge_policy.rs",
             275,
+        ),
+        (
+            "tests/architecture_contract/observability_policy/ontology.rs",
+            100,
         ),
     ] {
         assert!(

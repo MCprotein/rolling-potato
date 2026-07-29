@@ -314,6 +314,14 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
         fs::read_to_string("src/adapters/system_install/path_safety.rs").unwrap();
     let uninstall_adapter = fs::read_to_string("src/adapters/system_install/uninstall.rs").unwrap();
     let adapter_tests = fs::read_to_string("src/adapters/system_install/tests.rs").unwrap();
+    let profile_path_tests =
+        fs::read_to_string("src/adapters/system_install/tests/profile_path.rs").unwrap();
+    let clean_state_tests =
+        fs::read_to_string("src/adapters/system_install/tests/clean_state.rs").unwrap();
+    let binary_update_tests =
+        fs::read_to_string("src/adapters/system_install/tests/binary_update.rs").unwrap();
+    let uninstall_tests =
+        fs::read_to_string("src/adapters/system_install/tests/uninstall.rs").unwrap();
     for owner in [
         "binary",
         "clean_state",
@@ -338,21 +346,34 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
     assert!(uninstall_adapter.contains("pub(crate) fn binary_removal_plan("));
     assert!(uninstall_adapter.contains("pub(crate) fn remove_installed_binary("));
     assert!(adapter.contains("#[path = \"system_install/tests.rs\"]"));
-    assert!(adapter_tests.contains("fn clean_state_removes_only_managed_roots("));
-    assert!(adapter_tests
+    for owner in ["profile_path", "clean_state", "binary_update", "uninstall"] {
+        assert!(
+            adapter_tests.contains(&format!("include!(\"tests/{owner}.rs\");")),
+            "system-install test facade does not register {owner}"
+        );
+    }
+    assert!(clean_state_tests.contains("fn clean_state_removes_only_managed_roots("));
+    assert!(binary_update_tests
         .contains("fn executable_install_creates_updates_and_preserves_managed_target("));
-    assert!(adapter_tests.contains(
+    assert!(profile_path_tests.contains(
         "fn windows_powershell_path_update_is_idempotent_without_persisting_user_state("
     ));
     assert!(
-        adapter_tests.contains("fn clean_uninstall_removes_binary_and_owned_profile_block_only(")
+        uninstall_tests.contains("fn clean_uninstall_removes_binary_and_owned_profile_block_only(")
     );
-    assert!(adapter_tests.contains("fn windows_powershell_path_removal_is_exact_and_idempotent("));
+    assert!(
+        profile_path_tests.contains("fn windows_powershell_path_removal_is_exact_and_idempotent(")
+    );
     assert!(adapter.lines().count() < 200);
     assert!(binary_adapter.lines().count() < 425);
     assert!(clean_state_adapter.lines().count() < 125);
     assert!(path_registration_adapter.lines().count() < 400);
     assert!(path_safety_adapter.lines().count() < 75);
+    assert!(adapter_tests.lines().count() < 50);
+    assert!(profile_path_tests.lines().count() < 250);
+    assert!(clean_state_tests.lines().count() < 150);
+    assert!(binary_update_tests.lines().count() < 250);
+    assert!(uninstall_tests.lines().count() < 175);
 
     let runtime_mutation =
         fs::read_to_string("src/adapters/filesystem/runtime_mutation.rs").unwrap();

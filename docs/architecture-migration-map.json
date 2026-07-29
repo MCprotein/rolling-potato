@@ -11381,6 +11381,681 @@
           ]
         }
       ]
+    },
+    {
+      "path": "src/adapters/system_install/tests/binary_update.rs",
+      "slices": [
+        {
+          "responsibility": "managed binary install and self-update regressions",
+          "target": "src/adapters/system_install/tests/binary_update.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install/tests/binary_update.rs",
+            "tests/architecture_contract/cli_install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/tests/clean_state.rs",
+      "slices": [
+        {
+          "responsibility": "managed runtime clean-state safety regressions",
+          "target": "src/adapters/system_install/tests/clean_state.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install/tests/clean_state.rs",
+            "tests/architecture_contract/cli_install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/tests/profile_path.rs",
+      "slices": [
+        {
+          "responsibility": "managed profile and PATH registration regressions",
+          "target": "src/adapters/system_install/tests/profile_path.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install/tests/profile_path.rs",
+            "tests/architecture_contract/cli_install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/tests/uninstall.rs",
+      "slices": [
+        {
+          "responsibility": "managed binary and PATH uninstall regressions",
+          "target": "src/adapters/system_install/tests/uninstall.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install/tests/uninstall.rs",
+            "tests/architecture_contract/cli_install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/current_snapshot/encoding_promotion.rs",
+      "slices": [
+        {
+          "responsibility": "current-state encoding, promotion, and corruption regressions",
+          "target": "src/app/workflow_adapter/state/tests/current_snapshot/encoding_promotion.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/tests/current_snapshot/encoding_promotion.rs",
+            "tests/architecture_contract/adapter_boundaries/state.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/current_snapshot/read_isolation.rs",
+      "slices": [
+        {
+          "responsibility": "current-state read, isolation, and lease regressions",
+          "target": "src/app/workflow_adapter/state/tests/current_snapshot/read_isolation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/tests/current_snapshot/read_isolation.rs",
+            "tests/architecture_contract/adapter_boundaries/state.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/current_snapshot/session_selection.rs",
+      "slices": [
+        {
+          "responsibility": "session removal, listing, resume, and TUI selection regressions",
+          "target": "src/app/workflow_adapter/state/tests/current_snapshot/session_selection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/tests/current_snapshot/session_selection.rs",
+            "tests/architecture_contract/adapter_boundaries/state.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/lifecycle/bootstrap_session.rs",
+      "slices": [
+        {
+          "responsibility": "state bootstrap and session transaction crash regressions",
+          "target": "src/app/workflow_adapter/state/tests/lifecycle/bootstrap_session.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/tests/lifecycle/bootstrap_session.rs",
+            "tests/architecture_contract/adapter_boundaries/state.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/lifecycle/pointer_recovery.rs",
+      "slices": [
+        {
+          "responsibility": "active and terminal workflow pointer recovery regressions",
+          "target": "src/app/workflow_adapter/state/tests/lifecycle/pointer_recovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/tests/lifecycle/pointer_recovery.rs",
+            "tests/architecture_contract/adapter_boundaries/state.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/lifecycle/workflow_recovery.rs",
+      "slices": [
+        {
+          "responsibility": "workflow checkpoint and journal recovery regressions",
+          "target": "src/app/workflow_adapter/state/tests/lifecycle/workflow_recovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/tests/lifecycle/workflow_recovery.rs",
+            "tests/architecture_contract/adapter_boundaries/state.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/tests/prepared_bundle.rs",
+      "slices": [
+        {
+          "responsibility": "prepared workflow bundle validation and commit regressions",
+          "target": "src/app/workflow_adapter/transition/tests/prepared_bundle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/tests/prepared_bundle.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/tests/recovery_and_contracts.rs",
+      "slices": [
+        {
+          "responsibility": "workflow transition recovery and contract regressions",
+          "target": "src/app/workflow_adapter/transition/tests/recovery_and_contracts.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/tests/recovery_and_contracts.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/tests/source_install.rs",
+      "slices": [
+        {
+          "responsibility": "source installation transition regressions",
+          "target": "src/app/workflow_adapter/transition/tests/source_install.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/tests/source_install.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/patch/workflow_journeys/imported_plugins.rs",
+      "slices": [
+        {
+          "responsibility": "imported plugin patch journey regressions",
+          "target": "tests/patch/workflow_journeys/imported_plugins.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/patch/workflow_journeys/imported_plugins.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/patch/workflow_journeys/patch_lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "patch proposal and application lifecycle journeys",
+          "target": "tests/patch/workflow_journeys/patch_lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/patch/workflow_journeys/patch_lifecycle.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/patch/workflow_journeys/skill_lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "skill-governed patch lifecycle journeys",
+          "target": "tests/patch/workflow_journeys/skill_lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/patch/workflow_journeys/skill_lifecycle.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/patch/workflow_journeys/transcript_lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "patch transcript and evidence lifecycle journeys",
+          "target": "tests/patch/workflow_journeys/transcript_lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/patch/workflow_journeys/transcript_lifecycle.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/windows/ffi.rs",
+      "slices": [
+        {
+          "responsibility": "Windows ConPTY types, constants, and FFI declarations",
+          "target": "tests/support/platform/native_terminal/windows/ffi.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal/windows/ffi.rs",
+            "tests/architecture_contract/adapter_boundaries/platform_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/windows/process.rs",
+      "slices": [
+        {
+          "responsibility": "Windows native-terminal probe compilation and child process helpers",
+          "target": "tests/support/platform/native_terminal/windows/process.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal/windows/process.rs",
+            "tests/architecture_contract/adapter_boundaries/platform_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/windows/pty.rs",
+      "slices": [
+        {
+          "responsibility": "Windows NativePty API and lifecycle",
+          "target": "tests/support/platform/native_terminal/windows/pty.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal/windows/pty.rs",
+            "tests/architecture_contract/adapter_boundaries/platform_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/windows/session.rs",
+      "slices": [
+        {
+          "responsibility": "reusable Windows ConPTY session and output management",
+          "target": "tests/support/platform/native_terminal/windows/session.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal/windows/session.rs",
+            "tests/architecture_contract/adapter_boundaries/platform_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/tests/execution_recovery.rs",
+      "slices": [
+        {
+          "responsibility": "team execution and recovery regressions",
+          "target": "src/app/collaboration_adapter/team_execution/tests/execution_recovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_execution/tests/execution_recovery.rs",
+            "tests/architecture_contract/collaboration/team.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/tests/fixtures.rs",
+      "slices": [
+        {
+          "responsibility": "shared team execution test fixtures",
+          "target": "src/app/collaboration_adapter/team_execution/tests/fixtures.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_execution/tests/fixtures.rs",
+            "tests/architecture_contract/collaboration/team.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/tests/pressure_and_failures.rs",
+      "slices": [
+        {
+          "responsibility": "team resource pressure and failure regressions",
+          "target": "src/app/collaboration_adapter/team_execution/tests/pressure_and_failures.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_execution/tests/pressure_and_failures.rs",
+            "tests/architecture_contract/collaboration/team.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/tests/reconciliation.rs",
+      "slices": [
+        {
+          "responsibility": "team execution reconciliation regressions",
+          "target": "src/app/collaboration_adapter/team_execution/tests/reconciliation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team_execution/tests/reconciliation.rs",
+            "tests/architecture_contract/collaboration/team.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/html/sections.rs",
+      "slices": [
+        {
+          "responsibility": "observability report section serialization",
+          "target": "src/runtime_core/observability/html/sections.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/html/sections.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/html/template.rs",
+      "slices": [
+        {
+          "responsibility": "observability report CSP, styling, and document template",
+          "target": "src/runtime_core/observability/html/template.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/html/template.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/html/tests.rs",
+      "slices": [
+        {
+          "responsibility": "observability HTML security and empty-state regressions",
+          "target": "src/runtime_core/observability/html/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/html/tests.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/html/text.rs",
+      "slices": [
+        {
+          "responsibility": "observability HTML formatting, redaction, and escaping",
+          "target": "src/runtime_core/observability/html/text.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/observability/html/text.rs",
+            "tests/architecture_contract/observability_policy/observability.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/execution/non_mutating.rs",
+      "slices": [
+        {
+          "responsibility": "non-mutating intent completion, stop-gate, and reporting orchestration",
+          "target": "src/app/intent_adapter/execution/non_mutating.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/intent_adapter/execution/non_mutating.rs",
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/ontology/codec.rs",
+      "slices": [
+        {
+          "responsibility": "ontology record serialization, parsing, stable identity, and hash encoding",
+          "target": "src/runtime_core/knowledge/ontology/codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/ontology/codec.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/ontology/import.rs",
+      "slices": [
+        {
+          "responsibility": "ontology import schema and sourced Layer B validation",
+          "target": "src/runtime_core/knowledge/ontology/import.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/ontology/import.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/ontology/projection.rs",
+      "slices": [
+        {
+          "responsibility": "ontology JSONL projection, seed comparison, and revision pointers",
+          "target": "src/runtime_core/knowledge/ontology/projection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/ontology/projection.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/ontology/selection.rs",
+      "slices": [
+        {
+          "responsibility": "ontology diagnostics and runtime context selection",
+          "target": "src/runtime_core/knowledge/ontology/selection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/ontology/selection.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/ontology/tests.rs",
+      "slices": [
+        {
+          "responsibility": "ontology codec, projection, and context regressions",
+          "target": "src/runtime_core/knowledge/ontology/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/knowledge/ontology/tests.rs",
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/canonical.rs",
+      "slices": [
+        {
+          "responsibility": "canonical transition object parsing, rendering, and value validation",
+          "target": "src/app/workflow_adapter/transition/canonical.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/canonical.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/contracts.rs",
+      "slices": [
+        {
+          "responsibility": "transition byte budgets, canonical key schemas, and source operation contracts",
+          "target": "src/app/workflow_adapter/transition/contracts.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/contracts.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_support.rs",
+      "slices": [
+        {
+          "responsibility": "source path validation, identity, length, and hash helpers",
+          "target": "src/app/workflow_adapter/transition/source_support.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/source_support.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/chat.rs",
+      "slices": [
+        {
+          "responsibility": "chat admission and token budget decisions",
+          "target": "src/runtime_core/inference/resource/chat.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/resource/chat.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/context_model.rs",
+      "slices": [
+        {
+          "responsibility": "context budget and model routing decisions",
+          "target": "src/runtime_core/inference/resource/context_model.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/resource/context_model.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/lanes.rs",
+      "slices": [
+        {
+          "responsibility": "team lane admission decisions",
+          "target": "src/runtime_core/inference/resource/lanes.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/resource/lanes.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/optimization.rs",
+      "slices": [
+        {
+          "responsibility": "runtime optimization policy decisions",
+          "target": "src/runtime_core/inference/resource/optimization.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/resource/optimization.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/pressure.rs",
+      "slices": [
+        {
+          "responsibility": "resource pressure classification",
+          "target": "src/runtime_core/inference/resource/pressure.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/resource/pressure.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/types.rs",
+      "slices": [
+        {
+          "responsibility": "resource governor value types and stable labels",
+          "target": "src/runtime_core/inference/resource/types.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/resource/types.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/ontology.rs",
+      "slices": [
+        {
+          "responsibility": "ontology runtime owner and dependency architecture contracts",
+          "target": "tests/architecture_contract/observability_policy/ontology.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/observability_policy/ontology.rs",
+            "tests/architecture_contract/observability_policy.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -15578,6 +16253,276 @@
       "path": "src/runtime_core/knowledge/compaction/token_budget.rs",
       "responsibilities": [
         "conservative token estimation and UTF-8-safe truncation"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/tests/binary_update.rs",
+      "responsibilities": [
+        "managed binary install and self-update regressions"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/tests/clean_state.rs",
+      "responsibilities": [
+        "managed runtime clean-state safety regressions"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/tests/profile_path.rs",
+      "responsibilities": [
+        "managed profile and PATH registration regressions"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/tests/uninstall.rs",
+      "responsibilities": [
+        "managed binary and PATH uninstall regressions"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/current_snapshot/encoding_promotion.rs",
+      "responsibilities": [
+        "current-state encoding, promotion, and corruption regressions"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/current_snapshot/read_isolation.rs",
+      "responsibilities": [
+        "current-state read, isolation, and lease regressions"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/current_snapshot/session_selection.rs",
+      "responsibilities": [
+        "session removal, listing, resume, and TUI selection regressions"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/lifecycle/bootstrap_session.rs",
+      "responsibilities": [
+        "state bootstrap and session transaction crash regressions"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/lifecycle/pointer_recovery.rs",
+      "responsibilities": [
+        "active and terminal workflow pointer recovery regressions"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/tests/lifecycle/workflow_recovery.rs",
+      "responsibilities": [
+        "workflow checkpoint and journal recovery regressions"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/tests/prepared_bundle.rs",
+      "responsibilities": [
+        "prepared workflow bundle validation and commit regressions"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/tests/recovery_and_contracts.rs",
+      "responsibilities": [
+        "workflow transition recovery and contract regressions"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/tests/source_install.rs",
+      "responsibilities": [
+        "source installation transition regressions"
+      ]
+    },
+    {
+      "path": "tests/patch/workflow_journeys/imported_plugins.rs",
+      "responsibilities": [
+        "imported plugin patch journey regressions"
+      ]
+    },
+    {
+      "path": "tests/patch/workflow_journeys/patch_lifecycle.rs",
+      "responsibilities": [
+        "patch proposal and application lifecycle journeys"
+      ]
+    },
+    {
+      "path": "tests/patch/workflow_journeys/skill_lifecycle.rs",
+      "responsibilities": [
+        "skill-governed patch lifecycle journeys"
+      ]
+    },
+    {
+      "path": "tests/patch/workflow_journeys/transcript_lifecycle.rs",
+      "responsibilities": [
+        "patch transcript and evidence lifecycle journeys"
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/windows/ffi.rs",
+      "responsibilities": [
+        "Windows ConPTY types, constants, and FFI declarations"
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/windows/process.rs",
+      "responsibilities": [
+        "Windows native-terminal probe compilation and child process helpers"
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/windows/pty.rs",
+      "responsibilities": [
+        "Windows NativePty API and lifecycle"
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/windows/session.rs",
+      "responsibilities": [
+        "reusable Windows ConPTY session and output management"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/tests/execution_recovery.rs",
+      "responsibilities": [
+        "team execution and recovery regressions"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/tests/fixtures.rs",
+      "responsibilities": [
+        "shared team execution test fixtures"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/tests/pressure_and_failures.rs",
+      "responsibilities": [
+        "team resource pressure and failure regressions"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team_execution/tests/reconciliation.rs",
+      "responsibilities": [
+        "team execution reconciliation regressions"
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/html/sections.rs",
+      "responsibilities": [
+        "observability report section serialization"
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/html/template.rs",
+      "responsibilities": [
+        "observability report CSP, styling, and document template"
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/html/tests.rs",
+      "responsibilities": [
+        "observability HTML security and empty-state regressions"
+      ]
+    },
+    {
+      "path": "src/runtime_core/observability/html/text.rs",
+      "responsibilities": [
+        "observability HTML formatting, redaction, and escaping"
+      ]
+    },
+    {
+      "path": "src/app/intent_adapter/execution/non_mutating.rs",
+      "responsibilities": [
+        "non-mutating intent completion, stop-gate, and reporting orchestration"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/ontology/codec.rs",
+      "responsibilities": [
+        "ontology record serialization, parsing, stable identity, and hash encoding"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/ontology/import.rs",
+      "responsibilities": [
+        "ontology import schema and sourced Layer B validation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/ontology/projection.rs",
+      "responsibilities": [
+        "ontology JSONL projection, seed comparison, and revision pointers"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/ontology/selection.rs",
+      "responsibilities": [
+        "ontology diagnostics and runtime context selection"
+      ]
+    },
+    {
+      "path": "src/runtime_core/knowledge/ontology/tests.rs",
+      "responsibilities": [
+        "ontology codec, projection, and context regressions"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/canonical.rs",
+      "responsibilities": [
+        "canonical transition object parsing, rendering, and value validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/contracts.rs",
+      "responsibilities": [
+        "transition byte budgets, canonical key schemas, and source operation contracts"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_support.rs",
+      "responsibilities": [
+        "source path validation, identity, length, and hash helpers"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/chat.rs",
+      "responsibilities": [
+        "chat admission and token budget decisions"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/context_model.rs",
+      "responsibilities": [
+        "context budget and model routing decisions"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/lanes.rs",
+      "responsibilities": [
+        "team lane admission decisions"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/optimization.rs",
+      "responsibilities": [
+        "runtime optimization policy decisions"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/pressure.rs",
+      "responsibilities": [
+        "resource pressure classification"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/resource/types.rs",
+      "responsibilities": [
+        "resource governor value types and stable labels"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/ontology.rs",
+      "responsibilities": [
+        "ontology runtime owner and dependency architecture contracts"
       ]
     }
   ]

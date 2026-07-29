@@ -107,13 +107,34 @@ fn assert_team_execution_boundaries() {
     let admission_path = "src/app/collaboration_adapter/team_execution/admission.rs";
     let events_path = "src/app/collaboration_adapter/team_execution/events.rs";
     let tests_path = "src/app/collaboration_adapter/team_execution/tests.rs";
-    for path in [adapter_path, admission_path, events_path, tests_path] {
+    let fixtures_path = "src/app/collaboration_adapter/team_execution/tests/fixtures.rs";
+    let execution_recovery_path =
+        "src/app/collaboration_adapter/team_execution/tests/execution_recovery.rs";
+    let pressure_and_failures_path =
+        "src/app/collaboration_adapter/team_execution/tests/pressure_and_failures.rs";
+    let reconciliation_path =
+        "src/app/collaboration_adapter/team_execution/tests/reconciliation.rs";
+    for path in [
+        adapter_path,
+        admission_path,
+        events_path,
+        tests_path,
+        fixtures_path,
+        execution_recovery_path,
+        pressure_and_failures_path,
+        reconciliation_path,
+    ] {
         assert_file(path);
     }
     let adapter = source(adapter_path);
     let admission = source(admission_path);
     let events = source(events_path);
-    let tests = source(tests_path);
+    let test_owner = source(tests_path);
+    let fixtures = source(fixtures_path);
+    let execution_recovery = source(execution_recovery_path);
+    let pressure_and_failures = source(pressure_and_failures_path);
+    let reconciliation = source(reconciliation_path);
+    let tests = format!("{fixtures}{execution_recovery}{pressure_and_failures}{reconciliation}");
 
     assert_registered(&adapter, "mod admission;", "team execution adapter");
     assert_registered(&adapter, "mod events;", "team execution adapter");
@@ -138,6 +159,17 @@ fn assert_team_execution_boundaries() {
         adapter.contains("#[path = \"team_execution/tests.rs\"]"),
         "team execution adapter does not register its regression-test owner"
     );
+    for test_file in [
+        "fixtures.rs",
+        "execution_recovery.rs",
+        "pressure_and_failures.rs",
+        "reconciliation.rs",
+    ] {
+        assert!(
+            test_owner.contains(&format!("include!(\"tests/{test_file}\");")),
+            "team execution regression-test owner does not include {test_file}"
+        );
+    }
     for regression in [
         "fn dispatch_retry_resumes_fully_admitted_workers_without_duplicate_admission(",
         "fn cancel_cannot_cross_the_admission_operation_barrier(",
@@ -150,7 +182,15 @@ fn assert_team_execution_boundaries() {
     assert!(adapter.lines().count() <= 325);
     assert_line_bound(&admission, 300, admission_path);
     assert_line_bound(&events, 125, events_path);
-    assert_line_bound(&tests, 650, tests_path);
+    assert_line_bound(&test_owner, 20, tests_path);
+    for (path, contents) in [
+        (fixtures_path, fixtures),
+        (execution_recovery_path, execution_recovery),
+        (pressure_and_failures_path, pressure_and_failures),
+        (reconciliation_path, reconciliation),
+    ] {
+        assert_line_bound(&contents, 500, path);
+    }
 }
 
 fn assert_team_state_boundaries() {

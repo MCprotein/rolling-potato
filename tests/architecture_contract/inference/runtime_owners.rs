@@ -244,6 +244,46 @@ fn assert_runtime_inference_owners() {
         resource_policy.contains("#[path = \"resource/tests.rs\"]"),
         "resource policy does not register its regression test owner"
     );
+    for (owner, line_budget, responsibilities) in [
+        (
+            "types",
+            275,
+            &[
+                "pub enum ResourcePressure",
+                "pub struct ResourceLaneDecision",
+            ][..],
+        ),
+        ("pressure", 75, &["pub fn classify_pressure("][..]),
+        ("chat", 100, &["pub fn chat_governor_decision("][..]),
+        ("lanes", 100, &["pub fn team_lane_decision("][..]),
+        (
+            "context_model",
+            150,
+            &["pub fn context_model_governor_decision("][..],
+        ),
+        (
+            "optimization",
+            200,
+            &["pub fn optimization_policy_decision("][..],
+        ),
+    ] {
+        let relative = format!("resource/{owner}.rs");
+        assert!(
+            resource_policy.contains(&relative),
+            "resource policy facade does not register {owner}"
+        );
+        let source = fs::read_to_string(format!("src/runtime_core/inference/{relative}")).unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "resource policy owner {owner} exceeded its {line_budget}-line budget"
+        );
+        for responsibility in responsibilities {
+            assert!(
+                source.contains(responsibility),
+                "resource policy owner {owner} is missing: {responsibility}"
+            );
+        }
+    }
     for regression in [
         "fn classify_pressure_handles_unknown_normal_and_thresholds(",
         "fn chat_governor_allows_clamps_and_blocks_by_pressure(",
@@ -259,7 +299,7 @@ fn assert_runtime_inference_owners() {
         );
     }
     assert!(
-        resource_policy.lines().count() < 600,
+        resource_policy.lines().count() < 75,
         "resource policy regrew beyond its ownership boundary"
     );
     assert!(

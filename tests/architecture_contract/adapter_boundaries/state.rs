@@ -33,7 +33,13 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         "src/app/workflow_adapter/state/tests/mod.rs",
         "src/app/workflow_adapter/state/tests/callgraph.rs",
         "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+        "src/app/workflow_adapter/state/tests/current_snapshot/encoding_promotion.rs",
+        "src/app/workflow_adapter/state/tests/current_snapshot/read_isolation.rs",
+        "src/app/workflow_adapter/state/tests/current_snapshot/session_selection.rs",
         "src/app/workflow_adapter/state/tests/lifecycle.rs",
+        "src/app/workflow_adapter/state/tests/lifecycle/bootstrap_session.rs",
+        "src/app/workflow_adapter/state/tests/lifecycle/pointer_recovery.rs",
+        "src/app/workflow_adapter/state/tests/lifecycle/workflow_recovery.rs",
         "src/app/workflow_adapter/state/tests/source_install.rs",
         "src/app/workflow_adapter/state/tests/workflow_store.rs",
     ];
@@ -429,6 +435,33 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         );
     }
 
+    let current_snapshot_tests =
+        fs::read_to_string("src/app/workflow_adapter/state/tests/current_snapshot.rs").unwrap();
+    for owner in [
+        "encoding_promotion",
+        "read_isolation",
+        "session_selection",
+    ] {
+        assert!(
+            current_snapshot_tests.contains(&format!(
+                "include!(\"current_snapshot/{owner}.rs\");"
+            )),
+            "current-snapshot test facade does not register {owner}"
+        );
+    }
+    let lifecycle_tests =
+        fs::read_to_string("src/app/workflow_adapter/state/tests/lifecycle.rs").unwrap();
+    for owner in [
+        "bootstrap_session",
+        "pointer_recovery",
+        "workflow_recovery",
+    ] {
+        assert!(
+            lifecycle_tests.contains(&format!("include!(\"lifecycle/{owner}.rs\");")),
+            "lifecycle test facade does not register {owner}"
+        );
+    }
+
     assert!(state.lines().count() < 450);
     assert!(current_snapshot.lines().count() < 50);
     assert!(current_snapshot_codec.lines().count() < 450);
@@ -456,7 +489,7 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     for test_module in state_test_modules {
         let tests = fs::read_to_string(test_module).unwrap();
         assert!(
-            tests.lines().count() < 700,
+            tests.lines().count() < 500,
             "oversized state test module: {test_module}"
         );
     }
