@@ -87,7 +87,12 @@ fn rebuild_session_context_for_limit(
 ) -> Result<ResumeContext, AppError> {
     let budget = ResumeContextBudget::for_context_limit(context_limit_tokens);
     let records = transcript::records_for_session(session_id)?;
-    let compacted = compaction::load_current_artifact(session_id).ok().flatten();
+    let compacted = match source_policy {
+        HistoricalSourcePolicy::Strict => compaction::load_current_artifact(session_id)?,
+        HistoricalSourcePolicy::BestEffort => {
+            compaction::load_current_artifact(session_id).ok().flatten()
+        }
+    };
     let boundary_index = compacted.as_ref().and_then(|artifact| {
         records
             .iter()

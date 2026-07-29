@@ -1,6 +1,9 @@
 use super::*;
 use crate::adapters::filesystem::layout as paths;
 use crate::app::workflow_adapter::transcript;
+use crate::runtime_core::knowledge::compaction::{
+    parse_artifact, render_artifact, render_artifact_payload,
+};
 use crate::runtime_core::knowledge::context::{
     MAX_CONTEXT_CHARS, MAX_CONTEXT_FILES, MAX_FILE_BYTES,
 };
@@ -299,6 +302,61 @@ fn active_conversation_context_is_bounded_and_drops_stale_source_pointer() {
     assert!(continued_after_delete.transcript_turns_selected > 0);
     assert_eq!(continued_after_delete.sources.files_read, 0);
     assert_eq!(continued_after_delete.sources.dropped_files, 1);
+
+    std::env::remove_var("RPOTATO_PROJECT_ROOT");
+    std::env::remove_var("RPOTATO_DATA_HOME");
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn explicit_resume_rejects_a_corrupted_compaction_hash_chain() {
+    let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
+    let root = std::env::temp_dir().join(format!(
+        "rpotato-resume-compaction-chain-test-{}",
+        std::process::id()
+    ));
+    let project_root = root.join("project");
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&project_root).unwrap();
+    std::env::set_var("RPOTATO_PROJECT_ROOT", &project_root);
+    std::env::set_var("RPOTATO_DATA_HOME", root.join("data"));
+
+    crate::app::workflow_adapter::state::initialize().unwrap();
+    let workflow =
+        crate::app::workflow_adapter::state::create_workflow("resume chain validation").unwrap();
+    for phase in 0..2 {
+        for index in 0..20 {
+            transcript::record_workflow_turn(
+                &workflow,
+                if index % 2 == 0 { "user" } else { "model" },
+                &format!("phase-{phase}-turn-{index}"),
+                &format!("phase {phase} turn {index} {}", "x".repeat(500)),
+                &[],
+            )
+            .unwrap();
+        }
+        let outcome = compaction::compact_manually_for_context_limit(131_072).unwrap();
+        assert!(outcome.compacted);
+    }
+
+    let head_pointer =
+        crate::app::workflow_adapter::state::current_compaction_boundary(&workflow.session_id)
+            .unwrap()
+            .unwrap();
+    let head_path = paths::app_data_root().join(head_pointer);
+    let mut head = parse_artifact(
+        &fs::read_to_string(&head_path).unwrap(),
+        "resume chain regression fixture",
+    )
+    .unwrap();
+    assert_ne!(head.previous_artifact_path, "none");
+    head.previous_artifact_hash = "b".repeat(64);
+    head.artifact_hash = crate::foundation::integrity::sha256_text(&render_artifact_payload(&head));
+    fs::write(&head_path, render_artifact(&head)).unwrap();
+
+    let error = rebuild_resume_context_for_limit(&workflow.session_id, None, 131_072).unwrap_err();
+    assert_eq!(error.code, 3);
+    assert!(error.message.contains("previous hash 불일치"));
 
     std::env::remove_var("RPOTATO_PROJECT_ROOT");
     std::env::remove_var("RPOTATO_DATA_HOME");
