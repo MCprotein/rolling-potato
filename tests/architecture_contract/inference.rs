@@ -2,12 +2,18 @@ use super::*;
 
 include!("inference/application_backend.rs");
 include!("inference/application_model.rs");
+include!("inference/model_manifest.rs");
 include!("inference/runtime_owners.rs");
 
 #[test]
 fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     let facade = fs::read_to_string("tests/architecture_contract/inference.rs").unwrap();
-    for owner in ["application_backend", "application_model", "runtime_owners"] {
+    for owner in [
+        "application_backend",
+        "application_model",
+        "model_manifest",
+        "runtime_owners",
+    ] {
         assert!(
             facade.contains(&format!("include!(\"inference/{owner}.rs\");")),
             "inference architecture facade does not register {owner}"
@@ -27,4 +33,5 @@ fn v0373_inference_owners_replace_legacy_domain_and_adapter_slices() {
     assert_runtime_inference_owners();
     assert_application_backend_owners();
     assert_application_model_owners();
+    assert_model_manifest_owners();
 }

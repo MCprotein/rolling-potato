@@ -4247,12 +4247,62 @@
       "path": "src/runtime_core/inference/model/manifest.rs",
       "slices": [
         {
-          "responsibility": "model manifest catalog and lifecycle DTOs",
+          "responsibility": "model manifest catalog facade, source claims, and candidate counts",
           "target": "src/runtime_core/inference/model/manifest.rs",
-          "release": "0.37.3",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/runtime_core/inference/model/manifest.rs"
+            "src/runtime_core/inference/model/manifest.rs",
+            "src/runtime_core/inference/model/manifest/types.rs",
+            "src/runtime_core/inference/model/manifest/validation.rs",
+            "src/runtime_core/inference/model/manifest/tests.rs",
+            "tests/architecture_contract/inference/model_manifest.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/manifest/types.rs",
+      "slices": [
+        {
+          "responsibility": "model manifest lifecycle, registry, artifact, and promotion data contracts",
+          "target": "src/runtime_core/inference/model/manifest/types.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/manifest/types.rs",
+            "tests/architecture_contract/inference/model_manifest.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/manifest/validation.rs",
+      "slices": [
+        {
+          "responsibility": "model candidate lookup and source-backed artifact readiness validation",
+          "target": "src/runtime_core/inference/model/manifest/validation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/manifest/validation.rs",
+            "src/runtime_core/inference/model/manifest/tests.rs",
+            "tests/architecture_contract/inference/model_manifest.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/manifest/tests.rs",
+      "slices": [
+        {
+          "responsibility": "model manifest catalog and artifact readiness regression tests",
+          "target": "src/runtime_core/inference/model/manifest/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/manifest/tests.rs",
+            "tests/architecture_contract/inference/model_manifest.rs"
           ]
         }
       ]
@@ -14202,7 +14252,25 @@
     {
       "path": "src/runtime_core/inference/model/manifest.rs",
       "responsibilities": [
-        "model manifest catalog and lifecycle DTOs"
+        "model manifest catalog facade, source claims, and candidate counts"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/manifest/types.rs",
+      "responsibilities": [
+        "model manifest lifecycle, registry, artifact, and promotion data contracts"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/manifest/validation.rs",
+      "responsibilities": [
+        "model candidate lookup and source-backed artifact readiness validation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/manifest/tests.rs",
+      "responsibilities": [
+        "model manifest catalog and artifact readiness regression tests"
       ]
     },
     {
