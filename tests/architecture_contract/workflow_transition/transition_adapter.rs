@@ -31,6 +31,14 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let journal_recovery_adapter = "src/app/workflow_adapter/transition/journal/recovery.rs";
     let journal_recovery_io_adapter = "src/app/workflow_adapter/transition/journal/recovery_io.rs";
     let source_install_adapter = "src/app/workflow_adapter/transition/source_install.rs";
+    let source_install_codec_adapter =
+        "src/app/workflow_adapter/transition/source_install/codec.rs";
+    let source_install_paths_adapter =
+        "src/app/workflow_adapter/transition/source_install/paths.rs";
+    let source_install_preparation_adapter =
+        "src/app/workflow_adapter/transition/source_install/preparation.rs";
+    let source_install_validation_adapter =
+        "src/app/workflow_adapter/transition/source_install/validation.rs";
     let source_support_adapter = "src/app/workflow_adapter/transition/source_support.rs";
     let transition_tests = "src/app/workflow_adapter/transition/tests/mod.rs";
     let transition_recovery_tests =
@@ -63,6 +71,10 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         journal_recovery_adapter,
         journal_recovery_io_adapter,
         source_install_adapter,
+        source_install_codec_adapter,
+        source_install_paths_adapter,
+        source_install_preparation_adapter,
+        source_install_validation_adapter,
         source_support_adapter,
         transition_tests,
         transition_recovery_tests,
@@ -96,6 +108,12 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let journal_recovery = fs::read_to_string(journal_recovery_adapter).unwrap();
     let journal_recovery_io = fs::read_to_string(journal_recovery_io_adapter).unwrap();
     let source_install = fs::read_to_string(source_install_adapter).unwrap();
+    let source_install_codec = fs::read_to_string(source_install_codec_adapter).unwrap();
+    let source_install_paths = fs::read_to_string(source_install_paths_adapter).unwrap();
+    let source_install_preparation =
+        fs::read_to_string(source_install_preparation_adapter).unwrap();
+    let source_install_validation =
+        fs::read_to_string(source_install_validation_adapter).unwrap();
     let source_support = fs::read_to_string(source_support_adapter).unwrap();
     let test_owner = fs::read_to_string(transition_tests).unwrap();
     let recovery_tests = fs::read_to_string(transition_recovery_tests).unwrap();
@@ -378,23 +396,53 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
             .any(|line| line == "pub(crate) use source_install::{"),
         "transition adapter does not expose the source-install contract"
     );
-    for responsibility in [
-        "pub(crate) fn prepare_source_install_v1(",
-        "pub(crate) fn validate_source_install_v1(",
-        "pub(crate) fn render_source_install_v1(",
-        "pub(crate) fn parse_source_install_v1(",
-        "pub(crate) fn source_identity_v1(",
-        "pub(crate) fn resolve_prepared_project_path(",
-        "pub(crate) fn source_install_rollback_path(",
+    for owner in ["codec", "paths", "preparation", "validation"] {
+        assert!(
+            source_install
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "source-install facade does not register {owner}"
+        );
+    }
+    for (owner, responsibilities) in [
+        (
+            source_install_preparation.as_str(),
+            &["pub(crate) fn prepare_source_install_v1("][..],
+        ),
+        (
+            source_install_validation.as_str(),
+            &["pub(crate) fn validate_source_install_v1("][..],
+        ),
+        (
+            source_install_codec.as_str(),
+            &[
+                "pub(crate) fn render_source_install_v1(",
+                "pub(crate) fn parse_source_install_v1(",
+            ][..],
+        ),
+        (
+            source_install_paths.as_str(),
+            &[
+                "pub(crate) fn source_identity_v1(",
+                "pub(crate) fn resolve_prepared_project_path(",
+                "pub(crate) fn source_install_rollback_path(",
+            ][..],
+        ),
     ] {
-        assert!(
-            !transition.contains(responsibility),
-            "source-install responsibility escaped into transition facade: {responsibility}"
-        );
-        assert!(
-            source_install.contains(responsibility),
-            "source-install adapter is missing responsibility: {responsibility}"
-        );
+        for responsibility in responsibilities {
+            assert!(
+                !transition.contains(responsibility),
+                "source-install responsibility escaped into transition facade: {responsibility}"
+            );
+            assert!(
+                !source_install.contains(responsibility),
+                "source-install facade still owns responsibility: {responsibility}"
+            );
+            assert!(
+                owner.contains(responsibility),
+                "source-install child is missing responsibility: {responsibility}"
+            );
+        }
     }
     assert!(
         transition.contains("#[path = \"transition/tests/mod.rs\"]"),
@@ -475,7 +523,27 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
             journal_recovery_io.as_str(),
             225,
         ),
-        (source_install_adapter, source_install.as_str(), 500),
+        (source_install_adapter, source_install.as_str(), 25),
+        (
+            source_install_codec_adapter,
+            source_install_codec.as_str(),
+            125,
+        ),
+        (
+            source_install_paths_adapter,
+            source_install_paths.as_str(),
+            75,
+        ),
+        (
+            source_install_preparation_adapter,
+            source_install_preparation.as_str(),
+            275,
+        ),
+        (
+            source_install_validation_adapter,
+            source_install_validation.as_str(),
+            125,
+        ),
         (source_support_adapter, source_support.as_str(), 500),
     ] {
         assert!(

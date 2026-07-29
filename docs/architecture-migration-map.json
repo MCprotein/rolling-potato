@@ -11697,15 +11697,81 @@
       "path": "src/app/workflow_adapter/transition/source_install.rs",
       "slices": [
         {
-          "responsibility": "source installation preparation, validation, and codec adapter",
+          "responsibility": "source-install owner facade and stable transition exports",
           "target": "src/app/workflow_adapter/transition/source_install.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/runtime_core/workflow/domain/transition.rs",
-            "src/app/workflow_adapter/state/source_install.rs",
             "src/app/workflow_adapter/transition/source_install.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_install/codec.rs",
+      "slices": [
+        {
+          "responsibility": "canonical source-install v1 rendering and strict parsing",
+          "target": "src/app/workflow_adapter/transition/source_install/codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/source_install/codec.rs",
+            "src/app/workflow_adapter/transition/tests/source_install.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_install/paths.rs",
+      "slices": [
+        {
+          "responsibility": "source identity, prepared project path, and rollback path derivation",
+          "target": "src/app/workflow_adapter/transition/source_install/paths.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/source_install.rs",
+            "src/app/workflow_adapter/transition/source_install/paths.rs",
+            "src/app/workflow_adapter/transition/tests/source_install.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_install/preparation.rs",
+      "slices": [
+        {
+          "responsibility": "platform-aware source-install v1 admission and immutable plan preparation",
+          "target": "src/app/workflow_adapter/transition/source_install/preparation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/source_install.rs",
+            "src/app/workflow_adapter/transition/source_install/preparation.rs",
+            "src/app/workflow_adapter/transition/tests/source_install.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_install/validation.rs",
+      "slices": [
+        {
+          "responsibility": "source-install v1 hash, path, operation, metadata, and identity invariants",
+          "target": "src/app/workflow_adapter/transition/source_install/validation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/transition.rs",
+            "src/app/workflow_adapter/transition/source_install/validation.rs",
+            "src/app/workflow_adapter/transition/tests/source_install.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
           ]
         }
       ]
@@ -20216,7 +20282,31 @@
     {
       "path": "src/app/workflow_adapter/transition/source_install.rs",
       "responsibilities": [
-        "source installation preparation, validation, and codec adapter"
+        "source-install owner facade and stable transition exports"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_install/codec.rs",
+      "responsibilities": [
+        "canonical source-install v1 rendering and strict parsing"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_install/paths.rs",
+      "responsibilities": [
+        "source identity, prepared project path, and rollback path derivation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_install/preparation.rs",
+      "responsibilities": [
+        "platform-aware source-install v1 admission and immutable plan preparation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/source_install/validation.rs",
+      "responsibilities": [
+        "source-install v1 hash, path, operation, metadata, and identity invariants"
       ]
     },
     {
