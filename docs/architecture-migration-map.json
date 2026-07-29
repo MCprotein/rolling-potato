@@ -4683,12 +4683,97 @@
       "path": "src/runtime_core/inference/model/codec.rs",
       "slices": [
         {
-          "responsibility": "model registry, default selection, and promotion evidence codecs",
+          "responsibility": "model codec facade and responsibility registration",
           "target": "src/runtime_core/inference/model/codec.rs",
           "release": "0.37.3",
           "state": "complete",
           "evidence": [
-            "src/runtime_core/inference/model/codec.rs"
+            "src/runtime_core/inference/model/codec.rs",
+            "src/runtime_core/inference/model/codec/promotion.rs",
+            "src/runtime_core/inference/model/codec/registry.rs",
+            "src/runtime_core/inference/model/codec/render.rs",
+            "src/runtime_core/inference/model/codec/selection.rs",
+            "src/runtime_core/inference/model/codec/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/codec/promotion.rs",
+      "slices": [
+        {
+          "responsibility": "model promotion evidence decoding and required-field validation",
+          "target": "src/runtime_core/inference/model/codec/promotion.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/codec/promotion.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/codec/registry.rs",
+      "slices": [
+        {
+          "responsibility": "model registry decoding and text-vision artifact binding validation",
+          "target": "src/runtime_core/inference/model/codec/registry.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/codec/registry.rs",
+            "src/runtime_core/inference/model/codec/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/codec/render.rs",
+      "slices": [
+        {
+          "responsibility": "model selection, registry, and promotion evidence rendering",
+          "target": "src/runtime_core/inference/model/codec/render.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/codec/render.rs",
+            "src/runtime_core/inference/model/codec/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/codec/selection.rs",
+      "slices": [
+        {
+          "responsibility": "default model selection snapshot decoding",
+          "target": "src/runtime_core/inference/model/codec/selection.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/codec/selection.rs",
+            "src/app/inference_adapter/model/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/codec/tests.rs",
+      "slices": [
+        {
+          "responsibility": "model codec schema, vision binding, migration, and byte regression tests",
+          "target": "src/runtime_core/inference/model/codec/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/model/codec/tests.rs",
+            "tests/architecture_contract.rs"
           ]
         }
       ]
@@ -12507,6 +12592,21 @@
       ]
     },
     {
+      "path": "tests/architecture_contract/inference/model_codec.rs",
+      "slices": [
+        {
+          "responsibility": "model codec architecture ownership and line-budget contract",
+          "target": "tests/architecture_contract/inference/model_codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/inference/model_codec.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/architecture_contract/inference/model_manifest.rs",
       "slices": [
         {
@@ -15931,7 +16031,37 @@
     {
       "path": "src/runtime_core/inference/model/codec.rs",
       "responsibilities": [
-        "model registry, default selection, and promotion evidence codecs"
+        "model codec facade and responsibility registration"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/codec/promotion.rs",
+      "responsibilities": [
+        "model promotion evidence decoding and required-field validation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/codec/registry.rs",
+      "responsibilities": [
+        "model registry decoding and text-vision artifact binding validation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/codec/render.rs",
+      "responsibilities": [
+        "model selection, registry, and promotion evidence rendering"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/codec/selection.rs",
+      "responsibilities": [
+        "default model selection snapshot decoding"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/model/codec/tests.rs",
+      "responsibilities": [
+        "model codec schema, vision binding, migration, and byte regression tests"
       ]
     },
     {
@@ -18764,6 +18894,12 @@
       "path": "tests/architecture_contract/inference/application_model.rs",
       "responsibilities": [
         "inference application model and selection architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/model_codec.rs",
+      "responsibilities": [
+        "model codec architecture ownership and line-budget contract"
       ]
     },
     {
