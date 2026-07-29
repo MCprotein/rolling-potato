@@ -11,6 +11,11 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let subagent_result_evidence = "src/runtime_core/collaboration/subagent_result/evidence.rs";
     let team_adapter = "src/app/collaboration_adapter/team.rs";
     let team_admission = "src/app/collaboration_adapter/team/admission.rs";
+    let team_admission_report = "src/app/collaboration_adapter/team/admission_report.rs";
+    let team_dispatch = "src/app/collaboration_adapter/team/dispatch.rs";
+    let team_governor = "src/app/collaboration_adapter/team/governor.rs";
+    let team_report_format = "src/app/collaboration_adapter/team/report_format.rs";
+    let team_status = "src/app/collaboration_adapter/team/status.rs";
     let team_tests = "src/app/collaboration_adapter/team/tests.rs";
     let team_execution_adapter = "src/app/collaboration_adapter/team_execution.rs";
     let team_execution_admission = "src/app/collaboration_adapter/team_execution/admission.rs";
@@ -128,6 +133,11 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     assert!(Path::new(subagent_record_codec).is_file());
     assert!(Path::new(subagent_result_evidence).is_file());
     assert!(Path::new(team_admission).is_file());
+    assert!(Path::new(team_admission_report).is_file());
+    assert!(Path::new(team_dispatch).is_file());
+    assert!(Path::new(team_governor).is_file());
+    assert!(Path::new(team_report_format).is_file());
+    assert!(Path::new(team_status).is_file());
     assert!(Path::new(team_tests).is_file());
     assert!(Path::new(team_execution_admission).is_file());
     assert!(Path::new(team_execution_events).is_file());
@@ -147,6 +157,11 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     let subagent_test_source = fs::read_to_string(subagent_tests).unwrap();
     let team_source = fs::read_to_string(team_adapter).unwrap();
     let team_admission_source = fs::read_to_string(team_admission).unwrap();
+    let team_admission_report_source = fs::read_to_string(team_admission_report).unwrap();
+    let team_dispatch_source = fs::read_to_string(team_dispatch).unwrap();
+    let team_governor_source = fs::read_to_string(team_governor).unwrap();
+    let team_report_format_source = fs::read_to_string(team_report_format).unwrap();
+    let team_status_source = fs::read_to_string(team_status).unwrap();
     let team_test_source = fs::read_to_string(team_tests).unwrap();
     let team_execution_source = fs::read_to_string(team_execution_adapter).unwrap();
     let team_execution_admission_source = fs::read_to_string(team_execution_admission).unwrap();
@@ -322,6 +337,44 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         assert!(
             !team_source.contains(responsibility),
             "team adapter still owns admission preparation: {responsibility}"
+        );
+    }
+    for module in [
+        "mod admission_report;",
+        "mod dispatch;",
+        "mod governor;",
+        "mod report_format;",
+        "mod status;",
+    ] {
+        assert!(
+            team_source.lines().any(|line| line == module),
+            "team adapter does not register report owner: {module}"
+        );
+    }
+    for (source, responsibility) in [
+        (
+            team_admission_report_source.as_str(),
+            "pub fn admission_report(",
+        ),
+        (team_dispatch_source.as_str(), "pub fn dispatch_report("),
+        (team_governor_source.as_str(), "pub fn governor_report("),
+        (team_status_source.as_str(), "pub fn status_report("),
+        (
+            team_report_format_source.as_str(),
+            "pub(super) fn latest_team_runtime_event(",
+        ),
+        (
+            team_report_format_source.as_str(),
+            "pub(super) fn format_policy_checks(",
+        ),
+    ] {
+        assert!(
+            source.contains(responsibility),
+            "team report owner is missing: {responsibility}"
+        );
+        assert!(
+            !team_source.contains(responsibility),
+            "team facade still owns report behavior: {responsibility}"
         );
     }
     for responsibility in [
@@ -522,7 +575,7 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
     for (facade, maximum_lines) in [
         (subagent_adapter, 500),
         ("src/app/collaboration_adapter/subagent_result.rs", 800),
-        (team_adapter, 600),
+        (team_adapter, 50),
         (team_execution_adapter, 325),
         (team_reconciliation_adapter, 550),
         (team_state_adapter, 400),
@@ -570,6 +623,22 @@ fn v03712_collaboration_owners_hold_lifecycle_execution_and_reconciliation_polic
         team_admission_source.lines().count() < 250,
         "team admission module regrew beyond its ownership boundary"
     );
+    for (source, maximum_lines, owner) in [
+        (
+            team_admission_report_source.as_str(),
+            175,
+            team_admission_report,
+        ),
+        (team_dispatch_source.as_str(), 175, team_dispatch),
+        (team_governor_source.as_str(), 150, team_governor),
+        (team_report_format_source.as_str(), 150, team_report_format),
+        (team_status_source.as_str(), 125, team_status),
+    ] {
+        assert!(
+            source.lines().count() < maximum_lines,
+            "team report module regrew beyond its ownership boundary: {owner}"
+        );
+    }
     assert!(
         team_execution_admission_source.lines().count() < 300,
         "team execution admission module regrew beyond its ownership boundary"

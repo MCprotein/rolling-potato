@@ -7272,7 +7272,7 @@
       "path": "src/app/collaboration_adapter/team.rs",
       "slices": [
         {
-          "responsibility": "team status, admission, dispatch, and governor report orchestration adapter",
+          "responsibility": "team report facade and command surface",
           "target": "src/app/collaboration_adapter/team.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -7280,6 +7280,11 @@
             "src/runtime_core/collaboration/team.rs",
             "src/app/collaboration_adapter/team.rs",
             "src/app/collaboration_adapter/team/admission.rs",
+            "src/app/collaboration_adapter/team/admission_report.rs",
+            "src/app/collaboration_adapter/team/dispatch.rs",
+            "src/app/collaboration_adapter/team/governor.rs",
+            "src/app/collaboration_adapter/team/report_format.rs",
+            "src/app/collaboration_adapter/team/status.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -7297,6 +7302,97 @@
             "src/runtime_core/collaboration/team.rs",
             "src/app/collaboration_adapter/team.rs",
             "src/app/collaboration_adapter/team/admission.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/admission_report.rs",
+      "slices": [
+        {
+          "responsibility": "team admission decision reporting and audit event orchestration",
+          "target": "src/app/collaboration_adapter/team/admission_report.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/admission.rs",
+            "src/app/collaboration_adapter/team/admission_report.rs",
+            "src/app/collaboration_adapter/team/report_format.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/dispatch.rs",
+      "slices": [
+        {
+          "responsibility": "team dispatch decision, ownership, and continuation reporting",
+          "target": "src/app/collaboration_adapter/team/dispatch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/admission.rs",
+            "src/app/collaboration_adapter/team/dispatch.rs",
+            "src/app/collaboration_adapter/team/report_format.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/governor.rs",
+      "slices": [
+        {
+          "responsibility": "team lane and context resource governor reporting",
+          "target": "src/app/collaboration_adapter/team/governor.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/governor.rs",
+            "src/app/collaboration_adapter/team/report_format.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/report_format.rs",
+      "slices": [
+        {
+          "responsibility": "team report formatting and latest runtime event projection",
+          "target": "src/app/collaboration_adapter/team/report_format.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/report_format.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/status.rs",
+      "slices": [
+        {
+          "responsibility": "read-only team runtime and resource status reporting",
+          "target": "src/app/collaboration_adapter/team/status.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team.rs",
+            "src/app/collaboration_adapter/team/report_format.rs",
+            "src/app/collaboration_adapter/team/status.rs",
             "src/app/collaboration_adapter/team/tests.rs",
             "tests/architecture_contract.rs"
           ]
@@ -12954,13 +13050,43 @@
     {
       "path": "src/app/collaboration_adapter/team.rs",
       "responsibilities": [
-        "team status, admission, dispatch, and governor report orchestration adapter"
+        "team report facade and command surface"
       ]
     },
     {
       "path": "src/app/collaboration_adapter/team/admission.rs",
       "responsibilities": [
         "team admission policy classification, ownership path normalization, and approval request persistence"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/admission_report.rs",
+      "responsibilities": [
+        "team admission decision reporting and audit event orchestration"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/dispatch.rs",
+      "responsibilities": [
+        "team dispatch decision, ownership, and continuation reporting"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/governor.rs",
+      "responsibilities": [
+        "team lane and context resource governor reporting"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/report_format.rs",
+      "responsibilities": [
+        "team report formatting and latest runtime event projection"
+      ]
+    },
+    {
+      "path": "src/app/collaboration_adapter/team/status.rs",
+      "responsibilities": [
+        "read-only team runtime and resource status reporting"
       ]
     },
     {
