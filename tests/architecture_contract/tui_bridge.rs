@@ -100,12 +100,29 @@ fn v03713_unit_test_runtime_fixture_lives_under_test_support() {
 fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     let tui_adapter = "src/app/tui_adapter.rs";
     let tui_tests = "src/app/tui_adapter/tests.rs";
+    let tui_controller_tests = "src/app/tui_adapter/tests/controller.rs";
+    let tui_outcome_tests = "src/app/tui_adapter/tests/outcome.rs";
+    let tui_render_tests = "src/app/tui_adapter/tests/render.rs";
+    let tui_reports_tests = "src/app/tui_adapter/tests/reports.rs";
+    let tui_view_state_tests = "src/app/tui_adapter/tests/view_state.rs";
     let tui_report_tests = "src/app/tui_adapter/report_tests.rs";
     let tui_model_switch = "src/app/tui_adapter/model_switch.rs";
     let tui_runtime = "src/app/tui_adapter/runtime.rs";
     let tui_runtime_backend = "src/app/tui_adapter/runtime/backend.rs";
     assert!(Path::new(tui_adapter).is_file());
     assert!(Path::new(tui_tests).is_file());
+    for path in [
+        tui_controller_tests,
+        tui_outcome_tests,
+        tui_render_tests,
+        tui_reports_tests,
+        tui_view_state_tests,
+    ] {
+        assert!(
+            Path::new(path).is_file(),
+            "missing TUI regression owner: {path}"
+        );
+    }
     assert!(Path::new(tui_report_tests).is_file());
     assert!(Path::new(tui_model_switch).is_file());
     assert!(Path::new(tui_runtime).is_file());
@@ -355,6 +372,14 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     }
     let tui_composition = fs::read_to_string(tui_adapter).unwrap();
     let tui_test_source = fs::read_to_string(tui_tests).unwrap();
+    let tui_test_children = [
+        fs::read_to_string(tui_controller_tests).unwrap(),
+        fs::read_to_string(tui_outcome_tests).unwrap(),
+        fs::read_to_string(tui_render_tests).unwrap(),
+        fs::read_to_string(tui_reports_tests).unwrap(),
+        fs::read_to_string(tui_view_state_tests).unwrap(),
+    ];
+    let tui_regression_sources = tui_test_children.join("\n");
     let tui_report_test_source = fs::read_to_string(tui_report_tests).unwrap();
     let model_switch = fs::read_to_string(tui_model_switch).unwrap();
     let interactive_runtime = fs::read_to_string(tui_runtime).unwrap();
@@ -377,6 +402,13 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         tui_composition.contains("#[path = \"tui_adapter/report_tests.rs\"]"),
         "TUI adapter does not register its report regression owner"
     );
+    for owner in ["controller", "outcome", "render", "reports", "view_state"] {
+        let include = format!("include!(\"tests/{owner}.rs\");");
+        assert!(
+            tui_test_source.lines().any(|line| line == include),
+            "TUI regression facade does not register {owner}"
+        );
+    }
     for (owner, responsibility) in [
         (&model_switch, "pub(super) fn switch_prepared_model("),
         (&model_switch, "fn rollback_error("),
@@ -413,7 +445,7 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         "fn evidence_renders_stop_gate_status_without_mutating(",
     ] {
         assert!(
-            tui_test_source.contains(regression),
+            tui_regression_sources.contains(regression),
             "TUI regression owner is missing: {regression}"
         );
         assert!(
@@ -445,10 +477,19 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         tui_composition.lines().count() < 350,
         "TUI adapter regrew beyond its ownership boundary"
     );
-    assert!(
-        tui_test_source.lines().count() < 550,
-        "TUI regression module regrew beyond its ownership boundary"
-    );
+    assert!(tui_test_source.lines().count() < 75);
+    for (path, source, line_budget) in [
+        (tui_controller_tests, &tui_test_children[0], 175),
+        (tui_outcome_tests, &tui_test_children[1], 75),
+        (tui_render_tests, &tui_test_children[2], 275),
+        (tui_reports_tests, &tui_test_children[3], 125),
+        (tui_view_state_tests, &tui_test_children[4], 75),
+    ] {
+        assert!(
+            source.lines().count() < line_budget,
+            "{path} exceeded its {line_budget}-line ownership budget"
+        );
+    }
     assert!(tui_report_test_source.lines().count() < 300);
     assert!(model_switch.lines().count() < 225);
     assert!(interactive_runtime.lines().count() <= 200);
