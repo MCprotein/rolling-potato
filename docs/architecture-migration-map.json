@@ -1678,6 +1678,66 @@
       ]
     },
     {
+      "path": "src/adapters/web_search/tests.rs",
+      "slices": [
+        {
+          "responsibility": "web adapter regression fixture and scenario composition",
+          "target": "src/adapters/web_search/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search/tests.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/tests/browser_policy.rs",
+      "slices": [
+        {
+          "responsibility": "web navigation, query, redirect, and transport policy regressions",
+          "target": "src/adapters/web_search/tests/browser_policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search/tests/browser_policy.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/tests/open_find.rs",
+      "slices": [
+        {
+          "responsibility": "web page normalization, open, and find regressions",
+          "target": "src/adapters/web_search/tests/open_find.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search/tests/open_find.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/tests/search.rs",
+      "slices": [
+        {
+          "responsibility": "web search parsing, ranking, fallback, and evidence budget regressions",
+          "target": "src/adapters/web_search/tests/search.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/web_search/tests/search.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/adapters/web_search/evidence.rs",
       "slices": [
         {
@@ -11709,6 +11769,30 @@
       "path": "src/adapters/web_search.rs",
       "responsibilities": [
         "direct WebSearch facade plus bounded WebOpen redirect and WebFind orchestration"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/tests.rs",
+      "responsibilities": [
+        "web adapter regression fixture and scenario composition"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/tests/browser_policy.rs",
+      "responsibilities": [
+        "web navigation, query, redirect, and transport policy regressions"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/tests/open_find.rs",
+      "responsibilities": [
+        "web page normalization, open, and find regressions"
+      ]
+    },
+    {
+      "path": "src/adapters/web_search/tests/search.rs",
+      "responsibilities": [
+        "web search parsing, ranking, fallback, and evidence budget regressions"
       ]
     },
     {

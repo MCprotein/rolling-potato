@@ -305,6 +305,10 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/adapters/web_search/html.rs",
         "src/adapters/web_search/page.rs",
         "src/adapters/web_search/policy.rs",
+        "src/adapters/web_search/tests.rs",
+        "src/adapters/web_search/tests/browser_policy.rs",
+        "src/adapters/web_search/tests/open_find.rs",
+        "src/adapters/web_search/tests/search.rs",
         "src/adapters/web_search/transport.rs",
         "src/app/web_search_adapter/answer_contract.rs",
         "src/app/web_search_adapter/answer_binding.rs",
@@ -349,6 +353,19 @@ fn web_search_open_find_have_separate_bounded_owners() {
                 .lines()
                 .any(|line| line == format!("mod {module};")),
             "web adapter facade does not register {module}"
+        );
+    }
+    assert!(adapter_facade.lines().any(|line| line == "mod tests;"));
+    for (path, maximum_lines) in [
+        ("src/adapters/web_search.rs", 250),
+        ("src/adapters/web_search/tests.rs", 50),
+        ("src/adapters/web_search/tests/browser_policy.rs", 175),
+        ("src/adapters/web_search/tests/open_find.rs", 175),
+        ("src/adapters/web_search/tests/search.rs", 225),
+    ] {
+        assert!(
+            fs::read_to_string(path).unwrap().lines().count() < maximum_lines,
+            "web adapter owner regrew beyond its boundary: {path}"
         );
     }
     for module in [
