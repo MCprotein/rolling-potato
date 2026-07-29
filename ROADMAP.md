@@ -188,11 +188,12 @@ evidence.
 | --- | --- | --- |
 | v0.51.0 | Released | Session-derived context usage, bounded failed-request recall, persisted web grounding across `/resume`, topic-safe evidence reuse, soft evidence truncation, and runtime-grounded fallback answers |
 
-### Structured small-model tool turns (`v0.52.0`)
+### Structured small-model tool turns (`v0.52.x`)
 
 | Version | Status | Scope |
 | --- | --- | --- |
 | v0.52.0 | Released | JSON-schema `Answer`/`WebSearch`/`WebOpen`/`WebFind`/`ContinueLocal` decisions, runtime-owned `ToolCall → Observation → Answer` transitions for every web tool, bounded follow-up query context, private-data filtering, and explicit general-question versus repository-analysis routing |
+| v0.52.1 | Released | Managed `llama.cpp` structured-chat recovery: grammar-compatible answer schema, pre-generation repetition validation, property-name-safe schema traversal, real-backend smoke evidence, and unchanged 16 KiB runtime answer validation |
 
 ## Distribution Boundary
 

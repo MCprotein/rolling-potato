@@ -80,6 +80,7 @@ pub(crate) fn search(
         })
 }
 
+#[cfg(any(test, debug_assertions))]
 fn evidence_from_documents(
     query: &str,
     html: Option<&str>,
