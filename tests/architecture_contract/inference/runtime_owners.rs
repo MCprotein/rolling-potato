@@ -5,6 +5,9 @@ fn assert_runtime_inference_owners() {
         "src/runtime_core/inference/backend/lifecycle.rs",
         "src/runtime_core/inference/benchmark.rs",
         "src/runtime_core/inference/benchmark/fixture.rs",
+        "src/runtime_core/inference/benchmark/fixture/json.rs",
+        "src/runtime_core/inference/benchmark/fixture/schema.rs",
+        "src/runtime_core/inference/benchmark/fixture/types.rs",
         "src/runtime_core/inference/benchmark/report.rs",
         "src/runtime_core/inference/model.rs",
         "src/runtime_core/inference/model/codec.rs",
@@ -46,6 +49,26 @@ fn assert_runtime_inference_owners() {
             !Path::new(legacy).exists(),
             "legacy inference owner remains: {legacy}"
         );
+    }
+
+    let fixture_facade =
+        fs::read_to_string("src/runtime_core/inference/benchmark/fixture.rs").unwrap();
+    assert!(fixture_facade.lines().count() < 100);
+    for (owner, limit, responsibility) in [
+        ("json", 240, "fn parse_fixture_json_object("),
+        ("schema", 260, "fn validate_fixture_schema("),
+        ("types", 100, "struct BenchmarkFixture"),
+    ] {
+        assert!(fixture_facade
+            .lines()
+            .any(|line| line == format!("mod {owner};")));
+        assert!(!fixture_facade.contains(responsibility));
+        let source = fs::read_to_string(format!(
+            "src/runtime_core/inference/benchmark/fixture/{owner}.rs"
+        ))
+        .unwrap();
+        assert!(source.contains(responsibility));
+        assert!(source.lines().count() < limit);
     }
 
     let model_artifact = fs::read_to_string("src/adapters/filesystem/model_artifact.rs").unwrap();

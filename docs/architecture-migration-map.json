@@ -3307,12 +3307,60 @@
       "path": "src/runtime_core/inference/benchmark/fixture.rs",
       "slices": [
         {
-          "responsibility": "benchmark fixture DTO, parser, schema, and semantic policy",
+          "responsibility": "benchmark fixture parsing facade and stable fixture exports",
           "target": "src/runtime_core/inference/benchmark/fixture.rs",
           "release": "0.37.3",
           "state": "complete",
           "evidence": [
-            "src/runtime_core/inference/benchmark/fixture.rs"
+            "src/runtime_core/inference/benchmark/fixture.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark/fixture/json.rs",
+      "slices": [
+        {
+          "responsibility": "strict benchmark fixture JSON object tokenization and decoding",
+          "target": "src/runtime_core/inference/benchmark/fixture/json.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/benchmark/fixture/json.rs",
+            "src/app/inference_adapter/benchmark/tests.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark/fixture/schema.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark fixture field extraction, schema policy, and semantic validation",
+          "target": "src/runtime_core/inference/benchmark/fixture/schema.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/benchmark/fixture/schema.rs",
+            "src/app/inference_adapter/benchmark/tests.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark/fixture/types.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark fixture, prompt artifact, and parsed metadata contracts",
+          "target": "src/runtime_core/inference/benchmark/fixture/types.rs",
+          "release": "0.37.3",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/inference/benchmark/fixture/types.rs",
+            "tests/architecture_contract/inference/runtime_owners.rs"
           ]
         }
       ]
@@ -15091,7 +15139,25 @@
     {
       "path": "src/runtime_core/inference/benchmark/fixture.rs",
       "responsibilities": [
-        "benchmark fixture DTO, parser, schema, and semantic policy"
+        "benchmark fixture parsing facade and stable fixture exports"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark/fixture/json.rs",
+      "responsibilities": [
+        "strict benchmark fixture JSON object tokenization and decoding"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark/fixture/schema.rs",
+      "responsibilities": [
+        "benchmark fixture field extraction, schema policy, and semantic validation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/inference/benchmark/fixture/types.rs",
+      "responsibilities": [
+        "benchmark fixture, prompt artifact, and parsed metadata contracts"
       ]
     },
     {
