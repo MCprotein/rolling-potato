@@ -123,6 +123,19 @@ fn tui_attachment_capture_and_composition_have_bounded_owners() {
 }
 
 #[test]
+fn terminal_live_input_has_a_semantic_keymap_owner() {
+    let input = fs::read_to_string("src/adapters/terminal/native/live_input.rs").unwrap();
+    let keymap = fs::read_to_string("src/adapters/terminal/native/live_input/keymap.rs").unwrap();
+
+    assert!(input.lines().any(|line| line == "mod keymap;"));
+    assert!(keymap.contains("pub(super) enum Action"));
+    assert!(keymap.contains("pub(super) fn decode_escape"));
+    assert!(!input.contains("enum Action"));
+    assert!(input.lines().count() < 250);
+    assert!(keymap.lines().count() < 100);
+}
+
+#[test]
 fn v0471_tui_render_text_and_report_layout_are_split() {
     let render = fs::read_to_string("src/surfaces/tui/render.rs").unwrap();
     for (module, owner, marker) in [

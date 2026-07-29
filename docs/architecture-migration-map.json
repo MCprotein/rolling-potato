@@ -9631,6 +9631,22 @@
           ]
         }
       ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/keymap.rs",
+      "slices": [
+        {
+          "responsibility": "raw terminal escape decoding into semantic editor, paste, and scroll actions",
+          "target": "src/adapters/terminal/native/live_input/keymap.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/terminal/native/live_input/keymap.rs",
+            "src/adapters/terminal/native/live_input/editor.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -13186,6 +13202,12 @@
       "path": "src/app/tui_adapter/attachment/tests.rs",
       "responsibilities": [
         "attachment capture, context budget, revalidation, symlink, and format regression tests"
+      ]
+    },
+    {
+      "path": "src/adapters/terminal/native/live_input/keymap.rs",
+      "responsibilities": [
+        "raw terminal escape decoding into semantic editor, paste, and scroll actions"
       ]
     }
   ]
