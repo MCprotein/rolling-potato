@@ -3944,13 +3944,81 @@
       "path": "src/adapters/system_install.rs",
       "slices": [
         {
-          "responsibility": "user-local executable placement, PATH registration, and bounded clean-state I/O coordination",
+          "responsibility": "user-local CLI installation facade and shared install contracts",
           "target": "src/adapters/system_install.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/adapters/system_install.rs",
             "src/composition/install.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/binary.rs",
+      "slices": [
+        {
+          "responsibility": "managed binary placement and atomic self-update",
+          "target": "src/adapters/system_install/binary.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install.rs",
+            "src/adapters/system_install/binary.rs",
+            "src/adapters/system_install/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/clean_state.rs",
+      "slices": [
+        {
+          "responsibility": "guarded removal of managed runtime state",
+          "target": "src/adapters/system_install/clean_state.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install.rs",
+            "src/adapters/system_install/clean_state.rs",
+            "src/adapters/system_install/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/path_registration.rs",
+      "slices": [
+        {
+          "responsibility": "Unix and Windows user PATH registration",
+          "target": "src/adapters/system_install/path_registration.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install.rs",
+            "src/adapters/system_install/path_registration.rs",
+            "src/adapters/system_install/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/path_safety.rs",
+      "slices": [
+        {
+          "responsibility": "install path normalization and equivalence checks",
+          "target": "src/adapters/system_install/path_safety.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/adapters/system_install.rs",
+            "src/adapters/system_install/path_safety.rs",
+            "src/adapters/system_install/clean_state.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -11270,7 +11338,31 @@
     {
       "path": "src/adapters/system_install.rs",
       "responsibilities": [
-        "user-local executable placement, PATH registration, and bounded clean-state I/O coordination"
+        "user-local CLI installation facade and shared install contracts"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/binary.rs",
+      "responsibilities": [
+        "managed binary placement and atomic self-update"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/clean_state.rs",
+      "responsibilities": [
+        "guarded removal of managed runtime state"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/path_registration.rs",
+      "responsibilities": [
+        "Unix and Windows user PATH registration"
+      ]
+    },
+    {
+      "path": "src/adapters/system_install/path_safety.rs",
+      "responsibilities": [
+        "install path normalization and equivalence checks"
       ]
     },
     {

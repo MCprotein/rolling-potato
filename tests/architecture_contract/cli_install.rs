@@ -265,15 +265,34 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
     assert!(composition.contains("runtime_mutation::acquire(\"clean install\")"));
 
     let adapter = fs::read_to_string("src/adapters/system_install.rs").unwrap();
+    let binary_adapter = fs::read_to_string("src/adapters/system_install/binary.rs").unwrap();
+    let clean_state_adapter =
+        fs::read_to_string("src/adapters/system_install/clean_state.rs").unwrap();
+    let path_registration_adapter =
+        fs::read_to_string("src/adapters/system_install/path_registration.rs").unwrap();
+    let path_safety_adapter =
+        fs::read_to_string("src/adapters/system_install/path_safety.rs").unwrap();
     let uninstall_adapter = fs::read_to_string("src/adapters/system_install/uninstall.rs").unwrap();
     let adapter_tests = fs::read_to_string("src/adapters/system_install/tests.rs").unwrap();
-    assert!(adapter.lines().any(|line| line == "mod uninstall;"));
-    assert!(adapter.contains("pub(crate) fn install_binary("));
-    assert!(adapter.contains("pub(crate) fn binary_install_plan("));
-    assert!(adapter.contains("pub(crate) fn ensure_user_path("));
-    assert!(adapter.contains("pub(crate) fn user_path_change_plan("));
-    assert!(adapter.contains("pub(crate) fn validate_clean_targets("));
-    assert!(adapter.contains("pub(crate) fn remove_clean_state("));
+    for owner in [
+        "binary",
+        "clean_state",
+        "path_registration",
+        "path_safety",
+        "uninstall",
+    ] {
+        assert!(
+            adapter.lines().any(|line| line == format!("mod {owner};")),
+            "system-install facade does not register {owner}"
+        );
+    }
+    assert!(binary_adapter.contains("pub(crate) fn install_binary("));
+    assert!(binary_adapter.contains("pub(crate) fn binary_install_plan("));
+    assert!(path_registration_adapter.contains("pub(crate) fn ensure_user_path("));
+    assert!(path_registration_adapter.contains("pub(crate) fn user_path_change_plan("));
+    assert!(clean_state_adapter.contains("pub(crate) fn validate_clean_targets("));
+    assert!(clean_state_adapter.contains("pub(crate) fn remove_clean_state("));
+    assert!(path_safety_adapter.contains("pub(super) fn equivalent_path("));
     assert!(uninstall_adapter.contains("pub(crate) fn user_path_removal_plan("));
     assert!(uninstall_adapter.contains("pub(crate) fn remove_user_path("));
     assert!(uninstall_adapter.contains("pub(crate) fn binary_removal_plan("));
@@ -289,6 +308,11 @@ fn v0420_install_ux_has_owned_cli_composition_and_adapter_boundaries() {
         adapter_tests.contains("fn clean_uninstall_removes_binary_and_owned_profile_block_only(")
     );
     assert!(adapter_tests.contains("fn windows_powershell_path_removal_is_exact_and_idempotent("));
+    assert!(adapter.lines().count() < 200);
+    assert!(binary_adapter.lines().count() < 425);
+    assert!(clean_state_adapter.lines().count() < 125);
+    assert!(path_registration_adapter.lines().count() < 400);
+    assert!(path_safety_adapter.lines().count() < 75);
 
     let runtime_mutation =
         fs::read_to_string("src/adapters/filesystem/runtime_mutation.rs").unwrap();
