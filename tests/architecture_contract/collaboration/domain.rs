@@ -26,13 +26,13 @@ fn collaboration_domain_owns_policy_state_and_codecs() {
         (
             "src/runtime_core/collaboration/team.rs",
             &[
-                "struct ContinuationDecision",
-                "struct PolicyGate",
-                "fn continuation_decision",
-                "fn evaluate_policy_gate",
-                "fn evaluate_ownership_gate",
-                "fn dispatch_event_type",
-                "fn admission_summary",
+                "mod admission;",
+                "mod dispatch;",
+                "mod events;",
+                "mod governor;",
+                "mod ownership;",
+                "mod policy;",
+                "mod types;",
             ],
         ),
         (
@@ -101,6 +101,7 @@ fn collaboration_domain_owns_policy_state_and_codecs() {
 
     assert_subagent_domain_modules();
     assert_subagent_result_modules();
+    assert_team_domain_modules();
     assert_team_state_domain_modules();
     assert_legacy_domain_roots_absent();
 }
@@ -197,6 +198,134 @@ fn assert_subagent_result_modules() {
     }
     assert_line_bound(&domain, 350, domain_path);
     assert_line_bound(&evidence, 300, evidence_path);
+}
+
+fn assert_team_domain_modules() {
+    let domain_path = "src/runtime_core/collaboration/team.rs";
+    let admission_path = "src/runtime_core/collaboration/team/admission.rs";
+    let dispatch_path = "src/runtime_core/collaboration/team/dispatch.rs";
+    let events_path = "src/runtime_core/collaboration/team/events.rs";
+    let governor_path = "src/runtime_core/collaboration/team/governor.rs";
+    let ownership_path = "src/runtime_core/collaboration/team/ownership.rs";
+    let policy_path = "src/runtime_core/collaboration/team/policy.rs";
+    let types_path = "src/runtime_core/collaboration/team/types.rs";
+    let domain = source(domain_path);
+    let admission = source(admission_path);
+    let dispatch = source(dispatch_path);
+    let events = source(events_path);
+    let governor = source(governor_path);
+    let ownership = source(ownership_path);
+    let policy = source(policy_path);
+    let types = source(types_path);
+
+    for path in [
+        admission_path,
+        dispatch_path,
+        events_path,
+        governor_path,
+        ownership_path,
+        policy_path,
+        types_path,
+    ] {
+        assert_file(path);
+        let child = Path::new(path).file_stem().unwrap().to_str().unwrap();
+        assert_registered(&domain, &format!("mod {child};"), "team domain");
+    }
+    for (owner, owner_source, responsibilities) in [
+        (
+            admission_path,
+            admission.as_str(),
+            [
+                "fn overall_status(",
+                "fn admission_event_type(",
+                "fn admission_summary(",
+            ]
+            .as_slice(),
+        ),
+        (
+            dispatch_path,
+            dispatch.as_str(),
+            [
+                "fn continuation_decision(",
+                "fn dispatch_status(",
+                "fn dispatch_event_type(",
+                "fn dispatch_summary(",
+            ]
+            .as_slice(),
+        ),
+        (
+            events_path,
+            events.as_str(),
+            ["fn is_team_runtime_event("].as_slice(),
+        ),
+        (
+            governor_path,
+            governor.as_str(),
+            [
+                "fn pressure_from_status(",
+                "fn governor_status(",
+                "fn governor_event_type(",
+                "fn governor_summary(",
+            ]
+            .as_slice(),
+        ),
+        (
+            ownership_path,
+            ownership.as_str(),
+            ["fn evaluate_ownership_gate("].as_slice(),
+        ),
+        (
+            policy_path,
+            policy.as_str(),
+            [
+                "fn policy_write_paths(",
+                "fn evaluate_policy_gate(",
+                "fn decision_label(",
+            ]
+            .as_slice(),
+        ),
+        (
+            types_path,
+            types.as_str(),
+            [
+                "struct ContinuationDecision",
+                "struct OwnershipGate",
+                "struct PolicyGate",
+            ]
+            .as_slice(),
+        ),
+    ] {
+        for responsibility in responsibilities {
+            assert_moved(owner_source, &domain, responsibility);
+        }
+        for dependency in [
+            "crate::adapters",
+            "crate::backend",
+            "crate::ledger",
+            "crate::observability",
+            "crate::state",
+            "std::fs",
+            "std::process",
+            "std::thread",
+        ] {
+            assert!(
+                !owner_source.contains(dependency),
+                "team domain owner has concrete reverse dependency: {owner} -> {dependency}"
+            );
+        }
+    }
+    for (owner, owner_source, limit) in [
+        (domain_path, domain.as_str(), 40),
+        (admission_path, admission.as_str(), 100),
+        (dispatch_path, dispatch.as_str(), 175),
+        (events_path, events.as_str(), 30),
+        (governor_path, governor.as_str(), 100),
+        (ownership_path, ownership.as_str(), 100),
+        (policy_path, policy.as_str(), 75),
+        (types_path, types.as_str(), 125),
+    ] {
+        assert_line_bound(owner_source, limit, owner);
+    }
 }
 
 fn assert_team_state_domain_modules() {

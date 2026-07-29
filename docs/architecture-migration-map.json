@@ -7075,15 +7075,127 @@
       "path": "src/runtime_core/collaboration/team.rs",
       "slices": [
         {
-          "responsibility": "team admission, dispatch, continuation, and governor decision policy",
+          "responsibility": "team decision facade and domain owner exports",
           "target": "src/runtime_core/collaboration/team.rs",
-          "release": "0.37.12",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/runtime_core/collaboration/team.rs",
             "src/app/collaboration_adapter/team.rs",
             "src/app/collaboration_adapter/team/tests.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/collaboration/domain.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/admission.rs",
+      "slices": [
+        {
+          "responsibility": "resource-lane admission status and event labels",
+          "target": "src/runtime_core/collaboration/team/admission.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team/admission.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
+            "tests/architecture_contract/collaboration/domain.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/dispatch.rs",
+      "slices": [
+        {
+          "responsibility": "failed-lane continuation and team dispatch decisions",
+          "target": "src/runtime_core/collaboration/team/dispatch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team/dispatch.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
+            "tests/architecture_contract/collaboration/domain.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/events.rs",
+      "slices": [
+        {
+          "responsibility": "team runtime event family classification",
+          "target": "src/runtime_core/collaboration/team/events.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team/events.rs",
+            "src/app/collaboration_adapter/team/report_format.rs",
+            "tests/architecture_contract/collaboration/domain.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/governor.rs",
+      "slices": [
+        {
+          "responsibility": "resource pressure mapping and team governor decisions",
+          "target": "src/runtime_core/collaboration/team/governor.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team/governor.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
+            "tests/architecture_contract/collaboration/domain.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/ownership.rs",
+      "slices": [
+        {
+          "responsibility": "cross-lane write ownership admission",
+          "target": "src/runtime_core/collaboration/team/ownership.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team/ownership.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
+            "tests/architecture_contract/collaboration/domain.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/policy.rs",
+      "slices": [
+        {
+          "responsibility": "team command and write-path policy gate",
+          "target": "src/runtime_core/collaboration/team/policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team/policy.rs",
+            "src/app/collaboration_adapter/team/tests.rs",
+            "tests/architecture_contract/collaboration/domain.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/types.rs",
+      "slices": [
+        {
+          "responsibility": "team gate and continuation value objects",
+          "target": "src/runtime_core/collaboration/team/types.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/team/types.rs",
+            "src/app/collaboration_adapter/team.rs",
+            "tests/architecture_contract/collaboration/domain.rs"
           ]
         }
       ]
@@ -18947,7 +19059,49 @@
     {
       "path": "src/runtime_core/collaboration/team.rs",
       "responsibilities": [
-        "team admission, dispatch, continuation, and governor decision policy"
+        "team decision facade and domain owner exports"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/admission.rs",
+      "responsibilities": [
+        "resource-lane admission status and event labels"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/dispatch.rs",
+      "responsibilities": [
+        "failed-lane continuation and team dispatch decisions"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/events.rs",
+      "responsibilities": [
+        "team runtime event family classification"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/governor.rs",
+      "responsibilities": [
+        "resource pressure mapping and team governor decisions"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/ownership.rs",
+      "responsibilities": [
+        "cross-lane write ownership admission"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/policy.rs",
+      "responsibilities": [
+        "team command and write-path policy gate"
+      ]
+    },
+    {
+      "path": "src/runtime_core/collaboration/team/types.rs",
+      "responsibilities": [
+        "team gate and continuation value objects"
       ]
     },
     {
