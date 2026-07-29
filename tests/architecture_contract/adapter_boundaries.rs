@@ -4,6 +4,7 @@ include!("adapter_boundaries/application.rs");
 include!("adapter_boundaries/github_release.rs");
 include!("adapter_boundaries/platform_codec.rs");
 include!("adapter_boundaries/state.rs");
+include!("adapter_boundaries/transcript_codec.rs");
 
 #[test]
 fn adapter_boundary_contracts_are_split_by_responsibility() {
@@ -24,6 +25,10 @@ fn adapter_boundary_contracts_are_split_by_responsibility() {
         (
             "tests/architecture_contract/adapter_boundaries/state.rs",
             525,
+        ),
+        (
+            "tests/architecture_contract/adapter_boundaries/transcript_codec.rs",
+            125,
         ),
     ] {
         assert!(

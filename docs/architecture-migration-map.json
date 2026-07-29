@@ -6911,12 +6911,97 @@
       "path": "src/runtime_core/workflow/storage_compat/transcript.rs",
       "slices": [
         {
-          "responsibility": "canonical transcript record codecs",
+          "responsibility": "stable transcript compatibility codec facade and exports",
           "target": "src/runtime_core/workflow/storage_compat/transcript.rs",
-          "release": "0.37.4",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "tests/workflow/storage_compat.rs"
+            "src/runtime_core/workflow/storage_compat/transcript.rs",
+            "src/runtime_core/workflow/storage_compat/transcript/schema.rs",
+            "src/runtime_core/workflow/storage_compat/transcript/types.rs",
+            "src/runtime_core/workflow/storage_compat/transcript/encode.rs",
+            "src/runtime_core/workflow/storage_compat/transcript/decode.rs",
+            "src/runtime_core/workflow/storage_compat/transcript/validation.rs",
+            "tests/workflow/storage_compat.rs",
+            "tests/architecture_contract/adapter_boundaries/transcript_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/transcript/schema.rs",
+      "slices": [
+        {
+          "responsibility": "transcript schema versions, wire keys, and content bounds",
+          "target": "src/runtime_core/workflow/storage_compat/transcript/schema.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/transcript/schema.rs",
+            "tests/architecture_contract/adapter_boundaries/transcript_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/transcript/types.rs",
+      "slices": [
+        {
+          "responsibility": "transcript record, source-pointer, and tool-binding data contracts",
+          "target": "src/runtime_core/workflow/storage_compat/transcript/types.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/transcript/types.rs",
+            "tests/architecture_contract/adapter_boundaries/transcript_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/transcript/encode.rs",
+      "slices": [
+        {
+          "responsibility": "canonical transcript validation, rendering, and install bytes",
+          "target": "src/runtime_core/workflow/storage_compat/transcript/encode.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/transcript/encode.rs",
+            "tests/workflow/storage_compat.rs",
+            "tests/architecture_contract/adapter_boundaries/transcript_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/transcript/decode.rs",
+      "slices": [
+        {
+          "responsibility": "strict transcript v1 and v2 compatibility parsing",
+          "target": "src/runtime_core/workflow/storage_compat/transcript/decode.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/transcript/decode.rs",
+            "tests/workflow/storage_compat.rs",
+            "tests/architecture_contract/adapter_boundaries/transcript_codec.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/transcript/validation.rs",
+      "slices": [
+        {
+          "responsibility": "transcript identifier, hash, path, source, and tool-binding validation",
+          "target": "src/runtime_core/workflow/storage_compat/transcript/validation.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/storage_compat/transcript/validation.rs",
+            "tests/workflow/storage_compat.rs",
+            "tests/architecture_contract/adapter_boundaries/transcript_codec.rs"
           ]
         }
       ]
@@ -11110,7 +11195,7 @@
       "path": "tests/architecture_contract/adapter_boundaries.rs",
       "slices": [
         {
-          "responsibility": "application, GitHub release, workflow codec, platform fixture, and state adapter architecture contract facade",
+          "responsibility": "application, GitHub release, workflow and transcript codec, platform fixture, and state adapter architecture contract facade",
           "target": "tests/architecture_contract/adapter_boundaries.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -11393,6 +11478,21 @@
           "state": "complete",
           "evidence": [
             "tests/architecture_contract/adapter_boundaries/state.rs",
+            "tests/architecture_contract/adapter_boundaries.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries/transcript_codec.rs",
+      "slices": [
+        {
+          "responsibility": "transcript compatibility codec ownership and storage-purity contracts",
+          "target": "tests/architecture_contract/adapter_boundaries/transcript_codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/adapter_boundaries/transcript_codec.rs",
             "tests/architecture_contract/adapter_boundaries.rs"
           ]
         }
@@ -15658,7 +15758,37 @@
     {
       "path": "src/runtime_core/workflow/storage_compat/transcript.rs",
       "responsibilities": [
-        "canonical transcript record codecs"
+        "stable transcript compatibility codec facade and exports"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/transcript/schema.rs",
+      "responsibilities": [
+        "transcript schema versions, wire keys, and content bounds"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/transcript/types.rs",
+      "responsibilities": [
+        "transcript record, source-pointer, and tool-binding data contracts"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/transcript/encode.rs",
+      "responsibilities": [
+        "canonical transcript validation, rendering, and install bytes"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/transcript/decode.rs",
+      "responsibilities": [
+        "strict transcript v1 and v2 compatibility parsing"
+      ]
+    },
+    {
+      "path": "src/runtime_core/workflow/storage_compat/transcript/validation.rs",
+      "responsibilities": [
+        "transcript identifier, hash, path, source, and tool-binding validation"
       ]
     },
     {
@@ -17175,7 +17305,7 @@
     {
       "path": "tests/architecture_contract/adapter_boundaries.rs",
       "responsibilities": [
-        "application, GitHub release, workflow codec, platform fixture, and state adapter architecture contract facade"
+        "application, GitHub release, workflow and transcript codec, platform fixture, and state adapter architecture contract facade"
       ]
     },
     {
@@ -17284,6 +17414,12 @@
       "path": "tests/architecture_contract/adapter_boundaries/state.rs",
       "responsibilities": [
         "workflow state persistence architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries/transcript_codec.rs",
+      "responsibilities": [
+        "transcript compatibility codec ownership and storage-purity contracts"
       ]
     },
     {
