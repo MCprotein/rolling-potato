@@ -1,5 +1,5 @@
 use crate::foundation::error::AppError;
-use crate::runtime_core::terminal::{TerminalFault, TerminalIo};
+use crate::runtime_core::terminal::TerminalIo;
 
 use super::super::outcome::{exact_tui_outcome, TuiOutcomeCode, TuiOutcomeContext};
 use super::super::runtime_bridge::{OneShotSecret, TuiIntent, TuiReadPage};
@@ -7,17 +7,17 @@ use super::super::view_model::{ConversationRole, InteractiveState, InteractiveVi
 use super::attachments::{
     attachment_path_candidate, capture_attachment_notice, looks_like_attachment_path,
 };
-use super::model_selection::{apply_model_choice, choose_model, model_options_notice};
 use super::request_submission::{
     submit_request_with_progress, submit_web_tool_command, test_secret_probe_enabled,
 };
-use super::session_selection::{resume_selected_session, resume_session, start_new_session};
-use super::source_selection::select_source;
+use super::session_selection::resume_selected_session;
 use super::terminal_flow::{
     confirm, confirm_workflow_action, consume_outcome, outcome_notice, outcome_was_dispatched,
     terminal_fault_error, write_pre_dispatch_frame,
 };
 use super::TuiRuntimePort;
+
+mod workspace;
 
 pub(super) enum LoopControl {
     Continue,
@@ -37,6 +37,11 @@ pub(super) fn dispatch_line(
     let words = line.split_whitespace().collect::<Vec<_>>();
     if !matches!(words.as_slice(), ["/more"] | ["/back"]) {
         state.reset_notice_page();
+    }
+    if let Some(control) =
+        workspace::dispatch_workspace(terminal, runtime, state, width, height, &words)?
+    {
+        return Ok(control);
     }
     let control = match words.as_slice() {
         [] | ["refresh"] => {
@@ -126,97 +131,6 @@ pub(super) fn dispatch_line(
                 "웹 조사 · 페이지 찾는 중\n문서 읽기 ✓ → 본문 찾기 ● → 답변 ○",
                 "페이지 내부 찾기를 완료하지 못했습니다.",
             )?;
-            LoopControl::Continue
-        }
-        ["/sources"] => {
-            select_source(terminal, runtime, state, width, height)?;
-            LoopControl::Continue
-        }
-        ["/attach"] => {
-            state.notice = "사용법: /attach <로컬 파일 경로>".to_string();
-            LoopControl::Continue
-        }
-        ["/attach", path @ ..] => {
-            state.notice = capture_attachment_notice(runtime, state, &path.join(" "));
-            LoopControl::Continue
-        }
-        ["/update"] => {
-            if !confirm(
-                terminal,
-                "업데이트 확인",
-                "업데이트 시작",
-                "최신 stable release 확인 → archive 다운로드 → SHA-256 검증 → binary 교체",
-            )? {
-                state.notice = "업데이트를 취소했습니다.".to_string();
-                return Ok(LoopControl::Continue);
-            }
-            terminal
-                .write_frame("release 확인 → archive 다운로드 → SHA-256 검증 → 설치 중...\n")
-                .map_err(|_| terminal_fault_error(TerminalFault::FrameWrite))?;
-            state.notice = match runtime.apply_update() {
-                Ok(report) => report,
-                Err(error) => error.message,
-            };
-            LoopControl::Continue
-        }
-        ["/status"] => {
-            state.notice = "모델·컨텍스트·backend·세션 상태를 새로고침했습니다.".to_string();
-            LoopControl::Continue
-        }
-        ["/chat"] => {
-            state.set_view(InteractiveView::Conversation);
-            LoopControl::Continue
-        }
-        ["/sessions"] => {
-            state.set_view(InteractiveView::Sessions);
-            LoopControl::Continue
-        }
-        ["/new"] => {
-            start_new_session(runtime, state);
-            LoopControl::Continue
-        }
-        ["/resume"] => {
-            resume_session(terminal, runtime, state)?;
-            LoopControl::Continue
-        }
-        ["/doctor"] => {
-            state.notice = runtime.doctor_report();
-            LoopControl::Continue
-        }
-        ["/clear"] => {
-            match runtime.clear_conversation_history() {
-                Ok(()) => state.clear_conversation(),
-                Err(error) => state.notice = error.message,
-            }
-            LoopControl::Continue
-        }
-        ["/model"] => {
-            let options = runtime.model_options();
-            if options.is_empty() {
-                state.notice = "사용 가능한 모델이 없습니다.".to_string();
-                return Ok(LoopControl::Continue);
-            }
-            let Some(id) = choose_model(terminal, &options)? else {
-                state.notice = "모델 선택을 취소했습니다.".to_string();
-                return Ok(LoopControl::Continue);
-            };
-            let selected = options
-                .iter()
-                .find(|option| option.id == id)
-                .expect("terminal choice must originate from model options");
-            state.notice = apply_model_choice(terminal, runtime, selected)?;
-            LoopControl::Continue
-        }
-        ["/model", id] => {
-            let options = runtime.model_options();
-            let Some(selected) = options.iter().find(|option| option.id == *id) else {
-                state.notice = format!(
-                    "알 수 없는 model id입니다: {id}\n{}",
-                    model_options_notice(&options)
-                );
-                return Ok(LoopControl::Continue);
-            };
-            state.notice = apply_model_choice(terminal, runtime, selected)?;
             LoopControl::Continue
         }
         ["test-secret"] if test_secret_probe_enabled() => {

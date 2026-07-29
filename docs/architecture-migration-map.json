@@ -9278,9 +9278,27 @@
           "evidence": [
             "src/surfaces/tui/controller.rs",
             "src/surfaces/tui/controller/command_dispatch.rs",
+            "src/surfaces/tui/controller/command_dispatch/workspace.rs",
             "src/app/tui_adapter/conversation_tests.rs",
             "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/command_dispatch/workspace.rs",
+      "slices": [
+        {
+          "responsibility": "TUI model, session, attachment, update, and workspace command handling",
+          "target": "src/surfaces/tui/controller/command_dispatch/workspace.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller/command_dispatch/workspace.rs",
+            "tests/surfaces/native_terminal/interaction.rs",
+            "tests/surfaces/native_terminal/lifecycle.rs",
+            "tests/architecture_contract/tui_extension/tui.rs"
           ]
         }
       ]
@@ -17925,6 +17943,12 @@
       "path": "src/surfaces/tui/controller/command_dispatch.rs",
       "responsibilities": [
         "typed TUI command routing and loop-control decisions"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/command_dispatch/workspace.rs",
+      "responsibilities": [
+        "TUI model, session, attachment, update, and workspace command handling"
       ]
     },
     {

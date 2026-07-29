@@ -48,7 +48,8 @@ fn slash_opens_command_palette_before_enter() {
     assert!(palette.contains("/compact"));
 
     terminal.send("model\n");
-    let picker = terminal.wait_for("모델 선택");
+    let picker = terminal.wait_for("Gemma 4 E4B IT QAT Q4_0 GGUF");
+    assert!(picker.contains("모델 선택"));
     assert!(picker.contains("Qwen3.5 4B Q4_K_M GGUF"));
     assert!(picker.contains("Gemma 4 E4B IT QAT Q4_0 GGUF"));
     let picker_close = terminal.mark();

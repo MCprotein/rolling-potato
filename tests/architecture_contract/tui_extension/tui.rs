@@ -69,10 +69,24 @@ fn v0471_tui_controller_support_responsibilities_are_split() {
     );
     let command_dispatch =
         fs::read_to_string("src/surfaces/tui/controller/command_dispatch.rs").unwrap();
+    let workspace_dispatch =
+        fs::read_to_string("src/surfaces/tui/controller/command_dispatch/workspace.rs").unwrap();
+    assert!(command_dispatch
+        .lines()
+        .any(|line| line == "mod workspace;"));
+    for responsibility in [
+        "fn dispatch_workspace(",
+        "fn dispatch_update(",
+        "fn dispatch_model_picker(",
+    ] {
+        assert!(workspace_dispatch.contains(responsibility));
+        assert!(!command_dispatch.contains(responsibility));
+    }
     assert!(
-        command_dispatch.lines().count() < 500,
+        command_dispatch.lines().count() < 425,
         "TUI command dispatcher regrew beyond typed command-routing ownership"
     );
+    assert!(workspace_dispatch.lines().count() < 175);
 }
 #[test]
 fn tui_conversation_journeys_have_bounded_feature_owners() {
