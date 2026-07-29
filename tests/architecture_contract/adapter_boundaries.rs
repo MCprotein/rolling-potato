@@ -268,6 +268,11 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     let state_adapter = "src/app/workflow_adapter/state.rs";
     let current_snapshot_adapter = "src/app/workflow_adapter/state/current_snapshot.rs";
     let current_snapshot_codec = "src/app/workflow_adapter/state/current_snapshot/codec.rs";
+    let current_snapshot_file_io = "src/app/workflow_adapter/state/current_snapshot/file_io.rs";
+    let current_snapshot_lease_view =
+        "src/app/workflow_adapter/state/current_snapshot/lease_view.rs";
+    let current_snapshot_promotion = "src/app/workflow_adapter/state/current_snapshot/promotion.rs";
+    let current_snapshot_status = "src/app/workflow_adapter/state/current_snapshot/status.rs";
     let current_transition_adapter = "src/app/workflow_adapter/state/current_transition.rs";
     let current_image_adapter =
         "src/app/workflow_adapter/state/current_transition/current_image.rs";
@@ -296,6 +301,10 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     assert!(Path::new(state_adapter).is_file());
     assert!(Path::new(current_snapshot_adapter).is_file());
     assert!(Path::new(current_snapshot_codec).is_file());
+    assert!(Path::new(current_snapshot_file_io).is_file());
+    assert!(Path::new(current_snapshot_lease_view).is_file());
+    assert!(Path::new(current_snapshot_promotion).is_file());
+    assert!(Path::new(current_snapshot_status).is_file());
     assert!(Path::new(current_transition_adapter).is_file());
     assert!(Path::new(current_image_adapter).is_file());
     assert!(Path::new(lifecycle_adapter).is_file());
@@ -370,8 +379,18 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     }
 
     let current_snapshot = fs::read_to_string(current_snapshot_adapter).unwrap();
-    assert!(current_snapshot.lines().any(|line| line == "mod codec;"));
-    assert!(current_snapshot.contains("fn promote_current_state_v1("));
+    for module in [
+        "mod codec;",
+        "mod file_io;",
+        "mod lease_view;",
+        "mod promotion;",
+        "mod status;",
+    ] {
+        assert!(
+            current_snapshot.lines().any(|line| line == module),
+            "current snapshot facade is missing responsibility owner: {module}"
+        );
+    }
     for escaped_responsibility in ["fn parse_current_state(", "fn render_current_state_v2("] {
         assert!(
             !current_snapshot.contains(escaped_responsibility),
@@ -387,6 +406,41 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
         assert!(
             current_snapshot_codec.contains(owned_responsibility),
             "current snapshot codec is missing responsibility: {owned_responsibility}"
+        );
+    }
+    let current_snapshot_file_io = fs::read_to_string(current_snapshot_file_io).unwrap();
+    for owned_responsibility in [
+        "fn read_regular_file_bounded(",
+        "fn read_open_file_bounded(",
+        "fn validate_open_read_identity(",
+    ] {
+        assert!(
+            current_snapshot_file_io.contains(owned_responsibility),
+            "current snapshot file I/O owner is missing: {owned_responsibility}"
+        );
+    }
+    let current_snapshot_lease_view = fs::read_to_string(current_snapshot_lease_view).unwrap();
+    for owned_responsibility in [
+        "fn current_state_lease_view(",
+        "fn tui_state_snapshot_read_only(",
+        "fn current_state_lease_view_under_transition(",
+    ] {
+        assert!(
+            current_snapshot_lease_view.contains(owned_responsibility),
+            "current snapshot lease-view owner is missing: {owned_responsibility}"
+        );
+    }
+    let current_snapshot_promotion = fs::read_to_string(current_snapshot_promotion).unwrap();
+    assert!(current_snapshot_promotion.contains("fn promote_current_state_v1("));
+    let current_snapshot_status = fs::read_to_string(current_snapshot_status).unwrap();
+    for owned_responsibility in [
+        "fn read_current_state_summary(",
+        "fn classify_current_state(",
+        "enum CurrentStateStatus",
+    ] {
+        assert!(
+            current_snapshot_status.contains(owned_responsibility),
+            "current snapshot status owner is missing: {owned_responsibility}"
         );
     }
 
@@ -604,8 +658,12 @@ fn v03713_state_adapter_separates_persistence_responsibilities() {
     }
 
     assert!(state.lines().count() < 450);
-    assert!(current_snapshot.lines().count() < 700);
+    assert!(current_snapshot.lines().count() < 50);
     assert!(current_snapshot_codec.lines().count() < 450);
+    assert!(current_snapshot_file_io.lines().count() < 175);
+    assert!(current_snapshot_lease_view.lines().count() < 325);
+    assert!(current_snapshot_promotion.lines().count() < 250);
+    assert!(current_snapshot_status.lines().count() < 100);
     assert!(current_transition.lines().count() < 400);
     assert!(current_image.lines().count() < 325);
     assert!(lifecycle.lines().count() < 700);

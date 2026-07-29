@@ -6024,7 +6024,7 @@
       "path": "src/app/workflow_adapter/state/current_snapshot.rs",
       "slices": [
         {
-          "responsibility": "bounded current-state reads, promotion, and compatibility orchestration",
+          "responsibility": "current-state snapshot facade",
           "target": "src/app/workflow_adapter/state/current_snapshot.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -6046,6 +6046,71 @@
           "state": "complete",
           "evidence": [
             "src/app/workflow_adapter/state/current_snapshot/codec.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot/file_io.rs",
+      "slices": [
+        {
+          "responsibility": "bounded current-state file reads and path-handle identity validation",
+          "target": "src/app/workflow_adapter/state/current_snapshot/file_io.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/current_snapshot/file_io.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot/lease_view.rs",
+      "slices": [
+        {
+          "responsibility": "current-state identity, lease, TUI snapshot, and selection observations",
+          "target": "src/app/workflow_adapter/state/current_snapshot/lease_view.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/workflow/domain/snapshot.rs",
+            "src/app/workflow_adapter/state/current_snapshot/lease_view.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot/promotion.rs",
+      "slices": [
+        {
+          "responsibility": "current-state schema-v1 promotion and crash recovery",
+          "target": "src/app/workflow_adapter/state/current_snapshot/promotion.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/current_snapshot/promotion.rs",
+            "src/app/workflow_adapter/state/tests/current_snapshot.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot/status.rs",
+      "slices": [
+        {
+          "responsibility": "current-state status classification and operator summary",
+          "target": "src/app/workflow_adapter/state/current_snapshot/status.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/state/current_snapshot/status.rs",
             "src/app/workflow_adapter/state/tests/current_snapshot.rs",
             "tests/architecture_contract.rs"
           ]
@@ -12390,13 +12455,37 @@
     {
       "path": "src/app/workflow_adapter/state/current_snapshot.rs",
       "responsibilities": [
-        "bounded current-state reads, promotion, and compatibility orchestration"
+        "current-state snapshot facade"
       ]
     },
     {
       "path": "src/app/workflow_adapter/state/current_snapshot/codec.rs",
       "responsibilities": [
         "current-state canonical codec and schema validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot/file_io.rs",
+      "responsibilities": [
+        "bounded current-state file reads and path-handle identity validation"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot/lease_view.rs",
+      "responsibilities": [
+        "current-state identity, lease, TUI snapshot, and selection observations"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot/promotion.rs",
+      "responsibilities": [
+        "current-state schema-v1 promotion and crash recovery"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/state/current_snapshot/status.rs",
+      "responsibilities": [
+        "current-state status classification and operator summary"
       ]
     },
     {
