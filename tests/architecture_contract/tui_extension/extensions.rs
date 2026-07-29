@@ -1,6 +1,12 @@
 #[test]
 fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let hook = "src/runtime_core/extensions/hook.rs";
+    let hook_codec = "src/runtime_core/extensions/hook/codec.rs";
+    let hook_policy = "src/runtime_core/extensions/hook/policy.rs";
+    let hook_registry = "src/runtime_core/extensions/hook/registry.rs";
+    let hook_report = "src/runtime_core/extensions/hook/report.rs";
+    let hook_tests = "src/runtime_core/extensions/hook/tests.rs";
+    let hook_types = "src/runtime_core/extensions/hook/types.rs";
     let skill = "src/runtime_core/extensions/skill.rs";
     let skill_builtin = "src/runtime_core/extensions/skill/builtin.rs";
     let skill_lifecycle = "src/runtime_core/extensions/skill/lifecycle.rs";
@@ -22,6 +28,12 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
     let skill_adapter = "src/app/extensions_adapter/skill.rs";
     for target in [
         hook,
+        hook_codec,
+        hook_policy,
+        hook_registry,
+        hook_report,
+        hook_tests,
+        hook_types,
         skill,
         skill_builtin,
         skill_lifecycle,
@@ -48,17 +60,62 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
         );
     }
 
-    for (owner, rules, forbidden) in [(
-        hook,
-        [
-            "enum HookStatus",
-            "struct HookRule",
-            "const HOOK_POINTS",
-            "fn dispatch",
-            "fn resolve_conflict",
-        ]
-        .as_slice(),
-        [
+    let hook_facade = fs::read_to_string(hook).unwrap();
+    for owner in ["codec", "policy", "registry", "report", "types"] {
+        assert!(
+            hook_facade
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "hook facade does not register responsibility owner: {owner}"
+        );
+    }
+    let hook_codec_source = fs::read_to_string(hook_codec).unwrap();
+    let hook_policy_source = fs::read_to_string(hook_policy).unwrap();
+    let hook_registry_source = fs::read_to_string(hook_registry).unwrap();
+    let hook_report_source = fs::read_to_string(hook_report).unwrap();
+    let hook_types_source = fs::read_to_string(hook_types).unwrap();
+    for (owner, rules) in [
+        (
+            hook_codec_source.as_str(),
+            &["fn parse_hook_status"][..],
+        ),
+        (
+            hook_policy_source.as_str(),
+            &["fn dispatch", "fn resolve_conflict"][..],
+        ),
+        (
+            hook_registry_source.as_str(),
+            &["struct HookPoint", "const HOOK_POINTS"][..],
+        ),
+        (
+            hook_report_source.as_str(),
+            &["fn list_report", "fn validate_result_report"][..],
+        ),
+        (
+            hook_types_source.as_str(),
+            &["enum HookStatus", "struct HookRule"][..],
+        ),
+    ] {
+        for rule in rules {
+            assert!(
+                owner.contains(rule),
+                "hook responsibility owner is missing: {rule}"
+            );
+            assert!(
+                !hook_facade.contains(rule),
+                "hook facade still owns behavior: {rule}"
+            );
+        }
+    }
+    for (source, maximum_lines, owner) in [
+        (hook_facade.as_str(), 30, hook),
+        (hook_codec_source.as_str(), 50, hook_codec),
+        (hook_policy_source.as_str(), 175, hook_policy),
+        (hook_registry_source.as_str(), 125, hook_registry),
+        (hook_report_source.as_str(), 100, hook_report),
+        (hook_types_source.as_str(), 100, hook_types),
+    ] {
+        for dependency in [
             "crate::adapters",
             "crate::ledger",
             "crate::plugin",
@@ -66,22 +123,16 @@ fn v03711_extension_owners_hold_manifests_lifecycle_and_admission_policy() {
             "crate::state",
             "std::fs",
             "std::process",
-        ]
-        .as_slice(),
-    )] {
-        let source = fs::read_to_string(owner).unwrap();
-        for rule in rules {
-            assert!(
-                source.contains(rule),
-                "v0.37.11 owner is missing extension rule: {owner} -> {rule}"
-            );
-        }
-        for dependency in forbidden {
+        ] {
             assert!(
                 !source.contains(dependency),
                 "extension owner has concrete reverse dependency: {owner} -> {dependency}"
             );
         }
+        assert!(
+            source.lines().count() < maximum_lines,
+            "hook owner regrew beyond its responsibility boundary: {owner}"
+        );
     }
     let skill_facade = fs::read_to_string(skill).unwrap();
     let skill_builtin_source = fs::read_to_string(skill_builtin).unwrap();

@@ -6109,12 +6109,112 @@
       "path": "src/runtime_core/extensions/hook.rs",
       "slices": [
         {
-          "responsibility": "hook lifecycle and ordering",
+          "responsibility": "hook domain facade and responsibility registration",
           "target": "src/runtime_core/extensions/hook.rs",
           "release": "0.37.11",
           "state": "complete",
           "evidence": [
             "src/runtime_core/extensions/hook.rs",
+            "src/runtime_core/extensions/hook/codec.rs",
+            "src/runtime_core/extensions/hook/policy.rs",
+            "src/runtime_core/extensions/hook/registry.rs",
+            "src/runtime_core/extensions/hook/report.rs",
+            "src/runtime_core/extensions/hook/types.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook/codec.rs",
+      "slices": [
+        {
+          "responsibility": "strict hook result status decoding",
+          "target": "src/runtime_core/extensions/hook/codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/hook/codec.rs",
+            "src/runtime_core/extensions/hook/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook/policy.rs",
+      "slices": [
+        {
+          "responsibility": "deterministic hook ordering, modification, conflict, and fail-closed policy",
+          "target": "src/runtime_core/extensions/hook/policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/hook/policy.rs",
+            "src/runtime_core/extensions/hook/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook/registry.rs",
+      "slices": [
+        {
+          "responsibility": "hook point registry and layer order",
+          "target": "src/runtime_core/extensions/hook/registry.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/hook/registry.rs",
+            "src/runtime_core/extensions/hook/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook/report.rs",
+      "slices": [
+        {
+          "responsibility": "hook registry and validation report presentation",
+          "target": "src/runtime_core/extensions/hook/report.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/hook/report.rs",
+            "src/runtime_core/extensions/hook/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook/tests.rs",
+      "slices": [
+        {
+          "responsibility": "hook policy regression tests",
+          "target": "src/runtime_core/extensions/hook/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/hook/tests.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook/types.rs",
+      "slices": [
+        {
+          "responsibility": "hook domain values, rule, input, and dispatch result",
+          "target": "src/runtime_core/extensions/hook/types.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/extensions/hook/types.rs",
+            "src/runtime_core/extensions/hook/tests.rs",
             "tests/architecture_contract.rs"
           ]
         }
@@ -16133,7 +16233,43 @@
     {
       "path": "src/runtime_core/extensions/hook.rs",
       "responsibilities": [
-        "hook lifecycle and ordering"
+        "hook domain facade and responsibility registration"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook/codec.rs",
+      "responsibilities": [
+        "strict hook result status decoding"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook/policy.rs",
+      "responsibilities": [
+        "deterministic hook ordering, modification, conflict, and fail-closed policy"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook/registry.rs",
+      "responsibilities": [
+        "hook point registry and layer order"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook/report.rs",
+      "responsibilities": [
+        "hook registry and validation report presentation"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook/tests.rs",
+      "responsibilities": [
+        "hook policy regression tests"
+      ]
+    },
+    {
+      "path": "src/runtime_core/extensions/hook/types.rs",
+      "responsibilities": [
+        "hook domain values, rule, input, and dispatch result"
       ]
     },
     {
