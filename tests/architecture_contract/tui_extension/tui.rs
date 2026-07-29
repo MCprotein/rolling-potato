@@ -71,9 +71,13 @@ fn v0471_tui_controller_support_responsibilities_are_split() {
         fs::read_to_string("src/surfaces/tui/controller/command_dispatch.rs").unwrap();
     let workspace_dispatch =
         fs::read_to_string("src/surfaces/tui/controller/command_dispatch/workspace.rs").unwrap();
-    assert!(command_dispatch
-        .lines()
-        .any(|line| line == "mod workspace;"));
+    let workflow_dispatch =
+        fs::read_to_string("src/surfaces/tui/controller/command_dispatch/workflow.rs").unwrap();
+    for owner in ["workspace", "workflow"] {
+        assert!(command_dispatch
+            .lines()
+            .any(|line| line == format!("mod {owner};")));
+    }
     for responsibility in [
         "fn dispatch_workspace(",
         "fn dispatch_update(",
@@ -82,11 +86,21 @@ fn v0471_tui_controller_support_responsibilities_are_split() {
         assert!(workspace_dispatch.contains(responsibility));
         assert!(!command_dispatch.contains(responsibility));
     }
+    for responsibility in [
+        "fn dispatch_workflow(",
+        "fn approve_patch(",
+        "fn approve_verification(",
+        "fn dispatch_workflow_action(",
+    ] {
+        assert!(workflow_dispatch.contains(responsibility));
+        assert!(!command_dispatch.contains(responsibility));
+    }
     assert!(
-        command_dispatch.lines().count() < 425,
+        command_dispatch.lines().count() < 300,
         "TUI command dispatcher regrew beyond typed command-routing ownership"
     );
     assert!(workspace_dispatch.lines().count() < 175);
+    assert!(workflow_dispatch.lines().count() < 225);
 }
 #[test]
 fn tui_conversation_journeys_have_bounded_feature_owners() {

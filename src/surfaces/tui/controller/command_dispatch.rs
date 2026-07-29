@@ -2,7 +2,7 @@ use crate::foundation::error::AppError;
 use crate::runtime_core::terminal::TerminalIo;
 
 use super::super::outcome::{exact_tui_outcome, TuiOutcomeCode, TuiOutcomeContext};
-use super::super::runtime_bridge::{OneShotSecret, TuiIntent, TuiReadPage};
+use super::super::runtime_bridge::{OneShotSecret, TuiReadPage};
 use super::super::view_model::{ConversationRole, InteractiveState, InteractiveView};
 use super::attachments::{
     attachment_path_candidate, capture_attachment_notice, looks_like_attachment_path,
@@ -11,12 +11,10 @@ use super::request_submission::{
     submit_request_with_progress, submit_web_tool_command, test_secret_probe_enabled,
 };
 use super::session_selection::resume_selected_session;
-use super::terminal_flow::{
-    confirm, confirm_workflow_action, consume_outcome, outcome_notice, outcome_was_dispatched,
-    terminal_fault_error, write_pre_dispatch_frame,
-};
+use super::terminal_flow::{outcome_notice, terminal_fault_error, write_pre_dispatch_frame};
 use super::TuiRuntimePort;
 
+mod workflow;
 mod workspace;
 
 pub(super) enum LoopControl {
@@ -41,6 +39,9 @@ pub(super) fn dispatch_line(
     if let Some(control) =
         workspace::dispatch_workspace(terminal, runtime, state, width, height, &words)?
     {
+        return Ok(control);
+    }
+    if let Some(control) = workflow::dispatch_workflow(terminal, runtime, state, &words)? {
         return Ok(control);
     }
     let control = match words.as_slice() {
@@ -208,135 +209,6 @@ pub(super) fn dispatch_line(
         ["select", "session", session_id] => {
             resume_selected_session(runtime, state, session_id);
             LoopControl::Continue
-        }
-        ["select", selected_id] => {
-            state.selected_id = Some((*selected_id).to_string());
-            state.notice = format!("선택: {selected_id}");
-            LoopControl::Continue
-        }
-        ["approve", proposal_id] => {
-            let Some(workflow_id) = state.selected_id.clone() else {
-                state.notice = "먼저 select <workflow-id>를 실행하세요.".to_string();
-                return Ok(LoopControl::Continue);
-            };
-            if !cfg!(unix) {
-                state.notice = outcome_notice(exact_tui_outcome(
-                    TuiOutcomeCode::SourceInstallUnsupportedPlatform,
-                    TuiOutcomeContext {
-                        platform: Some(std::env::consts::OS),
-                        ..TuiOutcomeContext::default()
-                    },
-                )?);
-                return Ok(LoopControl::Continue);
-            }
-            if !confirm(
-                terminal,
-                "패치 적용 확인",
-                "패치 적용 승인",
-                format!("proposal {proposal_id}을 검증한 뒤 선택한 workflow에 적용"),
-            )? {
-                state.notice = "승인을 보내지 않았습니다.".to_string();
-                return Ok(LoopControl::Continue);
-            }
-            let intent_id = runtime.new_tui_intent_id();
-            let lease = runtime.tui_selection_lease(&workflow_id)?;
-            write_pre_dispatch_frame(terminal, &intent_id, "토큰을 무반향으로 입력하세요.\n")?;
-            let Some(secret) = terminal.read_secret().map_err(terminal_fault_error)? else {
-                state.notice = "비밀 입력 EOF: 승인을 보내지 않았습니다.".to_string();
-                return Ok(LoopControl::Continue);
-            };
-            let outcome = runtime.dispatch_tui_intent(TuiIntent::ApprovePatch {
-                intent_id: intent_id.clone(),
-                proposal_id: (*proposal_id).to_string(),
-                lease,
-                secret: OneShotSecret::new(secret)?,
-            })?;
-            let consumed = consume_outcome(terminal, &intent_id, outcome)?;
-            state.notice = consumed.notice;
-            if consumed.was_dispatched {
-                LoopControl::PostDispatch(intent_id)
-            } else {
-                LoopControl::Continue
-            }
-        }
-        ["approve", "verification", proposal_id] => {
-            let Some(workflow_id) = state.selected_id.clone() else {
-                state.notice = "먼저 select <workflow-id>를 실행하세요.".to_string();
-                return Ok(LoopControl::Continue);
-            };
-            if !confirm(
-                terminal,
-                "검증 실행 확인",
-                "검증 실행 승인",
-                format!("proposal {proposal_id}의 검증 단계를 실행"),
-            )? {
-                state.notice = "검증 승인을 보내지 않았습니다.".to_string();
-                return Ok(LoopControl::Continue);
-            }
-            let intent_id = runtime.new_tui_intent_id();
-            let lease = runtime.tui_selection_lease(&workflow_id)?;
-            write_pre_dispatch_frame(terminal, &intent_id, "토큰을 무반향으로 입력하세요.\n")?;
-            let Some(secret) = terminal.read_secret().map_err(terminal_fault_error)? else {
-                state.notice = "비밀 입력 EOF: 검증 승인을 보내지 않았습니다.".to_string();
-                return Ok(LoopControl::Continue);
-            };
-            let outcome = runtime.dispatch_tui_intent(TuiIntent::ApproveVerification {
-                intent_id: intent_id.clone(),
-                proposal_id: (*proposal_id).to_string(),
-                lease,
-                secret: OneShotSecret::new(secret)?,
-            })?;
-            let was_dispatched = outcome_was_dispatched(outcome.effect);
-            state.notice = outcome_notice(outcome);
-            if was_dispatched {
-                LoopControl::PostDispatch(intent_id)
-            } else {
-                LoopControl::Continue
-            }
-        }
-        [action @ ("deny" | "resume" | "cancel")] => {
-            let Some(workflow_id) = state.selected_id.clone() else {
-                state.notice = "먼저 select <workflow-id>를 실행하세요.".to_string();
-                return Ok(LoopControl::Continue);
-            };
-            if !confirm_workflow_action(terminal, action, &workflow_id)? {
-                state.notice = "요청을 보내지 않았습니다.".to_string();
-                return Ok(LoopControl::Continue);
-            }
-            let intent_id = runtime.new_tui_intent_id();
-            let gate = (*action == "deny")
-                .then(|| runtime.tui_gate_descriptor(&workflow_id))
-                .transpose()?;
-            let lease = runtime.tui_selection_lease(&workflow_id)?;
-            write_pre_dispatch_frame(terminal, &intent_id, "정본 상태를 재검증했습니다.\n")?;
-            let intent = match *action {
-                "deny" => TuiIntent::DenyPendingGate {
-                    intent_id: intent_id.clone(),
-                    workflow_id,
-                    gate_id: gate.as_ref().expect("deny gate prepared").0.clone(),
-                    gate_kind: gate.expect("deny gate prepared").1,
-                    lease,
-                },
-                "resume" => TuiIntent::ResumeWorkflow {
-                    intent_id: intent_id.clone(),
-                    workflow_id,
-                    lease,
-                },
-                "cancel" => TuiIntent::CancelWorkflow {
-                    intent_id: intent_id.clone(),
-                    workflow_id,
-                    lease,
-                },
-                _ => unreachable!(),
-            };
-            let outcome = runtime.dispatch_tui_intent(intent)?;
-            let was_dispatched = outcome_was_dispatched(outcome.effect);
-            state.notice = outcome_notice(outcome);
-            if was_dispatched {
-                LoopControl::PostDispatch(intent_id)
-            } else {
-                LoopControl::Continue
-            }
         }
         [command, ..] if command.starts_with('/') && looks_like_attachment_path(line.trim()) => {
             let path = attachment_path_candidate(line.trim())

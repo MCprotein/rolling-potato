@@ -9279,6 +9279,7 @@
             "src/surfaces/tui/controller.rs",
             "src/surfaces/tui/controller/command_dispatch.rs",
             "src/surfaces/tui/controller/command_dispatch/workspace.rs",
+            "src/surfaces/tui/controller/command_dispatch/workflow.rs",
             "src/app/tui_adapter/conversation_tests.rs",
             "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract.rs"
@@ -9298,6 +9299,23 @@
             "src/surfaces/tui/controller/command_dispatch/workspace.rs",
             "tests/surfaces/native_terminal/interaction.rs",
             "tests/surfaces/native_terminal/lifecycle.rs",
+            "tests/architecture_contract/tui_extension/tui.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/command_dispatch/workflow.rs",
+      "slices": [
+        {
+          "responsibility": "TUI workflow selection, approval, denial, resume, and cancellation lifecycle handling",
+          "target": "src/surfaces/tui/controller/command_dispatch/workflow.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/controller/command_dispatch/workflow.rs",
+            "tests/surfaces/native_terminal/adapter_matrix/full_adapter.rs",
+            "src/app/tui_adapter/tests.rs",
             "tests/architecture_contract/tui_extension/tui.rs"
           ]
         }
@@ -17949,6 +17967,12 @@
       "path": "src/surfaces/tui/controller/command_dispatch/workspace.rs",
       "responsibilities": [
         "TUI model, session, attachment, update, and workspace command handling"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/controller/command_dispatch/workflow.rs",
+      "responsibilities": [
+        "TUI workflow selection, approval, denial, resume, and cancellation lifecycle handling"
       ]
     },
     {
