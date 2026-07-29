@@ -9969,13 +9969,64 @@
       "path": "tests/architecture_contract/collaboration.rs",
       "slices": [
         {
-          "responsibility": "collaboration lifecycle, execution, recovery, and reconciliation architecture contracts",
+          "responsibility": "collaboration architecture contract facade and responsibility registration",
           "target": "tests/architecture_contract/collaboration.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "tests/architecture_contract/collaboration.rs",
+            "tests/architecture_contract/collaboration/domain.rs",
+            "tests/architecture_contract/collaboration/subagent.rs",
+            "tests/architecture_contract/collaboration/team.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/collaboration/domain.rs",
+      "slices": [
+        {
+          "responsibility": "collaboration domain policy, state, codec, and dependency direction contracts",
+          "target": "tests/architecture_contract/collaboration/domain.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/collaboration/mod.rs",
+            "tests/architecture_contract/collaboration.rs",
+            "tests/architecture_contract/collaboration/domain.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/collaboration/subagent.rs",
+      "slices": [
+        {
+          "responsibility": "subagent execution, persistence, regression, and facade delegation contracts",
+          "target": "tests/architecture_contract/collaboration/subagent.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/subagent.rs",
+            "tests/architecture_contract/collaboration.rs",
+            "tests/architecture_contract/collaboration/subagent.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/collaboration/team.rs",
+      "slices": [
+        {
+          "responsibility": "team reporting, execution, persistence, reconciliation, and facade delegation contracts",
+          "target": "tests/architecture_contract/collaboration/team.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/collaboration_adapter/team.rs",
+            "tests/architecture_contract/collaboration.rs",
+            "tests/architecture_contract/collaboration/team.rs"
           ]
         }
       ]
@@ -14227,7 +14278,25 @@
     {
       "path": "tests/architecture_contract/collaboration.rs",
       "responsibilities": [
-        "collaboration lifecycle, execution, recovery, and reconciliation architecture contracts"
+        "collaboration architecture contract facade and responsibility registration"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/collaboration/domain.rs",
+      "responsibilities": [
+        "collaboration domain policy, state, codec, and dependency direction contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/collaboration/subagent.rs",
+      "responsibilities": [
+        "subagent execution, persistence, regression, and facade delegation contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/collaboration/team.rs",
+      "responsibilities": [
+        "team reporting, execution, persistence, reconciliation, and facade delegation contracts"
       ]
     },
     {
