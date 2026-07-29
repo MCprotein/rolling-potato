@@ -1,5 +1,16 @@
 use super::*;
 
+include!("composition/inference.rs");
+
+fn inference_composition_source(owner: &str) -> String {
+    [
+        fs::read_to_string("src/composition/inference.rs").unwrap(),
+        fs::read_to_string("src/composition/inference/ports.rs").unwrap(),
+        fs::read_to_string(format!("src/composition/inference/{owner}.rs")).unwrap(),
+    ]
+    .join("\n")
+}
+
 #[test]
 fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
     let composition = fs::read_to_string("src/composition/dispatch.rs").unwrap();
@@ -177,7 +188,7 @@ fn v03713_composition_owns_cli_preflight_and_dispatch_ordering() {
 
 #[test]
 fn v03713_composition_owns_benchmark_command_orchestration() {
-    let composition = fs::read_to_string("src/composition/inference.rs").unwrap();
+    let composition = inference_composition_source("benchmark");
     for definition in [
         "trait BenchmarkCommandPort",
         "fn run_benchmark(",
@@ -213,7 +224,7 @@ fn v03713_composition_owns_benchmark_command_orchestration() {
 
 #[test]
 fn v03713_composition_owns_model_command_orchestration() {
-    let composition = fs::read_to_string("src/composition/inference.rs").unwrap();
+    let composition = inference_composition_source("model");
     for definition in [
         "trait ModelCommandPort",
         "fn run_model(",
@@ -252,7 +263,7 @@ fn v03713_composition_owns_model_command_orchestration() {
 
 #[test]
 fn v03713_composition_owns_backend_command_orchestration() {
-    let composition = fs::read_to_string("src/composition/inference.rs").unwrap();
+    let composition = inference_composition_source("backend");
     for definition in [
         "trait BackendCommandPort",
         "fn run_backend(",

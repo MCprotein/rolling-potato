@@ -3582,11 +3582,92 @@
           "state": "complete",
           "evidence": [
             "src/composition/inference.rs",
+            "src/composition/inference/backend.rs",
+            "src/composition/inference/benchmark.rs",
+            "src/composition/inference/model.rs",
+            "src/composition/inference/ports.rs",
+            "src/composition/inference/tests.rs",
             "src/app/command_dispatch.rs",
-            "src/app/inference_adapter/backend.rs",
-            "src/app/inference_adapter/benchmark.rs",
-            "src/app/inference_adapter/model.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/composition/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/inference/backend.rs",
+      "slices": [
+        {
+          "responsibility": "backend lifecycle command composition and streaming output dispatch",
+          "target": "src/composition/inference/backend.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/inference/backend.rs",
+            "src/composition/inference/tests.rs",
+            "tests/architecture_contract/composition/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/inference/benchmark.rs",
+      "slices": [
+        {
+          "responsibility": "benchmark command composition",
+          "target": "src/composition/inference/benchmark.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/inference/benchmark.rs",
+            "src/composition/inference/tests.rs",
+            "tests/architecture_contract/composition/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/inference/model.rs",
+      "slices": [
+        {
+          "responsibility": "model command composition",
+          "target": "src/composition/inference/model.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/inference/model.rs",
+            "src/composition/inference/tests.rs",
+            "tests/architecture_contract/composition/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/inference/ports.rs",
+      "slices": [
+        {
+          "responsibility": "inference command ports and output contract",
+          "target": "src/composition/inference/ports.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/inference/ports.rs",
+            "src/composition/inference/tests.rs",
+            "tests/architecture_contract/composition/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/inference/tests.rs",
+      "slices": [
+        {
+          "responsibility": "inference composition regression fixtures",
+          "target": "src/composition/inference/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/inference/tests.rs",
+            "tests/architecture_contract/composition/inference.rs"
           ]
         }
       ]
@@ -12596,6 +12677,22 @@
       ]
     },
     {
+      "path": "tests/architecture_contract/composition/inference.rs",
+      "slices": [
+        {
+          "responsibility": "inference composition owner and line-budget contracts",
+          "target": "tests/architecture_contract/composition/inference.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/composition/inference.rs",
+            "tests/architecture_contract/composition.rs",
+            "src/composition/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/architecture_contract/domain_views.rs",
       "slices": [
         {
@@ -15927,6 +16024,36 @@
       ]
     },
     {
+      "path": "src/composition/inference/backend.rs",
+      "responsibilities": [
+        "backend lifecycle command composition and streaming output dispatch"
+      ]
+    },
+    {
+      "path": "src/composition/inference/benchmark.rs",
+      "responsibilities": [
+        "benchmark command composition"
+      ]
+    },
+    {
+      "path": "src/composition/inference/model.rs",
+      "responsibilities": [
+        "model command composition"
+      ]
+    },
+    {
+      "path": "src/composition/inference/ports.rs",
+      "responsibilities": [
+        "inference command ports and output contract"
+      ]
+    },
+    {
+      "path": "src/composition/inference/tests.rs",
+      "responsibilities": [
+        "inference composition regression fixtures"
+      ]
+    },
+    {
       "path": "src/composition/install.rs",
       "responsibilities": [
         "user-local CLI install, clean reset, and init environment orchestration"
@@ -19166,6 +19293,12 @@
       "path": "tests/architecture_contract/composition.rs",
       "responsibilities": [
         "CLI, benchmark, model, and backend composition orchestration contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/composition/inference.rs",
+      "responsibilities": [
+        "inference composition owner and line-budget contracts"
       ]
     },
     {
