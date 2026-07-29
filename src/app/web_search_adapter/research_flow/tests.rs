@@ -139,12 +139,41 @@ fn final_web_prompt_keeps_prior_runtime_failure_context() {
 }
 
 #[test]
+fn final_web_prompt_requires_cautious_structured_grounding() {
+    let input = WebAnswerInput::new(
+        "2026 국제 대회 공식 결과",
+        "2026년 국제 대회 결과가 뭐야",
+        "2026년 국제 대회 결과가 뭐야",
+    );
+
+    let prompt = research_prompt(
+        &input,
+        "Source ID: source-blog\nDescription: 예상 우승국 전망",
+        &[],
+    );
+
+    assert!(prompt.contains("예상·전망·예측"));
+    assert!(prompt.contains("실제 결과 근거로 사용하지"));
+    assert!(prompt.contains("후보 결과를 나열하거나 반복하지 말고"));
+    assert!(prompt.contains("출처끼리 결과가 충돌"));
+    assert!(prompt.contains("첫 문장은 사용자가 요구한 값에 대한 직접 답"));
+    assert!(prompt.contains("검색 문서의 제목이나 범위를 답으로 대신하지"));
+    assert!(prompt.contains("status, answer, source_ids"));
+    assert!(prompt.contains("supported"));
+    assert!(prompt.contains("insufficient"));
+}
+
+#[test]
 fn supporting_find_uses_a_bounded_query_term() {
     assert_eq!(
-        longest_query_term("Rust stable release 2026"),
+        supporting_query_term("Rust stable release 2026"),
         Some("release".to_string())
     );
-    assert_eq!(longest_query_term("a 1"), None);
+    assert_eq!(
+        supporting_query_term("alpha runtime benchmark 공식 official"),
+        Some("runtime".to_string())
+    );
+    assert_eq!(supporting_query_term("a 1"), None);
 }
 
 #[test]
@@ -178,14 +207,8 @@ fn cached_grounding_answers_referential_followups_without_new_network_access() {
         answer.contains("Ecodesign for Sustainable Products Regulation"),
         "{answer}"
     );
-    assert!(
-        answer.contains("제품 수명 연장과 재활용 원료 확대를 목표"),
-        "{answer}"
-    );
-    assert!(answer.contains("고구마님"), "{answer}");
     assert!(answer.contains("[source-name]"));
     assert!(answer.contains("https://example.com/espr-name"));
     assert!(!answer.contains("이전 검색에서 보존한 원문 내용입니다."));
     assert!(!answer.contains("&ldquo;"), "{answer}");
-    assert!(!answer.contains("2024년 7월"), "{answer}");
 }

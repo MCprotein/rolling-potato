@@ -1,0 +1,110 @@
+use super::super::WorkflowRecord;
+use super::versions::{
+    LEGACY_WORKFLOW_SCHEMA_VERSION, PREVIOUS_WORKFLOW_SCHEMA_VERSION, WORKFLOW_SCHEMA_VERSION,
+};
+
+pub(crate) fn payload(record: &WorkflowRecord) -> String {
+    format!(
+        "schema_version={WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\nactive_skill_id={}\nskill_invocation={}\nskill_state={}\nskill_completed_hooks={}\nskill_evidence={}\nskill_stop_criteria={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nverification_credential_hash={}\nverification_approval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
+        record.workflow_id,
+        record.revision,
+        record.previous_hash,
+        record.project_id,
+        record.session_id,
+        record.phase,
+        record.request_hash,
+        record.workflow_kind,
+        record.active_skill_id,
+        record.skill_invocation,
+        record.skill_state,
+        record.skill_completed_hooks,
+        record.skill_evidence,
+        record.skill_stop_criteria,
+        record.action_id,
+        record.action_kind,
+        record.action_status,
+        record.result_summary,
+        record.source_path,
+        record.source_hash,
+        record.find_text,
+        record.replace_text,
+        record.proposal_id,
+        record.proposal_hash,
+        record.approval_credential_hash,
+        record.before_hash,
+        record.after_hash,
+        record.verification_plan,
+        record.approval_state,
+        record.verification_credential_hash,
+        record.verification_approval_state,
+        record.evidence_id,
+        record.evidence_hash,
+        record.failure_reason
+    )
+}
+
+pub(crate) fn payload_v2(record: &WorkflowRecord) -> String {
+    format!(
+        "schema_version={LEGACY_WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
+        record.workflow_id,
+        record.revision,
+        record.previous_hash,
+        record.project_id,
+        record.session_id,
+        record.phase,
+        record.request_hash,
+        record.workflow_kind,
+        record.action_id,
+        record.action_kind,
+        record.action_status,
+        record.result_summary,
+        record.source_path,
+        record.source_hash,
+        record.find_text,
+        record.replace_text,
+        record.proposal_id,
+        record.proposal_hash,
+        record.approval_credential_hash,
+        record.before_hash,
+        record.after_hash,
+        record.verification_plan,
+        record.approval_state,
+        record.evidence_id,
+        record.evidence_hash,
+        record.failure_reason
+    )
+}
+
+pub(crate) fn payload_v3(record: &WorkflowRecord) -> String {
+    format!(
+        "schema_version={PREVIOUS_WORKFLOW_SCHEMA_VERSION}\nworkflow_id={}\nrevision={}\nprevious_hash={}\nproject_id={}\nsession_id={}\nphase={}\nrequest_hash={}\nworkflow_kind={}\naction_id={}\naction_kind={}\naction_status={}\nresult_summary={}\nsource_path={}\nsource_hash={}\nfind_text={}\nreplace_text={}\nproposal_id={}\nproposal_hash={}\napproval_credential_hash={}\nbefore_hash={}\nafter_hash={}\nverification_plan={}\napproval_state={}\nverification_credential_hash={}\nverification_approval_state={}\nevidence_id={}\nevidence_hash={}\nfailure_reason={}\n",
+        record.workflow_id,
+        record.revision,
+        record.previous_hash,
+        record.project_id,
+        record.session_id,
+        record.phase,
+        record.request_hash,
+        record.workflow_kind,
+        record.action_id,
+        record.action_kind,
+        record.action_status,
+        record.result_summary,
+        record.source_path,
+        record.source_hash,
+        record.find_text,
+        record.replace_text,
+        record.proposal_id,
+        record.proposal_hash,
+        record.approval_credential_hash,
+        record.before_hash,
+        record.after_hash,
+        record.verification_plan,
+        record.approval_state,
+        record.verification_credential_hash,
+        record.verification_approval_state,
+        record.evidence_id,
+        record.evidence_hash,
+        record.failure_reason
+    )
+}

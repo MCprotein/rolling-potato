@@ -2,12 +2,18 @@ use super::research::WebResearchStep;
 use super::WebGroundingEvidence;
 use crate::foundation::error::AppError;
 
+mod grounding_policy;
+mod page_intent;
 mod protocol;
 mod query;
+mod text;
 mod web_policy;
 
+pub(super) use grounding_policy::{requires_external_grounding, strengthen_search_query};
+pub(crate) use page_intent::route_current_page_find;
 pub(crate) use protocol::route_tool_request;
 pub(crate) use query::contextualize_search_input;
+pub(super) use text::{best_query_term, overlap_score};
 pub(crate) use web_policy::web_disabled;
 
 pub(crate) fn validate_public_web_step(step: WebResearchStep) -> Result<WebResearchStep, AppError> {
@@ -80,51 +86,9 @@ fn is_natural_regrounding_request(request: &str) -> bool {
 }
 
 fn request_topic_overlaps_grounding(request: &str, grounding: &[WebGroundingEvidence]) -> bool {
-    let request = request.to_lowercase();
-    request
-        .split(|character: char| !character.is_alphanumeric())
-        .filter_map(normalized_topic_term)
-        .any(|term| {
-            grounding.iter().any(|evidence| {
-                evidence.title.to_lowercase().contains(term)
-                    || evidence.excerpt.to_lowercase().contains(term)
-            })
-        })
-}
-
-fn normalized_topic_term(term: &str) -> Option<&str> {
-    let term = term.trim();
-    if term.chars().count() < 3 {
-        return None;
-    }
-    let normalized = [
-        "에서", "으로", "라고", "이랑", "하고", "에게", "한테", "부터", "까지", "의", "은", "는",
-        "이", "가", "을", "를", "와", "과", "도", "에",
-    ]
-    .iter()
-    .find_map(|suffix| {
-        term.strip_suffix(suffix)
-            .filter(|value| value.chars().count() >= 3)
+    grounding.iter().any(|evidence| {
+        overlap_score(request, &evidence.title) > 0 || overlap_score(request, &evidence.excerpt) > 0
     })
-    .unwrap_or(term);
-    (!matches!(
-        normalized,
-        "근거"
-            | "출처"
-            | "맞춰"
-            | "다시"
-            | "답해줘"
-            | "설명해줘"
-            | "정식"
-            | "영문명"
-            | "목적"
-            | "이름"
-            | "불러줘"
-            | "evidence"
-            | "source"
-            | "again"
-    ))
-    .then_some(normalized)
 }
 
 fn contains_credential_like_value(value: &str) -> bool {

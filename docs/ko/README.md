@@ -27,6 +27,8 @@
 
 - [아키텍처](architecture.md) — 전체 제품·런타임 경계
 - [코드 아키텍처](code-architecture.md) — module ownership과 dependency 방향
+- [저장소 전면 리팩터링 계획](repository-refactor-plan.md) — 참조 구현 비교,
+  책임 분리 순서, 회귀 검증과 완료 조건
 - [런타임 아키텍처](runtime-architecture.md) — surface, core, adapter, artifact
   계층
 - [상태 수명주기](state-lifecycle.md) — canonical state, projection, recovery,
@@ -68,7 +70,8 @@ claim은 명시적으로 `unverified` 상태를 유지합니다.
 - [개발](development.md)
 - [릴리즈 정책과 workflow](release.md)
 - [릴리즈 열차](release-train.md)
-- [릴리즈 노트](RELEASE_NOTES.md)
+- [릴리즈 노트 index](RELEASE_NOTES.md) — 현재 릴리즈와
+  `docs/ko/releases/`의 범위별 archive 링크
 - [릴리즈 노트 template](release-notes-template.md)
 - [v0.29 보정 계획](v0.29-correction-plan.md) — 과거 release-blocking 보정
   기록
@@ -84,5 +87,6 @@ claim은 명시적으로 `unverified` 상태를 유지합니다.
 ## Maintainer 참고 문서
 
 - [Agent handoff](../../HANDOFF.md)
-- [Agent 실행 회고](../agent-retrospectives.md)
+- [Agent 실행 회고 index](../agent-retrospectives.md) — runtime, CI, release,
+  governance 주제별 bounded archive 링크
 - [저장소 agent 지침](../../AGENTS.md)

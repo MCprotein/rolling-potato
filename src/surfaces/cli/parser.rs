@@ -4,7 +4,10 @@ use crate::surfaces::cli::render::HELP;
 
 mod backend;
 mod collaboration;
+mod governance;
 mod install;
+mod lifecycle;
+mod model;
 mod observability;
 mod patch;
 mod plugin;
@@ -15,7 +18,12 @@ use collaboration::{
     parse_team_dispatch_args, parse_team_execute_args, parse_team_governor_args,
     parse_team_plan_args, parse_team_reconcile_args,
 };
+use governance::{parse_evidence, parse_hooks, parse_policy, parse_skill};
 use install::parse_install;
+use lifecycle::{
+    parse_continue, parse_resume, parse_session, parse_state, parse_tui, parse_update,
+};
+use model::parse_model;
 use observability::{
     parse_benchmark_record, parse_benchmark_report, parse_benchmark_run, parse_monitor_export,
     parse_monitor_prune, parse_ontology_context, parse_ontology_export, parse_ontology_import,
@@ -40,13 +48,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, rest @ ..] if group == "install" => {
             parse_install(rest).map(Command::Install)
         }
-        [arg] if arg == "update" => Ok(Command::Update(UpdateCommand::Apply)),
-        [arg, flag] if arg == "update" && flag == "--check" => {
-            Ok(Command::Update(UpdateCommand::Check))
+        [group, rest @ ..] if group == "update" => {
+            parse_update(rest).map(Command::Update)
         }
-        [arg, ..] if arg == "update" => Err(AppError::usage(
-            "update는 옵션 없이 적용하거나 `rpotato update --check`로 확인할 수 있습니다.",
-        )),
         [arg] if arg == "init" => Ok(Command::Init),
         [group, rest @ ..] if group == "run" => Ok(Command::Run {
             request: parse_request(rest, "run")?,
@@ -64,45 +68,12 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         }
         [arg] if arg == "doctor" => Ok(Command::Doctor),
         [arg] if arg == "config" => Ok(Command::Config),
-        [arg] if arg == "state" => Ok(Command::State(StateCommand::Status)),
-        [group, action] if group == "state" && action == "reconcile" => {
-            Ok(Command::State(StateCommand::Reconcile))
+        [group, rest @ ..] if group == "state" => parse_state(rest).map(Command::State),
+        [group, rest @ ..] if group == "resume" => parse_resume(rest),
+        [group, rest @ ..] if group == "continue" => parse_continue(rest),
+        [group, rest @ ..] if group == "session" => {
+            parse_session(rest).map(Command::Session)
         }
-        [group, action] if group == "state" && action == "resume" => {
-            Ok(Command::State(StateCommand::Resume))
-        }
-        [group, ..] if group == "state" => Err(AppError::usage(
-            "state 명령은 status 생략형, reconcile, resume만 허용합니다.",
-        )),
-        [arg] if arg == "resume" => Ok(Command::Session(SessionCommand::List)),
-        [arg, id] if arg == "resume" => Ok(Command::Session(SessionCommand::Resume {
-            id: id.clone(),
-        })),
-        [arg, ..] if arg == "resume" => Err(AppError::usage(
-            "resume은 인자 없이 session history를 보거나 resume <session-id> 형식만 허용합니다.",
-        )),
-        [arg] if arg == "continue" => Ok(Command::State(StateCommand::Resume)),
-        [arg, id] if arg == "continue" => Ok(Command::Session(SessionCommand::Resume {
-            id: id.clone(),
-        })),
-        [arg, ..] if arg == "continue" => Err(AppError::usage(
-            "continue는 인자 없이 현재 workflow를 이어가거나 continue <session-id> 형식만 허용합니다.",
-        )),
-        [group, action] if group == "session" && (action == "list" || action == "history") => {
-            Ok(Command::Session(SessionCommand::List))
-        }
-        [group, action] if group == "session" && action == "new" => {
-            Ok(Command::Session(SessionCommand::New))
-        }
-        [group, action, id] if group == "session" && action == "resume" => {
-            Ok(Command::Session(SessionCommand::Resume { id: id.clone() }))
-        }
-        [group, action, ..] if group == "session" && action == "resume" => Err(
-            AppError::usage("session resume에는 session id가 필요합니다."),
-        ),
-        [group, ..] if group == "session" => Err(AppError::usage(
-            "session 명령은 list, history, new, resume만 허용합니다.",
-        )),
         [group, action] if group == "team" && action == "status" => {
             Ok(Command::Team(TeamCommand::Status))
         }
@@ -155,110 +126,16 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, ..] if group == "subagent" => Err(AppError::usage(
             "subagent 명령은 launch, status, cancel만 허용합니다.",
         )),
-        [arg] if arg == "tui" => Ok(Command::Tui(TuiCommand::Auto)),
-        [group, action] if group == "tui" && action == "interactive" => {
-            Ok(Command::Tui(TuiCommand::Interactive))
-        }
-        [group, action] if group == "tui" && action == "monitor" => {
-            Ok(Command::Tui(TuiCommand::Monitor))
-        }
-        [group, action] if group == "tui" && action == "sessions" => {
-            Ok(Command::Tui(TuiCommand::Sessions))
-        }
-        [group, action, session_id] if group == "tui" && action == "transcript" => {
-            Ok(Command::Tui(TuiCommand::Transcript {
-                session_id: session_id.clone(),
-            }))
-        }
-        [group, action, ..] if group == "tui" && action == "transcript" => Err(
-            AppError::usage("tui transcript에는 session id가 필요합니다."),
-        ),
-        [group, action] if group == "tui" && action == "approvals" => {
-            Ok(Command::Tui(TuiCommand::Approvals))
-        }
-        [group, action, proposal_id] if group == "tui" && action == "diff" => {
-            Ok(Command::Tui(TuiCommand::Diff {
-                proposal_id: proposal_id.clone(),
-            }))
-        }
-        [group, action, ..] if group == "tui" && action == "diff" => Err(AppError::usage(
-            "tui diff에는 proposal id가 필요합니다.",
-        )),
-        [group, action] if group == "tui" && action == "evidence" => {
-            Ok(Command::Tui(TuiCommand::Evidence))
-        }
-        [group, ..] if group == "tui" => Err(AppError::usage(
-            "tui 명령은 인자 없음, interactive, monitor, sessions, transcript, approvals, diff, evidence만 허용합니다.",
-        )),
+        [group, rest @ ..] if group == "tui" => parse_tui(rest).map(Command::Tui),
         [arg] if arg == "cancel" => Ok(Command::Cancel),
-        [group, action, pointer] if group == "evidence" && action == "validate" => {
-            Ok(Command::Evidence(EvidenceCommand::Validate {
-                pointer: pointer.clone(),
-            }))
+        [group, rest @ ..] if group == "evidence" => {
+            parse_evidence(rest).map(Command::Evidence)
         }
-        [group, action, ..] if group == "evidence" && action == "validate" => Err(
-            AppError::usage("evidence validate에는 artifact pointer가 필요합니다."),
-        ),
-        [group, ..] if group == "evidence" => {
-            Err(AppError::usage("evidence 명령은 validate만 허용합니다."))
+        [group, rest @ ..] if group == "skill" => parse_skill(rest).map(Command::Skill),
+        [group, rest @ ..] if group == "policy" => {
+            parse_policy(rest).map(Command::Policy)
         }
-        [group, action] if group == "skill" && action == "list" => {
-            Ok(Command::Skill(SkillCommand::List))
-        }
-        [group, action, id, rest @ ..] if group == "skill" && action == "run" => {
-            Ok(Command::Skill(SkillCommand::Run {
-                id: id.clone(),
-                request: parse_request(rest, "skill run")?,
-            }))
-        }
-        [group, action, ..] if group == "skill" && action == "run" => Err(AppError::usage(
-            "skill run에는 skill id와 요청이 필요합니다. 예: rpotato skill run fix-test \"테스트 실패를 고쳐줘\"",
-        )),
-        [group, ..] if group == "skill" => {
-            Err(AppError::usage("skill 명령은 list 또는 run만 허용합니다."))
-        }
-        [group, action] if group == "policy" && action == "schema" => {
-            Ok(Command::Policy(PolicyCommand::Schema))
-        }
-        [group, action, rest @ ..] if group == "policy" && action == "check-command" => {
-            Ok(Command::Policy(PolicyCommand::CheckCommand {
-                command: parse_request(rest, "policy check-command")?,
-            }))
-        }
-        [group, action, flag, path] if group == "policy" && action == "check-path" => {
-            let mode = match flag.as_str() {
-                "--read" => PolicyPathMode::Read,
-                "--write" => PolicyPathMode::Write,
-                _ => {
-                    return Err(AppError::usage(
-                        "policy check-path는 --read 또는 --write만 허용합니다.",
-                    ));
-                }
-            };
-            Ok(Command::Policy(PolicyCommand::CheckPath {
-                mode,
-                path: path.clone(),
-            }))
-        }
-        [group, action, rest @ ..] if group == "policy" && action == "redact" => {
-            Ok(Command::Policy(PolicyCommand::Redact {
-                text: parse_request(rest, "policy redact")?,
-            }))
-        }
-        [group, ..] if group == "policy" => Err(AppError::usage(
-            "policy 명령은 schema, check-command, check-path, redact만 허용합니다.",
-        )),
-        [group, action] if group == "hooks" && action == "list" => {
-            Ok(Command::Hooks(HooksCommand::List))
-        }
-        [group, action, rest @ ..] if group == "hooks" && action == "validate-result" => {
-            Ok(Command::Hooks(HooksCommand::ValidateResult {
-                json: parse_request(rest, "hooks validate-result")?,
-            }))
-        }
-        [group, ..] if group == "hooks" => Err(AppError::usage(
-            "hooks 명령은 list 또는 validate-result만 허용합니다.",
-        )),
+        [group, rest @ ..] if group == "hooks" => parse_hooks(rest).map(Command::Hooks),
         [group, action, rest @ ..] if group == "patch" && action == "preview" => {
             parse_patch_preview(rest).map(Command::Patch)
         }
@@ -386,96 +263,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, AppError
         [group, ..] if group == "benchmark" => Err(AppError::usage(
             "benchmark 명령은 validate, record, run, report만 허용합니다.",
         )),
-        [group, action] if group == "model" && action == "list" => {
-            Ok(Command::Model(ModelCommand::List))
-        }
-        [group, action] if group == "model" && action == "manifest" => {
-            Ok(Command::Model(ModelCommand::Manifest))
-        }
-        [group, action, id] if group == "model" && action == "inspect" => {
-            Ok(Command::Model(ModelCommand::Inspect { id: id.clone() }))
-        }
-        [group, action] if group == "model" && action == "registry" => {
-            Ok(Command::Model(ModelCommand::Registry))
-        }
-        [group, action] if group == "model" && action == "default" => {
-            Ok(Command::Model(ModelCommand::Default))
-        }
-        [group, action, id] if group == "model" && action == "default" => {
-            Ok(Command::Model(ModelCommand::SetDefault { id: id.clone() }))
-        }
-        [group, action, id] if group == "model" && action == "download-plan" => {
-            Ok(Command::Model(ModelCommand::DownloadPlan { id: id.clone() }))
-        }
-        [group, action, id] if group == "model" && action == "eval-plan" => {
-            Ok(Command::Model(ModelCommand::EvalPlan { id: id.clone() }))
-        }
-        [group, action, id] if group == "model" && action == "benchmark-plan" => {
-            Ok(Command::Model(ModelCommand::BenchmarkPlan { id: id.clone() }))
-        }
-        [group, action, id, flag]
-            if group == "model" && action == "fetch-candidate" && flag == "--for-evaluation" =>
-        {
-            Ok(Command::Model(ModelCommand::FetchCandidate {
-                id: id.clone(),
-            }))
-        }
-        [group, action, ..] if group == "model" && action == "fetch-candidate" => Err(
-            AppError::usage(
-                "model fetch-candidate는 <id> --for-evaluation 형식이 필요합니다.",
-            ),
-        ),
-        [group, action, path, flag, sha256]
-            if group == "model" && action == "verify-file" && flag == "--sha256" =>
-        {
-            Ok(Command::Model(ModelCommand::VerifyFile {
-                path: path.clone(),
-                sha256: sha256.clone(),
-            }))
-        }
-        [group, action, ..] if group == "model" && action == "verify-file" => Err(
-            AppError::usage("model verify-file은 <path> --sha256 <hash> 형식이 필요합니다."),
-        ),
-        [group, action, id, flag, evidence]
-            if group == "model" && action == "promote" && flag == "--evidence" =>
-        {
-            Ok(Command::Model(ModelCommand::Promote {
-                id: id.clone(),
-                evidence: evidence.clone(),
-            }))
-        }
-        [group, action, ..] if group == "model" && action == "promote" => Err(
-            AppError::usage("model promote는 <id> --evidence <file> 형식이 필요합니다."),
-        ),
-        [group, action, id, flag] if group == "model" && action == "cleanup-failed" => {
-            let dry_run = match flag.as_str() {
-                "--dry-run" => true,
-                "--delete" => false,
-                _ => {
-                    return Err(AppError::usage(
-                        "model cleanup-failed는 --dry-run 또는 --delete가 필요합니다.",
-                    ));
-                }
-            };
-            Ok(Command::Model(ModelCommand::CleanupFailed {
-                id: id.clone(),
-                dry_run,
-            }))
-        }
-        [group, action, ..] if group == "model" && action == "cleanup-failed" => {
-            Err(AppError::usage(
-                "model cleanup-failed는 <id> --dry-run 또는 <id> --delete 형식이 필요합니다.",
-            ))
-        }
-        [group, action, id] if group == "model" && action == "install" => {
-            Ok(Command::Model(ModelCommand::Install { id: id.clone() }))
-        }
-        [group, action] if group == "model" && action == "install" => Err(AppError::usage(
-            "모델 id가 필요합니다. 예: rpotato model install qwen3.5-4b",
-        )),
-        [group, ..] if group == "model" => Err(AppError::usage(
-            "model 명령은 list, manifest, inspect, registry, default, download-plan, eval-plan, benchmark-plan, fetch-candidate, verify-file, promote, cleanup-failed, install만 허용합니다.",
-        )),
+        [group, rest @ ..] if group == "model" => parse_model(rest).map(Command::Model),
         [group, action, rest @ ..] if group == "plugin" && action == "import" => {
             parse_plugin_import(rest).map(Command::Plugin)
         }

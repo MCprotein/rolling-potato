@@ -1,8 +1,11 @@
 use crate::foundation::error::AppError;
 
-use super::{blocked, Object, Value, MAX_JSON_NESTING_DEPTH};
+use super::error::blocked;
+use super::types::{Object, Value};
 
-pub(super) fn parse_value(input: &str, context: &str) -> Result<Value, AppError> {
+pub(super) const MAX_JSON_NESTING_DEPTH: usize = 64;
+
+pub fn parse_value(input: &str, context: &str) -> Result<Value, AppError> {
     let mut parser = Parser {
         bytes: input.as_bytes(),
         pos: 0,

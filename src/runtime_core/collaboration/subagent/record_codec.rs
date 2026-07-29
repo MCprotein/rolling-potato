@@ -1,6 +1,8 @@
-use super::{validate_record, SubagentRecordV1, SubagentRole, SubagentStatus};
 use crate::foundation::error::AppError;
 use crate::foundation::serialization as strict_json;
+
+use super::record_validation::validate_record;
+use super::types::{SubagentRecordV1, SubagentRole, SubagentStatus};
 
 const SUBAGENT_SCHEMA_VERSION: u64 = 1;
 const RECORD_KEYS: &[&str] = &[

@@ -84,3 +84,33 @@ fn missing_grounded_candidates_show_only_runtime_owned_sources() {
     assert!(rendered.contains("검증된 출처"));
     assert!(rendered.contains("- [source-release] Release notes — https://example.com/releases/v1"));
 }
+
+#[test]
+fn binding_accepts_a_cited_answer_without_domain_specific_question_rules() {
+    let source = source(
+        "source-results",
+        "Primary document",
+        "https://example.com/results",
+    );
+    let rendered = render_grounded_answer(
+        Some("원문에서 확인된 답입니다. [source-results]".to_string()),
+        Some("근거가 부족합니다. [source-results]".to_string()),
+        std::slice::from_ref(&source),
+    );
+
+    assert!(rendered.contains("원문에서 확인된 답입니다"));
+    assert!(rendered.contains("https://example.com/results"));
+}
+
+#[test]
+fn binding_rejects_uncited_text_regardless_of_question_domain() {
+    let source = source("source-primary", "Primary", "https://example.com/primary");
+    let rendered = render_grounded_answer(
+        Some("형식상 출처가 없는 답입니다.".to_string()),
+        Some("근거가 부족합니다. [source-primary]".to_string()),
+        std::slice::from_ref(&source),
+    );
+
+    assert!(!rendered.contains("형식상 출처가 없는 답"));
+    assert!(rendered.contains("근거가 부족합니다"));
+}

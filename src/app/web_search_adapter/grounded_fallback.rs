@@ -1,15 +1,16 @@
+//! Deterministic fallback when the local model cannot synthesize opened web evidence.
+//!
+//! The fallback ranks evidence by lexical overlap only. It does not contain question-specific
+//! facts, product names, event names, or answer templates for individual domains.
+
 use super::WebGroundingEvidence;
 
 const PASSAGE_CHARS: usize = 320;
 
-pub(super) fn render(
-    user_request: &str,
-    conversation_context: &str,
-    grounding: &[WebGroundingEvidence],
-) -> Option<String> {
-    let title = grounding
+pub(super) fn render(user_request: &str, grounding: &[WebGroundingEvidence]) -> Option<String> {
+    let primary = grounding
         .iter()
-        .max_by_key(|evidence| evidence_score(user_request, &evidence.title, true))?;
+        .max_by_key(|evidence| evidence_score(user_request, evidence))?;
     let passage = grounding
         .iter()
         .flat_map(|evidence| {
@@ -17,157 +18,31 @@ pub(super) fn render(
                 .into_iter()
                 .map(move |passage| (evidence, passage))
         })
-        .max_by_key(|(_, passage)| evidence_score(user_request, passage, false));
-    let title_text = bounded_chars(&decode_display_entities(title.title.trim()));
-    let (passage_source, passage_text) = passage
-        .map(|(evidence, text)| (evidence, bounded_chars(text.trim())))
-        .unwrap_or((title, String::new()));
-    let name = request_mentions_name(user_request)
-        .then(|| remembered_name(conversation_context))
-        .flatten()
-        .map(|name| format!("{name}님, "))
-        .unwrap_or_default();
-
-    if passage_text.is_empty() || passage_text == title_text {
+        .max_by_key(|(_, passage)| super::routing::overlap_score(user_request, passage));
+    let Some((passage_source, passage)) = passage else {
+        let title = bounded_chars(&decode_display_entities(primary.title.trim()));
         return Some(format!(
-            "{name}검색 근거에는 “{title_text}”라고 표기되어 있습니다. [{}]",
-            title.source_id
+            "검색 근거에서 “{title}” 문서를 확인했지만 답변으로 요약할 원문 구간은 찾지 못했습니다. [{}]",
+            primary.source_id
+        ));
+    };
+    let title = bounded_chars(&decode_display_entities(passage_source.title.trim()));
+    let passage = bounded_chars(passage.trim());
+    if passage.is_empty() || passage == title {
+        return Some(format!(
+            "검색 근거에는 “{title}”라고 표기되어 있습니다. [{}]",
+            passage_source.source_id
         ));
     }
     Some(format!(
-        "{name}검색 근거에는 “{title_text}”라고 표기되어 있고 [{}], 핵심 관련 원문에는 “{passage_text}”라고 적혀 있습니다. [{}]",
-        title.source_id, passage_source.source_id
+        "검색 근거 “{title}”의 관련 원문에는 “{passage}”라고 적혀 있습니다. [{}]",
+        passage_source.source_id
     ))
 }
 
-fn evidence_score(user_request: &str, candidate: &str, is_title: bool) -> usize {
-    let request = user_request.to_lowercase();
-    let candidate = candidate.to_lowercase();
-    let mut score = request
-        .split(|character: char| !character.is_alphanumeric())
-        .filter_map(normalized_query_term)
-        .filter(|term| candidate.contains(term))
-        .count()
-        * 3;
-    if is_title {
-        score += 4;
-    }
-    if asks_for_english_name(&request) && contains_multiword_english_name(&candidate) {
-        score += 12;
-    }
-    if asks_for_purpose(&request)
-        && ["목적", "목표", "위해", "위한", "purpose", "aim", "goal"]
-            .iter()
-            .any(|marker| candidate.contains(marker))
-    {
-        score += 10;
-    }
-    score
-}
-
-fn normalized_query_term(term: &str) -> Option<&str> {
-    let term = term.trim();
-    if term.chars().count() < 2 || is_query_stopword(term) {
-        return None;
-    }
-    let normalized = [
-        "에서", "으로", "라고", "이랑", "하고", "에게", "한테", "부터", "까지", "의", "은", "는",
-        "이", "가", "을", "를", "와", "과", "도",
-    ]
-    .iter()
-    .find_map(|suffix| {
-        term.strip_suffix(suffix)
-            .filter(|value| value.chars().count() >= 2)
-    })
-    .unwrap_or(term);
-    (!is_query_stopword(normalized)).then_some(normalized)
-}
-
-fn is_query_stopword(term: &str) -> bool {
-    matches!(
-        term,
-        "방금"
-            | "검색한"
-            | "검색"
-            | "다시"
-            | "말해줘"
-            | "알려줘"
-            | "그리고"
-            | "함께"
-            | "불러줘"
-            | "문장"
-            | "please"
-            | "search"
-            | "tell"
-    )
-}
-
-fn asks_for_english_name(request: &str) -> bool {
-    ["영문명", "영어명", "정식 명칭", "full name", "english name"]
-        .iter()
-        .any(|marker| request.contains(marker))
-}
-
-fn contains_multiword_english_name(candidate: &str) -> bool {
-    candidate
-        .split(|character: char| !character.is_ascii_alphabetic())
-        .filter(|term| term.len() >= 3)
-        .take(3)
-        .count()
-        >= 3
-}
-
-fn asks_for_purpose(request: &str) -> bool {
-    ["목적", "목표", "왜", "purpose", "aim", "goal"]
-        .iter()
-        .any(|marker| request.contains(marker))
-}
-
-fn request_mentions_name(request: &str) -> bool {
-    let request = request.to_lowercase();
-    ["이름", "불러", "호칭", "name"]
-        .iter()
-        .any(|marker| request.contains(marker))
-}
-
-fn remembered_name(conversation_context: &str) -> Option<String> {
-    ["내 이름은 ", "제 이름은 ", "이름은 "]
-        .iter()
-        .flat_map(|marker| {
-            conversation_context
-                .match_indices(marker)
-                .map(move |(index, _)| (index, *marker))
-        })
-        .max_by_key(|(index, _)| *index)
-        .and_then(|(index, marker)| {
-            let value = &conversation_context[index + marker.len()..];
-            let mut candidate = value
-                .split(['.', '!', '?', '\n', '"', '\\'])
-                .next()
-                .unwrap_or_default()
-                .trim()
-                .to_string();
-            for suffix in [
-                "라고 기억해줘",
-                "라고 해줘",
-                "라고 합니다",
-                "입니다",
-                "이에요",
-                "예요",
-                "이야",
-                "야",
-            ] {
-                if let Some(trimmed) = candidate.strip_suffix(suffix) {
-                    candidate = trimmed.trim().to_string();
-                    break;
-                }
-            }
-            let length = candidate.chars().count();
-            (1..=32)
-                .contains(&length)
-                .then_some(candidate)
-                .filter(|value| !value.chars().any(char::is_control))
-        })
+fn evidence_score(user_request: &str, evidence: &WebGroundingEvidence) -> usize {
+    super::routing::overlap_score(user_request, &evidence.title) * 3
+        + super::routing::overlap_score(user_request, &evidence.excerpt)
 }
 
 fn meaningful_chars(value: &str) -> usize {
@@ -182,14 +57,42 @@ fn extract_passages(excerpt: &str) -> Vec<String> {
         .lines()
         .flat_map(|line| {
             let decoded = decode_display_entities(line.trim());
-            decoded
-                .split_inclusive(['.', '!', '?', '。'])
-                .map(str::trim)
-                .filter(|passage| meaningful_chars(passage) >= 8)
-                .map(str::to_string)
-                .collect::<Vec<_>>()
+            sentence_passages(&decoded)
         })
         .collect()
+}
+
+fn sentence_passages(line: &str) -> Vec<String> {
+    let mut passages = Vec::new();
+    let mut start = 0;
+    let indexed = line.char_indices().collect::<Vec<_>>();
+    for (position, (index, character)) in indexed.iter().copied().enumerate() {
+        if !matches!(character, '.' | '!' | '?' | '。') {
+            continue;
+        }
+        let decimal_point = character == '.'
+            && position > 0
+            && position + 1 < indexed.len()
+            && indexed[position - 1].1.is_ascii_digit()
+            && indexed[position + 1].1.is_ascii_digit();
+        if decimal_point {
+            continue;
+        }
+        let end = index + character.len_utf8();
+        push_meaningful_passage(&mut passages, &line[start..end]);
+        start = end;
+    }
+    if start < line.len() {
+        push_meaningful_passage(&mut passages, &line[start..]);
+    }
+    passages
+}
+
+fn push_meaningful_passage(passages: &mut Vec<String>, passage: &str) {
+    let passage = passage.trim();
+    if meaningful_chars(passage) >= 8 {
+        passages.push(passage.to_string());
+    }
 }
 
 fn decode_display_entities(value: &str) -> String {
@@ -212,4 +115,63 @@ fn bounded_chars(value: &str) -> String {
         bounded.push('…');
     }
     bounded
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fallback_selects_evidence_without_domain_specific_branches() {
+        let evidence = vec![
+            WebGroundingEvidence {
+                source_id: "source-unrelated".to_string(),
+                title: "Unrelated page".to_string(),
+                url: "https://example.com/unrelated".to_string(),
+                excerpt: "다른 주제의 설명입니다.".to_string(),
+            },
+            WebGroundingEvidence {
+                source_id: "source-primary".to_string(),
+                title: "Alpha runtime release".to_string(),
+                url: "https://example.com/release".to_string(),
+                excerpt: "Alpha runtime version 2.0 was published today.".to_string(),
+            },
+        ];
+
+        let answer = render("Alpha runtime 최신 release", &evidence).unwrap();
+
+        assert!(answer.contains("Alpha runtime release"), "{answer}");
+        assert!(answer.contains("version 2.0"), "{answer}");
+        assert!(answer.contains("[source-primary]"), "{answer}");
+    }
+
+    #[test]
+    fn fallback_keeps_title_passage_and_source_id_from_the_same_evidence() {
+        let evidence = vec![
+            WebGroundingEvidence {
+                source_id: "source-title".to_string(),
+                title: "Alpha runtime release performance".to_string(),
+                url: "https://example.com/release".to_string(),
+                excerpt: "이 문서는 일반적인 출시 안내를 제공합니다.".to_string(),
+            },
+            WebGroundingEvidence {
+                source_id: "source-passage".to_string(),
+                title: "Independent benchmark notes".to_string(),
+                url: "https://example.com/benchmark".to_string(),
+                excerpt: "Alpha runtime performance improved by 30 percent in the benchmark."
+                    .to_string(),
+            },
+        ];
+
+        let answer = render("Alpha runtime release performance", &evidence).unwrap();
+
+        assert!(answer.contains("Independent benchmark notes"), "{answer}");
+        assert!(answer.contains("improved by 30 percent"), "{answer}");
+        assert!(answer.contains("[source-passage]"), "{answer}");
+        assert!(
+            !answer.contains("Alpha runtime release performance”"),
+            "{answer}"
+        );
+        assert!(!answer.contains("[source-title]"), "{answer}");
+    }
 }

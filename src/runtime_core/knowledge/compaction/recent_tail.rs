@@ -2,10 +2,10 @@
 
 use std::collections::BTreeSet;
 
-use super::{
-    estimate_tokens, record_token_cost, truncate_tail_to_estimated_tokens, CompactionRecord,
-    MAX_RECENT_RECORDS, RECORD_OVERHEAD_TOKENS,
+use super::policy::{
+    record_token_cost, CompactionRecord, MAX_RECENT_RECORDS, RECORD_OVERHEAD_TOKENS,
 };
+use super::token_budget::{estimate_tokens, truncate_tail_to_estimated_tokens};
 
 #[derive(Debug, Clone, Copy)]
 struct ExchangeRange {

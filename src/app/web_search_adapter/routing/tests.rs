@@ -72,3 +72,22 @@ fn natural_regrounding_requires_topic_overlap_with_cached_evidence() {
         &grounding
     ));
 }
+
+#[test]
+fn current_page_find_intent_precedes_a_new_public_search() {
+    assert_eq!(
+        route_current_page_find("이 페이지에서 Rust 찾아줘", true),
+        Some(WebResearchStep::Find {
+            query: "rust".to_string(),
+        })
+    );
+    assert_eq!(
+        route_current_page_find("Find checksum on this page", true),
+        Some(WebResearchStep::Find {
+            query: "checksum".to_string(),
+        })
+    );
+    assert!(route_current_page_find("이 페이지에서 Rust 찾아줘", false).is_none());
+    assert!(route_current_page_find("Rust 최신 릴리스를 찾아줘", true).is_none());
+    assert!(route_current_page_find("이 페이지를 요약해줘", true).is_none());
+}

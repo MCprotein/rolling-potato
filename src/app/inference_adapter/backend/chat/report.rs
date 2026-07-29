@@ -1,8 +1,12 @@
 use std::io::Write;
 
+use crate::foundation::error::AppError;
+use crate::runtime_core::inference::backend::{BackendChatInput, BackendChatRun};
 use crate::runtime_core::reporting::korean_guard;
 
-use super::*;
+use super::super::resource_sampling::{display_optional_f64, display_optional_u64_unknown};
+use super::super::{display_optional_u128, display_optional_u32};
+use super::execution::chat_input_with_options;
 
 const QWEN_NON_THINKING_SOURCE: &str =
     "https://huggingface.co/Qwen/Qwen3.5-4B#instruct-or-non-thinking-mode";

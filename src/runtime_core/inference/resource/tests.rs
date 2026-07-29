@@ -15,7 +15,7 @@ fn classify_pressure_handles_unknown_normal_and_thresholds() {
         ResourcePressure::Degraded
     );
     assert_eq!(
-        classify_pressure(Some(20.0), None, Some(12 * GIB_BYTES)),
+        classify_pressure(Some(20.0), None, Some(12 * pressure::TEST_GIB_BYTES)),
         ResourcePressure::Critical
     );
 }

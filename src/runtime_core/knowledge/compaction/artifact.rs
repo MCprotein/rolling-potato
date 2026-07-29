@@ -1,4 +1,5 @@
-use super::{CompactionCheckpoint, MAX_RECENT_RECORDS};
+use super::policy::MAX_RECENT_RECORDS;
+use super::CompactionCheckpoint;
 use crate::foundation::error::AppError;
 use crate::foundation::integrity::sha256_text;
 use crate::foundation::serialization as strict_json;
