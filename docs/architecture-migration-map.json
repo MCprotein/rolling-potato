@@ -59,6 +59,32 @@
       "adapters",
       "foundation"
     ],
+    "root_roles": [
+      {
+        "root": "app",
+        "role": "executable integration shell and inbound adapter wiring"
+      },
+      {
+        "root": "composition",
+        "role": "cross-capability orchestration and command use cases"
+      },
+      {
+        "root": "surfaces",
+        "role": "CLI and TUI presentation, input, and controller drivers"
+      },
+      {
+        "root": "runtime_core",
+        "role": "I/O-independent domain policy, state machines, and ports"
+      },
+      {
+        "root": "adapters",
+        "role": "filesystem, process, database, network, and terminal infrastructure"
+      },
+      {
+        "root": "foundation",
+        "role": "dependency-free shared errors and integrity primitives"
+      }
+    ],
     "allowed_edges": [
       {
         "from": "app",

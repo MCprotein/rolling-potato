@@ -197,7 +197,7 @@ machine-readable ledger다. 따라서 prose 문서의 1,000줄 제한을 적용�
 
 ## 목표 아키텍처
 
-의존 방향:
+개념 의존 방향:
 
 ```text
 surfaces (CLI/TUI)
@@ -205,6 +205,35 @@ surfaces (CLI/TUI)
     -> runtime_core domain + ports
       <- adapters (filesystem, sqlite, llama.cpp, web, terminal)
 ```
+
+이 개념 이름을 저장소의 물리 디렉터리 이름과 동일시하지 않는다. 이 저장소의
+`app`은 application use-case core가 아니라 `main` 바로 아래에서 TUI controller,
+command dispatch 및 구체 adapter를 조립하는 **실행 integration shell**이다.
+`composition`은 command와 여러 capability를 묶는 orchestration owner이고,
+I/O와 UI로부터 독립되어야 하는 내부 계층은 `runtime_core`다.
+
+따라서 물리 의존 방향은 다음과 같다.
+
+```text
+main
+  -> app integration shell
+      -> composition orchestration
+      -> surfaces
+      -> adapters
+      -> runtime_core
+  composition -> surfaces + adapters + runtime_core
+  surfaces -> runtime_core
+  adapters -> runtime_core
+  all permitted roots -> foundation
+```
+
+`app -> surfaces`의 controller·DTO 사용과 `app -> adapters`의 concrete transport
+호출은 이 outer integration shell 안에서만 허용된다. 이것을 내부 application
+domain의 의존 역전으로 해석하지 않는다. 반대로 `runtime_core`가 `app`,
+`composition`, `surfaces`, `adapters`를 참조하거나, surfaces와 adapters가
+서로 참조하는 경로는 허용하지 않는다. 이 root 역할과 edge 집합은
+`docs/architecture-migration-map.json` 및 architecture contract에서 exact
+값으로 검증한다.
 
 ### 1. 요청과 도구 판단
 

@@ -25,6 +25,22 @@ fn dependency_edges(root: &Object) -> (BTreeSet<String>, BTreeSet<(String, Strin
     (roots, edges)
 }
 
+fn dependency_root_roles(root: &Object) -> BTreeMap<String, String> {
+    let contract = field_object(root, "dependency_contract", "map");
+    field_array(contract, "root_roles", "map.dependency_contract")
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            let context = format!("map.dependency_contract.root_roles[{index}]");
+            let role = as_object(value, &context);
+            (
+                field_string(role, "root", &context).to_owned(),
+                field_string(role, "role", &context).to_owned(),
+            )
+        })
+        .collect()
+}
+
 fn direct_dependencies() -> BTreeSet<String> {
     let cargo = fs::read_to_string("Cargo.toml").expect("Cargo.toml must be readable");
     let mut in_dependencies = false;
@@ -51,9 +67,45 @@ fn dependency_contract_rejects_forbidden_imports_and_new_parser_crates() {
     let map = load_map();
     let root = as_object(&map, "map");
     let (roots, edges) = dependency_edges(root);
+    let root_roles = dependency_root_roles(root);
     assert_eq!(
         roots,
         ARCHITECTURE_ROOTS.into_iter().map(str::to_owned).collect()
+    );
+    assert_eq!(
+        root_roles,
+        BTreeMap::from([
+            (
+                "adapters".to_owned(),
+                "filesystem, process, database, network, and terminal infrastructure".to_owned(),
+            ),
+            (
+                "app".to_owned(),
+                "executable integration shell and inbound adapter wiring".to_owned(),
+            ),
+            (
+                "composition".to_owned(),
+                "cross-capability orchestration and command use cases".to_owned(),
+            ),
+            (
+                "foundation".to_owned(),
+                "dependency-free shared errors and integrity primitives".to_owned(),
+            ),
+            (
+                "runtime_core".to_owned(),
+                "I/O-independent domain policy, state machines, and ports".to_owned(),
+            ),
+            (
+                "surfaces".to_owned(),
+                "CLI and TUI presentation, input, and controller drivers".to_owned(),
+            ),
+        ]),
+        "physical architecture roots must retain one explicit role each"
+    );
+    assert_eq!(
+        root_roles.keys().cloned().collect::<BTreeSet<_>>(),
+        roots,
+        "every architecture root must have exactly one role"
     );
     let required_edges = BTreeSet::from([
         ("app".to_owned(), "composition".to_owned()),
