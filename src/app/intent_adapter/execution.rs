@@ -33,17 +33,7 @@ pub(super) fn run_with_decision(
     )?;
 
     if is_non_mutating_action(&model_turn.action.kind) {
-        return non_mutating::complete(
-            request,
-            &decision,
-            &manifest,
-            &execution.context_pack,
-            &execution.resume_context,
-            &model_turn.action,
-            &model_turn.transcript,
-            &mut execution.workflow,
-            &mut execution.skill_runtime,
-        );
+        return non_mutating::complete(request, &decision, &manifest, &mut execution, &model_turn);
     }
 
     patch_handoff::complete(request, &decision, &manifest, &mut execution, &model_turn)

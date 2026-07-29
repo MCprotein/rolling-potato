@@ -2,23 +2,23 @@ use super::super::{
     dispatch_skill_hook, fail_skill_workflow, plugin_completion_fault,
     record_non_mutating_outcomes, render_non_mutating_report,
 };
-use crate::app::context_adapter::{ContextPack, ResumeContext};
+use super::model_turn::ModelTurn;
+use super::preparation::PreparedExecution;
 use crate::app::extensions_adapter::{plugin, skill};
 use crate::app::workflow_adapter::state;
 use crate::foundation::error::AppError;
-use crate::runtime_core::patch::intent::{IntentDecision, ParsedModelAction};
+use crate::runtime_core::patch::intent::IntentDecision;
 
 pub(super) fn complete(
     request: &str,
     decision: &IntentDecision,
     manifest: &skill::ResolvedSkillManifest,
-    context_pack: &ContextPack,
-    resume_context: &ResumeContext,
-    model_action: &ParsedModelAction,
-    answer: &str,
-    workflow: &mut state::WorkflowRecord,
-    skill_runtime: &mut skill::SkillRuntimeState,
+    execution: &mut PreparedExecution,
+    model_turn: &ModelTurn,
 ) -> Result<String, AppError> {
+    let model_action = &model_turn.action;
+    let workflow = &mut execution.workflow;
+    let skill_runtime = &mut execution.skill_runtime;
     let pointers_are_valid = model_action.kind != "inspect-sources"
         || (!matches!(model_action.source_pointers.as_str(), "none" | "unverified"));
     let action_status_is_safe = model_action.status == "parsed"
@@ -39,7 +39,13 @@ pub(super) fn complete(
         )));
     }
 
-    record_non_mutating_outcomes(manifest, context_pack, model_action, answer, skill_runtime);
+    record_non_mutating_outcomes(
+        manifest,
+        &execution.context_pack,
+        model_action,
+        &model_turn.transcript,
+        skill_runtime,
+    );
     dispatch_skill_hook(
         manifest,
         workflow,
@@ -113,10 +119,10 @@ pub(super) fn complete(
     let mut report = render_non_mutating_report(
         request,
         decision,
-        context_pack,
-        resume_context,
+        &execution.context_pack,
+        &execution.resume_context,
         model_action,
-        answer,
+        &model_turn.transcript,
         workflow,
     );
     if let Some(imported) = manifest.imported() {
