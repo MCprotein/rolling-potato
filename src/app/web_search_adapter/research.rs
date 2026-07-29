@@ -616,10 +616,10 @@ mod tests {
     }
 
     #[test]
-    fn grounding_fallback_covers_volatile_results_and_empirical_comparisons() {
+    fn grounding_fallback_covers_generic_freshness_and_comparison_signals() {
         for request in [
-            "2026년 월드컵 우승국가 어디냐",
-            "gemma vs qwen 성능 비교해봐",
+            "2026년 국제 대회 결과가 뭐야",
+            "alpha-model vs beta-model 성능 비교해봐",
             "현재 Rust stable 버전이 뭐야?",
         ] {
             let Some(WebResearchStep::Search { query }) = deterministic_freshness_fallback(request)
@@ -635,7 +635,7 @@ mod tests {
         for request in [
             "대한민국의 수도는?",
             "현재 파일의 함수를 설명해줘",
-            "인터넷 없이 gemma vs qwen 성능 비교해봐",
+            "인터넷 없이 alpha-model vs beta-model 성능 비교해봐",
         ] {
             assert!(
                 deterministic_freshness_fallback(request).is_none(),

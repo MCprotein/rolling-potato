@@ -5,6 +5,7 @@ use crate::foundation::error::AppError;
 use std::time::Duration;
 
 mod answer_binding;
+mod answer_contract;
 mod grounded_fallback;
 mod page_session;
 mod page_tools;
@@ -94,10 +95,10 @@ pub(crate) fn answer_observation(
                 &observation.prompt,
                 user_request,
                 observation.max_tokens,
+                &observation.sources,
             );
             WebAnswerResult {
                 response: render_grounded_answer(
-                    user_request,
                     generated,
                     observation.fallback,
                     &observation.sources,
@@ -130,14 +131,20 @@ fn generate_observation_answer(
     prompt: &str,
     user_request: &str,
     max_tokens: u32,
+    sources: &[WebSourceEvidence],
 ) -> Option<String> {
     #[cfg(test)]
     if std::env::var_os("RPOTATO_TEST_WEB_RESEARCH_NO_MODEL").is_some() {
         return None;
     }
-    crate::app::inference_adapter::answer::generate_for_user(prompt, user_request, max_tokens)
-        .ok()
-        .filter(|answer| !answer.trim().is_empty())
+    let candidate = crate::app::inference_adapter::answer::generate_structured_candidate_for_user(
+        prompt,
+        user_request,
+        max_tokens,
+        answer_contract::GROUNDED_ANSWER_JSON_SCHEMA,
+    )
+    .ok()?;
+    answer_contract::finish(candidate, sources).ok()
 }
 
 #[cfg(test)]

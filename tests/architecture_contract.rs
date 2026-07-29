@@ -6646,7 +6646,10 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/adapters/web_search/page.rs",
         "src/adapters/web_search/policy.rs",
         "src/adapters/web_search/transport.rs",
+        "src/app/web_search_adapter/answer_contract.rs",
         "src/app/web_search_adapter/answer_binding.rs",
+        "src/app/web_search_adapter/answer_binding/presentation.rs",
+        "src/app/web_search_adapter/answer_binding/sanitize.rs",
         "src/app/web_search_adapter/answer_binding/tests.rs",
         "src/app/web_search_adapter/grounded_fallback.rs",
         "src/app/web_search_adapter/page_session.rs",
@@ -6654,6 +6657,10 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/web_search_adapter/page_tools/find.rs",
         "src/app/web_search_adapter/page_tools/open.rs",
         "src/app/web_search_adapter/research_flow.rs",
+        "src/app/web_search_adapter/routing/grounding_policy.rs",
+        "src/app/web_search_adapter/routing/grounding_policy/features.rs",
+        "src/app/web_search_adapter/routing/grounding_policy/query_plan.rs",
+        "src/app/web_search_adapter/routing/grounding_policy/tests.rs",
         "src/app/web_search_adapter/routing/protocol.rs",
         "src/app/web_search_adapter/routing/query.rs",
         "src/app/web_search_adapter/routing/query/context.rs",
@@ -6661,6 +6668,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
         "src/app/web_search_adapter/routing/query/tests.rs",
         "src/app/web_search_adapter/routing.rs",
         "src/app/web_search_adapter/routing/tests.rs",
+        "src/app/web_search_adapter/routing/text.rs",
         "src/app/web_search_adapter/routing/web_policy.rs",
         "src/app/tui_adapter/runtime/web_sources.rs",
         "src/app/tui_adapter/runtime/request/support.rs",
@@ -6679,6 +6687,7 @@ fn web_search_open_find_have_separate_bounded_owners() {
         );
     }
     for module in [
+        "answer_contract",
         "answer_binding",
         "grounded_fallback",
         "page_session",
@@ -6751,6 +6760,13 @@ fn web_search_open_find_have_separate_bounded_owners() {
             .lines()
             .count()
             < 300
+    );
+    assert!(
+        fs::read_to_string("src/app/web_search_adapter/answer_contract.rs")
+            .unwrap()
+            .lines()
+            .count()
+            < 175
     );
     assert!(
         fs::read_to_string("src/app/web_search_adapter/page_session.rs")
