@@ -8227,15 +8227,92 @@
       "path": "src/surfaces/cli/parser/collaboration.rs",
       "slices": [
         {
-          "responsibility": "team and subagent command option parsing",
+          "responsibility": "collaboration parser facade and stable command-family exports",
           "target": "src/surfaces/cli/parser/collaboration.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
-            "src/surfaces/cli/command.rs",
-            "src/surfaces/cli/parser.rs",
             "src/surfaces/cli/parser/collaboration.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/cli_install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration/shared.rs",
+      "slices": [
+        {
+          "responsibility": "shared collaboration lane ownership value parsing",
+          "target": "src/surfaces/cli/parser/collaboration/shared.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/collaboration/shared.rs",
+            "tests/architecture_contract/cli_install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration/subagent.rs",
+      "slices": [
+        {
+          "responsibility": "subagent launch option parsing and cardinality validation",
+          "target": "src/surfaces/cli/parser/collaboration/subagent.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/collaboration/subagent.rs",
+            "src/surfaces/cli/parser/tests/subagent_ontology.rs",
+            "tests/architecture_contract/cli_install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration/team_admission.rs",
+      "slices": [
+        {
+          "responsibility": "team admission lanes, write ownership, and command option parsing",
+          "target": "src/surfaces/cli/parser/collaboration/team_admission.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/collaboration/team_admission.rs",
+            "src/surfaces/cli/parser/tests/team.rs",
+            "tests/architecture_contract/cli_install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration/team_dispatch.rs",
+      "slices": [
+        {
+          "responsibility": "team dispatch continuation and context governor option parsing",
+          "target": "src/surfaces/cli/parser/collaboration/team_dispatch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/collaboration/team_dispatch.rs",
+            "src/surfaces/cli/parser/tests/team.rs",
+            "tests/architecture_contract/cli_install.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration/team_identity.rs",
+      "slices": [
+        {
+          "responsibility": "team plan manifest and lifecycle identifier option parsing",
+          "target": "src/surfaces/cli/parser/collaboration/team_identity.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/collaboration/team_identity.rs",
+            "src/surfaces/cli/parser/tests/team.rs",
+            "tests/architecture_contract/cli_install.rs"
           ]
         }
       ]
@@ -16775,7 +16852,37 @@
     {
       "path": "src/surfaces/cli/parser/collaboration.rs",
       "responsibilities": [
-        "team and subagent command option parsing"
+        "collaboration parser facade and stable command-family exports"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration/shared.rs",
+      "responsibilities": [
+        "shared collaboration lane ownership value parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration/subagent.rs",
+      "responsibilities": [
+        "subagent launch option parsing and cardinality validation"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration/team_admission.rs",
+      "responsibilities": [
+        "team admission lanes, write ownership, and command option parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration/team_dispatch.rs",
+      "responsibilities": [
+        "team dispatch continuation and context governor option parsing"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/collaboration/team_identity.rs",
+      "responsibilities": [
+        "team plan manifest and lifecycle identifier option parsing"
       ]
     },
     {

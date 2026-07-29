@@ -21,6 +21,11 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     let parser_path = "src/surfaces/cli/parser.rs";
     let backend_parser_path = "src/surfaces/cli/parser/backend.rs";
     let collaboration_parser_path = "src/surfaces/cli/parser/collaboration.rs";
+    let collaboration_shared_path = "src/surfaces/cli/parser/collaboration/shared.rs";
+    let collaboration_subagent_path = "src/surfaces/cli/parser/collaboration/subagent.rs";
+    let collaboration_admission_path = "src/surfaces/cli/parser/collaboration/team_admission.rs";
+    let collaboration_dispatch_path = "src/surfaces/cli/parser/collaboration/team_dispatch.rs";
+    let collaboration_identity_path = "src/surfaces/cli/parser/collaboration/team_identity.rs";
     let governance_parser_path = "src/surfaces/cli/parser/governance.rs";
     let lifecycle_parser_path = "src/surfaces/cli/parser/lifecycle.rs";
     let model_parser_path = "src/surfaces/cli/parser/model.rs";
@@ -38,6 +43,18 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     let uninstall_tests_path = "src/surfaces/cli/parser/tests/uninstall.rs";
     assert!(Path::new(backend_parser_path).is_file());
     assert!(Path::new(collaboration_parser_path).is_file());
+    for owner in [
+        collaboration_shared_path,
+        collaboration_subagent_path,
+        collaboration_admission_path,
+        collaboration_dispatch_path,
+        collaboration_identity_path,
+    ] {
+        assert!(
+            Path::new(owner).is_file(),
+            "missing collaboration parser owner: {owner}"
+        );
+    }
     assert!(Path::new(governance_parser_path).is_file());
     assert!(Path::new(lifecycle_parser_path).is_file());
     assert!(Path::new(model_parser_path).is_file());
@@ -56,6 +73,11 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     let parser = fs::read_to_string(parser_path).unwrap();
     let backend_parser = fs::read_to_string(backend_parser_path).unwrap();
     let collaboration_parser = fs::read_to_string(collaboration_parser_path).unwrap();
+    let collaboration_shared = fs::read_to_string(collaboration_shared_path).unwrap();
+    let collaboration_subagent = fs::read_to_string(collaboration_subagent_path).unwrap();
+    let collaboration_admission = fs::read_to_string(collaboration_admission_path).unwrap();
+    let collaboration_dispatch = fs::read_to_string(collaboration_dispatch_path).unwrap();
+    let collaboration_identity = fs::read_to_string(collaboration_identity_path).unwrap();
     let governance_parser = fs::read_to_string(governance_parser_path).unwrap();
     let lifecycle_parser = fs::read_to_string(lifecycle_parser_path).unwrap();
     let model_parser = fs::read_to_string(model_parser_path).unwrap();
@@ -116,21 +138,38 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
             "backend parser is missing responsibility: {responsibility}"
         );
     }
-    for responsibility in [
-        "pub(super) fn parse_team_plan_args(",
-        "pub(super) fn parse_team_admit_args(",
-        "pub(super) fn parse_team_dispatch_args(",
-        "pub(super) fn parse_team_governor_args(",
-        "pub(super) fn parse_subagent_launch_args(",
+    for (owner, responsibilities) in [
+        (
+            &collaboration_identity,
+            &["fn parse_team_plan_args(", "fn parse_team_execute_args("][..],
+        ),
+        (&collaboration_admission, &["fn parse_team_admit_args("][..]),
+        (
+            &collaboration_dispatch,
+            &[
+                "fn parse_team_dispatch_args(",
+                "fn parse_team_governor_args(",
+            ][..],
+        ),
+        (
+            &collaboration_subagent,
+            &["fn parse_subagent_launch_args("][..],
+        ),
     ] {
-        assert!(
-            !parser.contains(responsibility),
-            "collaboration parser responsibility escaped into CLI facade: {responsibility}"
-        );
-        assert!(
-            collaboration_parser.contains(responsibility),
-            "collaboration parser is missing responsibility: {responsibility}"
-        );
+        for responsibility in responsibilities {
+            assert!(
+                !parser.contains(responsibility),
+                "collaboration parser responsibility escaped into CLI facade: {responsibility}"
+            );
+            assert!(
+                !collaboration_parser.contains(responsibility),
+                "collaboration facade still owns responsibility: {responsibility}"
+            );
+            assert!(
+                owner.contains(responsibility),
+                "collaboration parser owner is missing responsibility: {responsibility}"
+            );
+        }
     }
     for (owner, responsibilities) in [
         (
@@ -247,9 +286,35 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         "backend parser regrew beyond its ownership boundary"
     );
     assert!(
-        collaboration_parser.lines().count() < 550,
-        "collaboration parser regrew beyond its ownership boundary"
+        collaboration_parser.lines().count() < 40,
+        "collaboration parser facade regrew beyond stable exports"
     );
+    for owner in [
+        "shared",
+        "subagent",
+        "team_admission",
+        "team_dispatch",
+        "team_identity",
+    ] {
+        assert!(
+            collaboration_parser
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "collaboration facade does not register {owner}"
+        );
+    }
+    for (path, contents, limit) in [
+        (collaboration_shared_path, &collaboration_shared, 60),
+        (collaboration_subagent_path, &collaboration_subagent, 140),
+        (collaboration_admission_path, &collaboration_admission, 140),
+        (collaboration_dispatch_path, &collaboration_dispatch, 240),
+        (collaboration_identity_path, &collaboration_identity, 130),
+    ] {
+        assert!(
+            contents.lines().count() < limit,
+            "{path} regrew beyond its collaboration parser ownership boundary"
+        );
+    }
     for (path, contents, limit) in [
         (governance_parser_path, &governance_parser, 120),
         (lifecycle_parser_path, &lifecycle_parser, 130),
