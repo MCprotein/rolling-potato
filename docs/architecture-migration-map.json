@@ -11818,6 +11818,216 @@
       ]
     },
     {
+      "path": "docs/releases/v0.1-v0.9.md",
+      "slices": [
+        {
+          "responsibility": "English release history archive for v0.1 through v0.9",
+          "target": "docs/releases/v0.1-v0.9.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/releases/v0.1-v0.9.md",
+            "RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/releases/v0.10-v0.19.md",
+      "slices": [
+        {
+          "responsibility": "English release history archive for v0.10 through v0.19",
+          "target": "docs/releases/v0.10-v0.19.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/releases/v0.10-v0.19.md",
+            "RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/releases/v0.20-v0.29.md",
+      "slices": [
+        {
+          "responsibility": "English release history archive for v0.20 through v0.29",
+          "target": "docs/releases/v0.20-v0.29.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/releases/v0.20-v0.29.md",
+            "RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/releases/v0.30-v0.36.md",
+      "slices": [
+        {
+          "responsibility": "English release history archive for v0.30 through v0.36",
+          "target": "docs/releases/v0.30-v0.36.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/releases/v0.30-v0.36.md",
+            "RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/releases/v0.37.md",
+      "slices": [
+        {
+          "responsibility": "English v0.37 release train history archive",
+          "target": "docs/releases/v0.37.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/releases/v0.37.md",
+            "RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/releases/v0.38-v0.39.md",
+      "slices": [
+        {
+          "responsibility": "English release history archive for v0.38 through v0.39",
+          "target": "docs/releases/v0.38-v0.39.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/releases/v0.38-v0.39.md",
+            "RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/releases/v0.40-v0.51.md",
+      "slices": [
+        {
+          "responsibility": "English release history archive for v0.40 through v0.51",
+          "target": "docs/releases/v0.40-v0.51.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/releases/v0.40-v0.51.md",
+            "RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.1-v0.9.md",
+      "slices": [
+        {
+          "responsibility": "Korean release history archive for v0.1 through v0.9",
+          "target": "docs/ko/releases/v0.1-v0.9.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/ko/releases/v0.1-v0.9.md",
+            "docs/ko/RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.10-v0.19.md",
+      "slices": [
+        {
+          "responsibility": "Korean release history archive for v0.10 through v0.19",
+          "target": "docs/ko/releases/v0.10-v0.19.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/ko/releases/v0.10-v0.19.md",
+            "docs/ko/RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.20-v0.29.md",
+      "slices": [
+        {
+          "responsibility": "Korean release history archive for v0.20 through v0.29",
+          "target": "docs/ko/releases/v0.20-v0.29.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/ko/releases/v0.20-v0.29.md",
+            "docs/ko/RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.30-v0.36.md",
+      "slices": [
+        {
+          "responsibility": "Korean release history archive for v0.30 through v0.36",
+          "target": "docs/ko/releases/v0.30-v0.36.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/ko/releases/v0.30-v0.36.md",
+            "docs/ko/RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.37.md",
+      "slices": [
+        {
+          "responsibility": "Korean v0.37 release train history archive",
+          "target": "docs/ko/releases/v0.37.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/ko/releases/v0.37.md",
+            "docs/ko/RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.38-v0.39.md",
+      "slices": [
+        {
+          "responsibility": "Korean release history archive for v0.38 through v0.39",
+          "target": "docs/ko/releases/v0.38-v0.39.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/ko/releases/v0.38-v0.39.md",
+            "docs/ko/RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.40-v0.51.md",
+      "slices": [
+        {
+          "responsibility": "Korean release history archive for v0.40 through v0.51",
+          "target": "docs/ko/releases/v0.40-v0.51.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/ko/releases/v0.40-v0.51.md",
+            "docs/ko/RELEASE_NOTES.md"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/app/intent_adapter/execution/non_mutating.rs",
       "slices": [
         {
@@ -11948,6 +12158,66 @@
           "evidence": [
             "src/app/workflow_adapter/transition/source_support.rs",
             "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/retrospectives/ci.md",
+      "slices": [
+        {
+          "responsibility": "CI and candidate qualification execution retrospectives",
+          "target": "docs/retrospectives/ci.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/retrospectives/ci.md",
+            "docs/agent-retrospectives.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/retrospectives/governance.md",
+      "slices": [
+        {
+          "responsibility": "authority, publication, and product-boundary retrospectives",
+          "target": "docs/retrospectives/governance.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/retrospectives/governance.md",
+            "docs/agent-retrospectives.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/retrospectives/release.md",
+      "slices": [
+        {
+          "responsibility": "release packaging, platform, and publication retrospectives",
+          "target": "docs/retrospectives/release.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/retrospectives/release.md",
+            "docs/agent-retrospectives.md"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/retrospectives/runtime.md",
+      "slices": [
+        {
+          "responsibility": "runtime, TUI, model, web, and persistence retrospectives",
+          "target": "docs/retrospectives/runtime.md",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "docs/retrospectives/runtime.md",
+            "docs/agent-retrospectives.md"
           ]
         }
       ]
@@ -16430,6 +16700,90 @@
       ]
     },
     {
+      "path": "docs/releases/v0.1-v0.9.md",
+      "responsibilities": [
+        "English release history archive for v0.1 through v0.9"
+      ]
+    },
+    {
+      "path": "docs/releases/v0.10-v0.19.md",
+      "responsibilities": [
+        "English release history archive for v0.10 through v0.19"
+      ]
+    },
+    {
+      "path": "docs/releases/v0.20-v0.29.md",
+      "responsibilities": [
+        "English release history archive for v0.20 through v0.29"
+      ]
+    },
+    {
+      "path": "docs/releases/v0.30-v0.36.md",
+      "responsibilities": [
+        "English release history archive for v0.30 through v0.36"
+      ]
+    },
+    {
+      "path": "docs/releases/v0.37.md",
+      "responsibilities": [
+        "English v0.37 release train history archive"
+      ]
+    },
+    {
+      "path": "docs/releases/v0.38-v0.39.md",
+      "responsibilities": [
+        "English release history archive for v0.38 through v0.39"
+      ]
+    },
+    {
+      "path": "docs/releases/v0.40-v0.51.md",
+      "responsibilities": [
+        "English release history archive for v0.40 through v0.51"
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.1-v0.9.md",
+      "responsibilities": [
+        "Korean release history archive for v0.1 through v0.9"
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.10-v0.19.md",
+      "responsibilities": [
+        "Korean release history archive for v0.10 through v0.19"
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.20-v0.29.md",
+      "responsibilities": [
+        "Korean release history archive for v0.20 through v0.29"
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.30-v0.36.md",
+      "responsibilities": [
+        "Korean release history archive for v0.30 through v0.36"
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.37.md",
+      "responsibilities": [
+        "Korean v0.37 release train history archive"
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.38-v0.39.md",
+      "responsibilities": [
+        "Korean release history archive for v0.38 through v0.39"
+      ]
+    },
+    {
+      "path": "docs/ko/releases/v0.40-v0.51.md",
+      "responsibilities": [
+        "Korean release history archive for v0.40 through v0.51"
+      ]
+    },
+    {
       "path": "src/app/intent_adapter/execution/non_mutating.rs",
       "responsibilities": [
         "non-mutating intent completion, stop-gate, and reporting orchestration"
@@ -16481,6 +16835,30 @@
       "path": "src/app/workflow_adapter/transition/source_support.rs",
       "responsibilities": [
         "source path validation, identity, length, and hash helpers"
+      ]
+    },
+    {
+      "path": "docs/retrospectives/ci.md",
+      "responsibilities": [
+        "CI and candidate qualification execution retrospectives"
+      ]
+    },
+    {
+      "path": "docs/retrospectives/governance.md",
+      "responsibilities": [
+        "authority, publication, and product-boundary retrospectives"
+      ]
+    },
+    {
+      "path": "docs/retrospectives/release.md",
+      "responsibilities": [
+        "release packaging, platform, and publication retrospectives"
+      ]
+    },
+    {
+      "path": "docs/retrospectives/runtime.md",
+      "responsibilities": [
+        "runtime, TUI, model, web, and persistence retrospectives"
       ]
     },
     {

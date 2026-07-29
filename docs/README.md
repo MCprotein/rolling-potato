@@ -72,7 +72,8 @@ claims remain explicitly unverified.
 - [Development](development.md)
 - [Release policy and workflow](release.md)
 - [Release train](release-train.md)
-- [Release notes](../RELEASE_NOTES.md)
+- [Release notes index](../RELEASE_NOTES.md) — current releases and links to
+  bounded historical archives under `docs/releases/`
 - [Release-notes template](release-notes-template.md)
 - [v0.29 correction plan](v0.29-correction-plan.md) — retained historical
   release-blocking corrections
@@ -88,5 +89,6 @@ claims remain explicitly unverified.
 ## Maintainer References
 
 - [Agent handoff](../HANDOFF.md)
-- [Agent execution retrospectives](agent-retrospectives.md)
+- [Agent execution retrospective index](agent-retrospectives.md) — links to
+  bounded runtime, CI, release, and governance archives
 - [Repository agent instructions](../AGENTS.md)

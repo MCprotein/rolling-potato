@@ -31,9 +31,9 @@
 - 웹 검색은 별도 API key나 검색 SaaS 없이 `Search`, `Open`, `Find`를 제공한다.
 - 기존 설치·업데이트·모델 cache·backend 상태와 직전 schema를 계속 읽을 수 있다.
 
-## 기준선
+## 시작 기준선
 
-2026-07-29 실측:
+2026-07-29 리팩터링 시작 전 실측:
 
 | 범위 | 가장 큰 파일 | 줄 수 | 문제 |
 | --- | --- | ---: | --- |
@@ -48,10 +48,41 @@
 | 한국어 릴리스 문서 | `docs/ko/RELEASE_NOTES.md` | 3,429 | 영어 문서와 수동 중복 |
 | 실행 회고 | `docs/agent-retrospectives.md` | 1,328 | runtime, CI, release 사고가 단일 문서에 누적 |
 
-현재 branch의 웹 단위 테스트 68개는 통과하지만
+시작 시점 branch의 웹 단위 테스트 68개는 통과했지만
 `web_search_open_find_have_separate_bounded_owners`는
 `answer_binding.rs`가 300줄을 넘어서 실패한다. 이 branch는 기능 회귀뿐 아니라
 구조 계약도 복구하기 전까지 candidate로 전환하지 않는다.
+
+## 진행 현황
+
+아래 상태는 2026-07-29 현재 작업 tree의 파일 경계와 완료된 targeted 검증을
+기준으로 한다. `구조 변경 완료`는 해당 단계의 책임 분리와 targeted 검증이
+끝났다는 뜻이며, PR candidate 전체 검증이나 merge 완료를 뜻하지 않는다.
+
+| 단계 | 상태 | 확인된 결과 | 남은 종료 조건 |
+| --- | --- | --- | --- |
+| R1 하드코딩 제거 | 구조 변경 완료 | domain-specific grounding 분기를 generic query plan과 typed answer binding으로 교체하고 web·conversation owner를 분리 | 최종 candidate HEAD의 PR 검증 |
+| R2 아키텍처 테스트 | 구조 변경 완료 | `tests/architecture_contract.rs`를 400줄 미만 facade와 domain별 contract owner로 분리 | 최종 candidate HEAD의 전체 architecture contract |
+| R3 TUI | 구조 변경 완료 | conversation, attachment, keymap, render, native PTY process·capture·fixture 책임을 별도 module로 분리 | 최종 native-terminal candidate 검증 |
+| R4 session/context | 구조 변경 완료 | context usage 정본 계산, compaction domain, session memory·restoration 경계를 분리 | 기본 대화·누적 context·compaction·`/resume` candidate journey |
+| R5 backend/model/install | 구조 변경 완료 | llama protocol·process, model artifact·download, install plan·mutation 책임을 분리 | managed backend와 model cache hit를 포함한 candidate 검증 |
+| R6 workflow/patch/collaboration | 구조 변경 완료 | production owner와 대형 회귀 테스트를 state, transition, persistence, report·journey별로 분리하고 통합 targeted 검증을 통과 | 최종 candidate HEAD의 PR 검증 |
+| R7 문서 | 구조 변경 완료 | 영문·한국어 release notes와 실행 회고를 짧은 index와 800줄 미만 archive로 분리하고, architecture·product plan과 release·development runbook 경계를 index에서 구분 | 최종 candidate HEAD의 문서·링크 검증 |
+
+## Machine-readable ownership ledger 예외
+
+`docs/architecture-migration-map.json`은 설명 문서가 아니라 모든 governed path의
+정확한 책임 slice, target, proof와 migration lifecycle을 기록하는
+machine-readable ledger다. 따라서 prose 문서의 1,000줄 제한을 적용하지 않는다.
+
+| 항목 | 계약 |
+| --- | --- |
+| Owner | `tests/architecture_contract/migration_map.rs`의 exact coverage contract |
+| 예외 이유 | `src`, `tests`, workflow, release script, 문서의 모든 governed file을 누락·중복 없이 기계적으로 대조하려면 전체 inventory가 필요하다. 사람이 읽는 장문 설명과 달리 줄 수 자체가 탐색 비용이나 책임 혼합을 의미하지 않는다. |
+| 제거 조건 | Recursive exact coverage와 slice lifecycle 검증을 보존하는 생성·분할 형식으로 교체되고, 새 형식이 동일한 누락·중복·stale record 검사를 통과할 때 예외를 제거한다. 단순 줄 수 감소를 위해 ledger를 임의로 나누지 않는다. |
+
+이 예외는 prose 문서에 확장되지 않는다. Release notes와 실행 회고는 각각
+현재 train 또는 주제 index와 bounded archive 구조를 유지한다.
 
 ## 참조 구현에서 가져올 원칙
 
