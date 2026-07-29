@@ -9551,6 +9551,86 @@
           ]
         }
       ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment/capture.rs",
+      "slices": [
+        {
+          "responsibility": "immutable local attachment capture, private storage, and post-copy integrity verification",
+          "target": "src/app/tui_adapter/attachment/capture.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/attachment/capture.rs",
+            "src/app/tui_adapter/attachment.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment/compose.rs",
+      "slices": [
+        {
+          "responsibility": "bounded text and image attachment verification and backend request composition",
+          "target": "src/app/tui_adapter/attachment/compose.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/attachment/compose.rs",
+            "src/app/tui_adapter/attachment.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment/format.rs",
+      "slices": [
+        {
+          "responsibility": "attachment extension admission and content signature validation",
+          "target": "src/app/tui_adapter/attachment/format.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/attachment/format.rs",
+            "src/app/tui_adapter/attachment.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment/path.rs",
+      "slices": [
+        {
+          "responsibility": "attachment source path normalization and safe stored leaf naming",
+          "target": "src/app/tui_adapter/attachment/path.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/attachment/path.rs",
+            "src/app/tui_adapter/attachment.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment/tests.rs",
+      "slices": [
+        {
+          "responsibility": "attachment capture, context budget, revalidation, symlink, and format regression tests",
+          "target": "src/app/tui_adapter/attachment/tests.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/tui_adapter/attachment/tests.rs",
+            "src/app/tui_adapter/attachment.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -13076,6 +13156,36 @@
       "path": "src/app/tui_adapter/conversation_tests/web.rs",
       "responsibilities": [
         "conversation web search, open, find, and source picker journeys"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment/capture.rs",
+      "responsibilities": [
+        "immutable local attachment capture, private storage, and post-copy integrity verification"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment/compose.rs",
+      "responsibilities": [
+        "bounded text and image attachment verification and backend request composition"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment/format.rs",
+      "responsibilities": [
+        "attachment extension admission and content signature validation"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment/path.rs",
+      "responsibilities": [
+        "attachment source path normalization and safe stored leaf naming"
+      ]
+    },
+    {
+      "path": "src/app/tui_adapter/attachment/tests.rs",
+      "responsibilities": [
+        "attachment capture, context budget, revalidation, symlink, and format regression tests"
       ]
     }
   ]

@@ -93,6 +93,36 @@ fn tui_conversation_journeys_have_bounded_feature_owners() {
 }
 
 #[test]
+fn tui_attachment_capture_and_composition_have_bounded_owners() {
+    let root = fs::read_to_string("src/app/tui_adapter/attachment.rs").unwrap();
+    let owners = [
+        ("capture", 200, "fn capture("),
+        ("compose", 250, "fn compose_request("),
+        ("format", 125, "fn attachment_kind("),
+        ("path", 75, "fn normalized_source_path("),
+        ("tests", 350, "captures_text_into_app_data"),
+    ];
+
+    assert!(root.lines().count() < 75);
+    for (owner, line_budget, marker) in owners {
+        let relative = format!("attachment/{owner}.rs");
+        assert!(
+            root.contains(&relative) || root.contains(&format!("mod {owner};")),
+            "attachment facade does not register {owner}"
+        );
+        let source = fs::read_to_string(format!("src/app/tui_adapter/{relative}")).unwrap();
+        assert!(
+            source.contains(marker),
+            "attachment owner {owner} is missing {marker}"
+        );
+        assert!(
+            source.lines().count() < line_budget,
+            "attachment owner {owner} exceeded its {line_budget}-line budget"
+        );
+    }
+}
+
+#[test]
 fn v0471_tui_render_text_and_report_layout_are_split() {
     let render = fs::read_to_string("src/surfaces/tui/render.rs").unwrap();
     for (module, owner, marker) in [
