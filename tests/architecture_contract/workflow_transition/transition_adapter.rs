@@ -13,6 +13,9 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let contracts_adapter = "src/app/workflow_adapter/transition/contracts.rs";
     let journal_adapter = "src/app/workflow_adapter/transition/journal.rs";
     let journal_codec_adapter = "src/app/workflow_adapter/transition/journal/codec.rs";
+    let journal_guard_adapter = "src/app/workflow_adapter/transition/journal/guard.rs";
+    let journal_persistence_adapter = "src/app/workflow_adapter/transition/journal/persistence.rs";
+    let journal_recovery_adapter = "src/app/workflow_adapter/transition/journal/recovery.rs";
     let journal_recovery_io_adapter = "src/app/workflow_adapter/transition/journal/recovery_io.rs";
     let source_install_adapter = "src/app/workflow_adapter/transition/source_install.rs";
     let source_support_adapter = "src/app/workflow_adapter/transition/source_support.rs";
@@ -35,6 +38,9 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         contracts_adapter,
         journal_adapter,
         journal_codec_adapter,
+        journal_guard_adapter,
+        journal_persistence_adapter,
+        journal_recovery_adapter,
         journal_recovery_io_adapter,
         source_install_adapter,
         source_support_adapter,
@@ -57,6 +63,9 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
     let contracts = fs::read_to_string(contracts_adapter).unwrap();
     let journal = fs::read_to_string(journal_adapter).unwrap();
     let journal_codec = fs::read_to_string(journal_codec_adapter).unwrap();
+    let journal_guard = fs::read_to_string(journal_guard_adapter).unwrap();
+    let journal_persistence = fs::read_to_string(journal_persistence_adapter).unwrap();
+    let journal_recovery = fs::read_to_string(journal_recovery_adapter).unwrap();
     let journal_recovery_io = fs::read_to_string(journal_recovery_io_adapter).unwrap();
     let source_install = fs::read_to_string(source_install_adapter).unwrap();
     let source_support = fs::read_to_string(source_support_adapter).unwrap();
@@ -198,20 +207,43 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         "transition adapter does not register the journal owner"
     );
     assert!(journal.lines().any(|line| line == "mod codec;"));
+    assert!(journal.lines().any(|line| line == "mod guard;"));
+    assert!(journal.lines().any(|line| line == "mod persistence;"));
+    assert!(journal.lines().any(|line| line == "mod recovery;"));
     assert!(journal.lines().any(|line| line == "mod recovery_io;"));
     for responsibility in [
         "pub(crate) struct TransitionGuard",
         "pub(crate) fn commit_prepared_source_bundle(",
         "pub(crate) fn recover_pending_source_bundles(",
-        "fn recover_pending_bundles_under_guard(",
     ] {
         assert!(
             !transition.contains(responsibility),
             "journal responsibility escaped into transition facade: {responsibility}"
         );
         assert!(
-            journal.contains(responsibility),
-            "transition journal adapter is missing responsibility: {responsibility}"
+            !journal.contains(responsibility),
+            "transition journal facade still owns responsibility: {responsibility}"
+        );
+    }
+    for (owner, responsibility) in [
+        (&journal_guard, "pub(crate) struct TransitionGuard"),
+        (
+            &journal_persistence,
+            "pub(crate) fn commit_prepared_source_bundle(",
+        ),
+        (
+            &journal_persistence,
+            "pub(crate) fn remove_committed_source_bundle(",
+        ),
+        (
+            &journal_recovery,
+            "pub(crate) fn recover_pending_source_bundles(",
+        ),
+        (&journal_recovery, "fn recover_pending_bundles_under_guard("),
+    ] {
+        assert!(
+            owner.contains(responsibility),
+            "transition journal owner is missing responsibility: {responsibility}"
         );
     }
     for responsibility in [
@@ -309,8 +341,15 @@ fn v03713_transition_adapter_delegates_source_install_contract() {
         ),
         (canonical_adapter, canonical.as_str(), 500),
         (contracts_adapter, contracts.as_str(), 500),
-        (journal_adapter, journal.as_str(), 550),
+        (journal_adapter, journal.as_str(), 75),
         (journal_codec_adapter, journal_codec.as_str(), 250),
+        (journal_guard_adapter, journal_guard.as_str(), 100),
+        (
+            journal_persistence_adapter,
+            journal_persistence.as_str(),
+            300,
+        ),
+        (journal_recovery_adapter, journal_recovery.as_str(), 300),
         (
             journal_recovery_io_adapter,
             journal_recovery_io.as_str(),

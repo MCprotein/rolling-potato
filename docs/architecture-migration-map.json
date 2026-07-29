@@ -8893,7 +8893,7 @@
       "path": "src/app/workflow_adapter/transition/journal.rs",
       "slices": [
         {
-          "responsibility": "transition journal commit, cleanup, and bounded recovery adapter",
+          "responsibility": "transition journal facade and stable persistence or recovery API",
           "target": "src/app/workflow_adapter/transition/journal.rs",
           "release": "0.37.13",
           "state": "complete",
@@ -8901,8 +8901,11 @@
             "src/runtime_core/workflow/application/recovery.rs",
             "src/runtime_core/workflow/application/projection_barrier.rs",
             "src/app/workflow_adapter/transition/journal.rs",
+            "src/app/workflow_adapter/transition/journal/guard.rs",
+            "src/app/workflow_adapter/transition/journal/persistence.rs",
+            "src/app/workflow_adapter/transition/journal/recovery.rs",
             "src/app/workflow_adapter/transition/journal/recovery_io.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
           ]
         }
       ]
@@ -8919,6 +8922,54 @@
             "src/app/workflow_adapter/transition/journal/codec.rs",
             "src/app/workflow_adapter/transition/tests/mod.rs",
             "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/guard.rs",
+      "slices": [
+        {
+          "responsibility": "project-bound transition lease and guarded journal lifecycle",
+          "target": "src/app/workflow_adapter/transition/journal/guard.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/journal/guard.rs",
+            "src/app/workflow_adapter/transition/tests/recovery_and_contracts.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/persistence.rs",
+      "slices": [
+        {
+          "responsibility": "immutable prepared-journal commit, cleanup authority, and restoration",
+          "target": "src/app/workflow_adapter/transition/journal/persistence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/journal/persistence.rs",
+            "src/app/workflow_adapter/transition/tests/source_install.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/recovery.rs",
+      "slices": [
+        {
+          "responsibility": "prepared transition recovery dispatch and projection-lag authority validation",
+          "target": "src/app/workflow_adapter/transition/journal/recovery.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/app/workflow_adapter/transition/journal/recovery.rs",
+            "src/app/workflow_adapter/transition/tests/recovery_and_contracts.rs",
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs"
           ]
         }
       ]
@@ -16137,13 +16188,31 @@
     {
       "path": "src/app/workflow_adapter/transition/journal.rs",
       "responsibilities": [
-        "transition journal commit, cleanup, and bounded recovery adapter"
+        "transition journal facade and stable persistence or recovery API"
       ]
     },
     {
       "path": "src/app/workflow_adapter/transition/journal/codec.rs",
       "responsibilities": [
         "canonical prepared transition journal codec"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/guard.rs",
+      "responsibilities": [
+        "project-bound transition lease and guarded journal lifecycle"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/persistence.rs",
+      "responsibilities": [
+        "immutable prepared-journal commit, cleanup authority, and restoration"
+      ]
+    },
+    {
+      "path": "src/app/workflow_adapter/transition/journal/recovery.rs",
+      "responsibilities": [
+        "prepared transition recovery dispatch and projection-lag authority validation"
       ]
     },
     {
