@@ -10602,6 +10602,291 @@
       ]
     },
     {
+      "path": "tests/architecture_contract/adapter_boundaries/application.rs",
+      "slices": [
+        {
+          "responsibility": "context, evidence, and benchmark adapter architecture contracts",
+          "target": "tests/architecture_contract/adapter_boundaries/application.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/adapter_boundaries/application.rs",
+            "tests/architecture_contract/adapter_boundaries.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries/platform_codec.rs",
+      "slices": [
+        {
+          "responsibility": "workflow codec and platform fixture architecture contracts",
+          "target": "tests/architecture_contract/adapter_boundaries/platform_codec.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/adapter_boundaries/platform_codec.rs",
+            "tests/architecture_contract/adapter_boundaries.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries/state.rs",
+      "slices": [
+        {
+          "responsibility": "workflow state persistence architecture contracts",
+          "target": "tests/architecture_contract/adapter_boundaries/state.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/adapter_boundaries/state.rs",
+            "tests/architecture_contract/adapter_boundaries.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/application_backend.rs",
+      "slices": [
+        {
+          "responsibility": "inference application backend architecture contracts",
+          "target": "tests/architecture_contract/inference/application_backend.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/inference/application_backend.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/application_model.rs",
+      "slices": [
+        {
+          "responsibility": "inference application model and selection architecture contracts",
+          "target": "tests/architecture_contract/inference/application_model.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/inference/application_model.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/runtime_owners.rs",
+      "slices": [
+        {
+          "responsibility": "inference runtime domain and protocol architecture contracts",
+          "target": "tests/architecture_contract/inference/runtime_owners.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/inference/runtime_owners.rs",
+            "tests/architecture_contract/inference.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/knowledge_policy.rs",
+      "slices": [
+        {
+          "responsibility": "knowledge and policy ownership architecture contracts",
+          "target": "tests/architecture_contract/observability_policy/knowledge_policy.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/observability_policy/knowledge_policy.rs",
+            "tests/architecture_contract/observability_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/observability.rs",
+      "slices": [
+        {
+          "responsibility": "observability and projection ownership architecture contracts",
+          "target": "tests/architecture_contract/observability_policy/observability.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/observability_policy/observability.rs",
+            "tests/architecture_contract/observability_policy.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs",
+      "slices": [
+        {
+          "responsibility": "patch application adapter architecture contracts",
+          "target": "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs",
+            "tests/architecture_contract/patch_runtime.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime/patch_domain_lifecycle.rs",
+      "slices": [
+        {
+          "responsibility": "patch domain and lifecycle architecture contracts",
+          "target": "tests/architecture_contract/patch_runtime/patch_domain_lifecycle.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/patch_runtime/patch_domain_lifecycle.rs",
+            "tests/architecture_contract/patch_runtime.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime/runtime_reporting.rs",
+      "slices": [
+        {
+          "responsibility": "runtime dispatch and reporting architecture contracts",
+          "target": "tests/architecture_contract/patch_runtime/runtime_reporting.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/patch_runtime/runtime_reporting.rs",
+            "tests/architecture_contract/patch_runtime.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/session_web_browser/restricted_browser.rs",
+      "slices": [
+        {
+          "responsibility": "restricted browser architecture contracts",
+          "target": "tests/architecture_contract/session_web_browser/restricted_browser.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/session_web_browser/restricted_browser.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/session_web_browser/session_persistence.rs",
+      "slices": [
+        {
+          "responsibility": "session persistence and memory architecture contracts",
+          "target": "tests/architecture_contract/session_web_browser/session_persistence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/session_web_browser/session_persistence.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/session_web_browser/support.rs",
+      "slices": [
+        {
+          "responsibility": "session and web dependency architecture contract support",
+          "target": "tests/architecture_contract/session_web_browser/support.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/session_web_browser/support.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/session_web_browser/web_research_search.rs",
+      "slices": [
+        {
+          "responsibility": "web research and search architecture contracts",
+          "target": "tests/architecture_contract/session_web_browser/web_research_search.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/session_web_browser/web_research_search.rs",
+            "tests/architecture_contract/session_web_browser.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/tui_extension/extensions.rs",
+      "slices": [
+        {
+          "responsibility": "extension domain and adapter ownership architecture contracts",
+          "target": "tests/architecture_contract/tui_extension/extensions.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/tui_extension/extensions.rs",
+            "tests/architecture_contract/tui_extension.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/tui_extension/tui.rs",
+      "slices": [
+        {
+          "responsibility": "TUI responsibility architecture contracts",
+          "target": "tests/architecture_contract/tui_extension/tui.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/tui_extension/tui.rs",
+            "tests/architecture_contract/tui_extension.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/workflow_transition/application.rs",
+      "slices": [
+        {
+          "responsibility": "workflow transaction and recovery architecture contracts",
+          "target": "tests/architecture_contract/workflow_transition/application.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/workflow_transition/application.rs",
+            "tests/architecture_contract/workflow_transition.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/workflow_transition/transition_adapter.rs",
+      "slices": [
+        {
+          "responsibility": "workflow transition and source installation architecture contracts",
+          "target": "tests/architecture_contract/workflow_transition/transition_adapter.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/architecture_contract/workflow_transition/transition_adapter.rs",
+            "tests/architecture_contract/workflow_transition.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/support/platform/native_terminal/capture.rs",
       "slices": [
         {
@@ -14993,6 +15278,120 @@
       "path": "tests/architecture_contract/workflow_transition.rs",
       "responsibilities": [
         "workflow transaction, recovery, source transition, and installation adapter contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries/application.rs",
+      "responsibilities": [
+        "context, evidence, and benchmark adapter architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries/platform_codec.rs",
+      "responsibilities": [
+        "workflow codec and platform fixture architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/adapter_boundaries/state.rs",
+      "responsibilities": [
+        "workflow state persistence architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/application_backend.rs",
+      "responsibilities": [
+        "inference application backend architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/application_model.rs",
+      "responsibilities": [
+        "inference application model and selection architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/inference/runtime_owners.rs",
+      "responsibilities": [
+        "inference runtime domain and protocol architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/knowledge_policy.rs",
+      "responsibilities": [
+        "knowledge and policy ownership architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/observability_policy/observability.rs",
+      "responsibilities": [
+        "observability and projection ownership architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime/application_adapter_contracts.rs",
+      "responsibilities": [
+        "patch application adapter architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime/patch_domain_lifecycle.rs",
+      "responsibilities": [
+        "patch domain and lifecycle architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/patch_runtime/runtime_reporting.rs",
+      "responsibilities": [
+        "runtime dispatch and reporting architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/session_web_browser/restricted_browser.rs",
+      "responsibilities": [
+        "restricted browser architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/session_web_browser/session_persistence.rs",
+      "responsibilities": [
+        "session persistence and memory architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/session_web_browser/support.rs",
+      "responsibilities": [
+        "session and web dependency architecture contract support"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/session_web_browser/web_research_search.rs",
+      "responsibilities": [
+        "web research and search architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/tui_extension/extensions.rs",
+      "responsibilities": [
+        "extension domain and adapter ownership architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/tui_extension/tui.rs",
+      "responsibilities": [
+        "TUI responsibility architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/workflow_transition/application.rs",
+      "responsibilities": [
+        "workflow transaction and recovery architecture contracts"
+      ]
+    },
+    {
+      "path": "tests/architecture_contract/workflow_transition/transition_adapter.rs",
+      "responsibilities": [
+        "workflow transition and source installation architecture contracts"
       ]
     },
     {
