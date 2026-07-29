@@ -73,6 +73,11 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         "src/runtime_core/patch/application.rs",
         "src/runtime_core/patch/intent.rs",
         "src/runtime_core/patch/proposal.rs",
+        "src/runtime_core/patch/proposal/encoding.rs",
+        "src/runtime_core/patch/proposal/preview.rs",
+        "src/runtime_core/patch/proposal/record.rs",
+        "src/runtime_core/patch/proposal/tests.rs",
+        "src/runtime_core/patch/proposal/types.rs",
         "src/runtime_core/patch/verification.rs",
     ];
     for target in owners {
@@ -132,14 +137,25 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
             ["fn parse_model_action", "fn fallback_model_action"].as_slice(),
         ),
         (
-            "src/runtime_core/patch/proposal.rs",
+            "src/runtime_core/patch/proposal/types.rs",
+            ["struct PatchPreview", "struct ProposalRecord"].as_slice(),
+        ),
+        (
+            "src/runtime_core/patch/proposal/preview.rs",
+            ["fn build_preview", "fn render_unified_diff"].as_slice(),
+        ),
+        (
+            "src/runtime_core/patch/proposal/record.rs",
             [
-                "struct PatchPreview",
-                "fn build_preview",
                 "fn render_record",
                 "fn parse_record",
+                "fn validate_proposal_id",
             ]
             .as_slice(),
+        ),
+        (
+            "src/runtime_core/patch/proposal/encoding.rs",
+            ["fn encode_hex_text", "fn sha256_text"].as_slice(),
         ),
         (
             "src/runtime_core/patch/verification.rs",
@@ -173,6 +189,54 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
                 "patch owner has concrete reverse dependency: {owner} -> {forbidden}"
             );
         }
+    }
+
+    let proposal_facade = fs::read_to_string("src/runtime_core/patch/proposal.rs").unwrap();
+    assert!(
+        proposal_facade.lines().count() < 35,
+        "proposal facade regrew beyond stable domain exports"
+    );
+    for owner in ["encoding", "preview", "record", "types"] {
+        assert!(
+            proposal_facade
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "proposal facade does not register {owner}"
+        );
+    }
+    assert!(
+        proposal_facade.contains("#[path = \"proposal/tests.rs\"]"),
+        "proposal facade no longer registers its regression-test owner"
+    );
+    for responsibility in [
+        "struct PatchPreview",
+        "struct ProposalRecord",
+        "fn build_preview",
+        "fn render_unified_diff",
+        "fn render_record",
+        "fn parse_record",
+        "fn validate_proposal_id",
+        "fn encode_hex_text",
+        "fn sha256_text",
+    ] {
+        assert!(
+            !proposal_facade.contains(responsibility),
+            "proposal facade still owns {responsibility}"
+        );
+    }
+    for (owner, line_budget) in [
+        ("encoding.rs", 100),
+        ("preview.rs", 175),
+        ("record.rs", 250),
+        ("tests.rs", 100),
+        ("types.rs", 125),
+    ] {
+        let source =
+            fs::read_to_string(format!("src/runtime_core/patch/proposal/{owner}")).unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "proposal owner {owner} exceeded its {line_budget}-line budget"
+        );
     }
 
     for (facade, forbidden) in [

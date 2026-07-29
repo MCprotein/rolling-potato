@@ -6683,13 +6683,88 @@
       "path": "src/runtime_core/patch/proposal.rs",
       "slices": [
         {
-          "responsibility": "patch proposal and preview",
+          "responsibility": "patch proposal domain facade and stable preview, record, or query exports",
           "target": "src/runtime_core/patch/proposal.rs",
           "release": "0.37.9",
           "state": "complete",
           "evidence": [
             "src/runtime_core/patch/proposal.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/patch_runtime/patch_domain_lifecycle.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/proposal/encoding.rs",
+      "slices": [
+        {
+          "responsibility": "proposal text encoding and SHA-256 helpers",
+          "target": "src/runtime_core/patch/proposal/encoding.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/proposal/encoding.rs",
+            "tests/architecture_contract/patch_runtime/patch_domain_lifecycle.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/proposal/preview.rs",
+      "slices": [
+        {
+          "responsibility": "bounded patch preview construction and unified diff rendering",
+          "target": "src/runtime_core/patch/proposal/preview.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/proposal/preview.rs",
+            "tests/architecture_contract/patch_runtime/patch_domain_lifecycle.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/proposal/record.rs",
+      "slices": [
+        {
+          "responsibility": "canonical proposal record rendering, strict parsing, identifier validation, and legacy migration",
+          "target": "src/runtime_core/patch/proposal/record.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/proposal/record.rs",
+            "tests/architecture_contract/patch_runtime/patch_domain_lifecycle.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/proposal/tests.rs",
+      "slices": [
+        {
+          "responsibility": "proposal preview identity, canonical record, and ambiguity regression tests",
+          "target": "src/runtime_core/patch/proposal/tests.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/proposal/tests.rs",
+            "tests/architecture_contract/patch_runtime/patch_domain_lifecycle.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/proposal/types.rs",
+      "slices": [
+        {
+          "responsibility": "patch preview, proposal record, workflow proposal, and resume view contracts",
+          "target": "src/runtime_core/patch/proposal/types.rs",
+          "release": "0.37.9",
+          "state": "complete",
+          "evidence": [
+            "src/runtime_core/patch/proposal/types.rs",
+            "tests/architecture_contract/patch_runtime/patch_domain_lifecycle.rs"
           ]
         }
       ]
@@ -16130,7 +16205,37 @@
     {
       "path": "src/runtime_core/patch/proposal.rs",
       "responsibilities": [
-        "patch proposal and preview"
+        "patch proposal domain facade and stable preview, record, or query exports"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/proposal/encoding.rs",
+      "responsibilities": [
+        "proposal text encoding and SHA-256 helpers"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/proposal/preview.rs",
+      "responsibilities": [
+        "bounded patch preview construction and unified diff rendering"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/proposal/record.rs",
+      "responsibilities": [
+        "canonical proposal record rendering, strict parsing, identifier validation, and legacy migration"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/proposal/tests.rs",
+      "responsibilities": [
+        "proposal preview identity, canonical record, and ambiguity regression tests"
+      ]
+    },
+    {
+      "path": "src/runtime_core/patch/proposal/types.rs",
+      "responsibilities": [
+        "patch preview, proposal record, workflow proposal, and resume view contracts"
       ]
     },
     {
