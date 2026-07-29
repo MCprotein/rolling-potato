@@ -224,6 +224,10 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
     let patch_verification_tests = fs::read_to_string(patch_test_modules[5]).unwrap();
     let patch_harness = fs::read_to_string("tests/patch_loop.rs").unwrap();
     let patch_contract = fs::read_to_string("tests/patch/lifecycle.rs").unwrap();
+    let patch_backend_runtime = fs::read_to_string("tests/patch/backend_runtime.rs").unwrap();
+    let patch_concurrency = fs::read_to_string("tests/patch/concurrency.rs").unwrap();
+    let patch_safety = fs::read_to_string("tests/patch/patch_safety.rs").unwrap();
+    let patch_workflow_journeys = fs::read_to_string("tests/patch/workflow_journeys.rs").unwrap();
     assert!(
         intent_facade.contains("#[path = \"intent_adapter/tests.rs\"]"),
         "intent facade does not register its regression-test owner"
@@ -562,9 +566,65 @@ fn v0379_patch_owners_hold_lifecycle_decisions() {
         patch_harness.lines().count() <= 5 && patch_harness.contains("patch/lifecycle.rs"),
         "patch integration harness is not a thin compatibility entrypoint"
     );
+    for module in [
+        "mod backend_runtime;",
+        "mod concurrency;",
+        "mod patch_safety;",
+        "mod workflow_journeys;",
+    ] {
+        assert!(
+            patch_contract.lines().any(|line| line == module),
+            "patch lifecycle facade is missing contract owner: {module}"
+        );
+    }
+    for fixture_boundary in [
+        "const MAX_CONCURRENT_FIXTURES:",
+        "fn acquire_fixture_permit()",
+        "_permit: FixturePermit",
+    ] {
+        assert!(
+            patch_contract.contains(fixture_boundary),
+            "patch lifecycle fixture lost its bounded-concurrency guard: {fixture_boundary}"
+        );
+    }
+    for (owner, source, marker, limit) in [
+        (
+            "tests/patch/backend_runtime.rs",
+            &patch_backend_runtime,
+            "fn backend_generation_cancel_keeps_sidecar_and_cleans_active_state",
+            275,
+        ),
+        (
+            "tests/patch/concurrency.rs",
+            &patch_concurrency,
+            "fn token_rotate_recovers_lost_delivery_and_invalidates_old_token_across_processes",
+            150,
+        ),
+        (
+            "tests/patch/patch_safety.rs",
+            &patch_safety,
+            "fn complete_resume_revalidates_deleted_evidence",
+            300,
+        ),
+        (
+            "tests/patch/workflow_journeys.rs",
+            &patch_workflow_journeys,
+            "fn happy_path_is_restart_safe_and_reports_korean",
+            825,
+        ),
+    ] {
+        assert!(
+            source.contains(marker),
+            "patch lifecycle owner is missing responsibility: {owner} -> {marker}"
+        );
+        assert!(
+            source.lines().count() < limit,
+            "patch lifecycle owner regrew beyond its boundary: {owner}"
+        );
+    }
     assert!(
-        patch_contract.contains("fn happy_path_is_restart_safe_and_reports_korean"),
-        "patch lifecycle contract was not moved to its owner"
+        patch_contract.lines().count() < 425,
+        "patch lifecycle facade regrew beyond fixture and module registration"
     );
 }
 

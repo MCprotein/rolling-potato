@@ -8160,14 +8160,78 @@
       ]
     },
     {
+      "path": "tests/patch/backend_runtime.rs",
+      "slices": [
+        {
+          "responsibility": "backend cancellation, streaming, and redaction lifecycle contracts",
+          "target": "tests/patch/backend_runtime.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/patch/backend_runtime.rs",
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/patch/concurrency.rs",
+      "slices": [
+        {
+          "responsibility": "token rotation and concurrent approval lifecycle contracts",
+          "target": "tests/patch/concurrency.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/patch/concurrency.rs",
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "tests/patch/lifecycle.rs",
       "slices": [
         {
-          "responsibility": "patch lifecycle contract",
+          "responsibility": "patch lifecycle fixture and regression-test facade",
           "target": "tests/patch/lifecycle.rs",
-          "release": "0.37.9",
+          "release": "0.37.13",
           "state": "complete",
           "evidence": [
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/patch/patch_safety.rs",
+      "slices": [
+        {
+          "responsibility": "resume, evidence, approval, and verification safety contracts",
+          "target": "tests/patch/patch_safety.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/patch/patch_safety.rs",
+            "tests/patch/lifecycle.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/patch/workflow_journeys.rs",
+      "slices": [
+        {
+          "responsibility": "patch workflow, skill, and read-only lifecycle journeys",
+          "target": "tests/patch/workflow_journeys.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/patch/workflow_journeys.rs",
             "tests/patch/lifecycle.rs",
             "tests/architecture_contract.rs"
           ]
@@ -13040,9 +13104,33 @@
       ]
     },
     {
+      "path": "tests/patch/backend_runtime.rs",
+      "responsibilities": [
+        "backend cancellation, streaming, and redaction lifecycle contracts"
+      ]
+    },
+    {
+      "path": "tests/patch/concurrency.rs",
+      "responsibilities": [
+        "token rotation and concurrent approval lifecycle contracts"
+      ]
+    },
+    {
       "path": "tests/patch/lifecycle.rs",
       "responsibilities": [
-        "patch lifecycle contract"
+        "patch lifecycle fixture and regression-test facade"
+      ]
+    },
+    {
+      "path": "tests/patch/patch_safety.rs",
+      "responsibilities": [
+        "resume, evidence, approval, and verification safety contracts"
+      ]
+    },
+    {
+      "path": "tests/patch/workflow_journeys.rs",
+      "responsibilities": [
+        "patch workflow, skill, and read-only lifecycle journeys"
       ]
     },
     {
