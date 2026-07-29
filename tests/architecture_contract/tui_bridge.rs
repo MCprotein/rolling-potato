@@ -136,10 +136,62 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
         }
     }
 
-    let tui_read = fs::read_to_string("src/composition/tui_read.rs").unwrap();
+    let tui_read_path = "src/composition/tui_read.rs";
+    let tui_read_state_path = "src/composition/tui_read/state.rs";
+    let tui_read_transcript_path = "src/composition/tui_read/transcript.rs";
+    let tui_read_review_path = "src/composition/tui_read/review.rs";
+    let tui_read_common_path = "src/composition/tui_read/common.rs";
+    let tui_read = fs::read_to_string(tui_read_path).unwrap();
+    let tui_read_state = fs::read_to_string(tui_read_state_path).unwrap();
+    let tui_read_transcript = fs::read_to_string(tui_read_transcript_path).unwrap();
+    let tui_read_review = fs::read_to_string(tui_read_review_path).unwrap();
+    let tui_read_common = fs::read_to_string(tui_read_common_path).unwrap();
     assert!(tui_read.contains("fn read_tui_page"));
     assert!(tui_read.contains("trait TuiReadPort"));
-    assert!(tui_read.contains("port.state_snapshot"));
+    for registration in [
+        "#[path = \"tui_read/common.rs\"]",
+        "#[path = \"tui_read/review.rs\"]",
+        "#[path = \"tui_read/state.rs\"]",
+        "#[path = \"tui_read/transcript.rs\"]",
+    ] {
+        assert!(
+            tui_read.contains(registration),
+            "TUI read facade is missing owner registration: {registration}"
+        );
+    }
+    for (owner, definition) in [
+        (&tui_read_state, "pub(super) fn overview("),
+        (&tui_read_state, "pub(super) fn monitor("),
+        (&tui_read_state, "pub(super) fn sessions("),
+        (&tui_read_transcript, "pub(super) fn transcript("),
+        (&tui_read_transcript, "pub(super) fn tool_output("),
+        (&tui_read_review, "pub(super) fn approvals("),
+        (&tui_read_review, "pub(super) fn diff("),
+        (&tui_read_review, "pub(super) fn evidence("),
+        (&tui_read_common, "pub(super) fn freshness("),
+    ] {
+        assert!(
+            owner.contains(definition),
+            "TUI read owner is missing responsibility: {definition}"
+        );
+        assert!(
+            !tui_read.contains(definition),
+            "TUI read facade still owns moved responsibility: {definition}"
+        );
+    }
+    for (owner, line_budget) in [
+        (tui_read_path, 100),
+        (tui_read_common_path, 50),
+        (tui_read_state_path, 225),
+        (tui_read_transcript_path, 200),
+        (tui_read_review_path, 225),
+    ] {
+        let source = fs::read_to_string(owner).unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "TUI read owner {owner} exceeded its {line_budget}-line budget"
+        );
+    }
     assert!(!app_runtime.contains("fn read_tui_page"));
 
     let tui_action = fs::read_to_string("src/composition/tui_action.rs").unwrap();
@@ -376,22 +428,53 @@ fn v03713_tui_bridge_owns_read_and_selection_dtos() {
     }
 
     let report_render = fs::read_to_string("src/surfaces/tui/report_render.rs").unwrap();
-    for definition in [
-        "fn canonical_page_report",
-        "fn authority_pair",
-        "fn render_evidence_report",
-        "fn render_sessions_report",
-        "fn render_overview_report",
-        "fn render_monitor_report",
-        "fn render_transcript_report",
+    assert!(
+        report_render.lines().count() < 25,
+        "TUI report-render facade exceeded its 25-line budget"
+    );
+    for owner in [
+        "canonical",
+        "evidence",
+        "monitor",
+        "overview",
+        "sessions",
+        "transcript",
     ] {
         assert!(
-            report_render.contains(definition),
-            "TUI report render owner is missing {definition}"
+            report_render
+                .lines()
+                .any(|line| line == format!("mod {owner};")),
+            "TUI report-render facade does not register {owner}"
+        );
+    }
+    for (owner, definition, line_budget) in [
+        ("canonical", "fn canonical_page_report", 125),
+        ("evidence", "fn render_evidence_report", 100),
+        ("monitor", "fn render_monitor_report", 160),
+        ("overview", "fn render_overview_report", 135),
+        ("sessions", "fn render_sessions_report", 80),
+        ("transcript", "fn render_transcript_report", 130),
+    ] {
+        let path = format!("src/surfaces/tui/report_render/{owner}.rs");
+        let source = fs::read_to_string(&path).unwrap();
+        assert!(
+            source.contains(definition),
+            "TUI report renderer {owner} is missing {definition}"
+        );
+        assert!(
+            !report_render.contains(definition),
+            "TUI report-render facade still owns {definition}"
+        );
+        assert!(
+            source.lines().count() < line_budget,
+            "TUI report renderer {owner} exceeded its {line_budget}-line budget"
         );
         assert!(
             !tui_composition.contains(definition),
             "TUI adapter still owns {definition}"
         );
     }
+    let canonical = fs::read_to_string("src/surfaces/tui/report_render/canonical.rs").unwrap();
+    assert!(canonical.contains("fn authority_pair"));
+    assert!(!report_render.contains("fn authority_pair"));
 }

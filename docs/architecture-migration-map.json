@@ -3382,15 +3382,79 @@
       "path": "src/composition/tui_read.rs",
       "slices": [
         {
-          "responsibility": "canonical TUI read orchestration",
+          "responsibility": "canonical TUI read facade, port contract, and page dispatch",
           "target": "src/composition/tui_read.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/composition/tui_read.rs",
+            "src/composition/tui_read/common.rs",
+            "src/composition/tui_read/review.rs",
+            "src/composition/tui_read/state.rs",
+            "src/composition/tui_read/transcript.rs",
             "src/surfaces/tui/page.rs",
             "src/app/tui_adapter.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/tui_read/common.rs",
+      "slices": [
+        {
+          "responsibility": "shared TUI read freshness and metric projection helpers",
+          "target": "src/composition/tui_read/common.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_read/common.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/tui_read/review.rs",
+      "slices": [
+        {
+          "responsibility": "TUI approval, diff, and evidence read projections",
+          "target": "src/composition/tui_read/review.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_read/review.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/tui_read/state.rs",
+      "slices": [
+        {
+          "responsibility": "TUI overview, monitor, and session state projections",
+          "target": "src/composition/tui_read/state.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_read/state.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/composition/tui_read/transcript.rs",
+      "slices": [
+        {
+          "responsibility": "TUI transcript and tool-output read projections",
+          "target": "src/composition/tui_read/transcript.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/composition/tui_read/transcript.rs",
+            "tests/architecture_contract/tui_bridge.rs"
           ]
         }
       ]
@@ -8312,14 +8376,110 @@
       "path": "src/surfaces/tui/report_render.rs",
       "slices": [
         {
-          "responsibility": "read-only TUI report rendering",
+          "responsibility": "read-only TUI report-renderer facade and stable exports",
           "target": "src/surfaces/tui/report_render.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/surfaces/tui/report_render.rs",
+            "src/surfaces/tui/report_render/canonical.rs",
+            "src/surfaces/tui/report_render/evidence.rs",
+            "src/surfaces/tui/report_render/monitor.rs",
+            "src/surfaces/tui/report_render/overview.rs",
+            "src/surfaces/tui/report_render/sessions.rs",
+            "src/surfaces/tui/report_render/transcript.rs",
             "src/app/tui_adapter.rs",
-            "tests/architecture_contract.rs"
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render/canonical.rs",
+      "slices": [
+        {
+          "responsibility": "canonical TUI page and authority-pair rendering",
+          "target": "src/surfaces/tui/report_render/canonical.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/report_render/canonical.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render/evidence.rs",
+      "slices": [
+        {
+          "responsibility": "TUI evidence report rendering",
+          "target": "src/surfaces/tui/report_render/evidence.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/report_render/evidence.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render/monitor.rs",
+      "slices": [
+        {
+          "responsibility": "TUI monitor and metric report rendering",
+          "target": "src/surfaces/tui/report_render/monitor.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/report_render/monitor.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render/overview.rs",
+      "slices": [
+        {
+          "responsibility": "TUI overview report rendering",
+          "target": "src/surfaces/tui/report_render/overview.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/report_render/overview.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render/sessions.rs",
+      "slices": [
+        {
+          "responsibility": "TUI session-list report rendering",
+          "target": "src/surfaces/tui/report_render/sessions.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/report_render/sessions.rs",
+            "tests/architecture_contract/tui_bridge.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render/transcript.rs",
+      "slices": [
+        {
+          "responsibility": "TUI transcript and tool-output report rendering",
+          "target": "src/surfaces/tui/report_render/transcript.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/tui/report_render/transcript.rs",
+            "tests/architecture_contract/tui_bridge.rs"
           ]
         }
       ]
@@ -14235,7 +14395,31 @@
     {
       "path": "src/composition/tui_read.rs",
       "responsibilities": [
-        "canonical TUI read orchestration"
+        "canonical TUI read facade, port contract, and page dispatch"
+      ]
+    },
+    {
+      "path": "src/composition/tui_read/common.rs",
+      "responsibilities": [
+        "shared TUI read freshness and metric projection helpers"
+      ]
+    },
+    {
+      "path": "src/composition/tui_read/review.rs",
+      "responsibilities": [
+        "TUI approval, diff, and evidence read projections"
+      ]
+    },
+    {
+      "path": "src/composition/tui_read/state.rs",
+      "responsibilities": [
+        "TUI overview, monitor, and session state projections"
+      ]
+    },
+    {
+      "path": "src/composition/tui_read/transcript.rs",
+      "responsibilities": [
+        "TUI transcript and tool-output read projections"
       ]
     },
     {
@@ -15996,7 +16180,43 @@
     {
       "path": "src/surfaces/tui/report_render.rs",
       "responsibilities": [
-        "read-only TUI report rendering"
+        "read-only TUI report-renderer facade and stable exports"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render/canonical.rs",
+      "responsibilities": [
+        "canonical TUI page and authority-pair rendering"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render/evidence.rs",
+      "responsibilities": [
+        "TUI evidence report rendering"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render/monitor.rs",
+      "responsibilities": [
+        "TUI monitor and metric report rendering"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render/overview.rs",
+      "responsibilities": [
+        "TUI overview report rendering"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render/sessions.rs",
+      "responsibilities": [
+        "TUI session-list report rendering"
+      ]
+    },
+    {
+      "path": "src/surfaces/tui/report_render/transcript.rs",
+      "responsibilities": [
+        "TUI transcript and tool-output report rendering"
       ]
     },
     {
