@@ -1,5 +1,34 @@
 # 릴리즈 노트
 
+## v0.52.1 - 관리형 llama.cpp 구조화 대화 복구
+
+릴리즈 날짜: 2026-07-29
+
+이 patch는 관리형 `llama.cpp` backend의 기본 TUI 대화 경로를 복구합니다.
+v0.52.0의 structured answer schema가 pinned compiler의 허용 범위를 넘는 grammar
+repetition을 요청하여 간단한 인사도 generation 전에 HTTP 400으로 실패했습니다.
+
+### 포함한 것
+
+- Grammar 수준의 `answer.maxLength` repetition은 제거하고 runtime의 독립적인
+  16 KiB visible-answer 검증은 유지
+- 지원하지 않는 string·array·object repetition bound를 generation lifecycle
+  시작과 backend request 전송 전에 차단
+- JSON Schema의 실제 subschema 위치만 순회하여 `maxLength`, `minItems` 같은
+  이름의 정상 출력 property를 허용
+- 관리형 grammar의 검증된 1,999/2,000 경계, property-name collision,
+  production turn schema와 native structured TUI request를 회귀 테스트로 보호
+- Request body, response format, schema 또는 chat template 변경 시 pinned
+  `llama-server`와 설치된 지원 model의 실제 smoke를 요구
+
+### 호환성과 경계
+
+- 기존 model, session, projector, web tool, browser 제한과 public command는
+  계속 호환됩니다.
+- 애플리케이션은 16 KiB보다 큰 visible structured answer를 계속 거절하며,
+  호환되지 않던 grammar repetition만 제거했습니다.
+- GitHub Releases만 지원하는 binary 배포 channel입니다.
+
 ## v0.52.0 - 소형 모델용 구조화 Tool Turn
 
 릴리즈 날짜: 2026-07-28

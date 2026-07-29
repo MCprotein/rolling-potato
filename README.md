@@ -14,7 +14,7 @@ mid-range machines. It is designed around a simple premise:
 
 | Project snapshot | |
 | --- | --- |
-| Current release | `v0.52.0` |
+| Current release | `v0.52.1` |
 | CLI | `rpotato` |
 | Runtime | Rust, managed `llama.cpp`, GGUF |
 | Primary surfaces | CLI and TUI |
@@ -224,7 +224,7 @@ The detailed MVP acceptance criteria are in [docs/mvp.md](docs/mvp.md).
 
 ## Current Capabilities
 
-The `v0.52.0` release is an active pre-1.0 runtime, not only a
+The `v0.52.1` release is an active pre-1.0 runtime, not only a
 product-definition scaffold. Implemented areas include:
 
 | Area | Current surface |
@@ -245,6 +245,9 @@ without granting general browser automation. See the
 The v0.52.0 release makes `WebSearch`, `WebOpen`, and `WebFind` follow one
 runtime-owned `ToolCall → Observation → Answer` contract instead of exposing
 small-model free-form tool text.
+The v0.52.1 patch restores the default conversation path on the managed
+`llama.cpp` backend by keeping JSON-schema repetition bounds within the pinned
+grammar compiler's verified limits.
 
 See [docs/current-capabilities.md](docs/current-capabilities.md) for the
 chaptered capability map, representative commands, and known incomplete
@@ -296,7 +299,7 @@ Qwen and Gemma entries are evaluation candidates, not assumed defaults.
 
 ## Project Status
 
-The published release history through `v0.52.0` includes bounded web research,
+The published release history through `v0.52.1` includes bounded web research,
 restricted browser search-form support, a reliable interactive TUI, and
 grounded conversation continuity across follow-ups and resumed sessions. Web
 tools now use schema-constrained turn decisions and runtime-owned observations

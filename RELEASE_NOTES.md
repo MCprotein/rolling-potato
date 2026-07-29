@@ -1,5 +1,37 @@
 # Release Notes
 
+## v0.52.1 - Managed llama.cpp Structured-Chat Recovery
+
+Release date: 2026-07-29
+
+This patch restores the default TUI conversation path on the managed
+`llama.cpp` backend. The v0.52.0 structured answer schema requested a grammar
+repetition larger than the pinned compiler accepts, causing even a simple
+greeting to fail with HTTP 400 before generation.
+
+### Included
+
+- Removes the grammar-level `answer.maxLength` repetition while preserving the
+  runtime's independent 16 KiB visible-answer validation.
+- Rejects unsupported string, array, and object repetition bounds before a
+  generation lifecycle starts or a request reaches the backend.
+- Traverses only JSON Schema subschema positions so output properties named
+  `maxLength`, `minItems`, or similar keywords remain valid.
+- Covers the verified 1,999/2,000 managed-grammar boundary, property-name
+  collisions, the production turn schema, and the native structured TUI
+  request.
+- Requires a real pinned `llama-server` and installed supported model smoke
+  whenever request-body, response-format, schema, or chat-template contracts
+  change.
+
+### Compatibility and boundaries
+
+- Existing models, sessions, projectors, web tools, browser restrictions, and
+  public commands remain compatible.
+- The application still rejects visible structured answers larger than 16 KiB;
+  only the incompatible grammar repetition was removed.
+- GitHub Releases remains the only supported binary distribution channel.
+
 ## v0.52.0 - Structured Small-Model Tool Turns
 
 Release date: 2026-07-28
