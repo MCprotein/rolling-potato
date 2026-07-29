@@ -216,6 +216,29 @@ fn v03713_platform_fixtures_are_grouped_under_support_boundary() {
     assert!(harness.contains("surfaces/native_terminal.rs"));
     assert!(!Path::new("tests/platform.rs").exists());
     assert!(!Path::new("tests/platform").exists());
+
+    let native_terminal = fs::read_to_string("tests/support/platform/native_terminal.rs").unwrap();
+    let owners = [
+        ("capture", 125),
+        ("fixture", 450),
+        ("process", 150),
+        ("trace", 50),
+        ("unix", 600),
+        ("windows", 750),
+    ];
+    for (owner, line_budget) in owners {
+        let relative = format!("native_terminal/{owner}.rs");
+        assert!(
+            native_terminal.contains(&relative),
+            "native terminal facade does not register {owner}"
+        );
+        let source = fs::read_to_string(format!("tests/support/platform/{relative}")).unwrap();
+        assert!(
+            source.lines().count() < line_budget,
+            "native terminal owner {owner} exceeded its {line_budget}-line budget"
+        );
+    }
+    assert!(native_terminal.lines().count() < 75);
 }
 
 #[test]

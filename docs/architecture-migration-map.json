@@ -9311,6 +9311,102 @@
           ]
         }
       ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/capture.rs",
+      "slices": [
+        {
+          "responsibility": "terminal control normalization, mode probe parsing, and filesystem capture helpers",
+          "target": "tests/support/platform/native_terminal/capture.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal/capture.rs",
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/fixture.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal fixture lifecycle, source approval setup, and conversation backend preparation",
+          "target": "tests/support/platform/native_terminal/fixture.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal/fixture.rs",
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/process.rs",
+      "slices": [
+        {
+          "responsibility": "bounded fixture command execution, timeout cleanup, and failure diagnostics",
+          "target": "tests/support/platform/native_terminal/process.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal/process.rs",
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/trace.rs",
+      "slices": [
+        {
+          "responsibility": "native terminal stage trace emission",
+          "target": "tests/support/platform/native_terminal/trace.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal/trace.rs",
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/unix.rs",
+      "slices": [
+        {
+          "responsibility": "POSIX PTY process, input, readiness, output capture, and cleanup driver",
+          "target": "tests/support/platform/native_terminal/unix.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal/unix.rs",
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/windows.rs",
+      "slices": [
+        {
+          "responsibility": "Windows ConPTY process, input, readiness, output capture, and cleanup driver",
+          "target": "tests/support/platform/native_terminal/windows.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "tests/support/platform/native_terminal/windows.rs",
+            "tests/surfaces.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
     }
   ],
   "current_release": "0.37.13",
@@ -12746,6 +12842,42 @@
       "path": "tests/architecture_contract/workflow_transition.rs",
       "responsibilities": [
         "workflow transaction, recovery, source transition, and installation adapter contracts"
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/capture.rs",
+      "responsibilities": [
+        "terminal control normalization, mode probe parsing, and filesystem capture helpers"
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/fixture.rs",
+      "responsibilities": [
+        "native terminal fixture lifecycle, source approval setup, and conversation backend preparation"
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/process.rs",
+      "responsibilities": [
+        "bounded fixture command execution, timeout cleanup, and failure diagnostics"
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/trace.rs",
+      "responsibilities": [
+        "native terminal stage trace emission"
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/unix.rs",
+      "responsibilities": [
+        "POSIX PTY process, input, readiness, output capture, and cleanup driver"
+      ]
+    },
+    {
+      "path": "tests/support/platform/native_terminal/windows.rs",
+      "responsibilities": [
+        "Windows ConPTY process, input, readiness, output capture, and cleanup driver"
       ]
     }
   ]
