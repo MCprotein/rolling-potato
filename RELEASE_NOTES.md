@@ -12,6 +12,44 @@ This index keeps the current release train concise. Historical notes are preserv
 - [v0.10–v0.19](docs/releases/v0.10-v0.19.md)
 - [v0.1–v0.9](docs/releases/v0.1-v0.9.md)
 
+## v0.53.0 - Bounded Runtime Architecture and Autonomous Grounding
+
+Release date: 2026-07-29
+
+This minor release completes a repository-wide responsibility refactor and
+makes freshness-sensitive questions enter runtime-owned web grounding before a
+small local model can answer from stale memory. The public CLI and TUI command
+surface remains compatible.
+
+### Included
+
+- Replaces named product, event, and answer-shape exceptions with generic
+  freshness features, typed query plans, evidence coverage, and answer binding.
+- Keeps local repository questions and explicit no-web requests on the offline
+  path while routing volatile facts, current versions, and empirical
+  comparisons through bounded `WebSearch`, `WebOpen`, and `WebFind`.
+- Preserves runtime source attribution in generated and fallback grounded
+  answers and rejects stale, conflicting, or unrelated evidence.
+- Answers current-model identity questions from runtime configuration without
+  intercepting model comparison or recommendation requests.
+- Keeps ordinary active conversations tolerant of stale historical source
+  pointers while explicit `/resume` continues to report invalid resume
+  artifacts instead of silently discarding them.
+- Splits large TUI, context, model, backend, install, workflow, patch,
+  collaboration, web, CLI, persistence, terminal, and test owners into bounded
+  modules with explicit dependency and migration contracts.
+- Splits historical release notes and execution retrospectives into bounded
+  archives while retaining machine-verifiable ownership coverage.
+
+### Compatibility and boundaries
+
+- Existing public commands, stored sessions, model artifacts, lazy projectors,
+  managed backend behavior, and GitHub-only distribution remain compatible.
+- Web evidence remains bounded, read-only, untrusted input and does not grant
+  browser, shell, filesystem-write, credential, or approval authority.
+- The refactor does not claim new model quality, benchmark, memory, or hardware
+  results.
+
 ## v0.52.1 - Managed llama.cpp Structured-Chat Recovery
 
 Release date: 2026-07-29

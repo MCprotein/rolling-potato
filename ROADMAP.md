@@ -195,6 +195,12 @@ evidence.
 | v0.52.0 | Released | JSON-schema `Answer`/`WebSearch`/`WebOpen`/`WebFind`/`ContinueLocal` decisions, runtime-owned `ToolCall → Observation → Answer` transitions for every web tool, bounded follow-up query context, private-data filtering, and explicit general-question versus repository-analysis routing |
 | v0.52.1 | Released | Managed `llama.cpp` structured-chat recovery: grammar-compatible answer schema, pre-generation repetition validation, property-name-safe schema traversal, real-backend smoke evidence, and unchanged 16 KiB runtime answer validation |
 
+### Bounded runtime ownership and autonomous grounding (`v0.53.0`)
+
+| Version | Status | Scope |
+| --- | --- | --- |
+| v0.53.0 | Released | Generic freshness-driven web grounding before direct small-model answers; runtime-owned evidence attribution and fallback answers; strict explicit-resume artifact validation; current-model facts from runtime configuration; and bounded responsibility owners across TUI, context, persistence, inference, install, web, workflow, collaboration, CLI, tests, release notes, and retrospectives |
+
 ## Distribution Boundary
 
 GitHub Releases in this repository is the only supported download and

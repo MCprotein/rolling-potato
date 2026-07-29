@@ -12,6 +12,41 @@
 - [v0.10–v0.19](releases/v0.10-v0.19.md)
 - [v0.1–v0.9](releases/v0.1-v0.9.md)
 
+## v0.53.0 - 제한된 런타임 아키텍처와 자동 근거 수집
+
+릴리즈 날짜: 2026-07-29
+
+이 minor 릴리즈는 저장소 전체의 책임 분리를 완료하고, 최신성이 필요한 질문을
+소형 로컬 모델의 오래된 기억보다 먼저 runtime-owned web grounding 경로로
+보냅니다. Public CLI와 TUI command surface는 호환됩니다.
+
+### 포함한 것
+
+- 특정 제품명·행사명·답변 모양 예외를 generic freshness feature, typed query
+  plan, evidence coverage와 answer binding으로 교체
+- 로컬 저장소 질문과 명시적 no-web 요청은 offline 경로에 유지하면서 volatile
+  fact, 현재 버전과 경험적 비교를 제한된 `WebSearch`·`WebOpen`·`WebFind`로 routing
+- 생성 답변과 fallback grounded answer의 runtime source attribution을 보존하고
+  stale·conflicting·unrelated evidence를 차단
+- 현재 model identity 질문은 runtime 설정에서 답하되 model 비교·추천 요청은
+  가로채지 않음
+- 일반 active conversation은 오래된 historical source pointer를 허용하되 명시적
+  `/resume`은 잘못된 artifact를 조용히 버리지 않고 오류로 보고
+- 대형 TUI, context, model, backend, install, workflow, patch, collaboration,
+  web, CLI, persistence, terminal과 test owner를 명시적 dependency·migration
+  contract를 가진 bounded module로 분리
+- 과거 release note와 실행 회고를 bounded archive로 나누면서 machine-verifiable
+  ownership coverage를 유지
+
+### 호환성과 경계
+
+- 기존 public command, 저장 session, model artifact, lazy projector, 관리형
+  backend 동작과 GitHub-only 배포는 호환됩니다.
+- Web evidence는 제한된 읽기 전용 untrusted input이며 browser, shell,
+  filesystem write, credential 또는 approval 권한을 주지 않습니다.
+- 이 리팩터링은 새로운 model quality, benchmark, memory 또는 hardware 결과를
+  주장하지 않습니다.
+
 ## v0.52.1 - 관리형 llama.cpp 구조화 대화 복구
 
 릴리즈 날짜: 2026-07-29

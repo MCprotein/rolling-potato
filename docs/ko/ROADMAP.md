@@ -193,6 +193,12 @@ ontology 기반 context, plugin, hook, subagent, team, TUI surface를 소유합�
 | v0.52.0 | Released | JSON schema 기반 `Answer`/`WebSearch`/`WebOpen`/`WebFind`/`ContinueLocal` 결정, 모든 web tool의 runtime-owned `ToolCall → Observation → Answer` 전이, 제한된 후속 query context, private data filtering과 일반 질문·저장소 분석의 명시적 routing |
 | v0.52.1 | Released | 관리형 `llama.cpp` 구조화 대화 복구: grammar-compatible answer schema, generation 전 repetition 검증, property-name-safe schema 순회, 실제 backend smoke와 기존 16 KiB runtime answer 검증 유지 |
 
+### 제한된 runtime 책임과 자동 근거 수집 (`v0.53.0`)
+
+| Version | 상태 | 범위 |
+| --- | --- | --- |
+| v0.53.0 | Released | 소형 모델의 직접 답변보다 먼저 적용되는 generic freshness 기반 web grounding, runtime-owned evidence attribution과 fallback 답변, 명시적 resume artifact의 엄격한 검증, runtime 설정 기반 현재 model 사실, TUI·context·persistence·inference·install·web·workflow·collaboration·CLI·test·release note·회고의 bounded responsibility owner |
+
 ## 배포 경계
 
 이 저장소의 GitHub Releases만 지원하는 download·배포 channel입니다.
