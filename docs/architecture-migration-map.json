@@ -6631,16 +6631,112 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/tests/backend_patch.rs",
+      "slices": [
+        {
+          "responsibility": "backend and patch CLI parser regressions",
+          "target": "src/surfaces/cli/parser/tests/backend_patch.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/tests/backend_patch.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/model.rs",
+      "slices": [
+        {
+          "responsibility": "model CLI parser regressions",
+          "target": "src/surfaces/cli/parser/tests/model.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/tests/model.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/surfaces/cli/parser/tests/mod.rs",
       "slices": [
         {
-          "responsibility": "CLI command-family argument parser regression tests",
+          "responsibility": "CLI parser regression-test facade",
           "target": "src/surfaces/cli/parser/tests/mod.rs",
           "release": "0.37.13",
           "state": "complete",
           "evidence": [
             "src/surfaces/cli/command.rs",
             "src/surfaces/cli/parser.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/operations.rs",
+      "slices": [
+        {
+          "responsibility": "plugin, observability, state, and session CLI parser regressions",
+          "target": "src/surfaces/cli/parser/tests/operations.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/tests/operations.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/subagent_ontology.rs",
+      "slices": [
+        {
+          "responsibility": "subagent and ontology CLI parser regressions",
+          "target": "src/surfaces/cli/parser/tests/subagent_ontology.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/tests/subagent_ontology.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/team.rs",
+      "slices": [
+        {
+          "responsibility": "team CLI parser regressions",
+          "target": "src/surfaces/cli/parser/tests/team.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/tests/team.rs",
+            "src/surfaces/cli/parser/tests/mod.rs",
+            "tests/architecture_contract.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/top_level.rs",
+      "slices": [
+        {
+          "responsibility": "top-level resume, debug, evidence, skill, run, policy, hook, and monitor parser regressions",
+          "target": "src/surfaces/cli/parser/tests/top_level.rs",
+          "release": "0.37.13",
+          "state": "complete",
+          "evidence": [
+            "src/surfaces/cli/parser/tests/top_level.rs",
             "src/surfaces/cli/parser/tests/mod.rs",
             "tests/architecture_contract.rs"
           ]
@@ -12444,9 +12540,45 @@
       ]
     },
     {
+      "path": "src/surfaces/cli/parser/tests/backend_patch.rs",
+      "responsibilities": [
+        "backend and patch CLI parser regressions"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/model.rs",
+      "responsibilities": [
+        "model CLI parser regressions"
+      ]
+    },
+    {
       "path": "src/surfaces/cli/parser/tests/mod.rs",
       "responsibilities": [
-        "CLI command-family argument parser regression tests"
+        "CLI parser regression-test facade"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/operations.rs",
+      "responsibilities": [
+        "plugin, observability, state, and session CLI parser regressions"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/subagent_ontology.rs",
+      "responsibilities": [
+        "subagent and ontology CLI parser regressions"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/team.rs",
+      "responsibilities": [
+        "team CLI parser regressions"
+      ]
+    },
+    {
+      "path": "src/surfaces/cli/parser/tests/top_level.rs",
+      "responsibilities": [
+        "top-level resume, debug, evidence, skill, run, policy, hook, and monitor parser regressions"
       ]
     },
     {

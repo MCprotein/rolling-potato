@@ -24,6 +24,12 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     let plugin_parser_path = "src/surfaces/cli/parser/plugin.rs";
     let uninstall_parser_path = "src/surfaces/cli/parser/uninstall.rs";
     let parser_tests_path = "src/surfaces/cli/parser/tests/mod.rs";
+    let backend_patch_tests_path = "src/surfaces/cli/parser/tests/backend_patch.rs";
+    let model_tests_path = "src/surfaces/cli/parser/tests/model.rs";
+    let operations_tests_path = "src/surfaces/cli/parser/tests/operations.rs";
+    let subagent_ontology_tests_path = "src/surfaces/cli/parser/tests/subagent_ontology.rs";
+    let team_tests_path = "src/surfaces/cli/parser/tests/team.rs";
+    let top_level_tests_path = "src/surfaces/cli/parser/tests/top_level.rs";
     let uninstall_tests_path = "src/surfaces/cli/parser/tests/uninstall.rs";
     assert!(Path::new(backend_parser_path).is_file());
     assert!(Path::new(collaboration_parser_path).is_file());
@@ -32,6 +38,12 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     assert!(Path::new(plugin_parser_path).is_file());
     assert!(Path::new(uninstall_parser_path).is_file());
     assert!(Path::new(parser_tests_path).is_file());
+    assert!(Path::new(backend_patch_tests_path).is_file());
+    assert!(Path::new(model_tests_path).is_file());
+    assert!(Path::new(operations_tests_path).is_file());
+    assert!(Path::new(subagent_ontology_tests_path).is_file());
+    assert!(Path::new(team_tests_path).is_file());
+    assert!(Path::new(top_level_tests_path).is_file());
     assert!(Path::new(uninstall_tests_path).is_file());
     let parser = fs::read_to_string(parser_path).unwrap();
     let backend_parser = fs::read_to_string(backend_parser_path).unwrap();
@@ -41,6 +53,12 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
     let plugin_parser = fs::read_to_string(plugin_parser_path).unwrap();
     let uninstall_parser = fs::read_to_string(uninstall_parser_path).unwrap();
     let parser_tests = fs::read_to_string(parser_tests_path).unwrap();
+    let backend_patch_tests = fs::read_to_string(backend_patch_tests_path).unwrap();
+    let model_tests = fs::read_to_string(model_tests_path).unwrap();
+    let operations_tests = fs::read_to_string(operations_tests_path).unwrap();
+    let subagent_ontology_tests = fs::read_to_string(subagent_ontology_tests_path).unwrap();
+    let team_tests = fs::read_to_string(team_tests_path).unwrap();
+    let top_level_tests = fs::read_to_string(top_level_tests_path).unwrap();
     let uninstall_tests = fs::read_to_string(uninstall_tests_path).unwrap();
     assert!(parser.contains("pub fn parse"));
     assert!(parser.contains("surfaces::cli::command::*"));
@@ -147,17 +165,26 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         );
     }
     assert!(parser.contains("#[path = \"parser/tests/mod.rs\"]"));
-    for responsibility in [
-        "fn parses_subagent_launch_status_and_cancel(",
-        "fn parses_backend_chat(",
-        "fn parses_patch_approve_dry_run(",
-        "fn parses_team_governor(",
+    for module in [
+        "mod backend_patch;",
+        "mod model;",
+        "mod operations;",
+        "mod subagent_ontology;",
+        "mod team;",
+        "mod top_level;",
     ] {
         assert!(
-            parser_tests.contains(responsibility),
-            "CLI parser regression tests are missing responsibility: {responsibility}"
+            parser_tests.lines().any(|line| line == module),
+            "CLI parser regression facade is missing owner: {module}"
         );
     }
+    assert!(subagent_ontology_tests.contains("fn parses_subagent_launch_status_and_cancel("));
+    assert!(backend_patch_tests.contains("fn parses_backend_chat("));
+    assert!(backend_patch_tests.contains("fn parses_patch_approve_dry_run("));
+    assert!(team_tests.contains("fn parses_team_governor("));
+    assert!(model_tests.contains("fn parses_model_install("));
+    assert!(operations_tests.contains("fn parses_plugin_import_dry_run("));
+    assert!(top_level_tests.contains("fn parses_top_level_resume_with_id("));
     assert!(uninstall_tests.contains("fn parses_uninstall_dry_run_purge_cache("));
     assert!(uninstall_tests.contains("fn parses_guarded_clean_uninstall("));
     assert!(
@@ -185,9 +212,22 @@ fn v03713_cli_surface_owners_replace_legacy_module() {
         "plugin parser regrew beyond its ownership boundary"
     );
     assert!(
-        parser_tests.lines().count() < 1_500,
-        "CLI parser regression module regrew beyond its ownership boundary"
+        parser_tests.lines().count() < 25,
+        "CLI parser regression facade regrew beyond module registration"
     );
+    for (path, contents, limit) in [
+        (backend_patch_tests_path, &backend_patch_tests, 325),
+        (model_tests_path, &model_tests, 250),
+        (operations_tests_path, &operations_tests, 200),
+        (subagent_ontology_tests_path, &subagent_ontology_tests, 200),
+        (team_tests_path, &team_tests, 425),
+        (top_level_tests_path, &top_level_tests, 300),
+    ] {
+        assert!(
+            contents.lines().count() < limit,
+            "{path} regrew beyond its parser regression ownership boundary"
+        );
+    }
 
     let render = fs::read_to_string("src/surfaces/cli/render.rs").unwrap();
     assert!(render.contains("const HELP"));
